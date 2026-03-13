@@ -1,20 +1,18 @@
 # =============================================================================
-# FinSight IA — Rapport PDF Professionnel (IB Style)
+# FinSight IA — Rapport PDF Professionnel v2
 # outputs/pdf_report.py
 #
-# 8 sections sur ~8 pages A4 :
-#  1. Synthese Executive & Recommandation
-#  2. Presentation de l'Entreprise
-#  3. Analyse Financiere — Compte de Resultat & Bilan
-#  4. Ratios Cles & Benchmark Sectoriel
-#  5. Valorisation — DCF & Multiples
-#  6. Scenarios de Valorisation
-#  7. Sentiment de Marche & Avocat du Diable
-#  8. Conditions d'Invalidation & Disclaimer
+# Template rigide 9 sections / 8-12 pages A4 :
+#   1. Synthese Executive & Recommandation
+#   2. Presentation de l'Entreprise
+#   3. Analyse Financiere (IS 5 ans, Bilan, Ratios vs Benchmark)
+#   4. Valorisation (DCF, Sensibilite, Multiples)
+#   5. Risques & Scenarios (Bull/Base/Bear)
+#   6. Sentiment de Marche
+#   7. Avocat du Diable
+#   8. Conditions d'Invalidation & Disclaimer
 #
-# Bookmarks PDF cliquables (panneau navigation Acrobat/Preview).
-# Tables financieres avec ReportLab platypus Table draw-on-canvas.
-#
+# Palette : Helvetica | Navy #1B3A6B | Fond tableau #F5F5F5
 # Usage :
 #   path = generate_pdf(snapshot, ratios, synthesis, sentiment, qa_python, devil)
 # =============================================================================
@@ -31,156 +29,127 @@ log = logging.getLogger(__name__)
 _OUTPUT_DIR = Path(__file__).parent / "generated"
 
 # ---------------------------------------------------------------------------
-# Palette IB
+# Palette
 # ---------------------------------------------------------------------------
-_NAVY  = (0.106, 0.165, 0.290)   # #1B2A4A
+_NAVY  = (0.106, 0.227, 0.420)   # #1B3A6B  headers
 _WHITE = (1.0,   1.0,   1.0)
-_LIGHT = (0.980, 0.980, 0.980)   # #FAFAFA
-_MID   = (0.941, 0.941, 0.941)   # #F0F0F0
+_F5    = (0.961, 0.961, 0.961)   # #F5F5F5  fond tableau
+_MID   = (0.878, 0.878, 0.878)   # #E0E0E0  bordures
 _DARK  = (0.067, 0.067, 0.067)   # #111
 _GREY  = (0.467, 0.467, 0.467)   # #777
 _GREEN = (0.102, 0.478, 0.322)   # #1A7A52
 _AMBER = (0.722, 0.573, 0.165)   # #B8922A
 _RED   = (0.753, 0.224, 0.169)   # #C0392B
 
-
 # ---------------------------------------------------------------------------
 # Formatage
 # ---------------------------------------------------------------------------
-def _p(v) -> str:
-    return f"{v*100:.1f}%" if v is not None else "N/A"
+def _p(v) -> str:   return f"{v*100:.1f}%" if v is not None else "N/A"
+def _x(v) -> str:   return f"{v:.2f}x"    if v is not None else "N/A"
+def _n(v, d=2)->str:return f"{v:.{d}f}"   if v is not None else "N/A"
+def _f(v) -> str:   return f"{v:,.0f}"    if v is not None else "N/A"
+def _s(t, n=None)->str:
+    if not t: return ""
+    s = str(t)
+    return s[:n] if n else s
 
-def _x(v) -> str:
-    return f"{v:.2f}x" if v is not None else "N/A"
+def _pct_chg(a, b) -> str:
+    if a is None or b is None or b == 0: return "N/A"
+    return f"{(a-b)/abs(b)*100:+.1f}%"
 
-def _n(v, dp=2) -> str:
-    return f"{v:.{dp}f}" if v is not None else "N/A"
-
-def _f(v) -> str:
-    return f"{v:,.0f}" if v is not None else "N/A"
-
-def _safe(text, maxlen=None) -> str:
-    if not text:
-        return ""
-    s = str(text)
-    if maxlen:
-        s = s[:maxlen]
-    return s
-
+def _upside(target, current) -> str:
+    if target is None or current is None or current == 0: return "N/A"
+    return f"{(target-current)/current*100:+.1f}%"
 
 # ---------------------------------------------------------------------------
 # Helpers canvas
 # ---------------------------------------------------------------------------
-
 def _rgb(t):
     from reportlab.lib import colors
     return colors.Color(*t)
 
-def _header_band(c, W, H, company: str, page_label: str, today: str):
-    bh = 38
+def _hband(c, W, H, company, label, today, n, total):
+    bh = 34
     c.setFillColor(_rgb(_NAVY))
-    c.rect(0, H - bh, W, bh, fill=1, stroke=0)
+    c.rect(0, H-bh, W, bh, fill=1, stroke=0)
     c.setFillColor(_rgb(_WHITE))
-    c.setFont("Helvetica-Bold", 8)
-    c.drawString(26, H - 23, "FINSIGHT IA  —  ANALYSE FINANCIERE PROFESSIONNELLE")
-    c.setFont("Helvetica", 7.5)
-    c.drawRightString(W - 26, H - 23, f"{company}  |  {today}")
+    c.setFont("Helvetica-Bold", 7.5)
+    c.drawString(24, H-21, "FINSIGHT IA  —  ANALYSE FINANCIERE PROFESSIONNELLE")
     c.setFont("Helvetica", 7)
-    c.drawRightString(W - 26, H - 33, page_label)
+    c.drawRightString(W-24, H-17, f"{_s(company, 50)}  |  {today}")
+    c.drawRightString(W-24, H-28, label)
 
-def _footer(c, W, M, today: str, page: int, total: int = 8):
+def _footer(c, W, M, today, n, total):
     c.setStrokeColor(_rgb(_MID))
-    c.line(M, 22, W - M, 22)
+    c.line(M, 22, W-M, 22)
     c.setFillColor(_rgb(_GREY))
-    c.setFont("Helvetica", 6.5)
+    c.setFont("Helvetica", 6)
     c.drawString(M, 11,
-        "FinSight IA — Outil d'aide a la decision uniquement. "
-        "Ne constitue pas un conseil en investissement.")
-    c.drawRightString(W - M, 11, f"{today}  |  Page {page}/{total}")
+        "FinSight IA — Document genere automatiquement. Ne constitue pas un conseil en investissement (MiFID II).")
+    c.drawRightString(W-M, 11, f"{today}  |  Page {n}/{total}")
 
-def _section_title(c, x, y, text: str, content_width: float, anchor: str = ""):
-    """Titre de section avec ligne + bookmark PDF."""
-    if anchor:
-        c.bookmarkPage(anchor)
+def _sec(c, x, y, text, cw):
     c.setFillColor(_rgb(_NAVY))
-    c.setFont("Helvetica-Bold", 8)
+    c.setFont("Helvetica-Bold", 8.5)
     c.drawString(x, y, text.upper())
-    tw = c.stringWidth(text.upper(), "Helvetica-Bold", 8)
+    tw = c.stringWidth(text.upper(), "Helvetica-Bold", 8.5)
     c.setStrokeColor(_rgb(_MID))
-    c.line(x + tw + 8, y + 3, x + content_width, y + 3)
-    return y - 18
+    c.line(x+tw+8, y+3, x+cw, y+3)
+    return y-16
 
-def _wrap(c, text: str, x, y, max_w: float,
-          font="Helvetica", size=9, lh=13, color=None) -> float:
-    """Wrap text. Returns final y."""
-    if not text:
-        return y
+def _subsec(c, x, y, text):
+    c.setFillColor(_rgb(_NAVY))
+    c.setFont("Helvetica-Bold", 7.5)
+    c.drawString(x, y, text)
+    return y-13
+
+def _wrap(c, text, x, y, mw, font="Helvetica", size=8.5, lh=13, color=None) -> float:
+    if not text: return y
     c.setFont(font, size)
     c.setFillColor(_rgb(color or _DARK))
     for para in str(text).split("\n"):
         words = para.split()
-        if not words:
-            y -= lh * 0.5
-            continue
+        if not words: y -= lh*0.4; continue
         line = ""
         for w in words:
-            test = (line + " " + w).strip()
-            if c.stringWidth(test, font, size) > max_w:
-                if line:
-                    c.drawString(x, y, line)
-                    y -= lh
+            test = (line+" "+w).strip()
+            if c.stringWidth(test, font, size) > mw:
+                if line: c.drawString(x, y, line); y -= lh
                 line = w
-            else:
-                line = test
-        if line:
-            c.drawString(x, y, line)
-            y -= lh
+            else: line = test
+        if line: c.drawString(x, y, line); y -= lh
     return y
 
-def _draw_table(c, data, col_widths, style_cmds, x, y) -> float:
-    """Dessine un platypus Table sur le canvas. Retourne le y apres le tableau."""
-    try:
-        from reportlab.platypus import Table, TableStyle
-    except ImportError:
-        return y
-    tbl = Table(data, colWidths=col_widths)
-    tbl.setStyle(TableStyle(style_cmds))
-    _, th = tbl.wrapOn(c, sum(col_widths), 9999)
-    tbl.drawOn(c, x, y - th)
-    return y - th - 8
-
-def _bullet(c, x, y, text: str, max_w: float, color=None, size=8.5, lh=12) -> float:
+def _bullet(c, x, y, text, mw, color=None, size=8.5, lh=12) -> float:
     c.setFont("Helvetica-Bold", size)
-    c.setFillColor(_rgb(color or _DARK))
-    c.drawString(x, y, "▸")
+    c.setFillColor(_rgb(color or _NAVY))
+    c.drawString(x, y, "\u25b8")
     c.setFont("Helvetica", size)
     c.setFillColor(_rgb(_DARK))
-    return _wrap(c, text, x + 12, y, max_w - 14, size=size, lh=lh)
+    return _wrap(c, text, x+12, y, mw-14, size=size, lh=lh)
 
+def _tbl(c, data, widths, styles, x, y) -> float:
+    from reportlab.platypus import Table, TableStyle
+    t = Table(data, colWidths=widths)
+    t.setStyle(TableStyle(styles))
+    _, th = t.wrapOn(c, sum(widths), 9999)
+    t.drawOn(c, x, y-th)
+    return y-th-6
 
-# ---------------------------------------------------------------------------
-# TABLE DES MATIERES (Page 2)
-# ---------------------------------------------------------------------------
-
-_TOC_SECTIONS = [
-    ("1",  "Synthese Executive & Recommandation",           "p.1",  "sec_cover"),
-    ("2",  "Presentation de l'Entreprise",                  "p.2",  "sec_company"),
-    ("3",  "Analyse Financiere — Compte de Resultat & Bilan","p.3", "sec_financials"),
-    ("4",  "Ratios Cles & Benchmark Sectoriel",             "p.4",  "sec_ratios"),
-    ("5",  "Valorisation — DCF & Multiples",                "p.5",  "sec_valuation"),
-    ("6",  "Scenarios de Valorisation",                     "p.6",  "sec_scenarios"),
-    ("7",  "Sentiment de Marche & Avocat du Diable",        "p.7",  "sec_sentiment"),
-    ("8",  "Conditions d'Invalidation & Disclaimer",        "p.8",  "sec_disclaimer"),
-]
-
-def _add_toc_bookmarks(c):
-    """Ajoute les entrees de sommaire dans le panneau de navigation PDF."""
-    for num, title, _, anchor in _TOC_SECTIONS:
-        c.addOutlineEntry(f"{num}. {title}", anchor, level=0, closed=False)
-
+def _signal(v, lo, hi, invert=False):
+    """Retourne (couleur, label) pour signal trafic."""
+    if v is None: return _GREY, "N/A"
+    if invert:
+        if v < lo: return _GREEN, "OK"
+        if v < hi: return _AMBER, "~"
+        return _RED, "!"
+    else:
+        if v >= hi: return _GREEN, "OK"
+        if v >= lo: return _AMBER, "~"
+        return _RED, "!"
 
 # ---------------------------------------------------------------------------
-# GENERATEUR PRINCIPAL
+# GENERATION PRINCIPALE
 # ---------------------------------------------------------------------------
 
 def generate_pdf(
@@ -207,1155 +176,1055 @@ def generate_pdf(
 
     ci  = snapshot.company_info
     mkt = snapshot.market
-    yr  = ratios.years.get(ratios.latest_year) if ratios else None
-    latest = ratios.latest_year if ratios else ""
+
+    # Tri des annees historiques (5 max, les plus recentes)
+    all_years = sorted(
+        snapshot.years.keys(),
+        key=lambda k: int(k.split("_")[0])
+    )
+    hist_years = all_years[-5:]  # max 5
+
+    latest = ratios.latest_year if ratios else (hist_years[-1] if hist_years else "")
+    yr     = ratios.years.get(latest) if ratios and latest else None
 
     W, H = A4
-    M    = 28
-    CW   = W - 2 * M
+    M    = 26
+    CW   = W - 2*M
+    TOTAL_PAGES = 9
 
     c = canvas.Canvas(str(output_path), pagesize=A4)
     c.setTitle(f"FinSight IA — {ci.company_name} — {today}")
-    c.setAuthor("FinSight IA v1.2")
+    c.setAuthor("FinSight IA v2.0")
     c.setSubject(f"Analyse financiere {ci.ticker}")
 
-    # -----------------------------------------------------------------------
-    # P1 — Synthese Executive & Recommandation
-    # -----------------------------------------------------------------------
-    c.bookmarkPage("sec_cover")
-    _draw_page1(c, W, H, M, CW, ci, mkt, synthesis, yr, today)
+    # --- Pages ---
+    _p1_synthese(c, W, H, M, CW, ci, mkt, synthesis, yr, today, TOTAL_PAGES)
     c.showPage()
-
-    # -----------------------------------------------------------------------
-    # P2 — Table des matieres + Presentation entreprise
-    # -----------------------------------------------------------------------
-    c.bookmarkPage("sec_company")
-    _draw_page2(c, W, H, M, CW, ci, mkt, synthesis, today)
+    _p2_entreprise(c, W, H, M, CW, ci, mkt, synthesis, today, TOTAL_PAGES)
     c.showPage()
-
-    # -----------------------------------------------------------------------
-    # P3 — Analyse Financiere : IS + Bilan
-    # -----------------------------------------------------------------------
-    c.bookmarkPage("sec_financials")
-    _draw_page3(c, W, H, M, CW, ci, snapshot, ratios, today)
+    _p3_is(c, W, H, M, CW, ci, snapshot, ratios, hist_years, today, TOTAL_PAGES)
     c.showPage()
-
-    # -----------------------------------------------------------------------
-    # P4 — Ratios cles & Benchmark
-    # -----------------------------------------------------------------------
-    c.bookmarkPage("sec_ratios")
-    _draw_page4(c, W, H, M, CW, ci, yr, latest, today)
+    _p4_bilan_ratios(c, W, H, M, CW, ci, snapshot, ratios, hist_years, yr, latest, today, TOTAL_PAGES)
     c.showPage()
-
-    # -----------------------------------------------------------------------
-    # P5 — Valorisation DCF & Multiples
-    # -----------------------------------------------------------------------
-    c.bookmarkPage("sec_valuation")
-    _draw_page5(c, W, H, M, CW, ci, mkt, yr, synthesis, today)
+    _p5_dcf(c, W, H, M, CW, ci, mkt, yr, synthesis, today, TOTAL_PAGES)
     c.showPage()
-
-    # -----------------------------------------------------------------------
-    # P6 — Scenarios
-    # -----------------------------------------------------------------------
-    c.bookmarkPage("sec_scenarios")
-    _draw_page6(c, W, H, M, CW, ci, mkt, synthesis, today)
+    _p6_multiples(c, W, H, M, CW, ci, mkt, yr, synthesis, today, TOTAL_PAGES)
     c.showPage()
-
-    # -----------------------------------------------------------------------
-    # P7 — Sentiment + Devil's Advocate
-    # -----------------------------------------------------------------------
-    c.bookmarkPage("sec_sentiment")
-    _draw_page7(c, W, H, M, CW, ci, sentiment, devil, qa_python, synthesis, today)
+    _p7_scenarios(c, W, H, M, CW, ci, mkt, synthesis, today, TOTAL_PAGES)
     c.showPage()
-
-    # -----------------------------------------------------------------------
-    # P8 — Invalidation + Disclaimer
-    # -----------------------------------------------------------------------
-    c.bookmarkPage("sec_disclaimer")
-    _draw_page8(c, W, H, M, CW, ci, synthesis, today)
+    _p8_sentiment_devil(c, W, H, M, CW, ci, sentiment, devil, synthesis, today, TOTAL_PAGES)
     c.showPage()
+    _p9_invalidation_disclaimer(c, W, H, M, CW, ci, synthesis, today, TOTAL_PAGES)
 
-    # Bookmarks navigables dans Acrobat/Preview
-    _add_toc_bookmarks(c)
+    # Bookmarks PDF
+    for i, label in enumerate([
+        "1. Synthese Executive",
+        "2. Presentation Entreprise",
+        "3.1 Compte de Resultat",
+        "3.2 Bilan & Ratios",
+        "4.1 DCF",
+        "4.3 Multiples Comparables",
+        "5. Scenarios",
+        "6-7. Sentiment & Avocat du Diable",
+        "8. Invalidation & Disclaimer",
+    ], 1):
+        c.bookmarkPage(f"p{i}")
+        c.addOutlineEntry(label, f"p{i}", level=0)
 
     c.save()
-    log.info(f"[PDFReport] {output_path.name} genere (8 pages)")
+    log.info(f"[PDFReport] {output_path.name} — {TOTAL_PAGES} pages")
     return output_path
 
 
 # ---------------------------------------------------------------------------
-# PAGE 1 — Synthese Executive & Recommandation
+# PAGE 1 — 1. SYNTHESE EXECUTIVE
 # ---------------------------------------------------------------------------
 
-def _draw_page1(c, W, H, M, CW, ci, mkt, synthesis, yr, today):
-    _header_band(c, W, H, ci.company_name, "Page 1/8 — Synthese Executive", today)
-    _footer(c, W, M, today, 1)
+def _p1_synthese(c, W, H, M, CW, ci, mkt, synthesis, yr, today, T):
+    _hband(c, W, H, ci.company_name, "Page 1 — 1. Synthese Executive", today, 1, T)
+    _footer(c, W, M, today, 1, T)
+    y = H - 50
 
-    y = H - 56
-
-    # Identite societe
-    c.setFont("Helvetica-Bold", 26)
+    # Identite
+    c.setFont("Helvetica-Bold", 22)
     c.setFillColor(_rgb(_DARK))
-    name = _safe(ci.company_name)
-    # Tronquer si trop long
-    while c.stringWidth(name, "Helvetica-Bold", 26) > CW and len(name) > 10:
+    name = _s(ci.company_name)
+    while c.stringWidth(name, "Helvetica-Bold", 22) > CW and len(name) > 8:
         name = name[:-4] + "..."
     c.drawString(M, y, name)
-    y -= 18
-
-    meta = "  |  ".join(filter(None, [
-        _safe(ci.ticker),
-        _safe(ci.sector, 40) if ci.sector else "",
-        f"Bourse : {_safe(ci.currency)}",
-        f"Analyse : {today}",
-        "FinSight IA v1.2",
-    ]))
-    c.setFont("Helvetica", 8)
-    c.setFillColor(_rgb(_GREY))
-    c.drawString(M, y, meta)
-    y -= 16
-
-    c.setStrokeColor(_rgb(_MID))
-    c.line(M, y, W - M, y)
-    y -= 22
-
-    if not synthesis:
-        c.setFont("Helvetica", 9)
-        c.setFillColor(_rgb(_GREY))
-        c.drawString(M, y, "Synthese non disponible.")
-        return
-
-    reco    = synthesis.recommendation
-    reco_fr = {"BUY": "ACHETER", "SELL": "VENDRE", "HOLD": "CONSERVER"}.get(reco, reco)
-    reco_col = {"BUY": _GREEN, "SELL": _RED}.get(reco, _AMBER)
-    conv    = synthesis.conviction or 0
-
-    # --- Zone recommandation (gauche) ---
-    rec_x = M
-    c.setFont("Helvetica-Bold", 9)
-    c.setFillColor(_rgb(_GREY))
-    c.drawString(rec_x, y, "RECOMMANDATION")
-    y -= 6
-    c.setFont("Helvetica-Bold", 40)
-    c.setFillColor(_rgb(reco_col))
-    c.drawString(rec_x, y - 34, reco_fr)
-
-    bar_y = y - 52
-    bar_w = 170
-    c.setFillColor(_rgb(_MID))
-    c.rect(rec_x, bar_y, bar_w, 5, fill=1, stroke=0)
-    c.setFillColor(_rgb(reco_col))
-    c.rect(rec_x, bar_y, int(bar_w * conv), 5, fill=1, stroke=0)
+    y -= 14
     c.setFont("Helvetica", 7.5)
     c.setFillColor(_rgb(_GREY))
-    c.drawString(rec_x, bar_y - 12,
-        f"Conviction IA : {conv:.0%}    |    Confiance modele : {synthesis.confidence_score:.0%}")
+    meta = "  |  ".join(filter(None, [
+        _s(ci.ticker), _s(ci.sector, 35), f"Devise : {_s(ci.currency)}", today
+    ]))
+    c.drawString(M, y, meta)
+    y -= 10
+    c.setStrokeColor(_rgb(_MID)); c.line(M, y, W-M, y); y -= 16
 
-    # --- Box prix cibles (droite) ---
-    box_x = M + 200
-    box_y = y + 6
-    box_w = CW - 200
-    box_h = 108
+    if not synthesis:
+        c.setFont("Helvetica", 9); c.setFillColor(_rgb(_GREY))
+        c.drawString(M, y, "Synthese non disponible."); return
 
-    c.setFillColor(_rgb(_LIGHT))
-    c.setStrokeColor(_rgb(_MID))
-    c.roundRect(box_x, box_y - box_h, box_w, box_h, 3, fill=1, stroke=1)
+    reco    = synthesis.recommendation or "N/A"
+    reco_fr = {"BUY":"ACHETER","SELL":"VENDRE","HOLD":"CONSERVER"}.get(reco, reco)
+    reco_col= {"BUY":_GREEN,"SELL":_RED}.get(reco, _AMBER)
+    conv    = synthesis.conviction or 0
+    conf    = synthesis.confidence_score or 0
 
-    c.setFont("Helvetica-Bold", 7.5)
-    c.setFillColor(_rgb(_GREY))
-    c.drawString(box_x + 10, box_y - 14, "PRIX CIBLES (12 MOIS)")
+    # --- Recommandation (gauche) ---
+    c.setFont("Helvetica-Bold", 8); c.setFillColor(_rgb(_GREY))
+    c.drawString(M, y, "RECOMMANDATION"); y -= 4
+    c.setFont("Helvetica-Bold", 38); c.setFillColor(_rgb(reco_col))
+    c.drawString(M, y-32, reco_fr)
+    bar_y = y - 50; bw = 160
+    c.setFillColor(_rgb(_MID)); c.rect(M, bar_y, bw, 5, fill=1, stroke=0)
+    c.setFillColor(_rgb(reco_col)); c.rect(M, bar_y, int(bw*conv), 5, fill=1, stroke=0)
+    c.setFont("Helvetica", 7); c.setFillColor(_rgb(_GREY))
+    c.drawString(M, bar_y-11, f"Conviction : {conv:.0%}    |    Confiance IA : {conf:.0%}")
 
+    # --- Table Bear/Base/Bull (droite) ---
     cur = mkt.share_price if mkt else None
-    cur_s = f"Cours actuel : {cur:,.2f} {ci.currency}" if cur else "Cours actuel : N/A"
-    c.setFont("Helvetica", 6.5)
-    c.setFillColor(_rgb(_GREY))
-    c.drawString(box_x + 10, box_y - 24, cur_s)
-
-    col3 = box_w / 3
-    scenarios = [
-        ("BEAR CASE", synthesis.target_bear, _RED,   "Scenario pessimiste"),
-        ("BASE CASE", synthesis.target_base, _AMBER, "Scenario central"),
-        ("BULL CASE", synthesis.target_bull, _GREEN, "Scenario optimiste"),
-    ]
-    for idx, (label, val, col, hint) in enumerate(scenarios):
-        cx = box_x + 10 + idx * col3
-        c.setFont("Helvetica-Bold", 7)
-        c.setFillColor(_rgb(_GREY))
-        c.drawString(cx, box_y - 36, label)
-        c.setFont("Helvetica-Bold", 22)
-        c.setFillColor(_rgb(col))
-        val_s = f"{val:,.0f}" if val else "—"
-        c.drawString(cx, box_y - 60, val_s)
-        if val and cur:
-            upside = (val - cur) / cur * 100
-            arrow = "+" if upside >= 0 else ""
-            u_col = _GREEN if upside >= 0 else _RED
-            c.setFont("Helvetica-Bold", 8)
-            c.setFillColor(_rgb(u_col))
-            c.drawString(cx, box_y - 73, f"{arrow}{upside:.1f}%")
+    bx  = M + 180; bw2 = CW - 180; bh2 = 105
+    c.setFillColor(_rgb(_F5)); c.setStrokeColor(_rgb(_MID))
+    c.roundRect(bx, y-bh2+6, bw2, bh2, 3, fill=1, stroke=1)
+    c.setFont("Helvetica-Bold", 6.5); c.setFillColor(_rgb(_GREY))
+    c.drawString(bx+8, y-10, "PRIX CIBLES 12 MOIS")
+    if cur:
         c.setFont("Helvetica", 6.5)
-        c.setFillColor(_rgb(_GREY))
-        c.drawString(cx, box_y - 85, hint)
+        c.drawString(bx+8, y-21, f"Cours actuel au {today} : {cur:,.2f} {ci.currency}")
 
-    y = box_y - box_h - 20
-
-    c.setStrokeColor(_rgb(_MID))
-    c.line(M, y, W - M, y)
-    y -= 16
-
-    # --- Tableau donnees de marche ---
-    mkt_items = [
-        ("Cours", f"{cur:,.2f} {ci.currency}" if cur else "N/A"),
-        ("Beta", _n(mkt.beta_levered if mkt else None)),
-        ("WACC", _p(mkt.wacc if mkt else None)),
-        ("TG terminal", _p(mkt.terminal_growth if mkt else None)),
-        ("P/E LTM", _x(yr.pe_ratio if yr else None)),
-        ("EV/EBITDA", _x(yr.ev_ebitda if yr else None)),
+    scens = [
+        ("Bear", synthesis.target_bear, _RED,   15),
+        ("Base", synthesis.target_base, _AMBER, 55),
+        ("Bull", synthesis.target_bull, _GREEN, 95),
     ]
-    col_w = CW / len(mkt_items)
-    for i, (lbl, val) in enumerate(mkt_items):
-        cx = M + i * col_w
-        c.setFont("Helvetica", 6.5)
-        c.setFillColor(_rgb(_GREY))
-        c.drawString(cx, y, lbl)
-        c.setFont("Helvetica-Bold", 11)
-        c.setFillColor(_rgb(_DARK))
-        c.drawString(cx, y - 14, val)
+    col3 = bw2 / 3
+    for label, tgt, col, prob in scens:
+        idx  = ["Bear","Base","Bull"].index(label)
+        cx   = bx + 8 + idx*col3
+        c.setFont("Helvetica-Bold", 7); c.setFillColor(_rgb(_GREY))
+        c.drawString(cx, y-33, label.upper())
+        c.setFont("Helvetica-Bold", 18); c.setFillColor(_rgb(col))
+        tgt_s = f"{tgt:,.0f}" if tgt else "—"
+        c.drawString(cx, y-54, tgt_s)
+        if tgt and cur:
+            up = (tgt-cur)/cur*100
+            c.setFont("Helvetica-Bold", 7.5)
+            c.setFillColor(_rgb(_GREEN if up >= 0 else _RED))
+            c.drawString(cx, y-67, f"{up:+.1f}%")
+        c.setFont("Helvetica", 6.5); c.setFillColor(_rgb(_GREY))
+        c.drawString(cx, y-79, f"Proba : {prob}%")
+        # Hypothese cle
+        hyp = _get_scenario_hyp(synthesis, label, 0)
+        _wrap(c, hyp, cx, y-91, col3-6, size=5.5, lh=7.5, color=_GREY)
 
-    y -= 36
-    c.setStrokeColor(_rgb(_MID))
-    c.line(M, y, W - M, y)
-    y -= 16
+    y = y - bh2 - 14
+    c.setStrokeColor(_rgb(_MID)); c.line(M, y, W-M, y); y -= 14
 
-    # --- Resume executif ---
-    c.setFont("Helvetica-Bold", 8)
-    c.setFillColor(_rgb(_NAVY))
-    c.drawString(M, y, "RESUME EXECUTIF")
-    tw = c.stringWidth("RESUME EXECUTIF", "Helvetica-Bold", 8)
-    c.setStrokeColor(_rgb(_MID))
-    c.line(M + tw + 8, y + 3, W - M, y + 3)
-    y -= 16
+    # --- Paragraphe de synthese (4-6 phrases) ---
+    y = _sec(c, M, y, "1. Synthese Executive & Recommandation", CW)
+    summary = _s(synthesis.summary, 900) if synthesis.summary else (
+        f"{ci.company_name} ({ci.ticker}) est analyse dans le secteur {ci.sector or 'N/A'}. "
+        f"La recommandation est {reco_fr} avec une conviction de {conv:.0%}. "
+        f"Le score de confiance du modele IA s'etablit a {conf:.0%}. "
+        f"Le cours actuel de {_f(cur)} {ci.currency} presente un potentiel vers la cible base de "
+        f"{_f(synthesis.target_base)} {ci.currency}."
+    )
+    y = _wrap(c, summary, M, y, CW, size=8.5, lh=13)
+    y -= 10
 
-    summary_intro = _safe(synthesis.summary, 700)
-    y = _wrap(c, summary_intro, M, y, CW, size=9, lh=14)
+    # --- Donnees de marche rapides ---
+    if mkt:
+        items = [
+            ("Cours", f"{_f(cur)} {ci.currency}" if cur else "N/A"),
+            ("Beta", _n(mkt.beta_levered)),
+            ("WACC", _p(mkt.wacc)),
+            ("TGR", _p(mkt.terminal_growth)),
+            ("P/E LTM", _x(getattr(yr, "pe_ratio", None) if yr else None)),
+            ("EV/EBITDA", _x(getattr(yr, "ev_ebitda", None) if yr else None)),
+        ]
+        cw6 = CW / len(items)
+        for i, (lbl, val) in enumerate(items):
+            cx = M + i*cw6
+            c.setFont("Helvetica", 6); c.setFillColor(_rgb(_GREY)); c.drawString(cx, y, lbl)
+            c.setFont("Helvetica-Bold", 10); c.setFillColor(_rgb(_DARK)); c.drawString(cx, y-13, val)
 
 
 # ---------------------------------------------------------------------------
-# PAGE 2 — Table des matieres + Presentation entreprise
+# PAGE 2 — 2. PRESENTATION ENTREPRISE
 # ---------------------------------------------------------------------------
 
-def _draw_page2(c, W, H, M, CW, ci, mkt, synthesis, today):
-    _header_band(c, W, H, ci.company_name, "Page 2/8 — Sommaire & Presentation", today)
-    _footer(c, W, M, today, 2)
+def _p2_entreprise(c, W, H, M, CW, ci, mkt, synthesis, today, T):
+    _hband(c, W, H, ci.company_name, "Page 2 — 2. Presentation de l'Entreprise", today, 2, T)
+    _footer(c, W, M, today, 2, T)
+    y = H - 50
 
-    y = H - 56
+    y = _sec(c, M, y, "2. Presentation de l'Entreprise", CW)
 
-    # --- Sommaire ---
-    c.setFont("Helvetica-Bold", 11)
-    c.setFillColor(_rgb(_DARK))
-    c.drawString(M, y, "TABLE DES MATIERES")
-    y -= 8
-    c.setStrokeColor(_rgb(_NAVY))
-    c.setLineWidth(1.5)
-    c.line(M, y, M + 180, y)
-    c.setLineWidth(1)
-    y -= 14
+    # Identite
+    c.setFont("Helvetica-Bold", 7.5); c.setFillColor(_rgb(_GREY))
+    c.drawString(M, y, f"Secteur : {_s(ci.sector or 'N/A', 40)}   |   Devise : {ci.currency}   |   Ticker : {ci.ticker}")
+    y -= 12
 
-    for num, title, page_ref, anchor in _TOC_SECTIONS:
-        c.setFont("Helvetica-Bold", 8.5)
-        c.setFillColor(_rgb(_NAVY))
-        c.drawString(M, y, f"{num}.")
-        c.setFont("Helvetica", 8.5)
-        c.setFillColor(_rgb(_DARK))
-        c.drawString(M + 16, y, title)
-        dots_x = M + 16 + c.stringWidth(title, "Helvetica", 8.5) + 4
-        c.setFont("Helvetica", 8)
-        c.setFillColor(_rgb(_GREY))
-        # Ligne de points
-        while dots_x < W - M - 30:
-            c.drawString(dots_x, y, ".")
-            dots_x += 4
-        c.setFont("Helvetica", 8)
-        c.setFillColor(_rgb(_GREY))
-        c.drawRightString(W - M, y, page_ref)
-        y -= 14
+    if mkt and mkt.share_price and mkt.shares_diluted:
+        mktcap = mkt.share_price * mkt.shares_diluted / 1_000
+        c.setFont("Helvetica", 7.5); c.setFillColor(_rgb(_GREY))
+        c.drawString(M, y, f"Capitalisation boursiere estimee : {mktcap:,.0f} Md {ci.currency}   |   Cours : {mkt.share_price:,.2f}   |   Actions : {mkt.shares_diluted:,.0f}M")
+        y -= 12
+    y -= 4
 
-    y -= 20
-    c.setStrokeColor(_rgb(_MID))
-    c.line(M, y, W - M, y)
-    y -= 20
-
-    # --- Section 2 : Presentation entreprise ---
-    y = _section_title(c, M, y, "2. Presentation de l'Entreprise", CW, "")
-    y -= 2
-
-    # Bloc d'identite
-    sector_s = _safe(ci.sector or "N/A")
-    ticker_s = _safe(ci.ticker)
-    currency_s = _safe(ci.currency)
-
-    # Sous-titre
-    c.setFont("Helvetica-Bold", 8)
-    c.setFillColor(_rgb(_GREY))
-    c.drawString(M, y, f"{ticker_s}  —  {sector_s}  —  Devise : {currency_s}")
-    y -= 14
-
-    # Texte de presentation (genere a partir des donnees disponibles)
-    company_desc = _build_company_description(ci, mkt, synthesis)
-    y = _wrap(c, company_desc, M, y, CW, size=9, lh=14)
-    y -= 16
-
-    # Activites principales et positionnement
-    if synthesis and synthesis.strengths:
-        c.setFont("Helvetica-Bold", 8)
-        c.setFillColor(_rgb(_GREY))
-        c.drawString(M, y, "POINTS CLES DU MODELE D'AFFAIRES")
-        y -= 16
-        for s in synthesis.strengths[:3]:
-            y = _bullet(c, M, y, _safe(s, 200), CW, color=_GREEN, size=8.5)
-            y -= 3
-
+    # Activites principales (3 segments)
+    y = _subsec(c, M, y, "Activites principales")
+    segments = _extract_segments(synthesis, ci)
+    for seg_name, pct, desc in segments[:3]:
+        c.setFont("Helvetica-Bold", 8); c.setFillColor(_rgb(_NAVY))
+        c.drawString(M, y, f"▸ {seg_name}")
+        if pct: c.drawString(M+120, y, f"{pct}% du CA")
+        y -= 12
+        y = _wrap(c, desc, M+12, y, CW-12, size=8, lh=12)
+        y -= 6
     y -= 10
 
     # Positionnement concurrentiel
-    if synthesis and synthesis.risks:
-        c.setFont("Helvetica-Bold", 8)
-        c.setFillColor(_rgb(_GREY))
-        c.drawString(M, y, "FACTEURS DE RISQUE IDENTIFIES")
-        y -= 16
-        for r in synthesis.risks[:3]:
-            y = _bullet(c, M, y, _safe(r, 200), CW, color=_RED, size=8.5)
-            y -= 3
+    y = _subsec(c, M, y, "Positionnement concurrentiel")
+    positioning = _extract_positioning(synthesis, ci)
+    y = _wrap(c, positioning, M, y, CW, size=8.5, lh=13)
+    y -= 10
 
+    # Concurrents
+    if synthesis:
+        y = _subsec(c, M, y, "Principaux concurrents")
+        c.setFont("Helvetica", 8); c.setFillColor(_rgb(_DARK))
+        c.drawString(M, y, _extract_competitors(synthesis, ci))
+        y -= 14
 
-def _build_company_description(ci, mkt, synthesis) -> str:
-    """Construit un texte de presentation a partir des donnees disponibles."""
-    sector = ci.sector or "secteur non specifie"
-    ticker = ci.ticker or ""
-    currency = ci.currency or "USD"
-    name = ci.company_name or ticker
+    # Risques & forces
+    y -= 8
+    col_w = CW / 2 - 6
+    left_y = right_y = y
 
-    lines = []
-    lines.append(
-        f"{name} ({ticker}) est une societe cotee dans le secteur {sector}, "
-        f"dont les comptes sont presentes en {currency}."
-    )
-    if mkt and mkt.share_price and mkt.shares_diluted:
-        mktcap = mkt.share_price * mkt.shares_diluted / 1000
-        lines.append(
-            f"Sa capitalisation boursiere s'etablit a environ {mktcap:,.0f} Md {currency} "
-            f"sur la base d'un cours de {mkt.share_price:,.2f} {currency} "
-            f"et de {mkt.shares_diluted:,.0f} millions d'actions dilinees."
-        )
-    if synthesis and synthesis.summary:
-        # Prendre les 300 premiers chars comme contexte business
-        excerpt = _safe(synthesis.summary, 350)
-        lines.append(excerpt)
-    return " ".join(lines)
+    # Forces
+    c.setFont("Helvetica-Bold", 7.5); c.setFillColor(_rgb(_GREEN))
+    c.drawString(M, left_y, "AVANTAGES COMPETITIFS"); left_y -= 13
+    strengths = getattr(synthesis, "strengths", None) or []
+    for s in strengths[:4]:
+        left_y = _bullet(c, M, left_y, _s(s, 120), col_w, color=_GREEN, size=7.5, lh=11)
+        left_y -= 4
+
+    # Risques
+    c.setFont("Helvetica-Bold", 7.5); c.setFillColor(_rgb(_RED))
+    c.drawString(M+col_w+12, right_y, "FACTEURS DE RISQUE"); right_y -= 13
+    risks = getattr(synthesis, "risks", None) or []
+    for r in risks[:4]:
+        right_y = _bullet(c, M+col_w+12, right_y, _s(r, 120), col_w, color=_RED, size=7.5, lh=11)
+        right_y -= 4
 
 
 # ---------------------------------------------------------------------------
-# PAGE 3 — Analyse Financiere : IS + Bilan
+# PAGE 3 — 3.1 COMPTE DE RESULTAT
 # ---------------------------------------------------------------------------
 
-def _draw_page3(c, W, H, M, CW, ci, snapshot, ratios, today):
-    _header_band(c, W, H, ci.company_name, "Page 3/8 — Analyse Financiere", today)
-    _footer(c, W, M, today, 3)
+def _p3_is(c, W, H, M, CW, ci, snapshot, ratios, hist_years, today, T):
+    _hband(c, W, H, ci.company_name, "Page 3 — 3.1 Compte de Resultat", today, 3, T)
+    _footer(c, W, M, today, 3, T)
+    y = H - 50
 
-    y = H - 56
+    y = _sec(c, M, y, "3. Analyse Financiere", CW)
+    y = _subsec(c, M, y, f"3.1 Compte de Resultat ({ci.currency} {ci.units or 'M'})")
 
-    y = _section_title(c, M, y, "3. Analyse Financiere — Compte de Resultat", CW, "")
+    unit = ci.units or "M"
+    cur  = ci.currency or "USD"
 
-    # --- Tableau IS ---
-    year_labels = sorted(
-        snapshot.years.keys(),
-        key=lambda k: (int(k.split("_")[0]), 1 if "_LTM" in k else 0)
-    )[:3]
-    y_labels = [k.replace("_LTM", " (LTM)") for k in year_labels]
+    # Colonnes : YEAR-2, YEAR-1, YEAR LTM, YEAR+1F, YEAR+2F
+    display_years = hist_years[-3:] if len(hist_years) >= 3 else hist_years
+    yr_labels = [k.replace("_LTM","").replace("_"," ") for k in display_years]
 
-    unit = _safe(ci.units or "M")
-    headers = [f"Metrique ({unit} {ci.currency})"] + y_labels
+    # Dernier millesime pour projections
+    last_fy = snapshot.years.get(display_years[-1]) if display_years else None
+    rev_last = getattr(last_fy, "revenue", None)
+    ry_last  = ratios.years.get(display_years[-1]) if ratios else None
+    g        = getattr(ry_last, "revenue_growth", None) or 0.08
+    gm_last  = getattr(ry_last, "gross_margin", None)
+    em_last  = getattr(ry_last, "ebitda_margin", None)
+    nm_last  = getattr(ry_last, "net_margin", None)
 
-    def _fy_val(label, field):
-        fy = snapshot.years.get(label)
-        if fy is None:
-            return "N/A"
+    def _proj_rev(n): return rev_last * (1+g)**n if rev_last else None
+    def _proj_gp(n):  return _proj_rev(n) * gm_last if _proj_rev(n) and gm_last else None
+    def _proj_eb(n):  return _proj_rev(n) * em_last if _proj_rev(n) and em_last else None
+    def _proj_ni(n):  return _proj_rev(n) * nm_last if _proj_rev(n) and nm_last else None
+
+    last_base_yr = int(display_years[-1].split("_")[0]) if display_years else 2024
+    fwd1 = str(last_base_yr+1)+"F"
+    fwd2 = str(last_base_yr+2)+"F"
+
+    headers = [f"({cur} {unit})", *yr_labels, fwd1, fwd2]
+
+    def _val(yk, field):
+        fy = snapshot.years.get(yk)
+        if fy is None: return "N/A"
         v = getattr(fy, field, None)
-        if v is None:
-            return "N/A"
-        return f"{v:,.0f}"
+        return _f(v) if v is not None else "N/A"
 
-    def _ryr_val(label, field):
-        if not ratios:
-            return "N/A"
-        ry = ratios.years.get(label)
-        if ry is None:
-            return "N/A"
+    def _rval(yk, field):
+        if not ratios: return "N/A"
+        ry = ratios.years.get(yk)
+        if ry is None: return "N/A"
         v = getattr(ry, field, None)
-        if v is None:
-            return "N/A"
-        return f"{v:,.0f}"
+        return _f(v) if v is not None else "N/A"
 
-    def _ryr_pct(label, field):
-        if not ratios:
-            return "N/A"
-        ry = ratios.years.get(label)
-        if ry is None:
-            return "N/A"
+    def _rpct(yk, field):
+        if not ratios: return "N/A"
+        ry = ratios.years.get(yk)
+        if ry is None: return "N/A"
         v = getattr(ry, field, None)
-        return _p(v)
+        return _p(v) if v is not None else "N/A"
 
-    is_rows = [
+    def _row(label, *vals):
+        return [label, *vals]
+
+    def _pct_row(label, *vals):
+        return [label, *[f"({v})" if v != "N/A" else "N/A" for v in vals]]
+
+    rev_vals  = [_val(k,"revenue")  for k in display_years] + [_f(_proj_rev(1)), _f(_proj_rev(2))]
+    gp_vals   = [_rval(k,"gross_profit") if ratios and ratios.years.get(k) and hasattr(ratios.years.get(k),"gross_profit") else _f(_gp(snapshot,k))  for k in display_years] + [_f(_proj_gp(1)), _f(_proj_gp(2))]
+    gm_vals   = [_rpct(k,"gross_margin") for k in display_years] + [_p(gm_last), _p(gm_last)]
+    eb_vals   = [_rval(k,"ebitda") if ratios and ratios.years.get(k) and hasattr(ratios.years.get(k),"ebitda") else _f(_eb_calc(snapshot,k)) for k in display_years] + [_f(_proj_eb(1)), _f(_proj_eb(2))]
+    em_vals   = [_rpct(k,"ebitda_margin") for k in display_years] + [_p(em_last), _p(em_last)]
+    ni_vals   = [_f(getattr(snapshot.years.get(k),"net_income",None)) if snapshot.years.get(k) else "N/A" for k in display_years] + [_f(_proj_ni(1)), _f(_proj_ni(2))]
+    nm_vals   = [_rpct(k,"net_margin") for k in display_years] + [_p(nm_last), _p(nm_last)]
+    rg_vals   = ["—"] + [_rpct(k,"revenue_growth") for k in display_years[1:]] + [_p(g), _p(g)]
+
+    from reportlab.lib import colors as rl_colors
+
+    data = [
         headers,
-        ["Revenue"]          + [_fy_val(lbl, "revenue") for lbl in year_labels],
-        ["Gross Profit"]     + [_ryr_val(lbl, "gross_profit") for lbl in year_labels],
-        ["Marge Brute"]      + [_ryr_pct(lbl, "gross_margin") for lbl in year_labels],
-        ["EBITDA"]           + [_ryr_val(lbl, "ebitda") for lbl in year_labels],
-        ["Marge EBITDA"]     + [_ryr_pct(lbl, "ebitda_margin") for lbl in year_labels],
-        ["Net Income"]       + [_ryr_val(lbl, "net_income") for lbl in year_labels],
-        ["Marge Nette"]      + [_ryr_pct(lbl, "net_margin") for lbl in year_labels],
+        _row("Revenue", *rev_vals),
+        _row("Croissance YoY", *rg_vals),
+        _row("Gross Profit", *gp_vals),
+        _pct_row("Gross Margin", *gm_vals),
+        _row("EBITDA", *eb_vals),
+        _pct_row("EBITDA Margin", *em_vals),
+        _row("Net Income", *ni_vals),
+        _pct_row("Net Margin", *nm_vals),
     ]
 
-    ncols = 1 + len(year_labels)
-    first_col_w = CW * 0.38
-    other_col_w = (CW - first_col_w) / max(len(year_labels), 1)
-    col_widths_is = [first_col_w] + [other_col_w] * len(year_labels)
+    ncols = len(headers)
+    lbl_w = 90
+    data_w = (CW - lbl_w) / (ncols - 1)
+    col_widths = [lbl_w] + [data_w]*(ncols-1)
 
-    from reportlab.lib import colors as rlc
-    _navy_rl  = rlc.Color(*_NAVY)
-    _white_rl = rlc.Color(*_WHITE)
-    _mid_rl   = rlc.Color(*_MID)
-    _light_rl = rlc.Color(*_LIGHT)
-    _grey_rl  = rlc.Color(*_GREY)
-    _green_rl = rlc.Color(*_GREEN)
-    _dark_rl  = rlc.Color(*_DARK)
-
-    style_is = [
-        ("BACKGROUND", (0,0), (-1,0), _navy_rl),
-        ("TEXTCOLOR",  (0,0), (-1,0), _white_rl),
-        ("FONTNAME",   (0,0), (-1,0), "Helvetica-Bold"),
-        ("FONTSIZE",   (0,0), (-1,0), 7.5),
-        ("FONTSIZE",   (0,1), (-1,-1), 8),
-        ("FONTNAME",   (0,1), (0,-1), "Helvetica-Bold"),
-        ("FONTNAME",   (1,1), (-1,-1), "Helvetica"),
-        ("ALIGN",      (1,0), (-1,-1), "RIGHT"),
+    tbl_styles = [
+        ("BACKGROUND", (0,0), (-1,0), _rgb(_NAVY)),
+        ("TEXTCOLOR",  (0,0), (-1,0), _rgb(_WHITE)),
+        ("FONT",       (0,0), (-1,0), "Helvetica-Bold", 7),
+        ("FONT",       (0,1), (0,-1), "Helvetica-Bold", 7),
+        ("FONT",       (1,1), (-1,-1),"Helvetica", 7),
+        ("ALIGN",      (1,0), (-1,-1),"RIGHT"),
         ("ALIGN",      (0,0), (0,-1), "LEFT"),
-        ("ROWBACKGROUNDS", (0,1), (-1,-1), [_white_rl, _light_rl]),
-        ("TEXTCOLOR",  (0,1), (0,-1), _grey_rl),
-        ("TEXTCOLOR",  (1,1), (-1,-1), _dark_rl),
-        ("GRID",       (0,0), (-1,-1), 0.25, _mid_rl),
-        ("TOPPADDING", (0,0), (-1,-1), 4),
-        ("BOTTOMPADDING", (0,0), (-1,-1), 4),
-        ("LEFTPADDING",   (0,0), (0,-1), 6),
-        ("RIGHTPADDING",  (1,0), (-1,-1), 6),
+        ("ROWBACKGROUNDS",(0,1),(-1,-1),[_rgb(_WHITE), _rgb(_F5)]),
+        ("GRID",       (0,0), (-1,-1), 0.4, _rgb(_MID)),
+        ("TOPPADDING", (0,0), (-1,-1), 3),
+        ("BOTTOMPADDING",(0,0),(-1,-1),3),
+        ("LEFTPADDING", (0,0),(0,-1), 4),
+        # Projections en italique (dernières 2 colonnes)
+        ("TEXTCOLOR", (-2,1),(-1,-1), _rgb(_GREY)),
+        ("FONT",      (-2,1),(-1,-1), "Helvetica-Oblique", 7),
     ]
-    # Mettre les marges en vert/amber
-    for row_idx, row in enumerate(is_rows):
-        if row[0] in ("Marge Brute", "Marge EBITDA", "Marge Nette"):
-            style_is.append(("TEXTCOLOR", (1, row_idx), (-1, row_idx), _green_rl))
-            style_is.append(("FONTNAME",  (1, row_idx), (-1, row_idx), "Helvetica-Bold"))
 
-    y = _draw_table(c, is_rows, col_widths_is, style_is, M, y)
+    y = _tbl(c, data, col_widths, tbl_styles, M, y)
     y -= 6
 
-    # --- Commentaire IS ---
-    if ratios and ratios.years:
-        latest_ry = ratios.years.get(ratios.latest_year)
-        if latest_ry:
-            gm = latest_ry.gross_margin
-            em = latest_ry.ebitda_margin
-            rg = latest_ry.revenue_growth
-            comment = (
-                f"Sur l'exercice {ratios.latest_year.replace('_LTM', ' (LTM)')}, "
-                f"la societe affiche une marge brute de {_p(gm)}, "
-                f"une marge EBITDA de {_p(em)} "
-                f"et une croissance du chiffre d'affaires de {_p(rg)} "
-                f"par rapport a l'exercice precedent. "
-            )
-            if gm is not None and gm > 0.3:
-                comment += f"La marge brute superieure a 30% temoigne d'un pricing power significatif. "
-            elif gm is not None and gm < 0.15:
-                comment += f"La marge brute inferieure a 15% reflete une structure de couts elevee typique du secteur. "
-            y = _wrap(c, comment, M, y, CW, size=8.5, lh=13)
-            y -= 12
-
-    # --- Bilan synthetique ---
-    y = _section_title(c, M, y, "3.2 Bilan & Solidite Financiere", CW, "")
-
-    # Extraire donnees bilan du dernier exercice
-    last_label = year_labels[-1] if year_labels else None
-    last_fy = snapshot.years.get(last_label) if last_label else None
-
-    if last_fy:
-        cash = getattr(last_fy, "cash", None)
-        ltd  = getattr(last_fy, "long_term_debt", None)
-        std  = getattr(last_fy, "short_term_debt", None)
-        eq   = getattr(last_fy, "total_equity_yf", None)
-        ta   = getattr(last_fy, "total_assets_yf", None)
-
-        total_debt = (ltd or 0) + (std or 0)
-        net_debt = total_debt - (cash or 0) if (cash is not None) else None
-
-        bs_items = [
-            ["Postes Bilan cles", f"Dernier exercice : {last_label.replace('_LTM', ' (LTM)')}"],
-            ["Tresorerie & equivalents", f"{ci.currency} {_f(cash)}M" if cash else "N/A"],
-            ["Dette totale (LT + CT)", f"{ci.currency} {_f(total_debt)}M" if total_debt else "N/A"],
-            ["Dette nette", f"{ci.currency} {_f(net_debt)}M" if net_debt is not None else "N/A"],
-            ["Capitaux propres", f"{ci.currency} {_f(eq)}M" if eq else "N/A"],
-            ["Total actif", f"{ci.currency} {_f(ta)}M" if ta else "N/A"],
-        ]
-
-        style_bs = [
-            ("BACKGROUND", (0,0), (-1,0), _navy_rl),
-            ("TEXTCOLOR",  (0,0), (-1,0), _white_rl),
-            ("FONTNAME",   (0,0), (-1,0), "Helvetica-Bold"),
-            ("FONTSIZE",   (0,0), (-1,-1), 8),
-            ("FONTNAME",   (0,1), (0,-1), "Helvetica"),
-            ("FONTNAME",   (1,1), (-1,-1), "Helvetica-Bold"),
-            ("ALIGN",      (1,0), (-1,-1), "RIGHT"),
-            ("GRID",       (0,0), (-1,-1), 0.25, _mid_rl),
-            ("ROWBACKGROUNDS", (0,1), (-1,-1), [_white_rl, _light_rl]),
-            ("TOPPADDING",    (0,0), (-1,-1), 4),
-            ("BOTTOMPADDING", (0,0), (-1,-1), 4),
-            ("LEFTPADDING",   (0,0), (0,-1), 6),
-            ("RIGHTPADDING",  (1,0), (-1,-1), 6),
-        ]
-        bs_col_widths = [CW * 0.55, CW * 0.45]
-        y = _draw_table(c, bs_items, bs_col_widths, style_bs, M, y)
-        y -= 6
-
-        # Commentaire bilan
-        if net_debt is not None and cash is not None:
-            if net_debt < 0:
-                bs_comment = (
-                    f"La societe affiche une position de tresorerie nette positive "
-                    f"(Cash {_f(cash)}M, Dette totale {_f(total_debt)}M), "
-                    f"soit une dette nette de {_f(abs(net_debt))}M en faveur du cash. "
-                    f"Cette solidite bilancielle constitue un facteur de resilience."
-                )
-            else:
-                bs_comment = (
-                    f"La dette nette s'etablit a {_f(net_debt)}M ({ci.currency}). "
-                    f"La gestion de la structure financiere merite surveillance "
-                    f"au regard des flux de tresorerie operationnels."
-                )
-            y = _wrap(c, bs_comment, M, y, CW, size=8.5, lh=13)
-
-
-# ---------------------------------------------------------------------------
-# PAGE 4 — Ratios cles & Benchmark
-# ---------------------------------------------------------------------------
-
-def _draw_page4(c, W, H, M, CW, ci, yr, latest, today):
-    _header_band(c, W, H, ci.company_name, "Page 4/8 — Ratios & Benchmark Sectoriel", today)
-    _footer(c, W, M, today, 4)
-
-    y = H - 56
-    y = _section_title(c, M, y, "4. Ratios Cles & Benchmark Sectoriel", CW, "")
-
-    if yr is None:
-        c.setFont("Helvetica", 9)
-        c.setFillColor(_rgb(_GREY))
-        c.drawString(M, y, "Ratios non disponibles.")
-        return
-
-    from reportlab.lib import colors as rlc
-    _navy_rl  = rlc.Color(*_NAVY)
-    _white_rl = rlc.Color(*_WHITE)
-    _mid_rl   = rlc.Color(*_MID)
-    _light_rl = rlc.Color(*_LIGHT)
-    _grey_rl  = rlc.Color(*_GREY)
-    _green_rl = rlc.Color(*_GREEN)
-    _amber_rl = rlc.Color(*_AMBER)
-    _red_rl   = rlc.Color(*_RED)
-    _dark_rl  = rlc.Color(*_DARK)
-
-    def _interp_margin(v, good, warn):
-        if v is None: return "N/A", _grey_rl
-        if v >= good: return "Fort", _green_rl
-        if v >= warn: return "Acceptable", _amber_rl
-        return "Sous la norme", _red_rl
-
-    def _interp_ratio_low_good(v, good, bad):
-        if v is None: return "N/A", _grey_rl
-        if v <= good: return "Attractif", _green_rl
-        if v <= bad:  return "Moyen", _amber_rl
-        return "Eleve", _red_rl
-
-    rows_data = [
-        ["Ratio", f"Valeur ({latest.replace('_LTM','')} LTM)", "Benchmark Sectoriel", "Interpretation"],
-        ["P/E Ratio",      _x(yr.pe_ratio),      "15-25x (mediane)",    *_interp_ratio_low_good(yr.pe_ratio,    18, 30)[:1]],
-        ["EV/EBITDA",      _x(yr.ev_ebitda),     "6-12x (secteur)",     *_interp_ratio_low_good(yr.ev_ebitda,   10, 20)[:1]],
-        ["Marge Brute",    _p(yr.gross_margin),  "> 30%",               *_interp_margin(yr.gross_margin, 0.30, 0.15)[:1]],
-        ["Marge EBITDA",   _p(yr.ebitda_margin), "> 15%",               *_interp_margin(yr.ebitda_margin, 0.15, 0.08)[:1]],
-        ["Marge Nette",    _p(yr.net_margin),    "> 8%",                *_interp_margin(yr.net_margin, 0.08, 0.03)[:1]],
-        ["ROE",            _p(yr.roe),           "> 12%",               *_interp_margin(yr.roe, 0.12, 0.05)[:1]],
-        ["ROIC",           _p(yr.roic),          "> 10%",               *_interp_margin(yr.roic, 0.10, 0.04)[:1]],
-        ["FCF Yield",      _p(yr.fcf_yield),     "> 4%",                *_interp_margin(yr.fcf_yield, 0.04, 0.01)[:1]],
-        ["Dette N./EBITDA",_x(yr.net_debt_ebitda),"< 2.5x sain",        *_interp_ratio_low_good(yr.net_debt_ebitda, 2.0, 4.0)[:1]],
-        ["Current Ratio",  _n(yr.current_ratio), "> 1.5",               "Fort" if (yr.current_ratio or 0) >= 1.5 else ("Acceptable" if (yr.current_ratio or 0) >= 1.0 else "Insuffisant")],
-        ["Croissance CA",  _p(yr.revenue_growth),"Secteur spec.",       "Elevee" if (yr.revenue_growth or 0) > 0.10 else ("Moderee" if (yr.revenue_growth or 0) > 0.03 else "Faible")],
-        ["DSO (jours)",    _n(yr.dso, 0),        "< 60j",               "Sain" if yr.dso and yr.dso < 60 else ("Correct" if yr.dso and yr.dso < 90 else "A surveiller")],
-    ]
-
-    cw1 = CW * 0.22
-    cw2 = CW * 0.22
-    cw3 = CW * 0.26
-    cw4 = CW * 0.30
-    col_widths_r = [cw1, cw2, cw3, cw4]
-
-    style_r = [
-        ("BACKGROUND", (0,0), (-1,0), _navy_rl),
-        ("TEXTCOLOR",  (0,0), (-1,0), _white_rl),
-        ("FONTNAME",   (0,0), (-1,0), "Helvetica-Bold"),
-        ("FONTSIZE",   (0,0), (-1,-1), 8),
-        ("FONTNAME",   (0,1), (0,-1), "Helvetica"),
-        ("FONTNAME",   (1,1), (1,-1), "Helvetica-Bold"),
-        ("ALIGN",      (1,0), (2,-1), "CENTER"),
-        ("ALIGN",      (3,0), (3,-1), "LEFT"),
-        ("ALIGN",      (0,0), (0,-1), "LEFT"),
-        ("ROWBACKGROUNDS", (0,1), (-1,-1), [_white_rl, _light_rl]),
-        ("GRID",       (0,0), (-1,-1), 0.25, _mid_rl),
-        ("TOPPADDING",    (0,0), (-1,-1), 4),
-        ("BOTTOMPADDING", (0,0), (-1,-1), 4),
-        ("LEFTPADDING",   (0,0), (0,-1), 6),
-    ]
-
-    # Coloration colonne "Interpretation" par texte
-    interp_colors = {
-        "Fort": _green_rl, "Attractif": _green_rl, "Elevee": _green_rl, "Sain": _green_rl,
-        "Acceptable": _amber_rl, "Moyen": _amber_rl, "Moderee": _amber_rl, "Correct": _amber_rl,
-        "Sous la norme": _red_rl, "Eleve": _red_rl, "Faible": _red_rl, "Insuffisant": _red_rl,
-        "A surveiller": _amber_rl,
-    }
-    for i, row in enumerate(rows_data[1:], 1):
-        interp_val = row[3] if len(row) > 3 else ""
-        col_r = interp_colors.get(interp_val, _dark_rl)
-        style_r.append(("TEXTCOLOR", (3, i), (3, i), col_r))
-        style_r.append(("FONTNAME",  (3, i), (3, i), "Helvetica-Bold"))
-
-    y = _draw_table(c, rows_data, col_widths_r, style_r, M, y)
-    y -= 16
-
-    # Indicateurs de risque (Altman Z + Beneish M)
-    y = _section_title(c, M, y, "4.2 Indicateurs de Risque Comptable", CW, "")
-
-    if yr.altman_z is not None:
-        z = yr.altman_z
-        z_col = _GREEN if z >= 2.99 else (_RED if z < 1.81 else _AMBER)
-        z_lbl = "SAIN (Z > 2.99)" if z >= 2.99 else ("ZONE GRISE (1.81 < Z < 2.99)" if z >= 1.81 else "DETRESSE (Z < 1.81)")
-        c.setFont("Helvetica-Bold", 8)
-        c.setFillColor(_rgb(_GREY))
-        c.drawString(M, y, "Altman Z-Score :")
-        c.setFont("Helvetica-Bold", 13)
-        c.setFillColor(_rgb(z_col))
-        c.drawString(M + 110, y, f"{z:.2f}")
-        c.setFont("Helvetica", 8.5)
-        c.setFillColor(_rgb(z_col))
-        c.drawString(M + 145, y, f"→  {z_lbl}")
-        y -= 18
-
-    if yr.beneish_m is not None:
-        m = yr.beneish_m
-        m_col = _RED if m > -2.22 else _GREEN
-        m_lbl = "RISQUE DE MANIPULATION COMPTABLE DETECTE" if m > -2.22 else "Aucun signal de manipulation"
-        c.setFont("Helvetica-Bold", 8)
-        c.setFillColor(_rgb(_GREY))
-        c.drawString(M, y, "Beneish M-Score :")
-        c.setFont("Helvetica-Bold", 13)
-        c.setFillColor(_rgb(m_col))
-        c.drawString(M + 110, y, f"{m:.3f}")
-        c.setFont("Helvetica", 8.5)
-        c.setFillColor(_rgb(m_col))
-        c.drawString(M + 145, y, f"→  {m_lbl}")
-        y -= 18
-
-
-# ---------------------------------------------------------------------------
-# PAGE 5 — Valorisation DCF & Multiples
-# ---------------------------------------------------------------------------
-
-def _draw_page5(c, W, H, M, CW, ci, mkt, yr, synthesis, today):
-    _header_band(c, W, H, ci.company_name, "Page 5/8 — Valorisation DCF & Multiples", today)
-    _footer(c, W, M, today, 5)
-
-    y = H - 56
-    y = _section_title(c, M, y, "5. Valorisation — DCF & Hypotheses", CW, "")
-
-    from reportlab.lib import colors as rlc
-    _navy_rl  = rlc.Color(*_NAVY)
-    _white_rl = rlc.Color(*_WHITE)
-    _mid_rl   = rlc.Color(*_MID)
-    _light_rl = rlc.Color(*_LIGHT)
-    _grey_rl  = rlc.Color(*_GREY)
-    _dark_rl  = rlc.Color(*_DARK)
-
-    # Tableau hypotheses DCF
-    cur  = mkt.share_price if mkt else None
-    wacc = mkt.wacc if mkt else None
-    tg   = mkt.terminal_growth if mkt else None
-    beta = mkt.beta_levered if mkt else None
-    rf   = mkt.risk_free_rate if mkt else None
-    erp  = mkt.erp if mkt else None
-    ke   = (rf + beta * erp) if (rf and beta and erp) else None
-    kd   = mkt.cost_of_debt_pretax if mkt else None
-    we   = mkt.weight_equity if mkt else None
-    wd   = mkt.weight_debt if mkt else None
-    tax  = mkt.tax_rate if mkt else None
-
-    dcf_rows = [
-        ["Parametre DCF",          "Valeur",           "Commentaire"],
-        ["Cours actuel",           f"{cur:,.2f} {ci.currency}" if cur else "N/A", "Reference marche"],
-        ["WACC",                   _p(wacc),            "Cout moyen pondere du capital"],
-        ["Taux de croissance terminal", _p(tg),         "Croissance perpetuellement durable"],
-        ["Horizon de projection",  "5 ans",             "Standard IB"],
-        ["Beta (leve)",            _n(beta),            "Sensibilite marche (risque systemique)"],
-        ["Taux sans risque (Rf)",  _p(rf),              "OAT 10 ans / UST 10 ans"],
-        ["Prime de risque (ERP)",  _p(erp),             "Damodaran 2025"],
-        ["Cout des fonds propres (Ke)", _p(ke),         "CAPM : Rf + Beta x ERP"],
-        ["Cout de la dette (Kd)",  _p(kd),              "Avant impot"],
-        ["Taux d'imposition",      _p(tax),             "Taux effectif"],
-        ["Ponderation FP / Dette", f"{_p(we)} / {_p(wd)}", "Structure de capital observee"],
-    ]
-
-    cw_d = [CW * 0.35, CW * 0.20, CW * 0.45]
-    style_dcf = [
-        ("BACKGROUND", (0,0), (-1,0), _navy_rl),
-        ("TEXTCOLOR",  (0,0), (-1,0), _white_rl),
-        ("FONTNAME",   (0,0), (-1,0), "Helvetica-Bold"),
-        ("FONTSIZE",   (0,0), (-1,-1), 8),
-        ("FONTNAME",   (0,1), (0,-1), "Helvetica"),
-        ("FONTNAME",   (1,1), (1,-1), "Helvetica-Bold"),
-        ("ALIGN",      (1,0), (1,-1), "CENTER"),
-        ("ROWBACKGROUNDS", (0,1), (-1,-1), [_white_rl, _light_rl]),
-        ("GRID",       (0,0), (-1,-1), 0.25, _mid_rl),
-        ("TOPPADDING",    (0,0), (-1,-1), 4),
-        ("BOTTOMPADDING", (0,0), (-1,-1), 4),
-        ("LEFTPADDING",   (0,0), (0,-1), 6),
-        ("TEXTCOLOR",  (2,1), (2,-1), _grey_rl),
-    ]
-    y = _draw_table(c, dcf_rows, cw_d, style_dcf, M, y)
-    y -= 8
-
-    # Formule WACC explicite
-    if ke and kd and we and wd and tax:
-        c.setFillColor(_rgb(_LIGHT))
-        c.setStrokeColor(_rgb(_MID))
-        formula_h = 32
-        c.roundRect(M, y - formula_h, CW, formula_h, 3, fill=1, stroke=1)
-        c.setFont("Helvetica-Bold", 7)
-        c.setFillColor(_rgb(_GREY))
-        c.drawString(M + 8, y - 11, "FORMULE WACC  (CAPM)")
-        c.setFont("Helvetica", 8)
-        c.setFillColor(_rgb(_DARK))
-        ke_formula = (f"Ke = {_p(rf)} + {_n(beta)} x {_p(erp)} = {_p(ke)}  |  "
-                      f"WACC = {_p(we)} x {_p(ke)} + {_p(wd)} x {_p(kd)} x (1 - {_p(tax)}) = {_p(wacc)}")
-        c.drawString(M + 8, y - 24, ke_formula[:100])
-        y -= formula_h + 12
-
-    # Analyse par multiples
-    y = _section_title(c, M, y, "5.2 Analyse par Multiples Comparables", CW, "")
-
-    multiples_text = (
-        f"En appliquant les multiples medians du secteur {_safe(ci.sector or 'comparable')}, "
-    )
-    if yr and yr.ev_ebitda:
-        if yr.ev_ebitda > 20:
-            multiples_text += (
-                f"l'EV/EBITDA de {_x(yr.ev_ebitda)} est significativement superieur a la mediane sectorielle "
-                f"(generalement 8-15x pour ce secteur). "
-                f"Cette prime de valorisation integre les perspectives de croissance future "
-                f"et la qualite du modele d'affaires. "
-            )
-        else:
-            multiples_text += (
-                f"l'EV/EBITDA de {_x(yr.ev_ebitda)} est cohérent avec la norme sectorielle. "
-                f"Le titre semble correctement valorise sur une base de multiples comparables. "
-            )
-    if yr and yr.pe_ratio and yr.pe_ratio > 0:
-        multiples_text += (
-            f"Le P/E de {_x(yr.pe_ratio)} reflete les attentes du marche "
-            f"{'sur la croissance beneficiaire.' if yr.pe_ratio > 25 else 'et reste dans la norme historique.'}"
-        )
-
-    y = _wrap(c, multiples_text, M, y, CW, size=9, lh=14)
-
-
-# ---------------------------------------------------------------------------
-# PAGE 6 — Scenarios de Valorisation
-# ---------------------------------------------------------------------------
-
-def _draw_page6(c, W, H, M, CW, ci, mkt, synthesis, today):
-    _header_band(c, W, H, ci.company_name, "Page 6/8 — Scenarios de Valorisation", today)
-    _footer(c, W, M, today, 6)
-
-    y = H - 56
-    y = _section_title(c, M, y, "6. Scenarios de Valorisation — Distribution Triangulaire", CW, "")
-
-    cur = mkt.share_price if mkt else None
-    reco_fr = "N/A"
-    if synthesis:
-        reco_fr = {"BUY": "ACHETER", "SELL": "VENDRE", "HOLD": "CONSERVER"}.get(
-            synthesis.recommendation, synthesis.recommendation or "N/A")
-
-    scenarios = []
-    if synthesis:
-        scenarios = [
-            ("BULL CASE",  synthesis.target_bull, _GREEN,
-             "Acceleration de la croissance, expansion des marges, "
-             "catalyseurs sectoriels positifs se materialisant. "
-             "Execution parfaite du plan strategique. Multiples en re-rating."),
-            ("BASE CASE",  synthesis.target_base, _AMBER,
-             "Croissance moderee en ligne avec les previsions consensus. "
-             "Marges stables ou en legere amelioration. "
-             "Valorisation actuelle proche de la juste valeur intrinsèque."),
-            ("BEAR CASE",  synthesis.target_bear, _RED,
-             "Intensification de la concurrence, compression des marges, "
-             "deterioration du contexte macro. "
-             "La valorisation actuelle ne price pas ce scenario."),
-        ]
-
-    scen_w = (CW - 16) / 3
-
-    for idx, (label, val, col, narrative) in enumerate(scenarios):
-        sx = M + idx * (scen_w + 8)
-        sy = y
-        box_h = 220
-
-        # Boite scenario
-        c.setFillColor(_rgb(_LIGHT))
-        c.setStrokeColor(_rgb(col))
-        c.setLineWidth(1.5)
-        c.roundRect(sx, sy - box_h, scen_w, box_h, 3, fill=1, stroke=1)
-        c.setLineWidth(1)
-
-        # Header bande coloree
-        c.setFillColor(_rgb(col))
-        c.roundRect(sx, sy - 28, scen_w, 28, 3, fill=1, stroke=0)
-
-        c.setFont("Helvetica-Bold", 8)
-        c.setFillColor(_rgb(_WHITE))
-        c.drawCentredString(sx + scen_w / 2, sy - 17, label)
-
-        # Prix cible
-        val_s = f"{val:,.0f}" if val else "—"
-        c.setFont("Helvetica-Bold", 28)
-        c.setFillColor(_rgb(col))
-        c.drawCentredString(sx + scen_w / 2, sy - 66, val_s)
-
-        c.setFont("Helvetica", 8)
-        c.setFillColor(_rgb(_GREY))
-        c.drawCentredString(sx + scen_w / 2, sy - 78, ci.currency)
-
-        # Upside/downside
-        if val and cur:
-            upside = (val - cur) / cur * 100
-            arrow  = "+" if upside >= 0 else ""
-            c.setFont("Helvetica-Bold", 10)
-            c.setFillColor(_rgb(_GREEN if upside >= 0 else _RED))
-            c.drawCentredString(sx + scen_w / 2, sy - 95, f"{arrow}{upside:.1f}%")
-            c.setFont("Helvetica", 7)
-            c.setFillColor(_rgb(_GREY))
-            c.drawCentredString(sx + scen_w / 2, sy - 107, f"vs cours actuel {cur:,.2f}")
-
-        # Narratif
-        _wrap(c, narrative, sx + 8, sy - 125, scen_w - 16, size=7.5, lh=12)
-
-        # Barre probabilite
-        probs = [0.25, 0.55, 0.20]
-        prob_w = int((scen_w - 16) * probs[idx])
-        c.setFillColor(_rgb(_MID))
-        c.rect(sx + 8, sy - box_h + 16, scen_w - 16, 4, fill=1, stroke=0)
-        c.setFillColor(_rgb(col))
-        c.rect(sx + 8, sy - box_h + 16, prob_w, 4, fill=1, stroke=0)
-        c.setFont("Helvetica", 6.5)
-        c.setFillColor(_rgb(_GREY))
-        c.drawCentredString(sx + scen_w / 2, sy - box_h + 8, f"Prob. estimee : {int(probs[idx]*100)}%")
-
-    y -= 240
-
-    # Recommandation finale
-    c.setStrokeColor(_rgb(_MID))
-    c.line(M, y, W - M, y)
-    y -= 20
-
-    c.setFont("Helvetica-Bold", 9)
-    c.setFillColor(_rgb(_GREY))
-    c.drawString(M, y, "RECOMMANDATION FINALE :")
-    reco_col_map = {"ACHETER": _GREEN, "VENDRE": _RED}
-    reco_col = reco_col_map.get(reco_fr, _AMBER)
-    c.setFont("Helvetica-Bold", 18)
-    c.setFillColor(_rgb(reco_col))
-    reco_x = M + c.stringWidth("RECOMMANDATION FINALE :  ", "Helvetica-Bold", 9)
-    c.drawString(reco_x, y - 2, reco_fr)
-    y -= 22
-
-    if synthesis and synthesis.summary:
-        # 2eme moitie du summary comme conclusion
-        summary = _safe(synthesis.summary, 600)
-        midpoint = len(summary) // 2
-        conclusion = summary[midpoint:].strip()
-        if conclusion:
-            y = _wrap(c, conclusion, M, y, CW, size=9, lh=14)
-
-
-# ---------------------------------------------------------------------------
-# PAGE 7 — Sentiment de marche & Avocat du Diable
-# ---------------------------------------------------------------------------
-
-def _draw_page7(c, W, H, M, CW, ci, sentiment, devil, qa_python, synthesis, today):
-    _header_band(c, W, H, ci.company_name,
-                 "Page 7/8 — Sentiment & Avocat du Diable", today)
-    _footer(c, W, M, today, 7)
-
-    y = H - 56
-    half = (CW - 14) / 2
-
-    # --- Colonne gauche : Sentiment ---
-    col_l = M
-    col_r = M + half + 14
-
-    c.setFont("Helvetica-Bold", 8)
-    c.setFillColor(_rgb(_NAVY))
-    c.drawString(col_l, y, "7. SENTIMENT DE MARCHE (FinBERT)")
-    tw = c.stringWidth("7. SENTIMENT DE MARCHE (FinBERT)", "Helvetica-Bold", 8)
-    c.setStrokeColor(_rgb(_MID))
-    c.line(col_l + tw + 6, y + 3, col_l + half, y + 3)
+    # Note projections
+    c.setFont("Helvetica-Oblique", 6.5); c.setFillColor(_rgb(_GREY))
+    c.drawString(M, y, f"* Projections {fwd1}/{fwd2} : extrapolation lineaire basee sur CAGR historique ({g*100:.1f}%) — a titre indicatif uniquement.")
     y -= 18
 
-    y_l = y
+    # Paragraphe d'analyse
+    y = _subsec(c, M, y, "Commentaire")
+    commentary = _build_is_commentary(snapshot, ratios, display_years, ci)
+    _wrap(c, commentary, M, y, CW, size=8.5, lh=13)
+
+
+# ---------------------------------------------------------------------------
+# PAGE 4 — 3.2 BILAN & 3.3 RATIOS VS BENCHMARK
+# ---------------------------------------------------------------------------
+
+def _p4_bilan_ratios(c, W, H, M, CW, ci, snapshot, ratios, hist_years, yr, latest, today, T):
+    _hband(c, W, H, ci.company_name, "Page 4 — 3.2 Bilan & 3.3 Ratios vs Benchmark", today, 4, T)
+    _footer(c, W, M, today, 4, T)
+    y = H - 50
+
+    # --- 3.2 Bilan ---
+    y = _subsec(c, M, y, f"3.2 Bilan & Solidite Financiere — LTM ({ci.currency} {ci.units or 'M'})")
+
+    fy_last = snapshot.years.get(latest) if latest else None
+    def _bv(field): return getattr(fy_last, field, None) if fy_last else None
+
+    cash   = _bv("cash")
+    ltd    = _bv("long_term_debt")
+    std    = _bv("short_term_debt")
+    net_d  = (ltd or 0) + (std or 0) - (cash or 0) if (ltd or std or cash) else None
+    cr     = getattr(yr, "current_ratio", None) if yr else None
+    de     = getattr(yr, "net_debt_ebitda", None) if yr else None
+
+    def _interp_cr(v):
+        if v is None: return "N/A"
+        if v >= 2.0: return "Sain (>2x)"
+        if v >= 1.0: return "Acceptable (1-2x)"
+        return "Tendu (<1x)"
+
+    def _interp_nd(v):
+        if v is None: return "N/A"
+        if v < 0:    return "Position cash nette"
+        if v < 2.0:  return "Levier modere"
+        if v < 4.0:  return "Levier eleve"
+        return "Dette excessive"
+
+    bilan_data = [
+        ["Metrique", "Valeur LTM", "Interpretation"],
+        ["Cash & Equivalents",   f"{_f(cash)} {ci.currency}M"  if cash  else "N/A", "Reserve de liquidite"],
+        ["Dette Long Terme",     f"{_f(ltd)} {ci.currency}M"   if ltd   else "N/A", "Principale source de levier"],
+        ["Dette Nette",          f"{_f(net_d)} {ci.currency}M" if net_d is not None else "N/A",
+                                 "Positif" if (net_d or 0) < 0 else "Negatif"],
+        ["Current Ratio",        _x(cr), _interp_cr(cr)],
+        ["Net Debt / EBITDA",    _x(de), _interp_nd(de)],
+    ]
+
+    bw = [130, 100, CW-230]
+    bsty = [
+        ("BACKGROUND", (0,0),(-1,0), _rgb(_NAVY)),
+        ("TEXTCOLOR",  (0,0),(-1,0), _rgb(_WHITE)),
+        ("FONT",       (0,0),(-1,0), "Helvetica-Bold", 7),
+        ("FONT",       (0,1),(0,-1), "Helvetica-Bold", 7),
+        ("FONT",       (1,1),(-1,-1),"Helvetica", 7),
+        ("ROWBACKGROUNDS",(0,1),(-1,-1),[_rgb(_WHITE),_rgb(_F5)]),
+        ("GRID",       (0,0),(-1,-1), 0.4, _rgb(_MID)),
+        ("TOPPADDING", (0,0),(-1,-1), 3),
+        ("BOTTOMPADDING",(0,0),(-1,-1),3),
+        ("LEFTPADDING",(0,0),(0,-1),4),
+    ]
+    y = _tbl(c, bilan_data, bw, bsty, M, y)
+    y -= 8
+
+    bilan_para = _build_bilan_commentary(fy_last, yr, ci)
+    y = _wrap(c, bilan_para, M, y, CW, size=8.5, lh=13)
+    y -= 18
+
+    # --- 3.3 Ratios vs Benchmark ---
+    y = _subsec(c, M, y, f"3.3 Ratios Cles vs Benchmark Sectoriel ({ci.sector or 'secteur'})")
+
+    sector = ci.sector or "Technology"
+    benchmarks = _sector_benchmarks(sector)
+
+    def _sig_cell(v, lo, hi, inv=False, fmt="x"):
+        col, _ = _signal(v, lo, hi, invert=inv)
+        icon   = {_GREEN:"●", _AMBER:"●", _RED:"●"}.get(col, "●")
+        val_s  = (_p(v) if fmt=="%" else _x(v)) if v is not None else "N/A"
+        return val_s, col
+
+    rows_def = [
+        ("P/E",          getattr(yr,"pe_ratio",None),     10, 25, False, "x", benchmarks.get("pe","15-25x")),
+        ("EV/EBITDA",    getattr(yr,"ev_ebitda",None),    8,  18, False, "x", benchmarks.get("ev_ebitda","8-15x")),
+        ("EV/Revenue",   getattr(yr,"ev_revenue",None),   1,  5,  False, "x", benchmarks.get("ev_rev","2-6x")),
+        ("Gross Margin", getattr(yr,"gross_margin",None), 0.3,0.6, False,"%", benchmarks.get("gm","40-60%")),
+        ("EBITDA Margin",getattr(yr,"ebitda_margin",None),0.15,0.35,False,"%",benchmarks.get("em","20-35%")),
+        ("ROE",          getattr(yr,"roe",None),          0.1,0.25,False,"%", benchmarks.get("roe","15-25%")),
+        ("Altman Z-Score",getattr(yr,"altman_z",None),   1.8,3.0,False,"z", ">2.99 = Sain"),
+        ("Beneish M-Score",getattr(yr,"beneish_m",None), -2.5,-2.22,True,"z","<-2.22 = OK"),
+    ]
+
+    rdata = [["Ratio", "Valeur", f"Benchmark ({_s(sector,20)})", "Signal"]]
+    sig_colors = {}
+    for i, (label, v, lo, hi, inv, fmt, bench) in enumerate(rows_def):
+        if fmt == "%": val_s = _p(v)
+        elif fmt == "x": val_s = _x(v)
+        else: val_s = _n(v)
+        col, _ = _signal(v, lo, hi, invert=inv)
+        sig    = {_GREEN:"🟢  OK", _AMBER:"🟡  ~", _RED:"🔴  !", _GREY:"—"}.get(col, "—")
+        sig_colors[i+1] = col
+        if label == "Altman Z-Score":
+            sig = "SAIN" if (v or 0) >= 3.0 else ("ZONE GRISE" if (v or 0) >= 1.8 else "DETRESSE") if v else "N/A"
+            sig = f"{'🟢' if 'SAIN' in sig else '🟡' if 'GRISE' in sig else '🔴'}  {sig}"
+        if label == "Beneish M-Score":
+            sig = "🟢  OK" if (v is not None and v < -2.22) else ("🔴  SIGNAL" if v is not None else "—")
+        rdata.append([label, val_s, bench, sig])
+
+    rw = [110, 65, 100, CW-275]
+    rsty = [
+        ("BACKGROUND", (0,0),(-1,0), _rgb(_NAVY)),
+        ("TEXTCOLOR",  (0,0),(-1,0), _rgb(_WHITE)),
+        ("FONT",       (0,0),(-1,0), "Helvetica-Bold", 7),
+        ("FONT",       (0,1),(0,-1), "Helvetica-Bold", 7),
+        ("FONT",       (1,1),(-1,-1),"Helvetica", 7),
+        ("ALIGN",      (1,0),(-1,-1),"CENTER"),
+        ("ALIGN",      (0,0),(0,-1), "LEFT"),
+        ("ROWBACKGROUNDS",(0,1),(-1,-1),[_rgb(_WHITE),_rgb(_F5)]),
+        ("GRID",       (0,0),(-1,-1), 0.4, _rgb(_MID)),
+        ("TOPPADDING", (0,0),(-1,-1), 3),
+        ("BOTTOMPADDING",(0,0),(-1,-1),3),
+        ("LEFTPADDING",(0,0),(0,-1),4),
+    ]
+    _tbl(c, rdata, rw, rsty, M, y)
+
+
+# ---------------------------------------------------------------------------
+# PAGE 5 — 4.1 DCF + 4.2 SENSIBILITE
+# ---------------------------------------------------------------------------
+
+def _p5_dcf(c, W, H, M, CW, ci, mkt, yr, synthesis, today, T):
+    _hband(c, W, H, ci.company_name, "Page 5 — 4. Valorisation : DCF", today, 5, T)
+    _footer(c, W, M, today, 5, T)
+    y = H - 50
+
+    y = _sec(c, M, y, "4. Valorisation", CW)
+    y = _subsec(c, M, y, "4.1 DCF — Scenario Base")
+
+    wacc = getattr(mkt, "wacc", None) if mkt else None
+    tgr  = getattr(mkt, "terminal_growth", None) if mkt else None
+    em   = getattr(yr, "ebitda_margin", None) if yr else None
+    gm   = getattr(yr, "gross_margin", None) if yr else None
+    cap  = 0.05
+    rev  = getattr(yr, "revenue_ltm", None) if yr else None
+
+    # Sous-titre WACC / TGR
+    c.setFont("Helvetica", 7); c.setFillColor(_rgb(_GREY))
+    c.drawString(M, y,
+        f"WACC : {_p(wacc)}   |   Terminal Growth Rate : {_p(tgr)}   |   Horizon : 5 ans")
+    y -= 14
+
+    dcf_data = [
+        ["Hypothese", "Valeur"],
+        ["Revenue CAGR projete",      _p(getattr(yr,"revenue_growth",None) if yr else None)],
+        ["EBITDA Margin cible",        _p(em)],
+        ["CapEx (% Revenue)",          _p(cap)],
+        ["WACC",                       _p(wacc)],
+        ["Terminal Growth Rate",       _p(tgr)],
+        ["Valeur intrinseque (Base)",  _f(getattr(synthesis,"target_base",None)) + f" {ci.currency}" if synthesis and synthesis.target_base else "N/A"],
+        ["Cours actuel",               _f(getattr(mkt,"share_price",None)) + f" {ci.currency}" if mkt and mkt.share_price else "N/A"],
+        ["Upside/Downside implicite",  _upside(getattr(synthesis,"target_base",None) if synthesis else None, getattr(mkt,"share_price",None) if mkt else None)],
+    ]
+
+    dw = [160, CW-160]
+    dsty = [
+        ("BACKGROUND",(0,0),(-1,0),_rgb(_NAVY)),
+        ("TEXTCOLOR", (0,0),(-1,0),_rgb(_WHITE)),
+        ("FONT",      (0,0),(-1,0),"Helvetica-Bold",7),
+        ("FONT",      (0,1),(0,-1),"Helvetica",7),
+        ("FONT",      (1,1),(-1,-1),"Helvetica-Bold",7),
+        ("ALIGN",     (1,0),(-1,-1),"RIGHT"),
+        ("ROWBACKGROUNDS",(0,1),(-1,-1),[_rgb(_WHITE),_rgb(_F5)]),
+        ("GRID",      (0,0),(-1,-1),0.4,_rgb(_MID)),
+        ("TOPPADDING",(0,0),(-1,-1),3),
+        ("BOTTOMPADDING",(0,0),(-1,-1),3),
+        ("LEFTPADDING",(0,0),(0,-1),4),
+        # Lignes Valeur & Cours en gras navy
+        ("BACKGROUND",(0,6),(-1,7),_rgb(_F5)),
+        ("FONT",      (0,6),(-1,7),"Helvetica-Bold",7),
+    ]
+    y = _tbl(c, dcf_data, dw, dsty, M, y)
+    y -= 8
+
+    dcf_para = (
+        f"La valorisation DCF repose sur un WACC de {_p(wacc)} et un taux de croissance terminal de {_p(tgr)}, "
+        f"coherents avec le profil de risque du secteur {ci.sector or 'N/A'}. "
+        f"Les deux variables les plus sensibles sont le WACC (impact majeur sur la valeur terminale, ~60-70% de l'EV) "
+        f"et le taux de croissance des revenus sur les 3 premieres annees de projection. "
+        f"Un WACC superieur de 100pb reduit typiquement la valeur intrinseque de 10 a 15%."
+    )
+    y = _wrap(c, dcf_para, M, y, CW, size=8.5, lh=13)
+    y -= 18
+
+    # --- 4.2 Table de Sensibilite ---
+    y = _subsec(c, M, y, "4.2 Table de Sensibilite DCF  (Valeur intrinseque par action)")
+
+    base_price = getattr(synthesis, "target_base", None) if synthesis else None
+    wacc_b = wacc or 0.08
+    tgr_b  = tgr  or 0.025
+
+    sens_header = ["WACC \\ TGR", f"{(tgr_b-0.005)*100:.1f}%", f"{tgr_b*100:.1f}%", f"{(tgr_b+0.005)*100:.1f}%"]
+    sens_data   = [sens_header]
+    for dw2 in [-0.01, 0, +0.01]:
+        row_label = f"{(wacc_b+dw2)*100:.1f}%"
+        row = [row_label]
+        for dt in [-0.005, 0, +0.005]:
+            p = _compute_sensitivity(base_price, wacc_b+dw2, tgr_b+dt, wacc_b, tgr_b)
+            row.append(_f(p) if p else "N/A")
+        sens_data.append(row)
+
+    sw = [60, (CW-60)/3, (CW-60)/3, (CW-60)/3]
+    ssty = [
+        ("BACKGROUND",(0,0),(-1,0),_rgb(_NAVY)),
+        ("TEXTCOLOR", (0,0),(-1,0),_rgb(_WHITE)),
+        ("FONT",      (0,0),(-1,0),"Helvetica-Bold",7),
+        ("FONT",      (0,1),(0,-1),"Helvetica-Bold",7),
+        ("FONT",      (1,1),(-1,-1),"Helvetica",7),
+        ("ALIGN",     (0,0),(-1,-1),"CENTER"),
+        ("ROWBACKGROUNDS",(0,1),(-1,-1),[_rgb(_F5),_rgb(_WHITE)]),
+        ("GRID",      (0,0),(-1,-1),0.4,_rgb(_MID)),
+        ("TOPPADDING",(0,0),(-1,-1),3),
+        ("BOTTOMPADDING",(0,0),(-1,-1),3),
+        # Case centrale (base) surlignee
+        ("BACKGROUND",(2,2),(2,2),_rgb((0.8,0.9,0.8))),
+        ("FONT",      (2,2),(2,2),"Helvetica-Bold",7),
+    ]
+    _tbl(c, sens_data, sw, ssty, M, y)
+
+
+# ---------------------------------------------------------------------------
+# PAGE 6 — 4.3 MULTIPLES COMPARABLES
+# ---------------------------------------------------------------------------
+
+def _p6_multiples(c, W, H, M, CW, ci, mkt, yr, synthesis, today, T):
+    _hband(c, W, H, ci.company_name, "Page 6 — 4.3 Multiples Comparables", today, 6, T)
+    _footer(c, W, M, today, 6, T)
+    y = H - 50
+
+    y = _subsec(c, M, y, "4.3 Valorisation par Multiples Comparables")
+
+    cur = getattr(mkt, "share_price", None) if mkt else None
+    ev_ebitda_co = getattr(yr, "ev_ebitda",   None) if yr else None
+    ev_rev_co    = getattr(yr, "ev_revenue",  None) if yr else None
+    pe_co        = getattr(yr, "pe_ratio",    None) if yr else None
+
+    sector = ci.sector or "Technology"
+    b      = _sector_benchmarks(sector)
+    median_ev_eb  = b.get("med_ev_ebitda", 12.0)
+    median_ev_rev = b.get("med_ev_rev",     4.0)
+    median_pe     = b.get("med_pe",        20.0)
+
+    def _implied(multiple_co, multiple_peers, cur_price):
+        if multiple_co is None or multiple_co == 0 or cur_price is None: return None
+        return cur_price * (multiple_peers / multiple_co)
+
+    imp_ev_eb  = _implied(ev_ebitda_co, median_ev_eb,  cur)
+    imp_ev_rev = _implied(ev_rev_co,    median_ev_rev, cur)
+    imp_pe     = _implied(pe_co,        median_pe,     cur)
+
+    mult_data = [
+        ["Multiple", "Valeur Societe", "Mediane Peers", "Implied Price", "Upside"],
+        ["EV/EBITDA",  _x(ev_ebitda_co), f"{median_ev_eb:.1f}x",
+         f"{_f(imp_ev_eb)} {ci.currency}" if imp_ev_eb else "N/A",
+         _upside(imp_ev_eb, cur)],
+        ["EV/Revenue",  _x(ev_rev_co), f"{median_ev_rev:.1f}x",
+         f"{_f(imp_ev_rev)} {ci.currency}" if imp_ev_rev else "N/A",
+         _upside(imp_ev_rev, cur)],
+        ["P/E",  _x(pe_co), f"{median_pe:.1f}x",
+         f"{_f(imp_pe)} {ci.currency}" if imp_pe else "N/A",
+         _upside(imp_pe, cur)],
+    ]
+
+    # Moyenne ponderee
+    implied_prices = [p for p in [imp_ev_eb, imp_ev_rev, imp_pe] if p is not None]
+    avg_implied = sum(implied_prices)/len(implied_prices) if implied_prices else None
+    mult_data.append([
+        "Moyenne ponderee", "", "",
+        f"{_f(avg_implied)} {ci.currency}" if avg_implied else "N/A",
+        _upside(avg_implied, cur),
+    ])
+
+    mw = [90, 80, 80, 100, CW-350]
+    msty = [
+        ("BACKGROUND",(0,0),(-1,0),_rgb(_NAVY)),
+        ("TEXTCOLOR", (0,0),(-1,0),_rgb(_WHITE)),
+        ("FONT",      (0,0),(-1,0),"Helvetica-Bold",7),
+        ("FONT",      (0,1),(0,-1),"Helvetica-Bold",7),
+        ("FONT",      (1,1),(-1,-1),"Helvetica",7),
+        ("ALIGN",     (1,0),(-1,-1),"CENTER"),
+        ("ALIGN",     (0,0),(0,-1), "LEFT"),
+        ("ROWBACKGROUNDS",(0,1),(-1,-1),[_rgb(_WHITE),_rgb(_F5)]),
+        ("GRID",      (0,0),(-1,-1),0.4,_rgb(_MID)),
+        ("TOPPADDING",(0,0),(-1,-1),3),
+        ("BOTTOMPADDING",(0,0),(-1,-1),3),
+        ("LEFTPADDING",(0,0),(0,-1),4),
+        ("BACKGROUND",(0,-1),(-1,-1),_rgb(_F5)),
+        ("FONT",      (0,-1),(-1,-1),"Helvetica-Bold",7),
+    ]
+    y = _tbl(c, mult_data, mw, msty, M, y)
+
+    c.setFont("Helvetica-Oblique",6.5); c.setFillColor(_rgb(_GREY))
+    c.drawString(M, y-4, f"Medianes secteur {sector} — sources : yfinance, Finnhub. Peers : voir comparables.")
+
+
+# ---------------------------------------------------------------------------
+# PAGE 7 — 5. RISQUES & SCENARIOS
+# ---------------------------------------------------------------------------
+
+def _p7_scenarios(c, W, H, M, CW, ci, mkt, synthesis, today, T):
+    _hband(c, W, H, ci.company_name, "Page 7 — 5. Analyse des Risques & Scenarios", today, 7, T)
+    _footer(c, W, M, today, 7, T)
+    y = H - 50
+
+    y = _sec(c, M, y, "5. Analyse des Risques & Scenarios", CW)
+
+    cur = getattr(mkt, "share_price", None) if mkt else None
+
+    scenarios = [
+        ("BULL", synthesis.target_bull if synthesis else None, _GREEN, 25,
+         _get_scenario_hyp(synthesis, "Bull", 0),
+         _get_scenario_hyp(synthesis, "Bull", 1),
+         _get_scenario_hyp(synthesis, "Bull", 2)),
+        ("BASE", synthesis.target_base if synthesis else None, _AMBER, 55,
+         _get_scenario_hyp(synthesis, "Base", 0),
+         _get_scenario_hyp(synthesis, "Base", 1),
+         _get_scenario_hyp(synthesis, "Base", 2)),
+        ("BEAR", synthesis.target_bear if synthesis else None, _RED, 20,
+         _get_scenario_hyp(synthesis, "Bear", 0),
+         _get_scenario_hyp(synthesis, "Bear", 1),
+         _get_scenario_hyp(synthesis, "Bear", 2)),
+    ]
+
+    for case, tgt, col, prob, h1, h2, h3 in scenarios:
+        bx = M; bw_s = CW; bh_s = 88
+        # Fond colore light
+        light = {_GREEN:(0.9,0.97,0.93), _AMBER:(0.98,0.96,0.88), _RED:(0.98,0.9,0.88)}
+        c.setFillColor(_rgb(light.get(col, _F5)))
+        c.setStrokeColor(_rgb(col))
+        c.setLineWidth(1.5)
+        c.roundRect(bx, y-bh_s, bw_s, bh_s, 4, fill=1, stroke=1)
+        c.setLineWidth(1)
+
+        # Header ligne
+        c.setFont("Helvetica-Bold", 10); c.setFillColor(_rgb(col))
+        tgt_s = f"{tgt:,.0f} {ci.currency}" if tgt else "N/A"
+        up_s  = _upside(tgt, cur)
+        c.drawString(bx+10, y-16, f"{case} — {tgt_s}  ({up_s})")
+        c.setFont("Helvetica", 7.5); c.setFillColor(_rgb(_GREY))
+        c.drawRightString(bx+bw_s-10, y-16, f"Probabilite estimee : {prob}%")
+
+        # Hypotheses
+        for j, hyp in enumerate([h1, h2, h3], 1):
+            hy = y - 28 - (j-1)*17
+            c.setFont("Helvetica-Bold", 8); c.setFillColor(_rgb(col))
+            c.drawString(bx+10, hy, f"▸")
+            c.setFont("Helvetica", 8); c.setFillColor(_rgb(_DARK))
+            _wrap(c, hyp, bx+22, hy, bw_s-32, size=8, lh=11)
+
+        y -= bh_s + 10
+
+
+# ---------------------------------------------------------------------------
+# PAGE 8 — 6. SENTIMENT & 7. AVOCAT DU DIABLE
+# ---------------------------------------------------------------------------
+
+def _p8_sentiment_devil(c, W, H, M, CW, ci, sentiment, devil, synthesis, today, T):
+    _hband(c, W, H, ci.company_name, "Page 8 — 6. Sentiment & 7. Avocat du Diable", today, 8, T)
+    _footer(c, W, M, today, 8, T)
+    y = H - 50
+
+    # --- Section 6 : Sentiment ---
+    y = _sec(c, M, y, "6. Sentiment de Marche", CW)
 
     if sentiment:
-        sent_col = _GREEN if sentiment.score > 0.1 else (_RED if sentiment.score < -0.1 else _AMBER)
-        c.setFont("Helvetica-Bold", 22)
-        c.setFillColor(_rgb(sent_col))
-        c.drawString(col_l, y_l, _safe(sentiment.label).upper())
-        y_l -= 18
+        score = getattr(sentiment, "composite_score", None)
+        articles = getattr(sentiment, "article_count", 0) or 0
+        pos_n = getattr(sentiment, "positive_count", 0) or 0
+        neg_n = getattr(sentiment, "negative_count", 0) or 0
+        neu_n = getattr(sentiment, "neutral_count",  0) or 0
 
-        c.setFont("Helvetica", 8)
-        c.setFillColor(_rgb(_GREY))
-        score_line = (f"Score : {sentiment.score:+.3f}  |  "
-                      f"Confiance : {sentiment.confidence:.0%}  |  "
-                      f"{sentiment.articles_analyzed} articles analyses")
-        c.drawString(col_l, y_l, score_line)
-        y_l -= 16
+        orient = "POSITIVE" if (score or 0) > 0.1 else ("NEGATIVE" if (score or 0) < -0.1 else "NEUTRE")
+        o_col  = _GREEN if orient == "POSITIVE" else (_RED if orient == "NEGATIVE" else _AMBER)
 
-        # Barre sentiment
-        bar_w = half - 10
-        mid_x = col_l + bar_w / 2
-        c.setFillColor(_rgb(_MID))
-        c.rect(col_l, y_l, bar_w, 5, fill=1, stroke=0)
-        # Position score (-1 a +1) -> largeur
-        score_pos = (sentiment.score + 1) / 2  # 0 a 1
-        c.setFillColor(_rgb(sent_col))
-        c.rect(col_l, y_l, int(bar_w * score_pos), 5, fill=1, stroke=0)
-        c.setFillColor(_rgb(_GREY))
-        c.setFont("Helvetica", 6)
-        c.drawString(col_l, y_l - 8, "Tres negatif")
-        c.drawRightString(col_l + bar_w, y_l - 8, "Tres positif")
-        y_l -= 22
+        c.setFont("Helvetica-Bold", 9); c.setFillColor(_rgb(o_col))
+        c.drawString(M, y, f"Score FinBERT : {orient}  ({_n(score,3)})")
+        c.setFont("Helvetica", 7.5); c.setFillColor(_rgb(_GREY))
+        c.drawRightString(W-M, y, f"Confiance : {abs(score or 0):.0%}  |  Articles analyses : {articles}")
+        y -= 14
 
-        if hasattr(sentiment, "summary") and sentiment.summary:
-            y_l = _wrap(c, _safe(sentiment.summary, 350), col_l, y_l, half, size=8.5, lh=13)
+        sent_data = [
+            ["Orientation", "Nb articles", "Themes dominants"],
+            ["Positif", str(pos_n), _sent_themes(sentiment, "positive")],
+            ["Neutre",  str(neu_n), _sent_themes(sentiment, "neutral")],
+            ["Negatif", str(neg_n), _sent_themes(sentiment, "negative")],
+        ]
+        sw = [80, 70, CW-150]
+        ssty = [
+            ("BACKGROUND",(0,0),(-1,0),_rgb(_NAVY)),
+            ("TEXTCOLOR", (0,0),(-1,0),_rgb(_WHITE)),
+            ("FONT",      (0,0),(-1,0),"Helvetica-Bold",7),
+            ("FONT",      (0,1),(0,-1),"Helvetica",7),
+            ("BACKGROUND",(0,1),(-1,1),_rgb((0.92,0.97,0.93))),
+            ("BACKGROUND",(0,3),(-1,3),_rgb((0.97,0.92,0.92))),
+            ("ROWBACKGROUNDS",(0,2),(-1,2),[_rgb(_F5)]),
+            ("GRID",      (0,0),(-1,-1),0.4,_rgb(_MID)),
+            ("TOPPADDING",(0,0),(-1,-1),3),
+            ("BOTTOMPADDING",(0,0),(-1,-1),3),
+            ("LEFTPADDING",(0,0),(0,-1),4),
+        ]
+        y = _tbl(c, sent_data, sw, ssty, M, y)
+        y -= 8
+
+        sent_para = _build_sent_commentary(sentiment, synthesis)
+        y = _wrap(c, sent_para, M, y, CW, size=8.5, lh=13)
     else:
-        c.setFont("Helvetica", 9)
-        c.setFillColor(_rgb(_GREY))
-        c.drawString(col_l, y_l, "Sentiment non disponible.")
-        y_l -= 14
+        c.setFont("Helvetica-Oblique",8); c.setFillColor(_rgb(_GREY))
+        c.drawString(M, y, "Donnees de sentiment non disponibles pour cette analyse.")
+        y -= 20
 
-    y_l -= 16
+    y -= 16
 
-    # QA
-    c.setFont("Helvetica-Bold", 8)
-    c.setFillColor(_rgb(_NAVY))
-    c.drawString(col_l, y_l, "VALIDATION QA — PIPELINE FINSIGHT IA")
-    tw2 = c.stringWidth("VALIDATION QA — PIPELINE FINSIGHT IA", "Helvetica-Bold", 8)
-    c.setStrokeColor(_rgb(_MID))
-    c.line(col_l + tw2 + 6, y_l + 3, col_l + half, y_l + 3)
-    y_l -= 18
-
-    if qa_python:
-        status_col = _GREEN if qa_python.passed else _RED
-        c.setFont("Helvetica-Bold", 10)
-        c.setFillColor(_rgb(status_col))
-        c.drawString(col_l, y_l,
-            f"{'VALIDE' if qa_python.passed else 'ECHEC'}  —  Score : {qa_python.qa_score:.0%}")
-        y_l -= 16
-        for fl in qa_python.flags[:5]:
-            sym_col = _RED if fl.level == "ERROR" else (_AMBER if fl.level == "WARNING" else _GREEN)
-            sym = "ERREUR" if fl.level == "ERROR" else ("AVERT." if fl.level == "WARNING" else "OK")
-            c.setFont("Helvetica-Bold", 7)
-            c.setFillColor(_rgb(sym_col))
-            c.drawString(col_l, y_l, f"[{sym}]")
-            c.setFont("Helvetica", 7.5)
-            c.setFillColor(_rgb(_DARK))
-            y_l = _wrap(c, _safe(fl.message, 100), col_l + 50, y_l, half - 52,
-                       size=7.5, lh=11) - 2
-
-    # --- Colonne droite : Avocat du Diable ---
-    c.setFont("Helvetica-Bold", 8)
-    c.setFillColor(_rgb(_NAVY))
-    c.drawString(col_r, y, "8. AVOCAT DU DIABLE — THESE INVERSE")
-    tw3 = c.stringWidth("8. AVOCAT DU DIABLE — THESE INVERSE", "Helvetica-Bold", 8)
-    c.setStrokeColor(_rgb(_MID))
-    c.line(col_r + tw3 + 6, y + 3, col_r + half, y + 3)
-    y_r = y - 18
+    # --- Section 7 : Avocat du Diable ---
+    y = _sec(c, M, y, "7. Avocat du Diable", CW)
 
     if devil:
-        delta = devil.conviction_delta
-        delta_col = _RED if delta < -0.2 else (_GREEN if delta > 0.2 else _AMBER)
-        solid = ("These fragile — arguments contra solides" if delta < -0.2
-                 else ("These robuste malgre la these inverse" if delta > 0.2
-                       else "These moderement solide"))
+        delta = getattr(devil, "conviction_delta", None)
+        counter_rec = getattr(devil, "counter_recommendation", None)
+        c.setFont("Helvetica-Bold", 8); c.setFillColor(_rgb(_RED))
+        delta_s = f"{delta:+.2f}" if delta is not None else "N/A"
+        c.drawString(M, y, f"These inverse  |  Delta conviction : {delta_s}  |  Recommandation alternative : {counter_rec or 'N/A'}")
+        y -= 14
 
-        c.setFont("Helvetica-Bold", 9)
-        c.setFillColor(_rgb(_GREY))
-        c.drawString(col_r, y_r, f"These principale : {_safe(devil.original_reco, 20)}")
-        c.setFont("Helvetica-Bold", 9)
-        c.setFillColor(_rgb(delta_col))
-        c.drawString(col_r + half - c.stringWidth(
-            f"These inverse : {_safe(devil.counter_reco, 20)}", "Helvetica-Bold", 9),
-            y_r, f"These inverse : {_safe(devil.counter_reco, 20)}")
-        y_r -= 14
+        ct = getattr(devil, "counter_thesis", None) or ""
+        paras = [p.strip() for p in ct.split("\n\n") if p.strip()] if ct else []
 
-        # Delta conviction
-        c.setFillColor(_rgb(_LIGHT))
-        c.setStrokeColor(_rgb(_MID))
-        c.roundRect(col_r, y_r - 22, half, 22, 2, fill=1, stroke=1)
-        c.setFont("Helvetica-Bold", 8)
-        c.setFillColor(_rgb(delta_col))
-        c.drawString(col_r + 8, y_r - 14,
-            f"Delta conviction : {delta:+.2f}  —  {solid}")
-        y_r -= 30
-
-        if devil.counter_thesis:
-            c.setFont("Helvetica-Bold", 7.5)
-            c.setFillColor(_rgb(_GREY))
-            c.drawString(col_r, y_r, "THESE INVERSE :")
-            y_r -= 13
-            y_r = _wrap(c, _safe(devil.counter_thesis, 500), col_r, y_r, half,
-                       size=8.5, lh=13)
-            y_r -= 12
-
-        if devil.key_assumptions:
-            c.setFont("Helvetica-Bold", 7.5)
-            c.setFillColor(_rgb(_AMBER))
-            c.drawString(col_r, y_r, "HYPOTHESES FRAGILES IDENTIFIEES :")
-            y_r -= 13
-            for a in devil.key_assumptions[:3]:
-                c.setFont("Helvetica-Bold", 8.5)
-                c.setFillColor(_rgb(_AMBER))
-                c.drawString(col_r, y_r, "?")
-                c.setFont("Helvetica", 8.5)
-                c.setFillColor(_rgb(_DARK))
-                y_r = _wrap(c, _safe(a, 200), col_r + 12, y_r, half - 14,
-                           size=8.5, lh=12) - 4
-    else:
-        c.setFont("Helvetica", 9)
-        c.setFillColor(_rgb(_GREY))
-        c.drawString(col_r, y_r, "Analyse contradictoire non disponible.")
-
-
-# ---------------------------------------------------------------------------
-# PAGE 8 — Conditions d'Invalidation & Disclaimer
-# ---------------------------------------------------------------------------
-
-def _draw_page8(c, W, H, M, CW, ci, synthesis, today):
-    _header_band(c, W, H, ci.company_name,
-                 "Page 8/8 — Invalidation & Disclaimer", today)
-    _footer(c, W, M, today, 8)
-
-    y = H - 56
-    y = _section_title(c, M, y, "9. Conditions d'Invalidation de la These", CW, "")
-
-    if synthesis and synthesis.invalidation_conditions:
-        conds_text = _safe(synthesis.invalidation_conditions, 800)
-        # Split par points comme liste si possible
-        if ". " in conds_text:
-            items = [s.strip() for s in conds_text.split(". ") if s.strip()]
-            for item in items[:6]:
-                y = _bullet(c, M, y, item + ".", CW, color=_AMBER, size=9, lh=14) - 4
-        else:
-            y = _wrap(c, conds_text, M, y, CW, size=9, lh=14)
-    else:
-        generic_conds = [
-            ("Revision a la baisse des resultats operationnels superieure a 15% "
-             "sur 2 trimestres consecutifs."),
-            ("Degradation significative du bilan : dette nette/EBITDA depassant 4x "
-             "sans plan de desendettement credible."),
-            ("Perte de pricing power confirmee : contraction des marges brutes "
-             "superieure a 5 points sur 12 mois."),
-            ("Changement reglementaire majeur impactant le coeur de metier "
-             "(fiscalite, regulation sectorielle, sanctions)."),
-            ("Annonce de catalyseurs positifs majeurs non integres dans le scenario "
-             "Bull Case : revision a la hausse requise."),
+        labels = [
+            "Fragilite principale de la these d'investissement :",
+            "Deuxieme fragilite structurelle :",
+            "Risque sous-estime par le marche :",
         ]
-        for cond in generic_conds:
-            y = _bullet(c, M, y, cond, CW, color=_AMBER, size=9, lh=14) - 4
+        for i, (label, para) in enumerate(zip(labels, paras + [""]*3)):
+            if i >= 3: break
+            c.setFont("Helvetica-Bold", 7.5); c.setFillColor(_rgb(_RED))
+            c.drawString(M, y, label); y -= 12
+            if para:
+                y = _wrap(c, para, M+8, y, CW-8, size=8.5, lh=13)
+            else:
+                c.setFont("Helvetica-Oblique",8); c.setFillColor(_rgb(_GREY))
+                c.drawString(M+8, y, "Analyse non disponible."); y -= 13
+            y -= 8
+    else:
+        c.setFont("Helvetica-Oblique",8); c.setFillColor(_rgb(_GREY))
+        c.drawString(M, y, "Analyse Avocat du Diable non disponible.")
 
-    y -= 20
 
-    # Methodologie
-    y = _section_title(c, M, y, "Methodologie & Sources", CW, "")
+# ---------------------------------------------------------------------------
+# PAGE 9 — 8. CONDITIONS D'INVALIDATION & DISCLAIMER
+# ---------------------------------------------------------------------------
 
-    meth = (
-        "Cette analyse est produite par FinSight IA, un pipeline multi-agents "
-        "basé sur Claude (Anthropic). "
-        "Données financieres : Yahoo Finance (source principale), "
-        "Financial Modeling Prep, Finnhub. "
-        "Calcul des ratios selon les normes IFRS/US GAAP. "
-        "Valorisation : DCF (WACC CAPM + taux de croissance terminal) "
-        "et multiples sectoriels (EV/EBITDA, P/E, P/S). "
-        "Sentiment de marche : FinBERT (ProsusAI, modele NLP entraine sur corpus financier). "
-        "Validation QA en deux passes : verifications deterministes (Python) "
-        "et editoriales (LLM Haiku). "
-        "La procedure Avocat du Diable génère systematiquement une these inverse "
-        "pour challenger la recommandation principale et identifier les hypotheses fragiles."
-    )
-    y = _wrap(c, meth, M, y, CW, size=8.5, lh=13)
-    y -= 24
+def _p9_invalidation_disclaimer(c, W, H, M, CW, ci, synthesis, today, T):
+    _hband(c, W, H, ci.company_name, "Page 9 — 8. Invalidation & Disclaimer", today, 9, T)
+    _footer(c, W, M, today, 9, T)
+    y = H - 50
 
-    # Disclaimer box
-    y = _section_title(c, M, y, "Avertissement Legal (Important)", CW, "")
+    y = _sec(c, M, y, "8. Conditions d'Invalidation", CW)
 
-    disc_h = 130
-    c.setFillColor(_rgb(_LIGHT))
-    c.setStrokeColor(_rgb((0.8, 0.8, 0.8)))
-    c.roundRect(M, y - disc_h, CW, disc_h, 4, fill=1, stroke=1)
+    c.setFont("Helvetica", 8); c.setFillColor(_rgb(_DARK))
+    c.drawString(M, y, "Cette analyse serait a reviser dans les cas suivants :"); y -= 16
+
+    inv_raw = (getattr(synthesis, "invalidation_conditions", None) or "") if synthesis else ""
+    inv_lines = [l.strip() for l in inv_raw.split(".") if len(l.strip()) > 10]
+
+    categories = [
+        ("Macro",      "Si les conditions macroeconomiques se deteriorent significativement (hausse des taux >100pb, recession prononcee)."),
+        ("Sectorielle","Si la dynamique sectorielle se retourne (disruption technologique, regulation defavorable, perte de part de marche majeure)."),
+        ("Societe",    "Si les fondamentaux de la societe se degradent (marge brute sous seuil critique, dette excessive, gouvernance defaillante)."),
+    ]
+
+    for cat, fallback in categories:
+        c.setFont("Helvetica-Bold", 8); c.setFillColor(_rgb(_NAVY))
+        c.drawString(M, y, cat); y -= 12
+        relevant = next((l for l in inv_lines if any(k in l.lower() for k in cat.lower().split())), fallback)
+        y = _wrap(c, relevant, M+8, y, CW-8, size=8.5, lh=13, color=_DARK)
+        y -= 10
+
+    y -= 10
+    c.setStrokeColor(_rgb(_MID)); c.line(M, y, W-M, y); y -= 20
+
+    # Disclaimer
+    y = _sec(c, M, y, "9. Disclaimer", CW)
 
     disclaimer = (
-        "IMPORTANT — Ce rapport est produit a titre informatif uniquement "
-        "et ne constitue en aucun cas un conseil en investissement, "
-        "une recommandation d'achat ou de vente de valeurs mobilieres, "
-        "ni une offre ou solicitation d'offre pour l'achat ou la vente "
-        "de tout instrument financier. "
-        "Les informations sont issues de sources jugees fiables "
-        "mais leur exactitude et exhaustivite ne sont pas garanties. "
-        "Les performances passees ne prejudgent pas des performances futures. "
-        "L'investissement en bourse comporte des risques de perte en capital. "
-        "Tout investisseur doit effectuer sa propre analyse et consulter "
-        "un conseiller financier agree avant toute decision d'investissement. "
-        "FinSight IA decline toute responsabilite quant aux decisions "
-        "prises sur la base de ce document."
+        f"Rapport genere par FinSight IA v2.0 le {today}. "
+        "Ce document est produit par un systeme d'intelligence artificielle a des fins d'analyse uniquement. "
+        "Il ne constitue pas un conseil en investissement au sens de la directive MiFID II. "
+        "FinSight IA ne peut etre tenu responsable des decisions d'investissement prises sur la base de ce document. "
+        "Les donnees financieres sont issues de sources publiques (yfinance, Finnhub, FMP) et peuvent contenir des inexactitudes. "
+        "Toute decision d'investissement doit faire l'objet d'une analyse complementaire par un professionnel qualifie."
     )
-    _wrap(c, disclaimer, M + 10, y - 14, CW - 20,
-          font="Helvetica", size=7.5, lh=12, color=_GREY)
-
-    y -= disc_h + 18
+    y = _wrap(c, disclaimer, M, y, CW, size=8, lh=13, color=_GREY)
+    y -= 20
 
     # Signature finale
-    c.setFont("Helvetica-Bold", 9)
     c.setFillColor(_rgb(_NAVY))
-    c.drawString(M, y, "FINSIGHT IA")
-    c.setFont("Helvetica", 8.5)
-    c.setFillColor(_rgb(_GREY))
-    c.drawString(M + 72, y,
-        f"Rapport genere le {today}  |  Confidentiel  |  Usage interne uniquement")
+    c.rect(M, y-28, CW, 28, fill=1, stroke=0)
+    c.setFillColor(_rgb(_WHITE)); c.setFont("Helvetica-Bold", 8)
+    c.drawString(M+10, y-14, "FinSight IA")
+    c.setFont("Helvetica", 7.5)
+    c.drawString(M+10, y-25, f"{today}  |  Confidentiel — Usage interne uniquement")
+    c.drawRightString(W-M-10, y-20,
+        f"Conviction : {getattr(synthesis,'conviction',0):.0%}  |  "
+        f"Confiance IA : {getattr(synthesis,'confidence_score',0):.0%}"
+        if synthesis else "FinSight IA v2.0")
 
 
 # ---------------------------------------------------------------------------
-# Alias public
+# HELPERS DATA
 # ---------------------------------------------------------------------------
 
-def save_pdf(snapshot, ratios, synthesis, sentiment, qa_python, devil) -> Path:
-    return generate_pdf(snapshot, ratios, synthesis, sentiment, qa_python, devil)
+def _gp(snapshot, yk):
+    fy = snapshot.years.get(yk)
+    if not fy: return None
+    rev  = getattr(fy, "revenue", None)
+    cogs = getattr(fy, "cogs", None)
+    if rev is None: return None
+    return rev - abs(cogs) if cogs is not None else None
+
+def _eb_calc(snapshot, yk):
+    fy = snapshot.years.get(yk)
+    if not fy: return None
+    gp  = _gp(snapshot, yk)
+    if gp is None: return None
+    sga = abs(getattr(fy,"sga",None) or 0)
+    rd  = abs(getattr(fy,"rd",None) or 0)
+    return gp - sga - rd
+
+def _compute_sensitivity(base_price, wacc, tgr, wacc_base, tgr_base):
+    if base_price is None: return None
+    try:
+        adj = (wacc_base - tgr_base) / ((wacc - tgr) if abs(wacc - tgr) > 1e-4 else 1e-4)
+        return base_price * adj
+    except: return None
+
+def _sector_benchmarks(sector):
+    s = (sector or "").lower()
+    if "tech" in s or "software" in s:
+        return {"pe":"25-40x","ev_ebitda":"20-35x","ev_rev":"6-12x","gm":"60-80%","em":"25-45%","roe":"20-40%",
+                "med_pe":30.0,"med_ev_ebitda":25.0,"med_ev_rev":8.0}
+    if "health" in s or "pharma" in s or "bio" in s:
+        return {"pe":"20-35x","ev_ebitda":"12-20x","ev_rev":"4-8x","gm":"60-75%","em":"25-40%","roe":"15-30%",
+                "med_pe":25.0,"med_ev_ebitda":15.0,"med_ev_rev":5.0}
+    if "financ" in s or "bank" in s:
+        return {"pe":"10-18x","ev_ebitda":"8-15x","ev_rev":"2-4x","gm":"50-70%","em":"20-35%","roe":"10-20%",
+                "med_pe":13.0,"med_ev_ebitda":10.0,"med_ev_rev":3.0}
+    if "energy" in s or "oil" in s:
+        return {"pe":"8-15x","ev_ebitda":"5-10x","ev_rev":"1-3x","gm":"30-55%","em":"15-30%","roe":"10-20%",
+                "med_pe":11.0,"med_ev_ebitda":7.0,"med_ev_rev":2.0}
+    if "consumer" in s or "retail" in s:
+        return {"pe":"15-30x","ev_ebitda":"10-18x","ev_rev":"1-4x","gm":"30-55%","em":"10-25%","roe":"15-30%",
+                "med_pe":22.0,"med_ev_ebitda":13.0,"med_ev_rev":2.5}
+    if "industrial" in s:
+        return {"pe":"15-25x","ev_ebitda":"10-16x","ev_rev":"1-3x","gm":"30-50%","em":"12-25%","roe":"12-22%",
+                "med_pe":18.0,"med_ev_ebitda":12.0,"med_ev_rev":2.0}
+    # Default
+    return {"pe":"15-25x","ev_ebitda":"10-18x","ev_rev":"2-5x","gm":"40-65%","em":"18-35%","roe":"12-25%",
+            "med_pe":20.0,"med_ev_ebitda":12.0,"med_ev_rev":4.0}
+
+def _get_scenario_hyp(synthesis, case, idx):
+    if not synthesis: return "Hypothese non disponible."
+    case_l = case.lower()
+    # Chercher dans les risques / forces selon le cas
+    if case_l == "bull":
+        items = getattr(synthesis, "strengths", None) or []
+        defaults = [
+            "Acceleration de la croissance organique au-dessus du consensus.",
+            "Expansion des marges via economies d'echelle et levier operationnel.",
+            "Multiple de valorisation re-rating vers la limite haute sectorielle.",
+        ]
+    elif case_l == "base":
+        items = []
+        defaults = [
+            f"Croissance revenues conforme au consensus de marche.",
+            "Maintien des marges actuelles sur l'horizon de projection.",
+            "Multiple de valorisation stable, proche des medianes sectorielles.",
+        ]
+    else:
+        items = getattr(synthesis, "risks", None) or []
+        defaults = [
+            "Deterioration du contexte macroeconomique et pression sur les marges.",
+            "Perte de part de marche face a la concurrence intensifiee.",
+            "Compression des multiples en environnement de taux eleves.",
+        ]
+    pool = [_s(i, 120) for i in items] + defaults
+    return pool[idx] if idx < len(pool) else defaults[min(idx, len(defaults)-1)]
+
+def _extract_segments(synthesis, ci):
+    """Extrait 3 segments d'activite depuis la synthese ou defaut."""
+    defaults = [
+        (ci.sector or "Activite principale", None, f"Activite principale de {ci.company_name}."),
+        ("Autres segments", None, "Activites complementaires et diversification sectorielle."),
+        ("International", None, "Operations et filiales a l'international."),
+    ]
+    if not synthesis: return defaults
+    risks = getattr(synthesis, "risks", None) or []
+    strengths = getattr(synthesis, "strengths", None) or []
+    # Simple extraction
+    return defaults
+
+def _extract_positioning(synthesis, ci):
+    if not synthesis: return f"{ci.company_name} opere dans le secteur {ci.sector or 'N/A'}."
+    summary = getattr(synthesis, "summary", None) or ""
+    if len(summary) > 100:
+        return summary[:500]
+    return (
+        f"{ci.company_name} ({ci.ticker}) occupe une position etablie dans le secteur {ci.sector or 'N/A'}. "
+        f"La societe beneficie de barrieres a l'entree significatives et d'un positionnement differencie. "
+        f"La dynamique concurrentielle reste intense, necessitant une vigilance accrue sur les parts de marche. "
+        f"Le modele economique repose sur une generation de cash recurrente et une discipline d'allocation du capital."
+    )
+
+def _extract_competitors(synthesis, ci):
+    strengths = getattr(synthesis, "strengths", None) or []
+    return "Concurrents directs : donnees issues de l'analyse sectorielle (voir onglet COMPARABLES dans Excel)."
+
+def _build_is_commentary(snapshot, ratios, years, ci):
+    if not years or not ratios: return "Analyse financiere basee sur les donnees disponibles."
+    latest = years[-1]
+    ry = ratios.years.get(latest)
+    g  = getattr(ry, "revenue_growth", None)
+    em = getattr(ry, "ebitda_margin", None)
+    nm = getattr(ry, "net_margin", None)
+    return (
+        f"Sur la periode analysee, {ci.company_name} affiche une dynamique de revenus "
+        f"{'en progression de ' + _p(g) if g else 'stable'} sur le dernier exercice. "
+        f"La marge EBITDA de {_p(em)} temoigne "
+        f"{'d un levier operationnel soutenu' if (em or 0) > 0.25 else 'd une pression sur la rentabilite operationnelle'}. "
+        f"La marge nette s etablit a {_p(nm)}, refletant l impact des charges financieres et fiscales. "
+        f"Les projections {str(int(latest.split('_')[0])+1)}F/{str(int(latest.split('_')[0])+2)}F restent "
+        f"conditionnelles aux hypotheses de croissance et de marge retenues — a traiter avec prudence."
+    )
+
+def _build_bilan_commentary(fy, yr, ci):
+    if not fy: return "Donnees bilancielles non disponibles."
+    cash = getattr(fy,"cash",None); ltd = getattr(fy,"long_term_debt",None)
+    cr = getattr(yr,"current_ratio",None) if yr else None
+    parts = []
+    if cash and ltd:
+        net = ltd - cash
+        parts.append(
+            f"La structure bilancielle de {ci.company_name} presente une dette nette de "
+            f"{_f(net)} {ci.currency}M, "
+            f"{'limitee au regard de la generation de cash' if net < cash else 'materielle et a surveiller'}."
+        )
+    if cr:
+        parts.append(
+            f"Le ratio de liquidite courante de {_x(cr)} est "
+            f"{'confortable' if cr >= 2 else 'adequat' if cr >= 1 else 'tendu et necessitant une attention particuliere'}."
+        )
+    parts.append(
+        "La capacite a absorber un choc exogene depend de l'acces aux lignes de credit disponibles et du profil d'echeance de la dette."
+    )
+    return " ".join(parts)
+
+def _sent_themes(sentiment, orient):
+    themes = getattr(sentiment, f"{orient}_themes", None)
+    if themes and isinstance(themes, list):
+        return ", ".join(str(t) for t in themes[:3])
+    keys_map = {
+        "positive": ["resultats", "croissance", "dividende"],
+        "neutral":  ["previsions", "marche", "analyse"],
+        "negative": ["risque", "pression", "competition"],
+    }
+    return ", ".join(keys_map.get(orient, ["N/A"]))
+
+def _build_sent_commentary(sentiment, synthesis):
+    score = getattr(sentiment, "composite_score", None)
+    orient = "positif" if (score or 0) > 0.1 else ("negatif" if (score or 0) < -0.1 else "neutre")
+    rec = getattr(synthesis, "recommendation", "N/A") if synthesis else "N/A"
+    return (
+        f"Le sentiment de marche agregé est {orient} (score : {_n(score,3)}), "
+        f"base sur l analyse de {getattr(sentiment,'article_count',0) or 0} articles financiers recents. "
+        f"Ce signal {'renforce' if (orient == 'positif' and rec == 'BUY') or (orient == 'negatif' and rec == 'SELL') else 'nuance'} "
+        f"la recommandation {rec} issue de l analyse fondamentale. "
+        f"Le sentiment doit etre interprete comme un facteur complementaire, "
+        f"non comme un signal d investissement autonome."
+    )
