@@ -234,13 +234,32 @@ def synthesis_node(state: FinSightState) -> dict:
     try:
         synthesis = AgentSynthese().synthesize(snapshot, ratios, sentiment)
         ms = int((time.time() - t0) * 1000)
-        conf = getattr(synthesis, "confidence_score", None)
-        rec  = getattr(synthesis, "recommendation", None)
+
+        # synthesize() peut retourner None sans lever d'exception
+        # (LLM credits epuises, JSON invalide, tous providers KO)
+        if synthesis is None:
+            fallback_conf = state.get("data_quality") or 0.70
+            log.warning(f"[synthesis_node] synthesize() retourne None — fallback conf={fallback_conf:.0%}")
+            return {
+                "synthesis":        None,
+                "confidence_score": fallback_conf,
+                **_err(state, "synthesis_node: LLM returned None (credits/JSON)"),
+                **_log_entry(state, "synthesis_node", ms, status="none",
+                             confidence=fallback_conf),
+            }
+
+        conf = synthesis.confidence_score
+        rec  = synthesis.recommendation
+        # Floor : confidence_score < 0.1 anormalement bas → utiliser data_quality
+        if conf < 0.1:
+            conf = state.get("data_quality") or 0.70
+            log.warning(f"[synthesis_node] confidence_score anormalement bas — remplace par {conf:.0%}")
+
         log.info(f"[synthesis_node] confidence={conf} rec={rec} — {ms}ms")
         return {
             "synthesis":               synthesis,
             "confidence_score":        conf,
-            "invalidation_conditions": getattr(synthesis, "invalidation_conditions", None),
+            "invalidation_conditions": synthesis.invalidation_conditions,
             "recommendation":          rec,
             **_log_entry(state, "synthesis_node", ms, status="ok",
                          confidence=conf, recommendation=rec),
@@ -248,8 +267,6 @@ def synthesis_node(state: FinSightState) -> dict:
     except Exception as e:
         ms = int((time.time() - t0) * 1000)
         log.error(f"[synthesis_node] Erreur : {e}")
-        # Utiliser data_quality comme fallback confidence pour ne pas bloquer
-        # si la synthesis echoue (LLM indisponible) mais les donnees sont bonnes
         fallback_conf = state.get("data_quality") or 0.70
         return {
             "synthesis": None,
@@ -453,9 +470,15 @@ def route_after_fetch(state: FinSightState) -> str:
 
 
 def route_after_synthesis(state: FinSightState) -> str:
-    """Apres synthesis : si confidence < 0.65 → bloque, sinon QA."""
-    conf = state.get("confidence_score") or 0.0
+    """Apres synthesis : si confidence < 0.65 → bloque, sinon QA.
+    Si confidence_score est None (LLM KO), utilise data_quality comme garde-fou."""
+    conf = state.get("confidence_score")
+    if conf is None:
+        # confidence_score non positionne : utiliser data_quality comme proxy
+        conf = state.get("data_quality") or 0.70
+        log.warning(f"[route_after_synthesis] confidence_score=None — proxy data_quality={conf:.0%}")
     if conf < 0.65:
+        log.warning(f"[route_after_synthesis] confidence={conf:.0%} < 65% — pipeline bloque")
         return "blocked_node"
     return "qa_node"
 
