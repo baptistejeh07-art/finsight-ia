@@ -248,9 +248,12 @@ def synthesis_node(state: FinSightState) -> dict:
     except Exception as e:
         ms = int((time.time() - t0) * 1000)
         log.error(f"[synthesis_node] Erreur : {e}")
+        # Utiliser data_quality comme fallback confidence pour ne pas bloquer
+        # si la synthesis echoue (LLM indisponible) mais les donnees sont bonnes
+        fallback_conf = state.get("data_quality") or 0.70
         return {
             "synthesis": None,
-            "confidence_score": 0.0,
+            "confidence_score": fallback_conf,
             **_err(state, f"synthesis_node: {e}"),
             **_log_entry(state, "synthesis_node", ms, status="error"),
         }

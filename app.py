@@ -522,18 +522,6 @@ def render_running() -> None:
                 st.rerun()
             return
 
-        if blocked:
-            conf = final_state.get("confidence_score") or 0.0
-            st.warning(
-                f"Analyse bloquée (Constitution Article 1) : "
-                f"confiance {conf:.0%} < 65 %. "
-                f"Les données sont insuffisantes pour émettre une recommandation."
-            )
-            if st.button("← Retour"):
-                st.session_state.stage = "home"
-                st.rerun()
-            return
-
         elapsed = int((time.time() - t0) * 1000)
 
         # --- Log V2 pipeline complet ---
@@ -566,7 +554,7 @@ def render_running() -> None:
             "qa_python": qa_python, "qa_haiku": qa_haiku, "devil": devil,
             "excel_path": excel_path, "pptx_path": pptx_path, "pdf_path": pdf_path,
             "excel_bytes": excel_bytes, "pptx_bytes": pptx_bytes, "pdf_bytes": pdf_bytes,
-            "elapsed_ms": elapsed,
+            "blocked": blocked, "elapsed_ms": elapsed,
         }
         st.session_state.stage = "results"
         st.rerun()
@@ -796,6 +784,12 @@ def render_results(results: dict) -> None:
             st.session_state.stage = "home"
             st.rerun()
         return
+
+    if results.get("blocked"):
+        st.warning(
+            "Analyse partielle — confiance LLM insuffisante. "
+            "Les données financières et livrables restent disponibles."
+        )
 
     snapshot  = results["snapshot"]
     ratios    = results["ratios"]
