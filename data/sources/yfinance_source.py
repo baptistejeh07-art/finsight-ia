@@ -185,10 +185,28 @@ def fetch(ticker: str) -> Optional[FinancialSnapshot]:
     """
     try:
         tk   = yf.Ticker(ticker)
-        info = tk.info or {}
+        info = {}
+        try:
+            info = tk.info or {}
+        except Exception as e:
+            log.warning(f"[yfinance] '{ticker}' tk.info failed: {e}")
 
+        # Fallback fast_info si info vide ou sans prix
         price_check = info.get("currentPrice") or info.get("regularMarketPrice")
         name_check  = info.get("longName") or info.get("shortName")
+        if not price_check or not name_check:
+            try:
+                fi = tk.fast_info
+                if not price_check:
+                    price_check = getattr(fi, "last_price", None)
+                    if price_check:
+                        info["currentPrice"] = float(price_check)
+                if not name_check:
+                    name_check = ticker  # au pire on utilise le ticker comme nom
+                    info.setdefault("longName", ticker)
+            except Exception as e:
+                log.warning(f"[yfinance] '{ticker}' fast_info failed: {e}")
+
         if not price_check and not name_check:
             log.warning(f"[yfinance] '{ticker}' : aucune donnée de base")
             return None
