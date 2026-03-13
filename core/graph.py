@@ -26,6 +26,7 @@ from __future__ import annotations
 import logging
 import time
 from concurrent.futures import ThreadPoolExecutor
+from datetime import date
 from pathlib import Path
 from typing import Any, Optional
 
@@ -361,27 +362,45 @@ def output_node(state: FinSightState) -> dict:
         log.warning(f"[output_node] comparables: {e}")
 
     try:
+        import tempfile
         from outputs.excel_writer import ExcelWriter
-        p = ExcelWriter().write(snapshot, synthesis, ratios, comparables=comparables)
-        excel_path  = str(p)
-        excel_bytes = Path(p).read_bytes()
+        with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp:
+            tmp_path = Path(tmp.name)
+        ExcelWriter().write(snapshot, synthesis, ratios,
+                            comparables=comparables, output_path=tmp_path)
+        excel_bytes = tmp_path.read_bytes()
+        tmp_path.unlink(missing_ok=True)
+        excel_path = f"{snapshot.ticker}_{date.today().isoformat()}.xlsx"
+        log.info(f"[output_node] Excel OK — {len(excel_bytes)} bytes")
     except Exception as e:
         log.error(f"[output_node] ExcelWriter FAILED: {e}", exc_info=True)
 
     try:
+        import tempfile
         from outputs.pptx_builder import PPTXBuilder
-        p = PPTXBuilder().build(snapshot, ratios, synthesis, qa_python, devil)
-        pptx_path  = str(p)
-        pptx_bytes = Path(p).read_bytes()
+        with tempfile.NamedTemporaryFile(suffix=".pptx", delete=False) as tmp:
+            tmp_path = Path(tmp.name)
+        PPTXBuilder().build(snapshot, ratios, synthesis, qa_python, devil,
+                            output_path=tmp_path)
+        pptx_bytes = tmp_path.read_bytes()
+        tmp_path.unlink(missing_ok=True)
+        pptx_path = f"{snapshot.ticker}_{date.today().isoformat()}_pitchbook.pptx"
+        log.info(f"[output_node] PPTX OK — {len(pptx_bytes)} bytes")
     except Exception as e:
         log.error(f"[output_node] PPTXBuilder FAILED: {e}", exc_info=True)
 
     try:
+        import tempfile
         from outputs.pdf_report import generate_pdf
-        p = generate_pdf(snapshot, ratios, synthesis,
-                         state.get("sentiment"), qa_python, devil)
-        pdf_path  = str(p)
-        pdf_bytes = Path(p).read_bytes()
+        with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
+            tmp_path = Path(tmp.name)
+        generate_pdf(snapshot, ratios, synthesis,
+                     state.get("sentiment"), qa_python, devil,
+                     output_path=tmp_path)
+        pdf_bytes = tmp_path.read_bytes()
+        tmp_path.unlink(missing_ok=True)
+        pdf_path = f"{snapshot.ticker}_{date.today().isoformat()}_report.pdf"
+        log.info(f"[output_node] PDF OK — {len(pdf_bytes)} bytes")
     except Exception as e:
         log.error(f"[output_node] PDFReport FAILED: {e}", exc_info=True)
 
