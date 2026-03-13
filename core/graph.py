@@ -333,11 +333,6 @@ def devil_node(state: FinSightState) -> dict:
 # ---------------------------------------------------------------------------
 
 def output_node(state: FinSightState) -> dict:
-    from outputs.excel_writer import ExcelWriter
-    from outputs.pptx_builder import PPTXBuilder
-    from outputs.pdf_report   import generate_pdf
-    from data.sources.comparables_source import collect_comparables
-
     snapshot  = state.get("raw_data")
     ratios    = state.get("ratios")
     synthesis = state.get("synthesis")
@@ -351,6 +346,7 @@ def output_node(state: FinSightState) -> dict:
     # Comparables
     comparables = None
     try:
+        from data.sources.comparables_source import collect_comparables
         ci = snapshot.company_info
         comparables = collect_comparables(
             ticker=state["ticker"],
@@ -360,6 +356,7 @@ def output_node(state: FinSightState) -> dict:
         log.warning(f"[output_node] comparables: {e}")
 
     try:
+        from outputs.excel_writer import ExcelWriter
         p = ExcelWriter().write(snapshot, synthesis, ratios, comparables=comparables)
         excel_path  = str(p)
         excel_bytes = Path(p).read_bytes()
@@ -367,6 +364,7 @@ def output_node(state: FinSightState) -> dict:
         log.error(f"[output_node] ExcelWriter FAILED: {e}", exc_info=True)
 
     try:
+        from outputs.pptx_builder import PPTXBuilder
         p = PPTXBuilder().build(snapshot, ratios, synthesis, qa_python, devil)
         pptx_path  = str(p)
         pptx_bytes = Path(p).read_bytes()
@@ -374,6 +372,7 @@ def output_node(state: FinSightState) -> dict:
         log.error(f"[output_node] PPTXBuilder FAILED: {e}", exc_info=True)
 
     try:
+        from outputs.pdf_report import generate_pdf
         p = generate_pdf(snapshot, ratios, synthesis,
                          state.get("sentiment"), qa_python, devil)
         pdf_path  = str(p)
