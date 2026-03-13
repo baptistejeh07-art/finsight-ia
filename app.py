@@ -288,25 +288,38 @@ def render_sidebar(results) -> None:
         st.markdown('<span class="sb-label">Livrables</span>', unsafe_allow_html=True)
 
         if results and not results.get("error"):
-            pptx = results.get("pptx_path")
-            if pptx and Path(pptx).exists():
-                data = open(pptx, "rb").read()
-                st.download_button("Pitchbook Financier  ↓ .pptx", data,
-                    file_name=Path(pptx).name,
+            ticker_slug = results.get("ticker", "report")
+
+            pptx_data = results.get("pptx_bytes")
+            if not pptx_data:
+                pptx = results.get("pptx_path")
+                if pptx and Path(pptx).exists():
+                    pptx_data = open(pptx, "rb").read()
+            if pptx_data:
+                st.download_button("Pitchbook Financier  ↓ .pptx", pptx_data,
+                    file_name=f"{ticker_slug}_pitchbook.pptx",
                     mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
                     use_container_width=True)
-            xlsx = results.get("excel_path")
-            if xlsx and Path(xlsx).exists():
-                data = open(xlsx, "rb").read()
-                st.download_button("Ratios & Graphiques  ↓ .xlsx", data,
-                    file_name=Path(xlsx).name,
+
+            xlsx_data = results.get("excel_bytes")
+            if not xlsx_data:
+                xlsx = results.get("excel_path")
+                if xlsx and Path(xlsx).exists():
+                    xlsx_data = open(xlsx, "rb").read()
+            if xlsx_data:
+                st.download_button("Ratios & Graphiques  ↓ .xlsx", xlsx_data,
+                    file_name=f"{ticker_slug}_ratios.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     use_container_width=True)
-            pdf = results.get("pdf_path")
-            if pdf and Path(pdf).exists():
-                data = open(pdf, "rb").read()
-                st.download_button("Rapport PDF  ↓ .pdf", data,
-                    file_name=Path(pdf).name,
+
+            pdf_data = results.get("pdf_bytes")
+            if not pdf_data:
+                pdf = results.get("pdf_path")
+                if pdf and Path(pdf).exists():
+                    pdf_data = open(pdf, "rb").read()
+            if pdf_data:
+                st.download_button("Rapport PDF  ↓ .pdf", pdf_data,
+                    file_name=f"{ticker_slug}_report.pdf",
                     mime="application/pdf",
                     use_container_width=True)
 
@@ -491,9 +504,12 @@ def render_running() -> None:
         qa_python = final_state.get("qa_python")
         qa_haiku  = final_state.get("qa_haiku")
         devil     = final_state.get("devil")
-        excel_path = final_state.get("excel_path")
-        pptx_path  = final_state.get("pptx_path")
-        pdf_path   = final_state.get("pdf_path")
+        excel_path  = final_state.get("excel_path")
+        pptx_path   = final_state.get("pptx_path")
+        pdf_path    = final_state.get("pdf_path")
+        excel_bytes = final_state.get("excel_bytes")
+        pptx_bytes  = final_state.get("pptx_bytes")
+        pdf_bytes   = final_state.get("pdf_bytes")
         blocked    = final_state.get("blocked", False)
         errors     = final_state.get("errors") or []
 
@@ -546,8 +562,9 @@ def render_running() -> None:
             "ticker": ticker, "snapshot": snapshot, "ratios": ratios,
             "synthesis": synthesis, "sentiment": sentiment,
             "qa_python": qa_python, "qa_haiku": qa_haiku, "devil": devil,
-            "excel_path": excel_path, "pptx_path": pptx_path,
-            "pdf_path": pdf_path, "elapsed_ms": elapsed,
+            "excel_path": excel_path, "pptx_path": pptx_path, "pdf_path": pdf_path,
+            "excel_bytes": excel_bytes, "pptx_bytes": pptx_bytes, "pdf_bytes": pdf_bytes,
+            "elapsed_ms": elapsed,
         }
         st.session_state.stage = "results"
         st.rerun()

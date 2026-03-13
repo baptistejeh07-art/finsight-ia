@@ -27,6 +27,7 @@ import asyncio
 import logging
 import time
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 from typing import Any, Optional
 
 from langgraph.graph import END, StateGraph
@@ -65,9 +66,12 @@ class FinSightState(TypedDict, total=False):
     devil: Optional[Any]
 
     # Outputs
-    excel_path: Optional[str]
-    pdf_path:   Optional[str]
-    pptx_path:  Optional[str]
+    excel_path:  Optional[str]
+    pdf_path:    Optional[str]
+    pptx_path:   Optional[str]
+    excel_bytes: Optional[bytes]
+    pdf_bytes:   Optional[bytes]
+    pptx_bytes:  Optional[bytes]
 
     # Monitoring
     data_quality: float        # 0.0–1.0 (confidence snapshot)
@@ -345,6 +349,7 @@ def output_node(state: FinSightState) -> dict:
 
     t0 = time.time()
     excel_path = pptx_path = pdf_path = None
+    excel_bytes = pptx_bytes = pdf_bytes = None
 
     # Comparables
     comparables = None
@@ -358,19 +363,24 @@ def output_node(state: FinSightState) -> dict:
         log.warning(f"[output_node] comparables: {e}")
 
     try:
-        excel_path = str(ExcelWriter().write(snapshot, synthesis, ratios,
-                                             comparables=comparables))
+        p = ExcelWriter().write(snapshot, synthesis, ratios, comparables=comparables)
+        excel_path  = str(p)
+        excel_bytes = Path(p).read_bytes()
     except Exception as e:
         log.warning(f"[output_node] ExcelWriter: {e}")
 
     try:
-        pptx_path = str(PPTXBuilder().build(snapshot, ratios, synthesis, qa_python, devil))
+        p = PPTXBuilder().build(snapshot, ratios, synthesis, qa_python, devil)
+        pptx_path  = str(p)
+        pptx_bytes = Path(p).read_bytes()
     except Exception as e:
         log.warning(f"[output_node] PPTXBuilder: {e}")
 
     try:
-        pdf_path = str(generate_pdf(snapshot, ratios, synthesis,
-                                    state.get("sentiment"), qa_python, devil))
+        p = generate_pdf(snapshot, ratios, synthesis,
+                         state.get("sentiment"), qa_python, devil)
+        pdf_path  = str(p)
+        pdf_bytes = Path(p).read_bytes()
     except Exception as e:
         log.warning(f"[output_node] PDFReport: {e}")
 
@@ -378,9 +388,12 @@ def output_node(state: FinSightState) -> dict:
     log.info(f"[output_node] Excel={bool(excel_path)} PPTX={bool(pptx_path)} PDF={bool(pdf_path)} — {ms}ms")
 
     return {
-        "excel_path": excel_path,
-        "pptx_path":  pptx_path,
-        "pdf_path":   pdf_path,
+        "excel_path":  excel_path,
+        "pptx_path":   pptx_path,
+        "pdf_path":    pdf_path,
+        "excel_bytes": excel_bytes,
+        "pptx_bytes":  pptx_bytes,
+        "pdf_bytes":   pdf_bytes,
         **_log_entry(state, "output_node", ms,
                      excel=bool(excel_path), pptx=bool(pptx_path), pdf=bool(pdf_path)),
     }
