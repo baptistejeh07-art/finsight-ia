@@ -367,14 +367,14 @@ def output_node(state: FinSightState) -> dict:
         excel_path  = str(p)
         excel_bytes = Path(p).read_bytes()
     except Exception as e:
-        log.warning(f"[output_node] ExcelWriter: {e}")
+        log.error(f"[output_node] ExcelWriter FAILED: {e}", exc_info=True)
 
     try:
         p = PPTXBuilder().build(snapshot, ratios, synthesis, qa_python, devil)
         pptx_path  = str(p)
         pptx_bytes = Path(p).read_bytes()
     except Exception as e:
-        log.warning(f"[output_node] PPTXBuilder: {e}")
+        log.error(f"[output_node] PPTXBuilder FAILED: {e}", exc_info=True)
 
     try:
         p = generate_pdf(snapshot, ratios, synthesis,
@@ -382,7 +382,7 @@ def output_node(state: FinSightState) -> dict:
         pdf_path  = str(p)
         pdf_bytes = Path(p).read_bytes()
     except Exception as e:
-        log.warning(f"[output_node] PDFReport: {e}")
+        log.error(f"[output_node] PDFReport FAILED: {e}", exc_info=True)
 
     ms = int((time.time() - t0) * 1000)
     log.info(f"[output_node] Excel={bool(excel_path)} PPTX={bool(pptx_path)} PDF={bool(pdf_path)} — {ms}ms")
