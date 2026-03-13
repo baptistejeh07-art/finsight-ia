@@ -33,11 +33,13 @@ log = logging.getLogger(__name__)
 # Chemins
 # ---------------------------------------------------------------------------
 
-_TEMPLATE = Path(
-    os.getenv(
-        "TEMPLATE_PATH",
-        str(Path(__file__).parent.parent / "assets" / "TEMPLATE.xlsx"),
-    )
+_DEFAULT_TEMPLATE = Path(__file__).parent.parent / "assets" / "TEMPLATE.xlsx"
+_TEMPLATE_ENV = os.getenv("TEMPLATE_PATH", "")
+# Toujours résoudre en absolu : si relatif, ancrer sur la racine du projet
+_TEMPLATE = (
+    Path(_TEMPLATE_ENV).resolve()
+    if _TEMPLATE_ENV
+    else _DEFAULT_TEMPLATE
 )
 _OUTPUT_DIR = Path(__file__).parent / "generated"
 

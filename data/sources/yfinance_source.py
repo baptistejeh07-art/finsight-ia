@@ -191,18 +191,22 @@ def fetch(ticker: str) -> Optional[FinancialSnapshot]:
         except Exception as e:
             log.warning(f"[yfinance] '{ticker}' tk.info failed: {e}")
 
-        # Fallback fast_info si info vide ou sans prix
+        # Fallback fast_info si info vide ou sans prix/actions
         price_check = info.get("currentPrice") or info.get("regularMarketPrice")
         name_check  = info.get("longName") or info.get("shortName")
-        if not price_check or not name_check:
+        if not price_check or not name_check or not info.get("sharesOutstanding"):
             try:
                 fi = tk.fast_info
                 if not price_check:
                     price_check = getattr(fi, "last_price", None)
                     if price_check:
                         info["currentPrice"] = float(price_check)
+                if not info.get("sharesOutstanding"):
+                    shares = getattr(fi, "shares", None)
+                    if shares:
+                        info["sharesOutstanding"] = int(shares)
                 if not name_check:
-                    name_check = ticker  # au pire on utilise le ticker comme nom
+                    name_check = ticker
                     info.setdefault("longName", ticker)
             except Exception as e:
                 log.warning(f"[yfinance] '{ticker}' fast_info failed: {e}")
