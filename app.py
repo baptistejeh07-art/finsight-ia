@@ -558,6 +558,16 @@ def render_running() -> None:
         )
         time.sleep(0.5)
 
+        # DEBUG temporaire — affiche ce qui est disponible
+        _dbg = (
+            f"Excel={'OK' if excel_bytes else 'NONE'} "
+            f"PPTX={'OK' if pptx_bytes else 'NONE'} "
+            f"PDF={'OK' if pdf_bytes else 'NONE'} "
+            f"errors={errors[:2] if errors else []}"
+        )
+        log.warning(f"[app] output debug: {_dbg}")
+        st.caption(f"debug livrables: {_dbg}")
+
         st.session_state.results = {
             "ticker": ticker, "snapshot": snapshot, "ratios": ratios,
             "synthesis": synthesis, "sentiment": sentiment,
