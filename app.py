@@ -571,8 +571,8 @@ def _build_ia_html(snapshot, ratios, synthesis, qa_python, qa_haiku, devil, sent
     """
     ci     = snapshot.company_info
     mkt    = snapshot.market
-    latest = ratios.latest_year
-    yr     = ratios.years.get(latest)
+    latest = ratios.latest_year if ratios else None
+    yr     = ratios.years.get(latest) if ratios and latest else None
 
     def _p(v): return f"{v*100:.1f}%" if v is not None else "N/A"
     def _x(v): return f"{v:.2f}×"    if v is not None else "N/A"
@@ -582,6 +582,18 @@ def _build_ia_html(snapshot, ratios, synthesis, qa_python, qa_haiku, devil, sent
     def _risk(t): return f'<span class="ia-risk">{_e(str(t))}</span>'
 
     blocks = []
+
+    # ---- Bloc 0 : Synthèse narrative ----
+    if synthesis and synthesis.summary:
+        text = _e(synthesis.summary)
+        if synthesis.strengths:
+            bullets = "".join(
+                f"<br>{_good('✓')} {_e(s)}" for s in synthesis.strengths[:3]
+            )
+            text += bullets
+        if synthesis.valuation_comment:
+            text += f"<br><br>{_e(synthesis.valuation_comment)}"
+        blocks.append(("Thèse d'investissement", text))
 
     # ---- Bloc 1 : Valorisation ----
     if yr and synthesis:
@@ -715,13 +727,16 @@ def _build_ia_html(snapshot, ratios, synthesis, qa_python, qa_haiku, devil, sent
         solidity = ("thèse fragile — arguments contra solides" if delta < -0.2
                     else "thèse robuste" if delta > 0.2
                     else "thèse modérément solide")
+        rec_orig = getattr(synthesis, "recommendation", "N/A") if synthesis else "N/A"
+        alt_map  = {"BUY": "HOLD/SELL", "HOLD": "SELL", "SELL": "BUY"}
+        counter_reco = alt_map.get(rec_orig, "HOLD")
         risk_text += (
-            f"<br><br>{_risk('Avocat du Diable')} ({devil.original_reco} → {devil.counter_reco}, "
+            f"<br><br>{_risk('Avocat du Diable')} ({rec_orig} → {counter_reco}, "
             f"delta conviction {delta:+.2f} — {_e(solidity)}) : "
             f"{_e(devil.counter_thesis[:280] if devil.counter_thesis else '')}"
         )
-        for a in devil.key_assumptions[:2]:
-            risk_text += f"<br><span class=\"ia-hl\">? Hypothèse fragile</span> : {_e(a)}"
+        for risk in (getattr(devil, "counter_risks", []) or [])[:2]:
+            risk_text += f"<br><span class=\"ia-hl\">? Risque sous-estimé</span> : {_e(risk)}"
 
     if synthesis and synthesis.invalidation_conditions:
         risk_text += (
@@ -732,7 +747,29 @@ def _build_ia_html(snapshot, ratios, synthesis, qa_python, qa_haiku, devil, sent
     if risk_text:
         blocks.append(("Risques &amp; Avocat du Diable", risk_text.lstrip("<br>")))
 
-    # ---- Bloc 5 : QA ----
+    # ---- Bloc 5 : Sentiment ----
+    if sentiment:
+        lbl_map = {"POSITIVE": ("Positif", "ia-good"), "NEGATIVE": ("Négatif", "ia-risk"), "NEUTRAL": ("Neutre", "ia-hl")}
+        lbl_fr, lbl_cls = lbl_map.get(sentiment.label, ("Neutre", "ia-hl"))
+        sent_text = (
+            f"Analyse FinBERT de {sentiment.articles_analyzed} article(s) : "
+            f"sentiment <span class=\"{lbl_cls}\">{lbl_fr}</span> "
+            f"(score {int(sentiment.score_normalized*100)}%, confiance {int(sentiment.confidence*100)}%). "
+        )
+        if sentiment.breakdown:
+            pos = sentiment.breakdown.get("avg_positive", 0) or 0
+            neg = sentiment.breakdown.get("avg_negative", 0) or 0
+            sent_text += (
+                f"Distribution — Positif : {int(pos*100)}%, Négatif : {int(neg*100)}%."
+            )
+        if sentiment.samples:
+            s = sentiment.samples[0]
+            lbl_s = s.get("label", "")
+            txt_s = (s.get("headline") or s.get("text") or "")[:120]
+            sent_text += f"<br><br>Exemple : <em>{_e(txt_s)}</em> [{lbl_s}]"
+        blocks.append(("Sentiment de marché (FinBERT)", sent_text))
+
+    # ---- Bloc 6 : QA ----
     if qa_python or qa_haiku:
         qa_text = ""
         if qa_python:
@@ -801,8 +838,8 @@ def render_results(results: dict) -> None:
 
     ci     = snapshot.company_info
     mkt    = snapshot.market
-    latest = ratios.latest_year
-    yr     = ratios.years.get(latest)
+    latest = ratios.latest_year if ratios else None
+    yr     = ratios.years.get(latest) if ratios and latest else None
 
     def _p(v): return f"{v*100:.1f}%" if v is not None else "N/A"
     def _x(v): return f"{v:.2f}×"    if v is not None else "N/A"
@@ -859,6 +896,49 @@ def render_results(results: dict) -> None:
           </div>
         </div>
         """, unsafe_allow_html=True)
+
+    # ------------------------------------------------------------------
+    # Synthèse narrative
+    # ------------------------------------------------------------------
+    if synthesis and synthesis.summary:
+        st.markdown('<div class="sec-t">Synthèse de l\'analyse</div>', unsafe_allow_html=True)
+        summary_html = (
+            f'<div style="font-size:14px;line-height:1.85;color:#333;padding:16px 0 8px;">'
+            f'{_e(synthesis.summary)}'
+            f'</div>'
+        )
+        if synthesis.strengths:
+            bullets = "".join(
+                f'<li style="margin-bottom:6px;">{_e(s)}</li>'
+                for s in synthesis.strengths[:3]
+            )
+            summary_html += (
+                f'<ul style="font-size:13px;color:#444;line-height:1.7;'
+                f'padding-left:20px;margin-bottom:24px;">{bullets}</ul>'
+            )
+        else:
+            summary_html += '<div style="margin-bottom:24px;"></div>'
+        st.markdown(summary_html, unsafe_allow_html=True)
+
+    # ------------------------------------------------------------------
+    # Sentiment de marché
+    # ------------------------------------------------------------------
+    if sentiment:
+        lbl_map   = {"POSITIVE": ("Positif", "#1a7a52"), "NEGATIVE": ("Négatif", "#c0392b"), "NEUTRAL": ("Neutre", "#b8922a")}
+        lbl_fr, lbl_col = lbl_map.get(sentiment.label, ("Neutre", "#b8922a"))
+        score_pct = int(sentiment.score_normalized * 100)
+        st.markdown(
+            f'<div style="display:flex;align-items:center;gap:28px;padding:12px 0 28px;'
+            f'border-bottom:1px solid #f5f5f5;margin-bottom:28px;">'
+            f'<div style="font-size:11px;font-weight:600;letter-spacing:1px;'
+            f'text-transform:uppercase;color:#888;">Sentiment FinBERT</div>'
+            f'<div style="font-size:16px;font-weight:700;color:{lbl_col};">{_e(lbl_fr)}</div>'
+            f'<div style="font-size:13px;color:#666;">Score : <b>{score_pct}%</b> · '
+            f'Confiance : <b>{int(sentiment.confidence*100)}%</b> · '
+            f'{sentiment.articles_analyzed} article(s) analysé(s)</div>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
 
     # ------------------------------------------------------------------
     # Contexte marché
@@ -1007,6 +1087,14 @@ def render_results(results: dict) -> None:
         </div>
         """
         st.markdown(scen, unsafe_allow_html=True)
+
+        if synthesis.valuation_comment:
+            st.markdown(
+                f'<div style="font-size:13px;color:#555;line-height:1.7;padding:12px 0 28px;">'
+                f'{_e(synthesis.valuation_comment)}'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
 
     # ------------------------------------------------------------------
     # IA Section (toggle via expander)
