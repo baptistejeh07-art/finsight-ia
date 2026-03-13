@@ -1,0 +1,45 @@
+# =============================================================================
+# FinSight IA — Dépendances Streamlit Community Cloud
+# pip install -r requirements.txt
+#
+# EXCLUS intentionnellement (voir requirements-local.txt pour dev complet) :
+#   - torch / transformers  : 700MB+, OOM sur free tier SCC (1GB RAM)
+#                             AgentSentiment utilise le fallback Finnhub news
+#   - ollama                : local uniquement
+#   - redis                 : nécessite un serveur externe
+#   - chromadb              : base vectorielle locale (Phase 9 Gouvernance)
+#   - polars                : pandas suffit en prod
+#   - supabase              : fallback JSON local actif
+#   - polygon-api-client    : non utilisé en prod
+#   - alpha-vantage         : non utilisé en prod
+# =============================================================================
+
+# --- LLM Providers ---
+anthropic>=0.40.0
+groq>=0.9.0
+
+# --- Données financières ---
+yfinance>=0.2.40
+finnhub-python>=2.4.19
+
+# --- Excel / Rapports ---
+openpyxl>=3.1.2
+python-pptx>=1.0.0
+pdfplumber>=0.10.0
+
+# --- Calcul / Data ---
+pandas>=2.2.0
+numpy>=1.26.0
+
+# --- Interface ---
+streamlit>=1.36.0
+
+# --- LangGraph ---
+langgraph>=0.2.0
+langchain-core>=0.1.0
+
+# --- Utils ---
+feedparser>=6.0.11
+httpx>=0.27.0
+python-dotenv>=1.0.0
+requests>=2.32.0
