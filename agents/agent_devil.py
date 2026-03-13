@@ -165,6 +165,10 @@ class AgentDevil:
         Produit la these inverse de la synthese.
         Returns DevilResult, ou None si LLM inaccessible.
         """
+        if synthesis is None:
+            log.warning("[AgentDevil] synthesis=None — challenge impossible, skip")
+            return None
+
         request_id = str(uuid.uuid4())
         t_start    = time.time()
         ticker     = synthesis.ticker
@@ -185,12 +189,7 @@ class AgentDevil:
                         log.info("[AgentDevil] Fallback Groq utilise")
                     break
             except Exception as e:
-                err = str(e).lower()
-                if any(k in err for k in ["credit", "billing", "balance", "quota"]):
-                    log.warning(f"[AgentDevil] {llm.provider} credits insuffisants — fallback")
-                else:
-                    log.error(f"[AgentDevil] Erreur {llm.provider} : {e}")
-                    break
+                log.warning(f"[AgentDevil] {llm.provider} echec ({type(e).__name__}: {e}) — provider suivant")
 
         if not raw:
             log.error("[AgentDevil] Tous les providers ont echoue")

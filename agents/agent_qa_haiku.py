@@ -151,6 +151,10 @@ class AgentQAHaiku:
         Valide la qualite de la synthese via Claude Haiku.
         Returns QAHaikuResult, ou None si LLM inaccessible.
         """
+        if synthesis is None:
+            log.warning("[AgentQAHaiku] synthesis=None — validation impossible, skip")
+            return None
+
         request_id = str(uuid.uuid4())
         t_start    = time.time()
         ticker     = synthesis.ticker
@@ -171,12 +175,7 @@ class AgentQAHaiku:
                         log.info("[AgentQAHaiku] Fallback Groq utilise")
                     break
             except Exception as e:
-                err = str(e).lower()
-                if any(k in err for k in ["credit", "billing", "balance", "quota"]):
-                    log.warning(f"[AgentQAHaiku] {llm.provider} credits insuffisants — fallback")
-                else:
-                    log.error(f"[AgentQAHaiku] Erreur {llm.provider} : {e}")
-                    break
+                log.warning(f"[AgentQAHaiku] {llm.provider} echec ({type(e).__name__}: {e}) — provider suivant")
 
         if not raw:
             log.error("[AgentQAHaiku] Tous les providers ont echoue")

@@ -223,12 +223,7 @@ class AgentSynthese:
                         log.info(f"[AgentSynthese] Fallback Groq utilise")
                     break
             except Exception as e:
-                err = str(e).lower()
-                if any(k in err for k in ["credit", "billing", "balance", "quota"]):
-                    log.warning(f"[AgentSynthese] {llm_attempt.provider} credits insuffisants — fallback suivant")
-                else:
-                    log.error(f"[AgentSynthese] Erreur {llm_attempt.provider} : {e}")
-                    break
+                log.warning(f"[AgentSynthese] {llm_attempt.provider} echec ({type(e).__name__}: {e}) — provider suivant")
 
         if not raw:
             log.error("[AgentSynthese] Tous les providers ont echoue")
