@@ -450,9 +450,7 @@ def route_after_fetch(state: FinSightState) -> str:
 
 
 def route_after_synthesis(state: FinSightState) -> str:
-    """Apres synthesis : si synthesis None → END, si confidence < 0.65 → bloque."""
-    if state.get("synthesis") is None:
-        return END   # synthesis a completement echoue
+    """Apres synthesis : si confidence < 0.65 → bloque, sinon QA."""
     conf = state.get("confidence_score") or 0.0
     if conf < 0.65:
         return "blocked_node"
@@ -516,7 +514,7 @@ def build_graph() -> StateGraph:
             END:             END,
         },
     )
-    graph.add_edge("blocked_node", END)
+    graph.add_edge("blocked_node", "output_node")
 
     graph.add_conditional_edges(
         "qa_node",
