@@ -514,7 +514,9 @@ def render_running() -> None:
         errors     = final_state.get("errors") or []
 
         if snapshot is None:
-            st.error(f"Aucune donnée disponible pour « {ticker} ». Vérifiez le ticker.")
+            st.error(f"Aucune donnée disponible pour « {ticker} ».")
+            if errors:
+                st.code("\n".join(str(e) for e in errors), language="text")
             if st.button("← Retour"):
                 st.session_state.stage = "home"
                 st.rerun()
