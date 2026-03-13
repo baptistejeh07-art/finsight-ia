@@ -23,7 +23,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -102,8 +101,8 @@ def _log_entry(state: FinSightState, node: str, latency_ms: int, **kw) -> dict:
 
 def fetch_node(state: FinSightState) -> dict:
     """
-    Lance AgentData et AgentSentiment en parallele via asyncio + ThreadPoolExecutor.
-    Noeud synchrone : asyncio.run() isole la boucle pour compatibilite LangGraph.
+    Lance AgentData et AgentSentiment en parallele via ThreadPoolExecutor.
+    N'utilise pas asyncio.run() pour rester compatible avec la boucle Streamlit.
     """
     from agents.agent_data      import AgentData
     from agents.agent_sentiment import AgentSentiment
@@ -111,14 +110,12 @@ def fetch_node(state: FinSightState) -> dict:
     ticker = state["ticker"]
     t0     = time.time()
 
-    async def _parallel():
-        loop = asyncio.get_event_loop()
-        with ThreadPoolExecutor(max_workers=2) as pool:
-            f_data = loop.run_in_executor(pool, AgentData().collect, ticker)
-            f_sent = loop.run_in_executor(pool, AgentSentiment().analyze, ticker)
-            return await asyncio.gather(f_data, f_sent)
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        f_data = pool.submit(AgentData().collect, ticker)
+        f_sent = pool.submit(AgentSentiment().analyze, ticker)
+        snapshot  = f_data.result()
+        sentiment = f_sent.result()
 
-    snapshot, sentiment = asyncio.run(_parallel())
     ms = int((time.time() - t0) * 1000)
 
     if snapshot is None:
