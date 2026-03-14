@@ -13,6 +13,24 @@ import os
 from typing import Optional
 
 
+def _get_secret(key: str) -> Optional[str]:
+    """
+    Lit une clé API depuis os.environ, puis st.secrets en fallback.
+    Nécessaire sur Streamlit Community Cloud où inject_secrets() peut échouer.
+    """
+    val = os.getenv(key)
+    if val:
+        return val
+    try:
+        import streamlit as st
+        v = st.secrets.get(key)
+        if v:
+            return str(v)
+    except Exception:
+        pass
+    return None
+
+
 class LLMProvider:
     """
     Abstraction LLM multi-fournisseurs.
@@ -107,7 +125,7 @@ class LLMProvider:
         if self._client is None:
             import anthropic
             self._client = anthropic.Anthropic(
-                api_key=os.getenv("ANTHROPIC_API_KEY")
+                api_key=_get_secret("ANTHROPIC_API_KEY")
             )
         kwargs: dict = {
             "model": self.model,
@@ -122,7 +140,7 @@ class LLMProvider:
     def _call_groq(self, prompt: str, system: Optional[str], max_tokens: int) -> str:
         if self._client is None:
             from groq import Groq
-            self._client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+            self._client = Groq(api_key=_get_secret("GROQ_API_KEY"))
         messages = []
         if system:
             messages.append({"role": "system", "content": system})
@@ -137,7 +155,7 @@ class LLMProvider:
     def _call_gemini(self, prompt: str, system: Optional[str], max_tokens: int) -> str:
         if self._client is None:
             import google.generativeai as genai
-            genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+            genai.configure(api_key=_get_secret("GEMINI_API_KEY"))
             self._client = genai
         model = self._client.GenerativeModel(
             self.model,

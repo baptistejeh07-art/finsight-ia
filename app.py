@@ -365,14 +365,20 @@ def render_sidebar(results) -> None:
         # Diagnostic API
         with st.expander("🔧 Diagnostic API", expanded=False):
             import os
-            keys_status = {
-                "ANTHROPIC_API_KEY": bool(os.getenv("ANTHROPIC_API_KEY")),
-                "GROQ_API_KEY":      bool(os.getenv("GROQ_API_KEY")),
-                "FINNHUB_API_KEY":   bool(os.getenv("FINNHUB_API_KEY")),
-            }
-            for k, present in keys_status.items():
-                icon = "✅" if present else "❌"
-                st.markdown(f"`{icon} {k}`")
+            from core.llm_provider import _get_secret
+            for k in ["ANTHROPIC_API_KEY", "GROQ_API_KEY", "FINNHUB_API_KEY"]:
+                env_val     = os.getenv(k)
+                secret_val  = None
+                try:
+                    secret_val = st.secrets.get(k)
+                except Exception:
+                    pass
+                if env_val:
+                    st.markdown(f"`✅ {k}` (os.environ)")
+                elif secret_val:
+                    st.markdown(f"`⚠️ {k}` (st.secrets seulement — inject KO)")
+                else:
+                    st.markdown(f"`❌ {k}` (absent)")
 
             if st.button("Tester Anthropic + Groq", use_container_width=True):
                 from core.llm_provider import LLMProvider
