@@ -74,13 +74,8 @@ button *, button *:before, button *:after,
 [data-testid="stSidebarCollapseButton"],
 [data-testid="stSidebarCollapsedControl"] { display: none !important; }
 
-/* Fix artefact visuel "board_" Streamlit/BaseBUI (texte interne du composant accordion) */
-[class*="board_"], [class^="board"], [data-baseweb="board"] { display:none!important; }
-[data-baseweb="accordion"] > button > span:first-child,
-[data-baseweb="panel-header"] > span:first-child,
-[data-testid="stExpander"] button > span:first-child,
-[data-testid="stExpander"] [role="button"] > span:first-child { font-size:0!important; width:0!important; overflow:hidden!important; }
-[data-testid="stExpander"] details > summary > span:first-child { display:none!important; }
+/* Fix artefact visuel "board_" Streamlit/BaseBUI */
+[class*="board_"], [class^="board_"], [data-baseweb="board"] { display:none!important; }
 
 .block-container { padding-top: 1.2rem !important; padding-bottom: 2rem !important; max-width: 100% !important; }
 
