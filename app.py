@@ -217,6 +217,29 @@ div[data-testid="stButton"] > button:not([kind="primary"]):not([data-testid="stB
 </style>
 """, unsafe_allow_html=True)
 
+# JS — supprime le texte "board_" (artefact BaseBUI) des expanders
+import streamlit.components.v1 as _components
+_components.html("""
+<script>
+(function() {
+  function removeBoardText() {
+    var walker = document.createTreeWalker(
+      window.parent.document.body, NodeFilter.SHOW_TEXT, null, false
+    );
+    var node;
+    while ((node = walker.nextNode())) {
+      if (/^board_/.test(node.nodeValue.trim())) {
+        node.nodeValue = "";
+      }
+    }
+  }
+  setTimeout(removeBoardText, 300);
+  setTimeout(removeBoardText, 1000);
+  setTimeout(removeBoardText, 3000);
+})();
+</script>
+""", height=0)
+
 # ---------------------------------------------------------------------------
 # Utilitaire : échappement HTML pour tout texte utilisateur/LLM
 # ---------------------------------------------------------------------------
