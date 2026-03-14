@@ -75,7 +75,7 @@ button *, button *:before, button *:after,
 [data-testid="stSidebarCollapsedControl"] { display: none !important; }
 
 /* Fix artefact visuel "board_" Streamlit/BaseBUI */
-[class*="board_"], [class^="board_"], [data-baseweb="board"] { display:none!important; }
+[class*="board_"], [class^="board_"], [data-baseweb="board"] { color:transparent!important; font-size:0!important; }
 
 .block-container { padding-top: 1.2rem !important; padding-bottom: 2rem !important; max-width: 100% !important; }
 
