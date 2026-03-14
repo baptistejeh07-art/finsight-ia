@@ -114,9 +114,9 @@ class AgentSentiment:
         ]
 
         # ------------------------------------------------------------------
-        # 4. FinBERT inference
+        # 4. Sentiment inference (FinBERT ou VADER fallback)
         # ------------------------------------------------------------------
-        raw_scores = finbert.analyze(texts)
+        raw_scores, engine_used = finbert.analyze(texts)
 
         if not raw_scores:
             log.error(f"[AgentSentiment] FinBERT n'a retourné aucun score pour '{ticker}'")
@@ -173,7 +173,8 @@ class AgentSentiment:
                     "(3) ticker ambigu (mêmes lettres = autre société), "
                     "(4) événement exceptionnel concentre la publication (biais de volume)"
                 ),
-                "tokens_used": 0,  # FinBERT local — zéro token API
+                "engine":       engine_used,   # "finbert" ou "vader"
+                "tokens_used": 0,  # inference locale — zéro token API
             },
         )
 

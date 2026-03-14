@@ -83,27 +83,24 @@ def _vader_scores(texts: list[str]) -> list[dict]:
     return results
 
 
-def analyze(texts: list[str], batch_size: int = 16, _use_vader: bool = False) -> list[dict]:
+def analyze(texts: list[str], batch_size: int = 16) -> tuple[list[dict], str]:
     """
-    Analyse sentiment de N textes en batch via FinBERT.
-
-    Args:
-        texts:      liste de textes (headlines ou headline+summary tronqués)
-        batch_size: taille des batchs pour inference
+    Analyse sentiment de N textes en batch.
+    Essaie FinBERT d'abord, sinon VADER.
 
     Returns:
-        list de dicts : [{"positive": 0.8, "negative": 0.1, "neutral": 0.1}, ...]
-        Liste vide si erreur ou modèle indisponible.
+        (scores, engine) où engine = "finbert" | "vader"
+        scores : list de dicts [{"positive": 0.8, "negative": 0.1, "neutral": 0.1}, ...]
     """
     clean = [t[:512] for t in texts if t and t.strip()]
     if not clean:
-        return []
+        return [], "vader"
 
     # Essaie FinBERT en premier, sinon VADER
     pipe = _get_pipeline()
     if pipe is None:
         log.info(f"[Sentiment] Analyse {len(clean)} textes via VADER")
-        return _vader_scores(clean)
+        return _vader_scores(clean), "vader"
 
     results: list[dict] = []
     try:
@@ -118,9 +115,9 @@ def analyze(texts: list[str], batch_size: int = 16, _use_vader: bool = False) ->
             })
     except Exception as e:
         log.error(f"[FinBERT] Erreur inference : {e} — fallback VADER")
-        results = _vader_scores(clean)
+        return _vader_scores(clean), "vader"
 
-    return results
+    return results, "finbert"
 
 
 def aggregate(scores: list[dict]) -> dict:

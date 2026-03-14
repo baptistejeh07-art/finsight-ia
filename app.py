@@ -74,9 +74,13 @@ button *, button *:before, button *:after,
 [data-testid="stSidebarCollapseButton"],
 [data-testid="stSidebarCollapsedControl"] { display: none !important; }
 
-/* Fix artefact visuel "board_" dans les expanders (baseweb interne Streamlit) */
-[class*="board_"] { display: none !important; }
-[data-baseweb="accordion"] [class^="board"] { display: none !important; }
+/* Fix artefact visuel "board_" Streamlit/BaseBUI (texte interne du composant accordion) */
+[class*="board_"], [class^="board"], [data-baseweb="board"] { display:none!important; }
+[data-baseweb="accordion"] > button > span:first-child,
+[data-baseweb="panel-header"] > span:first-child,
+[data-testid="stExpander"] button > span:first-child,
+[data-testid="stExpander"] [role="button"] > span:first-child { font-size:0!important; width:0!important; overflow:hidden!important; }
+[data-testid="stExpander"] details > summary > span:first-child { display:none!important; }
 
 .block-container { padding-top: 1.2rem !important; padding-bottom: 2rem !important; max-width: 100% !important; }
 
@@ -779,23 +783,22 @@ def _build_ia_html(snapshot, ratios, synthesis, qa_python, qa_haiku, devil, sent
     if sentiment:
         lbl_map = {"POSITIVE": ("Positif", "ia-good"), "NEGATIVE": ("Négatif", "ia-risk"), "NEUTRAL": ("Neutre", "ia-hl")}
         lbl_fr, lbl_cls = lbl_map.get(sentiment.label, ("Neutre", "ia-hl"))
+        engine = "FinBERT" if (sentiment.meta or {}).get("engine") == "finbert" else "VADER"
         sent_text = (
-            f"Analyse FinBERT de {sentiment.articles_analyzed} article(s) : "
+            f"Analyse {engine} de {sentiment.articles_analyzed} article(s) : "
             f"sentiment <span class=\"{lbl_cls}\">{lbl_fr}</span> "
             f"(score {int(sentiment.score_normalized*100)}%, confiance {int(sentiment.confidence*100)}%). "
         )
         if sentiment.breakdown:
             pos = sentiment.breakdown.get("avg_positive", 0) or 0
             neg = sentiment.breakdown.get("avg_negative", 0) or 0
-            sent_text += (
-                f"Distribution — Positif : {int(pos*100)}%, Négatif : {int(neg*100)}%."
-            )
+            sent_text += f"Distribution — Positif : {int(pos*100)}%, Négatif : {int(neg*100)}%."
         if sentiment.samples:
             s = sentiment.samples[0]
             lbl_s = s.get("label", "")
             txt_s = (s.get("headline") or s.get("text") or "")[:120]
             sent_text += f"<br><br>Exemple : <em>{_e(txt_s)}</em> [{lbl_s}]"
-        blocks.append(("Sentiment de marché (FinBERT)", sent_text))
+        blocks.append(("Sentiment de marché", sent_text))
 
     # ---- Bloc 6 : QA ----
     if qa_python or qa_haiku:
@@ -959,7 +962,7 @@ def render_results(results: dict) -> None:
             f'<div style="display:flex;align-items:center;gap:28px;padding:12px 0 28px;'
             f'border-bottom:1px solid #f5f5f5;margin-bottom:28px;">'
             f'<div style="font-size:11px;font-weight:600;letter-spacing:1px;'
-            f'text-transform:uppercase;color:#888;">Sentiment FinBERT</div>'
+            f'text-transform:uppercase;color:#888;">Sentiment de marché</div>'
             f'<div style="font-size:16px;font-weight:700;color:{lbl_col};">{_e(lbl_fr)}</div>'
             f'<div style="font-size:13px;color:#666;">Score : <b>{score_pct}%</b> · '
             f'Confiance : <b>{int(sentiment.confidence*100)}%</b> · '

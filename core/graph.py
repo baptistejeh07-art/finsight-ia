@@ -113,14 +113,27 @@ def fetch_node(state: FinSightState) -> dict:
 
     snapshot  = None
     sentiment = None
-    try:
-        snapshot = AgentData().collect(ticker)
-    except Exception as e:
-        log.error(f"[fetch_node] AgentData FAILED: {e}", exc_info=True)
-    try:
-        sentiment = AgentSentiment().analyze(ticker)
-    except Exception as e:
-        log.error(f"[fetch_node] AgentSentiment FAILED: {e}", exc_info=True)
+
+    # AgentData et AgentSentiment en parallèle (ThreadPoolExecutor, pas asyncio)
+    def _collect():
+        try:
+            return AgentData().collect(ticker)
+        except Exception as e:
+            log.error(f"[fetch_node] AgentData FAILED: {e}", exc_info=True)
+            return None
+
+    def _analyze():
+        try:
+            return AgentSentiment().analyze(ticker)
+        except Exception as e:
+            log.error(f"[fetch_node] AgentSentiment FAILED: {e}", exc_info=True)
+            return None
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        f_data = executor.submit(_collect)
+        f_sent = executor.submit(_analyze)
+        snapshot  = f_data.result()
+        sentiment = f_sent.result()
 
     ms = int((time.time() - t0) * 1000)
 

@@ -98,8 +98,10 @@ def _build_prompt(
     # Tableau ratios clés
     ratios_lines = []
     if yr:
+        raw_yr = snapshot.years.get(latest)
+        revenue_raw = raw_yr.revenue if raw_yr else None
         ratios_lines = [
-            f"Revenue ({latest})    : {_f(None)} — cf données brutes",
+            f"Revenue ({latest})    : {_f(revenue_raw, suffix='M')}",
             f"Gross Margin          : {_pct(yr.gross_margin)}",
             f"EBITDA Margin         : {_pct(yr.ebitda_margin)}",
             f"EBIT Margin           : {_pct(yr.ebit_margin)}",
