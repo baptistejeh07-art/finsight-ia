@@ -18,17 +18,17 @@ log = logging.getLogger(__name__)
 
 # Lazy init — chargé au premier appel (modèle ~440 MB, téléchargé une fois)
 _pipeline = None
+_vader    = None   # Fallback léger si torch/transformers absent (SCC free tier)
 
 
 def _get_pipeline():
+    """Retourne le pipeline FinBERT, ou None si torch indisponible."""
     global _pipeline
     if _pipeline is not None:
         return _pipeline
-
     try:
         import warnings, os
         os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
-        # Si TRANSFORMERS_OFFLINE=1 dans .env → utilise le cache local, pas de check HF
         offline = os.getenv("TRANSFORMERS_OFFLINE", "0")
         if offline == "1":
             os.environ["TRANSFORMERS_OFFLINE"] = "1"
@@ -36,23 +36,54 @@ def _get_pipeline():
         from transformers import pipeline as hf_pipeline
         import transformers
         transformers.logging.set_verbosity_error()
-        log.info("[FinBERT] Chargement ProsusAI/finbert (1ere fois : telechargement ~440 MB)...")
+        log.info("[FinBERT] Chargement ProsusAI/finbert...")
         _pipeline = hf_pipeline(
             "text-classification",
             model="ProsusAI/finbert",
             tokenizer="ProsusAI/finbert",
-            device=-1,    # CPU — pas de GPU requis
-            top_k=None,   # retourne positive + negative + neutral
+            device=-1,
+            top_k=None,
         )
-        log.info("[FinBERT] Modele charge en memoire.")
+        log.info("[FinBERT] Modele charge.")
     except Exception as e:
-        log.error(f"[FinBERT] Impossible de charger le modele : {e}")
+        log.warning(f"[FinBERT] Indisponible ({e}) — fallback VADER actif")
         return None
-
     return _pipeline
 
 
-def analyze(texts: list[str], batch_size: int = 16) -> list[dict]:
+def _get_vader():
+    """Retourne le SentimentIntensityAnalyzer VADER (fallback léger, ~100KB)."""
+    global _vader
+    if _vader is not None:
+        return _vader
+    try:
+        from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
+        _vader = SentimentIntensityAnalyzer()
+        log.info("[Sentiment] VADER charge (fallback FinBERT).")
+    except Exception as e:
+        log.error(f"[Sentiment] VADER indisponible : {e}")
+        return None
+    return _vader
+
+
+def _vader_scores(texts: list[str]) -> list[dict]:
+    """Analyse via VADER — même interface que FinBERT."""
+    vader = _get_vader()
+    if vader is None:
+        return []
+    results = []
+    for text in texts:
+        s = vader.polarity_scores(text[:512])
+        # VADER: neg/neu/pos/compound → convertir en format FinBERT
+        results.append({
+            "positive": round(s["pos"], 4),
+            "negative": round(s["neg"], 4),
+            "neutral":  round(s["neu"], 4),
+        })
+    return results
+
+
+def analyze(texts: list[str], batch_size: int = 16, _use_vader: bool = False) -> list[dict]:
     """
     Analyse sentiment de N textes en batch via FinBERT.
 
@@ -64,17 +95,19 @@ def analyze(texts: list[str], batch_size: int = 16) -> list[dict]:
         list de dicts : [{"positive": 0.8, "negative": 0.1, "neutral": 0.1}, ...]
         Liste vide si erreur ou modèle indisponible.
     """
-    pipe = _get_pipeline()
-    if pipe is None:
-        return []
-
-    # Filtrage + troncature (limite BERT : 512 tokens)
     clean = [t[:512] for t in texts if t and t.strip()]
     if not clean:
         return []
 
+    # Essaie FinBERT en premier, sinon VADER
+    pipe = _get_pipeline()
+    if pipe is None:
+        log.info(f"[Sentiment] Analyse {len(clean)} textes via VADER")
+        return _vader_scores(clean)
+
     results: list[dict] = []
     try:
+        log.info(f"[Sentiment] Analyse {len(clean)} textes via FinBERT")
         raw_outputs = pipe(clean, batch_size=batch_size, truncation=True, max_length=512)
         for item_scores in raw_outputs:
             scores = {s["label"].lower(): round(s["score"], 4) for s in item_scores}
@@ -84,7 +117,8 @@ def analyze(texts: list[str], batch_size: int = 16) -> list[dict]:
                 "neutral":  scores.get("neutral",  0.0),
             })
     except Exception as e:
-        log.error(f"[FinBERT] Erreur inference : {e}")
+        log.error(f"[FinBERT] Erreur inference : {e} — fallback VADER")
+        results = _vader_scores(clean)
 
     return results
 

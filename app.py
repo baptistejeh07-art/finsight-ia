@@ -74,6 +74,10 @@ button *, button *:before, button *:after,
 [data-testid="stSidebarCollapseButton"],
 [data-testid="stSidebarCollapsedControl"] { display: none !important; }
 
+/* Fix artefact visuel "board_" dans les expanders (baseweb interne Streamlit) */
+[class*="board_"] { display: none !important; }
+[data-baseweb="accordion"] [class^="board"] { display: none !important; }
+
 .block-container { padding-top: 1.2rem !important; padding-bottom: 2rem !important; max-width: 100% !important; }
 
 /* NAV */
@@ -342,7 +346,7 @@ def render_sidebar(results) -> None:
         st.markdown('<span class="sb-label">Sources financières</span>', unsafe_allow_html=True)
         for name, ok in [("Yahoo Finance", True), ("Financial Modeling Prep", True),
                           ("Finnhub", True), ("EODHD", True)]:
-            badge = f'<span class="src-ok">actif</span>' if ok else f'<span class="src-warn">inactif</span>'
+            badge = f'<span class="src-ok">Actif</span>' if ok else f'<span class="src-warn">Inactif</span>'
             st.markdown(f'<div class="src-row"><span>{name}</span>{badge}</div>',
                         unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
@@ -351,7 +355,7 @@ def render_sidebar(results) -> None:
         st.markdown('<div class="sb-section">', unsafe_allow_html=True)
         st.markdown('<span class="sb-label">Sources contextuelles</span>', unsafe_allow_html=True)
         for name in ["Claude AI (Anthropic)", "Reuters / Actualités", "Macro — Fed / BCE"]:
-            st.markdown(f'<div class="src-row"><span>{name}</span><span class="src-ok">actif</span></div>',
+            st.markdown(f'<div class="src-row"><span>{name}</span><span class="src-ok">Actif</span></div>',
                         unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
