@@ -424,18 +424,16 @@ def output_node(state: FinSightState) -> dict:
 
     try:
         import tempfile
-        from outputs.pdf_report import generate_pdf
+        from outputs.pdf_writer import PDFWriter
         with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
             tmp_path = Path(tmp.name)
-        generate_pdf(snapshot, ratios, synthesis,
-                     state.get("sentiment"), qa_python, devil,
-                     output_path=tmp_path)
+        PDFWriter().generate(state, str(tmp_path))
         pdf_bytes = tmp_path.read_bytes()
         tmp_path.unlink(missing_ok=True)
         pdf_path = f"{snapshot.ticker}_{date.today().isoformat()}_report.pdf"
         log.info(f"[output_node] PDF OK — {len(pdf_bytes)} bytes")
     except Exception as e:
-        log.error(f"[output_node] PDFReport FAILED: {e}", exc_info=True)
+        log.error(f"[output_node] PDFWriter FAILED: {e}", exc_info=True)
 
     ms = int((time.time() - t0) * 1000)
     log.info(f"[output_node] Excel={bool(excel_path)} PPTX={bool(pptx_path)} PDF={bool(pdf_path)} — {ms}ms")
