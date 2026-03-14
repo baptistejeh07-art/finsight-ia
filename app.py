@@ -362,6 +362,28 @@ def render_sidebar(results) -> None:
             unsafe_allow_html=True,
         )
 
+        # Diagnostic API
+        with st.expander("🔧 Diagnostic API", expanded=False):
+            import os
+            keys_status = {
+                "ANTHROPIC_API_KEY": bool(os.getenv("ANTHROPIC_API_KEY")),
+                "GROQ_API_KEY":      bool(os.getenv("GROQ_API_KEY")),
+                "FINNHUB_API_KEY":   bool(os.getenv("FINNHUB_API_KEY")),
+            }
+            for k, present in keys_status.items():
+                icon = "✅" if present else "❌"
+                st.markdown(f"`{icon} {k}`")
+
+            if st.button("Tester Anthropic + Groq", use_container_width=True):
+                from core.llm_provider import LLMProvider
+                for provider in ["anthropic", "groq"]:
+                    try:
+                        llm = LLMProvider(provider=provider)
+                        resp = llm.generate("Réponds juste: OK", max_tokens=5)
+                        st.success(f"{provider}: ✅ `{resp[:20]}`")
+                    except Exception as ex:
+                        st.error(f"{provider}: ❌ `{type(ex).__name__}: {str(ex)[:80]}`")
+
 
 # ---------------------------------------------------------------------------
 # Page HOME
