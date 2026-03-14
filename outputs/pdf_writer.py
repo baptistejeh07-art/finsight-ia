@@ -8,10 +8,10 @@
 #   1. Page de garde  (bande navy, nom societe, ticker, date)
 #   2. Sommaire       (4 sections, numeros de page, intro)
 #   3. Synthese       (header societe + verdict, description, scenarios, these)
-#                     + 2. ANALYSE FINANCIERE (IS table + commentaire)
+#                     + 2. ANALYSE FINANCI\u00c8RE (IS table + commentaire)
 #   4. Ratios table   + 3. VALORISATION (DCF + sensibilite + comparables)
 #   5. Football field + 4. ANALYSE DES RISQUES (3 para + invalidation)
-#                     + 5. SENTIMENT DE MARCHE (intro + table header)
+#                     + 5. SENTIMENT DE MARCH\u00c9 (intro + table header)
 #   6. Sentiment data rows + Disclaimer
 #
 # Toutes les tables exactement 170mm (AssertionError sinon)
@@ -26,6 +26,13 @@ from datetime import date
 from pathlib import Path
 
 log = logging.getLogger(__name__)
+
+_MOIS_FR = {1:"janvier",2:"fevrier",3:"mars",4:"avril",5:"mai",6:"juin",
+            7:"juillet",8:"aout",9:"septembre",10:"octobre",11:"novembre",12:"decembre"}
+
+def _date_fr(d=None):
+    d = d or date.today()
+    return f"{d.day} {_MOIS_FR[d.month]} {d.year}"
 
 try:
     from reportlab.lib.units import mm as _mm
@@ -225,7 +232,7 @@ def _footer_cb(company_name, ticker, total_pages):
         canvas.setFont("Helvetica", 6.5)
         canvas.setFillColor(C["grey"])
         canvas.drawString(lm, bm - 7 * mm,
-                          f"FinSight IA  -  {company_name} ({ticker})  -  Usage confidentiel")
+                          f"FinSight IA  \u00b7  {company_name} ({ticker})  \u00b7  Usage confidentiel")
         canvas.drawRightString(w - rm, bm - 7 * mm,
                                f"{doc.page} / {total_pages[0]}")
         canvas.restoreState()
@@ -276,7 +283,7 @@ def _page_cover(ticker, company_name, sector, exchange, gen_date):
             # ticker . bourse . secteur
             cv.setFont("Helvetica", 9)
             cv.setFillColor(C.HexColor("#AABBCC"))
-            parts = "  .  ".join(p for p in [ticker, exchange, sector] if p)
+            parts = "  \u00b7  ".join(p for p in [ticker, exchange, sector] if p)
             cv.drawString(0, H - 50 * mm, parts)
 
             # Date + confidentiel en bas de bande
@@ -308,10 +315,10 @@ def _page_sommaire(st):
     ]
     rows = [
         ["", "Section", "Page"],
-        ["1", "Synthese Executive & Recommandation", "3"],
-        ["2", "Analyse Financiere", "3"],
+        ["1", "Synth\u00e8se Ex\u00e9cutive & Recommandation", "3"],
+        ["2", "Analyse Financi\u00e8re", "3"],
         ["3", "Valorisation", "4"],
-        ["4", "Risques & Sentiment de Marche", "5"],
+        ["4", "Risques & Sentiment de March\u00e9", "5"],
     ]
     cw = [12 * _mm, 135 * _mm, 23 * _mm]
     _assert_tw(cw)
@@ -361,9 +368,10 @@ def _page_synthese_et_financiere(snap, ratios, synthesis, st):
     sector   = ci.sector or ""
     gen_date = ci.analysis_date or date.today().strftime("%d %B %Y")
 
-    header_line  = "  -  ".join(p for p in [ci.company_name, ci.ticker, exchange, sector, gen_date] if p)
-    verdict_line = (f"l {rec}  Cours : {price_s}  -  Cible base : {tbase_s}"
-                    f"  -  Upside : {up_s}  -  Conviction : {conv_s}  -  Confiance IA : {conf_s}")
+    date_fr = _date_fr()
+    header_line  = "  \u00b7  ".join(p for p in [ci.company_name, ci.ticker, exchange, sector, date_fr] if p)
+    verdict_line = (f"| {rec}  Cours : {price_s}  \u00b7  Cible base : {tbase_s}"
+                    f"  \u00b7  Upside : {up_s}  \u00b7  Conviction : {conv_s}  \u00b7  Confiance IA : {conf_s}")
 
     from reportlab.platypus import TableStyle as TS
     rec_col = _rec_color(rec)
@@ -395,8 +403,8 @@ def _page_synthese_et_financiere(snap, ratios, synthesis, st):
         elems.append(Paragraph(summary, st["body"]))
         elems.append(Spacer(1, 6))
 
-    # Scenarios de valorisation
-    elems.append(Paragraph("Scenarios de valorisation", st["subsec"]))
+    # Sc\u00e9narios de valorisation
+    elems.append(Paragraph("Sc\u00e9narios de valorisation", st["subsec"]))
 
     def _hyp(scenario):
         if scenario == "Bear" and risks_list:
@@ -429,9 +437,9 @@ def _page_synthese_et_financiere(snap, ratios, synthesis, st):
         elems.append(Spacer(1, 8))
 
     # ------------------------------------------------------------------
-    # 2. ANALYSE FINANCIERE
+    # 2. ANALYSE FINANCI\u00c8RE
     # ------------------------------------------------------------------
-    elems.append(Paragraph("2. ANALYSE FINANCIERE", st["section"]))
+    elems.append(Paragraph("2. ANALYSE FINANCI\u00c8RE", st["section"]))
     elems.append(Spacer(1, 4))
 
     hist_labels = sorted(snap.years.keys(), key=lambda y: str(y).replace("_LTM", ""))
@@ -458,7 +466,7 @@ def _page_synthese_et_financiere(snap, ratios, synthesis, st):
         return ratios.years.get(lbl) if ratios else None
 
     elems.append(Paragraph(
-        f"Compte de resultat consolide ({cur} {units})", st["subsec"]))
+        f"Compte de r\u00e9sultat consolid\u00e9 ({cur} {units})", st["subsec"]))
 
     is_hdr  = ["Indicateur"] + col_names
     is_rows = [is_hdr]
@@ -631,7 +639,7 @@ def _page_ratios_et_valorisation(snap, ratios, synthesis, st):
     # ------------------------------------------------------------------
     elems = []
     elems.append(Paragraph(
-        "Positionnement relatif  -  Ratios cles vs. pairs sectoriels",
+        "Positionnement relatif  \u00b7  Ratios cl\u00e9s vs. pairs sectoriels",
         st["subsec"]))
 
     rdata = [["Indicateur", f"{ci.ticker} LTM", "Reference sectorielle", "Lecture"]]
@@ -686,8 +694,8 @@ def _page_ratios_et_valorisation(snap, ratios, synthesis, st):
     erp   = mkt.erp
 
     elems.append(Paragraph(
-        f"Discounted Cash Flow  -  Scenario base  -  WACC {wacc * 100:.1f} %"
-        f"  -  Taux terminal {tgr * 100:.1f} %  -  Horizon 5 ans",
+        f"Discounted Cash Flow  \u00b7  Sc\u00e9nario base  \u00b7  WACC {wacc * 100:.1f} %"
+        f"  \u00b7  Taux terminal {tgr * 100:.1f} %  \u00b7  Horizon 5 ans",
         st["subsec"]))
 
     # DCF commentary
@@ -700,7 +708,7 @@ def _page_ratios_et_valorisation(snap, ratios, synthesis, st):
     dcf_para = (
         f"Le modele DCF est calibre sur un horizon de cinq ans, avec un WACC de {wacc * 100:.1f} % "
         f"decompose en un cout des fonds propres de {ke_str} "
-        f"(Beta {beta_str}  -  RFR {rfr_str}  -  prime de risque marche {erp_str}) "
+        f"(Beta {beta_str}  \u00b7  RFR {rfr_str}  \u00b7  prime de risque marche {erp_str}) "
         f"et un cout de la dette apres impot de {kd_str}. "
         f"La valeur intrinseque ressort a {_v(tbase, '{:.0f}')} {cur} par action dans le scenario base, "
         f"soit un upside de {_upside(tbase, price)} par rapport au cours actuel. "
@@ -712,7 +720,7 @@ def _page_ratios_et_valorisation(snap, ratios, synthesis, st):
 
     # Table de sensibilite 5x5
     elems.append(Paragraph(
-        f"Table de sensibilite  -  Valeur intrinseque par action ({cur})",
+        f"Table de sensibilit\u00e9  \u00b7  Valeur intrins\u00e8que par action ({cur})",
         st["subsec"]))
 
     waccs = [wacc - 0.01*2, wacc - 0.01, wacc, wacc + 0.01, wacc + 0.01*2]
@@ -751,7 +759,7 @@ def _page_ratios_et_valorisation(snap, ratios, synthesis, st):
 
     # Comparables peers
     elems.append(Paragraph(
-        "Analyse par multiples comparables  -  Pairs sectoriels LTM",
+        "Analyse par multiples comparables  \u00b7  Pairs sectoriels LTM",
         st["subsec"]))
 
     peers   = _g(synthesis, "comparable_peers")
@@ -962,7 +970,7 @@ def _page_ff_risques_sentiment(snap, ratios, synthesis, devil, sentiment, st):
     elems.append(Paragraph("4. ANALYSE DES RISQUES", st["section"]))
     elems.append(Spacer(1, 4))
     elems.append(Paragraph(
-        "These contraire  -  Arguments en faveur d'une revision a la baisse",
+        "Th\u00e8se contraire  \u00b7  Arguments en faveur d'une r\u00e9vision \u00e0 la baisse",
         st["subsec"]))
 
     counter_risks = _g(devil, "counter_risks") or []
@@ -1003,7 +1011,7 @@ def _page_ff_risques_sentiment(snap, ratios, synthesis, devil, sentiment, st):
         elems.append(Spacer(1, 4))
 
     # Conditions d'invalidation
-    elems.append(Paragraph("Conditions d'invalidation de la these", st["subsec"]))
+    elems.append(Paragraph("Conditions d'invalidation de la th\u00e8se", st["subsec"]))
 
     inv_str  = _g(synthesis, "invalidation_conditions") or ""
     inv_list = _g(synthesis, "invalidation_list")
@@ -1030,9 +1038,9 @@ def _page_ff_risques_sentiment(snap, ratios, synthesis, devil, sentiment, st):
     elems += [t_c, Spacer(1, 10)]
 
     # ------------------------------------------------------------------
-    # 5. SENTIMENT DE MARCHE (intro + header de table)
+    # 5. SENTIMENT DE MARCH\u00c9 (intro + header de table)
     # ------------------------------------------------------------------
-    elems.append(Paragraph("5. SENTIMENT DE MARCHE", st["section"]))
+    elems.append(Paragraph("5. SENTIMENT DE MARCH\u00c9", st["section"]))
     elems.append(Spacer(1, 4))
 
     if not sentiment:
@@ -1120,7 +1128,7 @@ def _page_disclaimer(snap, st):
         Spacer(1, 12),
         HRFlowable(width=_TW, thickness=0.5, color=C_["navy"]),
         Spacer(1, 5),
-        Paragraph("Avertissement legal", st["bold"]),
+        Paragraph("Avertissement l\u00e9gal", st["bold"]),
         Paragraph(
             f"Ce rapport a ete genere par FinSight IA v1.0 le {gen_date}. "
             "Il est produit integralement par un systeme d'intelligence artificielle "
