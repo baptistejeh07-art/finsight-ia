@@ -365,18 +365,14 @@ def render_sidebar(results) -> None:
         # Diagnostic API
         with st.expander("🔧 Diagnostic API", expanded=False):
             import os
-            from core.llm_provider import _get_secret
-            for k in ["ANTHROPIC_API_KEY", "GROQ_API_KEY", "FINNHUB_API_KEY"]:
-                env_val     = os.getenv(k)
-                secret_val  = None
-                try:
-                    secret_val = st.secrets.get(k)
-                except Exception:
-                    pass
+            from core.secrets import get_secret
+            for k in ["ANTHROPIC_API_KEY", "GROQ_API_KEY", "FINNHUB_API_KEY", "FMP_API_KEY"]:
+                env_val    = os.getenv(k)
+                secret_val = get_secret(k)
                 if env_val:
                     st.markdown(f"`✅ {k}` (os.environ)")
                 elif secret_val:
-                    st.markdown(f"`⚠️ {k}` (st.secrets seulement — inject KO)")
+                    st.markdown(f"`⚠️ {k}` (st.secrets direct — inject KO)")
                 else:
                     st.markdown(f"`❌ {k}` (absent)")
 

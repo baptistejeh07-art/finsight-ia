@@ -62,7 +62,8 @@ def _by_year(items: list, year: int) -> Optional[dict]:
 
 def fetch(ticker: str) -> Optional[FinancialSnapshot]:
     """Collecte via FMP. Complémentaire à yfinance pour les données manquantes."""
-    api_key = os.getenv("FMP_API_KEY", "")
+    from core.secrets import get_secret
+    api_key = get_secret("FMP_API_KEY") or ""
     if not api_key:
         log.warning("[FMP] FMP_API_KEY non définie — source ignorée")
         return None

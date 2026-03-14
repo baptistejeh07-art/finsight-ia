@@ -18,7 +18,8 @@ log = logging.getLogger(__name__)
 
 def _client():
     import finnhub
-    return finnhub.Client(api_key=os.getenv("FINNHUB_API_KEY", ""))
+    from core.secrets import get_secret
+    return finnhub.Client(api_key=get_secret("FINNHUB_API_KEY") or "")
 
 
 def _base_ticker(ticker: str) -> str:

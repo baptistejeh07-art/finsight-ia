@@ -12,23 +12,7 @@ from __future__ import annotations
 import os
 from typing import Optional
 
-
-def _get_secret(key: str) -> Optional[str]:
-    """
-    Lit une clé API depuis os.environ, puis st.secrets en fallback.
-    Nécessaire sur Streamlit Community Cloud où inject_secrets() peut échouer.
-    """
-    val = os.getenv(key)
-    if val:
-        return val
-    try:
-        import streamlit as st
-        v = st.secrets.get(key)
-        if v:
-            return str(v)
-    except Exception:
-        pass
-    return None
+from core.secrets import get_secret as _get_secret
 
 
 class LLMProvider:
