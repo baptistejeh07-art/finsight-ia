@@ -888,22 +888,24 @@ def _slide_company_overview(prs, snap, synthesis, ratios):
     _num_fr = {1:"un",2:"deux",3:"trois",4:"quatre",5:"cinq",6:"six"}
     seg_count_str = _num_fr.get(n_seg, str(n_seg)) if n_seg else ""
 
-    # Description box
-    add_rect(slide, 1.02, 2.67, 13.72, 9.78, GREY_BG)
-    add_rect(slide, 1.02, 2.67, 0.13, 9.78, NAVY_MID)
-    add_text_box(slide, 1.40, 2.84, 12.95, 3.5,
-                 _truncate(desc, 700), 8.5, BLACK, wrap=True)
-
-    # Formulation naturelle "L'entreprise articule..."
+    # Description + phrase d'intro dans la même boîte
     if n_seg:
         intro_txt = (
-            f"L'entreprise articule son activit\u00e9 autour de "
+            f" L'entreprise articule son activit\u00e9 autour de "
             f"{seg_count_str} segment{'s' if n_seg > 1 else ''} "
             f"strat\u00e9gique{'s' if n_seg > 1 else ''} :"
         )
-        add_text_box(slide, 1.40, 6.55, 12.95, 0.56,
-                     intro_txt, 8.5, NAVY, bold=True, wrap=True)
-        bullet_y = 7.25
+        full_desc = _truncate(desc, 700) + intro_txt
+    else:
+        full_desc = _truncate(desc, 700)
+
+    add_rect(slide, 1.02, 2.67, 13.72, 9.78, GREY_BG)
+    add_rect(slide, 1.02, 2.67, 0.13, 9.78, NAVY_MID)
+    add_text_box(slide, 1.40, 2.84, 12.95, 4.0,
+                 full_desc, 8.5, BLACK, wrap=True)
+
+    if n_seg:
+        bullet_y = 7.10
         row_h = 0.95  # hauteur par segment (nom + commentaire)
         for i, seg in enumerate(segments[:4]):
             seg_name = _g(seg, "name", "") or str(seg)
