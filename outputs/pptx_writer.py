@@ -129,6 +129,64 @@ def _g(obj, attr, default=None):
 
 
 # ---------------------------------------------------------------------------
+# Helpers XML (transparence, fond slide)
+# ---------------------------------------------------------------------------
+
+def _set_slide_bg(slide, hex_color: str):
+    """Definit le fond du slide via <p:bgPr> (approche native, comme la reference)."""
+    from pptx.oxml.ns import qn
+    from lxml import etree
+    cSld = slide._element.find(qn('p:cSld'))
+    if cSld is None:
+        return
+    existing = cSld.find(qn('p:bg'))
+    if existing is not None:
+        cSld.remove(existing)
+    bg_xml = (
+        '<p:bg xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"'
+        ' xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">'
+        '<p:bgPr>'
+        f'<a:solidFill><a:srgbClr val="{hex_color}"/></a:solidFill>'
+        '<a:effectLst/>'
+        '</p:bgPr>'
+        '</p:bg>'
+    )
+    bg_elem = etree.fromstring(bg_xml)
+    spTree = cSld.find(qn('p:spTree'))
+    cSld.insert(list(cSld).index(spTree) if spTree is not None else 0, bg_elem)
+
+
+def _add_text_alpha(slide, x, y, w, h, text, font_size,
+                    color_hex="FFFFFF", alpha_val=15000, bold=False):
+    """Ajoute un textbox avec couleur semi-transparente (alpha en millièmes, 15000=15%)."""
+    from pptx.util import Cm, Pt
+    from lxml import etree
+    txBox = slide.shapes.add_textbox(Cm(x), Cm(y), Cm(w), Cm(h))
+    tf = txBox.text_frame
+    tf.word_wrap = False
+    p = tf.paragraphs[0]
+    run = p.add_run()
+    run.text = str(text) if text is not None else ""
+    run.font.name = "Calibri"
+    run.font.size = Pt(font_size)
+    run.font.bold = bold
+    # Injection XML alpha
+    ns_a = "http://schemas.openxmlformats.org/drawingml/2006/main"
+    rPr = run._r.get_or_add_rPr()
+    for elem in rPr.findall(f'{{{ns_a}}}solidFill'):
+        rPr.remove(elem)
+    fill_xml = (
+        f'<a:solidFill xmlns:a="{ns_a}">'
+        f'<a:srgbClr val="{color_hex}">'
+        f'<a:alpha val="{alpha_val}"/>'
+        f'</a:srgbClr>'
+        f'</a:solidFill>'
+    )
+    rPr.insert(0, etree.fromstring(fill_xml))
+    return txBox
+
+
+# ---------------------------------------------------------------------------
 # Helpers formes pptx
 # ---------------------------------------------------------------------------
 
@@ -334,30 +392,30 @@ def divider_slide(prs, number_str: str, title: str, subtitle: str):
     slide_layout = prs.slide_layouts[6]
     slide = prs.slides.add_slide(slide_layout)
 
-    # Full dark background
-    add_rect(slide, 0, 0, 25.4, 14.29, NAVY)
+    # Fond navy via <p:bgPr> (natif, comme la référence — pas de rectangle additionnel)
+    _set_slide_bg(slide, NAVY)
 
     # Left accent bar
     add_rect(slide, 0, 0, 0.3, 14.29, NAVY_MID)
 
-    # Number watermark (y=4.06 comme référence)
-    add_text_box(slide, 1.27, 4.06, 22.86, 4.57,
-                 number_str, 80, WHITE, bold=True)
+    # Numéro filigrane — blanc à 15 % d'opacité (comme la référence)
+    _add_text_alpha(slide, 1.27, 4.06, 22.86, 4.57,
+                    number_str, 80, "FFFFFF", 15000, bold=True)
 
     # Title
     add_text_box(slide, 1.27, 5.21, 21.59, 2.29,
                  title, 28, WHITE, bold=True)
 
-    # Rule (zero-height)
+    # Rule
     add_rect(slide, 1.27, 7.75, 7.62, 0.01, GREY_LIGHT)
 
     # Subtitle
     add_text_box(slide, 1.27, 8.08, 17.78, 0.89,
                  subtitle, 10, "AABBDD")
 
-    # Footer text
+    # Footer (espaces autour du bullet comme la référence)
     add_text_box(slide, 1.02, 13.34, 23.37, 0.56,
-                 "FinSight IA \u00b7 Usage confidentiel", 7, "6677AA")
+                 "FinSight IA  \u00b7  Usage confidentiel", 7, "6677AA")
 
     return slide
 
@@ -458,6 +516,48 @@ def _normalize_exchange(ex: str) -> str:
     return _EXCHANGE_MAP.get(ex.upper().strip(), ex)
 
 
+_TICKER_SUFFIX_MAP = {
+    ".PA": "Euronext Paris",  ".L": "London SE",   ".DE": "Frankfurt",
+    ".AS": "Euronext Amsterdam", ".BR": "Euronext Brussels",
+    ".MI": "Borsa Italiana",  ".MC": "BME",         ".SW": "SIX Swiss",
+    ".TO": "TSX",             ".HK": "HKEX",        ".T":  "Tokyo SE",
+    ".AX": "ASX",             ".CO": "Nasdaq Copenhagen",
+}
+
+def _infer_exchange(ticker: str, exchange: str) -> str:
+    """Retourne l'exchange normalisé, avec fallback sur le suffixe du ticker."""
+    ex = _normalize_exchange(exchange)
+    if ex:
+        return ex
+    for sfx, exch in _TICKER_SUFFIX_MAP.items():
+        if ticker.upper().endswith(sfx.upper()):
+            return exch
+    return ""
+
+
+import math as _math
+
+def _cover_layout(co_name: str):
+    """
+    Calcule dynamiquement la taille de police et les positions y
+    pour que le nom, la tagline et la boîte de recommandation
+    ne se chevauchent jamais, quelle que soit la longueur du nom.
+    """
+    n = len(co_name)
+    if n <= 15:   fs, cpl = 40, 22
+    elif n <= 25: fs, cpl = 34, 28
+    elif n <= 40: fs, cpl = 26, 35
+    elif n <= 60: fs, cpl = 20, 44
+    else:          fs, cpl = 16, 55
+    n_lines   = max(1, min(_math.ceil(n / cpl), 5))
+    line_h_cm = fs * 0.0353 * 1.35          # pt → cm, + interligne
+    name_h    = max(n_lines * line_h_cm + 0.3, 1.4)
+    name_y    = 4.06
+    tagline_y = name_y + name_h + 0.25
+    rec_y     = tagline_y + 0.76 + 0.28
+    return fs, name_y, name_h, tagline_y, rec_y
+
+
 def _truncate(s, n: int) -> str:
     s = _safe_str(s)
     return s[:n] if len(s) > n else s
@@ -519,8 +619,7 @@ def _slide_cover(prs, snap, synthesis, ratios, devil, sentiment):
     ticker   = _g(ci, "ticker", "—")
     co_name  = _g(ci, "company_name", "—")
     sector   = _g(ci, "sector", "") or ""
-    exchange = getattr(ci, "exchange", "") or "" if ci else ""
-    exchange = _normalize_exchange(exchange)
+    exchange = _infer_exchange(ticker, getattr(ci, "exchange", "") or "" if ci else "")
     currency = _g(ci, "currency", "USD") or "USD"
     cur_sym  = "EUR" if currency == "EUR" else "$"
     gen_date = _fr_date_long(_g(ci, "analysis_date", None) or date.today())
@@ -529,6 +628,9 @@ def _slide_cover(prs, snap, synthesis, ratios, devil, sentiment):
     rec      = _g(synthesis, "recommendation", "HOLD") or "HOLD"
     tbase    = _g(synthesis, "target_base")
     rec_fill, rec_accent = _rec_colors(rec)
+
+    # Layout dynamique selon longueur du nom
+    fs_name, name_y, name_h, tagline_y, rec_y = _cover_layout(co_name)
 
     # Top navy band
     add_rect(slide, 0, 0, 25.4, 3.81, NAVY)
@@ -539,20 +641,23 @@ def _slide_cover(prs, snap, synthesis, ratios, devil, sentiment):
                  "Pitchbook  \u2014  Analyse d'investissement",
                  11, "CCDDEE", align=PP_ALIGN.CENTER)
 
-    # Company name + tagline (tout centré)
-    add_text_box(slide, 1.27, 4.19, 22.86, 2.54,
-                 co_name, 44, NAVY, bold=True, align=PP_ALIGN.CENTER)
+    # Company name (taille dynamique, centré)
+    add_text_box(slide, 1.27, name_y, 22.86, name_h,
+                 co_name, fs_name, NAVY, bold=True, align=PP_ALIGN.CENTER)
+
+    # Tagline ticker · exchange · secteur
     _tagline_parts = [p for p in [ticker, exchange, sector] if p and str(p).strip()]
-    add_text_box(slide, 1.27, 6.81, 22.86, 0.71,
+    add_text_box(slide, 1.27, tagline_y, 22.86, 0.71,
                  "  \u00b7  ".join(_tagline_parts), 11, "888888",
                  align=PP_ALIGN.CENTER)
 
     # Recommendation box (pleine largeur, centré, 9pt)
     upside_str = _upside(tbase, price)
-    add_rect(slide, 1.27, 8.08, 22.86, 1.32, rec_fill)
-    add_rect(slide, 1.27, 8.08, 0.13, 1.32, rec_accent)
+    rec_h = 1.32
+    add_rect(slide, 1.27, rec_y, 22.86, rec_h, rec_fill)
+    add_rect(slide, 1.27, rec_y, 0.13, rec_h, rec_accent)
     add_text_box(
-        slide, 1.60, 8.13, 22.40, 1.22,
+        slide, 1.60, rec_y + 0.05, 22.40, rec_h - 0.10,
         f"\u25cf {rec.upper()}  \u00b7  Prix cible base\u00a0: {_fr(tbase, 0)} {cur_sym}"
         f"  \u00b7  Upside\u00a0: {upside_str}",
         9, rec_accent, bold=True, align=PP_ALIGN.CENTER
