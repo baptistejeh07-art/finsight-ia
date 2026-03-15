@@ -880,22 +880,44 @@ def _slide_company_overview(prs, snap, synthesis, ratios):
                 f"{co_name}  ·  Presentation & Positionnement strategique")
 
     desc     = _g(synthesis, "company_description", "") or ""
+    segments = _g(synthesis, "segments", []) or []
     strengths= _g(synthesis, "strengths", []) or []
+
+    # Nombre de segments pour la formulation dynamique
+    n_seg = len(segments)
+    _num_fr = {1:"un",2:"deux",3:"trois",4:"quatre",5:"cinq",6:"six"}
+    seg_count_str = _num_fr.get(n_seg, str(n_seg)) if n_seg else ""
 
     # Description box
     add_rect(slide, 1.02, 2.67, 13.72, 9.78, GREY_BG)
     add_rect(slide, 1.02, 2.67, 0.13, 9.78, NAVY_MID)
-    add_text_box(slide, 1.40, 2.84, 12.95, 4.5,
+    add_text_box(slide, 1.40, 2.84, 12.95, 3.5,
                  _truncate(desc, 700), 8.5, BLACK, wrap=True)
 
-    # Segments & Positionnement stratégique
-    bullet_y = 7.80
-    add_text_box(slide, 1.40, 7.40, 12.95, 0.51,
-                 "Segments & Positionnement strat\u00e9gique", 9, NAVY, bold=True)
-    for i, strength in enumerate(strengths[:4]):
-        add_rect(slide, 1.40, bullet_y + i * 0.95 + 0.12, 0.20, 0.20, NAVY_MID)
-        add_text_box(slide, 1.75, bullet_y + i * 0.95, 12.00, 0.71,
-                     _truncate(str(strength), 120), 8.5, BLACK)
+    # Formulation naturelle "L'entreprise articule..."
+    if n_seg:
+        intro_txt = (
+            f"L'entreprise articule son activit\u00e9 autour de "
+            f"{seg_count_str} segment{'s' if n_seg > 1 else ''} "
+            f"strat\u00e9gique{'s' if n_seg > 1 else ''} :"
+        )
+        add_text_box(slide, 1.40, 6.55, 12.95, 0.56,
+                     intro_txt, 8.5, NAVY, bold=True, wrap=True)
+        bullet_y = 7.25
+        for i, seg in enumerate(segments[:5]):
+            seg_name = _g(seg, "name", "") or str(seg)
+            add_rect(slide, 1.40, bullet_y + i * 0.72 + 0.18, 0.18, 0.18, NAVY_MID)
+            add_text_box(slide, 1.72, bullet_y + i * 0.72, 12.05, 0.56,
+                         _truncate(seg_name, 80), 8.5, BLACK)
+    else:
+        # Fallback : liste des strengths si pas de segments
+        bullet_y = 7.25
+        add_text_box(slide, 1.40, 6.55, 12.95, 0.51,
+                     "Positionnement strat\u00e9gique", 9, NAVY, bold=True)
+        for i, strength in enumerate(strengths[:4]):
+            add_rect(slide, 1.40, bullet_y + i * 0.72 + 0.18, 0.18, 0.18, NAVY_MID)
+            add_text_box(slide, 1.72, bullet_y + i * 0.72, 12.05, 0.56,
+                         _truncate(str(strength), 80), 8.5, BLACK)
 
     # 4 KPI boxes on right
     shares    = _g(mkt, "shares_diluted")
@@ -939,38 +961,54 @@ def _slide_business_model(prs, snap, synthesis):
     slide_title(slide, "Modele Economique",
                 "Segments operationnels et moteurs de croissance")
 
+    segments  = _g(synthesis, "segments", []) or []
     strengths = _g(synthesis, "strengths", []) or []
-    risks_s   = _g(synthesis, "risks", []) or []
-    peers     = _g(synthesis, "comparable_peers", []) or []
 
-    # 4 columns from strengths or generic labels
-    col_configs = [
-        (NAVY_PALE,  NAVY_MID,   "Segment 1", strengths[0] if len(strengths) > 0 else "Core Business"),
-        (GREEN_PALE, GREEN,      "Segment 2", strengths[1] if len(strengths) > 1 else "Growth Driver"),
-        (GREY_BG,    GREY_LIGHT, "Segment 3", risks_s[0]   if len(risks_s)   > 0 else "International"),
-        (AMBER_PALE, AMBER,      "Segment 4", strengths[2] if len(strengths) > 2 else "Innovation"),
+    # Fallback si pas de segments LLM : construire depuis strengths
+    if not segments:
+        _fallback_labels = ["Core Business", "Growth Driver", "International", "Innovation"]
+        segments = [
+            {"name": _fallback_labels[i], "description": strengths[i] if i < len(strengths) else "", "revenue_pct": None}
+            for i in range(min(len(strengths), 4) or 3)
+        ]
+
+    # Limiter à 4 colonnes max pour la mise en page
+    segs_to_show = segments[:4]
+    n_cols = len(segs_to_show) or 1
+
+    _palettes = [
+        (NAVY_PALE,  NAVY_MID),
+        (GREEN_PALE, GREEN),
+        (GREY_BG,    GREY_LIGHT),
+        (AMBER_PALE, AMBER),
     ]
 
-    col_w    = 5.84
-    col_gap  = 0.3
+    total_w = 23.36  # 25.4 - 1.02*2
+    col_gap  = 0.30
+    col_w    = (total_w - (n_cols - 1) * col_gap) / n_cols
     start_x  = 1.02
     col_h    = 9.78
     col_y    = 2.67
-    pcts     = ["25%", "35%", "22%", "18%"]
 
-    for i, (fill, accent, label, text) in enumerate(col_configs):
+    for i, seg in enumerate(segs_to_show):
+        fill, accent = _palettes[i % len(_palettes)]
+        seg_name = _g(seg, "name", f"Segment {i+1}") or f"Segment {i+1}"
+        seg_desc = _g(seg, "description", "") or ""
+        rev_pct  = _g(seg, "revenue_pct")
+        pct_str  = f"{float(rev_pct):.0f}%" if rev_pct is not None else "—"
+
         cx = start_x + i * (col_w + col_gap)
         add_rect(slide, cx, col_y, col_w, col_h, fill)
-        add_rect(slide, cx, col_y, col_w, 0.15, accent)  # top strip
-        add_text_box(slide, cx + 0.30, col_y + 0.50, col_w - 0.60, 1.78,
-                     pcts[i], 22, accent, bold=True)
-        add_text_box(slide, cx + 0.30, col_y + 2.29, col_w - 0.60, 0.30,
+        add_rect(slide, cx, col_y, col_w, 0.15, accent)
+        add_text_box(slide, cx + 0.25, col_y + 0.50, col_w - 0.50, 1.78,
+                     pct_str, 22, accent, bold=True)
+        add_text_box(slide, cx + 0.25, col_y + 2.29, col_w - 0.50, 0.30,
                      "du CA", 9, GREY_TXT)
-        add_rect(slide, cx + 0.30, col_y + 2.79, col_w - 0.60, 0.05, GREY_LIGHT)
-        add_text_box(slide, cx + 0.30, col_y + 3.05, col_w - 0.60, 0.71,
-                     label, 10, NAVY, bold=True, wrap=True)
-        add_text_box(slide, cx + 0.30, col_y + 3.81, col_w - 0.60, 5.0,
-                     _truncate(str(text), 200), 8, GREY_TXT, wrap=True)
+        add_rect(slide, cx + 0.25, col_y + 2.79, col_w - 0.50, 0.05, GREY_LIGHT)
+        add_text_box(slide, cx + 0.25, col_y + 3.05, col_w - 0.50, 0.71,
+                     _truncate(seg_name, 60), 10, NAVY, bold=True, wrap=True)
+        add_text_box(slide, cx + 0.25, col_y + 3.81, col_w - 0.50, 5.0,
+                     _truncate(seg_desc, 250), 8, GREY_TXT, wrap=True)
 
     return slide
 

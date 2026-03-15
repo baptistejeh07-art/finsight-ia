@@ -32,6 +32,7 @@ class SynthesisResult:
     summary:             str = ""
     company_description: str = ""
     thesis:              str = ""
+    segments:            list = field(default_factory=list)
     strengths:           list = field(default_factory=list)
     risks:               list = field(default_factory=list)
     valuation_comment:   str = ""
@@ -116,6 +117,10 @@ JSON requis (tous les champs obligatoires) :
   "target_price_bear":<float|null>,
   "summary":"<2 phrases>",
   "company_description":"<MAXIMUM 60 mots — 2 phrases activite positionnement {ci.company_name}>",
+  "segments":[
+    {{"name":"<nom exact segment operationnel>","description":"<1-2 phrases>","revenue_pct":<float 0-100>}},
+    {{"name":"<nom segment 2>","description":"<1-2 phrases>","revenue_pct":<float 0-100>}}
+  ],
   "thesis":"<3-4 phrases these investissement catalyseurs>",
   "strengths":["<atout1>","<atout2>","<atout3>"],
   "risks":["<risque1>","<risque2>","<risque3>"],
@@ -195,6 +200,7 @@ class AgentSynthese:
             target_bear          = parsed.get("target_price_bear"),
             summary              = parsed.get("summary", ""),
             company_description  = parsed.get("company_description", ""),
+            segments             = parsed.get("segments", []),
             thesis               = parsed.get("thesis", ""),
             strengths            = parsed.get("strengths", []),
             risks                = parsed.get("risks", []),
