@@ -2036,10 +2036,20 @@ def _slide_sentiment(prs, snap, synthesis, sentiment):
     neut_theme_str = ("Articles non-anglais \u2014 FinBERT limite au fran\u00e7ais"
                       if _all_neutral else "Actualit\u00e9 sectorielle g\u00e9n\u00e9rale")
 
+    # Si count = 0 → score et thème non significatifs, on les masque
     break_rows = [
-        ["Positif",       _cnt(pos_cnt), _fmt_score(pos_val),  pos_theme_str],
-        ["Neutre",        _cnt(neu_cnt), _fmt_score(neut_val), neut_theme_str],
-        ["N\u00e9gatif",  _cnt(neg_cnt), _fmt_score(neg_val),  neg_theme_str],
+        ["Positif",
+         _cnt(pos_cnt),
+         _fmt_score(pos_val) if (pos_cnt or 0) > 0 else "\u2014",
+         pos_theme_str       if (pos_cnt or 0) > 0 else "Aucun article class\u00e9 positif"],
+        ["Neutre",
+         _cnt(neu_cnt),
+         _fmt_score(neut_val) if (neu_cnt or 0) > 0 else "\u2014",
+         neut_theme_str],
+        ["N\u00e9gatif",
+         _cnt(neg_cnt),
+         _fmt_score(neg_val) if (neg_cnt or 0) > 0 else "\u2014",
+         neg_theme_str       if (neg_cnt or 0) > 0 else "Aucun article class\u00e9 n\u00e9gatif"],
     ]
     sent_row_fills = [GREEN_PALE, WHITE, RED_PALE]
     tbl_y    = 6.48
