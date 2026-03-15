@@ -92,6 +92,19 @@ def _frm(v, cur_sym: str = "$") -> str:
         return "—"
 
 
+def _frn(v) -> str:
+    """Formate un montant en millions avec 1 décimale si >= 1000, sinon entier. Pas de suffixe devise."""
+    if v is None:
+        return "—"
+    try:
+        v = float(v)
+        if abs(v) >= 1000:
+            return _fr(v / 1000, 1)
+        return _fr(v, 0)
+    except Exception:
+        return "—"
+
+
 def _frpct(v, signed: bool = False) -> str:
     if v is None:
         return "—"
@@ -1073,6 +1086,7 @@ def _slide_is(prs, snap, synthesis, ratios):
     row_labels = [
         "Chiffre d'affaires",
         "Croissance YoY",
+        "Resultat brut",
         "Marge brute",
         "EBITDA",
         "Marge EBITDA",
@@ -1104,18 +1118,21 @@ def _slide_is(prs, snap, synthesis, ratios):
                 ni    = getattr(yr, "net_income", None) if yr else None
                 nm    = getattr(yr, "net_margin", None) if yr else None
 
+            gp = (float(rev) * float(gm)) if (rev is not None and gm is not None) else None
             if rl == "Chiffre d'affaires":
-                row.append(_fr(rev, 0))
+                row.append(_frn(rev))
             elif rl == "Croissance YoY":
                 row.append(_frpct(grow, signed=True))
+            elif rl == "Resultat brut":
+                row.append(_frn(gp))
             elif rl == "Marge brute":
                 row.append(_frpct(gm))
             elif rl == "EBITDA":
-                row.append(_fr(ebitda, 0))
+                row.append(_frn(ebitda))
             elif rl == "Marge EBITDA":
                 row.append(_frpct(em))
             elif rl == "Resultat net":
-                row.append(_fr(ni, 0))
+                row.append(_frn(ni))
             elif rl == "Marge nette":
                 row.append(_frpct(nm))
             else:
@@ -1142,7 +1159,7 @@ def _slide_is(prs, snap, synthesis, ratios):
     from pptx.enum.text import PP_ALIGN
 
     _SUBMAIN = {
-        "Chiffre d'affaires", "EBITDA", "Resultat net"
+        "Chiffre d'affaires", "Resultat brut", "EBITDA", "Resultat net"
     }
     _SUBSUB = {
         "Croissance YoY", "Marge brute", "Marge EBITDA", "Marge nette"
@@ -1257,11 +1274,22 @@ def _slide_bilan(prs, snap, synthesis, ratios):
         ["Altman Z",                 _fr(az, 2),  "> 2,99",  az_sig],
         ["Beneish M",                _fr(bm, 2),  "< -2,22", bm_sig],
     ]
-    add_table(slide, 9.4, 2.80, 14.99, 5.0,
+    ratio_tbl = add_table(slide, 9.4, 2.80, 14.99, 5.0,
               len(ratio_rows), 4,
               col_widths_pct=[0.44, 0.21, 0.21, 0.14],
               header_data=["Ratio", "Valeur", "R\u00e9f\u00e9rence", "Signal"],
               rows_data=ratio_rows)
+
+    # Bold les noms d'indicateurs (colonne 0)
+    from pptx.util import Pt
+    for ri in range(1, len(ratio_rows) + 1):
+        try:
+            cell = ratio_tbl.cell(ri, 0)
+            for run in cell.text_frame.paragraphs[0].runs:
+                run.font.bold = True
+                run.font.size = Pt(8)
+        except Exception:
+            pass
 
     fin_comment = _g(synthesis, "financial_commentary", "") or ""
     if fin_comment.strip():
