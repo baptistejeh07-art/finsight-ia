@@ -299,9 +299,35 @@ def _set_cell(cell, text, font_size=8, bold=False, color_hex=BLACK,
     run.font.color.rgb = rgb(color_hex)
 
 
+def _apply_cell_borders(tbl, total_rows, num_cols, hex_color="DDDDDD", width_pt=0.5):
+    from pptx.oxml.ns import qn
+    from lxml import etree
+    w_emu = str(int(width_pt * 12700))
+    ns = 'xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"'
+    ln_xml = (
+        f'<a:ln {ns} w="{w_emu}">'
+        f'<a:solidFill><a:srgbClr val="{hex_color}"/></a:solidFill>'
+        f'</a:ln>'
+    )
+    for ri in range(total_rows):
+        for ci in range(num_cols):
+            tc = tbl.cell(ri, ci)._tc
+            tcPr = tc.find(qn('a:tcPr'))
+            if tcPr is None:
+                tcPr = etree.SubElement(tc, qn('a:tcPr'))
+            for tag in ('a:lnL', 'a:lnR', 'a:lnT', 'a:lnB'):
+                old = tcPr.find(qn(tag))
+                if old is not None:
+                    tcPr.remove(old)
+                ln = etree.fromstring(ln_xml)
+                sub = etree.SubElement(tcPr, qn(tag))
+                sub.append(ln[0])          # append <a:solidFill>
+                sub.set('w', w_emu)
+
+
 def add_table(slide, x, y, w, h, num_rows, num_cols, col_widths_pct=None,
               header_data=None, rows_data=None,
-              header_fill=NAVY, row_fills=None):
+              header_fill=NAVY, row_fills=None, border_hex=None):
     """
     Ajoute un tableau python-pptx.
     header_data : list de strings (optionnel)
@@ -351,6 +377,9 @@ def add_table(slide, x, y, w, h, num_rows, num_cols, col_widths_pct=None,
                 _set_cell(cell, val, font_size=8, bold=False,
                           color_hex=BLACK, fill_hex=fill,
                           align=align)
+
+    if border_hex:
+        _apply_cell_borders(tbl, num_rows + (1 if header_data else 0), num_cols, border_hex)
 
     return tbl
 
@@ -1446,7 +1475,8 @@ def _slide_ratios(prs, snap, synthesis, ratios):
               len(rows), 4,
               col_widths_pct=[0.25, 0.25, 0.25, 0.25],
               header_data=["Indicateur", "Valeur", "Benchmark", "Lecture"],
-              rows_data=rows)
+              rows_data=rows,
+              border_hex="DDDDDD")
 
     # Per-cell coloring of Lecture column (col 3) + Valeur column navy bold (col 1)
     _GOOD_READS  = {"solide", "correct", "en ligne", "dans la norme", "sous-value", "aucun signal",
