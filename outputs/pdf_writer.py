@@ -241,7 +241,7 @@ def _make_footer(company_name, ticker):
         canvas.drawString(20*mm, y,
             _enc(f"FinSight IA  \u00b7  {company_name} ({ticker})  \u00b7  Usage confidentiel"))
         # Page numero : on affiche doc.page - 1 car page 1 = cover
-        canvas.drawRightString(W-20*mm, y, f"{doc.page}")
+        canvas.drawRightString(W-20*mm, y, f"{doc.page - 1}")
         # En-tete discret
         yh = H - 9*mm
         canvas.setFont("Helvetica", 6.5)
@@ -263,42 +263,47 @@ def _draw_cover(canvas, doc, ticker, company_name, sector, exchange, gen_date):
     canvas.saveState()
     cx = W / 2
 
-    # Bande navy fine 10mm en haut
+    # Bande navy pleine en haut (12mm)
     canvas.setFillColor(NAVY)
-    canvas.rect(0, H-10*mm, W, 10*mm, fill=1, stroke=0)
-    canvas.setFont("Helvetica", 8)
-    canvas.setFillColor(colors.HexColor("#AAAAAA"))
-    canvas.drawCentredString(cx, H-7*mm, "FinSight IA")
+    canvas.rect(0, H-12*mm, W, 12*mm, fill=1, stroke=0)
+    canvas.setFont("Helvetica-Bold", 9)
+    canvas.setFillColor(WHITE)
+    canvas.drawCentredString(cx, H-8*mm, "FinSight IA")
 
-    # Zone centrale
-    mid_y = H * 0.54
+    # Zone centrale — légèrement au-dessus du milieu
+    mid_y = H * 0.52
+
+    # Ligne décorative courte au-dessus du titre
     canvas.setStrokeColor(NAVY)
-    canvas.setLineWidth(0.8)
-    canvas.line(cx-20*mm, mid_y+10*mm, cx+20*mm, mid_y+10*mm)
+    canvas.setLineWidth(1.0)
+    canvas.line(cx-25*mm, mid_y+14*mm, cx+25*mm, mid_y+14*mm)
 
+    # Sous-titre
     canvas.setFont("Helvetica", 11)
-    canvas.setFillColor(colors.HexColor("#333333"))
-    canvas.drawCentredString(cx, mid_y, _enc("Rapport d'analyse financiere"))
+    canvas.setFillColor(colors.HexColor("#555555"))
+    canvas.drawCentredString(cx, mid_y+6*mm, _enc("Rapport d'analyse"))
 
-    canvas.setFont("Helvetica-Bold", 24)
+    # Nom société (grand, navy bold)
+    canvas.setFont("Helvetica-Bold", 26)
     canvas.setFillColor(NAVY)
-    nm = company_name if len(company_name) <= 35 else company_name[:33]+"..."
-    canvas.drawCentredString(cx, mid_y-18*mm, _enc(nm))
+    nm = company_name if len(company_name) <= 32 else company_name[:30]+"..."
+    canvas.drawCentredString(cx, mid_y - 6*mm, _enc(nm))
 
+    # Ticker · Exchange · Secteur
     parts = "  \u00b7  ".join(x for x in [ticker, exchange, sector] if x)
     canvas.setFont("Helvetica", 10)
     canvas.setFillColor(colors.HexColor("#888888"))
-    canvas.drawCentredString(cx, mid_y-30*mm, _enc(parts))
+    canvas.drawCentredString(cx, mid_y - 18*mm, _enc(parts))
 
-    # Bas de page
-    fy = 15*mm
-    canvas.setStrokeColor(colors.HexColor("#AAAAAA"))
+    # Bas de page — ligne + "Rapport confidentiel" + date
+    fy = 18*mm
+    canvas.setStrokeColor(colors.HexColor("#CCCCCC"))
     canvas.setLineWidth(0.5)
-    canvas.line(15*mm, fy+5*mm, W-15*mm, fy+5*mm)
+    canvas.line(20*mm, fy+5*mm, W-20*mm, fy+5*mm)
     canvas.setFont("Helvetica", 8)
     canvas.setFillColor(colors.HexColor("#666666"))
-    canvas.drawString(15*mm, fy, "Rapport confidentiel")
-    canvas.drawRightString(W-15*mm, fy, _enc(gen_date))
+    canvas.drawString(20*mm, fy, "Rapport confidentiel")
+    canvas.drawRightString(W-20*mm, fy, _enc(gen_date))
 
     canvas.restoreState()
 
@@ -1157,6 +1162,7 @@ class PDFWriter:
         out = Path(output_path)
         out.parent.mkdir(parents=True, exist_ok=True)
 
+        cover_cb  = lambda c, d: _draw_cover(c, d, ticker, co_name, sector, exchange, gen_date)
         footer_cb = _make_footer(co_name, ticker)
 
         doc = SimpleDocTemplate(
@@ -1168,8 +1174,9 @@ class PDFWriter:
             author="FinSight IA v1.0",
         )
 
-        # Pas de cover ni de TOC — rapport compact style IB (cf. rapport_type_TSLA.pdf)
-        story = []
+        # Page 1 = cover (canvas only), page 2 = sommaire, pages 3+ = contenu
+        story = [PageBreak()]          # consomme page 1 pour la cover
+        _page_toc(story, gen_date)     # page 2 — sommaire
         _page_synthese(story, snap, synthesis)
         story.append(PageBreak())
         _page_financiere(story, snap, ratios, synthesis)
@@ -1179,6 +1186,6 @@ class PDFWriter:
         _page_risques_sentiment(story, snap, synthesis, devil, sentiment)
         _page_disclaimer(story, snap, gen_date)
 
-        doc.build(story, onFirstPage=footer_cb, onLaterPages=footer_cb)
+        doc.build(story, onFirstPage=cover_cb, onLaterPages=footer_cb)
         log.info(f"[PDFWriter] {ticker} -> {out.name}")
         return str(out)
