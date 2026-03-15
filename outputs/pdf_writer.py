@@ -304,7 +304,7 @@ def _draw_cover(canvas, doc, ticker, company_name, sector, exchange, gen_date):
         lines = [l for l in lines if l]
 
     line_h = 10 * mm
-    start_y = mid_y - 2*mm if len(lines) == 1 else mid_y + (line_h * (len(lines)-1)) / 2 - 2*mm
+    start_y = mid_y - 8*mm if len(lines) == 1 else mid_y + (line_h * (len(lines)-1)) / 2 - 8*mm
     for i, ln in enumerate(lines):
         canvas.drawCentredString(cx, start_y - i * line_h, _enc(ln))
 
@@ -396,11 +396,10 @@ def _page_toc(story, gen_date, snap=None, synthesis=None):
             ])
         kf_tbl = Table(kf_data, colWidths=[28*mm, 52*mm, 38*mm, 52*mm], splitByRow=0)
         kf_tbl.setStyle(TableStyle([
-            ("TOPPADDING",    (0,0),(-1,-1), 4),
-            ("BOTTOMPADDING", (0,0),(-1,-1), 4),
+            ("TOPPADDING",    (0,0),(-1,-1), 5),
+            ("BOTTOMPADDING", (0,0),(-1,-1), 5),
             ("LEFTPADDING",   (0,0),(-1,-1), 0),
             ("RIGHTPADDING",  (0,0),(-1,-1), 4),
-            ("LINEBELOW",     (0,0),(-1,-1), 0.25, GREY_RULE),
             ("LINEAFTER",     (1,0),(1,-1),  0.8,  GREY_RULE),
             ("VALIGN",        (0,0),(-1,-1), "MIDDLE"),
         ]))
