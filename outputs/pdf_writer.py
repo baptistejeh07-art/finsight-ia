@@ -128,7 +128,7 @@ def tbl(rows, widths, extra=None):
     ]
     if extra:
         base += extra
-    t = Table(cells, colWidths=[w * mm for w in widths])
+    t = Table(cells, colWidths=[w * mm for w in widths], splitByRow=0)
     t.setStyle(TableStyle(base))
     return t
 
@@ -285,17 +285,35 @@ def _draw_cover(canvas, doc, ticker, company_name, sector, exchange, gen_date):
     canvas.setFillColor(colors.HexColor("#555555"))
     canvas.drawCentredString(cx, mid_y+6*mm, _enc("Rapport d'analyse"))
 
-    # Nom société (grand, navy bold)
+    # Nom société (grand, navy bold) — retour à la ligne si trop long
     canvas.setFont("Helvetica-Bold", 26)
     canvas.setFillColor(NAVY)
-    nm = company_name if len(company_name) <= 32 else company_name[:30]+"..."
-    canvas.drawCentredString(cx, mid_y - 6*mm, _enc(nm))
+    words = company_name.split()
+    if len(company_name) <= 28 or not words:
+        lines = [company_name]
+    else:
+        # Découpe au mot le plus proche du milieu
+        mid = len(company_name) // 2
+        best, best_pos = 0, 0
+        pos = 0
+        for i, w in enumerate(words):
+            pos += len(w) + (1 if i > 0 else 0)
+            if abs(pos - mid) < abs(best_pos - mid):
+                best, best_pos = i + 1, pos
+        lines = [" ".join(words[:best]), " ".join(words[best:])]
+        lines = [l for l in lines if l]
+
+    line_h = 10 * mm
+    start_y = mid_y - 2*mm if len(lines) == 1 else mid_y + (line_h * (len(lines)-1)) / 2 - 2*mm
+    for i, ln in enumerate(lines):
+        canvas.drawCentredString(cx, start_y - i * line_h, _enc(ln))
 
     # Ticker · Exchange · Secteur
     parts = "  \u00b7  ".join(x for x in [ticker, exchange, sector] if x)
     canvas.setFont("Helvetica", 10)
     canvas.setFillColor(colors.HexColor("#888888"))
-    canvas.drawCentredString(cx, mid_y - 18*mm, _enc(parts))
+    ticker_y = start_y - len(lines) * line_h - 2*mm
+    canvas.drawCentredString(cx, ticker_y, _enc(parts))
 
     # Bas de page — ligne + "Rapport confidentiel" + date
     fy = 18*mm
@@ -355,33 +373,38 @@ def _page_toc(story, gen_date, snap=None, synthesis=None):
         tbase = _g(synthesis,"target_base")
         price = mkt.share_price
 
-        lbl_st  = ParagraphStyle("kfl", fontName="Helvetica",      fontSize=8,   textColor=GREY_TEXT, leading=13)
-        val_st  = ParagraphStyle("kfv", fontName="Helvetica-Bold",  fontSize=8.5, textColor=NAVY,      leading=13)
-        sep_st  = ParagraphStyle("kfs", fontName="Helvetica",       fontSize=8,   textColor=GREY_LIGHT, leading=13)
+        lbl_st  = ParagraphStyle("kfl", fontName="Helvetica",     fontSize=7.5, textColor=GREY_TEXT, leading=12)
+        val_st  = ParagraphStyle("kfv", fontName="Helvetica-Bold", fontSize=8.5, textColor=NAVY,      leading=12)
 
-        kf_items = [
-            ("Ticker",          ci.ticker or "\u2014"),
-            ("Soci\u00e9t\u00e9", ci.company_name or "\u2014"),
-            ("Secteur",         ci.sector or "\u2014"),
-            ("Recommandation",  rec),
-            ("Conviction",      _frpct(conv) if conv else "\u2014"),
-            ("Cours",           f"{_fr(price,2)}\u00a0{cur}" if price else "\u2014"),
-            ("Cible base",      f"{_fr(tbase,0)}\u00a0{cur}" if tbase else "\u2014"),
-            ("Date d'analyse",  gen_date),
+        kf_rows = [
+            [("Ticker",            ci.ticker or "\u2014"),
+             ("Recommandation",    rec)],
+            [("Soci\u00e9t\u00e9", ci.company_name or "\u2014"),
+             ("Conviction",        _frpct(conv) if conv else "\u2014")],
+            [("Secteur",           ci.sector or "\u2014"),
+             ("Cours",             f"{_fr(price,2)}\u00a0{cur}" if price else "\u2014")],
+            [("Devise",            cur),
+             ("Cible base",        f"{_fr(tbase,0)}\u00a0{cur}" if tbase else "\u2014")],
+            [("Date d'analyse",    gen_date),
+             ("",                  "")],
         ]
-        for lbl, val in kf_items:
-            row = Table([[Paragraph(lbl, lbl_st), Paragraph(val, val_st)]],
-                        colWidths=[45*mm, 125*mm])
-            row.setStyle(TableStyle([
-                ("TOPPADDING",    (0,0),(-1,-1), 3),
-                ("BOTTOMPADDING", (0,0),(-1,-1), 3),
-                ("LEFTPADDING",   (0,0),(-1,-1), 0),
-                ("RIGHTPADDING",  (0,0),(-1,-1), 0),
-                ("LINEBELOW",     (0,0),(-1,-1), 0.25, GREY_RULE),
-                ("VALIGN",        (0,0),(-1,-1), "MIDDLE"),
-                ("NOSPLIT",       (0,0),(-1,-1)),
-            ]))
-            story.append(row)
+        kf_data = []
+        for (l1,v1),(l2,v2) in kf_rows:
+            kf_data.append([
+                Paragraph(l1, lbl_st), Paragraph(v1, val_st),
+                Paragraph(l2, lbl_st), Paragraph(v2, val_st),
+            ])
+        kf_tbl = Table(kf_data, colWidths=[28*mm, 52*mm, 38*mm, 52*mm], splitByRow=0)
+        kf_tbl.setStyle(TableStyle([
+            ("TOPPADDING",    (0,0),(-1,-1), 4),
+            ("BOTTOMPADDING", (0,0),(-1,-1), 4),
+            ("LEFTPADDING",   (0,0),(-1,-1), 0),
+            ("RIGHTPADDING",  (0,0),(-1,-1), 4),
+            ("LINEBELOW",     (0,0),(-1,-1), 0.25, GREY_RULE),
+            ("LINEAFTER",     (1,0),(1,-1),  0.8,  GREY_RULE),
+            ("VALIGN",        (0,0),(-1,-1), "MIDDLE"),
+        ]))
+        story.append(kf_tbl)
 
     # À propos de cette analyse
     story.append(sp(10))
