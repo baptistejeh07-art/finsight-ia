@@ -124,8 +124,8 @@ JSON requis (tous les champs obligatoires) :
     {{"name":"<nom segment 2>","description":"<MAXIMUM 12 mots — 1 ligne courte>","revenue_pct":<float 0-100>}}
   ],
   "thesis":"<3-4 phrases these investissement catalyseurs>",
-  "strengths":["<atout1>","<atout2>","<atout3>"],
-  "risks":["<risque1>","<risque2>","<risque3>"],
+  "strengths":["<MAXIMUM 8 mots — titre atout1>","<MAXIMUM 8 mots — titre atout2>","<MAXIMUM 8 mots — titre atout3>"],
+  "risks":["<MAXIMUM 8 mots — titre risque1>","<MAXIMUM 8 mots — titre risque2>","<MAXIMUM 8 mots — titre risque3>"],
   "valuation_comment":"<2 phrases valorisation relative>",
   "financial_commentary":"<2-3 phrases tendances P&L croissance marges cash>",
   "ratio_commentary":"<1-2 phrases ratios vs secteur>",
