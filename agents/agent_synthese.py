@@ -118,8 +118,8 @@ JSON requis (tous les champs obligatoires) :
   "summary":"<2 phrases>",
   "company_description":"<MAXIMUM 60 mots — 2 phrases activite positionnement {ci.company_name}>",
   "segments":[
-    {{"name":"<nom exact segment operationnel>","description":"<1-2 phrases>","revenue_pct":<float 0-100>}},
-    {{"name":"<nom segment 2>","description":"<1-2 phrases>","revenue_pct":<float 0-100>}}
+    {{"name":"<nom exact segment operationnel>","description":"<MAXIMUM 12 mots — 1 ligne courte ex: Logiciels cloud B2B, SaaS entreprise>","revenue_pct":<float 0-100>}},
+    {{"name":"<nom segment 2>","description":"<MAXIMUM 12 mots — 1 ligne courte>","revenue_pct":<float 0-100>}}
   ],
   "thesis":"<3-4 phrases these investissement catalyseurs>",
   "strengths":["<atout1>","<atout2>","<atout3>"],

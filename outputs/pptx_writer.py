@@ -904,11 +904,17 @@ def _slide_company_overview(prs, snap, synthesis, ratios):
         add_text_box(slide, 1.40, 6.55, 12.95, 0.56,
                      intro_txt, 8.5, NAVY, bold=True, wrap=True)
         bullet_y = 7.25
-        for i, seg in enumerate(segments[:5]):
+        row_h = 0.95  # hauteur par segment (nom + commentaire)
+        for i, seg in enumerate(segments[:4]):
             seg_name = _g(seg, "name", "") or str(seg)
-            add_rect(slide, 1.40, bullet_y + i * 0.72 + 0.18, 0.18, 0.18, NAVY_MID)
-            add_text_box(slide, 1.72, bullet_y + i * 0.72, 12.05, 0.56,
-                         _truncate(seg_name, 80), 8.5, BLACK)
+            seg_desc = _g(seg, "description", "") or ""
+            by = bullet_y + i * row_h
+            add_rect(slide, 1.40, by + 0.12, 0.18, 0.18, NAVY_MID)
+            add_text_box(slide, 1.72, by, 12.05, 0.46,
+                         _truncate(seg_name, 80), 8.5, BLACK, bold=True)
+            if seg_desc:
+                add_text_box(slide, 1.72, by + 0.44, 12.05, 0.40,
+                             _truncate(seg_desc, 100), 7.5, GREY_TXT, italic=True)
     else:
         # Fallback : liste des strengths si pas de segments
         bullet_y = 7.25
