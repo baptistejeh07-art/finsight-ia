@@ -886,7 +886,7 @@ def _slide_company_overview(prs, snap, synthesis, ratios):
     add_rect(slide, 1.02, 2.67, 13.72, 9.78, GREY_BG)
     add_rect(slide, 1.02, 2.67, 0.13, 9.78, NAVY_MID)
     add_text_box(slide, 1.40, 2.84, 12.95, 4.5,
-                 _truncate(desc, 550), 8.5, BLACK, wrap=True)
+                 _truncate(desc, 700), 8.5, BLACK, wrap=True)
 
     # Segments & Positionnement stratégique
     bullet_y = 7.80

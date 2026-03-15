@@ -115,7 +115,7 @@ JSON requis (tous les champs obligatoires) :
   "target_price_bull":<float|null>,
   "target_price_bear":<float|null>,
   "summary":"<2 phrases>",
-  "company_description":"<2-3 phrases activite positionnement {ci.company_name}>",
+  "company_description":"<MAXIMUM 60 mots — 2 phrases activite positionnement {ci.company_name}>",
   "thesis":"<3-4 phrases these investissement catalyseurs>",
   "strengths":["<atout1>","<atout2>","<atout3>"],
   "risks":["<risque1>","<risque2>","<risque3>"],
