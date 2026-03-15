@@ -96,7 +96,7 @@ Identifie les hypotheses les plus fragiles et quantifie les risques de baisse.
 JSON requis :
 {{
   "counter_reco": "{counter}",
-  "counter_thesis": "<3 paragraphes negatifs separes par ' | ', MAXIMUM 25 mots par paragraphe>",
+  "counter_thesis": "<3 paragraphes negatifs separes par ' | ', MAXIMUM 45 mots par paragraphe, arguments concrets et chiffres>",
   "counter_risks": ["<titre risque 1>", "<titre risque 2>", "<titre risque 3>"],
   "conviction_delta": <float -1 (these fragile) a 0 (these solide)>,
   "key_assumptions": ["<hypothese fragile 1>", "<hypothese fragile 2>"],
