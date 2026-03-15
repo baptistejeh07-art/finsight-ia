@@ -124,7 +124,7 @@ def tbl(rows, widths, extra=None):
         ("BOTTOMPADDING", (0,0), (-1,-1), 3),
         ("VALIGN",        (0,0), (-1,-1), "MIDDLE"),
         ("FONTNAME",      (0,1), (0,-1),  "Helvetica-Bold"),
-        ("LINEAFTER",     (0,0), (0,-1),  1.2, NAVY_MID),
+        ("LINEAFTER",     (0,0), (0,-1),  0.4, GREY_RULE),
     ]
     if extra:
         base += extra
@@ -312,8 +312,8 @@ def _draw_cover(canvas, doc, ticker, company_name, sector, exchange, gen_date):
 # PAGE SOMMAIRE
 # ═══════════════════════════════════════════════════════════════════
 
-def _page_toc(story, gen_date):
-    story.append(sp(20))
+def _page_toc(story, gen_date, snap=None, synthesis=None):
+    story.append(sp(10))
     story.append(Paragraph("Sommaire", ST["toc_title"]))
     story.append(HRFlowable(width="100%", thickness=1.0, color=NAVY, spaceBefore=2, spaceAfter=10))
 
@@ -330,8 +330,8 @@ def _page_toc(story, gen_date):
             Paragraph(pg, ST["toc_pg"]),
         ]], colWidths=[10*mm, 145*mm, 15*mm])
         row.setStyle(TableStyle([
-            ("TOPPADDING",    (0,0),(-1,-1), 5),
-            ("BOTTOMPADDING", (0,0),(-1,-1), 5),
+            ("TOPPADDING",    (0,0),(-1,-1), 6),
+            ("BOTTOMPADDING", (0,0),(-1,-1), 6),
             ("LEFTPADDING",   (0,0),(-1,-1), 0),
             ("RIGHTPADDING",  (0,0),(-1,-1), 0),
             ("LINEBELOW",     (0,0),(-1,-1), 0.3, GREY_RULE),
@@ -339,13 +339,69 @@ def _page_toc(story, gen_date):
         ]))
         story.append(row)
 
-    story.append(sp(8))
+    # Donnees cles de l'analyse
+    if snap and synthesis:
+        story.append(sp(12))
+        story.append(HRFlowable(width="100%", thickness=0.4, color=GREY_RULE, spaceBefore=0, spaceAfter=6))
+        story.append(Paragraph("Donnees cles", ST["h1"]))
+        ci  = snap.company_info
+        mkt = snap.market
+        cur = ci.currency or "USD"
+        rec  = (_g(synthesis,"recommendation") or "HOLD").upper()
+        conv = _g(synthesis,"conviction")
+        tbase = _g(synthesis,"target_base")
+        price = mkt.share_price
+
+        kf_style = ParagraphStyle("kf", fontName="Helvetica", fontSize=8, textColor=GREY_TEXT, leading=12, alignment=TA_LEFT)
+        kf_bold  = ParagraphStyle("kfb", fontName="Helvetica-Bold", fontSize=8.5, textColor=NAVY, leading=12, alignment=TA_LEFT)
+
+        kf_data = [
+            [Paragraph("Ticker", kf_style),       Paragraph(ci.ticker or "—", kf_bold),
+             Paragraph("Secteur", kf_style),       Paragraph(ci.sector or "—", kf_bold)],
+            [Paragraph("Recommandation", kf_style),Paragraph(rec, kf_bold),
+             Paragraph("Conviction", kf_style),    Paragraph(_frpct(conv) if conv else "—", kf_bold)],
+            [Paragraph("Cours", kf_style),         Paragraph(f"{_fr(price,2)} {cur}" if price else "—", kf_bold),
+             Paragraph("Cible base", kf_style),    Paragraph(f"{_fr(tbase,0)} {cur}" if tbase else "—", kf_bold)],
+            [Paragraph("Devise", kf_style),        Paragraph(cur, kf_bold),
+             Paragraph("Date", kf_style),          Paragraph(gen_date, kf_bold)],
+        ]
+        kf_tbl = Table(kf_data, colWidths=[30*mm, 52*mm, 30*mm, 58*mm])
+        kf_tbl.setStyle(TableStyle([
+            ("TOPPADDING",    (0,0),(-1,-1), 4),
+            ("BOTTOMPADDING", (0,0),(-1,-1), 4),
+            ("LEFTPADDING",   (0,0),(-1,-1), 0),
+            ("RIGHTPADDING",  (0,0),(-1,-1), 0),
+            ("LINEBELOW",     (0,0),(-1,-1), 0.3, GREY_RULE),
+            ("VALIGN",        (0,0),(-1,-1), "MIDDLE"),
+        ]))
+        story.append(kf_tbl)
+
+    # Introduction methodologique
+    story.append(sp(10))
+    story.append(HRFlowable(width="100%", thickness=0.4, color=GREY_RULE, spaceBefore=0, spaceAfter=6))
+    story.append(Paragraph("A propos de cette analyse", ST["h1"]))
+    story.append(sp(3))
     story.append(Paragraph(
         f"Ce rapport a ete genere automatiquement par FinSight IA v1.0 le {gen_date}. "
         "Il couvre l'ensemble des dimensions analytiques standard d'une note d'investissement "
         "institutionnelle : presentation de l'entreprise, analyse financiere historique et "
         "prospective, valorisation DCF et par multiples comparables, analyse des risques "
         "et conditions d'invalidation de la these.",
+        ST["toc_intro"]))
+    story.append(sp(4))
+    story.append(Paragraph(
+        "L'analyse fondamentale repose sur les donnees financieres historiques issues de sources "
+        "publiques (yfinance, Finnhub Financial, Financial Modeling Prep). La valorisation DCF "
+        "est calculee sur un horizon de cinq ans avec sensibilite au WACC et au taux de croissance "
+        "terminal. L'analyse de sentiment est conduite par FinBERT, modele de traitement du "
+        "langage naturel specialise en finance, sur un corpus d'articles des sept derniers jours.",
+        ST["toc_intro"]))
+    story.append(sp(4))
+    story.append(Paragraph(
+        "La these d'investissement est soumise a un protocole de contradiction systematique "
+        "(avocat du diable) visant a identifier les hypotheses les plus fragiles et les "
+        "scenarios de baisse. Les conditions d'invalidation sont explicitement formulees "
+        "pour chaque axe de risque : macroeconomique, sectoriel et specifique a la societe.",
         ST["toc_intro"]))
     story.append(PageBreak())
 
@@ -658,6 +714,7 @@ def _page_financiere(story, snap, ratios, synthesis):
 
     fin_comment = _g(synthesis,"financial_commentary") or _g(synthesis,"summary") or ""
     if fin_comment:
+        story.append(sp(3))
         story.append(p(fin_comment))
 
     # Ratios
@@ -724,6 +781,7 @@ def _page_financiere(story, snap, ratios, synthesis):
 
     rc = _g(synthesis,"ratio_commentary") or ""
     if rc:
+        story.append(sp(3))
         story.append(p(rc))
 
 
@@ -793,10 +851,11 @@ def _page_valorisation(story, snap, ratios, synthesis):
                 row.append(_dcf(w,t))
         sens.append(row)
 
+    SENS_HL = colors.HexColor("#EEF2F8")
     story.append(tbl(sens, [34, 27.2, 27.2, 27.2, 27.2, 27.2], extra=[
-        ("BACKGROUND", (0,3),(-1,3),  NAVY_PALE),
-        ("BACKGROUND", (3,1),(3,-1),  NAVY_PALE),
-        ("BACKGROUND", (3,3),(3,3),   NAVY),
+        ("BACKGROUND", (0,3),(-1,3),  SENS_HL),
+        ("BACKGROUND", (3,1),(3,-1),  SENS_HL),
+        ("BACKGROUND", (3,3),(3,3),   NAVY_MID),
         ("TEXTCOLOR",  (3,3),(3,3),   WHITE),
         ("FONTNAME",   (0,3),(-1,3),  "Helvetica-Bold"),
     ]))
@@ -877,6 +936,7 @@ def _page_valorisation(story, snap, ratios, synthesis):
                     ("LINEABOVE",  (0,-1),(-1,-1), 0.8, NAVY),
                     ("BACKGROUND", (0,-1),(-1,-1), GREY_ROW),
                 ]))
+                story.append(sp(3))
                 story.append(p(
                     f"La mediane des pairs sur l'EV/EBITDA ressort a {_frx(med_ev)}, contre "
                     f"{_frx(ev_e)} pour {ci.ticker}, confirmant une prime de {_fr(prime,0)}\u00a0% "
@@ -946,6 +1006,7 @@ def _page_valorisation(story, snap, ratios, synthesis):
     story.append(tbl(ff_tbl, [70, 33, 33, 34]))
 
     if tbase and price:
+        story.append(sp(3))
         story.append(p(
             f"Le scenario DCF base ({_fr(tbase,0)}\u00a0{cur}) et le cours actuel "
             f"({_fr(price,2)}\u00a0{cur}) sont coherents avec une valorisation mixte "
@@ -1175,8 +1236,8 @@ class PDFWriter:
         )
 
         # Page 1 = cover (canvas only), page 2 = sommaire, pages 3+ = contenu
-        story = [PageBreak()]          # consomme page 1 pour la cover
-        _page_toc(story, gen_date)     # page 2 — sommaire
+        story = [PageBreak()]                                    # consomme page 1 pour la cover
+        _page_toc(story, gen_date, snap=snap, synthesis=synthesis)  # page 2 — sommaire
         _page_synthese(story, snap, synthesis)
         story.append(PageBreak())
         _page_financiere(story, snap, ratios, synthesis)
