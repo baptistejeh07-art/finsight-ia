@@ -81,9 +81,13 @@ def _frm(v, cur_sym: str = "$") -> str:
         return "—"
     try:
         v = float(v)
+        if cur_sym == "EUR":
+            sym_big, sym_small = "Md\u20ac", "M\u20ac"
+        else:
+            sym_big, sym_small = "Mds" + cur_sym, "M" + cur_sym
         if abs(v) >= 1000:
-            return _fr(v / 1000, 1) + " Mds" + cur_sym
-        return _fr(v, 0) + " M" + cur_sym
+            return _fr(v / 1000, 1) + " " + sym_big
+        return _fr(v, 0) + " " + sym_small
     except Exception:
         return "—"
 
@@ -301,7 +305,7 @@ def slide_title(slide, title: str, subtitle: str = ""):
                  title, 13, WHITE, bold=True)
     if subtitle:
         add_text_box(slide, 1.02, 1.73, 23.37, 0.56,
-                     subtitle, 9, NAVY_PALE)
+                     subtitle, 9, NAVY_MID)
 
 
 def kpi_box(slide, x, y, w, h, value, label, sub="",
@@ -322,10 +326,7 @@ def kpi_box(slide, x, y, w, h, value, label, sub="",
 
 
 def commentary_box(slide, x, y, w, h, text, accent=NAVY_MID):
-    add_rect(slide, x, y, w, h, NAVY_PALE)
-    add_rect(slide, x, y, 0.13, h, accent)
-    add_text_box(slide, x + 0.38, y + 0.15, w - 0.51, h - 0.3,
-                 text or "—", 8.5, BLACK, wrap=True)
+    add_text_box(slide, x, y, w, h, text or "—", 8.5, GREY_TXT, wrap=True)
 
 
 def divider_slide(prs, number_str: str, title: str, subtitle: str):
@@ -333,27 +334,30 @@ def divider_slide(prs, number_str: str, title: str, subtitle: str):
     slide_layout = prs.slide_layouts[6]
     slide = prs.slides.add_slide(slide_layout)
 
+    # Full dark background
+    add_rect(slide, 0, 0, 25.4, 14.29, NAVY)
+
     # Left accent bar
     add_rect(slide, 0, 0, 0.3, 14.29, NAVY_MID)
 
     # Number watermark
     add_text_box(slide, 1.27, 3.5, 22.86, 4.57,
-                 number_str, 80, "DDDDDD", bold=True)
+                 number_str, 80, WHITE, bold=True)
 
     # Title
     add_text_box(slide, 1.27, 5.21, 21.59, 2.29,
-                 title, 28, NAVY, bold=True)
+                 title, 28, WHITE, bold=True)
 
     # Rule (zero-height)
     add_rect(slide, 1.27, 7.75, 7.62, 0.01, GREY_LIGHT)
 
     # Subtitle
     add_text_box(slide, 1.27, 8.08, 17.78, 0.89,
-                 subtitle, 10, GREY_TXT)
+                 subtitle, 10, NAVY_PALE)
 
     # Footer text
     add_text_box(slide, 1.02, 13.34, 23.37, 0.56,
-                 "FinSight IA \u00b7 Usage confidentiel", 7, GREY_TXT)
+                 "FinSight IA \u00b7 Usage confidentiel", 7, "6677AA")
 
     return slide
 
@@ -597,14 +601,14 @@ def _slide_exec_summary(prs, snap, synthesis, ratios, devil, sentiment):
     # Thesis section header
     add_rect(slide, 1.02, 3.76, 11.56, 0.71, NAVY)
     add_text_box(slide, 1.02, 3.76, 11.56, 0.71,
-                 "THESE D'INVESTISSEMENT", 9, WHITE, bold=True)
+                 "TH\u00c8SE D'INVESTISSEMENT", 9, WHITE, bold=True)
 
     strength_ys = [4.57, 5.64, 6.72]
     thesis_parts = _split_text(thesis, 3)
     for i, sy in enumerate(strength_ys):
         label = strengths[i] if i < len(strengths) else (thesis_parts[i] if i < len(thesis_parts) else "")
         body  = thesis_parts[i] if i < len(thesis_parts) else ""
-        add_rect(slide, 1.02, sy + 0.05, 0.15, 0.36, GREEN)
+        add_rect(slide, 1.02, sy + 0.05, 0.15, 0.36, NAVY_MID)
         add_text_box(slide, 1.4, sy, 10.92, 0.51,
                      _truncate(label, 80), 9.5, NAVY, bold=True)
         if body and body != label:
@@ -666,7 +670,7 @@ def _slide_sommaire(prs):
 
     sections = [
         ("01", "Company Overview",    "Presentation, modele economique, donnees de marche", "3\u20135"),
-        ("02", "Analyse Financiere",  "Compte de resultat, bilan & liquidite, ratios",       "6\u20138"),
+        ("02", "Analyse Financi\u00e8re",  "Compte de resultat, bilan & liquidite, ratios",       "6\u20138"),
         ("03", "Valorisation",        "DCF, comparable peers, Football Field",               "9\u201311"),
         ("04", "Risques & Strategie", "Avocat du diable, conditions d'invalidation",         "12\u201313"),
         ("05", "Sentiment & Annexes", "FinBERT, actionnariat & historique de cours",         "14\u201315"),
@@ -730,7 +734,7 @@ def _slide_company_overview(prs, snap, synthesis, ratios):
     add_text_box(slide, 1.40, 5.70, 12.95, 0.51,
                  "Points forts", 9, NAVY, bold=True)
     for i, strength in enumerate(strengths[:4]):
-        add_rect(slide, 1.40, bullet_y + i * 0.95 + 0.12, 0.20, 0.20, GREEN)
+        add_rect(slide, 1.40, bullet_y + i * 0.95 + 0.12, 0.20, 0.20, NAVY_MID)
         add_text_box(slide, 1.75, bullet_y + i * 0.95, 12.00, 0.71,
                      _truncate(str(strength), 120), 8.5, BLACK)
 
@@ -744,7 +748,8 @@ def _slide_company_overview(prs, snap, synthesis, ratios):
     kpi_ys = [2.67, 5.13, 7.59, 10.06]
     kpi_box(slide, 15.44, kpi_ys[0], 8.89, 2.29,
             _frm(mktcap * 1000 if mktcap else None, cur_sym) if mktcap else "—",
-            "Capitalisation boursiere")
+            "Capitalisation boursiere",
+            fill=NAVY, accent=WHITE)
     kpi_box(slide, 15.44, kpi_ys[1], 8.89, 2.29,
             _frm(rev, cur_sym),
             f"Chiffre d'affaires ({latest_yr_key or 'LTM'})")
@@ -799,7 +804,7 @@ def _slide_business_model(prs, snap, synthesis):
         add_rect(slide, cx, col_y, col_w, col_h, fill)
         add_rect(slide, cx, col_y, col_w, 0.15, accent)  # top strip
         add_text_box(slide, cx + 0.30, col_y + 0.50, col_w - 0.60, 1.78,
-                     pcts[i], 42, accent, bold=True)
+                     pcts[i], 22, accent, bold=True)
         add_text_box(slide, cx + 0.30, col_y + 2.29, col_w - 0.60, 0.30,
                      "du CA", 9, GREY_TXT)
         add_rect(slide, cx + 0.30, col_y + 2.79, col_w - 0.60, 0.05, GREY_LIGHT)
@@ -1009,27 +1014,53 @@ def _slide_bilan(prs, snap, synthesis, ratios):
     kpi_box(slide, 1.02, 7.90, 7.37, 2.29, _frm(net_debt_val, cur_sym), "Dette nette",
             fill=NAVY, accent=WHITE)
 
-    # Ratio table
+    # Ratio table (7 rows × 4 cols with Signal column)
     cr  = _ratio(ratios, "current_ratio")
     qr  = _ratio(ratios, "quick_ratio")
     de  = _ratio(ratios, "debt_equity")
     ic  = _ratio(ratios, "interest_coverage")
+    nde = _ratio(ratios, "net_debt_ebitda")
+    az  = _ratio(ratios, "altman_z")
+    bm  = _ratio(ratios, "beneish_m")
+
+    def _sig(v, lo_good, hi_warn, reverse=False):
+        if v is None: return "\u2014"
+        try:
+            vf = float(v)
+            if not reverse:
+                if vf >= lo_good: return "\u2705"
+                if vf >= hi_warn: return "\u26a0\ufe0f"
+                return "\u274c"
+            else:
+                if vf <= lo_good: return "\u2705"
+                if vf <= hi_warn: return "\u26a0\ufe0f"
+                return "\u274c"
+        except: return "\u2014"
+
+    az_sig = "\u2705" if (az and float(az) >= 2.99) else ("\u26a0\ufe0f" if (az and float(az) >= 1.81) else ("\u274c" if az else "\u2014"))
+    bm_sig = "\u2705" if (bm and float(bm) <= -2.22) else ("\u274c" if bm else "\u2014")
+
+    add_text_box(slide, 9.4, 2.34, 14.99, 0.46,
+                 "Ratios de solvabilit\u00e9 & liquidit\u00e9", 9, NAVY, bold=True)
 
     ratio_rows = [
-        ["Ratio liquidite courante", _fr(cr, 2), "> 1,5"],
-        ["Ratio rapide (quick)",     _fr(qr, 2), "> 1,0"],
-        ["D/E",                      _frx(de),   "< 2,0x"],
-        ["Couverture interets",      _frx(ic),   "> 3,0x"],
+        ["Ratio liquidite courante", _fr(cr, 2),  "> 1,5",   _sig(cr, 1.5, 1.0)],
+        ["Ratio rapide (quick)",     _fr(qr, 2),  "> 1,0",   _sig(qr, 1.0, 0.7)],
+        ["D/E",                      _frx(de),    "< 2,0x",  _sig(de, 1.5, 3.0, reverse=True)],
+        ["Couverture interets",      _frx(ic),    "> 3,0x",  _sig(ic, 3.0, 1.5)],
+        ["Dette nette / EBITDA",     _frx(nde),   "< 2,0x",  _sig(nde, 2.0, 4.0, reverse=True)],
+        ["Altman Z",                 _fr(az, 2),  "> 2,99",  az_sig],
+        ["Beneish M",                _fr(bm, 2),  "< -2,22", bm_sig],
     ]
-    add_table(slide, 9.4, 2.54, 14.99, 4.0,
-              len(ratio_rows), 3,
-              col_widths_pct=[0.50, 0.25, 0.25],
-              header_data=["Ratio", "Valeur", "Reference"],
+    add_table(slide, 9.4, 2.80, 14.99, 5.0,
+              len(ratio_rows), 4,
+              col_widths_pct=[0.44, 0.21, 0.21, 0.14],
+              header_data=["Ratio", "Valeur", "R\u00e9f\u00e9rence", "Signal"],
               rows_data=ratio_rows)
 
     fin_comment = _g(synthesis, "financial_commentary", "") or ""
     if fin_comment.strip():
-        commentary_box(slide, 1.02, 10.29, 23.37, 1.98, fin_comment[:300])
+        commentary_box(slide, 1.02, 11.30, 23.37, 1.30, fin_comment[:300])
 
     return slide
 
@@ -1061,6 +1092,8 @@ def _slide_ratios(prs, snap, synthesis, ratios):
     roe  = _ratio(ratios, "roe")
     az   = _ratio(ratios, "altman_z")
     bm   = _ratio(ratios, "beneish_m")
+    roic = _ratio(ratios, "roic")
+    capex_rev = _ratio(ratios, "capex_revenue")
 
     def _lecture_pe(v):
         if v is None: return "—"
@@ -1098,28 +1131,90 @@ def _slide_ratios(prs, snap, synthesis, ratios):
             return "Risque manip." if float(v) > -2.22 else "Aucun signal"
         except: return "—"
 
+    def _lecture_evr(v):
+        if v is None: return "—"
+        try:
+            v = float(v)
+            if v < 1:   return "Sous-value"
+            if v < 5:   return "Correct"
+            if v < 10:  return "Premium"
+            return "Tres eleve"
+        except: return "—"
+
+    def _lecture_gm(v):
+        if v is None: return "—"
+        try:
+            v = float(v) * 100
+            if v >= 60: return "Excellent"
+            if v >= 40: return "Bon"
+            if v >= 20: return "Correct"
+            return "Bas"
+        except: return "—"
+
+    def _lecture_em(v):
+        if v is None: return "—"
+        try:
+            v = float(v) * 100
+            if v >= 30: return "Excellent"
+            if v >= 20: return "Bon"
+            if v >= 10: return "Correct"
+            return "Bas"
+        except: return "—"
+
+    def _lecture_roe(v):
+        if v is None: return "—"
+        try:
+            v = float(v) * 100
+            if v >= 20: return "Excellent"
+            if v >= 15: return "Bon"
+            if v >= 5:  return "Correct"
+            return "Bas"
+        except: return "—"
+
+    def _lecture_roic(v):
+        if v is None: return "—"
+        try:
+            v = float(v) * 100
+            if v >= 15: return "Excellent"
+            if v >= 10: return "Bon"
+            if v >= 5:  return "Correct"
+            return "Bas"
+        except: return "—"
+
+    def _lecture_capex(v):
+        if v is None: return "—"
+        try:
+            v = abs(float(v)) * 100
+            if v < 5:   return "Leger"
+            if v < 15:  return "Modere"
+            return "Intensif"
+        except: return "—"
+
     rows = [
-        ["P/E",          _frx(pe),       "15–25x",   _lecture_pe(pe)],
-        ["EV/EBITDA",    _frx(ev_e),     "8–14x",    _lecture_eve(ev_e)],
-        ["EV/Revenue",   _frx(ev_r),     "1–5x",     "—"],
-        ["Marge brute",  _frpct(gm),     "> 40 %",   "—"],
-        ["Marge EBITDA", _frpct(em),     "> 20 %",   "—"],
-        ["ROE",          _frpct(roe),    "> 15 %",   "—"],
-        ["Altman Z",     _fr(az, 2),     "> 2,99",   _lecture_z(az)],
-        ["Beneish M",    _fr(bm, 2),     "< -2,22",  _lecture_bm(bm)],
+        ["P/E",            _frx(pe),       "15\u201325x",  _lecture_pe(pe)],
+        ["EV/EBITDA",      _frx(ev_e),     "8\u201314x",   _lecture_eve(ev_e)],
+        ["EV/Revenue",     _frx(ev_r),     "1\u20135x",    _lecture_evr(ev_r)],
+        ["Marge brute",    _frpct(gm),     "> 40 %",       _lecture_gm(gm)],
+        ["Marge EBITDA",   _frpct(em),     "> 20 %",       _lecture_em(em)],
+        ["ROE",            _frpct(roe),    "> 15 %",       _lecture_roe(roe)],
+        ["ROIC",           _frpct(roic),   "> 10 %",       _lecture_roic(roic)],
+        ["CapEx / Revenue",_frpct(capex_rev), "< 15 %",   _lecture_capex(capex_rev)],
+        ["Altman Z",       _fr(az, 2),     "> 2,99",       _lecture_z(az)],
+        ["Beneish M",      _fr(bm, 2),     "< -2,22",      _lecture_bm(bm)],
     ]
 
-    ratio_tbl = add_table(slide, 1.02, 2.54, 23.37, 5.84,
+    ratio_tbl = add_table(slide, 1.02, 2.54, 23.37, 7.11,
               len(rows), 4,
               col_widths_pct=[0.25, 0.25, 0.25, 0.25],
               header_data=["Indicateur", "Valeur", "Benchmark", "Lecture"],
               rows_data=rows)
 
     # Per-cell coloring of Lecture column (col 3) + Valeur column navy bold (col 1)
-    _GOOD_READS  = {"solide", "correct", "en ligne", "dans la norme", "sous-value", "aucun signal"}
+    _GOOD_READS  = {"solide", "correct", "en ligne", "dans la norme", "sous-value", "aucun signal",
+                    "bon", "excellent", "leger"}
     _WARN_READS  = {"eleve", "tres eleve", "premium", "risque manip.", "detresse", "deficit",
-                    "superieur", "inferieure", "bas", "zone grise", "decote"}
-    _NEUT_READS  = {"en ligne", "prime technologique"}  # amber category
+                    "superieur", "inferieure", "bas", "zone grise", "decote", "intensif"}
+    _NEUT_READS  = {"en ligne", "prime technologique", "modere"}  # amber category
 
     from pptx.util import Pt
     for ri in range(1, len(rows) + 1):
@@ -1139,7 +1234,7 @@ def _slide_ratios(prs, snap, synthesis, ratios):
             cell_l.fill.solid()
             cell_l.fill.fore_color.rgb = rgb(GREEN_PALE)
             lec_tc = GREEN
-        elif val_str in {"prime technologique", "superieur", "superieure"}:
+        elif val_str in _NEUT_READS or val_str in {"superieur", "superieure"}:
             cell_l.fill.solid()
             cell_l.fill.fore_color.rgb = rgb(AMBER_PALE)
             lec_tc = AMBER
@@ -1158,7 +1253,7 @@ def _slide_ratios(prs, snap, synthesis, ratios):
 
     ratio_comment = _g(synthesis, "ratio_commentary", "") or ""
     if ratio_comment.strip():
-        commentary_box(slide, 1.02, 9.02, 23.37, 3.35, ratio_comment)
+        commentary_box(slide, 1.02, 10.08, 23.37, 2.29, ratio_comment)
 
     return slide
 
@@ -1192,19 +1287,19 @@ def _slide_dcf(prs, snap, synthesis, ratios):
     tbear   = _g(synthesis, "target_bear")
     tbull   = _g(synthesis, "target_bull")
 
-    # LEFT: DCF params table
+    # LEFT: DCF params table (simplified)
+    upside_impl = _upside(tbase, price)
     param_rows = [
-        ["WACC",           _frpct(wacc)],
-        ["TGR",            _frpct(tgr)],
-        ["Cours actuel",   f"{_fr(price, 2)} {cur_sym}"],
-        ["Beta",           _fr(beta, 2) if beta else "—"],
-        ["RFR",            _frpct(rfr)],
-        ["Horizon proj.",  "5 ans"],
+        ["WACC",                   _frpct(wacc)],
+        ["TGR",                    _frpct(tgr)],
+        ["Valeur intrinseque",     f"{_fr(tbase, 0)} {cur_sym}" if tbase else "\u2014"],
+        ["Cours actuel",           f"{_fr(price, 2)} {cur_sym}" if price else "\u2014"],
+        ["Upside implicite",       upside_impl],
     ]
     add_table(slide, 1.02, 2.29, 11.18, 3.81,
               len(param_rows), 2,
               col_widths_pct=[0.55, 0.45],
-              header_data=["Parametre", "Valeur"],
+              header_data=["Param\u00e8tre", "Valeur"],
               rows_data=param_rows)
 
     # RIGHT: 3-column scenario table (matches reference exactly)
@@ -1324,7 +1419,7 @@ def _slide_peers(prs, snap, synthesis, ratios):
               "Marge brute", "Marge EBITDA"]
 
     # Target company row
-    mktcap_str = _fr(mktcap, 1) + " Mds" + cur_sym if mktcap else "—"
+    mktcap_str = _fr(mktcap, 1) + " Md" + ("\u20ac" if cur_sym == "EUR" else cur_sym) if mktcap else "—"
     target_row = [co_name, ticker, mktcap_str,
                   _frx(ev_e), _frx(ev_r), _frx(pe),
                   _frpct(gm), _frpct(em)]
@@ -1339,7 +1434,14 @@ def _slide_peers(prs, snap, synthesis, ratios):
         pn = str(pn).strip()
         if pn and pn != "—" and pn == pn.lower():
             pn = pn.title()
-        p_mktcap_str = "—"
+        p_mc = _g(peer, "market_cap_mds")
+        if p_mc is not None:
+            try:
+                p_mktcap_str = _fr(float(p_mc), 1) + " Md" + ("\u20ac" if cur_sym == "EUR" else cur_sym)
+            except Exception:
+                p_mktcap_str = "—"
+        else:
+            p_mktcap_str = "—"
         prow = [
             pn[:30], str(pt).upper() if pt != "—" else "—",
             p_mktcap_str,
@@ -1550,11 +1652,22 @@ def _slide_risques(prs, snap, synthesis, devil):
             horiz = str(_g(item, "horizon",   "—"))
             inv_rows.append([axis, cond, horiz])
 
-    add_table(slide, 1.02, 9.19, 23.37, 3.05,
+    inv_tbl = add_table(slide, 1.02, 9.19, 23.37, 3.05,
               len(inv_rows), 3,
               col_widths_pct=[0.15, 0.65, 0.20],
               header_data=["Axe", "Condition d'invalidation", "Horizon"],
               rows_data=inv_rows)
+
+    # Bold Axe column (col 0)
+    for ri in range(1, len(inv_rows) + 1):
+        cell = inv_tbl.cell(ri, 0)
+        try:
+            p = cell.text_frame.paragraphs[0]
+            for run in p.runs:
+                run.font.bold = True
+                run.font.color.rgb = rgb(NAVY)
+        except Exception:
+            pass
 
     return slide
 
@@ -1753,11 +1866,11 @@ def _slide_historique(prs, snap, synthesis):
     currency = _g(ci, "currency", "USD") or "USD"
     cur_sym  = "EUR" if currency == "EUR" else "$"
     exchange = getattr(ci, "exchange", "") or "" if ci else ""
-    gen_date = _g(ci, "analysis_date", "") or date.today().strftime("%d/%m/%Y")
+    gen_date = _fr_date_long(_g(ci, "analysis_date", None) or date.today())
     price    = _g(mkt, "share_price")
 
-    slide_title(slide, f"Historique de Cours — 52 Semaines",
-                f"{ticker}  ·  {exchange}  ·  {currency}  ·  {gen_date}")
+    slide_title(slide, f"Historique de Cours \u2014 52 Semaines",
+                f"{ticker}  \u00b7  {exchange}  \u00b7  {currency}  \u00b7  Au {gen_date}")
 
     history = snap.stock_history if (snap and snap.stock_history) else []
     prices  = []
@@ -1866,9 +1979,11 @@ def _slide_historique(prs, snap, synthesis):
         add_text_box(slide, chart_x + 8.0, chart_y + 2.0, 7.37, 1.0,
                      "Historique de cours non disponible", 10, GREY_TXT)
 
-    # Commentary
+    # Commentary (plain text)
     thesis_s = _g(synthesis, "summary", "") or _g(synthesis, "thesis", "") or ""
-    commentary_box(slide, 1.02, 11.48, 23.37, 1.91, thesis_s[:300])
+    if thesis_s.strip():
+        add_text_box(slide, 1.02, 11.48, 23.37, 1.91,
+                     thesis_s[:300], 8.5, GREY_TXT, wrap=True)
 
     return slide
 
@@ -1960,7 +2075,7 @@ class PPTXWriter:
         _slide_business_model(prs, snap, synthesis)
 
         # --- Slide 7: Divider Analyse Financiere ---
-        divider_slide(prs, "02", "Analyse Financiere",
+        divider_slide(prs, "02", "Analyse Financi\u00e8re",
                       "Compte de resultat, bilan, liquidite & ratios")
 
         # --- Slide 8: Compte de Resultat ---

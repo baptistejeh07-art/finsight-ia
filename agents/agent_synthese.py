@@ -133,11 +133,11 @@ JSON requis (tous les champs obligatoires) :
     {{"axis":"Societe","condition":"<evenement specifique {ci.ticker}>","horizon":"2-3 trim."}}
   ],
   "comparable_peers":[
-    {{"name":"<pair1>","ticker":"<T1>","ev_ebitda":<f>,"ev_revenue":<f>,"pe":<f>,"gross_margin":<0-1>,"ebitda_margin":<0-1>}},
-    {{"name":"<pair2>","ticker":"<T2>","ev_ebitda":<f>,"ev_revenue":<f>,"pe":<f>,"gross_margin":<0-1>,"ebitda_margin":<0-1>}},
-    {{"name":"<pair3>","ticker":"<T3>","ev_ebitda":<f>,"ev_revenue":<f>,"pe":<f>,"gross_margin":<0-1>,"ebitda_margin":<0-1>}},
-    {{"name":"<pair4>","ticker":"<T4>","ev_ebitda":<f>,"ev_revenue":<f>,"pe":<f>,"gross_margin":<0-1>,"ebitda_margin":<0-1>}},
-    {{"name":"<pair5>","ticker":"<T5>","ev_ebitda":<f>,"ev_revenue":<f>,"pe":<f>,"gross_margin":<0-1>,"ebitda_margin":<0-1>}}
+    {{"name":"<pair1>","ticker":"<T1>","market_cap_mds":<float en Mds devise>,"ev_ebitda":<f>,"ev_revenue":<f>,"pe":<f>,"gross_margin":<0-1>,"ebitda_margin":<0-1>}},
+    {{"name":"<pair2>","ticker":"<T2>","market_cap_mds":<float en Mds devise>,"ev_ebitda":<f>,"ev_revenue":<f>,"pe":<f>,"gross_margin":<0-1>,"ebitda_margin":<0-1>}},
+    {{"name":"<pair3>","ticker":"<T3>","market_cap_mds":<float en Mds devise>,"ev_ebitda":<f>,"ev_revenue":<f>,"pe":<f>,"gross_margin":<0-1>,"ebitda_margin":<0-1>}},
+    {{"name":"<pair4>","ticker":"<T4>","market_cap_mds":<float en Mds devise>,"ev_ebitda":<f>,"ev_revenue":<f>,"pe":<f>,"gross_margin":<0-1>,"ebitda_margin":<0-1>}},
+    {{"name":"<pair5>","ticker":"<T5>","market_cap_mds":<float en Mds devise>,"ev_ebitda":<f>,"ev_revenue":<f>,"pe":<f>,"gross_margin":<0-1>,"ebitda_margin":<0-1>}}
   ],
   "football_field":[
     {{"label":"DCF - Bear","range_low":<f>,"range_high":<f>,"midpoint":<target_price_bear>}},
