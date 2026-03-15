@@ -416,6 +416,24 @@ def _safe_str(v, default="—") -> str:
     return s if s else default
 
 
+def _fr_date_long(d=None) -> str:
+    """Converts a date to French long form: '14 mars 2026'."""
+    from datetime import date as _date
+    _MONTHS = ["janvier", "f\u00e9vrier", "mars", "avril", "mai", "juin",
+               "juillet", "ao\u00fbt", "septembre", "octobre", "novembre", "d\u00e9cembre"]
+    if d is None:
+        d = _date.today()
+    elif isinstance(d, str):
+        try:
+            d = _date.fromisoformat(str(d).split("T")[0][:10])
+        except Exception:
+            return str(d)
+    try:
+        return f"{d.day} {_MONTHS[d.month - 1]} {d.year}"
+    except Exception:
+        return str(d)
+
+
 def _truncate(s, n: int) -> str:
     s = _safe_str(s)
     return s[:n] if len(s) > n else s
@@ -480,7 +498,7 @@ def _slide_cover(prs, snap, synthesis, ratios, devil, sentiment):
     exchange = getattr(ci, "exchange", "") or "" if ci else ""
     currency = _g(ci, "currency", "USD") or "USD"
     cur_sym  = "EUR" if currency == "EUR" else "$"
-    gen_date = _g(ci, "analysis_date", "") or date.today().strftime("%d/%m/%Y")
+    gen_date = _fr_date_long(_g(ci, "analysis_date", None) or date.today())
     price    = _g(mkt, "share_price")
 
     rec      = _g(synthesis, "recommendation", "HOLD") or "HOLD"
@@ -906,33 +924,47 @@ def _slide_is(prs, snap, synthesis, ratios):
               header_data=header,
               rows_data=rows_data)
 
-    # Highlight LTM column (last historical year) with DDE8F5
-    # + italic for projection year headers
+    # Post-process IS table:
+    # 1. LTM column (last hist year): DDE8F5 on DATA rows only (header stays NAVY)
+    # 2. Sub-metric rows: 7.5pt italic gray (Croissance, Marges)
+    # 3. Valeur column: no special treatment needed
     from pptx.util import Pt
     from pptx.enum.text import PP_ALIGN
-    ltm_col_idx = len(hist_cols)  # 0-based in all_cols → +1 in table (label col 0)
-    for ri in range(is_tbl.rows.__len__()):
-        # LTM column highlight (not the label column)
-        if ltm_col_idx >= 1:
-            cell = is_tbl.cell(ri, ltm_col_idx)
-            cell.fill.solid()
-            cell.fill.fore_color.rgb = rgb("DDE8F5")
-            # Keep existing text color
+
+    _SUBMAIN = {
+        "Chiffre d'affaires", "EBITDA", "Resultat net"
+    }
+    _SUBSUB = {
+        "Croissance YoY", "Marge brute", "Marge EBITDA", "Marge nette"
+    }
+
+    ltm_col_idx = len(hist_cols)  # table col index of last historical year
+
+    for ri in range(1, len(row_labels) + 1):  # skip header row 0
+        row_label = row_labels[ri - 1]
+        is_sub = row_label in _SUBSUB
+
+        for ci in range(n_cols):
+            cell = is_tbl.cell(ri, ci)
+            # LTM column highlight on data rows
+            if ci == ltm_col_idx and ltm_col_idx >= 1:
+                cell.fill.solid()
+                cell.fill.fore_color.rgb = rgb("DDE8F5")
+            # Sub-metric row styling
             try:
                 p = cell.text_frame.paragraphs[0]
-                if p.runs:
-                    p.runs[0].font.color.rgb = rgb(NAVY if ri == 0 else BLACK)
+                for run in p.runs:
+                    if is_sub:
+                        run.font.size = Pt(7.5)
+                        run.font.italic = True
+                        run.font.color.rgb = rgb(GREY_TXT)
+                    else:
+                        run.font.size = Pt(8)
+                        run.font.bold = True
+                        if ci == ltm_col_idx:
+                            run.font.color.rgb = rgb(NAVY)
             except Exception:
                 pass
-    # Italic for projection column headers (row 0, cols after ltm_col_idx)
-    for ci in range(ltm_col_idx + 1, n_cols):
-        cell = is_tbl.cell(0, ci)
-        try:
-            p = cell.text_frame.paragraphs[0]
-            if p.runs:
-                p.runs[0].font.italic = True
-        except Exception:
-            pass
 
     # Commentary (only if non-empty)
     fin_comment = _g(synthesis, "financial_commentary", "") or ""
@@ -1083,27 +1115,46 @@ def _slide_ratios(prs, snap, synthesis, ratios):
               header_data=["Indicateur", "Valeur", "Benchmark", "Lecture"],
               rows_data=rows)
 
-    # Per-cell coloring of Lecture column (col 3)
-    _GOOD_READS  = {"solide", "correct", "en ligne", "dans la norme", "sous-value", "aucun signal", "decote"}
+    # Per-cell coloring of Lecture column (col 3) + Valeur column navy bold (col 1)
+    _GOOD_READS  = {"solide", "correct", "en ligne", "dans la norme", "sous-value", "aucun signal"}
     _WARN_READS  = {"eleve", "tres eleve", "premium", "risque manip.", "detresse", "deficit",
-                    "superieur", "inferieure", "bas", "zone grise"}
-    for ri in range(1, len(rows) + 1):  # skip header row 0
-        cell = ratio_tbl.cell(ri, 3)
+                    "superieur", "inferieure", "bas", "zone grise", "decote"}
+    _NEUT_READS  = {"en ligne", "prime technologique"}  # amber category
+
+    from pptx.util import Pt
+    for ri in range(1, len(rows) + 1):
+        # Valeur column (col 1): navy bold
+        cell_v = ratio_tbl.cell(ri, 1)
+        try:
+            p = cell_v.text_frame.paragraphs[0]
+            for run in p.runs:
+                run.font.color.rgb = rgb(NAVY)
+                run.font.bold = True
+        except Exception: pass
+
+        # Lecture column (col 3): colored fill + bold
+        cell_l = ratio_tbl.cell(ri, 3)
         val_str = (rows[ri - 1][3] or "").strip().lower()
         if val_str in _GOOD_READS:
-            cell.fill.solid()
-            cell.fill.fore_color.rgb = rgb(GREEN_PALE)
-            try:
-                p = cell.text_frame.paragraphs[0]
-                if p.runs: p.runs[0].font.color.rgb = rgb(GREEN)
-            except Exception: pass
+            cell_l.fill.solid()
+            cell_l.fill.fore_color.rgb = rgb(GREEN_PALE)
+            lec_tc = GREEN
+        elif val_str in {"prime technologique", "superieur", "superieure"}:
+            cell_l.fill.solid()
+            cell_l.fill.fore_color.rgb = rgb(AMBER_PALE)
+            lec_tc = AMBER
         elif val_str in _WARN_READS:
-            cell.fill.solid()
-            cell.fill.fore_color.rgb = rgb(RED_PALE)
-            try:
-                p = cell.text_frame.paragraphs[0]
-                if p.runs: p.runs[0].font.color.rgb = rgb(RED)
-            except Exception: pass
+            cell_l.fill.solid()
+            cell_l.fill.fore_color.rgb = rgb(RED_PALE)
+            lec_tc = RED
+        else:
+            lec_tc = GREY_TXT
+        try:
+            p = cell_l.text_frame.paragraphs[0]
+            for run in p.runs:
+                run.font.color.rgb = rgb(lec_tc)
+                run.font.bold = True
+        except Exception: pass
 
     ratio_comment = _g(synthesis, "ratio_commentary", "") or ""
     if ratio_comment.strip():
@@ -1156,26 +1207,38 @@ def _slide_dcf(prs, snap, synthesis, ratios):
               header_data=["Parametre", "Valeur"],
               rows_data=param_rows)
 
-    # RIGHT: 3 scenario cards
-    scenarios = [
-        ("Bear", tbear,  RED_PALE,   RED),
-        ("Base", tbase,  NAVY_PALE,  NAVY_MID),
-        ("Bull", tbull,  GREEN_PALE, GREEN),
+    # RIGHT: 3-column scenario table (matches reference exactly)
+    from pptx.util import Pt
+    from pptx.enum.text import PP_ALIGN as _PA
+    sc_tbl_obj = slide.shapes.add_table(4, 3, __import__('pptx.util', fromlist=['Cm']).Cm(12.45), __import__('pptx.util', fromlist=['Cm']).Cm(2.29), __import__('pptx.util', fromlist=['Cm']).Cm(11.94), __import__('pptx.util', fromlist=['Cm']).Cm(3.81)).table
+    # Column widths equal
+    from pptx.util import Cm as _Cm, Pt as _Pt
+    col_w_emu = int(_Cm(11.94)) // 3
+    for ci in range(3): sc_tbl_obj.columns[ci].width = col_w_emu
+
+    sc_cfgs = [
+        ("Bear",  tbear,  RED,   RED_PALE),
+        ("Base",  tbase,  NAVY_MID, NAVY_PALE),
+        ("Bull",  tbull,  GREEN, GREEN_PALE),
     ]
-    sc_w = 3.7
-    sc_x = 12.45
-    sc_y = 2.29
-    sc_h = 3.81
-    for i, (label, val, fill, accent) in enumerate(scenarios):
-        cx = sc_x + i * (sc_w + 0.37)
-        add_rect(slide, cx, sc_y, sc_w, sc_h, fill)
-        add_rect(slide, cx, sc_y, sc_w, 0.30, accent)
-        add_text_box(slide, cx + 0.20, sc_y + 0.46, sc_w - 0.40, 0.61,
-                     label, 10, accent, bold=True)
-        add_text_box(slide, cx + 0.20, sc_y + 1.07, sc_w - 0.40, 1.27,
-                     f"{_fr(val, 0)} {cur_sym}", 22, accent, bold=True)
-        add_text_box(slide, cx + 0.20, sc_y + 2.44, sc_w - 0.40, 0.71,
-                     f"Upside : {_upside(val, price)}", 9, GREY_TXT)
+    for ci, (lbl, val, accent, pale) in enumerate(sc_cfgs):
+        # Row 0: header label
+        c = sc_tbl_obj.cell(0, ci)
+        c.fill.solid(); c.fill.fore_color.rgb = rgb(accent)
+        _set_cell(c, lbl, font_size=10, bold=True, color_hex=WHITE, align=_PA.CENTER)
+        # Row 1: price value (large)
+        c = sc_tbl_obj.cell(1, ci)
+        c.fill.solid(); c.fill.fore_color.rgb = rgb(pale)
+        price_str = f"{_fr(val, 0)} {cur_sym}" if val else "\u2014"
+        _set_cell(c, price_str, font_size=20, bold=True, color_hex=accent, align=_PA.CENTER)
+        # Row 2: upside
+        c = sc_tbl_obj.cell(2, ci)
+        c.fill.solid(); c.fill.fore_color.rgb = rgb(pale)
+        _set_cell(c, _upside(val, price), font_size=12, bold=True, color_hex=accent, align=_PA.CENTER)
+        # Row 3: footer label
+        c = sc_tbl_obj.cell(3, ci)
+        c.fill.solid(); c.fill.fore_color.rgb = rgb(pale)
+        _set_cell(c, "Upside / Downside", font_size=7, bold=False, color_hex=GREY_LIGHT, align=_PA.CENTER)
 
     # Sensitivity table
     add_text_box(slide, 1.02, 6.65, 23.37, 0.56,
@@ -1205,7 +1268,14 @@ def _slide_dcf(prs, snap, synthesis, ratios):
         base_ci = t_deltas.index(0.00) + 1   # +1 for label col
         base_cell = sens_tbl.cell(base_ri, base_ci)
         base_cell.fill.solid()
-        base_cell.fill.fore_color.rgb = rgb("DDE8F5")
+        base_cell.fill.fore_color.rgb = rgb(NAVY_MID)
+        try:
+            p = base_cell.text_frame.paragraphs[0]
+            for run in p.runs:
+                run.font.color.rgb = rgb(WHITE)
+                run.font.bold = True
+        except Exception:
+            pass
     except Exception:
         pass
 
@@ -1302,14 +1372,40 @@ def _slide_peers(prs, snap, synthesis, ratios):
               rows_data=rows_data,
               row_fills=rows_fills)
 
-    # Italic on median row (last row)
-    median_ri = len(rows_data)  # table row = data ri + 1 (header)
+    # Post-process subject row (row 1): navy bold text
+    for ci in range(len(header)):
+        cell = peers_tbl.cell(1, ci)
+        try:
+            p = cell.text_frame.paragraphs[0]
+            for run in p.runs:
+                run.font.bold = True
+                run.font.color.rgb = rgb(NAVY if ci != 1 else NAVY_MID)
+                if ci == 1:  # Ticker col: small gray
+                    run.font.size = __import__('pptx.util', fromlist=['Pt']).Pt(7.5)
+        except Exception:
+            pass
+
+    # Post-process peer rows: ticker col (ci=1) small gray
+    for ri in range(2, len(rows_data)):  # peer rows (not subject, not median)
+        cell = peers_tbl.cell(ri, 1)
+        try:
+            p = cell.text_frame.paragraphs[0]
+            for run in p.runs:
+                from pptx.util import Pt as _Pt2
+                run.font.size = _Pt2(7.5)
+                run.font.color.rgb = rgb(GREY_TXT)
+        except Exception:
+            pass
+
+    # Median row (last row): bold=True, NOT italic
+    median_ri = len(rows_data)
     for ci in range(len(header)):
         cell = peers_tbl.cell(median_ri, ci)
         try:
             p = cell.text_frame.paragraphs[0]
-            if p.runs:
-                p.runs[0].font.italic = True
+            for run in p.runs:
+                run.font.bold = True
+                run.font.italic = False
         except Exception:
             pass
 
@@ -1522,14 +1618,31 @@ def _slide_sentiment(prs, snap, synthesis, sentiment):
 
     break_rows = [
         ["Positif",  _cnt(pos_cnt),  _fmt_score(pos_val),  "Catalyseurs, croissance, r\u00e9sultats"],
-        ["N\u00e9gatif",  _cnt(neg_cnt),  _fmt_score(neg_val),  "Risques macro, concurrence, dette"],
         ["Neutre",   _cnt(neu_cnt),  _fmt_score(neut_val), "Actualit\u00e9 sectorielle g\u00e9n\u00e9rale"],
+        ["N\u00e9gatif",  _cnt(neg_cnt),  _fmt_score(neg_val),  "Risques macro, concurrence, dette"],
     ]
-    add_table(slide, 1.02, 6.48, 23.37, 2.79,
+    sent_row_fills = [GREEN_PALE, WHITE, RED_PALE]
+    sent_tbl = add_table(slide, 1.02, 6.48, 23.37, 2.79,
               3, 4,
               col_widths_pct=[0.15, 0.15, 0.20, 0.50],
               header_data=["Orientation", "Articles", "Score moyen", "Th\u00e8mes principaux"],
-              rows_data=break_rows)
+              rows_data=break_rows,
+              row_fills=sent_row_fills)
+
+    # Bold + colored text per sentiment row
+    _sent_colors = [GREEN, GREY_TXT, RED]
+    from pptx.util import Pt as _Pt3
+    for ri in range(1, 4):
+        tc_color = _sent_colors[ri - 1]
+        for ci in range(2):  # bold color only on first 2 cols
+            cell = sent_tbl.cell(ri, ci)
+            try:
+                p = cell.text_frame.paragraphs[0]
+                for run in p.runs:
+                    run.font.bold = True
+                    run.font.color.rgb = rgb(tc_color)
+            except Exception:
+                pass
 
     val_comment = _g(synthesis, "valuation_comment", "") or ""
     if val_comment.strip():
@@ -1552,7 +1665,7 @@ def _slide_actionnariat(prs, snap, synthesis):
     section_dots(slide, 5)
 
     ci       = snap.company_info if snap else None
-    gen_date = _g(ci, "analysis_date", "") or date.today().strftime("%d/%m/%Y")
+    gen_date = _fr_date_long(_g(ci, "analysis_date", None) or date.today())
 
     slide_title(slide, "Actionnariat & Structure du Capital",
                 f"R\u00e9partition de l'actionnariat  \u00b7  Au {gen_date}")
@@ -1570,25 +1683,30 @@ def _slide_actionnariat(prs, snap, synthesis):
                     str(_g(h, "pct", "\u2014")),
                 ])
 
-    # Fallback: standard institutional breakdown
+    # Default 4-col structure with Style column
     if not raw_holders:
         raw_holders = [
-            ["Institutionnels",         "Fonds/ETF",   "~70 %"],
-            ["Particuliers (flottant)", "Retail",      "~20 %"],
-            ["Insiders & dirigeants",   "Management",  "~10 %"],
+            ["Institutionnels",         "Fonds/ETF",   "~70 %", "Passif"],
+            ["Particuliers (flottant)", "Retail",      "~20 %", "\u2014"],
+            ["Insiders & dirigeants",   "Management",  "~10 %", "Insider"],
         ]
 
-    # Only keep non-empty rows (no "—/—/—" padding)
-    holder_rows = [r for r in raw_holders if any(v and v not in ("\u2014", "—") for v in r)]
+    # Ensure all rows have 4 columns
+    holder_rows = []
+    for r in raw_holders:
+        while len(r) < 4:
+            r.append("\u2014")
+        holder_rows.append(r[:4])
+
     if not holder_rows:
-        holder_rows = [["Donn\u00e9es non disponibles", "\u2014", "\u2014"]]
+        holder_rows = [["Donn\u00e9es non disponibles", "\u2014", "\u2014", "\u2014"]]
 
     n_holder_rows = len(holder_rows)
     tbl_h_holder = min(0.71 + n_holder_rows * 0.71, 9.0)
     add_table(slide, 1.02, 2.69, 14.73, tbl_h_holder,
-              n_holder_rows, 3,
-              col_widths_pct=[0.45, 0.30, 0.25],
-              header_data=["Actionnaire", "Type", "%"],
+              n_holder_rows, 4,
+              col_widths_pct=[0.38, 0.25, 0.20, 0.17],
+              header_data=["Actionnaire", "Type", "%", "Style"],
               rows_data=holder_rows)
 
     # Right: type breakdown (adapt height to holder count)
