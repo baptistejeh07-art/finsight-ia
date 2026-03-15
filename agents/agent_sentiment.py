@@ -21,6 +21,7 @@ from typing import Optional
 from data.sources import finnhub_source
 from data.sources.news_source import fetch_rss
 from nlp import finbert
+from core.llm_provider import LLMProvider
 
 log = logging.getLogger(__name__)
 
@@ -165,6 +166,17 @@ class AgentSentiment:
             return self._empty_result(ticker, request_id, t_start)
 
         # ------------------------------------------------------------------
+        # 4b. Fallback LLM si FinBERT classe >80% en neutre (articles non-anglais)
+        # ------------------------------------------------------------------
+        neu_ratio = sum(1 for s in raw_scores
+                        if s["neutral"] >= s["positive"] and s["neutral"] >= s["negative"]
+                        ) / len(raw_scores)
+
+        if neu_ratio > 0.80 and len(texts) >= 3:
+            log.info(f"[AgentSentiment] '{ticker}' — {neu_ratio:.0%} neutres, fallback LLM Groq")
+            raw_scores, engine_used = self._llm_classify(ticker, texts, raw_scores)
+
+        # ------------------------------------------------------------------
         # 5. Agrégation
         # ------------------------------------------------------------------
         agg = finbert.aggregate(raw_scores)
@@ -228,6 +240,52 @@ class AgentSentiment:
         )
 
         return result
+
+    # ------------------------------------------------------------------
+    # LLM classification fallback (articles non-anglais)
+    # ------------------------------------------------------------------
+
+    def _llm_classify(
+        self, ticker: str, texts: list[str], fallback: list[dict]
+    ) -> tuple[list[dict], str]:
+        """Classe les headlines via Groq quand FinBERT retourne trop de neutres."""
+        headlines = "\n".join(f"{i+1}. {t[:120]}" for i, t in enumerate(texts[:20]))
+        prompt = (
+            f"Tu es un analyste financier. Classe chaque titre ci-dessous comme "
+            f"POSITIF, NEGATIF ou NEUTRE pour l'action {ticker}.\n"
+            f"Réponds UNIQUEMENT avec une ligne par titre : numero|label\n"
+            f"Exemple : 1|POSITIF\n\n{headlines}"
+        )
+        try:
+            llm = LLMProvider(provider="groq")
+            raw = llm.generate(prompt=prompt, system="Classe uniquement, pas d'explication.", max_tokens=200)
+            if not raw:
+                return fallback, "finbert"
+            scores = list(fallback)
+            for line in raw.strip().split("\n"):
+                line = line.strip()
+                if "|" not in line:
+                    continue
+                parts = line.split("|")
+                if len(parts) < 2:
+                    continue
+                try:
+                    idx = int(parts[0].strip()) - 1
+                    label = parts[1].strip().upper()
+                    if 0 <= idx < len(scores):
+                        if label == "POSITIF":
+                            scores[idx] = {"positive": 0.80, "negative": 0.05, "neutral": 0.15}
+                        elif label == "NEGATIF":
+                            scores[idx] = {"positive": 0.05, "negative": 0.80, "neutral": 0.15}
+                        else:
+                            scores[idx] = {"positive": 0.15, "negative": 0.10, "neutral": 0.75}
+                except (ValueError, IndexError):
+                    continue
+            log.info(f"[AgentSentiment] '{ticker}' LLM Groq classification OK")
+            return scores, "llm_groq"
+        except Exception as e:
+            log.warning(f"[AgentSentiment] LLM fallback echoue: {e}")
+            return fallback, "finbert"
 
     # ------------------------------------------------------------------
     # Helper

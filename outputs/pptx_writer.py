@@ -2042,7 +2042,9 @@ def _slide_sentiment(prs, snap, synthesis, sentiment):
         ["N\u00e9gatif",  _cnt(neg_cnt), _fmt_score(neg_val),  neg_theme_str],
     ]
     sent_row_fills = [GREEN_PALE, WHITE, RED_PALE]
-    sent_tbl = add_table(slide, 1.02, 6.48, 23.37, 2.79,
+    tbl_y    = 6.48
+    tbl_h_s  = 2.79
+    sent_tbl = add_table(slide, 1.02, tbl_y, 23.37, tbl_h_s,
               3, 4,
               col_widths_pct=[0.15, 0.15, 0.20, 0.50],
               header_data=["Orientation", "Articles", "Score moyen", "Th\u00e8mes principaux"],
@@ -2079,7 +2081,8 @@ def _slide_sentiment(prs, snap, synthesis, sentiment):
                                   (abs(sent_score) <= 0.05 and rec == "HOLD")
                else "surveiller.")
         )
-    add_text_box(slide, 1.02, 9.70, 23.37, 2.54,
+    comment_y = tbl_y + tbl_h_s + 0.50   # distance fixe de 0.5cm sous le tableau
+    add_text_box(slide, 1.02, comment_y, 23.37, 2.54,
                  val_comment, 8.5, "333333", wrap=True)
 
     return slide
