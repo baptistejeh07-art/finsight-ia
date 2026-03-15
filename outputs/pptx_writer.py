@@ -1857,15 +1857,15 @@ def _slide_football_field(prs, snap, synthesis, ratios):
         high   = _g(item, "range_high")
         mid    = _g(item, "midpoint")
         rows_data.append([label,
-                          f"{_fr(low, 0)} {cur_sym}",
-                          f"{_fr(high, 0)} {cur_sym}",
-                          f"{_fr(mid, 0)} {cur_sym}"])
+                          _fr(low, 0),
+                          _fr(high, 0),
+                          _fr(mid, 0)])
         fill = row_fills_map.get(label, GREY_BG)
         rows_fills.append(fill)
 
     # Current price row
-    rows_data.append([f"Cours actuel ({_fr(price, 2)} {cur_sym})", "—", "—",
-                      f"{_fr(price, 2)} {cur_sym}"])
+    rows_data.append([f"Cours actuel ({_fr(price, 2)})", "—", "—",
+                      _fr(price, 2)])
     rows_fills.append(NAVY_PALE)
 
     if not rows_data:
