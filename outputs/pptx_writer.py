@@ -274,7 +274,7 @@ def navy_bar(slide):
 def footer_bar(slide, ticker="", co_name=""):
     add_rect(slide, 0, 13.39, 25.4, 0.89, NAVY)
     add_text_box(slide, 1.02, 13.44, 23.37, 0.56,
-                 "FinSight IA  \u00b7  Usage confidentiel", 8, WHITE)
+                 "FinSight IA  \u00b7  Usage confidentiel", 7, WHITE)
 
 
 def section_dots(slide, active: int):
@@ -293,7 +293,7 @@ def section_dots(slide, active: int):
 def slide_title(slide, title: str, subtitle: str = ""):
     from pptx.enum.text import PP_ALIGN
     add_text_box(slide, 1.02, 0.33, 15.49, 0.97,
-                 title, 18, WHITE, bold=True)
+                 title, 13, WHITE, bold=True)
     if subtitle:
         add_text_box(slide, 1.02, 1.73, 23.37, 0.56,
                      subtitle, 9, NAVY_PALE)
@@ -308,12 +308,12 @@ def kpi_box(slide, x, y, w, h, value, label, sub="",
     lbl_color = GREY_TXT if fill != NAVY else WHITE
     sub_color = GREY_LIGHT if fill != NAVY else NAVY_PALE
     add_text_box(slide, x + 0.25, y + 0.15, w - 0.38, 1.1,
-                 value, 22, val_color, bold=True)
+                 value, 19, val_color, bold=True)
     add_text_box(slide, x + 0.25, y + 1.25, w - 0.38, 0.57,
-                 label, 9, lbl_color)
+                 label, 8, lbl_color)
     if sub:
         add_text_box(slide, x + 0.25, y + 1.8, w - 0.38, 0.46,
-                     sub, 7.5, sub_color)
+                     sub, 7, sub_color)
 
 
 def commentary_box(slide, x, y, w, h, text, accent=NAVY_MID):
@@ -333,22 +333,22 @@ def divider_slide(prs, number_str: str, title: str, subtitle: str):
 
     # Number watermark
     add_text_box(slide, 1.27, 3.5, 22.86, 4.57,
-                 number_str, 96, "DDDDDD", bold=True)
+                 number_str, 80, "DDDDDD", bold=True)
 
     # Title
     add_text_box(slide, 1.27, 5.21, 21.59, 2.29,
                  title, 28, NAVY, bold=True)
 
-    # Rule
-    add_rect(slide, 1.27, 7.75, 7.62, 0.05, GREY_LIGHT)
+    # Rule (zero-height)
+    add_rect(slide, 1.27, 7.75, 7.62, 0.01, GREY_LIGHT)
 
     # Subtitle
     add_text_box(slide, 1.27, 8.08, 17.78, 0.89,
-                 subtitle, 12, GREY_TXT)
+                 subtitle, 10, GREY_TXT)
 
     # Footer text
     add_text_box(slide, 1.02, 13.34, 23.37, 0.56,
-                 "FinSight IA \u00b7 Usage confidentiel", 8, GREY_TXT)
+                 "FinSight IA \u00b7 Usage confidentiel", 7, GREY_TXT)
 
     return slide
 
@@ -491,7 +491,7 @@ def _slide_cover(prs, snap, synthesis, ratios, devil, sentiment):
 
     # Company name
     add_text_box(slide, 1.27, 4.19, 22.86, 2.54,
-                 co_name, 32, NAVY, bold=True)
+                 co_name, 44, NAVY, bold=True)
     add_text_box(slide, 1.27, 6.81, 22.86, 0.71,
                  f"{ticker}  \u00b7  {exchange}  \u00b7  {sector}", 11, GREY_TXT)
 
@@ -508,9 +508,9 @@ def _slide_cover(prs, snap, synthesis, ratios, devil, sentiment):
     # Bottom rule + credits
     add_rect(slide, 1.02, 12.4, 23.37, 0.03, "AAAAAA")
     add_text_box(slide, 1.02, 12.65, 11.43, 0.56,
-                 "Rapport confidentiel", 8, GREY_TXT)
+                 "Rapport confidentiel", 7, GREY_TXT)
     add_text_box(slide, 12.95, 12.65, 11.43, 0.56,
-                 gen_date, 8, GREY_TXT, align=PP_ALIGN.RIGHT)
+                 gen_date, 7, GREY_TXT, align=PP_ALIGN.RIGHT)
 
     return slide
 
@@ -559,7 +559,7 @@ def _slide_exec_summary(prs, snap, synthesis, ratios, devil, sentiment):
     add_rect(slide, 1.02, 2.08, 23.37, 1.22, rec_fill)
     add_rect(slide, 1.02, 2.08, 0.13, 1.22, rec_accent)
     add_text_box(slide, 1.4, 2.13, 3.05, 1.12,
-                 f"● {rec.upper()}", 14, rec_accent, bold=True)
+                 f"● {rec.upper()}", 11, rec_accent, bold=True)
     bull_str = (
         f"Bear : {_fr(tbear, 0)} {cur_sym} ({_upside(tbear, price)})  ·  "
         f"Bull : {_fr(tbull, 0)} {cur_sym} ({_upside(tbull, price)})"
@@ -641,11 +641,11 @@ def _slide_sommaire(prs):
     slide_title(slide, "Sommaire")
 
     sections = [
-        ("01", "Company Overview",    "Presentation, modele economique, donnees de marche", "3-5"),
-        ("02", "Analyse Financiere",  "Compte de resultat, bilan & liquidite, ratios",       "6-8"),
-        ("03", "Valorisation",        "DCF, comparable peers, Football Field",               "9-11"),
-        ("04", "Risques & Strategie", "Avocat du diable, conditions d'invalidation",         "12-13"),
-        ("05", "Sentiment & Annexes", "FinBERT, actionnariat & historique de cours",         "14-15"),
+        ("01", "Company Overview",    "Presentation, modele economique, donnees de marche", "3\u20135"),
+        ("02", "Analyse Financiere",  "Compte de resultat, bilan & liquidite, ratios",       "6\u20138"),
+        ("03", "Valorisation",        "DCF, comparable peers, Football Field",               "9\u201311"),
+        ("04", "Risques & Strategie", "Avocat du diable, conditions d'invalidation",         "12\u201313"),
+        ("05", "Sentiment & Annexes", "FinBERT, actionnariat & historique de cours",         "14\u201315"),
     ]
     fills = [WHITE, GREY_BG, WHITE, GREY_BG, WHITE]
     ys    = [2.49, 4.42, 6.35, 8.28, 10.21]
@@ -655,14 +655,14 @@ def _slide_sommaire(prs):
         fill = fills[i]
         add_rect(slide, 1.02, y, 23.37, 1.73, fill)
         add_rect(slide, 1.02, y, 0.13, 1.73, NAVY_MID)
-        add_text_box(slide, 1.40, y + 0.15, 1.52, 1.43,
-                     num, 28, GREY_LIGHT, bold=True)
+        add_text_box(slide, 1.40, y + 0.15, 1.32, 1.43,
+                     num, 17, GREY_LIGHT, bold=True)
         add_text_box(slide, 3.20, y + 0.20, 17.00, 0.71,
                      name, 13, NAVY, bold=True)
         add_text_box(slide, 3.20, y + 0.85, 17.00, 0.71,
                      desc, 8.5, GREY_TXT)
         add_text_box(slide, 20.57, y + 0.45, 3.82, 0.71,
-                     f"p. {pages}", 9, NAVY_MID,
+                     pages, 9, NAVY_MID,
                      align=PP_ALIGN.RIGHT)
 
     return slide
@@ -773,7 +773,7 @@ def _slide_business_model(prs, snap, synthesis):
     for i, (fill, accent, label, text) in enumerate(col_configs):
         cx = start_x + i * (col_w + col_gap)
         add_rect(slide, cx, col_y, col_w, col_h, fill)
-        add_rect(slide, cx, col_y, col_w, 0.30, accent)  # top strip
+        add_rect(slide, cx, col_y, col_w, 0.15, accent)  # top strip
         add_text_box(slide, cx + 0.30, col_y + 0.50, col_w - 0.60, 1.78,
                      pcts[i], 42, accent, bold=True)
         add_text_box(slide, cx + 0.30, col_y + 2.29, col_w - 0.60, 0.30,
@@ -1135,10 +1135,20 @@ def _slide_dcf(prs, snap, synthesis, ratios):
             row.append(_dcf_value(tbase, wacc, tgr, w_d, t_d))
         sens_rows.append(row)
 
-    add_table(slide, 1.02, 7.37, 23.37, 3.10,
+    sens_tbl = add_table(slide, 1.02, 7.37, 23.37, 3.10,
               len(sens_rows), len(header_s),
               header_data=header_s,
               rows_data=sens_rows)
+
+    # Highlight base cell (WACC=0, TGR=0 → center row/col of deltas = row 2 col 3 in data = tbl row 3 col 3)
+    try:
+        base_ri = w_deltas.index(0.00) + 1   # +1 for header row
+        base_ci = t_deltas.index(0.00) + 1   # +1 for label col
+        base_cell = sens_tbl.cell(base_ri, base_ci)
+        base_cell.fill.solid()
+        base_cell.fill.fore_color.rgb = rgb("DDE8F5")
+    except Exception:
+        pass
 
     dcf_comment = _g(synthesis, "dcf_commentary", "") or ""
     commentary_box(slide, 1.02, 10.88, 23.37, 1.52, dcf_comment)
@@ -1190,7 +1200,7 @@ def _slide_peers(prs, snap, synthesis, ratios):
                   _frpct(gm), _frpct(em)]
 
     rows_data = [target_row]
-    rows_fills = [NAVY_PALE]
+    rows_fills = ["DDE8F5"]
 
     for peer in peers[:5]:
         pn   = _g(peer, "name", "—")
@@ -1285,7 +1295,7 @@ def _slide_football_field(prs, snap, synthesis, ratios):
     # Current price row
     rows_data.append([f"Cours actuel ({_fr(price, 2)} {cur_sym})", "—", "—",
                       f"{_fr(price, 2)} {cur_sym}"])
-    rows_fills.append(AMBER_PALE)
+    rows_fills.append(NAVY_PALE)
 
     if not rows_data:
         rows_data  = [["Aucune donnee disponible", "—", "—", "—"]]
@@ -1342,9 +1352,9 @@ def _slide_risques(prs, snap, synthesis, devil):
         risk  = str(risk_sources[i]) if i < len(risk_sources) else label
         body  = ct_parts[i] if i < len(ct_parts) else ""
         add_rect(slide, cx, card_y, card_w, card_h, fill)
-        add_rect(slide, cx, card_y, card_w, 0.30, accent)
-        add_text_box(slide, cx + 0.30, card_y + 0.45, card_w - 0.60, 0.71,
-                     _truncate(risk, 80), 9.5, accent, bold=True, wrap=True)
+        add_rect(slide, cx, card_y, card_w, 0.15, accent)
+        add_text_box(slide, cx + 0.30, card_y + 0.30, card_w - 0.60, 0.71,
+                     _truncate(risk, 80), 9, accent, bold=True, wrap=True)
         add_text_box(slide, cx + 0.30, card_y + 1.32, card_w - 0.60, 3.5,
                      _truncate(body, 200), 8, GREY_TXT, wrap=True)
 
@@ -1555,12 +1565,28 @@ def _slide_historique(prs, snap, synthesis):
     add_text_box(slide, 1.02, 5.13, 23.37, 0.46,
                  "Evolution du cours — 12 derniers mois", 9, NAVY, bold=True)
 
+    # French month name lookup
+    _FR_MONTHS = {
+        "jan": "Jan", "feb": "F\u00e9v", "mar": "Mar", "apr": "Avr",
+        "may": "Mai", "jun": "Juin", "jul": "Juil", "aug": "Ao\u00fb",
+        "sep": "Sep", "oct": "Oct", "nov": "Nov", "dec": "D\u00e9c",
+        "january": "Jan", "february": "F\u00e9v", "march": "Mar",
+        "april": "Avr", "june": "Juin", "july": "Juil", "august": "Ao\u00fb",
+        "september": "Sep", "october": "Oct", "november": "Nov", "december": "D\u00e9c",
+    }
+
+    def _fr_month(mo_str):
+        mo_str = str(mo_str).strip()
+        key = mo_str[:3].lower()
+        return _FR_MONTHS.get(key, mo_str[:4])
+
     # Chart area background
     chart_x = 1.02
     chart_y = 5.84
     chart_w = 23.37
     chart_h = 5.08
-    add_rect(slide, chart_x, chart_y, chart_w, chart_h, GREY_BG)
+    add_rect(slide, chart_x, chart_y, chart_w, chart_h, GREY_BG,
+             line_hex="D0D0D0", line_width_pt=0.5)
     add_rect(slide, chart_x, chart_y, chart_w, 0.10, NAVY_MID)
 
     # Draw bars
@@ -1580,7 +1606,7 @@ def _slide_historique(prs, snap, synthesis):
                 continue
             pt  = history[idx]
             pv  = _g(pt, "price")
-            mo  = str(_g(pt, "month", "")).strip()
+            mo  = _g(pt, "month", "") or ""
             if pv is None:
                 continue
             try:
@@ -1600,17 +1626,18 @@ def _slide_historique(prs, snap, synthesis):
             else:
                 bar_color = RED
 
-            add_rect(slide, bx, by, bar_w * 0.80, bh, bar_color)
+            add_rect(slide, bx, by, bar_w * 0.76, bh, bar_color)
 
-            # Month label
+            # Month label — French
+            mo_fr = _fr_month(mo)
             add_text_box(slide, bx - 0.10, bar_base_y + 0.52, bar_w + 0.20, 0.40,
-                         mo[:6], 6, GREY_TXT, align=PP_ALIGN.CENTER)
+                         mo_fr, 6, GREY_TXT, align=PP_ALIGN.CENTER)
 
         # Min/Max annotation
         add_text_box(slide, chart_x + 0.20, chart_y + 0.20, 5.0, 0.40,
-                     f"Max : {_fr(p_max, 2)} {cur_sym}", 7, NAVY_MID)
+                     f"\u25b2 Max : {_fr(p_max, 2)} {cur_sym}", 7, NAVY_MID)
         add_text_box(slide, chart_x + 0.20, chart_y + chart_h - 0.80, 5.0, 0.40,
-                     f"Min : {_fr(p_min, 2)} {cur_sym}", 7, GREY_TXT)
+                     f"\u25bc Min : {_fr(p_min, 2)} {cur_sym}", 7, GREY_TXT)
     else:
         add_text_box(slide, chart_x + 8.0, chart_y + 2.0, 7.37, 1.0,
                      "Historique de cours non disponible", 10, GREY_TXT)
