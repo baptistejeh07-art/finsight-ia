@@ -442,12 +442,14 @@ _EXCHANGE_MAP = {
     "NMS": "NASDAQ", "NGM": "NASDAQ", "NCM": "NASDAQ", "NAS": "NASDAQ",
     "NYQ": "NYSE",   "NYA": "NYSE",
     "PCX": "NYSE Arca",
-    "XPAR": "Euronext Paris", "PAR": "Euronext Paris",
-    "XLON": "London SE",      "LSE": "London SE",
-    "XFRA": "Frankfurt",
-    "XAMS": "Euronext Amsterdam",
-    "XBRU": "Euronext Brussels",
-    "TDM": "TSX",
+    "XPAR": "Euronext Paris", "PAR": "Euronext Paris", "ENX": "Euronext Paris",
+    "XLON": "London SE",      "LSE": "London SE",       "IOB": "London SE",
+    "XFRA": "Frankfurt",      "FRA": "Frankfurt",        "GER": "Frankfurt",
+    "XAMS": "Euronext Amsterdam", "AMS": "Euronext Amsterdam",
+    "XBRU": "Euronext Brussels",  "BRU": "Euronext Brussels",
+    "XMIL": "Borsa Italiana",     "MIL": "Borsa Italiana",
+    "XMAD": "BME",                "MCE": "BME",
+    "TDM": "TSX",                 "TSX": "TSX",
 }
 
 def _normalize_exchange(ex: str) -> str:
@@ -530,21 +532,22 @@ def _slide_cover(prs, snap, synthesis, ratios, devil, sentiment):
 
     # Top navy band
     add_rect(slide, 0, 0, 25.4, 3.81, NAVY)
-    add_text_box(slide, 1.27, 0.46, 22.86, 0.71, "FinSight IA", 10, "8899BB", bold=False)
+    add_text_box(slide, 1.27, 0.46, 22.86, 0.71, "FinSight IA",
+                 10, "8899BB", bold=False, align=PP_ALIGN.CENTER)
     add_rect(slide, 11.05, 1.32, 3.3, 0.05, WHITE)
     add_text_box(slide, 1.27, 1.52, 22.86, 0.81,
-                 "Pitchbook  \u2014  Analyse d'investissement", 11, "CCDDEE")
+                 "Pitchbook  \u2014  Analyse d'investissement",
+                 11, "CCDDEE", align=PP_ALIGN.CENTER)
 
-    # Company name (centré)
-    from pptx.enum.text import PP_ALIGN as _PA_CV
+    # Company name + tagline (tout centré)
     add_text_box(slide, 1.27, 4.19, 22.86, 2.54,
-                 co_name, 44, NAVY, bold=True, align=_PA_CV.CENTER)
+                 co_name, 44, NAVY, bold=True, align=PP_ALIGN.CENTER)
     _tagline_parts = [p for p in [ticker, exchange, sector] if p and str(p).strip()]
     add_text_box(slide, 1.27, 6.81, 22.86, 0.71,
                  "  \u00b7  ".join(_tagline_parts), 11, "888888",
-                 align=_PA_CV.CENTER)
+                 align=PP_ALIGN.CENTER)
 
-    # Recommendation box (full width so text never wraps)
+    # Recommendation box (pleine largeur, centré, 9pt)
     upside_str = _upside(tbase, price)
     add_rect(slide, 1.27, 8.08, 22.86, 1.32, rec_fill)
     add_rect(slide, 1.27, 8.08, 0.13, 1.32, rec_accent)
@@ -552,15 +555,15 @@ def _slide_cover(prs, snap, synthesis, ratios, devil, sentiment):
         slide, 1.60, 8.13, 22.40, 1.22,
         f"\u25cf {rec.upper()}  \u00b7  Prix cible base\u00a0: {_fr(tbase, 0)} {cur_sym}"
         f"  \u00b7  Upside\u00a0: {upside_str}",
-        10, rec_accent, bold=True
+        9, rec_accent, bold=True, align=PP_ALIGN.CENTER
     )
 
-    # Bottom rule + credits
+    # Bottom rule + credits (8pt)
     add_rect(slide, 1.02, 12.4, 23.37, 0.03, "AAAAAA")
     add_text_box(slide, 1.02, 12.65, 11.43, 0.56,
-                 "Rapport confidentiel", 7, GREY_TXT)
+                 "Rapport confidentiel", 8, GREY_TXT)
     add_text_box(slide, 12.95, 12.65, 11.43, 0.56,
-                 gen_date, 7, GREY_TXT, align=PP_ALIGN.RIGHT)
+                 gen_date, 8, GREY_TXT, align=PP_ALIGN.RIGHT)
 
     return slide
 
