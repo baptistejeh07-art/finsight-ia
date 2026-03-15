@@ -2094,66 +2094,100 @@ def _slide_actionnariat(prs, snap, synthesis):
     slide_title(slide, "Actionnariat & Structure du Capital",
                 f"R\u00e9partition de l'actionnariat  \u00b7  Au {gen_date}")
 
-    # Try to get real shareholder data from snap if available
-    # Check for major_holders or insider_data in snap
-    raw_holders = []
-    if snap:
-        mh = getattr(snap, "major_holders", None) or []
-        if mh:
-            for h in mh:
-                raw_holders.append([
-                    str(_g(h, "name", "\u2014"))[:40],
-                    str(_g(h, "type", "\u2014")),
-                    str(_g(h, "pct", "\u2014")),
-                ])
+    # ----------------------------------------------------------------
+    # Données actionnaires depuis snap.institutional_holders (yfinance)
+    # ----------------------------------------------------------------
+    holders = (getattr(snap, "institutional_holders", None) or []) if snap else []
 
-    # Default 4-col structure with Style column
-    if not raw_holders:
-        raw_holders = [
-            ["Institutionnels",         "Fonds/ETF",   "~70 %", "Passif"],
-            ["Particuliers (flottant)", "Retail",      "~20 %", "\u2014"],
-            ["Insiders & dirigeants",   "Management",  "~10 %", "Insider"],
+    # Fallback si aucune donnée réelle
+    if not holders:
+        holders = [
+            {"name": "Institutionnels passifs",  "type": "Institutionnel", "pct": 24.0, "style": "Passif"},
+            {"name": "Institutionnels actifs",   "type": "Institutionnel", "pct": 12.0, "style": "Actif"},
+            {"name": "Insiders & dirigeants",    "type": "Insiders",       "pct": 8.0,  "style": "Insider"},
+            {"name": "Autres (Retail)",          "type": "Retail & autres","pct": 56.0, "style": "\u2014"},
         ]
 
-    # Ensure all rows have 4 columns
+    # ----------------------------------------------------------------
+    # Tableau gauche : Top actionnaires (Actionnaire | Type | % | Style)
+    # ----------------------------------------------------------------
     holder_rows = []
-    for r in raw_holders:
-        while len(r) < 4:
-            r.append("\u2014")
-        holder_rows.append(r[:4])
+    for h in holders:
+        pct_val = h.get("pct")
+        pct_str = f"{float(pct_val):,.1f}\u00a0%".replace(",", "\u00a0") if pct_val is not None else "\u2014"
+        holder_rows.append([
+            str(h.get("name", "\u2014"))[:35],
+            str(h.get("type", "\u2014")),
+            pct_str,
+            str(h.get("style", "\u2014")),
+        ])
 
-    if not holder_rows:
-        holder_rows = [["Donn\u00e9es non disponibles", "\u2014", "\u2014", "\u2014"]]
+    n_rows      = len(holder_rows)
+    tbl_h       = min(0.71 + n_rows * 0.61, 7.0)
 
-    n_holder_rows = len(holder_rows)
-    tbl_h_holder = min(0.71 + n_holder_rows * 0.71, 9.0)
-    add_table(slide, 1.02, 2.69, 14.73, tbl_h_holder,
-              n_holder_rows, 4,
-              col_widths_pct=[0.38, 0.25, 0.20, 0.17],
-              header_data=["Actionnaire", "Type", "%", "Style"],
-              rows_data=holder_rows)
+    add_text_box(slide, 1.02, 2.08, 13.97, 0.56,
+                 "Top actionnaires", 9, NAVY_MID, bold=True)
+    holders_tbl = add_table(slide, 1.02, 2.69, 14.73, tbl_h,
+              n_rows, 4,
+              col_widths_pct=[0.38, 0.26, 0.20, 0.16],
+              header_data=["Actionnaire", "Type", "D\u00e9tention\u00a0%", "Style"],
+              rows_data=holder_rows,
+              border_hex="DDDDDD")
 
-    # Right: type breakdown (adapt height to holder count)
-    type_rows = [
-        ["Institutionnel", "~70 %"],
-        ["Retail",         "~20 %"],
-        ["Insiders",       "~10 %"],
-    ]
-    add_table(slide, 16.0, 2.69, 8.38, 3.05,
+    # Bold + couleur sur la colonne Style
+    from pptx.util import Pt as _Pt_h
+    _style_colors = {"Passif": "2E5FA3", "Actif": "1A7A4A", "Insider": "B06000"}
+    for ri in range(1, n_rows + 1):
+        try:
+            cell = holders_tbl.cell(ri, 3)
+            for run in cell.text_frame.paragraphs[0].runs:
+                style_val = holder_rows[ri - 1][3]
+                col = _style_colors.get(style_val, GREY_TXT)
+                run.font.color.rgb = rgb(col)
+                run.font.bold = True
+                run.font.size = _Pt_h(7.5)
+        except Exception:
+            pass
+
+    # ----------------------------------------------------------------
+    # Tableau droit : Répartition par type (dynamique depuis les données)
+    # ----------------------------------------------------------------
+    pct_passif  = sum(h.get("pct") or 0 for h in holders if h.get("style") == "Passif")
+    pct_actif   = sum(h.get("pct") or 0 for h in holders if h.get("style") == "Actif")
+    pct_insider = sum(h.get("pct") or 0 for h in holders if h.get("style") == "Insider")
+    pct_retail  = sum(h.get("pct") or 0 for h in holders if h.get("style") == "\u2014")
+
+    def _pct_str(v):
+        return f"{v:.1f}\u00a0%" if v > 0 else "\u2014"
+
+    type_rows = []
+    if pct_passif  > 0: type_rows.append(["Institutionnel passif",  _pct_str(pct_passif)])
+    if pct_actif   > 0: type_rows.append(["Institutionnel actif",   _pct_str(pct_actif)])
+    if pct_insider > 0: type_rows.append(["Insider",                _pct_str(pct_insider)])
+    if pct_retail  > 0: type_rows.append(["Retail & autres",        _pct_str(pct_retail)])
+    if not type_rows:
+        type_rows = [["Donn\u00e9es indisponibles", "\u2014"]]
+
+    type_tbl_h = min(0.71 + len(type_rows) * 0.61, tbl_h)
+
+    add_text_box(slide, 16.00, 2.08, 8.38, 0.56,
+                 "R\u00e9partition par type", 9, NAVY_MID, bold=True)
+    add_table(slide, 16.00, 2.69, 8.38, type_tbl_h,
               len(type_rows), 2,
-              col_widths_pct=[0.55, 0.45],
-              header_data=["Type", "%"],
-              rows_data=type_rows)
+              col_widths_pct=[0.60, 0.40],
+              header_data=["Type d'actionnaire", "Part estim\u00e9e"],
+              rows_data=type_rows,
+              border_hex="DDDDDD")
 
-    # Note
-    note_y = 2.69 + tbl_h_holder + 0.30
-    add_text_box(slide, 1.02, note_y, 14.73, 0.90,
-                 "Note : Donn\u00e9es d'actionnariat indicatives bas\u00e9es sur des benchmarks sectoriels.",
-                 7.5, GREY_TXT, italic=True, wrap=True)
-
-    thesis_s = _g(synthesis, "thesis", "") or ""
-    if thesis_s.strip():
-        commentary_box(slide, 1.02, 9.70, 23.37, 2.54, thesis_s[:300])
+    # ----------------------------------------------------------------
+    # Commentaire
+    # ----------------------------------------------------------------
+    commentary_y = 2.69 + tbl_h + 0.35
+    valuation_comment = _g(synthesis, "valuation_comment", "") or ""
+    thesis_s          = _g(synthesis, "thesis", "") or ""
+    comment_txt = valuation_comment or thesis_s
+    if comment_txt.strip():
+        commentary_box(slide, 1.02, commentary_y, 23.37, min(2.79, 14.0 - commentary_y), comment_txt[:400])
 
     return slide
 

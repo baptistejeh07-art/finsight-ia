@@ -230,18 +230,28 @@ def fetch(ticker: str) -> Optional[FinancialSnapshot]:
                 pass
             return 0.04  # fallback 4%
 
-        with ThreadPoolExecutor(max_workers=5) as pool:
-            f_is   = pool.submit(_fetch_is)
-            f_bs   = pool.submit(_fetch_bs)
-            f_cf   = pool.submit(_fetch_cf)
-            f_hist = pool.submit(_fetch_hist)
-            f_rfr  = pool.submit(_fetch_rfr)
+        def _fetch_holders():
+            try:
+                ih = tk.institutional_holders
+                mh = tk.major_holders
+                return ih, mh
+            except Exception:
+                return None, None
+
+        with ThreadPoolExecutor(max_workers=6) as pool:
+            f_is      = pool.submit(_fetch_is)
+            f_bs      = pool.submit(_fetch_bs)
+            f_cf      = pool.submit(_fetch_cf)
+            f_hist    = pool.submit(_fetch_hist)
+            f_rfr     = pool.submit(_fetch_rfr)
+            f_holders = pool.submit(_fetch_holders)
 
         is_df  = f_is.result()
         bs_df  = f_bs.result()
         cf_df  = f_cf.result()
         hist   = f_hist.result()
         rfr    = f_rfr.result()
+        ih_df, mh_df = f_holders.result() or (None, None)
 
         # --- Détection automatique des années disponibles ---
         available_years = _detect_years(is_df, max_years=5)
@@ -420,13 +430,71 @@ def fetch(ticker: str) -> Optional[FinancialSnapshot]:
                 ))
         stock_history = stock_history[-13:]
 
+        # --- Actionnaires institutionnels ---
+        _PASSIVE_KW = {"vanguard", "ishares", "ssga", "state street", "dimensional",
+                       "northern trust", "schwab index", "db x-tracker", "xtrackers",
+                       "amundi index", "lyxor", "spdr", "invesco qqq", "fidelity index"}
+
+        def _holder_style(name: str) -> str:
+            nl = name.lower()
+            if any(k in nl for k in _PASSIVE_KW):
+                return "Passif"
+            return "Actif"
+
+        institutional_holders = []
+        try:
+            # Insider % depuis info
+            pct_insiders = float(info.get("heldPercentInsiders") or 0) * 100
+            pct_inst_total = float(info.get("heldPercentInstitutions") or 0) * 100
+
+            if ih_df is not None and not ih_df.empty:
+                ih_df = ih_df.head(7)
+                for _, row in ih_df.iterrows():
+                    name = str(row.get("Holder", row.name if hasattr(row, 'name') else "—"))
+                    pct_out = row.get("% Out", row.get("pctHeld", None))
+                    try:
+                        pct_val = round(float(pct_out) * 100, 1) if pct_out is not None else None
+                    except Exception:
+                        pct_val = None
+                    institutional_holders.append({
+                        "name":  name[:40],
+                        "type":  "Institutionnel",
+                        "pct":   pct_val,
+                        "style": _holder_style(name),
+                    })
+
+            # Ligne insiders si données dispo
+            if pct_insiders > 0.1:
+                insider_name = info.get("longName", ticker).split()[0] + " (Insiders)"
+                institutional_holders.insert(0, {
+                    "name":  insider_name[:40],
+                    "type":  "Insiders & dirigeants",
+                    "pct":   round(pct_insiders, 1),
+                    "style": "Insider",
+                })
+
+            # Ligne "Autres" pour compléter à 100%
+            if institutional_holders:
+                known_pct = sum(h["pct"] for h in institutional_holders if h["pct"] is not None)
+                autres_pct = max(round(100.0 - known_pct, 1), 0.0)
+                institutional_holders.append({
+                    "name":  "Autres",
+                    "type":  "Retail & autres",
+                    "pct":   autres_pct,
+                    "style": "\u2014",
+                })
+
+        except Exception as e:
+            log.warning(f"[yfinance] '{ticker}' holders mapping: {e}")
+
         return FinancialSnapshot(
-            ticker        = ticker.upper(),
-            company_info  = company_info,
-            years         = years_data,
-            market        = market,
-            stock_history = stock_history,
-            meta          = {
+            ticker                = ticker.upper(),
+            company_info          = company_info,
+            years                 = years_data,
+            market                = market,
+            stock_history         = stock_history,
+            institutional_holders = institutional_holders,
+            meta                  = {
                 "source":      "yfinance",
                 "year_labels": year_labels,
                 "base_year":   base_year,

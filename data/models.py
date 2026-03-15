@@ -141,6 +141,7 @@ class FinancialSnapshot:
     years: dict  # {"2022": FinancialYear, "2023": FinancialYear, "2024_LTM": FinancialYear}
     market: MarketData
     stock_history: list  # list[StockPoint], 13 points max
+    institutional_holders: list = field(default_factory=list)  # [{name, type, pct, style}, ...]
     meta: dict = field(default_factory=dict)
 
     def to_dict(self) -> dict:
