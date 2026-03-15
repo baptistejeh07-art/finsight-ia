@@ -1569,7 +1569,8 @@ def _slide_dcf(prs, snap, synthesis, ratios):
               len(param_rows), 2,
               col_widths_pct=[0.55, 0.45],
               header_data=["Param\u00e8tre", "Valeur"],
-              rows_data=param_rows)
+              rows_data=param_rows,
+              border_hex="DDDDDD")
 
     # Highlight "Valeur intrinsèque" row (row index 3 = data row 2 → tbl row 3)
     from pptx.util import Pt as _Pt_dcf
@@ -1637,7 +1638,8 @@ def _slide_dcf(prs, snap, synthesis, ratios):
     sens_tbl = add_table(slide, 1.02, 7.37, 23.37, 3.10,
               len(sens_rows), len(header_s),
               header_data=header_s,
-              rows_data=sens_rows)
+              rows_data=sens_rows,
+              border_hex="DDDDDD")
 
     # Cross-highlight: WACC base row + TGR base column = DDE8F5; intersection = NAVY_MID/blanc
     try:
@@ -1709,8 +1711,8 @@ def _slide_peers(prs, snap, synthesis, ratios):
     header = ["Soci\u00e9t\u00e9", "Ticker", "Mkt Cap", "EV/EBITDA", "EV/Rev.", "P/E",
               "Mg Brute", "Mg EBITDA"]
 
-    # Target company row — Mkt Cap en Mds, sans suffixe devise
-    mktcap_str = _fr(mktcap, 0) if mktcap else "—"
+    # Target company row — Mkt Cap en Mds (shares en millions * price / 1000 = Mds)
+    mktcap_str = _fr(mktcap, 1) if mktcap else "—"
     target_row = [co_name, ticker, mktcap_str,
                   _frx(ev_e), _frx(ev_r), _frx(pe),
                   _frpct(gm), _frpct(em)]
@@ -1728,7 +1730,11 @@ def _slide_peers(prs, snap, synthesis, ratios):
         p_mc = _g(peer, "market_cap_mds")
         if p_mc is not None:
             try:
-                p_mktcap_str = _fr(float(p_mc), 0)
+                p_mc_f = float(p_mc)
+                # Si le LLM a retourné en millions au lieu de milliards (> 1000 Mds improbable)
+                if p_mc_f > 10000:
+                    p_mc_f = p_mc_f / 1000
+                p_mktcap_str = _fr(p_mc_f, 1)
             except Exception:
                 p_mktcap_str = "—"
         else:
