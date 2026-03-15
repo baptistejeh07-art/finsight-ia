@@ -160,29 +160,41 @@ def _add_text_alpha(slide, x, y, w, h, text, font_size,
                     color_hex="FFFFFF", alpha_val=15000, bold=False):
     """Ajoute un textbox avec couleur semi-transparente (alpha en millièmes, 15000=15%)."""
     from pptx.util import Cm, Pt
+    from pptx.oxml.ns import qn
     from lxml import etree
+
     txBox = slide.shapes.add_textbox(Cm(x), Cm(y), Cm(w), Cm(h))
     tf = txBox.text_frame
     tf.word_wrap = False
     p = tf.paragraphs[0]
     run = p.add_run()
     run.text = str(text) if text is not None else ""
-    run.font.name = "Calibri"
-    run.font.size = Pt(font_size)
-    run.font.bold = bold
-    # Injection XML alpha
-    ns_a = "http://schemas.openxmlformats.org/drawingml/2006/main"
-    rPr = run._r.get_or_add_rPr()
-    for elem in rPr.findall(f'{{{ns_a}}}solidFill'):
-        rPr.remove(elem)
-    fill_xml = (
-        f'<a:solidFill xmlns:a="{ns_a}">'
-        f'<a:srgbClr val="{color_hex}">'
-        f'<a:alpha val="{alpha_val}"/>'
-        f'</a:srgbClr>'
-        f'</a:solidFill>'
-    )
-    rPr.insert(0, etree.fromstring(fill_xml))
+    run.font.name  = "Calibri"
+    run.font.size  = Pt(font_size)
+    run.font.bold  = bold
+
+    # Injection XML directe (plus fiable que get_or_add_rPr + string parsing)
+    r_elem = run._r                          # <a:r>
+    rPr = r_elem.find(qn('a:rPr'))
+    if rPr is None:
+        rPr = etree.Element(qn('a:rPr'))
+        r_elem.insert(0, rPr)
+
+    # Supprimer toute couleur existante
+    for tag in (qn('a:solidFill'), qn('a:gradFill'), qn('a:noFill'), qn('a:pattFill')):
+        for child in list(rPr.findall(tag)):
+            rPr.remove(child)
+
+    # Construire solidFill > srgbClr > alpha via SubElement (évite les pb de namespace)
+    solidFill  = etree.SubElement(rPr, qn('a:solidFill'))
+    srgbClr    = etree.SubElement(solidFill, qn('a:srgbClr'))
+    srgbClr.set('val', color_hex.upper())
+    alpha_elem = etree.SubElement(srgbClr, qn('a:alpha'))
+    alpha_elem.set('val', str(alpha_val))
+    # Mettre solidFill en premier dans rPr
+    rPr.remove(solidFill)
+    rPr.insert(0, solidFill)
+
     return txBox
 
 
