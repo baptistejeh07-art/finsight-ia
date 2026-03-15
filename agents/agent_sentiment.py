@@ -26,6 +26,37 @@ log = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
+# Bug 4 — Filtre de pertinence
+# ---------------------------------------------------------------------------
+
+def _filter_relevant(articles: list, ticker: str, company_name: str) -> list:
+    """
+    Garde uniquement les articles qui mentionnent le ticker ou le nom société.
+    Evite la pollution (ex: MC.PA → Moelis & Co sur Finnhub).
+    """
+    # Mots-clés de pertinence : ticker brut, ticker sans suffixe, mots du nom société
+    keys = set()
+    keys.add(ticker.lower())
+    base = ticker.split(".")[0].lower()
+    if len(base) >= 3:
+        keys.add(base)
+    if company_name:
+        for word in company_name.lower().split():
+            if len(word) >= 4 and word not in {"inc.", "corp", "ltd.", "s.a.", "group", "plc", "the"}:
+                keys.add(word.rstrip(".,"))
+
+    if not keys:
+        return articles
+
+    filtered = []
+    for art in articles:
+        text = (art.get("headline", "") + " " + art.get("summary", "")).lower()
+        if any(k in text for k in keys):
+            filtered.append(art)
+    return filtered
+
+
+# ---------------------------------------------------------------------------
 # Modèle de résultat
 # ---------------------------------------------------------------------------
 
@@ -88,6 +119,17 @@ class AgentSentiment:
         # ------------------------------------------------------------------
         finnhub_news = finnhub_source.fetch_news(ticker, days=news_days)
         rss_news     = fetch_rss(ticker, company_name=company_name)
+
+        # Bug 4 fix — filtre de pertinence sur les articles Finnhub
+        # Pour les tickers avec suffixe (.PA, .L, etc.) ou ambigus, Finnhub peut
+        # retourner des articles d'une autre société (ex: MC → Moelis & Co).
+        # On filtre en vérifiant que l'article mentionne le ticker OU le nom société.
+        if company_name or "." in ticker:
+            finnhub_news = _filter_relevant(finnhub_news, ticker, company_name)
+            log.info(
+                f"[AgentSentiment] '{ticker}' — Finnhub apres filtrage pertinence : "
+                f"{len(finnhub_news)} articles"
+            )
 
         all_news   = finnhub_news + rss_news
         total_news = len(all_news)

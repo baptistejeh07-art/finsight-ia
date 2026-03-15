@@ -1,22 +1,9 @@
 # =============================================================================
-# FinSight IA -- PDF Writer
+# FinSight IA — PDF Writer
 # outputs/pdf_writer.py
 #
-# PDFWriter.generate(state: FinSightState, output_path: str) -> str
-#
-# 6 pages :
-#   1. Page de garde  (bande navy, nom societe, ticker, date)
-#   2. Sommaire       (4 sections, numeros de page, intro)
-#   3. Synthese       (header societe + verdict, description, scenarios, these)
-#                     + 2. ANALYSE FINANCI\u00c8RE (IS table + commentaire)
-#   4. Ratios table   + 3. VALORISATION (DCF + sensibilite + comparables)
-#   5. Football field + 4. ANALYSE DES RISQUES (3 para + invalidation)
-#                     + 5. SENTIMENT DE MARCH\u00c9 (intro + table header)
-#   6. Sentiment data rows + Disclaimer
-#
-# Toutes les tables exactement 170mm (AssertionError sinon)
-# Police : Helvetica | Couleur accent : #1B3A6B
-# Footer : FinSight IA - {societe} ({ticker}) - Usage confidentiel {N}
+# Basé sur le template visuel de référence (Goldman/MS style).
+# PDFWriter.generate(state, output_path) -> str
 # =============================================================================
 
 from __future__ import annotations
@@ -25,8 +12,127 @@ import logging
 from datetime import date
 from pathlib import Path
 
+from reportlab.lib.pagesizes import A4
+from reportlab.lib import colors
+from reportlab.lib.units import mm
+from reportlab.lib.styles import ParagraphStyle
+from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT, TA_JUSTIFY
+from reportlab.platypus import (
+    SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle,
+    HRFlowable, PageBreak
+)
+
 log = logging.getLogger(__name__)
 
+# ═══════════════════════════════════════════════════════════════════
+# PALETTE
+# ═══════════════════════════════════════════════════════════════════
+NAVY       = colors.HexColor("#1B3A6B")
+NAVY_MID   = colors.HexColor("#2E5FA3")
+NAVY_PALE  = colors.HexColor("#EEF3FA")
+GREY_RULE  = colors.HexColor("#D0D0D0")
+GREY_ROW   = colors.HexColor("#F7F8FA")
+GREY_TEXT  = colors.HexColor("#555555")
+GREY_LIGHT = colors.HexColor("#888888")
+WHITE      = colors.white
+BLACK      = colors.HexColor("#0D0D0D")
+GREEN      = colors.HexColor("#1A7A4A")
+GREEN_PALE = colors.HexColor("#EAF4EF")
+RED        = colors.HexColor("#A82020")
+RED_PALE   = colors.HexColor("#FAF0EF")
+AMBER      = colors.HexColor("#B06000")
+AMBER_PALE = colors.HexColor("#FDF6E8")
+
+W, H = A4
+CW   = 170   # largeur contenu mm
+
+# ═══════════════════════════════════════════════════════════════════
+# TYPOGRAPHIE
+# ═══════════════════════════════════════════════════════════════════
+def _build_styles():
+    return {
+        "body":      ParagraphStyle("body",    fontName="Helvetica",      fontSize=8.5, textColor=BLACK,      leading=14, spaceAfter=6,  alignment=TA_JUSTIFY),
+        "body_sm":   ParagraphStyle("body_sm", fontName="Helvetica",      fontSize=7.5, textColor=GREY_TEXT,  leading=12, spaceAfter=4,  alignment=TA_JUSTIFY),
+        "h1":        ParagraphStyle("h1",      fontName="Helvetica-Bold", fontSize=9,   textColor=NAVY,       leading=13, spaceBefore=0, spaceAfter=5),
+        "h2":        ParagraphStyle("h2",      fontName="Helvetica-Bold", fontSize=8.5, textColor=NAVY_MID,   leading=13, spaceBefore=7, spaceAfter=3),
+        "hdr_name":  ParagraphStyle("hn",      fontName="Helvetica-Bold", fontSize=12,  textColor=WHITE,      leading=16),
+        "hdr_meta":  ParagraphStyle("hm",      fontName="Helvetica",      fontSize=7.5, textColor=colors.HexColor("#B8CCE4"), leading=11, alignment=TA_RIGHT),
+        "th":        ParagraphStyle("th",      fontName="Helvetica-Bold", fontSize=7.5, textColor=WHITE,      leading=10, alignment=TA_CENTER),
+        "th_left":   ParagraphStyle("thl",     fontName="Helvetica-Bold", fontSize=7.5, textColor=WHITE,      leading=10, alignment=TA_LEFT),
+        "td":        ParagraphStyle("td",      fontName="Helvetica",      fontSize=8,   textColor=BLACK,      leading=11, alignment=TA_CENTER),
+        "td_l":      ParagraphStyle("tdl",     fontName="Helvetica",      fontSize=8,   textColor=BLACK,      leading=11, alignment=TA_LEFT),
+        "td_b":      ParagraphStyle("tdb",     fontName="Helvetica-Bold", fontSize=8,   textColor=BLACK,      leading=11, alignment=TA_CENTER),
+        "td_sub":    ParagraphStyle("tds",     fontName="Helvetica-Oblique", fontSize=7.5, textColor=GREY_TEXT, leading=11, alignment=TA_LEFT),
+        "td_sub_r":  ParagraphStyle("tdsr",    fontName="Helvetica-Oblique", fontSize=7.5, textColor=GREY_TEXT, leading=11, alignment=TA_CENTER),
+        "caption":   ParagraphStyle("cap",     fontName="Helvetica-Oblique", fontSize=7, textColor=GREY_LIGHT, leading=10, spaceAfter=2, spaceBefore=1),
+        "disclaimer":ParagraphStyle("dis",     fontName="Helvetica-Oblique", fontSize=6.5, textColor=GREY_LIGHT, leading=9.5, alignment=TA_JUSTIFY),
+        "disc_h":    ParagraphStyle("dish",    fontName="Helvetica-Bold", fontSize=7,   textColor=GREY_TEXT,  spaceBefore=0, spaceAfter=2),
+        "toc_item":  ParagraphStyle("toci",    fontName="Helvetica",      fontSize=9,   textColor=BLACK,      leading=14, alignment=TA_LEFT),
+        "toc_num":   ParagraphStyle("tocn",    fontName="Helvetica-Bold", fontSize=9,   textColor=NAVY,       leading=14, alignment=TA_LEFT),
+        "toc_pg":    ParagraphStyle("tocpg",   fontName="Helvetica",      fontSize=9,   textColor=GREY_LIGHT, leading=14, alignment=TA_RIGHT),
+        "toc_title": ParagraphStyle("toct",    fontName="Helvetica-Bold", fontSize=14,  textColor=NAVY,       leading=18, alignment=TA_LEFT, spaceAfter=2),
+        "toc_intro": ParagraphStyle("tocin",   fontName="Helvetica",      fontSize=8,   textColor=GREY_TEXT,  leading=13, alignment=TA_JUSTIFY),
+    }
+
+ST = _build_styles()
+
+# ═══════════════════════════════════════════════════════════════════
+# HELPERS
+# ═══════════════════════════════════════════════════════════════════
+
+def _enc(s: str) -> str:
+    """Encode pour canvas.drawString (Helvetica latin-1)."""
+    if not s: return ""
+    try:    return s.encode("latin-1", errors="replace").decode("latin-1")
+    except: return s
+
+def p(text, s="body"):  return Paragraph(str(text), ST[s])
+def sp(h=3):            return Spacer(1, h * mm)
+def rule(c=GREY_RULE, t=0.4, b=2, a=4):
+    return HRFlowable(width="100%", thickness=t, color=c, spaceBefore=b, spaceAfter=a)
+
+def section(num, title):
+    return [sp(5), rule(NAVY, 1.0, b=0, a=3), p(f"{num}.  {title.upper()}", "h1")]
+
+def sub(text):  return p(text, "h2")
+
+def tbl(rows, widths, extra=None):
+    total = sum(widths)
+    assert abs(total - CW) < 0.8, f"Colonnes = {total:.1f} mm != {CW} mm"
+    cells = []
+    for i, row in enumerate(rows):
+        line = []
+        for j, val in enumerate(row):
+            if isinstance(val, Paragraph):
+                line.append(val)
+            elif i == 0:
+                line.append(p(str(val), "th_left" if j == 0 else "th"))
+            elif j == 0:
+                line.append(p(str(val), "td_l"))
+            else:
+                line.append(p(str(val), "td"))
+        cells.append(line)
+    base = [
+        ("BACKGROUND",    (0,0), (-1,0),  NAVY),
+        ("ROWBACKGROUNDS",(0,1), (-1,-1), [WHITE, GREY_ROW]),
+        ("GRID",          (0,0), (-1,-1), 0.3, GREY_RULE),
+        ("ALIGN",         (1,0), (-1,-1), "CENTER"),
+        ("ALIGN",         (0,0), (0,-1),  "LEFT"),
+        ("LEFTPADDING",   (0,0), (0,-1),  5),
+        ("RIGHTPADDING",  (-1,0),(-1,-1), 4),
+        ("TOPPADDING",    (0,0), (-1,-1), 3),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 3),
+        ("VALIGN",        (0,0), (-1,-1), "MIDDLE"),
+        ("FONTNAME",      (0,1), (0,-1),  "Helvetica-Bold"),
+        ("LINEAFTER",     (0,0), (0,-1),  1.2, NAVY_MID),
+    ]
+    if extra:
+        base += extra
+    t = Table(cells, colWidths=[w * mm for w in widths])
+    t.setStyle(TableStyle(base))
+    return t
+
+# Formatage nombres (style français : virgule décimale)
 _MOIS_FR = {1:"janvier",2:"fevrier",3:"mars",4:"avril",5:"mai",6:"juin",
             7:"juillet",8:"aout",9:"septembre",10:"octobre",11:"novembre",12:"decembre"}
 
@@ -34,969 +140,868 @@ def _date_fr(d=None):
     d = d or date.today()
     return f"{d.day} {_MOIS_FR[d.month]} {d.year}"
 
-try:
-    from reportlab.lib.units import mm as _mm
-except ImportError:
-    _mm = 2.8346
+def _fr(v, dp=1, suffix=""):
+    if v is None: return "—"
+    try:
+        s = f"{float(v):.{dp}f}".replace(".", ",")
+        return s + suffix
+    except: return "—"
 
-_TW = 170 * _mm   # 481.89 pt -- contrainte stricte
+def _frpct(v, dp=1):
+    if v is None: return "—"
+    try:    return _fr(float(v) * 100, dp, "\u00a0%")
+    except: return "—"
 
+def _frx(v):
+    if v is None: return "—"
+    try:
+        f = float(v)
+        return "n.m." if abs(f) > 999 else _fr(f, 1, "x")
+    except: return "—"
 
-# ---------------------------------------------------------------------------
-# Helpers lecture (dict OU objet)
-# ---------------------------------------------------------------------------
+def _frm(v):
+    if v is None: return "—"
+    try:
+        f = float(v)
+        return _fr(f/1000, 1, "B") if abs(f) >= 1000 else _fr(f, 1)
+    except: return "—"
+
+def _upside(target, current):
+    if target is None or current is None: return "—"
+    try:
+        c = float(current)
+        if c == 0: return "—"
+        u = (float(target) - c) / abs(c) * 100
+        return f"{u:+.0f}\u00a0%".replace(".", ",")
+    except: return "—"
 
 def _g(obj, *keys, default=None):
     for k in keys:
-        if obj is None:
-            return default
+        if obj is None: return default
         obj = obj.get(k) if isinstance(obj, dict) else getattr(obj, k, None)
     return obj if obj is not None else default
 
-
-# ---------------------------------------------------------------------------
-# Helpers formatage
-# ---------------------------------------------------------------------------
-
-def _v(val, fmt="{:.1f}", default="--"):
-    if val is None:
-        return default
-    try:
-        return fmt.format(float(val))
-    except Exception:
-        return default
-
-
-def _pct(val, default="--"):
-    if val is None:
-        return default
-    try:
-        return f"{float(val) * 100:.1f} %"
-    except Exception:
-        return default
-
-
-def _x(val, default="--"):
-    if val is None:
-        return default
-    try:
-        f = float(val)
-        if abs(f) > 999:
-            return "n.m."
-        return f"{f:.1f}x"
-    except Exception:
-        return default
-
-
-def _m(val, default="--"):
-    if val is None:
-        return default
-    try:
-        v = float(val)
-        if abs(v) >= 1000:
-            return f"{v / 1000:.1f}B"
-        return f"{v:.1f}"
-    except Exception:
-        return default
-
-
-def _upside(target, current, default="--"):
-    if target is None or current is None:
-        return default
-    try:
-        c = float(current)
-        if c == 0:
-            return default
-        u = (float(target) - c) / abs(c) * 100
-        return f"{u:+.0f} %"
-    except Exception:
-        return default
-
-
-def _assert_tw(col_widths):
-    total = sum(col_widths)
-    assert abs(total - _TW) < 1.0, (
-        f"Table width {total:.1f}pt != {_TW:.1f}pt (170mm). "
-        f"Cols: {[round(c / _mm, 1) for c in col_widths]}mm"
-    )
-
-
-# ---------------------------------------------------------------------------
-# Couleurs
-# ---------------------------------------------------------------------------
-
-def _C():
-    from reportlab.lib import colors as C
-    return {
-        "navy":    C.HexColor("#1B3A6B"),
-        "green":   C.HexColor("#1A7A4A"),
-        "red":     C.HexColor("#A82020"),
-        "amber":   C.HexColor("#B06000"),
-        "grey":    C.HexColor("#555555"),
-        "lgrey":   C.HexColor("#F5F5F5"),
-        "blue_lt": C.HexColor("#EEF2F8"),
-        "white":   C.white,
-        "black":   C.black,
-        "grid":    C.HexColor("#CCCCCC"),
-    }
-
-
-def _rec_color(rec: str):
-    from reportlab.lib import colors as C
+def _rec_color(rec):
     r = (rec or "").upper()
-    if r == "BUY":
-        return C.HexColor("#1A7A4A")
-    if r == "SELL":
-        return C.HexColor("#A82020")
-    return C.HexColor("#B06000")
+    if r == "BUY":  return GREEN
+    if r == "SELL": return RED
+    return AMBER
+
+def _rec_pale(rec):
+    r = (rec or "").upper()
+    if r == "BUY":  return GREEN_PALE
+    if r == "SELL": return RED_PALE
+    return AMBER_PALE
+
+def _lecture(val, bm_str, pct=False):
+    try:
+        v = float(val) * (100 if pct else 1)
+        lo, hi = [float(x.replace("x","").replace("%","").replace("\u00a0","").strip())
+                  for x in bm_str.split("–")]
+        if not pct and v > hi * 1.4: return "Prime technologique"
+        if v > hi: return "Superieure" if pct else "Superieur"
+        if v < lo: return "Inferieure" if pct else "Decote"
+        return "En ligne" if pct else "Dans la norme"
+    except: return "—"
+
+def _benchmarks(sector):
+    s = (sector or "").lower()
+    if any(w in s for w in ("tech","software","semiconductor","information")):
+        return dict(pe="15\u2013\u202035x", ev_e="12\u2013\u202025x", ev_r="3\u2013\u202012x",
+                    gm="55\u2013\u202075\u00a0%", em="20\u2013\u202035\u00a0%", roe="15\u2013\u202030\u00a0%")
+    if any(w in s for w in ("health","pharma","biotech")):
+        return dict(pe="18\u2013\u202030x", ev_e="12\u2013\u202020x", ev_r="3\u2013\u20208x",
+                    gm="60\u2013\u202075\u00a0%", em="20\u2013\u202030\u00a0%", roe="12\u2013\u202020\u00a0%")
+    if any(w in s for w in ("financ","bank","insur")):
+        return dict(pe="10\u2013\u202016x", ev_e="8\u2013\u202012x", ev_r="2\u2013\u20204x",
+                    gm="50\u2013\u202065\u00a0%", em="30\u2013\u202045\u00a0%", roe="10\u2013\u202018\u00a0%")
+    if any(w in s for w in ("energy","oil","gas")):
+        return dict(pe="10\u2013\u202018x", ev_e="6\u2013\u202010x", ev_r="1\u2013\u20203x",
+                    gm="30\u2013\u202050\u00a0%", em="25\u2013\u202040\u00a0%", roe="10\u2013\u202015\u00a0%")
+    if any(w in s for w in ("consumer","retail","luxury","auto","cyclical")):
+        return dict(pe="8\u2013\u202015x", ev_e="6\u2013\u202012x", ev_r="0,4\u2013\u20201,2x",
+                    gm="12\u2013\u202018\u00a0%", em="8\u2013\u202014\u00a0%", roe="8\u2013\u202018\u00a0%")
+    return dict(pe="15\u2013\u202022x", ev_e="10\u2013\u202016x", ev_r="2\u2013\u20205x",
+                gm="35\u2013\u202055\u00a0%", em="15\u2013\u202025\u00a0%", roe="10\u2013\u202018\u00a0%")
 
 
-# ---------------------------------------------------------------------------
-# Styles
-# ---------------------------------------------------------------------------
+# ═══════════════════════════════════════════════════════════════════
+# FOOTER / HEADER — pages 2-6 uniquement
+# ═══════════════════════════════════════════════════════════════════
 
-def _styles():
-    from reportlab.lib.styles import ParagraphStyle
-    C = _C()
-    return {
-        "section":  ParagraphStyle("s_sec",   fontName="Helvetica-Bold", fontSize=9.5,
-                                   textColor=C["white"], backColor=C["navy"],
-                                   spaceBefore=10, spaceAfter=4,
-                                   leftIndent=4, leading=15),
-        "subsec":   ParagraphStyle("s_ssec",  fontName="Helvetica-Bold", fontSize=8.5,
-                                   textColor=C["navy"], spaceBefore=6, spaceAfter=3, leading=12),
-        "body":     ParagraphStyle("s_body",  fontName="Helvetica", fontSize=8,
-                                   leading=12, spaceAfter=5),
-        "small":    ParagraphStyle("s_small", fontName="Helvetica", fontSize=7,
-                                   textColor=C["grey"], leading=10, spaceAfter=3),
-        "bold":     ParagraphStyle("s_bold",  fontName="Helvetica-Bold", fontSize=8,
-                                   leading=12, spaceAfter=2),
-        "italic":   ParagraphStyle("s_ital",  fontName="Helvetica-Oblique", fontSize=7.5,
-                                   textColor=C["grey"], leading=11, spaceAfter=4),
-        "toc":      ParagraphStyle("s_toc",   fontName="Helvetica", fontSize=8.5,
-                                   leading=14, leftIndent=12, spaceAfter=3),
-        "devil_t":  ParagraphStyle("s_devt",  fontName="Helvetica-Bold", fontSize=8,
-                                   leading=12, spaceAfter=1),
-    }
-
-
-# ---------------------------------------------------------------------------
-# Table style
-# ---------------------------------------------------------------------------
-
-def _ts(extra=None, first_col_navy=True, alt_rows=True):
-    from reportlab.platypus import TableStyle
-    C = _C()
-    cmds = [
-        ("BACKGROUND",    (0, 0), (-1,  0), C["navy"]),
-        ("TEXTCOLOR",     (0, 0), (-1,  0), C["white"]),
-        ("FONTNAME",      (0, 0), (-1,  0), "Helvetica-Bold"),
-        ("FONTSIZE",      (0, 0), (-1,  0), 7),
-        ("FONTNAME",      (0, 1), (-1, -1), "Helvetica"),
-        ("FONTSIZE",      (0, 1), (-1, -1), 7),
-        ("GRID",          (0, 0), (-1, -1), 0.3, C["grid"]),
-        ("TOPPADDING",    (0, 0), (-1, -1), 3),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
-        ("LEFTPADDING",   (0, 0), (-1, -1), 5),
-        ("RIGHTPADDING",  (0, 0), (-1, -1), 5),
-        ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
-    ]
-    if alt_rows:
-        cmds.append(("ROWBACKGROUNDS", (0, 1), (-1, -1), [C["lgrey"], C["white"]]))
-    if first_col_navy:
-        cmds += [
-            ("BACKGROUND", (0, 1), (0, -1), C["navy"]),
-            ("TEXTCOLOR",  (0, 1), (0, -1), C["white"]),
-            ("FONTNAME",   (0, 1), (0, -1), "Helvetica-Bold"),
-        ]
-    if extra:
-        cmds += extra
-    return TableStyle(cmds)
-
-
-# ---------------------------------------------------------------------------
-# Footer (toutes les pages)
-# ---------------------------------------------------------------------------
-
-def _footer_cb(company_name, ticker, total_pages):
-    def _cb(canvas, doc):
-        from reportlab.lib.units import mm
-        C = _C()
-        w, _ = doc.pagesize
-        lm, bm = doc.leftMargin, doc.bottomMargin
-        rm = doc.rightMargin
+def _make_footer(company_name, ticker):
+    def footer(canvas, doc):
         canvas.saveState()
-        canvas.setStrokeColor(C["navy"])
-        canvas.setLineWidth(0.4)
-        canvas.line(lm, bm - 4 * mm, w - rm, bm - 4 * mm)
+        y = 11 * mm
+        canvas.setStrokeColor(GREY_RULE)
+        canvas.setLineWidth(0.3)
+        canvas.line(20*mm, y+3*mm, W-20*mm, y+3*mm)
         canvas.setFont("Helvetica", 6.5)
-        canvas.setFillColor(C["grey"])
-        canvas.drawString(lm, bm - 7 * mm,
-                          f"FinSight IA  \u00b7  {company_name} ({ticker})  \u00b7  Usage confidentiel")
-        canvas.drawRightString(w - rm, bm - 7 * mm,
-                               f"{doc.page} / {total_pages[0]}")
+        canvas.setFillColor(GREY_LIGHT)
+        canvas.drawString(20*mm, y,
+            _enc(f"FinSight IA  \u00b7  {company_name} ({ticker})  \u00b7  Usage confidentiel"))
+        # Page numero : on affiche doc.page - 1 car page 1 = cover
+        canvas.drawRightString(W-20*mm, y, f"{doc.page}")
+        # En-tete discret
+        yh = H - 9*mm
+        canvas.setFont("Helvetica", 6.5)
+        canvas.setFillColor(GREY_LIGHT)
+        canvas.drawString(20*mm, yh, _enc(f"{company_name}  ({ticker})"))
+        canvas.drawRightString(W-20*mm, yh, "FinSight IA  \u2014  Confidentiel")
+        canvas.setLineWidth(0.3)
+        canvas.setStrokeColor(GREY_RULE)
+        canvas.line(20*mm, yh-2*mm, W-20*mm, yh-2*mm)
         canvas.restoreState()
-    return _cb
+    return footer
 
 
-# ---------------------------------------------------------------------------
-# PAGE 1 -- Page de garde
-# ---------------------------------------------------------------------------
+# ═══════════════════════════════════════════════════════════════════
+# COVER — page 1, canvas seulement, aucun header/footer
+# ═══════════════════════════════════════════════════════════════════
 
-def _page_cover(ticker, company_name, sector, exchange, gen_date):
-    from reportlab.platypus import PageBreak
-    from reportlab.platypus.flowables import Flowable
-    from reportlab.lib import colors as C
-    from reportlab.lib.units import mm
+def _draw_cover(canvas, doc, ticker, company_name, sector, exchange, gen_date):
+    canvas.saveState()
+    cx = W / 2
 
-    class Cover(Flowable):
-        def wrap(self, w, h):
-            self._w, self._h = w, h
-            return w, h
+    # Bande navy fine 10mm en haut
+    canvas.setFillColor(NAVY)
+    canvas.rect(0, H-10*mm, W, 10*mm, fill=1, stroke=0)
+    canvas.setFont("Helvetica", 8)
+    canvas.setFillColor(colors.HexColor("#AAAAAA"))
+    canvas.drawCentredString(cx, H-7*mm, "FinSight IA")
 
-        def draw(self):
-            cv = self.canv
-            W, H = self._w, self._h
-            band_h = H * 0.42
+    # Zone centrale
+    mid_y = H * 0.54
+    canvas.setStrokeColor(NAVY)
+    canvas.setLineWidth(0.8)
+    canvas.line(cx-20*mm, mid_y+10*mm, cx+20*mm, mid_y+10*mm)
 
-            # Bande navy pleine largeur
-            cv.setFillColor(C.HexColor("#1B3A6B"))
-            cv.rect(0, H - band_h, W, band_h, fill=1, stroke=0)
+    canvas.setFont("Helvetica", 11)
+    canvas.setFillColor(colors.HexColor("#333333"))
+    canvas.drawCentredString(cx, mid_y, _enc("Rapport d'analyse financiere"))
 
-            # "FinSight IA" discret
-            cv.setFont("Helvetica", 7.5)
-            cv.setFillColor(C.HexColor("#7B9ACB"))
-            cv.drawString(0, H - 14 * mm, "FinSight IA")
+    canvas.setFont("Helvetica-Bold", 24)
+    canvas.setFillColor(NAVY)
+    nm = company_name if len(company_name) <= 35 else company_name[:33]+"..."
+    canvas.drawCentredString(cx, mid_y-18*mm, _enc(nm))
 
-            # Nom societe
-            # Truncate if too long
-            name = company_name
-            cv.setFont("Helvetica-Bold", 22)
-            cv.setFillColor(C.white)
-            cv.drawString(0, H - 30 * mm, name)
+    parts = "  \u00b7  ".join(x for x in [ticker, exchange, sector] if x)
+    canvas.setFont("Helvetica", 10)
+    canvas.setFillColor(colors.HexColor("#888888"))
+    canvas.drawCentredString(cx, mid_y-30*mm, _enc(parts))
 
-            # "Rapport d'analyse"
-            cv.setFont("Helvetica", 11)
-            cv.setFillColor(C.HexColor("#AABBCC"))
-            cv.drawString(0, H - 40 * mm, "Rapport d'analyse")
+    # Bas de page
+    fy = 15*mm
+    canvas.setStrokeColor(colors.HexColor("#AAAAAA"))
+    canvas.setLineWidth(0.5)
+    canvas.line(15*mm, fy+5*mm, W-15*mm, fy+5*mm)
+    canvas.setFont("Helvetica", 8)
+    canvas.setFillColor(colors.HexColor("#666666"))
+    canvas.drawString(15*mm, fy, "Rapport confidentiel")
+    canvas.drawRightString(W-15*mm, fy, _enc(gen_date))
 
-            # ticker . bourse . secteur
-            cv.setFont("Helvetica", 9)
-            cv.setFillColor(C.HexColor("#AABBCC"))
-            parts = "  \u00b7  ".join(p for p in [ticker, exchange, sector] if p)
-            cv.drawString(0, H - 50 * mm, parts)
-
-            # Date + confidentiel en bas de bande
-            cv.setFont("Helvetica", 7)
-            cv.setFillColor(C.HexColor("#7B9ACB"))
-            cv.drawString(0, H - band_h + 8 * mm, gen_date)
-            cv.drawRightString(W, H - band_h + 8 * mm, "Rapport confidentiel")
-
-    return [Cover(), PageBreak()]
+    canvas.restoreState()
 
 
-# ---------------------------------------------------------------------------
-# PAGE 2 -- Sommaire
-# ---------------------------------------------------------------------------
+# ═══════════════════════════════════════════════════════════════════
+# PAGE SOMMAIRE
+# ═══════════════════════════════════════════════════════════════════
 
-def _page_sommaire(st):
-    from reportlab.platypus import Paragraph, Spacer, Table, PageBreak
+def _page_toc(story, gen_date):
+    story.append(sp(20))
+    story.append(Paragraph("Sommaire", ST["toc_title"]))
+    story.append(HRFlowable(width="100%", thickness=1.0, color=NAVY, spaceBefore=2, spaceAfter=10))
 
-    elems = [
-        Paragraph("SOMMAIRE", st["section"]),
-        Spacer(1, 6),
-        Paragraph(
-            "Ce rapport presente une analyse financiere complete produite par FinSight IA. "
-            "Les sections couvrent la synthese d'investissement, l'analyse des etats financiers, "
-            "la valorisation multi-methodes ainsi que les risques et le sentiment de marche. "
-            "Toutes les donnees sont issues de sources publiques.",
-            st["body"]),
-        Spacer(1, 10),
+    toc_items = [
+        ("1.", "Synthese Executive",            "2"),
+        ("2.", "Analyse Financiere",             "3"),
+        ("3.", "Valorisation",                   "4"),
+        ("4.", "Analyse des Risques & Sentiment","5"),
     ]
-    rows = [
-        ["", "Section", "Page"],
-        ["1", "Synth\u00e8se Ex\u00e9cutive & Recommandation", "3"],
-        ["2", "Analyse Financi\u00e8re", "3"],
-        ["3", "Valorisation", "4"],
-        ["4", "Risques & Sentiment de March\u00e9", "5"],
-    ]
-    cw = [12 * _mm, 135 * _mm, 23 * _mm]
-    _assert_tw(cw)
-    t = Table(rows, colWidths=cw)
-    t.setStyle(_ts(first_col_navy=False))
-    elems += [t, Spacer(1, 8), PageBreak()]
-    return elems
+    for num, title, pg in toc_items:
+        row = Table([[
+            Paragraph(num, ST["toc_num"]),
+            Paragraph(title, ST["toc_item"]),
+            Paragraph(pg, ST["toc_pg"]),
+        ]], colWidths=[10*mm, 145*mm, 15*mm])
+        row.setStyle(TableStyle([
+            ("TOPPADDING",    (0,0),(-1,-1), 5),
+            ("BOTTOMPADDING", (0,0),(-1,-1), 5),
+            ("LEFTPADDING",   (0,0),(-1,-1), 0),
+            ("RIGHTPADDING",  (0,0),(-1,-1), 0),
+            ("LINEBELOW",     (0,0),(-1,-1), 0.3, GREY_RULE),
+            ("VALIGN",        (0,0),(-1,-1), "MIDDLE"),
+        ]))
+        story.append(row)
+
+    story.append(sp(8))
+    story.append(Paragraph(
+        f"Ce rapport a ete genere automatiquement par FinSight IA v1.0 le {gen_date}. "
+        "Il couvre l'ensemble des dimensions analytiques standard d'une note d'investissement "
+        "institutionnelle : presentation de l'entreprise, analyse financiere historique et "
+        "prospective, valorisation DCF et par multiples comparables, analyse des risques "
+        "et conditions d'invalidation de la these.",
+        ST["toc_intro"]))
+    story.append(PageBreak())
 
 
-# ---------------------------------------------------------------------------
-# PAGE 3 -- Synthese + Analyse financiere
-# ---------------------------------------------------------------------------
+# ═══════════════════════════════════════════════════════════════════
+# PAGE 1 — SYNTHESE EXECUTIVE
+# ═══════════════════════════════════════════════════════════════════
 
-def _page_synthese_et_financiere(snap, ratios, synthesis, st):
-    from reportlab.platypus import Paragraph, Spacer, Table, PageBreak
-    from reportlab.platypus.flowables import Flowable
-    from reportlab.lib import colors as C
-    from reportlab.lib.units import mm
-
+def _page_synthese(story, snap, synthesis):
     ci    = snap.company_info
     mkt   = snap.market
     cur   = ci.currency or "USD"
-    units = ci.units or "M"
     price = mkt.share_price
 
-    rec   = (_g(synthesis, "recommendation") or "N/A").upper()
-    conv  = _g(synthesis, "conviction")
-    conf  = _g(synthesis, "confidence_score")
-    tbase = _g(synthesis, "target_base")
-    tbear = _g(synthesis, "target_bear")
-    tbull = _g(synthesis, "target_bull")
-    summary    = _g(synthesis, "summary") or ""
-    strengths  = _g(synthesis, "strengths") or []
-    risks_list = _g(synthesis, "risks") or []
-    val_comment = _g(synthesis, "valuation_comment") or ""
+    rec   = (_g(synthesis,"recommendation") or "HOLD").upper()
+    conv  = _g(synthesis,"conviction")
+    conf  = _g(synthesis,"confidence_score")
+    tbase = _g(synthesis,"target_base")
+    tbear = _g(synthesis,"target_bear")
+    tbull = _g(synthesis,"target_bull")
+    desc  = _g(synthesis,"company_description") or _g(synthesis,"summary") or ""
+    thesis= _g(synthesis,"thesis") or ""
+    stren = _g(synthesis,"strengths") or []
+    risks = _g(synthesis,"risks") or []
 
-    conv_s  = f"{float(conv) * 100:.0f} %" if conv is not None else "N/A"
-    conf_s  = f"{float(conf) * 100:.0f} %" if conf is not None else "N/A"
-    up_s    = _upside(tbase, price)
-    tbase_s = f"{float(tbase):.0f} $" if tbase else "N/A"
-    price_s = f"{float(price):.2f} $" if price else "N/A"
+    exchange  = getattr(ci,"exchange","") or ""
+    sector    = ci.sector or ""
+    price_s   = _fr(price, 2, f"\u00a0{cur}")
+    tbase_s   = _fr(tbase, 0, f"\u00a0{cur}") if tbase else "N/A"
+    conv_s    = _frpct(conv) if conv is not None else "N/A"
+    conf_s    = _frpct(conf) if conf is not None else "N/A"
+    up_s      = _upside(tbase, price)
 
-    # ------------------------------------------------------------------
-    # Bloc header societe + verdict (2 lignes, table pleine largeur)
-    # ------------------------------------------------------------------
-    exchange = getattr(ci, "exchange", "") or ""
-    sector   = ci.sector or ""
-    gen_date = ci.analysis_date or date.today().strftime("%d %B %Y")
-
-    date_fr = _date_fr()
-    header_line  = "  \u00b7  ".join(p for p in [ci.company_name, ci.ticker, exchange, sector, date_fr] if p)
-    verdict_line = (f"| {rec}  Cours : {price_s}  \u00b7  Cible base : {tbase_s}"
-                    f"  \u00b7  Upside : {up_s}  \u00b7  Conviction : {conv_s}  \u00b7  Confiance IA : {conf_s}")
-
-    from reportlab.platypus import TableStyle as TS
-    rec_col = _rec_color(rec)
-    C_ = _C()
-
-    hdr_data = [[header_line], [verdict_line]]
-    hdr_cw   = [_TW]
-    _assert_tw(hdr_cw)
-    hdr_t = Table(hdr_data, colWidths=hdr_cw)
-    hdr_t.setStyle(TS([
-        ("BACKGROUND",    (0, 0), (-1, 0), C_["navy"]),
-        ("TEXTCOLOR",     (0, 0), (-1, 0), C_["white"]),
-        ("FONTNAME",      (0, 0), (-1, 0), "Helvetica-Bold"),
-        ("FONTSIZE",      (0, 0), (-1, 0), 8),
-        ("BACKGROUND",    (0, 1), (-1, 1), rec_col),
-        ("TEXTCOLOR",     (0, 1), (-1, 1), C_["white"]),
-        ("FONTNAME",      (0, 1), (-1, 1), "Helvetica-Bold"),
-        ("FONTSIZE",      (0, 1), (-1, 1), 8),
-        ("TOPPADDING",    (0, 0), (-1, -1), 4),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-        ("LEFTPADDING",   (0, 0), (-1, -1), 6),
-        ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
+    # Header navbar
+    hdr = Table([[
+        p(ci.company_name or ci.ticker, "hdr_name"),
+        p(f"{ci.ticker}  \u00b7  {exchange}  \u00b7  {sector}  \u00b7  {_date_fr()}", "hdr_meta"),
+    ]], colWidths=[80*mm, 90*mm])
+    hdr.setStyle(TableStyle([
+        ("BACKGROUND",    (0,0),(-1,-1), NAVY),
+        ("TOPPADDING",    (0,0),(-1,-1), int(4.5*mm)),
+        ("BOTTOMPADDING", (0,0),(-1,-1), int(4.5*mm)),
+        ("LEFTPADDING",   (0,0),(0,-1),  int(7*mm)),
+        ("RIGHTPADDING",  (-1,0),(-1,-1),int(7*mm)),
+        ("VALIGN",        (0,0),(-1,-1), "MIDDLE"),
     ]))
+    story.append(hdr)
 
-    elems = [hdr_t, Spacer(1, 6)]
+    # Bande recommandation
+    rec_col  = _rec_color(rec)
+    rec_pale = _rec_pale(rec)
+    rec_style = ParagraphStyle("rc", fontName="Helvetica-Bold", fontSize=9.5,
+                               textColor=rec_col, leading=13)
+    line_style = ParagraphStyle("rl", fontName="Helvetica", fontSize=8,
+                                textColor=NAVY, leading=12, alignment=TA_RIGHT)
+    rec_band = Table([[
+        Paragraph(f"&#9679;  {rec}", rec_style),
+        Paragraph(
+            f"Cours\u00a0: {price_s}  \u00b7  Cible base\u00a0: {tbase_s}  \u00b7  "
+            f"Upside\u00a0: {up_s}  \u00b7  Conviction\u00a0: {conv_s}  \u00b7  "
+            f"Confiance IA\u00a0: {conf_s}", line_style),
+    ]], colWidths=[30*mm, 140*mm])
+    rec_band.setStyle(TableStyle([
+        ("BACKGROUND",    (0,0),(-1,-1), rec_pale),
+        ("TOPPADDING",    (0,0),(-1,-1), int(2.5*mm)),
+        ("BOTTOMPADDING", (0,0),(-1,-1), int(2.5*mm)),
+        ("LEFTPADDING",   (0,0),(0,-1),  int(7*mm)),
+        ("RIGHTPADDING",  (-1,0),(-1,-1),int(7*mm)),
+        ("VALIGN",        (0,0),(-1,-1), "MIDDLE"),
+    ]))
+    story.append(rec_band)
+    story.append(sp(5))
 
-    # Description societe
-    if summary:
-        elems.append(Paragraph(summary, st["body"]))
-        elems.append(Spacer(1, 6))
+    # Description
+    if desc:
+        story.append(p(desc))
+        story.append(sp(4))
 
-    # Sc\u00e9narios de valorisation
-    elems.append(Paragraph("Sc\u00e9narios de valorisation", st["subsec"]))
+    # Scenarios
+    story.append(sub("Scenarios de valorisation"))
 
-    def _hyp(scenario):
-        if scenario == "Bear" and risks_list:
-            s = risks_list[0]
-        elif scenario == "Bull" and strengths:
-            s = strengths[0]
-        elif strengths:
-            s = strengths[1] if len(strengths) > 1 else strengths[0]
-        else:
-            return "--"
-        return (s[:70] + "...") if len(s) > 70 else s
+    def _hyp(s_list, idx=0):
+        if not s_list or idx >= len(s_list): return "—"
+        s = s_list[idx]
+        return s if len(s) <= 80 else s[:78]+"…"
 
-    sc_data = [
-        ["",                    "Bear",                              "Base",                              "Bull"],
-        ["Prix cible (" + cur + ")",
-         _v(tbear, "{:.0f}"),   _v(tbase, "{:.0f}"),   _v(tbull, "{:.0f}")],
-        ["Upside / Downside",   _upside(tbear, price), _upside(tbase, price), _upside(tbull, price)],
-        ["Probabilite estimee", "25 %",                "50 %",                "25 %"],
-        ["Hypothese determinante", _hyp("Bear"),       _hyp("Base"),          _hyp("Bull")],
+    scen = [
+        ["", "Bear", "Base", "Bull"],
+        [f"Prix cible ({cur})", _fr(tbear,0), _fr(tbase,0), _fr(tbull,0)],
+        ["Upside\u00a0/\u00a0Downside", _upside(tbear,price), _upside(tbase,price), _upside(tbull,price)],
+        ["Probabilite estimee", "25\u00a0%", "50\u00a0%", "25\u00a0%"],
+        ["Hypothese determinante", _hyp(risks,0), _hyp(stren,0) if stren else "—", _hyp(stren,1) if len(stren)>1 else "—"],
     ]
-    cw_sc = [42 * _mm, 43 * _mm, 43 * _mm, 42 * _mm]
-    _assert_tw(cw_sc)
-    t_sc = Table(sc_data, colWidths=cw_sc)
-    t_sc.setStyle(_ts(first_col_navy=True))
-    elems += [t_sc, Spacer(1, 8)]
+    story.append(tbl(scen, [46, 38, 46, 40], extra=[
+        ("BACKGROUND", (1,1),(1,-1), RED_PALE),
+        ("BACKGROUND", (2,1),(2,-1), NAVY_PALE),
+        ("BACKGROUND", (3,1),(3,-1), GREEN_PALE),
+        ("TEXTCOLOR",  (1,2),(1,2),  RED),
+        ("TEXTCOLOR",  (3,2),(3,2),  GREEN),
+        ("FONTNAME",   (1,2),(3,2),  "Helvetica-Bold"),
+        ("FONTSIZE",   (0,4),(-1,4), 7.5),
+        ("TOPPADDING", (0,4),(-1,4), 4),
+        ("BOTTOMPADDING",(0,4),(-1,4),4),
+    ]))
+    story.append(sp(4))
 
-    # These d'investissement
-    if val_comment:
-        elems.append(Paragraph(val_comment, st["body"]))
-        elems.append(Spacer(1, 8))
+    # These
+    if thesis:
+        story.append(p(thesis))
 
-    # ------------------------------------------------------------------
-    # 2. ANALYSE FINANCI\u00c8RE
-    # ------------------------------------------------------------------
-    elems.append(Paragraph("2. ANALYSE FINANCI\u00c8RE", st["section"]))
-    elems.append(Spacer(1, 4))
 
-    hist_labels = sorted(snap.years.keys(), key=lambda y: str(y).replace("_LTM", ""))
-    # Garde max 3 annees historiques
+# ═══════════════════════════════════════════════════════════════════
+# PAGE 2 — ANALYSE FINANCIERE
+# ═══════════════════════════════════════════════════════════════════
+
+def _is_widths(n_data):
+    """Calcule les largeurs de colonnes pour le tableau IS."""
+    label = 54.0
+    per   = (CW - label) / n_data
+    cols  = [label] + [per] * n_data
+    diff  = CW - sum(cols)
+    cols[-1] = round(cols[-1] + diff, 2)
+    return cols
+
+def _page_financiere(story, snap, ratios, synthesis):
+    story += section("2", "Analyse Financiere")
+
+    ci    = snap.company_info
+    cur   = ci.currency or "USD"
+    units = ci.units or "M"
+
+    # Préparation années
+    hist_labels = sorted(snap.years.keys(), key=lambda y: str(y).replace("_LTM",""))
     hist_3 = hist_labels[-3:] if len(hist_labels) >= 3 else hist_labels
-    # Derniere annee labellee "YYYY LTM"
+
     col_names = []
     for i, l in enumerate(hist_3):
-        base = str(l).replace("_LTM", "")
-        if i == len(hist_3) - 1:
-            col_names.append(base + " LTM")
-        else:
-            col_names.append(base)
-    # Colonnes projections
-    next_yr  = str(int(str(hist_3[-1]).replace("_LTM", "")) + 1) if hist_3 else "2025"
-    next_yr2 = str(int(next_yr) + 1)
-    col_names += [next_yr + "F", next_yr2 + "F"]
-    all_labels = hist_3 + [next_yr + "F", next_yr2 + "F"]
+        base = str(l).replace("_LTM","")
+        col_names.append(base + " LTM" if i == len(hist_3)-1 else base)
 
-    def _fy(lbl):
-        return snap.years.get(lbl)
+    # Projections depuis synthesis.is_projections
+    is_proj_raw = _g(synthesis,"is_projections") or {}
+    last_yr_key = str(hist_3[-1]).replace("_LTM","") if hist_3 else str(date.today().year-1)
+    try:
+        ny1 = str(int(last_yr_key)+1) + "F"
+        ny2 = str(int(last_yr_key)+2) + "F"
+    except Exception:
+        ny1, ny2 = "2025F", "2026F"
 
-    def _ry(lbl):
-        return ratios.years.get(lbl) if ratios else None
+    def _pvalid(d):
+        return isinstance(d, dict) and d.get("revenue") is not None
 
-    elems.append(Paragraph(
-        f"Compte de r\u00e9sultat consolid\u00e9 ({cur} {units})", st["subsec"]))
+    def _extrapolate():
+        hd = []
+        for l in hist_3[-2:]:
+            fy = snap.years.get(l)
+            ry = ratios.years.get(l) if ratios else None
+            if fy and ry: hd.append((fy, ry))
+        if not hd: return {}
+        last_fy, last_ry = hd[-1]
+        growth = 0.07
+        if len(hd) >= 2:
+            prev_fy = hd[-2][0]
+            if prev_fy.revenue and last_fy.revenue and prev_fy.revenue != 0:
+                g = (last_fy.revenue - prev_fy.revenue) / abs(prev_fy.revenue)
+                growth = max(min(g, 0.60), -0.15)
+        result = {}
+        prev_rev = last_fy.revenue
+        for i, lbl in enumerate([ny1, ny2]):
+            g_yr = growth * (0.80 ** i)
+            rev  = (prev_rev * (1+g_yr)) if prev_rev else None
+            gm   = getattr(last_ry, "gross_margin",  None)
+            em   = getattr(last_ry, "ebitda_margin", None)
+            nm   = getattr(last_ry, "net_margin",    None)
+            result[lbl] = {
+                "revenue": rev, "revenue_growth": g_yr,
+                "gross_margin": gm,
+                "ebitda": (rev*em) if rev and em else None, "ebitda_margin": em,
+                "net_income": (rev*nm) if rev and nm else None, "net_margin": nm,
+            }
+            prev_rev = rev
+        return result
 
-    is_hdr  = ["Indicateur"] + col_names
-    is_rows = [is_hdr]
+    extrap = _extrapolate()   # toujours calculé en fallback
+    is_proj = {}
+    for lbl in [ny1, ny2]:
+        raw_entry = is_proj_raw.get(lbl)
+        # Essayer aussi les variantes de clés LLM ("2026", "FY2026")
+        if raw_entry is None:
+            alt = lbl.replace("F","")
+            raw_entry = is_proj_raw.get(alt) or is_proj_raw.get("FY"+alt)
+        if _pvalid(raw_entry):
+            # Fusionner avec extrap pour combler les champs null
+            merged = dict(extrap.get(lbl, {}))
+            merged.update({k: v for k, v in raw_entry.items() if v is not None})
+            is_proj[lbl] = merged
+        elif lbl in extrap:
+            is_proj[lbl] = extrap[lbl]
+
+    proj_labels = []
+    for lbl in [ny1, ny2]:
+        if lbl in is_proj:
+            proj_labels.append(lbl)
+            col_names.append(lbl)
+
+    all_labels = list(hist_3) + proj_labels
+
+    def _fy(l): return snap.years.get(l)
+    def _ry(l): return ratios.years.get(l) if ratios else None
+    def _pv(l, k):
+        p_ = is_proj.get(l)
+        return p_.get(k) if isinstance(p_, dict) else None
+
+    story.append(sub(f"Compte de resultat consolide  ({cur} {units})"))
+
+    # Colonnes : header
+    hdr_row = ["Indicateur"] + col_names
 
     # Revenue
     rev_row = ["Chiffre d'affaires"]
     for l in all_labels:
         fy = _fy(l)
-        rev_row.append(_m(fy.revenue if fy else None))
-    is_rows.append(rev_row)
+        v  = _pv(l,"revenue") if l in proj_labels else (fy.revenue if fy else None)
+        rev_row.append(_frm(v))
 
-    # Croissance YoY
-    grow_row = ["Croissance YoY"]
-    prev = None
+    # Croissance
+    grow_row = [""]  # label sub-style
+    prev_rev = None
+    grow_vals = []
     for l in all_labels:
-        fy = _fy(l)
-        rev = fy.revenue if fy else None
-        if prev and rev and prev != 0:
-            grow_row.append(f"{(rev - prev) / abs(prev) * 100:+.1f} %")
+        if l in proj_labels:
+            g = _pv(l,"revenue_growth")
+            grow_vals.append(_frpct(g) if g is not None else "—")
+            prev_rev = _pv(l,"revenue")
         else:
-            grow_row.append("--")
-        prev = rev
-    is_rows.append(grow_row)
+            fy = _fy(l); rev = fy.revenue if fy else None
+            if prev_rev and rev and prev_rev != 0:
+                grow_vals.append(f"{(rev-prev_rev)/abs(prev_rev)*100:+.1f}\u00a0%".replace(".",","))
+            else:
+                grow_vals.append("—")
+            prev_rev = rev
 
     # Marge brute
     gm_row = ["Marge brute"]
     for l in all_labels:
         yr = _ry(l)
-        gm_row.append(_pct(yr.gross_margin if yr else None))
-    is_rows.append(gm_row)
+        v  = _pv(l,"gross_margin") if l in proj_labels else (yr.gross_margin if yr else None)
+        gm_row.append(_frpct(v))
 
     # EBITDA
     ebitda_row = ["EBITDA"]
     for l in all_labels:
         yr = _ry(l)
-        ebitda_row.append(_m(yr.ebitda if yr else None))
-    is_rows.append(ebitda_row)
+        v  = _pv(l,"ebitda") if l in proj_labels else (yr.ebitda if yr else None)
+        ebitda_row.append(_frm(v))
 
     # Marge EBITDA
-    em_row = ["Marge EBITDA"]
+    em_row = [""]
+    em_vals = []
     for l in all_labels:
         yr = _ry(l)
-        em_row.append(_pct(yr.ebitda_margin if yr else None))
-    is_rows.append(em_row)
+        v  = _pv(l,"ebitda_margin") if l in proj_labels else (yr.ebitda_margin if yr else None)
+        em_vals.append(_frpct(v))
 
     # Resultat net
     ni_row = ["Resultat net"]
     for l in all_labels:
         yr = _ry(l)
-        ni_row.append(_m(yr.net_income if yr else None))
-    is_rows.append(ni_row)
+        v  = _pv(l,"net_income") if l in proj_labels else (yr.net_income if yr else None)
+        ni_row.append(_frm(v))
 
     # Marge nette
-    nm_row = ["Marge nette"]
+    nm_row = [""]
+    nm_vals = []
     for l in all_labels:
         yr = _ry(l)
-        nm_row.append(_pct(yr.net_margin if yr else None))
-    is_rows.append(nm_row)
+        v  = _pv(l,"net_margin") if l in proj_labels else (yr.net_margin if yr else None)
+        nm_vals.append(_frpct(v))
 
-    n_data  = len(all_labels)
-    first_w = 38 * _mm
-    rest_w  = (_TW - first_w) / n_data
-    cw_is   = [first_w] + [rest_w] * n_data
-    _assert_tw(cw_is)
+    n_data = len(all_labels)
+    widths = _is_widths(n_data)
+    ltm_col = len(hist_3)  # index (1-based) de la colonne LTM
 
-    # Derniere colonne historique surlignee bleu pale
-    last_hist_col = len(hist_3)  # 1-indexed position of last hist col
-    extra_is = [
-        ("BACKGROUND", (last_hist_col, 1), (last_hist_col, -1), C.HexColor("#EEF2F8")),
-        ("FONTNAME",   (last_hist_col, 0), (last_hist_col,  0), "Helvetica-Bold"),
-    ]
-    t_is = Table(is_rows, colWidths=cw_is)
-    t_is.setStyle(_ts(extra=extra_is, first_col_navy=True))
-    elems += [t_is, Spacer(1, 4)]
+    # Construction des lignes avec sous-lignes en italique
+    is_rows = [hdr_row, rev_row]
 
-    # Commentaire IS -- depuis synthesis.summary ou genere
-    fin_comment = (_g(synthesis, "summary") or "")
+    # Sous-ligne Croissance YoY
+    g_sub = [p("    Croissance YoY", "td_sub")] + [p(v, "td_sub_r") for v in grow_vals]
+    is_rows.append(g_sub)
+
+    is_rows.append(gm_row)
+    is_rows.append(ebitda_row)
+
+    # Sous-ligne Marge EBITDA
+    em_sub = [p("    Marge EBITDA", "td_sub")] + [p(v, "td_sub_r") for v in em_vals]
+    is_rows.append(em_sub)
+
+    is_rows.append(ni_row)
+
+    # Sous-ligne Marge nette
+    nm_sub = [p("    Marge nette", "td_sub")] + [p(v, "td_sub_r") for v in nm_vals]
+    is_rows.append(nm_sub)
+
+    story.append(tbl(is_rows, widths, extra=[
+        ("BACKGROUND", (ltm_col, 1), (ltm_col, -1), NAVY_PALE),
+        ("LINEBELOW",  (0,1), (-1,1), 0.5, GREY_RULE),
+        ("LINEBELOW",  (0,3), (-1,3), 0.5, GREY_RULE),
+        ("LINEBELOW",  (0,5), (-1,5), 0.5, GREY_RULE),
+    ]))
+
+    fin_comment = _g(synthesis,"financial_commentary") or _g(synthesis,"summary") or ""
     if fin_comment:
-        elems.append(Paragraph(fin_comment[:450], st["italic"]))
+        story.append(p(fin_comment))
 
-    elems.append(PageBreak())
-    return elems
+    # Ratios
+    story.append(sp(3))
+    story.append(sub("Positionnement relatif  —  Ratios cles vs. pairs sectoriels"))
 
+    hist_labels_all = sorted(snap.years.keys(), key=lambda y: str(y).replace("_LTM",""))
+    latest_l = hist_labels_all[-1] if hist_labels_all else None
+    yr       = ratios.years.get(latest_l) if ratios and latest_l else None
+    def _a(attr): return getattr(yr, attr, None) if yr else None
 
-# ---------------------------------------------------------------------------
-# PAGE 4 -- Ratios + Valorisation
-# ---------------------------------------------------------------------------
+    pe   = _a("pe_ratio"); ev_e = _a("ev_ebitda"); ev_r = _a("ev_revenue")
+    gm   = _a("gross_margin"); em = _a("ebitda_margin"); roe = _a("roe")
+    az   = _a("altman_z"); bm_sc = _a("beneish_m")
+    bm   = _benchmarks(ci.sector or "")
 
-def _benchmarks(sector: str) -> dict:
-    s = (sector or "").lower()
-    if "tech" in s or "software" in s or "semiconductor" in s:
-        return dict(pe="20-35x", ev_ebitda="15-25x", ev_rev="5-12x",
-                    gross_m="55-75 %", ebitda_m="20-35 %", roe="15-30 %")
-    if "health" in s or "pharma" in s or "biotech" in s:
-        return dict(pe="18-30x", ev_ebitda="12-20x", ev_rev="3-8x",
-                    gross_m="60-75 %", ebitda_m="20-30 %", roe="12-20 %")
-    if "financ" in s or "bank" in s or "insur" in s:
-        return dict(pe="10-16x", ev_ebitda="8-12x", ev_rev="2-4x",
-                    gross_m="50-65 %", ebitda_m="30-45 %", roe="10-18 %")
-    if "energy" in s or "oil" in s or "gas" in s:
-        return dict(pe="10-18x", ev_ebitda="6-10x", ev_rev="1-3x",
-                    gross_m="30-50 %", ebitda_m="25-40 %", roe="10-15 %")
-    if any(w in s for w in ("consumer", "retail", "luxury", "cyclical", "auto")):
-        return dict(pe="8-15x", ev_ebitda="6-12x", ev_rev="0.4-1.2x",
-                    gross_m="12-18 %", ebitda_m="8-14 %", roe="8-18 %")
-    return dict(pe="15-22x", ev_ebitda="10-16x", ev_rev="2-5x",
-                gross_m="35-55 %", ebitda_m="15-25 %", roe="10-18 %")
+    az_lbl  = ("Solide" if az and float(az)>2.99 else "Zone grise" if az and float(az)>1.81 else "Detresse") if az else "—"
+    bm_lbl  = "Aucun signal" if bm_sc and float(bm_sc)<-2.22 else ("Risque manip." if bm_sc else "—")
 
+    # Couleurs colonne Lecture
+    def _lect_color(lbl):
+        if lbl in ("Prime technologique","Superieur","Superieure","Solide","Aucun signal","En ligne","Dans la norme"):
+            return GREEN if lbl in ("Solide","Aucun signal") else (AMBER if lbl in ("En ligne","Dans la norme") else RED)
+        if lbl in ("Decote","Inferieure","Detresse","Risque manip.","Zone grise"): return RED
+        return AMBER
 
-def _lecture(val, bm_str, pct_mode=False):
-    try:
-        v = float(val) * (100 if pct_mode else 1)
-        parts = bm_str.replace("x", "").replace("%", "").replace(" ", "").split("-")
-        lo, hi = float(parts[0]), float(parts[1])
-        if not pct_mode and v > hi * 1.4:
-            return "Prime technologique"
-        if v > hi:
-            return "Superieure" if pct_mode else "Superieur"
-        if v < lo:
-            return "Inferieure" if pct_mode else "Decote"
-        return "En ligne" if pct_mode else "Dans la norme"
-    except Exception:
-        return "--"
+    def _lect_pale(lbl):
+        c = _lect_color(lbl)
+        if c == GREEN: return GREEN_PALE
+        if c == RED:   return RED_PALE
+        return AMBER_PALE
 
+    def _lect_p(lbl):
+        st_ = ParagraphStyle("lp", fontName="Helvetica-Bold", fontSize=7.5,
+                             textColor=_lect_color(lbl), leading=10, alignment=TA_CENTER)
+        return Paragraph(lbl, st_)
 
-def _page_ratios_et_valorisation(snap, ratios, synthesis, st):
-    from reportlab.platypus import Paragraph, Spacer, Table, PageBreak
-    from reportlab.lib import colors as C
+    lect_pe   = _lecture(pe,  bm["pe"])
+    lect_eve  = _lecture(ev_e,bm["ev_e"])
+    lect_evr  = _lecture(ev_r,bm["ev_r"])
+    lect_gm   = _lecture(gm,  bm["gm"],  pct=True)
+    lect_em   = _lecture(em,  bm["em"],  pct=True)
+    lect_roe  = _lecture(roe, bm["roe"], pct=True)
 
-    C_  = _C()
-    ci  = snap.company_info
-    mkt = snap.market
-    cur = ci.currency or "USD"
-
-    price = mkt.share_price
-    wacc  = mkt.wacc or 0.10
-    tgr   = mkt.terminal_growth or 0.03
-    tbase = _g(synthesis, "target_base")
-    tbear = _g(synthesis, "target_bear")
-    tbull = _g(synthesis, "target_bull")
-
-    hist_labels = sorted(snap.years.keys(), key=lambda y: str(y).replace("_LTM", ""))
-    latest_l    = hist_labels[-1] if hist_labels else None
-
-    def _ry(lbl):
-        return ratios.years.get(lbl) if ratios else None
-
-    yr = _ry(latest_l) if latest_l else None
-
-    def _a(attr):
-        return getattr(yr, attr, None) if yr else None
-
-    bm      = _benchmarks(ci.sector or "")
-    pe      = _a("pe_ratio")
-    ev_e    = _a("ev_ebitda")
-    ev_r    = _a("ev_revenue")
-    gm      = _a("gross_margin")
-    em      = _a("ebitda_margin")
-    roe     = _a("roe")
-    az      = _a("altman_z")
-    bm_sc   = _a("beneish_m")
-
-    az_lbl  = ("Solide"    if az   and float(az)   > 2.99 else
-               "Zone grise" if az  and float(az)   > 1.81 else
-               "Detresse"   if az  else "--")
-    bm_lbl  = "Aucun signal" if bm_sc and float(bm_sc) < -2.22 else ("Risque manip." if bm_sc else "--")
-
-    # ------------------------------------------------------------------
-    # Ratios table (exactement comme reference: 9 lignes, 4 colonnes)
-    # ------------------------------------------------------------------
-    elems = []
-    elems.append(Paragraph(
-        "Positionnement relatif  \u00b7  Ratios cl\u00e9s vs. pairs sectoriels",
-        st["subsec"]))
-
-    rdata = [["Indicateur", f"{ci.ticker} LTM", "Reference sectorielle", "Lecture"]]
-    rdata += [
-        ["P/E (x)",          "n.m." if pe  and float(pe)  > 999 else _x(pe),   bm["pe"],       _lecture(pe,    bm["pe"])],
-        ["EV / EBITDA (x)",  "n.m." if ev_e and float(ev_e) > 999 else _x(ev_e), bm["ev_ebitda"], _lecture(ev_e,  bm["ev_ebitda"])],
-        ["EV / Revenue (x)", _x(ev_r),    bm["ev_rev"],    _lecture(ev_r,  bm["ev_rev"])],
-        ["Marge brute",      _pct(gm),    bm["gross_m"],   _lecture(gm,    bm["gross_m"],  pct_mode=True)],
-        ["Marge EBITDA",     _pct(em),    bm["ebitda_m"],  _lecture(em,    bm["ebitda_m"], pct_mode=True)],
-        ["Return on Equity", _pct(roe),   bm["roe"],       _lecture(roe,   bm["roe"],      pct_mode=True)],
-        ["Altman Z-Score",   _v(az,  "{:.1f}"),  "> 2.99 = sain",  az_lbl],
-        ["Beneish M-Score",  _v(bm_sc, "{:.2f}"), "< -2.22 = OK", bm_lbl],
+    rat_rows = [
+        ["Indicateur", f"{ci.ticker}  LTM", "Reference sectorielle", "Lecture"],
+        ["P/E (x)",           _frx(pe),   bm["pe"],    _lect_p(lect_pe)],
+        ["EV / EBITDA (x)",   _frx(ev_e), bm["ev_e"],  _lect_p(lect_eve)],
+        ["EV / Revenue (x)",  _frx(ev_r), bm["ev_r"],  _lect_p(lect_evr)],
+        ["Marge brute",       _frpct(gm), bm["gm"],    _lect_p(lect_gm)],
+        ["Marge EBITDA",      _frpct(em), bm["em"],    _lect_p(lect_em)],
+        ["Return on Equity",  _frpct(roe),bm["roe"],   _lect_p(lect_roe)],
+        ["Altman Z-Score",    _fr(az,1),  "> 2,99 = sain", _lect_p(az_lbl)],
+        ["Beneish M-Score",   _fr(bm_sc,2),"< \u20132,22 = OK", _lect_p(bm_lbl)],
     ]
-    cw_r = [50 * _mm, 32 * _mm, 55 * _mm, 33 * _mm]
-    _assert_tw(cw_r)
 
-    # Code couleur signal sur colonne Lecture
+    # Fond coloré par ligne sur la colonne Lecture
     extra_r = []
-    signal_rows = {
-        1: pe,   2: ev_e,  3: ev_r,
-        4: gm,   5: em,    6: roe,
-        7: az,   8: bm_sc,
-    }
-    for row_idx, val in signal_rows.items():
-        lbl = rdata[row_idx][3]
-        if lbl in ("Prime technologique", "Superieur", "Superieure", "En ligne", "Solide", "Aucun signal"):
-            color = C.HexColor("#1A7A4A")
-        elif lbl in ("Decote", "Inferieure", "Detresse", "Risque manip."):
-            color = C.HexColor("#A82020")
-        else:
-            color = C.HexColor("#B06000")
-        extra_r.append(("TEXTCOLOR", (3, row_idx), (3, row_idx), color))
-        extra_r.append(("FONTNAME",  (3, row_idx), (3, row_idx), "Helvetica-Bold"))
+    for ri, lbl in [(1,lect_pe),(2,lect_eve),(3,lect_evr),(4,lect_gm),(5,lect_em),
+                    (6,lect_roe),(7,az_lbl),(8,bm_lbl)]:
+        extra_r.append(("BACKGROUND", (3,ri),(3,ri), _lect_pale(lbl)))
 
-    t_r = Table(rdata, colWidths=cw_r)
-    t_r.setStyle(_ts(extra=extra_r, first_col_navy=True))
-    elems += [t_r, Spacer(1, 4)]
+    story.append(tbl(rat_rows, [54, 34, 50, 32], extra=extra_r))
 
-    val_comment = _g(synthesis, "valuation_comment") or ""
-    if val_comment:
-        elems.append(Paragraph(val_comment, st["italic"]))
-    elems.append(Spacer(1, 8))
+    rc = _g(synthesis,"ratio_commentary") or ""
+    if rc:
+        story.append(p(rc))
 
-    # ------------------------------------------------------------------
-    # 3. VALORISATION
-    # ------------------------------------------------------------------
-    elems.append(Paragraph("3. VALORISATION", st["section"]))
-    elems.append(Spacer(1, 4))
 
-    beta  = mkt.beta_levered
-    rfr   = mkt.risk_free_rate
-    erp   = mkt.erp
+# ═══════════════════════════════════════════════════════════════════
+# PAGE 3 — VALORISATION
+# ═══════════════════════════════════════════════════════════════════
 
-    elems.append(Paragraph(
-        f"Discounted Cash Flow  \u00b7  Sc\u00e9nario base  \u00b7  WACC {wacc * 100:.1f} %"
-        f"  \u00b7  Taux terminal {tgr * 100:.1f} %  \u00b7  Horizon 5 ans",
-        st["subsec"]))
+def _page_valorisation(story, snap, ratios, synthesis):
+    story += section("3", "Valorisation")
 
-    # DCF commentary
-    ke_str   = f"{(rfr or 0.041) * 100 + (erp or 0.055) * (beta or 1.0) * 100:.1f} %" if beta else "N/A"
-    kd_str   = f"{((mkt.cost_of_debt_pretax or 0.04) * (1 - (mkt.tax_rate or 0.25))) * 100:.1f} %"
-    beta_str = f"{float(beta):.2f}" if beta else "N/A"
-    rfr_str  = f"{float(rfr) * 100:.1f} %" if rfr else "N/A"
-    erp_str  = f"{float(erp) * 100:.1f} %" if erp else "N/A"
+    ci    = snap.company_info
+    mkt   = snap.market
+    cur   = ci.currency or "USD"
+    price = mkt.share_price
+    wacc  = mkt.wacc  or 0.10
+    tgr   = mkt.terminal_growth or 0.03
+    tbase = _g(synthesis,"target_base")
+    tbear = _g(synthesis,"target_bear")
+    tbull = _g(synthesis,"target_bull")
 
-    dcf_para = (
-        f"Le modele DCF est calibre sur un horizon de cinq ans, avec un WACC de {wacc * 100:.1f} % "
-        f"decompose en un cout des fonds propres de {ke_str} "
-        f"(Beta {beta_str}  \u00b7  RFR {rfr_str}  \u00b7  prime de risque marche {erp_str}) "
-        f"et un cout de la dette apres impot de {kd_str}. "
-        f"La valeur intrinseque ressort a {_v(tbase, '{:.0f}')} {cur} par action dans le scenario base, "
-        f"soit un upside de {_upside(tbase, price)} par rapport au cours actuel. "
-        f"Les deux variables les plus sensibles sont le taux de croissance du chiffre "
-        f"d'affaires en annees 3-5 et la marge EBITDA terminale."
+    beta    = mkt.beta_levered
+    rfr     = mkt.risk_free_rate or 0.041
+    erp     = mkt.erp  or 0.055
+    ke      = rfr + erp * (beta or 1.0)
+    kd_pre  = mkt.cost_of_debt_pretax or 0.04
+    tax     = mkt.tax_rate or 0.25
+    kd_post = kd_pre * (1 - tax)
+
+    # DCF
+    story.append(sub(
+        f"Discounted Cash Flow  \u2014  Scenario base  \u00b7  "
+        f"WACC {_fr(wacc*100,1)}\u00a0%  \u00b7  Taux terminal {_fr(tgr*100,1)}\u00a0%  \u00b7  Horizon 5 ans"
+    ))
+
+    dcf_commentary = _g(synthesis,"dcf_commentary") or ""
+    dcf_base = (
+        f"Le modele DCF est calibre sur un horizon de cinq ans, avec un WACC de {_fr(wacc*100,1)}\u00a0% "
+        f"decompose en un cout des fonds propres de {_fr(ke*100,1)}\u00a0% "
+        f"(Beta {_fr(beta,2) if beta else 'N/A'}  \u2014  RFR {_fr(rfr*100,1)}\u00a0%  \u2014  "
+        f"prime de risque marche {_fr(erp*100,1)}\u00a0%) "
+        f"et un cout de la dette apres impot de {_fr(kd_post*100,1)}\u00a0%. "
+        f"La valeur intrinseque ressort a <b>{_fr(tbase,0)}\u00a0{cur}</b> par action "
+        f"dans le scenario base, soit un upside de {_upside(tbase,price)} par rapport au cours actuel."
     )
-    elems.append(Paragraph(dcf_para, st["body"]))
-    elems.append(Spacer(1, 6))
+    story.append(p(dcf_commentary or dcf_base))
+    story.append(sp(2))
+    story.append(p(f"Table de sensibilite  \u2014  Valeur intrinseque par action ({cur})", "caption"))
 
-    # Table de sensibilite 5x5
-    elems.append(Paragraph(
-        f"Table de sensibilit\u00e9  \u00b7  Valeur intrins\u00e8que par action ({cur})",
-        st["subsec"]))
-
-    waccs = [wacc - 0.01*2, wacc - 0.01, wacc, wacc + 0.01, wacc + 0.01*2]
-    tgrs  = [tgr - 0.005*2, tgr - 0.005, tgr, tgr + 0.005, tgr + 0.005*2]
-    base_v     = float(tbase) if tbase else (float(price) if price else 100.0)
-    denom_base = wacc - tgr
+    # Sensibilite
+    waccs = [wacc-0.02, wacc-0.01, wacc, wacc+0.01, wacc+0.02]
+    tgrs  = [tgr-0.01,  tgr-0.005, tgr, tgr+0.005, tgr+0.01]
+    bv    = float(tbase) if tbase else (float(price) if price else 100.0)
+    db    = wacc - tgr
 
     def _dcf(w, t):
         d = w - t
-        if abs(d) < 1e-4 or abs(denom_base) < 1e-4:
-            return "--"
-        return f"{base_v * denom_base / d:.0f}"
+        if abs(d) < 1e-4 or abs(db) < 1e-4: return "—"
+        return _fr(bv * db / d, 0)
 
-    tgr_hdrs  = [f"{t * 100:.1f} %" for t in tgrs]
-    wacc_hdrs = [f"{w * 100:.1f} %" for w in waccs]
-    sens = [["WACC  /  TGR"] + tgr_hdrs]
+    sens = [["WACC  \u2193  /  TGR  \u2192"] + [_fr(t*100,1,"\u00a0%") for t in tgrs]]
     for i, w in enumerate(waccs):
-        sens.append([wacc_hdrs[i]] + [_dcf(w, t) for t in tgrs])
+        row = [_fr(w*100,1,"\u00a0%")]
+        for j, t in enumerate(tgrs):
+            if i == 2 and j == 2:
+                row.append(p(_dcf(w,t), "td_b"))
+            else:
+                row.append(_dcf(w,t))
+        sens.append(row)
 
-    cw_s = [28 * _mm, 28.4 * _mm, 28.4 * _mm, 28.4 * _mm, 28.4 * _mm, 28.4 * _mm]
-    _assert_tw(cw_s)
+    story.append(tbl(sens, [34, 27.2, 27.2, 27.2, 27.2, 27.2], extra=[
+        ("BACKGROUND", (0,3),(-1,3),  NAVY_PALE),
+        ("BACKGROUND", (3,1),(3,-1),  NAVY_PALE),
+        ("BACKGROUND", (3,3),(3,3),   NAVY),
+        ("TEXTCOLOR",  (3,3),(3,3),   WHITE),
+        ("FONTNAME",   (0,3),(-1,3),  "Helvetica-Bold"),
+    ]))
+    story.append(p(
+        f"Ligne et colonne surlignees correspondent au scenario base. "
+        f"La cellule d'intersection materialise la valeur centrale du modele ({_fr(tbase,0)}\u00a0{cur}).",
+        "caption"))
 
-    extra_s = [
-        ("BACKGROUND", (3, 3), (3, 3), C_["navy"]),
-        ("TEXTCOLOR",  (3, 3), (3, 3), C_["white"]),
-        ("FONTNAME",   (3, 3), (3, 3), "Helvetica-Bold"),
-    ]
-    t_s = Table(sens, colWidths=cw_s)
-    t_s.setStyle(_ts(extra=extra_s, first_col_navy=True))
-    elems += [t_s, Spacer(1, 3)]
-    elems.append(Paragraph(
-        "Ligne et colonne surlignees correspondent au scenario base. "
-        "La cellule d'intersection materialise la valeur centrale du modele.",
-        st["small"]))
-    elems.append(Spacer(1, 8))
+    # Comparables
+    story.append(sp(3))
+    story.append(sub("Analyse par multiples comparables  \u2014  Pairs sectoriels LTM"))
 
-    # Comparables peers
-    elems.append(Paragraph(
-        "Analyse par multiples comparables  \u00b7  Pairs sectoriels LTM",
-        st["subsec"]))
+    hist_labels = sorted(snap.years.keys(), key=lambda y: str(y).replace("_LTM",""))
+    latest_l    = hist_labels[-1] if hist_labels else None
+    yr = ratios.years.get(latest_l) if ratios and latest_l else None
+    def _a(attr): return getattr(yr, attr, None) if yr else None
 
-    peers   = _g(synthesis, "comparable_peers")
-    p_hdr   = ["Societe", "EV/EBITDA", "EV/Revenue", "P/E", "Marge brute", "Marge\nEBITDA"]
-    cw_p    = [44 * _mm, 26 * _mm, 26 * _mm, 22 * _mm, 26 * _mm, 26 * _mm]
-    _assert_tw(cw_p)
+    pe   = _a("pe_ratio"); ev_e = _a("ev_ebitda"); ev_r = _a("ev_revenue")
+    gm   = _a("gross_margin"); em = _a("ebitda_margin")
+    peers = _g(synthesis,"comparable_peers") or []
 
-    pdata = [p_hdr, [
-        f"{ci.ticker} (cible)",
-        _x(ev_e), _x(ev_r), _x(pe), _pct(gm), _pct(em),
+    comp_hdr = ["Societe", "EV/EBITDA", "EV/Revenue", "P/E", "Marge brute", "Marge EBITDA"]
+    comp = [comp_hdr, [
+        p(f"{ci.ticker}  (cible)", "td_l"),
+        _frx(ev_e), _frx(ev_r), _frx(pe), _frpct(gm), _frpct(em),
     ]]
 
     if peers:
-        for p in peers[:5]:
-            pdata.append([
-                _g(p, "name") or _g(p, "ticker") or "--",
-                _x(_g(p, "ev_ebitda")),  _x(_g(p, "ev_revenue")),
-                _x(_g(p, "pe")),
-                _pct(_g(p, "gross_margin")), _pct(_g(p, "ebitda_margin")),
+        for peer in peers[:5]:
+            comp.append([
+                _g(peer,"name") or _g(peer,"ticker") or "—",
+                _frx(_g(peer,"ev_ebitda")), _frx(_g(peer,"ev_revenue")),
+                _frx(_g(peer,"pe")),
+                _frpct(_g(peer,"gross_margin")), _frpct(_g(peer,"ebitda_margin")),
             ])
 
-        def _med(attr, items, is_pct=False):
+        def _med(attr):
             vals = []
-            for p in items:
+            for peer in peers[:5]:
                 try:
-                    v = float(_g(p, attr) or "nan")
-                    if abs(v) < (10 if is_pct else 999):
-                        vals.append(v)
-                except Exception:
-                    pass
-            if not vals:
-                return "--"
+                    v = float(_g(peer,attr) or "nan")
+                    if abs(v) < 999: vals.append(v)
+                except: pass
+            if not vals: return "—"
             vals.sort()
-            v = vals[len(vals) // 2]
-            return f"{v * 100:.1f} %" if is_pct else f"{v:.1f}x"
+            return vals[len(vals)//2]
 
-        pdata.append([
-            "Mediane peers",
-            _med("ev_ebitda", peers[:5]),   _med("ev_revenue", peers[:5]),
-            _med("pe", peers[:5]),
-            _med("gross_margin", peers[:5], is_pct=True),
-            _med("ebitda_margin", peers[:5], is_pct=True),
+        def _medpct(attr):
+            vals = []
+            for peer in peers[:5]:
+                try:
+                    v = float(_g(peer,attr) or "nan")
+                    if abs(v) < 10: vals.append(v)
+                except: pass
+            if not vals: return "—"
+            vals.sort()
+            return vals[len(vals)//2]
+
+        med_ev  = _med("ev_ebitda")
+        med_evr = _med("ev_revenue")
+        med_pe  = _med("pe")
+        med_gm  = _medpct("gross_margin")
+        med_em  = _medpct("ebitda_margin")
+        comp.append([
+            p("Mediane peers", "td_l"),
+            p(_frx(med_ev),"td_b"), p(_frx(med_evr),"td_b"),
+            p(_frx(med_pe),"td_b"),
+            p(_frpct(med_gm),"td_b"), p(_frpct(med_em),"td_b"),
         ])
+
+        # Commentaire
+        if isinstance(med_ev, float) and ev_e and float(ev_e) > 0:
+            try:
+                prime = (float(ev_e)/med_ev - 1)*100
+                impl  = float(price)*med_ev/float(ev_e) if price and ev_e else None
+                story.append(tbl(comp, [42, 28, 28, 26, 24, 22], extra=[
+                    ("BACKGROUND", (0,1),(-1,1),  NAVY_PALE),
+                    ("LINEABOVE",  (0,-1),(-1,-1), 0.8, NAVY),
+                    ("BACKGROUND", (0,-1),(-1,-1), GREY_ROW),
+                ]))
+                story.append(p(
+                    f"La mediane des pairs sur l'EV/EBITDA ressort a {_frx(med_ev)}, contre "
+                    f"{_frx(ev_e)} pour {ci.ticker}, confirmant une prime de {_fr(prime,0)}\u00a0% "
+                    f"que le marche justifie par le potentiel strategique. "
+                    f"En appliquant la mediane sectorielle, la valeur implicite ressortirait a "
+                    f"environ {_fr(impl,0) if impl else 'N/A'}\u00a0{cur}."
+                ))
+            except Exception:
+                story.append(tbl(comp, [42, 28, 28, 26, 24, 22], extra=[
+                    ("BACKGROUND", (0,1),(-1,1),  NAVY_PALE),
+                    ("LINEABOVE",  (0,-1),(-1,-1), 0.8, NAVY),
+                    ("BACKGROUND", (0,-1),(-1,-1), GREY_ROW),
+                ]))
+        else:
+            story.append(tbl(comp, [42, 28, 28, 26, 24, 22], extra=[
+                ("BACKGROUND", (0,1),(-1,1),  NAVY_PALE),
+                ("LINEABOVE",  (0,-1),(-1,-1), 0.8, NAVY),
+                ("BACKGROUND", (0,-1),(-1,-1), GREY_ROW),
+            ]))
     else:
-        pdata.append(["Donnees comparables non disponibles", "--", "--", "--", "--", "--"])
+        # Fallback propre sans peers
+        story.append(tbl(comp, [42, 28, 28, 26, 24, 22], extra=[
+            ("BACKGROUND", (0,1),(-1,1), NAVY_PALE),
+        ]))
+        story.append(p("Donnees comparables non disponibles pour ce ticker.", "caption"))
 
-    extra_p = [
-        ("FONTNAME",   (0,  1), (-1,  1), "Helvetica-Bold"),
-        ("FONTNAME",   (0, -1), (-1, -1), "Helvetica-Bold"),
-        ("BACKGROUND", (0, -1), (-1, -1), C.HexColor("#EEF2F8")),
-    ]
-    t_p = Table(pdata, colWidths=cw_p)
-    t_p.setStyle(_ts(extra=extra_p, first_col_navy=True))
-    elems += [t_p, Spacer(1, 5)]
+    # Football Field
+    story.append(PageBreak())
+    story.append(sub("Football Field Chart  \u2014  Synthese des methodes de valorisation"))
 
-    # Commentaire peers
-    med_ev = None
-    if peers:
-        try:
-            vals = [float(_g(p, "ev_ebitda")) for p in peers[:5] if _g(p, "ev_ebitda")]
-            vals = [v for v in vals if 0 < v < 999]
-            if vals:
-                vals.sort()
-                med_ev = vals[len(vals) // 2]
-        except Exception:
-            pass
-
-    peers_comment = ""
-    if med_ev and ev_e:
-        try:
-            impl = float(price) * med_ev / float(ev_e) if ev_e and price else None
-            prime = (float(ev_e) / med_ev - 1) * 100 if ev_e else 0
-            peers_comment = (
-                f"La mediane des pairs sur l'EV/EBITDA ressort a {med_ev:.1f}x, "
-                f"contre {_x(ev_e)} pour {ci.ticker}, confirmant une prime de {prime:.0f} % "
-                f"que le marche justifie par le potentiel strategique. "
-                f"En appliquant la mediane sectorielle, la valeur implicite ressortirait a "
-                f"environ {_v(impl, '{:.0f}')} {cur}."
-            )
-        except Exception:
-            pass
-
-    if peers_comment:
-        elems.append(Paragraph(peers_comment, st["italic"]))
-
-    elems.append(PageBreak())
-    return elems
-
-
-# ---------------------------------------------------------------------------
-# PAGE 5 -- Football field + Risques + Sentiment header
-# ---------------------------------------------------------------------------
-
-def _page_ff_risques_sentiment(snap, ratios, synthesis, devil, sentiment, st):
-    from reportlab.platypus import Paragraph, Spacer, Table, PageBreak
-    from reportlab.lib import colors as C
-
-    C_  = _C()
-    ci  = snap.company_info
-    mkt = snap.market
-    cur = ci.currency or "USD"
-    price = mkt.share_price
-    wacc  = mkt.wacc or 0.10
-    tgr   = mkt.terminal_growth or 0.03
-    tbase = _g(synthesis, "target_base")
-    tbear = _g(synthesis, "target_bear")
-    tbull = _g(synthesis, "target_bull")
-
-    hist_labels = sorted(snap.years.keys(), key=lambda y: str(y).replace("_LTM", ""))
-    latest_l    = hist_labels[-1] if hist_labels else None
-    yr = ratios.years.get(latest_l) if ratios and latest_l else None
-
-    # ------------------------------------------------------------------
-    # Football field table
-    # ------------------------------------------------------------------
-    ff_src  = _g(synthesis, "football_field")
-    ff_rows = []
+    ff_src = _g(synthesis,"football_field") or []
+    ff_rows_data = []
     if ff_src:
         for m in ff_src:
-            ff_rows.append({
-                "label": _g(m, "label") or _g(m, "method") or "--",
-                "low":   _g(m, "range_low") or _g(m, "low"),
-                "high":  _g(m, "range_high") or _g(m, "high"),
-                "mid":   _g(m, "midpoint") or _g(m, "mid"),
+            ff_rows_data.append({
+                "label": _g(m,"label") or "—",
+                "low":   _g(m,"range_low"), "high": _g(m,"range_high"), "mid": _g(m,"midpoint"),
             })
     else:
-        if tbear:
-            lo, hi = float(tbear) * 0.90, float(tbear) * 1.05
-            ff_rows.append({"label": "DCF  -  Bear", "low": lo, "high": hi, "mid": tbear})
-        if tbase:
-            lo, hi = float(tbase) * 0.94, float(tbase) * 1.06
-            ff_rows.append({"label": "DCF  -  Base", "low": lo, "high": hi, "mid": tbase})
-        if tbull:
-            lo, hi = float(tbull) * 0.92, float(tbull) * 1.10
-            ff_rows.append({"label": "DCF  -  Bull", "low": lo, "high": hi, "mid": tbull})
-        # EV/EBITDA mediane peers
+        if tbear: ff_rows_data.append({"label":"DCF \u2014 Bear","low":float(tbear)*0.90,"high":float(tbear)*1.05,"mid":tbear})
+        if tbase: ff_rows_data.append({"label":"DCF \u2014 Base","low":float(tbase)*0.94,"high":float(tbase)*1.06,"mid":tbase})
+        if tbull: ff_rows_data.append({"label":"DCF \u2014 Bull","low":float(tbull)*0.92,"high":float(tbull)*1.10,"mid":tbull})
+        bm_s = _benchmarks(ci.sector or "")
         if yr and yr.ev_ebitda and price:
-            bm = _benchmarks(ci.sector or "")
             try:
-                parts = bm["ev_ebitda"].replace("x", "").replace(" ", "").split("-")
-                med = (float(parts[0]) + float(parts[1])) / 2
-                impl = float(price) * med / float(yr.ev_ebitda)
-                ff_rows.append({
-                    "label": "EV/EBITDA  -  Mediane peers",
-                    "low": impl * 0.90, "high": impl * 1.10, "mid": impl
-                })
-                impl2 = impl * 1.5
-                ff_rows.append({
-                    "label": "EV/EBITDA  -  Prime tech +50 %",
-                    "low": impl2 * 0.90, "high": impl2 * 1.10, "mid": impl2
-                })
-            except Exception:
-                pass
-        # EV/Revenue mediane peers
+                parts = bm_s["ev_e"].replace("x","").replace("\u00a0","").split("\u2013")
+                med = (float(parts[0])+float(parts[1]))/2
+                impl = float(price)*med/float(yr.ev_ebitda)
+                ff_rows_data.append({"label":"EV/EBITDA \u2014 Mediane peers","low":impl*0.90,"high":impl*1.10,"mid":impl})
+                impl2 = impl*1.5
+                ff_rows_data.append({"label":"EV/EBITDA \u2014 Prime tech +50\u00a0%","low":impl2*0.90,"high":impl2*1.10,"mid":impl2})
+            except: pass
         if yr and yr.ev_revenue and price:
-            bm = _benchmarks(ci.sector or "")
             try:
-                parts = bm["ev_rev"].replace("x", "").replace(" ", "").split("-")
-                med = (float(parts[0]) + float(parts[1])) / 2
-                impl = float(price) * med / float(yr.ev_revenue)
-                ff_rows.append({
-                    "label": "EV/Revenue  -  Mediane peers",
-                    "low": impl * 0.90, "high": impl * 1.10, "mid": impl
-                })
-            except Exception:
-                pass
+                bm_r = bm_s["ev_r"].replace("x","").replace("\u00a0","").replace(",",".").split("\u2013")
+                med_r = (float(bm_r[0])+float(bm_r[1]))/2
+                impl_r = float(price)*med_r/float(yr.ev_revenue)
+                ff_rows_data.append({"label":"EV/Revenue \u2014 Mediane peers","low":impl_r*0.90,"high":impl_r*1.10,"mid":impl_r})
+            except: pass
 
-    ff_hdr  = [
-        "Methode",
-        f"Fourchette basse ({cur})",
-        f"Fourchette haute ({cur})",
-        f"Point central ({cur})"
-    ]
-    cw_ff = [72 * _mm, 33 * _mm, 33 * _mm, 32 * _mm]
-    _assert_tw(cw_ff)
-
-    ff_tdata = [ff_hdr]
-    for r in ff_rows:
-        ff_tdata.append([
-            r["label"],
-            _v(r["low"],  "{:.0f}"),
-            _v(r["high"], "{:.0f}"),
-            _v(r["mid"],  "{:.0f}"),
-        ])
+    ff_tbl = [["Methode", f"Fourchette basse ({cur})", f"Fourchette haute ({cur})", f"Point central ({cur})"]]
+    for r in ff_rows_data:
+        ff_tbl.append([r["label"], _fr(r["low"],0), _fr(r["high"],0), _fr(r["mid"],0)])
     if price:
-        today_str = date.today().strftime("%d/%m/%Y")
-        ff_tdata.append([f"Cours actuel ({today_str})", "--", "--", f"{float(price):.2f} {cur}"])
+        ff_tbl.append([f"Cours actuel ({_date_fr()})", "—", "—", f"{_fr(price,2)}\u00a0{cur}"])
 
-    t_ff = Table(ff_tdata, colWidths=cw_ff)
-    t_ff.setStyle(_ts(first_col_navy=True))
-    elems = [t_ff, Spacer(1, 5)]
+    story.append(tbl(ff_tbl, [70, 33, 33, 34]))
 
-    # Commentaire football field
     if tbase and price:
-        ff_comment = (
-            f"Le scenario DCF base ({_v(tbase, '{:.0f}')} {cur}) et le cours actuel "
-            f"({_v(price, '{:.2f}')} {cur}) sont coherents avec une valorisation mixte "
-            f"DCF / multiples ajustes. L'application stricte des multiples medians pairs "
-            f"illustre l'ampleur de la prime integree, et le risque de correction si les "
-            f"hypotheses structurelles ne se materialisent pas dans les delais anticipes."
-        )
-        elems.append(Paragraph(ff_comment, st["italic"]))
-    elems.append(Spacer(1, 8))
+        story.append(p(
+            f"Le scenario DCF base ({_fr(tbase,0)}\u00a0{cur}) et le cours actuel "
+            f"({_fr(price,2)}\u00a0{cur}) sont coherents avec une valorisation mixte "
+            "DCF / multiples ajustes. L'application stricte des multiples medians pairs "
+            "illustre l'ampleur de la prime integree, et le risque de correction si les "
+            "hypotheses structurelles ne se materialisent pas dans les delais anticipes."
+        ))
 
-    # ------------------------------------------------------------------
-    # 4. ANALYSE DES RISQUES
-    # ------------------------------------------------------------------
-    elems.append(Paragraph("4. ANALYSE DES RISQUES", st["section"]))
-    elems.append(Spacer(1, 4))
-    elems.append(Paragraph(
-        "Th\u00e8se contraire  \u00b7  Arguments en faveur d'une r\u00e9vision \u00e0 la baisse",
-        st["subsec"]))
 
-    counter_risks = _g(devil, "counter_risks") or []
-    counter_thesis = _g(devil, "counter_thesis") or ""
-    risks_synth    = _g(synthesis, "risks") or []
+# ═══════════════════════════════════════════════════════════════════
+# PAGE 4 — ANALYSE DES RISQUES & SENTIMENT
+# ═══════════════════════════════════════════════════════════════════
 
-    # 3 paragraphes avocat du diable (titre gras + corps)
+_POSITIVE_FILTER = {
+    "base solide", "solide", "resilient", "resiliente", "opportunite", "opportunites",
+    "potentiel positif", "favorable", "robuste", "croissance acceleree",
+    "catalyseur positif", "offrent", "offre une", "suggerent une capacite",
+    "nouvelle opportunit", "investir dans de nouvelles",
+}
+
+def _strip_positive_sentences(text: str) -> str:
+    """Supprime les phrases contenant des mots positifs interdits (Bug 3)."""
+    if not text:
+        return text
+    sentences = [s.strip() for s in text.replace(". ", ".|").replace(".\n", "|\n").split("|") if s.strip()]
+    clean = []
+    for s in sentences:
+        s_low = s.lower()
+        if not any(w in s_low for w in _POSITIVE_FILTER):
+            clean.append(s)
+    result = " ".join(clean)
+    return result if result.strip() else text  # fallback si tout filtré
+
+
+def _page_risques_sentiment(story, snap, synthesis, devil, sentiment):
+    story += section("4", "Analyse des Risques & Sentiment")
+
+    ci = snap.company_info
+
+    story.append(sub("These contraire  \u2014  Arguments en faveur d'une revision a la baisse"))
+
+    counter_thesis = _g(devil,"counter_thesis") or ""
+    counter_risks  = _g(devil,"counter_risks") or []
+    risks_synth    = _g(synthesis,"risks") or []
+
+    # Construction des 3 paragraphes Avocat du Diable
     paragraphs = []
     if counter_risks and counter_thesis:
-        # Distribuer le texte en 3 sections
-        parts = counter_thesis.split(". ")
-        chunk = max(1, len(parts) // 3)
+        parts = [s.strip() for s in counter_thesis.split(". ") if s.strip()]
+        chunk = max(1, len(parts)//3)
         for i, title in enumerate(counter_risks[:3]):
-            body = ". ".join(parts[i * chunk:(i + 1) * chunk]).strip()
-            if not body.endswith("."):
-                body += "."
-            paragraphs.append((title, body))
+            body = ". ".join(parts[i*chunk:(i+1)*chunk]).strip()
+            if body and not body.endswith("."): body += "."
+            paragraphs.append((title, body or title))
     elif counter_thesis:
-        sentences = [s.strip() for s in counter_thesis.split(". ") if s.strip()]
-        chunk = max(1, len(sentences) // 3)
+        sents = [s.strip() for s in counter_thesis.split(". ") if s.strip()]
+        chunk = max(1, len(sents)//3)
         for i in range(3):
-            body = ". ".join(sentences[i * chunk:(i + 1) * chunk]).strip()
-            if body and not body.endswith("."):
-                body += "."
-            title = f"Risque {i + 1}"
-            paragraphs.append((title, body or "--"))
+            body = ". ".join(sents[i*chunk:(i+1)*chunk]).strip()
+            if body and not body.endswith("."): body += "."
+            paragraphs.append((f"Risque {i+1}", body or "—"))
     elif risks_synth:
         for r in risks_synth[:3]:
             paragraphs.append(("", r))
@@ -1005,167 +1010,124 @@ def _page_ff_risques_sentiment(snap, ratios, synthesis, devil, sentiment, st):
 
     for title, body in paragraphs:
         if title:
-            elems.append(Paragraph(title + ("." if not title.endswith(".") else ""), st["devil_t"]))
+            t = title if title.endswith(".") else title + "."
+            story.append(p(f"<b>{t}</b>", "body"))
         if body:
-            elems.append(Paragraph(body, st["body"]))
-        elems.append(Spacer(1, 4))
+            story.append(p(_strip_positive_sentences(body), "body_sm"))
+        story.append(sp(2))
 
     # Conditions d'invalidation
-    elems.append(Paragraph("Conditions d'invalidation de la th\u00e8se", st["subsec"]))
+    story.append(sp(2))
+    story.append(sub("Conditions d'invalidation de la these"))
 
-    inv_str  = _g(synthesis, "invalidation_conditions") or ""
-    inv_list = _g(synthesis, "invalidation_list")
+    inv_list = _g(synthesis,"invalidation_list") or []
+    inv_str  = _g(synthesis,"invalidation_conditions") or ""
 
-    cdata = [["Axe", "Condition d'invalidation", "Horizon"]]
+    inv_data = [["Axe", "Condition d'invalidation", "Horizon"]]
     if inv_list:
         for c in inv_list[:3]:
-            cdata.append([_g(c, "axis") or "--", _g(c, "condition") or "--", _g(c, "horizon") or "--"])
+            inv_data.append([_g(c,"axis") or "—", _g(c,"condition") or "—", _g(c,"horizon") or "—"])
     else:
         if inv_str:
-            cdata.append(["Synthese IA", inv_str[:120] + ("..." if len(inv_str) > 120 else ""), "Court-moyen terme"])
-        if len(cdata) < 4:
-            cdata += [
-                ["Macro",     "Taux souverains 10 ans > 5,5 % sur deux trimestres consecutifs", "6-12 mois"],
-                ["Sectoriel", "Perte de part de marche significative vs. principaux pairs",      "12-18 mois"],
-                ["Societe",   "Marge brute sous plancher historique sur deux trimestres",         "2-3 trim."],
-            ]
-            cdata = cdata[:4]  # header + 3 rows
+            inv_data.append(["Synthese IA", inv_str[:120]+("…" if len(inv_str)>120 else ""), "Court-moyen"])
+        inv_data += [
+            ["Macro",    "Taux souverains 10 ans > 5,5\u00a0% sur deux trimestres consecutifs", "6\u201312 mois"],
+            ["Sectoriel","Perte de part de marche significative vs. principaux pairs",           "12\u201318 mois"],
+            ["Societe",  "Marge brute sous plancher historique sur deux trimestres",             "2\u20133 trim."],
+        ]
+        inv_data = inv_data[:4]
 
-    cw_c = [28 * _mm, 110 * _mm, 32 * _mm]
-    _assert_tw(cw_c)
-    t_c = Table(cdata, colWidths=cw_c)
-    t_c.setStyle(_ts(first_col_navy=True))
-    elems += [t_c, Spacer(1, 10)]
+    story.append(tbl(inv_data, [28, 110, 32]))
 
-    # ------------------------------------------------------------------
-    # 5. SENTIMENT DE MARCH\u00c9 (intro + header de table)
-    # ------------------------------------------------------------------
-    elems.append(Paragraph("5. SENTIMENT DE MARCH\u00c9", st["section"]))
-    elems.append(Spacer(1, 4))
+    # Sentiment
+    story.append(sp(5))
+    story.append(rule(NAVY, 1.0, b=0, a=3))
+    story.append(p("5.  SENTIMENT DE MARCHE", "h1"))
 
     if not sentiment:
-        elems.append(Paragraph("Donnees de sentiment non disponibles.", st["body"]))
-    else:
-        label     = (_g(sentiment, "label") or "NEUTRAL").lower()
-        score     = float(_g(sentiment, "score") or 0.0)
-        n_art     = int(_g(sentiment, "articles_analyzed") or 0)
-        conf      = float(_g(sentiment, "confidence") or 0.0)
-        breakdown = _g(sentiment, "breakdown") or {}
-        samples   = _g(sentiment, "samples") or []
-        engine    = (_g(sentiment, "meta", "engine") or "VADER").upper()
-        rec       = (_g(synthesis, "recommendation") or "").upper()
+        story.append(p("Donnees de sentiment non disponibles.", "body_sm"))
+        return
 
-        avg_pos = breakdown.get("avg_positive", 0)
-        avg_neu = breakdown.get("avg_neutral",  0)
-        avg_neg = breakdown.get("avg_negative", 0)
+    label     = (_g(sentiment,"label") or "NEUTRAL").lower()
+    score     = float(_g(sentiment,"score") or 0.0)
+    n_art     = int(_g(sentiment,"articles_analyzed") or 0)
+    breakdown = _g(sentiment,"breakdown") or {}
+    samples   = _g(sentiment,"samples") or []
+    engine    = (_g(sentiment,"meta","engine") or "VADER").upper()
+    rec       = (_g(synthesis,"recommendation") or "").upper()
 
-        def _themes(orient):
-            ts = []
-            for s in samples:
-                lbl = (s.get("label") or "").upper()
-                if ((orient == "pos" and lbl == "POSITIVE") or
-                        (orient == "neg" and lbl == "NEGATIVE") or
-                        (orient == "neu" and lbl == "NEUTRAL")):
-                    h = s.get("headline", "")[:40]
-                    if h:
-                        ts.append(h)
-            return ", ".join(ts[:3]) or "--"
+    avg_pos = float(breakdown.get("avg_positive", 0))
+    avg_neu = float(breakdown.get("avg_neutral",  0))
+    avg_neg = float(breakdown.get("avg_negative", 0))
 
-        direction = "positive moderee" if score > 0.05 else ("negative moderee" if score < -0.05 else "neutre")
-        pos_themes = _themes("pos") or "annonces de livraisons, perspectives sectorielles"
-        neg_themes = _themes("neg") or "incertitudes macro, concurrence"
-        rec_comment = (f"Ce sentiment est coherent avec la recommandation {rec} fondee sur les "
-                       f"fondamentaux -- il confirme l'absence de newsflow structurellement "
-                       f"defavorable a court terme." if rec else "")
+    def _themes(orient):
+        ts = []
+        for s in samples:
+            lbl = (s.get("label") or "").upper()
+            if ((orient=="pos" and lbl=="POSITIVE") or
+                    (orient=="neg" and lbl=="NEGATIVE") or
+                    (orient=="neu" and lbl=="NEUTRAL")):
+                h = s.get("headline","")[:45]
+                if h: ts.append(h)
+        return ", ".join(ts[:2]) or "—"
 
-        sent_intro = (
-            f"L'analyse semantique {engine} conduite sur un corpus de {n_art} articles "
-            f"publie{'s' if n_art > 1 else ''} au cours des sept derniers jours fait "
-            f"ressortir un sentiment globalement {label} avec une inflexion {direction} "
-            f"(score agrege : {score:+.3f}). "
-            f"Les publications favorables sont portees par {pos_themes}. "
-            f"Les publications defavorables se concentrent sur {neg_themes}. "
-            + rec_comment
-        )
-        elems.append(Paragraph(sent_intro, st["body"]))
-        elems.append(Spacer(1, 6))
+    direction = "positive moderee" if score > 0.05 else ("negative moderee" if score < -0.05 else "neutre")
+    rec_comment = (f" Ce sentiment est coherent avec la recommandation {rec} fondee sur "
+                   "les fondamentaux." if rec else "")
 
-        # Header de table (les lignes de donnees continuent sur page 6)
-        sent_hdr = [["Orientation", "Articles", "Score moyen", "Themes principaux"]]
-        cw_sent  = [28 * _mm, 18 * _mm, 24 * _mm, 100 * _mm]
-        _assert_tw(cw_sent)
+    story.append(p(
+        f"L'analyse semantique {engine} conduite sur un corpus de {n_art} articles "
+        f"publie{'s' if n_art>1 else ''} au cours des sept derniers jours fait ressortir "
+        f"un sentiment globalement {label} avec une inflexion {direction} "
+        f"(score agrege : {_fr(score,3)}). "
+        f"Les publications favorables sont portees par {_themes('pos')}. "
+        f"Les publications defavorables se concentrent sur {_themes('neg')}."
+        + rec_comment
+    ))
+    story.append(sp(3))
 
-        n_pos = round(avg_pos * n_art) if n_art else 0
-        n_neu = round(avg_neu * n_art) if n_art else 0
-        n_neg = round(avg_neg * n_art) if n_art else 0
+    n_pos = round(avg_pos * n_art) if n_art else 0
+    n_neu = round(avg_neu * n_art) if n_art else 0
+    n_neg = round(avg_neg * n_art) if n_art else 0
 
-        sent_rows = sent_hdr + [
-            ["Positif", str(n_pos), f"{avg_pos:+.2f}", _themes("pos")],
-            ["Neutre",  str(n_neu), f"{avg_neu:+.2f}", _themes("neu")],
-            ["Negatif", str(n_neg), f"{-avg_neg:+.2f}", _themes("neg")],
-        ]
-        t_sent = Table(sent_rows, colWidths=cw_sent)
-        t_sent.setStyle(_ts(first_col_navy=False, alt_rows=True))
-        elems.append(t_sent)
-
-    elems.append(PageBreak())
-    return elems
-
-
-# ---------------------------------------------------------------------------
-# PAGE 6 -- Disclaimer
-# ---------------------------------------------------------------------------
-
-def _page_disclaimer(snap, st):
-    from reportlab.platypus import Paragraph, Spacer, HRFlowable
-    from reportlab.lib import colors as C
-
-    C_  = _C()
-    ci  = snap.company_info
-    gen_date = ci.analysis_date or date.today().strftime("%d %B %Y")
-
-    elems = [
-        Spacer(1, 12),
-        HRFlowable(width=_TW, thickness=0.5, color=C_["navy"]),
-        Spacer(1, 5),
-        Paragraph("Avertissement l\u00e9gal", st["bold"]),
-        Paragraph(
-            f"Ce rapport a ete genere par FinSight IA v1.0 le {gen_date}. "
-            "Il est produit integralement par un systeme d'intelligence artificielle "
-            "et ne constitue pas un conseil en investissement au sens de la directive "
-            "europeenne MiFID II (2014/65/UE). FinSight IA ne saurait etre tenu "
-            "responsable des decisions prises sur la base de ce document. "
-            "Les donnees financieres sont issues de sources publiques (yfinance, "
-            "Finnhub Financial, Financial Modeling Prep) et peuvent contenir des "
-            "inexactitudes. Tout investisseur est invite a proceder a sa propre "
-            "diligence et a consulter un professionnel qualifie avant toute decision. "
-            "Document confidentiel -- diffusion restreinte.",
-            st["small"]),
+    sent_rows = [
+        ["Orientation", "Articles", "Score moyen", "Themes principaux"],
+        ["Positif", str(n_pos), _fr(avg_pos,2), _themes("pos")],
+        ["Neutre",  str(n_neu), _fr(avg_neu,2), _themes("neu")],
+        ["Negatif", str(n_neg), _fr(-avg_neg,2), _themes("neg")],
     ]
-    return elems
+    story.append(tbl(sent_rows, [28, 18, 24, 100]))
 
 
-# ---------------------------------------------------------------------------
-# PDFWriter -- classe publique
-# ---------------------------------------------------------------------------
+# ═══════════════════════════════════════════════════════════════════
+# PAGE 5 (6) — DISCLAIMER
+# ═══════════════════════════════════════════════════════════════════
+
+def _page_disclaimer(story, snap, gen_date):
+    story.append(sp(12))
+    story.append(HRFlowable(width="100%", thickness=0.5, color=NAVY, spaceBefore=0, spaceAfter=5))
+    story.append(p("Avertissement legal", "disc_h"))
+    story.append(p(
+        f"Ce rapport a ete genere par FinSight IA v1.0 le {gen_date}. "
+        "Il est produit integralement par un systeme d'intelligence artificielle "
+        "et ne constitue pas un conseil en investissement au sens de la directive "
+        "europeenne MiFID II (2014/65/UE). FinSight IA ne saurait etre tenu "
+        "responsable des decisions prises sur la base de ce document. "
+        "Les donnees financieres sont issues de sources publiques (yfinance, Finnhub, FMP) "
+        "et peuvent contenir des inexactitudes. "
+        "Tout investisseur est invite a proceder a sa propre diligence et a consulter "
+        "un professionnel qualifie avant toute decision. "
+        "Document confidentiel — diffusion restreinte.",
+        "disclaimer"
+    ))
+
+
+# ═══════════════════════════════════════════════════════════════════
+# PDFWriter
+# ═══════════════════════════════════════════════════════════════════
 
 class PDFWriter:
-    """
-    Generateur de rapport PDF FinSight IA — 6 pages.
-
-    Usage :
-        writer = PDFWriter()
-        path   = writer.generate(state, "outputs/generated/report.pdf")
-    """
-
     def generate(self, state: dict, output_path: str) -> str:
-        try:
-            from reportlab.platypus import SimpleDocTemplate
-            from reportlab.lib.pagesizes import A4
-            from reportlab.lib.units import mm
-        except ImportError:
-            raise RuntimeError("reportlab requis : pip install reportlab")
-
         snap      = state.get("raw_data")
         ratios    = state.get("ratios")
         synthesis = state.get("synthesis")
@@ -1177,37 +1139,46 @@ class PDFWriter:
 
         ci       = snap.company_info
         ticker   = ci.ticker or state.get("ticker", "UNKNOWN")
-        co_name  = ci.company_name or ticker
+
+        # Résolution du nom complet si company_name == ticker
+        co_name = ci.company_name or ""
+        if not co_name or co_name.upper() == ticker.upper():
+            try:
+                import yfinance as yf
+                info = yf.Ticker(ticker).info
+                co_name = info.get("longName") or info.get("shortName") or ticker
+            except Exception:
+                co_name = ticker
+
         sector   = ci.sector or ""
         exchange = getattr(ci, "exchange", "") or ""
-        gen_date = ci.analysis_date or date.today().strftime("%d %B %Y")
+        gen_date = _date_fr()
 
         out = Path(output_path)
         out.parent.mkdir(parents=True, exist_ok=True)
 
-        st           = _styles()
-        total_pages  = [6]
-
-        def _cb(canvas, doc):
-            _footer_cb(co_name, ticker, total_pages)(canvas, doc)
+        footer_cb = _make_footer(co_name, ticker)
 
         doc = SimpleDocTemplate(
             str(out),
             pagesize=A4,
-            leftMargin=18 * mm, rightMargin=18 * mm,
-            topMargin=16 * mm,  bottomMargin=20 * mm,
-            title=f"FinSight IA -- {co_name} ({ticker})",
+            leftMargin=20*mm, rightMargin=20*mm,
+            topMargin=12*mm,  bottomMargin=18*mm,
+            title=f"FinSight IA — {co_name} ({ticker})",
             author="FinSight IA v1.0",
         )
 
+        # Pas de cover ni de TOC — rapport compact style IB (cf. rapport_type_TSLA.pdf)
         story = []
-        story += _page_cover(ticker, co_name, sector, exchange, gen_date)
-        story += _page_sommaire(st)
-        story += _page_synthese_et_financiere(snap, ratios, synthesis, st)
-        story += _page_ratios_et_valorisation(snap, ratios, synthesis, st)
-        story += _page_ff_risques_sentiment(snap, ratios, synthesis, devil, sentiment, st)
-        story += _page_disclaimer(snap, st)
+        _page_synthese(story, snap, synthesis)
+        story.append(PageBreak())
+        _page_financiere(story, snap, ratios, synthesis)
+        story.append(PageBreak())
+        _page_valorisation(story, snap, ratios, synthesis)
+        story.append(PageBreak())
+        _page_risques_sentiment(story, snap, synthesis, devil, sentiment)
+        _page_disclaimer(story, snap, gen_date)
 
-        doc.build(story, onFirstPage=_cb, onLaterPages=_cb)
+        doc.build(story, onFirstPage=footer_cb, onLaterPages=footer_cb)
         log.info(f"[PDFWriter] {ticker} -> {out.name}")
         return str(out)

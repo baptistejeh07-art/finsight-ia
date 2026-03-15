@@ -1,21 +1,12 @@
 # =============================================================================
-# FinSight IA — Agent Synthèse
+# FinSight IA — Agent Synthese
 # agents/agent_synthese.py
-#
-# Claude Haiku — synthèse financière structurée.
-# Input  : FinancialSnapshot + RatiosResult + SentimentResult
-# Output : SynthesisResult (JSON parsé depuis Haiku)
-#
-# Constitution §1 :
-#   - confidence_score obligatoire dans chaque output
-#   - invalidation_conditions obligatoires
 # =============================================================================
 
 from __future__ import annotations
 
 import json
 import logging
-import os
 import re
 import time
 import uuid
@@ -26,31 +17,31 @@ from typing import Optional
 from core.llm_provider import LLMProvider
 
 log = logging.getLogger(__name__)
-
-# Modèle par défaut : Haiku (coût/qualité optimal pour synthèses courantes)
 _DEFAULT_MODEL = "claude-haiku-4-5-20251001"
 
-# ---------------------------------------------------------------------------
-# Modèle de résultat
-# ---------------------------------------------------------------------------
 
 @dataclass
 class SynthesisResult:
-    """
-    Résultat de l'Agent Synthèse.
-    Constitution §1 : confidence_score + invalidation_conditions présents.
-    """
     ticker:              str
     company_name:        str
-    recommendation:      str         # "BUY" | "HOLD" | "SELL"
-    conviction:          float        # [0, 1]
+    recommendation:      str
+    conviction:          float
     target_base:         Optional[float] = None
     target_bull:         Optional[float] = None
     target_bear:         Optional[float] = None
     summary:             str = ""
-    strengths:           list = field(default_factory=list)   # 3 bullets
-    risks:               list = field(default_factory=list)   # 3 bullets
+    company_description: str = ""
+    thesis:              str = ""
+    strengths:           list = field(default_factory=list)
+    risks:               list = field(default_factory=list)
     valuation_comment:   str = ""
+    financial_commentary: str = ""
+    ratio_commentary:    str = ""
+    dcf_commentary:      str = ""
+    invalidation_list:   list = field(default_factory=list)
+    comparable_peers:    list = field(default_factory=list)
+    football_field:      list = field(default_factory=list)
+    is_projections:      dict = field(default_factory=dict)
     confidence_score:    float = 0.5
     invalidation_conditions: str = ""
     meta:                dict = field(default_factory=dict)
@@ -59,147 +50,113 @@ class SynthesisResult:
         return asdict(self)
 
 
-# ---------------------------------------------------------------------------
-# Prompt engineering
-# ---------------------------------------------------------------------------
-
-_SYSTEM = """Tu es un analyste financier senior spécialisé Investment Banking.
-Tu analyses des sociétés cotées et non-cotées pour des boutiques IB indépendantes.
-Tu produis des analyses objectives, concises, professionnelles.
-
-RÈGLE CONSTITUTIONNELLE (non violable) :
-Chaque output DOIT contenir :
-  - "confidence_score" : float entre 0 et 1
-  - "invalidation_conditions" : string décrivant dans quelles conditions ton analyse serait fausse
-
-Tu réponds UNIQUEMENT en JSON valide, sans markdown, sans commentaire, sans texte avant/après le JSON."""
+_SYSTEM = """Tu es un analyste financier senior Investment Banking.
+Tu produis des analyses objectives, concises, professionnelles en francais.
+REGLES ABSOLUES :
+1. Output = JSON valide uniquement, zero markdown, zero texte avant/apres le JSON
+2. Tous les champs sont obligatoires et ne peuvent PAS etre null
+3. company_description = minimum 4 phrases detaillees sur l'activite, les segments, le positionnement
+4. thesis = minimum 3 phrases sur les catalyseurs d'investissement concrets
+5. comparable_peers = exactement 5 vrais concurrents avec leurs multiples LTM reels (utilise ta connaissance)
+6. is_projections = estimations chiffrees reelles pour les 2 prochaines annees (pas null)
+7. Toutes les valeurs numeriques doivent etre des nombres, jamais null ou string"""
 
 
-def _build_prompt(
-    snapshot,
-    ratios,
-    sentiment,
-) -> str:
+def _build_prompt(snapshot, ratios, sentiment) -> str:
     ci  = snapshot.company_info
     mkt = snapshot.market
-
-    # Ratios de l'année la plus récente
     latest = ratios.latest_year
     yr     = ratios.years.get(latest)
 
-    def _f(v, suffix="", mult=1.0, dp=1):
-        if v is None: return "N/A"
-        return f"{v * mult:,.{dp}f}{suffix}"
-
+    def _f(v, dp=1):
+        return "N/A" if v is None else f"{float(v):,.{dp}f}"
     def _pct(v):
-        if v is None: return "N/A"
-        return f"{v*100:.1f}%"
+        return "N/A" if v is None else f"{float(v)*100:.1f}%"
 
-    # Tableau ratios clés
-    ratios_lines = []
+    lines = []
     if yr:
         raw_yr = snapshot.years.get(latest)
-        revenue_raw = raw_yr.revenue if raw_yr else None
-        ratios_lines = [
-            f"Revenue ({latest})    : {_f(revenue_raw, suffix='M')}",
-            f"Gross Margin          : {_pct(yr.gross_margin)}",
-            f"EBITDA Margin         : {_pct(yr.ebitda_margin)}",
-            f"EBIT Margin           : {_pct(yr.ebit_margin)}",
-            f"Net Margin            : {_pct(yr.net_margin)}",
-            f"ROE                   : {_pct(yr.roe)}",
-            f"ROA                   : {_pct(yr.roa)}",
-            f"ROIC                  : {_pct(yr.roic)}",
-            f"Current Ratio         : {_f(yr.current_ratio, dp=2)}",
-            f"Net Debt / EBITDA     : {_f(yr.net_debt_ebitda, dp=2)}x",
-            f"Interest Coverage     : {_f(yr.interest_coverage, dp=1)}x",
-            f"EV / EBITDA           : {_f(yr.ev_ebitda, dp=1)}x",
-            f"P/E Ratio             : {_f(yr.pe_ratio, dp=1)}x",
-            f"FCF Yield             : {_pct(yr.fcf_yield)}",
-            f"CapEx / Revenue       : {_pct(yr.capex_ratio)}",
-            f"Altman Z-Score        : {_f(yr.altman_z, dp=2)} (>2.99=sain, <1.81=détresse)",
+        lines = [
+            f"Revenue({latest}): {_f(raw_yr.revenue if raw_yr else None)}M",
+            f"GrossMargin: {_pct(yr.gross_margin)} | EBITDAMargin: {_pct(yr.ebitda_margin)} | NetMargin: {_pct(yr.net_margin)}",
+            f"ROE: {_pct(yr.roe)} | ROIC: {_pct(yr.roic)}",
+            f"EV/EBITDA: {_f(yr.ev_ebitda)}x | P/E: {_f(yr.pe_ratio)}x | EV/Rev: {_f(yr.ev_revenue)}x",
+            f"NetDebt/EBITDA: {_f(yr.net_debt_ebitda)}x | AltmanZ: {_f(yr.altman_z, dp=2)}",
         ]
-        if yr.beneish_m is not None:
-            ratios_lines.append(
-                f"Beneish M-Score       : {yr.beneish_m:.3f} (>-2.22 = risque manip.)"
-            )
-        # Croissance
         if yr.revenue_growth is not None:
-            ratios_lines.append(f"Revenue Growth YoY    : {_pct(yr.revenue_growth)}")
-        if yr.ebitda_growth is not None:
-            ratios_lines.append(f"EBITDA Growth YoY     : {_pct(yr.ebitda_growth)}")
+            lines.append(f"RevGrowthYoY: {_pct(yr.revenue_growth)}")
 
-    ratios_block = "\n".join(ratios_lines) if ratios_lines else "Ratios non disponibles."
-
-    # Sentiment
-    sent_block = "Non disponible."
+    sent_block = "N/A"
     if sentiment:
-        sent_block = (
-            f"Label : {sentiment.label} | Score : {sentiment.score:+.3f} | "
-            f"Confiance : {sentiment.confidence:.0%} | "
-            f"Articles : {sentiment.articles_analyzed}"
-        )
+        sent_block = f"{sentiment.label} score={sentiment.score:+.3f} conf={sentiment.confidence:.0%} n={sentiment.articles_analyzed}"
 
-    # Cours actuel
-    price_str = f"{mkt.share_price} {ci.currency}" if mkt.share_price else "N/A"
+    price_s  = f"{mkt.share_price}" if mkt.share_price else "N/A"
+    wacc_s   = f"{(mkt.wacc or 0.10)*100:.1f}%"
+    tgr_s    = f"{(mkt.terminal_growth or 0.03)*100:.1f}%"
+    # Calcul des années de projection
+    hist_keys = sorted(snapshot.years.keys(), key=lambda y: str(y).replace("_LTM",""))
+    last_yr   = str(hist_keys[-1]).replace("_LTM","") if hist_keys else str(date.today().year - 1)
+    try:
+        ny1 = str(int(last_yr) + 1) + "F"
+        ny2 = str(int(last_yr) + 2) + "F"
+    except Exception:
+        ny1, ny2 = "2025F", "2026F"
 
-    prompt = f"""MISSION : Analyse financière de {ci.company_name} ({ci.ticker}) — {date.today().isoformat()}
+    return f"""Analyse {ci.company_name} ({ci.ticker}) — secteur:{ci.sector} — {date.today().isoformat()}
+Cours:{price_s} {ci.currency} | WACC:{wacc_s} | TGR:{tgr_s}
+{chr(10).join(lines)}
+Sentiment: {sent_block}
 
-SECTEUR : {ci.sector or "Non renseigné"}
-DEVISE   : {ci.currency} | UNITÉS : {ci.units}
-COURS    : {price_str}
-
-RATIOS CLÉS ({latest}) :
-{ratios_block}
-
-SENTIMENT MARCHÉ (7 derniers jours) :
-{sent_block}
-
-Produis un JSON avec exactement ces champs :
+JSON requis (tous les champs obligatoires) :
 {{
-  "recommendation": "BUY|HOLD|SELL",
-  "conviction": <float 0-1>,
-  "target_price_base": <float ou null>,
-  "target_price_bull": <float ou null>,
-  "target_price_bear": <float ou null>,
-  "summary": "<2-3 phrases synthèse>",
-  "strengths": ["<point fort 1>", "<point fort 2>", "<point fort 3>"],
-  "risks": ["<risque 1>", "<risque 2>", "<risque 3>"],
-  "valuation_comment": "<1-2 phrases sur la valorisation>",
-  "confidence_score": <float 0-1>,
-  "invalidation_conditions": "<conditions dans lesquelles cette analyse serait fausse>"
+  "recommendation":"BUY|HOLD|SELL",
+  "conviction":<0-1>,
+  "target_price_base":<float|null>,
+  "target_price_bull":<float|null>,
+  "target_price_bear":<float|null>,
+  "summary":"<2 phrases>",
+  "company_description":"<2-3 phrases activite positionnement {ci.company_name}>",
+  "thesis":"<3-4 phrases these investissement catalyseurs>",
+  "strengths":["<atout1>","<atout2>","<atout3>"],
+  "risks":["<risque1>","<risque2>","<risque3>"],
+  "valuation_comment":"<2 phrases valorisation relative>",
+  "financial_commentary":"<2-3 phrases tendances P&L croissance marges cash>",
+  "ratio_commentary":"<1-2 phrases ratios vs secteur>",
+  "dcf_commentary":"<1-2 phrases hypotheses DCF sensibilite>",
+  "is_projections":{{
+    "{ny1}":{{"revenue":<float en memes unites que historique>,"revenue_growth":<float 0-1>,"gross_margin":<float 0-1>,"ebitda":<float>,"ebitda_margin":<float 0-1>,"net_income":<float>,"net_margin":<float 0-1>}},
+    "{ny2}":{{"revenue":<float>,"revenue_growth":<float 0-1>,"gross_margin":<float 0-1>,"ebitda":<float>,"ebitda_margin":<float 0-1>,"net_income":<float>,"net_margin":<float 0-1>}}
+  }},
+  "invalidation_list":[
+    {{"axis":"Macro","condition":"<evenement macro>","horizon":"6-12 mois"}},
+    {{"axis":"Sectoriel","condition":"<evenement sectoriel>","horizon":"12-18 mois"}},
+    {{"axis":"Societe","condition":"<evenement specifique {ci.ticker}>","horizon":"2-3 trim."}}
+  ],
+  "comparable_peers":[
+    {{"name":"<pair1>","ticker":"<T1>","ev_ebitda":<f>,"ev_revenue":<f>,"pe":<f>,"gross_margin":<0-1>,"ebitda_margin":<0-1>}},
+    {{"name":"<pair2>","ticker":"<T2>","ev_ebitda":<f>,"ev_revenue":<f>,"pe":<f>,"gross_margin":<0-1>,"ebitda_margin":<0-1>}},
+    {{"name":"<pair3>","ticker":"<T3>","ev_ebitda":<f>,"ev_revenue":<f>,"pe":<f>,"gross_margin":<0-1>,"ebitda_margin":<0-1>}},
+    {{"name":"<pair4>","ticker":"<T4>","ev_ebitda":<f>,"ev_revenue":<f>,"pe":<f>,"gross_margin":<0-1>,"ebitda_margin":<0-1>}},
+    {{"name":"<pair5>","ticker":"<T5>","ev_ebitda":<f>,"ev_revenue":<f>,"pe":<f>,"gross_margin":<0-1>,"ebitda_margin":<0-1>}}
+  ],
+  "football_field":[
+    {{"label":"DCF - Bear","range_low":<f>,"range_high":<f>,"midpoint":<target_price_bear>}},
+    {{"label":"DCF - Base","range_low":<f>,"range_high":<f>,"midpoint":<target_price_base>}},
+    {{"label":"DCF - Bull","range_low":<f>,"range_high":<f>,"midpoint":<target_price_bull>}},
+    {{"label":"EV/EBITDA - Mediane peers","range_low":<f>,"range_high":<f>,"midpoint":<f>}},
+    {{"label":"EV/EBITDA - Prime tech +50 %","range_low":<f>,"range_high":<f>,"midpoint":<f>}},
+    {{"label":"EV/Revenue - Mediane peers","range_low":<f>,"range_high":<f>,"midpoint":<f>}}
+  ],
+  "confidence_score":<0-1>,
+  "invalidation_conditions":"<resume conditions>"
 }}"""
 
-    return prompt
-
-
-# ---------------------------------------------------------------------------
-# Agent Synthèse
-# ---------------------------------------------------------------------------
 
 class AgentSynthese:
-    """
-    Agent Synthèse — premier appel Claude Haiku (brief Phase 3).
-
-    Usage :
-        agent = AgentSynthese()
-        result = agent.synthesize(snapshot, ratios, sentiment)
-    """
-
     def __init__(self, model: str = _DEFAULT_MODEL):
         self.llm = LLMProvider(provider="anthropic", model=model)
 
-    def synthesize(
-        self,
-        snapshot,
-        ratios,
-        sentiment=None,
-    ) -> Optional[SynthesisResult]:
-        """
-        Produit la synthèse financière via Claude Haiku.
-
-        Returns:
-            SynthesisResult, ou None si Haiku inaccessible.
-        """
+    def synthesize(self, snapshot, ratios, sentiment=None) -> Optional[SynthesisResult]:
         request_id = str(uuid.uuid4())
         t_start    = time.time()
         ci         = snapshot.company_info
@@ -207,57 +164,55 @@ class AgentSynthese:
         log.info(f"[AgentSynthese] Synthese '{snapshot.ticker}' — {request_id[:8]}")
 
         prompt = _build_prompt(snapshot, ratios, sentiment)
-
-        # --- Appel LLM (Haiku → fallback Groq si credits insuffisants) ---
         raw = None
-        providers_tried = [self.llm]
-        _groq_fallback  = LLMProvider(provider="groq")
-
-        for llm_attempt in [self.llm, _groq_fallback]:
+        for llm_attempt in [self.llm, LLMProvider(provider="groq")]:
             try:
-                raw = llm_attempt.generate(
-                    prompt=prompt,
-                    system=_SYSTEM,
-                    max_tokens=1024,
-                )
+                raw = llm_attempt.generate(prompt=prompt, system=_SYSTEM, max_tokens=4000)
                 if raw:
                     if llm_attempt is not self.llm:
-                        log.info(f"[AgentSynthese] Fallback Groq utilise")
+                        log.info("[AgentSynthese] Fallback Groq utilise")
                     break
             except Exception as e:
-                log.warning(f"[AgentSynthese] {llm_attempt.provider} echec ({type(e).__name__}: {e}) — provider suivant")
+                log.warning(f"[AgentSynthese] {llm_attempt.provider} echec ({type(e).__name__}: {e})")
 
         if not raw:
             log.error("[AgentSynthese] Tous les providers ont echoue")
             return None
 
         latency_ms = int((time.time() - t_start) * 1000)
-
-        # --- Parse JSON ---
         parsed = _parse_json(raw)
         if not parsed:
             log.error(f"[AgentSynthese] JSON non parseable :\n{raw[:300]}")
             return None
 
         result = SynthesisResult(
-            ticker             = snapshot.ticker,
-            company_name       = ci.company_name,
-            recommendation     = parsed.get("recommendation", "HOLD").upper(),
-            conviction         = float(parsed.get("conviction", 0.5)),
-            target_base        = parsed.get("target_price_base"),
-            target_bull        = parsed.get("target_price_bull"),
-            target_bear        = parsed.get("target_price_bear"),
-            summary            = parsed.get("summary", ""),
-            strengths          = parsed.get("strengths", []),
-            risks              = parsed.get("risks", []),
-            valuation_comment  = parsed.get("valuation_comment", ""),
-            confidence_score   = float(parsed.get("confidence_score", 0.5)),
+            ticker               = snapshot.ticker,
+            company_name         = ci.company_name,
+            recommendation       = parsed.get("recommendation", "HOLD").upper(),
+            conviction           = float(parsed.get("conviction", 0.5)),
+            target_base          = parsed.get("target_price_base"),
+            target_bull          = parsed.get("target_price_bull"),
+            target_bear          = parsed.get("target_price_bear"),
+            summary              = parsed.get("summary", ""),
+            company_description  = parsed.get("company_description", ""),
+            thesis               = parsed.get("thesis", ""),
+            strengths            = parsed.get("strengths", []),
+            risks                = parsed.get("risks", []),
+            valuation_comment    = parsed.get("valuation_comment", ""),
+            financial_commentary = parsed.get("financial_commentary", ""),
+            ratio_commentary     = parsed.get("ratio_commentary", ""),
+            dcf_commentary       = parsed.get("dcf_commentary", ""),
+            invalidation_list    = parsed.get("invalidation_list", []),
+            comparable_peers     = parsed.get("comparable_peers", []),
+            football_field       = parsed.get("football_field", []),
+            is_projections       = parsed.get("is_projections", {}),
+            confidence_score     = float(parsed.get("confidence_score", 0.5)),
             invalidation_conditions = parsed.get("invalidation_conditions", ""),
             meta = {
-                "request_id":   request_id,
-                "model":        self.llm.model,
-                "latency_ms":   latency_ms,
-                "tokens_used":  None,  # anthropic SDK v0.84 ne retourne pas usage ici
+                "request_id":  request_id,
+                "model":       self.llm.model,
+                "latency_ms":  latency_ms,
+                "tokens_used": None,
                 "confidence_score": float(parsed.get("confidence_score", 0.5)),
                 "invalidation_conditions": parsed.get("invalidation_conditions", ""),
             },
@@ -265,34 +220,24 @@ class AgentSynthese:
 
         log.info(
             f"[AgentSynthese] '{snapshot.ticker}' — "
-            f"{result.recommendation} conviction={result.conviction:.0%} "
-            f"({latency_ms}ms)"
+            f"{result.recommendation} conviction={result.conviction:.0%} ({latency_ms}ms)"
         )
-
         return result
 
 
-# ---------------------------------------------------------------------------
-# Helper JSON parsing robuste
-# ---------------------------------------------------------------------------
-
 def _parse_json(text: str) -> Optional[dict]:
-    """Tente de parser le JSON, avec nettoyage si nécessaire."""
     if not text:
         return None
-    # Cas 1 : JSON direct
     try:
         return json.loads(text.strip())
     except json.JSONDecodeError:
         pass
-    # Cas 2 : JSON dans un bloc markdown ```json ... ```
     m = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.DOTALL)
     if m:
         try:
             return json.loads(m.group(1))
         except json.JSONDecodeError:
             pass
-    # Cas 3 : extraire le premier {...} du texte
     m = re.search(r"\{.*\}", text, re.DOTALL)
     if m:
         try:
