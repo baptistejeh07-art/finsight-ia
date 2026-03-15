@@ -151,6 +151,11 @@ def aggregate(scores: list[dict]) -> dict:
     else:
         label, confidence = "NEUTRAL", avg_neu
 
+    # Compter les articles dominants par classe
+    pos_count  = sum(1 for s in scores if s["positive"] >= s["negative"] and s["positive"] >= s["neutral"])
+    neg_count  = sum(1 for s in scores if s["negative"] >  s["positive"] and s["negative"] >= s["neutral"])
+    neu_count  = len(scores) - pos_count - neg_count
+
     return {
         "score":            round(avg_score, 4),
         "score_normalized": round((avg_score + 1) / 2, 4),
@@ -158,9 +163,12 @@ def aggregate(scores: list[dict]) -> dict:
         "confidence":       round(confidence, 4),
         "n":                len(scores),
         "breakdown": {
-            "avg_positive": round(avg_pos, 4),
-            "avg_negative": round(avg_neg, 4),
-            "avg_neutral":  round(avg_neu, 4),
+            "avg_positive":   round(avg_pos, 4),
+            "avg_negative":   round(avg_neg, 4),
+            "avg_neutral":    round(avg_neu, 4),
+            "positive_count": pos_count,
+            "negative_count": neg_count,
+            "neutral_count":  neu_count,
         },
     }
 

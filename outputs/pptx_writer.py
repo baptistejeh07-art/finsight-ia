@@ -187,8 +187,8 @@ def add_multiline_text_box(slide, x, y, w, h, lines, font_size=8.5,
     return txBox
 
 
-def _set_cell(cell, text, font_size=8, bold=False, color_hex=WHITE,
-              fill_hex=None, align=None, font_name="Calibri"):
+def _set_cell(cell, text, font_size=8, bold=False, color_hex=BLACK,
+              fill_hex=None, align=None, font_name="Calibri", italic=False):
     from pptx.util import Pt
     from pptx.enum.text import PP_ALIGN
     if align is None:
@@ -196,14 +196,19 @@ def _set_cell(cell, text, font_size=8, bold=False, color_hex=WHITE,
     if fill_hex:
         cell.fill.solid()
         cell.fill.fore_color.rgb = rgb(fill_hex)
-    cell.text = str(text) if text is not None else "—"
-    para = cell.text_frame.paragraphs[0]
+    # Clear existing content then add styled run
+    tf = cell.text_frame
+    for para in tf.paragraphs:
+        for run in list(para.runs):
+            para._p.remove(run._r)
+    para = tf.paragraphs[0]
     para.alignment = align
-    run = para.runs[0] if para.runs else para.add_run()
-    run.text = str(text) if text is not None else "—"
+    run = para.add_run()
+    run.text = str(text) if text is not None else "\u2014"
     run.font.name = font_name
     run.font.size = Pt(font_size)
     run.font.bold = bold
+    run.font.italic = italic
     run.font.color.rgb = rgb(color_hex)
 
 
@@ -242,7 +247,7 @@ def add_table(slide, x, y, w, h, num_rows, num_cols, col_widths_pct=None,
             cell = tbl.cell(0, ci)
             _set_cell(cell, val, font_size=8, bold=True,
                       color_hex=WHITE, fill_hex=header_fill,
-                      align=PP_ALIGN.CENTER)
+                      align=PP_ALIGN.CENTER if ci > 0 else PP_ALIGN.LEFT)
         row_offset = 1
 
     # Data rows
@@ -492,8 +497,9 @@ def _slide_cover(prs, snap, synthesis, ratios, devil, sentiment):
     # Company name
     add_text_box(slide, 1.27, 4.19, 22.86, 2.54,
                  co_name, 44, NAVY, bold=True)
+    _tagline_parts = [p for p in [ticker, exchange, sector] if p and str(p).strip()]
     add_text_box(slide, 1.27, 6.81, 22.86, 0.71,
-                 f"{ticker}  \u00b7  {exchange}  \u00b7  {sector}", 11, GREY_TXT)
+                 "  \u00b7  ".join(_tagline_parts), 11, GREY_TXT)
 
     # Recommendation box
     upside_str = _upside(tbase, price)
@@ -811,8 +817,8 @@ def _slide_is(prs, snap, synthesis, ratios):
     yr_range_start = years_sorted[0] if years_sorted else ""
     yr_range_end   = proj_keys[-1] if proj_keys else (years_sorted[-1] if years_sorted else "")
 
-    slide_title(slide, "Analyse Financiere — Compte de Resultat",
-                f"{currency} millions  ·  {yr_range_start}–{yr_range_end}")
+    slide_title(slide, "Analyse Financi\u00e8re \u2014 Compte de R\u00e9sultat",
+                f"{currency} millions  \u00b7  {yr_range_start}\u2013{yr_range_end}")
 
     # Build display columns (up to 3 hist + 2 proj)
     hist_cols = years_sorted[-3:] if len(years_sorted) >= 3 else years_sorted
@@ -894,15 +900,44 @@ def _slide_is(prs, snap, synthesis, ratios):
     col_widths_pct = [first_col_pct] + [other_pct] * len(all_cols)
 
     tbl_h = min(1.0 + len(row_labels) * 0.71, 5.5)
-    add_table(slide, 1.02, 2.54, col_w_total, tbl_h,
+    is_tbl = add_table(slide, 1.02, 2.54, col_w_total, tbl_h,
               len(row_labels), n_cols,
               col_widths_pct=col_widths_pct,
               header_data=header,
               rows_data=rows_data)
 
-    # Commentary
+    # Highlight LTM column (last historical year) with DDE8F5
+    # + italic for projection year headers
+    from pptx.util import Pt
+    from pptx.enum.text import PP_ALIGN
+    ltm_col_idx = len(hist_cols)  # 0-based in all_cols → +1 in table (label col 0)
+    for ri in range(is_tbl.rows.__len__()):
+        # LTM column highlight (not the label column)
+        if ltm_col_idx >= 1:
+            cell = is_tbl.cell(ri, ltm_col_idx)
+            cell.fill.solid()
+            cell.fill.fore_color.rgb = rgb("DDE8F5")
+            # Keep existing text color
+            try:
+                p = cell.text_frame.paragraphs[0]
+                if p.runs:
+                    p.runs[0].font.color.rgb = rgb(NAVY if ri == 0 else BLACK)
+            except Exception:
+                pass
+    # Italic for projection column headers (row 0, cols after ltm_col_idx)
+    for ci in range(ltm_col_idx + 1, n_cols):
+        cell = is_tbl.cell(0, ci)
+        try:
+            p = cell.text_frame.paragraphs[0]
+            if p.runs:
+                p.runs[0].font.italic = True
+        except Exception:
+            pass
+
+    # Commentary (only if non-empty)
     fin_comment = _g(synthesis, "financial_commentary", "") or ""
-    commentary_box(slide, 1.02, 8.94, 23.37, 3.40, fin_comment)
+    if fin_comment.strip():
+        commentary_box(slide, 1.02, 8.94, 23.37, 3.40, fin_comment)
 
     return slide
 
@@ -928,8 +963,8 @@ def _slide_bilan(prs, snap, synthesis, ratios):
     latest_yr_key = years_sorted[-1] if years_sorted else None
     latest_fy     = snap.years.get(latest_yr_key) if (snap and latest_yr_key) else None
 
-    slide_title(slide, "Bilan & Liquidite",
-                f"Structure financiere  ·  {currency} millions  ·  LTM {latest_yr_key or ''}")
+    slide_title(slide, "Bilan & Liquidit\u00e9",
+                f"Structure financi\u00e8re  \u00b7  {currency} millions  \u00b7  LTM {latest_yr_key or ''}")
 
     cash     = getattr(latest_fy, "cash", None) if latest_fy else None
     ltd      = getattr(latest_fy, "long_term_debt", None) if latest_fy else None
@@ -961,7 +996,8 @@ def _slide_bilan(prs, snap, synthesis, ratios):
               rows_data=ratio_rows)
 
     fin_comment = _g(synthesis, "financial_commentary", "") or ""
-    commentary_box(slide, 1.02, 10.29, 23.37, 1.98, fin_comment[:300])
+    if fin_comment.strip():
+        commentary_box(slide, 1.02, 10.29, 23.37, 1.98, fin_comment[:300])
 
     return slide
 
@@ -982,8 +1018,8 @@ def _slide_ratios(prs, snap, synthesis, ratios):
     years_sorted  = sorted(snap.years.keys(), key=lambda y: str(y).replace("_LTM", "")) if (snap and snap.years) else []
     latest_yr_key = years_sorted[-1] if years_sorted else None
 
-    slide_title(slide, "Ratios Cles vs. Benchmark Sectoriel",
-                f"Positionnement relatif  ·  LTM {latest_yr_key or ''}")
+    slide_title(slide, "Ratios Cl\u00e9s vs. Benchmark Sectoriel",
+                f"Positionnement relatif  \u00b7  LTM {latest_yr_key or ''}")
 
     pe   = _ratio(ratios, "pe_ratio")
     ev_e = _ratio(ratios, "ev_ebitda")
@@ -1041,14 +1077,37 @@ def _slide_ratios(prs, snap, synthesis, ratios):
         ["Beneish M",    _fr(bm, 2),     "< -2,22",  _lecture_bm(bm)],
     ]
 
-    add_table(slide, 1.02, 2.54, 23.37, 5.84,
+    ratio_tbl = add_table(slide, 1.02, 2.54, 23.37, 5.84,
               len(rows), 4,
               col_widths_pct=[0.25, 0.25, 0.25, 0.25],
               header_data=["Indicateur", "Valeur", "Benchmark", "Lecture"],
               rows_data=rows)
 
+    # Per-cell coloring of Lecture column (col 3)
+    _GOOD_READS  = {"solide", "correct", "en ligne", "dans la norme", "sous-value", "aucun signal", "decote"}
+    _WARN_READS  = {"eleve", "tres eleve", "premium", "risque manip.", "detresse", "deficit",
+                    "superieur", "inferieure", "bas", "zone grise"}
+    for ri in range(1, len(rows) + 1):  # skip header row 0
+        cell = ratio_tbl.cell(ri, 3)
+        val_str = (rows[ri - 1][3] or "").strip().lower()
+        if val_str in _GOOD_READS:
+            cell.fill.solid()
+            cell.fill.fore_color.rgb = rgb(GREEN_PALE)
+            try:
+                p = cell.text_frame.paragraphs[0]
+                if p.runs: p.runs[0].font.color.rgb = rgb(GREEN)
+            except Exception: pass
+        elif val_str in _WARN_READS:
+            cell.fill.solid()
+            cell.fill.fore_color.rgb = rgb(RED_PALE)
+            try:
+                p = cell.text_frame.paragraphs[0]
+                if p.runs: p.runs[0].font.color.rgb = rgb(RED)
+            except Exception: pass
+
     ratio_comment = _g(synthesis, "ratio_commentary", "") or ""
-    commentary_box(slide, 1.02, 9.02, 23.37, 3.35, ratio_comment)
+    if ratio_comment.strip():
+        commentary_box(slide, 1.02, 9.02, 23.37, 3.35, ratio_comment)
 
     return slide
 
@@ -1065,7 +1124,7 @@ def _slide_dcf(prs, snap, synthesis, ratios):
     navy_bar(slide)
     footer_bar(slide)
     section_dots(slide, 3)
-    slide_title(slide, "Valorisation — DCF & Scenarios")
+    slide_title(slide, "Valorisation \u2014 DCF & Sc\u00e9narios")
 
     ci      = snap.company_info if snap else None
     mkt     = snap.market if snap else None
@@ -1151,7 +1210,8 @@ def _slide_dcf(prs, snap, synthesis, ratios):
         pass
 
     dcf_comment = _g(synthesis, "dcf_commentary", "") or ""
-    commentary_box(slide, 1.02, 10.88, 23.37, 1.52, dcf_comment)
+    if dcf_comment.strip():
+        commentary_box(slide, 1.02, 10.88, 23.37, 1.52, dcf_comment)
 
     return slide
 
@@ -1180,7 +1240,7 @@ def _slide_peers(prs, snap, synthesis, ratios):
     mktcap  = (shares * price / 1000) if (shares and price) else None
 
     slide_title(slide, "Comparable Peers",
-                f"Analyse par multiples  ·  LTM  ·  {currency} milliards")
+                f"Analyse par multiples  \u00b7  LTM  \u00b7  {currency} milliards")
 
     ev_e = _ratio(ratios, "ev_ebitda")
     ev_r = _ratio(ratios, "ev_revenue")
@@ -1203,11 +1263,15 @@ def _slide_peers(prs, snap, synthesis, ratios):
     rows_fills = ["DDE8F5"]
 
     for peer in peers[:5]:
-        pn   = _g(peer, "name", "—")
-        pt   = _g(peer, "ticker", "—")
+        pn   = _g(peer, "name", "—") or "—"
+        pt   = _g(peer, "ticker", "—") or "—"
+        # Ensure proper title case for company names
+        pn = str(pn).strip()
+        if pn and pn != "—" and pn == pn.lower():
+            pn = pn.title()
         p_mktcap_str = "—"
         prow = [
-            str(pn)[:30], str(pt),
+            pn[:30], str(pt).upper() if pt != "—" else "—",
             p_mktcap_str,
             _frx(_g(peer, "ev_ebitda")),
             _frx(_g(peer, "ev_revenue")),
@@ -1231,15 +1295,27 @@ def _slide_peers(prs, snap, synthesis, ratios):
     rows_fills.append(GREY_BG)
 
     tbl_h = min(1.0 + len(rows_data) * 0.71, 5.6)
-    add_table(slide, 1.02, 2.54, 23.37, tbl_h,
+    peers_tbl = add_table(slide, 1.02, 2.54, 23.37, tbl_h,
               len(rows_data), len(header),
               col_widths_pct=[0.20, 0.09, 0.13, 0.12, 0.12, 0.09, 0.13, 0.12],
               header_data=header,
               rows_data=rows_data,
               row_fills=rows_fills)
 
+    # Italic on median row (last row)
+    median_ri = len(rows_data)  # table row = data ri + 1 (header)
+    for ci in range(len(header)):
+        cell = peers_tbl.cell(median_ri, ci)
+        try:
+            p = cell.text_frame.paragraphs[0]
+            if p.runs:
+                p.runs[0].font.italic = True
+        except Exception:
+            pass
+
     ratio_comment = _g(synthesis, "ratio_commentary", "") or ""
-    commentary_box(slide, 1.02, 8.69, 23.37, 3.43, ratio_comment)
+    if ratio_comment.strip():
+        commentary_box(slide, 1.02, 8.69, 23.37, 3.43, ratio_comment)
 
     return slide
 
@@ -1263,7 +1339,7 @@ def _slide_football_field(prs, snap, synthesis, ratios):
     price    = _g(mkt, "share_price")
 
     slide_title(slide, "Football Field Chart",
-                f"Synthese des methodes de valorisation  ·  {currency} par action")
+                f"Synth\u00e8se des m\u00e9thodes de valorisation  \u00b7  {currency} par action")
 
     ff     = _g(synthesis, "football_field", []) or []
     tbase  = _g(synthesis, "target_base")
@@ -1310,7 +1386,8 @@ def _slide_football_field(prs, snap, synthesis, ratios):
               row_fills=rows_fills)
 
     dcf_comment = _g(synthesis, "dcf_commentary", "") or ""
-    commentary_box(slide, 1.02, 9.80, 23.37, 2.54, dcf_comment)
+    if dcf_comment.strip():
+        commentary_box(slide, 1.02, 9.80, 23.37, 2.54, dcf_comment)
 
     return slide
 
@@ -1327,7 +1404,7 @@ def _slide_risques(prs, snap, synthesis, devil):
     footer_bar(slide)
     section_dots(slide, 4)
     slide_title(slide, "Risques & Conditions d'Invalidation",
-                "Analyse des risques structurels  ·  These contraire")
+                "Analyse des risques structurels  \u00b7  Th\u00e8se contraire")
 
     counter_thesis = _g(devil, "counter_thesis", "") or ""
     counter_risks  = _g(devil, "counter_risks", []) or []
@@ -1408,8 +1485,8 @@ def _slide_sentiment(prs, snap, synthesis, sentiment):
     sent_label_display = _sent_label_fr(sent_label, sent_score)
     rec = _g(synthesis, "recommendation", "HOLD") or "HOLD"
 
-    slide_title(slide, "Sentiment de Marche — FinBERT",
-                f"Analyse semantique  ·  {sent_articles} articles  ·  7 derniers jours")
+    slide_title(slide, "Sentiment de March\u00e9 \u2014 FinBERT",
+                f"Analyse s\u00e9mantique  \u00b7  {sent_articles} articles  \u00b7  7 derniers jours")
 
     # 4 KPI cards
     kpi_box(slide, 1.02,  2.67, 7.11, 2.79,
@@ -1427,28 +1504,36 @@ def _slide_sentiment(prs, snap, synthesis, sentiment):
     add_text_box(slide, 1.02, 5.79, 23.37, 0.46,
                  "Detail par orientation", 9, NAVY, bold=True)
 
-    pos_val  = _g(sent_breakdown, "avg_positive",  _g(sent_breakdown, "positive",  "—"))
-    neg_val  = _g(sent_breakdown, "avg_negative",  _g(sent_breakdown, "negative",  "—"))
-    neut_val = _g(sent_breakdown, "avg_neutral",   _g(sent_breakdown, "neutral",   "—"))
+    pos_val  = _g(sent_breakdown, "avg_positive",  None)
+    neg_val  = _g(sent_breakdown, "avg_negative",  None)
+    neut_val = _g(sent_breakdown, "avg_neutral",   None)
+    pos_cnt  = _g(sent_breakdown, "positive_count", None)
+    neg_cnt  = _g(sent_breakdown, "negative_count", None)
+    neu_cnt  = _g(sent_breakdown, "neutral_count",  None)
 
     def _fmt_score(v):
-        if v is None: return "—"
+        if v is None: return "\u2014"
         try:    return f"{float(v):+.3f}".replace(".", ",")
         except: return str(v)
 
+    def _cnt(v):
+        if v is None: return "\u2014"
+        return str(int(v))
+
     break_rows = [
-        ["Positif",  str(_g(sent_breakdown, "positive_count", "—")), _fmt_score(pos_val),  "Catalyseurs, croissance, resultats"],
-        ["Negatif",  str(_g(sent_breakdown, "negative_count", "—")), _fmt_score(neg_val),  "Risques macro, concurrence, dette"],
-        ["Neutre",   str(_g(sent_breakdown, "neutral_count",  "—")), _fmt_score(neut_val), "Actualite sectorielle generale"],
+        ["Positif",  _cnt(pos_cnt),  _fmt_score(pos_val),  "Catalyseurs, croissance, r\u00e9sultats"],
+        ["N\u00e9gatif",  _cnt(neg_cnt),  _fmt_score(neg_val),  "Risques macro, concurrence, dette"],
+        ["Neutre",   _cnt(neu_cnt),  _fmt_score(neut_val), "Actualit\u00e9 sectorielle g\u00e9n\u00e9rale"],
     ]
     add_table(slide, 1.02, 6.48, 23.37, 2.79,
               3, 4,
               col_widths_pct=[0.15, 0.15, 0.20, 0.50],
-              header_data=["Orientation", "Articles", "Score moyen", "Themes principaux"],
+              header_data=["Orientation", "Articles", "Score moyen", "Th\u00e8mes principaux"],
               rows_data=break_rows)
 
-    commentary_box(slide, 1.02, 9.70, 23.37, 2.54,
-                   _g(synthesis, "valuation_comment", "") or "")
+    val_comment = _g(synthesis, "valuation_comment", "") or ""
+    if val_comment.strip():
+        commentary_box(slide, 1.02, 9.70, 23.37, 2.54, val_comment)
 
     return slide
 
@@ -1470,23 +1555,43 @@ def _slide_actionnariat(prs, snap, synthesis):
     gen_date = _g(ci, "analysis_date", "") or date.today().strftime("%d/%m/%Y")
 
     slide_title(slide, "Actionnariat & Structure du Capital",
-                f"Repartition de l'actionnariat  ·  Au {gen_date}")
+                f"R\u00e9partition de l'actionnariat  \u00b7  Au {gen_date}")
 
-    # Principal shareholders placeholder
-    holder_rows = [
-        ["Institutionnels",         "Fonds/ETF",   "~70 %"],
-        ["Particuliers (flottant)", "Retail",      "~20 %"],
-        ["Insiders & dirigeants",   "Management",  "~10 %"],
-        ["—",                       "—",           "—"],
-        ["—",                       "—",           "—"],
-    ]
-    add_table(slide, 1.02, 2.69, 14.73, 5.33,
-              len(holder_rows), 3,
+    # Try to get real shareholder data from snap if available
+    # Check for major_holders or insider_data in snap
+    raw_holders = []
+    if snap:
+        mh = getattr(snap, "major_holders", None) or []
+        if mh:
+            for h in mh:
+                raw_holders.append([
+                    str(_g(h, "name", "\u2014"))[:40],
+                    str(_g(h, "type", "\u2014")),
+                    str(_g(h, "pct", "\u2014")),
+                ])
+
+    # Fallback: standard institutional breakdown
+    if not raw_holders:
+        raw_holders = [
+            ["Institutionnels",         "Fonds/ETF",   "~70 %"],
+            ["Particuliers (flottant)", "Retail",      "~20 %"],
+            ["Insiders & dirigeants",   "Management",  "~10 %"],
+        ]
+
+    # Only keep non-empty rows (no "—/—/—" padding)
+    holder_rows = [r for r in raw_holders if any(v and v not in ("\u2014", "—") for v in r)]
+    if not holder_rows:
+        holder_rows = [["Donn\u00e9es non disponibles", "\u2014", "\u2014"]]
+
+    n_holder_rows = len(holder_rows)
+    tbl_h_holder = min(0.71 + n_holder_rows * 0.71, 9.0)
+    add_table(slide, 1.02, 2.69, 14.73, tbl_h_holder,
+              n_holder_rows, 3,
               col_widths_pct=[0.45, 0.30, 0.25],
               header_data=["Actionnaire", "Type", "%"],
               rows_data=holder_rows)
 
-    # Right: type breakdown
+    # Right: type breakdown (adapt height to holder count)
     type_rows = [
         ["Institutionnel", "~70 %"],
         ["Retail",         "~20 %"],
@@ -1499,13 +1604,14 @@ def _slide_actionnariat(prs, snap, synthesis):
               rows_data=type_rows)
 
     # Note
-    add_text_box(slide, 1.02, 8.43, 23.37, 1.02,
-                 "Note : Donnees de structure du capital non disponibles dans le pipeline actuel. "
-                 "Les estimations ci-dessus sont indicatives et basees sur des benchmarks sectoriels.",
-                 8, GREY_TXT, italic=True, wrap=True)
+    note_y = 2.69 + tbl_h_holder + 0.30
+    add_text_box(slide, 1.02, note_y, 14.73, 0.90,
+                 "Note : Donn\u00e9es d'actionnariat indicatives bas\u00e9es sur des benchmarks sectoriels.",
+                 7.5, GREY_TXT, italic=True, wrap=True)
 
     thesis_s = _g(synthesis, "thesis", "") or ""
-    commentary_box(slide, 1.02, 9.70, 23.37, 2.54, thesis_s[:300])
+    if thesis_s.strip():
+        commentary_box(slide, 1.02, 9.70, 23.37, 2.54, thesis_s[:300])
 
     return slide
 
