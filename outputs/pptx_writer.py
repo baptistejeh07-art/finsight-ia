@@ -1105,17 +1105,17 @@ def _slide_is(prs, snap, synthesis, ratios):
                 nm    = getattr(yr, "net_margin", None) if yr else None
 
             if rl == "Chiffre d'affaires":
-                row.append(_frm(rev, cur_sym))
+                row.append(_fr(rev, 0))
             elif rl == "Croissance YoY":
                 row.append(_frpct(grow, signed=True))
             elif rl == "Marge brute":
                 row.append(_frpct(gm))
             elif rl == "EBITDA":
-                row.append(_frm(ebitda, cur_sym))
+                row.append(_fr(ebitda, 0))
             elif rl == "Marge EBITDA":
                 row.append(_frpct(em))
             elif rl == "Resultat net":
-                row.append(_frm(ni, cur_sym))
+                row.append(_fr(ni, 0))
             elif rl == "Marge nette":
                 row.append(_frpct(nm))
             else:
