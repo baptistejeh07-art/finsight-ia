@@ -233,8 +233,8 @@ def fetch(ticker: str) -> Optional[FinancialSnapshot]:
         def _fetch_holders():
             try:
                 ih = tk.institutional_holders
-                mh = tk.major_holders
-                return ih, mh
+                mf = tk.mutualfund_holders
+                return ih, mf
             except Exception:
                 return None, None
 
@@ -251,7 +251,7 @@ def fetch(ticker: str) -> Optional[FinancialSnapshot]:
         cf_df  = f_cf.result()
         hist   = f_hist.result()
         rfr    = f_rfr.result()
-        ih_df, mh_df = f_holders.result() or (None, None)
+        ih_df, mf_df = f_holders.result() or (None, None)
 
         # --- Détection automatique des années disponibles ---
         available_years = _detect_years(is_df, max_years=5)
@@ -443,19 +443,35 @@ def fetch(ticker: str) -> Optional[FinancialSnapshot]:
 
         institutional_holders = []
         try:
-            # Insider % depuis info
-            pct_insiders = float(info.get("heldPercentInsiders") or 0) * 100
+            pct_insiders   = float(info.get("heldPercentInsiders")    or 0) * 100
             pct_inst_total = float(info.get("heldPercentInstitutions") or 0) * 100
 
-            if ih_df is not None and not ih_df.empty:
-                ih_df = ih_df.head(7)
-                for _, row in ih_df.iterrows():
-                    name = str(row.get("Holder", row.name if hasattr(row, 'name') else "—"))
-                    pct_out = row.get("% Out", row.get("pctHeld", None))
-                    try:
-                        pct_val = round(float(pct_out) * 100, 1) if pct_out is not None else None
-                    except Exception:
-                        pct_val = None
+            def _row_pct(row, shares_out):
+                """Retourne % détenu depuis pctHeld (si > 0) ou Shares/sharesOutstanding."""
+                ph = float(row.get("pctHeld") or 0)
+                if ph > 0.001:
+                    return round(ph * 100, 2)
+                if shares_out and shares_out > 0:
+                    sh = float(row.get("Shares") or 0)
+                    if sh > 0:
+                        return round(sh / shares_out * 100, 2)
+                return None
+
+            shares_out = float(info.get("sharesOutstanding") or 0)
+
+            # Vérifie si institutional_holders a des données valides (pctHeld > 0)
+            ih_valid = (ih_df is not None and not ih_df.empty and
+                        any(float(r) > 0.001 for r in ih_df.get("pctHeld", [0])))
+
+            # Source principale : institutional_holders (US) ou mutualfund_holders (EU)
+            source_df = ih_df if ih_valid else (mf_df if (mf_df is not None and not mf_df.empty) else None)
+
+            if source_df is not None and not source_df.empty:
+                for _, row in source_df.head(7).iterrows():
+                    name = str(row.get("Holder", "—")).strip()
+                    pct_val = _row_pct(row, shares_out)
+                    if pct_val is not None and pct_val < 0.01:
+                        continue  # ignorer les micro-positions < 0.01%
                     institutional_holders.append({
                         "name":  name[:40],
                         "type":  "Institutionnel",
@@ -463,9 +479,9 @@ def fetch(ticker: str) -> Optional[FinancialSnapshot]:
                         "style": _holder_style(name),
                     })
 
-            # Ligne insiders si données dispo
+            # Ligne insiders
             if pct_insiders > 0.1:
-                insider_name = info.get("longName", ticker).split()[0] + " (Insiders)"
+                insider_name = (info.get("longName") or ticker).split()[0] + " (Insiders)"
                 institutional_holders.insert(0, {
                     "name":  insider_name[:40],
                     "type":  "Insiders & dirigeants",
