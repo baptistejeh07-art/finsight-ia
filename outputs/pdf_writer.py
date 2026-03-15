@@ -194,15 +194,17 @@ def _rec_pale(rec):
     return AMBER_PALE
 
 def _lecture(val, bm_str, pct=False):
+    import re as _re
     try:
         v = float(val) * (100 if pct else 1)
-        lo, hi = [float(x.replace("x","").replace("%","").replace("\u00a0","").strip())
-                  for x in bm_str.split("–")]
+        nums = _re.findall(r'\d+(?:[,.]\d+)?', bm_str.replace(",", "."))
+        if len(nums) < 2: return "\u2014"
+        lo, hi = float(nums[0].replace(",",".")), float(nums[1].replace(",","."))
         if not pct and v > hi * 1.4: return "Prime technologique"
-        if v > hi: return "Superieure" if pct else "Superieur"
-        if v < lo: return "Inferieure" if pct else "Decote"
+        if v > hi: return "Sup\u00e9rieure" if pct else "Sup\u00e9rieur"
+        if v < lo: return "Inf\u00e9rieure" if pct else "D\u00e9cote"
         return "En ligne" if pct else "Dans la norme"
-    except: return "—"
+    except: return "\u2014"
 
 def _benchmarks(sector):
     s = (sector or "").lower()
@@ -318,8 +320,8 @@ def _page_toc(story, gen_date, snap=None, synthesis=None):
     story.append(HRFlowable(width="100%", thickness=1.0, color=NAVY, spaceBefore=2, spaceAfter=10))
 
     toc_items = [
-        ("1.", "Synthese Executive",            "2"),
-        ("2.", "Analyse Financiere",             "3"),
+        ("1.", "Synth\u00e8se Ex\u00e9cutive",       "2"),
+        ("2.", "Analyse Financi\u00e8re",            "3"),
         ("3.", "Valorisation",                   "4"),
         ("4.", "Analyse des Risques & Sentiment","5"),
     ]
@@ -339,11 +341,12 @@ def _page_toc(story, gen_date, snap=None, synthesis=None):
         ]))
         story.append(row)
 
-    # Donnees cles de l'analyse
+    # Donnees cles — liste propre sans tableau
     if snap and synthesis:
         story.append(sp(12))
         story.append(HRFlowable(width="100%", thickness=0.4, color=GREY_RULE, spaceBefore=0, spaceAfter=6))
-        story.append(Paragraph("Donnees cles", ST["h1"]))
+        story.append(Paragraph("Donn\u00e9es cl\u00e9s", ST["h1"]))
+        story.append(sp(2))
         ci  = snap.company_info
         mkt = snap.market
         cur = ci.currency or "USD"
@@ -352,56 +355,52 @@ def _page_toc(story, gen_date, snap=None, synthesis=None):
         tbase = _g(synthesis,"target_base")
         price = mkt.share_price
 
-        kf_style = ParagraphStyle("kf", fontName="Helvetica", fontSize=8, textColor=GREY_TEXT, leading=12, alignment=TA_LEFT)
-        kf_bold  = ParagraphStyle("kfb", fontName="Helvetica-Bold", fontSize=8.5, textColor=NAVY, leading=12, alignment=TA_LEFT)
+        lbl_st  = ParagraphStyle("kfl", fontName="Helvetica",      fontSize=8,   textColor=GREY_TEXT, leading=13)
+        val_st  = ParagraphStyle("kfv", fontName="Helvetica-Bold",  fontSize=8.5, textColor=NAVY,      leading=13)
+        sep_st  = ParagraphStyle("kfs", fontName="Helvetica",       fontSize=8,   textColor=GREY_LIGHT, leading=13)
 
-        kf_data = [
-            [Paragraph("Ticker", kf_style),       Paragraph(ci.ticker or "—", kf_bold),
-             Paragraph("Secteur", kf_style),       Paragraph(ci.sector or "—", kf_bold)],
-            [Paragraph("Recommandation", kf_style),Paragraph(rec, kf_bold),
-             Paragraph("Conviction", kf_style),    Paragraph(_frpct(conv) if conv else "—", kf_bold)],
-            [Paragraph("Cours", kf_style),         Paragraph(f"{_fr(price,2)} {cur}" if price else "—", kf_bold),
-             Paragraph("Cible base", kf_style),    Paragraph(f"{_fr(tbase,0)} {cur}" if tbase else "—", kf_bold)],
-            [Paragraph("Devise", kf_style),        Paragraph(cur, kf_bold),
-             Paragraph("Date", kf_style),          Paragraph(gen_date, kf_bold)],
+        kf_items = [
+            ("Ticker",          ci.ticker or "\u2014"),
+            ("Soci\u00e9t\u00e9", ci.company_name or "\u2014"),
+            ("Secteur",         ci.sector or "\u2014"),
+            ("Recommandation",  rec),
+            ("Conviction",      _frpct(conv) if conv else "\u2014"),
+            ("Cours",           f"{_fr(price,2)}\u00a0{cur}" if price else "\u2014"),
+            ("Cible base",      f"{_fr(tbase,0)}\u00a0{cur}" if tbase else "\u2014"),
+            ("Date d'analyse",  gen_date),
         ]
-        kf_tbl = Table(kf_data, colWidths=[30*mm, 52*mm, 30*mm, 58*mm])
-        kf_tbl.setStyle(TableStyle([
-            ("TOPPADDING",    (0,0),(-1,-1), 4),
-            ("BOTTOMPADDING", (0,0),(-1,-1), 4),
-            ("LEFTPADDING",   (0,0),(-1,-1), 0),
-            ("RIGHTPADDING",  (0,0),(-1,-1), 0),
-            ("LINEBELOW",     (0,0),(-1,-1), 0.3, GREY_RULE),
-            ("VALIGN",        (0,0),(-1,-1), "MIDDLE"),
-        ]))
-        story.append(kf_tbl)
+        for lbl, val in kf_items:
+            row = Table([[Paragraph(lbl, lbl_st), Paragraph(val, val_st)]],
+                        colWidths=[45*mm, 125*mm])
+            row.setStyle(TableStyle([
+                ("TOPPADDING",    (0,0),(-1,-1), 3),
+                ("BOTTOMPADDING", (0,0),(-1,-1), 3),
+                ("LEFTPADDING",   (0,0),(-1,-1), 0),
+                ("RIGHTPADDING",  (0,0),(-1,-1), 0),
+                ("LINEBELOW",     (0,0),(-1,-1), 0.25, GREY_RULE),
+                ("VALIGN",        (0,0),(-1,-1), "MIDDLE"),
+                ("NOSPLIT",       (0,0),(-1,-1)),
+            ]))
+            story.append(row)
 
-    # Introduction methodologique
+    # À propos de cette analyse
     story.append(sp(10))
     story.append(HRFlowable(width="100%", thickness=0.4, color=GREY_RULE, spaceBefore=0, spaceAfter=6))
-    story.append(Paragraph("A propos de cette analyse", ST["h1"]))
+    story.append(Paragraph("\u00c0 propos de cette analyse", ST["h1"]))
     story.append(sp(3))
     story.append(Paragraph(
-        f"Ce rapport a ete genere automatiquement par FinSight IA v1.0 le {gen_date}. "
-        "Il couvre l'ensemble des dimensions analytiques standard d'une note d'investissement "
-        "institutionnelle : presentation de l'entreprise, analyse financiere historique et "
-        "prospective, valorisation DCF et par multiples comparables, analyse des risques "
-        "et conditions d'invalidation de la these.",
-        ST["toc_intro"]))
-    story.append(sp(4))
-    story.append(Paragraph(
-        "L'analyse fondamentale repose sur les donnees financieres historiques issues de sources "
+        "L'analyse fondamentale repose sur les donn\u00e9es financi\u00e8res historiques issues de sources "
         "publiques (yfinance, Finnhub Financial, Financial Modeling Prep). La valorisation DCF "
-        "est calculee sur un horizon de cinq ans avec sensibilite au WACC et au taux de croissance "
-        "terminal. L'analyse de sentiment est conduite par FinBERT, modele de traitement du "
-        "langage naturel specialise en finance, sur un corpus d'articles des sept derniers jours.",
+        "est calcul\u00e9e sur un horizon de cinq ans avec sensibilit\u00e9 au WACC et au taux de croissance "
+        "terminal. L'analyse de sentiment est conduite par FinBERT, mod\u00e8le de traitement du "
+        "langage naturel sp\u00e9cialis\u00e9 en finance, sur un corpus d'articles des sept derniers jours.",
         ST["toc_intro"]))
     story.append(sp(4))
     story.append(Paragraph(
-        "La these d'investissement est soumise a un protocole de contradiction systematique "
-        "(avocat du diable) visant a identifier les hypotheses les plus fragiles et les "
-        "scenarios de baisse. Les conditions d'invalidation sont explicitement formulees "
-        "pour chaque axe de risque : macroeconomique, sectoriel et specifique a la societe.",
+        "La th\u00e8se d'investissement est soumise \u00e0 un protocole de contradiction syst\u00e9matique "
+        "(avocat du diable) visant \u00e0 identifier les hypoth\u00e8ses les plus fragiles et les "
+        "sc\u00e9narios de baisse. Les conditions d'invalidation sont explicitement formul\u00e9es "
+        "pour chaque axe de risque\u00a0: macro\u00e9conomique, sectoriel et sp\u00e9cifique \u00e0 la soci\u00e9t\u00e9.",
         ST["toc_intro"]))
     story.append(PageBreak())
 
@@ -527,7 +526,7 @@ def _is_widths(n_data):
     return cols
 
 def _page_financiere(story, snap, ratios, synthesis):
-    story += section("2", "Analyse Financiere")
+    story += section("2", "Analyse Financi\u00e8re")
 
     ci    = snap.company_info
     cur   = ci.currency or "USD"
@@ -615,7 +614,7 @@ def _page_financiere(story, snap, ratios, synthesis):
         p_ = is_proj.get(l)
         return p_.get(k) if isinstance(p_, dict) else None
 
-    story.append(sub(f"Compte de resultat consolide  ({cur} {units})"))
+    story.append(sub(f"Compte de r\u00e9sultat consolid\u00e9  ({cur} {units})"))
 
     # Colonnes : header
     hdr_row = ["Indicateur"] + col_names
@@ -719,7 +718,7 @@ def _page_financiere(story, snap, ratios, synthesis):
 
     # Ratios
     story.append(sp(3))
-    story.append(sub("Positionnement relatif  —  Ratios cles vs. pairs sectoriels"))
+    story.append(sub("Positionnement relatif \u2014 Ratios cl\u00e9s vs. pairs sectoriels"))
 
     hist_labels_all = sorted(snap.years.keys(), key=lambda y: str(y).replace("_LTM",""))
     latest_l = hist_labels_all[-1] if hist_labels_all else None
@@ -731,14 +730,14 @@ def _page_financiere(story, snap, ratios, synthesis):
     az   = _a("altman_z"); bm_sc = _a("beneish_m")
     bm   = _benchmarks(ci.sector or "")
 
-    az_lbl  = ("Solide" if az and float(az)>2.99 else "Zone grise" if az and float(az)>1.81 else "Detresse") if az else "—"
-    bm_lbl  = "Aucun signal" if bm_sc and float(bm_sc)<-2.22 else ("Risque manip." if bm_sc else "—")
+    az_lbl  = ("Solide" if az and float(az)>2.99 else "Zone grise" if az and float(az)>1.81 else "D\u00e9tresse") if az else "\u2014"
+    bm_lbl  = "Aucun signal" if bm_sc and float(bm_sc)<-2.22 else ("Risque manip." if bm_sc else "\u2014")
 
     # Couleurs colonne Lecture
     def _lect_color(lbl):
-        if lbl in ("Prime technologique","Superieur","Superieure","Solide","Aucun signal","En ligne","Dans la norme"):
+        if lbl in ("Prime technologique","Sup\u00e9rieur","Sup\u00e9rieure","Solide","Aucun signal","En ligne","Dans la norme"):
             return GREEN if lbl in ("Solide","Aucun signal") else (AMBER if lbl in ("En ligne","Dans la norme") else RED)
-        if lbl in ("Decote","Inferieure","Detresse","Risque manip.","Zone grise"): return RED
+        if lbl in ("D\u00e9cote","Inf\u00e9rieure","D\u00e9tresse","Risque manip.","Zone grise"): return RED
         return AMBER
 
     def _lect_pale(lbl):
@@ -828,7 +827,7 @@ def _page_valorisation(story, snap, ratios, synthesis):
     )
     story.append(p(dcf_commentary or dcf_base))
     story.append(sp(2))
-    story.append(p(f"Table de sensibilite  \u2014  Valeur intrinseque par action ({cur})", "caption"))
+    story.append(p(f"Table de sensibilit\u00e9 \u2014 Valeur intrins\u00e8que par action ({cur})", "caption"))
 
     # Sensibilite
     waccs = [wacc-0.02, wacc-0.01, wacc, wacc+0.01, wacc+0.02]
@@ -855,9 +854,10 @@ def _page_valorisation(story, snap, ratios, synthesis):
     story.append(tbl(sens, [34, 27.2, 27.2, 27.2, 27.2, 27.2], extra=[
         ("BACKGROUND", (0,3),(-1,3),  SENS_HL),
         ("BACKGROUND", (3,1),(3,-1),  SENS_HL),
-        ("BACKGROUND", (3,3),(3,3),   NAVY_MID),
-        ("TEXTCOLOR",  (3,3),(3,3),   WHITE),
+        ("BACKGROUND", (3,3),(3,3),   NAVY_PALE),
+        ("TEXTCOLOR",  (3,3),(3,3),   NAVY),
         ("FONTNAME",   (0,3),(-1,3),  "Helvetica-Bold"),
+        ("FONTNAME",   (3,3),(3,3),   "Helvetica-Bold"),
     ]))
     story.append(p(
         f"Ligne et colonne surlignees correspondent au scenario base. "
@@ -866,7 +866,7 @@ def _page_valorisation(story, snap, ratios, synthesis):
 
     # Comparables
     story.append(sp(3))
-    story.append(sub("Analyse par multiples comparables  \u2014  Pairs sectoriels LTM"))
+    story.append(sub("Analyse par multiples comparables \u2014 Pairs sectoriels LTM"))
 
     hist_labels = sorted(snap.years.keys(), key=lambda y: str(y).replace("_LTM",""))
     latest_l    = hist_labels[-1] if hist_labels else None
@@ -877,7 +877,7 @@ def _page_valorisation(story, snap, ratios, synthesis):
     gm   = _a("gross_margin"); em = _a("ebitda_margin")
     peers = _g(synthesis,"comparable_peers") or []
 
-    comp_hdr = ["Societe", "EV/EBITDA", "EV/Revenue", "P/E", "Marge brute", "Marge EBITDA"]
+    comp_hdr = ["Soci\u00e9t\u00e9", "EV/EBITDA", "EV/Revenue", "P/E", "Marge brute", "Marge EBITDA"]
     comp = [comp_hdr, [
         p(f"{ci.ticker}  (cible)", "td_l"),
         _frx(ev_e), _frx(ev_r), _frx(pe), _frpct(gm), _frpct(em),
@@ -920,7 +920,7 @@ def _page_valorisation(story, snap, ratios, synthesis):
         med_gm  = _medpct("gross_margin")
         med_em  = _medpct("ebitda_margin")
         comp.append([
-            p("Mediane peers", "td_l"),
+            p("M\u00e9diane peers", "td_l"),
             p(_frx(med_ev),"td_b"), p(_frx(med_evr),"td_b"),
             p(_frx(med_pe),"td_b"),
             p(_frpct(med_gm),"td_b"), p(_frpct(med_em),"td_b"),
@@ -965,7 +965,7 @@ def _page_valorisation(story, snap, ratios, synthesis):
 
     # Football Field
     story.append(PageBreak())
-    story.append(sub("Football Field Chart  \u2014  Synthese des methodes de valorisation"))
+    story.append(sub("Football Field Chart \u2014 Synth\u00e8se des m\u00e9thodes de valorisation"))
 
     ff_src = _g(synthesis,"football_field") or []
     ff_rows_data = []
@@ -997,11 +997,11 @@ def _page_valorisation(story, snap, ratios, synthesis):
                 ff_rows_data.append({"label":"EV/Revenue \u2014 Mediane peers","low":impl_r*0.90,"high":impl_r*1.10,"mid":impl_r})
             except: pass
 
-    ff_tbl = [["Methode", f"Fourchette basse ({cur})", f"Fourchette haute ({cur})", f"Point central ({cur})"]]
+    ff_tbl = [["M\u00e9thode", f"Fourchette basse ({cur})", f"Fourchette haute ({cur})", f"Point central ({cur})"]]
     for r in ff_rows_data:
         ff_tbl.append([r["label"], _fr(r["low"],0), _fr(r["high"],0), _fr(r["mid"],0)])
     if price:
-        ff_tbl.append([f"Cours actuel ({_date_fr()})", "—", "—", f"{_fr(price,2)}\u00a0{cur}"])
+        ff_tbl.append([f"Cours actuel ({_date_fr()})", "\u2014", "\u2014", _fr(price,2)])
 
     story.append(tbl(ff_tbl, [70, 33, 33, 34]))
 
@@ -1235,15 +1235,12 @@ class PDFWriter:
             author="FinSight IA v1.0",
         )
 
-        # Page 1 = cover (canvas only), page 2 = sommaire, pages 3+ = contenu
+        # Page 1 = cover (canvas only), page 2 = sommaire, pages 3+ = contenu (flux naturel)
         story = [PageBreak()]                                    # consomme page 1 pour la cover
         _page_toc(story, gen_date, snap=snap, synthesis=synthesis)  # page 2 — sommaire
         _page_synthese(story, snap, synthesis)
-        story.append(PageBreak())
         _page_financiere(story, snap, ratios, synthesis)
-        story.append(PageBreak())
         _page_valorisation(story, snap, ratios, synthesis)
-        story.append(PageBreak())
         _page_risques_sentiment(story, snap, synthesis, devil, sentiment)
         _page_disclaimer(story, snap, gen_date)
 
