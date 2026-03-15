@@ -572,7 +572,14 @@ def _cover_layout(co_name: str):
 
 def _truncate(s, n: int) -> str:
     s = _safe_str(s)
-    return s[:n] if len(s) > n else s
+    if len(s) <= n:
+        return s
+    # Cut at last word boundary before n to avoid mid-word truncation
+    cut = s[:n]
+    last_space = cut.rfind(" ")
+    if last_space > n // 2:
+        cut = cut[:last_space]
+    return cut + "…"
 
 
 def _peer_median(peers: list, attr: str):
@@ -878,12 +885,12 @@ def _slide_company_overview(prs, snap, synthesis, ratios):
     # Description box
     add_rect(slide, 1.02, 2.67, 13.72, 9.78, GREY_BG)
     add_rect(slide, 1.02, 2.67, 0.13, 9.78, NAVY_MID)
-    add_text_box(slide, 1.40, 2.84, 12.95, 3.0,
-                 _truncate(desc, 400), 8.5, BLACK, wrap=True)
+    add_text_box(slide, 1.40, 2.84, 12.95, 4.5,
+                 _truncate(desc, 550), 8.5, BLACK, wrap=True)
 
     # Segments & Positionnement stratégique
-    bullet_y = 6.10
-    add_text_box(slide, 1.40, 5.70, 12.95, 0.51,
+    bullet_y = 7.80
+    add_text_box(slide, 1.40, 7.40, 12.95, 0.51,
                  "Segments & Positionnement strat\u00e9gique", 9, NAVY, bold=True)
     for i, strength in enumerate(strengths[:4]):
         add_rect(slide, 1.40, bullet_y + i * 0.95 + 0.12, 0.20, 0.20, NAVY_MID)
