@@ -89,15 +89,14 @@ Recommandation originale : {synthesis.recommendation} (conviction {synthesis.con
 Arguments haussiers donnes : {'; '.join(synthesis.strengths)}
 Ratios ({latest}) : {ratios_brief}
 
-MISSION : Produis 3 paragraphes EXCLUSIVEMENT NEGATIFS qui demontent la these {synthesis.recommendation}.
-Chaque paragraphe = 1 titre court (10 mots max) + 2-3 phrases d'argumentation negative concrete.
-Identifie les hypotheses les plus fragiles et quantifie les risques de baisse.
+MISSION : Produis 3 arguments negatifs detailles qui demontent la these {synthesis.recommendation}.
+Identifie les hypotheses les plus fragiles, quantifie les risques de baisse avec des chiffres concrets.
 
 JSON requis :
 {{
   "counter_reco": "{counter}",
-  "counter_thesis": "<3 paragraphes negatifs separes par ' | ', MAXIMUM 45 mots par paragraphe, arguments concrets et chiffres>",
-  "counter_risks": ["<titre risque 1>", "<titre risque 2>", "<titre risque 3>"],
+  "counter_thesis": "<3 argumentations separees par ' | ' — chaque argumentation = 2-3 phrases completes, MINIMUM 30 mots, MAXIMUM 50 mots, avec chiffres et faits concrets, PAS de titre>",
+  "counter_risks": ["<titre court 5 mots max risque 1>", "<titre court 5 mots max risque 2>", "<titre court 5 mots max risque 3>"],
   "conviction_delta": <float -1 (these fragile) a 0 (these solide)>,
   "key_assumptions": ["<hypothese fragile 1>", "<hypothese fragile 2>"],
   "confidence_score": <float 0-1>,
