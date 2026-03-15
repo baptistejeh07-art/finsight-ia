@@ -39,6 +39,8 @@ class SynthesisResult:
     financial_commentary: str = ""
     ratio_commentary:    str = ""
     dcf_commentary:      str = ""
+    positive_themes:     list = field(default_factory=list)
+    negative_themes:     list = field(default_factory=list)
     invalidation_list:   list = field(default_factory=list)
     comparable_peers:    list = field(default_factory=list)
     football_field:      list = field(default_factory=list)
@@ -128,6 +130,8 @@ JSON requis (tous les champs obligatoires) :
   "financial_commentary":"<2-3 phrases tendances P&L croissance marges cash>",
   "ratio_commentary":"<1-2 phrases ratios vs secteur>",
   "dcf_commentary":"<1-2 phrases hypotheses DCF sensibilite>",
+  "positive_themes":["<catalyseur positif 1>","<catalyseur positif 2>","<catalyseur positif 3>"],
+  "negative_themes":["<risque negatif 1>","<risque negatif 2>","<risque negatif 3>"],
   "is_projections":{{
     "{ny1}":{{"revenue":<float en memes unites que historique>,"revenue_growth":<float 0-1>,"gross_margin":<float 0-1>,"ebitda":<float>,"ebitda_margin":<float 0-1>,"net_income":<float>,"net_margin":<float 0-1>}},
     "{ny2}":{{"revenue":<float>,"revenue_growth":<float 0-1>,"gross_margin":<float 0-1>,"ebitda":<float>,"ebitda_margin":<float 0-1>,"net_income":<float>,"net_margin":<float 0-1>}}
@@ -208,6 +212,8 @@ class AgentSynthese:
             financial_commentary = parsed.get("financial_commentary", ""),
             ratio_commentary     = parsed.get("ratio_commentary", ""),
             dcf_commentary       = parsed.get("dcf_commentary", ""),
+            positive_themes      = parsed.get("positive_themes", []),
+            negative_themes      = parsed.get("negative_themes", []),
             invalidation_list    = parsed.get("invalidation_list", []),
             comparable_peers     = parsed.get("comparable_peers", []),
             football_field       = parsed.get("football_field", []),

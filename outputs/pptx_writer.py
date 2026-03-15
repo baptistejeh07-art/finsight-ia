@@ -2026,10 +2026,20 @@ def _slide_sentiment(prs, snap, synthesis, sentiment):
         if v is None: return "\u2014"
         return str(int(v))
 
+    pos_themes  = _g(synthesis, "positive_themes", []) or []
+    neg_themes  = _g(synthesis, "negative_themes", []) or []
+    pos_theme_str  = ", ".join(str(t) for t in pos_themes[:3]) or "Catalyseurs, croissance, r\u00e9sultats"
+    neg_theme_str  = ", ".join(str(t) for t in neg_themes[:3]) or "Risques macro, concurrence, dette"
+
+    # Détection articles tous neutres (souvent = langue non-anglaise + FinBERT)
+    _all_neutral = (sent_articles > 0 and (neu_cnt or 0) >= sent_articles * 0.9)
+    neut_theme_str = ("Articles non-anglais \u2014 FinBERT limite au fran\u00e7ais"
+                      if _all_neutral else "Actualit\u00e9 sectorielle g\u00e9n\u00e9rale")
+
     break_rows = [
-        ["Positif",  _cnt(pos_cnt),  _fmt_score(pos_val),  "Catalyseurs, croissance, r\u00e9sultats"],
-        ["Neutre",   _cnt(neu_cnt),  _fmt_score(neut_val), "Actualit\u00e9 sectorielle g\u00e9n\u00e9rale"],
-        ["N\u00e9gatif",  _cnt(neg_cnt),  _fmt_score(neg_val),  "Risques macro, concurrence, dette"],
+        ["Positif",       _cnt(pos_cnt), _fmt_score(pos_val),  pos_theme_str],
+        ["Neutre",        _cnt(neu_cnt), _fmt_score(neut_val), neut_theme_str],
+        ["N\u00e9gatif",  _cnt(neg_cnt), _fmt_score(neg_val),  neg_theme_str],
     ]
     sent_row_fills = [GREEN_PALE, WHITE, RED_PALE]
     sent_tbl = add_table(slide, 1.02, 6.48, 23.37, 2.79,
