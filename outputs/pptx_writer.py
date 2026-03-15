@@ -1,0 +1,1762 @@
+# =============================================================================
+# FinSight IA — PPTX Writer (Pitchbook 20 slides)
+# outputs/pptx_writer.py
+#
+# Genere un pitchbook IB professionnel en 20 slides via python-pptx.
+# Utilise le FinSightState (dict) produit par le pipeline LangGraph.
+#
+# Usage :
+#   writer = PPTXWriter()
+#   path   = writer.generate(state, output_path)
+# =============================================================================
+
+from __future__ import annotations
+
+import logging
+import math
+import statistics
+from datetime import date, datetime
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+log = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Palette couleurs
+# ---------------------------------------------------------------------------
+
+NAVY       = "1B3A6B"
+NAVY_MID   = "2E5FA3"
+NAVY_PALE  = "EEF3FA"
+GREEN      = "1A7A4A"
+GREEN_PALE = "EAF4EF"
+RED        = "A82020"
+RED_PALE   = "FAF0EF"
+AMBER      = "B06000"
+AMBER_PALE = "FDF6E8"
+WHITE      = "FFFFFF"
+GREY_BG    = "F7F8FA"
+GREY_TXT   = "555555"
+GREY_LIGHT = "888888"
+BLACK      = "0D0D0D"
+
+
+# ---------------------------------------------------------------------------
+# Imports pptx (lazy-guardés dans PPTXWriter.generate)
+# ---------------------------------------------------------------------------
+
+def _lazy_imports():
+    from pptx import Presentation
+    from pptx.util import Cm, Pt, Emu
+    from pptx.dml.color import RGBColor
+    from pptx.enum.text import PP_ALIGN
+    return Presentation, Cm, Pt, Emu, RGBColor, PP_ALIGN
+
+
+# ---------------------------------------------------------------------------
+# Helpers couleur
+# ---------------------------------------------------------------------------
+
+def rgb(hex_str: str):
+    from pptx.dml.color import RGBColor
+    h = hex_str.lstrip("#")
+    return RGBColor(int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16))
+
+
+# ---------------------------------------------------------------------------
+# Helpers mise en forme des nombres
+# ---------------------------------------------------------------------------
+
+def _fr(v, dp: int = 1, suffix: str = "") -> str:
+    if v is None:
+        return "—"
+    try:
+        return f"{float(v):,.{dp}f}".replace(",", " ").replace(".", ",") + suffix
+    except Exception:
+        return "—"
+
+
+def _frm(v, cur_sym: str = "$") -> str:
+    if v is None:
+        return "—"
+    try:
+        v = float(v)
+        if abs(v) >= 1000:
+            return _fr(v / 1000, 1) + " Mds" + cur_sym
+        return _fr(v, 0) + " M" + cur_sym
+    except Exception:
+        return "—"
+
+
+def _frpct(v, signed: bool = False) -> str:
+    if v is None:
+        return "—"
+    try:
+        s = f"{float(v) * 100:+.1f}" if signed else f"{float(v) * 100:.1f}"
+        return s.replace(".", ",") + " %"
+    except Exception:
+        return "—"
+
+
+def _frx(v) -> str:
+    if v is None:
+        return "—"
+    try:
+        return f"{float(v):.1f}".replace(".", ",") + "x"
+    except Exception:
+        return "—"
+
+
+def _upside(target, current) -> str:
+    if not target or not current:
+        return "—"
+    try:
+        return f"{(float(target) / float(current) - 1) * 100:+.1f}".replace(".", ",") + " %"
+    except Exception:
+        return "—"
+
+
+def _g(obj, attr, default=None):
+    if obj is None:
+        return default
+    if isinstance(obj, dict):
+        return obj.get(attr, default)
+    return getattr(obj, attr, default)
+
+
+# ---------------------------------------------------------------------------
+# Helpers formes pptx
+# ---------------------------------------------------------------------------
+
+def add_rect(slide, x, y, w, h, fill_hex, line_hex=None, line_width_pt=0):
+    from pptx.util import Cm, Pt
+    shape = slide.shapes.add_shape(1, Cm(x), Cm(y), Cm(w), Cm(h))
+    shape.fill.solid()
+    shape.fill.fore_color.rgb = rgb(fill_hex)
+    if line_hex:
+        shape.line.color.rgb = rgb(line_hex)
+        shape.line.width = Pt(line_width_pt)
+    else:
+        shape.line.fill.background()
+    return shape
+
+
+def add_text_box(slide, x, y, w, h, text, font_size=10, color_hex=BLACK,
+                 bold=False, italic=False, align=None,
+                 font_name="Calibri", wrap=True):
+    from pptx.util import Cm, Pt
+    from pptx.enum.text import PP_ALIGN
+    if align is None:
+        align = PP_ALIGN.LEFT
+    txBox = slide.shapes.add_textbox(Cm(x), Cm(y), Cm(w), Cm(h))
+    tf = txBox.text_frame
+    tf.word_wrap = wrap
+    p = tf.paragraphs[0]
+    p.alignment = align
+    run = p.add_run()
+    run.text = str(text) if text is not None else "—"
+    run.font.name = font_name
+    run.font.size = Pt(font_size)
+    run.font.bold = bold
+    run.font.italic = italic
+    run.font.color.rgb = rgb(color_hex)
+    return txBox
+
+
+def add_multiline_text_box(slide, x, y, w, h, lines, font_size=8.5,
+                           color_hex=BLACK, font_name="Calibri", wrap=True):
+    """Text box avec plusieurs paragraphes (list of str)."""
+    from pptx.util import Cm, Pt
+    from pptx.enum.text import PP_ALIGN
+    txBox = slide.shapes.add_textbox(Cm(x), Cm(y), Cm(w), Cm(h))
+    tf = txBox.text_frame
+    tf.word_wrap = wrap
+    first = True
+    for line in lines:
+        if first:
+            p = tf.paragraphs[0]
+            first = False
+        else:
+            p = tf.add_paragraph()
+        p.alignment = PP_ALIGN.LEFT
+        run = p.add_run()
+        run.text = str(line) if line is not None else ""
+        run.font.name = font_name
+        run.font.size = Pt(font_size)
+        run.font.color.rgb = rgb(color_hex)
+    return txBox
+
+
+def _set_cell(cell, text, font_size=8, bold=False, color_hex=WHITE,
+              fill_hex=None, align=None, font_name="Calibri"):
+    from pptx.util import Pt
+    from pptx.enum.text import PP_ALIGN
+    if align is None:
+        align = PP_ALIGN.CENTER
+    if fill_hex:
+        cell.fill.solid()
+        cell.fill.fore_color.rgb = rgb(fill_hex)
+    cell.text = str(text) if text is not None else "—"
+    para = cell.text_frame.paragraphs[0]
+    para.alignment = align
+    run = para.runs[0] if para.runs else para.add_run()
+    run.text = str(text) if text is not None else "—"
+    run.font.name = font_name
+    run.font.size = Pt(font_size)
+    run.font.bold = bold
+    run.font.color.rgb = rgb(color_hex)
+
+
+def add_table(slide, x, y, w, h, num_rows, num_cols, col_widths_pct=None,
+              header_data=None, rows_data=None,
+              header_fill=NAVY, row_fills=None):
+    """
+    Ajoute un tableau python-pptx.
+    header_data : list de strings (optionnel)
+    rows_data   : list of list of strings
+    col_widths_pct : list of floats (somme=1.0) — proportions colonnes
+    row_fills   : list de fill_hex pour chaque ligne data (cycling)
+    """
+    from pptx.util import Cm, Pt, Emu
+    from pptx.enum.text import PP_ALIGN
+
+    total_rows = num_rows + (1 if header_data else 0)
+    tbl = slide.shapes.add_table(
+        total_rows, num_cols, Cm(x), Cm(y), Cm(w), Cm(h)
+    ).table
+
+    # Largeurs colonnes
+    total_emu = int(Cm(w))
+    if col_widths_pct:
+        for ci, pct in enumerate(col_widths_pct):
+            tbl.columns[ci].width = int(total_emu * pct)
+    else:
+        col_w = total_emu // num_cols
+        for ci in range(num_cols):
+            tbl.columns[ci].width = col_w
+
+    row_offset = 0
+    # Header
+    if header_data:
+        for ci, val in enumerate(header_data):
+            cell = tbl.cell(0, ci)
+            _set_cell(cell, val, font_size=8, bold=True,
+                      color_hex=WHITE, fill_hex=header_fill,
+                      align=PP_ALIGN.CENTER)
+        row_offset = 1
+
+    # Data rows
+    if rows_data:
+        default_fills = [WHITE, GREY_BG]
+        for ri, row in enumerate(rows_data):
+            if row_fills and ri < len(row_fills):
+                fill = row_fills[ri]
+            else:
+                fill = default_fills[ri % 2]
+            for ci, val in enumerate(row):
+                cell = tbl.cell(ri + row_offset, ci)
+                align = PP_ALIGN.LEFT if ci == 0 else PP_ALIGN.CENTER
+                _set_cell(cell, val, font_size=8, bold=False,
+                          color_hex=BLACK, fill_hex=fill,
+                          align=align)
+
+    return tbl
+
+
+# ---------------------------------------------------------------------------
+# Elements communs des slides
+# ---------------------------------------------------------------------------
+
+def navy_bar(slide):
+    add_rect(slide, 0, 0, 25.4, 1.65, NAVY)
+
+
+def footer_bar(slide, ticker="", co_name=""):
+    add_rect(slide, 0, 13.39, 25.4, 0.89, NAVY)
+    add_text_box(slide, 1.02, 13.44, 23.37, 0.56,
+                 "FinSight IA  \u00b7  Usage confidentiel", 8, WHITE)
+
+
+def section_dots(slide, active: int):
+    from pptx.enum.text import PP_ALIGN
+    xs = [17.02, 17.65, 18.29, 18.92, 19.56]
+    for i, x in enumerate(xs):
+        num = i + 1
+        fill = WHITE if num == active else NAVY_MID
+        add_rect(slide, x, 0.33, 0.51, 0.51, fill)
+        color = NAVY if num == active else WHITE
+        add_text_box(slide, x + 0.02, 0.34, 0.47, 0.44,
+                     str(num), 7, color, bold=True,
+                     align=PP_ALIGN.CENTER)
+
+
+def slide_title(slide, title: str, subtitle: str = ""):
+    from pptx.enum.text import PP_ALIGN
+    add_text_box(slide, 1.02, 0.33, 15.49, 0.97,
+                 title, 18, WHITE, bold=True)
+    if subtitle:
+        add_text_box(slide, 1.02, 1.73, 23.37, 0.56,
+                     subtitle, 9, NAVY_PALE)
+
+
+def kpi_box(slide, x, y, w, h, value, label, sub="",
+            fill=NAVY_PALE, accent=NAVY_MID):
+    from pptx.enum.text import PP_ALIGN
+    add_rect(slide, x, y, w, h, fill)
+    add_rect(slide, x, y, 0.13, h, accent)
+    val_color = NAVY if fill != NAVY else WHITE
+    lbl_color = GREY_TXT if fill != NAVY else WHITE
+    sub_color = GREY_LIGHT if fill != NAVY else NAVY_PALE
+    add_text_box(slide, x + 0.25, y + 0.15, w - 0.38, 1.1,
+                 value, 22, val_color, bold=True)
+    add_text_box(slide, x + 0.25, y + 1.25, w - 0.38, 0.57,
+                 label, 9, lbl_color)
+    if sub:
+        add_text_box(slide, x + 0.25, y + 1.8, w - 0.38, 0.46,
+                     sub, 7.5, sub_color)
+
+
+def commentary_box(slide, x, y, w, h, text, accent=NAVY_MID):
+    add_rect(slide, x, y, w, h, NAVY_PALE)
+    add_rect(slide, x, y, 0.13, h, accent)
+    add_text_box(slide, x + 0.38, y + 0.15, w - 0.51, h - 0.3,
+                 text or "—", 8.5, BLACK, wrap=True)
+
+
+def divider_slide(prs, number_str: str, title: str, subtitle: str):
+    from pptx.enum.text import PP_ALIGN
+    slide_layout = prs.slide_layouts[6]
+    slide = prs.slides.add_slide(slide_layout)
+
+    # Left accent bar
+    add_rect(slide, 0, 0, 0.3, 14.29, NAVY_MID)
+
+    # Number watermark
+    add_text_box(slide, 1.27, 3.5, 22.86, 4.57,
+                 number_str, 96, "DDDDDD", bold=True)
+
+    # Title
+    add_text_box(slide, 1.27, 5.21, 21.59, 2.29,
+                 title, 28, NAVY, bold=True)
+
+    # Rule
+    add_rect(slide, 1.27, 7.75, 7.62, 0.05, GREY_LIGHT)
+
+    # Subtitle
+    add_text_box(slide, 1.27, 8.08, 17.78, 0.89,
+                 subtitle, 12, GREY_TXT)
+
+    # Footer text
+    add_text_box(slide, 1.02, 13.34, 23.37, 0.56,
+                 "FinSight IA \u00b7 Usage confidentiel", 8, GREY_TXT)
+
+    return slide
+
+
+# ---------------------------------------------------------------------------
+# State data extraction helpers
+# ---------------------------------------------------------------------------
+
+def _extract_state(state: dict):
+    snap      = state.get("raw_data")
+    synthesis = state.get("synthesis")
+    ratios    = state.get("ratios")
+    devil     = state.get("devil")
+    sentiment = state.get("sentiment")
+    return snap, synthesis, ratios, devil, sentiment
+
+
+def _ratio(ratios, attr):
+    if not ratios:
+        return None
+    latest = getattr(ratios, "latest_year", None)
+    if not latest:
+        return None
+    yrs = getattr(ratios, "years", {}) or {}
+    yr = yrs.get(latest)
+    return getattr(yr, attr, None) if yr else None
+
+
+def _fy(snap, year_key, attr):
+    if not snap or not year_key:
+        return None
+    fy = snap.years.get(year_key) if snap.years else None
+    return getattr(fy, attr, None) if fy else None
+
+
+def _rec_colors(rec: str):
+    rec = (rec or "HOLD").upper()
+    if rec == "BUY":
+        return GREEN_PALE, GREEN
+    elif rec == "SELL":
+        return RED_PALE, RED
+    else:
+        return AMBER_PALE, AMBER
+
+
+def _sent_label_fr(label: str, score: float = 0.0) -> str:
+    label = (label or "NEUTRAL").upper()
+    if label in ("POSITIVE", "POSITIF"):
+        return "Positif"
+    elif label in ("NEGATIVE", "NEGATIF"):
+        return "Negatif"
+    else:
+        return "Neutre +" if score > 0 else "Neutre"
+
+
+def _safe_str(v, default="—") -> str:
+    if v is None:
+        return default
+    s = str(v).strip()
+    return s if s else default
+
+
+def _truncate(s, n: int) -> str:
+    s = _safe_str(s)
+    return s[:n] if len(s) > n else s
+
+
+def _peer_median(peers: list, attr: str):
+    vals = []
+    for p in (peers or []):
+        v = _g(p, attr)
+        if v is not None:
+            try:
+                vals.append(float(v))
+            except Exception:
+                pass
+    if not vals:
+        return None
+    return statistics.median(vals)
+
+
+# ---------------------------------------------------------------------------
+# DCF sensitivity helper
+# ---------------------------------------------------------------------------
+
+def _dcf_value(tbase, wacc_base, tgr_base, w_delta, t_delta):
+    """
+    Approximation lineaire de la valeur DCF autour du point de base.
+    En l'absence de FCF explicites, on scale le prix cible base
+    par le ratio (wacc_ref / wacc_new) * (tgr_new / tgr_ref) simplifie.
+    """
+    if tbase is None:
+        return "—"
+    try:
+        w = wacc_base + w_delta
+        t = tgr_base + t_delta
+        if w <= t or w <= 0:
+            return "—"
+        # Gordon Growth proxy: V ∝ 1 / (w - t)
+        base_spread = wacc_base - tgr_base
+        new_spread  = w - t
+        if base_spread <= 0 or new_spread <= 0:
+            return "—"
+        val = float(tbase) * base_spread / new_spread
+        return _fr(val, 0)
+    except Exception:
+        return "—"
+
+
+# ---------------------------------------------------------------------------
+# Slide 1 — Cover
+# ---------------------------------------------------------------------------
+
+def _slide_cover(prs, snap, synthesis, ratios, devil, sentiment):
+    from pptx.enum.text import PP_ALIGN
+    slide_layout = prs.slide_layouts[6]
+    slide = prs.slides.add_slide(slide_layout)
+
+    ci       = snap.company_info if snap else None
+    mkt      = snap.market if snap else None
+    ticker   = _g(ci, "ticker", "—")
+    co_name  = _g(ci, "company_name", "—")
+    sector   = _g(ci, "sector", "") or ""
+    exchange = getattr(ci, "exchange", "") or "" if ci else ""
+    currency = _g(ci, "currency", "USD") or "USD"
+    cur_sym  = "EUR" if currency == "EUR" else "$"
+    gen_date = _g(ci, "analysis_date", "") or date.today().strftime("%d/%m/%Y")
+    price    = _g(mkt, "share_price")
+
+    rec      = _g(synthesis, "recommendation", "HOLD") or "HOLD"
+    tbase    = _g(synthesis, "target_base")
+    rec_fill, rec_accent = _rec_colors(rec)
+
+    # Top navy band
+    add_rect(slide, 0, 0, 25.4, 3.81, NAVY)
+    add_text_box(slide, 1.27, 0.46, 22.86, 0.71, "FinSight IA", 14, WHITE, bold=True)
+    add_rect(slide, 11.05, 1.32, 3.3, 0.05, WHITE)
+    add_text_box(slide, 1.27, 1.52, 22.86, 0.81,
+                 "Pitchbook  \u2014  Analyse d'investissement", 11, NAVY_PALE)
+
+    # Company name
+    add_text_box(slide, 1.27, 4.19, 22.86, 2.54,
+                 co_name, 32, NAVY, bold=True)
+    add_text_box(slide, 1.27, 6.81, 22.86, 0.71,
+                 f"{ticker}  \u00b7  {exchange}  \u00b7  {sector}", 11, GREY_TXT)
+
+    # Recommendation box
+    upside_str = _upside(tbase, price)
+    add_rect(slide, 8.76, 8.08, 7.87, 1.32, rec_fill)
+    add_rect(slide, 8.76, 8.08, 0.13, 1.32, rec_accent)
+    add_text_box(
+        slide, 9.09, 8.13, 7.37, 1.22,
+        f"● {rec.upper()}  ·  Prix cible base : {_fr(tbase, 0)} {cur_sym}  ·  Upside : {upside_str}",
+        10, rec_accent, bold=True
+    )
+
+    # Bottom rule + credits
+    add_rect(slide, 1.02, 12.4, 23.37, 0.03, "AAAAAA")
+    add_text_box(slide, 1.02, 12.65, 11.43, 0.56,
+                 "Rapport confidentiel", 8, GREY_TXT)
+    add_text_box(slide, 12.95, 12.65, 11.43, 0.56,
+                 gen_date, 8, GREY_TXT, align=PP_ALIGN.RIGHT)
+
+    return slide
+
+
+# ---------------------------------------------------------------------------
+# Slide 2 — Executive Summary
+# ---------------------------------------------------------------------------
+
+def _slide_exec_summary(prs, snap, synthesis, ratios, devil, sentiment):
+    from pptx.enum.text import PP_ALIGN
+    slide_layout = prs.slide_layouts[6]
+    slide = prs.slides.add_slide(slide_layout)
+
+    navy_bar(slide)
+    footer_bar(slide)
+    slide_title(slide, "Executive Summary")
+
+    ci      = snap.company_info if snap else None
+    mkt     = snap.market if snap else None
+    currency = _g(ci, "currency", "USD") or "USD"
+    cur_sym  = "EUR" if currency == "EUR" else "$"
+    price    = _g(mkt, "share_price")
+
+    rec      = _g(synthesis, "recommendation", "HOLD") or "HOLD"
+    conv     = _g(synthesis, "conviction", 0.5) or 0.5
+    conf     = _g(synthesis, "confidence_score", 0.5) or 0.5
+    tbase    = _g(synthesis, "target_base")
+    tbear    = _g(synthesis, "target_bear")
+    tbull    = _g(synthesis, "target_bull")
+    thesis   = _g(synthesis, "thesis", "") or ""
+    strengths= _g(synthesis, "strengths", []) or []
+    risks_s  = _g(synthesis, "risks", []) or []
+
+    rec_fill, rec_accent = _rec_colors(rec)
+
+    beta     = _g(mkt, "beta_levered")
+    rfr      = _g(mkt, "risk_free_rate") or 0.041
+    wacc_val = _g(mkt, "wacc") or 0.10
+
+    sent_score  = _g(sentiment, "score", 0.0) or 0.0
+    sent_label  = _g(sentiment, "label", "NEUTRAL") or "NEUTRAL"
+    sent_articles = _g(sentiment, "articles_analyzed", 0) or 0
+    sent_label_display = _sent_label_fr(sent_label, sent_score)
+
+    # Rec band
+    add_rect(slide, 1.02, 2.08, 23.37, 1.22, rec_fill)
+    add_rect(slide, 1.02, 2.08, 0.13, 1.22, rec_accent)
+    add_text_box(slide, 1.4, 2.13, 3.05, 1.12,
+                 f"● {rec.upper()}", 14, rec_accent, bold=True)
+    bull_str = (
+        f"Bear : {_fr(tbear, 0)} {cur_sym} ({_upside(tbear, price)})  ·  "
+        f"Bull : {_fr(tbull, 0)} {cur_sym} ({_upside(tbull, price)})"
+    )
+    add_text_box(
+        slide, 4.7, 2.13, 19.3, 1.12,
+        f"Prix cible base : {_fr(tbase, 0)} {cur_sym}  ·  Upside : {_upside(tbase, price)}  ·  {bull_str}",
+        9, NAVY
+    )
+
+    # Thesis section header
+    add_rect(slide, 1.02, 3.76, 11.56, 0.71, NAVY)
+    add_text_box(slide, 1.02, 3.76, 11.56, 0.71,
+                 "THESE D'INVESTISSEMENT", 9, WHITE, bold=True)
+
+    strength_ys = [4.57, 5.64, 6.72]
+    thesis_parts = _split_text(thesis, 3)
+    for i, sy in enumerate(strength_ys):
+        label = strengths[i] if i < len(strengths) else (thesis_parts[i] if i < len(thesis_parts) else "")
+        body  = thesis_parts[i] if i < len(thesis_parts) else ""
+        add_rect(slide, 1.02, sy + 0.05, 0.15, 0.36, GREEN)
+        add_text_box(slide, 1.4, sy, 10.92, 0.51,
+                     _truncate(label, 80), 9.5, NAVY, bold=True)
+        if body and body != label:
+            add_text_box(slide, 1.4, sy + 0.5, 10.92, 0.89,
+                         _truncate(body, 120), 8, GREY_TXT)
+
+    # Risks section header
+    add_rect(slide, 13.08, 3.76, 11.3, 0.71, RED)
+    add_text_box(slide, 13.08, 3.76, 11.3, 0.71,
+                 "RISQUES PRINCIPAUX", 9, WHITE, bold=True)
+
+    risk_ys = [4.57, 5.64, 6.72]
+    for i, ry in enumerate(risk_ys):
+        risk_text = risks_s[i] if i < len(risks_s) else ""
+        add_rect(slide, 13.08, ry + 0.05, 0.15, 0.36, RED)
+        add_text_box(slide, 13.46, ry, 10.54, 0.51,
+                     _truncate(risk_text, 80), 9.5, NAVY, bold=True)
+
+    # Vertical divider
+    add_rect(slide, 12.57, 3.76, 0.03, 6.1, GREY_LIGHT)
+
+    # Horizontal rule
+    add_rect(slide, 1.02, 10.41, 23.37, 0.03, "AAAAAA")
+
+    # 4 KPI boxes
+    ev_e = _ratio(ratios, "ev_ebitda")
+    peers = _g(synthesis, "comparable_peers", []) or []
+    peer_median_ev_e = _peer_median(peers, "ev_ebitda")
+
+    kpi_box(slide, 1.02, 10.62, 5.64, 2.24,
+            _frx(ev_e), "EV/EBITDA",
+            f"vs {_frx(peer_median_ev_e)} mediane peers")
+    kpi_box(slide, 6.91, 10.62, 5.64, 2.24,
+            _frpct(wacc_val), "WACC",
+            f"Beta {_fr(beta, 2) if beta else '—'}  ·  RFR {_frpct(rfr)}")
+    kpi_box(slide, 12.80, 10.62, 5.64, 2.24,
+            f"{_fr(tbase, 0)} {cur_sym}", "Valeur intrinseque DCF",
+            f"Upside de {_upside(tbase, price)} vs cours")
+    kpi_box(slide, 18.69, 10.62, 5.64, 2.24,
+            f"{sent_score:+.3f}".replace(".", ","),
+            "Sentiment FinBERT",
+            f"{sent_label_display}  ·  {sent_articles} articles")
+
+    return slide
+
+
+# ---------------------------------------------------------------------------
+# Slide 3 — Sommaire
+# ---------------------------------------------------------------------------
+
+def _slide_sommaire(prs):
+    from pptx.enum.text import PP_ALIGN
+    slide_layout = prs.slide_layouts[6]
+    slide = prs.slides.add_slide(slide_layout)
+
+    navy_bar(slide)
+    footer_bar(slide)
+    slide_title(slide, "Sommaire")
+
+    sections = [
+        ("01", "Company Overview",    "Presentation, modele economique, donnees de marche", "3-5"),
+        ("02", "Analyse Financiere",  "Compte de resultat, bilan & liquidite, ratios",       "6-8"),
+        ("03", "Valorisation",        "DCF, comparable peers, Football Field",               "9-11"),
+        ("04", "Risques & Strategie", "Avocat du diable, conditions d'invalidation",         "12-13"),
+        ("05", "Sentiment & Annexes", "FinBERT, actionnariat & historique de cours",         "14-15"),
+    ]
+    fills = [WHITE, GREY_BG, WHITE, GREY_BG, WHITE]
+    ys    = [2.49, 4.42, 6.35, 8.28, 10.21]
+
+    for i, (num, name, desc, pages) in enumerate(sections):
+        y    = ys[i]
+        fill = fills[i]
+        add_rect(slide, 1.02, y, 23.37, 1.73, fill)
+        add_rect(slide, 1.02, y, 0.13, 1.73, NAVY_MID)
+        add_text_box(slide, 1.40, y + 0.15, 1.52, 1.43,
+                     num, 28, GREY_LIGHT, bold=True)
+        add_text_box(slide, 3.20, y + 0.20, 17.00, 0.71,
+                     name, 13, NAVY, bold=True)
+        add_text_box(slide, 3.20, y + 0.85, 17.00, 0.71,
+                     desc, 8.5, GREY_TXT)
+        add_text_box(slide, 20.57, y + 0.45, 3.82, 0.71,
+                     f"p. {pages}", 9, NAVY_MID,
+                     align=PP_ALIGN.RIGHT)
+
+    return slide
+
+
+# ---------------------------------------------------------------------------
+# Slide 5 — Company Overview
+# ---------------------------------------------------------------------------
+
+def _slide_company_overview(prs, snap, synthesis, ratios):
+    from pptx.enum.text import PP_ALIGN
+    slide_layout = prs.slide_layouts[6]
+    slide = prs.slides.add_slide(slide_layout)
+
+    navy_bar(slide)
+    footer_bar(slide)
+    section_dots(slide, 1)
+
+    ci      = snap.company_info if snap else None
+    mkt     = snap.market if snap else None
+    ticker  = _g(ci, "ticker", "—")
+    co_name = _g(ci, "company_name", "—")
+    currency = _g(ci, "currency", "USD") or "USD"
+    cur_sym  = "EUR" if currency == "EUR" else "$"
+    price    = _g(mkt, "share_price")
+
+    slide_title(slide, "Company Overview",
+                f"{co_name}  ·  Presentation & Positionnement strategique")
+
+    desc     = _g(synthesis, "company_description", "") or ""
+    strengths= _g(synthesis, "strengths", []) or []
+
+    # Description box
+    add_rect(slide, 1.02, 2.67, 13.72, 9.78, GREY_BG)
+    add_rect(slide, 1.02, 2.67, 0.13, 9.78, NAVY_MID)
+    add_text_box(slide, 1.40, 2.84, 12.95, 3.0,
+                 _truncate(desc, 400), 8.5, BLACK, wrap=True)
+
+    # Strengths as bullet points
+    bullet_y = 6.10
+    add_text_box(slide, 1.40, 5.70, 12.95, 0.51,
+                 "Points forts", 9, NAVY, bold=True)
+    for i, strength in enumerate(strengths[:4]):
+        add_rect(slide, 1.40, bullet_y + i * 0.95 + 0.12, 0.20, 0.20, GREEN)
+        add_text_box(slide, 1.75, bullet_y + i * 0.95, 12.00, 0.71,
+                     _truncate(str(strength), 120), 8.5, BLACK)
+
+    # 4 KPI boxes on right
+    shares    = _g(mkt, "shares_diluted")
+    mktcap    = (shares * price / 1000) if (shares and price) else None
+    years_sorted = sorted(snap.years.keys(), key=lambda y: str(y).replace("_LTM", "")) if (snap and snap.years) else []
+    latest_yr_key = years_sorted[-1] if years_sorted else None
+    rev = _fy(snap, latest_yr_key, "revenue")
+
+    kpi_ys = [2.67, 5.13, 7.59, 10.06]
+    kpi_box(slide, 15.44, kpi_ys[0], 8.89, 2.29,
+            _frm(mktcap * 1000 if mktcap else None, cur_sym) if mktcap else "—",
+            "Capitalisation boursiere")
+    kpi_box(slide, 15.44, kpi_ys[1], 8.89, 2.29,
+            _frm(rev, cur_sym),
+            f"Chiffre d'affaires ({latest_yr_key or 'LTM'})")
+    kpi_box(slide, 15.44, kpi_ys[2], 8.89, 2.29,
+            f"{_fr(price, 2)} {cur_sym}" if price else "—",
+            "Cours actuel")
+    ev_e = _ratio(ratios, "ev_ebitda")
+    pe   = _ratio(ratios, "pe_ratio")
+    kpi_box(slide, 15.44, kpi_ys[3], 8.89, 2.29,
+            _frx(ev_e),
+            "EV/EBITDA (LTM)",
+            f"P/E : {_frx(pe)}")
+
+    return slide
+
+
+# ---------------------------------------------------------------------------
+# Slide 6 — Business Model (Segments)
+# ---------------------------------------------------------------------------
+
+def _slide_business_model(prs, snap, synthesis):
+    slide_layout = prs.slide_layouts[6]
+    slide = prs.slides.add_slide(slide_layout)
+
+    navy_bar(slide)
+    footer_bar(slide)
+    section_dots(slide, 1)
+    slide_title(slide, "Modele Economique",
+                "Segments operationnels et moteurs de croissance")
+
+    strengths = _g(synthesis, "strengths", []) or []
+    risks_s   = _g(synthesis, "risks", []) or []
+    peers     = _g(synthesis, "comparable_peers", []) or []
+
+    # 4 columns from strengths or generic labels
+    col_configs = [
+        (NAVY_PALE,  NAVY_MID,   "Segment 1", strengths[0] if len(strengths) > 0 else "Core Business"),
+        (GREEN_PALE, GREEN,      "Segment 2", strengths[1] if len(strengths) > 1 else "Growth Driver"),
+        (GREY_BG,    GREY_LIGHT, "Segment 3", risks_s[0]   if len(risks_s)   > 0 else "International"),
+        (AMBER_PALE, AMBER,      "Segment 4", strengths[2] if len(strengths) > 2 else "Innovation"),
+    ]
+
+    col_w    = 5.84
+    col_gap  = 0.3
+    start_x  = 1.02
+    col_h    = 9.78
+    col_y    = 2.67
+    pcts     = ["25%", "35%", "22%", "18%"]
+
+    for i, (fill, accent, label, text) in enumerate(col_configs):
+        cx = start_x + i * (col_w + col_gap)
+        add_rect(slide, cx, col_y, col_w, col_h, fill)
+        add_rect(slide, cx, col_y, col_w, 0.30, accent)  # top strip
+        add_text_box(slide, cx + 0.30, col_y + 0.50, col_w - 0.60, 1.78,
+                     pcts[i], 42, accent, bold=True)
+        add_text_box(slide, cx + 0.30, col_y + 2.29, col_w - 0.60, 0.30,
+                     "du CA", 9, GREY_TXT)
+        add_rect(slide, cx + 0.30, col_y + 2.79, col_w - 0.60, 0.05, GREY_LIGHT)
+        add_text_box(slide, cx + 0.30, col_y + 3.05, col_w - 0.60, 0.71,
+                     label, 10, NAVY, bold=True, wrap=True)
+        add_text_box(slide, cx + 0.30, col_y + 3.81, col_w - 0.60, 5.0,
+                     _truncate(str(text), 200), 8, GREY_TXT, wrap=True)
+
+    return slide
+
+
+# ---------------------------------------------------------------------------
+# Slide 8 — Compte de Resultat
+# ---------------------------------------------------------------------------
+
+def _slide_is(prs, snap, synthesis, ratios):
+    from pptx.enum.text import PP_ALIGN
+    slide_layout = prs.slide_layouts[6]
+    slide = prs.slides.add_slide(slide_layout)
+
+    navy_bar(slide)
+    footer_bar(slide)
+    section_dots(slide, 2)
+
+    ci      = snap.company_info if snap else None
+    currency= _g(ci, "currency", "USD") or "USD"
+    cur_sym = "EUR" if currency == "EUR" else "$"
+
+    years_sorted = sorted(snap.years.keys(), key=lambda y: str(y).replace("_LTM", "")) if (snap and snap.years) else []
+    is_proj  = _g(synthesis, "is_projections", {}) or {}
+    proj_keys = list(is_proj.keys())
+
+    yr_range_start = years_sorted[0] if years_sorted else ""
+    yr_range_end   = proj_keys[-1] if proj_keys else (years_sorted[-1] if years_sorted else "")
+
+    slide_title(slide, "Analyse Financiere — Compte de Resultat",
+                f"{currency} millions  ·  {yr_range_start}–{yr_range_end}")
+
+    # Build display columns (up to 3 hist + 2 proj)
+    hist_cols = years_sorted[-3:] if len(years_sorted) >= 3 else years_sorted
+    proj_cols = proj_keys[:2]
+    all_cols  = hist_cols + proj_cols
+
+    header = ["Indicateur"] + [str(c) for c in all_cols]
+    n_cols  = len(header)
+
+    # IS rows
+    rows_data = []
+    for col_k in all_cols:
+        pass  # computed below
+
+    def _get_col(col_k):
+        if col_k in proj_keys:
+            pd = is_proj.get(col_k, {})
+            return pd
+        else:
+            fy = snap.years.get(col_k) if (snap and snap.years) else None
+            yr = ratios.years.get(col_k) if (ratios and ratios.years) else None
+            return {"fy": fy, "yr": yr}
+
+    row_labels = [
+        "Chiffre d'affaires",
+        "Croissance YoY",
+        "Marge brute",
+        "EBITDA",
+        "Marge EBITDA",
+        "Resultat net",
+        "Marge nette",
+    ]
+
+    rows_data = []
+    for rl in row_labels:
+        row = [rl]
+        for col_k in all_cols:
+            d = _get_col(col_k)
+            if col_k in proj_keys:
+                rev   = _g(d, "revenue")
+                grow  = _g(d, "revenue_growth")
+                gm    = _g(d, "gross_margin")
+                ebitda= _g(d, "ebitda")
+                em    = _g(d, "ebitda_margin")
+                ni    = _g(d, "net_income")
+                nm    = _g(d, "net_margin")
+            else:
+                fy = d.get("fy")
+                yr = d.get("yr")
+                rev   = getattr(fy, "revenue", None) if fy else None
+                grow  = getattr(yr, "revenue_growth", None) if yr else None
+                gm    = getattr(yr, "gross_margin", None) if yr else None
+                ebitda= getattr(yr, "ebitda", None) if yr else None
+                em    = getattr(yr, "ebitda_margin", None) if yr else None
+                ni    = getattr(yr, "net_income", None) if yr else None
+                nm    = getattr(yr, "net_margin", None) if yr else None
+
+            if rl == "Chiffre d'affaires":
+                row.append(_frm(rev, cur_sym))
+            elif rl == "Croissance YoY":
+                row.append(_frpct(grow, signed=True))
+            elif rl == "Marge brute":
+                row.append(_frpct(gm))
+            elif rl == "EBITDA":
+                row.append(_frm(ebitda, cur_sym))
+            elif rl == "Marge EBITDA":
+                row.append(_frpct(em))
+            elif rl == "Resultat net":
+                row.append(_frm(ni, cur_sym))
+            elif rl == "Marge nette":
+                row.append(_frpct(nm))
+            else:
+                row.append("—")
+        rows_data.append(row)
+
+    col_w_total = 23.37
+    first_col_pct = 0.28
+    other_pct     = (1.0 - first_col_pct) / max(len(all_cols), 1)
+    col_widths_pct = [first_col_pct] + [other_pct] * len(all_cols)
+
+    tbl_h = min(1.0 + len(row_labels) * 0.71, 5.5)
+    add_table(slide, 1.02, 2.54, col_w_total, tbl_h,
+              len(row_labels), n_cols,
+              col_widths_pct=col_widths_pct,
+              header_data=header,
+              rows_data=rows_data)
+
+    # Commentary
+    fin_comment = _g(synthesis, "financial_commentary", "") or ""
+    commentary_box(slide, 1.02, 8.94, 23.37, 3.40, fin_comment)
+
+    return slide
+
+
+# ---------------------------------------------------------------------------
+# Slide 9 — Bilan & Liquidite
+# ---------------------------------------------------------------------------
+
+def _slide_bilan(prs, snap, synthesis, ratios):
+    from pptx.enum.text import PP_ALIGN
+    slide_layout = prs.slide_layouts[6]
+    slide = prs.slides.add_slide(slide_layout)
+
+    navy_bar(slide)
+    footer_bar(slide)
+    section_dots(slide, 2)
+
+    ci      = snap.company_info if snap else None
+    currency= _g(ci, "currency", "USD") or "USD"
+    cur_sym = "EUR" if currency == "EUR" else "$"
+
+    years_sorted  = sorted(snap.years.keys(), key=lambda y: str(y).replace("_LTM", "")) if (snap and snap.years) else []
+    latest_yr_key = years_sorted[-1] if years_sorted else None
+    latest_fy     = snap.years.get(latest_yr_key) if (snap and latest_yr_key) else None
+
+    slide_title(slide, "Bilan & Liquidite",
+                f"Structure financiere  ·  {currency} millions  ·  LTM {latest_yr_key or ''}")
+
+    cash     = getattr(latest_fy, "cash", None) if latest_fy else None
+    ltd      = getattr(latest_fy, "long_term_debt", None) if latest_fy else None
+    std      = getattr(latest_fy, "short_term_debt", None) if latest_fy else None
+    total_debt = ((_safe_float(ltd) or 0) + (_safe_float(std) or 0)) or None
+    net_debt_val = ((_safe_float(total_debt) or 0) - (_safe_float(cash) or 0)) if (total_debt is not None or cash is not None) else None
+
+    kpi_box(slide, 1.02, 2.67, 7.37, 2.29, _frm(cash, cur_sym), "Cash & equivalents")
+    kpi_box(slide, 1.02, 5.28, 7.37, 2.29, _frm(ltd, cur_sym), "Dette long terme")
+    kpi_box(slide, 1.02, 7.90, 7.37, 2.29, _frm(net_debt_val, cur_sym), "Dette nette",
+            fill=NAVY, accent=WHITE)
+
+    # Ratio table
+    cr  = _ratio(ratios, "current_ratio")
+    qr  = _ratio(ratios, "quick_ratio")
+    de  = _ratio(ratios, "debt_equity")
+    ic  = _ratio(ratios, "interest_coverage")
+
+    ratio_rows = [
+        ["Ratio liquidite courante", _fr(cr, 2), "> 1,5"],
+        ["Ratio rapide (quick)",     _fr(qr, 2), "> 1,0"],
+        ["D/E",                      _frx(de),   "< 2,0x"],
+        ["Couverture interets",      _frx(ic),   "> 3,0x"],
+    ]
+    add_table(slide, 9.4, 2.54, 14.99, 4.0,
+              len(ratio_rows), 3,
+              col_widths_pct=[0.50, 0.25, 0.25],
+              header_data=["Ratio", "Valeur", "Reference"],
+              rows_data=ratio_rows)
+
+    fin_comment = _g(synthesis, "financial_commentary", "") or ""
+    commentary_box(slide, 1.02, 10.29, 23.37, 1.98, fin_comment[:300])
+
+    return slide
+
+
+# ---------------------------------------------------------------------------
+# Slide 10 — Ratios Cles
+# ---------------------------------------------------------------------------
+
+def _slide_ratios(prs, snap, synthesis, ratios):
+    from pptx.enum.text import PP_ALIGN
+    slide_layout = prs.slide_layouts[6]
+    slide = prs.slides.add_slide(slide_layout)
+
+    navy_bar(slide)
+    footer_bar(slide)
+    section_dots(slide, 2)
+
+    years_sorted  = sorted(snap.years.keys(), key=lambda y: str(y).replace("_LTM", "")) if (snap and snap.years) else []
+    latest_yr_key = years_sorted[-1] if years_sorted else None
+
+    slide_title(slide, "Ratios Cles vs. Benchmark Sectoriel",
+                f"Positionnement relatif  ·  LTM {latest_yr_key or ''}")
+
+    pe   = _ratio(ratios, "pe_ratio")
+    ev_e = _ratio(ratios, "ev_ebitda")
+    ev_r = _ratio(ratios, "ev_revenue")
+    gm   = _ratio(ratios, "gross_margin")
+    em   = _ratio(ratios, "ebitda_margin")
+    roe  = _ratio(ratios, "roe")
+    az   = _ratio(ratios, "altman_z")
+    bm   = _ratio(ratios, "beneish_m")
+
+    def _lecture_pe(v):
+        if v is None: return "—"
+        try:
+            v = float(v)
+            if v < 0:    return "Deficit"
+            if v < 15:   return "Sous-value"
+            if v < 25:   return "Correct"
+            if v < 40:   return "Premium"
+            return "Eleve"
+        except: return "—"
+
+    def _lecture_eve(v):
+        if v is None: return "—"
+        try:
+            v = float(v)
+            if v < 8:   return "Bas"
+            if v < 14:  return "Correct"
+            if v < 20:  return "Premium"
+            return "Tres eleve"
+        except: return "—"
+
+    def _lecture_z(v):
+        if v is None: return "—"
+        try:
+            v = float(v)
+            if v >= 2.99: return "Solide"
+            if v >= 1.81: return "Zone grise"
+            return "Detresse"
+        except: return "—"
+
+    def _lecture_bm(v):
+        if v is None: return "—"
+        try:
+            return "Risque manip." if float(v) > -2.22 else "Aucun signal"
+        except: return "—"
+
+    rows = [
+        ["P/E",          _frx(pe),       "15–25x",   _lecture_pe(pe)],
+        ["EV/EBITDA",    _frx(ev_e),     "8–14x",    _lecture_eve(ev_e)],
+        ["EV/Revenue",   _frx(ev_r),     "1–5x",     "—"],
+        ["Marge brute",  _frpct(gm),     "> 40 %",   "—"],
+        ["Marge EBITDA", _frpct(em),     "> 20 %",   "—"],
+        ["ROE",          _frpct(roe),    "> 15 %",   "—"],
+        ["Altman Z",     _fr(az, 2),     "> 2,99",   _lecture_z(az)],
+        ["Beneish M",    _fr(bm, 2),     "< -2,22",  _lecture_bm(bm)],
+    ]
+
+    add_table(slide, 1.02, 2.54, 23.37, 5.84,
+              len(rows), 4,
+              col_widths_pct=[0.25, 0.25, 0.25, 0.25],
+              header_data=["Indicateur", "Valeur", "Benchmark", "Lecture"],
+              rows_data=rows)
+
+    ratio_comment = _g(synthesis, "ratio_commentary", "") or ""
+    commentary_box(slide, 1.02, 9.02, 23.37, 3.35, ratio_comment)
+
+    return slide
+
+
+# ---------------------------------------------------------------------------
+# Slide 12 — DCF & Scenarios
+# ---------------------------------------------------------------------------
+
+def _slide_dcf(prs, snap, synthesis, ratios):
+    from pptx.enum.text import PP_ALIGN
+    slide_layout = prs.slide_layouts[6]
+    slide = prs.slides.add_slide(slide_layout)
+
+    navy_bar(slide)
+    footer_bar(slide)
+    section_dots(slide, 3)
+    slide_title(slide, "Valorisation — DCF & Scenarios")
+
+    ci      = snap.company_info if snap else None
+    mkt     = snap.market if snap else None
+    currency= _g(ci, "currency", "USD") or "USD"
+    cur_sym = "EUR" if currency == "EUR" else "$"
+    price   = _g(mkt, "share_price")
+    wacc    = _g(mkt, "wacc") or 0.10
+    beta    = _g(mkt, "beta_levered")
+    rfr     = _g(mkt, "risk_free_rate") or 0.041
+    erp     = _g(mkt, "erp") or 0.055
+    tgr     = _g(mkt, "terminal_growth") or 0.03
+
+    tbase   = _g(synthesis, "target_base")
+    tbear   = _g(synthesis, "target_bear")
+    tbull   = _g(synthesis, "target_bull")
+
+    # LEFT: DCF params table
+    param_rows = [
+        ["WACC",           _frpct(wacc)],
+        ["TGR",            _frpct(tgr)],
+        ["Cours actuel",   f"{_fr(price, 2)} {cur_sym}"],
+        ["Beta",           _fr(beta, 2) if beta else "—"],
+        ["RFR",            _frpct(rfr)],
+        ["Horizon proj.",  "5 ans"],
+    ]
+    add_table(slide, 1.02, 2.29, 11.18, 3.81,
+              len(param_rows), 2,
+              col_widths_pct=[0.55, 0.45],
+              header_data=["Parametre", "Valeur"],
+              rows_data=param_rows)
+
+    # RIGHT: 3 scenario cards
+    scenarios = [
+        ("Bear", tbear,  RED_PALE,   RED),
+        ("Base", tbase,  NAVY_PALE,  NAVY_MID),
+        ("Bull", tbull,  GREEN_PALE, GREEN),
+    ]
+    sc_w = 3.7
+    sc_x = 12.45
+    sc_y = 2.29
+    sc_h = 3.81
+    for i, (label, val, fill, accent) in enumerate(scenarios):
+        cx = sc_x + i * (sc_w + 0.37)
+        add_rect(slide, cx, sc_y, sc_w, sc_h, fill)
+        add_rect(slide, cx, sc_y, sc_w, 0.30, accent)
+        add_text_box(slide, cx + 0.20, sc_y + 0.46, sc_w - 0.40, 0.61,
+                     label, 10, accent, bold=True)
+        add_text_box(slide, cx + 0.20, sc_y + 1.07, sc_w - 0.40, 1.27,
+                     f"{_fr(val, 0)} {cur_sym}", 22, accent, bold=True)
+        add_text_box(slide, cx + 0.20, sc_y + 2.44, sc_w - 0.40, 0.71,
+                     f"Upside : {_upside(val, price)}", 9, GREY_TXT)
+
+    # Sensitivity table
+    add_text_box(slide, 1.02, 6.65, 23.37, 0.56,
+                 f"Table de sensibilite — Valeur intrinseque ({cur_sym})",
+                 9, NAVY, bold=True)
+
+    w_deltas = [-0.02, -0.01, 0.00, 0.01, 0.02]
+    t_deltas = [-0.01, -0.005, 0.00, 0.005, 0.01]
+
+    header_s = ["WACC \\ TGR"] + [f"{(tgr + t) * 100:.1f}%".replace(".", ",") for t in t_deltas]
+    sens_rows = []
+    for w_d in w_deltas:
+        w_val = wacc + w_d
+        row   = [f"{w_val * 100:.1f}%".replace(".", ",")]
+        for t_d in t_deltas:
+            row.append(_dcf_value(tbase, wacc, tgr, w_d, t_d))
+        sens_rows.append(row)
+
+    add_table(slide, 1.02, 7.37, 23.37, 3.10,
+              len(sens_rows), len(header_s),
+              header_data=header_s,
+              rows_data=sens_rows)
+
+    dcf_comment = _g(synthesis, "dcf_commentary", "") or ""
+    commentary_box(slide, 1.02, 10.88, 23.37, 1.52, dcf_comment)
+
+    return slide
+
+
+# ---------------------------------------------------------------------------
+# Slide 13 — Comparable Peers
+# ---------------------------------------------------------------------------
+
+def _slide_peers(prs, snap, synthesis, ratios):
+    from pptx.enum.text import PP_ALIGN
+    slide_layout = prs.slide_layouts[6]
+    slide = prs.slides.add_slide(slide_layout)
+
+    navy_bar(slide)
+    footer_bar(slide)
+    section_dots(slide, 3)
+
+    ci      = snap.company_info if snap else None
+    mkt     = snap.market if snap else None
+    currency= _g(ci, "currency", "USD") or "USD"
+    cur_sym = "EUR" if currency == "EUR" else "$"
+    ticker  = _g(ci, "ticker", "—")
+    co_name = _g(ci, "company_name", "—")
+    price   = _g(mkt, "share_price")
+    shares  = _g(mkt, "shares_diluted")
+    mktcap  = (shares * price / 1000) if (shares and price) else None
+
+    slide_title(slide, "Comparable Peers",
+                f"Analyse par multiples  ·  LTM  ·  {currency} milliards")
+
+    ev_e = _ratio(ratios, "ev_ebitda")
+    ev_r = _ratio(ratios, "ev_revenue")
+    pe   = _ratio(ratios, "pe_ratio")
+    gm   = _ratio(ratios, "gross_margin")
+    em   = _ratio(ratios, "ebitda_margin")
+
+    peers = _g(synthesis, "comparable_peers", []) or []
+
+    header = ["Societe", "Ticker", "Capitalisation", "EV/EBITDA", "EV/Revenue", "P/E",
+              "Marge brute", "Marge EBITDA"]
+
+    # Target company row
+    mktcap_str = _fr(mktcap, 1) + " Mds" + cur_sym if mktcap else "—"
+    target_row = [co_name, ticker, mktcap_str,
+                  _frx(ev_e), _frx(ev_r), _frx(pe),
+                  _frpct(gm), _frpct(em)]
+
+    rows_data = [target_row]
+    rows_fills = [NAVY_PALE]
+
+    for peer in peers[:5]:
+        pn   = _g(peer, "name", "—")
+        pt   = _g(peer, "ticker", "—")
+        p_mktcap_str = "—"
+        prow = [
+            str(pn)[:30], str(pt),
+            p_mktcap_str,
+            _frx(_g(peer, "ev_ebitda")),
+            _frx(_g(peer, "ev_revenue")),
+            _frx(_g(peer, "pe")),
+            _frpct(_g(peer, "gross_margin")),
+            _frpct(_g(peer, "ebitda_margin")),
+        ]
+        rows_data.append(prow)
+        rows_fills.append(WHITE if len(rows_data) % 2 == 0 else GREY_BG)
+
+    # Median row
+    med_eve = _peer_median(peers, "ev_ebitda")
+    med_evr = _peer_median(peers, "ev_revenue")
+    med_pe  = _peer_median(peers, "pe")
+    med_gm  = _peer_median(peers, "gross_margin")
+    med_em  = _peer_median(peers, "ebitda_margin")
+    median_row = ["Mediane peers", "—", "—",
+                  _frx(med_eve), _frx(med_evr), _frx(med_pe),
+                  _frpct(med_gm), _frpct(med_em)]
+    rows_data.append(median_row)
+    rows_fills.append(GREY_BG)
+
+    tbl_h = min(1.0 + len(rows_data) * 0.71, 5.6)
+    add_table(slide, 1.02, 2.54, 23.37, tbl_h,
+              len(rows_data), len(header),
+              col_widths_pct=[0.20, 0.09, 0.13, 0.12, 0.12, 0.09, 0.13, 0.12],
+              header_data=header,
+              rows_data=rows_data,
+              row_fills=rows_fills)
+
+    ratio_comment = _g(synthesis, "ratio_commentary", "") or ""
+    commentary_box(slide, 1.02, 8.69, 23.37, 3.43, ratio_comment)
+
+    return slide
+
+
+# ---------------------------------------------------------------------------
+# Slide 14 — Football Field
+# ---------------------------------------------------------------------------
+
+def _slide_football_field(prs, snap, synthesis, ratios):
+    slide_layout = prs.slide_layouts[6]
+    slide = prs.slides.add_slide(slide_layout)
+
+    navy_bar(slide)
+    footer_bar(slide)
+    section_dots(slide, 3)
+
+    ci       = snap.company_info if snap else None
+    mkt      = snap.market if snap else None
+    currency = _g(ci, "currency", "USD") or "USD"
+    cur_sym  = "EUR" if currency == "EUR" else "$"
+    price    = _g(mkt, "share_price")
+
+    slide_title(slide, "Football Field Chart",
+                f"Synthese des methodes de valorisation  ·  {currency} par action")
+
+    ff     = _g(synthesis, "football_field", []) or []
+    tbase  = _g(synthesis, "target_base")
+    tbear  = _g(synthesis, "target_bear")
+    tbull  = _g(synthesis, "target_bull")
+
+    header = ["Methode", "Fourchette basse", "Fourchette haute", "Point central"]
+
+    row_fills_map = {
+        "DCF - Bear":             RED_PALE,
+        "DCF - Base":             NAVY_PALE,
+        "DCF - Bull":             GREEN_PALE,
+    }
+
+    rows_data  = []
+    rows_fills = []
+    for item in ff:
+        label  = str(_g(item, "label", "—"))
+        low    = _g(item, "range_low")
+        high   = _g(item, "range_high")
+        mid    = _g(item, "midpoint")
+        rows_data.append([label,
+                          f"{_fr(low, 0)} {cur_sym}",
+                          f"{_fr(high, 0)} {cur_sym}",
+                          f"{_fr(mid, 0)} {cur_sym}"])
+        fill = row_fills_map.get(label, GREY_BG)
+        rows_fills.append(fill)
+
+    # Current price row
+    rows_data.append([f"Cours actuel ({_fr(price, 2)} {cur_sym})", "—", "—",
+                      f"{_fr(price, 2)} {cur_sym}"])
+    rows_fills.append(AMBER_PALE)
+
+    if not rows_data:
+        rows_data  = [["Aucune donnee disponible", "—", "—", "—"]]
+        rows_fills = [GREY_BG]
+
+    tbl_h = min(1.0 + len(rows_data) * 0.71, 6.0)
+    add_table(slide, 1.02, 2.54, 23.37, tbl_h,
+              len(rows_data), 4,
+              col_widths_pct=[0.35, 0.20, 0.20, 0.25],
+              header_data=header,
+              rows_data=rows_data,
+              row_fills=rows_fills)
+
+    dcf_comment = _g(synthesis, "dcf_commentary", "") or ""
+    commentary_box(slide, 1.02, 9.80, 23.37, 2.54, dcf_comment)
+
+    return slide
+
+
+# ---------------------------------------------------------------------------
+# Slide 16 — Risques & Conditions d'Invalidation
+# ---------------------------------------------------------------------------
+
+def _slide_risques(prs, snap, synthesis, devil):
+    slide_layout = prs.slide_layouts[6]
+    slide = prs.slides.add_slide(slide_layout)
+
+    navy_bar(slide)
+    footer_bar(slide)
+    section_dots(slide, 4)
+    slide_title(slide, "Risques & Conditions d'Invalidation",
+                "Analyse des risques structurels  ·  These contraire")
+
+    counter_thesis = _g(devil, "counter_thesis", "") or ""
+    counter_risks  = _g(devil, "counter_risks", []) or []
+    risks_s        = _g(synthesis, "risks", []) or []
+    invalidation   = _g(synthesis, "invalidation_list", []) or []
+
+    risk_sources = counter_risks if counter_risks else risks_s
+    ct_parts     = _split_text(counter_thesis, 3)
+
+    card_configs = [
+        (RED_PALE,   RED,        "Risque 1"),
+        (NAVY_PALE,  NAVY_MID,   "Risque 2"),
+        (AMBER_PALE, AMBER,      "Risque 3"),
+    ]
+    card_w = 7.62
+    card_h = 5.33
+    card_y = 2.67
+    gaps   = [1.02, 8.97, 16.92]
+
+    for i, (fill, accent, label) in enumerate(card_configs):
+        cx    = gaps[i]
+        risk  = str(risk_sources[i]) if i < len(risk_sources) else label
+        body  = ct_parts[i] if i < len(ct_parts) else ""
+        add_rect(slide, cx, card_y, card_w, card_h, fill)
+        add_rect(slide, cx, card_y, card_w, 0.30, accent)
+        add_text_box(slide, cx + 0.30, card_y + 0.45, card_w - 0.60, 0.71,
+                     _truncate(risk, 80), 9.5, accent, bold=True, wrap=True)
+        add_text_box(slide, cx + 0.30, card_y + 1.32, card_w - 0.60, 3.5,
+                     _truncate(body, 200), 8, GREY_TXT, wrap=True)
+
+    # Invalidation table
+    add_rect(slide, 1.02, 8.33, 23.37, 0.03, "AAAAAA")
+    add_text_box(slide, 1.02, 8.53, 23.37, 0.46,
+                 "Conditions d'invalidation de la these", 9, NAVY, bold=True)
+
+    if not invalidation:
+        inv_rows = [
+            ["Macro",     "Remontee des taux directeurs > 200bps",              "6-12 mois"],
+            ["Sectoriel", "Rupture technologique remettant en cause le modele", "12-18 mois"],
+            ["Societe",   "Deterioration materielle des marges operationnelles","2-3 trim."],
+        ]
+    else:
+        inv_rows = []
+        for item in invalidation[:3]:
+            axis  = str(_g(item, "axis",      "—"))
+            cond  = str(_g(item, "condition", "—"))
+            horiz = str(_g(item, "horizon",   "—"))
+            inv_rows.append([axis, cond, horiz])
+
+    add_table(slide, 1.02, 9.19, 23.37, 3.05,
+              len(inv_rows), 3,
+              col_widths_pct=[0.15, 0.65, 0.20],
+              header_data=["Axe", "Condition d'invalidation", "Horizon"],
+              rows_data=inv_rows)
+
+    return slide
+
+
+# ---------------------------------------------------------------------------
+# Slide 18 — Sentiment FinBERT
+# ---------------------------------------------------------------------------
+
+def _slide_sentiment(prs, snap, synthesis, sentiment):
+    from pptx.enum.text import PP_ALIGN
+    slide_layout = prs.slide_layouts[6]
+    slide = prs.slides.add_slide(slide_layout)
+
+    navy_bar(slide)
+    footer_bar(slide)
+    section_dots(slide, 5)
+
+    sent_score    = _g(sentiment, "score", 0.0) or 0.0
+    sent_label    = _g(sentiment, "label", "NEUTRAL") or "NEUTRAL"
+    sent_articles = _g(sentiment, "articles_analyzed", 0) or 0
+    sent_conf     = _g(sentiment, "confidence", 0.0) or 0.0
+    sent_breakdown= _g(sentiment, "breakdown", {}) or {}
+
+    sent_label_display = _sent_label_fr(sent_label, sent_score)
+    rec = _g(synthesis, "recommendation", "HOLD") or "HOLD"
+
+    slide_title(slide, "Sentiment de Marche — FinBERT",
+                f"Analyse semantique  ·  {sent_articles} articles  ·  7 derniers jours")
+
+    # 4 KPI cards
+    kpi_box(slide, 1.02,  2.67, 7.11, 2.79,
+            sent_label_display, "Orientation globale",
+            f"Score agrege : {sent_score:+.3f}".replace(".", ","))
+    kpi_box(slide, 8.64,  2.67, 5.08, 2.79,
+            str(sent_articles), "Articles analyses", "Fenetre : 7 jours")
+    kpi_box(slide, 14.22, 2.67, 4.57, 2.79,
+            _frpct(sent_conf), "Confiance IA", "Modele FinBERT")
+    _, rec_accent = _rec_colors(rec)
+    kpi_box(slide, 19.30, 2.67, 4.83, 2.79,
+            rec.upper(), "Coherence", "Aligne avec la these")
+
+    # Breakdown table
+    add_text_box(slide, 1.02, 5.79, 23.37, 0.46,
+                 "Detail par orientation", 9, NAVY, bold=True)
+
+    pos_val  = _g(sent_breakdown, "avg_positive",  _g(sent_breakdown, "positive",  "—"))
+    neg_val  = _g(sent_breakdown, "avg_negative",  _g(sent_breakdown, "negative",  "—"))
+    neut_val = _g(sent_breakdown, "avg_neutral",   _g(sent_breakdown, "neutral",   "—"))
+
+    def _fmt_score(v):
+        if v is None: return "—"
+        try:    return f"{float(v):+.3f}".replace(".", ",")
+        except: return str(v)
+
+    break_rows = [
+        ["Positif",  str(_g(sent_breakdown, "positive_count", "—")), _fmt_score(pos_val),  "Catalyseurs, croissance, resultats"],
+        ["Negatif",  str(_g(sent_breakdown, "negative_count", "—")), _fmt_score(neg_val),  "Risques macro, concurrence, dette"],
+        ["Neutre",   str(_g(sent_breakdown, "neutral_count",  "—")), _fmt_score(neut_val), "Actualite sectorielle generale"],
+    ]
+    add_table(slide, 1.02, 6.48, 23.37, 2.79,
+              3, 4,
+              col_widths_pct=[0.15, 0.15, 0.20, 0.50],
+              header_data=["Orientation", "Articles", "Score moyen", "Themes principaux"],
+              rows_data=break_rows)
+
+    commentary_box(slide, 1.02, 9.70, 23.37, 2.54,
+                   _g(synthesis, "valuation_comment", "") or "")
+
+    return slide
+
+
+# ---------------------------------------------------------------------------
+# Slide 19 — Actionnariat
+# ---------------------------------------------------------------------------
+
+def _slide_actionnariat(prs, snap, synthesis):
+    from pptx.enum.text import PP_ALIGN
+    slide_layout = prs.slide_layouts[6]
+    slide = prs.slides.add_slide(slide_layout)
+
+    navy_bar(slide)
+    footer_bar(slide)
+    section_dots(slide, 5)
+
+    ci       = snap.company_info if snap else None
+    gen_date = _g(ci, "analysis_date", "") or date.today().strftime("%d/%m/%Y")
+
+    slide_title(slide, "Actionnariat & Structure du Capital",
+                f"Repartition de l'actionnariat  ·  Au {gen_date}")
+
+    # Principal shareholders placeholder
+    holder_rows = [
+        ["Institutionnels",         "Fonds/ETF",   "~70 %"],
+        ["Particuliers (flottant)", "Retail",      "~20 %"],
+        ["Insiders & dirigeants",   "Management",  "~10 %"],
+        ["—",                       "—",           "—"],
+        ["—",                       "—",           "—"],
+    ]
+    add_table(slide, 1.02, 2.69, 14.73, 5.33,
+              len(holder_rows), 3,
+              col_widths_pct=[0.45, 0.30, 0.25],
+              header_data=["Actionnaire", "Type", "%"],
+              rows_data=holder_rows)
+
+    # Right: type breakdown
+    type_rows = [
+        ["Institutionnel", "~70 %"],
+        ["Retail",         "~20 %"],
+        ["Insiders",       "~10 %"],
+    ]
+    add_table(slide, 16.0, 2.69, 8.38, 3.05,
+              len(type_rows), 2,
+              col_widths_pct=[0.55, 0.45],
+              header_data=["Type", "%"],
+              rows_data=type_rows)
+
+    # Note
+    add_text_box(slide, 1.02, 8.43, 23.37, 1.02,
+                 "Note : Donnees de structure du capital non disponibles dans le pipeline actuel. "
+                 "Les estimations ci-dessus sont indicatives et basees sur des benchmarks sectoriels.",
+                 8, GREY_TXT, italic=True, wrap=True)
+
+    thesis_s = _g(synthesis, "thesis", "") or ""
+    commentary_box(slide, 1.02, 9.70, 23.37, 2.54, thesis_s[:300])
+
+    return slide
+
+
+# ---------------------------------------------------------------------------
+# Slide 20 — Historique de Cours
+# ---------------------------------------------------------------------------
+
+def _slide_historique(prs, snap, synthesis):
+    from pptx.enum.text import PP_ALIGN
+    slide_layout = prs.slide_layouts[6]
+    slide = prs.slides.add_slide(slide_layout)
+
+    navy_bar(slide)
+    footer_bar(slide)
+    section_dots(slide, 5)
+
+    ci       = snap.company_info if snap else None
+    mkt      = snap.market if snap else None
+    ticker   = _g(ci, "ticker", "—")
+    currency = _g(ci, "currency", "USD") or "USD"
+    cur_sym  = "EUR" if currency == "EUR" else "$"
+    exchange = getattr(ci, "exchange", "") or "" if ci else ""
+    gen_date = _g(ci, "analysis_date", "") or date.today().strftime("%d/%m/%Y")
+    price    = _g(mkt, "share_price")
+
+    slide_title(slide, f"Historique de Cours — 52 Semaines",
+                f"{ticker}  ·  {exchange}  ·  {currency}  ·  {gen_date}")
+
+    history = snap.stock_history if (snap and snap.stock_history) else []
+    prices  = []
+    for pt in history:
+        p = _g(pt, "price")
+        if p is not None:
+            try:
+                prices.append(float(p))
+            except Exception:
+                pass
+
+    p_high = max(prices) if prices else price
+    p_low  = min(prices) if prices else price
+    p_first = prices[0] if prices else price
+    p_last  = prices[-1] if prices else price
+    perf_52w = ((p_last / p_first) - 1) if (p_first and p_last and p_first != 0) else None
+
+    # 4 KPI boxes
+    kpi_box(slide, 1.02,  2.67, 5.33, 2.08,
+            f"{_fr(price, 2)} {cur_sym}", "Cours actuel")
+    kpi_box(slide, 6.73,  2.67, 5.33, 2.08,
+            f"{_fr(p_high, 2)} {cur_sym}", "Plus haut 52 sem.")
+    kpi_box(slide, 12.45, 2.67, 5.33, 2.08,
+            f"{_fr(p_low, 2)} {cur_sym}", "Plus bas 52 sem.")
+    kpi_box(slide, 18.16, 2.67, 6.10, 2.08,
+            _frpct(perf_52w, signed=True),
+            "Performance 52 sem.")
+
+    add_text_box(slide, 1.02, 5.13, 23.37, 0.46,
+                 "Evolution du cours — 12 derniers mois", 9, NAVY, bold=True)
+
+    # Chart area background
+    chart_x = 1.02
+    chart_y = 5.84
+    chart_w = 23.37
+    chart_h = 5.08
+    add_rect(slide, chart_x, chart_y, chart_w, chart_h, GREY_BG)
+    add_rect(slide, chart_x, chart_y, chart_w, 0.10, NAVY_MID)
+
+    # Draw bars
+    if prices and len(prices) >= 2:
+        p_min   = min(prices)
+        p_max   = max(prices)
+        p_range = p_max - p_min if p_max != p_min else 1.0
+        max_bar_h = 4.0
+        n_bars    = min(len(history), 12)
+        bar_w     = (chart_w - 1.5) / n_bars
+        bar_area_x = chart_x + 0.75
+        bar_base_y = chart_y + chart_h - 0.60
+
+        for i in range(n_bars):
+            idx = len(history) - n_bars + i
+            if idx < 0:
+                continue
+            pt  = history[idx]
+            pv  = _g(pt, "price")
+            mo  = str(_g(pt, "month", "")).strip()
+            if pv is None:
+                continue
+            try:
+                pv = float(pv)
+            except Exception:
+                continue
+
+            bh    = max_bar_h * (pv - p_min) / p_range + 0.20
+            bx    = bar_area_x + i * bar_w
+            by    = bar_base_y - bh + 0.50
+
+            prev_pv = _safe_float(_g(history[idx - 1], "price")) if idx > 0 else None
+            if i == n_bars - 1:
+                bar_color = NAVY_MID
+            elif prev_pv and pv >= prev_pv:
+                bar_color = GREEN
+            else:
+                bar_color = RED
+
+            add_rect(slide, bx, by, bar_w * 0.80, bh, bar_color)
+
+            # Month label
+            add_text_box(slide, bx - 0.10, bar_base_y + 0.52, bar_w + 0.20, 0.40,
+                         mo[:6], 6, GREY_TXT, align=PP_ALIGN.CENTER)
+
+        # Min/Max annotation
+        add_text_box(slide, chart_x + 0.20, chart_y + 0.20, 5.0, 0.40,
+                     f"Max : {_fr(p_max, 2)} {cur_sym}", 7, NAVY_MID)
+        add_text_box(slide, chart_x + 0.20, chart_y + chart_h - 0.80, 5.0, 0.40,
+                     f"Min : {_fr(p_min, 2)} {cur_sym}", 7, GREY_TXT)
+    else:
+        add_text_box(slide, chart_x + 8.0, chart_y + 2.0, 7.37, 1.0,
+                     "Historique de cours non disponible", 10, GREY_TXT)
+
+    # Commentary
+    thesis_s = _g(synthesis, "summary", "") or _g(synthesis, "thesis", "") or ""
+    commentary_box(slide, 1.02, 11.48, 23.37, 1.91, thesis_s[:300])
+
+    return slide
+
+
+# ---------------------------------------------------------------------------
+# Utility
+# ---------------------------------------------------------------------------
+
+def _split_text(text: str, n: int) -> list:
+    """Divise un texte en n parties approximativement egales (par phrases)."""
+    if not text:
+        return [""] * n
+    text = text.strip()
+    sentences = []
+    for sep in (". ", "! ", "? "):
+        text = text.replace(sep, ".|")
+    parts = [p.strip() for p in text.split("|") if p.strip()]
+    if not parts:
+        return [text[:len(text) // n] for _ in range(n)]
+    chunk = max(1, len(parts) // n)
+    result = []
+    for i in range(n):
+        start = i * chunk
+        end   = start + chunk if i < n - 1 else len(parts)
+        result.append(". ".join(parts[start:end]))
+    return result
+
+
+def _safe_float(v) -> Optional[float]:
+    if v is None:
+        return None
+    try:
+        return float(v)
+    except Exception:
+        return None
+
+
+# ---------------------------------------------------------------------------
+# PPTXWriter — classe principale
+# ---------------------------------------------------------------------------
+
+class PPTXWriter:
+    """
+    Genere un pitchbook IB en 20 slides a partir du FinSightState (dict).
+    """
+
+    def generate(self, state: dict, output_path: str) -> str:
+        try:
+            from pptx import Presentation
+            from pptx.util import Cm, Emu
+        except ImportError:
+            raise RuntimeError("python-pptx requis : pip install python-pptx")
+
+        snap, synthesis, ratios, devil, sentiment = _extract_state(state)
+
+        # Fallback minimal si snap absent
+        if snap is None:
+            log.warning("PPTXWriter: raw_data absent dans le state — fallback vide")
+            from data.models import FinancialSnapshot, CompanyInfo, MarketData
+            snap = FinancialSnapshot(
+                ticker="N/A",
+                company_info=CompanyInfo(company_name="N/A", ticker="N/A"),
+                years={},
+                market=MarketData(),
+                stock_history=[],
+            )
+
+        prs = Presentation()
+        prs.slide_width  = Cm(25.4)
+        prs.slide_height = Cm(14.29)
+
+        # --- Slide 1: Cover ---
+        _slide_cover(prs, snap, synthesis, ratios, devil, sentiment)
+
+        # --- Slide 2: Executive Summary ---
+        _slide_exec_summary(prs, snap, synthesis, ratios, devil, sentiment)
+
+        # --- Slide 3: Sommaire ---
+        _slide_sommaire(prs)
+
+        # --- Slide 4: Divider Company Overview ---
+        divider_slide(prs, "01", "Company Overview",
+                      "Presentation, modele economique & donnees de marche")
+
+        # --- Slide 5: Company Overview ---
+        _slide_company_overview(prs, snap, synthesis, ratios)
+
+        # --- Slide 6: Business Model ---
+        _slide_business_model(prs, snap, synthesis)
+
+        # --- Slide 7: Divider Analyse Financiere ---
+        divider_slide(prs, "02", "Analyse Financiere",
+                      "Compte de resultat, bilan, liquidite & ratios")
+
+        # --- Slide 8: Compte de Resultat ---
+        _slide_is(prs, snap, synthesis, ratios)
+
+        # --- Slide 9: Bilan & Liquidite ---
+        _slide_bilan(prs, snap, synthesis, ratios)
+
+        # --- Slide 10: Ratios Cles ---
+        _slide_ratios(prs, snap, synthesis, ratios)
+
+        # --- Slide 11: Divider Valorisation ---
+        divider_slide(prs, "03", "Valorisation",
+                      "DCF, comparable peers & Football Field Chart")
+
+        # --- Slide 12: DCF & Scenarios ---
+        _slide_dcf(prs, snap, synthesis, ratios)
+
+        # --- Slide 13: Comparable Peers ---
+        _slide_peers(prs, snap, synthesis, ratios)
+
+        # --- Slide 14: Football Field ---
+        _slide_football_field(prs, snap, synthesis, ratios)
+
+        # --- Slide 15: Divider Risques ---
+        divider_slide(prs, "04", "Risques & Strategie",
+                      "Avocat du diable & conditions d'invalidation")
+
+        # --- Slide 16: Risques ---
+        _slide_risques(prs, snap, synthesis, devil)
+
+        # --- Slide 17: Divider Sentiment ---
+        divider_slide(prs, "05", "Sentiment & Annexes",
+                      "FinBERT, actionnariat & historique de cours")
+
+        # --- Slide 18: Sentiment ---
+        _slide_sentiment(prs, snap, synthesis, sentiment)
+
+        # --- Slide 19: Actionnariat ---
+        _slide_actionnariat(prs, snap, synthesis)
+
+        # --- Slide 20: Historique de Cours ---
+        _slide_historique(prs, snap, synthesis)
+
+        # Save
+        out_path = Path(output_path)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        prs.save(str(out_path))
+        log.info("PPTXWriter: pitchbook sauvegarde -> %s", out_path)
+        return str(out_path)

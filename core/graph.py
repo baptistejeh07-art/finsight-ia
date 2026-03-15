@@ -410,17 +410,16 @@ def output_node(state: FinSightState) -> dict:
 
     try:
         import tempfile
-        from outputs.pptx_builder import PPTXBuilder
+        from outputs.pptx_writer import PPTXWriter
         with tempfile.NamedTemporaryFile(suffix=".pptx", delete=False) as tmp:
             tmp_path = Path(tmp.name)
-        PPTXBuilder().build(snapshot, ratios, synthesis, qa_python, devil,
-                            output_path=tmp_path)
+        PPTXWriter().generate(state, str(tmp_path))
         pptx_bytes = tmp_path.read_bytes()
         tmp_path.unlink(missing_ok=True)
         pptx_path = f"{snapshot.ticker}_{date.today().isoformat()}_pitchbook.pptx"
         log.info(f"[output_node] PPTX OK — {len(pptx_bytes)} bytes")
     except Exception as e:
-        log.error(f"[output_node] PPTXBuilder FAILED: {e}", exc_info=True)
+        log.error(f"[output_node] PPTXWriter FAILED: {e}", exc_info=True)
 
     try:
         import tempfile
