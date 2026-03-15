@@ -1926,9 +1926,9 @@ def _slide_risques(prs, snap, synthesis, devil):
         add_rect(slide, cx, card_y, card_w, card_h, fill)
         add_rect(slide, cx, card_y, card_w, 0.15, accent)
         add_text_box(slide, cx + 0.30, card_y + 0.30, card_w - 0.60, 0.71,
-                     _truncate(risk, 80), 9, accent, bold=True, wrap=True)
+                     _truncate(risk, 90), 9, accent, bold=True, wrap=True)
         add_text_box(slide, cx + 0.30, card_y + 1.32, card_w - 0.60, 3.5,
-                     _truncate(body, 200), 8, GREY_TXT, wrap=True)
+                     _truncate(body, 450), 8, GREY_TXT, wrap=True)
 
     # Invalidation table
     add_rect(slide, 1.02, 8.33, 23.37, 0.03, "AAAAAA")
@@ -2338,11 +2338,18 @@ def _slide_historique(prs, snap, synthesis):
 # ---------------------------------------------------------------------------
 
 def _split_text(text: str, n: int) -> list:
-    """Divise un texte en n parties approximativement egales (par phrases)."""
+    """Divise un texte en n parties. Priorité au séparateur ' | ' (format LLM devil)."""
     if not text:
         return [""] * n
     text = text.strip()
-    sentences = []
+    # Format explicite avec ' | ' (agent_devil)
+    if " | " in text:
+        parts = [p.strip() for p in text.split(" | ") if p.strip()]
+        # Compléter si moins de n parties
+        while len(parts) < n:
+            parts.append("")
+        return parts[:n]
+    # Sinon découpage par phrases
     for sep in (". ", "! ", "? "):
         text = text.replace(sep, ".|")
     parts = [p.strip() for p in text.split("|") if p.strip()]
