@@ -818,6 +818,10 @@ def render_screening_running() -> None:
         if _scripts not in _sys.path:
             _sys.path.insert(0, _scripts)
 
+        # Re-forcer load_dotenv avant import du module (evite env vars vides dans contexte Streamlit)
+        from dotenv import load_dotenv as _ldenv
+        _ldenv(Path(__file__).parent / ".env", override=True)
+
         try:
             from compute_screening import build_tickers_data
         except ImportError as ex:
