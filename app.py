@@ -605,7 +605,23 @@ def render_home() -> None:
                 if st.button(qt, key=f"qt_{qt}", use_container_width=True):
                     clicked = qt
 
-        st.markdown('<div style="margin-top:10px;"></div>', unsafe_allow_html=True)
+        st.markdown(
+            '<div style="margin-top:8px;font-size:9px;font-weight:600;letter-spacing:1.5px;'
+            'text-transform:uppercase;color:#bbb;text-align:center;">Secteurs</div>',
+            unsafe_allow_html=True,
+        )
+        sec_cols = st.columns(6)
+        quick_sec = ["Technology", "Healthcare", "Financials", "Energy", "Industrials", "Consumer"]
+        for i, qs in enumerate(quick_sec):
+            with sec_cols[i]:
+                if st.button(qs, key=f"qs_{qs}", use_container_width=True):
+                    clicked = qs
+
+        st.markdown(
+            '<div style="margin-top:2px;font-size:9px;font-weight:600;letter-spacing:1.5px;'
+            'text-transform:uppercase;color:#bbb;text-align:center;">Indices</div>',
+            unsafe_allow_html=True,
+        )
         idx_cols = st.columns(5)
         quick_idx = ["CAC40", "SP500", "DAX40", "FTSE100", "STOXX50"]
         for i, qi in enumerate(quick_idx):
