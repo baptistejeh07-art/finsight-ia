@@ -619,8 +619,10 @@ def render_home() -> None:
                     clicked = qt
 
         _quick_label("Secteurs")
-        sec_cols = st.columns(6)
+        # Proportions calées sur la longueur du texte pour éviter le débordement
         quick_sec = ["Technology", "Healthcare", "Financials", "Energy", "Industrials", "Consumer"]
+        sec_widths = [len(s) + 4 for s in quick_sec]
+        sec_cols = st.columns(sec_widths)
         for i, qs in enumerate(quick_sec):
             with sec_cols[i]:
                 if st.button(qs, key=f"qs_{qs}", use_container_width=True):
