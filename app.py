@@ -814,41 +814,31 @@ def render_screening_running() -> None:
 
         _status(f"Calcul des ratios pour {len(tickers)} societes")
 
-        import os as _os, inspect as _inspect
+        import os as _os
 
-        # Recherche du .env par arborescence (robuste quel que soit le CWD ou __file__)
-        def _find_env() -> Path | None:
-            starts: list[Path] = []
+        # Sur Streamlit Cloud, pas de .env — les secrets viennent de st.secrets via inject_secrets()
+        # inject_secrets() a déjà tourné au démarrage de app.py et peuplé os.environ
+        # Si des clés manquent encore, on tente un re-inject direct depuis st.secrets
+        _missing = [k for k in ("SUPABASE_URL", "SUPABASE_SECRET_KEY") if not _os.getenv(k)]
+        if _missing:
             try:
-                starts.append(Path(_inspect.getfile(_find_env)).resolve().parent)
+                for _k in _missing:
+                    _v = st.secrets.get(_k)
+                    if _v:
+                        _os.environ[_k] = str(_v)
             except Exception:
                 pass
-            try:
-                starts.append(Path(__file__).resolve().parent)
-            except Exception:
-                pass
-            starts.append(Path(_os.getcwd()).resolve())
-            for start in starts:
-                p = start
-                for _ in range(6):
-                    candidate = p / ".env"
-                    if candidate.exists():
-                        return candidate
-                    p = p.parent
-            return None
 
-        _env_path = _find_env()
-
-        # DEBUG temporaire — à retirer une fois résolu
-        st.caption(f"DEBUG env: __file__={__file__!r}  cwd={_os.getcwd()!r}  .env trouvé={_env_path}")
-
-        if _env_path:
-            from dotenv import dotenv_values as _dv
-            for _k, _v in _dv(_env_path).items():
-                if _v:
-                    _os.environ[_k] = _v
-        else:
-            st.error("Fichier .env introuvable — vérifier le répertoire de lancement.")
+        # Vérification finale
+        if not _os.getenv("SUPABASE_URL") or not _os.getenv("SUPABASE_SECRET_KEY"):
+            st.error(
+                "Clés Supabase manquantes. "
+                "Sur Streamlit Cloud : ajouter SUPABASE_URL et SUPABASE_SECRET_KEY dans Settings > Secrets. "
+                "En local : vérifier le fichier .env."
+            )
+            if st.button("<- Retour", key="scr_back_nosup"):
+                st.session_state.stage = "home"
+                st.rerun()
             return
 
         _scripts = str(Path(__file__).parent / "scripts")
