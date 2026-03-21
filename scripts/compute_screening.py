@@ -31,7 +31,16 @@ import requests
 import yfinance as yf
 from dotenv import load_dotenv
 
-load_dotenv(Path(__file__).parent.parent / ".env", override=True)
+_env_candidates = [
+    Path(__file__).parent.parent / ".env",
+    Path(os.getcwd()) / ".env",
+    Path(".env"),
+]
+for _ep in _env_candidates:
+    if _ep.exists():
+        load_dotenv(_ep, override=True)
+        break
+
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from outputs.screening_writer import ScreeningWriter
@@ -68,10 +77,18 @@ def _fetch_from_supabase(tickers: list[str]) -> dict[str, dict]:
     url = os.getenv("SUPABASE_URL", "").strip()
     key = os.getenv("SUPABASE_SECRET_KEY", "").strip()
     if not url or not key:
-        # Retry: reload .env au cas ou le module a ete importe avant load_dotenv de app.py
-        load_dotenv(Path(__file__).parent.parent / ".env", override=True)
-        url = os.getenv("SUPABASE_URL", "").strip()
-        key = os.getenv("SUPABASE_SECRET_KEY", "").strip()
+        # Fallback : chercher .env depuis plusieurs chemins possibles
+        from dotenv import dotenv_values as _dv
+        for _ep in [Path(__file__).parent.parent / ".env",
+                    Path(os.getcwd()) / ".env", Path(".env")]:
+            if _ep.exists():
+                _vals = _dv(_ep)
+                url = _vals.get("SUPABASE_URL", "").strip()
+                key = _vals.get("SUPABASE_SECRET_KEY", "").strip()
+                if url and key:
+                    os.environ["SUPABASE_URL"] = url
+                    os.environ["SUPABASE_SECRET_KEY"] = key
+                break
     if not url or not key:
         raise RuntimeError("SUPABASE_URL / SUPABASE_SECRET_KEY manquants dans .env")
 

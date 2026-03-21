@@ -818,9 +818,20 @@ def render_screening_running() -> None:
         if _scripts not in _sys.path:
             _sys.path.insert(0, _scripts)
 
-        # Re-forcer load_dotenv avant import du module (evite env vars vides dans contexte Streamlit)
-        from dotenv import load_dotenv as _ldenv
-        _ldenv(Path(__file__).parent / ".env", override=True)
+        # Injection directe des vars Supabase depuis .env (contourne les caches Streamlit/dotenv)
+        import os as _os
+        from dotenv import dotenv_values as _dv
+        _candidates = [
+            Path(__file__).parent / ".env",
+            Path(_os.getcwd()) / ".env",
+            Path(".env"),
+        ]
+        for _ep in _candidates:
+            if _ep.exists():
+                for _k, _v in _dv(_ep).items():
+                    if _v:
+                        _os.environ[_k] = _v
+                break
 
         try:
             from compute_screening import build_tickers_data
