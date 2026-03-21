@@ -964,7 +964,7 @@ def render_screening_results(results: dict) -> None:
 
         f'<div class="mkt-cell"><div class="mkt-n">MEILLEUR SCORE</div>'
         f'<div class="mkt-v">{best.get("score_global") or 0:.0f}/100</div>'
-        f'<div class="mkt-na">{_e((best.get("company_name") or "")[:22])}</div></div>',
+        f'<div class="mkt-na">{_e((best.get("company") or "")[:22])}</div></div>',
 
         f'<div class="mkt-cell"><div class="mkt-n">SCORE MEDIAN</div>'
         f'<div class="mkt-v">{med_sc:.0f}/100</div><div class="mkt-na">univers</div></div>',
@@ -1014,7 +1014,7 @@ def render_screening_results(results: dict) -> None:
             st.markdown(
                 f'<div style="padding:2px 0;">'
                 f'<div style="font-size:13px;font-weight:600;color:#111;">'
-                f'{_e((t.get("company_name") or "")[:28])}</div>'
+                f'{_e((t.get("company") or "")[:28])}</div>'
                 f'<div class="scr-ticker">{_e(ticker_v)}</div></div>',
                 unsafe_allow_html=True,
             )
@@ -1079,7 +1079,7 @@ def render_screening_results(results: dict) -> None:
                     f'padding:7px 0;border-bottom:1px solid #f5f5f5;">'
                     f'<div>'
                     f'<div style="font-size:12px;font-weight:500;color:#111;">'
-                    f'{_e((t.get("company_name") or "")[:20])}</div>'
+                    f'{_e((t.get("company") or "")[:20])}</div>'
                     f'<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:#999;">'
                     f'{_e(t.get("ticker") or "")}</div>'
                     f'</div>'
@@ -1130,7 +1130,7 @@ def render_screening_results(results: dict) -> None:
         with sccols[3]:
             st.markdown(
                 f'<div style="padding:7px 0;font-size:12px;color:#555;">'
-                f'{_e((top_t.get("company_name") or "")[:24])}</div>', unsafe_allow_html=True)
+                f'{_e((top_t.get("company") or "")[:24])}</div>', unsafe_allow_html=True)
         with sccols[4]:
             st.markdown(
                 f'<div style="padding:7px 0;font-family:\'DM Mono\',monospace;font-size:12px;color:#777;">'
