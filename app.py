@@ -235,20 +235,28 @@ import streamlit.components.v1 as _components
 _components.html("""
 <script>
 (function() {
-  function removeBoardText() {
-    var walker = document.createTreeWalker(
-      window.parent.document.body, NodeFilter.SHOW_TEXT, null, false
-    );
-    var node;
-    while ((node = walker.nextNode())) {
-      if (/^board_/.test(node.nodeValue.trim())) {
-        node.nodeValue = "";
+  function clearBoardText() {
+    try {
+      var walker = document.createTreeWalker(
+        window.parent.document.body, NodeFilter.SHOW_TEXT, null, false
+      );
+      var node;
+      while ((node = walker.nextNode())) {
+        if (/^board_/.test(node.nodeValue.trim())) {
+          node.nodeValue = "";
+        }
       }
-    }
+    } catch(e) {}
   }
-  setTimeout(removeBoardText, 300);
-  setTimeout(removeBoardText, 1000);
-  setTimeout(removeBoardText, 3000);
+
+  // Scan immédiat + MutationObserver persistant
+  clearBoardText();
+  try {
+    new MutationObserver(clearBoardText).observe(
+      window.parent.document.body,
+      { childList: true, subtree: true }
+    );
+  } catch(e) {}
 })();
 </script>
 """, height=0)
