@@ -61,11 +61,23 @@ button *, button *:before, button *:after,
 [data-testid="stToolbar"], [data-testid="stDecoration"],
 [data-testid="stStatusWidget"], [data-testid="stAppDeployButton"] { display: none !important; }
 
-/* === Sidebar — largeur fixe mais pliable === */
+/* === Sidebar FIXE — toujours visible === */
 [data-testid="stSidebar"] {
+    transform: none !important;
+    visibility: visible !important;
+    display: block !important;
+}
+[data-testid="stSidebar"].sb-open {
     min-width: 330px !important;
     max-width: 330px !important;
 }
+[data-testid="stSidebar"].sb-closed {
+    min-width: 54px !important;
+    max-width: 54px !important;
+}
+/* Cacher les boutons collapse natifs Streamlit */
+[data-testid="stSidebarCollapseButton"],
+[data-testid="stSidebarCollapsedControl"] { display: none !important; }
 
 /* Fix artefact visuel "board_" Streamlit/BaseBUI */
 [class*="board_"], [class^="board_"], [data-baseweb="board"] { color:transparent!important; font-size:0!important; }
@@ -225,6 +237,19 @@ div[data-testid="stButton"] > button:not([kind="primary"]):not([data-testid="stB
 
 # JS — supprime le texte "board_" (artefact BaseBUI) des expanders
 import streamlit.components.v1 as _components
+_sb_class = "sb-open" if st.session_state.get("sidebar_open", True) else "sb-closed"
+_components.html(f"""
+<script>
+(function() {{
+  var sidebar = window.parent.document.querySelector('[data-testid="stSidebar"]');
+  if (sidebar) {{
+    sidebar.classList.remove('sb-open','sb-closed');
+    sidebar.classList.add('{_sb_class}');
+  }}
+}})();
+</script>
+""", height=0)
+
 _components.html("""
 <script>
 (function() {
@@ -269,6 +294,7 @@ def _e(text) -> str:
 # Session state
 # ---------------------------------------------------------------------------
 
+if "sidebar_open"       not in st.session_state: st.session_state.sidebar_open       = True
 if "stage"              not in st.session_state: st.session_state.stage              = "home"
 if "results"            not in st.session_state: st.session_state.results            = None
 if "ticker"             not in st.session_state: st.session_state.ticker             = ""
@@ -438,7 +464,22 @@ def fetch_market_context() -> list:
 
 def render_sidebar(results) -> None:
     with st.sidebar:
-        st.markdown('<span class="sb-logo">FinSight</span>', unsafe_allow_html=True)
+        # Sidebar fermée : juste le bouton de réouverture
+        if not st.session_state.get("sidebar_open", True):
+            st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
+            if st.button("›", use_container_width=True, help="Ouvrir le panneau"):
+                st.session_state.sidebar_open = True
+                st.rerun()
+            return
+
+        # Sidebar ouverte : bouton fermeture + logo
+        col_logo, col_close = st.columns([4, 1])
+        with col_logo:
+            st.markdown('<span class="sb-logo">FinSight</span>', unsafe_allow_html=True)
+        with col_close:
+            if st.button("‹", use_container_width=True, help="Fermer le panneau"):
+                st.session_state.sidebar_open = False
+                st.rerun()
 
         if results and not results.get("error"):
             if st.button("＋  Nouvelle analyse", use_container_width=True, type="primary"):
