@@ -270,6 +270,7 @@ if "ticker"             not in st.session_state: st.session_state.ticker        
 if "screening_results"  not in st.session_state: st.session_state.screening_results  = None
 if "screening_universe" not in st.session_state: st.session_state.screening_universe = ""
 if "from_screening"     not in st.session_state: st.session_state.from_screening     = False
+if "screening_parent"   not in st.session_state: st.session_state.screening_parent   = None
 
 # ---------------------------------------------------------------------------
 # Routing : détection du type d'input
@@ -923,10 +924,20 @@ def render_screening_results(results: dict) -> None:
             st.rerun()
         return
 
-    # --- Back button ---
-    if st.button("<- Nouvelle recherche", type="primary"):
-        st.session_state.stage = "home"
-        st.rerun()
+    # --- Navigation ---
+    parent = st.session_state.get("screening_parent")
+    nav_cols = st.columns([1, 1, 4])
+    with nav_cols[0]:
+        if st.button("+ Nouvelle recherche", type="primary", use_container_width=True):
+            st.session_state.screening_parent = None
+            st.session_state.stage = "home"
+            st.rerun()
+    with nav_cols[1]:
+        if parent:
+            if st.button(f"<- {parent['display_name']}", use_container_width=True):
+                st.session_state.screening_results = parent
+                st.session_state.screening_parent  = None
+                st.rerun()
 
     # --- Header ---
     st.markdown(f'<div class="rc">{_e(display_name)} — Screening</div>', unsafe_allow_html=True)
@@ -1088,8 +1099,8 @@ def render_screening_results(results: dict) -> None:
         sector_data.setdefault(s, []).append(t)
     sectors_sorted = sorted(sector_data.items(), key=lambda x: len(x[1]), reverse=True)
 
-    shcols = st.columns([2.2, 0.7, 1.0, 2.0, 1.2])
-    for shc, h in zip(shcols, ["Secteur", "N", "Score moy.", "Top societe", "EV/EBITDA med."]):
+    shcols = st.columns([2.0, 0.6, 0.9, 2.0, 1.1, 1.2])
+    for shc, h in zip(shcols, ["Secteur", "N", "Score moy.", "Top societe", "EV/EBITDA med.", ""]):
         with shc:
             st.markdown(
                 f'<div style="font-size:10px;font-weight:600;color:#777;letter-spacing:1px;'
@@ -1097,14 +1108,14 @@ def render_screening_results(results: dict) -> None:
                 unsafe_allow_html=True,
             )
 
-    for sec_name, sec_list in sectors_sorted:
+    for idx_s, (sec_name, sec_list) in enumerate(sectors_sorted):
         avg_sc = sum((t.get("score_global") or 0) for t in sec_list) / len(sec_list)
         top_t  = max(sec_list, key=lambda x: x.get("score_global") or 0)
         evs    = [t.get("ev_ebitda") for t in sec_list if t.get("ev_ebitda") is not None]
         ev_str = f"{_med(evs):.1f}x" if evs else "—"
         sc_col = "#1a7a52" if avg_sc >= 60 else ("#b8922a" if avg_sc >= 40 else "#c0392b")
 
-        sccols = st.columns([2.2, 0.7, 1.0, 2.0, 1.2])
+        sccols = st.columns([2.0, 0.6, 0.9, 2.0, 1.1, 1.2])
         with sccols[0]:
             st.markdown(f'<div style="padding:7px 0;font-size:13px;color:#333;">{_e(sec_name)}</div>',
                         unsafe_allow_html=True)
@@ -1124,6 +1135,20 @@ def render_screening_results(results: dict) -> None:
             st.markdown(
                 f'<div style="padding:7px 0;font-family:\'DM Mono\',monospace;font-size:12px;color:#777;">'
                 f'{ev_str}</div>', unsafe_allow_html=True)
+        with sccols[5]:
+            if st.button("Analyser", key=f"sec_ana_{idx_s}_{sec_name[:8]}",
+                         use_container_width=True):
+                # Scores re-calculés au sein du secteur (percentile intra-secteur)
+                sec_sorted = sorted(sec_list, key=lambda x: x.get("score_global") or 0, reverse=True)
+                st.session_state.screening_parent  = results
+                st.session_state.screening_results = {
+                    "universe":     f"{sec_name}|{results.get('universe', '')}",
+                    "display_name": f"{sec_name} — {display_name}",
+                    "tickers_data": sec_sorted,
+                    "excel_bytes":  None,
+                    "elapsed_ms":   0,
+                }
+                st.rerun()
 
     # --- Footer ---
     st.markdown(
