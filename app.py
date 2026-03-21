@@ -140,11 +140,9 @@ div[data-testid="stButton"] > button:not([kind="primary"]):not([data-testid="stB
     color: #333 !important;
     border: 1px solid #e0e0e0 !important;
     white-space: nowrap !important;
-    overflow: hidden !important;
-    text-overflow: ellipsis !important;
     font-size: 11px !important;
-    padding-left: 4px !important;
-    padding-right: 4px !important;
+    padding-left: 6px !important;
+    padding-right: 6px !important;
 }
 
 /* HOME */
