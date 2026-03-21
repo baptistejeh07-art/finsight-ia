@@ -134,11 +134,17 @@ div.stButton { background: transparent !important; }
 /* Expander */
 [data-testid="stExpander"] { background: transparent !important; border: 1px solid #f0f0f0 !important; }
 [data-testid="stExpanderDetails"] { background: #fff !important; }
-/* Quick ticker buttons (non-primary) restent blancs */
+/* Quick ticker buttons (non-primary) restent blancs, texte sur une ligne */
 div[data-testid="stButton"] > button:not([kind="primary"]):not([data-testid="stBaseButton-primary"]) {
     background-color: #fff !important;
     color: #333 !important;
     border: 1px solid #e0e0e0 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    font-size: 11px !important;
+    padding-left: 4px !important;
+    padding-right: 4px !important;
 }
 
 /* HOME */
@@ -597,6 +603,15 @@ def render_home() -> None:
 
         go = st.button("Analyser →", use_container_width=True, type="primary")
 
+        def _quick_label(text):
+            st.markdown(
+                f'<div style="margin-top:8px;margin-bottom:2px;font-size:9px;font-weight:600;'
+                f'letter-spacing:1.5px;text-transform:uppercase;color:#bbb;text-align:center;">'
+                f'{text}</div>',
+                unsafe_allow_html=True,
+            )
+
+        _quick_label("Sociétés")
         q_cols = st.columns(6)
         quick = ["AAPL", "TSLA", "MSFT", "MC.PA", "OR.PA", "NVDA"]
         clicked = None
@@ -605,11 +620,7 @@ def render_home() -> None:
                 if st.button(qt, key=f"qt_{qt}", use_container_width=True):
                     clicked = qt
 
-        st.markdown(
-            '<div style="margin-top:8px;font-size:9px;font-weight:600;letter-spacing:1.5px;'
-            'text-transform:uppercase;color:#bbb;text-align:center;">Secteurs</div>',
-            unsafe_allow_html=True,
-        )
+        _quick_label("Secteurs")
         sec_cols = st.columns(6)
         quick_sec = ["Technology", "Healthcare", "Financials", "Energy", "Industrials", "Consumer"]
         for i, qs in enumerate(quick_sec):
@@ -617,11 +628,7 @@ def render_home() -> None:
                 if st.button(qs, key=f"qs_{qs}", use_container_width=True):
                     clicked = qs
 
-        st.markdown(
-            '<div style="margin-top:2px;font-size:9px;font-weight:600;letter-spacing:1.5px;'
-            'text-transform:uppercase;color:#bbb;text-align:center;">Indices</div>',
-            unsafe_allow_html=True,
-        )
+        _quick_label("Indices")
         idx_cols = st.columns(5)
         quick_idx = ["CAC40", "SP500", "DAX40", "FTSE100", "STOXX50"]
         for i, qi in enumerate(quick_idx):
