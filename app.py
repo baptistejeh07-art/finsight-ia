@@ -814,24 +814,46 @@ def render_screening_running() -> None:
 
         _status(f"Calcul des ratios pour {len(tickers)} societes")
 
+        import os as _os, inspect as _inspect
+
+        # Recherche du .env par arborescence (robuste quel que soit le CWD ou __file__)
+        def _find_env() -> Path | None:
+            starts: list[Path] = []
+            try:
+                starts.append(Path(_inspect.getfile(_find_env)).resolve().parent)
+            except Exception:
+                pass
+            try:
+                starts.append(Path(__file__).resolve().parent)
+            except Exception:
+                pass
+            starts.append(Path(_os.getcwd()).resolve())
+            for start in starts:
+                p = start
+                for _ in range(6):
+                    candidate = p / ".env"
+                    if candidate.exists():
+                        return candidate
+                    p = p.parent
+            return None
+
+        _env_path = _find_env()
+
+        # DEBUG temporaire — à retirer une fois résolu
+        st.caption(f"DEBUG env: __file__={__file__!r}  cwd={_os.getcwd()!r}  .env trouvé={_env_path}")
+
+        if _env_path:
+            from dotenv import dotenv_values as _dv
+            for _k, _v in _dv(_env_path).items():
+                if _v:
+                    _os.environ[_k] = _v
+        else:
+            st.error("Fichier .env introuvable — vérifier le répertoire de lancement.")
+            return
+
         _scripts = str(Path(__file__).parent / "scripts")
         if _scripts not in _sys.path:
             _sys.path.insert(0, _scripts)
-
-        # Injection directe des vars Supabase depuis .env (contourne les caches Streamlit/dotenv)
-        import os as _os
-        from dotenv import dotenv_values as _dv
-        _candidates = [
-            Path(__file__).parent / ".env",
-            Path(_os.getcwd()) / ".env",
-            Path(".env"),
-        ]
-        for _ep in _candidates:
-            if _ep.exists():
-                for _k, _v in _dv(_ep).items():
-                    if _v:
-                        _os.environ[_k] = _v
-                break
 
         try:
             from compute_screening import build_tickers_data
