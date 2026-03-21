@@ -61,7 +61,7 @@ def _keywords_for(ticker: str, company_name: str = "") -> list[str]:
     # Ticker brut et base (sans extension)
     keys.add(ticker.lower())
     base = ticker.split(".")[0].lower()
-    if len(base) >= 2:
+    if len(base) >= 4:
         keys.add(base)
 
     # Mapping prédéfini
@@ -92,6 +92,9 @@ def fetch_rss(
     """
     Collecte news RSS filtrées par ticker/entreprise.
 
+    Source 1 (priorité) : Yahoo Finance RSS par ticker (ticker-specific, pas de filtre)
+    Source 2 (fallback)  : Flux généraux filtrés par mots-clés
+
     Args:
         ticker:       ex. "AAPL", "MC.PA"
         company_name: ex. "Apple Inc." (optionnel, améliore le filtrage EU)
@@ -100,31 +103,51 @@ def fetch_rss(
     Returns:
         Liste de dicts : [{"headline", "summary", "source", "url", "published"}, ...]
     """
-    keywords = _keywords_for(ticker, company_name)
     results: list[dict] = []
 
-    for source_name, url in RSS_FEEDS.items():
-        if len(results) >= max_articles:
-            break
-        try:
-            feed = feedparser.parse(url)
-            for entry in feed.entries[:30]:
-                title   = entry.get("title", "")
-                summary = entry.get("summary", "")
+    # --- Source 1 : Yahoo Finance RSS ticker-spécifique ---
+    yf_url = f"https://feeds.finance.yahoo.com/rss/2.0/headline?s={ticker}&region=US&lang=en-US"
+    try:
+        feed = feedparser.parse(yf_url)
+        for entry in feed.entries[:max_articles]:
+            title   = entry.get("title", "")
+            summary = entry.get("summary", "")
+            if title.strip():
+                results.append({
+                    "headline":  title,
+                    "summary":   summary[:300],
+                    "source":    "yahoo_finance_ticker",
+                    "url":       entry.get("link", ""),
+                    "published": entry.get("published", ""),
+                })
+        if results:
+            log.info(f"[RSS] '{ticker}' Yahoo ticker-feed : {len(results)} articles")
+    except Exception as e:
+        log.warning(f"[RSS] Yahoo ticker-feed {ticker} : {e}")
 
-                if _is_relevant(title, summary, keywords):
-                    results.append({
-                        "headline":  title,
-                        "summary":   summary[:300],
-                        "source":    source_name,
-                        "url":       entry.get("link", ""),
-                        "published": entry.get("published", ""),
-                    })
-                    if len(results) >= max_articles:
-                        break
+    # --- Source 2 : Flux généraux avec filtrage mots-clés (fallback) ---
+    if len(results) < 5:
+        keywords = _keywords_for(ticker, company_name)
+        for source_name, url in RSS_FEEDS.items():
+            if len(results) >= max_articles:
+                break
+            try:
+                feed = feedparser.parse(url)
+                for entry in feed.entries[:30]:
+                    title   = entry.get("title", "")
+                    summary = entry.get("summary", "")
+                    if _is_relevant(title, summary, keywords):
+                        results.append({
+                            "headline":  title,
+                            "summary":   summary[:300],
+                            "source":    source_name,
+                            "url":       entry.get("link", ""),
+                            "published": entry.get("published", ""),
+                        })
+                        if len(results) >= max_articles:
+                            break
+            except Exception as e:
+                log.warning(f"[RSS] {source_name} : {e}")
 
-        except Exception as e:
-            log.warning(f"[RSS] {source_name} : {e}")
-
-    log.info(f"[RSS] '{ticker}' : {len(results)} articles pertinents (keywords={keywords})")
+    log.info(f"[RSS] '{ticker}' : {len(results)} articles total")
     return results

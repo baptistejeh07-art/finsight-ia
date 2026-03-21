@@ -78,6 +78,7 @@ class SentimentResult:
     breakdown:          dict    # avg_positive / avg_negative / avg_neutral
     sources:            list
     samples:            list    # 3 exemples avec score individuel
+    llm_commentary:     str  = ""   # commentaire généré par LLM (fallback langue)
     meta:               dict = field(default_factory=dict)
 
     def to_dict(self) -> dict:
@@ -166,15 +167,19 @@ class AgentSentiment:
             return self._empty_result(ticker, request_id, t_start)
 
         # ------------------------------------------------------------------
-        # 4b. Fallback LLM si FinBERT classe >80% en neutre (articles non-anglais)
+        # 4b. LLM Groq — classification forcée + commentaire (tous tickers)
+        #     FinBERT est English-only → articles FR/DE/ES mal classés.
+        #     On passe TOUJOURS par le LLM pour classification + commentaire.
         # ------------------------------------------------------------------
         neu_ratio = sum(1 for s in raw_scores
                         if s["neutral"] >= s["positive"] and s["neutral"] >= s["negative"]
                         ) / len(raw_scores)
 
-        if neu_ratio > 0.80 and len(texts) >= 3:
-            log.info(f"[AgentSentiment] '{ticker}' — {neu_ratio:.0%} neutres, fallback LLM Groq")
-            raw_scores, engine_used = self._llm_classify(ticker, texts, raw_scores)
+        llm_commentary = ""
+        if len(texts) >= 1:
+            raw_scores, engine_used, llm_commentary = self._llm_classify(
+                ticker, texts, raw_scores, company_name
+            )
 
         # ------------------------------------------------------------------
         # 5. Agrégation
@@ -216,6 +221,7 @@ class AgentSentiment:
             breakdown         = agg.get("breakdown", {}),
             sources           = sources_set,
             samples           = samples,
+            llm_commentary    = llm_commentary,
             meta = {
                 "request_id":   request_id,
                 "latency_ms":   latency_ms,
@@ -246,27 +252,65 @@ class AgentSentiment:
     # ------------------------------------------------------------------
 
     def _llm_classify(
-        self, ticker: str, texts: list[str], fallback: list[dict]
-    ) -> tuple[list[dict], str]:
-        """Classe les headlines via Groq quand FinBERT retourne trop de neutres."""
-        headlines = "\n".join(f"{i+1}. {t[:120]}" for i, t in enumerate(texts[:20]))
+        self,
+        ticker: str,
+        texts: list[str],
+        fallback: list[dict],
+        company_name: str = "",
+    ) -> tuple[list[dict], str, str]:
+        """
+        Classification forcée via Groq + génération commentaire 2 phrases.
+        Retourne (scores, engine_name, commentary).
+        """
+        ctx = f" ({company_name})" if company_name else ""
+        headlines = "\n".join(f"{i+1}. {t[:150]}" for i, t in enumerate(texts[:20]))
+
         prompt = (
-            f"Tu es un analyste financier. Classe chaque titre ci-dessous comme "
-            f"POSITIF, NEGATIF ou NEUTRE pour l'action {ticker}.\n"
-            f"Réponds UNIQUEMENT avec une ligne par titre : numero|label\n"
-            f"Exemple : 1|POSITIF\n\n{headlines}"
+            f"TACHE 1 — CLASSIFICATION OBLIGATOIRE\n"
+            f"Tu analyses l'actualite financiere de l'action {ticker}{ctx}.\n"
+            f"Pour chaque titre ci-dessous, tu DOIS decider : POSITIF, NEGATIF ou NEUTRE.\n"
+            f"Regles strictes :\n"
+            f"- POSITIF : resultats solides, partenariat, croissance, note relevee, acquisition favorable\n"
+            f"- NEGATIF : deception resultats, litige, perte marche, abaissement note, risque majeur\n"
+            f"- NEUTRE : information vraiment sans impact clair sur le cours (MAX 25% des titres)\n"
+            f"INTERDIT : mettre NEUTRE par defaut ou par flemme. Force toi a trancher.\n"
+            f"Format exact (une ligne par titre) : numero|POSITIF ou numero|NEGATIF ou numero|NEUTRE\n\n"
+            f"TACHE 2 — COMMENTAIRE (apres la liste)\n"
+            f"Ecris exactement 2 phrases en francais qui resument le sentiment global "
+            f"de la presse financiere sur {ticker}{ctx} cette semaine.\n"
+            f"Format : COMMENTAIRE: <tes 2 phrases ici>\n\n"
+            f"Titres a analyser :\n{headlines}"
         )
+        system = (
+            "Tu es analyste financier senior. Tu reponds d'abord avec la classification "
+            "ligne par ligne (numero|label), puis avec le commentaire prefixe 'COMMENTAIRE:'. "
+            "Pas d'explication supplementaire."
+        )
+
         try:
             llm = LLMProvider(provider="groq")
-            raw = llm.generate(prompt=prompt, system="Classe uniquement, pas d'explication.", max_tokens=200)
+            raw = llm.generate(prompt=prompt, system=system, max_tokens=700)
             if not raw:
-                return fallback, "finbert"
+                log.warning(f"[AgentSentiment] '{ticker}' LLM vide — fallback FinBERT")
+                return fallback, "finbert", ""
+
             scores = list(fallback)
+            commentary = ""
+
             for line in raw.strip().split("\n"):
                 line = line.strip()
+                if not line:
+                    continue
+                # Commentaire
+                low = line.lower()
+                if low.startswith("commentaire:") or low.startswith("commentaire :"):
+                    sep = line.find(":")
+                    commentary = line[sep + 1:].strip()
+                    continue
+                # Classification
                 if "|" not in line:
                     continue
-                parts = line.split("|")
+                parts = line.split("|", 1)
                 if len(parts) < 2:
                     continue
                 try:
@@ -281,11 +325,18 @@ class AgentSentiment:
                             scores[idx] = {"positive": 0.15, "negative": 0.10, "neutral": 0.75}
                 except (ValueError, IndexError):
                     continue
-            log.info(f"[AgentSentiment] '{ticker}' LLM Groq classification OK")
-            return scores, "llm_groq"
+
+            pos_n = sum(1 for s in scores if s["positive"] > s["negative"] and s["positive"] > s["neutral"])
+            neg_n = sum(1 for s in scores if s["negative"] > s["positive"] and s["negative"] > s["neutral"])
+            log.info(
+                f"[AgentSentiment] '{ticker}' LLM Groq OK — "
+                f"pos={pos_n} neg={neg_n} commentary={len(commentary)}c"
+            )
+            return scores, "llm_groq", commentary
+
         except Exception as e:
-            log.warning(f"[AgentSentiment] LLM fallback echoue: {e}")
-            return fallback, "finbert"
+            log.warning(f"[AgentSentiment] LLM classify echoue: {e}")
+            return fallback, "finbert", ""
 
     # ------------------------------------------------------------------
     # Helper

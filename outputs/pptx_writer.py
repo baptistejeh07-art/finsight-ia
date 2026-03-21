@@ -796,16 +796,19 @@ def _slide_exec_summary(prs, snap, synthesis, ratios, devil, sentiment):
 
     # Thesis bullets — espacement dynamique avec corps de texte
     thesis_parts = _split_text(thesis, 3)
+    pos_themes   = _g(synthesis, "positive_themes", []) or []
     strength_ys = [4.57, 6.05, 7.53]
     for i, sy in enumerate(strength_ys):
         label = strengths[i] if i < len(strengths) else (thesis_parts[i] if i < len(thesis_parts) else "")
         body  = thesis_parts[i] if i < len(thesis_parts) else ""
+        # Fallback body : positive_themes si thesis_parts trop court
+        if not body or body == label:
+            body = pos_themes[i] if i < len(pos_themes) else ""
         add_rect(slide, 1.02, sy + 0.05, 0.15, 0.36, NAVY_MID)
         add_text_box(slide, 1.4, sy, 10.92, 0.51,
                      _truncate(label, 80), 8.5, NAVY, bold=True)
-        body_text = body if (body and body != label) else ""
         add_text_box(slide, 1.4, sy + 0.47, 10.92, 0.91,
-                     _truncate(body_text, 140), 7.5, "333333", wrap=True)
+                     _truncate(body, 140), 7.5, "333333", wrap=True)
 
     # Risks section header
     add_rect(slide, 13.08, 3.76, 11.3, 0.71, RED)
@@ -815,13 +818,16 @@ def _slide_exec_summary(prs, snap, synthesis, ratios, devil, sentiment):
     # Risques avec corps de texte
     counter_risks = _g(devil, "counter_risks", []) or []
     counter_thesis_txt = _g(devil, "counter_thesis", "") or ""
-    risk_bodies = _split_text(counter_thesis_txt, 3) if counter_thesis_txt else [""] * 3
+    risk_bodies  = _split_text(counter_thesis_txt, 3) if counter_thesis_txt else [""] * 3
+    neg_themes   = _g(synthesis, "negative_themes", []) or []
 
     risk_ys = [4.57, 6.05, 7.53]
     for i, ry in enumerate(risk_ys):
         risk_text = risks_s[i] if i < len(risks_s) else (counter_risks[i] if i < len(counter_risks) else "")
-        body_r = (counter_risks[i] if i < len(counter_risks) and str(counter_risks[i]) != str(risk_text)
-                  else risk_bodies[i] if i < len(risk_bodies) else "")
+        body_r = risk_bodies[i] if i < len(risk_bodies) and risk_bodies[i] else ""
+        # Fallback body : negative_themes si risk_bodies vide
+        if not body_r or body_r == risk_text:
+            body_r = neg_themes[i] if i < len(neg_themes) else ""
         add_rect(slide, 13.08, ry + 0.05, 0.15, 0.36, RED)
         add_text_box(slide, 13.46, ry, 10.54, 0.51,
                      _truncate(risk_text, 80), 8.5, NAVY, bold=True)
@@ -860,7 +866,7 @@ def _slide_exec_summary(prs, snap, synthesis, ratios, devil, sentiment):
 # Slide 3 — Sommaire
 # ---------------------------------------------------------------------------
 
-def _slide_sommaire(prs):
+def _slide_sommaire(prs, snap=None, synthesis=None):
     from pptx.enum.text import PP_ALIGN
     slide_layout = prs.slide_layouts[6]
     slide = prs.slides.add_slide(slide_layout)
@@ -869,12 +875,29 @@ def _slide_sommaire(prs):
     footer_bar(slide)
     slide_title(slide, "Sommaire")
 
+    # Descriptions dynamiques basées sur les données de la société
+    ci       = snap.company_info if snap else None
+    co_name  = _g(ci, "company_name", "") or ""
+    sector   = _g(ci, "sector", "") or ""
+    strengths= _g(synthesis, "strengths", []) or []
+    risks    = _g(synthesis, "risks", []) or []
+    rec      = _g(synthesis, "recommendation", "") or ""
+
+    def _s1(items, n=2):
+        """2 premiers éléments d'une liste, jointure ' · '"""
+        parts = [str(x)[:40] for x in items[:n] if x]
+        return "  \u00b7  ".join(parts) if parts else ""
+
+    co_desc  = f"{co_name}  \u00b7  {sector}" if co_name and sector else (co_name or "Presentation, mod\u00e8le \u00e9conomique")
+    str_desc = _s1(strengths) or "Analyse strat\u00e9gique & positionnement"
+    ris_desc = _s1(risks) or "Risques structurels & th\u00e8se contraire"
+
     sections = [
-        ("01", "Company Overview",    "Presentation, modele economique, donnees de marche", "3\u20135"),
-        ("02", "Analyse Financi\u00e8re",  "Compte de resultat, bilan & liquidite, ratios",       "6\u20138"),
-        ("03", "Valorisation",        "DCF, comparable peers, Football Field",               "9\u201311"),
-        ("04", "Risques & Strategie", "Avocat du diable, conditions d'invalidation",         "12\u201313"),
-        ("05", "Sentiment & Annexes", "FinBERT, actionnariat & historique de cours",         "14\u201315"),
+        ("01", "Company Overview",    _truncate(co_desc, 80),  "3\u20135"),
+        ("02", "Analyse Financi\u00e8re",  "Compte de r\u00e9sultat, bilan & liquidit\u00e9, ratios",         "6\u20138"),
+        ("03", "Valorisation",        "DCF, comparable peers, Football Field",                 "9\u201311"),
+        ("04", "Risques & Strat\u00e9gie", _truncate(ris_desc, 80),  "12\u201313"),
+        ("05", "Sentiment & Annexes", "FinBERT, actionnariat & historique de cours",           "14\u201315"),
     ]
     fills = [WHITE, GREY_BG, WHITE, GREY_BG, WHITE]
     ys    = [2.49, 4.42, 6.35, 8.28, 10.21]
@@ -1653,6 +1676,16 @@ def _slide_dcf(prs, snap, synthesis, ratios):
                     cell = sens_tbl.cell(ri, ci)
                     cell.fill.solid()
                     cell.fill.fore_color.rgb = rgb("DDE8F5")
+        # Highlight WACC label cell (col 0) at base row
+        try:
+            lbl_cell = sens_tbl.cell(base_ri, 0)
+            lbl_cell.fill.solid()
+            lbl_cell.fill.fore_color.rgb = rgb("DDE8F5")
+            for run in lbl_cell.text_frame.paragraphs[0].runs:
+                run.font.bold = True
+                run.font.color.rgb = rgb(NAVY)
+        except Exception:
+            pass
         # Intersection: navy_mid + white bold
         base_cell = sens_tbl.cell(base_ri, base_ci)
         base_cell.fill.solid()
@@ -2076,9 +2109,8 @@ def _slide_sentiment(prs, snap, synthesis, sentiment):
             except Exception:
                 pass
 
-    # Commentaire sentiment — toujours affiché (fallback sur données agrégées)
-    val_comment = (_g(synthesis, "valuation_comment", "") or
-                   _g(synthesis, "ratio_commentary", "") or "")
+    # Commentaire sentiment — LLM Groq en priorité, fallback agrégé
+    val_comment = _g(sentiment, "llm_commentary", "") or ""
     if not val_comment.strip():
         lbl_fr = _sent_label_fr(sent_label, sent_score)
         val_comment = (
@@ -2437,7 +2469,7 @@ class PPTXWriter:
         _slide_exec_summary(prs, snap, synthesis, ratios, devil, sentiment)
 
         # --- Slide 3: Sommaire ---
-        _slide_sommaire(prs)
+        _slide_sommaire(prs, snap, synthesis)
 
         # --- Slide 4: Divider Company Overview ---
         divider_slide(prs, "01", "Company Overview",

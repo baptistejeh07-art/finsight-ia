@@ -1075,24 +1075,30 @@ def _page_risques_sentiment(story, snap, synthesis, devil, sentiment):
     risks_synth    = _g(synthesis,"risks") or []
 
     # Construction des 3 paragraphes Avocat du Diable
+    # counter_thesis format : "argument1 | argument2 | argument3"
     paragraphs = []
-    if counter_risks and counter_thesis:
-        parts = [s.strip() for s in counter_thesis.split(". ") if s.strip()]
-        chunk = max(1, len(parts)//3)
-        for i, title in enumerate(counter_risks[:3]):
-            body = ". ".join(parts[i*chunk:(i+1)*chunk]).strip()
-            if body and not body.endswith("."): body += "."
-            paragraphs.append((title, body or title))
-    elif counter_thesis:
-        sents = [s.strip() for s in counter_thesis.split(". ") if s.strip()]
-        chunk = max(1, len(sents)//3)
+    if counter_thesis:
+        # Split par ' | ' en priorité (format agent_devil), fallback phrases
+        if " | " in counter_thesis:
+            ct_parts = [s.strip() for s in counter_thesis.split(" | ") if s.strip()]
+        else:
+            sents = [s.strip() for s in counter_thesis.replace(". ", ".|").split("|") if s.strip()]
+            chunk = max(1, len(sents) // 3)
+            ct_parts = [
+                ". ".join(sents[i*chunk:(i+1)*chunk]).strip()
+                for i in range(3)
+            ]
+        # Associer chaque partie à un titre de risque (ou titre générique)
+        titles = list(counter_risks[:3]) if counter_risks else [f"Risque {i+1}" for i in range(3)]
         for i in range(3):
-            body = ". ".join(sents[i*chunk:(i+1)*chunk]).strip()
+            title = titles[i] if i < len(titles) else f"Risque {i+1}"
+            body  = ct_parts[i] if i < len(ct_parts) else ""
             if body and not body.endswith("."): body += "."
-            paragraphs.append((f"Risque {i+1}", body or "—"))
+            # Ne jamais mettre le titre comme corps de texte
+            paragraphs.append((title, body if body and body.strip() != title.strip() else ""))
     elif risks_synth:
         for r in risks_synth[:3]:
-            paragraphs.append(("", r))
+            paragraphs.append(("", str(r)))
     else:
         paragraphs = [("Analyse contradictoire non disponible.", "")]
 

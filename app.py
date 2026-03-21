@@ -214,6 +214,15 @@ div[data-testid="stButton"] > button:not([kind="primary"]):not([data-testid="stB
 
 /* Footer */
 .page-footer { padding:20px 0 40px; margin-top:24px; border-top:1px solid #f5f5f5; font-size:11px; color:#999; display:flex; justify-content:space-between; }
+
+/* SCREENING */
+.scr-rank { font-family:'DM Mono',monospace; font-size:12px; color:#aaa; padding:10px 0; }
+.scr-ticker { font-family:'DM Mono',monospace; font-size:10px; color:#999; }
+.scr-sector { font-size:11px; color:#777; padding:10px 0; }
+.score-pill { display:inline-block; font-family:'DM Mono',monospace; font-size:13px; font-weight:600; padding:3px 10px; }
+.score-hi { color:#1a7a52; background:#f0faf5; border:1px solid #c8e8d8; }
+.score-md { color:#b8922a; background:#fdf8f0; border:1px solid #e8d8b0; }
+.score-lo { color:#c0392b; background:#fdf0f0; border:1px solid #e8c0c0; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -255,9 +264,132 @@ def _e(text) -> str:
 # Session state
 # ---------------------------------------------------------------------------
 
-if "stage"   not in st.session_state: st.session_state.stage   = "home"
-if "results" not in st.session_state: st.session_state.results = None
-if "ticker"  not in st.session_state: st.session_state.ticker  = ""
+if "stage"              not in st.session_state: st.session_state.stage              = "home"
+if "results"            not in st.session_state: st.session_state.results            = None
+if "ticker"             not in st.session_state: st.session_state.ticker             = ""
+if "screening_results"  not in st.session_state: st.session_state.screening_results  = None
+if "screening_universe" not in st.session_state: st.session_state.screening_universe = ""
+if "from_screening"     not in st.session_state: st.session_state.from_screening     = False
+
+# ---------------------------------------------------------------------------
+# Routing : détection du type d'input
+# ---------------------------------------------------------------------------
+
+_INDICES_SET = {
+    "CAC40", "SP500", "S&P500", "SPX", "DAX40", "FTSE100", "STOXX50", "ALL", "EUROSTOXX50",
+}
+_SECTOR_ALIASES_SET = {
+    "TECHNOLOGY", "TECH", "HEALTHCARE", "HEALTH",
+    "FINANCIALS", "FINANCE", "FINANCIAL", "FINANCIALSERVICES",
+    "CONSUMER", "CONSUMERCYCLICAL", "CONSUMERDEFENSIVE",
+    "ENERGY", "INDUSTRIALS", "MATERIALS", "BASICMATERIALS",
+    "REALESTATE", "UTILITIES", "COMMUNICATION", "COMMUNICATIONSERVICES", "TELECOM",
+}
+_UNIVERSE_DISPLAY = {
+    "CAC40": "CAC 40", "SP500": "S&P 500", "S&P500": "S&P 500", "SPX": "S&P 500",
+    "DAX40": "DAX 40", "FTSE100": "FTSE 100", "STOXX50": "Euro Stoxx 50",
+    "EUROSTOXX50": "Euro Stoxx 50", "ALL": "Univers Global",
+    "TECHNOLOGY": "Technology", "TECH": "Technology",
+    "HEALTHCARE": "Health Care", "HEALTH": "Health Care",
+    "FINANCIALS": "Financial Services", "FINANCE": "Financial Services",
+    "FINANCIAL": "Financial Services", "FINANCIALSERVICES": "Financial Services",
+    "CONSUMER": "Consumer Cyclical", "CONSUMERCYCLICAL": "Consumer Cyclical",
+    "CONSUMERDEFENSIVE": "Consumer Defensive",
+    "ENERGY": "Energy", "INDUSTRIALS": "Industrials",
+    "MATERIALS": "Basic Materials", "BASICMATERIALS": "Basic Materials",
+    "REALESTATE": "Real Estate", "UTILITIES": "Utilities",
+    "COMMUNICATION": "Communication Services",
+    "COMMUNICATIONSERVICES": "Communication Services", "TELECOM": "Communication Services",
+}
+_SECTOR_YFINANCE = {
+    "TECHNOLOGY": "Technology", "TECH": "Technology",
+    "HEALTHCARE": "Health Care", "HEALTH": "Health Care",
+    "FINANCIALS": "Financial Services", "FINANCE": "Financial Services",
+    "FINANCIAL": "Financial Services", "FINANCIALSERVICES": "Financial Services",
+    "CONSUMER": "Consumer Cyclical", "CONSUMERCYCLICAL": "Consumer Cyclical",
+    "CONSUMERDEFENSIVE": "Consumer Defensive",
+    "ENERGY": "Energy", "INDUSTRIALS": "Industrials",
+    "MATERIALS": "Basic Materials", "BASICMATERIALS": "Basic Materials",
+    "REALESTATE": "Real Estate", "UTILITIES": "Utilities",
+    "COMMUNICATION": "Communication Services",
+    "COMMUNICATIONSERVICES": "Communication Services", "TELECOM": "Communication Services",
+}
+
+
+def detect_input_type(query: str) -> str:
+    q = query.strip().upper().replace(" ", "").replace("-", "").replace("&", "")
+    if q in _INDICES_SET:
+        return "screening_indice"
+    if q in _SECTOR_ALIASES_SET:
+        return "screening_secteur"
+    return "analyse_individuelle"
+
+
+@st.cache_data(show_spinner=False, ttl=86400)
+def _get_universe_tickers(universe: str) -> list:
+    """Return ticker list for a given universe key (uppercased, normalized)."""
+    import sys as _sys
+    _scripts = str(Path(__file__).parent / "scripts")
+    if _scripts not in _sys.path:
+        _sys.path.insert(0, _scripts)
+
+    u = universe.upper().replace("-", "").replace(" ", "").replace("&", "")
+
+    if u == "CAC40":
+        from cache_update import CAC40_TICKERS
+        return CAC40_TICKERS
+    elif u == "DAX40":
+        from cache_update import DAX40_TICKERS
+        return DAX40_TICKERS
+    elif u == "STOXX50" or u == "EUROSTOXX50":
+        from cache_update import STOXX50_TICKERS
+        return STOXX50_TICKERS
+    elif u == "FTSE100":
+        from cache_update import FTSE100_TICKERS
+        return FTSE100_TICKERS
+    elif u in ("SP500", "SPX"):
+        from cache_update import fetch_sp500
+        return fetch_sp500()
+    elif u == "ALL":
+        from cache_update import (CAC40_TICKERS, DAX40_TICKERS,
+                                   STOXX50_TICKERS, FTSE100_TICKERS, fetch_sp500)
+        return list(dict.fromkeys(
+            fetch_sp500() + CAC40_TICKERS + DAX40_TICKERS + STOXX50_TICKERS + FTSE100_TICKERS
+        ))
+    else:
+        # Treat as sector name
+        return _fetch_sector_tickers(u)
+
+
+def _fetch_sector_tickers(sector_key: str) -> list:
+    """Query Supabase for tickers in a given sector."""
+    import os, requests as _req
+    url = os.getenv("SUPABASE_URL", "").rstrip("/")
+    key = os.getenv("SUPABASE_SECRET_KEY", "")
+    if not url or not key:
+        return []
+    sector_name = _SECTOR_YFINANCE.get(sector_key, sector_key.title())
+    tickers = []
+    offset = 0
+    while True:
+        resp = _req.get(
+            f"{url}/rest/v1/tickers_cache",
+            headers={"apikey": key, "Authorization": f"Bearer {key}",
+                     "Range": f"{offset}-{offset+999}"},
+            params={"select": "ticker", "sector": f"eq.{sector_name}"},
+            timeout=15,
+        )
+        if resp.status_code not in (200, 206):
+            break
+        batch = resp.json()
+        if not batch:
+            break
+        tickers.extend(r["ticker"] for r in batch)
+        if len(batch) < 1000:
+            break
+        offset += 1000
+    return tickers
+
 
 # ---------------------------------------------------------------------------
 # Contexte macro
@@ -304,14 +436,33 @@ def render_sidebar(results) -> None:
 
         if results and not results.get("error"):
             if st.button("＋  Nouvelle analyse", use_container_width=True, type="primary"):
-                st.session_state.stage   = "home"
-                st.session_state.results = None
-                st.session_state.ticker  = ""
+                st.session_state.stage        = "home"
+                st.session_state.results      = None
+                st.session_state.ticker       = ""
+                st.session_state.from_screening = False
+                st.rerun()
+
+        if st.session_state.get("from_screening") and st.session_state.get("screening_results"):
+            if st.button("← Retour au screening", use_container_width=True):
+                st.session_state.from_screening = False
+                st.session_state.stage = "screening_results"
                 st.rerun()
 
         # Livrables
         st.markdown('<div class="sb-section">', unsafe_allow_html=True)
         st.markdown('<span class="sb-label">Livrables</span>', unsafe_allow_html=True)
+
+        # Screening Excel (if available)
+        scr = st.session_state.get("screening_results")
+        if scr and scr.get("excel_bytes"):
+            scr_name = scr.get("display_name", "screening")
+            st.download_button(
+                f"Screening {scr_name}  ↓ .xlsx",
+                scr["excel_bytes"],
+                file_name=f"screening_{scr_name.lower().replace(' ', '_')}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True,
+            )
 
         if results and not results.get("error"):
             ticker_slug = results.get("ticker", "report")
@@ -436,12 +587,12 @@ def render_home() -> None:
     with col:
         st.markdown('<div style="height:56px"></div>', unsafe_allow_html=True)
         st.markdown('<div class="home-eyebrow">Analyse Financière IA</div>', unsafe_allow_html=True)
-        st.markdown('<div class="search-q">Quelle société analyse-t-on aujourd\'hui ?</div>', unsafe_allow_html=True)
+        st.markdown('<div class="search-q">Société, indice ou secteur ?</div>', unsafe_allow_html=True)
 
         ticker_input = st.text_input(
-            "ticker", placeholder="AAPL",
-            label_visibility="collapsed", max_chars=10,
-        ).strip().upper()
+            "ticker", placeholder="AAPL, CAC40, Technology...",
+            label_visibility="collapsed", max_chars=30,
+        ).strip()
 
         go = st.button("Analyser →", use_container_width=True, type="primary")
 
@@ -453,10 +604,24 @@ def render_home() -> None:
                 if st.button(qt, key=f"qt_{qt}", use_container_width=True):
                     clicked = qt
 
+        st.markdown('<div style="margin-top:10px;"></div>', unsafe_allow_html=True)
+        idx_cols = st.columns(5)
+        quick_idx = ["CAC40", "SP500", "DAX40", "FTSE100", "STOXX50"]
+        for i, qi in enumerate(quick_idx):
+            with idx_cols[i]:
+                if st.button(qi, key=f"qi_{qi}", use_container_width=True):
+                    clicked = qi
+
         target = clicked or (ticker_input if go and ticker_input else None)
         if target:
-            st.session_state.ticker = target
-            st.session_state.stage  = "running"
+            input_type = detect_input_type(target)
+            if input_type == "analyse_individuelle":
+                st.session_state.ticker = target.upper()
+                st.session_state.stage  = "running"
+            else:
+                u_key = target.upper().replace("-", "").replace(" ", "").replace("&", "")
+                st.session_state.screening_universe = u_key
+                st.session_state.stage = "screening_running"
             st.rerun()
 
         if "quote_idx" not in st.session_state:
@@ -608,6 +773,340 @@ def render_running() -> None:
         }
         st.session_state.stage = "results"
         st.rerun()
+
+
+# ---------------------------------------------------------------------------
+# Page SCREENING RUNNING
+# ---------------------------------------------------------------------------
+
+def render_screening_running() -> None:
+    import sys as _sys
+    universe     = st.session_state.screening_universe
+    display_name = _UNIVERSE_DISPLAY.get(universe, universe)
+
+    _, col, _ = st.columns([1, 2, 1])
+    with col:
+        st.markdown(
+            f'<div style="text-align:center;margin-top:64px;">'
+            f'<div style="font-size:42px;font-weight:700;letter-spacing:-1px;color:#111;margin-bottom:6px;">{_e(display_name)}</div>'
+            f'<div style="font-size:12px;color:#777;margin-bottom:44px;">Screening en cours — calcul des ratios</div>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+
+        status_lbl = st.empty()
+
+        def _status(msg):
+            status_lbl.markdown(
+                f'<div style="text-align:center;font-size:12px;font-weight:500;color:#666;">{_e(msg)}...</div>',
+                unsafe_allow_html=True,
+            )
+
+        _status("Chargement des tickers")
+        tickers = _get_universe_tickers(universe)
+
+        if not tickers:
+            st.error(f"Aucun ticker trouve pour \"{display_name}\".")
+            if st.button("<- Retour"):
+                st.session_state.stage = "home"
+                st.rerun()
+            return
+
+        _status(f"Calcul des ratios pour {len(tickers)} societes")
+
+        _scripts = str(Path(__file__).parent / "scripts")
+        if _scripts not in _sys.path:
+            _sys.path.insert(0, _scripts)
+
+        try:
+            from compute_screening import build_tickers_data
+        except ImportError as ex:
+            st.error(f"Erreur import compute_screening : {ex}")
+            if st.button("<- Retour"):
+                st.session_state.stage = "home"
+                st.rerun()
+            return
+
+        t0 = time.time()
+        try:
+            tickers_data = build_tickers_data(tickers, workers=4)
+        except Exception as ex:
+            st.error(f"Erreur screening : {ex}")
+            if st.button("<- Retour"):
+                st.session_state.stage = "home"
+                st.rerun()
+            return
+
+        _status("Generation du fichier Excel")
+
+        from outputs.screening_writer import ScreeningWriter
+        out_dir = Path(__file__).parent / "outputs" / "generated"
+        out_dir.mkdir(exist_ok=True)
+        slug    = universe.replace("/", "_").replace(" ", "_")
+        out_path = str(out_dir / f"screening_{slug}.xlsx")
+        try:
+            ScreeningWriter.generate(tickers_data, display_name, out_path)
+        except Exception as ex:
+            log.warning(f"[app] ScreeningWriter error: {ex}")
+
+        elapsed = int((time.time() - t0) * 1000)
+
+        xlsx_bytes = None
+        try:
+            xlsx_bytes = open(out_path, "rb").read()
+        except Exception:
+            pass
+
+        status_lbl.markdown(
+            f'<div style="text-align:center;font-size:12px;font-weight:600;color:#1a7a52;">'
+            f'Screening termine en {elapsed/1000:.1f}s — {len(tickers_data)} societes</div>',
+            unsafe_allow_html=True,
+        )
+        time.sleep(0.4)
+
+        st.session_state.screening_results = {
+            "universe":     universe,
+            "display_name": display_name,
+            "tickers_data": tickers_data,
+            "excel_path":   out_path,
+            "excel_bytes":  xlsx_bytes,
+            "elapsed_ms":   elapsed,
+        }
+        st.session_state.stage = "screening_results"
+        st.rerun()
+
+
+# ---------------------------------------------------------------------------
+# Page SCREENING RESULTS
+# ---------------------------------------------------------------------------
+
+def render_screening_results(results: dict) -> None:
+    from statistics import median as _med
+
+    tickers_data = results.get("tickers_data") or []
+    display_name = results.get("display_name", "Screening")
+    elapsed_ms   = results.get("elapsed_ms", 0)
+    n            = len(tickers_data)
+    today        = date.today().strftime("%d.%m.%Y")
+
+    if not tickers_data:
+        st.warning("Aucune donnee de screening disponible.")
+        if st.button("<- Retour"):
+            st.session_state.stage = "home"
+            st.rerun()
+        return
+
+    # --- Back button ---
+    if st.button("<- Nouvelle recherche", type="primary"):
+        st.session_state.stage = "home"
+        st.rerun()
+
+    # --- Header ---
+    st.markdown(f'<div class="rc">{_e(display_name)} — Screening</div>', unsafe_allow_html=True)
+    st.markdown(
+        f'<div class="rm">{n} societes analysees · {today} · '
+        f'<span style="color:#1a7a52">{elapsed_ms/1000:.1f}s</span></div>',
+        unsafe_allow_html=True,
+    )
+
+    # --- KPI Strip ---
+    best   = tickers_data[0] if tickers_data else {}
+    scores = [t.get("score_global") or 0 for t in tickers_data]
+    med_sc = _med(scores) if scores else 0
+
+    sec_counts: dict = {}
+    for t in tickers_data:
+        s = t.get("sector") or "Autres"
+        sec_counts[s] = sec_counts.get(s, 0) + 1
+    top_sector = max(sec_counts, key=sec_counts.get) if sec_counts else "—"
+
+    cells = "".join([
+        f'<div class="mkt-cell"><div class="mkt-n">SOCIETES</div>'
+        f'<div class="mkt-v">{n}</div><div class="mkt-na">dans l\'univers</div></div>',
+
+        f'<div class="mkt-cell"><div class="mkt-n">MEILLEUR SCORE</div>'
+        f'<div class="mkt-v">{best.get("score_global") or 0:.0f}/100</div>'
+        f'<div class="mkt-na">{_e((best.get("company_name") or "")[:22])}</div></div>',
+
+        f'<div class="mkt-cell"><div class="mkt-n">SCORE MEDIAN</div>'
+        f'<div class="mkt-v">{med_sc:.0f}/100</div><div class="mkt-na">univers</div></div>',
+
+        f'<div class="mkt-cell"><div class="mkt-n">SECTEUR DOM.</div>'
+        f'<div class="mkt-v" style="font-size:13px;">{_e(top_sector[:18])}</div>'
+        f'<div class="mkt-na">{sec_counts.get(top_sector, 0)} socs</div></div>',
+
+        f'<div class="mkt-cell"><div class="mkt-n">DATE</div>'
+        f'<div class="mkt-v">{today}</div><div class="mkt-na">screening</div></div>',
+    ])
+    st.markdown(f'<div class="mkt-strip">{cells}</div>', unsafe_allow_html=True)
+
+    # --- Excel download ---
+    xlsx_bytes = results.get("excel_bytes")
+    if xlsx_bytes:
+        st.download_button(
+            f"Telecharger le screening {display_name}  v .xlsx",
+            xlsx_bytes,
+            file_name=f"screening_{display_name.lower().replace(' ', '_')}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+
+    # --- Top 10 Global ---
+    st.markdown('<div class="sec-t" style="margin-top:32px;">Top 10 — Score global</div>',
+                unsafe_allow_html=True)
+    top10 = tickers_data[:10]
+
+    hcols = st.columns([0.4, 2.4, 1.6, 1.0, 1.0, 1.0, 1.0, 1.2])
+    for hc, h in zip(hcols, ["#", "Societe", "Secteur", "Score", "Value", "Growth", "Quality", ""]):
+        with hc:
+            st.markdown(
+                f'<div style="font-size:10px;font-weight:600;color:#777;letter-spacing:1px;'
+                f'text-transform:uppercase;padding-bottom:8px;border-bottom:1px solid #f0f0f0;">{h}</div>',
+                unsafe_allow_html=True,
+            )
+
+    for i, t in enumerate(top10):
+        score    = t.get("score_global") or 0
+        sc_cls   = "score-hi" if score >= 60 else ("score-md" if score >= 40 else "score-lo")
+        ticker_v = t.get("ticker") or ""
+        rcols    = st.columns([0.4, 2.4, 1.6, 1.0, 1.0, 1.0, 1.0, 1.2])
+
+        with rcols[0]:
+            st.markdown(f'<div class="scr-rank">{i+1}</div>', unsafe_allow_html=True)
+        with rcols[1]:
+            st.markdown(
+                f'<div style="padding:2px 0;">'
+                f'<div style="font-size:13px;font-weight:600;color:#111;">'
+                f'{_e((t.get("company_name") or "")[:28])}</div>'
+                f'<div class="scr-ticker">{_e(ticker_v)}</div></div>',
+                unsafe_allow_html=True,
+            )
+        with rcols[2]:
+            st.markdown(
+                f'<div class="scr-sector">{_e((t.get("sector") or "—")[:20])}</div>',
+                unsafe_allow_html=True,
+            )
+        with rcols[3]:
+            st.markdown(
+                f'<div style="padding:2px 0;"><span class="score-pill {sc_cls}">{score:.0f}</span></div>',
+                unsafe_allow_html=True,
+            )
+        with rcols[4]:
+            v = t.get("score_value") or 0
+            st.markdown(
+                f'<div style="font-family:\'DM Mono\',monospace;font-size:12px;color:#555;">{v:.0f}</div>',
+                unsafe_allow_html=True,
+            )
+        with rcols[5]:
+            g = t.get("score_growth") or 0
+            st.markdown(
+                f'<div style="font-family:\'DM Mono\',monospace;font-size:12px;color:#555;">{g:.0f}</div>',
+                unsafe_allow_html=True,
+            )
+        with rcols[6]:
+            q = t.get("score_quality") or 0
+            st.markdown(
+                f'<div style="font-family:\'DM Mono\',monospace;font-size:12px;color:#555;">{q:.0f}</div>',
+                unsafe_allow_html=True,
+            )
+        with rcols[7]:
+            if st.button("Analyser", key=f"scr_ana_{ticker_v}_{i}", type="primary"):
+                st.session_state.ticker       = ticker_v
+                st.session_state.from_screening = True
+                st.session_state.stage        = "running"
+                st.rerun()
+
+    # --- Top 5 par categorie ---
+    st.markdown('<div class="sec-t" style="margin-top:36px;">Top 5 par categorie</div>',
+                unsafe_allow_html=True)
+    cat_cols = st.columns(4)
+    categories = [
+        ("Value",     "score_value",    "#b8922a"),
+        ("Growth",    "score_growth",   "#1a7a52"),
+        ("Quality",   "score_quality",  "#1B2A4A"),
+        ("Momentum",  "score_momentum", "#7a3a9a"),
+    ]
+    for cc, (cat_name, sk, color) in zip(cat_cols, categories):
+        top5 = sorted(tickers_data, key=lambda x: x.get(sk) or 0, reverse=True)[:5]
+        with cc:
+            st.markdown(
+                f'<div style="font-size:10px;font-weight:600;color:{color};letter-spacing:1.5px;'
+                f'text-transform:uppercase;margin-bottom:12px;padding-bottom:8px;'
+                f'border-bottom:2px solid {color};">{cat_name}</div>',
+                unsafe_allow_html=True,
+            )
+            for t in top5:
+                sc = t.get(sk) or 0
+                st.markdown(
+                    f'<div style="display:flex;justify-content:space-between;align-items:center;'
+                    f'padding:7px 0;border-bottom:1px solid #f5f5f5;">'
+                    f'<div>'
+                    f'<div style="font-size:12px;font-weight:500;color:#111;">'
+                    f'{_e((t.get("company_name") or "")[:20])}</div>'
+                    f'<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:#999;">'
+                    f'{_e(t.get("ticker") or "")}</div>'
+                    f'</div>'
+                    f'<div style="font-family:\'DM Mono\',monospace;font-size:13px;'
+                    f'font-weight:600;color:{color};">{sc:.0f}</div>'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
+
+    # --- Composition sectorielle ---
+    st.markdown('<div class="sec-t" style="margin-top:36px;">Composition sectorielle</div>',
+                unsafe_allow_html=True)
+
+    sector_data: dict = {}
+    for t in tickers_data:
+        s = t.get("sector") or "Autres"
+        sector_data.setdefault(s, []).append(t)
+    sectors_sorted = sorted(sector_data.items(), key=lambda x: len(x[1]), reverse=True)
+
+    shcols = st.columns([2.2, 0.7, 1.0, 2.0, 1.2])
+    for shc, h in zip(shcols, ["Secteur", "N", "Score moy.", "Top societe", "EV/EBITDA med."]):
+        with shc:
+            st.markdown(
+                f'<div style="font-size:10px;font-weight:600;color:#777;letter-spacing:1px;'
+                f'text-transform:uppercase;padding-bottom:8px;border-bottom:1px solid #f0f0f0;">{h}</div>',
+                unsafe_allow_html=True,
+            )
+
+    for sec_name, sec_list in sectors_sorted:
+        avg_sc = sum((t.get("score_global") or 0) for t in sec_list) / len(sec_list)
+        top_t  = max(sec_list, key=lambda x: x.get("score_global") or 0)
+        evs    = [t.get("ev_ebitda") for t in sec_list if t.get("ev_ebitda") is not None]
+        ev_str = f"{_med(evs):.1f}x" if evs else "—"
+        sc_col = "#1a7a52" if avg_sc >= 60 else ("#b8922a" if avg_sc >= 40 else "#c0392b")
+
+        sccols = st.columns([2.2, 0.7, 1.0, 2.0, 1.2])
+        with sccols[0]:
+            st.markdown(f'<div style="padding:7px 0;font-size:13px;color:#333;">{_e(sec_name)}</div>',
+                        unsafe_allow_html=True)
+        with sccols[1]:
+            st.markdown(
+                f'<div style="padding:7px 0;font-family:\'DM Mono\',monospace;font-size:12px;color:#777;">'
+                f'{len(sec_list)}</div>', unsafe_allow_html=True)
+        with sccols[2]:
+            st.markdown(
+                f'<div style="padding:7px 0;font-family:\'DM Mono\',monospace;font-size:12px;'
+                f'font-weight:600;color:{sc_col};">{avg_sc:.0f}</div>', unsafe_allow_html=True)
+        with sccols[3]:
+            st.markdown(
+                f'<div style="padding:7px 0;font-size:12px;color:#555;">'
+                f'{_e((top_t.get("company_name") or "")[:24])}</div>', unsafe_allow_html=True)
+        with sccols[4]:
+            st.markdown(
+                f'<div style="padding:7px 0;font-family:\'DM Mono\',monospace;font-size:12px;color:#777;">'
+                f'{ev_str}</div>', unsafe_allow_html=True)
+
+    # --- Footer ---
+    st.markdown(
+        f'<div class="page-footer">'
+        f'<span>FINSIGHT SCREENING · v1.0</span>'
+        f'<span>Donnees au {today}</span>'
+        f'<span>© {date.today().year} — Outil d\'aide a la decision uniquement</span>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -864,6 +1363,14 @@ def _build_ia_html(snapshot, ratios, synthesis, qa_python, qa_haiku, devil, sent
 # ---------------------------------------------------------------------------
 
 def render_results(results: dict) -> None:
+    # Back to screening button
+    if st.session_state.get("from_screening") and st.session_state.get("screening_results"):
+        if st.button("← Retour au screening", type="primary"):
+            st.session_state.from_screening = False
+            st.session_state.stage = "screening_results"
+            st.rerun()
+        st.markdown('<div style="margin-bottom:12px;"></div>', unsafe_allow_html=True)
+
     if results.get("error"):
         st.error(results["error"])
         if st.button("← Retour"):
@@ -1189,8 +1696,17 @@ def main():
         render_home()
     elif stage == "running":
         render_running()
+    elif stage == "screening_running":
+        render_screening_running()
     elif stage == "results" and results:
         render_results(results)
+    elif stage == "screening_results":
+        scr = st.session_state.get("screening_results")
+        if scr:
+            render_screening_results(scr)
+        else:
+            st.session_state.stage = "home"
+            st.rerun()
     else:
         st.session_state.stage = "home"
         st.rerun()
