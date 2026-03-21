@@ -61,18 +61,11 @@ button *, button *:before, button *:after,
 [data-testid="stToolbar"], [data-testid="stDecoration"],
 [data-testid="stStatusWidget"], [data-testid="stAppDeployButton"] { display: none !important; }
 
-/* === Sidebar FIXE — toujours visible, jamais réductible === */
+/* === Sidebar — largeur fixe mais pliable === */
 [data-testid="stSidebar"] {
-    transform: none !important;
     min-width: 330px !important;
     max-width: 330px !important;
-    visibility: visible !important;
-    display: block !important;
-    position: relative !important;
 }
-/* Cacher les boutons collapse/expand — sidebar inamovible */
-[data-testid="stSidebarCollapseButton"],
-[data-testid="stSidebarCollapsedControl"] { display: none !important; }
 
 /* Fix artefact visuel "board_" Streamlit/BaseBUI */
 [class*="board_"], [class^="board_"], [data-baseweb="board"] { color:transparent!important; font-size:0!important; }
@@ -545,13 +538,6 @@ def render_sidebar(results) -> None:
                         unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
-        st.markdown(
-            '<div class="sb-disc">Outil d\'aide à la décision.<br>'
-            'Ne constitue pas un conseil<br>en investissement. Données<br>'
-            'potentiellement variables.</div>',
-            unsafe_allow_html=True,
-        )
-
         # Diagnostic API
         with st.expander("🔧 Diagnostic API", expanded=False):
             import os
@@ -575,6 +561,13 @@ def render_sidebar(results) -> None:
                         st.success(f"{provider}: ✅ `{resp[:20]}`")
                     except Exception as ex:
                         st.error(f"{provider}: ❌ `{type(ex).__name__}: {str(ex)[:80]}`")
+
+        st.markdown(
+            '<div class="sb-disc">Outil d\'aide à la décision.<br>'
+            'Ne constitue pas un conseil<br>en investissement. Données<br>'
+            'potentiellement variables.</div>',
+            unsafe_allow_html=True,
+        )
 
 
 # ---------------------------------------------------------------------------
