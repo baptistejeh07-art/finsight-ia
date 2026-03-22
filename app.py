@@ -1844,7 +1844,21 @@ def main():
     elif stage == "screening_running":
         render_screening_running()
     elif stage == "results" and results:
-        render_results(results)
+        try:
+            render_results(results)
+        except Exception as _render_err:
+            import traceback as _tb
+            st.error(f"Erreur affichage résultats : {_render_err}")
+            st.code(_tb.format_exc(), language="text")
+            st.markdown("**Livrables disponibles :**")
+            for _lbl, _key, _fname, _mime in [
+                ("Rapport PDF", "pdf_bytes", f"{results.get('ticker','report')}_report.pdf", "application/pdf"),
+                ("Pitchbook", "pptx_bytes", f"{results.get('ticker','report')}_pitchbook.pptx", "application/vnd.openxmlformats-officedocument.presentationml.presentation"),
+                ("Ratios Excel", "excel_bytes", f"{results.get('ticker','report')}_ratios.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
+            ]:
+                _b = results.get(_key)
+                if _b:
+                    st.download_button(_lbl, _b, file_name=_fname, mime=_mime)
     elif stage == "screening_results":
         scr = st.session_state.get("screening_results")
         if scr:
