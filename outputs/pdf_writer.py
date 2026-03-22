@@ -1382,8 +1382,13 @@ class PDFWriter:
         prev_r = None
         for l in all_labels:
             r = _rev(l)
-            if prev_r and r and prev_r != 0:
-                g = (float(r) - float(prev_r)) / abs(float(prev_r)) * 100
+            try:
+                r_f = float(r) if r is not None else None
+                pr_f = float(prev_r) if prev_r is not None else None
+            except (ValueError, TypeError):
+                r_f = pr_f = None
+            if pr_f and r_f and pr_f != 0:
+                g = (r_f - pr_f) / abs(pr_f) * 100
                 grow_vals.append(f"{g:+.1f}%".replace('.', ','))
             else:
                 grow_vals.append('\u2014')
@@ -1426,7 +1431,10 @@ class PDFWriter:
         # DCF sensitivity
         wacc_vals = [wacc - 0.02, wacc - 0.01, wacc, wacc + 0.01, wacc + 0.02]
         tgr_vals  = [tgr  - 0.01, tgr  - 0.005, tgr, tgr  + 0.005, tgr  + 0.01]
-        bv = float(tbase) if tbase else (float(price) if price else 100.0)
+        try:
+            bv = float(tbase) if tbase is not None else (float(price) if price is not None else 100.0)
+        except (ValueError, TypeError):
+            bv = float(price) if price else 100.0
         db = wacc - tgr
 
         def _dcf_cell(w, t):
@@ -1445,9 +1453,14 @@ class PDFWriter:
         if ff_src:
             for m in ff_src:
                 lo = _g(m, 'range_low'); hi = _g(m, 'range_high')
-                if lo and hi:
+                try:
+                    lo_f = float(lo) if lo not in (None, '', 'null') else None
+                    hi_f = float(hi) if hi not in (None, '', 'null') else None
+                except (ValueError, TypeError):
+                    lo_f = hi_f = None
+                if lo_f and hi_f:
                     ff_methods.append(_g(m, 'label') or '\u2014')
-                    ff_lows.append(float(lo)); ff_highs.append(float(hi))
+                    ff_lows.append(lo_f); ff_highs.append(hi_f)
                     ff_colors.append(_ff_cols[len(ff_methods) - 1 % len(_ff_cols)])
         else:
             fallback = [
@@ -1456,8 +1469,11 @@ class PDFWriter:
                 (tbull, 'DCF \u2014 Bull', '#1A7A4A'),
             ]
             for tv, lbl, col in fallback:
-                if tv:
-                    v = float(tv)
+                try:
+                    v = float(tv) if tv is not None else None
+                except (ValueError, TypeError):
+                    v = None
+                if v:
                     ff_methods.append(lbl)
                     ff_lows.append(v * 0.94); ff_highs.append(v * 1.06)
                     ff_colors.append(col)
@@ -1680,7 +1696,7 @@ class PDFWriter:
             'ff_lows':    ff_lows,
             'ff_highs':   ff_highs,
             'ff_colors':  ff_colors,
-            'ff_course':  float(price) if price else 0,
+            'ff_course':  (float(price) if price is not None else 0),
             'ff_course_str': _fr(price, 2),
 
             # Charts perf (sera mis a jour ci-dessous)
@@ -1746,5 +1762,9 @@ class PDFWriter:
             ci.company_name = co_name
 
         gen_date = _date_fr()
-        data = self._state_to_data(state, gen_date)
+        try:
+            data = self._state_to_data(state, gen_date)
+        except Exception as _e:
+            log.error("[PDFWriter] _state_to_data FAILED: %s", _e, exc_info=True)
+            raise
         return generate_report(data, output_path)
