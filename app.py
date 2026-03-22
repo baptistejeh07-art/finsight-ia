@@ -546,6 +546,10 @@ def render_sidebar(results) -> None:
                     file_name=f"{ticker_slug}_report.pdf",
                     mime="application/pdf",
                     use_container_width=True)
+            elif results.get("pdf_error"):
+                st.error("PDF : " + results["pdf_error"].split("\n")[0])
+                with st.expander("Détail erreur PDF"):
+                    st.code(results["pdf_error"], language="text")
 
             # Raisonnement IA — scroll vers la section
             st.markdown(
@@ -863,6 +867,7 @@ def render_running() -> None:
             "qa_python": qa_python, "qa_haiku": qa_haiku, "devil": devil,
             "excel_path": excel_path, "pptx_path": pptx_path, "pdf_path": pdf_path,
             "excel_bytes": excel_bytes, "pptx_bytes": pptx_bytes, "pdf_bytes": pdf_bytes,
+            "pdf_error": final_state.get("pdf_error"),
             "blocked": blocked, "elapsed_ms": elapsed,
         }
         st.session_state.stage = "results"
