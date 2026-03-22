@@ -1307,9 +1307,10 @@ class PDFWriter:
         beta        = (mkt.beta_levered if mkt else None)
         rfr         = (mkt.risk_free_rate if mkt else None) or 0.041
         erp         = (mkt.erp if mkt else None) or 0.055
-        mktcap      = (mkt.market_cap if mkt else None)
-        div_yield   = (mkt.dividend_yield if mkt else None)
-        pe_ntm      = (mkt.pe_ntm if mkt else None)
+        _shares     = (mkt.shares_diluted if mkt else None)
+        mktcap      = (price * _shares * 1e6) if (price and _shares) else None
+        div_yield   = None   # non disponible dans MarketData
+        pe_ntm      = None   # sera rempli par ratios ci-dessous
         ev_ebitda_v = None
 
         rec       = (_g(synthesis, 'recommendation') or 'HOLD').upper()
