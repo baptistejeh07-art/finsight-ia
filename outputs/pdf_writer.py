@@ -565,7 +565,7 @@ def _cover_page(c, doc, data):
     c.setFillColor(GREY_TEXT)
     c.setFont('Helvetica', 8)
     c.drawCentredString(cx, h * 0.455,
-        _enc(f"Rapport d'analyse confidentiel \u2014 {date_analyse}"))
+        _enc(f"Rapport d'analyse confidentiel - {date_analyse}"))
     c.setFont('Helvetica', 7.5)
     c.drawCentredString(cx, h * 0.435, _enc(
         "Donn\u00e9es : yfinance \u00b7 FMP \u00b7 Finnhub \u00b7 FinBERT"
