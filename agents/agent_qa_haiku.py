@@ -26,7 +26,7 @@ from core.llm_provider import LLMProvider
 
 log = logging.getLogger(__name__)
 
-_DEFAULT_MODEL = "claude-haiku-4-5-20251001"
+_DEFAULT_MODEL = "llama-3.3-70b-versatile"
 
 # ---------------------------------------------------------------------------
 # Modele de resultat
@@ -140,7 +140,7 @@ class AgentQAHaiku:
     """
 
     def __init__(self, model: str = _DEFAULT_MODEL):
-        self.llm = LLMProvider(provider="anthropic", model=model)
+        self.llm = LLMProvider(provider="groq", model=model)
 
     def validate(
         self,
@@ -148,7 +148,7 @@ class AgentQAHaiku:
         qa_python=None,
     ) -> Optional[QAHaikuResult]:
         """
-        Valide la qualite de la synthese via Claude Haiku.
+        Valide la qualite de la synthese via Groq.
         Returns QAHaikuResult, ou None si LLM inaccessible.
         """
         if synthesis is None:
@@ -163,22 +163,14 @@ class AgentQAHaiku:
 
         prompt = _build_prompt(synthesis, qa_python)
 
-        # --- Appel LLM avec fallback Groq ---
         raw = None
-        _groq = LLMProvider(provider="groq")
-
-        for llm in [self.llm, _groq]:
-            try:
-                raw = llm.generate(prompt=prompt, system=_SYSTEM, max_tokens=768)
-                if raw:
-                    if llm is not self.llm:
-                        log.info("[AgentQAHaiku] Fallback Groq utilise")
-                    break
-            except Exception as e:
-                log.warning(f"[AgentQAHaiku] {llm.provider} echec ({type(e).__name__}: {e}) — provider suivant")
+        try:
+            raw = self.llm.generate(prompt=prompt, system=_SYSTEM, max_tokens=768)
+        except Exception as e:
+            log.warning(f"[AgentQAHaiku] {self.llm.provider} echec ({type(e).__name__}: {e})")
 
         if not raw:
-            log.error("[AgentQAHaiku] Tous les providers ont echoue")
+            log.error("[AgentQAHaiku] Groq a echoue")
             return None
 
         latency_ms = int((time.time() - t_start) * 1000)

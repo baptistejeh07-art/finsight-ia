@@ -16,7 +16,7 @@ from typing import List, Optional
 from core.llm_provider import LLMProvider
 
 log = logging.getLogger(__name__)
-_DEFAULT_MODEL = "claude-haiku-4-5-20251001"
+_DEFAULT_MODEL = "llama-3.3-70b-versatile"
 
 
 @dataclass
@@ -108,7 +108,7 @@ JSON requis :
 
 class AgentDevil:
     def __init__(self, model: str = _DEFAULT_MODEL):
-        self.llm = LLMProvider(provider="anthropic", model=model)
+        self.llm = LLMProvider(provider="groq", model=model)
 
     def challenge(self, synthesis, ratios) -> Optional[DevilResult]:
         if synthesis is None:
@@ -123,18 +123,13 @@ class AgentDevil:
 
         prompt = _build_prompt(synthesis, ratios)
         raw = None
-        for llm in [self.llm, LLMProvider(provider="groq")]:
-            try:
-                raw = llm.generate(prompt=prompt, system=_SYSTEM, max_tokens=2048)
-                if raw:
-                    if llm is not self.llm:
-                        log.info("[AgentDevil] Fallback Groq utilise")
-                    break
-            except Exception as e:
-                log.warning(f"[AgentDevil] {llm.provider} echec ({type(e).__name__}: {e})")
+        try:
+            raw = self.llm.generate(prompt=prompt, system=_SYSTEM, max_tokens=2048)
+        except Exception as e:
+            log.warning(f"[AgentDevil] {self.llm.provider} echec ({type(e).__name__}: {e})")
 
         if not raw:
-            log.error("[AgentDevil] Tous les providers ont echoue")
+            log.error("[AgentDevil] Groq a echoue")
             return None
 
         latency_ms = int((time.time() - t_start) * 1000)

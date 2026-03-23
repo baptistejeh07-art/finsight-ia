@@ -17,7 +17,7 @@ from typing import Optional
 from core.llm_provider import LLMProvider
 
 log = logging.getLogger(__name__)
-_DEFAULT_MODEL = "claude-haiku-4-5-20251001"
+_DEFAULT_MODEL = "llama-3.3-70b-versatile"
 
 
 @dataclass
@@ -163,7 +163,7 @@ JSON requis (tous les champs obligatoires) :
 
 class AgentSynthese:
     def __init__(self, model: str = _DEFAULT_MODEL):
-        self.llm = LLMProvider(provider="anthropic", model=model)
+        self.llm = LLMProvider(provider="groq", model=model)
 
     def synthesize(self, snapshot, ratios, sentiment=None) -> Optional[SynthesisResult]:
         request_id = str(uuid.uuid4())
@@ -174,18 +174,13 @@ class AgentSynthese:
 
         prompt = _build_prompt(snapshot, ratios, sentiment)
         raw = None
-        for llm_attempt in [self.llm, LLMProvider(provider="groq")]:
-            try:
-                raw = llm_attempt.generate(prompt=prompt, system=_SYSTEM, max_tokens=4000)
-                if raw:
-                    if llm_attempt is not self.llm:
-                        log.info("[AgentSynthese] Fallback Groq utilise")
-                    break
-            except Exception as e:
-                log.warning(f"[AgentSynthese] {llm_attempt.provider} echec ({type(e).__name__}: {e})")
+        try:
+            raw = self.llm.generate(prompt=prompt, system=_SYSTEM, max_tokens=4000)
+        except Exception as e:
+            log.warning(f"[AgentSynthese] {self.llm.provider} echec ({type(e).__name__}: {e})")
 
         if not raw:
-            log.error("[AgentSynthese] Tous les providers ont echoue")
+            log.error("[AgentSynthese] Groq a echoue")
             return None
 
         latency_ms = int((time.time() - t_start) * 1000)
