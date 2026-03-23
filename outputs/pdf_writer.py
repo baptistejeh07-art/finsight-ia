@@ -321,6 +321,7 @@ def _make_pie_comparables(data):
     ticker      = _d(data, 'pie_ticker', _d(data, 'ticker'))
     pct_str     = _d(data, 'pie_pct_str', '')
     sector_name = _d(data, 'pie_sector_name', '')
+    cap_label   = _d(data, 'pie_cap_label', 'EV')
 
     if not labels or not sizes:
         # Graphique vide
@@ -342,7 +343,7 @@ def _make_pie_comparables(data):
         startangle=90, pctdistance=0.78,
         wedgeprops=dict(linewidth=0.8, edgecolor='white')
     )
-    ax.set_title(f'Poids relatif EV \u2014 Secteur {sector_name}', fontsize=8,
+    ax.set_title(f'Poids relatif {cap_label} \u2014 Secteur {sector_name}', fontsize=8,
                  color='#1B3A6B', fontweight='bold', pad=8)
     centre = plt.Circle((0, 0), 0.42, color='white')
     ax.add_patch(centre)
@@ -370,15 +371,34 @@ def _make_revenue_area(data):
     year_labels = data.get('area_year_labels') or []
 
     if not quarters or not segments:
-        fig, ax = plt.subplots(figsize=(7.0, 3.2))
-        ax.text(0.5, 0.5, 'N/A', ha='center', va='center', fontsize=14, color='#555',
-                transform=ax.transAxes)
-        ax.set_facecolor('white'); fig.patch.set_facecolor('white')
-        ax.axis('off')
-        buf = io.BytesIO()
-        fig.savefig(buf, format='png', dpi=160, bbox_inches='tight')
-        plt.close(fig); buf.seek(0)
-        return buf
+        # Fallback : graphique barres revenus annuels
+        fallback = data.get('area_annual_fallback') or []
+        if fallback:
+            _lbls = [f[0] for f in fallback]
+            _vals = [f[1] for f in fallback]
+            _cur  = data.get('currency', '')
+            fig, ax = plt.subplots(figsize=(7.0, 3.2))
+            bars = ax.bar(range(len(_lbls)), _vals, color='#2A5298', alpha=0.85, width=0.55, zorder=3)
+            for bar, val in zip(bars, _vals):
+                ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + max(_vals)*0.01,
+                        f'{val:.1f}', ha='center', va='bottom', fontsize=7.5, color='#1B3A6B', fontweight='bold')
+            ax.set_xticks(range(len(_lbls)))
+            ax.set_xticklabels(_lbls, fontsize=8, color='#555')
+            ax.set_ylabel(f'Revenus (Md{_cur})', fontsize=7.5, color='#555')
+            ax.tick_params(length=0)
+            for sp in ['top', 'right']: ax.spines[sp].set_visible(False)
+            ax.spines['left'].set_color('#D0D5DD'); ax.spines['bottom'].set_color('#D0D5DD')
+            ax.set_facecolor('white'); fig.patch.set_facecolor('white')
+            ax.grid(axis='y', alpha=0.25, color='#D0D5DD', linewidth=0.5, zorder=0)
+            ax.set_title('Revenus annuels consolid\u00e9s', fontsize=9,
+                         color='#1B3A6B', fontweight='bold', pad=6)
+            plt.tight_layout(pad=0.4)
+            buf = io.BytesIO()
+            fig.savefig(buf, format='png', dpi=160, bbox_inches='tight')
+            plt.close(fig); buf.seek(0)
+            return buf
+        # Aucune donnée disponible
+        return _blank_chart_buf(7.0, 3.2)
 
     seg_colors = ['#1B3A6B','#2A5298','#5580B8','#88AACC','#B8CCE0']
     seg_keys   = list(segments.keys())
@@ -1288,21 +1308,32 @@ def _fetch_pie_data(ticker: str, peers: list) -> dict:
 
         all_t = [ticker] + peer_tickers[:5]
         ev_data = {}
+        _used_mktcap = False
         for t in all_t:
             if not t:
                 continue
             try:
-                info = yf.Ticker(t).fast_info
+                yft  = yf.Ticker(t)
+                info = yft.fast_info
                 ev   = getattr(info, 'enterprise_value', None)
                 if ev is None:
-                    ev = yf.Ticker(t).info.get('enterpriseValue')
+                    ev = yft.info.get('enterpriseValue')
                 if ev and float(ev) > 0:
-                    ev_data[t] = float(ev) / 1e9   # Md$
+                    ev_data[t] = float(ev) / 1e9
+                else:
+                    # Fallback market cap (tickers EU souvent sans EV dans fast_info)
+                    mc = getattr(info, 'market_cap', None)
+                    if mc is None:
+                        mc = yft.info.get('marketCap')
+                    if mc and float(mc) > 0:
+                        ev_data[t] = float(mc) / 1e9
+                        _used_mktcap = True
             except Exception:
                 pass
 
         if len(ev_data) < 2:
             return {}
+        _cap_label = 'Mkt Cap' if _used_mktcap else 'EV'
 
         total_ev   = sum(ev_data.values())
         main_ev    = ev_data.get(ticker, 0)
@@ -1320,10 +1351,11 @@ def _fetch_pie_data(ticker: str, peers: list) -> dict:
         # else: on laisse tel quel (le template en ajoute un)
 
         return {
-            'pie_labels':   labels,
-            'pie_sizes':    sizes,
-            'pie_ticker':   ticker,
-            'pie_pct_str':  f"{main_pct}\u00a0%",
+            'pie_labels':     labels,
+            'pie_sizes':      sizes,
+            'pie_ticker':     ticker,
+            'pie_pct_str':    f"{main_pct}\u00a0%",
+            'pie_cap_label':  _cap_label,  # 'EV' ou 'Mkt Cap'
         }
     except Exception as e:
         log.warning("[PDFWriter] pie_chart fetch failed: %s", e)
@@ -1651,6 +1683,21 @@ class PDFWriter:
                 {'axe':'Soci\u00e9t\u00e9','condition':'Marge brute sous plancher historique deux trimestres', 'horizon':'2\u20133 trim.'},
             ]
 
+        # Fallback area chart : revenus annuels si pas de données trimestrielles
+        _area_fallback = []
+        for i, l in enumerate(hist_3):
+            try:
+                rv = _rev(l)
+                if rv is None:
+                    continue
+                rv_f = float(rv)
+                # Normaliser en Mds : si valeur > 1000 → c'est en M$
+                rv_bn = rv_f / 1e3 if abs(rv_f) >= 1000 else rv_f
+                lbl = str(l).replace('_LTM', '') + (' LTM' if i == len(hist_3)-1 else '')
+                _area_fallback.append((lbl, round(rv_bn, 1)))
+            except (ValueError, TypeError):
+                continue
+
         # Revision
         rev_data = [
             {'revision':'\u2192 BUY',  'style':'buy',
@@ -1772,6 +1819,9 @@ class PDFWriter:
             'area_quarters':    [],
             'area_segments':    {},
             'area_year_labels': [],
+
+            # Fallback annuel pour area chart si pas de données trimestrielles
+            'area_annual_fallback': _area_fallback,
 
             # Devil / invalidation
             'bear_args':         bear_args,
