@@ -17,10 +17,16 @@ import logging
 from datetime import date as _date_cls
 from pathlib import Path
 
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
-import numpy as np
+try:
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
+    import numpy as np
+    _MATPLOTLIB_OK = True
+except ImportError:
+    _MATPLOTLIB_OK = False
+    plt = None
+    np  = None
 
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
@@ -33,6 +39,32 @@ from reportlab.platypus import (
 )
 
 log = logging.getLogger(__name__)
+
+
+def _blank_chart_buf(w=6.5, h=2.8):
+    """Retourne un buffer PNG vide (N/A) sans matplotlib si necessaire."""
+    if _MATPLOTLIB_OK:
+        fig, ax = plt.subplots(figsize=(w, h))
+        ax.text(0.5, 0.5, 'N/A', ha='center', va='center',
+                fontsize=14, color='#888', transform=ax.transAxes)
+        ax.axis('off')
+        fig.patch.set_facecolor('white')
+        buf = io.BytesIO()
+        fig.savefig(buf, format='png', dpi=120, bbox_inches='tight')
+        plt.close(fig); buf.seek(0)
+        return buf
+    # Fallback sans matplotlib : PNG 1x1 blanc minimaliste via bytes bruts
+    import struct, zlib
+    def _png1x1():
+        def _chunk(t, d):
+            c = zlib.crc32(t + d) & 0xffffffff
+            return struct.pack('>I', len(d)) + t + d + struct.pack('>I', c)
+        ihdr = struct.pack('>IIBBBBB', 1, 1, 8, 2, 0, 0, 0)
+        idat = zlib.compress(b'\x00\xff\xff\xff')
+        return (b'\x89PNG\r\n\x1a\n' + _chunk(b'IHDR', ihdr)
+                + _chunk(b'IDAT', idat) + _chunk(b'IEND', b''))
+    return io.BytesIO(_png1x1())
+
 
 # =============================================================================
 # PALETTE
@@ -189,9 +221,11 @@ def _key_data_box(data):
     return t
 
 # =============================================================================
-# CHARTS
+# CHARTS (necessite matplotlib)
 # =============================================================================
 def _make_perf_chart(data):
+    if not _MATPLOTLIB_OK:
+        return _blank_chart_buf(6.5, 2.6)
     months      = data.get('perf_months') or []
     ticker_vals = data.get('perf_ticker') or []
     index_vals  = data.get('perf_index')  or []
@@ -236,6 +270,8 @@ def _make_perf_chart(data):
 
 
 def _make_ff_chart(data):
+    if not _MATPLOTLIB_OK:
+        return _blank_chart_buf(6.8, 2.8)
     methods    = data.get('ff_methods') or []
     lows       = data.get('ff_lows')    or []
     highs      = data.get('ff_highs')   or []
@@ -278,6 +314,8 @@ def _make_ff_chart(data):
 
 
 def _make_pie_comparables(data):
+    if not _MATPLOTLIB_OK:
+        return _blank_chart_buf(4.8, 4.0)
     labels      = data.get('pie_labels') or []
     sizes       = data.get('pie_sizes')  or []
     ticker      = _d(data, 'pie_ticker', _d(data, 'ticker'))
@@ -325,6 +363,8 @@ def _make_pie_comparables(data):
 
 
 def _make_revenue_area(data):
+    if not _MATPLOTLIB_OK:
+        return _blank_chart_buf(7.0, 3.2)
     quarters    = data.get('area_quarters') or []
     segments    = data.get('area_segments') or {}
     year_labels = data.get('area_year_labels') or []
@@ -953,19 +993,14 @@ def generate_report(data: dict, output_path: str) -> str:
         str : Chemin absolu du fichier genere.
     """
     def _safe_chart(fn, label):
+        if not _MATPLOTLIB_OK:
+            log.warning("[generate_report] matplotlib non disponible — chart '%s' skippe", label)
+            return _blank_chart_buf()
         try:
             return fn(data)
         except Exception as _ce:
             log.warning("[generate_report] chart '%s' failed: %s", label, _ce)
-            # Fallback : image N/A
-            fig, ax = plt.subplots(figsize=(6.5, 2.8))
-            ax.text(0.5, 0.5, 'N/A', ha='center', va='center',
-                    fontsize=14, color='#888', transform=ax.transAxes)
-            ax.axis('off')
-            _buf = io.BytesIO()
-            fig.savefig(_buf, format='png', dpi=120, bbox_inches='tight')
-            plt.close(fig); _buf.seek(0)
-            return _buf
+            return _blank_chart_buf()
 
     perf_buf = _safe_chart(_make_perf_chart,     'perf')
     ff_buf   = _safe_chart(_make_ff_chart,        'ff')
