@@ -58,8 +58,8 @@ Tu produis des analyses objectives, concises, professionnelles en francais.
 REGLES ABSOLUES :
 1. Output = JSON valide uniquement, zero markdown, zero texte avant/apres le JSON
 2. Tous les champs sont obligatoires et ne peuvent PAS etre null
-3. company_description = minimum 4 phrases detaillees sur l'activite, les segments, le positionnement
-4. thesis = minimum 3 phrases sur les catalyseurs d'investissement concrets
+3. company_description = 3 phrases sur l'activite, le positionnement et les avantages concurrentiels (MINIMUM 50, MAXIMUM 70 mots)
+4. thesis = exactement 3 phrases courtes separees par ' | ', chaque phrase 18-22 mots avec catalyseurs concrets chiffres
 5. comparable_peers = exactement 5 vrais concurrents avec leurs multiples LTM reels (utilise ta connaissance)
 6. is_projections = estimations chiffrees reelles pour les 2 prochaines annees (pas null)
 7. Toutes les valeurs numeriques doivent etre des nombres, jamais null ou string"""
@@ -118,18 +118,18 @@ JSON requis (tous les champs obligatoires) :
   "target_price_bull":<float|null>,
   "target_price_bear":<float|null>,
   "summary":"<2 phrases>",
-  "company_description":"<MAXIMUM 60 mots — 2 phrases activite positionnement {ci.company_name}>",
+  "company_description":"<MINIMUM 50, MAXIMUM 70 mots — 3 phrases: activite principale, positionnement marche, avantages competitifs de {ci.company_name}>",
   "segments":[
-    {{"name":"<nom exact segment operationnel>","description":"<MAXIMUM 12 mots — 1 ligne courte ex: Logiciels cloud B2B, SaaS entreprise>","revenue_pct":<float 0-100>}},
-    {{"name":"<nom segment 2>","description":"<MAXIMUM 12 mots — 1 ligne courte>","revenue_pct":<float 0-100>}}
+    {{"name":"<nom exact segment operationnel>","description":"<MINIMUM 35, MAXIMUM 50 mots — 3-4 phrases: modele de revenus du segment, produits ou services phares, clients cibles et principaux moteurs de croissance>","revenue_pct":<float 0-100>}},
+    {{"name":"<nom segment 2>","description":"<MINIMUM 35, MAXIMUM 50 mots — 3-4 phrases: modele de revenus du segment, produits ou services phares, clients cibles et principaux moteurs de croissance>","revenue_pct":<float 0-100>}}
   ],
-  "thesis":"<3-4 phrases these investissement catalyseurs>",
+  "thesis":"<exactement 3 phrases separees par ' | ', chaque phrase 18-22 mots — catalyseurs d investissement concrets avec chiffres precis>",
   "strengths":["<MAXIMUM 8 mots — titre atout1>","<MAXIMUM 8 mots — titre atout2>","<MAXIMUM 8 mots — titre atout3>"],
   "risks":["<MAXIMUM 8 mots — titre risque1>","<MAXIMUM 8 mots — titre risque2>","<MAXIMUM 8 mots — titre risque3>"],
   "valuation_comment":"<2 phrases valorisation relative>",
-  "financial_commentary":"<2-3 phrases tendances P&L croissance marges cash>",
-  "ratio_commentary":"<1-2 phrases ratios vs secteur>",
-  "dcf_commentary":"<1-2 phrases hypotheses DCF sensibilite>",
+  "financial_commentary":"<MAXIMUM 55 mots — 2-3 phrases tendances P&L, croissance, marges, cash-flows>",
+  "ratio_commentary":"<MAXIMUM 35 mots — 1-2 phrases positionnement ratios vs secteur>",
+  "dcf_commentary":"<MAXIMUM 35 mots — 1-2 phrases courtes: WACC, TGR et upside implicite>",
   "positive_themes":["<catalyseur positif 1>","<catalyseur positif 2>","<catalyseur positif 3>"],
   "negative_themes":["<risque negatif 1>","<risque negatif 2>","<risque negatif 3>"],
   "is_projections":{{

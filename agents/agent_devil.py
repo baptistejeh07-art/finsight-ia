@@ -55,8 +55,8 @@ REGLES ABSOLUES (violation = output invalide) :
 5. Si la these est HOLD, tu identifies les deux risques les plus graves (baissier dominant).
 6. Mots INTERDITS dans l'output : "opportunite", "solide", "resilient", "potentiel positif",
    "croissance acceleree", "catalyseur positif", "favorable", "robuste".
-7. Chaque paragraphe de counter_thesis DOIT contenir au minimum 2 phrases completes et au moins 35 mots.
-   Une phrase de 10 mots est INVALIDE. Developpe chaque argument avec des chiffres precis.
+7. Chaque paragraphe de counter_thesis DOIT contenir entre 40 et 55 mots exactement, 2-3 phrases completes.
+   Une phrase de 10 mots est INVALIDE. Un paragraphe de plus de 55 mots est INVALIDE. Developpe avec des chiffres precis.
 
 Tu reponds UNIQUEMENT en JSON valide, sans markdown, sans texte avant/apres."""
 
@@ -97,7 +97,7 @@ Identifie les hypotheses les plus fragiles, quantifie les risques de baisse avec
 JSON requis :
 {{
   "counter_reco": "{counter}",
-  "counter_thesis": "<3 argumentations separees par ' | ' — OBLIGATOIRE : chaque argumentation = minimum 35 mots, 2-3 phrases completes avec chiffres precis, INTERDIRE les phrases de moins de 10 mots, PAS de titre>",
+  "counter_thesis": "<3 argumentations separees par ' | ' — OBLIGATOIRE : chaque argumentation = MINIMUM 40 mots, MAXIMUM 55 mots, 2-3 phrases completes avec chiffres precis, INTERDIRE les phrases de moins de 10 mots, PAS de titre>",
   "counter_risks": ["<titre court 5 mots max risque 1>", "<titre court 5 mots max risque 2>", "<titre court 5 mots max risque 3>"],
   "conviction_delta": <float -1 (these fragile) a 0 (these solide)>,
   "key_assumptions": ["<hypothese fragile 1>", "<hypothese fragile 2>"],

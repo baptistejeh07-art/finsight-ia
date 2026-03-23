@@ -1961,7 +1961,7 @@ def _slide_risques(prs, snap, synthesis, devil):
         add_text_box(slide, cx + 0.30, card_y + 0.30, card_w - 0.60, 0.71,
                      _truncate(risk, 90), 9, accent, bold=True, wrap=True)
         add_text_box(slide, cx + 0.30, card_y + 1.32, card_w - 0.60, 3.5,
-                     _truncate(body, 450), 8, GREY_TXT, wrap=True)
+                     _truncate(body, 370), 8, GREY_TXT, wrap=True)
 
     # Invalidation table
     add_rect(slide, 1.02, 8.33, 23.37, 0.03, "AAAAAA")
