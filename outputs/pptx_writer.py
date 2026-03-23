@@ -808,7 +808,7 @@ def _slide_exec_summary(prs, snap, synthesis, ratios, devil, sentiment):
         add_text_box(slide, 1.4, sy, 10.92, 0.51,
                      _truncate(label, 80), 8.5, NAVY, bold=True)
         add_text_box(slide, 1.4, sy + 0.47, 10.92, 0.91,
-                     _truncate(body, 140), 7.5, "333333", wrap=True)
+                     _truncate(body, 170), 7.5, "333333", wrap=True)
 
     # Risks section header
     add_rect(slide, 13.08, 3.76, 11.3, 0.71, RED)
@@ -832,7 +832,7 @@ def _slide_exec_summary(prs, snap, synthesis, ratios, devil, sentiment):
         add_text_box(slide, 13.46, ry, 10.54, 0.51,
                      _truncate(risk_text, 80), 8.5, NAVY, bold=True)
         add_text_box(slide, 13.46, ry + 0.47, 10.54, 0.91,
-                     _truncate(body_r, 140), 7.5, "333333", wrap=True)
+                     _truncate(body_r, 170), 7.5, "333333", wrap=True)
 
     # Vertical divider
     add_rect(slide, 12.57, 3.76, 0.03, 4.84, GREY_LIGHT)
@@ -1939,8 +1939,9 @@ def _slide_risques(prs, snap, synthesis, devil):
     risks_s        = _g(synthesis, "risks", []) or []
     invalidation   = _g(synthesis, "invalidation_list", []) or []
 
-    risk_sources = counter_risks if counter_risks else risks_s
-    ct_parts     = _split_text(counter_thesis, 3)
+    risk_sources  = counter_risks if counter_risks else risks_s
+    ct_parts      = _split_text(counter_thesis, 3)
+    neg_themes_s  = _g(synthesis, "negative_themes", []) or []
 
     card_configs = [
         (RED_PALE,   RED,        "Risque 1"),
@@ -1956,6 +1957,9 @@ def _slide_risques(prs, snap, synthesis, devil):
         cx    = gaps[i]
         risk  = str(risk_sources[i]) if i < len(risk_sources) else label
         body  = ct_parts[i] if i < len(ct_parts) else ""
+        # Fallback si le devil n'a pas fourni de corps (counter_thesis vide ou mal formaté)
+        if not body.strip():
+            body = neg_themes_s[i] if i < len(neg_themes_s) else ""
         add_rect(slide, cx, card_y, card_w, card_h, fill)
         add_rect(slide, cx, card_y, card_w, 0.15, accent)
         add_text_box(slide, cx + 0.30, card_y + 0.30, card_w - 0.60, 0.71,
@@ -2086,7 +2090,7 @@ def _slide_sentiment(prs, snap, synthesis, sentiment):
     ]
     sent_row_fills = [GREEN_PALE, WHITE, RED_PALE]
     tbl_y    = 6.48
-    tbl_h_s  = 2.79
+    tbl_h_s  = 3.20
     sent_tbl = add_table(slide, 1.02, tbl_y, 23.37, tbl_h_s,
               3, 4,
               col_widths_pct=[0.15, 0.15, 0.20, 0.50],

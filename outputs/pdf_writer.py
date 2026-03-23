@@ -894,6 +894,10 @@ def _build_valorisation(ff_buf, pie_buf, data):
     elems.append(Paragraph(
         "Football Field \u2014 Convergence des m\u00e9thodes de valorisation", S_SUBSECTION))
     elems.append(Image(ff_buf, width=TABLE_W, height=60*mm))
+    ff_comment = _d(data, 'dcf_text_intro')
+    if ff_comment:
+        elems.append(Spacer(1, 2*mm))
+        elems.append(Paragraph(ff_comment, S_BODY))
     elems.append(src(_d(data, 'ff_source_text',
         "FinSight IA. Ligne pointill\u00e9e orange = cours actuel. "
         "La convergence des m\u00e9thodes renforce la robustesse de la cible.")))
