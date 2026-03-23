@@ -280,36 +280,60 @@ def _make_ff_chart(data):
     course_str = _d(data, 'ff_course_str', '')
     currency   = _d(data, 'currency', '')
 
-    fig, ax = plt.subplots(figsize=(6.8, 2.8))
-    y = np.arange(len(methods))
+    n = len(methods)
+    # Hauteur adaptive : min 3.4, +0.52 par methode supplementaire
+    fig_h = max(3.4, 1.1 + n * 0.52)
+    fig, ax = plt.subplots(figsize=(7.4, fig_h))
+
+    y = np.arange(n)
     for i, (lo, hi, col) in enumerate(zip(lows, highs, cols)):
         lo, hi = float(lo), float(hi)
-        ax.barh(y[i], hi - lo, left=lo, height=0.45, color=col, alpha=0.85, zorder=3)
-        ax.text((lo + hi) / 2, y[i], f"{currency}{int((lo + hi) / 2)}",
+        ax.barh(y[i], hi - lo, left=lo, height=0.42, color=col, alpha=0.85, zorder=3)
+        # Valeur centrale dans la barre
+        ax.text((lo + hi) / 2, y[i], f"{int((lo + hi) / 2)}",
                 va='center', ha='center', fontsize=7, color='white', fontweight='bold', zorder=4)
-        ax.text(lo - 2, y[i], f"{int(lo)}", va='center', ha='right', fontsize=6.5, color='#555')
-        ax.text(hi + 2, y[i], f"{int(hi)}", va='center', ha='left',  fontsize=6.5, color='#555')
+        # Valeurs basses/hautes HORS de la barre — clip_on=False pour ne pas etre tronquees
+        ax.text(lo - 1, y[i], f"{int(lo)}", va='center', ha='right',
+                fontsize=6.5, color='#555', clip_on=False)
+        ax.text(hi + 1, y[i], f"{int(hi)}", va='center', ha='left',
+                fontsize=6.5, color='#555', clip_on=False)
+
     if course and lows and highs:
         ax.axvline(x=course, color='#B06000', linewidth=1.5, linestyle='--', zorder=5)
-        label = f' Cours\n {currency}{course_str}' if course_str else f' {course:.0f}'
-        ax.text(course, len(methods) - 0.1, label,
-                fontsize=6.5, color='#B06000', fontweight='bold', va='top')
-    ax.set_yticks(y); ax.set_yticklabels(methods, fontsize=7, color='#333')
+        # Label cours SOUS les barres pour ne pas empieter sur le titre
+        course_lbl = f'{currency}{course_str}' if course_str else f'{course:.0f}'
+        ax.text(course, -0.65, f'Cours : {course_lbl}',
+                fontsize=6.5, color='#B06000', fontweight='bold',
+                ha='center', va='top', clip_on=False)
+
+    ax.set_yticks(y)
+    ax.set_yticklabels(methods, fontsize=7.5, color='#333')
+
     if lows and highs:
         all_v = [float(v) for v in lows + highs]
-        ax.set_xlim(min(all_v) - 30, max(all_v) + 30)
+        rng    = max(all_v) - min(all_v) if len(all_v) > 1 else max(all_v)
+        # Marge proportionnelle (15% de la plage) pour s'adapter a tous les niveaux de prix
+        margin = max(20, rng * 0.15)
+        ax.set_xlim(min(all_v) - margin, max(all_v) + margin)
+
     ax.set_xlabel(f'Valeur par action ({currency})', fontsize=7, color='#555')
     for sp in ['top', 'right']: ax.spines[sp].set_visible(False)
-    ax.spines['left'].set_color('#D0D5DD'); ax.spines['bottom'].set_color('#D0D5DD')
-    ax.tick_params(axis='x', labelsize=7); ax.tick_params(axis='y', length=0)
-    ax.set_facecolor('white'); fig.patch.set_facecolor('white')
+    ax.spines['left'].set_color('#D0D5DD')
+    ax.spines['bottom'].set_color('#D0D5DD')
+    ax.tick_params(axis='x', labelsize=7)
+    ax.tick_params(axis='y', length=0)
+    ax.set_facecolor('white')
+    fig.patch.set_facecolor('white')
+    # Titre avec padding genereux pour ne pas empieter sur les barres
     ax.set_title('Football Field \u2014 Synth\u00e8se des m\u00e9thodes de valorisation',
-                 fontsize=8, color='#1B3A6B', fontweight='bold', pad=6)
+                 fontsize=8, color='#1B3A6B', fontweight='bold', pad=12)
     ax.grid(axis='x', alpha=0.3, color='#D0D5DD', zorder=0)
-    plt.tight_layout(pad=0.4)
+    # tight_layout avec marge basse pour le label "Cours" en dessous des axes
+    plt.tight_layout(rect=[0, 0.08, 1, 1], pad=1.2)
     buf = io.BytesIO()
     fig.savefig(buf, format='png', dpi=160, bbox_inches='tight')
-    plt.close(fig); buf.seek(0)
+    plt.close(fig)
+    buf.seek(0)
     return buf
 
 
