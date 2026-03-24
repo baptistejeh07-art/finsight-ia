@@ -499,7 +499,7 @@ def render_sidebar(results) -> None:
         st.markdown('<div class="sb-section">', unsafe_allow_html=True)
         st.markdown('<span class="sb-label">Livrables</span>', unsafe_allow_html=True)
 
-        # Screening Excel (if available)
+        # Screening Excel + sector PDF (if available)
         scr = st.session_state.get("screening_results")
         if scr and scr.get("excel_bytes"):
             scr_name = scr.get("display_name", "screening")
@@ -508,6 +508,15 @@ def render_sidebar(results) -> None:
                 scr["excel_bytes"],
                 file_name=f"screening_{scr_name.lower().replace(' ', '_')}.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True,
+            )
+        if scr and scr.get("pdf_bytes"):
+            scr_name = scr.get("display_name", "secteur")
+            st.download_button(
+                f"Rapport sectoriel  \u2193 .pdf",
+                scr["pdf_bytes"],
+                file_name=f"rapport_{scr_name.lower().replace(' ', '_').replace('\u2014','').strip()}.pdf",
+                mime="application/pdf",
                 use_container_width=True,
             )
 
@@ -1084,28 +1093,7 @@ def render_screening_results(results: dict) -> None:
     ])
     st.markdown(f'<div class="mkt-strip">{cells}</div>', unsafe_allow_html=True)
 
-    # --- Downloads ---
-    dl_cols = st.columns([1, 1, 4])
-    xlsx_bytes = results.get("excel_bytes")
-    if xlsx_bytes:
-        with dl_cols[0]:
-            st.download_button(
-                f"Screening {display_name}  \u2193 .xlsx",
-                xlsx_bytes,
-                file_name=f"screening_{display_name.lower().replace(' ', '_')}.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                use_container_width=True,
-            )
-    pdf_bytes = results.get("pdf_bytes")
-    if pdf_bytes:
-        with dl_cols[1]:
-            st.download_button(
-                f"Rapport sectoriel  \u2193 .pdf",
-                pdf_bytes,
-                file_name=f"rapport_{display_name.lower().replace(' ', '_').replace('—','').strip()}.pdf",
-                mime="application/pdf",
-                use_container_width=True,
-            )
+    # --- Downloads (sidebar handles Excel + PDF) ---
 
     # --- Top 10 Global ---
     st.markdown('<div class="sec-t" style="margin-top:32px;">Top 10 — Score global</div>',
