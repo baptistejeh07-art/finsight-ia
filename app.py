@@ -1250,7 +1250,9 @@ def render_screening_results(results: dict) -> None:
                 # Generation rapport PDF sectoriel
                 sec_pdf_bytes = None
                 try:
-                    from outputs.sector_pdf_writer import generate_sector_report
+                    import importlib, outputs.sector_pdf_writer as _spw
+                    importlib.reload(_spw)
+                    generate_sector_report = _spw.generate_sector_report
                     _sec_out_dir = Path(__file__).parent / "outputs" / "generated"
                     _sec_out_dir.mkdir(exist_ok=True)
                     _sec_slug = sec_name.lower().replace(" ", "_").replace(".", "")
