@@ -226,7 +226,7 @@ def build_sommaire(sector_name: str, page_nums: dict = None):
         ("4.", "Risques Sectoriels & Sentiment",       "risques",
          "  Cartographie des risques \u00b7 Analyse FinBERT"),
         ("5.", "Top Picks & Recommandations",          "conclusion",
-         "  BUY / HOLD / SELL \u00b7 Allocation portefeuille modele"),
+         "  BUY / HOLD / SELL \u00b7 Allocation portefeuille modèle"),
     ]
     rows = []
     for num, titre, key, sub in sections:
@@ -265,7 +265,7 @@ def _make_perf_chart(tickers_data: list[dict], sector_name: str) -> io.BytesIO:
     avg_mom = avg_mom / count if count else 10.0
 
     x = np.arange(13)
-    # Basket : croissance coherente avec le momentum annuel
+    # Basket : croissance cohérente avec le momentum annuel
     basket_final = 100 + avg_mom
     basket = np.linspace(100, basket_final, 13) + np.random.normal(0, 2, 13)
     basket[0] = 100
@@ -302,10 +302,10 @@ def _make_perf_chart(tickers_data: list[dict], sector_name: str) -> io.BytesIO:
 
 
 def _make_revenue_area(tickers_data: list[dict], sector_name: str) -> io.BytesIO:
-    """Revenus agreges par sous-segment — 8 trimestres."""
+    """Revenus agrégés par sous-segment — 8 trimestres."""
     trimestres = ['T1 24', 'T2 24', 'T3 24', 'T4 24', 'T1 25', 'T2 25', 'T3 25', 'T4 25']
 
-    # Decompose le revenu LTM en 4 sous-segments fictifs mais coherents
+    # Decompose le revenu LTM en 4 sous-segments fictifs mais cohérents
     total_rev = sum((t.get('revenue_ltm') or 0) for t in tickers_data)
     if total_rev <= 0:
         total_rev = 100.0
@@ -347,7 +347,7 @@ def _make_revenue_area(tickers_data: list[dict], sector_name: str) -> io.BytesIO
     ax.set_ylim(0, y_max)
     ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.14),
               ncol=5, fontsize=7.5, frameon=False)
-    ax.set_title(f'Revenus agreges par sous-segment \u2014 {sector_name}',
+    ax.set_title(f'Revenus agrégés par sous-segment \u2014 {sector_name}',
                  fontsize=9, color='#1B3A6B', fontweight='bold', pad=6)
     plt.tight_layout(pad=0.3)
     buf = io.BytesIO()
@@ -392,7 +392,7 @@ def _make_scatter(tickers_data: list[dict], sector_name: str) -> io.BytesIO:
             except (TypeError, ValueError):
                 pass
 
-    # Mediane EV/EBITDA
+    # Médiane EV/EBITDA
     meds = [float(ev) for ev in ev_ebitda if ev is not None]
     if meds:
         med_ev = np.median(meds)
@@ -430,7 +430,7 @@ def _make_scatter(tickers_data: list[dict], sector_name: str) -> io.BytesIO:
 
 
 def _make_mktcap_donut(tickers_data: list[dict], sector_name: str) -> io.BytesIO:
-    """Repartition Market Cap sectorielle — donut."""
+    """Répartition Market Cap sectorielle — donut."""
     valid = [(t.get('ticker', ''), float(t['market_cap']))
              for t in tickers_data if t.get('market_cap')]
     if not valid:
@@ -461,7 +461,7 @@ def _make_mktcap_donut(tickers_data: list[dict], sector_name: str) -> io.BytesIO
             fontsize=8, color='#555555')
     ax.legend(wedges, labels, loc='lower center', bbox_to_anchor=(0.5, -0.14),
               ncol=2, fontsize=7.5, frameon=False, handlelength=1.4, columnspacing=1.2)
-    ax.set_title(f'Repartition Market Cap \u2014 {sector_name}', fontsize=8.5,
+    ax.set_title(f'Répartition Market Cap \u2014 {sector_name}', fontsize=8.5,
                  color='#1B3A6B', fontweight='bold', pad=10)
     fig.patch.set_facecolor('white')
     plt.tight_layout(pad=0.6)
@@ -515,7 +515,7 @@ def _cover_page(c, doc, sector_name: str, subtitle: str, universe: str,
     best = max(tickers_data, key=lambda x: x.get('score_global') or 0)
     best_reco = _reco(best.get('score_global'))
     metrics = [
-        ("Univers couvert",    f"{N} societes"),
+        ("Univers couvert",    f"{N} sociétés"),
         ("Cap. totale",        f"{total_mc:,.0f} Mds"),
         ("Top Pick",           f"{best.get('ticker', 'N/A')} ({best_reco})"),
         ("Date d'analyse",     date_str),
@@ -542,7 +542,7 @@ def _cover_page(c, doc, sector_name: str, subtitle: str, universe: str,
         f"Rapport d'analyse sectorielle confidentiel \u2014 {date_str}")
     c.setFont('Helvetica', 7)
     c.drawCentredString(cx, tag_y - 5*mm,
-        f"Donnees : yfinance \u00b7 FMP \u00b7 Finnhub \u00b7 FinBERT  |  Univers : {universe}")
+        f"Données : yfinance \u00b7 FMP \u00b7 Finnhub \u00b7 FinBERT  |  Univers : {universe}")
 
     # Footer navy
     c.setFillColor(NAVY)
@@ -590,13 +590,13 @@ def _build_macro(perf_buf, area_buf, tickers_data: list[dict],
     avg_ebitda = sum((t.get('ebitda_margin') or 0) for t in tickers_data) / max(N, 1)
 
     elems.append(Paragraph(
-        f"Le secteur <b>{sector_name}</b> ({universe}) couvre <b>{N} societes</b> "
+        f"Le secteur <b>{sector_name}</b> ({universe}) couvre <b>{N} sociétés</b> "
         f"pour une capitalisation totale de <b>{total_mc:,.0f} Mds</b>. "
-        f"La croissance moyenne des revenus s'etablit a <b>{avg_growth:+.1f}% YoY</b>, "
-        f"avec une marge EBITDA mediane de <b>{avg_ebitda:.1f}%</b>. "
+        f"La croissance moyenne des revenus s'établit a <b>{avg_growth:+.1f}% YoY</b>, "
+        f"avec une marge EBITDA médiane de <b>{avg_ebitda:.1f}%</b>. "
         f"L'analyse couvre les dynamiques structurelles, les positionnements concurrentiels "
-        f"et les risques sectoriels identities par le protocole adversarial FinSight IA. "
-        f"La bifurcation entre acteurs etablis et challengers constitue le fil directeur "
+        f"et les risques sectoriels identifiés par le protocole adversarial FinSight IA. "
+        f"La bifurcation entre acteurs établis et challengers constitue le fil directeur "
         f"de cette analyse.", S_BODY))
     elems.append(Spacer(1, 2*mm))
 
@@ -611,13 +611,13 @@ def _build_macro(perf_buf, area_buf, tickers_data: list[dict],
     _aw = 130 * mm
     area_img = Image(area_buf, width=_aw, height=_aw * 3.2 / 7.0)
     area_text = Paragraph(
-        f"<b>Revenus agreges par sous-segment</b> — L'analyse de la structure des revenus "
-        f"du secteur <b>{sector_name}</b> revele la contribution relative de chaque acteur. "
+        f"<b>Revenus agrégés par sous-segment</b> — L'analyse de la structure des revenus "
+        f"du secteur <b>{sector_name}</b> révèle la contribution relative de chaque acteur. "
         f"La croissance moyenne de <b>{avg_growth:+.1f}%</b> masque des ecarts significatifs "
         f"entre segments matures et poles de croissance emergents. "
         f"La marge EBITDA sectorielle de <b>{avg_ebitda:.1f}%</b> positionne le secteur "
         f"par rapport a ses comparables internationaux. "
-        f"Cette heterogeneite constitue un facteur de selection actif determinant.",
+        f"Cette hétérogénéité constitue un facteur de selection actif determinant.",
         S_BODY)
     area_row = Table([[area_img, area_text]], colWidths=[_aw + 2*mm, TABLE_W - _aw - 2*mm])
     area_row.setStyle(TableStyle([
@@ -627,7 +627,7 @@ def _build_macro(perf_buf, area_buf, tickers_data: list[dict],
         ('LEFTPADDING',    (1,0),(1,0),   6),
     ]))
     elems.append(area_row)
-    elems.append(src("FinSight IA \u2014 Revenus agreges par sous-segment (estimation illustrative)."))
+    elems.append(src("FinSight IA \u2014 Revenus agrégés par sous-segment (estimation illustrative)."))
     elems.append(Spacer(1, 8*mm))
 
     macro_h = [Paragraph(h, S_TH_L)
@@ -635,24 +635,24 @@ def _build_macro(perf_buf, area_buf, tickers_data: list[dict],
     macro_data = [
         ["Transformation digitale",
          "Acceleration adoption technologique — relais de croissance structurel",
-         "Leaders qualite", "Forte"],
+         "Leaders qualité", "Forte"],
         ["Consolidation sectorielle",
          "M&A et economies d'echelle — pression sur les acteurs mid-cap",
-         "Champions etablis", "Moderee"],
-        ["Pression reglementaire",
+         "Champions établis", "Moderee"],
+        ["Pression réglementaire",
          "Conformite et reporting ESG — couts additionnels mais barriere a l'entree",
          "Tous", "Mixte"],
         ["Cycle macro & taux",
          "Impact sur les couts de financement et la demande finale",
          "Bilan solide", "Moderee"],
         ["Innovation & disruption IA",
-         "Gains de productivite 15-25% pour les adopteurs precoces",
+         "Gains de productivite 15-25% pour les adopteurs précoces",
          "Tech-forward", "Forte"],
     ]
     macro_rows = [[Paragraph(r[0], S_TD_B), Paragraph(r[1], S_TD_L),
                    Paragraph(r[2], S_TD_C), Paragraph(r[3], S_TD_C)] for r in macro_data]
     elems.append(KeepTogether([
-        debate_q("Quelles dynamiques structurelles redefinissent les avantages concurrentiels ?"),
+        debate_q("Quelles dynamiques structurelles redéfinissent les avantages concurrentiels ?"),
         tbl([macro_h] + macro_rows, cw=[38*mm, 86*mm, 28*mm, 18*mm]),
         src("FinSight IA \u2014 Analyse adversariale sectorielle."),
     ]))
@@ -667,20 +667,20 @@ def _build_acteurs(tickers_data: list[dict], sector_name: str, registry=None):
     elems += section_title("Analyse des Acteurs Cles", 2)
     elems.append(Spacer(1, 4*mm))
     elems.append(debate_q(
-        "Comment les modeles economiques se differencient-ils et lesquels sont les plus resilients ?"))
+        "Comment les modèles economiques se differencient-ils et lesquels sont les plus résilients ?"))
 
     N = len(tickers_data)
     sorted_data = sorted(tickers_data, key=lambda x: x.get('score_global') or 0, reverse=True)
     best = sorted_data[0] if sorted_data else {}
 
     elems.append(Paragraph(
-        f"L'analyse des <b>{N} acteurs</b> du secteur <b>{sector_name}</b> revele des profils "
+        f"L'analyse des <b>{N} acteurs</b> du secteur <b>{sector_name}</b> révèle des profils "
         f"de risque/rendement distincts. <b>{best.get('company', 'Le leader sectoriel')}</b> "
-        f"affiche le score composite le plus eleve ({best.get('score_global', 'N/A')}/100), "
-        f"tire par ses fondamentaux de qualite et son positionnement concurrentiel. "
-        f"La dispersion des marges EBITDA illustre les differences de modeles economiques "
-        f"entre acteurs etablis et challengers. L'analyse des ratios de valorisation permet "
-        f"d'identifier les decotes et primes injustifiees par rapport aux pairs.", S_BODY))
+        f"affiche le score composite le plus élevé ({best.get('score_global', 'N/A')}/100), "
+        f"tire par ses fondamentaux de qualité et son positionnement concurrentiel. "
+        f"La dispersion des marges EBITDA illustre les differences de modèles economiques "
+        f"entre acteurs établis et challengers. L'analyse des ratios de valorisation permet "
+        f"d'identifier les décotes et primes injustifiées par rapport aux pairs.", S_BODY))
     elems.append(Spacer(1, 3*mm))
 
     elems.append(Paragraph("Comparatif financier \u2014 Acteurs couverts LTM", S_SUBSECTION))
@@ -729,8 +729,8 @@ def _build_acteurs(tickers_data: list[dict], sector_name: str, registry=None):
     elems.append(Paragraph(
         f"{names} ressortent comme les acteurs les mieux positionnes sur les criteres "
         f"fondamentaux combines. La dispersion des multiples EV/EBITDA temoigne de "
-        f"l'heterogeneite des modeles economiques et des profils de croissance. "
-        f"Les acteurs affichant des marges EBITDA elevees beneficient d'un avantage "
+        f"l'hétérogénéité des modèles economiques et des profils de croissance. "
+        f"Les acteurs affichant des marges EBITDA élevées beneficient d'un avantage "
         f"structurel dans un contexte de normalisation des multiples sectoriels.", S_BODY))
     elems.append(Spacer(1, 4*mm))
 
@@ -778,7 +778,7 @@ def _build_acteurs(tickers_data: list[dict], sector_name: str, registry=None):
 
     elems.append(KeepTogether(tbl([picks_h] + picks_rows,
                                    cw=[14*mm, 16*mm, 20*mm, 20*mm, 16*mm, 22*mm, 62*mm])))
-    elems.append(src(f"FinSight IA \u2014 Prix cibles horizon 12 mois. Donnees au {date.today().strftime('%d/%m/%Y')}."))
+    elems.append(src(f"FinSight IA \u2014 Prix cibles horizon 12 mois. Données au {date.today().strftime('%d/%m/%Y')}."))
     elems.append(Spacer(1, 5*mm))
 
     # Paragraphe analytique post-recommandations
@@ -789,22 +789,22 @@ def _build_acteurs(tickers_data: list[dict], sector_name: str, registry=None):
     best_name = best.get('company', best.get('ticker', 'Le leader'))[:30]
     best_score = best.get('score_global', 'N/A')
     elems.append(Paragraph(
-        f"<b>Lecture strategique.</b> Sur {len(sorted_data[:8])} valeurs analysees, "
-        f"la repartition <b>{n_buy} BUY / {n_hold} HOLD / {n_sell} SELL</b> traduit un "
-        f"positionnement selectif sur le secteur <b>{sector_name}</b>. "
+        f"<b>Lecture strategique.</b> Sur {len(sorted_data[:8])} valeurs analysées, "
+        f"la répartition <b>{n_buy} BUY / {n_hold} HOLD / {n_sell} SELL</b> traduit un "
+        f"positionnement sélectif sur le secteur <b>{sector_name}</b>. "
         f"<b>{best_name}</b> (score {best_score}/100) constitue le coeur offensif recommande, "
-        f"soutenu par des fondamentaux solides et une visibilite superieure sur les revenus. "
-        f"Les convictions moyennes restent moderees, coherentes avec un contexte macro incertain "
+        f"soutenu par des fondamentaux solides et une visibilite supérieure sur les revenus. "
+        f"Les convictions moyennes restent moderees, cohérentes avec un contexte macro incertain "
         f"et une normalisation des multiples sectoriels en cours. "
         f"Les catalyseurs identifies — resultats trimestriels, guidance annuel, operations M&A — "
-        f"constituent les evenements cles a surveiller pour un renforcement conditionnel des positions.",
+        f"constituent les événements cles a surveiller pour un renforcement conditionnel des positions.",
         S_BODY))
     elems.append(Spacer(1, 4*mm))
     elems.append(Paragraph(
         f"<b>Risques sur la these.</b> La these constructive sur les leaders du secteur "
-        f"repose sur la capacite a maintenir des marges dans un environnement de couts eleves "
+        f"repose sur la capacité a maintenir des marges dans un environnement de couts élevés "
         f"et de demande moderee. Tout signal de deterioration des fondamentaux — revision baissiere "
-        f"des estimations, pression concurrentielle accrue, ou choc reglementaire — "
+        f"des estimations, pression concurrentielle accrue, ou choc réglementaire — "
         f"justifierait une reevaluation des objectifs de cours et un passage en revue des "
         f"pondérations portefeuille. Le suivi trimestriel des marges EBITDA reste le "
         f"principal indicateur avancé d'alerte.",
@@ -824,13 +824,13 @@ def _build_valorisation(scatter_buf, donut_buf, tickers_data: list[dict],
     meds = [float(t['ev_ebitda']) for t in tickers_data if t.get('ev_ebitda')]
     med_ev = np.median(meds) if meds else 0
     elems.append(Paragraph(
-        f"L'analyse de valorisation du secteur <b>{sector_name}</b> revele une mediane "
+        f"L'analyse de valorisation du secteur <b>{sector_name}</b> révèle une médiane "
         f"EV/EBITDA de <b>{med_ev:.1f}x</b>. La dispersion des multiples entre acteurs "
-        f"reflete des differences structurelles de croissance et de qualite de bilan. "
-        f"Les acteurs avec les scores FinSight les plus eleves tendent a traiter avec "
+        f"reflete des differences structurelles de croissance et de qualité de bilan. "
+        f"Les acteurs avec les scores FinSight les plus élevés tendent a traiter avec "
         f"une prime justifiee par leur positionnement concurrentiel et leurs perspectives "
-        f"de croissance organique. L'analyse scatter identifie les decotes relatives "
-        f"potentiellement injustifiees au regard des fondamentaux.", S_BODY))
+        f"de croissance organique. L'analyse scatter identifie les décotes relatives "
+        f"potentiellement injustifiées au regard des fondamentaux.", S_BODY))
     elems.append(Spacer(1, 3*mm))
 
     scatter_img = Image(scatter_buf, width=86*mm, height=74*mm)
@@ -846,8 +846,8 @@ def _build_valorisation(scatter_buf, donut_buf, tickers_data: list[dict],
         "Rouge : score <50 (SELL). "
         "Triangle : EV/EBITDA non disponible (pertes)."
         "<br/><br/>"
-        "<b>Mediane sectorielle</b><br/>"
-        f"La ligne pointillee a {med_ev:.1f}x represente la mediane "
+        "<b>Médiane sectorielle</b><br/>"
+        f"La ligne pointillee a {med_ev:.1f}x represente la médiane "
         "EV/EBITDA du secteur. Les acteurs sous cette ligne avec "
         "une croissance comparable constituent les meilleures opportunites."
     )
@@ -867,15 +867,15 @@ def _build_valorisation(scatter_buf, donut_buf, tickers_data: list[dict],
     donut_img = Image(donut_buf, width=76*mm, height=80*mm)
     donut_note = (
         "<b>Concentration sectorielle</b><br/>"
-        "La repartition des capitalisations boursierees illustre "
+        "La répartition des capitalisations boursières illustre "
         "la structure oligopolistique ou fragmentee du secteur. "
         "Une forte concentration chez les leaders indique des "
-        "barrieres a l'entree elevees et des effets de reseau."
+        "barrières a l'entree élevées et des effets de reseau."
         "<br/><br/>"
         "<b>Implications portefeuille</b><br/>"
         "Les leaders par capitalisation ne sont pas necessairement "
         "les meilleures opportunites \u2014 le score FinSight integre "
-        "qualite, croissance, valorisation et momentum pour "
+        "qualité, croissance, valorisation et momentum pour "
         "identifier les meilleures asymetries risque/rendement."
     )
     donut_comb = Table([[Paragraph(donut_note, S_BODY), donut_img]],
@@ -899,7 +899,7 @@ def _build_valorisation(scatter_buf, donut_buf, tickers_data: list[dict],
             return Paragraph(f"<b>{v}</b>", S_TD_BC)
         if col == 6:
             sv = str(v)
-            if any(k in sv for k in ["Decote", "Opportunite"]):
+            if any(k in sv for k in ["Décote", "Opportunite"]):
                 return Paragraph(sv, S_TD_G)
             if any(k in sv for k in ["Survalorise", "SELL"]):
                 return Paragraph(sv, S_TD_R)
@@ -913,7 +913,7 @@ def _build_valorisation(scatter_buf, donut_buf, tickers_data: list[dict],
     for t in sorted_data[:10]:
         score = t.get('score_global') or 50
         if score >= 70:
-            lecture = "Decote relative \u2014 opportunite"
+            lecture = "Décote relative \u2014 opportunite"
         elif score >= 55:
             lecture = "Juste valeur \u2014 neutre"
         elif score >= 45:
@@ -942,25 +942,25 @@ def _build_valorisation(scatter_buf, donut_buf, tickers_data: list[dict],
     # Paragraphe analytique post-multiples
     valid_ev = [t.get('ev_ebitda') for t in tickers_data if t.get('ev_ebitda') and float(t['ev_ebitda']) > 0]
     med_ev2 = float(np.median([float(v) for v in valid_ev])) if valid_ev else 0
-    decotes = [t for t in tickers_data if t.get('ev_ebitda') and float(t.get('ev_ebitda', 0)) > 0
+    décotes = [t for t in tickers_data if t.get('ev_ebitda') and float(t.get('ev_ebitda', 0)) > 0
                and float(t['ev_ebitda']) < med_ev2 * 0.85]
     primes  = [t for t in tickers_data if t.get('ev_ebitda') and float(t.get('ev_ebitda', 0)) > 0
                and float(t['ev_ebitda']) > med_ev2 * 1.15]
-    decote_names = ", ".join(t.get('ticker', '') for t in decotes[:3]) if decotes else "aucun acteur"
+    décote_names = ", ".join(t.get('ticker', '') for t in décotes[:3]) if décotes else "aucun acteur"
     prime_names  = ", ".join(t.get('ticker', '') for t in primes[:3]) if primes else "aucun acteur"
     elems.append(Paragraph(
-        f"<b>Lecture de la grille de valorisation.</b> La mediane EV/EBITDA sectorielle "
-        f"s'etablit a <b>{med_ev2:.1f}x</b> LTM. Les acteurs traites en decote significative "
-        f"(<85% de la mediane) — <b>{decote_names}</b> — offrent potentiellement les meilleures "
+        f"<b>Lecture de la grille de valorisation.</b> La médiane EV/EBITDA sectorielle "
+        f"s'établit a <b>{med_ev2:.1f}x</b> LTM. Les acteurs traites en décote significative "
+        f"(<85% de la médiane) — <b>{décote_names}</b> — offrent potentiellement les meilleures "
         f"asymetries risque/rendement, sous reserve de catalyseurs fondamentaux. "
-        f"A l'inverse, les acteurs en prime marquee (>115% de la mediane) — <b>{prime_names}</b> — "
-        f"exigent une croissance visible et une qualite de bilan superieure pour justifier "
+        f"A l'inverse, les acteurs en prime marquee (>115% de la médiane) — <b>{prime_names}</b> — "
+        f"exigent une croissance visible et une qualité de bilan supérieure pour justifier "
         f"leur niveau de valorisation dans un contexte de taux normalises.",
         S_BODY))
     elems.append(Spacer(1, 4*mm))
     elems.append(Paragraph(
         f"<b>Divergences P/E vs EV/EBITDA.</b> L'ecart entre le P/E et l'EV/EBITDA pour "
-        f"certains acteurs signale des structures de capital heterogenes — effet de levier "
+        f"certains acteurs signale des structures de capital hétérogènes — effet de levier "
         f"financier, importance des minoritaires ou specificites comptables. "
         f"L'EV/Revenue constitue un complementaire utile pour les acteurs dont les marges "
         f"EBITDA sont transitoirement comprimees par des investissements strategiques. "
@@ -998,18 +998,18 @@ def _build_risques(tickers_data: list[dict], sector_name: str, registry=None):
     risk_data = [
         ("Recession macro",
          f"Contraction de la demande finale \u2014 pression sur les revenus et les marges. "
-         f"Acteurs avec bilan fragile (ND/EBITDA eleve) les plus exposes.",
-         "25%", "Eleve", vuln_tickers),
+         f"Acteurs avec bilan fragile (ND/EBITDA élevé) les plus exposes.",
+         "25%", "Élevé", vuln_tickers),
         ("Disruption concurrentielle",
          f"Entree de nouveaux acteurs technologiques ou consolidation \u2014 "
          f"pression tarifaire et erosion des parts de marche.",
          "35%", "Modere", "Tous"),
-        ("Pression reglementaire",
+        ("Pression réglementaire",
          f"Durcissement des normes sectorielles \u2014 couts de conformite additionnels "
-         f"et contraintes sur les modeles economiques.",
+         f"et contraintes sur les modèles economiques.",
          "40%", "Modere", "Tous"),
         ("Taux d'interet prolonges",
-         f"Persistance des taux eleves \u2014 cout du capital penalisant pour les acteurs "
+         f"Persistance des taux élevés \u2014 cout du capital penalisant pour les acteurs "
          f"endettes. Benefique pour les bilans solides.",
          "45%", "Mixte", f"{best_tickers} vs {vuln_tickers}"),
     ]
@@ -1017,7 +1017,7 @@ def _build_risques(tickers_data: list[dict], sector_name: str, registry=None):
     for axe, analyse, prob, impact, expo in risk_data:
         p_int = int(prob.replace('%', ''))
         prob_s = S_TD_R if p_int >= 50 else (S_TD_A if p_int >= 30 else S_TD_G)
-        imp_s  = S_TD_R if impact == "Eleve" else (S_TD_A if impact in ("Modere","Mixte") else S_TD_G)
+        imp_s  = S_TD_R if impact == "Élevé" else (S_TD_A if impact in ("Modere","Mixte") else S_TD_G)
         risk_rows.append([
             Paragraph(axe, S_TD_B), Paragraph(analyse, S_TD_L),
             Paragraph(prob, prob_s), Paragraph(impact, imp_s),
@@ -1032,17 +1032,17 @@ def _build_risques(tickers_data: list[dict], sector_name: str, registry=None):
     elems.append(Paragraph(
         f"Sentiment \u2014 FinBERT sectoriel ({sector_name})", S_SUBSECTION))
 
-    # Score sentiment derive des scores qualite moyens
+    # Score sentiment derive des scores qualité moyens
     avg_q = sum((t.get('score_quality') or 50) for t in tickers_data) / max(len(tickers_data), 1)
     sent_score = (avg_q - 50) / 100
     sent_label = "moderement positif" if sent_score > 0 else "moderement negatif"
 
     elems.append(Paragraph(
         f"L'analyse FinBERT sur le corpus presse financiere des sept derniers jours "
-        f"fait ressortir un sentiment <b>{sent_label} (score agrege : {sent_score:+.3f})</b>. "
+        f"fait ressortir un sentiment <b>{sent_label} (score agrégé : {sent_score:+.3f})</b>. "
         f"Les publications favorables sont portees par les resultats trimestriels solides "
         f"des leaders sectoriels. Les publications defavorables se concentrent sur "
-        f"l'incertitude macro et les risques reglementaires. Ce positionnement est coherent "
+        f"l'incertitude macro et les risques réglementaires. Ce positionnement est cohérent "
         f"avec notre vue selective sur le secteur.", S_BODY))
     elems.append(Spacer(1, 2*mm))
 
@@ -1055,7 +1055,7 @@ def _build_risques(tickers_data: list[dict], sector_name: str, registry=None):
         ["Positif", str(n_pos), f"+{abs(sent_score)+0.1:.2f}",
          f"Resultats {best_tickers} \u00b7 volumes en hausse \u00b7 expansion internationale"],
         ["Neutre",  str(n_neu), f"+{abs(sent_score)*0.2:.2f}",
-         f"Analyse macro \u00b7 guidance annuel \u00b7 evenements sectoriels"],
+         f"Analyse macro \u00b7 guidance annuel \u00b7 événements sectoriels"],
         ["Negatif", str(n_neg), f"-{abs(sent_score)*0.6:.2f}",
          f"Regulation \u00b7 pressions marges \u00b7 risques credit {vuln_tickers}"],
     ]
@@ -1086,11 +1086,11 @@ def _build_conclusion(tickers_data: list[dict], sector_name: str, registry=None)
 
     elems.append(Paragraph(
         f"Notre positionnement sur le secteur <b>{sector_name}</b> est "
-        f"<b>{'constructif' if buy_count >= hold_count else 'neutre'} avec une selectivite accrue</b>. "
-        f"Sur {len(tickers_data)} valeurs analysees : "
+        f"<b>{'constructif' if buy_count >= hold_count else 'neutre'} avec une sélectivité accrue</b>. "
+        f"Sur {len(tickers_data)} valeurs analysées : "
         f"<b>{buy_count} BUY</b>, <b>{hold_count} HOLD</b>, <b>{sell_count} SELL</b>. "
         f"La dispersion des scores fondamentaux justifie une approche selective "
-        f"privilegiant les acteurs a bilan solide et visibilite elevee sur les revenus.", S_BODY))
+        f"privilegiant les acteurs a bilan solide et visibilite élevée sur les revenus.", S_BODY))
     elems.append(Spacer(1, 4*mm))
 
     # Table performance cours
@@ -1157,13 +1157,13 @@ def _build_conclusion(tickers_data: list[dict], sector_name: str, registry=None)
         return Paragraph(str(v), S_TD_C)
 
     theses = [
-        "Fondamentaux solides + positionnement cle + visibilite revenus elevee",
+        "Fondamentaux solides + positionnement cle + visibilite revenus élevée",
         "Croissance rentable + avantage concurrentiel durable + bilan sain",
         "Expansion geographique + diversification produits + marge en hausse",
         "Restructuration en cours + catalyseur requis avant renforcement",
-        "Modele sous pression + risque concurrentiel + multiple eleve",
+        "Modèle sous pression + risque concurrentiel + multiple élevé",
         "Bilan fragile + croissance ralentie + exposition macro defavorable",
-        "Fondamentaux deteriores + pression reglementaire + SELL",
+        "Fondamentaux deteriores + pression réglementaire + SELL",
     ]
     tp_rows = []
     for i, t in enumerate(sorted_data[:8]):
@@ -1189,11 +1189,11 @@ def _build_conclusion(tickers_data: list[dict], sector_name: str, registry=None)
     hold_tickers = [t.get('ticker','') for t in sorted_data if _reco(t.get('score_global')) == "HOLD"]
     sell_tickers = [t.get('ticker','') for t in sorted_data if _reco(t.get('score_global')) == "SELL"]
 
-    elems.append(Paragraph("Allocation portefeuille modele", S_SUBSECTION))
+    elems.append(Paragraph("Allocation portefeuille modèle", S_SUBSECTION))
     alloc_h = [Paragraph(h, S_TH_C) for h in ["Profil", "Tickers", "Ponderations", "Rationale"]]
     alloc_data = []
     if buy_tickers:
-        alloc_data.append(["Leaders qualite", " + ".join(buy_tickers[:4]),
+        alloc_data.append(["Leaders qualité", " + ".join(buy_tickers[:4]),
                            "40-50%", "Coeur offensif — visibilite revenus, marges solides"])
     if hold_tickers:
         alloc_data.append(["Positions neutres", " + ".join(hold_tickers[:4]),
@@ -1224,9 +1224,9 @@ def _build_conclusion(tickers_data: list[dict], sector_name: str, registry=None)
         "agree. Ce document est fourni a titre informatif uniquement.", S_DISC))
     elems.append(Spacer(1, 1.5*mm))
     elems.append(Paragraph(
-        "<b>Fiabilite des donnees.</b> Les donnees financieres sont issues de sources publiques "
-        "(yfinance, Financial Modeling Prep, Finnhub) et de modeles internes. Malgre les "
-        "controles appliques, ces donnees peuvent contenir des inexactitudes. Les projections "
+        "<b>Fiabilite des données.</b> Les données financieres sont issues de sources publiques "
+        "(yfinance, Financial Modeling Prep, Finnhub) et de modèles internes. Malgre les "
+        "controles appliques, ces données peuvent contenir des inexactitudes. Les projections "
         "reposent sur des hypotheses qui peuvent ne pas se realiser.", S_DISC))
     elems.append(Spacer(1, 1.5*mm))
     elems.append(Paragraph(
@@ -1259,7 +1259,7 @@ def _build_story(perf_buf, area_buf, scatter_buf, donut_buf,
     N = len(tickers_data)
     story.append(Paragraph(
         f"Cette analyse sectorielle couvre <b>{N} acteurs</b> representatifs de l'ecosysteme "
-        f"<b>{sector_name}</b> ({universe}). Les donnees financieres sont issues de yfinance, "
+        f"<b>{sector_name}</b> ({universe}). Les données financieres sont issues de yfinance, "
         f"FMP et Finnhub. L'analyse de sentiment est conduite par <b>FinBERT</b> sur le corpus "
         f"presse financiere des sept derniers jours. La valorisation integre les multiples LTM "
         f"et une analyse EV/EBITDA vs croissance. Un <b>protocole adversarial</b> identifie "
@@ -1354,7 +1354,7 @@ def generate_sector_report(
 
 
 if __name__ == "__main__":
-    # Test avec donnees fictives
+    # Test avec données fictives
     test_data = [
         {"ticker":"DSY.PA","company":"Dassault Systemes","sector":"Technology",
          "price":17.0,"market_cap":22.3,"ev":28.0,"revenue_ltm":6.0,"ebitda_ltm":1.8,

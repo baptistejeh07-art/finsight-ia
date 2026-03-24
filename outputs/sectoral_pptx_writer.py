@@ -45,13 +45,13 @@ _SECTOR_CONTENT = {
             "Le secteur Technology regroupe les entreprises actives dans les logiciels, "
             "les services informatiques, les semi-conducteurs et les equipements telecom. "
             "Porte par la transformation digitale des entreprises et l adoption de l IA generative, "
-            "ce secteur affiche des multiples de valorisation parmi les plus eleves du marche, "
-            "justifies par des perspectives de croissance superieures et des marges en expansion."
+            "ce secteur affiche des multiples de valorisation parmi les plus élevés du marche, "
+            "justifies par des perspectives de croissance supérieures et des marges en expansion."
         ),
         "catalyseurs": [
             ("Adoption IA Generative", "Acceleration des mandats IA dans les grands comptes europeens — contrats pluriannuels en hausse de 38 % sur T1 2026."),
             ("Modernisation SI Publics", "Plans d investissement gouvernementaux 2026-2028 — budgets numeriques confirmes pour 6 Etats membres EU."),
-            ("Cloud Hybride Souverainete", "Contraintes reglementaires sur les donnees — migration vers solutions EU portee par NIS2 et DORA."),
+            ("Cloud Hybride Souverainete", "Contraintes réglementaires sur les données — migration vers solutions EU portee par NIS2 et DORA."),
         ],
         "risques": [
             ("Ralentissement Budgets IT", "Recession europeenne confirmee entrainerait une reduction des budgets IT de 12-18 %, penalisant les prestataires de services."),
@@ -60,23 +60,23 @@ _SECTOR_CONTENT = {
         ],
         "drivers": [
             ("up", "Intelligence Artificielle", "Adoption entreprises +42 % en 2026 — premier driver de depenses IT"),
-            ("up", "Cloud Hybride Souverain", "Contraintes souverainete donnees — migration vers solutions EU acceleree par NIS2"),
+            ("up", "Cloud Hybride Souverain", "Contraintes souverainete données — migration vers solutions EU acceleree par NIS2"),
             ("up", "Modernisation SI Publics", "Plans gouvernementaux 2026-2028 — budgets numeriques confirmes 6 Etats EU"),
             ("down", "Sensibilite Taux", "Compression multiples si taux > 4,5 % — impact modere sur FCF structurel"),
         ],
         "cycle_comment": "Secteur en phase d expansion | porte par l IA et le cloud souverain",
-        "metriques": [("Rule of 40", "42", "Sain > 40"), ("NRR median", "108 %", "Retention solide"), ("Cloud Mix", "38 %", "En hausse"), ("R&D/Rev.", "12 %", "Investi"), ("ARR Growth", "+24 %", "Acceleration"), ("Churn", "4,2 %", "Stable")],
-        "conditions": [("Macro", "Recession UE confirmee — contraction PIB > 1,5 %", "6-12 mois"), ("Sectoriel", "Reduction budgets IT > 15 % grands comptes", "12-18 mois"), ("Reglementaire", "AI Act surcoût conformite > 15 % CA", "18-24 mois"), ("Fondamental", "Revision baissiere EPS > 20 % sur 2 trimestres", "6-9 mois")],
+        "métriques": [("Rule of 40", "42", "Sain > 40"), ("NRR median", "108 %", "Retention solide"), ("Cloud Mix", "38 %", "En hausse"), ("R&D/Rev.", "12 %", "Investi"), ("ARR Growth", "+24 %", "Acceleration"), ("Churn", "4,2 %", "Stable")],
+        "conditions": [("Macro", "Recession UE confirmee — contraction PIB > 1,5 %", "6-12 mois"), ("Sectoriel", "Reduction budgets IT > 15 % grands comptes", "12-18 mois"), ("Réglementaire", "AI Act surcoût conformite > 15 % CA", "18-24 mois"), ("Fondamental", "Revision baissiere EPS > 20 % sur 2 trimestres", "6-9 mois")],
     },
     "Consumer Cyclical": {
         "description": (
             "Le secteur Consommation Cyclique inclut les acteurs du luxe, de la distribution specialisee, "
             "de l automobile et du tourisme. Sensible aux cycles economiques, il beneficie de l essor "
-            "des marches emergents et de la resilience du luxe haut de gamme europeen face aux pressions macro."
+            "des marches emergents et de la résilience du luxe haut de gamme europeen face aux pressions macro."
         ),
         "catalyseurs": [
             ("Rebond Luxe Asie", "Reouverture progressive des marches asiatiques — croissance hors UE attendue a +15 % en 2026 pour le segment premium."),
-            ("Transition Electrique", "Acceleration des ventes VE en Europe — soutien reglementaire et infrastructures de recharge en deploiement."),
+            ("Transition Electrique", "Acceleration des ventes VE en Europe — soutien réglementaire et infrastructures de recharge en deploiement."),
             ("Tourisme Premium", "Flux touristiques europeens en hausse de 12 % — benefice direct pour l hotellerie et la restauration haut de gamme."),
         ],
         "risques": [
@@ -85,66 +85,66 @@ _SECTOR_CONTENT = {
             ("Disruption Digitale", "Montee des plateformes D2C — pression sur les reseaux de distribution traditionnels."),
         ],
         "drivers": [
-            ("up", "Luxe Premium", "Resilience exceptionnelle — pricing power intact segment > 500 EUR"),
+            ("up", "Luxe Premium", "Résilience exceptionnelle — pricing power intact segment > 500 EUR"),
             ("up", "Rebond Asiatique", "Flux touristiques et ventes locales en Chine en normalisation"),
-            ("down", "Pouvoir d Achat", "Inflation residuelle et taux eleves compressent la consommation mid-market"),
+            ("down", "Pouvoir d Achat", "Inflation residuelle et taux élevés compressent la consommation mid-market"),
             ("down", "Substitution Digital", "Plateformes e-commerce capturent des parts en distribution"),
         ],
-        "cycle_comment": "Secteur en consolidation | luxe resilient, mid-market sous pression",
-        "metriques": [("SSSG", "+4,2 %", "Positif"), ("Inventory Turn", "3,8x", "Sain"), ("Online Mix", "28 %", "En hausse"), ("Price/Mix", "+2,1 %", "Favorable"), ("Return Rate", "18 %", "Stable"), ("Loyalty Rev.", "42 %", "Fort")],
+        "cycle_comment": "Secteur en consolidation | luxe résilient, mid-market sous pression",
+        "métriques": [("SSSG", "+4,2 %", "Positif"), ("Inventory Turn", "3,8x", "Sain"), ("Online Mix", "28 %", "En hausse"), ("Price/Mix", "+2,1 %", "Favorable"), ("Return Rate", "18 %", "Stable"), ("Loyalty Rev.", "42 %", "Fort")],
         "conditions": [("Macro", "PIB Zone Euro negatif 2 trimestres", "6-9 mois"), ("Chine", "PIB chinois < 3,5 %", "9-12 mois"), ("Credit", "Taux 10Y > 5 % pendant 6 mois", "6-12 mois"), ("Fondamental", "SSSG negatif 3 trimestres", "9 mois")],
     },
     "Consumer Defensive": {
         "description": (
             "Le secteur Consommation Defensive regroupe les producteurs et distributeurs de biens essentiels "
-            "— alimentation, boissons, hygiene-beaute. Modele resilient par nature, il offre une protection "
+            "— alimentation, boissons, hygiene-beaute. Modèle résilient par nature, il offre une protection "
             "en periode de recession tout en beneficiant du pricing power des marques leaders."
         ),
         "catalyseurs": [
-            ("Pricing Power", "Capacite a repercuter l inflation des intrants — les leaders de marque maintiennent des marges brutes > 40 %."),
+            ("Pricing Power", "Capacité a répercuter l inflation des intrants — les leaders de marque maintiennent des marges brutes > 40 %."),
             ("Marches Emergents", "Croissance de la classe moyenne en Afrique et Asie du Sud-Est — expansion a double chiffre."),
             ("Innovation Produit", "Premiumisation et bio — capture de valeur additionnelle sur les segments porteurs."),
         ],
         "risques": [
-            ("Guerre des Prix", "Pression des distributeurs (Leclerc, Lidl) sur les prix fournisseurs — erosion des marges lors des negociations."),
+            ("Guerre des Prix", "Pression des distributeurs (Leclerc, Lidl) sur les prix fournisseurs — erosion des marges lors des négociations."),
             ("Destockage", "Reduction des stocks en distribution — impact sur volumes T1-T2 2026."),
             ("Substitution MDD", "Parts de marche des marques distributeurs en hausse de 2-3 pts — pression structurelle."),
         ],
         "drivers": [
-            ("up", "Pricing Power Marques", "Leaders de categorie maintiennent +3-5 % de hausse tarifaire annuelle"),
+            ("up", "Pricing Power Marques", "Leaders de catégorie maintiennent +3-5 % de hausse tarifaire annuelle"),
             ("up", "Expansion Emergents", "Croissance volumes a 2 chiffres en Afrique et Asie du Sud-Est"),
-            ("down", "Pression Distribution", "Negociations annuelles de plus en plus defavorables"),
+            ("down", "Pression Distribution", "Négociations annuelles de plus en plus defavorables"),
             ("down", "Saturation Matures", "Volumes stagnants en Europe — croissance principalement par prix"),
         ],
-        "cycle_comment": "Secteur defensif | resilient en recession, sous-performant en expansion",
-        "metriques": [("Org. Growth", "+3,8 %", "Sain"), ("Gross Margin", "42 %", "Stable"), ("FCF Yield", "4,2 %", "Attractif"), ("Div. Yield", "2,8 %", "Stable"), ("Elasticite Prix", "-0,4", "Faible"), ("Market Share", "+0,3 pt", "Gain")],
-        "conditions": [("Macro", "Recession profonde > 3 trimestres", "9-12 mois"), ("Distribution", "Perte > 15 % referencements top 3", "6-9 mois"), ("MDD", "Part MDD > 45 % en valeur", "12-18 mois"), ("Reglementaire", "Taxe nutritionnelle majeure", "12-24 mois")],
+        "cycle_comment": "Secteur défensif | résilient en recession, sous-performant en expansion",
+        "métriques": [("Org. Growth", "+3,8 %", "Sain"), ("Gross Margin", "42 %", "Stable"), ("FCF Yield", "4,2 %", "Attractif"), ("Div. Yield", "2,8 %", "Stable"), ("Elasticite Prix", "-0,4", "Faible"), ("Market Share", "+0,3 pt", "Gain")],
+        "conditions": [("Macro", "Recession profonde > 3 trimestres", "9-12 mois"), ("Distribution", "Perte > 15 % référencements top 3", "6-9 mois"), ("MDD", "Part MDD > 45 % en valeur", "12-18 mois"), ("Réglementaire", "Taxe nutritionnelle majeure", "12-24 mois")],
     },
     "Financial Services": {
         "description": (
-            "Le secteur Financier couvre les banques, assureurs, societes de gestion d actifs et fintech. "
-            "L environnement de taux eleves a restaure la rentabilite des marges d interet, mais l exposition "
+            "Le secteur Financier couvre les banques, assureurs, sociétés de gestion d actifs et fintech. "
+            "L environnement de taux élevés a restaure la rentabilité des marges d interet, mais l exposition "
             "au credit immobilier et aux PME reste un facteur de risque dans un contexte macro degrade."
         ),
         "catalyseurs": [
-            ("Taux Directeurs Eleves", "Maintien des taux BCE a 3 % — soutien structurel aux NIM bancaires et a la rentabilite des depots."),
+            ("Taux Directeurs Élevés", "Maintien des taux BCE a 3 % — soutien structurel aux NIM bancaires et a la rentabilité des depots."),
             ("Consolidation Sectorielle", "Fusions-acquisitions dans la banque retail — prime de controle sur les cibles sous-valorisees."),
             ("Digitalisation Services", "Plateformes wealth management numeriques — reduction couts et captation millennials investisseurs."),
         ],
         "risques": [
-            ("Degradation Credit", "Hausse des NPL dans l immobilier commercial et le credit PME si recession confirmee."),
+            ("Dégradâtion Credit", "Hausse des NPL dans l immobilier commercial et le credit PME si recession confirmee."),
             ("Baisse Taux BCE", "Pivot accommodant — compression des NIM de 15-25 bps par tranche de 25 bps de baisse."),
-            ("Regulation Bale IV", "Exigences CET1 plus elevees — pression sur le ROE et les politiques de retour de capital."),
+            ("Regulation Bale IV", "Exigences CET1 plus élevées — pression sur le ROE et les politiques de retour de capital."),
         ],
         "drivers": [
-            ("up", "Marge Nette d Interet", "Taux eleves soutiennent les NIM — pic attendu T2 2026"),
+            ("up", "Marge Nette d Interet", "Taux élevés soutiennent les NIM — pic attendu T2 2026"),
             ("up", "Gestion d Actifs", "Collecte nette positive — marches actions porteurs"),
             ("down", "Cout du Risque", "Montee progressive des provisions — NPL en hausse"),
             ("down", "Regulation", "Bale IV — impact CET1 estime a -80bps grandes banques EU"),
         ],
-        "cycle_comment": "Secteur en maturite cyclique | NIM en pic, qualite d actif a surveiller",
-        "metriques": [("NIM median", "2,8 %", "Sain"), ("CET1 median", "14,2 %", "Confortable"), ("ROE median", "11,4 %", "Acceptable"), ("Cost/Income", "58 %", "A ameliorer"), ("NPL Ratio", "2,1 %", "Controle"), ("P/Book", "0,8x", "Decote")],
-        "conditions": [("Taux", "BCE baisse < 2 % — compression NIM > 40 bps", "6-12 mois"), ("Credit", "NPL > 5 % immobilier commercial", "12-18 mois"), ("Macro", "Recession > 2 trimestres — provisionnement", "6-9 mois"), ("Reglementaire", "Bale IV CET1 > 15 %", "24-36 mois")],
+        "cycle_comment": "Secteur en maturite cyclique | NIM en pic, qualité d actif a surveiller",
+        "métriques": [("NIM median", "2,8 %", "Sain"), ("CET1 median", "14,2 %", "Confortable"), ("ROE median", "11,4 %", "Acceptable"), ("Cost/Income", "58 %", "A ameliorer"), ("NPL Ratio", "2,1 %", "Controle"), ("P/Book", "0,8x", "Décote")],
+        "conditions": [("Taux", "BCE baisse < 2 % — compression NIM > 40 bps", "6-12 mois"), ("Credit", "NPL > 5 % immobilier commercial", "12-18 mois"), ("Macro", "Recession > 2 trimestres — provisionnement", "6-9 mois"), ("Réglementaire", "Bale IV CET1 > 15 %", "24-36 mois")],
     },
     "Industrials": {
         "description": (
@@ -163,19 +163,19 @@ _SECTOR_CONTENT = {
             ("Pression Marges", "Hausse des couts energetiques et des salaires dans l industrie — compression marges execution."),
         ],
         "drivers": [
-            ("up", "Defense & Securite", "Budgets defense EU en hausse de 15-20 % — carnets record"),
+            ("up", "Defense & Sécurité", "Budgets defense EU en hausse de 15-20 % — carnets record"),
             ("up", "Equipements Transition", "Investissements eolien offshore et reseaux — +12 % pa"),
             ("down", "Cycles Capex", "Ralentissement capex automobile et electronique"),
             ("down", "Couts Production", "Energie et main-d oeuvre qualifiee compriment les marges"),
         ],
         "cycle_comment": "Secteur en expansion selective | defense et transition tirent la croissance",
-        "metriques": [("Book-to-Bill", "1,18x", "Positif"), ("EBIT Margin", "11,4 %", "Stable"), ("Capex/Rev", "5,2 %", "Modere"), ("Backlog (mois)", "18", "Securise"), ("FCF Conv.", "78 %", "Bon"), ("ROCE", "13,2 %", "Sain")],
+        "métriques": [("Book-to-Bill", "1,18x", "Positif"), ("EBIT Margin", "11,4 %", "Stable"), ("Capex/Rev", "5,2 %", "Modere"), ("Backlog (mois)", "18", "Sécurisé"), ("FCF Conv.", "78 %", "Bon"), ("ROCE", "13,2 %", "Sain")],
         "conditions": [("Macro", "Contraction capex global > 10 %", "6-9 mois"), ("Defense", "Gel budgets defense EU > 20 %", "12-18 mois"), ("Supply Chain", "Penurie semi-conducteurs > 6 mois", "3-6 mois"), ("Fondamental", "Book-to-Bill < 0,9 pendant 3 trimestres", "9-12 mois")],
     },
     "Healthcare": {
         "description": (
             "Le secteur Sante regroupe les laboratoires pharmaceutiques, fabricants de dispositifs medicaux, "
-            "biotechs et prestataires de soins. Structurellement defensif, il beneficie du vieillissement "
+            "biotechs et prestataires de soins. Structurellement défensif, il beneficie du vieillissement "
             "demographique et de l innovation therapeutique."
         ),
         "catalyseurs": [
@@ -184,19 +184,19 @@ _SECTOR_CONTENT = {
             ("Vieillissement Demo", "Population > 65 ans en Europe +3 % pa — croissance structurelle des depenses sante."),
         ],
         "risques": [
-            ("Pression Prix Medicaments", "Revision des prix de reference — impact de -5 a -15 % sur les revenus medicaments matures."),
-            ("Expirations Brevets", "Vague de generiques 2026-2028 — perte de revenus 15-20 % pour les concernes."),
-            ("Incertitude Clinique", "Taux d echec eleve en phase III — risque de destruction de valeur sur pipelines."),
+            ("Pression Prix Medicaments", "Revision des prix de référence — impact de -5 a -15 % sur les revenus medicaments matures."),
+            ("Expirations Brevets", "Vague de génériques 2026-2028 — perte de revenus 15-20 % pour les concernes."),
+            ("Incertitude Clinique", "Taux d echec élevé en phase III — risque de destruction de valeur sur pipelines."),
         ],
         "drivers": [
             ("up", "Innovation Oncologie", "Immunotherapies et ADC — marche > 200 Mds USD en 2027"),
-            ("up", "MedTech IA", "Diagnostic assiste — barrières a l entree elevees"),
+            ("up", "MedTech IA", "Diagnostic assiste — barrières a l entree élevées"),
             ("down", "Expiration Brevets", "Perte revenus blockbusters 2026-2028"),
             ("down", "Pricing Pressure", "Reformes prix medicaments EU et US — compression revenus"),
         ],
-        "cycle_comment": "Secteur defensif-croissance | innovation compense risques reglementaires",
-        "metriques": [("R&D/Rev.", "18 %", "Eleve"), ("Pipeline Score", "7,2/10", "Solide"), ("Marge Brute", "68 %", "Premium"), ("Patent Cliff", "2026-28", "A surveiller"), ("ROE", "22 %", "Attractif"), ("FCF Yield", "3,8 %", "Sain")],
-        "conditions": [("Reglementaire", "Reforme prix US — impact > 20 % revenues", "12-18 mois"), ("Pipeline", "Echec phase III > 25 % du CA", "Immediat"), ("Brevet", "Expiration sans relai — -15 % revenues", "12-24 mois"), ("Macro", "Coupes budgets sante > 10 %", "24-36 mois")],
+        "cycle_comment": "Secteur défensif-croissance | innovation compense risques réglementaires",
+        "métriques": [("R&D/Rev.", "18 %", "Élevé"), ("Pipeline Score", "7,2/10", "Solide"), ("Marge Brute", "68 %", "Premium"), ("Patent Cliff", "2026-28", "A surveiller"), ("ROE", "22 %", "Attractif"), ("FCF Yield", "3,8 %", "Sain")],
+        "conditions": [("Réglementaire", "Reforme prix US — impact > 20 % revenues", "12-18 mois"), ("Pipeline", "Echec phase III > 25 % du CA", "Immediat"), ("Brevet", "Expiration sans relai — -15 % revenues", "12-24 mois"), ("Macro", "Coupes budgets sante > 10 %", "24-36 mois")],
     },
     "Energy": {
         "description": (
@@ -207,21 +207,21 @@ _SECTOR_CONTENT = {
         "catalyseurs": [
             ("Prix Petrole Soutenu", "Demande asiatique robuste et OPEP+ disciplinee — Brent attendu 75-85 USD/bbl en 2026."),
             ("Investissements Renouvelables", "Plans de transition des majors — allocation capex renouvelables +25 % pa."),
-            ("GNL Europeen", "Diversification approvisionnement post-Ukraine — primes GNL structurellement elevees."),
+            ("GNL Europeen", "Diversification approvisionnement post-Ukraine — primes GNL structurellement élevées."),
         ],
         "risques": [
             ("Volatilite Petrole", "Recession mondiale ou accord OPEP+ defavorable — Brent < 60 USD/bbl entrainerait des coupes dividendes."),
-            ("Transition Reglementaire", "Acceleration du calendrier sortie fossiles — actifs bloques en risque."),
+            ("Transition Réglementaire", "Acceleration du calendrier sortie fossiles — actifs bloques en risque."),
             ("Capex Renouvelable", "Surcouts et retards projets offshore wind — impact sur rendements."),
         ],
         "drivers": [
             ("up", "Prix Hydrocarbures", "OPEP+ discipline — soutien structurel des prix 2026"),
             ("up", "GNL & Souverainete", "Diversification approvisionnement EU — prime GNL persistante"),
-            ("down", "Transition Energetique", "Pression reglementaire et ESG — prime de risque croissante"),
+            ("down", "Transition Energetique", "Pression réglementaire et ESG — prime de risque croissante"),
             ("down", "Capex Renouvelable", "Depenses investissement renouvelables pesent sur FCF"),
         ],
-        "cycle_comment": "Secteur en transition | dividendes eleves, visibilite long terme reduite",
-        "metriques": [("FCF Yield", "7,2 %", "Tres attractif"), ("Div. Yield", "4,8 %", "Eleve"), ("Breakeven", "52 USD", "Confortable"), ("ROACE", "14,2 %", "Bon"), ("ND/EBITDA", "1,2x", "Faible"), ("Capex/OCF", "48 %", "Modere")],
+        "cycle_comment": "Secteur en transition | dividendes élevés, visibilite long terme reduite",
+        "métriques": [("FCF Yield", "7,2 %", "Tres attractif"), ("Div. Yield", "4,8 %", "Élevé"), ("Breakeven", "52 USD", "Confortable"), ("ROACE", "14,2 %", "Bon"), ("ND/EBITDA", "1,2x", "Faible"), ("Capex/OCF", "48 %", "Modere")],
         "conditions": [("Petrole", "Brent < 55 USD/bbl 6 mois — coupes dividendes", "3-6 mois"), ("Politique", "Taxes exceptionnelles profits majors", "Immediat"), ("Transition", "Calendrier sortie fossiles avance 10 ans", "24-36 mois"), ("Demande", "Pic demande petroliere confirme avant 2030", "24-48 mois")],
     },
     "Basic Materials": {
@@ -237,23 +237,23 @@ _SECTOR_CONTENT = {
         ],
         "risques": [
             ("Ralentissement Chine", "Demande chinoise d acier 55 % du marche mondial — tout ralentissement est penalisant."),
-            ("Surcapacites", "Capacites de production excedentaires acier et aluminium — pression sur les prix."),
+            ("Surcapacités", "Capacités de production excedentaires acier et aluminium — pression sur les prix."),
             ("Risques Geopolitiques", "Concentration production zones a risque (DRC, Chili) — risques supply chain."),
         ],
         "drivers": [
             ("up", "Metaux Transition", "Cuivre, lithium, cobalt — demande structurelle multi-decennale"),
             ("up", "Infrastructure G7", "Plans investissement massifs — consommation beton et acier"),
             ("down", "Cyclicite Chine", "Demande industrielle chinoise determinante et volatile"),
-            ("down", "Surcapacites", "Acier et aluminium — prix sous pression structurelle"),
+            ("down", "Surcapacités", "Acier et aluminium — prix sous pression structurelle"),
         ],
         "cycle_comment": "Secteur en transition cyclique | materiaux verts tirent la croissance long terme",
-        "metriques": [("EV/EBITDA", "6,2x", "Decote"), ("FCF Yield", "5,8 %", "Attractif"), ("ND/EBITDA", "1,8x", "Gerable"), ("ROIC", "11,2 %", "Correct"), ("Capex/Rev", "8,4 %", "Eleve"), ("Div. Yield", "3,2 %", "Satisfaisant")],
+        "métriques": [("EV/EBITDA", "6,2x", "Décote"), ("FCF Yield", "5,8 %", "Attractif"), ("ND/EBITDA", "1,8x", "Gerable"), ("ROIC", "11,2 %", "Correct"), ("Capex/Rev", "8,4 %", "Élevé"), ("Div. Yield", "3,2 %", "Satisfaisant")],
         "conditions": [("Chine", "Croissance PIB < 3,5 % pendant 2 trimestres", "6-9 mois"), ("Prix", "Cuivre < 7 000 USD/t pendant 6 mois", "3-6 mois"), ("Capex", "Annulation projets miniers majeurs", "Immediat"), ("Regulation", "Taxes export matieres premieres critiques", "12-18 mois")],
     },
     "Real Estate": {
         "description": (
             "Le secteur Immobilier regroupe les foncières cotees (SIIC/REIT), promoteurs et gestionnaires "
-            "d actifs immobiliers. En phase de reevaluation post-hausse des taux, il offre des decotes sur "
+            "d actifs immobiliers. En phase de reevaluation post-hausse des taux, il offre des décotes sur "
             "ANR attractives pour les investisseurs patients."
         ),
         "catalyseurs": [
@@ -262,8 +262,8 @@ _SECTOR_CONTENT = {
             ("Actifs Durables", "Renovation energetique obligatoire — valorisation differentielle actifs certifies."),
         ],
         "risques": [
-            ("Maintien Taux Eleves", "Taux longs > 4 % prolonges — pressions sur les ANR et les covenants de dette."),
-            ("Degradation Locative", "Vacance bureau en hausse post-teletravail — risques sur les loyers tertiaires secondaires."),
+            ("Maintien Taux Élevés", "Taux longs > 4 % prolonges — pressions sur les ANR et les covenants de dette."),
+            ("Dégradâtion Locative", "Vacance bureau en hausse post-teletravail — risques sur les loyers tertiaires secondaires."),
             ("Refinancement", "Mur de dette 2025-2027 — risques de dilution pour les foncieres surendettees."),
         ],
         "drivers": [
@@ -272,8 +272,8 @@ _SECTOR_CONTENT = {
             ("down", "Bureau Post-Covid", "Vacance bureau — actifs secondaires a risque"),
             ("down", "Refinancement", "Mur de dette — risque dilution pour les leverages"),
         ],
-        "cycle_comment": "Secteur en reevaluation | ANR en decote, sensibilite aux taux majeure",
-        "metriques": [("Decote ANR", "-22 %", "Opportunite"), ("Div. Yield", "4,8 %", "Attractif"), ("LTV median", "38 %", "Prudent"), ("ICR median", "3,2x", "Sain"), ("Vacance", "7,4 %", "Moderee"), ("EPRA NTA", "ref.", "Benchmark")],
+        "cycle_comment": "Secteur en reevaluation | ANR en décote, sensibilite aux taux majeure",
+        "métriques": [("Décote ANR", "-22 %", "Opportunite"), ("Div. Yield", "4,8 %", "Attractif"), ("LTV median", "38 %", "Prudent"), ("ICR median", "3,2x", "Sain"), ("Vacance", "7,4 %", "Moderee"), ("EPRA NTA", "ref.", "Benchmark")],
         "conditions": [("Taux", "OAT 10Y > 4,5 % pendant 12 mois", "6-12 mois"), ("Vacance", "Vacance bureau > 15 %", "12-18 mois"), ("Dette", "LTV > 50 % — covenant breach", "Immediat"), ("Macro", "Recession — loyers -10 %", "9-12 mois")],
     },
     "Communication Services": {
@@ -299,14 +299,14 @@ _SECTOR_CONTENT = {
             ("down", "Capex Reseau", "Phase investissement fibre — FCF sous pression 2-3 ans"),
         ],
         "cycle_comment": "Secteur en transformation | consolidation et fibre sont les catalyseurs",
-        "metriques": [("EBITDA Margin", "32 %", "Stable"), ("ARPU", "28 EUR/m", "En hausse"), ("Churn", "1,2 %", "Faible"), ("Capex/Rev", "18 %", "Eleve"), ("Fiber Cover.", "68 %", "En cours"), ("FCF Yield", "3,4 %", "Modere")],
-        "conditions": [("Prix", "ARPU mobile < 22 EUR — guerre des prix", "6-9 mois"), ("Capex", "Retards fibre > 18 mois", "9-12 mois"), ("Reglementaire", "Blocage fusions autorites concurrence", "Immediat"), ("Substitution", "Revenu voix < 20 % CA total", "18-24 mois")],
+        "métriques": [("EBITDA Margin", "32 %", "Stable"), ("ARPU", "28 EUR/m", "En hausse"), ("Churn", "1,2 %", "Faible"), ("Capex/Rev", "18 %", "Élevé"), ("Fiber Cover.", "68 %", "En cours"), ("FCF Yield", "3,4 %", "Modere")],
+        "conditions": [("Prix", "ARPU mobile < 22 EUR — guerre des prix", "6-9 mois"), ("Capex", "Retards fibre > 18 mois", "9-12 mois"), ("Réglementaire", "Blocage fusions autorites concurrence", "Immediat"), ("Substitution", "Revenu voix < 20 % CA total", "18-24 mois")],
     },
     "Utilities": {
         "description": (
             "Les Utilities regroupent les producteurs et distributeurs d electricite, de gaz et d eau. "
             "Caracterisees par des revenus regules et des dividendes stables, elles constituent un refuge "
-            "defensif sensible aux variations de taux d interet."
+            "défensif sensible aux variations de taux d interet."
         ),
         "catalyseurs": [
             ("Transition Energetique", "Investissements massifs dans le renouvelable — actifs regules garantissant des rendements stables."),
@@ -314,7 +314,7 @@ _SECTOR_CONTENT = {
             ("Hydrogene & Stockage", "Positionnement nouvelles technologies — optionalite valorisation long terme."),
         ],
         "risques": [
-            ("Taux Eleves", "Sensibilite marquee aux taux longs — compression des multiples si OAT > 4 %."),
+            ("Taux Élevés", "Sensibilite marquee aux taux longs — compression des multiples si OAT > 4 %."),
             ("Risque Regule", "Revision des tarifs d acces reseau — impact sur la remuneration du capital investi."),
             ("Volatilite Meteo", "Secheresse ou faible ventossité — impact sur production hydraulique et eolienne."),
         ],
@@ -324,14 +324,14 @@ _SECTOR_CONTENT = {
             ("down", "Taux Longs", "Chaque +50bps = -5 a -8 % sur multiples EV/EBITDA"),
             ("down", "Revision Tarifs", "Regulateurs peuvent comprimer les marges"),
         ],
-        "cycle_comment": "Secteur defensif-rendement | sensibilite taux elevee, dividendes stables",
-        "metriques": [("RAB Return", "6,2 %", "Regule"), ("Div. Yield", "4,4 %", "Attractif"), ("ND/EBITDA", "4,2x", "Eleve stable"), ("RES Mix", "42 %", "En hausse"), ("Payout", "68 %", "Stable"), ("ROCE", "7,8 %", "Regule")],
+        "cycle_comment": "Secteur défensif-rendement | sensibilite taux élevée, dividendes stables",
+        "métriques": [("RAB Return", "6,2 %", "Regule"), ("Div. Yield", "4,4 %", "Attractif"), ("ND/EBITDA", "4,2x", "Élevé stable"), ("RES Mix", "42 %", "En hausse"), ("Payout", "68 %", "Stable"), ("ROCE", "7,8 %", "Regule")],
         "conditions": [("Taux", "OAT 10Y > 4,5 % pendant 12 mois", "6-12 mois"), ("Regulation", "Baisse WACC regule > 100bps", "24-36 mois"), ("Meteo", "Secheresse generalisee 2 ans", "Annuel"), ("Politique", "Nationalisation ou gel tarifaire", "Immediat")],
     },
 }
 
 _SECTOR_DEFAULT = {
-    "description": "Ce secteur regroupe des entreprises aux profils varies, analysees sur la base de scores multifactoriels integrant la valorisation, la croissance, la qualite bilancielle et le momentum de marche.",
+    "description": "Ce secteur regroupe des entreprises aux profils varies, analysées sur la base de scores multifactoriels intégrant la valorisation, la croissance, la qualité bilancielle et le momentum de marche.",
     "catalyseurs": [
         ("Momentum Fondamental", "Amelioration des marges operationnelles — les leaders renforcent leur avantage concurrentiel."),
         ("Consolidation Sectorielle", "Vague de M&A — prime de rachat potentielle sur les acteurs sous-valorises."),
@@ -339,7 +339,7 @@ _SECTOR_DEFAULT = {
     ],
     "risques": [
         ("Environnement Macro", "Ralentissement de la croissance mondiale — impact sur les volumes et les revenus."),
-        ("Pressions Reglementaires", "Nouvelles contraintes sectorielles — surcouts de conformite."),
+        ("Pressions Réglementaires", "Nouvelles contraintes sectorielles — surcouts de conformite."),
         ("Competition Accrue", "Entree de nouveaux acteurs — pression sur les prix et les marges."),
     ],
     "drivers": [
@@ -349,8 +349,8 @@ _SECTOR_DEFAULT = {
         ("down", "Reglementation", "Surcouts de conformite — pression sur les marges"),
     ],
     "cycle_comment": "Secteur en expansion moderee | selectivite recommandee",
-    "metriques": [("EV/EBITDA", "—", "Mediane"), ("Mg EBITDA", "—", "LTM"), ("Croissance", "—", "YoY"), ("ROE", "—", "LTM"), ("FCF Yield", "—", "Estime"), ("Score Moyen", "—", "/100")],
-    "conditions": [("Macro", "Recession confirmee — 2 trimestres negatifs", "6-9 mois"), ("Sectoriel", "Revision baissiere EPS > 15 %", "6-12 mois"), ("Fondamental", "Degradation marges > 300 bps", "3-6 mois"), ("Reglementaire", "Mesures restrictives majeures", "Variable")],
+    "métriques": [("EV/EBITDA", "—", "Médiane"), ("Mg EBITDA", "—", "LTM"), ("Croissance", "—", "YoY"), ("ROE", "—", "LTM"), ("FCF Yield", "—", "Estime"), ("Score Moyen", "—", "/100")],
+    "conditions": [("Macro", "Recession confirmee — 2 trimestres negatifs", "6-9 mois"), ("Sectoriel", "Revision baissiere EPS > 15 %", "6-12 mois"), ("Fondamental", "Dégradâtion marges > 300 bps", "3-6 mois"), ("Réglementaire", "Mesures restrictives majeures", "Variable")],
 }
 
 
@@ -386,18 +386,25 @@ def _fmt_x(v, d=1):
     try: return f"{float(v):.{d}f}x"
     except: return "—"
 
-def _fmt_pct(v, d=1, mult=True):
+def _fmt_pct(v, d=1, mult=False):
+    """Format percentage. mult=True si valeur en décimal (0.05→5%). False si déjà en % (5.0→5%)."""
     if v is None: return "—"
     try:
         fv = float(v) * (100 if mult else 1)
         return f"{fv:+.{d}f} %"
     except: return "—"
 
-def _fmt_pct_plain(v, d=1, mult=True):
+def _fmt_pct_plain(v, d=1, mult=False):
     if v is None: return "—"
     try:
         fv = float(v) * (100 if mult else 1)
         return f"{fv:.{d}f} %"
+    except: return "—"
+
+def _fmt_pct_rev(v, d=1):
+    """Pour revenue_growth stocké en décimal (0.05 = 5%)."""
+    if v is None: return "—"
+    try: return f"{float(v)*100:+.{d}f} %"
     except: return "—"
 
 def _fmt_num(v, d=1):
@@ -429,9 +436,9 @@ def _prepare_data(tickers_data: list[dict], sector_name: str, universe: str) -> 
     mom_vals = [t.get("momentum_52w") for t in td if t.get("momentum_52w") is not None]
 
     ev_med  = _med(ev_vals)
-    rev_med = _med(rev_vals) * 100 if rev_vals else 0.0
-    mg_med  = _med(mg_vals) * 100 if mg_vals else 0.0
-    mom_med = _med(mom_vals) * 100 if mom_vals else 0.0
+    rev_med = _med(rev_vals) * 100 if rev_vals else 0.0  # revenue_growth en décimal
+    mg_med  = _med(mg_vals)  if mg_vals  else 0.0        # ebitda_margin déjà en %
+    mom_med = _med(mom_vals) if mom_vals else 0.0        # momentum_52w déjà en %
 
     from config.sector_ref import get_sector_drivers
     drv = get_sector_drivers(sector_name)
@@ -669,7 +676,7 @@ def _chart_distribution(tickers_data) -> bytes:
 
     if not td_ev:
         fig, ax = plt.subplots(figsize=(5.8, 4.5))
-        ax.text(0.5, 0.5, "Donnees insuffisantes", ha='center', va='center', transform=ax.transAxes)
+        ax.text(0.5, 0.5, "Données insuffisantes", ha='center', va='center', transform=ax.transAxes)
         buf = io.BytesIO()
         fig.savefig(buf, format='png', dpi=150); plt.close(fig); buf.seek(0)
         return buf.read()
@@ -683,7 +690,7 @@ def _chart_distribution(tickers_data) -> bytes:
     fig.patch.set_facecolor('#FFFFFF')
     ax.set_facecolor('#F8F9FA')
     bars = ax.bar(labels, vals, color=colors, alpha=0.85, zorder=3)
-    ax.axhline(med, color='#1B3A6B', linewidth=1.5, linestyle='--', label=f"Mediane {med:.1f}x")
+    ax.axhline(med, color='#1B3A6B', linewidth=1.5, linestyle='--', label=f"Médiane {med:.1f}x")
     for bar, val in zip(bars, vals):
         ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.3,
                 f"{val:.1f}x", ha='center', va='bottom', fontsize=7.5, fontweight='bold', color='#1A1A1A')
@@ -766,16 +773,19 @@ def _chart_performance(tickers_data) -> bytes:
 
 def _s01_cover(prs, D):
     slide = _blank(prs)
-    _rect(slide, 0, 0, 25.4, 4.2, fill=_NAVY)
-    _txb(slide, "FinSight IA", 0, 0.05, 25.4, 1.3, size=13, bold=True, color=_WHITE)
-    _txb(slide, "Pitchbook  —  Analyse Sectorielle", 0, 1.5, 25.4, 1.0, size=11, color=_GRAYD, align=PP_ALIGN.CENTER)
-    _txb(slide, D["sector_name"], 1.3, 5.0, 22.9, 2.8, size=36, bold=True, color=_NAVY)
-    _txb(slide, f"{D['universe']}  ·  {D['N']} societes analysees", 1.3, 8.0, 22.9, 0.9, size=11, color=_GRAYT)
-    # Signal badge
+    # Barre navy fine en haut
+    _rect(slide, 0, 0, 25.4, 1.8, fill=_NAVY)
+    _txb(slide, "FinSight IA", 0.9, 0.15, 12.0, 1.2, size=12, bold=True, color=_WHITE)
+    _txb(slide, "Pitchbook  —  Analyse Sectorielle", 0, 0.25, 25.2, 1.0, size=9.5, color=_GRAYD, align=PP_ALIGN.RIGHT)
+    # Titre secteur centré
+    _txb(slide, D["sector_name"], 0, 4.5, 25.4, 3.0, size=38, bold=True, color=_NAVY, align=PP_ALIGN.CENTER)
+    # Univers + nb sociétés centré
+    _txb(slide, f"{D['universe']}  ·  {D['N']} sociétés analysées", 0, 7.8, 25.4, 1.0, size=12, color=_GRAYT, align=PP_ALIGN.CENTER)
+    # Signal badge centré
     sig_label = D["sig_label"]
     sig_color = D["sig_color"]
-    _rect(slide, 9.1, 9.0, 7.1, 1.4, fill=sig_color)
-    _txb(slide, f"● {sig_label}", 9.1, 9.1, 7.1, 1.2, size=13, bold=True, color=_WHITE, align=PP_ALIGN.CENTER)
+    _rect(slide, 9.1, 9.2, 7.1, 1.4, fill=sig_color)
+    _txb(slide, f"● {sig_label}", 9.1, 9.3, 7.1, 1.2, size=13, bold=True, color=_WHITE, align=PP_ALIGN.CENTER)
     # Footer
     _rect(slide, 0, 13.6, 25.4, 0.7, fill=_GRAYL)
     _txb(slide, "Rapport confidentiel", 0.9, 13.65, 10.0, 0.5, size=7.5, color=_GRAYT)
@@ -784,7 +794,7 @@ def _s01_cover(prs, D):
 
 def _s02_exec_summary(prs, D):
     slide = _blank(prs)
-    _header(slide, "Executive Summary", f"{D['sector_name']}  ·  {D['universe']}  ·  {D['N']} societes analysees", 1)
+    _header(slide, "Executive Summary", f"{D['sector_name']}  ·  {D['universe']}  ·  {D['N']} sociétés analysées", 1)
 
     # Signal + KPIs bar
     _rect(slide, 0.9, 2.4, 23.6, 1.1, fill=_GRAYL)
@@ -843,10 +853,10 @@ def _s03_sommaire(prs, D):
     _header(slide, "Sommaire", f"{D['sector_name']}  ·  {D['universe']}  ·  Structure de l analyse — 20 slides", 1)
 
     chapters = [
-        ("01", "Presentation du Secteur", "Caracteristiques structurelles · Ratios comparatifs · Positionnement cycle", "p. 5–7"),
-        ("02", "Cartographie des Societes", f"{D['N']} societes · Scatter valorisation · Scores FinSight detailles", "p. 9–11"),
+        ("01", "Presentation du Secteur", "Caractéristiques structurelles · Ratios comparatifs · Positionnement cycle", "p. 5–7"),
+        ("02", "Cartographie des Societes", f"{D['N']} sociétés · Scatter valorisation · Scores FinSight detailles", "p. 9–11"),
         ("03", "Top 3 & Valorisations", "Synthese Top 3 · Distribution EV/EBITDA · Zone d entree optimale", "p. 13–15"),
-        ("04", "Risques, Sentiment & Methodologie", "Conditions d invalidation · FinBERT · Sources & data lineage", "p. 17–19"),
+        ("04", "Risques, Sentiment & Méthodologie", "Conditions d invalidation · FinBERT · Sources & data lineage", "p. 17–19"),
     ]
     for i, (num, title, sub, pages) in enumerate(chapters):
         yy = 2.6 + i * 2.6
@@ -863,11 +873,11 @@ def _s03_sommaire(prs, D):
 def _s05_presentation(prs, D):
     slide = _blank(prs)
     _header(slide, "Presentation du Secteur",
-            f"{D['sector_name']}  ·  Caracteristiques structurelles & metriques de reference", 1)
+            f"{D['sector_name']}  ·  Caractéristiques structurelles & métriques de référence", 1)
 
     content = D["content"]
     desc = content.get("description", "")
-    metriques = content.get("metriques", [])
+    métriques = content.get("métriques", [])
 
     # Description block
     _rect(slide, 0.9, 2.5, 13.7, 10.0, fill=_GRAYL)
@@ -876,7 +886,7 @@ def _s05_presentation(prs, D):
 
     # Metrics table
     tbl_data = [["Metrique", "Valeur", "Lecture"]]
-    for met in metriques:
+    for met in métriques:
         tbl_data.append(list(met))
     _add_table(slide, tbl_data, 15.1, 2.5, 9.4, len(tbl_data) * 0.58,
                col_widths=[3.5, 2.5, 3.4], font_size=7.5, header_size=7.5, alt_fill=_GRAYL)
@@ -887,7 +897,7 @@ def _s05_presentation(prs, D):
 def _s06_ratios(prs, D):
     slide = _blank(prs)
     _header(slide, "Ratios Comparatifs Sectoriels",
-            f"{D['sector_name']}  ·  Comparaison multiples LTM — {D['N']} societes vs mediane sectorielle", 2)
+            f"{D['sector_name']}  ·  Comparaison multiples LTM — {D['N']} sociétés vs médiane sectorielle", 2)
 
     td = D["sorted_td"]
     tbl_data = [["Societe", "EV/EBITDA", "EV/Rev.", "P/E", "Mg Brute", "Mg EBITDA", "ROE"]]
@@ -901,13 +911,13 @@ def _s06_ratios(prs, D):
             _fmt_pct_plain(t.get("ebitda_margin")),
             _fmt_pct_plain(t.get("roe")),
         ])
-    # Mediane row
-    def _col_med(key, mult=True):
+    # Médiane row
+    def _col_med(key):
         vals = [t.get(key) for t in td if t.get(key) is not None]
         m = _med(vals)
         if key in ("ev_ebitda", "ev_revenue", "pe_ratio"):
             return _fmt_x(m)
-        return _fmt_pct_plain(m * (1 if not mult else 1))
+        return _fmt_pct_plain(m)  # already in %
     tbl_data.append(["MEDIANE",
                       _col_med("ev_ebitda"), _col_med("ev_revenue"), _col_med("pe_ratio"),
                       _fmt_pct_plain(_med([t.get("gross_margin") for t in td if t.get("gross_margin")])),
@@ -928,11 +938,11 @@ def _s06_ratios(prs, D):
     _rect(slide, 0.9, 10.5, 23.6, 0.7, fill=_NAVY)
     _txb(slide, "LECTURE ANALYTIQUE", 1.1, 10.55, 23.2, 0.6, size=8.5, bold=True, color=_WHITE)
     analysis = (
-        f"La mediane EV/EBITDA sectorielle s etablit a {ev_med:.1f}x LTM. "
-        f"{best_name} ({_fmt_x(ev_best)}) se distingue comme le leader de qualite, "
+        f"La médiane EV/EBITDA sectorielle s etablit a {ev_med:.1f}x LTM. "
+        f"{best_name} ({_fmt_x(ev_best)}) se distingue comme le leader de qualité, "
         f"combine a une marge EBITDA de {_fmt_pct_plain(best.get('ebitda_margin'))} et une croissance "
-        f"de {_fmt_pct(best.get('revenue_growth'))}. "
-        f"La dispersion des multiples revele la heterogeneite des profils au sein du secteur "
+        f"de {_fmt_pct_rev(best.get('revenue_growth'))}. "
+        f"La dispersion des multiples revele la hétérogénéité des profils au sein du secteur "
         f"{D['sector_name']} — une lecture croisee P/E vs EV/EBITDA permet d isoler les "
         f"effets de structure de capital et les distorsions comptables."
     )
@@ -976,7 +986,7 @@ def _s07_cycle(prs, D):
 def _s09_cartographie(prs, D):
     slide = _blank(prs)
     _header(slide, "Cartographie des Societes",
-            f"{D['N']} societes analysees  ·  {D['sector_name']}  ·  {D['universe']}  ·  Tri par score FinSight decroissant", 2)
+            f"{D['N']} sociétés analysées  ·  {D['sector_name']}  ·  {D['universe']}  ·  Tri par score FinSight decroissant", 2)
 
     td = D["sorted_td"]
     tbl_data = [["#", "Ticker", "Societe", "Score", "Reco", "Cours", "EV/EBITDA", "Mg EBITDA", "Croissance", "Momentum"]]
@@ -991,7 +1001,7 @@ def _s09_cartographie(prs, D):
             f"{t.get('price') or '—'}",
             _fmt_x(t.get("ev_ebitda")),
             _fmt_pct_plain(t.get("ebitda_margin")),
-            _fmt_pct(t.get("revenue_growth")),
+            _fmt_pct_rev(t.get("revenue_growth")),
             _fmt_pct(t.get("momentum_52w")),
         ])
 
@@ -1011,12 +1021,12 @@ def _s09_cartographie(prs, D):
     _txb(slide, "Lecture analytique — Ce que la cartographie revele", 1.3, 9.45, 23.0, 0.6, size=9, bold=True, color=_NAVY)
     analysis = (
         f"Le secteur {D['sector_name']} presente {n_buy} BUY / {n_hold} HOLD / {n_sell} SELL "
-        f"sur {len(td)} valeurs analysees. "
+        f"sur {len(td)} valeurs analysées. "
         f"{best_name} (score {int(best.get('score_global') or 0)}/100) constitue le coeur offensif recommande "
-        f"— fondamentaux solides et visibilite superieure sur les revenus. "
-        f"La repartition des recommandations reflete un positionnement selectif coherent avec la phase sectorielle actuelle. "
+        f"— fondamentaux solides et visibilite supérieure sur les revenus. "
+        f"La répartition des recommandations reflete un positionnement selectif cohérent avec la phase sectorielle actuelle. "
         f"Les catalyseurs identifies — resultats trimestriels, guidance annuel, operations M&A — "
-        f"constituent les evenements cles a surveiller pour un renforcement conditionnel des positions."
+        f"constituent les événements cles a surveiller pour un renforcement conditionnel des positions."
     )
     _txb(slide, analysis, 1.3, 10.1, 23.0, 3.0, size=8.5, color=_GRAYT, wrap=True)
     _footer(slide)
@@ -1040,23 +1050,23 @@ def _s10_scatter(prs, D):
     med_ev = float(np.median(ev_vals)) if ev_vals else 0
 
     premium = [t for t in td if t.get("ev_ebitda") and float(t["ev_ebitda"]) > med_ev * 1.15]
-    decote  = [t for t in td if t.get("ev_ebitda") and float(t["ev_ebitda"]) < med_ev * 0.85]
+    décote  = [t for t in td if t.get("ev_ebitda") and float(t["ev_ebitda"]) < med_ev * 0.85]
 
     analysis_lines = []
     if premium:
         p0 = premium[0]
         analysis_lines.append(
-            f"{p0.get('ticker', '')} domine le quadrant Premium Justifie — valorisation elevee "
+            f"{p0.get('ticker', '')} domine le quadrant Premium Justifie — valorisation élevée "
             f"({_fmt_x(p0.get('ev_ebitda'))}) soutenue par {_fmt_pct_plain(p0.get('gross_margin'))} de marge brute."
         )
-    if decote:
-        d0 = decote[-1]
+    if décote:
+        d0 = décote[-1]
         analysis_lines.append(
             f"{d0.get('ticker', '')} se positionne en zone Opportunite — "
-            f"EV/EBITDA de {_fmt_x(d0.get('ev_ebitda'))} sous la mediane sectorielle de {med_ev:.1f}x."
+            f"EV/EBITDA de {_fmt_x(d0.get('ev_ebitda'))} sous la médiane sectorielle de {med_ev:.1f}x."
         )
     analysis_lines.append(
-        f"La mediane sectorielle ressort a {med_ev:.1f}x — "
+        f"La médiane sectorielle ressort a {med_ev:.1f}x — "
         f"les acteurs en dessous offrent potentiellement les meilleures asymetries risque/rendement."
     )
     _txb(slide, "\n\n".join(analysis_lines), 16.3, 3.1, 8.0, 10.5, size=8.5, color=_GRAYT, wrap=True)
@@ -1066,7 +1076,7 @@ def _s10_scatter(prs, D):
 def _s11_scores(prs, D):
     slide = _blank(prs)
     _header(slide, "Scores FinSight Detailles",
-            "Decomposition par dimension  ·  Value · Growth · Quality · Momentum  ·  Score 0-100", 2)
+            "Décomposition par dimension  ·  Value · Growth · Quality · Momentum  ·  Score 0-100", 2)
 
     td = D["sorted_td"]
     tbl_data = [["Ticker", "Societe", "Score Global", "Value", "Growth", "Quality", "Momentum", "Reco"]]
@@ -1105,7 +1115,7 @@ def _s11_scores(prs, D):
         f"Growth={int(best.get('score_growth') or 0)}, "
         f"Quality={int(best.get('score_quality') or 0)}, "
         f"Momentum={int(best.get('score_momentum') or 0)}. "
-        f"La dispersion des scores entre les {len(td)} societes reflete des profils heterogenes — "
+        f"La dispersion des scores entre les {len(td)} sociétés reflete des profils hétérogènes — "
         f"une allocation selective privilegiant les leaders qualitatifs est recommandee "
         f"dans la configuration sectorielle actuelle."
     )
@@ -1185,7 +1195,7 @@ def _s14_distribution(prs, D):
     slide = _blank(prs)
     ev_med = D["ev_med"]
     _header(slide, "Distribution des Valorisations",
-            f"EV/EBITDA par societe vs mediane sectorielle ({ev_med:.1f}x)  ·  Vert = sous mediane  ·  Rouge = prime", 3)
+            f"EV/EBITDA par societe vs médiane sectorielle ({ev_med:.1f}x)  ·  Vert = sous médiane  ·  Rouge = prime", 3)
 
     img = _chart_distribution(D["tickers_data"])
     _pic(slide, img, 0.9, 2.3, 14.7, 11.4)
@@ -1198,15 +1208,15 @@ def _s14_distribution(prs, D):
     td = D["sorted_td"]
     ev_vals = [float(t.get("ev_ebitda", 0)) for t in td if t.get("ev_ebitda")]
     premium_actors = [t for t in td if t.get("ev_ebitda") and float(t["ev_ebitda"]) > ev_med * 1.15]
-    decote_actors  = [t for t in td if t.get("ev_ebitda") and float(t["ev_ebitda"]) < ev_med * 0.85]
-    n_sous = len(decote_actors)
+    décote_actors  = [t for t in td if t.get("ev_ebitda") and float(t["ev_ebitda"]) < ev_med * 0.85]
+    n_sous = len(décote_actors)
     n_sur  = len(premium_actors)
 
     analysis = (
         f"La distribution est {'bimodale' if n_sur >= 1 else 'homogene'} — "
         f"{n_sur} acteur(s) se detachent nettement du reste du secteur, creant une prime de valorisation "
-        f"significative vs la mediane de {ev_med:.1f}x.\n\n"
-        f"{n_sous} societe(s) se traitent sous la mediane — potentiellement les meilleures "
+        f"significative vs la médiane de {ev_med:.1f}x.\n\n"
+        f"{n_sous} societe(s) se traitent sous la médiane — potentiellement les meilleures "
         f"asymetries risque/rendement sous reserve de catalyseurs fondamentaux.\n\n"
         f"La dispersion des multiples est caracteristique d un secteur {D['sector_name']} "
         f"en phase de differentiation — les investisseurs selectifs peuvent exploiter cet ecart."
@@ -1222,7 +1232,7 @@ def _s15_entry(prs, D):
 
     _rect(slide, 0.9, 2.5, 23.6, 0.9, fill=_GRAYL)
     _rect(slide, 0.9, 2.5, 0.1, 0.9, fill=_NAVY)
-    _txb(slide, "La zone d entree optimale est definie par la convergence de 3 signaux : decote > 10 % vs DCF Base · momentum 52W negatif · sentiment FinBERT negatif.",
+    _txb(slide, "La zone d entree optimale est definie par la convergence de 3 signaux : décote > 10 % vs DCF Base · momentum 52W negatif · sentiment FinBERT negatif.",
          1.1, 2.55, 23.1, 0.8, size=8.5, color=_GRAYT, wrap=True)
 
     td = D["sorted_td"]
@@ -1256,7 +1266,7 @@ def _s15_entry(prs, D):
     _rect(slide, 0.9, 8.1, 23.6, 2.8, fill=_HOLD_L)
     _rect(slide, 0.9, 8.1, 0.1, 2.8, fill=_HOLD)
     _txb(slide, "NOTE METHODOLOGIQUE", 1.3, 8.2, 23.1, 0.6, size=8.5, bold=True, color=_HOLD)
-    _txb(slide, "La probabilite de rendement positif a 12 mois est calculee sur des configurations similaires identifiees en backtesting sur donnees historiques (2010-2024). Elle ne constitue pas une garantie de performance future. Le DCF Base est estime a partir du WACC median sectoriel et d un taux de croissance terminal coherent avec les drivers sectoriels.",
+    _txb(slide, "La probabilite de rendement positif a 12 mois est calculee sur des configurations similaires identifiees en backtesting sur données historiques (2010-2024). Elle ne constitue pas une garantie de performance future. Le DCF Base est estime a partir du WACC median sectoriel et d un taux de croissance terminal cohérent avec les drivers sectoriels.",
          1.3, 8.85, 23.1, 2.0, size=8, color=_GRAYT, wrap=True)
 
     # 3 KPI boxes
@@ -1264,7 +1274,7 @@ def _s15_entry(prs, D):
     kpis = [
         ("68 %", "Proba. rendement +", "historique 12 mois"),
         (f"{n_entry} / {len(td)}", "Societes en zone", "recommandation BUY"),
-        ("-10 %", "Decote DCF min.", "seuil d activation"),
+        ("-10 %", "Décote DCF min.", "seuil d activation"),
     ]
     for i, (val, l1, l2) in enumerate(kpis):
         kx = 0.9 + i * 8.0
@@ -1308,7 +1318,7 @@ def _s17_risques(prs, D):
 def _s18_sentiment(prs, D):
     slide = _blank(prs)
     _header(slide, "Sentiment de Marche — FinBERT",
-            f"Analyse semantique FinBERT  ·  Articles recents  ·  {D['N']} societes", 4)
+            f"Analyse semantique FinBERT  ·  Articles recents  ·  {D['N']} sociétés", 4)
 
     td = D["tickers_data"]
     # Derive sentiment from tickers_data if available
@@ -1329,7 +1339,7 @@ def _s18_sentiment(prs, D):
     _rect(slide, 0.9, 2.5, 5.3, 2.6, fill=_GRAYL)
     _rect(slide, 0.9, 2.5, 0.1, 2.6, fill=_NAVYL)
     _txb(slide, f"{agg_score:.2f}", 1.2, 2.6, 4.9, 1.2, size=28, bold=True, color=_NAVY)
-    _txb(slide, "Score agrege FinBERT", 1.2, 3.8, 4.9, 0.55, size=7.5, color=_GRAYT)
+    _txb(slide, "Score agrégé FinBERT", 1.2, 3.8, 4.9, 0.55, size=7.5, color=_GRAYT)
     _txb(slide, lbl, 1.2, 4.35, 4.9, 0.45, size=7.5, color=_GRAYD)
 
     # Sentiment bars
@@ -1361,11 +1371,11 @@ def _s18_sentiment(prs, D):
     _rect(slide, 0.9, 7.4, 23.6, 0.7, fill=_NAVY)
     _txb(slide, "LECTURE ANALYTIQUE DU SENTIMENT", 1.1, 7.45, 23.2, 0.6, size=8.5, bold=True, color=_WHITE)
     sent_analysis = (
-        f"Le sentiment agrege sur le secteur {D['sector_name']} {D['universe']} "
+        f"Le sentiment agrégé sur le secteur {D['sector_name']} {D['universe']} "
         f"ressort {'legerement positif' if agg_score > 0.1 else 'neutre' if agg_score >= -0.1 else 'legerement negatif'} ({agg_score:.2f}). "
         f"La dispersion est forte — les leaders sectoriels tirent le sentiment vers le haut "
         f"tandis que les valeurs en restructuration drainent la composante negative. "
-        f"Cette heterogeneite valide une approche selective plut que directionelle sur le secteur."
+        f"Cette hétérogénéité valide une approche selective plut que directionelle sur le secteur."
     )
     _txb(slide, sent_analysis, 1.1, 8.2, 23.2, 2.3, size=8.5, color=_GRAYT, wrap=True)
     _footer(slide)
@@ -1373,11 +1383,11 @@ def _s18_sentiment(prs, D):
 
 def _s19_sources(prs, D):
     slide = _blank(prs)
-    _header(slide, "Sources & Methodologie",
-            "Tracabilite complete des donnees  ·  Data lineage  ·  Agents FinSight IA v1.0", 4)
+    _header(slide, "Sources & Méthodologie",
+            "Traçabilité complete des données  ·  Data lineage  ·  Agents FinSight IA v1.0", 4)
 
     tbl_data = [
-        ["Agent", "Source donnees", "Donnees collectees", "Frequence"],
+        ["Agent", "Source données", "Données collectees", "Frequence"],
         ["AgentData", "yfinance + FMP", "Cours, ratios, etats financiers LTM", "Temps reel / J-1"],
         ["AgentQuant", "Calcul interne", "Altman Z, Beneish M, scores FinSight", "A la demande"],
         ["AgentSentiment", "Finnhub + RSS", "Articles presse, scoring FinBERT", "A la demande"],
@@ -1392,8 +1402,8 @@ def _s19_sources(prs, D):
     # Limits
     _rect(slide, 0.9, 9.6, 23.6, 2.7, fill=_GRAYL)
     _rect(slide, 0.9, 9.6, 0.1, 2.7, fill=_HOLD)
-    _txb(slide, "LIMITES & PRECAUTIONS", 1.3, 9.7, 23.1, 0.6, size=8.5, bold=True, color=_HOLD)
-    _txb(slide, "Les donnees financieres historiques sont issues de sources publiques et peuvent presenter des delais ou inexactitudes. Les previsions sont basees sur le consensus et les modeles internes FinSight IA — elles ne constituent pas des engagements. La methodologie de scoring est soumise a des biais inherents a toute approche quantitative.",
+    _txb(slide, "LIMITES & PRÉCAUTIONS", 1.3, 9.7, 23.1, 0.6, size=8.5, bold=True, color=_HOLD)
+    _txb(slide, "Les données financieres historiques sont issues de sources publiques et peuvent presenter des delais ou inexactitudes. Les previsions sont basees sur le consensus et les modèles internes FinSight IA — elles ne constituent pas des engagements. La méthodologie de scoring est soumise a des biais inherents a toute approche quantitative.",
          1.3, 10.35, 23.1, 2.0, size=8, color=_GRAYT, wrap=True)
 
     # Disclaimer
@@ -1409,7 +1419,8 @@ def _s20_performance(prs, D):
             f"{D['sector_name']}  ·  {D['universe']}  ·  Indexe a 100 au debut de la periode", 4)
 
     img = _chart_performance(D["tickers_data"])
-    _pic(slide, img, 0.6, 1.9, 24.1, 11.6)
+    # Marges équilibrées : laisse respiration en haut/bas/côtés
+    _pic(slide, img, 1.5, 2.3, 22.4, 10.2)
     _footer(slide)
 
 
@@ -1442,8 +1453,8 @@ class SectoralPPTXWriter:
         _s03_sommaire(prs, D)
         # Slide 4 — Chapter 01 divider
         _chapter_divider(prs, "01", "Presentation du Secteur",
-                         "Caracteristiques structurelles, ratios comparatifs & positionnement cycle")
-        # Slide 5 — Présentation
+                         "Caractéristiques structurelles, ratios comparatifs & positionnement cycle")
+        # Slide 5 — Presentation
         _s05_presentation(prs, D)
         # Slide 6 — Ratios comparatifs
         _s06_ratios(prs, D)
@@ -1451,7 +1462,7 @@ class SectoralPPTXWriter:
         _s07_cycle(prs, D)
         # Slide 8 — Chapter 02 divider
         _chapter_divider(prs, "02", "Cartographie des Societes",
-                         f"{D['N']} societes analysees — scores FinSight, scatter & decomposition")
+                         f"{D['N']} sociétés analysées — scores FinSight, scatter & décomposition")
         # Slide 9 — Cartographie
         _s09_cartographie(prs, D)
         # Slide 10 — Scatter
@@ -1468,8 +1479,8 @@ class SectoralPPTXWriter:
         # Slide 15 — Zone d'entrée
         _s15_entry(prs, D)
         # Slide 16 — Chapter 04 divider
-        _chapter_divider(prs, "04", "Risques, Sentiment & Methodologie",
-                         "Conditions d invalidation, FinBERT agrege & data lineage")
+        _chapter_divider(prs, "04", "Risques, Sentiment & Méthodologie",
+                         "Conditions d invalidation, FinBERT agrégé & data lineage")
         # Slide 17 — Risques
         _s17_risques(prs, D)
         # Slide 18 — Sentiment
