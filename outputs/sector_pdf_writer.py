@@ -607,8 +607,8 @@ def _build_macro(perf_buf, area_buf, tickers_data: list[dict],
         f"FinSight IA \u2014 Basket {sector_name} vs S&P 500 vs ETF sectoriel, base 100."))
     elems.append(Spacer(1, 4*mm))
 
-    # Row 2 : area chart (left, 115mm) + analytical text (right) — ratio figsize (7.0, 3.2)
-    _aw = 115 * mm
+    # Row 2 : area chart (left, 130mm) + analytical text (right) — ratio figsize (7.0, 3.2)
+    _aw = 130 * mm
     area_img = Image(area_buf, width=_aw, height=_aw * 3.2 / 7.0)
     area_text = Paragraph(
         f"<b>Revenus agreges par sous-segment</b> — L'analyse de la structure des revenus "
@@ -779,6 +779,36 @@ def _build_acteurs(tickers_data: list[dict], sector_name: str, registry=None):
     elems.append(KeepTogether(tbl([picks_h] + picks_rows,
                                    cw=[14*mm, 16*mm, 20*mm, 20*mm, 16*mm, 22*mm, 62*mm])))
     elems.append(src(f"FinSight IA \u2014 Prix cibles horizon 12 mois. Donnees au {date.today().strftime('%d/%m/%Y')}."))
+    elems.append(Spacer(1, 5*mm))
+
+    # Paragraphe analytique post-recommandations
+    n_buy  = sum(1 for t in sorted_data[:8] if _reco(t.get('score_global')) == "BUY")
+    n_sell = sum(1 for t in sorted_data[:8] if _reco(t.get('score_global')) == "SELL")
+    n_hold = sum(1 for t in sorted_data[:8] if _reco(t.get('score_global')) == "HOLD")
+    best   = sorted_data[0] if sorted_data else {}
+    best_name = best.get('company', best.get('ticker', 'Le leader'))[:30]
+    best_score = best.get('score_global', 'N/A')
+    elems.append(Paragraph(
+        f"<b>Lecture strategique.</b> Sur {len(sorted_data[:8])} valeurs analysees, "
+        f"la repartition <b>{n_buy} BUY / {n_hold} HOLD / {n_sell} SELL</b> traduit un "
+        f"positionnement selectif sur le secteur <b>{sector_name}</b>. "
+        f"<b>{best_name}</b> (score {best_score}/100) constitue le coeur offensif recommande, "
+        f"soutenu par des fondamentaux solides et une visibilite superieure sur les revenus. "
+        f"Les convictions moyennes restent moderees, coherentes avec un contexte macro incertain "
+        f"et une normalisation des multiples sectoriels en cours. "
+        f"Les catalyseurs identifies — resultats trimestriels, guidance annuel, operations M&A — "
+        f"constituent les evenements cles a surveiller pour un renforcement conditionnel des positions.",
+        S_BODY))
+    elems.append(Spacer(1, 4*mm))
+    elems.append(Paragraph(
+        f"<b>Risques sur la these.</b> La these constructive sur les leaders du secteur "
+        f"repose sur la capacite a maintenir des marges dans un environnement de couts eleves "
+        f"et de demande moderee. Tout signal de deterioration des fondamentaux — revision baissiere "
+        f"des estimations, pression concurrentielle accrue, ou choc reglementaire — "
+        f"justifierait une reevaluation des objectifs de cours et un passage en revue des "
+        f"pondérations portefeuille. Le suivi trimestriel des marges EBITDA reste le "
+        f"principal indicateur avancé d'alerte.",
+        S_BODY))
     return elems
 
 
@@ -907,6 +937,36 @@ def _build_valorisation(scatter_buf, donut_buf, tickers_data: list[dict],
             cw=[14*mm, 22*mm, 18*mm, 18*mm, 22*mm, 20*mm, 56*mm]),
         src("FinSight IA \u2014 yfinance, FMP. LTM."),
     ]))
+    elems.append(Spacer(1, 5*mm))
+
+    # Paragraphe analytique post-multiples
+    valid_ev = [t.get('ev_ebitda') for t in tickers_data if t.get('ev_ebitda') and float(t['ev_ebitda']) > 0]
+    med_ev2 = float(np.median([float(v) for v in valid_ev])) if valid_ev else 0
+    decotes = [t for t in tickers_data if t.get('ev_ebitda') and float(t.get('ev_ebitda', 0)) > 0
+               and float(t['ev_ebitda']) < med_ev2 * 0.85]
+    primes  = [t for t in tickers_data if t.get('ev_ebitda') and float(t.get('ev_ebitda', 0)) > 0
+               and float(t['ev_ebitda']) > med_ev2 * 1.15]
+    decote_names = ", ".join(t.get('ticker', '') for t in decotes[:3]) if decotes else "aucun acteur"
+    prime_names  = ", ".join(t.get('ticker', '') for t in primes[:3]) if primes else "aucun acteur"
+    elems.append(Paragraph(
+        f"<b>Lecture de la grille de valorisation.</b> La mediane EV/EBITDA sectorielle "
+        f"s'etablit a <b>{med_ev2:.1f}x</b> LTM. Les acteurs traites en decote significative "
+        f"(<85% de la mediane) — <b>{decote_names}</b> — offrent potentiellement les meilleures "
+        f"asymetries risque/rendement, sous reserve de catalyseurs fondamentaux. "
+        f"A l'inverse, les acteurs en prime marquee (>115% de la mediane) — <b>{prime_names}</b> — "
+        f"exigent une croissance visible et une qualite de bilan superieure pour justifier "
+        f"leur niveau de valorisation dans un contexte de taux normalises.",
+        S_BODY))
+    elems.append(Spacer(1, 4*mm))
+    elems.append(Paragraph(
+        f"<b>Divergences P/E vs EV/EBITDA.</b> L'ecart entre le P/E et l'EV/EBITDA pour "
+        f"certains acteurs signale des structures de capital heterogenes — effet de levier "
+        f"financier, importance des minoritaires ou specificites comptables. "
+        f"L'EV/Revenue constitue un complementaire utile pour les acteurs dont les marges "
+        f"EBITDA sont transitoirement comprimees par des investissements strategiques. "
+        f"Une lecture croisee de ces trois ratios avec le ROE permet d'isoler les vrais "
+        f"generateurs de valeur sur longue periode.",
+        S_BODY))
     return elems
 
 
