@@ -847,7 +847,7 @@ def _slide_exec_summary(prs, snap, synthesis, ratios, devil, sentiment):
 
     kpi_box(slide, 1.02, 9.38, 5.64, 2.24,
             _frx(ev_e), "EV/EBITDA",
-            f"vs {_frx(peer_median_ev_e)} mediane peers")
+            f"vs {_frx(peer_median_ev_e)} médiane peers")
     kpi_box(slide, 6.91, 9.38, 5.64, 2.24,
             _frpct(wacc_val), "WACC",
             f"Beta {_fr(beta, 2) if beta else '—'}  ·  RFR {_frpct(rfr)}")
@@ -1318,7 +1318,7 @@ def _slide_bilan(prs, snap, synthesis, ratios):
                  "Ratios de solvabilit\u00e9 & liquidit\u00e9", 9, NAVY, bold=True)
 
     ratio_rows = [
-        ["Ratio liquidite courante", _fr(cr, 2),  "> 1,5",   _sig(cr, 1.5, 1.0)],
+        ["Ratio liquidité courante", _fr(cr, 2),  "> 1,5",   _sig(cr, 1.5, 1.0)],
         ["Ratio rapide (quick)",     _fr(qr, 2),  "> 1,0",   _sig(qr, 1.0, 0.7)],
         ["D/E",                      _frx(de),    "< 2,0x",  _sig(de, 1.5, 3.0, reverse=True)],
         ["Couverture interets",      _frx(ic),    "> 3,0x",  _sig(ic, 3.0, 1.5)],
@@ -1504,9 +1504,9 @@ def _slide_ratios(prs, snap, synthesis, ratios):
     # Per-cell coloring of Lecture column (col 3) + Valeur column navy bold (col 1)
     _GOOD_READS  = {"solide", "correct", "en ligne", "dans la norme", "sous-value", "aucun signal",
                     "bon", "excellent", "leger"}
-    _WARN_READS  = {"eleve", "tres eleve", "premium", "risque manip.", "detresse", "deficit",
-                    "superieur", "inferieure", "bas", "zone grise", "decote", "intensif"}
-    _NEUT_READS  = {"en ligne", "prime technologique", "modere"}  # amber category
+    _WARN_READS  = {"élevé", "très élevé", "premium", "risque manip.", "détresse", "deficit",
+                    "supérieur", "inférieure", "bas", "zone grise", "décote", "intensif"}
+    _NEUT_READS  = {"en ligne", "prime technologique", "modéré"}  # amber category
 
     from pptx.util import Pt
     for ri in range(1, len(rows) + 1):
@@ -1526,7 +1526,7 @@ def _slide_ratios(prs, snap, synthesis, ratios):
             cell_l.fill.solid()
             cell_l.fill.fore_color.rgb = rgb(GREEN_PALE)
             lec_tc = GREEN
-        elif val_str in _NEUT_READS or val_str in {"superieur", "superieure"}:
+        elif val_str in _NEUT_READS or val_str in {"supérieur", "supérieure"}:
             cell_l.fill.solid()
             cell_l.fill.fore_color.rgb = rgb(AMBER_PALE)
             lec_tc = AMBER
@@ -1790,7 +1790,7 @@ def _slide_peers(prs, snap, synthesis, ratios):
     med_pe  = _peer_median(peers, "pe")
     med_gm  = _peer_median(peers, "gross_margin")
     med_em  = _peer_median(peers, "ebitda_margin")
-    median_row = ["Mediane peers", "—", "—",
+    median_row = ["Médiane peers", "—", "—",
                   _frx(med_eve), _frx(med_evr), _frx(med_pe),
                   _frpct(med_gm), _frpct(med_em)]
     rows_data.append(median_row)
@@ -1902,7 +1902,7 @@ def _slide_football_field(prs, snap, synthesis, ratios):
     rows_fills.append(NAVY_PALE)
 
     if not rows_data:
-        rows_data  = [["Aucune donnee disponible", "—", "—", "—"]]
+        rows_data  = [["Aucune donnée disponible", "—", "—", "—"]]
         rows_fills = [GREY_BG]
 
     tbl_h = min(1.0 + len(rows_data) * 0.71, 6.0)
@@ -1974,9 +1974,9 @@ def _slide_risques(prs, snap, synthesis, devil):
 
     if not invalidation:
         inv_rows = [
-            ["Macro",     "Remontee des taux directeurs > 200bps",              "6-12 mois"],
-            ["Sectoriel", "Rupture technologique remettant en cause le modele", "12-18 mois"],
-            ["Societe",   "Deterioration materielle des marges operationnelles","2-3 trim."],
+            ["Macro",     "Remontée des taux directeurs > 200bps",              "6-12 mois"],
+            ["Sectoriel", "Rupture technologique remettant en cause le modèle", "12-18 mois"],
+            ["Société",   "Détérioration matérielle des marges opérationnelles","2-3 trim."],
         ]
     else:
         inv_rows = []
