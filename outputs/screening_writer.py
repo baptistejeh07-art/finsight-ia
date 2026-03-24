@@ -143,12 +143,25 @@ def _fmt_cov(v: Any) -> str:
 
 def _sector_short(s: str) -> str:
     MAP = {
+        # Noms yfinance
+        "Consumer Cyclical":      "Consumer Disc.",
+        "Consumer Defensive":     "Consumer Staples",
+        "Basic Materials":        "Materials",
+        "Financial Services":     "Financials",
+        "Communication Services": "Comm. Services",
+        "Information Technology": "Technology",
+        "Health Care":            "Healthcare",
+        # Noms standard GICS
         "Consumer Discretionary": "Consumer Disc.",
         "Consumer Staples":       "Consumer Staples",
-        "Information Technology": "Technology",
-        "Communication Services": "Comm. Services",
-        "Health Care":            "Healthcare",
         "Healthcare":             "Healthcare",
+        "Financials":             "Financials",
+        "Technology":             "Technology",
+        "Materials":              "Materials",
+        "Real Estate":            "Real Estate",
+        "Industrials":            "Industrials",
+        "Energy":                 "Energy",
+        "Utilities":              "Utilities",
     }
     if not s:
         return ""
