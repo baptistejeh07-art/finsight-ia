@@ -970,9 +970,17 @@ def render_screening_running() -> None:
         out_dir.mkdir(exist_ok=True)
         slug    = universe.replace("/", "_").replace(" ", "_")
         out_path = str(out_dir / f"screening_{slug}.xlsx")
+        # template_path resolu depuis app.py (non cache par sys.modules)
+        _tpl = Path(__file__).parent / "assets" / "FinSight_IA_Screening_CAC40_v3.xlsx"
+        _tpl_arg = str(_tpl) if _tpl.exists() else None
+        print(f"[app] template_path={_tpl_arg!r} exists={_tpl.exists()}", flush=True)
         try:
-            ScreeningWriter.generate(tickers_data, display_name, out_path)
+            ScreeningWriter.generate(tickers_data, display_name, out_path,
+                                     template_path=_tpl_arg)
         except Exception as ex:
+            import traceback
+            print(f"[app] ScreeningWriter EXCEPTION: {ex}", flush=True)
+            traceback.print_exc()
             log.warning(f"[app] ScreeningWriter error: {ex}")
 
         elapsed = int((time.time() - t0) * 1000)

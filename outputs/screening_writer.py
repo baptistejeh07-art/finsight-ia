@@ -407,11 +407,11 @@ def _inject_dashboard(wb, data: list[dict], universe_name: str,
     best = max(data, key=lambda x: x.get("score_global") or 0)
     best_sg = best.get("score_global")
 
-    # KPIs ligne 4
-    _v(ws, 4, 1,  N)                                                # A4
-    _v(ws, 4, 7,  len(sectors_set))                                 # G4
-    _v(ws, 4, 13, f"{best['ticker']} {int(best_sg or 0)}/100")      # M4
-    _v(ws, 4, 19, date_str)                                         # S4
+    # KPIs ligne 7 (ligne 6 = labels dans le template)
+    _v(ws, 7, 1,  N)                                                # A7
+    _v(ws, 7, 7,  len(sectors_set))                                 # G7
+    _v(ws, 7, 13, f"{best['ticker']} {int(best_sg or 0)}/100")      # M7
+    _v(ws, 7, 19, date_str)                                         # S7
 
     # Top 5 par categorie — colonnes de depart : B=2, H=8, N=14, T=20
     top5_cats = [
@@ -781,6 +781,7 @@ def _inject_sector_sheets(wb, data: list[dict]) -> None:
         med_ev  = _med_vals(tlist, "ev_ebitda")
 
         # KPIs ligne 4
+        _v(ws, 4, 1,  len(tlist))                  # A4 — nb societes
         _v(ws, 4, 4,  round(sec_mc, 1))            # D4
         _v(ws, 4, 7,  int(avg_sc or 0))            # G4
         _v(ws, 4, 10, best.get("company", ""))      # J4
@@ -1294,12 +1295,28 @@ class ScreeningWriter:
 
         date_str = date.today().strftime("%d/%m/%Y")
 
-        # Resolution du template
-        root = Path(__file__).parent.parent
-        if template_path is None:
-            tpl = root / ScreeningWriter._DEFAULT_TEMPLATE
+        # Resolution du template — cherche dans plusieurs racines possibles
+        # (CWD peut differ de __file__ sous Streamlit)
+        if template_path is not None:
+            tpl = Path(template_path).resolve()
         else:
-            tpl = Path(template_path)
+            search_roots = [
+                Path(__file__).resolve().parent.parent,
+                Path.cwd(),
+                Path(__file__).parent.parent,
+            ]
+            tpl = None
+            for r in search_roots:
+                candidate = r / ScreeningWriter._DEFAULT_TEMPLATE
+                print(f"[ScreeningWriter] candidat: {candidate} exists={candidate.exists()}", flush=True)
+                if candidate.exists():
+                    tpl = candidate
+                    break
+            if tpl is None:
+                tpl = search_roots[0] / ScreeningWriter._DEFAULT_TEMPLATE
+
+        print(f"[ScreeningWriter] template final: {tpl} exists={tpl.exists()}", flush=True)
+        print(f"[ScreeningWriter] template_path arg={template_path!r}", flush=True)
 
         if tpl.exists():
             log.info("[ScreeningWriter] Mode template : %s", tpl.name)

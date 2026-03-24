@@ -668,7 +668,7 @@ def _build_synthese(perf_buf, data):
 
     elems.append(Paragraph(_d(data, 'summary_text'), S_BODY))
     elems.append(Spacer(1, 3*mm))
-    elems.append(Image(perf_buf, width=TABLE_W, height=58*mm))
+    elems.append(Image(perf_buf, width=TABLE_W, height=68*mm))
     elems.append(Spacer(1, 4*mm))
 
     # Scenarios
@@ -870,7 +870,7 @@ def _build_valorisation(ff_buf, pie_buf, data):
     elems.append(Spacer(1, 3*mm))
 
     # Donut + texte
-    pie_img  = Image(pie_buf, width=88*mm, height=76*mm)
+    pie_img  = Image(pie_buf, width=88*mm, height=73*mm)
     pie_text = _d(data, 'pie_text')
     pie_tbl  = Table([[pie_img, Paragraph(pie_text, S_BODY)]],
                      colWidths=[84*mm, 82*mm])
@@ -893,7 +893,9 @@ def _build_valorisation(ff_buf, pie_buf, data):
     # Football Field
     elems.append(Paragraph(
         "Football Field \u2014 Convergence des m\u00e9thodes de valorisation", S_SUBSECTION))
-    elems.append(Image(ff_buf, width=TABLE_W, height=60*mm))
+    _ff_n = len(data.get('ff_methods') or [])
+    _ff_h = TABLE_W * max(3.4, 1.1 + _ff_n * 0.52) / 7.4
+    elems.append(Image(ff_buf, width=TABLE_W, height=_ff_h))
     ff_comment = _d(data, 'dcf_text_intro')
     if ff_comment:
         elems.append(Spacer(1, 2*mm))

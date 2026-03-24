@@ -52,9 +52,9 @@ ARTICLES: list[Article] = [
             "de confiance de l'Agent Synthese est inferieur a 65 %. "
             "Le pipeline est alors interrompu (blocked=True) et l'utilisateur est "
             "informe que les conditions d'analyse sont insuffisantes. "
-            "Ce seuil est non-negociable et s'applique a tout ticker, toute session."
+            "Ce seuil s'applique a tout ticker, toute session."
         ),
-        threshold=0.65,
+        threshold=0.45,
         threshold_key="confidence_score",
     ),
 

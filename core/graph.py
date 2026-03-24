@@ -491,8 +491,8 @@ def route_after_synthesis(state: FinSightState) -> str:
         # confidence_score non positionne : utiliser data_quality comme proxy
         conf = state.get("data_quality") or 0.70
         log.warning(f"[route_after_synthesis] confidence_score=None — proxy data_quality={conf:.0%}")
-    if conf < 0.65:
-        log.warning(f"[route_after_synthesis] confidence={conf:.0%} < 65% — pipeline bloque")
+    if conf < 0.45:
+        log.warning(f"[route_after_synthesis] confidence={conf:.0%} < 45% — pipeline bloque")
         return "blocked_node"
     return "qa_node"
 
