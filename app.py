@@ -512,10 +512,11 @@ def render_sidebar(results) -> None:
             )
         if scr and scr.get("pdf_bytes"):
             scr_name = scr.get("display_name", "secteur")
+            _pdf_slug = scr_name.lower().replace(' ', '_').replace('\u2014', '').strip()
             st.download_button(
-                f"Rapport sectoriel  \u2193 .pdf",
+                "Rapport sectoriel  \u2193 .pdf",
                 scr["pdf_bytes"],
-                file_name=f"rapport_{scr_name.lower().replace(' ', '_').replace('\u2014','').strip()}.pdf",
+                file_name=f"rapport_{_pdf_slug}.pdf",
                 mime="application/pdf",
                 use_container_width=True,
             )
