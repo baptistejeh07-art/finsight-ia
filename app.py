@@ -520,6 +520,16 @@ def render_sidebar(results) -> None:
                 mime="application/pdf",
                 use_container_width=True,
             )
+        if scr and scr.get("pptx_bytes"):
+            scr_name = scr.get("display_name", "secteur")
+            _pptx_slug = scr_name.lower().replace(' ', '_').replace('\u2014', '').strip()
+            st.download_button(
+                "Pitchbook sectoriel  \u2193 .pptx",
+                scr["pptx_bytes"],
+                file_name=f"pitchbook_{_pptx_slug}.pptx",
+                mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                use_container_width=True,
+            )
 
         if results and not results.get("error"):
             ticker_slug = results.get("ticker", "report")
@@ -1266,6 +1276,17 @@ def render_screening_results(results: dict) -> None:
                     sec_pdf_bytes = open(_sec_path, "rb").read()
                 except Exception as _ex:
                     log.warning(f"[app] sector PDF error: {_ex}")
+                # Generation pitchbook PPTX sectoriel
+                sec_pptx_bytes = None
+                try:
+                    import outputs.sectoral_pptx_writer as _sppw
+                    sec_pptx_bytes = _sppw.SectoralPPTXWriter.generate(
+                        tickers_data=sec_sorted,
+                        sector_name=sec_name,
+                        universe=results.get("display_name", display_name),
+                    )
+                except Exception as _ex2:
+                    log.warning(f"[app] sector PPTX error: {_ex2}")
                 st.session_state.screening_parent  = results
                 st.session_state.screening_results = {
                     "universe":     f"{sec_name}|{results.get('universe', '')}",
@@ -1273,6 +1294,7 @@ def render_screening_results(results: dict) -> None:
                     "tickers_data": sec_sorted,
                     "excel_bytes":  None,
                     "pdf_bytes":    sec_pdf_bytes,
+                    "pptx_bytes":   sec_pptx_bytes,
                     "elapsed_ms":   0,
                 }
                 st.rerun()
