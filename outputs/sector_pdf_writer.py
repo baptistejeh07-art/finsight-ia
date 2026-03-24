@@ -598,17 +598,18 @@ def _build_macro(perf_buf, area_buf, tickers_data: list[dict],
         f"et les risques sectoriels identities par le protocole adversarial FinSight IA. "
         f"La bifurcation entre acteurs etablis et challengers constitue le fil directeur "
         f"de cette analyse.", S_BODY))
-    elems.append(Spacer(1, 3*mm))
+    elems.append(Spacer(1, 2*mm))
 
-    # Row 1 : perf chart full width
-    perf_img = Image(perf_buf, width=TABLE_W, height=TABLE_W * 54 / 170)
+    # Row 1 : perf chart full width — ratio figsize (6.5, 2.6) = 0.4
+    perf_img = Image(perf_buf, width=TABLE_W, height=TABLE_W * 2.6 / 6.5)
     elems.append(perf_img)
     elems.append(src(
         f"FinSight IA \u2014 Basket {sector_name} vs S&P 500 vs ETF sectoriel, base 100."))
     elems.append(Spacer(1, 4*mm))
 
-    # Row 2 : area chart (left) + analytical text (right)
-    area_img = Image(area_buf, width=100*mm, height=100*mm * 54 / 108)
+    # Row 2 : area chart (left, 115mm) + analytical text (right) — ratio figsize (7.0, 3.2)
+    _aw = 115 * mm
+    area_img = Image(area_buf, width=_aw, height=_aw * 3.2 / 7.0)
     area_text = Paragraph(
         f"<b>Revenus agreges par sous-segment</b> — L'analyse de la structure des revenus "
         f"du secteur <b>{sector_name}</b> revele la contribution relative de chaque acteur. "
@@ -618,7 +619,7 @@ def _build_macro(perf_buf, area_buf, tickers_data: list[dict],
         f"par rapport a ses comparables internationaux. "
         f"Cette heterogeneite constitue un facteur de selection actif determinant.",
         S_BODY)
-    area_row = Table([[area_img, area_text]], colWidths=[102*mm, 68*mm])
+    area_row = Table([[area_img, area_text]], colWidths=[_aw + 2*mm, TABLE_W - _aw - 2*mm])
     area_row.setStyle(TableStyle([
         ('VALIGN',         (0,0),(-1,-1), 'TOP'),
         ('LEFTPADDING',    (0,0),(-1,-1), 0), ('RIGHTPADDING', (0,0),(-1,-1), 0),
@@ -627,7 +628,7 @@ def _build_macro(perf_buf, area_buf, tickers_data: list[dict],
     ]))
     elems.append(area_row)
     elems.append(src("FinSight IA \u2014 Revenus agreges par sous-segment (estimation illustrative)."))
-    elems.append(Spacer(1, 8*mm))
+    elems.append(Spacer(1, 12*mm))
 
     elems.append(debate_q(
         "Quelles dynamiques structurelles redefinissent les avantages concurrentiels ?"))
