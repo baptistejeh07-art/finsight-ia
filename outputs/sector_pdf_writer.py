@@ -661,7 +661,6 @@ def _build_macro(perf_buf, area_buf, tickers_data: list[dict],
 
 def _build_acteurs(tickers_data: list[dict], sector_name: str, registry=None):
     elems = []
-    elems.append(PageBreak())
     elems.append(Spacer(1, 10*mm))
     if registry is not None:
         elems.append(SectionAnchor('acteurs', registry))
@@ -862,7 +861,6 @@ def _build_valorisation(scatter_buf, donut_buf, tickers_data: list[dict],
     elems.append(Spacer(1, 5*mm))
 
     # Tableau multiples
-    elems.append(Paragraph("Tableau de multiples \u2014 Vision synthetique", S_SUBSECTION))
     mult_h = [Paragraph(h, S_TH_C)
               for h in ["Ticker", "EV/EBITDA", "P/E", "EV/Rev", "Mg. EBITDA", "ROE", "Lecture"]]
 
@@ -903,9 +901,12 @@ def _build_valorisation(scatter_buf, donut_buf, tickers_data: list[dict],
         ]
         mult_rows.append([_mc(v, j) for j, v in enumerate(row)])
 
-    elems.append(KeepTogether(tbl([mult_h] + mult_rows,
-                                   cw=[14*mm, 22*mm, 18*mm, 18*mm, 22*mm, 20*mm, 56*mm])))
-    elems.append(src("FinSight IA \u2014 yfinance, FMP. LTM."))
+    elems.append(KeepTogether([
+        Paragraph("Tableau de multiples \u2014 Vision synthetique", S_SUBSECTION),
+        tbl([mult_h] + mult_rows,
+            cw=[14*mm, 22*mm, 18*mm, 18*mm, 22*mm, 20*mm, 56*mm]),
+        src("FinSight IA \u2014 yfinance, FMP. LTM."),
+    ]))
     return elems
 
 
