@@ -628,10 +628,7 @@ def _build_macro(perf_buf, area_buf, tickers_data: list[dict],
     ]))
     elems.append(area_row)
     elems.append(src("FinSight IA \u2014 Revenus agreges par sous-segment (estimation illustrative)."))
-    elems.append(Spacer(1, 12*mm))
-
-    elems.append(debate_q(
-        "Quelles dynamiques structurelles redefinissent les avantages concurrentiels ?"))
+    elems.append(Spacer(1, 8*mm))
 
     macro_h = [Paragraph(h, S_TH_L)
                for h in ["Tendance", "Impact a 12 mois", "Beneficiaires", "Exposition"]]
@@ -654,9 +651,11 @@ def _build_macro(perf_buf, area_buf, tickers_data: list[dict],
     ]
     macro_rows = [[Paragraph(r[0], S_TD_B), Paragraph(r[1], S_TD_L),
                    Paragraph(r[2], S_TD_C), Paragraph(r[3], S_TD_C)] for r in macro_data]
-    elems.append(KeepTogether(tbl([macro_h] + macro_rows,
-                                  cw=[38*mm, 86*mm, 28*mm, 18*mm])))
-    elems.append(src("FinSight IA \u2014 Analyse adversariale sectorielle."))
+    elems.append(KeepTogether([
+        debate_q("Quelles dynamiques structurelles redefinissent les avantages concurrentiels ?"),
+        tbl([macro_h] + macro_rows, cw=[38*mm, 86*mm, 28*mm, 18*mm]),
+        src("FinSight IA \u2014 Analyse adversariale sectorielle."),
+    ]))
     return elems
 
 
