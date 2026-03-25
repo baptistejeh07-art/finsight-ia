@@ -47,6 +47,15 @@ class SynthesisResult:
     is_projections:      dict = field(default_factory=dict)
     confidence_score:    float = 0.5
     invalidation_conditions: str = ""
+    # Champs visibles PDF — scenarios + catalyseurs + revision + conclusion
+    bear_hypothesis:     str = ""
+    base_hypothesis:     str = ""
+    bull_hypothesis:     str = ""
+    catalysts:           list = field(default_factory=list)
+    buy_trigger:         str = ""
+    sell_trigger:        str = ""
+    conclusion:          str = ""
+    next_review:         str = ""
     meta:                dict = field(default_factory=dict)
 
     def to_dict(self) -> dict:
@@ -157,7 +166,19 @@ JSON requis (tous les champs obligatoires) :
     {{"label":"EV/Revenue - Mediane peers","range_low":<f>,"range_high":<f>,"midpoint":<f>}}
   ],
   "confidence_score":<0-1>,
-  "invalidation_conditions":"<resume conditions>"
+  "invalidation_conditions":"<resume conditions>",
+  "bear_hypothesis":"<15-20 mots — hypothese determinante scenario Bear : chiffre cle ou evenement declencheur>",
+  "base_hypothesis":"<15-20 mots — hypothese determinante scenario Base : moteur principal croissance chiffre>",
+  "bull_hypothesis":"<15-20 mots — hypothese determinante scenario Bull : catalyseur haussier concret chiffre>",
+  "catalysts":[
+    {{"title":"<titre 2-5 mots>","description":"<35-45 mots — analyse detaillee: impact financier, horizon, chiffres>"}},
+    {{"title":"<titre 2-5 mots>","description":"<35-45 mots — analyse detaillee: impact financier, horizon, chiffres>"}},
+    {{"title":"<titre 2-5 mots>","description":"<35-45 mots — analyse detaillee: impact financier, horizon, chiffres>"}}
+  ],
+  "buy_trigger":"<15-20 mots — condition precise declenchant revision BUY>",
+  "sell_trigger":"<15-20 mots — condition precise declenchant revision SELL>",
+  "conclusion":"<25-35 mots — synthese finale recommandation, risques residuels, horizon>",
+  "next_review":"<prochaine revue ex: Q2 2026 resultats>"
 }}"""
 
 
@@ -215,6 +236,14 @@ class AgentSynthese:
             is_projections       = parsed.get("is_projections", {}),
             confidence_score     = float(parsed.get("confidence_score", 0.5)),
             invalidation_conditions = parsed.get("invalidation_conditions", ""),
+            bear_hypothesis      = parsed.get("bear_hypothesis", ""),
+            base_hypothesis      = parsed.get("base_hypothesis", ""),
+            bull_hypothesis      = parsed.get("bull_hypothesis", ""),
+            catalysts            = parsed.get("catalysts", []),
+            buy_trigger          = parsed.get("buy_trigger", ""),
+            sell_trigger         = parsed.get("sell_trigger", ""),
+            conclusion           = parsed.get("conclusion", ""),
+            next_review          = parsed.get("next_review", ""),
             meta = {
                 "request_id":  request_id,
                 "model":       self.llm.model,
