@@ -903,7 +903,11 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
     from statistics import median as _med
     from datetime import date as _date
 
-    today_str = _date.today().strftime("%d %B %Y").lstrip("0")
+    # Date en francais
+    _MOIS_FR = {1:"janvier",2:"fevrier",3:"mars",4:"avril",5:"mai",6:"juin",
+                7:"juillet",8:"aout",9:"septembre",10:"octobre",11:"novembre",12:"decembre"}
+    _d = _date.today()
+    today_str = f"{_d.day} {_MOIS_FR[_d.month]} {_d.year}"
 
     # ── Agrégation par secteur ─────────────────────────────────────────────
     sectors: dict = {}
@@ -915,22 +919,28 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
     for sec_name, items in sectors.items():
         nb   = len(items)
         sc   = sum((x.get("score_global") or 0) for x in items) / nb
-        evs  = [x["ev_ebitda"] for x in items if x.get("ev_ebitda") is not None]
-        ev   = f"{_med(evs):.1f}x" if evs else "—"
+        # EV/EBITDA : filtrer valeurs aberrantes (< 1 = banques/non-pertinent, > 100 = outlier)
+        evs  = [x["ev_ebitda"] for x in items
+                if x.get("ev_ebitda") is not None and 1.0 < x["ev_ebitda"] < 100]
+        ev   = f"{_med(evs):.1f}x" if evs else "\u2014"
+        # Marges : deja en % dans compute_screening (ex: 18.5 = 18.5%) — pas de x100
         mgs  = [x.get("ebitda_margin") or x.get("gross_margin") for x in items
                 if (x.get("ebitda_margin") or x.get("gross_margin")) is not None]
-        mg   = round(_med(mgs) * 100, 1) if mgs else 0.0
+        mg   = round(_med(mgs), 1) if mgs else 0.0
+        # Momentum : deja en % dans compute_screening — pas de x100
         moms = [x["momentum_52w"] for x in items if x.get("momentum_52w") is not None]
-        mom_pct = round(_med(moms) * 100, 1) if moms else 0.0
+        mom_pct = round(_med(moms), 1) if moms else 0.0
         mom_str = f"+{mom_pct:.1f}%" if mom_pct >= 0 else f"{mom_pct:.1f}%"
-        # croissance BPA : on approche avec rev_growth si disponible
+        # Revenue growth : deja en % dans compute_screening — pas de x100
         revg = [x.get("revenue_growth") for x in items if x.get("revenue_growth") is not None]
-        croi_pct = round(_med(revg) * 100, 1) if revg else 0.0
+        croi_pct = round(_med(revg), 1) if revg else 0.0
         croi_str = f"+{croi_pct:.1f}%" if croi_pct >= 0 else f"{croi_pct:.1f}%"
         sig  = ("Surpond\xe9rer" if sc >= 60 else ("Sous-pond\xe9rer" if sc < 40 else "Neutre"))
         secteurs_list.append((sec_name, nb, int(sc), sig, ev, mg, croi_str, mom_str))
 
     secteurs_list.sort(key=lambda x: x[2], reverse=True)
+    # Supprimer le secteur fourre-tout "Autre" des affichages sectoriels
+    secteurs_list = [s for s in secteurs_list if s[0] != "Autre"]
 
     # ── Signal global ──────────────────────────────────────────────────────
     all_scores = [x.get("score_global") or 0 for x in tickers_data]
@@ -939,41 +949,36 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
                      else ("Sous-pond\xe9rer" if avg_score < 40 else "Neutre"))
     conviction = min(95, max(50, int(avg_score)))
 
-    # ── Top 3 secteurs ────────────────────────────────────────────────────
-    top3 = []
-    for s in secteurs_list[:3]:
-        sec_name = s[0]
+    # ── Top 3 secteurs — Surponderer en priorite, puis meilleurs Neutre ────
+    _SIG_SURP = "Surpond\xe9rer"
+    surp_secs   = [s for s in secteurs_list if s[3] == _SIG_SURP]
+    other_secs  = [s for s in secteurs_list if s[3] != _SIG_SURP]
+    # On prend les Surponderer d'abord, puis complement avec les meilleurs Neutre si < 3
+    top3_secs = surp_secs[:3] + other_secs[: max(0, 3 - len(surp_secs))]
+
+    def _build_top3_entry(s):
+        sec_name  = s[0]
         sec_items = sectors.get(sec_name, [])
         top_tkrs  = sorted(sec_items, key=lambda x: x.get("score_global") or 0, reverse=True)[:3]
         societes  = []
         for tkr in top_tkrs:
-            ev_t = f"{tkr['ev_ebitda']:.1f}x" if tkr.get("ev_ebitda") else "—"
+            _ev_raw = tkr.get("ev_ebitda")
+            ev_t = (f"{_ev_raw:.1f}x"
+                    if (_ev_raw is not None and 1.0 < _ev_raw < 100) else "\u2014")
             sig_t = ("Surpond\xe9rer" if (tkr.get("score_global") or 0) >= 60
                      else ("Sous-pond\xe9rer" if (tkr.get("score_global") or 0) < 40 else "Neutre"))
             societes.append((tkr.get("ticker","?"), sig_t, ev_t, tkr.get("score_global") or 0))
-        top3.append({
+        return {
             "nom":        sec_name,
             "signal":     s[3],
             "score":      s[2],
             "ev_ebitda":  s[4],
             "catalyseur": f"Score composite {s[2]}/100 — momentum {s[7]}",
             "risque":     "Concentration sectorielle — diversification recommandee",
-            "societes":   societes if societes else [("—","Neutre","—",0)],
-        })
-    # Padding si moins de 3 secteurs Surpond
-    while len(top3) < 3 and len(secteurs_list) > len(top3):
-        idx = len(top3)
-        s   = secteurs_list[idx]
-        sec_items = sectors.get(s[0], [])
-        top_tkrs  = sorted(sec_items, key=lambda x: x.get("score_global") or 0, reverse=True)[:3]
-        societes  = [(t.get("ticker","?"), "Neutre",
-                      f"{t['ev_ebitda']:.1f}x" if t.get("ev_ebitda") else "—",
-                      t.get("score_global") or 0) for t in top_tkrs]
-        top3.append({
-            "nom": s[0], "signal": s[3], "score": s[2], "ev_ebitda": s[4],
-            "catalyseur": f"Score {s[2]}/100", "risque": "Surveiller",
-            "societes": societes or [("—","Neutre","—",0)],
-        })
+            "societes":   societes if societes else [("\u2014", "Neutre", "\u2014", 0)],
+        }
+
+    top3 = [_build_top3_entry(s) for s in top3_secs]
 
     # ── Rotation (phases par défaut) ──────────────────────────────────────
     _phase_map = {
@@ -1016,17 +1021,19 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
         pass
 
     # ── Textes synthétiques ───────────────────────────────────────────────
-    top_noms = " / ".join(s[0] for s in secteurs_list[:3])
+    _SIG_S = "Surpond\xe9rer"; _SIG_N = "Neutre"; _SIG_R = "Sous-pond\xe9rer"
+    _nb_s = sum(1 for s in secteurs_list if s[3] == _SIG_S)
+    _nb_n = sum(1 for s in secteurs_list if s[3] == _SIG_N)
+    _nb_r = sum(1 for s in secteurs_list if s[3] == _SIG_R)
+    _surp_noms = " / ".join(s[0] for s in secteurs_list if s[3] == _SIG_S) or "aucun"
+    _sous_noms = " / ".join(s[0] for s in secteurs_list if s[3] == _SIG_R) or "aucun"
+    top_noms   = " / ".join(s[0] for s in secteurs_list[:3])
     texte_macro = (
         f"Le {display_name} presente un signal global <b>{signal_global} (conviction {conviction}%)</b> "
         f"base sur l'analyse de {len(tickers_data)} societes reparties sur {len(secteurs_list)} secteurs. "
         f"Le score composite moyen de {avg_score:.0f}/100 reflete un equilibre entre momentum, "
         f"valorisation et revision des BPA. Les secteurs les plus solides sont : <b>{top_noms}</b>."
     )
-    _SIG_S = "Surpond\xe9rer"; _SIG_N = "Neutre"; _SIG_R = "Sous-pond\xe9rer"
-    _nb_s = sum(1 for s in secteurs_list if s[3] == _SIG_S)
-    _nb_n = sum(1 for s in secteurs_list if s[3] == _SIG_N)
-    _nb_r = sum(1 for s in secteurs_list if s[3] == _SIG_R)
     texte_signal = (
         f"Signal global <b>{signal_global} (conviction {conviction}%)</b>. "
         f"L'analyse sectorielle identifie {_nb_s} secteur(s) Surponderer, "
@@ -1036,7 +1043,7 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
     texte_rotation = (
         "L'analyse du cycle economique actuel oriente le positionnement vers les secteurs "
         "a forte visibilite de BPA et resilience des marges. La sensibilite aux taux reste "
-        f"le principal facteur de differentiation. Favoriser <b>{top_noms}</b> "
+        f"le principal facteur de differentiation. Favoriser <b>{_surp_noms if _surp_noms != 'aucun' else top_noms}</b> "
         "dans un contexte de croissance moderee."
     )
 
@@ -1077,6 +1084,8 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
             ("Choc geopolitique", "Disruption chaines d'approvisionnement.", "20%", "Eleve"),
         ],
         "top3_secteurs":  top3,
+        "surp_noms":      _surp_noms,
+        "sous_noms":      _sous_noms,
         "rotation":       rotation,
         "finbert":        finbert,
         "methodologie": [

@@ -514,14 +514,15 @@ def _build_cartographie(data, weights_buf, registry=None):
     # Tableau comparatif complet — colonnes exactement 170mm
     # [8, 36, 14, 16, 22, 24, 18, 16, 16] = 170 — compact pad 3mm
     comp_h = [Paragraph(h, S_TH_C) for h in
-              ["Rg","Secteur","Nb Soc.","Score","Signal",
-               "EV/EBITDA","Mg.EBITDA","Croiss.","Mom."]]
+              ["Rg","Secteur","Nb","Score","Signal",
+               "EV/EBITDA","Mg.EBIT.","Croiss.","Mom."]]
     comp_rows = []
     sorted_secs = sorted(secteurs, key=lambda s: s[2], reverse=True)
     for rang, s in enumerate(sorted_secs, 1):
-        mg   = str(s[5]) if len(s) > 5 else "—"
-        croi = str(s[6]) if len(s) > 6 else "—"
-        mom  = str(s[7]) if len(s) > 7 else "—"
+        mg_raw = s[5] if len(s) > 5 else None
+        mg   = f"{mg_raw:.1f}%" if isinstance(mg_raw, (int, float)) and mg_raw != 0.0 else "\u2014"
+        croi = str(s[6]) if len(s) > 6 else "\u2014"
+        mom  = str(s[7]) if len(s) > 7 else "\u2014"
         comp_rows.append([
             Paragraph(str(rang), S_TD_C),
             Paragraph(s[0], S_TD_B),
@@ -533,8 +534,9 @@ def _build_cartographie(data, weights_buf, registry=None):
             Paragraph(croi, S_TD_G if '+' in str(croi) else S_TD_R),
             Paragraph(mom,  S_TD_G if '+' in str(mom)  else S_TD_R),
         ])
+    # [8, 33, 10, 14, 30, 22, 18, 17, 18] = 170mm — Signal 30mm ok pour "Sous-ponderer"
     comp_tbl = tbl([comp_h] + comp_rows,
-        cw=[8*mm, 36*mm, 14*mm, 16*mm, 22*mm, 24*mm, 18*mm, 16*mm, 16*mm],
+        cw=[8*mm, 33*mm, 10*mm, 14*mm, 30*mm, 22*mm, 18*mm, 17*mm, 18*mm],
         compact=True)
     elems.append(KeepTogether([
         Paragraph(f"Tableau comparatif — {data['nb_secteurs']} secteurs {indice_rl}", S_SUBSECTION),
@@ -626,22 +628,27 @@ def _build_rotation(data, registry=None):
         "FinSight IA — Modele de rotation 4 phases. "
         "Sensibilites : Faible / Moderee / Elevee / Positive (taux)."))
 
-    # Encadre cycle
-    surp_noms = " \xb7 ".join(s["nom"] for s in data["top3_secteurs"])
+    # Encadre cycle — dynamique depuis les donnees reelles
+    _surp_noms_rot = data.get("surp_noms") or " \xb7 ".join(
+        s["nom"] for s in data["top3_secteurs"] if s["signal"] == "Surpond\xe9rer") or "—"
+    _sous_noms_rot = data.get("sous_noms") or " \xb7 ".join(
+        s[0] for s in data["secteurs"] if s[3] == "Sous-pond\xe9rer") or "aucun"
+    _neutre_noms = " \xb7 ".join(
+        s[0] for s in data["secteurs"] if s[3] == "Neutre")[:80] or "—"
     elems.append(Spacer(1, 4*mm))
     elems.append(Paragraph("Positionnement de cycle recommande", S_SUBSECTION))
     cycle_data = [
         ["Phase actuelle",
          data.get("phase_cycle", "Expansion avancee"),
          "Croissance positive, taux restrictifs, marges sous pression selective"],
-        ["Secteurs a surponderer", surp_noms,
+        ["Secteurs a surponderer", _surp_noms_rot.replace("/", "\xb7"),
          "Forte visibilite BPA, faible sensibilite aux taux, pricing power intact"],
-        ["Secteurs a neutraliser", "Industrials \xb7 Comm. Svcs \xb7 Consumer Disc.",
+        ["Secteurs a neutraliser", _neutre_noms,
          "Croissance correcte mais risque de deceleration si PIB ralentit"],
-        ["Secteurs a alleger", "Real Estate \xb7 Utilities",
-         "Double penalite : taux eleves + faible croissance = compression multiple"],
+        ["Secteurs a alleger", _sous_noms_rot.replace("/", "\xb7"),
+         "Signal de vente relatif — compression de multiple anticipee"],
         ["Catalyseur de rotation", "Confirmation pivot Fed (<2,5% CPI sur 3M)",
-         "Renversement signal Real Estate et Utilities — accumulation anticipee"],
+         "Reevaluer les signaux en Sous-ponderer en premier si pivot se confirme"],
     ]
     cycle_h = [Paragraph(h, S_TH_L) for h in ["Element","Verdict","Rationale"]]
     cycle_rows = [[Paragraph(r[0], S_TD_B), Paragraph(r[1], S_TD_L), Paragraph(r[2], S_TD_L)]
@@ -663,13 +670,20 @@ def _build_top3(data, donut_buf, registry=None):
     elems += section_title("Top 3 Secteurs Recommandes", 5)
     elems.append(Spacer(1, 3*mm))
 
-    nb_surp = len(data["top3_secteurs"])
+    _surp_list = [s for s in data["secteurs"] if s[3] == "Surpond\xe9rer"]
+    nb_surp_reel = len(_surp_list)
+    _surp_label = (f"{nb_surp_reel} secteur(s) affichent un signal <b>Surponderer</b>"
+                   if nb_surp_reel > 0
+                   else "aucun secteur ne franchit le seuil Surponderer")
+    _complement = (f" Les {len(data['top3_secteurs']) - nb_surp_reel} autre(s) presente(s) ici "
+                   "sont les meilleurs signaux Neutre en complement."
+                   if len(data["top3_secteurs"]) > nb_surp_reel else "")
     elems.append(Paragraph(
-        f"Sur les {data['nb_secteurs']} secteurs couverts, {nb_surp} affichent un signal "
-        f"<b>Surponderer</b>. Ces secteurs combinent momentum prix positif, revision haussiere "
-        "des BPA et valorisation raisonnable par rapport a leur historique. "
+        f"Sur les {data['nb_secteurs']} secteurs couverts, {_surp_label}.{_complement} "
+        "Ces secteurs combinent momentum prix positif, revision haussiere des BPA et "
+        "valorisation raisonnable par rapport a leur historique. "
         "Pour le detail complet — ratios LTM/NTM, Football Field, DCF, FinBERT — "
-        f"lancer l'analyse sectorielle dediee dans FinSight IA.", S_BODY))
+        "lancer l'analyse sectorielle dediee dans FinSight IA.", S_BODY))
     elems.append(Spacer(1, 4*mm))
 
     # Tableau synthese
@@ -679,9 +693,10 @@ def _build_top3(data, donut_buf, registry=None):
     synth_rows = []
     for sect in data["top3_secteurs"]:
         s_data = next((s for s in secteurs if s[0] == sect["nom"]), None)
-        mg   = f"{s_data[5]}%" if s_data and len(s_data) > 5 else "—"
-        croi = str(s_data[6]) if s_data and len(s_data) > 6 else "—"
-        mom  = str(s_data[7]) if s_data and len(s_data) > 7 else "—"
+        mg_raw = s_data[5] if s_data and len(s_data) > 5 else None
+        mg   = f"{mg_raw:.1f}%" if isinstance(mg_raw, (int, float)) and mg_raw != 0.0 else "\u2014"
+        croi = str(s_data[6]) if s_data and len(s_data) > 6 else "\u2014"
+        mom  = str(s_data[7]) if s_data and len(s_data) > 7 else "\u2014"
         synth_rows.append([
             Paragraph(f"<b>{sect['nom']}</b>", S_TD_B),
             Paragraph(sect["signal"], sig_s(sect["signal"])),
