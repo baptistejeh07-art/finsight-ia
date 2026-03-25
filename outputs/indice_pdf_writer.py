@@ -170,6 +170,8 @@ def make_sector_weights_chart(data):
 
 def make_scatter_sectoriel(data):
     secteurs = data["secteurs"]
+    if len(secteurs) <= 1:
+        return None   # pas assez de points pour un scatter utile
     noms_abr = [s[0][:10] for s in secteurs]
     def _safe_float(val, fallback=15.0):
         try:
@@ -248,15 +250,13 @@ def make_score_bars(data):
 
 
 def make_top3_donut(data):
-    poids_map = {
-        "Technology": 28.4, "Health Care": 12.8, "Financials": 13.2,
-        "Consumer Discretionary": 10.6, "Industrials": 8.8,
-        "Communication Svcs": 8.4, "Consumer Staples": 6.2,
-        "Energy": 4.8, "Real Estate": 2.4, "Materials": 2.6, "Utilities": 1.8,
-    }
+    # Poids réels calculés depuis nb_societes de chaque secteur
+    secteurs_all = data["secteurs"]
+    total_nb = sum(s[1] for s in secteurs_all) or 1
+    poids_map_real = {s[0]: round(100.0 * s[1] / total_nb, 1) for s in secteurs_all}
     top3 = data["top3_secteurs"]
     noms_top  = [s["nom"] for s in top3]
-    poids_top = [poids_map.get(n, 5.0) for n in noms_top]
+    poids_top = [poids_map_real.get(n, round(100.0 / len(secteurs_all), 1)) for n in noms_top]
     reste     = max(0.0, 100.0 - sum(poids_top))
     labels    = [f"{n} ({p:.0f}%)" for n, p in zip(noms_top, poids_top)] + [f"Autres ({reste:.0f}%)"]
     sizes     = poids_top + [reste]
@@ -539,7 +539,7 @@ def _build_cartographie(data, weights_buf, registry=None):
         cw=[8*mm, 33*mm, 10*mm, 14*mm, 30*mm, 22*mm, 18*mm, 17*mm, 18*mm],
         compact=True)
     elems.append(KeepTogether([
-        Paragraph(f"Tableau comparatif — {data['nb_secteurs']} secteurs {indice_rl}", S_SUBSECTION),
+        Paragraph(f"Tableau comparatif — {data['nb_secteurs']} {'secteur' if data['nb_secteurs'] == 1 else 'secteurs'} {indice_rl}", S_SUBSECTION),
         Spacer(1, 2*mm),
         comp_tbl,
     ]))
@@ -558,16 +558,23 @@ def _build_graphiques(data, scatter_buf, scores_buf, registry=None):
     elems.append(Spacer(1, 3*mm))
 
     elems.append(Paragraph("Positionnement EV/EBITDA vs Croissance BPA", S_SUBSECTION))
-    elems.append(Paragraph(
-        "Le scatter ci-dessous positionne chaque secteur sur deux axes : "
-        "valorisation (EV/EBITDA median LTM) et croissance BPA mediane. "
-        "Les lignes pointillees representent les medianes sectorielles — "
-        "les secteurs dans le <b>quadrant superieur droit</b> paient une prime justifiee "
-        "par une forte croissance ; ceux dans le <b>quadrant inferieur gauche</b> offrent "
-        "une valeur relative.", S_BODY))
-    elems.append(Spacer(1, 3*mm))
-    elems.append(Image(scatter_buf, width=TABLE_W, height=100*mm))
-    elems.append(src("FinSight IA — EV/EBITDA median LTM vs croissance BPA mediane secteur. FMP, Bloomberg."))
+    if scatter_buf is not None:
+        elems.append(Paragraph(
+            "Le scatter ci-dessous positionne chaque secteur sur deux axes : "
+            "valorisation (EV/EBITDA median LTM) et croissance BPA mediane. "
+            "Les lignes pointillees representent les medianes sectorielles — "
+            "les secteurs dans le <b>quadrant superieur droit</b> paient une prime justifiee "
+            "par une forte croissance ; ceux dans le <b>quadrant inferieur gauche</b> offrent "
+            "une valeur relative.", S_BODY))
+        elems.append(Spacer(1, 3*mm))
+        elems.append(Image(scatter_buf, width=TABLE_W, height=100*mm))
+        elems.append(src("FinSight IA — EV/EBITDA median LTM vs croissance BPA mediane secteur. FMP, Bloomberg."))
+    else:
+        elems.append(Paragraph(
+            "L'analyse comparative EV/EBITDA vs croissance BPA necessite au moins deux secteurs. "
+            "Pour un univers mono-sectoriel, consulter le tableau comparatif (section 2) "
+            "qui donne les medianes LTM par societe representative.", S_BODY))
+        elems.append(src("FinSight IA — Graphique non disponible pour univers mono-sectoriel."))
 
     elems.append(PageBreak())
     elems.append(Spacer(1, 10*mm))
@@ -579,8 +586,8 @@ def _build_graphiques(data, scatter_buf, scores_buf, registry=None):
         "revision des estimations BPA sur 1 mois (30%) et valorisation relative (30%). "
         "La ligne pointillee orange marque le seuil 50 — <b>au-dessus : signal Surponderer</b> "
         "possible, <b>en dessous de 40 : Sous-ponderer</b>. "
-        f"{nb_surp} secteur(s) franchissent le seuil Surponderer (60), "
-        f"{nb_sous} secteur(s) en Sous-ponderer.", S_BODY))
+        f"{nb_surp} {'secteur franchit' if nb_surp == 1 else 'secteurs franchissent'} le seuil Surponderer (60), "
+        f"{nb_sous} {'en' if nb_sous == 0 else 'secteur en' if nb_sous == 1 else 'secteurs en'} Sous-ponderer.", S_BODY))
     elems.append(Spacer(1, 3*mm))
     elems.append(Image(scores_buf, width=TABLE_W, height=100*mm))
     elems.append(src(
@@ -686,8 +693,10 @@ def _build_top3(data, donut_buf, registry=None):
         _complement = f" Le {_comp_s}."
     else:
         _complement = ""
+    _nb_s_tot = data['nb_secteurs']
+    _s_tot_lbl = "secteur couvert" if _nb_s_tot == 1 else "secteurs couverts"
     elems.append(Paragraph(
-        f"Sur les {data['nb_secteurs']} secteurs couverts, {_surp_label}.{_complement} "
+        f"Sur {_nb_s_tot} {_s_tot_lbl}, {_surp_label}.{_complement} "
         "Ces secteurs combinent momentum prix positif, revision haussiere des BPA et "
         "valorisation raisonnable par rapport a leur historique. "
         "Pour le detail complet — ratios LTM/NTM, Football Field, DCF, FinBERT — "
@@ -695,7 +704,9 @@ def _build_top3(data, donut_buf, registry=None):
     elems.append(Spacer(1, 4*mm))
 
     # Tableau synthese
-    elems.append(Paragraph("Vue d'ensemble — Secteurs Surponderer", S_SUBSECTION))
+    _titre_synth = ("Vue d'ensemble — Secteurs Surponderer" if nb_surp_reel > 0
+                    else "Vue d'ensemble — Meilleurs secteurs de l'univers")
+    elems.append(Paragraph(_titre_synth, S_SUBSECTION))
     synth_h = [Paragraph(h, S_TH_C) for h in
                ["Secteur","Signal","Score","EV/EBITDA","Mg. EBITDA","Croiss.","Momentum"]]
     synth_rows = []

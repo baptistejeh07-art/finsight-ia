@@ -1009,8 +1009,17 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
         rotation.append((s[0], ph[0], ph[1], ph[2], rot_sig))
 
     # ── nb_societes et cours indice ───────────────────────────────────────
-    _cours_map = {"CAC40":"^FCHI","SP500":"^GSPC","DAX40":"^GDAXI",
-                  "FTSE100":"^FTSE","STOXX50":"^STOXX50E","EUROSTOXX50":"^STOXX50E"}
+    _cours_map = {
+        # Indices boursiers
+        "CAC40":"^FCHI", "SP500":"^GSPC", "DAX40":"^GDAXI",
+        "FTSE100":"^FTSE", "STOXX50":"^STOXX50E", "EUROSTOXX50":"^STOXX50E",
+        # ETF SPDR sectoriels US (fallback pour screenings sectoriels)
+        "ENERGY":"XLE", "TECHNOLOGY":"XLK", "FINANCIALS":"XLF",
+        "HEALTH CARE":"XLV", "CONSUMER DISCRETIONARY":"XLY",
+        "CONSUMER STAPLES":"XLP", "INDUSTRIALS":"XLI",
+        "UTILITIES":"XLU", "REAL ESTATE":"XLRE",
+        "MATERIALS":"XLB", "COMMUNICATION SERVICES":"XLC",
+    }
     cours_str = "—"; ytd_str = "—"; pe_str = "—"
     try:
         import yfinance as _yf
@@ -1055,22 +1064,29 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
     _surp_noms = " / ".join(s[0] for s in secteurs_list if s[3] == _SIG_S) or "aucun"
     _sous_noms = " / ".join(s[0] for s in secteurs_list if s[3] == _SIG_R) or "aucun"
     top_noms   = " / ".join(s[0] for s in secteurs_list[:3])
+    _nb_sec = len(secteurs_list)
+    _sec_lbl = "secteur" if _nb_sec == 1 else "secteurs"
     texte_macro = (
         f"Le {display_name} presente un signal global <b>{signal_global} (conviction {conviction}%)</b> "
-        f"base sur l'analyse de {len(tickers_data)} societes reparties sur {len(secteurs_list)} secteurs. "
+        f"base sur l'analyse de {len(tickers_data)} societes reparties sur {_nb_sec} {_sec_lbl}. "
         f"Le score composite moyen de {avg_score:.0f}/100 reflete un equilibre entre momentum, "
         f"valorisation et revision des BPA. Les secteurs les plus solides sont : <b>{top_noms}</b>."
     )
+    _s_lbl  = "secteur" if _nb_s == 1 else "secteurs"
+    _n_lbl  = "Neutre"  if _nb_n == 1 else "Neutres"
+    _r_lbl  = "Sous-ponderer" if _nb_r <= 1 else "Sous-ponderer"
     texte_signal = (
         f"Signal global <b>{signal_global} (conviction {conviction}%)</b>. "
-        f"L'analyse sectorielle identifie {_nb_s} secteur(s) Surponderer, "
-        f"{_nb_n} Neutre et {_nb_r} Sous-ponderer. "
+        f"L'analyse sectorielle identifie {_nb_s} {_s_lbl} Surponderer, "
+        f"{_nb_n} {_n_lbl} et {_nb_r} Sous-ponderer. "
         "Horizon d'allocation recommande : 12 mois."
     )
+    _verbe_rot = "Favoriser" if _surp_noms != "aucun" else "Surveiller"
+    _cible_rot = _surp_noms if _surp_noms != "aucun" else top_noms
     texte_rotation = (
         "L'analyse du cycle economique actuel oriente le positionnement vers les secteurs "
         "a forte visibilite de BPA et resilience des marges. La sensibilite aux taux reste "
-        f"le principal facteur de differentiation. Favoriser <b>{_surp_noms if _surp_noms != 'aucun' else top_noms}</b> "
+        f"le principal facteur de differentiation. {_verbe_rot} <b>{_cible_rot}</b> "
         "dans un contexte de croissance moderee."
     )
 
