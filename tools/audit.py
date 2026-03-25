@@ -26,9 +26,15 @@ REPORTS.mkdir(parents=True, exist_ok=True)
 # ---------------------------------------------------------------------------
 
 def _run(cmd: list[str], timeout: int = 300) -> tuple[int, str]:
-    r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout,
-                       cwd=str(ROOT), encoding="utf-8", errors="replace")
-    return r.returncode, r.stdout + r.stderr
+    r = subprocess.run(cmd, capture_output=True, timeout=timeout, cwd=str(ROOT))
+    out_bytes = r.stdout + r.stderr
+    try:
+        out_text = out_bytes.decode("utf-8", errors="replace")
+    except Exception:
+        out_text = out_bytes.decode("cp1252", errors="replace")
+    r.stdout = out_text
+    r.stderr = ""
+    return r.returncode, r.stdout
 
 
 def _load_state(ticker: str) -> dict:
@@ -65,7 +71,9 @@ def analyze(ticker: str) -> dict:
     code, out = _run([sys.executable, "cli_analyze.py", "societe", ticker])
     elapsed = time.time() - t0
 
-    print(out[-2000:] if len(out) > 2000 else out)
+    # Ecrit la sortie dans un log (evite les erreurs cp1252 du terminal Windows)
+    log = ROOT / "outputs" / "generated" / "audits" / f"_run_{ticker}.log"
+    log.write_text(out, encoding="utf-8", errors="replace")
     return {"code": code, "elapsed": elapsed, "output": out}
 
 
