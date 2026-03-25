@@ -633,8 +633,11 @@ def _build_rotation(data, registry=None):
         s["nom"] for s in data["top3_secteurs"] if s["signal"] == "Surpond\xe9rer") or "—"
     _sous_noms_rot = data.get("sous_noms") or " \xb7 ".join(
         s[0] for s in data["secteurs"] if s[3] == "Sous-pond\xe9rer") or "aucun"
-    _neutre_noms = " \xb7 ".join(
-        s[0] for s in data["secteurs"] if s[3] == "Neutre")[:80] or "—"
+    _neutre_parts = [s[0] for s in data["secteurs"] if s[3] == "Neutre"]
+    if len(_neutre_parts) > 5:
+        _neutre_noms = " \xb7 ".join(_neutre_parts[:5]) + f" (et {len(_neutre_parts)-5} autres)"
+    else:
+        _neutre_noms = " \xb7 ".join(_neutre_parts) or "\u2014"
     elems.append(Spacer(1, 4*mm))
     elems.append(Paragraph("Positionnement de cycle recommande", S_SUBSECTION))
     cycle_data = [
@@ -675,9 +678,14 @@ def _build_top3(data, donut_buf, registry=None):
     _surp_label = (f"{nb_surp_reel} secteur(s) affichent un signal <b>Surponderer</b>"
                    if nb_surp_reel > 0
                    else "aucun secteur ne franchit le seuil Surponderer")
-    _complement = (f" Les {len(data['top3_secteurs']) - nb_surp_reel} autre(s) presente(s) ici "
-                   "sont les meilleurs signaux Neutre en complement."
-                   if len(data["top3_secteurs"]) > nb_surp_reel else "")
+    _n_comp = len(data["top3_secteurs"]) - nb_surp_reel
+    if _n_comp > 0:
+        _comp_s = ("secteur Neutre est presente en complement"
+                   if _n_comp == 1
+                   else f"{_n_comp} secteurs Neutres sont presentes en complement")
+        _complement = f" Le {_comp_s}."
+    else:
+        _complement = ""
     elems.append(Paragraph(
         f"Sur les {data['nb_secteurs']} secteurs couverts, {_surp_label}.{_complement} "
         "Ces secteurs combinent momentum prix positif, revision haussiere des BPA et "

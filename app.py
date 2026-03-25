@@ -923,9 +923,16 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
         evs  = [x["ev_ebitda"] for x in items
                 if x.get("ev_ebitda") is not None and 1.0 < x["ev_ebitda"] < 100]
         ev   = f"{_med(evs):.1f}x" if evs else "\u2014"
-        # Marges : deja en % dans compute_screening (ex: 18.5 = 18.5%) — pas de x100
-        mgs  = [x.get("ebitda_margin") or x.get("gross_margin") for x in items
-                if (x.get("ebitda_margin") or x.get("gross_margin")) is not None]
+        # Marges : ebitda_margin > 100 = aberrant (banques), fallback gross_margin
+        def _get_margin(x):
+            em = x.get("ebitda_margin")
+            if em is not None and 0 < em <= 100:
+                return em
+            gm = x.get("gross_margin")
+            if gm is not None and 0 < gm <= 100:
+                return gm
+            return None
+        mgs  = [m for m in (_get_margin(x) for x in items) if m is not None]
         mg   = round(_med(mgs), 1) if mgs else 0.0
         # Momentum : deja en % dans compute_screening — pas de x100
         moms = [x["momentum_52w"] for x in items if x.get("momentum_52w") is not None]
@@ -1014,11 +1021,31 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
             _px = _info.get("regularMarketPrice") or _info.get("previousClose")
             if _px:
                 cours_str = f"{_px:,.2f}".replace(",","X").replace(".",",").replace("X",".")
+            # YTD depuis le 1er janvier
+            try:
+                _hist = _tk.history(start=f"{_d.year}-01-01")
+                if _hist is not None and not _hist.empty:
+                    _px_jan = float(_hist["Close"].iloc[0])
+                    _px_now = float(_hist["Close"].iloc[-1])
+                    if _px_jan > 0:
+                        _ytd = (_px_now - _px_jan) / _px_jan * 100
+                        ytd_str = f"+{_ytd:.1f}%" if _ytd >= 0 else f"{_ytd:.1f}%"
+            except Exception:
+                pass
             _pe = _info.get("trailingPE") or _info.get("forwardPE")
             if _pe:
                 pe_str = f"{_pe:.1f}x"
     except Exception:
         pass
+    # P/E fallback : médiane des constituants si l'indice ne retourne pas de P/E
+    if pe_str == "\u2014" or pe_str == "—":
+        try:
+            _pe_vals = [t["pe_ratio"] for t in tickers_data
+                        if t.get("pe_ratio") and 5 < t["pe_ratio"] < 80]
+            if _pe_vals:
+                pe_str = f"{_med(_pe_vals):.1f}x"
+        except Exception:
+            pass
 
     # ── Textes synthétiques ───────────────────────────────────────────────
     _SIG_S = "Surpond\xe9rer"; _SIG_N = "Neutre"; _SIG_R = "Sous-pond\xe9rer"
