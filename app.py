@@ -634,59 +634,101 @@ def render_sidebar(results) -> None:
 
             for _ticker_dir in _preview_tickers:
                 _ticker = _ticker_dir.name
-                _files  = list(_ticker_dir.glob("*"))
+                _files  = sorted(_ticker_dir.glob("*"))
                 if not _files:
                     continue
 
                 st.markdown(f'<div style="font-size:12px;font-weight:600;margin:8px 0 4px">{_ticker}</div>',
                             unsafe_allow_html=True)
 
-                # Boutons de téléchargement preview
-                for _f in sorted(_files):
-                    _ext = _f.suffix.lower()
+                # État des rejets par fichier : set de noms de fichiers rejetés
+                _rejected_key = f"prev_rejected_{_ticker}"
+                if _rejected_key not in st.session_state:
+                    st.session_state[_rejected_key] = set()
+
+                # Bouton de téléchargement + ✗ par fichier
+                for _f in _files:
+                    _ext  = _f.suffix.lower()
                     _mime = {"pdf": "application/pdf", "pptx": "application/vnd.ms-powerpoint",
                              "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                              "txt": "text/plain"}.get(_ext.lstrip("."), "application/octet-stream")
-                    st.download_button(
-                        f"↓ {_f.name}",
-                        _f.read_bytes(),
-                        file_name=_f.name,
-                        mime=_mime,
-                        use_container_width=True,
-                        key=f"prev_dl_{_ticker}_{_f.name}",
-                    )
+                    _is_rejected = _f.name in st.session_state[_rejected_key]
+                    _c_dl, _c_x = st.columns([5, 1])
+                    with _c_dl:
+                        if _is_rejected:
+                            st.markdown(
+                                f'<div style="font-size:11px;color:#888;text-decoration:line-through;'
+                                f'padding:6px 0">{_f.name}</div>',
+                                unsafe_allow_html=True,
+                            )
+                        else:
+                            st.download_button(
+                                f"↓ {_f.name}",
+                                _f.read_bytes(),
+                                file_name=_f.name,
+                                mime=_mime,
+                                use_container_width=True,
+                                key=f"prev_dl_{_ticker}_{_f.name}",
+                            )
+                    with _c_x:
+                        if _is_rejected:
+                            if st.button("↩", key=f"prev_restore_{_ticker}_{_f.name}",
+                                         help="Restaurer", use_container_width=True):
+                                st.session_state[_rejected_key].discard(_f.name)
+                                st.rerun()
+                        else:
+                            if st.button("✗", key=f"prev_rej_{_ticker}_{_f.name}",
+                                         help="Rejeter ce fichier", use_container_width=True):
+                                st.session_state[_rejected_key].add(_f.name)
+                                st.rerun()
 
+                # Fichiers retenus = non rejetés
+                _kept = [_f for _f in _files if _f.name not in st.session_state[_rejected_key]]
+
+                # Confirmation globale (Valider la sélection / Tout rejeter)
                 _confirm_key = f"prev_confirm_{_ticker}"
                 if _confirm_key not in st.session_state:
-                    st.session_state[_confirm_key] = None  # None / "ok" / "ko"
+                    st.session_state[_confirm_key] = None
 
                 _pending = st.session_state[_confirm_key]
 
                 if _pending is None:
+                    _nb_kept = len(_kept)
+                    _nb_rej  = len(_files) - _nb_kept
+                    _lbl_ok  = f"✓ Valider ({_nb_kept})" if _nb_rej else "✓ Valider tout"
                     _col_ok, _col_ko = st.columns(2)
                     with _col_ok:
-                        if st.button("✓ Valider", key=f"prev_ok_{_ticker}", use_container_width=True):
+                        if st.button(_lbl_ok, key=f"prev_ok_{_ticker}", use_container_width=True,
+                                     disabled=_nb_kept == 0):
                             st.session_state[_confirm_key] = "ok"
                             st.rerun()
                     with _col_ko:
-                        if st.button("✗ Rejeter", key=f"prev_ko_{_ticker}", use_container_width=True):
+                        if st.button("✗ Tout rejeter", key=f"prev_ko_{_ticker}", use_container_width=True):
                             st.session_state[_confirm_key] = "ko"
                             st.rerun()
 
                 elif _pending == "ok":
-                    st.warning(f"Déployer {_ticker} en production ?")
+                    _nb = len(_kept)
+                    st.warning(f"Valider {_nb} fichier(s) pour {_ticker} ?")
                     _c1, _c2 = st.columns(2)
                     with _c1:
                         if st.button("Confirmer", key=f"prev_ok_confirm_{_ticker}", use_container_width=True):
                             try:
                                 import shutil as _shutil
-                                for _f in _files:
+                                for _f in _kept:
                                     _shutil.copy2(_f, _prod_root / _f.name)
-                                _shutil.rmtree(_ticker_dir)
+                                # Supprimer les fichiers rejetés uniquement
+                                for _f in _files:
+                                    if _f.name not in {_k.name for _k in _kept}:
+                                        _f.unlink(missing_ok=True)
+                                # Supprimer le dossier si vide
+                                if not any(_ticker_dir.iterdir()):
+                                    _ticker_dir.rmdir()
                             except Exception:
                                 pass
                             st.session_state.pop(_confirm_key, None)
-                            st.success(f"{_ticker} validé — téléchargez les fichiers ci-dessus")
+                            st.session_state.pop(_rejected_key, None)
+                            st.success(f"{_ticker} : {_nb} fichier(s) valide(s) — telechargez ci-dessus")
                             st.rerun()
                     with _c2:
                         if st.button("Annuler", key=f"prev_ok_cancel_{_ticker}", use_container_width=True):
@@ -694,7 +736,7 @@ def render_sidebar(results) -> None:
                             st.rerun()
 
                 elif _pending == "ko":
-                    st.warning(f"Supprimer définitivement {_ticker} ?")
+                    st.warning(f"Supprimer definitivement {_ticker} ?")
                     _c1, _c2 = st.columns(2)
                     with _c1:
                         if st.button("Confirmer", key=f"prev_ko_confirm_{_ticker}", use_container_width=True):
@@ -704,7 +746,8 @@ def render_sidebar(results) -> None:
                             except Exception:
                                 pass
                             st.session_state.pop(_confirm_key, None)
-                            st.info(f"{_ticker} rejeté")
+                            st.session_state.pop(_rejected_key, None)
+                            st.info(f"{_ticker} rejete")
                             st.rerun()
                     with _c2:
                         if st.button("Annuler", key=f"prev_ko_cancel_{_ticker}", use_container_width=True):
