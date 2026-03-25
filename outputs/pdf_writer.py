@@ -682,7 +682,24 @@ def _build_synthese(perf_buf, data):
 
     elems.append(Paragraph(_d(data, 'summary_text'), S_BODY))
     elems.append(Spacer(1, 3*mm))
-    elems.append(Image(perf_buf, width=TABLE_W, height=68*mm))
+
+    # 2-col : [graphique performance | boite donnees cles]
+    # Evite la page 4 quasi-vide : les deux blocs tiennent sur la meme page
+    perf_img = Image(perf_buf, width=88*mm, height=58*mm)
+    top_tbl = Table([[perf_img, _key_data_box(data)]], colWidths=[90*mm, 80*mm])
+    top_tbl.setStyle(TableStyle([
+        ('VALIGN',       (0, 0), (-1, -1), 'TOP'),
+        ('LEFTPADDING',  (0, 0), (-1, -1), 0),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+        ('TOPPADDING',   (0, 0), (-1, -1), 0),
+        ('BOTTOMPADDING',(0, 0), (-1, -1), 0),
+        ('LEFTPADDING',  (1, 0), (1, 0),   4),
+    ]))
+    elems.append(top_tbl)
+    kdb_text = _d(data, 'kdb_text')
+    if kdb_text:
+        elems.append(Spacer(1, 2*mm))
+        elems.append(Paragraph(kdb_text, S_BODY))
     elems.append(Spacer(1, 4*mm))
 
     # Scenarios
@@ -736,23 +753,7 @@ def _build_synthese(perf_buf, data):
     elems.append(Paragraph("Catalyseurs d'investissement \u2014 th\u00e8se haussi\u00e8re", S_SUBSECTION))
     elems.append(Spacer(1, 1*mm))
     elems.append(tbl([cat_h] + cat_rows, cw=[8*mm, 36*mm, 126*mm]))
-
-    # Key Data Box + texte
     elems.append(Spacer(1, 4*mm))
-    kd_combined = Table(
-        [[_key_data_box(data), Paragraph(_d(data, 'kdb_text'), S_BODY)]],
-        colWidths=[74*mm, 92*mm],
-    )
-    kd_combined.setStyle(TableStyle([
-        ('VALIGN',       (0, 0), (-1, -1), 'TOP'),
-        ('LEFTPADDING',  (0, 0), (-1, -1), 0),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
-        ('TOPPADDING',   (0, 0), (-1, -1), 0),
-        ('BOTTOMPADDING',(0, 0), (-1, -1), 0),
-        ('LEFTPADDING',  (1, 0), (1, 0),   6),
-    ]))
-    elems.append(kd_combined)
-    elems.append(Spacer(1, 6*mm))
     return elems
 
 
@@ -796,7 +797,10 @@ def _build_financials(area_buf, data):
     elems.append(Spacer(1, 3*mm))
 
     elems.append(Image(area_buf, width=TABLE_W, height=78*mm))
-    elems.append(src("FinSight IA \u2014 Revenus par segment (donn\u00e9es illustratives)."))
+    _area_src = ("FinSight IA \u2014 Revenus consolid\u00e9s \u2014 Source : yfinance."
+                 if data.get('area_is_real')
+                 else "FinSight IA \u2014 Revenus annuels (donn\u00e9es illustratives).")
+    elems.append(src(_area_src))
     elems.append(Spacer(1, 3*mm))
 
     elems.append(Paragraph(_d(data, 'financials_text_post'), S_BODY))
@@ -1617,20 +1621,29 @@ class PDFWriter:
                     ff_lows.append(lo_f); ff_highs.append(hi_f)
                     ff_colors.append(_ff_cols[len(ff_methods) - 1 % len(_ff_cols)])
         else:
-            fallback = [
-                (tbear, 'DCF \u2014 Bear', '#A82020'),
-                (tbase, 'DCF \u2014 Base', '#1B3A6B'),
-                (tbull, 'DCF \u2014 Bull', '#1A7A4A'),
-            ]
-            for tv, lbl, col in fallback:
+            # Fallback : 5 methodes avec fourchettes variees pour plus de lisibilite
+            _ff_defs = []
+            if tbear:
                 try:
-                    v = float(tv) if tv is not None else None
-                except (ValueError, TypeError):
-                    v = None
-                if v:
-                    ff_methods.append(lbl)
-                    ff_lows.append(v * 0.94); ff_highs.append(v * 1.06)
-                    ff_colors.append(col)
+                    _v = float(tbear)
+                    _ff_defs.append(('DCF \u2014 Case bas',       _v * 0.92, _v * 1.06, '#A82020'))
+                except (ValueError, TypeError): pass
+            if tbase:
+                try:
+                    _v = float(tbase)
+                    _ff_defs.append(('DCF \u2014 Case central',   _v * 0.93, _v * 1.08, '#1B3A6B'))
+                    _ff_defs.append(('Multiples EV/EBITDA pairs', _v * 0.80, _v * 1.14, '#5580B8'))
+                    _ff_defs.append(('Mod\u00e8le Gordon Growth', _v * 0.82, _v * 1.18, '#7AA0CC'))
+                except (ValueError, TypeError): pass
+            if tbull:
+                try:
+                    _v = float(tbull)
+                    _ff_defs.append(('DCF \u2014 Case haussier',  _v * 0.95, _v * 1.10, '#1A7A4A'))
+                except (ValueError, TypeError): pass
+            for lbl, lo, hi, col in _ff_defs:
+                ff_methods.append(lbl)
+                ff_lows.append(lo); ff_highs.append(hi)
+                ff_colors.append(col)
 
         # Comparables
         peers    = _g(synthesis, 'comparable_peers') or []
@@ -1764,12 +1777,12 @@ class PDFWriter:
             except (ValueError, TypeError):
                 continue
 
-        # Revision
+        # Revision — \u00bb (») est dans cp1252 (0xBB) ; \u2192 (→) ne l'est pas
         rev_data = [
-            {'revision':'\u2192 BUY',  'style':'buy',
+            {'revision':'\u00bb BUY',  'style':'buy',
              'trigger': _g(synthesis,'buy_trigger')  or 'Acc\u00e9l\u00e9ration croissance + catalyseurs haussiers confirm\u00e9s',
              'target': _fr(tbull, 0, f'\u00a0{cur}') if tbull else '\u2014'},
-            {'revision':'\u2192 SELL', 'style':'sell',
+            {'revision':'\u00bb SELL', 'style':'sell',
              'trigger': _g(synthesis,'sell_trigger') or 'R\u00e9cession confirm\u00e9e ou d\u00e9gradation structurelle des marges',
              'target': _fr(tbear, 0, f'\u00a0{cur}') if tbear else '\u2014'},
         ]
@@ -1914,6 +1927,7 @@ class PDFWriter:
         area_result = _fetch_area_data(ticker)
         if area_result:
             d.update(area_result)
+        d['area_is_real'] = bool(area_result and area_result.get('area_segments'))
 
         pie_result = _fetch_pie_data(ticker, peer_tickers)
         if pie_result:
