@@ -5,7 +5,7 @@
 # Injecte FinancialSnapshot dans TEMPLATE.xlsx (openpyxl).
 # Respecte le contrat config/excel_mapping.py v2 :
 #   - NE PAS écraser les cellules formule (is_formula_cell strict)
-#   - Colonnes : D=N-4, E=N-3, F=N-2, G=N-1, H=N (5 exercices historiques)
+#   - Colonnes : D=le plus ancien, alignement gauche (H peut être vide si <5 ans)
 #   - Aucune projection injectée (formules Excel dans feuille dédiée)
 #   - Market data : colonne H uniquement (données point-in-time)
 #   - Sheet principale : "INPUT"
@@ -62,8 +62,7 @@ def _build_year_col(snapshot) -> dict:
     labels = sorted(snapshot.years.keys(), key=lambda y: int(y.split("_")[0]))
     labels = labels[-5:]  # max 5, les plus récents
     # aligner à droite : le dernier label → H, l'avant-dernier → G, etc.
-    offset = 5 - len(labels)
-    return {label: cols[offset + i] for i, label in enumerate(labels)}
+    return {label: cols[i] for i, label in enumerate(labels)}
 
 # ---------------------------------------------------------------------------
 # Champs IS à injecter en négatif (coûts attendus <0 par les formules Excel)

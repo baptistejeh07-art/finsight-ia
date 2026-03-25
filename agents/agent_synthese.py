@@ -202,7 +202,15 @@ class AgentSynthese:
             log.warning(f"[AgentSynthese] {self.llm.provider} echec ({type(e).__name__}: {e})")
 
         if not raw:
-            log.error("[AgentSynthese] Groq a echoue")
+            log.warning("[AgentSynthese] Groq a echoue — fallback Anthropic")
+            try:
+                fallback = LLMProvider(provider="anthropic", model="claude-haiku-4-5-20251001")
+                raw = fallback.generate(prompt=prompt, system=_SYSTEM, max_tokens=4000)
+            except Exception as e2:
+                log.error(f"[AgentSynthese] Anthropic fallback echoue ({type(e2).__name__}: {e2})")
+                return None
+        if not raw:
+            log.error("[AgentSynthese] Tous les providers ont echoue")
             return None
 
         latency_ms = int((time.time() - t_start) * 1000)
