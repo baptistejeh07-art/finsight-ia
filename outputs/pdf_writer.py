@@ -308,11 +308,13 @@ def _make_ff_chart(data):
 
     if course and lows and highs:
         ax.axvline(x=course, color='#B06000', linewidth=1.5, linestyle='--', zorder=5)
-        # Label cours SOUS les barres pour ne pas empieter sur le titre
+        # Label cours A L'INTERIEUR du graphique (en haut de la ligne verticale)
         course_lbl = f'{currency}{course_str}' if course_str else f'{course:.0f}'
-        ax.text(course, -0.65, f'Cours : {course_lbl}',
+        n_bars = len(lows)
+        ax.text(course, n_bars - 0.1, f'Cours : {course_lbl}',
                 fontsize=6.5, color='#B06000', fontweight='bold',
-                ha='center', va='top', clip_on=False)
+                ha='center', va='top', clip_on=False,
+                bbox=dict(boxstyle='round,pad=0.2', facecolor='white', alpha=0.85, edgecolor='none'))
 
     ax.set_yticks(y)
     ax.set_yticklabels(methods, fontsize=7.5, color='#333')
@@ -336,8 +338,7 @@ def _make_ff_chart(data):
     ax.set_title('Football Field \u2014 Synth\u00e8se des m\u00e9thodes de valorisation',
                  fontsize=8, color='#1B3A6B', fontweight='bold', pad=12)
     ax.grid(axis='x', alpha=0.3, color='#D0D5DD', zorder=0)
-    # tight_layout avec marge basse pour le label "Cours" en dessous des axes
-    plt.tight_layout(rect=[0, 0.08, 1, 1], pad=1.2)
+    plt.tight_layout(rect=[0, 0, 1, 1], pad=1.2)
     buf = io.BytesIO()
     fig.savefig(buf, format='png', dpi=160, bbox_inches='tight')
     plt.close(fig)
@@ -1192,11 +1193,17 @@ def _frx(v):
     except: return "\u2014"
 
 def _frm(v):
+    """Formate une valeur stockee en millions → Md (milliards), 1 decimale.
+    Les valeurs financieres dans FinancialYear sont toujours en millions (via _m())."""
     if v is None: return "\u2014"
     try:
         f = float(v)
-        return _fr(f / 1e9, 1, "B") if abs(f) >= 1e9 \
-            else (_fr(f / 1e6, 1, "B") if abs(f) >= 1e6 else _fr(f, 1))
+        # Si la valeur semble deja en milliards (ex: LLM retourne 394.3 au lieu de 394328)
+        # on la laisse telle quelle (seuil : < 50 000 → probablement deja en Md)
+        if abs(f) < 50_000:
+            return _fr(f, 1)
+        # Valeur en millions → diviser par 1000 pour obtenir des Md
+        return _fr(f / 1_000, 1)
     except: return "\u2014"
 
 def _upside_str(target, current):

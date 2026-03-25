@@ -158,13 +158,14 @@ JSON requis (tous les champs obligatoires) :
     {{"name":"<pair5>","ticker":"<T5>","market_cap_mds":<float en Mds devise>,"ev_ebitda":<f>,"ev_revenue":<f>,"pe":<f>,"gross_margin":<0-1>,"ebitda_margin":<0-1>}}
   ],
   "football_field":[
-    {{"label":"DCF - Bear","range_low":<f>,"range_high":<f>,"midpoint":<target_price_bear>}},
-    {{"label":"DCF - Base","range_low":<f>,"range_high":<f>,"midpoint":<target_price_base>}},
-    {{"label":"DCF - Bull","range_low":<f>,"range_high":<f>,"midpoint":<target_price_bull>}},
-    {{"label":"EV/EBITDA - Mediane peers","range_low":<f>,"range_high":<f>,"midpoint":<f>}},
-    {{"label":"EV/EBITDA - Prime tech +50 %","range_low":<f>,"range_high":<f>,"midpoint":<f>}},
-    {{"label":"EV/Revenue - Mediane peers","range_low":<f>,"range_high":<f>,"midpoint":<f>}}
+    {{"label":"DCF - Bear","range_low":<prix_implicite_en_{ci.currency}>,"range_high":<prix_implicite_en_{ci.currency}>,"midpoint":<target_price_bear>}},
+    {{"label":"DCF - Base","range_low":<prix_implicite_en_{ci.currency}>,"range_high":<prix_implicite_en_{ci.currency}>,"midpoint":<target_price_base>}},
+    {{"label":"DCF - Bull","range_low":<prix_implicite_en_{ci.currency}>,"range_high":<prix_implicite_en_{ci.currency}>,"midpoint":<target_price_bull>}},
+    {{"label":"EV/EBITDA - Mediane peers","range_low":<prix_implicite_en_{ci.currency}>,"range_high":<prix_implicite_en_{ci.currency}>,"midpoint":<prix_implicite_en_{ci.currency}>}},
+    {{"label":"EV/EBITDA - Prime tech +50 %","range_low":<prix_implicite_en_{ci.currency}>,"range_high":<prix_implicite_en_{ci.currency}>,"midpoint":<prix_implicite_en_{ci.currency}>}},
+    {{"label":"EV/Revenue - Mediane peers","range_low":<prix_implicite_en_{ci.currency}>,"range_high":<prix_implicite_en_{ci.currency}>,"midpoint":<prix_implicite_en_{ci.currency}>}}
   ],
+  "IMPORTANT_football_field":"Tous les range_low/range_high/midpoint sont des PRIX PAR ACTION en {ci.currency} (ex: 280.5), JAMAIS des multiples bruts (ex: NE PAS mettre 15.2 pour EV/EBITDA). Calculer le prix implicite a partir du multiple et du EBITDA/Revenue par action.",
   "confidence_score":<0-1>,
   "invalidation_conditions":"<resume conditions>",
   "bear_hypothesis":"<15-20 mots — hypothese determinante scenario Bear : chiffre cle ou evenement declencheur>",
