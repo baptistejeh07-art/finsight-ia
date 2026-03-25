@@ -235,7 +235,7 @@ def _key_data_box(data):
 # =============================================================================
 def _make_perf_chart(data):
     if not _MATPLOTLIB_OK:
-        return _blank_chart_buf(6.5, 2.6)
+        return _blank_chart_buf(8.5, 3.8)
     months      = data.get('perf_months') or []
     ticker_vals = data.get('perf_ticker') or []
     index_vals  = data.get('perf_index')  or []
@@ -254,35 +254,35 @@ def _make_perf_chart(data):
     months, ticker_vals, index_vals = months[:n], ticker_vals[:n], index_vals[:n]
 
     x = np.arange(n)
-    fig, ax = plt.subplots(figsize=(6.5, 2.6))
-    ax.plot(x, ticker_vals, color='#1B3A6B', linewidth=1.6, label=ticker)
-    ax.plot(x, index_vals,  color='#A0A0A0', linewidth=1.0, linestyle='--', label=index_name)
+    fig, ax = plt.subplots(figsize=(8.5, 3.8))
+    ax.plot(x, ticker_vals, color='#1B3A6B', linewidth=2.0, label=ticker)
+    ax.plot(x, index_vals,  color='#A0A0A0', linewidth=1.4, linestyle='--', label=index_name)
     ax.fill_between(x, ticker_vals, index_vals,
                     where=[a > s for a, s in zip(ticker_vals, index_vals)],
                     alpha=0.08, color='#1B3A6B')
     tick_step = max(1, n // 5) if n >= 2 else 1
     ax.set_xticks(x[::tick_step])
-    ax.set_xticklabels(months[::tick_step], fontsize=6, color='#555')
-    ax.tick_params(length=0)
+    ax.set_xticklabels(months[::tick_step], fontsize=9, color='#555')
+    ax.tick_params(length=0, labelsize=9)
     for sp in ['top', 'right']: ax.spines[sp].set_visible(False)
     ax.spines['left'].set_color('#D0D5DD')
     ax.spines['bottom'].set_color('#D0D5DD')
     ax.set_facecolor('white'); fig.patch.set_facecolor('white')
-    ax.legend(fontsize=6, loc='upper left', frameon=False)
+    ax.legend(fontsize=9, loc='upper left', frameon=False)
     title = "Performance relative \u2014 base 100"
     if start_label:
         title += f", {start_label}"
-    ax.set_title(title, fontsize=6.5, color='#1B3A6B', fontweight='bold', pad=4)
-    plt.tight_layout(pad=0.3)
+    ax.set_title(title, fontsize=10, color='#1B3A6B', fontweight='bold', pad=6)
+    plt.tight_layout(pad=0.5)
     buf = io.BytesIO()
-    fig.savefig(buf, format='png', dpi=160, bbox_inches='tight')
+    fig.savefig(buf, format='png', dpi=180, bbox_inches='tight')
     plt.close(fig); buf.seek(0)
     return buf
 
 
 def _make_ff_chart(data):
     if not _MATPLOTLIB_OK:
-        return _blank_chart_buf(6.8, 2.8)
+        return _blank_chart_buf(8.5, 3.8)
     methods    = data.get('ff_methods') or []
     lows       = data.get('ff_lows')    or []
     highs      = data.get('ff_highs')   or []
@@ -292,56 +292,58 @@ def _make_ff_chart(data):
     currency   = _d(data, 'currency', '')
 
     n = len(methods)
-    # Hauteur adaptive : min 3.4, +0.52 par methode supplementaire
-    fig_h = max(3.4, 1.1 + n * 0.52)
-    fig, ax = plt.subplots(figsize=(7.4, fig_h))
+    # Hauteur adaptive : min 4.0, +0.72 par methode pour eviter overlaps
+    fig_h = max(4.0, 1.4 + n * 0.72)
+    fig, ax = plt.subplots(figsize=(8.5, fig_h))
 
     y = np.arange(n)
     for i, (lo, hi, col) in enumerate(zip(lows, highs, cols)):
         lo, hi = float(lo), float(hi)
-        ax.barh(y[i], hi - lo, left=lo, height=0.42, color=col, alpha=0.85, zorder=3)
-        # Valeur centrale dans la barre
+        ax.barh(y[i], hi - lo, left=lo, height=0.48, color=col, alpha=0.85, zorder=3)
+        # Valeur centrale dans la barre — taille augmentee
         ax.text((lo + hi) / 2, y[i], f"{int((lo + hi) / 2)}",
-                va='center', ha='center', fontsize=7, color='white', fontweight='bold', zorder=4)
-        # Valeurs basses/hautes HORS de la barre — clip_on=False pour ne pas etre tronquees
-        ax.text(lo - 1, y[i], f"{int(lo)}", va='center', ha='right',
-                fontsize=6.5, color='#555', clip_on=False)
-        ax.text(hi + 1, y[i], f"{int(hi)}", va='center', ha='left',
-                fontsize=6.5, color='#555', clip_on=False)
+                va='center', ha='center', fontsize=8.5, color='white', fontweight='bold', zorder=4)
+        # Valeurs basses/hautes HORS de la barre — offset adaptatif + clip_on=False
+        rng_bar = hi - lo if hi > lo else 1
+        offset = max(rng_bar * 0.04, 2.0)
+        ax.text(lo - offset, y[i], f"{int(lo)}", va='center', ha='right',
+                fontsize=8, color='#444', clip_on=False)
+        ax.text(hi + offset, y[i], f"{int(hi)}", va='center', ha='left',
+                fontsize=8, color='#444', clip_on=False)
 
     if course and lows and highs:
-        ax.axvline(x=course, color='#B06000', linewidth=1.5, linestyle='--', zorder=5)
-        # Label cours A L'INTERIEUR du graphique (en haut de la ligne verticale)
+        ax.axvline(x=course, color='#B06000', linewidth=2.0, linestyle='--', zorder=5)
+        # Label cours en haut, dans une boite blanche bien lisible
         course_lbl = f'{currency}{course_str}' if course_str else f'{course:.0f}'
         n_bars = len(lows)
-        ax.text(course, n_bars - 0.1, f'Cours : {course_lbl}',
-                fontsize=6.5, color='#B06000', fontweight='bold',
+        ax.text(course, n_bars - 0.05, f'Cours : {course_lbl}',
+                fontsize=8, color='#B06000', fontweight='bold',
                 ha='center', va='top', clip_on=False,
-                bbox=dict(boxstyle='round,pad=0.2', facecolor='white', alpha=0.85, edgecolor='none'))
+                bbox=dict(boxstyle='round,pad=0.3', facecolor='white', alpha=0.9, edgecolor='#B06000', linewidth=0.6))
 
     ax.set_yticks(y)
-    ax.set_yticklabels(methods, fontsize=7.5, color='#333')
+    ax.set_yticklabels(methods, fontsize=9, color='#222')
 
     if lows and highs:
         all_v = [float(v) for v in lows + highs]
         rng    = max(all_v) - min(all_v) if len(all_v) > 1 else max(all_v)
-        # Marge proportionnelle (15% de la plage) pour s'adapter a tous les niveaux de prix
-        margin = max(20, rng * 0.15)
+        # Marge proportionnelle (20% de la plage) pour laisser de la place aux labels
+        margin = max(20, rng * 0.20)
         ax.set_xlim(min(all_v) - margin, max(all_v) + margin)
 
-    ax.set_xlabel(f'Valeur par action ({currency})', fontsize=7, color='#555')
+    ax.set_xlabel(f'Valeur par action ({currency})', fontsize=9, color='#555')
     for sp in ['top', 'right']: ax.spines[sp].set_visible(False)
     ax.spines['left'].set_color('#D0D5DD')
     ax.spines['bottom'].set_color('#D0D5DD')
-    ax.tick_params(axis='x', labelsize=7)
+    ax.tick_params(axis='x', labelsize=8)
     ax.tick_params(axis='y', length=0)
     ax.set_facecolor('white')
     fig.patch.set_facecolor('white')
     # Pas de titre matplotlib : le PDF ajoute deja un titre de section au-dessus
     ax.grid(axis='x', alpha=0.3, color='#D0D5DD', zorder=0)
-    plt.tight_layout(rect=[0, 0, 1, 1], pad=1.2)
+    plt.tight_layout(rect=[0, 0, 1, 1], pad=1.5)
     buf = io.BytesIO()
-    fig.savefig(buf, format='png', dpi=160, bbox_inches='tight')
+    fig.savefig(buf, format='png', dpi=180, bbox_inches='tight')
     plt.close(fig)
     buf.seek(0)
     return buf
@@ -359,17 +361,17 @@ def _make_pie_comparables(data):
 
     if not labels or not sizes:
         # Graphique vide
-        fig, ax = plt.subplots(figsize=(4.8, 4.0))
+        fig, ax = plt.subplots(figsize=(5.2, 5.2))
         ax.text(0.5, 0.5, 'N/A', ha='center', va='center', fontsize=14, color='#555')
         ax.set_facecolor('white'); fig.patch.set_facecolor('white')
         ax.axis('off')
         buf = io.BytesIO()
-        fig.savefig(buf, format='png', dpi=160, bbox_inches='tight')
+        fig.savefig(buf, format='png', dpi=180, bbox_inches='tight')
         plt.close(fig); buf.seek(0)
         return buf
 
     _BASE_PALETTE = ['#1B3A6B','#2A5298','#3D6099','#5580B8','#7AA0CC','#A0BEDC','#D0D5DD']
-    # Étendre la palette dynamiquement si plus d'éléments que prévu
+    # Etendre la palette dynamiquement si plus d'elements que prevu
     n_labels = len(labels)
     if n_labels > len(_BASE_PALETTE):
         import matplotlib.cm as _cm
@@ -381,29 +383,31 @@ def _make_pie_comparables(data):
     else:
         palette = _BASE_PALETTE
     explode = [0.05] + [0] * (n_labels - 1)
-    fig, ax = plt.subplots(figsize=(4.8, 4.0))
+    # Figsize carre pour eviter l'ecrasement du donut
+    fig, ax = plt.subplots(figsize=(5.2, 5.2))
+    ax.set_aspect('equal')
     wedges, _ = ax.pie(
         sizes, labels=None, autopct=None,
         colors=palette[:n_labels], explode=explode[:n_labels],
         startangle=90, pctdistance=0.78,
         wedgeprops=dict(linewidth=0.8, edgecolor='white')
     )
-    ax.set_title(f'Poids relatif {cap_label} \u2014 Secteur {sector_name}', fontsize=8,
-                 color='#1B3A6B', fontweight='bold', pad=8)
+    ax.set_title(f'Poids relatif {cap_label} \u2014 Secteur {sector_name}', fontsize=9,
+                 color='#1B3A6B', fontweight='bold', pad=10)
     centre = plt.Circle((0, 0), 0.42, color='white')
     ax.add_patch(centre)
     ax.text(0, 0.10, ticker,   ha='center', va='center',
-            fontsize=10, fontweight='bold', color='#1B3A6B')
+            fontsize=11, fontweight='bold', color='#1B3A6B')
     ax.text(0, -0.14, pct_str, ha='center', va='center',
-            fontsize=13, fontweight='bold', color='#1B3A6B')
+            fontsize=14, fontweight='bold', color='#1B3A6B')
     ax.legend(wedges, labels,
-              loc='lower center', bbox_to_anchor=(0.5, -0.22),
-              ncol=2, fontsize=7.5, frameon=False,
+              loc='lower center', bbox_to_anchor=(0.5, -0.20),
+              ncol=2, fontsize=8.5, frameon=False,
               handlelength=1.4, handleheight=1.0, columnspacing=1.2)
     fig.patch.set_facecolor('white')
-    plt.tight_layout(pad=0.4)
+    plt.tight_layout(pad=0.5)
     buf = io.BytesIO()
-    fig.savefig(buf, format='png', dpi=160, bbox_inches='tight')
+    fig.savefig(buf, format='png', dpi=180, bbox_inches='tight')
     plt.close(fig); buf.seek(0)
     return buf
 
@@ -422,35 +426,35 @@ def _make_revenue_area(data):
             _lbls = [f[0] for f in fallback]
             _vals = [f[1] for f in fallback]
             _cur  = data.get('currency', '')
-            fig, ax = plt.subplots(figsize=(7.0, 3.2))
+            fig, ax = plt.subplots(figsize=(8.5, 4.0))
             bars = ax.bar(range(len(_lbls)), _vals, color='#2A5298', alpha=0.85, width=0.55, zorder=3)
             for bar, val in zip(bars, _vals):
                 ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + max(_vals)*0.01,
-                        f'{val:.1f}', ha='center', va='bottom', fontsize=7.5, color='#1B3A6B', fontweight='bold')
+                        f'{val:.1f}', ha='center', va='bottom', fontsize=9, color='#1B3A6B', fontweight='bold')
             ax.set_xticks(range(len(_lbls)))
-            ax.set_xticklabels(_lbls, fontsize=8, color='#555')
-            ax.set_ylabel(f'Revenus (Md{_cur})', fontsize=7.5, color='#555')
-            ax.tick_params(length=0)
+            ax.set_xticklabels(_lbls, fontsize=9, color='#555')
+            ax.set_ylabel(f'Revenus (Md{_cur})', fontsize=9, color='#555')
+            ax.tick_params(length=0, labelsize=9)
             for sp in ['top', 'right']: ax.spines[sp].set_visible(False)
             ax.spines['left'].set_color('#D0D5DD'); ax.spines['bottom'].set_color('#D0D5DD')
             ax.set_facecolor('white'); fig.patch.set_facecolor('white')
             ax.grid(axis='y', alpha=0.25, color='#D0D5DD', linewidth=0.5, zorder=0)
-            ax.set_title('Revenus annuels consolid\u00e9s', fontsize=9,
-                         color='#1B3A6B', fontweight='bold', pad=6)
-            plt.tight_layout(pad=0.4)
+            ax.set_title('Revenus annuels consolid\u00e9s', fontsize=11,
+                         color='#1B3A6B', fontweight='bold', pad=8)
+            plt.tight_layout(pad=0.5)
             buf = io.BytesIO()
-            fig.savefig(buf, format='png', dpi=160, bbox_inches='tight')
+            fig.savefig(buf, format='png', dpi=180, bbox_inches='tight')
             plt.close(fig); buf.seek(0)
             return buf
-        # Aucune donnée disponible
-        return _blank_chart_buf(7.0, 3.2)
+        # Aucune donnee disponible
+        return _blank_chart_buf(8.5, 4.0)
 
     seg_colors = ['#1B3A6B','#2A5298','#5580B8','#88AACC','#B8CCE0']
     seg_keys   = list(segments.keys())
     seg_vals   = [segments[k] for k in seg_keys]
     x = np.arange(len(quarters))
 
-    fig, ax = plt.subplots(figsize=(7.0, 3.2))
+    fig, ax = plt.subplots(figsize=(8.5, 4.0))
     ax.stackplot(x, *seg_vals, labels=seg_keys,
                  colors=seg_colors[:len(seg_keys)], alpha=0.88)
 
@@ -462,31 +466,31 @@ def _make_revenue_area(data):
     ) if quarters else 0
     label_y = stacked_max * 0.95 if stacked_max > 0 else 148000
     if len(year_labels) >= 2:
-        ax.text(mid / 2, label_y, year_labels[0], ha='center', fontsize=7.5,
+        ax.text(mid / 2, label_y, year_labels[0], ha='center', fontsize=9,
                 color='#B06000', fontweight='bold', alpha=0.7)
         ax.text(mid + (len(quarters) - mid) / 2, label_y, year_labels[1], ha='center',
-                fontsize=7.5, color='#B06000', fontweight='bold', alpha=0.7)
+                fontsize=9, color='#B06000', fontweight='bold', alpha=0.7)
 
     ax.set_xticks(x)
-    ax.set_xticklabels(quarters, fontsize=7.5, color='#555')
+    ax.set_xticklabels(quarters, fontsize=9, color='#555')
     ylim = stacked_max * 1.15 if stacked_max > 0 else 165000
     ax.set_ylim(0, ylim)
-    ax.tick_params(length=0)
+    ax.tick_params(length=0, labelsize=9)
     for sp in ['top', 'right']: ax.spines[sp].set_visible(False)
     ax.spines['left'].set_color('#D0D5DD')
     ax.spines['bottom'].set_color('#D0D5DD')
     ax.set_facecolor('white'); fig.patch.set_facecolor('white')
     ax.grid(axis='y', alpha=0.2, color='#D0D5DD', linewidth=0.5)
     ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.14),
-              ncol=min(5, len(seg_keys)), fontsize=7.5, frameon=False,
+              ncol=min(5, len(seg_keys)), fontsize=9, frameon=False,
               handlelength=1.2, handleheight=0.9)
     q0, q1 = (quarters[0] if quarters else ''), (quarters[-1] if quarters else '')
     ax.set_title(
         f'Revenus par segment \u2014 {len(quarters)} trimestres ({q0} \u2192 {q1}, Md$)',
-        fontsize=9, color='#1B3A6B', fontweight='bold', pad=6)
-    plt.tight_layout(pad=0.3)
+        fontsize=11, color='#1B3A6B', fontweight='bold', pad=8)
+    plt.tight_layout(pad=0.5)
     buf = io.BytesIO()
-    fig.savefig(buf, format='png', dpi=160, bbox_inches='tight')
+    fig.savefig(buf, format='png', dpi=180, bbox_inches='tight')
     plt.close(fig); buf.seek(0)
     return buf
 
@@ -694,8 +698,8 @@ def _build_synthese(perf_buf, data):
 
     # 2-col : [graphique performance | boite donnees cles]
     # Evite la page 4 quasi-vide : les deux blocs tiennent sur la meme page
-    perf_img = Image(perf_buf, width=88*mm, height=58*mm)
-    top_tbl = Table([[perf_img, _key_data_box(data)]], colWidths=[90*mm, 80*mm])
+    perf_img = Image(perf_buf, width=100*mm, height=70*mm)
+    top_tbl = Table([[perf_img, _key_data_box(data)]], colWidths=[102*mm, 68*mm])
     top_tbl.setStyle(TableStyle([
         ('VALIGN',       (0, 0), (-1, -1), 'TOP'),
         ('LEFTPADDING',  (0, 0), (-1, -1), 0),
@@ -806,7 +810,7 @@ def _build_financials(area_buf, data):
         "FinSight IA \u2014 FMP, yfinance. LTM = 12 derniers mois. F = pr\u00e9visions mod\u00e8le interne."))
     elems.append(Spacer(1, 3*mm))
 
-    elems.append(Image(area_buf, width=TABLE_W, height=78*mm))
+    elems.append(Image(area_buf, width=TABLE_W, height=92*mm))
     _area_src = ("FinSight IA \u2014 Revenus consolid\u00e9s \u2014 Source : yfinance."
                  if data.get('area_is_real')
                  else "FinSight IA \u2014 Revenus annuels (donn\u00e9es illustratives).")
@@ -816,9 +820,7 @@ def _build_financials(area_buf, data):
     elems.append(Paragraph(_safe(_d(data, 'financials_text_post')), S_BODY))
     elems.append(Spacer(1, 4*mm))
 
-    # Ratios vs pairs
-    elems.append(Paragraph(
-        "Positionnement relatif \u2014 Ratios cl\u00e9s vs. pairs sectoriels", S_SUBSECTION))
+    # Ratios vs pairs — titre + tableau gardes ensemble
     ticker = _d(data, 'ticker', 'Titre')
     h_r = [Paragraph(h, S_TH_L) for h in [
         "Indicateur", f"{ticker} LTM", "R\u00e9f\u00e9rence sectorielle", "Lecture"]]
@@ -837,7 +839,11 @@ def _build_financials(area_buf, data):
          Paragraph(_safe(_d(r, 'lecture')),  _read_style(_d(r, 'lecture')))]
         for r in (data.get('ratios_vs_peers') or [])
     ]
-    elems.append(KeepTogether(tbl([h_r] + rat_rows, cw=[50*mm, 30*mm, 55*mm, 35*mm])))
+    elems.append(KeepTogether([
+        Paragraph("Positionnement relatif \u2014 Ratios cl\u00e9s vs. pairs sectoriels", S_SUBSECTION),
+        Spacer(1, 1*mm),
+        tbl([h_r] + rat_rows, cw=[50*mm, 30*mm, 55*mm, 35*mm]),
+    ]))
     elems.append(src("FinSight IA \u2014 LTM = Last Twelve Months."))
     elems.append(Spacer(1, 3*mm))
     elems.append(Paragraph(_safe(_d(data, 'ratios_text')), S_BODY))
@@ -911,10 +917,10 @@ def _build_valorisation(ff_buf, pie_buf, data):
     elems.append(Spacer(1, 3*mm))
 
     # Donut + texte
-    pie_img  = Image(pie_buf, width=88*mm, height=73*mm)
+    pie_img  = Image(pie_buf, width=88*mm, height=88*mm)
     pie_text = _d(data, 'pie_text')
     pie_tbl  = Table([[pie_img, Paragraph(_safe(pie_text), S_BODY)]],
-                     colWidths=[84*mm, 82*mm])
+                     colWidths=[90*mm, 80*mm])
     pie_tbl.setStyle(TableStyle([
         ('VALIGN',       (0, 0), (-1, -1), 'TOP'),
         ('LEFTPADDING',  (0, 0), (-1, -1), 0),
@@ -935,7 +941,9 @@ def _build_valorisation(ff_buf, pie_buf, data):
     elems.append(Paragraph(
         "Football Field \u2014 Convergence des m\u00e9thodes de valorisation", S_SUBSECTION))
     _ff_n = len(data.get('ff_methods') or [])
-    _ff_h = TABLE_W * max(3.4, 1.1 + _ff_n * 0.52) / 7.4
+    # Ratio hauteur/largeur base sur le figsize utilise dans _make_ff_chart : (8.5, max(4.0, 1.4+n*0.72))
+    _ff_fig_h = max(4.0, 1.4 + _ff_n * 0.72)
+    _ff_h = TABLE_W * _ff_fig_h / 8.5
     elems.append(Image(ff_buf, width=TABLE_W, height=_ff_h))
     ff_comment = _d(data, 'dcf_text_intro')
     if ff_comment:
@@ -951,23 +959,30 @@ def _build_risques(data):
     elems = []
     elems += section_title("Analyse des Risques & Sentiment de March\u00e9", 4)
 
-    elems.append(Paragraph(
-        "Th\u00e8se contraire \u2014 Arguments en faveur d'une r\u00e9vision \u00e0 la baisse",
-        S_SUBSECTION))
-    elems.append(Paragraph(_safe(_d(data, 'bear_text_intro')), S_BODY))
-    elems.append(Spacer(1, 2*mm))
-
     bear_args = data.get('bear_args') or []
     bear_h    = [Paragraph("Axe de risque", S_TH_L),
                  Paragraph("Analyse d\u00e9taill\u00e9e", S_TH_L)]
     bear_rows = [[Paragraph(_safe(_d(a, 'name')), S_TD_B), Paragraph(_safe(_d(a, 'text')), S_TD_L)]
                  for a in bear_args]
-    elems.append(KeepTogether(tbl([bear_h] + bear_rows, cw=[40*mm, 130*mm])))
+    # Fallback si aucune ligne de donnees
+    if not bear_rows:
+        bear_rows = [[Paragraph('\u2014', S_TD_C),
+                      Paragraph("Analyse des risques non disponible pour cette valeur.", S_TD_L)]]
+    # Titre + intro + tableau : KeepTogether pour eviter la separation titre/tableau
+    _bear_title = Paragraph(
+        "Th\u00e8se contraire \u2014 Arguments en faveur d'une r\u00e9vision \u00e0 la baisse",
+        S_SUBSECTION)
+    _bear_intro = Paragraph(_safe(_d(data, 'bear_text_intro')), S_BODY)
+    elems.append(KeepTogether([
+        _bear_title,
+        Spacer(1, 2*mm),
+        _bear_intro,
+        Spacer(1, 2*mm),
+        tbl([bear_h] + bear_rows, cw=[40*mm, 130*mm]),
+    ]))
     elems.append(Spacer(1, 4*mm))
 
-    # Conditions d'invalidation
-    elems.append(debate_q(
-        "Quelles conditions pr\u00e9cises invalideraient la th\u00e8se et \u00e0 quel horizon ?"))
+    # Conditions d'invalidation — titre + tableau gardes ensemble
     inv_data = data.get('invalidation_data') or []
     inv_h = [Paragraph(h, S_TH_L)
              for h in ["Axe", "Condition d'invalidation", "Horizon"]]
@@ -977,17 +992,19 @@ def _build_risques(data):
          Paragraph(_d(r, 'horizon'), S_TD_C)]
         for r in inv_data
     ]
-    elems.append(KeepTogether(tbl([inv_h] + inv_rows, cw=[22*mm, 120*mm, 28*mm])))
+    if not inv_rows:
+        inv_rows = [[Paragraph('\u2014', S_TD_C),
+                     Paragraph("Conditions d'invalidation non disponibles.", S_TD_L),
+                     Paragraph('\u2014', S_TD_C)]]
+    elems.append(KeepTogether([
+        debate_q("Quelles conditions pr\u00e9cises invalideraient la th\u00e8se et \u00e0 quel horizon ?"),
+        Spacer(1, 1*mm),
+        tbl([inv_h] + inv_rows, cw=[22*mm, 120*mm, 28*mm]),
+    ]))
     elems.append(Spacer(1, 4*mm))
 
-    # FinBERT
+    # FinBERT — titre + corps + tableau gardes ensemble
     n_art = _d(data, 'finbert_n_articles', '30')
-    elems.append(Paragraph(
-        f"Sentiment de march\u00e9 \u2014 Analyse {_d(data, 'finbert_engine', 'FinBERT')} ({n_art} articles, 7 jours)",
-        S_SUBSECTION))
-    elems.append(Paragraph(_safe(_d(data, 'finbert_text')), S_BODY))
-    elems.append(Spacer(1, 2*mm))
-
     sent_h = [Paragraph(h, S_TH_C)
               for h in ["Orientation", "Articles", "Score moyen", "Th\u00e8mes principaux"]]
     sent_rows = []
@@ -1000,16 +1017,24 @@ def _build_risques(data):
             Paragraph(_d(r, 'score'), S_TD_C),
             Paragraph(_safe(_d(r, 'themes')), S_TD_L),
         ])
-    elems.append(KeepTogether(tbl([sent_h] + sent_rows, cw=[24*mm, 20*mm, 26*mm, 100*mm])))
+    if not sent_rows:
+        sent_rows = [[Paragraph('\u2014', S_TD_C), Paragraph('\u2014', S_TD_C),
+                      Paragraph('\u2014', S_TD_C), Paragraph("Donn\u00e9es sentiment non disponibles.", S_TD_L)]]
+    elems.append(KeepTogether([
+        Paragraph(
+            f"Sentiment de march\u00e9 \u2014 Analyse {_d(data, 'finbert_engine', 'FinBERT')} ({n_art} articles, 7 jours)",
+            S_SUBSECTION),
+        Spacer(1, 2*mm),
+        Paragraph(_safe(_d(data, 'finbert_text')), S_BODY),
+        Spacer(1, 2*mm),
+        tbl([sent_h] + sent_rows, cw=[24*mm, 20*mm, 26*mm, 100*mm]),
+    ]))
     elems.append(src(_d(data, 'finbert_source',
         "FinBERT \u2014 Mod\u00e8le NLP sp\u00e9cialis\u00e9 finance. "
         "Corpus : presse financi\u00e8re anglophone, 7 jours.")))
     elems.append(Spacer(1, 6*mm))
 
-    # Section 5 — Synthese finale
-    elems.append(Spacer(1, 6*mm))
-    elems += section_title("Synth\u00e8se & Recommandation Finale", 5)
-
+    # Section 5 — Synthese finale : section_title + tableau reco gardes ensemble
     rec     = _d(data, 'recommendation', 'HOLD').upper()
     rec_s   = S_TD_A if rec == 'HOLD' else (S_TD_G if rec == 'BUY' else S_TD_R)
     cur     = _d(data, 'currency', 'USD')
@@ -1027,14 +1052,15 @@ def _build_risques(data):
          Paragraph(_d(data, 'conviction_str'), S_TD_C),
          Paragraph(_safe(_d(data, 'next_review')), S_TD_C)],
     ]
-    elems.append(KeepTogether(tbl(reco_tbl,
-                                  cw=[28*mm, 32*mm, 28*mm, 22*mm, 28*mm, 32*mm])))
+    elems.append(KeepTogether(
+        section_title("Synth\u00e8se & Recommandation Finale", 5) +
+        [tbl(reco_tbl, cw=[28*mm, 32*mm, 28*mm, 22*mm, 28*mm, 32*mm])]
+    ))
     elems.append(Spacer(1, 4*mm))
     elems.append(Paragraph(_safe(_d(data, 'conclusion_text')), S_BODY))
     elems.append(Spacer(1, 4*mm))
 
-    # Conditions de revision
-    elems.append(Paragraph("Conditions de r\u00e9vision de la recommandation", S_SUBSECTION))
+    # Conditions de revision — titre + tableau gardes ensemble
     rev_h = [Paragraph("R\u00e9vision", S_TH_C),
              Paragraph("D\u00e9clencheur", S_TH_L),
              Paragraph("Cible r\u00e9vis\u00e9e", S_TH_C)]
@@ -1047,7 +1073,15 @@ def _build_risques(data):
             Paragraph(_safe(_d(r, 'trigger')), S_TD_L),
             Paragraph(_d(r, 'target'), rs),
         ])
-    elems.append(KeepTogether(tbl([rev_h] + rev_rows, cw=[20*mm, 122*mm, 28*mm])))
+    if not rev_rows:
+        rev_rows = [[Paragraph('\u2014', S_TD_C),
+                     Paragraph("Conditions de r\u00e9vision non disponibles.", S_TD_L),
+                     Paragraph('\u2014', S_TD_C)]]
+    elems.append(KeepTogether([
+        Paragraph("Conditions de r\u00e9vision de la recommandation", S_SUBSECTION),
+        Spacer(1, 1*mm),
+        tbl([rev_h] + rev_rows, cw=[20*mm, 122*mm, 28*mm]),
+    ]))
     elems.append(Spacer(1, 6*mm))
 
     # Disclaimer
