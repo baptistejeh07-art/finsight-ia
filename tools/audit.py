@@ -207,11 +207,10 @@ def build_report(ticker: str, run_result: dict, renders: dict) -> str:
 # Point d'entrée
 # ---------------------------------------------------------------------------
 
-def _move_to_preview(ticker: str) -> Path:
+def _copy_to_preview(ticker: str) -> Path:
     """
-    Déplace les outputs générés (PDF, PPTX, XLSX, briefing) vers
-    outputs/generated/preview/{ticker}/ pour validation humaine.
-    Retourne le dossier preview créé.
+    Copie (sans toucher) les outputs generés vers preview/{ticker}/.
+    Les fichiers originaux dans cli_tests/ sont PRESERVES.
     """
     dest = PREVIEW_ROOT / ticker
     dest.mkdir(parents=True, exist_ok=True)
@@ -222,24 +221,48 @@ def _move_to_preview(ticker: str) -> Path:
         f"{ticker}*financials*.xlsx",
         f"{ticker}_briefing.txt",
     ]
-    moved = 0
+    copied = 0
     for pat in patterns:
         for f in CLI_DIR.glob(pat):
-            shutil.move(str(f), dest / f.name)
-            moved += 1
+            shutil.copy2(str(f), dest / f.name)
+            copied += 1
 
-    print(f"\n  [PREVIEW] {moved} fichier(s) -> {dest}")
+    print(f"\n  [PREVIEW] {copied} fichier(s) -> {dest}")
     return dest
 
 
 def audit_ticker(ticker: str, preview: bool = False) -> Path:
     ticker = ticker.upper().replace("/", "-")
 
+    # En mode preview : sauvegarder les livrables existants avant l'analyse
+    # pour les restaurer apres — les outputs de production ne sont jamais ecrases.
+    _backups: dict = {}
+    if preview:
+        _backup_dir = CLI_DIR / f"_backup_preview_{ticker}"
+        _backup_dir.mkdir(parents=True, exist_ok=True)
+        _patterns = [
+            f"{ticker}*report*.pdf",
+            f"{ticker}*pitchbook*.pptx",
+            f"{ticker}*financials*.xlsx",
+            f"{ticker}_briefing.txt",
+            f"{ticker}_state.json",
+        ]
+        for pat in _patterns:
+            for f in CLI_DIR.glob(pat):
+                dst = _backup_dir / f.name
+                shutil.copy2(str(f), dst)
+                _backups[f] = dst
+
     run_result = analyze(ticker)
     renders    = render(ticker)
 
     if preview:
-        _move_to_preview(ticker)
+        _copy_to_preview(ticker)
+        # Restaurer les livrables de production
+        for orig, backup in _backups.items():
+            shutil.copy2(str(backup), orig)
+        shutil.rmtree(_backup_dir, ignore_errors=True)
+        print(f"  [PREVIEW] Livrables de production restaures ({len(_backups)} fichiers).")
 
     report_md  = build_report(ticker, run_result, renders)
 
