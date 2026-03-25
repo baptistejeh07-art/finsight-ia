@@ -1081,8 +1081,10 @@ def _slide_business_model(prs, snap, synthesis):
         add_rect(slide, cx + 0.25, col_y + 2.79, col_w - 0.50, 0.05, GREY_LIGHT)
         add_text_box(slide, cx + 0.25, col_y + 3.05, col_w - 0.50, 0.71,
                      _truncate(seg_name, 60), 10, NAVY, bold=True, wrap=True)
-        add_text_box(slide, cx + 0.25, col_y + 3.81, col_w - 0.50, 5.0,
-                     _truncate(seg_desc, 250), 8, GREY_TXT, wrap=True)
+        # Hauteur description etendue pour utiliser l'espace jusqu'au footer (13.39 - col_y - 3.81)
+        desc_h = col_h - 3.81 - 0.30  # marge 0.30 cm avant le bas de la carte
+        add_text_box(slide, cx + 0.25, col_y + 3.81, col_w - 0.50, max(desc_h, 5.0),
+                     _truncate(seg_desc, 450), 8, GREY_TXT, wrap=True)
 
     return slide
 
@@ -1246,10 +1248,20 @@ def _slide_is(prs, snap, synthesis, ratios):
             except Exception:
                 pass
 
-    # Commentary (only if non-empty)
+    # Commentary — utilise financial_commentary en priorite, puis fallback sur les autres champs
     fin_comment = _g(synthesis, "financial_commentary", "") or ""
+    if not fin_comment.strip():
+        # Fallback 1 : valuation_comment (souvent renseigne meme quand financial_commentary vide)
+        fin_comment = _g(synthesis, "valuation_comment", "") or ""
+    if not fin_comment.strip():
+        # Fallback 2 : thesis (3 phrases separees par ' | ')
+        thesis_raw = _g(synthesis, "thesis", "") or ""
+        fin_comment = thesis_raw.replace(" | ", " ")
+    if not fin_comment.strip():
+        # Fallback 3 : summary general
+        fin_comment = _g(synthesis, "summary", "") or ""
     if fin_comment.strip():
-        commentary_box(slide, 1.02, 8.94, 23.37, 3.40, fin_comment)
+        commentary_box(slide, 1.02, 8.94, 23.37, 3.40, _truncate(fin_comment, 500))
 
     return slide
 
@@ -2045,9 +2057,24 @@ def _slide_risques(prs, snap, synthesis, devil):
         cx    = gaps[i]
         risk  = str(risk_sources[i]) if i < len(risk_sources) else label
         body  = ct_parts[i] if i < len(ct_parts) else ""
-        # Fallback si le devil n'a pas fourni de corps (counter_thesis vide ou mal formaté)
+        # Fallback 1 : negative_themes du synthesis
         if not body.strip():
-            body = neg_themes_s[i] if i < len(neg_themes_s) else ""
+            body = str(neg_themes_s[i]) if i < len(neg_themes_s) else ""
+        # Fallback 2 : utiliser le texte du risque lui-meme comme corps de carte
+        # (le titre affiche le debut, le corps affiche l'integralite — plus de carte vide)
+        if not body.strip() and risk and risk != label:
+            body = risk
+        # Fallback 3 : synthesis.risks complet si counter_risks ne fournit que des titres courts
+        if not body.strip() and i < len(risks_s):
+            body = str(risks_s[i])
+        # Fallback ultime : message generique localise
+        if not body.strip():
+            _generic = [
+                "Risque macro-economique : remontee des taux ou ralentissement de la demande mondiale.",
+                "Risque sectoriel : intensification de la concurrence ou disruption technologique.",
+                "Risque specifique : deterioration des marges ou execution strategique.",
+            ]
+            body = _generic[i] if i < len(_generic) else "Analyse en cours."
         add_rect(slide, cx, card_y, card_w, card_h, fill)
         add_rect(slide, cx, card_y, card_w, 0.15, accent)
         add_text_box(slide, cx + 0.30, card_y + 0.30, card_w - 0.60, 0.71,
