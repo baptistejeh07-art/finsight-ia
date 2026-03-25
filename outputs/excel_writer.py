@@ -19,6 +19,7 @@
 from __future__ import annotations
 
 import logging
+import math
 import os
 import shutil
 from datetime import date
@@ -188,12 +189,12 @@ class ExcelWriter:
         year_col_map = _build_year_col(snapshot)
         written = 0
 
-        # D117 Base Year = toujours l'année LTM (label mappé sur H)
-        # Dérivé du year_col_map pour être cohérent quelle que soit la source
+        ci = snapshot.company_info
+
+        # D117 Base Year = toujours l'annee LTM (label mappe sur H)
+        # ci doit etre defini avant d'acceder a ci.base_year (bug ordre corrige)
         ltm_label = next((lbl for lbl, col in year_col_map.items() if col == "H"), None)
         ltm_year  = int(ltm_label.split("_")[0]) if ltm_label else ci.base_year
-
-        ci = snapshot.company_info
         _write_cells(ws, {
             _CI_CELLS["company_name"]:  ci.company_name,
             _CI_CELLS["ticker"]:        ci.ticker,
@@ -232,6 +233,10 @@ class ExcelWriter:
         for field, cell_ref in _MKT_FIELDS.items():
             val = getattr(mkt, field, None)
             if val is None:
+                continue
+            # Filtre NaN/inf
+            if isinstance(val, float) and (math.isnan(val) or math.isinf(val)):
+                log.warning(f"[ExcelWriter] SKIP {cell_ref} ({field}) — valeur NaN/inf ignoree")
                 continue
             # Garde 1 statique
             if is_formula_cell(cell_ref):
@@ -297,9 +302,15 @@ def _safe_write(ws, col: str, row: int, value) -> int:
     Ecrit une valeur avec double-garde anti-formule :
       1. Garde statique  : FORMULA_CELLS du mapping (O(1))
       2. Garde dynamique : inspecte la valeur courante de la cellule dans le template
-    Log audit systématique avant chaque écriture effective.
+    Filtre NaN/inf pour eviter la corruption XML Excel.
+    Log audit systematique avant chaque ecriture effective.
     """
     if value is None:
+        return 0
+    # Filtre NaN et inf : openpyxl ecrit "nan" ou "inf" comme string
+    # ce qui genere des erreurs de formule dans sheet1.xml
+    if isinstance(value, float) and (math.isnan(value) or math.isinf(value)):
+        log.warning(f"[ExcelWriter] SKIP {col}{row} — valeur NaN/inf ignoree")
         return 0
     cell_ref = f"{col}{row}"
 
@@ -322,10 +333,19 @@ def _safe_write(ws, col: str, row: int, value) -> int:
 
 def _write_cells(ws, mapping: dict) -> None:
     """Ecrit un dict {cell_ref: value} — COMPANY_INFO uniquement.
-    Applique aussi la garde dynamique formule."""
+    Applique garde statique + garde dynamique formule."""
     for cell_ref, value in mapping.items():
         if value is None:
             continue
+        # Filtre NaN float
+        if isinstance(value, float) and math.isnan(value):
+            log.warning(f"[ExcelWriter] SKIP {cell_ref} — valeur NaN ignoree")
+            continue
+        # Garde 1 statique
+        if is_formula_cell(cell_ref):
+            log.error(f"[ExcelWriter] BLOQUE (statique) {cell_ref} — cellule formule COMPANY_INFO")
+            continue
+        # Garde 2 dynamique
         current = ws[cell_ref].value
         if isinstance(current, str) and current.startswith("="):
             log.error(f"[ExcelWriter] BLOQUE (dynamique) {cell_ref} — formule non declaree : {current[:60]}")
@@ -382,17 +402,39 @@ def _write_comparables(ws_comp, peers: list) -> int:
     return written
 
 
+def _safe_write_cell(ws, cell_ref: str, value) -> None:
+    """Ecriture securisee d'une cellule avec garde formule (statique + dynamique)."""
+    if value is None:
+        return
+    if isinstance(value, float) and (math.isnan(value) or math.isinf(value)):
+        log.warning(f"[ExcelWriter] SKIP {cell_ref} — valeur NaN/inf ignoree")
+        return
+    # Garde statique
+    if is_formula_cell(cell_ref):
+        log.error(f"[ExcelWriter] BLOQUE (statique) {cell_ref} — cellule formule synthesis")
+        return
+    # Garde dynamique
+    current = ws[cell_ref].value
+    if isinstance(current, str) and current.startswith("="):
+        log.error(f"[ExcelWriter] BLOQUE (dynamique) {cell_ref} — formule : {current[:60]}")
+        return
+    ws[cell_ref] = value
+
+
 def _write_synthesis_zone(ws, synthesis) -> None:
-    """Zone synthese IA — lignes 123–131, colonne D (zone libre post-mapping)."""
-    ws["D123"] = "=== SYNTHESE IA ==="
-    ws["D124"] = f"Recommandation : {synthesis.recommendation}"
-    ws["D125"] = f"Conviction     : {synthesis.conviction:.0%}"
-    ws["D126"] = f"Confiance IA   : {synthesis.confidence_score:.0%}"
+    """Zone synthese IA — lignes 123-131, colonne D (zone libre post-mapping).
+    Utilise _safe_write_cell pour eviter toute corruption formule.
+    Note : '===' ne commence pas par '=' seul, mais on passe quand meme par la garde dynamique.
+    """
+    _safe_write_cell(ws, "D123", "--- SYNTHESE IA ---")
+    _safe_write_cell(ws, "D124", f"Recommandation : {synthesis.recommendation}")
+    _safe_write_cell(ws, "D125", f"Conviction : {synthesis.conviction:.0%}")
+    _safe_write_cell(ws, "D126", f"Confiance IA : {synthesis.confidence_score:.0%}")
     if synthesis.target_base:
-        ws["D127"] = f"Cible Base : {synthesis.target_base}"
+        _safe_write_cell(ws, "D127", f"Cible Base : {synthesis.target_base}")
     if synthesis.target_bull:
-        ws["D128"] = f"Cible Bull : {synthesis.target_bull}"
+        _safe_write_cell(ws, "D128", f"Cible Bull : {synthesis.target_bull}")
     if synthesis.target_bear:
-        ws["D129"] = f"Cible Bear : {synthesis.target_bear}"
-    ws["D130"] = synthesis.summary[:200] if synthesis.summary else ""
-    ws["D131"] = f"Invalidation : {synthesis.invalidation_conditions[:150]}"
+        _safe_write_cell(ws, "D129", f"Cible Bear : {synthesis.target_bear}")
+    _safe_write_cell(ws, "D130", synthesis.summary[:200] if synthesis.summary else None)
+    _safe_write_cell(ws, "D131", f"Invalidation : {synthesis.invalidation_conditions[:150]}")
