@@ -611,14 +611,23 @@ def render_sidebar(results) -> None:
             d for d in _preview_root.iterdir() if d.is_dir()
         ]) if _preview_root.exists() else []
 
+        st.markdown('<div class="sb-section">', unsafe_allow_html=True)
+        st.markdown('<span class="sb-label">Aperçu Claude</span>', unsafe_allow_html=True)
         if _preview_tickers:
-            st.markdown('<div class="sb-section">', unsafe_allow_html=True)
-            st.markdown('<span class="sb-label">Aperçu Claude</span>', unsafe_allow_html=True)
             st.markdown(
                 '<div style="font-size:11px;color:#888;margin-bottom:6px">'
                 'Outputs générés par Claude — en attente de validation</div>',
                 unsafe_allow_html=True,
             )
+        else:
+            st.markdown(
+                '<div style="font-size:11px;color:#888;padding:4px 0 8px">'
+                'Aucun fichier en attente.<br>'
+                '<code style="font-size:10px">python tools/audit.py --preview AAPL</code>'
+                '</div>',
+                unsafe_allow_html=True,
+            )
+        if _preview_tickers:
 
             _prod_root = Path(__file__).parent / "outputs" / "generated" / "cli_tests"
             _prod_root.mkdir(parents=True, exist_ok=True)
@@ -696,7 +705,7 @@ def render_sidebar(results) -> None:
                             st.session_state[_confirm_key] = None
                             st.rerun()
 
-            st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
 
         # Diagnostic API
         with st.expander("🔧 Diagnostic API", expanded=False):
