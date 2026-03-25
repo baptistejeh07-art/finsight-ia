@@ -766,13 +766,13 @@ def _cover_page(c, doc, data):
         [f"Bear : {_bear}  |  Base : {_base}  |  Bull : {_bull}   (Cours actuel : {_cur})"])
     _inner_sep(h * 0.256)
 
-    # Bullet 4 : risques cles
+    # Bullet 4 : risques cles (2 max sur la cover — espace limite)
     _risks = data.get('risk_themes') or []
     _r1 = _risks[0] if len(_risks) > 0 else 'Voir section Analyse des Risques'
     _r2 = _risks[1] if len(_risks) > 1 else ''
-    _risk_lines = [_r1[:95]]
+    _risk_lines = [_r1[:90]]
     if _r2:
-        _risk_lines.append(_r2[:95])
+        _risk_lines.append(_r2[:90])
     _bullet_block(h * 0.220, "Risques principaux a surveiller", _risk_lines)
     _inner_sep(h * 0.185)
 
@@ -2163,8 +2163,13 @@ class PDFWriter:
             _neg_full = [t if isinstance(t, str) else (_g(t,'title') or _g(t,'name') or '')
                          for t in _neg[:3]]
             _neg_full = [c for c in _neg_full if c]
-            # Titre court (5 mots max) pour la colonne "Axe de risque"
-            counter_risks = [' '.join(n.split()[:5]) for n in _neg_full]
+            # Titre court : coupe avant la 1ere virgule/parenthese, 7 mots max
+            import re as _re
+            def _short_risk(text):
+                cut = _re.split(r'[,\(]', text)[0].strip()
+                words = cut.split()
+                return ' '.join(words[:7]) if len(words) > 7 else cut
+            counter_risks = [_short_risk(n) for n in _neg_full]
         if counter_thesis and ' | ' in counter_thesis:
             ct_parts = [s.strip() for s in counter_thesis.split(' | ') if s.strip()]
         elif counter_thesis:
