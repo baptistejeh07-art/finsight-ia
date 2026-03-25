@@ -70,6 +70,11 @@ def run_societe(ticker: str) -> None:
     if pptx_bytes:
         _save(OUT_DIR / f"{ticker}_pitchbook.pptx", pptx_bytes)
 
+    excel_bytes = state.get("excel_bytes")
+    if excel_bytes:
+        _save(OUT_DIR / f"{ticker}_financials.xlsx", excel_bytes)
+        log.info("Sauvegarde : %s_financials.xlsx", ticker)
+
     briefing = state.get("briefing_text") or state.get("briefing")
     if briefing:
         p = OUT_DIR / f"{ticker}_briefing.txt"
@@ -92,6 +97,7 @@ def run_societe(ticker: str) -> None:
     print(f"\nFichiers générés dans : {OUT_DIR}")
     print(f"  • {ticker}_report.pdf")
     print(f"  • {ticker}_pitchbook.pptx")
+    print(f"  • {ticker}_financials.xlsx")
     print(f"  • {ticker}_briefing.txt")
     print(f"  • {ticker}_state.json")
     print(f"\nTemps total : {elapsed:.1f}s")
