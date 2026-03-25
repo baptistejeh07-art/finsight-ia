@@ -171,8 +171,13 @@ def make_sector_weights_chart(data):
 def make_scatter_sectoriel(data):
     secteurs = data["secteurs"]
     noms_abr = [s[0][:10] for s in secteurs]
-    ev    = [float(str(s[4]).replace('x','').replace(',','.')) for s in secteurs]
-    crois = [float(str(s[6]).replace('%','').replace('+','').replace(',','.')) for s in secteurs]
+    def _safe_float(val, fallback=15.0):
+        try:
+            return float(str(val).replace('x','').replace('%','').replace('+','').replace(',','.').replace('\u2014','').strip() or fallback)
+        except (ValueError, TypeError):
+            return fallback
+    ev    = [_safe_float(s[4], 15.0) for s in secteurs]
+    crois = [_safe_float(s[6], 0.0)  for s in secteurs]
     sigs  = [s[3] for s in secteurs]
     cols  = [sig_hex(s) for s in sigs]
     offsets = [( 8, 6),( 8, 6),( 8,-13),(-58, 5),( 8, 6),
