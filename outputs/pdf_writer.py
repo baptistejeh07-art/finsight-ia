@@ -481,9 +481,9 @@ def _make_margins_chart(data):
     ax.set_facecolor('white')
     fig.patch.set_facecolor('white')
     ax.grid(axis='y', alpha=0.25, color='#D0D5DD', linewidth=0.5, zorder=0)
-    ax.legend(fontsize=9, loc='upper left', frameon=True,
-              framealpha=0.85, edgecolor='#D0D5DD')
-    plt.tight_layout(pad=0.8)
+    ax.legend(fontsize=9, loc='upper center', bbox_to_anchor=(0.5, -0.14),
+              ncol=3, frameon=True, framealpha=0.9, edgecolor='#D0D5DD')
+    plt.subplots_adjust(bottom=0.22)
     buf = io.BytesIO()
     fig.savefig(buf, format='png', dpi=160, bbox_inches='tight')
     plt.close(fig)
@@ -2355,6 +2355,26 @@ class PDFWriter:
 
         # --- Fetch chart data (yfinance, non-bloquant) ---
         peer_tickers = [_g(p, 'ticker') for p in (peers or []) if _g(p, 'ticker')][:5]
+        # Fallback secteur si la synthese n'a pas fourni de tickers
+        if not peer_tickers:
+            _SECTOR_PEERS = {
+                'consumer cyclical': ['GM', 'F', 'RIVN', 'LCID', 'HMC'],
+                'technology':        ['MSFT', 'GOOGL', 'META', 'AMZN', 'NVDA'],
+                'health':            ['JNJ', 'PFE', 'MRK', 'ABBV', 'TMO'],
+                'financ':            ['JPM', 'BAC', 'GS', 'WFC', 'MS'],
+                'energy':            ['XOM', 'CVX', 'COP', 'SLB', 'EOG'],
+                'communication':     ['META', 'GOOGL', 'DIS', 'NFLX', 'T'],
+                'consumer staple':   ['PG', 'KO', 'PEP', 'WMT', 'COST'],
+                'utilities':         ['NEE', 'DUK', 'SO', 'AEP', 'EXC'],
+                'industrial':        ['CAT', 'GE', 'HON', 'UNP', 'RTX'],
+                'basic material':    ['LIN', 'APD', 'SHW', 'NUE', 'FCX'],
+                'real estate':       ['AMT', 'PLD', 'EQIX', 'SPG', 'PSA'],
+            }
+            s_low = (sector or '').lower()
+            for _k, _v in _SECTOR_PEERS.items():
+                if _k in s_low:
+                    peer_tickers = [t for t in _v if t.upper() != ticker.upper()][:5]
+                    break
 
         perf_result = _fetch_perf_data(ticker, exchange)
         if perf_result:
