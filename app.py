@@ -148,6 +148,8 @@ div[data-testid="stButton"] > button:not([kind="primary"]):not([data-testid="stB
     font-size: 11px !important;
     padding-left: 6px !important;
     padding-right: 6px !important;
+    text-align: center !important;
+    justify-content: center !important;
 }
 
 /* HOME */
