@@ -895,6 +895,199 @@ def render_running() -> None:
 
 
 # ---------------------------------------------------------------------------
+# Helper : construction du dict data pour IndicePDFWriter
+# ---------------------------------------------------------------------------
+
+def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> dict:
+    """Construit le dict data attendu par IndicePDFWriter depuis tickers_data."""
+    from statistics import median as _med
+    from datetime import date as _date
+
+    today_str = _date.today().strftime("%d %B %Y").lstrip("0")
+
+    # ── Agrégation par secteur ─────────────────────────────────────────────
+    sectors: dict = {}
+    for t in tickers_data:
+        sec = t.get("sector") or "Autre"
+        sectors.setdefault(sec, []).append(t)
+
+    secteurs_list = []
+    for sec_name, items in sectors.items():
+        nb   = len(items)
+        sc   = sum((x.get("score_global") or 0) for x in items) / nb
+        evs  = [x["ev_ebitda"] for x in items if x.get("ev_ebitda") is not None]
+        ev   = f"{_med(evs):.1f}x" if evs else "—"
+        mgs  = [x.get("ebitda_margin") or x.get("gross_margin") for x in items
+                if (x.get("ebitda_margin") or x.get("gross_margin")) is not None]
+        mg   = round(_med(mgs) * 100, 1) if mgs else 0.0
+        moms = [x["momentum_52w"] for x in items if x.get("momentum_52w") is not None]
+        mom_pct = round(_med(moms) * 100, 1) if moms else 0.0
+        mom_str = f"+{mom_pct:.1f}%" if mom_pct >= 0 else f"{mom_pct:.1f}%"
+        # croissance BPA : on approche avec rev_growth si disponible
+        revg = [x.get("revenue_growth") for x in items if x.get("revenue_growth") is not None]
+        croi_pct = round(_med(revg) * 100, 1) if revg else 0.0
+        croi_str = f"+{croi_pct:.1f}%" if croi_pct >= 0 else f"{croi_pct:.1f}%"
+        sig  = ("Surpond\xe9rer" if sc >= 60 else ("Sous-pond\xe9rer" if sc < 40 else "Neutre"))
+        secteurs_list.append((sec_name, nb, int(sc), sig, ev, mg, croi_str, mom_str))
+
+    secteurs_list.sort(key=lambda x: x[2], reverse=True)
+
+    # ── Signal global ──────────────────────────────────────────────────────
+    all_scores = [x.get("score_global") or 0 for x in tickers_data]
+    avg_score  = sum(all_scores) / len(all_scores) if all_scores else 50
+    signal_global = ("Surpond\xe9rer" if avg_score >= 60
+                     else ("Sous-pond\xe9rer" if avg_score < 40 else "Neutre"))
+    conviction = min(95, max(50, int(avg_score)))
+
+    # ── Top 3 secteurs ────────────────────────────────────────────────────
+    top3 = []
+    for s in secteurs_list[:3]:
+        sec_name = s[0]
+        sec_items = sectors.get(sec_name, [])
+        top_tkrs  = sorted(sec_items, key=lambda x: x.get("score_global") or 0, reverse=True)[:3]
+        societes  = []
+        for tkr in top_tkrs:
+            ev_t = f"{tkr['ev_ebitda']:.1f}x" if tkr.get("ev_ebitda") else "—"
+            sig_t = ("Surpond\xe9rer" if (tkr.get("score_global") or 0) >= 60
+                     else ("Sous-pond\xe9rer" if (tkr.get("score_global") or 0) < 40 else "Neutre"))
+            societes.append((tkr.get("ticker","?"), sig_t, ev_t, tkr.get("score_global") or 0))
+        top3.append({
+            "nom":        sec_name,
+            "signal":     s[3],
+            "score":      s[2],
+            "ev_ebitda":  s[4],
+            "catalyseur": f"Score composite {s[2]}/100 — momentum {s[7]}",
+            "risque":     "Concentration sectorielle — diversification recommandee",
+            "societes":   societes if societes else [("—","Neutre","—",0)],
+        })
+    # Padding si moins de 3 secteurs Surpond
+    while len(top3) < 3 and len(secteurs_list) > len(top3):
+        idx = len(top3)
+        s   = secteurs_list[idx]
+        sec_items = sectors.get(s[0], [])
+        top_tkrs  = sorted(sec_items, key=lambda x: x.get("score_global") or 0, reverse=True)[:3]
+        societes  = [(t.get("ticker","?"), "Neutre",
+                      f"{t['ev_ebitda']:.1f}x" if t.get("ev_ebitda") else "—",
+                      t.get("score_global") or 0) for t in top_tkrs]
+        top3.append({
+            "nom": s[0], "signal": s[3], "score": s[2], "ev_ebitda": s[4],
+            "catalyseur": f"Score {s[2]}/100", "risque": "Surveiller",
+            "societes": societes or [("—","Neutre","—",0)],
+        })
+
+    # ── Rotation (phases par défaut) ──────────────────────────────────────
+    _phase_map = {
+        "Technology": ("Expansion","Faible","Elevee","Accumuler"),
+        "Health Care": ("Toutes","Faible","Faible","Accumuler"),
+        "Financials": ("Expansion","Positive","Moderee","Accumuler"),
+        "Consumer Discretionary": ("Expansion","Moderee","Elevee","Neutre"),
+        "Industrials": ("Expansion","Faible","Elevee","Neutre"),
+        "Communication Services": ("Expansion","Moderee","Moderee","Neutre"),
+        "Consumer Staples": ("Recession","Faible","Faible","Neutre"),
+        "Energy": ("Expansion","Faible","Moderee","Neutre"),
+        "Real Estate": ("Reprise","Elevee","Moderee","All\xe9ger"),
+        "Materials": ("Reprise","Faible","Elevee","Neutre"),
+        "Utilities": ("Recession","Elevee","Faible","All\xe9ger"),
+    }
+    rotation = []
+    for s in secteurs_list:
+        ph = _phase_map.get(s[0], ("Expansion","Moderee","Moderee","Neutre"))
+        rot_sig = ("Accumuler" if s[3] == "Surpond\xe9rer"
+                   else ("All\xe9ger" if s[3] == "Sous-pond\xe9rer" else "Neutre"))
+        rotation.append((s[0], ph[0], ph[1], ph[2], rot_sig))
+
+    # ── nb_societes et cours indice ───────────────────────────────────────
+    _cours_map = {"CAC40":"^FCHI","SP500":"^GSPC","DAX40":"^GDAXI",
+                  "FTSE100":"^FTSE","STOXX50":"^STOXX50E","EUROSTOXX50":"^STOXX50E"}
+    cours_str = "—"; ytd_str = "—"; pe_str = "—"
+    try:
+        import yfinance as _yf
+        _sym = _cours_map.get(universe.upper())
+        if _sym:
+            _tk = _yf.Ticker(_sym)
+            _info = _tk.info
+            _px = _info.get("regularMarketPrice") or _info.get("previousClose")
+            if _px:
+                cours_str = f"{_px:,.2f}".replace(",","X").replace(".",",").replace("X",".")
+            _pe = _info.get("trailingPE") or _info.get("forwardPE")
+            if _pe:
+                pe_str = f"{_pe:.1f}x"
+    except Exception:
+        pass
+
+    # ── Textes synthétiques ───────────────────────────────────────────────
+    top_noms = " / ".join(s[0] for s in secteurs_list[:3])
+    texte_macro = (
+        f"Le {display_name} presente un signal global <b>{signal_global} (conviction {conviction}%)</b> "
+        f"base sur l'analyse de {len(tickers_data)} societes reparties sur {len(secteurs_list)} secteurs. "
+        f"Le score composite moyen de {avg_score:.0f}/100 reflete un equilibre entre momentum, "
+        f"valorisation et revision des BPA. Les secteurs les plus solides sont : <b>{top_noms}</b>."
+    )
+    texte_signal = (
+        f"Signal global <b>{signal_global} (conviction {conviction}%)</b>. "
+        f"L'analyse sectorielle identifie {sum(1 for s in secteurs_list if s[3]=='Surpond\xe9rer')} "
+        f"secteur(s) Surponderer, {sum(1 for s in secteurs_list if s[3]=='Neutre')} Neutre "
+        f"et {sum(1 for s in secteurs_list if s[3]=='Sous-pond\xe9rer')} Sous-ponderer. "
+        "Horizon d'allocation recommande : 12 mois."
+    )
+    texte_rotation = (
+        "L'analyse du cycle economique actuel oriente le positionnement vers les secteurs "
+        "a forte visibilite de BPA et resilience des marges. La sensibilite aux taux reste "
+        f"le principal facteur de differentiation. Favoriser <b>{top_noms}</b> "
+        "dans un contexte de croissance moderee."
+    )
+
+    # ── Finbert par défaut ────────────────────────────────────────────────
+    finbert = {
+        "nb_articles": 0,
+        "score_agrege": 0.0,
+        "positif": {"nb": 0, "score": "N/A", "themes": "Donnees non disponibles"},
+        "neutre":  {"nb": 0, "score": "N/A", "themes": "Donnees non disponibles"},
+        "negatif": {"nb": 0, "score": "N/A", "themes": "Donnees non disponibles"},
+        "par_secteur": [(s[0], "N/A", "Neutre") for s in secteurs_list],
+    }
+
+    return {
+        "indice":         display_name,
+        "code":           universe[:6].upper(),
+        "nb_secteurs":    len(secteurs_list),
+        "nb_societes":    len(tickers_data),
+        "signal_global":  signal_global,
+        "conviction_pct": conviction,
+        "date_analyse":   today_str,
+        "cours":          cours_str,
+        "variation_ytd":  ytd_str,
+        "pe_forward":     pe_str,
+        "score_global":   int(avg_score),
+        "secteurs":       secteurs_list,
+        "texte_macro":    texte_macro,
+        "texte_signal":   texte_signal,
+        "texte_rotation": texte_rotation,
+        "catalyseurs": [
+            ("Acceleration macro", "Hausse BPA et amelioration des marges.", "6-12 mois"),
+            ("Pivot monetaire", "Baisse des taux — re-rating des multiples de croissance.", "12-18 mois"),
+            ("Capex technologique", "Investissements IA et transformation digitale.", "12-24 mois"),
+        ],
+        "risques": [
+            ("Recession", "Contraction du PIB — revision baissiere des BPA.", "30%", "Eleve"),
+            ("Inflation persistante", "Maintien des taux — compression des multiples.", "40%", "Modere"),
+            ("Choc geopolitique", "Disruption chaines d'approvisionnement.", "20%", "Eleve"),
+        ],
+        "top3_secteurs":  top3,
+        "rotation":       rotation,
+        "finbert":        finbert,
+        "methodologie": [
+            ("Score sectoriel",   "Composite 0-100 : 40% momentum, 30% rev. BPA, 30% valorisation"),
+            ("Signal",            "Surponderer (>60) / Neutre (40-60) / Sous-ponderer (<40)"),
+            ("Valorisation",      "EV/EBITDA median LTM — source FMP / yfinance"),
+            ("Momentum",          "Performance relative 52 semaines"),
+            ("Univers",           f"{display_name} — {len(tickers_data)} societes analysees"),
+            ("Mise a jour",       today_str),
+        ],
+    }
+
+
+# ---------------------------------------------------------------------------
 # Page SCREENING RUNNING
 # ---------------------------------------------------------------------------
 
@@ -1011,6 +1204,21 @@ def render_screening_running() -> None:
         except Exception:
             pass
 
+        # ── Génération rapport PDF indice ──────────────────────────────────
+        _status("Generation du rapport PDF indice")
+        pdf_bytes_indice = None
+        try:
+            from outputs.indice_pdf_writer import IndicePDFWriter
+            _indice_data = _build_indice_data(tickers_data, display_name, universe)
+            _pdf_slug = display_name.lower().replace(" ", "_").replace("&", "").replace("/", "_")
+            _pdf_path = str(out_dir / f"indice_{_pdf_slug}.pdf")
+            IndicePDFWriter.generate(_indice_data, _pdf_path)
+            pdf_bytes_indice = open(_pdf_path, "rb").read()
+        except Exception as _ex_pdf:
+            import traceback
+            log.warning(f"[app] IndicePDFWriter error: {_ex_pdf}")
+            traceback.print_exc()
+
         status_lbl.markdown(
             f'<div style="text-align:center;font-size:12px;font-weight:600;color:#1a7a52;">'
             f'Screening termine en {elapsed/1000:.1f}s — {len(tickers_data)} societes</div>',
@@ -1024,6 +1232,7 @@ def render_screening_running() -> None:
             "tickers_data": tickers_data,
             "excel_path":   out_path,
             "excel_bytes":  xlsx_bytes,
+            "pdf_bytes":    pdf_bytes_indice,
             "elapsed_ms":   elapsed,
         }
         st.session_state.stage = "screening_results"
