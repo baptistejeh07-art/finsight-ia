@@ -31,6 +31,19 @@ log = logging.getLogger(__name__)
 _OUTPUT_DIR = Path(__file__).parent / "generated"
 
 # ---------------------------------------------------------------------------
+# CONFIG — seuils et limites d'affichage
+# ---------------------------------------------------------------------------
+MAX_STRENGTHS_DISPLAYED  = 3
+MAX_RISKS_DISPLAYED      = 3
+MAX_QA_FLAGS_DISPLAYED   = 5
+MAX_ASSUMPTIONS_DISPLAYED = 2
+
+ALTMAN_Z_SAINE           = 2.99   # z >= seuil → santé financière saine
+ALTMAN_Z_GRISE           = 1.81   # z >= seuil → zone grise
+CONVICTION_DELTA_ROBUSTE = 0.2    # delta > seuil → thèse robuste
+CONVICTION_DELTA_FRAGILE = -0.2   # delta < seuil → thèse fragile
+
+# ---------------------------------------------------------------------------
 # Palette couleurs IB
 # ---------------------------------------------------------------------------
 
@@ -166,9 +179,9 @@ class PPTXBuilder:
             # Altman Z flag
             if yr.altman_z is not None:
                 z = yr.altman_z
-                z_label = "Sante financiere : SAINE" if z >= 2.99 else (
-                    "Sante financiere : ZONE GRISE" if z >= 1.81 else "DETRESSE FINANCIERE")
-                z_color = _GREEN if z >= 2.99 else (_ORANGE if z >= 1.81 else _RED)
+                z_label = "Sante financiere : SAINE" if z >= ALTMAN_Z_SAINE else (
+                    "Sante financiere : ZONE GRISE" if z >= ALTMAN_Z_GRISE else "DETRESSE FINANCIERE")
+                z_color = _GREEN if z >= ALTMAN_Z_SAINE else (_ORANGE if z >= ALTMAN_Z_GRISE else _RED)
                 _rect(sl, Inches(0.5), Inches(6.6), Inches(4.5), Inches(0.45), z_color)
                 _text_box(sl, Inches(0.5), Inches(6.6), Inches(4.5), Inches(0.45),
                           z_label, 11, _WHITE, bold=True)
@@ -238,7 +251,12 @@ class PPTXBuilder:
             _rect(sl, Inches(0.5), Inches(1.3), Inches(5.8), Inches(0.45), _GREEN)
             _text_box(sl, Inches(0.5), Inches(1.3), Inches(5.8), Inches(0.45),
                       "POINTS FORTS", 13, _WHITE, bold=True)
-            for i, s in enumerate(synthesis.strengths[:3]):
+            _strengths = synthesis.strengths or []
+            if len(_strengths) > MAX_STRENGTHS_DISPLAYED:
+                log.warning("pptx_builder slide4: %d strengths disponibles — "
+                            "affichage tronque a MAX_STRENGTHS_DISPLAYED=%d",
+                            len(_strengths), MAX_STRENGTHS_DISPLAYED)
+            for i, s in enumerate(_strengths[:MAX_STRENGTHS_DISPLAYED]):
                 _text_box(sl, Inches(0.6), Inches(1.9 + i * 0.9), Inches(5.6), Inches(0.75),
                           f"+ {s}", 12, _DARK)
 
@@ -246,7 +264,12 @@ class PPTXBuilder:
             _rect(sl, Inches(7.0), Inches(1.3), Inches(5.8), Inches(0.45), _RED)
             _text_box(sl, Inches(7.0), Inches(1.3), Inches(5.8), Inches(0.45),
                       "RISQUES IDENTIFIES", 13, _WHITE, bold=True)
-            for i, r in enumerate(synthesis.risks[:3]):
+            _risks = synthesis.risks or []
+            if len(_risks) > MAX_RISKS_DISPLAYED:
+                log.warning("pptx_builder slide4: %d risks disponibles — "
+                            "affichage tronque a MAX_RISKS_DISPLAYED=%d",
+                            len(_risks), MAX_RISKS_DISPLAYED)
+            for i, r in enumerate(_risks[:MAX_RISKS_DISPLAYED]):
                 _text_box(sl, Inches(7.1), Inches(1.9 + i * 0.9), Inches(5.6), Inches(0.75),
                           f"- {r}", 12, _DARK)
 
@@ -271,7 +294,12 @@ class PPTXBuilder:
                       13, _WHITE, bold=True)
             y += Inches(0.6)
 
-            for fl in qa_python.flags[:5]:
+            _flags = qa_python.flags or []
+            if len(_flags) > MAX_QA_FLAGS_DISPLAYED:
+                log.warning("pptx_builder slide5: %d QA flags disponibles — "
+                            "affichage tronque a MAX_QA_FLAGS_DISPLAYED=%d",
+                            len(_flags), MAX_QA_FLAGS_DISPLAYED)
+            for fl in _flags[:MAX_QA_FLAGS_DISPLAYED]:
                 sym = "[E]" if fl.level == "ERROR" else "[W]" if fl.level == "WARNING" else "[i]"
                 col = _RED if fl.level == "ERROR" else (_ORANGE if fl.level == "WARNING" else _GREY)
                 _text_box(sl, Inches(0.5), y, Inches(12.0), Inches(0.35),
@@ -281,8 +309,8 @@ class PPTXBuilder:
         if devil:
             y += Inches(0.2)
             delta_str = f"{devil.conviction_delta:+.2f}"
-            solidity  = ("These fragile" if devil.conviction_delta < -0.2
-                         else "These robuste" if devil.conviction_delta > 0.2
+            solidity  = ("These fragile" if devil.conviction_delta < CONVICTION_DELTA_FRAGILE
+                         else "These robuste" if devil.conviction_delta > CONVICTION_DELTA_ROBUSTE
                          else "These moderement solide")
             _rect(sl, Inches(0.5), y, Inches(12.3), Inches(0.45), _NAVY)
             _text_box(sl, Inches(0.5), y, Inches(12.3), Inches(0.45),
@@ -296,7 +324,12 @@ class PPTXBuilder:
                           devil.counter_thesis[:250], 11, _DARK)
                 y += Inches(0.8)
 
-            for a in devil.key_assumptions[:2]:
+            _assumptions = devil.key_assumptions or []
+            if len(_assumptions) > MAX_ASSUMPTIONS_DISPLAYED:
+                log.warning("pptx_builder slide5: %d key_assumptions disponibles — "
+                            "affichage tronque a MAX_ASSUMPTIONS_DISPLAYED=%d",
+                            len(_assumptions), MAX_ASSUMPTIONS_DISPLAYED)
+            for a in _assumptions[:MAX_ASSUMPTIONS_DISPLAYED]:
                 _text_box(sl, Inches(0.5), y, Inches(12.3), Inches(0.35),
                           f"? Hypothese fragile : {a[:100]}", 10, _ORANGE)
                 y += Inches(0.38)

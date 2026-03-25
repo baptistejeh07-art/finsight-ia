@@ -250,8 +250,9 @@ def _make_perf_chart(data):
     ax.fill_between(x, ticker_vals, index_vals,
                     where=[a > s for a, s in zip(ticker_vals, index_vals)],
                     alpha=0.08, color='#1B3A6B')
-    ax.set_xticks(x[::3])
-    ax.set_xticklabels(months[::3], fontsize=6, color='#555')
+    tick_step = max(1, n // 5) if n >= 2 else 1
+    ax.set_xticks(x[::tick_step])
+    ax.set_xticklabels(months[::tick_step], fontsize=6, color='#555')
     ax.tick_params(length=0)
     for sp in ['top', 'right']: ax.spines[sp].set_visible(False)
     ax.spines['left'].set_color('#D0D5DD')
@@ -358,12 +359,23 @@ def _make_pie_comparables(data):
         plt.close(fig); buf.seek(0)
         return buf
 
-    palette = ['#1B3A6B','#2A5298','#3D6099','#5580B8','#7AA0CC','#A0BEDC','#D0D5DD']
-    explode = [0.05] + [0] * (len(labels) - 1)
+    _BASE_PALETTE = ['#1B3A6B','#2A5298','#3D6099','#5580B8','#7AA0CC','#A0BEDC','#D0D5DD']
+    # Étendre la palette dynamiquement si plus d'éléments que prévu
+    n_labels = len(labels)
+    if n_labels > len(_BASE_PALETTE):
+        import matplotlib.cm as _cm
+        _extra = [
+            '#%02x%02x%02x' % tuple(int(c * 255) for c in _cm.Blues(0.3 + 0.5 * i / n_labels)[:3])
+            for i in range(n_labels - len(_BASE_PALETTE))
+        ]
+        palette = _BASE_PALETTE + _extra
+    else:
+        palette = _BASE_PALETTE
+    explode = [0.05] + [0] * (n_labels - 1)
     fig, ax = plt.subplots(figsize=(4.8, 4.0))
     wedges, _ = ax.pie(
         sizes, labels=None, autopct=None,
-        colors=palette[:len(labels)], explode=explode[:len(labels)],
+        colors=palette[:n_labels], explode=explode[:n_labels],
         startangle=90, pctdistance=0.78,
         wedgeprops=dict(linewidth=0.8, edgecolor='white')
     )
@@ -1234,7 +1246,12 @@ def _fetch_perf_data(ticker: str, exchange: str = '') -> dict:
         else:
             close = raw[['Close']]
 
-        close = close.dropna(how='all').tail(13)
+        close = close.dropna(how='all')
+        _available = len(close)
+        if _available > 13:
+            log.warning("pdf_writer _fetch_perf_data: %d mois disponibles — "
+                        "tronque a 13 (fallback FALLBACK_SEMAINES=13)", _available)
+        close = close.tail(13)
         if len(close) < 3:
             return {}
 

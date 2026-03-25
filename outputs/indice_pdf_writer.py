@@ -118,8 +118,17 @@ def make_indice_perf_chart(data):
         step = max(1, n // 12)
         x = np.arange(n)
         tick_idx = list(range(0, n, step))
-        tick_lbl = [dates[i][2:7].replace("-", "/") for i in tick_idx]  # "25/03" format
-        label_start = ph.get("label_start", dates[0][:7])
+        def _short_date(s):
+            """Extrait YY/MM depuis une date ISO 'YYYY-MM-DD' — robuste aux formats alternatifs."""
+            try:
+                parts = str(s).split("-")
+                if len(parts) >= 3:
+                    return f"{parts[0][2:]}/{parts[1]}"
+                return str(s)[:5]
+            except Exception:
+                return str(s)[:5]
+        tick_lbl = [_short_date(dates[i]) for i in tick_idx]
+        label_start = ph.get("label_start", str(dates[0])[:7])
         indice_name = ph.get("indice_name", data["indice"])
     else:
         # Fallback neutre (aucune donnée dispo) : droite à 100
@@ -128,7 +137,7 @@ def make_indice_perf_chart(data):
         i_perf = [100.0] * n
         bonds  = [100.0] * n
         gold   = [100.0] * n
-        tick_idx = list(range(0, n, 2))
+        tick_idx = list(range(0, n, max(1, n // 6)))
         tick_lbl = [f"M{i+1}" for i in tick_idx]
         label_start = "N-12M"
         indice_name = data["indice"]
@@ -1124,7 +1133,9 @@ class IndicePDFWriter:
             return on_page
 
         def _rewind(*bufs):
-            for b in bufs: b.seek(0)
+            for b in bufs:
+                if b is not None:
+                    b.seek(0)
 
         # Passe 1 — collecter numeros de page reels
         registry = {}

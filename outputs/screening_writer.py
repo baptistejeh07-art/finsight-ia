@@ -26,6 +26,14 @@ from openpyxl.utils import get_column_letter
 log = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
+# CONFIG — seuils nommés
+# ---------------------------------------------------------------------------
+SIGNAL_SURPONDERER = 75.0   # score >= seuil → Surpondérer
+SIGNAL_NEUTRE      = 55.0   # score >= seuil → Neutre (sinon Sous-pondérer)
+ALTMAN_Z_SAINE     = 2.99   # z > seuil → sain
+ALTMAN_Z_GRISE     = 1.81   # z > seuil → zone grise (sinon détresse)
+
+# ---------------------------------------------------------------------------
 # Palette couleurs (IB style) — utilisee pour le fallback from-scratch
 # ---------------------------------------------------------------------------
 _NAVY   = "1B2A4A"
@@ -172,9 +180,9 @@ def _signal(score: Optional[float]) -> str:
     if score is None:
         return "Neutre"
     s = float(score)
-    if s >= 75:
+    if s >= SIGNAL_SURPONDERER:
         return "Surpond\u00e9rer"
-    if s >= 55:
+    if s >= SIGNAL_NEUTRE:
         return "Neutre"
     return "Sous-pond\u00e9rer"
 
@@ -273,9 +281,9 @@ def _signal_altman(z: Any) -> str:
         return "\u2014"
     try:
         fz = float(z)
-        if fz > 2.99:
+        if fz > ALTMAN_Z_SAINE:
             return "Sain"
-        if fz > 1.81:
+        if fz > ALTMAN_Z_GRISE:
             return "Zone grise"
         return "Risque"
     except Exception:

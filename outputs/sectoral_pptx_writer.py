@@ -4,7 +4,7 @@ Pitchbook sectoriel 20 slides via python-pptx.
 Usage : SectoralPPTXWriter.generate(tickers_data, sector_name, universe, output_path)
 """
 from __future__ import annotations
-import io, datetime
+import io, datetime, logging
 from pathlib import Path
 from typing import Any, Optional
 
@@ -12,6 +12,8 @@ import numpy as np
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+
+log = logging.getLogger(__name__)
 
 from pptx import Presentation
 from pptx.util import Cm, Pt, Inches, Emu
@@ -37,6 +39,13 @@ _HOLD_L  = RGBColor(0xFD, 0xF3, 0xE5)
 # ─── SLIDE DIMENSIONS ─────────────────────────────────────────────────────────
 _SW = Inches(10.0)
 _SH = Inches(5.625)
+
+# ─── CONFIG ───────────────────────────────────────────────────────────────────
+MAX_CATS_DISPLAYED    = 3
+MAX_RISKS_DISPLAYED   = 3
+MAX_DRIVERS_DISPLAYED = 4
+MAX_TOP_N             = 3
+MAX_TICKERS_CHART     = 8
 
 # ─── SECTOR CONTENT LIBRARY ───────────────────────────────────────────────────
 _SECTOR_CONTENT = {
@@ -330,28 +339,120 @@ _SECTOR_CONTENT = {
     },
 }
 
-_SECTOR_DEFAULT = {
-    "description": "Ce secteur regroupe des entreprises aux profils varies, analysées sur la base de scores multifactoriels intégrant la valorisation, la croissance, la qualité bilancielle et le momentum de marche.",
-    "catalyseurs": [
-        ("Momentum Fondamental", "Amelioration des marges operationnelles — les leaders renforcent leur avantage concurrentiel."),
-        ("Consolidation Sectorielle", "Vague de M&A — prime de rachat potentielle sur les acteurs sous-valorises."),
-        ("Digitalisation", "Automatisation et IA — reduction des couts structurelle de 8-12 % a horizon 3 ans."),
-    ],
-    "risques": [
-        ("Environnement Macro", "Ralentissement de la croissance mondiale — impact sur les volumes et les revenus."),
-        ("Pressions Réglementaires", "Nouvelles contraintes sectorielles — surcouts de conformite."),
-        ("Competition Accrue", "Entree de nouveaux acteurs — pression sur les prix et les marges."),
-    ],
-    "drivers": [
-        ("up", "Fondamentaux Sectoriels", "Amelioration des marges — drivers structurels positifs"),
-        ("up", "Consolidation", "M&A sectoriel — prime de valorisation potentielle"),
-        ("down", "Macro Global", "Ralentissement croissance mondiale — sensibilite cyclique"),
-        ("down", "Reglementation", "Surcouts de conformite — pression sur les marges"),
-    ],
-    "cycle_comment": "Secteur en expansion moderee | selectivite recommandee",
-    "métriques": [("EV/EBITDA", "—", "Médiane"), ("Mg EBITDA", "—", "LTM"), ("Croissance", "—", "YoY"), ("ROE", "—", "LTM"), ("FCF Yield", "—", "Estime"), ("Score Moyen", "—", "/100")],
-    "conditions": [("Macro", "Recession confirmee — 2 trimestres negatifs", "6-9 mois"), ("Sectoriel", "Revision baissiere EPS > 15 %", "6-12 mois"), ("Fondamental", "Dégradâtion marges > 300 bps", "3-6 mois"), ("Réglementaire", "Mesures restrictives majeures", "Variable")],
-}
+def _build_content_from_data(td: list, sector_name: str, score_moyen: int,
+                              sig_label: str, ev_med: float, rev_med: float,
+                              mg_med: float, mom_med: float) -> dict:
+    """Build sector content dynamically from tickers_data for unrecognized sectors.
+    Uses actual state values — no static dict fallback."""
+    log.warning("sectoral_pptx: sector '%s' not in _SECTOR_CONTENT — "
+                "building content dynamically from tickers_data (%d societes)",
+                sector_name, len(td))
+
+    sorted_td = sorted(td, key=lambda x: x.get("score_global") or 0, reverse=True)
+    best  = sorted_td[0]  if sorted_td else {}
+    worst = sorted_td[-1] if len(sorted_td) > 1 else {}
+
+    best_ticker  = best.get("ticker", "—")
+    best_score   = int(best.get("score_global") or 0)
+    worst_ticker = worst.get("ticker", "—")
+
+    # Catalyseurs derived from actual metrics
+    cats = []
+    cats.append((
+        f"Leader {best_ticker}",
+        f"Score FinSight {best_score}/100 avec marge EBITDA {mg_med:.1f} % "
+        f"et momentum 52W {mom_med:+.1f} %."
+    ))
+    if rev_med > 5:
+        cats.append((
+            "Croissance sectorielle soutenue",
+            f"Croissance median des revenus a {rev_med:+.1f} % — dynamique favorable."
+        ))
+    else:
+        cats.append((
+            "Valorisation attractive",
+            f"EV/EBITDA median a {ev_med:.1f}x — potentiel de rerating si catalyseurs confirmes."
+        ))
+    cats.append((
+        "Consolidation sectorielle",
+        "Vague de M&A potentielle — prime de rachat sur les acteurs sous-valorises."
+    ))
+
+    # Risques derived from worst performer and macro
+    risks = []
+    if worst and worst_ticker != best_ticker:
+        risks.append((
+            f"Retardataire {worst_ticker}",
+            f"Score {int(worst.get('score_global') or 0)}/100 — "
+            "ecart significatif avec le leader, selectivite requise."
+        ))
+    else:
+        risks.append((
+            "Dispersion des scores",
+            "Ecart entre les profils — allocation selective recommandee."
+        ))
+    risks.append((
+        "Environnement macroeconomique",
+        "Ralentissement de la croissance mondiale — impact sur volumes et revenus."
+    ))
+    risks.append((
+        "Pressions reglementaires",
+        "Evolution du cadre sectoriel — surcouts de conformite potentiels."
+    ))
+
+    # Drivers from actual metrics
+    drivers = []
+    if rev_med > 0:
+        drivers.append(("up", "Croissance Organique",
+                        f"Revenus en progression a {rev_med:+.1f} % — tendance positive"))
+    else:
+        drivers.append(("down", "Croissance Sous Pression",
+                        f"Revenus medianes a {rev_med:+.1f} % — surveillance requise"))
+    if mg_med > 20:
+        drivers.append(("up", "Marges Solides",
+                        f"Marge EBITDA median a {mg_med:.1f} % — structure rentable"))
+    else:
+        drivers.append(("down", "Pression sur les Marges",
+                        f"Marge EBITDA a {mg_med:.1f} % — potentiel d amelioration"))
+    drivers.append(("down", "Macro Global",
+                    "Ralentissement croissance mondiale — sensibilite cyclique"))
+    drivers.append(("up", "Consolidation M&A",
+                    "Prime de valorisation potentielle — vague sectorielle"))
+
+    # Métriques: real computed values from state
+    metriques = [
+        ("EV/EBITDA", f"{ev_med:.1f}x",     "Médiane secteur"),
+        ("Mg EBITDA", f"{mg_med:.1f} %",     "LTM"),
+        ("Croissance", f"{rev_med:+.1f} %",  "YoY"),
+        ("Momentum",  f"{mom_med:+.1f} %",   "52W"),
+        ("Score Moyen", f"{score_moyen}/100", "FinSight"),
+        ("Nb Societes", str(len(td)),         "Analysees"),
+    ]
+
+    # Conditions based on signal level
+    alert_score = max(30, score_moyen - 15)
+    conditions = [
+        ("Macro",       "Recession confirmee — 2 trimestres negatifs",          "6-9 mois"),
+        ("Sectoriel",   f"Score moyen < {alert_score} — degradation generalisee","6-12 mois"),
+        ("Fondamental", "Revision baissiere EPS > 15 %",                         "3-6 mois"),
+        ("Reglementaire", "Mesures restrictives majeures",                       "Variable"),
+    ]
+
+    quality = "attractif" if score_moyen >= 65 else "modere" if score_moyen >= 45 else "prudent"
+    return {
+        "description": (
+            f"Le secteur {sector_name} regroupe {len(td)} entreprise(s) analysee(s) dans l univers "
+            f"FinSight. EV/EBITDA median : {ev_med:.1f}x, marge EBITDA : {mg_med:.1f} %, "
+            f"croissance revenus : {rev_med:+.1f} %. Profil {quality} — signal {sig_label.lower()} "
+            f"selon le modele multifactoriel FinSight (score moyen {score_moyen}/100)."
+        ),
+        "catalyseurs":  cats,
+        "risques":      risks,
+        "drivers":      drivers,
+        "cycle_comment": f"Secteur {sector_name} | {sig_label.lower()} | score {score_moyen}/100",
+        "métriques":    metriques,
+        "conditions":   conditions,
+    }
 
 
 # ─── DATA HELPERS ─────────────────────────────────────────────────────────────
@@ -423,7 +524,6 @@ def _fmt_mds(v):
 def _prepare_data(tickers_data: list[dict], sector_name: str, universe: str) -> dict:
     """Pre-compute all derived values needed for the PPTX."""
     td = tickers_data or []
-    content = _SECTOR_CONTENT.get(sector_name, _SECTOR_DEFAULT)
 
     scores = [t.get("score_global") for t in td if t.get("score_global") is not None]
     score_moyen = int(round(_avg(scores))) if scores else 0
@@ -440,6 +540,14 @@ def _prepare_data(tickers_data: list[dict], sector_name: str, universe: str) -> 
     mg_med  = _med(mg_vals)  if mg_vals  else 0.0        # ebitda_margin déjà en %
     mom_med = _med(mom_vals) if mom_vals else 0.0        # momentum_52w déjà en %
 
+    # Content: use static library if known, else build dynamically from state
+    if sector_name in _SECTOR_CONTENT:
+        content = _SECTOR_CONTENT[sector_name]
+    else:
+        content = _build_content_from_data(
+            td, sector_name, score_moyen, sig_label, ev_med, rev_med, mg_med, mom_med
+        )
+
     from config.sector_ref import get_sector_drivers
     drv = get_sector_drivers(sector_name)
     rf   = 0.033
@@ -449,7 +557,10 @@ def _prepare_data(tickers_data: list[dict], sector_name: str, universe: str) -> 
     wacc_pct = round(wacc * 100, 1)
 
     sorted_td = sorted(td, key=lambda x: x.get("score_global") or 0, reverse=True)
-    top3 = sorted_td[:3]
+    if len(sorted_td) > MAX_TOP_N:
+        log.warning("sectoral_pptx: %d societes disponibles — top3 tronquee a MAX_TOP_N=%d",
+                    len(sorted_td), MAX_TOP_N)
+    top3 = sorted_td[:MAX_TOP_N]
 
     date_str = datetime.date.today().strftime("%d %B %Y").replace(
         "January", "janvier").replace("February", "fevrier").replace(
@@ -721,10 +832,15 @@ def _chart_performance(tickers_data) -> bytes:
     fig.patch.set_facecolor('#FFFFFF')
     ax.set_facecolor('#F8F9FA')
 
+    if len(tickers_data) > MAX_TICKERS_CHART:
+        log.warning("sectoral_pptx _chart_performance: %d tickers disponibles — "
+                    "affichage tronque a MAX_TICKERS_CHART=%d",
+                    len(tickers_data), MAX_TICKERS_CHART)
+
     plotted = 0
     try:
         import yfinance as yf
-        for i, t in enumerate(tickers_data[:8]):
+        for i, t in enumerate(tickers_data[:MAX_TICKERS_CHART]):
             ticker = t.get("ticker")
             if not ticker: continue
             try:
@@ -739,10 +855,13 @@ def _chart_performance(tickers_data) -> bytes:
     except: pass
 
     if plotted == 0:
-        # Fallback illustrative
+        # Fallback illustrative — warning car données non réelles
+        log.warning("sectoral_pptx _chart_performance: yfinance indisponible — "
+                    "utilisation d un fallback illustratif (donnees simulees)")
         import numpy as np
         x = np.linspace(0, 52, 53)
-        for i, t in enumerate(tickers_data[:6]):
+        display_td = tickers_data[:MAX_TICKERS_CHART]
+        for i, t in enumerate(display_td):
             np.random.seed(i * 7)
             y = np.cumsum(np.random.randn(53) * 1.5)
             ax.plot(x, y, color=colors_line[i % len(colors_line)],
@@ -810,10 +929,17 @@ def _s02_exec_summary(prs, D):
     cats = content.get("catalyseurs", [])
     risks = content.get("risques", [])
 
+    if len(cats) > MAX_CATS_DISPLAYED:
+        log.warning("sectoral_pptx _s02: %d catalyseurs disponibles — affichage tronque a MAX_CATS_DISPLAYED=%d",
+                    len(cats), MAX_CATS_DISPLAYED)
+    if len(risks) > MAX_RISKS_DISPLAYED:
+        log.warning("sectoral_pptx _s02: %d risques disponibles — affichage tronque a MAX_RISKS_DISPLAYED=%d",
+                    len(risks), MAX_RISKS_DISPLAYED)
+
     # Catalyseurs
     _rect(slide, 0.9, 3.7, 11.4, 0.7, fill=_NAVY)
     _txb(slide, "CATALYSEURS SECTORIELS", 0.9, 3.75, 11.4, 0.6, size=8.5, bold=True, color=_WHITE, align=PP_ALIGN.CENTER)
-    for i, (cat_title, cat_body) in enumerate(cats[:3]):
+    for i, (cat_title, cat_body) in enumerate(cats[:MAX_CATS_DISPLAYED]):
         yy = 4.6 + i * 1.7
         _rect(slide, 0.9, yy, 0.1, 1.5, fill=_BUY)
         _rect(slide, 1.0, yy, 11.3, 1.5, fill=_GREEN_L)
@@ -823,7 +949,7 @@ def _s02_exec_summary(prs, D):
     # Risques
     _rect(slide, 13.1, 3.7, 11.4, 0.7, fill=_SELL)
     _txb(slide, "RISQUES PRINCIPAUX", 13.1, 3.75, 11.4, 0.6, size=8.5, bold=True, color=_WHITE, align=PP_ALIGN.CENTER)
-    for i, (risk_title, risk_body) in enumerate(risks[:3]):
+    for i, (risk_title, risk_body) in enumerate(risks[:MAX_RISKS_DISPLAYED]):
         yy = 4.6 + i * 1.7
         _rect(slide, 13.1, yy, 0.1, 1.5, fill=_SELL)
         _rect(slide, 13.2, yy, 11.3, 1.5, fill=_RED_L)
@@ -958,7 +1084,10 @@ def _s07_cycle(prs, D):
     content = D["content"]
     drivers = content.get("drivers", [])
 
-    for i, (direction, name, body) in enumerate(drivers[:4]):
+    if len(drivers) > MAX_DRIVERS_DISPLAYED:
+        log.warning("sectoral_pptx _s07: %d drivers disponibles — affichage tronque a MAX_DRIVERS_DISPLAYED=%d",
+                    len(drivers), MAX_DRIVERS_DISPLAYED)
+    for i, (direction, name, body) in enumerate(drivers[:MAX_DRIVERS_DISPLAYED]):
         yy = 2.5 + i * 2.55
         arrow_col = _BUY if direction == "up" else _SELL
         arrow_txt = "▲" if direction == "up" else "▼"
@@ -1296,7 +1425,10 @@ def _s17_risques(prs, D):
     risks = content.get("risques", [])
     conditions = content.get("conditions", [])
 
-    for col_i, (risk_title, risk_body) in enumerate(risks[:3]):
+    if len(risks) > MAX_RISKS_DISPLAYED:
+        log.warning("sectoral_pptx _s17: %d risques disponibles — affichage tronque a MAX_RISKS_DISPLAYED=%d",
+                    len(risks), MAX_RISKS_DISPLAYED)
+    for col_i, (risk_title, risk_body) in enumerate(risks[:MAX_RISKS_DISPLAYED]):
         cx = 0.9 + col_i * 8.1
         _rect(slide, cx, 2.5, 7.5, 5.5, fill=_RED_L)
         _rect(slide, cx, 2.5, 7.5, 0.7, fill=_SELL)

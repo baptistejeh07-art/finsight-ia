@@ -7,10 +7,13 @@ Usage : generate_sector_report(sector_name, tickers_data, output_path)
 from __future__ import annotations
 
 import io
+import logging
 import os
 import tempfile
 from datetime import date
 from typing import Optional
+
+log = logging.getLogger(__name__)
 
 import matplotlib
 matplotlib.use('Agg')
@@ -247,8 +250,19 @@ def build_sommaire(sector_name: str, page_nums: dict = None):
 
 # ─── CHARTS ───────────────────────────────────────────────────────────────────
 def _make_perf_chart(tickers_data: list[dict], sector_name: str) -> io.BytesIO:
-    """Performance relative basket sectoriel vs S&P 500 — base 100, 13 mois."""
-    months = ['Mar 25','Avr','Mai','Jun','Jul','Aou','Sep','Oct','Nov','Dec','Jan 26','Fev','Mar 26']
+    """Performance relative basket sectoriel vs S&P 500 — base 100, 13 mois.
+    Utilise le momentum_52w median comme base de reconstruction — donnees simulees coherentes."""
+    log.warning("sector_pdf_writer _make_perf_chart: utilisation de donnees simulees "
+                "(yfinance non appele ici) — graphique illustratif")
+
+    # Labels dynamiques : partir de il y a 13 mois jusqu'au mois courant
+    _MOIS = ['Jan','Fev','Mar','Avr','Mai','Jun','Jul','Aou','Sep','Oct','Nov','Dec']
+    _today = date.today()
+    months = []
+    for i in range(12, -1, -1):
+        m = (_today.month - 1 - i) % 12
+        y = _today.year - ((_today.month - 1 - i < 0) and (i > _today.month - 1))
+        months.append(f"{_MOIS[m]} {str(y)[2:]}")
     np.random.seed(42)
 
     # Estime la performance basket depuis momentum_52w moyen
@@ -281,8 +295,10 @@ def _make_perf_chart(tickers_data: list[dict], sector_name: str) -> io.BytesIO:
     ax.fill_between(x, basket, sp500,
                     where=[float(b) > float(s) for b, s in zip(basket, sp500)],
                     alpha=0.08, color='#1B3A6B')
-    ax.set_xticks(x[::3])
-    ax.set_xticklabels(months[::3], fontsize=6, color='#555')
+    _n = len(x)
+    _tick_step = max(1, _n // 5) if _n >= 2 else 1
+    ax.set_xticks(x[::_tick_step])
+    ax.set_xticklabels(months[::_tick_step], fontsize=6, color='#555')
     ax.tick_params(length=0)
     for sp in ['top', 'right']:
         ax.spines[sp].set_visible(False)
