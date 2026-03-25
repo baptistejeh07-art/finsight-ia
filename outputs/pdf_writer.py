@@ -1543,15 +1543,10 @@ def _frx(v):
 
 def _frm(v):
     """Formate une valeur stockee en millions → Md (milliards), 1 decimale.
-    Les valeurs financieres dans FinancialYear sont toujours en millions (via _m())."""
+    Les valeurs financieres dans FinancialYear sont toujours en millions (yfinance + LLM prompt)."""
     if v is None: return "\u2014"
     try:
         f = float(v)
-        # Si la valeur semble deja en milliards (ex: LLM retourne 394.3 au lieu de 394328)
-        # on la laisse telle quelle (seuil : < 50 000 → probablement deja en Md)
-        if abs(f) < 50_000:
-            return _fr(f, 1)
-        # Valeur en millions → diviser par 1000 pour obtenir des Md
         return _fr(f / 1_000, 1)
     except: return "\u2014"
 
