@@ -272,7 +272,7 @@ def _make_perf_chart(data):
     title = "Performance relative \u2014 base 100"
     if start_label:
         title += f", {start_label}"
-    ax.set_title(title, fontsize=10, color='#1B3A6B', fontweight='bold', pad=6)
+    ax.set_title(title, fontsize=12, color='#1B3A6B', fontweight='bold', pad=6)
     plt.tight_layout(pad=0.5)
     buf = io.BytesIO()
     fig.savefig(buf, format='png', dpi=180, bbox_inches='tight')
@@ -292,24 +292,24 @@ def _make_ff_chart(data):
     currency   = _d(data, 'currency', '')
 
     n = len(methods)
-    # Hauteur adaptive : min 4.0, +0.72 par methode pour eviter overlaps
-    fig_h = max(4.0, 1.4 + n * 0.72)
-    fig, ax = plt.subplots(figsize=(8.5, fig_h))
+    # Hauteur adaptive : min 4.5, +0.72 par methode pour eviter overlaps (FIX 7)
+    fig_h = max(4.5, 1.4 + n * 0.72)
+    fig, ax = plt.subplots(figsize=(10, fig_h))
 
     y = np.arange(n)
     for i, (lo, hi, col) in enumerate(zip(lows, highs, cols)):
         lo, hi = float(lo), float(hi)
         ax.barh(y[i], hi - lo, left=lo, height=0.48, color=col, alpha=0.85, zorder=3)
-        # Valeur centrale dans la barre — taille augmentee
+        # Valeur centrale dans la barre — taille lisible (FIX 6+7)
         ax.text((lo + hi) / 2, y[i], f"{int((lo + hi) / 2)}",
-                va='center', ha='center', fontsize=8.5, color='white', fontweight='bold', zorder=4)
+                va='center', ha='center', fontsize=10, color='white', fontweight='bold', zorder=4)
         # Valeurs basses/hautes HORS de la barre — offset adaptatif + clip_on=False
         rng_bar = hi - lo if hi > lo else 1
         offset = max(rng_bar * 0.04, 2.0)
         ax.text(lo - offset, y[i], f"{int(lo)}", va='center', ha='right',
-                fontsize=8, color='#444', clip_on=False)
+                fontsize=10, color='#444', clip_on=False)
         ax.text(hi + offset, y[i], f"{int(hi)}", va='center', ha='left',
-                fontsize=8, color='#444', clip_on=False)
+                fontsize=10, color='#444', clip_on=False)
 
     if course and lows and highs:
         ax.axvline(x=course, color='#B06000', linewidth=2.0, linestyle='--', zorder=5)
@@ -331,11 +331,11 @@ def _make_ff_chart(data):
         margin = max(20, rng * 0.20)
         ax.set_xlim(min(all_v) - margin, max(all_v) + margin)
 
-    ax.set_xlabel(f'Valeur par action ({currency})', fontsize=9, color='#555')
+    ax.set_xlabel(f'Valeur par action ({currency})', fontsize=10, color='#555')
     for sp in ['top', 'right']: ax.spines[sp].set_visible(False)
     ax.spines['left'].set_color('#D0D5DD')
     ax.spines['bottom'].set_color('#D0D5DD')
-    ax.tick_params(axis='x', labelsize=8)
+    ax.tick_params(axis='x', labelsize=9)
     ax.tick_params(axis='y', length=0)
     ax.set_facecolor('white')
     fig.patch.set_facecolor('white')
@@ -383,8 +383,8 @@ def _make_pie_comparables(data):
     else:
         palette = _BASE_PALETTE
     explode = [0.05] + [0] * (n_labels - 1)
-    # Figsize carre pour eviter l'ecrasement du donut
-    fig, ax = plt.subplots(figsize=(5.2, 5.2))
+    # Figsize carre max (5,5) pour eviter l'ecrasement du donut (FIX 7)
+    fig, ax = plt.subplots(figsize=(5, 5))
     ax.set_aspect('equal')
     wedges, _ = ax.pie(
         sizes, labels=None, autopct=None,
@@ -392,7 +392,7 @@ def _make_pie_comparables(data):
         startangle=90, pctdistance=0.78,
         wedgeprops=dict(linewidth=0.8, edgecolor='white')
     )
-    ax.set_title(f'Poids relatif {cap_label} \u2014 Secteur {sector_name}', fontsize=9,
+    ax.set_title(f'Poids relatif {cap_label} \u2014 Secteur {sector_name}', fontsize=12,
                  color='#1B3A6B', fontweight='bold', pad=10)
     centre = plt.Circle((0, 0), 0.42, color='white')
     ax.add_patch(centre)
@@ -402,13 +402,91 @@ def _make_pie_comparables(data):
             fontsize=14, fontweight='bold', color='#1B3A6B')
     ax.legend(wedges, labels,
               loc='lower center', bbox_to_anchor=(0.5, -0.20),
-              ncol=2, fontsize=8.5, frameon=False,
+              ncol=2, fontsize=9, frameon=False,
               handlelength=1.4, handleheight=1.0, columnspacing=1.2)
     fig.patch.set_facecolor('white')
     plt.tight_layout(pad=0.5)
     buf = io.BytesIO()
     fig.savefig(buf, format='png', dpi=180, bbox_inches='tight')
     plt.close(fig); buf.seek(0)
+    return buf
+
+
+def _make_margins_chart(data):
+    """Bar chart Marge brute / Marge EBITDA / Marge nette par annee (FIX 2)."""
+    if not _MATPLOTLIB_OK:
+        return _blank_chart_buf(8, 2.5)
+    is_data     = data.get('is_data') or []
+    col_headers = data.get('is_col_headers') or []
+
+    # Recuperer les lignes de marges depuis is_data (index 2=marge brute, 4=marge EBITDA, 6=marge nette)
+    gm_row, em_row, nm_row = None, None, None
+    for row in is_data:
+        if not row:
+            continue
+        lbl = str(row[0]).lower()
+        if 'marge brute' in lbl:
+            gm_row = row[1:]
+        elif 'marge ebitda' in lbl or ('ebitda' in lbl and 'marge' in lbl):
+            em_row = row[1:]
+        elif 'marge nette' in lbl or ('nette' in lbl and 'marge' in lbl):
+            nm_row = row[1:]
+
+    if not col_headers or not any(r is not None for r in [gm_row, em_row, nm_row]):
+        return _blank_chart_buf(8, 2.5)
+
+    def _parse_pct(v):
+        if v is None or str(v) in ('\u2014', '—', '', 'N/A'):
+            return None
+        try:
+            s = str(v).replace('\u00a0', '').replace('%', '').replace(',', '.').strip()
+            return float(s)
+        except (ValueError, TypeError):
+            return None
+
+    years = col_headers[:len(gm_row or em_row or nm_row)]
+    n = len(years)
+    gm_vals = [_parse_pct(gm_row[i]) if gm_row and i < len(gm_row) else None for i in range(n)]
+    em_vals = [_parse_pct(em_row[i]) if em_row and i < len(em_row) else None for i in range(n)]
+    nm_vals = [_parse_pct(nm_row[i]) if nm_row and i < len(nm_row) else None for i in range(n)]
+
+    x = np.arange(n)
+    width = 0.25
+    fig, ax = plt.subplots(figsize=(8, 2.5), dpi=160)
+
+    def _bar(vals, offset, color, label):
+        vf = [v if v is not None else 0 for v in vals]
+        bars = ax.bar(x + offset, vf, width, color=color, alpha=0.85, label=label, zorder=3)
+        for bar, v in zip(bars, vals):
+            if v is not None:
+                ax.text(bar.get_x() + bar.get_width() / 2,
+                        bar.get_height() + 0.4,
+                        f"{v:.1f}%".replace('.', ','),
+                        ha='center', va='bottom', fontsize=9, color=color, fontweight='bold')
+
+    _bar(gm_vals, -width, '#1B3A6B', 'Marge brute')
+    _bar(em_vals,  0,     '#2A5298', 'Marge EBITDA')
+    _bar(nm_vals,  width, '#5580B8', 'Marge nette')
+
+    ax.set_xticks(x)
+    ax.set_xticklabels(years, fontsize=9, color='#555')
+    ax.tick_params(axis='y', labelsize=9)
+    ax.set_ylabel('(%)', fontsize=10, color='#555')
+    ax.set_title('Ratios de rentabilit\u00e9 — \u00c9volution', fontsize=12,
+                 color='#1B3A6B', fontweight='bold', pad=6)
+    for sp in ['top', 'right']:
+        ax.spines[sp].set_visible(False)
+    ax.spines['left'].set_color('#D0D5DD')
+    ax.spines['bottom'].set_color('#D0D5DD')
+    ax.set_facecolor('white')
+    fig.patch.set_facecolor('white')
+    ax.grid(axis='y', alpha=0.25, color='#D0D5DD', linewidth=0.5, zorder=0)
+    ax.legend(fontsize=9, loc='upper right', frameon=False)
+    plt.tight_layout()
+    buf = io.BytesIO()
+    fig.savefig(buf, format='png', dpi=160, bbox_inches='tight')
+    plt.close(fig)
+    buf.seek(0)
     return buf
 
 
@@ -433,13 +511,13 @@ def _make_revenue_area(data):
                         f'{val:.1f}', ha='center', va='bottom', fontsize=9, color='#1B3A6B', fontweight='bold')
             ax.set_xticks(range(len(_lbls)))
             ax.set_xticklabels(_lbls, fontsize=9, color='#555')
-            ax.set_ylabel(f'Revenus (Md{_cur})', fontsize=9, color='#555')
+            ax.set_ylabel(f'Revenus (Md{_cur})', fontsize=10, color='#555')
             ax.tick_params(length=0, labelsize=9)
             for sp in ['top', 'right']: ax.spines[sp].set_visible(False)
             ax.spines['left'].set_color('#D0D5DD'); ax.spines['bottom'].set_color('#D0D5DD')
             ax.set_facecolor('white'); fig.patch.set_facecolor('white')
             ax.grid(axis='y', alpha=0.25, color='#D0D5DD', linewidth=0.5, zorder=0)
-            ax.set_title('Revenus annuels consolid\u00e9s', fontsize=11,
+            ax.set_title('Revenus annuels consolid\u00e9s', fontsize=12,
                          color='#1B3A6B', fontweight='bold', pad=8)
             plt.tight_layout(pad=0.5)
             buf = io.BytesIO()
@@ -487,7 +565,7 @@ def _make_revenue_area(data):
     q0, q1 = (quarters[0] if quarters else ''), (quarters[-1] if quarters else '')
     ax.set_title(
         f'Revenus par segment \u2014 {len(quarters)} trimestres ({q0} \u2192 {q1}, Md$)',
-        fontsize=11, color='#1B3A6B', fontweight='bold', pad=8)
+        fontsize=12, color='#1B3A6B', fontweight='bold', pad=8)
     plt.tight_layout(pad=0.5)
     buf = io.BytesIO()
     fig.savefig(buf, format='png', dpi=180, bbox_inches='tight')
@@ -597,6 +675,63 @@ def _cover_page(c, doc, data):
     c.drawCentredString(cx, h * 0.515, _enc(
         "Donn\u00e9es : yfinance \u00b7 FMP \u00b7 Finnhub \u00b7 FinBERT"
         "  |  Horizon d'investissement : 12 mois"))
+
+    # ---- Points cles (FIX 1) -------------------------------------------
+    # Separateur horizontal sous les metriques
+    c.setStrokeColor(NAVY)
+    c.setLineWidth(0.8)
+    c.line(MARGIN_L, h * 0.490, w - MARGIN_R, h * 0.490)
+
+    # Titre "Points cles"
+    c.setFillColor(NAVY)
+    c.setFont('Helvetica-Bold', 10)
+    c.drawString(MARGIN_L, h * 0.474, _enc("Points cl\u00e9s"))
+
+    # Zone fond clair pour les 3 bullets (dessin du fond EN PREMIER)
+    c.setFillColor(GREY_LIGHT)
+    c.roundRect(MARGIN_L, h * 0.342, w - MARGIN_L - MARGIN_R, h * 0.120, 3, fill=1, stroke=0)
+    c.setStrokeColor(GREY_MED)
+    c.setLineWidth(0.4)
+    c.roundRect(MARGIN_L, h * 0.342, w - MARGIN_L - MARGIN_R, h * 0.120, 3, fill=0, stroke=1)
+
+    # Bullet 1 : these principale (summary tronque ~120 chars)
+    _summary_raw = data.get('summary_text') or data.get('kdb_text') or ''
+    _summary_trunc = _summary_raw[:120].rstrip()
+    if len(_summary_raw) > 120:
+        _summary_trunc += '...'
+    if not _summary_trunc:
+        _summary_trunc = 'Analyse disponible dans le corps du rapport.'
+    c.setFillColor(NAVY)
+    c.setFont('Helvetica-Bold', 7.5)
+    c.drawString(MARGIN_L + 2*mm, h * 0.454, _enc('\u25cf  Th\u00e8se principale'))
+    c.setFillColor(GREY_TEXT)
+    c.setFont('Helvetica', 7.5)
+    # Wrap long text (max ~90 chars per line at this font size and page width)
+    _st_line1 = _summary_trunc[:90]
+    _st_line2 = _summary_trunc[90:180] if len(_summary_trunc) > 90 else ''
+    c.drawString(MARGIN_L + 5*mm, h * 0.442, _enc(_st_line1))
+    if _st_line2:
+        c.drawString(MARGIN_L + 5*mm, h * 0.431, _enc(_st_line2))
+
+    # Bullet 2 : cible 12 mois avec upside
+    _target_full = data.get('target_price_full') or '\u2014'
+    _upside_v    = data.get('upside_str') or '\u2014'
+    _bullet2     = f"Cible 12 mois : {_target_full}  |  Upside potentiel : {_upside_v}"
+    c.setFillColor(NAVY)
+    c.setFont('Helvetica-Bold', 7.5)
+    c.drawString(MARGIN_L + 2*mm, h * 0.415, _enc('\u25cf  Objectif de cours'))
+    c.setFillColor(GREY_TEXT)
+    c.setFont('Helvetica', 7.5)
+    c.drawString(MARGIN_L + 5*mm, h * 0.403, _enc(_bullet2))
+
+    # Bullet 3 : horizon + source
+    c.setFillColor(NAVY)
+    c.setFont('Helvetica-Bold', 7.5)
+    c.drawString(MARGIN_L + 2*mm, h * 0.380, _enc('\u25cf  Cadre d\'analyse'))
+    c.setFillColor(GREY_TEXT)
+    c.setFont('Helvetica', 7.5)
+    c.drawString(MARGIN_L + 5*mm, h * 0.368,
+        _enc("Horizon d'investissement : 12 mois  |  Source : FinSight IA"))
 
     # Footer navy
     c.setFillColor(NAVY)
@@ -770,7 +905,7 @@ def _build_synthese(perf_buf, data):
     return elems
 
 
-def _build_financials(area_buf, data):
+def _build_financials(area_buf, data, margins_buf=None):
     elems = []
     # Section 2 commence toujours par PageBreak + Spacer(8mm)
     elems.append(PageBreak())
@@ -854,6 +989,45 @@ def _build_financials(area_buf, data):
             "Note\u00a0: Altman Z-Score non applicable aux \u00e9tablissements financiers "
             "et REITs \u2014 m\u00e9trique exclue pour ce type de soci\u00e9t\u00e9.",
             S_NOTE))
+
+    # FIX 2 — Analyse des ratios cles + graphique evolution marges
+    _ticker_f = _d(data, 'ticker', 'La soci\u00e9t\u00e9')
+    _ratios   = data.get('ratios_vs_peers') or []
+    def _rv(label_kw):
+        for r in _ratios:
+            if label_kw.lower() in (_d(r,'label') or '').lower():
+                return _d(r,'value','—'), _d(r,'reference','—'), _d(r,'lecture','—')
+        return '—', '—', '—'
+    _eve_v, _eve_ref, _eve_lec = _rv('EV / EBITDA')
+    _gm_v,  _gm_ref,  _gm_lec  = _rv('Marge brute')
+    _roe_v, _roe_ref, _roe_lec  = _rv('Return on Equity')
+    _az_v,  _az_ref,  _az_lec   = _rv('Altman')
+    _ratio_para = (
+        f"L'EV/EBITDA de {_ticker_f} ressort \u00e0 {_eve_v}\u00a0x (r\u00e9f\u00e9rence sectorielle\u00a0: "
+        f"{_eve_ref}), signal\u00e9 comme \u00ab\u00a0{_eve_lec}\u00a0\u00bb par rapport aux pairs. "
+        f"La marge brute s'\u00e9tablit \u00e0 {_gm_v} (benchmark\u00a0: {_gm_ref}), "
+        f"indicateur\u00a0: \u00ab\u00a0{_gm_lec}\u00a0\u00bb. "
+        f"Le Return on Equity (ROE) de {_roe_v} se compare \u00e0 {_roe_ref} pour le secteur "
+        f"(\u00ab\u00a0{_roe_lec}\u00a0\u00bb). "
+        f"L'Altman Z-Score de {_az_v} indique\u00a0: \u00ab\u00a0{_az_lec}\u00a0\u00bb "
+        f"(seuil de sant\u00e9 financier\u00a0: 2,99)."
+    )
+    elems.append(Spacer(1, 4*mm))
+    elems.append(Paragraph("Analyse des ratios cl\u00e9s", S_SUBSECTION))
+    elems.append(Spacer(1, 2*mm))
+    elems.append(Paragraph(_safe(_ratio_para), S_BODY))
+
+    # Graphique evolution des marges
+    elems.append(Spacer(1, 4*mm))
+    elems.append(Paragraph("Ratios de rentabilit\u00e9 \u2014 \u00c9volution", S_SUBSECTION))
+    elems.append(Spacer(1, 2*mm))
+    if margins_buf is not None:
+        margins_buf.seek(0)
+        elems.append(Image(margins_buf, width=TABLE_W, height=50*mm))
+    else:
+        elems.append(Paragraph("(Graphique marges non disponible)", S_NOTE))
+    elems.append(src("FinSight IA \u2014 Marges calcul\u00e9es sur donn\u00e9es historiques yfinance."))
+    elems.append(Spacer(1, 3*mm))
     return elems
 
 
@@ -941,9 +1115,9 @@ def _build_valorisation(ff_buf, pie_buf, data):
     elems.append(Paragraph(
         "Football Field \u2014 Convergence des m\u00e9thodes de valorisation", S_SUBSECTION))
     _ff_n = len(data.get('ff_methods') or [])
-    # Ratio hauteur/largeur base sur le figsize utilise dans _make_ff_chart : (8.5, max(4.0, 1.4+n*0.72))
-    _ff_fig_h = max(4.0, 1.4 + _ff_n * 0.72)
-    _ff_h = TABLE_W * _ff_fig_h / 8.5
+    # Ratio hauteur/largeur base sur le figsize utilise dans _make_ff_chart : (10, max(4.5, 1.4+n*0.72))
+    _ff_fig_h = max(4.5, 1.4 + _ff_n * 0.72)
+    _ff_h = TABLE_W * _ff_fig_h / 10.0
     elems.append(Image(ff_buf, width=TABLE_W, height=_ff_h))
     ff_comment = _d(data, 'dcf_text_intro')
     if ff_comment:
@@ -986,15 +1160,16 @@ def _build_risques(data):
     inv_data = data.get('invalidation_data') or []
     inv_h = [Paragraph(h, S_TH_L)
              for h in ["Axe", "Condition d'invalidation", "Horizon"]]
+    _inv_fallback = "D\u00e9gradation significative des fondamentaux sur 2 trimestres cons\u00e9cutifs."
     inv_rows = [
-        [Paragraph(_d(r, 'axe'), S_TD_B),
-         Paragraph(_safe(_d(r, 'condition')), S_TD_L),
-         Paragraph(_d(r, 'horizon'), S_TD_C)]
+        [Paragraph(_d(r, 'axe') or '\u2014', S_TD_B),
+         Paragraph(_safe(_d(r, 'condition') or _inv_fallback), S_TD_L),
+         Paragraph(_d(r, 'horizon') or '\u2014', S_TD_C)]
         for r in inv_data
     ]
     if not inv_rows:
         inv_rows = [[Paragraph('\u2014', S_TD_C),
-                     Paragraph("Conditions d'invalidation non disponibles.", S_TD_L),
+                     Paragraph(_inv_fallback, S_TD_L),
                      Paragraph('\u2014', S_TD_C)]]
     elems.append(KeepTogether([
         debate_q("Quelles conditions pr\u00e9cises invalideraient la th\u00e8se et \u00e0 quel horizon ?"),
@@ -1125,6 +1300,31 @@ def _build_risques(data):
     ]))
     elems.append(Spacer(1, 6*mm))
 
+    # FIX 4 — Glossaire des indicateurs
+    elems.append(Paragraph("Glossaire des indicateurs", S_SUBSECTION))
+    elems.append(Spacer(1, 2*mm))
+    _glos_h = [Paragraph("Indicateur", S_TH_L), Paragraph("D\u00e9finition", S_TH_L)]
+    _glos_rows = [
+        [Paragraph("DCF", S_TD_B),
+         Paragraph("Discounted Cash Flow \u2014 actualisation des flux futurs au WACC", S_TD_L)],
+        [Paragraph("WACC", S_TD_B),
+         Paragraph("Co\u00fbt moyen pond\u00e9r\u00e9 du capital (fonds propres + dette)", S_TD_L)],
+        [Paragraph("TGR", S_TD_B),
+         Paragraph("Taux de croissance terminal au-del\u00e0 de l'horizon explicite", S_TD_L)],
+        [Paragraph("EV/EBITDA", S_TD_B),
+         Paragraph("Valeur d'entreprise divis\u00e9e par l'EBITDA LTM", S_TD_L)],
+        [Paragraph("P/E NTM", S_TD_B),
+         Paragraph("Price-to-Earnings sur les 12 prochains mois estim\u00e9s", S_TD_L)],
+        [Paragraph("LTM", S_TD_B),
+         Paragraph("Last Twelve Months \u2014 12 derniers mois glissants", S_TD_L)],
+        [Paragraph("Altman Z-Score", S_TD_B),
+         Paragraph("Score de d\u00e9tresse financi\u00e8re (> 2,99 = sain)", S_TD_L)],
+        [Paragraph("Beneish M-Score", S_TD_B),
+         Paragraph("D\u00e9tection de manipulation comptable (< \u22122,22 = OK)", S_TD_L)],
+    ]
+    elems.append(tbl([_glos_h] + _glos_rows, cw=[40*mm, 130*mm]))
+    elems.append(Spacer(1, 6*mm))
+
     # Disclaimer
     elems.append(rule())
     disc_date = _d(data, 'disclaimer_date', _d(data, 'date_analyse'))
@@ -1168,13 +1368,14 @@ def generate_report(data: dict, output_path: str) -> str:
             log.warning("[generate_report] chart '%s' failed: %s", label, _ce)
             return _blank_chart_buf()
 
-    perf_buf = _safe_chart(_make_perf_chart,     'perf')
-    ff_buf   = _safe_chart(_make_ff_chart,        'ff')
-    pie_buf  = _safe_chart(_make_pie_comparables, 'pie')
-    area_buf = _safe_chart(_make_revenue_area,    'area')
+    perf_buf    = _safe_chart(_make_perf_chart,     'perf')
+    ff_buf      = _safe_chart(_make_ff_chart,        'ff')
+    pie_buf     = _safe_chart(_make_pie_comparables, 'pie')
+    area_buf    = _safe_chart(_make_revenue_area,    'area')
+    margins_buf = _safe_chart(_make_margins_chart,   'margins')
     # Rewind tous les buffers — defensive : evite les renders vides si le buffer
     # avait ete partiellement lu lors d'une validation precedente
-    for _b in (perf_buf, ff_buf, pie_buf, area_buf):
+    for _b in (perf_buf, ff_buf, pie_buf, area_buf, margins_buf):
         if _b is not None:
             _b.seek(0)
 
@@ -1224,10 +1425,36 @@ def generate_report(data: dict, output_path: str) -> str:
         "Les conditions d'invalidation sont explicitement formul\u00e9es pour chaque axe de "
         "risque\u00a0: macro\u00e9conomique, sectoriel et sp\u00e9cifique \u00e0 la soci\u00e9t\u00e9.",
         S_BODY))
+
+    # FIX 3 — Points de vigilance methodologiques
+    story.append(Spacer(1, 6*mm))
+    story.append(Paragraph("Points de vigilance m\u00e9thodologiques", S_SUBSECTION))
+    story.append(Spacer(1, 2*mm))
+    _vigil_h = [Paragraph(h, S_TH_L) for h in ["Aspect", "Limitation", "Mitigation"]]
+    _vigil_rows = [
+        [Paragraph("Donn\u00e9es historiques", S_TD_B),
+         Paragraph("Bas\u00e9es sur yfinance, 4-5 ans max", S_TD_L),
+         Paragraph("Coh\u00e9rence v\u00e9rifi\u00e9e multi-sources", S_TD_L)],
+        [Paragraph("Projections", S_TD_B),
+         Paragraph("Mod\u00e8le interne, non audit\u00e9es", S_TD_L),
+         Paragraph("Analyse de sensibilit\u00e9 \u00b12\u00a0pp", S_TD_L)],
+        [Paragraph("Sentiment IA", S_TD_B),
+         Paragraph("FinBERT entra\u00een\u00e9 sur corpus US", S_TD_L),
+         Paragraph("Score pond\u00e9r\u00e9 sur 30 articles", S_TD_L)],
+    ]
+    story.append(tbl([_vigil_h] + _vigil_rows, cw=[42*mm, 68*mm, 60*mm]))
+    story.append(Spacer(1, 4*mm))
+    story.append(Paragraph(
+        "Ce document est produit int\u00e9gralement par un syst\u00e8me d'intelligence artificielle. "
+        "Il ne constitue pas un conseil en investissement au sens de la directive MiFID\u00a0II. "
+        "Les donn\u00e9es financi\u00e8res issues de sources tierces peuvent contenir des inexactitudes. "
+        "Tout investisseur est invit\u00e9 \u00e0 proc\u00e9der \u00e0 sa propre diligence et \u00e0 "
+        "consulter un professionnel qualifi\u00e9 avant toute d\u00e9cision d'investissement.",
+        S_DISC))
     story.append(PageBreak())
 
     story += _build_synthese(perf_buf, data)
-    story += _build_financials(area_buf, data)
+    story += _build_financials(area_buf, data, margins_buf)
     story.append(PageBreak())
     story += _build_valorisation(ff_buf, pie_buf, data)
     story.append(PageBreak())
