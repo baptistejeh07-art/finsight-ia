@@ -828,15 +828,15 @@ def _slide_exec_summary(prs, snap, synthesis, ratios, devil, sentiment):
                      (counter_risks[i] if i < len(counter_risks) else ""))
         # Cascade body : neg_themes → risk_bodies (counter_thesis) → counter_risks → fallback générique
         body_r = (neg_themes[i] if i < len(neg_themes) and neg_themes[i] else "")
-        if not body_r or len(body_r) < 20:
+        if not body_r or len(body_r) < 35:
             rb = risk_bodies[i] if i < len(risk_bodies) else ""
-            if rb and rb != risk_text and len(rb) >= 20:
+            if rb and rb != risk_text and len(rb) >= 35:
                 body_r = rb
-        if not body_r or len(body_r) < 20:
+        if not body_r or len(body_r) < 35:
             cr = counter_risks[i] if i < len(counter_risks) else ""
-            if cr and cr != risk_text and len(cr) >= 20:
+            if cr and cr != risk_text and len(cr) >= 35:
                 body_r = cr
-        if not body_r or len(body_r) < 20:
+        if not body_r or len(body_r) < 35:
             # Fallback : construire une phrase à partir du label risque
             body_r = (f"Impact potentiel sur la these d'investissement — "
                       f"surveillance recommandee sur les 6-12 prochains mois.")
