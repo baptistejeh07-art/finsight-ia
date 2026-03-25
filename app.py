@@ -895,6 +895,147 @@ def render_running() -> None:
 
 
 # ---------------------------------------------------------------------------
+# Helpers dynamiques pour IndicePDFWriter (pas de hardcoding)
+# ---------------------------------------------------------------------------
+
+def _gen_catalyseurs(secteurs_list, signal_global, avg_score):
+    """Génère 3 catalyseurs depuis les données réelles du screening."""
+    cats = []
+    # Cat 1 : secteur avec meilleur momentum
+    def _mom_val(s):
+        try: return float(str(s[7]).replace('%','').replace('+',''))
+        except: return 0.0
+    if secteurs_list:
+        best_mom = max(secteurs_list, key=_mom_val)
+        mv = best_mom[7]
+        cats.append((
+            f"Momentum {best_mom[0][:18]}",
+            f"Performance {mv} sur 52 semaines (score {best_mom[2]}/100) — "
+            "continuation probable si les BPA NTM confirment la tendance.",
+            "3-6 mois"
+        ))
+    # Cat 2 : derive du signal
+    pts_to_surp = max(1, 60 - avg_score)
+    if signal_global == "Surpond\xe9rer":
+        cats.append(("Expansion des marges",
+            f"Score composite {avg_score}/100 — pricing power et levier operationnel "
+            "permettent une expansion EBITDA. Re-rating multiple possible.",
+            "6-12 mois"))
+    elif signal_global == "Neutre":
+        cats.append(("Passage en Surponderer",
+            f"Score a {pts_to_surp} points du seuil Surponderer (60/100). "
+            "Surprise BPA positive ou confirmation acceleration du cycle suffisante.",
+            "6-12 mois"))
+    else:
+        cats.append(("Stabilisation des estimations",
+            "Arret des revisions BPA baissiers — signal de retournement sur les "
+            "secteurs les plus deverses de l'univers.",
+            "9-15 mois"))
+    # Cat 3 : macro standard adapté au signal
+    if avg_score >= 55:
+        cats.append(("Conditions financieres accommodantes",
+            "Assouplissement du credit et reduction de la prime de risque — "
+            "soutien aux multiples des secteurs a duration elevee.",
+            "12-18 mois"))
+    else:
+        cats.append(("Pivot des banques centrales",
+            "Baisse des taux directeurs — re-rating des secteurs croissance "
+            "et reduction de la pression sur les bilans endettes.",
+            "12-24 mois"))
+    return cats[:3]
+
+
+def _gen_risques(secteurs_list, signal_global, avg_score):
+    """Génère 3 risques macro avec probabilités dérivées du score réel."""
+    # Probabilites derivees du score (plus le score est bas, plus le risque de recession est eleve)
+    p_rec  = 40 if avg_score < 45 else (30 if avg_score < 55 else 20)
+    p_inf  = 45 if avg_score < 50 else 35
+    p_geo  = 25
+    pts_to_sous = max(1, avg_score - 40)
+    # Secteurs sensibles aux taux dans l'univers
+    rate_secs = [s[0] for s in secteurs_list if s[0] in ("Real Estate","Utilities","Consumer Discretionary")]
+    rate_note = (f"Secteurs {', '.join(rate_secs[:2])} tres exposes"
+                 if rate_secs else "Compression des multiples de valorisation")
+    return [
+        ("Recession / ralentissement PIB",
+         f"Contraction economique — revision baissiere BPA estimee a "
+         f"{5 + max(0, int((50-avg_score)*0.3))}-15%. Score composite "
+         f"passerait sous 40 ({pts_to_sous} pts de marge actuelle).",
+         f"{p_rec}%", "Eleve"),
+        ("Inflation persistante / hausse taux",
+         f"Maintien des taux longs — {rate_note}. "
+         "Compression des multiples des actifs a duration elevee.",
+         f"{p_inf}%", "Modere"),
+        ("Choc geopolitique / matieres premieres",
+         "Disruption des chaines d'approvisionnement et/ou hausse brutale "
+         "du prix des matieres premieres — impact direct sur les marges.",
+         f"{p_geo}%", "Eleve"),
+    ]
+
+
+def _gen_scenarios(signal_global, avg_score):
+    """Génère les scénarios d'invalidation depuis le signal et score courants."""
+    pts_to_surp = max(1, 60 - avg_score)
+    pts_to_sous = max(1, avg_score - 40)
+    if signal_global == "Surpond\xe9rer":
+        bull = f"Maintien score > 60 sur 3 mois + BPA NTM > +8% YoY + conditions financieres stables"
+        bear = f"Score < 50 sur 2 mois consecutifs + contraction macro confirmee"
+    elif signal_global == "Neutre":
+        bull = (f"Score > 60 ({pts_to_surp} pts manquants) + surprise BPA Q2 > +5% "
+                f"+ CPI < 2,5% sur 2M consecutifs")
+        bear = (f"Score < 40 ({pts_to_sous} pts de marge) via recession technique "
+                f"(2T PIB < 0%) ou choc geopolitique majeur")
+    else:
+        bull = f"Score > 50 sur 2M + reversal technique + stabilisation des flux"
+        bear = f"Score < 30 — degradation acceleree BPA + deterioration bilans sectoriels"
+    return [
+        ("Bull case", bull, "Surponderer", "3-6 mois"),
+        ("Bear case", bear, "Sous-ponderer", "6-12 mois"),
+        ("Stagflation",
+         f"CPI > 3,5% + PIB < 1% — compression multiple "
+         f"{5 + max(0, int(avg_score * 0.05)):.0f}-15% attendue",
+         "Sous-ponderer selectif", "6-9 mois"),
+    ]
+
+
+def _fetch_perf_history(sym, indice_name, today):
+    """Charge l'historique réel de prix depuis yfinance pour le graphique."""
+    if not sym:
+        return None
+    try:
+        import yfinance as _yf2
+        from datetime import timedelta as _td2
+        _start = (today - _td2(days=380)).strftime("%Y-%m-%d")
+        _h = _yf2.Ticker(sym).history(start=_start)
+        _hb = _yf2.Ticker("^TNX").history(start=_start)
+        _hg = _yf2.Ticker("GC=F").history(start=_start)
+        if _h is None or _h.empty:
+            return None
+        _base = float(_h["Close"].iloc[0])
+        if _base == 0:
+            return None
+        _dates = [str(d)[:10] for d in _h.index]
+        _i_perf = [round(float(v) / _base * 100, 1) for v in _h["Close"]]
+        def _rebase(hist):
+            if hist is None or hist.empty:
+                return [100.0] * len(_dates)
+            b = float(hist["Close"].iloc[0]) or 1
+            r = hist["Close"].reindex(_h.index, method="ffill").fillna(b)
+            return [round(float(v) / b * 100, 1) for v in r]
+        return {
+            "dates":  _dates,
+            "indice": _i_perf,
+            "bonds":  _rebase(_hb),
+            "gold":   _rebase(_hg),
+            "label_start": _dates[0][:7] if _dates else "",
+            "label_end":   _dates[-1][:7] if _dates else "",
+            "indice_name": indice_name,
+        }
+    except Exception:
+        return None
+
+
+# ---------------------------------------------------------------------------
 # Helper : construction du dict data pour IndicePDFWriter
 # ---------------------------------------------------------------------------
 
@@ -980,8 +1121,15 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
             "signal":     s[3],
             "score":      s[2],
             "ev_ebitda":  s[4],
-            "catalyseur": f"Score composite {s[2]}/100 — momentum {s[7]}",
-            "risque":     "Concentration sectorielle — diversification recommandee",
+            "catalyseur": (
+                f"Score {s[2]}/100 · momentum {s[7]} · EV/EBITDA {s[4]}"
+                + (f" · Mg.EBITDA {s[5]:.1f}%" if isinstance(s[5],(int,float)) and s[5] else "")
+            ),
+            "risque":     (
+                f"Croiss. revenus {s[6]} sur LTM — "
+                + ("sensibilite taux moderee" if s[0] in ("Real Estate","Utilities") else
+                   "compression multiple si cycle se retourne")
+            ),
             "societes":   societes if societes else [("\u2014", "Neutre", "\u2014", 0)],
         }
 
@@ -1116,16 +1264,10 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
         "texte_macro":    texte_macro,
         "texte_signal":   texte_signal,
         "texte_rotation": texte_rotation,
-        "catalyseurs": [
-            ("Acceleration macro", "Hausse BPA et amelioration des marges.", "6-12 mois"),
-            ("Pivot monetaire", "Baisse des taux — re-rating des multiples de croissance.", "12-18 mois"),
-            ("Capex technologique", "Investissements IA et transformation digitale.", "12-24 mois"),
-        ],
-        "risques": [
-            ("Recession", "Contraction du PIB — revision baissiere des BPA.", "30%", "Eleve"),
-            ("Inflation persistante", "Maintien des taux — compression des multiples.", "40%", "Modere"),
-            ("Choc geopolitique", "Disruption chaines d'approvisionnement.", "20%", "Eleve"),
-        ],
+        "catalyseurs":  _gen_catalyseurs(secteurs_list, signal_global, int(avg_score)),
+        "risques":      _gen_risques(secteurs_list, signal_global, int(avg_score)),
+        "scenarios":    _gen_scenarios(signal_global, int(avg_score)),
+        "perf_history": _fetch_perf_history(_cours_map.get(universe.upper()), display_name, _d),
         "top3_secteurs":  top3,
         "surp_noms":      _surp_noms,
         "sous_noms":      _sous_noms,

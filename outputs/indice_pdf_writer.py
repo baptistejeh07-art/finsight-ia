@@ -106,17 +106,40 @@ def sig_hex(signal):
 
 # ─── GRAPHIQUES ───────────────────────────────────────────────────────────────
 def make_indice_perf_chart(data):
-    months = ['Mar 25','Avr','Mai','Jun','Jul','Aou','Sep','Oct','Nov','Dec','Jan 26','Fev','Mar 26']
-    spx    = [100,103,108,105,112,110,107,114,120,117,124,121,118]
-    bonds  = [100,99, 98, 97, 99, 98, 97, 96, 98, 97, 99, 98, 97]
-    gold   = [100,102,106,108,111,114,110,116,119,122,125,122,128]
-    x = np.arange(len(months))
+    ph = data.get("perf_history")
+    if ph and ph.get("dates"):
+        # Données réelles yfinance
+        dates  = ph["dates"]
+        i_perf = ph["indice"]
+        bonds  = ph["bonds"]
+        gold   = ph["gold"]
+        # Afficher ~12 ticks répartis sur l'axe X
+        n = len(dates)
+        step = max(1, n // 12)
+        x = np.arange(n)
+        tick_idx = list(range(0, n, step))
+        tick_lbl = [dates[i][2:7].replace("-", "/") for i in tick_idx]  # "25/03" format
+        label_start = ph.get("label_start", dates[0][:7])
+        indice_name = ph.get("indice_name", data["indice"])
+    else:
+        # Fallback neutre (aucune donnée dispo) : droite à 100
+        n = 13
+        x = np.arange(n)
+        i_perf = [100.0] * n
+        bonds  = [100.0] * n
+        gold   = [100.0] * n
+        tick_idx = list(range(0, n, 2))
+        tick_lbl = [f"M{i+1}" for i in tick_idx]
+        label_start = "N-12M"
+        indice_name = data["indice"]
+
     fig, ax = plt.subplots(figsize=(8.0, 3.8))
-    ax.plot(x, spx,   color='#1B3A6B', linewidth=2.0, label=data["indice"])
-    ax.plot(x, bonds, color='#A0A0A0', linewidth=1.2, linestyle='--', label='US 10Y Bond')
-    ax.plot(x, gold,  color='#B06000', linewidth=1.2, linestyle=':', label='Gold')
-    ax.fill_between(x, spx, 100, where=[s > 100 for s in spx], alpha=0.08, color='#1B3A6B')
-    ax.set_xticks(x[::2]); ax.set_xticklabels(months[::2], fontsize=10, color='#555')
+    ax.plot(x, i_perf, color='#1B3A6B', linewidth=2.0, label=indice_name)
+    ax.plot(x, bonds,  color='#A0A0A0', linewidth=1.2, linestyle='--', label='US 10Y Bond')
+    ax.plot(x, gold,   color='#B06000', linewidth=1.2, linestyle=':', label='Gold')
+    ax.fill_between(x, i_perf, 100, where=[v > 100 for v in i_perf], alpha=0.08, color='#1B3A6B')
+    ax.set_xticks([x[i] for i in tick_idx])
+    ax.set_xticklabels(tick_lbl, fontsize=9, color='#555')
     ax.yaxis.set_tick_params(labelsize=10)
     ax.tick_params(length=0)
     for sp in ['top','right']: ax.spines[sp].set_visible(False)
@@ -124,7 +147,7 @@ def make_indice_perf_chart(data):
     ax.set_facecolor('white'); fig.patch.set_facecolor('white')
     ax.grid(axis='y', alpha=0.15, color='#D0D5DD', linewidth=0.5)
     ax.legend(fontsize=10, loc='upper left', frameon=False)
-    ax.set_title(f'Performance comparee assets - base 100, Mars 2025',
+    ax.set_title(f'Performance comparee assets - base 100, {label_start}',
                  fontsize=12, color='#1B3A6B', fontweight='bold', pad=8)
     plt.tight_layout(pad=0.4)
     buf = io.BytesIO(); fig.savefig(buf, format='png', dpi=160, bbox_inches='tight')
@@ -182,10 +205,20 @@ def make_scatter_sectoriel(data):
     crois = [_safe_float(s[6], 0.0)  for s in secteurs]
     sigs  = [s[3] for s in secteurs]
     cols  = [sig_hex(s) for s in sigs]
-    offsets = [( 8, 6),( 8, 6),( 8,-13),(-58, 5),( 8, 6),
-               ( 8,-14),( 8, 6),( 8,-13),( 8, 6),( 8,-13),(-60, 6)]
-    while len(offsets) < len(secteurs):
-        offsets.append((8, 6))
+    # Offsets calculés dynamiquement pour éviter les superpositions
+    offsets = []
+    for i in range(len(secteurs)):
+        ox, oy = 8, 6  # défaut : droite-haut
+        # Vérifier si un point précédent est proche
+        for j in range(i):
+            try:
+                if abs(crois[i] - crois[j]) < 2.5 and abs(ev[i] - ev[j]) < 2.5:
+                    oy = -14 if i % 2 == 0 else 6
+                    ox = 8 if crois[i] >= crois[j] else -52
+                    break
+            except Exception:
+                pass
+        offsets.append((ox, oy))
     fig, ax = plt.subplots(figsize=(9.0, 5.2))
     for nom, x, y, col, off in zip(noms_abr, crois, ev, cols, offsets):
         ax.scatter(x, y, color=col, s=180, zorder=4, alpha=0.88,
@@ -394,7 +427,7 @@ def _build_sommaire(data, page_nums=None):
         ("1.", f"Synthese Macro &amp; Signal Global",         "synthese",
          f"  Signal global \xb7 Conviction \xb7 Catalyseurs \xb7 Risques macro"),
         ("2.", "Cartographie des Secteurs",                   "carto",
-         "  Tableau comparatif 11 secteurs \xb7 Score \xb7 EV/EBITDA \xb7 Momentum"),
+         f"  Tableau comparatif {data.get('nb_secteurs','?')} secteur(s) \xb7 Score \xb7 EV/EBITDA \xb7 Momentum"),
         ("3.", "Analyse Graphique",                           "graphiques",
          "  Scatter EV/EBITDA vs croissance \xb7 Scores par secteur"),
         ("4.", "Rotation Sectorielle",                        "rotation",
@@ -439,7 +472,9 @@ def _build_synthese(data, perf_buf, registry=None):
     elems.append(Spacer(1, 3*mm))
 
     elems.append(Image(perf_buf, width=TABLE_W, height=72*mm))
-    elems.append(src(f"FinSight IA — yfinance. Base 100, Mars 2025. {indice_rl} vs US 10Y Bond vs Gold."))
+    _ph = data.get("perf_history")
+    _base_lbl = _ph["label_start"] if _ph else data.get("date_analyse","")
+    elems.append(src(f"FinSight IA — yfinance. Base 100, {_base_lbl}. {indice_rl} vs US 10Y Bond vs Gold."))
     elems.append(Spacer(1, 4*mm))
 
     elems.append(debate_q(
@@ -829,20 +864,11 @@ def _build_risques(data, registry=None):
         f"Quelles conditions invalideraient le signal {sig_central} et vers quel scenario ?"))
     inv_h = [Paragraph(h, S_TH_L) for h in
              ["Scenario","Condition declencheur","Signal resultant","Horizon"]]
-    inv_data = [
-        ["Bull case",
-         "CPI <2,5% sur 3M + BPA Q1 >12% YoY + Fed pivot annonce",
-         "Surponderer",
-         "3-6 mois"],
-        ["Bear case",
-         "Recession technique confirmee (2T PIB <0%) OU choc geopolitique majeur",
-         "Sous-ponderer",
-         "6-12 mois"],
-        ["Stagflation",
-         "CPI rechauffe >3,5% + PIB <1% — stagflation scenario",
-         "Sous-ponderer selectif",
-         "6-9 mois"],
-    ]
+    inv_data = [[s[0], s[1], s[2], s[3]] for s in data.get("scenarios", [
+        ("Bull case", "Score > 60 + BPA NTM > +8% YoY", "Surponderer", "3-6 mois"),
+        ("Bear case", "Score < 40 via recession ou choc geopolitique", "Sous-ponderer", "6-12 mois"),
+        ("Stagflation", "CPI > 3,5% + PIB < 1%", "Sous-ponderer selectif", "6-9 mois"),
+    ])]
 
     def inv_signal_s(v):
         if "Surponderer" in v: return S_TD_G
