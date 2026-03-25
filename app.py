@@ -611,11 +611,17 @@ def render_sidebar(results) -> None:
         if "prev_dismissed" not in st.session_state:
             st.session_state["prev_dismissed"] = set()
         # N'afficher qu'un seul ticker en apercu — le plus recemment modifie
-        _all_preview = sorted(
-            [d for d in _preview_root.iterdir()
-             if d.is_dir() and d.name not in st.session_state["prev_dismissed"]],
-            key=lambda d: d.stat().st_mtime, reverse=True
-        ) if _preview_root.exists() else []
+        try:
+            _all_preview = sorted(
+                [d for d in _preview_root.iterdir()
+                 if d.is_dir() and d.name not in st.session_state["prev_dismissed"]],
+                key=lambda d: d.stat().st_mtime, reverse=True
+            ) if _preview_root.exists() else []
+        except Exception:
+            _all_preview = [
+                d for d in _preview_root.iterdir()
+                if d.is_dir() and d.name not in st.session_state["prev_dismissed"]
+            ] if _preview_root.exists() else []
         _preview_tickers = _all_preview[:1]
 
         st.markdown('<div class="sb-section">', unsafe_allow_html=True)
