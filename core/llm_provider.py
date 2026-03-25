@@ -149,10 +149,12 @@ class LLMProvider:
 
     # Modèles par défaut par provider (brief technique §5)
     DEFAULTS: dict[str, str] = {
-        "anthropic": "claude-haiku-4-5-20251001",   # tâches courantes — coût/qualité optimal
-        "groq":      "llama-3.3-70b-versatile",     # tâches simples répétitives — quasi gratuit
-        "gemini":    "gemini-2.0-flash",             # backup urgence uniquement
-        "ollama":    "qwen3:14b",                    # tests locaux gratuits — développement
+        "anthropic": "claude-haiku-4-5-20251001",       # tâches courantes — coût/qualité optimal
+        "groq":      "llama-3.3-70b-versatile",         # principal — quasi gratuit, rapide
+        "mistral":   "mistral-small-latest",             # fallback 1 — gratuit tier0
+        "cerebras":  "qwen-3-235b-a22b-instruct-2507",     # fallback 2 — ultra rapide
+        "gemini":    "gemini-2.0-flash",                 # fallback 3 — backup urgence
+        "ollama":    "qwen3:14b",                        # tests locaux gratuits — développement
     }
 
     SUPPORTED_PROVIDERS = set(DEFAULTS.keys())
@@ -192,6 +194,10 @@ class LLMProvider:
             return self._call_anthropic(prompt, system, max_tokens)
         elif self.provider == "groq":
             return self._call_groq(prompt, system, max_tokens)
+        elif self.provider == "mistral":
+            return self._call_mistral(prompt, system, max_tokens)
+        elif self.provider == "cerebras":
+            return self._call_cerebras(prompt, system, max_tokens)
         elif self.provider == "gemini":
             return self._call_gemini(prompt, system, max_tokens)
         elif self.provider == "ollama":
@@ -275,6 +281,34 @@ class LLMProvider:
                         continue
                 raise
         raise RuntimeError("[Groq] Echec apres 4 tentatives")
+
+    def _call_mistral(self, prompt: str, system: Optional[str], max_tokens: int) -> str:
+        from mistralai.client import Mistral
+        client = Mistral(api_key=_get_secret("MISTRAL_API_KEY"))
+        messages = []
+        if system:
+            messages.append({"role": "system", "content": system})
+        messages.append({"role": "user", "content": prompt})
+        response = client.chat.complete(
+            model=self.model,
+            messages=messages,
+            max_tokens=max_tokens,
+        )
+        return response.choices[0].message.content
+
+    def _call_cerebras(self, prompt: str, system: Optional[str], max_tokens: int) -> str:
+        from cerebras.cloud.sdk import Cerebras
+        client = Cerebras(api_key=_get_secret("CEREBRAS_API_KEY"))
+        messages = []
+        if system:
+            messages.append({"role": "system", "content": system})
+        messages.append({"role": "user", "content": prompt})
+        response = client.chat.completions.create(
+            model=self.model,
+            messages=messages,
+            max_tokens=max_tokens,
+        )
+        return response.choices[0].message.content
 
     def _call_gemini(self, prompt: str, system: Optional[str], max_tokens: int) -> str:
         if self._client is None:

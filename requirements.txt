@@ -17,6 +17,8 @@
 # --- LLM Providers ---
 anthropic>=0.40.0
 groq>=0.9.0
+mistralai>=2.0.0
+cerebras-cloud-sdk>=1.0.0
 
 # --- Données financières ---
 yfinance>=0.2.40

@@ -201,14 +201,22 @@ class AgentSynthese:
         except Exception as e:
             log.warning(f"[AgentSynthese] {self.llm.provider} echec ({type(e).__name__}: {e})")
 
-        if not raw:
-            log.warning("[AgentSynthese] Groq a echoue — fallback Anthropic")
+        # Cascade fallback : Groq → Mistral → Cerebras → Gemini
+        _fallbacks = [
+            ("mistral",  "mistral-small-latest"),
+            ("cerebras", "qwen-3-235b-a22b-instruct-2507"),
+            ("gemini",   "gemini-2.0-flash"),
+        ]
+        for _prov, _model in _fallbacks:
+            if raw:
+                break
+            log.warning(f"[AgentSynthese] fallback → {_prov}")
             try:
-                fallback = LLMProvider(provider="anthropic", model="claude-haiku-4-5-20251001")
-                raw = fallback.generate(prompt=prompt, system=_SYSTEM, max_tokens=4000)
-            except Exception as e2:
-                log.error(f"[AgentSynthese] Anthropic fallback echoue ({type(e2).__name__}: {e2})")
-                return None
+                _fb = LLMProvider(provider=_prov, model=_model)
+                raw = _fb.generate(prompt=prompt, system=_SYSTEM, max_tokens=4000)
+            except Exception as _e:
+                log.error(f"[AgentSynthese] {_prov} echec ({type(_e).__name__}: {_e})")
+
         if not raw:
             log.error("[AgentSynthese] Tous les providers ont echoue")
             return None
