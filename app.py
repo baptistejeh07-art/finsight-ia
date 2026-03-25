@@ -1663,15 +1663,27 @@ def render_screening_results(results: dict) -> None:
             if st.button("Analyser", key=f"sec_ana_{idx_s}_{sec_name[:8]}",
                          use_container_width=True):
                 sec_sorted = sorted(sec_list, key=lambda x: x.get("score_global") or 0, reverse=True)
+                _sec_out_dir = Path(__file__).parent / "outputs" / "generated"
+                _sec_out_dir.mkdir(exist_ok=True)
+                _sec_slug = sec_name.lower().replace(" ", "_").replace(".", "")
+                _sec_display = f"{sec_name} — {display_name}"
+                # Generation screening Excel sectoriel
+                sec_xlsx_bytes = None
+                try:
+                    from outputs.screening_writer import ScreeningWriter
+                    _tpl = Path(__file__).parent / "assets" / "FinSight_IA_Screening_CAC40_v3.xlsx"
+                    _sec_xlsx_path = str(_sec_out_dir / f"screening_{_sec_slug}.xlsx")
+                    ScreeningWriter.generate(sec_sorted, _sec_display, _sec_xlsx_path,
+                                             template_path=str(_tpl) if _tpl.exists() else None)
+                    sec_xlsx_bytes = open(_sec_xlsx_path, "rb").read()
+                except Exception as _ex0:
+                    log.warning(f"[app] sector XLSX error: {_ex0}")
                 # Generation rapport PDF sectoriel
                 sec_pdf_bytes = None
                 try:
                     import importlib, outputs.sector_pdf_writer as _spw
                     importlib.reload(_spw)
                     generate_sector_report = _spw.generate_sector_report
-                    _sec_out_dir = Path(__file__).parent / "outputs" / "generated"
-                    _sec_out_dir.mkdir(exist_ok=True)
-                    _sec_slug = sec_name.lower().replace(" ", "_").replace(".", "")
                     _sec_path = str(_sec_out_dir / f"sector_{_sec_slug}.pdf")
                     generate_sector_report(
                         sector_name=sec_name,
@@ -1696,9 +1708,9 @@ def render_screening_results(results: dict) -> None:
                 st.session_state.screening_parent  = results
                 st.session_state.screening_results = {
                     "universe":     f"{sec_name}|{results.get('universe', '')}",
-                    "display_name": f"{sec_name} — {display_name}",
+                    "display_name": _sec_display,
                     "tickers_data": sec_sorted,
-                    "excel_bytes":  None,
+                    "excel_bytes":  sec_xlsx_bytes,
                     "pdf_bytes":    sec_pdf_bytes,
                     "pptx_bytes":   sec_pptx_bytes,
                     "elapsed_ms":   0,
