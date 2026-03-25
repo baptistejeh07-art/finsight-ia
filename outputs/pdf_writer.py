@@ -125,8 +125,10 @@ S_DISC      = _s('disc',size=6.5, leading=9, color=GREY_TEXT, align=TA_JUSTIFY)
 # HELPERS
 # =============================================================================
 def _enc(s):
+    """Encode pour canvas ReportLab (Helvetica / WinAnsiEncoding = cp1252).
+    cp1252 inclut em-dash (0x97) et en-dash (0x96) contrairement a latin-1."""
     if not s: return ""
-    try:    return str(s).encode('latin-1', errors='replace').decode('latin-1')
+    try:    return str(s).encode('cp1252', errors='replace').decode('cp1252')
     except: return str(s)
 
 def _d(obj, key, default=""):
@@ -712,22 +714,28 @@ def _build_synthese(perf_buf, data):
     elems.append(src("FinSight IA \u2014 Mod\u00e8le DCF interne, donn\u00e9es FMP / yfinance."))
     elems.append(Spacer(1, 3*mm))
 
-    # Catalyseurs
+    # Catalyseurs — pas de KeepTogether ici : evite les pages blanches fantomes
+    # quand la table est vide ou que le contenu precedent remplit deja la page
     cats = data.get('catalysts') or []
     cat_h = [Paragraph("#", S_TH_C), Paragraph("Catalyseur", S_TH_L),
              Paragraph("Analyse", S_TH_L)]
-    cat_rows = [
-        [Paragraph(_d(c, 'num', ''), S_TD_BC),
-         Paragraph(_d(c, 'name', ''), S_TD_B),
-         Paragraph(_d(c, 'analysis', ''), S_TD_L)]
-        for c in cats
-    ]
-    elems.append(KeepTogether([
-        Spacer(1, 2*mm),
-        Paragraph("Catalyseurs d'investissement \u2014 th\u00e8se haussi\u00e8re", S_SUBSECTION),
-        Spacer(1, 1*mm),
-        tbl([cat_h] + cat_rows, cw=[8*mm, 36*mm, 126*mm]),
-    ]))
+    if cats:
+        cat_rows = [
+            [Paragraph(_d(c, 'num', ''), S_TD_BC),
+             Paragraph(_d(c, 'name', ''), S_TD_B),
+             Paragraph(_d(c, 'analysis', ''), S_TD_L)]
+            for c in cats
+        ]
+    else:
+        cat_rows = [
+            [Paragraph('\u2014', S_TD_C),
+             Paragraph("Catalyseurs non disponibles", S_TD_L),
+             Paragraph("Analyse en attente", S_TD_L)]
+        ]
+    elems.append(Spacer(1, 2*mm))
+    elems.append(Paragraph("Catalyseurs d'investissement \u2014 th\u00e8se haussi\u00e8re", S_SUBSECTION))
+    elems.append(Spacer(1, 1*mm))
+    elems.append(tbl([cat_h] + cat_rows, cw=[8*mm, 36*mm, 126*mm]))
 
     # Key Data Box + texte
     elems.append(Spacer(1, 4*mm))
@@ -744,7 +752,7 @@ def _build_synthese(perf_buf, data):
         ('LEFTPADDING',  (1, 0), (1, 0),   6),
     ]))
     elems.append(kd_combined)
-    elems.append(Spacer(1, 10*mm))
+    elems.append(Spacer(1, 6*mm))
     return elems
 
 
@@ -954,7 +962,7 @@ def _build_risques(data):
     # FinBERT
     n_art = _d(data, 'finbert_n_articles', '30')
     elems.append(Paragraph(
-        f"Sentiment de march\u00e9 \u2014 Analyse FinBERT ({n_art} articles, 7 jours)",
+        f"Sentiment de march\u00e9 \u2014 Analyse {_d(data, 'finbert_engine', 'FinBERT')} ({n_art} articles, 7 jours)",
         S_SUBSECTION))
     elems.append(Paragraph(_d(data, 'finbert_text'), S_BODY))
     elems.append(Spacer(1, 2*mm))
@@ -1068,6 +1076,11 @@ def generate_report(data: dict, output_path: str) -> str:
     ff_buf   = _safe_chart(_make_ff_chart,        'ff')
     pie_buf  = _safe_chart(_make_pie_comparables, 'pie')
     area_buf = _safe_chart(_make_revenue_area,    'area')
+    # Rewind tous les buffers — defensive : evite les renders vides si le buffer
+    # avait ete partiellement lu lors d'une validation precedente
+    for _b in (perf_buf, ff_buf, pie_buf, area_buf):
+        if _b is not None:
+            _b.seek(0)
 
     out = Path(output_path)
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -1676,7 +1689,13 @@ class PDFWriter:
 
         sent_score  = float(_g(sentiment, 'score') or 0.0)
         sent_label  = (_g(sentiment, 'label') or 'neutral').lower()
-        sent_engine = (_g(sentiment, 'meta', 'engine') or 'FinBERT').upper()
+        _ENGINE_DISPLAY = {
+            'finbert': 'FinBERT', 'llm_groq': 'LLM (Groq)', 'groq': 'LLM (Groq)',
+            'anthropic': 'LLM (Claude)', 'claude': 'LLM (Claude)',
+            'vader': 'VADER', 'llm': 'LLM',
+        }
+        _raw_eng = (_g(sentiment, 'meta', 'engine') or 'finbert').lower()
+        sent_engine = _ENGINE_DISPLAY.get(_raw_eng, _raw_eng.upper())
         direction   = 'positive mod\u00e9r\u00e9e' if sent_score > 0.05 \
                       else ('n\u00e9gative mod\u00e9r\u00e9e' if sent_score < -0.05 else 'neutre')
 
@@ -1806,6 +1825,7 @@ class PDFWriter:
                                     "trois axes de risque susceptibles d'invalider le sc\u00e9nario base. "
                                     "Ils sont trait\u00e9s comme des conditions de surveillance active.",
             'finbert_text':         finbert_text,
+            'finbert_engine':       sent_engine,
             'conclusion_text':      _g(synthesis,'conclusion') or '',
 
             # IS
