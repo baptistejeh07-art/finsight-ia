@@ -1217,22 +1217,22 @@ def _g(obj, *keys, default=None):
 def _benchmarks(sector):
     s = (sector or "").lower()
     if any(w in s for w in ("tech","software","semiconductor","information")):
-        return dict(pe="15\u202035x", ev_e="12\u202025x", ev_r="3\u202012x",
-                    gm="55\u202075\u00a0%", em="20\u202035\u00a0%", roe="15\u202030\u00a0%")
+        return dict(pe="15-35x", ev_e="12-25x", ev_r="3-12x",
+                    gm="55-75\u00a0%", em="20-35\u00a0%", roe="15-30\u00a0%")
     if any(w in s for w in ("health","pharma","biotech")):
-        return dict(pe="18\u202030x", ev_e="12\u202020x", ev_r="3\u20208x",
-                    gm="60\u202075\u00a0%", em="20\u202030\u00a0%", roe="12\u202020\u00a0%")
+        return dict(pe="18-30x", ev_e="12-20x", ev_r="3-8x",
+                    gm="60-75\u00a0%", em="20-30\u00a0%", roe="12-20\u00a0%")
     if any(w in s for w in ("financ","bank","insur")):
-        return dict(pe="10\u202016x", ev_e="8\u202012x", ev_r="2\u20204x",
-                    gm="50\u202065\u00a0%", em="30\u202045\u00a0%", roe="10\u202018\u00a0%")
+        return dict(pe="10-16x", ev_e="8-12x", ev_r="2-4x",
+                    gm="50-65\u00a0%", em="30-45\u00a0%", roe="10-18\u00a0%")
     if any(w in s for w in ("energy","oil","gas")):
-        return dict(pe="10\u202018x", ev_e="6\u202010x", ev_r="1\u20203x",
-                    gm="30\u202050\u00a0%", em="25\u202040\u00a0%", roe="10\u202015\u00a0%")
+        return dict(pe="10-18x", ev_e="6-10x", ev_r="1-3x",
+                    gm="30-50\u00a0%", em="25-40\u00a0%", roe="10-15\u00a0%")
     if any(w in s for w in ("consumer","retail","luxury","auto","cyclical")):
-        return dict(pe="8\u202015x", ev_e="6\u202012x", ev_r="0,4\u20201,2x",
-                    gm="12\u202018\u00a0%", em="8\u202014\u00a0%", roe="8\u202018\u00a0%")
-    return dict(pe="15\u202022x", ev_e="10\u202016x", ev_r="2\u20205x",
-                gm="35\u202055\u00a0%", em="15\u202025\u00a0%", roe="10\u202018\u00a0%")
+        return dict(pe="8-15x", ev_e="6-12x", ev_r="0,4-1,2x",
+                    gm="12-18\u00a0%", em="8-14\u00a0%", roe="8-18\u00a0%")
+    return dict(pe="15-22x", ev_e="10-16x", ev_r="2-5x",
+                gm="35-55\u00a0%", em="15-25\u00a0%", roe="10-18\u00a0%")
 
 
 def _read_label(val, bm_str, pct=False):
@@ -1416,7 +1416,7 @@ def _fetch_pie_data(ticker: str, peers: list) -> dict:
 
         total_ev   = sum(ev_data.values())
         main_ev    = ev_data.get(ticker, 0)
-        main_pct   = round(main_ev / total_ev * 100) if total_ev else 0
+        main_pct   = round(main_ev / total_ev * 100) if (total_ev and main_ev) else 0
 
         labels, sizes = [], []
         for t_k, ev in ev_data.items():
@@ -1433,7 +1433,7 @@ def _fetch_pie_data(ticker: str, peers: list) -> dict:
             'pie_labels':     labels,
             'pie_sizes':      sizes,
             'pie_ticker':     ticker,
-            'pie_pct_str':    f"{main_pct}\u00a0%",
+            'pie_pct_str':    f"{main_pct}\u00a0%" if main_pct > 0 else "\u2014",
             'pie_cap_label':  _cap_label,  # 'EV' ou 'Mkt Cap'
         }
     except Exception as e:
@@ -1623,20 +1623,38 @@ class PDFWriter:
         ff_src = _g(synthesis, 'football_field') or []
         ff_methods, ff_lows, ff_highs, ff_colors = [], [], [], []
         _ff_cols = ['#2A5298','#1B3A6B','#2A5298','#A82020','#1B3A6B','#1A7A4A']
-        if ff_src:
-            for m in ff_src:
-                lo = _g(m, 'range_low'); hi = _g(m, 'range_high')
-                try:
-                    lo_f = float(lo) if lo not in (None, '', 'null') else None
-                    hi_f = float(hi) if hi not in (None, '', 'null') else None
-                except (ValueError, TypeError):
-                    lo_f = hi_f = None
-                if lo_f and hi_f:
-                    ff_methods.append(_g(m, 'label') or '\u2014')
-                    ff_lows.append(lo_f); ff_highs.append(hi_f)
-                    ff_colors.append(_ff_cols[len(ff_methods) - 1 % len(_ff_cols)])
-        else:
-            # Fallback : 5 methodes avec fourchettes variees pour plus de lisibilite
+
+        # Collecter les barres depuis le LLM
+        for m in ff_src:
+            lo = _g(m, 'range_low'); hi = _g(m, 'range_high')
+            try:
+                lo_f = float(lo) if lo not in (None, '', 'null') else None
+                hi_f = float(hi) if hi not in (None, '', 'null') else None
+            except (ValueError, TypeError):
+                lo_f = hi_f = None
+            if lo_f and hi_f:
+                ff_methods.append(_g(m, 'label') or '\u2014')
+                ff_lows.append(lo_f); ff_highs.append(hi_f)
+                ff_colors.append(_ff_cols[(len(ff_methods) - 1) % len(_ff_cols)])
+
+        # Filtrage : retire les barres hors-echelle (multiples bruts vs prix cibles)
+        # Le LLM renvoie parfois EV/Revenue en multiples (4-6x) au lieu de prix (300-500$)
+        # Heuristique : si le max d'une barre < 15% du cours actuel, c'est un multiple brut
+        if ff_highs and price:
+            try:
+                _pf = float(price)
+                _thr = max(_pf * 0.15, 10.0)  # seuil = 15% du cours, min 10
+                _kept = [(m, lo, hi, c) for m, lo, hi, c in
+                         zip(ff_methods, ff_lows, ff_highs, ff_colors) if hi >= _thr]
+                ff_methods = [x[0] for x in _kept]
+                ff_lows    = [x[1] for x in _kept]
+                ff_highs   = [x[2] for x in _kept]
+                ff_colors  = [x[3] for x in _kept]
+            except (ValueError, TypeError):
+                pass
+
+        if not ff_methods:
+            # Fallback : 5 methodes avec fourchettes variees autour des prix cibles
             _ff_defs = []
             if tbear:
                 try:
