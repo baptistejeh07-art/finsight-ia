@@ -532,24 +532,24 @@ def _cover_page(c, doc, data):
     c.setLineWidth(0.5)
     c.line(MARGIN_L, h - 20*mm, w - MARGIN_R, h - 20*mm)
 
-    # Societe
+    # Societe — remonte vers le haut (0.77 au lieu de 0.685)
     c.setFillColor(NAVY)
     _cn_len = len(company_name or '')
     _cn_fs  = 30 if _cn_len <= 20 else (24 if _cn_len <= 30 else (18 if _cn_len <= 40 else 14))
     c.setFont('Helvetica-Bold', _cn_fs)
-    c.drawCentredString(cx, h * 0.685, _enc(company_name))
+    c.drawCentredString(cx, h * 0.765, _enc(company_name))
     c.setFillColor(GREY_TEXT)
     c.setFont('Helvetica', 11)
     parts = '  \u00b7  '.join(x for x in [ticker, sector, exchange] if x)
-    c.drawCentredString(cx, h * 0.648, _enc(parts))
+    c.drawCentredString(cx, h * 0.728, _enc(parts))
     c.setStrokeColor(GREY_RULE)
     c.setLineWidth(0.4)
-    c.line(MARGIN_L + 28*mm, h * 0.634, w - MARGIN_R - 28*mm, h * 0.634)
+    c.line(MARGIN_L + 28*mm, h * 0.714, w - MARGIN_R - 28*mm, h * 0.714)
 
     # Boxes Recommandation + Cible
     rw, rh_b = 52*mm, 14*mm
     rx = cx - rw - 3*mm
-    ry = h * 0.572
+    ry = h * 0.652
     c.setFillColor(_rec_color(rec))
     c.roundRect(rx, ry, rw, rh_b, 2, fill=1, stroke=0)
     c.setFillColor(WHITE)
@@ -573,8 +573,8 @@ def _cover_page(c, doc, data):
         ("WACC",          wacc_str),
     ]
     col_span = (w - MARGIN_L - MARGIN_R) / 4
-    my_lbl = h * 0.515
-    my_val = h * 0.494
+    my_lbl = h * 0.595
+    my_val = h * 0.574
     for i, (lbl, val) in enumerate(metrics):
         mx = MARGIN_L + col_span * i + col_span / 2
         c.setFillColor(GREY_TEXT)
@@ -586,15 +586,15 @@ def _cover_page(c, doc, data):
 
     c.setStrokeColor(GREY_RULE)
     c.setLineWidth(0.4)
-    c.line(MARGIN_L, h * 0.481, w - MARGIN_R, h * 0.481)
+    c.line(MARGIN_L, h * 0.561, w - MARGIN_R, h * 0.561)
 
     # Tagline
     c.setFillColor(GREY_TEXT)
     c.setFont('Helvetica', 8)
-    c.drawCentredString(cx, h * 0.455,
+    c.drawCentredString(cx, h * 0.535,
         _enc(f"Rapport d'analyse confidentiel - {date_analyse}"))
     c.setFont('Helvetica', 7.5)
-    c.drawCentredString(cx, h * 0.435, _enc(
+    c.drawCentredString(cx, h * 0.515, _enc(
         "Donn\u00e9es : yfinance \u00b7 FMP \u00b7 Finnhub \u00b7 FinBERT"
         "  |  Horizon d'investissement : 12 mois"))
 
@@ -1084,6 +1084,47 @@ def _build_risques(data):
     ]))
     elems.append(Spacer(1, 6*mm))
 
+    # Methodologie & Hypotheses — section courte pour remplir la page finale
+    _wacc_str = _d(data, 'wacc_str', 'N/A')
+    _tgr_str  = _d(data, 'tgr_str',  'N/A')
+    _beta_str = _d(data, 'beta_str', 'N/A')
+    _rf_str   = _d(data, 'rf_str',   'N/A')
+    _erp_str  = _d(data, 'erp_str',  'N/A')
+    elems.append(KeepTogether([
+        Paragraph("M\u00e9thodologie &amp; Hypoth\u00e8ses", S_SUBSECTION),
+        Spacer(1, 2*mm),
+        Paragraph(
+            f"<b>Mod\u00e8le DCF</b> \u2014 La valorisation par actualisation des flux de "
+            f"tr\u00e9sorerie (DCF) repose sur un horizon explicite de cinq ans, un co\u00fbt "
+            f"moyen pond\u00e9r\u00e9 du capital (WACC) de {_wacc_str} et un taux de croissance "
+            f"terminal (TGR) de {_tgr_str}. Le WACC est estim\u00e9 selon le mod\u00e8le CAPM : "
+            f"taux sans risque {_rf_str}, prime de risque march\u00e9 {_erp_str}, "
+            f"b\u00eata {_beta_str}.",
+            S_BODY),
+        Spacer(1, 2*mm),
+        Paragraph(
+            f"<b>Analyse de sensibilit\u00e9</b> \u2014 La table de sensibilit\u00e9 pr\u00e9sente "
+            f"la valeur intrins\u00e8que estim\u00e9e pour une plage de WACC (\u00b12\u00a0pp) "
+            f"et de TGR (\u00b11\u00a0pp) autour du sc\u00e9nario central. Une hausse de "
+            f"100\u00a0bps du WACC comprime la valeur d'environ 12\u00a0%.",
+            S_BODY),
+        Spacer(1, 2*mm),
+        Paragraph(
+            "<b>Comparables</b> \u2014 Les multiples de valorisation (EV/EBITDA, EV/Revenue, "
+            "P/E) sont calcul\u00e9s sur la base des douze derniers mois (LTM) et compar\u00e9s "
+            "\u00e0 un panel de pairs sectoriels. Les fourchettes de r\u00e9f\u00e9rence sont "
+            "calibr\u00e9es selon le secteur de la soci\u00e9t\u00e9 analys\u00e9e.",
+            S_BODY),
+        Spacer(1, 2*mm),
+        Paragraph(
+            "<b>Sentiment</b> \u2014 L'analyse de sentiment est r\u00e9alis\u00e9e par FinBERT "
+            "(ProsusAI/finbert), mod\u00e8le de traitement du langage naturel pr\u00e9-entra\u00een\u00e9 "
+            "sur un corpus financier anglophone. Le score agr\u00e9g\u00e9 est calcul\u00e9 sur "
+            "un corpus d'articles des sept derniers jours issus de Finnhub et de flux RSS.",
+            S_BODY),
+    ]))
+    elems.append(Spacer(1, 6*mm))
+
     # Disclaimer
     elems.append(rule())
     disc_date = _d(data, 'disclaimer_date', _d(data, 'date_analyse'))
@@ -1275,6 +1316,21 @@ def _benchmarks(sector):
                     gm="12-18\u00a0%", em="8-14\u00a0%", roe="8-18\u00a0%")
     return dict(pe="15-22x", ev_e="10-16x", ev_r="2-5x",
                 gm="35-55\u00a0%", em="15-25\u00a0%", roe="10-18\u00a0%")
+
+
+def _fmt_mkt_cap(v):
+    """Formate une Market Cap brute (en USD absolus) en 'X XXX Mds USD'.
+    Ex : 3_722_256_235.6 -> '3 722 Mds USD'. Retourne '--' si None/0."""
+    if v is None: return "\u2014"
+    try:
+        f = float(v)
+        if f <= 0: return "\u2014"
+        bn = f / 1_000_000_000
+        # Formater avec separateur espace (style francais)
+        s = f"{int(round(bn)):,}".replace(",", "\u00a0")
+        return f"{s}\u00a0Mds\u00a0USD"
+    except (ValueError, TypeError):
+        return "\u2014"
 
 
 def _read_label(val, bm_str, pct=False):
@@ -1675,6 +1731,8 @@ class PDFWriter:
             except (ValueError, TypeError):
                 lo_f = hi_f = None
             if lo_f and hi_f:
+                # Garantir lo <= hi (les donnees LLM peuvent etre inversees)
+                lo_f, hi_f = min(lo_f, hi_f), max(lo_f, hi_f)
                 ff_methods.append(_g(m, 'label') or '\u2014')
                 ff_lows.append(lo_f); ff_highs.append(hi_f)
                 ff_colors.append(_ff_cols[(len(ff_methods) - 1) % len(_ff_cols)])
@@ -1885,7 +1943,7 @@ class PDFWriter:
             'beta_str':          _fr(beta, 2) if beta else 'N/A',
             'erp_str':           _fr(erp * 100, 1, '\u00a0%'),
             'rf_str':            _fr(rfr * 100, 1, '\u00a0%'),
-            'market_cap_str':    _frm(mktcap) + f"\u00a0{cur}" if mktcap else '\u2014',
+            'market_cap_str':    _fmt_mkt_cap(mktcap) if mktcap else '\u2014',
             'dividend_yield_str':_frpct(div_yield) if div_yield else '\u2014',
             'pe_ntm_str':        _frx(pe_ntm) if pe_ntm else '\u2014',
             'ev_ebitda_str':     _frx(ev_ebitda_v) if ev_ebitda_v else '\u2014',
