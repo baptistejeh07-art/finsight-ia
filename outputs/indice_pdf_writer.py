@@ -76,9 +76,10 @@ def section_title(text, num):
 def debate_q(text): return Paragraph(f"\u25b6  {text}", S_DEBATE)
 def src(text):      return Paragraph(f"Source : {text}", S_NOTE)
 
-def tbl(data, cw, row_heights=None):
+def tbl(data, cw, row_heights=None, compact=False):
     assert abs(sum(cw) - TABLE_W) < 0.5, (
         f"Somme colonnes = {sum(cw)/mm:.1f}mm != 170mm — {[c/mm for c in cw]}")
+    pad = 3 if compact else 5
     t = Table(data, colWidths=cw, rowHeights=row_heights)
     t.setStyle(TableStyle([
         ('BACKGROUND',    (0,0), (-1,0),  NAVY),
@@ -86,10 +87,10 @@ def tbl(data, cw, row_heights=None):
         ('FONTNAME',      (0,0), (-1,0),  'Helvetica-Bold'),
         ('FONTSIZE',      (0,0), (-1,-1), 8),
         ('VALIGN',        (0,0), (-1,-1), 'MIDDLE'),
-        ('TOPPADDING',    (0,0), (-1,-1), 4),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 4),
-        ('LEFTPADDING',   (0,0), (-1,-1), 5),
-        ('RIGHTPADDING',  (0,0), (-1,-1), 5),
+        ('TOPPADDING',    (0,0), (-1,-1), 3 if compact else 4),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 3 if compact else 4),
+        ('LEFTPADDING',   (0,0), (-1,-1), pad),
+        ('RIGHTPADDING',  (0,0), (-1,-1), pad),
         ('LINEBELOW',     (0,0), (-1,0),  0.5, NAVY_LIGHT),
         ('LINEBELOW',     (0,-1),(-1,-1), 0.5, GREY_RULE),
         ('GRID',          (0,1), (-1,-1), 0.3, GREY_MED),
@@ -133,25 +134,24 @@ def make_indice_perf_chart(data):
 def make_sector_weights_chart(data):
     secteurs = data["secteurs"]
     noms  = [s[0] for s in secteurs]
-    poids = [float(s[4]) if isinstance(s[4], (int, float)) else 5.0 for s in secteurs]
-    # fallback: poids uniformes si ev_ebitda n'est pas un poids
-    # On utilise une pondération fictive representant l'indice
-    poids_idx = [28.4, 12.8, 13.2, 10.6, 8.8, 8.4, 6.2, 4.8, 2.4, 2.6, 1.8]
-    if len(poids_idx) != len(secteurs):
-        poids_idx = [100/len(secteurs)] * len(secteurs)
+    # Poids proportionnels au nombre de societes par secteur
+    total_nb = sum(s[1] for s in secteurs) or 1
+    poids_idx = [round(100 * s[1] / total_nb, 1) for s in secteurs]
     sigs = [s[3] for s in secteurs]
     bar_cols = [sig_hex(s) for s in sigs]
     y = np.arange(len(noms))
     fig, ax = plt.subplots(figsize=(5.2, 4.2))
     bars = ax.barh(y, poids_idx, color=bar_cols, alpha=0.85, height=0.58,
                    edgecolor='white', linewidth=0.5)
+    x_max = max(poids_idx) * 1.35 if poids_idx else 30
     for i, (bar, val) in enumerate(zip(bars, poids_idx)):
-        ax.text(val + 0.5, i, f"{val}%", va='center', fontsize=9, color='#333', fontweight='bold')
+        ax.text(val + x_max*0.015, i, f"{val}%", va='center', fontsize=9, color='#333', fontweight='bold')
     ax.set_yticks(y); ax.set_yticklabels(noms, fontsize=9, color='#333')
-    ax.set_xlabel("Ponderation dans l'indice (%)", fontsize=9, color='#555')
-    ax.set_xlim(0, 36)
-    ax.axvline(x=sum(poids_idx)/len(poids_idx), color='#D0D5DD', linewidth=0.8, linestyle='--', alpha=0.8)
-    ax.text(sum(poids_idx)/len(poids_idx)+0.2, len(noms)-0.6, 'Moy.', fontsize=8, color='#999', style='italic')
+    ax.set_xlabel("Repartition par nombre de societes (%)", fontsize=9, color='#555')
+    ax.set_xlim(0, x_max)
+    moy = sum(poids_idx)/len(poids_idx)
+    ax.axvline(x=moy, color='#D0D5DD', linewidth=0.8, linestyle='--', alpha=0.8)
+    ax.text(moy + x_max*0.01, len(noms)-0.6, 'Moy.', fontsize=8, color='#999', style='italic')
     for sp in ['top','right']: ax.spines[sp].set_visible(False)
     ax.spines['left'].set_color('#D0D5DD'); ax.spines['bottom'].set_color('#D0D5DD')
     ax.set_facecolor('white'); fig.patch.set_facecolor('white')
@@ -161,7 +161,7 @@ def make_sector_weights_chart(data):
                mpatches.Patch(color='#A82020', label='Sous-ponderer')]
     ax.legend(handles=patches, fontsize=9, loc='upper center',
               bbox_to_anchor=(0.5, -0.12), frameon=False, ncol=3)
-    ax.set_title(f"Ponderations sectorielles - {data['indice']}",
+    ax.set_title(f"Repartition sectorielle - {data['indice']} (nb societes)",
                  fontsize=11, color='#1B3A6B', fontweight='bold', pad=8)
     plt.tight_layout(pad=0.5)
     buf = io.BytesIO(); fig.savefig(buf, format='png', dpi=160, bbox_inches='tight')
@@ -466,8 +466,8 @@ def _build_cartographie(data, weights_buf, registry=None):
     elems.append(Spacer(1, 4*mm))
 
     # Graphique + mini tableau cote a cote
-    weights_img = Image(weights_buf, width=76*mm, height=66*mm)
-    sig_h = [Paragraph(h, S_TH_C) for h in ["Secteur", "Signal", "Score"]]
+    # combined: [80, 90] = 170mm. Image 80mm, right_col 90mm.
+    weights_img = Image(weights_buf, width=80*mm, height=68*mm)
     sig_rows = []
     for s in secteurs:
         sig_rows.append([
@@ -475,10 +475,10 @@ def _build_cartographie(data, weights_buf, registry=None):
             Paragraph(s[3], sig_s(s[3])),
             Paragraph(str(s[2]), S_TD_C),
         ])
-    # mini tbl: 52+34+10 = 96mm (pas 170, c'est un sous-tableau dans une cellule)
+    # mini tbl: [46, 28, 16] = 90mm — Score 16mm donne 10mm texte avec pad 3mm
     sig_tbl_inner = Table([
         [Paragraph(h, S_TH_C) for h in ["Secteur","Signal","Score"]]
-    ] + sig_rows, colWidths=[52*mm, 34*mm, 10*mm])
+    ] + sig_rows, colWidths=[46*mm, 28*mm, 16*mm])
     sig_tbl_inner.setStyle(TableStyle([
         ('BACKGROUND',    (0,0),(-1,0),  NAVY),
         ('ROWBACKGROUNDS',(0,1),(-1,-1), [WHITE, ROW_ALT]),
@@ -487,8 +487,8 @@ def _build_cartographie(data, weights_buf, registry=None):
         ('VALIGN',        (0,0),(-1,-1), 'MIDDLE'),
         ('TOPPADDING',    (0,0),(-1,-1), 3),
         ('BOTTOMPADDING', (0,0),(-1,-1), 3),
-        ('LEFTPADDING',   (0,0),(-1,-1), 5),
-        ('RIGHTPADDING',  (0,0),(-1,-1), 5),
+        ('LEFTPADDING',   (0,0),(-1,-1), 3),
+        ('RIGHTPADDING',  (0,0),(-1,-1), 3),
         ('GRID',          (0,1),(-1,-1), 0.3, GREY_MED),
     ]))
     right_col = Table(
@@ -499,7 +499,7 @@ def _build_cartographie(data, weights_buf, registry=None):
         ("LEFTPADDING",   (0,0),(-1,-1), 0), ("RIGHTPADDING",  (0,0),(-1,-1), 0),
         ("TOPPADDING",    (0,0),(-1,-1), 0), ("BOTTOMPADDING", (0,0),(-1,-1), 2),
     ]))
-    combined = Table([[weights_img, right_col]], colWidths=[78*mm, 92*mm])
+    combined = Table([[weights_img, right_col]], colWidths=[80*mm, 90*mm])
     combined.setStyle(TableStyle([
         ("VALIGN",        (0,0),(-1,-1), "TOP"),
         ("LEFTPADDING",   (0,0),(-1,-1), 0), ("RIGHTPADDING",  (0,0),(-1,-1), 0),
@@ -512,12 +512,10 @@ def _build_cartographie(data, weights_buf, registry=None):
     elems.append(Spacer(1, 4*mm))
 
     # Tableau comparatif complet — colonnes exactement 170mm
-    # [8, 36, 14, 12, 26, 24, 18, 16, 16] = 170
-    elems.append(Paragraph(
-        f"Tableau comparatif — {data['nb_secteurs']} secteurs {indice_rl}", S_SUBSECTION))
+    # [8, 36, 14, 16, 22, 24, 18, 16, 16] = 170 — compact pad 3mm
     comp_h = [Paragraph(h, S_TH_C) for h in
               ["Rg","Secteur","Nb Soc.","Score","Signal",
-               "EV/EBITDA","Mg.EBITDA","Croiss.","Momentum"]]
+               "EV/EBITDA","Mg.EBITDA","Croiss.","Mom."]]
     comp_rows = []
     sorted_secs = sorted(secteurs, key=lambda s: s[2], reverse=True)
     for rang, s in enumerate(sorted_secs, 1):
@@ -535,8 +533,14 @@ def _build_cartographie(data, weights_buf, registry=None):
             Paragraph(croi, S_TD_G if '+' in str(croi) else S_TD_R),
             Paragraph(mom,  S_TD_G if '+' in str(mom)  else S_TD_R),
         ])
-    elems.append(KeepTogether(tbl([comp_h] + comp_rows,
-        cw=[8*mm, 36*mm, 14*mm, 12*mm, 26*mm, 24*mm, 18*mm, 16*mm, 16*mm])))
+    comp_tbl = tbl([comp_h] + comp_rows,
+        cw=[8*mm, 36*mm, 14*mm, 16*mm, 22*mm, 24*mm, 18*mm, 16*mm, 16*mm],
+        compact=True)
+    elems.append(KeepTogether([
+        Paragraph(f"Tableau comparatif — {data['nb_secteurs']} secteurs {indice_rl}", S_SUBSECTION),
+        Spacer(1, 2*mm),
+        comp_tbl,
+    ]))
     elems.append(src(
         f"FinSight IA — FMP, yfinance. EV/EBITDA et marges = medianes sectorielles LTM. "
         "Momentum = performance relative 3 mois vs indice. Score = composite 0-100."))
@@ -780,8 +784,9 @@ def _build_risques(data, registry=None):
         is_ = S_TD_R if impact in ("Eleve", "\xc9lev\xe9") else S_TD_A
         risk_rows.append([Paragraph(nom, S_TD_B), Paragraph(mec, S_TD_L),
                           Paragraph(str(prob), ps), Paragraph(impact, is_)])
-    # [36, 107, 16, 11] = 170
-    elems.append(KeepTogether(tbl([risk_h] + risk_rows, cw=[36*mm, 107*mm, 16*mm, 11*mm])))
+    # [36, 95, 14, 25] = 170 — compact pad 3mm, Impact 25mm donne 19mm texte
+    elems.append(KeepTogether(tbl([risk_h] + risk_rows,
+        cw=[36*mm, 95*mm, 14*mm, 25*mm], compact=True)))
     elems.append(src(
         f"FinSight IA — Analyse adversariale. Probabilites estimees au {data['date_analyse']}."))
     elems.append(Spacer(1, 4*mm))
@@ -813,8 +818,9 @@ def _build_risques(data, registry=None):
     inv_rows = [[Paragraph(r[0], S_TD_B), Paragraph(r[1], S_TD_L),
                  Paragraph(r[2], inv_signal_s(r[2])), Paragraph(r[3], S_TD_C)]
                 for r in inv_data]
-    # [22, 91, 48, 9] = 170
-    elems.append(KeepTogether(tbl([inv_h] + inv_rows, cw=[22*mm, 91*mm, 48*mm, 9*mm])))
+    # [24, 82, 40, 24] = 170 — compact pad 3mm, Horizon 24mm = 18mm texte
+    elems.append(KeepTogether(tbl([inv_h] + inv_rows,
+        cw=[24*mm, 82*mm, 40*mm, 24*mm], compact=True)))
     elems.append(src(
         "FinSight IA — Scenarios alternatifs. Conditions a reevaluer a chaque rapport mensuel."))
     elems.append(Spacer(1, 4*mm))
@@ -838,84 +844,93 @@ def _build_sentiment(data, registry=None):
     if registry is not None: elems.append(SectionAnchor('sentiment', registry))
     elems += section_title("Sentiment Agrege &amp; Methodologie", 7)
 
-    elems.append(Paragraph(
-        f"L'analyse FinBERT conduite sur <b>{fb['nb_articles']} articles</b> des sept derniers "
-        f"jours produit un sentiment agrege de <b>{fb['score_agrege']}</b> sur l'ensemble du "
-        f"{indice_rl}. Les publications favorables portent sur : {fb['positif']['themes']}. "
-        f"Les signaux negatifs se concentrent sur : {fb['negatif']['themes']}.", S_BODY))
-    elems.append(Spacer(1, 3*mm))
+    if fb["nb_articles"] == 0:
+        elems.append(Paragraph(
+            "L'analyse de sentiment FinBERT n'est pas disponible dans le cadre du screening "
+            "d'indice. Le modele FinBERT est active lors des analyses sectorielles ou "
+            "societe individuelles, ou il traite les flux RSS et Finnhub propres a chaque "
+            "valeur. Pour acceder au sentiment sectoriel detaille, lancer l'analyse "
+            "sectorielle dediee depuis FinSight IA.", S_BODY))
+        elems.append(Spacer(1, 4*mm))
+    else:
+        elems.append(Paragraph(
+            f"L'analyse FinBERT conduite sur <b>{fb['nb_articles']} articles</b> des sept derniers "
+            f"jours produit un sentiment agrege de <b>{fb['score_agrege']}</b> sur l'ensemble du "
+            f"{indice_rl}. Les publications favorables portent sur : {fb['positif']['themes']}. "
+            f"Les signaux negatifs se concentrent sur : {fb['negatif']['themes']}.", S_BODY))
+        elems.append(Spacer(1, 3*mm))
 
-    # Distribution globale — [24, 20, 26, 100] = 170
-    sent_h = [Paragraph(h, S_TH_C) for h in
-              ["Orientation","Articles","Score moyen","Themes dominants"]]
-    sent_rows = [
-        [Paragraph("Positif",  S_TD_G),
-         Paragraph(str(fb["positif"]["nb"]),  S_TD_C),
-         Paragraph(fb["positif"]["score"],    S_TD_G),
-         Paragraph(fb["positif"]["themes"],   S_TD_L)],
-        [Paragraph("Neutre",   S_TD_A),
-         Paragraph(str(fb["neutre"]["nb"]),   S_TD_C),
-         Paragraph(fb["neutre"]["score"],     S_TD_C),
-         Paragraph(fb["neutre"]["themes"],    S_TD_L)],
-        [Paragraph("Negatif",  S_TD_R),
-         Paragraph(str(fb["negatif"]["nb"]),  S_TD_C),
-         Paragraph(fb["negatif"]["score"],    S_TD_R),
-         Paragraph(fb["negatif"]["themes"],   S_TD_L)],
-    ]
-    elems.append(KeepTogether(tbl([sent_h] + sent_rows, cw=[24*mm, 20*mm, 26*mm, 100*mm])))
-    elems.append(src(
-        f"FinBERT — Corpus presse financiere anglophone. {fb['nb_articles']} articles, 7 jours."))
-    elems.append(Spacer(1, 4*mm))
+        # Distribution globale — [24, 20, 26, 100] = 170
+        sent_h = [Paragraph(h, S_TH_C) for h in
+                  ["Orientation","Articles","Score moyen","Themes dominants"]]
+        sent_rows = [
+            [Paragraph("Positif",  S_TD_G),
+             Paragraph(str(fb["positif"]["nb"]),  S_TD_C),
+             Paragraph(fb["positif"]["score"],    S_TD_G),
+             Paragraph(fb["positif"]["themes"],   S_TD_L)],
+            [Paragraph("Neutre",   S_TD_A),
+             Paragraph(str(fb["neutre"]["nb"]),   S_TD_C),
+             Paragraph(fb["neutre"]["score"],     S_TD_C),
+             Paragraph(fb["neutre"]["themes"],    S_TD_L)],
+            [Paragraph("Negatif",  S_TD_R),
+             Paragraph(str(fb["negatif"]["nb"]),  S_TD_C),
+             Paragraph(fb["negatif"]["score"],    S_TD_R),
+             Paragraph(fb["negatif"]["themes"],   S_TD_L)],
+        ]
+        elems.append(KeepTogether(tbl([sent_h] + sent_rows, cw=[24*mm, 20*mm, 26*mm, 100*mm])))
+        elems.append(src(
+            f"FinBERT — Corpus presse financiere anglophone. {fb['nb_articles']} articles, 7 jours."))
+        elems.append(Spacer(1, 4*mm))
 
-    # Sentiment par secteur — deux colonnes cote a cote
-    elems.append(Paragraph("Sentiment FinBERT — Distribution par secteur", S_SUBSECTION))
-    ps_h = [Paragraph(h, S_TH_C) for h in ["Secteur","Score moyen","Orientation"]]
-    ps_rows = []
-    for sect, score, orient in fb["par_secteur"]:
-        os_ = S_TD_G if orient == "Positif" else (S_TD_R if orient in ("Negatif","N\xe9gatif") else S_TD_C)
-        try:
-            sc_s = S_TD_G if float(score) > 0 else (S_TD_R if float(score) < -0.10 else S_TD_C)
-        except ValueError:
-            sc_s = S_TD_C
-        ps_rows.append([Paragraph(sect, S_TD_B), Paragraph(score, sc_s), Paragraph(orient, os_)])
+        # Sentiment par secteur — deux colonnes cote a cote
+        elems.append(Paragraph("Sentiment FinBERT — Distribution par secteur", S_SUBSECTION))
+        ps_h = [Paragraph(h, S_TH_C) for h in ["Secteur","Score moyen","Orientation"]]
+        ps_rows = []
+        for sect, score, orient in fb["par_secteur"]:
+            os_ = S_TD_G if orient == "Positif" else (S_TD_R if orient in ("Negatif","N\xe9gatif") else S_TD_C)
+            try:
+                sc_s = S_TD_G if float(score) > 0 else (S_TD_R if float(score) < -0.10 else S_TD_C)
+            except ValueError:
+                sc_s = S_TD_C
+            ps_rows.append([Paragraph(sect, S_TD_B), Paragraph(score, sc_s), Paragraph(orient, os_)])
 
-    mid = len(ps_rows) // 2
-    left_rows  = ps_rows[:mid + 1]
-    right_rows = ps_rows[mid + 1:]
-    while len(right_rows) < len(left_rows):
-        right_rows.append([Paragraph("", S_TD_C)] * 3)
+        mid = len(ps_rows) // 2
+        left_rows  = ps_rows[:mid + 1]
+        right_rows = ps_rows[mid + 1:]
+        while len(right_rows) < len(left_rows):
+            right_rows.append([Paragraph("", S_TD_C)] * 3)
 
-    # Sous-tableaux : [45, 20, 20] = 85mm chacun
-    def _mini_tbl(hdr, rows, cw):
-        t = Table([hdr] + rows, colWidths=cw)
-        t.setStyle(TableStyle([
-            ('BACKGROUND',    (0,0),(-1,0),  NAVY),
-            ('ROWBACKGROUNDS',(0,1),(-1,-1), [WHITE, ROW_ALT]),
-            ('FONTNAME',      (0,0),(-1,0),  'Helvetica-Bold'),
-            ('FONTSIZE',      (0,0),(-1,-1), 8),
-            ('VALIGN',        (0,0),(-1,-1), 'MIDDLE'),
-            ('TOPPADDING',    (0,0),(-1,-1), 3),
-            ('BOTTOMPADDING', (0,0),(-1,-1), 3),
-            ('LEFTPADDING',   (0,0),(-1,-1), 5),
-            ('RIGHTPADDING',  (0,0),(-1,-1), 5),
-            ('GRID',          (0,1),(-1,-1), 0.3, GREY_MED),
+        # Sous-tableaux : [45, 20, 20] = 85mm chacun
+        def _mini_tbl(hdr, rows, cw):
+            t = Table([hdr] + rows, colWidths=cw)
+            t.setStyle(TableStyle([
+                ('BACKGROUND',    (0,0),(-1,0),  NAVY),
+                ('ROWBACKGROUNDS',(0,1),(-1,-1), [WHITE, ROW_ALT]),
+                ('FONTNAME',      (0,0),(-1,0),  'Helvetica-Bold'),
+                ('FONTSIZE',      (0,0),(-1,-1), 8),
+                ('VALIGN',        (0,0),(-1,-1), 'MIDDLE'),
+                ('TOPPADDING',    (0,0),(-1,-1), 3),
+                ('BOTTOMPADDING', (0,0),(-1,-1), 3),
+                ('LEFTPADDING',   (0,0),(-1,-1), 5),
+                ('RIGHTPADDING',  (0,0),(-1,-1), 5),
+                ('GRID',          (0,1),(-1,-1), 0.3, GREY_MED),
+            ]))
+            return t
+
+        left_tbl  = _mini_tbl(ps_h, left_rows,  [45*mm, 20*mm, 20*mm])
+        right_tbl = _mini_tbl(ps_h, right_rows, [45*mm, 20*mm, 20*mm])
+        # [85, 85] = 170
+        two_col = Table([[left_tbl, right_tbl]], colWidths=[85*mm, 85*mm])
+        two_col.setStyle(TableStyle([
+            ("VALIGN",        (0,0),(-1,-1), "TOP"),
+            ("LEFTPADDING",   (0,0),(-1,-1), 0), ("RIGHTPADDING",  (0,0),(-1,-1), 0),
+            ("TOPPADDING",    (0,0),(-1,-1), 0), ("BOTTOMPADDING", (0,0),(-1,-1), 0),
+            ("LEFTPADDING",   (1,0),(1,0),   6),
         ]))
-        return t
-
-    left_tbl  = _mini_tbl(ps_h, left_rows,  [45*mm, 20*mm, 20*mm])
-    right_tbl = _mini_tbl(ps_h, right_rows, [45*mm, 20*mm, 20*mm])
-    # [85, 85] = 170
-    two_col = Table([[left_tbl, right_tbl]], colWidths=[85*mm, 85*mm])
-    two_col.setStyle(TableStyle([
-        ("VALIGN",        (0,0),(-1,-1), "TOP"),
-        ("LEFTPADDING",   (0,0),(-1,-1), 0), ("RIGHTPADDING",  (0,0),(-1,-1), 0),
-        ("TOPPADDING",    (0,0),(-1,-1), 0), ("BOTTOMPADDING", (0,0),(-1,-1), 0),
-        ("LEFTPADDING",   (1,0),(1,0),   6),
-    ]))
-    elems.append(two_col)
-    elems.append(src(
-        "FinBERT — Score par secteur = moyenne ponderee des articles mentionnant le secteur."))
-    elems.append(Spacer(1, 4*mm))
+        elems.append(two_col)
+        elems.append(src(
+            "FinBERT — Score par secteur = moyenne ponderee des articles mentionnant le secteur."))
+        elems.append(Spacer(1, 4*mm))
 
     # Methodologie — [40, 130] = 170
     elems.append(Paragraph("Sources &amp; Methodologie", S_SUBSECTION))
