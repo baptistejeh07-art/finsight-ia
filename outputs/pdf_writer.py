@@ -452,7 +452,7 @@ def _make_margins_chart(data):
 
     x = np.arange(n)
     width = 0.25
-    fig, ax = plt.subplots(figsize=(8, 2.5), dpi=160)
+    fig, ax = plt.subplots(figsize=(8, 3.2), dpi=160)
 
     def _bar(vals, offset, color, label):
         vf = [v if v is not None else 0 for v in vals]
@@ -460,9 +460,10 @@ def _make_margins_chart(data):
         for bar, v in zip(bars, vals):
             if v is not None:
                 ax.text(bar.get_x() + bar.get_width() / 2,
-                        bar.get_height() + 0.4,
+                        bar.get_height() + 0.3,
                         f"{v:.1f}%".replace('.', ','),
-                        ha='center', va='bottom', fontsize=9, color=color, fontweight='bold')
+                        ha='center', va='bottom', fontsize=8, color=color,
+                        fontweight='bold', clip_on=False)
 
     _bar(gm_vals, -width, '#1B3A6B', 'Marge brute')
     _bar(em_vals,  0,     '#2A5298', 'Marge EBITDA')
@@ -1760,6 +1761,13 @@ def _fetch_pie_data(ticker: str, peers: list) -> dict:
             try:
                 yft  = yf.Ticker(t)
                 info = yft.fast_info
+                # Filtrer les tickers non-USD (mismatch devise KRW/JPY/HKD)
+                try:
+                    cur = getattr(info, 'currency', None)
+                    if cur and cur not in ('USD', 'GBp', 'GBP'):
+                        continue
+                except Exception:
+                    pass
                 ev   = getattr(info, 'enterprise_value', None)
                 if ev is None:
                     ev = yft.info.get('enterpriseValue')
@@ -2051,6 +2059,14 @@ class PDFWriter:
         comp_row = {'name': f"{ticker} (cible)", 'bold': True,
                     'ev_ebitda': _frx(ev_e), 'ev_revenue': _frx(ev_r),
                     'pe': _frx(pe_v), 'gross_margin': _frpct(gm_v), 'ebitda_margin': _frpct(em)}
+        def _norm_margin(v):
+            """Normalise vers decimal 0-1 : si LLM retourne 68 au lieu de 0.68."""
+            if v is None: return None
+            try:
+                f = float(v)
+                return f / 100 if abs(f) > 1 else f
+            except: return None
+
         comparables = [comp_row]
         for peer in peers[:5]:
             comparables.append({
@@ -2058,8 +2074,8 @@ class PDFWriter:
                 'ev_ebitda':    _frx(_g(peer,'ev_ebitda')),
                 'ev_revenue':   _frx(_g(peer,'ev_revenue')),
                 'pe':           _frx(_g(peer,'pe')),
-                'gross_margin': _frpct(_g(peer,'gross_margin')),
-                'ebitda_margin':_frpct(_g(peer,'ebitda_margin')),
+                'gross_margin': _frpct(_norm_margin(_g(peer,'gross_margin'))),
+                'ebitda_margin':_frpct(_norm_margin(_g(peer,'ebitda_margin'))),
                 'bold': False,
             })
         if peers:
@@ -2133,6 +2149,12 @@ class PDFWriter:
         # Devil
         counter_thesis = _g(devil, 'counter_thesis') or ''
         counter_risks  = _g(devil, 'counter_risks')  or []
+        # Fallback : utiliser les themes negatifs de la synthese si devil.counter_risks vide
+        if not counter_risks:
+            _neg = _g(synthesis, 'negative_themes') or []
+            counter_risks = [t if isinstance(t, str) else (_g(t,'title') or _g(t,'name') or '')
+                             for t in _neg[:3]]
+            counter_risks = [c for c in counter_risks if c]
         if counter_thesis and ' | ' in counter_thesis:
             ct_parts = [s.strip() for s in counter_thesis.split(' | ') if s.strip()]
         elif counter_thesis:
