@@ -824,16 +824,27 @@ def _slide_exec_summary(prs, snap, synthesis, ratios, devil, sentiment):
 
     risk_ys = [4.57, 6.05, 7.53]
     for i, ry in enumerate(risk_ys):
-        risk_text = risks_s[i] if i < len(risks_s) else (counter_risks[i] if i < len(counter_risks) else "")
-        # Priorité : negative_themes (spécifique au risque) > risk_bodies (extrait counter_thesis)
-        body_r = neg_themes[i] if i < len(neg_themes) and neg_themes[i] else ""
-        if not body_r:
-            body_r = risk_bodies[i] if i < len(risk_bodies) and risk_bodies[i] and risk_bodies[i] != risk_text else ""
+        risk_text = (risks_s[i] if i < len(risks_s) else
+                     (counter_risks[i] if i < len(counter_risks) else ""))
+        # Cascade body : neg_themes → risk_bodies (counter_thesis) → counter_risks → fallback générique
+        body_r = (neg_themes[i] if i < len(neg_themes) and neg_themes[i] else "")
+        if not body_r or len(body_r) < 20:
+            rb = risk_bodies[i] if i < len(risk_bodies) else ""
+            if rb and rb != risk_text and len(rb) >= 20:
+                body_r = rb
+        if not body_r or len(body_r) < 20:
+            cr = counter_risks[i] if i < len(counter_risks) else ""
+            if cr and cr != risk_text and len(cr) >= 20:
+                body_r = cr
+        if not body_r or len(body_r) < 20:
+            # Fallback : construire une phrase à partir du label risque
+            body_r = (f"Impact potentiel sur la these d'investissement — "
+                      f"surveillance recommandee sur les 6-12 prochains mois.")
         add_rect(slide, 13.08, ry + 0.05, 0.15, 0.36, RED)
         add_text_box(slide, 13.46, ry, 10.54, 0.51,
                      _truncate(risk_text, 80), 8.5, NAVY, bold=True)
         add_text_box(slide, 13.46, ry + 0.47, 10.54, 0.91,
-                     _truncate(body_r, 170), 7.5, "333333", wrap=True)
+                     _truncate(body_r, 200), 7.5, "333333", wrap=True)
 
     # Vertical divider
     add_rect(slide, 12.57, 3.76, 0.03, 4.84, GREY_LIGHT)
@@ -1914,54 +1925,58 @@ def _slide_football_field(prs, snap, synthesis, ratios):
         high  = _g(item, "range_high")
         if low is None or high is None:
             continue
+        lo_f, hi_f = float(low), float(high)
+        lo_f, hi_f = min(lo_f, hi_f), max(lo_f, hi_f)   # swap si LLM inverse lo/hi
+        if hi_f <= lo_f:
+            continue
         ff_methods.append(label)
-        ff_lows.append(float(low))
-        ff_highs.append(float(high))
+        ff_lows.append(lo_f)
+        ff_highs.append(hi_f)
         ff_colors.append(COLOR_MAP.get(label, DEFAULT_COLORS[i % len(DEFAULT_COLORS)]))
 
     def _make_ff_buf():
         n = len(ff_methods)
-        fig_h = max(3.2, 1.0 + n * 0.55)
-        fig, ax = plt.subplots(figsize=(8.0, fig_h))
+        fig_h = max(4.0, 1.4 + n * 0.72)
+        fig, ax = plt.subplots(figsize=(10.0, fig_h))
         y = np.arange(n)
+        all_v = ff_lows + ff_highs
+        plage = (max(all_v) - min(all_v)) if len(all_v) > 1 else max(all_v)
+        offset = max(plage * 0.04, 3.0)
         for i, (lo, hi, col) in enumerate(zip(ff_lows, ff_highs, ff_colors)):
-            ax.barh(y[i], hi - lo, left=lo, height=0.44, color=col, alpha=0.85, zorder=3)
+            ax.barh(y[i], hi - lo, left=lo, height=0.52, color=col, alpha=0.87, zorder=3)
             ax.text((lo + hi) / 2, y[i], f"{int((lo + hi) / 2)}",
-                    va='center', ha='center', fontsize=7.5, color='white',
+                    va='center', ha='center', fontsize=9, color='white',
                     fontweight='bold', zorder=4)
-            ax.text(lo - 1, y[i], f"{int(lo)}", va='center', ha='right',
-                    fontsize=6.5, color='#555', clip_on=False)
-            ax.text(hi + 1, y[i], f"{int(hi)}", va='center', ha='left',
-                    fontsize=6.5, color='#555', clip_on=False)
+            ax.text(lo - offset, y[i], f"{int(lo)}", va='center', ha='right',
+                    fontsize=8, color='#444', clip_on=False)
+            ax.text(hi + offset, y[i], f"{int(hi)}", va='center', ha='left',
+                    fontsize=8, color='#444', clip_on=False)
         if price and ff_lows:
-            ax.axvline(x=price, color='#B06000', linewidth=1.8,
+            ax.axvline(x=price, color='#B06000', linewidth=2.0,
                        linestyle='--', zorder=5)
             price_lbl = f"{cur_sym}{price:.0f}"
-            ax.text(price, n - 0.1, f"Cours : {price_lbl}",
-                    fontsize=6.5, color='#B06000', fontweight='bold',
+            ax.text(price, n - 0.05, f"Cours : {price_lbl}",
+                    fontsize=8, color='#B06000', fontweight='bold',
                     ha='center', va='top', clip_on=False,
-                    bbox=dict(boxstyle='round,pad=0.25', facecolor='white',
-                              alpha=0.9, edgecolor='none'))
+                    bbox=dict(boxstyle='round,pad=0.3', facecolor='white',
+                              alpha=0.95, edgecolor='#B06000', linewidth=0.8))
         ax.set_yticks(y)
-        ax.set_yticklabels(ff_methods, fontsize=8, color='#333')
-        if ff_lows and ff_highs:
-            all_v  = ff_lows + ff_highs
-            rng    = max(all_v) - min(all_v) if len(all_v) > 1 else max(all_v)
-            margin = max(20, rng * 0.18)
-            ax.set_xlim(min(all_v) - margin, max(all_v) + margin)
-        ax.set_xlabel(f"Valeur par action ({currency})", fontsize=7.5, color='#555')
+        ax.set_yticklabels(ff_methods, fontsize=9, color='#222')
+        margin = max(25, plage * 0.20)
+        ax.set_xlim(min(all_v) - margin, max(all_v) + margin)
+        ax.set_xlabel(f"Valeur par action ({currency})", fontsize=9, color='#555')
         for sp in ['top', 'right']:
             ax.spines[sp].set_visible(False)
         ax.spines['left'].set_color('#D0D5DD')
         ax.spines['bottom'].set_color('#D0D5DD')
-        ax.tick_params(axis='x', labelsize=7.5)
+        ax.tick_params(axis='x', labelsize=8.5)
         ax.tick_params(axis='y', length=0)
         ax.set_facecolor('white')
         fig.patch.set_facecolor('white')
         ax.grid(axis='x', alpha=0.3, color='#D0D5DD', zorder=0)
-        plt.tight_layout(pad=1.2)
+        plt.tight_layout(pad=1.4)
         buf = io.BytesIO()
-        fig.savefig(buf, format='png', dpi=160, bbox_inches='tight')
+        fig.savefig(buf, format='png', dpi=180, bbox_inches='tight')
         plt.close(fig)
         buf.seek(0)
         return buf
