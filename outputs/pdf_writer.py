@@ -128,7 +128,10 @@ def _enc(s):
     """Encode pour canvas ReportLab (Helvetica / WinAnsiEncoding = cp1252).
     cp1252 inclut em-dash (0x97) et en-dash (0x96) contrairement a latin-1."""
     if not s: return ""
-    try:    return str(s).encode('cp1252', errors='replace').decode('cp1252')
+    try:
+        import unicodedata
+        s = unicodedata.normalize('NFKC', str(s))
+        return s.encode('cp1252', errors='replace').decode('cp1252')
     except: return str(s)
 
 def _safe(s):
@@ -334,9 +337,7 @@ def _make_ff_chart(data):
     ax.tick_params(axis='y', length=0)
     ax.set_facecolor('white')
     fig.patch.set_facecolor('white')
-    # Titre avec padding genereux pour ne pas empieter sur les barres
-    ax.set_title('Football Field \u2014 Synth\u00e8se des m\u00e9thodes de valorisation',
-                 fontsize=8, color='#1B3A6B', fontweight='bold', pad=12)
+    # Pas de titre matplotlib : le PDF ajoute deja un titre de section au-dessus
     ax.grid(axis='x', alpha=0.3, color='#D0D5DD', zorder=0)
     plt.tight_layout(rect=[0, 0, 1, 1], pad=1.2)
     buf = io.BytesIO()

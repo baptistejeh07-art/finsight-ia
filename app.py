@@ -605,6 +605,99 @@ def render_sidebar(results) -> None:
                         unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
+        # Aperçu Claude — previews en attente d'approbation
+        _preview_root = Path(__file__).parent / "outputs" / "generated" / "preview"
+        _preview_tickers = sorted([
+            d for d in _preview_root.iterdir() if d.is_dir()
+        ]) if _preview_root.exists() else []
+
+        if _preview_tickers:
+            st.markdown('<div class="sb-section">', unsafe_allow_html=True)
+            st.markdown('<span class="sb-label">Aperçu Claude</span>', unsafe_allow_html=True)
+            st.markdown(
+                '<div style="font-size:11px;color:#888;margin-bottom:6px">'
+                'Outputs générés par Claude — en attente de validation</div>',
+                unsafe_allow_html=True,
+            )
+
+            _prod_root = Path(__file__).parent / "outputs" / "generated" / "cli_tests"
+            _prod_root.mkdir(parents=True, exist_ok=True)
+
+            for _ticker_dir in _preview_tickers:
+                _ticker = _ticker_dir.name
+                _files  = list(_ticker_dir.glob("*"))
+                if not _files:
+                    continue
+
+                st.markdown(f'<div style="font-size:12px;font-weight:600;margin:8px 0 4px">{_ticker}</div>',
+                            unsafe_allow_html=True)
+
+                # Boutons de téléchargement preview
+                for _f in sorted(_files):
+                    _ext = _f.suffix.lower()
+                    _mime = {"pdf": "application/pdf", "pptx": "application/vnd.ms-powerpoint",
+                             "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                             "txt": "text/plain"}.get(_ext.lstrip("."), "application/octet-stream")
+                    st.download_button(
+                        f"↓ {_f.name}",
+                        _f.read_bytes(),
+                        file_name=_f.name,
+                        mime=_mime,
+                        use_container_width=True,
+                        key=f"prev_dl_{_ticker}_{_f.name}",
+                    )
+
+                _confirm_key = f"prev_confirm_{_ticker}"
+                if _confirm_key not in st.session_state:
+                    st.session_state[_confirm_key] = None  # None / "ok" / "ko"
+
+                _pending = st.session_state[_confirm_key]
+
+                if _pending is None:
+                    _col_ok, _col_ko = st.columns(2)
+                    with _col_ok:
+                        if st.button("✓ Valider", key=f"prev_ok_{_ticker}", use_container_width=True):
+                            st.session_state[_confirm_key] = "ok"
+                            st.rerun()
+                    with _col_ko:
+                        if st.button("✗ Rejeter", key=f"prev_ko_{_ticker}", use_container_width=True):
+                            st.session_state[_confirm_key] = "ko"
+                            st.rerun()
+
+                elif _pending == "ok":
+                    st.warning(f"Déployer {_ticker} en production ?")
+                    _c1, _c2 = st.columns(2)
+                    with _c1:
+                        if st.button("Confirmer", key=f"prev_ok_confirm_{_ticker}", use_container_width=True):
+                            import shutil as _shutil
+                            for _f in _files:
+                                _shutil.copy2(_f, _prod_root / _f.name)
+                            _shutil.rmtree(_ticker_dir)
+                            st.session_state.pop(_confirm_key, None)
+                            st.success(f"{_ticker} deploye")
+                            st.rerun()
+                    with _c2:
+                        if st.button("Annuler", key=f"prev_ok_cancel_{_ticker}", use_container_width=True):
+                            st.session_state[_confirm_key] = None
+                            st.rerun()
+
+                elif _pending == "ko":
+                    st.warning(f"Supprimer definitivement {_ticker} ?")
+                    _c1, _c2 = st.columns(2)
+                    with _c1:
+                        if st.button("Confirmer", key=f"prev_ko_confirm_{_ticker}", use_container_width=True):
+                            import shutil as _shutil
+                            _shutil.rmtree(_ticker_dir)
+                            st.session_state.pop(_confirm_key, None)
+                            st.info(f"{_ticker} supprime")
+                            st.rerun()
+                    with _c2:
+                        if st.button("Annuler", key=f"prev_ko_cancel_{_ticker}", use_container_width=True):
+                            st.session_state[_confirm_key] = None
+                            st.rerun()
+
+            st.markdown('</div>', unsafe_allow_html=True)
+
         # Diagnostic API
         with st.expander("🔧 Diagnostic API", expanded=False):
             import os

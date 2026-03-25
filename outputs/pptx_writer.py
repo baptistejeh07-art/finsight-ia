@@ -12,6 +12,7 @@
 
 from __future__ import annotations
 
+import io
 import logging
 import math
 import statistics
@@ -824,10 +825,10 @@ def _slide_exec_summary(prs, snap, synthesis, ratios, devil, sentiment):
     risk_ys = [4.57, 6.05, 7.53]
     for i, ry in enumerate(risk_ys):
         risk_text = risks_s[i] if i < len(risks_s) else (counter_risks[i] if i < len(counter_risks) else "")
-        body_r = risk_bodies[i] if i < len(risk_bodies) and risk_bodies[i] else ""
-        # Fallback body : negative_themes si risk_bodies vide
-        if not body_r or body_r == risk_text:
-            body_r = neg_themes[i] if i < len(neg_themes) else ""
+        # Priorité : negative_themes (spécifique au risque) > risk_bodies (extrait counter_thesis)
+        body_r = neg_themes[i] if i < len(neg_themes) and neg_themes[i] else ""
+        if not body_r:
+            body_r = risk_bodies[i] if i < len(risk_bodies) and risk_bodies[i] and risk_bodies[i] != risk_text else ""
         add_rect(slide, 13.08, ry + 0.05, 0.15, 0.36, RED)
         add_text_box(slide, 13.46, ry, 10.54, 0.51,
                      _truncate(risk_text, 80), 8.5, NAVY, bold=True)
@@ -1870,41 +1871,134 @@ def _slide_football_field(prs, snap, synthesis, ratios):
                 f"Synth\u00e8se des m\u00e9thodes de valorisation  \u00b7  {currency} par action")
 
     ff     = _g(synthesis, "football_field", []) or []
-    tbase  = _g(synthesis, "target_base")
-    tbear  = _g(synthesis, "target_bear")
-    tbull  = _g(synthesis, "target_bull")
 
-    header = ["Methode", "Fourchette basse", "Fourchette haute", "Point central"]
+    # ── Matplotlib Football Field chart ──────────────────────────────────────
+    try:
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+        import numpy as np
+        _mpl_ok = True
+    except Exception:
+        _mpl_ok = False
 
-    row_fills_map = {
-        "DCF - Bear":             RED_PALE,
-        "DCF - Base":             NAVY_PALE,
-        "DCF - Bull":             GREEN_PALE,
+    COLOR_MAP = {
+        "DCF - Bear":   "#A82020",
+        "DCF - Base":   "#1B3A6B",
+        "DCF - Bull":   "#1A7A4A",
+        "Comparables":  "#2E5FA3",
+        "DDM":          "#B06000",
     }
+    DEFAULT_COLORS = ["#1B3A6B", "#2E5FA3", "#1A7A4A", "#A82020", "#B06000",
+                      "#6E4FC2", "#888888"]
 
+    ff_methods = []
+    ff_lows    = []
+    ff_highs   = []
+    ff_colors  = []
+    for i, item in enumerate(ff):
+        label = str(_g(item, "label", "—"))
+        low   = _g(item, "range_low")
+        high  = _g(item, "range_high")
+        if low is None or high is None:
+            continue
+        ff_methods.append(label)
+        ff_lows.append(float(low))
+        ff_highs.append(float(high))
+        ff_colors.append(COLOR_MAP.get(label, DEFAULT_COLORS[i % len(DEFAULT_COLORS)]))
+
+    def _make_ff_buf():
+        n = len(ff_methods)
+        fig_h = max(3.2, 1.0 + n * 0.55)
+        fig, ax = plt.subplots(figsize=(8.0, fig_h))
+        y = np.arange(n)
+        for i, (lo, hi, col) in enumerate(zip(ff_lows, ff_highs, ff_colors)):
+            ax.barh(y[i], hi - lo, left=lo, height=0.44, color=col, alpha=0.85, zorder=3)
+            ax.text((lo + hi) / 2, y[i], f"{int((lo + hi) / 2)}",
+                    va='center', ha='center', fontsize=7.5, color='white',
+                    fontweight='bold', zorder=4)
+            ax.text(lo - 1, y[i], f"{int(lo)}", va='center', ha='right',
+                    fontsize=6.5, color='#555', clip_on=False)
+            ax.text(hi + 1, y[i], f"{int(hi)}", va='center', ha='left',
+                    fontsize=6.5, color='#555', clip_on=False)
+        if price and ff_lows:
+            ax.axvline(x=price, color='#B06000', linewidth=1.8,
+                       linestyle='--', zorder=5)
+            price_lbl = f"{cur_sym}{price:.0f}"
+            ax.text(price, n - 0.1, f"Cours : {price_lbl}",
+                    fontsize=6.5, color='#B06000', fontweight='bold',
+                    ha='center', va='top', clip_on=False,
+                    bbox=dict(boxstyle='round,pad=0.25', facecolor='white',
+                              alpha=0.9, edgecolor='none'))
+        ax.set_yticks(y)
+        ax.set_yticklabels(ff_methods, fontsize=8, color='#333')
+        if ff_lows and ff_highs:
+            all_v  = ff_lows + ff_highs
+            rng    = max(all_v) - min(all_v) if len(all_v) > 1 else max(all_v)
+            margin = max(20, rng * 0.18)
+            ax.set_xlim(min(all_v) - margin, max(all_v) + margin)
+        ax.set_xlabel(f"Valeur par action ({currency})", fontsize=7.5, color='#555')
+        for sp in ['top', 'right']:
+            ax.spines[sp].set_visible(False)
+        ax.spines['left'].set_color('#D0D5DD')
+        ax.spines['bottom'].set_color('#D0D5DD')
+        ax.tick_params(axis='x', labelsize=7.5)
+        ax.tick_params(axis='y', length=0)
+        ax.set_facecolor('white')
+        fig.patch.set_facecolor('white')
+        ax.grid(axis='x', alpha=0.3, color='#D0D5DD', zorder=0)
+        plt.tight_layout(pad=1.2)
+        buf = io.BytesIO()
+        fig.savefig(buf, format='png', dpi=160, bbox_inches='tight')
+        plt.close(fig)
+        buf.seek(0)
+        return buf
+
+    if _mpl_ok and ff_methods:
+        try:
+            chart_buf = _make_ff_buf()
+            # Position : x=1.02cm, y=2.54cm, w=23.37cm, adaptive height
+            from pptx.util import Cm
+            img_top  = Cm(2.54)
+            img_left = Cm(1.02)
+            img_w    = Cm(23.37)
+            img_h    = Cm(min(1.0 + len(ff_methods) * 0.75, 10.0))
+            slide.shapes.add_picture(chart_buf, img_left, img_top, img_w, img_h)
+        except Exception as e:
+            log.warning("FF chart embed failed: %s", e)
+            _ff_fallback(slide, ff, price, cur_sym, currency)
+    else:
+        _ff_fallback(slide, ff, price, cur_sym, currency)
+
+    dcf_comment = _g(synthesis, "dcf_commentary", "") or ""
+    if dcf_comment.strip():
+        commentary_box(slide, 1.02, 9.80, 23.37, 2.54, dcf_comment)
+
+    return slide
+
+
+def _ff_fallback(slide, ff, price, cur_sym, currency):
+    """Fallback table when matplotlib unavailable."""
+    header = ["Methode", "Fourchette basse", "Fourchette haute", "Point central"]
+    row_fills_map = {
+        "DCF - Bear": RED_PALE,
+        "DCF - Base": NAVY_PALE,
+        "DCF - Bull": GREEN_PALE,
+    }
     rows_data  = []
     rows_fills = []
     for item in ff:
-        label  = str(_g(item, "label", "—"))
-        low    = _g(item, "range_low")
-        high   = _g(item, "range_high")
-        mid    = _g(item, "midpoint")
-        rows_data.append([label,
-                          _fr(low, 0),
-                          _fr(high, 0),
-                          _fr(mid, 0)])
-        fill = row_fills_map.get(label, GREY_BG)
-        rows_fills.append(fill)
-
-    # Current price row
-    rows_data.append([f"Cours actuel ({_fr(price, 2)})", "—", "—",
-                      _fr(price, 2)])
+        label = str(_g(item, "label", "—"))
+        low   = _g(item, "range_low")
+        high  = _g(item, "range_high")
+        mid   = _g(item, "midpoint")
+        rows_data.append([label, _fr(low, 0), _fr(high, 0), _fr(mid, 0)])
+        rows_fills.append(row_fills_map.get(label, GREY_BG))
+    rows_data.append([f"Cours actuel ({_fr(price, 2)})", "—", "—", _fr(price, 2)])
     rows_fills.append(NAVY_PALE)
-
     if not rows_data:
         rows_data  = [["Aucune donnée disponible", "—", "—", "—"]]
         rows_fills = [GREY_BG]
-
     tbl_h = min(1.0 + len(rows_data) * 0.71, 6.0)
     add_table(slide, 1.02, 2.54, 23.37, tbl_h,
               len(rows_data), 4,
@@ -1912,12 +2006,6 @@ def _slide_football_field(prs, snap, synthesis, ratios):
               header_data=header,
               rows_data=rows_data,
               row_fills=rows_fills)
-
-    dcf_comment = _g(synthesis, "dcf_commentary", "") or ""
-    if dcf_comment.strip():
-        commentary_box(slide, 1.02, 9.80, 23.37, 2.54, dcf_comment)
-
-    return slide
 
 
 # ---------------------------------------------------------------------------
@@ -2374,11 +2462,17 @@ def _slide_historique(prs, snap, synthesis):
             add_text_box(slide, bx - 0.10, bar_base_y + 0.52, bar_w + 0.20, 0.40,
                          mo_fr, 6, GREY_TXT, align=PP_ALIGN.CENTER)
 
-        # Min/Max annotation
-        add_text_box(slide, chart_x + 0.20, chart_y + 0.20, 5.0, 0.40,
-                     f"\u25b2 Max : {_fr(p_max, 2)} {cur_sym}", 7, NAVY_MID)
-        add_text_box(slide, chart_x + 0.20, chart_y + chart_h - 0.80, 5.0, 0.40,
-                     f"\u25bc Min : {_fr(p_min, 2)} {cur_sym}", 7, GREY_TXT)
+        # Y-axis price scale (4 reference levels)
+        _y_ref_levels = [0.0, 0.33, 0.67, 1.0]
+        for frac in _y_ref_levels:
+            pv_ref  = p_min + frac * p_range
+            bh_ref  = max_bar_h * frac + 0.20
+            y_ref   = bar_base_y - bh_ref + 0.50
+            # Thin horizontal dashed line
+            add_rect(slide, chart_x + 0.65, y_ref, chart_w - 0.65, 0.02, "D0D5DD")
+            # Price label on the left
+            add_text_box(slide, chart_x, y_ref - 0.20, 0.60, 0.40,
+                         f"{int(pv_ref)}", 6, GREY_TXT)
     else:
         add_text_box(slide, chart_x + 8.0, chart_y + 2.0, 7.37, 1.0,
                      "Historique de cours non disponible", 10, GREY_TXT)

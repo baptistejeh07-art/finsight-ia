@@ -5,19 +5,22 @@ Audit autonome complet : analyse + render visuel + rapport markdown.
 Usage :
   python tools/audit.py AAPL
   python tools/audit.py AAPL MSFT MC.PA TSLA NVDA
+  python tools/audit.py --preview AAPL        # mode preview : outputs -> preview/{ticker}/
 """
 from __future__ import annotations
 
 import json
+import shutil
 import subprocess
 import sys
 import time
 from datetime import datetime
 from pathlib import Path
 
-ROOT    = Path(__file__).parent.parent
-CLI_DIR = ROOT / "outputs" / "generated" / "cli_tests"
-REPORTS = ROOT / "outputs" / "generated" / "audits"
+ROOT         = Path(__file__).parent.parent
+CLI_DIR      = ROOT / "outputs" / "generated" / "cli_tests"
+PREVIEW_ROOT = ROOT / "outputs" / "generated" / "preview"
+REPORTS      = ROOT / "outputs" / "generated" / "audits"
 REPORTS.mkdir(parents=True, exist_ok=True)
 
 
@@ -81,7 +84,8 @@ def render(ticker: str) -> dict:
     """Lance render_outputs.py et retourne les chemins PNG."""
     print(f"\n  [RENDER] {ticker}...")
     code, out = _run([sys.executable, "tools/render_outputs.py", ticker])
-    print(out)
+    log = ROOT / "outputs" / "generated" / "audits" / f"_render_{ticker}.log"
+    log.write_text(out, encoding="utf-8", errors="replace")
 
     renders_dir = CLI_DIR / "renders" / ticker
     return {
@@ -203,29 +207,66 @@ def build_report(ticker: str, run_result: dict, renders: dict) -> str:
 # Point d'entrée
 # ---------------------------------------------------------------------------
 
-def audit_ticker(ticker: str) -> Path:
+def _move_to_preview(ticker: str) -> Path:
+    """
+    Déplace les outputs générés (PDF, PPTX, XLSX, briefing) vers
+    outputs/generated/preview/{ticker}/ pour validation humaine.
+    Retourne le dossier preview créé.
+    """
+    dest = PREVIEW_ROOT / ticker
+    dest.mkdir(parents=True, exist_ok=True)
+
+    patterns = [
+        f"{ticker}*report*.pdf",
+        f"{ticker}*pitchbook*.pptx",
+        f"{ticker}*financials*.xlsx",
+        f"{ticker}_briefing.txt",
+    ]
+    moved = 0
+    for pat in patterns:
+        for f in CLI_DIR.glob(pat):
+            shutil.move(str(f), dest / f.name)
+            moved += 1
+
+    print(f"\n  [PREVIEW] {moved} fichier(s) -> {dest}")
+    return dest
+
+
+def audit_ticker(ticker: str, preview: bool = False) -> Path:
     ticker = ticker.upper().replace("/", "-")
 
     run_result = analyze(ticker)
     renders    = render(ticker)
+
+    if preview:
+        _move_to_preview(ticker)
+
     report_md  = build_report(ticker, run_result, renders)
 
     report_path = REPORTS / f"audit_{ticker}_{datetime.now().strftime('%Y%m%d_%H%M')}.md"
     report_path.write_text(report_md, encoding="utf-8")
     print(f"\n  [AUDIT] Rapport : {report_path.name}")
+    if preview:
+        print(f"  [PREVIEW] Outputs en attente de validation dans Streamlit.")
     return report_path
 
 
 if __name__ == "__main__":
-    tickers = sys.argv[1:] if len(sys.argv) > 1 else ["AAPL"]
+    args = sys.argv[1:]
+    preview_mode = "--preview" in args
+    tickers = [a for a in args if not a.startswith("--")] or ["AAPL"]
+
     if not tickers:
-        print("Usage: python tools/audit.py TICKER [TICKER2 ...]")
+        print("Usage: python tools/audit.py [--preview] TICKER [TICKER2 ...]")
         sys.exit(1)
+
+    if preview_mode:
+        print("Mode PREVIEW actif — outputs iront dans outputs/generated/preview/")
 
     reports = []
     for t in tickers:
         try:
-            r = audit_ticker(t)
+            r = audit_ticker(t, preview=preview_mode)
             reports.append(r)
         except Exception as e:
             print(f"  [ERREUR] {t} : {e}")
