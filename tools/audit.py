@@ -217,9 +217,6 @@ def _copy_to_preview(ticker: str) -> Path:
 
     patterns = [
         f"{ticker}*report*.pdf",
-        f"{ticker}*pitchbook*.pptx",
-        f"{ticker}*financials*.xlsx",
-        f"{ticker}_briefing.txt",
     ]
     copied = 0
     for pat in patterns:
@@ -242,9 +239,6 @@ def audit_ticker(ticker: str, preview: bool = False) -> Path:
         _backup_dir.mkdir(parents=True, exist_ok=True)
         _patterns = [
             f"{ticker}*report*.pdf",
-            f"{ticker}*pitchbook*.pptx",
-            f"{ticker}*financials*.xlsx",
-            f"{ticker}_briefing.txt",
             f"{ticker}_state.json",
         ]
         for pat in _patterns:

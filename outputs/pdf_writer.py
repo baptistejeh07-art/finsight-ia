@@ -452,7 +452,12 @@ def _make_margins_chart(data):
 
     x = np.arange(n)
     width = 0.25
-    fig, ax = plt.subplots(figsize=(8, 3.2), dpi=160)
+    fig, ax = plt.subplots(figsize=(8, 3.6), dpi=160)
+
+    # y-max avec marge pour les labels au-dessus des barres
+    all_vals_flat = [v for v in gm_vals + em_vals + nm_vals if v is not None]
+    ymax = max(all_vals_flat) * 1.25 if all_vals_flat else 100
+    ax.set_ylim(bottom=0, top=ymax)
 
     def _bar(vals, offset, color, label):
         vf = [v if v is not None else 0 for v in vals]
@@ -460,10 +465,10 @@ def _make_margins_chart(data):
         for bar, v in zip(bars, vals):
             if v is not None:
                 ax.text(bar.get_x() + bar.get_width() / 2,
-                        bar.get_height() + 0.3,
+                        bar.get_height() + ymax * 0.01,
                         f"{v:.1f}%".replace('.', ','),
                         ha='center', va='bottom', fontsize=8, color=color,
-                        fontweight='bold', clip_on=False)
+                        fontweight='bold')
 
     _bar(gm_vals, -width, '#1B3A6B', 'Marge brute')
     _bar(em_vals,  0,     '#2A5298', 'Marge EBITDA')
@@ -473,8 +478,8 @@ def _make_margins_chart(data):
     ax.set_xticklabels(years, fontsize=9, color='#555')
     ax.tick_params(axis='y', labelsize=9)
     ax.set_ylabel('(%)', fontsize=10, color='#555')
-    ax.set_title('Ratios de rentabilit\u00e9 — \u00c9volution', fontsize=12,
-                 color='#1B3A6B', fontweight='bold', pad=6)
+    ax.set_title('Ratios de rentabilit\u00e9 \u2014 \u00c9volution', fontsize=12,
+                 color='#1B3A6B', fontweight='bold', pad=32)
     for sp in ['top', 'right']:
         ax.spines[sp].set_visible(False)
     ax.spines['left'].set_color('#D0D5DD')
@@ -482,9 +487,11 @@ def _make_margins_chart(data):
     ax.set_facecolor('white')
     fig.patch.set_facecolor('white')
     ax.grid(axis='y', alpha=0.25, color='#D0D5DD', linewidth=0.5, zorder=0)
-    ax.legend(fontsize=9, loc='upper center', bbox_to_anchor=(0.5, -0.14),
-              ncol=3, frameon=True, framealpha=0.9, edgecolor='#D0D5DD')
-    plt.subplots_adjust(bottom=0.22)
+    # Legende AU-DESSUS du graphique (entre les barres et le titre)
+    ax.legend(fontsize=9, loc='lower center', bbox_to_anchor=(0.5, 1.01),
+              ncol=3, frameon=True, framealpha=0.9, edgecolor='#D0D5DD',
+              borderpad=0.5, labelspacing=0.4)
+    plt.tight_layout()
     buf = io.BytesIO()
     fig.savefig(buf, format='png', dpi=160, bbox_inches='tight')
     plt.close(fig)
@@ -2150,17 +2157,23 @@ class PDFWriter:
         counter_thesis = _g(devil, 'counter_thesis') or ''
         counter_risks  = _g(devil, 'counter_risks')  or []
         # Fallback : utiliser les themes negatifs de la synthese si devil.counter_risks vide
+        _neg_full = []
         if not counter_risks:
             _neg = _g(synthesis, 'negative_themes') or []
-            counter_risks = [t if isinstance(t, str) else (_g(t,'title') or _g(t,'name') or '')
-                             for t in _neg[:3]]
-            counter_risks = [c for c in counter_risks if c]
+            _neg_full = [t if isinstance(t, str) else (_g(t,'title') or _g(t,'name') or '')
+                         for t in _neg[:3]]
+            _neg_full = [c for c in _neg_full if c]
+            # Titre court (5 mots max) pour la colonne "Axe de risque"
+            counter_risks = [' '.join(n.split()[:5]) for n in _neg_full]
         if counter_thesis and ' | ' in counter_thesis:
             ct_parts = [s.strip() for s in counter_thesis.split(' | ') if s.strip()]
         elif counter_thesis:
             sents = [s.strip() for s in counter_thesis.replace('. ', '.|').split('|') if s.strip()]
             chunk = max(1, len(sents) // 3)
             ct_parts = ['. '.join(sents[i*chunk:(i+1)*chunk]).strip() for i in range(3)]
+        elif _neg_full:
+            # Pas de counter_thesis : texte detaille = theme negatif complet
+            ct_parts = _neg_full
         else:
             ct_parts = []
         titles = list(counter_risks[:3]) if counter_risks else [f"Risque {i+1}" for i in range(3)]
