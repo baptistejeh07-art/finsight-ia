@@ -122,7 +122,7 @@ Sentiment: {sent_block}
 JSON requis (tous les champs obligatoires) :
 {{
   "recommendation":"BUY|HOLD|SELL",
-  "conviction":<0-1>,
+  "conviction":<float 0-1 — calcule strictement: SELL=0.3-0.5, HOLD=0.45-0.60, BUY faible=0.60-0.70, BUY fort=0.70-0.85; NE PAS depasser 0.85 sauf catalyseur exceptionnel>,
   "target_price_base":<float|null>,
   "target_price_bull":<float|null>,
   "target_price_bear":<float|null>,

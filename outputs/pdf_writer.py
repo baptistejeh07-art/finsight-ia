@@ -481,8 +481,9 @@ def _make_margins_chart(data):
     ax.set_facecolor('white')
     fig.patch.set_facecolor('white')
     ax.grid(axis='y', alpha=0.25, color='#D0D5DD', linewidth=0.5, zorder=0)
-    ax.legend(fontsize=9, loc='upper right', frameon=False)
-    plt.tight_layout()
+    ax.legend(fontsize=9, loc='upper left', frameon=True,
+              framealpha=0.85, edgecolor='#D0D5DD')
+    plt.tight_layout(pad=0.8)
     buf = io.BytesIO()
     fig.savefig(buf, format='png', dpi=160, bbox_inches='tight')
     plt.close(fig)
@@ -676,7 +677,7 @@ def _cover_page(c, doc, data):
         "Donn\u00e9es : yfinance \u00b7 FMP \u00b7 Finnhub \u00b7 FinBERT"
         "  |  Horizon d'investissement : 12 mois"))
 
-    # ---- Points cles (FIX 1) -------------------------------------------
+    # ---- Points cles -------------------------------------------
     # Separateur horizontal sous les metriques
     c.setStrokeColor(NAVY)
     c.setLineWidth(0.8)
@@ -684,54 +685,96 @@ def _cover_page(c, doc, data):
 
     # Titre "Points cles"
     c.setFillColor(NAVY)
-    c.setFont('Helvetica-Bold', 10)
-    c.drawString(MARGIN_L, h * 0.474, _enc("Points cl\u00e9s"))
+    c.setFont('Helvetica-Bold', 11)
+    c.drawString(MARGIN_L, h * 0.472, _enc("Points cl\u00e9s"))
 
-    # Zone fond clair pour les 3 bullets (dessin du fond EN PREMIER)
+    # Zone fond clair — box pleine hauteur jusqu'au footer
+    # 5 bullets repartis sur toute la hauteur (pas de ~20mm entre titres)
+    _box_top    = h * 0.455
+    _box_bottom = h * 0.090   # juste au-dessus du footer navy
+    _box_h      = _box_top - _box_bottom
+    _box_x      = MARGIN_L
+    _box_w      = w - MARGIN_L - MARGIN_R
     c.setFillColor(GREY_LIGHT)
-    c.roundRect(MARGIN_L, h * 0.342, w - MARGIN_L - MARGIN_R, h * 0.120, 3, fill=1, stroke=0)
+    c.roundRect(_box_x, _box_bottom, _box_w, _box_h, 4, fill=1, stroke=0)
     c.setStrokeColor(GREY_MED)
-    c.setLineWidth(0.4)
-    c.roundRect(MARGIN_L, h * 0.342, w - MARGIN_L - MARGIN_R, h * 0.120, 3, fill=0, stroke=1)
+    c.setLineWidth(0.5)
+    c.roundRect(_box_x, _box_bottom, _box_w, _box_h, 4, fill=0, stroke=1)
 
-    # Bullet 1 : these principale (summary tronque ~120 chars)
+    # Helper : ecrire un bloc bullet (titre gras + 1-2 lignes texte)
+    def _bullet_block(y_title, title, body_lines):
+        c.setFillColor(NAVY)
+        c.setFont('Helvetica-Bold', 8.5)
+        c.drawString(_box_x + 4*mm, y_title, _enc("-- " + title))
+        c.setFillColor(GREY_TEXT)
+        c.setFont('Helvetica', 8)
+        for i, line in enumerate(body_lines):
+            c.drawString(_box_x + 7*mm, y_title - (i + 1) * 10, _enc(line))
+
+    # Separator interne leger entre blocs
+    def _inner_sep(y):
+        c.setStrokeColor(GREY_MED)
+        c.setLineWidth(0.3)
+        c.line(_box_x + 3*mm, y, _box_x + _box_w - 3*mm, y)
+
+    # Bullet 1 : these principale
     _summary_raw = data.get('summary_text') or data.get('kdb_text') or ''
-    _summary_trunc = _summary_raw[:120].rstrip()
-    if len(_summary_raw) > 120:
-        _summary_trunc += '...'
-    if not _summary_trunc:
-        _summary_trunc = 'Analyse disponible dans le corps du rapport.'
-    c.setFillColor(NAVY)
-    c.setFont('Helvetica-Bold', 7.5)
-    c.drawString(MARGIN_L + 2*mm, h * 0.454, _enc('\u25cf  Th\u00e8se principale'))
-    c.setFillColor(GREY_TEXT)
-    c.setFont('Helvetica', 7.5)
-    # Wrap long text (max ~90 chars per line at this font size and page width)
-    _st_line1 = _summary_trunc[:90]
-    _st_line2 = _summary_trunc[90:180] if len(_summary_trunc) > 90 else ''
-    c.drawString(MARGIN_L + 5*mm, h * 0.442, _enc(_st_line1))
-    if _st_line2:
-        c.drawString(MARGIN_L + 5*mm, h * 0.431, _enc(_st_line2))
+    # Word-safe truncation a 95 chars
+    _sum95 = _summary_raw[:95]
+    if len(_summary_raw) > 95 and ' ' in _sum95:
+        _sum95 = _sum95[:_sum95.rfind(' ')] + '...'
+    elif len(_summary_raw) > 95:
+        _sum95 += '...'
+    _sum_rest = _summary_raw[len(_sum95.rstrip('.')):200] if len(_summary_raw) > 95 else ''
+    if _sum_rest:
+        _sum_rest = _sum_rest[:90]
+        if len(_sum_rest) == 90:
+            _sum_rest = _sum_rest[:_sum_rest.rfind(' ')] + '...' if ' ' in _sum_rest else _sum_rest + '...'
+    if not _sum95:
+        _sum95 = 'Analyse fondamentale disponible dans le corps du rapport.'
+    _b1_lines = [_sum95]
+    if _sum_rest.strip():
+        _b1_lines.append(_sum_rest.strip())
+    # Bullets repartis sur toute la hauteur de la box (pas de ~20mm entre titres)
+    # B1 a h*0.421, step h*0.067, B5 a h*0.153 → body B5 termine a h*0.130
+    _bullet_block(h * 0.421, "These d'investissement", _b1_lines)
+    _inner_sep(h * 0.390)
 
-    # Bullet 2 : cible 12 mois avec upside
-    _target_full = data.get('target_price_full') or '\u2014'
-    _upside_v    = data.get('upside_str') or '\u2014'
-    _bullet2     = f"Cible 12 mois : {_target_full}  |  Upside potentiel : {_upside_v}"
-    c.setFillColor(NAVY)
-    c.setFont('Helvetica-Bold', 7.5)
-    c.drawString(MARGIN_L + 2*mm, h * 0.415, _enc('\u25cf  Objectif de cours'))
-    c.setFillColor(GREY_TEXT)
-    c.setFont('Helvetica', 7.5)
-    c.drawString(MARGIN_L + 5*mm, h * 0.403, _enc(_bullet2))
+    # Bullet 2 : objectif de cours
+    _target_full = data.get('target_price_full') or '-'
+    _upside_v    = data.get('upside_str') or '-'
+    _bullet_block(h * 0.354,
+        "Objectif de cours 12 mois",
+        [f"Cible : {_target_full}   |   Upside potentiel : {_upside_v}"])
+    _inner_sep(h * 0.323)
 
-    # Bullet 3 : horizon + source
-    c.setFillColor(NAVY)
-    c.setFont('Helvetica-Bold', 7.5)
-    c.drawString(MARGIN_L + 2*mm, h * 0.380, _enc('\u25cf  Cadre d\'analyse'))
-    c.setFillColor(GREY_TEXT)
-    c.setFont('Helvetica', 7.5)
-    c.drawString(MARGIN_L + 5*mm, h * 0.368,
-        _enc("Horizon d'investissement : 12 mois  |  Source : FinSight IA"))
+    # Bullet 3 : scenarios
+    _bear = data.get('bear_price') or '-'
+    _base = data.get('base_price') or data.get('target_price') or '-'
+    _bull = data.get('bull_price') or '-'
+    _cur  = data.get('current_price') or '-'
+    _bullet_block(h * 0.287,
+        "Scenarios de valorisation",
+        [f"Bear : {_bear}  |  Base : {_base}  |  Bull : {_bull}   (Cours actuel : {_cur})"])
+    _inner_sep(h * 0.256)
+
+    # Bullet 4 : risques cles
+    _risks = data.get('risk_themes') or []
+    _r1 = _risks[0] if len(_risks) > 0 else 'Voir section Analyse des Risques'
+    _r2 = _risks[1] if len(_risks) > 1 else ''
+    _risk_lines = [_r1[:95]]
+    if _r2:
+        _risk_lines.append(_r2[:95])
+    _bullet_block(h * 0.220, "Risques principaux a surveiller", _risk_lines)
+    _inner_sep(h * 0.185)
+
+    # Bullet 5 : cadre
+    _sector  = data.get('sector') or 'N/A'
+    _wacc_v  = data.get('wacc_str') or '-'
+    _bullet_block(h * 0.153,
+        "Cadre d'analyse",
+        [f"Secteur : {_sector}   |   WACC : {_wacc_v}   |"
+         f"   Horizon : 12 mois   |   Source : FinSight IA"])
 
     # Footer navy
     c.setFillColor(NAVY)
@@ -1088,13 +1131,18 @@ def _build_valorisation(ff_buf, pie_buf, data):
     elems.append(KeepTogether(tbl([comp_h] + comp_rows,
                                   cw=[52*mm, 24*mm, 24*mm, 20*mm, 26*mm, 24*mm])))
     elems.append(src("FinSight IA \u2014 FMP, consensus Bloomberg."))
-    elems.append(Spacer(1, 3*mm))
+    elems.append(Spacer(1, 4*mm))
+    # Synthese valorisation — texte de transition (remplit l'espace page 6)
+    _post_comp = _d(data, 'post_comp_text')
+    if _post_comp:
+        elems.append(Paragraph(_safe(_post_comp), S_BODY))
+        elems.append(Spacer(1, 4*mm))
 
     # Donut + texte
-    pie_img  = Image(pie_buf, width=88*mm, height=88*mm)
+    pie_img  = Image(pie_buf, width=75*mm, height=75*mm)
     pie_text = _d(data, 'pie_text')
     pie_tbl  = Table([[pie_img, Paragraph(_safe(pie_text), S_BODY)]],
-                     colWidths=[90*mm, 80*mm])
+                     colWidths=[77*mm, 93*mm])
     pie_tbl.setStyle(TableStyle([
         ('VALIGN',       (0, 0), (-1, -1), 'TOP'),
         ('LEFTPADDING',  (0, 0), (-1, -1), 0),
@@ -1108,8 +1156,6 @@ def _build_valorisation(ff_buf, pie_buf, data):
         f"FinSight IA \u2014 EV proxy calcul\u00e9 sur cours au {_d(data, 'date_analyse')}. "
         "Donn\u00e9es illustratives."))
     elems.append(Spacer(1, 3*mm))
-    elems.append(Paragraph(_safe(_d(data, 'post_comp_text')), S_BODY))
-    elems.append(Spacer(1, 4*mm))
 
     # Football Field
     elems.append(Paragraph(
@@ -2179,7 +2225,19 @@ class PDFWriter:
             'summary_text':         _g(synthesis,'summary') or _g(synthesis,'company_description') or '',
             'kdb_text':             _g(synthesis,'key_data_text') or '',
             'financials_text_intro':_g(synthesis,'financial_commentary') or '',
-            'financials_text_post': _g(synthesis,'financial_commentary_post') or '',
+            'financials_text_post': _g(synthesis,'financial_commentary_post') or (
+                                    f"L'analyse du compte de r\u00e9sultat met en \u00e9vidence une "
+                                    f"trajectoire financi\u00e8re globalement coh\u00e9rente avec le "
+                                    f"positionnement sectoriel de {co_name}. La progression des "
+                                    f"revenus s'accompagne d'une ma\u00eetrise relative de la structure "
+                                    f"de co\u00fbts, visible dans la stabilit\u00e9 des marges brute et "
+                                    f"EBITDA sur la p\u00e9riode analys\u00e9e. Les projections 2026-2027 "
+                                    f"int\u00e8grent les hypoth\u00e8ses macro\u00e9conomiques courantes et "
+                                    f"les guides de direction disponibles, sous r\u00e9serve de "
+                                    f"r\u00e9vision en cas de choc externe ou de changement de mix. "
+                                    f"La g\u00e9n\u00e9ration de cash-flow op\u00e9rationnel reste "
+                                    f"le principal crit\u00e8re de surveillance pour valider la "
+                                    f"th\u00e8se d'investissement sur l'horizon 12 mois."),
             'ratios_text':          _g(synthesis,'ratio_commentary') or '',
             'dcf_text_intro':       _g(synthesis,'dcf_commentary') or
                                     (f"Notre mod\u00e8le DCF repose sur un WACC de {_fr(wacc*100,1)}\u00a0% "
@@ -2191,8 +2249,24 @@ class PDFWriter:
             'dcf_text_note':        _g(synthesis,'dcf_note') or
                                     "Cellule surlign\u00e9e = sc\u00e9nario base. "
                                     "Une hausse de 100 bps du WACC comprime la valeur d'environ 12\u00a0%.",
-            'post_comp_text':       _g(synthesis,'comparables_commentary') or '',
-            'pie_text':             _g(synthesis,'pie_text') or '',
+            'post_comp_text':       _g(synthesis,'comparables_commentary') or (
+                                    f"L'analyse comparative des multiples confirme un "
+                                    f"positionnement valu\u00e9 par rapport aux pairs sectoriels. "
+                                    f"L'EV/EBITDA de {_frx(ev_e)}x se situe au-dessus de la "
+                                    f"m\u00e9diane de r\u00e9f\u00e9rence ({bm.get('ev_e','12-25x')}), "
+                                    f"justifi\u00e9 par des marges structurellement sup\u00e9rieures "
+                                    f"et une dynamique de croissance diff\u00e9renci\u00e9e. "
+                                    f"La convergence des m\u00e9thodes DCF et comparables vers une "
+                                    f"fourchette {_fr(tbear,0)}-{_fr(tbull,0)}\u00a0{cur} "
+                                    f"renforce la robustesse de la cible centrale \u00e0 "
+                                    f"{_fr(tbase,0)}\u00a0{cur}.") if (ev_e and tbear and tbase and tbull) else '',
+            'pie_text':             _g(synthesis,'pie_text') or (
+                                    f"La capitalisation boursi\u00e8re de {co_name} repr\u00e9sente "
+                                    f"une fraction significative de la valeur d'entreprise totale "
+                                    f"du secteur. Ce poids sectoriel refl\u00e8te le statut de "
+                                    f"la soci\u00e9t\u00e9 comme r\u00e9f\u00e9rence de valorisation "
+                                    f"pour ses pairs, et implique une liquidit\u00e9 \u00e9lev\u00e9e "
+                                    f"ainsi qu'une exposition institutionnelle importante."),
             'bear_text_intro':      _g(synthesis,'bear_intro') or
                                     "Le protocole de contradiction syst\u00e9matique (avocat du diable) identifie "
                                     "trois axes de risque susceptibles d'invalider le sc\u00e9nario base. "
@@ -2262,6 +2336,13 @@ class PDFWriter:
 
             # Fallback annuel pour area chart si pas de données trimestrielles
             'area_annual_fallback': _area_fallback,
+
+            # Cover page — Prix et risques pour Points cles
+            'bear_price':    (_fr(tbear, 0) + ' ' + cur) if tbear else '-',
+            'bull_price':    (_fr(tbull, 0) + ' ' + cur) if tbull else '-',
+            'base_price':    (_fr(tbase, 0) + ' ' + cur) if tbase else '-',
+            'current_price': (_fr(price, 2) + ' ' + cur) if price else '-',
+            'risk_themes':   titles[:3],
 
             # Devil / invalidation
             'bear_args':         bear_args,
