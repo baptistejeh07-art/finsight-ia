@@ -122,6 +122,8 @@ class LLMProvider:
         return response.content[0].text
 
     def _call_groq(self, prompt: str, system: Optional[str], max_tokens: int) -> str:
+        import time, logging
+        _log = logging.getLogger(__name__)
         if self._client is None:
             from groq import Groq
             self._client = Groq(api_key=_get_secret("GROQ_API_KEY"))
@@ -129,12 +131,29 @@ class LLMProvider:
         if system:
             messages.append({"role": "system", "content": system})
         messages.append({"role": "user", "content": prompt})
-        response = self._client.chat.completions.create(
-            model=self.model,
-            messages=messages,
-            max_tokens=max_tokens,
-        )
-        return response.choices[0].message.content
+        # Retry avec backoff exponentiel sur rate-limit (429) et erreurs transitoires
+        _delays = [5, 15, 30]
+        for _attempt, _wait in enumerate([0] + _delays):
+            if _wait:
+                _log.warning(f"[Groq] Tentative {_attempt+1}/4 — attente {_wait}s")
+                time.sleep(_wait)
+            try:
+                response = self._client.chat.completions.create(
+                    model=self.model,
+                    messages=messages,
+                    max_tokens=max_tokens,
+                )
+                return response.choices[0].message.content
+            except Exception as e:
+                _code = getattr(e, 'status_code', None) or getattr(getattr(e, 'response', None), 'status_code', None)
+                _msg  = str(e)
+                # Rate limit (429) ou surcharge (503) : on retente
+                if _code in (429, 503) or 'rate_limit' in _msg.lower() or 'overloaded' in _msg.lower():
+                    if _attempt < len(_delays):
+                        continue
+                # Toute autre erreur : on propage immédiatement
+                raise
+        raise RuntimeError("[Groq] Echec apres 4 tentatives")
 
     def _call_gemini(self, prompt: str, system: Optional[str], max_tokens: int) -> str:
         if self._client is None:

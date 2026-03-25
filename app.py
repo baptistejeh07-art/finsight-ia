@@ -607,8 +607,12 @@ def render_sidebar(results) -> None:
 
         # Aperçu Claude — previews en attente d'approbation
         _preview_root = Path(__file__).parent / "preview"
+        # Tickers dismissés (validés/rejetés) dans cette session
+        if "prev_dismissed" not in st.session_state:
+            st.session_state["prev_dismissed"] = set()
         _preview_tickers = sorted([
-            d for d in _preview_root.iterdir() if d.is_dir()
+            d for d in _preview_root.iterdir()
+            if d.is_dir() and d.name not in st.session_state["prev_dismissed"]
         ]) if _preview_root.exists() else []
 
         st.markdown('<div class="sb-section">', unsafe_allow_html=True)
@@ -728,6 +732,7 @@ def render_sidebar(results) -> None:
                                 pass
                             st.session_state.pop(_confirm_key, None)
                             st.session_state.pop(_rejected_key, None)
+                            st.session_state["prev_dismissed"].add(_ticker)
                             st.success(f"{_ticker} : {_nb} fichier(s) valide(s) — telechargez ci-dessus")
                             st.rerun()
                     with _c2:
@@ -747,6 +752,7 @@ def render_sidebar(results) -> None:
                                 pass
                             st.session_state.pop(_confirm_key, None)
                             st.session_state.pop(_rejected_key, None)
+                            st.session_state["prev_dismissed"].add(_ticker)
                             st.info(f"{_ticker} rejete")
                             st.rerun()
                     with _c2:
