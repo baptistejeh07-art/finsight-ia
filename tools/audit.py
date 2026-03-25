@@ -19,7 +19,7 @@ from pathlib import Path
 
 ROOT         = Path(__file__).parent.parent
 CLI_DIR      = ROOT / "outputs" / "generated" / "cli_tests"
-PREVIEW_ROOT = ROOT / "outputs" / "generated" / "preview"
+PREVIEW_ROOT = ROOT / "preview"
 REPORTS      = ROOT / "outputs" / "generated" / "audits"
 REPORTS.mkdir(parents=True, exist_ok=True)
 

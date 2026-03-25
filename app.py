@@ -606,7 +606,7 @@ def render_sidebar(results) -> None:
         st.markdown('</div>', unsafe_allow_html=True)
 
         # Aperçu Claude — previews en attente d'approbation
-        _preview_root = Path(__file__).parent / "outputs" / "generated" / "preview"
+        _preview_root = Path(__file__).parent / "preview"
         _preview_tickers = sorted([
             d for d in _preview_root.iterdir() if d.is_dir()
         ]) if _preview_root.exists() else []
@@ -678,12 +678,15 @@ def render_sidebar(results) -> None:
                     _c1, _c2 = st.columns(2)
                     with _c1:
                         if st.button("Confirmer", key=f"prev_ok_confirm_{_ticker}", use_container_width=True):
-                            import shutil as _shutil
-                            for _f in _files:
-                                _shutil.copy2(_f, _prod_root / _f.name)
-                            _shutil.rmtree(_ticker_dir)
+                            try:
+                                import shutil as _shutil
+                                for _f in _files:
+                                    _shutil.copy2(_f, _prod_root / _f.name)
+                                _shutil.rmtree(_ticker_dir)
+                            except Exception:
+                                pass
                             st.session_state.pop(_confirm_key, None)
-                            st.success(f"{_ticker} deploye")
+                            st.success(f"{_ticker} validé — téléchargez les fichiers ci-dessus")
                             st.rerun()
                     with _c2:
                         if st.button("Annuler", key=f"prev_ok_cancel_{_ticker}", use_container_width=True):
@@ -691,14 +694,17 @@ def render_sidebar(results) -> None:
                             st.rerun()
 
                 elif _pending == "ko":
-                    st.warning(f"Supprimer definitivement {_ticker} ?")
+                    st.warning(f"Supprimer définitivement {_ticker} ?")
                     _c1, _c2 = st.columns(2)
                     with _c1:
                         if st.button("Confirmer", key=f"prev_ko_confirm_{_ticker}", use_container_width=True):
-                            import shutil as _shutil
-                            _shutil.rmtree(_ticker_dir)
+                            try:
+                                import shutil as _shutil
+                                _shutil.rmtree(_ticker_dir)
+                            except Exception:
+                                pass
                             st.session_state.pop(_confirm_key, None)
-                            st.info(f"{_ticker} supprime")
+                            st.info(f"{_ticker} rejeté")
                             st.rerun()
                     with _c2:
                         if st.button("Annuler", key=f"prev_ko_cancel_{_ticker}", use_container_width=True):
