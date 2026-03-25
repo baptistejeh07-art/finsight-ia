@@ -71,24 +71,54 @@ def render_pptx(pptx_path: Path, out_dir: Path, width_px: int = 1920) -> list[Pa
 
 def _make_clean_xlsx(src: Path) -> Path:
     """
-    Crée une copie data-only du xlsx (valeurs uniquement, sans liens externes ni VBA).
-    Excel COM ne peut pas ouvrir les fichiers générés depuis un template avec liens.
+    Crée une copie du xlsx sans charts ni drawings (qui bloquent Excel COM).
+    Nettoie aussi Content_Types.xml et les rels des feuilles en conséquence.
     """
-    import openpyxl
+    import zipfile, re
 
-    src_wb = openpyxl.load_workbook(src, data_only=True, keep_links=False)
-    clean_wb = openpyxl.Workbook()
-    clean_wb.remove(clean_wb.active)  # supprime le sheet vide par défaut
-
-    for ws_name in src_wb.sheetnames:
-        src_ws  = src_wb[ws_name]
-        dest_ws = clean_wb.create_sheet(ws_name)
-        for row in src_ws.iter_rows():
-            for cell in row:
-                dest_ws[cell.coordinate] = cell.value
-
+    SKIP = re.compile(r'xl/(charts|drawings)/')
     tmp = Path(tempfile.mkdtemp()) / f"clean_{src.stem}.xlsx"
-    clean_wb.save(tmp)
+
+    with zipfile.ZipFile(src, 'r') as zin, zipfile.ZipFile(tmp, 'w', zipfile.ZIP_DEFLATED) as zout:
+        for item in zin.infolist():
+            if SKIP.search(item.filename):
+                continue
+            data = zin.read(item.filename)
+
+            # Nettoie Content_Types.xml : supprime les Override pointant vers charts/drawings
+            if item.filename == '[Content_Types].xml':
+                data = re.sub(
+                    rb'<Override[^>]*(charts|drawings)[^>]*/>\s*',
+                    b'',
+                    data
+                )
+
+            # Nettoie les rels des feuilles : supprime refs aux drawings
+            if '_rels/sheet' in item.filename:
+                data = re.sub(
+                    rb'<Relationship[^>]*/drawings/[^>]*/>\s*',
+                    b'',
+                    data
+                )
+
+            # Nettoie les sheet XMLs : supprime la balise <drawing> inline
+            if 'worksheets/sheet' in item.filename and '_rels' not in item.filename:
+                data = re.sub(
+                    rb'<drawing[^/]*/>\s*',
+                    b'',
+                    data
+                )
+
+            # Nettoie workbook.xml : supprime les definedNames _xlchart
+            if item.filename == 'xl/workbook.xml':
+                data = re.sub(
+                    rb'<definedName[^>]*_xlchart[^<]*</definedName>\s*',
+                    b'',
+                    data
+                )
+
+            zout.writestr(item, data)
+
     return tmp
 
 
@@ -111,7 +141,8 @@ def render_xlsx(xlsx_path: Path, out_dir: Path, sheets: list[str] | None = None,
 
     paths = []
     try:
-        wb = xl.Workbooks.Open(str(clean_path), UpdateLinks=0, ReadOnly=True)
+        # CorruptLoad=1 (xlRepairFile) nécessaire car le template a des formules complexes
+        wb = xl.Workbooks.Open(str(clean_path), UpdateLinks=0, ReadOnly=True, CorruptLoad=1)
 
         sheet_names = [ws.Name for ws in wb.Worksheets]
         to_render = [s for s in sheet_names if sheets is None or s in sheets]
