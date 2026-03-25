@@ -131,6 +131,11 @@ def _enc(s):
     try:    return str(s).encode('cp1252', errors='replace').decode('cp1252')
     except: return str(s)
 
+def _safe(s):
+    """Echappe &, <, > pour injection dans ReportLab Paragraph (parser XML)."""
+    if not s: return ""
+    return str(s).replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+
 def _d(obj, key, default=""):
     v = obj.get(key) if isinstance(obj, dict) else None
     return v if v is not None else default
@@ -205,7 +210,7 @@ def _key_data_box(data):
                  (BUY_GREEN if "Upside" in k else NAVY)
             rows.append([
                 Paragraph(k, S_LABEL),
-                Paragraph(f"<b>{v}</b>",
+                Paragraph(f"<b>{_safe(v)}</b>",
                     _s(f'kv{id(k)}', size=7.5, leading=10, color=vc, bold=True,
                        align=TA_RIGHT)),
             ])
@@ -523,7 +528,9 @@ def _cover_page(c, doc, data):
 
     # Societe
     c.setFillColor(NAVY)
-    c.setFont('Helvetica-Bold', 30)
+    _cn_len = len(company_name or '')
+    _cn_fs  = 30 if _cn_len <= 20 else (24 if _cn_len <= 30 else (18 if _cn_len <= 40 else 14))
+    c.setFont('Helvetica-Bold', _cn_fs)
     c.drawCentredString(cx, h * 0.685, _enc(company_name))
     c.setFillColor(GREY_TEXT)
     c.setFont('Helvetica', 11)
@@ -680,7 +687,7 @@ def _build_synthese(perf_buf, data):
     elems = []
     elems += section_title("Synth\u00e8se Ex\u00e9cutive", 1)
 
-    elems.append(Paragraph(_d(data, 'summary_text'), S_BODY))
+    elems.append(Paragraph(_safe(_d(data, 'summary_text')), S_BODY))
     elems.append(Spacer(1, 3*mm))
 
     # 2-col : [graphique performance | boite donnees cles]
@@ -699,7 +706,7 @@ def _build_synthese(perf_buf, data):
     kdb_text = _d(data, 'kdb_text')
     if kdb_text:
         elems.append(Spacer(1, 2*mm))
-        elems.append(Paragraph(kdb_text, S_BODY))
+        elems.append(Paragraph(_safe(kdb_text), S_BODY))
     elems.append(Spacer(1, 4*mm))
 
     # Scenarios
@@ -724,7 +731,7 @@ def _build_synthese(perf_buf, data):
             Paragraph(f"<b>{upside}</b>" if base else upside,
                       S_TD_G if upside.startswith('+') else S_TD_R),
             Paragraph(f"<b>{prob}</b>" if base else prob, S_TD_BC if base else S_TD_C),
-            Paragraph(hyp, S_TD_L),
+            Paragraph(_safe(hyp), S_TD_L),
         ])
     elems.append(KeepTogether(tbl([scen_h] + scen_rows,
                                   cw=[18*mm, 26*mm, 28*mm, 22*mm, 76*mm])))
@@ -739,8 +746,8 @@ def _build_synthese(perf_buf, data):
     if cats:
         cat_rows = [
             [Paragraph(_d(c, 'num', ''), S_TD_BC),
-             Paragraph(_d(c, 'name', ''), S_TD_B),
-             Paragraph(_d(c, 'analysis', ''), S_TD_L)]
+             Paragraph(_safe(_d(c, 'name', '')), S_TD_B),
+             Paragraph(_safe(_d(c, 'analysis', '')), S_TD_L)]
             for c in cats
         ]
     else:
@@ -766,7 +773,7 @@ def _build_financials(area_buf, data):
     elems.append(Spacer(1, 4*mm))
     elems.append(debate_q(
         "La trajectoire financi\u00e8re justifie-t-elle la prime de valorisation actuelle ?"))
-    elems.append(Paragraph(_d(data, 'financials_text_intro'), S_BODY))
+    elems.append(Paragraph(_safe(_d(data, 'financials_text_intro')), S_BODY))
     elems.append(Spacer(1, 3*mm))
 
     # Tableau IS
@@ -790,7 +797,8 @@ def _build_financials(area_buf, data):
         return Paragraph(sv, S_TD_C)
 
     rows_is = [[_is_cell(v, i) for i, v in enumerate(row)] for row in is_data]
-    elems.append(Paragraph("Compte de r\u00e9sultat consolid\u00e9 (USD Md)", S_SUBSECTION))
+    _cur_label = _d(data, 'currency', 'USD')
+    elems.append(Paragraph(f"Compte de r\u00e9sultat consolid\u00e9 ({_cur_label} Md)", S_SUBSECTION))
     elems.append(KeepTogether(tbl([h_is] + rows_is, cw=cw_is)))
     elems.append(src(
         "FinSight IA \u2014 FMP, yfinance. LTM = 12 derniers mois. F = pr\u00e9visions mod\u00e8le interne."))
@@ -803,7 +811,7 @@ def _build_financials(area_buf, data):
     elems.append(src(_area_src))
     elems.append(Spacer(1, 3*mm))
 
-    elems.append(Paragraph(_d(data, 'financials_text_post'), S_BODY))
+    elems.append(Paragraph(_safe(_d(data, 'financials_text_post')), S_BODY))
     elems.append(Spacer(1, 4*mm))
 
     # Ratios vs pairs
@@ -821,16 +829,23 @@ def _build_financials(area_buf, data):
         return S_TD_C
 
     rat_rows = [
-        [Paragraph(_d(r, 'label'),    S_TD_B),
-         Paragraph(_d(r, 'value'),    S_TD_C),
-         Paragraph(_d(r, 'reference'),S_TD_C),
-         Paragraph(_d(r, 'lecture'),  _read_style(_d(r, 'lecture')))]
+        [Paragraph(_d(r, 'label'),           S_TD_B),
+         Paragraph(_d(r, 'value'),           S_TD_C),
+         Paragraph(_d(r, 'reference'),       S_TD_C),
+         Paragraph(_safe(_d(r, 'lecture')),  _read_style(_d(r, 'lecture')))]
         for r in (data.get('ratios_vs_peers') or [])
     ]
     elems.append(KeepTogether(tbl([h_r] + rat_rows, cw=[50*mm, 30*mm, 55*mm, 35*mm])))
     elems.append(src("FinSight IA \u2014 LTM = Last Twelve Months."))
     elems.append(Spacer(1, 3*mm))
-    elems.append(Paragraph(_d(data, 'ratios_text'), S_BODY))
+    elems.append(Paragraph(_safe(_d(data, 'ratios_text')), S_BODY))
+    _sector_lc = (_d(data, 'sector') or '').lower()
+    if any(k in _sector_lc for k in ('bank', 'financ', 'insur', 'reit', 'real estate')):
+        elems.append(Spacer(1, 2*mm))
+        elems.append(Paragraph(
+            "Note\u00a0: Altman Z-Score non applicable aux \u00e9tablissements financiers "
+            "et REITs \u2014 m\u00e9trique exclue pour ce type de soci\u00e9t\u00e9.",
+            S_NOTE))
     return elems
 
 
@@ -839,7 +854,7 @@ def _build_valorisation(ff_buf, pie_buf, data):
     elems += section_title("Valorisation", 3)
     elems.append(debate_q(
         "La valeur intrins\u00e8que confirme-t-elle le cours actuel et quel est l'upside r\u00e9siduel ?"))
-    elems.append(Paragraph(_d(data, 'dcf_text_intro'), S_BODY))
+    elems.append(Paragraph(_safe(_d(data, 'dcf_text_intro')), S_BODY))
     elems.append(Spacer(1, 3*mm))
 
     # Table de sensibilite DCF
@@ -872,7 +887,7 @@ def _build_valorisation(ff_buf, pie_buf, data):
         ('TEXTCOLOR',  (bc, br), (bc, br), WHITE),
     ]))
     elems.append(KeepTogether(t_dcf))
-    elems.append(Paragraph(_d(data, 'dcf_text_note'), S_NOTE))
+    elems.append(Paragraph(_safe(_d(data, 'dcf_text_note')), S_NOTE))
     elems.append(Spacer(1, 4*mm))
 
     # Comparables
@@ -884,7 +899,7 @@ def _build_valorisation(ff_buf, pie_buf, data):
     for r in (data.get('comparables') or []):
         bold = r.get('bold', False)
         nm   = _d(r, 'name')
-        row  = [Paragraph(f"<b>{nm}</b>" if bold else nm, S_TD_B if bold else S_TD_L)]
+        row  = [Paragraph(f"<b>{_safe(nm)}</b>" if bold else _safe(nm), S_TD_B if bold else S_TD_L)]
         row += [Paragraph(_d(r, k), S_TD_C)
                 for k in ['ev_ebitda','ev_revenue','pe','gross_margin','ebitda_margin']]
         comp_rows.append(row)
@@ -896,7 +911,7 @@ def _build_valorisation(ff_buf, pie_buf, data):
     # Donut + texte
     pie_img  = Image(pie_buf, width=88*mm, height=73*mm)
     pie_text = _d(data, 'pie_text')
-    pie_tbl  = Table([[pie_img, Paragraph(pie_text, S_BODY)]],
+    pie_tbl  = Table([[pie_img, Paragraph(_safe(pie_text), S_BODY)]],
                      colWidths=[84*mm, 82*mm])
     pie_tbl.setStyle(TableStyle([
         ('VALIGN',       (0, 0), (-1, -1), 'TOP'),
@@ -911,7 +926,7 @@ def _build_valorisation(ff_buf, pie_buf, data):
         f"FinSight IA \u2014 EV proxy calcul\u00e9 sur cours au {_d(data, 'date_analyse')}. "
         "Donn\u00e9es illustratives."))
     elems.append(Spacer(1, 3*mm))
-    elems.append(Paragraph(_d(data, 'post_comp_text'), S_BODY))
+    elems.append(Paragraph(_safe(_d(data, 'post_comp_text')), S_BODY))
     elems.append(Spacer(1, 4*mm))
 
     # Football Field
@@ -923,7 +938,7 @@ def _build_valorisation(ff_buf, pie_buf, data):
     ff_comment = _d(data, 'dcf_text_intro')
     if ff_comment:
         elems.append(Spacer(1, 2*mm))
-        elems.append(Paragraph(ff_comment, S_BODY))
+        elems.append(Paragraph(_safe(ff_comment), S_BODY))
     elems.append(src(_d(data, 'ff_source_text',
         "FinSight IA. Ligne pointill\u00e9e orange = cours actuel. "
         "La convergence des m\u00e9thodes renforce la robustesse de la cible.")))
@@ -937,13 +952,13 @@ def _build_risques(data):
     elems.append(Paragraph(
         "Th\u00e8se contraire \u2014 Arguments en faveur d'une r\u00e9vision \u00e0 la baisse",
         S_SUBSECTION))
-    elems.append(Paragraph(_d(data, 'bear_text_intro'), S_BODY))
+    elems.append(Paragraph(_safe(_d(data, 'bear_text_intro')), S_BODY))
     elems.append(Spacer(1, 2*mm))
 
     bear_args = data.get('bear_args') or []
     bear_h    = [Paragraph("Axe de risque", S_TH_L),
                  Paragraph("Analyse d\u00e9taill\u00e9e", S_TH_L)]
-    bear_rows = [[Paragraph(_d(a, 'name'), S_TD_B), Paragraph(_d(a, 'text'), S_TD_L)]
+    bear_rows = [[Paragraph(_safe(_d(a, 'name')), S_TD_B), Paragraph(_safe(_d(a, 'text')), S_TD_L)]
                  for a in bear_args]
     elems.append(KeepTogether(tbl([bear_h] + bear_rows, cw=[40*mm, 130*mm])))
     elems.append(Spacer(1, 4*mm))
@@ -956,7 +971,7 @@ def _build_risques(data):
              for h in ["Axe", "Condition d'invalidation", "Horizon"]]
     inv_rows = [
         [Paragraph(_d(r, 'axe'), S_TD_B),
-         Paragraph(_d(r, 'condition'), S_TD_L),
+         Paragraph(_safe(_d(r, 'condition')), S_TD_L),
          Paragraph(_d(r, 'horizon'), S_TD_C)]
         for r in inv_data
     ]
@@ -968,7 +983,7 @@ def _build_risques(data):
     elems.append(Paragraph(
         f"Sentiment de march\u00e9 \u2014 Analyse {_d(data, 'finbert_engine', 'FinBERT')} ({n_art} articles, 7 jours)",
         S_SUBSECTION))
-    elems.append(Paragraph(_d(data, 'finbert_text'), S_BODY))
+    elems.append(Paragraph(_safe(_d(data, 'finbert_text')), S_BODY))
     elems.append(Spacer(1, 2*mm))
 
     sent_h = [Paragraph(h, S_TH_C)
@@ -981,7 +996,7 @@ def _build_risques(data):
             Paragraph(orient, st),
             Paragraph(_d(r, 'articles'), S_TD_C),
             Paragraph(_d(r, 'score'), S_TD_C),
-            Paragraph(_d(r, 'themes'), S_TD_L),
+            Paragraph(_safe(_d(r, 'themes')), S_TD_L),
         ])
     elems.append(KeepTogether(tbl([sent_h] + sent_rows, cw=[24*mm, 20*mm, 26*mm, 100*mm])))
     elems.append(src(_d(data, 'finbert_source',
@@ -1008,12 +1023,12 @@ def _build_risques(data):
          Paragraph(f"{_d(data, 'price_str')} {cur}", S_TD_C),
          Paragraph(f"<b>{_d(data, 'upside_str')}</b>", S_TD_G),
          Paragraph(_d(data, 'conviction_str'), S_TD_C),
-         Paragraph(_d(data, 'next_review'), S_TD_C)],
+         Paragraph(_safe(_d(data, 'next_review')), S_TD_C)],
     ]
     elems.append(KeepTogether(tbl(reco_tbl,
                                   cw=[28*mm, 32*mm, 28*mm, 22*mm, 28*mm, 32*mm])))
     elems.append(Spacer(1, 4*mm))
-    elems.append(Paragraph(_d(data, 'conclusion_text'), S_BODY))
+    elems.append(Paragraph(_safe(_d(data, 'conclusion_text')), S_BODY))
     elems.append(Spacer(1, 4*mm))
 
     # Conditions de revision
@@ -1027,7 +1042,7 @@ def _build_risques(data):
         rs  = S_TD_G if sty == 'buy' else (S_TD_R if sty == 'sell' else S_TD_C)
         rev_rows.append([
             Paragraph(_d(r, 'revision'), rs),
-            Paragraph(_d(r, 'trigger'), S_TD_L),
+            Paragraph(_safe(_d(r, 'trigger')), S_TD_L),
             Paragraph(_d(r, 'target'), rs),
         ])
     elems.append(KeepTogether(tbl([rev_h] + rev_rows, cw=[20*mm, 122*mm, 28*mm])))
@@ -1597,7 +1612,7 @@ class PDFWriter:
 
         def _dcf_cell(w, t):
             d = w - t
-            if abs(d) < 1e-4 or abs(db) < 1e-4: return '\u2014'
+            if d <= 0 or abs(d) < 1e-4 or abs(db) < 1e-4: return '\u2014'
             return _fr(bv * db / d, 0)
 
         wacc_row_labels = [_fr(w * 100, 1, '%') for w in wacc_vals]
@@ -1716,7 +1731,7 @@ class PDFWriter:
             f"L'analyse s\u00e9mantique {sent_engine} conduite sur un corpus de {n_art} articles "
             f"publi\u00e9s au cours des sept derniers jours fait ressortir un sentiment globalement "
             f"{sent_label} avec une inflexion {direction} "
-            f"(score agr\u00e9g\u00e9 : <b>{_fr(sent_score, 3)}</b>). "
+            f"(score agr\u00e9g\u00e9 : {_fr(sent_score, 3)}). "
             f"Les publications favorables sont port\u00e9es par {_themes('pos')}. "
             f"Les publications d\u00e9favorables se concentrent sur {_themes('neg')}."
         )
@@ -1822,11 +1837,11 @@ class PDFWriter:
             'financials_text_post': _g(synthesis,'financial_commentary_post') or '',
             'ratios_text':          _g(synthesis,'ratio_commentary') or '',
             'dcf_text_intro':       _g(synthesis,'dcf_commentary') or
-                                    (f"Notre mod\u00e8le DCF repose sur un <b>WACC de {_fr(wacc*100,1)}\u00a0%</b> "
+                                    (f"Notre mod\u00e8le DCF repose sur un WACC de {_fr(wacc*100,1)}\u00a0% "
                                      f"(b\u00eata {_fr(beta,2) if beta else 'N/A'}, prime de risque {_fr(erp*100,1)}\u00a0%, "
                                      f"taux sans risque {_fr(rfr*100,1)}\u00a0%) et un "
-                                     f"<b>taux de croissance terminal de {_fr(tgr*100,1)}\u00a0%</b>. "
-                                     f"La valeur centrale ressort \u00e0 <b>{_fr(tbase,0)}\u00a0{cur}</b>, "
+                                     f"taux de croissance terminal de {_fr(tgr*100,1)}\u00a0%. "
+                                     f"La valeur centrale ressort \u00e0 {_fr(tbase,0)}\u00a0{cur}, "
                                      f"soit un upside de {_upside_str(tbase, price)} sur le cours actuel."),
             'dcf_text_note':        _g(synthesis,'dcf_note') or
                                     "Cellule surlign\u00e9e = sc\u00e9nario base. "
