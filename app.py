@@ -1023,11 +1023,14 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
         f"Le score composite moyen de {avg_score:.0f}/100 reflete un equilibre entre momentum, "
         f"valorisation et revision des BPA. Les secteurs les plus solides sont : <b>{top_noms}</b>."
     )
+    _SIG_S = "Surpond\xe9rer"; _SIG_N = "Neutre"; _SIG_R = "Sous-pond\xe9rer"
+    _nb_s = sum(1 for s in secteurs_list if s[3] == _SIG_S)
+    _nb_n = sum(1 for s in secteurs_list if s[3] == _SIG_N)
+    _nb_r = sum(1 for s in secteurs_list if s[3] == _SIG_R)
     texte_signal = (
         f"Signal global <b>{signal_global} (conviction {conviction}%)</b>. "
-        f"L'analyse sectorielle identifie {sum(1 for s in secteurs_list if s[3]=='Surpond\xe9rer')} "
-        f"secteur(s) Surponderer, {sum(1 for s in secteurs_list if s[3]=='Neutre')} Neutre "
-        f"et {sum(1 for s in secteurs_list if s[3]=='Sous-pond\xe9rer')} Sous-ponderer. "
+        f"L'analyse sectorielle identifie {_nb_s} secteur(s) Surponderer, "
+        f"{_nb_n} Neutre et {_nb_r} Sous-ponderer. "
         "Horizon d'allocation recommande : 12 mois."
     )
     texte_rotation = (
