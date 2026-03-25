@@ -56,13 +56,21 @@ _MONTH_EN = ["Jan","Feb","Mar","Apr","May","Jun",
 def _build_year_col(snapshot) -> dict:
     """
     Construit le mapping année_label → colonne Excel.
-    Alignement à droite : H = année la plus récente (N), G = N-1, etc.
-    Si yfinance retourne 4 ans au lieu de 5, la colonne D reste vide (normal).
+    Alignement à gauche : D = premier exercice avec revenue, H = plus récent.
+    Exclut les années sans revenue pour eviter un decalage avec les formules
+    F128/G128 du template (qui comptent les colonnes completes a partir de D).
     """
     cols = ["D", "E", "F", "G", "H"]
     labels = sorted(snapshot.years.keys(), key=lambda y: int(y.split("_")[0]))
     labels = labels[-5:]  # max 5, les plus récents
-    # aligner à droite : le dernier label → H, l'avant-dernier → G, etc.
+    # Exclure les annees sans revenue : la formule F128 du template
+    # compte depuis la colonne D — un trou en D decale tous les headers
+    labels_with_rev = [
+        l for l in labels
+        if getattr(snapshot.years.get(l), "revenue", None) is not None
+    ]
+    if labels_with_rev:
+        labels = labels_with_rev[-5:]
     return {label: cols[i] for i, label in enumerate(labels)}
 
 # ---------------------------------------------------------------------------
@@ -215,6 +223,13 @@ class ExcelWriter:
                 val = getattr(fy, field, None)
                 if val is not None and field in _IS_COST_FIELDS:
                     val = -abs(val)
+                # Fallback 0 pour interest_expense/income : certaines societes
+                # (ex: Apple FY2024+) ne les declarent plus separement.
+                # Le template F128 requiert ces cellules non-vides pour
+                # afficher les headers d'annees — 0 = "non declare separement".
+                if val is None and field in ("interest_expense", "interest_income"):
+                    if getattr(fy, "revenue", None) is not None:
+                        val = 0
                 written += _safe_write(ws, col, row, val)
 
             for field, row in _BS_ASSET_ROWS.items():
