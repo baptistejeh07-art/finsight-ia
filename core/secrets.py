@@ -19,6 +19,13 @@ def get_secret(key: str) -> Optional[str]:
     C'est la fonction à utiliser partout à la place de os.getenv() pour les clés API.
     """
     val = os.getenv(key)
+    if not val:
+        try:
+            from dotenv import load_dotenv
+            load_dotenv()
+            val = os.getenv(key)
+        except Exception:
+            pass
     if val:
         return val
     try:
