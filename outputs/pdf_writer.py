@@ -254,7 +254,7 @@ def _make_perf_chart(data):
     months, ticker_vals, index_vals = months[:n], ticker_vals[:n], index_vals[:n]
 
     x = np.arange(n)
-    fig, ax = plt.subplots(figsize=(8.5, 3.8))
+    fig, ax = plt.subplots(figsize=(9.5, 3.4))
     ax.plot(x, ticker_vals, color='#1B3A6B', linewidth=2.0, label=ticker)
     ax.plot(x, index_vals,  color='#A0A0A0', linewidth=1.4, linestyle='--', label=index_name)
     ax.fill_between(x, ticker_vals, index_vals,
@@ -452,7 +452,7 @@ def _make_margins_chart(data):
 
     x = np.arange(n)
     width = 0.25
-    fig, ax = plt.subplots(figsize=(8, 3.6), dpi=160)
+    fig, ax = plt.subplots(figsize=(8, 4.6), dpi=160)
 
     # y-max avec marge pour les labels au-dessus des barres
     all_vals_flat = [v for v in gm_vals + em_vals + nm_vals if v is not None]
@@ -1074,10 +1074,22 @@ def _build_financials(area_buf, data, margins_buf=None):
     elems.append(Spacer(1, 2*mm))
     if margins_buf is not None:
         margins_buf.seek(0)
-        elems.append(Image(margins_buf, width=TABLE_W, height=50*mm))
+        elems.append(Image(margins_buf, width=TABLE_W, height=62*mm))
     else:
         elems.append(Paragraph("(Graphique marges non disponible)", S_NOTE))
     elems.append(src("FinSight IA \u2014 Marges calcul\u00e9es sur donn\u00e9es historiques yfinance."))
+    elems.append(Spacer(1, 2*mm))
+    _margins_comment = _d(data, 'ratios_text') or ''
+    if not _margins_comment:
+        _ticker_m = _d(data, 'ticker', 'La soci\u00e9t\u00e9')
+        _margins_comment = (
+            f"Le graphique pr\u00e9sente l'\u00e9volution des trois marges cl\u00e9s de {_ticker_m} "
+            f"sur la p\u00e9riode historique et les exercices projet\u00e9s. "
+            f"La marge brute refl\u00e8te l'efficacit\u00e9 op\u00e9rationnelle, "
+            f"la marge EBITDA mesure la g\u00e9n\u00e9ration de cash avant capex, "
+            f"et la marge nette traduit la rentabilit\u00e9 finale pour l'actionnaire."
+        )
+    elems.append(Paragraph(_margins_comment, S_BODY))
     elems.append(Spacer(1, 3*mm))
     return elems
 
@@ -1771,7 +1783,7 @@ def _fetch_pie_data(ticker: str, peers: list) -> dict:
                 # Filtrer les tickers non-USD (mismatch devise KRW/JPY/HKD)
                 try:
                     cur = getattr(info, 'currency', None)
-                    if cur and cur not in ('USD', 'GBp', 'GBP'):
+                    if cur and cur not in ('USD', 'GBp', 'GBP', 'EUR', 'CHF', 'CAD'):
                         continue
                 except Exception:
                     pass
