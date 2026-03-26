@@ -237,35 +237,24 @@ def llm_select_and_summarize(candidates: list[dict]) -> dict:
     for i, a in enumerate(top30):
         art_list += f"\n[{i}] SOURCE={a['source']} | CAT={a['cat']} | DATE={a['date'].strftime('%d/%m/%Y')}\nTITRE: {a['title']}\nCONTENU: {a['summary'][:400]}\n"
 
-    prompt = f"""Tu es analyste senior de FinSight IA, plateforme d'analyse financiere multi-agents LLM.
-Audience : directeurs d'investissement, analystes sell-side/buy-side, quants, DG fintech.
+    prompt = f"""Tu es redacteur en chef senior de FinSight IA, plateforme d'analyse financiere multi-agents LLM.
+Ton audience : directeurs d'investissement, analystes sell-side/buy-side, quants, DG fintech.
 
 MISSION :
-1. Selectionner les 10 articles les PLUS PERTINENTS parmi les {len(top30)} candidats.
-   Criteres : LLM en finance, agents IA pour investissement, donnees financieres, automatisation analyse, fintech.
+1. Selectionner les 10 articles les PLUS PERTINENTS pour FinSight parmi les {len(top30)} candidats ci-dessous.
+   Criteres : LLM en finance, agents IA pour l'investissement, donnees financieres, automatisation analyse, fintech.
    EXCLURE : recherches trop academiques sans application finance, articles non-financiers.
 
-2. Pour chaque article, produire une analyse structuree RIGOUREUSE en francais :
+2. Pour chaque article selectionne, ecrire un RESUME EDITORIAL en 3 phrases francaises :
+   - Phrase 1 : Ce que cet article revele ou propose concretement
+   - Phrase 2 : L'innovation cle ou le chiffre marquant
+   - Phrase 3 : Pourquoi c'est significant pour l'industrie financiere
 
-   passage_cle : Extraire ou reformuler une CITATION representative de l article entre guillemets.
-                 Doit refleter le point central du texte. 15-30 mots maximum.
+3. Pour chaque article : 1 phrase courte et precise sur l'apport direct pour FinSight IA
+   (ex: "Peut ameliorer le scoring de sentiment dans AgentSentiment via..." — sois specifique)
 
-   these : 2 phrases argumentant POUR la pertinence de cet article.
-           Arguments concrets, chiffres si disponibles, pourquoi c est significatif.
-
-   contre_these : 1-2 phrases de CRITIQUE ou LIMITES objectives.
-                  Biais methodologique, conditions d application, limitations.
-
-   application_finsight : 3-4 phrases structurees sur l application concrete a FinSight IA.
-                          Mentionner : (1) le module concerne (AgentSentiment, AgentQuant, AgentSynthese, etc.),
-                          (2) le mecanisme d integration specifique,
-                          (3) l impact mesurable attendu sur la qualite des analyses,
-                          (4) la priorite d implementation.
-
-   priorite : HAUTE | MOYENNE | FAIBLE selon l urgence pour FinSight.
-
-3. Rediger une INTRODUCTION EDITORIALE de 120-150 mots sur les themes dominants.
-   Style : direct, analytique, sans jargon creux.
+4. Rediger une INTRODUCTION EDITORIALE de 120-150 mots presentant les themes dominants de cette veille,
+   comme un editorial de newsletter financiere institutionnelle. Style : direct, concis, sans jargon creux.
 
 ARTICLES CANDIDATS :
 {art_list}
@@ -276,11 +265,8 @@ Reponds UNIQUEMENT en JSON valide sans markdown ni texte autour :
   "selection": [
     {{
       "idx": <entier — index original de l article>,
-      "passage_cle": "<citation ou formulation representative entre guillemets>",
-      "these": "<2 phrases argumentant pour la pertinence>",
-      "contre_these": "<1-2 phrases de critique ou limites>",
-      "application_finsight": "<3-4 phrases application concrete a FinSight>",
-      "priorite": "<HAUTE|MOYENNE|FAIBLE>"
+      "resume": "<3 phrases editoriales completes>",
+      "implication": "<1 phrase precise sur l apport FinSight>"
     }}
   ]
 }}"""
@@ -293,8 +279,8 @@ Reponds UNIQUEMENT en JSON valide sans markdown ni texte autour :
             resp   = client.chat.completions.create(
                 model="llama-3.3-70b-versatile",
                 messages=[{"role": "user", "content": prompt}],
-                max_tokens=4500,
-                temperature=0.3,
+                max_tokens=3000,
+                temperature=0.35,
             )
             raw = resp.choices[0].message.content.strip()
             raw = re.sub(r"^```(?:json)?", "", raw).strip()
@@ -307,13 +293,8 @@ Reponds UNIQUEMENT en JSON valide sans markdown ni texte autour :
                     idx = sel.get("idx")
                     if idx is not None and 0 <= idx < len(top30):
                         art = dict(top30[idx])
-                        art["passage_cle"]          = sel.get("passage_cle",          "")
-                        art["these"]                = sel.get("these",                art["summary"][:200])
-                        art["contre_these"]         = sel.get("contre_these",         "")
-                        art["application_finsight"] = sel.get("application_finsight", "Impact sur les pipelines FinSight.")
-                        art["priorite"]             = sel.get("priorite",             "MOYENNE")
-                        art["resume_fr"]            = art["these"]
-                        art["implication"]          = art["application_finsight"]
+                        art["resume_fr"]   = sel.get("resume",      art["summary"][:300])
+                        art["implication"] = sel.get("implication", "Impact sur les pipelines FinSight.")
                         enriched.append(art)
                 return {
                     "editorial": parsed.get("editorial", ""),
@@ -332,13 +313,8 @@ def _fallback_selection(candidates: list[dict]) -> dict:
     arts = []
     for a in candidates[:10]:
         a = dict(a)
-        a["passage_cle"]         = ""
-        a["these"]               = a["summary"][:250]
-        a["contre_these"]        = ""
-        a["application_finsight"] = "Pertinent pour les pipelines FinSight."
-        a["priorite"]            = "MOYENNE"
-        a["resume_fr"]           = a["these"]
-        a["implication"]         = a["application_finsight"]
+        a["resume_fr"]   = a["summary"][:350]
+        a["implication"] = "Pertinent pour les pipelines FinSight."
         arts.append(a)
     return {"editorial": "", "articles": arts}
 
@@ -370,7 +346,7 @@ def suggest_bonus(top10: list[dict]) -> list[dict]:
             f"utiles pour une plateforme d'analyse financiere multi-agents.\n"
             f"Sois tres specifique (vrais noms, vrais liens si tu les connais).\n\n"
             f"JSON UNIQUEMENT (array de 5 objets, aucun markdown) :\n"
-            f'[{{"title":"...","source":"...","link":"...","cat":"...","these":"<2 phrases pertinence>","contre_these":"<1 phrase limite>","application_finsight":"<3-4 phrases module+integration+impact+priorite>","priorite":"HAUTE|MOYENNE|FAIBLE"}}]'
+            f'[{{"title":"...","source":"...","link":"...","cat":"...","resume_fr":"<2-3 phrases fr specifiques>","implication":"<1 phrase FinSight>"}}]'
         )
         resp = client.chat.completions.create(
             model="llama-3.3-70b-versatile",
@@ -502,18 +478,6 @@ def build_pdf(result: dict, bonus5: list[dict], output_path: Path) -> Path:
                        textColor=_h(C_GREEN), leading=13, spaceAfter=0)
     S_LINK       = _s("al", fontName="Helvetica", fontSize=8,
                        textColor=_h(C_NAVY2), leading=11, spaceAfter=0)
-    S_QUOTE      = _s("aq", fontName="Helvetica-Oblique", fontSize=9,
-                       textColor=_h("#333333"), leading=13, spaceAfter=0, alignment=TA_JUSTIFY)
-    S_THESE_LBL  = _s("tl2", fontName="Helvetica-Bold", fontSize=7.5,
-                       textColor=_h(C_GREEN), leading=11, spaceAfter=0,
-                       textTransform="uppercase", letterSpacing=0.5)
-    S_THESE_TXT  = _s("tt", fontName="Helvetica", fontSize=9,
-                       textColor=_h(C_BLACK), leading=13, spaceAfter=0, alignment=TA_JUSTIFY)
-    S_CONTRA_LBL = _s("cl", fontName="Helvetica-Bold", fontSize=7.5,
-                       textColor=_h(C_ORANGE), leading=11, spaceAfter=0,
-                       textTransform="uppercase", letterSpacing=0.5)
-    S_CONTRA_TXT = _s("ct", fontName="Helvetica", fontSize=9,
-                       textColor=_h(C_BLACK), leading=13, spaceAfter=0, alignment=TA_JUSTIFY)
     S_BONUS_T    = _s("bt", fontName="Helvetica-Bold", fontSize=10,
                        textColor=_h(C_AMBER), leading=14, spaceAfter=3)
     S_SEC_BONUS  = _s("sb", fontName="Helvetica-Bold", fontSize=10,
@@ -588,9 +552,6 @@ def build_pdf(result: dict, bonus5: list[dict], output_path: Path) -> Path:
     elems.append(sec_row)
     elems.append(HRFlowable(width="100%", thickness=0.5, color=_h(C_GREY_MED), spaceAfter=6))
 
-    # Couleurs priorite
-    PRIO_COLORS = {"HAUTE": "#B22222", "MOYENNE": "#1B3A6B", "FAIBLE": "#5B7A9B"}
-
     # -- Articles ---------------------------------------------------------------
     for i, art in enumerate(articles):
         date_label = art["date"].strftime("%d/%m/%Y") if hasattr(art.get("date"), "strftime") else str(art.get("date",""))[:10]
@@ -599,14 +560,10 @@ def build_pdf(result: dict, bonus5: list[dict], output_path: Path) -> Path:
         source     = art.get("source", "?")
         link       = art.get("link",   "")
         link_short = re.sub(r"^https?://(?:www\.)?", "", link)[:90]
-        passage    = art.get("passage_cle", "")
-        these      = art.get("these", art.get("resume_fr", art.get("summary",""))[:250])
-        contre     = art.get("contre_these", "")
-        appli      = art.get("application_finsight", art.get("implication",""))
-        priorite   = art.get("priorite", "MOYENNE").upper()
-        prio_color = PRIO_COLORS.get(priorite, C_NAVY)
+        resume     = art.get("resume_fr") or art.get("summary", "")[:350]
+        impl       = art.get("implication", "")
 
-        # Badge categorie + meta
+        # Badge categorie colore
         cat_badge = (
             f'<font color="{cat_color}"><b>[{_enc(cat.upper())}]</b></font>'
             f'  <font color="{C_GREY_DARK}">{_enc(source)}  ·  {date_label}</font>'
@@ -615,62 +572,13 @@ def build_pdf(result: dict, bonus5: list[dict], output_path: Path) -> Path:
         card_content = [
             Paragraph(_enc(f"{i+1:02d}. {art['title']}"), S_ART_TITLE),
             Paragraph(cat_badge, S_META),
-            Spacer(1, 3),
+            Paragraph(_enc(resume), S_RESUME),
         ]
-
-        # Citation / passage cle
-        if passage:
-            quote_table = Table(
-                [[Paragraph(_enc(passage), S_QUOTE)]],
-                colWidths=[content_w - 28],
-            )
-            quote_table.setStyle(TableStyle([
-                ("BACKGROUND",   (0,0), (-1,-1), _h("#F0F4F8")),
-                ("LINEBEFORE",   (0,0), (0,-1), 3, _h(C_GREY_DARK)),
-                ("LEFTPADDING",  (0,0), (-1,-1), 8),
-                ("RIGHTPADDING", (0,0), (-1,-1), 8),
-                ("TOPPADDING",   (0,0), (-1,-1), 5),
-                ("BOTTOMPADDING",(0,0), (-1,-1), 5),
-            ]))
-            card_content.append(quote_table)
-            card_content.append(Spacer(1, 5))
-
-        # These + Contre-these cote a cote si les deux existent, sinon empiles
-        if these or contre:
-            col_w = (content_w - 28) / 2 - 3
-            these_block = [
-                Paragraph(_enc("These"), S_THESE_LBL),
-                Spacer(1, 2),
-                Paragraph(_enc(these), S_THESE_TXT),
-            ]
-            contra_block = [
-                Paragraph(_enc("Contre-these"), S_CONTRA_LBL),
-                Spacer(1, 2),
-                Paragraph(_enc(contre if contre else "—"), S_CONTRA_TXT),
-            ]
-            tc_table = Table(
-                [[these_block, contra_block]],
-                colWidths=[col_w, col_w],
-                hAlign="LEFT",
-            )
-            tc_table.setStyle(TableStyle([
-                ("VALIGN",       (0,0), (-1,-1), "TOP"),
-                ("LEFTPADDING",  (0,0), (-1,-1), 0),
-                ("RIGHTPADDING", (0,0), (-1,-1), 0),
-                ("TOPPADDING",   (0,0), (-1,-1), 0),
-                ("BOTTOMPADDING",(0,0), (-1,-1), 0),
-            ]))
-            card_content.append(tc_table)
-            card_content.append(Spacer(1, 5))
-
-        # Application FinSight — ligne sobre sans bloc colore
-        if appli:
-            prio_txt = f'<font color="{prio_color}"><b>[{priorite}]</b></font>  <font color="{C_GREEN}"><b>FinSight —</b></font> '
-            card_content.append(Paragraph(prio_txt + _enc(appli), S_IMPL))
-            card_content.append(Spacer(1, 3))
-
+        if impl:
+            card_content.append(Paragraph(_enc(f"  FinSight — {impl}"), S_IMPL))
         if link:
             link_href = html.escape(link, quote=True)
+            card_content.append(Spacer(1, 2))
             card_content.append(Paragraph(
                 f'  <link href="{link_href}" color="{C_NAVY2}"><u>{_enc(link_short)}</u></link>',
                 S_LINK
@@ -718,11 +626,8 @@ def build_pdf(result: dict, bonus5: list[dict], output_path: Path) -> Path:
             source     = art.get("source","?")
             link       = art.get("link","")
             link_short = re.sub(r"^https?://(?:www\.)?", "", link)[:90]
-            these      = art.get("these", art.get("resume_fr", art.get("summary",""))[:200])
-            contre     = art.get("contre_these","")
-            appli      = art.get("application_finsight", art.get("implication",""))
-            priorite   = art.get("priorite","MOYENNE").upper()
-            prio_color = PRIO_COLORS.get(priorite, C_NAVY)
+            resume     = art.get("resume_fr","")
+            impl       = art.get("implication","")
 
             cat_badge = (
                 f'<font color="{C_AMBER}"><b>[BONUS {i+1}]</b></font>'
@@ -731,22 +636,13 @@ def build_pdf(result: dict, bonus5: list[dict], output_path: Path) -> Path:
             bonus_card_content = [
                 Paragraph(_enc(art.get("title","")), S_BONUS_T),
                 Paragraph(cat_badge, S_META),
-                Spacer(1, 3),
+                Paragraph(_enc(resume), S_RESUME),
             ]
-            if these:
-                col_w = (content_w - 28) / 2 - 3
-                these_b = [Paragraph(_enc("These"), S_THESE_LBL), Spacer(1,2), Paragraph(_enc(these), S_THESE_TXT)]
-                contra_b = [Paragraph(_enc("Contre-these"), S_CONTRA_LBL), Spacer(1,2), Paragraph(_enc(contre if contre else "—"), S_CONTRA_TXT)]
-                tc2 = Table([[these_b, contra_b]], colWidths=[col_w, col_w], hAlign="LEFT")
-                tc2.setStyle(TableStyle([("VALIGN",(0,0),(-1,-1),"TOP"),("LEFTPADDING",(0,0),(-1,-1),0),("RIGHTPADDING",(0,0),(-1,-1),0),("TOPPADDING",(0,0),(-1,-1),0),("BOTTOMPADDING",(0,0),(-1,-1),0)]))
-                bonus_card_content.append(tc2)
-                bonus_card_content.append(Spacer(1,5))
-            if appli:
-                prio_txt2 = f'<font color="{prio_color}"><b>[{priorite}]</b></font>  <font color="{C_GREEN}"><b>FinSight —</b></font> '
-                bonus_card_content.append(Paragraph(prio_txt2 + _enc(appli), S_IMPL))
-                bonus_card_content.append(Spacer(1,3))
+            if impl:
+                bonus_card_content.append(Paragraph(_enc(f"  FinSight — {impl}"), S_IMPL))
             if link:
                 link_href = html.escape(link, quote=True)
+                bonus_card_content.append(Spacer(1, 2))
                 bonus_card_content.append(Paragraph(
                     f'  <link href="{link_href}" color="{C_NAVY2}"><u>{_enc(link_short)}</u></link>',
                     S_LINK
