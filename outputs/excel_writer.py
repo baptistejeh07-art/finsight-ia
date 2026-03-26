@@ -55,23 +55,31 @@ _MONTH_EN = ["Jan","Feb","Mar","Apr","May","Jun",
 
 def _build_year_col(snapshot) -> dict:
     """
-    Construit le mapping année_label → colonne Excel.
-    Alignement à gauche : D = premier exercice avec revenue, H = plus récent.
-    Exclut les années sans revenue pour eviter un decalage avec les formules
-    F128/G128 du template (qui comptent les colonnes completes a partir de D).
+    Construit le mapping annee_label -> colonne Excel.
+    Alignement a droite : H = annee la plus recente, G = N-1, F = N-2, etc.
+    - 5 ans : D,E,F,G,H tous remplis
+    - 4 ans : E,F,G,H remplis, D vide
+    - 3 ans : F,G,H remplis, D,E vides
+    Exclut les annees sans revenue pour eviter des colonnes creuses.
+    Avec alignement droite, H est TOUJOURS la colonne LTM (la plus recente).
     """
     cols = ["D", "E", "F", "G", "H"]
     labels = sorted(snapshot.years.keys(), key=lambda y: int(y.split("_")[0]))
-    labels = labels[-5:]  # max 5, les plus récents
-    # Exclure les annees sans revenue : la formule F128 du template
-    # compte depuis la colonne D — un trou en D decale tous les headers
+    labels = labels[-5:]  # max 5, les plus recents
+    # Exclure les annees sans revenue
     labels_with_rev = [
         l for l in labels
         if getattr(snapshot.years.get(l), "revenue", None) is not None
     ]
     if labels_with_rev:
         labels = labels_with_rev[-5:]
-    return {label: cols[i] for i, label in enumerate(labels)}
+    n = len(labels)
+    # Alignement droite : plus recent -> H (index 4), precedent -> G (index 3), etc.
+    mapping = {}
+    for i, label in enumerate(reversed(labels)):
+        col = cols[4 - i]  # 0->H, 1->G, 2->F, 3->E, 4->D
+        mapping[label] = col
+    return mapping
 
 # ---------------------------------------------------------------------------
 # Champs IS à injecter en négatif (coûts attendus <0 par les formules Excel)
@@ -199,15 +207,28 @@ class ExcelWriter:
 
         ci = snapshot.company_info
 
-        # D117 Base Year = toujours l'annee LTM (label mappe sur H)
-        # ci doit etre defini avant d'acceder a ci.base_year (bug ordre corrige)
-        ltm_label = next((lbl for lbl, col in year_col_map.items() if col == "H"), None)
-        if ltm_label:
-            ltm_year = int(ltm_label.split("_")[0])
-        else:
-            # <5 ans : base_year = annee du label le plus recent dans year_col_map
-            most_recent_lbl = max(year_col_map.keys(), key=lambda y: int(y.split("_")[0])) if year_col_map else None
-            ltm_year = int(most_recent_lbl.split("_")[0]) if most_recent_lbl else ci.base_year
+        # D117 Base Year = toujours l'annee LTM (alignement droite -> H = toujours la plus recente)
+        # Avec right-align, H est toujours le label le plus recent dans year_col_map
+        most_recent_lbl = max(year_col_map.keys(), key=lambda y: int(y.split("_")[0])) if year_col_map else None
+        ltm_year = int(most_recent_lbl.split("_")[0]) if most_recent_lbl else ci.base_year
+
+        # Ecrire les etiquettes d'annee directement dans D5-H5 et dans D132-H132.
+        # D5-H5 : remplace les formules du template par des valeurs statiques
+        #   (ex: "2022", "2023", "2025 (LTM)") — alignement droite garanti.
+        # D132-H132 : cellules helper hors zone impression (backup / formules tier).
+        # Note : on ecrit directement sur ws[] sans passer par _safe_write
+        #   car les cellules D5-H5 contiennent des formules template (startswith "=")
+        #   que la garde dynamique bloquerait. Ces formules sont intentionnellement
+        #   remplacees par des valeurs statiques calculees cote Python.
+        for col in ['D', 'E', 'F', 'G', 'H']:
+            ws[f'{col}5']   = None  # effacer la formule template
+            ws[f'{col}132'] = None  # effacer helper
+        for label, col in year_col_map.items():
+            year_int = int(label.split("_")[0])
+            is_ltm = (col == 'H')
+            ws[f'{col}5']   = f"{year_int} (LTM)" if is_ltm else year_int
+            ws[f'{col}132'] = year_int
+
         _write_cells(ws, {
             _CI_CELLS["company_name"]:  ci.company_name,
             _CI_CELLS["ticker"]:        ci.ticker,

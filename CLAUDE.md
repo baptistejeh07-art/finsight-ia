@@ -62,10 +62,13 @@ Renders visuels dans `outputs/generated/cli_tests/renders/{TICKER}/` :
 3. **Finnhub** — news ticker-spécifiques (10 articles)
 4. **RSS feedparser** — backup news (Yahoo Finance feed)
 
-## Excel — colonnes (v3, alignement GAUCHE)
-- D=le plus ancien, H=le plus récent, H peut être vide si <5 ans
-- 5 ans : D→H | 4 ans : D→G (H vide) | 3 ans : D→F
-- `_build_year_col` dans excel_writer.py : `{label: cols[i] for i, label in enumerate(labels)}`
+## Excel — colonnes (v4, alignement DROITE)
+- H=le plus récent (LTM), G=N-1, F=N-2, E=N-3, D=N-4 — H TOUJOURS rempli
+- 5 ans : D,E,F,G,H | 4 ans : E,F,G,H (D vide) | 3 ans : F,G,H (D,E vides)
+- `_build_year_col` : right-align, reversed(labels), cols[4-i]
+- D5-H5 : etiquettes d'année écrites directement comme valeurs (ex: 2022, "2025 (LTM)")
+- D132-H132 : helpers backup (hors zone impression)
+- D117 = ltm_year = année du label le plus récent (toujours H)
 - Market data (beta, WACC inputs) : colonne de l'année la plus récente uniquement
 - FORMULA_CELLS : ne jamais écrire dedans
 
