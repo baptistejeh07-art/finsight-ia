@@ -318,6 +318,25 @@ Reponds UNIQUEMENT en JSON valide sans markdown ni texte autour :
                 last_err = e
                 print(f"[VEILLE] {model} key ...{groq_key[-6:]} : {e}")
 
+    # Fallback Mistral si cle disponible
+    mistral_key = os.getenv("MISTRAL_API_KEY")
+    if mistral_key:
+        try:
+            from mistralai import Mistral
+            _mc = Mistral(api_key=mistral_key)
+            resp = _mc.chat.complete(
+                model="mistral-small-latest",
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=3000,
+                temperature=0.35,
+            )
+            result = _parse_llm_response(resp.choices[0].message.content.strip())
+            if result:
+                print("[VEILLE] LLM OK : Mistral small (fallback)")
+                return result
+        except Exception as e:
+            print(f"[VEILLE] Mistral fallback : {e}")
+
     # Fallback Anthropic si cle disponible
     anthropic_key = os.getenv("ANTHROPIC_API_KEY")
     if anthropic_key:
