@@ -109,6 +109,7 @@ button *, button *:before, button *:after,
 /* Download buttons overrides */
 .stDownloadButton > button { width:100% !important; font-size:12px !important; font-weight:400 !important; border:1px solid #e0e0e0 !important; color:#555 !important; background:#fff !important; padding:9px 14px !important; border-radius:0 !important; text-align:left !important; justify-content:flex-start !important; margin-bottom:2px !important; }
 .stDownloadButton > button:hover { border-color:#111 !important; color:#111 !important; }
+.veille-hist-btn .stDownloadButton > button { text-align:center !important; justify-content:center !important; }
 div[data-testid="stButton"] > button { border-radius:0 !important; }
 
 /* Primary buttons — navy blue */
@@ -652,6 +653,7 @@ def render_sidebar(results) -> None:
                 _vdate = _vp.stem.replace("veille_", "")
                 _col_dl, _col_open, _col_del = st.columns([4, 1, 1])
                 with _col_dl:
+                    st.markdown('<div class="veille-hist-btn">', unsafe_allow_html=True)
                     st.download_button(
                         f"Veille {_vdate}",
                         _vp.read_bytes(),
@@ -660,6 +662,7 @@ def render_sidebar(results) -> None:
                         use_container_width=True,
                         key=f"hist_{_vp.name}",
                     )
+                    st.markdown('</div>', unsafe_allow_html=True)
                 with _col_open:
                     if st.button("↗", key=f"open_{_vp.name}", help="Ouvrir",
                                  use_container_width=True):
