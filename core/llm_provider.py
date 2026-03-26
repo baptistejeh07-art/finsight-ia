@@ -121,6 +121,11 @@ class _GroqKeyRotator:
         if remaining < 5000:
             _log.warning(f"[GroqRotator] Cle {self._idx + 1} : {remaining} tokens restants avant rotation")
 
+    def is_exhausted(self) -> bool:
+        """Retourne True si toutes les clés Groq sont épuisées."""
+        self._load()
+        return all(self._tokens_used(i) >= self._limit for i in range(len(self._keys)))
+
     def status(self) -> str:
         self._load()
         parts = []

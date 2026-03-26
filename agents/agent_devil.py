@@ -123,10 +123,14 @@ class AgentDevil:
 
         prompt = _build_prompt(synthesis, ratios)
         raw = None
-        try:
-            raw = self.llm.generate(prompt=prompt, system=_SYSTEM, max_tokens=2048)
-        except Exception as e:
-            log.warning(f"[AgentDevil] {self.llm.provider} echec ({type(e).__name__}: {e})")
+        _groq_exhausted = getattr(self.llm, '_rotator', None) and self.llm._rotator.is_exhausted()
+        if _groq_exhausted:
+            log.warning("[AgentDevil] Groq epuise — passage direct au fallback")
+        else:
+            try:
+                raw = self.llm.generate(prompt=prompt, system=_SYSTEM, max_tokens=2048)
+            except Exception as e:
+                log.warning(f"[AgentDevil] {self.llm.provider} echec ({type(e).__name__}: {e})")
 
         if not raw:
             for _prov, _model in [("mistral", "mistral-small-latest"),

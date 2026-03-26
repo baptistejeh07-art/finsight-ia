@@ -196,10 +196,14 @@ class AgentSynthese:
 
         prompt = _build_prompt(snapshot, ratios, sentiment)
         raw = None
-        try:
-            raw = self.llm.generate(prompt=prompt, system=_SYSTEM, max_tokens=4000)
-        except Exception as e:
-            log.warning(f"[AgentSynthese] {self.llm.provider} echec ({type(e).__name__}: {e})")
+        _groq_exhausted = getattr(self.llm, '_rotator', None) and self.llm._rotator.is_exhausted()
+        if _groq_exhausted:
+            log.warning("[AgentSynthese] Groq epuise — passage direct au fallback")
+        else:
+            try:
+                raw = self.llm.generate(prompt=prompt, system=_SYSTEM, max_tokens=4000)
+            except Exception as e:
+                log.warning(f"[AgentSynthese] {self.llm.provider} echec ({type(e).__name__}: {e})")
 
         # Cascade fallback : Groq → Mistral → Cerebras → Gemini
         _fallbacks = [
