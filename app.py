@@ -653,7 +653,7 @@ def render_sidebar(results) -> None:
                 _col_dl, _col_open, _col_del = st.columns([4, 1, 1])
                 with _col_dl:
                     _parts = _vdate.split("_")
-                    _day = f"{_parts[0][6:8]}/{_parts[0][4:6]}/{_parts[0][2:4]}"
+                    _day = f"{_parts[0][6:8]}/{_parts[0][4:6]}"
                     _num = _parts[1] if len(_parts) > 1 else "1"
                     st.download_button(
                         f"Veille {_day} #{_num}",
