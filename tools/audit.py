@@ -264,6 +264,19 @@ def audit_ticker(ticker: str, preview: bool = False) -> Path:
     report_path.write_text(report_md, encoding="utf-8")
     print(f"\n  [AUDIT] Rapport : {report_path.name}")
     if preview:
+        # Auto-commit + push du PDF preview pour que Streamlit Cloud serve la bonne version
+        import subprocess as _sp
+        _root = Path(__file__).parent.parent
+        _preview_pdf = _root / "preview" / ticker / f"{ticker}_report.pdf"
+        if _preview_pdf.exists():
+            _sp.run(["git", "add", str(_preview_pdf)], cwd=str(_root), capture_output=True)
+            _r = _sp.run(
+                ["git", "commit", "-m", f"chore(preview): {ticker} PDF regenere"],
+                cwd=str(_root), capture_output=True
+            )
+            if _r.returncode == 0:
+                _sp.run(["git", "push"], cwd=str(_root), capture_output=True)
+                print(f"  [PREVIEW] PDF committe et pushe -> Streamlit Cloud mis a jour.")
         print(f"  [PREVIEW] Outputs en attente de validation dans Streamlit.")
     return report_path
 
