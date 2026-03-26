@@ -16,7 +16,7 @@ from typing import List, Optional
 from core.llm_provider import LLMProvider
 
 log = logging.getLogger(__name__)
-_DEFAULT_MODEL = "llama-3.3-70b-versatile"
+_DEFAULT_MODEL = "mistral-small-latest"
 
 
 @dataclass
@@ -108,7 +108,7 @@ JSON requis :
 
 class AgentDevil:
     def __init__(self, model: str = _DEFAULT_MODEL):
-        self.llm = LLMProvider(provider="groq", model=model)
+        self.llm = LLMProvider(provider="mistral", model=model)
 
     def challenge(self, synthesis, ratios) -> Optional[DevilResult]:
         if synthesis is None:

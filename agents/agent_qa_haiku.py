@@ -26,7 +26,7 @@ from core.llm_provider import LLMProvider
 
 log = logging.getLogger(__name__)
 
-_DEFAULT_MODEL = "llama-3.3-70b-versatile"
+_DEFAULT_MODEL = "mistral-small-latest"
 
 # ---------------------------------------------------------------------------
 # Modele de resultat
@@ -140,7 +140,7 @@ class AgentQAHaiku:
     """
 
     def __init__(self, model: str = _DEFAULT_MODEL):
-        self.llm = LLMProvider(provider="groq", model=model)
+        self.llm = LLMProvider(provider="mistral", model=model)
 
     def validate(
         self,
@@ -149,7 +149,7 @@ class AgentQAHaiku:
     ) -> Optional[QAHaikuResult]:
         """
         Valide la qualite de la synthese via Groq.
-        Returns QAHaikuResult, ou None si LLM inaccessible.
+        Returns QAHaikuResult, ou None si LLM inaccessible (Mistral).
         """
         if synthesis is None:
             log.warning("[AgentQAHaiku] synthesis=None — validation impossible, skip")

@@ -17,7 +17,7 @@ from typing import Optional
 from core.llm_provider import LLMProvider
 
 log = logging.getLogger(__name__)
-_DEFAULT_MODEL = "llama-3.3-70b-versatile"
+_DEFAULT_MODEL = "mistral-small-latest"
 
 
 @dataclass
@@ -199,7 +199,7 @@ JSON requis (tous les champs obligatoires) :
 
 class AgentSynthese:
     def __init__(self, model: str = _DEFAULT_MODEL):
-        self.llm = LLMProvider(provider="groq", model=model)
+        self.llm = LLMProvider(provider="mistral", model=model)
 
     def synthesize(self, snapshot, ratios, sentiment=None) -> Optional[SynthesisResult]:
         request_id = str(uuid.uuid4())
@@ -210,19 +210,15 @@ class AgentSynthese:
 
         prompt = _build_prompt(snapshot, ratios, sentiment)
         raw = None
-        _groq_exhausted = getattr(self.llm, '_rotator', None) and self.llm._rotator.is_exhausted()
-        if _groq_exhausted:
-            log.warning("[AgentSynthese] Groq epuise — passage direct au fallback")
-        else:
-            try:
-                raw = self.llm.generate(prompt=prompt, system=_SYSTEM, max_tokens=4000)
-            except Exception as e:
-                log.warning(f"[AgentSynthese] {self.llm.provider} echec ({type(e).__name__}: {e})")
+        try:
+            raw = self.llm.generate(prompt=prompt, system=_SYSTEM, max_tokens=4000)
+        except Exception as e:
+            log.warning(f"[AgentSynthese] {self.llm.provider} echec ({type(e).__name__}: {e})")
 
-        # Cascade fallback : Groq → Mistral → Cerebras → Gemini
+        # Cascade fallback : Mistral → Cerebras → Anthropic → Gemini
         _fallbacks = [
-            ("mistral",  "mistral-small-latest"),
             ("cerebras", "qwen-3-235b-a22b-instruct-2507"),
+            ("anthropic", "claude-haiku-4-5-20251001"),
             ("gemini",   "gemini-2.0-flash"),
         ]
         for _prov, _model in _fallbacks:
