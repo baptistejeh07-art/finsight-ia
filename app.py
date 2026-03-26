@@ -107,9 +107,8 @@ button *, button *:before, button *:after,
 .sb-disc { padding-top:12px; margin-top:4px; border-top:1px solid #f0f0f0; font-size:11px; color:#888; line-height:1.7; }
 
 /* Download buttons overrides */
-.stDownloadButton > button { width:100% !important; font-size:12px !important; font-weight:400 !important; border:1px solid #e0e0e0 !important; color:#555 !important; background:#fff !important; padding:9px 14px !important; border-radius:0 !important; text-align:left !important; justify-content:flex-start !important; margin-bottom:2px !important; }
+.stDownloadButton > button { width:100% !important; font-size:12px !important; font-weight:400 !important; border:1px solid #e0e0e0 !important; color:#555 !important; background:#fff !important; padding:9px 14px !important; border-radius:0 !important; text-align:center !important; justify-content:center !important; margin-bottom:2px !important; }
 .stDownloadButton > button:hover { border-color:#111 !important; color:#111 !important; }
-.veille-hist-btn .stDownloadButton > button { text-align:center !important; justify-content:center !important; }
 div[data-testid="stButton"] > button { border-radius:0 !important; }
 
 /* Primary buttons — navy blue */
@@ -653,16 +652,17 @@ def render_sidebar(results) -> None:
                 _vdate = _vp.stem.replace("veille_", "")
                 _col_dl, _col_open, _col_del = st.columns([4, 1, 1])
                 with _col_dl:
-                    st.markdown('<div class="veille-hist-btn">', unsafe_allow_html=True)
+                    _parts = _vdate.split("_")
+                    _day = f"{_parts[0][6:8]}/{_parts[0][4:6]}/{_parts[0][2:4]}"
+                    _num = _parts[1] if len(_parts) > 1 else "1"
                     st.download_button(
-                        f"Veille {_vdate}",
+                        f"Veille {_day} #{_num}",
                         _vp.read_bytes(),
                         file_name=_vp.name,
                         mime="application/pdf",
                         use_container_width=True,
                         key=f"hist_{_vp.name}",
                     )
-                    st.markdown('</div>', unsafe_allow_html=True)
                 with _col_open:
                     if st.button("↗", key=f"open_{_vp.name}", help="Ouvrir",
                                  use_container_width=True):
