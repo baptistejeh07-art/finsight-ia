@@ -98,6 +98,17 @@ def _build_prompt(snapshot, ratios, sentiment) -> str:
         if yr.revenue_growth is not None:
             lines.append(f"RevGrowthYoY: {_pct(yr.revenue_growth)}")
 
+    # Serie historique des marges (pour ratio_commentary du graphique)
+    hist_years_sorted = sorted(ratios.years.keys(), key=lambda y: str(y).replace("_LTM",""))
+    margins_series = []
+    for hy in hist_years_sorted:
+        hyr = ratios.years.get(hy)
+        if hyr:
+            margins_series.append(
+                f"{hy}: GM={_pct(hyr.gross_margin)} EBITDA={_pct(hyr.ebitda_margin)} Net={_pct(hyr.net_margin)}"
+            )
+    margins_series_str = " / ".join(margins_series) if margins_series else "N/A"
+
     sent_block = "N/A"
     if sentiment:
         sent_block = f"{sentiment.label} score={sentiment.score:+.3f} conf={sentiment.confidence:.0%} n={sentiment.articles_analyzed}"
@@ -117,6 +128,7 @@ def _build_prompt(snapshot, ratios, sentiment) -> str:
     return f"""Analyse {ci.company_name} ({ci.ticker}) — secteur:{ci.sector} — {date.today().isoformat()}
 Cours:{price_s} {ci.currency} | WACC:{wacc_s} | TGR:{tgr_s}
 {chr(10).join(lines)}
+MargesHistoriques: {margins_series_str}
 Sentiment: {sent_block}
 
 JSON requis (tous les champs obligatoires) :
@@ -137,7 +149,7 @@ JSON requis (tous les champs obligatoires) :
   "risks":["<MAXIMUM 8 mots — titre risque1>","<MAXIMUM 8 mots — titre risque2>","<MAXIMUM 8 mots — titre risque3>"],
   "valuation_comment":"<2 phrases valorisation relative>",
   "financial_commentary":"<MAXIMUM 55 mots — 2-3 phrases tendances P&L, croissance, marges, cash-flows>",
-  "ratio_commentary":"<MAXIMUM 35 mots — 1-2 phrases positionnement ratios vs secteur>",
+  "ratio_commentary":"<MAXIMUM 50 mots — 1-2 phrases decrivant EXACTEMENT ce que montre le graphique MargesHistoriques: tendance marge brute, EBITDA et nette sur la periode avec les chiffres cles — NE PAS parler d'autre chose>",
   "dcf_commentary":"<MAXIMUM 35 mots — 1-2 phrases courtes: WACC, TGR et upside implicite>",
   "positive_themes":["<catalyseur positif 1>","<catalyseur positif 2>","<catalyseur positif 3>"],
   "negative_themes":["<risque negatif 1>","<risque negatif 2>","<risque negatif 3>"],
