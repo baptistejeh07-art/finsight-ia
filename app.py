@@ -650,7 +650,7 @@ def render_sidebar(results) -> None:
         if _veille_pdfs:
             for _vp in _veille_pdfs[:10]:
                 _vdate = _vp.stem.replace("veille_", "")
-                _col_dl, _col_open, _col_del = st.columns([4, 1, 1])
+                _col_dl, _col_open, _col_del = st.columns([5, 1, 1])
                 with _col_dl:
                     _parts = _vdate.split("_")
                     _day = f"{_parts[0][6:8]}/{_parts[0][4:6]}"
