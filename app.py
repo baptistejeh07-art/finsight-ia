@@ -675,7 +675,13 @@ def render_sidebar(results) -> None:
                     if st.button("🗑", key=f"del_{_vp.name}", help="Supprimer",
                                  use_container_width=True):
                         try:
-                            _vp.unlink()
+                            import subprocess as _sp_del
+                            _root_del = Path(__file__).parent
+                            _sp_del.run(["git", "rm", "-f", str(_vp)], cwd=str(_root_del), capture_output=True)
+                            _sp_del.run(["git", "commit", "-m", f"chore(veille): supprime {_vp.name}"], cwd=str(_root_del), capture_output=True)
+                            _sp_del.run(["git", "push"], cwd=str(_root_del), capture_output=True)
+                            if _vp.exists():
+                                _vp.unlink()
                             st.rerun()
                         except Exception:
                             pass
@@ -756,10 +762,15 @@ def render_sidebar(results) -> None:
                                 unsafe_allow_html=True,
                             )
                         else:
+                            import datetime as _dt
+                            _mtime = _dt.datetime.fromtimestamp(_f.stat().st_mtime)
+                            _ext_label = {"pdf": "Rapport PDF", "pptx": "Pitchbook", "xlsx": "Excel", "txt": "Briefing"}.get(_ext.lstrip("."), _f.suffix.upper())
+                            _dl_label = f"{_ticker} — {_ext_label} ({_mtime.strftime('%d/%m %H:%M')})"
+                            _dl_fname = f"{_f.stem}_{_mtime.strftime('%Y%m%d')}{_f.suffix}"
                             st.download_button(
-                                _f.name,
+                                _dl_label,
                                 _f.read_bytes(),
-                                file_name=_f.name,
+                                file_name=_dl_fname,
                                 mime=_mime,
                                 use_container_width=True,
                                 key=f"prev_dl_{_ticker}_{_f.name}",
