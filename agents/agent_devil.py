@@ -129,7 +129,19 @@ class AgentDevil:
             log.warning(f"[AgentDevil] {self.llm.provider} echec ({type(e).__name__}: {e})")
 
         if not raw:
-            log.error("[AgentDevil] Groq a echoue")
+            for _prov, _model in [("anthropic", "claude-haiku-4-5-20251001"),
+                                   ("mistral", "mistral-small-latest")]:
+                try:
+                    log.warning(f"[AgentDevil] fallback -> {_prov}")
+                    raw = LLMProvider(provider=_prov, model=_model).generate(
+                        prompt=prompt, system=_SYSTEM, max_tokens=2048)
+                    if raw:
+                        break
+                except Exception as _e:
+                    log.error(f"[AgentDevil] {_prov} echec ({type(_e).__name__}: {_e})")
+
+        if not raw:
+            log.error("[AgentDevil] Tous les providers ont echoue")
             return None
 
         latency_ms = int((time.time() - t_start) * 1000)
