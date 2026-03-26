@@ -677,11 +677,15 @@ def render_sidebar(results) -> None:
                         try:
                             import subprocess as _sp_del
                             _root_del = Path(__file__).parent
-                            _sp_del.run(["git", "rm", "-f", str(_vp)], cwd=str(_root_del), capture_output=True)
-                            _sp_del.run(["git", "commit", "-m", f"chore(veille): supprime {_vp.name}"], cwd=str(_root_del), capture_output=True)
-                            _sp_del.run(["git", "push"], cwd=str(_root_del), capture_output=True)
+                            # Chemin RELATIF obligatoire pour git rm sur Windows
+                            _rel = _vp.relative_to(_root_del)
+                            # Si le fichier n'est pas encore trace, l'ajouter puis supprimer
+                            _sp_del.run(["git", "add", str(_rel)], cwd=str(_root_del), capture_output=True)
+                            _sp_del.run(["git", "rm", "-f", str(_rel)], cwd=str(_root_del), capture_output=True)
                             if _vp.exists():
                                 _vp.unlink()
+                            _sp_del.run(["git", "commit", "-m", f"chore(veille): supprime {_vp.name}"], cwd=str(_root_del), capture_output=True)
+                            _sp_del.run(["git", "push"], cwd=str(_root_del), capture_output=True)
                             st.rerun()
                         except Exception:
                             pass
@@ -895,8 +899,14 @@ def render_sidebar(results) -> None:
 
         st.markdown('</div>', unsafe_allow_html=True)
 
-        # Diagnostic API
-        with st.expander("🔧 Diagnostic API", expanded=False):
+        # Diagnostic API — toggle manuel (evite l'artefact "board_" de st.expander)
+        if "diag_open" not in st.session_state:
+            st.session_state["diag_open"] = False
+        _diag_label = "🔧 Diagnostic API ▲" if st.session_state["diag_open"] else "🔧 Diagnostic API ▼"
+        if st.button(_diag_label, key="btn_diag_toggle", use_container_width=True):
+            st.session_state["diag_open"] = not st.session_state["diag_open"]
+            st.rerun()
+        if st.session_state["diag_open"]:
             import os
             from core.secrets import get_secret
             for k in ["ANTHROPIC_API_KEY", "GROQ_API_KEY", "FINNHUB_API_KEY", "FMP_API_KEY"]:
@@ -909,7 +919,7 @@ def render_sidebar(results) -> None:
                 else:
                     st.markdown(f"`❌ {k}` (absent)")
 
-            if st.button("Tester Anthropic + Groq", use_container_width=True):
+            if st.button("Tester Anthropic + Groq", key="btn_diag_test", use_container_width=True):
                 from core.llm_provider import LLMProvider
                 for provider in ["anthropic", "groq"]:
                     try:
