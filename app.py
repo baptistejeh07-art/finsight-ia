@@ -751,6 +751,39 @@ def render_sidebar(results) -> None:
                 st.markdown(f'<div style="font-size:12px;font-weight:600;margin:8px 0 4px">{_ticker}</div>',
                             unsafe_allow_html=True)
 
+                # Synthèse IA — lire depuis state.json cli_tests
+                try:
+                    import re as _re, json as _json
+                    _state_path = Path(__file__).parent / "outputs" / "generated" / "cli_tests" / f"{_ticker}_state.json"
+                    if _state_path.exists():
+                        _st = _json.loads(_state_path.read_text("utf-8"))
+                        _syn_str = str(_st.get("synthesis", ""))
+                        def _synval(key):
+                            m = _re.search(rf"{key}=([^,\)]+)", _syn_str)
+                            return m.group(1).strip().strip("'\"") if m else None
+                        _rec   = _synval("recommendation")
+                        _conv  = _synval("conviction")
+                        _tb    = _synval("target_base")
+                        _tbull = _synval("target_bull")
+                        _tbear = _synval("target_bear")
+                        _summ  = _synval("summary")
+                        if _rec:
+                            _rec_color = {"BUY": "#1a7a52", "SELL": "#c0392b"}.get(_rec.upper(), "#b8922a")
+                            _conv_pct  = f"{float(_conv):.0%}" if _conv else "—"
+                            st.markdown(
+                                f'<div style="background:#f7f8fa;border-radius:6px;padding:8px 10px;'
+                                f'margin-bottom:8px;font-size:11px;line-height:1.6">'
+                                f'<span style="background:{_rec_color};color:white;padding:2px 7px;'
+                                f'border-radius:4px;font-weight:700;font-size:11px">{_rec}</span>'
+                                f'&nbsp;&nbsp;<span style="color:#555">Conviction : <b>{_conv_pct}</b></span><br>'
+                                + (f'<span style="color:#555">Base <b>{_tb}</b> · Bull <b>{_tbull}</b> · Bear <b>{_tbear}</b></span><br>' if _tb else '')
+                                + (f'<span style="color:#777;font-style:italic">{_summ[:120]}…</span>' if _summ else '')
+                                + '</div>',
+                                unsafe_allow_html=True,
+                            )
+                except Exception:
+                    pass
+
                 # État des rejets par fichier : set de noms de fichiers rejetés
                 _rejected_key = f"prev_rejected_{_ticker}"
                 if _rejected_key not in st.session_state:
