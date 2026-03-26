@@ -107,7 +107,7 @@ button *, button *:before, button *:after,
 .sb-disc { padding-top:12px; margin-top:4px; border-top:1px solid #f0f0f0; font-size:11px; color:#888; line-height:1.7; }
 
 /* Download buttons overrides */
-.stDownloadButton > button { width:100% !important; font-size:12px !important; font-weight:400 !important; border:1px solid #e0e0e0 !important; color:#555 !important; background:#fff !important; padding:9px 14px !important; border-radius:0 !important; text-align:center !important; justify-content:center !important; margin-bottom:2px !important; }
+.stDownloadButton > button { width:100% !important; font-size:11px !important; font-weight:400 !important; border:1px solid #e0e0e0 !important; color:#555 !important; background:#fff !important; padding:9px 8px !important; border-radius:0 !important; text-align:center !important; justify-content:center !important; white-space:nowrap !important; overflow:hidden !important; text-overflow:ellipsis !important; margin-bottom:2px !important; }
 .stDownloadButton > button:hover { border-color:#111 !important; color:#111 !important; }
 div[data-testid="stButton"] > button { border-radius:0 !important; }
 
