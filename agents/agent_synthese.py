@@ -39,6 +39,7 @@ class SynthesisResult:
     financial_commentary: str = ""
     ratio_commentary:    str = ""
     dcf_commentary:      str = ""
+    peers_commentary:    str = ""
     positive_themes:     list = field(default_factory=list)
     negative_themes:     list = field(default_factory=list)
     invalidation_list:   list = field(default_factory=list)
@@ -148,11 +149,12 @@ JSON requis (tous les champs obligatoires) :
   "strengths":["<MAXIMUM 8 mots — titre atout1>","<MAXIMUM 8 mots — titre atout2>","<MAXIMUM 8 mots — titre atout3>"],
   "risks":["<MAXIMUM 8 mots — titre risque1>","<MAXIMUM 8 mots — titre risque2>","<MAXIMUM 8 mots — titre risque3>"],
   "valuation_comment":"<2 phrases valorisation relative>",
-  "financial_commentary":"<MAXIMUM 55 mots — 2-3 phrases tendances P&L, croissance, marges, cash-flows>",
-  "ratio_commentary":"<MAXIMUM 50 mots — 1-2 phrases decrivant EXACTEMENT ce que montre le graphique MargesHistoriques: tendance marge brute, EBITDA et nette sur la periode avec les chiffres cles — NE PAS parler d'autre chose>",
-  "dcf_commentary":"<MAXIMUM 35 mots — 1-2 phrases courtes: WACC, TGR et upside implicite>",
-  "positive_themes":["<catalyseur positif 1>","<catalyseur positif 2>","<catalyseur positif 3>"],
-  "negative_themes":["<risque negatif 1>","<risque negatif 2>","<risque negatif 3>"],
+  "financial_commentary":"<70 mots MAX — 2-3 phrases: (1) tendances chiffrees P&L (croissance CA, evolution marges), (2) POURQUOI ces tendances (levier operationnel, discipline cout, mix), (3) implication sur la generation de cash et la solidite bilancielle pour la these d'investissement>",
+  "ratio_commentary":"<80 mots MAX — 2-3 phrases ANALYTIQUES sur le graphique MargesHistoriques: (1) decrire la tendance chiffree des marges brute/EBITDA/nette sur la periode, (2) expliquer POURQUOI ces niveaux (structure des couts, levier operationnel, mix produits, pricing power), (3) ce que ca implique pour l'investisseur (durabilite, re-rating potentiel, risque de compression)>",
+  "dcf_commentary":"<60 mots MAX — 2 phrases: (1) rappeler WACC/TGR et le prix implicite DCF vs cours actuel, (2) expliquer ce que l'upside/downside implicite signifie pour la these: est-ce une sous-valorisation structurelle, une prime de croissance deja pricee, ou un risque d'execution? Quel catalyseur debloquerait la valeur?>",
+  "peers_commentary":"<80 mots MAX — 2-3 phrases ANALYTIQUES: (1) position de la societe vs mediane peers sur EV/EBITDA et P/E (prime ou decote en %), (2) expliquer POURQUOI cette prime/decote est justifiee ou non (qualite des actifs, croissance superieure, risque specifique), (3) ce qu'une convergence vers la mediane implique comme upside/downside potentiel en %>",
+  "positive_themes":["<20-30 mots: catalyseur + mecanisme d'impact financier + horizon temporel>","<20-30 mots: catalyseur + mecanisme d'impact financier + horizon temporel>","<20-30 mots: catalyseur + mecanisme d'impact financier + horizon temporel>"],
+  "negative_themes":["<20-30 mots: risque specifique + mecanisme de deterioration + horizon temporel et ampleur potentielle>","<20-30 mots: risque specifique + mecanisme de deterioration + horizon temporel et ampleur potentielle>","<20-30 mots: risque specifique + mecanisme de deterioration + horizon temporel et ampleur potentielle>"],
   "is_projections":{{
     "{ny1}":{{"revenue":<float en memes unites que historique>,"revenue_growth":<float 0-1>,"gross_margin":<float 0-1>,"ebitda":<float>,"ebitda_margin":<float 0-1>,"net_income":<float>,"net_margin":<float 0-1>}},
     "{ny2}":{{"revenue":<float>,"revenue_growth":<float 0-1>,"gross_margin":<float 0-1>,"ebitda":<float>,"ebitda_margin":<float 0-1>,"net_income":<float>,"net_margin":<float 0-1>}}
@@ -261,6 +263,7 @@ class AgentSynthese:
             financial_commentary = parsed.get("financial_commentary", ""),
             ratio_commentary     = parsed.get("ratio_commentary", ""),
             dcf_commentary       = parsed.get("dcf_commentary", ""),
+            peers_commentary     = parsed.get("peers_commentary", ""),
             positive_themes      = parsed.get("positive_themes", []),
             negative_themes      = parsed.get("negative_themes", []),
             invalidation_list    = parsed.get("invalidation_list", []),

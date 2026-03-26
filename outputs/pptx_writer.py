@@ -983,7 +983,7 @@ def _slide_company_overview(prs, snap, synthesis, ratios):
 
     if n_seg:
         bullet_y = 7.10
-        row_h = 0.95  # hauteur par segment (nom + commentaire)
+        row_h = 1.65  # hauteur par segment (nom + description 3-4 lignes)
         for i, seg in enumerate(segments[:4]):
             seg_name = _g(seg, "name", "") or str(seg)
             seg_desc = _g(seg, "description", "") or ""
@@ -992,8 +992,8 @@ def _slide_company_overview(prs, snap, synthesis, ratios):
             add_text_box(slide, 1.72, by, 12.05, 0.46,
                          _truncate(seg_name, 80), 8.5, BLACK, bold=True)
             if seg_desc:
-                add_text_box(slide, 1.72, by + 0.44, 12.05, 0.40,
-                             _truncate(seg_desc, 100), 7.5, GREY_TXT, italic=True)
+                add_text_box(slide, 1.72, by + 0.44, 12.05, 1.10,
+                             _truncate(seg_desc, 320), 7.5, GREY_TXT, italic=True, wrap=True)
     else:
         # Fallback : liste des strengths si pas de segments
         bullet_y = 7.25
@@ -1865,9 +1865,9 @@ def _slide_peers(prs, snap, synthesis, ratios):
         except Exception:
             pass
 
-    ratio_comment = _g(synthesis, "ratio_commentary", "") or ""
-    if ratio_comment.strip():
-        commentary_box(slide, 1.02, 8.69, 23.37, 3.43, ratio_comment)
+    peers_comment = _g(synthesis, "peers_commentary", "") or _g(synthesis, "ratio_commentary", "") or ""
+    if peers_comment.strip():
+        commentary_box(slide, 1.02, 8.69, 23.37, 3.43, peers_comment)
 
     return slide
 
@@ -1936,8 +1936,12 @@ def _slide_football_field(prs, snap, synthesis, ratios):
 
     def _make_ff_buf():
         n = len(ff_methods)
-        fig_h = max(4.0, 1.4 + n * 0.72)
-        fig, ax = plt.subplots(figsize=(10.0, fig_h))
+        # Hauteur cible en cm (zone disponible : y=2.54 à y=9.40 avant commentary)
+        img_h_cm = min(max(3.8, n * 1.15), 6.8)
+        # Dimensions figure proportionnelles à la zone pptx (23.37 x img_h_cm)
+        fig_w_in = 12.0
+        fig_h_in = img_h_cm * (fig_w_in / 23.37)
+        fig, ax = plt.subplots(figsize=(fig_w_in, fig_h_in))
         y = np.arange(n)
         all_v = ff_lows + ff_highs
         plage = (max(all_v) - min(all_v)) if len(all_v) > 1 else max(all_v)
@@ -1984,22 +1988,26 @@ def _slide_football_field(prs, snap, synthesis, ratios):
     if _mpl_ok and ff_methods:
         try:
             chart_buf = _make_ff_buf()
-            # Position : x=1.02cm, y=2.54cm, w=23.37cm, adaptive height
+            n_ff = len(ff_methods)
+            img_h_cm = min(max(3.8, n_ff * 1.15), 6.8)
             from pptx.util import Cm
             img_top  = Cm(2.54)
             img_left = Cm(1.02)
             img_w    = Cm(23.37)
-            img_h    = Cm(min(1.0 + len(ff_methods) * 0.75, 10.0))
+            img_h    = Cm(img_h_cm)
             slide.shapes.add_picture(chart_buf, img_left, img_top, img_w, img_h)
+            commentary_y = 2.54 + img_h_cm + 0.35
         except Exception as e:
             log.warning("FF chart embed failed: %s", e)
             _ff_fallback(slide, ff, price, cur_sym, currency)
+            commentary_y = 9.80
     else:
         _ff_fallback(slide, ff, price, cur_sym, currency)
+        commentary_y = 9.80
 
     dcf_comment = _g(synthesis, "dcf_commentary", "") or ""
     if dcf_comment.strip():
-        commentary_box(slide, 1.02, 9.80, 23.37, 2.54, dcf_comment)
+        commentary_box(slide, 1.02, commentary_y, 23.37, min(2.54, 19.05 - commentary_y - 0.8), dcf_comment)
 
     return slide
 
