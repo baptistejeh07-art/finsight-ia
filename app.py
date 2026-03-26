@@ -807,23 +807,42 @@ def render_sidebar(results) -> None:
                     _c1, _c2 = st.columns(2)
                     with _c1:
                         if st.button("Confirmer", key=f"prev_ok_confirm_{_ticker}", use_container_width=True):
+                            _git_ok = False
                             try:
                                 import shutil as _shutil
+                                import subprocess as _sp
+                                # 1. Copier vers cli_tests/ (session courante)
                                 for _f in _kept:
                                     _shutil.copy2(_f, _prod_root / _f.name)
-                                # Supprimer les fichiers rejetés uniquement
+                                # 2. Supprimer les fichiers rejetés de preview/
                                 for _f in _files:
                                     if _f.name not in {_k.name for _k in _kept}:
                                         _f.unlink(missing_ok=True)
-                                # Supprimer le dossier si vide
-                                if not any(_ticker_dir.iterdir()):
-                                    _ticker_dir.rmdir()
+                                # 3. Garder preview/{ticker}/ dans git et pousser
+                                _root = Path(__file__).parent
+                                _sp.run(
+                                    ["git", "add", f"preview/{_ticker}/"],
+                                    cwd=str(_root), capture_output=True
+                                )
+                                _sp.run(
+                                    ["git", "commit", "-m",
+                                     f"feat(preview): valider outputs {_ticker}"],
+                                    cwd=str(_root), capture_output=True
+                                )
+                                _r = _sp.run(
+                                    ["git", "push"],
+                                    cwd=str(_root), capture_output=True
+                                )
+                                _git_ok = _r.returncode == 0
                             except Exception:
                                 pass
                             st.session_state.pop(_confirm_key, None)
                             st.session_state.pop(_rejected_key, None)
                             st.session_state["prev_dismissed"].add(_ticker)
-                            st.success(f"{_ticker} : {_nb} fichier(s) valide(s) — telechargez ci-dessus")
+                            if _git_ok:
+                                st.success(f"{_ticker} : {_nb} fichier(s) valide(s) et synchronise(s) sur Streamlit Cloud")
+                            else:
+                                st.success(f"{_ticker} : {_nb} fichier(s) valide(s) — push git echoue, verifiez la connexion")
                             st.rerun()
                     with _c2:
                         if st.button("Annuler", key=f"prev_ok_cancel_{_ticker}", use_container_width=True):
