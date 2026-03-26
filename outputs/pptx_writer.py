@@ -2403,8 +2403,9 @@ def _slide_historique(prs, snap, synthesis):
     gen_date = _fr_date_long(_g(ci, "analysis_date", None) or date.today())
     price    = _g(mkt, "share_price")
 
+    _exch_part = f"  \u00b7  {exchange}" if exchange else ""
     slide_title(slide, f"Historique de Cours \u2014 52 Semaines",
-                f"{ticker}  \u00b7  {exchange}  \u00b7  {currency}  \u00b7  Au {gen_date}")
+                f"{ticker}{_exch_part}  \u00b7  {currency}  \u00b7  Au {gen_date}")
 
     history = snap.stock_history if (snap and snap.stock_history) else []
     prices  = []
@@ -2512,9 +2513,9 @@ def _slide_historique(prs, snap, synthesis):
             y_ref   = bar_base_y - bh_ref + 0.50
             # Thin horizontal dashed line
             add_rect(slide, chart_x + 0.65, y_ref, chart_w - 0.65, 0.02, "D0D5DD")
-            # Price label on the left
-            add_text_box(slide, chart_x, y_ref - 0.20, 0.60, 0.40,
-                         f"{int(pv_ref)}", 6, GREY_TXT)
+            # Price label on the left (wrap=False to prevent digit stacking)
+            add_text_box(slide, chart_x - 0.10, y_ref - 0.20, 0.80, 0.40,
+                         f"{int(pv_ref)}", 6, GREY_TXT, wrap=False)
     else:
         add_text_box(slide, chart_x + 8.0, chart_y + 2.0, 7.37, 1.0,
                      "Historique de cours non disponible", 10, GREY_TXT)
