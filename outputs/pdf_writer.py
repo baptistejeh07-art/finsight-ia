@@ -1024,7 +1024,6 @@ def _build_financials(area_buf, data, margins_buf=None):
     ]))
     elems.append(src("FinSight IA \u2014 LTM = Last Twelve Months."))
     elems.append(Spacer(1, 3*mm))
-    elems.append(Paragraph(_safe(_d(data, 'ratios_text')), S_BODY))
     _sector_lc = (_d(data, 'sector') or '').lower()
     if any(k in _sector_lc for k in ('bank', 'financ', 'insur', 'reit', 'real estate')):
         elems.append(Spacer(1, 2*mm))
