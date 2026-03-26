@@ -677,7 +677,11 @@ def build_pdf(result: dict, bonus5: list[dict], output_path: Path) -> Path:
             card_content.append(Spacer(1, 3))
 
         if link:
-            card_content.append(Paragraph(_enc(f"  {link_short}"), S_LINK))
+            link_href = html.escape(link, quote=True)
+            card_content.append(Paragraph(
+                f'  <link href="{link_href}" color="{C_NAVY2}"><u>{_enc(link_short)}</u></link>',
+                S_LINK
+            ))
 
         # Carte avec fond alternant
         bg_color = C_GREY_BG if i % 2 == 0 else C_WHITE
@@ -750,7 +754,11 @@ def build_pdf(result: dict, bonus5: list[dict], output_path: Path) -> Path:
                 bonus_card_content.append(app2)
                 bonus_card_content.append(Spacer(1,3))
             if link:
-                bonus_card_content.append(Paragraph(_enc(f"  {link_short}"), S_LINK))
+                link_href = html.escape(link, quote=True)
+                bonus_card_content.append(Paragraph(
+                    f'  <link href="{link_href}" color="{C_NAVY2}"><u>{_enc(link_short)}</u></link>',
+                    S_LINK
+                ))
 
             bonus_card = Table([[bonus_card_content]], colWidths=[content_w])
             bonus_card.setStyle(TableStyle([
