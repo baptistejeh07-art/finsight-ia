@@ -170,8 +170,8 @@ class AgentQAHaiku:
             log.warning(f"[AgentQAHaiku] {self.llm.provider} echec ({type(e).__name__}: {e})")
 
         if not raw:
-            for _prov, _model in [("anthropic", "claude-haiku-4-5-20251001"),
-                                   ("mistral", "mistral-small-latest")]:
+            for _prov, _model in [("mistral", "mistral-small-latest"),
+                                   ("cerebras", "qwen-3-235b-a22b-instruct-2507")]:
                 try:
                     log.warning(f"[AgentQAHaiku] fallback -> {_prov}")
                     raw = LLMProvider(provider=_prov, model=_model).generate(

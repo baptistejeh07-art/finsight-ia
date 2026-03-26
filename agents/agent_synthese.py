@@ -201,9 +201,8 @@ class AgentSynthese:
         except Exception as e:
             log.warning(f"[AgentSynthese] {self.llm.provider} echec ({type(e).__name__}: {e})")
 
-        # Cascade fallback : Groq → Anthropic → Mistral → Cerebras → Gemini
+        # Cascade fallback : Groq → Mistral → Cerebras → Gemini
         _fallbacks = [
-            ("anthropic", "claude-haiku-4-5-20251001"),
             ("mistral",  "mistral-small-latest"),
             ("cerebras", "qwen-3-235b-a22b-instruct-2507"),
             ("gemini",   "gemini-2.0-flash"),
