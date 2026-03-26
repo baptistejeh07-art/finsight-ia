@@ -452,7 +452,7 @@ def _make_margins_chart(data):
 
     x = np.arange(n)
     width = 0.25
-    fig, ax = plt.subplots(figsize=(8, 5.1), dpi=160)
+    fig, ax = plt.subplots(figsize=(8, 4.4), dpi=160)
 
     all_vals_flat = [v for v in gm_vals + em_vals + nm_vals if v is not None]
     ymax = max(all_vals_flat) * 1.12 if all_vals_flat else 100
@@ -1066,7 +1066,7 @@ def _build_financials(area_buf, data, margins_buf=None):
     elems.append(Spacer(1, 2*mm))
     if margins_buf is not None:
         margins_buf.seek(0)
-        elems.append(Image(margins_buf, width=TABLE_W, height=108*mm))
+        elems.append(Image(margins_buf, width=TABLE_W, height=88*mm))
     else:
         elems.append(Paragraph("(Graphique marges non disponible)", S_NOTE))
     elems.append(src("FinSight IA \u2014 Marges calcul\u00e9es sur donn\u00e9es historiques yfinance."))
