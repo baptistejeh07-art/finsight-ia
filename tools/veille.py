@@ -274,40 +274,69 @@ Reponds UNIQUEMENT en JSON valide sans markdown ni texte autour :
   ]
 }}"""
 
+    def _parse_llm_response(raw: str) -> dict | None:
+        raw = re.sub(r"^```(?:json)?", "", raw).strip()
+        raw = re.sub(r"```$", "", raw).strip()
+        m   = re.search(r'\{.*\}', raw, re.DOTALL)
+        if not m:
+            return None
+        try:
+            parsed = json.loads(m.group())
+        except Exception:
+            return None
+        enriched = []
+        for sel in parsed.get("selection", [])[:10]:
+            idx = sel.get("idx")
+            if idx is not None and 0 <= idx < len(top30):
+                art = dict(top30[idx])
+                art["resume_fr"]   = sel.get("resume",      art["summary"][:300])
+                art["implication"] = sel.get("implication", "Impact sur les pipelines FinSight.")
+                enriched.append(art)
+        if not enriched:
+            return None
+        return {"editorial": parsed.get("editorial", ""), "articles": enriched}
+
+    # Groq : essai llama-3.3-70b puis llama-3.1-8b-instant pour chaque cle
+    GROQ_MODELS = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"]
     from groq import Groq
     last_err = None
     for groq_key in groq_keys:
-        try:
-            client = Groq(api_key=groq_key)
-            resp   = client.chat.completions.create(
-                model="llama-3.3-70b-versatile",
-                messages=[{"role": "user", "content": prompt}],
-                max_tokens=3000,
-                temperature=0.35,
-            )
-            raw = resp.choices[0].message.content.strip()
-            raw = re.sub(r"^```(?:json)?", "", raw).strip()
-            raw = re.sub(r"```$", "", raw).strip()
-            m   = re.search(r'\{.*\}', raw, re.DOTALL)
-            if m:
-                parsed = json.loads(m.group())
-                enriched = []
-                for sel in parsed.get("selection", [])[:10]:
-                    idx = sel.get("idx")
-                    if idx is not None and 0 <= idx < len(top30):
-                        art = dict(top30[idx])
-                        art["resume_fr"]   = sel.get("resume",      art["summary"][:300])
-                        art["implication"] = sel.get("implication", "Impact sur les pipelines FinSight.")
-                        enriched.append(art)
-                return {
-                    "editorial": parsed.get("editorial", ""),
-                    "articles":  enriched,
-                }
-        except Exception as e:
-            last_err = e
-            print(f"[VEILLE] LLM key {groq_key[:12]}... error : {e} — essai cle suivante")
+        for model in GROQ_MODELS:
+            try:
+                client = Groq(api_key=groq_key)
+                resp   = client.chat.completions.create(
+                    model=model,
+                    messages=[{"role": "user", "content": prompt}],
+                    max_tokens=3000,
+                    temperature=0.35,
+                )
+                result = _parse_llm_response(resp.choices[0].message.content.strip())
+                if result:
+                    print(f"[VEILLE] LLM OK : {model} (key ...{groq_key[-6:]})")
+                    return result
+            except Exception as e:
+                last_err = e
+                print(f"[VEILLE] {model} key ...{groq_key[-6:]} : {e}")
 
-    print(f"[VEILLE] Toutes les cles Groq epuisees ({last_err}) — fallback basique")
+    # Fallback Anthropic si cle disponible
+    anthropic_key = os.getenv("ANTHROPIC_API_KEY")
+    if anthropic_key:
+        try:
+            import anthropic as _anthropic
+            _ac = _anthropic.Anthropic(api_key=anthropic_key)
+            resp = _ac.messages.create(
+                model="claude-haiku-4-5-20251001",
+                max_tokens=3000,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            result = _parse_llm_response(resp.content[0].text.strip())
+            if result:
+                print("[VEILLE] LLM OK : Anthropic haiku (fallback)")
+                return result
+        except Exception as e:
+            print(f"[VEILLE] Anthropic fallback : {e}")
+
+    print(f"[VEILLE] Tous LLM epuises ({last_err}) — fallback basique")
     return _fallback_selection(candidates)
 
 
