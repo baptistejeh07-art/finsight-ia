@@ -570,7 +570,13 @@ def render_sidebar(results) -> None:
                     use_container_width=True)
             elif results.get("pdf_error"):
                 st.error("PDF : " + results["pdf_error"].split("\n")[0])
-                with st.expander("Détail erreur PDF"):
+                if "pdf_err_open" not in st.session_state:
+                    st.session_state["pdf_err_open"] = False
+                if st.button("Détail erreur PDF ▼" if not st.session_state["pdf_err_open"] else "Détail erreur PDF ▲",
+                             key="btn_pdf_err_toggle"):
+                    st.session_state["pdf_err_open"] = not st.session_state["pdf_err_open"]
+                    st.rerun()
+                if st.session_state["pdf_err_open"]:
                     st.code(results["pdf_error"], language="text")
 
             # Raisonnement IA — scroll vers la section
@@ -2574,11 +2580,17 @@ def render_results(results: dict) -> None:
             )
 
     # ------------------------------------------------------------------
-    # IA Section (toggle via expander)
+    # IA Section — toggle manuel (evite l'artefact "board_" de st.expander)
     # ------------------------------------------------------------------
     st.markdown('<div class="sec-t">Raisonnement IA</div>', unsafe_allow_html=True)
 
-    with st.expander("Interprétation & Hypothèses — Cliquer pour afficher", expanded=False):
+    if "ia_section_open" not in st.session_state:
+        st.session_state["ia_section_open"] = False
+    _ia_label = "Interprétation & Hypothèses ▲" if st.session_state["ia_section_open"] else "Interprétation & Hypothèses ▼"
+    if st.button(_ia_label, key="btn_ia_toggle", use_container_width=True):
+        st.session_state["ia_section_open"] = not st.session_state["ia_section_open"]
+        st.rerun()
+    if st.session_state["ia_section_open"]:
         ia_html = _build_ia_html(snapshot, ratios, synthesis, qa_python, qa_haiku, devil, sentiment)
         st.markdown(ia_html, unsafe_allow_html=True)
 
