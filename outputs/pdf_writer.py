@@ -254,7 +254,7 @@ def _make_perf_chart(data):
     months, ticker_vals, index_vals = months[:n], ticker_vals[:n], index_vals[:n]
 
     x = np.arange(n)
-    fig, ax = plt.subplots(figsize=(9.5, 3.4))
+    fig, ax = plt.subplots(figsize=(6.5, 4.55))
     ax.plot(x, ticker_vals, color='#1B3A6B', linewidth=2.0, label=ticker)
     ax.plot(x, index_vals,  color='#A0A0A0', linewidth=1.4, linestyle='--', label=index_name)
     ax.fill_between(x, ticker_vals, index_vals,
@@ -461,14 +461,7 @@ def _make_margins_chart(data):
 
     def _bar(vals, offset, color, label):
         vf = [v if v is not None else 0 for v in vals]
-        bars = ax.bar(x + offset, vf, width, color=color, alpha=0.85, label=label, zorder=3)
-        for bar, v in zip(bars, vals):
-            if v is not None:
-                ax.text(bar.get_x() + bar.get_width() / 2,
-                        bar.get_height() + ymax * 0.01,
-                        f"{v:.1f}%".replace('.', ','),
-                        ha='center', va='bottom', fontsize=8, color=color,
-                        fontweight='bold')
+        ax.bar(x + offset, vf, width, color=color, alpha=0.85, label=label, zorder=3)
 
     _bar(gm_vals, -width, '#1B3A6B', 'Marge brute')
     _bar(em_vals,  0,     '#2A5298', 'Marge EBITDA')
@@ -996,7 +989,7 @@ def _build_financials(area_buf, data, margins_buf=None):
         "FinSight IA \u2014 FMP, yfinance. LTM = 12 derniers mois. F = pr\u00e9visions mod\u00e8le interne."))
     elems.append(Spacer(1, 3*mm))
 
-    elems.append(Image(area_buf, width=TABLE_W, height=92*mm))
+    elems.append(Image(area_buf, width=TABLE_W, height=76*mm))
     _area_src = ("FinSight IA \u2014 Revenus consolid\u00e9s \u2014 Source : yfinance."
                  if data.get('area_is_real')
                  else "FinSight IA \u2014 Revenus annuels (donn\u00e9es illustratives).")
@@ -1074,7 +1067,7 @@ def _build_financials(area_buf, data, margins_buf=None):
     elems.append(Spacer(1, 2*mm))
     if margins_buf is not None:
         margins_buf.seek(0)
-        elems.append(Image(margins_buf, width=TABLE_W, height=62*mm))
+        elems.append(Image(margins_buf, width=TABLE_W, height=78*mm))
     else:
         elems.append(Paragraph("(Graphique marges non disponible)", S_NOTE))
     elems.append(src("FinSight IA \u2014 Marges calcul\u00e9es sur donn\u00e9es historiques yfinance."))
