@@ -605,6 +605,76 @@ def render_sidebar(results) -> None:
                         unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
+        # ── Veille IA ───────────────────────────────────────────────────────
+        st.markdown('<div class="sb-section">', unsafe_allow_html=True)
+        st.markdown('<span class="sb-label">Veille IA</span>', unsafe_allow_html=True)
+        _veille_running = st.session_state.get("veille_running", False)
+        if _veille_running:
+            st.markdown(
+                '<div style="font-size:11px;color:#888;padding:6px 0">Veille en cours...</div>',
+                unsafe_allow_html=True,
+            )
+        else:
+            if st.button("Lancer la veille", key="btn_veille", use_container_width=True):
+                st.session_state["veille_running"] = True
+                st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
+
+        # Lancement effectif (hors bouton pour eviter re-render)
+        if st.session_state.get("veille_running"):
+            with st.spinner("Veille en cours — collecte + resumes IA..."):
+                try:
+                    import sys as _sys
+                    _veille_root = Path(__file__).parent
+                    if str(_veille_root) not in _sys.path:
+                        _sys.path.insert(0, str(_veille_root))
+                    from tools.veille import run_veille
+                    _pdf = run_veille(days=7)
+                    st.session_state["veille_last_pdf"] = str(_pdf)
+                    try:
+                        import os as _os
+                        _os.startfile(str(_pdf))
+                    except Exception:
+                        pass
+                    st.success(f"Veille generee : {_pdf.name}")
+                except Exception as _e:
+                    st.error(f"Erreur veille : {_e}")
+                finally:
+                    st.session_state["veille_running"] = False
+
+        # ── Historique veille ────────────────────────────────────────────────
+        _veille_dir = Path(__file__).parent / "outputs" / "veille"
+        _veille_pdfs = sorted(_veille_dir.glob("veille_*.pdf"), reverse=True) if _veille_dir.exists() else []
+        st.markdown('<div class="sb-section">', unsafe_allow_html=True)
+        st.markdown('<span class="sb-label">Historique</span>', unsafe_allow_html=True)
+        if _veille_pdfs:
+            for _vp in _veille_pdfs[:5]:
+                _vdate = _vp.stem.replace("veille_", "")
+                _col_dl, _col_open = st.columns([4, 1])
+                with _col_dl:
+                    st.download_button(
+                        f"Veille {_vdate[:8]}",
+                        _vp.read_bytes(),
+                        file_name=_vp.name,
+                        mime="application/pdf",
+                        use_container_width=True,
+                        key=f"hist_{_vp.name}",
+                    )
+                with _col_open:
+                    if st.button("↗", key=f"open_{_vp.name}", help="Ouvrir",
+                                 use_container_width=True):
+                        try:
+                            import os as _os
+                            _os.startfile(str(_vp))
+                        except Exception:
+                            pass
+        else:
+            st.markdown(
+                '<div style="font-size:11px;color:#888;padding:4px 0">Aucune veille generee.</div>',
+                unsafe_allow_html=True,
+            )
+        st.markdown('</div>', unsafe_allow_html=True)
+
         # Aperçu Claude — previews en attente d'approbation
         _preview_root = Path(__file__).parent / "preview"
         # Tickers dismissés (validés/rejetés) dans cette session
