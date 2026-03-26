@@ -844,8 +844,9 @@ def render_sidebar(results) -> None:
                                 st.session_state[_rejected_key].add(_f.name)
                                 st.rerun()
 
-                # Fichiers retenus = non rejetés
-                _kept = [_f for _f in _files if _f.name not in st.session_state[_rejected_key]]
+                # Fichiers retenus = non rejetés et non techniques (pas de .json)
+                _kept = [_f for _f in _files if _f.name not in st.session_state[_rejected_key]
+                         and _f.suffix.lower() != '.json']
 
                 # Confirmation globale (Valider la sélection / Tout rejeter)
                 _confirm_key = f"prev_confirm_{_ticker}"
