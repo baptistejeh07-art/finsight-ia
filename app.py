@@ -818,7 +818,7 @@ def render_sidebar(results) -> None:
                                 for _f in _files:
                                     if _f.name not in {_k.name for _k in _kept}:
                                         _f.unlink(missing_ok=True)
-                                # 3. Garder preview/{ticker}/ dans git et pousser
+                                # 3. Commit + push puis supprimer le dossier preview/
                                 _root = Path(__file__).parent
                                 _sp.run(
                                     ["git", "add", f"preview/{_ticker}/"],
@@ -834,6 +834,19 @@ def render_sidebar(results) -> None:
                                     cwd=str(_root), capture_output=True
                                 )
                                 _git_ok = _r.returncode == 0
+                                # 4. Supprimer le dossier preview pour qu'il ne reapparaisse pas
+                                import shutil as _shutil2
+                                _shutil2.rmtree(str(_ticker_dir), ignore_errors=True)
+                                _sp.run(
+                                    ["git", "add", "-A", f"preview/"],
+                                    cwd=str(_root), capture_output=True
+                                )
+                                _sp.run(
+                                    ["git", "commit", "-m",
+                                     f"chore(preview): supprime dossier {_ticker} apres validation"],
+                                    cwd=str(_root), capture_output=True
+                                )
+                                _sp.run(["git", "push"], cwd=str(_root), capture_output=True)
                             except Exception:
                                 pass
                             st.session_state.pop(_confirm_key, None)
