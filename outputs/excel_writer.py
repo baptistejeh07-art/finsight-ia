@@ -220,14 +220,17 @@ class ExcelWriter:
         #   car les cellules D5-H5 contiennent des formules template (startswith "=")
         #   que la garde dynamique bloquerait. Ces formules sont intentionnellement
         #   remplacees par des valeurs statiques calculees cote Python.
-        for col in ['D', 'E', 'F', 'G', 'H']:
-            ws[f'{col}5']   = None  # effacer la formule template
-            ws[f'{col}132'] = None  # effacer helper
+        # Construire d'abord le dict col -> valeur annee
+        _year_vals: dict[str, object] = {}
         for label, col in year_col_map.items():
             year_int = int(label.split("_")[0])
             is_ltm = (col == 'H')
-            ws[f'{col}5']   = f"{year_int} (LTM)" if is_ltm else year_int
-            ws[f'{col}132'] = year_int
+            _year_vals[col] = f"{year_int} (LTM)" if is_ltm else year_int
+        # Ecrire D5-H5 et D132-H132 : "" pour les colonnes inactives (evite le 0
+        # que retournerait =INPUT!Dx dans RATIOS/DCF/SCENARIOS quand la cellule est None)
+        for col in ['D', 'E', 'F', 'G', 'H']:
+            ws[f'{col}5']   = _year_vals.get(col, "")
+            ws[f'{col}132'] = _year_vals.get(col, None)
 
         _write_cells(ws, {
             _CI_CELLS["company_name"]:  ci.company_name,
@@ -419,6 +422,8 @@ def _write_comparables(ws_comp, peers: list) -> int:
             nonlocal written
             if val is None:
                 return
+            if isinstance(val, float) and (math.isnan(val) or math.isinf(val)):
+                return
             if col in _COMP_FORMULA_COLS:
                 log.error(f"[ExcelWriter] COMPARABLES : tentative col formule {col}{row}")
                 return
@@ -471,11 +476,12 @@ def _write_synthesis_zone(ws, synthesis) -> None:
     _safe_write_cell(ws, "D124", f"Recommandation : {synthesis.recommendation}")
     _safe_write_cell(ws, "D125", f"Conviction : {synthesis.conviction:.0%}")
     _safe_write_cell(ws, "D126", f"Confiance IA : {synthesis.confidence_score:.0%}")
-    if synthesis.target_base:
+    if synthesis.target_base is not None:
         _safe_write_cell(ws, "D127", f"Cible Base : {synthesis.target_base}")
-    if synthesis.target_bull:
+    if synthesis.target_bull is not None:
         _safe_write_cell(ws, "D128", f"Cible Bull : {synthesis.target_bull}")
-    if synthesis.target_bear:
+    if synthesis.target_bear is not None:
         _safe_write_cell(ws, "D129", f"Cible Bear : {synthesis.target_bear}")
     _safe_write_cell(ws, "D130", synthesis.summary[:200] if synthesis.summary else None)
-    _safe_write_cell(ws, "D131", f"Invalidation : {synthesis.invalidation_conditions[:150]}")
+    _inv = synthesis.invalidation_conditions or ""
+    _safe_write_cell(ws, "D131", f"Invalidation : {_inv[:150]}")
