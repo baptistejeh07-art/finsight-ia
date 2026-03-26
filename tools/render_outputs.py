@@ -144,7 +144,17 @@ def render_xlsx(xlsx_path: Path, out_dir: Path, sheets: list[str] | None = None,
     paths = []
     try:
         # CorruptLoad=1 (xlRepairFile) nécessaire car le template a des formules complexes
-        wb = xl.Workbooks.Open(str(clean_path), UpdateLinks=0, ReadOnly=True, CorruptLoad=1)
+        # ReadOnly=False obligatoire pour que CalculateFull() fonctionne (recalcul formules)
+        wb = xl.Workbooks.Open(str(clean_path), UpdateLinks=0, ReadOnly=False, CorruptLoad=1)
+
+        # Forcer le recalcul complet avant export — sans ca les formules restent vides
+        try:
+            xl.CalculateFull()
+        except Exception:
+            try:
+                wb.RefreshAll()
+            except Exception:
+                pass
 
         sheet_names = [ws.Name for ws in wb.Worksheets]
         to_render = [s for s in sheet_names if sheets is None or s in sheets]
@@ -157,10 +167,23 @@ def render_xlsx(xlsx_path: Path, out_dir: Path, sheets: list[str] | None = None,
                 tmp_pdf = tmp.name
 
             # xlTypePDF = 0
-            ws.ExportAsFixedFormat(0, tmp_pdf)
+            try:
+                ws.ExportAsFixedFormat(0, tmp_pdf)
+            except Exception as e:
+                print(f"[XLSX] Skip feuille '{sheet_name}' (export impossible : {e})")
+                try:
+                    os.unlink(tmp_pdf)
+                except Exception:
+                    pass
+                continue
 
-            images = convert_from_path(tmp_pdf, dpi=dpi, poppler_path=POPPLER_PATH)
-            os.unlink(tmp_pdf)
+            try:
+                images = convert_from_path(tmp_pdf, dpi=dpi, poppler_path=POPPLER_PATH)
+            finally:
+                try:
+                    os.unlink(tmp_pdf)
+                except Exception:
+                    pass
 
             safe_name = sheet_name.replace(" ", "_").replace("/", "-")
             for j, img in enumerate(images, start=1):

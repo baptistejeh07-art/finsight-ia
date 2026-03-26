@@ -202,7 +202,12 @@ class ExcelWriter:
         # D117 Base Year = toujours l'annee LTM (label mappe sur H)
         # ci doit etre defini avant d'acceder a ci.base_year (bug ordre corrige)
         ltm_label = next((lbl for lbl, col in year_col_map.items() if col == "H"), None)
-        ltm_year  = int(ltm_label.split("_")[0]) if ltm_label else ci.base_year
+        if ltm_label:
+            ltm_year = int(ltm_label.split("_")[0])
+        else:
+            # <5 ans : base_year = annee du label le plus recent dans year_col_map
+            most_recent_lbl = max(year_col_map.keys(), key=lambda y: int(y.split("_")[0])) if year_col_map else None
+            ltm_year = int(most_recent_lbl.split("_")[0]) if most_recent_lbl else ci.base_year
         _write_cells(ws, {
             _CI_CELLS["company_name"]:  ci.company_name,
             _CI_CELLS["ticker"]:        ci.ticker,
