@@ -754,7 +754,9 @@ def render_sidebar(results) -> None:
                 # Synthèse IA — lire depuis state.json cli_tests
                 try:
                     import re as _re, json as _json
-                    _state_path = Path(__file__).parent / "outputs" / "generated" / "cli_tests" / f"{_ticker}_state.json"
+                    _state_path = _ticker_dir / f"{_ticker}_state.json"
+                    if not _state_path.exists():
+                        _state_path = Path(__file__).parent / "outputs" / "generated" / "cli_tests" / f"{_ticker}_state.json"
                     if _state_path.exists():
                         _st = _json.loads(_state_path.read_text("utf-8"))
                         _syn_str = str(_st.get("synthesis", ""))
