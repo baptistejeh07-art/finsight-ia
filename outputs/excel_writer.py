@@ -320,13 +320,7 @@ class ExcelWriter:
                     ws_stock[f"C{row}"] = None
 
         # ------------------------------------------------------------------
-        # 5. Synthese IA — zone libre (lignes 123–131, colonne D)
-        # ------------------------------------------------------------------
-        if synthesis:
-            _write_synthesis_zone(ws, synthesis)
-
-        # ------------------------------------------------------------------
-        # 6. Comparables — onglet COMPARABLES (peers lignes 9-13)
+        # 5. Comparables — onglet COMPARABLES (peers lignes 9-13)
         # ------------------------------------------------------------------
         if comparables and "COMPARABLES" in wb.sheetnames:
             written += _write_comparables(wb["COMPARABLES"], comparables)
@@ -467,21 +461,3 @@ def _safe_write_cell(ws, cell_ref: str, value) -> None:
     ws[cell_ref] = value
 
 
-def _write_synthesis_zone(ws, synthesis) -> None:
-    """Zone synthese IA — lignes 123-131, colonne D (zone libre post-mapping).
-    Utilise _safe_write_cell pour eviter toute corruption formule.
-    Note : '===' ne commence pas par '=' seul, mais on passe quand meme par la garde dynamique.
-    """
-    _safe_write_cell(ws, "D123", "--- SYNTHESE IA ---")
-    _safe_write_cell(ws, "D124", f"Recommandation : {synthesis.recommendation}")
-    _safe_write_cell(ws, "D125", f"Conviction : {synthesis.conviction:.0%}")
-    _safe_write_cell(ws, "D126", f"Confiance IA : {synthesis.confidence_score:.0%}")
-    if synthesis.target_base is not None:
-        _safe_write_cell(ws, "D127", f"Cible Base : {synthesis.target_base}")
-    if synthesis.target_bull is not None:
-        _safe_write_cell(ws, "D128", f"Cible Bull : {synthesis.target_bull}")
-    if synthesis.target_bear is not None:
-        _safe_write_cell(ws, "D129", f"Cible Bear : {synthesis.target_bear}")
-    _safe_write_cell(ws, "D130", synthesis.summary[:200] if synthesis.summary else None)
-    _inv = synthesis.invalidation_conditions or ""
-    _safe_write_cell(ws, "D131", f"Invalidation : {_inv[:150]}")
