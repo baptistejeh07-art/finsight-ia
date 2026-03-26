@@ -761,6 +761,13 @@ def render_sidebar(results) -> None:
                         _st = _json.loads(_state_path.read_text("utf-8"))
                         _syn_str = str(_st.get("synthesis", ""))
                         def _synval(key):
+                            # Try single-quoted string first (handles commas in value)
+                            m = _re.search(rf"{key}='([^']*)'", _syn_str)
+                            if m:
+                                return m.group(1).strip()
+                            m = _re.search(rf'{key}="([^"]*)"', _syn_str)
+                            if m:
+                                return m.group(1).strip()
                             m = _re.search(rf"{key}=([^,\)]+)", _syn_str)
                             return m.group(1).strip().strip("'\"") if m else None
                         _rec   = _synval("recommendation")
@@ -770,6 +777,8 @@ def render_sidebar(results) -> None:
                         _tbear = _synval("target_bear")
                         _summ  = _synval("summary")
                         if _rec:
+                            import datetime as _dt_s
+                            _state_mtime = _dt_s.datetime.fromtimestamp(_state_path.stat().st_mtime).strftime('%d/%m %H:%M')
                             _rec_color = {"BUY": "#1a7a52", "SELL": "#c0392b"}.get(_rec.upper(), "#b8922a")
                             _conv_pct  = f"{float(_conv):.0%}" if _conv else "—"
                             st.markdown(
@@ -777,9 +786,10 @@ def render_sidebar(results) -> None:
                                 f'margin-bottom:8px;font-size:11px;line-height:1.6">'
                                 f'<span style="background:{_rec_color};color:white;padding:2px 7px;'
                                 f'border-radius:4px;font-weight:700;font-size:11px">{_rec}</span>'
-                                f'&nbsp;&nbsp;<span style="color:#555">Conviction : <b>{_conv_pct}</b></span><br>'
+                                f'&nbsp;&nbsp;<span style="color:#555">Conviction : <b>{_conv_pct}</b></span>'
+                                f'&nbsp;·&nbsp;<span style="color:#999;font-size:10px">{_state_mtime}</span><br>'
                                 + (f'<span style="color:#555">Base <b>{_tb}</b> · Bull <b>{_tbull}</b> · Bear <b>{_tbear}</b></span><br>' if _tb else '')
-                                + (f'<span style="color:#777;font-style:italic">{_summ[:120]}…</span>' if _summ else '')
+                                + (f'<span style="color:#777;font-style:italic">{_summ[:150]}…</span>' if _summ else '')
                                 + '</div>',
                                 unsafe_allow_html=True,
                             )
@@ -791,8 +801,10 @@ def render_sidebar(results) -> None:
                 if _rejected_key not in st.session_state:
                     st.session_state[_rejected_key] = set()
 
-                # Bouton de téléchargement + ✗ par fichier
+                # Bouton de téléchargement + ✗ par fichier (hors state.json technique)
                 for _f in _files:
+                    if _f.suffix.lower() == '.json':
+                        continue  # state.json : fichier technique, pas de bouton DL
                     _ext  = _f.suffix.lower()
                     _mime = {"pdf": "application/pdf", "pptx": "application/vnd.ms-powerpoint",
                              "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

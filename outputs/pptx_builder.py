@@ -130,8 +130,10 @@ class PPTXBuilder:
             _rect(sl, Inches(0.8), Inches(3.2), Inches(2.4), Inches(0.8), reco_color)
             _text_box(sl, Inches(0.8), Inches(3.2), Inches(2.4), Inches(0.8),
                       synthesis.recommendation, 24, _WHITE, bold=True, center=True)
+            _conv = synthesis.conviction or 0
+            _conf = synthesis.confidence_score or 0
             _text_box(sl, Inches(3.4), Inches(3.3), Inches(5.0), Inches(0.6),
-                      f"Conviction : {synthesis.conviction:.0%}  |  Confiance : {synthesis.confidence_score:.0%}",
+                      f"Conviction : {_conv:.0%}  |  Confiance : {_conf:.0%}",
                       14, _LIGHT)
 
         _text_box(sl, Inches(0.8), Inches(6.5), Inches(11.0), Inches(0.4),
@@ -208,17 +210,19 @@ class PPTXBuilder:
                       synthesis.recommendation, 36, _WHITE, bold=True, center=True)
 
             # Conviction / Confiance
+            _conv = synthesis.conviction or 0
+            _conf = synthesis.confidence_score or 0
             _text_box(sl, Inches(4.0), Inches(1.4), Inches(8.5), Inches(0.4),
-                      f"Conviction : {synthesis.conviction:.0%}   |   Confiance IA : {synthesis.confidence_score:.0%}",
+                      f"Conviction : {_conv:.0%}   |   Confiance IA : {_conf:.0%}",
                       14, _DARK)
 
             # Target prices
             targets = []
-            if synthesis.target_bear:
+            if synthesis.target_bear is not None:
                 targets.append(f"Bear : {synthesis.target_bear:.0f} {ci.currency}")
-            if synthesis.target_base:
+            if synthesis.target_base is not None:
                 targets.append(f"Base : {synthesis.target_base:.0f} {ci.currency}")
-            if synthesis.target_bull:
+            if synthesis.target_bull is not None:
                 targets.append(f"Bull : {synthesis.target_bull:.0f} {ci.currency}")
             if targets:
                 _text_box(sl, Inches(4.0), Inches(1.9), Inches(8.5), Inches(0.4),
