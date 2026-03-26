@@ -1354,6 +1354,9 @@ def generate_sector_report(
             os.unlink(tmp_path)
 
     # Passe 2 : generation finale avec vrais numeros de page
+    # Rewind des buffers matplotlib (epuises apres passe 1)
+    for buf in (perf_buf, area_buf, scatter_buf, donut_buf):
+        buf.seek(0)
     from pathlib import Path
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     doc2 = SimpleDocTemplate(output_path, **doc_kwargs)
