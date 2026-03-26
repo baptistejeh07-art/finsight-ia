@@ -222,8 +222,12 @@ def llm_select_and_summarize(candidates: list[dict]) -> dict:
     - Intro editoriale 120-150 mots
     Retourne {editorial, articles:[{...}]}
     """
-    groq_key = os.getenv("GROQ_API_KEY_1") or os.getenv("GROQ_API_KEY_2") or os.getenv("GROQ_API_KEY")
-    if not groq_key:
+    groq_keys = [k for k in [
+        os.getenv("GROQ_API_KEY_1"),
+        os.getenv("GROQ_API_KEY_2"),
+        os.getenv("GROQ_API_KEY"),
+    ] if k]
+    if not groq_keys:
         print("[VEILLE] Aucune cle Groq — resumes basiques")
         return _fallback_selection(candidates)
 
@@ -281,42 +285,45 @@ Reponds UNIQUEMENT en JSON valide sans markdown ni texte autour :
   ]
 }}"""
 
-    try:
-        from groq import Groq
-        client = Groq(api_key=groq_key)
-        resp   = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=4500,
-            temperature=0.3,
-        )
-        raw = resp.choices[0].message.content.strip()
-        raw = re.sub(r"^```(?:json)?", "", raw).strip()
-        raw = re.sub(r"```$", "", raw).strip()
-        m   = re.search(r'\{.*\}', raw, re.DOTALL)
-        if m:
-            parsed = json.loads(m.group())
-            enriched = []
-            for sel in parsed.get("selection", [])[:10]:
-                idx = sel.get("idx")
-                if idx is not None and 0 <= idx < len(top30):
-                    art = dict(top30[idx])
-                    art["passage_cle"]        = sel.get("passage_cle",        "")
-                    art["these"]              = sel.get("these",              art["summary"][:200])
-                    art["contre_these"]       = sel.get("contre_these",       "")
-                    art["application_finsight"] = sel.get("application_finsight", "Impact sur les pipelines FinSight.")
-                    art["priorite"]           = sel.get("priorite",           "MOYENNE")
-                    # Compat backward : resume_fr = these pour sections qui l utiliseraient
-                    art["resume_fr"]          = art["these"]
-                    art["implication"]        = art["application_finsight"]
-                    enriched.append(art)
-            return {
-                "editorial": parsed.get("editorial", ""),
-                "articles":  enriched,
-            }
-    except Exception as e:
-        print(f"[VEILLE] LLM select error : {e}")
+    from groq import Groq
+    last_err = None
+    for groq_key in groq_keys:
+        try:
+            client = Groq(api_key=groq_key)
+            resp   = client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=4500,
+                temperature=0.3,
+            )
+            raw = resp.choices[0].message.content.strip()
+            raw = re.sub(r"^```(?:json)?", "", raw).strip()
+            raw = re.sub(r"```$", "", raw).strip()
+            m   = re.search(r'\{.*\}', raw, re.DOTALL)
+            if m:
+                parsed = json.loads(m.group())
+                enriched = []
+                for sel in parsed.get("selection", [])[:10]:
+                    idx = sel.get("idx")
+                    if idx is not None and 0 <= idx < len(top30):
+                        art = dict(top30[idx])
+                        art["passage_cle"]          = sel.get("passage_cle",          "")
+                        art["these"]                = sel.get("these",                art["summary"][:200])
+                        art["contre_these"]         = sel.get("contre_these",         "")
+                        art["application_finsight"] = sel.get("application_finsight", "Impact sur les pipelines FinSight.")
+                        art["priorite"]             = sel.get("priorite",             "MOYENNE")
+                        art["resume_fr"]            = art["these"]
+                        art["implication"]          = art["application_finsight"]
+                        enriched.append(art)
+                return {
+                    "editorial": parsed.get("editorial", ""),
+                    "articles":  enriched,
+                }
+        except Exception as e:
+            last_err = e
+            print(f"[VEILLE] LLM key {groq_key[:12]}... error : {e} — essai cle suivante")
 
+    print(f"[VEILLE] Toutes les cles Groq epuisees ({last_err}) — fallback basique")
     return _fallback_selection(candidates)
 
 
@@ -341,11 +348,16 @@ def _fallback_selection(candidates: list[dict]) -> dict:
 # =============================================================================
 
 def suggest_bonus(top10: list[dict]) -> list[dict]:
-    groq_key = os.getenv("GROQ_API_KEY_1") or os.getenv("GROQ_API_KEY_2") or os.getenv("GROQ_API_KEY")
-    if not groq_key:
+    groq_keys = [k for k in [
+        os.getenv("GROQ_API_KEY_1"),
+        os.getenv("GROQ_API_KEY_2"),
+        os.getenv("GROQ_API_KEY"),
+    ] if k]
+    if not groq_keys:
         return []
     try:
         from groq import Groq
+        groq_key = groq_keys[0]
         client = Groq(api_key=groq_key)
         themes = ", ".join(sorted({a.get("cat","") for a in top10[:5]}))
         titles = "; ".join([a["title"][:80] for a in top10[:5]])
@@ -502,13 +514,6 @@ def build_pdf(result: dict, bonus5: list[dict], output_path: Path) -> Path:
                        textTransform="uppercase", letterSpacing=0.5)
     S_CONTRA_TXT = _s("ct", fontName="Helvetica", fontSize=9,
                        textColor=_h(C_BLACK), leading=13, spaceAfter=0, alignment=TA_JUSTIFY)
-    S_APP_LBL    = _s("apl", fontName="Helvetica-Bold", fontSize=7.5,
-                       textColor=_h(C_WHITE), leading=11, spaceAfter=0,
-                       textTransform="uppercase", letterSpacing=0.5)
-    S_APP_TXT    = _s("apt", fontName="Helvetica", fontSize=9,
-                       textColor=_h(C_WHITE), leading=13, spaceAfter=0, alignment=TA_JUSTIFY)
-    S_PRIO       = _s("pr", fontName="Helvetica-Bold", fontSize=8,
-                       textColor=_h(C_WHITE), leading=11, spaceAfter=0)
     S_BONUS_T    = _s("bt", fontName="Helvetica-Bold", fontSize=10,
                        textColor=_h(C_AMBER), leading=14, spaceAfter=3)
     S_SEC_BONUS  = _s("sb", fontName="Helvetica-Bold", fontSize=10,
@@ -658,22 +663,10 @@ def build_pdf(result: dict, bonus5: list[dict], output_path: Path) -> Path:
             card_content.append(tc_table)
             card_content.append(Spacer(1, 5))
 
-        # Application FinSight
+        # Application FinSight — ligne sobre sans bloc colore
         if appli:
-            prio_label = f"Application FinSight  —  Priorite {priorite}"
-            app_table = Table(
-                [[Paragraph(_enc(prio_label), S_APP_LBL)],
-                 [Paragraph(_enc(appli), S_APP_TXT)]],
-                colWidths=[content_w - 28],
-            )
-            app_table.setStyle(TableStyle([
-                ("BACKGROUND",   (0,0), (-1,-1), _h(prio_color)),
-                ("LEFTPADDING",  (0,0), (-1,-1), 8),
-                ("RIGHTPADDING", (0,0), (-1,-1), 8),
-                ("TOPPADDING",   (0,0), (-1,-1), 5),
-                ("BOTTOMPADDING",(0,0), (-1,-1), 5),
-            ]))
-            card_content.append(app_table)
+            prio_txt = f'<font color="{prio_color}"><b>[{priorite}]</b></font>  <font color="{C_GREEN}"><b>FinSight —</b></font> '
+            card_content.append(Paragraph(prio_txt + _enc(appli), S_IMPL))
             card_content.append(Spacer(1, 3))
 
         if link:
@@ -749,9 +742,8 @@ def build_pdf(result: dict, bonus5: list[dict], output_path: Path) -> Path:
                 bonus_card_content.append(tc2)
                 bonus_card_content.append(Spacer(1,5))
             if appli:
-                app2 = Table([[Paragraph(_enc(f"Application FinSight — Priorite {priorite}"), S_APP_LBL)],[Paragraph(_enc(appli), S_APP_TXT)]], colWidths=[content_w - 28])
-                app2.setStyle(TableStyle([("BACKGROUND",(0,0),(-1,-1),_h(prio_color)),("LEFTPADDING",(0,0),(-1,-1),8),("RIGHTPADDING",(0,0),(-1,-1),8),("TOPPADDING",(0,0),(-1,-1),5),("BOTTOMPADDING",(0,0),(-1,-1),5)]))
-                bonus_card_content.append(app2)
+                prio_txt2 = f'<font color="{prio_color}"><b>[{priorite}]</b></font>  <font color="{C_GREEN}"><b>FinSight —</b></font> '
+                bonus_card_content.append(Paragraph(prio_txt2 + _enc(appli), S_IMPL))
                 bonus_card_content.append(Spacer(1,3))
             if link:
                 link_href = html.escape(link, quote=True)
