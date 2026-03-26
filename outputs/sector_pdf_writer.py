@@ -11,6 +11,7 @@ import logging
 import os
 import tempfile
 from datetime import date
+from pathlib import Path
 from typing import Optional
 
 log = logging.getLogger(__name__)
@@ -410,11 +411,17 @@ def _make_scatter(tickers_data: list[dict], sector_name: str) -> io.BytesIO:
 
     # Médiane EV/EBITDA
     meds = [float(ev) for ev in ev_ebitda if ev is not None]
+    has_fallback = any(ev is None for ev in ev_ebitda)
     if meds:
         med_ev = np.median(meds)
         ax.axhline(y=med_ev, color='#D0D5DD', linewidth=0.8, linestyle='--', alpha=0.8)
         ax.text(min(float(r) for r in rev_grwth) + 1, med_ev + 0.5,
                 f'Med. EV/EBITDA ({med_ev:.1f}x)', fontsize=6.5, color='#999', style='italic')
+    # Forcer l'axe Y a inclure y=5 si des triangles fallback sont plottes a cette ordonnee
+    if has_fallback:
+        ymin, ymax = ax.get_ylim()
+        if ymin > 3:
+            ax.set_ylim(bottom=min(ymin, 3))
 
     ax.set_xlabel('Croissance revenus YoY (%)', fontsize=8, color='#555')
     ax.set_ylabel('EV / EBITDA (x)', fontsize=8, color='#555')
@@ -1357,7 +1364,6 @@ def generate_sector_report(
     # Rewind des buffers matplotlib (epuises apres passe 1)
     for buf in (perf_buf, area_buf, scatter_buf, donut_buf):
         buf.seek(0)
-    from pathlib import Path
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     doc2 = SimpleDocTemplate(output_path, **doc_kwargs)
     story2 = _build_story(perf_buf, area_buf, scatter_buf, donut_buf,

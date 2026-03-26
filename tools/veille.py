@@ -375,57 +375,83 @@ def _fallback_selection(candidates: list[dict]) -> dict:
 # =============================================================================
 
 def suggest_bonus(top10: list[dict]) -> list[dict]:
+    themes = ", ".join(sorted({a.get("cat","") for a in top10[:5]}))
+    titles = "; ".join([a["title"][:80] for a in top10[:5]])
+    prompt = (
+        f"Tu es veilleur technologique expert en LLM et finance quantitative. LANGUE : reponds UNIQUEMENT en FRANCAIS.\n"
+        f"Cette semaine dans la veille FinSight : {themes}.\n"
+        f"Articles principaux : {titles}.\n\n"
+        f"Propose 5 ressources COMPLEMENTAIRES et specifiques (GitHub repos, papiers arXiv recents, "
+        f"posts de blog techniques, datasets financiers, outils open-source) "
+        f"utiles pour une plateforme d'analyse financiere multi-agents.\n"
+        f"Sois tres specifique (vrais noms, vrais liens si tu les connais).\n\n"
+        f"JSON UNIQUEMENT en FRANCAIS (array de 5 objets, aucun markdown) :\n"
+        f'[{{"title":"...","source":"...","link":"...","cat":"...","resume_fr":"<2-3 phrases en francais specifiques>","implication":"<1 phrase FinSight en francais>"}}]'
+    )
+
+    def _call_llm(raw: str) -> list[dict]:
+        raw = re.sub(r"^```(?:json)?", "", raw).strip()
+        raw = re.sub(r"```$", "", raw).strip()
+        m = re.search(r'\[.*\]', raw, re.DOTALL)
+        if not m:
+            return []
+        try:
+            bonus = json.loads(m.group())
+        except Exception:
+            return []
+        out = []
+        for b in bonus:
+            b.setdefault("title",       "Article bonus")
+            b.setdefault("source",      "IA suggestion")
+            b.setdefault("link",        "")
+            b.setdefault("cat",         "IA")
+            b.setdefault("resume_fr",   "Contenu pertinent pour FinSight.")
+            b.setdefault("implication", "A explorer pour les pipelines FinSight.")
+            b["date"]  = datetime.now(timezone.utc)
+            b["score"] = 50
+            if b["title"] != "Article bonus":
+                out.append(b)
+        return out[:5]
+
+    # Groq
     groq_keys = [k for k in [
         os.getenv("GROQ_API_KEY_1"),
         os.getenv("GROQ_API_KEY_2"),
         os.getenv("GROQ_API_KEY"),
     ] if k]
-    if not groq_keys:
-        return []
-    try:
-        from groq import Groq
-        groq_key = groq_keys[0]
-        client = Groq(api_key=groq_key)
-        themes = ", ".join(sorted({a.get("cat","") for a in top10[:5]}))
-        titles = "; ".join([a["title"][:80] for a in top10[:5]])
-        prompt = (
-            f"Tu es veilleur technologique expert en LLM et finance quantitative. LANGUE : reponds UNIQUEMENT en FRANCAIS.\n"
-            f"Cette semaine dans la veille FinSight : {themes}.\n"
-            f"Articles principaux : {titles}.\n\n"
-            f"Propose 5 ressources COMPLEMENTAIRES et specifiques (GitHub repos, papiers arXiv recents, "
-            f"posts de blog techniques, datasets financiers, outils open-source) "
-            f"utiles pour une plateforme d'analyse financiere multi-agents.\n"
-            f"Sois tres specifique (vrais noms, vrais liens si tu les connais).\n\n"
-            f"JSON UNIQUEMENT en FRANCAIS (array de 5 objets, aucun markdown) :\n"
-            f'[{{"title":"...","source":"...","link":"...","cat":"...","resume_fr":"<2-3 phrases en francais specifiques>","implication":"<1 phrase FinSight en francais>"}}]'
-        )
-        resp = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=1400,
-            temperature=0.55,
-        )
-        raw = resp.choices[0].message.content.strip()
-        raw = re.sub(r"^```(?:json)?", "", raw).strip()
-        raw = re.sub(r"```$", "", raw).strip()
-        m   = re.search(r'\[.*\]', raw, re.DOTALL)
-        if m:
-            bonus = json.loads(m.group())
-            out   = []
-            for b in bonus:
-                b.setdefault("title",       "Article bonus")
-                b.setdefault("source",      "IA suggestion")
-                b.setdefault("link",        "")
-                b.setdefault("cat",         "IA")
-                b.setdefault("resume_fr",   "Contenu pertinent pour FinSight.")
-                b.setdefault("implication", "A explorer pour les pipelines FinSight.")
-                b["date"] = datetime.now(timezone.utc)
-                b["score"] = 50
-                if b["title"] != "Article bonus":
-                    out.append(b)
-            return out[:5]
-    except Exception as e:
-        print(f"[VEILLE] Bonus LLM : {e}")
+    for groq_key in groq_keys:
+        for model in ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"]:
+            try:
+                from groq import Groq
+                resp = Groq(api_key=groq_key).chat.completions.create(
+                    model=model,
+                    messages=[{"role": "user", "content": prompt}],
+                    max_tokens=1400,
+                    temperature=0.55,
+                )
+                out = _call_llm(resp.choices[0].message.content.strip())
+                if out:
+                    return out
+            except Exception as e:
+                print(f"[VEILLE] Bonus {model} ...{groq_key[-6:]} : {e}")
+
+    # Mistral fallback
+    mistral_key = os.getenv("MISTRAL_API_KEY")
+    if mistral_key:
+        try:
+            from mistralai import Mistral
+            resp = Mistral(api_key=mistral_key).chat.complete(
+                model="mistral-small-latest",
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=1400,
+                temperature=0.55,
+            )
+            out = _call_llm(resp.choices[0].message.content.strip())
+            if out:
+                return out
+        except Exception as e:
+            print(f"[VEILLE] Bonus Mistral : {e}")
+
     return []
 
 
