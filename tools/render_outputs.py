@@ -49,7 +49,8 @@ def render_pptx(pptx_path: Path, out_dir: Path, width_px: int = 1920) -> list[Pa
 
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    ppt = win32com.client.Dispatch("PowerPoint.Application")
+    # DispatchEx = nouvelle instance isolee
+    ppt = win32com.client.DispatchEx("PowerPoint.Application")
     try:
         ppt.Visible = False
     except Exception:
@@ -135,7 +136,8 @@ def render_xlsx(xlsx_path: Path, out_dir: Path, sheets: list[str] | None = None,
     # Crée une copie data-only pour contourner les liens externes
     clean_path = _make_clean_xlsx(xlsx_path)
 
-    xl = win32com.client.Dispatch("Excel.Application")
+    # DispatchEx = nouvelle instance isolee, evite de fermer les fichiers Excel deja ouverts
+    xl = win32com.client.DispatchEx("Excel.Application")
     xl.Visible = False
     xl.DisplayAlerts = False
 
