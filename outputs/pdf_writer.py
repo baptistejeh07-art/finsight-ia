@@ -271,8 +271,8 @@ def _make_perf_chart(data):
     title = "Performance relative \u2014 base 100"
     if start_label:
         title += f", {start_label}"
-    ax.set_title(title, fontsize=14, color='#1B3A6B', fontweight='bold', pad=8)
-    ax.legend(fontsize=11, loc='upper left', frameon=False)
+    ax.set_title(title, fontsize=16, color='#1B3A6B', fontweight='bold', pad=10)
+    ax.legend(fontsize=13, loc='upper left', frameon=False)
     plt.tight_layout(pad=0.5)
     buf = io.BytesIO()
     fig.savefig(buf, format='png', dpi=180, bbox_inches='tight')
@@ -452,11 +452,10 @@ def _make_margins_chart(data):
 
     x = np.arange(n)
     width = 0.25
-    fig, ax = plt.subplots(figsize=(8, 4.5), dpi=160)
+    fig, ax = plt.subplots(figsize=(8, 6.0), dpi=160)
 
-    # y-max avec marge pour les labels au-dessus des barres
     all_vals_flat = [v for v in gm_vals + em_vals + nm_vals if v is not None]
-    ymax = max(all_vals_flat) * 1.25 if all_vals_flat else 100
+    ymax = max(all_vals_flat) * 1.12 if all_vals_flat else 100
     ax.set_ylim(bottom=0, top=ymax)
 
     def _bar(vals, offset, color, label):
@@ -1067,7 +1066,7 @@ def _build_financials(area_buf, data, margins_buf=None):
     elems.append(Spacer(1, 2*mm))
     if margins_buf is not None:
         margins_buf.seek(0)
-        elems.append(Image(margins_buf, width=TABLE_W, height=95*mm))
+        elems.append(Image(margins_buf, width=TABLE_W, height=130*mm))
     else:
         elems.append(Paragraph("(Graphique marges non disponible)", S_NOTE))
     elems.append(src("FinSight IA \u2014 Marges calcul\u00e9es sur donn\u00e9es historiques yfinance."))
