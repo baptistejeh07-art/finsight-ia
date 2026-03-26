@@ -648,12 +648,12 @@ def render_sidebar(results) -> None:
         st.markdown('<div class="sb-section">', unsafe_allow_html=True)
         st.markdown('<span class="sb-label">Historique</span>', unsafe_allow_html=True)
         if _veille_pdfs:
-            for _vp in _veille_pdfs[:5]:
+            for _vp in _veille_pdfs[:10]:
                 _vdate = _vp.stem.replace("veille_", "")
-                _col_dl, _col_open = st.columns([4, 1])
+                _col_dl, _col_open, _col_del = st.columns([4, 1, 1])
                 with _col_dl:
                     st.download_button(
-                        f"Veille {_vdate[:8]}",
+                        f"Veille {_vdate}",
                         _vp.read_bytes(),
                         file_name=_vp.name,
                         mime="application/pdf",
@@ -666,6 +666,14 @@ def render_sidebar(results) -> None:
                         try:
                             import os as _os
                             _os.startfile(str(_vp))
+                        except Exception:
+                            pass
+                with _col_del:
+                    if st.button("🗑", key=f"del_{_vp.name}", help="Supprimer",
+                                 use_container_width=True):
+                        try:
+                            _vp.unlink()
+                            st.rerun()
                         except Exception:
                             pass
         else:
