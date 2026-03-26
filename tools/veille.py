@@ -706,8 +706,12 @@ def run_veille(days: int | None = None) -> Path:
     _MOIS_FR = ["janvier","fevrier","mars","avril","mai","juin",
                 "juillet","aout","septembre","octobre","novembre","decembre"]
     d = datetime.now()
-    date_tag  = d.strftime("%Y%m%d_%H%M")
-    out_path  = OUTPUT_DIR / f"veille_{date_tag}.pdf"
+    date_tag  = d.strftime("%Y%m%d")
+    # Numero sequentiel sur la date : veille_20260326_1.pdf, _2.pdf, ...
+    seq = 1
+    while (OUTPUT_DIR / f"veille_{date_tag}_{seq}.pdf").exists():
+        seq += 1
+    out_path  = OUTPUT_DIR / f"veille_{date_tag}_{seq}.pdf"
     print(f"[VEILLE] Generation PDF -> {out_path.name}")
     build_pdf(result, bonus5, out_path)
 
