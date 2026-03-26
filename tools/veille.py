@@ -240,20 +240,23 @@ def llm_select_and_summarize(candidates: list[dict]) -> dict:
     prompt = f"""Tu es redacteur en chef senior de FinSight IA, plateforme d'analyse financiere multi-agents LLM.
 Ton audience : directeurs d'investissement, analystes sell-side/buy-side, quants, DG fintech.
 
+LANGUE : TOUT doit etre redige en FRANCAIS. Titres, resumes, implications, editorial : 100% francais.
+Les titres originaux des articles sont en anglais — tu les traduis ou les resumes en francais dans le champ "resume".
+
 MISSION :
 1. Selectionner les 10 articles les PLUS PERTINENTS pour FinSight parmi les {len(top30)} candidats ci-dessous.
    Criteres : LLM en finance, agents IA pour l'investissement, donnees financieres, automatisation analyse, fintech.
    EXCLURE : recherches trop academiques sans application finance, articles non-financiers.
 
-2. Pour chaque article selectionne, ecrire un RESUME EDITORIAL en 3 phrases francaises :
+2. Pour chaque article selectionne, ecrire un RESUME EDITORIAL en 3 phrases FRANCAISES :
    - Phrase 1 : Ce que cet article revele ou propose concretement
    - Phrase 2 : L'innovation cle ou le chiffre marquant
-   - Phrase 3 : Pourquoi c'est significant pour l'industrie financiere
+   - Phrase 3 : Pourquoi c'est significatif pour l'industrie financiere
 
-3. Pour chaque article : 1 phrase courte et precise sur l'apport direct pour FinSight IA
+3. Pour chaque article : 1 phrase courte et precise EN FRANCAIS sur l'apport direct pour FinSight IA
    (ex: "Peut ameliorer le scoring de sentiment dans AgentSentiment via..." — sois specifique)
 
-4. Rediger une INTRODUCTION EDITORIALE de 120-150 mots presentant les themes dominants de cette veille,
+4. Rediger une INTRODUCTION EDITORIALE de 120-150 mots EN FRANCAIS presentant les themes dominants,
    comme un editorial de newsletter financiere institutionnelle. Style : direct, concis, sans jargon creux.
 
 ARTICLES CANDIDATS :
@@ -309,11 +312,11 @@ Reponds UNIQUEMENT en JSON valide sans markdown ni texte autour :
 
 
 def _fallback_selection(candidates: list[dict]) -> dict:
-    """Fallback sans LLM : top 10 par score avec resume brut."""
+    """Fallback sans LLM : top 10 par score — resume indisponible en francais."""
     arts = []
     for a in candidates[:10]:
         a = dict(a)
-        a["resume_fr"]   = a["summary"][:350]
+        a["resume_fr"]   = "Resume indisponible — quota LLM epuise. Consulter l'article original via le lien ci-dessous."
         a["implication"] = "Pertinent pour les pipelines FinSight."
         arts.append(a)
     return {"editorial": "", "articles": arts}
@@ -338,15 +341,15 @@ def suggest_bonus(top10: list[dict]) -> list[dict]:
         themes = ", ".join(sorted({a.get("cat","") for a in top10[:5]}))
         titles = "; ".join([a["title"][:80] for a in top10[:5]])
         prompt = (
-            f"Tu es veilleur technologique expert en LLM et finance quantitative.\n"
+            f"Tu es veilleur technologique expert en LLM et finance quantitative. LANGUE : reponds UNIQUEMENT en FRANCAIS.\n"
             f"Cette semaine dans la veille FinSight : {themes}.\n"
             f"Articles principaux : {titles}.\n\n"
             f"Propose 5 ressources COMPLEMENTAIRES et specifiques (GitHub repos, papiers arXiv recents, "
             f"posts de blog techniques, datasets financiers, outils open-source) "
             f"utiles pour une plateforme d'analyse financiere multi-agents.\n"
             f"Sois tres specifique (vrais noms, vrais liens si tu les connais).\n\n"
-            f"JSON UNIQUEMENT (array de 5 objets, aucun markdown) :\n"
-            f'[{{"title":"...","source":"...","link":"...","cat":"...","resume_fr":"<2-3 phrases fr specifiques>","implication":"<1 phrase FinSight>"}}]'
+            f"JSON UNIQUEMENT en FRANCAIS (array de 5 objets, aucun markdown) :\n"
+            f'[{{"title":"...","source":"...","link":"...","cat":"...","resume_fr":"<2-3 phrases en francais specifiques>","implication":"<1 phrase FinSight en francais>"}}]'
         )
         resp = client.chat.completions.create(
             model="llama-3.3-70b-versatile",
