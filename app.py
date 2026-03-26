@@ -506,7 +506,7 @@ def render_sidebar(results) -> None:
         if scr and scr.get("excel_bytes"):
             scr_name = scr.get("display_name", "screening")
             st.download_button(
-                f"Screening {scr_name}  ↓ .xlsx",
+                f"Screening {scr_name} ↓ .xlsx",
                 scr["excel_bytes"],
                 file_name=f"screening_{scr_name.lower().replace(' ', '_')}.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -516,7 +516,7 @@ def render_sidebar(results) -> None:
             scr_name = scr.get("display_name", "secteur")
             _pdf_slug = scr_name.lower().replace(' ', '_').replace('\u2014', '').strip()
             st.download_button(
-                "Rapport sectoriel  \u2193 .pdf",
+                "Rapport sectoriel ↓ .pdf",
                 scr["pdf_bytes"],
                 file_name=f"rapport_{_pdf_slug}.pdf",
                 mime="application/pdf",
@@ -526,7 +526,7 @@ def render_sidebar(results) -> None:
             scr_name = scr.get("display_name", "secteur")
             _pptx_slug = scr_name.lower().replace(' ', '_').replace('\u2014', '').strip()
             st.download_button(
-                "Pitchbook sectoriel  \u2193 .pptx",
+                "Pitchbook sectoriel ↓ .pptx",
                 scr["pptx_bytes"],
                 file_name=f"pitchbook_{_pptx_slug}.pptx",
                 mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
@@ -542,7 +542,7 @@ def render_sidebar(results) -> None:
                 if pptx and Path(pptx).exists():
                     pptx_data = open(pptx, "rb").read()
             if pptx_data:
-                st.download_button("Pitchbook Financier  ↓ .pptx", pptx_data,
+                st.download_button("Pitchbook Financier ↓ .pptx", pptx_data,
                     file_name=f"{ticker_slug}_pitchbook.pptx",
                     mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
                     use_container_width=True)
@@ -553,7 +553,7 @@ def render_sidebar(results) -> None:
                 if xlsx and Path(xlsx).exists():
                     xlsx_data = open(xlsx, "rb").read()
             if xlsx_data:
-                st.download_button("Ratios & Graphiques  ↓ .xlsx", xlsx_data,
+                st.download_button("Ratios & Graphiques ↓ .xlsx", xlsx_data,
                     file_name=f"{ticker_slug}_ratios.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     use_container_width=True)
@@ -564,7 +564,7 @@ def render_sidebar(results) -> None:
                 if pdf and Path(pdf).exists():
                     pdf_data = open(pdf, "rb").read()
             if pdf_data:
-                st.download_button("Rapport PDF  ↓ .pdf", pdf_data,
+                st.download_button("Rapport PDF ↓ .pdf", pdf_data,
                     file_name=f"{ticker_slug}_report.pdf",
                     mime="application/pdf",
                     use_container_width=True)
@@ -615,7 +615,7 @@ def render_sidebar(results) -> None:
                 unsafe_allow_html=True,
             )
         else:
-            if st.button("Lancer la veille", key="btn_veille", use_container_width=True):
+            if st.button("Lancer la veille", key="btn_veille", use_container_width=True, type="primary"):
                 st.session_state["veille_running"] = True
                 st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
@@ -757,7 +757,7 @@ def render_sidebar(results) -> None:
                             )
                         else:
                             st.download_button(
-                                f"↓ {_f.name}",
+                                _f.name,
                                 _f.read_bytes(),
                                 file_name=_f.name,
                                 mime=_mime,
