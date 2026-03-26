@@ -2103,7 +2103,7 @@ def _slide_risques(prs, snap, synthesis, devil):
         add_text_box(slide, cx + 0.30, card_y + 0.30, card_w - 0.60, 0.71,
                      _truncate(risk, 90), 9, accent, bold=True, wrap=True)
         add_text_box(slide, cx + 0.30, card_y + 1.32, card_w - 0.60, 3.5,
-                     _truncate(body, 370), 8, GREY_TXT, wrap=True)
+                     _truncate(body, 480), 8, GREY_TXT, wrap=True)
 
     # Invalidation table
     add_rect(slide, 1.02, 8.33, 23.37, 0.03, "AAAAAA")
@@ -2203,8 +2203,9 @@ def _slide_sentiment(prs, snap, synthesis, sentiment):
 
     pos_themes  = _g(synthesis, "positive_themes", []) or []
     neg_themes  = _g(synthesis, "negative_themes", []) or []
-    pos_theme_str  = ", ".join(str(t) for t in pos_themes[:3]) or "Catalyseurs, croissance, r\u00e9sultats"
-    neg_theme_str  = ", ".join(str(t) for t in neg_themes[:3]) or "Risques macro, concurrence, dette"
+    # Limiter à 1 thème par ligne pour éviter l'explosion de hauteur du tableau
+    pos_theme_str  = _truncate(str(pos_themes[0]), 160) if pos_themes else "Catalyseurs, croissance, r\u00e9sultats"
+    neg_theme_str  = _truncate(str(neg_themes[0]), 160) if neg_themes else "Risques macro, concurrence, dette"
 
     # Détection articles tous neutres (souvent = langue non-anglaise + FinBERT)
     _all_neutral = (sent_articles > 0 and (neu_cnt or 0) >= sent_articles * 0.9)
@@ -2265,7 +2266,7 @@ def _slide_sentiment(prs, snap, synthesis, sentiment):
                                   (abs(sent_score) <= 0.05 and rec == "HOLD")
                else "surveiller.")
         )
-    comment_y = tbl_y + tbl_h_s + 0.50   # distance fixe de 0.5cm sous le tableau
+    comment_y = max(tbl_y + tbl_h_s + 0.50, 11.5)  # min 11.5cm pour éviter chevauchement
     add_text_box(slide, 1.02, comment_y, 23.37, 2.54,
                  val_comment, 8.5, "333333", wrap=True)
 
