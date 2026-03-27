@@ -96,7 +96,7 @@ _SECTOR_CONTENT = {
         "drivers": [
             ("up", "Luxe Premium", "Résilience exceptionnelle — pricing power intact segment > 500 EUR"),
             ("up", "Rebond Asiatique", "Flux touristiques et ventes locales en Chine en normalisation"),
-            ("down", "Pouvoir d Achat", "Inflation residuelle et taux élevés compressent la consommation mid-market"),
+            ("down", "Pouvoir d'Achat", "Inflation residuelle et taux élevés compressent la consommation mid-market"),
             ("down", "Substitution Digital", "Plateformes e-commerce capturent des parts en distribution"),
         ],
         "cycle_comment": "Secteur en consolidation | luxe résilient, mid-market sous pression",
@@ -146,8 +146,8 @@ _SECTOR_CONTENT = {
             ("Regulation Bale IV", "Exigences CET1 plus élevées — pression sur le ROE et les politiques de retour de capital."),
         ],
         "drivers": [
-            ("up", "Marge Nette d Interet", "Taux élevés soutiennent les NIM — pic attendu T2 2026"),
-            ("up", "Gestion d Actifs", "Collecte nette positive — marches actions porteurs"),
+            ("up", "Marge Nette d'Interet", "Taux élevés soutiennent les NIM — pic attendu T2 2026"),
+            ("up", "Gestion d'Actifs", "Collecte nette positive — marches actions porteurs"),
             ("down", "Cout du Risque", "Montee progressive des provisions — NPL en hausse"),
             ("down", "Regulation", "Bale IV — impact CET1 estime a -80bps grandes banques EU"),
         ],
@@ -1356,7 +1356,7 @@ def _s14_distribution(prs, D):
 
 def _s15_entry(prs, D):
     slide = _blank(prs)
-    _header(slide, "Zone d Entree Optimale",
+    _header(slide, "Zone d'Entree Optimale",
             "Conditions d'entree favorable  ·  Cours < DCF Base x 0,90 + momentum negatif + sentiment negatif", 3)
 
     _rect(slide, 0.9, 2.5, 23.6, 0.9, fill=_GRAYL)
@@ -1418,7 +1418,7 @@ def _s15_entry(prs, D):
 
 def _s17_risques(prs, D):
     slide = _blank(prs)
-    _header(slide, "Risques & Conditions d Invalidation",
+    _header(slide, "Risques & Conditions d'Invalidation",
             "Analyse des risques structurels  ·  These contraire  ·  Protocole Avocat du Diable", 4)
 
     content = D["content"]
