@@ -993,7 +993,7 @@ def _slide_company_overview(prs, snap, synthesis, ratios):
                          _truncate(seg_name, 80), 8.5, BLACK, bold=True)
             if seg_desc:
                 add_text_box(slide, 1.72, by + 0.44, 12.05, 1.40,
-                             _truncate(seg_desc, 420), 7.5, GREY_TXT, italic=True, wrap=True)
+                             _truncate(seg_desc, 520), 7.5, GREY_TXT, italic=True, wrap=True)
     else:
         # Fallback : liste des strengths si pas de segments
         bullet_y = 7.25
@@ -1095,7 +1095,7 @@ def _slide_business_model(prs, snap, synthesis):
         # Hauteur description etendue pour utiliser l'espace jusqu'au footer (13.39 - col_y - 3.81)
         desc_h = col_h - 3.81 - 0.30  # marge 0.30 cm avant le bas de la carte
         add_text_box(slide, cx + 0.25, col_y + 3.81, col_w - 0.50, max(desc_h, 5.0),
-                     _truncate(seg_desc, 450), 8, GREY_TXT, wrap=True)
+                     _truncate(seg_desc, 520), 8, GREY_TXT, wrap=True)
 
     return slide
 
