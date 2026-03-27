@@ -403,28 +403,34 @@ def _make_scatter(tickers_data: list[dict], sector_name: str) -> io.BytesIO:
     sizes = [max(80, min(180, s * 1.8)) for s in scores]
     offsets = [(6, 4)] * len(tickers)
 
+    def _to_float(v):
+        try:
+            return float(v)
+        except (TypeError, ValueError):
+            return None
+
     fig, ax = plt.subplots(figsize=(5.5, 3.8))
     for t, ev, rg, col, sz, off in zip(tickers, ev_ebitda, rev_grwth, cols, sizes, offsets):
-        if ev is not None:
-            try:
-                ax.scatter(float(rg), float(ev), color=col, s=sz, zorder=4,
-                           alpha=0.85, edgecolors='white', linewidth=0.6)
-                ax.annotate(t, (float(rg), float(ev)), textcoords='offset points',
-                            xytext=off, fontsize=7.5, color=col, fontweight='bold')
-            except (TypeError, ValueError):
-                pass
+        ev_f = _to_float(ev)
+        try:
+            rg_f = float(rg)
+        except (TypeError, ValueError):
+            continue
+        if ev_f is not None:
+            ax.scatter(rg_f, ev_f, color=col, s=sz, zorder=4,
+                       alpha=0.85, edgecolors='white', linewidth=0.6)
+            ax.annotate(t, (rg_f, ev_f), textcoords='offset points',
+                        xytext=off, fontsize=7.5, color=col, fontweight='bold')
         else:
-            try:
-                ax.scatter(float(rg), 5, color=col, s=sz, zorder=4, alpha=0.85,
-                           marker='^', edgecolors='white', linewidth=0.6)
-                ax.annotate(t, (float(rg), 5), textcoords='offset points',
-                            xytext=(4, 5), fontsize=7, color=col, fontweight='bold')
-            except (TypeError, ValueError):
-                pass
+            ax.scatter(rg_f, 5, color=col, s=sz, zorder=4, alpha=0.85,
+                       marker='^', edgecolors='white', linewidth=0.6)
+            ax.annotate(t, (rg_f, 5), textcoords='offset points',
+                        xytext=(4, 5), fontsize=7, color=col, fontweight='bold')
 
     # Médiane EV/EBITDA
-    meds = [float(ev) for ev in ev_ebitda if ev is not None]
-    has_fallback = any(ev is None for ev in ev_ebitda)
+    meds = [_to_float(ev) for ev in ev_ebitda]
+    meds = [v for v in meds if v is not None]
+    has_fallback = any(_to_float(ev) is None for ev in ev_ebitda)
     if meds:
         med_ev = np.median(meds)
         ax.axhline(y=med_ev, color='#D0D5DD', linewidth=0.8, linestyle='--', alpha=0.8)

@@ -1576,18 +1576,23 @@ def _s20_performance(prs, D):
         RGBColor(0x3A, 0x6B, 0x1B), RGBColor(0x6B, 0x1B, 0x3A),
     ]
     td = D["tickers_data"]
+    n_td = len(td[:MAX_TICKERS_CHART])
+    # Réserver 2.0 cm pour la section commentaire en bas du panel (y=10.5 à 12.5)
+    _COMMENT_Y = 10.5
+    legend_avail = _COMMENT_Y - 3.15   # espace disponible pour la légende
+    row_h = min(1.25, legend_avail / max(n_td, 1))
     for i, t in enumerate(td[:MAX_TICKERS_CHART]):
-        yy = 3.15 + i * 1.25
+        yy = 3.15 + i * row_h
         col = _LINE_COLORS[i % len(_LINE_COLORS)]
-        _rect(slide, 16.5, yy + 0.15, 0.5, 0.35, fill=col)
+        _rect(slide, 16.5, yy + 0.12, 0.5, 0.3, fill=col)
         tk = t.get("ticker", f"T{i+1}")
         co = (t.get("company") or tk)[:28]
         score = int(t.get("score_global") or 0)
         reco = "BUY" if score >= 70 else ("HOLD" if score >= 50 else "SELL")
-        _txb(slide, f"{tk}  —  {co}", 17.2, yy, 7.1, 0.55, size=7.5, bold=True, color=_NAVY)
-        _txb(slide, f"Score {score}/100  ·  {reco}", 17.2, yy + 0.55, 7.1, 0.55, size=7, color=_GRAYT)
+        _txb(slide, f"{tk}  —  {co}", 17.2, yy, 7.1, 0.5, size=7.5, bold=True, color=_NAVY)
+        _txb(slide, f"Score {score}/100  ·  {reco}", 17.2, yy + 0.5, 7.1, 0.45, size=7, color=_GRAYT)
 
-    # Commentaire analytique
+    # Commentaire analytique — position fixe, jamais chevauchée par la légende
     td_s = sorted(td, key=lambda x: x.get("momentum_52w") or 0, reverse=True)
     best = td_s[0] if td_s else {}
     worst = td_s[-1] if td_s else {}
@@ -1599,9 +1604,9 @@ def _s20_performance(prs, D):
         f"Le momentum 52W est integre dans le score FinSight comme "
         f"signal de confirmation."
     )
-    _rect(slide, 16.4, 11.3, 8.1, 0.05, fill=_GRAYD)
-    _txb(slide, "LECTURE ANALYTIQUE", 16.6, 11.4, 7.8, 0.5, size=7.5, bold=True, color=_NAVY)
-    _txb(slide, commentary, 16.6, 11.95, 7.8, 0.6, size=7, color=_GRAYT, wrap=True)
+    _rect(slide, 16.4, _COMMENT_Y, 8.1, 0.05, fill=_GRAYD)
+    _txb(slide, "LECTURE ANALYTIQUE", 16.6, _COMMENT_Y + 0.1, 7.8, 0.5, size=7.5, bold=True, color=_NAVY)
+    _txb(slide, commentary, 16.6, _COMMENT_Y + 0.65, 7.8, 1.7, size=7, color=_GRAYT, wrap=True)
 
     _footer(slide)
 
