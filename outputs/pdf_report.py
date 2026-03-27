@@ -27,6 +27,20 @@ def _v(val, fmt="{:.1f}", default="N/A"):
     try: return fmt.format(float(val))
     except: return default
 
+
+def _valid_hist_labels(snapshot) -> list:
+    """Retourne les annees triees avec au moins une donnee reelle (exclut les annees all-None)."""
+    if not (snapshot and snapshot.years):
+        return []
+    result = []
+    for y, fy in snapshot.years.items():
+        if fy is None:
+            continue
+        if any(getattr(fy, attr, None) is not None
+               for attr in ("revenue", "cash", "da", "interest_expense")):
+            result.append(y)
+    return sorted(result, key=lambda y: int(y.split("_")[0]))
+
 def _pct(val, default="N/A"):
     if val is None: return default
     try: return f"{float(val)*100:.1f}%"
@@ -330,7 +344,7 @@ def _sec3_financiere(snapshot, ratios, styles):
     elems.append(Paragraph(f"3.1  Compte de Résultat ({cur} {units})", styles["subsection"]))
 
     # Colonnes : 3 historiques + 2 projections
-    hist_labels = sorted([y for y in snapshot.years.keys()], key=lambda y: int(y.split("_")[0]))[-3:]
+    hist_labels = _valid_hist_labels(snapshot)[-3:]
     proj_labels = ["2025F", "2026F"]
     all_labels  = hist_labels + proj_labels
 
@@ -484,7 +498,7 @@ def _sec4_valorisation(snapshot, ratios, synthesis, styles):
     upside = _upside(tbase, price)
 
     # Projections
-    hist_labels = sorted([y for y in snapshot.years.keys()], key=lambda y: int(y.split("_")[0]))
+    hist_labels = _valid_hist_labels(snapshot)
     latest_fy   = snapshot.years.get(hist_labels[-1]) if hist_labels else None
     rev_cagr = "N/A"
     if ratios and len(hist_labels) >= 2:

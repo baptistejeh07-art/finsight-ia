@@ -1605,6 +1605,20 @@ def _g(obj, *keys, default=None):
         obj = obj.get(k) if isinstance(obj, dict) else getattr(obj, k, None)
     return obj if obj is not None else default
 
+def _valid_hist_labels_pdf(snap) -> list:
+    """Retourne les annees triees avec au moins une donnee reelle (exclut les annees all-None)."""
+    if not (snap and snap.years):
+        return []
+    result = []
+    for y, fy in snap.years.items():
+        if fy is None:
+            continue
+        if any(getattr(fy, attr, None) is not None
+               for attr in ("revenue", "cash", "da", "interest_expense")):
+            result.append(y)
+    return sorted(result, key=lambda y: str(y).replace("_LTM", ""))
+
+
 def _benchmarks(sector):
     s = (sector or "").lower()
     if any(w in s for w in ("tech","software","semiconductor","information")):
@@ -1894,10 +1908,18 @@ class PDFWriter:
         tbull     = _g(synthesis, 'target_bull')
 
         # Ratios LTM
-        hist_labels = sorted(snap.years.keys(),
-                             key=lambda y: str(y).replace('_LTM','')) if snap else []
+        hist_labels = _valid_hist_labels_pdf(snap) if snap else []
         latest_l    = hist_labels[-1] if hist_labels else None
         yr_r = (ratios.years.get(latest_l) if ratios and latest_l else None)
+        # Fallback: si yr_r all-None, chercher l'annee precedente avec donnees
+        if yr_r is not None and all(getattr(yr_r, a, None) is None
+                                     for a in ('pe_ratio', 'ev_ebitda', 'gross_margin')):
+            for _yl in reversed(hist_labels[:-1]):
+                _yr_cand = ratios.years.get(_yl) if ratios else None
+                if _yr_cand and any(getattr(_yr_cand, a, None) is not None
+                                    for a in ('pe_ratio', 'ev_ebitda', 'gross_margin')):
+                    yr_r = _yr_cand
+                    break
 
         if yr_r:
             ev_ebitda_v = getattr(yr_r, 'ev_ebitda', None)

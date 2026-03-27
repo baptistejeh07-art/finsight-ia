@@ -142,6 +142,20 @@ def _g(obj, attr, default=None):
     return getattr(obj, attr, default)
 
 
+def _valid_years(snap) -> list:
+    """Retourne les annees triees qui ont au moins une donnee reelle (exclut les annees all-None)."""
+    if not (snap and snap.years):
+        return []
+    result = []
+    for y, fy in snap.years.items():
+        if fy is None:
+            continue
+        if any(getattr(fy, attr, None) is not None
+               for attr in ("revenue", "cash", "da", "interest_expense")):
+            result.append(y)
+    return sorted(result, key=lambda y: str(y).replace("_LTM", ""))
+
+
 # ---------------------------------------------------------------------------
 # Helpers XML (transparence, fond slide)
 # ---------------------------------------------------------------------------
@@ -496,7 +510,18 @@ def _ratio(ratios, attr):
         return None
     yrs = getattr(ratios, "years", {}) or {}
     yr = yrs.get(latest)
-    return getattr(yr, attr, None) if yr else None
+    val = getattr(yr, attr, None) if yr else None
+    if val is not None:
+        return val
+    # Fallback: walk years in reverse order to find latest with data
+    for y in sorted(yrs.keys(), key=lambda k: str(k).replace("_LTM", ""), reverse=True):
+        yr2 = yrs.get(y)
+        if yr2 is None:
+            continue
+        v2 = getattr(yr2, attr, None)
+        if v2 is not None:
+            return v2
+    return None
 
 
 def _fy(snap, year_key, attr):
@@ -1007,7 +1032,7 @@ def _slide_company_overview(prs, snap, synthesis, ratios):
     # 4 KPI boxes on right
     shares    = _g(mkt, "shares_diluted")
     mktcap    = (shares * price / 1000) if (shares and price) else None
-    years_sorted = sorted(snap.years.keys(), key=lambda y: str(y).replace("_LTM", "")) if (snap and snap.years) else []
+    years_sorted = _valid_years(snap)
     latest_yr_key = years_sorted[-1] if years_sorted else None
     rev = _fy(snap, latest_yr_key, "revenue")
 
@@ -1117,7 +1142,7 @@ def _slide_is(prs, snap, synthesis, ratios):
     currency= _g(ci, "currency", "USD") or "USD"
     cur_sym = "EUR" if currency == "EUR" else "$"
 
-    years_sorted = sorted(snap.years.keys(), key=lambda y: str(y).replace("_LTM", "")) if (snap and snap.years) else []
+    years_sorted = _valid_years(snap)
     is_proj  = _g(synthesis, "is_projections", {}) or {}
     proj_keys = list(is_proj.keys())
 
@@ -1294,7 +1319,7 @@ def _slide_bilan(prs, snap, synthesis, ratios):
     currency= _g(ci, "currency", "USD") or "USD"
     cur_sym = "EUR" if currency == "EUR" else "$"
 
-    years_sorted  = sorted(snap.years.keys(), key=lambda y: str(y).replace("_LTM", "")) if (snap and snap.years) else []
+    years_sorted  = _valid_years(snap)
     latest_yr_key = years_sorted[-1] if years_sorted else None
     latest_fy     = snap.years.get(latest_yr_key) if (snap and latest_yr_key) else None
 
@@ -1387,7 +1412,7 @@ def _slide_ratios(prs, snap, synthesis, ratios):
     footer_bar(slide)
     section_dots(slide, 2)
 
-    years_sorted  = sorted(snap.years.keys(), key=lambda y: str(y).replace("_LTM", "")) if (snap and snap.years) else []
+    years_sorted  = _valid_years(snap)
     latest_yr_key = years_sorted[-1] if years_sorted else None
 
     slide_title(slide, "Ratios Cl\u00e9s vs. Benchmark Sectoriel",
