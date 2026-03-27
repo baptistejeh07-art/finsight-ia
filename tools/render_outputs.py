@@ -203,6 +203,26 @@ def render_xlsx(xlsx_path: Path, out_dir: Path, sheets: list[str] | None = None,
             pass
 
 
+def render_indice(universe: str) -> dict:
+    """Render PDF + PPTX pour un indice complet (stem : indice_SP_500)."""
+    stem = f"indice_{universe.replace(' ', '_').replace('&', '')}"
+    renders_dir = CLI_DIR / "renders" / stem
+
+    pdf_files  = sorted(CLI_DIR.glob(f"{stem}*.pdf"))
+    pptx_files = sorted(CLI_DIR.glob(f"{stem}*.pptx"))
+
+    if not pdf_files and not pptx_files:
+        print(f"Aucun output trouve pour {stem} dans {CLI_DIR}")
+        return {}
+
+    result = {}
+    if pdf_files:
+        result["pdf"] = render_pdf(pdf_files[-1], renders_dir / "pdf")
+    if pptx_files:
+        result["pptx"] = render_pptx(pptx_files[-1], renders_dir / "pptx")
+    return result
+
+
 def render_sector(sector: str, universe: str, mode: str = "secteur") -> dict:
     """Render PDF + PPTX pour un secteur ou indice."""
     stem = f"{mode}_{sector.replace(' ', '_')}_{universe.replace(' ', '_')}"
@@ -255,13 +275,16 @@ if __name__ == "__main__":
     parser.add_argument("ticker", nargs="?", help="Ticker societe (ex: AAPL)")
     parser.add_argument("--sector", default=None, help="Nom du secteur (ex: Technology)")
     parser.add_argument("--universe", default=None, help="Univers (ex: S&P 500)")
+    parser.add_argument("--indice", default=None, help="Indice complet (ex: S&P 500)")
     parser.add_argument("--mode", default="secteur", choices=["secteur", "indice"])
     parser.add_argument("--only", choices=["pdf", "pptx", "xlsx"], default=None)
     parser.add_argument("--sheet", default=None, help="Nom de la feuille Excel (ex: INPUT)")
     parser.add_argument("--dpi", type=int, default=150)
     args = parser.parse_args()
 
-    if args.sector and args.universe:
+    if args.indice:
+        render_indice(args.indice)
+    elif args.sector and args.universe:
         render_sector(args.sector, args.universe, mode=args.mode)
     elif args.ticker:
         render(args.ticker, only=args.only, sheet=args.sheet)

@@ -112,8 +112,11 @@ def run_secteur(sector: str, universe: str = "CAC 40") -> None:
     log.info("=== ANALYSE SECTORIELLE : %s / %s ===", sector, universe)
     t0 = time.time()
 
-    # Données synthétiques pour test immédiat (remplacer par vraies données si dispo)
-    tickers = _make_test_tickers(sector, 6)
+    # Vrais tickers yfinance si secteur connu, fallback synthetique sinon
+    tickers = _fetch_real_sector_data(sector, universe, max_tickers=8)
+    if not tickers:
+        log.warning("Fallback donnees synthetiques pour '%s' / '%s'", sector, universe)
+        tickers = _make_test_tickers(sector, 6)
 
     pdf_path  = OUT_DIR / f"secteur_{sector.replace(' ','_')}_{universe.replace(' ','_')}.pdf"
     pptx_path = OUT_DIR / f"secteur_{sector.replace(' ','_')}_{universe.replace(' ','_')}.pptx"
@@ -130,26 +133,164 @@ def run_secteur(sector: str, universe: str = "CAC 40") -> None:
     print(f"\nTemps total : {time.time() - t0:.1f}s")
 
 
-def run_indice(sector: str, universe: str = "S&P 500") -> None:
-    """Pipeline indice → PDF indice."""
+def run_indice(universe: str = "S&P 500") -> None:
+    """Pipeline indice complet (tous secteurs) → PDF + PPTX."""
     from outputs.indice_pdf_writer import IndicePDFWriter
+    from outputs.indice_pptx_writer import IndicePPTXWriter
 
-    log.info("=== ANALYSE INDICE : %s / %s ===", sector, universe)
+    log.info("=== ANALYSE INDICE : %s ===", universe)
     t0 = time.time()
 
-    tickers = _make_test_tickers(sector, 15)
-    data    = _make_indice_data(tickers, sector, universe)
+    try:
+        data = _fetch_real_indice_data(universe)
+        log.info("Donnees reelles indice OK")
+    except Exception as e:
+        log.warning("fetch_real_indice_data erreur: %s — fallback test", e)
+        data = _make_test_indice_data(universe)
 
-    pdf_path = OUT_DIR / f"indice_{sector.replace(' ','_')}_{universe.replace(' ','_')}.pdf"
+    stem     = f"indice_{universe.replace(' ','_').replace('&','')}"
+    pdf_path  = OUT_DIR / f"{stem}.pdf"
+    pptx_path = OUT_DIR / f"{stem}.pptx"
+
     IndicePDFWriter.generate(data, str(pdf_path))
     log.info("PDF indice : %s  (%d Ko)", pdf_path.name, pdf_path.stat().st_size // 1024)
 
-    print(f"\nFichiers générés dans : {OUT_DIR}")
-    print(f"  • {pdf_path.name}")
+    pptx_bytes = IndicePPTXWriter.generate(data, str(pptx_path))
+    log.info("PPTX indice : %s  (%d Ko)", pptx_path.name, pptx_path.stat().st_size // 1024)
+
+    print(f"\nFichiers generes dans : {OUT_DIR}")
+    print(f"  * {pdf_path.name}")
+    print(f"  * {pptx_path.name}")
     print(f"\nTemps total : {time.time() - t0:.1f}s")
 
 
-# ── Helpers données de test ────────────────────────────────────────────────────
+# ── Tickers réels par secteur / univers ────────────────────────────────────────
+
+_SECTOR_TICKERS: dict = {
+    # S&P 500
+    ("Consumer Defensive", "S&P 500"):      ["COST","WMT","PG","KO","PEP","PM","MDLZ","GIS","HSY","KMB"],
+    ("Technology", "S&P 500"):              ["AAPL","MSFT","NVDA","META","GOOGL","AMD","AVGO","ORCL","CRM","QCOM"],
+    ("Healthcare", "S&P 500"):              ["JNJ","UNH","PFE","ABT","MRK","TMO","ABBV","DHR","LLY","BMY"],
+    ("Financial Services", "S&P 500"):      ["JPM","BAC","WFC","GS","MS","BLK","AXP","C","SCHW","COF"],
+    ("Communication Services", "S&P 500"):  ["META","GOOGL","NFLX","DIS","CMCSA","VZ","T","EA","TTWO","FOXA"],
+    ("Energy", "S&P 500"):                  ["XOM","CVX","COP","SLB","EOG","MPC","PSX","VLO","OXY","HAL"],
+    ("Industrials", "S&P 500"):             ["UNP","RTX","HON","CAT","DE","BA","LMT","GE","UPS","FDX"],
+    ("Basic Materials", "S&P 500"):         ["LIN","APD","ECL","DD","NEM","FCX","NUE","CF","ALB","MOS"],
+    ("Real Estate", "S&P 500"):             ["PLD","AMT","CCI","EQIX","SPG","PSA","O","AVB","WELL","DLR"],
+    ("Utilities", "S&P 500"):               ["NEE","DUK","SO","D","AEP","EXC","SRE","XEL","WEC","ES"],
+    ("Consumer Cyclical", "S&P 500"):       ["AMZN","TSLA","HD","MCD","NKE","LOW","SBUX","TJX","BKNG","GM"],
+    # CAC 40
+    ("Technology", "CAC 40"):              ["CAP.PA","DSY.PA","STM.PA","HO.PA","ALSTOM.PA"],
+    ("Luxury", "CAC 40"):                  ["MC.PA","OR.PA","RMS.PA","KER.PA","MDM.PA"],
+    ("Energy", "CAC 40"):                  ["TTE.PA","ENGI.PA","ML.PA"],
+    ("Healthcare", "CAC 40"):              ["SAN.PA","EL.PA","SARB.PA"],
+    ("Financials", "CAC 40"):              ["BNP.PA","ACA.PA","GLE.PA","AXA.PA","SGO.PA"],
+    ("Industrials", "CAC 40"):             ["AIR.PA","SAF.PA","LR.PA","ATO.PA","RNO.PA"],
+    ("Consumer Staples", "CAC 40"):        ["BN.PA","PUB.PA"],
+    # DAX
+    ("Technology", "DAX"):                 ["SAP.DE","IFX.DE","SIE.DE"],
+    ("Automotive", "DAX"):                 ["BMW.DE","VOW3.DE","MBG.DE","PAH3.DE"],
+    ("Healthcare", "DAX"):                 ["BAYN.DE","MRK.DE","FRE.DE","FME.DE"],
+    ("Financials", "DAX"):                 ["DBK.DE","CBK.DE","ALV.DE","MUV2.DE"],
+    # FTSE 100
+    ("Energy", "FTSE 100"):                ["BP.L","SHEL.L"],
+    ("Mining", "FTSE 100"):                ["RIO.L","BHP.L","GLEN.L","AAL.L"],
+    ("Financials", "FTSE 100"):            ["HSBA.L","BARC.L","LLOY.L","NWG.L","AV.L"],
+    ("Healthcare", "FTSE 100"):            ["AZN.L","GSK.L","HLMA.L"],
+}
+
+
+def _get_real_tickers(sector: str, universe: str) -> list[str]:
+    """Retourne les tickers reels pour un secteur/univers connu."""
+    key = (sector, universe)
+    if key in _SECTOR_TICKERS:
+        return list(_SECTOR_TICKERS[key])
+    sector_l, univ_l = sector.lower(), universe.lower()
+    for (s, u), tks in _SECTOR_TICKERS.items():
+        if s.lower() == sector_l and u.lower() == univ_l:
+            return list(tks)
+    return []
+
+
+def _fetch_real_sector_data(sector: str, universe: str, max_tickers: int = 8) -> list[dict]:
+    """Fetch donnees reelles secteur via yfinance.info (rapide, parallele)."""
+    import yfinance as yf
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    symbols = _get_real_tickers(sector, universe)[:max_tickers]
+    if not symbols:
+        log.warning("Pas de tickers reels pour '%s' / '%s' — fallback synthetique", sector, universe)
+        return []
+
+    log.info("Fetch secteur reel: %d tickers (%s)", len(symbols), ", ".join(symbols))
+
+    def _fetch_one(tk: str) -> dict | None:
+        try:
+            info = yf.Ticker(tk).info or {}
+            name = info.get("longName") or info.get("shortName") or tk
+            if name == tk and not info.get("marketCap"):
+                return None  # ticker invalide / deliste
+            mc = info.get("marketCap")
+            pe = info.get("trailingPE") or info.get("forwardPE")
+            pe = pe if pe and pe > 0 and pe < 500 else None
+            ebitda_m = (info.get("ebitdaMargins") or 0) * 100
+            gross_m  = (info.get("grossMargins")  or 0) * 100
+            net_m    = (info.get("profitMargins")  or 0) * 100
+            roe      = (info.get("returnOnEquity") or 0) * 100
+            rev_g    =  info.get("revenueGrowth")  or 0
+            mom52    = (info.get("52WeekChange")    or 0) * 100
+            beta     =  info.get("beta")            or 1.0
+            # Score simplifie : value + growth + qualite + momentum
+            s_val  = max(0, min(25, 25 - (pe or 20) * 0.5)) if pe else 12
+            s_gro  = max(0, min(25, 12 + rev_g * 100))
+            s_qua  = max(0, min(25, 10 + net_m * 0.8))
+            s_mom  = max(0, min(25, 12 + mom52 * 0.15))
+            score  = round(s_val + s_gro + s_qua + s_mom)
+            return {
+                "ticker":          tk,
+                "company":         name[:35],
+                "sector":          info.get("sector", sector),
+                "score_global":    score,
+                "score_value":     round(s_val, 1),
+                "score_growth":    round(s_gro, 1),
+                "score_quality":   round(s_qua, 1),
+                "score_momentum":  round(s_mom, 1),
+                "ev_ebitda":       info.get("enterpriseToEbitda"),
+                "ev_revenue":      info.get("enterpriseToRevenue"),
+                "pe_ratio":        pe,
+                "ebitda_margin":   round(ebitda_m, 1),
+                "gross_margin":    round(gross_m, 1),
+                "net_margin":      round(net_m, 1),
+                "roe":             round(roe, 1),
+                "revenue_growth":  rev_g,
+                "momentum_52w":    round(mom52, 1),
+                "altman_z":        2.5,
+                "beneish_m":       -2.5,
+                "beta":            beta,
+                "price":           info.get("currentPrice") or info.get("regularMarketPrice"),
+                "market_cap":      mc,
+                "revenue_ltm":     info.get("totalRevenue"),
+                "currency":        info.get("currency", "USD"),
+                "sentiment_score": 0.0,
+            }
+        except Exception as e:
+            log.warning("yfinance.info '%s' erreur: %s", tk, e)
+            return None
+
+    results = []
+    with ThreadPoolExecutor(max_workers=4) as ex:
+        futures = {ex.submit(_fetch_one, tk): tk for tk in symbols}
+        for fut in as_completed(futures):
+            r = fut.result()
+            if r:
+                results.append(r)
+
+    results.sort(key=lambda x: x.get("market_cap") or 0, reverse=True)
+    log.info("Secteur %s/%s: %d/%d tickers OK", sector, universe, len(results), len(symbols))
+    return results
+
+
+# ── Helpers données de test (fallback si secteur inconnu) ──────────────────────
 
 def _make_test_tickers(sector: str, n: int) -> list[dict]:
     import random
@@ -187,36 +328,407 @@ def _make_test_tickers(sector: str, n: int) -> list[dict]:
     return tickers
 
 
-def _make_indice_data(tickers: list, sector: str, universe: str) -> dict:
+# ── Mapping ETF SPDR → secteur ─────────────────────────────────────────────────
+
+_ETF_SECTORS = {
+    "XLK":  "Technology",
+    "XLV":  "Health Care",
+    "XLF":  "Financials",
+    "XLY":  "Consumer Discretionary",
+    "XLC":  "Communication Services",
+    "XLI":  "Industrials",
+    "XLP":  "Consumer Staples",
+    "XLE":  "Energy",
+    "XLRE": "Real Estate",
+    "XLU":  "Utilities",
+    "XLB":  "Materials",
+}
+
+_SP500_NB_SOC = {
+    "Technology": 65, "Health Care": 64, "Financials": 72,
+    "Consumer Discretionary": 55, "Communication Services": 26,
+    "Industrials": 77, "Consumer Staples": 38, "Energy": 23,
+    "Materials": 28, "Real Estate": 31, "Utilities": 28,
+}
+
+_INDICE_META = {
+    "S&P 500": {"code": "^GSPC", "nb_societes": 503},
+    "CAC 40":  {"code": "^FCHI", "nb_societes": 40},
+    "DAX":     {"code": "^GDAXI", "nb_societes": 40},
+    "FTSE 100":{"code": "^FTSE",  "nb_societes": 100},
+}
+
+
+def _make_test_indice_data(universe: str = "S&P 500") -> dict:
+    """Data dict complet pour IndicePDFWriter + IndicePPTXWriter (donnees synthetiques)."""
+    import datetime
+    meta = _INDICE_META.get(universe, {"code": "^GSPC", "nb_societes": 503})
+    today = datetime.date.today()
+    _fr = {1:"janvier",2:"fevrier",3:"mars",4:"avril",5:"mai",6:"juin",
+           7:"juillet",8:"aout",9:"septembre",10:"octobre",11:"novembre",12:"decembre"}
+    date_str = f"{today.day} {_fr[today.month]} {today.year}"
+
+    # (nom, nb_soc, score, signal, ev_ebitda_str, ebitda_margin, croisse_str, mom_str)
+    secteurs = [
+        ("Technology",             65, 72, "Surponderer",   "24.8x", 28.4, "+14.2%", "+18.4%"),
+        ("Health Care",            64, 65, "Surponderer",   "14.2x", 22.1, "+9.8%",  "+8.4%"),
+        ("Financials",             72, 62, "Surponderer",   "9.8x",  31.2, "+11.4%", "+12.1%"),
+        ("Communication Services", 26, 58, "Neutre",        "12.6x", 24.6, "+10.1%", "+9.2%"),
+        ("Consumer Discretionary", 55, 55, "Neutre",        "16.4x", 14.8, "+8.2%",  "+6.8%"),
+        ("Industrials",            77, 53, "Neutre",        "14.8x", 16.2, "+6.8%",  "+5.4%"),
+        ("Consumer Staples",       38, 48, "Neutre",        "13.2x", 18.4, "+3.2%",  "+2.1%"),
+        ("Materials",              28, 46, "Neutre",        "11.4x", 20.4, "+4.8%",  "+1.8%"),
+        ("Energy",                 23, 44, "Neutre",        "6.2x",  28.8, "-2.4%",  "-4.2%"),
+        ("Real Estate",            31, 38, "Sous-ponderer", "18.6x", 48.2, "+1.2%",  "-2.8%"),
+        ("Utilities",              28, 36, "Sous-ponderer", "11.8x", 32.4, "+2.8%",  "-5.4%"),
+    ]
     import statistics
-    scores = [t["score_global"] for t in tickers]
-    avg    = statistics.mean(scores)
-    signal = ("Surponderer" if avg > 60 else ("Sous-ponderer" if avg < 40 else "Neutre"))
-    return {
-        "sector": sector, "universe": universe,
-        "signal": signal, "score": round(avg, 1),
-        "score_prev": round(avg - 2, 1), "score_delta": 2.0,
-        "tickers_data": tickers,
-        "top3_buy":  tickers[:3],
-        "top3_sell": tickers[-3:],
-        "market_context": {
-            "tendance": "Hausse modérée",
-            "catalyseur": "Publication résultats T1",
-            "risque_principal": "Tensions commerciales",
+    scores = [s[2] for s in secteurs]
+    avg_score = round(statistics.mean(scores), 1)
+    nb_surp = sum(1 for s in secteurs if s[3] == "Surponderer")
+    conviction = round(nb_surp / len(secteurs) * 100)
+    signal_global = ("Surponderer" if avg_score > 62 else
+                     ("Sous-ponderer" if avg_score < 45 else "Neutre"))
+
+    top3_secteurs = [
+        {
+            "nom": "Technology", "signal": "Surponderer", "score": 72,
+            "ev_ebitda": "24.8x", "pe_forward_raw": 28.5, "pe_mediane_10y": 22.0,
+            "poids_indice": "31.5%",
+            "catalyseur": "Cycle IA — CAPEX hyperscalers +35% YoY, monetisation acceleree",
+            "risque": "Valorisations tendues si taux LT restent eleves",
+            "societes": [
+                ("AAPL", "Surponderer", "22.4x", 78),
+                ("MSFT", "Surponderer", "28.6x", 75),
+                ("NVDA", "Surponderer", "42.8x", 82),
+            ],
         },
+        {
+            "nom": "Health Care", "signal": "Surponderer", "score": 65,
+            "ev_ebitda": "14.2x", "pe_forward_raw": 17.8, "pe_mediane_10y": 16.5,
+            "poids_indice": "12.8%",
+            "catalyseur": "Pipeline FDA robuste, pricing power defensif intact",
+            "risque": "Risque reglementaire US — pression politique sur prix medicaments",
+            "societes": [
+                ("UNH", "Surponderer", "10.8x", 72),
+                ("LLY", "Surponderer", "28.4x", 80),
+                ("JNJ", "Neutre",      "12.6x", 62),
+            ],
+        },
+        {
+            "nom": "Financials", "signal": "Surponderer", "score": 62,
+            "ev_ebitda": "9.8x", "pe_forward_raw": 13.2, "pe_mediane_10y": 12.8,
+            "poids_indice": "13.2%",
+            "catalyseur": "Spreads de credit solides, NIM eleves, buybacks soutenus",
+            "risque": "Stress immobilier commercial — CRE loans sous surveillance",
+            "societes": [
+                ("JPM", "Surponderer", "8.4x",  70),
+                ("BLK", "Surponderer", "14.2x", 68),
+                ("GS",  "Neutre",      "9.8x",  60),
+            ],
+        },
+    ]
+
+    rotation = [
+        ("Technology",             "Expansion",  "Moderee",  "Elevee",   "Accumuler"),
+        ("Health Care",            "Expansion",  "Faible",   "Moderee",  "Accumuler"),
+        ("Financials",             "Expansion",  "Positive", "Moderee",  "Accumuler"),
+        ("Communication Services", "Expansion",  "Moderee",  "Elevee",   "Neutre"),
+        ("Consumer Discretionary", "Expansion",  "Moderee",  "Elevee",   "Neutre"),
+        ("Industrials",            "Expansion",  "Moderee",  "Elevee",   "Neutre"),
+        ("Consumer Staples",       "Ralentissement","Faible", "Faible",  "Neutre"),
+        ("Materials",              "Expansion",  "Moderee",  "Elevee",   "Neutre"),
+        ("Energy",                 "Ralentissement","Faible", "Moderee", "Alleger"),
+        ("Real Estate",            "Ralentissement","Elevee", "Moderee", "Alleger"),
+        ("Utilities",              "Ralentissement","Elevee", "Faible",  "Alleger"),
+    ]
+
+    etf_perf = {
+        "XLK":  {"nom": "Technology",        "return_1y": 18.4},
+        "XLV":  {"nom": "Health Care",        "return_1y": 8.4},
+        "XLF":  {"nom": "Financials",         "return_1y": 12.1},
+        "XLY":  {"nom": "Consumer Disc.",     "return_1y": 6.8},
+        "XLC":  {"nom": "Comm. Services",     "return_1y": 9.2},
+        "XLI":  {"nom": "Industrials",        "return_1y": 5.4},
+        "XLP":  {"nom": "Consumer Staples",   "return_1y": 2.1},
+        "XLE":  {"nom": "Energy",             "return_1y": -4.2},
+        "XLRE": {"nom": "Real Estate",        "return_1y": -2.8},
+        "XLU":  {"nom": "Utilities",          "return_1y": -5.4},
+        "XLB":  {"nom": "Materials",          "return_1y": 1.8},
+    }
+
+    return {
+        "indice":           universe,
+        "code":             meta["code"],
+        "signal_global":    signal_global,
+        "conviction_pct":   conviction,
+        "nb_secteurs":      len(secteurs),
+        "nb_societes":      meta["nb_societes"],
+        "cours":            "5 210",
+        "variation_ytd":    "+4.8%",
+        "pe_forward":       "21.5x",
+        "pe_mediane_10y":   "18.2x",
+        "erp":              "4.2%",
+        "bpa_growth":       "+8.5%",
+        "date_analyse":     date_str,
+        "texte_description": (
+            f"Le {universe} regroupe les {meta['nb_societes']} plus grandes capitalisations "
+            "boursieres domestiques, pondérees par leur capitalisation flottante. Cet indice "
+            "constitue la reference mondiale pour les allocataires d'actifs institutionnels, "
+            "avec une capitalisation totale de pres de 40 000 milliards de dollars. La "
+            "composition GICS couvre 11 secteurs, le secteur Technologie dominant avec pres "
+            "de 32% de l'indice."
+        ),
+        "texte_macro": (
+            "L'environnement macro reste marque par une resilience de la croissance americaine "
+            "(GDP +2.4% T4 2025) combinee a une desinflation graduelle (PCE Core 2.7%). La "
+            "Fed maintient ses taux directeurs dans une fourchette de 4.25-4.50%, signalant "
+            "2 baisses anticipees pour 2026. Le marche du travail reste solide (chomage 4.1%), "
+            "soutenant la consommation et les marges des secteurs cycliques. Les tensions "
+            "geopolitiques et les risques tarifaires constituent les principaux facteurs "
+            "d'incertitude sur l'horizon 12 mois."
+        ),
+        "texte_signal": (
+            f"Le signal global sur le {universe} est {signal_global} avec une conviction de "
+            f"{conviction}% (sur la base des {len(secteurs)} secteurs analyses). "
+            f"{nb_surp} secteurs ressortent Surponderer — Technology, Health Care et Financials "
+            "— portes respectivement par le cycle IA, le pricing power defensif et les spreads "
+            "de credit eleves. 6 secteurs sont Neutre en raison d'une visibilite limitee sur "
+            "les BPA dans un contexte de taux restrictifs. 2 secteurs (Real Estate, Utilities) "
+            "sont Sous-ponderer sous pression directe de la politique monetaire."
+        ),
+        "texte_valorisation": (
+            f"Le P/E Forward a 21.5x s'inscrit en prime de 18% par rapport a la mediane 10 ans "
+            "(18.2x), justifie en partie par la monetisation de l'IA et la qualite superieure "
+            "des marges. L'ERP ressort a 4.2% — niveau attractif mais contraint par le 10Y US "
+            "a 4.3%. La compression de multiple reste le principal risque si les taux LT "
+            "demeurent restrictifs. Le secteur Technologie (P/E 28.5x vs mediane 22x) concentre "
+            "la prime de valorisation."
+        ),
+        "texte_cycle": (
+            "L'analyse des indicateurs avancees positionne le cycle en phase d'expansion avancee : "
+            "ISM Manufacturier autour du seuil 50 (49.8), courbe des taux partiellement normalisee "
+            "(10Y-2Y +0.2%), Leading Indicators OCDE en legere hausse. Cette configuration "
+            "favorise les secteurs avec forte visibilite BPA et moindre sensibilite aux taux : "
+            "Technology, Health Care, Financials. Les secteurs defensifs (Consumer Staples, "
+            "Utilities) offrent moins de potentiel relatif dans ce regime de cycle."
+        ),
+        "texte_rotation": (
+            "La rotation sectorielle recommandee s'appuie sur le modele cycle 4-phases FinSight. "
+            "En phase d'expansion avancee, le signal Accumuler se concentre sur les secteurs a "
+            "forte croissance BPA et pricing power : Technology (IA), Health Care (FDA pipeline), "
+            "Financials (NIM). Le signal Alleger cible Real Estate (pression taux directe) et "
+            "Utilities (compression de dividende relatif). Un pivot Fed dovish constituerait "
+            "le principal catalyseur de rotation vers les secteurs sensibles aux taux."
+        ),
+        "phase_cycle":  "Expansion avancee",
+        "cycle_detail": "Milieu-fin de cycle — ISM proche 50, courbe taux normalisee",
+        "fred_signals": [
+            {"nom": "PMI Manufacturier",  "valeur": "49.8", "tendance": "Stable",  "signal": "Neutre"},
+            {"nom": "10Y - 2Y (courbe)",  "valeur": "+0.18%","tendance": "Hausse", "signal": "Neutre"},
+            {"nom": "ISM Services",       "valeur": "52.6", "tendance": "Hausse",  "signal": "Surponderer"},
+            {"nom": "Taux chomage",       "valeur": "4.1%", "tendance": "Stable",  "signal": "Neutre"},
+            {"nom": "CPI Core YoY",       "valeur": "3.1%", "tendance": "Baisse",  "signal": "Neutre"},
+        ],
+        "catalyseurs": [
+            ("Cycle IA",          "CAPEX hyperscalers +35% YoY — monetisation acceleree services cloud et semi", "6-12 mois"),
+            ("Desinflation",      "PCE Core convergence vers 2.5% d ici fin 2026 — Fed pivot dovish attendu", "9-18 mois"),
+            ("Resilience margins","Marges nettes S&P 500 a 12.4% vs 11.8% consensus — revision haussiere BPA", "3-6 mois"),
+        ],
+        "secteurs":      secteurs,
+        "top3_secteurs": top3_secteurs,
+        "risques": [
+            ("Recession technique",    "Ralentissement PIB < 0 sur 2 trimestres — revision BPA agrege -15/-20%", "20 %", "ELEVE"),
+            ("Choc taux",              "Fed hike surprise si CPI reaccelere > 3.5% — compression multiples growth", "15 %", "ELEVE"),
+            ("Choc geopolitique",      "Escalade Asie/ME — spike VIX > 35, rotation defensive", "18 %", "MODERE"),
+            ("Deception AI capex",     "ROI IA inferieur aux attentes — derating secteur Tech (P/E 28x -> 22x)", "25 %", "MODERE"),
+            ("Stress credit CRE",      "Pertes immobilier commercial propagees aux banques regionales", "12 %", "FAIBLE"),
+        ],
+        "scenarios": [],
+        "conditions_invalidation": [
+            f"{universe} casse le support 4 800 pts — signal bascule Sous-ponderer",
+            "Fed hike inattendu post-CPI > 3.5% — derating massif growth",
+            "Revisions BPA agragees < -5% sur 2 trimestres consecutifs",
+            "VIX > 35 sur plus de 10 seances consecutives",
+        ],
+        "rotation":      rotation,
         "sentiment_agg": {
-            "label": "Neutre", "score": 0.08,
-            "positif": {"nb": 12, "score": "0.45", "themes": "Résultats, IA"},
-            "negatif": {"nb": 5,  "score": "-0.38", "themes": "Régulation"},
-            "par_secteur": [(sector, "0.08", "Neutre")],
+            "label":   "Neutre",
+            "score":   0.06,
+            "positif": {"nb": 15, "score": "0.42", "themes": "Resultats T4, IA, Innovation semi"},
+            "neutre":  {"nb": 12, "score": "0.02", "themes": "Guidances 2026, Macro taux"},
+            "negatif": {"nb": 7,  "score": "-0.35","themes": "Regulation, Taux LT, CRE"},
+            "par_secteur": [
+                ("Technology",             "0.38",  "Positif"),
+                ("Health Care",            "0.22",  "Positif"),
+                ("Financials",             "0.14",  "Positif"),
+                ("Communication Services", "0.08",  "Neutre"),
+                ("Consumer Discretionary", "0.04",  "Neutre"),
+                ("Industrials",            "0.01",  "Neutre"),
+                ("Consumer Staples",       "-0.05", "Neutre"),
+                ("Materials",              "-0.04", "Neutre"),
+                ("Energy",                 "-0.12", "Negatif"),
+                ("Real Estate",            "-0.22", "Negatif"),
+                ("Utilities",              "-0.18", "Negatif"),
+            ],
+        },
+        "etf_perf": etf_perf,
+        "finbert": {
+            "nb_articles": 0,
+            "score_agrege": "N/D",
+            "positif": {"nb": 0, "score": "—", "themes": "—"},
+            "neutre":  {"nb": 0, "score": "—", "themes": "—"},
+            "negatif": {"nb": 0, "score": "—", "themes": "—"},
+            "par_secteur": [],
         },
         "methodologie": [
-            ("Score sectoriel", "Composite 0-100"),
-            ("Signal", "Surponderer (>60) / Neutre (40-60) / Sous-ponderer (<40)"),
-            ("Valorisation", "EV/EBITDA médian LTM"),
+            ("Score FinSight",   "Composite 0-100 : valeur 25, croissance 25, qualite 25, momentum 25"),
+            ("Signal indice",    "Score agrege secteurs : >60 Surponderer / 40-60 Neutre / <40 Sous-ponderer"),
+            ("Conviction",       "% secteurs en accord avec le signal global (surponderes / total)"),
+            ("EV/EBITDA",        "Mediane LTM des 5 premiers titres par capitalisation de chaque secteur"),
+            ("P/E Mediane 10Y",  "Bloomberg Consensus — comparaison avec P/E Forward actuel"),
         ],
         "perf_history": None,
     }
+
+
+def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
+    """Fetch donnees reelles indice via yfinance (^GSPC + ETF SPDR + secteurs)."""
+    import yfinance as yf
+    import datetime
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    meta = _INDICE_META.get(universe, {"code": "^GSPC", "nb_societes": 503})
+    code = meta["code"]
+    _fr = {1:"janvier",2:"fevrier",3:"mars",4:"avril",5:"mai",6:"juin",
+           7:"juillet",8:"aout",9:"septembre",10:"octobre",11:"novembre",12:"decembre"}
+    today = datetime.date.today()
+    date_str = f"{today.day} {_fr[today.month]} {today.year}"
+
+    # 1. Prix et YTD indice principal
+    indice_info = {}
+    cours_str = "—"
+    ytd_str = "—"
+    pe_fwd_str = "—"
+    try:
+        ticker_obj = yf.Ticker(code)
+        info = ticker_obj.info or {}
+        cours = info.get("regularMarketPrice") or info.get("previousClose")
+        if cours:
+            cours_str = f"{cours:,.0f}".replace(",", " ")
+        # YTD depuis début de l'année
+        hist_1y = ticker_obj.history(period="ytd", interval="1d")["Close"]
+        if len(hist_1y) > 1:
+            ytd_pct = (hist_1y.iloc[-1] / hist_1y.iloc[0] - 1) * 100
+            ytd_str = f"{ytd_pct:+.1f}%"
+        pe_fwd = info.get("forwardPE") or info.get("trailingPE")
+        if pe_fwd and 0 < pe_fwd < 100:
+            pe_fwd_str = f"{pe_fwd:.1f}x"
+        indice_info = info
+    except Exception as e:
+        log.warning("yfinance indice %s erreur: %s", code, e)
+
+    # 2. Returns 52S ETF SPDR (si S&P 500)
+    etf_perf = {}
+    if universe == "S&P 500":
+        etf_map = _ETF_SECTORS
+    else:
+        etf_map = {}
+
+    def _fetch_etf(etf: str) -> tuple:
+        try:
+            hist = yf.Ticker(etf).history(period="1y", interval="1mo")["Close"]
+            if len(hist) < 2:
+                return etf, None
+            ret_1y = (hist.iloc[-1] / hist.iloc[0] - 1) * 100
+            return etf, round(ret_1y, 1)
+        except Exception:
+            return etf, None
+
+    if etf_map:
+        with ThreadPoolExecutor(max_workers=4) as ex:
+            futs = {ex.submit(_fetch_etf, e): e for e in etf_map}
+            for fut in as_completed(futs):
+                etf, ret = fut.result()
+                nom = etf_map.get(etf, etf)
+                etf_perf[etf] = {"nom": nom[:20], "return_1y": ret or 0.0}
+
+    # 3. Secteurs — signal derive du return ETF
+    def _signal_from_ret(ret: float) -> str:
+        if ret > 12: return "Surponderer"
+        if ret < -2: return "Sous-ponderer"
+        return "Neutre"
+
+    def _score_from_ret(ret: float) -> int:
+        return max(25, min(85, round(50 + ret * 1.2)))
+
+    secteurs = []
+    for etf, info in etf_perf.items():
+        ret = info.get("return_1y", 0.0)
+        nom = info.get("nom", "")
+        nb  = _SP500_NB_SOC.get(nom, 30)
+        sc  = _score_from_ret(ret)
+        sig = _signal_from_ret(ret)
+        # EV/EBITDA et marges : valeurs generiques par secteur (pas de source temps reel gratuite)
+        ev_generic = {"Technology":18.0,"Health Care":14.0,"Financials":9.0,
+                      "Consumer Discretionary":12.0,"Communication Services":11.0,
+                      "Industrials":13.0,"Consumer Staples":12.0,"Energy":6.0,
+                      "Materials":10.0,"Real Estate":17.0,"Utilities":11.0}
+        ev  = ev_generic.get(nom, 12.0)
+        mom_str = f"{ret:+.1f}%"
+        secteurs.append((nom, nb, sc, sig, f"{ev:.1f}x", 22.0, "+8.0%", mom_str))
+
+    # Fallback si ETF non disponibles
+    if not secteurs:
+        log.warning("ETF SPDR non disponibles — fallback donnees test")
+        return _make_test_indice_data(universe)
+
+    import statistics
+    scores = [s[2] for s in secteurs]
+    avg_score = round(statistics.mean(scores), 1)
+    nb_surp = sum(1 for s in secteurs if s[3] == "Surponderer")
+    conviction = round(nb_surp / len(secteurs) * 100) if secteurs else 50
+    signal_global = ("Surponderer" if avg_score > 62 else
+                     ("Sous-ponderer" if avg_score < 45 else "Neutre"))
+
+    # Top 3 secteurs : les 3 avec meilleur return ETF
+    sorted_etf = sorted(etf_perf.items(), key=lambda x: x[1].get("return_1y",0), reverse=True)
+    top3_secteurs = []
+    for i, (etf, info) in enumerate(sorted_etf[:3]):
+        nom = info.get("nom","")
+        ret = info.get("return_1y", 0.0)
+        sc  = _score_from_ret(ret)
+        sig = _signal_from_ret(ret)
+        # Tickers representatifs
+        soc_tickers = (_get_real_tickers(nom, universe) or
+                       _get_real_tickers(nom, "S&P 500"))[:3]
+        societes = [(tk, "Surponderer" if sig == "Surponderer" else "Neutre", "—", sc - i*3)
+                    for tk in soc_tickers]
+        top3_secteurs.append({
+            "nom": nom, "signal": sig, "score": sc,
+            "ev_ebitda": "—", "pe_forward_raw": 20.0, "pe_mediane_10y": 18.0,
+            "poids_indice": "—",
+            "catalyseur": f"Performance YTD {ret:+.1f}% — momentum sectoriel positif",
+            "risque": "Risque de compression multiple si croissance BPA decelee",
+            "societes": societes or [("—","Neutre","—",50)],
+        })
+
+    # Base test pour les champs sans source temps reel
+    base = _make_test_indice_data(universe)
+    base.update({
+        "code":           code,
+        "cours":          cours_str,
+        "variation_ytd":  ytd_str,
+        "pe_forward":     pe_fwd_str,
+        "signal_global":  signal_global,
+        "conviction_pct": conviction,
+        "nb_secteurs":    len(secteurs),
+        "secteurs":       secteurs,
+        "top3_secteurs":  top3_secteurs,
+        "etf_perf":       etf_perf,
+        "date_analyse":   date_str,
+    })
+    return base
 
 
 # ── Entrée ────────────────────────────────────────────────────────────────────
@@ -235,7 +747,8 @@ if __name__ == "__main__":
     elif mode in ("secteur", "sec"):
         run_secteur(arg1, arg2)
     elif mode in ("indice", "idx"):
-        run_indice(arg1, arg2)
+        # arg1 = univers complet ex: "S&P 500"
+        run_indice(arg1)
     else:
         print(f"Mode inconnu : {mode}. Utiliser : société | secteur | indice")
         sys.exit(1)

@@ -324,6 +324,78 @@ def audit_sector(mode: str, sector: str, universe: str, preview: bool = False) -
     return report_path
 
 
+def audit_indice(universe: str, preview: bool = False) -> Path:
+    """Audit complet d un indice : analyse PDF + PPTX + preview optionnel."""
+    stem = f"indice_{universe.replace(' ','_').replace('&','')}"
+
+    # Analyse
+    label = f"INDICE {universe}"
+    print(f"\n{'='*60}")
+    print(f"  ANALYSE : {label}")
+    print(f"{'='*60}")
+    t0 = time.time()
+    code, out = _run([sys.executable, "cli_analyze.py", "indice", universe])
+    elapsed = time.time() - t0
+    log_f = ROOT / "outputs" / "generated" / "audits" / f"_run_{stem}.log"
+    log_f.write_text(out, encoding="utf-8", errors="replace")
+
+    # Render (PDF + PPTX)
+    print(f"\n  [RENDER] {stem}...")
+    code_r, out_r = _run([
+        sys.executable, "tools/render_outputs.py", "--indice", universe
+    ])
+    log_r = ROOT / "outputs" / "generated" / "audits" / f"_render_{stem}.log"
+    log_r.write_text(out_r, encoding="utf-8", errors="replace")
+
+    renders_dir = CLI_DIR / "renders" / stem
+    renders = {
+        "pdf":  sorted(renders_dir.glob("pdf/*.png")),
+        "pptx": sorted(renders_dir.glob("pptx/*.png")),
+    }
+
+    if preview:
+        dest = PREVIEW_ROOT / stem
+        dest.mkdir(parents=True, exist_ok=True)
+        copied = 0
+        for f in CLI_DIR.glob(f"{stem}*"):
+            if f.suffix in (".pdf", ".pptx"):
+                shutil.copy2(str(f), dest / f.name)
+                copied += 1
+        print(f"\n  [PREVIEW] {copied} fichier(s) -> {dest}")
+        import subprocess as _sp
+        if dest.exists():
+            _sp.run(["git", "add", str(dest)], cwd=str(ROOT), capture_output=True)
+            _r = _sp.run(
+                ["git", "commit", "-m", f"chore(preview): {stem} outputs regeneres"],
+                cwd=str(ROOT), capture_output=True
+            )
+            if _r.returncode == 0:
+                _sp.run(["git", "push"], cwd=str(ROOT), capture_output=True)
+                print(f"  [PREVIEW] Outputs commites et pousses -> Streamlit Cloud mis a jour.")
+        print(f"  [PREVIEW] Outputs en attente de validation dans Streamlit.")
+
+    now = datetime.now().strftime("%Y-%m-%d %H:%M")
+    lines = [
+        f"# Audit FinSight — {universe}",
+        f"*Genere le {now} — temps pipeline : {elapsed:.1f}s*",
+        "",
+        "## Statut pipeline",
+        f"- Code retour : {code}",
+        "",
+        "## Renders visuels disponibles", "",
+    ]
+    for kind, paths in renders.items():
+        lines.append(f"- **{kind.upper()}** : {len(paths)} image(s)")
+        for p in paths:
+            lines.append(f"  - `{p.name}`")
+    lines.append("")
+
+    report_path = REPORTS / f"audit_{stem}_{datetime.now().strftime('%Y%m%d_%H%M')}.md"
+    report_path.write_text("\n".join(lines), encoding="utf-8")
+    print(f"\n  [AUDIT] Rapport : {report_path.name}")
+    return report_path
+
+
 def audit_ticker(ticker: str, preview: bool = False) -> Path:
     ticker = ticker.upper().replace("/", "-")
 
@@ -394,8 +466,16 @@ if __name__ == "__main__":
 
     reports = []
 
-    # Mode secteur/indice : python tools/audit.py secteur "Consumer Defensive" "S&P 500"
-    if raw[0].lower() in ("secteur", "indice") and len(raw) >= 3:
+    # Mode indice complet : python tools/audit.py [--preview] indice "S&P 500"
+    if raw[0].lower() == "indice" and len(raw) == 2:
+        universe = raw[1]
+        try:
+            r = audit_indice(universe, preview=preview_mode)
+            reports.append(r)
+        except Exception as e:
+            print(f"  [ERREUR] indice {universe} : {e}")
+    # Mode secteur/indice-secteur : python tools/audit.py secteur "Consumer Defensive" "S&P 500"
+    elif raw[0].lower() in ("secteur", "indice") and len(raw) >= 3:
         mode    = raw[0].lower()
         sector  = raw[1]
         universe = raw[2]
