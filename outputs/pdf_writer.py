@@ -292,6 +292,17 @@ def _make_ff_chart(data):
     currency   = _d(data, 'currency', '')
 
     n = len(methods)
+    # Guard : si aucune barre disponible (valorisation indisponible), renvoyer graphique vide
+    if n == 0:
+        fig, ax = plt.subplots(figsize=(10, 4.5))
+        ax.text(0.5, 0.5, 'Valorisation non disponible', ha='center', va='center',
+                fontsize=13, color='#888')
+        ax.axis('off')
+        ax.set_facecolor('white'); fig.patch.set_facecolor('white')
+        buf = io.BytesIO()
+        fig.savefig(buf, format='png', dpi=180, bbox_inches='tight')
+        plt.close(fig); buf.seek(0)
+        return buf
     # Hauteur adaptive : min 4.5, +0.72 par methode pour eviter overlaps (FIX 7)
     fig_h = max(4.5, 1.4 + n * 0.72)
     fig, ax = plt.subplots(figsize=(10, fig_h))
@@ -459,8 +470,12 @@ def _make_margins_chart(data):
     ax.set_ylim(bottom=0, top=ymax)
 
     def _bar(vals, offset, color, label):
-        vf = [v if v is not None else 0 for v in vals]
-        ax.bar(x + offset, vf, width, color=color, alpha=0.85, label=label, zorder=3)
+        # Ne tracer que les positions avec valeur connue (evite les barres fantomes pour banques)
+        valid_x = [x[i] + offset for i, v in enumerate(vals) if v is not None]
+        valid_v = [v for v in vals if v is not None]
+        if not valid_v:
+            return
+        ax.bar(valid_x, valid_v, width, color=color, alpha=0.85, label=label, zorder=3)
 
     _bar(gm_vals, -width, '#1B3A6B', 'Marge brute')
     _bar(em_vals,  0,     '#2A5298', 'Marge EBITDA')
