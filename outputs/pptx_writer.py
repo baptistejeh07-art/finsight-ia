@@ -2204,8 +2204,8 @@ def _slide_sentiment(prs, snap, synthesis, sentiment):
     pos_themes  = _g(synthesis, "positive_themes", []) or []
     neg_themes  = _g(synthesis, "negative_themes", []) or []
     # Limiter à 1 thème par ligne pour éviter l'explosion de hauteur du tableau
-    pos_theme_str  = _truncate(str(pos_themes[0]), 160) if pos_themes else "Catalyseurs, croissance, r\u00e9sultats"
-    neg_theme_str  = _truncate(str(neg_themes[0]), 160) if neg_themes else "Risques macro, concurrence, dette"
+    pos_theme_str  = _truncate(str(pos_themes[0]), 240) if pos_themes else "Catalyseurs, croissance, r\u00e9sultats"
+    neg_theme_str  = _truncate(str(neg_themes[0]), 240) if neg_themes else "Risques macro, concurrence, dette"
 
     # Détection articles tous neutres (souvent = langue non-anglaise + FinBERT)
     _all_neutral = (sent_articles > 0 and (neu_cnt or 0) >= sent_articles * 0.9)
