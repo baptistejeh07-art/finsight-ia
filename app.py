@@ -896,6 +896,15 @@ def render_sidebar(results) -> None:
                                 _shutil.rmtree(_ticker_dir)
                             except Exception:
                                 pass
+                            # Git rm + push pour que la suppression persiste sur Streamlit Cloud
+                            try:
+                                import subprocess as _sp2
+                                _root = Path(__file__).parent
+                                _sp2.run(["git", "rm", "-rf", f"preview/{_ticker}/"], cwd=str(_root), capture_output=True)
+                                _sp2.run(["git", "commit", "-m", f"chore(preview): supprime {_ticker}"], cwd=str(_root), capture_output=True)
+                                _sp2.run(["git", "push"], cwd=str(_root), capture_output=True)
+                            except Exception:
+                                pass
                             st.session_state.pop(_confirm_key, None)
                             st.session_state.pop(_rejected_key, None)
                             st.session_state["prev_dismissed"].add(_ticker)
