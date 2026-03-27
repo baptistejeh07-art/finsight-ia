@@ -702,6 +702,44 @@ def render_sidebar(results) -> None:
             )
         st.markdown('</div>', unsafe_allow_html=True)
 
+        # ---------------------------------------------------------------------------
+        # Helper : git push authentifie avec GITHUB_TOKEN si disponible
+        # ---------------------------------------------------------------------------
+        def _git_push_authenticated(_root_path):
+            """
+            Tente git push. Si echec, retry avec GITHUB_TOKEN (Streamlit Cloud).
+            Retourne True si au moins un push a reussi.
+            """
+            import subprocess as _gsp, os as _os
+            _r = _gsp.run(["git", "push"], cwd=str(_root_path), capture_output=True)
+            if _r.returncode == 0:
+                return True
+            # Fallback : GITHUB_TOKEN depuis st.secrets ou os.environ
+            try:
+                _token = st.secrets.get("GITHUB_TOKEN", "") or _os.environ.get("GITHUB_TOKEN", "")
+            except Exception:
+                _token = _os.environ.get("GITHUB_TOKEN", "")
+            if not _token:
+                return False
+            try:
+                # Recupérer l'URL actuelle du remote
+                _url_r = _gsp.run(["git", "remote", "get-url", "origin"],
+                                   cwd=str(_root_path), capture_output=True, text=True)
+                _url = _url_r.stdout.strip()
+                # Injecter le token dans l'URL
+                if _url.startswith("https://"):
+                    _auth_url = _url.replace("https://", f"https://x-access-token:{_token}@")
+                    _gsp.run(["git", "remote", "set-url", "origin", _auth_url],
+                             cwd=str(_root_path), capture_output=True)
+                    _r2 = _gsp.run(["git", "push"], cwd=str(_root_path), capture_output=True)
+                    # Restaurer l'URL propre (sans token)
+                    _gsp.run(["git", "remote", "set-url", "origin", _url],
+                             cwd=str(_root_path), capture_output=True)
+                    return _r2.returncode == 0
+            except Exception:
+                pass
+            return False
+
         # Aperçu Claude — previews en attente d'approbation
         _preview_root = Path(__file__).parent / "preview"
         # Tickers dismissés (validés/rejetés) dans cette session
@@ -845,9 +883,7 @@ def render_sidebar(results) -> None:
                                 _sp.run(["git", "commit", "-m",
                                          f"chore(preview): valide et supprime {_ticker}"],
                                         cwd=str(_root), capture_output=True)
-                                _r = _sp.run(["git", "push"],
-                                             cwd=str(_root), capture_output=True)
-                                _git_ok = _r.returncode == 0
+                                _git_ok = _git_push_authenticated(_root)
                                 # 3. Supprimer localement au cas où
                                 _shutil.rmtree(str(_ticker_dir), ignore_errors=True)
                             except Exception:
@@ -856,9 +892,9 @@ def render_sidebar(results) -> None:
                             st.session_state.pop(_rejected_key, None)
                             st.session_state["prev_dismissed"].add(_ticker)
                             if _git_ok:
-                                st.success(f"{_ticker} : {_nb} fichier(s) valide(s) et synchronise(s) sur Streamlit Cloud")
+                                st.success(f"{_ticker} : {_nb} fichier(s) valide(s) et synchronise(s)")
                             else:
-                                st.success(f"{_ticker} : {_nb} fichier(s) valide(s) — push git echoue, verifiez la connexion")
+                                st.warning(f"{_ticker} : {_nb} fichier(s) valide(s) — ajoutez GITHUB_TOKEN dans les secrets Streamlit")
                             st.rerun()
                     with _c2:
                         if st.button("Annuler", key=f"prev_ok_cancel_{_ticker}", use_container_width=True):
@@ -881,7 +917,7 @@ def render_sidebar(results) -> None:
                                 _root = Path(__file__).parent
                                 _sp2.run(["git", "rm", "-rf", f"preview/{_ticker}/"], cwd=str(_root), capture_output=True)
                                 _sp2.run(["git", "commit", "-m", f"chore(preview): supprime {_ticker}"], cwd=str(_root), capture_output=True)
-                                _sp2.run(["git", "push"], cwd=str(_root), capture_output=True)
+                                _git_push_authenticated(_root)
                             except Exception:
                                 pass
                             st.session_state.pop(_confirm_key, None)
