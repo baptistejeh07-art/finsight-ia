@@ -2101,7 +2101,7 @@ def _slide_risques(prs, snap, synthesis, devil):
         add_rect(slide, cx, card_y, card_w, card_h, fill)
         add_rect(slide, cx, card_y, card_w, 0.15, accent)
         add_text_box(slide, cx + 0.30, card_y + 0.30, card_w - 0.60, 0.71,
-                     _truncate(risk, 90), 9, accent, bold=True, wrap=True)
+                     _truncate(risk, 150), 9, accent, bold=True, wrap=True)
         add_text_box(slide, cx + 0.30, card_y + 1.32, card_w - 0.60, 3.5,
                      _truncate(body, 480), 8, GREY_TXT, wrap=True)
 

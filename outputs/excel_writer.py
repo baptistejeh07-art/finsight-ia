@@ -66,10 +66,16 @@ def _build_year_col(snapshot) -> dict:
     cols = ["D", "E", "F", "G", "H"]
     labels = sorted(snapshot.years.keys(), key=lambda y: int(y.split("_")[0]))
     labels = labels[-5:]  # max 5, les plus recents
-    # Exclure les annees sans revenue
+    # Exclure les annees sans donnees suffisantes (revenue + au moins un agregat IS)
+    # pour eviter des colonnes creuses dans RATIOS/DCF qui afficheraient N/A.
     labels_with_rev = [
         l for l in labels
         if getattr(snapshot.years.get(l), "revenue", None) is not None
+        and (
+            getattr(snapshot.years.get(l), "gross_profit_yf", None) is not None
+            or getattr(snapshot.years.get(l), "ebit_yf", None) is not None
+            or getattr(snapshot.years.get(l), "net_income_yf", None) is not None
+        )
     ]
     if labels_with_rev:
         labels = labels_with_rev[-5:]
@@ -119,6 +125,8 @@ _BS_LIAB_ROWS = {
     "long_term_debt":        54,
     # D58 : Paid-In Capital = Capital Stock + APIC (calculé dans yfinance_source)
     "common_equity_paid_in": 58,
+    # D59 : Retained Earnings (bilan BS)
+    "retained_earnings_yf":  59,
 }
 
 _CF_ROWS = {
@@ -250,6 +258,12 @@ class ExcelWriter:
 
             for field, row in _IS_ROWS.items():
                 val = getattr(fy, field, None)
+                # Fallback dividends IS : si absent, utiliser dividends_paid du CF
+                # (societes europeennes ne reportent pas toujours les dividendes en IS)
+                if val is None and field == "dividends":
+                    dp = getattr(fy, "dividends_paid", None)
+                    if dp is not None:
+                        val = abs(dp)  # positif avant negation par _IS_COST_FIELDS
                 if val is not None and field in _IS_COST_FIELDS:
                     val = -abs(val)
                 # Fallback 0 pour interest_expense/income : certaines societes
