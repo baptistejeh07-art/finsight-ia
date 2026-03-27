@@ -463,9 +463,9 @@ def _make_scatter(tickers_data: list[dict], sector_name: str) -> io.BytesIO:
               handlelength=1.0, columnspacing=1.0)
     ax.set_title(f'EV/EBITDA vs Croissance revenus \u2014 {sector_name}',
                  fontsize=8.5, color='#1B3A6B', fontweight='bold', pad=8)
-    plt.tight_layout(pad=0.5)
+    fig.subplots_adjust(left=0.1, right=0.97, top=0.9, bottom=0.25)
     buf = io.BytesIO()
-    fig.savefig(buf, format='png', dpi=160, bbox_inches='tight')
+    fig.savefig(buf, format='png', dpi=150)
     plt.close(fig)
     buf.seek(0)
     return buf
