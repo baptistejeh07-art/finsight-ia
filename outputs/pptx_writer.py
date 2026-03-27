@@ -983,7 +983,7 @@ def _slide_company_overview(prs, snap, synthesis, ratios):
 
     if n_seg:
         bullet_y = 7.10
-        row_h = 1.65  # hauteur par segment (nom + description 3-4 lignes)
+        row_h = 1.95  # hauteur par segment (augmente pour eviter truncation "...")
         for i, seg in enumerate(segments[:4]):
             seg_name = _g(seg, "name", "") or str(seg)
             seg_desc = _g(seg, "description", "") or ""
@@ -992,8 +992,8 @@ def _slide_company_overview(prs, snap, synthesis, ratios):
             add_text_box(slide, 1.72, by, 12.05, 0.46,
                          _truncate(seg_name, 80), 8.5, BLACK, bold=True)
             if seg_desc:
-                add_text_box(slide, 1.72, by + 0.44, 12.05, 1.10,
-                             _truncate(seg_desc, 320), 7.5, GREY_TXT, italic=True, wrap=True)
+                add_text_box(slide, 1.72, by + 0.44, 12.05, 1.40,
+                             _truncate(seg_desc, 420), 7.5, GREY_TXT, italic=True, wrap=True)
     else:
         # Fallback : liste des strengths si pas de segments
         bullet_y = 7.25
