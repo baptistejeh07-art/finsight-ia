@@ -20,6 +20,7 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
+import matplotlib.ticker as mticker
 import numpy as np
 
 from reportlab.lib.pagesizes import A4
@@ -362,6 +363,12 @@ def _make_revenue_area(tickers_data: list[dict], sector_name: str) -> io.BytesIO
     fig.patch.set_facecolor('white')
     ax.grid(axis='y', alpha=0.2, color='#D0D5DD', linewidth=0.5)
     ax.set_ylim(0, y_max)
+    # Y-axis : afficher en Mds si valeurs > 1e9, sinon en M
+    if y_max > 1e9:
+        ax.yaxis.set_major_formatter(mticker.FuncFormatter(lambda v, _: f"{v/1e9:.0f} Mds"))
+    elif y_max > 1e6:
+        ax.yaxis.set_major_formatter(mticker.FuncFormatter(lambda v, _: f"{v/1e6:.0f} M"))
+    ax.yaxis.set_tick_params(labelsize=7)
     ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.14),
               ncol=5, fontsize=7.5, frameon=False)
     ax.set_title(f'Revenus agrégés par sous-segment \u2014 {sector_name}',
@@ -539,7 +546,7 @@ def _cover_page(c, doc, sector_name: str, subtitle: str, universe: str,
     best_reco = _reco(best.get('score_global'))
     metrics = [
         ("Univers couvert",    f"{N} sociétés"),
-        ("Cap. totale",        f"{total_mc:,.0f} Mds"),
+        ("Cap. totale",        f"{total_mc/1e9:,.0f} Mds" if total_mc > 1e9 else f"{total_mc:,.0f} Mds"),
         ("Top Pick",           f"{best.get('ticker', 'N/A')} ({best_reco})"),
         ("Date d'analyse",     date_str),
     ]
@@ -611,10 +618,11 @@ def _build_macro(perf_buf, area_buf, tickers_data: list[dict],
     total_mc = sum((t.get('market_cap') or 0) for t in tickers_data)
     avg_growth = sum((t.get('revenue_growth') or 0) for t in tickers_data) / max(N, 1)
     avg_ebitda = sum((t.get('ebitda_margin') or 0) for t in tickers_data) / max(N, 1)
+    _mc_str = f"{total_mc/1e9:,.0f} Mds" if total_mc > 1e9 else f"{total_mc:,.0f} Mds"
 
     elems.append(Paragraph(
         f"Le secteur <b>{sector_name}</b> ({universe}) couvre <b>{N} sociétés</b> "
-        f"pour une capitalisation totale de <b>{total_mc:,.0f} Mds</b>. "
+        f"pour une capitalisation totale de <b>{_mc_str}</b>. "
         f"La croissance moyenne des revenus s'établit a <b>{avg_growth:+.1f}% YoY</b>, "
         f"avec une marge EBITDA médiane de <b>{avg_ebitda:.1f}%</b>. "
         f"L'analyse couvre les dynamiques structurelles, les positionnements concurrentiels "
@@ -1322,7 +1330,10 @@ def generate_sector_report(
         raise ValueError("tickers_data est vide")
 
     if date_str is None:
-        date_str = date.today().strftime("%d %B %Y")
+        _fr_months = {1:"janvier",2:"fevrier",3:"mars",4:"avril",5:"mai",6:"juin",
+                      7:"juillet",8:"aout",9:"septembre",10:"octobre",11:"novembre",12:"decembre"}
+        _d = date.today()
+        date_str = f"{_d.day} {_fr_months[_d.month]} {_d.year}"
     if subtitle is None:
         subtitle = f"Positionnement, valorisation et dynamiques \u2014 {universe}"
 

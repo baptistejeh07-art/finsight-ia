@@ -231,6 +231,99 @@ def _copy_to_preview(ticker: str) -> Path:
     return dest
 
 
+def analyze_sector(mode: str, sector: str, universe: str) -> dict:
+    """Lance cli_analyze.py secteur|indice et retourne le résultat."""
+    label = f"{mode.upper()} {sector} / {universe}"
+    print(f"\n{'='*60}")
+    print(f"  ANALYSE : {label}")
+    print(f"{'='*60}")
+
+    t0 = time.time()
+    code, out = _run([sys.executable, "cli_analyze.py", mode, sector, universe])
+    elapsed = time.time() - t0
+
+    stem = f"{mode}_{sector.replace(' ','_')}_{universe.replace(' ','_')}"
+    log = ROOT / "outputs" / "generated" / "audits" / f"_run_{stem}.log"
+    log.write_text(out, encoding="utf-8", errors="replace")
+    return {"code": code, "elapsed": elapsed, "output": out}
+
+
+def render_sector(mode: str, sector: str, universe: str) -> dict:
+    """Lance render_outputs.py --sector et retourne les chemins PNG."""
+    stem = f"{mode}_{sector.replace(' ','_')}_{universe.replace(' ','_')}"
+    print(f"\n  [RENDER] {stem}...")
+    code, out = _run([
+        sys.executable, "tools/render_outputs.py",
+        "--sector", sector, "--universe", universe, "--mode", mode
+    ])
+    log = ROOT / "outputs" / "generated" / "audits" / f"_render_{stem}.log"
+    log.write_text(out, encoding="utf-8", errors="replace")
+
+    renders_dir = CLI_DIR / "renders" / stem
+    return {
+        "pdf":  sorted(renders_dir.glob("pdf/*.png")),
+        "pptx": sorted(renders_dir.glob("pptx/*.png")),
+    }
+
+
+def _copy_to_preview_sector(mode: str, sector: str, universe: str) -> Path:
+    stem = f"{mode}_{sector.replace(' ','_')}_{universe.replace(' ','_')}"
+    dest = PREVIEW_ROOT / stem
+    dest.mkdir(parents=True, exist_ok=True)
+
+    copied = 0
+    for f in CLI_DIR.glob(f"{stem}*"):
+        if f.suffix in (".pdf", ".pptx"):
+            shutil.copy2(str(f), dest / f.name)
+            copied += 1
+
+    print(f"\n  [PREVIEW] {copied} fichier(s) -> {dest}")
+    return dest
+
+
+def audit_sector(mode: str, sector: str, universe: str, preview: bool = False) -> Path:
+    stem = f"{mode}_{sector.replace(' ','_')}_{universe.replace(' ','_')}"
+
+    run_result = analyze_sector(mode, sector, universe)
+    renders    = render_sector(mode, sector, universe)
+
+    if preview:
+        dest = _copy_to_preview_sector(mode, sector, universe)
+        import subprocess as _sp
+        _root = Path(__file__).parent.parent
+        if dest.exists():
+            _sp.run(["git", "add", str(dest)], cwd=str(_root), capture_output=True)
+            _r = _sp.run(
+                ["git", "commit", "-m", f"chore(preview): {stem} outputs regeneres"],
+                cwd=str(_root), capture_output=True
+            )
+            if _r.returncode == 0:
+                _sp.run(["git", "push"], cwd=str(_root), capture_output=True)
+                print(f"  [PREVIEW] Outputs commites et pousses -> Streamlit Cloud mis a jour.")
+        print(f"  [PREVIEW] Outputs en attente de validation dans Streamlit.")
+
+    now = datetime.now().strftime("%Y-%m-%d %H:%M")
+    lines = [
+        f"# Audit FinSight — {sector} / {universe}",
+        f"*Généré le {now} — temps pipeline : {run_result['elapsed']:.1f}s*",
+        "",
+        f"## Statut pipeline",
+        f"- Code retour : {run_result['code']}",
+        "",
+        "## Renders visuels disponibles", "",
+    ]
+    for kind, paths in renders.items():
+        lines.append(f"- **{kind.upper()}** : {len(paths)} image(s)")
+        for p in paths:
+            lines.append(f"  - `{p.name}`")
+    lines.append("")
+
+    report_path = REPORTS / f"audit_{stem}_{datetime.now().strftime('%Y%m%d_%H%M')}.md"
+    report_path.write_text("\n".join(lines), encoding="utf-8")
+    print(f"\n  [AUDIT] Rapport : {report_path.name}")
+    return report_path
+
+
 def audit_ticker(ticker: str, preview: bool = False) -> Path:
     ticker = ticker.upper().replace("/", "-")
 
@@ -287,25 +380,42 @@ def audit_ticker(ticker: str, preview: bool = False) -> Path:
 if __name__ == "__main__":
     args = sys.argv[1:]
     preview_mode = "--preview" in args
-    tickers = [a for a in args if not a.startswith("--")] or ["AAPL"]
+    raw = [a for a in args if not a.startswith("--")]
 
-    if not tickers:
-        print("Usage: python tools/audit.py [--preview] TICKER [TICKER2 ...]")
+    if not raw:
+        print("Usage:")
+        print("  python tools/audit.py [--preview] TICKER [TICKER2 ...]")
+        print("  python tools/audit.py [--preview] secteur \"Consumer Defensive\" \"S&P 500\"")
+        print("  python tools/audit.py [--preview] indice \"Technology\" \"CAC 40\"")
         sys.exit(1)
 
     if preview_mode:
-        print("Mode PREVIEW actif — outputs iront dans outputs/generated/preview/")
+        print("Mode PREVIEW actif")
 
     reports = []
-    for t in tickers:
+
+    # Mode secteur/indice : python tools/audit.py secteur "Consumer Defensive" "S&P 500"
+    if raw[0].lower() in ("secteur", "indice") and len(raw) >= 3:
+        mode    = raw[0].lower()
+        sector  = raw[1]
+        universe = raw[2]
         try:
-            r = audit_ticker(t, preview=preview_mode)
+            r = audit_sector(mode, sector, universe, preview=preview_mode)
             reports.append(r)
         except Exception as e:
-            print(f"  [ERREUR] {t} : {e}")
+            print(f"  [ERREUR] {mode} {sector}/{universe} : {e}")
+    else:
+        # Mode societe classique
+        tickers = raw or ["AAPL"]
+        for t in tickers:
+            try:
+                r = audit_ticker(t, preview=preview_mode)
+                reports.append(r)
+            except Exception as e:
+                print(f"  [ERREUR] {t} : {e}")
 
     print(f"\n{'='*60}")
-    print(f"  AUDIT TERMINE — {len(reports)}/{len(tickers)} succes")
+    print(f"  AUDIT TERMINE — {len(reports)} succes")
     for r in reports:
         print(f"  • {r.name}")
     print(f"{'='*60}\n")
