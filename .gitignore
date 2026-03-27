@@ -31,6 +31,12 @@ nlp/models/
 # --- Base vectorielle locale ---
 knowledge/chroma_db/
 
+# --- Fichiers temporaires de test/debug ---
+tmp_*.py
+tmp_*.png
+tmp_*.pdf
+session_*.md
+
 # --- IDE ---
 .vscode/
 .idea/
