@@ -204,7 +204,7 @@ def make_scatter_sectoriel(data):
     secteurs = data["secteurs"]
     if len(secteurs) <= 1:
         return None   # pas assez de points pour un scatter utile
-    noms_abr = [s[0][:10] for s in secteurs]
+    noms_abr = [_abbrev_pdf(s[0])[:14] for s in secteurs]
     def _safe_float(val, fallback=15.0):
         try:
             return float(str(val).replace('x','').replace('%','').replace('+','').replace(',','.').replace('\u2014','').strip() or fallback)
@@ -258,13 +258,22 @@ def make_scatter_sectoriel(data):
     plt.close(fig); buf.seek(0); return buf
 
 
+_SECTOR_ABBREV_PDF = {
+    "Communication Services":  "Comm. Services",
+    "Consumer Discretionary":  "Cons. Discret.",
+    "Consumer Staples":        "Cons. Staples",
+}
+
+def _abbrev_pdf(name: str) -> str:
+    return _SECTOR_ABBREV_PDF.get(str(name), str(name))
+
 def make_score_bars(data):
     secteurs = data["secteurs"]
     noms   = [s[0] for s in secteurs]
     scores = [float(s[2]) for s in secteurs]
     sigs   = [s[3] for s in secteurs]
     order  = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)
-    noms_s   = [noms[i]   for i in order]
+    noms_s   = [_abbrev_pdf(noms[i]) for i in order]
     scores_s = [scores[i] for i in order]
     cols_s   = [sig_hex(sigs[i]) for i in order]
     y = np.arange(len(noms_s))
@@ -724,7 +733,7 @@ def _build_top3(data, donut_buf, registry=None):
     elems += section_title("Top 3 Secteurs Recommandes", 5)
     elems.append(Spacer(1, 3*mm))
 
-    _surp_list = [s for s in data["secteurs"] if s[3] == "Surpond\xe9rer"]
+    _surp_list = [s for s in data["secteurs"] if s[3] in ("Surponderer", "Surpond\xe9rer")]
     nb_surp_reel = len(_surp_list)
     _surp_label = (f"{nb_surp_reel} secteur(s) affichent un signal <b>Surponderer</b>"
                    if nb_surp_reel > 0
@@ -873,7 +882,7 @@ def _build_risques(data, registry=None):
         f"Quelles conditions invalideraient le signal {sig_central} et vers quel scenario ?"))
     inv_h = [Paragraph(h, S_TH_L) for h in
              ["Scenario","Condition declencheur","Signal resultant","Horizon"]]
-    inv_data = [[s[0], s[1], s[2], s[3]] for s in data.get("scenarios", [
+    inv_data = [[s[0], s[1], s[2], s[3]] for s in (data.get("scenarios") or [
         ("Bull case", "Score > 60 + BPA NTM > +8% YoY", "Surponderer", "3-6 mois"),
         ("Bear case", "Score < 40 via recession ou choc geopolitique", "Sous-ponderer", "6-12 mois"),
         ("Stagflation", "CPI > 3,5% + PIB < 1%", "Sous-ponderer selectif", "6-9 mois"),

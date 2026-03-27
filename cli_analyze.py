@@ -553,8 +553,14 @@ def _make_test_indice_data(universe: str = "S&P 500") -> dict:
         ],
         "rotation":      rotation,
         "sentiment_agg": {
-            "label":   "Neutre",
-            "score":   0.06,
+            "label":       "Neutre",
+            "score":        0.06,
+            "nb_articles":  34,
+            "positif_nb":   15, "positif_pct": 44,
+            "neutre_nb":    12, "neutre_pct":  35,
+            "negatif_nb":   7,  "negatif_pct": 21,
+            "themes_pos":   ["Resultats T4", "Cycle IA", "Innovation semi"],
+            "themes_neg":   ["Regulation", "Taux LT", "CRE"],
             "positif": {"nb": 15, "score": "0.42", "themes": "Resultats T4, IA, Innovation semi"},
             "neutre":  {"nb": 12, "score": "0.02", "themes": "Guidances 2026, Macro taux"},
             "negatif": {"nb": 7,  "score": "-0.35","themes": "Regulation, Taux LT, CRE"},
@@ -651,7 +657,7 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
             for fut in as_completed(futs):
                 etf, ret = fut.result()
                 nom = etf_map.get(etf, etf)
-                etf_perf[etf] = {"nom": nom[:20], "return_1y": ret or 0.0}
+                etf_perf[etf] = {"nom": nom, "return_1y": ret or 0.0}
 
     # 3. Secteurs — signal derive du return ETF
     def _signal_from_ret(ret: float) -> str:
@@ -669,14 +675,24 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
         nb  = _SP500_NB_SOC.get(nom, 30)
         sc  = _score_from_ret(ret)
         sig = _signal_from_ret(ret)
-        # EV/EBITDA et marges : valeurs generiques par secteur (pas de source temps reel gratuite)
+        # EV/EBITDA, marges et croissance : valeurs generiques par secteur
         ev_generic = {"Technology":18.0,"Health Care":14.0,"Financials":9.0,
                       "Consumer Discretionary":12.0,"Communication Services":11.0,
                       "Industrials":13.0,"Consumer Staples":12.0,"Energy":6.0,
                       "Materials":10.0,"Real Estate":17.0,"Utilities":11.0}
+        margin_generic = {"Technology":27.0,"Health Care":18.0,"Financials":30.0,
+                          "Consumer Discretionary":11.0,"Communication Services":23.0,
+                          "Industrials":14.0,"Consumer Staples":17.0,"Energy":24.0,
+                          "Materials":16.0,"Real Estate":42.0,"Utilities":28.0}
+        growth_generic = {"Technology":"+13.0%","Health Care":"+9.5%","Financials":"+10.0%",
+                          "Consumer Discretionary":"+7.5%","Communication Services":"+8.5%",
+                          "Industrials":"+6.5%","Consumer Staples":"+3.5%","Energy":"-1.5%",
+                          "Materials":"+4.0%","Real Estate":"+2.0%","Utilities":"+2.5%"}
         ev  = ev_generic.get(nom, 12.0)
+        mg  = margin_generic.get(nom, 18.0)
+        gr  = growth_generic.get(nom, "+6.0%")
         mom_str = f"{ret:+.1f}%"
-        secteurs.append((nom, nb, sc, sig, f"{ev:.1f}x", 22.0, "+8.0%", mom_str))
+        secteurs.append((nom, nb, sc, sig, f"{ev:.1f}x", mg, gr, mom_str))
 
     # Fallback si ETF non disponibles
     if not secteurs:
@@ -715,6 +731,17 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
 
     # Base test pour les champs sans source temps reel
     base = _make_test_indice_data(universe)
+    # Regenerer texte_signal coherent avec le signal reel
+    noms_surp = [s[0] for s in secteurs if s[3] == "Surponderer"][:3]
+    texte_signal_reel = (
+        f"Le signal global sur le {universe} est {signal_global} avec une conviction de "
+        f"{conviction}% (sur la base des {len(secteurs)} secteurs analyses). "
+        f"{nb_surp} secteur(s) ressortent Surponderer — {', '.join(noms_surp) or 'aucun'} "
+        f"— portes par leur momentum positif 52 semaines. "
+        f"{len(secteurs) - nb_surp - sum(1 for s in secteurs if s[3] == 'Sous-ponderer')} secteurs "
+        f"sont Neutre et {sum(1 for s in secteurs if s[3] == 'Sous-ponderer')} en Sous-ponderer."
+    )
+
     base.update({
         "code":           code,
         "cours":          cours_str,
@@ -727,6 +754,7 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
         "top3_secteurs":  top3_secteurs,
         "etf_perf":       etf_perf,
         "date_analyse":   date_str,
+        "texte_signal":   texte_signal_reel,
     })
     return base
 

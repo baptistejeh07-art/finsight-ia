@@ -59,6 +59,22 @@ _LINE_COLORS_RGB = [
 
 # ── Helpers generiques ─────────────────────────────────────────────────────────
 
+_SECTOR_ABBREV = {
+    "Communication Services":  "Comm. Services",
+    "Consumer Discretionary":  "Cons. Discret.",
+    "Consumer Staples":        "Cons. Staples",
+}
+
+def _abbrev_sector(name: str, maxlen: int = 16) -> str:
+    s = _SECTOR_ABBREV.get(str(name), str(name))
+    return s[:maxlen] if len(s) > maxlen else s
+
+def _trunc(text: str, n: int) -> str:
+    """Truncate at word boundary."""
+    if len(text) <= n:
+        return text
+    return text[:n].rsplit(' ', 1)[0] + '...'
+
 def _fr_date():
     import datetime
     d = datetime.date.today()
@@ -213,7 +229,7 @@ def _lecture_box(slide, title, text, y_top=9.5, height=3.8):
     _rect(slide, 0.9, y_top, 0.12, height, fill=_NAVY)
     _txb(slide, title, 1.2, y_top + 0.15, 22.8, 0.6,
          size=8, bold=True, color=_NAVY)
-    _txb(slide, text[:320], 1.2, y_top + 0.8, 22.8, height - 0.9,
+    _txb(slide, _trunc(text, 320), 1.2, y_top + 0.8, 22.8, height - 0.9,
          size=7.5, color=_GRAYT, wrap=True)
 
 
@@ -266,7 +282,7 @@ def _chart_scatter(secteurs: list) -> bytes:
     for i, (ev, bpa, sig, nom) in enumerate(zip(ev_vals, bpa_vals, signals, noms)):
         col = _sig_hex(sig)
         ax.scatter(bpa, ev, s=100, color=col, alpha=0.85, zorder=5, edgecolors='white', linewidths=0.5)
-        short = nom[:12] if len(nom) > 12 else nom
+        short = _abbrev_sector(nom, 14)
         ax.annotate(short, (bpa, ev), textcoords='offset points', xytext=(5, 4),
                     fontsize=6, color='#333333')
 
@@ -297,7 +313,7 @@ def _chart_scatter(secteurs: list) -> bytes:
 def _chart_score_bars(secteurs: list) -> bytes:
     """Barres horizontales de scores par secteur, tries descroissant."""
     sorted_s = sorted(secteurs, key=lambda s: s[2], reverse=True)
-    noms   = [s[0][:16] for s in sorted_s]
+    noms   = [_abbrev_sector(s[0], 18) for s in sorted_s]
     scores = [s[2] for s in sorted_s]
     cols   = [_sig_hex(s[3]) for s in sorted_s]
 
@@ -335,7 +351,7 @@ def _chart_score_bars(secteurs: list) -> bytes:
 def _chart_ev_distribution(secteurs: list) -> bytes:
     """Barres horizontales EV/EBITDA par secteur, colore par signal."""
     sorted_s = sorted(secteurs, key=lambda s: _parse_x(s[4]), reverse=True)
-    noms  = [s[0][:16] for s in sorted_s]
+    noms  = [_abbrev_sector(s[0], 18) for s in sorted_s]
     evs   = [_parse_x(s[4]) for s in sorted_s]
     cols  = [_sig_hex(s[3]) for s in sorted_s]
     med   = float(np.median([v for v in evs if v > 0])) if evs else 15.0
@@ -429,7 +445,7 @@ def _chart_zone_entree(data: dict) -> bytes:
         ax.scatter(med, i, s=40, color='#AAAAAA', marker='|', zorder=5)
 
     ax.set_yticks(y)
-    ax.set_yticklabels([n[:16] for n in noms], fontsize=7.5)
+    ax.set_yticklabels([_abbrev_sector(n, 18) for n in noms], fontsize=7.5)
     ax.set_xlabel("P/E Forward", fontsize=8, color='#555555')
     ax.tick_params(labelsize=7, colors='#777777')
     ax.spines['top'].set_visible(False)
@@ -469,7 +485,7 @@ def _chart_sentiment_bars(sentiment_agg: dict) -> bytes:
         return buf.read()
 
     sorted_ps = sorted(par_sec, key=lambda x: x[1], reverse=True)
-    noms   = [p[0][:16] for p in sorted_ps]
+    noms   = [_abbrev_sector(p[0], 16) for p in sorted_ps]
     scores = [float(p[1]) for p in sorted_ps]
     cols   = ['#1A7A4A' if v >= 0.05 else ('#A82020' if v <= -0.05 else '#B06000') for v in scores]
 
@@ -655,7 +671,7 @@ def _s02_exec_summary(prs, D):
         _txb(slide, desc, 1.15, yy + 0.45, 22.3, 0.55, size=7.5, color=_GRAYT, wrap=True)
 
     # Texte signal en bas
-    texte = D.get("texte_signal", "")[:400]
+    texte = _trunc(D.get("texte_signal", ""), 400)
     _rect(slide, 0.9, 7.8, 23.6, 5.5, fill=_GRAYL)
     _rect(slide, 0.9, 7.8, 0.12, 5.5, fill=_NAVY)
     _txb(slide, "SYNTHESE DU SIGNAL", 1.2, 7.9, 22.8, 0.55, size=8, bold=True, color=_NAVY)
@@ -776,7 +792,7 @@ def _s06_valorisation(prs, D):
             _color_cell(tbl, r, 2, _HOLD_L, _BLACK)
 
     # Lecture analytique
-    texte_val = D.get("texte_valorisation","")[:380]
+    texte_val = _trunc(D.get("texte_valorisation",""), 380)
     _lecture_box(slide, "Lecture analytique — Valorisation macro", texte_val, y_top=8.0, height=5.35)
 
     _footer(slide)
@@ -808,7 +824,7 @@ def _s07_cycle(prs, D):
     detail = D.get("cycle_detail","PIB positif · Taux restrictifs\nMarges sous pression")
     _txb(slide, detail, 1.1, 5.3, 7.8, 2.5, size=8, color=_GRAYD, wrap=True)
 
-    texte_cycle = D.get("texte_cycle","")[:280]
+    texte_cycle = _trunc(D.get("texte_cycle",""), 140)
     _txb(slide, texte_cycle, 1.1, 7.3, 7.8, 1.3, size=7.5, color=_GRAYD, wrap=True)
 
     # Tableau FRED signals droite
@@ -828,7 +844,7 @@ def _s07_cycle(prs, D):
                col_widths=[5.0, 2.5, 7.5], font_size=8, header_size=8, alt_fill=_GRAYL)
 
     # Allocation recommandee
-    alloc = D.get("texte_cycle","")[:200]
+    alloc = _trunc(D.get("texte_cycle",""), 200)
     _rect(slide, 9.5, 9.3, 15.0, 2.9, fill=_GRAYL)
     _rect(slide, 9.5, 9.3, 0.1, 2.9, fill=_BUY)
     _txb(slide, "Allocation recommandee selon le positionnement de cycle",
@@ -855,7 +871,7 @@ def _s09_cartographie(prs, D):
     for rang, s in enumerate(sorted_s, 1):
         rows.append([
             str(rang),
-            s[0][:22],
+            _abbrev_sector(s[0], 20),
             str(s[2]),
             str(s[3])[:15],
             str(s[4]),
@@ -877,10 +893,10 @@ def _s09_cartographie(prs, D):
     # Lecture
     nb_surp = sum(1 for s in secteurs if "Surp" in str(s[3]))
     nb_sous = sum(1 for s in secteurs if "Sous" in str(s[3]))
-    top_noms = " · ".join(s[0] for s in sorted_s[:3])
+    surp_noms = " · ".join(s[0] for s in sorted_s if "Surp" in str(s[3]))
     lecture = (
         f"Seuls {nb_surp} secteur(s) sur {nb_s} franchissent le seuil Surponderer (score > 65) : "
-        f"{top_noms}. "
+        f"{surp_noms or 'aucun'}. "
         f"{nb_sous} secteur(s) en Sous-ponderer. "
         f"La dispersion des scores illustre une bifurcation sectorielle marquee."
     )
@@ -953,7 +969,7 @@ def _s11_decomposition(prs, D):
             sm = round(score * 0.40)
             sr = round(score * 0.30)
             sv = round(score * 0.30)
-        rows.append([nom[:20], str(score), str(sm), str(sr), str(sv), str(sig)[:15]])
+        rows.append([_abbrev_sector(nom, 20), str(score), str(sm), str(sr), str(sv), str(sig)[:15]])
 
     tbl = _add_table(slide, rows, 0.9, 2.3, 23.6,
                      min(7.0, 0.6 + len(rows) * 0.62),
@@ -1220,7 +1236,8 @@ def _s18_rotation(prs, D):
 
     rows = [["Secteur", "Phase favorisee", "Sens. Taux", "Sens. PIB", "Signal Rotation"]]
     for r in rotation:
-        rows.append([str(r[i])[:20] if i < len(r) else "—" for i in range(5)])
+        row = [_abbrev_sector(str(r[0]), 20)] + [str(r[i])[:20] if i < len(r) else "—" for i in range(1, 5)]
+        rows.append(row)
 
     tbl = _add_table(slide, rows, 0.9, 2.3, 23.6,
                      min(7.8, 0.6 + len(rows) * 0.65),
@@ -1233,7 +1250,7 @@ def _s18_rotation(prs, D):
         _color_cell(tbl, r, 4, _sig_light(sig), _sig_color(sig))
 
     # Lecture
-    texte_rot = D.get("texte_rotation","")[:350]
+    texte_rot = _trunc(D.get("texte_rotation",""), 350)
     if not texte_rot:
         surp_rots = [r[0] for r in rotation if len(r) > 4 and "Surp" in str(r[4])]
         texte_rot = (
@@ -1294,8 +1311,9 @@ def _s19_sentiment(prs, D, chart_bytes: bytes):
         yy = 2.3 + j * 1.15
         _rect(slide, 7.2, yy, 7.8, 1.0, fill=_GRAYL)
         _rect(slide, 7.2, yy, pct * 0.078, 1.0, fill=col)
-        _txb(slide, lbl,  7.4, yy + 0.05, 3.0, 0.45, size=8.5, bold=True, color=_WHITE)
-        _txb(slide, f"{nb} articles ({pct} %)", 7.4, yy + 0.5, 7.0, 0.45, size=8, color=_WHITE)
+        txt_col = _WHITE if pct >= 30 else _BLACK
+        _txb(slide, lbl,  7.4, yy + 0.05, 3.0, 0.45, size=8.5, bold=True, color=txt_col)
+        _txb(slide, f"{nb} articles ({pct} %)", 7.4, yy + 0.5, 7.0, 0.45, size=8, color=txt_col)
 
     # Themes positifs / negatifs
     _txb(slide, "Themes dominants", 15.5, 2.3, 8.8, 0.5, size=8.5, bold=True, color=_NAVY)
