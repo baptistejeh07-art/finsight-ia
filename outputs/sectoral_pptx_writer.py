@@ -1005,10 +1005,19 @@ def _s05_presentation(prs, D):
     desc = content.get("description", "")
     métriques = content.get("métriques", [])
 
-    # Description block
+    # Description block — font plus grand pour remplir l'espace
     _rect(slide, 0.9, 2.5, 13.7, 10.0, fill=_GRAYL)
     _rect(slide, 0.9, 2.5, 0.1, 10.0, fill=_NAVY)
-    _txb(slide, desc, 1.3, 2.7, 13.1, 9.5, size=9, color=_GRAYT, wrap=True)
+    _txb(slide, desc, 1.3, 2.7, 13.1, 4.5, size=12, color=_GRAYT, wrap=True)
+    # Catalyseurs clés sous la description
+    cats = content.get("catalyseurs", [])
+    if cats:
+        _rect(slide, 1.3, 7.5, 13.0, 0.45, fill=_NAVY)
+        _txb(slide, "CATALYSEURS CLES", 1.5, 7.55, 12.5, 0.4, size=7.5, bold=True, color=_WHITE)
+        for j, (ct, cb) in enumerate(cats[:3]):
+            _rect(slide, 1.3, 8.05 + j * 1.35, 0.08, 1.2, fill=_BUY)
+            _txb(slide, ct, 1.6, 8.05 + j * 1.35, 12.3, 0.45, size=8, bold=True, color=_NAVY)
+            _txb(slide, cb[:110], 1.6, 8.5 + j * 1.35, 12.3, 0.85, size=7.5, color=_GRAYT, wrap=True)
 
     # Metrics table
     tbl_data = [["Metrique", "Valeur", "Lecture"]]
@@ -1551,8 +1560,49 @@ def _s20_performance(prs, D):
             f"{D['sector_name']}  ·  {D['universe']}  ·  Indexe a 100 au debut de la periode", 4)
 
     img = _chart_performance(D["tickers_data"])
-    # Marges équilibrées : laisse respiration en haut/bas/côtés
-    _pic(slide, img, 1.5, 2.3, 22.4, 10.2)
+    # Graphique sur la gauche (réduit pour laisser place au panel droit)
+    _pic(slide, img, 0.9, 2.3, 15.0, 10.2)
+
+    # Panel droit — légende sociétés + commentaire analytique
+    _rect(slide, 16.4, 2.3, 8.1, 10.2, fill=_GRAYL)
+    _rect(slide, 16.4, 2.3, 8.1, 0.65, fill=_NAVY)
+    _txb(slide, "LEGENDE — SOCIETES", 16.6, 2.35, 7.8, 0.55, size=8, bold=True, color=_WHITE)
+
+    # Couleurs identiques à _chart_performance
+    _LINE_COLORS = [
+        RGBColor(0x1B, 0x3A, 0x6B), RGBColor(0x1A, 0x7A, 0x4A),
+        RGBColor(0xA8, 0x20, 0x20), RGBColor(0xB0, 0x60, 0x00),
+        RGBColor(0x2A, 0x52, 0x98), RGBColor(0x6B, 0x3A, 0x1B),
+        RGBColor(0x3A, 0x6B, 0x1B), RGBColor(0x6B, 0x1B, 0x3A),
+    ]
+    td = D["tickers_data"]
+    for i, t in enumerate(td[:MAX_TICKERS_CHART]):
+        yy = 3.15 + i * 1.25
+        col = _LINE_COLORS[i % len(_LINE_COLORS)]
+        _rect(slide, 16.5, yy + 0.15, 0.5, 0.35, fill=col)
+        tk = t.get("ticker", f"T{i+1}")
+        co = (t.get("company") or tk)[:28]
+        score = int(t.get("score_global") or 0)
+        reco = "BUY" if score >= 70 else ("HOLD" if score >= 50 else "SELL")
+        _txb(slide, f"{tk}  —  {co}", 17.2, yy, 7.1, 0.55, size=7.5, bold=True, color=_NAVY)
+        _txb(slide, f"Score {score}/100  ·  {reco}", 17.2, yy + 0.55, 7.1, 0.55, size=7, color=_GRAYT)
+
+    # Commentaire analytique
+    td_s = sorted(td, key=lambda x: x.get("momentum_52w") or 0, reverse=True)
+    best = td_s[0] if td_s else {}
+    worst = td_s[-1] if td_s else {}
+    commentary = (
+        f"Sur 52 semaines, {best.get('ticker','—')} affiche la meilleure performance "
+        f"(+{best.get('momentum_52w',0):.0f}%) tandis que {worst.get('ticker','—')} "
+        f"est en retard ({worst.get('momentum_52w',0):+.0f}%). "
+        f"La dispersion des trajectoires illustre la bifurcation sectorielle. "
+        f"Le momentum 52W est integre dans le score FinSight comme "
+        f"signal de confirmation."
+    )
+    _rect(slide, 16.4, 11.3, 8.1, 0.05, fill=_GRAYD)
+    _txb(slide, "LECTURE ANALYTIQUE", 16.6, 11.4, 7.8, 0.5, size=7.5, bold=True, color=_NAVY)
+    _txb(slide, commentary, 16.6, 11.95, 7.8, 0.6, size=7, color=_GRAYT, wrap=True)
+
     _footer(slide)
 
 

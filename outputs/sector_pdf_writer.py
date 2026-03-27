@@ -140,10 +140,16 @@ def _fmt_mult(v):
         return "N/A"
 
 def _fmt_mds(v):
+    """Formate une valeur monetaire en Mds (divise par 1e9 si valeur absolue)."""
     if v is None:
         return "N/A"
     try:
-        return f"{float(v):,.1f} Md"
+        f = float(v)
+        if abs(f) > 1e6:          # valeur absolue (ex: yfinance) → convertir en Mds
+            f = f / 1e9
+        if abs(f) >= 100:
+            return f"{f:.0f}"
+        return f"{f:.1f}"
     except (TypeError, ValueError):
         return "N/A"
 
@@ -489,10 +495,10 @@ def _make_mktcap_donut(tickers_data: list[dict], sector_name: str) -> io.BytesIO
             fontsize=9, fontweight='bold', color='#1B3A6B')
     ax.text(0, -0.14, 'Market Cap', ha='center', va='center',
             fontsize=8, color='#555555')
-    ax.legend(wedges, labels, loc='lower center', bbox_to_anchor=(0.5, -0.14),
-              ncol=2, fontsize=7.5, frameon=False, handlelength=1.4, columnspacing=1.2)
-    ax.set_title(f'Répartition Market Cap \u2014 {sector_name}', fontsize=8.5,
-                 color='#1B3A6B', fontweight='bold', pad=10)
+    ax.legend(wedges, labels, loc='lower center', bbox_to_anchor=(0.5, -0.18),
+              ncol=2, fontsize=9.5, frameon=False, handlelength=1.6, columnspacing=1.4)
+    ax.set_title(f'Répartition Market Cap \u2014 {sector_name}', fontsize=11,
+                 color='#1B3A6B', fontweight='bold', pad=12)
     fig.patch.set_facecolor('white')
     plt.tight_layout(pad=0.6)
     buf = io.BytesIO()
@@ -716,7 +722,7 @@ def _build_acteurs(tickers_data: list[dict], sector_name: str, registry=None):
 
     elems.append(Paragraph("Comparatif financier \u2014 Acteurs couverts LTM", S_SUBSECTION))
     comp_h = [Paragraph(h, S_TH_C)
-              for h in ["Ticker", "Rev. LTM", "Crois.", "Mg. Brute", "Mg. EBITDA", "ROE", "EV/EBITDA"]]
+              for h in ["Ticker", "Rev. LTM (Mds)", "Crois.", "Mg. Brute", "Mg. EBITDA", "ROE", "EV/EBITDA"]]
 
     def _cc(v, col):
         if col == 0:
@@ -740,7 +746,7 @@ def _build_acteurs(tickers_data: list[dict], sector_name: str, registry=None):
     for t in sorted_data[:12]:
         row = [
             t.get('ticker', 'N/A'),
-            f"{_fmt_mds(t.get('revenue_ltm'))} {ccy}",
+            _fmt_mds(t.get('revenue_ltm')),
             _fmt_pct(t.get('revenue_growth')),
             _fmt_pct(t.get('gross_margin'), sign=False),
             _fmt_pct(t.get('ebitda_margin'), sign=False),
@@ -954,7 +960,7 @@ def _build_valorisation(scatter_buf, donut_buf, tickers_data: list[dict],
         row = [
             t.get('ticker', 'N/A'),
             _fmt_mult(t.get('ev_ebitda')),
-            _fmt_mult(t.get('pe')),
+            _fmt_mult(t.get('pe_ratio') or t.get('pe')),
             _fmt_mult(t.get('ev_revenue')),
             _fmt_pct(t.get('ebitda_margin'), sign=False),
             _fmt_pct(t.get('roe')),
