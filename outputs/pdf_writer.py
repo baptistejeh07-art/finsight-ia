@@ -932,6 +932,8 @@ def _build_synthese(perf_buf, data):
             Paragraph(f"<b>{prob}</b>" if base else prob, S_TD_BC if base else S_TD_C),
             Paragraph(_safe(hyp), S_TD_L),
         ])
+    if not scen_rows:
+        scen_rows = [[Paragraph('\u2014', S_TD_C)] * 5]
     elems.append(KeepTogether(tbl([scen_h] + scen_rows,
                                   cw=[18*mm, 26*mm, 28*mm, 22*mm, 76*mm])))
     elems.append(src("FinSight IA \u2014 Mod\u00e8le DCF interne, donn\u00e9es FMP / yfinance."))
@@ -996,6 +998,8 @@ def _build_financials(area_buf, data, margins_buf=None):
         return Paragraph(sv, S_TD_C)
 
     rows_is = [[_is_cell(v, i) for i, v in enumerate(row)] for row in is_data]
+    if not rows_is:
+        rows_is = [[Paragraph('\u2014', S_TD_C)] * (n_cols + 1)]
     _cur_label = _d(data, 'currency', 'USD')
     elems.append(Paragraph(f"Compte de r\u00e9sultat consolid\u00e9 ({_cur_label} Md)", S_SUBSECTION))
     elems.append(KeepTogether(tbl([h_is] + rows_is, cw=cw_is)))
@@ -1032,6 +1036,8 @@ def _build_financials(area_buf, data, margins_buf=None):
          Paragraph(_safe(_d(r, 'lecture')),  _read_style(_d(r, 'lecture')))]
         for r in (data.get('ratios_vs_peers') or [])
     ]
+    if not rat_rows:
+        rat_rows = [[Paragraph('\u2014', S_TD_C)] * 4]
     elems.append(KeepTogether([
         Paragraph("Positionnement relatif \u2014 Ratios cl\u00e9s vs. pairs sectoriels", S_SUBSECTION),
         Spacer(1, 1*mm),
@@ -1130,9 +1136,15 @@ def _build_valorisation(ff_buf, pie_buf, data):
                 cells.append(Paragraph(str(v), S_TD_C))
         dcf_rows_b.append(cells)
 
+    _dcf_fallback = not dcf_rows_b
+    if _dcf_fallback:
+        dcf_rows_b = [[Paragraph('\u2014', S_TD_C)] * 6]
     t_dcf = tbl([dcf_h] + dcf_rows_b, cw=[24*mm, 29*mm, 29*mm, 29*mm, 29*mm, 30*mm])
-    br = (wacc_rows.index(wacc_base) + 1) if wacc_base in wacc_rows else 3
-    bc = (tgr_cols.index(tgr_base)  + 1) if tgr_base  in tgr_cols  else 3
+    if _dcf_fallback:
+        br, bc = 1, 1  # seule ligne = fallback, ne pas depasser
+    else:
+        br = (wacc_rows.index(wacc_base) + 1) if wacc_base in wacc_rows else 3
+        bc = (tgr_cols.index(tgr_base)  + 1) if tgr_base  in tgr_cols  else 3
     t_dcf.setStyle(TableStyle([
         ('BACKGROUND', (bc, br), (bc, br), NAVY),
         ('TEXTCOLOR',  (bc, br), (bc, br), WHITE),
@@ -1154,6 +1166,8 @@ def _build_valorisation(ff_buf, pie_buf, data):
         row += [Paragraph(_d(r, k), S_TD_C)
                 for k in ['ev_ebitda','ev_revenue','pe','gross_margin','ebitda_margin']]
         comp_rows.append(row)
+    if not comp_rows:
+        comp_rows = [[Paragraph('\u2014', S_TD_C)] * 6]
     elems.append(KeepTogether(tbl([comp_h] + comp_rows,
                                   cw=[52*mm, 24*mm, 24*mm, 20*mm, 26*mm, 24*mm])))
     elems.append(src("FinSight IA \u2014 FMP, consensus Bloomberg."))
