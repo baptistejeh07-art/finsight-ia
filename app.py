@@ -838,39 +838,18 @@ def render_sidebar(results) -> None:
                                 # 1. Copier vers cli_tests/ (session courante)
                                 for _f in _kept:
                                     _shutil.copy2(_f, _prod_root / _f.name)
-                                # 2. Supprimer les fichiers rejetés de preview/
-                                for _f in _files:
-                                    if _f.name not in {_k.name for _k in _kept}:
-                                        _f.unlink(missing_ok=True)
-                                # 3. Commit + push puis supprimer le dossier preview/
+                                # 2. git rm + commit + push en une seule passe
                                 _root = Path(__file__).parent
-                                _sp.run(
-                                    ["git", "add", f"preview/{_ticker}/"],
-                                    cwd=str(_root), capture_output=True
-                                )
-                                _sp.run(
-                                    ["git", "commit", "-m",
-                                     f"feat(preview): valider outputs {_ticker}"],
-                                    cwd=str(_root), capture_output=True
-                                )
-                                _r = _sp.run(
-                                    ["git", "push"],
-                                    cwd=str(_root), capture_output=True
-                                )
+                                _sp.run(["git", "rm", "-rf", f"preview/{_ticker}/"],
+                                        cwd=str(_root), capture_output=True)
+                                _sp.run(["git", "commit", "-m",
+                                         f"chore(preview): valide et supprime {_ticker}"],
+                                        cwd=str(_root), capture_output=True)
+                                _r = _sp.run(["git", "push"],
+                                             cwd=str(_root), capture_output=True)
                                 _git_ok = _r.returncode == 0
-                                # 4. Supprimer le dossier preview pour qu'il ne reapparaisse pas
-                                import shutil as _shutil2
-                                _shutil2.rmtree(str(_ticker_dir), ignore_errors=True)
-                                _sp.run(
-                                    ["git", "add", "-A", f"preview/"],
-                                    cwd=str(_root), capture_output=True
-                                )
-                                _sp.run(
-                                    ["git", "commit", "-m",
-                                     f"chore(preview): supprime dossier {_ticker} apres validation"],
-                                    cwd=str(_root), capture_output=True
-                                )
-                                _sp.run(["git", "push"], cwd=str(_root), capture_output=True)
+                                # 3. Supprimer localement au cas où
+                                _shutil.rmtree(str(_ticker_dir), ignore_errors=True)
                             except Exception:
                                 pass
                             st.session_state.pop(_confirm_key, None)
