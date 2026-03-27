@@ -35,8 +35,7 @@ FORMULA_CELLS = [
     "D44","E44","F44","G44","H44",  # Total Assets
     "D51","E51","F51","G51","H51",  # Total Current Liab
     "D55","E55","F55","G55","H55",  # Total Liab
-    "D59","E59","F59","G59","H59",  # Retained Earnings
-    "D60","E60","F60","G60","H60",  # Total Equity
+    "D60","E60","F60","G60","H60",  # Total Equity (=D58+D59)
     "D63","E63","F63","G63","H63",  # L&E
     "D69","E69","F69","G69","H69",  # Net Income (CF)
     "D70","E70","F70","G70","H70",  # D&A (CF)
