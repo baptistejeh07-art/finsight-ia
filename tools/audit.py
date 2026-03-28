@@ -207,11 +207,22 @@ def build_report(ticker: str, run_result: dict, renders: dict) -> str:
 # Point d'entrée
 # ---------------------------------------------------------------------------
 
+def _clear_all_previews() -> None:
+    """Supprime tous les dossiers preview existants avant d'en deposer un nouveau."""
+    if not PREVIEW_ROOT.exists():
+        return
+    for d in list(PREVIEW_ROOT.iterdir()):
+        if d.is_dir():
+            shutil.rmtree(str(d))
+
+
 def _copy_to_preview(ticker: str) -> Path:
     """
     Copie (sans toucher) les outputs generés vers preview/{ticker}/.
     Les fichiers originaux dans cli_tests/ sont PRESERVES.
+    Efface tous les anciens previews avant de deposer le nouveau.
     """
+    _clear_all_previews()
     dest = PREVIEW_ROOT / ticker
     dest.mkdir(parents=True, exist_ok=True)
 
@@ -271,6 +282,7 @@ def render_sector(mode: str, sector: str, universe: str) -> dict:
 
 def _copy_to_preview_sector(mode: str, sector: str, universe: str) -> Path:
     stem = f"{mode}_{sector.replace(' ','_')}_{universe.replace(' ','_')}"
+    _clear_all_previews()
     dest = PREVIEW_ROOT / stem
     dest.mkdir(parents=True, exist_ok=True)
 
@@ -360,6 +372,7 @@ def audit_indice(universe: str, preview: bool = False) -> Path:
     }
 
     if preview:
+        _clear_all_previews()
         dest = PREVIEW_ROOT / stem
         dest.mkdir(parents=True, exist_ok=True)
         copied = 0
