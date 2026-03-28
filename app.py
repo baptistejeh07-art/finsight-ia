@@ -745,12 +745,22 @@ def render_sidebar(results) -> None:
         # Tickers dismissés (validés/rejetés) dans cette session
         if "prev_dismissed" not in st.session_state:
             st.session_state["prev_dismissed"] = set()
-        # N'afficher qu'un seul ticker en apercu — le plus recemment modifie
+        # N'afficher qu'un seul ticker en apercu — le plus recemment genere
+        # Tri par _timestamp.txt (fiable sur Streamlit Cloud) avec fallback st_mtime
+        def _preview_sort_key(d: Path) -> float:
+            ts_file = d / "_timestamp.txt"
+            try:
+                if ts_file.exists():
+                    return float(ts_file.read_text(encoding="utf-8").strip())
+            except Exception:
+                pass
+            return d.stat().st_mtime
+
         try:
             _all_preview = sorted(
                 [d for d in _preview_root.iterdir()
                  if d.is_dir() and d.name not in st.session_state["prev_dismissed"]],
-                key=lambda d: d.stat().st_mtime, reverse=True
+                key=_preview_sort_key, reverse=True
             ) if _preview_root.exists() else []
         except Exception:
             _all_preview = [

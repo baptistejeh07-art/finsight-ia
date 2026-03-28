@@ -227,6 +227,9 @@ def _copy_to_preview(ticker: str) -> Path:
             shutil.copy2(str(f), dest / f.name)
             copied += 1
 
+    # Timestamp fiable pour tri sur Streamlit Cloud (st_mtime inutilisable apres git pull)
+    (dest / "_timestamp.txt").write_text(str(time.time()), encoding="utf-8")
+
     print(f"\n  [PREVIEW] {copied} fichier(s) -> {dest}")
     return dest
 
@@ -276,6 +279,9 @@ def _copy_to_preview_sector(mode: str, sector: str, universe: str) -> Path:
         if f.suffix in (".pdf", ".pptx"):
             shutil.copy2(str(f), dest / f.name)
             copied += 1
+
+    # Timestamp fiable pour tri sur Streamlit Cloud (st_mtime inutilisable apres git pull)
+    (dest / "_timestamp.txt").write_text(str(time.time()), encoding="utf-8")
 
     print(f"\n  [PREVIEW] {copied} fichier(s) -> {dest}")
     return dest
