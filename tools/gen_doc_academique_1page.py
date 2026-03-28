@@ -134,8 +134,7 @@ def build():
     left = [
         S0('CE QUE PRODUIT FINSIGHT IA'),
         P("Chaque analyse g\u00e9n\u00e8re trois livrables simultan\u00e9ment, "
-          "comparables au travail d\u2019un analyste junior en banque "
-          "d\u2019investissement\u00a0:"),
+          "structur\u00e9s selon les standards de la recherche sell-side\u00a0:"),
         BU("<b>Rapport de recherche PDF</b> (9 pages)\u00a0: "
            "synth\u00e8se de la th\u00e8se d\u2019investissement, "
            "analyse sectorielle, valorisation, scénarios bull/base/bear, "
@@ -175,20 +174,7 @@ def build():
 
     # ── Colonne droite ────────────────────────────────────────────────────────
     right = [
-        S0('COMMENT LE SYST\u00c8ME FONCTIONNE'),
-        P("Le pipeline suit la m\u00eame logique qu\u2019un analyste "
-          "sell-side\u00a0: <b>collecter</b> les donn\u00e9es financi\u00e8res "
-          "historiques (cinq exercices), <b>calculer</b> les ratios de mani\u00e8re "
-          "d\u00e9terministe et v\u00e9rifiable, <b>synth\u00e9tiser</b> une th\u00e8se "
-          "via un mod\u00e8le de langage, puis <b>valider</b> la coh\u00e9rence "
-          "avant de g\u00e9n\u00e9rer les livrables."),
-        P("Les donn\u00e9es proviennent de Yahoo Finance (cinq ans d\u2019historique "
-          "couvrant la quasi-totalit\u00e9 des soci\u00e9t\u00e9s cot\u00e9es mondiales), "
-          "compl\u00e9t\u00e9es par des sources sp\u00e9cialis\u00e9es pour les "
-          "entreprises europ\u00e9ennes et les actualit\u00e9s r\u00e9centes. "
-          "Le syst\u00e8me fonctionne sans abonnement payant."),
-
-        SH('RIGUEUR ET CONTR\u00d4LE QUALIT\u00c9'),
+        S0('RIGUEUR ET CONTR\u00d4LE QUALIT\u00c9'),
         P("Deux niveaux de validation sont appliqu\u00e9s \u00e0 chaque analyse. "
           "Le premier est <b>d\u00e9terministe</b>\u00a0: le syst\u00e8me v\u00e9rifie "
           "la coh\u00e9rence interne des ratios, d\u00e9tecte les anomalies "
@@ -204,12 +190,18 @@ def build():
           "pratiques des comit\u00e9s d\u2019investissement, est int\u00e9gr\u00e9e "
           "directement dans le rapport livr\u00e9."),
 
+        P("Le syst\u00e8me est par ailleurs r\u00e9gi par une "
+          "<b>constitution formelle \u00e0 sept articles</b>, appliqu\u00e9e "
+          "par le code\u00a0: seuils de confiance mesurables, "
+          "obligation de contre-th\u00e8se, processus d\u2019amendement vers\u00e9. "
+          "C\u2019est l\u2019\u00e9l\u00e9ment architectural le plus original du projet\u00a0: "
+          "une gouvernance formelle int\u00e9gr\u00e9e directement dans le pipeline."),
+
         SH('\u00c9TAT EN MARS 2026'),
-        P("La plateforme est d\u00e9ploy\u00e9e en production sur Streamlit "
-          "Community Cloud et accessible librement. Elle couvre l\u2019ensemble "
-          "des soci\u00e9t\u00e9s cot\u00e9es sur les grandes places boursi\u00e8res "
-          "mondiales. Les analyses ont \u00e9t\u00e9 valid\u00e9es sur des "
-          "titres aussi divers qu\u2019Apple, LVMH, TotalEnergies, SAP ou Nvidia."),
+        P("La plateforme est d\u00e9ploy\u00e9e en production et accessible librement. "
+          "Plus de <b>50 analyses valid\u00e9es</b> en production sur des titres "
+          "aussi divers qu\u2019Apple, LVMH, TotalEnergies, SAP ou Nvidia. "
+          "D\u00e9mo\u00a0: <b>finsight-ia.streamlit.app</b>"),
         P("Ce projet illustre une conviction\u00a0: les outils de la finance "
           "institutionnelle \u2014 aujourd\u2019hui r\u00e9serv\u00e9s aux grandes "
           "structures par leur co\u00fbt \u2014 peuvent \u00eatre "
