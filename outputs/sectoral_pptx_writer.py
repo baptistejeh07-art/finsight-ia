@@ -1396,16 +1396,19 @@ def _s15_entry(prs, D):
             zone, sig, proba,
         ])
 
-    _add_table(slide, tbl_data, 0.9, 3.5, 23.6, min(6.0, len(tbl_data) * 0.56),
+    # Hauteur table : 0.55cm/row, max 5.5cm pour eviter debordement sous les KPIs
+    _tbl_h = min(5.5, len(tbl_data) * 0.55)
+    _add_table(slide, tbl_data, 0.9, 3.5, 23.6, _tbl_h,
                col_widths=[2.0, 4.5, 2.8, 3.2, 3.0, 4.2, 2.5],
                font_size=7.5, header_size=7.5, alt_fill=_GRAYL)
 
-    # Methodology note
-    _rect(slide, 0.9, 8.1, 23.6, 2.8, fill=_HOLD_L)
-    _rect(slide, 0.9, 8.1, 0.1, 2.8, fill=_HOLD)
-    _txb(slide, "NOTE METHODOLOGIQUE", 1.3, 8.2, 23.1, 0.6, size=8.5, bold=True, color=_HOLD)
-    _txb(slide, "La probabilite de rendement positif a 12 mois est calculee sur des configurations similaires identifiees en backtesting sur données historiques (2010-2024). Elle ne constitue pas une garantie de performance future. Le DCF Base est estime a partir du WACC median sectoriel et d'un taux de croissance terminal cohérent avec les drivers sectoriels.",
-         1.3, 8.85, 23.1, 2.0, size=8, color=_GRAYT, wrap=True)
+    # Note compacte — position dynamique apres la table
+    _note_y = round(3.5 + _tbl_h + 0.2, 2)
+    _rect(slide, 0.9, _note_y, 23.6, 1.6, fill=_HOLD_L)
+    _rect(slide, 0.9, _note_y, 0.1, 1.6, fill=_HOLD)
+    _txb(slide, "NOTE METHODOLOGIQUE", 1.3, _note_y + 0.08, 23.1, 0.5, size=8, bold=True, color=_HOLD)
+    _txb(slide, "La probabilite de rendement positif a 12 mois est calculee sur des configurations similaires identifiees en backtesting sur donnees historiques (2010-2024). Elle ne constitue pas une garantie de performance future.",
+         1.3, _note_y + 0.6, 23.1, 0.9, size=7.5, color=_GRAYT, wrap=True)
 
     # 3 KPI boxes
     n_entry = sum(1 for t in td if _reco(t.get("score_global")) == "BUY")
@@ -1439,18 +1442,18 @@ def _s17_risques(prs, D):
                     len(risks), MAX_RISKS_DISPLAYED)
     for col_i, (risk_title, risk_body) in enumerate(risks[:MAX_RISKS_DISPLAYED]):
         cx = 0.9 + col_i * 8.1
-        _rect(slide, cx, 2.5, 7.5, 5.5, fill=_RED_L)
+        _rect(slide, cx, 2.5, 7.5, 3.2, fill=_RED_L)
         _rect(slide, cx, 2.5, 7.5, 0.7, fill=_SELL)
         _txb(slide, risk_title, cx + 0.2, 2.55, 7.0, 0.6, size=8.5, bold=True, color=_WHITE)
-        _txb(slide, risk_body, cx + 0.2, 3.3, 7.0, 4.5, size=8.5, color=_GRAYT, wrap=True)
+        _txb(slide, risk_body, cx + 0.2, 3.3, 7.0, 2.2, size=8.5, color=_GRAYT, wrap=True)
 
     # Conditions d'invalidation
-    _txb(slide, "Conditions d'invalidation de la these", 0.9, 8.2, 23.6, 0.6, size=9, bold=True, color=_NAVY)
+    _txb(slide, "Conditions d'invalidation de la these", 0.9, 6.1, 23.6, 0.6, size=9, bold=True, color=_NAVY)
     tbl_data = [["Axe", "Condition d'invalidation", "Horizon"]]
     for ax, cond, hor in conditions:
         tbl_data.append([ax, cond, hor])
 
-    _add_table(slide, tbl_data, 0.9, 8.9, 23.6, len(tbl_data) * 0.62,
+    _add_table(slide, tbl_data, 0.9, 6.8, 23.6, len(tbl_data) * 0.62,
                col_widths=[3.5, 16.5, 3.6],
                font_size=8, header_size=8, alt_fill=_GRAYL)
     _footer(slide)

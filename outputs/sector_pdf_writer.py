@@ -315,7 +315,11 @@ def _make_perf_chart(tickers_data: list[dict], sector_name: str) -> io.BytesIO:
     ax.set_facecolor('white')
     fig.patch.set_facecolor('white')
     ax.legend(fontsize=6, loc='upper left', frameon=False)
-    ax.set_title(f'Performance relative \u2014 base 100, Mars 2025', fontsize=6.5,
+    _start = months[0]  # e.g. "Mar 25"
+    _MOIS_FULL = ['Janvier','Fevrier','Mars','Avril','Mai','Juin','Juillet','Aout','Septembre','Octobre','Novembre','Decembre']
+    _abbr, _yr = _start.split()
+    _full = _MOIS_FULL[_MOIS.index(_abbr)] if _abbr in _MOIS else _abbr
+    ax.set_title(f'Performance relative \u2014 base 100, {_full} 20{_yr}', fontsize=6.5,
                  color='#1B3A6B', fontweight='bold', pad=4)
     plt.tight_layout(pad=0.3)
     buf = io.BytesIO()
