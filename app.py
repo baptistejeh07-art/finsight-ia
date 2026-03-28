@@ -483,6 +483,214 @@ def render_sidebar(results) -> None:
                 st.session_state.sidebar_open = False
                 st.rerun()
 
+        # ---------------------------------------------------------------------------
+        # Helper : git push authentifie avec GITHUB_TOKEN si disponible
+        # ---------------------------------------------------------------------------
+        def _git_push_authenticated(_root_path):
+            import subprocess as _gsp, os as _os
+            _r = _gsp.run(["git", "push"], cwd=str(_root_path), capture_output=True)
+            if _r.returncode == 0:
+                return True
+            try:
+                _token = st.secrets.get("GITHUB_TOKEN", "") or _os.environ.get("GITHUB_TOKEN", "")
+            except Exception:
+                _token = _os.environ.get("GITHUB_TOKEN", "")
+            if not _token:
+                return False
+            try:
+                _url_r = _gsp.run(["git", "remote", "get-url", "origin"],
+                                   cwd=str(_root_path), capture_output=True, text=True)
+                _url = _url_r.stdout.strip()
+                if _url.startswith("https://"):
+                    _auth_url = _url.replace("https://", f"https://x-access-token:{_token}@")
+                    _gsp.run(["git", "remote", "set-url", "origin", _auth_url],
+                             cwd=str(_root_path), capture_output=True)
+                    _r2 = _gsp.run(["git", "push"], cwd=str(_root_path), capture_output=True)
+                    _gsp.run(["git", "remote", "set-url", "origin", _url],
+                             cwd=str(_root_path), capture_output=True)
+                    return _r2.returncode == 0
+            except Exception:
+                pass
+            return False
+
+        # Aperçu Claude — previews en attente d'approbation (section dev, en haut pour acces rapide)
+        _preview_root = Path(__file__).parent / "preview"
+        if "prev_dismissed" not in st.session_state:
+            st.session_state["prev_dismissed"] = set()
+        def _preview_sort_key(d: Path) -> float:
+            ts_file = d / "_timestamp.txt"
+            try:
+                if ts_file.exists():
+                    return float(ts_file.read_text(encoding="utf-8").strip())
+            except Exception:
+                pass
+            return 0.0
+        try:
+            _all_preview = sorted(
+                [d for d in _preview_root.iterdir()
+                 if d.is_dir() and d.name not in st.session_state["prev_dismissed"]],
+                key=_preview_sort_key, reverse=True
+            ) if _preview_root.exists() else []
+        except Exception:
+            _all_preview = [
+                d for d in _preview_root.iterdir()
+                if d.is_dir() and d.name not in st.session_state["prev_dismissed"]
+            ] if _preview_root.exists() else []
+        _preview_tickers = _all_preview[:1]
+
+        st.markdown('<div class="sb-section">', unsafe_allow_html=True)
+        st.markdown('<span class="sb-label">Aperçu Claude</span>', unsafe_allow_html=True)
+        if _preview_tickers:
+            st.markdown(
+                '<div style="font-size:11px;color:#888;margin-bottom:6px">'
+                'Outputs générés par Claude — en attente de validation</div>',
+                unsafe_allow_html=True,
+            )
+        else:
+            st.markdown(
+                '<div style="font-size:11px;color:#888;padding:4px 0 8px">'
+                'Aucun fichier en attente.<br>'
+                '<code style="font-size:10px">python tools/audit.py --preview AAPL</code>'
+                '</div>',
+                unsafe_allow_html=True,
+            )
+        if _preview_tickers:
+            _prod_root = Path(__file__).parent / "outputs" / "generated" / "cli_tests"
+            _prod_root.mkdir(parents=True, exist_ok=True)
+            for _ticker_dir in _preview_tickers:
+                _ticker = _ticker_dir.name
+                _files  = sorted(_ticker_dir.glob("*"))
+                if not _files:
+                    continue
+                st.markdown(f'<div style="font-size:12px;font-weight:600;margin:8px 0 4px">{_ticker}</div>',
+                            unsafe_allow_html=True)
+                _rejected_key = f"prev_rejected_{_ticker}"
+                if _rejected_key not in st.session_state:
+                    st.session_state[_rejected_key] = set()
+                for _f in _files:
+                    if _f.suffix.lower() == '.json' or _f.name == '_timestamp.txt':
+                        continue
+                    _ext  = _f.suffix.lower()
+                    _mime = {"pdf": "application/pdf", "pptx": "application/vnd.ms-powerpoint",
+                             "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                             "txt": "text/plain"}.get(_ext.lstrip("."), "application/octet-stream")
+                    _is_rejected = _f.name in st.session_state[_rejected_key]
+                    _c_dl, _c_x = st.columns([5, 1])
+                    with _c_dl:
+                        if _is_rejected:
+                            st.markdown(
+                                f'<div style="font-size:11px;color:#888;text-decoration:line-through;'
+                                f'padding:6px 0">{_f.name}</div>',
+                                unsafe_allow_html=True,
+                            )
+                        else:
+                            import datetime as _dt
+                            _mtime = _dt.datetime.fromtimestamp(_f.stat().st_mtime)
+                            _ext_label = {"pdf": "Rapport PDF", "pptx": "Pitchbook", "xlsx": "Excel", "txt": "Briefing"}.get(_ext.lstrip("."), _f.suffix.upper())
+                            _dl_label = f"{_ext_label}  ({_mtime.strftime('%d/%m %H:%M')})"
+                            _dl_fname = f"{_f.stem}_{_mtime.strftime('%Y%m%d')}{_f.suffix}"
+                            st.download_button(
+                                _dl_label,
+                                _f.read_bytes(),
+                                file_name=_dl_fname,
+                                mime=_mime,
+                                use_container_width=True,
+                                key=f"prev_dl_{_ticker}_{_f.name}",
+                            )
+                    with _c_x:
+                        if _is_rejected:
+                            if st.button("↩", key=f"prev_restore_{_ticker}_{_f.name}",
+                                         help="Restaurer", use_container_width=True):
+                                st.session_state[_rejected_key].discard(_f.name)
+                                st.rerun()
+                        else:
+                            if st.button("✗", key=f"prev_rej_{_ticker}_{_f.name}",
+                                         help="Rejeter ce fichier", use_container_width=True):
+                                st.session_state[_rejected_key].add(_f.name)
+                                st.rerun()
+                _kept = [_f for _f in _files if _f.name not in st.session_state[_rejected_key]
+                         and _f.suffix.lower() != '.json' and _f.name != '_timestamp.txt']
+                _confirm_key = f"prev_confirm_{_ticker}"
+                if _confirm_key not in st.session_state:
+                    st.session_state[_confirm_key] = None
+                _pending = st.session_state[_confirm_key]
+                if _pending is None:
+                    _nb_kept = len(_kept)
+                    _nb_rej  = len(_files) - _nb_kept
+                    _lbl_ok  = f"✓ Valider ({_nb_kept})" if _nb_rej else "✓ Valider tout"
+                    _col_ok, _col_ko = st.columns(2)
+                    with _col_ok:
+                        if st.button(_lbl_ok, key=f"prev_ok_{_ticker}", use_container_width=True,
+                                     disabled=_nb_kept == 0):
+                            st.session_state[_confirm_key] = "ok"
+                            st.rerun()
+                    with _col_ko:
+                        if st.button("✗ Tout rejeter", key=f"prev_ko_{_ticker}", use_container_width=True):
+                            st.session_state[_confirm_key] = "ko"
+                            st.rerun()
+                elif _pending == "ok":
+                    _nb = len(_kept)
+                    st.warning(f"Valider {_nb} fichier(s) pour {_ticker} ?")
+                    _c1, _c2 = st.columns(2)
+                    with _c1:
+                        if st.button("Confirmer", key=f"prev_ok_confirm_{_ticker}", use_container_width=True):
+                            _git_ok = False
+                            try:
+                                import shutil as _shutil
+                                import subprocess as _sp
+                                for _f in _kept:
+                                    _shutil.copy2(_f, _prod_root / _f.name)
+                                _root = Path(__file__).parent
+                                _sp.run(["git", "rm", "-rf", f"preview/{_ticker}/"],
+                                        cwd=str(_root), capture_output=True)
+                                _sp.run(["git", "commit", "-m",
+                                         f"chore(preview): valide et supprime {_ticker}"],
+                                        cwd=str(_root), capture_output=True)
+                                _git_ok = _git_push_authenticated(_root)
+                                _shutil.rmtree(str(_ticker_dir), ignore_errors=True)
+                            except Exception:
+                                pass
+                            st.session_state.pop(_confirm_key, None)
+                            st.session_state.pop(_rejected_key, None)
+                            st.session_state["prev_dismissed"].add(_ticker)
+                            if _git_ok:
+                                st.success(f"{_ticker} : {_nb} fichier(s) valide(s) et synchronise(s)")
+                            else:
+                                st.warning(f"{_ticker} : {_nb} fichier(s) valide(s) — ajoutez GITHUB_TOKEN dans les secrets Streamlit")
+                            st.rerun()
+                    with _c2:
+                        if st.button("Annuler", key=f"prev_ok_cancel_{_ticker}", use_container_width=True):
+                            st.session_state[_confirm_key] = None
+                            st.rerun()
+                elif _pending == "ko":
+                    st.warning(f"Supprimer definitivement {_ticker} ?")
+                    _c1, _c2 = st.columns(2)
+                    with _c1:
+                        if st.button("Confirmer", key=f"prev_ko_confirm_{_ticker}", use_container_width=True):
+                            try:
+                                import shutil as _shutil
+                                _shutil.rmtree(_ticker_dir)
+                            except Exception:
+                                pass
+                            try:
+                                import subprocess as _sp2
+                                _root = Path(__file__).parent
+                                _sp2.run(["git", "rm", "-rf", f"preview/{_ticker}/"], cwd=str(_root), capture_output=True)
+                                _sp2.run(["git", "commit", "-m", f"chore(preview): supprime {_ticker}"], cwd=str(_root), capture_output=True)
+                                _git_push_authenticated(_root)
+                            except Exception:
+                                pass
+                            st.session_state.pop(_confirm_key, None)
+                            st.session_state.pop(_rejected_key, None)
+                            st.session_state["prev_dismissed"].add(_ticker)
+                            st.info(f"{_ticker} rejete")
+                            st.rerun()
+                    with _c2:
+                        if st.button("Annuler", key=f"prev_ko_cancel_{_ticker}", use_container_width=True):
+                            st.session_state[_confirm_key] = None
+                            st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
+
         if results and not results.get("error"):
             if st.button("＋  Nouvelle analyse", use_container_width=True, type="primary"):
                 st.session_state.stage        = "home"
@@ -700,246 +908,6 @@ def render_sidebar(results) -> None:
                 '<div style="font-size:11px;color:#888;padding:4px 0">Aucune veille g\u00e9n\u00e9r\u00e9e.</div>',
                 unsafe_allow_html=True,
             )
-        st.markdown('</div>', unsafe_allow_html=True)
-
-        # ---------------------------------------------------------------------------
-        # Helper : git push authentifie avec GITHUB_TOKEN si disponible
-        # ---------------------------------------------------------------------------
-        def _git_push_authenticated(_root_path):
-            """
-            Tente git push. Si echec, retry avec GITHUB_TOKEN (Streamlit Cloud).
-            Retourne True si au moins un push a reussi.
-            """
-            import subprocess as _gsp, os as _os
-            _r = _gsp.run(["git", "push"], cwd=str(_root_path), capture_output=True)
-            if _r.returncode == 0:
-                return True
-            # Fallback : GITHUB_TOKEN depuis st.secrets ou os.environ
-            try:
-                _token = st.secrets.get("GITHUB_TOKEN", "") or _os.environ.get("GITHUB_TOKEN", "")
-            except Exception:
-                _token = _os.environ.get("GITHUB_TOKEN", "")
-            if not _token:
-                return False
-            try:
-                # Recupérer l'URL actuelle du remote
-                _url_r = _gsp.run(["git", "remote", "get-url", "origin"],
-                                   cwd=str(_root_path), capture_output=True, text=True)
-                _url = _url_r.stdout.strip()
-                # Injecter le token dans l'URL
-                if _url.startswith("https://"):
-                    _auth_url = _url.replace("https://", f"https://x-access-token:{_token}@")
-                    _gsp.run(["git", "remote", "set-url", "origin", _auth_url],
-                             cwd=str(_root_path), capture_output=True)
-                    _r2 = _gsp.run(["git", "push"], cwd=str(_root_path), capture_output=True)
-                    # Restaurer l'URL propre (sans token)
-                    _gsp.run(["git", "remote", "set-url", "origin", _url],
-                             cwd=str(_root_path), capture_output=True)
-                    return _r2.returncode == 0
-            except Exception:
-                pass
-            return False
-
-        # Aperçu Claude — previews en attente d'approbation
-        _preview_root = Path(__file__).parent / "preview"
-        # Tickers dismissés (validés/rejetés) dans cette session
-        if "prev_dismissed" not in st.session_state:
-            st.session_state["prev_dismissed"] = set()
-        # N'afficher qu'un seul ticker en apercu — le plus recemment genere
-        # Tri par _timestamp.txt (fiable sur Streamlit Cloud) avec fallback st_mtime
-        def _preview_sort_key(d: Path) -> float:
-            ts_file = d / "_timestamp.txt"
-            try:
-                if ts_file.exists():
-                    return float(ts_file.read_text(encoding="utf-8").strip())
-            except Exception:
-                pass
-            return 0.0  # pas de _timestamp.txt → apparait en dernier
-
-        try:
-            _all_preview = sorted(
-                [d for d in _preview_root.iterdir()
-                 if d.is_dir() and d.name not in st.session_state["prev_dismissed"]],
-                key=_preview_sort_key, reverse=True
-            ) if _preview_root.exists() else []
-        except Exception:
-            _all_preview = [
-                d for d in _preview_root.iterdir()
-                if d.is_dir() and d.name not in st.session_state["prev_dismissed"]
-            ] if _preview_root.exists() else []
-        _preview_tickers = _all_preview[:1]
-
-        st.markdown('<div class="sb-section">', unsafe_allow_html=True)
-        st.markdown('<span class="sb-label">Aperçu Claude</span>', unsafe_allow_html=True)
-        if _preview_tickers:
-            st.markdown(
-                '<div style="font-size:11px;color:#888;margin-bottom:6px">'
-                'Outputs générés par Claude — en attente de validation</div>',
-                unsafe_allow_html=True,
-            )
-        else:
-            st.markdown(
-                '<div style="font-size:11px;color:#888;padding:4px 0 8px">'
-                'Aucun fichier en attente.<br>'
-                '<code style="font-size:10px">python tools/audit.py --preview AAPL</code>'
-                '</div>',
-                unsafe_allow_html=True,
-            )
-        if _preview_tickers:
-
-            _prod_root = Path(__file__).parent / "outputs" / "generated" / "cli_tests"
-            _prod_root.mkdir(parents=True, exist_ok=True)
-
-            for _ticker_dir in _preview_tickers:
-                _ticker = _ticker_dir.name
-                _files  = sorted(_ticker_dir.glob("*"))
-                if not _files:
-                    continue
-
-                st.markdown(f'<div style="font-size:12px;font-weight:600;margin:8px 0 4px">{_ticker}</div>',
-                            unsafe_allow_html=True)
-
-                # État des rejets par fichier : set de noms de fichiers rejetés
-                _rejected_key = f"prev_rejected_{_ticker}"
-                if _rejected_key not in st.session_state:
-                    st.session_state[_rejected_key] = set()
-
-                # Bouton de téléchargement + ✗ par fichier (hors state.json technique)
-                for _f in _files:
-                    if _f.suffix.lower() == '.json' or _f.name == '_timestamp.txt':
-                        continue  # fichiers techniques, pas de bouton DL
-                    _ext  = _f.suffix.lower()
-                    _mime = {"pdf": "application/pdf", "pptx": "application/vnd.ms-powerpoint",
-                             "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                             "txt": "text/plain"}.get(_ext.lstrip("."), "application/octet-stream")
-                    _is_rejected = _f.name in st.session_state[_rejected_key]
-                    _c_dl, _c_x = st.columns([5, 1])
-                    with _c_dl:
-                        if _is_rejected:
-                            st.markdown(
-                                f'<div style="font-size:11px;color:#888;text-decoration:line-through;'
-                                f'padding:6px 0">{_f.name}</div>',
-                                unsafe_allow_html=True,
-                            )
-                        else:
-                            import datetime as _dt
-                            _mtime = _dt.datetime.fromtimestamp(_f.stat().st_mtime)
-                            _ext_label = {"pdf": "Rapport PDF", "pptx": "Pitchbook", "xlsx": "Excel", "txt": "Briefing"}.get(_ext.lstrip("."), _f.suffix.upper())
-                            _dl_label = f"{_ext_label}  ({_mtime.strftime('%d/%m %H:%M')})"
-                            _dl_fname = f"{_f.stem}_{_mtime.strftime('%Y%m%d')}{_f.suffix}"
-                            st.download_button(
-                                _dl_label,
-                                _f.read_bytes(),
-                                file_name=_dl_fname,
-                                mime=_mime,
-                                use_container_width=True,
-                                key=f"prev_dl_{_ticker}_{_f.name}",
-                            )
-                    with _c_x:
-                        if _is_rejected:
-                            if st.button("↩", key=f"prev_restore_{_ticker}_{_f.name}",
-                                         help="Restaurer", use_container_width=True):
-                                st.session_state[_rejected_key].discard(_f.name)
-                                st.rerun()
-                        else:
-                            if st.button("✗", key=f"prev_rej_{_ticker}_{_f.name}",
-                                         help="Rejeter ce fichier", use_container_width=True):
-                                st.session_state[_rejected_key].add(_f.name)
-                                st.rerun()
-
-                # Fichiers retenus = non rejetés et non techniques (pas de .json)
-                _kept = [_f for _f in _files if _f.name not in st.session_state[_rejected_key]
-                         and _f.suffix.lower() != '.json' and _f.name != '_timestamp.txt']
-
-                # Confirmation globale (Valider la sélection / Tout rejeter)
-                _confirm_key = f"prev_confirm_{_ticker}"
-                if _confirm_key not in st.session_state:
-                    st.session_state[_confirm_key] = None
-
-                _pending = st.session_state[_confirm_key]
-
-                if _pending is None:
-                    _nb_kept = len(_kept)
-                    _nb_rej  = len(_files) - _nb_kept
-                    _lbl_ok  = f"✓ Valider ({_nb_kept})" if _nb_rej else "✓ Valider tout"
-                    _col_ok, _col_ko = st.columns(2)
-                    with _col_ok:
-                        if st.button(_lbl_ok, key=f"prev_ok_{_ticker}", use_container_width=True,
-                                     disabled=_nb_kept == 0):
-                            st.session_state[_confirm_key] = "ok"
-                            st.rerun()
-                    with _col_ko:
-                        if st.button("✗ Tout rejeter", key=f"prev_ko_{_ticker}", use_container_width=True):
-                            st.session_state[_confirm_key] = "ko"
-                            st.rerun()
-
-                elif _pending == "ok":
-                    _nb = len(_kept)
-                    st.warning(f"Valider {_nb} fichier(s) pour {_ticker} ?")
-                    _c1, _c2 = st.columns(2)
-                    with _c1:
-                        if st.button("Confirmer", key=f"prev_ok_confirm_{_ticker}", use_container_width=True):
-                            _git_ok = False
-                            try:
-                                import shutil as _shutil
-                                import subprocess as _sp
-                                # 1. Copier vers cli_tests/ (session courante)
-                                for _f in _kept:
-                                    _shutil.copy2(_f, _prod_root / _f.name)
-                                # 2. git rm + commit + push en une seule passe
-                                _root = Path(__file__).parent
-                                _sp.run(["git", "rm", "-rf", f"preview/{_ticker}/"],
-                                        cwd=str(_root), capture_output=True)
-                                _sp.run(["git", "commit", "-m",
-                                         f"chore(preview): valide et supprime {_ticker}"],
-                                        cwd=str(_root), capture_output=True)
-                                _git_ok = _git_push_authenticated(_root)
-                                # 3. Supprimer localement au cas où
-                                _shutil.rmtree(str(_ticker_dir), ignore_errors=True)
-                            except Exception:
-                                pass
-                            st.session_state.pop(_confirm_key, None)
-                            st.session_state.pop(_rejected_key, None)
-                            st.session_state["prev_dismissed"].add(_ticker)
-                            if _git_ok:
-                                st.success(f"{_ticker} : {_nb} fichier(s) valide(s) et synchronise(s)")
-                            else:
-                                st.warning(f"{_ticker} : {_nb} fichier(s) valide(s) — ajoutez GITHUB_TOKEN dans les secrets Streamlit")
-                            st.rerun()
-                    with _c2:
-                        if st.button("Annuler", key=f"prev_ok_cancel_{_ticker}", use_container_width=True):
-                            st.session_state[_confirm_key] = None
-                            st.rerun()
-
-                elif _pending == "ko":
-                    st.warning(f"Supprimer definitivement {_ticker} ?")
-                    _c1, _c2 = st.columns(2)
-                    with _c1:
-                        if st.button("Confirmer", key=f"prev_ko_confirm_{_ticker}", use_container_width=True):
-                            try:
-                                import shutil as _shutil
-                                _shutil.rmtree(_ticker_dir)
-                            except Exception:
-                                pass
-                            # Git rm + push pour que la suppression persiste sur Streamlit Cloud
-                            try:
-                                import subprocess as _sp2
-                                _root = Path(__file__).parent
-                                _sp2.run(["git", "rm", "-rf", f"preview/{_ticker}/"], cwd=str(_root), capture_output=True)
-                                _sp2.run(["git", "commit", "-m", f"chore(preview): supprime {_ticker}"], cwd=str(_root), capture_output=True)
-                                _git_push_authenticated(_root)
-                            except Exception:
-                                pass
-                            st.session_state.pop(_confirm_key, None)
-                            st.session_state.pop(_rejected_key, None)
-                            st.session_state["prev_dismissed"].add(_ticker)
-                            st.info(f"{_ticker} rejete")
-                            st.rerun()
-                    with _c2:
-                        if st.button("Annuler", key=f"prev_ko_cancel_{_ticker}", use_container_width=True):
-                            st.session_state[_confirm_key] = None
-                            st.rerun()
-
         st.markdown('</div>', unsafe_allow_html=True)
 
         # Diagnostic API — toggle manuel (evite l'artefact "board_" de st.expander)
