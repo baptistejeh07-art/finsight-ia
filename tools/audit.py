@@ -208,12 +208,23 @@ def build_report(ticker: str, run_result: dict, renders: dict) -> str:
 # ---------------------------------------------------------------------------
 
 def _clear_all_previews() -> None:
-    """Supprime tous les dossiers preview existants avant d'en deposer un nouveau."""
+    """Supprime tous les dossiers preview existants avant d'en deposer un nouveau.
+    Utilise git rm pour que les suppressions soient trackees dans git (evite que
+    Streamlit Cloud restaure les anciens previews au prochain git pull).
+    """
     if not PREVIEW_ROOT.exists():
         return
+    import subprocess as _sp
     for d in list(PREVIEW_ROOT.iterdir()):
         if d.is_dir():
-            shutil.rmtree(str(d))
+            rel = d.relative_to(Path(__file__).parent.parent)
+            _sp.run(
+                ["git", "rm", "-rf", "--quiet", str(rel)],
+                cwd=str(Path(__file__).parent.parent),
+                capture_output=True,
+            )
+            if d.exists():
+                shutil.rmtree(str(d))
 
 
 def _copy_to_preview(ticker: str) -> Path:

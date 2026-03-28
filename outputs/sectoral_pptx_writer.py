@@ -896,7 +896,7 @@ def _chart_performance(tickers_data) -> bytes:
     ax.spines['left'].set_color('#DDDDDD')
     ax.spines['bottom'].set_color('#DDDDDD')
     ax.grid(True, alpha=0.3, linestyle=':')
-    # Pas de légende matplotlib — panel droit du slide fait office de légende
+    ax.legend(loc='upper left', fontsize=7.5, framealpha=0.85, edgecolor='#DDDDDD')
     plt.tight_layout()
     buf = io.BytesIO()
     fig.savefig(buf, format='png', dpi=150, bbox_inches='tight',
@@ -1597,53 +1597,44 @@ def _s20_performance(prs, D):
             f"{D['sector_name']}  ·  {D['universe']}  ·  Indexe a 100 au debut de la periode", 4)
 
     img = _chart_performance(D["tickers_data"])
-    # Graphique sur la gauche (réduit pour laisser place au panel droit)
-    _pic(slide, img, 0.9, 2.3, 15.0, 10.2)
+    # Graphique agrandi — legende matplotlib dans le chart (haut gauche)
+    _pic(slide, img, 0.9, 2.3, 16.5, 10.2)
 
-    # Panel droit — légende sociétés + commentaire analytique
-    _rect(slide, 16.4, 2.3, 8.1, 10.2, fill=_GRAYL)
-    _rect(slide, 16.4, 2.3, 8.1, 0.65, fill=_NAVY)
-    _txb(slide, "LEGENDE — SOCIETES", 16.6, 2.35, 7.8, 0.55, size=8, bold=True, color=_WHITE)
+    # Panel droit — texte analytique uniquement (legende dans le graphique)
+    _rect(slide, 17.6, 2.3, 6.8, 10.2, fill=_GRAYL)
+    _rect(slide, 17.6, 2.3, 6.8, 0.65, fill=_NAVY)
+    _txb(slide, "LECTURE ANALYTIQUE", 17.8, 2.35, 6.5, 0.55, size=8, bold=True, color=_WHITE)
 
-    # Couleurs identiques à _chart_performance
-    _LINE_COLORS = [
-        RGBColor(0x1B, 0x3A, 0x6B), RGBColor(0x1A, 0x7A, 0x4A),
-        RGBColor(0xA8, 0x20, 0x20), RGBColor(0xB0, 0x60, 0x00),
-        RGBColor(0x2A, 0x52, 0x98), RGBColor(0x6B, 0x3A, 0x1B),
-        RGBColor(0x3A, 0x6B, 0x1B), RGBColor(0x6B, 0x1B, 0x3A),
+    td_s = sorted(D["tickers_data"], key=lambda x: x.get("momentum_52w") or 0, reverse=True)
+    best  = td_s[0]  if td_s  else {}
+    worst = td_s[-1] if td_s  else {}
+    best_tk  = best.get("ticker", "—")
+    best_mom = best.get("momentum_52w") or 0
+    worst_tk  = worst.get("ticker", "—")
+    worst_mom = worst.get("momentum_52w") or 0
+    n_pos   = sum(1 for t in D["tickers_data"] if (t.get("momentum_52w") or 0) > 0)
+    n_neg   = len(D["tickers_data"]) - n_pos
+    spread  = abs(best_mom - worst_mom)
+
+    lines = [
+        ("MEILLEURE PERFORMANCE", 3.20, 7, True, _NAVY),
+        (f"{best_tk}  +{best_mom:.0f}%  sur 52 semaines",
+         3.65, 9, True, _NAVY),
+        ("PIRE PERFORMANCE", 4.60, 7, True, _NAVY),
+        (f"{worst_tk}  {worst_mom:+.0f}%  sur 52 semaines",
+         5.05, 9, True, RGBColor(0xA8,0x20,0x20)),
+        ("DISPERSION", 6.10, 7, True, _NAVY),
+        (f"Ecart {spread:.0f} pts — {n_pos} valeur(s) positives vs {n_neg} negatives.",
+         6.55, 8, False, _GRAYT),
+        ("INTERPRETATION", 7.70, 7, True, _NAVY),
+        ("La dispersion des trajectoires reflète la bifurcation sectorielle : certains "
+         "acteurs captent l'essentiel de la creation de valeur tandis que d'autres subissent "
+         "des sorties de capitaux structurelles.", 8.15, 7.5, False, _GRAYT),
+        ("Le momentum 52W est integre dans le score FinSight comme signal de confirmation "
+         "de la these d'investissement.", 9.35, 7.5, False, _GRAYT),
     ]
-    td = D["tickers_data"]
-    n_td = len(td[:MAX_TICKERS_CHART])
-    # Réserver 2.0 cm pour la section commentaire en bas du panel (y=10.5 à 12.5)
-    _COMMENT_Y = 10.5
-    legend_avail = _COMMENT_Y - 3.15   # espace disponible pour la légende
-    row_h = min(1.25, legend_avail / max(n_td, 1))
-    for i, t in enumerate(td[:MAX_TICKERS_CHART]):
-        yy = 3.15 + i * row_h
-        col = _LINE_COLORS[i % len(_LINE_COLORS)]
-        _rect(slide, 16.5, yy + 0.12, 0.5, 0.3, fill=col)
-        tk = t.get("ticker", f"T{i+1}")
-        co = (t.get("company") or tk)[:33]
-        score = int(t.get("score_global") or 0)
-        reco = "BUY" if score >= 70 else ("HOLD" if score >= 50 else "SELL")
-        _txb(slide, f"{tk}  —  {co}", 17.2, yy, 7.1, 0.6, size=9, bold=True, color=_NAVY)
-        _txb(slide, f"Score {score}/100  ·  {reco}", 17.2, yy + 0.62, 7.1, 0.5, size=8, color=_GRAYT)
-
-    # Commentaire analytique — position fixe, jamais chevauchée par la légende
-    td_s = sorted(td, key=lambda x: x.get("momentum_52w") or 0, reverse=True)
-    best = td_s[0] if td_s else {}
-    worst = td_s[-1] if td_s else {}
-    commentary = (
-        f"Sur 52 semaines, {best.get('ticker','—')} affiche la meilleure performance "
-        f"(+{best.get('momentum_52w',0):.0f}%) tandis que {worst.get('ticker','—')} "
-        f"est en retard ({worst.get('momentum_52w',0):+.0f}%). "
-        f"La dispersion des trajectoires illustre la bifurcation sectorielle. "
-        f"Le momentum 52W est integre dans le score FinSight comme "
-        f"signal de confirmation."
-    )
-    _rect(slide, 16.4, _COMMENT_Y, 8.1, 0.05, fill=_GRAYD)
-    _txb(slide, "LECTURE ANALYTIQUE", 16.6, _COMMENT_Y + 0.1, 7.8, 0.5, size=7.5, bold=True, color=_NAVY)
-    _txb(slide, commentary, 16.6, _COMMENT_Y + 0.65, 7.8, 1.7, size=7, color=_GRAYT, wrap=True)
+    for txt, yy, sz, bold, col in lines:
+        _txb(slide, txt, 17.8, yy, 6.4, 0.9, size=sz, bold=bold, color=col, wrap=True)
 
     _footer(slide)
 

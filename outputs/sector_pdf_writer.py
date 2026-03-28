@@ -413,7 +413,7 @@ def _make_scatter(tickers_data: list[dict], sector_name: str) -> io.BytesIO:
         except (TypeError, ValueError):
             return None
 
-    fig, ax = plt.subplots(figsize=(5.5, 3.8))
+    fig, ax = plt.subplots(figsize=(7.5, 5.2))
     for t, ev, rg, col, sz, off in zip(tickers, ev_ebitda, rev_grwth, cols, sizes, offsets):
         ev_f = _to_float(ev)
         try:
@@ -424,7 +424,7 @@ def _make_scatter(tickers_data: list[dict], sector_name: str) -> io.BytesIO:
             ax.scatter(rg_f, ev_f, color=col, s=sz, zorder=4,
                        alpha=0.85, edgecolors='white', linewidth=0.6)
             ax.annotate(t, (rg_f, ev_f), textcoords='offset points',
-                        xytext=off, fontsize=7.5, color=col, fontweight='bold')
+                        xytext=off, fontsize=9, color=col, fontweight='bold')
         else:
             ax.scatter(rg_f, 5, color=col, s=sz, zorder=4, alpha=0.85,
                        marker='^', edgecolors='white', linewidth=0.6)
@@ -462,12 +462,12 @@ def _make_scatter(tickers_data: list[dict], sector_name: str) -> io.BytesIO:
         mpatches.Patch(color='#1B3A6B', label='Score 50-70 (HOLD)'),
         mpatches.Patch(color='#A82020', label='Score <50 (SELL)'),
     ]
-    ax.legend(handles=legend_items, fontsize=8.5, loc='upper center',
-              bbox_to_anchor=(0.5, -0.20), frameon=False, ncol=3,
+    ax.legend(handles=legend_items, fontsize=10, loc='upper center',
+              bbox_to_anchor=(0.5, -0.16), frameon=False, ncol=3,
               handlelength=1.2, columnspacing=1.2)
     ax.set_title(f'EV/EBITDA vs Croissance revenus \u2014 {sector_name}',
-                 fontsize=11, color='#1B3A6B', fontweight='bold', pad=10)
-    fig.subplots_adjust(left=0.12, right=0.97, top=0.88, bottom=0.28)
+                 fontsize=13, color='#1B3A6B', fontweight='bold', pad=10)
+    fig.subplots_adjust(left=0.12, right=0.97, top=0.88, bottom=0.22)
     buf = io.BytesIO()
     fig.savefig(buf, format='png', dpi=150)
     plt.close(fig)
@@ -898,7 +898,7 @@ def _build_valorisation(scatter_buf, donut_buf, tickers_data: list[dict],
         f"potentiellement injustifiées au regard des fondamentaux.", S_BODY))
     elems.append(Spacer(1, 3*mm))
 
-    scatter_img = Image(scatter_buf, width=86*mm, height=74*mm)
+    scatter_img = Image(scatter_buf, width=108*mm, height=92*mm)
     scatter_text = (
         "<b>Lecture du positionnement</b><br/>"
         "Le scatter EV/EBITDA vs croissance revenus permet d'identifier "
@@ -917,7 +917,7 @@ def _build_valorisation(scatter_buf, donut_buf, tickers_data: list[dict],
         "une croissance comparable constituent les meilleures opportunites."
     )
     scatter_comb = Table([[scatter_img, Paragraph(scatter_text, S_BODY)]],
-                         colWidths=[88*mm, 78*mm])
+                         colWidths=[110*mm, 58*mm])
     scatter_comb.setStyle(TableStyle([
         ('VALIGN',      (0,0),(-1,-1), 'TOP'),
         ('LEFTPADDING', (0,0),(-1,-1), 0), ('RIGHTPADDING',(0,0),(-1,-1), 0),
