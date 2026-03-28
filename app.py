@@ -697,7 +697,7 @@ def render_sidebar(results) -> None:
                             pass
         else:
             st.markdown(
-                '<div style="font-size:11px;color:#888;padding:4px 0">Aucune veille generee.</div>',
+                '<div style="font-size:11px;color:#888;padding:4px 0">Aucune veille g\u00e9n\u00e9r\u00e9e.</div>',
                 unsafe_allow_html=True,
             )
         st.markdown('</div>', unsafe_allow_html=True)

@@ -188,9 +188,9 @@ def make_sector_weights_chart(data):
     ax.spines['left'].set_color('#D0D5DD'); ax.spines['bottom'].set_color('#D0D5DD')
     ax.set_facecolor('white'); fig.patch.set_facecolor('white')
     ax.tick_params(length=0)
-    patches = [mpatches.Patch(color='#1A7A4A', label='Surponderer'),
+    patches = [mpatches.Patch(color='#1A7A4A', label='Surpond\u00e9rer'),
                mpatches.Patch(color='#B06000', label='Neutre'),
-               mpatches.Patch(color='#A82020', label='Sous-ponderer')]
+               mpatches.Patch(color='#A82020', label='Sous-pond\u00e9rer')]
     ax.legend(handles=patches, fontsize=9, loc='upper center',
               bbox_to_anchor=(0.5, -0.12), frameon=False, ncol=3)
     ax.set_title(f"Repartition sectorielle - {data['indice']} (nb societes)",
@@ -246,9 +246,9 @@ def make_scatter_sectoriel(data):
     ax.set_facecolor('white'); fig.patch.set_facecolor('white')
     ax.tick_params(labelsize=10, length=0)
     ax.grid(alpha=0.12, color='#D0D5DD', linewidth=0.5)
-    patches = [mpatches.Patch(color='#1A7A4A', label='Surponderer'),
+    patches = [mpatches.Patch(color='#1A7A4A', label='Surpond\u00e9rer'),
                mpatches.Patch(color='#B06000', label='Neutre'),
-               mpatches.Patch(color='#A82020', label='Sous-ponderer')]
+               mpatches.Patch(color='#A82020', label='Sous-pond\u00e9rer')]
     ax.legend(handles=patches, fontsize=10, loc='upper center',
               bbox_to_anchor=(0.5, -0.13), frameon=False, ncol=3)
     ax.set_title(f"EV/EBITDA vs Croissance BPA - Secteurs {data['indice']}",
@@ -293,7 +293,7 @@ def make_score_bars(data):
     ax.spines['left'].set_color('#D0D5DD'); ax.spines['bottom'].set_color('#D0D5DD')
     ax.set_facecolor('white'); fig.patch.set_facecolor('white')
     ax.tick_params(labelsize=10, length=0)
-    ax.set_title(f"Score composite - Secteurs {data['indice']} (trie par score decroissant)",
+    ax.set_title(f"Score composite - Secteurs {data['indice']} (tri\u00e9 par score d\u00e9croissant)",
                  fontsize=13, color='#1B3A6B', fontweight='bold', pad=10)
     plt.tight_layout(pad=0.5)
     buf = io.BytesIO(); fig.savefig(buf, format='png', dpi=160, bbox_inches='tight')
@@ -342,7 +342,7 @@ def _cover_page(c, doc, data):
     c.setFillColor(WHITE); c.setFont('Helvetica-Bold', 13)
     c.drawCentredString(cx, h - 8*mm, "FinSight IA")
     c.setFillColor(colors.HexColor('#90B4E8')); c.setFont('Helvetica', 7.5)
-    c.drawCentredString(cx, h - 14*mm, "Plateforme d'Analyse Financiere Institutionnelle")
+    c.drawCentredString(cx, h - 14*mm, "Plateforme d'Analyse Financi\u00e8re Institutionnelle")
     c.setStrokeColor(GREY_RULE); c.setLineWidth(0.5)
     c.line(MARGIN_L, h - 20*mm, w - MARGIN_R, h - 20*mm)
 
@@ -371,7 +371,7 @@ def _cover_page(c, doc, data):
     # 5 metriques
     metrics = [
         ("Secteurs analyses",  str(data["nb_secteurs"])),
-        ("Societes couvertes", str(data["nb_societes"])),
+        ("Soci\u00e9t\u00e9s couvertes", str(data["nb_societes"])),
         ("Cours indice",       data["cours"]),
         ("Variation YTD",      data["variation_ytd"]),
         ("P/E Forward",        data["pe_forward"]),
@@ -393,14 +393,14 @@ def _cover_page(c, doc, data):
     c.drawCentredString(cx, h * 0.558, f"Rapport d'analyse confidentiel — {data['date_analyse']}")
     c.setFont('Helvetica', 7)
     c.drawCentredString(cx, h * 0.539,
-        "Donnees : yfinance · FMP · Finnhub · FinBERT  |  Horizon d'allocation : 12 mois")
+        "Donn\u00e9es : yfinance \u00b7 FMP \u00b7 Finnhub \u00b7 FinBERT  |  Horizon d'allocation : 12 mois")
 
     # Footer navy
     c.setFillColor(NAVY); c.rect(0, 0, w, 18*mm, fill=1, stroke=0)
     c.setFillColor(colors.HexColor('#90B4E8')); c.setFont('Helvetica', 6.5)
     c.drawCentredString(cx, 11*mm, "CONFIDENTIEL — Usage restreint")
     c.drawCentredString(cx, 6*mm,
-        "Genere par FinSight IA v1.0. Ne constitue pas un conseil en investissement au sens MiFID II.")
+        "G\u00e9n\u00e9r\u00e9 par FinSight IA v1.0. Ne constitue pas un conseil en investissement au sens MiFID II.")
 
 
 def _content_header(c, doc, data):
@@ -442,19 +442,19 @@ def _build_sommaire(data, page_nums=None):
 
     indice_rl = data["indice"].replace("&", "&amp;")
     sections = [
-        ("1.", f"Synthese Macro &amp; Signal Global",         "synthese",
+        ("1.", f"Synth\u00e8se Macro &amp; Signal Global",    "synthese",
          f"  Signal global \xb7 Conviction \xb7 Catalyseurs \xb7 Risques macro"),
         ("2.", "Cartographie des Secteurs",                   "carto",
          f"  Tableau comparatif {data.get('nb_secteurs','?')} secteur(s) \xb7 Score \xb7 EV/EBITDA \xb7 Momentum"),
         ("3.", "Analyse Graphique",                           "graphiques",
          "  Scatter EV/EBITDA vs croissance \xb7 Scores par secteur"),
         ("4.", "Rotation Sectorielle",                        "rotation",
-         "  Phase du cycle \xb7 Sensibilite taux/PIB \xb7 Signal de rotation"),
-        ("5.", "Top 3 Secteurs Recommandes",                  "top3",
-         "  Detail signal \xb7 Societes representatives \xb7 Catalyseurs"),
+         "  Phase du cycle \xb7 Sensibilit\u00e9 taux/PIB \xb7 Signal de rotation"),
+        ("5.", "Top 3 Secteurs Recommand\u00e9s",             "top3",
+         "  D\u00e9tail signal \xb7 Soci\u00e9t\u00e9s representatives \xb7 Catalyseurs"),
         ("6.", "Risques Macro &amp; Conditions d'Invalidation", "risques",
-         "  Cartographie risques \xb7 Probabilites \xb7 Horizons"),
-        ("7.", "Sentiment Agrege &amp; Methodologie",         "sentiment",
+         "  Cartographie risques \xb7 Probabilit\u00e9s \xb7 Horizons"),
+        ("7.", "Sentiment Agr\u00e9g\u00e9 &amp; M\u00e9thodologie", "sentiment",
          "  FinBERT indice \xb7 Distribution par secteur \xb7 Sources"),
     ]
     rows = []
@@ -482,7 +482,7 @@ def _build_synthese(data, perf_buf, registry=None):
     indice_rl = data["indice"].replace("&", "&amp;")
     elems = []
     if registry is not None: elems.append(SectionAnchor('synthese', registry))
-    elems += section_title("Synthese Macro &amp; Signal Global", 1)
+    elems += section_title("Synth\u00e8se Macro &amp; Signal Global", 1)
 
     elems.append(Paragraph(data["texte_macro"], S_BODY))
     elems.append(Spacer(1, 3*mm))
@@ -597,7 +597,7 @@ def _build_cartographie(data, weights_buf, registry=None):
         comp_tbl,
     ]))
     elems.append(src(
-        f"FinSight IA — FMP, yfinance. EV/EBITDA et marges = medianes sectorielles LTM. "
+        f"FinSight IA — FMP, yfinance. EV/EBITDA et marges = m\u00e9dianes sectorielles LTM. "
         "Momentum = performance relative 3 mois vs indice. Score = composite 0-100."))
     return elems
 
@@ -614,19 +614,19 @@ def _build_graphiques(data, scatter_buf, scores_buf, registry=None):
     if scatter_buf is not None:
         elems.append(Paragraph(
             "Le scatter ci-dessous positionne chaque secteur sur deux axes : "
-            "valorisation (EV/EBITDA median LTM) et croissance BPA mediane. "
-            "Les lignes pointillees representent les medianes sectorielles — "
-            "les secteurs dans le <b>quadrant superieur droit</b> paient une prime justifiee "
-            "par une forte croissance ; ceux dans le <b>quadrant inferieur gauche</b> offrent "
+            "valorisation (EV/EBITDA m\u00e9dian LTM) et croissance BPA m\u00e9diane. "
+            "Les lignes pointill\u00e9es repr\u00e9sentent les m\u00e9dianes sectorielles — "
+            "les secteurs dans le <b>quadrant sup\u00e9rieur droit</b> paient une prime justifi\u00e9e "
+            "par une forte croissance ; ceux dans le <b>quadrant inf\u00e9rieur gauche</b> offrent "
             "une valeur relative.", S_BODY))
         elems.append(Spacer(1, 3*mm))
         elems.append(Image(scatter_buf, width=TABLE_W, height=100*mm))
         elems.append(src("FinSight IA — EV/EBITDA median LTM vs croissance BPA mediane secteur. FMP, Bloomberg."))
     else:
         elems.append(Paragraph(
-            "L'analyse comparative EV/EBITDA vs croissance BPA necessite au moins deux secteurs. "
+            "L'analyse comparative EV/EBITDA vs croissance BPA n\u00e9cessite au moins deux secteurs. "
             "Pour un univers mono-sectoriel, consulter le tableau comparatif (section 2) "
-            "qui donne les medianes LTM par societe representative.", S_BODY))
+            "qui donne les m\u00e9dianes LTM par soci\u00e9t\u00e9 representative.", S_BODY))
         elems.append(src("FinSight IA — Graphique non disponible pour univers mono-sectoriel."))
 
     elems.append(PageBreak())
@@ -635,17 +635,17 @@ def _build_graphiques(data, scatter_buf, scores_buf, registry=None):
     nb_surp = sum(1 for s in data["secteurs"] if s[3] == "Surpond\xe9rer")
     nb_sous = sum(1 for s in data["secteurs"] if s[3] == "Sous-pond\xe9rer")
     elems.append(Paragraph(
-        "Le score composite (0-100) agregge trois signaux : momentum prix 3 mois (40%), "
+        "Le score composite (0-100) agr\u00e8ge trois signaux : momentum prix 3 mois (40%), "
         "revision des estimations BPA sur 1 mois (30%) et valorisation relative (30%). "
-        "La ligne pointillee orange marque le seuil 50 — <b>au-dessus : signal Surponderer</b> "
-        "possible, <b>en dessous de 40 : Sous-ponderer</b>. "
-        f"{nb_surp} {'secteur franchit' if nb_surp == 1 else 'secteurs franchissent'} le seuil Surponderer (60), "
-        f"{nb_sous} {'en' if nb_sous == 0 else 'secteur en' if nb_sous == 1 else 'secteurs en'} Sous-ponderer.", S_BODY))
+        "La ligne pointill\u00e9e orange marque le seuil 50 — <b>au-dessus : signal Surpond\u00e9rer</b> "
+        "possible, <b>en dessous de 40 : Sous-pond\u00e9rer</b>. "
+        f"{nb_surp} {'secteur franchit' if nb_surp == 1 else 'secteurs franchissent'} le seuil Surpond\u00e9rer (60), "
+        f"{nb_sous} {'en' if nb_sous == 0 else 'secteur en' if nb_sous == 1 else 'secteurs en'} Sous-pond\u00e9rer.", S_BODY))
     elems.append(Spacer(1, 3*mm))
     elems.append(Image(scores_buf, width=TABLE_W, height=100*mm))
     elems.append(src(
-        "FinSight IA — Score composite trie par ordre decroissant. "
-        "Seuil Surponderer = 60, Sous-ponderer = 40."))
+        "FinSight IA — Score composite tri\u00e9 par ordre d\u00e9croissant. "
+        "Seuil Surpond\u00e9rer = 60, Sous-pond\u00e9rer = 40."))
     return elems
 
 
@@ -711,7 +711,7 @@ def _build_rotation(data, registry=None):
         ["Secteurs a alleger", _sous_noms_rot.replace("/", "\xb7"),
          "Signal de vente relatif — compression de multiple anticipee"],
         ["Catalyseur de rotation", "Confirmation pivot Fed (<2,5% CPI sur 3M)",
-         "Reevaluer les signaux en Sous-ponderer en premier si pivot se confirme"],
+         "R\u00e9\u00e9valuer les signaux en Sous-pond\u00e9rer en premier si pivot se confirme"],
     ]
     cycle_h = [Paragraph(h, S_TH_L) for h in ["Element","Verdict","Rationale"]]
     cycle_rows = [[Paragraph(r[0], S_TD_B), Paragraph(r[1], S_TD_L), Paragraph(r[2], S_TD_L)]
@@ -730,14 +730,14 @@ def _build_top3(data, donut_buf, registry=None):
     elems.append(PageBreak())
     elems.append(Spacer(1, 10*mm))
     if registry is not None: elems.append(SectionAnchor('top3', registry))
-    elems += section_title("Top 3 Secteurs Recommandes", 5)
+    elems += section_title("Top 3 Secteurs Recommand\u00e9s", 5)
     elems.append(Spacer(1, 3*mm))
 
     _surp_list = [s for s in data["secteurs"] if s[3] in ("Surponderer", "Surpond\xe9rer")]
     nb_surp_reel = len(_surp_list)
-    _surp_label = (f"{nb_surp_reel} secteur(s) affichent un signal <b>Surponderer</b>"
+    _surp_label = (f"{nb_surp_reel} secteur(s) affichent un signal <b>Surpond\u00e9rer</b>"
                    if nb_surp_reel > 0
-                   else "aucun secteur ne franchit le seuil Surponderer")
+                   else "aucun secteur ne franchit le seuil Surpond\u00e9rer")
     _n_comp = len(data["top3_secteurs"]) - nb_surp_reel
     if _n_comp > 0:
         _comp_s = ("secteur Neutre est presente en complement"
@@ -751,13 +751,13 @@ def _build_top3(data, donut_buf, registry=None):
     elems.append(Paragraph(
         f"Sur {_nb_s_tot} {_s_tot_lbl}, {_surp_label}.{_complement} "
         "Ces secteurs combinent momentum prix positif, revision haussiere des BPA et "
-        "valorisation raisonnable par rapport a leur historique. "
-        "Pour le detail complet — ratios LTM/NTM, Football Field, DCF, FinBERT — "
-        "lancer l'analyse sectorielle dediee dans FinSight IA.", S_BODY))
+        "valorisation raisonnable par rapport \u00e0 leur historique. "
+        "Pour le d\u00e9tail complet — ratios LTM/NTM, Football Field, DCF, FinBERT — "
+        "lancer l'analyse sectorielle d\u00e9di\u00e9e dans FinSight IA.", S_BODY))
     elems.append(Spacer(1, 4*mm))
 
     # Tableau synthese
-    _titre_synth = ("Vue d'ensemble — Secteurs Surponderer" if nb_surp_reel > 0
+    _titre_synth = ("Vue d'ensemble — Secteurs Surpond\u00e9rer" if nb_surp_reel > 0
                     else "Vue d'ensemble — Meilleurs secteurs de l'univers")
     elems.append(Paragraph(_titre_synth, S_SUBSECTION))
     synth_h = [Paragraph(h, S_TH_C) for h in
@@ -781,7 +781,7 @@ def _build_top3(data, donut_buf, registry=None):
     # [40, 28, 14, 22, 22, 22, 22] = 170
     elems.append(KeepTogether(tbl([synth_h] + synth_rows,
         cw=[40*mm, 28*mm, 14*mm, 22*mm, 22*mm, 22*mm, 22*mm])))
-    elems.append(src(f"FinSight IA — FMP, yfinance. EV/EBITDA et marges = medianes LTM."))
+    elems.append(src(f"FinSight IA — FMP, yfinance. EV/EBITDA et marges = m\u00e9dianes LTM."))
     elems.append(Spacer(1, 4*mm))
 
     # Donut gauche + textes analytiques droite
@@ -808,8 +808,8 @@ def _build_top3(data, donut_buf, registry=None):
     ]))
     elems.append(donut_row)
     elems.append(src(
-        f"FinSight IA — Ponderations GICS {data['date_analyse']}. "
-        "Analyses generees par l'agent Synthese."))
+        f"FinSight IA — Pond\u00e9rations GICS {data['date_analyse']}. "
+        "Analyses g\u00e9n\u00e9r\u00e9es par l'agent Synth\u00e8se."))
     elems.append(Spacer(1, 5*mm))
 
     # Tableau 9 societes — KeepTogether sur titre+texte+spacer+tableau
@@ -829,12 +829,12 @@ def _build_top3(data, donut_buf, registry=None):
     # [36, 16, 30, 24, 18, 46] = 170
     soc_tbl = tbl([soc_h] + soc_rows, cw=[36*mm, 16*mm, 30*mm, 24*mm, 18*mm, 46*mm])
     elems.append(KeepTogether([
-        Paragraph("Societes representatives — 3 convictions par secteur", S_SUBSECTION),
+        Paragraph("Soci\u00e9t\u00e9s representatives — 3 convictions par secteur", S_SUBSECTION),
         Spacer(1, 2*mm),
         Paragraph(
             "Ces societes constituent les convictions les plus solides au sein de chaque "
-            "secteur Surponderer. Pour acceder a l'analyse complete — prix cible, DCF, "
-            "Altman Z-Score, FinBERT — lancer l'analyse societe individuelle.", S_BODY),
+            "secteur Surpond\u00e9rer. Pour acc\u00e9der \u00e0 l'analyse compl\u00e8te — prix cible, DCF, "
+            "Altman Z-Score, FinBERT — lancer l'analyse soci\u00e9t\u00e9 individuelle.", S_BODY),
         Spacer(1, 2*mm),
         soc_tbl,
     ]))
@@ -881,16 +881,16 @@ def _build_risques(data, registry=None):
     elems.append(debate_q(
         f"Quelles conditions invalideraient le signal {sig_central} et vers quel scenario ?"))
     inv_h = [Paragraph(h, S_TH_L) for h in
-             ["Scenario","Condition declencheur","Signal resultant","Horizon"]]
+             ["Sc\u00e9nario","Condition d\u00e9clencheur","Signal r\u00e9sultant","Horizon"]]
     inv_data = [[s[0], s[1], s[2], s[3]] for s in (data.get("scenarios") or [
-        ("Bull case", "Score > 60 + BPA NTM > +8% YoY", "Surponderer", "3-6 mois"),
-        ("Bear case", "Score < 40 via recession ou choc geopolitique", "Sous-ponderer", "6-12 mois"),
-        ("Stagflation", "CPI > 3,5% + PIB < 1%", "Sous-ponderer selectif", "6-9 mois"),
+        ("Bull case", "Score > 60 + BPA NTM > +8% YoY", "Surpond\u00e9rer", "3-6 mois"),
+        ("Bear case", "Score < 40 via r\u00e9cession ou choc g\u00e9opolitique", "Sous-pond\u00e9rer", "6-12 mois"),
+        ("Stagflation", "CPI > 3,5% + PIB < 1%", "Sous-pond\u00e9rer s\u00e9lectif", "6-9 mois"),
     ])]
 
     def inv_signal_s(v):
-        if "Surponderer" in v: return S_TD_G
-        if "Sous-ponderer" in v: return S_TD_R
+        if "Surpond" in v: return S_TD_G
+        if "Sous-pond" in v: return S_TD_R
         return S_TD_A
 
     inv_rows = [[Paragraph(r[0], S_TD_B), Paragraph(r[1], S_TD_L),
@@ -900,15 +900,15 @@ def _build_risques(data, registry=None):
     elems.append(KeepTogether(tbl([inv_h] + inv_rows,
         cw=[24*mm, 82*mm, 40*mm, 24*mm], compact=True)))
     elems.append(src(
-        "FinSight IA — Scenarios alternatifs. Conditions a reevaluer a chaque rapport mensuel."))
+        "FinSight IA — Sc\u00e9narios alternatifs. Conditions \u00e0 r\u00e9\u00e9valuer \u00e0 chaque rapport mensuel."))
     elems.append(Spacer(1, 4*mm))
     elems.append(Paragraph("Gestion du risque portefeuille", S_SUBSECTION))
     elems.append(Paragraph(data.get("texte_gestion_risque",
         f"Dans le scenario central, le {indice_rl} evolue dans une fourchette cible sur 12 mois, "
-        "soutenu par la resilience des marges des secteurs Surponderer. Le portefeuille modele "
-        "recommande une surexposition selective sur les secteurs identifies, une couverture "
-        "partielle via les secteurs defensifs en cas de choc de croissance, et une reduction "
-        "tactique du beta portefeuille si les conditions macro se deteriorent de maniere "
+        "soutenu par la r\u00e9silience des marges des secteurs Surpond\u00e9rer. Le portefeuille mod\u00e8le "
+        "recommande une surexposition s\u00e9lective sur les secteurs identifi\u00e9s, une couverture "
+        "partielle via les secteurs d\u00e9fensifs en cas de choc de croissance, et une r\u00e9duction "
+        "tactique du beta portefeuille si les conditions macro se d\u00e9t\u00e9riorent de mani\u00e8re "
         f"significative. La prochaine revue est programmee dans 30 jours."), S_BODY))
     return elems
 
@@ -920,7 +920,7 @@ def _build_sentiment(data, registry=None):
     elems.append(PageBreak())
     elems.append(Spacer(1, 10*mm))
     if registry is not None: elems.append(SectionAnchor('sentiment', registry))
-    elems += section_title("Sentiment Agrege &amp; Methodologie", 7)
+    elems += section_title("Sentiment Agr\u00e9g\u00e9 &amp; M\u00e9thodologie", 7)
 
     if fb["nb_articles"] == 0:
         elems.append(Paragraph(
@@ -1011,13 +1011,13 @@ def _build_sentiment(data, registry=None):
         elems.append(Spacer(1, 4*mm))
 
     # Methodologie — [40, 130] = 170
-    elems.append(Paragraph("Sources &amp; Methodologie", S_SUBSECTION))
-    meth_h = [Paragraph(h, S_TH_L) for h in ["Composante","Methodologie"]]
+    elems.append(Paragraph("Sources &amp; M\u00e9thodologie", S_SUBSECTION))
+    meth_h = [Paragraph(h, S_TH_L) for h in ["Composante","M\u00e9thodologie"]]
     meth_rows = [[Paragraph(k, S_TD_B), Paragraph(v, S_TD_L)]
                  for k, v in data["methodologie"]]
     elems.append(KeepTogether(tbl([meth_h] + meth_rows, cw=[40*mm, 130*mm])))
     elems.append(src(
-        f"FinSight IA v1.0 — Mise a jour quotidienne. Donnees au {data['date_analyse']}."))
+        f"FinSight IA v1.0 — Mise \u00e0 jour quotidienne. Donn\u00e9es au {data['date_analyse']}."))
     return elems
 
 
@@ -1089,10 +1089,10 @@ def _build_story(data, perf_buf, weights_buf, scatter_buf, scores_buf,
     story.append(Paragraph("A propos de cette analyse", S_SUBSECTION))
     story.append(Paragraph(
         f"Cette analyse d'indice couvre l'ensemble des {data['nb_secteurs']} secteurs GICS du "
-        f"{indice_rl} ({data['nb_societes']} societes). Elle produit un signal global "
-        "d'allocation sectorielle (Surponderer / Neutre / Sous-ponderer) et un score composite "
-        "par secteur. Les donnees sont issues de yfinance, FMP et Finnhub. Le sentiment est "
-        "analyse par FinBERT sur 7 jours glissants. La methodologie complete est detaillee "
+        f"{indice_rl} ({data['nb_societes']} soci\u00e9t\u00e9s). Elle produit un signal global "
+        "d'allocation sectorielle (Surpond\u00e9rer / Neutre / Sous-pond\u00e9rer) et un score composite "
+        "par secteur. Les donn\u00e9es sont issues de yfinance, FMP et Finnhub. Le sentiment est "
+        "analys\u00e9 par FinBERT sur 7 jours glissants. La m\u00e9thodologie compl\u00e8te est d\u00e9taill\u00e9e "
         "en section 7.", S_BODY))
     story.append(PageBreak())
 

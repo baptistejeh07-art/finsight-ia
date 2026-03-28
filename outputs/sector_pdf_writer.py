@@ -531,7 +531,7 @@ def _cover_page(c, doc, sector_name: str, subtitle: str, universe: str,
     c.drawCentredString(cx, h - 8*mm, "FinSight IA")
     c.setFillColor(ACCENT_BLUE)
     c.setFont('Helvetica', 7.5)
-    c.drawCentredString(cx, h - 14*mm, "Plateforme d'Analyse Financiere Institutionnelle")
+    c.drawCentredString(cx, h - 14*mm, "Plateforme d'Analyse Financi\u00e8re Institutionnelle")
     c.setStrokeColor(GREY_RULE)
     c.setLineWidth(0.5)
     c.line(MARGIN_L, h - 20*mm, w - MARGIN_R, h - 20*mm)

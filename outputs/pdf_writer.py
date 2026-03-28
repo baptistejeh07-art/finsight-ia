@@ -1583,10 +1583,13 @@ def _frx(v):
 
 def _frm(v):
     """Formate une valeur stockee en millions → Md (milliards), 1 decimale.
-    Les valeurs financieres dans FinancialYear sont toujours en millions (yfinance + LLM prompt)."""
+    Les valeurs financieres dans FinancialYear sont toujours en millions (yfinance + LLM prompt).
+    Si le LLM retourne une valeur en EUR/USD absolu (>1e9), normalise automatiquement en millions."""
     if v is None: return "\u2014"
     try:
         f = float(v)
+        if abs(f) > 1_000_000_000:  # valeur en absolu (ex: 195_000_000_000 EUR) → convertir en millions
+            f = f / 1_000_000
         return _fr(f / 1_000, 1)
     except: return "\u2014"
 

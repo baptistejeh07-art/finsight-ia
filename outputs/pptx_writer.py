@@ -1068,8 +1068,8 @@ def _slide_business_model(prs, snap, synthesis):
     navy_bar(slide)
     footer_bar(slide)
     section_dots(slide, 1)
-    slide_title(slide, "Modele Economique",
-                "Segments operationnels et moteurs de croissance")
+    slide_title(slide, "Mod\u00e8le \u00c9conomique",
+                "Segments op\u00e9rationnels et moteurs de croissance")
 
     segments  = _g(synthesis, "segments", []) or []
     strengths = _g(synthesis, "strengths", []) or []
@@ -1394,7 +1394,7 @@ def _slide_bilan(prs, snap, synthesis, ratios):
 
     fin_comment = _g(synthesis, "financial_commentary", "") or ""
     if fin_comment.strip():
-        commentary_box(slide, 1.02, 11.30, 23.37, 1.30, fin_comment[:300])
+        commentary_box(slide, 1.02, 11.30, 23.37, 1.30, fin_comment[:500])
 
     return slide
 
@@ -1453,7 +1453,7 @@ def _slide_ratios(prs, snap, synthesis, ratios):
             if v < 8:   return "Bas"
             if v < 14:  return "Correct"
             if v < 20:  return "Premium"
-            return "Tres eleve"
+            return "Tr\u00e8s \u00e9lev\u00e9"
         except: return "—"
 
     def _lecture_z(v):
@@ -1462,7 +1462,7 @@ def _slide_ratios(prs, snap, synthesis, ratios):
             v = float(v)
             if v >= 2.99: return "Solide"
             if v >= 1.81: return "Zone grise"
-            return "Detresse"
+            return "D\u00e9tresse"
         except: return "—"
 
     def _lecture_bm(v):
@@ -1478,7 +1478,7 @@ def _slide_ratios(prs, snap, synthesis, ratios):
             if v < 1:   return "Sous-value"
             if v < 5:   return "Correct"
             if v < 10:  return "Premium"
-            return "Tres eleve"
+            return "Tr\u00e8s \u00e9lev\u00e9"
         except: return "—"
 
     def _lecture_gm(v):
@@ -1525,8 +1525,8 @@ def _slide_ratios(prs, snap, synthesis, ratios):
         if v is None: return "—"
         try:
             v = abs(float(v)) * 100
-            if v < 5:   return "Leger"
-            if v < 15:  return "Modere"
+            if v < 5:   return "L\u00e9ger"
+            if v < 15:  return "Mod\u00e9r\u00e9"
             return "Intensif"
         except: return "—"
 
