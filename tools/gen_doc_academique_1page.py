@@ -207,17 +207,19 @@ def build():
           "d\u00e9mocratis\u00e9s sans sacrifier la rigueur analytique."),
 
         SH('CONTEXTE ACAD\u00c9MIQUE'),
-        P("Ce projet a \u00e9t\u00e9 men\u00e9 en parall\u00e8le d\u2019un cursus en "
-          "L1 Gestion \u00e0 la Sorbonne. Il constitue une application directe "
-          "des concepts de finance d\u2019entreprise\u00a0: lecture des \u00e9tats "
-          "financiers, analyse des ratios, \u00e9valuation par les flux actualis\u00e9s, "
+        P("Ce projet a \u00e9t\u00e9 men\u00e9 en parall\u00e8le d\u2019un "
+          "<b>BTS Comptabilit\u00e9 et Gestion en alternance</b> "
+          "et de la pr\u00e9paration du <b>FMVA</b> (Financial Modeling "
+          "&amp; Valuation Analyst, CFI). Il constitue une application directe "
+          "des concepts \u00e9tudi\u00e9s\u00a0: lecture des \u00e9tats financiers, "
+          "analyse des ratios, \u00e9valuation par les flux actualis\u00e9s, "
           "comparaison sectorielle par les multiples de march\u00e9."),
-        P("L\u2019objectif \u00e9tait de v\u00e9rifier qu\u2019un \u00e9tudiant de premier "
-          "cycle peut produire une analyse financi\u00e8re structur\u00e9e selon "
-          "les standards professionnels \u2014 non pas pour remplacer l\u2019analyste, "
-          "mais pour comprendre et reproduire sa d\u00e9marche intellectuelle. "
-          "La rigueur m\u00e9thodologique visible dans chaque output "
-          "est le r\u00e9sultat direct de cet apprentissage acad\u00e9mique."),
+        P("L\u2019objectif \u00e9tait de d\u00e9montrer qu\u2019un \u00e9tudiant "
+          "en formation peut produire une analyse financi\u00e8re structur\u00e9e "
+          "selon les standards professionnels \u2014 non pas pour remplacer "
+          "l\u2019analyste, mais pour comprendre et reproduire sa d\u00e9marche. "
+          "La rigueur visible dans chaque output est le r\u00e9sultat direct "
+          "de cet apprentissage."),
     ]
 
     # ── Two-column table ──────────────────────────────────────────────────────
