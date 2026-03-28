@@ -192,7 +192,7 @@ def build():
         sp(14),
         P('28 mars 2026', 'cover_meta'),
         sp(52),
-        P('80+ fichiers Python \u00a0\u00b7\u00a0 ~50\u202f000 lignes de code \u00a0\u00b7\u00a0 6 fournisseurs LLM '
+        P('76 fichiers Python \u00a0\u00b7\u00a0 ~34\u202f000 lignes de code \u00a0\u00b7\u00a0 6 fournisseurs LLM '
           '\u00a0\u00b7\u00a0 Constitution \u00e0 7 articles', 'cover_stats'),
         PageBreak(),
     ]
@@ -284,10 +284,6 @@ def build():
         H1('Introduction'),
         hr(NAVY, 0.4, 2, 8),
     ]
-    story += quote_block(
-        "The research process that used to take weeks now takes seconds.",
-        "Morgan Stanley, rapport interne sur l\u2019IA en banque d\u2019investissement, 2024"
-    )
     story += [
         P("L\u2019analyse financi\u00e8re institutionnelle est, dans sa forme classique, "
           "une activit\u00e9 \u00e0 haute intensit\u00e9 de travail qualifi\u00e9. Un analyste "
@@ -841,7 +837,7 @@ def build():
         P("L\u2019interface utilisateur est d\u00e9velopp\u00e9e avec <b>Streamlit</b> "
           "(version 1.55+), un framework Python de prototypage d\u2019applications "
           "analytiques. Le fichier principal <code>app.py</code> comporte plus de "
-          "3\u202f600 lignes de code et g\u00e8re trois \u00e9tats applicatifs\u00a0: "
+          "2\u202f700 lignes de code et g\u00e8re trois \u00e9tats applicatifs\u00a0: "
           "accueil (formulaire de recherche, boutons de navigation rapide), "
           "analyse en cours (barre de progression), r\u00e9sultats (affichage "
           "interactif des livrables)."),
