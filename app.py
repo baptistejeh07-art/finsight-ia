@@ -806,8 +806,8 @@ def render_sidebar(results) -> None:
 
                 # Bouton de téléchargement + ✗ par fichier (hors state.json technique)
                 for _f in _files:
-                    if _f.suffix.lower() == '.json':
-                        continue  # state.json : fichier technique, pas de bouton DL
+                    if _f.suffix.lower() == '.json' or _f.name == '_timestamp.txt':
+                        continue  # fichiers techniques, pas de bouton DL
                     _ext  = _f.suffix.lower()
                     _mime = {"pdf": "application/pdf", "pptx": "application/vnd.ms-powerpoint",
                              "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
