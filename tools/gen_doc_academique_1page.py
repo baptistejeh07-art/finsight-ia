@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 """
 FinSight IA -- One-Pager Academique
-Format A4 recto unique, destine aux jurys d'admission
-76 fichiers Python · ~34 000 lignes · 6 fournisseurs LLM
+Format A4 recto unique -- orientation Finance d'entreprise
+Destine : jury L2 Gestion Sorbonne, clients, contacts
 """
 
 import os
@@ -11,7 +11,7 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import cm
-from reportlab.lib.enums import TA_JUSTIFY, TA_LEFT
+from reportlab.lib.enums import TA_JUSTIFY, TA_LEFT, TA_CENTER
 from reportlab.platypus import (
     SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
 )
@@ -25,87 +25,69 @@ DGREY = colors.HexColor('#555555')
 BLACK = colors.HexColor('#111111')
 WHITE = colors.white
 
-ML = MR = 1.4 * cm
-MT   = 2.85 * cm   # below header + stats + rule
-MB   = 1.1 * cm
+ML = MR = 1.5 * cm
+MT   = 3.0 * cm
+MB   = 1.2 * cm
 
 TW   = W - ML - MR
-GAP  = 0.45 * cm
-COL  = (TW - GAP) / 2   # ~247 pt per column
-
-FB   = 8.8    # body font
-FSH  = 9.5    # section header
-FFM  = 7.5    # formula/code
+GAP  = 0.5 * cm
+COL  = (TW - GAP) / 2
 
 
 def make_styles():
     d = {}
     def ps(name, **kw):
-        defaults = dict(fontName='Times-Roman', fontSize=FB, leading=FB * 1.4,
-                        textColor=BLACK, alignment=TA_JUSTIFY, spaceAfter=5,
+        defaults = dict(fontName='Times-Roman', fontSize=9.5, leading=13.5,
+                        textColor=BLACK, alignment=TA_JUSTIFY, spaceAfter=6,
                         spaceBefore=0)
         defaults.update(kw)
         d[name] = ParagraphStyle(name, **defaults)
 
     ps('body')
-    ps('intro', fontName='Times-Italic', fontSize=FB - 0.3, leading=(FB-0.3)*1.4,
+    ps('intro', fontName='Times-Italic', fontSize=9.5, leading=14,
                spaceAfter=0, alignment=TA_JUSTIFY)
-    ps('bul',  alignment=TA_LEFT, leftIndent=9, spaceAfter=2.5)
-    ps('fm',   fontName='Courier', fontSize=FFM, leading=FFM * 1.45,
-               leftIndent=5, spaceAfter=3, alignment=TA_LEFT,
-               backColor=LGREY, textColor=colors.HexColor('#1a1a1a'))
-    ps('sh',   fontName='Helvetica-Bold', fontSize=FSH, leading=FSH + 2,
-               textColor=NAVY, alignment=TA_LEFT, spaceAfter=3, spaceBefore=9)
-    ps('sh0',  fontName='Helvetica-Bold', fontSize=FSH, leading=FSH + 2,
-               textColor=NAVY, alignment=TA_LEFT, spaceAfter=3, spaceBefore=0)
+    ps('bul',  fontName='Times-Roman', fontSize=9.5, leading=13.5,
+               leftIndent=10, spaceAfter=4, alignment=TA_LEFT)
+    ps('sh',   fontName='Helvetica-Bold', fontSize=10, leading=13,
+               textColor=NAVY, alignment=TA_LEFT, spaceAfter=4, spaceBefore=12)
+    ps('sh0',  fontName='Helvetica-Bold', fontSize=10, leading=13,
+               textColor=NAVY, alignment=TA_LEFT, spaceAfter=4, spaceBefore=0)
+    ps('cap',  fontName='Times-Italic', fontSize=8.5, leading=11,
+               textColor=DGREY, alignment=TA_CENTER, spaceAfter=4)
     return d
 
 
 def header_cb(c, doc):
     # Navy header bar
     c.setFillColor(NAVY)
-    c.rect(0, H - 48, W, 48, fill=1, stroke=0)
+    c.rect(0, H - 52, W, 52, fill=1, stroke=0)
 
-    # Title + subtitle
     c.setFillColor(WHITE)
-    c.setFont('Helvetica-Bold', 16)
-    c.drawString(ML, H - 27, 'FinSight IA')
+    c.setFont('Helvetica-Bold', 18)
+    c.drawString(ML, H - 30, 'FinSight IA')
+    c.setFont('Helvetica', 8.5)
+    c.drawString(ML, H - 45,
+                 "Plateforme d'analyse financiere institutionnelle automatisee")
+
+    c.setFont('Helvetica-Bold', 9)
+    c.drawRightString(W - MR, H - 28, 'Baptiste Jehanno')
     c.setFont('Helvetica', 8)
-    c.drawString(ML, H - 41,
-                 "Plateforme d'Analyse Financiere Institutionnelle par IA Multi-Agents")
+    c.drawRightString(W - MR, H - 41, '28 mars 2026')
 
-    # Author block
-    c.setFont('Helvetica-Bold', 8.5)
-    c.drawRightString(W - MR, H - 25, 'Baptiste Jehanno')
-    c.setFont('Helvetica', 7.5)
-    c.drawRightString(W - MR, H - 38, '28 mars 2026')
-
-    # Green accent bar
+    # Green accent
     c.setFillColor(GREEN)
-    c.rect(0, H - 51, W, 3, fill=1, stroke=0)
+    c.rect(0, H - 55, W, 3, fill=1, stroke=0)
 
-    # Stats line
-    c.setFillColor(DGREY)
-    c.setFont('Helvetica', 6.8)
-    c.drawCentredString(
-        W / 2, H - 62,
-        '76 fichiers Python  \u00b7  ~34 000 lignes de code  \u00b7  '
-        '6 fournisseurs LLM  \u00b7  Constitution 7 articles  \u00b7  '
-        'Streamlit Cloud')
-
-    # Rule below stats
+    # Footer
     c.setStrokeColor(MGREY)
     c.setLineWidth(0.4)
-    c.line(ML, H - 68, W - MR, H - 68)
-
-    # Footer rule + colophon
     c.line(ML, MB + 8, W - MR, MB + 8)
     c.setFillColor(DGREY)
-    c.setFont('Helvetica-Oblique', 6.2)
+    c.setFont('Helvetica-Oblique', 6.5)
     c.drawCentredString(
         W / 2, MB + 1,
-        'FinSight IA \u2014 Baptiste Jehanno \u2014 mars 2026  '
-        '\u2014  Code source : GitHub  \u2014  Demo : finsight-ia.streamlit.app')
+        'FinSight IA  \u2014  Baptiste Jehanno  \u2014  mars 2026'
+        '  \u2014  Deploye sur Streamlit Cloud  \u2014  finsight-ia.streamlit.app')
 
 
 def build():
@@ -113,7 +95,7 @@ def build():
     doc = SimpleDocTemplate(
         OUT, pagesize=A4,
         leftMargin=ML, rightMargin=MR,
-        topMargin=MT, bottomMargin=MB + 12,
+        topMargin=MT, bottomMargin=MB + 14,
     )
 
     st = make_styles()
@@ -121,135 +103,118 @@ def build():
     SH = lambda t: Paragraph(t, st['sh'])
     S0 = lambda t: Paragraph(t, st['sh0'])
     BU = lambda t: Paragraph('\u2022\u00a0 ' + t, st['bul'])
-    FM = lambda t: Paragraph(t, st['fm'])
-    sp = lambda n=3: Spacer(1, n)
+    sp = lambda n=4: Spacer(1, n)
 
-    # ── LEFT COLUMN ──────────────────────────────────────────────────────────
-    left = [
-        S0('ARCHITECTURE DU PIPELINE'),
-        P("FinSight IA orchestre <b>7 agents</b> via un graphe d'\u00e9tats "
-          "<b>LangGraph</b> (TypedDict, routage conditionnel). Principe "
-          "fondateur\u00a0: le calcul d\u00e9terministe est exclusivement "
-          "Python \u2014 aucun LLM ne produit de ratio."),
-        P("Flux\u00a0: <i>fetch</i> (AgentData + FinBERT) \u2192 "
-          "<i>fallback</i> (coverage\u00a0<\u00a00,70) \u2192 "
-          "<i>quant</i> (33 ratios, 0 r\u00e9seau) \u2192 "
-          "<i>synthesis</i> (LLM, JSON 70 champs) \u2192 "
-          "<i>qa</i> (d\u00e9terministe \u2225 \u00e9ditorial) \u2192 "
-          "<i>devil</i> (th\u00e8se inverse) \u2192 "
-          "<i>output</i> (PDF \u2225 PPTX \u2225 Excel)."),
-        P("Collecte multi-sources\u00a0: yfinance (primaire, 5 ans), "
-          "FMP API (fallback EU), Finnhub (news + \u03b2). "
-          "Score de couverture\u00a0:"),
-        FM("coverage = |champs non-nuls| / |champs FinancialYear (39)|"),
-        P("Si coverage\u00a0<\u00a00,70 \u2192 fallback automatique. "
-          "Latence m\u00e9diane totale\u00a0: <b>~60 secondes</b>."),
-
-        SH('IA & SYNTH\u00c8SE \u2014 CASCADE 6 LLM'),
-        P("R\u00e9silience par diversification\u00a0: Groq (llama-3.3-70b) "
-          "\u2192 Mistral \u2192 Cerebras \u2192 Anthropic Haiku "
-          "\u2192 Gemini \u2192 Ollama. Rotation automatique des cl\u00e9s. "
-          "Disponibilit\u00e9\u00a0>\u00a099\u202f%."),
-        P("<b>AgentSynth\u00e8se</b>\u00a0: JSON 70 champs (th\u00e8se, "
-          "recommandation, sc\u00e9narios, catalyseurs, risques) via prompt "
-          "Jinja inject\u00e9 des 5 ann\u00e9es de ratios calcul\u00e9s."),
-        P("<b>Double QA parall\u00e8le</b>\u00a0: AgentQAPython "
-          "(10 checks d\u00e9terministes, flags INFO/WARNING/ERROR, "
-          "d\u00e9gradation <i>qa_score</i>) + AgentQAHaiku (\u00e9ditorial). "
-          "<b>AgentDevil</b>\u00a0: <i>conviction_delta</i> \u2208 [\u22121,\u00a00]."),
-
-        SH('LIVRABLES INSTITUTIONNELS'),
-        BU("<b>Rapport PDF 9 pages</b>\u00a0: ReportLab, "
-           "canvas callbacks, graphiques matplotlib."),
-        BU("<b>Pitchbook PPTX 20 slides</b>\u00a0: python-pptx, "
-           "palette navy/blanc, layouts banque d\u2019investissement."),
-        BU("<b>Mod\u00e8le Excel 7 feuilles</b>\u00a0: 52 cellules "
-           "prot\u00e9g\u00e9es (liste statique + "
-           "d\u00e9tection <i>startswith('=')</i>), "
-           "5 ans align\u00e9s droite (H\u00a0=\u00a0LTM)."),
-    ]
-
-    # ── RIGHT COLUMN ─────────────────────────────────────────────────────────
-    right = [
-        S0('RIGUEUR QUANTITATIVE \u2014 33 RATIOS PYTHON PUR'),
-        P("Rentabilit\u00e9 (ROE, ROA, ROIC, EBITDA margin, FCF yield) "
-          "\u00b7 Valorisation (P/E, EV/EBITDA, P/B, P/S) "
-          "\u00b7 Levier (D/E, Net debt/EBITDA) "
-          "\u00b7 Liquidit\u00e9 (Current, Quick ratio) "
-          "\u00b7 Efficacit\u00e9 (Asset turnover, DSO) "
-          "\u00b7 Croissance (CAGR 3/5 ans, EPS growth). "
-          "Z\u00e9ro appel LLM dans AgentQuant."),
-        P("<b>Altman Z-Score</b> (1968)\u00a0:"),
-        FM("Z = 1,2\u00d7X\u2081 + 1,4\u00d7X\u2082 + 3,3\u00d7X\u2083 "
-           "+ 0,6\u00d7X\u2084 + 1,0\u00d7X\u2085"),
-        P("Z\u00a0<\u00a01,81 \u2192 d\u00e9tresse. "
-          "<b>Beneish M-Score</b> (1999)\u00a0: 8 variables "
-          "comptables, M\u00a0>\u00a0\u22122,22 \u2192 manipulation potentielle."),
-        P("<b>WACC</b> (Modigliani & Miller, 1958\u00a0; Sharpe, 1964)\u00a0:"),
-        FM("WACC = (E/V \u00d7 Re) + (D/V \u00d7 Rd \u00d7 (1 \u2212 Tc))"),
-        P("Re\u00a0= Rf\u00a0+\u00a0\u03b2\u00d7ERP (CAPM). "
-          "Rf extrait de ^TNX (yfinance), "
-          "ERP param\u00e9tr\u00e9 par secteur GICS (5,0\u00a0\u2013\u00a06,0\u202f%). "
-          "DCF\u00a0: 5 ans explicites + valeur terminale\u00a0:"),
-        FM("TV = FCF\u209c \u00d7 (1+g) / (WACC\u2212g)   "
-           "[Gordon & Shapiro, 1956]"),
-
-        SH('GOUVERNANCE CONSTITUTIONNELLE'),
-        P("La <b>Constitution</b> encode 7 articles en dataclasses Python, "
-          "appliqu\u00e9s \u00e0 chaque ex\u00e9cution par "
-          "<code>check_compliance(state)</code>. "
-          "Amendements via <code>validate_amendment(id)</code> "
-          "(validation humaine explicite, archiv\u00e9e)."),
-        BU("Art.\u00a01\u00a0: <i>confidence_score</i> \u2265 0,45 "
-           "\u2014 HOLD si inf\u00e9rieur."),
-        BU("Art.\u00a02\u00a0: <i>data_quality</i> \u2265 0,70 "
-           "\u2014 fallback + HOLD."),
-        BU("Art.\u00a03\u00a0: <i>qa_score</i> \u2265 0,60 avant output."),
-        BU("Art.\u00a04\u00a0: AgentDevil syst\u00e9matique (th\u00e8se inverse)."),
-        BU("Art.\u00a06\u00a0: SELL uniquement si "
-           "<i>conviction_delta</i> < \u22120,50."),
-        P("AgentJustice surveille le taux de violation\u00a0; "
-          ">\u00a020\u202f% \u2192 proposition d'amendement."),
-
-        SH('\u00c9TAT \u2014 MARS 2026 & ROADMAP'),
-        P("Production d\u00e9ploy\u00e9e (<b>Streamlit Community Cloud</b>). "
-          "3 modes\u00a0: <i>Soci\u00e9t\u00e9</i> (action cot\u00e9e mondiale) "
-          "\u00b7 <i>Secteur</i> (GICS / indice) "
-          "\u00b7 <i>Indice</i> (snapshot macro, 12\u202fp. PDF, 20 slides)."),
-        P("<b>En cours</b>\u00a0: ratios banques/utilities/REIT, "
-          "EODHD (source EU), ChromaDB (m\u00e9moire s\u00e9mantique). "
-          "<b>Vision 12 mois</b>\u00a0: FinSight Score 0\u2013100 "
-          "(backtest 10 ans), couverture Nikkei/Hang\u00a0Seng, "
-          "API REST B2B (FastAPI, freemium)."),
-    ]
-
-    # ── Full-width intro ─────────────────────────────────────────────────────
+    # ── Intro pleine largeur ──────────────────────────────────────────────────
     intro_txt = (
-        "FinSight IA est une plateforme automatis\u00e9e d\u2019analyse financi\u00e8re "
-        "institutionnelle con\u00e7ue pour produire, en moins de 90 secondes, des documents "
-        "de recherche comparables aux standards des grandes banques d\u2019investissement. "
-        "Le syst\u00e8me repose sur trois piliers\u00a0: <b>rigueur quantitative</b> "
-        "(33 ratios d\u00e9terministes calcul\u00e9s exclusivement en Python\u00a0; "
-        "aucun LLM ne produit de ratio), <b>synth\u00e8se linguistique structur\u00e9e</b> "
-        "(cascade de 6 fournisseurs LLM avec rotation automatique des cl\u00e9s), et "
-        "<b>gouvernance constitutionnelle formelle</b> "
-        "(7 articles encod\u00e9s en Python, seuils de confiance mesurables, "
-        "processus d\u2019amendement vers\u00e9). "
-        "Enti\u00e8rement d\u00e9ploy\u00e9 sur Streamlit Cloud, "
-        "sans cloud priv\u00e9 ni GPU, il rivalise qualitativement avec des outils "
-        "institutionnels dont le co\u00fbt d\u2019acc\u00e8s d\u00e9passe 20\u202f000\u202f\u20ac/an."
+        "FinSight IA est une plateforme que j\u2019ai con\u00e7ue et d\u00e9velopp\u00e9e "
+        "seul pour automatiser la production de recherche financi\u00e8re de qualit\u00e9 "
+        "institutionnelle. En moins de 90 secondes, le syst\u00e8me collecte cinq ann\u00e9es "
+        "de donn\u00e9es financi\u00e8res, calcule les principaux indicateurs utilis\u00e9s "
+        "par les analystes sell-side \u2014 rentabilit\u00e9, valorisation, structure du "
+        "capital, liquidit\u00e9, croissance \u2014 synth\u00e9tise une th\u00e8se "
+        "d\u2019investissement structur\u00e9e, et g\u00e9n\u00e8re trois livrables "
+        "pr\u00eats \u00e0 l\u2019usage\u00a0: un rapport de recherche, un pitchbook "
+        "de pr\u00e9sentation, et un mod\u00e8le Excel financier. "
+        "Le tout accessible gratuitement, sans abonnement Bloomberg ni FactSet."
     )
     intro_tbl = Table(
         [[Paragraph(intro_txt, st['intro'])]],
         colWidths=[TW],
     )
     intro_tbl.setStyle(TableStyle([
-        ('LEFTPADDING',   (0,0), (-1,-1), 0),
-        ('RIGHTPADDING',  (0,0), (-1,-1), 0),
-        ('TOPPADDING',    (0,0), (-1,-1), 0),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 6),
-        ('LINEBELOW',     (0,0), (-1,-1), 0.4, MGREY),
+        ('LEFTPADDING',   (0, 0), (-1, -1), 0),
+        ('RIGHTPADDING',  (0, 0), (-1, -1), 0),
+        ('TOPPADDING',    (0, 0), (-1, -1), 0),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+        ('LINEBELOW',     (0, 0), (-1, -1), 0.5, MGREY),
     ]))
+
+    # ── Colonne gauche ────────────────────────────────────────────────────────
+    left = [
+        S0('CE QUE PRODUIT FINSIGHT IA'),
+        P("Chaque analyse g\u00e9n\u00e8re trois livrables simultan\u00e9ment, "
+          "comparables au travail d\u2019un analyste junior en banque "
+          "d\u2019investissement\u00a0:"),
+        BU("<b>Rapport de recherche PDF</b> (9 pages)\u00a0: "
+           "synth\u00e8se de la th\u00e8se d\u2019investissement, "
+           "analyse sectorielle, valorisation, scénarios bull/base/bear, "
+           "points cl\u00e9s et recommandation."),
+        BU("<b>Pitchbook PowerPoint</b> (20 diapositives)\u00a0: "
+           "pr\u00e9sentation au format banque d\u2019investissement, "
+           "graphiques historiques, comparables sectoriels, "
+           "th\u00e8se et contre-th\u00e8se."),
+        BU("<b>Mod\u00e8le Excel financier</b> (7 feuilles)\u00a0: "
+           "compte de r\u00e9sultat, bilan, flux de tr\u00e9sorerie "
+           "sur 5 ans, ratios calcul\u00e9s, DCF, sc\u00e9narios."),
+
+        SH("L'ANALYSE FINANCI\u00c8RE COUVERTE"),
+        P("Le syst\u00e8me analyse quatre dimensions fondamentales de la sant\u00e9 "
+          "financi\u00e8re d\u2019une entreprise\u00a0:"),
+        BU("<b>Rentabilit\u00e9</b>\u00a0: ROE, ROA, ROIC, marge EBITDA, "
+           "marge nette, rendement du free cash flow."),
+        BU("<b>Valorisation</b>\u00a0: PER, EV/EBITDA, Price-to-Book, "
+           "Price-to-Sales \u2014 compar\u00e9s aux pairs sectoriels."),
+        BU("<b>Structure du capital</b>\u00a0: ratio dette nette sur EBITDA, "
+           "levier financier, couverture des int\u00e9r\u00eats."),
+        BU("<b>Croissance</b>\u00a0: TCAM du chiffre d\u2019affaires sur "
+           "3 et 5 ans, croissance du B\u00e9n\u00e9fice par Action, "
+           "dynamique de la marge op\u00e9rationnelle."),
+
+        SH('TROIS MODES D\u2019ANALYSE'),
+        BU("<b>Soci\u00e9t\u00e9</b>\u00a0: analyse individuelle d\u2019une action cot\u00e9e "
+           "mondiale (AAPL, LVMH, TotalEnergies\u2026). "
+           "Produit les neuf livrables complets."),
+        BU("<b>Secteur</b>\u00a0: vue comparative d\u2019un secteur GICS au sein "
+           "d\u2019un indice. Cartographie des acteurs, valorisation relative, "
+           "top picks BUY / HOLD / SELL."),
+        BU("<b>Indice</b>\u00a0: snapshot macro d\u2019un march\u00e9 entier "
+           "(S&P\u00a0500, CAC\u00a040, DAX\u2026). Rotation sectorielle "
+           "recommand\u00e9e, sentiment agr\u00e9g\u00e9, performance ETF."),
+    ]
+
+    # ── Colonne droite ────────────────────────────────────────────────────────
+    right = [
+        S0('COMMENT LE SYST\u00c8ME FONCTIONNE'),
+        P("Le pipeline suit la m\u00eame logique qu\u2019un analyste "
+          "sell-side\u00a0: <b>collecter</b> les donn\u00e9es financi\u00e8res "
+          "historiques (cinq exercices), <b>calculer</b> les ratios de mani\u00e8re "
+          "d\u00e9terministe et v\u00e9rifiable, <b>synth\u00e9tiser</b> une th\u00e8se "
+          "via un mod\u00e8le de langage, puis <b>valider</b> la coh\u00e9rence "
+          "avant de g\u00e9n\u00e9rer les livrables."),
+        P("Les donn\u00e9es proviennent de Yahoo Finance (cinq ans d\u2019historique "
+          "couvrant la quasi-totalit\u00e9 des soci\u00e9t\u00e9s cot\u00e9es mondiales), "
+          "compl\u00e9t\u00e9es par des sources sp\u00e9cialis\u00e9es pour les "
+          "entreprises europ\u00e9ennes et les actualit\u00e9s r\u00e9centes. "
+          "Le syst\u00e8me fonctionne sans abonnement payant."),
+
+        SH('RIGUEUR ET CONTR\u00d4LE QUALIT\u00c9'),
+        P("Deux niveaux de validation sont appliqu\u00e9s \u00e0 chaque analyse. "
+          "Le premier est <b>d\u00e9terministe</b>\u00a0: le syst\u00e8me v\u00e9rifie "
+          "la coh\u00e9rence interne des ratios, d\u00e9tecte les anomalies "
+          "comptables et contr\u00f4le la qualit\u00e9 des donn\u00e9es collect\u00e9es. "
+          "Le second est <b>\u00e9ditorial</b>\u00a0: une validation "
+          "ind\u00e9pendante \u00e9value la clart\u00e9, le niveau de rigueur "
+          "et la conformit\u00e9 aux standards de la recherche financi\u00e8re."),
+        P("Un <b>protocole d\u2019avocat du diable</b> syst\u00e9matique "
+          "g\u00e9n\u00e8re la contre-th\u00e8se \u00e0 chaque analyse\u00a0: "
+          "quels \u00e9l\u00e9ments invalideraient la recommandation\u00a0? "
+          "Quels risques l\u2019analyste aurait pu sous-estimer\u00a0? "
+          "Cette discipline intellectuelle, emprunt\u00e9e aux meilleures "
+          "pratiques des comit\u00e9s d\u2019investissement, est int\u00e9gr\u00e9e "
+          "directement dans le rapport livr\u00e9."),
+
+        SH('\u00c9TAT EN MARS 2026'),
+        P("La plateforme est d\u00e9ploy\u00e9e en production sur Streamlit "
+          "Community Cloud et accessible librement. Elle couvre l\u2019ensemble "
+          "des soci\u00e9t\u00e9s cot\u00e9es sur les grandes places boursi\u00e8res "
+          "mondiales. Les analyses ont \u00e9t\u00e9 valid\u00e9es sur des "
+          "titres aussi divers qu\u2019Apple, LVMH, TotalEnergies, SAP ou Nvidia."),
+        P("Ce projet illustre une conviction\u00a0: les outils de la finance "
+          "institutionnelle \u2014 aujourd\u2019hui r\u00e9serv\u00e9s aux grandes "
+          "structures par leur co\u00fbt \u2014 peuvent \u00eatre "
+          "d\u00e9mocratis\u00e9s sans sacrifier la rigueur analytique."),
+    ]
 
     # ── Two-column table ──────────────────────────────────────────────────────
     tbl = Table(
@@ -267,7 +232,11 @@ def build():
         ('LINEAFTER',     (0, 0), (0, -1),  0.4, MGREY),
     ]))
 
-    doc.build([intro_tbl, Spacer(1, 6), tbl], onFirstPage=header_cb, onLaterPages=header_cb)
+    doc.build(
+        [intro_tbl, sp(8), tbl],
+        onFirstPage=header_cb,
+        onLaterPages=header_cb,
+    )
     print(f'PDF genere : {os.path.abspath(OUT)}')
 
 
