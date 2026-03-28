@@ -103,9 +103,12 @@ def run_societe(ticker: str) -> None:
     print(f"\nTemps total : {elapsed:.1f}s")
 
 
-def run_secteur(sector: str, universe: str = "CAC 40") -> None:
-    """Pipeline sectoriel → PDF sectoriel + PPTX sectoriel."""
-    from agents.agent_data import AgentData
+def run_secteur(sector: str, universe: str = "CAC 40", prefix: str = "secteur") -> None:
+    """Pipeline sectoriel → PDF sectoriel + PPTX sectoriel.
+
+    prefix : prefixe du fichier de sortie ("secteur" ou "indice").
+    Utiliser prefix="indice" quand l'appel vient du mode indice avec secteur specifique.
+    """
     from outputs.sector_pdf_writer import generate_sector_report
     from outputs.sectoral_pptx_writer import SectoralPPTXWriter
 
@@ -118,8 +121,9 @@ def run_secteur(sector: str, universe: str = "CAC 40") -> None:
         log.warning("Fallback donnees synthetiques pour '%s' / '%s'", sector, universe)
         tickers = _make_test_tickers(sector, 6)
 
-    pdf_path  = OUT_DIR / f"secteur_{sector.replace(' ','_')}_{universe.replace(' ','_')}.pdf"
-    pptx_path = OUT_DIR / f"secteur_{sector.replace(' ','_')}_{universe.replace(' ','_')}.pptx"
+    stem      = f"{prefix}_{sector.replace(' ','_')}_{universe.replace(' ','_')}"
+    pdf_path  = OUT_DIR / f"{stem}.pdf"
+    pptx_path = OUT_DIR / f"{stem}.pptx"
 
     generate_sector_report(sector, tickers, str(pdf_path), universe=universe)
     log.info("PDF sectoriel : %s  (%d Ko)", pdf_path.name, pdf_path.stat().st_size // 1024)
@@ -127,9 +131,9 @@ def run_secteur(sector: str, universe: str = "CAC 40") -> None:
     SectoralPPTXWriter.generate(tickers, sector, universe, str(pptx_path))
     log.info("PPTX sectoriel : %s  (%d Ko)", pptx_path.name, pptx_path.stat().st_size // 1024)
 
-    print(f"\nFichiers générés dans : {OUT_DIR}")
-    print(f"  • {pdf_path.name}")
-    print(f"  • {pptx_path.name}")
+    print(f"\nFichiers generes dans : {OUT_DIR}")
+    print(f"  * {pdf_path.name}")
+    print(f"  * {pptx_path.name}")
     print(f"\nTemps total : {time.time() - t0:.1f}s")
 
 
@@ -773,10 +777,16 @@ if __name__ == "__main__":
     if mode in ("societe", "société", "s"):
         run_societe(arg1)
     elif mode in ("secteur", "sec"):
-        run_secteur(arg1, arg2)
+        run_secteur(arg1, arg2, prefix="secteur")
     elif mode in ("indice", "idx"):
-        # arg1 = univers complet ex: "S&P 500"
-        run_indice(arg1)
+        if len(sys.argv) > 3:
+            # indice {secteur} {univers} — analyse sectorielle avec prefixe "indice_"
+            # ex: python cli_analyze.py indice Technology "CAC 40"
+            run_secteur(arg1, arg2, prefix="indice")
+        else:
+            # indice {univers} — analyse indice complet
+            # ex: python cli_analyze.py indice "S&P 500"
+            run_indice(arg1)
     else:
-        print(f"Mode inconnu : {mode}. Utiliser : société | secteur | indice")
+        print(f"Mode inconnu : {mode}. Utiliser : societe | secteur | indice")
         sys.exit(1)
