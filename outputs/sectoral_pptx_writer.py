@@ -1058,7 +1058,7 @@ def _s06_ratios(prs, D):
     for t in td_disp:
         pe = t.get("pe_ratio") or t.get("pe")   # fallback: compute_screening utilise "pe"
         tbl_data.append([
-            t.get("company", t.get("ticker", ""))[:20],
+            t.get("company", t.get("ticker", ""))[:28],
             _fmt_x(t.get("ev_ebitda")),
             _fmt_x(t.get("ev_revenue")),
             _fmt_x(pe),
@@ -1159,7 +1159,7 @@ def _s09_cartographie(prs, D):
         tbl_data.append([
             str(i),
             t.get("ticker", ""),
-            (t.get("company") or "")[:18],
+            (t.get("company") or "")[:25],
             f"{int(t.get('score_global') or 0)}/100",
             reco,
             f"{t.get('price') or '—'}",
@@ -1176,7 +1176,7 @@ def _s09_cartographie(prs, D):
 
     # Analytical text — position dynamique sous la table
     _s09_text_y = round(2.5 + _s09_tbl_h + 0.3, 2)
-    _s09_text_h = max(2.5, 13.5 - _s09_text_y)  # hauteur restante jusqu'au bas de slide
+    _s09_text_h = min(3.5, max(2.0, 13.5 - _s09_text_y))  # cap a 3.5cm pour eviter espace vide excessif
     n_buy  = sum(1 for t in td if _reco(t.get("score_global")) == "BUY")
     n_hold = sum(1 for t in td if _reco(t.get("score_global")) == "HOLD")
     n_sell = sum(1 for t in td if _reco(t.get("score_global")) == "SELL")
@@ -1252,7 +1252,7 @@ def _s11_scores(prs, D):
         reco = _reco(t.get("score_global"))
         tbl_data.append([
             t.get("ticker", ""),
-            (t.get("company") or "")[:18],
+            (t.get("company") or "")[:25],
             f"{int(t.get('score_global') or 0)}/100",
             str(int(t.get("score_value") or 0)),
             str(int(t.get("score_growth") or 0)),
@@ -1261,21 +1261,24 @@ def _s11_scores(prs, D):
             reco,
         ])
 
-    _add_table(slide, tbl_data, 0.9, 2.5, 23.6, min(7.0, len(tbl_data) * 0.56),
+    _s11_tbl_h = min(7.0, len(tbl_data) * 0.56)
+    _add_table(slide, tbl_data, 0.9, 2.5, 23.6, _s11_tbl_h,
                col_widths=[2.0, 4.5, 3.0, 2.2, 2.2, 2.8, 3.0, 2.0],
                font_size=7.5, header_size=7.5, alt_fill=_GRAYL)
 
-    # Legend bar
-    _rect(slide, 0.9, 9.6, 23.6, 0.7, fill=_NAVYL)
+    # Legend bar — position dynamique sous la table
+    _s11_lec_y = round(2.5 + _s11_tbl_h + 0.3, 2)
+    _rect(slide, 0.9, _s11_lec_y, 23.6, 0.7, fill=_NAVYL)
     _txb(slide, "LECTURE : Score >= 75 = fort  ·  50-74 = moyen  ·  < 50 = faible  ·  Ponderaion : Value 25 % · Growth 25 % · Quality 25 % · Momentum 25 %",
-         1.1, 9.65, 23.2, 0.6, size=7.5, bold=False, color=_WHITE)
+         1.1, _s11_lec_y + 0.05, 23.2, 0.6, size=7.5, bold=False, color=_WHITE)
 
-    # Synthesis
+    # Synthesis — position dynamique sous la legende
     best = td[0] if td else {}
-    best_name = (best.get("company") or best.get("ticker") or "Leader")[:22]
-    _rect(slide, 0.9, 10.4, 23.6, 2.8, fill=_GRAYL)
-    _rect(slide, 0.9, 10.4, 23.6, 0.7, fill=_NAVY)
-    _txb(slide, "SYNTHESE SCORES", 1.1, 10.45, 23.1, 0.6, size=8.5, bold=True, color=_WHITE)
+    best_name = (best.get("company") or best.get("ticker") or "Leader")[:25]
+    _s11_syn_y = round(_s11_lec_y + 0.8, 2)
+    _rect(slide, 0.9, _s11_syn_y, 23.6, 2.8, fill=_GRAYL)
+    _rect(slide, 0.9, _s11_syn_y, 23.6, 0.7, fill=_NAVY)
+    _txb(slide, "SYNTHESE SCORES", 1.1, _s11_syn_y + 0.05, 23.1, 0.6, size=8.5, bold=True, color=_WHITE)
     synthesis = (
         f"{best_name} presente le profil le plus equilibre du secteur "
         f"({int(best.get('score_global') or 0)}/100) avec des scores "
@@ -1287,7 +1290,7 @@ def _s11_scores(prs, D):
         f"une allocation selective privilegiant les leaders qualitatifs est recommandee "
         f"dans la configuration sectorielle actuelle."
     )
-    _txb(slide, synthesis, 1.1, 11.2, 23.2, 1.9, size=8.5, color=_GRAYT, wrap=True)
+    _txb(slide, synthesis, 1.1, _s11_syn_y + 0.8, 23.2, 1.9, size=8.5, color=_GRAYT, wrap=True)
     _footer(slide)
 
 
@@ -1421,7 +1424,7 @@ def _s15_entry(prs, D):
         else:
             dcf, zone, sig, proba = "—", "—", "—", "—"
         tbl_data.append([
-            t.get("ticker", ""), (t.get("company") or "")[:16],
+            t.get("ticker", ""), (t.get("company") or "")[:24],
             f"{price}" if price else "—",
             f"{dcf:.1f}" if isinstance(dcf, float) else dcf,
             zone, sig, proba,
@@ -1620,7 +1623,7 @@ def _s20_performance(prs, D):
         col = _LINE_COLORS[i % len(_LINE_COLORS)]
         _rect(slide, 16.5, yy + 0.12, 0.5, 0.3, fill=col)
         tk = t.get("ticker", f"T{i+1}")
-        co = (t.get("company") or tk)[:28]
+        co = (t.get("company") or tk)[:33]
         score = int(t.get("score_global") or 0)
         reco = "BUY" if score >= 70 else ("HOLD" if score >= 50 else "SELL")
         _txb(slide, f"{tk}  —  {co}", 17.2, yy, 7.1, 0.6, size=9, bold=True, color=_NAVY)
