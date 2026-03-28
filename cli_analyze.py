@@ -6,7 +6,7 @@ Usage :
   python cli_analyze.py société  AAPL
   python cli_analyze.py société  MC.PA
   python cli_analyze.py secteur  Technology "CAC 40"
-  python cli_analyze.py indice   Technology "S&P 500"
+  python cli_analyze.py indice   "S&P 500"
 """
 from __future__ import annotations
 
@@ -779,14 +779,7 @@ if __name__ == "__main__":
     elif mode in ("secteur", "sec"):
         run_secteur(arg1, arg2, prefix="secteur")
     elif mode in ("indice", "idx"):
-        if len(sys.argv) > 3:
-            # indice {secteur} {univers} — analyse sectorielle avec prefixe "indice_"
-            # ex: python cli_analyze.py indice Technology "CAC 40"
-            run_secteur(arg1, arg2, prefix="indice")
-        else:
-            # indice {univers} — analyse indice complet
-            # ex: python cli_analyze.py indice "S&P 500"
-            run_indice(arg1)
+        run_indice(arg1)
     else:
         print(f"Mode inconnu : {mode}. Utiliser : societe | secteur | indice")
         sys.exit(1)

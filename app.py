@@ -1746,20 +1746,56 @@ def render_screening_running() -> None:
         except Exception:
             pass
 
-        # ── Génération rapport PDF indice ──────────────────────────────────
-        _status("Generation du rapport PDF indice")
-        pdf_bytes_indice = None
-        try:
-            from outputs.indice_pdf_writer import IndicePDFWriter
-            _indice_data = _build_indice_data(tickers_data, display_name, universe)
-            _pdf_slug = display_name.lower().replace(" ", "_").replace("&", "").replace("/", "_")
-            _pdf_path = str(out_dir / f"indice_{_pdf_slug}.pdf")
-            IndicePDFWriter.generate(_indice_data, _pdf_path)
-            pdf_bytes_indice = open(_pdf_path, "rb").read()
-        except Exception as _ex_pdf:
-            import traceback
-            log.warning(f"[app] IndicePDFWriter error: {_ex_pdf}")
-            traceback.print_exc()
+        # ── Génération rapport PDF + PPTX ──────────────────────────────────
+        _is_sector = universe in _SECTOR_ALIASES_SET
+        pdf_bytes_out  = None
+        pptx_bytes_out = None
+
+        if _is_sector:
+            _status("Generation du rapport PDF sectoriel")
+            try:
+                import importlib, outputs.sector_pdf_writer as _spw
+                importlib.reload(_spw)
+                _pdf_slug = display_name.lower().replace(" ", "_").replace("&", "").replace("/", "_")
+                _pdf_path = str(out_dir / f"sector_{_pdf_slug}.pdf")
+                _spw.generate_sector_report(
+                    sector_name=display_name,
+                    tickers_data=sorted(tickers_data, key=lambda x: x.get("score_global") or 0, reverse=True),
+                    output_path=_pdf_path,
+                    universe="Global",
+                )
+                pdf_bytes_out = open(_pdf_path, "rb").read()
+            except Exception as _ex_pdf:
+                import traceback
+                log.warning(f"[app] sector_pdf_writer error: {_ex_pdf}")
+                traceback.print_exc()
+
+            _status("Generation du pitchbook PPTX sectoriel")
+            try:
+                import outputs.sectoral_pptx_writer as _sppw
+                _sec_sorted = sorted(tickers_data, key=lambda x: x.get("score_global") or 0, reverse=True)
+                pptx_bytes_out = _sppw.SectoralPPTXWriter.generate(
+                    tickers_data=_sec_sorted,
+                    sector_name=display_name,
+                    universe="Global",
+                )
+            except Exception as _ex_pptx:
+                import traceback
+                log.warning(f"[app] SectoralPPTXWriter error: {_ex_pptx}")
+                traceback.print_exc()
+        else:
+            _status("Generation du rapport PDF indice")
+            try:
+                from outputs.indice_pdf_writer import IndicePDFWriter
+                _indice_data = _build_indice_data(tickers_data, display_name, universe)
+                _pdf_slug = display_name.lower().replace(" ", "_").replace("&", "").replace("/", "_")
+                _pdf_path = str(out_dir / f"indice_{_pdf_slug}.pdf")
+                IndicePDFWriter.generate(_indice_data, _pdf_path)
+                pdf_bytes_out = open(_pdf_path, "rb").read()
+            except Exception as _ex_pdf:
+                import traceback
+                log.warning(f"[app] IndicePDFWriter error: {_ex_pdf}")
+                traceback.print_exc()
 
         status_lbl.markdown(
             f'<div style="text-align:center;font-size:12px;font-weight:600;color:#1a7a52;">'
@@ -1774,7 +1810,8 @@ def render_screening_running() -> None:
             "tickers_data": tickers_data,
             "excel_path":   out_path,
             "excel_bytes":  xlsx_bytes,
-            "pdf_bytes":    pdf_bytes_indice,
+            "pdf_bytes":    pdf_bytes_out,
+            "pptx_bytes":   pptx_bytes_out,
             "elapsed_ms":   elapsed,
         }
         st.session_state.stage = "screening_results"
