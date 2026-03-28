@@ -896,7 +896,7 @@ def _chart_performance(tickers_data) -> bytes:
     ax.spines['left'].set_color('#DDDDDD')
     ax.spines['bottom'].set_color('#DDDDDD')
     ax.grid(True, alpha=0.3, linestyle=':')
-    ax.legend(fontsize=7, framealpha=0.7, ncol=4, loc='upper left')
+    # Pas de légende matplotlib — panel droit du slide fait office de légende
     plt.tight_layout()
     buf = io.BytesIO()
     fig.savefig(buf, format='png', dpi=150, bbox_inches='tight',
@@ -1623,8 +1623,8 @@ def _s20_performance(prs, D):
         co = (t.get("company") or tk)[:28]
         score = int(t.get("score_global") or 0)
         reco = "BUY" if score >= 70 else ("HOLD" if score >= 50 else "SELL")
-        _txb(slide, f"{tk}  —  {co}", 17.2, yy, 7.1, 0.5, size=7.5, bold=True, color=_NAVY)
-        _txb(slide, f"Score {score}/100  ·  {reco}", 17.2, yy + 0.5, 7.1, 0.45, size=7, color=_GRAYT)
+        _txb(slide, f"{tk}  —  {co}", 17.2, yy, 7.1, 0.6, size=9, bold=True, color=_NAVY)
+        _txb(slide, f"Score {score}/100  ·  {reco}", 17.2, yy + 0.62, 7.1, 0.5, size=8, color=_GRAYT)
 
     # Commentaire analytique — position fixe, jamais chevauchée par la légende
     td_s = sorted(td, key=lambda x: x.get("momentum_52w") or 0, reverse=True)

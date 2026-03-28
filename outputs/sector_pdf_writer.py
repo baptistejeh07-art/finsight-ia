@@ -462,12 +462,12 @@ def _make_scatter(tickers_data: list[dict], sector_name: str) -> io.BytesIO:
         mpatches.Patch(color='#1B3A6B', label='Score 50-70 (HOLD)'),
         mpatches.Patch(color='#A82020', label='Score <50 (SELL)'),
     ]
-    ax.legend(handles=legend_items, fontsize=6.5, loc='upper center',
-              bbox_to_anchor=(0.5, -0.18), frameon=False, ncol=3,
-              handlelength=1.0, columnspacing=1.0)
+    ax.legend(handles=legend_items, fontsize=8.5, loc='upper center',
+              bbox_to_anchor=(0.5, -0.20), frameon=False, ncol=3,
+              handlelength=1.2, columnspacing=1.2)
     ax.set_title(f'EV/EBITDA vs Croissance revenus \u2014 {sector_name}',
-                 fontsize=8.5, color='#1B3A6B', fontweight='bold', pad=8)
-    fig.subplots_adjust(left=0.1, right=0.97, top=0.9, bottom=0.25)
+                 fontsize=11, color='#1B3A6B', fontweight='bold', pad=10)
+    fig.subplots_adjust(left=0.12, right=0.97, top=0.88, bottom=0.28)
     buf = io.BytesIO()
     fig.savefig(buf, format='png', dpi=150)
     plt.close(fig)
@@ -580,8 +580,26 @@ def _cover_page(c, doc, sector_name: str, subtitle: str, universe: str,
     c.setLineWidth(0.4)
     c.line(MARGIN_L, h * 0.667, w - MARGIN_R, h * 0.667)
 
+    # Badge signal sectoriel (SURPONDERER / PONDERER / SOUS-PONDERER)
+    sig_score = max((t.get('score_global') or 0) for t in tickers_data) if tickers_data else 0
+    if sig_score >= 70:
+        sig_label, sig_color = "SURPONDERER", (0x1A/255, 0x7A/255, 0x4A/255)
+    elif sig_score >= 50:
+        sig_label, sig_color = "PONDERER", (0xB0/255, 0x60/255, 0x00/255)
+    else:
+        sig_label, sig_color = "SOUS-PONDERER", (0xA8/255, 0x20/255, 0x20/255)
+    from reportlab.lib.colors import Color as _RLColor
+    badge_w, badge_h = 60*mm, 11*mm
+    badge_x = cx - badge_w / 2
+    badge_y = h * 0.620
+    c.setFillColor(_RLColor(*sig_color))
+    c.roundRect(badge_x, badge_y, badge_w, badge_h, 3, fill=1, stroke=0)
+    c.setFillColor(WHITE)
+    c.setFont('Helvetica-Bold', 11)
+    c.drawCentredString(cx, badge_y + 3.5*mm, f"\u25cf  {sig_label}")
+
     # Tagline
-    tag_y = h * 0.580
+    tag_y = h * 0.570
     c.setFillColor(GREY_TEXT)
     c.setFont('Helvetica', 7.5)
     c.drawCentredString(cx, tag_y,
