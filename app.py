@@ -754,7 +754,7 @@ def render_sidebar(results) -> None:
                     return float(ts_file.read_text(encoding="utf-8").strip())
             except Exception:
                 pass
-            return d.stat().st_mtime
+            return 0.0  # pas de _timestamp.txt → apparait en dernier
 
         try:
             _all_preview = sorted(
