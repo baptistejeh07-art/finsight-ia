@@ -46,6 +46,7 @@ MAX_RISKS_DISPLAYED   = 3
 MAX_DRIVERS_DISPLAYED = 4
 MAX_TOP_N             = 3
 MAX_TICKERS_CHART     = 8
+MAX_TABLE_ROWS        = 15   # cap tables sur slides 6/9/11/15 (univers >15 tickers)
 
 # ─── SECTOR CONTENT LIBRARY ───────────────────────────────────────────────────
 _SECTOR_CONTENT = {
@@ -531,12 +532,20 @@ def _prepare_data(tickers_data: list[dict], sector_name: str, universe: str) -> 
     sig_label, sig_color = _signal_label(score_moyen)
 
     ev_vals  = [t.get("ev_ebitda") for t in td if t.get("ev_ebitda")]
-    rev_vals = [t.get("revenue_growth") for t in td if t.get("revenue_growth") is not None]
+    _raw_rg  = [t.get("revenue_growth") for t in td if t.get("revenue_growth") is not None]
     mg_vals  = [t.get("ebitda_margin") for t in td if t.get("ebitda_margin") is not None]
     mom_vals = [t.get("momentum_52w") for t in td if t.get("momentum_52w") is not None]
 
+    # Normalise revenue_growth en décimal (0.18 = 18%).
+    # compute_screening retourne en % (18.0), yfinance retourne en décimal (0.18).
+    # Détection : si médiane abs > 5 → déjà en %, on divise par 100.
+    if _raw_rg and abs(_med([abs(v) for v in _raw_rg])) > 5.0:
+        td = [{**t, "revenue_growth": (t["revenue_growth"] / 100
+              if t.get("revenue_growth") is not None else None)} for t in td]
+    rev_vals = [t.get("revenue_growth") for t in td if t.get("revenue_growth") is not None]
+
     ev_med  = _med(ev_vals)
-    rev_med = _med(rev_vals) * 100 if rev_vals else 0.0  # revenue_growth en décimal
+    rev_med = _med(rev_vals) * 100 if rev_vals else 0.0  # maintenant toujours en décimal
     mg_med  = _med(mg_vals)  if mg_vals  else 0.0        # ebitda_margin déjà en %
     mom_med = _med(mom_vals) if mom_vals else 0.0        # momentum_52w déjà en %
 
@@ -724,13 +733,17 @@ def _chart_scatter(tickers_data) -> bytes:
     valid_t   = []
     for t in tickers_data:
         ev = t.get("ev_ebitda")
-        rg = t.get("revenue_growth")
+        rg = t.get("revenue_growth")  # déjà normalisé en décimal par _prepare_data
         if ev is not None and rg is not None:
             try:
-                ev_ebitda.append(float(ev))
-                rev_grwth.append(float(rg) * 100)
-                scores.append(float(t.get("score_global") or 50))
-                valid_t.append(t.get("ticker", ""))
+                ev_f = float(ev)
+                rg_f = float(rg) * 100  # décimal → %
+                # Filtre outliers : EV/EBITDA ≤ 100x, croissance entre -200% et +300%
+                if 0 < ev_f <= 100 and -200 <= rg_f <= 300:
+                    ev_ebitda.append(ev_f)
+                    rev_grwth.append(rg_f)
+                    scores.append(float(t.get("score_global") or 50))
+                    valid_t.append(t.get("ticker", ""))
             except: pass
 
     fig, ax = plt.subplots(figsize=(5.8, 4.5))
@@ -745,12 +758,14 @@ def _chart_scatter(tickers_data) -> bytes:
 
         sizes = [max(60, s * 2) for s in scores]
         colors_sc = ['#1A7A4A' if s >= 65 else '#B06000' if s >= 45 else '#A82020' for s in scores]
-        sc = ax.scatter(rev_grwth, ev_ebitda, s=sizes, c=colors_sc, alpha=0.85, zorder=3)
+        ax.scatter(rev_grwth, ev_ebitda, s=sizes, c=colors_sc, alpha=0.85, zorder=3)
 
-        for i, tk in enumerate(valid_t):
-            ax.annotate(tk, (rev_grwth[i], ev_ebitda[i]),
-                        textcoords="offset points", xytext=(5, 3),
-                        fontsize=7, color='#1A1A1A', fontweight='bold')
+        # Labels uniquement si <= 20 points (sinon illisible)
+        if len(valid_t) <= 20:
+            for i, tk in enumerate(valid_t):
+                ax.annotate(tk, (rev_grwth[i], ev_ebitda[i]),
+                            textcoords="offset points", xytext=(5, 3),
+                            fontsize=7, color='#1A1A1A', fontweight='bold')
 
     ax.set_xlabel("Croissance Revenue YoY (%)", fontsize=8, color='#555555')
     ax.set_ylabel("EV/EBITDA", fontsize=8, color='#555555')
@@ -782,8 +797,11 @@ def _chart_distribution(tickers_data) -> bytes:
     """Bar chart EV/EBITDA distribution vs median."""
     td_ev = [(t.get("ticker", "?"), t.get("ev_ebitda"))
              for t in tickers_data if t.get("ev_ebitda")]
-    td_ev = [(tk, float(ev)) for tk, ev in td_ev]
+    td_ev = [(tk, float(ev)) for tk, ev in td_ev if 0 < float(ev) <= 100]  # filtre outliers >100x
     td_ev.sort(key=lambda x: x[1])
+    # Cap a 30 barres pour rester lisible
+    if len(td_ev) > 30:
+        td_ev = td_ev[:15] + td_ev[-15:]  # 15 plus basses + 15 plus hautes valeurs
 
     if not td_ev:
         fig, ax = plt.subplots(figsize=(5.8, 4.5))
@@ -1035,53 +1053,60 @@ def _s06_ratios(prs, D):
             f"{D['sector_name']}  ·  Comparaison multiples LTM — {D['N']} sociétés vs médiane sectorielle", 2)
 
     td = D["sorted_td"]
+    td_disp = td[:MAX_TABLE_ROWS]  # cap a MAX_TABLE_ROWS pour eviter overflow
     tbl_data = [["Societe", "EV/EBITDA", "EV/Rev.", "P/E", "Mg Brute", "Mg EBITDA", "ROE"]]
-    for t in td:
+    for t in td_disp:
+        pe = t.get("pe_ratio") or t.get("pe")   # fallback: compute_screening utilise "pe"
         tbl_data.append([
             t.get("company", t.get("ticker", ""))[:20],
             _fmt_x(t.get("ev_ebitda")),
             _fmt_x(t.get("ev_revenue")),
-            _fmt_x(t.get("pe_ratio")),
+            _fmt_x(pe),
             _fmt_pct_plain(t.get("gross_margin")),
             _fmt_pct_plain(t.get("ebitda_margin")),
             _fmt_pct_plain(t.get("roe")),
         ])
-    # Médiane row
+    # Médiane row (calculée sur tout l'univers td, pas seulement td_disp)
     def _col_med(key):
-        vals = [t.get(key) for t in td if t.get(key) is not None]
-        m = _med(vals)
+        vals = [t.get(key) or t.get("pe") if key == "pe_ratio" else t.get(key)
+                for t in td if (t.get(key) or (key == "pe_ratio" and t.get("pe"))) is not None]
+        vals = [v for v in vals if v is not None]
+        m = _med(vals) if vals else None
+        if m is None: return "—"
         if key in ("ev_ebitda", "ev_revenue", "pe_ratio"):
             return _fmt_x(m)
-        return _fmt_pct_plain(m)  # already in %
+        return _fmt_pct_plain(m)
     tbl_data.append(["MEDIANE",
                       _col_med("ev_ebitda"), _col_med("ev_revenue"), _col_med("pe_ratio"),
                       _fmt_pct_plain(_med([t.get("gross_margin") for t in td if t.get("gross_margin")])),
                       _fmt_pct_plain(_med([t.get("ebitda_margin") for t in td if t.get("ebitda_margin")])),
                       _fmt_pct_plain(_med([t.get("roe") for t in td if t.get("roe")]))])
 
-    _add_table(slide, tbl_data, 0.9, 2.5, 23.6, len(tbl_data) * 0.55,
+    _s06_tbl_h = min(8.5, len(tbl_data) * 0.55)
+    _add_table(slide, tbl_data, 0.9, 2.5, 23.6, _s06_tbl_h,
                col_widths=[5.0, 3.0, 2.8, 2.8, 3.2, 3.4, 3.4],
                font_size=7.5, header_size=8, alt_fill=_GRAYL)
 
-    # Analytical text
+    # Analytical text — position dynamique sous la table
+    _s06_text_y = round(2.5 + _s06_tbl_h + 0.3, 2)
     best = td[0] if td else {}
     best_name = best.get("company", best.get("ticker", "Le leader"))[:20]
     ev_best = best.get("ev_ebitda")
     ev_med = D["ev_med"]
 
-    _rect(slide, 0.9, 10.5, 23.6, 2.8, fill=_GRAYL)
-    _rect(slide, 0.9, 10.5, 23.6, 0.7, fill=_NAVY)
-    _txb(slide, "LECTURE ANALYTIQUE", 1.1, 10.55, 23.2, 0.6, size=8.5, bold=True, color=_WHITE)
+    _rect(slide, 0.9, _s06_text_y, 23.6, 2.8, fill=_GRAYL)
+    _rect(slide, 0.9, _s06_text_y, 23.6, 0.7, fill=_NAVY)
+    _txb(slide, "LECTURE ANALYTIQUE", 1.1, _s06_text_y + 0.05, 23.2, 0.6, size=8.5, bold=True, color=_WHITE)
     analysis = (
-        f"La médiane EV/EBITDA sectorielle s etablit a {ev_med:.1f}x LTM. "
-        f"{best_name} ({_fmt_x(ev_best)}) se distingue comme le leader de qualité, "
+        f"La mediane EV/EBITDA sectorielle s etablit a {ev_med:.1f}x LTM. "
+        f"{best_name} ({_fmt_x(ev_best)}) se distingue comme le leader de qualite, "
         f"combine a une marge EBITDA de {_fmt_pct_plain(best.get('ebitda_margin'))} et une croissance "
         f"de {_fmt_pct_rev(best.get('revenue_growth'))}. "
-        f"La dispersion des multiples revele la hétérogénéité des profils au sein du secteur "
-        f"{D['sector_name']} — une lecture croisee P/E vs EV/EBITDA permet d'isoler les "
+        f"La dispersion des multiples revele l heterogeneite des profils au sein du secteur "
+        f"{D['sector_name']} — une lecture croisee P/E vs EV/EBITDA permet d isoler les "
         f"effets de structure de capital et les distorsions comptables."
     )
-    _txb(slide, analysis, 1.1, 11.3, 23.2, 2.0, size=8.5, color=_GRAYT, wrap=True)
+    _txb(slide, analysis, 1.1, _s06_text_y + 0.8, 23.2, 2.0, size=8.5, color=_GRAYT, wrap=True)
     _footer(slide)
 
 
@@ -1127,8 +1152,9 @@ def _s09_cartographie(prs, D):
             f"{D['N']} sociétés analysées  ·  {D['sector_name']}  ·  {D['universe']}  ·  Tri par score FinSight decroissant", 2)
 
     td = D["sorted_td"]
+    td_disp = td[:MAX_TABLE_ROWS]
     tbl_data = [["#", "Ticker", "Societe", "Score", "Reco", "Cours", "EV/EBITDA", "Mg EBITDA", "Croissance", "Momentum"]]
-    for i, t in enumerate(td, 1):
+    for i, t in enumerate(td_disp, 1):
         reco = _reco(t.get("score_global"))
         tbl_data.append([
             str(i),
@@ -1139,24 +1165,27 @@ def _s09_cartographie(prs, D):
             f"{t.get('price') or '—'}",
             _fmt_x(t.get("ev_ebitda")),
             _fmt_pct_plain(t.get("ebitda_margin")),
-            _fmt_pct_rev(t.get("revenue_growth")),
+            _fmt_pct_rev(t.get("revenue_growth")),   # revenue_growth déjà normalisé en décimal
             _fmt_pct(t.get("momentum_52w")),
         ])
 
-    _add_table(slide, tbl_data, 0.9, 2.5, 23.6, min(7.0, len(tbl_data) * 0.56),
+    _s09_tbl_h = min(6.0, len(tbl_data) * 0.56)
+    _add_table(slide, tbl_data, 0.9, 2.5, 23.6, _s09_tbl_h,
                col_widths=[0.8, 1.8, 4.0, 2.0, 1.8, 2.0, 2.4, 2.8, 2.8, 3.2],
                font_size=7.5, header_size=7.5, alt_fill=_GRAYL)
 
-    # Analytical text
+    # Analytical text — position dynamique sous la table
+    _s09_text_y = round(2.5 + _s09_tbl_h + 0.3, 2)
+    _s09_text_h = max(2.5, 13.5 - _s09_text_y)  # hauteur restante jusqu'au bas de slide
     n_buy  = sum(1 for t in td if _reco(t.get("score_global")) == "BUY")
     n_hold = sum(1 for t in td if _reco(t.get("score_global")) == "HOLD")
     n_sell = sum(1 for t in td if _reco(t.get("score_global")) == "SELL")
     best = td[0] if td else {}
     best_name = (best.get("company") or best.get("ticker") or "Leader")[:22]
 
-    _rect(slide, 0.9, 9.3, 23.6, 4.0, fill=_GRAYL)
-    _rect(slide, 0.9, 9.3, 0.1, 4.0, fill=_NAVY)
-    _txb(slide, "Lecture analytique — Ce que la cartographie revele", 1.3, 9.45, 23.0, 0.6, size=9, bold=True, color=_NAVY)
+    _rect(slide, 0.9, _s09_text_y, 23.6, _s09_text_h, fill=_GRAYL)
+    _rect(slide, 0.9, _s09_text_y, 0.1, _s09_text_h, fill=_NAVY)
+    _txb(slide, "Lecture analytique — Ce que la cartographie revele", 1.3, _s09_text_y + 0.15, 23.0, 0.6, size=9, bold=True, color=_NAVY)
     analysis = (
         f"Le secteur {D['sector_name']} presente {n_buy} BUY / {n_hold} HOLD / {n_sell} SELL "
         f"sur {len(td)} valeurs analysées. "
@@ -1166,7 +1195,7 @@ def _s09_cartographie(prs, D):
         f"Les catalyseurs identifies — resultats trimestriels, guidance annuel, operations M&A — "
         f"constituent les événements cles a surveiller pour un renforcement conditionnel des positions."
     )
-    _txb(slide, analysis, 1.3, 10.1, 23.0, 3.0, size=8.5, color=_GRAYT, wrap=True)
+    _txb(slide, analysis, 1.3, _s09_text_y + 0.85, 23.0, max(1.5, _s09_text_h - 1.0), size=8.5, color=_GRAYT, wrap=True)
     _footer(slide)
 
 
@@ -1217,8 +1246,9 @@ def _s11_scores(prs, D):
             "Décomposition par dimension  ·  Value · Growth · Quality · Momentum  ·  Score 0-100", 2)
 
     td = D["sorted_td"]
+    td_disp = td[:MAX_TABLE_ROWS]
     tbl_data = [["Ticker", "Societe", "Score Global", "Value", "Growth", "Quality", "Momentum", "Reco"]]
-    for t in td:
+    for t in td_disp:
         reco = _reco(t.get("score_global"))
         tbl_data.append([
             t.get("ticker", ""),
@@ -1374,8 +1404,9 @@ def _s15_entry(prs, D):
          1.1, 2.55, 23.1, 0.8, size=8.5, color=_GRAYT, wrap=True)
 
     td = D["sorted_td"]
+    td_disp = td[:MAX_TABLE_ROWS]  # cap a MAX_TABLE_ROWS pour eviter overflow
     tbl_data = [["Ticker", "Societe", "Cours actuel", "DCF Base (est.)", "Zone d'achat", "Signal", "Proba. 12M"]]
-    for t in td:
+    for t in td_disp:
         price = t.get("price")
         reco = _reco(t.get("score_global"))
         if price:
