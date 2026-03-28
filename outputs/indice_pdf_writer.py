@@ -98,10 +98,12 @@ def tbl(data, cw, row_heights=None, compact=False):
     return t
 
 def sig_s(signal):
-    return S_TD_G if signal == "Surpond\xe9rer" else (S_TD_R if signal == "Sous-pond\xe9rer" else S_TD_A)
+    s = str(signal)
+    return S_TD_G if "Surp" in s else (S_TD_R if "Sous" in s else S_TD_A)
 
 def sig_hex(signal):
-    return '#1A7A4A' if signal == "Surpond\xe9rer" else ('#A82020' if signal == "Sous-pond\xe9rer" else '#B06000')
+    s = str(signal)
+    return '#1A7A4A' if "Surp" in s else ('#A82020' if "Sous" in s else '#B06000')
 
 
 # ─── GRAPHIQUES ───────────────────────────────────────────────────────────────
@@ -508,8 +510,8 @@ def _build_synthese(data, perf_buf, registry=None):
 
     # Bloc synthese signal — fill empty space page 3
     secteurs = data["secteurs"]
-    nb_surp  = sum(1 for s in secteurs if s[3] == "Surpond\xe9rer")
-    nb_sous  = sum(1 for s in secteurs if s[3] == "Sous-pond\xe9rer")
+    nb_surp  = sum(1 for s in secteurs if "Surp" in str(s[3]))
+    nb_sous  = sum(1 for s in secteurs if "Sous" in str(s[3]))
     nb_neut  = len(secteurs) - nb_surp - nb_sous
     top_s    = sorted(secteurs, key=lambda s: float(str(s[2]).replace(',','.') or 0), reverse=True)
     top3_nms = ", ".join(s[0] for s in top_s[:3]) if top_s else "—"
@@ -649,8 +651,8 @@ def _build_graphiques(data, scatter_buf, scores_buf, registry=None):
         elems.append(src("FinSight IA — EV/EBITDA median LTM vs croissance BPA mediane secteur. FMP, Bloomberg."))
         # Interpretation inline
         _secteurs = data["secteurs"]
-        _surp = [s[0] for s in _secteurs if s[3] == "Surpond\xe9rer"]
-        _sous = [s[0] for s in _secteurs if s[3] == "Sous-pond\xe9rer"]
+        _surp = [s[0] for s in _secteurs if "Surp" in str(s[3])]
+        _sous = [s[0] for s in _secteurs if "Sous" in str(s[3])]
         _surp_str = ", ".join(_surp) if _surp else "aucun"
         _sous_str = ", ".join(_sous) if _sous else "aucun"
         elems.append(Spacer(1, 4*mm))
@@ -672,8 +674,8 @@ def _build_graphiques(data, scatter_buf, scores_buf, registry=None):
     elems.append(PageBreak())
     elems.append(Spacer(1, 10*mm))
     elems.append(Paragraph("Score composite — Classement sectoriel", S_SUBSECTION))
-    nb_surp = sum(1 for s in data["secteurs"] if s[3] == "Surpond\xe9rer")
-    nb_sous = sum(1 for s in data["secteurs"] if s[3] == "Sous-pond\xe9rer")
+    nb_surp = sum(1 for s in data["secteurs"] if "Surp" in str(s[3]))
+    nb_sous = sum(1 for s in data["secteurs"] if "Sous" in str(s[3]))
     elems.append(Paragraph(
         "Le score composite (0-100) agr\u00e8ge trois signaux : momentum prix 3 mois (40%), "
         "revision des estimations BPA sur 1 mois (30%) et valorisation relative (30%). "
@@ -695,8 +697,9 @@ def _build_graphiques(data, scatter_buf, scores_buf, registry=None):
     _tb_h = [Paragraph(h, S_TH_C) for h in ["Rang", "Secteur", "Score", "Signal", "Implication"]]
     _tb_rows = []
     def _impl(sig):
-        _txt = ("Surpond\xe9rer \u2014 renforcer" if sig == "Surpond\xe9rer"
-                else "Sous-pond\xe9rer \u2014 all\xe9ger" if sig == "Sous-pond\xe9rer"
+        _s = str(sig)
+        _txt = ("Surpond\xe9rer \u2014 renforcer" if "Surp" in _s
+                else "Sous-pond\xe9rer \u2014 all\xe9ger" if "Sous" in _s
                 else "Pond\xe9ration indice \u2014 maintenir")
         return Paragraph(_txt, sig_s(sig))
     for _i, _s in enumerate(_sect_sorted[:3]):
@@ -762,10 +765,10 @@ def _build_rotation(data, registry=None):
 
     # Encadre cycle — dynamique depuis les donnees reelles
     _surp_noms_rot = data.get("surp_noms") or " \xb7 ".join(
-        s["nom"] for s in data["top3_secteurs"] if s["signal"] == "Surpond\xe9rer") or "—"
+        s["nom"] for s in data["top3_secteurs"] if "Surp" in str(s.get("signal",""))) or "—"
     _sous_noms_rot = data.get("sous_noms") or " \xb7 ".join(
-        s[0] for s in data["secteurs"] if s[3] == "Sous-pond\xe9rer") or "aucun"
-    _neutre_parts = [s[0] for s in data["secteurs"] if s[3] == "Neutre"]
+        s[0] for s in data["secteurs"] if "Sous" in str(s[3])) or "aucun"
+    _neutre_parts = [s[0] for s in data["secteurs"] if "Surp" not in str(s[3]) and "Sous" not in str(s[3])]
     if len(_neutre_parts) > 5:
         _neutre_noms = " \xb7 ".join(_neutre_parts[:5]) + f" (et {len(_neutre_parts)-5} autres)"
     else:
