@@ -234,7 +234,7 @@ def make_scatter_sectoriel(data):
                    edgecolors='white', linewidth=0.8)
         ap = dict(arrowstyle='-', color=col, lw=0.5, alpha=0.5) if abs(off[0]) > 20 else None
         ax.annotate(nom, (x, y), textcoords='offset points', xytext=off,
-                    fontsize=8.5, color=col, fontweight='bold', arrowprops=ap)
+                    fontsize=9, color=col, fontweight='bold', arrowprops=ap)
     med_ev = np.median(ev); med_cr = np.median(crois)
     ax.axhline(y=med_ev, color='#D0D5DD', linewidth=0.9, linestyle='--', alpha=0.8)
     ax.axvline(x=med_cr, color='#D0D5DD', linewidth=0.9, linestyle='--', alpha=0.8)
@@ -505,6 +505,31 @@ def _build_synthese(data, perf_buf, registry=None):
                          Paragraph(horizon, S_TD_C)])
     elems.append(KeepTogether(tbl([cat_h] + cat_rows, cw=[42*mm, 110*mm, 18*mm])))
     elems.append(src("FinSight IA — Analyse interne. Probabilites non assignees (cf. section Risques)."))
+
+    # Bloc synthese signal — fill empty space page 3
+    secteurs = data["secteurs"]
+    nb_surp  = sum(1 for s in secteurs if s[3] == "Surpond\xe9rer")
+    nb_sous  = sum(1 for s in secteurs if s[3] == "Sous-pond\xe9rer")
+    nb_neut  = len(secteurs) - nb_surp - nb_sous
+    top_s    = sorted(secteurs, key=lambda s: float(str(s[2]).replace(',','.') or 0), reverse=True)
+    top3_nms = ", ".join(s[0] for s in top_s[:3]) if top_s else "—"
+    conviction = data.get("conviction_pct", "—")
+    elems.append(Spacer(1, 5*mm))
+    elems.append(debate_q("Quelle est la distribution actuelle des signaux sectoriels ?"))
+    syn_h = [Paragraph(h, S_TH_C) for h in ["Signal", "Nb secteurs", "Implication allocation"]]
+    syn_rows = [
+        [Paragraph("Surpond\xe9rer", S_TD_G), Paragraph(str(nb_surp), S_TD_C),
+         Paragraph("Surpond\xe9ration active — renforcer l\u2019exposition", S_TD_L)],
+        [Paragraph("Neutre",       S_TD_A), Paragraph(str(nb_neut), S_TD_C),
+         Paragraph("Pond\xe9ration indice — maintenir", S_TD_L)],
+        [Paragraph("Sous-pond\xe9rer", S_TD_R), Paragraph(str(nb_sous), S_TD_C),
+         Paragraph("R\xe9duire l\u2019exposition en dessous de l\u2019indice", S_TD_L)],
+    ]
+    elems.append(KeepTogether(tbl([syn_h] + syn_rows, cw=[36*mm, 28*mm, 106*mm])))
+    elems.append(Paragraph(
+        f"Conviction globale {conviction} % — les {nb_surp} secteur(s) Surpond\xe9rer "
+        f"({top3_nms}) concentrent les opportunit\xe9s d\u2019alpha. Toute d\xe9t\xe9rioration "
+        "du signal doit declencher une revue de positionnement dans les 5 jours ouvrables.", S_BODY))
     return elems
 
 
@@ -620,8 +645,23 @@ def _build_graphiques(data, scatter_buf, scores_buf, registry=None):
             "par une forte croissance ; ceux dans le <b>quadrant inf\u00e9rieur gauche</b> offrent "
             "une valeur relative.", S_BODY))
         elems.append(Spacer(1, 3*mm))
-        elems.append(Image(scatter_buf, width=TABLE_W, height=100*mm))
+        elems.append(Image(scatter_buf, width=TABLE_W, height=95*mm))
         elems.append(src("FinSight IA — EV/EBITDA median LTM vs croissance BPA mediane secteur. FMP, Bloomberg."))
+        # Interpretation inline
+        _secteurs = data["secteurs"]
+        _surp = [s[0] for s in _secteurs if s[3] == "Surpond\xe9rer"]
+        _sous = [s[0] for s in _secteurs if s[3] == "Sous-pond\xe9rer"]
+        _surp_str = ", ".join(_surp) if _surp else "aucun"
+        _sous_str = ", ".join(_sous) if _sous else "aucun"
+        elems.append(Spacer(1, 4*mm))
+        elems.append(Paragraph(
+            "<b>Lecture du positionnement.</b> "
+            "Les secteurs dans le <b>quadrant inf\xe9rieur gauche</b> (faible EV/EBITDA, "
+            "faible croissance BPA) offrent une d\xe9cote relative \u2014 opportunit\xe9 si "
+            "les fondamentaux se stabilisent. Ceux dans le <b>quadrant sup\xe9rieur droit</b> "
+            "paient une prime justifi\xe9e par leur croissance visible. "
+            f"Secteurs signal <b>Surpond\xe9rer</b> : {_surp_str}. "
+            f"Secteurs signal <b>Sous-pond\xe9rer</b> : {_sous_str}.", S_BODY))
     else:
         elems.append(Paragraph(
             "L'analyse comparative EV/EBITDA vs croissance BPA n\u00e9cessite au moins deux secteurs. "
@@ -642,10 +682,42 @@ def _build_graphiques(data, scatter_buf, scores_buf, registry=None):
         f"{nb_surp} {'secteur franchit' if nb_surp == 1 else 'secteurs franchissent'} le seuil Surpond\u00e9rer (60), "
         f"{nb_sous} {'en' if nb_sous == 0 else 'secteur en' if nb_sous == 1 else 'secteurs en'} Sous-pond\u00e9rer.", S_BODY))
     elems.append(Spacer(1, 3*mm))
-    elems.append(Image(scores_buf, width=TABLE_W, height=100*mm))
+    elems.append(Image(scores_buf, width=TABLE_W, height=95*mm))
     elems.append(src(
         "FinSight IA — Score composite tri\u00e9 par ordre d\u00e9croissant. "
         "Seuil Surpond\u00e9rer = 60, Sous-pond\u00e9rer = 40."))
+
+    # Top 3 / Bottom 3 secteurs par score
+    _sect_sorted = sorted(data["secteurs"],
+                          key=lambda s: float(str(s[2]).replace(',','.') or 0), reverse=True)
+    elems.append(Spacer(1, 5*mm))
+    elems.append(Paragraph("Top 3 &amp; Bottom 3 secteurs par score composite", S_SUBSECTION))
+    _tb_h = [Paragraph(h, S_TH_C) for h in ["Rang", "Secteur", "Score", "Signal", "Implication"]]
+    _tb_rows = []
+    def _impl(sig):
+        _txt = ("Surpond\xe9rer \u2014 renforcer" if sig == "Surpond\xe9rer"
+                else "Sous-pond\xe9rer \u2014 all\xe9ger" if sig == "Sous-pond\xe9rer"
+                else "Pond\xe9ration indice \u2014 maintenir")
+        return Paragraph(_txt, sig_s(sig))
+    for _i, _s in enumerate(_sect_sorted[:3]):
+        _tb_rows.append([
+            Paragraph(f"#{_i+1}", S_TD_C),
+            Paragraph(_s[0], S_TD_L),
+            Paragraph(str(_s[2]), S_TD_C),
+            Paragraph(_s[3], sig_s(_s[3])),
+            _impl(_s[3]),
+        ])
+    for _i, _s in enumerate(_sect_sorted[-3:]):
+        _rank = len(_sect_sorted) - 2 + _i
+        _tb_rows.append([
+            Paragraph(f"#{_rank}", S_TD_C),
+            Paragraph(_s[0], S_TD_L),
+            Paragraph(str(_s[2]), S_TD_C),
+            Paragraph(_s[3], sig_s(_s[3])),
+            _impl(_s[3]),
+        ])
+    elems.append(KeepTogether(tbl([_tb_h] + _tb_rows, cw=[12*mm, 52*mm, 16*mm, 32*mm, 58*mm])))
+    elems.append(src("FinSight IA — Scores FinSight. Score composite 0-100."))
     return elems
 
 
