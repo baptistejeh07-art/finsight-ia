@@ -137,7 +137,7 @@ def build():
           "structur\u00e9s selon les standards de la recherche sell-side\u00a0:"),
         BU("<b>Rapport de recherche PDF</b> (9 pages)\u00a0: "
            "synth\u00e8se de la th\u00e8se d\u2019investissement, "
-           "analyse sectorielle, valorisation, scénarios bull/base/bear, "
+           "analyse sectorielle, valorisation, sc\u00e9narios bull/base/bear, "
            "points cl\u00e9s et recommandation."),
         BU("<b>Pitchbook PowerPoint</b> (20 diapositives)\u00a0: "
            "pr\u00e9sentation au format banque d\u2019investissement, "
@@ -189,7 +189,6 @@ def build():
           "Cette discipline intellectuelle, emprunt\u00e9e aux meilleures "
           "pratiques des comit\u00e9s d\u2019investissement, est int\u00e9gr\u00e9e "
           "directement dans le rapport livr\u00e9."),
-
         P("Le syst\u00e8me est par ailleurs r\u00e9gi par une "
           "<b>constitution formelle \u00e0 sept articles</b>, appliqu\u00e9e "
           "par le code\u00a0: seuils de confiance mesurables, "
@@ -206,6 +205,19 @@ def build():
           "institutionnelle \u2014 aujourd\u2019hui r\u00e9serv\u00e9s aux grandes "
           "structures par leur co\u00fbt \u2014 peuvent \u00eatre "
           "d\u00e9mocratis\u00e9s sans sacrifier la rigueur analytique."),
+
+        SH('CONTEXTE ACAD\u00c9MIQUE'),
+        P("Ce projet a \u00e9t\u00e9 men\u00e9 en parall\u00e8le d\u2019un cursus en "
+          "L1 Gestion \u00e0 la Sorbonne. Il constitue une application directe "
+          "des concepts de finance d\u2019entreprise\u00a0: lecture des \u00e9tats "
+          "financiers, analyse des ratios, \u00e9valuation par les flux actualis\u00e9s, "
+          "comparaison sectorielle par les multiples de march\u00e9."),
+        P("L\u2019objectif \u00e9tait de v\u00e9rifier qu\u2019un \u00e9tudiant de premier "
+          "cycle peut produire une analyse financi\u00e8re structur\u00e9e selon "
+          "les standards professionnels \u2014 non pas pour remplacer l\u2019analyste, "
+          "mais pour comprendre et reproduire sa d\u00e9marche intellectuelle. "
+          "La rigueur m\u00e9thodologique visible dans chaque output "
+          "est le r\u00e9sultat direct de cet apprentissage acad\u00e9mique."),
     ]
 
     # ── Two-column table ──────────────────────────────────────────────────────
