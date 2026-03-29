@@ -199,7 +199,7 @@ JSON requis (tous les champs obligatoires) :
 
 class AgentSynthese:
     def __init__(self, model: str = _DEFAULT_MODEL):
-        self.llm = LLMProvider(provider="mistral", model=model)
+        self.llm = LLMProvider(provider="groq", model=model)
 
     def synthesize(self, snapshot, ratios, sentiment=None) -> Optional[SynthesisResult]:
         request_id = str(uuid.uuid4())
@@ -215,11 +215,11 @@ class AgentSynthese:
         except Exception as e:
             log.warning(f"[AgentSynthese] {self.llm.provider} echec ({type(e).__name__}: {e})")
 
-        # Cascade fallback : Mistral → Cerebras → Anthropic → Gemini
+        # Cascade fallback : Groq (primaire) → Mistral → Cerebras → Anthropic
         _fallbacks = [
+            ("mistral",  "mistral-small-latest"),
             ("cerebras", "qwen-3-235b-a22b-instruct-2507"),
             ("anthropic", "claude-haiku-4-5-20251001"),
-            ("gemini",   "gemini-2.0-flash"),
         ]
         for _prov, _model in _fallbacks:
             if raw:

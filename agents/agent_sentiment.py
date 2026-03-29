@@ -288,7 +288,7 @@ class AgentSentiment:
         )
 
         try:
-            llm = LLMProvider(provider="mistral")
+            llm = LLMProvider(provider="groq")
             raw = llm.generate(prompt=prompt, system=system, max_tokens=700)
             if not raw:
                 log.warning(f"[AgentSentiment] '{ticker}' LLM vide — fallback FinBERT")

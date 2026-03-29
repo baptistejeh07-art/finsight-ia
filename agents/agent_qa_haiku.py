@@ -140,7 +140,7 @@ class AgentQAHaiku:
     """
 
     def __init__(self, model: str = _DEFAULT_MODEL):
-        self.llm = LLMProvider(provider="mistral", model=model)
+        self.llm = LLMProvider(provider="groq", model=model)
 
     def validate(
         self,

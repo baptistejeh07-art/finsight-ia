@@ -165,6 +165,12 @@ class LLMProvider:
     SUPPORTED_PROVIDERS = set(DEFAULTS.keys())
 
     def __init__(self, provider: str = "anthropic", model: Optional[str] = None):
+        # FINSIGHT_LLM_OVERRIDE : force le provider principal (utilise par audit.py)
+        # S'applique uniquement quand provider="groq" pour ne pas perturber les fallbacks.
+        _override = os.getenv("FINSIGHT_LLM_OVERRIDE", "").strip().lower()
+        if _override and _override in self.SUPPORTED_PROVIDERS and provider == "groq":
+            provider = _override
+            model = None  # reset au modele par defaut du provider de remplacement
         if provider not in self.SUPPORTED_PROVIDERS:
             raise ValueError(
                 f"Provider '{provider}' inconnu. "
