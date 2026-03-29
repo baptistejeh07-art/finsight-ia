@@ -1,6 +1,29 @@
 # FinSight IA — Instructions Claude Code
 
-## Règles absolues
+## ⛔ RÈGLES ABSOLUES — NE JAMAIS DÉROGER
+
+### Workflow obligatoire AVANT toute modification de code
+1. **Lire `memory/known_errors.md`** — vérifier si le bug est déjà documenté, appliquer TOUS les correctifs connus
+2. **Lire `memory/quality_standards.md`** — vérifier les standards visuels et analytiques attendus
+3. Seulement après → modifier le code
+
+### Workflow obligatoire APRÈS modification
+1. Rebuild les outputs : `python tools/audit.py --preview TICKER` (jamais `cli_analyze.py` direct)
+2. **Vérifier visuellement TOUS les renders concernés** — lire chaque slide/page PNG un par un avec Read tool
+3. Corriger jusqu'à ce que tout soit propre
+4. Committer + pusher
+5. **Attendre le redéploiement Streamlit Cloud (~1-3 min)**
+6. **Ouvrir Chrome via `mcp__claude-in-chrome__navigate`** → `https://finsight-ia-lxappmzvfqned33anmbuvh5.streamlit.app/`
+7. Télécharger les fichiers depuis l'Aperçu Claude, les lire avec Read tool
+8. **Seulement si tout est bon → déclarer terminé**
+
+### Interdit absolu
+- ❌ Déclarer "terminé" sans vérification visuelle Chrome (renders PNG locaux ne suffisent PAS)
+- ❌ `cli_analyze.py` en production — réservé debug interne
+- ❌ Plusieurs previews intermédiaires — UN SEUL preview, la version finale propre
+- ❌ Committer sans avoir lu chaque slide/page concernée
+
+### Règles code
 - **Toujours committer ET pusher** après chaque modification (app déployée sur Streamlit Cloud)
 - Ne jamais écraser les cellules formule dans excel_writer.py (double garde : FORMULA_CELLS + startswith("="))
 - Terminal Windows cp1252 — pas de caractères Unicode dans les print() des scripts
