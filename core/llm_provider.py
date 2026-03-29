@@ -38,7 +38,7 @@ class _GroqKeyRotator:
 
     def __init__(self):
         self._keys: list[str] = []
-        self._limit: int = 50_000          # défaut conservateur
+        self._limit: int = 400_000         # 80% du plafond reel (500k TPD free tier)
         self._usage: dict = {}
         self._idx: int = 0
         self._loaded = False
@@ -300,12 +300,27 @@ class LLMProvider:
         if system:
             messages.append({"role": "system", "content": system})
         messages.append({"role": "user", "content": prompt})
-        response = client.chat.complete(
-            model=self.model,
-            messages=messages,
-            max_tokens=max_tokens,
-        )
-        return response.choices[0].message.content
+        _delays = [5, 15, 30]
+        for _attempt, _wait in enumerate([0] + _delays):
+            if _wait:
+                _log.warning(f"[Mistral] Tentative {_attempt + 1}/4 — attente {_wait}s (rate limit)")
+                time.sleep(_wait)
+            try:
+                response = client.chat.complete(
+                    model=self.model,
+                    messages=messages,
+                    max_tokens=max_tokens,
+                )
+                return response.choices[0].message.content
+            except Exception as e:
+                _code = getattr(e, "status_code", None) or getattr(
+                    getattr(e, "response", None), "status_code", None)
+                _msg = str(e)
+                if _code in (429, 503) or "rate" in _msg.lower() or "too many" in _msg.lower():
+                    if _attempt < len(_delays):
+                        continue
+                raise
+        raise RuntimeError("[Mistral] Echec apres 4 tentatives")
 
     def _call_cerebras(self, prompt: str, system: Optional[str], max_tokens: int) -> str:
         from cerebras.cloud.sdk import Cerebras
@@ -314,12 +329,27 @@ class LLMProvider:
         if system:
             messages.append({"role": "system", "content": system})
         messages.append({"role": "user", "content": prompt})
-        response = client.chat.completions.create(
-            model=self.model,
-            messages=messages,
-            max_tokens=max_tokens,
-        )
-        return response.choices[0].message.content
+        _delays = [5, 15, 30]
+        for _attempt, _wait in enumerate([0] + _delays):
+            if _wait:
+                _log.warning(f"[Cerebras] Tentative {_attempt + 1}/4 — attente {_wait}s (rate limit)")
+                time.sleep(_wait)
+            try:
+                response = client.chat.completions.create(
+                    model=self.model,
+                    messages=messages,
+                    max_tokens=max_tokens,
+                )
+                return response.choices[0].message.content
+            except Exception as e:
+                _code = getattr(e, "status_code", None) or getattr(
+                    getattr(e, "response", None), "status_code", None)
+                _msg = str(e)
+                if _code in (429, 503) or "rate" in _msg.lower() or "too many" in _msg.lower():
+                    if _attempt < len(_delays):
+                        continue
+                raise
+        raise RuntimeError("[Cerebras] Echec apres 4 tentatives")
 
     def _call_gemini(self, prompt: str, system: Optional[str], max_tokens: int) -> str:
         if self._client is None:
