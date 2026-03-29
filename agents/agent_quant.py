@@ -214,24 +214,30 @@ class AgentQuant:
         # Projections 2025F / 2026F (sector-driven)
         projections = self._compute_projections(snapshot, all_labels, years_ratios)
 
+        # DCF déterministe + Monte Carlo (10 000 simulations numpy)
+        mc_meta = self._compute_dcf_montecarlo(snapshot, all_labels, years_ratios, projections)
+
         coverages = [self._coverage(yr) for yr in years_ratios.values()]
         confidence = round(sum(coverages) / len(coverages), 2) if coverages else 0.0
+
+        meta = {
+            "computed_at":    date.today().isoformat(),
+            "confidence_score": confidence,
+            "invalidation_conditions": (
+                "Ratios invalides si : "
+                "(1) restatement comptable post-collecte, "
+                "(2) changement de méthode comptable, "
+                "(3) coverage données < 50%"
+            ),
+        }
+        meta.update(mc_meta)
 
         return RatiosResult(
             ticker      = snapshot.ticker,
             years       = years_ratios,
             latest_year = latest,
             projections = projections,
-            meta = {
-                "computed_at":    date.today().isoformat(),
-                "confidence_score": confidence,
-                "invalidation_conditions": (
-                    "Ratios invalides si : "
-                    "(1) restatement comptable post-collecte, "
-                    "(2) changement de méthode comptable, "
-                    "(3) coverage données < 50%"
-                ),
-            },
+            meta        = meta,
         )
 
     # ------------------------------------------------------------------
@@ -748,6 +754,192 @@ class AgentQuant:
         ]
         filled = sum(1 for f in ratio_fields if getattr(yr, f, None) is not None)
         return filled / len(ratio_fields)
+
+
+    # ------------------------------------------------------------------
+    # DCF déterministe — 5 ans + valeur terminale Gordon-Growth
+    # ------------------------------------------------------------------
+
+    def _compute_dcf(
+        self,
+        rev0: float,
+        ebitda_margin0: float,
+        capex_pct: float,
+        da_pct: float,
+        tax_rate: float,
+        wacc: float,
+        terminal_growth: float,
+        rev_growth: float,
+        n_years: int = 5,
+    ) -> Optional[float]:
+        """
+        DCF déterministe par actualisation des FCF sur n_years.
+        FCF = EBIT*(1-tax) + DA - CapEx  (approx NOPAT-based)
+        Valeur terminale = FCF_n * (1+TG) / (WACC - TG)
+        """
+        if wacc <= terminal_growth or wacc <= 0 or rev0 <= 0:
+            return None
+        pv = 0.0
+        rev = rev0
+        for t in range(1, n_years + 1):
+            rev     = rev * (1 + rev_growth)
+            ebitda  = rev * ebitda_margin0
+            da      = rev * da_pct
+            ebit    = ebitda - da
+            nopat   = ebit * (1 - tax_rate)
+            capex   = rev * capex_pct
+            fcf     = nopat + da - capex
+            df      = (1 + wacc) ** t
+            pv     += fcf / df
+
+        # Valeur terminale (Gordon-Growth sur FCF de l'année n)
+        fcf_tv = fcf * (1 + terminal_growth)
+        tv     = fcf_tv / (wacc - terminal_growth)
+        pv    += tv / ((1 + wacc) ** n_years)
+        return pv
+
+    # ------------------------------------------------------------------
+    # Monte Carlo DCF — 10 000 simulations numpy vectorisé
+    # ------------------------------------------------------------------
+
+    def _compute_dcf_montecarlo(
+        self,
+        snapshot,
+        all_labels: list,
+        years_ratios: dict,
+        projections: dict,
+        n_sim: int = 10_000,
+        n_years: int = 5,
+    ) -> dict:
+        """
+        10 000 simulations Monte Carlo sur :
+          - rev_growth    ~ Normal(mu=blended, sigma=sectorial)
+          - ebitda_margin ~ Normal(mu=curr, sigma=sectorial)
+          - wacc          ~ Triangular(low=wacc_min, mode=wacc, high=wacc_max)
+        Output : dcf_value (P50), dcf_mc_p10, dcf_mc_p50, dcf_mc_p90 (par action)
+        """
+        try:
+            import numpy as np
+        except ImportError:
+            log.warning("[AgentQuant] numpy absent — Monte Carlo DCF ignore")
+            return {}
+
+        try:
+            from config.sector_ref import get_sector_drivers
+            sd = get_sector_drivers(snapshot.company_info.sector or "")
+        except ImportError:
+            return {}
+
+        if not all_labels:
+            return {}
+
+        latest_label = all_labels[-1]
+        latest_fy    = snapshot.years.get(latest_label)
+        latest_yr    = years_ratios.get(latest_label)
+        mkt          = snapshot.market
+
+        if not latest_fy or not latest_fy.revenue or latest_fy.revenue <= 0:
+            return {}
+
+        rev0          = latest_fy.revenue
+        shares        = mkt.shares_diluted if mkt.shares_diluted and mkt.shares_diluted > 0 else None
+        wacc_mode     = mkt.wacc          or 0.09
+        terminal_growth = mkt.terminal_growth or sd["terminal_growth"]
+        tax_rate      = mkt.tax_rate      or sd["tax_rate_default"]
+
+        # Paramètres mu (valeurs observées blendées avec sectorielles)
+        mu_rev_growth = (0.60 * self._estimate_rev_growth(snapshot, all_labels)
+                         + 0.40 * sd["rev_growth"])
+        mu_ebitda_margin = (latest_yr.ebitda_margin if latest_yr and latest_yr.ebitda_margin
+                            else sd["ebitda_margin_target"])
+        capex_pct     = sd["capex_pct_rev"]
+        da_pct        = sd["da_pct_rev"]
+
+        # Sigma sectoriels
+        sigma_rev    = sd.get("sigma_rev_growth",    0.035)
+        sigma_ebitda = sd.get("sigma_ebitda_margin", 0.030)
+        wacc_low     = sd.get("wacc_min", max(0.04, wacc_mode - 0.025))
+        wacc_high    = sd.get("wacc_max", min(0.20, wacc_mode + 0.025))
+
+        # --- Génération des distributions (N_SIM vecteurs) ---
+        rng = np.random.default_rng(seed=42)   # reproductible
+
+        rev_growth_arr    = rng.normal(mu_rev_growth, sigma_rev, n_sim)
+        ebitda_margin_arr = rng.normal(mu_ebitda_margin, sigma_ebitda, n_sim)
+        # Triangulaire WACC
+        wacc_arr = rng.triangular(wacc_low, wacc_mode, wacc_high, n_sim)
+
+        # Clampage pour éviter les outliers aberrants
+        rev_growth_arr    = np.clip(rev_growth_arr,    -0.15, 0.40)
+        ebitda_margin_arr = np.clip(ebitda_margin_arr,  0.02, 0.80)
+        wacc_arr          = np.clip(wacc_arr,           0.04, 0.20)
+
+        # Filtre WACC > TG (nécessaire pour la valeur terminale)
+        valid = wacc_arr > (terminal_growth + 0.005)
+
+        # --- Calcul vectorisé des FCF sur n_years ---
+        pv_total = np.zeros(n_sim)
+        rev_sim  = np.full(n_sim, rev0, dtype=float)
+
+        for t in range(1, n_years + 1):
+            rev_sim  = rev_sim * (1 + rev_growth_arr)
+            ebitda_s = rev_sim * ebitda_margin_arr
+            da_s     = rev_sim * da_pct
+            ebit_s   = ebitda_s - da_s
+            nopat_s  = ebit_s * (1 - tax_rate)
+            capex_s  = rev_sim * capex_pct
+            fcf_s    = nopat_s + da_s - capex_s
+            df       = (1 + wacc_arr) ** t
+            pv_total += np.where(valid, fcf_s / df, 0.0)
+
+        # Valeur terminale Gordon-Growth
+        fcf_tv  = fcf_s * (1 + terminal_growth)
+        tv_arr  = np.where(valid, fcf_tv / (wacc_arr - terminal_growth), 0.0)
+        pv_total += np.where(valid, tv_arr / ((1 + wacc_arr) ** n_years), 0.0)
+
+        # Valeur par action (si shares disponibles)
+        if shares and shares > 0:
+            # pv_total en unités de la devise (M ou B selon rev0 scale)
+            pv_per_share = pv_total / shares
+        else:
+            pv_per_share = pv_total   # valeur totale (sans per-share)
+
+        # Filtrer les valeurs invalides (wacc <= tg)
+        valid_vals = pv_per_share[valid & (pv_per_share > 0)]
+
+        if len(valid_vals) < 100:
+            log.warning("[AgentQuant] Monte Carlo : trop peu de simulations valides")
+            return {}
+
+        # Percentiles P10 / P50 / P90 (P2/P98 pour clipper les extrêmes)
+        p2, p10, p50, p90, p98 = np.percentile(valid_vals, [2, 10, 50, 90, 98])
+
+        import time as _time
+        log.info(
+            f"[AgentQuant] Monte Carlo DCF — "
+            f"P10={p10:.2f} P50={p50:.2f} P90={p90:.2f} "
+            f"({len(valid_vals)}/{n_sim} simulations valides)"
+        )
+
+        # Echantillon 300 valeurs pour histogramme PDF (downsampled, compact)
+        rng2 = np.random.default_rng(seed=99)
+        _sample_idx = rng2.choice(len(valid_vals), size=min(300, len(valid_vals)), replace=False)
+        mc_dist_sample = [round(float(v), 2) for v in valid_vals[_sample_idx]]
+
+        return {
+            "dcf_value":    round(float(p50), 2),
+            "dcf_mc_p10":   round(float(p10), 2),
+            "dcf_mc_p50":   round(float(p50), 2),
+            "dcf_mc_p90":   round(float(p90), 2),
+            "dcf_mc_p2":    round(float(p2),  2),
+            "dcf_mc_p98":   round(float(p98), 2),
+            "dcf_mc_n_sim": int(len(valid_vals)),
+            "dcf_mc_n_valid": int(len(valid_vals)),
+            "mc_dist":      mc_dist_sample,
+            "dcf_mc_mu_rev_growth":    round(float(mu_rev_growth), 4),
+            "dcf_mc_mu_ebitda_margin": round(float(mu_ebitda_margin), 4),
+            "dcf_mc_wacc_mode":        round(float(wacc_mode), 4),
+        }
 
 
 def _rev_from_yr(yr: YearRatios) -> Optional[float]:

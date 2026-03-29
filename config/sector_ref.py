@@ -23,6 +23,12 @@ from __future__ import annotations
 #   terminal_growth     : taux de croissance terminal DCF
 #   tax_rate_default    : taux effectif IS de référence
 #   erp                 : prime de risque marché (standard par secteur)
+#
+# Paramètres Monte Carlo (distributions Damodaran 2024) :
+#   sigma_rev_growth    : écart-type croissance CA (loi normale)
+#   sigma_ebitda_margin : écart-type marge EBITDA (loi normale)
+#   wacc_min            : WACC min (distribution triangulaire)
+#   wacc_max            : WACC max (distribution triangulaire)
 
 SECTOR_DRIVERS: dict[str, dict] = {
     "Technology": {
@@ -36,6 +42,11 @@ SECTOR_DRIVERS: dict[str, dict] = {
         "terminal_growth":      0.030,
         "tax_rate_default":     0.18,
         "erp":                  0.055,
+        # Monte Carlo (Damodaran 2024)
+        "sigma_rev_growth":     0.045,   # tech : forte dispersion croissance
+        "sigma_ebitda_margin":  0.035,
+        "wacc_min":             0.07,
+        "wacc_max":             0.13,
     },
     "Consumer Cyclical": {
         "rev_growth":           0.06,
@@ -48,6 +59,10 @@ SECTOR_DRIVERS: dict[str, dict] = {
         "terminal_growth":      0.025,
         "tax_rate_default":     0.21,
         "erp":                  0.055,
+        "sigma_rev_growth":     0.040,
+        "sigma_ebitda_margin":  0.030,
+        "wacc_min":             0.07,
+        "wacc_max":             0.12,
     },
     "Consumer Defensive": {
         "rev_growth":           0.04,
@@ -60,6 +75,10 @@ SECTOR_DRIVERS: dict[str, dict] = {
         "terminal_growth":      0.020,
         "tax_rate_default":     0.21,
         "erp":                  0.050,
+        "sigma_rev_growth":     0.025,   # défensif : faible dispersion
+        "sigma_ebitda_margin":  0.020,
+        "wacc_min":             0.06,
+        "wacc_max":             0.10,
     },
     "Healthcare": {
         "rev_growth":           0.07,
@@ -72,6 +91,10 @@ SECTOR_DRIVERS: dict[str, dict] = {
         "terminal_growth":      0.025,
         "tax_rate_default":     0.19,
         "erp":                  0.055,
+        "sigma_rev_growth":     0.040,   # pipeline R&D = dispersion élevée
+        "sigma_ebitda_margin":  0.040,
+        "wacc_min":             0.07,
+        "wacc_max":             0.12,
     },
     "Industrials": {
         "rev_growth":           0.05,
@@ -84,6 +107,10 @@ SECTOR_DRIVERS: dict[str, dict] = {
         "terminal_growth":      0.020,
         "tax_rate_default":     0.21,
         "erp":                  0.055,
+        "sigma_rev_growth":     0.030,
+        "sigma_ebitda_margin":  0.025,
+        "wacc_min":             0.07,
+        "wacc_max":             0.11,
     },
     "Financial Services": {
         "rev_growth":           0.05,
@@ -96,6 +123,10 @@ SECTOR_DRIVERS: dict[str, dict] = {
         "terminal_growth":      0.025,
         "tax_rate_default":     0.21,
         "erp":                  0.055,
+        "sigma_rev_growth":     0.035,
+        "sigma_ebitda_margin":  0.030,
+        "wacc_min":             0.07,
+        "wacc_max":             0.12,
     },
     "Energy": {
         "rev_growth":           0.03,
@@ -108,6 +139,10 @@ SECTOR_DRIVERS: dict[str, dict] = {
         "terminal_growth":      0.015,
         "tax_rate_default":     0.22,
         "erp":                  0.060,
+        "sigma_rev_growth":     0.060,   # prix pétrole : très haute volatilité
+        "sigma_ebitda_margin":  0.050,
+        "wacc_min":             0.08,
+        "wacc_max":             0.14,
     },
     "Communication Services": {
         "rev_growth":           0.07,
@@ -120,6 +155,10 @@ SECTOR_DRIVERS: dict[str, dict] = {
         "terminal_growth":      0.030,
         "tax_rate_default":     0.18,
         "erp":                  0.055,
+        "sigma_rev_growth":     0.040,
+        "sigma_ebitda_margin":  0.035,
+        "wacc_min":             0.07,
+        "wacc_max":             0.12,
     },
     "Basic Materials": {
         "rev_growth":           0.04,
@@ -132,6 +171,10 @@ SECTOR_DRIVERS: dict[str, dict] = {
         "terminal_growth":      0.020,
         "tax_rate_default":     0.21,
         "erp":                  0.060,
+        "sigma_rev_growth":     0.050,   # cyclique : dispersion élevée
+        "sigma_ebitda_margin":  0.040,
+        "wacc_min":             0.08,
+        "wacc_max":             0.13,
     },
     "Real Estate": {
         "rev_growth":           0.04,
@@ -144,6 +187,10 @@ SECTOR_DRIVERS: dict[str, dict] = {
         "terminal_growth":      0.025,
         "tax_rate_default":     0.15,
         "erp":                  0.050,
+        "sigma_rev_growth":     0.025,
+        "sigma_ebitda_margin":  0.030,
+        "wacc_min":             0.06,
+        "wacc_max":             0.11,
     },
     "Utilities": {
         "rev_growth":           0.03,
@@ -156,6 +203,10 @@ SECTOR_DRIVERS: dict[str, dict] = {
         "terminal_growth":      0.020,
         "tax_rate_default":     0.21,
         "erp":                  0.048,
+        "sigma_rev_growth":     0.020,   # réglementé : très faible dispersion
+        "sigma_ebitda_margin":  0.020,
+        "wacc_min":             0.05,
+        "wacc_max":             0.09,
     },
     # Défaut générique
     "_default": {
@@ -169,6 +220,10 @@ SECTOR_DRIVERS: dict[str, dict] = {
         "terminal_growth":      0.025,
         "tax_rate_default":     0.21,
         "erp":                  0.055,
+        "sigma_rev_growth":     0.035,
+        "sigma_ebitda_margin":  0.030,
+        "wacc_min":             0.07,
+        "wacc_max":             0.12,
     },
 }
 

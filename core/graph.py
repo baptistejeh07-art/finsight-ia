@@ -65,6 +65,9 @@ class FinSightState(TypedDict, total=False):
     # Devil
     devil: Optional[Any]
 
+    # Zone d'entree
+    entry_zone: Optional[Any]
+
     # Outputs
     excel_path:  Optional[str]
     pdf_path:    Optional[str]
@@ -338,6 +341,42 @@ def qa_node(state: FinSightState) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# NODE 5b — entry_zone_node : calcul zone d'entrée optimale
+# ---------------------------------------------------------------------------
+
+def entry_zone_node(state: FinSightState) -> dict:
+    from agents.agent_entry_zone import AgentEntryZone
+
+    snapshot  = state.get("raw_data")
+    ratios    = state.get("ratios")
+    synthesis = state.get("synthesis")
+    qa_python = state.get("qa_python")
+    sentiment = state.get("sentiment")
+
+    t0 = time.time()
+    try:
+        entry_zone = AgentEntryZone().compute(
+            snapshot, ratios, synthesis, qa_python, sentiment
+        )
+        ms = int((time.time() - t0) * 1000)
+        sat = getattr(entry_zone, "satisfied_count", 0)
+        log.info(f"[entry_zone_node] {sat}/5 conditions satisfaites — {ms}ms")
+        return {
+            "entry_zone": entry_zone,
+            **_log_entry(state, "entry_zone_node", ms, status="ok",
+                         satisfied_count=sat),
+        }
+    except Exception as e:
+        ms = int((time.time() - t0) * 1000)
+        log.error(f"[entry_zone_node] Erreur : {e}")
+        return {
+            "entry_zone": None,
+            **_err(state, f"entry_zone_node: {e}"),
+            **_log_entry(state, "entry_zone_node", ms, status="error"),
+        }
+
+
+# ---------------------------------------------------------------------------
 # NODE 6 — devil_node
 # ---------------------------------------------------------------------------
 
@@ -498,14 +537,13 @@ def route_after_synthesis(state: FinSightState) -> str:
 
 
 def route_after_qa(state: FinSightState) -> str:
-    """Apres QA : si echec + retries < 1 → retry synthesis, sinon continuer."""
+    """Apres QA : si echec + retries < 1 → retry synthesis, sinon entry_zone."""
     if not state.get("qa_passed", True):
         retries = state.get("qa_retries") or 0
         if retries < 1:
             log.warning("[route_after_qa] QA echec — retry synthesis (1/1)")
-            # Incrementer le compteur avant de retourner
             return "synthesis_retry"
-    return "devil_node"
+    return "entry_zone_node"
 
 
 # ---------------------------------------------------------------------------
@@ -524,8 +562,9 @@ def build_graph() -> StateGraph:
     graph.add_node("quant_node",      quant_node)
     graph.add_node("synthesis_node",  synthesis_node)
     graph.add_node("synthesis_retry", _synthesis_retry_node)
-    graph.add_node("qa_node",         qa_node)
-    graph.add_node("devil_node",      devil_node)
+    graph.add_node("qa_node",          qa_node)
+    graph.add_node("entry_zone_node",  entry_zone_node)
+    graph.add_node("devil_node",       devil_node)
     graph.add_node("output_node",     output_node)
     graph.add_node("blocked_node",    blocked_node)
 
@@ -560,12 +599,13 @@ def build_graph() -> StateGraph:
         "qa_node",
         route_after_qa,
         {
-            "synthesis_retry": "synthesis_retry",
-            "devil_node":      "devil_node",
+            "synthesis_retry":  "synthesis_retry",
+            "entry_zone_node":  "entry_zone_node",
         },
     )
-    graph.add_edge("synthesis_retry", "qa_node")
-    graph.add_edge("devil_node",      "output_node")
+    graph.add_edge("synthesis_retry",  "qa_node")
+    graph.add_edge("entry_zone_node",  "devil_node")
+    graph.add_edge("devil_node",       "output_node")
     graph.add_edge("output_node",     END)
 
     return graph.compile()

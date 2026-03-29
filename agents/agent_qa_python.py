@@ -262,6 +262,104 @@ class AgentQAPython:
                 "Aucun ratio disponible — AgentQuant n'a pas produit de donnees."))
 
         # ------------------------------------------------------------------
+        # 9. Qualité des bénéfices — Sloan Accruals / Cash Conversion / CapEx
+        # ------------------------------------------------------------------
+        sloan_ratio_val: Optional[float] = None
+        all_labels_qa = sorted(
+            ratios.years.keys(),
+            key=lambda y: int(y.split("_")[0])
+        )
+
+        # 9a — Sloan Accruals Ratio
+        # Accruals = (ΔActif courant - ΔTréso) - (ΔPassif courant - ΔDette CT - ΔImpôts)
+        # Ratio    = Accruals / Actif total moyen — seuil > 5 % WARNING
+        if len(all_labels_qa) >= 2:
+            lp, lc = all_labels_qa[-2], all_labels_qa[-1]
+            fyp = snapshot.years.get(lp)
+            fyc = snapshot.years.get(lc)
+            yrp = ratios.years.get(lp)
+            yrc = ratios.years.get(lc)
+            if fyp and fyc and yrp and yrc:
+                ta_p = yrp.total_assets
+                ta_c = yrc.total_assets
+                ca_p = yrp.total_current_assets
+                ca_c = yrc.total_current_assets
+                cl_p = yrp.total_current_liabilities
+                cl_c = yrc.total_current_liabilities
+                if all(v is not None for v in [ta_p, ta_c, ca_p, ca_c, cl_p, cl_c]) and (ta_p + ta_c) > 0:
+                    d_ca   = ca_c - ca_p
+                    d_cash = (fyc.cash or 0) - (fyp.cash or 0)
+                    d_cl   = cl_c - cl_p
+                    d_std  = (fyc.short_term_debt or 0) - (fyp.short_term_debt or 0)
+                    d_tax  = (fyc.income_tax_payable or 0) - (fyp.income_tax_payable or 0)
+                    accruals = (d_ca - d_cash) - (d_cl - d_std - d_tax)
+                    ta_avg   = (ta_p + ta_c) / 2
+                    sloan_ratio_val = round(accruals / ta_avg, 4)
+                    if abs(sloan_ratio_val) > 0.05:
+                        flags.append(QAFlag("WARNING", "SLOAN_ACCRUALS_HIGH",
+                            f"Sloan Accruals={sloan_ratio_val:.1%} > 5% — "
+                            f"accruals eleves, qualite benefices a surveiller."))
+                    else:
+                        flags.append(QAFlag("INFO", "SLOAN_ACCRUALS_OK",
+                            f"Sloan Accruals={sloan_ratio_val:.1%} — qualite benefices correcte."))
+
+        # 9b — Cash Conversion Score : FCF / NI < 0.7 sur 3 ans consecutifs
+        if len(all_labels_qa) >= 2:
+            cc_series: list[float] = []
+            for lbl in all_labels_qa:
+                yr_r = ratios.years.get(lbl)
+                if yr_r and yr_r.net_income and yr_r.net_income > 0 and yr_r.fcf is not None:
+                    cc_series.append(yr_r.fcf / yr_r.net_income)
+            if cc_series:
+                consec = max_consec = 0
+                for cc in cc_series:
+                    if cc < 0.7:
+                        consec += 1
+                        max_consec = max(max_consec, consec)
+                    else:
+                        consec = 0
+                if max_consec >= 3:
+                    flags.append(QAFlag("WARNING", "CASH_CONVERSION_LOW",
+                        f"FCF/NI < 0.7 sur {max_consec} ans consecutifs — "
+                        f"benefices peu convertis en cash."))
+                else:
+                    avg_cc = sum(cc_series) / len(cc_series)
+                    flags.append(QAFlag("INFO", "CASH_CONVERSION_OK",
+                        f"Cash Conversion moyenne={avg_cc:.1%} — adequat."))
+
+        # 9c — Divergence FCF vs Net Income
+        if len(all_labels_qa) >= 2:
+            lp2, lc2 = all_labels_qa[-2], all_labels_qa[-1]
+            yrp2 = ratios.years.get(lp2)
+            yrc2 = ratios.years.get(lc2)
+            if yrp2 and yrc2:
+                ni_p2 = yrp2.net_income
+                ni_c2 = yrc2.net_income
+                fcf_p2 = yrp2.fcf
+                fcf_c2 = yrc2.fcf
+                if (ni_p2 and ni_p2 > 0 and ni_c2 is not None
+                        and fcf_p2 is not None and fcf_c2 is not None):
+                    ni_growth = (ni_c2 - ni_p2) / abs(ni_p2)
+                    fcf_delta = fcf_c2 - fcf_p2
+                    if ni_growth > 0.20 and fcf_delta <= 0:
+                        flags.append(QAFlag("WARNING", "FCF_NI_DIVERGENCE",
+                            f"Net Income +{ni_growth:.0%} YoY mais FCF "
+                            f"stagne/decline ({fcf_delta:+.0f}) — "
+                            f"manipulation accruals probable."))
+
+        # 9d — CapEx discipline : maintenance ≈ D&A, croissance = CapEx - D&A
+        if latest in snapshot.years:
+            fy_lat = snapshot.years[latest]
+            if fy_lat.capex is not None and fy_lat.da and fy_lat.da > 0:
+                capex_abs   = abs(fy_lat.capex)
+                maint_capex = min(capex_abs, fy_lat.da)
+                growth_capex = max(0.0, capex_abs - fy_lat.da)
+                growth_pct  = growth_capex / capex_abs if capex_abs > 0 else 0
+                flags.append(QAFlag("INFO", "CAPEX_DISCIPLINE",
+                    f"CapEx: maintenance={maint_capex:.0f} ({1 - growth_pct:.0%}), "
+                    f"croissance={growth_capex:.0f} ({growth_pct:.0%})."))
+
+        # ------------------------------------------------------------------
         # Score et verdict
         # ------------------------------------------------------------------
         score = 1.0
@@ -285,11 +383,12 @@ class AgentQAPython:
             flags    = flags,
             qa_score = round(score, 3),
             meta = {
-                "request_id": request_id,
-                "latency_ms": latency_ms,
-                "flags_count": len(flags),
+                "request_id":   request_id,
+                "latency_ms":   latency_ms,
+                "flags_count":  len(flags),
                 "errors_count": sum(1 for f in flags if f.level == "ERROR"),
                 "warnings_count": sum(1 for f in flags if f.level == "WARNING"),
-                "latest_year": latest,
+                "latest_year":  latest,
+                "sloan_ratio":  sloan_ratio_val,   # consommé par AgentEntryZone
             },
         )

@@ -423,6 +423,56 @@ def _make_pie_comparables(data):
     return buf
 
 
+def _make_mc_histogram(data):
+    """Histogramme distribution Monte Carlo DCF — P10/P50/P90 en traits verticaux."""
+    if not _MATPLOTLIB_OK:
+        return _blank_chart_buf(8, 3.0)
+    mc_dist = data.get('mc_dist') or []
+    p10 = data.get('dcf_mc_p10')
+    p50 = data.get('dcf_mc_p50')
+    p90 = data.get('dcf_mc_p90')
+    cur = data.get('currency', 'USD')
+    price = data.get('ff_course') or None
+    if not mc_dist or p50 is None:
+        return _blank_chart_buf(8, 3.0)
+    import numpy as _np
+    vals = _np.array(mc_dist, dtype=float)
+    vals = vals[_np.isfinite(vals)]
+    if len(vals) < 10:
+        return _blank_chart_buf(8, 3.0)
+    fig, ax = plt.subplots(figsize=(8, 3.0))
+    ax.hist(vals, bins=80, color='#2A5298', alpha=0.75, edgecolor='white', linewidth=0.3)
+    _vlines = [(p10, '#E07B39', 'P10'), (p50, '#1B3A6B', 'P50'), (p90, '#1A7A4A', 'P90')]
+    for _v, _c, _lbl in _vlines:
+        if _v is not None:
+            ax.axvline(_v, color=_c, linewidth=1.8, linestyle='--')
+            ax.text(_v, ax.get_ylim()[1] * 0.88, f' {_lbl}\n {_fr(_v, 0)}', color=_c,
+                    fontsize=7.5, fontweight='bold', va='top', ha='left')
+    if price:
+        try:
+            _pf = float(price)
+            ax.axvline(_pf, color='#E04040', linewidth=1.5, linestyle='-', alpha=0.8)
+            ax.text(_pf, ax.get_ylim()[1] * 0.65, f' Cours\n {_fr(_pf, 0)}',
+                    color='#E04040', fontsize=7, va='top', ha='left')
+        except (ValueError, TypeError):
+            pass
+    ax.set_xlabel(f'Valeur intrinseque par action ({cur})', fontsize=9, color='#555')
+    ax.set_ylabel('Frequence', fontsize=9, color='#555')
+    for sp in ['top', 'right']:
+        ax.spines[sp].set_visible(False)
+    ax.spines['left'].set_color('#D0D5DD')
+    ax.spines['bottom'].set_color('#D0D5DD')
+    ax.tick_params(labelsize=8)
+    ax.set_facecolor('white')
+    fig.patch.set_facecolor('white')
+    plt.tight_layout(pad=1.0)
+    buf = io.BytesIO()
+    fig.savefig(buf, format='png', dpi=180, bbox_inches='tight')
+    plt.close(fig)
+    buf.seek(0)
+    return buf
+
+
 def _make_margins_chart(data):
     """Bar chart Marge brute / Marge EBITDA / Marge nette par annee (FIX 2)."""
     if not _MATPLOTLIB_OK:
@@ -1106,7 +1156,7 @@ def _build_financials(area_buf, data, margins_buf=None):
     return elems
 
 
-def _build_valorisation(ff_buf, pie_buf, data):
+def _build_valorisation(ff_buf, pie_buf, mc_buf, data):
     elems = []
     elems += section_title("Valorisation", 3)
     elems.append(debate_q(
@@ -1212,6 +1262,54 @@ def _build_valorisation(ff_buf, pie_buf, data):
     elems.append(src(_d(data, 'ff_source_text',
         "FinSight IA. Ligne pointill\u00e9e orange = cours actuel. "
         "La convergence des m\u00e9thodes renforce la robustesse de la cible.")))
+    elems.append(Spacer(1, 4*mm))
+
+    # Monte Carlo DCF — distribution + P10/P50/P90
+    mc_p10 = data.get('dcf_mc_p10')
+    mc_p50 = data.get('dcf_mc_p50')
+    mc_p90 = data.get('dcf_mc_p90')
+    mc_n   = data.get('dcf_mc_n_sim') or 0
+    cur    = _d(data, 'currency', 'USD')
+    if mc_p50 is not None:
+        elems.append(Paragraph(
+            "Monte Carlo DCF \u2014 Distribution des valeurs intrinseques (10\u00a0000 simulations)",
+            S_SUBSECTION))
+        mc_h = [Paragraph(h, S_TH_C)
+                for h in ["Percentile", "Valeur / action", "Lecture"]]
+        mc_rows = [
+            [Paragraph("P10 (cas pessimiste)", S_TD_L),
+             Paragraph(f"<b>{_fr(mc_p10, 0)}\u00a0{cur}</b>", S_TD_BC),
+             Paragraph("9 simulations sur 10 donnent une valeur superieure", S_TD_L)],
+            [Paragraph("P50 \u2014 mediane", S_TD_B),
+             Paragraph(f"<b>{_fr(mc_p50, 0)}\u00a0{cur}</b>", S_TD_BC),
+             Paragraph("Valeur centrale stochastique", S_TD_L)],
+            [Paragraph("P90 (cas optimiste)", S_TD_L),
+             Paragraph(f"<b>{_fr(mc_p90, 0)}\u00a0{cur}</b>", S_TD_BC),
+             Paragraph("9 simulations sur 10 donnent une valeur inferieure", S_TD_L)],
+        ]
+        _mc_tbl = tbl([mc_h] + mc_rows, cw=[52*mm, 36*mm, 82*mm])
+        _mc_tbl.setStyle(TableStyle([
+            ('BACKGROUND', (0, 2), (-1, 2), NAVY),
+            ('TEXTCOLOR',  (0, 2), (-1, 2), WHITE),
+            ('BACKGROUND', (0, 3), (-1, 3), colors.HexColor('#1A7A4A')),
+            ('TEXTCOLOR',  (0, 3), (-1, 3), WHITE),
+        ]))
+        elems.append(KeepTogether(_mc_tbl))
+        # Histogramme
+        if mc_buf is not None:
+            try:
+                mc_buf.seek(0)
+                _mc_img = Image(mc_buf, width=TABLE_W, height=TABLE_W * 3.0 / 8.0)
+                elems.append(Spacer(1, 2*mm))
+                elems.append(_mc_img)
+            except Exception:
+                pass
+        _mc_sim_str = f"{mc_n:,}".replace(",", "\u00a0") if mc_n else "10\u00a0000"
+        elems.append(src(
+            f"FinSight IA \u2014 {_mc_sim_str} simulations Monte Carlo. "
+            "Distributions : croissance CA (normale), marge EBITDA (normale), "
+            "WACC (triangulaire, bornes sectorielles Damodaran 2024). "
+            "Ligne rouge = cours actuel."))
     return elems
 
 
@@ -1293,7 +1391,60 @@ def _build_risques(data):
     elems.append(src(_d(data, 'finbert_source',
         "FinBERT \u2014 Mod\u00e8le NLP sp\u00e9cialis\u00e9 finance. "
         "Corpus : presse financi\u00e8re anglophone, 7 jours.")))
-    elems.append(Spacer(1, 6*mm))
+    elems.append(Spacer(1, 4*mm))
+
+    # Zone d'entree optimale (Chantier 3)
+    ez_conds   = data.get('entry_zone_conditions') or []
+    ez_sat     = data.get('entry_zone_satisfied_count')
+    ez_all_met = data.get('entry_zone_all_met', False)
+    ez_wr      = data.get('entry_zone_backtest_wr')
+    ez_n       = data.get('entry_zone_backtest_n') or 0
+    ez_note    = data.get('entry_zone_backtest_note') or ''
+    ez_h = [Paragraph(h, S_TH_C)
+            for h in ["Condition", "Seuil / Crit\u00e8re", "Valeur observee", "Statut"]]
+    ez_rows = []
+    for c in ez_conds:
+        sat  = c.get('satisfied', False)
+        val  = c.get('value')
+        sty  = S_TD_G if sat else S_TD_R
+        icon = "\u2713" if sat else "\u2715"
+        ez_rows.append([
+            Paragraph(_safe(c.get('name', '')), S_TD_B),
+            Paragraph(_safe(c.get('threshold', '') or '\u2014'), S_TD_L),
+            Paragraph(_fr(val, 2) if val is not None else '\u2014', S_TD_C),
+            Paragraph(f"<b>{icon}</b>", sty),
+        ])
+    if not ez_rows:
+        ez_rows = [[Paragraph('\u2014', S_TD_C)] * 4]
+
+    if ez_sat is not None:
+        _ez_verdict_txt = (
+            f"Toutes les conditions satisfaites \u2014 zone d\u2019entr\u00e9e signal\u00e9e ({ez_sat}/5)"
+            if ez_all_met else
+            f"{ez_sat}/5 conditions satisfaites \u2014 entr\u00e9e non d\u00e9clench\u00e9e"
+        )
+    else:
+        _ez_verdict_txt = "Zone d\u2019entr\u00e9e non calcul\u00e9e"
+
+    _ez_bt_txt = ''
+    if ez_note and 'insuffisant' in ez_note.lower():
+        _ez_bt_txt = f"Backtest : {ez_note}"
+    elif ez_wr is not None and ez_n:
+        _ez_bt_txt = (f"Backtest 5 ans : {_frpct(ez_wr)} de retours positifs a 12 mois "
+                      f"quand toutes les conditions etaient reunies (N={ez_n}).")
+    elif ez_n:
+        _ez_bt_txt = f"Backtest 5 ans : N={ez_n} occurrences."
+
+    elems.append(KeepTogether([
+        debate_q("Toutes les conditions d\u2019entr\u00e9e optimale sont-elles reunies ?"),
+        Spacer(1, 1*mm),
+        Paragraph(_ez_verdict_txt, S_BODY),
+        Spacer(1, 2*mm),
+        tbl([ez_h] + ez_rows, cw=[52*mm, 52*mm, 30*mm, 16*mm]),
+    ]))
+    if _ez_bt_txt:
+        elems.append(src(_ez_bt_txt))
+    elems.append(Spacer(1, 4*mm))
 
     # Section 5 — Synthese finale : section_title + tableau reco gardes ensemble
     rec     = _d(data, 'recommendation', 'HOLD').upper()
@@ -1459,9 +1610,10 @@ def generate_report(data: dict, output_path: str) -> str:
     pie_buf     = _safe_chart(_make_pie_comparables, 'pie')
     area_buf    = _safe_chart(_make_revenue_area,    'area')
     margins_buf = _safe_chart(_make_margins_chart,   'margins')
+    mc_buf      = _safe_chart(_make_mc_histogram,    'mc')
     # Rewind tous les buffers — defensive : evite les renders vides si le buffer
     # avait ete partiellement lu lors d'une validation precedente
-    for _b in (perf_buf, ff_buf, pie_buf, area_buf, margins_buf):
+    for _b in (perf_buf, ff_buf, pie_buf, area_buf, margins_buf, mc_buf):
         if _b is not None:
             _b.seek(0)
 
@@ -1542,7 +1694,7 @@ def generate_report(data: dict, output_path: str) -> str:
     story += _build_synthese(perf_buf, data)
     story += _build_financials(area_buf, data, margins_buf)
     story.append(PageBreak())
-    story += _build_valorisation(ff_buf, pie_buf, data)
+    story += _build_valorisation(ff_buf, pie_buf, mc_buf, data)
     story.append(PageBreak())
     story += _build_risques(data)
 
@@ -1878,11 +2030,12 @@ class PDFWriter:
 
     @staticmethod
     def _state_to_data(state: dict, gen_date: str) -> dict:
-        snap      = state.get('raw_data')
-        ratios    = state.get('ratios')
-        synthesis = state.get('synthesis') or {}
-        sentiment = state.get('sentiment') or {}
-        devil     = state.get('devil')     or {}
+        snap       = state.get('raw_data')
+        ratios     = state.get('ratios')
+        synthesis  = state.get('synthesis')   or {}
+        sentiment  = state.get('sentiment')   or {}
+        devil      = state.get('devil')       or {}
+        entry_zone = state.get('entry_zone')
 
         ci    = snap.company_info if snap else None
         mkt   = snap.market       if snap else None
@@ -2448,6 +2601,28 @@ class PDFWriter:
             'next_review':   _g(synthesis,'next_review') or '',
             'revision_data': rev_data,
             'page_nums':     {'synthese':3,'financials':5,'valorisation':7,'risques':9},
+
+            # Monte Carlo DCF (Chantier 1)
+            'dcf_mc_p10':  (ratios.meta.get('dcf_mc_p10')  if ratios and getattr(ratios, 'meta', None) else None),
+            'dcf_mc_p50':  (ratios.meta.get('dcf_mc_p50')  if ratios and getattr(ratios, 'meta', None) else None),
+            'dcf_mc_p90':  (ratios.meta.get('dcf_mc_p90')  if ratios and getattr(ratios, 'meta', None) else None),
+            'dcf_mc_n_sim':(ratios.meta.get('dcf_mc_n_sim')   if ratios and getattr(ratios, 'meta', None) else None),
+            'mc_dist':     (ratios.meta.get('mc_dist')      if ratios and getattr(ratios, 'meta', None) else None) or [],
+
+            # Zone d'entree (Chantier 3)
+            'entry_zone_conditions': (
+                [{'name': getattr(c, 'name', ''),
+                  'description': getattr(c, 'description', ''),
+                  'satisfied': getattr(c, 'satisfied', False),
+                  'value': getattr(c, 'value', None),
+                  'threshold': getattr(c, 'threshold', '')}
+                 for c in getattr(entry_zone, 'conditions', [])]
+                if entry_zone else []),
+            'entry_zone_satisfied_count': getattr(entry_zone, 'satisfied_count', None),
+            'entry_zone_all_met':         getattr(entry_zone, 'all_conditions_met', False),
+            'entry_zone_backtest_wr':     getattr(entry_zone, 'backtest_win_rate', None),
+            'entry_zone_backtest_n':      getattr(entry_zone, 'backtest_n', 0),
+            'entry_zone_backtest_note':   getattr(entry_zone, 'backtest_note', None),
         }
 
         # --- Fetch chart data (yfinance, non-bloquant) ---
