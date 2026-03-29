@@ -83,7 +83,7 @@ def analyze(ticker: str) -> dict:
 def render(ticker: str) -> dict:
     """Lance render_outputs.py et retourne les chemins PNG."""
     print(f"\n  [RENDER] {ticker}...")
-    code, out = _run([sys.executable, "tools/render_outputs.py", ticker])
+    code, out = _run([sys.executable, "tools/render_outputs.py", ticker, "--lowres"])
     log = ROOT / "outputs" / "generated" / "audits" / f"_render_{ticker}.log"
     log.write_text(out, encoding="utf-8", errors="replace")
 
@@ -279,7 +279,7 @@ def render_sector(mode: str, sector: str, universe: str) -> dict:
     print(f"\n  [RENDER] {stem}...")
     code, out = _run([
         sys.executable, "tools/render_outputs.py",
-        "--sector", sector, "--universe", universe, "--mode", mode
+        "--sector", sector, "--universe", universe, "--mode", mode, "--lowres"
     ])
     log = ROOT / "outputs" / "generated" / "audits" / f"_render_{stem}.log"
     log.write_text(out, encoding="utf-8", errors="replace")
@@ -371,7 +371,7 @@ def audit_indice(universe: str, preview: bool = False) -> Path:
     # Render (PDF + PPTX)
     print(f"\n  [RENDER] {stem}...")
     code_r, out_r = _run([
-        sys.executable, "tools/render_outputs.py", "--indice", universe
+        sys.executable, "tools/render_outputs.py", "--indice", universe, "--lowres"
     ])
     log_r = ROOT / "outputs" / "generated" / "audits" / f"_render_{stem}.log"
     log_r.write_text(out_r, encoding="utf-8", errors="replace")

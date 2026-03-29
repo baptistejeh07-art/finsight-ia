@@ -8,6 +8,11 @@ Usage :
   python tools/render_outputs.py AAPL --only pptx
   python tools/render_outputs.py AAPL --only xlsx
   python tools/render_outputs.py AAPL --only xlsx --sheet INPUT
+  python tools/render_outputs.py AAPL --lowres      # 96 DPI / 960px — verification rapide, ~4x moins de tokens vision
+
+DPI par mode :
+  Production (defaut) : PDF/XLSX = 150 DPI, PPTX = 1920px largeur
+  Lowres (--lowres)   : PDF/XLSX =  96 DPI, PPTX =  960px largeur
 """
 from __future__ import annotations
 
@@ -43,7 +48,7 @@ def render_pdf(pdf_path: Path, out_dir: Path, dpi: int = 150) -> list[Path]:
     return paths
 
 
-def render_pptx(pptx_path: Path, out_dir: Path, width_px: int = 1920) -> list[Path]:
+def render_pptx(pptx_path: Path, out_dir: Path, width_px: int = 1920, dpi: int = 150) -> list[Path]:
     """Convertit chaque slide PPTX en PNG via PowerPoint COM (Office 16)."""
     import win32com.client
 
@@ -203,7 +208,7 @@ def render_xlsx(xlsx_path: Path, out_dir: Path, sheets: list[str] | None = None,
             pass
 
 
-def render_indice(universe: str) -> dict:
+def render_indice(universe: str, dpi: int = 150, width_px: int = 1920) -> dict:
     """Render PDF + PPTX pour un indice complet (stem : indice_SP_500)."""
     stem = f"indice_{universe.replace(' ', '_').replace('&', '')}"
     renders_dir = CLI_DIR / "renders" / stem
@@ -217,13 +222,14 @@ def render_indice(universe: str) -> dict:
 
     result = {}
     if pdf_files:
-        result["pdf"] = render_pdf(pdf_files[-1], renders_dir / "pdf")
+        result["pdf"] = render_pdf(pdf_files[-1], renders_dir / "pdf", dpi=dpi)
     if pptx_files:
-        result["pptx"] = render_pptx(pptx_files[-1], renders_dir / "pptx")
+        result["pptx"] = render_pptx(pptx_files[-1], renders_dir / "pptx", width_px=width_px)
     return result
 
 
-def render_sector(sector: str, universe: str, mode: str = "secteur") -> dict:
+def render_sector(sector: str, universe: str, mode: str = "secteur",
+                  dpi: int = 150, width_px: int = 1920) -> dict:
     """Render PDF + PPTX pour un secteur ou indice."""
     stem = f"{mode}_{sector.replace(' ', '_')}_{universe.replace(' ', '_')}"
     renders_dir = CLI_DIR / "renders" / stem
@@ -237,13 +243,14 @@ def render_sector(sector: str, universe: str, mode: str = "secteur") -> dict:
 
     result = {}
     if pdf_files:
-        result["pdf"] = render_pdf(pdf_files[-1], renders_dir / "pdf")
+        result["pdf"] = render_pdf(pdf_files[-1], renders_dir / "pdf", dpi=dpi)
     if pptx_files:
-        result["pptx"] = render_pptx(pptx_files[-1], renders_dir / "pptx")
+        result["pptx"] = render_pptx(pptx_files[-1], renders_dir / "pptx", width_px=width_px)
     return result
 
 
-def render(ticker: str, only: str | None = None, sheet: str | None = None) -> dict:
+def render(ticker: str, only: str | None = None, sheet: str | None = None,
+           dpi: int = 150, width_px: int = 1920) -> dict:
     ticker = ticker.upper().replace("/", "-")
     renders_dir = CLI_DIR / "renders" / ticker
 
@@ -258,14 +265,14 @@ def render(ticker: str, only: str | None = None, sheet: str | None = None) -> di
     result = {}
 
     if only in (None, "pdf") and pdf_files:
-        result["pdf"] = render_pdf(pdf_files[-1], renders_dir / "pdf")
+        result["pdf"] = render_pdf(pdf_files[-1], renders_dir / "pdf", dpi=dpi)
 
     if only in (None, "pptx") and pptx_files:
-        result["pptx"] = render_pptx(pptx_files[-1], renders_dir / "pptx")
+        result["pptx"] = render_pptx(pptx_files[-1], renders_dir / "pptx", width_px=width_px)
 
     if only in (None, "xlsx") and xlsx_files:
         sheets = [sheet] if sheet else None
-        result["xlsx"] = render_xlsx(xlsx_files[-1], renders_dir / "xlsx", sheets=sheets)
+        result["xlsx"] = render_xlsx(xlsx_files[-1], renders_dir / "xlsx", sheets=sheets, dpi=dpi)
 
     return result
 
@@ -279,15 +286,25 @@ if __name__ == "__main__":
     parser.add_argument("--mode", default="secteur", choices=["secteur", "indice"])
     parser.add_argument("--only", choices=["pdf", "pptx", "xlsx"], default=None)
     parser.add_argument("--sheet", default=None, help="Nom de la feuille Excel (ex: INPUT)")
-    parser.add_argument("--dpi", type=int, default=150)
+    parser.add_argument("--dpi", type=int, default=None, help="DPI explicite (ecrase --lowres)")
+    parser.add_argument("--lowres", action="store_true",
+                        help="Mode verification rapide : 96 DPI / 960px (~4x moins de tokens vision)")
     args = parser.parse_args()
 
+    # Resolution DPI / width_px
+    if args.dpi is not None:
+        _dpi, _wpx = args.dpi, max(960, args.dpi * 13)  # ratio approximatif
+    elif args.lowres:
+        _dpi, _wpx = 96, 960
+    else:
+        _dpi, _wpx = 150, 1920
+
     if args.indice:
-        render_indice(args.indice)
+        render_indice(args.indice, dpi=_dpi, width_px=_wpx)
     elif args.sector and args.universe:
-        render_sector(args.sector, args.universe, mode=args.mode)
+        render_sector(args.sector, args.universe, mode=args.mode, dpi=_dpi, width_px=_wpx)
     elif args.ticker:
-        render(args.ticker, only=args.only, sheet=args.sheet)
+        render(args.ticker, only=args.only, sheet=args.sheet, dpi=_dpi, width_px=_wpx)
     else:
         parser.print_help()
         sys.exit(1)
