@@ -498,7 +498,7 @@ def _chart_sentiment_bars(sentiment_agg: dict) -> bytes:
     ax.axvline(0, color='#333333', linewidth=0.8)
     ax.set_yticks(y)
     ax.set_yticklabels(noms, fontsize=7)
-    ax.set_xlabel("Score FinBERT (-1 a +1)", fontsize=7.5, color='#555555')
+    ax.set_xlabel("Score FinBERT (-1 à +1)", fontsize=7.5, color='#555555')
     ax.tick_params(labelsize=6.5, colors='#777777')
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
@@ -603,7 +603,7 @@ def _s01_cover(prs, D):
     code = D.get("code","")
     nb_s = D.get("nb_secteurs",0)
     nb_c = D.get("nb_societes",0)
-    _txb(slide, f"{code}  ·  {nb_s} secteurs analyses  ·  {nb_c} societes couvertes",
+    _txb(slide, f"{code}  ·  {nb_s} secteurs analysés  ·  {nb_c} sociétés couvertes",
          1.0, 6.8, 22.0, 0.6, size=9, color=_GRAYD)
 
     # Metriques bas
@@ -637,14 +637,20 @@ def _s02_exec_summary(prs, D):
     nb_s   = D.get("nb_secteurs",0)
     nb_c   = D.get("nb_societes",0)
     _header(slide, "Executive Summary",
-            f"{indice} ({code})  ·  {nb_s} secteurs  ·  {nb_c} societes  ·  Horizon 12 mois",
+            f"{indice} ({code})  ·  {nb_s} secteurs  ·  {nb_c} sociétés  ·  Horizon 12 mois",
             active=1)
 
     # Signal badge
+    _SIG_NORM = {
+        "surponderer": "SURPONDÉRER", "surpondérer": "SURPONDÉRER",
+        "sous-ponderer": "SOUS-PONDÉRER", "sous-pondérer": "SOUS-PONDÉRER",
+        "neutre": "NEUTRE",
+    }
     sig     = D.get("signal_global","Neutre")
     sig_col = _sig_color(sig)
+    sig_txt = _SIG_NORM.get(sig.lower(), sig.upper())
     _rect(slide, 0.9, 2.0, 4.8, 0.8, fill=sig_col)
-    _txb(slide, sig.upper(), 1.1, 2.1, 4.4, 0.6, size=10, bold=True, color=_WHITE)
+    _txb(slide, sig_txt, 1.1, 2.1, 4.4, 0.6, size=10, bold=True, color=_WHITE)
 
     # Metriques ligne
     mets = [
@@ -674,7 +680,7 @@ def _s02_exec_summary(prs, D):
     texte = _trunc(D.get("texte_signal", ""), 400)
     _rect(slide, 0.9, 7.8, 23.6, 5.5, fill=_GRAYL)
     _rect(slide, 0.9, 7.8, 0.12, 5.5, fill=_NAVY)
-    _txb(slide, "SYNTHESE DU SIGNAL", 1.2, 7.9, 22.8, 0.55, size=8, bold=True, color=_NAVY)
+    _txb(slide, "SYNTHÈSE DU SIGNAL", 1.2, 7.9, 22.8, 0.55, size=8, bold=True, color=_NAVY)
     _txb(slide, texte, 1.2, 8.5, 22.8, 4.5, size=8, color=_GRAYT, wrap=True)
 
     _footer(slide)
@@ -724,7 +730,7 @@ def _s05_description(prs, D):
     indice = D.get("indice","")
     code   = D.get("code","")
     _header(slide, "Description de l'Indice",
-            f"{indice} ({code})  ·  Caracteristiques structurelles & valorisation macro",
+            f"{indice} ({code})  ·  Caractéristiques structurelles & valorisation macro",
             active=1)
 
     # Texte description gauche
@@ -743,15 +749,15 @@ def _s05_description(prs, D):
     nb_c      = D.get("nb_societes","—")
 
     rows = [
-        ["METRIQUE",              "VALEUR"],
+        ["MÉTRIQUE",              "VALEUR"],
         ["Cours actuel",          cours],
         ["Variation YTD",         ytd],
         ["P/E Forward",           pe_fwd],
-        ["P/E Mediane 10 ans",    f"{pe_med}x" if isinstance(pe_med, (int,float)) else str(pe_med)],
+        ["P/E Médiane 10 ans",    f"{pe_med}x" if isinstance(pe_med, (int,float)) else str(pe_med)],
         ["ERP (Damodaran)",       erp],
         ["Croissance BPA",        bpa],
-        ["Secteurs analyses",     str(nb_s)],
-        ["Societes couvertes",    str(nb_c)],
+        ["Secteurs analysés",     str(nb_s)],
+        ["Sociétés couvertes",    str(nb_c)],
     ]
     _add_table(slide, rows, 15.1, 2.3, 9.4, 7.0,
                col_widths=[6, 3], font_size=8, header_size=8, alt_fill=_GRAYL)
@@ -861,19 +867,26 @@ def _s09_cartographie(prs, D):
     nb_s    = D.get("nb_secteurs",11)
     nb_c    = D.get("nb_societes","")
     _header(slide, "Cartographie des Secteurs",
-            f"{nb_s} secteurs GICS  ·  {nb_c} societes  ·  Tri par score FinSight decroissant",
+            f"{nb_s} secteurs GICS  ·  {nb_c} sociétés  ·  Tri par score FinSight décroissant",
             active=2)
 
     secteurs = D.get("secteurs", [])
     sorted_s = sorted(secteurs, key=lambda s: s[2], reverse=True)
 
+    _SIG_LABEL = {
+        "surponderer": "Surpondérer", "surpondérer": "Surpondérer",
+        "sous-ponderer": "Sous-pondérer", "sous-pondérer": "Sous-pondérer",
+        "neutre": "Neutre",
+    }
     rows = [["Rg", "Secteur", "Score", "Signal", "EV/EBITDA", "Mg.EBITDA", "Croiss.", "Mom."]]
     for rang, s in enumerate(sorted_s, 1):
+        raw_sig = str(s[3])[:15]
+        norm_sig = _SIG_LABEL.get(raw_sig.strip().lower(), raw_sig)
         rows.append([
             str(rang),
             _abbrev_sector(s[0], 20),
             str(s[2]),
-            str(s[3])[:15],
+            norm_sig,
             str(s[4]),
             f"{s[5]:.1f}%" if isinstance(s[5],(int,float)) and s[5] else "—",
             str(s[6]) if len(s) > 6 else "—",
@@ -895,13 +908,13 @@ def _s09_cartographie(prs, D):
     nb_sous = sum(1 for s in secteurs if "Sous" in str(s[3]))
     surp_noms = " · ".join(s[0] for s in sorted_s if "Surp" in str(s[3]))
     lecture = (
-        f"Seuls {nb_surp} secteur(s) sur {nb_s} franchissent le seuil Surponderer (score > 65) : "
+        f"Seuls {nb_surp} secteur(s) sur {nb_s} franchissent le seuil Surpondérer (score > 65) : "
         f"{surp_noms or 'aucun'}. "
-        f"{nb_sous} secteur(s) en Sous-ponderer. "
-        f"La dispersion des scores illustre une bifurcation sectorielle marquee."
+        f"{nb_sous} secteur(s) en Sous-pondérer. "
+        f"La dispersion des scores illustre une bifurcation sectorielle marquée."
     )
     y_top = min(10.5, 2.3 + len(rows) * 0.65 + 0.3)
-    _lecture_box(slide, "Lecture analytique — Ce que la cartographie revele",
+    _lecture_box(slide, "Lecture analytique — Ce que la cartographie révèle",
                  lecture, y_top=y_top, height=13.35 - y_top)
 
     _footer(slide)

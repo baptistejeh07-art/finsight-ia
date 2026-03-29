@@ -467,9 +467,9 @@ def _avg(vals):
 
 def _signal_label(score):
     if score is None: return "NEUTRE", _HOLD
-    if score >= 65: return "SURPONDERER", _BUY
+    if score >= 65: return "SURPONDÉRER", _BUY
     if score >= 45: return "NEUTRE", _HOLD
-    return "SOUS-PONDERER", _SELL
+    return "SOUS-PONDÉRER", _SELL
 
 def _reco(score):
     if score is None: return "HOLD"
@@ -997,8 +997,8 @@ def _s03_sommaire(prs, D):
     _header(slide, "Sommaire", f"{D['sector_name']}  ·  {D['universe']}  ·  Structure de l'analyse — 20 slides", 1)
 
     chapters = [
-        ("01", "Presentation du Secteur", "Caractéristiques structurelles · Ratios comparatifs · Positionnement cycle", "p. 5–7"),
-        ("02", "Cartographie des Societes", f"{D['N']} sociétés · Scatter valorisation · Scores FinSight detailles", "p. 9–11"),
+        ("01", "Présentation du Secteur", "Caractéristiques structurelles · Ratios comparatifs · Positionnement cycle", "p. 5–7"),
+        ("02", "Cartographie des Sociétés", f"{D['N']} sociétés · Scatter valorisation · Scores FinSight détaillés", "p. 9–11"),
         ("03", "Top 3 & Valorisations", "Synthese Top 3 · Distribution EV/EBITDA · Zone d'entree optimale", "p. 13–15"),
         ("04", "Risques, Sentiment & Méthodologie", "Conditions d'invalidation · FinBERT · Sources & data lineage", "p. 17–19"),
     ]
@@ -1016,7 +1016,7 @@ def _s03_sommaire(prs, D):
 
 def _s05_presentation(prs, D):
     slide = _blank(prs)
-    _header(slide, "Presentation du Secteur",
+    _header(slide, "Présentation du Secteur",
             f"{D['sector_name']}  ·  Caractéristiques structurelles & métriques de référence", 1)
 
     content = D["content"]
@@ -1031,14 +1031,14 @@ def _s05_presentation(prs, D):
     cats = content.get("catalyseurs", [])
     if cats:
         _rect(slide, 1.3, 7.5, 13.0, 0.45, fill=_NAVY)
-        _txb(slide, "CATALYSEURS CLES", 1.5, 7.55, 12.5, 0.4, size=7.5, bold=True, color=_WHITE)
+        _txb(slide, "CATALYSEURS CLÉS", 1.5, 7.55, 12.5, 0.4, size=7.5, bold=True, color=_WHITE)
         for j, (ct, cb) in enumerate(cats[:3]):
             _rect(slide, 1.3, 8.05 + j * 1.35, 0.08, 1.2, fill=_BUY)
             _txb(slide, ct, 1.6, 8.05 + j * 1.35, 12.3, 0.45, size=8, bold=True, color=_NAVY)
             _txb(slide, cb[:110], 1.6, 8.5 + j * 1.35, 12.3, 0.85, size=7.5, color=_GRAYT, wrap=True)
 
     # Metrics table
-    tbl_data = [["Metrique", "Valeur", "Lecture"]]
+    tbl_data = [["Métrique", "Valeur", "Lecture"]]
     for met in métriques:
         tbl_data.append(list(met))
     _add_table(slide, tbl_data, 15.1, 2.5, 9.4, len(tbl_data) * 0.58,
@@ -1148,7 +1148,7 @@ def _s07_cycle(prs, D):
 
 def _s09_cartographie(prs, D):
     slide = _blank(prs)
-    _header(slide, "Cartographie des Societes",
+    _header(slide, "Cartographie des Sociétés",
             f"{D['N']} sociétés analysées  ·  {D['sector_name']}  ·  {D['universe']}  ·  Tri par score FinSight decroissant", 2)
 
     td = D["sorted_td"]
@@ -1465,7 +1465,7 @@ def _s15_entry(prs, D):
 def _s17_risques(prs, D):
     slide = _blank(prs)
     _header(slide, "Risques & Conditions d'Invalidation",
-            "Analyse des risques structurels  ·  These contraire  ·  Protocole Avocat du Diable", 4)
+            "Analyse des risques structurels  ·  Thèse contraire  ·  Protocole Avocat du Diable", 4)
 
     content = D["content"]
     risks = content.get("risques", [])
@@ -1496,7 +1496,7 @@ def _s17_risques(prs, D):
 
 def _s18_sentiment(prs, D):
     slide = _blank(prs)
-    _header(slide, "Sentiment de Marche — FinBERT",
+    _header(slide, "Sentiment de Marché — FinBERT",
             f"Analyse sémantique FinBERT  ·  Articles récents  ·  {D['N']} sociétés", 4)
 
     td = D["tickers_data"]
@@ -1535,7 +1535,7 @@ def _s18_sentiment(prs, D):
     content = D["content"]
     cats  = content.get("catalyseurs", [])
     risks = content.get("risques", [])
-    _txb(slide, "Themes dominants", 0.9, 5.3, 23.6, 0.6, size=8.5, bold=True, color=_NAVY)
+    _txb(slide, "Thèmes dominants", 0.9, 5.3, 23.6, 0.6, size=8.5, bold=True, color=_NAVY)
     pos_theme = cats[0][0] if cats else "Tendance positive"
     neg_theme = risks[0][0] if risks else "Tendance negative"
     _rect(slide, 0.9, 5.9, 11.4, 1.1, fill=_GREEN_L)
@@ -1566,13 +1566,13 @@ def _s19_sources(prs, D):
             "Traçabilité complete des données  ·  Data lineage  ·  Agents FinSight IA v1.0", 4)
 
     tbl_data = [
-        ["Agent", "Source données", "Données collectees", "Frequence"],
-        ["AgentData", "yfinance + FMP", "Cours, ratios, etats financiers LTM", "Temps reel / J-1"],
-        ["AgentQuant", "Calcul interne", "Altman Z, Beneish M, scores FinSight", "A la demande"],
-        ["AgentSentiment", "Finnhub + RSS", "Articles presse, scoring FinBERT", "A la demande"],
-        ["AgentSynthese", "Claude Haiku", "Ratios calcules, scoring multifactoriel", "A la demande"],
-        ["AgentDevil", "Claude Haiku", "These contraire, conviction delta", "A la demande"],
-        ["AgentQA", "Python + LLM", "Validation coherence, flags erreur", "Systematique"],
+        ["Agent", "Source données", "Données collectées", "Fréquence"],
+        ["AgentData", "yfinance + FMP", "Cours, ratios, états financiers LTM", "Temps réel / J-1"],
+        ["AgentQuant", "Calcul interne", "Altman Z, Beneish M, scores FinSight", "À la demande"],
+        ["AgentSentiment", "Finnhub + RSS", "Articles presse, scoring FinBERT", "À la demande"],
+        ["AgentSynthese", "Claude Haiku", "Ratios calculés, scoring multifactoriel", "À la demande"],
+        ["AgentDevil", "Claude Haiku", "Thèse contraire, conviction delta", "À la demande"],
+        ["AgentQA", "Python + LLM", "Validation cohérence, flags erreur", "Systématique"],
     ]
     _add_table(slide, tbl_data, 0.9, 2.5, 23.6, len(tbl_data) * 0.62,
                col_widths=[4.0, 4.5, 10.5, 4.6],
@@ -1582,12 +1582,12 @@ def _s19_sources(prs, D):
     _rect(slide, 0.9, 9.6, 23.6, 2.7, fill=_GRAYL)
     _rect(slide, 0.9, 9.6, 0.1, 2.7, fill=_HOLD)
     _txb(slide, "LIMITES & PRÉCAUTIONS", 1.3, 9.7, 23.1, 0.6, size=8.5, bold=True, color=_HOLD)
-    _txb(slide, "Les données financieres historiques sont issues de sources publiques et peuvent presenter des delais ou inexactitudes. Les previsions sont basees sur le consensus et les modèles internes FinSight IA — elles ne constituent pas des engagements. La méthodologie de scoring est soumise a des biais inherents a toute approche quantitative.",
+    _txb(slide, "Les données financières historiques sont issues de sources publiques et peuvent présenter des délais ou inexactitudes. Les prévisions sont basées sur le consensus et les modèles internes FinSight IA — elles ne constituent pas des engagements. La méthodologie de scoring est soumise à des biais inhérents à toute approche quantitative.",
          1.3, 10.35, 23.1, 2.0, size=8, color=_GRAYT, wrap=True)
 
     # Disclaimer
     _rect(slide, 0.9, 12.3, 23.6, 1.0, fill=_NAVY)
-    _txb(slide, "Ce rapport est genere par FinSight IA v1.0. Il ne constitue pas un conseil en investissement au sens de la directive MiFID II (2014/65/UE). Document confidentiel — usage interne uniquement. Toute reproduction ou diffusion est interdite sans autorisation.",
+    _txb(slide, "Ce rapport est généré par FinSight IA v1.0. Il ne constitue pas un conseil en investissement au sens de la directive MiFID II (2014/65/UE). Document confidentiel — usage interne uniquement. Toute reproduction ou diffusion est interdite sans autorisation.",
          1.1, 12.35, 23.2, 0.9, size=7, color=_GRAYD, wrap=True)
     _footer(slide)
 
@@ -1668,7 +1668,7 @@ class SectoralPPTXWriter:
         # Slide 3 — Sommaire
         _s03_sommaire(prs, D)
         # Slide 4 — Chapter 01 divider
-        _chapter_divider(prs, "01", "Presentation du Secteur",
+        _chapter_divider(prs, "01", "Présentation du Secteur",
                          "Caractéristiques structurelles, ratios comparatifs & positionnement cycle")
         # Slide 5 — Presentation
         _s05_presentation(prs, D)
@@ -1677,7 +1677,7 @@ class SectoralPPTXWriter:
         # Slide 7 — Positionnement cycle
         _s07_cycle(prs, D)
         # Slide 8 — Chapter 02 divider
-        _chapter_divider(prs, "02", "Cartographie des Societes",
+        _chapter_divider(prs, "02", "Cartographie des Sociétés",
                          f"{D['N']} sociétés analysées — scores FinSight, scatter & décomposition")
         # Slide 9 — Cartographie
         _s09_cartographie(prs, D)
