@@ -1271,16 +1271,13 @@ def _build_valorisation(ff_buf, pie_buf, mc_buf, data):
     mc_n   = data.get('dcf_mc_n_sim') or 0
     cur    = _d(data, 'currency', 'USD')
     if mc_p50 is not None:
-        elems.append(Paragraph(
-            "Monte Carlo DCF \u2014 Distribution des valeurs intrinseques (10\u00a0000 simulations)",
-            S_SUBSECTION))
         mc_h = [Paragraph(h, S_TH_C)
                 for h in ["Percentile", "Valeur / action", "Lecture"]]
         mc_rows = [
             [Paragraph("P10 (cas pessimiste)", S_TD_L),
              Paragraph(f"<b>{_fr(mc_p10, 0)}\u00a0{cur}</b>", S_TD_BC),
              Paragraph("9 simulations sur 10 donnent une valeur superieure", S_TD_L)],
-            [Paragraph("P50 \u2014 mediane", S_TD_B),
+            [Paragraph("P50 \u2014 mediane", S_TD_BC),
              Paragraph(f"<b>{_fr(mc_p50, 0)}\u00a0{cur}</b>", S_TD_BC),
              Paragraph("Valeur centrale stochastique", S_TD_L)],
             [Paragraph("P90 (cas optimiste)", S_TD_L),
@@ -1288,13 +1285,27 @@ def _build_valorisation(ff_buf, pie_buf, mc_buf, data):
              Paragraph("9 simulations sur 10 donnent une valeur inferieure", S_TD_L)],
         ]
         _mc_tbl = tbl([mc_h] + mc_rows, cw=[52*mm, 36*mm, 82*mm])
+        _PASTEL_BLUE = colors.HexColor('#C8D8F0')
         _mc_tbl.setStyle(TableStyle([
-            ('BACKGROUND', (0, 2), (-1, 2), NAVY),
-            ('TEXTCOLOR',  (0, 2), (-1, 2), WHITE),
+            ('BACKGROUND', (0, 2), (-1, 2), _PASTEL_BLUE),
+            ('TEXTCOLOR',  (0, 2), (-1, 2), BLACK),
             ('BACKGROUND', (0, 3), (-1, 3), colors.HexColor('#1A7A4A')),
             ('TEXTCOLOR',  (0, 3), (-1, 3), WHITE),
         ]))
-        elems.append(KeepTogether(_mc_tbl))
+        _mc_desc = Paragraph(
+            "Distribution stochastique des valeurs intrinseques issue de 10\u00a0000 simulations. "
+            "Le mod\u00e8le fait varier simultan\u00e9ment le WACC, la croissance du chiffre d\u2019affaires "
+            "et la marge EBITDA selon des distributions sectorielles (Damodaran 2024).",
+            S_BODY)
+        elems.append(KeepTogether([
+            Paragraph(
+                "Monte Carlo DCF \u2014 Distribution des valeurs intrinseques",
+                S_SUBSECTION),
+            Spacer(1, 2*mm),
+            _mc_desc,
+            Spacer(1, 3*mm),
+            _mc_tbl,
+        ]))
         # Histogramme
         if mc_buf is not None:
             try:
@@ -1407,11 +1418,12 @@ def _build_risques(data):
         sat  = c.get('satisfied', False)
         val  = c.get('value')
         sty  = S_TD_G if sat else S_TD_R
-        icon = "\u2713" if sat else "\u2715"
+        icon = "OK" if sat else "NON"
+        val_str = str(val) if val is not None else '\u2014'
         ez_rows.append([
             Paragraph(_safe(c.get('name', '')), S_TD_B),
             Paragraph(_safe(c.get('threshold', '') or '\u2014'), S_TD_L),
-            Paragraph(_fr(val, 2) if val is not None else '\u2014', S_TD_C),
+            Paragraph(_safe(val_str), S_TD_C),
             Paragraph(f"<b>{icon}</b>", sty),
         ])
     if not ez_rows:
@@ -1538,8 +1550,6 @@ def _build_risques(data):
     elems.append(Spacer(1, 6*mm))
 
     # FIX 4 — Glossaire des indicateurs
-    elems.append(Paragraph("Glossaire des indicateurs", S_SUBSECTION))
-    elems.append(Spacer(1, 2*mm))
     _glos_h = [Paragraph("Indicateur", S_TH_L), Paragraph("D\u00e9finition", S_TH_L)]
     _glos_rows = [
         [Paragraph("DCF", S_TD_B),
@@ -1559,7 +1569,11 @@ def _build_risques(data):
         [Paragraph("Beneish M-Score", S_TD_B),
          Paragraph("D\u00e9tection de manipulation comptable (< \u22122,22 = OK)", S_TD_L)],
     ]
-    elems.append(tbl([_glos_h] + _glos_rows, cw=[40*mm, 130*mm]))
+    elems.append(KeepTogether([
+        Paragraph("Glossaire des indicateurs", S_SUBSECTION),
+        Spacer(1, 2*mm),
+        tbl([_glos_h] + _glos_rows, cw=[40*mm, 130*mm]),
+    ]))
     elems.append(Spacer(1, 6*mm))
 
     # Disclaimer
@@ -2611,10 +2625,9 @@ class PDFWriter:
 
             # Zone d'entree (Chantier 3)
             'entry_zone_conditions': (
-                [{'name': getattr(c, 'name', ''),
-                  'description': getattr(c, 'description', ''),
+                [{'name': getattr(c, 'label', getattr(c, 'name', '')),
                   'satisfied': getattr(c, 'satisfied', False),
-                  'value': getattr(c, 'value', None),
+                  'value': getattr(c, 'value_str', getattr(c, 'value', None)),
                   'threshold': getattr(c, 'threshold', '')}
                  for c in getattr(entry_zone, 'conditions', [])]
                 if entry_zone else []),
