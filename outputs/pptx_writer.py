@@ -546,7 +546,7 @@ def _sent_label_fr(label: str, score: float = 0.0) -> str:
     if label in ("POSITIVE", "POSITIF"):
         return "Positif"
     elif label in ("NEGATIVE", "NEGATIF"):
-        return "Negatif"
+        return "Négatif"
     else:
         return "Neutre +" if score > 0 else "Neutre"
 
@@ -863,8 +863,8 @@ def _slide_exec_summary(prs, snap, synthesis, ratios, devil, sentiment):
                 body_r = cr
         if not body_r or len(body_r) < 35:
             # Fallback : construire une phrase à partir du label risque
-            body_r = (f"Impact potentiel sur la these d'investissement — "
-                      f"surveillance recommandee sur les 6-12 prochains mois.")
+            body_r = (f"Impact potentiel sur la thèse d'investissement — "
+                      f"surveillance recommandée sur les 6-12 prochains mois.")
         add_rect(slide, 13.08, ry + 0.05, 0.15, 0.36, RED)
         add_text_box(slide, 13.46, ry, 10.54, 0.51,
                      _truncate(risk_text, 80), 8.5, NAVY, bold=True)
@@ -889,7 +889,7 @@ def _slide_exec_summary(prs, snap, synthesis, ratios, devil, sentiment):
             _frpct(wacc_val), "WACC",
             f"Beta {_fr(beta, 2) if beta else '—'}  ·  RFR {_frpct(rfr)}")
     kpi_box(slide, 12.80, 9.38, 5.64, 2.24,
-            f"{_fr(tbase, 0)} {cur_sym}", "Valeur intrinseque DCF",
+            f"{_fr(tbase, 0)} {cur_sym}", "Valeur intrinsèque DCF",
             f"Upside de {_upside(tbase, price)} vs cours")
     kpi_box(slide, 18.69, 9.38, 5.64, 2.24,
             f"{sent_score:+.3f}".replace(".", ","),
@@ -979,7 +979,7 @@ def _slide_company_overview(prs, snap, synthesis, ratios):
     price    = _g(mkt, "share_price")
 
     slide_title(slide, "Company Overview",
-                f"{co_name}  ·  Presentation & Positionnement strategique")
+                f"{co_name}  ·  Présentation & Positionnement stratégique")
 
     desc     = _g(synthesis, "company_description", "") or ""
     segments = _g(synthesis, "segments", []) or []
@@ -1039,7 +1039,7 @@ def _slide_company_overview(prs, snap, synthesis, ratios):
     kpi_ys = [2.67, 5.13, 7.59, 10.06]
     kpi_box(slide, 15.44, kpi_ys[0], 8.89, 2.29,
             _frm(mktcap * 1000 if mktcap else None, cur_sym) if mktcap else "—",
-            "Capitalisation boursiere",
+            "Capitalisation boursière",
             fill=NAVY, accent=WHITE)
     kpi_box(slide, 15.44, kpi_ys[1], 8.89, 2.29,
             _frm(rev, cur_sym),
@@ -1177,11 +1177,11 @@ def _slide_is(prs, snap, synthesis, ratios):
     row_labels = [
         "Chiffre d'affaires",
         "Croissance YoY",
-        "Resultat brut",
+        "Résultat brut",
         "Marge brute",
         "EBITDA",
         "Marge EBITDA",
-        "Resultat net",
+        "Résultat net",
         "Marge nette",
     ]
 
@@ -1214,7 +1214,7 @@ def _slide_is(prs, snap, synthesis, ratios):
                 row.append(_frn(rev))
             elif rl == "Croissance YoY":
                 row.append(_frpct(grow, signed=True))
-            elif rl == "Resultat brut":
+            elif rl == "Résultat brut":
                 row.append(_frn(gp))
             elif rl == "Marge brute":
                 row.append(_frpct(gm))
@@ -1222,7 +1222,7 @@ def _slide_is(prs, snap, synthesis, ratios):
                 row.append(_frn(ebitda))
             elif rl == "Marge EBITDA":
                 row.append(_frpct(em))
-            elif rl == "Resultat net":
+            elif rl == "Résultat net":
                 row.append(_frn(ni))
             elif rl == "Marge nette":
                 row.append(_frpct(nm))
@@ -1250,7 +1250,7 @@ def _slide_is(prs, snap, synthesis, ratios):
     from pptx.enum.text import PP_ALIGN
 
     _SUBMAIN = {
-        "Chiffre d'affaires", "Resultat brut", "EBITDA", "Resultat net"
+        "Chiffre d'affaires", "Résultat brut", "EBITDA", "Résultat net"
     }
     _SUBSUB = {
         "Croissance YoY", "Marge brute", "Marge EBITDA", "Marge nette"
@@ -1370,7 +1370,7 @@ def _slide_bilan(prs, snap, synthesis, ratios):
         ["Ratio liquidité courante", _fr(cr, 2),  "> 1,5",   _sig(cr, 1.5, 1.0)],
         ["Ratio rapide (quick)",     _fr(qr, 2),  "> 1,0",   _sig(qr, 1.0, 0.7)],
         ["D/E",                      _frx(de),    "< 2,0x",  _sig(de, 1.5, 3.0, reverse=True)],
-        ["Couverture interets",      _frx(ic),    "> 3,0x",  _sig(ic, 3.0, 1.5)],
+        ["Couverture d'intérêts",    _frx(ic),    "> 3,0x",  _sig(ic, 3.0, 1.5)],
         ["Dette nette / EBITDA",     _frx(nde),   "< 2,0x",  _sig(nde, 2.0, 4.0, reverse=True)],
         ["Altman Z",                 _fr(az, 2),  "> 2,99",  az_sig],
         ["Beneish M",                _fr(bm, 2),  "< -2,22", bm_sig],
@@ -1692,7 +1692,7 @@ def _slide_dcf(prs, snap, synthesis, ratios):
 
     # Sensitivity table
     add_text_box(slide, 1.02, 6.65, 23.37, 0.56,
-                 f"Table de sensibilite — Valeur intrinseque ({cur_sym})",
+                 f"Table de sensibilité — Valeur intrinsèque ({cur_sym})",
                  9, NAVY, bold=True)
 
     w_deltas = [-0.02, -0.01, 0.00, 0.01, 0.02]
@@ -2039,7 +2039,7 @@ def _slide_football_field(prs, snap, synthesis, ratios):
 
 def _ff_fallback(slide, ff, price, cur_sym, currency):
     """Fallback table when matplotlib unavailable."""
-    header = ["Methode", "Fourchette basse", "Fourchette haute", "Point central"]
+    header = ["Méthode", "Fourchette basse", "Fourchette haute", "Point central"]
     row_fills_map = {
         "DCF - Bear": RED_PALE,
         "DCF - Base": NAVY_PALE,
@@ -2118,9 +2118,9 @@ def _slide_risques(prs, snap, synthesis, devil):
         # Fallback ultime : message generique localise
         if not body.strip():
             _generic = [
-                "Risque macro-economique : remontee des taux ou ralentissement de la demande mondiale.",
+                "Risque macro-économique : remontée des taux ou ralentissement de la demande mondiale.",
                 "Risque sectoriel : intensification de la concurrence ou disruption technologique.",
-                "Risque specifique : deterioration des marges ou execution strategique.",
+                "Risque spécifique : détérioration des marges ou exécution stratégique.",
             ]
             body = _generic[i] if i < len(_generic) else "Analyse en cours."
         add_rect(slide, cx, card_y, card_w, card_h, fill)
@@ -2133,7 +2133,7 @@ def _slide_risques(prs, snap, synthesis, devil):
     # Invalidation table
     add_rect(slide, 1.02, 8.33, 23.37, 0.03, "AAAAAA")
     add_text_box(slide, 1.02, 8.53, 23.37, 0.46,
-                 "Conditions d'invalidation de la these", 9, NAVY, bold=True)
+                 "Conditions d'invalidation de la thèse", 9, NAVY, bold=True)
 
     if not invalidation:
         inv_rows = [
@@ -2142,9 +2142,12 @@ def _slide_risques(prs, snap, synthesis, devil):
             ["Société",   "Détérioration matérielle des marges opérationnelles","2-3 trim."],
         ]
     else:
+        _AXIS_NORM = {"Societe": "Société", "societe": "Société", "société": "Société",
+                      "Sectoriel": "Sectoriel", "Macro": "Macro"}
         inv_rows = []
         for item in invalidation[:3]:
             axis  = str(_g(item, "axis",      "—"))
+            axis  = _AXIS_NORM.get(axis, axis)
             cond  = str(_g(item, "condition", "—"))
             horiz = str(_g(item, "horizon",   "—"))
             inv_rows.append([axis, cond, horiz])
@@ -2197,14 +2200,14 @@ def _slide_sentiment(prs, snap, synthesis, sentiment):
     # 4 KPI cards
     kpi_box(slide, 1.02,  2.67, 7.11, 2.79,
             sent_label_display, "Orientation globale",
-            f"Score agrege : {sent_score:+.3f}".replace(".", ","))
+            f"Score agrégé : {sent_score:+.3f}".replace(".", ","))
     kpi_box(slide, 8.64,  2.67, 5.08, 2.79,
-            str(sent_articles), "Articles analyses", "Fenetre : 7 jours")
+            str(sent_articles), "Articles analysés", "Fenêtre : 7 jours")
     kpi_box(slide, 14.22, 2.67, 4.57, 2.79,
-            _frpct(sent_conf), "Confiance IA", "Modele FinBERT")
+            _frpct(sent_conf), "Confiance IA", "Modèle FinBERT")
     _, rec_accent = _rec_colors(rec)
     kpi_box(slide, 19.30, 2.67, 4.83, 2.79,
-            rec.upper(), "Coherence", "Aligne avec la these")
+            rec.upper(), "Cohérence", "Aligné avec la thèse")
 
     # Breakdown table
     add_text_box(slide, 1.02, 5.79, 23.37, 0.46,

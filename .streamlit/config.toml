@@ -14,6 +14,7 @@ gatherUsageStats = false
 [theme]
 base = "light"
 font = "sans serif"
+primaryColor = "#1B2A4A"
 
 [runner]
 # Evite les rechargements intempestifs sur les fichiers de logs

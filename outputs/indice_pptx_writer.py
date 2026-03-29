@@ -986,7 +986,7 @@ def _s11_decomposition(prs, D):
         fill = _BUY_L if score >= 65 else (_SELL_L if score < 45 else _HOLD_L)
         _color_cell(tbl, r, 1, fill, _BLACK)
 
-    note = "Lecture : Score >= 65 = vert · 45-64 = neutre · < 45 = rouge · Methode : composite 40 % momentum + 30 % revisions BPA + 30 % valorisation relative"
+    note = "Lecture : Score >= 65 = vert · 45-64 = neutre · < 45 = rouge · Méthode : composite 40 % momentum + 30 % révisions BPA + 30 % valorisation relative"
     y_note = 2.3 + len(rows) * 0.62 + 0.2
     _txb(slide, note, 0.9, y_note, 23.6, 0.6, size=7, color=_GRAYD, italic=True)
 
@@ -1194,7 +1194,7 @@ def _s17_risques(prs, D):
         conds = [
             f"{indice} casse le support cle — signal passe Sous-ponderer",
             "Fed pivot dovish confirme + CPI < 2,5 % — signal passe Surponderer",
-            "Revisions BPA agregees < -5 % sur 2 trimestres consecutifs",
+            "Révisions BPA agrégées < -5 % sur 2 trimestres consécutifs",
         ]
 
     _rect(slide, 0.9, 7.0, 23.6, 0.55, fill=_NAVY)
@@ -1255,9 +1255,9 @@ def _s18_rotation(prs, D):
         surp_rots = [r[0] for r in rotation if len(r) > 4 and "Surp" in str(r[4])]
         texte_rot = (
             f"En phase {phase}, surponderer {' · '.join(surp_rots[:3]) or 'N/A'} "
-            f"(forte visibilite BPA, faible sensibilite taux). "
-            f"Sous-ponderer les secteurs duration longue (Real Estate, Utilities). "
-            f"La rotation sectorielle suit le cycle avec un decalage de 2-3 trimestres."
+            f"(forte visibilité BPA, faible sensibilité taux). "
+            f"Sous-pondérer les secteurs duration longue (Real Estate, Utilities). "
+            f"La rotation sectorielle suit le cycle avec un décalage de 2-3 trimestres."
         )
 
     y_lec = min(10.8, 2.3 + len(rows) * 0.65 + 0.3)
@@ -1276,8 +1276,8 @@ def _s19_sentiment(prs, D, chart_bytes: bytes):
     slide = _blank(prs)
     indice  = D.get("indice","")
     nb_arts = D.get("sentiment_agg",{}).get("nb_articles",420)
-    _header(slide, "Sentiment FinBERT Agrege",
-            f"Analyse semantique FinBERT  ·  {nb_arts} articles  ·  7 jours glissants  ·  {D.get('nb_secteurs',11)} secteurs",
+    _header(slide, "Sentiment FinBERT Agrégé",
+            f"Analyse sémantique FinBERT  ·  {nb_arts} articles  ·  7 jours glissants  ·  {D.get('nb_secteurs',11)} secteurs",
             active=4)
 
     sa = D.get("sentiment_agg",{})
@@ -1297,7 +1297,7 @@ def _s19_sentiment(prs, D, chart_bytes: bytes):
     _rect(slide, 0.9, 2.3, 0.12, 3.5, fill=_NAVY)
     _txb(slide, f"{score:.3f}", 1.2, 2.5, 5.3, 1.6, size=32, bold=True,
          color=_BUY if score > 0.05 else (_SELL if score < -0.05 else _HOLD))
-    _txb(slide, "Score agrege FinBERT", 1.2, 4.05, 5.3, 0.55, size=8, color=_GRAYT)
+    _txb(slide, "Score agrégé FinBERT", 1.2, 4.05, 5.3, 0.55, size=8, color=_GRAYT)
     _txb(slide, label, 1.2, 4.55, 5.3, 0.5, size=8.5, bold=True,
          color=_BUY if score > 0.05 else (_SELL if score < -0.05 else _HOLD))
 
@@ -1305,7 +1305,7 @@ def _s19_sentiment(prs, D, chart_bytes: bytes):
     dist_items = [
         ("Positif",  p_nb, p_pct, _BUY),
         ("Neutre",   n_nb, n_pct, _HOLD),
-        ("Negatif",  m_nb, m_pct, _SELL),
+        ("Négatif",  m_nb, m_pct, _SELL),
     ]
     for j, (lbl, nb, pct, col) in enumerate(dist_items):
         yy = 2.3 + j * 1.15
@@ -1316,7 +1316,7 @@ def _s19_sentiment(prs, D, chart_bytes: bytes):
         _txb(slide, f"{nb} articles ({pct} %)", 7.4, yy + 0.5, 7.0, 0.45, size=8, color=txt_col)
 
     # Themes positifs / negatifs
-    _txb(slide, "Themes dominants", 15.5, 2.3, 8.8, 0.5, size=8.5, bold=True, color=_NAVY)
+    _txb(slide, "Thèmes dominants", 15.5, 2.3, 8.8, 0.5, size=8.5, bold=True, color=_NAVY)
     pos_txt = "  ·  ".join(t_pos[:4]) if t_pos else "—"
     neg_txt = "  ·  ".join(t_neg[:4]) if t_neg else "—"
     _rect(slide, 15.5, 2.9, 8.8, 1.25, fill=_BUY_L)
