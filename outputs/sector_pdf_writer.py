@@ -306,7 +306,7 @@ def _make_perf_chart(tickers_data: list[dict], sector_name: str) -> io.BytesIO:
     _n = len(x)
     _tick_step = max(1, _n // 5) if _n >= 2 else 1
     ax.set_xticks(x[::_tick_step])
-    ax.set_xticklabels(months[::_tick_step], fontsize=6, color='#555')
+    ax.set_xticklabels(months[::_tick_step], fontsize=8, color='#555')
     ax.tick_params(length=0)
     for sp in ['top', 'right']:
         ax.spines[sp].set_visible(False)
@@ -314,12 +314,12 @@ def _make_perf_chart(tickers_data: list[dict], sector_name: str) -> io.BytesIO:
     ax.spines['bottom'].set_color('#D0D5DD')
     ax.set_facecolor('white')
     fig.patch.set_facecolor('white')
-    ax.legend(fontsize=6, loc='upper left', frameon=False)
+    ax.legend(fontsize=8, loc='upper left', frameon=False)
     _start = months[0]  # e.g. "Mar 25"
     _MOIS_FULL = ['Janvier','Fevrier','Mars','Avril','Mai','Juin','Juillet','Aout','Septembre','Octobre','Novembre','Decembre']
     _abbr, _yr = _start.split()
     _full = _MOIS_FULL[_MOIS.index(_abbr)] if _abbr in _MOIS else _abbr
-    ax.set_title(f'Performance relative \u2014 base 100, {_full} 20{_yr}', fontsize=6.5,
+    ax.set_title(f'Performance relative \u2014 base 100, {_full} 20{_yr}', fontsize=8.5,
                  color='#1B3A6B', fontweight='bold', pad=4)
     plt.tight_layout(pad=0.3)
     buf = io.BytesIO()
@@ -363,7 +363,7 @@ def _make_revenue_area(tickers_data: list[dict], sector_name: str) -> io.BytesIO
     ax.text(5.5, y_max * 0.92, '2025', ha='center', fontsize=7.5, color='#B06000',
             fontweight='bold', alpha=0.7)
     ax.set_xticks(x)
-    ax.set_xticklabels(trimestres, fontsize=7.5, color='#555')
+    ax.set_xticklabels(trimestres, fontsize=9, color='#555')
     ax.tick_params(length=0)
     for sp in ['top', 'right']:
         ax.spines[sp].set_visible(False)
@@ -378,11 +378,11 @@ def _make_revenue_area(tickers_data: list[dict], sector_name: str) -> io.BytesIO
         ax.yaxis.set_major_formatter(mticker.FuncFormatter(lambda v, _: f"{v/1e9:.0f} Mds"))
     elif y_max > 1e6:
         ax.yaxis.set_major_formatter(mticker.FuncFormatter(lambda v, _: f"{v/1e6:.0f} M"))
-    ax.yaxis.set_tick_params(labelsize=7)
+    ax.yaxis.set_tick_params(labelsize=9)
     ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.14),
-              ncol=5, fontsize=7.5, frameon=False)
+              ncol=5, fontsize=9, frameon=False)
     ax.set_title(f'Revenus agrégés par sous-segment \u2014 {sector_name}',
-                 fontsize=9, color='#1B3A6B', fontweight='bold', pad=6)
+                 fontsize=11, color='#1B3A6B', fontweight='bold', pad=6)
     plt.tight_layout(pad=0.3)
     buf = io.BytesIO()
     fig.savefig(buf, format='png', dpi=160, bbox_inches='tight')
@@ -392,20 +392,7 @@ def _make_revenue_area(tickers_data: list[dict], sector_name: str) -> io.BytesIO
 
 
 def _make_scatter(tickers_data: list[dict], sector_name: str) -> io.BytesIO:
-    """EV/EBITDA vs Croissance revenus — scatter plot."""
-    tickers   = [t.get('ticker', '') for t in tickers_data]
-    ev_ebitda = [t.get('ev_ebitda') for t in tickers_data]
-    rev_grwth = [t.get('revenue_growth') or 0 for t in tickers_data]
-    scores    = [t.get('score_global') or 50 for t in tickers_data]
-
-    def score_col(s):
-        if s >= 70: return '#1A7A4A'
-        if s >= 50: return '#1B3A6B'
-        return '#A82020'
-
-    cols  = [score_col(s) for s in scores]
-    sizes = [max(80, min(180, s * 1.8)) for s in scores]
-    offsets = [(6, 4)] * len(tickers)
+    """EV/EBITDA vs Croissance revenus — scatter plot qualite IB avec bulles, quadrants, annotations selectivess."""
 
     def _to_float(v):
         try:
@@ -413,38 +400,134 @@ def _make_scatter(tickers_data: list[dict], sector_name: str) -> io.BytesIO:
         except (TypeError, ValueError):
             return None
 
-    fig, ax = plt.subplots(figsize=(7.5, 5.2))
-    for t, ev, rg, col, sz, off in zip(tickers, ev_ebitda, rev_grwth, cols, sizes, offsets):
-        ev_f = _to_float(ev)
-        try:
-            rg_f = float(rg)
-        except (TypeError, ValueError):
-            continue
-        if ev_f is not None:
-            ax.scatter(rg_f, ev_f, color=col, s=sz, zorder=4,
-                       alpha=0.85, edgecolors='white', linewidth=0.6)
-            ax.annotate(t, (rg_f, ev_f), textcoords='offset points',
-                        xytext=off, fontsize=9, color=col, fontweight='bold')
-        else:
-            ax.scatter(rg_f, 5, color=col, s=sz, zorder=4, alpha=0.85,
-                       marker='^', edgecolors='white', linewidth=0.6)
-            ax.annotate(t, (rg_f, 5), textcoords='offset points',
-                        xytext=(4, 5), fontsize=7, color=col, fontweight='bold')
+    def score_col(s):
+        if s >= 70: return '#1A7A4A'
+        if s >= 50: return '#1B3A6B'
+        return '#A82020'
 
-    # Médiane EV/EBITDA
-    meds = [_to_float(ev) for ev in ev_ebitda]
-    meds = [v for v in meds if v is not None]
-    has_fallback = any(_to_float(ev) is None for ev in ev_ebitda)
-    if meds:
-        med_ev = np.median(meds)
-        ax.axhline(y=med_ev, color='#D0D5DD', linewidth=0.8, linestyle='--', alpha=0.8)
-        ax.text(min(float(r) for r in rev_grwth) + 1, med_ev + 0.5,
-                f'Med. EV/EBITDA ({med_ev:.1f}x)', fontsize=6.5, color='#999', style='italic')
-    # Forcer l'axe Y a inclure y=5 si des triangles fallback sont plottes a cette ordonnee
-    if has_fallback:
-        ymin, ymax = ax.get_ylim()
-        if ymin > 3:
-            ax.set_ylim(bottom=min(ymin, 3))
+    # Préparer les données
+    points = []
+    for t in tickers_data:
+        ev_f = _to_float(t.get('ev_ebitda'))
+        rg_f = _to_float(t.get('revenue_growth') or 0)
+        if rg_f is None:
+            rg_f = 0.0
+        mc = _to_float(t.get('market_cap') or 0)
+        s = t.get('score_global') or 50
+        col = score_col(s)
+        # Taille bulle proportionnelle au market cap, clamp 30-400
+        if mc and mc > 0:
+            sz = float(np.clip(np.sqrt(mc / 1e9) * 0.8, 30, 400))
+        else:
+            sz = 60.0
+        points.append({
+            'ticker': t.get('ticker', ''),
+            'ev': ev_f,
+            'rg': rg_f,
+            'score': s,
+            'col': col,
+            'sz': sz,
+        })
+
+    # Séparer fallback (ev=None) et normaux
+    normal = [p for p in points if p['ev'] is not None]
+    fallback = [p for p in points if p['ev'] is None]
+
+    # Calcul médianes pour quadrants
+    evs_valid = [p['ev'] for p in normal]
+    rgs_all   = [p['rg'] for p in points]
+    med_ev = float(np.median(evs_valid)) if evs_valid else 10.0
+    med_rg = float(np.median(rgs_all)) if rgs_all else 0.0
+
+    # Critères d'annotation sélective (top outliers + top BUY)
+    q75_ev = float(np.percentile(evs_valid, 75)) if evs_valid else med_ev * 1.3
+    q25_ev = float(np.percentile(evs_valid, 25)) if evs_valid else med_ev * 0.7
+    q75_rg = float(np.percentile(rgs_all, 75)) if rgs_all else med_rg + 5
+
+    top_buy = sorted([p for p in normal if p['score'] >= 70],
+                     key=lambda x: x['score'], reverse=True)[:3]
+    top_buy_tickers = {p['ticker'] for p in top_buy}
+
+    def should_annotate(p):
+        if p['ticker'] in top_buy_tickers:
+            return True
+        if p['ev'] is not None:
+            if p['ev'] > q75_ev or p['ev'] < q25_ev:
+                return True
+        if p['rg'] > q75_rg:
+            return True
+        return False
+
+    annotated_tickers = set()
+    for p in normal:
+        if should_annotate(p):
+            annotated_tickers.add(p['ticker'])
+    # Limiter à 10 annotations max
+    if len(annotated_tickers) > 10:
+        # Garder les top_buy en priorité puis compléter par score
+        priority = list(top_buy_tickers)
+        extras = sorted([p for p in normal if p['ticker'] not in top_buy_tickers and p['ticker'] in annotated_tickers],
+                        key=lambda x: abs(x['ev'] - med_ev) + abs(x['rg'] - med_rg), reverse=True)
+        annotated_tickers = set(priority[:3]) | {p['ticker'] for p in extras[:7]}
+
+    fig, ax = plt.subplots(figsize=(7.5, 4.5))
+
+    # Tracé des points normaux
+    for p in normal:
+        is_ann = p['ticker'] in annotated_tickers
+        alpha = 0.95 if is_ann else 0.55
+        ax.scatter(p['rg'], p['ev'], color=p['col'], s=p['sz'], zorder=4,
+                   alpha=alpha, edgecolors='white', linewidth=0.6)
+        if is_ann:
+            ax.annotate(p['ticker'], (p['rg'], p['ev']),
+                        textcoords='offset points', xytext=(6, 4),
+                        fontsize=7, color=p['col'], fontweight='bold',
+                        arrowprops=None)
+
+    # Tracé des points fallback (EV/EBITDA indisponible) en triangle a y=5
+    for p in fallback:
+        is_ann = p['ticker'] in annotated_tickers or len(fallback) <= 3
+        alpha = 0.95 if is_ann else 0.55
+        ax.scatter(p['rg'], 5, color=p['col'], s=p['sz'], zorder=4,
+                   alpha=alpha, marker='^', edgecolors='white', linewidth=0.6)
+        if is_ann:
+            ax.annotate(p['ticker'], (p['rg'], 5),
+                        textcoords='offset points', xytext=(4, 5),
+                        fontsize=7, color=p['col'], fontweight='bold')
+
+    # Lignes de quadrant (médiane X et Y)
+    ax.axhline(y=med_ev, color='#CCCCCC', linewidth=0.8, linestyle='--', zorder=2)
+    ax.axvline(x=med_rg, color='#CCCCCC', linewidth=0.8, linestyle='--', zorder=2)
+
+    # Labels quadrants — coin de chaque quadrant
+    xlim = ax.get_xlim()
+    ylim = ax.get_ylim()
+    # Recalculer après tracé pour avoir les bonnes bornes
+    if evs_valid:
+        ev_all_for_lim = evs_valid + [5] * len(fallback)
+        y_pad = (max(ev_all_for_lim) - min(ev_all_for_lim)) * 0.08
+        rg_pad = (max(rgs_all) - min(rgs_all)) * 0.08 if len(rgs_all) > 1 else 2.0
+        yl = (max(0, min(ev_all_for_lim) - y_pad), max(ev_all_for_lim) + y_pad * 2)
+        xl = (min(rgs_all) - rg_pad, max(rgs_all) + rg_pad)
+        ax.set_xlim(xl)
+        ax.set_ylim(yl)
+        # Labels quadrants dans chaque coin
+        q_labels = [
+            (xl[0] + rg_pad * 0.2, yl[1] - y_pad * 0.5, "Prime / Forte croissance"),
+            (xl[0] + rg_pad * 0.2, yl[0] + y_pad * 0.5, "Décote / Faible croissance"),
+        ]
+        # Gauche-haut = prime faible croissance, droite-haut = prime forte croissance
+        # On cherche les 4 coins relatifs à la médiane
+        q_labels = [
+            (xl[0] + rg_pad * 0.1, yl[1] - y_pad * 0.3,  "Prime / Faible crois."),
+            (xl[1] - rg_pad * 0.1, yl[1] - y_pad * 0.3,  "Prime / Forte crois."),
+            (xl[0] + rg_pad * 0.1, yl[0] + y_pad * 0.3,  "Décote / Faible crois."),
+            (xl[1] - rg_pad * 0.1, yl[0] + y_pad * 0.3,  "Décote / Forte crois."),
+        ]
+        h_aligns = ['left', 'right', 'left', 'right']
+        for (qx, qy, qlbl), ha in zip(q_labels, h_aligns):
+            ax.text(qx, qy, qlbl, fontsize=6, color='#999999',
+                    ha=ha, va='center', style='italic', zorder=1)
 
     ax.set_xlabel('Croissance revenus YoY (%)', fontsize=8, color='#555')
     ax.set_ylabel('EV / EBITDA (x)', fontsize=8, color='#555')
@@ -462,21 +545,20 @@ def _make_scatter(tickers_data: list[dict], sector_name: str) -> io.BytesIO:
         mpatches.Patch(color='#1B3A6B', label='Score 50-70 (HOLD)'),
         mpatches.Patch(color='#A82020', label='Score <50 (SELL)'),
     ]
-    ax.legend(handles=legend_items, fontsize=10, loc='upper center',
-              bbox_to_anchor=(0.5, -0.16), frameon=False, ncol=3,
-              handlelength=1.2, columnspacing=1.2)
+    ax.legend(handles=legend_items, fontsize=8, loc='lower left',
+              frameon=False, ncol=1, handlelength=1.2)
     ax.set_title(f'EV/EBITDA vs Croissance revenus \u2014 {sector_name}',
-                 fontsize=13, color='#1B3A6B', fontweight='bold', pad=10)
-    fig.subplots_adjust(left=0.12, right=0.97, top=0.88, bottom=0.22)
+                 fontsize=11, color='#1B3A6B', fontweight='bold', pad=8)
+    fig.subplots_adjust(left=0.12, right=0.97, top=0.90, bottom=0.14)
     buf = io.BytesIO()
-    fig.savefig(buf, format='png', dpi=150)
+    fig.savefig(buf, format='png', dpi=150, bbox_inches='tight')
     plt.close(fig)
     buf.seek(0)
     return buf
 
 
 def _make_mktcap_donut(tickers_data: list[dict], sector_name: str) -> io.BytesIO:
-    """Répartition Market Cap sectorielle — donut."""
+    """Répartition Market Cap sectorielle — donut avec labels directs."""
     valid = [(t.get('ticker', ''), float(t['market_cap']))
              for t in tickers_data if t.get('market_cap')]
     if not valid:
@@ -485,17 +567,29 @@ def _make_mktcap_donut(tickers_data: list[dict], sector_name: str) -> io.BytesIO
     # Tri par market cap decroissant, regrouper si >7 acteurs
     valid.sort(key=lambda x: -x[1])
     total = sum(v for _, v in valid)
-    if len(valid) > 7:
-        top = valid[:6]
-        autres = sum(v for _, v in valid[6:])
+
+    # Regrouper les segments < 4% en "Autres"
+    main_items = [(tk, v) for tk, v in valid if v / total * 100 >= 4.0]
+    small_items = [(tk, v) for tk, v in valid if v / total * 100 < 4.0]
+    if small_items:
+        autres_total = sum(v for _, v in small_items)
+        main_items.append(('Autres', autres_total))
+    if not main_items:
+        main_items = valid
+
+    # Cap a 7 segments visuels
+    if len(main_items) > 7:
+        top = main_items[:6]
+        autres = sum(v for _, v in main_items[6:])
         top.append(('Autres', autres))
-        valid = top
+        main_items = top
 
-    labels = [f"{tk} ({v/total*100:.0f}%)" for tk, v in valid]
-    sizes  = [v for _, v in valid]
-    palette = ['#1B3A6B','#2A5298','#3D6099','#5580B8','#7AA0CC','#A0BEDC','#D0D5DD'][:len(valid)]
+    names  = [tk for tk, _ in main_items]
+    sizes  = [v  for _, v  in main_items]
+    pcts   = [v / total * 100 for v in sizes]
+    palette = ['#1B3A6B','#2A5298','#3D6099','#5580B8','#7AA0CC','#A0BEDC','#D0D5DD'][:len(main_items)]
 
-    fig, ax = plt.subplots(figsize=(4.8, 5.0))
+    fig, ax = plt.subplots(figsize=(5.5, 5.5))
     wedges, _ = ax.pie(sizes, labels=None, autopct=None, colors=palette,
                        startangle=90,
                        wedgeprops=dict(linewidth=0.8, edgecolor='white'))
@@ -505,12 +599,33 @@ def _make_mktcap_donut(tickers_data: list[dict], sector_name: str) -> io.BytesIO
             fontsize=9, fontweight='bold', color='#1B3A6B')
     ax.text(0, -0.14, 'Market Cap', ha='center', va='center',
             fontsize=8, color='#555555')
-    ax.legend(wedges, labels, loc='lower center', bbox_to_anchor=(0.5, -0.18),
-              ncol=2, fontsize=9.5, frameon=False, handlelength=1.6, columnspacing=1.4)
+
+    # Labels directs sur les segments via annotate
+    for i, (wedge, name, pct) in enumerate(zip(wedges, names, pcts)):
+        ang = (wedge.theta2 + wedge.theta1) / 2.0
+        import math as _math
+        x = _math.cos(_math.radians(ang))
+        y = _math.sin(_math.radians(ang))
+        # Point de référence sur le pourtour externe
+        x_out = x * 1.05
+        y_out = y * 1.05
+        # Point d'ancrage du label
+        x_lbl = x * 1.32
+        y_lbl = y * 1.32
+        ha = 'left' if x >= 0 else 'right'
+        lbl = f"{name}\n{pct:.1f}%"
+        fw = 'bold' if pct >= 15 else 'normal'
+        ax.annotate(lbl, xy=(x_out, y_out), xytext=(x_lbl, y_lbl),
+                    ha=ha, va='center', fontsize=7, fontweight=fw, color='#1B3A6B',
+                    arrowprops=dict(arrowstyle='-', color='#AAAAAA', lw=0.6),
+                    bbox=dict(boxstyle='round,pad=0.1', facecolor='none', edgecolor='none'))
+
     ax.set_title(f'Répartition Market Cap \u2014 {sector_name}', fontsize=11,
                  color='#1B3A6B', fontweight='bold', pad=12)
     fig.patch.set_facecolor('white')
-    plt.tight_layout(pad=0.6)
+    # Marges généreuses pour que les labels ne soient pas coupés
+    ax.set_xlim(-1.8, 1.8)
+    ax.set_ylim(-1.8, 1.8)
     buf = io.BytesIO()
     fig.savefig(buf, format='png', dpi=160, bbox_inches='tight')
     plt.close(fig)
@@ -968,7 +1083,7 @@ def _build_valorisation(scatter_buf, donut_buf, tickers_data: list[dict],
                 return Paragraph(sv, S_TD_G)
             if any(k in sv for k in ["Survalorise", "SELL"]):
                 return Paragraph(sv, S_TD_R)
-            return Paragraph(sv, S_TD_L)
+            return Paragraph(sv, S_TD_C)
         if v == "N/A":
             return Paragraph(str(v), S_TD_A)
         return Paragraph(str(v), S_TD_C)
@@ -1158,7 +1273,7 @@ def _build_conclusion(tickers_data: list[dict], sector_name: str, registry=None)
         f"privilegiant les acteurs a bilan solide et visibilite élevée sur les revenus.", S_BODY))
     elems.append(Spacer(1, 4*mm))
 
-    # Table performance cours
+    # Table performance cours — blocs BUY/HOLD/SELL qualite IB
     elems.append(KeepTogether([
         Spacer(1, 2*mm),
         Paragraph("Performance de cours \u2014 Momentum & Tendance", S_SUBSECTION),
@@ -1166,6 +1281,8 @@ def _build_conclusion(tickers_data: list[dict], sector_name: str, registry=None)
 
     pp_h = [Paragraph(h, S_TH_C)
             for h in ["Ticker", "Societe", "Cours", "Mom. 52W", "Score Global", "Reco", "Tendance"]]
+
+    _COL_WIDTHS_PP = [14*mm, 36*mm, 18*mm, 18*mm, 20*mm, 16*mm, 48*mm]
 
     def _pp_cell(v, col):
         if col == 0: return Paragraph(f"<b>{v}</b>", S_TD_BC)
@@ -1181,8 +1298,7 @@ def _build_conclusion(tickers_data: list[dict], sector_name: str, registry=None)
             return Paragraph(sv, S_TD_C)
         return Paragraph(str(v), S_TD_C)
 
-    pp_rows = []
-    for t in sorted_data:
+    def _pp_row_data(t):
         mom = t.get('momentum_52w')
         reco = _reco(t.get('score_global'))
         if mom is not None:
@@ -1192,7 +1308,7 @@ def _build_conclusion(tickers_data: list[dict], sector_name: str, registry=None)
                 tend = "(=) Neutre"
         else:
             tend = "(=) Neutre"
-        row = [
+        return [
             t.get('ticker', 'N/A'),
             (t.get('company') or 'N/A')[:28],
             _fmt_price(t.get('price')),
@@ -1201,10 +1317,108 @@ def _build_conclusion(tickers_data: list[dict], sector_name: str, registry=None)
             reco,
             tend,
         ]
-        pp_rows.append([_pp_cell(v, j) for j, v in enumerate(row)])
 
-    elems.append(KeepTogether(tbl([pp_h] + pp_rows,
-                                   cw=[14*mm, 36*mm, 18*mm, 18*mm, 20*mm, 16*mm, 48*mm])))
+    # Regrouper par reco : BUY d'abord, puis HOLD, puis SELL
+    _buy_tickers_pp  = [t for t in sorted_data if _reco(t.get('score_global')) == "BUY"]
+    _hold_tickers_pp = [t for t in sorted_data if _reco(t.get('score_global')) == "HOLD"]
+    _sell_tickers_pp = [t for t in sorted_data if _reco(t.get('score_global')) == "SELL"]
+
+    # Styles pour en-tetes de blocs
+    _S_BLK = _style('blk_hdr', size=8, leading=11, color=WHITE, bold=True, align=TA_LEFT)
+
+    _BUY_CLR  = colors.HexColor('#1A7A4A')
+    _HOLD_CLR = colors.HexColor('#4A5568')
+    _SELL_CLR = colors.HexColor('#A82020')
+    _MEAN_CLR = colors.HexColor('#F0F0F0')
+
+    def _build_group_table(group_tickers, reco_label, header_color, include_col_header=False):
+        if not group_tickers:
+            return []
+        n = len(group_tickers)
+        n_cols = len(_COL_WIDTHS_PP)
+        rows_all = []
+        # En-tete de colonnes optionnel (pour le premier groupe)
+        if include_col_header:
+            rows_all.append(pp_h)
+        # Ligne en-tete du bloc — fusionnee sur toutes les colonnes
+        hdr_text = f"{reco_label} \u2014 {n} valeur{'s' if n > 1 else ''}"
+        hdr_row = [Paragraph(f"<b>{hdr_text}</b>", _S_BLK)] + [''] * (n_cols - 1)
+        # Lignes de données
+        data_rows = []
+        scores_grp = []
+        moms_grp   = []
+        for t in group_tickers:
+            row_vals = _pp_row_data(t)
+            data_rows.append([_pp_cell(v, j) for j, v in enumerate(row_vals)])
+            try:
+                scores_grp.append(float(t.get('score_global') or 0))
+            except:
+                pass
+            try:
+                moms_grp.append(float(t.get('momentum_52w') or 0))
+            except:
+                pass
+        # Ligne moyenne du groupe
+        avg_score = f"{sum(scores_grp)/len(scores_grp):.0f}/100" if scores_grp else "\u2014"
+        avg_mom   = _fmt_pct(sum(moms_grp)/len(moms_grp)) if moms_grp else "\u2014"
+        _S_MEAN = _style('mean', size=7.5, leading=10.5, color=GREY_TEXT, bold=False, align=TA_CENTER)
+        _S_MEAN_L = _style('mean_l', size=7.5, leading=10.5, color=GREY_TEXT, bold=False, align=TA_LEFT)
+        mean_row = [
+            Paragraph("<i>Moy. groupe</i>", _S_MEAN_L),
+            Paragraph('', _S_MEAN),
+            Paragraph('', _S_MEAN),
+            Paragraph(f"<i>{avg_mom}</i>", _S_MEAN),
+            Paragraph(f"<i>{avg_score}</i>", _S_MEAN),
+            Paragraph('', _S_MEAN),
+            Paragraph('', _S_MEAN),
+        ]
+
+        rows_all += [hdr_row] + data_rows + [mean_row]
+        t_obj = Table(rows_all, colWidths=_COL_WIDTHS_PP)
+        # Offset de ligne si en-tete de colonnes inclus
+        col_hdr_offset = 1 if include_col_header else 0
+        blk_row = col_hdr_offset       # index de la ligne d'en-tete du bloc
+        data_start = col_hdr_offset + 1
+        ts = []
+        # En-tete de colonnes navy si present
+        if include_col_header:
+            ts += [
+                ('BACKGROUND',  (0,0),(-1,0),  NAVY),
+                ('FONTNAME',    (0,0),(-1,0),  'Helvetica-Bold'),
+                ('LINEBELOW',   (0,0),(-1,0),  0.5, NAVY_LIGHT),
+            ]
+        # En-tete de bloc couleur
+        ts += [
+            ('BACKGROUND',    (0,blk_row),(-1,blk_row),  header_color),
+            ('SPAN',          (0,blk_row),(-1,blk_row)),
+            ('FONTNAME',      (0,blk_row),(-1,blk_row),  'Helvetica-Bold'),
+            ('ROWBACKGROUNDS',(0,data_start),(-1,-2), [WHITE, ROW_ALT]),
+            ('BACKGROUND',    (0,-1),(-1,-1), _MEAN_CLR),
+            ('FONTSIZE',      (0,0),(-1,-1), 8),
+            ('VALIGN',        (0,0),(-1,-1), 'MIDDLE'),
+            ('TOPPADDING',    (0,0),(-1,-1), 4),
+            ('BOTTOMPADDING', (0,0),(-1,-1), 4),
+            ('LEFTPADDING',   (0,0),(-1,-1), 5),
+            ('RIGHTPADDING',  (0,0),(-1,-1), 5),
+            ('LINEBELOW',     (0,blk_row),(-1,blk_row),  0.5, NAVY_LIGHT),
+            ('LINEBELOW',     (0,-1),(-1,-1),0.5, GREY_RULE),
+            ('GRID',          (0,data_start),(-1,-2), 0.3, GREY_MED),
+        ]
+        t_obj.setStyle(TableStyle(ts))
+        return [t_obj, Spacer(1, 2*mm)]
+
+    # Assembler les blocs — le premier groupe non-vide porte l'en-tete de colonnes
+    _groups = [
+        (_buy_tickers_pp,  "BUY",  _BUY_CLR),
+        (_hold_tickers_pp, "HOLD", _HOLD_CLR),
+        (_sell_tickers_pp, "SELL", _SELL_CLR),
+    ]
+    _first_done = False
+    for _g_tickers, _g_label, _g_col in _groups:
+        if _g_tickers:
+            elems += _build_group_table(_g_tickers, _g_label, _g_col,
+                                        include_col_header=not _first_done)
+            _first_done = True
     elems.append(src("FinSight IA \u2014 yfinance. Momentum 52 semaines."))
     elems.append(Spacer(1, 5*mm))
 

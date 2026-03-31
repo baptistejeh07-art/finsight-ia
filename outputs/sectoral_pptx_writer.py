@@ -819,10 +819,8 @@ def _chart_distribution(tickers_data) -> bytes:
     fig.patch.set_facecolor('#FFFFFF')
     ax.set_facecolor('#F8F9FA')
     bars = ax.bar(labels, vals, color=colors, alpha=0.85, zorder=3)
-    ax.axhline(med, color='#1B3A6B', linewidth=1.5, linestyle='--', label=f"Médiane {med:.1f}x")
-    for bar, val in zip(bars, vals):
-        ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.3,
-                f"{val:.1f}x", ha='center', va='bottom', fontsize=7.5, fontweight='bold', color='#1A1A1A')
+    ax.axhline(med, color='#1B3A6B', linewidth=1.5, linestyle='--', label=f"Mediane {med:.1f}x")
+    # Labels de valeur supprimes (slides epures)
     ax.set_ylabel("EV/EBITDA", fontsize=8, color='#555555')
     ax.tick_params(axis='x', labelsize=7.5, colors='#333333')
     ax.tick_params(axis='y', labelsize=7, colors='#777777')
@@ -1246,8 +1244,10 @@ def _s11_scores(prs, D):
             "Décomposition par dimension  ·  Value · Growth · Quality · Momentum  ·  Score 0-100", 2)
 
     td = D["sorted_td"]
-    td_disp = td[:MAX_TABLE_ROWS]
-    tbl_data = [["Ticker", "Société", "Score Global", "Value", "Growth", "Quality", "Momentum", "Reco"]]
+    MAX_ROWS_S11 = 15
+    td_disp = td[:MAX_ROWS_S11]
+    n_hidden = max(0, len(td) - MAX_ROWS_S11)
+    tbl_data = [["Ticker", "Societe", "Score Global", "Value", "Growth", "Quality", "Momentum", "Reco"]]
     for t in td_disp:
         reco = _reco(t.get("score_global"))
         tbl_data.append([
@@ -1259,6 +1259,12 @@ def _s11_scores(prs, D):
             str(int(t.get("score_quality") or 0)),
             str(int(t.get("score_momentum") or 0)),
             reco,
+        ])
+    # Ligne footer si des lignes sont cachees
+    if n_hidden > 0:
+        tbl_data.append([
+            f"... et {n_hidden} autres valeur{'s' if n_hidden > 1 else ''} (voir rapport PDF)",
+            "", "", "", "", "", "", "",
         ])
 
     _s11_tbl_h = min(7.0, len(tbl_data) * 0.56)
@@ -1436,13 +1442,29 @@ def _s15_entry(prs, D):
                col_widths=[2.0, 4.5, 2.8, 3.2, 3.0, 4.2, 2.5],
                font_size=7.5, header_size=7.5, alt_fill=_GRAYL)
 
-    # Note compacte — position dynamique apres la table
-    _note_y = round(3.5 + _tbl_h + 0.2, 2)
-    _rect(slide, 0.9, _note_y, 23.6, 1.6, fill=_HOLD_L)
-    _rect(slide, 0.9, _note_y, 0.1, 1.6, fill=_HOLD)
-    _txb(slide, "NOTE METHODOLOGIQUE", 1.3, _note_y + 0.08, 23.1, 0.5, size=8, bold=True, color=_HOLD)
-    _txb(slide, "La probabilite de rendement positif a 12 mois est calculee sur des configurations similaires identifiees en backtesting sur donnees historiques (2010-2024). Elle ne constitue pas une garantie de performance future.",
-         1.3, _note_y + 0.6, 23.1, 0.9, size=7.5, color=_GRAYT, wrap=True)
+    # Note compacte — position dynamique APRES la table, avec garde hauteur slide
+    # Hauteur slide utile = ~13.3cm (header 2.3 + corps 11). KPIs commencent a 11.3.
+    _SLIDE_H_USABLE = 13.3  # cm total slide
+    _KPI_Y = 11.3
+    _NOTE_H = 1.6
+    _note_y_calc = round(3.5 + _tbl_h + 0.2, 2)
+    # Si la note depasse 80% de la hauteur ou chevauche les KPIs, reduire ou supprimer
+    _note_font = 7.5
+    _note_title_font = 8
+    if _note_y_calc + _NOTE_H > _KPI_Y - 0.2:
+        # Tenter avec une hauteur reduite (note plus compacte)
+        _NOTE_H = max(0, _KPI_Y - 0.2 - _note_y_calc)
+        _note_font = 6.0
+        _note_title_font = 6.5
+    if _NOTE_H > 0.4:
+        _note_y = _note_y_calc
+        _rect(slide, 0.9, _note_y, 23.6, _NOTE_H, fill=_HOLD_L)
+        _rect(slide, 0.9, _note_y, 0.1, _NOTE_H, fill=_HOLD)
+        _txb(slide, "NOTE METHODOLOGIQUE", 1.3, _note_y + 0.08, 23.1, 0.5,
+             size=_note_title_font, bold=True, color=_HOLD)
+        if _NOTE_H > 0.9:
+            _txb(slide, "La probabilite de rendement positif a 12 mois est calculee sur des configurations similaires identifiees en backtesting sur donnees historiques (2010-2024). Elle ne constitue pas une garantie de performance future.",
+                 1.3, _note_y + 0.55, 23.1, _NOTE_H - 0.55, size=_note_font, color=_GRAYT, wrap=True)
 
     # 3 KPI boxes
     n_entry = sum(1 for t in td if _reco(t.get("score_global")) == "BUY")
