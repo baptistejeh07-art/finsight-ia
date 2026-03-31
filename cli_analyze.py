@@ -339,7 +339,8 @@ def _load_cache_metrics(tickers: list[str]) -> dict:
 
 def _compute_sector_analytics(tickers_data: list[dict],
                                pe_hist_by_ticker: dict,
-                               cache: dict) -> dict:
+                               cache: dict,
+                               sector: str = "") -> dict:
     """Calcule les métriques analytiques sectorielles avancées."""
     import numpy as np
 
@@ -408,11 +409,30 @@ def _compute_sector_analytics(tickers_data: list[dict],
     wacc_median = round(float(np.median(cache["wacc_values"])) * 100, 1) if cache["wacc_values"] else None
 
     # --- Altman Z cartographie ---
+    # Seuils adaptés au modèle : non-manufacturing pour secteurs asset-light
+    _ASSET_LIGHT = {
+        "information technology", "technology", "software",
+        "communication services", "communications", "healthcare",
+        "health care", "financials", "financial services",
+        "real estate", "services", "media",
+    }
+    is_asset_light = sector.lower().strip() in _ASSET_LIGHT
+    if is_asset_light:
+        az_safe_thr     = 2.6
+        az_distress_thr = 1.1
+        altman_model    = "nonmfg_1995"
+    else:
+        az_safe_thr     = 3.0
+        az_distress_thr = 1.8
+        altman_model    = "original_1968"
+
+    # Priorité cache (valeurs calculées par agent_quant avec bon modèle)
+    # Fallback : valeurs calculées dans _fetch_one
     az_vals = cache["altman_z_values"] or [t.get("altman_z") for t in tickers_data if t.get("altman_z")]
     az_vals = [v for v in az_vals if v is not None]
-    altman_safe    = sum(1 for z in az_vals if z >= 3.0)
-    altman_grey    = sum(1 for z in az_vals if 1.8 <= z < 3.0)
-    altman_distress= sum(1 for z in az_vals if z < 1.8)
+    altman_safe    = sum(1 for z in az_vals if z >= az_safe_thr)
+    altman_grey    = sum(1 for z in az_vals if az_distress_thr <= z < az_safe_thr)
+    altman_distress= sum(1 for z in az_vals if z < az_distress_thr)
     n_altman = len(az_vals)
 
     # --- Scénarios agrégés (depuis cache) ---
@@ -442,6 +462,7 @@ def _compute_sector_analytics(tickers_data: list[dict],
         "wacc_median": wacc_median,
         "altman_safe": altman_safe, "altman_grey": altman_grey,
         "altman_distress": altman_distress, "n_altman": n_altman,
+        "altman_model": altman_model, "is_asset_light": is_asset_light,
         "scenarios_bull_median": scenarios_bull_median,
         "scenarios_base_median": scenarios_base_median,
         "scenarios_bear_median": scenarios_bear_median,
@@ -500,6 +521,49 @@ def _fetch_real_sector_data(sector: str, universe: str, max_tickers: int = 8) ->
             except Exception:
                 pass
 
+            # Altman Z-Score réel — modèle sélectionné selon secteur
+            # Non-manufacturing (1995) pour tech/services : Z' = 6.56*X1+3.26*X2+6.72*X3+1.05*X4
+            # Original (1968) pour manufacturing : Z = 1.2*X1+1.4*X2+3.3*X3+0.6*X4+1.0*X5
+            _ASSET_LIGHT = {
+                "information technology", "technology", "software",
+                "communication services", "communications", "healthcare",
+                "health care", "financials", "financial services",
+                "real estate", "services", "media",
+            }
+            _sector_lc = sector.lower().strip()
+            _use_nonmfg = _sector_lc in _ASSET_LIGHT
+            altman_z = None
+            altman_z_model = None
+            try:
+                ta = info.get("totalAssets")
+                if ta and ta > 0:
+                    wc    = (info.get("totalCurrentAssets") or 0) - (info.get("totalCurrentLiabilities") or 0)
+                    re_v  = info.get("retainedEarnings") or 0
+                    ebit_v= info.get("ebit") or info.get("operatingIncome") or 0
+                    tliab = info.get("totalLiab") or info.get("totalLiabilities") or 0
+                    x1 = wc    / ta
+                    x2 = re_v  / ta
+                    x3 = ebit_v/ ta
+                    if _use_nonmfg:
+                        eq_bv = info.get("totalStockholdersEquity") or 0
+                        if isinstance(eq_bv, float) and 0 < eq_bv < 1e6:
+                            eq_bv *= (info.get("sharesOutstanding") or 1)
+                        if tliab > 0:
+                            x4 = eq_bv / tliab
+                            altman_z = round(6.56*x1 + 3.26*x2 + 6.72*x3 + 1.05*x4, 2)
+                            altman_z_model = "nonmfg_1995"
+                    else:
+                        mc_v = info.get("marketCap") or 0
+                        rev_v= info.get("totalRevenue") or 0
+                        if tliab > 0:
+                            x4 = mc_v / tliab
+                            x5 = rev_v / ta
+                            altman_z = round(1.2*x1 + 1.4*x2 + 3.3*x3 + 0.6*x4 + 1.0*x5, 2)
+                            altman_z_model = "original_1968"
+            except Exception:
+                altman_z = None
+                altman_z_model = None
+
             # Score simplifie : value + growth + qualite + momentum
             s_val  = max(0, min(25, 25 - (pe or 20) * 0.5)) if pe else 12
             s_gro  = max(0, min(25, 12 + rev_g * 100))
@@ -525,7 +589,8 @@ def _fetch_real_sector_data(sector: str, universe: str, max_tickers: int = 8) ->
                 "roic":            roic,
                 "revenue_growth":  rev_g,
                 "momentum_52w":    round(mom52, 1),
-                "altman_z":        2.5,
+                "altman_z":        altman_z,
+                "altman_z_model":  altman_z_model,
                 "beneish_m":       -2.5,
                 "beta":            beta,
                 "price":           info.get("currentPrice") or info.get("regularMarketPrice"),
@@ -568,7 +633,7 @@ def _fetch_real_sector_data(sector: str, universe: str, max_tickers: int = 8) ->
              len(cache["scenarios_bull"]), len(cache["conviction_deltas"]), len(cache["wacc_values"]))
 
     # Analytics sectoriels globaux — injecté dans chaque ticker pour transmission au PDF
-    sector_analytics = _compute_sector_analytics(results, pe_hist_by_ticker, cache)
+    sector_analytics = _compute_sector_analytics(results, pe_hist_by_ticker, cache, sector=sector)
     for r in results:
         r["_sector_analytics"] = sector_analytics
 

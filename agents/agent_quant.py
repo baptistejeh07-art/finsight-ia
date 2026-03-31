@@ -125,9 +125,10 @@ class YearRatios:
     dividend_payout:  Optional[float] = None   # Dividends / NI
 
     # --- Risque (3) ---
-    altman_z:    Optional[float] = None   # Altman Z-Score (public)
-    beneish_m:   Optional[float] = None   # Beneish M-Score (8-var)
-    net_debt_ev: Optional[float] = None   # Net Debt / EV
+    altman_z:       Optional[float] = None   # Altman Z-Score (public)
+    altman_z_model: Optional[str]   = None   # "original_1968" | "nonmfg_1995"
+    beneish_m:      Optional[float] = None   # Beneish M-Score (8-var)
+    net_debt_ev:    Optional[float] = None   # Net Debt / EV
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -154,6 +155,21 @@ class RatiosResult:
 # Agent Quant
 # ---------------------------------------------------------------------------
 
+# Secteurs asset-light où le Z-Score non-manufacturing (1995) est approprié
+# (X5 = CA/Actifs exclu — pénalise injustement les sociétés à actifs intangibles)
+_ASSET_LIGHT_SECTORS = {
+    "information technology", "technology", "software",
+    "communication services", "communications", "media", "internet",
+    "healthcare", "health care", "financials", "financial services",
+    "real estate", "services",
+}
+
+
+def _is_asset_light(sector: str) -> bool:
+    """Retourne True si le secteur est dominé par les actifs intangibles."""
+    return bool(sector) and sector.lower().strip() in _ASSET_LIGHT_SECTORS
+
+
 class AgentQuant:
     """
     Calcule 33 ratios financiers à partir d'un FinancialSnapshot.
@@ -177,7 +193,8 @@ class AgentQuant:
             fy = snapshot.years.get(year_label)
             if fy is None:
                 continue
-            yr = self._compute_year(fy, snapshot.market)
+            yr = self._compute_year(fy, snapshot.market,
+                                   sector=snapshot.company_info.sector or "")
             years_ratios[year_label] = yr
 
         # Croissance YoY (nécessite l'année précédente)
@@ -244,7 +261,7 @@ class AgentQuant:
     # Calcul par année
     # ------------------------------------------------------------------
 
-    def _compute_year(self, fy: FinancialYear, mkt: MarketData) -> YearRatios:
+    def _compute_year(self, fy: FinancialYear, mkt: MarketData, sector: str = "") -> YearRatios:
         yr = YearRatios(year=fy.year)
 
         # --- Valeurs intermédiaires ---
@@ -384,8 +401,8 @@ class AgentQuant:
         yr.rd_ratio        = _pct(fy.rd,          fy.revenue)
         yr.dividend_payout = _pct(fy.dividends,   yr.net_income)
 
-        # --- Altman Z-Score (version public companies) ---
-        yr.altman_z = self._altman_z(fy, yr)
+        # --- Altman Z-Score (modèle sélectionné selon secteur) ---
+        yr.altman_z, yr.altman_z_model = self._compute_altman(fy, yr, sector)
 
         return yr
 
@@ -411,9 +428,23 @@ class AgentQuant:
     # Altman Z-Score
     # ------------------------------------------------------------------
 
+    def _compute_altman(
+        self, fy: FinancialYear, yr: YearRatios, sector: str = ""
+    ) -> tuple[Optional[float], Optional[str]]:
+        """
+        Sélectionne et calcule le bon modèle Altman Z selon le secteur.
+        - Secteurs asset-light (tech, services, finance...) → modèle non-manufacturing 1995
+        - Autres → modèle original 1968
+        Retourne (score, modele_utilise).
+        """
+        if _is_asset_light(sector):
+            return self._altman_z_nonmfg(fy, yr), "nonmfg_1995"
+        else:
+            return self._altman_z(fy, yr), "original_1968"
+
     def _altman_z(self, fy: FinancialYear, yr: YearRatios) -> Optional[float]:
         """
-        Altman Z-Score pour sociétés cotées (1968) :
+        Altman Z-Score original (1968) — sociétés manufacturières cotées :
         Z = 1.2*X1 + 1.4*X2 + 3.3*X3 + 0.6*X4 + 1.0*X5
         Seuils : Z > 2.99 Sain | 1.81–2.99 Zone grise | < 1.81 Détresse
         """
@@ -441,6 +472,38 @@ class AgentQuant:
             return None
 
         z = 1.2*x1 + 1.4*x2 + 3.3*x3 + 0.6*x4 + 1.0*x5
+        return round(z, 2)
+
+    def _altman_z_nonmfg(self, fy: FinancialYear, yr: YearRatios) -> Optional[float]:
+        """
+        Altman Z'-Score non-manufacturing (1995) — adapté aux sociétés asset-light :
+        Z' = 6.56*X1 + 3.26*X2 + 6.72*X3 + 1.05*X4
+        X4 = Book Value Equity / Total Liabilities  (valeur comptable, pas boursière)
+        X5 (CA/Actifs) EXCLU — ce ratio pénalise injustement les sociétés à actifs intangibles.
+        Seuils : Z' > 2.6 Sain | 1.1–2.6 Zone grise | < 1.1 Détresse
+        """
+        ta = yr.total_assets
+        if not ta or ta == 0:
+            return None
+
+        wc = (yr.total_current_assets or 0) - (yr.total_current_liabilities or 0)
+        x1 = _s(wc, ta)
+
+        if fy.retained_earnings_yf is not None:
+            re_val = fy.retained_earnings_yf
+        else:
+            re_val = (yr.total_equity or 0) - (fy.common_equity_paid_in or 0)
+        x2 = _s(re_val, ta)
+
+        x3 = _s(yr.ebit, ta)
+
+        # X4 = Book Value Equity / Total Liabilities (pas market cap)
+        x4 = _s(yr.total_equity, yr.total_liabilities) if yr.total_liabilities else None
+
+        if any(v is None for v in [x1, x2, x3, x4]):
+            return None
+
+        z = 6.56*x1 + 3.26*x2 + 6.72*x3 + 1.05*x4
         return round(z, 2)
 
     # ------------------------------------------------------------------

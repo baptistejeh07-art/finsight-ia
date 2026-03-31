@@ -893,13 +893,25 @@ def _build_structure_sectorielle(tickers_data: list[dict], sector_name: str,
     else:
         roic_s = S_TD_C
 
-    # Altman Z
-    n_az  = sa.get("n_altman") or 0
-    n_sfe = sa.get("altman_safe") or 0
-    n_gry = sa.get("altman_grey") or 0
-    n_dst = sa.get("altman_distress") or 0
+    # Altman Z — modèle sélectionné selon secteur
+    n_az   = sa.get("n_altman") or 0
+    n_sfe  = sa.get("altman_safe") or 0
+    n_gry  = sa.get("altman_grey") or 0
+    n_dst  = sa.get("altman_distress") or 0
+    az_mdl = sa.get("altman_model", "original_1968")
+    is_al  = sa.get("is_asset_light", False)
+    # Libellé du modèle et seuils pour transparence
+    if az_mdl == "nonmfg_1995":
+        az_safe_label = "Z'>2.6"
+        az_model_tag  = "Z' non-mfg."
+    else:
+        az_safe_label = "Z>3"
+        az_model_tag  = "Z original"
     if n_az > 0:
-        altman_val = f"{n_sfe}/{n_az} zone safe (Z>3) | {n_gry}/{n_az} zone grise | {n_dst}/{n_az} détresse"
+        altman_val = (
+            f"{n_sfe}/{n_az} zone safe ({az_safe_label}) | "
+            f"{n_gry}/{n_az} zone grise | {n_dst}/{n_az} détresse"
+        )
         altman_lbl = (
             "risque de défaut concentré — revue bilantielle urgente" if n_dst > 0
             else ("bilans globalement solides" if n_sfe >= n_az * 0.75
@@ -918,7 +930,7 @@ def _build_structure_sectorielle(tickers_data: list[dict], sector_name: str,
          pe_val, pe_lbl, pe_s),
         ("Dispersion ROIC / ROE",
          roic_val, roic_lbl, roic_s),
-        ("Solidité bilantielle (Altman Z)",
+        (f"Solidité bilantielle ({az_model_tag})",
          altman_val, altman_lbl, altman_s),
     ]
     struct_rows = []
@@ -930,9 +942,30 @@ def _build_structure_sectorielle(tickers_data: list[dict], sector_name: str,
         ])
     elems.append(KeepTogether(tbl([struct_h] + struct_rows,
                                    cw=[52*mm, 52*mm, 66*mm])))
-    elems.append(src("FinSight IA — yfinance, FMP. HHI calculé sur capitalisations boursières. "
-                     "ROIC = NOPAT/IC (ROE si ROIC indisponible). PE historique = cours moyen annuel / EPS."))
-    elems.append(Spacer(1, 5*mm))
+    if az_mdl == "nonmfg_1995":
+        _az_src = ("Altman Z' = modele non-manufacturing 1995 (6.56*X1+3.26*X2+6.72*X3+1.05*X4, "
+                   "X5 exclu). Seuils : safe >2.6, grise 1.1-2.6, detresse <1.1.")
+    else:
+        _az_src = "Altman Z = modele original 1968. Seuils : safe >2.99, grise 1.81-2.99, detresse <1.81."
+    elems.append(src(
+        "FinSight IA — yfinance, FMP. HHI calcule sur capitalisations boursieres. "
+        "ROIC = NOPAT/IC (ROE si ROIC indisponible). PE historique = cours moyen annuel / EPS. "
+        + _az_src))
+
+    # Note méthodologique Altman Z pour secteurs asset-light
+    if is_al:
+        elems.append(Spacer(1, 2*mm))
+        elems.append(Paragraph(
+            "<i><b>Note methodologique Altman Z.</b> "
+            "Le modele Altman Z-Score original (1968) est calibre pour l'industrie manufacturiere. "
+            "Pour ce secteur a actifs intangibles dominants, FinSight IA applique le modele "
+            "Z' non-manufacturing (Altman, 1995) qui exclut le ratio CA/Actifs (X5) — "
+            "ce ratio penalise injustement les societes dont la valeur est portee par les "
+            "brevets, marques et logiciels plutot que par les immobilisations corporelles. "
+            "Les scores en zone grise n'indiquent pas necessairement un risque de detresse "
+            "financiere reel.</i>",
+            S_NOTE))
+    elems.append(Spacer(1, 3*mm))
 
     # ── Note analytique ────────────────────────────────────────────────────
     if hhi and pe_ltm:
