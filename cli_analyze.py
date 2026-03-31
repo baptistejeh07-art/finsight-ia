@@ -125,7 +125,13 @@ def run_secteur(sector: str, universe: str = "CAC 40", prefix: str = "secteur") 
     pdf_path  = OUT_DIR / f"{stem}.pdf"
     pptx_path = OUT_DIR / f"{stem}.pptx"
 
-    generate_sector_report(sector, tickers, str(pdf_path), universe=universe)
+    # Extraire les sector_analytics injectés dans les tickers
+    sector_analytics = tickers[0].get("_sector_analytics") if tickers else {}
+    for t in tickers:
+        t.pop("_sector_analytics", None)
+
+    generate_sector_report(sector, tickers, str(pdf_path), universe=universe,
+                           sector_analytics=sector_analytics)
     log.info("PDF sectoriel : %s  (%d Ko)", pdf_path.name, pdf_path.stat().st_size // 1024)
 
     SectoralPPTXWriter.generate(tickers, sector, universe, str(pptx_path))
@@ -216,8 +222,236 @@ def _get_real_tickers(sector: str, universe: str) -> list[str]:
     return []
 
 
+def _fetch_pe_historical(tk: str) -> list[float]:
+    """Retourne la liste des PE annuels sur 5 ans (cours moyen annuel / EPS).
+    Retourne [] si données insuffisantes."""
+    try:
+        import yfinance as yf
+        import numpy as np
+        stock = yf.Ticker(tk)
+        # Cours historique mensuel sur 5 ans
+        hist = stock.history(period="5y", interval="1mo")
+        if hist.empty:
+            return []
+        # EPS annuel depuis income_stmt
+        try:
+            inc = stock.income_stmt
+            if inc is None or inc.empty:
+                return []
+            eps_row = None
+            for key in ["Basic EPS", "Diluted EPS", "EPS"]:
+                if key in inc.index:
+                    eps_row = inc.loc[key]
+                    break
+            if eps_row is None:
+                return []
+            eps_by_year = {}
+            for col in eps_row.index:
+                yr = int(str(col)[:4])
+                v  = eps_row[col]
+                if v is not None and not (hasattr(v, '__float__') and v != v):  # not NaN
+                    try:
+                        fv = float(v)
+                        if fv > 0:
+                            eps_by_year[yr] = fv
+                    except (TypeError, ValueError):
+                        pass
+        except Exception:
+            return []
+
+        if not eps_by_year:
+            return []
+
+        # Cours moyen annuel depuis l'historique
+        hist['year'] = hist.index.year
+        pe_list = []
+        for yr, eps in eps_by_year.items():
+            yr_prices = hist[hist['year'] == yr]['Close']
+            if len(yr_prices) >= 6:
+                avg_price = float(yr_prices.mean())
+                pe = avg_price / eps
+                if 0 < pe < 500:
+                    pe_list.append(round(pe, 1))
+        return pe_list
+    except Exception as e:
+        log.debug("_fetch_pe_historical '%s' erreur: %s", tk, e)
+        return []
+
+
+def _load_cache_metrics(tickers: list[str]) -> dict:
+    """Charge les métriques avancées depuis les _state.json en cache si disponibles.
+    Retourne dict avec scénarios agrégés, conviction_delta, wacc."""
+    result = {
+        "scenarios_bull": [], "scenarios_base": [], "scenarios_bear": [],
+        "conviction_deltas": [], "wacc_values": [],
+        "altman_z_values": [],
+    }
+    cache_dir = OUT_DIR
+    for tk in tickers:
+        state_path = cache_dir / f"{tk}_state.json"
+        if not state_path.exists():
+            continue
+        try:
+            state = json.loads(state_path.read_text(encoding="utf-8"))
+            # Scénarios DCF
+            synth = state.get("synthesis") or {}
+            tb = synth.get("target_bull") or synth.get("dcf_bull")
+            tb2 = synth.get("target_base") or synth.get("dcf_base")
+            tbe = synth.get("target_bear") or synth.get("dcf_bear")
+            price = (state.get("snapshot") or {}).get("market_data", {}).get("price")
+            if tb and price and float(price) > 0:
+                result["scenarios_bull"].append((float(tb) - float(price)) / float(price))
+            if tb2 and price and float(price) > 0:
+                result["scenarios_base"].append((float(tb2) - float(price)) / float(price))
+            if tbe and price and float(price) > 0:
+                result["scenarios_bear"].append((float(tbe) - float(price)) / float(price))
+            # Conviction delta (devil's advocate)
+            devil = state.get("devil") or {}
+            cd = devil.get("conviction_delta")
+            if cd is not None:
+                try:
+                    result["conviction_deltas"].append(float(cd))
+                except (TypeError, ValueError):
+                    pass
+            # WACC
+            snap = state.get("snapshot") or {}
+            mkt  = snap.get("market_data") or {}
+            wacc = mkt.get("wacc")
+            if wacc:
+                try:
+                    result["wacc_values"].append(float(wacc))
+                except (TypeError, ValueError):
+                    pass
+            # Altman Z
+            ratios = state.get("ratios") or {}
+            for yr_data in (ratios.get("years") or {}).values():
+                az = yr_data.get("altman_z")
+                if az is not None:
+                    try:
+                        result["altman_z_values"].append(float(az))
+                    except (TypeError, ValueError):
+                        pass
+                    break
+        except Exception as e:
+            log.debug("cache '%s' erreur: %s", tk, e)
+    return result
+
+
+def _compute_sector_analytics(tickers_data: list[dict],
+                               pe_hist_by_ticker: dict,
+                               cache: dict) -> dict:
+    """Calcule les métriques analytiques sectorielles avancées."""
+    import numpy as np
+
+    # --- HHI (Herfindahl-Hirschman Index) ---
+    mcs = [t.get("market_cap") or 0 for t in tickers_data]
+    total_mc = sum(mcs)
+    if total_mc > 0:
+        shares = [(mc / total_mc) * 100 for mc in mcs]
+        hhi = round(sum(s**2 for s in shares))
+    else:
+        hhi = None
+
+    if hhi is not None:
+        if hhi >= 2500:
+            hhi_label = "oligopole concentré — barrières à l'entrée élevées, premium de valorisation justifié"
+        elif hhi >= 1500:
+            hhi_label = "concentration modérée — concurrence significative entre leaders établis"
+        else:
+            hhi_label = "secteur fragmenté — pression concurrentielle accrue, compression marges probable"
+    else:
+        hhi_label = "N/D"
+
+    # --- PE médian actuel ---
+    pes_ltm = [float(t["pe_ratio"]) for t in tickers_data
+               if t.get("pe_ratio") and float(t["pe_ratio"]) > 0]
+    pe_median_ltm = round(float(np.median(pes_ltm)), 1) if pes_ltm else None
+
+    # --- PE médian historique 5 ans ---
+    all_hist_pes = []
+    for pes in pe_hist_by_ticker.values():
+        all_hist_pes.extend(pes)
+    pe_median_hist = round(float(np.median(all_hist_pes)), 1) if all_hist_pes else None
+
+    if pe_median_ltm and pe_median_hist:
+        pe_premium = (pe_median_ltm / pe_median_hist - 1) * 100
+        if pe_premium > 15:
+            pe_cycle_label = f"secteur historiquement cher (+{pe_premium:.0f}% vs médiane 5 ans)"
+        elif pe_premium < -10:
+            pe_cycle_label = f"secteur historiquement bon marché ({pe_premium:.0f}% vs médiane 5 ans)"
+        else:
+            pe_cycle_label = f"valorisation en ligne avec la médiane historique ({pe_premium:+.0f}%)"
+    else:
+        pe_premium   = None
+        pe_cycle_label = "historique PE insuffisant"
+
+    # --- Dispersion ROIC ---
+    roic_values = [t.get("roic") for t in tickers_data if t.get("roic") is not None]
+    if not roic_values:
+        roic_values = [t.get("roe") for t in tickers_data if t.get("roe") is not None]
+    roic_std    = round(float(np.std(roic_values)), 1)   if len(roic_values) >= 2 else None
+    roic_mean   = round(float(np.mean(roic_values)), 1)  if roic_values else None
+    roic_min    = round(min(roic_values), 1)             if roic_values else None
+    roic_max    = round(max(roic_values), 1)             if roic_values else None
+
+    if roic_std is not None:
+        if roic_std >= 15:
+            roic_label = "forte dispersion — secteur de stock-picking pur, choix de la société > choix du secteur"
+        elif roic_std >= 8:
+            roic_label = "dispersion modérée — sélectivité recommandée, leaders qualité avantagés"
+        else:
+            roic_label = "faible dispersion — beta sectoriel dominant, approche indicielle pertinente"
+    else:
+        roic_label = "N/D"
+
+    # --- WACC médian ---
+    wacc_median = round(float(np.median(cache["wacc_values"])) * 100, 1) if cache["wacc_values"] else None
+
+    # --- Altman Z cartographie ---
+    az_vals = cache["altman_z_values"] or [t.get("altman_z") for t in tickers_data if t.get("altman_z")]
+    az_vals = [v for v in az_vals if v is not None]
+    altman_safe    = sum(1 for z in az_vals if z >= 3.0)
+    altman_grey    = sum(1 for z in az_vals if 1.8 <= z < 3.0)
+    altman_distress= sum(1 for z in az_vals if z < 1.8)
+    n_altman = len(az_vals)
+
+    # --- Scénarios agrégés (depuis cache) ---
+    def _median_pct(lst):
+        return round(float(np.median(lst)) * 100, 1) if lst else None
+
+    scenarios_bull_median = _median_pct(cache["scenarios_bull"])
+    scenarios_base_median = _median_pct(cache["scenarios_base"])
+    scenarios_bear_median = _median_pct(cache["scenarios_bear"])
+
+    # --- Conviction delta moyen ---
+    conviction_delta_mean = (
+        round(float(np.mean(cache["conviction_deltas"])), 2)
+        if cache["conviction_deltas"] else None
+    )
+
+    # --- Evolution marges EBITDA sectorielles (approximation sur données LTM) ---
+    ebitda_margins = [t.get("ebitda_margin") for t in tickers_data if t.get("ebitda_margin")]
+    ebitda_median  = round(float(np.median(ebitda_margins)), 1) if ebitda_margins else None
+
+    return {
+        "hhi": hhi, "hhi_label": hhi_label,
+        "pe_median_ltm": pe_median_ltm, "pe_median_hist": pe_median_hist,
+        "pe_premium": pe_premium, "pe_cycle_label": pe_cycle_label,
+        "roic_std": roic_std, "roic_mean": roic_mean,
+        "roic_min": roic_min, "roic_max": roic_max, "roic_label": roic_label,
+        "wacc_median": wacc_median,
+        "altman_safe": altman_safe, "altman_grey": altman_grey,
+        "altman_distress": altman_distress, "n_altman": n_altman,
+        "scenarios_bull_median": scenarios_bull_median,
+        "scenarios_base_median": scenarios_base_median,
+        "scenarios_bear_median": scenarios_bear_median,
+        "conviction_delta_mean": conviction_delta_mean,
+        "ebitda_median": ebitda_median,
+    }
+
+
 def _fetch_real_sector_data(sector: str, universe: str, max_tickers: int = 8) -> list[dict]:
-    """Fetch donnees reelles secteur via yfinance.info (rapide, parallele)."""
+    """Fetch donnees reelles secteur via yfinance.info + ROIC réel + PE historique."""
     import yfinance as yf
     from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -230,7 +464,8 @@ def _fetch_real_sector_data(sector: str, universe: str, max_tickers: int = 8) ->
 
     def _fetch_one(tk: str) -> dict | None:
         try:
-            info = yf.Ticker(tk).info or {}
+            stock = yf.Ticker(tk)
+            info = stock.info or {}
             name = info.get("longName") or info.get("shortName") or tk
             if name == tk and not info.get("marketCap"):
                 return None  # ticker invalide / deliste
@@ -244,6 +479,27 @@ def _fetch_real_sector_data(sector: str, universe: str, max_tickers: int = 8) ->
             rev_g    =  info.get("revenueGrowth")  or 0
             mom52    = (info.get("52WeekChange")    or 0) * 100
             beta     =  info.get("beta")            or 1.0
+
+            # ROIC réel = NOPAT / Invested Capital
+            # NOPAT = EBIT * (1 - tax_rate), IC = TotalEquity + TotalDebt - Cash
+            roic = None
+            try:
+                ebit          = info.get("ebit") or info.get("operatingIncome")
+                tax_rate      = info.get("effectiveTaxRate") or 0.21
+                total_debt    = info.get("totalDebt") or 0
+                total_equity  = info.get("totalStockholdersEquity") or info.get("bookValue", 0)
+                if isinstance(total_equity, float) and total_equity < 1e6:
+                    # bookValue est par action — convertir
+                    shares = info.get("sharesOutstanding") or 1
+                    total_equity = total_equity * shares
+                cash          = info.get("totalCash") or 0
+                ic            = total_equity + total_debt - cash
+                if ebit and ic and ic > 0:
+                    nopat = float(ebit) * (1 - min(float(tax_rate), 0.40))
+                    roic  = round(nopat / ic * 100, 1)
+            except Exception:
+                pass
+
             # Score simplifie : value + growth + qualite + momentum
             s_val  = max(0, min(25, 25 - (pe or 20) * 0.5)) if pe else 12
             s_gro  = max(0, min(25, 12 + rev_g * 100))
@@ -266,6 +522,7 @@ def _fetch_real_sector_data(sector: str, universe: str, max_tickers: int = 8) ->
                 "gross_margin":    round(gross_m, 1),
                 "net_margin":      round(net_m, 1),
                 "roe":             round(roe, 1),
+                "roic":            roic,
                 "revenue_growth":  rev_g,
                 "momentum_52w":    round(mom52, 1),
                 "altman_z":        2.5,
@@ -291,6 +548,37 @@ def _fetch_real_sector_data(sector: str, universe: str, max_tickers: int = 8) ->
 
     results.sort(key=lambda x: x.get("market_cap") or 0, reverse=True)
     log.info("Secteur %s/%s: %d/%d tickers OK", sector, universe, len(results), len(symbols))
+
+    # PE historique 5 ans (5 appels supplémentaires en parallèle)
+    pe_hist_by_ticker: dict[str, list[float]] = {}
+    tks = [r["ticker"] for r in results]
+    with ThreadPoolExecutor(max_workers=4) as ex:
+        fut_pe = {ex.submit(_fetch_pe_historical, tk): tk for tk in tks}
+        for fut in as_completed(fut_pe):
+            tk = fut_pe[fut]
+            try:
+                pe_hist_by_ticker[tk] = fut.result()
+            except Exception:
+                pe_hist_by_ticker[tk] = []
+    log.info("PE historique: %d tickers avec données", sum(1 for v in pe_hist_by_ticker.values() if v))
+
+    # Cache metrics (scénarios, conviction_delta, wacc)
+    cache = _load_cache_metrics(tks)
+    log.info("Cache: %d scénarios bull, %d conviction_delta, %d wacc",
+             len(cache["scenarios_bull"]), len(cache["conviction_deltas"]), len(cache["wacc_values"]))
+
+    # Analytics sectoriels globaux — injecté dans chaque ticker pour transmission au PDF
+    sector_analytics = _compute_sector_analytics(results, pe_hist_by_ticker, cache)
+    for r in results:
+        r["_sector_analytics"] = sector_analytics
+
+    log.info(
+        "Sector analytics: HHI=%s | PE ltm=%.1f vs hist=%s | ROIC std=%s",
+        sector_analytics.get("hhi"),
+        sector_analytics.get("pe_median_ltm") or 0,
+        sector_analytics.get("pe_median_hist"),
+        sector_analytics.get("roic_std"),
+    )
     return results
 
 

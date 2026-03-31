@@ -230,13 +230,15 @@ def build_sommaire(sector_name: str, page_nums: dict = None):
     sections = [
         ("1.", "Vue Macro & Dynamiques Sectorielles", "macro",
          "  Performance relative \u00b7 Revenus par sous-segment \u00b7 Tendances cles"),
-        ("2.", "Analyse des Acteurs Cles",             "acteurs",
+        ("2.", "Structure et Dynamique Sectorielle",  "structure",
+         "  HHI \u00b7 Cycle valorisation \u00b7 Dispersion ROIC \u00b7 Solidite bilantielle"),
+        ("3.", "Analyse des Acteurs Cles",             "acteurs",
          "  Revenus \u00b7 Marges \u00b7 Positionnement concurrentiel"),
-        ("3.", "Valorisation Comparative",             "valorisation",
+        ("4.", "Valorisation Comparative",             "valorisation",
          "  EV/EBITDA \u00b7 P/E \u00b7 Multiples vs croissance"),
-        ("4.", "Risques Sectoriels & Sentiment",       "risques",
+        ("5.", "Risques Sectoriels & Sentiment",       "risques",
          "  Cartographie des risques \u00b7 Analyse FinBERT"),
-        ("5.", "Top Picks & Recommandations",          "conclusion",
+        ("6.", "Top Picks & Recommandations",          "conclusion",
          "  BUY / HOLD / SELL \u00b7 Allocation portefeuille modèle"),
     ]
     rows = []
@@ -250,8 +252,8 @@ def build_sommaire(sector_name: str, page_nums: dict = None):
     t.setStyle(TableStyle([
         ("BACKGROUND",(0,2),(2,2),  alt_bg), ("BACKGROUND",(0,4),(2,4),  alt_bg),
         ("BACKGROUND",(0,6),(2,6),  alt_bg), ("BACKGROUND",(0,8),(2,8),  alt_bg),
-        ("BACKGROUND",(0,10),(2,10),alt_bg),
-        ("TOPPADDING",(0,2),(2,11), 1), ("BOTTOMPADDING",(0,2),(2,11), 1),
+        ("BACKGROUND",(0,10),(2,10),alt_bg), ("BACKGROUND",(0,12),(2,12),alt_bg),
+        ("TOPPADDING",(0,2),(2,13), 1), ("BOTTOMPADDING",(0,2),(2,13), 1),
     ]))
     return t
 
@@ -545,11 +547,11 @@ def _make_scatter(tickers_data: list[dict], sector_name: str) -> io.BytesIO:
         mpatches.Patch(color='#1B3A6B', label='Score 50-70 (HOLD)'),
         mpatches.Patch(color='#A82020', label='Score <50 (SELL)'),
     ]
-    ax.legend(handles=legend_items, fontsize=8, loc='lower left',
-              frameon=False, ncol=1, handlelength=1.2)
+    ax.legend(handles=legend_items, fontsize=8, loc='upper center',
+              bbox_to_anchor=(0.5, -0.14), frameon=False, ncol=3, handlelength=1.2)
     ax.set_title(f'EV/EBITDA vs Croissance revenus \u2014 {sector_name}',
                  fontsize=11, color='#1B3A6B', fontweight='bold', pad=8)
-    fig.subplots_adjust(left=0.12, right=0.97, top=0.90, bottom=0.14)
+    fig.subplots_adjust(left=0.12, right=0.97, top=0.90, bottom=0.22)
     buf = io.BytesIO()
     fig.savefig(buf, format='png', dpi=150, bbox_inches='tight')
     plt.close(fig)
@@ -558,13 +560,12 @@ def _make_scatter(tickers_data: list[dict], sector_name: str) -> io.BytesIO:
 
 
 def _make_mktcap_donut(tickers_data: list[dict], sector_name: str) -> io.BytesIO:
-    """Répartition Market Cap sectorielle — donut avec labels directs."""
+    """Répartition Market Cap sectorielle — donut avec légende standard."""
     valid = [(t.get('ticker', ''), float(t['market_cap']))
              for t in tickers_data if t.get('market_cap')]
     if not valid:
         valid = [('N/A', 1)]
 
-    # Tri par market cap decroissant, regrouper si >7 acteurs
     valid.sort(key=lambda x: -x[1])
     total = sum(v for _, v in valid)
 
@@ -577,7 +578,6 @@ def _make_mktcap_donut(tickers_data: list[dict], sector_name: str) -> io.BytesIO
     if not main_items:
         main_items = valid
 
-    # Cap a 7 segments visuels
     if len(main_items) > 7:
         top = main_items[:6]
         autres = sum(v for _, v in main_items[6:])
@@ -589,7 +589,7 @@ def _make_mktcap_donut(tickers_data: list[dict], sector_name: str) -> io.BytesIO
     pcts   = [v / total * 100 for v in sizes]
     palette = ['#1B3A6B','#2A5298','#3D6099','#5580B8','#7AA0CC','#A0BEDC','#D0D5DD'][:len(main_items)]
 
-    fig, ax = plt.subplots(figsize=(5.5, 5.5))
+    fig, ax = plt.subplots(figsize=(5.5, 5.0))
     wedges, _ = ax.pie(sizes, labels=None, autopct=None, colors=palette,
                        startangle=90,
                        wedgeprops=dict(linewidth=0.8, edgecolor='white'))
@@ -600,32 +600,17 @@ def _make_mktcap_donut(tickers_data: list[dict], sector_name: str) -> io.BytesIO
     ax.text(0, -0.14, 'Market Cap', ha='center', va='center',
             fontsize=8, color='#555555')
 
-    # Labels directs sur les segments via annotate
-    for i, (wedge, name, pct) in enumerate(zip(wedges, names, pcts)):
-        ang = (wedge.theta2 + wedge.theta1) / 2.0
-        import math as _math
-        x = _math.cos(_math.radians(ang))
-        y = _math.sin(_math.radians(ang))
-        # Point de référence sur le pourtour externe
-        x_out = x * 1.05
-        y_out = y * 1.05
-        # Point d'ancrage du label
-        x_lbl = x * 1.32
-        y_lbl = y * 1.32
-        ha = 'left' if x >= 0 else 'right'
-        lbl = f"{name}\n{pct:.1f}%"
-        fw = 'bold' if pct >= 15 else 'normal'
-        ax.annotate(lbl, xy=(x_out, y_out), xytext=(x_lbl, y_lbl),
-                    ha=ha, va='center', fontsize=7, fontweight=fw, color='#1B3A6B',
-                    arrowprops=dict(arrowstyle='-', color='#AAAAAA', lw=0.6),
-                    bbox=dict(boxstyle='round,pad=0.1', facecolor='none', edgecolor='none'))
+    # Légende standard avec pourcentages — fontsize 9
+    legend_labels = [f"{n}  {p:.1f}%" for n, p in zip(names, pcts)]
+    ax.legend(wedges, legend_labels,
+              loc='lower center', bbox_to_anchor=(0.5, -0.18),
+              ncol=min(len(names), 3), fontsize=9, frameon=False,
+              handleheight=0.9, handlelength=1.4, columnspacing=1.2)
 
     ax.set_title(f'Répartition Market Cap \u2014 {sector_name}', fontsize=11,
                  color='#1B3A6B', fontweight='bold', pad=12)
     fig.patch.set_facecolor('white')
-    # Marges généreuses pour que les labels ne soient pas coupés
-    ax.set_xlim(-1.8, 1.8)
-    ax.set_ylim(-1.8, 1.8)
+    fig.subplots_adjust(bottom=0.22)
     buf = io.BytesIO()
     fig.savefig(buf, format='png', dpi=160, bbox_inches='tight')
     plt.close(fig)
@@ -839,12 +824,227 @@ def _build_macro(perf_buf, area_buf, tickers_data: list[dict],
     return elems
 
 
+def _build_structure_sectorielle(tickers_data: list[dict], sector_name: str,
+                                  sector_analytics: dict, registry=None):
+    """Section 2 — Structure et Dynamique Sectorielle (entre Macro et Acteurs)."""
+    sa = sector_analytics or {}
+    elems = []
+    elems.append(Spacer(1, 8*mm))
+    if registry is not None:
+        elems.append(SectionAnchor('structure', registry))
+    elems += section_title("Structure et Dynamique Sectorielle", 2)
+    elems.append(Spacer(1, 3*mm))
+
+    def _na_val(v, fmt=None):
+        if v is None:
+            return "N/D"
+        if fmt:
+            return fmt.format(v)
+        return str(v)
+
+    # ── Tableau des 4 indicateurs structurels ──────────────────────────────
+    struct_h = [Paragraph(h, S_TH_L)
+                for h in ["Indicateur", "Valeur", "Interprétation analytique"]]
+
+    # HHI
+    hhi = sa.get("hhi")
+    hhi_val = f"{hhi:,}" if hhi else "N/D"
+    hhi_lbl = sa.get("hhi_label", "N/D")
+    if hhi:
+        if hhi >= 2500:
+            hhi_s = S_TD_R
+        elif hhi >= 1500:
+            hhi_s = S_TD_A
+        else:
+            hhi_s = S_TD_G
+    else:
+        hhi_s = S_TD_C
+
+    # Cycle valorisation
+    pe_ltm  = sa.get("pe_median_ltm")
+    pe_hist = sa.get("pe_median_hist")
+    pe_prem = sa.get("pe_premium")
+    if pe_ltm and pe_hist:
+        pe_val = f"{pe_ltm:.1f}x (hist. {pe_hist:.1f}x)"
+    elif pe_ltm:
+        pe_val = f"{pe_ltm:.1f}x LTM"
+    else:
+        pe_val = "N/D"
+    pe_lbl  = sa.get("pe_cycle_label", "historique insuffisant")
+    if pe_prem is not None:
+        pe_s = S_TD_R if pe_prem > 15 else (S_TD_G if pe_prem < -10 else S_TD_A)
+    else:
+        pe_s = S_TD_C
+
+    # Dispersion ROIC
+    roic_std  = sa.get("roic_std")
+    roic_mean = sa.get("roic_mean")
+    roic_min  = sa.get("roic_min")
+    roic_max  = sa.get("roic_max")
+    if roic_std is not None and roic_mean is not None:
+        roic_val = f"moy. {roic_mean:.1f}%  |  σ={roic_std:.1f}%  |  [{roic_min:.1f}% — {roic_max:.1f}%]"
+    elif roic_std is not None:
+        roic_val = f"ecart-type {roic_std:.1f}%"
+    else:
+        roic_val = "N/D"
+    roic_lbl = sa.get("roic_label", "N/D")
+    if roic_std is not None:
+        roic_s = S_TD_R if roic_std >= 15 else (S_TD_A if roic_std >= 8 else S_TD_G)
+    else:
+        roic_s = S_TD_C
+
+    # Altman Z
+    n_az  = sa.get("n_altman") or 0
+    n_sfe = sa.get("altman_safe") or 0
+    n_gry = sa.get("altman_grey") or 0
+    n_dst = sa.get("altman_distress") or 0
+    if n_az > 0:
+        altman_val = f"{n_sfe}/{n_az} zone safe (Z>3) | {n_gry}/{n_az} zone grise | {n_dst}/{n_az} détresse"
+        altman_lbl = (
+            "risque de défaut concentré — revue bilantielle urgente" if n_dst > 0
+            else ("bilans globalement solides" if n_sfe >= n_az * 0.75
+                  else "vigilance requise sur quelques bilans")
+        )
+        altman_s = S_TD_R if n_dst > 0 else (S_TD_G if n_sfe >= n_az * 0.75 else S_TD_A)
+    else:
+        altman_val = "N/D — lancer Analyse Société"
+        altman_lbl = "Altman Z disponible via analyse individuelle approfondie"
+        altman_s   = S_TD_C
+
+    struct_data = [
+        ("Concentration sectorielle (HHI)",
+         hhi_val, hhi_lbl, hhi_s),
+        ("Cycle de valorisation (P/E médian)",
+         pe_val, pe_lbl, pe_s),
+        ("Dispersion ROIC / ROE",
+         roic_val, roic_lbl, roic_s),
+        ("Solidité bilantielle (Altman Z)",
+         altman_val, altman_lbl, altman_s),
+    ]
+    struct_rows = []
+    for label, val, interp, val_style in struct_data:
+        struct_rows.append([
+            Paragraph(f"<b>{label}</b>", S_TD_B),
+            Paragraph(val, val_style),
+            Paragraph(interp, S_TD_L),
+        ])
+    elems.append(KeepTogether(tbl([struct_h] + struct_rows,
+                                   cw=[52*mm, 52*mm, 66*mm])))
+    elems.append(src("FinSight IA — yfinance, FMP. HHI calculé sur capitalisations boursières. "
+                     "ROIC = NOPAT/IC (ROE si ROIC indisponible). PE historique = cours moyen annuel / EPS."))
+    elems.append(Spacer(1, 5*mm))
+
+    # ── Note analytique ────────────────────────────────────────────────────
+    if hhi and pe_ltm:
+        if hhi >= 2500:
+            hhi_note = (
+                f"Le secteur <b>{sector_name}</b> présente une structure oligopolistique "
+                f"(HHI {hhi:,}) dominée par 2-3 acteurs majeurs. "
+                f"Cette concentration justifie historiquement un premium de valorisation "
+                f"par rapport aux secteurs fragmentés — les barrières à l'entrée et les "
+                f"effets de réseau limitent la disruption compétitive."
+            )
+        elif hhi >= 1500:
+            hhi_note = (
+                f"Le secteur <b>{sector_name}</b> affiche une concentration modérée "
+                f"(HHI {hhi:,}). Plusieurs acteurs se partagent le leadership — "
+                f"la compétition reste structurellement présente mais les positions "
+                f"établies offrent une visibilité sur les revenus."
+            )
+        else:
+            hhi_note = (
+                f"Le secteur <b>{sector_name}</b> est fragmenté "
+                f"(HHI {hhi:,}). La concurrence intense comprime les marges "
+                f"structurellement — la sélectivité est primordiale dans l'allocation."
+            )
+
+        if pe_prem is not None and pe_hist:
+            pe_note = (
+                f" Le P/E médian actuel de <b>{pe_ltm:.1f}x</b> se situe à "
+                f"<b>{pe_prem:+.0f}%</b> vs la médiane historique 5 ans ({pe_hist:.1f}x) — "
+                f"{pe_lbl}."
+            )
+        else:
+            pe_note = f" P/E médian LTM : <b>{pe_ltm:.1f}x</b>."
+
+        elems.append(Paragraph(hhi_note + pe_note, S_BODY))
+        elems.append(Spacer(1, 3*mm))
+
+    if roic_std is not None:
+        elems.append(Paragraph(
+            f"<b>Implications de la dispersion ROIC.</b> "
+            f"L'écart-type du ROIC/ROE de <b>{roic_std:.1f}%</b> au sein du secteur "
+            f"indique que {roic_lbl}. "
+            f"Dans un secteur à forte dispersion, les gérants actifs ont un avantage "
+            f"structurel sur les approches indicielles — l'alpha vient de la sélection, "
+            f"pas de l'exposition sectorielle.", S_BODY))
+
+    # ── Scénarios agrégés et conviction delta (si cache dispo) ─────────────
+    bull = sa.get("scenarios_bull_median")
+    base = sa.get("scenarios_base_median")
+    bear = sa.get("scenarios_bear_median")
+    cd   = sa.get("conviction_delta_mean")
+
+    if any(v is not None for v in [bull, base, bear, cd]):
+        elems.append(Spacer(1, 4*mm))
+        elems.append(Paragraph("Synthese scenarios & robustesse des theses", S_SUBSECTION))
+
+        sc_h = [Paragraph(h, S_TH_C)
+                for h in ["Indicateur", "Valeur", "Source", "Lecture"]]
+        sc_rows = []
+        if bull is not None or base is not None or bear is not None:
+            def _fmt_sc(v):
+                if v is None: return "N/D"
+                s = f"{v:+.1f}%"
+                return s
+            sc_rows.append([
+                Paragraph("<b>Upside agrégé médian</b>", S_TD_B),
+                Paragraph(
+                    f"Bull : <b>{_fmt_sc(bull)}</b>  |  "
+                    f"Base : <b>{_fmt_sc(base)}</b>  |  "
+                    f"Bear : <b>{_fmt_sc(bear)}</b>",
+                    S_TD_C),
+                Paragraph("DCF Monte Carlo / cache analyses société", S_TD_L),
+                Paragraph(
+                    "Asymétrie risque/rendement sectorielle agrégée. "
+                    "* Basé sur les analyses individuelles disponibles en cache.",
+                    S_TD_L),
+            ])
+        if cd is not None:
+            cd_s = S_TD_G if cd > -0.15 else (S_TD_R if cd < -0.5 else S_TD_A)
+            sc_rows.append([
+                Paragraph("<b>Conviction delta moyen</b>", S_TD_B),
+                Paragraph(f"<b>{cd:+.2f}</b>", cd_s),
+                Paragraph("Devil's advocate / cache analyses société", S_TD_L),
+                Paragraph(
+                    "0 = thèses robustes · -1 = thèses très challengeables. "
+                    "* Basé sur les analyses individuelles disponibles en cache.",
+                    S_TD_L),
+            ])
+        if sc_rows:
+            elems.append(KeepTogether(tbl([sc_h] + sc_rows,
+                                           cw=[44*mm, 46*mm, 40*mm, 40*mm])))
+            elems.append(src("FinSight IA — * Métriques calculées depuis les analyses sociétés individuelles (cache). "
+                             "N/D si aucune analyse société préalable."))
+    elif len(tickers_data) >= 3:
+        elems.append(Spacer(1, 3*mm))
+        elems.append(Paragraph(
+            "<i>Scénarios agrégés et conviction delta non disponibles — "
+            "lancer une Analyse Société FinSight IA pour chaque valeur afin "
+            "d'enrichir ce rapport avec les DCF, scénarios bear/base/bull "
+            "et le protocole adversarial individuel.</i>",
+            _style('nd_note', size=8, leading=11, color=GREY_TEXT,
+                   bold=False, align=TA_LEFT)))
+
+    return elems
+
+
 def _build_acteurs(tickers_data: list[dict], sector_name: str, registry=None):
     elems = []
     elems.append(Spacer(1, 10*mm))
     if registry is not None:
         elems.append(SectionAnchor('acteurs', registry))
-    elems += section_title("Analyse des Acteurs Cles", 2)
+    elems += section_title("Analyse des Acteurs Cles", 3)
     elems.append(Spacer(1, 4*mm))
     elems.append(debate_q(
         "Comment les modèles economiques se differencient-ils et lesquels sont les plus résilients ?"))
@@ -997,7 +1197,7 @@ def _build_valorisation(scatter_buf, donut_buf, tickers_data: list[dict],
     elems = []
     if registry is not None:
         elems.append(SectionAnchor('valorisation', registry))
-    elems += section_title("Valorisation Comparative", 3)
+    elems += section_title("Valorisation Comparative", 4)
     elems.append(debate_q(
         "Les multiples actuels integrent-ils correctement la bifurcation croissance / maturite ?"))
 
@@ -1156,7 +1356,7 @@ def _build_risques(tickers_data: list[dict], sector_name: str, registry=None):
     elems.append(Spacer(1, 10*mm))
     if registry is not None:
         elems.append(SectionAnchor('risques', registry))
-    elems += section_title("Risques Sectoriels & Sentiment de Marche", 4)
+    elems += section_title("Risques Sectoriels & Sentiment de Marche", 5)
     elems.append(Paragraph("Cartographie des risques sectoriels", S_SUBSECTION))
     elems.append(Paragraph(
         f"L'analyse adversariale identifie quatre axes de risque susceptibles d'invalider "
@@ -1252,12 +1452,14 @@ def _build_risques(tickers_data: list[dict], sector_name: str, registry=None):
     return elems
 
 
-def _build_conclusion(tickers_data: list[dict], sector_name: str, registry=None):
+def _build_conclusion(tickers_data: list[dict], sector_name: str,
+                      sector_analytics: dict = None, registry=None):
     elems = []
+    elems.append(PageBreak())
     elems.append(Spacer(1, 10*mm))
     if registry is not None:
         elems.append(SectionAnchor('conclusion', registry))
-    elems += section_title("Top Picks & Recommandation Sectorielle", 5)
+    elems += section_title("Top Picks & Recommandation Sectorielle", 6)
 
     sorted_data = sorted(tickers_data, key=lambda x: x.get('score_global') or 0, reverse=True)
     buy_count  = sum(1 for t in tickers_data if _reco(t.get('score_global')) == "BUY")
@@ -1407,19 +1609,48 @@ def _build_conclusion(tickers_data: list[dict], sector_name: str, registry=None)
         t_obj.setStyle(TableStyle(ts))
         return [t_obj, Spacer(1, 2*mm)]
 
-    # Assembler les blocs — le premier groupe non-vide porte l'en-tete de colonnes
+    # Assembler les 3 blocs — toujours afficher BUY/HOLD/SELL même si vides
     _groups = [
         (_buy_tickers_pp,  "BUY",  _BUY_CLR),
         (_hold_tickers_pp, "HOLD", _HOLD_CLR),
         (_sell_tickers_pp, "SELL", _SELL_CLR),
     ]
-    _first_done = False
+    _S_EMPTY = _style('empty_note', size=7.5, leading=10.5, color=GREY_TEXT,
+                      bold=False, align=TA_LEFT)
+    _first_col_done = False
     for _g_tickers, _g_label, _g_col in _groups:
         if _g_tickers:
             elems += _build_group_table(_g_tickers, _g_label, _g_col,
-                                        include_col_header=not _first_done)
-            _first_done = True
-    elems.append(src("FinSight IA \u2014 yfinance. Momentum 52 semaines."))
+                                        include_col_header=not _first_col_done)
+            _first_col_done = True
+        else:
+            # Bloc vide avec astérisque
+            n_cols = len(_COL_WIDTHS_PP)
+            _S_BLK2 = _style('blk_hdr2', size=8, leading=11, color=WHITE, bold=True, align=TA_LEFT)
+            hdr_text = f"{_g_label} \u2014 0 valeur"
+            hdr_row = [Paragraph(f"<b>{hdr_text}</b>", _S_BLK2)] + [''] * (n_cols - 1)
+            empty_note = (
+                "<i>Aucune valeur dans cette categorie. "
+                "* Pour une analyse approfondie par société (DCF, WACC, scénarios bear/base/bull, "
+                "protocole adversarial), lancer une Analyse Société FinSight IA.</i>"
+            )
+            empty_row = [Paragraph(empty_note, _S_EMPTY)] + [''] * (n_cols - 1)
+            _t_empty = Table([hdr_row, empty_row], colWidths=_COL_WIDTHS_PP)
+            _t_empty.setStyle(TableStyle([
+                ('BACKGROUND',   (0,0),(-1,0), _g_col),
+                ('SPAN',         (0,0),(-1,0)),
+                ('SPAN',         (0,1),(-1,1)),
+                ('FONTNAME',     (0,0),(-1,0), 'Helvetica-Bold'),
+                ('FONTSIZE',     (0,0),(-1,-1), 8),
+                ('VALIGN',       (0,0),(-1,-1), 'MIDDLE'),
+                ('TOPPADDING',   (0,0),(-1,-1), 5),
+                ('BOTTOMPADDING',(0,0),(-1,-1), 5),
+                ('LEFTPADDING',  (0,0),(-1,-1), 6),
+                ('RIGHTPADDING', (0,0),(-1,-1), 6),
+                ('LINEBELOW',    (0,-1),(-1,-1), 0.5, GREY_RULE),
+            ]))
+            elems += [_t_empty, Spacer(1, 2*mm)]
+    elems.append(src("FinSight IA \u2014 yfinance. Momentum 52 semaines. * Analyse appronfondie disponible via Analyse Société."))
     elems.append(Spacer(1, 5*mm))
 
     # Top picks synthetique
@@ -1519,7 +1750,7 @@ def _build_conclusion(tickers_data: list[dict], sector_name: str, registry=None)
 # ─── BUILD STORY ──────────────────────────────────────────────────────────────
 def _build_story(perf_buf, area_buf, scatter_buf, donut_buf,
                  tickers_data, sector_name, subtitle, universe, date_str,
-                 page_nums, registry):
+                 page_nums, registry, sector_analytics=None):
     story = []
     story.append(Spacer(1, 1))
     story.append(PageBreak())
@@ -1546,11 +1777,12 @@ def _build_story(perf_buf, area_buf, scatter_buf, donut_buf,
     story.append(PageBreak())
 
     story += _build_macro(perf_buf, area_buf, tickers_data, sector_name, universe, registry)
+    story += _build_structure_sectorielle(tickers_data, sector_name, sector_analytics or {}, registry)
     story += _build_acteurs(tickers_data, sector_name, registry)
     story.append(PageBreak())
     story += _build_valorisation(scatter_buf, donut_buf, tickers_data, sector_name, registry)
     story += _build_risques(tickers_data, sector_name, registry)
-    story += _build_conclusion(tickers_data, sector_name, registry)
+    story += _build_conclusion(tickers_data, sector_name, sector_analytics or {}, registry)
     return story
 
 
@@ -1562,6 +1794,7 @@ def generate_sector_report(
     subtitle: str = None,
     universe: str = "CAC 40",
     date_str: str = None,
+    sector_analytics: dict = None,
 ) -> str:
     """
     Genere un rapport PDF sectoriel institutionnel.
@@ -1613,7 +1846,7 @@ def generate_sector_report(
         doc1 = SimpleDocTemplate(tmp_path, **doc_kwargs)
         story1 = _build_story(perf_buf, area_buf, scatter_buf, donut_buf,
                                tickers_data, sector_name, subtitle, universe, date_str,
-                               {}, registry)
+                               {}, registry, sector_analytics)
         doc1.build(story1, onFirstPage=on_page, onLaterPages=on_page)
     finally:
         if os.path.exists(tmp_path):
@@ -1627,7 +1860,7 @@ def generate_sector_report(
     doc2 = SimpleDocTemplate(output_path, **doc_kwargs)
     story2 = _build_story(perf_buf, area_buf, scatter_buf, donut_buf,
                            tickers_data, sector_name, subtitle, universe, date_str,
-                           dict(registry), {})
+                           dict(registry), {}, sector_analytics)
     doc2.build(story2, onFirstPage=on_page, onLaterPages=on_page)
 
     import logging
