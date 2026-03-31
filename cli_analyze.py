@@ -340,7 +340,8 @@ def _load_cache_metrics(tickers: list[str]) -> dict:
 def _compute_sector_analytics(tickers_data: list[dict],
                                pe_hist_by_ticker: dict,
                                cache: dict,
-                               sector: str = "") -> dict:
+                               sector: str = "",
+                               var_data: dict | None = None) -> dict:
     """Calcule les métriques analytiques sectorielles avancées."""
     import numpy as np
 
@@ -472,6 +473,34 @@ def _compute_sector_analytics(tickers_data: list[dict],
     beta_median = round(float(np.median(betas)), 2) if betas else None
     beta_std    = round(float(np.std(betas)), 2)    if len(betas) >= 2 else None
 
+    # --- Duration implicite = (1 + g) / (WACC - g) ---
+    # WACC : priorité cache DCF, sinon estimation CAPM depuis beta médian
+    dur_years = dur_wacc_pct = dur_g_pct = None
+    dur_method = "N/D"
+    try:
+        wacc_vals = cache.get("wacc_values", [])
+        if wacc_vals:
+            dur_wacc   = float(np.median(wacc_vals))
+            dur_method = "WACC cache analyses societe"
+        else:
+            # CAPM : Rf=4.5% (US 10Y) + beta×ERP(5.5%) — estimation institutionnelle standard
+            beta_med_dur = float(np.median(betas)) if betas else 1.2
+            dur_wacc   = 0.045 + beta_med_dur * 0.055
+            dur_method = "WACC median sectoriel estime (CAPM : Rf=4.5% + beta x ERP 5.5%)"
+        # g = taux de croissance terminal (long-terme soutenable), PAS le LTM observé.
+        # Normalisation : LTM_growth × 0.35 (mean-reversion), cap 5% (PIB nominal max),
+        # floor 2% (croissance minimale secteur actif), spread mini 2% avec WACC.
+        growths_dur = [t.get("revenue_growth") for t in tickers_data
+                       if t.get("revenue_growth") is not None and t["revenue_growth"] > 0]
+        dur_g_raw = float(np.median(growths_dur)) if growths_dur else 0.04
+        dur_g = max(0.02, min(dur_g_raw * 0.35, 0.05, dur_wacc - 0.02))
+        if dur_wacc > dur_g:
+            dur_years   = round((1 + dur_g) / (dur_wacc - dur_g), 1)
+            dur_wacc_pct = round(dur_wacc * 100, 1)
+            dur_g_pct    = round(dur_g    * 100, 1)
+    except Exception:
+        pass
+
     # --- Evolution marges EBITDA sectorielles (approximation sur données LTM) ---
     ebitda_margins = [t.get("ebitda_margin") for t in tickers_data if t.get("ebitda_margin")]
     ebitda_median  = round(float(np.median(ebitda_margins)), 1) if ebitda_margins else None
@@ -497,6 +526,13 @@ def _compute_sector_analytics(tickers_data: list[dict],
         "peg_median": peg_median,
         "fcf_yield_median": fcf_yield_median,
         "beta_median": beta_median, "beta_std": beta_std,
+        # VaR (depuis _fetch_portfolio_var passé en paramètre)
+        "var_95_monthly":   (var_data or {}).get("var_95_monthly"),
+        "vol_annual":       (var_data or {}).get("vol_annual"),
+        "max_drawdown_52w": (var_data or {}).get("max_drawdown_52w"),
+        # Duration implicite
+        "duration_years": dur_years, "duration_wacc": dur_wacc_pct,
+        "duration_growth": dur_g_pct, "duration_method": dur_method,
     }
 
 
@@ -602,6 +638,81 @@ def _compute_piotroski(stock) -> int | None:
         return f if n >= 6 else None
     except Exception:
         return None
+
+
+def _fetch_portfolio_var(symbols: list[str], market_caps: dict[str, float]) -> dict:
+    """
+    VaR 95% mensuelle sur basket market-cap weighted (simulation historique 52W).
+
+    Methode :
+    - Prix daily yfinance 1 an, returns daily pct_change
+    - Returns ponderés par market cap (w_i = mc_i / Σmc_j)
+    - VaR_daily_95 = 5e percentile (simulation historique, sans hypothèse de normalité)
+    - VaR_mensuelle = VaR_daily × √21  (règle racine du temps)
+    - Aussi : volatilite annualisee et max drawdown 52W du basket
+
+    Retourne dict vide si données insuffisantes.
+    """
+    try:
+        import pandas as pd
+        import yfinance as yf
+        import numpy as np
+
+        total_mc = sum(v for v in market_caps.values() if v)
+        if not total_mc or not symbols:
+            return {}
+        weights = {tk: (market_caps.get(tk) or 0) / total_mc for tk in symbols}
+
+        # Bulk download cours daily 1 an
+        raw = yf.download(symbols, period="1y", auto_adjust=True, progress=False)
+        if raw is None or raw.empty:
+            return {}
+
+        # Normaliser : single ticker → DataFrame 1 col, multi → MultiIndex
+        if isinstance(raw.columns, pd.MultiIndex):
+            prices = raw["Close"]
+        elif "Close" in raw.columns:
+            prices = raw[["Close"]].rename(columns={"Close": symbols[0]})
+        else:
+            prices = raw
+
+        if prices.empty or len(prices) < 30:
+            return {}
+
+        ret = prices.pct_change().dropna()
+
+        # Returns quotidiens du portefeuille pondéré market-cap
+        port_ret = pd.Series(0.0, index=ret.index)
+        n_used = 0
+        for tk in symbols:
+            col = tk if tk in ret.columns else None
+            if col and weights.get(tk, 0) > 0:
+                port_ret += ret[col].fillna(0) * weights[tk]
+                n_used += 1
+        if n_used == 0:
+            return {}
+
+        # VaR 95% historique : 5e percentile daily × √21 → mensuel
+        var_daily_95  = float(np.percentile(port_ret, 5))
+        var_monthly_95 = var_daily_95 * np.sqrt(21)
+
+        # Volatilité annualisée
+        vol_annual = float(port_ret.std() * np.sqrt(252))
+
+        # Max drawdown 52W
+        cumul   = (1 + port_ret).cumprod()
+        roll_mx = cumul.cummax()
+        max_dd  = float(((cumul - roll_mx) / roll_mx).min())
+
+        return {
+            "var_95_monthly":   round(var_monthly_95 * 100, 1),  # % (négatif)
+            "vol_annual":       round(vol_annual      * 100, 1),  # %
+            "max_drawdown_52w": round(max_dd          * 100, 1),  # % (négatif)
+            "n_tickers_used":   n_used,
+        }
+    except Exception as e:
+        log.warning("_fetch_portfolio_var erreur: %s", e)
+        return {}
 
 
 def _fetch_real_sector_data(sector: str, universe: str, max_tickers: int = 8) -> list[dict]:
@@ -788,13 +899,19 @@ def _fetch_real_sector_data(sector: str, universe: str, max_tickers: int = 8) ->
                 pe_hist_by_ticker[tk] = []
     log.info("PE historique: %d tickers avec données", sum(1 for v in pe_hist_by_ticker.values() if v))
 
+    # VaR sectorielle 95% mensuelle (market-cap weighted, simulation historique 52W)
+    mc_dict  = {r["ticker"]: r.get("market_cap") or 0 for r in results}
+    var_data = _fetch_portfolio_var(tks, mc_dict)
+    log.info("VaR secteur: %s", var_data)
+
     # Cache metrics (scénarios, conviction_delta, wacc)
     cache = _load_cache_metrics(tks)
     log.info("Cache: %d scénarios bull, %d conviction_delta, %d wacc",
              len(cache["scenarios_bull"]), len(cache["conviction_deltas"]), len(cache["wacc_values"]))
 
     # Analytics sectoriels globaux — injecté dans chaque ticker pour transmission au PDF
-    sector_analytics = _compute_sector_analytics(results, pe_hist_by_ticker, cache, sector=sector)
+    sector_analytics = _compute_sector_analytics(
+        results, pe_hist_by_ticker, cache, sector=sector, var_data=var_data)
     for r in results:
         r["_sector_analytics"] = sector_analytics
 

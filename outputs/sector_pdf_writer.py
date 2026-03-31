@@ -1082,6 +1082,96 @@ def _build_structure_sectorielle(tickers_data: list[dict], sector_name: str,
         "Piotroski F-Score : 9 criteres binaires profitabilite + levier + efficacite (Piotroski 2000). "
         "PEG = P/E LTM / croissance revenus YoY. FCF Yield = Free Cash Flow / Market Cap. "
         "Beta : volatilite vs S&P 500 (yfinance 5 ans)."))
+    elems.append(Spacer(1, 4*mm))
+
+    # ── Tableau 3 : Risque Portefeuille ───────────────────────────────────
+    elems.append(Paragraph("Risque Portefeuille et Sensibilite Macro", S_SUBSECTION))
+
+    risk_h = [Paragraph(h, S_TH_C)
+              for h in ["Indicateur", "Valeur", "Interpretation analytique"]]
+
+    # --- VaR 95% mensuelle (market-cap weighted) ---
+    var_95 = sa.get("var_95_monthly")
+    vol_a  = sa.get("vol_annual")
+    mdd    = sa.get("max_drawdown_52w")
+    if var_95 is not None:
+        if vol_a is not None:
+            var_val = f"VaR {var_95:.1f}%  |  Vol. {vol_a:.1f}% ann."
+        else:
+            var_val = f"{var_95:.1f}%"
+        if mdd is not None:
+            var_val += f"  |  MaxDD {mdd:.1f}%"
+        # Interprétation selon sévérité (VaR est négatif)
+        if var_95 < -12:
+            var_lbl = "risque eleve — pertes mensuelles potentielles importantes pour le sizing"
+            var_s   = S_TD_R
+        elif var_95 < -8:
+            var_lbl = "risque modere-eleve — position sizing conservateur recommande"
+            var_s   = S_TD_R
+        elif var_95 < -5:
+            var_lbl = "risque modere — volatilite sectorielle dans la norme marche"
+            var_s   = S_TD_A
+        else:
+            var_lbl = "risque contenu — faible volatilite sectorielle, beta defensif"
+            var_s   = S_TD_G
+    else:
+        var_val = "N/D — historique insuffisant"
+        var_lbl = "VaR disponible apres 30 jours de cotation minimum"
+        var_s   = S_TD_C
+
+    # --- Duration implicite ---
+    dur_y  = sa.get("duration_years")
+    dur_w  = sa.get("duration_wacc")
+    dur_g  = sa.get("duration_growth")
+    dur_mt = sa.get("duration_method", "")
+    if dur_y is not None:
+        dur_val = f"{dur_y} ans  (WACC {dur_w}%  |  g {dur_g}%)"
+        if dur_y >= 20:
+            dur_lbl = "duration tres longue — exposition taux critique, +100bp WACC = -15%+ valorisation"
+            dur_s   = S_TD_R
+        elif dur_y >= 12:
+            dur_lbl = "duration longue — sensibilite taux elevee, surveiller cycle taux banques centrales"
+            dur_s   = S_TD_A
+        elif dur_y >= 7:
+            dur_lbl = "duration moderee — sensibilite taux dans la norme"
+            dur_s   = S_TD_C
+        else:
+            dur_lbl = "duration courte — secteur peu sensible aux taux, valorisation ancrée sur cash"
+            dur_s   = S_TD_G
+    else:
+        dur_val = "N/D"
+        dur_lbl = "Duration indisponible"
+        dur_s   = S_TD_C
+
+    risk_data = [
+        ("VaR 95% mensuelle (basket mkt-cap)", var_val, var_lbl, var_s),
+        ("Duration implicite sectorielle",     dur_val, dur_lbl, dur_s),
+    ]
+    risk_rows = []
+    for label, val, interp, val_style in risk_data:
+        risk_rows.append([
+            Paragraph(f"<b>{label}</b>", S_TD_B),
+            Paragraph(val, val_style),
+            Paragraph(interp, S_TD_L),
+        ])
+    elems.append(KeepTogether(tbl([risk_h] + risk_rows, cw=[52*mm, 52*mm, 66*mm])))
+
+    # Note méthodologique duration si fallback CAPM
+    _dur_note_parts = [
+        "VaR : simulation historique 52W, basket pondere market-cap. "
+        "Regles racine du temps (VaR_mensuelle = VaR_daily x sqrt(21))."
+    ]
+    if dur_y is not None and "CAPM" in dur_mt:
+        _dur_note_parts.append(
+            "Duration calculee depuis WACC median sectoriel — "
+            "lancer une Analyse Societe pour affiner."
+        )
+    elif dur_y is not None:
+        _dur_note_parts.append(
+            "Duration : formule Gordon Growth D=(1+g)/(WACC-g), "
+            "WACC depuis analyses societe en cache."
+        )
+    elems.append(src(" ".join(_dur_note_parts)))
     elems.append(Spacer(1, 3*mm))
 
     # ── Note analytique ────────────────────────────────────────────────────
