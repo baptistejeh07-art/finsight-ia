@@ -449,6 +449,29 @@ def _compute_sector_analytics(tickers_data: list[dict],
         if cache["conviction_deltas"] else None
     )
 
+    # --- Piotroski F-Score distribution ---
+    f_scores = [t["piotroski_f"] for t in tickers_data if t.get("piotroski_f") is not None]
+    n_piotroski    = len(f_scores)
+    piotroski_quality = sum(1 for f in f_scores if f > 6)   # F > 6 : quality
+    piotroski_neutral = sum(1 for f in f_scores if 4 <= f <= 6)  # F 4-6 : neutre
+    piotroski_trap    = sum(1 for f in f_scores if f < 4)   # F < 4 : value trap
+    piotroski_median  = round(float(np.median(f_scores)), 1) if f_scores else None
+
+    # --- PEG ratio médian ---
+    pegs = [t["peg_ratio"] for t in tickers_data
+            if t.get("peg_ratio") is not None and t["peg_ratio"] > 0]
+    peg_median = round(float(np.median(pegs)), 2) if pegs else None
+
+    # --- FCF Yield médian ---
+    fcfys = [t["fcf_yield"] for t in tickers_data if t.get("fcf_yield") is not None]
+    fcf_yield_median = round(float(np.median(fcfys)), 1) if fcfys else None
+
+    # --- Beta : médiane + dispersion ---
+    betas = [t.get("beta") for t in tickers_data
+             if t.get("beta") is not None and 0 < t["beta"] < 5]
+    beta_median = round(float(np.median(betas)), 2) if betas else None
+    beta_std    = round(float(np.std(betas)), 2)    if len(betas) >= 2 else None
+
     # --- Evolution marges EBITDA sectorielles (approximation sur données LTM) ---
     ebitda_margins = [t.get("ebitda_margin") for t in tickers_data if t.get("ebitda_margin")]
     ebitda_median  = round(float(np.median(ebitda_margins)), 1) if ebitda_margins else None
@@ -468,7 +491,117 @@ def _compute_sector_analytics(tickers_data: list[dict],
         "scenarios_bear_median": scenarios_bear_median,
         "conviction_delta_mean": conviction_delta_mean,
         "ebitda_median": ebitda_median,
+        "piotroski_quality": piotroski_quality, "piotroski_neutral": piotroski_neutral,
+        "piotroski_trap": piotroski_trap, "piotroski_n": n_piotroski,
+        "piotroski_median": piotroski_median,
+        "peg_median": peg_median,
+        "fcf_yield_median": fcf_yield_median,
+        "beta_median": beta_median, "beta_std": beta_std,
     }
+
+
+def _compute_piotroski(stock) -> int | None:
+    """
+    Piotroski F-Score (9 criteres binaires) depuis les etats financiers yfinance.
+
+    Profitabilite  F1-F4 : ROA>0, OCF>0, ΔROA>0, OCF/TA>ROA
+    Levier/Liq.    F5-F7 : Δlevier<0, Δcurrent_ratio>0, pas dilution
+    Efficacite     F8-F9 : ΔGross Margin>0, ΔAsset Turnover>0
+
+    Retourne score 0-9 ou None si moins de 6 criteres evaluables.
+    """
+    try:
+        import pandas as pd
+        # Compatibilite yfinance ancien/nouveau API (pas de 'or' sur DataFrame)
+        inc = getattr(stock, 'income_stmt', None)
+        if inc is None or getattr(inc, 'empty', True):
+            inc = getattr(stock, 'financials', None)
+        bs = getattr(stock, 'balance_sheet', None)
+        cf = getattr(stock, 'cashflow', None)
+        if cf is None or getattr(cf, 'empty', True):
+            cf = getattr(stock, 'cash_flow', None)
+        if (inc is None or getattr(inc, 'empty', True) or
+                bs  is None or getattr(bs,  'empty', True) or
+                cf  is None or getattr(cf,  'empty', True)):
+            return None
+        if len(inc.columns) < 2 or len(bs.columns) < 2:
+            return None
+
+        def _v(df, keys, col):
+            for k in keys:
+                if k in df.index:
+                    try:
+                        v = float(df.loc[k, col])
+                        if pd.notna(v):
+                            return v
+                    except (TypeError, ValueError):
+                        pass
+            return None
+
+        # Colonnes : plus recent en premier
+        ic0, ic1 = inc.columns[0], inc.columns[1]
+        bc0, bc1 = bs.columns[0], (bs.columns[1] if len(bs.columns) > 1 else bs.columns[0])
+
+        # Income statement
+        ni0  = _v(inc, ['Net Income', 'Net Income Common Stockholders',
+                         'Net Income Including Noncontrolling Interests'], ic0)
+        ni1  = _v(inc, ['Net Income', 'Net Income Common Stockholders',
+                         'Net Income Including Noncontrolling Interests'], ic1)
+        rev0 = _v(inc, ['Total Revenue', 'Revenue'], ic0)
+        rev1 = _v(inc, ['Total Revenue', 'Revenue'], ic1)
+        gp0  = _v(inc, ['Gross Profit'], ic0)
+        gp1  = _v(inc, ['Gross Profit'], ic1)
+        # Balance sheet
+        ta0  = _v(bs, ['Total Assets'], bc0)
+        ta1  = _v(bs, ['Total Assets'], bc1)
+        tca0 = _v(bs, ['Current Assets', 'Total Current Assets'], bc0)
+        tcl0 = _v(bs, ['Current Liabilities', 'Total Current Liabilities'], bc0)
+        tca1 = _v(bs, ['Current Assets', 'Total Current Assets'], bc1)
+        tcl1 = _v(bs, ['Current Liabilities', 'Total Current Liabilities'], bc1)
+        ltd0 = _v(bs, ['Long Term Debt', 'Long-Term Debt',
+                        'Long Term Debt And Capital Lease Obligation'], bc0)
+        ltd1 = _v(bs, ['Long Term Debt', 'Long-Term Debt',
+                        'Long Term Debt And Capital Lease Obligation'], bc1)
+        shr0 = _v(bs, ['Common Stock', 'Share Issued', 'Ordinary Shares Number'], bc0)
+        shr1 = _v(bs, ['Common Stock', 'Share Issued', 'Ordinary Shares Number'], bc1)
+        # Cash flow
+        ocf0 = _v(cf, ['Operating Cash Flow', 'Total Cash From Operating Activities',
+                        'Cash Flows From Used In Operating Activities'], ic0)
+
+        f = n = 0
+
+        # --- Profitabilite ---
+        if ni0 is not None and ta0 and ta0 != 0:
+            f += 1 if ni0 / ta0 > 0 else 0;  n += 1  # F1: ROA > 0
+        if ocf0 is not None:
+            f += 1 if ocf0 > 0 else 0;        n += 1  # F2: OCF > 0
+        if (ni0 is not None and ni1 is not None and
+                ta0 and ta0 != 0 and ta1 and ta1 != 0):
+            f += 1 if ni0/ta0 > ni1/ta1 else 0;  n += 1  # F3: ΔROA > 0
+        if ocf0 is not None and ni0 is not None and ta0 and ta0 != 0:
+            f += 1 if ocf0/ta0 > ni0/ta0 else 0;  n += 1  # F4: accruals
+
+        # --- Levier / Liquidite ---
+        if (ltd0 is not None and ltd1 is not None and
+                ta0 and ta0 != 0 and ta1 and ta1 != 0):
+            f += 1 if ltd0/ta0 < ltd1/ta1 else 0;  n += 1  # F5: Δlevier < 0
+        if (tca0 is not None and tcl0 and tcl0 != 0 and
+                tca1 is not None and tcl1 and tcl1 != 0):
+            f += 1 if tca0/tcl0 > tca1/tcl1 else 0;  n += 1  # F6: ΔCR > 0
+        if shr0 is not None and shr1 is not None and shr1 > 0:
+            f += 1 if shr0 <= shr1 * 1.02 else 0;  n += 1  # F7: pas dilution
+
+        # --- Efficacite ---
+        if (gp0 is not None and rev0 and rev0 != 0 and
+                gp1 is not None and rev1 and rev1 != 0):
+            f += 1 if gp0/rev0 > gp1/rev1 else 0;  n += 1  # F8: ΔGross Margin > 0
+        if (rev0 is not None and ta0 and ta0 != 0 and
+                rev1 is not None and ta1 and ta1 != 0):
+            f += 1 if rev0/ta0 > rev1/ta1 else 0;  n += 1  # F9: ΔAsset Turnover > 0
+
+        return f if n >= 6 else None
+    except Exception:
+        return None
 
 
 def _fetch_real_sector_data(sector: str, universe: str, max_tickers: int = 8) -> list[dict]:
@@ -564,6 +697,31 @@ def _fetch_real_sector_data(sector: str, universe: str, max_tickers: int = 8) ->
                 altman_z = None
                 altman_z_model = None
 
+            # PEG ratio (PE / croissance revenus annualisee %)
+            peg_ratio = None
+            if pe and pe > 0 and rev_g and rev_g > 0:
+                peg_ratio = round(pe / (rev_g * 100), 2)
+                if peg_ratio > 50 or peg_ratio < 0:
+                    peg_ratio = None
+
+            # FCF Yield = Free Cash Flow / Market Cap
+            fcf_yield = None
+            try:
+                fcf_abs = info.get("freeCashflow")
+                if fcf_abs and mc and mc > 0:
+                    fcf_yield = round(float(fcf_abs) / float(mc) * 100, 2)
+                    if fcf_yield < -50 or fcf_yield > 50:
+                        fcf_yield = None
+            except Exception:
+                pass
+
+            # Piotroski F-Score (9 criteres depuis etats financiers)
+            piotroski = None
+            try:
+                piotroski = _compute_piotroski(stock)
+            except Exception:
+                pass
+
             # Score simplifie : value + growth + qualite + momentum
             s_val  = max(0, min(25, 25 - (pe or 20) * 0.5)) if pe else 12
             s_gro  = max(0, min(25, 12 + rev_g * 100))
@@ -591,6 +749,9 @@ def _fetch_real_sector_data(sector: str, universe: str, max_tickers: int = 8) ->
                 "momentum_52w":    round(mom52, 1),
                 "altman_z":        altman_z,
                 "altman_z_model":  altman_z_model,
+                "piotroski_f":     piotroski,
+                "peg_ratio":       peg_ratio,
+                "fcf_yield":       fcf_yield,
                 "beneish_m":       -2.5,
                 "beta":            beta,
                 "price":           info.get("currentPrice") or info.get("regularMarketPrice"),

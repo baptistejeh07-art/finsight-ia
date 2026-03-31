@@ -965,6 +965,123 @@ def _build_structure_sectorielle(tickers_data: list[dict], sector_name: str,
             "Les scores en zone grise n'indiquent pas necessairement un risque de detresse "
             "financiere reel.</i>",
             S_NOTE))
+    elems.append(Spacer(1, 4*mm))
+
+    # ── Tableau 2 : Qualité & Valorisation Relative ────────────────────────
+    elems.append(Paragraph("Qualite Fondamentale et Valorisation Relative", S_SUBSECTION))
+
+    qual_h = [Paragraph(h, S_TH_C)
+              for h in ["Indicateur", "Valeur", "Interpretation analytique"]]
+
+    # --- Piotroski F-Score distribution ---
+    n_f = sa.get("piotroski_n") or 0
+    n_q = sa.get("piotroski_quality") or 0
+    n_n_f = sa.get("piotroski_neutral") or 0
+    n_t = sa.get("piotroski_trap") or 0
+    if n_f > 0:
+        pct_q = round(n_q / n_f * 100)
+        pct_t = round(n_t / n_f * 100)
+        f_val = (
+            f"{n_q}/{n_f} quality (F>6)  |  "
+            f"{n_n_f}/{n_f} neutres (F 4-6)  |  "
+            f"{n_t}/{n_f} value traps (F<4)"
+        )
+        if pct_q > 50:
+            f_lbl = "secteur de qualite — majorite en zone Piotroski solide"
+            f_s   = S_TD_G
+        elif pct_t > 30:
+            f_lbl = "value traps dominants — selectivite fondamentale critique"
+            f_s   = S_TD_R
+        else:
+            f_lbl = "profil mixte — stock-picking sur criteres fondamentaux"
+            f_s   = S_TD_A
+    else:
+        f_val = "N/D — etats financiers insuffisants"
+        f_lbl = "Piotroski disponible via Analyse Societe individuelle"
+        f_s   = S_TD_C
+
+    # --- PEG ratio médian ---
+    peg_med = sa.get("peg_median")
+    if peg_med is not None:
+        peg_val = f"{peg_med:.1f}x"
+        if peg_med < 1.0:
+            peg_lbl = "sous-valorise sur la croissance — decote vs pairs"
+            peg_s   = S_TD_G
+        elif peg_med < 2.0:
+            peg_lbl = "valorisation juste — croissance pricee a l'equilibre"
+            peg_s   = S_TD_A
+        elif peg_med < 3.0:
+            peg_lbl = "prime de croissance elevee — exige une execution parfaite"
+            peg_s   = S_TD_A
+        else:
+            peg_lbl = "valorisation tres chère — scenarios bull integres dans les cours"
+            peg_s   = S_TD_R
+    else:
+        peg_val = "N/D"
+        peg_lbl = "PEG indisponible (croissance nulle ou PE manquant)"
+        peg_s   = S_TD_C
+
+    # --- FCF Yield médian ---
+    fcfy = sa.get("fcf_yield_median")
+    if fcfy is not None:
+        fcfy_val = f"{fcfy:.1f}%"
+        if fcfy >= 5.0:
+            fcfy_lbl = "genereux — generation de cash elevee, support valorisation"
+            fcfy_s   = S_TD_G
+        elif fcfy >= 2.0:
+            fcfy_lbl = "correct — FCF adequat sans prime de rendement specifique"
+            fcfy_s   = S_TD_A
+        elif fcfy >= 0:
+            fcfy_lbl = "limite — secteur reinvesti fortement (croissance ou capex lourds)"
+            fcfy_s   = S_TD_A
+        else:
+            fcfy_lbl = "negatif — consommation de cash, surveiller la trajectoire FCF"
+            fcfy_s   = S_TD_R
+    else:
+        fcfy_val = "N/D"
+        fcfy_lbl = "FCF Yield indisponible"
+        fcfy_s   = S_TD_C
+
+    # --- Beta médiane + dispersion ---
+    b_med = sa.get("beta_median")
+    b_std = sa.get("beta_std")
+    if b_med is not None:
+        if b_std is not None:
+            beta_val = f"med. {b_med:.2f}  |  sigma={b_std:.2f}"
+        else:
+            beta_val = f"{b_med:.2f}"
+        if b_std is not None and b_std < 0.25:
+            beta_lbl = "sensibilite macro homogene — beta sectoriel dominant"
+            beta_s   = S_TD_C
+        elif b_std is not None and b_std < 0.50:
+            beta_lbl = "dispersion moderee — mix macro + idiosyncratique"
+            beta_s   = S_TD_A
+        else:
+            beta_lbl = "forte dispersion betas — facteurs specifiques dominants, alpha potentiel eleve"
+            beta_s   = S_TD_G
+    else:
+        beta_val = "N/D"
+        beta_lbl = "Beta indisponible"
+        beta_s   = S_TD_C
+
+    qual_data = [
+        ("Piotroski F-Score", f_val, f_lbl, f_s),
+        ("PEG ratio (median)", peg_val, peg_lbl, peg_s),
+        ("FCF Yield (median)", fcfy_val, fcfy_lbl, fcfy_s),
+        ("Beta sectoriel", beta_val, beta_lbl, beta_s),
+    ]
+    qual_rows = []
+    for label, val, interp, val_style in qual_data:
+        qual_rows.append([
+            Paragraph(f"<b>{label}</b>", S_TD_B),
+            Paragraph(val, val_style),
+            Paragraph(interp, S_TD_L),
+        ])
+    elems.append(KeepTogether(tbl([qual_h] + qual_rows, cw=[52*mm, 52*mm, 66*mm])))
+    elems.append(src(
+        "Piotroski F-Score : 9 criteres binaires profitabilite + levier + efficacite (Piotroski 2000). "
+        "PEG = P/E LTM / croissance revenus YoY. FCF Yield = Free Cash Flow / Market Cap. "
+        "Beta : volatilite vs S&P 500 (yfinance 5 ans)."))
     elems.append(Spacer(1, 3*mm))
 
     # ── Note analytique ────────────────────────────────────────────────────
