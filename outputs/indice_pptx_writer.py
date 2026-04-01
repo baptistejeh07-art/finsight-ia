@@ -1227,20 +1227,30 @@ def _s17_risques(prs, D):
     box_w = 7.5
     for i, sc in enumerate(scenarios[:3]):
         xoff = 0.9 + i * (box_w + 0.35)
-        prob_str = str(sc.get("prob","—"))
-        try:
-            prob_int = int(prob_str.replace('%','').replace(' ',''))
-        except:
-            prob_int = 20
+        # Handle both tuple format (titre, condition, signal, horizon) and dict format
+        if isinstance(sc, (list, tuple)):
+            _sc = list(sc) + ["", "", "", ""]
+            sc_titre  = str(_sc[0] or "—")
+            sc_desc   = str(_sc[1] or "")   # condition = desc
+            prob_str  = "—"
+            prob_int  = 20
+        else:
+            prob_str = str(sc.get("prob","—"))
+            try:
+                prob_int = int(prob_str.replace('%','').replace(' ',''))
+            except:
+                prob_int = 20
+            sc_titre = sc.get("titre","—")
+            sc_desc  = sc.get("desc","")
         hdr_col = _SELL if prob_int >= 35 else (_HOLD if prob_int >= 25 else _BUY)
 
         _rect(slide, xoff, 2.3, box_w, 4.3, fill=_GRAYL)
         _rect(slide, xoff, 2.3, box_w, 0.85, fill=hdr_col)
-        _txb(slide, sc.get("titre","—")[:40], xoff + 0.2, 2.35, box_w - 2.5, 0.75,
+        _txb(slide, sc_titre[:40], xoff + 0.2, 2.35, box_w - 2.5, 0.75,
              size=9, bold=True, color=_WHITE)
         _txb(slide, f"Prob. {prob_str}", xoff + box_w - 2.2, 2.4, 2.0, 0.65,
              size=9, bold=True, color=_WHITE, align=PP_ALIGN.RIGHT)
-        _txb(slide, sc.get("desc","")[:220], xoff + 0.2, 3.25, box_w - 0.3, 3.2,
+        _txb(slide, sc_desc[:220], xoff + 0.2, 3.25, box_w - 0.3, 3.2,
              size=8, color=_GRAYT, wrap=True)
 
     # Conditions invalidation
