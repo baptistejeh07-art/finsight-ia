@@ -1069,6 +1069,12 @@ def _s13_top3(prs, D):
         _footer(slide)
         return slide
 
+    # Padding to always render 3 panels (avoids blank slots when <3 sectors)
+    while len(top3) < 3:
+        top3 = list(top3) + [{"nom": "—", "signal": "Neutre", "score": 0,
+                               "ev_ebitda": "—", "catalyseur": "Données insuffisantes",
+                               "risque": "—", "societes": []}]
+
     panel_w = 7.5
     for i, sect in enumerate(top3[:3]):
         xoff = 0.9 + i * (panel_w + 0.35)
@@ -1232,8 +1238,12 @@ def _s17_risques(prs, D):
             _sc = list(sc) + ["", "", "", ""]
             sc_titre  = str(_sc[0] or "—")
             sc_desc   = str(_sc[1] or "")   # condition = desc
+            sc_signal = str(_sc[2] or "")   # signal résultat
             prob_str  = "—"
-            prob_int  = 20
+            # Couleur selon signal du scénario (Bull=vert, Bear=rouge, autre=orange)
+            _sl = sc_signal.lower()
+            hdr_col = (_BUY if "surp" in _sl
+                       else (_SELL if "sous" in _sl else _HOLD))
         else:
             prob_str = str(sc.get("prob","—"))
             try:
@@ -1242,7 +1252,7 @@ def _s17_risques(prs, D):
                 prob_int = 20
             sc_titre = sc.get("titre","—")
             sc_desc  = sc.get("desc","")
-        hdr_col = _SELL if prob_int >= 35 else (_HOLD if prob_int >= 25 else _BUY)
+            hdr_col = _SELL if prob_int >= 35 else (_HOLD if prob_int >= 25 else _BUY)
 
         _rect(slide, xoff, 2.3, box_w, 4.3, fill=_GRAYL)
         _rect(slide, xoff, 2.3, box_w, 0.85, fill=hdr_col)
