@@ -650,6 +650,16 @@ def _truncate(s, n: int) -> str:
     return cut + "…"
 
 
+def _fit(s, n: int) -> str:
+    """Coupe a n chars sans ajouter '...' — pour les zones ou le debordement est invisible."""
+    s = _safe_str(s)
+    if len(s) <= n:
+        return s
+    cut = s[:n]
+    last_space = cut.rfind(" ")
+    return cut[:last_space] if last_space > n // 2 else cut
+
+
 def _peer_median(peers: list, attr: str):
     vals = []
     for p in (peers or []):
@@ -2128,7 +2138,7 @@ def _slide_risques(prs, snap, synthesis, devil, extra_scores: dict = None):
         add_text_box(slide, cx + 0.30, card_y + 0.30, card_w - 0.60, 0.71,
                      _truncate(risk, 150), 9, accent, bold=True, wrap=True)
         add_text_box(slide, cx + 0.30, card_y + 1.32, card_w - 0.60, 3.5,
-                     _truncate(body, 480), 8, GREY_TXT, wrap=True)
+                     _fit(body, 380), 8, GREY_TXT, wrap=True)
 
     # Invalidation table
     add_rect(slide, 1.02, 8.33, 23.37, 0.03, "AAAAAA")
