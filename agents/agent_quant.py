@@ -1011,3 +1011,322 @@ def _rev_from_yr(yr: YearRatios) -> Optional[float]:
     if yr.gross_profit and yr.gross_margin:
         return _s(yr.gross_profit, yr.gross_margin)
     return None
+
+
+# =============================================================================
+# Scores additionnels (appeles depuis les writers, pas depuis le pipeline LLM)
+# =============================================================================
+
+def compute_composite_distress(yr: YearRatios) -> dict:
+    """
+    Score composite de detresse financiere 0-100 (100 = risque maximal).
+    Combine Altman Z-Score (40%), Beneish M-Score (35%) et indicateurs bilan (25%).
+    """
+    score     = 0
+    max_score = 0
+    components = {}
+
+    # -- Altman Z-Score (poids 40) -------------------------------------------
+    az = yr.altman_z
+    if az is not None:
+        max_score += 40
+        try:
+            az_f = float(az)
+            if az_f < 1.81:
+                pts = 40
+                label = "Detresse"
+            elif az_f < 2.99:
+                pts = 20
+                label = "Zone grise"
+            else:
+                pts = 0
+                label = "Solide"
+            score += pts
+            components["altman_z"] = {"value": round(az_f, 2), "label": label, "pts": pts}
+        except (ValueError, TypeError):
+            pass
+
+    # -- Beneish M-Score (poids 35) ------------------------------------------
+    bm = yr.beneish_m
+    if bm is not None:
+        max_score += 35
+        try:
+            bm_f = float(bm)
+            if bm_f > -1.78:
+                pts = 35
+                label = "Risque manipulation"
+            elif bm_f > -2.22:
+                pts = 17
+                label = "Zone grise"
+            else:
+                pts = 0
+                label = "Aucun signal"
+            score += pts
+            components["beneish_m"] = {"value": round(bm_f, 2), "label": label, "pts": pts}
+        except (ValueError, TypeError):
+            pass
+
+    # -- Indicateurs bilan (poids 25) ----------------------------------------
+    bilan_pts = 0
+    bilan_max = 25
+    if yr.net_debt_ebitda is not None:
+        try:
+            nd_e = float(yr.net_debt_ebitda)
+            if nd_e > 5.0:
+                bilan_pts += 10
+            elif nd_e > 3.0:
+                bilan_pts += 5
+        except (ValueError, TypeError):
+            pass
+    if yr.current_ratio is not None:
+        try:
+            cr = float(yr.current_ratio)
+            if cr < 0.8:
+                bilan_pts += 9
+            elif cr < 1.0:
+                bilan_pts += 5
+        except (ValueError, TypeError):
+            pass
+    if yr.interest_coverage is not None:
+        try:
+            ic = float(yr.interest_coverage)
+            if ic < 1.5:
+                bilan_pts += 6
+            elif ic < 3.0:
+                bilan_pts += 3
+        except (ValueError, TypeError):
+            pass
+    max_score += bilan_max
+    score     += min(bilan_pts, bilan_max)
+    components["bilan"] = {"pts": bilan_pts}
+
+    if max_score == 0:
+        return {"score": None, "label": "Inconnu", "components": {}}
+
+    final = round(score / max_score * 100, 0)
+
+    if final < 20:
+        label_global = "Sain"
+        color        = "green"
+    elif final < 45:
+        label_global = "Moderé"
+        color        = "amber"
+    elif final < 70:
+        label_global = "Vigilance"
+        color        = "orange"
+    else:
+        label_global = "Critique"
+        color        = "red"
+
+    return {
+        "score":      int(final),
+        "label":      label_global,
+        "color":      color,
+        "components": components,
+    }
+
+
+def compute_ma_score(yr: YearRatios, sector_benchmarks: Optional[dict] = None) -> dict:
+    """
+    Score d'attractivite M&A 0-100 (100 = cible tres attractive).
+    Facteurs : valorisation relative, FCF yield, levier, croissance, profitabilite.
+    """
+    score     = 0
+    max_score = 0
+    signals   = []
+    bm = sector_benchmarks or {}
+
+    # -- FCF Yield (poids 25) ------------------------------------------------
+    if yr.fcf_yield is not None:
+        max_score += 25
+        try:
+            fy = float(yr.fcf_yield)
+            if fy > 0.07:
+                score += 25
+                signals.append(f"FCF Yield eleve ({fy:.1%})")
+            elif fy > 0.04:
+                score += 15
+                signals.append(f"FCF Yield correct ({fy:.1%})")
+            elif fy > 0.01:
+                score += 7
+            # FCF yield negatif = 0 pts
+        except (ValueError, TypeError):
+            pass
+
+    # -- Levier (poids 25) : faible dette = easier LBO -----------------------
+    if yr.net_debt_ebitda is not None:
+        max_score += 25
+        try:
+            nd = float(yr.net_debt_ebitda)
+            if nd < 0:          # net cash
+                score += 25
+                signals.append("Bilan net cash (capacite d'emprunt intacte)")
+            elif nd < 1.0:
+                score += 20
+                signals.append(f"Levier faible ({nd:.1f}x ND/EBITDA)")
+            elif nd < 2.5:
+                score += 12
+            elif nd < 4.0:
+                score += 5
+            # > 4x = 0 pts (trop charge)
+        except (ValueError, TypeError):
+            pass
+
+    # -- Valorisation vs benchmarks (poids 25) -------------------------------
+    ev_e = yr.ev_ebitda
+    bm_ev = bm.get("ev_e") or bm.get("ev_ebitda")
+    if ev_e is not None and bm_ev is not None:
+        max_score += 25
+        try:
+            ev_f  = float(ev_e)
+            bm_f  = float(bm_ev)
+            disc  = (bm_f - ev_f) / bm_f * 100 if bm_f > 0 else 0
+            if disc > 20:
+                score += 25
+                signals.append(f"Decote EV/EBITDA de {disc:.0f}% vs secteur")
+            elif disc > 10:
+                score += 15
+                signals.append(f"Legere decote EV/EBITDA ({disc:.0f}%)")
+            elif disc > 0:
+                score += 8
+        except (ValueError, TypeError):
+            pass
+    elif ev_e is not None:
+        max_score += 25
+        try:
+            ev_f = float(ev_e)
+            # Sans benchmark : valorisation absolue
+            if ev_f < 8:
+                score += 20
+            elif ev_f < 12:
+                score += 12
+            elif ev_f < 18:
+                score += 6
+        except (ValueError, TypeError):
+            pass
+
+    # -- Croissance revenus (poids 15) ---------------------------------------
+    if yr.revenue_growth is not None:
+        max_score += 15
+        try:
+            rg = float(yr.revenue_growth)
+            if rg > 0.20:
+                score += 15
+                signals.append(f"Croissance revenue forte ({rg:.1%})")
+            elif rg > 0.08:
+                score += 10
+            elif rg > 0.0:
+                score += 5
+        except (ValueError, TypeError):
+            pass
+
+    # -- Marge EBITDA (poids 10) ---------------------------------------------
+    if yr.ebitda_margin is not None:
+        max_score += 10
+        try:
+            em = float(yr.ebitda_margin)
+            if em > 0.25:
+                score += 10
+            elif em > 0.15:
+                score += 6
+            elif em > 0.08:
+                score += 3
+        except (ValueError, TypeError):
+            pass
+
+    if max_score == 0:
+        return {"score": None, "label": "Inconnu", "signals": []}
+
+    final = round(score / max_score * 100, 0)
+
+    if final < 30:
+        label = "Peu attractive"
+    elif final < 55:
+        label = "Moderate"
+    elif final < 75:
+        label = "Attractive"
+    else:
+        label = "Tres attractive"
+
+    return {
+        "score":   int(final),
+        "label":   label,
+        "signals": signals[:3],
+    }
+
+
+def compute_microstructure(ticker: str, period: str = "1y") -> dict:
+    """
+    Metriques de microstructure de marche depuis donnees OHLCV yfinance.
+    - Amihud illiquidite (moyenne |ret| / volume_USD)
+    - Roll spread (proxy bid-ask depuis autocovariance des rendements)
+    - Bidask proxy Corwin-Schultz simplifie (High-Low ratio)
+    """
+    try:
+        import yfinance as yf
+        import numpy as np
+        import pandas as pd
+
+        df = yf.download(ticker, period=period, interval="1d",
+                         progress=False, auto_adjust=True)
+        if df is None or len(df) < 20:
+            return {}
+
+        close  = df["Close"].dropna()
+        high   = df["High"].dropna()
+        low    = df["Low"].dropna()
+        volume = df["Volume"].dropna()
+
+        # Aligner les indices
+        idx = close.index.intersection(volume.index).intersection(high.index).intersection(low.index)
+        close  = close.loc[idx]
+        volume = volume.loc[idx]
+        high   = high.loc[idx]
+        low    = low.loc[idx]
+
+        ret = close.pct_change().dropna()
+
+        # -- Amihud illiquidite (annualise) ----------------------------------
+        dollar_vol = (close * volume).loc[ret.index]
+        amihud_raw = (ret.abs() / dollar_vol.replace(0, float("nan"))).dropna()
+        amihud     = float(amihud_raw.mean()) * 1e6 if len(amihud_raw) > 0 else None
+
+        # -- Roll spread (2 * sqrt(-cov(ret_t, ret_{t-1}))) ------------------
+        roll_spread = None
+        if len(ret) >= 10:
+            ret_t  = ret.values[1:]
+            ret_tm = ret.values[:-1]
+            cov_val = float(np.cov(ret_t, ret_tm)[0, 1])
+            if cov_val < 0:
+                roll_spread = round(2.0 * float(np.sqrt(-cov_val)) * 100, 4)
+
+        # -- Corwin-Schultz proxy (simplifie) : beta = (H/L - 1) moyenne ----
+        hl_spread = None
+        hl = (high / low.replace(0, float("nan"))).dropna()
+        if len(hl) > 0:
+            hl_spread = round(float((hl - 1).mean()) * 100, 3)
+
+        # -- Interpretation liquidite ----------------------------------------
+        if amihud is not None:
+            if amihud < 0.001:
+                liq_label = "Tres liquide"
+            elif amihud < 0.01:
+                liq_label = "Liquide"
+            elif amihud < 0.1:
+                liq_label = "Moderement liquide"
+            else:
+                liq_label = "Illiquide"
+        else:
+            liq_label = "Inconnu"
+
+        return {
+            "amihud":      round(amihud, 6) if amihud is not None else None,
+            "roll_spread": roll_spread,
+            "hl_spread":   hl_spread,
+            "liq_label":   liq_label,
+            "n_days":      len(ret),
+        }
+
+    except Exception as e:
+        log.warning("[compute_microstructure] %s: %s", ticker, e)
+        return {}

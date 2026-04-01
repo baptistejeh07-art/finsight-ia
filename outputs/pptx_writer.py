@@ -2072,7 +2072,7 @@ def _ff_fallback(slide, ff, price, cur_sym, currency):
 # Slide 16 — Risques & Conditions d'Invalidation
 # ---------------------------------------------------------------------------
 
-def _slide_risques(prs, snap, synthesis, devil):
+def _slide_risques(prs, snap, synthesis, devil, extra_scores: dict = None):
     slide_layout = prs.slide_layouts[6]
     slide = prs.slides.add_slide(slide_layout)
 
@@ -2168,6 +2168,49 @@ def _slide_risques(prs, snap, synthesis, devil):
                 run.font.color.rgb = rgb(NAVY)
         except Exception:
             pass
+
+    # --- Bande scores compact (12.35 → 13.15) : Distress + M&A + Regime ------
+    # Zone disponible : 12.24 (fin table) → 13.39 (footer) = 1.15cm
+    if extra_scores:
+        _dist  = extra_scores.get('composite_distress') or {}
+        _ma    = extra_scores.get('ma_score')           or {}
+        _macro = extra_scores.get('macro')              or {}
+
+        _CMAP = {
+            'Sain': "1A7A4A", 'Modere': AMBER, 'Moderé': AMBER,
+            'Vigilance': AMBER, 'Critique': RED,
+            'Tres attractive': "1A7A4A", 'Attractive': "1A7A4A",
+            'Moderate': AMBER, 'Peu attractive': RED,
+            'Bull': "1A7A4A", 'Bear': RED,
+            'Volatile': AMBER, 'Transition': AMBER,
+        }
+
+        strip_y = 12.30
+        strip_h = 0.90
+        bx_w    = 7.79
+        bx_x    = [1.02, 9.01, 17.01]
+
+        items = []
+        if _dist.get('score') is not None:
+            d_lbl = _dist.get('label', '—')
+            items.append((f"Detresse : {_dist['score']}/100 — {d_lbl}",
+                          _CMAP.get(d_lbl, NAVY)))
+        if _ma.get('score') is not None:
+            m_lbl = _ma.get('label', '—')
+            items.append((f"M&A : {_ma['score']}/100 — {m_lbl}",
+                          _CMAP.get(m_lbl, NAVY)))
+        regime = _macro.get('regime', '')
+        rec_6m = _macro.get('recession_prob_6m')
+        if regime and regime != 'Inconnu':
+            rec_part = f"  Rec.6M:{rec_6m}%" if rec_6m is not None else ''
+            items.append((f"Regime : {regime}{rec_part}", _CMAP.get(regime, NAVY)))
+
+        for i, (txt, col) in enumerate(items[:3]):
+            x = bx_x[i]
+            add_rect(slide, x, strip_y, bx_w, strip_h, "F0F4F8")
+            add_rect(slide, x, strip_y, 0.12, strip_h, col)
+            add_text_box(slide, x + 0.22, strip_y + 0.05, bx_w - 0.30, strip_h - 0.10,
+                         txt, 7.5, NAVY, bold=False)
 
     return slide
 
@@ -2624,6 +2667,26 @@ class PPTXWriter:
 
         snap, synthesis, ratios, devil, sentiment = _extract_state(state)
 
+        # Scores additionnels (Composite Distress, M&A, Macro)
+        _ticker_for_scores = (snap.company_info.ticker if snap and snap.company_info else None) or state.get('ticker', '')
+        _yr_for_scores = None
+        if snap and ratios and ratios.years:
+            _latest_lbl = sorted(ratios.years.keys())[-1] if ratios.years else None
+            _yr_for_scores = ratios.years.get(_latest_lbl)
+        _extra_scores = {}
+        try:
+            from agents.agent_quant import compute_composite_distress, compute_ma_score
+            if _yr_for_scores is not None:
+                _extra_scores['composite_distress'] = compute_composite_distress(_yr_for_scores)
+                _extra_scores['ma_score']            = compute_ma_score(_yr_for_scores)
+        except Exception as _ese:
+            log.warning("[PPTXWriter] distress/ma_score: %s", _ese)
+        try:
+            from agents.agent_macro import AgentMacro
+            _extra_scores['macro'] = AgentMacro().analyze()
+        except Exception as _ese:
+            log.warning("[PPTXWriter] macro: %s", _ese)
+
         # Fallback minimal si snap absent
         if snap is None:
             log.warning("PPTXWriter: raw_data absent dans le state — fallback vide")
@@ -2690,7 +2753,7 @@ class PPTXWriter:
                       "Avocat du diable & conditions d'invalidation")
 
         # --- Slide 16: Risques ---
-        _slide_risques(prs, snap, synthesis, devil)
+        _slide_risques(prs, snap, synthesis, devil, extra_scores=_extra_scores)
 
         # --- Slide 17: Divider Sentiment ---
         divider_slide(prs, "05", "Sentiment & Annexes",

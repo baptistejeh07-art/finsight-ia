@@ -1324,6 +1324,159 @@ def _build_valorisation(ff_buf, pie_buf, mc_buf, data):
     return elems
 
 
+def _build_extra_risk_scores(elems: list, data: dict):
+    """
+    Ajoute les sections Scoring Composite, M&A, Microstructure et Regime Macro
+    a la fin de la section Risques. Rendu conditionnel : affiche seulement les
+    donnees disponibles, jamais de bloc vide.
+    """
+    distress  = data.get('composite_distress') or {}
+    ma        = data.get('ma_score')           or {}
+    micro     = data.get('microstructure')     or {}
+    macro     = data.get('macro')              or {}
+
+    has_distress = distress.get('score') is not None
+    has_ma       = ma.get('score')       is not None
+    has_micro    = bool(micro)
+    has_macro    = macro.get('regime') not in (None, 'Inconnu')
+
+    if not any([has_distress, has_ma, has_micro, has_macro]):
+        return
+
+    elems.append(KeepTogether([
+        debate_q("Quels sont les niveaux de risque systemique et d\u2019attractivite M&A ?"),
+        Spacer(1, 2*mm),
+    ]))
+
+    # --- Tableau Scoring Composite (Distress + M&A) -------------------------
+    if has_distress or has_ma:
+        _LABEL_COLOR = {
+            'Sain':    BUY_GREEN, 'Modere': HOLD_AMB, 'Moderé': HOLD_AMB,
+            'Vigilance': HOLD_AMB, 'Critique': SELL_RED,
+            'Tres attractive': BUY_GREEN, 'Attractive': BUY_GREEN,
+            'Moderate': HOLD_AMB, 'Peu attractive': SELL_RED,
+        }
+        scoring_h = [
+            Paragraph("Indicateur", S_TH_L),
+            Paragraph("Score (0-100)", S_TH_C),
+            Paragraph("Niveau", S_TH_C),
+            Paragraph("Interpretation", S_TH_L),
+        ]
+        scoring_rows = []
+        if has_distress:
+            d_score = distress.get('score', 0)
+            d_label = distress.get('label', '-')
+            d_col   = _LABEL_COLOR.get(d_label, BLACK)
+            # Interpretation : composantes
+            comp = distress.get('components', {})
+            az_c = comp.get('altman_z', {})
+            bm_c = comp.get('beneish_m', {})
+            interp_parts = []
+            if az_c:
+                interp_parts.append(f"Altman Z={az_c.get('value','?')} ({az_c.get('label','?')})")
+            if bm_c:
+                interp_parts.append(f"Beneish M={bm_c.get('value','?')} ({bm_c.get('label','?')})")
+            interp_str = " \u00b7 ".join(interp_parts) or "Voir ratios ci-dessus"
+            scoring_rows.append([
+                Paragraph("Score Detresse Composite", S_TD_B),
+                Paragraph(f"<b>{d_score}</b>", ParagraphStyle('sc', fontName='Helvetica-Bold',
+                    fontSize=9, textColor=d_col, leading=12, alignment=1)),
+                Paragraph(f"<b>{d_label}</b>", ParagraphStyle('sl', fontName='Helvetica-Bold',
+                    fontSize=9, textColor=d_col, leading=12, alignment=1)),
+                Paragraph(_safe(interp_str), S_TD_L),
+            ])
+
+        if has_ma:
+            m_score = ma.get('score', 0)
+            m_label = ma.get('label', '-')
+            m_col   = _LABEL_COLOR.get(m_label, BLACK)
+            signals = ma.get('signals', [])
+            ma_interp = " \u00b7 ".join(signals[:2]) if signals else "Cf. ratios FCF/levier/valorisation"
+            scoring_rows.append([
+                Paragraph("Attractivite Cible M&A", S_TD_B),
+                Paragraph(f"<b>{m_score}</b>", ParagraphStyle('ms', fontName='Helvetica-Bold',
+                    fontSize=9, textColor=m_col, leading=12, alignment=1)),
+                Paragraph(f"<b>{m_label}</b>", ParagraphStyle('ml', fontName='Helvetica-Bold',
+                    fontSize=9, textColor=m_col, leading=12, alignment=1)),
+                Paragraph(_safe(ma_interp), S_TD_L),
+            ])
+
+        if scoring_rows:
+            elems.append(tbl([scoring_h] + scoring_rows,
+                              cw=[42*mm, 24*mm, 28*mm, 76*mm]))
+            elems.append(src(
+                "Composite Distress : Altman Z (40%) + Beneish M (35%) + indicateurs bilan (25%). "
+                "Score 0-100 : 0 = sain, 100 = detresse severe. "
+                "M&A Score : FCF yield, levier, valorisation vs secteur, croissance. "
+                "Source : FinSight IA / yfinance."))
+            elems.append(Spacer(1, 3*mm))
+
+    # --- Tableau Microstructure + Regime Macro ------------------------------
+    if has_micro or has_macro:
+        macro_h = [
+            Paragraph("Indicateur", S_TH_L),
+            Paragraph("Valeur", S_TH_C),
+            Paragraph("Lecture", S_TH_L),
+        ]
+        macro_rows = []
+
+        if has_macro:
+            regime  = macro.get('regime', 'Inconnu')
+            vix     = macro.get('vix')
+            spread  = macro.get('yield_spread_10y_3m')
+            rec_6m  = macro.get('recession_prob_6m')
+            rec_lvl = macro.get('recession_level', 'Inconnu')
+
+            vix_str    = f"VIX {vix:.0f}" if vix else '—'
+            spread_str = f"Spread 10Y-3M : {spread:+.1f}%" if spread is not None else '—'
+            rec_str    = f"{rec_6m}% a 6M ({rec_lvl})" if rec_6m is not None else '—'
+
+            _REGIME_COLORS = {
+                'Bull': BUY_GREEN, 'Bear': SELL_RED,
+                'Volatile': HOLD_AMB, 'Transition': HOLD_AMB,
+            }
+            reg_col = _REGIME_COLORS.get(regime, BLACK)
+            macro_rows.append([
+                Paragraph("Regime de marche", S_TD_B),
+                Paragraph(f"<b>{regime}</b>", ParagraphStyle('rg', fontName='Helvetica-Bold',
+                    fontSize=9, textColor=reg_col, leading=12, alignment=1)),
+                Paragraph(f"{vix_str}  \u00b7  {spread_str}", S_TD_L),
+            ])
+            macro_rows.append([
+                Paragraph("Proba. recession", S_TD_B),
+                Paragraph(rec_str, S_TD_C),
+                Paragraph(
+                    ("Environnement macro favorable aux actifs risques."
+                     if (rec_6m or 0) < 25 else
+                     "Prudence recommandee sur l'exposition cyclique."),
+                    S_TD_L),
+            ])
+
+        if has_micro:
+            amihud  = micro.get('amihud')
+            roll    = micro.get('roll_spread')
+            hl      = micro.get('hl_spread')
+            liq_lbl = micro.get('liq_label', '—')
+            a_str   = f"Amihud x10^6 : {amihud * 1e6:.3f}" if amihud else '—'
+            r_str   = f"Roll spread : {roll:.3f}%" if roll else '—'
+            hl_str  = f"H/L spread : {hl:.2f}%" if hl else '—'
+            macro_rows.append([
+                Paragraph("Liquidite de marche", S_TD_B),
+                Paragraph(liq_lbl, S_TD_C),
+                Paragraph(f"{a_str}  \u00b7  {r_str}  \u00b7  {hl_str}", S_TD_L),
+            ])
+
+        if macro_rows:
+            elems.append(tbl([macro_h] + macro_rows,
+                              cw=[42*mm, 30*mm, 98*mm]))
+            elems.append(src(
+                "Regime : VIX + spread 10Y-3M + position S&P 500 vs MA200. "
+                "Recession : indicateur de marche, non econometrique. "
+                "Liquidite : ratio Amihud (|ret|/vol$), Roll spread, proxy H/L. "
+                "Source : FinSight IA / yfinance."))
+            elems.append(Spacer(1, 3*mm))
+
+
 def _build_risques(data):
     elems = []
     elems += section_title("Analyse des Risques & Sentiment de March\u00e9", 4)
@@ -1457,6 +1610,9 @@ def _build_risques(data):
     if _ez_bt_txt:
         elems.append(src(_ez_bt_txt))
     elems.append(Spacer(1, 4*mm))
+
+    # ── Scoring Composite + Environnement Macro ────────────────────────────
+    _build_extra_risk_scores(elems, data)
 
     # Section 5 — Synthese finale : section_title + tableau reco gardes ensemble
     rec     = _d(data, 'recommendation', 'HOLD').upper()
@@ -1594,6 +1750,51 @@ def _build_risques(data):
     return elems
 
 # =============================================================================
+# =============================================================================
+# SCORES ADDITIONNELS : Composite Distress + M&A + Microstructure + Macro
+# =============================================================================
+
+def _compute_extra_scores(ticker: str, yr_r) -> dict:
+    """
+    Calcule les scores additionnels injectes dans data pour Section 4 (Risques).
+    Appele depuis _state_to_data. Echec silencieux : retourne dict vide.
+    """
+    result = {}
+
+    # -- Composite Distress Score -------------------------------------------
+    if yr_r is not None:
+        try:
+            from agents.agent_quant import compute_composite_distress
+            result['composite_distress'] = compute_composite_distress(yr_r)
+        except Exception as _e:
+            log.warning("[extra_scores] composite_distress: %s", _e)
+
+    # -- M&A Attractiveness Score -------------------------------------------
+    if yr_r is not None:
+        try:
+            from agents.agent_quant import compute_ma_score
+            result['ma_score'] = compute_ma_score(yr_r)
+        except Exception as _e:
+            log.warning("[extra_scores] ma_score: %s", _e)
+
+    # -- Microstructure -----------------------------------------------------
+    if ticker:
+        try:
+            from agents.agent_quant import compute_microstructure
+            result['microstructure'] = compute_microstructure(ticker)
+        except Exception as _e:
+            log.warning("[extra_scores] microstructure: %s", _e)
+
+    # -- Macro Regime + Recession -------------------------------------------
+    try:
+        from agents.agent_macro import AgentMacro
+        result['macro'] = AgentMacro().analyze()
+    except Exception as _e:
+        log.warning("[extra_scores] macro: %s", _e)
+
+    return result
+
+
 # MAIN ENTRY POINT
 # =============================================================================
 
@@ -2636,6 +2837,9 @@ class PDFWriter:
             'entry_zone_backtest_wr':     getattr(entry_zone, 'backtest_win_rate', None),
             'entry_zone_backtest_n':      getattr(entry_zone, 'backtest_n', 0),
             'entry_zone_backtest_note':   getattr(entry_zone, 'backtest_note', None),
+
+            # Scores additionnels (Composite Distress, M&A, Microstructure, Macro)
+            **_compute_extra_scores(ticker, yr_r),
         }
 
         # --- Fetch chart data (yfinance, non-bloquant) ---

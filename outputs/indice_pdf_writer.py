@@ -640,7 +640,70 @@ def _build_synthese(data, perf_buf, registry=None):
     elems.append(src(
         f"FinSight IA — ERP = Earnings Yield (1/PE forward) - Taux 10Y US (^TNX). "
         f"Seuils : Tendu <2%, Neutre 2-4%, Favorable >4%."))
-    elems.append(Spacer(1, 4*mm))
+    elems.append(Spacer(1, 3*mm))
+
+    # ── Regime de marche + Probabilite de recession ──────────────────────────
+    _macro = data.get("macro") or {}
+    _regime  = _macro.get("regime")
+    _vix     = _macro.get("vix")
+    _spread  = _macro.get("yield_spread_10y_3m")
+    _sp_ma   = _macro.get("sp500_vs_ma200")
+    _rec_6m  = _macro.get("recession_prob_6m")
+    _rec_12m = _macro.get("recession_prob_12m")
+    _rec_lvl = _macro.get("recession_level", "Inconnu")
+    _drivers = _macro.get("recession_drivers", [])
+
+    if _regime and _regime != "Inconnu":
+        _REGIME_S = {
+            "Bull":       S_TD_G, "Bear":       S_TD_R,
+            "Volatile":   S_TD_A, "Transition": S_TD_A,
+        }
+        _reg_style = _REGIME_S.get(_regime, S_TD_BC)
+        _rec_style = (S_TD_R if _rec_lvl == "Elevee" else
+                      (S_TD_A if _rec_lvl == "Moderee" else S_TD_G))
+
+        reg_h = [Paragraph(h, S_TH_C) for h in
+                 ["Regime de marche", "VIX", "Spread 10Y-3M", "S&P vs MA200", "Tendance"]]
+        vix_str    = f"{_vix:.0f}" if _vix    is not None else "—"
+        spread_str = f"{_spread:+.1f}%" if _spread is not None else "—"
+        sp_ma_str  = f"{_sp_ma:+.1f}%" if _sp_ma  is not None else "—"
+        sp_trend   = _macro.get("sp500_trend", "—")
+
+        reg_row = [
+            Paragraph(f"<b>{_regime}</b>", _reg_style),
+            Paragraph(vix_str,    S_TD_BC),
+            Paragraph(spread_str, S_TD_BC),
+            Paragraph(sp_ma_str,  S_TD_BC),
+            Paragraph(sp_trend,   S_TD_C),
+        ]
+        elems.append(KeepTogether([
+            Paragraph("Environnement macro — Regime de marche", S_SUBSECTION),
+            Spacer(1, 2*mm),
+            tbl([reg_h, reg_row], cw=[36*mm, 22*mm, 34*mm, 34*mm, 44*mm]),
+        ]))
+
+        if _rec_6m is not None:
+            rec_h = [Paragraph(h, S_TH_C) for h in
+                     ["Horizon", "Probabilite recession", "Niveau", "Principaux signaux"]]
+            drivers_str = " \u00b7 ".join(_drivers[:2]) if _drivers else "Aucun signal recessif dominant"
+            rec_rows = [
+                [Paragraph("6 mois",  S_TD_C),
+                 Paragraph(f"<b>{_rec_6m}%</b>", _rec_style),
+                 Paragraph(_rec_lvl, _rec_style),
+                 Paragraph(drivers_str, S_TD_L)],
+                [Paragraph("12 mois", S_TD_C),
+                 Paragraph(f"{_rec_12m}%", S_TD_C),
+                 Paragraph(_rec_lvl, S_TD_C),
+                 Paragraph("Incertitude croissante sur horizon etendu", S_TD_L)],
+            ]
+            elems.append(Spacer(1, 2*mm))
+            elems.append(tbl([rec_h] + rec_rows, cw=[24*mm, 36*mm, 28*mm, 82*mm]))
+            elems.append(src(
+                "Indicateur de marche (non econometrique) : VIX + spread 10Y-3M + "
+                "position S&P 500 vs MA200 + momentum 6M. Source : FinSight IA / yfinance."))
+        elems.append(Spacer(1, 4*mm))
+    else:
+        elems.append(Spacer(1, 4*mm))
 
     elems.append(Paragraph(data["texte_macro"], S_BODY))
     elems.append(Spacer(1, 3*mm))
@@ -1612,6 +1675,18 @@ class IndicePDFWriter:
         Genere le rapport PDF d'analyse d'indice FinSight IA.
         Retourne output_path. Double-passe pour pagination dynamique.
         """
+        # Macro regime + recession (si pas deja calcule par app.py)
+        if not data.get("macro"):
+            try:
+                import sys as _sys, os as _os
+                _sys.path.insert(0, _os.path.dirname(_os.path.dirname(__file__)))
+                from agents.agent_macro import AgentMacro
+                data["macro"] = AgentMacro().analyze()
+            except Exception as _me:
+                import logging as _log
+                _log.getLogger(__name__).warning("[IndicePDFWriter] AgentMacro: %s", _me)
+                data.setdefault("macro", {})
+
         # Buffers graphiques (generes une seule fois, rewound avant chaque passe)
         perf_buf        = make_indice_perf_chart(data)
         weights_buf     = make_sector_weights_chart(data)
