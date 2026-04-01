@@ -1,0 +1,16 @@
+{
+  "ticker": "TECHNOLOGY",
+  "raw_data": null,
+  "sentiment": "SentimentResult(ticker='TECHNOLOGY', timestamp='2026-04-01T15:58:28.589522', score=0.75, score_normalized=0.875, label='POSITIVE', confidence=0.8, articles_analyzed=1, articles_total=1, breakdown={'avg_positive': 0.8, 'avg_negative': 0.05, 'avg_neutral': 0.15, 'positive_count': 1, 'negative_count': 0, 'neutral_count': 0}, sources=['yahoo_finance'], samples=[{'headline': 'Amkor Technology (AMKR): Billionaire Rob Citrone Is Bullish on This Chip Stock', 'source': 'yahoo_finance', 'score': 0.75, 'label': 'POSITIVE'}], llm_commentary=\"L'annonce de l'intérêt d'un investisseur milliardaire pour AMKR renforce la confiance des marchés. La presse souligne un potentiel haussier pour le secteur des semi-conducteurs.\", meta={'request_id': 'bc0d5264-d103-4e60-bb6a-70f61fc95c68', 'latency_ms': 14635, 'confidence_score': 0.8, 'invalidation_conditions': 'Score invalide si : (1) moins de 3 articles analysés (bruit statistique), (2) news > 7 jours (information périmée), (3) ticker ambigu (mêmes lettres = autre société), (4) événement exceptionnel concentre la publication (biais de volume)', 'engine': 'llm_groq', 'tokens_used': 0})",
+  "data_quality": 0.0,
+  "errors": [
+    "AgentData returned None for TECHNOLOGY"
+  ],
+  "logs": [
+    {
+      "node": "fetch_node",
+      "latency_ms": 14639,
+      "status": "error"
+    }
+  ]
+}
