@@ -1234,10 +1234,21 @@ def _gen_catalyseurs(secteurs_list, signal_global, avg_score):
     if secteurs_list:
         best_mom = max(secteurs_list, key=_mom_val)
         mv = best_mom[7]
+        _mv_float = _mom_val(best_mom)
+        if abs(_mv_float) < 0.5:
+            _desc_cat1 = (
+                f"Score composite {best_mom[2]}/100 — positionnement sectoriel favorable. "
+                "Confirmation de la tendance attendue sur les prochaines publications BPA NTM. "
+                "Secteur le mieux place pour capter un re-rating si le cycle s'accelere."
+            )
+        else:
+            _desc_cat1 = (
+                f"Performance {mv} sur 52 semaines (score {best_mom[2]}/100) — "
+                "continuation probable si les BPA NTM confirment la tendance."
+            )
         cats.append((
             f"Momentum {best_mom[0][:18]}",
-            f"Performance {mv} sur 52 semaines (score {best_mom[2]}/100) — "
-            "continuation probable si les BPA NTM confirment la tendance.",
+            _desc_cat1,
             "3-6 mois"
         ))
     # Cat 2 : derive du signal
