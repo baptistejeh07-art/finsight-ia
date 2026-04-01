@@ -929,6 +929,7 @@ class AgentQuant:
         sigma_ebitda = sd.get("sigma_ebitda_margin", 0.030)
         wacc_low     = sd.get("wacc_min", max(0.04, wacc_mode - 0.025))
         wacc_high    = sd.get("wacc_max", min(0.20, wacc_mode + 0.025))
+        wacc_mode    = max(wacc_low, min(wacc_high, wacc_mode))  # garantit left<=mode<=right
 
         # --- Génération des distributions (N_SIM vecteurs) ---
         rng = np.random.default_rng(seed=42)   # reproductible
