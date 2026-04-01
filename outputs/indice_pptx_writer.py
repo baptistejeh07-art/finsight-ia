@@ -229,7 +229,7 @@ def _lecture_box(slide, title, text, y_top=9.5, height=3.8):
     _rect(slide, 0.9, y_top, 0.12, height, fill=_NAVY)
     _txb(slide, title, 1.2, y_top + 0.15, 22.8, 0.6,
          size=8, bold=True, color=_NAVY)
-    _txb(slide, _trunc(text, 320), 1.2, y_top + 0.8, 22.8, height - 0.9,
+    _txb(slide, _trunc(text, 600), 1.2, y_top + 0.8, 22.8, height - 0.9,
          size=7.5, color=_GRAYT, wrap=True)
 
 
@@ -352,7 +352,11 @@ def _chart_score_bars(secteurs: list) -> bytes:
 
 def _chart_ev_distribution(secteurs: list) -> bytes:
     """Barres horizontales EV/EBITDA par secteur, colore par signal."""
-    sorted_s = sorted(secteurs, key=lambda s: _parse_x(s[4]), reverse=True)
+    sorted_all = sorted(secteurs, key=lambda s: _parse_x(s[4]), reverse=True)
+    # Exclure secteurs sans EV/EBITDA disponible (ev=0)
+    sorted_s = [s for s in sorted_all if _parse_x(s[4]) > 0]
+    if not sorted_s:
+        sorted_s = sorted_all  # fallback si tous vides
     noms  = [_abbrev_sector(s[0], 18) for s in sorted_s]
     evs   = [_parse_x(s[4]) for s in sorted_s]
     cols  = [_sig_hex(s[3]) for s in sorted_s]
@@ -408,23 +412,31 @@ def _chart_zone_entree(data: dict) -> bytes:
     secteurs = data.get("secteurs", [])
     top3     = data.get("top3_secteurs", [])
 
+    # PE global de l'indice comme ancre (calcule en premier)
+    try:
+        _pe_global = float(str(data.get("pe_forward","17")).replace("x","").strip())
+        if _pe_global < 5 or _pe_global > 50: _pe_global = 17.0
+    except:
+        _pe_global = 17.0
+    _pe_med_global = data.get("pe_mediane_10y", 17.0) or 17.0
+    if not isinstance(_pe_med_global, (int, float)): _pe_med_global = 17.0
+
     # Construire mapping nom -> (pe_fwd, pe_med)
     pe_data = {}
     for s in top3:
         pe_fwd = s.get("pe_forward_raw", 0) or 0
         if pe_fwd < 5:
-            # Estimation depuis le score si pas de PE disponible
-            pe_fwd = round(10 + s.get("score", 50) * 0.22, 1)
-        pe_data[s["nom"]] = (pe_fwd, s.get("pe_mediane_10y", 18.0))
+            # Estimation ancree sur pe_global (identique aux secteurs)
+            pe_fwd = round(_pe_global + (s.get("score", 50) - 50) * 0.05, 1)
+        # Cap pe_med au realiste (evite bandes trop larges)
+        pe_med_val = min(s.get("pe_mediane_10y", _pe_med_global), _pe_global * 1.3)
+        pe_data[s["nom"]] = (pe_fwd, float(pe_med_val))
 
-    # Pour les autres secteurs, estimer pe_fwd depuis score
-    # pe_fwd = 10 + score * 0.25 (approximation)
     for s in secteurs:
         if s[0] not in pe_data:
             score = s[2]
-            pe_est = round(10 + score * 0.22, 1)
-            pe_med = 17.0  # mediane generique
-            pe_data[s[0]] = (pe_est, pe_med)
+            pe_est = round(_pe_global + (score - 50) * 0.05, 1)
+            pe_data[s[0]] = (pe_est, float(_pe_med_global))
 
     if not pe_data:
         fig, ax = plt.subplots(figsize=(9, 4))
@@ -467,6 +479,10 @@ def _chart_zone_entree(data: dict) -> bytes:
     ax.spines['right'].set_visible(False)
     ax.spines['left'].set_visible(False)
     ax.grid(True, alpha=0.3, linestyle=':', axis='x')
+    # Limiter l'axe X au range reel des dots (pas d'espace vide a droite)
+    _xmin = max(0, min(pe_fwds) - 1.5)
+    _xmax = max(pe_fwds) + 1.5
+    ax.set_xlim(_xmin, _xmax)
 
     from matplotlib.lines import Line2D
     legend_el = [
@@ -698,10 +714,10 @@ def _s02_exec_summary(prs, D):
     sig     = D.get("signal_global","Neutre")
     sig_col = _sig_color(sig)
     sig_txt = _SIG_NORM.get(sig.lower(), sig.upper())
-    _rect(slide, 0.9, 2.0, 4.8, 0.8, fill=sig_col)
-    _txb(slide, sig_txt, 1.1, 2.1, 4.4, 0.6, size=10, bold=True, color=_WHITE)
+    _rect(slide, 0.9, 2.3, 4.8, 0.75, fill=sig_col)
+    _txb(slide, sig_txt, 1.1, 2.35, 4.4, 0.55, size=10, bold=True, color=_WHITE)
 
-    # Metriques ligne (BPA remplace par ERP)
+    # Metriques ligne
     _erp_s02 = D.get("erp", "—")
     _esig_s02 = D.get("erp_signal", "")
     _erp_display_s02 = f"ERP : {_erp_s02}" + (f" ({_esig_s02})" if _esig_s02 else "")
@@ -712,7 +728,7 @@ def _s02_exec_summary(prs, D):
         _erp_display_s02,
         f"Conviction {D.get('conviction_pct',50)} %",
     ]
-    _txb(slide, "  ·  ".join(mets), 0.9, 2.95, 23.6, 0.55, size=8, color=_GRAYT)
+    _txb(slide, "  ·  ".join(mets), 0.9, 3.15, 23.6, 0.55, size=8, color=_GRAYT)
 
     # Regime de marche (compact strip si disponible)
     _mac = D.get("macro") or {}
@@ -727,19 +743,19 @@ def _s02_exec_summary(prs, D):
         if _vx:    _parts.append(f"VIX {_vx:.0f}")
         if _sp_s is not None: _parts.append(f"Spread {_sp_s:+.1f}%")
         if _rec_6 is not None: _parts.append(f"Rec. 6M {_rec_6}%")
-        _rect(slide, 0.9, 3.55, 23.6, 0.45, fill=_GRAYL)
-        _rect(slide, 0.9, 3.55, 0.10, 0.45, fill=_r_col)
-        _txb(slide, "  \u00b7  ".join(_parts), 1.1, 3.58, 23.0, 0.38,
+        _rect(slide, 0.9, 3.8, 23.6, 0.45, fill=_GRAYL)
+        _rect(slide, 0.9, 3.8, 0.10, 0.45, fill=_r_col)
+        _txb(slide, "  \u00b7  ".join(_parts), 1.1, 3.83, 23.0, 0.38,
              size=7.5, color=_NAVY, bold=False)
 
-    # Catalyseurs macro
-    _rect(slide, 0.9, 3.7, 23.6, 0.5, fill=_NAVY)
-    _txb(slide, "CATALYSEURS MACRO", 1.1, 3.75, 22.8, 0.4,
+    # Catalyseurs macro (y fixe suffisant apres regime strip eventuel)
+    _rect(slide, 0.9, 4.4, 23.6, 0.5, fill=_NAVY)
+    _txb(slide, "CATALYSEURS MACRO", 1.1, 4.45, 22.8, 0.4,
          size=7.5, bold=True, color=_WHITE)
 
     cats = D.get("catalyseurs", [])
     for j, cat in enumerate(cats[:3]):
-        yy = 4.35 + j * 1.05
+        yy = 5.05 + j * 0.95
         _rect(slide, 0.9, yy, 0.08, 0.9, fill=_BUY)
         nom  = cat[0][:50] if isinstance(cat, (list,tuple)) else str(cat)[:50]
         desc = cat[1][:120] if isinstance(cat,(list,tuple)) and len(cat) > 1 else ""
@@ -832,11 +848,10 @@ def _s05_description(prs, D):
     _add_table(slide, rows, 15.1, 2.3, 9.4, 7.0,
                col_widths=[6, 3], font_size=8, header_size=8, alt_fill=_GRAYL)
 
-    # Lecture analytique en bas pour remplir l'espace
-    desc_full = D.get("texte_description", "")
-    if desc_full:
-        lec = _trunc(desc_full, 250)
-        _lecture_box(slide, "Lecture — Positionnement global de l'indice", lec,
+    # Lecture analytique en bas — synthese signal (different du texte description gauche)
+    lec_txt = D.get("texte_signal","") or D.get("texte_description","")
+    if lec_txt:
+        _lecture_box(slide, "Lecture — Signal global & positionnement sectoriel", lec_txt,
                      y_top=9.8, height=3.5)
 
     _footer(slide)
@@ -875,7 +890,7 @@ def _s06_valorisation(prs, D):
             _color_cell(tbl, r, 2, _HOLD_L, _BLACK)
 
     # Lecture analytique
-    texte_val = _trunc(D.get("texte_valorisation",""), 380)
+    texte_val = D.get("texte_valorisation","")
     _lecture_box(slide, "Lecture analytique — Valorisation macro", texte_val, y_top=8.0, height=5.35)
 
     _footer(slide)
@@ -982,15 +997,26 @@ def _s09_cartographie(prs, D):
         sig = sorted_s[r-1][3] if r-1 < len(sorted_s) else "Neutre"
         _color_cell(tbl, r, 3, _sig_light(sig), _sig_color(sig))
 
-    # Lecture
+    # Lecture analytique enrichie
     nb_surp = sum(1 for s in secteurs if "Surp" in str(s[3]))
     nb_sous = sum(1 for s in secteurs if "Sous" in str(s[3]))
+    nb_neut = nb_s - nb_surp - nb_sous
     surp_noms = " · ".join(s[0] for s in sorted_s if "Surp" in str(s[3]))
+    sous_noms = " · ".join(s[0] for s in sorted_s if "Sous" in str(s[3]))
+    top_s  = sorted_s[0]  if sorted_s else None
+    bot_s  = sorted_s[-1] if sorted_s else None
+    score_top = top_s[2] if top_s else "—"
+    score_bot = bot_s[2] if bot_s else "—"
+    score_spread = (top_s[2] - bot_s[2]) if (top_s and bot_s) else 0
     lecture = (
-        f"Seuls {nb_surp} secteur(s) sur {nb_s} franchissent le seuil Surpondérer (score > 65) : "
+        f"{nb_surp} secteur(s) sur {nb_s} franchissent le seuil Surpondérer (score > 65) : "
         f"{surp_noms or 'aucun'}. "
-        f"{nb_sous} secteur(s) en Sous-pondérer. "
-        f"La dispersion des scores illustre une bifurcation sectorielle marquée."
+        f"{nb_sous} secteur(s) en Sous-pondérer : {sous_noms or 'aucun'}. "
+        f"{nb_neut} secteur(s) en position Neutre. "
+        f"L'écart entre le secteur leader ({top_s[0] if top_s else '—'}, score {score_top}/100) "
+        f"et le secteur le plus faible ({bot_s[0] if bot_s else '—'}, score {score_bot}/100) "
+        f"est de {score_spread} points — une dispersion {'élevée' if score_spread > 30 else 'modérée'} "
+        f"qui témoigne d'une bifurcation sectorielle {'marquée' if score_spread > 30 else 'limitée'}."
     )
     y_top = min(10.5, 2.3 + len(rows) * 0.65 + 0.3)
     _lecture_box(slide, "Lecture analytique — Ce que la cartographie révèle",
@@ -1288,11 +1314,17 @@ def _s17_risques(prs, D):
             sc_titre  = str(_sc[0] or "—")
             sc_desc   = str(_sc[1] or "")   # condition = desc
             sc_signal = str(_sc[2] or "")   # signal résultat
-            prob_str  = "—"
-            # Couleur selon signal du scénario (Bull=vert, Bear=rouge, autre=orange)
+            # Couleur et probabilite selon signal du scenario
             _sl = sc_signal.lower()
-            hdr_col = (_BUY if "surp" in _sl
-                       else (_SELL if "sous" in _sl else _HOLD))
+            if "surp" in _sl:
+                hdr_col  = _BUY
+                prob_str = "25 %"
+            elif "sous" in _sl:
+                hdr_col  = _SELL
+                prob_str = "20 %"
+            else:
+                hdr_col  = _HOLD
+                prob_str = "35 %"
         else:
             prob_str = str(sc.get("prob","—"))
             try:
@@ -1419,7 +1451,9 @@ def _s19_sentiment(prs, D, chart_bytes: bytes):
     # Score large gauche
     _rect(slide, 0.9, 2.3, 5.8, 3.5, fill=_GRAYL)
     _rect(slide, 0.9, 2.3, 0.12, 3.5, fill=_NAVY)
-    _txb(slide, f"{score:.3f}", 1.2, 2.5, 5.3, 1.6, size=32, bold=True,
+    _score_str = (f"+{score:.2f}" if score > 0.01 else
+                  (f"{score:.2f}" if score < -0.01 else "~0.00"))
+    _txb(slide, _score_str, 1.2, 2.5, 5.3, 1.6, size=32, bold=True,
          color=_BUY if score > 0.05 else (_SELL if score < -0.05 else _HOLD))
     _txb(slide, "Score agrégé FinBERT", 1.2, 4.05, 5.3, 0.55, size=8, color=_GRAYT)
     _txb(slide, label, 1.2, 4.55, 5.3, 0.5, size=8.5, bold=True,
@@ -1466,16 +1500,44 @@ def _s20_etf_perf(prs, D, chart_bytes: bytes):
             active=5)
 
     if not etf_perf_check:
-        # Fallback propre si pas d'ETF disponibles pour cet indice
-        _rect(slide, 0.9, 2.3, 23.6, 11.1, fill=_GRAYL)
-        _rect(slide, 0.9, 2.3, 0.12, 11.1, fill=_NAVY)
-        _txb(slide, "Donnees ETF non disponibles pour cet indice",
-             2.0, 6.5, 21.5, 1.0, size=12, color=_GRAYT, align=PP_ALIGN.CENTER)
+        # Fallback : tableau scores sectoriels + note ETF
+        _txb(slide, "Scores sectoriels FinSight — synthese allocataire",
+             0.9, 2.1, 23.6, 0.55, size=8.5, bold=True, color=_NAVY)
+        secteurs_etf = D.get("secteurs", [])
+        sorted_etf   = sorted(secteurs_etf, key=lambda s: s[2], reverse=True)
+        _SIG_ETF = {
+            "surponderer":"Surponderer","surponderer":"Surponderer",
+            "neutre":"Neutre","sous-ponderer":"Sous-ponderer",
+        }
+        rows_etf = [["Rang","Secteur","Score","Signal","EV/EBITDA","Mg.EBITDA","Croiss."]]
+        for rg, s in enumerate(sorted_etf, 1):
+            sig_raw = str(s[3]).strip().lower()
+            rows_etf.append([
+                str(rg), _abbrev_sector(s[0], 22), str(s[2]),
+                _SIG_ETF.get(sig_raw, str(s[3])),
+                str(s[4]),
+                f"{s[5]:.1f}%" if isinstance(s[5],(int,float)) and s[5] else "—",
+                str(s[6]) if len(s) > 6 else "—",
+            ])
+        tbl_etf = _add_table(slide, rows_etf, 0.9, 2.75, 23.6,
+                             min(8.5, 0.65 + len(rows_etf)*0.65),
+                             col_widths=[1.2, 5, 1.5, 3.5, 2.5, 2.5, 2.5],
+                             font_size=8, header_size=8, alt_fill=_GRAYL)
+        for r in range(1, len(rows_etf)):
+            sig_r = sorted_etf[r-1][3] if r-1 < len(sorted_etf) else "Neutre"
+            _color_cell(tbl_etf, r, 3, _sig_light(sig_r), _sig_color(sig_r))
+
+        # Note en bas
+        _rect(slide, 0.9, 11.8, 23.6, 1.5, fill=_GRAYL)
+        _rect(slide, 0.9, 11.8, 0.12, 1.5, fill=_GRAYD)
+        _txb(slide, "Note — ETF sectoriels SPDR non disponibles pour cet indice",
+             1.2, 11.9, 22.8, 0.5, size=8, bold=True, color=_GRAYT)
         _txb(slide,
              "Les ETF sectoriels SPDR sont references sur le marche US (S&P 500). "
-             "Pour les indices europeens (CAC 40, DAX, FTSE), les equivalents "
-             "iShares / Amundi ne sont pas encore integres dans le pipeline de donnees.",
-             2.0, 7.7, 21.5, 2.0, size=9, color=_GRAYT, wrap=True, align=PP_ALIGN.CENTER)
+             "Pour les indices europeens (CAC 40, DAX, FTSE), les equivalents iShares / Amundi "
+             "ne sont pas encore integres dans le pipeline. Le tableau ci-dessus presente "
+             "le classement sectoriel FinSight en substitution.",
+             1.2, 12.45, 22.8, 0.8, size=7.5, color=_GRAYT, wrap=True)
         _footer(slide)
         return slide
 
