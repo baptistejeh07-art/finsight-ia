@@ -1279,10 +1279,10 @@ def compute_microstructure(ticker: str, period: str = "1y") -> dict:
         if df is None or len(df) < 20:
             return {}
 
-        close  = df["Close"].dropna()
-        high   = df["High"].dropna()
-        low    = df["Low"].dropna()
-        volume = df["Volume"].dropna()
+        close  = df["Close"].squeeze().dropna()
+        high   = df["High"].squeeze().dropna()
+        low    = df["Low"].squeeze().dropna()
+        volume = df["Volume"].squeeze().dropna()
 
         # Aligner les indices
         idx = close.index.intersection(volume.index).intersection(high.index).intersection(low.index)
