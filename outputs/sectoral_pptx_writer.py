@@ -1544,9 +1544,20 @@ def _s17_risques(prs, D):
         m = len(v) // 2
         return v[m] if len(v) % 2 else (v[m-1] + v[m]) / 2
 
-    nd_vals  = [t.get("nd_ebitda")  for t in td]
-    fcf_vals = [t.get("fcf_yield")  for t in td]
+    # nd_ebitda et net_debt_ebitda : deux noms possibles selon la source de données
+    nd_vals  = [t.get("nd_ebitda") or t.get("net_debt_ebitda") for t in td]
+    fcf_vals = [t.get("fcf_yield") for t in td]
     sg_vals  = [t.get("score_global") for t in td]
+    # FCF yield fallback : calculé depuis fcf / market_cap si disponible
+    if all(v is None for v in fcf_vals):
+        fcf_vals = []
+        for t in td:
+            fc = t.get("free_cash_flow") or t.get("fcf")
+            mc = t.get("market_cap")
+            if fc is not None and mc and mc > 0:
+                fcf_vals.append(fc / mc * 100)
+            else:
+                fcf_vals.append(None)
     nd_med   = _median(nd_vals)
     fcf_med  = _median(fcf_vals)
     sg_med   = _median(sg_vals)

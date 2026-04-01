@@ -1770,11 +1770,20 @@ def _build_risques(tickers_data: list[dict], sector_name: str, registry=None):
         v.sort(); m = len(v)//2
         return v[m] if len(v)%2 else (v[m-1]+v[m])/2
 
-    nd_med  = _med([t.get("nd_ebitda")   for t in tickers_data])
-    fcf_med = _med([t.get("fcf_yield")   for t in tickers_data])
+    nd_med  = _med([t.get("nd_ebitda") or t.get("net_debt_ebitda") for t in tickers_data])
+    # FCF yield : deux noms possibles, ou calculé depuis fcf/market_cap
+    _fcf_raw = [t.get("fcf_yield") for t in tickers_data]
+    if all(v is None for v in _fcf_raw):
+        _fcf_raw = []
+        for t in tickers_data:
+            fc = t.get("free_cash_flow") or t.get("fcf")
+            mc = t.get("market_cap")
+            _fcf_raw.append(fc / mc * 100 if fc is not None and mc and mc > 0 else None)
+    fcf_med = _med(_fcf_raw)
     sg_med  = _med([t.get("score_global") for t in tickers_data])
-    pb_med  = _med([t.get("pb")           for t in tickers_data])
-    roe_med = _med([t.get("roe")          for t in tickers_data])
+    # pe : clé "pe" ou "pe_ratio" selon la source
+    pe_med  = _med([t.get("pe") or t.get("pe_ratio") for t in tickers_data])
+    roe_med = _med([t.get("roe") for t in tickers_data])
 
     def _nd_style(v):
         return S_TD_G if v is not None and v < 2.0 else (S_TD_A if v is not None and v < 4.0 else S_TD_R)
@@ -1805,13 +1814,13 @@ def _build_risques(tickers_data: list[dict], sector_name: str, registry=None):
          ("Bilan sectoriel solide" if sg_med is not None and sg_med >= 60 else
           "Bilan sectoriel correct" if sg_med is not None and sg_med >= 40 else "Bilan sectoriel fragile")),
     ]
-    if pb_med is not None:
+    if pe_med is not None:
         fund_rows_data.append((
-            "P/Book (valorisation)", pb_med,
-            f"{pb_med:.1f}x",
-            "1-3x raisonnable",
-            S_TD_G if pb_med < 3.0 else (S_TD_A if pb_med < 5.0 else S_TD_R),
-            "Valorisation normale" if pb_med < 3.0 else "Prime de croissance",
+            "P/E median (valorisation)", pe_med,
+            f"{pe_med:.1f}x",
+            "10-20x raisonnable  \u00b7  > 30x prime",
+            S_TD_G if pe_med < 20.0 else (S_TD_A if pe_med < 30.0 else S_TD_R),
+            "Valorisation raisonnable" if pe_med < 20.0 else ("Prime moderee" if pe_med < 30.0 else "Prime elevee"),
         ))
     if roe_med is not None:
         fund_rows_data.append((
