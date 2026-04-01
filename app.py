@@ -766,8 +766,10 @@ def render_sidebar(results) -> None:
             if scr and scr.get("pdf_bytes"):
                 scr_name = scr.get("display_name", "secteur")
                 _pdf_slug = scr_name.lower().replace(' ', '_').replace('\u2014', '').strip()
+                _pdf_is_indice = scr.get("universe", "") not in _SECTOR_ALIASES_SET
+                _pdf_label = "Rapport indice \u2193 .pdf" if _pdf_is_indice else "Rapport sectoriel \u2193 .pdf"
                 st.download_button(
-                    "Rapport sectoriel \u2193 .pdf",
+                    _pdf_label,
                     scr["pdf_bytes"],
                     file_name=f"rapport_{_pdf_slug}.pdf",
                     mime="application/pdf",

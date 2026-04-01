@@ -1487,8 +1487,11 @@ class IndicePPTXWriter:
                 fn(*args)
             except Exception as _e:
                 log.warning("IndicePPTXWriter: %s: %s", label, _e)
-                sl = prs.slides.add_slide(prs.slide_layouts[6])
-                _txb(sl, label, 0.5*_CM, 0.5*_CM, 8*_CM, 1.0*_CM, 11, bold=False)
+                try:
+                    sl = prs.slides.add_slide(prs.slide_layouts[6])
+                    _txb(sl, label, Cm(0.5), Cm(0.5), Cm(8), Cm(1), 11, bold=False)
+                except Exception:
+                    pass
 
         # Slide 1 — Cover
         _safe(_s01_cover, prs, data, label="s01_cover")
