@@ -398,7 +398,7 @@ def _chart_zone_entree(data: dict) -> bytes:
     pe_data = {}
     for s in top3:
         pe_fwd = s.get("pe_forward_raw", 0) or 0
-        if pe_fwd <= 0:
+        if pe_fwd < 5:
             # Estimation depuis le score si pas de PE disponible
             pe_fwd = round(10 + s.get("score", 50) * 0.22, 1)
         pe_data[s["nom"]] = (pe_fwd, s.get("pe_mediane_10y", 18.0))
