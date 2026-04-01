@@ -334,6 +334,43 @@ def make_top3_donut(data):
     plt.close(fig); buf.seek(0); return buf
 
 
+def make_allocation_chart(data):
+    """Bar chart groupe : 3 portefeuilles optimaux (min-var, tangency, ERC) x 11 secteurs."""
+    opt = data.get("optimal_portfolios", {})
+    if not opt or not opt.get("sectors"):
+        return None
+    sectors = opt["sectors"]
+    w_mv  = opt["min_var"]["weights"]
+    w_tg  = opt["tangency"]["weights"]
+    w_erc = opt["erc"]["weights"]
+    n     = len(sectors)
+    abbrevs = [_abbrev_pdf(s)[:12] for s in sectors]
+    x     = np.arange(n)
+    width = 0.25
+    eq_w  = round(100 / n, 1)
+    fig, ax = plt.subplots(figsize=(10.5, 4.8))
+    ax.bar(x - width, w_mv,  width, label='Min-Variance', color='#1B3A6B', alpha=0.85, edgecolor='white')
+    ax.bar(x,         w_tg,  width, label='Tangency (Max Sharpe)', color='#1A7A4A', alpha=0.85, edgecolor='white')
+    ax.bar(x + width, w_erc, width, label='Equal Risk Contrib.', color='#B06000', alpha=0.85, edgecolor='white')
+    ax.axhline(y=eq_w, color='#A82020', linewidth=1.0, linestyle='--', alpha=0.7, zorder=5)
+    ax.text(n - 0.4, eq_w + 0.3, f'Egal ({eq_w:.1f}%)', fontsize=8, color='#A82020', style='italic')
+    ax.set_xticks(x)
+    ax.set_xticklabels(abbrevs, rotation=30, ha='right', fontsize=8.5)
+    ax.set_ylabel("Poids (%)", fontsize=9, color='#555')
+    ax.set_ylim(0, max(max(w_mv), max(w_tg), max(w_erc)) * 1.3)
+    ax.legend(fontsize=9, loc='upper left', frameon=False, ncol=3)
+    for sp in ['top','right']: ax.spines[sp].set_visible(False)
+    ax.spines['left'].set_color('#D0D5DD'); ax.spines['bottom'].set_color('#D0D5DD')
+    ax.set_facecolor('white'); fig.patch.set_facecolor('white')
+    ax.tick_params(length=0)
+    ax.grid(axis='y', alpha=0.10, color='#D0D5DD', linewidth=0.5)
+    ax.set_title("Allocation optimale — Min-Variance, Tangency & Equal Risk Contribution",
+                 fontsize=12, color='#1B3A6B', fontweight='bold', pad=10)
+    plt.tight_layout(pad=0.5)
+    buf = io.BytesIO(); fig.savefig(buf, format='png', dpi=160, bbox_inches='tight')
+    plt.close(fig); buf.seek(0); return buf
+
+
 def make_attribution_chart(data):
     """Bar chart horizontal : contribution sectorielle au return indice 12 mois."""
     contrib = data.get("sector_contribution", [])
@@ -529,11 +566,13 @@ def _build_sommaire(data, page_nums=None):
          "  Scatter EV/EBITDA vs croissance \xb7 Scores par secteur \xb7 Matrice de correlation"),
         ("4.", "Rotation Sectorielle",                        "rotation",
          "  Phase du cycle \xb7 Sensibilit\u00e9 taux/PIB \xb7 Signal de rotation"),
-        ("5.", "Top 3 Secteurs Recommand\u00e9s",             "top3",
+        ("5.", "Allocation Optimale",                         "allocation",
+         "  Min-Variance \xb7 Tangency (Max Sharpe) \xb7 Equal Risk Contribution \xb7 Poids cibles"),
+        ("6.", "Top 3 Secteurs Recommand\u00e9s",             "top3",
          "  D\u00e9tail signal \xb7 Soci\u00e9t\u00e9s representatives \xb7 Catalyseurs"),
-        ("6.", "Risques Macro &amp; Conditions d'Invalidation", "risques",
+        ("7.", "Risques Macro &amp; Conditions d'Invalidation", "risques",
          "  Cartographie risques \xb7 Probabilit\u00e9s \xb7 Horizons"),
-        ("7.", "Sentiment Agr\u00e9g\u00e9 &amp; M\u00e9thodologie", "sentiment",
+        ("8.", "Sentiment Agr\u00e9g\u00e9 &amp; M\u00e9thodologie", "sentiment",
          "  FinBERT indice \xb7 Distribution par secteur \xb7 Sources"),
     ]
     rows = []
@@ -562,6 +601,45 @@ def _build_synthese(data, perf_buf, registry=None):
     elems = []
     if registry is not None: elems.append(SectionAnchor('synthese', registry))
     elems += section_title("Synth\u00e8se Macro &amp; Signal Global", 1)
+
+    # ── KPI macro header : PE / 10Y / ERP ─────────────────────────────────────
+    _erp    = data.get("erp", "—")
+    _rf     = data.get("rf_rate", "—")
+    _pe     = data.get("pe_forward", "—")
+    _ytd    = data.get("variation_ytd", "—")
+    _esig   = data.get("erp_signal", "—")
+    _cours  = data.get("cours", "—")
+    _esig_s = S_TD_G if _esig == "Favorable" else (S_TD_R if _esig == "Tendu" else S_TD_A)
+    _ytd_s  = S_TD_G if "+" in str(_ytd) else S_TD_R
+    kpi_h   = [Paragraph(h, S_TH_C) for h in
+               ["Cours indice", "Perf. YTD", "P/E Forward", "10Y Yield", "ERP", "Signal ERP"]]
+    kpi_row = [
+        Paragraph(str(_cours),   S_TD_BC),
+        Paragraph(str(_ytd),     _ytd_s),
+        Paragraph(str(_pe),      S_TD_BC),
+        Paragraph(str(_rf),      S_TD_BC),
+        Paragraph(str(_erp),     S_TD_BC),
+        Paragraph(str(_esig),    _esig_s),
+    ]
+    # [28, 22, 24, 24, 22, 50] = 170mm
+    elems.append(KeepTogether(tbl([kpi_h, kpi_row], cw=[28*mm,22*mm,24*mm,24*mm,22*mm,50*mm])))
+    # Interpretation ERP
+    _erp_interp = {
+        "Tendu":    ("<b>ERP sous 2%</b> \u2014 prime actions insuffisante par rapport au taux sans risque. "
+                     "Chaque BUY doit \u00eatre justifi\u00e9 par une croissance visible et un pricing power d\u00e9montr\u00e9."),
+        "Favorable":("<b>ERP au-dessus de 4%</b> \u2014 le march\u00e9 actions offre une prime attractive "
+                     "vs les taux. Le contexte macro justifie une surpond\u00e9ration actions. "
+                     "Les signaux Surpond\u00e9rer ont une base macro solide."),
+        "Neutre":   ("<b>ERP entre 2% et 4%</b> \u2014 valorisation raisonnable. "
+                     "La s\u00e9lection sectorielle prime sur l'exposition beta. "
+                     "Privil\u00e9gier les secteurs avec visibilit\u00e9 BPA \u00e9lev\u00e9e."),
+    }
+    _interp_txt = _erp_interp.get(_esig, "ERP non calcule \u2014 lancer une analyse indice compl\u00e8te.")
+    elems.append(Paragraph(_interp_txt, S_BODY))
+    elems.append(src(
+        f"FinSight IA — ERP = Earnings Yield (1/PE forward) - Taux 10Y US (^TNX). "
+        f"Seuils : Tendu <2%, Neutre 2-4%, Favorable >4%."))
+    elems.append(Spacer(1, 4*mm))
 
     elems.append(Paragraph(data["texte_macro"], S_BODY))
     elems.append(Spacer(1, 3*mm))
@@ -703,6 +781,54 @@ def _build_cartographie(data, weights_buf, attribution_buf=None, registry=None):
     elems.append(src(
         f"FinSight IA — FMP, yfinance. EV/EBITDA et marges = m\u00e9dianes sectorielles LTM. "
         "Momentum = performance relative 3 mois vs indice. Score = composite 0-100."))
+
+    # ── Table valorisation etendue : P/B, Div Yield, ERP sectoriel ───────────
+    pb_map  = data.get("pb_by_sector", {})
+    dy_map  = data.get("dy_by_sector", {})
+    erp_map = data.get("erp_by_sector", {})
+    if pb_map or dy_map:
+        elems.append(Spacer(1, 5*mm))
+        elems.append(Paragraph("Valorisation \u00c9tendue &amp; Rendement Sectoriel", S_SUBSECTION))
+        elems.append(Paragraph(
+            "Ce tableau compl\u00e8te le comparatif EV/EBITDA avec trois dimensions "
+            "additionnelles : <b>Price/Book</b> (positionnement valeur vs croissance), "
+            "<b>Dividend Yield</b> (rendement courant), et <b>ERP sectoriel implicite</b> "
+            "(Div. Yield + croissance LT - taux sans risque) qui estime la prime de risque "
+            "propre \u00e0 chaque secteur.", S_BODY))
+        elems.append(Spacer(1, 2*mm))
+        val_h = [Paragraph(h, S_TH_C) for h in
+                 ["Secteur", "P/Book", "Div. Yield", "ERP Sectoriel", "Lecture"]]
+        val_rows = []
+        for s in sorted_secs:
+            nom = s[0]
+            _pb  = pb_map.get(nom)
+            _dy  = dy_map.get(nom)
+            _erp = erp_map.get(nom)
+            _pb_s  = f"{_pb:.1f}x"  if _pb  else "\u2014"
+            _dy_s  = f"{_dy:.1f}%"  if _dy  else "\u2014"
+            _erp_s = f"{_erp:+.1f}%" if _erp is not None else "\u2014"
+            _erp_style = S_TD_G if (_erp or 0) > 4 else (S_TD_R if (_erp or 0) < 1 else S_TD_A)
+            # Lecture qualitative
+            if (_erp or 0) > 4:
+                _lecture = "Prime \u00e9lev\u00e9e — secteur attractif vs taux"
+            elif (_erp or 0) < 1:
+                _lecture = "Prime faible — valoris\u00e9 serr\u00e9 vs taux"
+            else:
+                _lecture = "Prime mod\u00e9r\u00e9e — valorisation raisonnable"
+            val_rows.append([
+                Paragraph(nom, S_TD_B),
+                Paragraph(_pb_s, S_TD_C),
+                Paragraph(_dy_s, S_TD_G if (_dy or 0) > 2.5 else S_TD_C),
+                Paragraph(_erp_s, _erp_style),
+                Paragraph(_lecture, S_TD_L),
+            ])
+        # [42, 20, 22, 26, 60] = 170mm
+        elems.append(KeepTogether(tbl([val_h] + val_rows,
+                                      cw=[42*mm, 20*mm, 22*mm, 26*mm, 60*mm])))
+        elems.append(src(
+            f"FinSight IA — P/Book et Div.Yield : ETF SPDR yfinance ou valeurs sectorielles "
+            f"medianes S&amp;P 500. ERP sectoriel = Div.Yield + croissance LT normalisee - "
+            f"{data.get('rf_rate','4.50%')} (10Y US)."))
 
     # ── Attribution sectorielle ────────────────────────────────────────────────
     if attribution_buf is not None:
@@ -975,6 +1101,115 @@ def _build_rotation(data, registry=None):
     return elems
 
 
+def _build_allocation(data, allocation_buf=None, registry=None):
+    """Section 5 — Allocation Optimale : Min-Variance, Tangency, ERC."""
+    elems = []
+    elems.append(PageBreak())
+    elems.append(Spacer(1, 10*mm))
+    if registry is not None: elems.append(SectionAnchor('allocation', registry))
+    elems += section_title("Allocation Optimale — Portefeuilles Mean-Variance", 5)
+    elems.append(Spacer(1, 3*mm))
+
+    opt = data.get("optimal_portfolios", {})
+    _erp    = data.get("erp", "—")
+    _esig   = data.get("erp_signal", "—")
+    _rf     = data.get("rf_rate", "4.50%")
+
+    elems.append(Paragraph(
+        "A partir de la matrice de correlation sectorielle (rendements journaliers 52S) "
+        "et des volatilites annualisees, trois portefeuilles optimaux sont construits "
+        "selon la th\u00e9orie moderne du portefeuille (Markowitz, 1952). "
+        "Chaque portefeuille r\u00e9pond \u00e0 un objectif distinct : "
+        "<b>minimisation du risque</b> (Min-Variance), "
+        "<b>maximisation du ratio risque/rendement</b> (Tangency / Max Sharpe), "
+        "et <b>\u00e9galit\u00e9 de la contribution au risque</b> par secteur (Equal Risk Contribution). "
+        f"Taux sans risque : {_rf} (10Y US Treasury). "
+        f"Contexte ERP : {_erp} ({_esig}).", S_BODY))
+    elems.append(Spacer(1, 3*mm))
+
+    if not opt or not opt.get("sectors"):
+        elems.append(Paragraph(
+            "Donn\u00e9es insuffisantes pour calculer les portefeuilles optimaux. "
+            "Lancer une analyse indice compl\u00e8te pour activer cette section.", S_BODY))
+        return elems
+
+    sectors = opt["sectors"]
+    w_mv    = opt["min_var"]["weights"]
+    w_tg    = opt["tangency"]["weights"]
+    w_erc   = opt["erc"]["weights"]
+    eq_w    = round(100 / len(sectors), 1)
+    n_s     = len(sectors)
+
+    # Chart allocation
+    if allocation_buf is not None:
+        elems.append(Image(allocation_buf, width=TABLE_W, height=82*mm))
+        elems.append(src(
+            "FinSight IA — Optimisation Markowitz sur ETF SPDR S&amp;P 500. "
+            "Rendements historiques 52S. Contrainte max 40% par secteur. "
+            f"Ligne rouge pointillee = poids egal ({eq_w:.1f}%)."))
+        elems.append(Spacer(1, 4*mm))
+
+    # Tableau des poids
+    elems.append(Paragraph("Poids cibles par secteur (%)", S_SUBSECTION))
+    alloc_h = [Paragraph(h, S_TH_C) for h in
+               ["Secteur", "Min-Variance", "Tangency", "ERC", "Signal FinSight"]]
+    alloc_rows = []
+    for i, nom in enumerate(sectors):
+        _w_mv  = w_mv[i]  if i < len(w_mv)  else 0
+        _w_tg  = w_tg[i]  if i < len(w_tg)  else 0
+        _w_erc = w_erc[i] if i < len(w_erc) else 0
+        # Signal de surponderabilite : si 2/3 portfolios > egal
+        _votes = sum([1 for w in [_w_mv, _w_tg, _w_erc] if w > eq_w * 0.9])
+        _sig_a = (S_TD_G if _votes >= 2 else (S_TD_R if _votes == 0 else S_TD_A))
+        _sig_t = ("Surponderer" if _votes >= 2 else ("Sous-ponderer" if _votes == 0 else "Neutre"))
+        def _w(v): return Paragraph(f"{v:.1f}%", S_TD_G if v > eq_w else (S_TD_R if v < eq_w*0.6 else S_TD_A))
+        alloc_rows.append([
+            Paragraph(nom, S_TD_B),
+            _w(_w_mv), _w(_w_tg), _w(_w_erc),
+            Paragraph(_sig_t, _sig_a),
+        ])
+    # [46, 28, 28, 28, 40] = 170mm
+    elems.append(KeepTogether(tbl([alloc_h] + alloc_rows, cw=[46*mm,28*mm,28*mm,28*mm,40*mm])))
+    elems.append(Spacer(1, 4*mm))
+
+    # Metriques des 3 portefeuilles
+    elems.append(Paragraph("Performances attendues (historiques 52S)", S_SUBSECTION))
+    met_h = [Paragraph(h, S_TH_C) for h in
+             ["Portefeuille", "Objectif", "Return attendu", "Volatilite", "Ratio de Sharpe"]]
+    def _sr(sh): return S_TD_G if sh >= 0.8 else (S_TD_R if sh < 0.4 else S_TD_A)
+    met_rows = [
+        [Paragraph("Min-Variance", S_TD_B),
+         Paragraph("Minimiser le risque — profil conservateur", S_TD_L),
+         Paragraph(f"{opt['min_var']['return']:+.1f}%", S_TD_C),
+         Paragraph(f"{opt['min_var']['vol']:.1f}%", S_TD_C),
+         Paragraph(str(opt['min_var']['sharpe']), _sr(opt['min_var']['sharpe']))],
+        [Paragraph("Tangency", S_TD_B),
+         Paragraph("Maximiser le Sharpe — optimum risque/rendement", S_TD_L),
+         Paragraph(f"{opt['tangency']['return']:+.1f}%", S_TD_C),
+         Paragraph(f"{opt['tangency']['vol']:.1f}%", S_TD_C),
+         Paragraph(str(opt['tangency']['sharpe']), _sr(opt['tangency']['sharpe']))],
+        [Paragraph("Equal Risk Contribution", S_TD_B),
+         Paragraph("Contribution egale au risque — profil diversifie", S_TD_L),
+         Paragraph(f"{opt['erc']['return']:+.1f}%", S_TD_C),
+         Paragraph(f"{opt['erc']['vol']:.1f}%", S_TD_C),
+         Paragraph(str(opt['erc']['sharpe']), _sr(opt['erc']['sharpe']))],
+    ]
+    # [38, 68, 20, 20, 24] = 170mm
+    elems.append(KeepTogether(tbl([met_h] + met_rows, cw=[38*mm,68*mm,20*mm,20*mm,24*mm])))
+    elems.append(Paragraph(
+        f"<i>Note : performances et Sharpe calcules sur rendements historiques 52 semaines. "
+        f"Ils ne constituent pas une prevision. Dans un contexte ERP {_esig} ({_erp}), "
+        + ("le Tangency portfolio est particulierement pertinent — la prime actions justifie "
+           "une exposition optimisee." if _esig == "Favorable"
+           else "le Min-Variance est recommande — proteger le capital prime sur le rendement." if _esig == "Tendu"
+           else "les trois profils sont valides selon l'horizon et le profil de risque.")
+        + "</i>", S_NOTE))
+    elems.append(src(
+        "FinSight IA — Markowitz (1952). Optimisation scipy SLSQP. "
+        "Contraintes : poids 0-40% par secteur, somme = 100%."))
+    return elems
+
+
 def _build_top3(data, donut_buf, registry=None):
     indice_rl = data["indice"].replace("&", "&amp;")
     secteurs  = data["secteurs"]
@@ -982,7 +1217,7 @@ def _build_top3(data, donut_buf, registry=None):
     elems.append(PageBreak())
     elems.append(Spacer(1, 10*mm))
     if registry is not None: elems.append(SectionAnchor('top3', registry))
-    elems += section_title("Top 3 Secteurs Recommand\u00e9s", 5)
+    elems += section_title("Top 3 Secteurs Recommand\u00e9s", 6)
     elems.append(Spacer(1, 3*mm))
 
     _surp_list = [s for s in data["secteurs"] if s[3] in ("Surponderer", "Surpond\xe9rer")]
@@ -1102,7 +1337,7 @@ def _build_risques(data, registry=None):
     elems.append(PageBreak())
     elems.append(Spacer(1, 10*mm))
     if registry is not None: elems.append(SectionAnchor('risques', registry))
-    elems += section_title("Risques Macro &amp; Conditions d'Invalidation", 6)
+    elems += section_title("Risques Macro &amp; Conditions d'Invalidation", 7)
 
     sig_central = data["signal_global"]
     elems.append(Paragraph(
@@ -1172,7 +1407,7 @@ def _build_sentiment(data, registry=None):
     elems.append(PageBreak())
     elems.append(Spacer(1, 10*mm))
     if registry is not None: elems.append(SectionAnchor('sentiment', registry))
-    elems += section_title("Sentiment Agr\u00e9g\u00e9 &amp; M\u00e9thodologie", 7)
+    elems += section_title("Sentiment Agr\u00e9g\u00e9 &amp; M\u00e9thodologie", 8)
 
     if fb["nb_articles"] == 0:
         elems.append(Paragraph(
@@ -1319,7 +1554,7 @@ def _build_disclaimer(data):
 
 # ─── STORY BUILDER ────────────────────────────────────────────────────────────
 def _build_story(data, perf_buf, weights_buf, scatter_buf, scores_buf,
-                 donut_buf, attribution_buf, corr_buf, page_nums, registry):
+                 donut_buf, attribution_buf, corr_buf, allocation_buf, page_nums, registry):
     indice_rl = data["indice"].replace("&", "&amp;")
     story = []
 
@@ -1352,6 +1587,7 @@ def _build_story(data, perf_buf, weights_buf, scatter_buf, scores_buf,
     story += _build_cartographie(data, weights_buf, attribution_buf, registry)
     story += _build_graphiques(data, scatter_buf, scores_buf, corr_buf, registry)
     story += _build_rotation(data, registry)
+    story += _build_allocation(data, allocation_buf, registry)
     story += _build_top3(data, donut_buf, registry)
     story += _build_risques(data, registry)
     story += _build_sentiment(data, registry)
@@ -1369,13 +1605,14 @@ class IndicePDFWriter:
         Retourne output_path. Double-passe pour pagination dynamique.
         """
         # Buffers graphiques (generes une seule fois, rewound avant chaque passe)
-        perf_buf       = make_indice_perf_chart(data)
-        weights_buf    = make_sector_weights_chart(data)
-        scatter_buf    = make_scatter_sectoriel(data)
-        scores_buf     = make_score_bars(data)
-        donut_buf      = make_top3_donut(data)
+        perf_buf        = make_indice_perf_chart(data)
+        weights_buf     = make_sector_weights_chart(data)
+        scatter_buf     = make_scatter_sectoriel(data)
+        scores_buf      = make_score_bars(data)
+        donut_buf       = make_top3_donut(data)
         attribution_buf = make_attribution_chart(data)
-        corr_buf       = make_correlation_heatmap(data)
+        corr_buf        = make_correlation_heatmap(data)
+        allocation_buf  = make_allocation_chart(data)
 
         doc_kwargs = dict(
             pagesize=A4,
@@ -1401,7 +1638,7 @@ class IndicePDFWriter:
                     b.seek(0)
 
         _all_bufs = (perf_buf, weights_buf, scatter_buf, scores_buf,
-                     donut_buf, attribution_buf, corr_buf)
+                     donut_buf, attribution_buf, corr_buf, allocation_buf)
 
         # Passe 1 — collecter numeros de page reels
         registry = {}
@@ -1410,7 +1647,7 @@ class IndicePDFWriter:
         doc1 = SimpleDocTemplate(tmp_path, **doc_kwargs)
         _rewind(*_all_bufs)
         story1 = _build_story(data, perf_buf, weights_buf, scatter_buf, scores_buf,
-                               donut_buf, attribution_buf, corr_buf, {}, registry)
+                               donut_buf, attribution_buf, corr_buf, allocation_buf, {}, registry)
         doc1.build(story1, onFirstPage=make_on_page(data), onLaterPages=make_on_page(data))
         try:
             os.unlink(tmp_path)
@@ -1422,7 +1659,7 @@ class IndicePDFWriter:
         doc2 = SimpleDocTemplate(output_path, **doc_kwargs)
         _rewind(*_all_bufs)
         story2 = _build_story(data, perf_buf, weights_buf, scatter_buf, scores_buf,
-                               donut_buf, attribution_buf, corr_buf, dict(registry), {})
+                               donut_buf, attribution_buf, corr_buf, allocation_buf, dict(registry), {})
         doc2.build(story2, onFirstPage=make_on_page(data), onLaterPages=make_on_page(data))
 
         print(f"Rapport indice genere : {output_path}  |  Sections : {registry}")

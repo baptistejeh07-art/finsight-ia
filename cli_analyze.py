@@ -1278,21 +1278,57 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
 
     def _fetch_etf(etf: str) -> tuple:
         try:
-            hist = yf.Ticker(etf).history(period="1y", interval="1mo")["Close"]
+            t = yf.Ticker(etf)
+            hist = t.history(period="1y", interval="1mo")["Close"]
             if len(hist) < 2:
-                return etf, None
+                return etf, None, None, None
             ret_1y = (hist.iloc[-1] / hist.iloc[0] - 1) * 100
-            return etf, round(ret_1y, 1)
+            info = t.info or {}
+            pb = info.get("priceToBook")
+            dy = info.get("yield") or info.get("dividendYield")
+            if dy and dy < 0.5:     # yfinance ETF: decimal → converti en %
+                dy = round(dy * 100, 2)
+            elif dy:
+                dy = round(float(dy), 2)
+            return etf, round(ret_1y, 1), (round(float(pb), 1) if pb else None), dy
         except Exception:
-            return etf, None
+            return etf, None, None, None
 
     if etf_map:
         with ThreadPoolExecutor(max_workers=4) as ex:
             futs = {ex.submit(_fetch_etf, e): e for e in etf_map}
             for fut in as_completed(futs):
-                etf, ret = fut.result()
+                etf, ret, pb, dy = fut.result()
                 nom = etf_map.get(etf, etf)
-                etf_perf[etf] = {"nom": nom, "return_1y": ret or 0.0}
+                etf_perf[etf] = {"nom": nom, "return_1y": ret or 0.0, "pb": pb, "dy": dy}
+
+    # 2b. 10Y Treasury yield → ERP reel
+    rf_rate   = 0.045
+    rf_pct_str = "4.50%"
+    erp_val    = None
+    erp_pct    = "—"
+    erp_signal = "—"
+    try:
+        tnx_hist = yf.Ticker("^TNX").history(period="5d")
+        if not tnx_hist.empty:
+            rf_rate    = float(tnx_hist["Close"].iloc[-1]) / 100
+            rf_pct_str = f"{rf_rate*100:.2f}%"
+        pe_fwd_num = indice_info.get("forwardPE") or indice_info.get("trailingPE")
+        # Fallback : SPY comme proxy du S&P 500 si ^GSPC ne retourne pas de PE
+        if not (pe_fwd_num and 0 < pe_fwd_num < 100):
+            try:
+                _spy_info = yf.Ticker("SPY").info or {}
+                pe_fwd_num = _spy_info.get("forwardPE") or _spy_info.get("trailingPE")
+            except Exception:
+                pe_fwd_num = None
+        if pe_fwd_num and 0 < pe_fwd_num < 100:
+            erp_val    = 1 / pe_fwd_num - rf_rate
+            erp_pct    = f"{erp_val*100:.1f}%"
+            erp_signal = ("Tendu" if erp_val < 0.02
+                          else "Favorable" if erp_val > 0.04
+                          else "Neutre")
+    except Exception as _erpex:
+        log.warning("ERP calcul erreur: %s", _erpex)
 
     # 3. Secteurs — signal derive du return ETF
     def _signal_from_ret(ret: float) -> str:
@@ -1334,6 +1370,20 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
         log.warning("ETF SPDR non disponibles — fallback donnees test")
         return _make_test_indice_data(universe)
 
+    # P/B et DivYield génériques (fallback si ETF info incomplet)
+    _PB_GENERIC = {
+        "Technology": 8.5, "Health Care": 4.2, "Financials": 1.5,
+        "Consumer Discretionary": 5.8, "Communication Services": 3.6,
+        "Industrials": 4.9, "Consumer Staples": 5.2, "Energy": 2.3,
+        "Materials": 3.8, "Real Estate": 2.1, "Utilities": 1.8,
+    }
+    _DIVYIELD_GENERIC = {
+        "Technology": 0.7, "Health Care": 1.6, "Financials": 2.1,
+        "Consumer Discretionary": 0.8, "Communication Services": 0.9,
+        "Industrials": 1.5, "Consumer Staples": 2.8, "Energy": 3.5,
+        "Materials": 2.0, "Real Estate": 3.8, "Utilities": 3.2,
+    }
+
     # 2b. Analytics indice avances (S&P 500 uniquement)
     import numpy as _np_indice
     sector_contribution = []
@@ -1374,7 +1424,31 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
             "tilt": tilt, "tilt_spread": round(abs(spread), 1),
         }
 
+        # P/B, DivYield et ERP sectoriel implicite
+        pb_by_sector  = {}
+        dy_by_sector  = {}
+        erp_by_sector = {}
+        for _e, _inf in etf_perf.items():
+            _nom = _inf.get("nom", "")
+            _pb  = _inf.get("pb") or _PB_GENERIC.get(_nom)
+            _dy  = _inf.get("dy") or _DIVYIELD_GENERIC.get(_nom)
+            pb_by_sector[_nom]  = _pb
+            dy_by_sector[_nom]  = _dy
+            # ERP sectoriel = DivYield + croissance_LT - RF (Gordon Growth)
+            _growth_generic = {
+                "Technology": 13.0, "Health Care": 9.5, "Financials": 10.0,
+                "Consumer Discretionary": 7.5, "Communication Services": 8.5,
+                "Industrials": 6.5, "Consumer Staples": 3.5, "Energy": -1.5,
+                "Materials": 4.0, "Real Estate": 2.0, "Utilities": 2.5,
+            }
+            _gr = _growth_generic.get(_nom, 6.0) / 100
+            _dy_dec = (_dy or 0) / 100
+            erp_by_sector[_nom] = round((_dy_dec + _gr - rf_rate) * 100, 1)
+
         # Matrice de correlation (daily returns 52 semaines)
+        daily_ret_full = None
+        corr_df        = None
+        etf_in_c       = []
         try:
             import pandas as _pd_corr
             etf_list_corr = list(etf_map.keys())
@@ -1383,11 +1457,11 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
                 prices_d = raw_daily["Close"]
             else:
                 prices_d = raw_daily
-            prices_d  = prices_d.dropna(how="all")
-            daily_ret = prices_d.pct_change().dropna(how="all")
-            corr_df   = daily_ret.corr()
-            etf_in_c  = [e for e in etf_list_corr if e in corr_df.columns]
-            corr_matrix = []
+            prices_d       = prices_d.dropna(how="all")
+            daily_ret_full = prices_d.pct_change().dropna(how="all")
+            corr_df        = daily_ret_full.corr()
+            etf_in_c       = [e for e in etf_list_corr if e in corr_df.columns]
+            corr_matrix    = []
             for e1 in etf_in_c:
                 corr_matrix.append(
                     [round(float(corr_df.loc[e1, e2]), 2) for e2 in etf_in_c])
@@ -1398,6 +1472,70 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
             log.info("Matrice correlation %dx%d calculee", len(etf_in_c), len(etf_in_c))
         except Exception as _ec:
             log.warning("Correlation matrix erreur: %s", _ec)
+
+        # Portefeuilles optimaux : Min-Variance, Tangency, ERC
+        optimal_portfolios = {}
+        if daily_ret_full is not None and corr_df is not None and len(etf_in_c) >= 4:
+            try:
+                from scipy.optimize import minimize as _sp_min
+                _n   = len(etf_in_c)
+                _x0  = _np_indice.array([1/_n] * _n)
+                _bds = [(0.0, 0.40)] * _n
+                _bds_erc = [(0.01, 0.40)] * _n
+                _con = [{"type": "eq", "fun": lambda w: _np_indice.sum(w) - 1}]
+                _vols = daily_ret_full[etf_in_c].std().values * _np_indice.sqrt(252)
+                _corr = _np_indice.array([[float(corr_df.loc[e1, e2])
+                                           for e2 in etf_in_c] for e1 in etf_in_c])
+                _cov  = _np_indice.outer(_vols, _vols) * _corr
+                _mu   = _np_indice.array([
+                    etf_perf.get(e, {}).get("return_1y", 0.0) / 100
+                    for e in etf_in_c])
+
+                def _metrics(w):
+                    ret = float(w @ _mu)
+                    vol = float(_np_indice.sqrt(max(w @ _cov @ w, 1e-12)))
+                    return round(ret*100,1), round(vol*100,1), round((ret-rf_rate)/vol, 2)
+
+                # Min Variance
+                res_mv = _sp_min(lambda w: float(w @ _cov @ w), _x0,
+                                 method="SLSQP", bounds=_bds, constraints=_con)
+                w_mv = res_mv.x if res_mv.success else _x0
+
+                # Tangency (Max Sharpe)
+                def _neg_sharpe(w):
+                    vol = float(_np_indice.sqrt(max(w @ _cov @ w, 1e-12)))
+                    return -(float(w @ _mu) - rf_rate) / vol
+                res_tg = _sp_min(_neg_sharpe, _x0,
+                                 method="SLSQP", bounds=_bds, constraints=_con)
+                w_tg = res_tg.x if res_tg.success else _x0
+
+                # Equal Risk Contribution
+                def _erc_obj(w):
+                    var = float(w @ _cov @ w)
+                    if var < 1e-12: return 1e10
+                    rc = w * (_cov @ w)
+                    return float(_np_indice.sum((rc - var/_n)**2))
+                res_erc = _sp_min(_erc_obj, _x0,
+                                  method="SLSQP", bounds=_bds_erc, constraints=_con)
+                w_erc = res_erc.x if res_erc.success else _x0
+
+                _secs_opt = [etf_map.get(e, e) for e in etf_in_c]
+                optimal_portfolios = {
+                    "sectors": _secs_opt,
+                    "rf_rate": round(rf_rate*100, 2),
+                    "min_var":  {"weights": [round(float(w)*100,1) for w in w_mv],
+                                 **dict(zip(["return","vol","sharpe"], _metrics(w_mv)))},
+                    "tangency": {"weights": [round(float(w)*100,1) for w in w_tg],
+                                 **dict(zip(["return","vol","sharpe"], _metrics(w_tg)))},
+                    "erc":      {"weights": [round(float(w)*100,1) for w in w_erc],
+                                 **dict(zip(["return","vol","sharpe"], _metrics(w_erc)))},
+                }
+                log.info("Portfolios opt: MV sh=%.2f TG sh=%.2f ERC sh=%.2f",
+                         optimal_portfolios["min_var"]["sharpe"],
+                         optimal_portfolios["tangency"]["sharpe"],
+                         optimal_portfolios["erc"]["sharpe"])
+            except Exception as _ep:
+                log.warning("Portfolio optimization erreur: %s", _ep)
 
     import statistics
     scores = [s[2] for s in secteurs]
@@ -1447,6 +1585,9 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
         "cours":              cours_str,
         "variation_ytd":      ytd_str,
         "pe_forward":         pe_fwd_str,
+        "erp":                erp_pct,
+        "rf_rate":            rf_pct_str,
+        "erp_signal":         erp_signal,
         "signal_global":      signal_global,
         "conviction_pct":     conviction,
         "nb_secteurs":        len(secteurs),
@@ -1455,9 +1596,13 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
         "etf_perf":           etf_perf,
         "date_analyse":       date_str,
         "texte_signal":       texte_signal_reel,
-        "sector_contribution": sector_contribution,
-        "indice_analytics":   indice_analytics,
-        "correlation_matrix": correlation_data,
+        "sector_contribution":  sector_contribution,
+        "indice_analytics":     indice_analytics,
+        "correlation_matrix":   correlation_data,
+        "pb_by_sector":         pb_by_sector    if universe == "S&P 500" else {},
+        "dy_by_sector":         dy_by_sector    if universe == "S&P 500" else {},
+        "erp_by_sector":        erp_by_sector   if universe == "S&P 500" else {},
+        "optimal_portfolios":   optimal_portfolios if universe == "S&P 500" else {},
     })
     return base
 
