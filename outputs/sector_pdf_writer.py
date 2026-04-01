@@ -446,31 +446,13 @@ def _make_scatter(tickers_data: list[dict], sector_name: str) -> io.BytesIO:
     q25_ev = float(np.percentile(evs_valid, 25)) if evs_valid else med_ev * 0.7
     q75_rg = float(np.percentile(rgs_all, 75)) if rgs_all else med_rg + 5
 
-    top_buy = sorted([p for p in normal if p['score'] >= 70],
-                     key=lambda x: x['score'], reverse=True)[:3]
-    top_buy_tickers = {p['ticker'] for p in top_buy}
-
-    def should_annotate(p):
-        if p['ticker'] in top_buy_tickers:
-            return True
-        if p['ev'] is not None:
-            if p['ev'] > q75_ev or p['ev'] < q25_ev:
-                return True
-        if p['rg'] > q75_rg:
-            return True
-        return False
-
-    annotated_tickers = set()
-    for p in normal:
-        if should_annotate(p):
-            annotated_tickers.add(p['ticker'])
-    # Limiter à 10 annotations max
-    if len(annotated_tickers) > 10:
-        # Garder les top_buy en priorité puis compléter par score
-        priority = list(top_buy_tickers)
-        extras = sorted([p for p in normal if p['ticker'] not in top_buy_tickers and p['ticker'] in annotated_tickers],
-                        key=lambda x: abs(x['ev'] - med_ev) + abs(x['rg'] - med_rg), reverse=True)
-        annotated_tickers = set(priority[:3]) | {p['ticker'] for p in extras[:7]}
+    # Toujours afficher les labels — cap a top 25 par score pour garantir la lisibilite
+    if len(normal) > 25:
+        top25 = sorted(normal, key=lambda x: x['score'], reverse=True)[:25]
+        annotated_tickers = {p['ticker'] for p in top25}
+        normal = top25  # afficher seulement les 25 points les plus significatifs
+    else:
+        annotated_tickers = {p['ticker'] for p in normal}
 
     fig, ax = plt.subplots(figsize=(7.5, 4.5))
 
@@ -859,32 +841,30 @@ def _build_macro(perf_buf, area_buf, tickers_data: list[dict],
     else:
         elems.append(Spacer(1, 4*mm))
 
-    macro_h = [Paragraph(h, S_TH_L)
-               for h in ["Tendance", "Impact a 12 mois", "Beneficiaires", "Exposition"]]
-    macro_data = [
-        ["Transformation digitale",
-         "Acceleration adoption technologique — relais de croissance structurel",
-         "Leaders qualité", "Forte"],
-        ["Consolidation sectorielle",
-         "M&A et economies d'echelle — pression sur les acteurs mid-cap",
-         "Champions établis", "Moderee"],
-        ["Pression réglementaire",
-         "Conformite et reporting ESG — couts additionnels mais barriere a l'entree",
-         "Tous", "Mixte"],
-        ["Cycle macro & taux",
-         "Impact sur les couts de financement et la demande finale",
-         "Bilan solide", "Moderee"],
-        ["Innovation & disruption IA",
-         "Gains de productivite 15-25% pour les adopteurs précoces",
-         "Tech-forward", "Forte"],
+    elems.append(debate_q(f"Quelles dynamiques structurelles redefinissent les avantages concurrentiels dans le secteur {sector_name} ?"))
+    _macro_drivers = [
+        ("<b>Transformation digitale.</b>",
+         f"L'acceleration de l'adoption technologique constitue le relais de croissance structurel dominant pour {sector_name}. "
+         f"Les leaders positionnés sur les segments a forte valeur ajoutée capturent une part croissante de la création de valeur sectorielle, "
+         f"avec des effets de reseau qui renforcent les barrières a l'entrée. Exposition : <b>forte</b>, beneficiaires : leaders qualitatifs."),
+        ("<b>Consolidation sectorielle.</b>",
+         f"Les operations de M&A et les economies d'echelle exercent une pression structurelle sur les acteurs mid-cap, "
+         f"contraints de se differencer ou de rejoindre des ensembles plus larges. "
+         f"Les champions etablis beneficient de cet environnement pour renforcer leurs positions. Exposition : <b>moderee</b>."),
+        ("<b>Pression reglementaire.</b>",
+         f"Le durcissement des normes — conformite, reporting ESG, protection des données — engendre des couts additionnels mais constitue "
+         f"simultanement une barriere a l'entree pour les newcomers. L'impact est heterogene selon la taille et la geographie. Exposition : <b>mixte</b>."),
+        ("<b>Cycle macro et taux.</b>",
+         f"La persistance de taux d'interet eleves penalise les bilans levers et comprime les multiples de valorisation. "
+         f"Les acteurs a forte generation de FCF et bilan net positif sont structurellement avantages dans cet environnement. Exposition : <b>moderee</b>."),
+        ("<b>Innovation et disruption IA.</b>",
+         f"L'integration de l'intelligence artificielle dans les processus genere des gains de productivite estimes a 15-25% pour les adopteurs précoces. "
+         f"Cette bifurcation technologique cree un ecart croissant entre les acteurs tech-forward et les retardataires. Exposition : <b>forte</b>."),
     ]
-    macro_rows = [[Paragraph(r[0], S_TD_B), Paragraph(r[1], S_TD_L),
-                   Paragraph(r[2], S_TD_C), Paragraph(r[3], S_TD_C)] for r in macro_data]
-    elems.append(KeepTogether([
-        debate_q("Quelles dynamiques structurelles redéfinissent les avantages concurrentiels ?"),
-        tbl([macro_h] + macro_rows, cw=[38*mm, 86*mm, 28*mm, 18*mm]),
-        src("FinSight IA \u2014 Analyse adversariale sectorielle."),
-    ]))
+    for lead, body in _macro_drivers:
+        elems.append(Paragraph(f"{lead} {body}", S_BODY))
+        elems.append(Spacer(1, 1.5*mm))
+    elems.append(src("FinSight IA \u2014 Analyse adversariale sectorielle."))
     return elems
 
 
@@ -1587,6 +1567,8 @@ def _build_valorisation(scatter_buf, donut_buf, tickers_data: list[dict],
                 return Paragraph(sv, S_TD_G)
             if any(k in sv for k in ["Survalorise", "SELL"]):
                 return Paragraph(sv, S_TD_R)
+            if any(k in sv for k in ["Juste valeur", "neutre", "Catalyseur"]):
+                return Paragraph(sv, S_TD_A)
             return Paragraph(sv, S_TD_C)
         if v == "N/A":
             return Paragraph(str(v), S_TD_A)
@@ -1845,6 +1827,51 @@ def _build_risques(tickers_data: list[dict], sector_name: str, registry=None):
             "ND/EBITDA : dette nette / EBITDA. FCF Yield : FCF / Market Cap. "
             "Score sante : composite FinSight (Altman Z, bilan, FCF, levier)."),
     ]))
+    elems.append(Spacer(1, 5*mm))
+
+    # Synthese analytique de la sante sectorielle
+    nd_str2  = f"{nd_med:.1f}x"  if nd_med  is not None else "non disponible"
+    pe_str2  = f"{pe_med:.1f}x"  if pe_med  is not None else "non disponible"
+    roe_str2 = f"{roe_med:.1f}%"  if roe_med is not None else "non disponible"
+
+    _lev_comment = (
+        f"Le levier median de {nd_str2} est bien controle" if nd_med is not None and nd_med < 2.0 else
+        f"Le levier median de {nd_str2} appelle une vigilance selective" if nd_med is not None and nd_med < 4.0 else
+        f"Le levier median de {nd_str2} constitue un facteur de risque a surveiller"
+        if nd_med is not None else "Le levier sectoriel n'est pas disponible"
+    )
+    _val_comment = (
+        f"La valorisation (P/E median {pe_str2}) reste raisonnable dans le contexte sectoriel actuel" if pe_med is not None and pe_med < 20 else
+        f"Le P/E median de {pe_str2} integre une prime de croissance qui exige des livraisons conformes aux attentes" if pe_med is not None and pe_med < 30 else
+        f"Le P/E median de {pe_str2} est exigeant et suppose une execution sans faute sur la croissance des revenus"
+        if pe_med is not None else "La valorisation par P/E n'est pas directement calculable sur cet univers"
+    )
+    _roe_comment = (
+        f"La rentabilite sectorielle (ROE {roe_str2}) est solide" if roe_med is not None and roe_med > 15 else
+        f"La rentabilite (ROE {roe_str2}) est acceptable mais laisse un potentiel d'amelioration" if roe_med is not None and roe_med > 8 else
+        f"Le ROE median de {roe_str2} signale une profitabilite sectorielle insuffisante"
+        if roe_med is not None else "La rentabilite sur fonds propres n'est pas calculable pour cet univers"
+    )
+    elems.append(KeepTogether([
+        Paragraph("Synthese — lecture de la sante financiere sectorielle", S_SUBSECTION),
+        Spacer(1, 2*mm),
+        Paragraph(
+            f"{_lev_comment}. {_val_comment}. {_roe_comment}. "
+            f"Ces trois dimensions — levier, valorisation et rentabilite — constituent le triangle de lecture "
+            f"fondamental pour juger de la robustesse d'une position sectorielle dans un contexte de taux normalises. "
+            f"Un secteur presentant simultanement un levier maitrise, une valorisation raisonnable et un ROE superieur "
+            f"au cout des fonds propres offre les meilleures conditions pour une exposition a conviction elevee.",
+            S_BODY),
+        Spacer(1, 3*mm),
+        Paragraph(
+            f"<b>Implications portefeuille.</b> Dans un environnement de taux normalises, les acteurs presentant "
+            f"un FCF yield superieur au rendement des obligations d'Etat a 10 ans constituent un point de reference "
+            f"critique pour l'allocation. Les societes combinant bilan net negatif (cash > dette) et croissance "
+            f"organique visible disposent d'une asymetrie favorable dans le scenario central. "
+            f"A l'inverse, les acteurs a levier eleve et marges sous pression sont exposes a un risque de "
+            f"rerating negatif en cas de deterioration des conditions de financement.",
+            S_BODY),
+    ]))
     return elems
 
 
@@ -1871,182 +1898,111 @@ def _build_conclusion(tickers_data: list[dict], sector_name: str,
         f"privilegiant les acteurs a bilan solide et visibilite élevée sur les revenus.", S_BODY))
     elems.append(Spacer(1, 4*mm))
 
-    # Table performance cours — blocs BUY/HOLD/SELL qualite IB
+    # Table compacte unifiee — toutes les societes, triees score DESC, separateurs BUY/HOLD/SELL
     elems.append(KeepTogether([
         Spacer(1, 2*mm),
-        Paragraph("Performance de cours \u2014 Momentum & Tendance", S_SUBSECTION),
+        Paragraph("Classement complet \u2014 Toutes les soci\u00e9t\u00e9s par score FinSight", S_SUBSECTION),
     ]))
 
-    pp_h = [Paragraph(h, S_TH_C)
-            for h in ["Ticker", "Societe", "Cours", "Mom. 52W", "Score Global", "Reco", "Tendance"]]
-
-    _COL_WIDTHS_PP = [14*mm, 36*mm, 18*mm, 18*mm, 20*mm, 16*mm, 48*mm]
-
-    def _pp_cell(v, col):
-        if col == 0: return Paragraph(f"<b>{v}</b>", S_TD_BC)
-        if col == 1: return Paragraph(str(v), S_TD_L)
-        if col == 3: return _auto_cell(v)
-        if col == 5:
-            s = S_TD_G if v == "BUY" else (S_TD_R if v == "SELL" else S_TD_A)
-            return Paragraph(f"<b>{v}</b>", s)
-        if col == 6:
-            sv = str(v)
-            if "(+)" in sv: return Paragraph(sv, S_TD_G)
-            if "(-)" in sv: return Paragraph(sv, S_TD_R)
-            return Paragraph(sv, S_TD_C)
-        return Paragraph(str(v), S_TD_C)
-
-    def _pp_row_data(t):
-        mom = t.get('momentum_52w')
-        reco = _reco(t.get('score_global'))
-        if mom is not None:
-            try:
-                tend = "(+) Momentum positif" if float(mom) >= 0 else "(-) Sous-performance"
-            except (TypeError, ValueError):
-                tend = "(=) Neutre"
-        else:
-            tend = "(=) Neutre"
-        return [
-            t.get('ticker', 'N/A'),
-            (t.get('company') or 'N/A')[:28],
-            _fmt_price(t.get('price')),
-            _fmt_pct(mom),
-            f"{int(t.get('score_global') or 0)}/100",
-            reco,
-            tend,
-        ]
-
-    # Regrouper par reco : BUY d'abord, puis HOLD, puis SELL
-    _buy_tickers_pp  = [t for t in sorted_data if _reco(t.get('score_global')) == "BUY"]
-    _hold_tickers_pp = [t for t in sorted_data if _reco(t.get('score_global')) == "HOLD"]
-    _sell_tickers_pp = [t for t in sorted_data if _reco(t.get('score_global')) == "SELL"]
-
-    # Styles pour en-tetes de blocs
-    _S_BLK = _style('blk_hdr', size=8, leading=11, color=WHITE, bold=True, align=TA_LEFT)
+    _CW = [14*mm, 30*mm, 16*mm, 14*mm, 18*mm, 16*mm, 62*mm]  # total 170mm
+    _S7 = _style('s7', size=7, leading=9.5, color=NAVY, bold=True, align=TA_CENTER)
+    _S7L = _style('s7l', size=7, leading=9.5, color=GREY_TEXT, bold=False, align=TA_LEFT)
+    _S7C = _style('s7c', size=7, leading=9.5, color=GREY_TEXT, bold=False, align=TA_CENTER)
+    _S7G = _style('s7g', size=7, leading=9.5, color=colors.HexColor('#1A7A4A'), bold=True, align=TA_CENTER)
+    _S7A = _style('s7a', size=7, leading=9.5, color=colors.HexColor('#B06000'), bold=True, align=TA_CENTER)
+    _S7R = _style('s7r', size=7, leading=9.5, color=colors.HexColor('#A82020'), bold=True, align=TA_CENTER)
+    _S7H = _style('s7h', size=7.5, leading=10, color=WHITE, bold=True, align=TA_LEFT)
 
     _BUY_CLR  = colors.HexColor('#1A7A4A')
     _HOLD_CLR = colors.HexColor('#4A5568')
     _SELL_CLR = colors.HexColor('#A82020')
-    _MEAN_CLR = colors.HexColor('#F0F0F0')
+    _BUY_BG   = colors.HexColor('#F0FAF5')
+    _HOLD_BG  = colors.HexColor('#F5F5F5')
+    _SELL_BG  = colors.HexColor('#FFF5F5')
 
-    def _build_group_table(group_tickers, reco_label, header_color, include_col_header=False):
-        if not group_tickers:
-            return []
-        n = len(group_tickers)
-        n_cols = len(_COL_WIDTHS_PP)
-        rows_all = []
-        # En-tete de colonnes optionnel (pour le premier groupe)
-        if include_col_header:
-            rows_all.append(pp_h)
-        # Ligne en-tete du bloc — fusionnee sur toutes les colonnes
-        hdr_text = f"{reco_label} \u2014 {n} valeur{'s' if n > 1 else ''}"
-        hdr_row = [Paragraph(f"<b>{hdr_text}</b>", _S_BLK)] + [''] * (n_cols - 1)
-        # Lignes de données
-        data_rows = []
-        scores_grp = []
-        moms_grp   = []
-        for t in group_tickers:
-            row_vals = _pp_row_data(t)
-            data_rows.append([_pp_cell(v, j) for j, v in enumerate(row_vals)])
-            try:
-                scores_grp.append(float(t.get('score_global') or 0))
-            except:
-                pass
-            try:
-                moms_grp.append(float(t.get('momentum_52w') or 0))
-            except:
-                pass
-        # Ligne moyenne du groupe
-        avg_score = f"{sum(scores_grp)/len(scores_grp):.0f}/100" if scores_grp else "\u2014"
-        avg_mom   = _fmt_pct(sum(moms_grp)/len(moms_grp)) if moms_grp else "\u2014"
-        _S_MEAN = _style('mean', size=7.5, leading=10.5, color=GREY_TEXT, bold=False, align=TA_CENTER)
-        _S_MEAN_L = _style('mean_l', size=7.5, leading=10.5, color=GREY_TEXT, bold=False, align=TA_LEFT)
-        mean_row = [
-            Paragraph("<i>Moy. groupe</i>", _S_MEAN_L),
-            Paragraph('', _S_MEAN),
-            Paragraph('', _S_MEAN),
-            Paragraph(f"<i>{avg_mom}</i>", _S_MEAN),
-            Paragraph(f"<i>{avg_score}</i>", _S_MEAN),
-            Paragraph('', _S_MEAN),
-            Paragraph('', _S_MEAN),
-        ]
-
-        rows_all += [hdr_row] + data_rows + [mean_row]
-        t_obj = Table(rows_all, colWidths=_COL_WIDTHS_PP)
-        # Offset de ligne si en-tete de colonnes inclus
-        col_hdr_offset = 1 if include_col_header else 0
-        blk_row = col_hdr_offset       # index de la ligne d'en-tete du bloc
-        data_start = col_hdr_offset + 1
-        ts = []
-        # En-tete de colonnes navy si present
-        if include_col_header:
-            ts += [
-                ('BACKGROUND',  (0,0),(-1,0),  NAVY),
-                ('FONTNAME',    (0,0),(-1,0),  'Helvetica-Bold'),
-                ('LINEBELOW',   (0,0),(-1,0),  0.5, NAVY_LIGHT),
-            ]
-        # En-tete de bloc couleur
-        ts += [
-            ('BACKGROUND',    (0,blk_row),(-1,blk_row),  header_color),
-            ('SPAN',          (0,blk_row),(-1,blk_row)),
-            ('FONTNAME',      (0,blk_row),(-1,blk_row),  'Helvetica-Bold'),
-            ('ROWBACKGROUNDS',(0,data_start),(-1,-2), [WHITE, ROW_ALT]),
-            ('BACKGROUND',    (0,-1),(-1,-1), _MEAN_CLR),
-            ('FONTSIZE',      (0,0),(-1,-1), 8),
-            ('VALIGN',        (0,0),(-1,-1), 'MIDDLE'),
-            ('TOPPADDING',    (0,0),(-1,-1), 4),
-            ('BOTTOMPADDING', (0,0),(-1,-1), 4),
-            ('LEFTPADDING',   (0,0),(-1,-1), 5),
-            ('RIGHTPADDING',  (0,0),(-1,-1), 5),
-            ('LINEBELOW',     (0,blk_row),(-1,blk_row),  0.5, NAVY_LIGHT),
-            ('LINEBELOW',     (0,-1),(-1,-1),0.5, GREY_RULE),
-            ('GRID',          (0,data_start),(-1,-2), 0.3, GREY_MED),
-        ]
-        t_obj.setStyle(TableStyle(ts))
-        return [t_obj, Spacer(1, 2*mm)]
-
-    # Assembler les 3 blocs — toujours afficher BUY/HOLD/SELL même si vides
-    _groups = [
-        (_buy_tickers_pp,  "BUY",  _BUY_CLR),
-        (_hold_tickers_pp, "HOLD", _HOLD_CLR),
-        (_sell_tickers_pp, "SELL", _SELL_CLR),
+    col_hdr = [
+        Paragraph("Ticker",     S_TH_C),
+        Paragraph("Soci\u00e9t\u00e9", S_TH_L),
+        Paragraph("Score",      S_TH_C),
+        Paragraph("Reco",       S_TH_C),
+        Paragraph("EV/EBITDA",  S_TH_C),
+        Paragraph("Mom. 52W",   S_TH_C),
+        Paragraph("Signal fondamental", S_TH_C),
     ]
-    _S_EMPTY = _style('empty_note', size=7.5, leading=10.5, color=GREY_TEXT,
-                      bold=False, align=TA_LEFT)
-    _first_col_done = False
-    for _g_tickers, _g_label, _g_col in _groups:
-        if _g_tickers:
-            elems += _build_group_table(_g_tickers, _g_label, _g_col,
-                                        include_col_header=not _first_col_done)
-            _first_col_done = True
+
+    all_rows = [col_hdr]
+    row_styles = []   # (row_idx, bg_color)
+    row_idx = 1       # 0 = col header
+
+    _groups_all = [
+        ([t for t in sorted_data if _reco(t.get('score_global')) == "BUY"],  "BUY",  _BUY_CLR,  _BUY_BG),
+        ([t for t in sorted_data if _reco(t.get('score_global')) == "HOLD"], "HOLD", _HOLD_CLR, _HOLD_BG),
+        ([t for t in sorted_data if _reco(t.get('score_global')) == "SELL"], "SELL", _SELL_CLR, _SELL_BG),
+    ]
+
+    def _mom_signal(t):
+        score = t.get('score_global') or 50
+        ev    = _fmt_mult(t.get('ev_ebitda'))
+        mg    = _fmt_pct(t.get('ebitda_margin'), sign=False)
+        rg    = _fmt_pct(t.get('revenue_growth'))
+        return f"EV/EBITDA {ev}  \u00b7  Mg {mg}  \u00b7  Rev {rg}"
+
+    for grp_tickers, grp_label, grp_col, grp_bg in _groups_all:
+        n = len(grp_tickers)
+        # Ligne separateur de groupe
+        sep_text = f"{grp_label} \u2014 {n} valeur{'s' if n != 1 else ''}"
+        sep_row = [Paragraph(f"<b>{sep_text}</b>", _S7H)] + [''] * 6
+        all_rows.append(sep_row)
+        row_styles.append((row_idx, grp_col, 'sep'))
+        row_idx += 1
+        # Lignes de données
+        for t in grp_tickers:
+            reco = _reco(t.get('score_global'))
+            rs = _S7G if reco == "BUY" else (_S7R if reco == "SELL" else _S7A)
+            mom = t.get('momentum_52w')
+            mom_str = _fmt_pct(mom) if mom is not None else "\u2014"
+            ms = _S7G if mom is not None and float(mom) > 0 else (_S7R if mom is not None and float(mom) < -0.05 else _S7C)
+            row = [
+                Paragraph(f"<b>{t.get('ticker','N/A')}</b>", _S7),
+                Paragraph((t.get('company') or 'N/A')[:22], _S7L),
+                Paragraph(f"{int(t.get('score_global') or 0)}/100", _S7C),
+                Paragraph(f"<b>{reco}</b>", rs),
+                Paragraph(_fmt_mult(t.get('ev_ebitda')), _S7C),
+                Paragraph(mom_str, ms),
+                Paragraph(_mom_signal(t), _S7L),
+            ]
+            all_rows.append(row)
+            row_styles.append((row_idx, grp_bg, 'data'))
+            row_idx += 1
+
+    # Construire la table
+    _t_all = Table(all_rows, colWidths=_CW, repeatRows=1)
+    ts_all = [
+        # Header
+        ('BACKGROUND',   (0,0),(-1,0), NAVY),
+        ('FONTNAME',     (0,0),(-1,0), 'Helvetica-Bold'),
+        ('FONTSIZE',     (0,0),(-1,0), 7.5),
+        ('TOPPADDING',   (0,0),(-1,0), 4), ('BOTTOMPADDING',(0,0),(-1,0), 4),
+        # Global
+        ('FONTSIZE',     (0,1),(-1,-1), 7),
+        ('VALIGN',       (0,0),(-1,-1), 'MIDDLE'),
+        ('TOPPADDING',   (0,1),(-1,-1), 2), ('BOTTOMPADDING',(0,1),(-1,-1), 2),
+        ('LEFTPADDING',  (0,0),(-1,-1), 4), ('RIGHTPADDING', (0,0),(-1,-1), 4),
+        ('GRID',         (0,1),(-1,-1), 0.2, GREY_MED),
+    ]
+    for ri, bg, kind in row_styles:
+        if kind == 'sep':
+            ts_all += [
+                ('BACKGROUND', (0,ri),(-1,ri), bg),
+                ('SPAN',       (0,ri),(-1,ri)),
+                ('TOPPADDING', (0,ri),(-1,ri), 3),
+                ('BOTTOMPADDING',(0,ri),(-1,ri), 3),
+            ]
         else:
-            # Bloc vide avec astérisque
-            n_cols = len(_COL_WIDTHS_PP)
-            _S_BLK2 = _style('blk_hdr2', size=8, leading=11, color=WHITE, bold=True, align=TA_LEFT)
-            hdr_text = f"{_g_label} \u2014 0 valeur"
-            hdr_row = [Paragraph(f"<b>{hdr_text}</b>", _S_BLK2)] + [''] * (n_cols - 1)
-            empty_note = (
-                "<i>Aucune valeur dans cette categorie. "
-                "* Pour une analyse approfondie par société (DCF, WACC, scénarios bear/base/bull, "
-                "protocole adversarial), lancer une Analyse Société FinSight IA.</i>"
-            )
-            empty_row = [Paragraph(empty_note, _S_EMPTY)] + [''] * (n_cols - 1)
-            _t_empty = Table([hdr_row, empty_row], colWidths=_COL_WIDTHS_PP)
-            _t_empty.setStyle(TableStyle([
-                ('BACKGROUND',   (0,0),(-1,0), _g_col),
-                ('SPAN',         (0,0),(-1,0)),
-                ('SPAN',         (0,1),(-1,1)),
-                ('FONTNAME',     (0,0),(-1,0), 'Helvetica-Bold'),
-                ('FONTSIZE',     (0,0),(-1,-1), 8),
-                ('VALIGN',       (0,0),(-1,-1), 'MIDDLE'),
-                ('TOPPADDING',   (0,0),(-1,-1), 5),
-                ('BOTTOMPADDING',(0,0),(-1,-1), 5),
-                ('LEFTPADDING',  (0,0),(-1,-1), 6),
-                ('RIGHTPADDING', (0,0),(-1,-1), 6),
-                ('LINEBELOW',    (0,-1),(-1,-1), 0.5, GREY_RULE),
-            ]))
-            elems += [_t_empty, Spacer(1, 2*mm)]
-    elems.append(src("FinSight IA \u2014 yfinance. Momentum 52 semaines. * Analyse appronfondie disponible via Analyse Société."))
+            ts_all.append(('BACKGROUND', (0,ri),(-1,ri), bg))
+    _t_all.setStyle(TableStyle(ts_all))
+    elems.append(_t_all)
+    elems.append(src("FinSight IA \u2014 yfinance. Momentum 52 semaines. Score FinSight composite (Value/Growth/Quality/Momentum). * Analyse approfondie (DCF, WACC, scenarios) via Analyse Societe."))
     elems.append(Spacer(1, 5*mm))
 
     # Top picks synthetique
