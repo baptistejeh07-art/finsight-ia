@@ -1411,9 +1411,24 @@ def _s19_sentiment(prs, D, chart_bytes: bytes):
 def _s20_etf_perf(prs, D, chart_bytes: bytes):
     slide = _blank(prs)
     indice = D.get("indice","")
+    etf_perf_check = D.get("etf_perf",{})
     _header(slide, "Performance des ETF Sectoriels — 52 Semaines",
-            f"{indice}  ·  ETF SPDR sectoriels  ·  Indexe a 100 au debut de la periode  ·  Donnees yfinance",
+            f"{indice}  ·  ETF sectoriels SPDR/iShares  ·  Indexe a 100 au debut de la periode  ·  Donnees yfinance",
             active=5)
+
+    if not etf_perf_check:
+        # Fallback propre si pas d'ETF disponibles pour cet indice
+        _rect(slide, 0.9, 2.3, 23.6, 11.1, fill=_GRAYL)
+        _rect(slide, 0.9, 2.3, 0.12, 11.1, fill=_NAVY)
+        _txb(slide, "Donnees ETF non disponibles pour cet indice",
+             2.0, 6.5, 21.5, 1.0, size=12, color=_GRAYT, align=PP_ALIGN.CENTER)
+        _txb(slide,
+             "Les ETF sectoriels SPDR sont references sur le marche US (S&P 500). "
+             "Pour les indices europeens (CAC 40, DAX, FTSE), les equivalents "
+             "iShares / Amundi ne sont pas encore integres dans le pipeline de donnees.",
+             2.0, 7.7, 21.5, 2.0, size=9, color=_GRAYT, wrap=True, align=PP_ALIGN.CENTER)
+        _footer(slide)
+        return slide
 
     _pic(slide, chart_bytes, 0.9, 2.3, 15.0, 11.1)
 
