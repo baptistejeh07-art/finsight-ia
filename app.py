@@ -1343,9 +1343,10 @@ def _fetch_perf_history(sym, indice_name, today):
         import yfinance as _yf2
         from datetime import timedelta as _td2
         _start = (today - _td2(days=380)).strftime("%Y-%m-%d")
-        _h = _yf2.Ticker(sym).history(start=_start)
-        _hb = _yf2.Ticker("^TNX").history(start=_start)
-        _hg = _yf2.Ticker("GC=F").history(start=_start)
+        _h   = _yf2.Ticker(sym).history(start=_start)
+        _hb  = _yf2.Ticker("^TNX").history(start=_start)
+        _hg  = _yf2.Ticker("GC=F").history(start=_start)
+        _hsp = _yf2.Ticker("^GSPC").history(start=_start)
         if _h is None or _h.empty:
             return None
         _base = float(_h["Close"].iloc[0])
@@ -1364,6 +1365,7 @@ def _fetch_perf_history(sym, indice_name, today):
             "indice": _i_perf,
             "bonds":  _rebase(_hb),
             "gold":   _rebase(_hg),
+            "sp500":  _rebase(_hsp),
             "label_start": _dates[0][:7] if _dates else "",
             "label_end":   _dates[-1][:7] if _dates else "",
             "indice_name": indice_name,
@@ -1658,6 +1660,18 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
                             else "Neutre")
     except Exception:
         pass
+    # ERP fallback : derive depuis la mediane PE constituants si l'indice ne fournit pas de PE
+    if erp_pct in ("—", "\u2014") and pe_str not in ("—", "\u2014"):
+        try:
+            _pe_num = float(pe_str.replace("x", "").strip())
+            if 3 < _pe_num < 100:
+                _erp_val2    = 1 / _pe_num - rf_rate_f
+                erp_pct      = f"{_erp_val2*100:.1f}%"
+                erp_signal_s = ("Tendu" if _erp_val2 < 0.02
+                                else "Favorable" if _erp_val2 > 0.04
+                                else "Neutre")
+        except Exception:
+            pass
 
     # ── ETF SPDR — P/B, DivYield, corrélation, portfolio optim ──────────
     _ETF_MAP_APP = {

@@ -361,9 +361,9 @@ def _chart_score_bars(secteurs: list) -> bytes:
 
 
 def _chart_ev_distribution(secteurs: list) -> bytes:
-    """Barres horizontales EV/EBITDA par secteur, colore par signal."""
+    """Barres horizontales EV/EBITDA par secteur, colore par signal.
+    Fallback Mg.EBITDA si EV/EBITDA absent (ex: CAC40, DAX40)."""
     sorted_all = sorted(secteurs, key=lambda s: _parse_x(s[4]), reverse=True)
-    # Exclure secteurs sans EV/EBITDA disponible (ev=0)
     sorted_s = [s for s in sorted_all if _parse_x(s[4]) > 0]
     if not sorted_s:
         sorted_s = sorted_all  # fallback si tous vides
@@ -377,15 +377,54 @@ def _chart_ev_distribution(secteurs: list) -> bytes:
     ax.set_facecolor('#F8F9FA')
 
     if not filtered_evs:
-        ax.text(0.5, 0.5, "EV/EBITDA non disponible\npour cet indice",
-                ha='center', va='center', transform=ax.transAxes, color='#999999', fontsize=11)
-        ax.set_xticks([]); ax.set_yticks([])
-        for sp in ax.spines.values(): sp.set_visible(False)
-        buf = io.BytesIO()
-        fig.savefig(buf, format='png', dpi=150, bbox_inches='tight', facecolor='white')
+        # Fallback Mg.EBITDA : barres horizontales de marge EBITDA par secteur
+        mg_data = [(s[0], s[5], s[3]) for s in secteurs
+                   if isinstance(s[5], (int, float)) and s[5] > 0]
+        if not mg_data:
+            # Dernier recours : placeholder texte
+            ax.text(0.5, 0.5, "Donnees non disponibles\npour cet indice",
+                    ha='center', va='center', transform=ax.transAxes,
+                    color='#999999', fontsize=11)
+            ax.set_xticks([]); ax.set_yticks([])
+            for sp in ax.spines.values(): sp.set_visible(False)
+            buf = io.BytesIO()
+            fig.savefig(buf, format='png', dpi=150, bbox_inches='tight', facecolor='white')
+            plt.close(fig)
+            buf.seek(0)
+            return buf.read()
         plt.close(fig)
-        buf.seek(0)
-        return buf.read()
+        mg_sorted = sorted(mg_data, key=lambda x: x[1], reverse=True)
+        fig2, ax2 = plt.subplots(figsize=(8.5, max(3.5, len(mg_sorted) * 0.42)))
+        fig2.patch.set_facecolor('#FFFFFF')
+        ax2.set_facecolor('#F8F9FA')
+        _noms2 = [_abbrev_sector(r[0], 18) for r in mg_sorted]
+        _vals2 = [r[1] for r in mg_sorted]
+        _cols2 = [_sig_hex(r[2]) for r in mg_sorted]
+        _med2  = float(np.median(_vals2))
+        _y2    = np.arange(len(_noms2))
+        _bars2 = ax2.barh(_y2, _vals2, color=_cols2, alpha=0.85, height=0.62,
+                          edgecolor='white', linewidth=0.5)
+        for _bar, _val in zip(_bars2, _vals2):
+            ax2.text(_bar.get_width() + 0.3, _bar.get_y() + _bar.get_height() / 2,
+                     f"{_val:.1f}%", va='center', ha='left', fontsize=7, color='#333333')
+        ax2.axvline(_med2, color='#1B3A6B', linewidth=1.0, linestyle='--', alpha=0.7,
+                    label=f"Med. {_med2:.1f}%")
+        ax2.legend(fontsize=7, framealpha=0.7, loc='lower right')
+        ax2.set_yticks(_y2)
+        ax2.set_yticklabels(_noms2, fontsize=7.5)
+        ax2.set_xlabel("Marge EBITDA (%)", fontsize=8, color='#555555')
+        ax2.tick_params(labelsize=7, colors='#777777')
+        ax2.spines['top'].set_visible(False)
+        ax2.spines['right'].set_visible(False)
+        ax2.spines['left'].set_visible(False)
+        ax2.grid(True, alpha=0.3, linestyle=':', axis='x')
+        plt.tight_layout()
+        _buf2 = io.BytesIO()
+        fig2.savefig(_buf2, format='png', dpi=150, bbox_inches='tight',
+                     facecolor='white', edgecolor='none')
+        plt.close(fig2)
+        _buf2.seek(0)
+        return _buf2.read()
 
     med = float(np.median(filtered_evs))
     y = np.arange(len(noms))
@@ -633,6 +672,7 @@ def _chart_index_perf(data: dict) -> bytes:
         i_perf  = ph.get("indice", [])
         b_perf  = ph.get("bonds", [])
         g_perf  = ph.get("gold", [])
+        sp_perf = ph.get("sp500", [])
         if not dates or not i_perf:
             return _make_empty_chart()
 
@@ -642,6 +682,9 @@ def _chart_index_perf(data: dict) -> bytes:
 
         ax.plot(dates, i_perf, color='#1B3A6B', lw=2.5,
                 label=ph.get("indice_name", "Indice"), zorder=3)
+        if len(sp_perf) == len(dates):
+            ax.plot(dates, sp_perf, color='#555555', lw=1.5, linestyle='-.',
+                    label="S&P 500", alpha=0.75, zorder=2)
         if len(b_perf) == len(dates):
             ax.plot(dates, b_perf, color='#A82020', lw=1.5, linestyle='--',
                     label="Obligations (^TNX)", alpha=0.8, zorder=2)
@@ -1098,7 +1141,7 @@ def _s07_cycle(prs, D):
                col_widths=[5.0, 2.5, 7.5], font_size=8, header_size=8, alt_fill=_GRAYL)
 
     # Allocation recommandee
-    alloc = _trunc(D.get("texte_cycle",""), 200)
+    alloc = _trunc(D.get("texte_cycle",""), 420)
     _rect(slide, 9.5, 9.3, 15.0, 2.9, fill=_GRAYL)
     _rect(slide, 9.5, 9.3, 0.1, 2.9, fill=_BUY)
     _txb(slide, "Allocation recommandee selon le positionnement de cycle",
@@ -1126,30 +1169,54 @@ def _s09_cartographie(prs, D):
         "sous-ponderer": "Sous-pondérer", "sous-pondérer": "Sous-pondérer",
         "neutre": "Neutre",
     }
-    rows = [["Rg", "Secteur", "Score", "Signal", "EV/EBITDA", "Mg.EBITDA", "Croiss.", "Mom."]]
-    for rang, s in enumerate(sorted_s, 1):
-        raw_sig = str(s[3])[:15]
-        norm_sig = _SIG_LABEL.get(raw_sig.strip().lower(), raw_sig)
-        rows.append([
-            str(rang),
-            _abbrev_sector(s[0], 20),
-            str(s[2]),
-            norm_sig,
-            str(s[4]),
-            f"{s[5]:.1f}%" if isinstance(s[5],(int,float)) and s[5] else "—",
-            str(s[6]) if len(s) > 6 else "—",
-            str(s[7]) if len(s) > 7 else "—",
-        ])
+    # Detect si EV/EBITDA disponible (au moins 1 valeur non "—")
+    _all_ev_dash = all(str(s[4]) in ("—", "", "None", "\u2014") for s in sorted_s)
 
-    tbl = _add_table(slide, rows, 0.9, 2.3, 23.6,
-                     min(7.5, 0.65 + len(rows) * 0.65),
-                     col_widths=[1.2, 4.5, 1.5, 3.5, 2.5, 2.5, 2.5, 2.5],
-                     font_size=8, header_size=8, alt_fill=_GRAYL)
+    if _all_ev_dash:
+        # Table sans colonne EV/EBITDA (5 colonnes)
+        rows = [["Rg", "Secteur", "Score", "Signal", "Mg.EBITDA", "Croiss.", "Mom."]]
+        for rang, s in enumerate(sorted_s, 1):
+            raw_sig = str(s[3])[:15]
+            norm_sig = _SIG_LABEL.get(raw_sig.strip().lower(), raw_sig)
+            rows.append([
+                str(rang),
+                _abbrev_sector(s[0], 20),
+                str(s[2]),
+                norm_sig,
+                f"{s[5]:.1f}%" if isinstance(s[5],(int,float)) and s[5] else "—",
+                str(s[6]) if len(s) > 6 else "—",
+                str(s[7]) if len(s) > 7 else "—",
+            ])
+        tbl = _add_table(slide, rows, 0.9, 2.3, 23.6,
+                         min(7.5, 0.65 + len(rows) * 0.65),
+                         col_widths=[1.2, 5.5, 1.8, 4.0, 3.5, 3.8, 3.8],
+                         font_size=8, header_size=8, alt_fill=_GRAYL)
+        sig_col = 3
+    else:
+        rows = [["Rg", "Secteur", "Score", "Signal", "EV/EBITDA", "Mg.EBITDA", "Croiss.", "Mom."]]
+        for rang, s in enumerate(sorted_s, 1):
+            raw_sig = str(s[3])[:15]
+            norm_sig = _SIG_LABEL.get(raw_sig.strip().lower(), raw_sig)
+            rows.append([
+                str(rang),
+                _abbrev_sector(s[0], 20),
+                str(s[2]),
+                norm_sig,
+                str(s[4]),
+                f"{s[5]:.1f}%" if isinstance(s[5],(int,float)) and s[5] else "—",
+                str(s[6]) if len(s) > 6 else "—",
+                str(s[7]) if len(s) > 7 else "—",
+            ])
+        tbl = _add_table(slide, rows, 0.9, 2.3, 23.6,
+                         min(7.5, 0.65 + len(rows) * 0.65),
+                         col_widths=[1.2, 4.5, 1.5, 3.5, 2.5, 2.5, 2.5, 2.5],
+                         font_size=8, header_size=8, alt_fill=_GRAYL)
+        sig_col = 3
 
     # Colorer signal cells
     for r in range(1, len(rows)):
         sig = sorted_s[r-1][3] if r-1 < len(sorted_s) else "Neutre"
-        _color_cell(tbl, r, 3, _sig_light(sig), _sig_color(sig))
+        _color_cell(tbl, r, sig_col, _sig_light(sig), _sig_color(sig))
 
     # Lecture analytique enrichie
     nb_surp = sum(1 for s in secteurs if "Surp" in str(s[3]))
@@ -1378,14 +1445,25 @@ def _s13_top3(prs, D):
                 evs = f"~{ev}"
             # Abrev signal
             sg_abbr = "Surp." if "Surp" in str(sg) else ("Sous." if "Sous" in str(sg) else "Neutre")
-            _txb(slide, tk,       xoff + 0.4,             yy + 0.1, 1.6, 0.55,
-                 size=8, bold=True, color=_NAVY)
-            _txb(slide, sg_abbr,  xoff + 0.4 + 1.6,       yy + 0.1, 1.5, 0.55,
-                 size=8, color=_sig_color(sg))
-            _txb(slide, str(evs), xoff + 0.4 + 1.6 + 1.5, yy + 0.1, 1.5, 0.55,
-                 size=8, color=_GRAYT)
-            _txb(slide, str(sc2), xoff + 0.4 + 1.6 + 1.5 + 1.5, yy + 0.1, 1.5, 0.55,
-                 size=8, color=_GRAYT)
+            _ev_absent = str(evs) in ("—", "", "None", "\u2014")
+            if _ev_absent:
+                # Layout 3 col : ticker | signal | score (pas d'EV)
+                _txb(slide, tk,      xoff + 0.4,       yy + 0.1, 2.4, 0.55,
+                     size=8, bold=True, color=_NAVY)
+                _txb(slide, sg_abbr, xoff + 0.4 + 2.4, yy + 0.1, 2.2, 0.55,
+                     size=8, color=_sig_color(sg))
+                _sc_lbl = f"Score : {sc2}" if str(sc2) not in ("—","","None") else ""
+                _txb(slide, _sc_lbl, xoff + 0.4 + 2.4 + 2.2, yy + 0.1, 2.2, 0.55,
+                     size=8, color=_GRAYT)
+            else:
+                _txb(slide, tk,       xoff + 0.4,             yy + 0.1, 1.6, 0.55,
+                     size=8, bold=True, color=_NAVY)
+                _txb(slide, sg_abbr,  xoff + 0.4 + 1.6,       yy + 0.1, 1.5, 0.55,
+                     size=8, color=_sig_color(sg))
+                _txb(slide, str(evs), xoff + 0.4 + 1.6 + 1.5, yy + 0.1, 1.5, 0.55,
+                     size=8, color=_GRAYT)
+                _txb(slide, str(sc2), xoff + 0.4 + 1.6 + 1.5 + 1.5, yy + 0.1, 1.5, 0.55,
+                     size=8, color=_GRAYT)
 
         # Catalyseur
         _txb(slide, "Catalyseur", xoff + 0.2, 6.9, panel_w - 0.3, 0.45,
@@ -1405,29 +1483,57 @@ def _s13_top3(prs, D):
 
 def _s14_distribution(prs, D, chart_bytes: bytes):
     slide = _blank(prs)
-    _header(slide, "Distribution des Valorisations Sectorielles",
-            "EV/EBITDA médian par secteur  ·  Vert = Surpondérer · Amber = Neutre · Rouge = Sous-pondérer",
-            active=3)
+    secteurs = D.get("secteurs",[])
+    evs_vals = [_parse_x(s[4]) for s in secteurs if _parse_x(s[4]) > 0]
+    _use_mg  = not bool(evs_vals)
+
+    if _use_mg:
+        _header(slide, "Distribution des Marges EBITDA Sectorielles",
+                "Marge EBITDA (%) par secteur  ·  Vert = Surponderer · Amber = Neutre · Rouge = Sous-ponderer",
+                active=3)
+    else:
+        _header(slide, "Distribution des Valorisations Sectorielles",
+                "EV/EBITDA median par secteur  ·  Vert = Surponderer · Amber = Neutre · Rouge = Sous-ponderer",
+                active=3)
 
     _pic(slide, chart_bytes, 0.9, 2.3, 14.0, 8.8)
 
-    # Lecture droite
-    secteurs = D.get("secteurs",[])
-    top_ev   = max(secteurs, key=lambda s: _parse_x(s[4]), default=None) if secteurs else None
-    bot_ev   = min(secteurs, key=lambda s: _parse_x(s[4]), default=None) if secteurs else None
-    evs = [_parse_x(s[4]) for s in secteurs if _parse_x(s[4]) > 0]
-    med = round(float(np.median(evs)), 1) if evs else 15.0
-
-    txt = ""
-    if top_ev and bot_ev:
-        txt = (
-            f"{top_ev[0]} traite a {top_ev[4]} — prime de "
-            f"{round((_parse_x(top_ev[4])/med - 1)*100):.0f} % vs la mediane sectorielle ({med}x). "
-            f"Cette prime est justifiee par une croissance BPA structurellement elevee.\n\n"
-            f"{bot_ev[0]} offre la valorisation la plus attractive ({bot_ev[4]}) mais "
-            f"le signal {bot_ev[3]} reflète les risques specifiques au secteur.\n\n"
-            f"Mediane sectorielle : {med}x EV/EBITDA — seuil de reference pour evaluer la cherté relative."
-        )
+    if _use_mg:
+        # Lecture basee sur Mg.EBITDA
+        mg_data = [(s[0], s[5], s[3]) for s in secteurs
+                   if isinstance(s[5], (int, float)) and s[5] > 0]
+        mg_sorted = sorted(mg_data, key=lambda x: x[1], reverse=True)
+        _med_mg = round(float(np.median([r[1] for r in mg_sorted])), 1) if mg_sorted else 20.0
+        _top_mg = mg_sorted[0]  if mg_sorted else None
+        _bot_mg = mg_sorted[-1] if mg_sorted else None
+        txt = ""
+        if _top_mg and _bot_mg:
+            txt = (
+                f"{_top_mg[0]} affiche la marge EBITDA la plus elevee "
+                f"({_top_mg[1]:.1f}%) — signal {_top_mg[2]} — "
+                f"superieure a la mediane sectorielle de {_med_mg:.1f}%.\n\n"
+                f"{_bot_mg[0]} presente la marge la plus basse "
+                f"({_bot_mg[1]:.1f}%) mais le signal {_bot_mg[2]} "
+                f"reflete les specificites structurelles du secteur.\n\n"
+                f"Mediane des marges EBITDA : {_med_mg:.1f}% — "
+                f"seuil de reference pour evaluer la rentabilite operationnelle relative.\n\n"
+                f"Note : EV/EBITDA non disponible via yfinance pour cet indice — "
+                f"la marge EBITDA est utilisee comme proxy de qualite operationnelle."
+            )
+    else:
+        top_ev = max(secteurs, key=lambda s: _parse_x(s[4]), default=None)
+        bot_ev = min(secteurs, key=lambda s: _parse_x(s[4]), default=None)
+        med    = round(float(np.median(evs_vals)), 1)
+        txt = ""
+        if top_ev and bot_ev:
+            txt = (
+                f"{top_ev[0]} traite a {top_ev[4]} — prime de "
+                f"{round((_parse_x(top_ev[4])/med - 1)*100):.0f} % vs la mediane sectorielle ({med}x). "
+                f"Cette prime est justifiee par une croissance BPA structurellement elevee.\n\n"
+                f"{bot_ev[0]} offre la valorisation la plus attractive ({bot_ev[4]}) mais "
+                f"le signal {bot_ev[3]} reflete les risques specifiques au secteur.\n\n"
+                f"Mediane sectorielle : {med}x EV/EBITDA — seuil de reference pour evaluer la cherte relative."
+            )
 
     _rect(slide, 15.4, 2.3, 9.1, 8.8, fill=_GRAYL)
     _rect(slide, 15.4, 2.3, 0.12, 8.8, fill=_NAVY)
