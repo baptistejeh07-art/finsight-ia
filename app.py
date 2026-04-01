@@ -776,8 +776,10 @@ def render_sidebar(results) -> None:
             if scr and scr.get("pptx_bytes"):
                 scr_name = scr.get("display_name", "secteur")
                 _pptx_slug = scr_name.lower().replace(' ', '_').replace('\u2014', '').strip()
+                _pptx_is_indice = scr.get("universe", "") not in _SECTOR_ALIASES_SET
+                _pptx_label = f"Pitchbook indice \u2193 .pptx" if _pptx_is_indice else "Pitchbook sectoriel \u2193 .pptx"
                 st.download_button(
-                    "Pitchbook sectoriel \u2193 .pptx",
+                    _pptx_label,
                     scr["pptx_bytes"],
                     file_name=f"pitchbook_{_pptx_slug}.pptx",
                     mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
@@ -1517,8 +1519,8 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
     # P/E fallback : médiane des constituants si l'indice ne retourne pas de P/E
     if pe_str == "\u2014" or pe_str == "—":
         try:
-            _pe_vals = [t["pe_ratio"] for t in tickers_data
-                        if t.get("pe_ratio") and 5 < t["pe_ratio"] < 80]
+            _pe_vals = [(t.get("pe_ratio") or t.get("pe")) for t in tickers_data
+                        if (t.get("pe_ratio") or t.get("pe")) and 5 < (t.get("pe_ratio") or t.get("pe")) < 80]
             if _pe_vals:
                 pe_str = f"{_med(_pe_vals):.1f}x"
         except Exception:

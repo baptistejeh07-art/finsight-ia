@@ -1482,50 +1482,62 @@ class IndicePPTXWriter:
         prs.slide_width  = _SW
         prs.slide_height = _SH
 
+        def _safe(fn, *args, label="slide"):
+            try:
+                fn(*args)
+            except Exception as _e:
+                log.warning("IndicePPTXWriter: %s: %s", label, _e)
+                sl = prs.slides.add_slide(prs.slide_layouts[6])
+                _txb(sl, label, 0.5*_CM, 0.5*_CM, 8*_CM, 1.0*_CM, 11, bold=False)
+
         # Slide 1 — Cover
-        _s01_cover(prs, data)
+        _safe(_s01_cover, prs, data, label="s01_cover")
         # Slide 2 — Executive Summary
-        _s02_exec_summary(prs, data)
+        _safe(_s02_exec_summary, prs, data, label="s02_exec_summary")
         # Slide 3 — Sommaire
-        _s03_sommaire(prs, data)
+        _safe(_s03_sommaire, prs, data, label="s03_sommaire")
         # Slide 4 — Chapter 01 divider
-        _chapter_divider(prs, "01", "Synthèse Macro & Signal Global",
-                         "Valorisation top-down · ERP · Cycle économique · Catalyseurs & risques")
+        _safe(_chapter_divider, prs, "01", "Synth\u00e8se Macro & Signal Global",
+              "Valorisation top-down \u00b7 ERP \u00b7 Cycle \u00e9conomique \u00b7 Catalyseurs & risques",
+              label="s04_divider")
         # Slide 5 — Description de l'Indice
-        _s05_description(prs, data)
+        _safe(_s05_description, prs, data, label="s05_description")
         # Slide 6 — Valorisation Macro Top-Down
-        _s06_valorisation(prs, data)
+        _safe(_s06_valorisation, prs, data, label="s06_valorisation")
         # Slide 7 — Positionnement dans le Cycle
-        _s07_cycle(prs, data)
+        _safe(_s07_cycle, prs, data, label="s07_cycle")
         # Slide 8 — Chapter 02 divider
-        _chapter_divider(prs, "02", "Cartographie des Secteurs",
-                         f"{data.get('nb_secteurs',11)} secteurs GICS · Scores · Scatter valorisation · Décomposition")
+        _safe(_chapter_divider, prs, "02", "Cartographie des Secteurs",
+              f"{data.get('nb_secteurs',11)} secteurs GICS \u00b7 Scores \u00b7 Scatter valorisation \u00b7 D\u00e9composition",
+              label="s08_divider")
         # Slide 9 — Cartographie des Secteurs
-        _s09_cartographie(prs, data)
+        _safe(_s09_cartographie, prs, data, label="s09_cartographie")
         # Slide 10 — Valorisation vs Croissance BPA
-        _s10_scatter(prs, data, scatter_bytes)
+        _safe(_s10_scatter, prs, data, scatter_bytes, label="s10_scatter")
         # Slide 11 — Decomposition des Scores
-        _s11_decomposition(prs, data)
+        _safe(_s11_decomposition, prs, data, label="s11_decomposition")
         # Slide 12 — Chapter 03 divider
-        _chapter_divider(prs, "03", "Top 3 Secteurs Recommandés",
-                         "Synthèse signal · Sociétés représentatives · Zone d'entrée · Distribution")
+        _safe(_chapter_divider, prs, "03", "Top 3 Secteurs Recommand\u00e9s",
+              "Synth\u00e8se signal \u00b7 Soci\u00e9t\u00e9s repr\u00e9sentatives \u00b7 Zone d'entr\u00e9e \u00b7 Distribution",
+              label="s12_divider")
         # Slide 13 — Top 3 Secteurs
-        _s13_top3(prs, data)
+        _safe(_s13_top3, prs, data, label="s13_top3")
         # Slide 14 — Distribution valorisations
-        _s14_distribution(prs, data, ev_bytes)
+        _safe(_s14_distribution, prs, data, ev_bytes, label="s14_distribution")
         # Slide 15 — Zone d'Entree
-        _s15_zone_entree(prs, data, zone_bytes)
+        _safe(_s15_zone_entree, prs, data, zone_bytes, label="s15_zone_entree")
         # Slide 16 — Chapter 04 divider
-        _chapter_divider(prs, "04", "Risques, Rotation & Sentiment",
-                         "Scénarios alternatifs · Rotation sectorielle · FinBERT · Performance ETF")
+        _safe(_chapter_divider, prs, "04", "Risques, Rotation & Sentiment",
+              "Sc\u00e9narios alternatifs \u00b7 Rotation sectorielle \u00b7 FinBERT \u00b7 Performance ETF",
+              label="s16_divider")
         # Slide 17 — Risques Macro & Scenarios
-        _s17_risques(prs, data)
+        _safe(_s17_risques, prs, data, label="s17_risques")
         # Slide 18 — Rotation Sectorielle
-        _s18_rotation(prs, data)
+        _safe(_s18_rotation, prs, data, label="s18_rotation")
         # Slide 19 — Sentiment FinBERT
-        _s19_sentiment(prs, data, sent_bytes)
+        _safe(_s19_sentiment, prs, data, sent_bytes, label="s19_sentiment")
         # Slide 20 — Performance ETF
-        _s20_etf_perf(prs, data, etf_bytes)
+        _safe(_s20_etf_perf, prs, data, etf_bytes, label="s20_etf_perf")
 
         buf = io.BytesIO()
         prs.save(buf)

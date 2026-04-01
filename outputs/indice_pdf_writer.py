@@ -217,27 +217,19 @@ def make_scatter_sectoriel(data):
     crois = [_safe_float(s[6], 0.0)  for s in secteurs]
     sigs  = [s[3] for s in secteurs]
     cols  = [sig_hex(s) for s in sigs]
-    # Offsets calculés dynamiquement pour éviter les superpositions
-    offsets = []
-    for i in range(len(secteurs)):
-        ox, oy = 8, 6  # défaut : droite-haut
-        # Vérifier si un point précédent est proche
-        for j in range(i):
-            try:
-                if abs(crois[i] - crois[j]) < 2.5 and abs(ev[i] - ev[j]) < 2.5:
-                    oy = -14 if i % 2 == 0 else 6
-                    ox = 8 if crois[i] >= crois[j] else -52
-                    break
-            except Exception:
-                pass
-        offsets.append((ox, oy))
     fig, ax = plt.subplots(figsize=(9.0, 5.2))
-    for nom, x, y, col, off in zip(noms_abr, crois, ev, cols, offsets):
+    texts = []
+    for nom, x, y, col in zip(noms_abr, crois, ev, cols):
         ax.scatter(x, y, color=col, s=180, zorder=4, alpha=0.88,
                    edgecolors='white', linewidth=0.8)
-        ap = dict(arrowstyle='-', color=col, lw=0.5, alpha=0.5) if abs(off[0]) > 20 else None
-        ax.annotate(nom, (x, y), textcoords='offset points', xytext=off,
-                    fontsize=9, color=col, fontweight='bold', arrowprops=ap)
+        texts.append(ax.text(x, y, nom, fontsize=8.5, color=col, fontweight='bold'))
+    try:
+        from adjustText import adjust_text
+        adjust_text(texts, x=crois, y=ev, ax=ax,
+                    arrowprops=dict(arrowstyle='-', color='#aaa', lw=0.5, alpha=0.6),
+                    expand_points=(1.4, 1.4), force_text=(0.5, 0.8))
+    except ImportError:
+        pass
     med_ev = np.median(ev); med_cr = np.median(crois)
     ax.axhline(y=med_ev, color='#D0D5DD', linewidth=0.9, linestyle='--', alpha=0.8)
     ax.axvline(x=med_cr, color='#D0D5DD', linewidth=0.9, linestyle='--', alpha=0.8)
@@ -728,50 +720,33 @@ def _build_synthese(data, perf_buf, registry=None):
     _drivers = _macro.get("recession_drivers", [])
 
     if _regime and _regime != "Inconnu":
-        _REGIME_S = {
-            "Bull":       S_TD_G, "Bear":       S_TD_R,
-            "Volatile":   S_TD_A, "Transition": S_TD_A,
+        elems.append(Paragraph("Environnement macro — Regime de marche", S_SUBSECTION))
+        elems.append(Spacer(1, 2*mm))
+        _vix_str    = f"{_vix:.0f}" if _vix    is not None else "indetermine"
+        _spread_str = f"{_spread:+.1f}%" if _spread is not None else "non disponible"
+        _sp_ma_str  = f"{_sp_ma:+.1f}%" if _sp_ma  is not None else "non disponible"
+        _sp_trend   = _macro.get("sp500_trend", "indeterminee")
+        _regime_labels = {
+            "Bull": "haussier", "Bear": "baissier",
+            "Volatile": "volatile", "Transition": "de transition",
         }
-        _reg_style = _REGIME_S.get(_regime, S_TD_BC)
-        _rec_style = (S_TD_R if _rec_lvl == "Elevee" else
-                      (S_TD_A if _rec_lvl == "Moderee" else S_TD_G))
-
-        reg_h = [Paragraph(h, S_TH_C) for h in
-                 ["Regime de marche", "VIX", "Spread 10Y-3M", "S&P vs MA200", "Tendance"]]
-        vix_str    = f"{_vix:.0f}" if _vix    is not None else "—"
-        spread_str = f"{_spread:+.1f}%" if _spread is not None else "—"
-        sp_ma_str  = f"{_sp_ma:+.1f}%" if _sp_ma  is not None else "—"
-        sp_trend   = _macro.get("sp500_trend", "—")
-
-        reg_row = [
-            Paragraph(f"<b>{_regime}</b>", _reg_style),
-            Paragraph(vix_str,    S_TD_BC),
-            Paragraph(spread_str, S_TD_BC),
-            Paragraph(sp_ma_str,  S_TD_BC),
-            Paragraph(sp_trend,   S_TD_C),
-        ]
-        elems.append(KeepTogether([
-            Paragraph("Environnement macro — Regime de marche", S_SUBSECTION),
-            Spacer(1, 2*mm),
-            tbl([reg_h, reg_row], cw=[36*mm, 22*mm, 34*mm, 34*mm, 44*mm]),
-        ]))
-
+        _regime_lbl = _regime_labels.get(_regime, _regime.lower())
+        elems.append(Paragraph(
+            f"<b>Regime de marche : {_regime}.</b> L'environnement macro est actuellement "
+            f"{_regime_lbl}, avec un VIX a {_vix_str}, un spread 10Y-3M de {_spread_str} "
+            f"et le S&P 500 a {_sp_ma_str} de sa moyenne mobile 200 jours. "
+            f"La tendance de fond reste {_sp_trend.lower()}.", S_BODY))
+        elems.append(Spacer(1, 2*mm))
         if _rec_6m is not None:
-            rec_h = [Paragraph(h, S_TH_C) for h in
-                     ["Horizon", "Probabilite recession", "Niveau", "Principaux signaux"]]
-            drivers_str = " \u00b7 ".join(_drivers[:2]) if _drivers else "Aucun signal recessif dominant"
-            rec_rows = [
-                [Paragraph("6 mois",  S_TD_C),
-                 Paragraph(f"<b>{_rec_6m}%</b>", _rec_style),
-                 Paragraph(_rec_lvl, _rec_style),
-                 Paragraph(drivers_str, S_TD_L)],
-                [Paragraph("12 mois", S_TD_C),
-                 Paragraph(f"{_rec_12m}%", S_TD_C),
-                 Paragraph(_rec_lvl, S_TD_C),
-                 Paragraph("Incertitude croissante sur horizon etendu", S_TD_L)],
-            ]
-            elems.append(Spacer(1, 2*mm))
-            elems.append(tbl([rec_h] + rec_rows, cw=[24*mm, 36*mm, 28*mm, 82*mm]))
+            _drivers_str = " et ".join(_drivers[:2]) if _drivers else "aucun signal recessif dominant"
+            _rec_qualif  = ("elevee" if _rec_lvl == "Elevee" else
+                            ("moderee" if _rec_lvl == "Moderee" else "faible"))
+            elems.append(Paragraph(
+                f"<b>Risque de recession.</b> La probabilite de recession sur 6 mois est estimee "
+                f"a <b>{_rec_6m}%</b> (niveau {_rec_qualif}), contre {_rec_12m}% sur 12 mois. "
+                f"Les principaux signaux d'alerte incluent {_drivers_str}. "
+                "Cette evaluation est indicative et fondee sur des indicateurs de marche "
+                "(VIX, courbe des taux, momentum) plutot que sur un modele econometrique.", S_BODY))
             elems.append(src(
                 "Indicateur de marche (non econometrique) : VIX + spread 10Y-3M + "
                 "position S&P 500 vs MA200 + momentum 6M. Source : FinSight IA / yfinance."))
@@ -1504,17 +1479,16 @@ def _build_risques(data, registry=None):
         "de l'indice et les multiples.", S_BODY))
     elems.append(Spacer(1, 2*mm))
 
-    risk_h = [Paragraph(h, S_TH_L) for h in ["Risque macro","Mecanisme","Prob.","Impact"]]
-    risk_rows = []
     for nom, mec, prob, impact in data["risques"]:
-        p_int = int(str(prob).replace('%',''))
-        ps  = S_TD_R if p_int >= 40 else (S_TD_A if p_int >= 25 else S_TD_G)
-        is_ = S_TD_R if impact in ("Eleve", "\xc9lev\xe9") else S_TD_A
-        risk_rows.append([Paragraph(nom, S_TD_B), Paragraph(mec, S_TD_L),
-                          Paragraph(str(prob), ps), Paragraph(impact, is_)])
-    # [36, 95, 14, 25] = 170 — compact pad 3mm, Impact 25mm donne 19mm texte
-    elems.append(KeepTogether(tbl([risk_h] + risk_rows,
-        cw=[36*mm, 95*mm, 14*mm, 25*mm], compact=True)))
+        try:
+            p_int = int(str(prob).replace('%',''))
+        except (ValueError, TypeError):
+            p_int = 30
+        _prob_qualif = ("elevee" if p_int >= 40 else ("moderee" if p_int >= 25 else "faible"))
+        elems.append(Paragraph(
+            f"<b>{nom} ({prob}, impact {impact.lower()}).</b> {mec} "
+            f"La probabilite de materialisation sur 12 mois est jugee {_prob_qualif}.", S_BODY))
+        elems.append(Spacer(1, 2*mm))
     elems.append(src(
         f"FinSight IA — Analyse adversariale. Probabilites estimees au {data['date_analyse']}."))
     elems.append(Spacer(1, 4*mm))
