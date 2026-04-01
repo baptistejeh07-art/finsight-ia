@@ -397,10 +397,11 @@ def _chart_zone_entree(data: dict) -> bytes:
     # Construire mapping nom -> (pe_fwd, pe_med)
     pe_data = {}
     for s in top3:
-        pe_data[s["nom"]] = (
-            s.get("pe_forward_raw", 0),
-            s.get("pe_mediane_10y", 18.0),
-        )
+        pe_fwd = s.get("pe_forward_raw", 0) or 0
+        if pe_fwd <= 0:
+            # Estimation depuis le score si pas de PE disponible
+            pe_fwd = round(10 + s.get("score", 50) * 0.22, 1)
+        pe_data[s["nom"]] = (pe_fwd, s.get("pe_mediane_10y", 18.0))
 
     # Pour les autres secteurs, estimer pe_fwd depuis score
     # pe_fwd = 10 + score * 0.25 (approximation)
