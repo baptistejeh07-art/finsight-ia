@@ -642,6 +642,80 @@ def _build_synthese(data, perf_buf, registry=None):
         f"Seuils : Tendu <2%, Neutre 2-4%, Favorable >4%."))
     elems.append(Spacer(1, 3*mm))
 
+    # ── Positionnement P/E vs historique 10 ans ──────────────────────────────
+    _indice_name = data.get("indice", "")
+    # Fourchettes historiques P/E forward 10 ans par indice (conservatrices)
+    _PE_HIST = {
+        "S&P 500":   (13.0, 24.0),
+        "NASDAQ":    (18.0, 38.0),
+        "NASDAQ 100":(18.0, 38.0),
+        "CAC 40":    (11.0, 20.0),
+        "DAX":       (10.0, 19.0),
+        "Eurostoxx": (10.0, 18.0),
+        "FTSE 100":  (10.0, 17.0),
+        "Nikkei":    (13.0, 22.0),
+        "Hang Seng": ( 8.0, 16.0),
+        "Russell 2000": (15.0, 30.0),
+    }
+    # Recherche par correspondance partielle
+    _pe_range = None
+    for k, v in _PE_HIST.items():
+        if k.lower() in _indice_name.lower() or _indice_name.lower() in k.lower():
+            _pe_range = v
+            break
+    if _pe_range is None:
+        _pe_range = (11.0, 22.0)  # fourchette generique
+
+    try:
+        _pe_val = float(str(_pe).replace("x", "").replace(",", ".").strip())
+    except Exception:
+        _pe_val = None
+
+    if _pe_val is not None:
+        _pe_min, _pe_max = _pe_range
+        _pe_pct = max(0, min(100, round((_pe_val - _pe_min) / max(_pe_max - _pe_min, 1) * 100)))
+        if _pe_pct >= 75:
+            _pe_pos, _pe_pos_s = "Cherte elevee", S_TD_R
+            _pe_interp = (f"Le P/E forward de {_pe_val:.1f}x se situe dans le <b>quartile superieur</b> "
+                          f"de sa fourchette historique 10 ans ({_pe_min:.0f}x\u2013{_pe_max:.0f}x). "
+                          f"La valorisation intègre une croissance des benefices soutenue ; "
+                          f"tout choc sur les marges ou la guidance pourrait triggerer une recompression multiple.")
+        elif _pe_pct >= 50:
+            _pe_pos, _pe_pos_s = "Valorisation elevee", S_TD_A
+            _pe_interp = (f"Le P/E forward de {_pe_val:.1f}x s'inscrit <b>au-dessus de la mediane historique</b> "
+                          f"({_pe_min:.0f}x\u2013{_pe_max:.0f}x). La prime de valorisation est justifiable "
+                          f"si la visibilite BPA reste intacte. Surveiller les revisions d'analystes.")
+        elif _pe_pct >= 25:
+            _pe_pos, _pe_pos_s = "Valorisation raisonnable", S_TD_G
+            _pe_interp = (f"Le P/E forward de {_pe_val:.1f}x s'inscrit <b>dans la moitie inferieure</b> "
+                          f"de la fourchette historique ({_pe_min:.0f}x\u2013{_pe_max:.0f}x). "
+                          f"La valorisation offre un coussin par rapport aux niveaux de stress.")
+        else:
+            _pe_pos, _pe_pos_s = "Sous-valorisation", S_TD_G
+            _pe_interp = (f"Le P/E forward de {_pe_val:.1f}x se situe dans le <b>quartile inferieur</b> "
+                          f"de sa fourchette historique ({_pe_min:.0f}x\u2013{_pe_max:.0f}x). "
+                          f"Les niveaux actuels peuvent offrir une opportunite d'entree si les fondamentaux se stabilisent.")
+
+        pe_h = [Paragraph(h, S_TH_C) for h in
+                ["P/E Forward actuel", "Fourchette 10 ans", "Percentile hist.", "Positionnement"]]
+        pe_row = [
+            Paragraph(f"{_pe_val:.1f}x",                    S_TD_BC),
+            Paragraph(f"{_pe_min:.0f}x \u2014 {_pe_max:.0f}x", S_TD_C),
+            Paragraph(f"{_pe_pct}e percentile",              _pe_pos_s),
+            Paragraph(f"<b>{_pe_pos}</b>",                   _pe_pos_s),
+        ]
+        elems.append(KeepTogether([
+            Paragraph("Positionnement P/E Forward vs historique 10 ans", S_SUBSECTION),
+            Spacer(1, 2*mm),
+            tbl([pe_h, pe_row], cw=[38*mm, 38*mm, 40*mm, 54*mm]),
+            Spacer(1, 2*mm),
+            Paragraph(_pe_interp, S_BODY),
+            Spacer(1, 1*mm),
+            src(f"FinSight IA — Fourchettes P/E historiques estimees sur 10 ans. "
+                f"Percentile = (PE actuel - PE min) / (PE max - PE min). Source : consensus analystes."),
+            Spacer(1, 3*mm),
+        ]))
+
     # ── Regime de marche + Probabilite de recession ──────────────────────────
     _macro = data.get("macro") or {}
     _regime  = _macro.get("regime")

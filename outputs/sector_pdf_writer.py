@@ -1753,6 +1753,89 @@ def _build_risques(tickers_data: list[dict], sector_name: str, registry=None):
     elems.append(KeepTogether(tbl([sent_h] + sent_rows,
                                    cw=[24*mm, 20*mm, 26*mm, 100*mm])))
     elems.append(src("FinBERT \u2014 Corpus presse financiere anglophone. Estimation FinSight IA."))
+    elems.append(Spacer(1, 4*mm))
+
+    # ── Qualite fondamentale agregee — mediane sectorielle ─────────────────
+    elems.append(Paragraph("Qualite fondamentale agregee du secteur", S_SUBSECTION))
+    elems.append(Paragraph(
+        f"Le tableau ci-dessous agrege les indicateurs de qualite bilancielle et de soutenabilite "
+        f"financiere des {len(tickers_data)} composantes du secteur {sector_name}. "
+        f"La mediane sectorielle est contextualisee par rapport aux seuils de vigilance institutionnels "
+        f"utilises par les analystes buy-side.", S_BODY))
+    elems.append(Spacer(1, 2*mm))
+
+    def _med(vals):
+        v = [x for x in vals if x is not None]
+        if not v: return None
+        v.sort(); m = len(v)//2
+        return v[m] if len(v)%2 else (v[m-1]+v[m])/2
+
+    nd_med  = _med([t.get("nd_ebitda")   for t in tickers_data])
+    fcf_med = _med([t.get("fcf_yield")   for t in tickers_data])
+    sg_med  = _med([t.get("score_global") for t in tickers_data])
+    pb_med  = _med([t.get("pb")           for t in tickers_data])
+    roe_med = _med([t.get("roe")          for t in tickers_data])
+
+    def _nd_style(v):
+        return S_TD_G if v is not None and v < 2.0 else (S_TD_A if v is not None and v < 4.0 else S_TD_R)
+    def _fcf_style(v):
+        return S_TD_G if v is not None and v > 4.0 else (S_TD_A if v is not None and v > 1.0 else S_TD_R)
+    def _sg_style(v):
+        return S_TD_G if v is not None and v >= 60 else (S_TD_A if v is not None and v >= 40 else S_TD_R)
+
+    fund_h = [Paragraph(h, S_TH_C) for h in
+              ["Metrique", "Mediane secteur", "Seuil vigilance", "Evaluation"]]
+    fund_rows_data = [
+        ("ND/EBITDA (levier)", nd_med,
+         f"{nd_med:.1f}x" if nd_med is not None else "N/D",
+         "< 2x sain  \u00b7  > 4x alerte",
+         _nd_style(nd_med),
+         ("Levier maitrise" if nd_med is not None and nd_med < 2.0 else
+          "Levier surveiller" if nd_med is not None and nd_med < 4.0 else "Levier excessif")),
+        ("FCF Yield (%)", fcf_med,
+         f"{fcf_med:.1f}%" if fcf_med is not None else "N/D",
+         "> 4% attractif  \u00b7  < 1% insuffisant",
+         _fcf_style(fcf_med),
+         ("Generation cash solide" if fcf_med is not None and fcf_med > 4.0 else
+          "Generation cash correcte" if fcf_med is not None and fcf_med > 1.0 else "Faible generation cash")),
+        ("Score sante global (/100)", sg_med,
+         f"{sg_med:.0f}/100" if sg_med is not None else "N/D",
+         ">= 60 solide  \u00b7  < 40 fragile",
+         _sg_style(sg_med),
+         ("Bilan sectoriel solide" if sg_med is not None and sg_med >= 60 else
+          "Bilan sectoriel correct" if sg_med is not None and sg_med >= 40 else "Bilan sectoriel fragile")),
+    ]
+    if pb_med is not None:
+        fund_rows_data.append((
+            "P/Book (valorisation)", pb_med,
+            f"{pb_med:.1f}x",
+            "1-3x raisonnable",
+            S_TD_G if pb_med < 3.0 else (S_TD_A if pb_med < 5.0 else S_TD_R),
+            "Valorisation normale" if pb_med < 3.0 else "Prime de croissance",
+        ))
+    if roe_med is not None:
+        fund_rows_data.append((
+            "ROE median (%)", roe_med,
+            f"{roe_med:.1f}%",
+            "> 15% excellent  \u00b7  < 8% faible",
+            S_TD_G if roe_med > 15 else (S_TD_A if roe_med > 8 else S_TD_R),
+            "ROE solide" if roe_med > 15 else ("ROE acceptable" if roe_med > 8 else "ROE insuffisant"),
+        ))
+
+    fund_rows = []
+    for label, _, val_str, seuil, style, eval_txt in fund_rows_data:
+        fund_rows.append([
+            Paragraph(label,    S_TD_L),
+            Paragraph(val_str,  style),
+            Paragraph(seuil,    S_TD_C),
+            Paragraph(f"<b>{eval_txt}</b>", style),
+        ])
+    elems.append(KeepTogether([
+        tbl([fund_h] + fund_rows, cw=[46*mm, 32*mm, 52*mm, 40*mm]),
+        src("FinSight IA \u2014 Mediane calculee sur les composantes du secteur. "
+            "ND/EBITDA : dette nette / EBITDA. FCF Yield : FCF / Market Cap. "
+            "Score sante : composite FinSight (Altman Z, bilan, FCF, levier)."),
+    ]))
     return elems
 
 

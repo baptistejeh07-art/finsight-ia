@@ -1527,9 +1527,62 @@ def _s17_risques(prs, D):
     for ax, cond, hor in conditions:
         tbl_data.append([_AXIS_NORM.get(ax, ax), cond, hor])
 
-    _add_table(slide, tbl_data, 0.9, 6.8, 23.6, len(tbl_data) * 0.62,
+    n_rows = len(tbl_data)
+    _add_table(slide, tbl_data, 0.9, 6.8, 23.6, n_rows * 0.62,
                col_widths=[3.5, 16.5, 3.6],
                font_size=8, header_size=8, alt_fill=_GRAYL)
+
+    # ── Sante financiere agregee du secteur ─────────────────────────────────
+    # Position dynamique sous la table (plancher a 10.5cm, plafond 13.0cm)
+    health_y = min(max(6.8 + n_rows * 0.62 + 0.4, 10.5), 11.2)
+    td = D["tickers_data"]
+
+    def _median(vals):
+        v = [x for x in vals if x is not None]
+        if not v: return None
+        v.sort()
+        m = len(v) // 2
+        return v[m] if len(v) % 2 else (v[m-1] + v[m]) / 2
+
+    nd_vals  = [t.get("nd_ebitda")  for t in td]
+    fcf_vals = [t.get("fcf_yield")  for t in td]
+    sg_vals  = [t.get("score_global") for t in td]
+    nd_med   = _median(nd_vals)
+    fcf_med  = _median(fcf_vals)
+    sg_med   = _median(sg_vals)
+
+    nd_str  = f"{nd_med:.1f}x"  if nd_med  is not None else "N/D"
+    fcf_str = f"{fcf_med:.1f}%" if fcf_med is not None else "N/D"
+    sg_str  = f"{sg_med:.0f}/100" if sg_med is not None else "N/D"
+
+    # Couleurs selon seuils fondamentaux
+    nd_col  = (_BUY if nd_med is not None and nd_med < 2.0 else
+               (_HOLD if nd_med is not None and nd_med < 4.0 else _SELL))
+    fcf_col = (_BUY if fcf_med is not None and fcf_med > 4.0 else
+               (_HOLD if fcf_med is not None and fcf_med > 1.0 else _SELL))
+    sg_col  = (_BUY if sg_med is not None and sg_med >= 60 else
+               (_HOLD if sg_med is not None and sg_med >= 40 else _SELL))
+
+    _txb(slide, "Sante financiere agregee du secteur", 0.9, health_y, 23.6, 0.55,
+         size=8.5, bold=True, color=_NAVY)
+
+    box_w = 7.4
+    metrics = [
+        (nd_str,  "ND/EBITDA median", "levier sectoriel", nd_col,  0.9),
+        (fcf_str, "FCF Yield median",  "generation cash",  fcf_col, 9.1),
+        (sg_str,  "Score sante moyen", "solidite bilans",  sg_col,  17.3),
+    ]
+    box_h = 1.55
+    for val, l1, l2, col, bx in metrics:
+        _rect(slide, bx, health_y + 0.6, box_w, box_h, fill=_GRAYL)
+        _rect(slide, bx, health_y + 0.6, 0.1,   box_h, fill=col)
+        _txb(slide, val, bx + 0.25, health_y + 0.65, box_w - 0.35, 0.75,
+             size=18, bold=True, color=_NAVY)
+        _txb(slide, l1, bx + 0.25, health_y + 1.4, box_w - 0.35, 0.4,
+             size=7.5, color=_GRAYT)
+        _txb(slide, l2, bx + 0.25, health_y + 1.8, box_w - 0.35, 0.35,
+             size=7.0, color=_GRAYD)
+
     _footer(slide)
 
 

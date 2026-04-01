@@ -2179,48 +2179,94 @@ def _slide_risques(prs, snap, synthesis, devil, extra_scores: dict = None):
         except Exception:
             pass
 
-    # --- Bande scores compact (12.35 → 13.15) : Distress + M&A + Regime ------
+    # --- Bande scores compact : 2 lignes (12.30 → 13.33) ----------------------
+    # Ligne 1 : Detresse · M&A · Regime macroeconomique
+    # Ligne 2 : Qualite Earnings · Structure Capital · Soutenabilite Dividende
     # Zone disponible : 12.24 (fin table) → 13.39 (footer) = 1.15cm
     if extra_scores:
         _dist  = extra_scores.get('composite_distress') or {}
         _ma    = extra_scores.get('ma_score')           or {}
         _macro = extra_scores.get('macro')              or {}
+        _eq    = extra_scores.get('earnings_quality')   or {}
+        _cs    = extra_scores.get('capital_structure')  or {}
+        _ds    = extra_scores.get('dividend_sustainability') or {}
 
         _CMAP = {
-            'Sain': "1A7A4A", 'Modere': AMBER, 'Moderé': AMBER,
+            'Sain': "1A7A4A", 'Saine': "1A7A4A",
+            'Modere': AMBER, 'Moderé': AMBER, 'Moderee': AMBER,
             'Vigilance': AMBER, 'Critique': RED,
             'Tres attractive': "1A7A4A", 'Attractive': "1A7A4A",
             'Moderate': AMBER, 'Peu attractive': RED,
             'Bull': "1A7A4A", 'Bear': RED,
             'Volatile': AMBER, 'Transition': AMBER,
+            'Excellente': "1A7A4A", 'Correcte': "1B3A6B",
+            'Faible': RED, 'N/D': "B0B0B0",
+            'Tres soutenable': "1A7A4A", 'Soutenable': "1A7A4A",
+            'Tendu': AMBER, 'Insoutenable': RED,
         }
 
-        strip_y = 12.30
-        strip_h = 0.90
+        strip_h = 0.50
+        gap     = 0.03
         bx_w    = 7.79
         bx_x    = [1.02, 9.01, 17.01]
 
-        items = []
+        # --- Ligne 1 : Distress / M&A / Regime ---
+        row1_y  = 12.30
+        row1_items = []
         if _dist.get('score') is not None:
             d_lbl = _dist.get('label', '—')
-            items.append((f"Detresse : {_dist['score']}/100 — {d_lbl}",
-                          _CMAP.get(d_lbl, NAVY)))
+            row1_items.append((f"Detresse : {_dist['score']}/100  {d_lbl}",
+                               _CMAP.get(d_lbl, NAVY)))
         if _ma.get('score') is not None:
             m_lbl = _ma.get('label', '—')
-            items.append((f"M&A : {_ma['score']}/100 — {m_lbl}",
-                          _CMAP.get(m_lbl, NAVY)))
+            row1_items.append((f"M&A : {_ma['score']}/100  {m_lbl}",
+                               _CMAP.get(m_lbl, NAVY)))
         regime = _macro.get('regime', '')
         rec_6m = _macro.get('recession_prob_6m')
         if regime and regime != 'Inconnu':
             rec_part = f"  Rec.6M:{rec_6m}%" if rec_6m is not None else ''
-            items.append((f"Regime : {regime}{rec_part}", _CMAP.get(regime, NAVY)))
+            row1_items.append((f"Regime : {regime}{rec_part}", _CMAP.get(regime, NAVY)))
 
-        for i, (txt, col) in enumerate(items[:3]):
+        for i, (txt, col) in enumerate(row1_items[:3]):
             x = bx_x[i]
-            add_rect(slide, x, strip_y, bx_w, strip_h, "F0F4F8")
-            add_rect(slide, x, strip_y, 0.12, strip_h, col)
-            add_text_box(slide, x + 0.22, strip_y + 0.05, bx_w - 0.30, strip_h - 0.10,
-                         txt, 7.5, NAVY, bold=False)
+            add_rect(slide, x, row1_y, bx_w, strip_h, "F0F4F8")
+            add_rect(slide, x, row1_y, 0.12, strip_h, col)
+            add_text_box(slide, x + 0.22, row1_y + 0.03, bx_w - 0.30, strip_h - 0.06,
+                         txt, 7.0, NAVY, bold=False)
+
+        # --- Ligne 2 : Earnings Quality / Structure Capital / Dividende ---
+        row2_y = row1_y + strip_h + gap
+        row2_items = []
+
+        eq_lbl = _eq.get('label')
+        if eq_lbl and eq_lbl != 'N/D':
+            cc = _eq.get('cash_conversion')
+            cc_str = f" ({cc:.2f}x)" if cc is not None else ''
+            row2_items.append((f"Earnings Qualite : {eq_lbl}{cc_str}",
+                               _CMAP.get(eq_lbl, NAVY)))
+
+        cs_lbl = _cs.get('label')
+        if cs_lbl and cs_lbl != 'N/D':
+            ratio = _cs.get('short_term_ratio')
+            r_str = f" ({ratio*100:.0f}% CT)" if ratio is not None else ''
+            row2_items.append((f"Struct. Capital : {cs_lbl}{r_str}",
+                               _CMAP.get(cs_lbl, NAVY)))
+
+        ds_lbl = _ds.get('label')
+        if ds_lbl and ds_lbl not in ('N/D', 'Sans dividende'):
+            cov = _ds.get('fcf_coverage')
+            c_str = f" ({cov:.1f}x)" if cov is not None else ''
+            row2_items.append((f"Dividende : {ds_lbl}{c_str}",
+                               _CMAP.get(ds_lbl, NAVY)))
+        elif not row2_items:
+            row2_items = []  # no items → skip row 2
+
+        for i, (txt, col) in enumerate(row2_items[:3]):
+            x = bx_x[i]
+            add_rect(slide, x, row2_y, bx_w, strip_h, "EBF0F7")
+            add_rect(slide, x, row2_y, 0.12, strip_h, col)
+            add_text_box(slide, x + 0.22, row2_y + 0.03, bx_w - 0.30, strip_h - 0.06,
+                         txt, 7.0, NAVY, bold=False)
 
     return slide
 
@@ -2685,10 +2731,15 @@ class PPTXWriter:
             _yr_for_scores = ratios.years.get(_latest_lbl)
         _extra_scores = {}
         try:
-            from agents.agent_quant import compute_composite_distress, compute_ma_score
+            from agents.agent_quant import (compute_composite_distress, compute_ma_score,
+                                            compute_earnings_quality, compute_capital_structure,
+                                            compute_dividend_sustainability)
             if _yr_for_scores is not None:
-                _extra_scores['composite_distress'] = compute_composite_distress(_yr_for_scores)
-                _extra_scores['ma_score']            = compute_ma_score(_yr_for_scores)
+                _extra_scores['composite_distress']      = compute_composite_distress(_yr_for_scores)
+                _extra_scores['ma_score']                = compute_ma_score(_yr_for_scores)
+                _extra_scores['earnings_quality']        = compute_earnings_quality(_yr_for_scores)
+                _extra_scores['capital_structure']       = compute_capital_structure(_yr_for_scores)
+                _extra_scores['dividend_sustainability'] = compute_dividend_sustainability(_yr_for_scores)
         except Exception as _ese:
             log.warning("[PPTXWriter] distress/ma_score: %s", _ese)
         try:

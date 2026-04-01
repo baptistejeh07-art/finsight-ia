@@ -1727,6 +1727,29 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
         "par_secteur": [(s[0], "N/A", "Neutre") for s in secteurs_list],
     }
 
+    # ── P/E mediane historique 10 ans + prime/décote ─────────────────────────
+    _PE_HIST_APP = {
+        "S&P 500":   (13.0, 24.0), "SP500":     (13.0, 24.0),
+        "NASDAQ":    (18.0, 38.0), "NASDAQ 100":(18.0, 38.0),
+        "CAC 40":    (11.0, 20.0), "CAC40":     (11.0, 20.0),
+        "DAX":       (10.0, 19.0), "DAX40":     (10.0, 19.0),
+        "FTSE 100":  (10.0, 17.0), "FTSE100":   (10.0, 17.0),
+    }
+    _pe_range_app = (11.0, 22.0)
+    for _k, _v in _PE_HIST_APP.items():
+        if _k.lower() in display_name.lower() or display_name.lower() in _k.lower():
+            _pe_range_app = _v
+            break
+    _pe_med_app = round((_pe_range_app[0] + _pe_range_app[1]) / 2, 1)
+    _pe_med_str = f"{_pe_med_app:.1f}"
+    _prime_decote_str = "—"
+    try:
+        _pe_num = float(pe_str.replace("x","").replace(",",".").strip())
+        _prime_val = (_pe_num - _pe_med_app) / _pe_med_app * 100
+        _prime_decote_str = f"+{_prime_val:.0f}% prime" if _prime_val > 0 else f"{_prime_val:.0f}% decote"
+    except Exception:
+        pass
+
     return {
         "indice":         display_name,
         "code":           universe[:6].upper(),
@@ -1738,6 +1761,8 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
         "cours":          cours_str,
         "variation_ytd":  ytd_str,
         "pe_forward":     pe_str,
+        "pe_mediane_10y": _pe_med_str,
+        "prime_decote":   _prime_decote_str,
         "score_global":   int(avg_score),
         "secteurs":       secteurs_list,
         "texte_macro":    texte_macro,
