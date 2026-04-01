@@ -1334,6 +1334,71 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
         log.warning("ETF SPDR non disponibles — fallback donnees test")
         return _make_test_indice_data(universe)
 
+    # 2b. Analytics indice avances (S&P 500 uniquement)
+    import numpy as _np_indice
+    sector_contribution = []
+    indice_analytics = {}
+    correlation_data = {}
+
+    if universe == "S&P 500" and etf_perf:
+        # Contribution sectorielle : weight × return_1y
+        total_nb_soc = sum(_SP500_NB_SOC.get(info.get("nom",""), 30) for info in etf_perf.values())
+        for etf_k, info_k in sorted(etf_perf.items(),
+                                    key=lambda x: x[1].get("return_1y", 0), reverse=True):
+            nom_k = info_k.get("nom", "")
+            ret_k = info_k.get("return_1y", 0.0)
+            nb_k  = _SP500_NB_SOC.get(nom_k, 30)
+            w_k   = nb_k / total_nb_soc if total_nb_soc > 0 else 0
+            sector_contribution.append((nom_k, round(w_k * ret_k, 2), round(ret_k, 1)))
+
+        # Breadth : % secteurs en momentum positif
+        nb_pos_b  = sum(1 for inf in etf_perf.values() if inf.get("return_1y", 0) > 0)
+        nb_tot_b  = len(etf_perf)
+        breadth_pct = round(100 * nb_pos_b / nb_tot_b) if nb_tot_b > 0 else 0
+
+        # Factor tilts : cyclique vs defensif
+        _CYCLICAL  = {"Technology", "Consumer Discretionary", "Communication Services",
+                      "Financials", "Industrials", "Energy", "Materials"}
+        _DEFENSIVE = {"Consumer Staples", "Health Care", "Utilities", "Real Estate"}
+        cyc_rets = [inf["return_1y"] for inf in etf_perf.values()
+                    if inf.get("nom","") in _CYCLICAL]
+        def_rets = [inf["return_1y"] for inf in etf_perf.values()
+                    if inf.get("nom","") in _DEFENSIVE]
+        cyc_avg  = round(float(_np_indice.mean(cyc_rets)), 1) if cyc_rets else 0.0
+        def_avg  = round(float(_np_indice.mean(def_rets)), 1) if def_rets else 0.0
+        spread   = cyc_avg - def_avg
+        tilt     = "Cyclique" if spread > 5 else ("Defensif" if spread < -5 else "Equilibree")
+        indice_analytics = {
+            "breadth_pct": breadth_pct, "breadth_nb": nb_pos_b, "nb_total": nb_tot_b,
+            "cyclical_return": cyc_avg, "defensive_return": def_avg,
+            "tilt": tilt, "tilt_spread": round(abs(spread), 1),
+        }
+
+        # Matrice de correlation (daily returns 52 semaines)
+        try:
+            import pandas as _pd_corr
+            etf_list_corr = list(etf_map.keys())
+            raw_daily = yf.download(etf_list_corr, period="1y", interval="1d", progress=False)
+            if isinstance(raw_daily.columns, _pd_corr.MultiIndex):
+                prices_d = raw_daily["Close"]
+            else:
+                prices_d = raw_daily
+            prices_d  = prices_d.dropna(how="all")
+            daily_ret = prices_d.pct_change().dropna(how="all")
+            corr_df   = daily_ret.corr()
+            etf_in_c  = [e for e in etf_list_corr if e in corr_df.columns]
+            corr_matrix = []
+            for e1 in etf_in_c:
+                corr_matrix.append(
+                    [round(float(corr_df.loc[e1, e2]), 2) for e2 in etf_in_c])
+            correlation_data = {
+                "sectors": [etf_map.get(e, e) for e in etf_in_c],
+                "matrix":  corr_matrix,
+            }
+            log.info("Matrice correlation %dx%d calculee", len(etf_in_c), len(etf_in_c))
+        except Exception as _ec:
+            log.warning("Correlation matrix erreur: %s", _ec)
+
     import statistics
     scores = [s[2] for s in secteurs]
     avg_score = round(statistics.mean(scores), 1)
@@ -1378,18 +1443,21 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
     )
 
     base.update({
-        "code":           code,
-        "cours":          cours_str,
-        "variation_ytd":  ytd_str,
-        "pe_forward":     pe_fwd_str,
-        "signal_global":  signal_global,
-        "conviction_pct": conviction,
-        "nb_secteurs":    len(secteurs),
-        "secteurs":       secteurs,
-        "top3_secteurs":  top3_secteurs,
-        "etf_perf":       etf_perf,
-        "date_analyse":   date_str,
-        "texte_signal":   texte_signal_reel,
+        "code":               code,
+        "cours":              cours_str,
+        "variation_ytd":      ytd_str,
+        "pe_forward":         pe_fwd_str,
+        "signal_global":      signal_global,
+        "conviction_pct":     conviction,
+        "nb_secteurs":        len(secteurs),
+        "secteurs":           secteurs,
+        "top3_secteurs":      top3_secteurs,
+        "etf_perf":           etf_perf,
+        "date_analyse":       date_str,
+        "texte_signal":       texte_signal_reel,
+        "sector_contribution": sector_contribution,
+        "indice_analytics":   indice_analytics,
+        "correlation_matrix": correlation_data,
     })
     return base
 

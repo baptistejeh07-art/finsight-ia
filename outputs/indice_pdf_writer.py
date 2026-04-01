@@ -334,6 +334,83 @@ def make_top3_donut(data):
     plt.close(fig); buf.seek(0); return buf
 
 
+def make_attribution_chart(data):
+    """Bar chart horizontal : contribution sectorielle au return indice 12 mois."""
+    contrib = data.get("sector_contribution", [])
+    if not contrib:
+        return None
+    noms = [c[0] for c in contrib]
+    vals = [c[1] for c in contrib]   # contribution en points de %
+    rets = [c[2] for c in contrib]   # return 1Y brut
+    cols = ['#1A7A4A' if v >= 0 else '#A82020' for v in vals]
+    fig, ax = plt.subplots(figsize=(8.5, 4.8))
+    y = np.arange(len(noms))
+    ax.barh(y, vals, color=cols, alpha=0.85, height=0.60,
+            edgecolor='white', linewidth=0.5)
+    x_range = max(abs(min(vals)), abs(max(vals))) * 1.0 if vals else 1.0
+    x_pad   = x_range * 0.08
+    for i, (val, ret) in enumerate(zip(vals, rets)):
+        label = f"{val:+.1f}pp  ({ret:+.1f}%)"
+        ax.text(val + x_pad if val >= 0 else val - x_pad, i,
+                label, va='center', fontsize=8.5, color='#333',
+                fontweight='bold', ha='left' if val >= 0 else 'right')
+    ax.axvline(x=0, color='#888', linewidth=0.8, linestyle='-')
+    ax.set_yticks(y); ax.set_yticklabels(noms, fontsize=9, color='#333')
+    ax.set_xlabel("Contribution au return indice (points de %)", fontsize=9, color='#555')
+    x_abs = x_range + 3 * x_pad
+    ax.set_xlim(-x_abs, x_abs)
+    for sp in ['top','right']: ax.spines[sp].set_visible(False)
+    ax.spines['left'].set_color('#D0D5DD'); ax.spines['bottom'].set_color('#D0D5DD')
+    ax.set_facecolor('white'); fig.patch.set_facecolor('white')
+    ax.tick_params(length=0)
+    ax.grid(axis='x', alpha=0.10, color='#D0D5DD', linewidth=0.5)
+    ax.set_title("Attribution sectorielle — Contribution au return indice 12 mois",
+                 fontsize=12, color='#1B3A6B', fontweight='bold', pad=8)
+    plt.tight_layout(pad=0.5)
+    buf = io.BytesIO(); fig.savefig(buf, format='png', dpi=160, bbox_inches='tight')
+    plt.close(fig); buf.seek(0); return buf
+
+
+def make_correlation_heatmap(data):
+    """Heatmap 11x11 des correlations sectorielle (rendements journaliers 52S)."""
+    corr_data = data.get("correlation_matrix", {})
+    if not corr_data or not corr_data.get("sectors"):
+        return None
+    sectors = corr_data["sectors"]
+    matrix  = np.array(corr_data["matrix"], dtype=float)
+    n = len(sectors)
+    if n < 3:
+        return None
+    abbrevs = [_abbrev_pdf(s)[:13] for s in sectors]
+    # Colormap divergente : rouge (-1) → blanc (0) → navy (+1)
+    from matplotlib.colors import LinearSegmentedColormap
+    cmap = LinearSegmentedColormap.from_list(
+        'fs_corr', ['#A82020', '#F5F7FA', '#1B3A6B'], N=256)
+    fig, ax = plt.subplots(figsize=(9.0, 7.2))
+    im = ax.imshow(matrix, cmap=cmap, vmin=-1, vmax=1, aspect='auto')
+    fsize = 7.0 if n > 8 else 8.5
+    for i in range(n):
+        for j in range(n):
+            val  = matrix[i, j]
+            tcol = 'white' if abs(val) > 0.65 else '#333'
+            ax.text(j, i, f"{val:.2f}", ha='center', va='center',
+                    fontsize=fsize, color=tcol)
+    ax.set_xticks(range(n)); ax.set_xticklabels(abbrevs, rotation=35,
+                                                 ha='right', fontsize=8)
+    ax.set_yticks(range(n)); ax.set_yticklabels(abbrevs, fontsize=8)
+    ax.tick_params(length=0)
+    cb = fig.colorbar(im, ax=ax, fraction=0.025, pad=0.03)
+    cb.ax.tick_params(labelsize=7.5)
+    cb.set_label("Coefficient de correlation", fontsize=8, color='#555')
+    ax.set_title(
+        "Matrice de correlation sectorielle — Rendements journaliers 52 semaines",
+        fontsize=11, color='#1B3A6B', fontweight='bold', pad=10)
+    ax.set_facecolor('white'); fig.patch.set_facecolor('white')
+    plt.tight_layout(pad=0.5)
+    buf = io.BytesIO(); fig.savefig(buf, format='png', dpi=160, bbox_inches='tight')
+    plt.close(fig); buf.seek(0); return buf
+
+
 # ─── CANVAS ───────────────────────────────────────────────────────────────────
 def _cover_page(c, doc, data):
     w, h = A4; cx = w / 2
@@ -447,9 +524,9 @@ def _build_sommaire(data, page_nums=None):
         ("1.", f"Synth\u00e8se Macro &amp; Signal Global",    "synthese",
          f"  Signal global \xb7 Conviction \xb7 Catalyseurs \xb7 Risques macro"),
         ("2.", "Cartographie des Secteurs",                   "carto",
-         f"  Tableau comparatif {data.get('nb_secteurs','?')} secteur(s) \xb7 Score \xb7 EV/EBITDA \xb7 Momentum"),
+         f"  Tableau comparatif {data.get('nb_secteurs','?')} secteur(s) \xb7 Score \xb7 EV/EBITDA \xb7 Attribution \xb7 Breadth"),
         ("3.", "Analyse Graphique",                           "graphiques",
-         "  Scatter EV/EBITDA vs croissance \xb7 Scores par secteur"),
+         "  Scatter EV/EBITDA vs croissance \xb7 Scores par secteur \xb7 Matrice de correlation"),
         ("4.", "Rotation Sectorielle",                        "rotation",
          "  Phase du cycle \xb7 Sensibilit\u00e9 taux/PIB \xb7 Signal de rotation"),
         ("5.", "Top 3 Secteurs Recommand\u00e9s",             "top3",
@@ -535,7 +612,7 @@ def _build_synthese(data, perf_buf, registry=None):
     return elems
 
 
-def _build_cartographie(data, weights_buf, registry=None):
+def _build_cartographie(data, weights_buf, attribution_buf=None, registry=None):
     secteurs = data["secteurs"]
     indice_rl = data["indice"].replace("&", "&amp;")
     elems = []
@@ -626,10 +703,63 @@ def _build_cartographie(data, weights_buf, registry=None):
     elems.append(src(
         f"FinSight IA — FMP, yfinance. EV/EBITDA et marges = m\u00e9dianes sectorielles LTM. "
         "Momentum = performance relative 3 mois vs indice. Score = composite 0-100."))
+
+    # ── Attribution sectorielle ────────────────────────────────────────────────
+    if attribution_buf is not None:
+        elems.append(Spacer(1, 5*mm))
+        elems.append(Paragraph("Attribution sectorielle au return indice", S_SUBSECTION))
+        elems.append(Paragraph(
+            "Le graphique ci-dessous decompose le return total de l'indice en contributions "
+            "sectorielles : <b>contribution = poids sectoriel \xd7 return 1 an</b>. "
+            "Cette lecture permet d'identifier quels secteurs ont tire ou freine la "
+            "performance de l'indice, et d'evaluer la concentration du return.", S_BODY))
+        elems.append(Spacer(1, 2*mm))
+        elems.append(Image(attribution_buf, width=TABLE_W, height=88*mm))
+        elems.append(src(
+            "FinSight IA — ETF SPDR sectoriels, yfinance. "
+            "Poids = nb societes par secteur / total indice. Contribution = poids x return 12 mois."))
+
+    # ── Factor tilts & Breadth ─────────────────────────────────────────────────
+    analytics = data.get("indice_analytics", {})
+    if analytics:
+        elems.append(Spacer(1, 5*mm))
+        elems.append(Paragraph("Biais Factoriels &amp; Sante du March\u00e9", S_SUBSECTION))
+        _tilt    = analytics.get("tilt", "—")
+        _spread  = analytics.get("tilt_spread", 0)
+        _cyc     = analytics.get("cyclical_return", 0)
+        _def     = analytics.get("defensive_return", 0)
+        _breadth = analytics.get("breadth_pct", 0)
+        _br_nb   = analytics.get("breadth_nb", 0)
+        _br_tot  = analytics.get("nb_total", 0)
+        _tilt_s  = S_TD_G if _tilt == "Cyclique" else (S_TD_R if _tilt == "Defensif" else S_TD_A)
+        _br_s    = S_TD_G if _breadth >= 70 else (S_TD_R if _breadth < 40 else S_TD_A)
+        ftbl_h = [Paragraph(h, S_TH_C) for h in
+                  ["Indicateur", "Valeur", "Detail", "Interpretation"]]
+        ftbl_rows = [
+            [Paragraph("Biais sectoriel", S_TD_B),
+             Paragraph(_tilt, _tilt_s),
+             Paragraph(f"Cyclique {_cyc:+.1f}% vs Defensif {_def:+.1f}% (ecart {_spread:.1f}pp)", S_TD_L),
+             Paragraph(
+                 "Cyclique = Tech, Discret., Comm., Fin., Indus., Energy, Mat. | "
+                 "Defensif = Staples, Health, Utilities, Real Estate", S_TD_L)],
+            [Paragraph("Breadth sectorielle", S_TD_B),
+             Paragraph(f"{_breadth}%", _br_s),
+             Paragraph(f"{_br_nb}/{_br_tot} secteurs en momentum positif (return 12M > 0)", S_TD_L),
+             Paragraph(
+                 ">70% : marche porteur, beta recommande | "
+                 "<40% : marche fragile, stock-picking defensif", S_TD_L)],
+        ]
+        # [40, 22, 62, 46] = 170
+        elems.append(KeepTogether(tbl([ftbl_h] + ftbl_rows,
+                                      cw=[40*mm, 22*mm, 62*mm, 46*mm])))
+        elems.append(src(
+            "FinSight IA — ETF SPDR, yfinance. "
+            "Biais = ecart de return annualise cyclique/defensif. "
+            "Breadth = % secteurs return 12M > 0."))
     return elems
 
 
-def _build_graphiques(data, scatter_buf, scores_buf, registry=None):
+def _build_graphiques(data, scatter_buf, scores_buf, corr_buf=None, registry=None):
     elems = []
     elems.append(PageBreak())
     elems.append(Spacer(1, 10*mm))
@@ -721,6 +851,53 @@ def _build_graphiques(data, scatter_buf, scores_buf, registry=None):
         ])
     elems.append(KeepTogether(tbl([_tb_h] + _tb_rows, cw=[12*mm, 52*mm, 16*mm, 32*mm, 58*mm])))
     elems.append(src("FinSight IA — Scores FinSight. Score composite 0-100."))
+
+    # ── Matrice de correlation ─────────────────────────────────────────────────
+    if corr_buf is not None:
+        elems.append(PageBreak())
+        elems.append(Spacer(1, 10*mm))
+        elems.append(Paragraph("Matrice de Correlation Sectorielle", S_SUBSECTION))
+        elems.append(Paragraph(
+            "La matrice ci-dessous mesure la <b>correlation des rendements journaliers</b> "
+            "entre les 11 secteurs GICS sur les 52 derni\u00e8res semaines. "
+            "Une correlation \u00e9lev\u00e9e (proche de +1, navy) indique que les deux secteurs "
+            "bougent ensemble \u2014 la diversification inter-sectorielle est limit\u00e9e. "
+            "Une correlation faible ou n\u00e9gative (rouge) offre un b\u00e9n\u00e9fice "
+            "de diversification r\u00e9el en portefeuille.", S_BODY))
+        elems.append(Spacer(1, 3*mm))
+        elems.append(Image(corr_buf, width=TABLE_W, height=120*mm))
+        elems.append(src(
+            "FinSight IA — Correlations calculees sur rendements journaliers 52S "
+            "des ETF SPDR sectoriels (XLK, XLV, XLF...). yfinance."))
+        # Interpretation quantitative
+        corr_d = data.get("correlation_matrix", {})
+        if corr_d and corr_d.get("matrix"):
+            mat = corr_d["matrix"]
+            secs = corr_d.get("sectors", [])
+            n_c = len(secs)
+            off_diag = [(mat[i][j], secs[i], secs[j])
+                        for i in range(n_c) for j in range(i+1, n_c)]
+            if off_diag:
+                min_c = min(off_diag, key=lambda x: x[0])
+                max_c = max(off_diag, key=lambda x: x[0])
+                med_c = round(float(__import__('statistics').median([v[0] for v in off_diag])), 2)
+                elems.append(Spacer(1, 3*mm))
+                corr_interp = [
+                    ["Correlation mediane", f"{med_c:.2f}",
+                     "Niveau de dependance systemique moyen entre secteurs"],
+                    ["Paire la moins correlee",
+                     f"{_abbrev_pdf(min_c[1])} / {_abbrev_pdf(min_c[2])}  ({min_c[0]:.2f})",
+                     "Meilleur benefice de diversification inter-sectoriel disponible"],
+                    ["Paire la plus correlee",
+                     f"{_abbrev_pdf(max_c[1])} / {_abbrev_pdf(max_c[2])}  ({max_c[0]:.2f})",
+                     "Secteurs a ne pas sur-ponderer simultanement — beta commun eleve"],
+                ]
+                corr_h = [Paragraph(h, S_TH_L) for h in ["Indicateur", "Valeur", "Interpretation"]]
+                corr_rows = [[Paragraph(r[0], S_TD_B), Paragraph(r[1], S_TD_C),
+                              Paragraph(r[2], S_TD_L)] for r in corr_interp]
+                elems.append(KeepTogether(tbl([corr_h] + corr_rows,
+                                              cw=[46*mm, 64*mm, 60*mm])))
+                elems.append(src("FinSight IA — calcul interne sur donnees ETF SPDR."))
     return elems
 
 
@@ -1142,7 +1319,7 @@ def _build_disclaimer(data):
 
 # ─── STORY BUILDER ────────────────────────────────────────────────────────────
 def _build_story(data, perf_buf, weights_buf, scatter_buf, scores_buf,
-                 donut_buf, page_nums, registry):
+                 donut_buf, attribution_buf, corr_buf, page_nums, registry):
     indice_rl = data["indice"].replace("&", "&amp;")
     story = []
 
@@ -1172,8 +1349,8 @@ def _build_story(data, perf_buf, weights_buf, scatter_buf, scores_buf,
     story.append(PageBreak())
 
     story += _build_synthese(data, perf_buf, registry)
-    story += _build_cartographie(data, weights_buf, registry)
-    story += _build_graphiques(data, scatter_buf, scores_buf, registry)
+    story += _build_cartographie(data, weights_buf, attribution_buf, registry)
+    story += _build_graphiques(data, scatter_buf, scores_buf, corr_buf, registry)
     story += _build_rotation(data, registry)
     story += _build_top3(data, donut_buf, registry)
     story += _build_risques(data, registry)
@@ -1192,11 +1369,13 @@ class IndicePDFWriter:
         Retourne output_path. Double-passe pour pagination dynamique.
         """
         # Buffers graphiques (generes une seule fois, rewound avant chaque passe)
-        perf_buf    = make_indice_perf_chart(data)
-        weights_buf = make_sector_weights_chart(data)
-        scatter_buf = make_scatter_sectoriel(data)
-        scores_buf  = make_score_bars(data)
-        donut_buf   = make_top3_donut(data)
+        perf_buf       = make_indice_perf_chart(data)
+        weights_buf    = make_sector_weights_chart(data)
+        scatter_buf    = make_scatter_sectoriel(data)
+        scores_buf     = make_score_bars(data)
+        donut_buf      = make_top3_donut(data)
+        attribution_buf = make_attribution_chart(data)
+        corr_buf       = make_correlation_heatmap(data)
 
         doc_kwargs = dict(
             pagesize=A4,
@@ -1221,14 +1400,17 @@ class IndicePDFWriter:
                 if b is not None:
                     b.seek(0)
 
+        _all_bufs = (perf_buf, weights_buf, scatter_buf, scores_buf,
+                     donut_buf, attribution_buf, corr_buf)
+
         # Passe 1 — collecter numeros de page reels
         registry = {}
         with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as tmp:
             tmp_path = tmp.name
         doc1 = SimpleDocTemplate(tmp_path, **doc_kwargs)
-        _rewind(perf_buf, weights_buf, scatter_buf, scores_buf, donut_buf)
+        _rewind(*_all_bufs)
         story1 = _build_story(data, perf_buf, weights_buf, scatter_buf, scores_buf,
-                               donut_buf, {}, registry)
+                               donut_buf, attribution_buf, corr_buf, {}, registry)
         doc1.build(story1, onFirstPage=make_on_page(data), onLaterPages=make_on_page(data))
         try:
             os.unlink(tmp_path)
@@ -1238,9 +1420,9 @@ class IndicePDFWriter:
         # Passe 2 — build final avec vrais numeros
         os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
         doc2 = SimpleDocTemplate(output_path, **doc_kwargs)
-        _rewind(perf_buf, weights_buf, scatter_buf, scores_buf, donut_buf)
+        _rewind(*_all_bufs)
         story2 = _build_story(data, perf_buf, weights_buf, scatter_buf, scores_buf,
-                               donut_buf, dict(registry), {})
+                               donut_buf, attribution_buf, corr_buf, dict(registry), {})
         doc2.build(story2, onFirstPage=make_on_page(data), onLaterPages=make_on_page(data))
 
         print(f"Rapport indice genere : {output_path}  |  Sections : {registry}")
