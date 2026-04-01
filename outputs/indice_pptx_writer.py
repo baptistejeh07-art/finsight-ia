@@ -265,8 +265,10 @@ def _chart_scatter(secteurs: list) -> bytes:
     noms     = [s[0] for s in secteurs]
 
     if not ev_vals or not any(ev_vals):
-        ax.text(0.5, 0.5, "Donnees insuffisantes", ha='center', va='center',
-                transform=ax.transAxes, color='#999999')
+        ax.text(0.5, 0.5, "EV/EBITDA non disponible\npour cet indice", ha='center', va='center',
+                transform=ax.transAxes, color='#999999', fontsize=11)
+        ax.set_xticks([]); ax.set_yticks([])
+        for sp in ax.spines.values(): sp.set_visible(False)
         buf = io.BytesIO()
         fig.savefig(buf, format='png', dpi=150, bbox_inches='tight', facecolor='white')
         plt.close(fig)
@@ -354,12 +356,24 @@ def _chart_ev_distribution(secteurs: list) -> bytes:
     noms  = [_abbrev_sector(s[0], 18) for s in sorted_s]
     evs   = [_parse_x(s[4]) for s in sorted_s]
     cols  = [_sig_hex(s[3]) for s in sorted_s]
-    med   = float(np.median([v for v in evs if v > 0])) if evs else 15.0
+    filtered_evs = [v for v in evs if v > 0]
 
     fig, ax = plt.subplots(figsize=(8.5, max(3.5, len(noms) * 0.42)))
     fig.patch.set_facecolor('#FFFFFF')
     ax.set_facecolor('#F8F9FA')
 
+    if not filtered_evs:
+        ax.text(0.5, 0.5, "EV/EBITDA non disponible\npour cet indice",
+                ha='center', va='center', transform=ax.transAxes, color='#999999', fontsize=11)
+        ax.set_xticks([]); ax.set_yticks([])
+        for sp in ax.spines.values(): sp.set_visible(False)
+        buf = io.BytesIO()
+        fig.savefig(buf, format='png', dpi=150, bbox_inches='tight', facecolor='white')
+        plt.close(fig)
+        buf.seek(0)
+        return buf.read()
+
+    med = float(np.median(filtered_evs))
     y = np.arange(len(noms))
     bars = ax.barh(y, evs, color=cols, alpha=0.85, height=0.62, edgecolor='white', linewidth=0.5)
     for bar, val in zip(bars, evs):
@@ -613,26 +627,54 @@ def _s01_cover(prs, D):
     _txb(slide, f"{code}  ·  {nb_s} secteurs analysés  ·  {nb_c} sociétés couvertes",
          1.0, 6.8, 22.0, 0.6, size=9, color=_GRAYD)
 
-    # Metriques bas (BPA remplace par ERP — plus pertinent pour analyse indice)
-    _erp_val = D.get("erp", "—")
-    _erp_sig = D.get("erp_signal", "")
-    _erp_display = f"{_erp_val}" if not _erp_sig else f"{_erp_val} ({_erp_sig})"
+    # KPI boxes — données toujours disponibles (remplace Cours/YTD/PE/ERP souvent vides)
+    secteurs_cov = D.get("secteurs", [])
+    score_med = D.get("score_median")
+    if not score_med and secteurs_cov:
+        scores = [s[2] for s in secteurs_cov if len(s) > 2 and isinstance(s[2], (int, float))]
+        score_med = round(sum(scores) / len(scores)) if scores else "—"
+    sm_str = f"{score_med}/100" if isinstance(score_med, (int, float)) else str(score_med or "—")
+    nb_surp_cov  = sum(1 for s in secteurs_cov if "surp" in str(s[3]).lower())
+    nb_neutre_cov = sum(1 for s in secteurs_cov if "neutre" in str(s[3]).lower())
+    nb_sousp_cov = sum(1 for s in secteurs_cov if "sous" in str(s[3]).lower())
     metrics = [
-        ("Cours",     D.get("cours","—")),
-        ("YTD",       D.get("variation_ytd","—")),
-        ("P/E Fwd",   D.get("pe_forward","—")),
-        ("ERP",       _erp_display),
+        ("Score median",  sm_str),
+        ("Surponderer",   f"{nb_surp_cov} sect."),
+        ("Neutre",        f"{nb_neutre_cov} sect."),
+        ("Sous-ponderer", f"{nb_sousp_cov} sect."),
     ]
     for i, (lbl, val) in enumerate(metrics):
         xpos = 1.0 + i * 5.8
-        _rect(slide, xpos, 8.2, 5.2, 1.6, fill=_NAVYL)
-        _txb(slide, lbl, xpos + 0.2, 8.3, 4.8, 0.5, size=7.5, color=_GRAYD)
-        _txb(slide, val,  xpos + 0.2, 8.75, 4.8, 0.8, size=14, bold=True, color=_WHITE)
+        _rect(slide, xpos, 8.0, 5.2, 1.7, fill=_NAVYL)
+        _txb(slide, lbl, xpos + 0.2, 8.1, 4.8, 0.5, size=7.5, color=_GRAYD)
+        _txb(slide, val,  xpos + 0.2, 8.55, 4.8, 0.9, size=14, bold=True, color=_WHITE)
+
+    # Top 3 secteurs recommandés — remplit le bas vide
+    top3_cov = D.get("top3_secteurs", [])
+    if top3_cov:
+        _txb(slide, "TOP SECTEURS RECOMMANDES", 1.0, 10.2, 23.0, 0.5,
+             size=7.5, bold=True, color=_NAVYL)
+        _SIG_NORM_COVER2 = {
+            "surponderer": "Surponderer", "surponderer": "Surponderer",
+            "neutre": "Neutre", "sous-ponderer": "Sous-ponderer",
+        }
+        for i, s in enumerate(top3_cov[:3]):
+            xpos = 1.0 + i * 7.8
+            sig_s = s.get("signal", "Neutre")
+            col_s = _sig_color(sig_s)
+            sig_lbl = _SIG_NORM_COVER2.get(sig_s.lower(), sig_s.capitalize())
+            score_s = s.get("score", "—")
+            _rect(slide, xpos, 10.8, 7.3, 2.1, fill=_NAVYL)
+            _rect(slide, xpos, 10.8, 7.3, 0.4, fill=col_s)
+            _txb(slide, s.get("nom", ""), xpos + 0.2, 11.3, 7.0, 0.7,
+                 size=9.5, bold=True, color=_WHITE)
+            _txb(slide, f"Score {score_s}/100  ·  {sig_lbl}",
+                 xpos + 0.2, 12.1, 7.0, 0.55, size=7.5, color=_GRAYD)
 
     # Date
     date_str = D.get("date_analyse") or _fr_date()
-    _txb(slide, date_str, 1.0, 12.0, 14.0, 0.6, size=9, color=_GRAYD)
-    _txb(slide, "Rapport confidentiel", 15.0, 12.0, 9.0, 0.6, size=9,
+    _txb(slide, date_str, 1.0, 13.1, 14.0, 0.6, size=9, color=_GRAYD)
+    _txb(slide, "Rapport confidentiel", 15.0, 13.1, 9.0, 0.6, size=9,
          color=_GRAYD, align=PP_ALIGN.RIGHT)
 
     _txb(slide, "FinSight IA  ·  Usage confidentiel", 0.9, 13.75, 23.6, 0.4,
@@ -793,6 +835,13 @@ def _s05_description(prs, D):
     _add_table(slide, rows, 15.1, 2.3, 9.4, 7.0,
                col_widths=[6, 3], font_size=8, header_size=8, alt_fill=_GRAYL)
 
+    # Lecture analytique en bas pour remplir l'espace
+    desc_full = D.get("texte_description", "")
+    if desc_full:
+        lec = _trunc(desc_full, 250)
+        _lecture_box(slide, "Lecture — Positionnement global de l'indice", lec,
+                     y_top=9.8, height=3.5)
+
     _footer(slide)
     return slide
 
@@ -859,10 +908,12 @@ def _s07_cycle(prs, D):
         _txb(slide, phase, 1.1, 3.2, 7.8, 1.5, size=16, bold=True, color=_WHITE)
 
     detail = D.get("cycle_detail","PIB positif · Taux restrictifs\nMarges sous pression")
-    _txb(slide, detail, 1.1, 5.3, 7.8, 2.5, size=8, color=_GRAYD, wrap=True)
+    _txb(slide, detail, 1.1, 5.3, 7.8, 2.0, size=8, color=_GRAYD, wrap=True)
 
-    texte_cycle = _trunc(D.get("texte_cycle",""), 140)
-    _txb(slide, texte_cycle, 1.1, 7.3, 7.8, 1.3, size=7.5, color=_GRAYD, wrap=True)
+    # Première phrase du texte_cycle seulement pour éviter le débordement
+    texte_cycle_full = D.get("texte_cycle","")
+    texte_cycle = _trunc(texte_cycle_full.split(".")[0] + "." if texte_cycle_full else "", 120)
+    _txb(slide, texte_cycle, 1.1, 7.4, 7.8, 1.3, size=7.5, color=_GRAYD, wrap=True)
 
     # Tableau FRED signals droite
     fred = D.get("fred_signals", [])
