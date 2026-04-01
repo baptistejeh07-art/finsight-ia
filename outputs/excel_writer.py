@@ -284,6 +284,26 @@ class ExcelWriter:
             for field, row in _CF_ROWS.items():
                 written += _safe_write(ws, col, row, getattr(fy, field, None))
 
+            # Tax rate effectif par annee -> row 104 (col E-H selon annee)
+            # EBT = net_income_yf + |tax_expense_real| (approximation IS)
+            _tax_abs = abs(fy.tax_expense_real or 0.0)
+            _ni      = fy.net_income_yf or 0.0
+            _ebt_yr  = _ni + _tax_abs
+            if _ebt_yr > 0 and _tax_abs > 0:
+                _tr_yr = round(min(0.40, max(0.05, _tax_abs / _ebt_yr)), 4)
+                _safe_write(ws, col, 104, _tr_yr)
+                written += 1
+
+        # ------------------------------------------------------------------
+        # 2b. Mise a jour formules E24:H24 : utiliser taux effectif (row 104)
+        #     au lieu du taux fixe 21% — bypass safe_write (formule->formule)
+        # ------------------------------------------------------------------
+        for _c in ["E", "F", "G", "H"]:
+            _cell = ws[f"{_c}24"]
+            if _cell.value and isinstance(_cell.value, str) and "0.21" in _cell.value:
+                _cell.value = f"=-ROUND({_c}22*{_c}104,0)"
+                log.debug(f"[ExcelWriter] UPDATE {_c}24 -> =-ROUND({_c}22*{_c}104,0)")
+
         # ------------------------------------------------------------------
         # 3. Market data — colonne H uniquement (données point-in-time)
         # ------------------------------------------------------------------
