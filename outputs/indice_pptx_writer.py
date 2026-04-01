@@ -857,9 +857,11 @@ def _s02_exec_summary(prs, D):
         f"ERP Damodaran {_erp_s02b}{_erp_lbl}. "
         f"Score composite moyen : {_scr_s02}/100 — conviction {_conv_s02} %. "
         f"Secteurs a Surponderer : {_surp_s02 or 'aucun'}. "
-        f"Secteurs a eviter : {_sous_s02 or 'aucun'}. "
-        f"Horizon d'allocation recommande : 12 mois."
+        f"Secteurs a eviter : {_sous_s02 or 'aucun'}."
     )
+    # Ajouter horizon seulement si pas deja dans le texte IA
+    if "Horizon" not in _texte_raw:
+        _suppl_s02 += " Horizon d'allocation recommande : 12 mois."
     texte = _trunc((_texte_raw + "  " + _suppl_s02).strip() if _texte_raw else _suppl_s02, 700)
     _y_synth = 8.3
     _h_synth = 13.3 - _y_synth
