@@ -866,12 +866,21 @@ def _build_cartographie(data, weights_buf, attribution_buf=None, registry=None):
         elems.append(Spacer(1, 2*mm))
         val_h = [Paragraph(h, S_TH_C) for h in
                  ["Secteur", "P/Book", "Div. Yield", "ERP Sectoriel", "Lecture"]]
+        # Alias ETF → nom secteur local (ex: yfinance/CAC40 vs SPDR ETF names)
+        _SECTOR_ALIAS = {
+            "Financial Services": "Financials",
+            "Healthcare": "Health Care",
+            "Basic Materials": "Materials",
+            "Consumer Defensive": "Consumer Staples",
+            "Consumer Cyclical": "Consumer Discretionary",
+        }
         val_rows = []
         for s in sorted_secs:
             nom = s[0]
-            _pb  = pb_map.get(nom)
-            _dy  = dy_map.get(nom)
-            _erp = erp_map.get(nom)
+            _alias = _SECTOR_ALIAS.get(nom, nom)
+            _pb  = pb_map.get(nom)  if pb_map.get(nom)  is not None else pb_map.get(_alias)
+            _dy  = dy_map.get(nom)  if dy_map.get(nom)  is not None else dy_map.get(_alias)
+            _erp = erp_map.get(nom) if erp_map.get(nom) is not None else erp_map.get(_alias)
             _pb_s  = f"{_pb:.1f}x"  if _pb  else "\u2014"
             _dy_s  = f"{_dy:.1f}%"  if _dy  else "\u2014"
             _erp_s = f"{_erp:+.1f}%" if _erp is not None else "\u2014"

@@ -1930,6 +1930,7 @@ def render_screening_running() -> None:
                 traceback.print_exc()
         else:
             _status("Generation du rapport PDF indice")
+            _indice_data = None
             try:
                 from outputs.indice_pdf_writer import IndicePDFWriter
                 _indice_data = _build_indice_data(tickers_data, display_name, universe)
@@ -1940,6 +1941,17 @@ def render_screening_running() -> None:
             except Exception as _ex_pdf:
                 import traceback
                 log.warning(f"[app] IndicePDFWriter error: {_ex_pdf}")
+                traceback.print_exc()
+
+            _status("Generation du pitchbook PPTX indice")
+            try:
+                from outputs.indice_pptx_writer import IndicePPTXWriter
+                if _indice_data is None:
+                    _indice_data = _build_indice_data(tickers_data, display_name, universe)
+                pptx_bytes_out = IndicePPTXWriter.generate(_indice_data)
+            except Exception as _ex_pptx:
+                import traceback
+                log.warning(f"[app] IndicePPTXWriter error: {_ex_pptx}")
                 traceback.print_exc()
 
         status_lbl.markdown(
