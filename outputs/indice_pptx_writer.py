@@ -599,86 +599,83 @@ def _chart_etf_perf(data: dict) -> bytes:
 
 def _s01_cover(prs, D):
     slide = _blank(prs)
-    _rect(slide, 0, 0, 25.4, 14.3, fill=_NAVY)
 
-    _txb(slide, "FinSight IA", 1.0, 0.5, 12.0, 0.8, size=11, bold=False, color=_GRAYD)
-    _txb(slide, "Pitchbook  ·  Analyse d'Indice", 1.0, 1.3, 18.0, 0.7,
-         size=9, color=_NAVYL)
-    _txb(slide, D.get("indice",""), 1.0, 3.2, 23.0, 2.0,
-         size=36, bold=True, color=_WHITE)
+    # ── Bandeau header navy (identique pptx_writer societe) ───────────────────
+    _rect(slide, 0, 0, 25.4, 3.81, fill=_NAVY)
+    _txb(slide, "FinSight IA", 1.27, 0.46, 22.86, 0.71,
+         size=10, bold=False, color=RGBColor(0x88, 0x99, 0xBB),
+         align=PP_ALIGN.CENTER)
+    _rect(slide, 11.05, 1.32, 3.3, 0.05, fill=_WHITE)
+    _txb(slide, "Pitchbook  \u00b7  Analyse d'Indice", 1.27, 1.52, 22.86, 0.81,
+         size=11, color=RGBColor(0xCC, 0xDD, 0xEE), align=PP_ALIGN.CENTER)
 
-    # Badge signal
-    _SIG_NORM_COVER = {
-        "surponderer": "SURPONDÉRER", "surpondérer": "SURPONDÉRER",
-        "sous-ponderer": "SOUS-PONDÉRER", "sous-pondérer": "SOUS-PONDÉRER",
-        "neutre": "NEUTRE",
+    # ── Corps blanc ───────────────────────────────────────────────────────────
+    # Nom indice (large, centre)
+    _txb(slide, D.get("indice", ""), 1.27, 4.2, 22.86, 1.6,
+         size=32, bold=True, color=_NAVY, align=PP_ALIGN.CENTER)
+
+    # Tagline code + secteurs + societes
+    code = D.get("code", "")
+    nb_s = D.get("nb_secteurs", 0)
+    nb_c = D.get("nb_societes", 0)
+    parts = [p for p in [
+        code,
+        (f"{nb_s} secteurs analys\u00e9s" if nb_s else ""),
+        (f"{nb_c} soci\u00e9t\u00e9s couvertes" if nb_c else ""),
+    ] if p]
+    _txb(slide, "  \u00b7  ".join(parts), 1.27, 5.9, 22.86, 0.71,
+         size=11, color=RGBColor(0x88, 0x88, 0x88), align=PP_ALIGN.CENTER)
+
+    # Badge signal (pattern recommandation societe)
+    _SIG_NORM_COV = {
+        "surponderer":  "SURPOND\u00c9RER", "surpond\u00e9rer": "SURPOND\u00c9RER",
+        "sous-ponderer":"SOUS-POND\u00c9RER","sous-pond\u00e9rer":"SOUS-POND\u00c9RER",
+        "neutre":       "NEUTRE",
     }
-    sig = D.get("signal_global","Neutre")
-    sig_col = _sig_color(sig)
-    sig_txt_cover = _SIG_NORM_COVER.get(sig.lower(), sig.upper())
-    _rect(slide, 1.0, 5.5, 8.0, 1.1, fill=sig_col)
-    _txb(slide, f"{sig_txt_cover}  ·  Conviction {D.get('conviction_pct',50)} %",
-         1.3, 5.65, 7.4, 0.8, size=11, bold=True, color=_WHITE)
+    sig = D.get("signal_global", "Neutre")
+    sig_col   = _sig_color(sig)
+    sig_light = _sig_light(sig)
+    sig_txt   = _SIG_NORM_COV.get(sig.lower(), sig.upper())
+    conv      = D.get("conviction_pct", 50)
+    _rect(slide, 1.27, 6.8, 22.86, 1.32, fill=sig_light)
+    _rect(slide, 1.27, 6.8, 0.13,  1.32, fill=sig_col)
+    _txb(slide, f"\u25cf {sig_txt}  \u00b7  Conviction {conv}\u00a0%",
+         1.60, 6.85, 22.40, 1.22,
+         size=9, bold=True, color=sig_col, align=PP_ALIGN.CENTER)
 
-    # Code indice + nb secteurs
-    code = D.get("code","")
-    nb_s = D.get("nb_secteurs",0)
-    nb_c = D.get("nb_societes",0)
-    _txb(slide, f"{code}  ·  {nb_s} secteurs analysés  ·  {nb_c} sociétés couvertes",
-         1.0, 6.8, 22.0, 0.6, size=9, color=_GRAYD)
-
-    # KPI boxes — données toujours disponibles (remplace Cours/YTD/PE/ERP souvent vides)
+    # KPI boxes (fond gris clair, texte navy — lisibles sur blanc)
     secteurs_cov = D.get("secteurs", [])
     score_med = D.get("score_median")
     if not score_med and secteurs_cov:
-        scores = [s[2] for s in secteurs_cov if len(s) > 2 and isinstance(s[2], (int, float))]
-        score_med = round(sum(scores) / len(scores)) if scores else "—"
-    sm_str = f"{score_med}/100" if isinstance(score_med, (int, float)) else str(score_med or "—")
-    nb_surp_cov  = sum(1 for s in secteurs_cov if "surp" in str(s[3]).lower())
-    nb_neutre_cov = sum(1 for s in secteurs_cov if "neutre" in str(s[3]).lower())
-    nb_sousp_cov = sum(1 for s in secteurs_cov if "sous" in str(s[3]).lower())
+        scores_l = [s[2] for s in secteurs_cov if len(s) > 2
+                    and isinstance(s[2], (int, float))]
+        score_med = round(sum(scores_l) / len(scores_l)) if scores_l else None
+    sm_str   = f"{score_med}/100" if isinstance(score_med, (int, float)) else "\u2014"
+    nb_surp  = sum(1 for s in secteurs_cov if "surp"   in str(s[3]).lower())
+    nb_neut  = sum(1 for s in secteurs_cov if "neutre" in str(s[3]).lower())
+    nb_sousp = sum(1 for s in secteurs_cov if "sous"   in str(s[3]).lower())
     metrics = [
-        ("Score median",  sm_str),
-        ("Surponderer",   f"{nb_surp_cov} sect."),
-        ("Neutre",        f"{nb_neutre_cov} sect."),
-        ("Sous-ponderer", f"{nb_sousp_cov} sect."),
+        ("Score m\u00e9dian",   sm_str),
+        ("Surpond\u00e9rer",    f"{nb_surp} sect."),
+        ("Neutre",              f"{nb_neut} sect."),
+        ("Sous-pond\u00e9rer",  f"{nb_sousp} sect."),
     ]
+    box_w = 5.4
+    step  = 22.86 / 4
     for i, (lbl, val) in enumerate(metrics):
-        xpos = 1.0 + i * 5.8
-        _rect(slide, xpos, 8.0, 5.2, 1.7, fill=_NAVYL)
-        _txb(slide, lbl, xpos + 0.2, 8.1, 4.8, 0.5, size=7.5, color=_GRAYD)
-        _txb(slide, val,  xpos + 0.2, 8.55, 4.8, 0.9, size=14, bold=True, color=_WHITE)
+        xpos = 1.27 + i * step
+        _rect(slide, xpos, 8.5, box_w, 1.6, fill=_GRAYL)
+        _txb(slide, lbl, xpos + 0.2, 8.6,  box_w - 0.4, 0.5, size=7.5, color=_GRAYT)
+        _txb(slide, val, xpos + 0.2, 9.05, box_w - 0.4, 0.9, size=13,  bold=True, color=_NAVY)
 
-    # Top 3 secteurs recommandés — remplit le bas vide
-    top3_cov = D.get("top3_secteurs", [])
-    if top3_cov:
-        _txb(slide, "TOP SECTEURS RECOMMANDES", 1.0, 10.2, 23.0, 0.5,
-             size=7.5, bold=True, color=_NAVYL)
-        _SIG_NORM_COVER2 = {
-            "surponderer": "Surponderer", "surponderer": "Surponderer",
-            "neutre": "Neutre", "sous-ponderer": "Sous-ponderer",
-        }
-        for i, s in enumerate(top3_cov[:3]):
-            xpos = 1.0 + i * 7.8
-            sig_s = s.get("signal", "Neutre")
-            col_s = _sig_color(sig_s)
-            sig_lbl = _SIG_NORM_COVER2.get(sig_s.lower(), sig_s.capitalize())
-            score_s = s.get("score", "—")
-            _rect(slide, xpos, 10.8, 7.3, 2.1, fill=_NAVYL)
-            _rect(slide, xpos, 10.8, 7.3, 0.4, fill=col_s)
-            _txb(slide, s.get("nom", ""), xpos + 0.2, 11.3, 7.0, 0.7,
-                 size=9.5, bold=True, color=_WHITE)
-            _txb(slide, f"Score {score_s}/100  ·  {sig_lbl}",
-                 xpos + 0.2, 12.1, 7.0, 0.55, size=7.5, color=_GRAYD)
-
-    # Date
+    # Ligne de separation + credits (identique societe)
+    _rect(slide, 1.02, 11.8, 23.37, 0.03, fill=_GRAYD)
     date_str = D.get("date_analyse") or _fr_date()
-    _txb(slide, date_str, 1.0, 13.1, 14.0, 0.6, size=9, color=_GRAYD)
-    _txb(slide, "Rapport confidentiel", 15.0, 13.1, 9.0, 0.6, size=9,
-         color=_GRAYD, align=PP_ALIGN.RIGHT)
+    _txb(slide, "Rapport confidentiel", 1.02, 12.05, 11.43, 0.56,
+         size=8, color=_GRAYT)
+    _txb(slide, date_str, 12.95, 12.05, 11.43, 0.56,
+         size=8, color=_GRAYT, align=PP_ALIGN.RIGHT)
 
-    _txb(slide, "FinSight IA  ·  Usage confidentiel", 0.9, 13.75, 23.6, 0.4,
-         size=7, color=_GRAYD)
     return slide
 
 
