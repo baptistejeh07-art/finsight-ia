@@ -1551,6 +1551,172 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
         "dans un contexte de croissance moderee."
     )
 
+    # ── ERP / 10Y Treasury ───────────────────────────────────────────────
+    import yfinance as _yf_erp
+    rf_rate_f   = 0.045
+    rf_pct_str  = "4.50%"
+    erp_pct     = "—"
+    erp_signal_s = "—"
+    try:
+        _tnx = _yf_erp.Ticker("^TNX").history(period="5d")
+        if not _tnx.empty:
+            rf_rate_f  = float(_tnx["Close"].iloc[-1]) / 100
+            rf_pct_str = f"{rf_rate_f*100:.2f}%"
+        _sym_idx = _cours_map.get(universe.upper())
+        _pe_erp  = None
+        if _sym_idx:
+            try:
+                _idx_info = _yf_erp.Ticker(_sym_idx).info or {}
+                _pe_erp = _idx_info.get("forwardPE") or _idx_info.get("trailingPE")
+            except Exception:
+                pass
+        if not (_pe_erp and 0 < _pe_erp < 100):
+            try:
+                _spy_info = _yf_erp.Ticker("SPY").info or {}
+                _pe_erp = _spy_info.get("forwardPE") or _spy_info.get("trailingPE")
+            except Exception:
+                pass
+        if _pe_erp and 0 < _pe_erp < 100:
+            _erp_val     = 1 / _pe_erp - rf_rate_f
+            erp_pct      = f"{_erp_val*100:.1f}%"
+            erp_signal_s = ("Tendu" if _erp_val < 0.02
+                            else "Favorable" if _erp_val > 0.04
+                            else "Neutre")
+    except Exception:
+        pass
+
+    # ── ETF SPDR — P/B, DivYield, corrélation, portfolio optim ──────────
+    _ETF_MAP_APP = {
+        "XLK":"Technology","XLV":"Health Care","XLF":"Financials",
+        "XLC":"Communication Services","XLY":"Consumer Discretionary",
+        "XLP":"Consumer Staples","XLI":"Industrials","XLE":"Energy",
+        "XLB":"Materials","XLRE":"Real Estate","XLU":"Utilities",
+    }
+    _PB_GENERIC_APP = {
+        "Technology":8.5,"Health Care":4.2,"Financials":1.5,
+        "Consumer Discretionary":5.8,"Communication Services":3.6,
+        "Industrials":4.9,"Consumer Staples":5.2,"Energy":2.3,
+        "Materials":3.8,"Real Estate":2.1,"Utilities":1.8,
+    }
+    _DY_GENERIC_APP = {
+        "Technology":0.7,"Health Care":1.6,"Financials":2.1,
+        "Consumer Discretionary":0.8,"Communication Services":0.9,
+        "Industrials":1.5,"Consumer Staples":2.8,"Energy":3.5,
+        "Materials":2.0,"Real Estate":3.8,"Utilities":3.2,
+    }
+    _GROWTH_APP = {
+        "Technology":13.0,"Health Care":8.0,"Financials":7.0,
+        "Consumer Discretionary":9.0,"Communication Services":8.5,
+        "Industrials":7.0,"Consumer Staples":5.0,"Energy":4.0,
+        "Materials":6.0,"Real Estate":5.0,"Utilities":4.0,
+    }
+    pb_by_sector = {}; dy_by_sector = {}; erp_by_sector = {}
+    corr_matrix  = None; sector_weights = {}; sector_contribution = []
+    breadth_score = None; factor_tilts = None
+    optimal_portfolios = {}
+    try:
+        import numpy as _np_app
+        import yfinance as _yf_etf
+        _etfs = list(_ETF_MAP_APP.keys())
+        _hist_etf = _yf_etf.download(
+            _etfs, period="1y", interval="1mo", progress=False, auto_adjust=True
+        )["Close"]
+        _hist_etf = _hist_etf.dropna(how="all")
+        _ret_1y   = {}
+        for _e in _etfs:
+            if _e in _hist_etf.columns and len(_hist_etf[_e].dropna()) >= 2:
+                _s = _hist_etf[_e].dropna()
+                _ret_1y[_e] = (_s.iloc[-1] / _s.iloc[0] - 1) * 100
+
+        # P/B + DivYield depuis info ETF
+        for _e, _nom in _ETF_MAP_APP.items():
+            try:
+                _inf = _yf_etf.Ticker(_e).info or {}
+                _pb  = _inf.get("priceToBook")
+                _dy  = _inf.get("yield") or _inf.get("dividendYield")
+                if _dy and _dy < 0.5: _dy = round(_dy * 100, 2)
+                elif _dy: _dy = round(float(_dy), 2)
+                pb_by_sector[_nom] = round(float(_pb), 1) if _pb else _PB_GENERIC_APP.get(_nom)
+                dy_by_sector[_nom] = _dy or _DY_GENERIC_APP.get(_nom)
+            except Exception:
+                pb_by_sector[_nom] = _PB_GENERIC_APP.get(_nom)
+                dy_by_sector[_nom] = _DY_GENERIC_APP.get(_nom)
+            _dy_dec = (dy_by_sector.get(_nom) or 0) / 100
+            _gr     = _GROWTH_APP.get(_nom, 6.0) / 100
+            erp_by_sector[_nom] = round((_dy_dec + _gr - rf_rate_f) * 100, 1)
+
+        # Corrélation 52S quotidienne
+        _hist_daily = _yf_etf.download(
+            _etfs, period="1y", interval="1d", progress=False, auto_adjust=True
+        )["Close"].dropna(how="all")
+        _dret = _hist_daily.pct_change().dropna(how="all")
+        _etfs_c = [e for e in _etfs if e in _dret.columns and _dret[e].dropna().shape[0] > 30]
+        if len(_etfs_c) >= 4:
+            _corr = _dret[_etfs_c].corr()
+            _noms_c = [_ETF_MAP_APP[e] for e in _etfs_c]
+            corr_matrix = {"etfs": _etfs_c, "noms": _noms_c,
+                           "values": _corr.values.tolist(),
+                           "corr_median": round(float(_corr.values[_corr.values < 1].mean()), 2)}
+
+            # Breadth & factor tilts
+            _cyc = ["Technology","Consumer Discretionary","Financials","Industrials","Energy","Materials","Communication Services"]
+            _def = ["Consumer Staples","Health Care","Utilities","Real Estate"]
+            _ret_by_nom = {_ETF_MAP_APP[e]: _ret_1y.get(e, 0) for e in _etfs_c}
+            _cyc_ret = _np_app.mean([_ret_by_nom.get(s, 0) for s in _cyc if s in _ret_by_nom])
+            _def_ret = _np_app.mean([_ret_by_nom.get(s, 0) for s in _def if s in _ret_by_nom])
+            breadth_score = sum(1 for v in _ret_by_nom.values() if v > 0) / len(_ret_by_nom) * 100
+            factor_tilts  = {"cyclique_ret": round(_cyc_ret, 1), "defensif_ret": round(_def_ret, 1)}
+
+            # Contribution sectorielle
+            _tot_ret = sum(_ret_by_nom.values()) or 1
+            _sec_w_uniform = 1 / len(_ret_by_nom)
+            sector_contribution = sorted(
+                [(nom, round(_sec_w_uniform * ret, 2), round(ret, 1))
+                 for nom, ret in _ret_by_nom.items()],
+                key=lambda x: x[1], reverse=True
+            )
+
+            # Portfolio optimization
+            try:
+                from scipy.optimize import minimize as _sp_min2
+                _n2 = len(_etfs_c)
+                _vols2 = _dret[_etfs_c].std().values * _np_app.sqrt(252)
+                _corr2 = _corr.values
+                _cov2  = _np_app.outer(_vols2, _vols2) * _corr2
+                _mu2   = _np_app.array([_ret_1y.get(e, 0) / 100 for e in _etfs_c])
+                _x02   = _np_app.array([1/_n2]*_n2)
+                _bds2  = [(0.0, 0.40)]*_n2
+                _con2  = [{"type":"eq","fun": lambda w: _np_app.sum(w)-1}]
+                def _pstats(w):
+                    vol = float(_np_app.sqrt(max(w @ _cov2 @ w, 1e-12)))
+                    return round(float(w @ _mu2)*100,1), round(vol*100,1), round((float(w@_mu2)-rf_rate_f)/vol,2)
+                _rmv  = _sp_min2(lambda w: float(w@_cov2@w), _x02, method="SLSQP", bounds=_bds2, constraints=_con2)
+                _w_mv = _rmv.x if _rmv.success else _x02
+                def _neg_sh(w):
+                    vol = float(_np_app.sqrt(max(w@_cov2@w,1e-12)))
+                    return -(float(w@_mu2)-rf_rate_f)/vol
+                _rtg  = _sp_min2(_neg_sh, _x02, method="SLSQP", bounds=_bds2, constraints=_con2)
+                _w_tg = _rtg.x if _rtg.success else _x02
+                def _erc2(w):
+                    var = float(w@_cov2@w)
+                    if var < 1e-12: return 1e10
+                    rc = w*(_cov2@w)
+                    return float(_np_app.sum((rc - var/_n2)**2))
+                _rerc = _sp_min2(_erc2, _x02, method="SLSQP",
+                                 bounds=[(0.01,0.40)]*_n2, constraints=_con2)
+                _w_erc = _rerc.x if _rerc.success else _x02
+                optimal_portfolios = {
+                    "sectors": [_ETF_MAP_APP[e] for e in _etfs_c],
+                    "rf_rate": round(rf_rate_f*100, 2),
+                    "min_var":  {"weights":[round(float(w)*100,1) for w in _w_mv],  **dict(zip(["return","vol","sharpe"],_pstats(_w_mv)))},
+                    "tangency": {"weights":[round(float(w)*100,1) for w in _w_tg],  **dict(zip(["return","vol","sharpe"],_pstats(_w_tg)))},
+                    "erc":      {"weights":[round(float(w)*100,1) for w in _w_erc], **dict(zip(["return","vol","sharpe"],_pstats(_w_erc)))},
+                }
+            except Exception:
+                pass
+    except Exception:
+        pass
+
     # ── Finbert par défaut ────────────────────────────────────────────────
     finbert = {
         "nb_articles": 0,
@@ -1586,6 +1752,17 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
         "sous_noms":      _sous_noms,
         "rotation":       rotation,
         "finbert":        finbert,
+        "erp":            erp_pct,
+        "rf_rate":        rf_pct_str,
+        "erp_signal":     erp_signal_s,
+        "pb_by_sector":   pb_by_sector,
+        "dy_by_sector":   dy_by_sector,
+        "erp_by_sector":  erp_by_sector,
+        "corr_matrix":    corr_matrix,
+        "sector_contribution": sector_contribution,
+        "breadth_score":  breadth_score,
+        "factor_tilts":   factor_tilts,
+        "optimal_portfolios": optimal_portfolios,
         "methodologie": [
             ("Score sectoriel",   "Composite 0-100 : 40% momentum, 30% rev. BPA, 30% valorisation"),
             ("Signal",            "Surponderer (>60) / Neutre (40-60) / Sous-ponderer (<40)"),
