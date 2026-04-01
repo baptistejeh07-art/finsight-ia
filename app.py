@@ -1458,10 +1458,13 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
             "signal":        s[3],
             "score":         s[2],
             "ev_ebitda":     s[4],
+            "mg_ebitda":     s[5],
             "pe_forward_raw": pe_fwd_raw,
             "catalyseur": (
-                f"Score {s[2]}/100 · momentum {_mom_clean} · EV/EBITDA {s[4]}"
+                f"Score {s[2]}/100 · momentum {_mom_clean}"
+                + (f" · EV/EBITDA {s[4]}" if str(s[4]) not in ("\u2014","—","","None") else "")
                 + (f" · Mg.EBITDA {s[5]:.1f}%" if isinstance(s[5],(int,float)) and s[5] else "")
+                + f" · Croiss. revenus {s[6]}"
             ),
             "risque":     (
                 f"Croiss. revenus {s[6]} sur LTM — "

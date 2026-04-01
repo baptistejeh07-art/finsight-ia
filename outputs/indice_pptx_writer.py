@@ -254,7 +254,7 @@ def _parse_pct(s) -> float:
 # ── Charts ─────────────────────────────────────────────────────────────────────
 
 def _chart_scatter(secteurs: list) -> bytes:
-    """Scatter EV/EBITDA vs croissance BPA par secteur. 4 quadrants."""
+    """Scatter EV/EBITDA vs croissance BPA par secteur. Fallback Mg.EBITDA si EV absent."""
     fig, ax = plt.subplots(figsize=(8.5, 5.5))
     fig.patch.set_facecolor('#FFFFFF')
     ax.set_facecolor('#F8F9FA')
@@ -264,38 +264,48 @@ def _chart_scatter(secteurs: list) -> bytes:
     signals  = [s[3] for s in secteurs]
     noms     = [s[0] for s in secteurs]
 
-    if not ev_vals or not any(ev_vals):
-        ax.text(0.5, 0.5, "EV/EBITDA non disponible\npour cet indice", ha='center', va='center',
-                transform=ax.transAxes, color='#999999', fontsize=11)
-        ax.set_xticks([]); ax.set_yticks([])
-        for sp in ax.spines.values(): sp.set_visible(False)
-        buf = io.BytesIO()
-        fig.savefig(buf, format='png', dpi=150, bbox_inches='tight', facecolor='white')
-        plt.close(fig)
-        buf.seek(0)
-        return buf.read()
+    # Fallback : Mg.EBITDA quand EV/EBITDA indisponible
+    use_mg = not ev_vals or not any(v > 0 for v in ev_vals)
+    if use_mg:
+        mg_vals = [float(s[5]) if isinstance(s[5], (int, float)) and s[5] else 0.0 for s in secteurs]
+        if not any(v > 0 for v in mg_vals):
+            # Aucune donnee disponible
+            ax.text(0.5, 0.5, "Données EV/EBITDA et Mg.EBITDA\nnon disponibles pour cet indice",
+                    ha='center', va='center', transform=ax.transAxes, color='#999999', fontsize=10)
+            ax.set_xticks([]); ax.set_yticks([])
+            for sp in ax.spines.values(): sp.set_visible(False)
+            buf = io.BytesIO()
+            fig.savefig(buf, format='png', dpi=150, bbox_inches='tight', facecolor='white')
+            plt.close(fig); buf.seek(0); return buf.read()
+        y_vals  = mg_vals
+        y_label = "Mg. EBITDA (%)"
+        q_labels = ("Mg. elevee + Fort.", "Mg. faible + Fort.", "Mg. elevee + Faible", "Mg. faible + Faible")
+    else:
+        y_vals  = ev_vals
+        y_label = "EV/EBITDA (x)"
+        q_labels = ("Premium Justifie", "Value Trap ?", "Opportunite", "Risque")
 
-    med_ev  = float(np.median(ev_vals))
+    med_y   = float(np.median([v for v in y_vals if v > 0]))
     med_bpa = float(np.median(bpa_vals))
 
-    ax.axhline(med_ev,  color='#CCCCCC', linewidth=0.8, linestyle='--', alpha=0.7)
+    ax.axhline(med_y,   color='#CCCCCC', linewidth=0.8, linestyle='--', alpha=0.7)
     ax.axvline(med_bpa, color='#CCCCCC', linewidth=0.8, linestyle='--', alpha=0.7)
 
-    for i, (ev, bpa, sig, nom) in enumerate(zip(ev_vals, bpa_vals, signals, noms)):
+    for i, (yv, bpa, sig, nom) in enumerate(zip(y_vals, bpa_vals, signals, noms)):
         col = _sig_hex(sig)
-        ax.scatter(bpa, ev, s=100, color=col, alpha=0.85, zorder=5, edgecolors='white', linewidths=0.5)
+        ax.scatter(bpa, yv, s=100, color=col, alpha=0.85, zorder=5, edgecolors='white', linewidths=0.5)
         short = _abbrev_sector(nom, 14)
-        ax.annotate(short, (bpa, ev), textcoords='offset points', xytext=(5, 4),
+        ax.annotate(short, (bpa, yv), textcoords='offset points', xytext=(5, 4),
                     fontsize=6, color='#333333')
 
     kw = dict(transform=ax.transAxes, fontsize=6.5, alpha=0.7)
-    ax.text(0.97, 0.93, "Premium Justifie", ha='right', color='#555555', **kw)
-    ax.text(0.03, 0.93, "Value Trap ?",      ha='left',  color='#555555', **kw)
-    ax.text(0.97, 0.04, "Opportunite",        ha='right', color='#1A7A4A', **kw)
-    ax.text(0.03, 0.04, "Risque",             ha='left',  color='#A82020', **kw)
+    ax.text(0.97, 0.93, q_labels[0], ha='right', color='#555555', **kw)
+    ax.text(0.03, 0.93, q_labels[1], ha='left',  color='#555555', **kw)
+    ax.text(0.97, 0.04, q_labels[2], ha='right', color='#1A7A4A', **kw)
+    ax.text(0.03, 0.04, q_labels[3], ha='left',  color='#A82020', **kw)
 
     ax.set_xlabel("Croissance BPA (%)", fontsize=8, color='#555555')
-    ax.set_ylabel("EV/EBITDA (x)", fontsize=8, color='#555555')
+    ax.set_ylabel(y_label, fontsize=8, color='#555555')
     ax.tick_params(labelsize=7, colors='#777777')
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
@@ -762,12 +772,14 @@ def _s02_exec_summary(prs, D):
         _txb(slide, nom,  1.15, yy,       22.3, 0.45, size=8, bold=True, color=_NAVY)
         _txb(slide, desc, 1.15, yy + 0.45, 22.3, 0.55, size=7.5, color=_GRAYT, wrap=True)
 
-    # Texte signal en bas
-    texte = _trunc(D.get("texte_signal", ""), 400)
-    _rect(slide, 0.9, 7.8, 23.6, 5.5, fill=_GRAYL)
-    _rect(slide, 0.9, 7.8, 0.12, 5.5, fill=_NAVY)
-    _txb(slide, "SYNTHÈSE DU SIGNAL", 1.2, 7.9, 22.8, 0.55, size=8, bold=True, color=_NAVY)
-    _txb(slide, texte, 1.2, 8.5, 22.8, 4.5, size=8, color=_GRAYT, wrap=True)
+    # Synthese signal en bas — espace minimal de 0.5cm apres le dernier catalyseur
+    texte = _trunc(D.get("texte_signal", ""), 700)
+    _y_synth = 8.3
+    _h_synth = 13.3 - _y_synth
+    _rect(slide, 0.9, _y_synth, 23.6, _h_synth, fill=_GRAYL)
+    _rect(slide, 0.9, _y_synth, 0.12, _h_synth, fill=_NAVY)
+    _txb(slide, "SYNTHESE DU SIGNAL", 1.2, _y_synth + 0.1, 22.8, 0.5, size=8, bold=True, color=_NAVY)
+    _txb(slide, texte, 1.2, _y_synth + 0.7, 22.8, _h_synth - 0.8, size=8, color=_GRAYT, wrap=True)
 
     _footer(slide)
     return slide
@@ -848,11 +860,23 @@ def _s05_description(prs, D):
     _add_table(slide, rows, 15.1, 2.3, 9.4, 7.0,
                col_widths=[6, 3], font_size=8, header_size=8, alt_fill=_GRAYL)
 
-    # Lecture analytique en bas — synthese signal (different du texte description gauche)
-    lec_txt = D.get("texte_signal","") or D.get("texte_description","")
-    if lec_txt:
-        _lecture_box(slide, "Lecture — Signal global & positionnement sectoriel", lec_txt,
-                     y_top=9.8, height=3.5)
+    # Lecture analytique — texte signal enrichi avec contexte sectoriel
+    lec_base = D.get("texte_signal","") or D.get("texte_description","")
+    secteurs_d = D.get("secteurs",[])
+    surp = [s[0] for s in secteurs_d if "Surp" in str(s[3])]
+    sous = [s[0] for s in secteurs_d if "Sous" in str(s[3])]
+    nb_n = len([s for s in secteurs_d if "Surp" not in str(s[3]) and "Sous" not in str(s[3])])
+    _surp_str = "  ·  ".join([_abbrev_sector(x,18) for x in surp[:3]]) or "aucun"
+    _sous_str = "  ·  ".join([_abbrev_sector(x,18) for x in sous[:3]]) or "aucun"
+    lec_ctx = (
+        f"Secteurs Surponderer : {_surp_str}. "
+        f"Secteurs Sous-ponderer : {_sous_str}. "
+        f"{nb_n} secteurs en position Neutre. "
+        f"Horizon d'allocation recommande : 12 mois."
+    )
+    lec_txt = (lec_base + "  " + lec_ctx).strip() if lec_base else lec_ctx
+    _lecture_box(slide, "Lecture — Signal global & positionnement sectoriel",
+                 _trunc(lec_txt, 700), y_top=9.8, height=3.5)
 
     _footer(slide)
     return slide
@@ -889,9 +913,24 @@ def _s06_valorisation(prs, D):
         if isinstance(prime_val, str) and '+' in prime_val:
             _color_cell(tbl, r, 2, _HOLD_L, _BLACK)
 
-    # Lecture analytique
+    # Lecture analytique — fallback analytique si texte court ou données manquantes
     texte_val = D.get("texte_valorisation","")
-    _lecture_box(slide, "Lecture analytique — Valorisation macro", texte_val, y_top=8.0, height=5.35)
+    _pe_m6 = D.get("pe_mediane_10y","—")
+    _pe_f6 = D.get("pe_forward","—")
+    _erp6  = D.get("erp","—")
+    _sig6  = D.get("signal_global","Neutre")
+    _scr6  = D.get("score_median","—")
+    if not texte_val or len(texte_val) < 80:
+        _pm_str = f"{_pe_m6}x" if isinstance(_pe_m6,(int,float)) else str(_pe_m6)
+        texte_val = (
+            f"Le P/E Forward de l'indice ({_pe_f6}) se compare a la mediane historique 10 ans de {_pm_str}. "
+            f"L'ERP (Damodaran) s'etablit a {_erp6}, refletant la prime de risque requise vs le taux sans risque. "
+            f"Le score composite moyen des secteurs est de {_scr6}/100, generant un signal global {_sig6} "
+            f"(conviction {D.get('conviction_pct',50)} %). "
+            f"Les donnees P/E Forward et YTD sont issues de yfinance (^FCHI pour le CAC 40) ; "
+            f"certaines valeurs peuvent etre indisponibles hors heures de marche ou selon le plan API."
+        )
+    _lecture_box(slide, "Lecture analytique — Valorisation macro", _trunc(texte_val, 700), y_top=8.0, height=5.35)
 
     _footer(slide)
     return slide
@@ -1029,30 +1068,50 @@ def _s09_cartographie(prs, D):
 def _s10_scatter(prs, D, chart_bytes: bytes):
     slide = _blank(prs)
     indice = D.get("indice","")
-    _header(slide, "Valorisation vs Croissance BPA",
-            f"EV/EBITDA median vs Croissance BPA  ·  4 quadrants  ·  Un point par secteur GICS",
-            active=2)
+    secteurs = D.get("secteurs",[])
+    ev_vals = [_parse_x(s[4]) for s in secteurs]
+    use_mg  = not ev_vals or not any(v > 0 for v in ev_vals)
+    if use_mg:
+        axis_lbl = "Mg. EBITDA vs Croissance BPA"
+        sub_lbl  = "Marge EBITDA (%) vs Croissance BPA  ·  4 quadrants  ·  Un point par secteur GICS"
+    else:
+        axis_lbl = "EV/EBITDA vs Croissance BPA"
+        sub_lbl  = "EV/EBITDA median vs Croissance BPA  ·  4 quadrants  ·  Un point par secteur GICS"
+    _header(slide, f"Valorisation vs Croissance BPA ({axis_lbl})", sub_lbl, active=2)
 
     _pic(slide, chart_bytes, 0.9, 2.3, 14.2, 8.6)
 
     # Lecture droite
-    secteurs = D.get("secteurs",[])
-    sorted_s = sorted(secteurs, key=lambda s: _parse_x(s[4]), reverse=True)
-    premium = [s[0] for s in sorted_s if "Surp" in str(s[3]) and _parse_x(s[4]) > 20][:2]
-    opport  = [s[0] for s in sorted_s if "Surp" in str(s[3]) and _parse_x(s[4]) < 20][:2]
-
-    txt = (
-        f"{'  ·  '.join(premium) or 'N/A'} en quadrant Premium Justifie — "
-        f"valorisation elevee supportee par forte croissance BPA.\n\n"
-        f"{'  ·  '.join(opport) or 'N/A'} en zone Opportunite — "
-        f"croissance correcte a valorisation attractive. Meilleur ratio risque/rendement.\n\n"
-        f"Les pointilles representent les medianes sectorielles (EV/EBITDA et BPA growth). "
-        f"Favoriser les secteurs en bas droite (forte croissance, valorisation moderee)."
-    )
+    sorted_s = sorted(secteurs, key=lambda s: s[2], reverse=True)
+    surp_s = [s for s in sorted_s if "Surp" in str(s[3])]
+    sous_s = [s for s in sorted_s if "Sous" in str(s[3])]
+    if use_mg:
+        best = [_abbrev_sector(s[0],18) for s in surp_s if isinstance(s[5],(int,float)) and s[5] > 20][:2]
+        opport = [_abbrev_sector(s[0],18) for s in surp_s if isinstance(s[5],(int,float)) and s[5] <= 20][:2]
+        txt = (
+            f"{'  ·  '.join(best) or 'N/A'} : forte marge EBITDA + score Surponderer — "
+            f"profil qualite avec visibilite elevee sur les benefices.\n\n"
+            f"{'  ·  '.join(opport) or 'N/A'} : zone Opportunite — "
+            f"croissance correcte, marge adequate, valorisation attractive.\n\n"
+            f"EV/EBITDA non disponible pour cet indice (EU) via yfinance. "
+            f"La Mg. EBITDA est utilisee comme proxy de qualite operationnelle. "
+            f"Favoriser les secteurs a forte marge et croissance BPA positive."
+        )
+    else:
+        premium = [_abbrev_sector(s[0],18) for s in surp_s if _parse_x(s[4]) > 20][:2]
+        opport  = [_abbrev_sector(s[0],18) for s in surp_s if _parse_x(s[4]) < 20][:2]
+        txt = (
+            f"{'  ·  '.join(premium) or 'N/A'} en quadrant Premium Justifie — "
+            f"valorisation elevee supportee par forte croissance BPA.\n\n"
+            f"{'  ·  '.join(opport) or 'N/A'} en zone Opportunite — "
+            f"croissance correcte a valorisation attractive. Meilleur ratio risque/rendement.\n\n"
+            f"Les pointilles representent les medianes sectorielles (EV/EBITDA et BPA growth). "
+            f"Favoriser les secteurs en bas droite (forte croissance, valorisation moderee)."
+        )
     _rect(slide, 15.6, 2.3, 8.9, 8.6, fill=_GRAYL)
     _rect(slide, 15.6, 2.3, 0.12, 8.6, fill=_NAVY)
     _txb(slide, "Lecture du Scatter", 15.9, 2.4, 8.4, 0.6, size=8.5, bold=True, color=_NAVY)
-    _txb(slide, txt[:500], 15.9, 3.1, 8.4, 7.7, size=8, color=_GRAYT, wrap=True)
+    _txb(slide, txt[:600], 15.9, 3.1, 8.4, 7.7, size=8, color=_GRAYT, wrap=True)
 
     _footer(slide)
     return slide
@@ -1173,9 +1232,14 @@ def _s13_top3(prs, D):
              xoff + panel_w - 1.9, 2.4, 1.7, 0.55, size=7.5, bold=True,
              color=_WHITE, align=PP_ALIGN.CENTER)
 
-        # Score + EV
-        _txb(slide, f"Score : {score}/100  ·  EV/EBITDA : {ev}",
-             xoff + 0.2, 3.25, panel_w - 0.3, 0.5, size=7.5, color=_NAVY)
+        # Score + metrique dispo (EV/EBITDA ou Mg.EBITDA en fallback)
+        mg_eb = sect.get("mg_ebitda", sect.get("marge_ebitda", "—"))
+        if str(ev) in ("—", "", "None") and mg_eb and str(mg_eb) not in ("—","","None"):
+            _mg_disp = f"{float(mg_eb):.1f}%" if isinstance(mg_eb,(int,float)) else str(mg_eb)
+            _met_disp = f"Score : {score}/100  ·  Mg.EBITDA : {_mg_disp}"
+        else:
+            _met_disp = f"Score : {score}/100  ·  EV/EBITDA : {ev}"
+        _txb(slide, _met_disp, xoff + 0.2, 3.25, panel_w - 0.3, 0.5, size=7.5, color=_NAVY)
 
         # Societes
         _txb(slide, "Sociétés représentatives", xoff + 0.2, 3.85, panel_w - 0.3, 0.45,
@@ -1251,29 +1315,49 @@ def _s14_distribution(prs, D, chart_bytes: bytes):
 
 def _s15_zone_entree(prs, D, chart_bytes: bytes):
     slide = _blank(prs)
-    _header(slide, "Zone d'Entrée Optimale par Secteur",
-            "P/E actuel vs médiane historique 10 ans  ·  Signal d'entrée Accumuler / Neutre / Alléger",
+    _header(slide, "Zone d'Entree Optimale par Secteur",
+            "P/E actuel vs mediane historique 10 ans  ·  Signal d'entree Accumuler / Neutre / Alleger",
             active=3)
 
-    _pic(slide, chart_bytes, 0.9, 2.3, 23.6, 7.2)
+    # Graphique GAUCHE (60 % de la largeur)
+    _pic(slide, chart_bytes, 0.9, 2.3, 15.0, 10.5)
 
-    # Lecture bas
-    top3   = D.get("top3_secteurs",[])
-    noms_b = []
+    # Colonne analytique DROITE
+    top3    = D.get("top3_secteurs",[])
+    secteurs = D.get("secteurs",[])
+    _pe_g   = D.get("pe_forward","—")
+    _pe_med = D.get("pe_mediane_10y","—")
+
+    noms_b  = []
+    noms_h  = []
     for t in top3:
-        pef = t.get("pe_forward_raw",0)
-        pem = t.get("pe_mediane_10y",18.0)
-        if pef and pem and pef < pem * 1.05:
+        pef = t.get("pe_forward_raw",0) or 0
+        pem = t.get("pe_mediane_10y",18.0) or 18.0
+        if pef > 0 and pef < pem * 1.05:
             noms_b.append(t["nom"])
+        elif pef > 0 and pef > pem * 1.15:
+            noms_h.append(t["nom"])
 
-    txt = (
-        f"{'  ·  '.join(noms_b) or 'Aucun secteur Surpondérer'} offrent les meilleures "
-        f"zones d'entrée parmi les secteurs recommandés : P/E Forward inférieur ou proche "
-        f"de la médiane historique 10 ans — profil risque/rendement favorable. "
-        f"Les secteurs au-dessus de la médiane (+20 %) méritent une prudence accrue sur le point d'entrée."
+    # Secteurs tous confondus sous/sur mediane
+    all_sous = [s[0] for s in secteurs if True]  # placeholder
+    _pm_str = f"{_pe_med}x" if isinstance(_pe_med,(int,float)) else str(_pe_med)
+
+    txt_col = (
+        f"PE mediane 10 ans : {_pm_str}\n"
+        f"PE Forward indice : {_pe_g}\n\n"
+        f"Zone d'entree favorable (PE < mediane) :\n"
+        f"{'  ·  '.join([_abbrev_sector(n,18) for n in noms_b]) or 'Aucun secteur top3'}\n\n"
+        f"Zone de prudence (PE > mediane +15 %) :\n"
+        f"{'  ·  '.join([_abbrev_sector(n,18) for n in noms_h]) or 'Aucun'}\n\n"
+        f"Methodologie : le PE Forward estime est ancre sur le PE global de l'indice "
+        f"ajuste du score sectoriel (+/- ecart). Les secteurs a gauche de la ligne "
+        f"pointillee (mediane 10 ans) offrent un meilleur point d'entree. "
+        f"Un ecart > +20 % vs la mediane justifie une prudence accrue sur le timing."
     )
-    _lecture_box(slide, "Lecture — Secteurs en zone d'entrée optimale",
-                 txt, y_top=9.9, height=3.45)
+    _rect(slide, 16.3, 2.3, 8.1, 10.5, fill=_GRAYL)
+    _rect(slide, 16.3, 2.3, 0.12, 10.5, fill=_NAVY)
+    _txb(slide, "Lecture — Zone d'entree", 16.6, 2.4, 7.6, 0.6, size=8.5, bold=True, color=_NAVY)
+    _txb(slide, txt_col[:700], 16.6, 3.1, 7.6, 9.5, size=7.5, color=_GRAYT, wrap=True)
 
     _footer(slide)
     return slide
