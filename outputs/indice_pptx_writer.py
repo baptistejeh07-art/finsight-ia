@@ -1816,7 +1816,7 @@ def _s20_etf_perf(prs, D, chart_bytes: bytes):
         _ph = D.get("perf_history")
         _has_chart = bool(_ph and _ph.get("dates") and _ph.get("indice"))
         _header(slide, f"Performance de l'Indice — 52 Semaines",
-                f"{indice}  ·  vs Obligations & Or  ·  Indexe a 100  ·  Source yfinance",
+                f"{indice}  ·  vs S&P 500, Obligations & Or  ·  Indexe a 100  ·  Source yfinance",
                 active=5)
 
         if _has_chart:
@@ -1825,21 +1825,29 @@ def _s20_etf_perf(prs, D, chart_bytes: bytes):
             _pic(slide, _idx_bytes, 0.9, 2.2, 23.6, 7.2)
 
             # Lecture analytique sous le graphique
-            _i_perf = _ph.get("indice", [])
-            _b_perf = _ph.get("bonds", [])
-            _g_perf = _ph.get("gold", [])
-            _dates  = _ph.get("dates", [])
-            _ytd_val = D.get("variation_ytd","—")
+            _i_perf  = _ph.get("indice", [])
+            _b_perf  = _ph.get("bonds", [])
+            _g_perf  = _ph.get("gold", [])
+            _sp_perf = _ph.get("sp500", [])
+            _dates   = _ph.get("dates", [])
+            _ytd_val   = D.get("variation_ytd","—")
             _cours_val = D.get("cours","—")
-            _final_idx = (_i_perf[-1] - 100) if _i_perf else 0
-            _final_b   = (_b_perf[-1] - 100) if _b_perf else None
-            _final_g   = (_g_perf[-1] - 100) if _g_perf else None
+            _final_idx = (_i_perf[-1]  - 100) if _i_perf  else 0
+            _final_b   = (_b_perf[-1]  - 100) if _b_perf  else None
+            _final_g   = (_g_perf[-1]  - 100) if _g_perf  else None
+            _final_sp  = (_sp_perf[-1] - 100) if _sp_perf else None
             _pstart = _dates[0][:7] if _dates else "—"
             _pend   = _dates[-1][:7] if _dates else "—"
             _lec_parts = [
                 f"Performance {indice} sur 52 semaines : {_final_idx:+.1f}% (base 100, de {_pstart} a {_pend}). "
                 f"Cours actuel : {_cours_val} (YTD : {_ytd_val})."
             ]
+            if _final_sp is not None:
+                _rel = _final_idx - _final_sp
+                _rel_lbl = f"surperf de {_rel:+.1f}pt vs S&P 500" if _rel >= 0 else f"sous-perf de {_rel:.1f}pt vs S&P 500"
+                _lec_parts.append(
+                    f"S&P 500 : {_final_sp:+.1f}% sur la periode — {_rel_lbl}."
+                )
             if _final_b is not None:
                 _lec_parts.append(
                     f"Obligations (^TNX) : {_final_b:+.1f}% sur la periode — "
