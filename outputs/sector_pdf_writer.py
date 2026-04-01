@@ -742,7 +742,8 @@ def _content_header(c, doc, sector_name: str, date_str: str):
 
 # ─── SECTIONS ─────────────────────────────────────────────────────────────────
 def _build_macro(perf_buf, area_buf, tickers_data: list[dict],
-                 sector_name: str, universe: str, registry=None):
+                 sector_name: str, universe: str, registry=None,
+                 sector_analytics: dict = None):
     elems = []
     if registry is not None:
         elems.append(SectionAnchor('macro', registry))
@@ -793,7 +794,70 @@ def _build_macro(perf_buf, area_buf, tickers_data: list[dict],
     ]))
     elems.append(area_row)
     elems.append(src("FinSight IA \u2014 Revenus agrégés par sous-segment (estimation illustrative)."))
-    elems.append(Spacer(1, 8*mm))
+    elems.append(Spacer(1, 4*mm))
+
+    # ── Regime de marche + Probabilite de recession (AgentMacro) ─────────────
+    _macro = (sector_analytics or {}).get("macro") or {}
+    _regime  = _macro.get("regime")
+    _vix     = _macro.get("vix")
+    _spread  = _macro.get("yield_spread_10y_3m")
+    _sp_ma   = _macro.get("sp500_vs_ma200")
+    _rec_6m  = _macro.get("recession_prob_6m")
+    _rec_12m = _macro.get("recession_prob_12m")
+    _rec_lvl = _macro.get("recession_level", "Inconnu")
+    _drivers = _macro.get("recession_drivers", [])
+
+    if _regime and _regime != "Inconnu":
+        _REGIME_S = {
+            "Bull":       S_TD_G, "Bear":       S_TD_R,
+            "Volatile":   S_TD_A, "Transition": S_TD_A,
+        }
+        _reg_style = _REGIME_S.get(_regime, S_TD_BC)
+        _rec_style = (S_TD_R if _rec_lvl == "Elevee" else
+                      (S_TD_A if _rec_lvl == "Moderee" else S_TD_G))
+        vix_str    = f"{_vix:.0f}" if _vix    is not None else "\u2014"
+        spread_str = f"{_spread:+.1f}%" if _spread is not None else "\u2014"
+        sp_ma_str  = f"{_sp_ma:+.1f}%" if _sp_ma  is not None else "\u2014"
+        sp_trend   = _macro.get("sp500_trend", "\u2014")
+
+        reg_h = [Paragraph(h, S_TH_C) for h in
+                 ["Regime de marche", "VIX", "Spread 10Y-3M", "S&P vs MA200", "Tendance"]]
+        reg_row = [
+            Paragraph(f"<b>{_regime}</b>", _reg_style),
+            Paragraph(vix_str,    S_TD_BC),
+            Paragraph(spread_str, S_TD_BC),
+            Paragraph(sp_ma_str,  S_TD_BC),
+            Paragraph(sp_trend,   S_TD_C),
+        ]
+        macro_blocks = [
+            Paragraph("Environnement macro — Regime de marche", S_SUBSECTION),
+            Spacer(1, 2*mm),
+            tbl([reg_h, reg_row], cw=[36*mm, 22*mm, 34*mm, 34*mm, 44*mm]),
+        ]
+        if _rec_6m is not None:
+            rec_h = [Paragraph(h, S_TH_C) for h in
+                     ["Horizon", "Probabilite recession", "Niveau", "Principaux signaux"]]
+            drivers_str = " \u00b7 ".join(_drivers[:2]) if _drivers else "Aucun signal recessif dominant"
+            rec_rows = [
+                [Paragraph("6 mois",  S_TD_C),
+                 Paragraph(f"<b>{_rec_6m}%</b>", _rec_style),
+                 Paragraph(_rec_lvl, _rec_style),
+                 Paragraph(drivers_str, S_TD_L)],
+                [Paragraph("12 mois", S_TD_C),
+                 Paragraph(f"{_rec_12m}%", S_TD_C),
+                 Paragraph(_rec_lvl, S_TD_C),
+                 Paragraph("Incertitude croissante sur horizon etendu", S_TD_L)],
+            ]
+            macro_blocks += [
+                Spacer(1, 2*mm),
+                tbl([rec_h] + rec_rows, cw=[24*mm, 36*mm, 28*mm, 82*mm]),
+                src("Indicateur de marche (non econometrique) : VIX + spread 10Y-3M + "
+                    "position S&P 500 vs MA200 + momentum 6M. Source : FinSight IA / yfinance."),
+            ]
+        elems.append(KeepTogether(macro_blocks))
+        elems.append(Spacer(1, 4*mm))
+    else:
+        elems.append(Spacer(1, 4*mm))
 
     macro_h = [Paragraph(h, S_TH_L)
                for h in ["Tendance", "Impact a 12 mois", "Beneficiaires", "Exposition"]]
@@ -2016,7 +2080,7 @@ def _build_story(perf_buf, area_buf, scatter_buf, donut_buf,
         f"les risques sectoriels avec probabilite et exposition par ticker.", S_BODY))
     story.append(PageBreak())
 
-    story += _build_macro(perf_buf, area_buf, tickers_data, sector_name, universe, registry)
+    story += _build_macro(perf_buf, area_buf, tickers_data, sector_name, universe, registry, sector_analytics)
     story += _build_structure_sectorielle(tickers_data, sector_name, sector_analytics or {}, registry)
     story += _build_acteurs(tickers_data, sector_name, registry)
     story.append(PageBreak())
@@ -2057,6 +2121,20 @@ def generate_sector_report(
         date_str = f"{_d.day} {_fr_months[_d.month]} {_d.year}"
     if subtitle is None:
         subtitle = f"Positionnement, valorisation et dynamiques \u2014 {universe}"
+
+    # Macro regime + recession (si pas deja fourni)
+    if sector_analytics is None:
+        sector_analytics = {}
+    if not sector_analytics.get("macro"):
+        try:
+            import sys as _sys, os as _os
+            _sys.path.insert(0, _os.path.dirname(_os.path.dirname(__file__)))
+            from agents.agent_macro import AgentMacro
+            sector_analytics["macro"] = AgentMacro().analyze()
+        except Exception as _me:
+            import logging as _log
+            _log.getLogger(__name__).warning("[sector_pdf_writer] AgentMacro: %s", _me)
+            sector_analytics.setdefault("macro", {})
 
     # Generation des charts
     perf_buf    = _make_perf_chart(tickers_data, sector_name)

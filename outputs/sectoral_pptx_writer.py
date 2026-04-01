@@ -1140,7 +1140,24 @@ def _s07_cycle(prs, D):
     _txb(slide, f"WACC median : {D['wacc_pct']} %", 16.6, 7.8, 7.9, 0.7, size=8, color=_GRAYT, align=PP_ALIGN.CENTER)
     _txb(slide, "Horizon : 12 mois", 16.6, 8.6, 7.9, 0.6, size=8, color=_GRAYD, align=PP_ALIGN.CENTER)
     cycle_comment = content.get("cycle_comment", "")
-    _txb(slide, cycle_comment, 16.6, 9.6, 7.9, 2.0, size=8, color=_NAVYL, wrap=True, align=PP_ALIGN.CENTER)
+    _txb(slide, cycle_comment, 16.6, 9.6, 7.9, 1.5, size=8, color=_NAVYL, wrap=True, align=PP_ALIGN.CENTER)
+
+    # Regime macro + recession (si disponible)
+    _macro = D.get("macro") or {}
+    _regime  = _macro.get("regime", "")
+    _rec_6m  = _macro.get("recession_prob_6m")
+    _rec_lvl = _macro.get("recession_level", "")
+    if _regime and _regime != "Inconnu":
+        _AMBER_C = RGBColor(0xE6, 0x7E, 0x22)
+        _REGIME_C = {"Bull": _BUY, "Bear": _SELL, "Volatile": _AMBER_C, "Transition": _AMBER_C}
+        _rc = _REGIME_C.get(_regime, _NAVY)
+        regime_line = f"Regime : {_regime}"
+        rec_line = f"Rec. 6M : {_rec_6m}%  ({_rec_lvl})" if _rec_6m is not None else ""
+        _rect(slide, 16.9, 11.2, 7.3, 0.05, fill=_GRAYD)
+        _txb(slide, "CONTEXTE MACRO", 16.6, 11.35, 7.9, 0.5, size=7, bold=True, color=_GRAYD, align=PP_ALIGN.CENTER)
+        _txb(slide, regime_line, 16.6, 11.85, 7.9, 0.55, size=8.5, bold=True, color=_rc, align=PP_ALIGN.CENTER)
+        if rec_line:
+            _txb(slide, rec_line, 16.6, 12.45, 7.9, 0.5, size=7.5, color=_GRAYT, align=PP_ALIGN.CENTER)
     _footer(slide)
 
 
@@ -1678,6 +1695,18 @@ class SectoralPPTXWriter:
         If output_path is provided, also saves to disk.
         """
         D = _prepare_data(tickers_data, sector_name, universe)
+
+        # Macro regime + recession
+        _macro = {}
+        try:
+            import sys as _sys, os as _os
+            _sys.path.insert(0, _os.path.dirname(_os.path.dirname(__file__)))
+            from agents.agent_macro import AgentMacro
+            _macro = AgentMacro().analyze() or {}
+        except Exception as _me:
+            import logging as _log
+            _log.getLogger(__name__).warning("[SectoralPPTXWriter] AgentMacro: %s", _me)
+        D["macro"] = _macro
 
         prs = Presentation()
         prs.slide_width  = _SW
