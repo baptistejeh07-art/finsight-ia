@@ -761,11 +761,17 @@ def _chart_scatter(tickers_data) -> bytes:
         ax.scatter(rev_grwth, ev_ebitda, s=sizes, c=colors_sc, alpha=0.85, zorder=3)
 
         # Labels uniquement si <= 20 points (sinon illisible)
-        if len(valid_t) <= 20:
-            for i, tk in enumerate(valid_t):
+        # Toujours afficher les labels — cap a 25 points (top 25 par score)
+        if len(valid_t) > 25:
+            scored = sorted(zip(scores, range(len(valid_t))), reverse=True)[:25]
+            show_idx = {idx for _, idx in scored}
+        else:
+            show_idx = set(range(len(valid_t)))
+        for i, tk in enumerate(valid_t):
+            if i in show_idx:
                 ax.annotate(tk, (rev_grwth[i], ev_ebitda[i]),
                             textcoords="offset points", xytext=(5, 3),
-                            fontsize=7, color='#1A1A1A', fontweight='bold')
+                            fontsize=6.5, color='#1A1A1A', fontweight='bold')
 
     ax.set_xlabel("Croissance Revenue YoY (%)", fontsize=8, color='#555555')
     ax.set_ylabel("EV/EBITDA", fontsize=8, color='#555555')
@@ -1167,7 +1173,8 @@ def _s09_cartographie(prs, D):
             f"{D['N']} sociétés analysées  ·  {D['sector_name']}  ·  {D['universe']}  ·  Tri par score FinSight decroissant", 2)
 
     td = D["sorted_td"]
-    td_disp = td[:MAX_TABLE_ROWS]
+    MAX_S09 = 10  # cap slide 9 a 10 lignes pour garantir la place du bloc lecture
+    td_disp = td[:MAX_S09]
     tbl_data = [["#", "Ticker", "Société", "Score", "Reco", "Cours", "EV/EBITDA", "Mg EBITDA", "Croissance", "Momentum"]]
     for i, t in enumerate(td_disp, 1):
         reco = _reco(t.get("score_global"))
@@ -1184,14 +1191,15 @@ def _s09_cartographie(prs, D):
             _fmt_pct(t.get("momentum_52w")),
         ])
 
-    _s09_tbl_h = min(6.0, len(tbl_data) * 0.56)
+    # Hauteur table : max 5.5cm pour garantir la place du bloc lecture (h min 2.5cm)
+    _s09_tbl_h = min(5.5, len(tbl_data) * 0.56)
     _add_table(slide, tbl_data, 0.9, 2.5, 23.6, _s09_tbl_h,
                col_widths=[0.8, 1.8, 4.0, 2.0, 1.8, 2.0, 2.4, 2.8, 2.8, 3.2],
                font_size=7.5, header_size=7.5, alt_fill=_GRAYL)
 
-    # Analytical text — position dynamique sous la table
-    _s09_text_y = round(2.5 + _s09_tbl_h + 0.3, 2)
-    _s09_text_h = min(3.5, max(2.0, 13.5 - _s09_text_y))  # cap a 3.5cm pour eviter espace vide excessif
+    # Analytical text — position fixe apres la table avec gap suffisant
+    _s09_text_y = round(2.5 + _s09_tbl_h + 0.5, 2)  # gap 0.5 (vs 0.3 avant)
+    _s09_text_h = min(4.5, max(2.5, 13.5 - _s09_text_y))
     n_buy  = sum(1 for t in td if _reco(t.get("score_global")) == "BUY")
     n_hold = sum(1 for t in td if _reco(t.get("score_global")) == "HOLD")
     n_sell = sum(1 for t in td if _reco(t.get("score_global")) == "SELL")
@@ -1217,7 +1225,7 @@ def _s09_cartographie(prs, D):
 def _s10_scatter(prs, D):
     slide = _blank(prs)
     _header(slide, "Valorisation vs Croissance",
-            "EV/EBITDA vs Croissance Revenue YoY  ·  4 quadrants  ·  Chaque point = une societe", 2)
+            "EV/EBITDA vs Croissance Revenue YoY  ·  4 quadrants  ·  Top 25 par score FinSight", 2)
 
     img = _chart_scatter(D["tickers_data"])
     _pic(slide, img, 0.9, 2.3, 14.7, 11.4)
@@ -1284,24 +1292,21 @@ def _s11_scores(prs, D):
             "", "", "", "", "", "", "",
         ])
 
-    _s11_tbl_h = min(7.0, len(tbl_data) * 0.56)
+    # Cap table a 6.0cm pour garantir la place du bloc synthese (min 3.5cm) sous la table
+    _s11_tbl_h = min(6.0, len(tbl_data) * 0.56)
     _add_table(slide, tbl_data, 0.9, 2.5, 23.6, _s11_tbl_h,
                col_widths=[2.0, 4.5, 3.0, 2.2, 2.2, 2.8, 3.0, 2.0],
                font_size=7.5, header_size=7.5, alt_fill=_GRAYL)
 
-    # Legend bar — position dynamique sous la table
-    _s11_lec_y = round(2.5 + _s11_tbl_h + 0.3, 2)
-    _rect(slide, 0.9, _s11_lec_y, 23.6, 0.7, fill=_NAVYL)
-    _txb(slide, "LECTURE : Score >= 75 = fort  ·  50-74 = moyen  ·  < 50 = faible  ·  Pondération : Value 25 % · Growth 25 % · Quality 25 % · Momentum 25 %",
-         1.1, _s11_lec_y + 0.05, 23.2, 0.6, size=7.5, bold=False, color=_WHITE)
-
-    # Synthesis — position dynamique sous la legende
+    # Synthese — incorpore la legende de lecture + analyse (un seul bloc sous la table)
     best = td[0] if td else {}
     best_name = (best.get("company") or best.get("ticker") or "Leader")[:25]
-    _s11_syn_y = round(_s11_lec_y + 0.8, 2)
-    _rect(slide, 0.9, _s11_syn_y, 23.6, 2.8, fill=_GRAYL)
+    _s11_syn_y = round(2.5 + _s11_tbl_h + 0.4, 2)
+    _syn_h = min(4.5, max(3.0, 13.5 - _s11_syn_y))
+    _rect(slide, 0.9, _s11_syn_y, 23.6, _syn_h, fill=_GRAYL)
     _rect(slide, 0.9, _s11_syn_y, 23.6, 0.7, fill=_NAVY)
-    _txb(slide, "SYNTHESE SCORES", 1.1, _s11_syn_y + 0.05, 23.1, 0.6, size=8.5, bold=True, color=_WHITE)
+    _txb(slide, "SYNTHESE SCORES  ·  Score >= 75 = fort  ·  50-74 = moyen  ·  < 50 = faible  ·  Ponderations : Value / Growth / Quality / Momentum = 25 % chacun",
+         1.1, _s11_syn_y + 0.05, 23.2, 0.6, size=7.5, bold=True, color=_WHITE)
     synthesis = (
         f"{best_name} presente le profil le plus equilibre du secteur "
         f"({int(best.get('score_global') or 0)}/100) avec des scores "
@@ -1309,11 +1314,11 @@ def _s11_scores(prs, D):
         f"Growth={int(best.get('score_growth') or 0)}, "
         f"Quality={int(best.get('score_quality') or 0)}, "
         f"Momentum={int(best.get('score_momentum') or 0)}. "
-        f"La dispersion des scores entre les {len(td)} sociétés reflete des profils hétérogènes — "
+        f"La dispersion des scores entre les {len(td)} societes reflete des profils heterogenes — "
         f"une allocation selective privilegiant les leaders qualitatifs est recommandee "
         f"dans la configuration sectorielle actuelle."
     )
-    _txb(slide, synthesis, 1.1, _s11_syn_y + 0.8, 23.2, 1.9, size=8.5, color=_GRAYT, wrap=True)
+    _txb(slide, synthesis, 1.1, _s11_syn_y + 0.85, 23.2, max(1.8, _syn_h - 1.0), size=8.5, color=_GRAYT, wrap=True)
     _footer(slide)
 
 
@@ -1459,44 +1464,20 @@ def _s15_entry(prs, D):
                col_widths=[2.0, 4.5, 2.8, 3.2, 3.0, 4.2, 2.5],
                font_size=7.5, header_size=7.5, alt_fill=_GRAYL)
 
-    # Note compacte — position dynamique APRES la table, avec garde hauteur slide
-    # Hauteur slide utile = ~13.3cm (header 2.3 + corps 11). KPIs commencent a 11.3.
-    _SLIDE_H_USABLE = 13.3  # cm total slide
-    _KPI_Y = 11.3
-    _NOTE_H = 1.6
-    _note_y_calc = round(3.5 + _tbl_h + 0.2, 2)
-    # Si la note depasse 80% de la hauteur ou chevauche les KPIs, reduire ou supprimer
-    _note_font = 7.5
-    _note_title_font = 8
-    if _note_y_calc + _NOTE_H > _KPI_Y - 0.2:
-        # Tenter avec une hauteur reduite (note plus compacte)
-        _NOTE_H = max(0, _KPI_Y - 0.2 - _note_y_calc)
-        _note_font = 6.0
-        _note_title_font = 6.5
+    # Note methodologique — occupe tout l'espace restant sous la table (plus de KPIs)
+    _FOOTER_Y = 13.3
+    _NOTE_H_MAX = min(3.5, _FOOTER_Y - (3.5 + _tbl_h + 0.3))
+    _note_y_calc = round(3.5 + _tbl_h + 0.3, 2)
+    _NOTE_H = max(0, _NOTE_H_MAX)
     if _NOTE_H > 0.4:
         _note_y = _note_y_calc
         _rect(slide, 0.9, _note_y, 23.6, _NOTE_H, fill=_HOLD_L)
         _rect(slide, 0.9, _note_y, 0.1, _NOTE_H, fill=_HOLD)
         _txb(slide, "NOTE METHODOLOGIQUE", 1.3, _note_y + 0.08, 23.1, 0.5,
-             size=_note_title_font, bold=True, color=_HOLD)
+             size=8, bold=True, color=_HOLD)
         if _NOTE_H > 0.9:
             _txb(slide, "La probabilite de rendement positif a 12 mois est calculee sur des configurations similaires identifiees en backtesting sur donnees historiques (2010-2024). Elle ne constitue pas une garantie de performance future.",
-                 1.3, _note_y + 0.55, 23.1, _NOTE_H - 0.55, size=_note_font, color=_GRAYT, wrap=True)
-
-    # 3 KPI boxes
-    n_entry = sum(1 for t in td if _reco(t.get("score_global")) == "BUY")
-    kpis = [
-        ("68 %", "Proba. rendement +", "historique 12 mois"),
-        (f"{n_entry} / {len(td)}", "Societes en zone", "recommandation BUY"),
-        ("-10 %", "Décote DCF min.", "seuil d'activation"),
-    ]
-    for i, (val, l1, l2) in enumerate(kpis):
-        kx = 0.9 + i * 8.0
-        _rect(slide, kx, 11.3, 7.7, 2.0, fill=_GRAYL)
-        _rect(slide, kx, 11.3, 0.1, 2.0, fill=_NAVYL)
-        _txb(slide, val, kx + 0.3, 11.35, 7.2, 1.0, size=20, bold=True, color=_NAVY)
-        _txb(slide, l1, kx + 0.3, 12.3, 7.2, 0.45, size=7.5, color=_GRAYT)
-        _txb(slide, l2, kx + 0.3, 12.7, 7.2, 0.4, size=7, color=_GRAYD)
+                 1.3, _note_y + 0.6, 23.1, _NOTE_H - 0.65, size=7.5, color=_GRAYT, wrap=True)
 
     _footer(slide)
 
