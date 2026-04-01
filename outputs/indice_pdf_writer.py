@@ -21,6 +21,7 @@ from reportlab.platypus import (
     SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle,
     PageBreak, HRFlowable, Image, KeepTogether
 )
+from reportlab.platypus.flowables import CondPageBreak
 from reportlab.platypus.flowables import Flowable
 
 # ─── PALETTE ──────────────────────────────────────────────────────────────────
@@ -672,7 +673,6 @@ def _build_synthese(data, perf_buf, registry=None):
     top3_nms = ", ".join(s[0] for s in top_s[:3]) if top_s else "—"
     conviction = data.get("conviction_pct", "—")
     elems.append(Spacer(1, 5*mm))
-    elems.append(debate_q("Quelle est la distribution actuelle des signaux sectoriels ?"))
     syn_h = [Paragraph(h, S_TH_C) for h in ["Signal", "Nb secteurs", "Implication allocation"]]
     syn_rows = [
         [Paragraph("Surpond\xe9rer", S_TD_G), Paragraph(str(nb_surp), S_TD_C),
@@ -682,11 +682,16 @@ def _build_synthese(data, perf_buf, registry=None):
         [Paragraph("Sous-pond\xe9rer", S_TD_R), Paragraph(str(nb_sous), S_TD_C),
          Paragraph("R\xe9duire l\u2019exposition en dessous de l\u2019indice", S_TD_L)],
     ]
-    elems.append(KeepTogether(tbl([syn_h] + syn_rows, cw=[36*mm, 28*mm, 106*mm])))
-    elems.append(Paragraph(
+    _conv_para = Paragraph(
         f"Conviction globale {conviction} % — les {nb_surp} secteur(s) Surpond\xe9rer "
         f"({top3_nms}) concentrent les opportunit\xe9s d\u2019alpha. Toute d\xe9t\xe9rioration "
-        "du signal doit declencher une revue de positionnement dans les 5 jours ouvrables.", S_BODY))
+        "du signal doit declencher une revue de positionnement dans les 5 jours ouvrables.", S_BODY)
+    elems.append(KeepTogether([
+        debate_q("Quelle est la distribution actuelle des signaux sectoriels ?"),
+        tbl([syn_h] + syn_rows, cw=[36*mm, 28*mm, 106*mm]),
+        Spacer(1, 2*mm),
+        _conv_para,
+    ]))
     return elems
 
 
@@ -694,8 +699,8 @@ def _build_cartographie(data, weights_buf, attribution_buf=None, registry=None):
     secteurs = data["secteurs"]
     indice_rl = data["indice"].replace("&", "&amp;")
     elems = []
-    elems.append(PageBreak())
-    elems.append(Spacer(1, 10*mm))
+    elems.append(CondPageBreak(120*mm))
+    elems.append(Spacer(1, 6*mm))
     if registry is not None: elems.append(SectionAnchor('carto', registry))
     elems += section_title("Cartographie des Secteurs", 2)
     elems.append(Spacer(1, 4*mm))
@@ -887,8 +892,8 @@ def _build_cartographie(data, weights_buf, attribution_buf=None, registry=None):
 
 def _build_graphiques(data, scatter_buf, scores_buf, corr_buf=None, registry=None):
     elems = []
-    elems.append(PageBreak())
-    elems.append(Spacer(1, 10*mm))
+    elems.append(CondPageBreak(120*mm))
+    elems.append(Spacer(1, 6*mm))
     if registry is not None: elems.append(SectionAnchor('graphiques', registry))
     elems += section_title("Analyse Graphique", 3)
     elems.append(Spacer(1, 3*mm))
@@ -927,8 +932,8 @@ def _build_graphiques(data, scatter_buf, scores_buf, corr_buf=None, registry=Non
             "qui donne les m\u00e9dianes LTM par soci\u00e9t\u00e9 representative.", S_BODY))
         elems.append(src("FinSight IA — Graphique non disponible pour univers mono-sectoriel."))
 
-    elems.append(PageBreak())
-    elems.append(Spacer(1, 10*mm))
+    elems.append(CondPageBreak(120*mm))
+    elems.append(Spacer(1, 6*mm))
     elems.append(Paragraph("Score composite — Classement sectoriel", S_SUBSECTION))
     nb_surp = sum(1 for s in data["secteurs"] if "Surp" in str(s[3]))
     nb_sous = sum(1 for s in data["secteurs"] if "Sous" in str(s[3]))
@@ -980,8 +985,8 @@ def _build_graphiques(data, scatter_buf, scores_buf, corr_buf=None, registry=Non
 
     # ── Matrice de correlation ─────────────────────────────────────────────────
     if corr_buf is not None:
-        elems.append(PageBreak())
-        elems.append(Spacer(1, 10*mm))
+        elems.append(CondPageBreak(120*mm))
+        elems.append(Spacer(1, 6*mm))
         elems.append(Paragraph("Matrice de Correlation Sectorielle", S_SUBSECTION))
         elems.append(Paragraph(
             "La matrice ci-dessous mesure la <b>correlation des rendements journaliers</b> "
@@ -1029,8 +1034,8 @@ def _build_graphiques(data, scatter_buf, scores_buf, corr_buf=None, registry=Non
 
 def _build_rotation(data, registry=None):
     elems = []
-    elems.append(PageBreak())
-    elems.append(Spacer(1, 10*mm))
+    elems.append(CondPageBreak(120*mm))
+    elems.append(Spacer(1, 6*mm))
     if registry is not None: elems.append(SectionAnchor('rotation', registry))
     elems += section_title("Rotation Sectorielle", 4)
     elems.append(Spacer(1, 4*mm))
@@ -1104,8 +1109,8 @@ def _build_rotation(data, registry=None):
 def _build_allocation(data, allocation_buf=None, registry=None):
     """Section 5 — Allocation Optimale : Min-Variance, Tangency, ERC."""
     elems = []
-    elems.append(PageBreak())
-    elems.append(Spacer(1, 10*mm))
+    elems.append(CondPageBreak(120*mm))
+    elems.append(Spacer(1, 6*mm))
     if registry is not None: elems.append(SectionAnchor('allocation', registry))
     elems += section_title("Allocation Optimale — Portefeuilles Mean-Variance", 5)
     elems.append(Spacer(1, 3*mm))
@@ -1129,8 +1134,11 @@ def _build_allocation(data, allocation_buf=None, registry=None):
 
     if not opt or not opt.get("sectors"):
         elems.append(Paragraph(
-            "Donn\u00e9es insuffisantes pour calculer les portefeuilles optimaux. "
-            "Lancer une analyse indice compl\u00e8te pour activer cette section.", S_BODY))
+            "Optimisation non disponible pour cet indice — les portefeuilles Mean-Variance "
+            "reposent sur les ETF SPDR sectoriels (XLK, XLV, XLF…) dont les donn\u00e9es "
+            "de rendement journalier sont propres au march\u00e9 US. "
+            "Pour le S&amp;P 500, cette section affiche les trois portefeuilles optimaux "
+            "avec poids cibles et ratios de Sharpe.", S_BODY))
         return elems
 
     sectors = opt["sectors"]
@@ -1214,8 +1222,8 @@ def _build_top3(data, donut_buf, registry=None):
     indice_rl = data["indice"].replace("&", "&amp;")
     secteurs  = data["secteurs"]
     elems = []
-    elems.append(PageBreak())
-    elems.append(Spacer(1, 10*mm))
+    elems.append(CondPageBreak(120*mm))
+    elems.append(Spacer(1, 6*mm))
     if registry is not None: elems.append(SectionAnchor('top3', registry))
     elems += section_title("Top 3 Secteurs Recommand\u00e9s", 6)
     elems.append(Spacer(1, 3*mm))
@@ -1334,8 +1342,8 @@ def _build_top3(data, donut_buf, registry=None):
 def _build_risques(data, registry=None):
     indice_rl = data["indice"].replace("&", "&amp;")
     elems = []
-    elems.append(PageBreak())
-    elems.append(Spacer(1, 10*mm))
+    elems.append(CondPageBreak(120*mm))
+    elems.append(Spacer(1, 6*mm))
     if registry is not None: elems.append(SectionAnchor('risques', registry))
     elems += section_title("Risques Macro &amp; Conditions d'Invalidation", 7)
 
@@ -1404,8 +1412,8 @@ def _build_sentiment(data, registry=None):
     indice_rl = data["indice"].replace("&", "&amp;")
     fb = data["finbert"]
     elems = []
-    elems.append(PageBreak())
-    elems.append(Spacer(1, 10*mm))
+    elems.append(CondPageBreak(120*mm))
+    elems.append(Spacer(1, 6*mm))
     if registry is not None: elems.append(SectionAnchor('sentiment', registry))
     elems += section_title("Sentiment Agr\u00e9g\u00e9 &amp; M\u00e9thodologie", 8)
 
@@ -1510,8 +1518,8 @@ def _build_sentiment(data, registry=None):
 
 def _build_disclaimer(data):
     elems = []
-    elems.append(PageBreak())
-    elems.append(Spacer(1, 10*mm))
+    elems.append(CondPageBreak(120*mm))
+    elems.append(Spacer(1, 6*mm))
     elems.append(rule())
     S_DISC_TITLE = _style('disc_title', size=6.5, leading=9, color=GREY_TEXT, bold=True)
     elems.append(Paragraph(
