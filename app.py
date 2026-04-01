@@ -1515,10 +1515,33 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
         _sym = _cours_map.get(universe.upper())
         if _sym:
             _tk = _yf.Ticker(_sym)
-            _info = _tk.info
-            _px = _info.get("regularMarketPrice") or _info.get("previousClose")
-            if _px:
-                cours_str = f"{_px:,.2f}".replace(",","X").replace(".",",").replace("X",".")
+            # Source 1 : history (plus fiable que .info pour les indices EU)
+            try:
+                _hist_1d = _tk.history(period="5d")
+                if _hist_1d is not None and not _hist_1d.empty:
+                    _px = float(_hist_1d["Close"].iloc[-1])
+                    if _px > 0:
+                        cours_str = f"{_px:,.2f}".replace(",","X").replace(".",",").replace("X",".")
+            except Exception:
+                pass
+            # Source 2 : fast_info (yfinance >= 0.2)
+            if cours_str == "—":
+                try:
+                    _fi = _tk.fast_info
+                    _px2 = getattr(_fi, "last_price", None) or getattr(_fi, "previous_close", None)
+                    if _px2 and float(_px2) > 0:
+                        cours_str = f"{float(_px2):,.2f}".replace(",","X").replace(".",",").replace("X",".")
+                except Exception:
+                    pass
+            # Source 3 : .info fallback
+            if cours_str == "—":
+                try:
+                    _info = _tk.info
+                    _px3 = _info.get("regularMarketPrice") or _info.get("previousClose")
+                    if _px3 and float(_px3) > 0:
+                        cours_str = f"{float(_px3):,.2f}".replace(",","X").replace(".",",").replace("X",".")
+                except Exception:
+                    pass
             # YTD depuis le 1er janvier
             try:
                 _hist = _tk.history(start=f"{_d.year}-01-01")
@@ -1530,9 +1553,22 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
                         ytd_str = f"+{_ytd:.1f}%" if _ytd >= 0 else f"{_ytd:.1f}%"
             except Exception:
                 pass
-            _pe = _info.get("trailingPE") or _info.get("forwardPE")
-            if _pe:
-                pe_str = f"{_pe:.1f}x"
+            # P/E : fast_info puis .info
+            try:
+                _fi2 = _tk.fast_info
+                _pe_f = getattr(_fi2, "p_e_ratio", None)
+                if _pe_f and 3 < float(_pe_f) < 200:
+                    pe_str = f"{float(_pe_f):.1f}x"
+            except Exception:
+                pass
+            if pe_str == "—":
+                try:
+                    _info2 = _tk.info
+                    _pe = _info2.get("trailingPE") or _info2.get("forwardPE")
+                    if _pe and 3 < float(_pe) < 200:
+                        pe_str = f"{float(_pe):.1f}x"
+                except Exception:
+                    pass
     except Exception:
         pass
     # P/E fallback : médiane des constituants si l'indice ne retourne pas de P/E

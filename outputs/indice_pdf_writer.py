@@ -208,34 +208,57 @@ def make_scatter_sectoriel(data):
     if len(secteurs) <= 1:
         return None   # pas assez de points pour un scatter utile
     noms_abr = [_abbrev_pdf(s[0])[:14] for s in secteurs]
-    def _safe_float(val, fallback=15.0):
+    def _safe_float(val, fallback=0.0):
         try:
-            return float(str(val).replace('x','').replace('%','').replace('+','').replace(',','.').replace('\u2014','').strip() or fallback)
+            v = float(str(val).replace('x','').replace('%','').replace('+','').replace(',','.').replace('\u2014','').strip() or '0')
+            return v
         except (ValueError, TypeError):
             return fallback
-    ev    = [_safe_float(s[4], 15.0) for s in secteurs]
-    crois = [_safe_float(s[6], 0.0)  for s in secteurs]
-    sigs  = [s[3] for s in secteurs]
-    cols  = [sig_hex(s) for s in sigs]
+
+    ev_raw = [_safe_float(s[4]) for s in secteurs]
+    crois  = [_safe_float(s[6]) for s in secteurs]
+    sigs   = [s[3] for s in secteurs]
+    cols   = [sig_hex(s) for s in sigs]
+
+    # Fallback Mg.EBITDA quand EV/EBITDA absent (indices EU)
+    use_mg = not any(v > 0 for v in ev_raw)
+    if use_mg:
+        mg_raw = [_safe_float(s[5]) for s in secteurs]
+        if not any(v > 0 for v in mg_raw):
+            return None  # aucune donnee disponible
+        y_vals = mg_raw
+        y_label = 'Marge EBITDA (%)'
+        y_med_label = 'Med. Mg.EBITDA'
+        chart_title = f"Mg. EBITDA vs Croissance BPA - Secteurs {data['indice']}"
+    else:
+        y_vals = ev_raw
+        y_label = 'EV / EBITDA median (x)'
+        y_med_label = 'Med. EV/EBITDA'
+        chart_title = f"EV/EBITDA vs Croissance BPA - Secteurs {data['indice']}"
+
     fig, ax = plt.subplots(figsize=(9.0, 5.2))
     texts = []
-    for nom, x, y, col in zip(noms_abr, crois, ev, cols):
+    for nom, x, y, col in zip(noms_abr, crois, y_vals, cols):
         ax.scatter(x, y, color=col, s=180, zorder=4, alpha=0.88,
                    edgecolors='white', linewidth=0.8)
         texts.append(ax.text(x, y, nom, fontsize=8.5, color=col, fontweight='bold'))
     try:
         from adjustText import adjust_text
-        adjust_text(texts, x=crois, y=ev, ax=ax,
+        adjust_text(texts, x=crois, y=y_vals, ax=ax,
                     arrowprops=dict(arrowstyle='-', color='#aaa', lw=0.5, alpha=0.6),
                     expand_points=(1.4, 1.4), force_text=(0.5, 0.8))
     except ImportError:
         pass
-    med_ev = np.median(ev); med_cr = np.median(crois)
-    ax.axhline(y=med_ev, color='#D0D5DD', linewidth=0.9, linestyle='--', alpha=0.8)
+    med_y = float(np.median([v for v in y_vals if v > 0])) if any(v > 0 for v in y_vals) else 0
+    med_cr = float(np.median(crois))
+    ax.axhline(y=med_y, color='#D0D5DD', linewidth=0.9, linestyle='--', alpha=0.8)
     ax.axvline(x=med_cr, color='#D0D5DD', linewidth=0.9, linestyle='--', alpha=0.8)
-    ax.text(min(crois)+0.2, med_ev+0.5, f'Med. EV/EBITDA ({med_ev:.1f}x)', fontsize=9, color='#999', style='italic')
+    _x_ann = min(crois) + 0.2 if crois else 0
+    _unit = '%' if use_mg else 'x'
+    ax.text(_x_ann, med_y * 1.02 + 0.5,
+            f'{y_med_label} ({med_y:.1f}{_unit})', fontsize=9, color='#999', style='italic')
     ax.set_xlabel('Croissance BPA mediane (%)', fontsize=11, color='#555')
-    ax.set_ylabel('EV / EBITDA median (x)', fontsize=11, color='#555')
+    ax.set_ylabel(y_label, fontsize=11, color='#555')
     for sp in ['top','right']: ax.spines[sp].set_visible(False)
     ax.spines['left'].set_color('#D0D5DD'); ax.spines['bottom'].set_color('#D0D5DD')
     ax.set_facecolor('white'); fig.patch.set_facecolor('white')
@@ -246,8 +269,7 @@ def make_scatter_sectoriel(data):
                mpatches.Patch(color='#A82020', label='Sous-pond\u00e9rer')]
     ax.legend(handles=patches, fontsize=10, loc='upper center',
               bbox_to_anchor=(0.5, -0.13), frameon=False, ncol=3)
-    ax.set_title(f"EV/EBITDA vs Croissance BPA - Secteurs {data['indice']}",
-                 fontsize=13, color='#1B3A6B', fontweight='bold', pad=12)
+    ax.set_title(chart_title, fontsize=13, color='#1B3A6B', fontweight='bold', pad=12)
     plt.tight_layout(pad=0.5)
     buf = io.BytesIO(); fig.savefig(buf, format='png', dpi=160, bbox_inches='tight')
     plt.close(fig); buf.seek(0); return buf
@@ -1428,17 +1450,25 @@ def _build_top3(data, donut_buf, registry=None):
         "Analyses g\u00e9n\u00e9r\u00e9es par l'agent Synth\u00e8se."))
     elems.append(Spacer(1, 5*mm))
 
-    # Tableau 9 societes — KeepTogether sur titre+texte+spacer+tableau
+    # Tableau 9 societes — colonne EV/EBITDA ou Mg.EBITDA selon dispo
+    _all_ev_missing = all(
+        str(s.get("ev_ebitda","—")) in ("—","\u2014","","None")
+        for s in data.get("top3_secteurs",[])
+    )
+    _ev_col_lbl = "Mg.EBITDA" if _all_ev_missing else "EV/EBITDA"
     soc_h = [Paragraph(h, S_TH_C) for h in
-             ["Secteur","Ticker","Signal","EV/EBITDA","Score","Prochaine etape"]]
+             ["Secteur","Ticker","Signal", _ev_col_lbl,"Score","Prochaine etape"]]
     soc_rows = []
     for sect in data["top3_secteurs"]:
+        _mg = sect.get("mg_ebitda", 0) or 0
+        _ev_sect = (f"{_mg:.1f}%" if _all_ev_missing and _mg else "\u2014")
         for tkr, sig, ev, score in sect["societes"]:
+            _val_disp = _ev_sect if _all_ev_missing else ev
             soc_rows.append([
                 Paragraph(sect["nom"], S_TD_L),
                 Paragraph(f"<b>{tkr}</b>", S_TD_BC),
                 Paragraph(sig, sig_s(sig)),
-                Paragraph(ev, S_TD_C),
+                Paragraph(_val_disp, S_TD_C),
                 Paragraph(str(score), S_TD_C),
                 Paragraph("Lancer analyse societe FinSight IA", S_TD_L),
             ])
