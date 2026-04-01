@@ -130,6 +130,10 @@ class YearRatios:
     beneish_m:      Optional[float] = None   # Beneish M-Score (8-var)
     net_debt_ev:    Optional[float] = None   # Net Debt / EV
 
+    # --- Champs supplementaires pour scores avances ---
+    short_term_debt:   Optional[float] = None  # Dette court terme (BS D48)
+    dividends_paid_abs: Optional[float] = None  # Dividendes verses abs (CF D85)
+
     def to_dict(self) -> dict:
         return asdict(self)
 
@@ -328,6 +332,8 @@ class AgentQuant:
 
         yr.total_debt = round((fy.short_term_debt or 0.0) + (fy.long_term_debt or 0.0), 2)
         yr.net_debt   = round(yr.total_debt - (fy.cash or 0.0), 2)
+        yr.short_term_debt    = fy.short_term_debt
+        yr.dividends_paid_abs = abs(fy.dividends_paid) if fy.dividends_paid else None
 
         # --- Equity, Total Assets, Total Liabilities : priorité yfinance direct ---
         if fy.total_equity_yf is not None:
@@ -1330,3 +1336,150 @@ def compute_microstructure(ticker: str, period: str = "1y") -> dict:
     except Exception as e:
         log.warning("[compute_microstructure] %s: %s", ticker, e)
         return {}
+
+
+# =============================================================================
+# EARNINGS QUALITY — CAPITAL STRUCTURE — DIVIDEND SUSTAINABILITY
+# =============================================================================
+
+def compute_earnings_quality(yr: "YearRatios") -> dict:
+    """
+    Qualite des earnings : cash conversion FCF/NI + contexte Beneish.
+
+    Rationale : un ecart persistant entre le benefice comptable et le FCF
+    signale des accruals eleves (IFRS/GAAP) qui peuvent masquer une
+    deterioration de la qualite du bilan.
+
+    Interpretation :
+      >= 1.0 -> Excellente  (FCF > NI, earnings conservateurs)
+      0.7-1.0 -> Correcte
+      0.4-0.7 -> Moderee   (accruals non negligeables)
+      < 0.4   -> Faible    (earnings eloignes du cash reel)
+    """
+    if yr is None:
+        return {}
+    ni  = yr.net_income
+    fcf = yr.fcf
+    if ni is None or ni == 0 or fcf is None:
+        return {"label": "N/D", "color": "B0B0B0", "signal": "Donnees insuffisantes"}
+
+    cc = round(fcf / ni, 2)
+
+    if cc >= 1.0:
+        label, color = "Excellente", "1A7A4A"
+        signal = f"FCF/NI = {cc:.2f}x -- earnings surpasses par le cash reel"
+    elif cc >= 0.7:
+        label, color = "Correcte", "1B3A6B"
+        signal = f"FCF/NI = {cc:.2f}x -- conversion cash adequate"
+    elif cc >= 0.4:
+        label, color = "Moderee", "B06000"
+        signal = f"FCF/NI = {cc:.2f}x -- accruals non negligeables"
+    else:
+        label, color = "Faible", "A82020"
+        signal = f"FCF/NI = {cc:.2f}x -- earnings deconnectes du cash"
+
+    bm = yr.beneish_m
+    bm_alert = None
+    if bm is not None and bm > -2.22:
+        sev = "signal fort" if bm > -1.78 else "signal modere"
+        bm_alert = f"Beneish M={bm:.2f} ({sev} de manipulation comptable)"
+
+    return {
+        "cash_conversion": cc,
+        "label":           label,
+        "color":           color,
+        "signal":          signal,
+        "bm_alert":        bm_alert,
+    }
+
+
+def compute_capital_structure(yr: "YearRatios") -> dict:
+    """
+    Structure du capital : proportion de la dette arrivant a echeance a court terme.
+
+    Risque : une boite avec un levier raisonnable mais 50%+ de sa dette
+    a court terme en periode de taux eleves peut faire face a un mur de
+    refinancement (refinancing wall).
+
+    Seuils :
+      < 20%  -> Saine   (dette LT dominante)
+      20-40% -> Moderee
+      > 40%  -> Critique (risque refi)
+    """
+    if yr is None:
+        return {}
+    std = yr.short_term_debt
+    td  = yr.total_debt
+    if td is None or td <= 0:
+        return {"label": "N/D", "color": "B0B0B0"}
+    if std is None or std < 0:
+        std = 0.0
+
+    ratio = std / td
+
+    if ratio < 0.20:
+        label, color = "Saine", "1A7A4A"
+        signal = f"{ratio*100:.0f}% CT / {(1-ratio)*100:.0f}% LT -- structure equilibree"
+    elif ratio < 0.40:
+        label, color = "Moderee", "B06000"
+        signal = f"{ratio*100:.0f}% CT / {(1-ratio)*100:.0f}% LT -- surveiller les echeances"
+    else:
+        label, color = "Critique", "A82020"
+        signal = f"{ratio*100:.0f}% CT / {(1-ratio)*100:.0f}% LT -- risque refinancement eleve"
+
+    return {
+        "short_term_ratio": round(ratio, 3),
+        "short_term_debt":  std,
+        "total_debt":       td,
+        "label":            label,
+        "color":            color,
+        "signal":           signal,
+    }
+
+
+def compute_dividend_sustainability(yr: "YearRatios") -> dict:
+    """
+    Soutenabilite du dividende : couverture FCF.
+
+    Un payout ratio eleve ne dit rien sur la realite cash.
+    La vraie question : est-ce que le FCF couvre le dividende verse ?
+
+    Couverture FCF/Dividendes :
+      >= 2.0x -> Tres soutenable
+      1.0-2.0 -> Soutenable
+      0.5-1.0 -> Tendu (complement par dette ou tresorerie)
+      < 0.5   -> Insoutenable
+    """
+    if yr is None:
+        return {}
+    div_abs = yr.dividends_paid_abs
+    if not div_abs or div_abs <= 0:
+        return {"has_dividend": False}
+
+    fcf = yr.fcf
+    if fcf is None:
+        return {"has_dividend": True, "label": "N/D", "color": "B0B0B0"}
+
+    cov = round(fcf / div_abs, 2)
+
+    if cov >= 2.0:
+        label, color = "Tres soutenable", "1A7A4A"
+        signal = f"FCF couvre {cov:.1f}x le dividende -- marge de securite elevee"
+    elif cov >= 1.0:
+        label, color = "Soutenable", "1B3A6B"
+        signal = f"FCF couvre {cov:.1f}x le dividende -- adequate, surveiller"
+    elif cov >= 0.5:
+        label, color = "Tendu", "B06000"
+        signal = f"FCF = {cov:.1f}x dividende -- partiellement finance par dette/tresorerie"
+    else:
+        label, color = "Insoutenable", "A82020"
+        signal = f"FCF = {cov:.1f}x dividende -- incompatible sur le long terme"
+
+    return {
+        "has_dividend":  True,
+        "fcf_coverage":  cov,
+        "label":         label,
+        "color":         color,
+        "signal":        signal,
+        "payout":        yr.dividend_payout,
+    }

@@ -1330,17 +1330,23 @@ def _build_extra_risk_scores(elems: list, data: dict):
     a la fin de la section Risques. Rendu conditionnel : affiche seulement les
     donnees disponibles, jamais de bloc vide.
     """
-    distress  = data.get('composite_distress') or {}
-    ma        = data.get('ma_score')           or {}
-    micro     = data.get('microstructure')     or {}
-    macro     = data.get('macro')              or {}
+    distress  = data.get('composite_distress')     or {}
+    ma        = data.get('ma_score')               or {}
+    micro     = data.get('microstructure')         or {}
+    macro     = data.get('macro')                  or {}
+    eq        = data.get('earnings_quality')       or {}
+    cap_str   = data.get('capital_structure')      or {}
+    div_sust  = data.get('dividend_sustainability') or {}
 
     has_distress = distress.get('score') is not None
     has_ma       = ma.get('score')       is not None
+    has_eq       = eq.get('cash_conversion') is not None
+    has_cap      = cap_str.get('short_term_ratio') is not None
+    has_div      = div_sust.get('has_dividend') is True and div_sust.get('fcf_coverage') is not None
     has_micro    = bool(micro)
     has_macro    = macro.get('regime') not in (None, 'Inconnu')
 
-    if not any([has_distress, has_ma, has_micro, has_macro]):
+    if not any([has_distress, has_ma, has_eq, has_cap, has_div, has_micro, has_macro]):
         return
 
     elems.append(KeepTogether([
@@ -1401,18 +1407,53 @@ def _build_extra_risk_scores(elems: list, data: dict):
                 Paragraph(_safe(ma_interp), S_TD_L),
             ])
 
+        # Earnings Quality row
+        if has_eq:
+            eq_cc    = eq.get('cash_conversion', 0.0)
+            eq_label = eq.get('label', '-')
+            eq_col   = colors.HexColor(f"#{eq.get('color', '1B3A6B')}")
+            eq_sig   = eq.get('signal', '')
+            eq_bm    = eq.get('bm_alert')
+            eq_full  = _safe(eq_sig + (f' | {eq_bm}' if eq_bm else ''))
+            scoring_rows.append([
+                Paragraph("Qualite des earnings", S_TD_B),
+                Paragraph(f"<b>{eq_cc:.2f}x</b>", ParagraphStyle('eqs', fontName='Helvetica-Bold',
+                    fontSize=9, textColor=eq_col, leading=12, alignment=1)),
+                Paragraph(f"<b>{eq_label}</b>", ParagraphStyle('eql', fontName='Helvetica-Bold',
+                    fontSize=9, textColor=eq_col, leading=12, alignment=1)),
+                Paragraph(eq_full, S_TD_L),
+            ])
+
+        # Dividend Sustainability row (conditional)
+        if has_div:
+            dv_cov   = div_sust.get('fcf_coverage', 0.0)
+            dv_label = div_sust.get('label', '-')
+            dv_col   = colors.HexColor(f"#{div_sust.get('color', '1B3A6B')}")
+            dv_sig   = div_sust.get('signal', '')
+            scoring_rows.append([
+                Paragraph("Dividende — soutenabilite FCF", S_TD_B),
+                Paragraph(f"<b>{dv_cov:.1f}x</b>", ParagraphStyle('dvs', fontName='Helvetica-Bold',
+                    fontSize=9, textColor=dv_col, leading=12, alignment=1)),
+                Paragraph(f"<b>{dv_label}</b>", ParagraphStyle('dvl', fontName='Helvetica-Bold',
+                    fontSize=9, textColor=dv_col, leading=12, alignment=1)),
+                Paragraph(_safe(dv_sig), S_TD_L),
+            ])
+
         if scoring_rows:
             elems.append(tbl([scoring_h] + scoring_rows,
                               cw=[42*mm, 24*mm, 28*mm, 76*mm]))
-            elems.append(src(
-                "Composite Distress : Altman Z (40%) + Beneish M (35%) + indicateurs bilan (25%). "
-                "Score 0-100 : 0 = sain, 100 = detresse severe. "
-                "M&A Score : FCF yield, levier, valorisation vs secteur, croissance. "
-                "Source : FinSight IA / yfinance."))
+            src_parts = [
+                "Composite Distress : Altman Z (40%) + Beneish M (35%) + indicateurs bilan (25%). Score 0-100.",
+                "M&A Score : FCF yield, levier, valorisation vs secteur, croissance.",
+                "Qualite earnings : FCF/NI (>= 1.0x = excellente, < 0.4x = faible).",
+            ]
+            if has_div:
+                src_parts.append("Dividende : couverture FCF/dividendes verses.")
+            elems.append(src(" ".join(src_parts) + " Source : FinSight IA / yfinance."))
             elems.append(Spacer(1, 3*mm))
 
-    # --- Tableau Microstructure + Regime Macro ------------------------------
-    if has_micro or has_macro:
+    # --- Tableau Microstructure + Regime Macro + Capital Structure ----------
+    if has_micro or has_macro or has_cap:
         macro_h = [
             Paragraph("Indicateur", S_TH_L),
             Paragraph("Valeur", S_TH_C),
@@ -1452,6 +1493,19 @@ def _build_extra_risk_scores(elems: list, data: dict):
                     S_TD_L),
             ])
 
+        # Capital Structure row
+        if has_cap:
+            cs_ratio = cap_str.get('short_term_ratio', 0.0)
+            cs_label = cap_str.get('label', '-')
+            cs_col   = colors.HexColor(f"#{cap_str.get('color', '1B3A6B')}")
+            cs_sig   = cap_str.get('signal', '')
+            macro_rows.append([
+                Paragraph("Structure dette", S_TD_B),
+                Paragraph(f"<b>{cs_label}</b>", ParagraphStyle('csl', fontName='Helvetica-Bold',
+                    fontSize=9, textColor=cs_col, leading=12, alignment=1)),
+                Paragraph(_safe(cs_sig), S_TD_L),
+            ])
+
         if has_micro:
             amihud  = micro.get('amihud')
             roll    = micro.get('roll_spread')
@@ -1469,11 +1523,14 @@ def _build_extra_risk_scores(elems: list, data: dict):
         if macro_rows:
             elems.append(tbl([macro_h] + macro_rows,
                               cw=[42*mm, 30*mm, 98*mm]))
-            elems.append(src(
-                "Regime : VIX + spread 10Y-3M + position S&P 500 vs MA200. "
-                "Recession : indicateur de marche, non econometrique. "
-                "Liquidite : ratio Amihud (|ret|/vol$), Roll spread, proxy H/L. "
-                "Source : FinSight IA / yfinance."))
+            src_parts2 = [
+                "Regime : VIX + spread 10Y-3M + position S&P 500 vs MA200.",
+                "Recession : indicateur de marche, non econometrique.",
+                "Structure dette : proportion dette court terme / dette totale (seuil risque : > 40% CT).",
+                "Liquidite : ratio Amihud (|ret|/vol$), Roll spread, proxy H/L.",
+                "Source : FinSight IA / yfinance.",
+            ]
+            elems.append(src(" ".join(src_parts2)))
             elems.append(Spacer(1, 3*mm))
 
 
@@ -1776,6 +1833,30 @@ def _compute_extra_scores(ticker: str, yr_r) -> dict:
             result['ma_score'] = compute_ma_score(yr_r)
         except Exception as _e:
             log.warning("[extra_scores] ma_score: %s", _e)
+
+    # -- Earnings Quality (cash conversion FCF/NI) --------------------------
+    if yr_r is not None:
+        try:
+            from agents.agent_quant import compute_earnings_quality
+            result['earnings_quality'] = compute_earnings_quality(yr_r)
+        except Exception as _e:
+            log.warning("[extra_scores] earnings_quality: %s", _e)
+
+    # -- Capital Structure (short-term debt ratio) --------------------------
+    if yr_r is not None:
+        try:
+            from agents.agent_quant import compute_capital_structure
+            result['capital_structure'] = compute_capital_structure(yr_r)
+        except Exception as _e:
+            log.warning("[extra_scores] capital_structure: %s", _e)
+
+    # -- Dividend Sustainability (FCF coverage) -----------------------------
+    if yr_r is not None:
+        try:
+            from agents.agent_quant import compute_dividend_sustainability
+            result['dividend_sustainability'] = compute_dividend_sustainability(yr_r)
+        except Exception as _e:
+            log.warning("[extra_scores] dividend_sustainability: %s", _e)
 
     # -- Microstructure -----------------------------------------------------
     if ticker:
