@@ -705,44 +705,18 @@ def render_sidebar(results) -> None:
                 st.session_state.stage = "screening_results"
                 st.rerun()
 
-        # Livrables
+        # Livrables — contextualisés selon l'analyse active
         st.markdown('<div class="sb-section">', unsafe_allow_html=True)
         st.markdown('<span class="sb-label">Livrables</span>', unsafe_allow_html=True)
 
-        # Screening Excel + sector PDF (if available)
-        scr = st.session_state.get("screening_results")
-        if scr and scr.get("excel_bytes"):
-            scr_name = scr.get("display_name", "screening")
-            st.download_button(
-                f"Screening {scr_name} ↓ .xlsx",
-                scr["excel_bytes"],
-                file_name=f"screening_{scr_name.lower().replace(' ', '_')}.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                use_container_width=True,
-            )
-        if scr and scr.get("pdf_bytes"):
-            scr_name = scr.get("display_name", "secteur")
-            _pdf_slug = scr_name.lower().replace(' ', '_').replace('\u2014', '').strip()
-            st.download_button(
-                "Rapport sectoriel ↓ .pdf",
-                scr["pdf_bytes"],
-                file_name=f"rapport_{_pdf_slug}.pdf",
-                mime="application/pdf",
-                use_container_width=True,
-            )
-        if scr and scr.get("pptx_bytes"):
-            scr_name = scr.get("display_name", "secteur")
-            _pptx_slug = scr_name.lower().replace(' ', '_').replace('\u2014', '').strip()
-            st.download_button(
-                "Pitchbook sectoriel ↓ .pptx",
-                scr["pptx_bytes"],
-                file_name=f"pitchbook_{_pptx_slug}.pptx",
-                mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
-                use_container_width=True,
-            )
+        # Détermine le contexte : société (results) ou secteur/indice (screening_results)
+        _in_societe  = bool(results and not results.get("error") and results.get("ticker"))
+        _in_secteur  = bool(not _in_societe and st.session_state.get("screening_results"))
 
-        if results and not results.get("error"):
+        if _in_societe:
+            # ── Contexte société : afficher uniquement les livrables société ──
             ticker_slug = results.get("ticker", "report")
+            _tkr_label  = results.get("ticker", "")
 
             pptx_data = results.get("pptx_bytes")
             if not pptx_data:
@@ -750,7 +724,7 @@ def render_sidebar(results) -> None:
                 if pptx and Path(pptx).exists():
                     pptx_data = open(pptx, "rb").read()
             if pptx_data:
-                st.download_button("Pitchbook Financier ↓ .pptx", pptx_data,
+                st.download_button(f"Pitchbook {_tkr_label} \u2193 .pptx", pptx_data,
                     file_name=f"{ticker_slug}_pitchbook.pptx",
                     mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
                     use_container_width=True)
@@ -761,8 +735,8 @@ def render_sidebar(results) -> None:
                 if xlsx and Path(xlsx).exists():
                     xlsx_data = open(xlsx, "rb").read()
             if xlsx_data:
-                st.download_button("Ratios & Graphiques ↓ .xlsx", xlsx_data,
-                    file_name=f"{ticker_slug}_ratios.xlsx",
+                st.download_button(f"Excel financier {_tkr_label} \u2193 .xlsx", xlsx_data,
+                    file_name=f"{ticker_slug}_financials.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     use_container_width=True)
 
@@ -772,31 +746,64 @@ def render_sidebar(results) -> None:
                 if pdf and Path(pdf).exists():
                     pdf_data = open(pdf, "rb").read()
             if pdf_data:
-                st.download_button("Rapport PDF ↓ .pdf", pdf_data,
+                st.download_button(f"Rapport PDF {_tkr_label} \u2193 .pdf", pdf_data,
                     file_name=f"{ticker_slug}_report.pdf",
                     mime="application/pdf",
                     use_container_width=True)
-            elif results.get("pdf_error"):
-                st.error("PDF : " + results["pdf_error"].split("\n")[0])
-                if "pdf_err_open" not in st.session_state:
-                    st.session_state["pdf_err_open"] = False
-                if st.button("Détail erreur PDF ▼" if not st.session_state["pdf_err_open"] else "Détail erreur PDF ▲",
-                             key="btn_pdf_err_toggle"):
-                    st.session_state["pdf_err_open"] = not st.session_state["pdf_err_open"]
-                    st.rerun()
-                if st.session_state["pdf_err_open"]:
-                    st.code(results["pdf_error"], language="text")
 
-            # Raisonnement IA — scroll vers la section
+        else:
+            # ── Contexte secteur / indice : afficher uniquement les livrables screening ──
+            scr = st.session_state.get("screening_results")
+            if scr and scr.get("excel_bytes"):
+                scr_name = scr.get("display_name", "screening")
+                st.download_button(
+                    f"Screening {scr_name} \u2193 .xlsx",
+                    scr["excel_bytes"],
+                    file_name=f"screening_{scr_name.lower().replace(' ', '_')}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True,
+                )
+            if scr and scr.get("pdf_bytes"):
+                scr_name = scr.get("display_name", "secteur")
+                _pdf_slug = scr_name.lower().replace(' ', '_').replace('\u2014', '').strip()
+                st.download_button(
+                    "Rapport sectoriel \u2193 .pdf",
+                    scr["pdf_bytes"],
+                    file_name=f"rapport_{_pdf_slug}.pdf",
+                    mime="application/pdf",
+                    use_container_width=True,
+                )
+            if scr and scr.get("pptx_bytes"):
+                scr_name = scr.get("display_name", "secteur")
+                _pptx_slug = scr_name.lower().replace(' ', '_').replace('\u2014', '').strip()
+                st.download_button(
+                    "Pitchbook sectoriel \u2193 .pptx",
+                    scr["pptx_bytes"],
+                    file_name=f"pitchbook_{_pptx_slug}.pptx",
+                    mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                    use_container_width=True,
+                )
+            if not scr:
+                st.markdown('<span style="font-size:12px;color:#aaa;">Disponibles après analyse</span>',
+                            unsafe_allow_html=True)
+
+        # Erreur PDF société — afficher si contexte société
+        if _in_societe and results.get("pdf_error"):
+            st.error("PDF : " + results["pdf_error"].split("\n")[0])
+            if "pdf_err_open" not in st.session_state:
+                st.session_state["pdf_err_open"] = False
+            if st.button("Détail erreur PDF ▼" if not st.session_state["pdf_err_open"] else "Détail erreur PDF ▲",
+                         key="btn_pdf_err_toggle"):
+                st.session_state["pdf_err_open"] = not st.session_state["pdf_err_open"]
+                st.rerun()
+            if st.session_state["pdf_err_open"]:
+                st.code(results["pdf_error"], language="text")
+
+        # Raisonnement IA — scroll vers la section (société uniquement)
+        if _in_societe:
             st.markdown(
                 '<div class="menu-item"><span class="menu-name sp">Raisonnement IA</span>'
-                '<span class="menu-action">→ voir</span></div>',
-                unsafe_allow_html=True,
-            )
-        else:
-            st.markdown(
-                '<div style="font-size:11px;color:#ccc;padding:6px 0 12px;">'
-                'Disponibles après analyse</div>',
+                '<span class="menu-action">\u2192 voir</span></div>',
                 unsafe_allow_html=True,
             )
         st.markdown('</div>', unsafe_allow_html=True)
