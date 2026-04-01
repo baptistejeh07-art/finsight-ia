@@ -1321,6 +1321,36 @@ def _build_valorisation(ff_buf, pie_buf, mc_buf, data):
             "Distributions : croissance CA (normale), marge EBITDA (normale), "
             "WACC (triangulaire, bornes sectorielles Damodaran 2024). "
             "Ligne rouge = cours actuel."))
+        # Commentaire d'interpretation sous le graphique
+        _price = data.get('ff_course') or data.get('current_price')
+        if mc_p50 is not None and _price:
+            _upside_p50 = (_price / mc_p50 - 1) * 100 if mc_p50 > 0 else None
+            if _upside_p50 is not None and _upside_p50 > 20:
+                _mc_interp = (
+                    f"Le cours actuel ({_price:,.0f}\u00a0{cur}) d\u00e9passe la m\u00e9diane stochastique "
+                    f"P50\u00a0=\u00a0{mc_p50:,.0f}\u00a0{cur} de {_upside_p50:+.0f}\u00a0%. "
+                    f"La distribution est concentr\u00e9e entre P10\u00a0=\u00a0{mc_p10:,.0f} et "
+                    f"P90\u00a0=\u00a0{mc_p90:,.0f}\u00a0{cur}\u00a0: le march\u00e9 valorise une "
+                    "croissance tr\u00e8s sup\u00e9rieure aux hypoth\u00e8ses sectorielles du mod\u00e8le, "
+                    "ce qui repr\u00e9sente un risque de r\u00e9\u00e9valuation n\u00e9gative si "
+                    "la croissance d\u00e9\u00e7oit."
+                )
+            elif _upside_p50 is not None and _upside_p50 < -20:
+                _mc_interp = (
+                    f"Le cours actuel ({_price:,.0f}\u00a0{cur}) est {abs(_upside_p50):.0f}\u00a0% "
+                    f"en dessous de la m\u00e9diane stochastique P50\u00a0=\u00a0{mc_p50:,.0f}\u00a0{cur}. "
+                    f"La fourchette P10\u2013P90 ({mc_p10:,.0f}\u2013{mc_p90:,.0f}\u00a0{cur}) "
+                    "sugg\u00e8re une marge de s\u00e9curit\u00e9 significative selon le mod\u00e8le DCF."
+                )
+            else:
+                _mc_interp = (
+                    f"Le cours actuel ({_price:,.0f}\u00a0{cur}) est align\u00e9 avec la "
+                    f"m\u00e9diane stochastique P50\u00a0=\u00a0{mc_p50:,.0f}\u00a0{cur}. "
+                    f"La fourchette P10\u2013P90 ({mc_p10:,.0f}\u2013{mc_p90:,.0f}\u00a0{cur}) "
+                    "d\u00e9limite le corridor de valeur intrins\u00e8que probable."
+                )
+            elems.append(Spacer(1, 3*mm))
+            elems.append(Paragraph(_mc_interp, S_BODY))
     return elems
 
 
@@ -1662,7 +1692,7 @@ def _build_risques(data):
         Spacer(1, 1*mm),
         Paragraph(_ez_verdict_txt, S_BODY),
         Spacer(1, 2*mm),
-        tbl([ez_h] + ez_rows, cw=[52*mm, 52*mm, 30*mm, 16*mm]),
+        tbl([ez_h] + ez_rows, cw=[62*mm, 60*mm, 30*mm, 18*mm]),
     ]))
     if _ez_bt_txt:
         elems.append(src(_ez_bt_txt))
