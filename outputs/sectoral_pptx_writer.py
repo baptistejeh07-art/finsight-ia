@@ -910,7 +910,9 @@ def _chart_distribution(tickers_data) -> bytes:
     ax.axhline(med, color='#1B3A6B', linewidth=1.5, linestyle='--', label=f"Mediane {med:.1f}x")
     # Labels de valeur supprimes (slides epures)
     ax.set_ylabel("EV/EBITDA", fontsize=8, color='#555555')
-    ax.tick_params(axis='x', labelsize=7.5, colors='#333333')
+    n_labels = len(labels)
+    _lsize = 6 if n_labels > 20 else 7 if n_labels > 12 else 7.5
+    ax.tick_params(axis='x', labelsize=_lsize, colors='#333333', rotation=90)
     ax.tick_params(axis='y', labelsize=7, colors='#777777')
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
@@ -919,6 +921,7 @@ def _chart_distribution(tickers_data) -> bytes:
     ax.legend(fontsize=7.5, framealpha=0.7)
     ax.grid(True, axis='y', alpha=0.3, linestyle=':')
     plt.tight_layout()
+    plt.subplots_adjust(bottom=0.22)
     buf = io.BytesIO()
     fig.savefig(buf, format='png', dpi=150, bbox_inches='tight',
                 facecolor='white', edgecolor='none')
@@ -1255,7 +1258,7 @@ def _s09_cartographie(prs, D):
             f"{D['N']} sociétés analysées  ·  {D['sector_name']}  ·  {D['universe']}  ·  Tri par score FinSight decroissant", 2)
 
     td = D["sorted_td"]
-    MAX_S09 = 10  # cap slide 9 a 10 lignes pour garantir la place du bloc lecture
+    MAX_S09 = 8  # cap slide 9 a 8 lignes — evite debordement sur la lecture analytique
     td_disp = td[:MAX_S09]
     tbl_data = [["#", "Ticker", "Société", "Score", "Reco", "Cours", "EV/EBITDA", "Mg EBITDA", "Croissance", "Momentum"]]
     for i, t in enumerate(td_disp, 1):
@@ -1273,11 +1276,16 @@ def _s09_cartographie(prs, D):
             _fmt_pct(t.get("momentum_52w")),
         ])
 
-    # Hauteur table : max 5.5cm pour garantir la place du bloc lecture (h min 2.5cm)
-    _s09_tbl_h = min(5.5, len(tbl_data) * 0.56)
-    _add_table(slide, tbl_data, 0.9, 2.5, 23.6, _s09_tbl_h,
+    # Hauteur table : max 4.5cm pour garantir la place du bloc lecture (h min 2.5cm)
+    _s09_tbl_h = min(4.5, len(tbl_data) * 0.52)
+    s09_tbl = _add_table(slide, tbl_data, 0.9, 2.5, 23.6, _s09_tbl_h,
                col_widths=[0.8, 1.8, 4.0, 2.0, 1.8, 2.0, 2.4, 2.8, 2.8, 3.2],
                font_size=7.5, header_size=7.5, alt_fill=_GRAYL)
+    # Forcer hauteur de chaque ligne (python-pptx ignore la hauteur shape sinon)
+    _n09 = len(tbl_data)
+    _row_h_cm = _s09_tbl_h / _n09 if _n09 else 0.5
+    for _row in s09_tbl.rows:
+        _row.height = Cm(_row_h_cm)
 
     # Analytical text — position fixe apres la table avec gap suffisant
     _s09_text_y = round(2.5 + _s09_tbl_h + 0.5, 2)  # gap 0.5 (vs 0.3 avant)
