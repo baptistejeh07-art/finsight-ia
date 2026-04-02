@@ -398,33 +398,66 @@ def _get_universe_tickers(universe: str) -> list:
 
 
 def _fetch_sector_tickers(sector_key: str) -> list:
-    """Query Supabase for tickers in a given sector."""
+    """Query Supabase for tickers in a given sector, fallback sur _SECTOR_TICKERS local."""
     import os, requests as _req
     url = os.getenv("SUPABASE_URL", "").rstrip("/")
     key = os.getenv("SUPABASE_SECRET_KEY", "")
-    if not url or not key:
-        return []
-    sector_name = _SECTOR_YFINANCE.get(sector_key, sector_key.title())
+
     tickers = []
-    offset = 0
-    while True:
-        resp = _req.get(
-            f"{url}/rest/v1/tickers_cache",
-            headers={"apikey": key, "Authorization": f"Bearer {key}",
-                     "Range": f"{offset}-{offset+999}"},
-            params={"select": "ticker", "sector": f"eq.{sector_name}"},
-            timeout=15,
-        )
-        if resp.status_code not in (200, 206):
-            break
-        batch = resp.json()
-        if not batch:
-            break
-        tickers.extend(r["ticker"] for r in batch)
-        if len(batch) < 1000:
-            break
-        offset += 1000
-    return tickers
+    if url and key:
+        sector_name = _SECTOR_YFINANCE.get(sector_key, sector_key.title())
+        offset = 0
+        while True:
+            try:
+                resp = _req.get(
+                    f"{url}/rest/v1/tickers_cache",
+                    headers={"apikey": key, "Authorization": f"Bearer {key}",
+                             "Range": f"{offset}-{offset+999}"},
+                    params={"select": "ticker", "sector": f"eq.{sector_name}"},
+                    timeout=15,
+                )
+            except Exception:
+                break
+            if resp.status_code not in (200, 206):
+                break
+            batch = resp.json()
+            if not batch:
+                break
+            tickers.extend(r["ticker"] for r in batch)
+            if len(batch) < 1000:
+                break
+            offset += 1000
+
+    if tickers:
+        return tickers
+
+    # Fallback : _SECTOR_TICKERS defini dans cli_analyze.py
+    # On cherche la cle (sector_display, *) la plus probable
+    try:
+        import sys as _sys, os as _os
+        _root = str(Path(__file__).parent)
+        if _root not in _sys.path:
+            _sys.path.insert(0, _root)
+        from cli_analyze import _SECTOR_TICKERS as _ST
+        sector_display = _SECTOR_YFINANCE.get(sector_key, sector_key.title())
+        # Priorite S&P 500, sinon premier univers trouvé (normalise sans espaces)
+        _norm = sector_display.lower().replace(" ", "")
+        for (s, u), tks in _ST.items():
+            if s.lower().replace(" ", "") == _norm and u == "S&P 500":
+                return list(tks)
+        for universe_pref in ("CAC 40", "DAX", "FTSE 100"):
+            for (s, u), tks in _ST.items():
+                if s.lower().replace(" ", "") == _norm and u == universe_pref:
+                    return list(tks)
+        # Dernier recours : n'importe quelle cle avec ce secteur (normalise sans espaces)
+        _norm = sector_display.lower().replace(" ", "")
+        for (s, u), tks in _ST.items():
+            if s.lower().replace(" ", "") == _norm:
+                return list(tks)
+    except Exception:
+        pass
+
+    return []
 
 
 # ---------------------------------------------------------------------------
