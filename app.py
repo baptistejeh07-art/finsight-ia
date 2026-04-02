@@ -2259,6 +2259,7 @@ def render_screening_running() -> None:
                             "beneish_m":         t.get("beneish_m"),
                             "mom_52w":           t.get("momentum_52w"),
                             "fcf_yield":         t.get("fcf_yield"),
+                            "analyst_revision":  t.get("analyst_revision"),
                             "next_earnings":  t.get("next_earnings"),
                             "signal":         ("Surponderer" if sg >= 60
                                                else ("Sous-ponderer" if sg < 40 else "Neutre")),

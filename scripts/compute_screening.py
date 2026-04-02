@@ -19,6 +19,7 @@ import logging
 import math
 import os
 import sys
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date, datetime
@@ -40,6 +41,119 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from outputs.screening_writer import ScreeningWriter
 from scripts.cache_update import CAC40_TICKERS, DAX40_TICKERS, STOXX50_TICKERS, FTSE100_TICKERS, fetch_sp500, UNIVERSES
+
+# ---------------------------------------------------------------------------
+# Cache revisions analystes (TTL 7 jours — Alpha Vantage 25 req/jour)
+# ---------------------------------------------------------------------------
+_REVISIONS_CACHE_FILE = Path(__file__).parent.parent / "logs" / "local" / "revisions_cache.json"
+_REVISIONS_TTL = 7 * 24 * 3600   # 7 jours en secondes
+_revisions_lock = threading.Lock()
+
+
+def _load_revisions_cache() -> dict:
+    try:
+        if _REVISIONS_CACHE_FILE.exists():
+            with open(_REVISIONS_CACHE_FILE, "r", encoding="utf-8") as fh:
+                return json.load(fh)
+    except Exception:
+        pass
+    return {}
+
+
+def _save_revisions_cache(cache: dict) -> None:
+    try:
+        _REVISIONS_CACHE_FILE.parent.mkdir(parents=True, exist_ok=True)
+        with open(_REVISIONS_CACHE_FILE, "w", encoding="utf-8") as fh:
+            json.dump(cache, fh)
+    except Exception:
+        pass
+
+
+def _fetch_analyst_revision(ticker: str) -> Optional[int]:
+    """
+    Score de revision analystes = nb upgrades - nb downgrades sur 30 jours.
+    Cascade :
+      1. yfinance eps_revisions  (up_30d - down_30d)
+      2. yfinance upgrades_downgrades (last 30 jours)
+      3. Alpha Vantage EARNINGS surprise comme proxy (key ALPHAVANTAGE_API_KEY)
+    Cache JSON 7 jours dans logs/local/revisions_cache.json.
+    Retourne int (peut etre negatif) ou None si indisponible.
+    """
+    key = ticker.upper()
+    now = time.time()
+
+    with _revisions_lock:
+        cache = _load_revisions_cache()
+        entry = cache.get(key, {})
+        if entry and (now - entry.get("ts", 0)) < _REVISIONS_TTL:
+            return entry.get("value")
+
+    result: Optional[int] = None
+
+    # --- Source 1 : yfinance eps_revisions ---
+    try:
+        tkobj = yf.Ticker(ticker)
+        rev = tkobj.eps_revisions
+        if rev is not None and not rev.empty:
+            # colonnes : up_0days up_7days up_30days up_90days down_0days ...
+            up_col   = next((c for c in rev.columns if "up"   in c.lower() and "30" in c), None)
+            down_col = next((c for c in rev.columns if "down" in c.lower() and "30" in c), None)
+            if up_col and down_col:
+                up   = int(rev[up_col].iloc[0]   or 0)
+                down = int(rev[down_col].iloc[0] or 0)
+                result = up - down
+    except Exception:
+        pass
+
+    # --- Source 2 : yfinance upgrades_downgrades ---
+    if result is None:
+        try:
+            tkobj = yf.Ticker(ticker)
+            ud = tkobj.upgrades_downgrades
+            if ud is not None and not ud.empty:
+                from datetime import timedelta
+                cutoff = datetime.utcnow() - timedelta(days=30)
+                # Index peut etre DatetimeIndex ou colonne GradeDate
+                if hasattr(ud.index, "tz_localize"):
+                    ud_recent = ud[ud.index >= cutoff.strftime("%Y-%m-%d")]
+                else:
+                    ud_recent = ud
+                upgrades   = ud_recent["Action"].str.lower().str.contains("upgrade|buy|outperform|overweight|positive").sum()
+                downgrades = ud_recent["Action"].str.lower().str.contains("downgrade|sell|underperform|underweight|negative").sum()
+                if upgrades + downgrades > 0:
+                    result = int(upgrades) - int(downgrades)
+        except Exception:
+            pass
+
+    # --- Source 3 : Alpha Vantage EARNINGS surprise (proxy) ---
+    if result is None:
+        av_key = os.getenv("ALPHAVANTAGE_API_KEY", "")
+        if av_key:
+            try:
+                url = (
+                    f"https://www.alphavantage.co/query"
+                    f"?function=EARNINGS&symbol={ticker}&apikey={av_key}"
+                )
+                resp = requests.get(url, timeout=8)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    quarterly = data.get("quarterlyEarnings", [])
+                    if quarterly:
+                        surprise = quarterly[0].get("surprisePercentage")
+                        if surprise not in (None, "None", ""):
+                            sp = float(surprise)
+                            # Convertit la surprise EPS en score discret : >5% => +1, <-5% => -1
+                            result = 1 if sp > 5 else (-1 if sp < -5 else 0)
+            except Exception:
+                pass
+
+    with _revisions_lock:
+        cache = _load_revisions_cache()
+        cache[key] = {"value": result, "ts": now}
+        _save_revisions_cache(cache)
+
+    return result
+
 
 # ---------------------------------------------------------------------------
 # Overrides sectoriels pour tickers mal classes par yfinance
@@ -613,6 +727,9 @@ def compute_ticker(ticker: str, cache_row: Optional[dict]) -> Optional[dict]:
         if (_cf_fcf and _mktcap_raw and _mktcap_raw > 0) else None
     )
 
+    # --- Revisions analystes (cache 7j) ---
+    analyst_revision = _fetch_analyst_revision(ticker)
+
     # --- Qualite ---
     altman  = _altman_z(bs, is_)
     beneish = _beneish_m(is_, bs, cf)
@@ -664,6 +781,7 @@ def compute_ticker(ticker: str, cache_row: Optional[dict]) -> Optional[dict]:
         "ebitda_ntm_growth": ebitda_ntm_growth,
         "earnings_growth":   earnings_growth,
         "fcf_yield":         fcf_yield,
+        "analyst_revision":  analyst_revision,
         "wacc": wacc_val,
         "tgr":  tgr_val,
     }
