@@ -441,6 +441,21 @@ def _make_scatter(tickers_data: list[dict], sector_name: str) -> io.BytesIO:
     med_ev = float(np.median(evs_valid)) if evs_valid else 10.0
     med_rg = float(np.median(rgs_all)) if rgs_all else 0.0
 
+    # Cap Y à P90×1.5 pour éviter que les outliers (NVDA/pertes) écrasent le graphique
+    if len(evs_valid) > 3:
+        _p90 = float(np.percentile(evs_valid, 90))
+        y_cap = max(med_ev * 3.0, min(_p90 * 1.6, 150.0))
+    else:
+        y_cap = max(med_ev * 3.0, 80.0)
+    # Marquer les points hors plage et les afficher au plafond avec marker différent
+    for p in normal:
+        if p['ev'] > y_cap:
+            p['ev_disp'] = y_cap * 0.97
+            p['capped'] = True
+        else:
+            p['ev_disp'] = p['ev']
+            p['capped'] = False
+
     # Critères d'annotation sélective (top outliers + top BUY)
     q75_ev = float(np.percentile(evs_valid, 75)) if evs_valid else med_ev * 1.3
     q25_ev = float(np.percentile(evs_valid, 25)) if evs_valid else med_ev * 0.7
@@ -460,10 +475,13 @@ def _make_scatter(tickers_data: list[dict], sector_name: str) -> io.BytesIO:
     for p in normal:
         is_ann = p['ticker'] in annotated_tickers
         alpha = 0.95 if is_ann else 0.55
-        ax.scatter(p['rg'], p['ev'], color=p['col'], s=p['sz'], zorder=4,
-                   alpha=alpha, edgecolors='white', linewidth=0.6)
+        ev_y = p.get('ev_disp', p['ev'])
+        marker = '^' if p.get('capped') else 'o'
+        ax.scatter(p['rg'], ev_y, color=p['col'], s=p['sz'], zorder=4,
+                   alpha=alpha, marker=marker, edgecolors='white', linewidth=0.6)
         if is_ann:
-            ax.annotate(p['ticker'], (p['rg'], p['ev']),
+            label = p['ticker'] + ('*' if p.get('capped') else '')
+            ax.annotate(label, (p['rg'], ev_y),
                         textcoords='offset points', xytext=(6, 4),
                         fontsize=7, color=p['col'], fontweight='bold',
                         arrowprops=None)
@@ -488,10 +506,10 @@ def _make_scatter(tickers_data: list[dict], sector_name: str) -> io.BytesIO:
     ylim = ax.get_ylim()
     # Recalculer après tracé pour avoir les bonnes bornes
     if evs_valid:
-        ev_all_for_lim = evs_valid + [5] * len(fallback)
-        y_pad = (max(ev_all_for_lim) - min(ev_all_for_lim)) * 0.08
+        ev_disp_vals = [p.get('ev_disp', p['ev']) for p in normal] + [5] * len(fallback)
+        y_pad = (y_cap - min(ev_disp_vals)) * 0.08 if ev_disp_vals else 4.0
         rg_pad = (max(rgs_all) - min(rgs_all)) * 0.08 if len(rgs_all) > 1 else 2.0
-        yl = (max(0, min(ev_all_for_lim) - y_pad), max(ev_all_for_lim) + y_pad * 2)
+        yl = (max(0, min(ev_disp_vals) - y_pad), y_cap * 1.05)
         xl = (min(rgs_all) - rg_pad, max(rgs_all) + rg_pad)
         ax.set_xlim(xl)
         ax.set_ylim(yl)
@@ -529,6 +547,12 @@ def _make_scatter(tickers_data: list[dict], sector_name: str) -> io.BytesIO:
         mpatches.Patch(color='#1B3A6B', label='Score 50-70 (HOLD)'),
         mpatches.Patch(color='#A82020', label='Score <50 (SELL)'),
     ]
+    # Note si des points ont été tronqués (outliers au-dessus du plafond)
+    capped_tickers = [p['ticker'] for p in normal if p.get('capped')]
+    if capped_tickers:
+        legend_items.append(
+            mpatches.Patch(color='#999999', label=f'^ tronque au plafond : {", ".join(capped_tickers)}')
+        )
     ax.legend(handles=legend_items, fontsize=8, loc='upper center',
               bbox_to_anchor=(0.5, -0.14), frameon=False, ncol=3, handlelength=1.2)
     ax.set_title(f'EV/EBITDA vs Croissance revenus \u2014 {sector_name}',
