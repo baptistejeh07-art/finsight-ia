@@ -358,6 +358,13 @@ def detect_input_type(query: str) -> str:
         return "screening_indice"
     if q in _SECTOR_ALIASES_SET:
         return "screening_secteur"
+    # Heuristique : si l'input contient un espace ou fait > 5 chars sans ressembler
+    # à un ticker (tout en majuscules courts), c'est probablement un secteur.
+    raw = query.strip()
+    if " " in raw and len(raw) > 4:
+        return "screening_secteur"
+    if len(raw) > 5 and not raw.isupper():
+        return "screening_secteur"
     return "analyse_individuelle"
 
 
@@ -431,7 +438,7 @@ def _fetch_sector_tickers(sector_key: str) -> list:
     if tickers:
         return tickers
 
-    # Fallback : _SECTOR_TICKERS defini dans cli_analyze.py
+    # Fallback 1 : _SECTOR_TICKERS defini dans cli_analyze.py
     # On cherche la cle (sector_display, *) la plus probable
     try:
         import sys as _sys, os as _os
@@ -454,6 +461,35 @@ def _fetch_sector_tickers(sector_key: str) -> list:
         for (s, u), tks in _ST.items():
             if s.lower().replace(" ", "") == _norm:
                 return list(tks)
+    except Exception:
+        pass
+
+    # Fallback 2 : LLM (Mistral) — secteur inconnu, demande les tickers S&P 500
+    try:
+        import sys as _sys2, os as _os2
+        _root2 = str(Path(__file__).parent)
+        if _root2 not in _sys2.path:
+            _sys2.path.insert(0, _root2)
+        from core.llm_provider import LLMProvider
+        sector_label = _SECTOR_YFINANCE.get(sector_key, sector_key.replace("_", " ").title())
+        llm = LLMProvider(provider="mistral")
+        raw = llm.generate(
+            prompt=(
+                f"Donne-moi exactement 8 tickers yfinance valides (S&P 500 de preference) "
+                f"pour le secteur '{sector_label}'. "
+                f"Reponds UNIQUEMENT avec les tickers separes par des virgules, rien d'autre. "
+                f"Exemple : AAPL,MSFT,NVDA,META,GOOGL,AMD,AVGO,ORCL"
+            ),
+            system="Tu es un expert financier. Reponds uniquement avec des tickers valides, separes par des virgules.",
+            max_tokens=60,
+        )
+        if raw:
+            tickers_llm = [
+                t.strip().upper() for t in raw.replace("\n", ",").split(",")
+                if t.strip() and 1 <= len(t.strip()) <= 10
+            ][:10]
+            if tickers_llm:
+                return tickers_llm
     except Exception:
         pass
 
