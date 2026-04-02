@@ -1307,7 +1307,7 @@ def _slide_is(prs, snap, synthesis, ratios):
         # Fallback 3 : summary general
         fin_comment = _g(synthesis, "summary", "") or ""
     if fin_comment.strip():
-        commentary_box(slide, 1.02, 8.94, 23.37, 3.40, _truncate(fin_comment, 500))
+        commentary_box(slide, 1.02, 8.94, 23.37, 3.40, _truncate(fin_comment, 700))
 
     return slide
 

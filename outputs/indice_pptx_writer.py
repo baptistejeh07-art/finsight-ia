@@ -1173,49 +1173,31 @@ def _s09_cartographie(prs, D):
         "sous-ponderer": "Sous-pondérer", "sous-pondérer": "Sous-pondérer",
         "neutre": "Neutre",
     }
-    # Detect si EV/EBITDA disponible (au moins 1 valeur non "—")
-    _all_ev_dash = all(str(s[4]) in ("—", "", "None", "\u2014") for s in sorted_s)
-
-    if _all_ev_dash:
-        # Table sans colonne EV/EBITDA (5 colonnes)
-        rows = [["Rg", "Secteur", "Score", "Signal", "Mg.EBITDA", "Croiss.", "Mom."]]
-        for rang, s in enumerate(sorted_s, 1):
-            raw_sig = str(s[3])[:15]
-            norm_sig = _SIG_LABEL.get(raw_sig.strip().lower(), raw_sig)
-            rows.append([
-                str(rang),
-                _abbrev_sector(s[0], 20),
-                str(s[2]),
-                norm_sig,
-                f"{s[5]:.1f}%" if isinstance(s[5],(int,float)) and s[5] else "—",
-                str(s[6]) if len(s) > 6 else "—",
-                str(s[7]) if len(s) > 7 else "—",
-            ])
-        tbl = _add_table(slide, rows, 0.9, 2.3, 23.6,
-                         min(7.5, 0.65 + len(rows) * 0.65),
-                         col_widths=[1.2, 5.5, 1.8, 4.0, 3.5, 3.8, 3.8],
-                         font_size=8, header_size=8, alt_fill=_GRAYL)
-        sig_col = 3
-    else:
-        rows = [["Rg", "Secteur", "Score", "Signal", "EV/EBITDA", "Mg.EBITDA", "Croiss.", "Mom."]]
-        for rang, s in enumerate(sorted_s, 1):
-            raw_sig = str(s[3])[:15]
-            norm_sig = _SIG_LABEL.get(raw_sig.strip().lower(), raw_sig)
-            rows.append([
-                str(rang),
-                _abbrev_sector(s[0], 20),
-                str(s[2]),
-                norm_sig,
-                str(s[4]),
-                f"{s[5]:.1f}%" if isinstance(s[5],(int,float)) and s[5] else "—",
-                str(s[6]) if len(s) > 6 else "—",
-                str(s[7]) if len(s) > 7 else "—",
-            ])
-        tbl = _add_table(slide, rows, 0.9, 2.3, 23.6,
-                         min(7.5, 0.65 + len(rows) * 0.65),
-                         col_widths=[1.2, 4.5, 1.5, 3.5, 2.5, 2.5, 2.5, 2.5],
-                         font_size=8, header_size=8, alt_fill=_GRAYL)
-        sig_col = 3
+    # Table unifiée : Score + Signal + Métriques opérationnelles + P/Book + Div.Yield
+    # EV/EBITDA est déjà sur slide 10 scatter — on le remplace par P/B + DivYield ici
+    pb_by_sector = D.get("pb_by_sector", {}) or {}
+    dy_by_sector = D.get("dy_by_sector", {}) or {}
+    rows = [["Rg", "Secteur", "Score", "Signal", "Mg.EBITDA", "Croiss.", "P/Book", "Div.Yield"]]
+    for rang, s in enumerate(sorted_s, 1):
+        raw_sig = str(s[3])[:15]
+        norm_sig = _SIG_LABEL.get(raw_sig.strip().lower(), raw_sig)
+        _pb = pb_by_sector.get(s[0])
+        _dy = dy_by_sector.get(s[0])
+        rows.append([
+            str(rang),
+            _abbrev_sector(s[0], 22),
+            str(s[2]),
+            norm_sig,
+            f"{s[5]:.1f}%" if isinstance(s[5], (int, float)) and s[5] else "—",
+            str(s[6]) if len(s) > 6 else "—",
+            f"{float(_pb):.1f}x" if _pb is not None else "—",
+            f"{float(_dy):.1f}%" if _dy is not None else "—",
+        ])
+    tbl = _add_table(slide, rows, 0.9, 2.3, 23.6,
+                     min(7.5, 0.65 + len(rows) * 0.65),
+                     col_widths=[1.0, 4.5, 1.5, 3.2, 2.5, 2.5, 2.5, 2.5],
+                     font_size=8, header_size=8, alt_fill=_GRAYL)
+    sig_col = 3
 
     # Colorer signal cells
     for r in range(1, len(rows)):
@@ -1485,64 +1467,111 @@ def _s13_top3(prs, D):
     return slide
 
 
-def _s14_distribution(prs, D, chart_bytes: bytes):
+def _s14_allocation(prs, D):
+    """Slide 14 — Allocation Optimale Markowitz (S&P 500) ou message limitation."""
     slide = _blank(prs)
-    secteurs = D.get("secteurs",[])
-    evs_vals = [_parse_x(s[4]) for s in secteurs if _parse_x(s[4]) > 0]
-    _use_mg  = not bool(evs_vals)
+    _header(slide, "Allocation Optimale — Markowitz",
+            "Min-Variance · Tangency (Max Sharpe) · Equal Risk Contribution  ·  ETF SPDR sectoriels 52S",
+            active=3)
 
-    if _use_mg:
-        _header(slide, "Distribution des Marges EBITDA Sectorielles",
-                "Marge EBITDA (%) par secteur  ·  Vert = Surponderer · Amber = Neutre · Rouge = Sous-ponderer",
-                active=3)
-    else:
-        _header(slide, "Distribution des Valorisations Sectorielles",
-                "EV/EBITDA median par secteur  ·  Vert = Surponderer · Amber = Neutre · Rouge = Sous-ponderer",
-                active=3)
+    opt = D.get("optimal_portfolios")
+    if not opt or not opt.get("sectors"):
+        # Indice non-S&P : message explicatif
+        _rect(slide, 0.9, 2.5, 23.6, 4.5, fill=_GRAYL)
+        _rect(slide, 0.9, 2.5, 0.12, 4.5, fill=_NAVY)
+        _txb(slide, "Optimisation non disponible pour cet indice",
+             1.2, 2.6, 23.0, 0.7, size=11, bold=True, color=_NAVY)
+        _txb(slide,
+             "L'optimisation de portefeuille Markowitz repose sur les ETF SPDR sectoriels (XLK, XLV, XLF...) "
+             "qui ne couvrent que le marche US (S&P 500). Pour les indices europeens (CAC 40, DAX, Euro Stoxx), "
+             "les proxies sectoriels equivalents ne sont pas disponibles via yfinance. "
+             "L'optimisation est donc calculee uniquement lors d'une analyse S&P 500.",
+             1.2, 3.4, 23.0, 3.3, size=9, color=_GRAYT, wrap=True)
 
-    _pic(slide, chart_bytes, 0.9, 2.3, 14.0, 8.8)
+        # Afficher un rappel des secteurs recommandes comme substitut
+        secteurs = D.get("secteurs", [])
+        surp = [(s[0], s[2]) for s in secteurs if "surp" in str(s[3]).lower()]
+        sous = [(s[0], s[2]) for s in secteurs if "sous" in str(s[3]).lower()]
+        if surp or sous:
+            _rect(slide, 0.9, 7.5, 23.6, 0.6, fill=_NAVY)
+            _txb(slide, "POSITIONNEMENT SECTORIEL RECOMMANDE (sans optimisation quantitative)",
+                 1.1, 7.55, 23.0, 0.5, size=8, bold=True, color=_WHITE)
+            _rect(slide, 0.9, 8.15, 11.4, 4.0, fill=_BUY_L)
+            _rect(slide, 0.9, 8.15, 0.1, 4.0, fill=_BUY)
+            _txb(slide, "SURPONDERER", 1.1, 8.2, 10.9, 0.45, size=7.5, bold=True, color=_BUY)
+            for i, (nm, sc) in enumerate(surp[:4]):
+                _txb(slide, f"• {_abbrev_sector(nm, 30)} — score {sc}/100",
+                     1.2, 8.7 + i * 0.75, 10.8, 0.65, size=8, color=_GRAYT)
+            _rect(slide, 13.1, 8.15, 11.4, 4.0, fill=_SELL_L)
+            _rect(slide, 13.1, 8.15, 0.1, 4.0, fill=_SELL)
+            _txb(slide, "SOUS-PONDERER", 13.3, 8.2, 10.9, 0.45, size=7.5, bold=True, color=_SELL)
+            for i, (nm, sc) in enumerate(sous[:4]):
+                _txb(slide, f"• {_abbrev_sector(nm, 30)} — score {sc}/100",
+                     13.4, 8.7 + i * 0.75, 10.8, 0.65, size=8, color=_GRAYT)
+        _footer(slide)
+        return slide
 
-    if _use_mg:
-        # Lecture basee sur Mg.EBITDA
-        mg_data = [(s[0], s[5], s[3]) for s in secteurs
-                   if isinstance(s[5], (int, float)) and s[5] > 0]
-        mg_sorted = sorted(mg_data, key=lambda x: x[1], reverse=True)
-        _med_mg = round(float(np.median([r[1] for r in mg_sorted])), 1) if mg_sorted else 20.0
-        _top_mg = mg_sorted[0]  if mg_sorted else None
-        _bot_mg = mg_sorted[-1] if mg_sorted else None
-        txt = ""
-        if _top_mg and _bot_mg:
-            txt = (
-                f"{_top_mg[0]} affiche la marge EBITDA la plus elevee "
-                f"({_top_mg[1]:.1f}%) — signal {_top_mg[2]} — "
-                f"superieure a la mediane sectorielle de {_med_mg:.1f}%.\n\n"
-                f"{_bot_mg[0]} presente la marge la plus basse "
-                f"({_bot_mg[1]:.1f}%) mais le signal {_bot_mg[2]} "
-                f"reflete les specificites structurelles du secteur.\n\n"
-                f"Mediane des marges EBITDA : {_med_mg:.1f}% — "
-                f"seuil de reference pour evaluer la rentabilite operationnelle relative.\n\n"
-                f"Note : EV/EBITDA non disponible via yfinance pour cet indice — "
-                f"la marge EBITDA est utilisee comme proxy de qualite operationnelle."
-            )
-    else:
-        top_ev = max(secteurs, key=lambda s: _parse_x(s[4]), default=None)
-        bot_ev = min(secteurs, key=lambda s: _parse_x(s[4]), default=None)
-        med    = round(float(np.median(evs_vals)), 1)
-        txt = ""
-        if top_ev and bot_ev:
-            txt = (
-                f"{top_ev[0]} traite a {top_ev[4]} — prime de "
-                f"{round((_parse_x(top_ev[4])/med - 1)*100):.0f} % vs la mediane sectorielle ({med}x). "
-                f"Cette prime est justifiee par une croissance BPA structurellement elevee.\n\n"
-                f"{bot_ev[0]} offre la valorisation la plus attractive ({bot_ev[4]}) mais "
-                f"le signal {bot_ev[3]} reflete les risques specifiques au secteur.\n\n"
-                f"Mediane sectorielle : {med}x EV/EBITDA — seuil de reference pour evaluer la cherte relative."
-            )
+    # S&P 500 — afficher les 3 portefeuilles
+    sectors  = opt.get("sectors", [])
+    mv       = opt.get("min_var", [])
+    tang     = opt.get("tangency", [])
+    erc      = opt.get("erc", [])
+    sharpe   = opt.get("sharpe", {})
 
-    _rect(slide, 15.4, 2.3, 9.1, 8.8, fill=_GRAYL)
-    _rect(slide, 15.4, 2.3, 0.12, 8.8, fill=_NAVY)
-    _txb(slide, "Lecture de la Distribution", 15.7, 2.4, 8.6, 0.6, size=8.5, bold=True, color=_NAVY)
-    _txb(slide, txt[:550], 15.7, 3.1, 8.6, 7.8, size=8, color=_GRAYT, wrap=True)
+    # Table centrale : secteur | Min-Var | Tangency | ERC
+    rows = [["Secteur", "Min-Variance", "Tangency (Max Sharpe)", "ERC"]]
+    for i, sec in enumerate(sectors):
+        w_mv   = f"{mv[i]*100:.1f} %" if i < len(mv)   else "—"
+        w_tang = f"{tang[i]*100:.1f} %" if i < len(tang) else "—"
+        w_erc  = f"{erc[i]*100:.1f} %" if i < len(erc)  else "—"
+        rows.append([_abbrev_sector(sec, 25), w_mv, w_tang, w_erc])
+
+    # Row Sharpe
+    rows.append([
+        "Sharpe ratio",
+        f"{sharpe.get('mv', 0):.2f}",
+        f"{sharpe.get('tangency', 0):.2f}",
+        f"{sharpe.get('erc', 0):.2f}",
+    ])
+
+    tbl_h = min(9.5, 0.7 + len(rows) * 0.65)
+    tbl = _add_table(slide, rows, 0.9, 2.4, 15.5, tbl_h,
+                     col_widths=[5.5, 3.0, 3.5, 3.0],
+                     font_size=8, header_size=8, alt_fill=_GRAYL)
+
+    # Colorer les lignes selon le poids Tangency (portefeuille prioritaire)
+    for r in range(1, len(rows) - 1):  # skip header and sharpe row
+        if r - 1 < len(tang):
+            w = tang[r - 1]
+            if w >= 0.20:
+                try:
+                    from pptx.util import Pt
+                    from pptx.dml.color import RGBColor as _RGB
+                    for ci in range(4):
+                        cell = tbl.cell(r, ci)
+                        cell.fill.solid()
+                        cell.fill.fore_color.rgb = _RGB(0xEA, 0xF4, 0xEF)
+                except Exception:
+                    pass
+
+    # Panel droit — lecture analytique
+    mv_max   = sectors[mv.index(max(mv))]   if mv   else "—"
+    t_max    = sectors[tang.index(max(tang))] if tang else "—"
+    erc_max  = sectors[erc.index(max(erc))]  if erc  else "—"
+    _rect(slide, 17.0, 2.4, 7.5, tbl_h, fill=_GRAYL)
+    _rect(slide, 17.0, 2.4, 0.12, tbl_h, fill=_NAVY)
+    _txb(slide, "LECTURE QUANTITATIVE", 17.3, 2.5, 7.0, 0.55, size=8, bold=True, color=_NAVY)
+    lecture = (
+        f"Portefeuille Tangency (Max Sharpe = {sharpe.get('tangency', 0):.2f}) : "
+        f"sur-allocation sur {t_max} — secteur offrant le meilleur ratio rendement/risque sur 52 semaines. "
+        f"Ce portefeuille est le plus agressif des trois.\n\n"
+        f"Min-Variance (Sharpe = {sharpe.get('mv', 0):.2f}) : poids dominant sur {mv_max} — "
+        f"secteur le moins volatil sur la periode. Approche defensive, adaptee a un contexte d'incertitude elevee.\n\n"
+        f"ERC (Sharpe = {sharpe.get('erc', 0):.2f}) : allocation equilibree, {erc_max} ressort dominant. "
+        f"Chaque secteur contribue egalement au risque total du portefeuille.\n\n"
+        f"Note : Basé sur rendements journaliers 52S ETF SPDR. Contraintes : poids 0-40% par secteur."
+    )
+    _txb(slide, lecture, 17.3, 3.1, 7.0, tbl_h - 0.8, size=7.5, color=_GRAYT, wrap=True)
 
     _footer(slide)
     return slide
@@ -2036,12 +2065,12 @@ class IndicePPTXWriter:
         _safe(_s11_decomposition, prs, data, label="s11_decomposition")
         # Slide 12 — Chapter 03 divider
         _safe(_chapter_divider, prs, "03", "Top 3 Secteurs Recommand\u00e9s",
-              "Synth\u00e8se signal \u00b7 Soci\u00e9t\u00e9s repr\u00e9sentatives \u00b7 Zone d'entr\u00e9e \u00b7 Distribution",
+              "Synth\u00e8se signal \u00b7 Soci\u00e9t\u00e9s repr\u00e9sentatives \u00b7 Zone d'entr\u00e9e \u00b7 Allocation Markowitz",
               label="s12_divider")
         # Slide 13 — Top 3 Secteurs
         _safe(_s13_top3, prs, data, label="s13_top3")
-        # Slide 14 — Distribution valorisations
-        _safe(_s14_distribution, prs, data, ev_bytes, label="s14_distribution")
+        # Slide 14 — Allocation Optimale Markowitz
+        _safe(_s14_allocation, prs, data, label="s14_allocation")
         # Slide 15 — Zone d'Entree
         _safe(_s15_zone_entree, prs, data, zone_bytes, label="s15_zone_entree")
         # Slide 16 — Chapter 04 divider
