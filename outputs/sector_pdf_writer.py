@@ -1962,6 +1962,188 @@ def _build_risques(tickers_data: list[dict], sector_name: str, registry=None):
     return elems
 
 
+def _make_reco_table(grp_tickers, grp_label, grp_col, grp_bg, max_rows=5):
+    """Tableau compact pour un groupe BUY/HOLD/SELL — max 5 tickers, 4 colonnes."""
+    _S7B = _style(f'r7b_{grp_label}', size=7.5, leading=10, color=WHITE,     bold=True,  align=TA_LEFT)
+    _S7  = _style(f'r7_{grp_label}',  size=7,   leading=9.5, color=NAVY,     bold=True,  align=TA_CENTER)
+    _S7C = _style(f'r7c_{grp_label}', size=7,   leading=9.5, color=GREY_TEXT, bold=False, align=TA_CENTER)
+    _S7G = _style(f'r7g_{grp_label}', size=7,   leading=9.5, color=colors.HexColor('#1A7A4A'), bold=True, align=TA_CENTER)
+    _S7A = _style(f'r7a_{grp_label}', size=7,   leading=9.5, color=colors.HexColor('#B06000'), bold=True, align=TA_CENTER)
+    _S7R = _style(f'r7r_{grp_label}', size=7,   leading=9.5, color=colors.HexColor('#A82020'), bold=True, align=TA_CENTER)
+
+    display = grp_tickers[:max_rows]
+    n_total = len(grp_tickers)
+    note_plus = f" (top {max_rows}/{n_total} \u2014 voir Annexe*)" if n_total > max_rows else ""
+    label_txt = f"{grp_label} \u2014 {n_total} valeur{'s' if n_total != 1 else ''}{note_plus}"
+
+    title_row = [Paragraph(f"<b>{label_txt}</b>", _S7B)] + [''] * 3
+    hdr = [
+        Paragraph("Ticker",   S_TH_C),
+        Paragraph("Score",    S_TH_C),
+        Paragraph("Upside",   S_TH_C),
+        Paragraph("Conv.",    S_TH_C),
+    ]
+    rows = [title_row, hdr]
+    rs_map = [(0, grp_col, 'title'), (1, NAVY, 'hdr')]
+
+    for i, t in enumerate(display):
+        upside = _upside(t.get('score_global'))
+        conv   = _conviction(t.get('score_global'))
+        up_s   = _S7G if upside.startswith('+') else _S7R
+        rows.append([
+            Paragraph(f"<b>{t.get('ticker','N/A')}</b>", _S7),
+            Paragraph(f"{int(t.get('score_global') or 0)}/100", _S7C),
+            Paragraph(upside, up_s),
+            Paragraph(conv, _S7C),
+        ])
+        rs_map.append((2 + i, grp_bg, 'data'))
+
+    # Ligne vide si groupe vide
+    if not display:
+        rows.append([Paragraph("Aucune valeur", _S7C), '', '', ''])
+        rs_map.append((2, grp_bg, 'data'))
+
+    cw = [14*mm, 14*mm, 14*mm, 12*mm]  # 54mm total — 3 blocs côte à côte (3×54 + 2×4 = 170mm)
+    t3 = Table(rows, colWidths=cw)
+    ts3 = [
+        ('FONTSIZE',    (0,0),(-1,-1), 7),
+        ('VALIGN',      (0,0),(-1,-1), 'MIDDLE'),
+        ('TOPPADDING',  (0,0),(-1,-1), 2), ('BOTTOMPADDING',(0,0),(-1,-1), 2),
+        ('LEFTPADDING', (0,0),(-1,-1), 4), ('RIGHTPADDING', (0,0),(-1,-1), 4),
+        ('GRID',        (0,2),(-1,-1), 0.2, GREY_MED),
+        ('BACKGROUND',  (0,1),(-1,1), NAVY),
+        ('FONTNAME',    (0,1),(-1,1), 'Helvetica-Bold'),
+        ('TOPPADDING',  (0,1),(-1,1), 3), ('BOTTOMPADDING',(0,1),(-1,1), 3),
+    ]
+    for ri, bg, kind in rs_map:
+        if kind == 'title':
+            ts3 += [
+                ('BACKGROUND',   (0,ri),(-1,ri), bg),
+                ('SPAN',         (0,ri),(-1,ri)),
+                ('TOPPADDING',   (0,ri),(-1,ri), 4),
+                ('BOTTOMPADDING',(0,ri),(-1,ri), 4),
+            ]
+        elif kind == 'data':
+            ts3.append(('BACKGROUND', (0,ri),(-1,ri), bg))
+    t3.setStyle(TableStyle(ts3))
+    return t3
+
+
+def _build_annexe(tickers_data: list[dict], sector_name: str):
+    """Annexe — classement détaillé toutes sociétés avec cours, cible, upside, conv."""
+    elems = []
+    elems.append(PageBreak())
+    elems.append(Spacer(1, 10*mm))
+
+    S_ANN = _style('ann_title', size=11, bold=True, color=NAVY, leading=15)
+    elems.append(Paragraph(f"Annexe \u2014 Classement d\u00e9taill\u00e9 {sector_name}", S_ANN))
+    elems.append(Spacer(1, 2*mm))
+    elems.append(Paragraph(
+        "Tableau complet de toutes les soci\u00e9t\u00e9s analys\u00e9es, "
+        "class\u00e9es par score FinSight d\u00e9croissant. "
+        "Score composite : Value 30% · Growth 25% · Quality 25% · Momentum 20%.",
+        S_BODY))
+    elems.append(Spacer(1, 4*mm))
+
+    sorted_data = sorted(tickers_data, key=lambda x: x.get('score_global') or 0, reverse=True)
+
+    _S7  = _style('an7',  size=7,   leading=9.5, color=NAVY,      bold=True,  align=TA_CENTER)
+    _S7L = _style('an7l', size=7,   leading=9.5, color=GREY_TEXT, bold=False, align=TA_LEFT)
+    _S7C = _style('an7c', size=7,   leading=9.5, color=GREY_TEXT, bold=False, align=TA_CENTER)
+    _S7G = _style('an7g', size=7,   leading=9.5, color=colors.HexColor('#1A7A4A'), bold=True, align=TA_CENTER)
+    _S7A = _style('an7a', size=7,   leading=9.5, color=colors.HexColor('#B06000'), bold=True, align=TA_CENTER)
+    _S7R = _style('an7r', size=7,   leading=9.5, color=colors.HexColor('#A82020'), bold=True, align=TA_CENTER)
+    _S7H = _style('an7h', size=7.5, leading=10,  color=WHITE,     bold=True,  align=TA_LEFT)
+
+    _BUY_CLR  = colors.HexColor('#1A7A4A')
+    _HOLD_CLR = colors.HexColor('#4A5568')
+    _SELL_CLR = colors.HexColor('#A82020')
+    _BUY_BG   = colors.HexColor('#F0FAF5')
+    _HOLD_BG  = colors.HexColor('#F7F7F7')
+    _SELL_BG  = colors.HexColor('#FFF5F5')
+
+    def _cible_ann(t):
+        upside = _upside(t.get('score_global'))
+        try:
+            up_pct = float(upside.replace('%','').replace('+','').replace('-',''))
+            sign   = -1 if upside.startswith('-') else 1
+            return f"{float(t['price']) * (1 + sign * up_pct/100):,.2f}" if t.get('price') else "\u2014"
+        except (TypeError, ValueError, KeyError):
+            return "\u2014"
+
+    buy_list  = [t for t in sorted_data if _reco(t.get('score_global')) == "BUY"]
+    hold_list = [t for t in sorted_data if _reco(t.get('score_global')) == "HOLD"]
+    sell_list = [t for t in sorted_data if _reco(t.get('score_global')) == "SELL"]
+
+    _CW = [14*mm, 30*mm, 14*mm, 18*mm, 20*mm, 16*mm, 20*mm]  # 132mm
+
+    for grp_tickers, grp_label, grp_col, grp_bg in [
+        (buy_list, "BUY", _BUY_CLR, _BUY_BG),
+        (hold_list, "HOLD", _HOLD_CLR, _HOLD_BG),
+        (sell_list, "SELL", _SELL_CLR, _SELL_BG),
+    ]:
+        if not grp_tickers:
+            continue
+        n = len(grp_tickers)
+        sep_row = [Paragraph(f"<b>{grp_label} \u2014 {n} valeur{'s' if n!=1 else ''}</b>", _S7H)] + [''] * 6
+        hdr = [
+            Paragraph("Ticker",      S_TH_C),
+            Paragraph("Soci\u00e9t\u00e9", S_TH_L),
+            Paragraph("Score",       S_TH_C),
+            Paragraph("Cours",       S_TH_C),
+            Paragraph("Cible est.",  S_TH_C),
+            Paragraph("Upside",      S_TH_C),
+            Paragraph("Conv.",       S_TH_C),
+        ]
+        rows_a = [sep_row, hdr]
+        rs_a = [(0, grp_col, 'sep'), (1, NAVY, 'hdr')]
+        for i, t in enumerate(grp_tickers):
+            reco   = _reco(t.get('score_global'))
+            upside = _upside(t.get('score_global'))
+            conv   = _conviction(t.get('score_global'))
+            up_s   = _S7G if upside.startswith('+') else _S7R
+            rows_a.append([
+                Paragraph(f"<b>{t.get('ticker','N/A')}</b>", _S7),
+                Paragraph((t.get('company') or 'N/A')[:24].rstrip(' ,.-'), _S7L),
+                Paragraph(f"{int(t.get('score_global') or 0)}/100", _S7C),
+                Paragraph(_fmt_price(t.get('price')), _S7C),
+                Paragraph(_cible_ann(t), _S7C),
+                Paragraph(upside, up_s),
+                Paragraph(conv, _S7C),
+            ])
+            rs_a.append((2 + i, grp_bg, 'data'))
+
+        ta = Table(rows_a, colWidths=_CW)
+        tsa = [
+            ('FONTSIZE',    (0,0),(-1,-1), 7),
+            ('VALIGN',      (0,0),(-1,-1), 'MIDDLE'),
+            ('TOPPADDING',  (0,0),(-1,-1), 2), ('BOTTOMPADDING',(0,0),(-1,-1), 2),
+            ('LEFTPADDING', (0,0),(-1,-1), 4), ('RIGHTPADDING', (0,0),(-1,-1), 4),
+            ('GRID',        (0,2),(-1,-1), 0.2, GREY_MED),
+            ('BACKGROUND',  (0,1),(-1,1), NAVY),
+            ('FONTNAME',    (0,1),(-1,1), 'Helvetica-Bold'),
+            ('TOPPADDING',  (0,1),(-1,1), 3), ('BOTTOMPADDING',(0,1),(-1,1), 3),
+        ]
+        for ri, bg, kind in rs_a:
+            if kind == 'sep':
+                tsa += [
+                    ('BACKGROUND',   (0,ri),(-1,ri), bg),
+                    ('SPAN',         (0,ri),(-1,ri)),
+                    ('TOPPADDING',   (0,ri),(-1,ri), 4),
+                    ('BOTTOMPADDING',(0,ri),(-1,ri), 4),
+                ]
+            elif kind == 'data':
+                tsa.append(('BACKGROUND', (0,ri),(-1,ri), bg))
+        ta.setStyle(TableStyle(tsa))
+        elems.append(KeepTogether([ta, Spacer(1, 4*mm)]))
+
+    elems.append(src(
+        "Score FinSight composite : Value 30% · Growth 25% · Quality 25% · Momentum 20%. "
+        "Cible estimee depuis l'upside FinSight. Analyse approfondie (DCF, WACC, scenarios) via Analyse Societe individuelle."
+    ))
+    return elems
+
+
 def _build_conclusion(tickers_data: list[dict], sector_name: str,
                       sector_analytics: dict = None, registry=None):
     elems = []
@@ -1982,111 +2164,33 @@ def _build_conclusion(tickers_data: list[dict], sector_name: str,
         f"<b>{'constructif' if buy_count >= hold_count else 'neutre'} avec une sélectivité accrue</b>. "
         f"Sur {len(tickers_data)} valeurs analysées : "
         f"<b>{buy_count} BUY</b>, <b>{hold_count} HOLD</b>, <b>{sell_count} SELL</b>. "
-        f"La dispersion des scores fondamentaux justifie une approche selective "
-        f"privilegiant les acteurs a bilan solide et visibilite élevée sur les revenus.", S_BODY))
-    elems.append(Spacer(1, 4*mm))
+        f"Classement détaillé (cours, cible, upside) disponible en Annexe.", S_BODY))
+    elems.append(Spacer(1, 5*mm))
 
-    # 3 tableaux compacts BUY / HOLD / SELL
-    _S7  = _style('s7',  size=7,   leading=9.5, color=NAVY,      bold=True,  align=TA_CENTER)
-    _S7L = _style('s7l', size=7,   leading=9.5, color=GREY_TEXT, bold=False, align=TA_LEFT)
-    _S7C = _style('s7c', size=7,   leading=9.5, color=GREY_TEXT, bold=False, align=TA_CENTER)
-    _S7G = _style('s7g', size=7,   leading=9.5, color=colors.HexColor('#1A7A4A'), bold=True, align=TA_CENTER)
-    _S7A = _style('s7a', size=7,   leading=9.5, color=colors.HexColor('#B06000'), bold=True, align=TA_CENTER)
-    _S7R = _style('s7r', size=7,   leading=9.5, color=colors.HexColor('#A82020'), bold=True, align=TA_CENTER)
-    _S7H = _style('s7h', size=8,   leading=10,  color=WHITE,     bold=True,  align=TA_LEFT)
+    # 3 tableaux compacts côte à côte : BUY | HOLD | SELL — max 5 tickers chacun
+    t_buy  = _make_reco_table(buy_list,  "BUY",  colors.HexColor('#1A7A4A'), colors.HexColor('#F0FAF5'))
+    t_hold = _make_reco_table(hold_list, "HOLD", colors.HexColor('#4A5568'), colors.HexColor('#F7F7F7'))
+    t_sell = _make_reco_table(sell_list, "SELL", colors.HexColor('#A82020'), colors.HexColor('#FFF5F5'))
 
-    _BUY_CLR  = colors.HexColor('#1A7A4A')
-    _HOLD_CLR = colors.HexColor('#4A5568')
-    _SELL_CLR = colors.HexColor('#A82020')
-    _BUY_BG   = colors.HexColor('#F0FAF5')
-    _HOLD_BG  = colors.HexColor('#F7F7F7')
-    _SELL_BG  = colors.HexColor('#FFF5F5')
-
-    # Colonnes : Ticker | Société | Score | Cours | Cible est. | Upside | Conv.
-    _CW3 = [14*mm, 32*mm, 14*mm, 20*mm, 20*mm, 18*mm, 22*mm]  # total 140mm
-
-    def _cible(t):
-        upside = _upside(t.get('score_global'))
-        try:
-            up_pct = float(upside.replace('%','').replace('+','').replace('-',''))
-            sign   = -1 if upside.startswith('-') else 1
-            return f"{float(t['price']) * (1 + sign * up_pct/100):,.2f}" if t.get('price') else "\u2014"
-        except (TypeError, ValueError, KeyError):
-            return "\u2014"
-
-    _groups3 = [
-        (buy_list,  "BUY",  _BUY_CLR,  _BUY_BG),
-        (hold_list, "HOLD", _HOLD_CLR, _HOLD_BG),
-        (sell_list, "SELL", _SELL_CLR, _SELL_BG),
-    ]
-
-    for grp_tickers, grp_label, grp_col, grp_bg in _groups3:
-        n = len(grp_tickers)
-        label_txt = f"{grp_label} \u2014 {n} valeur{'s' if n != 1 else ''}"
-        # Titre de bloc coloré (span sur toute la largeur)
-        title_row = [Paragraph(f"<b>{label_txt}</b>", _S7H)] + [''] * 6
-        col_hdr3 = [
-            Paragraph("Ticker",    S_TH_C),
-            Paragraph("Soci\u00e9t\u00e9", S_TH_L),
-            Paragraph("Score",     S_TH_C),
-            Paragraph("Cours",     S_TH_C),
-            Paragraph("Cible est.*", S_TH_C),
-            Paragraph("Upside",    S_TH_C),
-            Paragraph("Conv.",     S_TH_C),
-        ]
-        rows3 = [title_row, col_hdr3]
-        rs_map = [(0, grp_col, 'title'), (1, NAVY, 'header')]
-        for i, t in enumerate(grp_tickers):
-            reco   = _reco(t.get('score_global'))
-            upside = _upside(t.get('score_global'))
-            conv   = _conviction(t.get('score_global'))
-            rs     = _S7G if reco == "BUY" else (_S7R if reco == "SELL" else _S7A)
-            up_s   = _S7G if upside.startswith('+') else _S7R
-            row = [
-                Paragraph(f"<b>{t.get('ticker','N/A')}</b>", _S7),
-                Paragraph((t.get('company') or 'N/A')[:24].rstrip(' ,.-'), _S7L),
-                Paragraph(f"{int(t.get('score_global') or 0)}/100", _S7C),
-                Paragraph(_fmt_price(t.get('price')), _S7C),
-                Paragraph(_cible(t), _S7C),
-                Paragraph(upside, up_s),
-                Paragraph(conv, _S7C),
-            ]
-            rows3.append(row)
-            rs_map.append((2 + i, grp_bg, 'data'))
-
-        t3 = Table(rows3, colWidths=_CW3, repeatRows=0)
-        ts3 = [
-            ('FONTSIZE',     (0,0),(-1,-1), 7),
-            ('VALIGN',       (0,0),(-1,-1), 'MIDDLE'),
-            ('TOPPADDING',   (0,0),(-1,-1), 2), ('BOTTOMPADDING',(0,0),(-1,-1), 2),
-            ('LEFTPADDING',  (0,0),(-1,-1), 4), ('RIGHTPADDING', (0,0),(-1,-1), 4),
-            ('GRID',         (0,2),(-1,-1), 0.2, GREY_MED),
-            # Header row (row 1)
-            ('BACKGROUND',   (0,1),(-1,1), NAVY),
-            ('FONTNAME',     (0,1),(-1,1), 'Helvetica-Bold'),
-            ('FONTSIZE',     (0,1),(-1,1), 7),
-            ('TOPPADDING',   (0,1),(-1,1), 3), ('BOTTOMPADDING',(0,1),(-1,1), 3),
-        ]
-        for ri, bg, kind in rs_map:
-            if kind == 'title':
-                ts3 += [
-                    ('BACKGROUND', (0,ri),(-1,ri), bg),
-                    ('SPAN',       (0,ri),(-1,ri)),
-                    ('TOPPADDING', (0,ri),(-1,ri), 4),
-                    ('BOTTOMPADDING',(0,ri),(-1,ri), 4),
-                ]
-            elif kind == 'data':
-                ts3.append(('BACKGROUND', (0,ri),(-1,ri), bg))
-        t3.setStyle(TableStyle(ts3))
-        elems.append(KeepTogether([t3, Spacer(1, 3*mm)]))
-
+    # Mise en page côte à côte dans un tableau wrapper
+    wrapper = Table([[t_buy, Spacer(4*mm, 1), t_hold, Spacer(4*mm, 1), t_sell]],
+                    colWidths=[54*mm, 4*mm, 54*mm, 4*mm, 54*mm])
+    wrapper.setStyle(TableStyle([
+        ('VALIGN',  (0,0),(-1,-1), 'TOP'),
+        ('LEFTPADDING',  (0,0),(-1,-1), 0),
+        ('RIGHTPADDING', (0,0),(-1,-1), 0),
+        ('TOPPADDING',   (0,0),(-1,-1), 0),
+        ('BOTTOMPADDING',(0,0),(-1,-1), 0),
+    ]))
+    elems.append(wrapper)
+    elems.append(Spacer(1, 2*mm))
     elems.append(src(
-        "* Cible estimee calculee depuis l'upside FinSight (Score composite Value/Growth/Quality/Momentum). "
-        "Analyse detaillee societe par societe (DCF, WACC, scenarios) disponible dans l'Analyse Societe individuelle."
+        "* Classement complet avec cours, cible estimee, upside et conviction disponible en Annexe. "
+        "Score FinSight composite : Value 30% \u00b7 Growth 25% \u00b7 Quality 25% \u00b7 Momentum 20%."
     ))
-    elems.append(Spacer(1, 4*mm))
+    elems.append(Spacer(1, 5*mm))
 
-    # Allocation
+    # Allocation portefeuille modèle
     elems.append(Paragraph("Allocation portefeuille mod\u00e8le", S_SUBSECTION))
     alloc_h = [Paragraph(h, S_TH_C) for h in ["Profil", "Tickers", "Pond\u00e9rations", "Rationale"]]
     alloc_data = []
@@ -2100,12 +2204,12 @@ def _build_conclusion(tickers_data: list[dict], sector_name: str,
         alloc_data.append(["Short / Eviter", " + ".join(t.get('ticker','') for t in sell_list[:3]),
                            "0 %", "These negative \u2014 reevaluation post-resultats"])
     if not alloc_data:
-        alloc_data.append(["Portefeuille equi-pondere", "Tous", "100%", "Pas de conviction forte \u2014 approche indicielle"])
+        alloc_data.append(["Portefeuille equi-pondere", "Tous", "100%",
+                           "Pas de conviction forte \u2014 approche indicielle"])
 
     alloc_rows = [[Paragraph(r[0], S_TD_B), Paragraph(r[1], S_TD_BC),
                    Paragraph(r[2], S_TD_C), Paragraph(r[3], S_TD_L)] for r in alloc_data]
-    elems.append(KeepTogether(tbl([alloc_h] + alloc_rows,
-                                   cw=[38*mm, 40*mm, 28*mm, 64*mm])))
+    elems.append(KeepTogether(tbl([alloc_h] + alloc_rows, cw=[38*mm, 40*mm, 28*mm, 64*mm])))
     elems.append(Spacer(1, 6*mm))
 
     # Disclaimer
@@ -2171,6 +2275,7 @@ def _build_story(perf_buf, area_buf, scatter_buf, donut_buf,
     story += _build_valorisation(scatter_buf, donut_buf, tickers_data, sector_name, registry)
     story += _build_risques(tickers_data, sector_name, registry)
     story += _build_conclusion(tickers_data, sector_name, sector_analytics or {}, registry)
+    story += _build_annexe(tickers_data, sector_name)
     return story
 
 
