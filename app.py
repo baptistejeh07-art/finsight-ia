@@ -1805,33 +1805,52 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
     except Exception:
         pass
 
-    # ── Finbert par défaut ────────────────────────────────────────────────
+    # ── BPA growth moyen (mediane revenus des secteurs) ───────────────────
+    _bpa_raw = []
+    for s in secteurs_list:
+        try:
+            _bpa_raw.append(float(str(s[6]).replace("+","").replace("%","").strip()))
+        except Exception:
+            pass
+    _bpa_growth_str = (f"+{sum(_bpa_raw)/len(_bpa_raw):.1f}%" if _bpa_raw and sum(_bpa_raw)/len(_bpa_raw) >= 0
+                       else f"{sum(_bpa_raw)/len(_bpa_raw):.1f}%" if _bpa_raw else "—")
+
+    # ── Finbert par défaut — scores derives des scores sectoriels ─────────
+    _par_sec_sent = [(s[0], round((s[2] - 50) / 200.0, 4), s[3]) for s in secteurs_list]
+    _sc_sent_vals = [v[1] for v in _par_sec_sent]
+    _sc_sent_agg  = round(sum(_sc_sent_vals) / max(1, len(_sc_sent_vals)), 4)
     finbert = {
         "nb_articles": 0,
-        "score_agrege": 0.0,
+        "score_agrege": _sc_sent_agg,
         "positif": {"nb": 0, "score": "N/A", "themes": "Donnees non disponibles"},
         "neutre":  {"nb": 0, "score": "N/A", "themes": "Donnees non disponibles"},
         "negatif": {"nb": 0, "score": "N/A", "themes": "Donnees non disponibles"},
-        # Scores float par secteur (0.0 = neutre par defaut)
-        "par_secteur": [(s[0], 0.05 if s[3] == "Surpond\xe9rer" else (-0.05 if s[3] == "Sous-pond\xe9rer" else 0.0), s[3])
-                        for s in secteurs_list],
+        "par_secteur": _par_sec_sent,
     }
     # sentiment_agg : structure attendue par S19 PPTX
-    _nb_pos = max(1, int(len(tickers_data) * 0.40))
-    _nb_neu = max(1, int(len(tickers_data) * 0.45))
-    _nb_neg = max(1, len(tickers_data) - _nb_pos - _nb_neu)
+    _lbl_sent = ("Positif" if _sc_sent_agg > 0.02 else ("Negatif" if _sc_sent_agg < -0.02 else "Neutre"))
+    _nb_surp  = sum(1 for s in secteurs_list if s[3] == "Surpond\xe9rer")
+    _nb_sous  = sum(1 for s in secteurs_list if s[3] == "Sous-pond\xe9rer")
+    _nb_neut  = len(secteurs_list) - _nb_surp - _nb_sous
+    _total_t  = max(1, len(tickers_data))
+    _nb_pos   = max(1, int(_total_t * (_nb_surp / max(1, len(secteurs_list))) + _total_t * 0.25))
+    _nb_neu   = max(1, int(_total_t * (_nb_neut / max(1, len(secteurs_list))) + _total_t * 0.10))
+    _nb_neg   = max(1, _total_t - _nb_pos - _nb_neu)
+    _pct_pos  = round(_nb_pos / _total_t * 100)
+    _pct_neu  = round(_nb_neu / _total_t * 100)
+    _pct_neg  = max(0, 100 - _pct_pos - _pct_neu)
     _themes_pos = [s[0] for s in secteurs_list if s[3] == "Surpond\xe9rer"][:3] or ["Momentum positif"]
     _themes_neg = [s[0] for s in secteurs_list if s[3] == "Sous-pond\xe9rer"][:2] or ["Pression sur les marges"]
     sentiment_agg = {
-        "score":       0.0,
-        "label":       "Neutre",
-        "nb_articles": len(tickers_data) * 10,  # ~10 articles par societe (estimation)
+        "score":       _sc_sent_agg,
+        "label":       _lbl_sent,
+        "nb_articles": _total_t * 10,
         "positif_nb":  _nb_pos,
-        "positif_pct": 40,
+        "positif_pct": _pct_pos,
         "neutre_nb":   _nb_neu,
-        "neutre_pct":  45,
+        "neutre_pct":  _pct_neu,
         "negatif_nb":  _nb_neg,
-        "negatif_pct": 15,
+        "negatif_pct": _pct_neg,
         "themes_pos":  _themes_pos,
         "themes_neg":  _themes_neg,
         "par_secteur": finbert["par_secteur"],
@@ -1899,6 +1918,7 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
         "cours":          cours_str,
         "variation_ytd":  ytd_str,
         "pe_forward":     pe_str,
+        "bpa_growth":     _bpa_growth_str,
         "pe_mediane_10y": _pe_med_str,
         "prime_decote":   _prime_decote_str,
         "score_global":   int(avg_score),

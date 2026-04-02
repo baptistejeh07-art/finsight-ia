@@ -846,7 +846,7 @@ def _s02_exec_summary(prs, D):
     ]
     _txb(slide, "  ·  ".join(mets), 0.9, 3.15, 23.6, 0.55, size=8, color=_GRAYT)
 
-    # Regime de marche (compact strip si disponible)
+    # Regime de marche — badges individuels
     _mac = D.get("macro") or {}
     _reg = _mac.get("regime", "")
     if _reg and _reg != "Inconnu":
@@ -855,14 +855,18 @@ def _s02_exec_summary(prs, D):
         _rec_6 = _mac.get("recession_prob_6m")
         _vx    = _mac.get("vix")
         _sp_s  = _mac.get("yield_spread_10y_3m")
-        _parts = [f"Regime {_reg}"]
-        if _vx:    _parts.append(f"VIX {_vx:.0f}")
-        if _sp_s is not None: _parts.append(f"Spread {_sp_s:+.1f}%")
-        if _rec_6 is not None: _parts.append(f"Rec. 6M {_rec_6}%")
-        _rect(slide, 0.9, 3.8, 23.6, 0.45, fill=_GRAYL)
-        _rect(slide, 0.9, 3.8, 0.10, 0.45, fill=_r_col)
-        _txb(slide, "  \u00b7  ".join(_parts), 1.1, 3.83, 23.0, 0.38,
-             size=7.5, color=_NAVY, bold=False)
+        _badges = [(f"Regime {_reg}", _r_col, _WHITE)]
+        if _vx:    _badges.append((f"VIX {_vx:.0f}", _GRAYL, _NAVY))
+        if _sp_s is not None: _badges.append((f"Spread {_sp_s:+.1f}%", _GRAYL, _NAVY))
+        if _rec_6 is not None: _badges.append((f"Rec. 6M {_rec_6}%", _GRAYL, _NAVY))
+        _bx = 0.9
+        for _blbl, _bfill, _btxt in _badges:
+            _bw = max(2.2, len(_blbl) * 0.13 + 0.5)
+            _bw = min(_bw, 5.0)
+            _rect(slide, _bx, 3.8, _bw, 0.45, fill=_bfill)
+            _txb(slide, _blbl, _bx + 0.1, 3.82, _bw - 0.15, 0.4,
+                 size=7.5, bold=(_bfill == _r_col), color=_btxt, align=PP_ALIGN.CENTER)
+            _bx += _bw + 0.15
 
     # Catalyseurs macro (y fixe suffisant apres regime strip eventuel)
     _rect(slide, 0.9, 4.4, 23.6, 0.5, fill=_NAVY)
