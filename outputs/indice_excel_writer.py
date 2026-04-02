@@ -277,7 +277,7 @@ def _fill_donnees_brutes(ws, tickers: list[dict], universe: str) -> None:
 
     for offset, t in enumerate(tickers[:40]):
         row = 3 + offset
-        sec_disp = _SECT_DISP.get(t.get("sector", ""), t.get("sector", "Autre"))
+        sec_disp = _SECT_DISP.get(t.get("sector") or "", (t.get("sector") or "Autre"))
 
         # A: Ticker
         _write(ws, row, 1,  t.get("ticker", ""))
@@ -366,7 +366,7 @@ def _fill_ranking_sheet(ws, tickers_sorted: list[dict], score_field: str,
 
     for offset, t in enumerate(tickers_capped):
         row = 4 + offset
-        sec_disp = _SECT_DISP.get(t.get("sector", ""), t.get("sector", "Autre"))
+        sec_disp = _SECT_DISP.get(t.get("sector") or "", (t.get("sector") or "Autre"))
 
         # Rang
         _write(ws, row, "A", offset + 1)
@@ -702,6 +702,20 @@ class IndiceExcelWriter:
         # ---- DASHBOARD ----
         if "DASHBOARD" in wb.sheetnames:
             _fill_dashboard(wb["DASHBOARD"], universe, today_str)
+
+        # ---- Print areas pour eviter overflow pages ----
+        # PAR SECTEUR : contenu utile A1:K34, exclut cols L-M (aux chart) et rows 35+ (aux tables)
+        if "PAR SECTEUR" in wb.sheetnames:
+            wb["PAR SECTEUR"].print_area = "A1:K34"
+            wb["PAR SECTEUR"].page_setup.fitToPage = True
+            wb["PAR SECTEUR"].page_setup.fitToWidth = 1
+            wb["PAR SECTEUR"].page_setup.fitToHeight = 0
+        # DASHBOARD : contenu utile A1:N26, exclut cols O-X (tables auxiliaires)
+        if "DASHBOARD" in wb.sheetnames:
+            wb["DASHBOARD"].print_area = "A1:N26"
+            wb["DASHBOARD"].page_setup.fitToPage = True
+            wb["DASHBOARD"].page_setup.fitToWidth = 1
+            wb["DASHBOARD"].page_setup.fitToHeight = 0
 
         # ---- Date dans formules B1 des feuilles sectorielles ----
         # Les formules contiennent la date du template en dur (ex: "22/03/2026")
