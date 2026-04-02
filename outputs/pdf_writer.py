@@ -2796,19 +2796,7 @@ class PDFWriter:
             'summary_text':         _g(synthesis,'summary') or _g(synthesis,'company_description') or '',
             'kdb_text':             _g(synthesis,'key_data_text') or '',
             'financials_text_intro':_g(synthesis,'financial_commentary') or '',
-            'financials_text_post': _g(synthesis,'financial_commentary_post') or (
-                                    f"L'analyse du compte de r\u00e9sultat met en \u00e9vidence une "
-                                    f"trajectoire financi\u00e8re globalement coh\u00e9rente avec le "
-                                    f"positionnement sectoriel de {co_name}. La progression des "
-                                    f"revenus s'accompagne d'une ma\u00eetrise relative de la structure "
-                                    f"de co\u00fbts, visible dans la stabilit\u00e9 des marges brute et "
-                                    f"EBITDA sur la p\u00e9riode analys\u00e9e. Les projections 2026-2027 "
-                                    f"int\u00e8grent les hypoth\u00e8ses macro\u00e9conomiques courantes et "
-                                    f"les guides de direction disponibles, sous r\u00e9serve de "
-                                    f"r\u00e9vision en cas de choc externe ou de changement de mix. "
-                                    f"La g\u00e9n\u00e9ration de cash-flow op\u00e9rationnel reste "
-                                    f"le principal crit\u00e8re de surveillance pour valider la "
-                                    f"th\u00e8se d'investissement sur l'horizon 12 mois."),
+            'financials_text_post': _g(synthesis,'financial_commentary_post') or '',
             'ratios_text':          _g(synthesis,'ratio_commentary') or '',
             'dcf_text_intro':       _g(synthesis,'dcf_commentary') or
                                     (f"Notre mod\u00e8le DCF repose sur un WACC de {_fr(wacc*100,1)}\u00a0% "
@@ -2820,7 +2808,7 @@ class PDFWriter:
             'dcf_text_note':        _g(synthesis,'dcf_note') or
                                     "Cellule surlign\u00e9e = sc\u00e9nario base. "
                                     "Une hausse de 100 bps du WACC comprime la valeur d'environ 12\u00a0%.",
-            'post_comp_text':       _g(synthesis,'comparables_commentary') or (
+            'post_comp_text':       _g(synthesis,'comparables_commentary') or _g(synthesis,'peers_commentary') or (
                                     f"L'analyse comparative des multiples confirme un "
                                     f"positionnement valu\u00e9 par rapport aux pairs sectoriels. "
                                     f"L'EV/EBITDA de {_frx(ev_e)}x se situe au-dessus de la "
