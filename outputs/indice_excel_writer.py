@@ -31,22 +31,32 @@ _FULL  = "\u2588"
 _EMPTY = "\u2591"
 
 # Mapping secteur yfinance canonical -> nom affiche dans template
+# Couvre les deux nomenclatures yfinance (ancienne et moderne)
 _SECT_DISP = {
+    # Noms anciens yfinance (GICS)
     "Technology":             "Technology",
     "Health Care":            "Healthcare",
     "Financials":             "Financials",
     "Consumer Discretionary": "Consumer Disc.",
     "Communication Services": "Comm. Services",
     "Industrials":            "Industrials",
-    "Consumer Staples":       "Consumer Staples",
+    "Consumer Staples":       "Consumer Defensive",
     "Energy":                 "Energy",
     "Materials":              "Materials",
     "Real Estate":            "Real Estate",
     "Utilities":              "Utilities",
+    # Noms modernes yfinance (retournes pour tickers EU)
+    "Financial Services":     "Financials",
+    "Consumer Cyclical":      "Consumer Disc.",
+    "Consumer Defensive":     "Consumer Defensive",
+    "Basic Materials":        "Materials",
+    "Healthcare":             "Healthcare",
+    "Comm. Services":         "Comm. Services",
 }
 
 # Ordre des secteurs (pour PAR SECTEUR, SECTOR OVERVIEW col M)
-_SECTOR_ORDER = list(_SECT_DISP.values())
+# Valeurs uniques preservant l'ordre (dict preserving insertion order Python 3.7+)
+_SECTOR_ORDER = list(dict.fromkeys(_SECT_DISP.values()))
 
 # Orientation signal depuis score
 def _orientation(score: int) -> str:
@@ -223,13 +233,19 @@ def _sector_aggregates(tickers: list[dict]) -> dict:
 # ---------------------------------------------------------------------------
 
 def _write(ws, row: int, col: int | str, value):
-    """Ecrit dans une cellule sauf si elle contient deja une formule."""
+    """Ecrit dans une cellule sauf si elle contient deja une formule ou ArrayFormula."""
     if isinstance(col, str):
         cell = ws[f"{col}{row}"]
     else:
         cell = ws.cell(row=row, column=col)
+    try:
+        from openpyxl.worksheet.formula import ArrayFormula
+        if isinstance(cell.value, ArrayFormula):
+            return  # guard formule matricielle
+    except ImportError:
+        pass
     if cell.value and isinstance(cell.value, str) and cell.value.startswith("="):
-        return  # guard formule
+        return  # guard formule normale
     cell.value = value
 
 
@@ -244,6 +260,20 @@ def _fill_donnees_brutes(ws, tickers: list[dict], universe: str) -> None:
     """
     # Titre ligne 1
     _write(ws, 1, "A", f"FinSight IA  \u00b7  {universe}  \u00b7  Donnees brutes")
+
+    # Effacer les lignes 3-42 pour eviter donnees stales du template
+    try:
+        from openpyxl.worksheet.formula import ArrayFormula as _AF
+    except ImportError:
+        _AF = None
+    for clr_row in range(3, 43):
+        for clr_col in range(1, 31):
+            cell = ws.cell(row=clr_row, column=clr_col)
+            if _AF and isinstance(cell.value, _AF):
+                continue
+            if cell.value and isinstance(cell.value, str) and cell.value.startswith("="):
+                continue
+            cell.value = None
 
     for offset, t in enumerate(tickers[:40]):
         row = 3 + offset
@@ -672,6 +702,17 @@ class IndiceExcelWriter:
         # ---- DASHBOARD ----
         if "DASHBOARD" in wb.sheetnames:
             _fill_dashboard(wb["DASHBOARD"], universe, today_str)
+
+        # ---- Date dans formules B1 des feuilles sectorielles ----
+        # Les formules contiennent la date du template en dur (ex: "22/03/2026")
+        # On remplace toute date DD/MM/YYYY par la date du jour
+        import re as _re
+        _date_pat = _re.compile(r'\d{2}/\d{2}/\d{4}')
+        for _sname in wb.sheetnames:
+            _ws2 = wb[_sname]
+            _b1  = _ws2["B1"].value
+            if _b1 and isinstance(_b1, str) and _date_pat.search(_b1):
+                _ws2["B1"].value = _date_pat.sub(today_str, _b1)
 
         # Sauvegarder
         wb.save(str(out))
