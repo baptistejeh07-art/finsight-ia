@@ -340,6 +340,79 @@ _SECTOR_CONTENT = {
     },
 }
 
+def _build_content_from_llm(sector_name: str, ev_med: float, rev_med: float,
+                             mg_med: float, mom_med: float, score_moyen: int,
+                             sig_label: str, td: list) -> "dict | None":
+    """Appel Groq pour generer description/catalyseurs/risques/drivers dynamiquement.
+    Retourne None si echec (le caller utilisera le fallback statique ou _build_content_from_data)."""
+    try:
+        import json as _json_pptx
+        import sys as _sys_pptx
+        _sys_pptx.path.insert(0, str(Path(__file__).parent.parent))
+        from core.llm_provider import LLMProvider as _LLMpptx
+        sorted_t = sorted(td, key=lambda x: x.get("score_global") or 0, reverse=True)
+        top_t = [f"{t.get('ticker','?')} (score={int(t.get('score_global') or 0)}/100)"
+                 for t in sorted_t[:3]]
+        prompt = (
+            f"Secteur: {sector_name} | Signal: {sig_label} | Score: {score_moyen}/100\n"
+            f"EV/EBITDA med: {ev_med:.1f}x | Mg EBITDA: {mg_med:.1f}% | "
+            f"Croissance rev: {rev_med:+.1f}% | Momentum 52W: {mom_med:+.1f}%\n"
+            f"Top tickers: {', '.join(top_t) if top_t else 'N/D'}\n\n"
+            f"Reponds en JSON valide uniquement, sans markdown, sans points de suspension.\n"
+            f'{{"description":"2 phrases sur ce secteur (specifique, valorisation reelle)","'
+            f'catalyseurs":[{{"titre":"court","description":"1 phrase complete"}},'
+            f'{{"titre":"court","description":"1 phrase"}},'
+            f'{{"titre":"court","description":"1 phrase"}}],"'
+            f'risques":[{{"titre":"court","description":"1 phrase"}},'
+            f'{{"titre":"court","description":"1 phrase"}},'
+            f'{{"titre":"court","description":"1 phrase"}}],"'
+            f'drivers":[{{"direction":"up","nom":"court","description":"1 phrase"}},'
+            f'{{"direction":"up","nom":"court","description":"1 phrase"}},'
+            f'{{"direction":"down","nom":"court","description":"1 phrase"}},'
+            f'{{"direction":"down","nom":"court","description":"1 phrase"}}],"'
+            f'cycle_comment":"1 phrase courte sur la phase de cycle actuelle"}}'
+        )
+        resp = _LLMpptx(provider="groq").generate(
+            prompt=prompt,
+            system=(
+                f"Tu es analyste buy-side specialise en {sector_name}. "
+                "Reponds en francais avec accents. JSON strict. "
+                "Specifique au secteur demande, jamais de texte generique. "
+                "Phrases completes, pas de points de suspension (...)."
+            ),
+            max_tokens=800,
+        )
+        js_s = resp.find("{"); js_e = resp.rfind("}") + 1
+        if js_s < 0 or js_e <= js_s:
+            return None
+        p = _json_pptx.loads(resp[js_s:js_e])
+        result: dict = {}
+        if "description" in p:
+            result["description"] = p["description"]
+        if "catalyseurs" in p and isinstance(p["catalyseurs"], list):
+            result["catalyseurs"] = [
+                (c.get("titre", "\u2014"), c.get("description", "\u2014"))
+                for c in p["catalyseurs"][:3]
+            ]
+        if "risques" in p and isinstance(p["risques"], list):
+            result["risques"] = [
+                (r.get("titre", "\u2014"), r.get("description", "\u2014"))
+                for r in p["risques"][:3]
+            ]
+        if "drivers" in p and isinstance(p["drivers"], list):
+            result["drivers"] = [
+                (d.get("direction", "up"), d.get("nom", "\u2014"), d.get("description", "\u2014"))
+                for d in p["drivers"][:4]
+            ]
+        if "cycle_comment" in p:
+            result["cycle_comment"] = p["cycle_comment"]
+        log.info("sectoral_pptx LLM OK: %s (%d chars)", sector_name, len(resp))
+        return result if result else None
+    except Exception as _e_pptx:
+        log.warning("sectoral_pptx LLM erreur: %s -- fallback", _e_pptx)
+        return None
+
+
 def _build_content_from_data(td: list, sector_name: str, score_moyen: int,
                               sig_label: str, ev_med: float, rev_med: float,
                               mg_med: float, mom_med: float) -> dict:
@@ -549,13 +622,22 @@ def _prepare_data(tickers_data: list[dict], sector_name: str, universe: str) -> 
     mg_med  = _med(mg_vals)  if mg_vals  else 0.0        # ebitda_margin déjà en %
     mom_med = _med(mom_vals) if mom_vals else 0.0        # momentum_52w déjà en %
 
-    # Content: use static library if known, else build dynamically from state
-    if sector_name in _SECTOR_CONTENT:
-        content = _SECTOR_CONTENT[sector_name]
-    else:
-        content = _build_content_from_data(
-            td, sector_name, score_moyen, sig_label, ev_med, rev_med, mg_med, mom_med
-        )
+    # Content: base reelle depuis les metriques tickers, puis override LLM pour le narratif
+    content = _build_content_from_data(
+        td, sector_name, score_moyen, sig_label, ev_med, rev_med, mg_med, mom_med
+    )
+    _llm_content = _build_content_from_llm(
+        sector_name, ev_med, rev_med, mg_med, mom_med, score_moyen, sig_label, td
+    )
+    if _llm_content:
+        # Le LLM fournit les textes narratifs ; les metriques reelles restent du _build_content_from_data
+        for _k in ("description", "catalyseurs", "risques", "drivers", "cycle_comment"):
+            if _k in _llm_content:
+                content[_k] = _llm_content[_k]
+    elif sector_name in _SECTOR_CONTENT:
+        # Fallback : textes statiques de la librairie (metriques reelles conservees)
+        for _k in ("description", "catalyseurs", "risques", "drivers", "cycle_comment"):
+            content[_k] = _SECTOR_CONTENT[sector_name].get(_k, content.get(_k))
 
     from config.sector_ref import get_sector_drivers
     drv = get_sector_drivers(sector_name)

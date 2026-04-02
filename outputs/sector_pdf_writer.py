@@ -842,28 +842,80 @@ def _build_macro(perf_buf, area_buf, tickers_data: list[dict],
         elems.append(Spacer(1, 4*mm))
 
     elems.append(debate_q(f"Quelles dynamiques structurelles redefinissent les avantages concurrentiels dans le secteur {sector_name} ?"))
-    _macro_drivers = [
-        ("<b>Transformation digitale.</b>",
-         f"L'acceleration de l'adoption technologique constitue le relais de croissance structurel dominant pour {sector_name}. "
-         f"Les leaders positionnés sur les segments a forte valeur ajoutée capturent une part croissante de la création de valeur sectorielle, "
-         f"avec des effets de reseau qui renforcent les barrières a l'entrée. Exposition : <b>forte</b>, beneficiaires : leaders qualitatifs."),
-        ("<b>Consolidation sectorielle.</b>",
-         f"Les operations de M&A et les economies d'echelle exercent une pression structurelle sur les acteurs mid-cap, "
-         f"contraints de se differencer ou de rejoindre des ensembles plus larges. "
-         f"Les champions etablis beneficient de cet environnement pour renforcer leurs positions. Exposition : <b>moderee</b>."),
-        ("<b>Pression reglementaire.</b>",
-         f"Le durcissement des normes — conformite, reporting ESG, protection des données — engendre des couts additionnels mais constitue "
-         f"simultanement une barriere a l'entree pour les newcomers. L'impact est heterogene selon la taille et la geographie. Exposition : <b>mixte</b>."),
-        ("<b>Cycle macro et taux.</b>",
-         f"La persistance de taux d'interet eleves penalise les bilans levers et comprime les multiples de valorisation. "
-         f"Les acteurs a forte generation de FCF et bilan net positif sont structurellement avantages dans cet environnement. Exposition : <b>moderee</b>."),
-        ("<b>Innovation et disruption IA.</b>",
-         f"L'integration de l'intelligence artificielle dans les processus genere des gains de productivite estimes a 15-25% pour les adopteurs précoces. "
-         f"Cette bifurcation technologique cree un ecart croissant entre les acteurs tech-forward et les retardataires. Exposition : <b>forte</b>."),
-    ]
-    for lead, body in _macro_drivers:
-        elems.append(Paragraph(f"{lead} {body}", S_BODY))
-        elems.append(Spacer(1, 1.5*mm))
+
+    # Calcul metriques reelles pour le prompt LLM
+    import statistics as _stat_mac
+    _ev_mac = [t.get("ev_ebitda") for t in tickers_data if t.get("ev_ebitda")]
+    _mg_mac = [t.get("ebitda_margin") for t in tickers_data if t.get("ebitda_margin") is not None]
+    _mo_mac = [t.get("momentum_52w") for t in tickers_data if t.get("momentum_52w") is not None]
+    _ev_m = round(_stat_mac.median(_ev_mac), 1) if _ev_mac else 12.0
+    _mg_m = round(_stat_mac.median(_mg_mac), 1) if _mg_mac else 18.0
+    _mo_m = round(_stat_mac.median(_mo_mac), 1) if _mo_mac else 0.0
+
+    _macro_drivers_text = None
+    try:
+        import json as _json_mac
+        from core.llm_provider import LLMProvider as _LLMp
+        _regime_ctx = (f" | Regime marche: {_regime}, VIX: {_vix:.0f}" if (_regime and _vix) else "")
+        _rec_ctx    = (f" | P(recession 6M): {_rec_6m}%" if _rec_6m is not None else "")
+        _prompt_mac = (
+            f"Secteur: {sector_name} | EV/EBITDA median: {_ev_m:.1f}x | "
+            f"Marge EBITDA: {_mg_m:.1f}% | Momentum 52W: {_mo_m:+.1f}%"
+            f"{_regime_ctx}{_rec_ctx}\n"
+            f"Identifie 4 dynamiques structurelles SPECIFIQUES a ce secteur (pas de generiques).\n"
+            f"Reponds en JSON valide, sans markdown, sans points de suspension.\n"
+            f'{{"drivers":['
+            f'{{"titre":"titre court","corps":"2 phrases specifiques au secteur, exposition en gras ex: Exposition : <b>forte</b>"}},'
+            f'{{"titre":"titre court","corps":"2 phrases specifiques, exposition en gras"}},'
+            f'{{"titre":"titre court","corps":"2 phrases specifiques, exposition en gras"}},'
+            f'{{"titre":"titre court","corps":"2 phrases specifiques, exposition en gras"}}]}}'
+        )
+        _resp_mac = _LLMp(provider="groq").generate(
+            prompt=_prompt_mac,
+            system=(
+                f"Tu es analyste financier senior specialise dans le secteur {sector_name}. "
+                "Reponds en francais avec accents. JSON strict. "
+                "Contenu 100% specifique au secteur demande, jamais de generiques. "
+                "Pas de points de suspension (...)."
+            ),
+            max_tokens=600,
+        )
+        _js_s = _resp_mac.find("{"); _js_e = _resp_mac.rfind("}") + 1
+        if _js_s >= 0 and _js_e > _js_s:
+            _p = _json_mac.loads(_resp_mac[_js_s:_js_e])
+            if "drivers" in _p and isinstance(_p["drivers"], list) and _p["drivers"]:
+                _macro_drivers_text = [
+                    (f"<b>{d.get('titre','Dynamique sectorielle')}.</b>", d.get("corps", "—"))
+                    for d in _p["drivers"][:4]
+                ]
+                log.info("sector_pdf macro LLM OK: %s (%d drivers)", sector_name, len(_macro_drivers_text))
+    except Exception as _e_mac:
+        log.warning("sector_pdf macro LLM erreur: %s -- fallback", _e_mac)
+
+    if _macro_drivers_text:
+        for lead, body in _macro_drivers_text:
+            elems.append(Paragraph(f"{lead} {body}", S_BODY))
+            elems.append(Spacer(1, 1.5*mm))
+    else:
+        # Fallback avec valeurs reelles (pas de chiffres inventes)
+        for lead, body in [
+            (f"<b>Valorisation sectorielle {sector_name}.</b>",
+             f"L'EV/EBITDA median de {_ev_m:.1f}x et la marge EBITDA de {_mg_m:.1f}% definissent "
+             f"les references de valorisation actuelles du secteur. "
+             f"Le momentum 52 semaines de {_mo_m:+.1f}% reflete le positionnement relatif dans le cycle."),
+            ("<b>Consolidation et effets d'echelle.</b>",
+             f"Les operations de M&A et les economies d'echelle exercent une pression sur les acteurs mid-cap "
+             f"du secteur {sector_name}, contraints de se differencier ou de rejoindre des ensembles plus larges."),
+            ("<b>Pression reglementaire et ESG.</b>",
+             "Le durcissement des normes de conformite et les exigences ESG engendrent des couts additionnels "
+             "mais constituent une barriere a l'entree pour les nouveaux entrants. Exposition : <b>mixte</b>."),
+            ("<b>Cycle macro et taux directeurs.</b>",
+             "La persistance de taux d'interet eleves penalise les bilans levers et comprime les multiples. "
+             "Les acteurs a forte generation de FCF et bilan solide sont structurellement avantages. Exposition : <b>moderee</b>."),
+        ]:
+            elems.append(Paragraph(f"{lead} {body}", S_BODY))
+            elems.append(Spacer(1, 1.5*mm))
+
     elems.append(src("FinSight IA \u2014 Analyse adversariale sectorielle."))
     return elems
 
