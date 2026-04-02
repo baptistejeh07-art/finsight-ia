@@ -2029,7 +2029,7 @@ def _make_reco_table(grp_tickers, grp_label, grp_col, grp_bg, max_rows=5):
     return t3
 
 
-def _build_annexe(tickers_data: list[dict], sector_name: str):
+def _build_annexe(tickers_data: list[dict], sector_name: str, reco_commentary: dict = None):
     """Annexe — classement détaillé toutes sociétés avec cours, cible, upside, conv."""
     elems = []
     elems.append(PageBreak())
@@ -2077,6 +2077,12 @@ def _build_annexe(tickers_data: list[dict], sector_name: str):
 
     _CW = [14*mm, 30*mm, 14*mm, 18*mm, 20*mm, 16*mm, 20*mm]  # 132mm
 
+    _rc = reco_commentary or {}
+    _S_COMM_BUY  = _style('comm_buy',  size=8, leading=11, color=colors.HexColor('#1A7A4A'), bold=False, align=TA_LEFT)
+    _S_COMM_HOLD = _style('comm_hold', size=8, leading=11, color=colors.HexColor('#4A5568'), bold=False, align=TA_LEFT)
+    _S_COMM_SELL = _style('comm_sell', size=8, leading=11, color=colors.HexColor('#A82020'), bold=False, align=TA_LEFT)
+    _comm_styles = {"BUY": _S_COMM_BUY, "HOLD": _S_COMM_HOLD, "SELL": _S_COMM_SELL}
+
     for grp_tickers, grp_label, grp_col, grp_bg in [
         (buy_list, "BUY", _BUY_CLR, _BUY_BG),
         (hold_list, "HOLD", _HOLD_CLR, _HOLD_BG),
@@ -2084,6 +2090,11 @@ def _build_annexe(tickers_data: list[dict], sector_name: str):
     ]:
         if not grp_tickers:
             continue
+        # Commentaire LLM avant le tableau
+        comm = _rc.get(grp_label, "")
+        if comm:
+            elems.append(Paragraph(comm, _comm_styles[grp_label]))
+            elems.append(Spacer(1, 2*mm))
         n = len(grp_tickers)
         sep_row = [Paragraph(f"<b>{grp_label} \u2014 {n} valeur{'s' if n!=1 else ''}</b>", _S7H)] + [''] * 6
         hdr = [
@@ -2239,10 +2250,83 @@ def _build_conclusion(tickers_data: list[dict], sector_name: str,
     return elems
 
 
+# ─── LLM COMMENTARY ───────────────────────────────────────────────────────────
+def _generate_reco_commentary(buy_list, hold_list, sell_list, sector_name):
+    """Appel Groq unique — 2-3 phrases par groupe BUY/HOLD/SELL."""
+    try:
+        import sys as _sys, os as _os
+        _sys.path.insert(0, _os.path.dirname(_os.path.dirname(__file__)))
+        from core.llm_provider import LLMProvider
+
+        def _ticker_summary(t):
+            return (
+                f"{t.get('ticker','?')} (Score {int(t.get('score_global') or 0)}/100, "
+                f"EV/EBITDA {_fmt_mult(t.get('ev_ebitda'))}, "
+                f"Mg.EBITDA {_fmt_pct(t.get('ebitda_margin'), sign=False)}, "
+                f"Rev {_fmt_pct(t.get('revenue_growth'))})"
+            )
+
+        buy_str  = ", ".join(_ticker_summary(t) for t in buy_list[:5])  or "Aucune"
+        hold_str = ", ".join(_ticker_summary(t) for t in hold_list[:5]) or "Aucune"
+        sell_str = ", ".join(_ticker_summary(t) for t in sell_list[:5]) or "Aucune"
+
+        prompt = (
+            f"Tu es analyste sectoriel senior. Redige une synthese d'investissement "
+            f"sur le secteur {sector_name} en francais, sans majuscules superflues, sans bullet points.\n\n"
+            f"BUY : {buy_str}\n"
+            f"HOLD : {hold_str}\n"
+            f"SELL : {sell_str}\n\n"
+            f"Reponds avec EXACTEMENT ce format (3 blocs, rien d'autre) :\n"
+            f"BUY: <2-3 phrases expliquant pourquoi ces titres meritent un achat — "
+            f"valorisation, qualite bilan, croissance, catalyseurs>\n"
+            f"HOLD: <2-3 phrases expliquant pourquoi ces titres sont en attente — "
+            f"catalyseurs manquants, valorisation correcte mais pas d'asymetrie forte>\n"
+            f"SELL: <2-3 phrases expliquant pourquoi ces titres sont a eviter — "
+            f"deterioration fondamentaux, risque rerating, pression sur marges>\n"
+            f"Si un groupe est vide, ecris '<groupe>: Aucune valeur dans cette categorie.'"
+        )
+        system = (
+            "Tu es analyste buy-side senior. Tes commentaires sont factuels, precis, "
+            "bases sur les donnees fournies. 2-3 phrases max par groupe. Pas de bullet points."
+        )
+        llm = LLMProvider(provider="mistral")
+        raw = llm.generate(prompt=prompt, system=system, max_tokens=500)
+        import logging as _log2
+        _log2.getLogger(__name__).info("[sector_pdf] reco_commentary raw=%d chars", len(raw) if raw else 0)
+        if not raw:
+            return {}
+
+        result = {}
+        current_key = None
+        current_lines = []
+        for line in raw.strip().split("\n"):
+            clean = line.strip().lstrip('*').rstrip('*').strip()
+            matched = False
+            for key in ("BUY", "HOLD", "SELL"):
+                if clean.upper().startswith(f"{key}:"):
+                    if current_key and current_lines:
+                        result[current_key] = " ".join(current_lines).strip()
+                    current_key = key
+                    rest = clean[len(key)+1:].strip().lstrip('*').strip()
+                    current_lines = [rest] if rest else []
+                    matched = True
+                    break
+            if not matched and current_key and clean:
+                current_lines.append(clean.lstrip('*').rstrip('*').strip())
+        if current_key and current_lines:
+            result[current_key] = " ".join(current_lines).strip()
+        return result
+
+    except Exception as e:
+        import logging as _log
+        _log.getLogger(__name__).warning("[sector_pdf] LLM reco commentary: %s", e)
+        return {}
+
+
 # ─── BUILD STORY ──────────────────────────────────────────────────────────────
 def _build_story(perf_buf, area_buf, scatter_buf, donut_buf,
                  tickers_data, sector_name, subtitle, universe, date_str,
-                 page_nums, registry, sector_analytics=None):
+                 page_nums, registry, sector_analytics=None, reco_commentary=None):
     story = []
     story.append(Spacer(1, 1))
     story.append(PageBreak())
@@ -2275,7 +2359,7 @@ def _build_story(perf_buf, area_buf, scatter_buf, donut_buf,
     story += _build_valorisation(scatter_buf, donut_buf, tickers_data, sector_name, registry)
     story += _build_risques(tickers_data, sector_name, registry)
     story += _build_conclusion(tickers_data, sector_name, sector_analytics or {}, registry)
-    story += _build_annexe(tickers_data, sector_name)
+    story += _build_annexe(tickers_data, sector_name, reco_commentary=reco_commentary or {})
     return story
 
 
@@ -2325,6 +2409,13 @@ def generate_sector_report(
             _log.getLogger(__name__).warning("[sector_pdf_writer] AgentMacro: %s", _me)
             sector_analytics.setdefault("macro", {})
 
+    # Commentaire LLM BUY/HOLD/SELL (appel unique Groq)
+    _sorted = sorted(tickers_data, key=lambda x: x.get('score_global') or 0, reverse=True)
+    _buy_l  = [t for t in _sorted if _reco(t.get('score_global')) == "BUY"]
+    _hold_l = [t for t in _sorted if _reco(t.get('score_global')) == "HOLD"]
+    _sell_l = [t for t in _sorted if _reco(t.get('score_global')) == "SELL"]
+    reco_commentary = _generate_reco_commentary(_buy_l, _hold_l, _sell_l, sector_name)
+
     # Generation des charts
     perf_buf    = _make_perf_chart(tickers_data, sector_name)
     area_buf    = _make_revenue_area(tickers_data, sector_name)
@@ -2353,7 +2444,7 @@ def generate_sector_report(
         doc1 = SimpleDocTemplate(tmp_path, **doc_kwargs)
         story1 = _build_story(perf_buf, area_buf, scatter_buf, donut_buf,
                                tickers_data, sector_name, subtitle, universe, date_str,
-                               {}, registry, sector_analytics)
+                               {}, registry, sector_analytics, reco_commentary)
         doc1.build(story1, onFirstPage=on_page, onLaterPages=on_page)
     finally:
         if os.path.exists(tmp_path):
@@ -2367,7 +2458,7 @@ def generate_sector_report(
     doc2 = SimpleDocTemplate(output_path, **doc_kwargs)
     story2 = _build_story(perf_buf, area_buf, scatter_buf, donut_buf,
                            tickers_data, sector_name, subtitle, universe, date_str,
-                           dict(registry), {}, sector_analytics)
+                           dict(registry), {}, sector_analytics, reco_commentary)
     doc2.build(story2, onFirstPage=on_page, onLaterPages=on_page)
 
     import logging
