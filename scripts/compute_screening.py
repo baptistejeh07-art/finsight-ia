@@ -73,12 +73,16 @@ def _fetch_analyst_revision(ticker: str) -> Optional[int]:
     """
     Score de revision analystes = nb upgrades - nb downgrades sur 30 jours.
     Cascade :
-      1. yfinance eps_revisions  (up_30d - down_30d)
-      2. yfinance upgrades_downgrades (last 30 jours)
-      3. Alpha Vantage EARNINGS surprise comme proxy (key ALPHAVANTAGE_API_KEY)
+      1. yfinance eps_revisions  (upLast30days - downLast30days)
+      2. yfinance upgrades_downgrades — Action 'up'/'down' sur 30 jours
+         (index UTC-aware, codes courts : 'up'=upgrade / 'down'=downgrade)
+      3. Alpha Vantage EARNINGS surprise comme proxy (suffixe EU strip)
     Cache JSON 7 jours dans logs/local/revisions_cache.json.
     Retourne int (peut etre negatif) ou None si indisponible.
     """
+    import pandas as pd
+    from datetime import timedelta
+
     key = ticker.upper()
     now = time.time()
 
@@ -89,15 +93,15 @@ def _fetch_analyst_revision(ticker: str) -> Optional[int]:
             return entry.get("value")
 
     result: Optional[int] = None
+    tkobj = yf.Ticker(ticker)   # instanciation unique, reutilisee dans sources 1 et 2
 
-    # --- Source 1 : yfinance eps_revisions ---
+    # --- Source 1 : yfinance eps_revisions (US + grands tickers EU) ---
     try:
-        tkobj = yf.Ticker(ticker)
         rev = tkobj.eps_revisions
         if rev is not None and not rev.empty:
-            # colonnes : up_0days up_7days up_30days up_90days down_0days ...
-            up_col   = next((c for c in rev.columns if "up"   in c.lower() and "30" in c), None)
-            down_col = next((c for c in rev.columns if "down" in c.lower() and "30" in c), None)
+            # colonnes typiques : upLast7days, upLast30days, downLast30days, downLast90days
+            up_col   = next((c for c in rev.columns if c.lower().startswith("up")   and "30" in c), None)
+            down_col = next((c for c in rev.columns if c.lower().startswith("down") and "30" in c), None)
             if up_col and down_col:
                 up   = int(rev[up_col].iloc[0]   or 0)
                 down = int(rev[down_col].iloc[0] or 0)
@@ -106,43 +110,47 @@ def _fetch_analyst_revision(ticker: str) -> Optional[int]:
         pass
 
     # --- Source 2 : yfinance upgrades_downgrades ---
+    # Action column vaut 'up' / 'down' / 'main' / 'init' / 'reit' (codes courts yfinance)
+    # Index = DatetimeIndex UTC-aware → comparaison avec pd.Timestamp UTC
     if result is None:
         try:
-            tkobj = yf.Ticker(ticker)
             ud = tkobj.upgrades_downgrades
-            if ud is not None and not ud.empty:
-                from datetime import timedelta
-                cutoff = datetime.utcnow() - timedelta(days=30)
-                # Index peut etre DatetimeIndex ou colonne GradeDate
-                if hasattr(ud.index, "tz_localize"):
-                    ud_recent = ud[ud.index >= cutoff.strftime("%Y-%m-%d")]
+            if ud is not None and not ud.empty and "Action" in ud.columns:
+                cutoff = pd.Timestamp.utcnow() - pd.Timedelta(days=30)
+                idx = ud.index
+                if hasattr(idx, "tz") and idx.tz is not None:
+                    ud_recent = ud[idx >= cutoff]
                 else:
-                    ud_recent = ud
-                upgrades   = ud_recent["Action"].str.lower().str.contains("upgrade|buy|outperform|overweight|positive").sum()
-                downgrades = ud_recent["Action"].str.lower().str.contains("downgrade|sell|underperform|underweight|negative").sum()
+                    ud_recent = ud[idx >= cutoff.tz_localize(None)]
+                actions = ud_recent["Action"].str.lower()
+                upgrades   = int((actions == "up").sum())
+                downgrades = int((actions == "down").sum())
                 if upgrades + downgrades > 0:
-                    result = int(upgrades) - int(downgrades)
+                    result = upgrades - downgrades
         except Exception:
             pass
 
     # --- Source 3 : Alpha Vantage EARNINGS surprise (proxy) ---
+    # AV ne reconnait pas les suffixes EU (.PA, .L, .DE) → on strip
     if result is None:
         av_key = os.getenv("ALPHAVANTAGE_API_KEY", "")
         if av_key:
             try:
+                av_ticker = ticker.split(".")[0]   # MC.PA -> MC
                 url = (
                     f"https://www.alphavantage.co/query"
-                    f"?function=EARNINGS&symbol={ticker}&apikey={av_key}"
+                    f"?function=EARNINGS&symbol={av_ticker}&apikey={av_key}"
                 )
                 resp = requests.get(url, timeout=8)
                 if resp.status_code == 200:
                     data = resp.json()
+                    # AV renvoie {"Information": "..."} si quota depasse ou ticker inconnu
                     quarterly = data.get("quarterlyEarnings", [])
                     if quarterly:
                         surprise = quarterly[0].get("surprisePercentage")
                         if surprise not in (None, "None", ""):
                             sp = float(surprise)
-                            # Convertit la surprise EPS en score discret : >5% => +1, <-5% => -1
+                            # Surprise EPS => score discret : >5% +1, <-5% -1
                             result = 1 if sp > 5 else (-1 if sp < -5 else 0)
             except Exception:
                 pass
