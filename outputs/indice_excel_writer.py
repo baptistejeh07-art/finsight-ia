@@ -717,18 +717,18 @@ class IndiceExcelWriter:
 
         # ---- Date stale : remplace toute date DD/MM/YYYY dans les 5 premieres lignes ----
         # Couvre B1 des feuilles sectorielles, headers SECTOR OVERVIEW, PAR SECTEUR, etc.
-        # Ignore les cellules formule (startswith "=")
+        # Remplace toute date stale DD/MM/YYYY dans les 5 premieres lignes (50 cols)
+        # Couvre aussi les formules string ("=...date...") pour SECTOR OVERVIEW headers
         import re as _re
         _date_pat = _re.compile(r'\d{2}/\d{2}/\d{4}')
         for _sname in wb.sheetnames:
             _ws2 = wb[_sname]
             for _r in range(1, 6):
-                for _c in range(1, 30):
+                for _c in range(1, 51):
                     _cell = _ws2.cell(row=_r, column=_c)
                     if (
                         _cell.value
                         and isinstance(_cell.value, str)
-                        and not _cell.value.startswith("=")
                         and _date_pat.search(_cell.value)
                     ):
                         _cell.value = _date_pat.sub(today_str, _cell.value)
