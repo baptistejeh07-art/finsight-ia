@@ -1454,7 +1454,7 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
         for tkr in top_tkrs:
             _ev_raw = tkr.get("ev_ebitda")
             ev_t = (f"{_ev_raw:.1f}x"
-                    if (_ev_raw is not None and 1.0 < _ev_raw < 100) else "\u2014")
+                    if (_ev_raw is not None and 0.5 < _ev_raw < 200) else "\u2014")
             sig_t = ("Surpond\xe9rer" if (tkr.get("score_global") or 0) >= 60
                      else ("Sous-pond\xe9rer" if (tkr.get("score_global") or 0) < 40 else "Neutre"))
             societes.append((tkr.get("ticker","?"), sig_t, ev_t, tkr.get("score_global") or 0))

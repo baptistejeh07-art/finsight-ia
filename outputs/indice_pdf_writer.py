@@ -1460,10 +1460,18 @@ def _build_top3(data, donut_buf, registry=None):
              ["Secteur","Ticker","Signal", _ev_col_lbl,"Score","Prochaine etape"]]
     soc_rows = []
     for sect in data["top3_secteurs"]:
-        _mg = sect.get("mg_ebitda", 0) or 0
+        _mg      = sect.get("mg_ebitda", 0) or 0
+        _sect_ev = str(sect.get("ev_ebitda", "\u2014"))
+        _sect_ev_ok = _sect_ev not in ("\u2014", "—", "", "None")
         _ev_sect = (f"{_mg:.1f}%" if _all_ev_missing and _mg else "\u2014")
         for tkr, sig, ev, score in sect["societes"]:
-            _val_disp = _ev_sect if _all_ev_missing else ev
+            if _all_ev_missing:
+                _val_disp = _ev_sect
+            elif str(ev) in ("\u2014", "—", "", "None") and _sect_ev_ok:
+                # Fallback : EV/EBITDA secteur comme proxy si le ticker n'a pas de valeur
+                _val_disp = f"~{_sect_ev}"
+            else:
+                _val_disp = ev
             soc_rows.append([
                 Paragraph(sect["nom"], S_TD_L),
                 Paragraph(f"<b>{tkr}</b>", S_TD_BC),
