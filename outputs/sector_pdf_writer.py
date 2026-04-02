@@ -1515,16 +1515,18 @@ def _build_acteurs(tickers_data: list[dict], sector_name: str, registry=None):
         f"Les catalyseurs identifies — resultats trimestriels, guidance annuel, operations M&A — "
         f"constituent les événements cles a surveiller pour un renforcement conditionnel des positions.",
         S_BODY))
-    elems.append(Spacer(1, 4*mm))
-    elems.append(Paragraph(
-        f"<b>Risques sur la these.</b> La these constructive sur les leaders du secteur "
-        f"repose sur la capacité a maintenir des marges dans un environnement de couts élevés "
-        f"et de demande moderee. Tout signal de deterioration des fondamentaux — revision baissiere "
-        f"des estimations, pression concurrentielle accrue, ou choc réglementaire — "
-        f"justifierait une reevaluation des objectifs de cours et un passage en revue des "
-        f"pondérations portefeuille. Le suivi trimestriel des marges EBITDA reste le "
-        f"principal indicateur avancé d'alerte.",
-        S_BODY))
+    elems.append(KeepTogether([
+        Spacer(1, 4*mm),
+        Paragraph(
+            f"<b>Risques sur la these.</b> La these constructive sur les leaders du secteur "
+            f"repose sur la capacité a maintenir des marges dans un environnement de couts élevés "
+            f"et de demande moderee. Tout signal de deterioration des fondamentaux — revision baissiere "
+            f"des estimations, pression concurrentielle accrue, ou choc réglementaire — "
+            f"justifierait une reevaluation des objectifs de cours et un passage en revue des "
+            f"pondérations portefeuille. Le suivi trimestriel des marges EBITDA reste le "
+            f"principal indicateur avancé d'alerte.",
+            S_BODY),
+    ]))
     return elems
 
 

@@ -1806,7 +1806,8 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
             system=(
                 "Tu es un analyste buy-side senior specialise dans les indices boursiers. "
                 "Reponds en francais avec accents. JSON strict uniquement. "
-                "Phrases completes sans points de suspension (...)."
+                "Phrases completes sans points de suspension (...). "
+                "IMPORTANT: les titres des risques doivent decrire des evenements negatifs qui se materialisent (ex: 'Recession aux Etats-Unis', 'Compression des marges', 'Choc de taux'), jamais des scenarios positifs."
             ),
             max_tokens=700,
         )

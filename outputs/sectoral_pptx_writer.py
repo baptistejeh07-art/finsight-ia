@@ -1044,21 +1044,21 @@ def _s02_exec_summary(prs, D):
     _rect(slide, 0.9, 3.7, 11.4, 0.7, fill=_NAVY)
     _txb(slide, "CATALYSEURS SECTORIELS", 0.9, 3.75, 11.4, 0.6, size=8.5, bold=True, color=_WHITE, align=PP_ALIGN.CENTER)
     for i, (cat_title, cat_body) in enumerate(cats[:MAX_CATS_DISPLAYED]):
-        yy = 4.6 + i * 1.7
-        _rect(slide, 0.9, yy, 0.1, 1.5, fill=_BUY)
-        _rect(slide, 1.0, yy, 11.3, 1.5, fill=_GREEN_L)
+        yy = 4.6 + i * 2.3
+        _rect(slide, 0.9, yy, 0.1, 2.0, fill=_BUY)
+        _rect(slide, 1.0, yy, 11.3, 2.0, fill=_GREEN_L)
         _txb(slide, cat_title, 1.3, yy + 0.05, 10.7, 0.55, size=8.5, bold=True, color=_NAVY)
-        _txb(slide, cat_body[:180], 1.3, yy + 0.55, 10.7, 0.85, size=7.5, color=_GRAYT, wrap=True)
+        _txb(slide, cat_body[:200], 1.3, yy + 0.55, 10.7, 1.25, size=7.5, color=_GRAYT, wrap=True)
 
     # Risques
     _rect(slide, 13.1, 3.7, 11.4, 0.7, fill=_SELL)
     _txb(slide, "RISQUES PRINCIPAUX", 13.1, 3.75, 11.4, 0.6, size=8.5, bold=True, color=_WHITE, align=PP_ALIGN.CENTER)
     for i, (risk_title, risk_body) in enumerate(risks[:MAX_RISKS_DISPLAYED]):
-        yy = 4.6 + i * 1.7
-        _rect(slide, 13.1, yy, 0.1, 1.5, fill=_SELL)
-        _rect(slide, 13.2, yy, 11.3, 1.5, fill=_RED_L)
+        yy = 4.6 + i * 2.3
+        _rect(slide, 13.1, yy, 0.1, 2.0, fill=_SELL)
+        _rect(slide, 13.2, yy, 11.3, 2.0, fill=_RED_L)
         _txb(slide, risk_title, 13.5, yy + 0.05, 10.7, 0.55, size=8.5, bold=True, color=_SELL)
-        _txb(slide, risk_body[:180], 13.5, yy + 0.55, 10.7, 0.85, size=7.5, color=_GRAYT, wrap=True)
+        _txb(slide, risk_body[:200], 13.5, yy + 0.55, 10.7, 1.25, size=7.5, color=_GRAYT, wrap=True)
 
     # 4 KPI boxes
     kpis = [
@@ -1119,9 +1119,9 @@ def _s05_presentation(prs, D):
         _rect(slide, 1.3, 7.5, 13.0, 0.45, fill=_NAVY)
         _txb(slide, "CATALYSEURS CLÉS", 1.5, 7.55, 12.5, 0.4, size=7.5, bold=True, color=_WHITE)
         for j, (ct, cb) in enumerate(cats[:3]):
-            _rect(slide, 1.3, 8.05 + j * 1.35, 0.08, 1.2, fill=_BUY)
-            _txb(slide, ct, 1.6, 8.05 + j * 1.35, 12.3, 0.45, size=8, bold=True, color=_NAVY)
-            _txb(slide, cb[:110], 1.6, 8.5 + j * 1.35, 12.3, 0.85, size=7.5, color=_GRAYT, wrap=True)
+            _rect(slide, 1.3, 8.05 + j * 1.45, 0.08, 1.3, fill=_BUY)
+            _txb(slide, ct, 1.6, 8.05 + j * 1.45, 12.3, 0.45, size=8, bold=True, color=_NAVY)
+            _txb(slide, cb[:200], 1.6, 8.5 + j * 1.45, 12.3, 1.1, size=7.5, color=_GRAYT, wrap=True)
 
     # Metrics table
     tbl_data = [["Métrique", "Valeur", "Lecture"]]
@@ -1712,17 +1712,28 @@ def _s18_sentiment(prs, D):
     _txb(slide, f"- {neg_theme} — {risks[0][1][:140] if risks else ''}", 13.5, 5.95, 10.7, 1.0, size=8, color=_GRAYT, wrap=True)
 
     # Analytical text
-    _rect(slide, 0.9, 7.4, 23.6, 3.2, fill=_GRAYL)
+    _rect(slide, 0.9, 7.4, 23.6, 5.5, fill=_GRAYL)
     _rect(slide, 0.9, 7.4, 23.6, 0.7, fill=_NAVY)
     _txb(slide, "LECTURE ANALYTIQUE DU SENTIMENT", 1.1, 7.45, 23.2, 0.6, size=8.5, bold=True, color=_WHITE)
+    # Identify best/worst sentiment tickers
+    pos_scores_with_ticker = [(float(t.get("sentiment_score", 0)), t.get("ticker", ""), t.get("company", "")) for t in td if t.get("sentiment_score") is not None]
+    pos_scores_with_ticker.sort(key=lambda x: x[0], reverse=True)
+    best_sent = pos_scores_with_ticker[0] if pos_scores_with_ticker else (0.25, "leader", "")
+    worst_sent = pos_scores_with_ticker[-1] if len(pos_scores_with_ticker) > 1 else (-0.1, "retardataire", "")
+    pct_pos = n_pos / total * 100
+    sent_tone = "légèrement positif" if agg_score > 0.1 else "neutre" if agg_score >= -0.1 else "légèrement négatif"
     sent_analysis = (
-        f"Le sentiment agrégé sur le secteur {D['sector_name']} {D['universe']} "
-        f"ressort {'légèrement positif' if agg_score > 0.1 else 'neutre' if agg_score >= -0.1 else 'légèrement négatif'} ({agg_score:.2f}). "
-        f"La dispersion est forte — les leaders sectoriels tirent le sentiment vers le haut "
-        f"tandis que les valeurs en restructuration drainent la composante negative. "
-        f"Cette hétérogénéité valide une approche selective plut que directionelle sur le secteur."
+        f"Le sentiment agrégé FinBERT sur le secteur {D['sector_name']} ({D['universe']}) "
+        f"ressort {sent_tone} ({agg_score:.2f}), avec {pct_pos:.0f}% d'articles a tonalité positive sur {total} analysés. "
+        f"La dispersion inter-valeurs est prononcée : {best_sent[1] or best_sent[2]} ({best_sent[0]:+.2f}) porte la composante haussière "
+        f"tandis que {worst_sent[1] or worst_sent[2]} ({worst_sent[0]:+.2f}) reflète les pressions structurelles. "
+        f"Cette hétérogénéité valide une approche sélective plutôt que directionnelle sur le secteur — "
+        f"le sentiment moyen masque des situations fondamentalement différentes entre leaders et retardataires. "
+        f"La composante thématique (catalyseurs vs risques) suggère que les flux narratifs restent "
+        f"{'orientés positivement, avec des newsflows soutenus sur la croissance et les marges' if agg_score > 0.1 else 'équilibrés, reflétant une phase de transition sectorielle' if agg_score >= -0.1 else 'sous pression, les révisions négatives dominant le flux informationnel'}. "
+        f"Le suivi du ratio Positif/Négatif dans les prochaines semaines constitue un indicateur avancé pour anticiper les rotations sectorielles."
     )
-    _txb(slide, sent_analysis, 1.1, 8.2, 23.2, 2.3, size=8.5, color=_GRAYT, wrap=True)
+    _txb(slide, sent_analysis, 1.1, 8.2, 23.2, 4.5, size=8.5, color=_GRAYT, wrap=True)
     _footer(slide)
 
 
