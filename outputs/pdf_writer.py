@@ -440,8 +440,11 @@ def _make_mc_histogram(data):
     vals = vals[_np.isfinite(vals)]
     if len(vals) < 10:
         return _blank_chart_buf(8, 3.0)
+    # Cliper les outliers extremes (P0.5-P99.5) pour éviter les barres isolées qui étirent le graphique
+    _lo, _hi = _np.percentile(vals, 0.5), _np.percentile(vals, 99.5)
+    vals_plot = _np.clip(vals, _lo, _hi)
     fig, ax = plt.subplots(figsize=(8, 3.0))
-    ax.hist(vals, bins=80, color='#2A5298', alpha=0.75, edgecolor='white', linewidth=0.3)
+    ax.hist(vals_plot, bins=60, color='#2A5298', alpha=0.75, edgecolor='white', linewidth=0.3)
     _vlines = [(p10, '#E07B39', 'P10'), (p50, '#1B3A6B', 'P50'), (p90, '#1A7A4A', 'P90')]
     for _v, _c, _lbl in _vlines:
         if _v is not None:
@@ -2406,6 +2409,10 @@ class PDFWriter:
         if yr_r:
             ev_ebitda_v = getattr(yr_r, 'ev_ebitda', None)
             pe_ntm      = pe_ntm or getattr(yr_r, 'pe_ratio', None)
+            # Dividend yield depuis dividendes verses / (cours * actions)
+            _div_paid = getattr(yr_r, 'dividends_paid_abs', None)
+            if _div_paid and _shares and float(_shares) > 0 and price:
+                div_yield = float(_div_paid) / float(_shares) / float(price)
 
         # IS table
         hist_3 = hist_labels[-4:] if len(hist_labels) >= 4 else hist_labels
@@ -2656,9 +2663,18 @@ class PDFWriter:
                          (orient=='neg' and lbl=='NEGATIVE') or
                          (orient=='neu' and lbl=='NEUTRAL'))
                 if match:
-                    h = s.get('headline','')[:50]
+                    h = s.get('headline','')[:60]
                     if h: ts.append(h)
-            return ', '.join(ts[:2]) or '\u2014'
+            if ts:
+                return ', '.join(ts[:2])
+            # Fallback : synthesis positive/negative themes si samples insuffisants
+            if orient == 'pos':
+                _raw = _g(synthesis, 'positive_themes') or []
+                ts = [t if isinstance(t, str) else (_g(t,'title') or _g(t,'name') or '') for t in _raw[:2]]
+            elif orient == 'neg':
+                _raw = _g(synthesis, 'negative_themes') or []
+                ts = [t if isinstance(t, str) else (_g(t,'title') or _g(t,'name') or '') for t in _raw[:2]]
+            return ', '.join(t for t in ts if t) or '\u2014'
 
         sent_score  = float(_g(sentiment, 'score') or 0.0)
         sent_label  = (_g(sentiment, 'label') or 'neutral').lower()

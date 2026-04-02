@@ -187,21 +187,27 @@ class AgentSentiment:
         agg = finbert.aggregate(raw_scores)
 
         # ------------------------------------------------------------------
-        # 6. Samples — 3 articles représentatifs avec score individuel
+        # 6. Samples — 1 représentatif par catégorie (POSITIVE / NEGATIVE / NEUTRAL)
         # ------------------------------------------------------------------
-        samples = []
-        for article, score_dict in list(zip(all_news, raw_scores))[:3]:
+        _s_pos, _s_neg, _s_neu = [], [], []
+        for article, score_dict in zip(all_news, raw_scores):
             raw_s = score_dict["positive"] - score_dict["negative"]
-            samples.append({
+            lbl = "POSITIVE" if raw_s > 0.1 else "NEGATIVE" if raw_s < -0.1 else "NEUTRAL"
+            entry = {
                 "headline": article.get("headline", "")[:120],
                 "source":   article.get("source", ""),
                 "score":    round(raw_s, 4),
-                "label":    (
-                    "POSITIVE" if raw_s > 0.1 else
-                    "NEGATIVE" if raw_s < -0.1 else
-                    "NEUTRAL"
-                ),
-            })
+                "label":    lbl,
+            }
+            if lbl == "POSITIVE" and len(_s_pos) < 2:
+                _s_pos.append(entry)
+            elif lbl == "NEGATIVE" and len(_s_neg) < 2:
+                _s_neg.append(entry)
+            elif lbl == "NEUTRAL" and len(_s_neu) < 2:
+                _s_neu.append(entry)
+            if len(_s_pos) + len(_s_neg) + len(_s_neu) >= 6:
+                break
+        samples = _s_pos + _s_neg + _s_neu
 
         # ------------------------------------------------------------------
         # 7. Métadonnées (constitution §1)
