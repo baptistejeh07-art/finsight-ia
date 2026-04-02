@@ -198,7 +198,7 @@ def _sector_aggregates(tickers: list[dict]) -> dict:
 
     by_sec = defaultdict(list)
     for t in tickers:
-        sec = _SECT_DISP.get(t.get("sector", ""), t.get("sector", "Autre"))
+        sec = _SECT_DISP.get(t.get("sector") or "", (t.get("sector") or "Autre"))
         if sec != "Autre":
             by_sec[sec].append(t)
 
@@ -703,30 +703,34 @@ class IndiceExcelWriter:
         if "DASHBOARD" in wb.sheetnames:
             _fill_dashboard(wb["DASHBOARD"], universe, today_str)
 
-        # ---- Print areas pour eviter overflow pages ----
-        # PAR SECTEUR : contenu utile A1:K34, exclut cols L-M (aux chart) et rows 35+ (aux tables)
+        # ---- Print areas (sans fitToPage : evite la compression illegible) ----
+        # PAR SECTEUR : A1:K35 englobe SCORECARD + COMPOSITION DETAIL
         if "PAR SECTEUR" in wb.sheetnames:
-            wb["PAR SECTEUR"].print_area = "A1:K34"
-            wb["PAR SECTEUR"].page_setup.fitToPage = True
-            wb["PAR SECTEUR"].page_setup.fitToWidth = 1
-            wb["PAR SECTEUR"].page_setup.fitToHeight = 0
-        # DASHBOARD : contenu utile A1:N26, exclut cols O-X (tables auxiliaires)
+            wb["PAR SECTEUR"].print_area = "A1:K35"
+        # DASHBOARD : A1:N30 exclut les cols aux (O-X)
         if "DASHBOARD" in wb.sheetnames:
-            wb["DASHBOARD"].print_area = "A1:N26"
-            wb["DASHBOARD"].page_setup.fitToPage = True
-            wb["DASHBOARD"].page_setup.fitToWidth = 1
-            wb["DASHBOARD"].page_setup.fitToHeight = 0
+            wb["DASHBOARD"].print_area = "A1:N30"
+        # SECTOR OVERVIEW : A1:L50 (formules + noms secteurs col M exclus)
+        if "SECTOR OVERVIEW" in wb.sheetnames:
+            wb["SECTOR OVERVIEW"].print_area = "A1:L50"
 
-        # ---- Date dans formules B1 des feuilles sectorielles ----
-        # Les formules contiennent la date du template en dur (ex: "22/03/2026")
-        # On remplace toute date DD/MM/YYYY par la date du jour
+        # ---- Date stale : remplace toute date DD/MM/YYYY dans les 5 premieres lignes ----
+        # Couvre B1 des feuilles sectorielles, headers SECTOR OVERVIEW, PAR SECTEUR, etc.
+        # Ignore les cellules formule (startswith "=")
         import re as _re
         _date_pat = _re.compile(r'\d{2}/\d{2}/\d{4}')
         for _sname in wb.sheetnames:
             _ws2 = wb[_sname]
-            _b1  = _ws2["B1"].value
-            if _b1 and isinstance(_b1, str) and _date_pat.search(_b1):
-                _ws2["B1"].value = _date_pat.sub(today_str, _b1)
+            for _r in range(1, 6):
+                for _c in range(1, 30):
+                    _cell = _ws2.cell(row=_r, column=_c)
+                    if (
+                        _cell.value
+                        and isinstance(_cell.value, str)
+                        and not _cell.value.startswith("=")
+                        and _date_pat.search(_cell.value)
+                    ):
+                        _cell.value = _date_pat.sub(today_str, _cell.value)
 
         # Sauvegarder
         wb.save(str(out))
