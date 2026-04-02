@@ -139,6 +139,15 @@ def _fmt_mult(v):
     except (TypeError, ValueError):
         return "N/A"
 
+def _fmt_price(v):
+    if v is None:
+        return "\u2014"
+    try:
+        f = float(v)
+        return f"{f:,.2f}" if f < 1000 else f"{f:,.0f}"
+    except (TypeError, ValueError):
+        return "\u2014"
+
 def _fmt_mds(v):
     """Formate une valeur monetaire en Mds (divise par 1e9 si valeur absolue)."""
     if v is None:
@@ -1963,9 +1972,10 @@ def _build_conclusion(tickers_data: list[dict], sector_name: str,
     elems += section_title("Top Picks & Recommandation Sectorielle", 6)
 
     sorted_data = sorted(tickers_data, key=lambda x: x.get('score_global') or 0, reverse=True)
-    buy_count  = sum(1 for t in tickers_data if _reco(t.get('score_global')) == "BUY")
-    hold_count = sum(1 for t in tickers_data if _reco(t.get('score_global')) == "HOLD")
-    sell_count = sum(1 for t in tickers_data if _reco(t.get('score_global')) == "SELL")
+    buy_list   = [t for t in sorted_data if _reco(t.get('score_global')) == "BUY"]
+    hold_list  = [t for t in sorted_data if _reco(t.get('score_global')) == "HOLD"]
+    sell_list  = [t for t in sorted_data if _reco(t.get('score_global')) == "SELL"]
+    buy_count, hold_count, sell_count = len(buy_list), len(hold_list), len(sell_list)
 
     elems.append(Paragraph(
         f"Notre positionnement sur le secteur <b>{sector_name}</b> est "
@@ -1976,171 +1986,119 @@ def _build_conclusion(tickers_data: list[dict], sector_name: str,
         f"privilegiant les acteurs a bilan solide et visibilite élevée sur les revenus.", S_BODY))
     elems.append(Spacer(1, 4*mm))
 
-    # Table compacte unifiee — toutes les societes, triees score DESC, separateurs BUY/HOLD/SELL
-    elems.append(KeepTogether([
-        Spacer(1, 2*mm),
-        Paragraph("Classement complet \u2014 Toutes les soci\u00e9t\u00e9s par score FinSight", S_SUBSECTION),
-    ]))
-
-    _CW = [14*mm, 30*mm, 16*mm, 14*mm, 18*mm, 16*mm, 62*mm]  # total 170mm
-    _S7 = _style('s7', size=7, leading=9.5, color=NAVY, bold=True, align=TA_CENTER)
-    _S7L = _style('s7l', size=7, leading=9.5, color=GREY_TEXT, bold=False, align=TA_LEFT)
-    _S7C = _style('s7c', size=7, leading=9.5, color=GREY_TEXT, bold=False, align=TA_CENTER)
-    _S7G = _style('s7g', size=7, leading=9.5, color=colors.HexColor('#1A7A4A'), bold=True, align=TA_CENTER)
-    _S7A = _style('s7a', size=7, leading=9.5, color=colors.HexColor('#B06000'), bold=True, align=TA_CENTER)
-    _S7R = _style('s7r', size=7, leading=9.5, color=colors.HexColor('#A82020'), bold=True, align=TA_CENTER)
-    _S7H = _style('s7h', size=7.5, leading=10, color=WHITE, bold=True, align=TA_LEFT)
+    # 3 tableaux compacts BUY / HOLD / SELL
+    _S7  = _style('s7',  size=7,   leading=9.5, color=NAVY,      bold=True,  align=TA_CENTER)
+    _S7L = _style('s7l', size=7,   leading=9.5, color=GREY_TEXT, bold=False, align=TA_LEFT)
+    _S7C = _style('s7c', size=7,   leading=9.5, color=GREY_TEXT, bold=False, align=TA_CENTER)
+    _S7G = _style('s7g', size=7,   leading=9.5, color=colors.HexColor('#1A7A4A'), bold=True, align=TA_CENTER)
+    _S7A = _style('s7a', size=7,   leading=9.5, color=colors.HexColor('#B06000'), bold=True, align=TA_CENTER)
+    _S7R = _style('s7r', size=7,   leading=9.5, color=colors.HexColor('#A82020'), bold=True, align=TA_CENTER)
+    _S7H = _style('s7h', size=8,   leading=10,  color=WHITE,     bold=True,  align=TA_LEFT)
 
     _BUY_CLR  = colors.HexColor('#1A7A4A')
     _HOLD_CLR = colors.HexColor('#4A5568')
     _SELL_CLR = colors.HexColor('#A82020')
     _BUY_BG   = colors.HexColor('#F0FAF5')
-    _HOLD_BG  = colors.HexColor('#F5F5F5')
+    _HOLD_BG  = colors.HexColor('#F7F7F7')
     _SELL_BG  = colors.HexColor('#FFF5F5')
 
-    col_hdr = [
-        Paragraph("Ticker",     S_TH_C),
-        Paragraph("Soci\u00e9t\u00e9", S_TH_L),
-        Paragraph("Score",      S_TH_C),
-        Paragraph("Reco",       S_TH_C),
-        Paragraph("EV/EBITDA",  S_TH_C),
-        Paragraph("Mom. 52W",   S_TH_C),
-        Paragraph("Signal fondamental", S_TH_C),
-    ]
+    # Colonnes : Ticker | Société | Score | Cours | Cible est. | Upside | Conv.
+    _CW3 = [14*mm, 32*mm, 14*mm, 20*mm, 20*mm, 18*mm, 22*mm]  # total 140mm
 
-    all_rows = [col_hdr]
-    row_styles = []   # (row_idx, bg_color)
-    row_idx = 1       # 0 = col header
-
-    _groups_all = [
-        ([t for t in sorted_data if _reco(t.get('score_global')) == "BUY"],  "BUY",  _BUY_CLR,  _BUY_BG),
-        ([t for t in sorted_data if _reco(t.get('score_global')) == "HOLD"], "HOLD", _HOLD_CLR, _HOLD_BG),
-        ([t for t in sorted_data if _reco(t.get('score_global')) == "SELL"], "SELL", _SELL_CLR, _SELL_BG),
-    ]
-
-    def _mom_signal(t):
-        score = t.get('score_global') or 50
-        ev    = _fmt_mult(t.get('ev_ebitda'))
-        mg    = _fmt_pct(t.get('ebitda_margin'), sign=False)
-        rg    = _fmt_pct(t.get('revenue_growth'))
-        return f"EV/EBITDA {ev}  \u00b7  Mg {mg}  \u00b7  Rev {rg}"
-
-    for grp_tickers, grp_label, grp_col, grp_bg in _groups_all:
-        n = len(grp_tickers)
-        # Ligne separateur de groupe
-        sep_text = f"{grp_label} \u2014 {n} valeur{'s' if n != 1 else ''}"
-        sep_row = [Paragraph(f"<b>{sep_text}</b>", _S7H)] + [''] * 6
-        all_rows.append(sep_row)
-        row_styles.append((row_idx, grp_col, 'sep'))
-        row_idx += 1
-        # Lignes de données
-        for t in grp_tickers:
-            reco = _reco(t.get('score_global'))
-            rs = _S7G if reco == "BUY" else (_S7R if reco == "SELL" else _S7A)
-            mom = t.get('momentum_52w')
-            mom_str = _fmt_pct(mom) if mom is not None else "\u2014"
-            ms = _S7G if mom is not None and float(mom) > 0 else (_S7R if mom is not None and float(mom) < -0.05 else _S7C)
-            row = [
-                Paragraph(f"<b>{t.get('ticker','N/A')}</b>", _S7),
-                Paragraph((t.get('company') or 'N/A')[:22], _S7L),
-                Paragraph(f"{int(t.get('score_global') or 0)}/100", _S7C),
-                Paragraph(f"<b>{reco}</b>", rs),
-                Paragraph(_fmt_mult(t.get('ev_ebitda')), _S7C),
-                Paragraph(mom_str, ms),
-                Paragraph(_mom_signal(t), _S7L),
-            ]
-            all_rows.append(row)
-            row_styles.append((row_idx, grp_bg, 'data'))
-            row_idx += 1
-
-    # Construire la table
-    _t_all = Table(all_rows, colWidths=_CW, repeatRows=1)
-    ts_all = [
-        # Header
-        ('BACKGROUND',   (0,0),(-1,0), NAVY),
-        ('FONTNAME',     (0,0),(-1,0), 'Helvetica-Bold'),
-        ('FONTSIZE',     (0,0),(-1,0), 7.5),
-        ('TOPPADDING',   (0,0),(-1,0), 4), ('BOTTOMPADDING',(0,0),(-1,0), 4),
-        # Global
-        ('FONTSIZE',     (0,1),(-1,-1), 7),
-        ('VALIGN',       (0,0),(-1,-1), 'MIDDLE'),
-        ('TOPPADDING',   (0,1),(-1,-1), 2), ('BOTTOMPADDING',(0,1),(-1,-1), 2),
-        ('LEFTPADDING',  (0,0),(-1,-1), 4), ('RIGHTPADDING', (0,0),(-1,-1), 4),
-        ('GRID',         (0,1),(-1,-1), 0.2, GREY_MED),
-    ]
-    for ri, bg, kind in row_styles:
-        if kind == 'sep':
-            ts_all += [
-                ('BACKGROUND', (0,ri),(-1,ri), bg),
-                ('SPAN',       (0,ri),(-1,ri)),
-                ('TOPPADDING', (0,ri),(-1,ri), 3),
-                ('BOTTOMPADDING',(0,ri),(-1,ri), 3),
-            ]
-        else:
-            ts_all.append(('BACKGROUND', (0,ri),(-1,ri), bg))
-    _t_all.setStyle(TableStyle(ts_all))
-    elems.append(_t_all)
-    elems.append(src("FinSight IA \u2014 yfinance. Momentum 52 semaines. Score FinSight composite (Value/Growth/Quality/Momentum). * Analyse approfondie (DCF, WACC, scenarios) via Analyse Societe."))
-    elems.append(Spacer(1, 5*mm))
-
-    # Top picks synthetique
-    tp_h = [Paragraph(h, S_TH_C)
-            for h in ["Ticker", "Reco", "Cible est.", "Upside", "Conv.", "These en une ligne"]]
-
-    def _tc(v, col):
-        if col == 0: return Paragraph(f"<b>{v}</b>", S_TD_BC)
-        if col == 1:
-            s = S_TD_G if v == "BUY" else (S_TD_R if v == "SELL" else S_TD_A)
-            return Paragraph(f"<b>{v}</b>", s)
-        if col == 3: return Paragraph(str(v), S_TD_G if '+' in str(v) else S_TD_R)
-        if col == 5: return Paragraph(str(v), S_TD_L)
-        return Paragraph(str(v), S_TD_C)
-
-    theses = [
-        "Fondamentaux solides + positionnement cle + visibilite revenus élevée",
-        "Croissance rentable + avantage concurrentiel durable + bilan sain",
-        "Expansion geographique + diversification produits + marge en hausse",
-        "Restructuration en cours + catalyseur requis avant renforcement",
-        "Modèle sous pression + risque concurrentiel + multiple élevé",
-        "Bilan fragile + croissance ralentie + exposition macro defavorable",
-        "Fondamentaux deteriores + pression réglementaire + SELL",
-    ]
-    tp_rows = []
-    for i, t in enumerate(sorted_data[:8]):
-        reco   = _reco(t.get('score_global'))
+    def _cible(t):
         upside = _upside(t.get('score_global'))
-        conv   = _conviction(t.get('score_global'))
         try:
             up_pct = float(upside.replace('%','').replace('+','').replace('-',''))
             sign   = -1 if upside.startswith('-') else 1
-            cible  = f"{float(t['price']) * (1 + sign * up_pct/100):,.2f}" if t.get('price') else "N/A"
+            return f"{float(t['price']) * (1 + sign * up_pct/100):,.2f}" if t.get('price') else "\u2014"
         except (TypeError, ValueError, KeyError):
-            cible = "N/A"
-        these = theses[min(i, len(theses)-1)]
-        row   = [t.get('ticker', 'N/A'), reco, cible, upside, conv, these]
-        tp_rows.append([_tc(v, j) for j, v in enumerate(row)])
+            return "\u2014"
 
-    elems.append(KeepTogether(tbl([tp_h] + tp_rows,
-                                   cw=[14*mm, 16*mm, 22*mm, 16*mm, 16*mm, 86*mm])))
+    _groups3 = [
+        (buy_list,  "BUY",  _BUY_CLR,  _BUY_BG),
+        (hold_list, "HOLD", _HOLD_CLR, _HOLD_BG),
+        (sell_list, "SELL", _SELL_CLR, _SELL_BG),
+    ]
+
+    for grp_tickers, grp_label, grp_col, grp_bg in _groups3:
+        n = len(grp_tickers)
+        label_txt = f"{grp_label} \u2014 {n} valeur{'s' if n != 1 else ''}"
+        # Titre de bloc coloré (span sur toute la largeur)
+        title_row = [Paragraph(f"<b>{label_txt}</b>", _S7H)] + [''] * 6
+        col_hdr3 = [
+            Paragraph("Ticker",    S_TH_C),
+            Paragraph("Soci\u00e9t\u00e9", S_TH_L),
+            Paragraph("Score",     S_TH_C),
+            Paragraph("Cours",     S_TH_C),
+            Paragraph("Cible est.*", S_TH_C),
+            Paragraph("Upside",    S_TH_C),
+            Paragraph("Conv.",     S_TH_C),
+        ]
+        rows3 = [title_row, col_hdr3]
+        rs_map = [(0, grp_col, 'title'), (1, NAVY, 'header')]
+        for i, t in enumerate(grp_tickers):
+            reco   = _reco(t.get('score_global'))
+            upside = _upside(t.get('score_global'))
+            conv   = _conviction(t.get('score_global'))
+            rs     = _S7G if reco == "BUY" else (_S7R if reco == "SELL" else _S7A)
+            up_s   = _S7G if upside.startswith('+') else _S7R
+            row = [
+                Paragraph(f"<b>{t.get('ticker','N/A')}</b>", _S7),
+                Paragraph((t.get('company') or 'N/A')[:24].rstrip(' ,.-'), _S7L),
+                Paragraph(f"{int(t.get('score_global') or 0)}/100", _S7C),
+                Paragraph(_fmt_price(t.get('price')), _S7C),
+                Paragraph(_cible(t), _S7C),
+                Paragraph(upside, up_s),
+                Paragraph(conv, _S7C),
+            ]
+            rows3.append(row)
+            rs_map.append((2 + i, grp_bg, 'data'))
+
+        t3 = Table(rows3, colWidths=_CW3, repeatRows=0)
+        ts3 = [
+            ('FONTSIZE',     (0,0),(-1,-1), 7),
+            ('VALIGN',       (0,0),(-1,-1), 'MIDDLE'),
+            ('TOPPADDING',   (0,0),(-1,-1), 2), ('BOTTOMPADDING',(0,0),(-1,-1), 2),
+            ('LEFTPADDING',  (0,0),(-1,-1), 4), ('RIGHTPADDING', (0,0),(-1,-1), 4),
+            ('GRID',         (0,2),(-1,-1), 0.2, GREY_MED),
+            # Header row (row 1)
+            ('BACKGROUND',   (0,1),(-1,1), NAVY),
+            ('FONTNAME',     (0,1),(-1,1), 'Helvetica-Bold'),
+            ('FONTSIZE',     (0,1),(-1,1), 7),
+            ('TOPPADDING',   (0,1),(-1,1), 3), ('BOTTOMPADDING',(0,1),(-1,1), 3),
+        ]
+        for ri, bg, kind in rs_map:
+            if kind == 'title':
+                ts3 += [
+                    ('BACKGROUND', (0,ri),(-1,ri), bg),
+                    ('SPAN',       (0,ri),(-1,ri)),
+                    ('TOPPADDING', (0,ri),(-1,ri), 4),
+                    ('BOTTOMPADDING',(0,ri),(-1,ri), 4),
+                ]
+            elif kind == 'data':
+                ts3.append(('BACKGROUND', (0,ri),(-1,ri), bg))
+        t3.setStyle(TableStyle(ts3))
+        elems.append(KeepTogether([t3, Spacer(1, 3*mm)]))
+
+    elems.append(src(
+        "* Cible estimee calculee depuis l'upside FinSight (Score composite Value/Growth/Quality/Momentum). "
+        "Analyse detaillee societe par societe (DCF, WACC, scenarios) disponible dans l'Analyse Societe individuelle."
+    ))
     elems.append(Spacer(1, 4*mm))
 
     # Allocation
-    buy_tickers  = [t.get('ticker','') for t in sorted_data if _reco(t.get('score_global')) == "BUY"]
-    hold_tickers = [t.get('ticker','') for t in sorted_data if _reco(t.get('score_global')) == "HOLD"]
-    sell_tickers = [t.get('ticker','') for t in sorted_data if _reco(t.get('score_global')) == "SELL"]
-
-    elems.append(Paragraph("Allocation portefeuille modèle", S_SUBSECTION))
-    alloc_h = [Paragraph(h, S_TH_C) for h in ["Profil", "Tickers", "Ponderations", "Rationale"]]
+    elems.append(Paragraph("Allocation portefeuille mod\u00e8le", S_SUBSECTION))
+    alloc_h = [Paragraph(h, S_TH_C) for h in ["Profil", "Tickers", "Pond\u00e9rations", "Rationale"]]
     alloc_data = []
-    if buy_tickers:
-        alloc_data.append(["Leaders qualité", " + ".join(buy_tickers[:4]),
-                           "40-50%", "Coeur offensif — visibilite revenus, marges solides"])
-    if hold_tickers:
-        alloc_data.append(["Positions neutres", " + ".join(hold_tickers[:4]),
-                           "20-30%", "Exposition sectorielle — renforcement conditionnel aux catalyseurs"])
-    if sell_tickers:
-        alloc_data.append(["Short / Eviter", " + ".join(sell_tickers[:3]),
-                           "0 %", "These negative — reevaluation post-resultats"])
+    if buy_list:
+        alloc_data.append(["Leaders qualit\u00e9", " + ".join(t.get('ticker','') for t in buy_list[:4]),
+                           "40-50%", "Coeur offensif \u2014 visibilite revenus, marges solides"])
+    if hold_list:
+        alloc_data.append(["Positions neutres", " + ".join(t.get('ticker','') for t in hold_list[:4]),
+                           "20-30%", "Exposition sectorielle \u2014 renforcement conditionnel aux catalyseurs"])
+    if sell_list:
+        alloc_data.append(["Short / Eviter", " + ".join(t.get('ticker','') for t in sell_list[:3]),
+                           "0 %", "These negative \u2014 reevaluation post-resultats"])
     if not alloc_data:
         alloc_data.append(["Portefeuille equi-pondere", "Tous", "100%", "Pas de conviction forte \u2014 approche indicielle"])
 
