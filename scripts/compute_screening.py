@@ -183,6 +183,37 @@ def _fetch_analyst_revision(ticker: str) -> Optional[int]:
             except Exception:
                 pass
 
+    # --- Source 5 : Finnhub recommendation-trends (delta mensuel) ---
+    # Endpoint : GET /stock/recommendation?symbol={symbol}&token={key}
+    # Retourne liste {period, buy, hold, sell, strongBuy, strongSell} tri desc
+    # Meme logique delta que source 2 : Score = 2*SB + buy - sell - 2*SS
+    # Couvre US + grands tickers internationaux (meilleure portee non-US que yfinance)
+    if result is None:
+        fh_key = os.getenv("FINNHUB_API_KEY", "")
+        if fh_key:
+            try:
+                url = (
+                    f"https://finnhub.io/api/v1/stock/recommendation"
+                    f"?symbol={ticker}&token={fh_key}"
+                )
+                resp = requests.get(url, timeout=8)
+                if resp.status_code == 200:
+                    items = resp.json()
+                    if isinstance(items, list) and len(items) >= 2:
+                        def _fh_score(item):
+                            return (
+                                2 * int(item.get("strongBuy",  0) or 0)
+                                + int(item.get("buy",          0) or 0)
+                                - int(item.get("sell",         0) or 0)
+                                - 2 * int(item.get("strongSell", 0) or 0)
+                            )
+                        # items[0] = mois le plus recent, items[1] = mois precedent
+                        delta = _fh_score(items[0]) - _fh_score(items[1])
+                        if _fh_score(items[0]) != 0 or _fh_score(items[1]) != 0:
+                            result = delta
+            except Exception:
+                pass
+
     with _revisions_lock:
         cache = _load_revisions_cache()
         cache[key] = {"value": result, "ts": now}
