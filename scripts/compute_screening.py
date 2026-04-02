@@ -22,7 +22,7 @@ import sys
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from statistics import median
 from typing import Any, Optional
@@ -71,17 +71,18 @@ def _save_revisions_cache(cache: dict) -> None:
 
 def _fetch_analyst_revision(ticker: str) -> Optional[int]:
     """
-    Score de revision analystes = nb upgrades - nb downgrades sur 30 jours.
-    Cascade :
-      1. yfinance eps_revisions  (upLast30days - downLast30days)
-      2. yfinance upgrades_downgrades — Action 'up'/'down' sur 30 jours
-         (index UTC-aware, codes courts : 'up'=upgrade / 'down'=downgrade)
-      3. Alpha Vantage EARNINGS surprise comme proxy (suffixe EU strip)
+    Score de revision analystes = direction nette des changements de recommandation.
+    Cascade 4 sources (arret des qu'une source retourne une valeur) :
+      1. yfinance eps_revisions  (upLast30days - downLast30days) — US principalement
+      2. yfinance recommendations_summary — delta mensuel (0m vs -1m) du consensus
+         Fonctionne pour la majorite des blue chips EU (CAC, DAX, FTSE, STOXX)
+      3. yfinance upgrades_downgrades — Action 'up'/'down' sur 90 jours
+         Fenetre elargie a 90j pour maximiser la couverture EU
+      4. FMP /upgrades-downgrades — API deja configuree, couvre EU avec .PA/.DE/.L
     Cache JSON 7 jours dans logs/local/revisions_cache.json.
     Retourne int (peut etre negatif) ou None si indisponible.
     """
     import pandas as pd
-    from datetime import timedelta
 
     key = ticker.upper()
     now = time.time()
@@ -93,13 +94,12 @@ def _fetch_analyst_revision(ticker: str) -> Optional[int]:
             return entry.get("value")
 
     result: Optional[int] = None
-    tkobj = yf.Ticker(ticker)   # instanciation unique, reutilisee dans sources 1 et 2
+    tkobj = yf.Ticker(ticker)
 
-    # --- Source 1 : yfinance eps_revisions (US + grands tickers EU) ---
+    # --- Source 1 : yfinance eps_revisions ---
     try:
         rev = tkobj.eps_revisions
         if rev is not None and not rev.empty:
-            # colonnes typiques : upLast7days, upLast30days, downLast30days, downLast90days
             up_col   = next((c for c in rev.columns if c.lower().startswith("up")   and "30" in c), None)
             down_col = next((c for c in rev.columns if c.lower().startswith("down") and "30" in c), None)
             if up_col and down_col:
@@ -109,14 +109,39 @@ def _fetch_analyst_revision(ticker: str) -> Optional[int]:
     except Exception:
         pass
 
-    # --- Source 2 : yfinance upgrades_downgrades ---
-    # Action column vaut 'up' / 'down' / 'main' / 'init' / 'reit' (codes courts yfinance)
-    # Index = DatetimeIndex UTC-aware → comparaison avec pd.Timestamp UTC
+    # --- Source 2 : yfinance recommendations_summary (delta mensuel consensus) ---
+    # Retourne : period | strongBuy | buy | hold | underperform | sell
+    # periods : '0m' (actuel) '-1m' '-2m' '-3m'
+    # Score = 2*strongBuy + buy - underperform - 2*sell
+    # Revision = Score_0m - Score_(-1m)
+    if result is None:
+        try:
+            rs = tkobj.recommendations_summary
+            if rs is not None and not rs.empty and "period" in rs.columns:
+                rs = rs.set_index("period") if rs.index.dtype == object else rs
+                def _rec_score(period):
+                    if period not in rs.index:
+                        return None
+                    r = rs.loc[period]
+                    return (
+                        2 * int(r.get("strongBuy",  0) or 0)
+                        + int(r.get("buy",          0) or 0)
+                        - int(r.get("underperform", 0) or 0)
+                        - 2 * int(r.get("sell",     0) or 0)
+                    )
+                s0  = _rec_score("0m")
+                s1m = _rec_score("-1m")
+                if s0 is not None and s1m is not None:
+                    result = s0 - s1m
+        except Exception:
+            pass
+
+    # --- Source 3 : yfinance upgrades_downgrades (fenetre 90j pour EU) ---
     if result is None:
         try:
             ud = tkobj.upgrades_downgrades
             if ud is not None and not ud.empty and "Action" in ud.columns:
-                cutoff = pd.Timestamp.utcnow() - pd.Timedelta(days=30)
+                cutoff = pd.Timestamp.utcnow() - pd.Timedelta(days=90)
                 idx = ud.index
                 if hasattr(idx, "tz") and idx.tz is not None:
                     ud_recent = ud[idx >= cutoff]
@@ -130,28 +155,31 @@ def _fetch_analyst_revision(ticker: str) -> Optional[int]:
         except Exception:
             pass
 
-    # --- Source 3 : Alpha Vantage EARNINGS surprise (proxy) ---
-    # AV ne reconnait pas les suffixes EU (.PA, .L, .DE) → on strip
+    # --- Source 4 : FMP upgrades-downgrades (couvre EU : .PA .DE .L) ---
     if result is None:
-        av_key = os.getenv("ALPHAVANTAGE_API_KEY", "")
-        if av_key:
+        fmp_key = os.getenv("FMP_API_KEY", "")
+        if fmp_key:
             try:
-                av_ticker = ticker.split(".")[0]   # MC.PA -> MC
                 url = (
-                    f"https://www.alphavantage.co/query"
-                    f"?function=EARNINGS&symbol={av_ticker}&apikey={av_key}"
+                    f"https://financialmodelingprep.com/api/v3/upgrades-downgrades"
+                    f"?symbol={ticker}&apikey={fmp_key}"
                 )
                 resp = requests.get(url, timeout=8)
                 if resp.status_code == 200:
-                    data = resp.json()
-                    # AV renvoie {"Information": "..."} si quota depasse ou ticker inconnu
-                    quarterly = data.get("quarterlyEarnings", [])
-                    if quarterly:
-                        surprise = quarterly[0].get("surprisePercentage")
-                        if surprise not in (None, "None", ""):
-                            sp = float(surprise)
-                            # Surprise EPS => score discret : >5% +1, <-5% -1
-                            result = 1 if sp > 5 else (-1 if sp < -5 else 0)
+                    items = resp.json()
+                    if isinstance(items, list) and items:
+                        # Filtre 90 derniers jours
+                        cutoff_str = (
+                            datetime.utcnow() - timedelta(days=90)
+                        ).strftime("%Y-%m-%d")
+                        recent = [
+                            i for i in items
+                            if i.get("publishedDate", "")[:10] >= cutoff_str
+                        ]
+                        upgrades   = sum(1 for i in recent if i.get("action", "").lower() in ("upgrade", "initiated", "reiterated buy"))
+                        downgrades = sum(1 for i in recent if i.get("action", "").lower() in ("downgrade",))
+                        if upgrades + downgrades > 0:
+                            result = upgrades - downgrades
             except Exception:
                 pass
 
