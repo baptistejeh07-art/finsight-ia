@@ -1,0 +1,16 @@
+{
+  "ticker": "S&P 500",
+  "raw_data": null,
+  "sentiment": "SentimentResult(ticker='S&P 500', timestamp='2026-04-02T09:11:24.258816', score=0.0, score_normalized=0.5, label='NEUTRAL', confidence=0.0, articles_analyzed=0, articles_total=0, breakdown={}, sources=[], samples=[], llm_commentary='', meta={'request_id': 'aa9d8003-9a1e-4d92-bd44-a1ee42a334d6', 'latency_ms': 8653, 'confidence_score': 0.0, 'invalidation_conditions': 'Aucune news disponible pour cette période.', 'tokens_used': 0})",
+  "data_quality": 0.0,
+  "errors": [
+    "AgentData returned None for S&P 500"
+  ],
+  "logs": [
+    {
+      "node": "fetch_node",
+      "latency_ms": 9217,
+      "status": "error"
+    }
+  ]
+}
