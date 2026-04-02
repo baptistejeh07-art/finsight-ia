@@ -1773,6 +1773,100 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
         "optimal_portfolios":   optimal_portfolios if universe == "S&P 500" else {},
         **({"perf_history": _eu_perf_history} if _eu_perf_history else {}),
     })
+
+    # LLM : generation texte analytique reel (texte_macro, texte_valorisation, catalyseurs, risques)
+    try:
+        import json as _json_llm
+        from core.llm_provider import LLMProvider as _LLMProvider
+        _llm = _LLMProvider(provider="groq")
+        _top3_prompt = []
+        for _t in top3_secteurs[:3]:
+            _top3_prompt.append(
+                f"{_t['nom']} (signal={_t['signal']}, score={_t['score']}, "
+                f"mom={_t.get('catalyseur','—')})")
+        _sous_pond = [s[0] for s in secteurs if s[3] == "Sous-ponderer"][:2]
+        _prompt_llm = (
+            f"Indice: {universe} | Cours: {cours_str} | YTD: {ytd_str} | "
+            f"P/E: {pe_fwd_str} | ERP: {erp_pct} ({erp_signal}) | "
+            f"Signal global: {signal_global} ({conviction}% conviction) | Rf: {rf_pct_str}\n"
+            f"Top secteurs: {'; '.join(_top3_prompt)}\n"
+            f"Sous-ponderer: {', '.join(_sous_pond) if _sous_pond else 'aucun'}\n"
+            f"Reponds UNIQUEMENT en JSON valide, sans markdown, sans points de suspension (...).\n"
+            f'{{"texte_macro":"2 phrases sur macro actuelle (taux, croissance, risques specifiques a {universe})","'
+            f'texte_valorisation":"2 phrases sur valorisation (P/E vs historique, ERP, attractivite)","'
+            f'catalyseurs":[{{"titre":"titre court","description":"1 phrase complete"}},'
+            f'{{"titre":"titre court","description":"1 phrase complete"}},'
+            f'{{"titre":"titre court","description":"1 phrase complete"}}],"'
+            f'risques":[{{"titre":"titre court","description":"1 phrase","proba":"X %","severity":"ELEVE"}},'
+            f'{{"titre":"titre court","description":"1 phrase","proba":"X %","severity":"MODERE"}},'
+            f'{{"titre":"titre court","description":"1 phrase","proba":"X %","severity":"MODERE"}}]}}'
+        )
+        _resp_llm = _llm.generate(
+            prompt=_prompt_llm,
+            system=(
+                "Tu es un analyste buy-side senior specialise dans les indices boursiers. "
+                "Reponds en francais avec accents. JSON strict uniquement. "
+                "Phrases completes sans points de suspension (...)."
+            ),
+            max_tokens=700,
+        )
+        _js_s = _resp_llm.find("{")
+        _js_e = _resp_llm.rfind("}") + 1
+        if _js_s >= 0 and _js_e > _js_s:
+            _parsed_llm = _json_llm.loads(_resp_llm[_js_s:_js_e])
+            if "texte_macro" in _parsed_llm:
+                base["texte_macro"] = _parsed_llm["texte_macro"]
+            if "texte_valorisation" in _parsed_llm:
+                base["texte_valorisation"] = _parsed_llm["texte_valorisation"]
+            if "catalyseurs" in _parsed_llm and isinstance(_parsed_llm["catalyseurs"], list):
+                base["catalyseurs"] = [
+                    (c.get("titre", "\u2014"), c.get("description", "\u2014"), "6-12 mois")
+                    for c in _parsed_llm["catalyseurs"][:3]
+                ]
+            if "risques" in _parsed_llm and isinstance(_parsed_llm["risques"], list):
+                base["risques"] = [
+                    (r.get("titre", "\u2014"), r.get("description", "\u2014"),
+                     r.get("proba", "15 %"), r.get("severity", "MODERE"))
+                    for r in _parsed_llm["risques"][:3]
+                ]
+            log.info("LLM texte indice OK (%s, %d chars)", universe, len(_resp_llm))
+    except Exception as _llm_ex:
+        log.warning("LLM texte indice erreur: %s -- fallback f-string", _llm_ex)
+        _f_surp = [s[0] for s in secteurs if s[3] == "Surponderer"]
+        _f_sous = [s[0] for s in secteurs if s[3] == "Sous-ponderer"]
+        base["texte_macro"] = (
+            f"L'{universe} affiche une performance YTD de {ytd_str} dans un contexte "
+            f"de taux a {rf_pct_str} (obligation de reference 10 ans). "
+            f"Le signal global ressort {signal_global} avec une conviction de {conviction}%."
+        )
+        base["texte_valorisation"] = (
+            f"Le P/E Forward de l'{universe} s'etablit a {pe_fwd_str}. "
+            f"L'ERP implicite de {erp_pct} signale un profil de risque {erp_signal.lower()} "
+            f"par rapport aux obligations souveraines."
+        )
+        base["catalyseurs"] = [
+            (_f_surp[0] if _f_surp else "Momentum sectoriel",
+             f"Secteur leader sur 52 semaines avec signal Surponderer confirme par le score composite.",
+             "6-12 mois"),
+            ("Prime de risque",
+             f"ERP a {erp_pct} — attractivite relative des actions versus les obligations maintenue.",
+             "3-6 mois"),
+            ("Conviction allocataire",
+             f"{conviction}% de conviction Surponderer sur {len(secteurs)} secteurs analyses par FinSight.",
+             "6-18 mois"),
+        ]
+        base["risques"] = [
+            ("Retournement macro",
+             f"Deterioration du cycle economique impactant les {_f_surp[0] if _f_surp else 'secteurs leaders'}.",
+             "20 %", "ELEVE"),
+            ("Choc taux",
+             f"Remontee du 10 ans au-dela de {rf_pct_str} — compression des multiples de valorisation.",
+             "15 %", "MODERE"),
+            ("Pression sectorielle",
+             f"Sous-performance de {_f_sous[0] if _f_sous else 'secteurs defensifs'} — rotation defensive.",
+             "15 %", "MODERE"),
+        ]
+
     return base
 
 
