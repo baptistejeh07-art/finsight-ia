@@ -144,9 +144,10 @@ def run_secteur(sector: str, universe: str = "CAC 40", prefix: str = "secteur") 
 
 
 def run_indice(universe: str = "S&P 500") -> None:
-    """Pipeline indice complet (tous secteurs) → PDF + PPTX."""
+    """Pipeline indice complet (tous secteurs) → PDF + PPTX + Excel."""
     from outputs.indice_pdf_writer import IndicePDFWriter
     from outputs.indice_pptx_writer import IndicePPTXWriter
+    from outputs.indice_excel_writer import IndiceExcelWriter
 
     log.info("=== ANALYSE INDICE : %s ===", universe)
     t0 = time.time()
@@ -168,9 +169,16 @@ def run_indice(universe: str = "S&P 500") -> None:
     pptx_bytes = IndicePPTXWriter.generate(data, str(pptx_path))
     log.info("PPTX indice : %s  (%d Ko)", pptx_path.name, pptx_path.stat().st_size // 1024)
 
+    xlsx_path = OUT_DIR / f"{stem}.xlsx"
+    IndiceExcelWriter.generate(data, str(xlsx_path))
+    if xlsx_path.exists():
+        log.info("Excel indice : %s  (%d Ko)", xlsx_path.name, xlsx_path.stat().st_size // 1024)
+
     print(f"\nFichiers generes dans : {OUT_DIR}")
     print(f"  * {pdf_path.name}")
     print(f"  * {pptx_path.name}")
+    if xlsx_path.exists():
+        print(f"  * {xlsx_path.name}")
     print(f"\nTemps total : {time.time() - t0:.1f}s")
 
 
@@ -1407,19 +1415,107 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
 
                 def _fetch_eu_tkr(tk):
                     try:
-                        _inf = yf.Ticker(tk).info or {}
+                        _obj = yf.Ticker(tk)
+                        _inf = _obj.info or {}
                         _52w = (_inf.get("52WeekChange") or 0) * 100
-                        return {
-                            "ticker":    tk,
-                            "sector":    _YF_SECT.get(_inf.get("sector", ""), "Autre"),
-                            "ev_ebitda": _inf.get("enterpriseToEbitda"),
-                            "mg_ebitda": (_inf.get("ebitdaMargins") or 0) * 100,
-                            "pe_fwd":    _inf.get("forwardPE"),
-                            "rev_gr":    (_inf.get("revenueGrowth") or 0) * 100,
-                            "ret_52w":   _52w,
-                            "score_raw": max(25, min(85, round(50 + _52w * 1.2))),
+
+                        # Prix et market data
+                        _price   = (_inf.get("currentPrice") or
+                                    _inf.get("regularMarketPrice") or
+                                    _inf.get("previousClose"))
+                        _mktcap  = _inf.get("marketCap")
+                        _ev_raw  = _inf.get("enterpriseValue")
+                        _rev_raw = _inf.get("totalRevenue")
+                        _ebitda_raw = _inf.get("ebitda")
+
+                        # FCF Yield
+                        _fcf     = _inf.get("freeCashflow")
+                        _fcf_yield = (_fcf / _mktcap) if (_fcf and _mktcap and _mktcap > 0) else None
+
+                        # ND/EBITDA
+                        _tdebt   = _inf.get("totalDebt") or 0
+                        _cash    = _inf.get("totalCash") or 0
+                        _nd      = _tdebt - _cash
+                        _nd_ebitda = (_nd / _ebitda_raw) if (_ebitda_raw and abs(_ebitda_raw) > 0) else None
+
+                        # Altman Z approx (Z' modele Altman 1983 private)
+                        _altman  = None
+                        _roa     = _inf.get("returnOnAssets")
+                        _roe     = _inf.get("returnOnEquity")
+                        _pm      = _inf.get("profitMargins")
+                        _cr      = _inf.get("currentRatio")
+                        _de      = _inf.get("debtToEquity")   # en %
+                        _ev_rev  = _inf.get("enterpriseToRevenue")
+                        if _roa is not None and _de is not None and _ev_rev is not None:
+                            _de_dec  = max(0.01, (_de or 100) / 100)
+                            _x1 = max(-0.5, min(0.5, ((_cr or 1.5) - 1.5) / 5))
+                            _x2 = max(0.0,  (_pm or 0) * 2)
+                            _x3 = max(-0.5, min(0.5, _roa or 0))
+                            _x4 = max(0.1,  min(10.0, 1.0 / _de_dec))
+                            _x5 = max(0.1,  min(3.0,  1.0 / max(0.5, _ev_rev)))
+                            _altman = round(0.717*_x1 + 0.847*_x2 + 3.107*_x3 + 0.420*_x4 + 0.998*_x5, 2)
+
+                        # Next earnings (timestamp → date str si future)
+                        _next_earn = None
+                        _et = _inf.get("earningsTimestamp") or _inf.get("earningsCallTimestampStart")
+                        if _et:
+                            try:
+                                import datetime as _dt2
+                                _edt = _dt2.datetime.fromtimestamp(int(_et)).date()
+                                if _edt >= _dt2.date.today():
+                                    _next_earn = str(_edt)
+                            except Exception:
+                                pass
+
+                        # Signal analyste
+                        _rec     = _inf.get("recommendationKey", "") or ""
+                        _signal_map = {
+                            "strongBuy": "Surponderer", "buy": "Surponderer",
+                            "hold": "Neutre", "underperform": "Sous-ponderer",
+                            "sell": "Sous-ponderer",
                         }
-                    except Exception:
+                        _signal  = _signal_map.get(_rec.lower(), "Neutre")
+
+                        # Secteur normalise
+                        _sector  = _YF_SECT.get(_inf.get("sector", ""), "Autre")
+
+                        return {
+                            "ticker":          tk,
+                            "name":            (_inf.get("longName") or _inf.get("shortName") or tk),
+                            "sector":          _sector,
+                            "price":           _price,
+                            "mkt_cap":         round(_mktcap / 1e9, 2) if _mktcap else None,
+                            "ev":              round(_ev_raw  / 1e9, 2) if _ev_raw  else None,
+                            "rev_ltm":         round(_rev_raw  / 1e9, 2) if _rev_raw  else None,
+                            "ebitda_ltm":      round(_ebitda_raw / 1e9, 2) if _ebitda_raw else None,
+                            "ev_ebitda":       _inf.get("enterpriseToEbitda"),
+                            "ev_revenue":      _ev_rev,
+                            "pe_trailing":     _inf.get("trailingPE"),
+                            "pe_fwd":          _inf.get("forwardPE"),
+                            "eps":             _inf.get("trailingEps"),
+                            "gross_margins":   _inf.get("grossMargins"),
+                            "ebitda_margins":  _inf.get("ebitdaMargins"),
+                            "profit_margins":  _pm,
+                            "rev_growth":      _inf.get("revenueGrowth"),
+                            "earnings_growth": _inf.get("earningsGrowth"),
+                            "roe":             _roe,
+                            "roa":             _roa,
+                            "current_ratio":   _cr,
+                            "nd_ebitda":       round(_nd_ebitda, 2) if _nd_ebitda is not None else None,
+                            "altman_z":        _altman,
+                            "beneish_m":       None,
+                            "mom_52w":         _52w,
+                            "fcf_yield":       round(_fcf_yield * 100, 2) if _fcf_yield is not None else None,
+                            "next_earnings":   _next_earn,
+                            "signal":          _signal,
+                            # Legacy fields pour compatibilite secteur
+                            "mg_ebitda":       (_inf.get("ebitdaMargins") or 0) * 100,
+                            "rev_gr":          (_inf.get("revenueGrowth") or 0) * 100,
+                            "ret_52w":         _52w,
+                            "score_raw":       max(25, min(85, round(50 + _52w * 1.2))),
+                        }
+                    except Exception as _e:
+                        log.warning("[fetch_eu_tkr] %s erreur: %s", tk, _e)
                         return None
 
                 with ThreadPoolExecutor(max_workers=8) as _pex:
@@ -1772,6 +1868,9 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
         "erp_by_sector":        erp_by_sector   if universe == "S&P 500" else {},
         "optimal_portfolios":   optimal_portfolios if universe == "S&P 500" else {},
         **({"perf_history": _eu_perf_history} if _eu_perf_history else {}),
+        # Per-ticker raw data pour IndiceExcelWriter (EU indices uniquement)
+        "tickers_raw": _eu_res if _eu_members_by_sec else [],
+        "universe":    universe,
     })
 
     # LLM : generation texte analytique reel (texte_macro, texte_valorisation, catalyseurs, risques)
