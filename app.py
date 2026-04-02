@@ -825,7 +825,16 @@ def render_sidebar(results) -> None:
         else:
             # ── Contexte secteur / indice : afficher uniquement les livrables screening ──
             scr = st.session_state.get("screening_results")
-            if scr and scr.get("excel_bytes"):
+            if scr and scr.get("indice_xlsx_bytes"):
+                scr_name = scr.get("display_name", "indice")
+                st.download_button(
+                    f"Screening {scr_name} \u2193 .xlsx",
+                    scr["indice_xlsx_bytes"],
+                    file_name=f"indice_{scr_name.lower().replace(' ', '_')}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True,
+                )
+            elif scr and scr.get("excel_bytes"):
                 scr_name = scr.get("display_name", "screening")
                 st.download_button(
                     f"Screening {scr_name} \u2193 .xlsx",
@@ -2149,8 +2158,9 @@ def render_screening_running() -> None:
 
         # ── Génération rapport PDF + PPTX ──────────────────────────────────
         _is_sector = universe in _SECTOR_ALIASES_SET
-        pdf_bytes_out  = None
-        pptx_bytes_out = None
+        pdf_bytes_out        = None
+        pptx_bytes_out       = None
+        indice_xlsx_bytes_out = None
 
         if _is_sector:
             _status("Generation du rapport PDF sectoriel")
@@ -2210,6 +2220,60 @@ def render_screening_running() -> None:
                 log.warning(f"[app] IndicePPTXWriter error: {_ex_pptx}")
                 traceback.print_exc()
 
+            # ---- IndiceExcelWriter (scoring 4D, template TEMPLATE_INDICE.xlsx) ----
+            # Pour indices EU uniquement (donnees individuelles disponibles)
+            _EU_INDICE_KEYS = {"CAC40", "DAX40", "FTSE100", "STOXX50"}
+            indice_xlsx_bytes_out = None
+            if universe in _EU_INDICE_KEYS:
+                _status("Generation du fichier Excel indice (scoring 4D)")
+                try:
+                    from outputs.indice_excel_writer import IndiceExcelWriter
+
+                    def _cs_to_indice_tkr(t):
+                        def _d(v): return v / 100 if v is not None else None
+                        sg = t.get("score_global") or 0
+                        return {
+                            "ticker":         t.get("ticker", ""),
+                            "name":           t.get("company", t.get("ticker", "")),
+                            "sector":         t.get("sector", ""),
+                            "price":          t.get("price"),
+                            "mkt_cap":        t.get("market_cap"),
+                            "ev":             t.get("ev"),
+                            "rev_ltm":        t.get("revenue_ltm"),
+                            "ebitda_ltm":     t.get("ebitda_ltm"),
+                            "ev_ebitda":      t.get("ev_ebitda"),
+                            "ev_revenue":     t.get("ev_revenue"),
+                            "pe_trailing":    t.get("pe"),
+                            "eps":            t.get("eps"),
+                            "gross_margins":  _d(t.get("gross_margin")),
+                            "ebitda_margins": _d(t.get("ebitda_margin")),
+                            "profit_margins": _d(t.get("net_margin")),
+                            "rev_growth":     _d(t.get("revenue_growth")),
+                            "earnings_growth": None,
+                            "roe":            _d(t.get("roe")),
+                            "roa":            _d(t.get("roa")),
+                            "current_ratio":  t.get("current_ratio"),
+                            "nd_ebitda":      t.get("net_debt_ebitda"),
+                            "altman_z":       t.get("altman_z"),
+                            "beneish_m":      t.get("beneish_m"),
+                            "mom_52w":        t.get("momentum_52w"),
+                            "fcf_yield":      None,
+                            "next_earnings":  t.get("next_earnings"),
+                            "signal":         ("Surponderer" if sg >= 60
+                                               else ("Sous-ponderer" if sg < 40 else "Neutre")),
+                        }
+
+                    _tkrs_indice = [_cs_to_indice_tkr(t) for t in tickers_data if t.get("ticker")]
+                    _indice_data_xls = {"tickers_raw": _tkrs_indice, "universe": display_name}
+                    _indice_xlsx_slug = display_name.lower().replace(" ", "_").replace("&", "")
+                    _indice_xlsx_path = str(out_dir / f"indice_{_indice_xlsx_slug}.xlsx")
+                    IndiceExcelWriter.generate(_indice_data_xls, _indice_xlsx_path)
+                    indice_xlsx_bytes_out = open(_indice_xlsx_path, "rb").read()
+                except Exception as _ex_indxls:
+                    import traceback as _tb2
+                    log.warning(f"[app] IndiceExcelWriter error: {_ex_indxls}")
+                    _tb2.print_exc()
+
         status_lbl.markdown(
             f'<div style="text-align:center;font-size:12px;font-weight:600;color:#1a7a52;">'
             f'Screening termine en {elapsed/1000:.1f}s — {len(tickers_data)} societes</div>',
@@ -2218,14 +2282,15 @@ def render_screening_running() -> None:
         time.sleep(0.4)
 
         st.session_state.screening_results = {
-            "universe":     universe,
-            "display_name": display_name,
-            "tickers_data": tickers_data,
-            "excel_path":   out_path,
-            "excel_bytes":  xlsx_bytes,
-            "pdf_bytes":    pdf_bytes_out,
-            "pptx_bytes":   pptx_bytes_out,
-            "elapsed_ms":   elapsed,
+            "universe":          universe,
+            "display_name":      display_name,
+            "tickers_data":      tickers_data,
+            "excel_path":        out_path,
+            "excel_bytes":       xlsx_bytes,
+            "pdf_bytes":         pdf_bytes_out,
+            "pptx_bytes":        pptx_bytes_out,
+            "indice_xlsx_bytes": indice_xlsx_bytes_out,
+            "elapsed_ms":        elapsed,
         }
         st.session_state.stage = "screening_results"
         st.rerun()
