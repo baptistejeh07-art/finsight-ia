@@ -556,6 +556,14 @@ def compute_ticker(ticker: str, cache_row: Optional[dict]) -> Optional[dict]:
         _yf_ev_ebitda = info.get("enterpriseToEbitda")
         if _yf_ev_ebitda and 1.0 < float(_yf_ev_ebitda) < 200:
             ev_ebitda = round(float(_yf_ev_ebitda), 1)
+    if ev_ebitda is None:
+        # 3e fallback : enterpriseValue / ebitda directs (yfinance brut)
+        _yf_ev_raw  = info.get("enterpriseValue")
+        _yf_ebitda  = info.get("ebitda")
+        if _yf_ev_raw and _yf_ebitda and float(_yf_ebitda) > 0:
+            _ev_eb_raw = float(_yf_ev_raw) / float(_yf_ebitda)
+            if 1.0 < _ev_eb_raw < 200:
+                ev_ebitda = round(_ev_eb_raw, 1)
     ev_revenue= round(ev / revenue_ltm, 1) if (ev and revenue_ltm and revenue_ltm > 0) else None
     eps       = round(net_income / shares, 2) if (net_income and shares and shares > 0) else None
     pe        = round(float(price) / eps, 1) if (price and eps and eps > 0) else None
