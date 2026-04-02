@@ -54,13 +54,19 @@ def render_pptx(pptx_path: Path, out_dir: Path, width_px: int = 1920, dpi: int =
 
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    # DispatchEx = nouvelle instance isolee
-    ppt = win32com.client.DispatchEx("PowerPoint.Application")
+    # Dispatch = reutilise l'instance PPT existante si deja ouverte (ne pas fermer PPT de l'utilisateur)
+    _ppt_was_running = False
+    try:
+        ppt = win32com.client.GetActiveObject("PowerPoint.Application")
+        _ppt_was_running = True
+    except Exception:
+        ppt = win32com.client.DispatchEx("PowerPoint.Application")
     try:
         ppt.Visible = False
     except Exception:
-        pass  # Certaines versions de PPT refusent Visible=False
+        pass  # Certaines versions de PPT refusent Visible=False en mode invisible
 
+    prs = None
     try:
         prs = ppt.Presentations.Open(str(pptx_path.resolve()), ReadOnly=True, Untitled=False, WithWindow=False)
         paths = []
@@ -68,11 +74,20 @@ def render_pptx(pptx_path: Path, out_dir: Path, width_px: int = 1920, dpi: int =
             p = out_dir / f"slide_{i:02d}.png"
             slide.Export(str(p.resolve()), "PNG", width_px, int(width_px * 9 / 16))
             paths.append(p)
-        prs.Close()
         print(f"[PPTX] {len(paths)} slides -> {out_dir}")
         return paths
     finally:
-        ppt.Quit()
+        if prs is not None:
+            try:
+                prs.Close()   # ferme uniquement le fichier ouvert
+            except Exception:
+                pass
+        # Ne jamais appeler ppt.Quit() si PPT etait deja ouvert (Baptiste travaille dessus)
+        if not _ppt_was_running:
+            try:
+                ppt.Quit()
+            except Exception:
+                pass
 
 
 def _make_clean_xlsx(src: Path) -> Path:
