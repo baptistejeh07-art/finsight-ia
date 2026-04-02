@@ -664,7 +664,7 @@ class IndiceExcelWriter:
             return "Risque" if bm > -1.78 else "Ok"
         def _q_em(t):   return _pct(t.get("ebitda_margins"))
         def _q_roe(t):  return _pct(t.get("roe"), sign=True)
-        def _q_ic(t):   return _NA   # Interest coverage: non calcule
+        def _q_ic(t):   return _num(t.get("interest_coverage"), 1)
         def _q_cr(t):   return _num(t.get("current_ratio"), 2)
 
         quality_cols = [

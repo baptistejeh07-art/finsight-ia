@@ -596,6 +596,23 @@ def compute_ticker(ticker: str, cache_row: Optional[dict]) -> Optional[dict]:
         if (ebit_v2 and interest_exp and interest_exp != 0) else None
     )
 
+    # --- Croissance EPS (yfinance earningsGrowth, decimal) ---
+    _eg_raw = info.get("earningsGrowth")
+    earnings_growth = round(float(_eg_raw) * 100, 1) if _eg_raw is not None else None
+
+    # --- FCF Yield (%) ---
+    _cf_fcf = _get(cf, "Free Cash Flow")
+    if _cf_fcf is None:
+        _ocf   = _get(cf, "Operating Cash Flow")
+        _capex = _get(cf, "Capital Expenditure")
+        if _ocf is not None and _capex is not None:
+            _cf_fcf = _ocf + _capex   # CapEx negatif dans yfinance
+    _mktcap_raw = float(price) * float(shares) if (price and shares) else None
+    fcf_yield = (
+        round(_cf_fcf / _mktcap_raw * 100, 1)
+        if (_cf_fcf and _mktcap_raw and _mktcap_raw > 0) else None
+    )
+
     # --- Qualite ---
     altman  = _altman_z(bs, is_)
     beneish = _beneish_m(is_, bs, cf)
@@ -645,6 +662,8 @@ def compute_ticker(ticker: str, cache_row: Optional[dict]) -> Optional[dict]:
         "score_global":   None,
         "next_earnings":     cache_row.get("next_earnings"),
         "ebitda_ntm_growth": ebitda_ntm_growth,
+        "earnings_growth":   earnings_growth,
+        "fcf_yield":         fcf_yield,
         "wacc": wacc_val,
         "tgr":  tgr_val,
     }
