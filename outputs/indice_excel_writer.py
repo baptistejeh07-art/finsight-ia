@@ -198,8 +198,9 @@ def _sector_aggregates(tickers: list[dict]) -> dict:
 
     by_sec = defaultdict(list)
     for t in tickers:
-        sec = _SECT_DISP.get(t.get("sector") or "", (t.get("sector") or "Autre"))
-        if sec != "Autre":
+        _s_raw = (t.get("sector") or "").strip()
+        sec = _SECT_DISP.get(_s_raw, _s_raw or "Autre")
+        if sec and sec.strip() and sec != "Autre":
             by_sec[sec].append(t)
 
     agg = {}
@@ -521,7 +522,7 @@ def _fill_sector_overview(ws, sector_agg: dict) -> None:
     """Injecte les noms de secteurs en col M (M1:M21) pour alimenter les formules."""
     # Les formules de SECTOR OVERVIEW referentent 'SECTOR OVERVIEW'!M$1:M$21
     # On ecrit les secteurs presents tries alphabetiquement
-    sectors_alpha = sorted(sector_agg.keys())
+    sectors_alpha = sorted(k for k in sector_agg.keys() if k and k.strip() and k != "Autre")
     for i, sec in enumerate(sectors_alpha[:21]):
         _write(ws, 1 + i, "M", sec)
     # Effacer les lignes vides au-dela
