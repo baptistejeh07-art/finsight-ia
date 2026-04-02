@@ -987,10 +987,12 @@ _SP500_NB_SOC = {
 }
 
 _INDICE_META = {
-    "S&P 500": {"code": "^GSPC", "nb_societes": 503},
-    "CAC 40":  {"code": "^FCHI", "nb_societes": 40},
-    "DAX":     {"code": "^GDAXI", "nb_societes": 40},
-    "FTSE 100":{"code": "^FTSE",  "nb_societes": 100},
+    "S&P 500":      {"code": "^GSPC",     "nb_societes": 503},
+    "CAC 40":       {"code": "^FCHI",     "nb_societes": 40},
+    "DAX":          {"code": "^GDAXI",    "nb_societes": 40},
+    "DAX 40":       {"code": "^GDAXI",    "nb_societes": 40},
+    "FTSE 100":     {"code": "^FTSE",     "nb_societes": 100},
+    "Euro Stoxx 50":{"code": "^STOXX50E", "nb_societes": 50},
 }
 
 
@@ -1365,10 +1367,145 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
         mom_str = f"{ret:+.1f}%"
         secteurs.append((nom, nb, sc, sig, f"{ev:.1f}x", mg, gr, mom_str))
 
-    # Fallback si ETF non disponibles
+    # Fallback si ETF non disponibles — essai fetch constituants EU
+    _eu_members_by_sec: dict = {}   # accessible plus loin pour top3
+    _eu_perf_history = None         # accessible dans base.update()
+
     if not secteurs:
-        log.warning("ETF SPDR non disponibles — fallback donnees test")
-        return _make_test_indice_data(universe)
+        _EU_CONST_MAP = {
+            "DAX 40":       "DAX40",
+            "FTSE 100":     "FTSE100",
+            "Euro Stoxx 50":"STOXX50",
+            "CAC 40":       "CAC40",   # sécurité si ETF CAC absent
+        }
+        _YF_SECT = {
+            "Technology":             "Technology",
+            "Healthcare":             "Health Care",
+            "Financial Services":     "Financials",
+            "Consumer Cyclical":      "Consumer Discretionary",
+            "Consumer Defensive":     "Consumer Staples",
+            "Communication Services": "Communication Services",
+            "Industrials":            "Industrials",
+            "Energy":                 "Energy",
+            "Basic Materials":        "Materials",
+            "Real Estate":            "Real Estate",
+            "Utilities":              "Utilities",
+        }
+        _univ_key = _EU_CONST_MAP.get(universe)
+        if _univ_key:
+            try:
+                import sys as _sys_eu
+                _sys_eu.path.insert(0, "scripts")
+                from cache_update import (
+                    DAX40_TICKERS, FTSE100_TICKERS, STOXX50_TICKERS, CAC40_TICKERS)
+                _tkr_pool = {
+                    "DAX40":   DAX40_TICKERS,
+                    "FTSE100": FTSE100_TICKERS[:60],   # limiter FTSE a 60 pour la vitesse
+                    "STOXX50": STOXX50_TICKERS,
+                    "CAC40":   CAC40_TICKERS,
+                }.get(_univ_key, [])
+
+                def _fetch_eu_tkr(tk):
+                    try:
+                        _inf = yf.Ticker(tk).info or {}
+                        _52w = (_inf.get("52WeekChange") or 0) * 100
+                        return {
+                            "ticker":    tk,
+                            "sector":    _YF_SECT.get(_inf.get("sector", ""), "Autre"),
+                            "ev_ebitda": _inf.get("enterpriseToEbitda"),
+                            "mg_ebitda": (_inf.get("ebitdaMargins") or 0) * 100,
+                            "pe_fwd":    _inf.get("forwardPE"),
+                            "rev_gr":    (_inf.get("revenueGrowth") or 0) * 100,
+                            "ret_52w":   _52w,
+                            "score_raw": max(25, min(85, round(50 + _52w * 1.2))),
+                        }
+                    except Exception:
+                        return None
+
+                with ThreadPoolExecutor(max_workers=8) as _pex:
+                    _eu_res = [r for r in _pex.map(_fetch_eu_tkr, _tkr_pool) if r]
+
+                from collections import defaultdict
+                _by_sec_raw = defaultdict(list)
+                for _r in _eu_res:
+                    if _r["sector"] and _r["sector"] != "Autre":
+                        _by_sec_raw[_r["sector"]].append(_r)
+                _eu_members_by_sec = dict(_by_sec_raw)
+
+                import statistics as _stat_eu
+                def _med_pos(vals):
+                    v = [x for x in vals if x is not None and x > 0]
+                    return round(_stat_eu.median(v), 2) if v else None
+
+                for _sname, _mems in sorted(
+                        _eu_members_by_sec.items(),
+                        key=lambda kv: -sum(m["score_raw"] for m in kv[1]) / len(kv[1])):
+                    _nb = len(_mems)
+                    _sc = round(sum(m["score_raw"] for m in _mems) / _nb)
+                    _sig = ("Surponderer" if _sc >= 60
+                            else ("Sous-ponderer" if _sc < 40 else "Neutre"))
+                    _ev_v = [m["ev_ebitda"] for m in _mems
+                             if m.get("ev_ebitda") and 0.5 < m["ev_ebitda"] < 100]
+                    _ev_s = (f"{_stat_eu.median(_ev_v):.1f}x" if _ev_v else "\u2014")
+                    _mg   = round(sum(m["mg_ebitda"] for m in _mems) / _nb, 1)
+                    _gr_v = [m["rev_gr"] for m in _mems]
+                    _gr   = round(sum(_gr_v) / len(_gr_v), 1) if _gr_v else 0.0
+                    _gr_s = f"{_gr:+.1f}%"
+                    _ret  = round(sum(m["ret_52w"] for m in _mems) / _nb, 1)
+                    secteurs.append((_sname, _nb, _sc, _sig, _ev_s, _mg, _gr_s, f"{_ret:+.1f}%"))
+
+                # ERP depuis PE median des constituants
+                _pe_eu = [m["pe_fwd"] for m in _eu_res if m.get("pe_fwd") and 3 < m["pe_fwd"] < 100]
+                if _pe_eu:
+                    import statistics as _se2
+                    _pe_med = _se2.median(_pe_eu)
+                    pe_fwd_str = f"{_pe_med:.1f}x"
+                    _erp_eu = 1 / _pe_med - rf_rate
+                    erp_pct    = f"{_erp_eu*100:.1f}%"
+                    erp_signal = ("Tendu" if _erp_eu < 0.02
+                                  else ("Favorable" if _erp_eu > 0.04 else "Neutre"))
+
+                log.info("EU constituents OK: %d tickers / %d secteurs", len(_eu_res), len(secteurs))
+            except Exception as _eu_ex:
+                log.warning("EU constituents fetch erreur: %s", _eu_ex)
+
+        # Perf history reelle pour l'indice EU (index vs SP500, Bonds, Or)
+        _eu_perf_history = None
+        if secteurs:
+            try:
+                import pandas as _pd_ph
+                _ph_start = (today - datetime.timedelta(days=370)).isoformat()
+                # Telecharger toutes les series ensemble, aligner sur les dates de l'indice
+                _ph_tickers = [code, "^GSPC", "AGG", "GLD"]
+                _ph_raw = yf.download(_ph_tickers, start=_ph_start, interval="1d", progress=False)
+                if isinstance(_ph_raw.columns, _pd_ph.MultiIndex):
+                    _ph_close = _ph_raw["Close"]
+                else:
+                    _ph_close = _ph_raw
+                # Reindexer sur les dates de l'indice EU, forward-fill pour les jours feries US/EU
+                _ph_close = _ph_close.dropna(subset=[code]).ffill()
+                def _rebase_col(col):
+                    if col not in _ph_close.columns: return []
+                    s = _ph_close[col].dropna()
+                    return [round((v / s.iloc[0]) * 100, 2) for v in s] if not s.empty else []
+                _ph_dts  = [str(d.date()) for d in _ph_close.index]
+                _eu_perf_history = {
+                    "dates":       _ph_dts,
+                    "indice":      _rebase_col(code),
+                    "bonds":       _rebase_col("AGG"),
+                    "gold":        _rebase_col("GLD"),
+                    "sp500":       _rebase_col("^GSPC"),
+                    "label_start": _ph_dts[0] if _ph_dts else "",
+                    "label_end":   _ph_dts[-1] if _ph_dts else "",
+                    "indice_name": universe,
+                }
+                log.info("EU perf_history OK: %d points (aligned)", len(_ph_dts))
+            except Exception as _ph_ex:
+                log.warning("EU perf_history erreur: %s", _ph_ex)
+
+        if not secteurs:
+            log.warning("ETF SPDR non disponibles — fallback donnees test")
+            return _make_test_indice_data(universe)
 
     # P/B et DivYield génériques (fallback si ETF info incomplet)
     _PB_GENERIC = {
@@ -1545,7 +1682,7 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
     signal_global = ("Surponderer" if avg_score > 62 else
                      ("Sous-ponderer" if avg_score < 45 else "Neutre"))
 
-    # Top 3 secteurs : les 3 avec meilleur return ETF
+    # Top 3 secteurs : les 3 avec meilleur return ETF (S&P 500) ou score constituants (EU)
     sorted_etf = sorted(etf_perf.items(), key=lambda x: x[1].get("return_1y",0), reverse=True)
     top3_secteurs = []
     for i, (etf, info) in enumerate(sorted_etf[:3]):
@@ -1566,6 +1703,37 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
             "risque": "Risque de compression multiple si croissance BPA decelee",
             "societes": societes or [("—","Neutre","—",50)],
         })
+
+    # Chemin EU : top3 depuis les secteurs constituants si ETF absent
+    if not top3_secteurs and _eu_members_by_sec:
+        import statistics as _stat_t3
+        for _ts in sorted(secteurs, key=lambda s: s[2], reverse=True)[:3]:
+            _tsn  = _ts[0]
+            _mems = sorted(_eu_members_by_sec.get(_tsn, []),
+                           key=lambda m: m["score_raw"], reverse=True)[:3]
+            _socs = []
+            for _m in _mems:
+                _er = _m.get("ev_ebitda")
+                _es = (f"{_er:.1f}x" if _er and 0.5 < _er < 200 else "\u2014")
+                _socs.append((_m["ticker"], _ts[3], _es, _m["score_raw"]))
+            _ev_v = [m["ev_ebitda"] for m in _eu_members_by_sec.get(_tsn, [])
+                     if m.get("ev_ebitda") and 0.5 < m["ev_ebitda"] < 100]
+            _pe_v = [m["pe_fwd"] for m in _eu_members_by_sec.get(_tsn, [])
+                     if m.get("pe_fwd") and 3 < m["pe_fwd"] < 100]
+            _ret  = (sum(m["ret_52w"] for m in _eu_members_by_sec.get(_tsn, [])) /
+                     max(1, len(_eu_members_by_sec.get(_tsn, []))))
+            top3_secteurs.append({
+                "nom":            _tsn,
+                "signal":         _ts[3],
+                "score":          _ts[2],
+                "ev_ebitda":      (f"{_stat_t3.median(_ev_v):.1f}x" if _ev_v else "\u2014"),
+                "pe_forward_raw": round(_stat_t3.median(_pe_v), 1) if _pe_v else 18.0,
+                "pe_mediane_10y": 16.0,
+                "poids_indice":   "—",
+                "catalyseur":     f"Performance 52S {_ret:+.1f}% — momentum {_ts[3].lower()}",
+                "risque":         "Risque macro zone Euro, USD strength, taux longs",
+                "societes":       _socs or [("—", "Neutre", "\u2014", 50)],
+            })
 
     # Base test pour les champs sans source temps reel
     base = _make_test_indice_data(universe)
@@ -1603,6 +1771,7 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
         "dy_by_sector":         dy_by_sector    if universe == "S&P 500" else {},
         "erp_by_sector":        erp_by_sector   if universe == "S&P 500" else {},
         "optimal_portfolios":   optimal_portfolios if universe == "S&P 500" else {},
+        **({"perf_history": _eu_perf_history} if _eu_perf_history else {}),
     })
     return base
 

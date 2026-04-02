@@ -1819,11 +1819,11 @@ def _s20_etf_perf(prs, D, chart_bytes: bytes):
         # Fallback : graphique performance indice 52 semaines + scorecard sectoriel
         _ph = D.get("perf_history")
         _has_chart = bool(_ph and _ph.get("dates") and _ph.get("indice"))
-        _header(slide, f"Performance de l'Indice — 52 Semaines",
-                f"{indice}  ·  vs S&P 500, Obligations & Or  ·  Indexe a 100  ·  Source yfinance",
-                active=5)
 
         if _has_chart:
+            _header(slide, f"Performance de l'Indice — 52 Semaines",
+                    f"{indice}  ·  vs S&P 500, Obligations & Or  ·  Indexe a 100  ·  Source yfinance",
+                    active=5)
             # Generer le graphique index perf
             _idx_bytes = _chart_index_perf(D)
             _pic(slide, _idx_bytes, 0.9, 2.2, 23.6, 7.2)
@@ -1870,8 +1870,8 @@ def _s20_etf_perf(prs, D, chart_bytes: bytes):
                          "  ".join(_lec_parts), y_top=9.7, height=3.65)
         else:
             # Pas de perf_history : tableau scores + note
-            _header(slide, "Performance des ETF Sectoriels — 52 Semaines",
-                    f"{indice}  ·  ETF sectoriels SPDR/iShares  ·  Donnees yfinance",
+            _header(slide, "Scores Sectoriels — Synthese Allocataire",
+                    f"{indice}  ·  Score composite FinSight  ·  Donnees yfinance",
                     active=5)
             _txb(slide, "Scores sectoriels FinSight — synthese allocataire",
                  0.9, 2.1, 23.6, 0.55, size=8.5, bold=True, color=_NAVY)
