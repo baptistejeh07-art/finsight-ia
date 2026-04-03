@@ -974,7 +974,7 @@ def _build_structure_sectorielle(tickers_data: list[dict], sector_name: str,
 
     # ── Tableau des 4 indicateurs structurels ──────────────────────────────
     struct_h = [Paragraph(h, S_TH_L)
-                for h in ["Indicateur", "Valeur", "Interprétation analytique"]]
+                for h in ["Indicateur", "Valeur"]]
 
     # HHI
     hhi = sa.get("hhi")
@@ -1068,10 +1068,9 @@ def _build_structure_sectorielle(tickers_data: list[dict], sector_name: str,
         struct_rows.append([
             Paragraph(f"<b>{label}</b>", S_TD_B),
             Paragraph(val, val_style),
-            Paragraph(interp, S_TD_L),
         ])
     elems.append(KeepTogether(tbl([struct_h] + struct_rows,
-                                   cw=[52*mm, 52*mm, 66*mm])))
+                                   cw=[80*mm, 90*mm])))
     if az_mdl == "nonmfg_1995":
         _az_src = ("Altman Z' = modele non-manufacturing 1995 (6.56*X1+3.26*X2+6.72*X3+1.05*X4, "
                    "X5 exclu). Seuils : safe >2.6, grise 1.1-2.6, detresse <1.1.")
@@ -1434,8 +1433,13 @@ def _build_acteurs(tickers_data: list[dict], sector_name: str, registry=None):
     elems.append(Spacer(1, 3*mm))
 
     elems.append(Paragraph("Comparatif financier \u2014 Acteurs couverts LTM", S_SUBSECTION))
-    comp_h = [Paragraph(h, S_TH_C)
-              for h in ["Ticker", "Rev. LTM (Mds)", "Crois.", "Mg. Brute", "Mg. EBITDA", "ROE", "EV/EBITDA"]]
+    _has_ev = any(t.get('ev_ebitda') for t in tickers_data)
+    _comp_cols = ["Ticker", "Rev. LTM (Mds)", "Crois.", "Mg. Brute", "Mg. EBITDA", "ROE"]
+    _comp_cw   = [16*mm, 26*mm, 20*mm, 24*mm, 26*mm, 22*mm]
+    if _has_ev:
+        _comp_cols.append("EV/EBITDA")
+        _comp_cw.append(26*mm)
+    comp_h = [Paragraph(h, S_TH_C) for h in _comp_cols]
 
     def _cc(v, col):
         if col == 0:
@@ -1464,12 +1468,12 @@ def _build_acteurs(tickers_data: list[dict], sector_name: str, registry=None):
             _fmt_pct(t.get('gross_margin'), sign=False),
             _fmt_pct(t.get('ebitda_margin'), sign=False),
             _fmt_pct(t.get('roe')),
-            _fmt_mult(t.get('ev_ebitda')),
         ]
+        if _has_ev:
+            row.append(_fmt_mult(t.get('ev_ebitda')))
         comp_rows.append([_cc(v, j) for j, v in enumerate(row)])
 
-    elems.append(KeepTogether(tbl([comp_h] + comp_rows,
-                                   cw=[16*mm, 26*mm, 20*mm, 24*mm, 26*mm, 22*mm, 26*mm])))
+    elems.append(KeepTogether(tbl([comp_h] + comp_rows, cw=_comp_cw)))
     elems.append(src(f"FinSight IA \u2014 yfinance, FMP. LTM = Last Twelve Months. Devise : {ccy}."))
     elems.append(Spacer(1, 3*mm))
 
@@ -1642,14 +1646,29 @@ def _build_valorisation(scatter_buf, donut_buf, tickers_data: list[dict],
     elems.append(src("FinSight IA \u2014 Market Cap au cours de cloture. yfinance."))
     elems.append(Spacer(1, 5*mm))
 
-    # Tableau multiples
-    mult_h = [Paragraph(h, S_TH_C)
-              for h in ["Ticker", "EV/EBITDA", "P/E", "EV/Rev", "Mg. EBITDA", "ROE", "Lecture"]]
+    # Tableau multiples — colonnes dynamiques selon disponibilité des données
+    _m_has_ev  = any(t.get('ev_ebitda')  for t in tickers_data)
+    _m_has_pe  = any(t.get('pe_ratio') or t.get('pe') for t in tickers_data)
+    _m_has_evr = any(t.get('ev_revenue') for t in tickers_data)
+    _mult_cols = ["Ticker"]
+    _mult_cw   = [14*mm]
+    if _m_has_ev:
+        _mult_cols.append("EV/EBITDA"); _mult_cw.append(22*mm)
+    if _m_has_pe:
+        _mult_cols.append("P/E"); _mult_cw.append(18*mm)
+    if _m_has_evr:
+        _mult_cols.append("EV/Rev"); _mult_cw.append(18*mm)
+    _mult_cols += ["Mg. EBITDA", "ROE", "Lecture"]
+    _mult_cw   += [22*mm, 20*mm]
+    # Lecture colonne prend le reste
+    _mult_cw.append(170*mm - sum(_mult_cw))
+
+    _lect_col_idx = len(_mult_cols) - 1
 
     def _mc(v, col):
         if col == 0:
             return Paragraph(f"<b>{v}</b>", S_TD_BC)
-        if col == 6:
+        if col == _lect_col_idx:
             sv = str(v)
             if any(k in sv for k in ["Décote", "Opportunite"]):
                 return Paragraph(sv, S_TD_G)
@@ -1674,21 +1693,24 @@ def _build_valorisation(scatter_buf, donut_buf, tickers_data: list[dict],
             lecture = "Catalyseur requis"
         else:
             lecture = "Survalorise vs fondamentaux"
-        row = [
-            t.get('ticker', 'N/A'),
-            _fmt_mult(t.get('ev_ebitda')),
-            _fmt_mult(t.get('pe_ratio') or t.get('pe')),
-            _fmt_mult(t.get('ev_revenue')),
+        row = [t.get('ticker', 'N/A')]
+        if _m_has_ev:
+            row.append(_fmt_mult(t.get('ev_ebitda')))
+        if _m_has_pe:
+            row.append(_fmt_mult(t.get('pe_ratio') or t.get('pe')))
+        if _m_has_evr:
+            row.append(_fmt_mult(t.get('ev_revenue')))
+        row += [
             _fmt_pct(t.get('ebitda_margin'), sign=False),
             _fmt_pct(t.get('roe')),
             lecture,
         ]
         mult_rows.append([_mc(v, j) for j, v in enumerate(row)])
 
+    mult_h = [Paragraph(h, S_TH_C) for h in _mult_cols]
     elems.append(KeepTogether([
         Paragraph("Tableau de multiples \u2014 Vision synthetique", S_SUBSECTION),
-        tbl([mult_h] + mult_rows,
-            cw=[14*mm, 22*mm, 18*mm, 18*mm, 22*mm, 20*mm, 56*mm]),
+        tbl([mult_h] + mult_rows, cw=_mult_cw),
         src("FinSight IA \u2014 yfinance, FMP. LTM."),
     ]))
     elems.append(Spacer(1, 5*mm))

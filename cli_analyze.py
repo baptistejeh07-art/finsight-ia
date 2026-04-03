@@ -832,6 +832,15 @@ def _fetch_real_sector_data(sector: str, universe: str, max_tickers: int = 8) ->
                 except Exception:
                     pass
 
+            # Fallback market_cap : price × sharesOutstanding
+            if not mc and price:
+                try:
+                    shares = info.get("sharesOutstanding") or info.get("impliedSharesOutstanding")
+                    if shares:
+                        mc = round(float(price) * float(shares))
+                except Exception:
+                    pass
+
             # Fallback EV/EBITDA et EV/Revenue : calcul depuis composantes
             ev_ebitda = info.get("enterpriseToEbitda")
             ev_revenue = info.get("enterpriseToRevenue")
