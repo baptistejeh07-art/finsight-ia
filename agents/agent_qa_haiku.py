@@ -66,9 +66,10 @@ class QAHaikuResult:
 # Prompt engineering
 # ---------------------------------------------------------------------------
 
-_SYSTEM = """Tu es un directeur editorial specialise en recherche actions Investment Banking.
-Tu evalues la qualite professionnelle des analyses financieres.
-Criteres IB : objectivite, concision, absence d'hyperbole, donnees chiffrees, ton institutionnel.
+_SYSTEM = """Tu es un directeur éditorial spécialisé en recherche actions Investment Banking.
+Tu évalues la qualité professionnelle des analyses financières.
+Critères IB : objectivité, concision, absence d'hyperbole, données chiffrées, ton institutionnel.
+LANGUE : français avec TOUS les accents (é, è, ê, à, ù, ô, î, û, ç, œ, etc.) — JAMAIS de caractères sans accent.
 
 REGLE CONSTITUTIONNELLE (non violable) :
 Chaque output DOIT contenir :

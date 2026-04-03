@@ -288,9 +288,10 @@ class AgentSentiment:
             f"Titres a analyser :\n{headlines}"
         )
         system = (
-            "Tu es analyste financier senior. Tu reponds d'abord avec la classification "
-            "ligne par ligne (numero|label), puis avec le commentaire prefixe 'COMMENTAIRE:'. "
-            "Pas d'explication supplementaire."
+            "Tu es analyste financier senior. Tu réponds d'abord avec la classification "
+            "ligne par ligne (numero|label), puis avec le commentaire préfixé 'COMMENTAIRE:'. "
+            "Pas d'explication supplémentaire. "
+            "LANGUE : français avec TOUS les accents (é, è, ê, à, ù, ô, î, û, ç, œ) — JAMAIS sans accent."
         )
 
         try:

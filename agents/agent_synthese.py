@@ -64,7 +64,8 @@ class SynthesisResult:
 
 
 _SYSTEM = """Tu es un analyste financier senior Investment Banking.
-Tu produis des analyses objectives, concises, professionnelles en francais.
+Tu produis des analyses objectives, concises, professionnelles en français.
+LANGUE : français avec TOUS les accents (é, è, ê, à, ù, ô, î, û, ç, œ, etc.) — JAMAIS de caractères sans accent (ex: "Modérée" et non "Moderee", "résilience" et non "resilience").
 REGLES ABSOLUES :
 1. Output = JSON valide uniquement, zero markdown, zero texte avant/apres le JSON
 2. Tous les champs sont obligatoires et ne peuvent PAS etre null
