@@ -2386,6 +2386,116 @@ def _build_story(perf_buf, area_buf, scatter_buf, donut_buf,
     return story
 
 
+# ─── CALCUL ANALYTICS DEPUIS TICKERS_DATA (fallback quand sector_analytics absent) ───
+def _compute_analytics_from_tickers(td: list[dict]) -> dict:
+    """Calcule les métriques structurelles agrégées directement depuis tickers_data.
+    Gère les deux conventions de nommage : pe_ratio (cli) et pe (compute_screening),
+    market_cap absolu ou en Mds."""
+    if not td:
+        return {}
+
+    def _pe(t):
+        return t.get("pe_ratio") or t.get("pe")
+
+    def _mc(t):
+        mc = t.get("market_cap") or 0
+        # compute_screening retourne market_cap en Mds (ex: 244.0), cli retourne absolus (ex: 2.44e11)
+        if mc and mc < 1e6:  # en Mds si < 1 million (impossible en absolu pour une vraie boîte)
+            return mc  # déjà en Mds, cohérent pour HHI
+        return mc / 1e9 if mc > 1e6 else mc
+
+    # HHI
+    mcs = [_mc(t) for t in td]
+    total_mc = sum(mcs)
+    hhi = None
+    hhi_label = "N/D"
+    if total_mc > 0:
+        shares = [(mc / total_mc) * 100 for mc in mcs]
+        hhi = round(sum(s**2 for s in shares))
+        if hhi >= 2500:
+            hhi_label = "oligopole concentré — barrières à l'entrée élevées, premium de valorisation justifié"
+        elif hhi >= 1500:
+            hhi_label = "concentration modérée — concurrence significative entre leaders établis"
+        else:
+            hhi_label = "secteur fragmenté — pression concurrentielle accrue, compression marges probable"
+
+    # P/E médian
+    pes = [float(_pe(t)) for t in td if _pe(t) and float(_pe(t)) > 0 and float(_pe(t)) < 500]
+    pe_median_ltm = round(float(np.median(pes)), 1) if pes else None
+    pe_cycle_label = "historique PE insuffisant"
+    pe_premium = None
+
+    # Dispersion ROIC / ROE
+    roic_vals = [t.get("roic") for t in td if t.get("roic") is not None]
+    if not roic_vals:
+        roic_vals = [t.get("roe") for t in td if t.get("roe") is not None]
+    roic_std  = round(float(np.std(roic_vals)), 1)  if len(roic_vals) >= 2 else None
+    roic_mean = round(float(np.mean(roic_vals)), 1) if roic_vals else None
+    roic_min  = round(min(roic_vals), 1)            if roic_vals else None
+    roic_max  = round(max(roic_vals), 1)            if roic_vals else None
+    roic_label = "N/D"
+    if roic_std is not None:
+        if roic_std >= 15:
+            roic_label = "forte dispersion — secteur de stock-picking pur, choix de la société > choix du secteur"
+        elif roic_std >= 8:
+            roic_label = "dispersion modérée — sélectivité recommandée, leaders qualité avantagés"
+        else:
+            roic_label = "faible dispersion — beta sectoriel dominant, approche indicielle pertinente"
+
+    # Altman Z
+    az_vals = [t.get("altman_z") for t in td if t.get("altman_z") is not None]
+    n_az = len(az_vals)
+    altman_safe = sum(1 for z in az_vals if z > 2.6)
+    altman_grey = sum(1 for z in az_vals if 1.1 <= z <= 2.6)
+    altman_dist = sum(1 for z in az_vals if z < 1.1)
+
+    # Beta médian
+    betas = [t.get("beta") for t in td if t.get("beta") is not None and 0 < float(t["beta"]) < 5]
+    beta_median = round(float(np.median(betas)), 2) if betas else None
+    beta_std    = round(float(np.std(betas)), 2)    if len(betas) >= 2 else None
+
+    # FCF Yield médian
+    fcfys = [t.get("fcf_yield") for t in td if t.get("fcf_yield") is not None]
+    fcf_yield_median = round(float(np.median(fcfys)), 1) if fcfys else None
+
+    # PEG médian
+    pegs = [t.get("peg_ratio") for t in td if t.get("peg_ratio") is not None and t["peg_ratio"] > 0]
+    peg_median = round(float(np.median(pegs)), 2) if pegs else None
+
+    # Piotroski
+    fscores = [t.get("piotroski_f") for t in td if t.get("piotroski_f") is not None]
+    piotroski_median  = round(float(np.median(fscores)), 1) if fscores else None
+    n_piotroski       = len(fscores)
+    piotroski_quality = sum(1 for f in fscores if f > 6)
+    piotroski_neutral = sum(1 for f in fscores if 4 <= f <= 6)
+    piotroski_trap    = sum(1 for f in fscores if f < 4)
+
+    # EBITDA median
+    ebitda_margins = [t.get("ebitda_margin") for t in td if t.get("ebitda_margin")]
+    ebitda_median  = round(float(np.median(ebitda_margins)), 1) if ebitda_margins else None
+
+    return {
+        "hhi": hhi, "hhi_label": hhi_label,
+        "pe_median_ltm": pe_median_ltm, "pe_median_hist": None,
+        "pe_premium": pe_premium, "pe_cycle_label": pe_cycle_label,
+        "roic_std": roic_std, "roic_mean": roic_mean,
+        "roic_min": roic_min, "roic_max": roic_max, "roic_label": roic_label,
+        "altman_safe": altman_safe, "altman_grey": altman_grey,
+        "altman_distress": altman_dist, "n_altman": n_az,
+        "altman_model": "nonmfg_1995", "is_asset_light": True,
+        "beta_median": beta_median, "beta_std": beta_std,
+        "fcf_yield_median": fcf_yield_median,
+        "peg_median": peg_median,
+        "piotroski_median": piotroski_median, "n_piotroski": n_piotroski,
+        "piotroski_quality": piotroski_quality,
+        "piotroski_neutral": piotroski_neutral,
+        "piotroski_trap": piotroski_trap,
+        "ebitda_median": ebitda_median,
+        "wacc_median": None,
+        "var_monthly_95": None,
+    }
+
+
 # ─── API PUBLIQUE ─────────────────────────────────────────────────────────────
 def generate_sector_report(
     sector_name: str,
@@ -2421,6 +2531,13 @@ def generate_sector_report(
     # Macro regime + recession (si pas deja fourni)
     if sector_analytics is None:
         sector_analytics = {}
+
+    # Calcul automatique des analytics structurels si absents (ex : appel depuis app.py)
+    if not sector_analytics.get("hhi") and not sector_analytics.get("pe_median_ltm"):
+        _sa = _compute_analytics_from_tickers(tickers_data)
+        for k, v in _sa.items():
+            sector_analytics.setdefault(k, v)
+
     if not sector_analytics.get("macro"):
         try:
             import sys as _sys, os as _os
