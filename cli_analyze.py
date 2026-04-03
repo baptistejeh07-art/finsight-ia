@@ -816,6 +816,62 @@ def _fetch_real_sector_data(sector: str, universe: str, max_tickers: int = 8) ->
                 altman_z = None
                 altman_z_model = None
 
+            # Fallback price : fast_info -> history si currentPrice manquant
+            price = info.get("currentPrice") or info.get("regularMarketPrice")
+            if not price:
+                try:
+                    fi = stock.fast_info
+                    price = getattr(fi, "last_price", None) or getattr(fi, "lastPrice", None)
+                except Exception:
+                    pass
+            if not price:
+                try:
+                    hist = stock.history(period="5d")
+                    if not hist.empty:
+                        price = round(float(hist["Close"].iloc[-1]), 2)
+                except Exception:
+                    pass
+
+            # Fallback EV/EBITDA et EV/Revenue : calcul depuis composantes
+            ev_ebitda = info.get("enterpriseToEbitda")
+            ev_revenue = info.get("enterpriseToRevenue")
+            if not ev_ebitda or not ev_revenue:
+                try:
+                    ev = info.get("enterpriseValue")
+                    ebitda_abs = info.get("ebitda")
+                    rev_abs = info.get("totalRevenue")
+                    if ev and ev > 0:
+                        if not ev_ebitda and ebitda_abs and ebitda_abs > 0:
+                            ev_ebitda = round(ev / ebitda_abs, 1)
+                        if not ev_revenue and rev_abs and rev_abs > 0:
+                            ev_revenue = round(ev / rev_abs, 1)
+                except Exception:
+                    pass
+
+            # Fallback P/E : calcul depuis eps ou netIncome
+            if not pe:
+                try:
+                    eps = info.get("trailingEps") or info.get("epsTrailingTwelveMonths")
+                    if eps and eps > 0 and price and price > 0:
+                        pe_calc = round(price / eps, 1)
+                        if 0 < pe_calc < 500:
+                            pe = pe_calc
+                except Exception:
+                    pass
+            if not pe:
+                try:
+                    net_income = info.get("netIncomeToCommon")
+                    if net_income and net_income > 0 and mc and mc > 0:
+                        pe_calc = round(mc / net_income, 1)
+                        if 0 < pe_calc < 500:
+                            pe = pe_calc
+                except Exception:
+                    pass
+
+            # Revenue growth — sanity check (yfinance peut renvoyer des valeurs aberrantes)
+            if rev_g and abs(rev_g) > 2.0:  # > 200% -> suspect
+                rev_g = 0
+
             # PEG ratio (PE / croissance revenus annualisee %)
             peg_ratio = None
             if pe and pe > 0 and rev_g and rev_g > 0:
@@ -856,8 +912,8 @@ def _fetch_real_sector_data(sector: str, universe: str, max_tickers: int = 8) ->
                 "score_growth":    round(s_gro, 1),
                 "score_quality":   round(s_qua, 1),
                 "score_momentum":  round(s_mom, 1),
-                "ev_ebitda":       info.get("enterpriseToEbitda"),
-                "ev_revenue":      info.get("enterpriseToRevenue"),
+                "ev_ebitda":       ev_ebitda,
+                "ev_revenue":      ev_revenue,
                 "pe_ratio":        pe,
                 "ebitda_margin":   round(ebitda_m, 1),
                 "gross_margin":    round(gross_m, 1),
@@ -873,7 +929,7 @@ def _fetch_real_sector_data(sector: str, universe: str, max_tickers: int = 8) ->
                 "fcf_yield":       fcf_yield,
                 "beneish_m":       -2.5,
                 "beta":            beta,
-                "price":           info.get("currentPrice") or info.get("regularMarketPrice"),
+                "price":           price,
                 "market_cap":      mc,
                 "revenue_ltm":     info.get("totalRevenue"),
                 "currency":        info.get("currency", "USD"),
