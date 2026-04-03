@@ -2136,7 +2136,7 @@ def render_screening_running() -> None:
         slug    = universe.replace("/", "_").replace(" ", "_")
         out_path = str(out_dir / f"screening_{slug}.xlsx")
         # template_path resolu depuis app.py (non cache par sys.modules)
-        _tpl = Path(__file__).parent / "assets" / "FinSight_IA_Screening_CAC40_v3.xlsx"
+        _tpl = Path(__file__).parent / "assets" / "FinSight_IA_Screening_v4.xlsx"
         _tpl_arg = str(_tpl) if _tpl.exists() else None
         print(f"[app] template_path={_tpl_arg!r} exists={_tpl.exists()}", flush=True)
         try:
@@ -2533,7 +2533,7 @@ def render_screening_results(results: dict) -> None:
                 sec_xlsx_bytes = None
                 try:
                     from outputs.screening_writer import ScreeningWriter
-                    _tpl = Path(__file__).parent / "assets" / "FinSight_IA_Screening_CAC40_v3.xlsx"
+                    _tpl = Path(__file__).parent / "assets" / "FinSight_IA_Screening_v4.xlsx"
                     _sec_xlsx_path = str(_sec_out_dir / f"screening_{_sec_slug}.xlsx")
                     ScreeningWriter.generate(sec_sorted, _sec_display, _sec_xlsx_path,
                                              template_path=str(_tpl) if _tpl.exists() else None)

@@ -402,7 +402,16 @@ def _inject_donnees_brutes(wb, data: list[dict]) -> None:
         for j, v in enumerate(row_vals, 1):
             _v(ws, r, j, v)
 
-    log.debug("[inject] DONNEES BRUTES : %d lignes", min(len(data), 40))
+    # Note valeurs negatives (apres la derniere ligne de donnees)
+    note_r = 3 + min(len(data), 100)
+    note_cell = ws.cell(row=note_r + 1, column=1)
+    note_cell.value = (
+        "(*) Valeur n\u00e9gative = r\u00e9elle (ex: ND/EBITDA < 0 = tr\u00e9sorerie nette, "
+        "Altman Z < 0 = d\u00e9tresse, Mom. < 0 = tendance baissi\u00e8re).  "
+        "\u2014 = donn\u00e9e non disponible."
+    )
+
+    log.debug("[inject] DONNEES BRUTES : %d lignes", min(len(data), 100))
 
 
 def _inject_dashboard(wb, data: list[dict], universe_name: str,
@@ -876,6 +885,154 @@ def _inject_sector_sheets(wb, data: list[dict]) -> None:
 
 
 # ===========================================================================
+# INJECTION TEMPLATE V4 (nouveau format reference xlsb Baptiste)
+# ===========================================================================
+
+def _inject_date_dashboard(wb, date_str: str) -> None:
+    """Met a jour uniquement la date dans DASHBOARD (R3C17). Tout le reste = formules."""
+    ws_name = "DASHBOARD"
+    if ws_name not in wb.sheetnames:
+        return
+    ws = wb[ws_name]
+    ws.cell(row=3, column=17).value = date_str
+
+
+def _write_tech_row(ws, row: int, rank: int, t: dict) -> None:
+    """
+    Ecrit une ligne societe dans le tableau principal TECHNOLOGY.
+    Cols 2-16. Marges en fraction decimale (0.669) car la cellule a format 0.00%.
+    """
+    gm  = t.get("gross_margin")
+    em  = t.get("ebitda_margin")
+    mom = t.get("momentum_52w")
+    ev_e = t.get("ev_ebitda")
+    ev_r = t.get("ev_revenue")
+    pe   = t.get("pe")
+    az   = t.get("altman_z")
+    sv   = t.get("score_value")
+
+    ws.cell(row=row, column=2).value  = rank
+    ws.cell(row=row, column=3).value  = t.get("ticker", "")
+    ws.cell(row=row, column=4).value  = t.get("company", "")
+    ws.cell(row=row, column=5).value  = t.get("score_global")
+    ws.cell(row=row, column=6).value  = sv if sv is not None else "\u2014"
+    ws.cell(row=row, column=7).value  = t.get("score_growth")
+    ws.cell(row=row, column=8).value  = t.get("score_quality")
+    ws.cell(row=row, column=9).value  = t.get("score_momentum")
+    ws.cell(row=row, column=10).value = round(ev_e, 1)  if ev_e is not None else "\u2014"
+    ws.cell(row=row, column=11).value = round(ev_r, 1)  if ev_r is not None else "\u2014"
+    ws.cell(row=row, column=12).value = round(pe,   1)  if pe   is not None else "\u2014"
+    # Marges : stocker en fraction (0.669) — la cellule a format 0.00% -> affiche 66.90%
+    ws.cell(row=row, column=13).value = round(gm  / 100, 4) if gm  is not None else "\u2014"
+    ws.cell(row=row, column=14).value = round(em  / 100, 4) if em  is not None else "\u2014"
+    ws.cell(row=row, column=15).value = round(mom / 100, 4) if mom is not None else "\u2014"
+    ws.cell(row=row, column=16).value = round(az,  2)  if az   is not None else "\u2014"
+
+
+def _inject_technology_v4(wb, data: list[dict]) -> None:
+    """
+    Injecte dans TECHNOLOGY selon le format de reference (xlsb Baptiste) :
+    - KPIs R4 : nb (C3), mkt_cap (C5), score_moyen (C8), best_company (C11), ev_ebitda_med (C14)
+    - Section header R8C2
+    - Tableau principal rows 10+ : separateurs groupe + lignes societes
+    - Tables laterales cols 18-30 : tous tickers classes par score_global
+    Ne touche pas les formules, ne modifie pas les formats cellule.
+    """
+    ws_name = "TECHNOLOGY"
+    if ws_name not in wb.sheetnames:
+        return
+    ws = wb[ws_name]
+
+    sorted_data = sorted(data, key=lambda x: x.get("score_global") or 0, reverse=True)
+    n = len(sorted_data)
+
+    surp = [t for t in sorted_data if _signal(t.get("score_global")) == "Surpond\u00e9rer"]
+    neut = [t for t in sorted_data if _signal(t.get("score_global")) == "Neutre"]
+    sous = [t for t in sorted_data if _signal(t.get("score_global")) == "Sous-pond\u00e9rer"]
+
+    # --- KPIs (R4) ---
+    mkt_total = sum(t.get("market_cap") or 0 for t in data)
+    avg_sc = int(round(sum(t.get("score_global") or 0 for t in data) / max(n, 1)))
+    best = sorted_data[0]
+    med_ev = _med_vals(data, "ev_ebitda")
+
+    ws.cell(row=4, column=3).value  = n
+    ws.cell(row=4, column=5).value  = round(mkt_total, 1) if mkt_total else "\u2014"
+    ws.cell(row=4, column=8).value  = avg_sc
+    ws.cell(row=4, column=11).value = best.get("company", "")
+    ws.cell(row=4, column=14).value = round(med_ev, 1) if med_ev else "\u2014"
+
+    # --- Section header (R8C2) ---
+    ws.cell(row=8, column=2).value = (
+        f"  ANALYSE D\u00c9TAILL\u00c9E  \u00b7  TECHNOLOGY  \u00b7  {n} soci\u00e9t\u00e9s"
+    )
+
+    # --- Effacement zone tableau principal (rows 10-110, cols 2-16) ---
+    for r in range(10, 111):
+        for c in range(2, 17):
+            ws.cell(row=r, column=c).value = None
+
+    # --- Tableau principal avec separateurs de groupe ---
+    current_row = 10
+    rank = 1
+
+    groups = [
+        (f"  \u25b8  SURPOND\u00c9RER  \u00b7  {len(surp)} soci\u00e9t\u00e9{'s' if len(surp) != 1 else ''}", surp),
+        (f"  \u25b8  NEUTRE  \u00b7  {len(neut)} soci\u00e9t\u00e9{'s' if len(neut) != 1 else ''}", neut),
+        (f"  \u25b8  SOUS-POND\u00c9RER  \u00b7  {len(sous)} soci\u00e9t\u00e9{'s' if len(sous) != 1 else ''}", sous),
+    ]
+
+    for group_label, group_list in groups:
+        if not group_list:
+            continue
+        ws.cell(row=current_row, column=2).value = group_label
+        current_row += 1
+        for t in group_list:
+            _write_tech_row(ws, current_row, rank, t)
+            rank += 1
+            current_row += 1
+        current_row += 1  # ligne vide entre groupes
+
+    # --- Note valeurs negatives ---
+    note_row = current_row + 1
+    ws.cell(row=note_row, column=2).value = (
+        "(*) Une valeur n\u00e9gative est r\u00e9elle (ex : ND/EBITDA < 0 = tr\u00e9sorerie nette, "
+        "Altman Z < 0 = d\u00e9tresse, Mom. 52S < 0 = tendance baissi\u00e8re)."
+        "  \u2014  = donn\u00e9e non disponible."
+    )
+
+    # --- Tables laterales (cols 18-30, rows 2 a n+1) ---
+    sig_count = {
+        "Surpond\u00e9rer":  len(surp),
+        "Neutre":             len(neut),
+        "Sous-pond\u00e9rer": len(sous),
+    }
+
+    # Effacement (rows 2-100)
+    for r in range(2, 101):
+        for c in [18, 19, 21, 22, 24, 25, 26, 27, 29, 30]:
+            ws.cell(row=r, column=c).value = None
+
+    for i, t in enumerate(sorted_data):
+        r = 2 + i
+        sig = _signal(t.get("score_global"))
+        ws.cell(row=r, column=18).value = t.get("ticker", "")
+        ws.cell(row=r, column=19).value = t.get("score_global")
+        ws.cell(row=r, column=21).value = sig
+        ws.cell(row=r, column=22).value = sig_count.get(sig, "")
+        ws.cell(row=r, column=24).value = t.get("ticker", "")
+        ws.cell(row=r, column=25).value = t.get("score_growth")
+        ws.cell(row=r, column=26).value = t.get("score_quality")
+        ws.cell(row=r, column=27).value = t.get("score_momentum")
+        ws.cell(row=r, column=29).value = t.get("ticker", "")
+        em = t.get("ebitda_margin")
+        ws.cell(row=r, column=30).value = round(em, 1) if em is not None else None
+
+    log.debug("[inject v4] TECHNOLOGY : %d tickers, %d Surp / %d Neut / %d Sous",
+              n, len(surp), len(neut), len(sous))
+
+
+# ===========================================================================
 # FEUILLES FROM-SCRATCH (fallback si template absent)
 # ===========================================================================
 
@@ -1310,7 +1467,7 @@ class ScreeningWriter:
     tickers_data : liste de dicts avec les champs definis dans le brief.
     """
 
-    _DEFAULT_TEMPLATE = "assets/FinSight_IA_Screening_CAC40_v3.xlsx"
+    _DEFAULT_TEMPLATE = "assets/FinSight_IA_Screening_v4.xlsx"
 
     @staticmethod
     def generate(
@@ -1351,17 +1508,26 @@ class ScreeningWriter:
         print(f"[ScreeningWriter] template_path arg={template_path!r}", flush=True)
 
         if tpl.exists():
-            log.info("[ScreeningWriter] Mode template : %s", tpl.name)
+            log.info("[ScreeningWriter] Mode template v4 : %s", tpl.name)
             wb = load_workbook(str(tpl), keep_links=False, data_only=False)
 
+            # v4 : DASHBOARD/VALUE/GROWTH/QUALITY/MOMENTUM sont formule-driven
+            # (XLOOKUP sur DONNEES BRUTES) — on injecte seulement les donnees brutes
+            # et la feuille TECHNOLOGY, puis on met a jour la date.
             _inject_donnees_brutes(wb, tickers_data)
-            _inject_dashboard(wb, tickers_data, universe_name, date_str)
-            _inject_value(wb, tickers_data)
-            _inject_growth(wb, tickers_data)
-            _inject_quality(wb, tickers_data)
-            _inject_momentum(wb, tickers_data)
-            _inject_par_secteur(wb, tickers_data)
-            _inject_sector_sheets(wb, tickers_data)
+            _inject_technology_v4(wb, tickers_data)
+            _inject_date_dashboard(wb, date_str)
+
+            # Compatibilite : si le template est encore l'ancien (v3), utiliser
+            # les anciens injecteurs en plus
+            if "PAR SECTEUR" in wb.sheetnames:
+                _inject_dashboard(wb, tickers_data, universe_name, date_str)
+                _inject_value(wb, tickers_data)
+                _inject_growth(wb, tickers_data)
+                _inject_quality(wb, tickers_data)
+                _inject_momentum(wb, tickers_data)
+                _inject_par_secteur(wb, tickers_data)
+                _inject_sector_sheets(wb, tickers_data)
 
         else:
             log.warning(
