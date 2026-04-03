@@ -1599,13 +1599,17 @@ def _s17_risques(prs, D):
         tbl_data.append([_AXIS_NORM.get(ax, ax), cond, hor])
 
     n_rows = len(tbl_data)
-    _add_table(slide, tbl_data, 0.9, 6.8, 23.6, n_rows * 0.62,
+    # Cap table height pour laisser 2.9 cm a la section sante financiere (titre + boites)
+    _HEALTH_H = 2.9   # titre 0.55 + gap 0.6 + boite 1.75
+    _TABLE_Y  = 6.8
+    _FOOTER_Y = 13.5
+    _tbl_h = min(n_rows * 0.62, _FOOTER_Y - _HEALTH_H - _TABLE_Y - 0.4)
+    _add_table(slide, tbl_data, 0.9, _TABLE_Y, 23.6, _tbl_h,
                col_widths=[3.5, 16.5, 3.6],
                font_size=8, header_size=8, alt_fill=_GRAYL)
 
     # ── Sante financiere agregee du secteur ─────────────────────────────────
-    # Position dynamique sous la table (plancher a 10.5cm, plafond 13.0cm)
-    health_y = min(max(6.8 + n_rows * 0.62 + 0.4, 10.5), 11.2)
+    health_y = round(_TABLE_Y + _tbl_h + 0.4, 2)
     td = D["tickers_data"]
 
     def _median(vals):
@@ -1654,16 +1658,16 @@ def _s17_risques(prs, D):
         (fcf_str, "FCF Yield median",  "generation cash",  fcf_col, 9.1),
         (sg_str,  "Score sante moyen", "solidite bilans",  sg_col,  17.3),
     ]
-    box_h = 1.55
+    box_h = 1.75
     for val, l1, l2, col, bx in metrics:
         _rect(slide, bx, health_y + 0.6, box_w, box_h, fill=_GRAYL)
         _rect(slide, bx, health_y + 0.6, 0.1,   box_h, fill=col)
-        _txb(slide, val, bx + 0.25, health_y + 0.65, box_w - 0.35, 0.75,
-             size=18, bold=True, color=_NAVY)
-        _txb(slide, l1, bx + 0.25, health_y + 1.4, box_w - 0.35, 0.4,
-             size=7.5, color=_GRAYT)
-        _txb(slide, l2, bx + 0.25, health_y + 1.8, box_w - 0.35, 0.35,
-             size=7.0, color=_GRAYD)
+        _txb(slide, val, bx + 0.25, health_y + 0.65, box_w - 0.35, 0.85,
+             size=20, bold=True, color=_NAVY)
+        _txb(slide, l1, bx + 0.25, health_y + 1.55, box_w - 0.35, 0.4,
+             size=8, color=_GRAYT)
+        _txb(slide, l2, bx + 0.25, health_y + 1.95, box_w - 0.35, 0.35,
+             size=7.5, color=_GRAYD)
 
     _footer(slide)
 

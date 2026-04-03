@@ -642,9 +642,22 @@ def _enrich_realtime(ticker: str, cache_info: dict) -> dict:
         info = f_info.result()
         hist = f_hist.result()
 
-        extra["price"]  = info.get("currentPrice") or info.get("regularMarketPrice")
-        extra["shares"] = info.get("sharesOutstanding")
-        extra["beta"]   = info.get("beta")
+        price = info.get("currentPrice") or info.get("regularMarketPrice")
+        # Fallback price : fast_info -> history si info ne retourne pas de prix
+        if not price:
+            try:
+                fi = tk.fast_info
+                price = getattr(fi, "last_price", None) or getattr(fi, "lastPrice", None)
+            except Exception:
+                pass
+        if not price and hist is not None and not hist.empty:
+            try:
+                price = round(float(hist["Close"].iloc[-1]), 2)
+            except Exception:
+                pass
+        extra["price"]  = price
+        extra["shares"] = info.get("sharesOutstanding") or info.get("impliedSharesOutstanding")
+        extra["beta"]   = info.get("beta") or 1.0
         extra["_info"]  = info
         extra["_hist"]  = hist
 
