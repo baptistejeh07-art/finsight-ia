@@ -761,6 +761,11 @@ def compute_ticker(ticker: str, cache_row: Optional[dict]) -> Optional[dict]:
     ev_revenue= round(ev / revenue_ltm, 1) if (ev and revenue_ltm and revenue_ltm > 0) else None
     eps       = round(net_income / shares, 2) if (net_income and shares and shares > 0) else None
     pe        = round(float(price) / eps, 1) if (price and eps and eps > 0) else None
+    # Fallback P/E : trailingPE direct depuis yfinance (valide pour earnings positifs/negatifs)
+    if pe is None:
+        _yf_pe = info.get("trailingPE")
+        if _yf_pe and 1.0 < float(_yf_pe) < 1000:
+            pe = round(float(_yf_pe), 1)
 
     # --- Marges ---
     gross_margin  = round(gross_profit / revenue0 * 100, 1) if (gross_profit and revenue0) else None

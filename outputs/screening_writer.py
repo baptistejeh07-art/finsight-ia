@@ -363,7 +363,7 @@ def _inject_donnees_brutes(wb, data: list[dict]) -> None:
     ws = wb[ws_name]
     ccy = _dominant_ccy(data)
 
-    for i, t in enumerate(data[:40]):
+    for i, t in enumerate(data[:100]):
         r = 3 + i
         tccy = t.get("currency", ccy) or ccy
         sg = t.get("score_global")
@@ -808,6 +808,14 @@ def _inject_sector_sheets(wb, data: list[dict]) -> None:
         _v(ws, 4, 10, best.get("company", ""))      # J4
         _v(ws, 4, 13, _fmt_mult(med_ev))            # M4
 
+        # Demerge les cellules fusionnees dans la zone du tableau (ex: header "RATIOS" a row 18)
+        # sinon les _v() redirigent toutes vers la cellule master et ecrasent les valeurs
+        n_rows_needed = len(sorted_tlist)
+        rows_to_clear = set(range(9, 9 + n_rows_needed))
+        for mr in list(ws.merged_cells.ranges):
+            if rows_to_clear.intersection(range(mr.min_row, mr.max_row + 1)):
+                ws.unmerge_cells(str(mr))
+
         # Tableau detaille a partir de A9 (16 colonnes)
         for i, t in enumerate(sorted_tlist):
             r = 9 + i
@@ -833,12 +841,15 @@ def _inject_sector_sheets(wb, data: list[dict]) -> None:
             for j, v in enumerate(vals, 1):
                 _v(ws, r, j, v)
 
-        # Tableau ratios
-        # ticker_row = ligne des en-tetes tickers (A col = label deja dans template)
-        # valeurs a partir de ticker_row + 1
+        # Tableau ratios (tickers en colonnes) — uniquement si peu de tickers
+        # Au-dela de 15 tickers, la matrice (tickers=colonnes) ne tient pas en largeur
         ticker_row = _RATIO_TICKER_ROW.get(sheet_name, 18)
         n = len(sorted_tlist)
         med_col = 2 + n  # colonne mediane (tickers en B=2..col 2+n-1)
+
+        if n > 15:
+            log.debug("[inject] %s : %d tickers — ratio matrix ignoree (> 15)", sheet_name, n)
+            continue
 
         # Tickers en B..Bn
         for j, t in enumerate(sorted_tlist, 2):
