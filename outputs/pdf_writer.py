@@ -1279,13 +1279,13 @@ def _build_valorisation(ff_buf, pie_buf, mc_buf, data):
         mc_rows = [
             [Paragraph("P10 (cas pessimiste)", S_TD_L),
              Paragraph(f"<b>{_fr(mc_p10, 0)}\u00a0{cur}</b>", S_TD_BC),
-             Paragraph("9 simulations sur 10 donnent une valeur superieure", S_TD_L)],
+             Paragraph("9 simulations sur 10 donnent une valeur supérieure", S_TD_L)],
             [Paragraph("P50 \u2014 mediane", S_TD_BC),
              Paragraph(f"<b>{_fr(mc_p50, 0)}\u00a0{cur}</b>", S_TD_BC),
              Paragraph("Valeur centrale stochastique", S_TD_L)],
             [Paragraph("P90 (cas optimiste)", S_TD_L),
              Paragraph(f"<b>{_fr(mc_p90, 0)}\u00a0{cur}</b>", S_TD_BC),
-             Paragraph("9 simulations sur 10 donnent une valeur inferieure", S_TD_L)],
+             Paragraph("9 simulations sur 10 donnent une valeur inférieure", S_TD_L)],
         ]
         _mc_tbl = tbl([mc_h] + mc_rows, cw=[52*mm, 36*mm, 82*mm])
         _PASTEL_BLUE = colors.HexColor('#C8D8F0')
@@ -1383,7 +1383,7 @@ def _build_extra_risk_scores(elems: list, data: dict):
         return
 
     elems.append(KeepTogether([
-        debate_q("Quels sont les niveaux de risque systemique et d\u2019attractivite M&A ?"),
+        debate_q("Quels sont les niveaux de risque systemique et d\u2019attractivité M&A ?"),
         Spacer(1, 2*mm),
     ]))
 
@@ -1432,7 +1432,7 @@ def _build_extra_risk_scores(elems: list, data: dict):
             signals = ma.get('signals', [])
             ma_interp = " \u00b7 ".join(signals[:2]) if signals else "Cf. ratios FCF/levier/valorisation"
             scoring_rows.append([
-                Paragraph("Attractivite Cible M&A", S_TD_B),
+                Paragraph("Attractivité Cible M&A", S_TD_B),
                 Paragraph(f"<b>{m_score}</b>", ParagraphStyle('ms', fontName='Helvetica-Bold',
                     fontSize=9, textColor=m_col, leading=12, alignment=1)),
                 Paragraph(f"<b>{m_label}</b>", ParagraphStyle('ml', fontName='Helvetica-Bold',
@@ -1449,7 +1449,7 @@ def _build_extra_risk_scores(elems: list, data: dict):
             eq_bm    = eq.get('bm_alert')
             eq_full  = _safe(eq_sig + (f' | {eq_bm}' if eq_bm else ''))
             scoring_rows.append([
-                Paragraph("Qualite des earnings", S_TD_B),
+                Paragraph("Qualité des earnings", S_TD_B),
                 Paragraph(f"<b>{eq_cc:.2f}x</b>", ParagraphStyle('eqs', fontName='Helvetica-Bold',
                     fontSize=9, textColor=eq_col, leading=12, alignment=1)),
                 Paragraph(f"<b>{eq_label}</b>", ParagraphStyle('eql', fontName='Helvetica-Bold',
@@ -1478,7 +1478,7 @@ def _build_extra_risk_scores(elems: list, data: dict):
             src_parts = [
                 "Composite Distress : Altman Z (40%) + Beneish M (35%) + indicateurs bilan (25%). Score 0-100.",
                 "M&A Score : FCF yield, levier, valorisation vs secteur, croissance.",
-                "Qualite earnings : FCF/NI (>= 1.0x = excellente, < 0.4x = faible).",
+                "Qualité earnings : FCF/NI (>= 1.0x = excellente, < 0.4x = faible).",
             ]
             if has_div:
                 src_parts.append("Dividende : couverture FCF/dividendes verses.")
@@ -1511,7 +1511,7 @@ def _build_extra_risk_scores(elems: list, data: dict):
             }
             reg_col = _REGIME_COLORS.get(regime, BLACK)
             macro_rows.append([
-                Paragraph("Regime de marche", S_TD_B),
+                Paragraph("Régime de marche", S_TD_B),
                 Paragraph(f"<b>{regime}</b>", ParagraphStyle('rg', fontName='Helvetica-Bold',
                     fontSize=9, textColor=reg_col, leading=12, alignment=1)),
                 Paragraph(f"{vix_str}  \u00b7  {spread_str}", S_TD_L),
@@ -1548,7 +1548,7 @@ def _build_extra_risk_scores(elems: list, data: dict):
             r_str   = f"Roll spread : {roll:.3f}%" if roll else '—'
             hl_str  = f"H/L spread : {hl:.2f}%" if hl else '—'
             macro_rows.append([
-                Paragraph("Liquidite de marche", S_TD_B),
+                Paragraph("Liquidité de marche", S_TD_B),
                 Paragraph(liq_lbl, S_TD_C),
                 Paragraph(f"{a_str}  \u00b7  {r_str}  \u00b7  {hl_str}", S_TD_L),
             ])
@@ -1557,10 +1557,10 @@ def _build_extra_risk_scores(elems: list, data: dict):
             elems.append(tbl([macro_h] + macro_rows,
                               cw=[42*mm, 30*mm, 98*mm]))
             src_parts2 = [
-                "Regime : VIX + spread 10Y-3M + position S&P 500 vs MA200.",
+                "Régime : VIX + spread 10Y-3M + position S&P 500 vs MA200.",
                 "Recession : indicateur de marche, non econometrique.",
                 "Structure dette : proportion dette court terme / dette totale (seuil risque : > 40% CT).",
-                "Liquidite : ratio Amihud (|ret|/vol$), Roll spread, proxy H/L.",
+                "Liquidité : ratio Amihud (|ret|/vol$), Roll spread, proxy H/L.",
                 "Source : FinSight IA / yfinance.",
             ]
             elems.append(src(" ".join(src_parts2)))
@@ -1647,7 +1647,7 @@ def _build_risques(data):
         "Corpus : presse financi\u00e8re anglophone, 7 jours.")))
     elems.append(Spacer(1, 4*mm))
 
-    # Zone d'entree optimale (Chantier 3)
+    # Zone d'entrée optimale (Chantier 3)
     ez_conds   = data.get('entry_zone_conditions') or []
     ez_sat     = data.get('entry_zone_satisfied_count')
     ez_all_met = data.get('entry_zone_all_met', False)
@@ -2939,7 +2939,7 @@ class PDFWriter:
             'dcf_mc_n_sim':(ratios.meta.get('dcf_mc_n_sim')   if ratios and getattr(ratios, 'meta', None) else None),
             'mc_dist':     (ratios.meta.get('mc_dist')      if ratios and getattr(ratios, 'meta', None) else None) or [],
 
-            # Zone d'entree (Chantier 3)
+            # Zone d'entrée (Chantier 3)
             'entry_zone_conditions': (
                 [{'name': getattr(c, 'label', getattr(c, 'name', '')),
                   'satisfied': getattr(c, 'satisfied', False),

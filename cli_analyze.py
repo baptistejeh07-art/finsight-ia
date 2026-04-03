@@ -1015,9 +1015,9 @@ def _make_test_indice_data(universe: str = "S&P 500") -> dict:
 
     # (nom, nb_soc, score, signal, ev_ebitda_str, ebitda_margin, croisse_str, mom_str)
     secteurs = [
-        ("Technology",             65, 72, "Surponderer",   "24.8x", 28.4, "+14.2%", "+18.4%"),
-        ("Health Care",            64, 65, "Surponderer",   "14.2x", 22.1, "+9.8%",  "+8.4%"),
-        ("Financials",             72, 62, "Surponderer",   "9.8x",  31.2, "+11.4%", "+12.1%"),
+        ("Technology",             65, 72, "Surpondérer",   "24.8x", 28.4, "+14.2%", "+18.4%"),
+        ("Health Care",            64, 65, "Surpondérer",   "14.2x", 22.1, "+9.8%",  "+8.4%"),
+        ("Financials",             72, 62, "Surpondérer",   "9.8x",  31.2, "+11.4%", "+12.1%"),
         ("Communication Services", 26, 58, "Neutre",        "12.6x", 24.6, "+10.1%", "+9.2%"),
         ("Consumer Discretionary", 55, 55, "Neutre",        "16.4x", 14.8, "+8.2%",  "+6.8%"),
         ("Industrials",            77, 53, "Neutre",        "14.8x", 16.2, "+6.8%",  "+5.4%"),
@@ -1030,45 +1030,45 @@ def _make_test_indice_data(universe: str = "S&P 500") -> dict:
     import statistics
     scores = [s[2] for s in secteurs]
     avg_score = round(statistics.mean(scores), 1)
-    nb_surp = sum(1 for s in secteurs if s[3] == "Surponderer")
+    nb_surp = sum(1 for s in secteurs if s[3] == "Surpondérer")
     conviction = round(nb_surp / len(secteurs) * 100)
-    signal_global = ("Surponderer" if avg_score > 62 else
+    signal_global = ("Surpondérer" if avg_score > 62 else
                      ("Sous-ponderer" if avg_score < 45 else "Neutre"))
 
     top3_secteurs = [
         {
-            "nom": "Technology", "signal": "Surponderer", "score": 72,
+            "nom": "Technology", "signal": "Surpondérer", "score": 72,
             "ev_ebitda": "24.8x", "pe_forward_raw": 28.5, "pe_mediane_10y": 22.0,
             "poids_indice": "31.5%",
             "catalyseur": "Cycle IA — CAPEX hyperscalers +35% YoY, monetisation acceleree",
             "risque": "Valorisations tendues si taux LT restent eleves",
             "societes": [
-                ("AAPL", "Surponderer", "22.4x", 78),
-                ("MSFT", "Surponderer", "28.6x", 75),
-                ("NVDA", "Surponderer", "42.8x", 82),
+                ("AAPL", "Surpondérer", "22.4x", 78),
+                ("MSFT", "Surpondérer", "28.6x", 75),
+                ("NVDA", "Surpondérer", "42.8x", 82),
             ],
         },
         {
-            "nom": "Health Care", "signal": "Surponderer", "score": 65,
+            "nom": "Health Care", "signal": "Surpondérer", "score": 65,
             "ev_ebitda": "14.2x", "pe_forward_raw": 17.8, "pe_mediane_10y": 16.5,
             "poids_indice": "12.8%",
             "catalyseur": "Pipeline FDA robuste, pricing power defensif intact",
             "risque": "Risque reglementaire US — pression politique sur prix medicaments",
             "societes": [
-                ("UNH", "Surponderer", "10.8x", 72),
-                ("LLY", "Surponderer", "28.4x", 80),
+                ("UNH", "Surpondérer", "10.8x", 72),
+                ("LLY", "Surpondérer", "28.4x", 80),
                 ("JNJ", "Neutre",      "12.6x", 62),
             ],
         },
         {
-            "nom": "Financials", "signal": "Surponderer", "score": 62,
+            "nom": "Financials", "signal": "Surpondérer", "score": 62,
             "ev_ebitda": "9.8x", "pe_forward_raw": 13.2, "pe_mediane_10y": 12.8,
             "poids_indice": "13.2%",
             "catalyseur": "Spreads de credit solides, NIM eleves, buybacks soutenus",
             "risque": "Stress immobilier commercial — CRE loans sous surveillance",
             "societes": [
-                ("JPM", "Surponderer", "8.4x",  70),
-                ("BLK", "Surponderer", "14.2x", 68),
+                ("JPM", "Surpondérer", "8.4x",  70),
+                ("BLK", "Surpondérer", "14.2x", 68),
                 ("GS",  "Neutre",      "9.8x",  60),
             ],
         },
@@ -1083,9 +1083,9 @@ def _make_test_indice_data(universe: str = "S&P 500") -> dict:
         ("Industrials",            "Expansion",  "Moderee",  "Elevee",   "Neutre"),
         ("Consumer Staples",       "Ralentissement","Faible", "Faible",  "Neutre"),
         ("Materials",              "Expansion",  "Moderee",  "Elevee",   "Neutre"),
-        ("Energy",                 "Ralentissement","Faible", "Moderee", "Alleger"),
-        ("Real Estate",            "Ralentissement","Elevee", "Moderee", "Alleger"),
-        ("Utilities",              "Ralentissement","Elevee", "Faible",  "Alleger"),
+        ("Energy",                 "Ralentissement","Faible", "Moderee", "Alléger"),
+        ("Real Estate",            "Ralentissement","Elevee", "Moderee", "Alléger"),
+        ("Utilities",              "Ralentissement","Elevee", "Faible",  "Alléger"),
     ]
 
     etf_perf = {
@@ -1128,50 +1128,50 @@ def _make_test_indice_data(universe: str = "S&P 500") -> dict:
             "L'environnement macro reste marque par une resilience de la croissance americaine "
             "(GDP +2.4% T4 2025) combinee a une desinflation graduelle (PCE Core 2.7%). La "
             "Fed maintient ses taux directeurs dans une fourchette de 4.25-4.50%, signalant "
-            "2 baisses anticipees pour 2026. Le marche du travail reste solide (chomage 4.1%), "
+            "2 baisses anticipées pour 2026. Le marché du travail reste solide (chômage 4.1%), "
             "soutenant la consommation et les marges des secteurs cycliques. Les tensions "
-            "geopolitiques et les risques tarifaires constituent les principaux facteurs "
+            "géopolitiques et les risques tarifaires constituent les principaux facteurs "
             "d'incertitude sur l'horizon 12 mois."
         ),
         "texte_signal": (
             f"Le signal global sur le {universe} est {signal_global} avec une conviction de "
             f"{conviction}% (sur la base des {len(secteurs)} secteurs analyses). "
-            f"{nb_surp} secteurs ressortent Surponderer — Technology, Health Care et Financials "
-            "— portes respectivement par le cycle IA, le pricing power defensif et les spreads "
-            "de credit eleves. 6 secteurs sont Neutre en raison d'une visibilite limitee sur "
+            f"{nb_surp} secteurs ressortent Surpondérer — Technology, Health Care et Financials "
+            "— portés respectivement par le cycle IA, le pricing power défensif et les spreads "
+            "de crédit élevés. 6 secteurs sont Neutre en raison d'une visibilité limitée sur "
             "les BPA dans un contexte de taux restrictifs. 2 secteurs (Real Estate, Utilities) "
-            "sont Sous-ponderer sous pression directe de la politique monetaire."
+            "sont Sous-pondérer sous pression directe de la politique monétaire."
         ),
         "texte_valorisation": (
-            f"Le P/E Forward a 21.5x s'inscrit en prime de 18% par rapport a la mediane 10 ans "
-            "(18.2x), justifie en partie par la monetisation de l'IA et la qualite superieure "
-            "des marges. L'ERP ressort a 4.2% — niveau attractif mais contraint par le 10Y US "
-            "a 4.3%. La compression de multiple reste le principal risque si les taux LT "
-            "demeurent restrictifs. Le secteur Technologie (P/E 28.5x vs mediane 22x) concentre "
+            f"Le P/E Forward à 21.5x s'inscrit en prime de 18% par rapport à la médiane 10 ans "
+            "(18.2x), justifié en partie par la monétisation de l'IA et la qualité supérieure "
+            "des marges. L'ERP ressort à 4.2% — niveau attractif mais contraint par le 10Y US "
+            "à 4.3%. La compression de multiple reste le principal risque si les taux LT "
+            "demeurent restrictifs. Le secteur Technologie (P/E 28.5x vs médiane 22x) concentre "
             "la prime de valorisation."
         ),
         "texte_cycle": (
-            "L'analyse des indicateurs avancees positionne le cycle en phase d'expansion avancee : "
-            "ISM Manufacturier autour du seuil 50 (49.8), courbe des taux partiellement normalisee "
-            "(10Y-2Y +0.2%), Leading Indicators OCDE en legere hausse. Cette configuration "
-            "favorise les secteurs avec forte visibilite BPA et moindre sensibilite aux taux : "
-            "Technology, Health Care, Financials. Les secteurs defensifs (Consumer Staples, "
-            "Utilities) offrent moins de potentiel relatif dans ce regime de cycle."
+            "L'analyse des indicateurs avancées positionne le cycle en phase d'expansion avancée : "
+            "ISM Manufacturier autour du seuil 50 (49.8), courbe des taux partiellement normalisée "
+            "(10Y-2Y +0.2%), Leading Indicators OCDE en légère hausse. Cette configuration "
+            "favorise les secteurs avec forte visibilité BPA et moindre sensibilité aux taux : "
+            "Technology, Health Care, Financials. Les secteurs défensifs (Consumer Staples, "
+            "Utilities) offrent moins de potentiel relatif dans ce régime de cycle."
         ),
         "texte_rotation": (
             "La rotation sectorielle recommandee s'appuie sur le modele cycle 4-phases FinSight. "
-            "En phase d'expansion avancee, le signal Accumuler se concentre sur les secteurs a "
+            "En phase d'expansion avancée, le signal Accumuler se concentre sur les secteurs a "
             "forte croissance BPA et pricing power : Technology (IA), Health Care (FDA pipeline), "
-            "Financials (NIM). Le signal Alleger cible Real Estate (pression taux directe) et "
+            "Financials (NIM). Le signal Alléger cible Real Estate (pression taux directe) et "
             "Utilities (compression de dividende relatif). Un pivot Fed dovish constituerait "
             "le principal catalyseur de rotation vers les secteurs sensibles aux taux."
         ),
-        "phase_cycle":  "Expansion avancee",
-        "cycle_detail": "Milieu-fin de cycle — ISM proche 50, courbe taux normalisee",
+        "phase_cycle":  "Expansion avancée",
+        "cycle_detail": "Milieu-fin de cycle — ISM proche 50, courbe taux normalisée",
         "fred_signals": [
             {"nom": "PMI Manufacturier",  "valeur": "49.8", "tendance": "Stable",  "signal": "Neutre"},
             {"nom": "10Y - 2Y (courbe)",  "valeur": "+0.18%","tendance": "Hausse", "signal": "Neutre"},
-            {"nom": "ISM Services",       "valeur": "52.6", "tendance": "Hausse",  "signal": "Surponderer"},
+            {"nom": "ISM Services",       "valeur": "52.6", "tendance": "Hausse",  "signal": "Surpondérer"},
             {"nom": "Taux chomage",       "valeur": "4.1%", "tendance": "Stable",  "signal": "Neutre"},
             {"nom": "CPI Core YoY",       "valeur": "3.1%", "tendance": "Baisse",  "signal": "Neutre"},
         ],
@@ -1234,7 +1234,7 @@ def _make_test_indice_data(universe: str = "S&P 500") -> dict:
         },
         "methodologie": [
             ("Score FinSight",   "Composite 0-100 : valeur 25, croissance 25, qualite 25, momentum 25"),
-            ("Signal indice",    "Score agrege secteurs : >60 Surponderer / 40-60 Neutre / <40 Sous-ponderer"),
+            ("Signal indice",    "Score agrege secteurs : >60 Surpondérer / 40-60 Neutre / <40 Sous-ponderer"),
             ("Conviction",       "% secteurs en accord avec le signal global (surponderes / total)"),
             ("EV/EBITDA",        "Mediane LTM des 5 premiers titres par capitalisation de chaque secteur"),
             ("P/E Mediane 10Y",  "Bloomberg Consensus — comparaison avec P/E Forward actuel"),
@@ -1342,7 +1342,7 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
 
     # 3. Secteurs — signal derive du return ETF
     def _signal_from_ret(ret: float) -> str:
-        if ret > 12: return "Surponderer"
+        if ret > 12: return "Surpondérer"
         if ret < -2: return "Sous-ponderer"
         return "Neutre"
 
@@ -1470,7 +1470,7 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
                         # Signal analyste
                         _rec     = _inf.get("recommendationKey", "") or ""
                         _signal_map = {
-                            "strongBuy": "Surponderer", "buy": "Surponderer",
+                            "strongBuy": "Surpondérer", "buy": "Surpondérer",
                             "hold": "Neutre", "underperform": "Sous-ponderer",
                             "sell": "Sous-ponderer",
                         }
@@ -1538,7 +1538,7 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
                         key=lambda kv: -sum(m["score_raw"] for m in kv[1]) / len(kv[1])):
                     _nb = len(_mems)
                     _sc = round(sum(m["score_raw"] for m in _mems) / _nb)
-                    _sig = ("Surponderer" if _sc >= 60
+                    _sig = ("Surpondérer" if _sc >= 60
                             else ("Sous-ponderer" if _sc < 40 else "Neutre"))
                     _ev_v = [m["ev_ebitda"] for m in _mems
                              if m.get("ev_ebitda") and 0.5 < m["ev_ebitda"] < 100]
@@ -1773,9 +1773,9 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
     import statistics
     scores = [s[2] for s in secteurs]
     avg_score = round(statistics.mean(scores), 1)
-    nb_surp = sum(1 for s in secteurs if s[3] == "Surponderer")
+    nb_surp = sum(1 for s in secteurs if s[3] == "Surpondérer")
     conviction = round(nb_surp / len(secteurs) * 100) if secteurs else 50
-    signal_global = ("Surponderer" if avg_score > 62 else
+    signal_global = ("Surpondérer" if avg_score > 62 else
                      ("Sous-ponderer" if avg_score < 45 else "Neutre"))
 
     # Top 3 secteurs : les 3 avec meilleur return ETF (S&P 500) ou score constituants (EU)
@@ -1789,7 +1789,7 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
         # Tickers representatifs
         soc_tickers = (_get_real_tickers(nom, universe) or
                        _get_real_tickers(nom, "S&P 500"))[:3]
-        societes = [(tk, "Surponderer" if sig == "Surponderer" else "Neutre", "—", sc - i*3)
+        societes = [(tk, "Surpondérer" if sig == "Surpondérer" else "Neutre", "—", sc - i*3)
                     for tk in soc_tickers]
         top3_secteurs.append({
             "nom": nom, "signal": sig, "score": sc,
@@ -1834,11 +1834,11 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
     # Base test pour les champs sans source temps reel
     base = _make_test_indice_data(universe)
     # Regenerer texte_signal coherent avec le signal reel
-    noms_surp = [s[0] for s in secteurs if s[3] == "Surponderer"][:3]
+    noms_surp = [s[0] for s in secteurs if s[3] == "Surpondérer"][:3]
     texte_signal_reel = (
         f"Le signal global sur le {universe} est {signal_global} avec une conviction de "
         f"{conviction}% (sur la base des {len(secteurs)} secteurs analyses). "
-        f"{nb_surp} secteur(s) ressortent Surponderer — {', '.join(noms_surp) or 'aucun'} "
+        f"{nb_surp} secteur(s) ressortent Surpondérer — {', '.join(noms_surp) or 'aucun'} "
         f"— portes par leur momentum positif 52 semaines. "
         f"{len(secteurs) - nb_surp - sum(1 for s in secteurs if s[3] == 'Sous-ponderer')} secteurs "
         f"sont Neutre et {sum(1 for s in secteurs if s[3] == 'Sous-ponderer')} en Sous-ponderer."
@@ -1932,7 +1932,7 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
             log.info("LLM texte indice OK (%s, %d chars)", universe, len(_resp_llm))
     except Exception as _llm_ex:
         log.warning("LLM texte indice erreur: %s -- fallback f-string", _llm_ex)
-        _f_surp = [s[0] for s in secteurs if s[3] == "Surponderer"]
+        _f_surp = [s[0] for s in secteurs if s[3] == "Surpondérer"]
         _f_sous = [s[0] for s in secteurs if s[3] == "Sous-ponderer"]
         base["texte_macro"] = (
             f"L'{universe} affiche une performance YTD de {ytd_str} dans un contexte "
@@ -1946,13 +1946,13 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
         )
         base["catalyseurs"] = [
             (_f_surp[0] if _f_surp else "Momentum sectoriel",
-             f"Secteur leader sur 52 semaines avec signal Surponderer confirme par le score composite.",
+             f"Secteur leader sur 52 semaines avec signal Surpondérer confirme par le score composite.",
              "6-12 mois"),
             ("Prime de risque",
              f"ERP a {erp_pct} — attractivite relative des actions versus les obligations maintenue.",
              "3-6 mois"),
             ("Conviction allocataire",
-             f"{conviction}% de conviction Surponderer sur {len(secteurs)} secteurs analyses par FinSight.",
+             f"{conviction}% de conviction Surpondérer sur {len(secteurs)} secteurs analyses par FinSight.",
              "6-18 mois"),
         ]
         base["risques"] = [
@@ -1963,7 +1963,7 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
              f"Remontee du 10 ans au-dela de {rf_pct_str} — compression des multiples de valorisation.",
              "15 %", "MODERE"),
             ("Pression sectorielle",
-             f"Sous-performance de {_f_sous[0] if _f_sous else 'secteurs defensifs'} — rotation defensive.",
+             f"Sous-performance de {_f_sous[0] if _f_sous else 'secteurs défensifs'} — rotation defensive.",
              "15 %", "MODERE"),
         ]
 

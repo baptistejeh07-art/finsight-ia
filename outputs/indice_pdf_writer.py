@@ -257,7 +257,7 @@ def make_scatter_sectoriel(data):
     _unit = '%' if use_mg else 'x'
     ax.text(_x_ann, med_y * 1.02 + 0.5,
             f'{y_med_label} ({med_y:.1f}{_unit})', fontsize=9, color='#999', style='italic')
-    ax.set_xlabel('Croissance BPA mediane (%)', fontsize=11, color='#555')
+    ax.set_xlabel('Croissance BPA médiane (%)', fontsize=11, color='#555')
     ax.set_ylabel(y_label, fontsize=11, color='#555')
     for sp in ['top','right']: ax.spines[sp].set_visible(False)
     ax.spines['left'].set_color('#D0D5DD'); ax.spines['bottom'].set_color('#D0D5DD')
@@ -690,25 +690,25 @@ def _build_synthese(data, perf_buf, registry=None):
         _pe_pct = max(0, min(100, round((_pe_val - _pe_min) / max(_pe_max - _pe_min, 1) * 100)))
         if _pe_pct >= 75:
             _pe_pos, _pe_pos_s = "Cherte elevee", S_TD_R
-            _pe_interp = (f"Le P/E forward de {_pe_val:.1f}x se situe dans le <b>quartile superieur</b> "
+            _pe_interp = (f"Le P/E forward de {_pe_val:.1f}x se situe dans le <b>quartile supérieur</b> "
                           f"de sa fourchette historique 10 ans ({_pe_min:.0f}x\u2013{_pe_max:.0f}x). "
                           f"La valorisation intègre une croissance des benefices soutenue ; "
                           f"tout choc sur les marges ou la guidance pourrait triggerer une recompression multiple.")
         elif _pe_pct >= 50:
             _pe_pos, _pe_pos_s = "Valorisation elevee", S_TD_A
-            _pe_interp = (f"Le P/E forward de {_pe_val:.1f}x s'inscrit <b>au-dessus de la mediane historique</b> "
+            _pe_interp = (f"Le P/E forward de {_pe_val:.1f}x s'inscrit <b>au-dessus de la médiane historique</b> "
                           f"({_pe_min:.0f}x\u2013{_pe_max:.0f}x). La prime de valorisation est justifiable "
                           f"si la visibilite BPA reste intacte. Surveiller les revisions d'analystes.")
         elif _pe_pct >= 25:
             _pe_pos, _pe_pos_s = "Valorisation raisonnable", S_TD_G
-            _pe_interp = (f"Le P/E forward de {_pe_val:.1f}x s'inscrit <b>dans la moitie inferieure</b> "
+            _pe_interp = (f"Le P/E forward de {_pe_val:.1f}x s'inscrit <b>dans la moitié inférieure</b> "
                           f"de la fourchette historique ({_pe_min:.0f}x\u2013{_pe_max:.0f}x). "
                           f"La valorisation offre un coussin par rapport aux niveaux de stress.")
         else:
             _pe_pos, _pe_pos_s = "Sous-valorisation", S_TD_G
-            _pe_interp = (f"Le P/E forward de {_pe_val:.1f}x se situe dans le <b>quartile inferieur</b> "
+            _pe_interp = (f"Le P/E forward de {_pe_val:.1f}x se situe dans le <b>quartile inférieur</b> "
                           f"de sa fourchette historique ({_pe_min:.0f}x\u2013{_pe_max:.0f}x). "
-                          f"Les niveaux actuels peuvent offrir une opportunite d'entree si les fondamentaux se stabilisent.")
+                          f"Les niveaux actuels peuvent offrir une opportunité d'entrée si les fondamentaux se stabilisent.")
 
         pe_h = [Paragraph(h, S_TH_C) for h in
                 ["P/E Forward actuel", "Fourchette 10 ans", "Percentile hist.", "Positionnement"]]
@@ -730,7 +730,7 @@ def _build_synthese(data, perf_buf, registry=None):
             Spacer(1, 3*mm),
         ]))
 
-    # ── Regime de marche + Probabilite de recession ──────────────────────────
+    # ── Régime de marche + Probabilite de recession ──────────────────────────
     _macro = data.get("macro") or {}
     _regime  = _macro.get("regime")
     _vix     = _macro.get("vix")
@@ -742,7 +742,7 @@ def _build_synthese(data, perf_buf, registry=None):
     _drivers = _macro.get("recession_drivers", [])
 
     if _regime and _regime != "Inconnu":
-        elems.append(Paragraph("Environnement macro — Regime de marche", S_SUBSECTION))
+        elems.append(Paragraph("Environnement macro — Régime de marche", S_SUBSECTION))
         elems.append(Spacer(1, 2*mm))
         _vix_str    = f"{_vix:.0f}" if _vix    is not None else "indetermine"
         _spread_str = f"{_spread:+.1f}%" if _spread is not None else "non disponible"
@@ -754,7 +754,7 @@ def _build_synthese(data, perf_buf, registry=None):
         }
         _regime_lbl = _regime_labels.get(_regime, _regime.lower())
         elems.append(Paragraph(
-            f"<b>Regime de marche : {_regime}.</b> L'environnement macro est actuellement "
+            f"<b>Régime de marche : {_regime}.</b> L'environnement macro est actuellement "
             f"{_regime_lbl}, avec un VIX a {_vix_str}, un spread 10Y-3M de {_spread_str} "
             f"et le S&P 500 a {_sp_ma_str} de sa moyenne mobile 200 jours. "
             f"La tendance de fond reste {_sp_trend.lower()}.", S_BODY))
@@ -764,7 +764,7 @@ def _build_synthese(data, perf_buf, registry=None):
             _rec_qualif  = ("elevee" if _rec_lvl == "Elevee" else
                             ("moderee" if _rec_lvl == "Moderee" else "faible"))
             elems.append(Paragraph(
-                f"<b>Risque de recession.</b> La probabilite de recession sur 6 mois est estimee "
+                f"<b>Risque de recession.</b> La probabilité de recession sur 6 mois est estimee "
                 f"a <b>{_rec_6m}%</b> (niveau {_rec_qualif}), contre {_rec_12m}% sur 12 mois. "
                 f"Les principaux signaux d'alerte incluent {_drivers_str}. "
                 "Cette evaluation est indicative et fondee sur des indicateurs de marche "
@@ -796,7 +796,7 @@ def _build_synthese(data, perf_buf, registry=None):
                          Paragraph(mecanisme, S_TD_L),
                          Paragraph(horizon, S_TD_C)])
     elems.append(KeepTogether(tbl([cat_h] + cat_rows, cw=[42*mm, 110*mm, 18*mm])))
-    elems.append(src("FinSight IA — Analyse interne. Probabilites non assignees (cf. section Risques)."))
+    elems.append(src("FinSight IA — Analyse interne. Probabilités non assignees (cf. section Risques)."))
 
     # Bloc synthese signal — fill empty space page 3
     secteurs = data["secteurs"]
@@ -882,7 +882,7 @@ def _build_cartographie(data, weights_buf, attribution_buf=None, registry=None):
     ]))
     elems.append(combined)
     elems.append(src(
-        f"FinSight IA — Ponderations GICS. Score composite : 40% momentum, 30% rev. BPA, 30% valorisation."))
+        f"FinSight IA — Ponderations GICS. Score composite : 40% momentum, 30% rév. BPA, 30% valorisation."))
     elems.append(Spacer(1, 4*mm))
 
     # Tableau comparatif complet — colonnes exactement 170mm
@@ -1028,7 +1028,7 @@ def _build_cartographie(data, weights_buf, attribution_buf=None, registry=None):
                                       cw=[40*mm, 22*mm, 62*mm, 46*mm])))
         elems.append(src(
             "FinSight IA — ETF SPDR, yfinance. "
-            "Biais = ecart de return annualise cyclique/defensif. "
+            "Biais = écart de return annualise cyclique/defensif. "
             "Breadth = % secteurs return 12M > 0."))
     return elems
 
@@ -1052,7 +1052,7 @@ def _build_graphiques(data, scatter_buf, scores_buf, corr_buf=None, registry=Non
             "une valeur relative.", S_BODY))
         elems.append(Spacer(1, 3*mm))
         elems.append(Image(scatter_buf, width=TABLE_W, height=95*mm))
-        elems.append(src("FinSight IA — EV/EBITDA median LTM vs croissance BPA mediane secteur. FMP, Bloomberg."))
+        elems.append(src("FinSight IA — EV/EBITDA médian LTM vs croissance BPA mediane secteur. FMP, Bloomberg."))
         # Interpretation inline
         _secteurs = data["secteurs"]
         _surp = [s[0] for s in _secteurs if "Surp" in str(s[3])]
@@ -1157,7 +1157,7 @@ def _build_graphiques(data, scatter_buf, scores_buf, corr_buf=None, registry=Non
                 med_c = round(float(__import__('statistics').median([v[0] for v in off_diag])), 2)
                 elems.append(Spacer(1, 3*mm))
                 corr_interp = [
-                    ["Correlation mediane", f"{med_c:.2f}",
+                    ["Corrélation médiane", f"{med_c:.2f}",
                      "Niveau de dependance systemique moyen entre secteurs"],
                     ["Paire la moins correlee",
                      f"{_abbrev_pdf(min_c[1])} / {_abbrev_pdf(min_c[2])}  ({min_c[0]:.2f})",
@@ -1265,7 +1265,7 @@ def _build_allocation(data, allocation_buf=None, registry=None):
 
     elems.append(Paragraph(
         "A partir de la matrice de correlation sectorielle (rendements journaliers 52S) "
-        "et des volatilites annualisees, trois portefeuilles optimaux sont construits "
+        "et des volatilités annualisées, trois portefeuilles optimaux sont construits "
         "selon la th\u00e9orie moderne du portefeuille (Markowitz, 1952). "
         "Chaque portefeuille r\u00e9pond \u00e0 un objectif distinct : "
         "<b>minimisation du risque</b> (Min-Variance), "
@@ -1512,7 +1512,7 @@ def _build_risques(data, registry=None):
         f"le scenario central <b>{sig_central}</b> sur le {indice_rl}. Notre approche ne traite "
         "pas ces risques comme des probabilites faibles a ignorer, mais comme des "
         "<b>conditions de surveillance active</b> qui doivent modifier le positionnement "
-        "si elles se materialisent. Chaque risque est evalue sur sa probabilite estimee "
+        "si elles se materialisent. Chaque risque est evalue sur sa probabilité estimée "
         "a 12 mois, son mecanisme de transmission et son impact potentiel sur les niveaux "
         "de l'indice et les multiples.", S_BODY))
     elems.append(Spacer(1, 2*mm))
@@ -1528,7 +1528,7 @@ def _build_risques(data, registry=None):
             f"La probabilite de materialisation sur 12 mois est jugee {_prob_qualif}.", S_BODY))
         elems.append(Spacer(1, 2*mm))
     elems.append(src(
-        f"FinSight IA — Analyse adversariale. Probabilites estimees au {data['date_analyse']}."))
+        f"FinSight IA — Analyse adversariale. Probabilités estimées au {data['date_analyse']}."))
     elems.append(Spacer(1, 4*mm))
 
     elems.append(debate_q(

@@ -1373,14 +1373,14 @@ def _gen_risques(secteurs_list, signal_global, avg_score):
                  if rate_secs else "Compression des multiples de valorisation")
     return [
         ("Recession / ralentissement PIB",
-         f"Contraction economique — revision baissiere BPA estimee a "
+         f"Contraction économique — révision baissière BPA estimee a "
          f"{5 + max(0, int((50-avg_score)*0.3))}-15%. Score composite "
          f"passerait sous 40 ({pts_to_sous} pts de marge actuelle).",
          f"{p_rec}%", "Eleve"),
         ("Inflation persistante / hausse taux",
          f"Maintien des taux longs — {rate_note}. "
          "Compression des multiples des actifs a duration elevee.",
-         f"{p_inf}%", "Modere"),
+         f"{p_inf}%", "Modéré"),
         ("Choc geopolitique / matieres premieres",
          "Disruption des chaines d'approvisionnement et/ou hausse brutale "
          "du prix des matieres premieres — impact direct sur les marges.",
@@ -1569,21 +1569,21 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
 
     # ── Rotation (phases par défaut) ──────────────────────────────────────
     _phase_map = {
-        "Technology": ("Expansion","Faible","Elevee","Accumuler"),
+        "Technology": ("Expansion","Faible","Élevée","Accumuler"),
         "Health Care": ("Toutes","Faible","Faible","Accumuler"),
-        "Financials": ("Expansion","Positive","Moderee","Accumuler"),
-        "Consumer Discretionary": ("Expansion","Moderee","Elevee","Neutre"),
-        "Industrials": ("Expansion","Faible","Elevee","Neutre"),
-        "Communication Services": ("Expansion","Moderee","Moderee","Neutre"),
+        "Financials": ("Expansion","Positive","Modérée","Accumuler"),
+        "Consumer Discretionary": ("Expansion","Modérée","Élevée","Neutre"),
+        "Industrials": ("Expansion","Faible","Élevée","Neutre"),
+        "Communication Services": ("Expansion","Modérée","Modérée","Neutre"),
         "Consumer Staples": ("Recession","Faible","Faible","Neutre"),
-        "Energy": ("Expansion","Faible","Moderee","Neutre"),
-        "Real Estate": ("Reprise","Elevee","Moderee","All\xe9ger"),
-        "Materials": ("Reprise","Faible","Elevee","Neutre"),
-        "Utilities": ("Recession","Elevee","Faible","All\xe9ger"),
+        "Energy": ("Expansion","Faible","Modérée","Neutre"),
+        "Real Estate": ("Reprise","Élevée","Modérée","All\xe9ger"),
+        "Materials": ("Reprise","Faible","Élevée","Neutre"),
+        "Utilities": ("Recession","Élevée","Faible","All\xe9ger"),
     }
     rotation = []
     for s in secteurs_list:
-        ph = _phase_map.get(s[0], ("Expansion","Moderee","Moderee","Neutre"))
+        ph = _phase_map.get(s[0], ("Expansion","Modérée","Modérée","Neutre"))
         rot_sig = ("Accumuler" if s[3] == "Surpond\xe9rer"
                    else ("All\xe9ger" if s[3] == "Sous-pond\xe9rer" else "Neutre"))
         rotation.append((s[0], ph[0], ph[1], ph[2], rot_sig))
@@ -1684,7 +1684,7 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
     _sec_lbl = "secteur" if _nb_sec == 1 else "secteurs"
     texte_macro = (
         f"Le {display_name} presente un signal global {signal_global} (conviction {conviction}%) "
-        f"base sur l'analyse de {len(tickers_data)} societes reparties sur {_nb_sec} {_sec_lbl}. "
+        f"base sur l'analyse de {len(tickers_data)} societes réparties sur {_nb_sec} {_sec_lbl}. "
         f"Le score composite moyen de {avg_score:.0f}/100 reflete un equilibre entre momentum, "
         f"valorisation et revision des BPA. Les secteurs les plus solides sont : {top_noms}."
     )
@@ -1699,8 +1699,8 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
     _verbe_rot = "Favoriser" if _surp_noms != "aucun" else "Surveiller"
     _cible_rot = _surp_noms if _surp_noms != "aucun" else top_noms
     texte_rotation = (
-        "L'analyse du cycle economique actuel oriente le positionnement vers les secteurs "
-        "a forte visibilite de BPA et resilience des marges. La sensibilite aux taux reste "
+        "L'analyse du cycle économique actuel oriente le positionnement vers les secteurs "
+        "a forte visibilité de BPA et résilience des marges. La sensibilite aux taux reste "
         f"le principal facteur de differentiation. {_verbe_rot} {_cible_rot} "
         "dans un contexte de croissance moderee."
     )
@@ -1960,28 +1960,28 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
     # ── Textes PPTX manquants ────────────────────────────────────────────────
     _top3_noms_desc = ", ".join([s[0][:14] for s in secteurs_list[:3]]) if secteurs_list else "N/A"
     texte_description = (
-        f"Le {display_name} est un indice de reference regroupant {len(tickers_data)} societes "
-        f"reparties sur {len(secteurs_list)} secteurs GICS. "
-        f"L'analyse FinSight couvre la periode glissante 12 mois (LTM) sur la base des donnees "
+        f"Le {display_name} est un indice de référence regroupant {len(tickers_data)} societes "
+        f"réparties sur {len(secteurs_list)} secteurs GICS. "
+        f"L'analyse FinSight couvre la période glissante 12 mois (LTM) sur la base des donnees "
         f"yfinance et FMP.\n\n"
         f"Signal global : {signal_global} — Conviction {conviction}%.\n"
         f"Score composite moyen : {int(avg_score)}/100.\n"
         f"Secteurs leaders : {_top3_noms_desc}."
     )
     _erp_commentary = (
-        "tendue — prime de risque insuffisante, prudence sur les entrees"
+        "tendue — prime de risque insuffisante, prudence sur les entrées"
         if str(erp_pct).startswith("-") else
         "correcte — prime de risque adequate pour le niveau de taux actuel"
     )
     texte_valorisation = (
         f"Le {display_name} traite a {pe_str} de P/E Forward, soit {_prime_decote_str} "
-        f"vs la mediane historique 10 ans ({_pe_med_str}x). "
-        f"L'ERP (Damodaran) s'etablit a {erp_pct}, signalant une valorisation {_erp_commentary}. "
+        f"vs la médiane historique 10 ans ({_pe_med_str}x). "
+        f"L'ERP (Damodaran) s'établit à {erp_pct}, signalant une valorisation {_erp_commentary}. "
         f"Score composite {int(avg_score)}/100 — signal {signal_global} (conviction {conviction}%)."
     )
     texte_cycle = (
-        f"Le positionnement de cycle actuel favorise les secteurs a forte visibilite de BPA "
-        f"et resilience des marges. Secteurs recommandes : {top_noms}. "
+        f"Le positionnement de cycle actuel favorise les secteurs a forte visibilité de BPA "
+        f"et résilience des marges. Secteurs recommandés : {top_noms}. "
         f"Score composite : {int(avg_score)}/100 — conviction {conviction}% sur le signal {signal_global}."
     )
 

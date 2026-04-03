@@ -174,7 +174,7 @@ def _valid_years(snap) -> list:
 # ---------------------------------------------------------------------------
 
 def _set_slide_bg(slide, hex_color: str):
-    """Definit le fond du slide via <p:bgPr> (approche native, comme la reference)."""
+    """Definit le fond du slide via <p:bgPr> (approche native, comme la référence)."""
     from pptx.oxml.ns import qn
     from lxml import etree
     cSld = slide._element.find(qn('p:cSld'))
@@ -2239,7 +2239,7 @@ def _slide_risques(prs, snap, synthesis, devil, extra_scores: dict = None):
         rec_6m = _macro.get('recession_prob_6m')
         if regime and regime != 'Inconnu':
             rec_part = f"  Rec.6M:{rec_6m}%" if rec_6m is not None else ''
-            row1_items.append((f"Regime : {regime}{rec_part}", _CMAP.get(regime, NAVY)))
+            row1_items.append((f"Régime : {regime}{rec_part}", _CMAP.get(regime, NAVY)))
 
         for i, (txt, col) in enumerate(row1_items[:3]):
             x = bx_x[i]
@@ -2256,7 +2256,7 @@ def _slide_risques(prs, snap, synthesis, devil, extra_scores: dict = None):
         if eq_lbl and eq_lbl != 'N/D':
             cc = _eq.get('cash_conversion')
             cc_str = f" ({cc:.2f}x)" if cc is not None else ''
-            row2_items.append((f"Earnings Qualite : {eq_lbl}{cc_str}",
+            row2_items.append((f"Earnings Qualité : {eq_lbl}{cc_str}",
                                _CMAP.get(eq_lbl, NAVY)))
 
         cs_lbl = _cs.get('label')

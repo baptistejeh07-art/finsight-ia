@@ -464,7 +464,7 @@ def _chart_ev_distribution(secteurs: list) -> bytes:
 
 
 def _chart_zone_entree(data: dict) -> bytes:
-    """PE actuel vs PE mediane 10 ans par secteur — chart dotplot."""
+    """PE actuel vs PE médiane 10 ans par secteur — chart dotplot."""
     # Recupere les donnees PE depuis top3 + secteurs si dispo
     secteurs = data.get("secteurs", [])
     top3     = data.get("top3_secteurs", [])
@@ -548,7 +548,7 @@ def _chart_zone_entree(data: dict) -> bytes:
         Line2D([0],[0], marker='o', color='w', markerfacecolor='#1A7A4A', markersize=7, label='Surpondérer'),
         Line2D([0],[0], marker='o', color='w', markerfacecolor='#B06000',  markersize=7, label='Neutre'),
         Line2D([0],[0], marker='o', color='w', markerfacecolor='#A82020',  markersize=7, label='Sous-pondérer'),
-        Line2D([0],[0], marker='|', color='#AAAAAA', markersize=8, label='Mediane 10Y'),
+        Line2D([0],[0], marker='|', color='#AAAAAA', markersize=8, label='Médiane 10Y'),
     ]
     ax.legend(handles=legend_el, fontsize=6.5, framealpha=0.7, loc='lower right')
     plt.tight_layout()
@@ -856,7 +856,7 @@ def _s02_exec_summary(prs, D):
     ]
     _txb(slide, "  ·  ".join(mets), 0.9, 3.15, 23.6, 0.55, size=8, color=_GRAYT)
 
-    # Regime de marche — badges individuels
+    # Régime de marche — badges individuels
     _mac = D.get("macro") or {}
     _reg = _mac.get("regime", "")
     if _reg and _reg != "Inconnu":
@@ -865,7 +865,7 @@ def _s02_exec_summary(prs, D):
         _rec_6 = _mac.get("recession_prob_6m")
         _vx    = _mac.get("vix")
         _sp_s  = _mac.get("yield_spread_10y_3m")
-        _badges = [(f"Regime {_reg}", _r_col, _WHITE)]
+        _badges = [(f"Régime {_reg}", _r_col, _WHITE)]
         if _vx:    _badges.append((f"VIX {_vx:.0f}", _GRAYL, _NAVY))
         if _sp_s is not None: _badges.append((f"Spread {_sp_s:+.1f}%", _GRAYL, _NAVY))
         if _rec_6 is not None: _badges.append((f"Rec. 6M {_rec_6}%", _GRAYL, _NAVY))
@@ -907,10 +907,10 @@ def _s02_exec_summary(prs, D):
     _pm_s02    = f"{_pe_m_s02}x" if isinstance(_pe_m_s02, (int, float)) else str(_pe_m_s02)
     _prime_s02 = D.get("prime_decote", "")
     _prime_lbl = "prime de valorisation significative" if isinstance(_prime_s02, str) and "+" in str(_prime_s02) else "valorisation en ligne avec l'historique"
-    _erp_lbl   = " (prime insuffisante — prudence sur les entrees)" if _erp_sig_s02 in ("Tendu", "Comprime") else (" (adequat)" if _erp_sig_s02 else "")
+    _erp_lbl   = " (prime insuffisante — prudence sur les entrées)" if _erp_sig_s02 in ("Tendu", "Comprime") else (" (adequat)" if _erp_sig_s02 else "")
     _suppl_s02 = (
         f"Le {D.get('indice', '')} affiche un cours de {_cours_s02} (YTD : {_ytd_s02}). "
-        f"P/E Forward {_pe_f_s02} vs mediane historique 10 ans {_pm_s02} — {_prime_lbl}. "
+        f"P/E Forward {_pe_f_s02} vs médiane historique 10 ans {_pm_s02} — {_prime_lbl}. "
         f"ERP Damodaran {_erp_s02b}{_erp_lbl}. "
         f"Score composite moyen : {_scr_s02}/100 — conviction {_conv_s02} %. "
         f"Secteurs a Surponderer : {_surp_s02 or 'aucun'}. "
@@ -1023,7 +1023,7 @@ def _s05_description(prs, D):
     _scr5   = D.get("score_median","—")
     lec_txt = (
         f"Signal global : {_sig5} (score composite {_scr5}/100). "
-        f"P/E Forward {_pe_f5} vs mediane historique {_pm5} — "
+        f"P/E Forward {_pe_f5} vs médiane historique {_pm5} — "
         f"{'prime de valorisation, entrees a calibrer' if isinstance(_prime5,str) and '+' in str(_prime5) else 'valorisation proche des normes historiques'}. "
         f"ERP Damodaran : {_erp5}{' (' + _erp_s5 + ')' if _erp_s5 else ''}. "
         f"Secteurs a Surponderer : {_surp_str}. "
@@ -1053,12 +1053,12 @@ def _s06_valorisation(prs, D):
     bpa       = D.get("bpa_growth","—")
     rows = [
         ["INDICATEUR",         "VALEUR",     "vs HISTORIQUE",    "INTERPRETATION"],
-        ["P/E Forward",        pe_fwd,       prime,              "Prime vs mediane 10Y"],
-        ["P/E Mediane 10 ans", f"{pe_med}x" if isinstance(pe_med,(int,float)) else str(pe_med),
-                               "Reference",  "Niveau historique normalise"],
+        ["P/E Forward",        pe_fwd,       prime,              "Prime vs médiane 10Y"],
+        ["P/E Médiane 10 ans", f"{pe_med}x" if isinstance(pe_med,(int,float)) else str(pe_med),
+                               "Reference",  "Niveau historique normalisé"],
         ["ERP (Damodaran)",    erp,          "Correct",          "Rendement excess equites"],
         ["Croissance BPA",     bpa,          "+",                "Consensu analystes 12M"],
-        ["Prime/Decote",       prime,        "Surevalu si > 20 %","Signal d alerte valorisation"],
+        ["Prime/Decote",       prime,        "Surévalué si > 20 %","Signal d'alerte valorisation"],
     ]
     tbl = _add_table(slide, rows, 0.9, 2.3, 23.6, 5.0,
                col_widths=[5, 3, 3, 12.6], font_size=8, header_size=8, alt_fill=_GRAYL)
@@ -1086,7 +1086,7 @@ def _s06_valorisation(prs, D):
         # Implication investissement selon ERP
         if _erp_s6 in ("Tendu","Comprime"):
             _erp_impl = ("L'ERP negatif ou tres comprime signale que les actions sont "
-                         "peu remunerees vs le taux sans risque — prudence sur les points d'entree, "
+                         "peu rémunérées vs le taux sans risque — prudence sur les points d'entrée, "
                          "privilegier les secteurs a forte visibilite sur les BPA.")
         elif _erp_s6 == "Attractif":
             _erp_impl = ("L'ERP positif signale une prime de risque adequate : "
@@ -1096,7 +1096,7 @@ def _s06_valorisation(prs, D):
                          "aucun signal extreme. Maintenir une allocation neutre aux equites.")
         texte_val = (
             f"Cours {_cours6} (YTD : {_ytd6}). "
-            f"Le P/E Forward ({_pe_f6}) traite a {_prime6 or 'N/D'} vs la mediane historique 10 ans ({_pm_str}). "
+            f"Le P/E Forward ({_pe_f6}) traite a {_prime6 or 'N/D'} vs la médiane historique 10 ans ({_pm_str}). "
             f"L'ERP (Damodaran) s'etablit a {_erp6}{' — ' + _erp_s6 if _erp_s6 else ''}. "
             f"{_erp_impl} "
             f"Score composite moyen : {_scr6}/100, signal {_sig6} (conviction {_conv6} %). "
@@ -1112,8 +1112,8 @@ def _s07_cycle(prs, D):
     slide = _blank(prs)
     indice = D.get("indice","")
     phase  = D.get("phase_cycle","Expansion avancée")
-    _header(slide, "Positionnement dans le Cycle Economique",
-            f"{indice}  ·  Phase actuelle : {phase}  ·  Signaux FRED  ·  Modele 4 phases",
+    _header(slide, "Positionnement dans le Cycle Économique",
+            f"{indice}  ·  Phase actuelle : {phase}  ·  Signaux FRED  ·  Modèle 4 phases",
             active=1)
 
     # Carte phase cycle gauche
@@ -1145,20 +1145,20 @@ def _s07_cycle(prs, D):
         if isinstance(sig, (list,tuple)) and len(sig) >= 3:
             fred_rows.append([sig[0], str(sig[1]), str(sig[2])[:40]])
     if len(fred_rows) == 1:
-        fred_rows.append(["PMI Composite", "51,2", "Expansion moderee"])
-        fred_rows.append(["Courbe 10Y-2Y", "-0,12 %", "Legerement inversee"])
+        fred_rows.append(["PMI Composite", "51,2", "Expansion modérée"])
+        fred_rows.append(["Courbe 10Y-2Y", "-0,12 %", "Légèrement inversée"])
         fred_rows.append(["ISM Manuf.", "49,8", "Sous expansion"])
-        fred_rows.append(["Chomage", "3,9 %", "Marche solide"])
+        fred_rows.append(["Chômage", "3,9 %", "Marché solide"])
         fred_rows.append(["CPI YoY", "3,1 %", "Au-dessus cible"])
 
     tbl = _add_table(slide, fred_rows, 9.5, 2.3, 15.0, len(fred_rows) * 0.85 + 0.1,
                col_widths=[5.0, 2.5, 7.5], font_size=8, header_size=8, alt_fill=_GRAYL)
 
-    # Allocation recommandee
+    # Allocation recommandée
     alloc = _trunc(D.get("texte_cycle",""), 420)
     _rect(slide, 9.5, 9.3, 15.0, 2.9, fill=_GRAYL)
     _rect(slide, 9.5, 9.3, 0.1, 2.9, fill=_BUY)
-    _txb(slide, "Allocation recommandee selon le positionnement de cycle",
+    _txb(slide, "Allocation recommandée selon le positionnement de cycle",
          9.8, 9.4, 14.5, 0.6, size=8, bold=True, color=_NAVY)
     _txb(slide, alloc, 9.8, 10.0, 14.5, 2.0, size=7.5, color=_GRAYT, wrap=True)
 
@@ -1589,8 +1589,8 @@ def _s14_allocation(prs, D):
 
 def _s15_zone_entree(prs, D, chart_bytes: bytes):
     slide = _blank(prs)
-    _header(slide, "Zone d'Entree Optimale par Secteur",
-            "P/E actuel vs mediane historique 10 ans  ·  Signal d'entree Accumuler / Neutre / Alleger",
+    _header(slide, "Zone d'Entrée Optimale par Secteur",
+            "P/E actuel vs médiane historique 10 ans  ·  Signal d'entrée Accumuler / Neutre / Alléger",
             active=3)
 
     # Graphique GAUCHE (60 % de la largeur)
@@ -1617,20 +1617,20 @@ def _s15_zone_entree(prs, D, chart_bytes: bytes):
     _pm_str = f"{_pe_med}x" if isinstance(_pe_med,(int,float)) else str(_pe_med)
 
     txt_col = (
-        f"PE mediane 10 ans : {_pm_str}\n"
+        f"PE médiane 10 ans : {_pm_str}\n"
         f"PE Forward indice : {_pe_g}\n\n"
-        f"Zone d'entree favorable (PE < mediane) :\n"
+        f"Zone d'entrée favorable (PE < mediane) :\n"
         f"{'  ·  '.join([_abbrev_sector(n,18) for n in noms_b]) or 'Aucun secteur top3'}\n\n"
         f"Zone de prudence (PE > mediane +15 %) :\n"
         f"{'  ·  '.join([_abbrev_sector(n,18) for n in noms_h]) or 'Aucun'}\n\n"
         f"Methodologie : le PE Forward estime est ancre sur le PE global de l'indice "
         f"ajuste du score sectoriel (+/- ecart). Les secteurs a gauche de la ligne "
         f"pointillee (mediane 10 ans) offrent un meilleur point d'entree. "
-        f"Un ecart > +20 % vs la mediane justifie une prudence accrue sur le timing."
+        f"Un ecart > +20 % vs la médiane justifie une prudence accrue sur le timing."
     )
     _rect(slide, 16.3, 2.3, 8.1, 10.5, fill=_GRAYL)
     _rect(slide, 16.3, 2.3, 0.12, 10.5, fill=_NAVY)
-    _txb(slide, "Lecture — Zone d'entree", 16.6, 2.4, 7.6, 0.6, size=8.5, bold=True, color=_NAVY)
+    _txb(slide, "Lecture — Zone d'entrée", 16.6, 2.4, 7.6, 0.6, size=8.5, bold=True, color=_NAVY)
     _txb(slide, txt_col[:700], 16.6, 3.1, 7.6, 9.5, size=7.5, color=_GRAYT, wrap=True)
 
     _footer(slide)
@@ -1908,10 +1908,10 @@ def _s20_etf_perf(prs, D, chart_bytes: bytes):
                          "  ".join(_lec_parts), y_top=9.7, height=3.65)
         else:
             # Pas de perf_history : tableau scores + note
-            _header(slide, "Scores Sectoriels — Synthese Allocataire",
+            _header(slide, "Scores Sectoriels — Synthèse Allocataire",
                     f"{indice}  ·  Score composite FinSight  ·  Donnees yfinance",
                     active=5)
-            _txb(slide, "Scores sectoriels FinSight — synthese allocataire",
+            _txb(slide, "Scores sectoriels FinSight — synthèse allocataire",
                  0.9, 2.1, 23.6, 0.55, size=8.5, bold=True, color=_NAVY)
             secteurs_etf = D.get("secteurs", [])
             sorted_etf   = sorted(secteurs_etf, key=lambda s: s[2], reverse=True)
