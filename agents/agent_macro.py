@@ -201,7 +201,7 @@ class AgentMacro:
         prob_12m = round(min(raw * 1.25, 100), 0)
 
         level = ("Faible" if prob_6m < 25 else
-                 "Moderee" if prob_6m < 55 else "Elevee")
+                 "Modérée" if prob_6m < 55 else "Élevée")
 
         return {
             "recession_prob_6m":   int(prob_6m),

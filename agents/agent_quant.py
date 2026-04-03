@@ -1041,7 +1041,7 @@ def compute_composite_distress(yr: YearRatios) -> dict:
             az_f = float(az)
             if az_f < 1.81:
                 pts = 40
-                label = "Detresse"
+                label = "Détresse"
             elif az_f < 2.99:
                 pts = 20
                 label = "Zone grise"
@@ -1354,7 +1354,7 @@ def compute_earnings_quality(yr: "YearRatios") -> dict:
     Interpretation :
       >= 1.0 -> Excellente  (FCF > NI, earnings conservateurs)
       0.7-1.0 -> Correcte
-      0.4-0.7 -> Moderee   (accruals non negligeables)
+      0.4-0.7 -> Moderee   (accruals non négligeables)
       < 0.4   -> Faible    (earnings eloignes du cash reel)
     """
     if yr is None:
@@ -1373,16 +1373,16 @@ def compute_earnings_quality(yr: "YearRatios") -> dict:
         label, color = "Correcte", "1B3A6B"
         signal = f"FCF/NI = {cc:.2f}x -- conversion cash adequate"
     elif cc >= 0.4:
-        label, color = "Moderee", "B06000"
-        signal = f"FCF/NI = {cc:.2f}x -- accruals non negligeables"
+        label, color = "Modérée", "B06000"
+        signal = f"FCF/NI = {cc:.2f}x -- accruals non négligeables"
     else:
         label, color = "Faible", "A82020"
-        signal = f"FCF/NI = {cc:.2f}x -- earnings deconnectes du cash"
+        signal = f"FCF/NI = {cc:.2f}x -- earnings déconnectés du cash"
 
     bm = yr.beneish_m
     bm_alert = None
     if bm is not None and bm > -2.22:
-        sev = "signal fort" if bm > -1.78 else "signal modere"
+        sev = "signal fort" if bm > -1.78 else "signal modéré"
         bm_alert = f"Beneish M={bm:.2f} ({sev} de manipulation comptable)"
 
     return {
@@ -1422,7 +1422,7 @@ def compute_capital_structure(yr: "YearRatios") -> dict:
         label, color = "Saine", "1A7A4A"
         signal = f"{ratio*100:.0f}% CT / {(1-ratio)*100:.0f}% LT -- structure equilibree"
     elif ratio < 0.40:
-        label, color = "Moderee", "B06000"
+        label, color = "Modérée", "B06000"
         signal = f"{ratio*100:.0f}% CT / {(1-ratio)*100:.0f}% LT -- surveiller les echeances"
     else:
         label, color = "Critique", "A82020"

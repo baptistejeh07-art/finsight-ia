@@ -2229,7 +2229,7 @@ def _slide_risques(prs, snap, synthesis, devil, extra_scores: dict = None):
         row1_items = []
         if _dist.get('score') is not None:
             d_lbl = _dist.get('label', '—')
-            row1_items.append((f"Detresse : {_dist['score']}/100  {d_lbl}",
+            row1_items.append((f"Détresse : {_dist['score']}/100  {d_lbl}",
                                _CMAP.get(d_lbl, NAVY)))
         if _ma.get('score') is not None:
             m_lbl = _ma.get('label', '—')
