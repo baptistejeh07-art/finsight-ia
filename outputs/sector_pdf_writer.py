@@ -695,12 +695,13 @@ def _cover_page(c, doc, sector_name: str, subtitle: str, universe: str,
     c.setLineWidth(0.4)
     c.line(MARGIN_L, h * 0.667, w - MARGIN_R, h * 0.667)
 
-    # Badge signal sectoriel (SURPONDERER / PONDERER / SOUS-PONDERER)
-    sig_score = max((t.get('score_global') or 0) for t in tickers_data) if tickers_data else 0
-    if sig_score >= 70:
+    # Badge signal sectoriel — moyenne des scores (aligné PPTX: >=65 SURPONDERER, >=45 NEUTRE)
+    _scores = [t.get('score_global') or 0 for t in tickers_data]
+    sig_score = sum(_scores) / len(_scores) if _scores else 0
+    if sig_score >= 65:
         sig_label, sig_color = "SURPONDERER", (0x1A/255, 0x7A/255, 0x4A/255)
-    elif sig_score >= 50:
-        sig_label, sig_color = "PONDERER", (0xB0/255, 0x60/255, 0x00/255)
+    elif sig_score >= 45:
+        sig_label, sig_color = "NEUTRE", (0xB0/255, 0x60/255, 0x00/255)
     else:
         sig_label, sig_color = "SOUS-PONDERER", (0xA8/255, 0x20/255, 0x20/255)
     from reportlab.lib.colors import Color as _RLColor

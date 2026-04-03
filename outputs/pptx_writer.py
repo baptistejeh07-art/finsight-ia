@@ -55,6 +55,21 @@ def _lazy_imports():
 
 
 # ---------------------------------------------------------------------------
+# Sanitisation XML — supprime les caractères interdits en XML 1.0
+# Source courante : texte LLM ou API contenant des chars de contrôle
+# ---------------------------------------------------------------------------
+
+import re as _re
+
+def _x(text) -> str:
+    """Supprime les caractères invalides XML 1.0 (0x00-0x08, 0x0B-0x0C, 0x0E-0x1F, 0x7F)."""
+    if text is None:
+        return ""
+    s = str(text)
+    return _re.sub(r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]', '', s)
+
+
+# ---------------------------------------------------------------------------
 # Helpers couleur
 # ---------------------------------------------------------------------------
 
@@ -94,14 +109,12 @@ def _frm(v, cur_sym: str = "$") -> str:
 
 
 def _frn(v) -> str:
-    """Formate un montant en millions avec 1 décimale si >= 1000, sinon entier. Pas de suffixe devise."""
+    """Formate un montant en millions -> toujours converti en Mds avec 1 décimale."""
     if v is None:
         return "—"
     try:
         v = float(v)
-        if abs(v) >= 1000:
-            return _fr(v / 1000, 1)
-        return _fr(v, 0)
+        return _fr(v / 1000, 1)
     except Exception:
         return "—"
 
@@ -196,7 +209,7 @@ def _add_text_alpha(slide, x, y, w, h, text, font_size,
     tf.word_wrap = False
     p = tf.paragraphs[0]
     run = p.add_run()
-    run.text = str(text) if text is not None else ""
+    run.text = _x(text)
     run.font.name  = "Calibri"
     run.font.size  = Pt(font_size)
     run.font.bold  = bold
@@ -256,7 +269,7 @@ def add_text_box(slide, x, y, w, h, text, font_size=10, color_hex=BLACK,
     p = tf.paragraphs[0]
     p.alignment = align
     run = p.add_run()
-    run.text = str(text) if text is not None else "—"
+    run.text = _x(text) if text is not None else "—"
     run.font.name = font_name
     run.font.size = Pt(font_size)
     run.font.bold = bold
@@ -282,7 +295,7 @@ def add_multiline_text_box(slide, x, y, w, h, lines, font_size=8.5,
             p = tf.add_paragraph()
         p.alignment = PP_ALIGN.LEFT
         run = p.add_run()
-        run.text = str(line) if line is not None else ""
+        run.text = _x(line) if line is not None else ""
         run.font.name = font_name
         run.font.size = Pt(font_size)
         run.font.color.rgb = rgb(color_hex)
@@ -306,7 +319,7 @@ def _set_cell(cell, text, font_size=8, bold=False, color_hex=BLACK,
     para = tf.paragraphs[0]
     para.alignment = align
     run = para.add_run()
-    run.text = str(text) if text is not None else "\u2014"
+    run.text = _x(text) if text is not None else "\u2014"
     run.font.name = font_name
     run.font.size = Pt(font_size)
     run.font.bold = bold
@@ -748,16 +761,17 @@ def _slide_cover(prs, snap, synthesis, ratios, devil, sentiment):
                  "  \u00b7  ".join(_tagline_parts), 11, "888888",
                  align=PP_ALIGN.CENTER)
 
-    # Recommendation box (pleine largeur, centré, 9pt)
+    # Recommendation box — rectangle solide centré ~40% largeur (gold standard)
     upside_str = _upside(tbase, price)
-    rec_h = 1.32
-    add_rect(slide, 1.27, rec_y, 22.86, rec_h, rec_fill)
-    add_rect(slide, 1.27, rec_y, 0.13, rec_h, rec_accent)
+    rec_w = 10.0   # ~40% de 25.4cm
+    rec_h = 1.20
+    rec_x = (25.4 - rec_w) / 2
+    add_rect(slide, rec_x, rec_y, rec_w, rec_h, rec_accent)
     add_text_box(
-        slide, 1.60, rec_y + 0.05, 22.40, rec_h - 0.10,
+        slide, rec_x + 0.15, rec_y + 0.05, rec_w - 0.30, rec_h - 0.10,
         f"\u25cf {rec.upper()}  \u00b7  Prix cible base\u00a0: {_fr(tbase, 0)} {cur_sym}"
         f"  \u00b7  Upside\u00a0: {upside_str}",
-        9, rec_accent, bold=True, align=PP_ALIGN.CENTER
+        9, WHITE, bold=True, align=PP_ALIGN.CENTER
     )
 
     # Bottom rule + credits (8pt)

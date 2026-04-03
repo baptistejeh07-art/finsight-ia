@@ -5,7 +5,7 @@ Interface : IndicePPTXWriter.generate(data, output_path) -> bytes
 Modele reference : FinSight_IA_Indice_SP500 (4).pptx
 """
 from __future__ import annotations
-import io, logging
+import io, logging, re as _re
 from typing import Optional
 
 import matplotlib
@@ -18,9 +18,15 @@ import numpy as np
 from pptx import Presentation
 from pptx.util import Cm, Pt
 from pptx.dml.color import RGBColor
-from pptx.enum.text import PP_ALIGN
+from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
 
 log = logging.getLogger(__name__)
+
+def _x(text) -> str:
+    """Supprime les caractères invalides XML 1.0 qui corrompent le PPTX."""
+    if text is None:
+        return ""
+    return _re.sub(r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]', '', str(text))
 
 # ── Dimensions (25.4 x 14.3 cm) ───────────────────────────────────────────────
 _SW = Cm(25.4)
@@ -122,15 +128,17 @@ def _rect(slide, x, y, w, h, fill=None, line=False, line_col=None, line_w=0.5):
 
 
 def _txb(slide, text, x, y, w, h, size=9, bold=False, color=None,
-         align=PP_ALIGN.LEFT, italic=False, wrap=True):
+         align=PP_ALIGN.LEFT, italic=False, wrap=True, vcenter=False):
     color = color or _BLACK
     box = slide.shapes.add_textbox(Cm(x), Cm(y), Cm(w), Cm(h))
     tf = box.text_frame
     tf.word_wrap = wrap
+    if vcenter:
+        tf.vertical_anchor = MSO_ANCHOR.MIDDLE
     para = tf.paragraphs[0]
     para.alignment = align
     run = para.add_run()
-    run.text = str(text)
+    run.text = _x(text)
     run.font.size = Pt(size)
     run.font.bold = bold
     run.font.italic = italic
@@ -157,7 +165,7 @@ def _add_table(slide, data, x, y, w, h, col_widths=None,
         is_hdr = (r == 0)
         for c, val in enumerate(row_data):
             cell = tbl.cell(r, c)
-            cell.text = str(val) if val is not None else "—"
+            cell.text = _x(val) if val is not None else "—"
             para = cell.text_frame.paragraphs[0]
             para.alignment = PP_ALIGN.CENTER
             run = para.runs[0] if para.runs else para.add_run()
@@ -296,17 +304,17 @@ def _chart_scatter(secteurs: list) -> bytes:
         ax.scatter(bpa, yv, s=100, color=col, alpha=0.85, zorder=5, edgecolors='white', linewidths=0.5)
         short = _abbrev_sector(nom, 14)
         ax.annotate(short, (bpa, yv), textcoords='offset points', xytext=(5, 4),
-                    fontsize=6, color='#333333')
+                    fontsize=8, color='#333333')
 
-    kw = dict(transform=ax.transAxes, fontsize=6.5, alpha=0.7)
+    kw = dict(transform=ax.transAxes, fontsize=8.5, alpha=0.7)
     ax.text(0.97, 0.93, q_labels[0], ha='right', color='#555555', **kw)
     ax.text(0.03, 0.93, q_labels[1], ha='left',  color='#555555', **kw)
     ax.text(0.97, 0.04, q_labels[2], ha='right', color='#1A7A4A', **kw)
     ax.text(0.03, 0.04, q_labels[3], ha='left',  color='#A82020', **kw)
 
-    ax.set_xlabel("Croissance BPA (%)", fontsize=8, color='#555555')
-    ax.set_ylabel(y_label, fontsize=8, color='#555555')
-    ax.tick_params(labelsize=7, colors='#777777')
+    ax.set_xlabel("Croissance BPA (%)", fontsize=10, color='#555555')
+    ax.set_ylabel(y_label, fontsize=10, color='#555555')
+    ax.tick_params(labelsize=9, colors='#777777')
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
     ax.spines['left'].set_color('#DDDDDD')
@@ -505,7 +513,9 @@ def _chart_zone_entree(data: dict) -> bytes:
     pe_meds = [pe_data[n][1] for n in noms]
     sigs    = [sig_map.get(n, "Neutre") for n in noms]
 
-    fig, ax = plt.subplots(figsize=(9.5, max(4.0, len(noms) * 0.5)))
+    # figsize matches PPTX slot ratio (15.0 x 10.5 cm = 1.43:1) to avoid distortion
+    _fig_h = max(9.5 * 10.5 / 15.0, len(noms) * 0.55)
+    fig, ax = plt.subplots(figsize=(9.5, _fig_h))
     fig.patch.set_facecolor('#FFFFFF')
     ax.set_facecolor('#F8F9FA')
 
@@ -578,7 +588,7 @@ def _chart_sentiment_bars(sentiment_agg: dict) -> bytes:
     ax.axvline(0, color='#333333', linewidth=0.8)
     ax.set_yticks(y)
     ax.set_yticklabels(noms, fontsize=7)
-    ax.set_xlabel("Score FinBERT (-1 à +1)", fontsize=7.5, color='#555555')
+    ax.set_xlabel("Score composite (-0.25 à +0.25)", fontsize=7.5, color='#555555')
     ax.tick_params(labelsize=6.5, colors='#777777')
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
@@ -864,8 +874,8 @@ def _s02_exec_summary(prs, D):
             _bw = max(2.2, len(_blbl) * 0.13 + 0.5)
             _bw = min(_bw, 5.0)
             _rect(slide, _bx, 3.8, _bw, 0.45, fill=_bfill)
-            _txb(slide, _blbl, _bx + 0.1, 3.82, _bw - 0.15, 0.4,
-                 size=7.5, bold=(_bfill == _r_col), color=_btxt, align=PP_ALIGN.CENTER)
+            _txb(slide, _blbl, _bx + 0.1, 3.8, _bw - 0.15, 0.45,
+                 size=7.5, bold=(_bfill == _r_col), color=_btxt, align=PP_ALIGN.CENTER, vcenter=True)
             _bx += _bw + 0.15
 
     # Catalyseurs macro (y fixe suffisant apres regime strip eventuel)
@@ -1092,7 +1102,7 @@ def _s06_valorisation(prs, D):
             f"Score composite moyen : {_scr6}/100, signal {_sig6} (conviction {_conv6} %). "
             f"La croissance BPA forward reste le principal vecteur de re-rating si le cycle se confirme."
         )
-    _lecture_box(slide, "Lecture analytique — Valorisation macro", _trunc(texte_val, 700), y_top=8.0, height=5.35)
+    _lecture_box(slide, "Lecture analytique — Valorisation macro", _trunc(texte_val, 950), y_top=7.8, height=5.55)
 
     _footer(slide)
     return slide
@@ -1225,7 +1235,7 @@ def _s09_cartographie(prs, D):
         f"est de {score_spread} points — une dispersion {'élevée' if score_spread > 30 else 'modérée'} "
         f"qui témoigne d'une bifurcation sectorielle {'marquée' if score_spread > 30 else 'limitée'}."
     )
-    y_top = min(10.5, 2.3 + len(rows) * 0.65 + 0.3)
+    y_top = min(10.5, 2.3 + len(rows) * 0.65 + 0.8)
     _lecture_box(slide, "Lecture analytique — Ce que la cartographie révèle",
                  lecture, y_top=y_top, height=13.35 - y_top)
 
@@ -1442,13 +1452,13 @@ def _s13_top3(prs, D):
                 _txb(slide, _sc_lbl, xoff + 0.4 + 2.4 + 2.2, yy + 0.1, 2.2, 0.55,
                      size=8, color=_GRAYT)
             else:
-                _txb(slide, tk,       xoff + 0.4,             yy + 0.1, 1.6, 0.55,
+                _txb(slide, tk,       xoff + 0.4,             yy + 0.1, 1.9, 0.55,
                      size=8, bold=True, color=_NAVY)
-                _txb(slide, sg_abbr,  xoff + 0.4 + 1.6,       yy + 0.1, 1.5, 0.55,
+                _txb(slide, sg_abbr,  xoff + 0.4 + 1.9,       yy + 0.1, 1.5, 0.55,
                      size=8, color=_sig_color(sg))
-                _txb(slide, str(evs), xoff + 0.4 + 1.6 + 1.5, yy + 0.1, 1.5, 0.55,
+                _txb(slide, str(evs), xoff + 0.4 + 1.9 + 1.5, yy + 0.1, 1.5, 0.55,
                      size=8, color=_GRAYT)
-                _txb(slide, str(sc2), xoff + 0.4 + 1.6 + 1.5 + 1.5, yy + 0.1, 1.5, 0.55,
+                _txb(slide, str(sc2), xoff + 0.4 + 1.9 + 1.5 + 1.5, yy + 0.1, 1.5, 0.55,
                      size=8, color=_GRAYT)
 
         # Catalyseur
@@ -1779,20 +1789,19 @@ def _s18_rotation(prs, D):
 def _s19_sentiment(prs, D, chart_bytes: bytes):
     slide = _blank(prs)
     indice  = D.get("indice","")
-    nb_arts = D.get("sentiment_agg",{}).get("nb_articles",420)
-    _header(slide, "Sentiment FinBERT Agrégé",
-            f"Analyse sémantique FinBERT  ·  {nb_arts} articles  ·  7 jours glissants  ·  {D.get('nb_secteurs',11)} secteurs",
+    _header(slide, "Sentiment Sectoriel Composite",
+            f"Score proxy dérivé des scores sectoriels  ·  {D.get('nb_secteurs',11)} secteurs  ·  Signal composite",
             active=4)
 
     sa = D.get("sentiment_agg",{})
-    score = sa.get("score", 0.14)
+    score = sa.get("score", 0.0)
     label = sa.get("label","Neutre")
-    p_nb  = sa.get("positif_nb", 168)
-    p_pct = sa.get("positif_pct", 40)
-    n_nb  = sa.get("neutre_nb",  189)
-    n_pct = sa.get("neutre_pct", 45)
-    m_nb  = sa.get("negatif_nb",  63)
-    m_pct = sa.get("negatif_pct", 15)
+    p_nb  = sa.get("positif_nb", 0)
+    p_pct = sa.get("positif_pct", 0)
+    n_nb  = sa.get("neutre_nb",  0)
+    n_pct = sa.get("neutre_pct", 0)
+    m_nb  = sa.get("negatif_nb",  0)
+    m_pct = sa.get("negatif_pct", 0)
     t_pos = sa.get("themes_pos", [])
     t_neg = sa.get("themes_neg", [])
 
@@ -1803,35 +1812,35 @@ def _s19_sentiment(prs, D, chart_bytes: bytes):
                   (f"{score:.2f}" if score < -0.01 else "~0.00"))
     _txb(slide, _score_str, 1.2, 2.5, 5.3, 1.6, size=32, bold=True,
          color=_BUY if score > 0.05 else (_SELL if score < -0.05 else _HOLD))
-    _txb(slide, "Score agrégé FinBERT", 1.2, 4.05, 5.3, 0.55, size=8, color=_GRAYT)
+    _txb(slide, "Score composite secteurs", 1.2, 4.05, 5.3, 0.55, size=8, color=_GRAYT)
     _txb(slide, label, 1.2, 4.55, 5.3, 0.5, size=8.5, bold=True,
          color=_BUY if score > 0.05 else (_SELL if score < -0.05 else _HOLD))
 
     # Distribution milieu
     dist_items = [
-        ("Positif",  p_nb, p_pct, _BUY),
-        ("Neutre",   n_nb, n_pct, _HOLD),
-        ("Négatif",  m_nb, m_pct, _SELL),
+        ("Surpondérer",  p_nb, p_pct, _BUY),
+        ("Neutre",       n_nb, n_pct, _HOLD),
+        ("Sous-pondérer",m_nb, m_pct, _SELL),
     ]
     for j, (lbl, nb, pct, col) in enumerate(dist_items):
         yy = 2.3 + j * 1.15
         _rect(slide, 7.2, yy, 7.8, 1.0, fill=_GRAYL)
         _rect(slide, 7.2, yy, pct * 0.078, 1.0, fill=col)
         txt_col = _WHITE if pct >= 30 else _BLACK
-        _txb(slide, lbl,  7.4, yy + 0.05, 3.0, 0.45, size=8.5, bold=True, color=txt_col)
-        _txb(slide, f"{nb} articles ({pct} %)", 7.4, yy + 0.5, 7.0, 0.45, size=8, color=txt_col)
+        _txb(slide, lbl,  7.4, yy + 0.05, 4.5, 0.45, size=8.5, bold=True, color=txt_col)
+        _txb(slide, f"{nb} secteurs ({pct} %)", 7.4, yy + 0.5, 7.0, 0.45, size=8, color=txt_col)
 
     # Themes positifs / negatifs
-    _txb(slide, "Thèmes dominants", 15.5, 2.3, 8.8, 0.5, size=8.5, bold=True, color=_NAVY)
+    _txb(slide, "Secteurs leaders / retardataires", 15.5, 2.3, 8.8, 0.5, size=8.5, bold=True, color=_NAVY)
     pos_txt = "  ·  ".join(t_pos[:4]) if t_pos else "—"
     neg_txt = "  ·  ".join(t_neg[:4]) if t_neg else "—"
     _rect(slide, 15.5, 2.9, 8.8, 1.25, fill=_BUY_L)
-    _txb(slide, "+ " + pos_txt[:80], 15.7, 2.95, 8.4, 1.15, size=8, color=_GRAYT, wrap=True)
+    _txb(slide, "Surpondérer : " + pos_txt[:70], 15.7, 2.95, 8.4, 1.15, size=8, color=_GRAYT, wrap=True)
     _rect(slide, 15.5, 4.25, 8.8, 1.25, fill=_SELL_L)
-    _txb(slide, "- " + neg_txt[:80], 15.7, 4.3, 8.4, 1.15, size=8, color=_GRAYT, wrap=True)
+    _txb(slide, "Sous-pondérer : " + neg_txt[:68], 15.7, 4.3, 8.4, 1.15, size=8, color=_GRAYT, wrap=True)
 
     # Chart sentiment par secteur bas
-    _txb(slide, "Distribution sentiment par secteur", 0.9, 5.9, 23.6, 0.55,
+    _txb(slide, "Score composite par secteur (dérivé du score quantitatif)", 0.9, 5.9, 23.6, 0.55,
          size=8, bold=True, color=_NAVY)
     _pic(slide, chart_bytes, 0.9, 6.5, 23.6, 7.0)
 
