@@ -97,6 +97,10 @@ def _frm(v, cur_sym: str = "$") -> str:
         return "—"
     try:
         v = float(v)
+        # Guard : LLM peut envoyer des valeurs en EUR/USD absolus (ex: 195_000_000_000)
+        # au lieu de millions (195_000). Si > 1e9, on normalise en millions.
+        if abs(v) > 1_000_000_000:
+            v = v / 1_000_000
         if cur_sym == "EUR":
             sym_big, sym_small = "Md\u20ac", "M\u20ac"
         else:
@@ -114,6 +118,8 @@ def _frn(v) -> str:
         return "—"
     try:
         v = float(v)
+        if abs(v) > 1_000_000_000:  # guard LLM valeurs absolues
+            v = v / 1_000_000
         return _fr(v / 1000, 1)
     except Exception:
         return "—"
