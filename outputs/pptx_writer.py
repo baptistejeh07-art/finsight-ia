@@ -823,6 +823,7 @@ def _slide_exec_summary(prs, snap, synthesis, ratios, devil, sentiment):
     sent_label  = _g(sentiment, "label", "NEUTRAL") or "NEUTRAL"
     sent_articles = _g(sentiment, "articles_analyzed", 0) or 0
     sent_label_display = _sent_label_fr(sent_label, sent_score)
+    _s2_is_llm  = _g(sentiment, "engine", "finbert") not in ("finbert", "finbert_fallback", None, "")
 
     # Rec band
     add_rect(slide, 1.02, 2.08, 23.37, 1.22, rec_fill)
@@ -917,7 +918,7 @@ def _slide_exec_summary(prs, snap, synthesis, ratios, devil, sentiment):
             f"Upside de {_upside(tbase, price)} vs cours")
     kpi_box(slide, 18.69, 9.38, 5.64, 2.24,
             f"{sent_score:+.3f}".replace(".", ","),
-            "Sentiment FinBERT",
+            "Sentiment LLM" if _s2_is_llm else "Sentiment FinBERT",
             f"{sent_label_display}  ·  {sent_articles} articles")
 
     return slide
