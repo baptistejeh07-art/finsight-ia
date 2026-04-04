@@ -951,7 +951,10 @@ def _chart_performance(tickers_data) -> bytes:
             ticker = t.get("ticker")
             if not ticker: continue
             try:
-                hist = yf.Ticker(ticker).history(period='1y', interval='1wk')['Close']
+                hist_df = yf.Ticker(ticker).history(period='1y', interval='1wk')
+                if hist_df.empty or 'Close' not in hist_df.columns:
+                    continue
+                hist = hist_df['Close']
                 if len(hist) < 4: continue
                 norm = (hist / hist.iloc[0] - 1) * 100
                 ax.plot(norm.index, norm.values,

@@ -800,8 +800,8 @@ def _build_synthese(data, perf_buf, registry=None):
 
     # Bloc synthese signal — fill empty space page 3
     secteurs = data["secteurs"]
-    nb_surp  = sum(1 for s in secteurs if "Surp" in str(s[3]))
-    nb_sous  = sum(1 for s in secteurs if "Sous" in str(s[3]))
+    nb_surp  = sum(1 for s in secteurs if len(s) > 3 and "Surp" in str(s[3]))
+    nb_sous  = sum(1 for s in secteurs if len(s) > 3 and "Sous" in str(s[3]))
     nb_neut  = len(secteurs) - nb_surp - nb_sous
     top_s    = sorted(secteurs, key=lambda s: float(str(s[2]).replace(',','.') or 0), reverse=True)
     top3_nms = ", ".join(s[0] for s in top_s[:3]) if top_s else "—"

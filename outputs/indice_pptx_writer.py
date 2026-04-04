@@ -619,7 +619,10 @@ def _chart_etf_perf(data: dict) -> bytes:
         etf_list = list(etf_perf.keys())[:8]
         for i, etf in enumerate(etf_list):
             try:
-                hist = yf.Ticker(etf).history(period='1y', interval='1wk')['Close']
+                hist_df = yf.Ticker(etf).history(period='1y', interval='1wk')
+                if hist_df.empty or 'Close' not in hist_df.columns:
+                    continue
+                hist = hist_df['Close']
                 if len(hist) < 4:
                     continue
                 norm = (hist / hist.iloc[0]) * 100
@@ -793,9 +796,9 @@ def _s01_cover(prs, D):
                     and isinstance(s[2], (int, float))]
         score_med = round(sum(scores_l) / len(scores_l)) if scores_l else None
     sm_str   = f"{score_med}/100" if isinstance(score_med, (int, float)) else "\u2014"
-    nb_surp  = sum(1 for s in secteurs_cov if "surp"   in str(s[3]).lower())
-    nb_neut  = sum(1 for s in secteurs_cov if "neutre" in str(s[3]).lower())
-    nb_sousp = sum(1 for s in secteurs_cov if "sous"   in str(s[3]).lower())
+    nb_surp  = sum(1 for s in secteurs_cov if len(s) > 3 and "surp"   in str(s[3]).lower())
+    nb_neut  = sum(1 for s in secteurs_cov if len(s) > 3 and "neutre" in str(s[3]).lower())
+    nb_sousp = sum(1 for s in secteurs_cov if len(s) > 3 and "sous"   in str(s[3]).lower())
     metrics = [
         ("Score m\u00e9dian",   sm_str),
         ("Surpond\u00e9rer",    f"{nb_surp} sect."),
@@ -1225,11 +1228,11 @@ def _s09_cartographie(prs, D):
         _color_cell(tbl, r, sig_col, _sig_light(sig), _sig_color(sig))
 
     # Lecture analytique enrichie
-    nb_surp = sum(1 for s in secteurs if "Surp" in str(s[3]))
-    nb_sous = sum(1 for s in secteurs if "Sous" in str(s[3]))
+    nb_surp = sum(1 for s in secteurs if len(s) > 3 and "Surp" in str(s[3]))
+    nb_sous = sum(1 for s in secteurs if len(s) > 3 and "Sous" in str(s[3]))
     nb_neut = nb_s - nb_surp - nb_sous
-    surp_noms = " · ".join(s[0] for s in sorted_s if "Surp" in str(s[3]))
-    sous_noms = " · ".join(s[0] for s in sorted_s if "Sous" in str(s[3]))
+    surp_noms = " · ".join(s[0] for s in sorted_s if len(s) > 3 and "Surp" in str(s[3]))
+    sous_noms = " · ".join(s[0] for s in sorted_s if len(s) > 3 and "Sous" in str(s[3]))
     top_s  = sorted_s[0]  if sorted_s else None
     bot_s  = sorted_s[-1] if sorted_s else None
     score_top = top_s[2] if top_s else "—"
