@@ -449,7 +449,9 @@ def _momentum_52w(ticker: str, hist_df) -> Optional[float]:
         past    = float(hist_df["Close"].iloc[0])
         if past == 0:
             return None
-        return round((current - past) / past * 100, 1)
+        raw = round((current - past) / past * 100, 1)
+        # Cap a +/-500% (titres recottes/splites)
+        return max(-500.0, min(500.0, raw))
     except Exception:
         return None
 
@@ -661,8 +663,21 @@ def _enrich_realtime(ticker: str, cache_info: dict) -> dict:
         extra["_info"]  = info
         extra["_hist"]  = hist
 
+        mom = None
         if hist is not None and not hist.empty:
-            extra["momentum_52w"] = _momentum_52w(ticker, hist)
+            mom = _momentum_52w(ticker, hist)
+        # Fallback : historique 6 mois si 1 an vide ou insuffisant
+        if mom is None:
+            try:
+                hist6 = tk.history(period="6mo", interval="1mo")
+                mom = _momentum_52w(ticker, hist6)
+            except Exception:
+                pass
+        # Sanity cap : titres recottes ou splites -> plafonner a +/-500%
+        if mom is not None and abs(mom) > 500:
+            mom = 500.0 if mom > 0 else -500.0
+        if mom is not None:
+            extra["momentum_52w"] = mom
 
     except Exception as e:
         log.warning(f"[{ticker}] yfinance realtime: {e}")
@@ -734,7 +749,19 @@ def compute_ticker(ticker: str, cache_row: Optional[dict]) -> Optional[dict]:
     else:
         market_cap = None
 
+    # Fallback direct yfinance si shares manquant
+    if market_cap is None:
+        _yf_mc = info.get("marketCap")
+        if _yf_mc:
+            market_cap = round(float(_yf_mc) / 1e9, 2)
+
     ev = (market_cap + net_debt / 1e9) if market_cap is not None else None
+
+    # Fallback direct enterpriseValue si ev toujours None
+    if ev is None:
+        _yf_ev_direct = info.get("enterpriseValue")
+        if _yf_ev_direct:
+            ev = round(float(_yf_ev_direct) / 1e9, 2)
 
     # Convertir IS/BS de raw (unites absolues) en Mds
     def _mds(v):
@@ -806,7 +833,9 @@ def compute_ticker(ticker: str, cache_row: Optional[dict]) -> Optional[dict]:
         _capex = _get(cf, "Capital Expenditure")
         if _ocf is not None and _capex is not None:
             _cf_fcf = _ocf + _capex   # CapEx negatif dans yfinance
-    _mktcap_raw = float(price) * float(shares) if (price and shares) else None
+    _mktcap_raw = (float(price) * float(shares)) if (price and shares) else None
+    if _mktcap_raw is None and market_cap is not None:
+        _mktcap_raw = market_cap * 1e9
     fcf_yield = (
         round(_cf_fcf / _mktcap_raw * 100, 1)
         if (_cf_fcf and _mktcap_raw and _mktcap_raw > 0) else None
