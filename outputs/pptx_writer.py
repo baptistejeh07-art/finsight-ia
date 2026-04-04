@@ -2717,11 +2717,11 @@ def _slide_historique(prs, snap, synthesis):
         add_text_box(slide, chart_x + 8.0, chart_y + 2.0, 7.37, 1.0,
                      "Historique de cours non disponible", 10, GREY_TXT)
 
-    # Commentary (plain text)
+    # Commentary (plain text) — 400 chars pour eviter troncature visible
     thesis_s = _g(synthesis, "summary", "") or _g(synthesis, "thesis", "") or ""
     if thesis_s.strip():
         add_text_box(slide, 1.02, 11.48, 23.37, 1.91,
-                     thesis_s[:300], 8.5, GREY_TXT, wrap=True)
+                     thesis_s[:400], 8.5, GREY_TXT, wrap=True)
 
     return slide
 

@@ -1718,10 +1718,10 @@ def _s18_sentiment(prs, D):
     neg_theme = risks[0][0] if risks else "Tendance negative"
     _rect(slide, 0.9, 5.9, 11.4, 1.1, fill=_GREEN_L)
     _rect(slide, 0.9, 5.9, 0.1, 1.1, fill=_BUY)
-    _txb(slide, f"+ {pos_theme} — {cats[0][1][:140] if cats else ''}", 1.3, 5.95, 10.7, 1.0, size=8, color=_GRAYT, wrap=True)
+    _txb(slide, f"+ {pos_theme} — {cats[0][1][:160] if cats else ''}", 1.3, 5.95, 10.7, 1.0, size=8, color=_GRAYT, wrap=True)
     _rect(slide, 13.1, 5.9, 11.4, 1.1, fill=_RED_L)
     _rect(slide, 13.1, 5.9, 0.1, 1.1, fill=_SELL)
-    _txb(slide, f"- {neg_theme} — {risks[0][1][:140] if risks else ''}", 13.5, 5.95, 10.7, 1.0, size=8, color=_GRAYT, wrap=True)
+    _txb(slide, f"- {neg_theme} — {risks[0][1][:160] if risks else ''}", 13.5, 5.95, 10.7, 1.0, size=8, color=_GRAYT, wrap=True)
 
     # Analytical text
     _rect(slide, 0.9, 7.4, 23.6, 5.5, fill=_GRAYL)

@@ -786,6 +786,11 @@ def compute_ticker(ticker: str, cache_row: Optional[dict]) -> Optional[dict]:
             if 1.0 < _ev_eb_raw < 200:
                 ev_ebitda = round(_ev_eb_raw, 1)
     ev_revenue= round(ev / revenue_ltm, 1) if (ev and revenue_ltm and revenue_ltm > 0) else None
+    # Fallback ev_revenue : enterpriseToRevenue direct depuis yfinance
+    if ev_revenue is None:
+        _yf_ev_rev = info.get("enterpriseToRevenue")
+        if _yf_ev_rev and 0.1 < float(_yf_ev_rev) < 200:
+            ev_revenue = round(float(_yf_ev_rev), 1)
     eps       = round(net_income / shares, 2) if (net_income and shares and shares > 0) else None
     pe        = round(float(price) / eps, 1) if (price and eps and eps > 0) else None
     # Fallback P/E : trailingPE direct depuis yfinance (valide pour earnings positifs/negatifs)
@@ -796,8 +801,23 @@ def compute_ticker(ticker: str, cache_row: Optional[dict]) -> Optional[dict]:
 
     # --- Marges ---
     gross_margin  = round(gross_profit / revenue0 * 100, 1) if (gross_profit and revenue0) else None
+    # Fallback gross_margin : grossMargins direct yfinance (decimal)
+    if gross_margin is None:
+        _yf_gm = info.get("grossMargins")
+        if _yf_gm is not None and 0 < float(_yf_gm) <= 1.0:
+            gross_margin = round(float(_yf_gm) * 100, 1)
     ebitda_margin = round(ebitda0 / revenue0 * 100, 1)      if (ebitda0 and revenue0) else None
+    # Fallback ebitda_margin : ebitdaMargins direct yfinance (decimal)
+    if ebitda_margin is None:
+        _yf_em = info.get("ebitdaMargins")
+        if _yf_em is not None and -1.0 <= float(_yf_em) <= 1.0:
+            ebitda_margin = round(float(_yf_em) * 100, 1)
     net_margin    = round(net_income / revenue0 * 100, 1)   if (net_income and revenue0) else None
+    # Fallback net_margin : profitMargins direct yfinance (decimal)
+    if net_margin is None:
+        _yf_nm = info.get("profitMargins")
+        if _yf_nm is not None and -5.0 <= float(_yf_nm) <= 1.0:
+            net_margin = round(float(_yf_nm) * 100, 1)
 
     # --- Croissance ---
     revenue_growth = (
