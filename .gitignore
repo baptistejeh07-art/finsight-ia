@@ -32,10 +32,18 @@ nlp/models/
 knowledge/chroma_db/
 
 # --- Fichiers temporaires de test/debug ---
+tmp_*/
 tmp_*.py
 tmp_*.png
 tmp_*.pdf
+tmp_*.xlsx
 session_*.md
+
+# --- Logs générés ---
+logs/groq_usage.json
+
+# --- Backups assets ---
+assets/TEMPLATE_backup_*.xlsx
 
 # --- IDE ---
 .vscode/
