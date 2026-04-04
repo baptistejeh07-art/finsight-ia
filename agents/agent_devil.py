@@ -109,7 +109,7 @@ JSON requis :
 
 class AgentDevil:
     def __init__(self, model: str = _DEFAULT_MODEL):
-        self.llm = LLMProvider(provider="groq", model=model)
+        self.llm = LLMProvider(provider="mistral", model="mistral-small-latest")
 
     def challenge(self, synthesis, ratios) -> Optional[DevilResult]:
         if synthesis is None:

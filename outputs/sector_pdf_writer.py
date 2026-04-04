@@ -904,7 +904,7 @@ def _build_macro(perf_buf, area_buf, tickers_data: list[dict],
             f'{{"titre":"titre court","corps":"2 phrases specifiques, exposition en gras"}},'
             f'{{"titre":"titre court","corps":"2 phrases specifiques, exposition en gras"}}]}}'
         )
-        _resp_mac = _LLMp(provider="groq").generate(
+        _resp_mac = _LLMp(provider="mistral", model="mistral-small-latest").generate(
             prompt=_prompt_mac,
             system=(
                 f"Tu es analyste financier senior specialise dans le secteur {sector_name}. "

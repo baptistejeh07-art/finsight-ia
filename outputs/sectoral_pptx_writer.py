@@ -372,7 +372,7 @@ def _build_content_from_llm(sector_name: str, ev_med: float, rev_med: float,
             f'{{"direction":"down","nom":"court","description":"1 phrase"}}],"'
             f'cycle_comment":"1 phrase courte sur la phase de cycle actuelle"}}'
         )
-        resp = _LLMpptx(provider="groq").generate(
+        resp = _LLMpptx(provider="mistral", model="mistral-small-latest").generate(
             prompt=prompt,
             system=(
                 f"Tu es analyste buy-side specialise en {sector_name}. "

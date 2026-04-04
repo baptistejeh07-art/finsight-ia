@@ -2014,7 +2014,7 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
     try:
         import json as _json_llm
         from core.llm_provider import LLMProvider as _LLMProvider
-        _llm = _LLMProvider(provider="groq")
+        _llm = _LLMProvider(provider="mistral", model="mistral-small-latest")
         _top3_prompt = []
         for _t in top3_secteurs[:3]:
             _top3_prompt.append(
