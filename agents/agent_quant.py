@@ -359,6 +359,16 @@ class AgentQuant:
         yr.roe           = _pct(yr.net_income,    yr.total_equity)
         yr.roa           = _pct(yr.net_income,    yr.total_assets)
         yr.fcf_margin    = _pct(yr.fcf,            fy.revenue)
+        # Sanity caps : REIT/banques peuvent avoir EBITDA > Revenue (cessions, gains)
+        # gross_margin doit etre entre 0 et 1 (0%-100%)
+        if yr.gross_margin is not None and not (0.0 <= yr.gross_margin <= 1.0):
+            yr.gross_margin = None
+        # ebitda_margin > 1.0 = aberrant (REITs avec plus-values cession SPG pattern)
+        if yr.ebitda_margin is not None and yr.ebitda_margin > 0.999:
+            yr.ebitda_margin = None
+        # net_margin extremes : > 100% ou < -200% = donnee yfinance corrompue
+        if yr.net_margin is not None and not (-2.0 <= yr.net_margin <= 0.999):
+            yr.net_margin = None
 
         # ROIC = NOPAT / IC   (NOPAT = EBIT*(1-tax_rate), IC = Equity + Net Debt)
         if yr.ebit and yr.total_equity and yr.net_debt is not None:

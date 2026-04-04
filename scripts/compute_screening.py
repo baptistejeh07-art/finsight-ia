@@ -806,18 +806,29 @@ def compute_ticker(ticker: str, cache_row: Optional[dict]) -> Optional[dict]:
         _yf_gm = info.get("grossMargins")
         if _yf_gm is not None and 0 < float(_yf_gm) <= 1.0:
             gross_margin = round(float(_yf_gm) * 100, 1)
+    # Sanity cap : gross_margin ne peut pas depasser 100% (banques = None attendu)
+    if gross_margin is not None and not (0.0 <= gross_margin <= 100.0):
+        gross_margin = None
+
     ebitda_margin = round(ebitda0 / revenue0 * 100, 1)      if (ebitda0 and revenue0) else None
     # Fallback ebitda_margin : ebitdaMargins direct yfinance (decimal)
     if ebitda_margin is None:
         _yf_em = info.get("ebitdaMargins")
         if _yf_em is not None and -1.0 <= float(_yf_em) <= 1.0:
             ebitda_margin = round(float(_yf_em) * 100, 1)
+    # Sanity cap : REIT/cessions peuvent gonfler EBIT/EBITDA au-dessus du revenue (SPG pattern)
+    if ebitda_margin is not None and not (-50.0 <= ebitda_margin <= 99.9):
+        ebitda_margin = None
+
     net_margin    = round(net_income / revenue0 * 100, 1)   if (net_income and revenue0) else None
     # Fallback net_margin : profitMargins direct yfinance (decimal)
     if net_margin is None:
         _yf_nm = info.get("profitMargins")
         if _yf_nm is not None and -5.0 <= float(_yf_nm) <= 1.0:
             net_margin = round(float(_yf_nm) * 100, 1)
+    # Sanity cap net_margin
+    if net_margin is not None and not (-200.0 <= net_margin <= 99.9):
+        net_margin = None
 
     # --- Croissance ---
     revenue_growth = (
