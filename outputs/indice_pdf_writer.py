@@ -339,10 +339,10 @@ def make_top3_donut(data):
     total_top = sum(poids_top)
     ax.text(0,  0.10, "Top 3",    ha='center', va='center', fontsize=12, fontweight='bold', color='#1B3A6B')
     ax.text(0, -0.14, f"{total_top:.0f}%", ha='center', va='center', fontsize=16, fontweight='bold', color='#1B3A6B')
-    ax.legend(wedges, labels, loc='lower center', bbox_to_anchor=(0.5, -0.18),
-              ncol=2, fontsize=9, frameon=False, handlelength=1.4, columnspacing=1.2)
+    ax.legend(wedges, labels, loc='lower center', bbox_to_anchor=(0.5, -0.22),
+              ncol=2, fontsize=11, frameon=False, handlelength=1.4, columnspacing=1.2)
     ax.set_title(f"Contribution a l'indice - Top 3 vs reste",
-                 fontsize=11, color='#1B3A6B', fontweight='bold', pad=10)
+                 fontsize=13, color='#1B3A6B', fontweight='bold', pad=12)
     fig.patch.set_facecolor('white')
     plt.tight_layout(pad=0.5)
     buf = io.BytesIO(); fig.savefig(buf, format='png', dpi=160, bbox_inches='tight')

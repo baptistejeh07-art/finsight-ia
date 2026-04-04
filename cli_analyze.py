@@ -1489,9 +1489,21 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
                                     _inf.get("regularMarketPrice") or
                                     _inf.get("previousClose"))
                         _mktcap  = _inf.get("marketCap")
+                        # Fallback mktcap : price * shares si marketCap absent (tickers EU)
+                        if _mktcap is None and _price:
+                            _shr = (_inf.get("sharesOutstanding") or
+                                    _inf.get("impliedSharesOutstanding"))
+                            if _shr:
+                                _mktcap = _price * _shr
                         _ev_raw  = _inf.get("enterpriseValue")
                         _rev_raw = _inf.get("totalRevenue")
                         _ebitda_raw = _inf.get("ebitda")
+
+                        # Fallback ev : mktcap + dette - cash si enterpriseValue absent
+                        if _ev_raw is None and _mktcap:
+                            _tdebt_ev = _inf.get("totalDebt") or 0
+                            _cash_ev  = _inf.get("totalCash") or 0
+                            _ev_raw   = _mktcap + _tdebt_ev - _cash_ev
 
                         # FCF Yield
                         _fcf     = _inf.get("freeCashflow")
@@ -1553,7 +1565,11 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
                             "ev":              round(_ev_raw  / 1e9, 2) if _ev_raw  else None,
                             "rev_ltm":         round(_rev_raw  / 1e9, 2) if _rev_raw  else None,
                             "ebitda_ltm":      round(_ebitda_raw / 1e9, 2) if _ebitda_raw else None,
-                            "ev_ebitda":       _inf.get("enterpriseToEbitda"),
+                            "ev_ebitda":       _inf.get("enterpriseToEbitda") or (
+                                                   round(_ev_raw / _ebitda_raw, 1)
+                                                   if (_ev_raw and _ebitda_raw and _ebitda_raw > 0
+                                                       and 0.5 < _ev_raw / _ebitda_raw < 120)
+                                                   else None),
                             "ev_revenue":      _ev_rev,
                             "pe_trailing":     _inf.get("trailingPE"),
                             "pe_fwd":          _inf.get("forwardPE"),
