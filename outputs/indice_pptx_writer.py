@@ -1187,12 +1187,22 @@ def _s09_cartographie(prs, D):
     # EV/EBITDA est déjà sur slide 10 scatter — on le remplace par P/B + DivYield ici
     pb_by_sector = D.get("pb_by_sector", {}) or {}
     dy_by_sector = D.get("dy_by_sector", {}) or {}
+    # Alias : noms secteurs yfinance EU vs noms ETF SPDR (ex: "Healthcare" -> "Health Care")
+    _SECT_ALIAS_S09 = {
+        "Financial Services": "Financials",
+        "Healthcare":         "Health Care",
+        "Basic Materials":    "Materials",
+        "Consumer Defensive": "Consumer Staples",
+        "Consumer Cyclical":  "Consumer Discretionary",
+    }
     rows = [["Rg", "Secteur", "Score", "Signal", "Mg.EBITDA", "Croiss.", "P/Book", "Div.Yield"]]
     for rang, s in enumerate(sorted_s, 1):
         raw_sig = str(s[3])[:15]
         norm_sig = _SIG_LABEL.get(raw_sig.strip().lower(), raw_sig)
-        _pb = pb_by_sector.get(s[0])
-        _dy = dy_by_sector.get(s[0])
+        _sect_key = s[0]
+        _sect_alias = _SECT_ALIAS_S09.get(_sect_key, _sect_key)
+        _pb = pb_by_sector.get(_sect_key) if pb_by_sector.get(_sect_key) is not None else pb_by_sector.get(_sect_alias)
+        _dy = dy_by_sector.get(_sect_key) if dy_by_sector.get(_sect_key) is not None else dy_by_sector.get(_sect_alias)
         rows.append([
             str(rang),
             _abbrev_sector(s[0], 22),

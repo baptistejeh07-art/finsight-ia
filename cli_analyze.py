@@ -1062,10 +1062,14 @@ _SP500_NB_SOC = {
 _INDICE_META = {
     "S&P 500":      {"code": "^GSPC",     "nb_societes": 503},
     "CAC 40":       {"code": "^FCHI",     "nb_societes": 40},
+    "CAC40":        {"code": "^FCHI",     "nb_societes": 40},
     "DAX":          {"code": "^GDAXI",    "nb_societes": 40},
     "DAX 40":       {"code": "^GDAXI",    "nb_societes": 40},
+    "DAX40":        {"code": "^GDAXI",    "nb_societes": 40},
     "FTSE 100":     {"code": "^FTSE",     "nb_societes": 100},
+    "FTSE100":      {"code": "^FTSE",     "nb_societes": 100},
     "Euro Stoxx 50":{"code": "^STOXX50E", "nb_societes": 50},
+    "STOXX50":      {"code": "^STOXX50E", "nb_societes": 50},
 }
 
 
@@ -1446,10 +1450,15 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
 
     if not secteurs:
         _EU_CONST_MAP = {
+            "DAX":          "DAX40",
             "DAX 40":       "DAX40",
+            "DAX40":        "DAX40",
             "FTSE 100":     "FTSE100",
+            "FTSE100":      "FTSE100",
             "Euro Stoxx 50":"STOXX50",
-            "CAC 40":       "CAC40",   # sécurité si ETF CAC absent
+            "STOXX50":      "STOXX50",
+            "CAC 40":       "CAC40",   # securite si ETF CAC absent
+            "CAC40":        "CAC40",
         }
         _YF_SECT = {
             "Technology":             "Technology",
@@ -1925,16 +1934,63 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
         f"sont Neutre et {sum(1 for s in secteurs if s[3] == 'Sous-ponderer')} en Sous-ponderer."
     )
 
+    # Prime/decote vs mediane P/E historique 10 ans
+    _PE_HIST_INDICE = {
+        "S&P 500": (14.0, 22.0), "CAC 40": (11.0, 20.0), "CAC40": (11.0, 20.0),
+        "DAX": (10.0, 19.0), "DAX 40": (10.0, 19.0), "DAX40": (10.0, 19.0),
+        "FTSE 100": (10.0, 17.0), "FTSE100": (10.0, 17.0),
+        "Euro Stoxx 50": (11.0, 19.0), "STOXX50": (11.0, 19.0),
+    }
+    _pe_range = _PE_HIST_INDICE.get(universe, (12.0, 22.0))
+    _pe_med_10y = round((_pe_range[0] + _pe_range[1]) / 2, 1)
+    _prime_decote_str = "\u2014"
+    try:
+        _pe_num = float(pe_fwd_str.replace("x","").replace(",",".").strip())
+        _prime_val = (_pe_num - _pe_med_10y) / _pe_med_10y * 100
+        _prime_decote_str = (f"+{_prime_val:.0f}% prime"
+                             if _prime_val > 0 else f"{_prime_val:.0f}% decote")
+    except Exception:
+        pass
+
+    # P/B et DivYield generiques pour indices EU (si ETF SPDR non disponibles)
+    _EU_PB_GENERIC = {
+        "Technology": 8.5, "Health Care": 4.2, "Financials": 1.5,
+        "Consumer Discretionary": 5.8, "Communication Services": 3.6,
+        "Industrials": 4.9, "Consumer Staples": 5.2, "Energy": 2.3,
+        "Materials": 3.8, "Real Estate": 2.1, "Utilities": 1.8,
+    }
+    _EU_DY_GENERIC = {
+        "Technology": 0.7, "Health Care": 1.6, "Financials": 2.5,
+        "Consumer Discretionary": 0.9, "Communication Services": 1.1,
+        "Industrials": 1.8, "Consumer Staples": 3.0, "Energy": 4.0,
+        "Materials": 2.2, "Real Estate": 4.2, "Utilities": 3.5,
+    }
+    _eu_pb_map = {}
+    _eu_dy_map = {}
+    _eu_erp_map = {}
+    if universe != "S&P 500":
+        for _sname, _nb, _sc, _sig, _ev_s, _mg, _gr_s, _mom_s in secteurs:
+            _pb_v = _EU_PB_GENERIC.get(_sname)
+            _dy_v = _EU_DY_GENERIC.get(_sname)
+            _eu_pb_map[_sname] = _pb_v
+            _eu_dy_map[_sname] = _dy_v
+            _dy_dec = (_dy_v or 0) / 100
+            _gr_eu  = 6.0 / 100
+            _eu_erp_map[_sname] = round((_dy_dec + _gr_eu - rf_rate) * 100, 1)
+
     base.update({
         "code":               code,
         "cours":              cours_str,
         "variation_ytd":      ytd_str,
         "pe_forward":         pe_fwd_str,
+        "pe_mediane_10y":     _pe_med_10y,
+        "prime_decote":       _prime_decote_str,
         "erp":                erp_pct,
         "rf_rate":            rf_pct_str,
         "erp_signal":         erp_signal,
         "signal_global":      signal_global,
         "conviction_pct":     conviction,
+        "score_median":       avg_score,
         "nb_secteurs":        len(secteurs),
         "secteurs":           secteurs,
         "top3_secteurs":      top3_secteurs,
@@ -1944,9 +2000,9 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
         "sector_contribution":  sector_contribution,
         "indice_analytics":     indice_analytics,
         "correlation_matrix":   correlation_data,
-        "pb_by_sector":         pb_by_sector    if universe == "S&P 500" else {},
-        "dy_by_sector":         dy_by_sector    if universe == "S&P 500" else {},
-        "erp_by_sector":        erp_by_sector   if universe == "S&P 500" else {},
+        "pb_by_sector":         pb_by_sector    if universe == "S&P 500" else _eu_pb_map,
+        "dy_by_sector":         dy_by_sector    if universe == "S&P 500" else _eu_dy_map,
+        "erp_by_sector":        erp_by_sector   if universe == "S&P 500" else _eu_erp_map,
         "optimal_portfolios":   optimal_portfolios if universe == "S&P 500" else {},
         **({"perf_history": _eu_perf_history} if _eu_perf_history else {}),
         # Per-ticker raw data pour IndiceExcelWriter (EU indices uniquement)

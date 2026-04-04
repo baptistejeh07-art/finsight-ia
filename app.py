@@ -2000,6 +2000,7 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
         "pe_mediane_10y": _pe_med_str,
         "prime_decote":   _prime_decote_str,
         "score_global":   int(avg_score),
+        "score_median":   int(avg_score),
         "secteurs":       secteurs_list,
         "texte_macro":        texte_macro,
         "texte_signal":       texte_signal,
