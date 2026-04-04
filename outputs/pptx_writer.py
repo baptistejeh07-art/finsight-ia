@@ -876,20 +876,27 @@ def _slide_exec_summary(prs, snap, synthesis, ratios, devil, sentiment):
     for i, ry in enumerate(risk_ys):
         risk_text = (risks_s[i] if i < len(risks_s) else
                      (counter_risks[i] if i < len(counter_risks) else ""))
-        # Cascade body : neg_themes → risk_bodies (counter_thesis) → counter_risks → fallback générique
+        # Cascade body : neg_themes → risk_bodies (counter_thesis) → counter_risks → fallback unique
+        # Seuil abaissé à 15 chars : neg_themes peut être un court bullet point LLM
         body_r = (neg_themes[i] if i < len(neg_themes) and neg_themes[i] else "")
-        if not body_r or len(body_r) < 35:
+        if not body_r or len(body_r) < 15:
             rb = risk_bodies[i] if i < len(risk_bodies) else ""
-            if rb and rb != risk_text and len(rb) >= 35:
+            if rb and len(rb) >= 15:
                 body_r = rb
-        if not body_r or len(body_r) < 35:
+        if not body_r or len(body_r) < 15:
             cr = counter_risks[i] if i < len(counter_risks) else ""
-            if cr and cr != risk_text and len(cr) >= 35:
+            if cr and len(cr) >= 15:
                 body_r = cr
-        if not body_r or len(body_r) < 35:
-            # Fallback : construire une phrase à partir du label risque
-            body_r = (f"Impact potentiel sur la thèse d'investissement — "
-                      f"surveillance recommandée sur les 6-12 prochains mois.")
+        if not body_r or len(body_r) < 15:
+            # Fallback unique : intègre le label du risque pour différencier les 3 blocs
+            _lbl = (risk_text.split(":", 1)[-1].strip() if ":" in risk_text
+                    else risk_text)
+            if _lbl and len(_lbl) >= 10:
+                body_r = (f"{_lbl} — impact potentiel sur la valorisation et les marges, "
+                          f"surveillance recommandée sur les 6-12 prochains mois.")
+            else:
+                body_r = ("Impact potentiel sur la thèse d'investissement — "
+                          "surveillance recommandée sur les 6-12 prochains mois.")
         add_rect(slide, 13.08, ry + 0.05, 0.15, 0.36, RED)
         add_text_box(slide, 13.46, ry, 10.54, 0.51,
                      _truncate(risk_text, 80), 8.5, NAVY, bold=True)
