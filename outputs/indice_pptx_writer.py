@@ -1825,7 +1825,9 @@ def _s19_sentiment(prs, D, chart_bytes: bytes):
     for j, (lbl, nb, pct, col) in enumerate(dist_items):
         yy = 2.3 + j * 1.15
         _rect(slide, 7.2, yy, 7.8, 1.0, fill=_GRAYL)
-        _rect(slide, 7.2, yy, pct * 0.078, 1.0, fill=col)
+        _bar_w = pct * 0.078
+        if _bar_w > 0:
+            _rect(slide, 7.2, yy, _bar_w, 1.0, fill=col)
         txt_col = _WHITE if pct >= 30 else _BLACK
         _txb(slide, lbl,  7.4, yy + 0.05, 4.5, 0.45, size=8.5, bold=True, color=txt_col)
         _txb(slide, f"{nb} secteurs ({pct} %)", 7.4, yy + 0.5, 7.0, 0.45, size=8, color=txt_col)
