@@ -1523,18 +1523,41 @@ def _s14_allocation(prs, D):
 
     # S&P 500 — afficher les 3 portefeuilles
     sectors  = opt.get("sectors", [])
-    mv       = opt.get("min_var", [])
-    tang     = opt.get("tangency", [])
-    erc      = opt.get("erc", [])
-    sharpe   = opt.get("sharpe", {})
+    _mv_raw  = opt.get("min_var",  [])
+    _tang_raw= opt.get("tangency", [])
+    _erc_raw = opt.get("erc",      [])
+
+    # Structure dict {"weights":[...], "sharpe":...} ou liste directe
+    if isinstance(_mv_raw, dict):
+        mv   = _mv_raw.get("weights", [])
+        tang = _tang_raw.get("weights", []) if isinstance(_tang_raw, dict) else _tang_raw
+        erc  = _erc_raw.get("weights",  []) if isinstance(_erc_raw,  dict) else _erc_raw
+        sharpe = {
+            "mv":       _mv_raw.get("sharpe", 0),
+            "tangency": _tang_raw.get("sharpe", 0) if isinstance(_tang_raw, dict) else 0,
+            "erc":      _erc_raw.get("sharpe",  0) if isinstance(_erc_raw,  dict) else 0,
+        }
+    else:
+        mv, tang, erc = _mv_raw, _tang_raw, _erc_raw
+        sharpe = opt.get("sharpe", {})
+
+    # Les poids sont deja en % (ex: 15.3 signifie 15.3%), pas en fraction decimale
+    def _fmt_w(lst, i):
+        if i >= len(lst):
+            return "—"
+        v = lst[i]
+        try:
+            fv = float(v)
+            # Si fraction decimale (0-1), convertir en %
+            return f"{fv*100:.1f} %" if fv <= 1.0 else f"{fv:.1f} %"
+        except (TypeError, ValueError):
+            return "—"
 
     # Table centrale : secteur | Min-Var | Tangency | ERC
     rows = [["Secteur", "Min-Variance", "Tangency (Max Sharpe)", "ERC"]]
     for i, sec in enumerate(sectors):
-        w_mv   = f"{mv[i]*100:.1f} %" if i < len(mv)   else "—"
-        w_tang = f"{tang[i]*100:.1f} %" if i < len(tang) else "—"
-        w_erc  = f"{erc[i]*100:.1f} %" if i < len(erc)  else "—"
-        rows.append([_abbrev_sector(sec, 25), w_mv, w_tang, w_erc])
+        rows.append([_abbrev_sector(sec, 25),
+                     _fmt_w(mv, i), _fmt_w(tang, i), _fmt_w(erc, i)])
 
     # Row Sharpe
     rows.append([
@@ -1550,10 +1573,17 @@ def _s14_allocation(prs, D):
                      font_size=8, header_size=8, alt_fill=_GRAYL)
 
     # Colorer les lignes selon le poids Tangency (portefeuille prioritaire)
+    _tang_floats = []
+    for v in tang:
+        try:
+            fv = float(v)
+            _tang_floats.append(fv if fv > 1.0 else fv * 100)
+        except (TypeError, ValueError):
+            _tang_floats.append(0.0)
     for r in range(1, len(rows) - 1):  # skip header and sharpe row
-        if r - 1 < len(tang):
-            w = tang[r - 1]
-            if w >= 0.20:
+        if r - 1 < len(_tang_floats):
+            w = _tang_floats[r - 1]
+            if w >= 20.0:
                 try:
                     from pptx.util import Pt
                     from pptx.dml.color import RGBColor as _RGB
@@ -1565,9 +1595,15 @@ def _s14_allocation(prs, D):
                     pass
 
     # Panel droit — lecture analytique
-    mv_max   = sectors[mv.index(max(mv))]   if mv   else "—"
-    t_max    = sectors[tang.index(max(tang))] if tang else "—"
-    erc_max  = sectors[erc.index(max(erc))]  if erc  else "—"
+    try:
+        mv_floats  = [float(v) for v in mv]
+        t_floats   = [float(v) for v in tang]
+        erc_floats = [float(v) for v in erc]
+        mv_max  = sectors[mv_floats.index(max(mv_floats))]   if mv_floats  and sectors else "—"
+        t_max   = sectors[t_floats.index(max(t_floats))]     if t_floats   and sectors else "—"
+        erc_max = sectors[erc_floats.index(max(erc_floats))] if erc_floats and sectors else "—"
+    except (ValueError, IndexError):
+        mv_max = t_max = erc_max = "—"
     _rect(slide, 17.0, 2.4, 7.5, tbl_h, fill=_GRAYL)
     _rect(slide, 17.0, 2.4, 0.12, tbl_h, fill=_NAVY)
     _txb(slide, "LECTURE QUANTITATIVE", 17.3, 2.5, 7.0, 0.55, size=8, bold=True, color=_NAVY)
