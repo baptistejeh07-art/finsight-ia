@@ -847,7 +847,7 @@ def _slide_exec_summary(prs, snap, synthesis, ratios, devil, sentiment):
     # Thesis bullets — espacement dynamique avec corps de texte
     thesis_parts = _split_text(thesis, 3)
     pos_themes   = _g(synthesis, "positive_themes", []) or []
-    strength_ys = [4.57, 6.05, 7.53]
+    strength_ys = [4.57, 6.10, 7.63]
     for i, sy in enumerate(strength_ys):
         label = strengths[i] if i < len(strengths) else (thesis_parts[i] if i < len(thesis_parts) else "")
         body  = thesis_parts[i] if i < len(thesis_parts) else ""
@@ -857,8 +857,8 @@ def _slide_exec_summary(prs, snap, synthesis, ratios, devil, sentiment):
         add_rect(slide, 1.02, sy + 0.05, 0.15, 0.36, NAVY_MID)
         add_text_box(slide, 1.4, sy, 10.92, 0.51,
                      _truncate(label, 80), 8.5, NAVY, bold=True)
-        add_text_box(slide, 1.4, sy + 0.47, 10.92, 0.91,
-                     _truncate(body, 170), 7.5, "333333", wrap=True)
+        add_text_box(slide, 1.4, sy + 0.47, 10.92, 1.05,
+                     _truncate(body, 260), 7.5, "333333", wrap=True)
 
     # Risks section header
     add_rect(slide, 13.08, 3.76, 11.3, 0.71, RED)
@@ -871,7 +871,7 @@ def _slide_exec_summary(prs, snap, synthesis, ratios, devil, sentiment):
     risk_bodies  = _split_text(counter_thesis_txt, 3) if counter_thesis_txt else [""] * 3
     neg_themes   = _g(synthesis, "negative_themes", []) or []
 
-    risk_ys = [4.57, 6.05, 7.53]
+    risk_ys = [4.57, 6.10, 7.63]
     for i, ry in enumerate(risk_ys):
         risk_text = (risks_s[i] if i < len(risks_s) else
                      (counter_risks[i] if i < len(counter_risks) else ""))
@@ -892,8 +892,8 @@ def _slide_exec_summary(prs, snap, synthesis, ratios, devil, sentiment):
         add_rect(slide, 13.08, ry + 0.05, 0.15, 0.36, RED)
         add_text_box(slide, 13.46, ry, 10.54, 0.51,
                      _truncate(risk_text, 80), 8.5, NAVY, bold=True)
-        add_text_box(slide, 13.46, ry + 0.47, 10.54, 0.91,
-                     _truncate(body_r, 200), 7.5, "333333", wrap=True)
+        add_text_box(slide, 13.46, ry + 0.47, 10.54, 1.05,
+                     _truncate(body_r, 260), 7.5, "333333", wrap=True)
 
     # Vertical divider
     add_rect(slide, 12.57, 3.76, 0.03, 4.84, GREY_LIGHT)
@@ -2306,21 +2306,33 @@ def _slide_sentiment(prs, snap, synthesis, sentiment):
 
     sent_label_display = _sent_label_fr(sent_label, sent_score)
     rec = _g(synthesis, "recommendation", "HOLD") or "HOLD"
+    sent_meta   = _g(sentiment, "meta", {}) or {}
+    engine_used = sent_meta.get("engine", "finbert")
+    _is_llm     = engine_used == "llm_groq"
+    engine_lbl  = "Modèle LLM Groq" if _is_llm else "FinBERT (fallback)"
 
-    slide_title(slide, "Sentiment de March\u00e9 \u2014 FinBERT",
-                f"Analyse s\u00e9mantique  \u00b7  {sent_articles} articles  \u00b7  7 derniers jours")
+    _all_neutral = (sent_articles > 0 and
+                    (_g(sent_breakdown, "neutral_count", 0) or 0) >= sent_articles * 0.9)
+    _warn_finbert = _all_neutral and not _is_llm
+
+    slide_title(
+        slide,
+        "Sentiment de March\u00e9 \u2014 " + ("LLM Groq" if _is_llm else "FinBERT"),
+        f"Analyse s\u00e9mantique  \u00b7  {sent_articles} articles  \u00b7  7 derniers jours"
+        + ("  \u00b7  Classification LLM" if _is_llm else "  \u00b7  English-only fallback"),
+    )
 
     # 4 KPI cards
     kpi_box(slide, 1.02,  2.67, 7.11, 2.79,
             sent_label_display, "Orientation globale",
-            f"Score agrégé : {sent_score:+.3f}".replace(".", ","))
+            f"Score agr\u00e9g\u00e9 : {sent_score:+.3f}".replace(".", ","))
     kpi_box(slide, 8.64,  2.67, 5.08, 2.79,
-            str(sent_articles), "Articles analysés", "Fenêtre : 7 jours")
+            str(sent_articles), "Articles analys\u00e9s", "Fen\u00eatre : 7 jours")
     kpi_box(slide, 14.22, 2.67, 4.57, 2.79,
-            _frpct(sent_conf), "Confiance IA", "Modèle FinBERT")
+            _frpct(sent_conf), "Confiance IA", engine_lbl)
     _, rec_accent = _rec_colors(rec)
     kpi_box(slide, 19.30, 2.67, 4.83, 2.79,
-            rec.upper(), "Cohérence", "Aligné avec la thèse")
+            rec.upper(), "Coh\u00e9rence", "Align\u00e9 avec la th\u00e8se")
 
     # Breakdown table
     add_text_box(slide, 1.02, 5.79, 23.37, 0.46,
@@ -2348,9 +2360,8 @@ def _slide_sentiment(prs, snap, synthesis, sentiment):
     pos_theme_str  = _truncate(str(pos_themes[0]), 240) if pos_themes else "Catalyseurs, croissance, r\u00e9sultats"
     neg_theme_str  = _truncate(str(neg_themes[0]), 240) if neg_themes else "Risques macro, concurrence, dette"
 
-    # Détection articles tous neutres (souvent = langue non-anglaise + FinBERT)
-    _all_neutral = (sent_articles > 0 and (neu_cnt or 0) >= sent_articles * 0.9)
-    neut_theme_str = ("Articles non-anglais \u2014 FinBERT limite au fran\u00e7ais"
+    neut_theme_str = ("Actualit\u00e9 sectorielle g\u00e9n\u00e9rale"
+                      if _is_llm else "Articles non-anglais \u2014 LLM indisponible ce run"
                       if _all_neutral else "Actualit\u00e9 sectorielle g\u00e9n\u00e9rale")
 
     # Si count = 0 → score et thème non significatifs, on les masque
@@ -2393,22 +2404,58 @@ def _slide_sentiment(prs, snap, synthesis, sentiment):
             except Exception:
                 pass
 
+    # Bannière avertissement si FinBERT fallback + tous neutres
+    if _warn_finbert:
+        add_rect(slide, 1.02, tbl_y + tbl_h_s + 0.25, 23.37, 0.72, "FFF3CD")
+        add_rect(slide, 1.02, tbl_y + tbl_h_s + 0.25, 0.13,  0.72, "E6A817")
+        add_text_box(
+            slide, 1.35, tbl_y + tbl_h_s + 0.30, 23.0, 0.62,
+            "\u26a0  Classification LLM indisponible ce run \u2014 FinBERT English-only class\u00e9 tous les articles FR en neutre. "
+            "Les scores ci-dessus ne sont pas significatifs. "
+            "Relancer l\u2019analyse lorsque Groq est disponible.",
+            7.5, "7D5A00", wrap=True
+        )
+        # Titres des articles bruts (jusqu'à 8) pour context
+        samples = _g(sentiment, "samples", []) or []
+        all_news_titles = [s.get("headline", "") for s in samples if s.get("headline")]
+        if not all_news_titles:
+            # Fallback: reconstruire depuis breakdown si disponible
+            all_news_titles = []
+        if all_news_titles:
+            add_text_box(slide, 1.02, tbl_y + tbl_h_s + 1.15, 23.37, 0.40,
+                         "Titres des articles analys\u00e9s (bruts, non class\u00e9s) :",
+                         8, NAVY_MID, bold=True)
+            art_txt = "\n".join(f"\u2022 {h[:110]}" for h in all_news_titles[:6])
+            add_text_box(slide, 1.02, tbl_y + tbl_h_s + 1.60, 23.37, 1.80,
+                         art_txt, 7.5, "333333", wrap=True)
+        comment_y = tbl_y + tbl_h_s + (3.65 if all_news_titles else 1.20)
+    else:
+        comment_y = max(tbl_y + tbl_h_s + 0.50, 11.5)
+
     # Commentaire sentiment — LLM Groq en priorité, fallback agrégé
     val_comment = _g(sentiment, "llm_commentary", "") or ""
     if not val_comment.strip():
         lbl_fr = _sent_label_fr(sent_label, sent_score)
-        val_comment = (
-            f"Le sentiment {lbl_fr.lower()} (score {sent_score:+.3f}) est bas\u00e9 sur "
-            f"{sent_articles} articles analys\u00e9s sur 7 jours. "
-            f"Confiance IA\u00a0: {sent_conf:.0%}. "
-            f"Coh\u00e9rence avec la recommandation {rec}\u00a0: "
-            + ("valid\u00e9e." if (sent_score > 0.05 and rec == "BUY") or
-                                  (sent_score < -0.05 and rec == "SELL") or
-                                  (abs(sent_score) <= 0.05 and rec == "HOLD")
-               else "surveiller.")
-        )
-    comment_y = max(tbl_y + tbl_h_s + 0.50, 11.5)  # min 11.5cm pour éviter chevauchement
-    add_text_box(slide, 1.02, comment_y, 23.37, 2.54,
+        if _warn_finbert:
+            val_comment = (
+                f"Analyse de sentiment indisponible ce run : le mod\u00e8le LLM Groq n\u2019a pas pu classifier "
+                f"les {sent_articles} articles. FinBERT \u00e9tant English-only, tous les titres "
+                f"fran\u00e7ais ont \u00e9t\u00e9 class\u00e9s neutres par d\u00e9faut. "
+                f"Relancer l\u2019analyse avec Groq actif pour obtenir un score exploitable."
+            )
+        else:
+            val_comment = (
+                f"Le sentiment {lbl_fr.lower()} (score {sent_score:+.3f}) est bas\u00e9 sur "
+                f"{sent_articles} articles analys\u00e9s sur 7 jours. "
+                f"Confiance IA\u00a0: {sent_conf:.0%}. "
+                f"Coh\u00e9rence avec la recommandation {rec}\u00a0: "
+                + ("valid\u00e9e." if (sent_score > 0.05 and rec == "BUY") or
+                                      (sent_score < -0.05 and rec == "SELL") or
+                                      (abs(sent_score) <= 0.05 and rec == "HOLD")
+                   else "surveiller.")
+            )
+    comment_y = min(comment_y, 12.8)
+    add_text_box(slide, 1.02, comment_y, 23.37, 2.0,
                  val_comment, 8.5, "333333", wrap=True)
 
     return slide
