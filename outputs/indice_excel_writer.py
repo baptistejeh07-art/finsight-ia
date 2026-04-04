@@ -340,8 +340,11 @@ def _fill_donnees_brutes(ws, tickers: list[dict], universe: str) -> None:
         _write(ws, row, 28, t.get("score_global"))
         # AC: Next Earnings
         _write(ws, row, 29, t.get("next_earnings") or _NA)
-        # AD: Signal
-        _write(ws, row, 30, t.get("signal") or "Neutre")
+        # AD: Signal — calcule depuis score_global recompute (evite signal stale de l'input)
+        _sg = t.get("score_global")
+        _signal = ("Surpond\u00e9rer" if (_sg or 0) >= 60
+                   else ("Sous-pond\u00e9rer" if (_sg or 0) < 40 else "Neutre"))
+        _write(ws, row, 30, _signal)
 
 
 # ---------------------------------------------------------------------------
