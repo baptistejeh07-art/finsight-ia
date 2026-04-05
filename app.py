@@ -2871,20 +2871,44 @@ def _render_comparison_section(state_a: dict) -> None:
     if cmp_stage == "done" and st.session_state.get("cmp_bytes"):
         tkr_a = (state_a.get("raw_data") and state_a["raw_data"].ticker) or state_a.get("ticker", "A")
         tkr_b = st.session_state.get("cmp_ticker_b", "B")
-        fname = f"{tkr_a}_vs_{tkr_b}_comparison.xlsx"
+        fname_xlsx = f"{tkr_a}_vs_{tkr_b}_comparison.xlsx"
         st.success(f"Comparaison {tkr_a} / {tkr_b} prête.")
         st.download_button(
             label=f"Comparaison {tkr_a} vs {tkr_b}  ↓  .xlsx",
             data=st.session_state["cmp_bytes"],
-            file_name=fname,
+            file_name=fname_xlsx,
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             use_container_width=True,
         )
+        # Pitchbook PPTX comparatif
+        cmp_pptx = st.session_state.get("cmp_pptx_bytes")
+        if cmp_pptx is None:
+            if st.button(f"Generer Pitchbook {tkr_a} vs {tkr_b}  (PPTX)", use_container_width=True):
+                with st.spinner("Generation du pitchbook comparatif..."):
+                    try:
+                        from outputs.comparison_pptx_writer import ComparisonPPTXWriter
+                        state_b_saved = st.session_state.get("cmp_state_b", {})
+                        cmp_pptx = ComparisonPPTXWriter().generate_bytes(state_a, state_b_saved)
+                        st.session_state.cmp_pptx_bytes = cmp_pptx
+                        st.rerun()
+                    except Exception as _pex:
+                        log.error(f"[comparison_pptx] erreur: {_pex}", exc_info=True)
+                        st.error(f"Erreur PPTX comparatif : {_pex}")
+        else:
+            fname_pptx = f"{tkr_a}_vs_{tkr_b}_comparison.pptx"
+            st.download_button(
+                label=f"Pitchbook {tkr_a} vs {tkr_b}  ↓  .pptx",
+                data=cmp_pptx,
+                file_name=fname_pptx,
+                mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                use_container_width=True,
+            )
         if st.button("Nouvelle comparaison", use_container_width=True):
-            st.session_state.cmp_stage   = None
-            st.session_state.cmp_ticker_b = ""
-            st.session_state.cmp_bytes    = None
-            st.session_state.cmp_state_b  = None
+            st.session_state.cmp_stage      = None
+            st.session_state.cmp_ticker_b   = ""
+            st.session_state.cmp_bytes      = None
+            st.session_state.cmp_state_b    = None
+            st.session_state.cmp_pptx_bytes = None
             st.rerun()
         return
 
