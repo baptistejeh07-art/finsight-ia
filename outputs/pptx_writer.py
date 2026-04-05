@@ -2182,8 +2182,8 @@ def _slide_risques(prs, snap, synthesis, devil, extra_scores: dict = None):
         add_rect(slide, cx, card_y, card_w, 0.15, accent)
         add_text_box(slide, cx + 0.30, card_y + 0.30, card_w - 0.60, 1.10,
                      _truncate(risk, 220), 9, accent, bold=True, wrap=True)
-        add_text_box(slide, cx + 0.30, card_y + 1.60, card_w - 0.60, 3.2,
-                     _fit(body, 450), 8, GREY_TXT, wrap=True)
+        add_text_box(slide, cx + 0.30, card_y + 1.60, card_w - 0.60, 3.50,
+                     _fit(body, 400), 8, GREY_TXT, wrap=True)
 
     # Invalidation table
     add_rect(slide, 1.02, 8.33, 23.37, 0.03, "AAAAAA")
