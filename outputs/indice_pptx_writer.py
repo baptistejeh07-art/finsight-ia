@@ -782,9 +782,11 @@ def _s01_cover(prs, D):
     sig_light = _sig_light(sig)
     sig_txt   = _SIG_NORM_COV.get(sig.lower(), sig.upper())
     conv      = D.get("conviction_pct", 50)
+    erp_cov   = D.get("erp") or None
+    erp_part  = f"  \u00b7  ERP {erp_cov}" if erp_cov else ""
     _rect(slide, 1.27, 6.8, 22.86, 1.32, fill=sig_light)
     _rect(slide, 1.27, 6.8, 0.13,  1.32, fill=sig_col)
-    _txb(slide, f"\u25cf {sig_txt}  \u00b7  Conviction {conv}\u00a0%",
+    _txb(slide, f"\u25cf {sig_txt}  \u00b7  Conviction {conv}\u00a0%{erp_part}",
          1.60, 6.85, 22.40, 1.22,
          size=9, bold=True, color=sig_col, align=PP_ALIGN.CENTER)
 

@@ -1335,7 +1335,25 @@ def _make_test_indice_data(universe: str = "S&P 500") -> dict:
             "Real Estate": round(4.2 + 6.0 - 4.5, 1),
             "Utilities": round(3.5 + 6.0 - 4.5, 1),
         },
-        "optimal_portfolios": {},
+        "optimal_portfolios": {
+            "sectors": [
+                "Technology", "Health Care", "Financials", "Comm. Services",
+                "Cons. Discret.", "Industrials", "Cons. Staples",
+                "Materials", "Energy", "Real Estate", "Utilities",
+            ],
+            "min_var": {
+                "weights": [8.2, 14.6, 11.8, 6.4, 5.2, 9.8, 16.4, 7.6, 8.4, 6.2, 5.4],
+                "sharpe": 0.63,
+            },
+            "tangency": {
+                "weights": [38.0, 18.0, 22.0, 8.0, 6.0, 3.0, 3.0, 2.0, 0.0, 0.0, 0.0],
+                "sharpe": 1.92,
+            },
+            "erc": {
+                "weights": [12.4, 10.8, 10.2, 9.6, 8.8, 9.4, 8.6, 8.4, 7.8, 7.4, 6.6],
+                "sharpe": 0.86,
+            },
+        },
         "score_median": avg_score,
     }
 
