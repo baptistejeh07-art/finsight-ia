@@ -679,8 +679,11 @@ class ComparisonWriter:
 
 def _find_template() -> Optional[Path]:
     """Cherche TEMPLATE_COMPARISON.xlsx dans OneDrive puis dans le projet."""
+    # Chemin relatif depuis ce fichier (outputs/ -> assets/)
+    _project_root = Path(__file__).parent.parent
     candidates = [
         _TEMPLATE_SRC,
+        _project_root / "assets" / "TEMPLATE_COMPARISON.xlsx",
         Path("C:/Users/bapti/finsight-ia/assets/TEMPLATE_COMPARISON.xlsx"),
         Path("C:/Users/bapti/finsight-ia/TEMPLATE_COMPARISON.xlsx"),
     ]
@@ -688,7 +691,7 @@ def _find_template() -> Optional[Path]:
         if p.exists():
             try:
                 # Copie pour éviter le PermissionError si Excel est ouvert
-                tmp = Path("C:/Users/bapti/finsight-ia/tmp_cmp_template.xlsx")
+                tmp = _project_root / "tmp_cmp_template.xlsx"
                 shutil.copy2(str(p), str(tmp))
                 return tmp
             except Exception:
