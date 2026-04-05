@@ -257,8 +257,8 @@ def _fetch_supplements(ticker: str) -> dict:
                 log.debug(f"[comparison] perf calc error {ticker}: {e}")
 
         # Données marché
-        out["week52_high"]   = _g(info, "year_high")
-        out["week52_low"]    = _g(info, "year_low")
+        out["week52_high"]   = round(float(_g(info, "year_high")), 2) if _g(info, "year_high") else None
+        out["week52_low"]    = round(float(_g(info, "year_low")),  2) if _g(info, "year_low")  else None
         out["avg_volume_30d"] = round((_g(full, "averageVolume30Day") or _g(full, "averageVolume") or 0) / 1e6, 1) or None
         # Dividend yield depuis yfinance.info (trailingAnnual = decimal, dividendYield = %)
         try:
