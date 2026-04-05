@@ -909,8 +909,10 @@ def _section_verdict(story, m_a, m_b, synthesis, tkr_a, tkr_b):
     def _thesis_cell(text, is_bull):
         color = BUY_GREEN if is_bull else SELL_RED
         prefix = "\u25b2 " if is_bull else "\u25bc "
+        _dash = "\u2014"
+        _txt = _safe(_enc(text or _dash))
         return Paragraph(
-            f"<font color='#{_hex_str(color)}'><b>{prefix}</b></font>{_safe(_enc(text or '\u2014'))}",
+            f"<font color='#{_hex_str(color)}'><b>{prefix}</b></font>{_txt}",
             _s(f'th{id(text)}', size=8, leading=12, color=BLACK, sb=2, sa=2)
         )
 
