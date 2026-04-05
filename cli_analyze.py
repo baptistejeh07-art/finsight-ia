@@ -1309,6 +1309,21 @@ def _make_test_indice_data(universe: str = "S&P 500") -> dict:
             ("P/E Mediane 10Y",  "Bloomberg Consensus — comparaison avec P/E Forward actuel"),
         ],
         "perf_history": None,
+        "pb_by_sector": {
+            "Technology": 8.5, "Health Care": 4.2, "Financials": 1.5,
+            "Consumer Discretionary": 5.8, "Communication Services": 3.6,
+            "Industrials": 4.9, "Consumer Staples": 5.2, "Energy": 2.3,
+            "Materials": 3.8, "Real Estate": 2.1, "Utilities": 1.8,
+        },
+        "dy_by_sector": {
+            "Technology": 0.7, "Health Care": 1.6, "Financials": 2.5,
+            "Consumer Discretionary": 0.9, "Communication Services": 1.1,
+            "Industrials": 1.8, "Consumer Staples": 3.0, "Energy": 4.0,
+            "Materials": 2.2, "Real Estate": 4.2, "Utilities": 3.5,
+        },
+        "erp_by_sector": {},
+        "optimal_portfolios": {},
+        "score_median": avg_score,
     }
 
 
