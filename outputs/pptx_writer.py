@@ -135,6 +135,23 @@ def _frpct(v, signed: bool = False) -> str:
         return "—"
 
 
+def _frpct_margin(v) -> str:
+    """Like _frpct but guards against values already in percentage form (e.g. 65.0 vs 0.65).
+    Used for gross_margin / ebitda_margin from inconsistent data sources."""
+    if v is None:
+        return "—"
+    try:
+        fv = float(v)
+        # If |value| > 2.0 (i.e. > 200%), assume already-percentage form — divide by 100.
+        # No real gross/EBITDA margin can exceed 200%, so threshold is safe.
+        if abs(fv) > 2.0:
+            fv = fv / 100.0
+        s = f"{fv * 100:.1f}"
+        return s.replace(".", ",") + " %"
+    except Exception:
+        return "—"
+
+
 def _frx(v) -> str:
     if v is None:
         return "—"
@@ -1835,7 +1852,7 @@ def _slide_peers(prs, snap, synthesis, ratios):
     mktcap_str = _fr(mktcap, 1) if mktcap else "—"
     target_row = [co_name, ticker, mktcap_str,
                   _frx(ev_e), _frx(ev_r), _frx(pe),
-                  _frpct(gm), _frpct(em)]
+                  _frpct_margin(gm), _frpct_margin(em)]
 
     rows_data = [target_row]
     rows_fills = ["DDE8F5"]
@@ -1865,8 +1882,8 @@ def _slide_peers(prs, snap, synthesis, ratios):
             _frx(_g(peer, "ev_ebitda")),
             _frx(_g(peer, "ev_revenue")),
             _frx(_g(peer, "pe")),
-            _frpct(_g(peer, "gross_margin")),
-            _frpct(_g(peer, "ebitda_margin")),
+            _frpct_margin(_g(peer, "gross_margin")),
+            _frpct_margin(_g(peer, "ebitda_margin")),
         ]
         rows_data.append(prow)
         rows_fills.append(WHITE if len(rows_data) % 2 == 0 else GREY_BG)
@@ -1879,7 +1896,7 @@ def _slide_peers(prs, snap, synthesis, ratios):
     med_em  = _peer_median(peers, "ebitda_margin")
     median_row = ["Médiane peers", "—", "—",
                   _frx(med_eve), _frx(med_evr), _frx(med_pe),
-                  _frpct(med_gm), _frpct(med_em)]
+                  _frpct_margin(med_gm), _frpct_margin(med_em)]
     rows_data.append(median_row)
     rows_fills.append(GREY_BG)
 
@@ -2163,10 +2180,10 @@ def _slide_risques(prs, snap, synthesis, devil, extra_scores: dict = None):
             body = _generic[i] if i < len(_generic) else "Analyse en cours."
         add_rect(slide, cx, card_y, card_w, card_h, fill)
         add_rect(slide, cx, card_y, card_w, 0.15, accent)
-        add_text_box(slide, cx + 0.30, card_y + 0.30, card_w - 0.60, 0.71,
-                     _truncate(risk, 150), 9, accent, bold=True, wrap=True)
-        add_text_box(slide, cx + 0.30, card_y + 1.32, card_w - 0.60, 3.5,
-                     _fit(body, 380), 8, GREY_TXT, wrap=True)
+        add_text_box(slide, cx + 0.30, card_y + 0.30, card_w - 0.60, 1.10,
+                     _truncate(risk, 220), 9, accent, bold=True, wrap=True)
+        add_text_box(slide, cx + 0.30, card_y + 1.60, card_w - 0.60, 3.2,
+                     _fit(body, 450), 8, GREY_TXT, wrap=True)
 
     # Invalidation table
     add_rect(slide, 1.02, 8.33, 23.37, 0.03, "AAAAAA")
