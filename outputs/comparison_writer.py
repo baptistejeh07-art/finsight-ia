@@ -645,8 +645,8 @@ class ComparisonWriter:
         # 4. Calculer verdict_relative + winner (déterministe)
         fs_a = m_a.get("finsight_score") or 0
         fs_b = m_b.get("finsight_score") or 0
-        name_a = m_a.get("company_name_a") or tkr_a
-        name_b = m_b.get("company_name_b") or tkr_b
+        name_a = tkr_a or m_a.get("company_name_a") or tkr_a
+        name_b = tkr_b or m_b.get("company_name_b") or tkr_b
         if fs_a > fs_b:
             verdict = f"{name_a} privilegie"
             winner  = name_a
