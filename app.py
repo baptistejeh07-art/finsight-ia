@@ -2903,12 +2903,36 @@ def _render_comparison_section(state_a: dict) -> None:
                 mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
                 use_container_width=True,
             )
+        # Rapport PDF comparatif
+        cmp_pdf = st.session_state.get("cmp_pdf_bytes")
+        if cmp_pdf is None:
+            if st.button(f"Generer Rapport {tkr_a} vs {tkr_b}  (PDF)", use_container_width=True):
+                with st.spinner("Generation du rapport PDF comparatif..."):
+                    try:
+                        from outputs.comparison_pdf_writer import ComparisonPDFWriter
+                        state_b_saved = st.session_state.get("cmp_state_b", {})
+                        cmp_pdf = ComparisonPDFWriter().generate_bytes(state_a, state_b_saved)
+                        st.session_state.cmp_pdf_bytes = cmp_pdf
+                        st.rerun()
+                    except Exception as _pdex:
+                        log.error(f"[comparison_pdf] erreur: {_pdex}", exc_info=True)
+                        st.error(f"Erreur PDF comparatif : {_pdex}")
+        else:
+            fname_pdf = f"{tkr_a}_vs_{tkr_b}_comparison.pdf"
+            st.download_button(
+                label=f"Rapport {tkr_a} vs {tkr_b}  \u2193  .pdf",
+                data=cmp_pdf,
+                file_name=fname_pdf,
+                mime="application/pdf",
+                use_container_width=True,
+            )
         if st.button("Nouvelle comparaison", use_container_width=True):
             st.session_state.cmp_stage      = None
             st.session_state.cmp_ticker_b   = ""
             st.session_state.cmp_bytes      = None
             st.session_state.cmp_state_b    = None
             st.session_state.cmp_pptx_bytes = None
+            st.session_state.cmp_pdf_bytes  = None
             st.rerun()
         return
 
