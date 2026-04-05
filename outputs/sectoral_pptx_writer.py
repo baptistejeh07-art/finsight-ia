@@ -1551,11 +1551,17 @@ def _s15_entry(prs, D):
             zone, sig, proba,
         ])
 
-    # Hauteur table : 0.55cm/row, max 5.5cm pour eviter debordement sous les KPIs
-    _tbl_h = min(5.5, len(tbl_data) * 0.55)
-    _add_table(slide, tbl_data, 0.9, 3.5, 23.6, _tbl_h,
+    # Hauteur table : 0.52cm/row — marge anti-clipping derniere ligne
+    _tbl15_n = len(tbl_data)
+    _row15_h_cm = 0.52
+    _tbl_h = _tbl15_n * _row15_h_cm  # pas de cap — la note s'ajuste dynamiquement
+    _tbl15 = _add_table(slide, tbl_data, 0.9, 3.5, 23.6, _tbl_h,
                col_widths=[2.0, 4.5, 2.8, 3.2, 3.0, 4.2, 2.5],
                font_size=7.5, header_size=7.5, alt_fill=_GRAYL)
+    # Forcer hauteur de chaque ligne (python-pptx ignore la hauteur shape sinon)
+    if _tbl15 is not None:
+        for _row15 in _tbl15.rows:
+            _row15.height = Cm(_row15_h_cm)
 
     # Note methodologique — occupe tout l'espace restant sous la table (plus de KPIs)
     _FOOTER_Y = 13.3

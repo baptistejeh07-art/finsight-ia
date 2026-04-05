@@ -1321,7 +1321,20 @@ def _make_test_indice_data(universe: str = "S&P 500") -> dict:
             "Industrials": 1.8, "Consumer Staples": 3.0, "Energy": 4.0,
             "Materials": 2.2, "Real Estate": 4.2, "Utilities": 3.5,
         },
-        "erp_by_sector": {},
+        "erp_by_sector": {
+            # ERP = Div.Yield + 6% croissance LT - 4.5% rf_rate (en %)
+            "Technology": round(0.7 + 6.0 - 4.5, 1),
+            "Health Care": round(1.6 + 6.0 - 4.5, 1),
+            "Financials": round(2.5 + 6.0 - 4.5, 1),
+            "Consumer Discretionary": round(0.9 + 6.0 - 4.5, 1),
+            "Communication Services": round(1.1 + 6.0 - 4.5, 1),
+            "Industrials": round(1.8 + 6.0 - 4.5, 1),
+            "Consumer Staples": round(3.0 + 6.0 - 4.5, 1),
+            "Energy": round(4.0 + 6.0 - 4.5, 1),
+            "Materials": round(2.2 + 6.0 - 4.5, 1),
+            "Real Estate": round(4.2 + 6.0 - 4.5, 1),
+            "Utilities": round(3.5 + 6.0 - 4.5, 1),
+        },
         "optimal_portfolios": {},
         "score_median": avg_score,
     }

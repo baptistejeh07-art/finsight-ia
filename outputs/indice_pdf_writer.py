@@ -957,9 +957,11 @@ def _build_cartographie(data, weights_buf, attribution_buf=None, registry=None):
             _erp_s = f"{_erp:+.1f}%" if _erp is not None else "\u2014"
             _erp_style = S_TD_G if (_erp or 0) > 4 else (S_TD_R if (_erp or 0) < 1 else S_TD_A)
             # Lecture qualitative
-            if (_erp or 0) > 4:
+            if _erp is None:
+                _lecture = "\u2014"
+            elif _erp > 4:
                 _lecture = "Prime \u00e9lev\u00e9e — secteur attractif vs taux"
-            elif (_erp or 0) < 1:
+            elif _erp < 1:
                 _lecture = "Prime faible — valoris\u00e9 serr\u00e9 vs taux"
             else:
                 _lecture = "Prime mod\u00e9r\u00e9e — valorisation raisonnable"
