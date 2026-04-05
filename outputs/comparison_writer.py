@@ -400,7 +400,8 @@ def extract_metrics(state: dict, supp: dict) -> dict:
     Extrait les 76 métriques depuis un état pipeline + données supplémentaires yfinance.
     Retourne un dict {metric_name: value}.
     """
-    snapshot   = state.get("raw_data")
+    # Compatibilité : graph.py stocke sous "raw_data", app.py sous "snapshot"
+    snapshot   = state.get("raw_data") or state.get("snapshot")
     ratios     = state.get("ratios")
     synthesis  = state.get("synthesis")
     qa_python  = state.get("qa_python")
@@ -617,8 +618,10 @@ class ComparisonWriter:
             )
 
         # 2. Fetch suppléments yfinance pour les deux tickers
-        tkr_a = (state_a.get("raw_data") and state_a["raw_data"].ticker) or state_a.get("ticker", "")
-        tkr_b = (state_b.get("raw_data") and state_b["raw_data"].ticker) or state_b.get("ticker", "")
+        snap_a = state_a.get("raw_data") or state_a.get("snapshot")
+        snap_b = state_b.get("raw_data") or state_b.get("snapshot")
+        tkr_a = (snap_a and snap_a.ticker) or state_a.get("ticker", "")
+        tkr_b = (snap_b and snap_b.ticker) or state_b.get("ticker", "")
         log.info(f"[ComparisonWriter] fetch supplements {tkr_a} / {tkr_b}")
         supp_a = _fetch_supplements(tkr_a)
         supp_b = _fetch_supplements(tkr_b)
