@@ -1968,10 +1968,22 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
     _eu_pb_map = {}
     _eu_dy_map = {}
     _eu_erp_map = {}
+    _EU_NORM = {
+        "Healthcare": "Health Care",
+        "Cons. Staples": "Consumer Staples",
+        "Consumer Defensive": "Consumer Staples",
+        "Cons. Discret.": "Consumer Discretionary",
+        "Consumer Disc.": "Consumer Discretionary",
+        "Comm. Services": "Communication Services",
+        "Financial Services": "Financials",
+        "Info. Technology": "Technology",
+        "Info Technology": "Technology",
+    }
     if universe != "S&P 500":
         for _sname, _nb, _sc, _sig, _ev_s, _mg, _gr_s, _mom_s in secteurs:
-            _pb_v = _EU_PB_GENERIC.get(_sname)
-            _dy_v = _EU_DY_GENERIC.get(_sname)
+            _norm_name = _EU_NORM.get(_sname, _sname)
+            _pb_v = _EU_PB_GENERIC.get(_norm_name) or _EU_PB_GENERIC.get(_sname)
+            _dy_v = _EU_DY_GENERIC.get(_norm_name) or _EU_DY_GENERIC.get(_sname)
             _eu_pb_map[_sname] = _pb_v
             _eu_dy_map[_sname] = _dy_v
             _dy_dec = (_dy_v or 0) / 100

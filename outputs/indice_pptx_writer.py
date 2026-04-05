@@ -903,7 +903,12 @@ def _s02_exec_summary(prs, D):
     _pe_m_s02  = D.get("pe_mediane_10y", "—")
     _erp_s02b  = D.get("erp", "—")
     _erp_sig_s02 = D.get("erp_signal", "")
-    _scr_s02   = D.get("score_median", "—")
+    _scr_s02   = D.get("score_median")
+    if not isinstance(_scr_s02, (int, float)):
+        _scores_l02 = [s[2] for s in D.get("secteurs", []) if len(s) > 2 and isinstance(s[2], (int, float))]
+        _scr_s02 = round(sum(_scores_l02) / len(_scores_l02)) if _scores_l02 else "—"
+    if not isinstance(_scr_s02, (int, float)):
+        _scr_s02 = "—"
     _conv_s02  = D.get("conviction_pct", 50)
     _surp_s02  = D.get("surp_noms", "") or ""
     _sous_s02  = D.get("sous_noms", "") or ""
@@ -1023,7 +1028,12 @@ def _s05_description(prs, D):
     _pm5    = f"{_pe_m5}x" if isinstance(_pe_m5,(int,float)) else str(_pe_m5)
     _prime5 = D.get("prime_decote","")
     _sig5   = D.get("signal_global","Neutre")
-    _scr5   = D.get("score_median","—")
+    _scr5   = D.get("score_median")
+    if not isinstance(_scr5, (int, float)):
+        _scores_l5 = [s[2] for s in D.get("secteurs", []) if len(s) > 2 and isinstance(s[2], (int, float))]
+        _scr5 = round(sum(_scores_l5) / len(_scores_l5)) if _scores_l5 else "—"
+    if not isinstance(_scr5, (int, float)):
+        _scr5 = "—"
     lec_txt = (
         f"Signal global : {_sig5} (score composite {_scr5}/100). "
         f"P/E Forward {_pe_f5} vs médiane historique {_pm5} — "
@@ -1078,7 +1088,12 @@ def _s06_valorisation(prs, D):
     _pe_f6 = D.get("pe_forward","—")
     _erp6  = D.get("erp","—")
     _sig6  = D.get("signal_global","Neutre")
-    _scr6  = D.get("score_median","—")
+    _scr6  = D.get("score_median")
+    if not isinstance(_scr6, (int, float)):
+        _scores_l6 = [s[2] for s in D.get("secteurs", []) if len(s) > 2 and isinstance(s[2], (int, float))]
+        _scr6 = round(sum(_scores_l6) / len(_scores_l6)) if _scores_l6 else "—"
+    if not isinstance(_scr6, (int, float)):
+        _scr6 = "—"
     if not texte_val or len(texte_val) < 80:
         _pm_str = f"{_pe_m6}x" if isinstance(_pe_m6,(int,float)) else str(_pe_m6)
         _prime6  = D.get("prime_decote","")
