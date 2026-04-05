@@ -53,7 +53,12 @@ def _x(text) -> str:
     if text is None:
         return ""
     s = str(text)
-    return _re.sub(r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]', '', s)
+    # Supprime caracteres invalides XML 1.0
+    s = _re.sub(r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]', '', s)
+    # Supprime markdown bold/italic du LLM (**text** et *text*)
+    s = _re.sub(r'\*\*(.+?)\*\*', r'\1', s)
+    s = _re.sub(r'\*(.+?)\*', r'\1', s)
+    return s
 
 
 def rgb(hex_str: str):
@@ -679,16 +684,16 @@ def _chart_multiples(m_a: dict, m_b: dict, tkr_a: str, tkr_b: str) -> Optional[i
         sec_eveb = m_a.get('sector_median_ev_ebitda') or 14.0
 
         vals_a = [
-            _safe_float(m_a.get('pe_ratio')),
-            _safe_float(m_a.get('ev_ebitda')),
-            _safe_float(m_a.get('price_to_book')),
-            _safe_float(m_a.get('peg_ratio')),
+            _safe_float(m_a.get('pe_ratio')) or 0,
+            _safe_float(m_a.get('ev_ebitda')) or 0,
+            _safe_float(m_a.get('price_to_book')) or 0,
+            _safe_float(m_a.get('peg_ratio')) or 0,
         ]
         vals_b = [
-            _safe_float(m_b.get('pe_ratio')),
-            _safe_float(m_b.get('ev_ebitda')),
-            _safe_float(m_b.get('price_to_book')),
-            _safe_float(m_b.get('peg_ratio')),
+            _safe_float(m_b.get('pe_ratio')) or 0,
+            _safe_float(m_b.get('ev_ebitda')) or 0,
+            _safe_float(m_b.get('price_to_book')) or 0,
+            _safe_float(m_b.get('peg_ratio')) or 0,
         ]
         sector_refs = [sec_pe, sec_eveb, None, None]
 
@@ -1437,14 +1442,14 @@ def _slide_monte_carlo(prs, m_a: dict, m_b: dict):
 
         methods_a = ['Bear', 'Base', 'Bull']
         vals_a = [
-            _safe_float(m_a.get('dcf_bear')),
-            _safe_float(m_a.get('dcf_base')),
-            _safe_float(m_a.get('dcf_bull')),
+            _safe_float(m_a.get('dcf_bear')) or 0,
+            _safe_float(m_a.get('dcf_base')) or 0,
+            _safe_float(m_a.get('dcf_bull')) or 0,
         ]
         vals_b = [
-            _safe_float(m_b.get('dcf_bear')),
-            _safe_float(m_b.get('dcf_base')),
-            _safe_float(m_b.get('dcf_bull')),
+            _safe_float(m_b.get('dcf_bear')) or 0,
+            _safe_float(m_b.get('dcf_base')) or 0,
+            _safe_float(m_b.get('dcf_bull')) or 0,
         ]
 
         y_pos = np.array([3, 2, 1, -1, -2, -3])
