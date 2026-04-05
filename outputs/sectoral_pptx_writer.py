@@ -556,6 +556,16 @@ def _reco_color(reco):
     if reco == "SELL": return _SELL
     return _HOLD
 
+def _fit_s(s, n: int) -> str:
+    """Truncate at word boundary, no ellipsis — pour zones a hauteur fixe."""
+    if not s: return ""
+    s = str(s)
+    if len(s) <= n: return s
+    cut = s[:n]
+    sp = cut.rfind(" ")
+    return cut[:sp] if sp > n // 2 else cut
+
+
 def _fmt_x(v, d=1):
     if v is None: return "—"
     try: return f"{float(v):.{d}f}x"
@@ -1471,14 +1481,14 @@ def _s13_top3(prs, D):
         _txb(slide, "Catalyseur", cx + 0.4, 8.5, 7.1, 0.5, size=7.5, bold=True, color=_BUY)
         _rect(slide, cx + 0.4, 9.0, 7.1, 1.4, fill=_GREEN_L)
         _rect(slide, cx + 0.4, 9.0, 0.1, 1.4, fill=_BUY)
-        _txb(slide, cat_body[:160], cx + 0.6, 9.05, 6.7, 1.25, size=7.5, color=_GRAYT, wrap=True)
+        _txb(slide, _fit_s(cat_body, 200), cx + 0.6, 9.05, 6.7, 1.25, size=7.5, color=_GRAYT, wrap=True)
 
         # Risk
         risk_title, risk_body = risks[col_i] if col_i < len(risks) else ("Risque", "—")
         _txb(slide, "Risque principal", cx + 0.4, 10.5, 7.1, 0.5, size=7.5, bold=True, color=_SELL)
         _rect(slide, cx + 0.4, 11.1, 7.1, 1.4, fill=_RED_L)
         _rect(slide, cx + 0.4, 11.1, 0.1, 1.4, fill=_SELL)
-        _txb(slide, risk_body[:160], cx + 0.6, 11.15, 6.7, 1.25, size=7.5, color=_GRAYT, wrap=True)
+        _txb(slide, _fit_s(risk_body, 200), cx + 0.6, 11.15, 6.7, 1.25, size=7.5, color=_GRAYT, wrap=True)
 
     _footer(slide)
 
