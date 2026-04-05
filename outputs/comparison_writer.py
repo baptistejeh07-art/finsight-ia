@@ -260,6 +260,16 @@ def _fetch_supplements(ticker: str) -> dict:
         out["week52_high"]   = _g(info, "year_high")
         out["week52_low"]    = _g(info, "year_low")
         out["avg_volume_30d"] = round((_g(full, "averageVolume30Day") or _g(full, "averageVolume") or 0) / 1e6, 1) or None
+        # Dividend yield depuis yfinance.info (trailingAnnual = decimal, dividendYield = %)
+        try:
+            dy = _g(full, "trailingAnnualDividendYield") or _g(full, "dividendYield")
+            if dy and dy > 0:
+                # dividendYield est en % (ex: 0.97 = 0.97%), convertir en decimal si > 0.1
+                if dy > 0.1:
+                    dy = dy / 100.0
+                out["dividend_yield"] = round(float(dy), 4)
+        except Exception:
+            pass
 
         # VaR 95% mensuelle (si historique disponible)
         try:
@@ -320,9 +330,11 @@ def _compute_pio_components(stock) -> dict:
     out = {}
     try:
         import pandas as pd
-        inc = getattr(stock, "income_stmt", None) or getattr(stock, "financials", None)
+        inc = getattr(stock, "income_stmt", None)
+        if inc is None: inc = getattr(stock, "financials", None)
         bs  = getattr(stock, "balance_sheet", None)
-        cf  = getattr(stock, "cashflow", None)   or getattr(stock, "cash_flow", None)
+        cf  = getattr(stock, "cash_flow", None)
+        if cf is None: cf = getattr(stock, "cashflow", None)
 
         if (inc is None or getattr(inc, "empty", True) or
                 bs  is None or getattr(bs,  "empty", True) or
@@ -563,7 +575,7 @@ def extract_metrics(state: dict, supp: dict) -> dict:
         "market_cap":        mc_bn,
         "enterprise_value":  ev_bn,
         "avg_volume_30d":    supp.get("avg_volume_30d"),
-        "dividend_yield":    div_yield,
+        "dividend_yield":    div_yield or supp.get("dividend_yield"),
         "next_earnings_date": supp.get("next_earnings_date"),
 
         # PIOTROSKI COMPOSANTES (rows 68-76)
