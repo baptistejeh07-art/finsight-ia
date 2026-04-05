@@ -306,6 +306,11 @@ if "screening_results"  not in st.session_state: st.session_state.screening_resu
 if "screening_universe" not in st.session_state: st.session_state.screening_universe = ""
 if "from_screening"     not in st.session_state: st.session_state.from_screening     = False
 if "screening_parent"   not in st.session_state: st.session_state.screening_parent   = None
+# Comparison société
+if "cmp_stage"          not in st.session_state: st.session_state.cmp_stage          = None   # None / "running" / "done"
+if "cmp_ticker_b"       not in st.session_state: st.session_state.cmp_ticker_b       = ""
+if "cmp_state_b"        not in st.session_state: st.session_state.cmp_state_b        = None
+if "cmp_bytes"          not in st.session_state: st.session_state.cmp_bytes          = None
 
 # ---------------------------------------------------------------------------
 # Routing : détection du type d'input
@@ -2844,6 +2849,107 @@ def _build_ia_html(snapshot, ratios, synthesis, qa_python, qa_haiku, devil, sent
 # Page RESULTS
 # ---------------------------------------------------------------------------
 
+def _render_comparison_section(state_a: dict) -> None:
+    """
+    Section en bas de page résultats société :
+    Propose de comparer avec une autre société.
+    Gère les états : form / running / done.
+    """
+    st.markdown(
+        '<div style="margin-top:40px;border-top:1px solid #e5e7eb;padding-top:28px;"></div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        '<div style="font-size:13px;font-weight:700;letter-spacing:.08em;'
+        'color:#777;text-transform:uppercase;margin-bottom:12px;">Analyse comparative</div>',
+        unsafe_allow_html=True,
+    )
+
+    cmp_stage = st.session_state.get("cmp_stage")
+
+    # ── Résultat disponible ──────────────────────────────────────────────
+    if cmp_stage == "done" and st.session_state.get("cmp_bytes"):
+        tkr_a = (state_a.get("raw_data") and state_a["raw_data"].ticker) or state_a.get("ticker", "A")
+        tkr_b = st.session_state.get("cmp_ticker_b", "B")
+        fname = f"{tkr_a}_vs_{tkr_b}_comparison.xlsx"
+        st.success(f"Comparaison {tkr_a} / {tkr_b} prête.")
+        st.download_button(
+            label=f"Comparaison {tkr_a} vs {tkr_b}  ↓  .xlsx",
+            data=st.session_state["cmp_bytes"],
+            file_name=fname,
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True,
+        )
+        if st.button("Nouvelle comparaison", use_container_width=True):
+            st.session_state.cmp_stage   = None
+            st.session_state.cmp_ticker_b = ""
+            st.session_state.cmp_bytes    = None
+            st.session_state.cmp_state_b  = None
+            st.rerun()
+        return
+
+    # ── Pipeline en cours pour société B ────────────────────────────────
+    if cmp_stage == "running":
+        ticker_b = st.session_state.get("cmp_ticker_b", "")
+        if not ticker_b:
+            st.session_state.cmp_stage = None
+            st.rerun()
+            return
+
+        with st.spinner(f"Analyse de {ticker_b} en cours..."):
+            try:
+                from core.graph import build_graph
+                graph   = build_graph()
+                state_b: dict = {}
+                for chunk in graph.stream(
+                    {"ticker": ticker_b.upper(), "errors": [], "logs": [], "qa_retries": 0},
+                    stream_mode="updates",
+                ):
+                    node_name  = list(chunk.keys())[0]
+                    node_delta = chunk[node_name]
+                    state_b.update(node_delta)
+
+                if state_b.get("raw_data") is None:
+                    st.error(f"Aucune donnee disponible pour {ticker_b}.")
+                    st.session_state.cmp_stage = None
+                    return
+
+                st.session_state.cmp_state_b = state_b
+
+                # Générer le fichier comparaison
+                from outputs.comparison_writer import ComparisonWriter
+                cmp_bytes = ComparisonWriter().write(state_a, state_b)
+                st.session_state.cmp_bytes = cmp_bytes
+                st.session_state.cmp_stage = "done"
+                st.rerun()
+
+            except Exception as _ex:
+                log.error(f"[comparison] erreur pipeline B: {_ex}", exc_info=True)
+                st.error(f"Erreur comparaison : {_ex}")
+                st.session_state.cmp_stage = None
+        return
+
+    # ── Formulaire de saisie ─────────────────────────────────────────────
+    tkr_a = (state_a.get("raw_data") and state_a["raw_data"].ticker) or state_a.get("ticker", "")
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        ticker_b_input = st.text_input(
+            label="",
+            placeholder=f"Comparer {tkr_a} avec... (ex : MSFT, MC.PA, NVDA)",
+            key="cmp_ticker_input",
+            label_visibility="collapsed",
+        )
+    with col2:
+        compare_clicked = st.button("Comparer", use_container_width=True, type="primary")
+
+    if compare_clicked and ticker_b_input.strip():
+        st.session_state.cmp_ticker_b = ticker_b_input.strip().upper()
+        st.session_state.cmp_stage    = "running"
+        st.session_state.cmp_bytes    = None
+        st.session_state.cmp_state_b  = None
+        st.rerun()
+
+
 def render_results(results: dict) -> None:
     # Back to screening button
     if st.session_state.get("from_screening") and st.session_state.get("screening_results"):
@@ -3148,6 +3254,11 @@ def render_results(results: dict) -> None:
     if st.session_state["ia_section_open"]:
         ia_html = _build_ia_html(snapshot, ratios, synthesis, qa_python, qa_haiku, devil, sentiment)
         st.markdown(ia_html, unsafe_allow_html=True)
+
+    # ------------------------------------------------------------------
+    # Section comparaison société
+    # ------------------------------------------------------------------
+    _render_comparison_section(results)
 
     # ------------------------------------------------------------------
     # Footer

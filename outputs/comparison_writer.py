@@ -1,0 +1,706 @@
+"""
+comparison_writer.py — FinSight IA
+Injecte deux états pipeline dans TEMPLATE_COMPARISON.xlsx (feuille DATA_RAW).
+
+Usage:
+    path = ComparisonWriter().write(state_a, state_b)
+
+state_a / state_b : dict renvoyé par le pipeline LangGraph (st.session_state.results)
+  Champs utilisés : raw_data (FinancialSnapshot), ratios (RatiosResult),
+                    synthesis (SynthesisResult), qa_python (QAResult)
+"""
+from __future__ import annotations
+
+import io
+import logging
+import shutil
+from datetime import datetime
+from pathlib import Path
+from typing import Optional
+
+import yfinance as yf
+
+log = logging.getLogger(__name__)
+
+# Chemin template source (OneDrive)
+_TEMPLATE_SRC = Path("C:/Users/bapti/OneDrive/Perso/Excel Finsight/TEMPLATE_COMPARISON.xlsx")
+# Chemin sortie
+_OUT_DIR = Path(__file__).parent / "generated" / "cli_tests"
+
+# Médiane sectorielle PE / EV-EBITDA — approx. pour benchmarks rapides
+_SECTOR_PE: dict[str, float] = {
+    "Technology": 30.0, "Information Technology": 30.0,
+    "Health Care": 22.0, "Healthcare": 22.0,
+    "Financials": 13.0, "Financial Services": 13.0,
+    "Consumer Discretionary": 20.0,
+    "Consumer Staples": 18.0,
+    "Communication Services": 18.0,
+    "Industrials": 21.0,
+    "Energy": 12.0,
+    "Materials": 15.0,
+    "Real Estate": 30.0,
+    "Utilities": 20.0,
+}
+_SECTOR_EVEBITDA: dict[str, float] = {
+    "Technology": 18.0, "Information Technology": 18.0,
+    "Health Care": 14.0, "Healthcare": 14.0,
+    "Financials": 9.0,  "Financial Services": 9.0,
+    "Consumer Discretionary": 12.0,
+    "Consumer Staples": 12.0,
+    "Communication Services": 11.0,
+    "Industrials": 13.0,
+    "Energy": 6.0,
+    "Materials": 10.0,
+    "Real Estate": 17.0,
+    "Utilities": 11.0,
+}
+
+
+# ---------------------------------------------------------------------------
+# Helpers d'extraction
+# ---------------------------------------------------------------------------
+
+def _safe(obj, *attrs, default=None):
+    """Accès sécurisé sur chaîne d'attributs."""
+    try:
+        for a in attrs:
+            if obj is None:
+                return default
+            obj = getattr(obj, a, None)
+        return obj if obj is not None else default
+    except Exception:
+        return default
+
+
+def _latest_yr(ratios):
+    """Retourne le YearRatios le plus récent, ou None."""
+    if ratios is None:
+        return None
+    try:
+        latest = ratios.latest_year
+        return ratios.years.get(latest)
+    except Exception:
+        return None
+
+
+def _prev_yrs(ratios, n=2):
+    """Retourne les n années précédentes (YearRatios), de la plus récente à la plus ancienne."""
+    if ratios is None:
+        return [None] * n
+    try:
+        labels = sorted(ratios.years.keys(), key=lambda y: int(y.split("_")[0]))
+        # Toutes sauf la dernière
+        prev_labels = labels[:-1][-n:]
+        result = [ratios.years.get(l) for l in reversed(prev_labels)]
+        while len(result) < n:
+            result.append(None)
+        return result
+    except Exception:
+        return [None] * n
+
+
+def _ebitda_trend(yr_ltm, yr_prev1, yr_prev2) -> str:
+    """Calcule la tendance EBITDA sur 3 ans."""
+    try:
+        m0 = getattr(yr_ltm,   "ebitda_margin", None)
+        m1 = getattr(yr_prev1, "ebitda_margin", None) if yr_prev1 else None
+        m2 = getattr(yr_prev2, "ebitda_margin", None) if yr_prev2 else None
+        if m0 is None:
+            return "N/A"
+        if m1 is None:
+            return "Stable"
+        delta = m0 - m1
+        if m2 is not None:
+            delta2 = m1 - m2
+            if delta > 0.01 and delta2 > 0:
+                return "Croissante"
+            if delta < -0.01 and delta2 < 0:
+                return "Decroissante"
+        if delta > 0.01:
+            return "Croissante"
+        if delta < -0.01:
+            return "Decroissante"
+        return "Stable"
+    except Exception:
+        return "N/A"
+
+
+def _rev_cagr_3y(ratios) -> Optional[float]:
+    """CAGR chiffre d'affaires 3 ans depuis les ratios."""
+    try:
+        labels = sorted(ratios.years.keys(), key=lambda y: int(y.split("_")[0]))
+        if len(labels) < 4:
+            return None
+        # latest vs 3 ans avant
+        y0 = ratios.years[labels[-1]]
+        y3 = ratios.years[labels[-4]]
+        if y0 is None or y3 is None:
+            return None
+        r0 = _rev_from_yr(y0)
+        r3 = _rev_from_yr(y3)
+        if r0 and r3 and r3 > 0:
+            return round((r0 / r3) ** (1 / 3) - 1, 4)
+        return None
+    except Exception:
+        return None
+
+
+def _rev_from_yr(yr) -> Optional[float]:
+    """Revenue estimé depuis YearRatios (GP / gross_margin)."""
+    try:
+        if yr is None:
+            return None
+        gp = getattr(yr, "gross_profit", None)
+        gm = getattr(yr, "gross_margin", None)
+        if gp and gm and gm > 0:
+            return gp / gm
+        return None
+    except Exception:
+        return None
+
+
+def _eps_growth(ratios) -> Optional[float]:
+    """EPS growth YoY depuis net_income/market_cap proxy."""
+    try:
+        labels = sorted(ratios.years.keys(), key=lambda y: int(y.split("_")[0]))
+        if len(labels) < 2:
+            return None
+        y0 = ratios.years[labels[-1]]
+        y1 = ratios.years[labels[-2]]
+        ni0 = getattr(y0, "net_income", None)
+        ni1 = getattr(y1, "net_income", None)
+        if ni0 and ni1 and ni1 > 0:
+            return round((ni0 - ni1) / abs(ni1), 4)
+        return None
+    except Exception:
+        return None
+
+
+def _finsight_score(snapshot, ratios) -> Optional[int]:
+    """
+    Score composite 0-100 (identique à score_global dans cli_analyze.py).
+    value(25) + growth(25) + quality(25) + momentum(25)
+    """
+    try:
+        yr = _latest_yr(ratios)
+        pe  = _safe(yr, "pe_ratio") or 20.0
+        rev = _rev_cagr_3y(ratios) or 0.0
+        nm  = _safe(yr, "net_margin") or 0.0
+        # momentum 52w : estimé depuis stock_history si disponible
+        hist = getattr(snapshot, "stock_history", []) or []
+        if len(hist) >= 13:
+            try:
+                p_now  = float(hist[-1].price)
+                p_1y   = float(hist[0].price)
+                mom52  = (p_now / p_1y - 1) * 100 if p_1y > 0 else 0.0
+            except Exception:
+                mom52 = 0.0
+        else:
+            mom52 = 0.0
+
+        s_val = max(0.0, min(25.0, 25.0 - pe * 0.5))
+        s_gro = max(0.0, min(25.0, 12.0 + rev * 100))
+        s_qua = max(0.0, min(25.0, 10.0 + nm * 0.8))
+        s_mom = max(0.0, min(25.0, 12.0 + mom52 * 0.15))
+        return round(s_val + s_gro + s_qua + s_mom)
+    except Exception:
+        return None
+
+
+def _momentum_score(perf_3m: Optional[float]) -> Optional[float]:
+    """Score momentum /10 depuis performance 3 mois."""
+    if perf_3m is None:
+        return None
+    # perf_3m est en décimal (ex. 0.112 = +11.2%)
+    # Mapping : -20% → 0, 0% → 5, +20% → 10
+    score = 5.0 + (perf_3m * 100) * 0.25
+    return round(max(0.0, min(10.0, score)), 1)
+
+
+# ---------------------------------------------------------------------------
+# Fetch supplémentaire yfinance (données marché non stockées dans l'état)
+# ---------------------------------------------------------------------------
+
+def _fetch_supplements(ticker: str) -> dict:
+    """
+    Récupère via yfinance les métriques non présentes dans l'état pipeline :
+    perf_1m/3m/1y, week52_high/low, avg_volume_30d, next_earnings_date,
+    piotroski_score + composantes pio_*.
+    """
+    out: dict = {}
+    try:
+        stock = yf.Ticker(ticker)
+        info  = stock.fast_info
+        full  = stock.info or {}
+
+        # Performance historique
+        hist = stock.history(period="1y", interval="1mo", auto_adjust=True)
+        if not hist.empty and len(hist) >= 2:
+            try:
+                price_now = float(hist["Close"].iloc[-1])
+                # 1 mois
+                if len(hist) >= 2:
+                    p1m = float(hist["Close"].iloc[-2])
+                    out["perf_1m"] = round((price_now / p1m - 1), 4) if p1m > 0 else None
+                # 3 mois
+                if len(hist) >= 4:
+                    p3m = float(hist["Close"].iloc[-4])
+                    out["perf_3m"] = round((price_now / p3m - 1), 4) if p3m > 0 else None
+                # 1 an
+                if len(hist) >= 13:
+                    p1y = float(hist["Close"].iloc[-13])
+                    out["perf_1y"] = round((price_now / p1y - 1), 4) if p1y > 0 else None
+                elif len(hist) >= 2:
+                    p1y = float(hist["Close"].iloc[0])
+                    out["perf_1y"] = round((price_now / p1y - 1), 4) if p1y > 0 else None
+            except Exception as e:
+                log.debug(f"[comparison] perf calc error {ticker}: {e}")
+
+        # Données marché
+        out["week52_high"]   = _g(info, "year_high")
+        out["week52_low"]    = _g(info, "year_low")
+        out["avg_volume_30d"] = round((_g(full, "averageVolume30Day") or _g(full, "averageVolume") or 0) / 1e6, 1) or None
+
+        # VaR 95% mensuelle (si historique disponible)
+        try:
+            hist_d = stock.history(period="1y", interval="1d", auto_adjust=True)
+            if not hist_d.empty and len(hist_d) >= 21:
+                import numpy as np
+                returns = hist_d["Close"].pct_change().dropna()
+                # VaR mensuelle : agréger en fenêtres 21j
+                monthly_r = [float(sum(returns.iloc[i:i+21])) for i in range(0, len(returns) - 20, 21)]
+                if monthly_r:
+                    out["var_95_1m"] = round(float(np.percentile(monthly_r, 5)), 4)
+        except Exception:
+            pass
+
+        # Prochaine date de résultats
+        try:
+            cal = stock.calendar
+            if isinstance(cal, dict):
+                ed = cal.get("Earnings Date") or cal.get("earnings_date")
+                if ed:
+                    if hasattr(ed, "__iter__") and not isinstance(ed, str):
+                        ed = list(ed)[0]
+                    out["next_earnings_date"] = str(ed)[:10]
+        except Exception:
+            pass
+
+        # Piotroski F-Score + composantes
+        try:
+            from cli_analyze import _compute_piotroski
+            pio = _compute_piotroski(stock)
+            if pio is not None:
+                out["piotroski_score"] = pio
+            # Composantes détaillées (re-calculer)
+            out.update(_compute_pio_components(stock))
+        except Exception as e:
+            log.debug(f"[comparison] piotroski error {ticker}: {e}")
+
+    except Exception as e:
+        log.warning(f"[comparison] _fetch_supplements({ticker}) erreur : {e}")
+    return out
+
+
+def _g(obj, key, default=None):
+    """Getter sécurisé pour dict ou objet."""
+    try:
+        if isinstance(obj, dict):
+            return obj.get(key, default)
+        return getattr(obj, key, default)
+    except Exception:
+        return default
+
+
+def _compute_pio_components(stock) -> dict:
+    """
+    Calcule les 9 composantes binaires du Piotroski F-Score.
+    Retourne un dict {pio_roa_positive: 0/1, ...}.
+    """
+    out = {}
+    try:
+        import pandas as pd
+        inc = getattr(stock, "income_stmt", None) or getattr(stock, "financials", None)
+        bs  = getattr(stock, "balance_sheet", None)
+        cf  = getattr(stock, "cashflow", None)   or getattr(stock, "cash_flow", None)
+
+        if (inc is None or getattr(inc, "empty", True) or
+                bs  is None or getattr(bs,  "empty", True) or
+                cf  is None or getattr(cf,  "empty", True)):
+            return out
+        if len(inc.columns) < 2 or len(bs.columns) < 2:
+            return out
+
+        def _v(df, keys, col):
+            for k in keys:
+                if k in df.index:
+                    try:
+                        v = float(df.loc[k, col])
+                        if pd.notna(v):
+                            return v
+                    except (TypeError, ValueError):
+                        pass
+            return None
+
+        ic0, ic1 = inc.columns[0], inc.columns[1]
+        bc0 = bs.columns[0]
+        bc1 = bs.columns[1] if len(bs.columns) > 1 else bc0
+
+        ni0  = _v(inc, ["Net Income", "Net Income Common Stockholders"], ic0)
+        ni1  = _v(inc, ["Net Income", "Net Income Common Stockholders"], ic1)
+        gp0  = _v(inc, ["Gross Profit"], ic0)
+        gp1  = _v(inc, ["Gross Profit"], ic1)
+        rev0 = _v(inc, ["Total Revenue", "Revenue"], ic0)
+        rev1 = _v(inc, ["Total Revenue", "Revenue"], ic1)
+        ta0  = _v(bs, ["Total Assets"], bc0)
+        ta1  = _v(bs, ["Total Assets"], bc1)
+        tca0 = _v(bs, ["Current Assets", "Total Current Assets"], bc0)
+        tcl0 = _v(bs, ["Current Liabilities", "Total Current Liabilities"], bc0)
+        tca1 = _v(bs, ["Current Assets", "Total Current Assets"], bc1)
+        tcl1 = _v(bs, ["Current Liabilities", "Total Current Liabilities"], bc1)
+        ltd0 = _v(bs, ["Long Term Debt", "Long-Term Debt"], bc0)
+        ltd1 = _v(bs, ["Long Term Debt", "Long-Term Debt"], bc1)
+        shr0 = _v(bs, ["Common Stock", "Share Issued", "Ordinary Shares Number"], bc0)
+        shr1 = _v(bs, ["Common Stock", "Share Issued", "Ordinary Shares Number"], bc1)
+        ocf0 = _v(cf, ["Operating Cash Flow", "Total Cash From Operating Activities"], ic0)
+
+        if ni0  is not None and ta0 and ta0 != 0:
+            roa0 = ni0 / ta0
+            out["pio_roa_positive"] = 1 if roa0 > 0 else 0
+        if ocf0 is not None:
+            out["pio_cfo_positive"] = 1 if ocf0 > 0 else 0
+        if ni0 is not None and ni1 is not None and ta0 and ta1 and ta0 != 0 and ta1 != 0:
+            out["pio_delta_roa"] = 1 if (ni0 / ta0) > (ni1 / ta1) else 0
+        if ocf0 is not None and ni0 is not None and ta0 and ta0 != 0 and ni0 != 0:
+            out["pio_accruals"] = 1 if (ocf0 / ta0) > (ni0 / ta0) else 0
+        if ltd0 is not None and ltd1 is not None and ta0 and ta1 and ta0 != 0 and ta1 != 0:
+            out["pio_delta_leverage"] = 1 if (ltd0 / ta0) <= (ltd1 / ta1) else 0
+        if tca0 and tcl0 and tca1 and tcl1 and tcl0 != 0 and tcl1 != 0:
+            cr0 = tca0 / tcl0
+            cr1 = tca1 / tcl1
+            out["pio_delta_liquidity"] = 1 if cr0 >= cr1 else 0
+        if shr0 is not None and shr1 is not None:
+            out["pio_no_dilution"] = 1 if shr0 <= shr1 else 0
+        if gp0 and rev0 and gp1 and rev1 and rev0 != 0 and rev1 != 0:
+            out["pio_delta_gross_margin"] = 1 if (gp0 / rev0) >= (gp1 / rev1) else 0
+        if rev0 and ta0 and rev1 and ta1 and ta0 != 0 and ta1 != 0:
+            out["pio_delta_asset_turnover"] = 1 if (rev0 / ta0) >= (rev1 / ta1) else 0
+
+    except Exception as e:
+        log.debug(f"[comparison] pio_components error: {e}")
+    return out
+
+
+# ---------------------------------------------------------------------------
+# Extraction principale : état pipeline → dict 76 métriques
+# ---------------------------------------------------------------------------
+
+def extract_metrics(state: dict, supp: dict) -> dict:
+    """
+    Extrait les 76 métriques depuis un état pipeline + données supplémentaires yfinance.
+    Retourne un dict {metric_name: value}.
+    """
+    snapshot   = state.get("raw_data")
+    ratios     = state.get("ratios")
+    synthesis  = state.get("synthesis")
+    qa_python  = state.get("qa_python")
+
+    ci  = _safe(snapshot, "company_info")
+    mkt = _safe(snapshot, "market")
+    yr  = _latest_yr(ratios)
+    yr1, yr2 = _prev_yrs(ratios, 2)
+
+    # Monte Carlo depuis ratios.meta
+    mc_meta = {}
+    try:
+        if ratios and ratios.meta:
+            mc_meta = ratios.meta
+    except Exception:
+        pass
+
+    # Prix courant
+    price = _safe(mkt, "share_price")
+
+    # DCF targets
+    t_base = _safe(synthesis, "target_base")
+    t_bear = _safe(synthesis, "target_bear")
+    t_bull = _safe(synthesis, "target_bull")
+
+    # Finsight score
+    fs = _finsight_score(snapshot, ratios)
+    perf_3m = supp.get("perf_3m")
+    mom_sc  = _momentum_score(perf_3m)
+
+    # Revenue CAGR
+    rev_cagr = _rev_cagr_3y(ratios)
+
+    # Cash conversion (FCF / Net Income latest year)
+    cc = None
+    try:
+        fcf = _safe(yr, "fcf")
+        ni  = _safe(yr, "net_income")
+        if fcf is not None and ni and ni != 0:
+            cc = round(fcf / abs(ni), 2)
+    except Exception:
+        pass
+
+    # Sloan accruals depuis qa_python.meta
+    sloan = None
+    try:
+        if qa_python and hasattr(qa_python, "meta"):
+            sloan = qa_python.meta.get("sloan_ratio")
+    except Exception:
+        pass
+
+    # Dividend yield
+    div_yield = _safe(yr, "dividend_payout")
+    if div_yield is None:
+        try:
+            dps = _safe(ci, "dividends_paid") if ci else None
+            mc  = _safe(yr, "market_cap")
+            if dps and mc and mc > 0:
+                div_yield = round(abs(dps) / mc, 4)
+        except Exception:
+            pass
+
+    # Market cap / EV en milliards
+    mc_bn = None
+    ev_bn = None
+    try:
+        mc_val = _safe(yr, "market_cap")
+        ev_val = _safe(yr, "ev")
+        if mc_val and mc_val > 0:
+            mc_bn = round(mc_val / 1e3, 1)  # yfinance en M → Mds
+        if ev_val and ev_val > 0:
+            ev_bn = round(ev_val / 1e3, 1)
+    except Exception:
+        pass
+
+    sector = _safe(ci, "sector") or ""
+
+    m: dict = {
+        # IDENTITE (rows 2-10)
+        "company_name_a": _safe(ci, "company_name"),
+        "company_name_b": _safe(ci, "company_name"),
+        "ticker_a":       _safe(snapshot, "ticker"),
+        "ticker_b":       _safe(snapshot, "ticker"),
+        "sector_a":       sector,
+        "sector_b":       sector,
+        "currency_a":     _safe(ci, "currency"),
+        "currency_b":     _safe(ci, "currency"),
+        "analysis_date":  datetime.today(),
+
+        # VALORISATION (rows 11-27)
+        "share_price":      price,
+        "dcf_base":         t_base,
+        "dcf_bear":         t_bear,
+        "dcf_bull":         t_bull,
+        "dcf_upside_base":  round((t_base - price) / price, 4) if (t_base and price and price > 0) else None,
+        "margin_of_safety": round((t_base - price) / t_base, 4) if (t_base and price and t_base > 0) else None,
+        "pe_ratio":         _safe(yr, "pe_ratio"),
+        "ev_ebitda":        _safe(yr, "ev_ebitda"),
+        "price_to_book":    _safe(yr, "pb_ratio"),
+        "fcf_yield":        _safe(yr, "fcf_yield"),
+        "peg_ratio":        _safe(yr, "peg_ratio") or _compute_peg(yr, rev_cagr),
+        "wacc":             _safe(mkt, "wacc"),
+        "terminal_growth":  _safe(mkt, "terminal_growth"),
+        "entry_zone_ok":    1 if (t_base and price and t_base > price) else 0,
+        "monte_carlo_p10":  mc_meta.get("dcf_mc_p10"),
+        "monte_carlo_p50":  mc_meta.get("dcf_mc_p50"),
+        "monte_carlo_p90":  mc_meta.get("dcf_mc_p90"),
+
+        # QUALITE FINANCIERE (rows 28-33)
+        "piotroski_score": supp.get("piotroski_score"),
+        "sloan_accruals":  sloan,
+        "cash_conversion": cc,
+        "beneish_mscore":  _safe(yr, "beneish_m"),
+        "altman_z":        _safe(yr, "altman_z"),
+        "altman_model":    _safe(yr, "altman_z_model"),
+
+        # PROFITABILITE & CROISSANCE (rows 34-41)
+        "roic":               _safe(yr, "roic"),
+        "roe":                _safe(yr, "roe"),
+        "ebitda_margin_ltm":  _safe(yr, "ebitda_margin"),
+        "ebitda_margin_y1":   _safe(yr1, "ebitda_margin"),
+        "ebitda_margin_y2":   _safe(yr2, "ebitda_margin"),
+        "ebitda_margin_trend": _ebitda_trend(yr, yr1, yr2),
+        "revenue_cagr_3y":    rev_cagr,
+        "eps_growth":         _eps_growth(ratios),
+
+        # LEVIER / RISQUE (rows 42-46)
+        "net_debt_ebitda":    _safe(yr, "net_debt_ebitda"),
+        "interest_coverage":  _safe(yr, "interest_coverage"),
+        "beta":               _safe(mkt, "beta_levered"),
+        "var_95_1m":          supp.get("var_95_1m"),
+        "duration_implicit":  None,  # non calculé — champ facultatif
+
+        # SCORES (rows 47-52) — remplis après les deux sociétés
+        "finsight_score": fs,
+        "momentum_score": mom_sc,
+        "recommendation": _safe(synthesis, "recommendation"),
+        "conviction":     _safe(synthesis, "conviction"),
+        "verdict_relative": None,  # calculé après comparaison
+        "winner":           None,  # calculé après comparaison
+
+        # LIQUIDITE (rows 53-55)
+        "current_ratio":    _safe(yr, "current_ratio"),
+        "quick_ratio":      _safe(yr, "quick_ratio"),
+        "capex_to_revenue": _safe(yr, "capex_ratio"),
+
+        # PERFORMANCE (rows 56-58)
+        "perf_1m": supp.get("perf_1m"),
+        "perf_3m": perf_3m,
+        "perf_1y": supp.get("perf_1y"),
+
+        # SECTEUR (rows 59-60)
+        "sector_median_pe":       _SECTOR_PE.get(sector),
+        "sector_median_ev_ebitda": _SECTOR_EVEBITDA.get(sector),
+
+        # MARCHE (rows 61-67)
+        "week52_high":       supp.get("week52_high"),
+        "week52_low":        supp.get("week52_low"),
+        "market_cap":        mc_bn,
+        "enterprise_value":  ev_bn,
+        "avg_volume_30d":    supp.get("avg_volume_30d"),
+        "dividend_yield":    div_yield,
+        "next_earnings_date": supp.get("next_earnings_date"),
+
+        # PIOTROSKI COMPOSANTES (rows 68-76)
+        "pio_roa_positive":         supp.get("pio_roa_positive"),
+        "pio_cfo_positive":         supp.get("pio_cfo_positive"),
+        "pio_delta_roa":            supp.get("pio_delta_roa"),
+        "pio_accruals":             supp.get("pio_accruals"),
+        "pio_delta_leverage":       supp.get("pio_delta_leverage"),
+        "pio_delta_liquidity":      supp.get("pio_delta_liquidity"),
+        "pio_no_dilution":          supp.get("pio_no_dilution"),
+        "pio_delta_gross_margin":   supp.get("pio_delta_gross_margin"),
+        "pio_delta_asset_turnover": supp.get("pio_delta_asset_turnover"),
+    }
+    return m
+
+
+def _compute_peg(yr, rev_cagr) -> Optional[float]:
+    """PEG = PE / (revenue_cagr * 100)."""
+    try:
+        pe = _safe(yr, "pe_ratio")
+        if pe and pe > 0 and rev_cagr and rev_cagr > 0:
+            peg = pe / (rev_cagr * 100)
+            if 0 < peg < 50:
+                return round(peg, 2)
+        return None
+    except Exception:
+        return None
+
+
+# ---------------------------------------------------------------------------
+# Writer principal
+# ---------------------------------------------------------------------------
+
+class ComparisonWriter:
+    """Injecte deux états pipeline dans TEMPLATE_COMPARISON.xlsx."""
+
+    def write(self, state_a: dict, state_b: dict) -> bytes:
+        """
+        Génère le fichier XLSX comparaison en mémoire.
+
+        Retourne les bytes du fichier.
+        Lève RuntimeError si le template est introuvable.
+        """
+        import openpyxl
+
+        # 1. Trouver le template
+        template_path = _find_template()
+        if template_path is None:
+            raise RuntimeError(
+                "TEMPLATE_COMPARISON.xlsx introuvable. "
+                "Vérifier OneDrive ou copier dans le répertoire projet."
+            )
+
+        # 2. Fetch suppléments yfinance pour les deux tickers
+        tkr_a = (state_a.get("raw_data") and state_a["raw_data"].ticker) or state_a.get("ticker", "")
+        tkr_b = (state_b.get("raw_data") and state_b["raw_data"].ticker) or state_b.get("ticker", "")
+        log.info(f"[ComparisonWriter] fetch supplements {tkr_a} / {tkr_b}")
+        supp_a = _fetch_supplements(tkr_a)
+        supp_b = _fetch_supplements(tkr_b)
+
+        # 3. Extraire métriques
+        m_a = extract_metrics(state_a, supp_a)
+        m_b = extract_metrics(state_b, supp_b)
+
+        # 4. Calculer verdict_relative + winner (déterministe)
+        fs_a = m_a.get("finsight_score") or 0
+        fs_b = m_b.get("finsight_score") or 0
+        name_a = m_a.get("company_name_a") or tkr_a
+        name_b = m_b.get("company_name_b") or tkr_b
+        if fs_a > fs_b:
+            verdict = f"{name_a} privilegie"
+            winner  = name_a
+        elif fs_b > fs_a:
+            verdict = f"{name_b} privilegie"
+            winner  = name_b
+        else:
+            verdict = "Equivalent"
+            winner  = "Equivalent"
+        m_a["verdict_relative"] = verdict
+        m_a["winner"]           = winner
+        m_b["verdict_relative"] = verdict
+        m_b["winner"]           = winner
+
+        # 5. Charger template
+        wb = openpyxl.load_workbook(str(template_path))
+        ws = wb["DATA_RAW"]
+
+        # 6. Construire la liste ordonnée des métriques depuis le template (col A)
+        row_map: dict[str, int] = {}  # metric_name → row_number
+        for row in ws.iter_rows(min_row=2, max_row=ws.max_row, min_col=1, max_col=1, values_only=False):
+            cell = row[0]
+            if cell.value:
+                row_map[str(cell.value).strip()] = cell.row
+
+        # 7. Effacer les anciennes valeurs exemple (col C et E) avant injection
+        for row_idx in row_map.values():
+            ws.cell(row=row_idx, column=3).value = None
+            ws.cell(row=row_idx, column=5).value = None
+
+        # 8. Injecter valeurs — col C = société A, col E = société B
+        for metric, row_idx in row_map.items():
+            val_a = m_a.get(metric)
+            val_b = m_b.get(metric)
+            _write_cell(ws, row_idx, 3, val_a)  # col C
+            _write_cell(ws, row_idx, 5, val_b)  # col E
+
+        # 8. Sauvegarder en mémoire
+        buf = io.BytesIO()
+        wb.save(buf)
+        buf.seek(0)
+        log.info(f"[ComparisonWriter] fichier genere ({buf.getbuffer().nbytes // 1024} ko)")
+        return buf.read()
+
+
+def _find_template() -> Optional[Path]:
+    """Cherche TEMPLATE_COMPARISON.xlsx dans OneDrive puis dans le projet."""
+    candidates = [
+        _TEMPLATE_SRC,
+        Path("C:/Users/bapti/finsight-ia/assets/TEMPLATE_COMPARISON.xlsx"),
+        Path("C:/Users/bapti/finsight-ia/TEMPLATE_COMPARISON.xlsx"),
+    ]
+    for p in candidates:
+        if p.exists():
+            try:
+                # Copie pour éviter le PermissionError si Excel est ouvert
+                tmp = Path("C:/Users/bapti/finsight-ia/tmp_cmp_template.xlsx")
+                shutil.copy2(str(p), str(tmp))
+                return tmp
+            except Exception:
+                return p
+    return None
+
+
+def _write_cell(ws, row: int, col: int, value) -> None:
+    """Écrit une valeur dans une cellule (skip None)."""
+    if value is None:
+        return
+    try:
+        ws.cell(row=row, column=col, value=value)
+    except Exception as e:
+        log.debug(f"[ComparisonWriter] cell({row},{col})={value!r} erreur: {e}")
