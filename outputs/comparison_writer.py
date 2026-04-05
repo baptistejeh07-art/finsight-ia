@@ -630,10 +630,20 @@ class ComparisonWriter:
             )
 
         # 2. Fetch suppléments yfinance pour les deux tickers
-        snap_a = state_a.get("raw_data") or state_a.get("snapshot")
-        snap_b = state_b.get("raw_data") or state_b.get("snapshot")
-        tkr_a = (snap_a and snap_a.ticker) or state_a.get("ticker", "")
-        tkr_b = (snap_b and snap_b.ticker) or state_b.get("ticker", "")
+        def _get_tkr(state, default=""):
+            snap = state.get("raw_data") or state.get("snapshot")
+            if snap is not None and not isinstance(snap, (str, dict)):
+                try:
+                    return snap.ticker or default
+                except Exception:
+                    pass
+            if isinstance(snap, dict):
+                t = snap.get("ticker") or snap.get("company_info", {}).get("ticker")
+                if t:
+                    return t
+            return state.get("ticker", default)
+        tkr_a = _get_tkr(state_a)
+        tkr_b = _get_tkr(state_b)
         log.info(f"[ComparisonWriter] fetch supplements {tkr_a} / {tkr_b}")
         supp_a = _fetch_supplements(tkr_a)
         supp_b = _fetch_supplements(tkr_b)
@@ -684,7 +694,23 @@ class ComparisonWriter:
             _write_cell(ws, row_idx, 3, val_a)  # col C
             _write_cell(ws, row_idx, 5, val_b)  # col E
 
-        # 8. Sauvegarder en mémoire
+        # 9. Mettre a jour les noms de series dans les graphiques DASHBOARD
+        try:
+            from openpyxl.chart.series import SeriesLabel
+            ws_dash = wb["DASHBOARD"]
+            for chart in ws_dash._charts:
+                for i, ser in enumerate(chart.series):
+                    new_name = tkr_a if i == 0 else tkr_b
+                    try:
+                        ser.title = SeriesLabel(v=new_name)
+                        if hasattr(ser, 'tx') and ser.tx is not None:
+                            ser.tx = SeriesLabel(v=new_name)
+                    except Exception as _e:
+                        log.debug(f"[ComparisonWriter] chart series rename error: {_e}")
+        except Exception as _ce:
+            log.warning(f"[ComparisonWriter] dashboard chart rename: {_ce}")
+
+        # Sauvegarder en mémoire
         buf = io.BytesIO()
         wb.save(buf)
         buf.seek(0)
