@@ -1120,7 +1120,7 @@ def _section_rentabilite_bilan(story, m_a, m_b, tkr_a, tkr_b):
 
 def _section_valorisation(story, m_a, m_b, synthesis, tkr_a, tkr_b):
     story.append(PageBreak())
-    story += section_title("Valorisation", "4")
+    story += section_title("Valorisation", "5")
 
     if synthesis.get("valuation_text"):
         story.append(Paragraph(_safe(_enc(synthesis["valuation_text"])), S_BODY))
@@ -1179,7 +1179,7 @@ def _section_valorisation(story, m_a, m_b, synthesis, tkr_a, tkr_b):
 
 def _section_qualite_risque(story, m_a, m_b, synthesis, tkr_a, tkr_b):
     story.append(PageBreak())
-    story += section_title("Qualite & Risque", "5")
+    story += section_title("Qualite & Risque", "7")
 
     if synthesis.get("quality_text"):
         story.append(Paragraph(_safe(_enc(synthesis["quality_text"])), S_BODY))
@@ -1288,7 +1288,7 @@ def _section_qualite_risque(story, m_a, m_b, synthesis, tkr_a, tkr_b):
 
 def _section_verdict(story, m_a, m_b, synthesis, tkr_a, tkr_b):
     story.append(PageBreak())
-    story += section_title("Verdict & Theses", "6")
+    story += section_title("Verdict & Theses", "10")
 
     winner = m_a.get("winner") or tkr_a
 
