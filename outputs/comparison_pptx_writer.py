@@ -1854,13 +1854,16 @@ def _slide_verdict(prs, m_a: dict, m_b: dict, synthesis: dict):
     sc_rows_raw = [
         ("FinSight Score /100",       m_a.get('finsight_score'), m_b.get('finsight_score')),
         ("Piotroski F-Score /9",      m_a.get('piotroski_score'), m_b.get('piotroski_score')),
-        ("Marge EBITDA LTM",          (m_a.get('ebitda_margin_ltm') or 0) * 100,
-                                      (m_b.get('ebitda_margin_ltm') or 0) * 100),
-        ("ROIC",                      (m_a.get('roic') or 0) * 100, (m_b.get('roic') or 0) * 100),
-        ("Rev CAGR 3y",               (m_a.get('revenue_cagr_3y') or 0) * 100,
-                                      (m_b.get('revenue_cagr_3y') or 0) * 100),
-        ("FCF Yield",                 (m_a.get('fcf_yield') or 0) * 100, (m_b.get('fcf_yield') or 0) * 100),
-        ("Perf. 1 An",                (m_a.get('perf_1y') or 0) * 100, (m_b.get('perf_1y') or 0) * 100),
+        ("Marge EBITDA LTM",          (m_a.get('ebitda_margin_ltm') * 100 if m_a.get('ebitda_margin_ltm') is not None else None),
+                                      (m_b.get('ebitda_margin_ltm') * 100 if m_b.get('ebitda_margin_ltm') is not None else None)),
+        ("ROIC",                      (m_a.get('roic') * 100 if m_a.get('roic') is not None else None),
+                                      (m_b.get('roic') * 100 if m_b.get('roic') is not None else None)),
+        ("Rev CAGR 3y",               (m_a.get('revenue_cagr_3y') * 100 if m_a.get('revenue_cagr_3y') is not None else None),
+                                      (m_b.get('revenue_cagr_3y') * 100 if m_b.get('revenue_cagr_3y') is not None else None)),
+        ("FCF Yield",                 (m_a.get('fcf_yield') * 100 if m_a.get('fcf_yield') is not None else None),
+                                      (m_b.get('fcf_yield') * 100 if m_b.get('fcf_yield') is not None else None)),
+        ("Perf. 1 An",                (m_a.get('perf_1y') * 100 if m_a.get('perf_1y') is not None else None),
+                                      (m_b.get('perf_1y') * 100 if m_b.get('perf_1y') is not None else None)),
     ]
 
     sc_rows = []
