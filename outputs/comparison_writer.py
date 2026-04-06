@@ -307,6 +307,17 @@ def _fetch_supplements(ticker: str) -> dict:
         except Exception as e:
             log.debug(f"[comparison] piotroski error {ticker}: {e}")
 
+        # Volatilite annualisee 52 semaines
+        try:
+            import numpy as np
+            hist_v = stock.history(period="1y", interval="1d", auto_adjust=True)
+            if not hist_v.empty and len(hist_v) >= 30:
+                rets = hist_v["Close"].pct_change().dropna()
+                vol = float(np.std(rets)) * np.sqrt(252)
+                out["volatility_52w"] = round(vol, 4)
+        except Exception:
+            pass
+
     except Exception as e:
         log.warning(f"[comparison] _fetch_supplements({ticker}) erreur : {e}")
     return out
@@ -417,6 +428,7 @@ def extract_metrics(state: dict, supp: dict) -> dict:
     ratios     = state.get("ratios")
     synthesis  = state.get("synthesis")
     qa_python  = state.get("qa_python")
+    sentiment  = state.get("sentiment")
 
     ci  = _safe(snapshot, "company_info")
     mkt = _safe(snapshot, "market")
@@ -545,6 +557,7 @@ def extract_metrics(state: dict, supp: dict) -> dict:
         "interest_coverage":  _safe(yr, "interest_coverage"),
         "beta":               _safe(mkt, "beta_levered"),
         "var_95_1m":          supp.get("var_95_1m"),
+        "volatility_52w":     supp.get("volatility_52w"),
         "duration_implicit":  None,  # non calculé — champ facultatif
 
         # SCORES (rows 47-52) — remplis après les deux sociétés
@@ -577,6 +590,7 @@ def extract_metrics(state: dict, supp: dict) -> dict:
         "avg_volume_30d":    supp.get("avg_volume_30d"),
         "dividend_yield":    div_yield or supp.get("dividend_yield"),
         "next_earnings_date": supp.get("next_earnings_date"),
+        "sentiment_label":   _safe(sentiment, "label"),
 
         # PIOTROSKI COMPOSANTES (rows 68-76)
         "pio_roa_positive":         supp.get("pio_roa_positive"),
@@ -589,6 +603,57 @@ def extract_metrics(state: dict, supp: dict) -> dict:
         "pio_delta_gross_margin":   supp.get("pio_delta_gross_margin"),
         "pio_delta_asset_turnover": supp.get("pio_delta_asset_turnover"),
     }
+
+    # --- Clés derives pour PDF/PPTX (formatees ou calculees) ---
+    # Prix formate (French decimal)
+    try:
+        if price and price > 0:
+            cur = _safe(ci, "currency") or ""
+            cur_sym = {"USD": "$", "EUR": "\u20ac", "GBP": "\u00a3", "CHF": "Fr"}.get(cur, cur)
+            m["price_str"] = f"{price:,.2f}".replace(",", "\u202f").replace(".", ",") + f" {cur_sym}".strip()
+        else:
+            m["price_str"] = None
+    except Exception:
+        m["price_str"] = None
+
+    # Upside % et cible formatee
+    try:
+        if t_base and price and price > 0:
+            upside = (float(t_base) - float(price)) / float(price)
+            sign = "+" if upside >= 0 else ""
+            m["upside_str"] = f"{sign}{upside*100:.1f}".replace(".", ",") + " %"
+            m["target_price"] = f"{float(t_base):,.0f}".replace(",", "\u202f")
+        else:
+            m["upside_str"]  = None
+            m["target_price"] = None
+    except Exception:
+        m["upside_str"]  = None
+        m["target_price"] = None
+
+    # FCF absolu, Net Debt absolu, Cash approx, P/FCF
+    try:
+        fcf_abs  = _safe(yr, "fcf")
+        nd_abs   = _safe(yr, "net_debt")
+        td_abs   = _safe(yr, "total_debt")
+        mc_raw   = _safe(yr, "market_cap")
+        m["free_cash_flow"] = fcf_abs
+        m["net_debt"]       = nd_abs
+        # Cash = total_debt - net_debt (approx; positif si net cash)
+        if td_abs is not None and nd_abs is not None:
+            m["cash"] = round(float(td_abs) - float(nd_abs), 1)
+        else:
+            m["cash"] = None
+        # P/FCF = market_cap / FCF
+        if mc_raw and fcf_abs and float(fcf_abs) > 0:
+            m["p_fcf"] = round(float(mc_raw) / float(fcf_abs), 1)
+        else:
+            m["p_fcf"] = None
+    except Exception:
+        m.setdefault("free_cash_flow", None)
+        m.setdefault("net_debt", None)
+        m.setdefault("cash", None)
+        m.setdefault("p_fcf", None)
+
     return m
 
 
