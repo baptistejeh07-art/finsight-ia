@@ -512,7 +512,7 @@ SCORES:
         f"implications bilan.\n{data_str}",
         system=system_msg, max_tokens=250
     )
-    results["financial_text"] = r[:600] if r else ""
+    results["financial_text"] = (r[:600].rsplit(' ', 1)[0] if r and len(r) > 600 else r) or ""
 
     # Valuation commentary (70 mots max)
     r = _call_llm(
@@ -521,7 +521,7 @@ SCORES:
         f"justification et upside relatif.\n{data_str}",
         system=system_msg, max_tokens=250
     )
-    results["valuation_text"] = r[:600] if r else ""
+    results["valuation_text"] = (r[:600].rsplit(' ', 1)[0] if r and len(r) > 600 else r) or ""
 
     # Quality commentary (60 mots max)
     r = _call_llm(
@@ -530,7 +530,7 @@ SCORES:
         f"Piotroski, levier, risques de manipulation comptable.\n{data_str}",
         system=system_msg, max_tokens=200
     )
-    results["quality_text"] = r[:500] if r else ""
+    results["quality_text"] = (r[:500].rsplit(' ', 1)[0] if r and len(r) > 500 else r) or ""
 
     # Verdict final (80 mots max)
     r = _call_llm(
