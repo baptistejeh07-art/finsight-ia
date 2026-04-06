@@ -311,6 +311,7 @@ if "cmp_stage"          not in st.session_state: st.session_state.cmp_stage     
 if "cmp_ticker_b"       not in st.session_state: st.session_state.cmp_ticker_b       = ""
 if "cmp_state_b"        not in st.session_state: st.session_state.cmp_state_b        = None
 if "cmp_bytes"          not in st.session_state: st.session_state.cmp_bytes          = None
+if "scr_cmp_b_preset"   not in st.session_state: st.session_state.scr_cmp_b_preset   = ""
 
 # ---------------------------------------------------------------------------
 # Routing : détection du type d'input
@@ -2385,8 +2386,8 @@ def render_screening_results(results: dict) -> None:
                 unsafe_allow_html=True)
     top10 = tickers_data[:10]
 
-    hcols = st.columns([0.4, 2.4, 1.6, 1.0, 1.0, 1.0, 1.0, 1.2])
-    for hc, h in zip(hcols, ["#", "Societe", "Secteur", "Score", "Value", "Growth", "Quality", ""]):
+    hcols = st.columns([0.4, 2.4, 1.0, 1.0, 1.0, 1.0, 1.2])
+    for hc, h in zip(hcols, ["#", "Societe", "Score", "Value", "Growth", "Quality", ""]):
         with hc:
             st.markdown(
                 f'<div style="font-size:10px;font-weight:600;color:#777;letter-spacing:1px;'
@@ -2398,7 +2399,7 @@ def render_screening_results(results: dict) -> None:
         score    = t.get("score_global") or 0
         sc_cls   = "score-hi" if score >= 60 else ("score-md" if score >= 40 else "score-lo")
         ticker_v = t.get("ticker") or ""
-        rcols    = st.columns([0.4, 2.4, 1.6, 1.0, 1.0, 1.0, 1.0, 1.2])
+        rcols    = st.columns([0.4, 2.4, 1.0, 1.0, 1.0, 1.0, 1.2])
 
         with rcols[0]:
             st.markdown(f'<div class="scr-rank">{i+1}</div>', unsafe_allow_html=True)
@@ -2412,33 +2413,28 @@ def render_screening_results(results: dict) -> None:
             )
         with rcols[2]:
             st.markdown(
-                f'<div class="scr-sector">{_e((t.get("sector") or "—")[:20])}</div>',
-                unsafe_allow_html=True,
-            )
-        with rcols[3]:
-            st.markdown(
                 f'<div style="padding:2px 0;"><span class="score-pill {sc_cls}">{score:.0f}</span></div>',
                 unsafe_allow_html=True,
             )
-        with rcols[4]:
+        with rcols[3]:
             v = t.get("score_value") or 0
             st.markdown(
                 f'<div style="font-family:\'DM Mono\',monospace;font-size:12px;color:#555;">{v:.0f}</div>',
                 unsafe_allow_html=True,
             )
-        with rcols[5]:
+        with rcols[4]:
             g = t.get("score_growth") or 0
             st.markdown(
                 f'<div style="font-family:\'DM Mono\',monospace;font-size:12px;color:#555;">{g:.0f}</div>',
                 unsafe_allow_html=True,
             )
-        with rcols[6]:
+        with rcols[5]:
             q = t.get("score_quality") or 0
             st.markdown(
                 f'<div style="font-family:\'DM Mono\',monospace;font-size:12px;color:#555;">{q:.0f}</div>',
                 unsafe_allow_html=True,
             )
-        with rcols[7]:
+        with rcols[6]:
             if st.button("Analyser", key=f"scr_ana_{ticker_v}_{i}", type="primary"):
                 st.session_state.ticker       = ticker_v
                 st.session_state.from_screening = True
@@ -2481,108 +2477,34 @@ def render_screening_results(results: dict) -> None:
                     unsafe_allow_html=True,
                 )
 
-    # --- Composition sectorielle ---
-    st.markdown('<div class="sec-t" style="margin-top:36px;">Composition sectorielle</div>',
+    # --- Comparer deux societes ---
+    st.markdown('<div class="sec-t" style="margin-top:36px;">Comparer deux societes</div>',
                 unsafe_allow_html=True)
 
-    sector_data: dict = {}
-    for t in tickers_data:
-        s = t.get("sector") or "Autres"
-        sector_data.setdefault(s, []).append(t)
-    sectors_sorted = sorted(sector_data.items(), key=lambda x: len(x[1]), reverse=True)
+    _ticker_labels = [
+        f"{t.get('ticker', '?')}  —  {(t.get('company') or '')[:32]}"
+        for t in tickers_data
+    ]
+    _ticker_keys = [t.get("ticker", "") for t in tickers_data]
 
-    shcols = st.columns([2.0, 0.6, 0.9, 2.0, 1.1, 1.2])
-    for shc, h in zip(shcols, ["Secteur", "N", "Score moy.", "Top societe", "EV/EBITDA med.", ""]):
-        with shc:
-            st.markdown(
-                f'<div style="font-size:10px;font-weight:600;color:#777;letter-spacing:1px;'
-                f'text-transform:uppercase;padding-bottom:8px;border-bottom:1px solid #f0f0f0;">{h}</div>',
-                unsafe_allow_html=True,
-            )
-
-    for idx_s, (sec_name, sec_list) in enumerate(sectors_sorted):
-        avg_sc = sum((t.get("score_global") or 0) for t in sec_list) / len(sec_list)
-        top_t  = max(sec_list, key=lambda x: x.get("score_global") or 0)
-        evs    = [t.get("ev_ebitda") for t in sec_list if t.get("ev_ebitda") is not None]
-        ev_str = f"{_med(evs):.1f}x" if evs else "—"
-        sc_col = "#1a7a52" if avg_sc >= 60 else ("#b8922a" if avg_sc >= 40 else "#c0392b")
-
-        sccols = st.columns([2.0, 0.6, 0.9, 2.0, 1.1, 1.2])
-        with sccols[0]:
-            st.markdown(f'<div style="padding:7px 0;font-size:13px;color:#333;">{_e(sec_name)}</div>',
-                        unsafe_allow_html=True)
-        with sccols[1]:
-            st.markdown(
-                f'<div style="padding:7px 0;font-family:\'DM Mono\',monospace;font-size:12px;color:#777;">'
-                f'{len(sec_list)}</div>', unsafe_allow_html=True)
-        with sccols[2]:
-            st.markdown(
-                f'<div style="padding:7px 0;font-family:\'DM Mono\',monospace;font-size:12px;'
-                f'font-weight:600;color:{sc_col};">{avg_sc:.0f}</div>', unsafe_allow_html=True)
-        with sccols[3]:
-            st.markdown(
-                f'<div style="padding:7px 0;font-size:12px;color:#555;">'
-                f'{_e((top_t.get("company") or "")[:24])}</div>', unsafe_allow_html=True)
-        with sccols[4]:
-            st.markdown(
-                f'<div style="padding:7px 0;font-family:\'DM Mono\',monospace;font-size:12px;color:#777;">'
-                f'{ev_str}</div>', unsafe_allow_html=True)
-        with sccols[5]:
-            if st.button("Analyser", key=f"sec_ana_{idx_s}_{sec_name[:8]}",
-                         use_container_width=True):
-                sec_sorted = sorted(sec_list, key=lambda x: x.get("score_global") or 0, reverse=True)
-                _sec_out_dir = Path(__file__).parent / "outputs" / "generated"
-                _sec_out_dir.mkdir(exist_ok=True)
-                _sec_slug = sec_name.lower().replace(" ", "_").replace(".", "")
-                _sec_display = f"{sec_name} — {display_name}"
-                # Generation screening Excel sectoriel
-                sec_xlsx_bytes = None
-                try:
-                    from outputs.screening_writer import ScreeningWriter
-                    _tpl = Path(__file__).parent / "assets" / "FinSight_IA_Screening_v4.xlsx"
-                    _sec_xlsx_path = str(_sec_out_dir / f"screening_{_sec_slug}.xlsx")
-                    ScreeningWriter.generate(sec_sorted, _sec_display, _sec_xlsx_path,
-                                             template_path=str(_tpl) if _tpl.exists() else None)
-                    sec_xlsx_bytes = open(_sec_xlsx_path, "rb").read()
-                except Exception as _ex0:
-                    log.warning(f"[app] sector XLSX error: {_ex0}")
-                # Generation rapport PDF sectoriel
-                sec_pdf_bytes = None
-                try:
-                    import importlib, outputs.sector_pdf_writer as _spw
-                    importlib.reload(_spw)
-                    generate_sector_report = _spw.generate_sector_report
-                    _sec_path = str(_sec_out_dir / f"sector_{_sec_slug}.pdf")
-                    generate_sector_report(
-                        sector_name=sec_name,
-                        tickers_data=sec_sorted,
-                        output_path=_sec_path,
-                        universe=results.get("display_name", display_name),
-                    )
-                    sec_pdf_bytes = open(_sec_path, "rb").read()
-                except Exception as _ex:
-                    log.warning(f"[app] sector PDF error: {_ex}")
-                # Generation pitchbook PPTX sectoriel
-                sec_pptx_bytes = None
-                try:
-                    import outputs.sectoral_pptx_writer as _sppw
-                    sec_pptx_bytes = _sppw.SectoralPPTXWriter.generate(
-                        tickers_data=sec_sorted,
-                        sector_name=sec_name,
-                        universe=results.get("display_name", display_name),
-                    )
-                except Exception as _ex2:
-                    log.warning(f"[app] sector PPTX error: {_ex2}")
-                st.session_state.screening_parent  = results
-                st.session_state.screening_results = {
-                    "universe":     f"{sec_name}|{results.get('universe', '')}",
-                    "display_name": _sec_display,
-                    "tickers_data": sec_sorted,
-                    "excel_bytes":  sec_xlsx_bytes,
-                    "pdf_bytes":    sec_pdf_bytes,
-                    "pptx_bytes":   sec_pptx_bytes,
-                    "elapsed_ms":   0,
-                }
+    cmp_c1, cmp_c2, cmp_c3 = st.columns([2, 2, 1])
+    with cmp_c1:
+        sel_a = st.selectbox("Societe A", options=_ticker_labels, index=0, key="scr_cmp_sel_a")
+    with cmp_c2:
+        sel_b = st.selectbox("Societe B", options=_ticker_labels,
+                             index=min(1, len(_ticker_labels) - 1), key="scr_cmp_sel_b")
+    with cmp_c3:
+        st.markdown("<div style='margin-top:28px;'></div>", unsafe_allow_html=True)
+        if st.button("Comparer →", type="primary", use_container_width=True, key="scr_cmp_btn"):
+            _idx_a = _ticker_labels.index(sel_a)
+            _idx_b = _ticker_labels.index(sel_b)
+            _tkr_a = _ticker_keys[_idx_a]
+            _tkr_b = _ticker_keys[_idx_b]
+            if _tkr_a and _tkr_b and _tkr_a != _tkr_b:
+                st.session_state.ticker           = _tkr_a
+                st.session_state.scr_cmp_b_preset = _tkr_b
+                st.session_state.from_screening   = True
+                st.session_state.stage            = "running"
                 st.rerun()
 
     # --- Footer ---
@@ -2866,6 +2788,14 @@ def _render_comparison_section(state_a: dict) -> None:
     )
 
     cmp_stage = st.session_state.get("cmp_stage")
+
+    # ── Auto-déclenchement depuis le screening sectoriel ────────────────
+    _preset_b = st.session_state.get("scr_cmp_b_preset", "")
+    if _preset_b and not cmp_stage:
+        st.session_state.cmp_ticker_b       = _preset_b
+        st.session_state.cmp_stage          = "running"
+        st.session_state.scr_cmp_b_preset   = ""
+        st.rerun()
 
     # ── Résultat disponible ──────────────────────────────────────────────
     if cmp_stage == "done" and st.session_state.get("cmp_bytes"):
