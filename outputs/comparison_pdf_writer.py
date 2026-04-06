@@ -502,6 +502,7 @@ def _chart_perf_bars(m_a, m_b, tkr_a, tkr_b) -> io.BytesIO:
         vals_b  = [_pv(m_b.get("perf_1m")), _pv(m_b.get("perf_3m")), _pv(m_b.get("perf_1y"))]
         x = np.arange(len(labels)); width = 0.35
         fig, ax = plt.subplots(figsize=(7, 3.2))
+        ax.set_title(f"Performance comparative : {tkr_a} vs {tkr_b} (%)", fontsize=10, fontweight='bold', color='#1B3A6B', pad=5)
         bars_a = ax.bar(x - width/2, vals_a, width, label=tkr_a, color='#2E5FA3', alpha=0.9)
         bars_b = ax.bar(x + width/2, vals_b, width, label=tkr_b, color='#2E8B57', alpha=0.9)
         for bar in list(bars_a) + list(bars_b):
@@ -616,25 +617,27 @@ def _cover_page(canvas, doc, tkr_a, tkr_b, name_a, name_b,
     canvas.setLineWidth(0.5)
     canvas.line(MARGIN_L, H - 20*mm, W - MARGIN_R, H - 20*mm)
 
-    # Titre principal
+    # Titre principal "{tkr_a}  vs  {tkr_b}" 38pt navy bold
     canvas.setFillColor(NAVY)
-    canvas.setFont("Helvetica-Bold", 26)
-    canvas.drawCentredString(cx, H * 0.855, _enc("Analyse Comparative"))
-    canvas.setFillColor(GREY_TEXT)
-    canvas.setFont("Helvetica", 14)
-    canvas.drawCentredString(cx, H * 0.825,
-        _enc(f"{tkr_a}   \u00b7   vs   \u00b7   {tkr_b}"))
+    canvas.setFont("Helvetica-Bold", 38)
+    canvas.drawCentredString(cx, H * 0.73, _enc(f"{tkr_a}  vs  {tkr_b}"))
 
-    # Ligne separatrice
+    # Noms complets 11pt gris
+    canvas.setFillColor(GREY_TEXT)
+    canvas.setFont("Helvetica", 11)
+    canvas.drawCentredString(W * 0.28, H * 0.685, _enc((name_a or tkr_a)[:32]))
+    canvas.drawCentredString(W * 0.72, H * 0.685, _enc((name_b or tkr_b)[:32]))
+
+    # Ligne separatrice sous titres
     canvas.setStrokeColor(GREY_RULE)
     canvas.setLineWidth(0.4)
-    canvas.line(MARGIN_L + 20*mm, H * 0.810, W - MARGIN_R - 20*mm, H * 0.810)
+    canvas.line(MARGIN_L + 20*mm, H * 0.668, W - MARGIN_R - 20*mm, H * 0.668)
 
     # ------------------------------------------------------------------
     # DEUX BOXES SOCIETES (gauche A, droite B)
     # ------------------------------------------------------------------
-    box_top    = H * 0.800
-    box_bottom = H * 0.620
+    box_top    = H * 0.658
+    box_bottom = box_top - 38*mm
     box_h      = box_top - box_bottom
     half_w     = (W - MARGIN_L - MARGIN_R) / 2 - 3*mm
     box_ax     = MARGIN_L
@@ -709,18 +712,13 @@ def _cover_page(canvas, doc, tkr_a, tkr_b, name_a, name_b,
     _draw_company_box(box_ax, half_w, m_a, tkr_a, name_a, rec_a, COLOR_A, COLOR_A_PAL)
     _draw_company_box(box_bx, half_w, m_b, tkr_b, name_b, rec_b, COLOR_B, COLOR_B_PAL)
 
-    # Ligne separatrice apres les boxes
-    canvas.setStrokeColor(GREY_RULE)
-    canvas.setLineWidth(0.4)
-    canvas.line(MARGIN_L, H * 0.612, W - MARGIN_R, H * 0.612)
-
     # ------------------------------------------------------------------
     # BOX VERDICT (fond navy clair)
     # ------------------------------------------------------------------
     winner = m_a.get("winner") or tkr_a
     verdict_raw = synthesis.get("verdict_text") or ""
-    verdict_excerpt = verdict_raw[:120]
-    if len(verdict_raw) > 120:
+    verdict_excerpt = verdict_raw[:110]
+    if len(verdict_raw) > 110:
         if ' ' in verdict_excerpt:
             verdict_excerpt = verdict_excerpt[:verdict_excerpt.rfind(' ')] + '...'
         else:
@@ -728,144 +726,27 @@ def _cover_page(canvas, doc, tkr_a, tkr_b, name_a, name_b,
 
     verd_box_x = MARGIN_L
     verd_box_w = W - MARGIN_L - MARGIN_R
-    verd_box_y = H * 0.550
-    verd_box_h = 18*mm
+    verd_y     = box_bottom - 22*mm
+    verd_h     = 18*mm
     canvas.setFillColor(colors.HexColor('#EEF3FA'))
-    canvas.roundRect(verd_box_x, verd_box_y, verd_box_w, verd_box_h, 3, fill=1, stroke=0)
+    canvas.roundRect(verd_box_x, verd_y, verd_box_w, verd_h, 3, fill=1, stroke=0)
     canvas.setStrokeColor(NAVY_LIGHT)
     canvas.setLineWidth(0.4)
-    canvas.roundRect(verd_box_x, verd_box_y, verd_box_w, verd_box_h, 3, fill=0, stroke=1)
+    canvas.roundRect(verd_box_x, verd_y, verd_box_w, verd_h, 3, fill=0, stroke=1)
 
     canvas.setFillColor(NAVY)
     canvas.setFont("Helvetica-Bold", 9)
-    canvas.drawCentredString(cx, verd_box_y + verd_box_h - 6*mm,
+    canvas.drawCentredString(cx, verd_y + verd_h - 6*mm,
         _enc(f"Choix prefere : {winner}"))
     canvas.setFillColor(GREY_TEXT)
     canvas.setFont("Helvetica", 7.5)
-    canvas.drawCentredString(cx, verd_box_y + 4.5*mm, _enc(verdict_excerpt))
+    canvas.drawCentredString(cx, verd_y + 4.5*mm, _enc(verdict_excerpt))
 
     # Source / date
     canvas.setFillColor(GREY_TEXT)
     canvas.setFont("Helvetica", 7)
-    canvas.drawCentredString(cx, H * 0.520,
+    canvas.drawCentredString(cx, verd_y - 8*mm,
         _enc(f"Donnees : yfinance  \u00b7  FMP  \u00b7  Finnhub   |   {date_str}   |   Horizon : 12 mois"))
-
-    # ------------------------------------------------------------------
-    # METRIQUES COMPARATIVES (2 rangees de 4 boites)
-    # ------------------------------------------------------------------
-    canvas.setStrokeColor(GREY_RULE)
-    canvas.setLineWidth(0.4)
-    canvas.line(MARGIN_L, H * 0.507, W - MARGIN_R, H * 0.507)
-
-    canvas.setFillColor(NAVY)
-    canvas.setFont("Helvetica-Bold", 8)
-    canvas.drawString(MARGIN_L, H * 0.497, _enc("Metriques comparatives cles"))
-
-    box_w2 = (W - MARGIN_L - MARGIN_R - 3 * 2*mm) / 4
-    box_h2 = 26*mm
-
-    def _draw_metric_box(bx, by, label, va, vb, bw, bh):
-        canvas.setFillColor(GREY_LIGHT)
-        canvas.roundRect(bx, by, bw, bh, 2, fill=1, stroke=0)
-        canvas.setStrokeColor(GREY_MED)
-        canvas.setLineWidth(0.3)
-        canvas.roundRect(bx, by, bw, bh, 2, fill=0, stroke=1)
-        # Label
-        canvas.setFillColor(GREY_TEXT)
-        canvas.setFont("Helvetica", 6.5)
-        canvas.drawCentredString(bx + bw / 2, by + bh - 4.5*mm, _enc(label))
-        # Separator mini
-        canvas.setStrokeColor(GREY_RULE)
-        canvas.setLineWidth(0.3)
-        canvas.line(bx + 2*mm, by + bh - 7*mm, bx + bw - 2*mm, by + bh - 7*mm)
-        # Value A
-        canvas.setFillColor(COLOR_A)
-        canvas.setFont("Helvetica-Bold", 9.5)
-        canvas.drawCentredString(bx + bw * 0.28, by + bh * 0.38, _enc(va))
-        # vs
-        canvas.setFillColor(GREY_TEXT)
-        canvas.setFont("Helvetica", 7)
-        canvas.drawCentredString(bx + bw * 0.50, by + bh * 0.38, "vs")
-        # Value B
-        canvas.setFillColor(COLOR_B)
-        canvas.setFont("Helvetica-Bold", 9.5)
-        canvas.drawCentredString(bx + bw * 0.72, by + bh * 0.38, _enc(vb))
-        # Ticker labels
-        canvas.setFillColor(GREY_TEXT)
-        canvas.setFont("Helvetica", 5.5)
-        canvas.drawCentredString(bx + bw * 0.28, by + 2.5*mm, _enc(tkr_a))
-        canvas.drawCentredString(bx + bw * 0.72, by + 2.5*mm, _enc(tkr_b))
-
-    # Row 1 : P/E, EV/EBITDA, Marge EBITDA, FinSight Score
-    row1_top = H * 0.486
-    row1_bottom = row1_top - box_h2
-    metrics_row1 = [
-        ("P/E (x)",      _frx(m_a.get("pe_ratio")),           _frx(m_b.get("pe_ratio"))),
-        ("EV/EBITDA (x)",_frx(m_a.get("ev_ebitda")),          _frx(m_b.get("ev_ebitda"))),
-        ("Marge EBITDA", _frpct(m_a.get("ebitda_margin_ltm")),_frpct(m_b.get("ebitda_margin_ltm"))),
-        ("FinSight /100", str(m_a.get("finsight_score") or "\u2014") + "/100",
-                          str(m_b.get("finsight_score") or "\u2014") + "/100"),
-    ]
-    for i, (lbl, va, vb) in enumerate(metrics_row1):
-        bx = MARGIN_L + i * (box_w2 + 2*mm)
-        _draw_metric_box(bx, row1_bottom, lbl, va, vb, box_w2, box_h2)
-
-    # Row 2 : ROIC, Piotroski, ND/EBITDA, Beta
-    row2_top = row1_bottom - 3*mm
-    row2_bottom = row2_top - box_h2
-    metrics_row2 = [
-        ("ROIC (%)",      _frpct(m_a.get("roic")),            _frpct(m_b.get("roic"))),
-        ("Piotroski /9",  str(m_a.get("piotroski_score") or "\u2014"),
-                          str(m_b.get("piotroski_score") or "\u2014")),
-        ("ND/EBITDA (x)", _frx(m_a.get("net_debt_ebitda")),   _frx(m_b.get("net_debt_ebitda"))),
-        ("Beta",          _fr(m_a.get("beta"), 2),             _fr(m_b.get("beta"), 2)),
-    ]
-    for i, (lbl, va, vb) in enumerate(metrics_row2):
-        bx = MARGIN_L + i * (box_w2 + 2*mm)
-        _draw_metric_box(bx, row2_bottom, lbl, va, vb, box_w2, box_h2)
-
-    # ------------------------------------------------------------------
-    # BOX CONTEXTE (fond gris clair, texte synthese)
-    # ------------------------------------------------------------------
-    ctx_top = row2_bottom - 3*mm
-    ctx_h   = 22*mm
-    ctx_bottom = ctx_top - ctx_h
-    canvas.setFillColor(GREY_LIGHT)
-    canvas.roundRect(MARGIN_L, ctx_bottom, W - MARGIN_L - MARGIN_R, ctx_h, 2, fill=1, stroke=0)
-    canvas.setStrokeColor(GREY_MED)
-    canvas.setLineWidth(0.3)
-    canvas.roundRect(MARGIN_L, ctx_bottom, W - MARGIN_L - MARGIN_R, ctx_h, 2, fill=0, stroke=1)
-
-    # Accent bleu gauche
-    canvas.setStrokeColor(NAVY_LIGHT)
-    canvas.setLineWidth(2.5)
-    canvas.line(MARGIN_L, ctx_bottom, MARGIN_L, ctx_top)
-
-    canvas.setFillColor(NAVY)
-    canvas.setFont("Helvetica-Bold", 7.5)
-    canvas.drawString(MARGIN_L + 5*mm, ctx_top - 5*mm, _enc("Methodologie"))
-    canvas.setFillColor(GREY_TEXT)
-    canvas.setFont("Helvetica", 6.5)
-    meth_text = (
-        "Pipeline algorithmique : collecte de donnees (yfinance, Finnhub), valorisation "
-        "quantitative (WACC, DCF, Piotroski, Beneish), synthese LLM (llama-3.3-70b), "
-        "QA contradictoire. FinSight Score = agregat 0-100 couvrant rentabilite, "
-        "valorisation, qualite bilancielle et momentum. Horizon d'analyse : 12 mois."
-    )
-    # Wrap manual en 2 lignes
-    line1 = meth_text[:100]
-    if ' ' in line1[80:]:
-        cut = 80 + line1[80:].index(' ')
-        line1 = meth_text[:cut]
-        line2 = meth_text[cut+1:cut+1+105]
-        line3 = meth_text[cut+1+105:cut+1+105+105]
-    else:
-        line2 = meth_text[100:205]
-        line3 = meth_text[205:]
-    canvas.drawString(MARGIN_L + 5*mm, ctx_top - 10*mm, _enc(line1))
-    canvas.drawString(MARGIN_L + 5*mm, ctx_top - 14.5*mm, _enc(line2))
-    if line3.strip():
-        canvas.drawString(MARGIN_L + 5*mm, ctx_top - 19*mm, _enc(line3.strip()))
 
     # Ligne separatrice avant footer
     canvas.setStrokeColor(GREY_RULE)
@@ -1282,6 +1163,83 @@ def _section_qualite_risque(story, m_a, m_b, synthesis, tkr_a, tkr_b):
     buf_r = _chart_risk_radar(m_a, m_b, tkr_a, tkr_b)
     img_r = Image(buf_r, width=95*mm, height=80*mm)
     story.append(KeepTogether([img_r, Spacer(1, 2*mm), src("FinSight IA / yfinance")]))
+
+    # Table d'interpretation du radar
+    story.append(Spacer(1, 4*mm))
+    story.append(Paragraph("<b>Lecture du radar — niveaux de risque par axe</b>", S_SUBSECTION))
+    story.append(Spacer(1, 2*mm))
+
+    def _risk_level(v, lo_good, hi_good, higher_is_better=True):
+        """Retourne (label, couleur hex) selon le niveau de risque."""
+        if v is None: return ("N/A", "#888888")
+        try:
+            fv = float(v)
+            if higher_is_better:
+                if fv >= hi_good: return ("Faible", "#1A7A4A")
+                if fv >= lo_good: return ("Modere", "#B06000")
+                return ("Eleve", "#A82020")
+            else:
+                if fv <= lo_good: return ("Faible", "#1A7A4A")
+                if fv <= hi_good: return ("Modere", "#B06000")
+                return ("Eleve", "#A82020")
+        except: return ("N/A", "#888888")
+
+    def _rl_par(label, hex_col):
+        return Paragraph(f'<font color="#{hex_col.lstrip("#")}"><b>{_enc(label)}</b></font>',
+                         _s('rl', size=8, leading=11, color=BLACK, align=TA_CENTER))
+
+    axes_interp = [
+        # (Axe, valeur_a, valeur_b, lo_good, hi_good, higher_is_better)
+        ("Levier (ND/EBITDA)", m_a.get("net_debt_ebitda"), m_b.get("net_debt_ebitda"), -0.5, 2.5, False),
+        ("Momentum (Perf 3m)", m_a.get("perf_3m"), m_b.get("perf_3m"), 0.0, 0.10, True),
+        ("Qualite (Piotroski)", m_a.get("piotroski_score"), m_b.get("piotroski_score"), 4.0, 7.0, True),
+        ("Liquidite (Current Ratio)", m_a.get("current_ratio"), m_b.get("current_ratio"), 1.0, 2.0, True),
+        ("Croissance (Rev CAGR 3y)", m_a.get("revenue_cagr_3y"), m_b.get("revenue_cagr_3y"), 0.03, 0.10, True),
+    ]
+
+    hdr_ra = [
+        Paragraph("<b>Axe Radar</b>", S_TH_L),
+        Paragraph(f"<b>{_enc(tkr_a)} — Valeur</b>", S_TH_C),
+        Paragraph(f"<b>{_enc(tkr_a)} — Niveau</b>", S_TH_C),
+        Paragraph(f"<b>{_enc(tkr_b)} — Valeur</b>", S_TH_C),
+        Paragraph(f"<b>{_enc(tkr_b)} — Niveau</b>", S_TH_C),
+    ]
+    rows_ra = []
+    for ax_lbl, va, vb, lo, hi, hib in axes_interp:
+        la, ca = _risk_level(va, lo, hi, hib)
+        lb, cb = _risk_level(vb, lo, hi, hib)
+        rows_ra.append([
+            Paragraph(_enc(ax_lbl), S_TD_B),
+            Paragraph(_enc(_fr(va, 2) if va is not None else "\u2014"), S_TD_C),
+            _rl_par(la, ca),
+            Paragraph(_enc(_fr(vb, 2) if vb is not None else "\u2014"), S_TD_C),
+            _rl_par(lb, cb),
+        ])
+
+    t_ra = Table([hdr_ra] + rows_ra, colWidths=[52*mm, 28*mm, 28*mm, 28*mm, 28*mm])
+    t_ra.setStyle(TableStyle([
+        ('BACKGROUND',    (0, 0), (-1, 0), NAVY),
+        ('ROWBACKGROUNDS',(0, 1), (-1, -1), [WHITE, ROW_ALT]),
+        ('FONTNAME',      (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE',      (0, 0), (-1, -1), 8),
+        ('VALIGN',        (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING',    (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ('LEFTPADDING',   (0, 0), (-1, -1), 5),
+        ('RIGHTPADDING',  (0, 0), (-1, -1), 5),
+        ('GRID',          (0, 1), (-1, -1), 0.3, GREY_MED),
+        ('LINEBELOW',     (0, 0), (-1, 0), 0.5, NAVY_LIGHT),
+    ]))
+    story.append(t_ra)
+    story.append(Spacer(1, 2*mm))
+    story.append(Paragraph(
+        "Legende : <font color='#1A7A4A'><b>Faible</b></font> = risque maitrise | "
+        "<font color='#B06000'><b>Modere</b></font> = zone de vigilance | "
+        "<font color='#A82020'><b>Eleve</b></font> = risque significatif.",
+        _s('leg', size=7, leading=10, color=GREY_TEXT)
+    ))
+    story.append(Spacer(1, 2*mm))
+    story.append(src("FinSight IA / yfinance"))
 
 
 def _section_verdict(story, m_a, m_b, synthesis, tkr_a, tkr_b):
