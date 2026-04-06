@@ -387,7 +387,7 @@ def kpi_box(slide, x, y, w, h, value, label, sub="",
     add_text_box(slide, x + 0.25, y + 1.1, w - 0.38, 0.50,
                  label, 7.5, lbl_color)
     if sub:
-        add_text_box(slide, x + 0.25, y + 1.55, w - 0.38, 0.40,
+        add_text_box(slide, x + 0.25, y + 1.38, w - 0.38, 0.42,
                      sub, 7, sub_color)
 
 
@@ -419,8 +419,6 @@ def _company_header_band(slide, tkr_a, tkr_b, name_a="", name_b=""):
     add_rect(slide, 12.94, 1.73, 11.44, 0.56, COLOR_B_PAL)
     add_rect(slide, 12.94, 1.73, 0.18, 0.56, COLOR_B)
     add_text_box(slide, 13.27, 1.78, 11.0, 0.46, lbl_b, 8.5, GREEN, bold=True)
-    # Divider central
-    add_rect(slide, 12.55, 2.4, 0.04, 10.9, "DDDDDD")
 
 
 # ---------------------------------------------------------------------------
@@ -829,6 +827,132 @@ def _chart_risk_profile(m_a: dict, m_b: dict, tkr_a: str, tkr_b: str) -> Optiona
         return None
 
 
+def _chart_ebitda_margins(m_a: dict, m_b: dict, tkr_a: str, tkr_b: str) -> Optional[io.BytesIO]:
+    """Graphique marges EBITDA LTM / N-1 / N-2."""
+    try:
+        import matplotlib.pyplot as plt
+        import matplotlib
+        matplotlib.use('Agg')
+        import numpy as np
+
+        fig, ax = plt.subplots(figsize=(5.5, 3.2))
+        fig.patch.set_facecolor('white')
+        ax.set_facecolor('#FAFAFA')
+        ca = '#2E5FA3'; cb = '#2E8B57'
+        years_lbl = ['N-2', 'N-1', 'LTM']
+        vals_a = [_pct_val(m_a.get('ebitda_margin_y2')), _pct_val(m_a.get('ebitda_margin_y1')), _pct_val(m_a.get('ebitda_margin_ltm'))]
+        vals_b = [_pct_val(m_b.get('ebitda_margin_y2')), _pct_val(m_b.get('ebitda_margin_y1')), _pct_val(m_b.get('ebitda_margin_ltm'))]
+        x = np.arange(len(years_lbl)); w = 0.32
+        bars_a = ax.bar(x - w/2, vals_a, w, label=tkr_a, color=ca, alpha=0.85)
+        bars_b = ax.bar(x + w/2, vals_b, w, label=tkr_b, color=cb, alpha=0.85)
+        for bar in list(bars_a) + list(bars_b):
+            h = bar.get_height()
+            if h and h > 0:
+                ax.text(bar.get_x() + bar.get_width()/2., h + 0.5, f'{h:.0f}%',
+                        ha='center', va='bottom', fontsize=7, color='#333')
+        ax.set_title('Marge EBITDA (%)', fontsize=9, fontweight='bold', color='#1B3A6B', pad=4)
+        ax.set_xticks(x); ax.set_xticklabels(years_lbl, fontsize=8)
+        ax.set_ylabel('%', fontsize=8); ax.legend(fontsize=7.5)
+        ax.spines['top'].set_visible(False); ax.spines['right'].set_visible(False)
+        ax.tick_params(labelsize=8)
+        fig.tight_layout(pad=1.0)
+        return _make_chart_buf(fig)
+    except Exception as e:
+        log.warning(f"[cmp_pptx] chart_ebitda_margins error: {e}")
+        return None
+
+
+def _chart_growth_returns(m_a: dict, m_b: dict, tkr_a: str, tkr_b: str) -> Optional[io.BytesIO]:
+    """Graphique Rev CAGR + ROIC + ROE."""
+    try:
+        import matplotlib.pyplot as plt
+        import matplotlib
+        matplotlib.use('Agg')
+        import numpy as np
+
+        fig, ax = plt.subplots(figsize=(5.5, 3.2))
+        fig.patch.set_facecolor('white')
+        ax.set_facecolor('#FAFAFA')
+        ca = '#2E5FA3'; cb = '#2E8B57'
+        metrics = ['Rev CAGR\n3y', 'ROIC', 'ROE']
+        vals_a = [_pct_val(m_a.get('revenue_cagr_3y')), _pct_val(m_a.get('roic')), _pct_val(m_a.get('roe'))]
+        vals_b = [_pct_val(m_b.get('revenue_cagr_3y')), _pct_val(m_b.get('roic')), _pct_val(m_b.get('roe'))]
+        x = np.arange(len(metrics)); w = 0.32
+        bars_a = ax.bar(x - w/2, vals_a, w, label=tkr_a, color=ca, alpha=0.85)
+        bars_b = ax.bar(x + w/2, vals_b, w, label=tkr_b, color=cb, alpha=0.85)
+        for bar in list(bars_a) + list(bars_b):
+            h = bar.get_height()
+            if h and h > 0:
+                ax.text(bar.get_x() + bar.get_width()/2., h + 0.3, f'{h:.0f}%',
+                        ha='center', va='bottom', fontsize=7, color='#333')
+        ax.set_title('Croissance & Rentabilite (%)', fontsize=9, fontweight='bold', color='#1B3A6B', pad=4)
+        ax.set_xticks(x); ax.set_xticklabels(metrics, fontsize=8)
+        ax.set_ylabel('%', fontsize=8); ax.legend(fontsize=7.5)
+        ax.spines['top'].set_visible(False); ax.spines['right'].set_visible(False)
+        ax.tick_params(labelsize=8)
+        fig.tight_layout(pad=1.0)
+        return _make_chart_buf(fig)
+    except Exception as e:
+        log.warning(f"[cmp_pptx] chart_growth_returns error: {e}")
+        return None
+
+
+def _chart_52w_price(tkr_a: str, tkr_b: str) -> Optional[io.BytesIO]:
+    """Graphique cours boursiers 52 semaines normalises base 100."""
+    try:
+        import matplotlib.pyplot as plt
+        import matplotlib
+        matplotlib.use('Agg')
+        import matplotlib.dates as mdates
+        import yfinance as yf
+        from datetime import datetime, timedelta
+
+        end = datetime.today()
+        start = end - timedelta(days=370)
+
+        df_a = yf.download(tkr_a, start=start, end=end, progress=False, auto_adjust=True)
+        df_b = yf.download(tkr_b, start=start, end=end, progress=False, auto_adjust=True)
+
+        if df_a.empty and df_b.empty:
+            return None
+
+        fig, ax = plt.subplots(figsize=(12, 4.5))
+        fig.patch.set_facecolor('white')
+        ax.set_facecolor('#FAFAFA')
+        ca = '#2E5FA3'; cb = '#2E8B57'
+
+        if not df_a.empty:
+            close_a = df_a['Close'].squeeze()
+            base_a = close_a.iloc[0]
+            if base_a and base_a > 0:
+                ax.plot(close_a.index, close_a / base_a * 100,
+                        color=ca, linewidth=1.8, label=tkr_a)
+
+        if not df_b.empty:
+            close_b = df_b['Close'].squeeze()
+            base_b = close_b.iloc[0]
+            if base_b and base_b > 0:
+                ax.plot(close_b.index, close_b / base_b * 100,
+                        color=cb, linewidth=1.8, label=tkr_b)
+
+        ax.axhline(y=100, color='#BBBBBB', linestyle='--', linewidth=0.9, alpha=0.7)
+        ax.set_title('Performance Relative 52 Semaines (base 100)', fontsize=10,
+                     fontweight='bold', color='#1B3A6B', pad=5)
+        ax.set_ylabel('Performance (base 100)', fontsize=8)
+        ax.legend(fontsize=9)
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        ax.tick_params(labelsize=8)
+        ax.xaxis.set_major_formatter(mdates.DateFormatter('%b %y'))
+        ax.xaxis.set_major_locator(mdates.MonthLocator(interval=2))
+        plt.xticks(rotation=25, ha='right')
+        fig.tight_layout(pad=1.0)
+        return _make_chart_buf(fig)
+    except Exception as e:
+        log.warning(f"[cmp_pptx] chart_52w_price error: {e}")
+        return None
+
+
 def _pct_val(v) -> float:
     """Convertit une marge en pourcentage pour les graphiques."""
     if v is None: return 0.0
@@ -899,8 +1023,6 @@ def _slide_cover(prs, m_a: dict, m_b: dict):
     add_text_box(slide, 13.13, 5.9, 11.0, 0.71,
                  _truncate(name_b, 40), 11, "888888", align=PP_ALIGN.CENTER)
 
-    # Divider central
-    add_rect(slide, 12.55, 4.2, 0.04, 2.5, "DDDDDD")
 
     # Bandeau recommendation A
     ra_c, ra_pal = _rec_c(rec_a)
@@ -959,9 +1081,10 @@ def _slide_exec_summary(prs, m_a: dict, m_b: dict, synthesis: dict):
     # Bandeau exec summary LLM
     exec_txt = synthesis.get('exec_summary') or ""
     if exec_txt:
-        add_rect(slide, 1.02, 2.45, 23.37, 1.8, NAVY_PALE)
-        add_rect(slide, 1.02, 2.45, 0.13, 1.8, NAVY_MID)
-        add_text_box(slide, 1.4, 2.55, 22.8, 1.6, _truncate(exec_txt, 260),
+        _exec_clean = " ".join(_truncate(exec_txt, 380).split())
+        add_rect(slide, 1.02, 2.45, 23.37, 2.0, NAVY_PALE)
+        add_rect(slide, 1.02, 2.45, 0.13, 2.0, NAVY_MID)
+        add_text_box(slide, 1.4, 2.55, 22.8, 1.8, _exec_clean,
                      8.5, NAVY, wrap=True)
 
     # 4 KPI boxes A vs B — prix, MC, PE, EV/EBITDA
@@ -974,7 +1097,7 @@ def _slide_exec_summary(prs, m_a: dict, m_b: dict, synthesis: dict):
     ev_a    = m_a.get('ev_ebitda')
     ev_b    = m_b.get('ev_ebitda')
 
-    y_kpi = 4.5
+    y_kpi = 4.7
     h_kpi = 1.9
     w_kpi = 5.6
     xs = [1.02, 6.92, 12.81, 18.7]
@@ -987,8 +1110,17 @@ def _slide_exec_summary(prs, m_a: dict, m_b: dict, synthesis: dict):
     for xi, (val, lbl, sub) in zip(xs, vals):
         kpi_box(slide, xi, y_kpi, w_kpi, h_kpi, val, lbl, sub)
 
+    def _fr_nd(v) -> str:
+        if v is None: return "\u2014"
+        try:
+            fv = round(float(v), 1)
+            fv = 0.0 if abs(fv) < 0.05 else fv
+            return f"{fv:.1f}".replace(".", ",") + "x"
+        except Exception:
+            return "\u2014"
+
     # Tableau recapitulatif 2 colonnes
-    y_tbl = 6.65
+    y_tbl = 6.85
     rows = [
         ("FinSight Score",  str(m_a.get('finsight_score') or '\u2014'), str(m_b.get('finsight_score') or '\u2014')),
         ("Recommandation",  m_a.get('recommendation') or '\u2014', m_b.get('recommendation') or '\u2014'),
@@ -996,10 +1128,10 @@ def _slide_exec_summary(prs, m_a: dict, m_b: dict, synthesis: dict):
         ("Marge EBITDA LTM", _frpct_margin(m_a.get('ebitda_margin_ltm')), _frpct_margin(m_b.get('ebitda_margin_ltm'))),
         ("ROIC",            _frpct(m_a.get('roic')), _frpct(m_b.get('roic'))),
         ("Rev CAGR 3y",     _frpct(m_a.get('revenue_cagr_3y')), _frpct(m_b.get('revenue_cagr_3y'))),
-        ("ND/EBITDA",       _fr(m_a.get('net_debt_ebitda'), 1), _fr(m_b.get('net_debt_ebitda'), 1)),
+        ("ND/EBITDA",       _fr_nd(m_a.get('net_debt_ebitda')), _fr_nd(m_b.get('net_debt_ebitda'))),
     ]
     add_table(
-        slide, 1.02, y_tbl, 23.37, 5.2,
+        slide, 1.02, y_tbl, 23.37, 5.0,
         num_rows=len(rows), num_cols=3,
         col_widths_pct=[0.42, 0.29, 0.29],
         header_data=["Metrique", tkr_a, tkr_b],
@@ -1145,11 +1277,14 @@ def _slide_pl(prs, m_a: dict, m_b: dict, synthesis: dict):
         header_fill=NAVY, border_hex="DDDDDD"
     )
 
-    # Graphique barres
-    buf = _chart_revenue_ebitda(m_a, m_b, tkr_a, tkr_b)
-    if buf:
-        _insert_chart(slide, buf, 1.02, 8.3, 23.37, 4.6)
-    else:
+    # Deux graphiques cote a cote (marges + croissance)
+    buf_l = _chart_ebitda_margins(m_a, m_b, tkr_a, tkr_b)
+    buf_r = _chart_growth_returns(m_a, m_b, tkr_a, tkr_b)
+    if buf_l:
+        _insert_chart(slide, buf_l, 1.02, 7.9, 11.0, 5.8)
+    if buf_r:
+        _insert_chart(slide, buf_r, 13.3, 7.9, 11.07, 5.8)
+    if not buf_l and not buf_r:
         add_text_box(slide, 1.02, 8.5, 23.37, 1.0,
                      synthesis.get('financial_text') or "", 8, GREY_TXT, wrap=True)
 
@@ -1173,9 +1308,10 @@ def _slide_marges(prs, m_a: dict, m_b: dict, synthesis: dict):
     # Commentaire financier LLM
     txt = synthesis.get('financial_text') or ""
     if txt:
+        _txt_clean = " ".join(_truncate(txt, 200).split())
         add_rect(slide, 1.02, 2.45, 23.37, 1.5, NAVY_PALE)
         add_rect(slide, 1.02, 2.45, 0.13, 1.5, NAVY_MID)
-        add_text_box(slide, 1.4, 2.55, 22.8, 1.3, _truncate(txt, 200), 8.5, NAVY, wrap=True)
+        add_text_box(slide, 1.4, 2.55, 22.8, 1.3, _txt_clean, 8.5, NAVY, wrap=True)
 
     # KPIs side-by-side
     y_kpi = 4.2
@@ -1198,16 +1334,14 @@ def _slide_marges(prs, m_a: dict, m_b: dict, synthesis: dict):
     kpi_box(slide, 12.98,  y2, 5.5, 1.8, _frpct(m_a.get('roe')), f"ROE — {tkr_a}", "", COLOR_A_PAL, COLOR_A)
     kpi_box(slide, 18.95,  y2, 5.5, 1.8, _frpct(m_b.get('roe')), f"ROE — {tkr_b}", "", COLOR_B_PAL, COLOR_B)
 
-    # Horizontal rule
-    add_rect(slide, 1.02, y2 + 2.05, 23.37, 0.03, "AAAAAA")
-
-    # Tendances
-    add_text_box(slide, 1.02, y2 + 2.2, 11.4, 0.5,
-                 f"Tendance EBITDA {tkr_a} : {m_a.get('ebitda_margin_trend') or 'N/A'}",
-                 8.5, GREY_TXT)
-    add_text_box(slide, 12.76, y2 + 2.2, 11.4, 0.5,
-                 f"Tendance EBITDA {tkr_b} : {m_b.get('ebitda_margin_trend') or 'N/A'}",
-                 8.5, GREY_TXT)
+    # Graphique marges + croissance
+    buf_l = _chart_ebitda_margins(m_a, m_b, tkr_a, tkr_b)
+    buf_r = _chart_growth_returns(m_a, m_b, tkr_a, tkr_b)
+    y_ch = y2 + 2.1
+    if buf_l:
+        _insert_chart(slide, buf_l, 1.02, y_ch, 11.0, 5.5)
+    if buf_r:
+        _insert_chart(slide, buf_r, 13.3, y_ch, 11.07, 5.5)
 
     return slide
 
@@ -1280,8 +1414,8 @@ def _slide_multiples(prs, m_a: dict, m_b: dict, synthesis: dict):
     sec_eveb = m_a.get('sector_median_ev_ebitda') or '\u2014'
 
     rows = [
-        ("PE Ratio",          _frx(m_a.get('pe_ratio')),      _frx(m_b.get('pe_ratio')),      _fr(sec_pe, 1) + "x"),
-        ("EV / EBITDA",       _frx(m_a.get('ev_ebitda')),     _frx(m_b.get('ev_ebitda')),     _fr(sec_eveb, 1) + "x"),
+        ("PE Ratio",          _frx(m_a.get('pe_ratio')),      _frx(m_b.get('pe_ratio')),      _frx(sec_pe) if sec_pe != '\u2014' else '\u2014'),
+        ("EV / EBITDA",       _frx(m_a.get('ev_ebitda')),     _frx(m_b.get('ev_ebitda')),     _frx(sec_eveb) if sec_eveb != '\u2014' else '\u2014'),
         ("Price / Book",      _frx(m_a.get('price_to_book')), _frx(m_b.get('price_to_book')), "\u2014"),
         ("PEG Ratio",         _frx(m_a.get('peg_ratio')),     _frx(m_b.get('peg_ratio')),     "\u2014"),
         ("FCF Yield",         _frpct(m_a.get('fcf_yield')),   _frpct(m_b.get('fcf_yield')),   "\u2014"),
@@ -1806,6 +1940,39 @@ def _slide_theses(prs, m_a: dict, m_b: dict, synthesis: dict):
     return slide
 
 
+def _slide_price_chart(prs, m_a: dict, m_b: dict):
+    """Slide 21 — Cours boursiers 52 semaines (base 100)."""
+    from pptx.enum.text import PP_ALIGN
+    slide_layout = prs.slide_layouts[6]
+    slide = prs.slides.add_slide(slide_layout)
+
+    tkr_a = m_a.get('ticker_a') or 'A'
+    tkr_b = m_b.get('ticker_b') or 'B'
+
+    navy_bar(slide)
+    footer_bar(slide)
+    slide_title(slide, "Performance Boursiere 52 Semaines")
+    section_dots(slide, 5)
+    _company_header_band(slide, tkr_a, tkr_b)
+
+    # KPIs 52W
+    y_kpi = 2.45
+    kpi_box(slide, 1.02,  y_kpi, 5.5, 1.9, _fr(m_a.get('week52_low'),  1), f"52W Low  — {tkr_a}",  "", COLOR_A_PAL, COLOR_A)
+    kpi_box(slide, 7.0,   y_kpi, 5.5, 1.9, _fr(m_a.get('week52_high'), 1), f"52W High — {tkr_a}",  "", COLOR_A_PAL, COLOR_A)
+    kpi_box(slide, 12.98, y_kpi, 5.5, 1.9, _fr(m_b.get('week52_low'),  1), f"52W Low  — {tkr_b}",  "", COLOR_B_PAL, COLOR_B)
+    kpi_box(slide, 18.95, y_kpi, 5.5, 1.9, _fr(m_b.get('week52_high'), 1), f"52W High — {tkr_b}",  "", COLOR_B_PAL, COLOR_B)
+
+    # Graphique cours
+    buf = _chart_52w_price(tkr_a, tkr_b)
+    if buf:
+        _insert_chart(slide, buf, 1.02, 4.65, 23.37, 8.1)
+    else:
+        add_text_box(slide, 1.02, 6.5, 23.37, 1.0,
+                     "Donnees de cours indisponibles", 10, GREY_TXT, wrap=True)
+
+    return slide
+
+
 def _slide_verdict(prs, m_a: dict, m_b: dict, synthesis: dict):
     from pptx.enum.text import PP_ALIGN
     slide_layout = prs.slide_layouts[6]
@@ -1833,10 +2000,10 @@ def _slide_verdict(prs, m_a: dict, m_b: dict, synthesis: dict):
     y_v = 2.95
     add_rect(slide, 1.02, y_v, 23.37, 3.5, NAVY_PALE)
     add_rect(slide, 1.02, y_v, 0.18, 3.5, NAVY_MID)
-    add_text_box(slide, 1.4, y_v + 0.15, 22.7, 3.2,
-                 _truncate(verdict_txt, 600) if verdict_txt else
+    add_text_box(slide, 1.4, y_v + 0.12, 22.7, 3.3,
+                 _truncate(verdict_txt, 450) if verdict_txt else
                  f"{winner} est privilegiee sur la base des criteres de valorisation, de qualite bilancielle et de momentum.",
-                 9, NAVY, wrap=True)
+                 8.5, NAVY, wrap=True)
 
     # Scorecard comparative
     y_sc = 6.7
@@ -2009,6 +2176,8 @@ class ComparisonPPTXWriter:
         _slide_theses(prs, m_a, m_b, synthesis)
         # Slide 20 — Verdict final
         _slide_verdict(prs, m_a, m_b, synthesis)
+        # Slide 21 — Cours boursiers 52 semaines
+        _slide_price_chart(prs, m_a, m_b)
 
         # 4. Sauvegarder
         if output_path is None:

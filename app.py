@@ -2481,11 +2481,13 @@ def render_screening_results(results: dict) -> None:
     st.markdown('<div class="sec-t" style="margin-top:36px;">Comparer deux societes</div>',
                 unsafe_allow_html=True)
 
-    _ticker_labels = [
-        f"{t.get('ticker', '?')}  —  {(t.get('company') or '')[:32]}"
-        for t in tickers_data
-    ]
-    _ticker_keys = [t.get("ticker", "") for t in tickers_data]
+    _ticker_pairs = sorted(
+        [(f"{t.get('ticker', '?')}  —  {(t.get('company') or '')[:32]}", t.get('ticker', ''))
+         for t in tickers_data],
+        key=lambda x: x[0]
+    )
+    _ticker_labels = [p[0] for p in _ticker_pairs]
+    _ticker_keys   = [p[1] for p in _ticker_pairs]
 
     cmp_c1, cmp_c2, cmp_c3 = st.columns([2, 2, 1])
     with cmp_c1:
