@@ -1680,9 +1680,9 @@ def _section_52w_price(story, m_a, m_b, tkr_a, tkr_b):
            if m_b.get("volatility_52w") is not None and float(m_b.get("volatility_52w") or 0.3) < 0.25
            else "signale une amplitude de prix elevee, coherente avec un profil de croissance ou de retournement.")
     )
-    story.append(Paragraph(_safe(_enc(ana_a)),
+    story.append(Paragraph(_enc(ana_a),
                             _s('52w_a', size=8.5, leading=13, color=BLACK, sb=0, sa=4)))
-    story.append(Paragraph(_safe(_enc(ana_b)),
+    story.append(Paragraph(_enc(ana_b),
                             _s('52w_b', size=8.5, leading=13, color=BLACK, sb=0, sa=4)))
 
     # Comparaison relative
