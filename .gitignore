@@ -19,7 +19,7 @@ Thumbs.db
 
 # --- Outputs générés ---
 outputs/generated/
-outputs/veille/renders/
+outputs/veille/
 preview/*/renders/
 logs/local/
 

@@ -986,17 +986,8 @@ def render_sidebar(results) -> None:
                     if st.button("🗑", key=f"del_{_vp.name}", help="Supprimer",
                                  use_container_width=True):
                         try:
-                            import subprocess as _sp_del
-                            _root_del = Path(__file__).parent
-                            # Chemin RELATIF obligatoire pour git rm sur Windows
-                            _rel = _vp.relative_to(_root_del)
-                            # Si le fichier n'est pas encore trace, l'ajouter puis supprimer
-                            _sp_del.run(["git", "add", str(_rel)], cwd=str(_root_del), capture_output=True)
-                            _sp_del.run(["git", "rm", "-f", str(_rel)], cwd=str(_root_del), capture_output=True)
                             if _vp.exists():
                                 _vp.unlink()
-                            _sp_del.run(["git", "commit", "-m", f"chore(veille): supprime {_vp.name}"], cwd=str(_root_del), capture_output=True)
-                            _sp_del.run(["git", "push"], cwd=str(_root_del), capture_output=True)
                             st.rerun()
                         except Exception:
                             pass
