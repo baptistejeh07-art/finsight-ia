@@ -1205,7 +1205,7 @@ def _section_qualite_risque(story, m_a, m_b, synthesis, tkr_a, tkr_b):
         except: return S_TD_C
 
     pio_a = m_a.get("piotroski_score"); pio_b = m_b.get("piotroski_score")
-    ben_a = m_a.get("beneish_score");   ben_b = m_b.get("beneish_score")
+    ben_a = m_a.get("beneish_mscore");  ben_b = m_b.get("beneish_mscore")
     alt_a = m_a.get("altman_z");        alt_b = m_b.get("altman_z")
     fs_a  = m_a.get("finsight_score");  fs_b  = m_b.get("finsight_score")
 
@@ -1281,9 +1281,7 @@ def _section_qualite_risque(story, m_a, m_b, synthesis, tkr_a, tkr_b):
     # Radar chart
     buf_r = _chart_risk_radar(m_a, m_b, tkr_a, tkr_b)
     img_r = Image(buf_r, width=95*mm, height=80*mm)
-    story.append(img_r)
-    story.append(Spacer(1, 2*mm))
-    story.append(src("FinSight IA / yfinance"))
+    story.append(KeepTogether([img_r, Spacer(1, 2*mm), src("FinSight IA / yfinance")]))
 
 
 def _section_verdict(story, m_a, m_b, synthesis, tkr_a, tkr_b):
@@ -1456,9 +1454,7 @@ def _section_fcf_capital(story, m_a, m_b, tkr_a, tkr_b):
 
     buf = _chart_fcf_capital(m_a, m_b, tkr_a, tkr_b)
     img = Image(buf, width=TABLE_W * 0.85, height=60*mm)
-    story.append(img)
-    story.append(Spacer(1, 2*mm))
-    story.append(src("FinSight IA / yfinance"))
+    story.append(KeepTogether([img, Spacer(1, 2*mm), src("FinSight IA / yfinance")]))
 
 
 def _section_dcf_sensitivity(story, m_a, m_b, tkr_a, tkr_b):
@@ -1591,9 +1587,7 @@ def _section_momentum_marche(story, m_a, m_b, tkr_a, tkr_b):
 
     buf = _chart_perf_bars(m_a, m_b, tkr_a, tkr_b)
     img = Image(buf, width=TABLE_W * 0.85, height=60*mm)
-    story.append(img)
-    story.append(Spacer(1, 2*mm))
-    story.append(src("FinSight IA / yfinance"))
+    story.append(KeepTogether([img, Spacer(1, 2*mm), src("FinSight IA / yfinance")]))
 
 
 def _section_piotroski_detail(story, m_a, m_b, tkr_a, tkr_b):

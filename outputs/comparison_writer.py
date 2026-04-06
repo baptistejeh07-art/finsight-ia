@@ -318,6 +318,12 @@ def _fetch_supplements(ticker: str) -> dict:
         except Exception:
             pass
 
+        # Secteur (fallback si non stocke dans l'etat pipeline)
+        try:
+            out["sector"] = full.get("sector", "") or ""
+        except Exception:
+            pass
+
     except Exception as e:
         log.warning(f"[comparison] _fetch_supplements({ticker}) erreur : {e}")
     return out
@@ -477,16 +483,16 @@ def extract_metrics(state: dict, supp: dict) -> dict:
     except Exception:
         pass
 
-    # Dividend yield
-    div_yield = _safe(yr, "dividend_payout")
-    if div_yield is None:
-        try:
-            dps = _safe(ci, "dividends_paid") if ci else None
-            mc  = _safe(yr, "market_cap")
-            if dps and mc and mc > 0:
-                div_yield = round(abs(dps) / mc, 4)
-        except Exception:
-            pass
+    # Dividend yield (calculé depuis dividendes_paid / market_cap comme fallback)
+    # Ne pas utiliser dividend_payout qui est le taux de distribution (NI), pas le yield
+    div_yield = None
+    try:
+        dps = _safe(ci, "dividends_paid") if ci else None
+        mc  = _safe(yr, "market_cap")
+        if dps and mc and mc > 0:
+            div_yield = round(abs(dps) / mc, 4)
+    except Exception:
+        pass
 
     # Market cap / EV en milliards
     mc_bn = None
@@ -501,7 +507,7 @@ def extract_metrics(state: dict, supp: dict) -> dict:
     except Exception:
         pass
 
-    sector = _safe(ci, "sector") or ""
+    sector = _safe(ci, "sector") or supp.get("sector") or ""
 
     m: dict = {
         # IDENTITE (rows 2-10)
@@ -546,6 +552,8 @@ def extract_metrics(state: dict, supp: dict) -> dict:
         "roic":               _safe(yr, "roic"),
         "roe":                _safe(yr, "roe"),
         "ebitda_margin_ltm":  _safe(yr, "ebitda_margin"),
+        "ebit_margin":        _safe(yr, "ebit_margin"),
+        "net_margin_ltm":     _safe(yr, "net_margin"),
         "ebitda_margin_y1":   _safe(yr1, "ebitda_margin"),
         "ebitda_margin_y2":   _safe(yr2, "ebitda_margin"),
         "ebitda_margin_trend": _ebitda_trend(yr, yr1, yr2),
@@ -588,7 +596,7 @@ def extract_metrics(state: dict, supp: dict) -> dict:
         "market_cap":        mc_bn,
         "enterprise_value":  ev_bn,
         "avg_volume_30d":    supp.get("avg_volume_30d"),
-        "dividend_yield":    div_yield or supp.get("dividend_yield"),
+        "dividend_yield":    supp.get("dividend_yield") or div_yield,
         "next_earnings_date": supp.get("next_earnings_date"),
         "sentiment_label":   _safe(sentiment, "label"),
 
