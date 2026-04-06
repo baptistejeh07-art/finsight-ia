@@ -1340,6 +1340,14 @@ def _section_verdict(story, m_a, m_b, synthesis, tkr_a, tkr_b):
     story.append(Paragraph("<b>Scorecard comparative</b>", S_SUBSECTION))
     story.append(Spacer(1, 2*mm))
 
+    def _pct(v):
+        """Convert decimal fraction to percentage value (0.348 -> 34.8)."""
+        try:
+            f = float(v)
+            return round(f * 100, 1) if f is not None else None
+        except Exception:
+            return None
+
     def _score_row(label, val_a, val_b, higher_better=True):
         fa = val_a if val_a is not None else 0
         fb = val_b if val_b is not None else 0
@@ -1373,8 +1381,8 @@ def _section_verdict(story, m_a, m_b, synthesis, tkr_a, tkr_b):
     sc_rows = [
         _score_row("FinSight Score (/100)",  m_a.get("finsight_score"),    m_b.get("finsight_score")),
         _score_row("Piotroski F-Score (/9)", m_a.get("piotroski_score"),   m_b.get("piotroski_score")),
-        _score_row("Marge EBITDA (%)",       m_a.get("ebitda_margin_ltm"), m_b.get("ebitda_margin_ltm")),
-        _score_row("ROIC (%)",               m_a.get("roic"),               m_b.get("roic")),
+        _score_row("Marge EBITDA (%)",       _pct(m_a.get("ebitda_margin_ltm")), _pct(m_b.get("ebitda_margin_ltm"))),
+        _score_row("ROIC (%)",               _pct(m_a.get("roic")),              _pct(m_b.get("roic"))),
         _score_row("ND/EBITDA (x)",          m_a.get("net_debt_ebitda"),    m_b.get("net_debt_ebitda"), higher_better=False),
         _score_row("P/E (x)",                m_a.get("pe_ratio"),           m_b.get("pe_ratio"), higher_better=False),
         _score_row("Beta",                   m_a.get("beta"),               m_b.get("beta"), higher_better=False),

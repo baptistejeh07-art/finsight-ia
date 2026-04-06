@@ -1778,7 +1778,7 @@ def _slide_theses(prs, m_a: dict, m_b: dict, synthesis: dict):
     add_rect(slide, 1.02, y0, 0.18, 0.5, GREEN)
     add_text_box(slide, 1.35, y0 + 0.07, 11.0, 0.38, f"BULL — {tkr_a}", 8.5, GREEN, bold=True)
     add_rect(slide, 1.02, y0 + 0.55, 11.44, 3.7, GREY_BG)
-    add_text_box(slide, 1.15, y0 + 0.65, 11.15, 3.5, _truncate(bull_a, 420), 8.5, BLACK, wrap=True)
+    add_text_box(slide, 1.15, y0 + 0.65, 11.15, 3.5, _truncate(bull_a, 300), 8.5, BLACK, wrap=True)
 
     # Bear A
     y1 = y0 + 4.5
@@ -1786,7 +1786,7 @@ def _slide_theses(prs, m_a: dict, m_b: dict, synthesis: dict):
     add_rect(slide, 1.02, y1, 0.18, 0.5, RED)
     add_text_box(slide, 1.35, y1 + 0.07, 11.0, 0.38, f"BEAR — {tkr_a}", 8.5, RED, bold=True)
     add_rect(slide, 1.02, y1 + 0.55, 11.44, 3.5, GREY_BG)
-    add_text_box(slide, 1.15, y1 + 0.65, 11.15, 3.3, _truncate(bear_a, 420), 8.5, BLACK, wrap=True)
+    add_text_box(slide, 1.15, y1 + 0.65, 11.15, 3.3, _truncate(bear_a, 300), 8.5, BLACK, wrap=True)
 
     # Panel B
     # Bull B
@@ -1794,14 +1794,14 @@ def _slide_theses(prs, m_a: dict, m_b: dict, synthesis: dict):
     add_rect(slide, 12.94, y0, 0.18, 0.5, GREEN)
     add_text_box(slide, 13.27, y0 + 0.07, 11.0, 0.38, f"BULL — {tkr_b}", 8.5, GREEN, bold=True)
     add_rect(slide, 12.94, y0 + 0.55, 11.44, 3.7, GREY_BG)
-    add_text_box(slide, 13.07, y0 + 0.65, 11.15, 3.5, _truncate(bull_b, 420), 8.5, BLACK, wrap=True)
+    add_text_box(slide, 13.07, y0 + 0.65, 11.15, 3.5, _truncate(bull_b, 300), 8.5, BLACK, wrap=True)
 
     # Bear B
     add_rect(slide, 12.94, y1, 11.44, 0.5, RED_PALE)
     add_rect(slide, 12.94, y1, 0.18, 0.5, RED)
     add_text_box(slide, 13.27, y1 + 0.07, 11.0, 0.38, f"BEAR — {tkr_b}", 8.5, RED, bold=True)
     add_rect(slide, 12.94, y1 + 0.55, 11.44, 3.5, GREY_BG)
-    add_text_box(slide, 13.07, y1 + 0.65, 11.15, 3.3, _truncate(bear_b, 420), 8.5, BLACK, wrap=True)
+    add_text_box(slide, 13.07, y1 + 0.65, 11.15, 3.3, _truncate(bear_b, 300), 8.5, BLACK, wrap=True)
 
     return slide
 
