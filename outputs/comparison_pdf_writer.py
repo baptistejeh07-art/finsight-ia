@@ -617,6 +617,11 @@ def _cover_page(canvas, doc, tkr_a, tkr_b, name_a, name_b,
     canvas.setLineWidth(0.5)
     canvas.line(MARGIN_L, H - 20*mm, W - MARGIN_R, H - 20*mm)
 
+    # Sous-titre "Analyse Comparative de Societes"
+    canvas.setFillColor(GREY_TEXT)
+    canvas.setFont("Helvetica", 10)
+    canvas.drawCentredString(cx, H * 0.78, _enc("Analyse Comparative de Societes"))
+
     # Titre principal "{tkr_a}  vs  {tkr_b}" 38pt navy bold
     canvas.setFillColor(NAVY)
     canvas.setFont("Helvetica-Bold", 38)
@@ -1164,80 +1169,65 @@ def _section_qualite_risque(story, m_a, m_b, synthesis, tkr_a, tkr_b):
     img_r = Image(buf_r, width=95*mm, height=80*mm)
     story.append(KeepTogether([img_r, Spacer(1, 2*mm), src("FinSight IA / yfinance")]))
 
-    # Table d'interpretation du radar
+    # Interpretation textuelle du radar
     story.append(Spacer(1, 4*mm))
-    story.append(Paragraph("<b>Lecture du radar — niveaux de risque par axe</b>", S_SUBSECTION))
+    story.append(Paragraph("<b>Interpretation du profil de risque</b>", S_SUBSECTION))
     story.append(Spacer(1, 2*mm))
 
-    def _risk_level(v, lo_good, hi_good, higher_is_better=True):
-        """Retourne (label, couleur hex) selon le niveau de risque."""
-        if v is None: return ("N/A", "#888888")
+    def _risk_level_txt(v, lo_good, hi_good, higher_is_better=True):
+        if v is None: return ("N/A", "indetermine")
         try:
             fv = float(v)
             if higher_is_better:
-                if fv >= hi_good: return ("Faible", "#1A7A4A")
-                if fv >= lo_good: return ("Modere", "#B06000")
-                return ("Eleve", "#A82020")
+                if fv >= hi_good: return ("Faible", "maitrise")
+                if fv >= lo_good: return ("Modere", "surveiller")
+                return ("Eleve", "significatif")
             else:
-                if fv <= lo_good: return ("Faible", "#1A7A4A")
-                if fv <= hi_good: return ("Modere", "#B06000")
-                return ("Eleve", "#A82020")
-        except: return ("N/A", "#888888")
+                if fv <= lo_good: return ("Faible", "maitrise")
+                if fv <= hi_good: return ("Modere", "surveiller")
+                return ("Eleve", "significatif")
+        except: return ("N/A", "indetermine")
 
-    def _rl_par(label, hex_col):
-        return Paragraph(f'<font color="#{hex_col.lstrip("#")}"><b>{_enc(label)}</b></font>',
-                         _s('rl', size=8, leading=11, color=BLACK, align=TA_CENTER))
-
-    axes_interp = [
-        # (Axe, valeur_a, valeur_b, lo_good, hi_good, higher_is_better)
-        ("Levier (ND/EBITDA)", m_a.get("net_debt_ebitda"), m_b.get("net_debt_ebitda"), -0.5, 2.5, False),
-        ("Momentum (Perf 3m)", m_a.get("perf_3m"), m_b.get("perf_3m"), 0.0, 0.10, True),
-        ("Qualite (Piotroski)", m_a.get("piotroski_score"), m_b.get("piotroski_score"), 4.0, 7.0, True),
-        ("Liquidite (Current Ratio)", m_a.get("current_ratio"), m_b.get("current_ratio"), 1.0, 2.0, True),
-        ("Croissance (Rev CAGR 3y)", m_a.get("revenue_cagr_3y"), m_b.get("revenue_cagr_3y"), 0.03, 0.10, True),
+    axes_desc = [
+        ("net_debt_ebitda", -0.5, 2.5, False,
+         "Levier financier (ND/EBITDA)",
+         "mesure le nombre d'annees necessaires pour rembourser la dette nette via l'EBITDA. "
+         "En dessous de 2,5x, le levier est considere sain ; au-dela de 3,5x il devient contraignant."),
+        ("perf_3m", 0.0, 0.10, True,
+         "Momentum (performance 3 mois)",
+         "capture la dynamique recente du titre. Un momentum positif traduit un flux acheteur "
+         "soutenu et une perception favorable du marche a court terme."),
+        ("piotroski_score", 4.0, 7.0, True,
+         "Qualite comptable (Piotroski F-Score)",
+         "evalue la solidite fondamentale sur 9 criteres binaires (rentabilite, levier, efficience). "
+         "Un score superieur a 7 signale une entreprise financierement solide."),
+        ("current_ratio", 1.0, 2.0, True,
+         "Liquidite (Current Ratio)",
+         "rapport actifs courants / passifs courants. Un ratio superieur a 1,5 indique une capacite "
+         "confortable a honorer les obligations court terme sans stress de tresorerie."),
+        ("revenue_cagr_3y", 0.03, 0.10, True,
+         "Croissance (CAGR revenus 3 ans)",
+         "mesure la croissance organique annualisee. Au-dela de 10 % par an, la societe fait partie "
+         "des moteurs de croissance ; en dessous de 3 % elle evolue en territoire maturite."),
     ]
 
-    hdr_ra = [
-        Paragraph("<b>Axe Radar</b>", S_TH_L),
-        Paragraph(f"<b>{_enc(tkr_a)} — Valeur</b>", S_TH_C),
-        Paragraph(f"<b>{_enc(tkr_a)} — Niveau</b>", S_TH_C),
-        Paragraph(f"<b>{_enc(tkr_b)} — Valeur</b>", S_TH_C),
-        Paragraph(f"<b>{_enc(tkr_b)} — Niveau</b>", S_TH_C),
-    ]
-    rows_ra = []
-    for ax_lbl, va, vb, lo, hi, hib in axes_interp:
-        la, ca = _risk_level(va, lo, hi, hib)
-        lb, cb = _risk_level(vb, lo, hi, hib)
-        rows_ra.append([
-            Paragraph(_enc(ax_lbl), S_TD_B),
-            Paragraph(_enc(_fr(va, 2) if va is not None else "\u2014"), S_TD_C),
-            _rl_par(la, ca),
-            Paragraph(_enc(_fr(vb, 2) if vb is not None else "\u2014"), S_TD_C),
-            _rl_par(lb, cb),
-        ])
+    for key, lo, hi, hib, axis_lbl, axis_desc in axes_desc:
+        va = m_a.get(key); vb = m_b.get(key)
+        la, _ = _risk_level_txt(va, lo, hi, hib)
+        lb, _ = _risk_level_txt(vb, lo, hi, hib)
+        val_a_str = _fr(va, 2) if va is not None else "\u2014"
+        val_b_str = _fr(vb, 2) if vb is not None else "\u2014"
+        color_map = {"Faible": "#1A7A4A", "Modere": "#B06000", "Eleve": "#A82020", "N/A": "#888888"}
+        ca = color_map.get(la, "#888888"); cb = color_map.get(lb, "#888888")
+        bullet = (
+            f"<b>{_enc(axis_lbl)} :</b> {_enc(axis_desc)} "
+            f"Pour {_enc(tkr_a)}, la valeur est <b>{_enc(val_a_str)}</b> "
+            f"(<font color='{ca}'><b>{_enc(la)}</b></font>). "
+            f"Pour {_enc(tkr_b)}, elle est <b>{_enc(val_b_str)}</b> "
+            f"(<font color='{cb}'><b>{_enc(lb)}</b></font>)."
+        )
+        story.append(Paragraph(bullet, _s(f'ri_{key}', size=8, leading=12, color=BLACK, sb=0, sa=3)))
 
-    t_ra = Table([hdr_ra] + rows_ra, colWidths=[52*mm, 28*mm, 28*mm, 28*mm, 28*mm])
-    t_ra.setStyle(TableStyle([
-        ('BACKGROUND',    (0, 0), (-1, 0), NAVY),
-        ('ROWBACKGROUNDS',(0, 1), (-1, -1), [WHITE, ROW_ALT]),
-        ('FONTNAME',      (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE',      (0, 0), (-1, -1), 8),
-        ('VALIGN',        (0, 0), (-1, -1), 'MIDDLE'),
-        ('TOPPADDING',    (0, 0), (-1, -1), 4),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
-        ('LEFTPADDING',   (0, 0), (-1, -1), 5),
-        ('RIGHTPADDING',  (0, 0), (-1, -1), 5),
-        ('GRID',          (0, 1), (-1, -1), 0.3, GREY_MED),
-        ('LINEBELOW',     (0, 0), (-1, 0), 0.5, NAVY_LIGHT),
-    ]))
-    story.append(t_ra)
-    story.append(Spacer(1, 2*mm))
-    story.append(Paragraph(
-        "Legende : <font color='#1A7A4A'><b>Faible</b></font> = risque maitrise | "
-        "<font color='#B06000'><b>Modere</b></font> = zone de vigilance | "
-        "<font color='#A82020'><b>Eleve</b></font> = risque significatif.",
-        _s('leg', size=7, leading=10, color=GREY_TEXT)
-    ))
     story.append(Spacer(1, 2*mm))
     story.append(src("FinSight IA / yfinance"))
 
@@ -1503,6 +1493,42 @@ def _section_dcf_sensitivity(story, m_a, m_b, tkr_a, tkr_b):
         "A utiliser en complement du modele DCF complet presente a la section precedente.",
         S_NOTE
     ))
+    story.append(Spacer(1, 4*mm))
+
+    # Analyse comparative interpretative
+    story.append(Paragraph("<b>Analyse interpretative de la sensibilite</b>", S_SUBSECTION))
+    story.append(Spacer(1, 2*mm))
+
+    def _dcf_interp(tkr, wacc, g, base, mat):
+        if not mat or base <= 0:
+            return f"Les donnees DCF de {_enc(tkr)} sont insuffisantes pour une analyse de sensibilite complete."
+        lo_val  = mat[2][0] if mat and len(mat) > 2 and len(mat[2]) > 0 else None
+        hi_val  = mat[0][2] if mat and len(mat) > 0 and len(mat[0]) > 2 else None
+        spread  = f"{_enc(str(lo_val))} a {_enc(str(hi_val))}" if lo_val and hi_val else "non disponible"
+        wacc_s  = f"{wacc*100:.1f} %"
+        g_s     = f"{g*100:.1f} %"
+        return (
+            f"{_enc(tkr)} : avec un WACC de base a {wacc_s} et un taux terminal de {g_s}, "
+            f"la fourchette de valeur intrinseque s'etend de {spread}. "
+            f"Une hausse de 1 point de WACC comprime significativement la valeur ; "
+            f"une baisse du taux g expose davantage les flux distants. "
+            f"La ligne centrale correspond aux hypotheses retenues dans le modele principal."
+        )
+
+    if mat_a:
+        story.append(Paragraph(_dcf_interp(tkr_a, wacc_a, g_a, base_a, mat_a),
+                                _s('dcfi_a', size=8.5, leading=13, color=BLACK, sb=0, sa=4)))
+    if mat_b:
+        story.append(Paragraph(_dcf_interp(tkr_b, wacc_b, g_b, base_b, mat_b),
+                                _s('dcfi_b', size=8.5, leading=13, color=BLACK, sb=0, sa=4)))
+
+    story.append(Paragraph(
+        "Lecture transversale : comparer les fourchettes des deux societes permet d'identifier "
+        "laquelle presente la valorisation la plus sensible aux chocs de taux. Un ecart de spread "
+        "plus important signale un profil de flux futurs concentres sur le long terme, "
+        "caracteristique des titres de croissance a duration elevee.",
+        _s('dcfi_cross', size=8.5, leading=13, color=BLACK)
+    ))
     story.append(Spacer(1, 2*mm))
     story.append(src("FinSight IA — calcul interne"))
 
@@ -1554,6 +1580,137 @@ def _section_momentum_marche(story, m_a, m_b, tkr_a, tkr_b):
     buf = _chart_perf_bars(m_a, m_b, tkr_a, tkr_b)
     img = Image(buf, width=TABLE_W * 0.85, height=60*mm)
     story.append(KeepTogether([img, Spacer(1, 2*mm), src("FinSight IA / yfinance")]))
+
+
+def _section_52w_price(story, m_a, m_b, tkr_a, tkr_b):
+    """Section : graphique de cours 52 semaines normalise + texte analytique."""
+    story.append(CondPageBreak(80*mm))
+    story += section_title("Evolution Boursiere 52 Semaines", "9b")
+
+    # Texte introductif
+    p1m_a  = _frpct(m_a.get("perf_1m"), True)
+    p3m_a  = _frpct(m_a.get("perf_3m"), True)
+    p1y_a  = _frpct(m_a.get("perf_1y"), True)
+    p1m_b  = _frpct(m_b.get("perf_1m"), True)
+    p3m_b  = _frpct(m_b.get("perf_3m"), True)
+    p1y_b  = _frpct(m_b.get("perf_1y"), True)
+    hi_a   = _fr(m_a.get("week52_high"), 2)
+    lo_a   = _fr(m_a.get("week52_low"), 2)
+    hi_b   = _fr(m_b.get("week52_high"), 2)
+    lo_b   = _fr(m_b.get("week52_low"), 2)
+    vol_a  = _frpct(m_a.get("volatility_52w"))
+    vol_b  = _frpct(m_b.get("volatility_52w"))
+
+    intro = (
+        f"Le graphique ci-dessous presente l'evolution des cours de {_enc(tkr_a)} et {_enc(tkr_b)} "
+        f"sur les 52 dernieres semaines, normalises en base 100. Cette representation permet "
+        f"de comparer directement la dynamique relative des deux titres independamment de leur "
+        f"niveau de prix absolu."
+    )
+    story.append(Paragraph(_safe(_enc(intro)), S_BODY))
+    story.append(Spacer(1, 3*mm))
+
+    # Graphique 52W normalise
+    if _MPL:
+        try:
+            import yfinance as yf
+            import matplotlib.dates as mdates
+            from datetime import datetime, timedelta
+
+            end = datetime.today()
+            start = end - timedelta(days=370)
+            df_a = yf.download(tkr_a, start=start, end=end, progress=False, auto_adjust=True)
+            df_b = yf.download(tkr_b, start=start, end=end, progress=False, auto_adjust=True)
+
+            if not (df_a.empty and df_b.empty):
+                fig, ax = plt.subplots(figsize=(10, 4))
+                fig.patch.set_facecolor('white')
+                ax.set_facecolor('#FAFAFA')
+                ca = '#2E5FA3'; cb = '#2E8B57'
+                if not df_a.empty:
+                    close_a = df_a['Close'].squeeze()
+                    base_a = close_a.iloc[0]
+                    if base_a and base_a > 0:
+                        ax.plot(close_a.index, close_a / base_a * 100,
+                                color=ca, linewidth=1.8, label=tkr_a)
+                if not df_b.empty:
+                    close_b = df_b['Close'].squeeze()
+                    base_b = close_b.iloc[0]
+                    if base_b and base_b > 0:
+                        ax.plot(close_b.index, close_b / base_b * 100,
+                                color=cb, linewidth=1.8, label=tkr_b)
+                ax.axhline(y=100, color='#BBBBBB', linestyle='--', linewidth=0.9, alpha=0.7)
+                ax.set_title(f'Performance Relative 52 Semaines — {_enc(tkr_a)} vs {_enc(tkr_b)} (base 100)',
+                             fontsize=10, fontweight='bold', color='#1B3A6B', pad=5)
+                ax.set_ylabel('Base 100', fontsize=8)
+                ax.legend(fontsize=9, frameon=False)
+                ax.spines['top'].set_visible(False); ax.spines['right'].set_visible(False)
+                ax.tick_params(labelsize=8)
+                ax.xaxis.set_major_formatter(mdates.DateFormatter('%b %y'))
+                ax.xaxis.set_major_locator(mdates.MonthLocator(interval=2))
+                plt.xticks(rotation=25, ha='right')
+                fig.tight_layout(pad=1.0)
+                buf = io.BytesIO()
+                fig.savefig(buf, format='png', dpi=150, bbox_inches='tight')
+                plt.close(fig); buf.seek(0)
+                img = Image(buf, width=TABLE_W, height=70*mm)
+                story.append(KeepTogether([img, Spacer(1, 2*mm), src("FinSight IA / yfinance")]))
+                story.append(Spacer(1, 4*mm))
+        except Exception as e:
+            log.warning(f"[cmp_pdf] 52w chart error: {e}")
+            story.append(Spacer(1, 3*mm))
+
+    # Analyse chiffree des deux titres
+    story.append(Paragraph("<b>Lecture analytique</b>", S_SUBSECTION))
+    story.append(Spacer(1, 2*mm))
+
+    ana_a = (
+        f"<b>{_enc(tkr_a)}</b> : Le titre a evolue entre {lo_a} et {hi_a} sur 52 semaines, "
+        f"affichant une performance de {p1m_a} sur 1 mois, {p3m_a} sur 3 mois et {p1y_a} sur "
+        f"12 mois. La volatilite annualisee ressort a {vol_a}, reflectant "
+        + ("un titre relativement stable adapte aux profils prudents."
+           if m_a.get("volatility_52w") is not None and float(m_a.get("volatility_52w") or 0.3) < 0.25
+           else "un niveau de risque de prix notable qu'il convient d'integrer dans le dimensionnement de position.")
+    )
+    ana_b = (
+        f"<b>{_enc(tkr_b)}</b> : Le titre a evolue entre {lo_b} et {hi_b} sur 52 semaines, "
+        f"avec des performances de {p1m_b} sur 1 mois, {p3m_b} sur 3 mois et {p1y_b} sur "
+        f"12 mois. La volatilite annualisee de {vol_b} "
+        + ("indique un comportement de cours contenu, favorable aux strategies de portage."
+           if m_b.get("volatility_52w") is not None and float(m_b.get("volatility_52w") or 0.3) < 0.25
+           else "signale une amplitude de prix elevee, coherente avec un profil de croissance ou de retournement.")
+    )
+    story.append(Paragraph(_safe(_enc(ana_a)),
+                            _s('52w_a', size=8.5, leading=13, color=BLACK, sb=0, sa=4)))
+    story.append(Paragraph(_safe(_enc(ana_b)),
+                            _s('52w_b', size=8.5, leading=13, color=BLACK, sb=0, sa=4)))
+
+    # Comparaison relative
+    def _better_perf(v_a, v_b):
+        try:
+            fa = float(v_a or 0); fb = float(v_b or 0)
+            if fa > fb: return tkr_a
+            if fb > fa: return tkr_b
+            return None
+        except: return None
+
+    leader_1y = _better_perf(m_a.get("perf_1y"), m_b.get("perf_1y"))
+    leader_3m = _better_perf(m_a.get("perf_3m"), m_b.get("perf_3m"))
+    if leader_1y or leader_3m:
+        comp_parts = []
+        if leader_1y:
+            comp_parts.append(
+                f"{_enc(leader_1y)} surperforme sur 12 mois ({p1y_a if leader_1y == tkr_a else p1y_b})"
+            )
+        if leader_3m:
+            comp_parts.append(
+                f"{_enc(leader_3m)} affiche le meilleur momentum recent sur 3 mois "
+                f"({p3m_a if leader_3m == tkr_a else p3m_b})"
+            )
+        cross = "Sur la periode consideree : " + " ; ".join(comp_parts) + "."
+        story.append(Paragraph(_safe(_enc(cross)),
+                                _s('52w_cross', size=8.5, leading=13, color=BLACK)))
+    story.append(Spacer(1, 2*mm))
 
 
 def _section_piotroski_detail(story, m_a, m_b, tkr_a, tkr_b):
@@ -1767,8 +1924,9 @@ class ComparisonPDFWriter:
         _section_dcf_sensitivity(story, m_a, m_b, tkr_a, tkr_b)               # 6
         _section_qualite_risque(story, m_a, m_b, synthesis, tkr_a, tkr_b)     # 7
         _section_momentum_marche(story, m_a, m_b, tkr_a, tkr_b)               # 8
-        _section_piotroski_detail(story, m_a, m_b, tkr_a, tkr_b)              # 9
-        _section_verdict(story, m_a, m_b, synthesis, tkr_a, tkr_b)            # 10
+        _section_52w_price(story, m_a, m_b, tkr_a, tkr_b)                    # 9
+        _section_piotroski_detail(story, m_a, m_b, tkr_a, tkr_b)             # 10
+        _section_verdict(story, m_a, m_b, synthesis, tkr_a, tkr_b)           # 11
 
         # Build avec cover page et header/footer
         def _on_first(canvas, doc):

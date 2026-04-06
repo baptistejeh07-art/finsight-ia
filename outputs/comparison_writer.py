@@ -307,6 +307,32 @@ def _fetch_supplements(ticker: str) -> dict:
         except Exception as e:
             log.debug(f"[comparison] piotroski error {ticker}: {e}")
 
+        # Interest coverage depuis income statement (fallback si quant_node n'a pas calculé)
+        try:
+            import pandas as pd
+            inc = getattr(stock, "income_stmt", None)
+            if inc is None:
+                inc = getattr(stock, "financials", None)
+            if inc is not None and not getattr(inc, "empty", True) and len(inc.columns) >= 1:
+                col = inc.columns[0]
+                def _vi_ic(keys):
+                    for k in keys:
+                        if k in inc.index:
+                            try:
+                                v = float(inc.loc[k, col])
+                                if pd.notna(v):
+                                    return v
+                            except Exception:
+                                pass
+                    return None
+                ebit = _vi_ic(["EBIT", "Operating Income", "Ebit"])
+                ie   = _vi_ic(["Interest Expense", "Interest Expense Non Operating",
+                                "Net Interest Income"])
+                if ebit is not None and ie is not None and abs(ie) > 1000:
+                    out["interest_coverage"] = round(abs(float(ebit)) / abs(float(ie)), 1)
+        except Exception as e:
+            log.debug(f"[comparison] interest_coverage error {ticker}: {e}")
+
         # Volatilite annualisee 52 semaines
         try:
             import numpy as np
@@ -562,7 +588,7 @@ def extract_metrics(state: dict, supp: dict) -> dict:
 
         # LEVIER / RISQUE (rows 42-46)
         "net_debt_ebitda":    _safe(yr, "net_debt_ebitda"),
-        "interest_coverage":  _safe(yr, "interest_coverage"),
+        "interest_coverage":  _safe(yr, "interest_coverage") or supp.get("interest_coverage"),
         "beta":               _safe(mkt, "beta_levered"),
         "var_95_1m":          supp.get("var_95_1m"),
         "volatility_52w":     supp.get("volatility_52w"),

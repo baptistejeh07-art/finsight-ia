@@ -673,7 +673,7 @@ def _chart_multiples(m_a: dict, m_b: dict, tkr_a: str, tkr_b: str) -> Optional[i
         matplotlib.use('Agg')
         import numpy as np
 
-        fig, ax = plt.subplots(figsize=(10.5, 3.0))
+        fig, ax = plt.subplots(figsize=(10.5, 4.5))
         fig.patch.set_facecolor('white')
         ax.set_facecolor('#FAFAFA')
 
@@ -1206,35 +1206,37 @@ def _slide_profil(prs, m_a: dict, m_b: dict):
         currency = m.get('currency_a' if side == 'left' else 'currency_b') or 'USD'
         cur_sym  = 'EUR' if currency == 'EUR' else '$'
 
-        add_rect(slide, x0, 2.45, w, 0.48, COLOR_A_PAL if side == 'left' else COLOR_B_PAL)
-        add_text_box(slide, x0 + 0.15, 2.50, w - 0.2, 0.38,
-                     _truncate(name, 60), 9, lbl_color, bold=True)
+        # En-tete nom — rect plus haut, texte tronque, pas de wrap
+        add_rect(slide, x0, 2.45, w, 0.60, COLOR_A_PAL if side == 'left' else COLOR_B_PAL)
+        add_rect(slide, x0, 2.45, 0.13, 0.60, lbl_color)
+        add_text_box(slide, x0 + 0.22, 2.50, w - 0.3, 0.50,
+                     _truncate(name, 32), 8, lbl_color, bold=True, wrap=False)
 
         rows_id = [
-            ("Secteur", sector),
-            ("Devise", currency),
-            ("Cours", _fr(m.get('share_price'), 1) + " " + cur_sym),
-            ("52W High", _fr(m.get('week52_high'), 2) + " " + cur_sym),
-            ("52W Low", _fr(m.get('week52_low'), 2) + " " + cur_sym),
-            ("Market Cap", _fr(m.get('market_cap'), 1) + " Mds " + cur_sym),
-            ("Valeur Entrep.", _fr(m.get('enterprise_value'), 1) + " Mds " + cur_sym),
-            ("Div. Yield", _frpct(m.get('dividend_yield'))),
-            ("Perf. 1M", _frpct(m.get('perf_1m'), signed=True)),
-            ("Perf. 3M", _frpct(m.get('perf_3m'), signed=True)),
-            ("Perf. 1Y", _frpct(m.get('perf_1y'), signed=True)),
-            ("Proch. Resultat", m.get('next_earnings_date') or '\u2014'),
+            ("Secteur",          _truncate(sector, 22)),
+            ("Devise",           currency),
+            ("Cours",            _fr(m.get('share_price'), 1) + " " + cur_sym),
+            ("52W High",         _fr(m.get('week52_high'), 2) + " " + cur_sym),
+            ("52W Low",          _fr(m.get('week52_low'), 2) + " " + cur_sym),
+            ("Market Cap",       _fr(m.get('market_cap'), 1) + " Mds " + cur_sym),
+            ("Valeur Entrep.",   _fr(m.get('enterprise_value'), 1) + " Mds " + cur_sym),
+            ("Div. Yield",       _frpct(m.get('dividend_yield'))),
+            ("Perf. 1M",         _frpct(m.get('perf_1m'), signed=True)),
+            ("Perf. 3M",         _frpct(m.get('perf_3m'), signed=True)),
+            ("Perf. 1Y",         _frpct(m.get('perf_1y'), signed=True)),
+            ("Proch. Resultat",  m.get('next_earnings_date') or '\u2014'),
         ]
 
-        y_start = 3.1
+        y_start = 3.18
         row_h   = 0.68
         for ri, (lbl, val) in enumerate(rows_id):
             y = y_start + ri * row_h
             fill = WHITE if ri % 2 == 0 else GREY_BG
             add_rect(slide, x0, y, w, row_h - 0.04, fill)
-            add_text_box(slide, x0 + 0.1, y + 0.1, w * 0.52, row_h - 0.1, lbl,
-                         8, GREY_TXT, italic=True)
-            add_text_box(slide, x0 + w * 0.52, y + 0.1, w * 0.45, row_h - 0.1,
-                         val, 8.5, BLACK, bold=False, align=PP_ALIGN.RIGHT)
+            add_text_box(slide, x0 + 0.1, y + 0.12, w * 0.52, row_h - 0.15, lbl,
+                         7.5, GREY_TXT, italic=True, wrap=False)
+            add_text_box(slide, x0 + w * 0.52, y + 0.12, w * 0.45, row_h - 0.15,
+                         val, 7.5, BLACK, bold=False, align=PP_ALIGN.RIGHT, wrap=False)
 
     _profile_col(slide, m_a, 'left', tkr_a)
     _profile_col(slide, m_b, 'right', tkr_b)
@@ -1281,9 +1283,9 @@ def _slide_pl(prs, m_a: dict, m_b: dict, synthesis: dict):
     buf_l = _chart_ebitda_margins(m_a, m_b, tkr_a, tkr_b)
     buf_r = _chart_growth_returns(m_a, m_b, tkr_a, tkr_b)
     if buf_l:
-        _insert_chart(slide, buf_l, 1.02, 7.9, 11.0, 5.8)
+        _insert_chart(slide, buf_l, 1.02, 7.9, 11.0, 5.2)
     if buf_r:
-        _insert_chart(slide, buf_r, 13.3, 7.9, 11.07, 5.8)
+        _insert_chart(slide, buf_r, 13.3, 7.9, 11.07, 5.2)
     if not buf_l and not buf_r:
         add_text_box(slide, 1.02, 8.5, 23.37, 1.0,
                      synthesis.get('financial_text') or "", 8, GREY_TXT, wrap=True)
@@ -1574,7 +1576,7 @@ def _slide_monte_carlo(prs, m_a: dict, m_b: dict):
         import matplotlib.pyplot as plt
         import numpy as np
 
-        fig, ax = plt.subplots(figsize=(10.0, 3.5))
+        fig, ax = plt.subplots(figsize=(10.0, 5.5))
         fig.patch.set_facecolor('white')
         ax.set_facecolor('#FAFAFA')
 
@@ -1620,7 +1622,7 @@ def _slide_monte_carlo(prs, m_a: dict, m_b: dict):
         ax.tick_params(labelsize=8)
         fig.tight_layout(pad=1.0)
         buf = _make_chart_buf(fig)
-        _insert_chart(slide, buf, 1.02, 6.5, 23.37, 6.4)
+        _insert_chart(slide, buf, 1.02, 6.5, 23.37, 6.2)
     except Exception as e:
         log.warning(f"[cmp_pptx] football field error: {e}")
 
@@ -1644,9 +1646,9 @@ def _slide_piotroski(prs, m_a: dict, m_b: dict, synthesis: dict):
     # Commentaire qualite LLM
     txt = synthesis.get('quality_text') or ""
     if txt:
-        add_rect(slide, 1.02, 2.45, 23.37, 1.3, NAVY_PALE)
-        add_rect(slide, 1.02, 2.45, 0.13, 1.3, NAVY_MID)
-        add_text_box(slide, 1.4, 2.55, 22.8, 1.1, _truncate(txt, 200), 8.5, NAVY, wrap=True)
+        add_rect(slide, 1.02, 2.45, 23.37, 1.55, NAVY_PALE)
+        add_rect(slide, 1.02, 2.45, 0.13, 1.55, NAVY_MID)
+        add_text_box(slide, 1.4, 2.55, 22.8, 1.35, _truncate(txt, 320), 8.5, NAVY, wrap=True)
 
     def _pio_val(m, key):
         v = m.get(key)
@@ -1778,10 +1780,10 @@ def _slide_risque(prs, m_a: dict, m_b: dict):
     for ri, (l1, v1, l2, v2) in enumerate(rows_52):
         fill = WHITE if ri % 2 == 0 else GREY_BG
         add_rect(slide, 1.02, y_52 + ri * 0.58, 12.5, 0.55, fill)
-        add_text_box(slide, 1.15, y_52 + ri * 0.58 + 0.06, 3.8, 0.45, l1, 7.5, GREY_TXT)
-        add_text_box(slide, 5.0,  y_52 + ri * 0.58 + 0.06, 2.5, 0.45, v1, 8, BLACK, bold=True)
-        add_text_box(slide, 8.0,  y_52 + ri * 0.58 + 0.06, 3.8, 0.45, l2, 7.5, GREY_TXT)
-        add_text_box(slide, 11.8, y_52 + ri * 0.58 + 0.06, 2.5, 0.45, v2, 8, BLACK, bold=True)
+        add_text_box(slide, 1.15, y_52 + ri * 0.58 + 0.06, 3.6, 0.45, l1, 7.5, GREY_TXT, wrap=False)
+        add_text_box(slide, 4.8,  y_52 + ri * 0.58 + 0.06, 2.4, 0.45, v1, 8, BLACK, bold=True, wrap=False)
+        add_text_box(slide, 7.3,  y_52 + ri * 0.58 + 0.06, 3.6, 0.45, l2, 7.5, GREY_TXT, wrap=False)
+        add_text_box(slide, 11.0, y_52 + ri * 0.58 + 0.06, 2.3, 0.45, v2, 8, BLACK, bold=True, wrap=False)
 
     return slide
 
@@ -1803,13 +1805,13 @@ def _slide_finsight_score(prs, m_a: dict, m_b: dict):
     fs_a = m_a.get('finsight_score') or 0
     fs_b = m_b.get('finsight_score') or 0
 
-    # Graphique score
+    # Graphique score — pleine largeur
     buf = _chart_finsight_score(m_a, m_b, tkr_a, tkr_b)
     if buf:
-        _insert_chart(slide, buf, 1.02, 2.45, 22.0, 2.8)
+        _insert_chart(slide, buf, 1.02, 2.45, 23.37, 3.0)
 
     # Decomposition score
-    y_dec = 5.55
+    y_dec = 5.65
     add_rect(slide, 1.02, y_dec, 23.37, 0.6, NAVY)
     add_text_box(slide, 1.15, y_dec + 0.1, 23.0, 0.45, "Decomposition du Score (4 axes)", 8.5, WHITE, bold=True)
 
@@ -1836,15 +1838,17 @@ def _slide_finsight_score(prs, m_a: dict, m_b: dict):
     for xi, (axis, lbl) in enumerate(axes):
         xp = 1.02 + xi * 5.84
         w_ax = 5.6
-        add_rect(slide, xp, y_ax, w_ax, 0.48, GREY_BG)
-        add_text_box(slide, xp + 0.1, y_ax + 0.06, w_ax - 0.2, 0.38, lbl, 8, GREY_TXT)
-        add_text_box(slide, xp + 0.1, y_ax + 0.5, 2.7, 0.6,
-                     _score_axis(m_a, axis) + " / 25", 10, NAVY_MID, bold=True)
-        add_text_box(slide, xp + 2.9, y_ax + 0.5, 2.5, 0.6,
-                     _score_axis(m_b, axis) + " / 25", 10, GREEN_MID, bold=True)
+        # Rect englobe label + valeurs (h=1.35 au lieu de 0.48)
+        add_rect(slide, xp, y_ax, w_ax, 1.35, GREY_BG)
+        add_rect(slide, xp, y_ax, w_ax, 0.04, NAVY_MID)  # ligne accent top
+        add_text_box(slide, xp + 0.1, y_ax + 0.08, w_ax - 0.2, 0.35, lbl, 8, GREY_TXT, wrap=False)
+        add_text_box(slide, xp + 0.1, y_ax + 0.50, 2.7, 0.65,
+                     _score_axis(m_a, axis) + " / 25", 11, NAVY_MID, bold=True)
+        add_text_box(slide, xp + 2.9, y_ax + 0.50, 2.5, 0.65,
+                     _score_axis(m_b, axis) + " / 25", 11, GREEN_MID, bold=True)
 
     # KPIs finaux
-    y_f = 8.3
+    y_f = 8.35
     rec_a = (m_a.get('recommendation') or 'HOLD').upper()
     rec_b = (m_b.get('recommendation') or 'HOLD').upper()
 
@@ -1899,11 +1903,11 @@ def _slide_theses(prs, m_a: dict, m_b: dict, synthesis: dict):
     add_rect(slide, 12.94, y_52, 11.44, 0.65, GREEN_PALE)
     add_rect(slide, 12.94, y_52, 0.13, 0.65, COLOR_B)
     add_text_box(slide, 13.17, y_52 + 0.05, 5.3, 0.3,
-                 f"Cours : {_fr(m_b.get('share_price'), 1)} {cur_b}", 7.5, GREEN, bold=True)
+                 f"Cours : {_fr(m_b.get('share_price'), 1)} {cur_b}", 7.5, GREEN, bold=True, wrap=False)
     add_text_box(slide, 13.17, y_52 + 0.33, 5.3, 0.3,
-                 f"52W : {_fr(m_b.get('week52_low'), 1)} - {_fr(m_b.get('week52_high'), 1)} {cur_b}", 7, GREY_TXT)
-    add_text_box(slide, 18.7, y_52 + 0.05, 5.4, 0.3,
-                 f"Perf 1Y : {_frpct(m_b.get('perf_1y'), signed=True)}  \u00b7  Div. : {_frpct(m_b.get('dividend_yield'))}", 7, GREY_TXT)
+                 f"52W : {_fr(m_b.get('week52_low'), 1)} - {_fr(m_b.get('week52_high'), 1)} {cur_b}", 7, GREY_TXT, wrap=False)
+    add_text_box(slide, 18.5, y_52 + 0.05, 5.7, 0.30,
+                 f"Perf 1Y : {_frpct(m_b.get('perf_1y'), signed=True)}  \u00b7  Div. : {_frpct(m_b.get('dividend_yield'))}", 7, GREY_TXT, wrap=False)
 
     # Panel A
     y0 = 3.2
@@ -1941,13 +1945,15 @@ def _slide_theses(prs, m_a: dict, m_b: dict, synthesis: dict):
 
 
 def _slide_price_chart(prs, m_a: dict, m_b: dict):
-    """Slide 21 — Cours boursiers 52 semaines (base 100)."""
+    """Slide 21 — Cours boursiers 52 semaines : texte perf a gauche + graphique a droite."""
     from pptx.enum.text import PP_ALIGN
     slide_layout = prs.slide_layouts[6]
     slide = prs.slides.add_slide(slide_layout)
 
     tkr_a = m_a.get('ticker_a') or 'A'
     tkr_b = m_b.get('ticker_b') or 'B'
+    cur_a = "EUR" if (m_a.get('currency_a') or 'USD') == 'EUR' else '$'
+    cur_b = "EUR" if (m_b.get('currency_b') or 'USD') == 'EUR' else '$'
 
     navy_bar(slide)
     footer_bar(slide)
@@ -1955,20 +1961,70 @@ def _slide_price_chart(prs, m_a: dict, m_b: dict):
     section_dots(slide, 5)
     _company_header_band(slide, tkr_a, tkr_b)
 
-    # KPIs 52W
-    y_kpi = 2.45
-    kpi_box(slide, 1.02,  y_kpi, 5.5, 1.9, _fr(m_a.get('week52_low'),  1), f"52W Low  — {tkr_a}",  "", COLOR_A_PAL, COLOR_A)
-    kpi_box(slide, 7.0,   y_kpi, 5.5, 1.9, _fr(m_a.get('week52_high'), 1), f"52W High — {tkr_a}",  "", COLOR_A_PAL, COLOR_A)
-    kpi_box(slide, 12.98, y_kpi, 5.5, 1.9, _fr(m_b.get('week52_low'),  1), f"52W Low  — {tkr_b}",  "", COLOR_B_PAL, COLOR_B)
-    kpi_box(slide, 18.95, y_kpi, 5.5, 1.9, _fr(m_b.get('week52_high'), 1), f"52W High — {tkr_b}",  "", COLOR_B_PAL, COLOR_B)
+    # ---------- Colonne gauche — analyse textuelle ----------
+    x_txt = 1.02
+    w_txt = 10.5
+    y0 = 2.45
 
-    # Graphique cours
+    # Bloc A
+    add_rect(slide, x_txt, y0, w_txt, 0.52, COLOR_A_PAL)
+    add_rect(slide, x_txt, y0, 0.13, 0.52, COLOR_A)
+    add_text_box(slide, x_txt + 0.22, y0 + 0.10, w_txt - 0.3, 0.35,
+                 f"{tkr_a} — Performance & Prix", 8.5, NAVY_MID, bold=True, wrap=False)
+
+    rows_a = [
+        ("Cours actuel",   _fr(m_a.get('share_price'), 2) + " " + cur_a),
+        ("52W High",       _fr(m_a.get('week52_high'), 2) + " " + cur_a),
+        ("52W Low",        _fr(m_a.get('week52_low'),  2) + " " + cur_a),
+        ("Perf. 1 Mois",   _frpct(m_a.get('perf_1m'), signed=True)),
+        ("Perf. 3 Mois",   _frpct(m_a.get('perf_3m'), signed=True)),
+        ("Perf. 1 An",     _frpct(m_a.get('perf_1y'), signed=True)),
+        ("Div. Yield",     _frpct(m_a.get('dividend_yield'))),
+        ("Volatilite 52S", _frpct(m_a.get('volatility_52w'))),
+    ]
+    rh = 0.6
+    for ri, (lbl, val) in enumerate(rows_a):
+        ry = y0 + 0.55 + ri * rh
+        fill = WHITE if ri % 2 == 0 else GREY_BG
+        add_rect(slide, x_txt, ry, w_txt, rh - 0.04, fill)
+        add_text_box(slide, x_txt + 0.1, ry + 0.10, w_txt * 0.54, rh - 0.12, lbl, 7.5, GREY_TXT, wrap=False)
+        add_text_box(slide, x_txt + w_txt * 0.54, ry + 0.10, w_txt * 0.43, rh - 0.12, val,
+                     8, BLACK, bold=False, align=PP_ALIGN.RIGHT, wrap=False)
+
+    # Bloc B
+    y_b = y0 + 0.55 + len(rows_a) * rh + 0.25
+    add_rect(slide, x_txt, y_b, w_txt, 0.52, COLOR_B_PAL)
+    add_rect(slide, x_txt, y_b, 0.13, 0.52, COLOR_B)
+    add_text_box(slide, x_txt + 0.22, y_b + 0.10, w_txt - 0.3, 0.35,
+                 f"{tkr_b} — Performance & Prix", 8.5, GREEN_MID, bold=True, wrap=False)
+
+    rows_b = [
+        ("Cours actuel",   _fr(m_b.get('share_price'), 2) + " " + cur_b),
+        ("52W High",       _fr(m_b.get('week52_high'), 2) + " " + cur_b),
+        ("52W Low",        _fr(m_b.get('week52_low'),  2) + " " + cur_b),
+        ("Perf. 1 Mois",   _frpct(m_b.get('perf_1m'), signed=True)),
+        ("Perf. 3 Mois",   _frpct(m_b.get('perf_3m'), signed=True)),
+        ("Perf. 1 An",     _frpct(m_b.get('perf_1y'), signed=True)),
+        ("Div. Yield",     _frpct(m_b.get('dividend_yield'))),
+        ("Volatilite 52S", _frpct(m_b.get('volatility_52w'))),
+    ]
+    for ri, (lbl, val) in enumerate(rows_b):
+        ry = y_b + 0.55 + ri * rh
+        fill = WHITE if ri % 2 == 0 else GREY_BG
+        add_rect(slide, x_txt, ry, w_txt, rh - 0.04, fill)
+        add_text_box(slide, x_txt + 0.1, ry + 0.10, w_txt * 0.54, rh - 0.12, lbl, 7.5, GREY_TXT, wrap=False)
+        add_text_box(slide, x_txt + w_txt * 0.54, ry + 0.10, w_txt * 0.43, rh - 0.12, val,
+                     8, BLACK, bold=False, align=PP_ALIGN.RIGHT, wrap=False)
+
+    # ---------- Colonne droite — graphique cours ----------
+    x_chart = x_txt + w_txt + 0.5
+    w_chart = 25.4 - x_chart - 0.5
     buf = _chart_52w_price(tkr_a, tkr_b)
     if buf:
-        _insert_chart(slide, buf, 1.02, 4.65, 23.37, 8.1)
+        _insert_chart(slide, buf, x_chart, 2.45, w_chart, 10.5)
     else:
-        add_text_box(slide, 1.02, 6.5, 23.37, 1.0,
-                     "Donnees de cours indisponibles", 10, GREY_TXT, wrap=True)
+        add_text_box(slide, x_chart, 6.5, w_chart, 1.0,
+                     "Donnees de cours indisponibles", 9, GREY_TXT, wrap=True)
 
     return slide
 
@@ -2174,10 +2230,10 @@ class ComparisonPPTXWriter:
         _slide_finsight_score(prs, m_a, m_b)
         # Slide 19 — Theses Bull/Bear
         _slide_theses(prs, m_a, m_b, synthesis)
-        # Slide 20 — Verdict final
-        _slide_verdict(prs, m_a, m_b, synthesis)
-        # Slide 21 — Cours boursiers 52 semaines
+        # Slide 20 — Cours boursiers 52 semaines
         _slide_price_chart(prs, m_a, m_b)
+        # Slide 21 — Verdict final
+        _slide_verdict(prs, m_a, m_b, synthesis)
 
         # 4. Sauvegarder
         if output_path is None:
