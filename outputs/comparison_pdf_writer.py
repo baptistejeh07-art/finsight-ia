@@ -488,6 +488,106 @@ def _chart_finsight_scores(m_a, m_b, tkr_a, tkr_b) -> io.BytesIO:
         return _blank_buf(7, 2.5)
 
 
+def _chart_perf_bars(m_a, m_b, tkr_a, tkr_b) -> io.BytesIO:
+    """Barres groupees : Performance 1m / 3m / 1 an."""
+    if not _MPL:
+        return _blank_buf(8, 3)
+    try:
+        def _pv(v):
+            if v is None: return 0.0
+            fv = float(v)
+            return fv * 100 if abs(fv) <= 2.0 else fv
+        labels  = ["1 mois", "3 mois", "1 an"]
+        vals_a  = [_pv(m_a.get("perf_1m")), _pv(m_a.get("perf_3m")), _pv(m_a.get("perf_1y"))]
+        vals_b  = [_pv(m_b.get("perf_1m")), _pv(m_b.get("perf_3m")), _pv(m_b.get("perf_1y"))]
+        x = np.arange(len(labels)); width = 0.35
+        fig, ax = plt.subplots(figsize=(7, 3.2))
+        bars_a = ax.bar(x - width/2, vals_a, width, label=tkr_a, color='#2E5FA3', alpha=0.9)
+        bars_b = ax.bar(x + width/2, vals_b, width, label=tkr_b, color='#2E8B57', alpha=0.9)
+        for bar in list(bars_a) + list(bars_b):
+            h = bar.get_height()
+            if abs(h) > 0.1:
+                ax.text(bar.get_x() + bar.get_width()/2., h + (0.3 if h >= 0 else -1.2),
+                        f"{h:+.1f}%", ha='center', va='bottom', fontsize=7.5, color='#333')
+        ax.set_xticks(x); ax.set_xticklabels(labels, fontsize=9)
+        ax.set_ylabel("(%)", fontsize=9, color='#555')
+        ax.legend(fontsize=9, frameon=False)
+        ax.axhline(0, color='#888', linewidth=0.7)
+        for sp in ['top', 'right']: ax.spines[sp].set_visible(False)
+        ax.spines['left'].set_color('#D0D5DD'); ax.spines['bottom'].set_color('#D0D5DD')
+        ax.set_facecolor('white'); fig.patch.set_facecolor('white')
+        ax.yaxis.grid(True, alpha=0.3, color='#D0D5DD'); ax.set_axisbelow(True)
+        plt.tight_layout(pad=0.6)
+        buf = io.BytesIO(); fig.savefig(buf, format='png', dpi=150, bbox_inches='tight')
+        plt.close(fig); buf.seek(0); return buf
+    except Exception as e:
+        log.warning(f"[cmp_pdf] chart_perf error: {e}")
+        return _blank_buf(8, 3)
+
+
+def _chart_fcf_capital(m_a, m_b, tkr_a, tkr_b) -> io.BytesIO:
+    """Barres groupees : FCF Yield, Div Yield, P/FCF (normalise)."""
+    if not _MPL:
+        return _blank_buf(8, 3)
+    try:
+        def _pv(v):
+            if v is None: return 0.0
+            fv = float(v)
+            return fv * 100 if abs(fv) <= 2.0 else fv
+        labels = ["FCF Yield", "Div. Yield", "Capex/Rev."]
+        vals_a = [_pv(m_a.get("fcf_yield")), _pv(m_a.get("dividend_yield")), _pv(m_a.get("capex_to_revenue"))]
+        vals_b = [_pv(m_b.get("fcf_yield")), _pv(m_b.get("dividend_yield")), _pv(m_b.get("capex_to_revenue"))]
+        x = np.arange(len(labels)); width = 0.35
+        fig, ax = plt.subplots(figsize=(7, 3.2))
+        ax.bar(x - width/2, vals_a, width, label=tkr_a, color='#2E5FA3', alpha=0.9)
+        ax.bar(x + width/2, vals_b, width, label=tkr_b, color='#2E8B57', alpha=0.9)
+        ax.set_xticks(x); ax.set_xticklabels(labels, fontsize=9)
+        ax.set_ylabel("(%)", fontsize=9, color='#555')
+        ax.legend(fontsize=9, frameon=False)
+        ax.axhline(0, color='#888', linewidth=0.7)
+        for sp in ['top', 'right']: ax.spines[sp].set_visible(False)
+        ax.spines['left'].set_color('#D0D5DD'); ax.spines['bottom'].set_color('#D0D5DD')
+        ax.set_facecolor('white'); fig.patch.set_facecolor('white')
+        ax.yaxis.grid(True, alpha=0.3, color='#D0D5DD'); ax.set_axisbelow(True)
+        plt.tight_layout(pad=0.6)
+        buf = io.BytesIO(); fig.savefig(buf, format='png', dpi=150, bbox_inches='tight')
+        plt.close(fig); buf.seek(0); return buf
+    except Exception as e:
+        log.warning(f"[cmp_pdf] chart_fcf error: {e}")
+        return _blank_buf(8, 3)
+
+
+def _dcf_sensitivity_matrix(base_val, wacc, g_term):
+    """
+    Matrice 3x3 : WACC (lignes: -1%/base/+1%) x g_terminal (colonnes: -0.5%/base/+0.5%).
+    Approximation Gordon Growth: V ~ base * (wacc-g) / (wacc+dw - g-dg).
+    Retourne liste de listes de strings.
+    """
+    try:
+        base_val = float(base_val or 0)
+        wacc     = float(wacc or 0.10)
+        g_term   = float(g_term or 0.03)
+        if base_val <= 0 or (wacc - g_term) < 0.001:
+            return None
+        spread0 = wacc - g_term
+        d_w = [-0.01, 0.0, 0.01]
+        d_g = [-0.005, 0.0, 0.005]
+        rows = []
+        for dw in d_w:
+            row = []
+            for dg in d_g:
+                new_spread = spread0 + dw - dg
+                if new_spread > 0.001:
+                    val = round(base_val * spread0 / new_spread, 0)
+                    row.append(f"{val:,.0f}".replace(",", " "))
+                else:
+                    row.append("N/A")
+            rows.append(row)
+        return rows
+    except Exception:
+        return None
+
+
 # =============================================================================
 # COVER PAGE (canvas onFirstPage) -- style pdf_writer.py societe
 # =============================================================================
@@ -1167,7 +1267,7 @@ def _section_qualite_risque(story, m_a, m_b, synthesis, tkr_a, tkr_b):
         ["Volatilite 52w",   _frpct(m_a.get("volatility_52w")), _frpct(m_b.get("volatility_52w"))],
         ["Perf. 1 mois",     _frpct(m_a.get("perf_1m"), True),  _frpct(m_b.get("perf_1m"), True)],
         ["Perf. 3 mois",     _frpct(m_a.get("perf_3m"), True),  _frpct(m_b.get("perf_3m"), True)],
-        ["Perf. 12 mois",    _frpct(m_a.get("perf_12m"), True), _frpct(m_b.get("perf_12m"), True)],
+        ["Perf. 12 mois",    _frpct(m_a.get("perf_1y"), True),  _frpct(m_b.get("perf_1y"), True)],
         ["RSI (14j)",        _fr(m_a.get("rsi"), 1),            _fr(m_b.get("rsi"), 1)],
         ["ND / EBITDA",      _frx(m_a.get("net_debt_ebitda")),  _frx(m_b.get("net_debt_ebitda"))],
         ["Sentiment",        str(m_a.get("sentiment_label") or "\u2014"),
@@ -1311,6 +1411,298 @@ def _section_verdict(story, m_a, m_b, synthesis, tkr_a, tkr_b):
     ))
 
 
+def _section_fcf_capital(story, m_a, m_b, tkr_a, tkr_b):
+    story.append(PageBreak())
+    story += section_title("Free Cash Flow & Capital Allocation", "4")
+
+    fcf_a  = _frm(m_a.get("free_cash_flow"))
+    fcf_b  = _frm(m_b.get("free_cash_flow"))
+    fy_a   = _frpct(m_a.get("fcf_yield"))
+    fy_b   = _frpct(m_b.get("fcf_yield"))
+    dy_a   = _frpct(m_a.get("dividend_yield"))
+    dy_b   = _frpct(m_b.get("dividend_yield"))
+    cx_a   = _frpct(m_a.get("capex_to_revenue"))
+    cx_b   = _frpct(m_b.get("capex_to_revenue"))
+    text = (
+        f"Analyse FCF : {tkr_a} genere {fcf_a} de FCF (rendement {fy_a}) vs {fcf_b} "
+        f"({fy_b}) pour {tkr_b}. Capex/Revenus : {cx_a} vs {cx_b}, "
+        f"refletant les intensites capitalistiques respectives. "
+        f"Dividende {dy_a} vs {dy_b}. "
+        f"Un FCF yield superieur signale une capacite accrue a financer la croissance, "
+        f"racheter des actions et verser des dividendes sur horizon 12 mois."
+    )
+    story.append(Paragraph(_safe(_enc(text)), S_BODY))
+    story.append(Spacer(1, 3*mm))
+
+    hdr = [
+        Paragraph("<b>Cash-Flow</b>", S_TH_L),
+        Paragraph(f"<b>{_enc(tkr_a)}</b>", S_TH_C),
+        Paragraph(f"<b>{_enc(tkr_b)}</b>", S_TH_C),
+    ]
+    raw = [
+        ["Free Cash-Flow",       _frm(m_a.get("free_cash_flow")),    _frm(m_b.get("free_cash_flow"))],
+        ["FCF Yield",            _frpct(m_a.get("fcf_yield")),        _frpct(m_b.get("fcf_yield"))],
+        ["P/FCF",                _frx(m_a.get("p_fcf")),              _frx(m_b.get("p_fcf"))],
+        ["Capex / Rev.",         _frpct(m_a.get("capex_to_revenue")), _frpct(m_b.get("capex_to_revenue"))],
+        ["Cash Conversion",      _frpct(m_a.get("cash_conversion")),  _frpct(m_b.get("cash_conversion"))],
+        ["Dividende Yield",      _frpct(m_a.get("dividend_yield")),   _frpct(m_b.get("dividend_yield"))],
+        ["Tresorerie",           _frm(m_a.get("cash")),               _frm(m_b.get("cash"))],
+        ["Dette Nette",          _frm(m_a.get("net_debt")),           _frm(m_b.get("net_debt"))],
+    ]
+    t = _make_tbl_3col(hdr, raw)
+    if t:
+        story.append(t)
+    story.append(Spacer(1, 4*mm))
+
+    buf = _chart_fcf_capital(m_a, m_b, tkr_a, tkr_b)
+    img = Image(buf, width=TABLE_W * 0.85, height=60*mm)
+    story.append(img)
+    story.append(Spacer(1, 2*mm))
+    story.append(src("FinSight IA / yfinance"))
+
+
+def _section_dcf_sensitivity(story, m_a, m_b, tkr_a, tkr_b):
+    story.append(CondPageBreak(100*mm))
+    story += section_title("Sensibilite Valorisation DCF", "6")
+
+    wacc_a   = float(m_a.get("wacc") or 0.10)
+    g_a      = float(m_a.get("terminal_growth") or 0.03)
+    base_a   = float(m_a.get("dcf_base") or 0)
+    wacc_b   = float(m_b.get("wacc") or 0.10)
+    g_b      = float(m_b.get("terminal_growth") or 0.03)
+    base_b   = float(m_b.get("dcf_base") or 0)
+
+    text = (
+        f"Analyse de sensibilite : variation de la valeur intrinseque selon le WACC et le "
+        f"taux de croissance terminal (g). {tkr_a} : WACC base {_frpct(wacc_a)}, g {_frpct(g_a)}. "
+        f"{tkr_b} : WACC base {_frpct(wacc_b)}, g {_frpct(g_b)}. "
+        f"Les cases en ligne centrale (base) correspondent aux hypotheses du modele DCF. "
+        f"Lecture : une hausse du WACC de 1 pt reduit mecaniquement la valeur intrinseque ; "
+        f"une baisse du taux terminal penalise davantage les titres de croissance."
+    )
+    story.append(Paragraph(_safe(_enc(text)), S_BODY))
+    story.append(Spacer(1, 3*mm))
+
+    g_labels = ["-0,5%", "Base", "+0,5%"]
+    w_labels = ["WACC -1%", "WACC Base", "WACC +1%"]
+
+    def _sensitivity_tbl(tkr, matrix, wacc, g):
+        if not matrix:
+            return None
+        col_hdr = [
+            Paragraph(f"<b>{_enc(tkr)} (g terminal)</b>", S_TH_L),
+        ] + [Paragraph(f"<b>{g}</b>", S_TH_C) for g in g_labels]
+        rows = [col_hdr]
+        for i, w_lbl in enumerate(w_labels):
+            is_base_row = (i == 1)
+            row_cells = [Paragraph(f"<b>{_enc(w_lbl)}</b>", S_TD_B)]
+            for j, val in enumerate(matrix[i]):
+                is_base = is_base_row and (j == 1)
+                style = _s(f'dcfs{i}{j}', size=8, leading=11,
+                           color=NAVY if is_base else BLACK,
+                           bold=is_base, align=TA_CENTER)
+                row_cells.append(Paragraph(_safe(_enc(str(val))), style))
+            rows.append(row_cells)
+        t = Table(rows, colWidths=[35*mm, 25*mm, 25*mm, 25*mm])
+        t.setStyle(TableStyle([
+            ('BACKGROUND',    (0, 0), (-1, 0), NAVY),
+            ('ROWBACKGROUNDS',(0, 1), (-1, -1), [WHITE, ROW_ALT]),
+            ('BACKGROUND',    (1, 2), (3, 2), colors.HexColor('#EEF3FA')),
+            ('FONTSIZE',      (0, 0), (-1, -1), 8),
+            ('VALIGN',        (0, 0), (-1, -1), 'MIDDLE'),
+            ('TOPPADDING',    (0, 0), (-1, -1), 4),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+            ('LEFTPADDING',   (0, 0), (-1, -1), 5),
+            ('RIGHTPADDING',  (0, 0), (-1, -1), 5),
+            ('GRID',          (0, 0), (-1, -1), 0.3, GREY_MED),
+            ('LINEBELOW',     (0, 0), (-1, 0),  0.5, NAVY_LIGHT),
+        ]))
+        return t
+
+    mat_a = _dcf_sensitivity_matrix(base_a, wacc_a, g_a)
+    mat_b = _dcf_sensitivity_matrix(base_b, wacc_b, g_b)
+
+    if mat_a:
+        story.append(Paragraph(f"<b>{_enc(tkr_a)}</b> — valeur intrinseque (\u20ac/$)", S_SUBSECTION))
+        t_a = _sensitivity_tbl(tkr_a, mat_a, wacc_a, g_a)
+        if t_a:
+            story.append(t_a)
+        story.append(Spacer(1, 4*mm))
+
+    if mat_b:
+        story.append(Paragraph(f"<b>{_enc(tkr_b)}</b> — valeur intrinseque (\u20ac/$)", S_SUBSECTION))
+        t_b = _sensitivity_tbl(tkr_b, mat_b, wacc_b, g_b)
+        if t_b:
+            story.append(t_b)
+        story.append(Spacer(1, 3*mm))
+
+    story.append(Paragraph(
+        "Hypothese : variation proportionnelle via Gordon Growth terminal. "
+        "A utiliser en complement du modele DCF complet presente a la section precedente.",
+        S_NOTE
+    ))
+    story.append(Spacer(1, 2*mm))
+    story.append(src("FinSight IA — calcul interne"))
+
+
+def _section_momentum_marche(story, m_a, m_b, tkr_a, tkr_b):
+    story.append(PageBreak())
+    story += section_title("Momentum & Marche", "8")
+
+    p1m_a  = _frpct(m_a.get("perf_1m"), True)
+    p1m_b  = _frpct(m_b.get("perf_1m"), True)
+    p1y_a  = _frpct(m_a.get("perf_1y"), True)
+    p1y_b  = _frpct(m_b.get("perf_1y"), True)
+    var_a  = _frpct(m_a.get("var_95_1m"))
+    var_b  = _frpct(m_b.get("var_95_1m"))
+
+    text = (
+        f"Profil de momentum : {tkr_a} affiche {p1m_a} sur 1 mois et {p1y_a} sur 12 mois "
+        f"vs {p1m_b} et {p1y_b} pour {tkr_b}. "
+        f"La VaR 95 % mensuelle estimee est de {var_a} pour {tkr_a} vs {var_b} pour {tkr_b}. "
+        f"Ces indicateurs refletent le sentiment court terme et la volatilite des actifs."
+    )
+    story.append(Paragraph(_safe(_enc(text)), S_BODY))
+    story.append(Spacer(1, 3*mm))
+
+    hdr = [
+        Paragraph("<b>Marche</b>", S_TH_L),
+        Paragraph(f"<b>{_enc(tkr_a)}</b>", S_TH_C),
+        Paragraph(f"<b>{_enc(tkr_b)}</b>", S_TH_C),
+    ]
+    raw = [
+        ["Cours actuel",       str(m_a.get("price_str") or "\u2014"),  str(m_b.get("price_str") or "\u2014")],
+        ["Plus haut 52 sem.",  _fr(m_a.get("week52_high"), 2),         _fr(m_b.get("week52_high"), 2)],
+        ["Plus bas 52 sem.",   _fr(m_a.get("week52_low"), 2),          _fr(m_b.get("week52_low"), 2)],
+        ["Perf. 1 mois",       _frpct(m_a.get("perf_1m"), True),       _frpct(m_b.get("perf_1m"), True)],
+        ["Perf. 3 mois",       _frpct(m_a.get("perf_3m"), True),       _frpct(m_b.get("perf_3m"), True)],
+        ["Perf. 12 mois",      _frpct(m_a.get("perf_1y"), True),       _frpct(m_b.get("perf_1y"), True)],
+        ["VaR 95 % (1 mois)",  _frpct(m_a.get("var_95_1m")),           _frpct(m_b.get("var_95_1m"))],
+        ["Vol. moyen 30j (M)", _fr(m_a.get("avg_volume_30d"), 1),      _fr(m_b.get("avg_volume_30d"), 1)],
+        ["Prochains resultats",str(m_a.get("next_earnings_date") or "\u2014"),
+                               str(m_b.get("next_earnings_date") or "\u2014")],
+        ["Sentiment",          str(m_a.get("sentiment_label") or "\u2014"),
+                               str(m_b.get("sentiment_label") or "\u2014")],
+    ]
+    t = _make_tbl_3col(hdr, raw)
+    if t:
+        story.append(t)
+    story.append(Spacer(1, 4*mm))
+
+    buf = _chart_perf_bars(m_a, m_b, tkr_a, tkr_b)
+    img = Image(buf, width=TABLE_W * 0.85, height=60*mm)
+    story.append(img)
+    story.append(Spacer(1, 2*mm))
+    story.append(src("FinSight IA / yfinance"))
+
+
+def _section_piotroski_detail(story, m_a, m_b, tkr_a, tkr_b):
+    story.append(CondPageBreak(100*mm))
+    story += section_title("Analyse Piotroski F-Score", "9")
+
+    pio_a = m_a.get("piotroski_score")
+    pio_b = m_b.get("piotroski_score")
+    pio_a_str = str(int(float(pio_a))) if pio_a is not None else "\u2014"
+    pio_b_str = str(int(float(pio_b))) if pio_b is not None else "\u2014"
+
+    text = (
+        f"Le Piotroski F-Score evalue la solidite financiere sur 9 criteres binaires. "
+        f"Score >= 7 = fort ; <= 3 = faible. "
+        f"{tkr_a} : {pio_a_str}/9 | {tkr_b} : {pio_b_str}/9. "
+        f"Les composantes ci-dessous detaillent chaque critere (1 = satisfait, 0 = non satisfait)."
+    )
+    story.append(Paragraph(_safe(_enc(text)), S_BODY))
+    story.append(Spacer(1, 3*mm))
+
+    def _pio_cell(v):
+        if v is None:
+            return Paragraph("\u2014", S_TD_C)
+        try:
+            iv = int(float(v))
+            if iv == 1:
+                return Paragraph(
+                    "<font color='#1A7A4A'><b>\u2713 1</b></font>",
+                    _s('piog', size=8, leading=11, color=BUY_GREEN, bold=True, align=TA_CENTER)
+                )
+            else:
+                return Paragraph(
+                    "<font color='#A82020'><b>\u2717 0</b></font>",
+                    _s('pior', size=8, leading=11, color=SELL_RED, bold=True, align=TA_CENTER)
+                )
+        except:
+            return Paragraph("\u2014", S_TD_C)
+
+    criteria = [
+        ("Rentabilite", None, None),
+        ("ROA positif",            m_a.get("pio_roa_positive"),         m_b.get("pio_roa_positive")),
+        ("CFO positif",            m_a.get("pio_cfo_positive"),         m_b.get("pio_cfo_positive")),
+        ("Delta ROA (amelioration)",m_a.get("pio_delta_roa"),           m_b.get("pio_delta_roa")),
+        ("Accruals (CFO > NI)",    m_a.get("pio_accruals"),             m_b.get("pio_accruals")),
+        ("Levier / Liquidite", None, None),
+        ("Delta Levier (reduction)",m_a.get("pio_delta_leverage"),      m_b.get("pio_delta_leverage")),
+        ("Delta Liquidite (hausse)",m_a.get("pio_delta_liquidity"),     m_b.get("pio_delta_liquidity")),
+        ("Pas de dilution",        m_a.get("pio_no_dilution"),          m_b.get("pio_no_dilution")),
+        ("Efficacite Operationnelle", None, None),
+        ("Delta Marge Brute",      m_a.get("pio_delta_gross_margin"),   m_b.get("pio_delta_gross_margin")),
+        ("Delta Rotation Actif",   m_a.get("pio_delta_asset_turnover"), m_b.get("pio_delta_asset_turnover")),
+    ]
+
+    S_CAT = _s('pioc', size=8, leading=11, color=WHITE, bold=True, align=TA_LEFT)
+    hdr_pio = [
+        Paragraph("<b>Critere Piotroski</b>", S_TH_L),
+        Paragraph(f"<b>{_enc(tkr_a)}</b>", S_TH_C),
+        Paragraph(f"<b>{_enc(tkr_b)}</b>", S_TH_C),
+    ]
+    rows_pio = [hdr_pio]
+    for label, va, vb in criteria:
+        if va is None and vb is None:
+            # sous-titre categorie
+            rows_pio.append([
+                Paragraph(f"<b>{_safe(_enc(label))}</b>", S_CAT),
+                Paragraph("", S_CAT),
+                Paragraph("", S_CAT),
+            ])
+        else:
+            rows_pio.append([
+                Paragraph(_safe(_enc(label)), S_TD_B),
+                _pio_cell(va),
+                _pio_cell(vb),
+            ])
+
+    t_pio = Table(rows_pio, colWidths=[90*mm, 40*mm, 40*mm])
+    # Build style dynamically
+    ts = [
+        ('BACKGROUND',    (0, 0), (-1, 0), NAVY),
+        ('FONTNAME',      (0, 0), (-1, 0),  'Helvetica-Bold'),
+        ('FONTSIZE',      (0, 0), (-1, -1), 8),
+        ('VALIGN',        (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING',    (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ('LEFTPADDING',   (0, 0), (-1, -1), 5),
+        ('RIGHTPADDING',  (0, 0), (-1, -1), 5),
+        ('LINEBELOW',     (0, 0), (-1, 0),  0.5, NAVY_LIGHT),
+        ('LINEBELOW',     (0, -1),(-1, -1), 0.5, GREY_RULE),
+        ('GRID',          (0, 1), (-1, -1), 0.3, GREY_MED),
+    ]
+    # Colorier les sous-titres catégorie en navy
+    for i, (label, va, vb) in enumerate(criteria, start=1):
+        if va is None and vb is None:
+            ts.append(('BACKGROUND', (0, i), (-1, i), NAVY_LIGHT))
+    t_pio.setStyle(TableStyle(ts))
+    story.append(t_pio)
+    story.append(Spacer(1, 3*mm))
+
+    # Barre score total
+    score_text = (
+        f"Score total : {tkr_a} {pio_a_str}/9 vs {tkr_b} {pio_b_str}/9. "
+        f"Un score >= 7 indique une amelioration de la sante financiere. "
+        f"Sources : etats financiers yfinance (exercice le plus recent disponible)."
+    )
+    story.append(Paragraph(_safe(_enc(score_text)), S_NOTE))
+    story.append(Spacer(1, 2*mm))
+    story.append(src("FinSight IA / yfinance"))
+
+
 # =============================================================================
 # WRITER PRINCIPAL
 # =============================================================================
@@ -1407,12 +1799,16 @@ class ComparisonPDFWriter:
 
         # Page 2+ : Sections de contenu
         story.append(PageBreak())
-        _section_exec_summary(story, m_a, m_b, synthesis, tkr_a, tkr_b)
-        _section_profil_pl(story, m_a, m_b, synthesis, tkr_a, tkr_b)
-        _section_rentabilite_bilan(story, m_a, m_b, tkr_a, tkr_b)
-        _section_valorisation(story, m_a, m_b, synthesis, tkr_a, tkr_b)
-        _section_qualite_risque(story, m_a, m_b, synthesis, tkr_a, tkr_b)
-        _section_verdict(story, m_a, m_b, synthesis, tkr_a, tkr_b)
+        _section_exec_summary(story, m_a, m_b, synthesis, tkr_a, tkr_b)       # 1
+        _section_profil_pl(story, m_a, m_b, synthesis, tkr_a, tkr_b)          # 2
+        _section_rentabilite_bilan(story, m_a, m_b, tkr_a, tkr_b)             # 3
+        _section_fcf_capital(story, m_a, m_b, tkr_a, tkr_b)                   # 4
+        _section_valorisation(story, m_a, m_b, synthesis, tkr_a, tkr_b)       # 5
+        _section_dcf_sensitivity(story, m_a, m_b, tkr_a, tkr_b)               # 6
+        _section_qualite_risque(story, m_a, m_b, synthesis, tkr_a, tkr_b)     # 7
+        _section_momentum_marche(story, m_a, m_b, tkr_a, tkr_b)               # 8
+        _section_piotroski_detail(story, m_a, m_b, tkr_a, tkr_b)              # 9
+        _section_verdict(story, m_a, m_b, synthesis, tkr_a, tkr_b)            # 10
 
         # Build avec cover page et header/footer
         def _on_first(canvas, doc):
