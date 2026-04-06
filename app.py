@@ -2991,10 +2991,12 @@ def _render_comparison_section(state_a: dict) -> None:
         compare_clicked = st.button("Comparer", use_container_width=True, type="primary")
 
     if compare_clicked and ticker_b_input.strip():
-        st.session_state.cmp_ticker_b = ticker_b_input.strip().upper()
-        st.session_state.cmp_stage    = "running"
-        st.session_state.cmp_bytes    = None
-        st.session_state.cmp_state_b  = None
+        st.session_state.cmp_ticker_b   = ticker_b_input.strip().upper()
+        st.session_state.cmp_stage      = "running"
+        st.session_state.cmp_bytes      = None
+        st.session_state.cmp_state_b    = None
+        st.session_state.cmp_pptx_bytes = None
+        st.session_state.cmp_pdf_bytes  = None
         st.rerun()
 
 
