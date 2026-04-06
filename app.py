@@ -283,6 +283,92 @@ _components.html("""
 </script>
 """, height=0)
 
+# JS — raccourcis clavier pour navigation rapide (usage interne Claude)
+_components.html("""
+<script>
+(function() {
+  var _kbRegistered = window.parent.__finsight_kb_registered;
+  if (_kbRegistered) return;
+  window.parent.__finsight_kb_registered = true;
+
+  var SHORTCUTS = {
+    // Alt+H : Nouvelle analyse (retour accueil)
+    'h': function() {
+      var btns = window.parent.document.querySelectorAll('button');
+      for (var b of btns) {
+        if (b.innerText && b.innerText.trim().match(/Nouvelle analyse/i)) {
+          b.click(); return;
+        }
+      }
+    },
+    // Alt+A : Analyser -> (lancer analyse)
+    'a': function() {
+      var btns = window.parent.document.querySelectorAll('button');
+      for (var b of btns) {
+        if (b.innerText && b.innerText.trim().match(/^Analyser/i)) {
+          b.click(); return;
+        }
+      }
+    },
+    // Alt+C : Comparer ->
+    'c': function() {
+      var btns = window.parent.document.querySelectorAll('button');
+      for (var b of btns) {
+        if (b.innerText && b.innerText.trim().match(/Comparer/i)) {
+          b.click(); return;
+        }
+      }
+    },
+    // Alt+P : telecharger PDF (premier bouton PDF visible)
+    'p': function() {
+      var btns = window.parent.document.querySelectorAll('a[download], button');
+      for (var b of btns) {
+        var txt = (b.innerText || b.getAttribute('download') || '').toLowerCase();
+        if (txt.includes('pdf')) { b.click(); return; }
+      }
+    },
+    // Alt+T : telecharger PPTX
+    't': function() {
+      var btns = window.parent.document.querySelectorAll('a[download], button');
+      for (var b of btns) {
+        var txt = (b.innerText || b.getAttribute('download') || '').toLowerCase();
+        if (txt.includes('pptx') || txt.includes('pitchbook')) { b.click(); return; }
+      }
+    },
+    // Alt+E : telecharger Excel
+    'e': function() {
+      var btns = window.parent.document.querySelectorAll('a[download], button');
+      for (var b of btns) {
+        var txt = (b.innerText || b.getAttribute('download') || '').toLowerCase();
+        if (txt.includes('xlsx') || txt.includes('excel')) { b.click(); return; }
+      }
+    },
+    // Alt+K : log la liste des raccourcis dans la console
+    'k': function() {
+      console.log('[FinSight KB] Raccourcis actifs :');
+      console.log('  Alt+H  : Nouvelle analyse (accueil)');
+      console.log('  Alt+A  : Analyser ->');
+      console.log('  Alt+C  : Comparer ->');
+      console.log('  Alt+P  : Download PDF');
+      console.log('  Alt+T  : Download PPTX');
+      console.log('  Alt+E  : Download Excel');
+      console.log('  Alt+K  : Cette aide');
+    }
+  };
+
+  window.parent.document.addEventListener('keydown', function(e) {
+    if (!e.altKey) return;
+    var key = e.key.toLowerCase();
+    if (SHORTCUTS[key]) {
+      e.preventDefault();
+      SHORTCUTS[key]();
+      console.log('[FinSight KB] Alt+' + key.toUpperCase() + ' execute');
+    }
+  });
+})();
+</script>
+""", height=0)
+
 # ---------------------------------------------------------------------------
 # Utilitaire : échappement HTML pour tout texte utilisateur/LLM
 # ---------------------------------------------------------------------------

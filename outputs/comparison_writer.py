@@ -330,6 +330,17 @@ def _fetch_supplements(ticker: str) -> dict:
                                 "Net Interest Income"])
                 if ebit is not None and ie is not None and abs(ie) > 1000:
                     out["interest_coverage"] = round(abs(float(ebit)) / abs(float(ie)), 1)
+                elif ebit is not None and ie is None:
+                    # Fallback : derive depuis EBIT - Pretax Income (ex. Apple dont
+                    # l'interest expense net est absorbe par les revenus de tresorerie)
+                    pretax = _vi_ic(["Pretax Income", "Income Before Tax"])
+                    if pretax is not None:
+                        net_non_op = ebit - pretax  # positif = charge nette
+                        if net_non_op > 1000:
+                            out["interest_coverage"] = round(ebit / net_non_op, 1)
+                        elif net_non_op <= 0:
+                            # Revenus d'interets > charges : couverture excellente
+                            out["interest_coverage"] = 999.0
         except Exception as e:
             log.debug(f"[comparison] interest_coverage error {ticker}: {e}")
 
