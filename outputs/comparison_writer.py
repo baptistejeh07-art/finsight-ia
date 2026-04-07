@@ -260,14 +260,20 @@ def _fetch_supplements(ticker: str) -> dict:
         out["week52_high"]   = round(float(_g(info, "year_high")), 2) if _g(info, "year_high") else None
         out["week52_low"]    = round(float(_g(info, "year_low")),  2) if _g(info, "year_low")  else None
         out["avg_volume_30d"] = round((_g(full, "averageVolume30Day") or _g(full, "averageVolume") or 0) / 1e6, 1) or None
-        # Dividend yield depuis yfinance.info (trailingAnnual = decimal, dividendYield = %)
+        # Dividend yield depuis yfinance.info — cascade 3 sources
         try:
             dy = _g(full, "trailingAnnualDividendYield") or _g(full, "dividendYield")
             if dy and dy > 0:
-                # dividendYield est en % (ex: 0.97 = 0.97%), convertir en decimal si > 0.1
+                # dividendYield est en % (ex: 3.25 = 3.25%), convertir en decimal si > 0.1
                 if dy > 0.1:
                     dy = dy / 100.0
                 out["dividend_yield"] = round(float(dy), 4)
+            # Fallback : dividendRate / currentPrice
+            if not out.get("dividend_yield"):
+                dr = _g(full, "dividendRate")
+                cp = _g(full, "currentPrice") or _g(info, "last_price")
+                if dr and cp and float(cp) > 0:
+                    out["dividend_yield"] = round(float(dr) / float(cp), 4)
         except Exception:
             pass
 
