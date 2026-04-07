@@ -127,10 +127,59 @@ def _build_prompt(snapshot, ratios, sentiment) -> str:
     except Exception:
         ny1, ny2 = "2025F", "2026F"
 
+    # Multi-year revenue trend for context
+    rev_series = []
+    for hy in hist_years_sorted:
+        hyr_raw = snapshot.years.get(hy)
+        hyr_rat = ratios.years.get(hy)
+        if hyr_raw and hyr_rat:
+            rev_val = getattr(hyr_raw, 'revenue', None)
+            gr_val  = getattr(hyr_rat, 'revenue_growth', None)
+            if rev_val:
+                gr_s = f" (+{gr_val*100:.1f}%)" if gr_val and gr_val > 0 else (f" ({gr_val*100:.1f}%)" if gr_val else "")
+                rev_series.append(f"{hy}:{_f(rev_val)}M{gr_s}")
+    rev_series_str = " | ".join(rev_series) if rev_series else "N/A"
+
+    # FCF and capital allocation
+    fcf_s = "N/A"
+    capex_s = "N/A"
+    div_s = "N/A"
+    if yr:
+        raw_yr = snapshot.years.get(latest)
+        if raw_yr:
+            fcf_val = getattr(raw_yr, 'free_cash_flow', None)
+            capex_val = getattr(raw_yr, 'capex', None)
+            div_val = getattr(raw_yr, 'dividends', None)
+            if fcf_val: fcf_s = f"{_f(fcf_val)}M"
+            if capex_val: capex_s = f"{_f(abs(capex_val))}M"
+            if div_val: div_s = f"{_f(abs(div_val))}M"
+
+    # Sector median multiples for context (approximate)
+    _SECTOR_PE = {"Technology":30,"Healthcare":22,"Financials":13,"Consumer Discretionary":20,
+                  "Consumer Staples":18,"Industrials":21,"Energy":12,"Materials":15,"Utilities":20}
+    sector_pe_med = _SECTOR_PE.get(ci.sector or "", None)
+    sector_ctx = f"Mediane sectorielle P/E: {sector_pe_med}x" if sector_pe_med else ""
+
+    # Balance sheet quality
+    bs_ctx = ""
+    if yr:
+        nd = yr.net_debt_ebitda
+        az = yr.altman_z
+        ic = getattr(yr, 'interest_coverage', None)
+        bs_parts = []
+        if nd is not None: bs_parts.append(f"ND/EBITDA:{_f(nd)}x")
+        if az is not None: bs_parts.append(f"AltmanZ:{_f(az,2)}")
+        if ic is not None: bs_parts.append(f"IntCov:{_f(ic,1)}x")
+        bs_ctx = " | ".join(bs_parts)
+
     return f"""Analyse {ci.company_name} ({ci.ticker}) — secteur:{ci.sector} — {date.today().isoformat()}
 Cours:{price_s} {ci.currency} | WACC:{wacc_s} | TGR:{tgr_s}
 {chr(10).join(lines)}
+RevenuHistorique: {rev_series_str}
 MargesHistoriques: {margins_series_str}
+FCF:{fcf_s} | Capex:{capex_s} | Dividendes:{div_s}
+BilanQualite: {bs_ctx}
+{sector_ctx}
 Sentiment: {sent_block}
 
 JSON requis (tous les champs obligatoires) :
@@ -150,8 +199,8 @@ JSON requis (tous les champs obligatoires) :
   "strengths":["<MAXIMUM 8 mots — titre atout1>","<MAXIMUM 8 mots — titre atout2>","<MAXIMUM 8 mots — titre atout3>"],
   "risks":["<MAXIMUM 8 mots — titre risque1>","<MAXIMUM 8 mots — titre risque2>","<MAXIMUM 8 mots — titre risque3>"],
   "valuation_comment":"<2 phrases valorisation relative>",
-  "financial_commentary":"<70 mots MAX — 2-3 phrases: (1) tendances chiffrees P&L (croissance CA, evolution marges), (2) POURQUOI ces tendances (levier operationnel, discipline cout, mix), (3) implication sur la generation de cash et la solidite bilancielle pour la these d'investissement>",
-  "ratio_commentary":"<80 mots MAX — 2-3 phrases ANALYTIQUES sur le graphique MargesHistoriques: (1) decrire la tendance chiffree des marges brute/EBITDA/nette sur la periode, (2) expliquer POURQUOI ces niveaux (structure des couts, levier operationnel, mix produits, pricing power), (3) ce que ca implique pour l'investisseur (durabilite, re-rating potentiel, risque de compression)>",
+  "financial_commentary":"<70 mots MAX. OBLIGATOIRE: (1) chiffre precis CA + taux de croissance YoY, (2) mecanisme exact de la variation de marge (ex: 'levier operationnel de +Xpts grace au mix logiciel haute marge' OU 'pression prix matieres +X% comprimant la GM'), (3) implication FCF et solidite bilan (ratio ND/EBITDA, capacite de rachat ou dividende). Citer les donnees numeriques fournies.>",
+  "ratio_commentary":"<80 mots MAX. OBLIGATOIRE: (1) evolution chiffree des marges EBITDA/brute sur TOUTE la periode historique fournie (ex: 'de X% en 20xx a Y% en 20xx'), (2) mecanisme PRECIS expliquant la trajectoire: effet volume/prix, mix produits (ex: 'montee en puissance du segment SaaS haute marge'), economie d'echelle OU inflation des couts, (3) conclusion investisseur: durabilite du pricing power, risque de mean-reversion, potentiel re-rating.>",
   "dcf_commentary":"<60 mots MAX — 2 phrases: (1) rappeler WACC/TGR et le prix implicite DCF vs cours actuel, (2) expliquer ce que l'upside/downside implicite signifie pour la these: est-ce une sous-valorisation structurelle, une prime de croissance deja pricee, ou un risque d'execution? Quel catalyseur debloquerait la valeur?>",
   "peers_commentary":"<80 mots MAX — 2-3 phrases ANALYTIQUES: (1) position de la societe vs mediane peers sur EV/EBITDA et P/E (prime ou decote en %), (2) expliquer POURQUOI cette prime/decote est justifiee ou non (qualite des actifs, croissance superieure, risque specifique), (3) ce qu'une convergence vers la mediane implique comme upside/downside potentiel en %>",
   "positive_themes":["<20-30 mots: catalyseur + mecanisme d'impact financier + horizon temporel>","<20-30 mots: catalyseur + mecanisme d'impact financier + horizon temporel>","<20-30 mots: catalyseur + mecanisme d'impact financier + horizon temporel>"],
