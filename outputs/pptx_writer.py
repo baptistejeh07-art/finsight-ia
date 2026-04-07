@@ -932,24 +932,74 @@ def _slide_exec_summary(prs, snap, synthesis, ratios, devil, sentiment):
     # Horizontal rule
     add_rect(slide, 1.02, 9.17, 23.37, 0.03, "AAAAAA")
 
-    # 4 KPI boxes
-    ev_e = _ratio(ratios, "ev_ebitda")
-    peers = _g(synthesis, "comparable_peers", []) or []
+    # -------------------------------------------------------------------------
+    # Investment Case — Catalyseurs (left) + Valorisation Synthétique (right)
+    # -------------------------------------------------------------------------
+    catalysts   = _g(synthesis, "catalysts", []) or []
+    peers       = _g(synthesis, "comparable_peers", []) or []
+    ev_e        = _ratio(ratios, "ev_ebitda")
+    pe_e        = _ratio(ratios, "pe_ratio")
     peer_median_ev_e = _peer_median(peers, "ev_ebitda")
+    peer_median_pe   = _peer_median(peers, "pe")
 
-    kpi_box(slide, 1.02, 9.38, 5.64, 2.24,
+    # --- Catalyseurs section (left) ---
+    add_rect(slide, 1.02, 9.26, 11.14, 0.55, "1A7A4A")
+    add_text_box(slide, 1.15, 9.26, 11.0, 0.55,
+                 "CATALYSEURS \u00c0 SURVEILLER (12M)", 7.5, WHITE, bold=True)
+
+    _cat_ys = [9.89, 10.44]
+    for i, cy in enumerate(_cat_ys):
+        if i < len(catalysts):
+            _cat_name = _g(catalysts[i], "title") or _g(catalysts[i], "name") or ""
+            _cat_body = _g(catalysts[i], "description") or _g(catalysts[i], "text") or ""
+            _cat_txt  = _truncate(_cat_name, 55)
+            if _cat_body:
+                _cat_txt += "  " + _fit(_cat_body, 140)
+        else:
+            _cat_txt = "\u2014"
+        add_rect(slide, 1.02, cy + 0.06, 0.12, 0.28, "1A7A4A")
+        add_text_box(slide, 1.22, cy, 10.66, 0.55,
+                     _cat_txt, 7.5, "333333", wrap=True)
+
+    # --- Valorisation Synthétique section (right) ---
+    add_rect(slide, 13.08, 9.26, 11.3, 0.55, NAVY)
+    add_text_box(slide, 13.21, 9.26, 11.1, 0.55,
+                 "VALORISATION SYNTH\u00c9TIQUE", 7.5, WHITE, bold=True)
+
+    val_tbl = add_table(
+        slide, 13.08, 9.89, 11.3, 1.1,
+        num_rows=3, num_cols=3,
+        col_widths_pct=[0.50, 0.25, 0.25],
+        header_data=["Multiple", "Soci\u00e9t\u00e9", "M\u00e9diane pairs"],
+        rows_data=[
+            ["P/E NTM (x)", _frx(pe_e), _frx(peer_median_pe)],
+            ["EV/EBITDA (x)", _frx(ev_e), _frx(peer_median_ev_e)],
+            [f"Cible DCF ({cur_sym})",
+             f"{_fr(tbase, 0)} {cur_sym}",
+             f"Upside {_upside(tbase, price)}"],
+        ],
+    )
+
+    # Vertical divider (lower section)
+    add_rect(slide, 12.57, 9.17, 0.03, 2.0, GREY_LIGHT)
+
+    # Horizontal rule (before KPI)
+    add_rect(slide, 1.02, 11.23, 23.37, 0.03, "AAAAAA")
+
+    # 4 KPI boxes (shifted down to accommodate investment case section)
+    kpi_box(slide, 1.02, 11.34, 5.64, 1.96,
             _frx(ev_e), "EV/EBITDA",
-            f"vs {_frx(peer_median_ev_e)} médiane peers")
-    kpi_box(slide, 6.91, 9.38, 5.64, 2.24,
+            f"vs {_frx(peer_median_ev_e)} med. pairs")
+    kpi_box(slide, 6.91, 11.34, 5.64, 1.96,
             _frpct(wacc_val), "WACC",
-            f"Beta {_fr(beta, 2) if beta else '—'}  ·  RFR {_frpct(rfr)}")
-    kpi_box(slide, 12.80, 9.38, 5.64, 2.24,
-            f"{_fr(tbase, 0)} {cur_sym}", "Valeur intrinsèque DCF",
-            f"Upside de {_upside(tbase, price)} vs cours")
-    kpi_box(slide, 18.69, 9.38, 5.64, 2.24,
+            f"Beta {_fr(beta, 2) if beta else '—'}  \u00b7  RFR {_frpct(rfr)}")
+    kpi_box(slide, 12.80, 11.34, 5.64, 1.96,
+            f"{_fr(tbase, 0)} {cur_sym}", "Valeur DCF base",
+            f"Upside {_upside(tbase, price)} vs cours")
+    kpi_box(slide, 18.69, 11.34, 5.64, 1.96,
             f"{sent_score:+.3f}".replace(".", ","),
             "Sentiment LLM" if _s2_is_llm else "Sentiment FinBERT",
-            f"{sent_label_display}  ·  {sent_articles} articles")
+            f"{sent_label_display}  \u00b7  {sent_articles} art.")
 
     return slide
 
@@ -2755,6 +2805,105 @@ def _slide_historique(prs, snap, synthesis):
 
 
 # ---------------------------------------------------------------------------
+# Slide 21 — Conviction Tracker & Investment Thesis Summary
+# ---------------------------------------------------------------------------
+
+def _slide_conviction_tracker(prs, snap, synthesis, ratios, devil, sentiment):
+    """Slide 21 : Conviction Tracker JPM-style — visualisation de la these d investissement."""
+    from pptx.enum.text import PP_ALIGN
+    slide_layout = prs.slide_layouts[6]
+    slide = prs.slides.add_slide(slide_layout)
+
+    navy_bar(slide)
+    footer_bar(slide)
+    section_dots(slide, 5)
+
+    ci       = snap.company_info if snap else None
+    ticker   = _g(ci, "ticker", "—")
+    rec      = (_g(synthesis, "recommendation") or "HOLD").upper()
+    conv_raw = _g(synthesis, "conviction") or 0.5
+    try: conv = float(conv_raw)
+    except: conv = 0.5
+    conv_pct = int(conv * 100)
+    gen_date = _fr_date_long(_g(ci, "analysis_date", None) or date.today())
+
+    slide_title(slide, "Conviction & Th\u00e8se d\u2019Investissement",
+                f"{ticker}  \u00b7  FinSight IA  \u00b7  Rapport {gen_date}")
+
+    # ── Bloc recommandation central ─────────────────────────────────────────
+    _REC_COL = {"BUY": ("1A7A4A", "E8F5E9"), "SELL": ("A82020", "FFEBEE")}.get(rec, ("B06000", "FFF8E1"))
+    add_rect(slide, 0.90, 2.30, 7.50, 3.50, _REC_COL[1], line_hex=_REC_COL[0], line_width_pt=2)
+    add_text_box(slide, 0.90, 2.40, 7.50, 1.10, rec, 36, _REC_COL[0], bold=True, align=PP_ALIGN.CENTER)
+    add_text_box(slide, 0.90, 3.55, 7.50, 0.55, f"Conviction : {conv_pct}%", 11, GREY_TXT, align=PP_ALIGN.CENTER)
+    add_text_box(slide, 0.90, 4.15, 7.50, 0.55, gen_date, 8.5, GREY_TXT, align=PP_ALIGN.CENTER)
+
+    # ── Conviction meter (barre horizontale) ────────────────────────────────
+    bar_x, bar_y, bar_w, bar_h = 0.90, 6.10, 7.50, 0.55
+    add_rect(slide, bar_x, bar_y, bar_w, bar_h, "E8ECF0")
+    add_rect(slide, bar_x, bar_y, bar_w * conv, bar_h, _REC_COL[0])
+    add_text_box(slide, bar_x, bar_y - 0.40, bar_w, 0.38, "NIVEAU DE CONVICTION", 7, NAVY, bold=True)
+    add_text_box(slide, bar_x + bar_w + 0.1, bar_y, 1.2, bar_h, f"{conv_pct}%", 10, NAVY, bold=True)
+
+    # ── Devil's Advocate delta ───────────────────────────────────────────────
+    devil_conv = _g(devil, "devil_conviction") or 0.5
+    delta = conv - (float(devil_conv) if devil_conv else 0.5)
+    delta_lbl = f"+{delta*100:.0f}% vs Avocat du Diable" if delta >= 0 else f"{delta*100:.0f}% vs Avocat du Diable"
+    delta_col = "1A7A4A" if delta >= 0 else "A82020"
+    add_rect(slide, 0.90, 7.00, 7.50, 0.75, "F5F7FA")
+    add_text_box(slide, 1.00, 7.05, 7.30, 0.65, f"Delta conviction : {delta_lbl}", 8.5, delta_col, bold=True)
+
+    # ── Thesis Summary ───────────────────────────────────────────────────────
+    thesis_raw = _g(synthesis, "thesis", "") or ""
+    thesis_parts = [p.strip() for p in thesis_raw.split(" | ") if p.strip()] if thesis_raw else []
+    add_rect(slide, 9.20, 2.30, 15.20, 0.55, NAVY)
+    add_text_box(slide, 9.35, 2.35, 15.0, 0.45, "TH\u00c8SE D\u2019INVESTISSEMENT", 8, WHITE, bold=True)
+    y_th = 2.95
+    for i, part in enumerate(thesis_parts[:3]):
+        add_rect(slide, 9.20, y_th, 0.10, 0.80, _REC_COL[0])
+        add_text_box(slide, 9.45, y_th + 0.05, 14.85, 0.75, part[:220], 8.5, GREY_TXT, wrap=True)
+        y_th += 0.95
+
+    # ── Catalyseurs / Risques ────────────────────────────────────────────────
+    pos_themes = _g(synthesis, "positive_themes") or []
+    neg_themes = _g(synthesis, "negative_themes") or []
+    y_mid = max(y_th + 0.30, 5.95)
+
+    add_rect(slide, 9.20, y_mid, 7.40, 0.50, "1A7A4A")
+    add_text_box(slide, 9.35, y_mid + 0.05, 7.2, 0.40, "CATALYSEURS BULLS", 7.5, WHITE, bold=True)
+    y_c = y_mid + 0.60
+    for th in (pos_themes[:2] if pos_themes else ["N/D"]):
+        add_text_box(slide, 9.45, y_c, 7.10, 0.60, f"\u2022 {str(th)[:140]}", 7.5, GREY_TXT, wrap=True)
+        y_c += 0.70
+
+    add_rect(slide, 17.00, y_mid, 7.40, 0.50, "A82020")
+    add_text_box(slide, 17.15, y_mid + 0.05, 7.2, 0.40, "RISQUES BEARS", 7.5, WHITE, bold=True)
+    y_r = y_mid + 0.60
+    for th in (neg_themes[:2] if neg_themes else ["N/D"]):
+        add_text_box(slide, 17.15, y_r, 7.10, 0.60, f"\u2022 {str(th)[:140]}", 7.5, GREY_TXT, wrap=True)
+        y_r += 0.70
+
+    # ── Invalidation conditions ──────────────────────────────────────────────
+    inv_list = _g(synthesis, "invalidation_list") or []
+    if inv_list:
+        y_inv = max(y_c, y_r) + 0.40
+        if y_inv < 11.5:
+            add_rect(slide, 9.20, y_inv, 15.20, 0.45, "FFF3CD")
+            add_rect(slide, 9.20, y_inv, 0.10, 0.45, "B06000")
+            inv_str = "  \u00b7  ".join(
+                f"{_g(it,'axis','?')}: {str(_g(it,'condition',''))[:60]}" for it in inv_list[:2])
+            add_text_box(slide, 9.45, y_inv + 0.04, 14.85, 0.38,
+                         f"\u26a0 Conditions d\u2019invalidation : {inv_str}", 7.5, "7A5000")
+
+    # ── Note methodologique ──────────────────────────────────────────────────
+    add_text_box(slide, 0.90, 13.20, 23.60, 0.45,
+                 "FinSight IA genere cette analyse a un instant T. Pour le suivi dans le temps, "
+                 "comparer les rapports successifs. La conviction reflete les donnees disponibles a la date d'analyse.",
+                 7, GREY_TXT, wrap=True)
+
+    return slide
+
+
+# ---------------------------------------------------------------------------
 # Utility
 # ---------------------------------------------------------------------------
 
@@ -2917,6 +3066,9 @@ class PPTXWriter:
 
         # --- Slide 20: Historique de Cours ---
         _slide_historique(prs, snap, synthesis)
+
+        # --- Slide 21: Conviction Tracker ---
+        _slide_conviction_tracker(prs, snap, synthesis, ratios, devil, sentiment)
 
         # Save
         out_path = Path(output_path)

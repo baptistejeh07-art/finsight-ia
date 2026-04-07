@@ -912,6 +912,208 @@ def _make_on_page(data):
 # BUILD FUNCTIONS
 # =============================================================================
 
+def _build_investment_case(data):
+    """
+    Page 'Investment Case' JPM-style :
+    - Thèse d'investissement (bullets positive_themes)
+    - Catalyseurs à surveiller 12M
+    - Valorisation synthétique (P/E + EV/EBITDA + cible DCF vs mediane pairs)
+    - Risques principaux (bullets risk_themes)
+    Insérée après le sommaire, avant la synthèse exécutive.
+    """
+    elems = []
+    ticker   = _d(data, 'ticker', '')
+    rec      = _d(data, 'recommendation', 'HOLD').upper()
+    cur      = _d(data, 'currency', 'USD')
+    upside   = _d(data, 'upside_str', '\u2014')
+    tbase    = _d(data, 'target_price_full', '\u2014')
+    pe_val   = _d(data, 'pe_ntm_str', '\u2014')
+    ev_val   = _d(data, 'ev_ebitda_str', '\u2014')
+
+    # Bullets thèse (positive_themes depuis data)
+    pos_themes  = data.get('pos_themes_ic') or []
+    cats        = data.get('catalysts') or []
+    risk_themes = data.get('risk_themes') or []
+    risk_full   = data.get('risk_themes_full') or []
+
+    # ---- Bandeau titre --------------------------------------------------------
+    rec_col = _rec_color(rec)
+    banner_rows = [[
+        Paragraph(f"<b>INVESTMENT CASE \u2014 {_safe(ticker)}</b>",
+                  _s('ic_banner_t', size=12, bold=True, color=WHITE, leading=16)),
+        Paragraph(
+            f"<b>{rec}</b>   |   Cible : {_safe(tbase)}   |   Upside : {_safe(upside)}",
+            _s('ic_banner_r', size=9, color=WHITE, leading=13, align=TA_RIGHT)),
+    ]]
+    banner_tbl = Table(banner_rows, colWidths=[90*mm, 80*mm])
+    banner_tbl.setStyle(TableStyle([
+        ('BACKGROUND',    (0, 0), (-1, -1), NAVY),
+        ('TOPPADDING',    (0, 0), (-1, -1), 6),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+        ('LEFTPADDING',   (0, 0), (-1, -1), 8),
+        ('RIGHTPADDING',  (0, 0), (-1, -1), 8),
+        ('VALIGN',        (0, 0), (-1, -1), 'MIDDLE'),
+    ]))
+    elems.append(banner_tbl)
+    elems.append(Spacer(1, 4*mm))
+
+    # ---- Ligne 1 : Thèse | Risques (2 colonnes) ------------------------------
+    S_BULL = _s('ic_bull', size=8.5, leading=13, color=GREY_TEXT)
+    S_IC_H = _s('ic_hdr', size=9, bold=True, color=WHITE, leading=12)
+    S_IC_B = _s('ic_b',   size=8.5, leading=12, color=GREY_TEXT, align=TA_JUSTIFY)
+
+    # -- Colonne gauche : Thèse --
+    left_elems = []
+
+    # Sous-titre thèse
+    h_these = Table([[Paragraph("TH\u00c8SE D'INVESTISSEMENT", S_IC_H)]],
+                    colWidths=[82*mm])
+    h_these.setStyle(TableStyle([
+        ('BACKGROUND',    (0,0), (-1,-1), NAVY),
+        ('TOPPADDING',    (0,0), (-1,-1), 4),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 4),
+        ('LEFTPADDING',   (0,0), (-1,-1), 6),
+        ('RIGHTPADDING',  (0,0), (-1,-1), 6),
+    ]))
+    left_elems.append(h_these)
+    left_elems.append(Spacer(1, 2*mm))
+
+    # Bullets thèse
+    for i in range(3):
+        txt = pos_themes[i] if i < len(pos_themes) else '\u2014'
+        left_elems.append(Paragraph(
+            f"\u2022  {_safe(txt)}", S_IC_B))
+        left_elems.append(Spacer(1, 2*mm))
+
+    left_elems.append(Spacer(1, 3*mm))
+
+    # Sous-titre Catalyseurs
+    h_cat = Table([[Paragraph("CATALYSEURS \u00c0 SURVEILLER (12M)", S_IC_H)]],
+                  colWidths=[82*mm])
+    h_cat.setStyle(TableStyle([
+        ('BACKGROUND',    (0,0), (-1,-1), BUY_GREEN),
+        ('TOPPADDING',    (0,0), (-1,-1), 4),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 4),
+        ('LEFTPADDING',   (0,0), (-1,-1), 6),
+        ('RIGHTPADDING',  (0,0), (-1,-1), 6),
+    ]))
+    left_elems.append(h_cat)
+    left_elems.append(Spacer(1, 2*mm))
+
+    for i in range(3):
+        if i < len(cats):
+            c_name = _d(cats[i], 'name', '\u2014')
+            c_anal = _d(cats[i], 'analysis', '')
+            txt = f"{_safe(c_name)}" + (f" \u2014 {_safe(c_anal[:80])}" if c_anal else "")
+        else:
+            txt = '\u2014'
+        left_elems.append(Paragraph(f"\u2022  {_safe(txt)}", S_IC_B))
+        left_elems.append(Spacer(1, 2*mm))
+
+    left_col = Table([[e] for e in left_elems],
+                     colWidths=[82*mm])
+    left_col.setStyle(TableStyle([
+        ('TOPPADDING',    (0,0), (-1,-1), 0),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 0),
+        ('LEFTPADDING',   (0,0), (-1,-1), 0),
+        ('RIGHTPADDING',  (0,0), (-1,-1), 0),
+    ]))
+
+    # -- Colonne droite : Valorisation + Risques --
+    right_elems = []
+
+    # Sous-titre Valorisation
+    h_val = Table([[Paragraph("VALORISATION SYNTH\u00c9TIQUE", S_IC_H)]],
+                  colWidths=[82*mm])
+    h_val.setStyle(TableStyle([
+        ('BACKGROUND',    (0,0), (-1,-1), NAVY_LIGHT),
+        ('TOPPADDING',    (0,0), (-1,-1), 4),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 4),
+        ('LEFTPADDING',   (0,0), (-1,-1), 6),
+        ('RIGHTPADDING',  (0,0), (-1,-1), 6),
+    ]))
+    right_elems.append(h_val)
+    right_elems.append(Spacer(1, 2*mm))
+
+    # Tableau valorisation
+    val_h = [
+        Paragraph("Multiple",         S_TH_L),
+        Paragraph("Soci\u00e9t\u00e9", S_TH_C),
+        Paragraph("R\u00e9f. secteur", S_TH_C),
+    ]
+    pe_ref  = _d(data, 'pe_ref_str',  '15\u201325x')
+    ev_ref  = _d(data, 'ev_ref_str',  '8\u201318x')
+    val_rows = [
+        [Paragraph("P/E NTM (x)",       S_TD_B),
+         Paragraph(_safe(pe_val),        S_TD_C),
+         Paragraph(_safe(pe_ref),        S_TD_C)],
+        [Paragraph("EV/EBITDA (x)",      S_TD_B),
+         Paragraph(_safe(ev_val),        S_TD_C),
+         Paragraph(_safe(ev_ref),        S_TD_C)],
+        [Paragraph(f"Cible DCF Base ({cur})", S_TD_B),
+         Paragraph(_safe(tbase),         S_TD_C),
+         Paragraph(f"Upside {_safe(upside)}", S_TD_C)],
+    ]
+    val_tbl = tbl([val_h] + val_rows, cw=[44*mm, 19*mm, 19*mm])
+    right_elems.append(val_tbl)
+    right_elems.append(Spacer(1, 4*mm))
+
+    # Sous-titre Risques
+    h_risk = Table([[Paragraph("RISQUES PRINCIPAUX", S_IC_H)]],
+                   colWidths=[82*mm])
+    h_risk.setStyle(TableStyle([
+        ('BACKGROUND',    (0,0), (-1,-1), SELL_RED),
+        ('TOPPADDING',    (0,0), (-1,-1), 4),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 4),
+        ('LEFTPADDING',   (0,0), (-1,-1), 6),
+        ('RIGHTPADDING',  (0,0), (-1,-1), 6),
+    ]))
+    right_elems.append(h_risk)
+    right_elems.append(Spacer(1, 2*mm))
+
+    for i in range(3):
+        risk_lbl  = risk_themes[i] if i < len(risk_themes) else '\u2014'
+        risk_body = risk_full[i]   if i < len(risk_full)   else ''
+        txt = _safe(risk_lbl)
+        if risk_body and risk_body != risk_lbl:
+            body_short = risk_body[:100] + ('\u2026' if len(risk_body) > 100 else '')
+            txt = f"<b>{_safe(risk_lbl)}</b> \u2014 {_safe(body_short)}"
+        else:
+            txt = f"<b>{_safe(risk_lbl)}</b>"
+        right_elems.append(Paragraph(f"\u2022  {txt}", S_IC_B))
+        right_elems.append(Spacer(1, 2*mm))
+
+    right_col = Table([[e] for e in right_elems],
+                      colWidths=[82*mm])
+    right_col.setStyle(TableStyle([
+        ('TOPPADDING',    (0,0), (-1,-1), 0),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 0),
+        ('LEFTPADDING',   (0,0), (-1,-1), 0),
+        ('RIGHTPADDING',  (0,0), (-1,-1), 0),
+    ]))
+
+    # ---- Assemblage 2 colonnes -----------------------------------------------
+    two_col = Table(
+        [[left_col, right_col]],
+        colWidths=[86*mm, 84*mm],
+    )
+    two_col.setStyle(TableStyle([
+        ('VALIGN',        (0,0), (-1,-1), 'TOP'),
+        ('LEFTPADDING',   (0,0), (-1,-1), 0),
+        ('RIGHTPADDING',  (0,0), (-1,-1), 0),
+        ('TOPPADDING',    (0,0), (-1,-1), 0),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 0),
+        ('LEFTPADDING',   (1,0), (1,0),   6),
+    ]))
+    elems.append(KeepTogether(two_col))
+    elems.append(Spacer(1, 4*mm))
+    elems.append(Paragraph(
+        "Source : FinSight IA \u2014 Mod\u00e8le DCF interne, donn\u00e9es yfinance / Finnhub. "
+        "Ce r\u00e9sum\u00e9 ne constitue pas un conseil en investissement.",
+        S_NOTE))
+    return elems
+
+
 def _build_sommaire(data):
     pn = data.get('page_nums') or {}
     S_SUB = _s("subgrey", size=7, leading=10, color=GREY_TEXT)
@@ -2037,6 +2239,10 @@ def generate_report(data: dict, output_path: str) -> str:
         S_DISC))
     story.append(PageBreak())
 
+    # Page Investment Case (JPM-style) — insérée avant la synthèse exécutive
+    story += _build_investment_case(data)
+    story.append(PageBreak())
+
     story += _build_synthese(perf_buf, data)
     story += _build_financials(area_buf, data, margins_buf)
     story.append(PageBreak())
@@ -2431,6 +2637,19 @@ class PDFWriter:
             if _div_paid and _shares and float(_shares) > 0 and price:
                 div_yield = float(_div_paid) / float(_shares) / float(price)
 
+        # Forward estimates (consensus analystes via yfinance)
+        _fwd_eps      = None
+        _fwd_pe       = None
+        _trailing_eps = None
+        try:
+            import yfinance as yf
+            _yf_info = yf.Ticker(ticker).info or {}
+            _fwd_eps      = _yf_info.get("forwardEps")
+            _fwd_pe       = _yf_info.get("forwardPE")
+            _trailing_eps = _yf_info.get("trailingEps")
+        except Exception:
+            pass
+
         # IS table
         hist_3 = hist_labels[-4:] if len(hist_labels) >= 4 else hist_labels
         try:
@@ -2500,14 +2719,33 @@ class PDFWriter:
                 grow_vals.append('\u2014')
             prev_r = r
 
+        # EPS rows : valeur unique positionnee dans la colonne LTM et N+1E
+        _n_cols   = len(all_labels)
+        _dash_row = ['\u2014'] * _n_cols
+        def _eps_row(label, val, col_idx):
+            row = list(_dash_row)
+            if val is not None and col_idx < _n_cols:
+                try:
+                    row[col_idx] = _frx(float(val))
+                except (ValueError, TypeError):
+                    pass
+            return [label] + row
+
+        # col LTM = index (len(hist_3) - 1), col N+1E = index len(hist_3)
+        _ltm_idx  = len(hist_3) - 1
+        _ny1_idx  = len(hist_3)
+
         is_data = [
-            ["Chiffre d'affaires"]   + rev_vals,
-            ["Croissance YoY"]       + grow_vals,
-            ["Marge brute"]          + [_frpct(_gm(l)) for l in all_labels],
-            ["EBITDA"]               + [_frm(_ebitda(l)) for l in all_labels],
-            ["Marge EBITDA"]         + [_frpct(_em(l)) for l in all_labels],
-            ["R\u00e9sultat net"]    + [_frm(_ni(l)) for l in all_labels],
-            ["Marge nette"]          + [_frpct(_nm(l)) for l in all_labels],
+            ["Chiffre d'affaires"]      + rev_vals,
+            ["Croissance YoY"]          + grow_vals,
+            ["Marge brute"]             + [_frpct(_gm(l)) for l in all_labels],
+            ["EBITDA"]                  + [_frm(_ebitda(l)) for l in all_labels],
+            ["Marge EBITDA"]            + [_frpct(_em(l)) for l in all_labels],
+            ["R\u00e9sultat net"]       + [_frm(_ni(l)) for l in all_labels],
+            ["Marge nette"]             + [_frpct(_nm(l)) for l in all_labels],
+            _eps_row("EPS LTM ($)",     _trailing_eps, _ltm_idx),
+            _eps_row("EPS N+1E (cns.)", _fwd_eps,      _ny1_idx),
+            _eps_row("P/E Forward",     _fwd_pe,        _ny1_idx),
         ]
 
         # Ratios vs pairs
@@ -2898,6 +3136,14 @@ class PDFWriter:
                 for i, c in enumerate((_g(synthesis,'catalysts') or [])[:3])
             ],
 
+            # Investment Case — données spécifiques
+            'pos_themes_ic': [
+                t if isinstance(t, str) else (_g(t,'title') or _g(t,'name') or '')
+                for t in (_g(synthesis,'positive_themes') or [])[:3]
+            ],
+            'pe_ref_str':  bm.get('pe', '15\u201322x'),
+            'ev_ref_str':  bm.get('ev_e', '10\u201316x'),
+
             # Comparables
             'comparables':    comparables,
             'pie_labels':     [],
@@ -2948,7 +3194,7 @@ class PDFWriter:
             # Synthese finale
             'next_review':   _g(synthesis,'next_review') or '',
             'revision_data': rev_data,
-            'page_nums':     {'synthese':3,'financials':5,'valorisation':7,'risques':9},
+            'page_nums':     {'synthese':4,'financials':6,'valorisation':8,'risques':10},
 
             # Monte Carlo DCF (Chantier 1)
             'dcf_mc_p10':  (ratios.meta.get('dcf_mc_p10')  if ratios and getattr(ratios, 'meta', None) else None),
