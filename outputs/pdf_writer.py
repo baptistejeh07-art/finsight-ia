@@ -135,9 +135,12 @@ def _enc(s):
     except: return str(s)
 
 def _safe(s):
-    """Echappe &, <, > pour injection dans ReportLab Paragraph (parser XML)."""
+    """Echappe &, <, > pour injection dans ReportLab Paragraph (parser XML).
+    Decode d'abord les entites HTML du LLM (&gt; → >) avant re-escaping."""
     if not s: return ""
-    return str(s).replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+    import html as _html
+    decoded = _html.unescape(str(s))
+    return decoded.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
 
 def _d(obj, key, default=""):
     v = obj.get(key) if isinstance(obj, dict) else None
@@ -1076,7 +1079,7 @@ def _build_investment_case(data):
         risk_body = risk_full[i]   if i < len(risk_full)   else ''
         txt = _safe(risk_lbl)
         if risk_body and risk_body != risk_lbl:
-            body_short = risk_body[:100] + ('\u2026' if len(risk_body) > 100 else '')
+            body_short = risk_body[:160] + ('\u2026' if len(risk_body) > 160 else '')
             txt = f"<b>{_safe(risk_lbl)}</b> \u2014 {_safe(body_short)}"
         else:
             txt = f"<b>{_safe(risk_lbl)}</b>"

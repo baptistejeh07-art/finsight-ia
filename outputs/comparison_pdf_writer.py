@@ -116,10 +116,12 @@ def _enc(s):
     except: return str(s)
 
 def _safe(s):
-    """Echappe &, <, > pour Paragraph ReportLab. Supprime le markdown LLM."""
+    """Echappe &, <, > pour Paragraph ReportLab. Supprime le markdown LLM.
+    Decode d'abord les entites HTML du LLM (&gt; → >) avant re-escaping."""
     if not s: return ""
-    import re
+    import re, html as _html
     s = str(s)
+    s = _html.unescape(s)  # decode &gt; &lt; &amp; &nbsp; etc.
     s = re.sub(r'\*\*(.+?)\*\*', r'\1', s)
     s = re.sub(r'\*(.+?)\*', r'\1', s)
     s = re.sub(r'\*+', '', s)
