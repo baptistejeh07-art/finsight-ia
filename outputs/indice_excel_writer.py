@@ -234,19 +234,22 @@ def _sector_aggregates(tickers: list[dict]) -> dict:
 # ---------------------------------------------------------------------------
 
 def _write(ws, row: int, col: int | str, value):
-    """Ecrit dans une cellule sauf si elle contient deja une formule ou ArrayFormula."""
+    """Ecrit dans une cellule — ecrase les ArrayFormula (XLOOKUP/SORT) car
+    elles ne sont pas recalculees au telechargement Streamlit."""
     if isinstance(col, str):
         cell = ws[f"{col}{row}"]
     else:
         cell = ws.cell(row=row, column=col)
+    # Ecraser les ArrayFormula pour garantir la visibilite sans Excel
     try:
         from openpyxl.worksheet.formula import ArrayFormula
         if isinstance(cell.value, ArrayFormula):
-            return  # guard formule matricielle
+            cell.value = None  # clear formula avant ecriture
     except ImportError:
         pass
+    # Guard formule normale (=SUM etc.) — celles-ci sont generalement correctes
     if cell.value and isinstance(cell.value, str) and cell.value.startswith("="):
-        return  # guard formule normale
+        return
     cell.value = value
 
 
