@@ -2150,7 +2150,7 @@ def _slide_verdict(prs, m_a: dict, m_b: dict, synthesis: dict):
         header_fill=NAVY_MID, border_hex="DDDDDD"
     )
 
-    # Trajectoire boursiere — bref narratif
+    # Trajectoire boursiere — narratif avec contexte
     y_traj = 10.0
     perf_a = _frpct(m_a.get('perf_1y'), signed=True)
     perf_b = _frpct(m_b.get('perf_1y'), signed=True)
@@ -2158,11 +2158,28 @@ def _slide_verdict(prs, m_a: dict, m_b: dict, synthesis: dict):
     cur_b = "EUR" if (m_b.get('currency_b') or 'USD') == 'EUR' else '$'
     price_a = _fr(m_a.get('share_price'), 2)
     price_b = _fr(m_b.get('share_price'), 2)
-    traj_txt = (f"{tkr_a} : {price_a} {cur_a} (perf 1Y : {perf_a})  |  "
-                f"{tkr_b} : {price_b} {cur_b} (perf 1Y : {perf_b})")
-    add_rect(slide, 1.02, y_traj, 23.37, 0.65, GREY_BG)
-    add_rect(slide, 1.02, y_traj, 0.13, 0.65, NAVY_MID)
-    add_text_box(slide, 1.35, y_traj + 0.10, 22.8, 0.48, traj_txt, 8, GREY_TXT, wrap=False)
+    # Determiner le leader + contexte
+    _p1y_a = m_a.get('perf_1y') or 0
+    _p1y_b = m_b.get('perf_1y') or 0
+    try: _fa, _fb = float(_p1y_a), float(_p1y_b)
+    except: _fa, _fb = 0, 0
+    _leader = tkr_a if _fa > _fb else tkr_b
+    _beta_a = m_a.get('beta') or 0
+    _sec = m_a.get('sector_a') or m_a.get('sector') or ''
+    _ctx = ""
+    if _sec:
+        _ctx = f"Contexte : environnement de taux normalises, discrimination accrue entre profils de qualite dans le secteur {_sec}."
+    traj_line1 = (f"{tkr_a} : {price_a} {cur_a} (1Y : {perf_a})  |  "
+                  f"{tkr_b} : {price_b} {cur_b} (1Y : {perf_b})  |  "
+                  f"Leader : {_leader}")
+    add_rect(slide, 1.02, y_traj, 23.37, 1.5, GREY_BG)
+    add_rect(slide, 1.02, y_traj, 0.13, 1.5, NAVY_MID)
+    add_text_box(slide, 1.35, y_traj + 0.08, 22.8, 0.45, "TRAJECTOIRE BOURSIERE & CONTEXTE",
+                 7, NAVY, bold=True, wrap=False)
+    add_text_box(slide, 1.35, y_traj + 0.50, 22.8, 0.40, traj_line1, 7.5, GREY_TXT, wrap=False)
+    if _ctx:
+        add_text_box(slide, 1.35, y_traj + 0.90, 22.8, 0.50,
+                     _truncate(_ctx, 180), 7, GREY_TXT, wrap=True)
 
     return slide
 

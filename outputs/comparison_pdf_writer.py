@@ -1687,6 +1687,71 @@ def _section_52w_price(story, m_a, m_b, tkr_a, tkr_b):
                             _s('trend_a', size=8.5, leading=13, color=BLACK, sb=0, sa=3)))
     story.append(Paragraph(_safe(_enc(trend_b)),
                             _s('trend_b', size=8.5, leading=13, color=BLACK, sb=0, sa=3)))
+    story.append(Spacer(1, 2*mm))
+
+    # Contexte macro et interpretation fondamentale
+    _sec_a = m_a.get("sector_a") or m_a.get("sector") or ""
+    _sec_b = m_b.get("sector_b") or m_b.get("sector") or ""
+    _pe_a  = m_a.get("pe_ratio") or m_a.get("pe_trailing")
+    _pe_b  = m_b.get("pe_ratio") or m_b.get("pe_trailing")
+    _eg_a  = m_a.get("earnings_growth")
+    _eg_b  = m_b.get("earnings_growth")
+    _beta_a = m_a.get("beta")
+    _beta_b = m_b.get("beta")
+
+    _macro_parts = []
+    # Contexte taux / cycle
+    _macro_parts.append(
+        "Dans un environnement de taux directeurs normalises et d'inflation moderee, "
+        "les marches actions discriminent davantage entre les profils de croissance et "
+        "la qualite des fondamentaux."
+    )
+    # Lecture sectorielle
+    if _sec_a and _sec_b:
+        if _sec_a == _sec_b:
+            _macro_parts.append(
+                f"Les deux valeurs evoluent dans le meme secteur ({_sec_a}), "
+                f"la divergence de trajectoire reflete donc des dynamiques propres "
+                f"(mix produits, geographies, execution) plutot qu'une rotation sectorielle."
+            )
+        else:
+            _macro_parts.append(
+                f"La difference sectorielle ({_sec_a} vs {_sec_b}) implique des sensibilites "
+                f"macro distinctes — les flux de rotation sectorielle expliquent une partie "
+                f"de la divergence observee."
+            )
+    # Lecture valorisation
+    if _pe_a and _pe_b:
+        try:
+            _pa, _pb = float(_pe_a), float(_pe_b)
+            if _pa > 0 and _pb > 0:
+                _leader_pe = tkr_a if _pa < _pb else tkr_b
+                _macro_parts.append(
+                    f"{_enc(_leader_pe)} offre un profil de valorisation plus attractif "
+                    f"(P/E {min(_pa,_pb):.1f}x vs {max(_pa,_pb):.1f}x), suggerant une asymetrie "
+                    f"risque/rendement favorable si la croissance des resultats se maintient."
+                )
+        except (ValueError, TypeError):
+            pass
+    # Beta / sensibilite
+    if _beta_a and _beta_b:
+        try:
+            _ba, _bb = float(_beta_a), float(_beta_b)
+            _defensif = tkr_a if _ba < _bb else tkr_b
+            _cyclique = tkr_b if _ba < _bb else tkr_a
+            _macro_parts.append(
+                f"En termes de profil de risque, {_enc(_defensif)} (beta {min(_ba,_bb):.2f}) "
+                f"offre un caractere plus defensif tandis que {_enc(_cyclique)} (beta {max(_ba,_bb):.2f}) "
+                f"amplifie les mouvements de marche — un parametre cle pour le sizing de position."
+            )
+        except (ValueError, TypeError):
+            pass
+
+    if _macro_parts:
+        _macro_text = " ".join(_macro_parts)
+        story.append(Paragraph(
+            f"<b>Contexte macro et lecture fondamentale.</b> {_safe(_enc(_macro_text))}",
+            _s('macro_ctx', size=8.5, leading=13, color=BLACK, sb=0, sa=4)))
     story.append(Spacer(1, 3*mm))
 
     # Analyse chiffree des deux titres

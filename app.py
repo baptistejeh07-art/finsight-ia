@@ -1223,6 +1223,11 @@ def render_home() -> None:
             if input_type == "analyse_individuelle":
                 st.session_state.ticker = target.upper()
                 st.session_state.stage  = "running"
+                # Reset comparaison precedente pour eviter affichage stale
+                st.session_state.cmp_stage      = None
+                st.session_state.cmp_bytes      = None
+                st.session_state.cmp_pptx_bytes = None
+                st.session_state.cmp_pdf_bytes  = None
             else:
                 u_key = target.upper().replace("-", "").replace(" ", "").replace("&", "")
                 st.session_state.screening_universe = u_key
@@ -2992,7 +2997,39 @@ def _render_comparison_section(state_a: dict) -> None:
         compare_clicked = st.button("Comparer", use_container_width=True, type="primary")
 
     if compare_clicked and ticker_b_input.strip():
-        st.session_state.cmp_ticker_b   = ticker_b_input.strip().upper()
+        raw_input = ticker_b_input.strip().upper()
+        # Resolution : si l'input ne ressemble pas a un ticker (contient un espace
+        # ou plus de 6 chars sans point), chercher via Yahoo Finance Search
+        resolved_ticker = raw_input
+        _needs_resolve = len(raw_input) > 6 and "." not in raw_input
+        if not _needs_resolve:
+            # Verifier si le ticker est valide via yfinance
+            try:
+                import yfinance as _yf
+                _chk = _yf.Ticker(raw_input)
+                _qt = (_chk.info or {}).get("quoteType", "")
+                if _qt not in ("EQUITY", "ETF"):
+                    _needs_resolve = True
+            except Exception:
+                _needs_resolve = True
+        if _needs_resolve:
+            try:
+                import requests as _req
+                _r = _req.get(
+                    "https://query2.finance.yahoo.com/v1/finance/search",
+                    params={"q": raw_input, "quotesCount": 5, "newsCount": 0},
+                    headers={"User-Agent": "Mozilla/5.0"}, timeout=5,
+                )
+                _quotes = _r.json().get("quotes", [])
+                # Prendre le premier resultat EQUITY
+                for _q in _quotes:
+                    if _q.get("quoteType") == "EQUITY":
+                        resolved_ticker = _q["symbol"]
+                        st.info(f"Ticker resolu : {raw_input} -> {resolved_ticker} ({_q.get('shortname','')})")
+                        break
+            except Exception:
+                pass  # garder raw_input
+        st.session_state.cmp_ticker_b   = resolved_ticker
         st.session_state.cmp_stage      = "running"
         st.session_state.cmp_bytes      = None
         st.session_state.cmp_state_b    = None
