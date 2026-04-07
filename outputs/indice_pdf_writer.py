@@ -330,22 +330,22 @@ def make_top3_donut(data):
     sizes     = poids_top + [reste]
     palette   = ['#1B3A6B', '#2A5298', '#5580B8', '#D0D5DD']
     explode   = [0.04] * len(top3) + [0]
-    fig, ax = plt.subplots(figsize=(5.2, 5.6))
+    fig, ax = plt.subplots(figsize=(6.0, 6.4))
     wedges, _ = ax.pie(sizes, labels=None, autopct=None,
                        colors=palette[:len(sizes)], explode=explode,
                        startangle=90, wedgeprops=dict(linewidth=0.8, edgecolor='white'))
     centre = plt.Circle((0, 0), 0.40, color='white')
     ax.add_patch(centre)
     total_top = sum(poids_top)
-    ax.text(0,  0.10, "Top 3",    ha='center', va='center', fontsize=12, fontweight='bold', color='#1B3A6B')
-    ax.text(0, -0.14, f"{total_top:.0f}%", ha='center', va='center', fontsize=16, fontweight='bold', color='#1B3A6B')
-    ax.legend(wedges, labels, loc='lower center', bbox_to_anchor=(0.5, -0.22),
-              ncol=2, fontsize=11, frameon=False, handlelength=1.4, columnspacing=1.2)
-    ax.set_title(f"Contribution a l'indice - Top 3 vs reste",
-                 fontsize=13, color='#1B3A6B', fontweight='bold', pad=12)
+    ax.text(0,  0.10, "Top 3",    ha='center', va='center', fontsize=14, fontweight='bold', color='#1B3A6B')
+    ax.text(0, -0.14, f"{total_top:.0f}%", ha='center', va='center', fontsize=19, fontweight='bold', color='#1B3A6B')
+    ax.legend(wedges, labels, loc='lower center', bbox_to_anchor=(0.5, -0.24),
+              ncol=2, fontsize=13, frameon=False, handlelength=1.6, columnspacing=1.4)
+    ax.set_title(f"Contribution a l'indice — Top 3 vs reste",
+                 fontsize=15, color='#1B3A6B', fontweight='bold', pad=14)
     fig.patch.set_facecolor('white')
-    plt.tight_layout(pad=0.5)
-    buf = io.BytesIO(); fig.savefig(buf, format='png', dpi=160, bbox_inches='tight')
+    plt.tight_layout(pad=0.6)
+    buf = io.BytesIO(); fig.savefig(buf, format='png', dpi=180, bbox_inches='tight')
     plt.close(fig); buf.seek(0); return buf
 
 
@@ -1428,7 +1428,7 @@ def _build_top3(data, donut_buf, registry=None):
     elems.append(Spacer(1, 4*mm))
 
     # Donut gauche + textes analytiques droite
-    donut_img = Image(donut_buf, width=82*mm, height=86*mm)
+    donut_img = Image(donut_buf, width=94*mm, height=98*mm)
     analyses_lines = []
     for sect in data["top3_secteurs"]:
         cat = sect.get("catalyseur", "")
