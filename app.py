@@ -2889,44 +2889,20 @@ def _render_comparison_section(state_a: dict) -> None:
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             use_container_width=True,
         )
-        # Pitchbook PPTX comparatif
+        # Pitchbook PPTX comparatif (pré-généré)
         cmp_pptx = st.session_state.get("cmp_pptx_bytes")
-        if cmp_pptx is None:
-            if st.button(f"Generer Pitchbook {tkr_a} vs {tkr_b}  (PPTX)", use_container_width=True):
-                with st.spinner("Generation du pitchbook comparatif..."):
-                    try:
-                        from outputs.comparison_pptx_writer import ComparisonPPTXWriter
-                        state_b_saved = st.session_state.get("cmp_state_b", {})
-                        cmp_pptx = ComparisonPPTXWriter().generate_bytes(state_a, state_b_saved)
-                        st.session_state.cmp_pptx_bytes = cmp_pptx
-                        st.rerun()
-                    except Exception as _pex:
-                        log.error(f"[comparison_pptx] erreur: {_pex}", exc_info=True)
-                        st.error(f"Erreur PPTX comparatif : {_pex}")
-        else:
+        if cmp_pptx:
             fname_pptx = f"{tkr_a}_vs_{tkr_b}_comparison.pptx"
             st.download_button(
-                label=f"Pitchbook {tkr_a} vs {tkr_b}  ↓  .pptx",
+                label=f"Pitchbook {tkr_a} vs {tkr_b}  \u2193  .pptx",
                 data=cmp_pptx,
                 file_name=fname_pptx,
                 mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
                 use_container_width=True,
             )
-        # Rapport PDF comparatif
+        # Rapport PDF comparatif (pré-généré)
         cmp_pdf = st.session_state.get("cmp_pdf_bytes")
-        if cmp_pdf is None:
-            if st.button(f"Generer Rapport {tkr_a} vs {tkr_b}  (PDF)", use_container_width=True):
-                with st.spinner("Generation du rapport PDF comparatif..."):
-                    try:
-                        from outputs.comparison_pdf_writer import ComparisonPDFWriter
-                        state_b_saved = st.session_state.get("cmp_state_b", {})
-                        cmp_pdf = ComparisonPDFWriter().generate_bytes(state_a, state_b_saved)
-                        st.session_state.cmp_pdf_bytes = cmp_pdf
-                        st.rerun()
-                    except Exception as _pdex:
-                        log.error(f"[comparison_pdf] erreur: {_pdex}", exc_info=True)
-                        st.error(f"Erreur PDF comparatif : {_pdex}")
-        else:
+        if cmp_pdf:
             fname_pdf = f"{tkr_a}_vs_{tkr_b}_comparison.pdf"
             st.download_button(
                 label=f"Rapport {tkr_a} vs {tkr_b}  \u2193  .pdf",
@@ -2973,10 +2949,26 @@ def _render_comparison_section(state_a: dict) -> None:
 
                 st.session_state.cmp_state_b = state_b
 
-                # Générer le fichier comparaison
+                # Générer TOUS les fichiers comparaison (XLSX + PPTX + PDF)
+                # pour éviter le double-clic au téléchargement
                 from outputs.comparison_writer import ComparisonWriter
                 cmp_bytes = ComparisonWriter().write(state_a, state_b)
                 st.session_state.cmp_bytes = cmp_bytes
+
+                try:
+                    from outputs.comparison_pptx_writer import ComparisonPPTXWriter
+                    st.session_state.cmp_pptx_bytes = ComparisonPPTXWriter().generate_bytes(state_a, state_b)
+                except Exception as _pex:
+                    log.warning(f"[comparison] PPTX auto-gen failed: {_pex}")
+                    st.session_state.cmp_pptx_bytes = None
+
+                try:
+                    from outputs.comparison_pdf_writer import ComparisonPDFWriter
+                    st.session_state.cmp_pdf_bytes = ComparisonPDFWriter().generate_bytes(state_a, state_b)
+                except Exception as _pdex:
+                    log.warning(f"[comparison] PDF auto-gen failed: {_pdex}")
+                    st.session_state.cmp_pdf_bytes = None
+
                 st.session_state.cmp_stage = "done"
                 st.rerun()
 
