@@ -210,7 +210,7 @@ def make_scatter_sectoriel(data):
     noms_abr = [_abbrev_pdf(s[0])[:14] for s in secteurs]
     def _safe_float(val, fallback=0.0):
         try:
-            v = float(str(val).replace('x','').replace('%','').replace('+','').replace(',','.').replace('\u2014','').strip() or '0')
+            v = float(str(val).replace('x','').replace('*','').replace('%','').replace('+','').replace(',','.').replace('\u2014','').strip() or '0')
             return v
         except (ValueError, TypeError):
             return fallback
@@ -1421,7 +1421,10 @@ def _build_top3(data, donut_buf, registry=None):
     # [40, 28, 14, 22, 22, 22, 22] = 170
     elems.append(KeepTogether(tbl([synth_h] + synth_rows,
         cw=[40*mm, 28*mm, 14*mm, 22*mm, 22*mm, 22*mm, 22*mm])))
-    elems.append(src(f"FinSight IA — FMP, yfinance. EV/EBITDA et marges = m\u00e9dianes LTM."))
+    _has_proxy_pdf = data.get("etf_proxy_ev_ebitda") is not None
+    _src_note = ("FinSight IA — FMP, yfinance. EV/EBITDA et marges = m\u00e9dianes LTM."
+                 + (" * = EV/EBITDA via ETF proxy (indice)." if _has_proxy_pdf else ""))
+    elems.append(src(_src_note))
     elems.append(Spacer(1, 4*mm))
 
     # Donut gauche + textes analytiques droite

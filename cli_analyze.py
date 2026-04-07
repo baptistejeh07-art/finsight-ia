@@ -1059,6 +1059,19 @@ _SP500_NB_SOC = {
     "Materials": 28, "Real Estate": 31, "Utilities": 28,
 }
 
+# ETF proxies pour EV/EBITDA au niveau indice (fallback non-US)
+_ETF_INDEX_PROXIES = {
+    "FTSE 100":      "ISF.L",       # iShares Core FTSE 100
+    "FTSE100":       "ISF.L",
+    "CAC 40":        "CAC.PA",      # Amundi CAC 40
+    "CAC40":         "CAC.PA",
+    "DAX":           "EXS1.DE",     # iShares Core DAX
+    "DAX 40":        "EXS1.DE",
+    "DAX40":         "EXS1.DE",
+    "Euro Stoxx 50": "SX5E.PA",     # iShares Euro Stoxx 50
+    "STOXX50":       "SX5E.PA",
+}
+
 _INDICE_META = {
     "S&P 500":      {"code": "^GSPC",     "nb_societes": 503},
     "CAC 40":       {"code": "^FCHI",     "nb_societes": 40},
@@ -1493,6 +1506,7 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
     # Fallback si ETF non disponibles — essai fetch constituants EU
     _eu_members_by_sec: dict = {}   # accessible plus loin pour top3
     _eu_perf_history = None         # accessible dans base.update()
+    _etf_proxy_ev = None            # ETF proxy EV/EBITDA (reutilise pour top3)
 
     if not secteurs:
         _EU_CONST_MAP = {
@@ -1700,6 +1714,35 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
                 log.info("EU constituents OK: %d tickers / %d secteurs", len(_eu_res), len(secteurs))
             except Exception as _eu_ex:
                 log.warning("EU constituents fetch erreur: %s", _eu_ex)
+
+        # --- ETF proxy fallback pour EV/EBITDA si la majorite des secteurs ont "—" ---
+        _etf_proxy_ev = None   # sera reutilise pour top3_secteurs
+        _nb_ev_missing = sum(1 for s in secteurs if str(s[4]) in ("\u2014", "---", "", "None"))
+        if secteurs and _nb_ev_missing > len(secteurs) * 0.5:
+            _proxy_ticker = _ETF_INDEX_PROXIES.get(universe)
+            if _proxy_ticker:
+                try:
+                    _proxy_obj  = yf.Ticker(_proxy_ticker)
+                    _proxy_info = _proxy_obj.info or {}
+                    _proxy_ev_raw = _proxy_info.get("enterpriseToEbitda")
+                    if _proxy_ev_raw and 1.0 < float(_proxy_ev_raw) < 200:
+                        _etf_proxy_ev = round(float(_proxy_ev_raw), 1)
+                        log.info("ETF proxy %s -> EV/EBITDA = %.1fx (fallback pour %s)",
+                                 _proxy_ticker, _etf_proxy_ev, universe)
+                        # Injecter comme fallback pour chaque secteur manquant
+                        _new_secteurs = []
+                        for _s in secteurs:
+                            if str(_s[4]) in ("\u2014", "---", "", "None"):
+                                _new_secteurs.append(
+                                    (_s[0], _s[1], _s[2], _s[3],
+                                     f"{_etf_proxy_ev:.1f}x*", _s[5], _s[6], _s[7]))
+                            else:
+                                _new_secteurs.append(_s)
+                        secteurs = _new_secteurs
+                    else:
+                        log.info("ETF proxy %s: enterpriseToEbitda absent ou hors bornes", _proxy_ticker)
+                except Exception as _prx_ex:
+                    log.warning("ETF proxy %s erreur: %s", _proxy_ticker, _prx_ex)
 
         # Perf history reelle pour l'indice EU (index vs SP500, Bonds, Or)
         _eu_perf_history = None
@@ -1967,6 +2010,28 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
                 "societes":       _socs or [("—", "Neutre", "\u2014", 50)],
             })
 
+    # --- ETF proxy fallback pour top3_secteurs ev_ebitda (reutilise _etf_proxy_ev) ---
+    if _etf_proxy_ev is None:
+        # Fetch proxy si pas deja fait (chemin S&P 500 n'a pas eu le fallback secteurs)
+        _proxy_ticker_t3 = _ETF_INDEX_PROXIES.get(universe)
+        if _proxy_ticker_t3:
+            try:
+                _p3_obj  = yf.Ticker(_proxy_ticker_t3)
+                _p3_info = _p3_obj.info or {}
+                _p3_ev   = _p3_info.get("enterpriseToEbitda")
+                if _p3_ev and 1.0 < float(_p3_ev) < 200:
+                    _etf_proxy_ev = round(float(_p3_ev), 1)
+            except Exception:
+                pass
+    if _etf_proxy_ev:
+        _t3_ev_missing = sum(1 for t in top3_secteurs
+                             if str(t.get("ev_ebitda", "\u2014")) in ("\u2014", "---", "", "None"))
+        if top3_secteurs and _t3_ev_missing > len(top3_secteurs) * 0.5:
+            for _t3 in top3_secteurs:
+                if str(_t3.get("ev_ebitda", "\u2014")) in ("\u2014", "---", "", "None"):
+                    _t3["ev_ebitda"] = f"{_etf_proxy_ev:.1f}x*"
+            log.info("ETF proxy top3 -> EV/EBITDA fallback %.1fx pour %s", _etf_proxy_ev, universe)
+
     # Base test pour les champs sans source temps reel
     base = _make_test_indice_data(universe)
     # Regenerer texte_signal coherent avec le signal reel
@@ -2061,6 +2126,7 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
         "pb_by_sector":         pb_by_sector    if universe == "S&P 500" else _eu_pb_map,
         "dy_by_sector":         dy_by_sector    if universe == "S&P 500" else _eu_dy_map,
         "erp_by_sector":        erp_by_sector   if universe == "S&P 500" else _eu_erp_map,
+        "etf_proxy_ev_ebitda":  _etf_proxy_ev,        # ETF proxy fallback (None si non-utilise)
         "optimal_portfolios":   optimal_portfolios if universe == "S&P 500" else {},
         **({"perf_history": _eu_perf_history} if _eu_perf_history else {}),
         # Per-ticker raw data pour IndiceExcelWriter (EU indices uniquement)

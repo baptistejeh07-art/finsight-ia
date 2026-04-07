@@ -246,7 +246,7 @@ def _lecture_box(slide, title, text, y_top=9.5, height=3.8, max_chars=800):
 def _parse_x(s) -> float:
     """Parse '28,4x' → 28.4"""
     try:
-        return float(str(s).replace(',', '.').replace('x', '').strip())
+        return float(str(s).replace(',', '.').replace('x', '').replace('*', '').strip())
     except:
         return 0.0
 
@@ -1316,12 +1316,16 @@ def _s10_scatter(prs, D, chart_bytes: bytes):
             _prem_label = "en quadrant Premium Justifie — valorisation elevee supportee par forte croissance BPA"
         if not opport and surp_s:
             opport = [_abbrev_sector(s[0],18) for s in surp_s[len(premium):len(premium)+2]]
+        _has_proxy = any("*" in str(s[4]) for s in secteurs)
+        _proxy_note = ("\n\n* EV/EBITDA estime via ETF proxy (indice). "
+                       "Valeurs individuelles non disponibles." if _has_proxy else "")
         txt = (
             f"{'  ·  '.join(premium) or 'Aucun secteur Surponderer'} {_prem_label if premium else ''}.\n\n"
             f"{'  ·  '.join(opport) or 'Aucun'} : valorisation attractive — "
             f"croissance correcte, meilleur ratio risque/rendement.\n\n"
             f"Les pointilles representent les medianes sectorielles (EV/EBITDA et BPA growth). "
             f"Favoriser les secteurs en bas droite (forte croissance, valorisation moderee)."
+            f"{_proxy_note}"
         )
     _rect(slide, 15.6, 2.3, 8.9, 8.6, fill=_GRAYL)
     _rect(slide, 15.6, 2.3, 0.12, 8.6, fill=_NAVY)
