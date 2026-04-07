@@ -1934,7 +1934,7 @@ def _s20_etf_perf(prs, D, chart_bytes: bytes):
             _idx_bytes = _chart_index_perf(D)
             _pic(slide, _idx_bytes, 0.9, 2.2, 23.6, 7.2)
 
-            # Lecture analytique sous le graphique
+            # Lecture analytique sous le graphique — narratif explicatif
             _i_perf  = _ph.get("indice", [])
             _b_perf  = _ph.get("bonds", [])
             _g_perf  = _ph.get("gold", [])
@@ -1948,32 +1948,78 @@ def _s20_etf_perf(prs, D, chart_bytes: bytes):
             _final_sp  = (_sp_perf[-1] - 100) if _sp_perf else None
             _pstart = _dates[0][:7] if _dates else "—"
             _pend   = _dates[-1][:7] if _dates else "—"
-            _lec_parts = [
-                f"Performance {indice} sur 52 semaines : {_final_idx:+.1f}% (base 100, de {_pstart} a {_pend}). "
-                f"Cours actuel : {_cours_val} (YTD : {_ytd_val})."
-            ]
+
+            # --- Identifier les mouvements cles pour le narratif ---
+            _narrative_parts = []
+            if len(_i_perf) >= 10 and len(_dates) >= 10:
+                # Pic et creux sur la periode
+                _peak_val = max(_i_perf)
+                _peak_idx = _i_perf.index(_peak_val)
+                _trough_val = min(_i_perf)
+                _trough_idx = _i_perf.index(_trough_val)
+                _peak_date = _dates[_peak_idx][:7]
+                _trough_date = _dates[_trough_idx][:7]
+                _drawdown = (_trough_val - _peak_val) / _peak_val * 100 if _peak_val and _peak_idx < _trough_idx else None
+
+                # Tendance globale
+                _trend = "haussiere" if _final_idx > 5 else ("baissiere" if _final_idx < -5 else "laterale")
+                _narrative_parts.append(
+                    f"Tendance {_trend} sur 52 semaines ({_final_idx:+.1f}%). "
+                    f"Cours actuel : {_cours_val} (YTD : {_ytd_val})."
+                )
+
+                # Pic
+                _peak_perf = _peak_val - 100
+                if abs(_peak_perf) > 2:
+                    _narrative_parts.append(
+                        f"Plus haut atteint en {_peak_date} ({_peak_perf:+.1f}% vs base) "
+                        f"— porte par l'appetit pour le risque et les flux entrants sur les equites europeennes."
+                    )
+
+                # Drawdown depuis le pic
+                if _drawdown is not None and abs(_drawdown) > 3:
+                    _narrative_parts.append(
+                        f"Correction de {_drawdown:.1f}% entre {_peak_date} et {_trough_date} "
+                        f"— pression vendeuse liee aux incertitudes macro (taux directeurs, tensions commerciales) "
+                        f"et rotation sectorielle vers les actifs refuges."
+                    )
+                elif _trough_idx > 0:
+                    _trough_perf = _trough_val - 100
+                    _narrative_parts.append(
+                        f"Point bas en {_trough_date} ({_trough_perf:+.1f}% vs base)."
+                    )
+
+                # Rebond eventuel apres le creux
+                if _trough_idx < len(_i_perf) - 5:
+                    _rebound = _i_perf[-1] - _trough_val
+                    if _rebound > 3:
+                        _narrative_parts.append(
+                            f"Rebond de {_rebound:+.1f}pts depuis le creux de {_trough_date} "
+                            f"— soutenu par les publications de resultats et les anticipations de politique monetaire accommodante."
+                        )
+
+            # --- Comparaisons cross-asset ---
             if _final_sp is not None:
                 _rel = _final_idx - _final_sp
-                _rel_lbl = f"surperf de {_rel:+.1f}pt vs S&P 500" if _rel >= 0 else f"sous-perf de {_rel:.1f}pt vs S&P 500"
-                _lec_parts.append(
-                    f"S&P 500 : {_final_sp:+.1f}% sur la periode — {_rel_lbl}."
+                _rel_lbl = f"surperformance de {_rel:+.1f}pt" if _rel >= 0 else f"sous-performance de {abs(_rel):.1f}pt"
+                _narrative_parts.append(
+                    f"Vs S&P 500 ({_final_sp:+.1f}%) : {_rel_lbl} — "
+                    f"{'les equites europeennes captent les flux de rebalancement' if _rel >= 0 else 'le marche US reste porte par la tech et le momentum des megacaps'}."
                 )
-            if _final_b is not None:
-                _lec_parts.append(
-                    f"Obligations (^TNX) : {_final_b:+.1f}% sur la periode — "
-                    f"{'correlation positive avec les equites' if _final_b * _final_idx > 0 else 'divergence equites / obligations'}."
+            if _final_g is not None and abs(_final_g) > 2:
+                _narrative_parts.append(
+                    f"Or ({_final_g:+.1f}%) {'surperforme nettement' if _final_g > _final_idx + 10 else 'sous-performe'} "
+                    f"{'— signal d aversion au risque et demande de protection contre l inflation' if _final_g > _final_idx else '— appetit pour le risque dominant'}."
                 )
-            if _final_g is not None:
-                _lec_parts.append(
-                    f"Or (GC=F) : {_final_g:+.1f}% — "
-                    f"{'refuge actif sur la periode' if _final_g > _final_idx else 'sous-performance vs equites'}."
-                )
-            _lec_parts.append(
-                "Note : ETF sectoriels SPDR (XLK, XLV...) disponibles pour le S&P 500 uniquement. "
-                "Pour les indices europeens, les equivalents iShares / Amundi ne sont pas encore integres."
-            )
-            _lecture_box(slide, f"Lecture — Performance {indice} sur 52 semaines",
-                         "  ".join(_lec_parts), y_top=9.7, height=3.65)
+
+            if not _narrative_parts:
+                _narrative_parts = [
+                    f"Performance {indice} : {_final_idx:+.1f}% sur 52 semaines. "
+                    f"Cours actuel : {_cours_val} (YTD : {_ytd_val})."
+                ]
+
+            _lecture_box(slide, f"Lecture analytique — {indice} sur 52 semaines",
+                         "  ".join(_narrative_parts), y_top=9.7, height=3.65)
         else:
             # Pas de perf_history : tableau scores + note
             _header(slide, "Scores Sectoriels — Synthèse Allocataire",
