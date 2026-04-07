@@ -254,8 +254,11 @@ def _v(ws, row: int, col: int, value: Any) -> None:
     Injecte uniquement la valeur — preserve le formatage du template.
     Si la cellule cible est une MergedCell (non top-left), ecrit dans
     le coin superieur gauche de la plage fusionnee correspondante.
+    Ecrase les ArrayFormula (XLOOKUP/SORT) pour garantir la visibilite
+    sans recalcul Excel.
     """
     from openpyxl.cell.cell import MergedCell
+    from openpyxl.worksheet.formula import ArrayFormula
     cell = ws.cell(row=row, column=col)
     if isinstance(cell, MergedCell):
         for mr in ws.merged_cells.ranges:
@@ -265,6 +268,10 @@ def _v(ws, row: int, col: int, value: Any) -> None:
                 break
         else:
             return  # cellule fusionnee sans range trouvee — ignorer
+    # Ecraser ArrayFormula (templates v4 XLOOKUP) pour que la valeur
+    # soit visible au telechargemnt sans recalcul Excel
+    if isinstance(cell.value, ArrayFormula):
+        cell.value = None
     cell.value = value if value is not None else "\u2014"
 
 
@@ -514,15 +521,18 @@ def _inject_dashboard(wb, data: list[dict], universe_name: str,
 
 def _inject_value(wb, data: list[dict]) -> None:
     """
-    VALUE — A5:M19 (15 lignes, 13 cols), medianes F21:M21.
-    Cols : Rang, Ticker, Societe, Secteur, Score, EV/EBITDA, EV/Revenue, P/E,
-           Mg Brute, Mg EBITDA, Altman Z, FCF Yield (—), Decote DCF (—).
+    VALUE — Rang, Ticker, Societe, Secteur, Score, EV/EBITDA, EV/Revenue, P/E,
+           Mg Brute, Mg EBITDA, Altman Z, FCF Yield, Decote DCF.
+    Header row auto-detecte (R3 TEMPLATE_INDICE, R4 v3).
     """
     ws_name = "VALUE"
     if ws_name not in wb.sheetnames:
         log.warning("[inject] feuille '%s' absente du template", ws_name)
         return
     ws = wb[ws_name]
+    # Detect header row : "Rang" en R3 (TEMPLATE_INDICE) ou R4 (v3)
+    _hdr = 3 if str(ws.cell(3, 1).value).strip().lower() == "rang" else 4
+    _start = _hdr + 1
 
     sorted_data = sorted(
         [t for t in data if t.get("score_value") is not None],
@@ -530,7 +540,7 @@ def _inject_value(wb, data: list[dict]) -> None:
     )[:15]
 
     for i, t in enumerate(sorted_data):
-        r = 5 + i
+        r = _start + i
         vals = [
             i + 1,
             t.get("ticker", ""),
@@ -549,8 +559,8 @@ def _inject_value(wb, data: list[dict]) -> None:
         for j, v in enumerate(vals, 1):
             _v(ws, r, j, v)
 
-    # Medianes ligne 22 (row 21 = label merge, row 22 = cellules vides)
-    # Cols B a M (2..13) — on injecte les medianes des colonnes numeriques
+    # Medianes — ligne dynamique apres les 15 lignes de donnees + 1 vide
+    _med_row = _start + 15 + 2  # +15 data rows + 1 label + 1 values
     med_defs = [
         (2,  "ev_ebitda",    _fmt_mult),
         (3,  "ev_revenue",   _fmt_mult),
@@ -561,11 +571,11 @@ def _inject_value(wb, data: list[dict]) -> None:
     ]
     for col, key, fmt_fn in med_defs:
         med = _med_vals(sorted_data, key)
-        _v(ws, 22, col, fmt_fn(med) if med is not None else "\u2014")
+        _v(ws, _med_row, col, fmt_fn(med) if med is not None else "\u2014")
     # FCF Yield median
     fcf_vals = [_fcf_yield(t) for t in sorted_data]
     fcf_meds = [v for v in fcf_vals if v is not None]
-    _v(ws, 22, 8, _fmt_pct(median(fcf_meds), sign=False) if fcf_meds else "\u2014")
+    _v(ws, _med_row, 8, _fmt_pct(median(fcf_meds), sign=False) if fcf_meds else "\u2014")
     _v(ws, 22, 9,  "\u2014")   # Decote DCF
 
     log.debug("[inject] VALUE : %d lignes", len(sorted_data))
@@ -573,8 +583,7 @@ def _inject_value(wb, data: list[dict]) -> None:
 
 def _inject_growth(wb, data: list[dict]) -> None:
     """
-    GROWTH — A5:L19 (15 lignes, 12 cols).
-    Cols : Rang, Ticker, Societe, Secteur, Score, Cro Rev YoY, Mg EBITDA,
+    GROWTH — Rang, Ticker, Societe, Secteur, Score, Cro Rev YoY, Mg EBITDA,
            Mg Nette, ROE, Cro EPS (—), Revisions Analystes (—), Signal.
     """
     ws_name = "GROWTH"
@@ -582,6 +591,8 @@ def _inject_growth(wb, data: list[dict]) -> None:
         log.warning("[inject] feuille '%s' absente du template", ws_name)
         return
     ws = wb[ws_name]
+    _hdr = 3 if str(ws.cell(3, 1).value).strip().lower() == "rang" else 4
+    _start = _hdr + 1
 
     sorted_data = sorted(
         [t for t in data if t.get("score_growth") is not None],
@@ -589,7 +600,13 @@ def _inject_growth(wb, data: list[dict]) -> None:
     )[:15]
 
     for i, t in enumerate(sorted_data):
-        r = 5 + i
+        r = _start + i
+        # EPS growth depuis earnings_growth si disponible
+        _eg = t.get("earnings_growth")
+        _eg_str = _fmt_pct(_eg) if _eg is not None else "\u2014"
+        # Revisions analystes
+        _ar = t.get("analyst_revision")
+        _ar_str = f"{_ar:+.0f}" if _ar is not None and _ar != 0 else "\u2014"
         vals = [
             i + 1,
             t.get("ticker", ""),
@@ -600,8 +617,8 @@ def _inject_growth(wb, data: list[dict]) -> None:
             _fmt_pct(t.get("ebitda_margin"), sign=False),
             _fmt_pct(t.get("net_margin"),    sign=False),
             _fmt_pct(t.get("roe")),
-            "\u2014",   # Cro EPS — non calcule
-            "\u2014",   # Revisions Analystes — non calcule
+            _eg_str,
+            _ar_str,
             _signal(t.get("score_global")),
         ]
         for j, v in enumerate(vals, 1):
@@ -621,6 +638,8 @@ def _inject_quality(wb, data: list[dict]) -> None:
         log.warning("[inject] feuille '%s' absente du template", ws_name)
         return
     ws = wb[ws_name]
+    _hdr = 3 if str(ws.cell(3, 1).value).strip().lower() == "rang" else 4
+    _start = _hdr + 1
 
     sorted_data = sorted(
         [t for t in data if t.get("score_quality") is not None],
@@ -628,7 +647,7 @@ def _inject_quality(wb, data: list[dict]) -> None:
     )[:15]
 
     for i, t in enumerate(sorted_data):
-        r = 5 + i
+        r = _start + i
         az = t.get("altman_z")
         bm = t.get("beneish_m")
         vals = [
@@ -649,9 +668,8 @@ def _inject_quality(wb, data: list[dict]) -> None:
         for j, v in enumerate(vals, 1):
             _v(ws, r, j, v)
 
-    # Medianes ligne 22 (row 21 = label merge)
-    # Cols B a M (2..13) : Altman Z(2), Signal Z(3), Beneish M(4), Signal M(5),
-    # Mg EBITDA(6), ROE(7), Int Cov(8), Current Ratio(9)
+    # Medianes — ligne dynamique
+    _med_row = _start + 15 + 2
     med_defs = [
         (2,  "altman_z",      _fmt_z),
         (4,  "beneish_m",     _fmt_z),
@@ -661,10 +679,10 @@ def _inject_quality(wb, data: list[dict]) -> None:
     ]
     for col, key, fmt_fn in med_defs:
         med = _med_vals(sorted_data, key)
-        _v(ws, 22, col, fmt_fn(med) if med is not None else "\u2014")
-    _v(ws, 22, 3,  "\u2014")   # Signal Z — textuel
-    _v(ws, 22, 5,  "\u2014")   # Signal M — textuel
-    _v(ws, 22, 8,  "\u2014")   # Interest Coverage
+        _v(ws, _med_row, col, fmt_fn(med) if med is not None else "\u2014")
+    _v(ws, _med_row, 3,  "\u2014")   # Signal Z — textuel
+    _v(ws, _med_row, 5,  "\u2014")   # Signal M — textuel
+    _v(ws, _med_row, 8,  "\u2014")   # Interest Coverage
 
     log.debug("[inject] QUALITY : %d lignes", len(sorted_data))
 
@@ -680,6 +698,8 @@ def _inject_momentum(wb, data: list[dict]) -> None:
         log.warning("[inject] feuille '%s' absente du template", ws_name)
         return
     ws = wb[ws_name]
+    _hdr = 3 if str(ws.cell(3, 1).value).strip().lower() == "rang" else 4
+    _start = _hdr + 1
     ccy = _dominant_ccy(data)
 
     sorted_data = sorted(
@@ -688,7 +708,7 @@ def _inject_momentum(wb, data: list[dict]) -> None:
     )[:15]
 
     for i, t in enumerate(sorted_data):
-        r = 5 + i
+        r = _start + i
         tccy = t.get("currency", ccy) or ccy
         vals = [
             i + 1,
@@ -706,11 +726,12 @@ def _inject_momentum(wb, data: list[dict]) -> None:
         for j, v in enumerate(vals, 1):
             _v(ws, r, j, v)
 
-    # Medianes ligne 22 (row 21 = label merge)
+    # Medianes — ligne dynamique
+    _med_row = _start + 15 + 2
     med_mom = _med_vals(sorted_data, "momentum_52w")
-    _v(ws, 22, 2, _fmt_pct(med_mom) if med_mom is not None else "\u2014")
+    _v(ws, _med_row, 2, _fmt_pct(med_mom) if med_mom is not None else "\u2014")
     for col in range(3, 8):
-        _v(ws, 22, col, "\u2014")
+        _v(ws, _med_row, col, "\u2014")
 
     log.debug("[inject] MOMENTUM : %d lignes", len(sorted_data))
 
