@@ -372,9 +372,11 @@ def _compute_sector_analytics(tickers_data: list[dict],
     else:
         hhi_label = "N/D"
 
-    # --- PE médian actuel ---
-    pes_ltm = [float(t["pe_ratio"]) for t in tickers_data
-               if t.get("pe_ratio") and float(t["pe_ratio"]) > 0]
+    # --- PE médian actuel --- (pe_ratio = cli/LangGraph, pe = compute_screening)
+    def _get_pe(t):
+        return t.get("pe_ratio") or t.get("pe")
+    pes_ltm = [float(_get_pe(t)) for t in tickers_data
+               if _get_pe(t) and float(_get_pe(t)) > 0 and float(_get_pe(t)) < 500]
     pe_median_ltm = round(float(np.median(pes_ltm)), 1) if pes_ltm else None
 
     # --- PE médian historique 5 ans ---

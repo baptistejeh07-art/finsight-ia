@@ -423,6 +423,9 @@ def _make_scatter(tickers_data: list[dict], sector_name: str) -> io.BytesIO:
         rg_f = _to_float(t.get('revenue_growth') or 0)
         if rg_f is None:
             rg_f = 0.0
+        # Normaliser : si valeur en decimal (|rg| < 3), convertir en % (x100)
+        if rg_f is not None and abs(rg_f) < 3.0:
+            rg_f *= 100.0
         mc = _to_float(t.get('market_cap') or 0)
         s = t.get('score_global') or 50
         col = score_col(s)
@@ -470,15 +473,15 @@ def _make_scatter(tickers_data: list[dict], sector_name: str) -> io.BytesIO:
     q25_ev = float(np.percentile(evs_valid, 25)) if evs_valid else med_ev * 0.7
     q75_rg = float(np.percentile(rgs_all, 75)) if rgs_all else med_rg + 5
 
-    # Toujours afficher les labels — cap a top 25 par score pour garantir la lisibilite
-    if len(normal) > 25:
-        top25 = sorted(normal, key=lambda x: x['score'], reverse=True)[:25]
-        annotated_tickers = {p['ticker'] for p in top25}
-        normal = top25  # afficher seulement les 25 points les plus significatifs
+    # Cap a top 15 par score pour garantir la lisibilite des labels
+    if len(normal) > 15:
+        top15 = sorted(normal, key=lambda x: x['score'], reverse=True)[:15]
+        annotated_tickers = {p['ticker'] for p in top15}
+        normal = top15
     else:
         annotated_tickers = {p['ticker'] for p in normal}
 
-    fig, ax = plt.subplots(figsize=(7.5, 4.5))
+    fig, ax = plt.subplots(figsize=(9.0, 5.5))
 
     # Tracé des points normaux
     for p in normal:
@@ -491,8 +494,8 @@ def _make_scatter(tickers_data: list[dict], sector_name: str) -> io.BytesIO:
         if is_ann:
             label = p['ticker'] + ('*' if p.get('capped') else '')
             ax.annotate(label, (p['rg'], ev_y),
-                        textcoords='offset points', xytext=(6, 4),
-                        fontsize=7, color=p['col'], fontweight='bold',
+                        textcoords='offset points', xytext=(7, 5),
+                        fontsize=9, color=p['col'], fontweight='bold',
                         arrowprops=None)
 
     # Tracé des points fallback (EV/EBITDA indisponible) en triangle a y=5
@@ -1589,7 +1592,7 @@ def _build_valorisation(scatter_buf, donut_buf, tickers_data: list[dict],
         f"potentiellement injustifiées au regard des fondamentaux.", S_BODY))
     elems.append(Spacer(1, 3*mm))
 
-    scatter_img = Image(scatter_buf, width=108*mm, height=92*mm)
+    scatter_img = Image(scatter_buf, width=125*mm, height=106*mm)
     scatter_text = (
         "<b>Lecture du positionnement</b><br/>"
         "Le scatter EV/EBITDA vs croissance revenus permet d'identifier "
@@ -2578,7 +2581,7 @@ def generate_sector_report(
         sector_analytics = {}
 
     # Calcul automatique des analytics structurels si absents (ex : appel depuis app.py)
-    if not sector_analytics.get("hhi") and not sector_analytics.get("pe_median_ltm"):
+    if not sector_analytics.get("hhi") or not sector_analytics.get("pe_median_ltm"):
         _sa = _compute_analytics_from_tickers(tickers_data)
         for k, v in _sa.items():
             sector_analytics.setdefault(k, v)
