@@ -1389,7 +1389,7 @@ def _slide_marges(prs, m_a: dict, m_b: dict, synthesis: dict):
         _txt_clean = " ".join(_truncate(txt, 200).split())
         add_rect(slide, 1.02, 2.45, 23.37, 1.5, NAVY_PALE)
         add_rect(slide, 1.02, 2.45, 0.13, 1.5, NAVY_MID)
-        add_text_box(slide, 1.4, 2.55, 22.8, 1.3, _fit(txt, 300), 8.5, NAVY, wrap=True)
+        add_text_box(slide, 1.4, 2.55, 22.8, 1.45, _fit(txt, 260), 8.5, NAVY, wrap=True)
 
     # KPIs side-by-side
     y_kpi = 4.2
@@ -1484,9 +1484,9 @@ def _slide_multiples(prs, m_a: dict, m_b: dict, synthesis: dict):
     # Commentaire valorisation
     txt = synthesis.get('valuation_text') or ""
     if txt:
-        add_rect(slide, 1.02, 2.45, 23.37, 1.3, NAVY_PALE)
-        add_rect(slide, 1.02, 2.45, 0.13, 1.3, NAVY_MID)
-        add_text_box(slide, 1.4, 2.55, 22.8, 1.1, _fit(txt, 300), 8.5, NAVY, wrap=True)
+        add_rect(slide, 1.02, 2.45, 23.37, 1.6, NAVY_PALE)
+        add_rect(slide, 1.02, 2.45, 0.13, 1.6, NAVY_MID)
+        add_text_box(slide, 1.4, 2.55, 22.8, 1.45, _fit(txt, 260), 8.5, NAVY, wrap=True)
 
     sec_pe   = m_a.get('sector_median_pe') or '\u2014'
     sec_eveb = m_a.get('sector_median_ev_ebitda') or '\u2014'
