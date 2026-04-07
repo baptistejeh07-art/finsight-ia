@@ -404,6 +404,16 @@ def _fetch_supplements(ticker: str) -> dict:
         except Exception:
             pass
 
+        # Forward estimates (consensus analystes)
+        try:
+            out["forward_eps"]          = full.get("forwardEps")
+            out["forward_pe"]           = full.get("forwardPE")
+            out["trailing_eps"]         = full.get("trailingEps")
+            out["revenue_growth"]       = full.get("revenueGrowth")   # YoY fwd
+            out["earnings_growth_est"]  = full.get("earningsGrowth")
+        except Exception:
+            pass
+
     except Exception as e:
         log.warning(f"[comparison] _fetch_supplements({ticker}) erreur : {e}")
     return out
@@ -700,6 +710,13 @@ def extract_metrics(state: dict, supp: dict) -> dict:
         "pio_no_dilution":          supp.get("pio_no_dilution"),
         "pio_delta_gross_margin":   supp.get("pio_delta_gross_margin"),
         "pio_delta_asset_turnover": supp.get("pio_delta_asset_turnover"),
+
+        # FORWARD ESTIMATES (consensus analystes)
+        "forward_eps":        supp.get("forward_eps"),
+        "forward_pe":         supp.get("forward_pe"),
+        "trailing_eps":       supp.get("trailing_eps"),
+        "revenue_growth_fwd": supp.get("revenue_growth"),
+        "eps_growth_fwd":     supp.get("earnings_growth_est"),
     }
 
     # --- Clés derives pour PDF/PPTX (formatees ou calculees) ---

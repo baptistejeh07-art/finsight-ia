@@ -897,6 +897,10 @@ def _section_profil_pl(story, m_a, m_b, synthesis, tkr_a, tkr_b):
         ["Marge Nette",        _frpct(m_a.get("net_margin_ltm")),  _frpct(m_b.get("net_margin_ltm"))],
         ["Rev. CAGR 3y",       _frpct(m_a.get("revenue_cagr_3y")), _frpct(m_b.get("revenue_cagr_3y"))],
         ["FCF",                _frm(m_a.get("free_cash_flow")),    _frm(m_b.get("free_cash_flow"))],
+        ["EPS LTM",            _frx(m_a.get("trailing_eps")),      _frx(m_b.get("trailing_eps"))],
+        ["EPS N+1E (consensus)", _frx(m_a.get("forward_eps")),     _frx(m_b.get("forward_eps"))],
+        ["P/E Forward",        _frx(m_a.get("forward_pe")),        _frx(m_b.get("forward_pe"))],
+        ["Rev. Growth YoY",    _frpct(m_a.get("revenue_growth_fwd"), True), _frpct(m_b.get("revenue_growth_fwd"), True)],
     ]
     t_pl = _make_tbl_3col(hdr_pl, raw_pl)
     if t_pl:
