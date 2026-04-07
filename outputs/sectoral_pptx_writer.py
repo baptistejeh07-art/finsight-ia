@@ -852,10 +852,9 @@ def _chart_scatter(tickers_data) -> bytes:
         colors_sc = ['#1A7A4A' if s >= 65 else '#B06000' if s >= 45 else '#A82020' for s in scores]
         ax.scatter(rev_grwth, ev_ebitda, s=sizes, c=colors_sc, alpha=0.85, zorder=3)
 
-        # Labels uniquement si <= 20 points (sinon illisible)
-        # Toujours afficher les labels — cap a 25 points (top 25 par score)
-        if len(valid_t) > 25:
-            scored = sorted(zip(scores, range(len(valid_t))), reverse=True)[:25]
+        # Labels : cap a 15 points (top 15 par score) pour lisibilite scatter
+        if len(valid_t) > 15:
+            scored = sorted(zip(scores, range(len(valid_t))), reverse=True)[:15]
             show_idx = {idx for _, idx in scored}
         else:
             show_idx = set(range(len(valid_t)))
@@ -1132,12 +1131,13 @@ def _s05_presentation(prs, D):
     # Catalyseurs clés sous la description
     cats = content.get("catalyseurs", [])
     if cats:
-        _rect(slide, 1.3, 7.5, 13.0, 0.45, fill=_NAVY)
-        _txb(slide, "CATALYSEURS CLÉS", 1.5, 7.55, 12.5, 0.4, size=7.5, bold=True, color=_WHITE)
+        _rect(slide, 1.1, 7.5, 13.3, 0.45, fill=_NAVY)
+        _txb(slide, "CATALYSEURS CLÉS", 1.3, 7.55, 12.9, 0.4, size=7.5, bold=True, color=_WHITE, align=PP_ALIGN.CENTER)
         for j, (ct, cb) in enumerate(cats[:3]):
-            _rect(slide, 1.3, 8.05 + j * 1.45, 0.08, 1.3, fill=_BUY)
-            _txb(slide, ct, 1.6, 8.05 + j * 1.45, 12.3, 0.45, size=8, bold=True, color=_NAVY)
-            _txb(slide, cb[:200], 1.6, 8.5 + j * 1.45, 12.3, 1.1, size=7.5, color=_GRAYT, wrap=True)
+            _cx = 1.1 + (13.3 - 12.8) / 2  # centrage horizontal dans le conteneur
+            _rect(slide, _cx, 8.05 + j * 1.5, 0.08, 1.35, fill=_BUY)
+            _txb(slide, ct, _cx + 0.3, 8.05 + j * 1.5, 12.5, 0.45, size=8, bold=True, color=_NAVY)
+            _txb(slide, cb[:200], _cx + 0.3, 8.5 + j * 1.5, 12.5, 1.05, size=7.5, color=_GRAYT, wrap=True)
 
     # Metrics table
     tbl_data = [["Métrique", "Valeur", "Lecture"]]
@@ -1159,11 +1159,20 @@ def _s06_ratios(prs, D):
     tbl_data = [["Société", "EV/EBITDA", "EV/Rev.", "P/E", "Mg Brute", "Mg EBITDA", "ROE"]]
     for t in td_disp:
         pe = t.get("pe_ratio") or t.get("pe")   # fallback: compute_screening utilise "pe"
+        # P/E : afficher "neg." si None et earnings negatifs (ex: Intel en perte)
+        if pe is not None:
+            _pe_str = _fmt_x(pe)
+        else:
+            _ni = t.get("net_income") or t.get("eps_ttm") or t.get("eps")
+            try:
+                _pe_str = "neg." if _ni is not None and float(_ni) < 0 else "—"
+            except (ValueError, TypeError):
+                _pe_str = "—"
         tbl_data.append([
             t.get("company", t.get("ticker", ""))[:28],
             _fmt_x(t.get("ev_ebitda")),
             _fmt_x(t.get("ev_revenue")),
-            _fmt_x(pe),
+            _pe_str,
             _fmt_pct_plain(t.get("gross_margin")),
             _fmt_pct_plain(t.get("ebitda_margin")),
             _fmt_pct_plain(t.get("roe")),
@@ -1301,7 +1310,7 @@ def _s09_cartographie(prs, D):
         _row.height = Cm(_row_h_cm)
 
     # Analytical text — position fixe apres la table avec gap suffisant
-    _s09_text_y = round(2.5 + _s09_tbl_h + 0.5, 2)  # gap 0.5 (vs 0.3 avant)
+    _s09_text_y = round(2.5 + _s09_tbl_h + 0.7, 2)  # gap 0.7 pour aerer table/lecture
     _s09_text_h = min(4.5, max(2.5, 13.5 - _s09_text_y))
     n_buy  = sum(1 for t in td if _reco(t.get("score_global")) == "BUY")
     n_hold = sum(1 for t in td if _reco(t.get("score_global")) == "HOLD")
@@ -1328,7 +1337,7 @@ def _s09_cartographie(prs, D):
 def _s10_scatter(prs, D):
     slide = _blank(prs)
     _header(slide, "Valorisation vs Croissance",
-            "EV/EBITDA vs Croissance Revenue YoY  ·  4 quadrants  ·  Top 25 par score FinSight", 2)
+            "EV/EBITDA vs Croissance Revenue YoY  ·  4 quadrants  ·  Top 15 par score FinSight", 2)
 
     img = _chart_scatter(D["tickers_data"])
     _pic(slide, img, 0.9, 2.3, 14.7, 11.4)
@@ -1404,7 +1413,7 @@ def _s11_scores(prs, D):
     # Synthese — incorpore la legende de lecture + analyse (un seul bloc sous la table)
     best = td[0] if td else {}
     best_name = (best.get("company") or best.get("ticker") or "Leader")[:25]
-    _s11_syn_y = round(2.5 + _s11_tbl_h + 0.4, 2)
+    _s11_syn_y = round(2.5 + _s11_tbl_h + 0.7, 2)  # gap 0.7 pour aerer table/synthese
     _syn_h = min(4.5, max(3.0, 13.5 - _s11_syn_y))
     _rect(slide, 0.9, _s11_syn_y, 23.6, _syn_h, fill=_GRAYL)
     _rect(slide, 0.9, _s11_syn_y, 23.6, 0.7, fill=_NAVY)
@@ -1574,8 +1583,8 @@ def _s15_entry(prs, D):
             _row15.height = Cm(_row15_h_cm)
 
     # Note methodologique — occupe tout l'espace restant sous la table (plus de KPIs)
-    _FOOTER_Y = 13.3
-    _NOTE_H_MAX = min(3.5, _FOOTER_Y - (3.5 + _tbl_h + 0.3))
+    _FOOTER_Y = 13.5
+    _NOTE_H_MAX = min(4.0, _FOOTER_Y - (3.5 + _tbl_h + 0.2))
     _note_y_calc = round(3.5 + _tbl_h + 0.3, 2)
     _NOTE_H = max(0, _NOTE_H_MAX)
     if _NOTE_H > 0.4:
@@ -1677,16 +1686,16 @@ def _s17_risques(prs, D):
         (fcf_str, "FCF Yield median",  "generation cash",  fcf_col, 9.1),
         (sg_str,  "Score sante moyen", "solidite bilans",  sg_col,  17.3),
     ]
-    box_h = 1.75
+    box_h = 2.2
     for val, l1, l2, col, bx in metrics:
         _rect(slide, bx, health_y + 0.6, box_w, box_h, fill=_GRAYL)
         _rect(slide, bx, health_y + 0.6, 0.1,   box_h, fill=col)
-        _txb(slide, val, bx + 0.25, health_y + 0.65, box_w - 0.35, 0.85,
-             size=20, bold=True, color=_NAVY)
-        _txb(slide, l1, bx + 0.25, health_y + 1.55, box_w - 0.35, 0.4,
-             size=8, color=_GRAYT)
-        _txb(slide, l2, bx + 0.25, health_y + 1.95, box_w - 0.35, 0.35,
-             size=7.5, color=_GRAYD)
+        _txb(slide, val, bx + 0.25, health_y + 0.70, box_w - 0.35, 1.0,
+             size=22, bold=True, color=_NAVY)
+        _txb(slide, l1, bx + 0.25, health_y + 1.75, box_w - 0.35, 0.45,
+             size=8.5, color=_GRAYT)
+        _txb(slide, l2, bx + 0.25, health_y + 2.20, box_w - 0.35, 0.40,
+             size=8, color=_GRAYD)
 
     _footer(slide)
 
@@ -1921,10 +1930,10 @@ class SectoralPPTXWriter:
         _s17_risques(prs, D)
         # Slide 18 — Sentiment
         _s18_sentiment(prs, D)
-        # Slide 19 — Sources
-        _s19_sources(prs, D)
-        # Slide 20 — Performance
+        # Slide 19 — Performance (swap: was slide 20)
         _s20_performance(prs, D)
+        # Slide 20 — Sources & Methodologie (swap: was slide 19)
+        _s19_sources(prs, D)
 
         buf = io.BytesIO()
         prs.save(buf)

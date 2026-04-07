@@ -28,8 +28,8 @@ log = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # CONFIG — seuils nommés
 # ---------------------------------------------------------------------------
-SIGNAL_SURPONDERER = 75.0   # score >= seuil → Surpondérer
-SIGNAL_NEUTRE      = 55.0   # score >= seuil → Neutre (sinon Sous-pondérer)
+SIGNAL_SURPONDERER = 65.0   # score >= seuil → Surpondérer (aligné avec BUY = 65)
+SIGNAL_NEUTRE      = 45.0   # score >= seuil → Neutre (aligné avec HOLD = 45, sinon Sous-pondérer)
 ALTMAN_Z_SAINE     = 2.99   # z > seuil → sain
 ALTMAN_Z_GRISE     = 1.81   # z > seuil → zone grise (sinon détresse)
 
@@ -266,6 +266,20 @@ def _v(ws, row: int, col: int, value: Any) -> None:
         else:
             return  # cellule fusionnee sans range trouvee — ignorer
     cell.value = value if value is not None else "\u2014"
+
+
+def _fcf_yield(t: dict) -> Optional[float]:
+    """FCF Yield = FCF / Market Cap * 100. Retourne None si indisponible."""
+    fy = t.get("fcf_yield")
+    if fy is not None:
+        try: return float(fy)
+        except: pass
+    fcf = t.get("free_cash_flow") or t.get("fcf")
+    mc  = t.get("market_cap")
+    if fcf is not None and mc and float(mc) > 0:
+        try: return float(fcf) / float(mc) * 100
+        except: pass
+    return None
 
 
 def _med_vals(lst: list, key: str) -> Optional[float]:
@@ -529,7 +543,7 @@ def _inject_value(wb, data: list[dict]) -> None:
             _fmt_pct(t.get("gross_margin"),  sign=False),
             _fmt_pct(t.get("ebitda_margin"), sign=False),
             _fmt_z(t.get("altman_z")),
-            "\u2014",   # FCF Yield — non calcule
+            _fmt_pct(_fcf_yield(t), sign=False),
             "\u2014",   # Decote DCF — non calculee
         ]
         for j, v in enumerate(vals, 1):
@@ -548,7 +562,10 @@ def _inject_value(wb, data: list[dict]) -> None:
     for col, key, fmt_fn in med_defs:
         med = _med_vals(sorted_data, key)
         _v(ws, 22, col, fmt_fn(med) if med is not None else "\u2014")
-    _v(ws, 22, 8,  "\u2014")   # FCF Yield
+    # FCF Yield median
+    fcf_vals = [_fcf_yield(t) for t in sorted_data]
+    fcf_meds = [v for v in fcf_vals if v is not None]
+    _v(ws, 22, 8, _fmt_pct(median(fcf_meds), sign=False) if fcf_meds else "\u2014")
     _v(ws, 22, 9,  "\u2014")   # Decote DCF
 
     log.debug("[inject] VALUE : %d lignes", len(sorted_data))
@@ -679,7 +696,7 @@ def _inject_momentum(wb, data: list[dict]) -> None:
             t.get("company", ""),
             _sector_short(t.get("sector") or "") or "\u2014",
             _fmt_score(t.get("score_momentum")),
-            _fmt_pct(t.get("momentum_52w")),
+            _fmt_pct(max(-99.9, min(999.9, t.get("momentum_52w") or 0))),  # clip extremes
             _fmt_price(t.get("price"), tccy),
             _fmt_mds(t.get("market_cap"), tccy),
             _fmt_score(t.get("score_global")),

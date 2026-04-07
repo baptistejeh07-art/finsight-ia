@@ -30,7 +30,7 @@ from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT, TA_JUSTIFY
 from reportlab.platypus import (
     SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle,
-    PageBreak, HRFlowable, Image, KeepTogether,
+    PageBreak, HRFlowable, Image, KeepTogether, CondPageBreak,
 )
 from reportlab.platypus.flowables import Flowable
 
@@ -1097,7 +1097,7 @@ def _build_structure_sectorielle(tickers_data: list[dict], sector_name: str,
     elems.append(Spacer(1, 4*mm))
 
     # ── Tableau 2 : Qualité & Valorisation Relative ────────────────────────
-    elems.append(Paragraph("Qualite Fondamentale et Valorisation Relative", S_SUBSECTION))
+    _qual_title = Paragraph("Qualite Fondamentale et Valorisation Relative", S_SUBSECTION)
 
     qual_h = [Paragraph(h, S_TH_C)
               for h in ["Indicateur", "Valeur", "Interpretation analytique"]]
@@ -1206,7 +1206,7 @@ def _build_structure_sectorielle(tickers_data: list[dict], sector_name: str,
             Paragraph(val, val_style),
             Paragraph(interp, S_TD_L),
         ])
-    elems.append(KeepTogether(tbl([qual_h] + qual_rows, cw=[52*mm, 52*mm, 66*mm])))
+    elems.append(KeepTogether([_qual_title, tbl([qual_h] + qual_rows, cw=[52*mm, 52*mm, 66*mm])]))
     elems.append(src(
         "Piotroski F-Score : 9 criteres binaires profitabilite + levier + efficacite (Piotroski 2000). "
         "PEG = P/E LTM / croissance revenus YoY. FCF Yield = Free Cash Flow / Market Cap. "
@@ -1962,15 +1962,28 @@ def _build_risques(tickers_data: list[dict], sector_name: str, registry=None):
         f"Le ROE median de {roe_str2} signale une profitabilite sectorielle insuffisante"
         if roe_med is not None else "La rentabilite sur fonds propres n'est pas calculable pour cet univers"
     )
+    # FCF yield formatte pour la synthese
+    _fcf_str2 = f"{fcf_med:.1f}%" if fcf_med is not None else "non disponible"
+    _fcf_comment = (
+        f"Le FCF yield median de {_fcf_str2} confirme une generation de cash solide"
+        if fcf_med is not None and fcf_med > 4.0 else
+        f"Le FCF yield median de {_fcf_str2} reflète une generation de cash correcte mais sans marge de sécurité"
+        if fcf_med is not None and fcf_med > 1.0 else
+        f"Le FCF yield median de {_fcf_str2} signale une generation de cash insuffisante pour soutenir les dividendes et les rachats"
+        if fcf_med is not None else
+        "Le FCF yield sectoriel n'est pas directement calculable"
+    )
+
     elems.append(KeepTogether([
         Paragraph("Synthèse — lecture de la sante financiere sectorielle", S_SUBSECTION),
         Spacer(1, 2*mm),
         Paragraph(
-            f"{_lev_comment}. {_val_comment}. {_roe_comment}. "
-            f"Ces trois dimensions — levier, valorisation et rentabilite — constituent le triangle de lecture "
-            f"fondamental pour juger de la robustesse d'une position sectorielle dans un contexte de taux normalises. "
-            f"Un secteur presentant simultanement un levier maitrise, une valorisation raisonnable et un ROE superieur "
-            f"au cout des fonds propres offre les meilleures conditions pour une exposition a conviction elevee.",
+            f"{_lev_comment}. {_val_comment}. {_roe_comment}. {_fcf_comment}. "
+            f"Ces quatre dimensions — levier, valorisation, rentabilite et generation de cash — constituent "
+            f"le cadre de lecture fondamental pour juger de la robustesse d'une position sectorielle dans un "
+            f"contexte de taux normalises. Un secteur presentant simultanement un levier maitrise, une valorisation "
+            f"raisonnable, un ROE superieur au cout des fonds propres et un FCF yield attractif offre les "
+            f"meilleures conditions pour une exposition a conviction elevee.",
             S_BODY),
         Spacer(1, 3*mm),
         Paragraph(
@@ -1980,6 +1993,16 @@ def _build_risques(tickers_data: list[dict], sector_name: str, registry=None):
             f"organique visible disposent d'une asymetrie favorable dans le scenario central. "
             f"A l'inverse, les acteurs a levier eleve et marges sous pression sont exposes a un risque de "
             f"rerating negatif en cas de deterioration des conditions de financement.",
+            S_BODY),
+        Spacer(1, 3*mm),
+        Paragraph(
+            f"<b>Lecture croisee risque/rendement.</b> La combinaison du levier median ({nd_str2}) "
+            f"avec le P/E sectoriel ({pe_str2}) permet de distinguer les acteurs dont la prime de "
+            f"valorisation est justifiee par des fondamentaux solides de ceux qui combinent "
+            f"un multiple eleve et un bilan tendu — configuration de risque maximale en periode "
+            f"de contraction economique. Le ROE median ({roe_str2}) fournit un filtre complementaire : "
+            f"au-dessus de 15%, la creation de valeur est structurelle; en dessous de 8%, elle depend "
+            f"d'effets de levier financier potentiellement reversibles.",
             S_BODY),
     ]))
     return elems
@@ -2169,7 +2192,29 @@ def _build_annexe(tickers_data: list[dict], sector_name: str, reco_commentary: d
             elif kind == 'data':
                 tsa.append(('BACKGROUND', (0,ri),(-1,ri), bg))
         ta.setStyle(TableStyle(tsa))
-        elems.append(KeepTogether([ta, Spacer(1, 4*mm)]))
+        # Explication globale de la recommandation apres chaque tableau
+        _RECO_EXPL = {
+            "BUY": (
+                "<b>BUY</b> — Score composite >= 65/100. La combinaison de fondamentaux solides "
+                "(marges, bilan, croissance) et d'un momentum porteur justifie une surponderation "
+                "dans l'allocation sectorielle. Objectif de cours a 12 mois avec upside > 10%."
+            ),
+            "HOLD": (
+                "<b>HOLD</b> — Score composite 40-64/100. Profil equilibre mais manquant de catalyseur "
+                "a court terme. Position existante a maintenir sans renforcement — le rapport risque/rendement "
+                "n'offre pas d'asymetrie suffisante pour initier ou augmenter l'exposition."
+            ),
+            "SELL": (
+                "<b>SELL</b> — Score composite < 40/100. Fondamentaux deteriores (marges en contraction, "
+                "levier excessif) et/ou momentum negatif. Allegement recommande avec reallocation "
+                "vers les leaders sectoriels (BUY). Risque de sous-performance relative a 6-12 mois."
+            ),
+        }
+        _expl = _RECO_EXPL.get(grp_label, "")
+        if _expl:
+            _expl_s = _comm_styles.get(grp_label, _S_COMM_HOLD)
+            elems.append(Paragraph(_expl, _expl_s))
+        elems.append(Spacer(1, 4*mm))
 
     elems.append(src(
         "Score FinSight composite : Value 30% · Growth 25% · Quality 25% · Momentum 20%. "
@@ -2378,7 +2423,7 @@ def _build_story(perf_buf, area_buf, scatter_buf, donut_buf,
     story += _build_macro(perf_buf, area_buf, tickers_data, sector_name, universe, registry, sector_analytics)
     story += _build_structure_sectorielle(tickers_data, sector_name, sector_analytics or {}, registry)
     story += _build_acteurs(tickers_data, sector_name, registry)
-    story.append(PageBreak())
+    story.append(CondPageBreak(100*mm))  # saut page seulement si < 100mm restants (evite page vide)
     story += _build_valorisation(scatter_buf, donut_buf, tickers_data, sector_name, registry)
     story += _build_risques(tickers_data, sector_name, registry)
     story += _build_conclusion(tickers_data, sector_name, sector_analytics or {}, registry)
