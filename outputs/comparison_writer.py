@@ -126,20 +126,23 @@ def _ebitda_trend(yr_ltm, yr_prev1, yr_prev2) -> str:
 
 
 def _rev_cagr_3y(ratios) -> Optional[float]:
-    """CAGR chiffre d'affaires 3 ans depuis les ratios."""
+    """CAGR chiffre d'affaires 3 ans depuis les ratios. Fallback 2Y ou 1Y."""
     try:
         labels = sorted(ratios.years.keys(), key=lambda y: int(y.split("_")[0]))
-        if len(labels) < 4:
+        if len(labels) < 2:
             return None
-        # latest vs 3 ans avant
         y0 = ratios.years[labels[-1]]
-        y3 = ratios.years[labels[-4]]
-        if y0 is None or y3 is None:
-            return None
         r0 = _rev_from_yr(y0)
-        r3 = _rev_from_yr(y3)
-        if r0 and r3 and r3 > 0:
-            return round((r0 / r3) ** (1 / 3) - 1, 4)
+        if not r0:
+            return None
+        # Essayer 3Y, puis 2Y, puis 1Y
+        for n_years in (3, 2, 1):
+            idx = -(n_years + 1)
+            if abs(idx) <= len(labels):
+                yn = ratios.years[labels[idx]]
+                rn = _rev_from_yr(yn)
+                if rn and rn > 0:
+                    return round((r0 / rn) ** (1 / n_years) - 1, 4)
         return None
     except Exception:
         return None
@@ -280,6 +283,14 @@ def _fetch_supplements(ticker: str) -> dict:
                 cp = _g(full, "currentPrice") or _g(info, "last_price")
                 if dr and cp and float(cp) > 0:
                     out["dividend_yield"] = round(float(dr) / float(cp), 4)
+        except Exception:
+            pass
+
+        # Target price consensus (fallback DCF)
+        try:
+            tp = _g(full, "targetMeanPrice")
+            if tp and float(tp) > 0:
+                out["target_mean_price"] = round(float(tp), 2)
         except Exception:
             pass
 
@@ -521,10 +532,18 @@ def extract_metrics(state: dict, supp: dict) -> dict:
     # Prix courant (pipeline + fallback supplements)
     price = _safe(mkt, "share_price") or supp.get("share_price")
 
-    # DCF targets
+    # DCF targets — fallback targetMeanPrice depuis yfinance
     t_base = _safe(synthesis, "target_base")
     t_bear = _safe(synthesis, "target_bear")
     t_bull = _safe(synthesis, "target_bull")
+    if t_base is None:
+        t_base = supp.get("target_mean_price")
+    if t_bear is None and t_base:
+        try: t_bear = round(float(t_base) * 0.85, 2)
+        except: pass
+    if t_bull is None and t_base:
+        try: t_bull = round(float(t_base) * 1.15, 2)
+        except: pass
 
     # Finsight score
     fs = _finsight_score(snapshot, ratios)
@@ -637,7 +656,7 @@ def extract_metrics(state: dict, supp: dict) -> dict:
         "rsi":                supp.get("rsi"),
         "var_95_1m":          supp.get("var_95_1m"),
         "volatility_52w":     supp.get("volatility_52w"),
-        "duration_implicit":  None,  # non calcule -- champ facultatif
+        "duration_implicit":  _compute_duration(_safe(mkt, "wacc"), _safe(mkt, "terminal_growth")),
 
         # SCORES (rows 47-52) — remplis après les deux sociétés
         "finsight_score": fs,
@@ -734,6 +753,26 @@ def extract_metrics(state: dict, supp: dict) -> dict:
         m.setdefault("p_fcf", None)
 
     return m
+
+
+def _compute_duration(wacc, tgr) -> Optional[float]:
+    """Duration implicite = (1+g) / (WACC - g). Retourne en annees."""
+    try:
+        if wacc is None or tgr is None:
+            return None
+        w = float(wacc)
+        g = float(tgr)
+        # WACC peut etre en % (ex: 9.5) ou decimal (ex: 0.095)
+        if w > 1: w = w / 100.0
+        if g > 1: g = g / 100.0
+        if w <= g or w <= 0:
+            return None
+        dur = (1 + g) / (w - g)
+        if 0 < dur < 100:
+            return round(dur, 1)
+        return None
+    except Exception:
+        return None
 
 
 def _compute_peg(yr, rev_cagr) -> Optional[float]:
