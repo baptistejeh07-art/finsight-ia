@@ -1232,6 +1232,8 @@ def render_home() -> None:
                 u_key = target.upper().replace("-", "").replace(" ", "").replace("&", "")
                 st.session_state.screening_universe = u_key
                 st.session_state.stage = "screening_running"
+                # Reset resultats societe precedents pour eviter affichage stale dans sidebar
+                st.session_state.results = None
             st.rerun()
 
         if "quote_idx" not in st.session_state:
@@ -2311,7 +2313,7 @@ def render_screening_running() -> None:
 
             # ---- IndiceExcelWriter (scoring 4D, template TEMPLATE_INDICE.xlsx) ----
             # Pour indices EU uniquement (donnees individuelles disponibles)
-            _EU_INDICE_KEYS = {"CAC40", "DAX40", "FTSE100", "STOXX50"}
+            _EU_INDICE_KEYS = {"CAC40", "DAX40", "FTSE100", "STOXX50", "EUROSTOXX50"}
             indice_xlsx_bytes_out = None
             if universe in _EU_INDICE_KEYS:
                 _status("Generation du fichier Excel indice (scoring 4D)")
