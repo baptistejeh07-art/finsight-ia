@@ -257,9 +257,15 @@ def _fetch_supplements(ticker: str) -> dict:
                 log.debug(f"[comparison] perf calc error {ticker}: {e}")
 
         # Données marché
-        out["week52_high"]   = round(float(_g(info, "year_high")), 2) if _g(info, "year_high") else None
-        out["week52_low"]    = round(float(_g(info, "year_low")),  2) if _g(info, "year_low")  else None
+        _w52h = _g(info, "year_high") or _g(full, "fiftyTwoWeekHigh") or _g(full, "yearHigh")
+        _w52l = _g(info, "year_low")  or _g(full, "fiftyTwoWeekLow")  or _g(full, "yearLow")
+        out["week52_high"]   = round(float(_w52h), 2) if _w52h else None
+        out["week52_low"]    = round(float(_w52l), 2) if _w52l else None
         out["avg_volume_30d"] = round((_g(full, "averageVolume30Day") or _g(full, "averageVolume") or 0) / 1e6, 1) or None
+        # Share price (fallback chain)
+        _sp = _g(info, "last_price") or _g(full, "currentPrice") or _g(full, "regularMarketPrice")
+        if _sp:
+            out["share_price"] = round(float(_sp), 2)
         # Dividend yield depuis yfinance.info — cascade 3 sources
         try:
             dy = _g(full, "trailingAnnualDividendYield") or _g(full, "dividendYield")
@@ -350,7 +356,7 @@ def _fetch_supplements(ticker: str) -> dict:
         except Exception as e:
             log.debug(f"[comparison] interest_coverage error {ticker}: {e}")
 
-        # Volatilite annualisee 52 semaines
+        # Volatilite annualisee 52 semaines + RSI 14j
         try:
             import numpy as np
             hist_v = stock.history(period="1y", interval="1d", auto_adjust=True)
@@ -358,6 +364,26 @@ def _fetch_supplements(ticker: str) -> dict:
                 rets = hist_v["Close"].pct_change().dropna()
                 vol = float(np.std(rets)) * np.sqrt(252)
                 out["volatility_52w"] = round(vol, 4)
+                # RSI 14j
+                if len(rets) >= 14:
+                    delta = rets.iloc[-14:]
+                    gain = delta.clip(lower=0).mean()
+                    loss = (-delta.clip(upper=0)).mean()
+                    if loss > 0:
+                        rs = gain / loss
+                        out["rsi"] = round(100 - (100 / (1 + rs)), 1)
+                    elif gain > 0:
+                        out["rsi"] = 100.0
+                    else:
+                        out["rsi"] = 50.0
+        except Exception:
+            pass
+
+        # EV/Sales depuis yfinance.info
+        try:
+            evs = _g(full, "enterpriseToRevenue")
+            if evs and float(evs) > 0:
+                out["ev_sales"] = round(float(evs), 2)
         except Exception:
             pass
 
@@ -492,8 +518,8 @@ def extract_metrics(state: dict, supp: dict) -> dict:
     except Exception:
         pass
 
-    # Prix courant
-    price = _safe(mkt, "share_price")
+    # Prix courant (pipeline + fallback supplements)
+    price = _safe(mkt, "share_price") or supp.get("share_price")
 
     # DCF targets
     t_base = _safe(synthesis, "target_base")
@@ -576,6 +602,7 @@ def extract_metrics(state: dict, supp: dict) -> dict:
         "price_to_book":    _safe(yr, "pb_ratio"),
         "fcf_yield":        _safe(yr, "fcf_yield"),
         "peg_ratio":        _safe(yr, "peg_ratio") or _compute_peg(yr, rev_cagr),
+        "ev_sales":         _safe(yr, "ev_sales") or supp.get("ev_sales"),
         "wacc":             _safe(mkt, "wacc"),
         "terminal_growth":  _safe(mkt, "terminal_growth"),
         "entry_zone_ok":    1 if (t_base and price and t_base > price) else 0,
@@ -607,9 +634,10 @@ def extract_metrics(state: dict, supp: dict) -> dict:
         "net_debt_ebitda":    _safe(yr, "net_debt_ebitda"),
         "interest_coverage":  _safe(yr, "interest_coverage") or supp.get("interest_coverage"),
         "beta":               _safe(mkt, "beta_levered"),
+        "rsi":                supp.get("rsi"),
         "var_95_1m":          supp.get("var_95_1m"),
         "volatility_52w":     supp.get("volatility_52w"),
-        "duration_implicit":  None,  # non calculé — champ facultatif
+        "duration_implicit":  None,  # non calcule -- champ facultatif
 
         # SCORES (rows 47-52) — remplis après les deux sociétés
         "finsight_score": fs,

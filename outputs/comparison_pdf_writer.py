@@ -632,11 +632,13 @@ def _cover_page(canvas, doc, tkr_a, tkr_b, name_a, name_b,
     canvas.setFont("Helvetica-Bold", 38)
     canvas.drawCentredString(cx, H * 0.73, _enc(f"{tkr_a}  vs  {tkr_b}"))
 
-    # Noms complets 11pt gris
+    # Noms complets sur une ligne : "Company A (TKR_A) vs Company B (TKR_B)"
+    _na = (name_a or tkr_a)[:28]
+    _nb = (name_b or tkr_b)[:28]
+    subtitle_line = f"{_na} ({tkr_a})  vs  {_nb} ({tkr_b})"
     canvas.setFillColor(GREY_TEXT)
-    canvas.setFont("Helvetica", 11)
-    canvas.drawCentredString(W * 0.28, H * 0.685, _enc((name_a or tkr_a)[:32]))
-    canvas.drawCentredString(W * 0.72, H * 0.685, _enc((name_b or tkr_b)[:32]))
+    canvas.setFont("Helvetica", 10)
+    canvas.drawCentredString(cx, H * 0.685, _enc(subtitle_line))
 
     # Ligne separatrice sous titres
     canvas.setStrokeColor(GREY_RULE)
@@ -644,83 +646,39 @@ def _cover_page(canvas, doc, tkr_a, tkr_b, name_a, name_b,
     canvas.line(MARGIN_L + 20*mm, H * 0.668, W - MARGIN_R - 20*mm, H * 0.668)
 
     # ------------------------------------------------------------------
-    # DEUX BOXES SOCIETES (gauche A, droite B)
+    # DEUX BADGES RECOMMANDATION + CIBLE (compact, pas de boxes completes)
     # ------------------------------------------------------------------
-    box_top    = H * 0.658
-    box_bottom = box_top - 38*mm
-    box_h      = box_top - box_bottom
-    half_w     = (W - MARGIN_L - MARGIN_R) / 2 - 3*mm
-    box_ax     = MARGIN_L
-    box_bx     = MARGIN_L + half_w + 6*mm
+    badge_y = H * 0.618
 
-    # Box A fond + bordure gauche
-    canvas.setFillColor(COLOR_A_PAL)
-    canvas.roundRect(box_ax, box_bottom, half_w, box_h, 3, fill=1, stroke=0)
-    canvas.setStrokeColor(COLOR_A)
-    canvas.setLineWidth(3)
-    canvas.line(box_ax, box_bottom, box_ax, box_top)
-
-    # Box B fond + bordure gauche
-    canvas.setFillColor(COLOR_B_PAL)
-    canvas.roundRect(box_bx, box_bottom, half_w, box_h, 3, fill=1, stroke=0)
-    canvas.setStrokeColor(COLOR_B)
-    canvas.setLineWidth(3)
-    canvas.line(box_bx, box_bottom, box_bx, box_top)
-
-    canvas.setLineWidth(0.5)
-
-    def _draw_company_box(bx, bw, m, tkr, name, rec, color_main, color_pal):
-        inner_x = bx + 5*mm
-        cx_box   = bx + bw / 2
-
-        # Nom societe (12pt navy bold)
-        canvas.setFillColor(NAVY)
-        canvas.setFont("Helvetica-Bold", 11)
-        _nm = (name or tkr)[:32]
-        canvas.drawString(inner_x, box_top - 8*mm, _enc(_nm))
-
-        # Ticker + secteur (9pt gris)
-        sec = m.get("sector_a") or m.get("sector_b") or m.get("sector") or ""
-        canvas.setFillColor(GREY_TEXT)
-        canvas.setFont("Helvetica", 8.5)
-        canvas.drawString(inner_x, box_top - 13.5*mm,
-            _enc(f"{tkr}  \u00b7  {sec[:28]}"))
-
-        # Badge recommandation
-        rec_col = _rec_color(rec)
+    def _draw_cover_badge(bx, tkr, rec, m, color_main):
         badge_w = 30*mm
         badge_h = 10*mm
-        badge_x = inner_x
-        badge_y = box_top - 24*mm
+        # Badge recommandation
+        rec_col = _rec_color(rec)
         canvas.setFillColor(rec_col)
-        canvas.roundRect(badge_x, badge_y, badge_w, badge_h, 2, fill=1, stroke=0)
+        canvas.roundRect(bx, badge_y, badge_w, badge_h, 2, fill=1, stroke=0)
         canvas.setFillColor(WHITE)
         canvas.setFont("Helvetica-Bold", 8.5)
-        canvas.drawCentredString(badge_x + badge_w/2, badge_y + 3.2*mm,
+        canvas.drawCentredString(bx + badge_w/2, badge_y + 3.2*mm,
             _enc(_rec_label(rec)))
-
-        # Box cible navy
+        # Cible
         tgt = m.get("target_price") or ""
         up  = m.get("upside_str") or ""
         cible_txt = f"Cible: {tgt}  ({up})" if tgt else "Cible: N/A"
-        cible_w = bw - badge_w - 8*mm
-        cible_x = badge_x + badge_w + 3*mm
+        cible_w = 42*mm
+        cible_x = bx + badge_w + 3*mm
         canvas.setFillColor(NAVY)
         canvas.roundRect(cible_x, badge_y, cible_w, badge_h, 2, fill=1, stroke=0)
         canvas.setFillColor(WHITE)
         canvas.setFont("Helvetica-Bold", 7.5)
         canvas.drawCentredString(cible_x + cible_w/2, badge_y + 3.2*mm, _enc(cible_txt))
+        # Label ticker au-dessus
+        canvas.setFillColor(color_main)
+        canvas.setFont("Helvetica-Bold", 9)
+        canvas.drawString(bx, badge_y + badge_h + 3*mm, _enc(tkr))
 
-        # Cours + FinSight Score
-        price_str = str(m.get("price_str") or "\u2014")
-        fs_score  = str(m.get("finsight_score") or "\u2014")
-        canvas.setFillColor(GREY_TEXT)
-        canvas.setFont("Helvetica", 8)
-        canvas.drawString(inner_x, box_top - 36*mm,
-            _enc(f"Cours : {price_str}   |   FinSight : {fs_score}/100"))
-
-    _draw_company_box(box_ax, half_w, m_a, tkr_a, name_a, rec_a, COLOR_A, COLOR_A_PAL)
-    _draw_company_box(box_bx, half_w, m_b, tkr_b, name_b, rec_b, COLOR_B, COLOR_B_PAL)
+    _draw_cover_badge(MARGIN_L + 5*mm, tkr_a, rec_a, m_a, COLOR_A)
+    _draw_cover_badge(W/2 + 10*mm, tkr_b, rec_b, m_b, COLOR_B)
 
     # ------------------------------------------------------------------
     # BOX VERDICT (fond navy clair)
@@ -736,7 +694,7 @@ def _cover_page(canvas, doc, tkr_a, tkr_b, name_a, name_b,
 
     verd_box_x = MARGIN_L
     verd_box_w = W - MARGIN_L - MARGIN_R
-    verd_y     = box_bottom - 22*mm
+    verd_y     = badge_y - 28*mm
     verd_h     = 18*mm
     canvas.setFillColor(colors.HexColor('#EEF3FA'))
     canvas.roundRect(verd_box_x, verd_y, verd_box_w, verd_h, 3, fill=1, stroke=0)
@@ -1673,6 +1631,63 @@ def _section_52w_price(story, m_a, m_b, tkr_a, tkr_b):
         except Exception as e:
             log.warning(f"[cmp_pdf] 52w chart error: {e}")
             story.append(Spacer(1, 3*mm))
+
+    # Tendance globale et points cles
+    story.append(Paragraph("<b>Tendance et dynamique de marche</b>", S_SUBSECTION))
+    story.append(Spacer(1, 2*mm))
+
+    def _trend_txt(tkr, m):
+        """Generate trend analysis text for one ticker."""
+        p1y = m.get("perf_1y")
+        price = m.get("share_price")
+        hi = m.get("week52_high")
+        lo = m.get("week52_low")
+        parts = []
+        # Overall trend
+        if p1y is not None:
+            try:
+                fp = float(p1y)
+                if fp > 0.15:
+                    parts.append(f"{_enc(tkr)} affiche une tendance haussiere marquee sur 12 mois ({_frpct(p1y, True)})")
+                elif fp > 0.03:
+                    parts.append(f"{_enc(tkr)} evolue en tendance haussiere moderee ({_frpct(p1y, True)})")
+                elif fp > -0.03:
+                    parts.append(f"{_enc(tkr)} est en phase laterale ({_frpct(p1y, True)})")
+                elif fp > -0.15:
+                    parts.append(f"{_enc(tkr)} evolue en tendance baissiere moderee ({_frpct(p1y, True)})")
+                else:
+                    parts.append(f"{_enc(tkr)} subit une tendance baissiere prononcee ({_frpct(p1y, True)})")
+            except Exception:
+                pass
+        # Drawdown from 52W high
+        if price and hi:
+            try:
+                dd = (float(price) - float(hi)) / float(hi)
+                if dd < -0.05:
+                    parts.append(f"en retrait de {abs(dd)*100:.1f} % par rapport au plus haut 52 semaines ({_fr(hi, 2)})".replace(".", ","))
+                else:
+                    parts.append(f"proche de son plus haut 52 semaines ({_fr(hi, 2)})")
+            except Exception:
+                pass
+        # Recovery from 52W low
+        if price and lo:
+            try:
+                rec = (float(price) - float(lo)) / float(lo)
+                if rec > 0.20:
+                    parts.append(f"en hausse de {rec*100:.1f} % depuis le plus bas 52 semaines ({_fr(lo, 2)})".replace(".", ","))
+            except Exception:
+                pass
+        if parts:
+            return ". ".join(parts) + "."
+        return f"{_enc(tkr)} : donnees de tendance indisponibles."
+
+    trend_a = _trend_txt(tkr_a, m_a)
+    trend_b = _trend_txt(tkr_b, m_b)
+    story.append(Paragraph(_safe(_enc(trend_a)),
+                            _s('trend_a', size=8.5, leading=13, color=BLACK, sb=0, sa=3)))
+    story.append(Paragraph(_safe(_enc(trend_b)),
+                            _s('trend_b', size=8.5, leading=13, color=BLACK, sb=0, sa=3)))
+    story.append(Spacer(1, 3*mm))
 
     # Analyse chiffree des deux titres
     story.append(Paragraph("<b>Lecture analytique</b>", S_SUBSECTION))
