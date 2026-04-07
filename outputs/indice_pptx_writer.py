@@ -231,13 +231,13 @@ def _chapter_divider(prs, num_str, title, subtitle):
     return slide
 
 
-def _lecture_box(slide, title, text, y_top=9.5, height=3.8):
+def _lecture_box(slide, title, text, y_top=9.5, height=3.8, max_chars=800):
     """Boite lecture analytique en bas de slide."""
     _rect(slide, 0.9, y_top, 23.6, height, fill=_GRAYL)
     _rect(slide, 0.9, y_top, 0.12, height, fill=_NAVY)
     _txb(slide, title, 1.2, y_top + 0.15, 22.8, 0.6,
          size=8, bold=True, color=_NAVY)
-    _txb(slide, _trunc(text, 600), 1.2, y_top + 0.8, 22.8, height - 0.9,
+    _txb(slide, _trunc(text, max_chars), 1.2, y_top + 0.8, 22.8, height - 0.9,
          size=7.5, color=_GRAYT, wrap=True)
 
 
@@ -1932,7 +1932,7 @@ def _s20_etf_perf(prs, D, chart_bytes: bytes):
                     active=5)
             # Generer le graphique index perf
             _idx_bytes = _chart_index_perf(D)
-            _pic(slide, _idx_bytes, 0.9, 2.2, 23.6, 7.2)
+            _pic(slide, _idx_bytes, 0.9, 2.2, 23.6, 6.5)
 
             # Lecture analytique sous le graphique — narratif explicatif
             _i_perf  = _ph.get("indice", [])
@@ -2019,7 +2019,7 @@ def _s20_etf_perf(prs, D, chart_bytes: bytes):
                 ]
 
             _lecture_box(slide, f"Lecture analytique — {indice} sur 52 semaines",
-                         "  ".join(_narrative_parts), y_top=9.7, height=3.65)
+                         "  ".join(_narrative_parts), y_top=9.0, height=4.35, max_chars=900)
         else:
             # Pas de perf_history : tableau scores + note
             _header(slide, "Scores Sectoriels — Synthèse Allocataire",
