@@ -952,7 +952,7 @@ def _slide_exec_summary(prs, snap, synthesis, ratios, devil, sentiment):
         if i < len(catalysts):
             _cat_name = _g(catalysts[i], "title") or _g(catalysts[i], "name") or ""
             _cat_body = _g(catalysts[i], "description") or _g(catalysts[i], "text") or ""
-            _cat_txt  = _fit(f"{_cat_name[:30]}: {_cat_body}", 110) if _cat_body else _fit(_cat_name, 110)
+            _cat_txt  = _fit(f"{_cat_name[:25]}: {_cat_body}", 80) if _cat_body else _fit(_cat_name, 80)
         else:
             _cat_txt = "\u2014"
         add_rect(slide, 1.02, cy + 0.06, 0.12, 0.26, "1A7A4A")
@@ -2870,15 +2870,17 @@ def _slide_conviction_tracker(prs, snap, synthesis, ratios, devil, sentiment):
     add_text_box(slide, 9.35, y_mid + 0.05, 7.2, 0.40, "CATALYSEURS BULLS", 7.5, WHITE, bold=True)
     y_c = y_mid + 0.60
     for th in (pos_themes[:2] if pos_themes else ["N/D"]):
-        add_text_box(slide, 9.45, y_c, 7.10, 0.50, _fit(f"\u2022 {str(th)}", 95), 7, GREY_TXT, wrap=False)
-        y_c += 0.58
+        _c_txt = _fit(str(th), 68)
+        add_text_box(slide, 9.45, y_c, 7.10, 0.45, f"\u2022 {_c_txt}", 7, GREY_TXT, wrap=False)
+        y_c += 0.52
 
-    add_rect(slide, 17.00, y_mid, 7.40, 0.50, "A82020")
-    add_text_box(slide, 17.15, y_mid + 0.05, 7.2, 0.40, "RISQUES BEARS", 7.5, WHITE, bold=True)
+    add_rect(slide, 17.00, y_mid, 6.80, 0.50, "A82020")
+    add_text_box(slide, 17.10, y_mid + 0.05, 6.6, 0.40, "RISQUES BEARS", 7.5, WHITE, bold=True)
     y_r = y_mid + 0.60
     for th in (neg_themes[:2] if neg_themes else ["N/D"]):
-        add_text_box(slide, 17.15, y_r, 7.10, 0.50, _fit(f"\u2022 {str(th)}", 95), 7, GREY_TXT, wrap=False)
-        y_r += 0.58
+        _r_txt = _fit(str(th), 68)
+        add_text_box(slide, 17.10, y_r, 6.6, 0.45, f"\u2022 {_r_txt}", 7, GREY_TXT, wrap=False)
+        y_r += 0.52
 
     # ── Invalidation conditions ──────────────────────────────────────────────
     inv_list = _g(synthesis, "invalidation_list") or []
