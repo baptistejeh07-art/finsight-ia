@@ -580,6 +580,34 @@ SCORES:
     )
     results["bull_b"], results["bear_b"] = _split_bull_bear(r)
 
+    # Narratif cours 52 semaines avec contexte macro (pour PDF page 11 + PPTX)
+    _perf_a_1y = m_a.get('perf_1y')
+    _perf_b_1y = m_b.get('perf_1y')
+    _perf_str = (
+        f"{tkr_a} perf 1Y: {_perf_a_1y*100:.1f}% " if _perf_a_1y else f"{tkr_a} perf 1Y: N/D "
+    ) + (
+        f"| {tkr_b} perf 1Y: {_perf_b_1y*100:.1f}%" if _perf_b_1y else f"| {tkr_b} perf 1Y: N/D"
+    )
+    _price_ctx = (
+        f"Secteur A: {m_a.get('sector_a','N/D')} | Secteur B: {m_b.get('sector_b','N/D')} | "
+        f"Beta A: {m_a.get('beta','N/D')} | Beta B: {m_b.get('beta','N/D')} | "
+        f"{_perf_str} | "
+        f"52W High A: {m_a.get('week52_high','N/D')} | 52W Low A: {m_a.get('week52_low','N/D')} | "
+        f"52W High B: {m_b.get('week52_high','N/D')} | 52W Low B: {m_b.get('week52_low','N/D')} | "
+        f"PE A: {m_a.get('pe_ratio','N/D')} | PE B: {m_b.get('pe_ratio','N/D')} | "
+        f"Earnings Growth A: {m_a.get('eps_growth','N/D')} | Earnings Growth B: {m_b.get('eps_growth','N/D')}"
+    )
+    r = _call_llm(
+        f"Analyse en 120 mots MAX la trajectoire boursiere de {tkr_a} vs {tkr_b} sur 12 mois. "
+        f"Donne le CONTEXTE MACRO (taux directeurs, cycle economique, rotation sectorielle) "
+        f"qui EXPLIQUE les mouvements. Cite des evenements concrets (resultats trimestriels, "
+        f"guidance, M&A, regulation) qui ont pu impacter les cours. "
+        f"Termine par les catalyseurs a surveiller pour les 3-6 prochains mois. "
+        f"Donnees : {_price_ctx}",
+        system=system_msg, max_tokens=400
+    )
+    results["price_narrative"] = r[:800] if r else ""
+
     return results
 
 

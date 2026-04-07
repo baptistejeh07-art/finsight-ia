@@ -1545,7 +1545,7 @@ def _section_momentum_marche(story, m_a, m_b, tkr_a, tkr_b):
     story.append(KeepTogether([img, Spacer(1, 2*mm), src("FinSight IA / yfinance")]))
 
 
-def _section_52w_price(story, m_a, m_b, tkr_a, tkr_b):
+def _section_52w_price(story, m_a, m_b, tkr_a, tkr_b, synthesis=None):
     """Section : graphique de cours 52 semaines normalise + texte analytique."""
     story.append(CondPageBreak(80*mm))
     story += section_title("Evolution Boursiere 52 Semaines", "9b")
@@ -1747,7 +1747,13 @@ def _section_52w_price(story, m_a, m_b, tkr_a, tkr_b):
         except (ValueError, TypeError):
             pass
 
-    if _macro_parts:
+    # Narratif LLM si disponible (contexte macro reel), sinon fallback template
+    _llm_narrative = (synthesis or {}).get("price_narrative", "")
+    if _llm_narrative and len(_llm_narrative) > 30:
+        story.append(Paragraph(
+            f"<b>Contexte macro et dynamique de marche.</b> {_safe(_enc(_llm_narrative))}",
+            _s('macro_ctx', size=8.5, leading=13, color=BLACK, sb=0, sa=4)))
+    elif _macro_parts:
         _macro_text = " ".join(_macro_parts)
         story.append(Paragraph(
             f"<b>Contexte macro et lecture fondamentale.</b> {_safe(_enc(_macro_text))}",
@@ -2018,7 +2024,7 @@ class ComparisonPDFWriter:
         _section_dcf_sensitivity(story, m_a, m_b, tkr_a, tkr_b)               # 6
         _section_qualite_risque(story, m_a, m_b, synthesis, tkr_a, tkr_b)     # 7
         _section_momentum_marche(story, m_a, m_b, tkr_a, tkr_b)               # 8
-        _section_52w_price(story, m_a, m_b, tkr_a, tkr_b)                    # 9
+        _section_52w_price(story, m_a, m_b, tkr_a, tkr_b, synthesis)          # 9
         _section_piotroski_detail(story, m_a, m_b, tkr_a, tkr_b)             # 10
         _section_verdict(story, m_a, m_b, synthesis, tkr_a, tkr_b)           # 11
 
