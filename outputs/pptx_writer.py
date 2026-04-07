@@ -952,14 +952,12 @@ def _slide_exec_summary(prs, snap, synthesis, ratios, devil, sentiment):
         if i < len(catalysts):
             _cat_name = _g(catalysts[i], "title") or _g(catalysts[i], "name") or ""
             _cat_body = _g(catalysts[i], "description") or _g(catalysts[i], "text") or ""
-            _cat_txt  = _truncate(_cat_name, 55)
-            if _cat_body:
-                _cat_txt += "  " + _fit(_cat_body, 140)
+            _cat_txt  = _fit(f"{_cat_name[:30]}: {_cat_body}", 110) if _cat_body else _fit(_cat_name, 110)
         else:
             _cat_txt = "\u2014"
-        add_rect(slide, 1.02, cy + 0.06, 0.12, 0.28, "1A7A4A")
-        add_text_box(slide, 1.22, cy, 10.66, 0.55,
-                     _cat_txt, 7.5, "333333", wrap=True)
+        add_rect(slide, 1.02, cy + 0.06, 0.12, 0.26, "1A7A4A")
+        add_text_box(slide, 1.22, cy, 10.66, 0.48,
+                     _cat_txt, 7.5, "333333", wrap=False)
 
     # --- Valorisation Synthétique section (right) ---
     add_rect(slide, 13.08, 9.26, 11.3, 0.55, NAVY)
@@ -2872,15 +2870,15 @@ def _slide_conviction_tracker(prs, snap, synthesis, ratios, devil, sentiment):
     add_text_box(slide, 9.35, y_mid + 0.05, 7.2, 0.40, "CATALYSEURS BULLS", 7.5, WHITE, bold=True)
     y_c = y_mid + 0.60
     for th in (pos_themes[:2] if pos_themes else ["N/D"]):
-        add_text_box(slide, 9.45, y_c, 7.10, 0.60, f"\u2022 {str(th)[:140]}", 7.5, GREY_TXT, wrap=True)
-        y_c += 0.70
+        add_text_box(slide, 9.45, y_c, 7.10, 0.50, _fit(f"\u2022 {str(th)}", 95), 7, GREY_TXT, wrap=False)
+        y_c += 0.58
 
     add_rect(slide, 17.00, y_mid, 7.40, 0.50, "A82020")
     add_text_box(slide, 17.15, y_mid + 0.05, 7.2, 0.40, "RISQUES BEARS", 7.5, WHITE, bold=True)
     y_r = y_mid + 0.60
     for th in (neg_themes[:2] if neg_themes else ["N/D"]):
-        add_text_box(slide, 17.15, y_r, 7.10, 0.60, f"\u2022 {str(th)[:140]}", 7.5, GREY_TXT, wrap=True)
-        y_r += 0.70
+        add_text_box(slide, 17.15, y_r, 7.10, 0.50, _fit(f"\u2022 {str(th)}", 95), 7, GREY_TXT, wrap=False)
+        y_r += 0.58
 
     # ── Invalidation conditions ──────────────────────────────────────────────
     inv_list = _g(synthesis, "invalidation_list") or []
