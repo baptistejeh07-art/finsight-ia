@@ -166,6 +166,16 @@ def _truncate(s, n: int) -> str:
     return cut + "\u2026"
 
 
+def _fit(s, n: int) -> str:
+    """Coupe a n chars sans ajouter '...' — zones ou le debordement est invisible (PPTX clip)."""
+    s = _safe_str(s, "")
+    if len(s) <= n:
+        return s
+    cut = s[:n]
+    last_space = cut.rfind(" ")
+    return cut[:last_space] if last_space > n // 2 else cut
+
+
 def _fr_date_long(d=None) -> str:
     from datetime import date as _d
     _MONTHS = ["janvier", "fevrier", "mars", "avril", "mai", "juin",
@@ -624,7 +634,13 @@ def _chart_revenue_ebitda(m_a: dict, m_b: dict, tkr_a: str, tkr_b: str) -> Optio
             if h and h > 0:
                 ax1.text(bar.get_x() + bar.get_width()/2., h + 0.5,
                          f'{h:.0f}%', ha='center', va='bottom', fontsize=7, color='#333')
-        ax1.set_title('Marge EBITDA (%)', fontsize=9, fontweight='bold', color='#1B3A6B', pad=4)
+        _em_a = _pct_val(m_a.get('ebitda_margin_ltm'))
+        _em_b = _pct_val(m_b.get('ebitda_margin_ltm'))
+        _em_leader = tkr_a if _em_a > _em_b else (tkr_b if _em_b > _em_a else None)
+        _em_delta = abs(_em_a - _em_b)
+        _em_title = (f"{_em_leader} plus profitabl. : {_em_a:.0f}% vs {_em_b:.0f}% EBITDA LTM (+{_em_delta:.0f}pts)"
+                     if _em_leader else f"Marge EBITDA LTM {_em_a:.0f}% = {_em_b:.0f}%")
+        ax1.set_title(_em_title, fontsize=8.5, fontweight='bold', color='#1B3A6B', pad=4)
         ax1.set_xticks(x); ax1.set_xticklabels(years_lbl, fontsize=8)
         ax1.set_ylabel('%', fontsize=8); ax1.legend(fontsize=7.5)
         ax1.spines['top'].set_visible(False); ax1.spines['right'].set_visible(False)
@@ -652,7 +668,12 @@ def _chart_revenue_ebitda(m_a: dict, m_b: dict, tkr_a: str, tkr_b: str) -> Optio
             if h and h > 0:
                 ax2.text(bar.get_x() + bar.get_width()/2., h + 0.3,
                          f'{h:.0f}%', ha='center', va='bottom', fontsize=7, color='#333')
-        ax2.set_title('Croissance & Rentabilite (%)', fontsize=9, fontweight='bold', color='#1B3A6B', pad=4)
+        _roic_a = _pct_val(m_a.get('roic'))
+        _roic_b = _pct_val(m_b.get('roic'))
+        _r_leader = tkr_a if _roic_a > _roic_b else (tkr_b if _roic_b > _roic_a else None)
+        _r_title = (f"ROIC : {tkr_a} {_roic_a:.0f}% vs {tkr_b} {_roic_b:.0f}% — {_r_leader} plus efficient"
+                    if _r_leader else f"ROIC equivalent : {_roic_a:.0f}%")
+        ax2.set_title(_r_title, fontsize=8.5, fontweight='bold', color='#1B3A6B', pad=4)
         ax2.set_xticks(x2); ax2.set_xticklabels(metrics, fontsize=8)
         ax2.set_ylabel('%', fontsize=8); ax2.legend(fontsize=7.5)
         ax2.spines['top'].set_visible(False); ax2.spines['right'].set_visible(False)
@@ -716,7 +737,16 @@ def _chart_multiples(m_a: dict, m_b: dict, tkr_a: str, tkr_b: str) -> Optional[i
                 ax.text(x[i], vb + 0.3, f'{vb:.1f}', ha='center', va='bottom', fontsize=7, color='#2E8B57')
 
         ax.set_xticks(x); ax.set_xticklabels(metrics_lbl, fontsize=9)
-        ax.set_title('Multiples de Valorisation', fontsize=10, fontweight='bold', color='#1B3A6B', pad=5)
+        _pe_a = _safe_float(m_a.get('pe_ratio')) or 0
+        _pe_b = _safe_float(m_b.get('pe_ratio')) or 0
+        if _pe_a and _pe_b:
+            _cheap_tkr = tkr_a if _pe_a < _pe_b else tkr_b
+            _ev_a = _safe_float(m_a.get('ev_ebitda')) or 0
+            _ev_b = _safe_float(m_b.get('ev_ebitda')) or 0
+            _m_title = f"{_cheap_tkr} moins cher : PE {_pe_a:.0f}x vs {_pe_b:.0f}x  |  EV/EBITDA {_ev_a:.0f}x vs {_ev_b:.0f}x"
+        else:
+            _m_title = 'Multiples de Valorisation'
+        ax.set_title(_m_title, fontsize=9, fontweight='bold', color='#1B3A6B', pad=5)
         ax.legend(fontsize=8)
         ax.spines['top'].set_visible(False); ax.spines['right'].set_visible(False)
         ax.tick_params(labelsize=8)
@@ -753,7 +783,11 @@ def _chart_finsight_score(m_a: dict, m_b: dict, tkr_a: str, tkr_b: str) -> Optio
                     fontweight='bold', color='#333')
         ax.set_xlim(0, 110)
         ax.set_xlabel('Score /100', fontsize=9)
-        ax.set_title('FinSight Score', fontsize=10, fontweight='bold', color='#1B3A6B')
+        _fs_winner = tkr_a if fs_a > fs_b else (tkr_b if fs_b > fs_a else None)
+        _fs_delta = abs(int(fs_a) - int(fs_b))
+        _fs_title = (f"FinSight Score : {_fs_winner} favori ({_fs_delta} pts d'avance)"
+                     if _fs_winner else "FinSight Score : egalite")
+        ax.set_title(_fs_title, fontsize=10, fontweight='bold', color='#1B3A6B')
         ax.axvline(50, color='#AAAAAA', linestyle='--', linewidth=0.8)
         ax.text(50.5, -0.55, 'Neutre', fontsize=7, color='#888')
         ax.spines['top'].set_visible(False); ax.spines['right'].set_visible(False)
@@ -936,8 +970,22 @@ def _chart_52w_price(tkr_a: str, tkr_b: str) -> Optional[io.BytesIO]:
                         color=cb, linewidth=1.8, label=tkr_b)
 
         ax.axhline(y=100, color='#BBBBBB', linestyle='--', linewidth=0.9, alpha=0.7)
-        ax.set_title('Performance Relative 52 Semaines (base 100)', fontsize=10,
-                     fontweight='bold', color='#1B3A6B', pad=5)
+        # Titre analytique : qui sur/sous-performe sur 52 semaines
+        try:
+            _p52_a = ((close_a.iloc[-1] / close_a.iloc[0]) - 1) * 100 if not df_a.empty else None
+            _p52_b = ((close_b.iloc[-1] / close_b.iloc[0]) - 1) * 100 if not df_b.empty else None
+            if _p52_a is not None and _p52_b is not None:
+                _sur = tkr_a if _p52_a > _p52_b else tkr_b
+                _52_title = f"52 semaines : {tkr_a} {_p52_a:+.1f}% vs {tkr_b} {_p52_b:+.1f}% — {_sur} surperforme"
+            elif _p52_a is not None:
+                _52_title = f"52 semaines : {tkr_a} {_p52_a:+.1f}%"
+            elif _p52_b is not None:
+                _52_title = f"52 semaines : {tkr_b} {_p52_b:+.1f}%"
+            else:
+                _52_title = 'Performance Relative 52 Semaines (base 100)'
+        except Exception:
+            _52_title = 'Performance Relative 52 Semaines (base 100)'
+        ax.set_title(_52_title, fontsize=10, fontweight='bold', color='#1B3A6B', pad=5)
         ax.set_ylabel('Performance (base 100)', fontsize=8)
         ax.legend(fontsize=9)
         ax.spines['top'].set_visible(False)
@@ -1081,7 +1129,7 @@ def _slide_exec_summary(prs, m_a: dict, m_b: dict, synthesis: dict):
     # Bandeau exec summary LLM
     exec_txt = synthesis.get('exec_summary') or ""
     if exec_txt:
-        _exec_clean = " ".join(_truncate(exec_txt, 380).split())
+        _exec_clean = " ".join(_fit(exec_txt, 550).split())
         add_rect(slide, 1.02, 2.45, 23.37, 2.0, NAVY_PALE)
         add_rect(slide, 1.02, 2.45, 0.13, 2.0, NAVY_MID)
         add_text_box(slide, 1.4, 2.55, 22.8, 1.8, _exec_clean,
@@ -1313,7 +1361,7 @@ def _slide_marges(prs, m_a: dict, m_b: dict, synthesis: dict):
         _txt_clean = " ".join(_truncate(txt, 200).split())
         add_rect(slide, 1.02, 2.45, 23.37, 1.5, NAVY_PALE)
         add_rect(slide, 1.02, 2.45, 0.13, 1.5, NAVY_MID)
-        add_text_box(slide, 1.4, 2.55, 22.8, 1.3, _txt_clean, 8.5, NAVY, wrap=True)
+        add_text_box(slide, 1.4, 2.55, 22.8, 1.3, _fit(txt, 300), 8.5, NAVY, wrap=True)
 
     # KPIs side-by-side
     y_kpi = 4.2
@@ -1410,7 +1458,7 @@ def _slide_multiples(prs, m_a: dict, m_b: dict, synthesis: dict):
     if txt:
         add_rect(slide, 1.02, 2.45, 23.37, 1.3, NAVY_PALE)
         add_rect(slide, 1.02, 2.45, 0.13, 1.3, NAVY_MID)
-        add_text_box(slide, 1.4, 2.55, 22.8, 1.1, _truncate(txt, 200), 8.5, NAVY, wrap=True)
+        add_text_box(slide, 1.4, 2.55, 22.8, 1.1, _fit(txt, 300), 8.5, NAVY, wrap=True)
 
     sec_pe   = m_a.get('sector_median_pe') or '\u2014'
     sec_eveb = m_a.get('sector_median_ev_ebitda') or '\u2014'
@@ -1648,7 +1696,7 @@ def _slide_piotroski(prs, m_a: dict, m_b: dict, synthesis: dict):
     if txt:
         add_rect(slide, 1.02, 2.45, 23.37, 1.55, NAVY_PALE)
         add_rect(slide, 1.02, 2.45, 0.13, 1.55, NAVY_MID)
-        add_text_box(slide, 1.4, 2.55, 22.8, 1.35, _truncate(txt, 320), 8.5, NAVY, wrap=True)
+        add_text_box(slide, 1.4, 2.55, 22.8, 1.35, _fit(txt, 450), 8.5, NAVY, wrap=True)
 
     def _pio_val(m, key):
         v = m.get(key)
@@ -1916,7 +1964,7 @@ def _slide_theses(prs, m_a: dict, m_b: dict, synthesis: dict):
     add_rect(slide, 1.02, y0, 0.18, 0.5, GREEN)
     add_text_box(slide, 1.35, y0 + 0.07, 11.0, 0.38, f"BULL — {tkr_a}", 8.5, GREEN, bold=True)
     add_rect(slide, 1.02, y0 + 0.55, 11.44, 3.7, GREY_BG)
-    add_text_box(slide, 1.15, y0 + 0.65, 11.15, 3.5, _truncate(bull_a, 300), 8.5, BLACK, wrap=True)
+    add_text_box(slide, 1.15, y0 + 0.65, 11.15, 3.5, _fit(bull_a, 500), 8.5, BLACK, wrap=True)
 
     # Bear A
     y1 = y0 + 4.5
@@ -1924,7 +1972,7 @@ def _slide_theses(prs, m_a: dict, m_b: dict, synthesis: dict):
     add_rect(slide, 1.02, y1, 0.18, 0.5, RED)
     add_text_box(slide, 1.35, y1 + 0.07, 11.0, 0.38, f"BEAR — {tkr_a}", 8.5, RED, bold=True)
     add_rect(slide, 1.02, y1 + 0.55, 11.44, 3.5, GREY_BG)
-    add_text_box(slide, 1.15, y1 + 0.65, 11.15, 3.3, _truncate(bear_a, 300), 8.5, BLACK, wrap=True)
+    add_text_box(slide, 1.15, y1 + 0.65, 11.15, 3.3, _fit(bear_a, 500), 8.5, BLACK, wrap=True)
 
     # Panel B
     # Bull B
@@ -1932,14 +1980,14 @@ def _slide_theses(prs, m_a: dict, m_b: dict, synthesis: dict):
     add_rect(slide, 12.94, y0, 0.18, 0.5, GREEN)
     add_text_box(slide, 13.27, y0 + 0.07, 11.0, 0.38, f"BULL — {tkr_b}", 8.5, GREEN, bold=True)
     add_rect(slide, 12.94, y0 + 0.55, 11.44, 3.7, GREY_BG)
-    add_text_box(slide, 13.07, y0 + 0.65, 11.15, 3.5, _truncate(bull_b, 300), 8.5, BLACK, wrap=True)
+    add_text_box(slide, 13.07, y0 + 0.65, 11.15, 3.5, _fit(bull_b, 500), 8.5, BLACK, wrap=True)
 
     # Bear B
     add_rect(slide, 12.94, y1, 11.44, 0.5, RED_PALE)
     add_rect(slide, 12.94, y1, 0.18, 0.5, RED)
     add_text_box(slide, 13.27, y1 + 0.07, 11.0, 0.38, f"BEAR — {tkr_b}", 8.5, RED, bold=True)
     add_rect(slide, 12.94, y1 + 0.55, 11.44, 3.5, GREY_BG)
-    add_text_box(slide, 13.07, y1 + 0.65, 11.15, 3.3, _truncate(bear_b, 300), 8.5, BLACK, wrap=True)
+    add_text_box(slide, 13.07, y1 + 0.65, 11.15, 3.3, _fit(bear_b, 500), 8.5, BLACK, wrap=True)
 
     return slide
 
@@ -2057,7 +2105,7 @@ def _slide_verdict(prs, m_a: dict, m_b: dict, synthesis: dict):
     add_rect(slide, 1.02, y_v, 23.37, 3.5, NAVY_PALE)
     add_rect(slide, 1.02, y_v, 0.18, 3.5, NAVY_MID)
     add_text_box(slide, 1.4, y_v + 0.12, 22.7, 3.3,
-                 _truncate(verdict_txt, 450) if verdict_txt else
+                 _fit(verdict_txt, 600) if verdict_txt else
                  f"{winner} est privilegiee sur la base des criteres de valorisation, de qualite bilancielle et de momentum.",
                  8.5, NAVY, wrap=True)
 

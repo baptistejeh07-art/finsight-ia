@@ -501,8 +501,13 @@ def _chart_perf_bars(m_a, m_b, tkr_a, tkr_b) -> io.BytesIO:
         vals_a  = [_pv(m_a.get("perf_1m")), _pv(m_a.get("perf_3m")), _pv(m_a.get("perf_1y"))]
         vals_b  = [_pv(m_b.get("perf_1m")), _pv(m_b.get("perf_3m")), _pv(m_b.get("perf_1y"))]
         x = np.arange(len(labels)); width = 0.35
+        _p1y_a = _pv(m_a.get("perf_1y"))
+        _p1y_b = _pv(m_b.get("perf_1y"))
+        _perf_leader = tkr_a if _p1y_a > _p1y_b else (tkr_b if _p1y_b > _p1y_a else None)
+        _perf_title = (f"{_perf_leader} surperforme sur 1 an : {_p1y_a:+.1f}% vs {_p1y_b:+.1f}%"
+                       if _perf_leader else f"Performance comparable : {_p1y_a:+.1f}% chacun sur 1 an")
         fig, ax = plt.subplots(figsize=(7, 3.2))
-        ax.set_title(f"Performance comparative : {tkr_a} vs {tkr_b} (%)", fontsize=10, fontweight='bold', color='#1B3A6B', pad=5)
+        ax.set_title(_perf_title, fontsize=9.5, fontweight='bold', color='#1B3A6B', pad=5)
         bars_a = ax.bar(x - width/2, vals_a, width, label=tkr_a, color='#2E5FA3', alpha=0.9)
         bars_b = ax.bar(x + width/2, vals_b, width, label=tkr_b, color='#2E8B57', alpha=0.9)
         for bar in list(bars_a) + list(bars_b):
@@ -1640,8 +1645,17 @@ def _section_52w_price(story, m_a, m_b, tkr_a, tkr_b):
                         ax.plot(close_b.index, close_b / base_b * 100,
                                 color=cb, linewidth=1.8, label=tkr_b)
                 ax.axhline(y=100, color='#BBBBBB', linestyle='--', linewidth=0.9, alpha=0.7)
-                ax.set_title(f'Performance Relative 52 Semaines — {_enc(tkr_a)} vs {_enc(tkr_b)} (base 100)',
-                             fontsize=10, fontweight='bold', color='#1B3A6B', pad=5)
+                try:
+                    _p52_a = ((close_a.iloc[-1] / close_a.iloc[0]) - 1) * 100 if not df_a.empty else None
+                    _p52_b = ((close_b.iloc[-1] / close_b.iloc[0]) - 1) * 100 if not df_b.empty else None
+                    if _p52_a is not None and _p52_b is not None:
+                        _52_ldr = tkr_a if _p52_a > _p52_b else tkr_b
+                        _52_t = f"52 semaines : {tkr_a} {_p52_a:+.1f}% vs {tkr_b} {_p52_b:+.1f}% — {_52_ldr} surperforme"
+                    else:
+                        _52_t = f'Performance Relative 52 Semaines — {tkr_a} vs {tkr_b} (base 100)'
+                except Exception:
+                    _52_t = f'Performance Relative 52 Semaines — {tkr_a} vs {tkr_b} (base 100)'
+                ax.set_title(_52_t, fontsize=10, fontweight='bold', color='#1B3A6B', pad=5)
                 ax.set_ylabel('Base 100', fontsize=8)
                 ax.legend(fontsize=9, frameon=False)
                 ax.spines['top'].set_visible(False); ax.spines['right'].set_visible(False)

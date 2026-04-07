@@ -882,7 +882,7 @@ def _slide_exec_summary(prs, snap, synthesis, ratios, devil, sentiment):
         add_text_box(slide, 1.4, sy, 10.92, 0.51,
                      _truncate(label, 80), 8.5, NAVY, bold=True)
         add_text_box(slide, 1.4, sy + 0.47, 10.92, 1.05,
-                     _truncate(body, 260), 7.5, "333333", wrap=True)
+                     _fit(body, 480), 7.5, "333333", wrap=True)
 
     # Risks section header
     add_rect(slide, 13.08, 3.76, 11.3, 0.71, RED)
@@ -924,7 +924,7 @@ def _slide_exec_summary(prs, snap, synthesis, ratios, devil, sentiment):
         add_text_box(slide, 13.46, ry, 10.54, 0.51,
                      _truncate(risk_text, 80), 8.5, NAVY, bold=True)
         add_text_box(slide, 13.46, ry + 0.47, 10.54, 1.05,
-                     _truncate(body_r, 260), 7.5, "333333", wrap=True)
+                     _fit(body_r, 480), 7.5, "333333", wrap=True)
 
     # Vertical divider
     add_rect(slide, 12.57, 3.76, 0.03, 4.84, GREY_LIGHT)
@@ -2662,89 +2662,86 @@ def _slide_historique(prs, snap, synthesis):
             _frpct(perf_52w, signed=True),
             "Performance 52 sem.")
 
+    # Titre analytique basé sur la performance
+    _perf_label = _frpct(perf_52w, signed=True) if perf_52w is not None else ""
+    _trend_txt = ("en hausse" if perf_52w and perf_52w > 0.05
+                  else ("en repli" if perf_52w and perf_52w < -0.05 else "stable"))
+    _hist_subtitle = (f"Cours {_trend_txt} de {_perf_label} sur 12 mois"
+                      if _perf_label else "Evolution du cours — 12 derniers mois")
     add_text_box(slide, 1.02, 5.13, 23.37, 0.46,
-                 "Evolution du cours — 12 derniers mois", 9, NAVY, bold=True)
+                 _hist_subtitle, 9, NAVY, bold=True)
 
-    # French month name lookup
-    _FR_MONTHS = {
-        "jan": "Jan", "feb": "F\u00e9v", "mar": "Mar", "apr": "Avr",
-        "may": "Mai", "jun": "Juin", "jul": "Juil", "aug": "Ao\u00fb",
-        "sep": "Sep", "oct": "Oct", "nov": "Nov", "dec": "D\u00e9c",
-        "january": "Jan", "february": "F\u00e9v", "march": "Mar",
-        "april": "Avr", "june": "Juin", "july": "Juil", "august": "Ao\u00fb",
-        "september": "Sep", "october": "Oct", "november": "Nov", "december": "D\u00e9c",
-    }
-
-    def _fr_month(mo_str):
-        mo_str = str(mo_str).strip()
-        key = mo_str[:3].lower()
-        return _FR_MONTHS.get(key, mo_str[:4])
-
-    # Chart area background
+    # Graphique line chart matplotlib (standard sell-side — prix = ligne, pas barres)
     chart_x = 1.02
     chart_y = 5.84
     chart_w = 23.37
     chart_h = 5.08
-    add_rect(slide, chart_x, chart_y, chart_w, chart_h, GREY_BG,
-             line_hex="D0D0D0", line_width_pt=0.5)
-    add_rect(slide, chart_x, chart_y, chart_w, 0.10, NAVY_MID)
 
-    # Draw bars
+    _chart_inserted = False
     if prices and len(prices) >= 2:
-        p_min   = min(prices)
-        p_max   = max(prices)
-        p_range = p_max - p_min if p_max != p_min else 1.0
-        max_bar_h = 4.0
-        n_bars    = min(len(history), 12)
-        bar_w     = (chart_w - 1.5) / n_bars
-        bar_area_x = chart_x + 0.75
-        bar_base_y = chart_y + chart_h - 0.60
+        try:
+            import matplotlib
+            matplotlib.use('Agg')
+            import matplotlib.pyplot as plt
+            import io as _io
 
-        for i in range(n_bars):
-            idx = len(history) - n_bars + i
-            if idx < 0:
-                continue
-            pt  = history[idx]
-            pv  = _g(pt, "price")
-            mo  = _g(pt, "month", "") or ""
-            if pv is None:
-                continue
-            try:
-                pv = float(pv)
-            except Exception:
-                continue
+            months_lbl = [_g(pt, "month", "") or "" for pt in history[-len(prices):]]
 
-            bh    = max_bar_h * (pv - p_min) / p_range + 0.20
-            bx    = bar_area_x + i * bar_w
-            by    = bar_base_y - bh + 0.50
+            fig_w_in = 12.0
+            fig_h_in = chart_h * (fig_w_in / chart_w)
+            fig, ax = plt.subplots(figsize=(fig_w_in, fig_h_in))
+            fig.patch.set_facecolor('#F5F7FA')
+            ax.set_facecolor('#F5F7FA')
 
-            prev_pv = _safe_float(_g(history[idx - 1], "price")) if idx > 0 else None
-            if i == n_bars - 1:
-                bar_color = NAVY_MID
-            elif prev_pv and pv >= prev_pv:
-                bar_color = GREEN
-            else:
-                bar_color = RED
+            x_idx = list(range(len(prices)))
+            ax.plot(x_idx, prices, color='#2E5FA3', linewidth=2.2, zorder=3)
+            ax.fill_between(x_idx, prices, min(prices) * 0.98,
+                            color='#2E5FA3', alpha=0.08)
 
-            add_rect(slide, bx, by, bar_w * 0.76, bh, bar_color)
+            # Marqueur dernier cours
+            ax.scatter([x_idx[-1]], [prices[-1]], color='#2E5FA3', s=40, zorder=4)
+            ax.annotate(f"{prices[-1]:.0f} {currency}",
+                        xy=(x_idx[-1], prices[-1]),
+                        xytext=(-10, 6), textcoords='offset points',
+                        fontsize=8, color='#1B3A6B', fontweight='bold')
 
-            # Month label — French
-            mo_fr = _fr_month(mo)
-            add_text_box(slide, bx - 0.10, bar_base_y + 0.52, bar_w + 0.20, 0.40,
-                         mo_fr, 6, GREY_TXT, align=PP_ALIGN.CENTER)
+            # Plus haut / plus bas
+            idx_hi = prices.index(p_high)
+            idx_lo = prices.index(p_low)
+            ax.annotate(f"H: {p_high:.0f}", xy=(idx_hi, p_high),
+                        xytext=(0, 8), textcoords='offset points',
+                        fontsize=7, color='#1B5E20',
+                        arrowprops=dict(arrowstyle='-', color='#1B5E20', lw=0.7))
+            ax.annotate(f"B: {p_low:.0f}", xy=(idx_lo, p_low),
+                        xytext=(0, -14), textcoords='offset points',
+                        fontsize=7, color='#B71C1C',
+                        arrowprops=dict(arrowstyle='-', color='#B71C1C', lw=0.7))
 
-        # Y-axis price scale (4 reference levels)
-        _y_ref_levels = [0.0, 0.33, 0.67, 1.0]
-        for frac in _y_ref_levels:
-            pv_ref  = p_min + frac * p_range
-            bh_ref  = max_bar_h * frac + 0.20
-            y_ref   = bar_base_y - bh_ref + 0.50
-            # Thin horizontal dashed line
-            add_rect(slide, chart_x + 0.65, y_ref, chart_w - 0.65, 0.02, "D0D5DD")
-            # Price label on the left (wrap=False to prevent digit stacking)
-            add_text_box(slide, chart_x - 0.10, y_ref - 0.20, 0.80, 0.40,
-                         f"{int(pv_ref)}", 6, GREY_TXT, wrap=False)
-    else:
+            ax.set_xticks(x_idx)
+            ax.set_xticklabels(months_lbl, fontsize=7.5, color='#555', rotation=20, ha='right')
+            ax.tick_params(axis='y', labelsize=8, labelcolor='#555')
+            ax.set_ylabel(currency, fontsize=8, color='#555')
+            ax.spines['top'].set_visible(False)
+            ax.spines['right'].set_visible(False)
+            ax.spines['left'].set_color('#D0D5DD')
+            ax.spines['bottom'].set_color('#D0D5DD')
+            ax.grid(axis='y', alpha=0.3, color='#D0D5DD', linewidth=0.5)
+
+            plt.tight_layout(pad=0.5)
+            _buf = _io.BytesIO()
+            fig.savefig(_buf, format='png', dpi=150, bbox_inches='tight')
+            plt.close(fig)
+            _buf.seek(0)
+
+            from pptx.util import Cm as _Cm
+            slide.shapes.add_picture(_buf, _Cm(chart_x), _Cm(chart_y), _Cm(chart_w), _Cm(chart_h))
+            _chart_inserted = True
+        except Exception as _e:
+            log.warning(f"[pptx] historique line chart error: {_e}")
+
+    if not _chart_inserted:
+        add_rect(slide, chart_x, chart_y, chart_w, chart_h, GREY_BG,
+                 line_hex="D0D0D0", line_width_pt=0.5)
         add_text_box(slide, chart_x + 8.0, chart_y + 2.0, 7.37, 1.0,
                      "Historique de cours non disponible", 10, GREY_TXT)
 

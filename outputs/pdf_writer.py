@@ -538,8 +538,15 @@ def _make_margins_chart(data):
     ax.set_xticklabels(years, fontsize=9, color='#555')
     ax.tick_params(axis='y', labelsize=9)
     ax.set_ylabel('(%)', fontsize=10, color='#555')
-    ax.set_title('Ratios de rentabilit\u00e9 \u2014 \u00c9volution', fontsize=12,
-                 color='#1B3A6B', fontweight='bold', pad=32)
+    _em_last  = next((v for v in reversed(em_vals) if v is not None), None)
+    _em_first = next((v for v in em_vals if v is not None), None)
+    if _em_last is not None and _em_first is not None and sum(1 for v in em_vals if v is not None) > 1:
+        _em_delta = _em_last - _em_first
+        _em_trend = f"+{_em_delta:.0f}pts" if _em_delta >= 0 else f"{_em_delta:.0f}pts"
+        _margin_title = f"Marge EBITDA {_em_last:.0f}% en LTM (\u00e9volution {_em_trend} sur la p\u00e9riode)"
+    else:
+        _margin_title = 'Ratios de rentabilit\u00e9 \u2014 \u00c9volution'
+    ax.set_title(_margin_title, fontsize=12, color='#1B3A6B', fontweight='bold', pad=32)
     for sp in ['top', 'right']:
         ax.spines[sp].set_visible(False)
     ax.spines['left'].set_color('#D0D5DD')
@@ -586,8 +593,12 @@ def _make_revenue_area(data):
             ax.spines['left'].set_color('#D0D5DD'); ax.spines['bottom'].set_color('#D0D5DD')
             ax.set_facecolor('white'); fig.patch.set_facecolor('white')
             ax.grid(axis='y', alpha=0.25, color='#D0D5DD', linewidth=0.5, zorder=0)
-            ax.set_title('Revenus annuels consolid\u00e9s', fontsize=12,
-                         color='#1B3A6B', fontweight='bold', pad=8)
+            if len(_vals) >= 2 and _vals[0] and _vals[0] > 0:
+                _cagr = ((_vals[-1] / _vals[0]) ** (1.0 / max(1, len(_vals) - 1)) - 1) * 100
+                _rev_title = f"Revenus {_lbls[-1]} : {_vals[-1]:.1f} Md{_cur} — CAGR {_cagr:+.1f}% ({_lbls[0]}\u2192{_lbls[-1]})"
+            else:
+                _rev_title = 'Revenus annuels consolid\u00e9s'
+            ax.set_title(_rev_title, fontsize=12, color='#1B3A6B', fontweight='bold', pad=8)
             plt.tight_layout(pad=0.5)
             buf = io.BytesIO()
             fig.savefig(buf, format='png', dpi=180, bbox_inches='tight')
@@ -827,12 +838,18 @@ def _cover_page(c, doc, data):
     _inner_sep(h * 0.256)
 
     # Bullet 4 : risques cles (2 max sur la cover — espace limite)
-    _risks = data.get('risk_themes') or []
-    _r1 = _risks[0] if len(_risks) > 0 else 'Voir section Analyse des Risques'
-    _r2 = _risks[1] if len(_risks) > 1 else ''
-    _risk_lines = [_r1[:90]]
+    # Utiliser risk_themes_full (texte analytique complet) si disponible
+    _risks_full = data.get('risk_themes_full') or data.get('risk_themes') or []
+    _r1 = _risks_full[0] if len(_risks_full) > 0 else 'Voir section Analyse des Risques'
+    _r2 = _risks_full[1] if len(_risks_full) > 1 else ''
+    def _wrap_risk(txt, maxch=115):
+        if len(txt) <= maxch:
+            return txt
+        cut = txt[:maxch].rfind(' ')
+        return txt[:cut] if cut > 80 else txt[:maxch]
+    _risk_lines = [_wrap_risk(_r1)]
     if _r2:
-        _risk_lines.append(_r2[:90])
+        _risk_lines.append(_wrap_risk(_r2))
     _bullet_block(h * 0.220, "Risques principaux a surveiller", _risk_lines)
     _inner_sep(h * 0.185)
 
@@ -2917,7 +2934,8 @@ class PDFWriter:
             'bull_price':    (_fr(tbull, 0) + ' ' + cur) if tbull else '-',
             'base_price':    (_fr(tbase, 0) + ' ' + cur) if tbase else '-',
             'current_price': (_fr(price, 2) + ' ' + cur) if price else '-',
-            'risk_themes':   titles[:3],
+            'risk_themes':      titles[:3],
+            'risk_themes_full': (ct_parts[:3] if ct_parts else _neg_full[:3]) or titles[:3],
 
             # Devil / invalidation
             'bear_args':         bear_args,
