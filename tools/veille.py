@@ -247,10 +247,25 @@ ANGLE GLOBAL OBLIGATOIRE : Implications sur l'economie (emploi, productivite), l
 les secteurs (banque, assurance, conseil, asset management), les indices boursiers,
 la regulation (DORA, AI Act, Bale IV, MiFID) et la politique industrielle. Vue macro systematique.
 
+PROFILS D'EXPERTS A MOBILISER (si presents dans les sources ou deductibles) :
+- Decideurs politiques / regulateurs (CE, BCE, SEC, AMF, gouvernements)
+- Juristes / juges / avocats (droit IA, responsabilite algorithmique, contentieux)
+- Forces armees / securite nationale (cyberrisque IA, finance de defense, dual-use)
+- Ingenieurs / chercheurs (architectures ML, fiabilite des modeles, benchmarks)
+- Economistes (impact emploi, productivite, croissance, inegalites)
+- Grands dirigeants / CEO (declarations publiques, orientations strategiques)
+- Ecologistes / ESG (empreinte energetique IA, reporting durable automatise)
+- Autres profils pertinents selon les sources (medecins, philosophes, sociologues si applicable)
+Consigne : si une source mentionne la position d'un de ces profils, l'integrer dans la section "Voix d'experts".
+Si aucune source ne le mentionne explicitement, synthetiser la position probable de ces acteurs en t'appuyant
+sur leur corpus public connu (rapports, declarations, interviews). Distingue toujours ce qui vient
+d'une source collectee [n] de ce qui est une synthese de position connue (mention : "Position connue").
+Minimum 4 profils differents representes dans la section.
+
 ARTICLES DISPONIBLES ({len(top20)} sources collectees) :
 {art_list}
 
-MISSION : Redige un article de revue institutionnelle EN FRANCAIS de 950-1150 mots.
+MISSION : Redige un article de revue institutionnelle EN FRANCAIS de 1100-1400 mots.
 
 STRUCTURE EXACTE A RESPECTER :
 
@@ -277,6 +292,16 @@ Au moins un chiffre par section. Impacts concrets sur les metiers de la finance 
 
 ### Implications globales
 [150-200 mots. Vue macro : economie, societe, secteurs, indices boursiers, regulation europeenne, politique industrielle.]
+
+### Voix d'experts — Ce qu'ils en pensent
+[200-260 mots. Presentez les positions de minimum 4 profils d'experts DIFFERENTS sur les sujets traites.
+Format pour chaque expert :
+**[Profil] — [Nom ou institution si connu]** : [2-4 phrases. Position claire, sans ambiguite.
+Si source collectee : cite [n]. Si position connue publiquement : ajoute "(Position connue)".]
+
+Profils obligatoires a couvrir si possible : decideur politique/regulateur, juriste/avocat,
+economiste, dirigeant/CEO. Ajouter ingenieurs, ecologistes, militaires/securite si les sources s'y pretent.
+Les positions peuvent etre contradictoires entre elles — c'est voulu, c'est le debat reel.]
 
 ### Points de vigilance
 - [Risque ou limite 1 : factuel et precis]
@@ -312,6 +337,8 @@ REGLES ABSOLUES :
 - Finance d'entreprise = priorite. Marches = contexte
 - Regard FinSight UNIQUEMENT apres Conclusion
 - Sources avec URL reels des articles collectes
+- Section "Voix d'experts" : minimum 4 profils differents. Les positions peuvent etre contradictoires.
+  Distingue toujours source collectee [n] vs position connue publiquement "(Position connue)".
 
 Reponds UNIQUEMENT en JSON valide sans markdown autour :
 {{
