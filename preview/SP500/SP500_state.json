@@ -1,0 +1,16 @@
+{
+  "ticker": "SP500",
+  "raw_data": null,
+  "sentiment": "SentimentResult(ticker='SP500', timestamp='2026-04-08T14:36:37.794120', score=0.08, score_normalized=0.54, label='POSITIVE', confidence=0.435, articles_analyzed=10, articles_total=10, breakdown={'avg_positive': 0.435, 'avg_negative': 0.355, 'avg_neutral': 0.21, 'positive_count': 5, 'negative_count': 4, 'neutral_count': 1}, sources=['SeekingAlpha'], samples=[{'headline': 'How To Find Funds That Beat The S&P 500 For Retirement', 'source': 'SeekingAlpha', 'score': 0.75, 'label': 'POSITIVE'}, {'headline': 'An Unsurprising De-Escalation Favors The Bulls, For Now', 'source': 'SeekingAlpha', 'score': 0.75, 'label': 'POSITIVE'}, {'headline': 'A Ceasefire With A Bitter Aftertaste For The U.S.', 'source': 'SeekingAlpha', 'score': -0.75, 'label': 'NEGATIVE'}, {'headline': 'Bear Market Setup: 9 Signals Aligning -- VIX Not Reflecting It', 'source': 'SeekingAlpha', 'score': -0.75, 'label': 'NEGATIVE'}, {'headline': 'ETO: Expect Volatility If Inflation Surges This Summer', 'source': 'SeekingAlpha', 'score': 0.05, 'label': 'NEUTRAL'}], llm_commentary=\"La semaine a été marquée par un regain d'optimisme lié aux trêves géopolitiques, mais les pressions inflationnistes et les risques persistants freinent l'enthousiasme. Les signaux techniques et les opportunités sectorielles (IA, rachats d'actions) contrastent avec les tensions résiduelles au Moyen-Orient.\", meta={'request_id': 'cdac09c0-370a-4772-b0b2-31c5191fed25', 'latency_ms': 71072, 'confidence_score': 0.435, 'invalidation_conditions': 'Score invalide si : (1) moins de 3 articles analysés (bruit statistique), (2) news > 7 jours (information périmée), (3) ticker ambigu (mêmes lettres = autre société), (4) événement exceptionnel concentre la publication (biais de volume)', 'engine': 'llm_groq', 'tokens_used': 0})",
+  "data_quality": 0.0,
+  "errors": [
+    "AgentData returned None for SP500"
+  ],
+  "logs": [
+    {
+      "node": "fetch_node",
+      "latency_ms": 71084,
+      "status": "error"
+    }
+  ]
+}
