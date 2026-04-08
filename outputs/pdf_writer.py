@@ -2540,12 +2540,21 @@ def generate_report(data: dict, output_path: str) -> str:
     story.append(PageBreak())
     story += _build_valorisation(ff_buf, pie_buf, mc_buf, data)
     story.append(PageBreak())
-    story += _build_multiples_historiques(data)
-    story.append(PageBreak())
-    story += _build_capital_returns(data)
-    story.append(PageBreak())
-    story += _build_lbo(data)
-    story.append(PageBreak())
+    try:
+        story += _build_multiples_historiques(data)
+        story.append(PageBreak())
+    except Exception as _e_mh:
+        log.error("[PDFWriter] _build_multiples_historiques FAILED: %s", _e_mh, exc_info=True)
+    try:
+        story += _build_capital_returns(data)
+        story.append(PageBreak())
+    except Exception as _e_cr:
+        log.error("[PDFWriter] _build_capital_returns FAILED: %s", _e_cr, exc_info=True)
+    try:
+        story += _build_lbo(data)
+        story.append(PageBreak())
+    except Exception as _e_lbo:
+        log.error("[PDFWriter] _build_lbo FAILED: %s", _e_lbo, exc_info=True)
     story += _build_risques(data)
 
     doc.build(story, onFirstPage=on_page, onLaterPages=on_page)

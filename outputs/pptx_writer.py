@@ -3583,9 +3583,18 @@ class PPTXWriter:
         _slide_football_field(prs, snap, synthesis, ratios)
 
         # --- Slides IB/PE : Multiples historiques + Capital Returns + LBO ---
-        _slide_multiples_historiques(prs, snap, synthesis, ratios)
-        _slide_capital_returns(prs, snap, synthesis, ratios)
-        _slide_lbo(prs, snap, synthesis, ratios)
+        try:
+            _slide_multiples_historiques(prs, snap, synthesis, ratios)
+        except Exception as _e_mh:
+            log.error("[PPTXWriter] _slide_multiples_historiques FAILED: %s", _e_mh, exc_info=True)
+        try:
+            _slide_capital_returns(prs, snap, synthesis, ratios)
+        except Exception as _e_cr:
+            log.error("[PPTXWriter] _slide_capital_returns FAILED: %s", _e_cr, exc_info=True)
+        try:
+            _slide_lbo(prs, snap, synthesis, ratios)
+        except Exception as _e_lbo:
+            log.error("[PPTXWriter] _slide_lbo FAILED: %s", _e_lbo, exc_info=True)
 
         # --- Divider Risques ---
         divider_slide(prs, "04", "Risques & Strat\u00e9gie",
