@@ -75,6 +75,8 @@ class FinSightState(TypedDict, total=False):
     excel_bytes: Optional[bytes]
     pdf_bytes:   Optional[bytes]
     pptx_bytes:  Optional[bytes]
+    pptx_error:  Optional[str]
+    pdf_error:   Optional[str]
 
     # Monitoring
     data_quality: float        # 0.0–1.0 (confidence snapshot)
@@ -490,7 +492,7 @@ def output_node(state: FinSightState) -> dict:
         "pptx_bytes":  pptx_bytes,
         "pdf_bytes":   pdf_bytes,
         "pptx_error":  pptx_error,
-        "pdf_error":   pdf_error if 'pdf_error' in dir() else None,
+        "pdf_error":   pdf_error,
         **_log_entry(state, "output_node", ms,
                      excel=bool(excel_path), pptx=bool(pptx_path), pdf=bool(pdf_path)),
     }
