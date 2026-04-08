@@ -292,68 +292,161 @@ _components.html("""
   if (_kbRegistered) return;
   window.parent.__finsight_kb_registered = true;
 
+  var doc = window.parent.document;
+
+  // ── helpers internes ──────────────────────────────────────────────────────
+  function _clickBtn(pattern) {
+    var btns = doc.querySelectorAll('button');
+    for (var b of btns) {
+      if (b.innerText && b.innerText.trim().match(pattern)) { b.click(); return true; }
+    }
+    return false;
+  }
+  function _clickDl(keyword) {
+    var els = doc.querySelectorAll('a[download], button');
+    for (var b of els) {
+      var txt = (b.innerText || b.getAttribute('download') || '').toLowerCase();
+      if (txt.includes(keyword)) { b.click(); return true; }
+    }
+    return false;
+  }
+  function _scrollMain(dy) {
+    // Scrolle le conteneur principal Streamlit (pas window, souvent dans un div)
+    var main = doc.querySelector('section.main') ||
+                doc.querySelector('[data-testid="stAppViewContainer"]') ||
+                doc.querySelector('main') || doc.body;
+    main.scrollBy(0, dy);
+  }
+
   var SHORTCUTS = {
-    // Alt+H : Nouvelle analyse (retour accueil)
-    'h': function() {
-      var btns = window.parent.document.querySelectorAll('button');
-      for (var b of btns) {
-        if (b.innerText && b.innerText.trim().match(/Nouvelle analyse/i)) {
-          b.click(); return;
-        }
-      }
+    // ── Navigation ────────────────────────────────────────────────────────
+    // Alt+H : Accueil / Nouvelle analyse
+    'h': function() { _clickBtn(/Nouvelle analyse/i); },
+    // Alt+A : Lancer analyse
+    'a': function() { _clickBtn(/^Analyser/i); },
+    // Alt+C : Comparer
+    'c': function() { _clickBtn(/Comparer/i); },
+
+    // ── Downloads ─────────────────────────────────────────────────────────
+    // Alt+P : PDF
+    'p': function() { _clickDl('pdf'); },
+    // Alt+T : PPTX / Pitchbook
+    't': function() { _clickDl('pptx') || _clickDl('pitchbook'); },
+    // Alt+E : Excel
+    'e': function() { _clickDl('xlsx') || _clickDl('excel'); },
+
+    // ── Scroll ────────────────────────────────────────────────────────────
+    // Alt+D : Scroll bas 600px
+    'd': function() { _scrollMain(600); },
+    // Alt+U : Scroll haut 600px
+    'u': function() { _scrollMain(-600); },
+    // Alt+B : Scroll tout en bas
+    'b': function() {
+      var main = doc.querySelector('section.main') ||
+                  doc.querySelector('[data-testid="stAppViewContainer"]') ||
+                  doc.body;
+      main.scrollTo(0, main.scrollHeight);
     },
-    // Alt+A : Analyser -> (lancer analyse)
-    'a': function() {
-      var btns = window.parent.document.querySelectorAll('button');
-      for (var b of btns) {
-        if (b.innerText && b.innerText.trim().match(/^Analyser/i)) {
-          b.click(); return;
-        }
-      }
+    // Alt+G : Scroll tout en haut
+    'g': function() {
+      var main = doc.querySelector('section.main') ||
+                  doc.querySelector('[data-testid="stAppViewContainer"]') ||
+                  doc.body;
+      main.scrollTo(0, 0);
     },
-    // Alt+C : Comparer ->
-    'c': function() {
-      var btns = window.parent.document.querySelectorAll('button');
-      for (var b of btns) {
-        if (b.innerText && b.innerText.trim().match(/Comparer/i)) {
-          b.click(); return;
-        }
-      }
+
+    // ── Focus input ───────────────────────────────────────────────────────
+    // Alt+I : Focus le champ texte principal (ticker/societe)
+    'i': function() {
+      var inputs = doc.querySelectorAll('input[type="text"], input:not([type])');
+      if (inputs.length > 0) { inputs[0].focus(); inputs[0].select(); }
     },
-    // Alt+P : telecharger PDF (premier bouton PDF visible)
-    'p': function() {
-      var btns = window.parent.document.querySelectorAll('a[download], button');
-      for (var b of btns) {
-        var txt = (b.innerText || b.getAttribute('download') || '').toLowerCase();
-        if (txt.includes('pdf')) { b.click(); return; }
-      }
+
+    // ── Etat applicatif (logs console — remplace get_page_text) ───────────
+    // Alt+R : Rapport d'etat complet (page courante, ticker, loading, sections, downloads)
+    'r': function() {
+      var spinner = doc.querySelector('[data-testid="stSpinner"], .stSpinner, [class*="spinner"]');
+      var isLoading = !!spinner && spinner.offsetParent !== null;
+      var inputs = doc.querySelectorAll('input[type="text"], input:not([type])');
+      var ticker = inputs.length > 0 ? inputs[0].value : '';
+      var headers = Array.from(doc.querySelectorAll('h1,h2,h3')).map(function(h) {
+        return h.tagName + ': ' + h.innerText.trim().substring(0, 60);
+      });
+      var dls = Array.from(doc.querySelectorAll('a[download], button')).filter(function(b) {
+        var t = (b.innerText || b.getAttribute('download') || '').toLowerCase();
+        return t.includes('pdf') || t.includes('pptx') || t.includes('xlsx') || t.includes('excel') || t.includes('pitchbook');
+      }).map(function(b) { return b.innerText || b.getAttribute('download'); });
+      var errors = Array.from(doc.querySelectorAll('[data-testid="stAlert"], .stAlert, [class*="alert"]')).map(function(a) {
+        return a.innerText.trim().substring(0, 100);
+      });
+      var btns = Array.from(doc.querySelectorAll('button')).filter(function(b) {
+        return b.innerText && b.innerText.trim().length > 0 && b.offsetParent !== null;
+      }).map(function(b) { return b.innerText.trim(); }).slice(0, 10);
+      // Detection page
+      var page = 'inconnu';
+      if (isLoading) page = 'ANALYSE_EN_COURS';
+      else if (dls.length > 0) page = 'RESULTATS';
+      else if (ticker !== '' || inputs.length > 0) page = 'ACCUEIL';
+      console.log('[FinSight STATE]', JSON.stringify({
+        page: page,
+        ticker: ticker,
+        isLoading: isLoading,
+        sections: headers,
+        downloads: dls,
+        buttons: btns,
+        errors: errors
+      }, null, 2));
     },
-    // Alt+T : telecharger PPTX
-    't': function() {
-      var btns = window.parent.document.querySelectorAll('a[download], button');
-      for (var b of btns) {
-        var txt = (b.innerText || b.getAttribute('download') || '').toLowerCase();
-        if (txt.includes('pptx') || txt.includes('pitchbook')) { b.click(); return; }
-      }
+
+    // Alt+W : Spinner visible? (analyse en cours ?)
+    'w': function() {
+      var spinner = doc.querySelector('[data-testid="stSpinner"], .stSpinner, [class*="spinner"]');
+      var loading = !!spinner && spinner.offsetParent !== null;
+      console.log('[FinSight LOADING]', loading ? 'OUI — analyse en cours' : 'NON — page stable');
     },
-    // Alt+E : telecharger Excel
-    'e': function() {
-      var btns = window.parent.document.querySelectorAll('a[download], button');
-      for (var b of btns) {
-        var txt = (b.innerText || b.getAttribute('download') || '').toLowerCase();
-        if (txt.includes('xlsx') || txt.includes('excel')) { b.click(); return; }
-      }
+
+    // Alt+N : Liste des sections visibles (orientation rapide dans les resultats)
+    'n': function() {
+      var headers = Array.from(doc.querySelectorAll('h1,h2,h3,h4')).map(function(h) {
+        return h.tagName + ' | ' + h.innerText.trim().substring(0, 80);
+      });
+      console.log('[FinSight SECTIONS] ' + headers.length + ' headers :');
+      headers.forEach(function(h) { console.log('  ' + h); });
     },
-    // Alt+K : log la liste des raccourcis dans la console
+
+    // Alt+O : Liste tous les downloads disponibles (labels + types)
+    'o': function() {
+      var dls = Array.from(doc.querySelectorAll('a[download], button')).filter(function(b) {
+        var t = (b.innerText || b.getAttribute('download') || '').toLowerCase();
+        return t.includes('pdf') || t.includes('pptx') || t.includes('xlsx') ||
+               t.includes('excel') || t.includes('pitchbook') || t.includes('download') ||
+               t.includes('telecharger');
+      });
+      console.log('[FinSight DOWNLOADS] ' + dls.length + ' boutons :');
+      dls.forEach(function(b, i) {
+        console.log('  [' + i + '] ' + (b.innerText || b.getAttribute('download') || '').trim());
+      });
+    },
+
+    // Alt+F : Premier message d'erreur visible
+    'f': function() {
+      var alerts = doc.querySelectorAll('[data-testid="stAlert"], .stAlert, [class*="error"], [class*="warning"]');
+      if (alerts.length === 0) { console.log('[FinSight ERROR] Aucune alerte visible'); return; }
+      Array.from(alerts).forEach(function(a) {
+        console.log('[FinSight ALERT] ' + a.innerText.trim().substring(0, 200));
+      });
+    },
+
+    // ── Aide ──────────────────────────────────────────────────────────────
+    // Alt+K : Aide complete
     'k': function() {
-      console.log('[FinSight KB] Raccourcis actifs :');
-      console.log('  Alt+H  : Nouvelle analyse (accueil)');
-      console.log('  Alt+A  : Analyser ->');
-      console.log('  Alt+C  : Comparer ->');
-      console.log('  Alt+P  : Download PDF');
-      console.log('  Alt+T  : Download PPTX');
-      console.log('  Alt+E  : Download Excel');
-      console.log('  Alt+K  : Cette aide');
+      console.log('[FinSight KB] === RACCOURCIS CLAUDE ===');
+      console.log('  NAVIGATION  : Alt+H=Accueil  Alt+A=Analyser  Alt+C=Comparer');
+      console.log('  DOWNLOADS   : Alt+P=PDF  Alt+T=PPTX  Alt+E=Excel  Alt+O=Liste DL');
+      console.log('  SCROLL      : Alt+D=Bas  Alt+U=Haut  Alt+B=Bottom  Alt+G=Top');
+      console.log('  INPUT       : Alt+I=Focus champ texte');
+      console.log('  ETAT        : Alt+R=Rapport complet  Alt+W=Loading?  Alt+N=Sections  Alt+F=Erreurs');
+      console.log('  AIDE        : Alt+K=Cette aide');
     }
   };
 
