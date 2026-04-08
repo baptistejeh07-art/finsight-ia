@@ -499,6 +499,13 @@ if "icmp_pptx_bytes"    not in st.session_state: st.session_state.icmp_pptx_byte
 if "icmp_pdf_bytes"     not in st.session_state: st.session_state.icmp_pdf_bytes     = None
 if "icmp_xlsx_bytes"    not in st.session_state: st.session_state.icmp_xlsx_bytes    = None
 
+# Comparison sectorielle (scmp)
+if "scmp_stage"         not in st.session_state: st.session_state.scmp_stage         = None
+if "scmp_sector_a"      not in st.session_state: st.session_state.scmp_sector_a      = None
+if "scmp_sector_b"      not in st.session_state: st.session_state.scmp_sector_b      = None
+if "scmp_pptx_bytes"    not in st.session_state: st.session_state.scmp_pptx_bytes    = None
+if "scmp_pdf_bytes"     not in st.session_state: st.session_state.scmp_pdf_bytes     = None
+
 # ---------------------------------------------------------------------------
 # Routing : détection du type d'input
 # ---------------------------------------------------------------------------
@@ -3158,6 +3165,141 @@ def _render_indice_comparison_section(results: dict) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Comparatif sectoriel — UI (apres analyse sectorielle simple)
+# ---------------------------------------------------------------------------
+
+_CMP_SECTOR_CHOICES = [
+    "Technology", "Healthcare", "Consumer Cyclical", "Consumer Defensive",
+    "Financial Services", "Industrials", "Energy", "Basic Materials",
+    "Real Estate", "Communication Services", "Utilities",
+]
+
+def _render_sector_comparison_section(results: dict) -> None:
+    """Affiche la section de comparatif sectoriel apres une analyse sectorielle simple."""
+    import io as _io
+    import sys as _sys
+
+    current_sector = results.get("display_name", results.get("universe", ""))
+    tickers_a = results.get("tickers_data") or []
+
+    st.markdown('<div class="sec-t" style="margin-top:36px;">Comparatif Sectoriel</div>',
+                unsafe_allow_html=True)
+    st.caption(f"Comparer {current_sector} avec un autre secteur — PPTX + PDF generes en temps reel")
+
+    # Etat comparatif sectoriel
+    if "scmp_stage" not in st.session_state:
+        st.session_state.scmp_stage = None   # None / "running" / "done"
+    if "scmp_pptx_bytes" not in st.session_state:
+        st.session_state.scmp_pptx_bytes = None
+    if "scmp_pdf_bytes" not in st.session_state:
+        st.session_state.scmp_pdf_bytes = None
+    if "scmp_sector_b" not in st.session_state:
+        st.session_state.scmp_sector_b = None
+
+    # Si secteur change => reset
+    if st.session_state.get("scmp_sector_a") != current_sector:
+        st.session_state.scmp_stage = None
+        st.session_state.scmp_pptx_bytes = None
+        st.session_state.scmp_pdf_bytes = None
+        st.session_state.scmp_sector_a = current_sector
+
+    scmp_stage = st.session_state.scmp_stage
+
+    if scmp_stage == "done":
+        scmp_b = st.session_state.get("scmp_sector_b", "")
+        st.success(f"Comparatif {current_sector} vs {scmp_b} genere")
+        dl1, dl2, dl3 = st.columns(3)
+        with dl1:
+            if st.session_state.scmp_pptx_bytes:
+                st.download_button(
+                    f"Pitchbook {current_sector} vs {scmp_b} .pptx",
+                    st.session_state.scmp_pptx_bytes,
+                    file_name=f"cmp_secteur_{current_sector}_vs_{scmp_b}.pptx",
+                    mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                    use_container_width=True,
+                )
+        with dl2:
+            if st.session_state.scmp_pdf_bytes:
+                st.download_button(
+                    f"Rapport {current_sector} vs {scmp_b} .pdf",
+                    st.session_state.scmp_pdf_bytes,
+                    file_name=f"cmp_secteur_{current_sector}_vs_{scmp_b}.pdf",
+                    mime="application/pdf",
+                    use_container_width=True,
+                )
+        with dl3:
+            if st.button("Nouvelle comparaison", key="scmp_reset"):
+                st.session_state.scmp_stage = None
+                st.session_state.scmp_pptx_bytes = None
+                st.session_state.scmp_pdf_bytes = None
+                st.rerun()
+        return
+
+    if scmp_stage == "running":
+        sector_b = st.session_state.get("scmp_sector_b", "")
+        with st.spinner(f"Generation comparatif {current_sector} vs {sector_b}..."):
+            try:
+                _sys.path.insert(0, str(Path(__file__).parent))
+                from cli_analyze import _fetch_real_sector_data, _make_test_tickers
+
+                tickers_b = _fetch_real_sector_data(sector_b, "Global", max_tickers=8)
+                if not tickers_b:
+                    tickers_b = _make_test_tickers(sector_b, 6)
+                for t in tickers_b:
+                    t.pop("_sector_analytics", None)
+
+                td_a_clean = [dict(t) for t in tickers_a]
+                for t in td_a_clean:
+                    t.pop("_sector_analytics", None)
+
+                from outputs.cmp_secteur_pptx_writer import CmpSecteurPPTXWriter
+                from outputs.cmp_secteur_pdf_writer import generate_cmp_secteur_pdf
+
+                pptx_bytes = CmpSecteurPPTXWriter.generate(
+                    td_a_clean, current_sector, "Global",
+                    tickers_b, sector_b, "Global",
+                )
+                st.session_state.scmp_pptx_bytes = pptx_bytes
+
+                import tempfile, os as _os
+                with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as _tf:
+                    _pdf_path = _tf.name
+                generate_cmp_secteur_pdf(
+                    td_a_clean, current_sector, "Global",
+                    tickers_b, sector_b, "Global",
+                    output_path=_pdf_path,
+                )
+                st.session_state.scmp_pdf_bytes = open(_pdf_path, "rb").read()
+                try:
+                    _os.unlink(_pdf_path)
+                except Exception:
+                    pass
+
+                st.session_state.scmp_stage = "done"
+                st.rerun()
+            except Exception as _ex:
+                st.error(f"Erreur generation comparatif : {_ex}")
+                st.session_state.scmp_stage = None
+        return
+
+    # Formulaire de selection
+    other_choices = [s for s in _CMP_SECTOR_CHOICES if s != current_sector]
+    sc1, sc2 = st.columns([3, 1])
+    with sc1:
+        sector_b_sel = st.selectbox(
+            "Secteur a comparer",
+            options=other_choices,
+            key="scmp_sector_b_sel",
+        )
+    with sc2:
+        st.markdown("<div style='margin-top:28px;'></div>", unsafe_allow_html=True)
+        if st.button("Generer comparatif", type="primary", use_container_width=True, key="scmp_run"):
+            st.session_state.scmp_sector_b = sector_b_sel
+            st.session_state.scmp_stage = "running"
+            st.rerun()
+
+
+# ---------------------------------------------------------------------------
 # Page SCREENING RESULTS
 # ---------------------------------------------------------------------------
 
@@ -3332,8 +3474,14 @@ def render_screening_results(results: dict) -> None:
     # --- Comparer deux indices (en haut si analyse d'indice) ---
     _universe_key = results.get("universe", "")
     _is_indice_result = _universe_key not in _SECTOR_ALIASES_SET and _universe_key in _INDICE_CMP_OPTIONS
+    _is_sector_result = _universe_key in _SECTOR_ALIASES_SET
     if _is_indice_result:
         _render_indice_comparison_section(results)
+        st.markdown('<div style="margin-top:8px;"></div>', unsafe_allow_html=True)
+
+    # --- Comparatif sectoriel (si analyse sectorielle simple) ---
+    if _is_sector_result:
+        _render_sector_comparison_section(results)
         st.markdown('<div style="margin-top:8px;"></div>', unsafe_allow_html=True)
 
     # --- Comparer deux societes ---

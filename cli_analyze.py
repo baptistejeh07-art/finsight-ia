@@ -143,6 +143,59 @@ def run_secteur(sector: str, universe: str = "CAC 40", prefix: str = "secteur") 
     print(f"\nTemps total : {time.time() - t0:.1f}s")
 
 
+def run_cmp_secteur(
+    sector_a: str, universe_a: str,
+    sector_b: str, universe_b: str,
+) -> None:
+    """Pipeline comparatif sectoriel → PDF + PPTX comparatifs."""
+    from outputs.cmp_secteur_pptx_writer import CmpSecteurPPTXWriter
+    from outputs.cmp_secteur_pdf_writer import generate_cmp_secteur_pdf
+
+    log.info("=== COMPARATIF SECTORIEL : %s/%s vs %s/%s ===", sector_a, universe_a, sector_b, universe_b)
+    t0 = time.time()
+
+    tickers_a = _fetch_real_sector_data(sector_a, universe_a, max_tickers=8)
+    if not tickers_a:
+        log.warning("Fallback synthetique pour '%s' / '%s'", sector_a, universe_a)
+        tickers_a = _make_test_tickers(sector_a, 6)
+
+    tickers_b = _fetch_real_sector_data(sector_b, universe_b, max_tickers=8)
+    if not tickers_b:
+        log.warning("Fallback synthetique pour '%s' / '%s'", sector_b, universe_b)
+        tickers_b = _make_test_tickers(sector_b, 6)
+
+    # Nettoyer _sector_analytics si present
+    for td in (tickers_a, tickers_b):
+        for t in td:
+            t.pop("_sector_analytics", None)
+
+    stem = (
+        f"cmp_secteur_{sector_a.replace(' ', '_')}_{universe_a.replace(' ', '_')}"
+        f"_vs_{sector_b.replace(' ', '_')}_{universe_b.replace(' ', '_')}"
+    )
+    pdf_path  = OUT_DIR / f"{stem}.pdf"
+    pptx_path = OUT_DIR / f"{stem}.pptx"
+
+    generate_cmp_secteur_pdf(
+        tickers_a, sector_a, universe_a,
+        tickers_b, sector_b, universe_b,
+        output_path=str(pdf_path),
+    )
+    log.info("PDF comparatif sectoriel : %s  (%d Ko)", pdf_path.name, pdf_path.stat().st_size // 1024)
+
+    CmpSecteurPPTXWriter.generate(
+        tickers_a, sector_a, universe_a,
+        tickers_b, sector_b, universe_b,
+        output_path=str(pptx_path),
+    )
+    log.info("PPTX comparatif sectoriel : %s  (%d Ko)", pptx_path.name, pptx_path.stat().st_size // 1024)
+
+    print(f"\nFichiers generes dans : {OUT_DIR}")
+    print(f"  * {pdf_path.name}")
+    print(f"  * {pptx_path.name}")
+    print(f"\nTemps total : {time.time() - t0:.1f}s")
+
+
 def run_indice(universe: str = "S&P 500") -> None:
     """Pipeline indice complet (tous secteurs) → PDF + PPTX + Excel."""
     from outputs.indice_pdf_writer import IndicePDFWriter
@@ -2250,6 +2303,13 @@ if __name__ == "__main__":
         run_secteur(arg1, arg2, prefix="secteur")
     elif mode in ("indice", "idx"):
         run_indice(arg1)
+    elif mode in ("cmp_secteur", "cmpsec", "cmp-secteur"):
+        # Usage : python cli_analyze.py cmp_secteur Technology "S&P 500" Healthcare "S&P 500"
+        sector_a  = arg1
+        universe_a = arg2
+        sector_b  = sys.argv[4] if len(sys.argv) > 4 else "Healthcare"
+        universe_b = sys.argv[5] if len(sys.argv) > 5 else universe_a
+        run_cmp_secteur(sector_a, universe_a, sector_b, universe_b)
     else:
-        print(f"Mode inconnu : {mode}. Utiliser : societe | secteur | indice")
+        print(f"Mode inconnu : {mode}. Utiliser : societe | secteur | indice | cmp_secteur")
         sys.exit(1)
