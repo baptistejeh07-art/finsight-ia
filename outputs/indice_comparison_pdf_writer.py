@@ -92,6 +92,8 @@ S_TD_BC     = _s('tdbc',size=8, leading=11, color=BLACK, bold=True, align=TA_CEN
 S_TD_G      = _s('tdg', size=8, leading=11, color=BUY_GREEN, bold=True, align=TA_CENTER)
 S_TD_R      = _s('tdr', size=8, leading=11, color=SELL_RED,  bold=True, align=TA_CENTER)
 S_NOTE      = _s('note',size=6.5, leading=9, color=GREY_TEXT)
+S_LLM_TTL  = _s('llm_t', size=8, leading=11, color=WHITE, bold=True)
+S_LLM_BODY = _s('llm_b', size=8.5, leading=13, color=BLACK, align=TA_JUSTIFY)
 S_DISC      = _s('disc',size=6.5, leading=9, color=GREY_TEXT, align=TA_JUSTIFY)
 
 # =============================================================================
@@ -247,6 +249,37 @@ def _on_page(canvas, doc, data):
 # =============================================================================
 # CONTENT BUILDERS
 # =============================================================================
+
+def _llm_box_pdf(text: str, col=None) -> list:
+    """Cree un bloc 'Analyse FinSight IA' : bandeau navy + corps gris clair."""
+    if not text:
+        return []
+    if col is None:
+        col = NAVY
+    ttl = Table(
+        [[Paragraph("Analyse FinSight IA", S_LLM_TTL)]],
+        colWidths=[TABLE_W],
+    )
+    ttl.setStyle(TableStyle([
+        ("BACKGROUND",    (0,0), (-1,-1), col),
+        ("TOPPADDING",    (0,0), (-1,-1), 3),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 3),
+        ("LEFTPADDING",   (0,0), (-1,-1), 6),
+    ]))
+    body = Table(
+        [[Paragraph(_safe(text), S_LLM_BODY)]],
+        colWidths=[TABLE_W],
+    )
+    body.setStyle(TableStyle([
+        ("BACKGROUND",    (0,0), (-1,-1), GREY_LIGHT),
+        ("TOPPADDING",    (0,0), (-1,-1), 5),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 5),
+        ("LEFTPADDING",   (0,0), (-1,-1), 6),
+        ("RIGHTPADDING",  (0,0), (-1,-1), 6),
+        ("LINEBELOW",     (0,-1),(-1,-1), 0.5, GREY_RULE),
+    ]))
+    return [KeepTogether([ttl, body]), Spacer(1, 3*mm)]
+
 
 def _section_header(title: str) -> list:
     return [
@@ -671,6 +704,7 @@ def _build_story(data: dict) -> list:
 
     story.extend(_perf_table(data))
     story.append(Spacer(1, 3*mm))
+    story.extend(_llm_box_pdf(data.get("llm", {}).get("perf_analysis", "")))
     story.append(Paragraph(
         _safe(f"Comparaison de la performance annualisee de {name_a} et {name_b}. "
               f"L'ecart est exprime en points de pourcentage (pp)."),
@@ -680,6 +714,7 @@ def _build_story(data: dict) -> list:
     story.extend(_section_header("2. Risque Comparatif"))
     story.extend(_risque_table(data))
     story.append(Spacer(1, 3*mm))
+    story.extend(_llm_box_pdf(data.get("llm", {}).get("risque_analysis", "")))
     story.append(Paragraph(
         _safe("Volatilite : ecart-type annualise des rendements quotidiens. "
               "Sharpe ratio : (rendement - taux sans risque 10Y) / volatilite. "
@@ -755,7 +790,9 @@ def _build_story(data: dict) -> list:
             f"signalant un rendement ajuste du risque superieur. "
         )
 
-    story.append(Paragraph(_safe(verdict_txt), S_BODY))
+    llm_verdict = data.get("llm", {}).get("verdict_analysis", "")
+    final_verdict = llm_verdict if llm_verdict else verdict_txt
+    story.append(Paragraph(_safe(final_verdict), S_BODY))
     story.append(Spacer(1, 4*mm))
 
     # Tableau bilan final
@@ -797,6 +834,53 @@ def _build_story(data: dict) -> list:
 
 
 # =============================================================================
+# GENERATEUR LLM
+# =============================================================================
+
+def _generate_indice_llm_pdf(data: dict) -> dict:
+    """Un seul appel Mistral pour les textes analytiques du PDF comparatif indice."""
+    try:
+        from core.llm_provider import LLMProvider
+        llm = LLMProvider(provider="mistral", model="mistral-small-latest")
+        name_a = data.get("name_a", "Indice A")
+        name_b = data.get("name_b", "Indice B")
+        sc_a   = data.get("score_a", 50)
+        sc_b   = data.get("score_b", 50)
+        sig_a  = data.get("signal_a", "Neutre")
+        sig_b  = data.get("signal_b", "Neutre")
+        p1a    = data.get("perf_1y_a", 0)
+        p1b    = data.get("perf_1y_b", 0)
+        vol_a  = data.get("vol_1y_a", 0)
+        vol_b  = data.get("vol_1y_b", 0)
+        sha_a  = data.get("sharpe_1y_a", 0)
+        sha_b  = data.get("sharpe_1y_b", 0)
+        pe_a   = data.get("pe_fwd_a", 0)
+        pe_b   = data.get("pe_fwd_b", 0)
+        prompt = (
+            f"Tu es analyste financier. Redige des textes analytiques courts pour un rapport PDF "
+            f"comparatif entre {name_a} et {name_b}.\n"
+            f"- {name_a} : Score {sc_a}/100, Signal {sig_a}, Perf.1Y {float(p1a or 0)*100:.1f}%, "
+            f"Vol {float(vol_a or 0):.1f}%, Sharpe {float(sha_a or 0):.2f}, P/E Fwd {float(pe_a or 0):.1f}x\n"
+            f"- {name_b} : Score {sc_b}/100, Signal {sig_b}, Perf.1Y {float(p1b or 0)*100:.1f}%, "
+            f"Vol {float(vol_b or 0):.1f}%, Sharpe {float(sha_b or 0):.2f}, P/E Fwd {float(pe_b or 0):.1f}x\n"
+            f"Reponds en JSON valide. Textes en francais sans accents. Max 300 caracteres par champ.\n"
+            f'{{\n'
+            f'  "perf_analysis": "Analyse performance 2 phrases : qui surperforme et facteurs",\n'
+            f'  "risque_analysis": "Analyse risque 2 phrases : volatilite et Sharpe ratio",\n'
+            f'  "verdict_analysis": "Verdict final 2-3 phrases : recommandation et conditions"\n'
+            f'}}'
+        )
+        import json, re
+        resp = llm.generate(prompt, max_tokens=350)
+        m = re.search(r'\{.*\}', resp, re.DOTALL)
+        if m:
+            return json.loads(m.group(0))
+    except Exception as e:
+        log.warning("[indice_cmp_pdf] LLM generation failed: %s", e)
+    return {}
+
+
+# =============================================================================
 # CLASSE PRINCIPALE
 # =============================================================================
 
@@ -804,6 +888,8 @@ class IndiceComparisonPDFWriter:
 
     @staticmethod
     def generate_bytes(data: dict) -> bytes:
+        data = dict(data)  # copie pour ne pas muter l'original
+        data["llm"] = _generate_indice_llm_pdf(data)
         buf = io.BytesIO()
         doc = SimpleDocTemplate(
             buf,

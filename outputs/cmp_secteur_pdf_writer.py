@@ -219,7 +219,7 @@ def _prepare(tickers_a, sector_a, universe_a, tickers_b, sector_b, universe_b):
         sa=sa, sb=sb,
         sig_a_lbl=sig_a_lbl, sig_a_col=sig_a_col,
         sig_b_lbl=sig_b_lbl, sig_b_col=sig_b_col,
-        date_str=date.today().strftime("%d %B %Y"),
+        date_str=(lambda d: f"{d.day} {['janvier','fevrier','mars','avril','mai','juin','juillet','aout','septembre','octobre','novembre','decembre'][d.month-1]} {d.year}")(date.today()),
     )
 
 
@@ -364,6 +364,86 @@ def _avantage_cell(val_a, val_b, sector_a, sector_b, higher_is_better=True):
         return Paragraph("—", S_TD_C)
 
 
+# ── Generateur de textes analytiques LLM ─────────────────────────────────────
+
+def _generate_llm_texts(D: dict) -> dict:
+    """Un seul appel Mistral pour les textes analytiques du PDF comparatif."""
+    try:
+        from core.llm_provider import LLMProvider
+        llm = LLMProvider(provider="mistral", model="mistral-small-latest")
+        sa, sb = D["sa"], D["sb"]
+        sector_a, sector_b = D["sector_a"], D["sector_b"]
+        roe_a = min(float(sa.get("roe") or 0), 999.9)
+        roe_b = min(float(sb.get("roe") or 0), 999.9)
+        prompt = (
+            f"Tu es analyste financier senior. Redige des textes analytiques pour un rapport PDF comparatif sectoriel "
+            f"entre {sector_a} et {sector_b} (univers : {D['universe_label']}).\n\n"
+            f"Donnees medianes :\n"
+            f"- {sector_a} : Score {sa.get('score',0)}/100, Signal {D['sig_a_lbl']}, "
+            f"P/E {sa.get('pe',0):.1f}x, Croiss.Rev {sa.get('revg',0):+.1f}%, "
+            f"Mg.EBITDA {sa.get('em',0):.1f}%, ROE {roe_a:.1f}%, Perf.52S {sa.get('mom',0):+.1f}%\n"
+            f"- {sector_b} : Score {sb.get('score',0)}/100, Signal {D['sig_b_lbl']}, "
+            f"P/E {sb.get('pe',0):.1f}x, Croiss.Rev {sb.get('revg',0):+.1f}%, "
+            f"Mg.EBITDA {sb.get('em',0):.1f}%, ROE {roe_b:.1f}%, Perf.52S {sb.get('mom',0):+.1f}%\n\n"
+            f"Reponds UNIQUEMENT en JSON valide. Textes en francais sans accents ni caracteres speciaux. "
+            f"Max 300 caracteres par champ sauf exec_summary (500 max).\n"
+            f'{{\n'
+            f'  "exec_summary": "Synthese 3 phrases : comparatif clé, signal IA et recommandation",\n'
+            f'  "valuation_analysis": "Analyse valorisation 2 phrases : interpretation multiples P/E et EV/EBITDA",\n'
+            f'  "margins_analysis": "Analyse marges 2 phrases : qualite operationnelle, ROE et creation de valeur",\n'
+            f'  "growth_analysis": "Analyse croissance 2 phrases : dynamique revenue, momentum 52S et beta",\n'
+            f'  "top_a_analysis": "Synthese top acteurs {sector_a} 2 phrases : meilleurs profils et caracteristiques",\n'
+            f'  "top_b_analysis": "Synthese top acteurs {sector_b} 2 phrases : meilleurs profils et caracteristiques",\n'
+            f'  "allocation_rec": "Recommandation allocation 3 phrases : signal, surponderations, conditions"\n'
+            f'}}'
+        )
+        import json, re
+        resp = llm.generate(prompt, max_tokens=700)
+        m = re.search(r'\{.*\}', resp, re.DOTALL)
+        if m:
+            data = json.loads(m.group(0))
+            log.info("[cmp_secteur_pdf] LLM texts OK (%d champs)", len(data))
+            return data
+    except Exception as e:
+        log.warning("[cmp_secteur_pdf] LLM texts generation failed: %s", e)
+    return {}
+
+
+# Styles supplementaires pour LLM text box
+S_LLM_TITLE = _sty("llm_title", size=8, color=WHITE, bold=True)
+S_LLM_BODY  = _sty("llm_body",  size=8.5, leading=13, color=BLACK, align=TA_JUSTIFY)
+
+
+def _llm_box(text: str, col=NAVY, w=None) -> list:
+    """Cree un bloc IA : bandeau color + texte corps."""
+    if not text:
+        return []
+    bw = w or TABLE_W
+    title_tbl = Table(
+        [[Paragraph("Analyse FinSight IA", S_LLM_TITLE)]],
+        colWidths=[bw],
+    )
+    title_tbl.setStyle(TableStyle([
+        ("BACKGROUND",   (0,0), (-1,-1), col),
+        ("TOPPADDING",   (0,0), (-1,-1), 4),
+        ("BOTTOMPADDING",(0,0), (-1,-1), 4),
+        ("LEFTPADDING",  (0,0), (-1,-1), 6),
+    ]))
+    body_tbl = Table(
+        [[Paragraph(_xml(text), S_LLM_BODY)]],
+        colWidths=[bw],
+    )
+    body_tbl.setStyle(TableStyle([
+        ("BACKGROUND",   (0,0), (-1,-1), GREY_LIGHT),
+        ("TOPPADDING",   (0,0), (-1,-1), 5),
+        ("BOTTOMPADDING",(0,0), (-1,-1), 5),
+        ("LEFTPADDING",  (0,0), (-1,-1), 6),
+        ("RIGHTPADDING", (0,0), (-1,-1), 6),
+        ("LINEBELOW",    (0,-1), (-1,-1), 0.5, GREY_RULE),
+    ]))
+    return [KeepTogether([title_tbl, body_tbl]), Spacer(1, 3*mm)]
+
+
 # ── Generateur de contenu ─────────────────────────────────────────────────────
 def _build_story(D: dict) -> list:
     sa, sb = D["sa"], D["sb"]
@@ -408,8 +488,15 @@ def _build_story(D: dict) -> list:
         ("LINEAFTER",    (0, 0), (0, -1), 0.5, WHITE),
     ]))
     story.append(kpi_t)
-    story.append(Spacer(1, 8 * mm))
+    story.append(Spacer(1, 6 * mm))
     story.append(Paragraph(D["date_str"], _sty("dt", size=8, color=GREY_TEXT, align=TA_CENTER)))
+    story.append(Spacer(1, 5 * mm))
+
+    # ── Synthese IA sur la cover ──────────────────────────────────────────────
+    exec_text = D.get("llm", {}).get("exec_summary", "")
+    if exec_text:
+        story += _llm_box(exec_text)
+
     story.append(PageBreak())
 
     # ── PAGE 2 : Synthese comparative ────────────────────────────────────────
@@ -493,11 +580,12 @@ def _build_story(D: dict) -> list:
 
     # ── PAGE 3 : Valorisation ─────────────────────────────────────────────────
     story += section("Valorisation Comparee — Multiples de Marche", "2")
-    story.append(Paragraph(
-        f"Analyse des multiples de valorisation medianes — {sector_a} vs {sector_b}. "
+    _val_text = D.get("llm", {}).get("valuation_analysis") or (
+        f"Analyse des multiples medianes — {sector_a} vs {sector_b}. "
         f"{'Le secteur le moins valorise est ' + (sector_a if (sa.get('pe') or 999) < (sb.get('pe') or 999) else sector_b) + ' (P/E ' + _mult((sa if (sa.get('pe') or 999) < (sb.get('pe') or 999) else sb).get('pe')) + ' vs ' + _mult((sb if (sa.get('pe') or 999) < (sb.get('pe') or 999) else sa).get('pe')) + ').'} "
-        "Un multiple inferieur n'implique pas systematiquement une opportunite — verifier la coherence avec la qualite fondamentale.",
-        S_BODY))
+        "Un multiple inferieur n'implique pas une opportunite — verifier la coherence avec les fondamentaux."
+    )
+    story.append(Paragraph(_xml(_val_text), S_BODY))
     story.append(Spacer(1, 3 * mm))
     try:
         v_img = _chart_valuation_pdf(sa, sb, sector_a[:12], sector_b[:12])
@@ -510,11 +598,12 @@ def _build_story(D: dict) -> list:
     # ── PAGE 3 suite : Marges ─────────────────────────────────────────────────
     story += section("Qualite & Marges — Rentabilite Operationnelle", "3")
     winner_m = sector_a if (sa.get("em") or -999) > (sb.get("em") or -999) else sector_b
-    story.append(Paragraph(
+    _margins_text = D.get("llm", {}).get("margins_analysis") or (
         f"{winner_m} affiche une marge EBITDA superieure ({_pct((sa if winner_m == sector_a else sb).get('em'), sign=False)}). "
-        f"La marge nette reflete la qualite du modele economique apres charges financieres et impots. "
-        f"Un ROE eleve ({_pct(max(sa.get('roe') or 0, sb.get('roe') or 0), sign=False)}) signale une creation de valeur actionnariale soutenue.",
-        S_BODY))
+        f"La marge nette reflete la qualite du modele economique. "
+        f"ROE median le plus eleve : {_pct(min(max(sa.get('roe') or 0, sb.get('roe') or 0), 999.9), sign=False)}."
+    )
+    story.append(Paragraph(_xml(_margins_text), S_BODY))
     story.append(Spacer(1, 3 * mm))
     try:
         m_img = _chart_margins_pdf(sa, sb, sector_a[:12], sector_b[:12])
@@ -529,12 +618,13 @@ def _build_story(D: dict) -> list:
     slower = sector_b if faster == sector_a else sector_a
     fs = sa if faster == sector_a else sb; ss = sb if faster == sector_a else sa
     spread = abs((sa.get("revg") or 0) - (sb.get("revg") or 0))
-    story.append(Paragraph(
+    _growth_text = D.get("llm", {}).get("growth_analysis") or (
         f"{faster} enregistre une croissance revenue medianne superieure de {spread:.1f} pts "
         f"({_pct(fs.get('revg'))} vs {_pct(ss.get('revg'))}). "
-        f"Le momentum 52S confirme {'cette tendance' if ((fs.get('mom') or 0) > (ss.get('mom') or 0)) else 'une divergence — le marche anticipe un ralentissement'} "
-        f"pour {faster}.",
-        S_BODY))
+        f"Le momentum 52S {'confirme cette tendance' if ((fs.get('mom') or 0) > (ss.get('mom') or 0)) else 'diverge — le marche anticipe un ralentissement'} "
+        f"pour {faster}."
+    )
+    story.append(Paragraph(_xml(_growth_text), S_BODY))
     story.append(Spacer(1, 3 * mm))
     try:
         mo_img = _chart_momentum_pdf(sa, sb, sector_a[:12], sector_b[:12])
@@ -562,13 +652,15 @@ def _build_story(D: dict) -> list:
     story += section(f"Top Acteurs — {sector_a}", "5")
     sorted_a = sorted(D["td_a"], key=lambda x: x.get("score_global", 0), reverse=True)[:8]
     _build_top_table(story, sorted_a, sector_a, COL_A)
-
-    story.append(Spacer(1, 8 * mm))
+    story.append(Spacer(1, 3 * mm))
+    story += _llm_box(D.get("llm", {}).get("top_a_analysis", ""), col=COL_A)
 
     # ── Top acteurs Secteur B ─────────────────────────────────────────────────
     story += section(f"Top Acteurs — {sector_b}", "6")
     sorted_b = sorted(D["td_b"], key=lambda x: x.get("score_global", 0), reverse=True)[:8]
     _build_top_table(story, sorted_b, sector_b, COL_B)
+    story.append(Spacer(1, 3 * mm))
+    story += _llm_box(D.get("llm", {}).get("top_b_analysis", ""), col=COL_B)
     story.append(PageBreak())
 
     # ── PAGE 6 : Risques & Catalyseurs ───────────────────────────────────────
@@ -609,7 +701,9 @@ def _build_story(D: dict) -> list:
         [Paragraph("Perf. 52S med.", S_TD_L), Paragraph(_pct(sa.get("mom")), S_TD_C), Paragraph(_pct(sb.get("mom")), S_TD_C)],
     ]
     story.append(_tbl(rec_data, [80*mm, 48*mm, 48*mm]))
-    story.append(Spacer(1, 5 * mm))
+    story.append(Spacer(1, 4 * mm))
+    story += _llm_box(D.get("llm", {}).get("allocation_rec", ""))
+    story.append(Spacer(1, 2 * mm))
     story.append(Paragraph(
         "Note : Surponderer = score >= 65 | Neutre = score >= 45 | Sous-ponderer = score < 45. "
         "Le Score FinSight est un indicateur proprietaire multidimensionnel. "
@@ -655,6 +749,12 @@ def _build_top_table(story, tickers, sector_name, col_header):
         revg = t.get("revenue_growth", 0)
         if revg and abs(revg) < 5:  # yfinance donne en decimale (0.08 = 8%)
             revg = revg * 100
+        roe_v = t.get("roe")
+        if roe_v is not None:
+            try:
+                roe_v = min(float(roe_v), 999.9)
+            except (TypeError, ValueError):
+                roe_v = None
         top_data.append([
             Paragraph(t.get("company", t.get("ticker", ""))[:22], S_TD_L),
             Paragraph(f"{t.get('score_global', 0)}/100", S_TD_C),
@@ -663,7 +763,7 @@ def _build_top_table(story, tickers, sector_name, col_header):
             Paragraph(_pct(revg), S_TD_C),
             Paragraph(_pct(t.get("ebitda_margin"), sign=False), S_TD_C),
             Paragraph(_pct(t.get("net_margin"), sign=False), S_TD_C),
-            Paragraph(_pct(t.get("roe"), sign=False), S_TD_C),
+            Paragraph(_pct(roe_v, sign=False), S_TD_C),
         ])
     t = _tbl(top_data, [46*mm, 18*mm, 18*mm, 20*mm, 20*mm, 20*mm, 18*mm, 16*mm], header_col=col_header)
     story.append(t)
@@ -728,6 +828,7 @@ def generate_cmp_secteur_pdf(
     output_path: str,
 ) -> None:
     D = _prepare(tickers_a, sector_a, universe_a, tickers_b, sector_b, universe_b)
+    D["llm"] = _generate_llm_texts(D)
     story = _build_story(D)
 
     on_page = _build_page_header_footer(sector_a, sector_b, D["universe_label"], D["date_str"])

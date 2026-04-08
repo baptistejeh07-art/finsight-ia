@@ -260,6 +260,11 @@ def _prepare_data(tickers_a, sector_a, universe_a, tickers_b, sector_b, universe
     universes = set(filter(None, [universe_a, universe_b]))
     universe_label = " / ".join(sorted(universes)) if universe_a != universe_b else (universe_a or "Global")
 
+    _MOIS_FR = ["janvier","fevrier","mars","avril","mai","juin",
+                "juillet","aout","septembre","octobre","novembre","decembre"]
+    _now = datetime.now()
+    _date_str = f"{_now.day} {_MOIS_FR[_now.month - 1]} {_now.year}"
+
     return dict(
         sector_a=sector_a, sector_b=sector_b,
         universe_a=universe_a, universe_b=universe_b,
@@ -269,8 +274,9 @@ def _prepare_data(tickers_a, sector_a, universe_a, tickers_b, sector_b, universe
         sa=sa, sb=sb,
         sig_a_col=sig_a_col, sig_a_lbl=sig_a_lbl,
         sig_b_col=sig_b_col, sig_b_lbl=sig_b_lbl,
-        date_str=datetime.now().strftime("%d %B %Y"),
-        year=datetime.now().year,
+        date_str=_date_str,
+        year=_now.year,
+        llm={},
     )
 
 
@@ -554,9 +560,11 @@ def _s01_cover(prs, D):
     start_x = 0.9
     for i, (val, lbl, col) in enumerate(kpis):
         bx = start_x + i * step
-        _rect(slide, bx, 8.5, box_w, 2.5, fill=col)
-        _txb(slide, val, bx, 8.7, box_w, 1.4, size=28, bold=True, color=_WHITE, align=PP_ALIGN.CENTER)
-        _txb(slide, lbl, bx, 10.2, box_w, 1.0, size=8.5, color=_WHITE, align=PP_ALIGN.CENTER)
+        pale = _COL_A_PALE if col == _COL_A else _COL_B_PALE
+        _rect(slide, bx, 8.5, box_w, 2.5, fill=pale)
+        _rect(slide, bx, 8.5, 0.22, 2.5, fill=col)  # barre gauche coloree
+        _txb(slide, val, bx + 0.22, 8.65, box_w - 0.22, 1.4, size=28, bold=True, color=col, align=PP_ALIGN.CENTER)
+        _txb(slide, lbl, bx + 0.22, 10.2, box_w - 0.22, 1.0, size=8.5, color=_NAVY, align=PP_ALIGN.CENTER)
 
     # Signal badges
     _rect(slide, 2.2, 11.5, 4.5, 0.9, fill=D["sig_a_col"])
@@ -613,10 +621,17 @@ def _s02_exec_summary(prs, D):
         ["Perf. 52S med.", _fmt(sa.get("mom"), pct=True), _fmt(sb.get("mom"), pct=True),
          D["sector_a"] if (sa.get("mom") or -999) > (sb.get("mom") or -999) else D["sector_b"]],
     ]
-    _add_table(slide, rows, 0.9, 3.2, 23.6, 10.0,
+    _add_table(slide, rows, 0.9, 3.2, 23.6, 8.2,
                col_widths=[5.5, 3.0, 3.0, 3.5],
                header_fill=_NAVY, header_color=_WHITE,
                alt_fill=_GRAYL, font_size=8.5, header_size=8.5)
+
+    # Synthese IA
+    llm_text = D.get("llm", {}).get("exec_summary", "")
+    if llm_text:
+        _rect(slide, 0.9, 11.6, 23.6, 0.38, fill=_NAVY)
+        _txb(slide, "Synthese FinSight IA", 1.0, 11.63, 15.0, 0.32, size=7.5, bold=True, color=_WHITE)
+        _txb(slide, llm_text, 0.9, 12.08, 23.6, 1.5, size=8.5, color=_BLACK, wrap=True)
 
 
 def _s03_sommaire(prs, D):
@@ -732,15 +747,15 @@ def _s06_valorisation(prs, D):
     cheaper = D["sector_a"] if pe_a < pe_b else D["sector_b"]
     premium = D["sector_a"] if pe_a > pe_b else D["sector_b"]
     pe_spread = abs(pe_a - pe_b)
-    lecture = (
-        f"{cheaper} cote a une prime de valorisation inferieure au P/E de {pe_spread:.1f}x "
-        f"par rapport a {premium}. La difference de multiple reflète "
-        f"{'une anticipation de croissance superieure' if (sa.get('revg') or 0) > (sb.get('revg') or 0) else 'un profil de risque differentie'} "
-        f"— a valider vs. les fondamentaux (slide 3)."
+    fallback_lecture = (
+        f"{cheaper} cote a une prime inferieure de {pe_spread:.1f}x P/E "
+        f"vs {premium}. Ecart reflète "
+        f"{'une anticipation de croissance superieure' if (sa.get('revg') or 0) > (sb.get('revg') or 0) else 'un profil de risque differentie'}."
     )
+    lecture = D.get("llm", {}).get("valuation_read") or fallback_lecture
     _rect(slide, 14.0, 7.5, 10.5, 0.4, fill=_NAVY)
-    _txb(slide, "Lecture analytique", 14.1, 7.52, 10.3, 0.35, size=7.5, bold=True, color=_WHITE)
-    _txb(slide, lecture, 14.0, 8.0, 10.5, 2.2, size=8, color=_BLACK, wrap=True)
+    _txb(slide, "Lecture analytique FinSight IA", 14.1, 7.52, 10.3, 0.35, size=7.5, bold=True, color=_WHITE)
+    _txb(slide, lecture, 14.0, 8.0, 10.5, 5.5, size=8.5, color=_BLACK, wrap=True)
 
 
 def _s07_marges(prs, D):
@@ -763,12 +778,19 @@ def _s07_marges(prs, D):
     except Exception as e:
         log.warning("[cmp_secteur] _s07 chart2: %s", e)
 
-    # Diagnostic
+    # Lecture analytique marges
     winner_margin = D["sector_a"] if (sa.get("em") or -999) > (sb.get("em") or -999) else D["sector_b"]
     winner_roe    = D["sector_a"] if (sa.get("roe") or -999) > (sb.get("roe") or -999) else D["sector_b"]
-    diag = f"{winner_margin} affiche une marge EBITDA superieure ({_fmt_simple(sa.get('em') if winner_margin == D['sector_a'] else sb.get('em'), pct=True)}). {winner_roe} domine sur le ROE ({_fmt_simple(sa.get('roe') if winner_roe == D['sector_a'] else sb.get('roe'), pct=True)})."
-    _rect(slide, 0.9, 10.0, 23.6, 0.35, fill=_COL_A_PALE)
-    _txb(slide, diag, 1.0, 10.05, 23.4, 0.3, size=7.5, italic=True, color=_NAVY)
+    fallback_diag = (
+        f"{winner_margin} affiche une marge EBITDA superieure "
+        f"({_fmt_simple(sa.get('em') if winner_margin == D['sector_a'] else sb.get('em'), pct=True)}). "
+        f"{winner_roe} domine sur le ROE "
+        f"({_fmt_simple(min(sa.get('roe') or 0, 999.9) if winner_roe == D['sector_a'] else min(sb.get('roe') or 0, 999.9), pct=True)})."
+    )
+    diag = D.get("llm", {}).get("margins_read") or fallback_diag
+    _rect(slide, 0.9, 9.8, 23.6, 0.38, fill=_NAVY)
+    _txb(slide, "Lecture analytique FinSight IA", 1.0, 9.83, 15.0, 0.32, size=7.5, bold=True, color=_WHITE)
+    _txb(slide, diag, 0.9, 10.28, 23.6, 3.2, size=8.5, color=_BLACK, wrap=True)
 
 
 def _s08_croissance(prs, D):
@@ -781,7 +803,7 @@ def _s08_croissance(prs, D):
 
     try:
         img = _chart_momentum(sa, sb, D["sector_a"][:10], D["sector_b"][:10])
-        _pic(slide, img, 0.9, 2.0, 14.5, 8.5)
+        _pic(slide, img, 0.9, 2.0, 14.5, 7.5)
     except Exception as e:
         log.warning("[cmp_secteur] _s08 chart: %s", e)
 
@@ -797,16 +819,20 @@ def _s08_croissance(prs, D):
     _add_table(slide, rows, 15.8, 2.0, 8.6, 6.5,
                col_widths=[4.0, 2.3, 2.3], alt_fill=_GRAYL, font_size=9, header_size=9)
 
-    # Lecture
+    # Lecture analytique croissance
     faster = D["sector_a"] if (sa.get("revg") or -999) > (sb.get("revg") or -999) else D["sector_b"]
-    slower = D["sector_b"] if faster == D["sector_a"] else D["sector_a"]
     faster_s = sa if faster == D["sector_a"] else sb
     slower_s = sb if faster == D["sector_a"] else sa
     spread_g = abs((sa.get("revg") or 0) - (sb.get("revg") or 0))
-    lecture = (f"{faster} croit {spread_g:.1f} pts plus vite ({_fmt(faster_s.get('revg'), pct=True)} vs {_fmt(slower_s.get('revg'), pct=True)}). "
-               f"Le momentum 52S confirme {'cette tendance' if ((faster_s.get('mom') or 0) > (slower_s.get('mom') or 0)) else 'une divergence avec les fondamentaux'}.")
-    _rect(slide, 0.9, 10.8, 23.6, 0.35, fill=_COL_B_PALE)
-    _txb(slide, lecture, 1.0, 10.85, 23.4, 0.3, size=7.5, italic=True, color=_GREEN)
+    fallback_lecture = (
+        f"{faster} croit {spread_g:.1f} pts plus vite "
+        f"({_fmt(faster_s.get('revg'), pct=True)} vs {_fmt(slower_s.get('revg'), pct=True)}). "
+        f"Momentum 52S {'confirme cette tendance' if ((faster_s.get('mom') or 0) > (slower_s.get('mom') or 0)) else 'diverge : marche anticipe ralentissement'}."
+    )
+    lecture = D.get("llm", {}).get("growth_read") or fallback_lecture
+    _rect(slide, 0.9, 9.7, 23.6, 0.38, fill=_NAVY)
+    _txb(slide, "Lecture analytique FinSight IA", 1.0, 9.73, 15.0, 0.32, size=7.5, bold=True, color=_WHITE)
+    _txb(slide, lecture, 0.9, 10.18, 23.6, 3.2, size=8.5, color=_BLACK, wrap=True)
 
 
 def _s09_scoring(prs, D):
@@ -840,13 +866,14 @@ def _s09_scoring(prs, D):
     winner = D["sector_a"] if sa.get("score", 0) > sb.get("score", 0) else D["sector_b"]
     score_w = sa.get("score", 0) if winner == D["sector_a"] else sb.get("score", 0)
     score_l = sb.get("score", 0) if winner == D["sector_a"] else sa.get("score", 0)
-    interp = (
+    fallback_interp = (
         f"Sur le scoring FinSight global, {winner} ressort en avance ({score_w}/100 vs {score_l}/100). "
-        f"L'ecart de {abs(score_w - score_l)} pts reflete "
-        f"une difference structurelle de profil et non un simple ecart conjoncturel."
+        f"Ecart de {abs(score_w - score_l)} pts — difference structurelle de profil."
     )
-    _rect(slide, 0.9, 9.6, 10.5, 0.45, fill=_GRAYL)
-    _txb(slide, interp, 1.0, 9.65, 10.3, 0.4, size=7.5, italic=True, color=_NAVY, wrap=True)
+    interp = D.get("llm", {}).get("scoring_read") or fallback_interp
+    _rect(slide, 0.9, 9.5, 10.5, 0.38, fill=_NAVY)
+    _txb(slide, "Interpretation FinSight IA", 1.0, 9.53, 10.3, 0.32, size=7.5, bold=True, color=_WHITE)
+    _txb(slide, interp, 0.9, 9.98, 10.5, 3.2, size=8.5, color=_BLACK, wrap=True)
 
 
 def _s10_top_a(prs, D):
@@ -855,7 +882,8 @@ def _s10_top_a(prs, D):
     _header(slide, f"Top Acteurs  —  {D['sector_a']}",
             f"{D['na']} societes analysees — classees par score FinSight", 4)
     _footer(slide, D)
-    _barre_secteur(slide, D["sector_a"], D["td_a"], _COL_A, D["universe_a"])
+    _barre_secteur(slide, D["sector_a"], D["td_a"], _COL_A, D["universe_a"],
+                   llm_text=D.get("llm", {}).get("top_a_read"))
 
 
 def _s11_top_b(prs, D):
@@ -864,14 +892,15 @@ def _s11_top_b(prs, D):
     _header(slide, f"Top Acteurs  —  {D['sector_b']}",
             f"{D['nb']} societes analysees — classees par score FinSight", 4)
     _footer(slide, D)
-    _barre_secteur(slide, D["sector_b"], D["td_b"], _COL_B, D["universe_b"])
+    _barre_secteur(slide, D["sector_b"], D["td_b"], _COL_B, D["universe_b"],
+                   llm_text=D.get("llm", {}).get("top_b_read"))
 
 
-def _barre_secteur(slide, sector_name, tickers_data, col, universe):
+def _barre_secteur(slide, sector_name, tickers_data, col, universe, llm_text=None):
     """Tableau top 8 acteurs d'un secteur."""
     sorted_td = sorted(tickers_data, key=lambda x: x.get("score_global", 0), reverse=True)[:8]
 
-    header_fill = col
+    table_h = 9.5 if llm_text else 11.0
     rows = [["Societe", "Score", "P/E", "EV/EBITDA", "Croiss.Rev.", "Mg.EBITDA", "Mg.Nette", "ROE", "Beta"]]
     for t in sorted_td:
         rows.append([
@@ -886,9 +915,14 @@ def _barre_secteur(slide, sector_name, tickers_data, col, universe):
             _fmt_simple(t.get("beta"), dp=2),
         ])
 
-    _add_table(slide, rows, 0.9, 2.0, 23.6, 11.0,
+    _add_table(slide, rows, 0.9, 2.0, 23.6, table_h,
                col_widths=[4.5, 2.0, 2.0, 2.5, 2.5, 2.5, 2.5, 2.0, 1.8],
-               header_fill=header_fill, alt_fill=_GRAYL, font_size=8.5, header_size=8.5)
+               header_fill=col, alt_fill=_GRAYL, font_size=8.5, header_size=8.5)
+
+    if llm_text:
+        _rect(slide, 0.9, 11.7, 23.6, 0.38, fill=col)
+        _txb(slide, "Lecture analytique FinSight IA", 1.0, 11.73, 18.0, 0.32, size=7.5, bold=True, color=_WHITE)
+        _txb(slide, llm_text, 0.9, 12.18, 23.6, 1.35, size=8.5, color=_BLACK, wrap=True)
 
 
 def _s12_risques_a(prs, D):
@@ -898,7 +932,8 @@ def _s12_risques_a(prs, D):
     _header(slide, f"Risques & Catalyseurs  —  {D['sector_a']}",
             "Conditions d'investissement et d'invalidation de la these", 4)
     _footer(slide, D)
-    _risques_slide(slide, content, _COL_A, _COL_A_PALE)
+    _risques_slide(slide, content, _COL_A, _COL_A_PALE,
+                   llm_text=D.get("llm", {}).get("these_a"))
 
 
 def _s13_risques_b(prs, D):
@@ -908,10 +943,11 @@ def _s13_risques_b(prs, D):
     _header(slide, f"Risques & Catalyseurs  —  {D['sector_b']}",
             "Conditions d'investissement et d'invalidation de la these", 4)
     _footer(slide, D)
-    _risques_slide(slide, content, _COL_B, _COL_B_PALE)
+    _risques_slide(slide, content, _COL_B, _COL_B_PALE,
+                   llm_text=D.get("llm", {}).get("these_b"))
 
 
-def _risques_slide(slide, content, col, col_pale):
+def _risques_slide(slide, content, col, col_pale, llm_text=None):
     cats  = content.get("catalyseurs", [])[:3]
     risks = content.get("risques", [])[:3]
     conds = content.get("conditions", [])[:4]
@@ -943,6 +979,10 @@ def _risques_slide(slide, content, col, col_pale):
         _add_table(slide, rows_cond, 0.9, 10.1, 23.6, 3.2,
                    col_widths=col_w, header_fill=_NAVY, alt_fill=_GRAYL,
                    font_size=8, header_size=8)
+    elif llm_text:
+        _rect(slide, 0.9, 9.5, 23.6, 0.38, fill=col)
+        _txb(slide, "Synthese FinSight IA", 1.0, 9.53, 18.0, 0.32, size=7.5, bold=True, color=_WHITE)
+        _txb(slide, llm_text, 0.9, 9.98, 23.6, 3.2, size=8.5, color=_BLACK, wrap=True)
 
 
 def _s14_synthese(prs, D):
@@ -1097,9 +1137,16 @@ def _s15_allocation(prs, D):
         _txb(slide, label, 13.2, y + 0.12, 7.0, 0.55, size=9, color=_GRAYT)
         _txb(slide, val, 13.2, y + 0.12, 11.0, 0.55, size=9, bold=True, color=_GREEN, align=PP_ALIGN.RIGHT)
 
+    # Recommandation IA
+    alloc_text = D.get("llm", {}).get("allocation_read")
+    if alloc_text:
+        _rect(slide, 0.9, 11.0, 23.6, 0.38, fill=_NAVY)
+        _txb(slide, "Recommandation FinSight IA", 1.0, 11.03, 18.0, 0.32, size=7.5, bold=True, color=_WHITE)
+        _txb(slide, alloc_text, 0.9, 11.48, 23.6, 1.25, size=8.5, color=_BLACK, wrap=True)
+
     # Note de bas de page
     _txb(slide, "Note : Score FinSight = indicateur proprietaire multidimensionnel (value + growth + qualite + momentum). Signal = Surponderer si score >= 65, Neutre si >= 45, Sous-ponderer si < 45.",
-         0.9, 12.8, 23.6, 0.6, size=7, italic=True, color=_GRAYD, wrap=True)
+         0.9, 12.85, 23.6, 0.55, size=7, italic=True, color=_GRAYD, wrap=True)
 
 
 def _s16_disclaimer(prs, D):
@@ -1126,6 +1173,56 @@ def _s16_disclaimer(prs, D):
          0.9, 13.5, 23.6, 0.4, size=7.5, bold=True, color=_NAVY, align=PP_ALIGN.CENTER)
 
 
+# ── Generateur de textes analytiques LLM ─────────────────────────────────────
+
+def _generate_llm_texts(D: dict) -> dict:
+    """Un seul appel Mistral pour generer tous les textes analytiques du pitchbook."""
+    try:
+        from core.llm_provider import LLMProvider
+        llm = LLMProvider(provider="mistral", model="mistral-small-latest")
+        sa, sb = D["sa"], D["sb"]
+        sector_a, sector_b = D["sector_a"], D["sector_b"]
+        roe_a = min(float(sa.get("roe") or 0), 999.9)
+        roe_b = min(float(sb.get("roe") or 0), 999.9)
+        prompt = (
+            f"Tu es analyste financier senior. Redige des textes courts pour un pitchbook comparatif sectoriel "
+            f"entre {sector_a} et {sector_b} (univers : {D['universe_label']}).\n\n"
+            f"Donnees medianes :\n"
+            f"- {sector_a} : Score {sa.get('score',0)}/100, Signal {D['sig_a_lbl']}, "
+            f"P/E {sa.get('pe',0):.1f}x, EV/EBITDA {sa.get('ev_eb',0):.1f}x, "
+            f"Croiss.Rev {sa.get('revg',0):+.1f}%, Mg.EBITDA {sa.get('em',0):.1f}%, "
+            f"ROE {roe_a:.1f}%, Perf.52S {sa.get('mom',0):+.1f}%, Beta {sa.get('beta',1.0):.2f}\n"
+            f"- {sector_b} : Score {sb.get('score',0)}/100, Signal {D['sig_b_lbl']}, "
+            f"P/E {sb.get('pe',0):.1f}x, EV/EBITDA {sb.get('ev_eb',0):.1f}x, "
+            f"Croiss.Rev {sb.get('revg',0):+.1f}%, Mg.EBITDA {sb.get('em',0):.1f}%, "
+            f"ROE {roe_b:.1f}%, Perf.52S {sb.get('mom',0):+.1f}%, Beta {sb.get('beta',1.0):.2f}\n\n"
+            f"Reponds UNIQUEMENT en JSON valide. Textes en francais sans accents ni caracteres speciaux. "
+            f"Maximum 220 caracteres par champ sauf exec_summary (350 max).\n"
+            f'{{\n'
+            f'  "exec_summary": "Synthese 2-3 phrases : qui privilegier, ecarts cles, signal IA",\n'
+            f'  "valuation_read": "Lecture valorisation 1-2 phrases : analyse multiples P/E et EV/EBITDA",\n'
+            f'  "margins_read": "Lecture marges 1-2 phrases : qualite operationnelle et rentabilite",\n'
+            f'  "growth_read": "Lecture croissance 1-2 phrases : acceleration/ralentissement et momentum",\n'
+            f'  "scoring_read": "Interpretation scoring 1-2 phrases : analyse radar multidimensionnel",\n'
+            f'  "top_a_read": "Synthese top acteurs {sector_a} 1-2 phrases",\n'
+            f'  "top_b_read": "Synthese top acteurs {sector_b} 1-2 phrases",\n'
+            f'  "these_a": "These investissement {sector_a} : 2 phrases, arguments cles",\n'
+            f'  "these_b": "These investissement {sector_b} : 2 phrases, arguments cles",\n'
+            f'  "allocation_read": "Recommandation allocation portefeuille 2-3 phrases : surponderations cles"\n'
+            f'}}'
+        )
+        import json, re
+        resp = llm.generate(prompt, max_tokens=900)
+        m = re.search(r'\{.*\}', resp, re.DOTALL)
+        if m:
+            data = json.loads(m.group(0))
+            log.info("[cmp_secteur_pptx] LLM texts OK (%d champs)", len(data))
+            return data
+    except Exception as e:
+        log.warning("[cmp_secteur_pptx] LLM texts generation failed: %s", e)
+    return {}
+
+
 # ── Classe principale ─────────────────────────────────────────────────────────
 
 class CmpSecteurPPTXWriter:
@@ -1146,6 +1243,7 @@ class CmpSecteurPPTXWriter:
         Si output_path est fourni, sauvegarde aussi sur disque.
         """
         D = _prepare_data(tickers_a, sector_a, universe_a, tickers_b, sector_b, universe_b)
+        D["llm"] = _generate_llm_texts(D)
 
         prs = Presentation()
         prs.slide_width  = _SW

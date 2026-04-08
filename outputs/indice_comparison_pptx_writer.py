@@ -407,6 +407,13 @@ def _slide_overview(prs, d: dict):
     _txb(slide, f"Signal {name_b} : {sig_b} ({d.get('score_b',0)}/100)",
          13.65, 10.62, 10.5, 0.62, 8.5, True, _NAVY)
 
+    # LLM synthese
+    llm_text = d.get("llm", {}).get("overview_read", "")
+    if llm_text:
+        _rect(slide, 1.02, 11.6, 23.37, 0.38, _NAVY)
+        _txb(slide, "Synthese FinSight IA", 1.22, 11.63, 15.0, 0.32, 7.5, True, _WHITE)
+        _txb(slide, llm_text, 1.02, 12.08, 23.37, 1.35, 8.5, False, _BLACK, wrap=True)
+
 
 def _ecart_pct(va, vb) -> str:
     if va is None or vb is None:
@@ -603,9 +610,15 @@ def _slide_risque(prs, d: dict):
                        ha='center', va='bottom', fontsize=7.5, color='#1A7A4A')
         fig.tight_layout(pad=0.5)
         img = _chart_buf(fig)
-        _pic(slide, img, 1.02, 5.2, 23.37, 7.0)
+        _pic(slide, img, 1.02, 5.2, 23.37, 6.7)
     except Exception as e:
         log.warning(f"[indice_cmp_pptx] risque chart error: {e}")
+
+    llm_text = d.get("llm", {}).get("risque_read", "")
+    if llm_text:
+        _rect(slide, 1.02, 12.1, 23.37, 0.38, _NAVY)
+        _txb(slide, "Lecture analytique FinSight IA", 1.22, 12.13, 15.0, 0.32, 7.5, True, _WHITE)
+        _txb(slide, llm_text, 1.02, 12.58, 23.37, 1.0, 8.5, False, _BLACK, wrap=True)
 
 
 def _slide_valorisation(prs, d: dict):
@@ -917,6 +930,13 @@ def _slide_verdict(prs, d: dict):
         _txb(slide, title, 1.3, y+0.05, 22.5, 0.42, 8.5, True, _NAVY)
         _txb(slide, body,  1.3, y+0.48, 22.5, 0.75, 8, False, _GRAYT, wrap=True)
 
+    # LLM Recommandation
+    llm_text = d.get("llm", {}).get("verdict_read", "")
+    if llm_text:
+        _rect(slide, 1.02, 11.0, 23.37, 0.38, _NAVY)
+        _txb(slide, "Recommandation FinSight IA", 1.22, 11.03, 15.0, 0.32, 7.5, True, _WHITE)
+        _txb(slide, llm_text, 1.02, 11.48, 23.37, 1.25, 8.5, False, _BLACK, wrap=True)
+
     # Disclaimer
     _txb(slide, "Analyse FinSight IA  \u00b7  Source : yfinance  "
                 "\u00b7  Donnees a titre informatif uniquement  "
@@ -981,6 +1001,58 @@ def _build_verdict_args(d, name_a, name_b):
     return args[:4]
 
 
+# ── Generateur de textes analytiques LLM ─────────────────────────────────────
+
+def _generate_indice_llm(d: dict) -> dict:
+    """Un seul appel Mistral pour les textes analytiques du pitchbook indice vs indice."""
+    try:
+        from core.llm_provider import LLMProvider
+        llm = LLMProvider(provider="mistral", model="mistral-small-latest")
+        name_a = d.get("name_a", "Indice A")
+        name_b = d.get("name_b", "Indice B")
+        sig_a  = d.get("signal_a", "Neutre")
+        sig_b  = d.get("signal_b", "Neutre")
+        sc_a   = d.get("score_a", 50)
+        sc_b   = d.get("score_b", 50)
+        p1a    = d.get("perf_1y_a", 0)
+        p1b    = d.get("perf_1y_b", 0)
+        vol_a  = d.get("vol_1y_a", 0)
+        vol_b  = d.get("vol_1y_b", 0)
+        sha_a  = d.get("sharpe_1y_a", 0)
+        sha_b  = d.get("sharpe_1y_b", 0)
+        pe_a   = d.get("pe_fwd_a", 0)
+        pe_b   = d.get("pe_fwd_b", 0)
+        dy_a   = d.get("div_yield_a", 0)
+        dy_b   = d.get("div_yield_b", 0)
+        prompt = (
+            f"Tu es analyste financier senior. Redige des textes courts pour un pitchbook comparatif "
+            f"entre deux indices : {name_a} vs {name_b}.\n\n"
+            f"Donnees cles :\n"
+            f"- {name_a} : Score {sc_a}/100, Signal {sig_a}, Perf.1Y {float(p1a or 0)*100:.1f}%, "
+            f"Vol {float(vol_a or 0):.1f}%, Sharpe {float(sha_a or 0):.2f}, "
+            f"P/E Fwd {float(pe_a or 0):.1f}x, DivYield {float(dy_a or 0)*100:.1f}%\n"
+            f"- {name_b} : Score {sc_b}/100, Signal {sig_b}, Perf.1Y {float(p1b or 0)*100:.1f}%, "
+            f"Vol {float(vol_b or 0):.1f}%, Sharpe {float(sha_b or 0):.2f}, "
+            f"P/E Fwd {float(pe_b or 0):.1f}x, DivYield {float(dy_b or 0)*100:.1f}%\n\n"
+            f"Reponds UNIQUEMENT en JSON valide. Textes en francais sans accents. Max 250 caracteres par champ.\n"
+            f'{{\n'
+            f'  "overview_read": "Synthese 2 phrases : performance, valorisation et signal global",\n'
+            f'  "risque_read": "Lecture risque 2 phrases : volatilite, Sharpe et profil de risque",\n'
+            f'  "verdict_read": "Recommandation finale 2-3 phrases : que privilegier et conditions"\n'
+            f'}}'
+        )
+        import json, re
+        resp = llm.generate(prompt, max_tokens=400)
+        m = re.search(r'\{.*\}', resp, re.DOTALL)
+        if m:
+            data_out = json.loads(m.group(0))
+            log.info("[indice_cmp_pptx] LLM texts OK (%d champs)", len(data_out))
+            return data_out
+    except Exception as e:
+        log.warning("[indice_cmp_pptx] LLM generation failed: %s", e)
+    return {}
+
+
 # ── Classe principale ─────────────────────────────────────────────────────────
 
 class IndiceComparisonPPTXWriter:
@@ -988,6 +1060,10 @@ class IndiceComparisonPPTXWriter:
     @staticmethod
     def generate(data: dict, output_path: str = None) -> bytes:
         """Genere le PPTX comparatif et retourne les bytes."""
+        # Generer les textes LLM une seule fois
+        data = dict(data)   # copie pour ne pas muter l'original
+        data["llm"] = _generate_indice_llm(data)
+
         prs = Presentation()
         prs.slide_width  = _SW
         prs.slide_height = _SH
