@@ -638,6 +638,8 @@ def extract_metrics(state: dict, supp: dict) -> dict:
         "monte_carlo_p10":  mc_meta.get("dcf_mc_p10"),
         "monte_carlo_p50":  mc_meta.get("dcf_mc_p50"),
         "monte_carlo_p90":  mc_meta.get("dcf_mc_p90"),
+        "gbm_sigma_annual": mc_meta.get("gbm_sigma_annual"),
+        "gbm_mu_annual":    mc_meta.get("gbm_mu_annual"),
 
         # QUALITE FINANCIERE (rows 28-33)
         "piotroski_score": supp.get("piotroski_score"),

@@ -1157,10 +1157,10 @@ def _slide_exec_summary(prs, m_a: dict, m_b: dict, synthesis: dict):
     # Bandeau exec summary LLM
     exec_txt = synthesis.get('exec_summary') or ""
     if exec_txt:
-        _exec_clean = " ".join(_fit(exec_txt, 550).split())
-        add_rect(slide, 1.02, 2.45, 23.37, 2.0, NAVY_PALE)
-        add_rect(slide, 1.02, 2.45, 0.13, 2.0, NAVY_MID)
-        add_text_box(slide, 1.4, 2.55, 22.8, 1.8, _exec_clean,
+        _exec_clean = " ".join(_fit(exec_txt, 360).split())
+        add_rect(slide, 1.02, 2.45, 23.37, 1.8, NAVY_PALE)
+        add_rect(slide, 1.02, 2.45, 0.13, 1.8, NAVY_MID)
+        add_text_box(slide, 1.4, 2.55, 22.8, 1.6, _exec_clean,
                      8.5, NAVY, wrap=True)
 
     # 4 KPI boxes A vs B — prix, MC, PE, EV/EBITDA
@@ -1229,7 +1229,7 @@ def _slide_sommaire(prs, tkr_a: str, tkr_b: str):
     sections = [
         ("01", "Profil & Identite", "Presentation comparative des deux societes",          5),
         ("02", "Performance Financiere", "P&L, marges, bilan et liquidite compares",        7),
-        ("03", "Valorisation", "Multiples, DCF, Monte Carlo et football field",            11),
+        ("03", "Valorisation", "Multiples, DCF, GBM Monte Carlo et football field",         11),
         ("04", "Qualite & Risques", "Piotroski, levier, beta, VaR et momentum",            15),
         ("05", "Verdict", "FinSight Score, theses d'investissement et verdict final",      18),
     ]
@@ -1355,16 +1355,13 @@ def _slide_pl(prs, m_a: dict, m_b: dict, synthesis: dict):
         header_fill=NAVY, border_hex="DDDDDD"
     )
 
-    # Deux graphiques cote a cote (marges + croissance)
-    buf_l = _chart_ebitda_margins(m_a, m_b, tkr_a, tkr_b)
-    buf_r = _chart_growth_returns(m_a, m_b, tkr_a, tkr_b)
-    if buf_l:
-        _insert_chart(slide, buf_l, 1.02, 7.9, 11.0, 5.2)
-    if buf_r:
-        _insert_chart(slide, buf_r, 13.3, 7.9, 11.07, 5.2)
-    if not buf_l and not buf_r:
-        add_text_box(slide, 1.02, 8.5, 23.37, 1.0,
-                     synthesis.get('financial_text') or "", 8, GREY_TXT, wrap=True)
+    # Commentaire analytique sous le tableau (pas de graphiques — réservés slide "Rentabilité")
+    fin_txt = synthesis.get('financial_text') or ""
+    if fin_txt:
+        _fc = " ".join(_fit(fin_txt, 320).split())
+        add_rect(slide, 1.02, 8.35, 23.37, 1.6, NAVY_PALE)
+        add_rect(slide, 1.02, 8.35, 0.13, 1.6, NAVY_MID)
+        add_text_box(slide, 1.4, 8.45, 22.8, 1.5, _fc, 8.5, NAVY, wrap=True)
 
     return slide
 
@@ -1386,10 +1383,10 @@ def _slide_marges(prs, m_a: dict, m_b: dict, synthesis: dict):
     # Commentaire financier LLM
     txt = synthesis.get('financial_text') or ""
     if txt:
-        _txt_clean = " ".join(_truncate(txt, 200).split())
-        add_rect(slide, 1.02, 2.45, 23.37, 1.5, NAVY_PALE)
-        add_rect(slide, 1.02, 2.45, 0.13, 1.5, NAVY_MID)
-        add_text_box(slide, 1.4, 2.55, 22.8, 1.45, _fit(txt, 260), 8.5, NAVY, wrap=True)
+        _txt_clean = " ".join(_fit(txt, 280).split())
+        add_rect(slide, 1.02, 2.45, 23.37, 1.8, NAVY_PALE)
+        add_rect(slide, 1.02, 2.45, 0.13, 1.8, NAVY_MID)
+        add_text_box(slide, 1.4, 2.55, 22.8, 1.7, _txt_clean, 8.5, NAVY, wrap=True)
 
     # KPIs side-by-side
     y_kpi = 4.2
@@ -1613,7 +1610,7 @@ def _slide_monte_carlo(prs, m_a: dict, m_b: dict):
 
     navy_bar(slide)
     footer_bar(slide)
-    slide_title(slide, "Distribution Monte Carlo & Upside Relatif")
+    slide_title(slide, "GBM Monte Carlo & Upside Relatif")
     section_dots(slide, 3)
     _company_header_band(slide, tkr_a, tkr_b)
 
@@ -1623,24 +1620,30 @@ def _slide_monte_carlo(prs, m_a: dict, m_b: dict):
     p_a = m_a.get('share_price')
     p_b = m_b.get('share_price')
 
+    def _sigma_fmt(v):
+        if v is None: return "\u2014"
+        try: return f"{float(v) * 100:.1f}".replace(".", ",") + " %"
+        except: return "\u2014"
+
     rows_mc = [
-        ("P10 (scen. bear)",
+        ("P10 (scen. pessimiste)",
          _fr(m_a.get('monte_carlo_p10'), 0) + " " + cur_a + "  (" + _upside(m_a.get('monte_carlo_p10'), p_a) + ")",
          _fr(m_b.get('monte_carlo_p10'), 0) + " " + cur_b + "  (" + _upside(m_b.get('monte_carlo_p10'), p_b) + ")"),
-        ("P50 (scenar. base)",
+        ("P50 (median GBM)",
          _fr(m_a.get('monte_carlo_p50'), 0) + " " + cur_a + "  (" + _upside(m_a.get('monte_carlo_p50'), p_a) + ")",
          _fr(m_b.get('monte_carlo_p50'), 0) + " " + cur_b + "  (" + _upside(m_b.get('monte_carlo_p50'), p_b) + ")"),
-        ("P90 (scenar. bull)",
+        ("P90 (scen. optimiste)",
          _fr(m_a.get('monte_carlo_p90'), 0) + " " + cur_a + "  (" + _upside(m_a.get('monte_carlo_p90'), p_a) + ")",
          _fr(m_b.get('monte_carlo_p90'), 0) + " " + cur_b + "  (" + _upside(m_b.get('monte_carlo_p90'), p_b) + ")"),
-        ("WACC", _frpct(m_a.get('wacc')), _frpct(m_b.get('wacc'))),
-        ("TGR", _frpct(m_a.get('terminal_growth')), _frpct(m_b.get('terminal_growth'))),
+        ("Sigma (vol. ann.)", _sigma_fmt(m_a.get('gbm_sigma_annual')), _sigma_fmt(m_b.get('gbm_sigma_annual'))),
+        ("Cours actuel S0",  _fr(p_a, 2) + " " + cur_a if p_a else "\u2014",
+                             _fr(p_b, 2) + " " + cur_b if p_b else "\u2014"),
     ]
     add_table(
         slide, 1.02, 2.45, 23.37, 3.8,
         num_rows=len(rows_mc), num_cols=3,
         col_widths_pct=[0.36, 0.32, 0.32],
-        header_data=["Monte Carlo", tkr_a, tkr_b],
+        header_data=["GBM Monte Carlo", tkr_a, tkr_b],
         rows_data=rows_mc,
         header_fill=NAVY, border_hex="DDDDDD"
     )
@@ -1681,13 +1684,13 @@ def _slide_monte_carlo(prs, m_a: dict, m_b: dict):
                 ax.text(val + max(all_vals or [1]) * 0.01, yp,
                         f'{val:.0f}', ha='left', va='center', fontsize=8, color='#333')
 
-        # Cours actuels
+        # Cours actuels — labels en haut pour éviter débordement
         if p_a:
             ax.axvline(p_a, color='#2E5FA3', linestyle='--', linewidth=1.2, alpha=0.6)
-            ax.text(p_a, 3.7, f'  {tkr_a} cours', fontsize=7.5, color='#2E5FA3')
+            ax.text(p_a, 3.55, f' {tkr_a}', fontsize=7, color='#2E5FA3', va='bottom', ha='left', clip_on=True)
         if p_b:
             ax.axvline(p_b, color='#2E8B57', linestyle='--', linewidth=1.2, alpha=0.6)
-            ax.text(p_b, -3.7, f'  {tkr_b} cours', fontsize=7.5, color='#2E8B57')
+            ax.text(p_b, 3.15, f' {tkr_b}', fontsize=7, color='#2E8B57', va='bottom', ha='left', clip_on=True)
 
         ax.set_yticks(y_pos)
         ax.set_yticklabels(labels, fontsize=8)
@@ -2130,12 +2133,11 @@ def _slide_verdict(prs, m_a: dict, m_b: dict, synthesis: dict):
     # Texte verdict LLM — compact
     verdict_txt = synthesis.get('verdict_text') or ""
     y_v = 2.95
-    add_rect(slide, 1.02, y_v, 23.37, 2.2, NAVY_PALE)
-    add_rect(slide, 1.02, y_v, 0.18, 2.2, NAVY_MID)
-    add_text_box(slide, 1.4, y_v + 0.12, 22.7, 2.0,
-                 _fit(verdict_txt, 400) if verdict_txt else
-                 f"{winner} est privilegiee sur la base des criteres de valorisation, de qualite bilancielle et de momentum.",
-                 8.5, NAVY, wrap=True)
+    add_rect(slide, 1.02, y_v, 23.37, 2.0, NAVY_PALE)
+    add_rect(slide, 1.02, y_v, 0.18, 2.0, NAVY_MID)
+    _v_clean = " ".join(_fit(verdict_txt, 340).split()) if verdict_txt else \
+               f"{winner} est privilegiee sur la base des criteres de valorisation, de qualite bilancielle et de momentum."
+    add_text_box(slide, 1.4, y_v + 0.12, 22.7, 1.85, _v_clean, 8.5, NAVY, wrap=True)
 
     # Scorecard comparative — compact
     y_sc = 5.35

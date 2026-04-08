@@ -115,6 +115,21 @@ def _enc(s):
         return s.encode('cp1252', errors='replace').decode('cp1252')
     except: return str(s)
 
+def _canvas_text(s):
+    """Nettoie une chaine pour canvas.drawString : pas HTML, pas newlines, cp1252 safe.
+    Contrairement a _safe(), ne cree pas d'entites HTML (&amp; etc.) qui seraient
+    rendues litteralement sur le canvas."""
+    if not s: return ""
+    import re as _re2, html as _html2, unicodedata as _ud2
+    s = str(s)
+    s = _ud2.normalize('NFKC', s)
+    s = _html2.unescape(s)           # decode &gt; &lt; etc.
+    s = _re2.sub(r'\*\*(.+?)\*\*', r'\1', s)  # strip bold markdown
+    s = _re2.sub(r'\*(.+?)\*', r'\1', s)      # strip italic markdown
+    s = _re2.sub(r'\*+', '', s)               # remaining stars
+    s = _re2.sub(r'\s+', ' ', s).strip()      # flatten newlines/whitespace
+    return s.encode('cp1252', errors='replace').decode('cp1252')
+
 def _safe(s):
     """Echappe &, <, > pour Paragraph ReportLab. Supprime le markdown LLM.
     Decode d'abord les entites HTML du LLM (&gt; → >) avant re-escaping."""
@@ -699,7 +714,7 @@ def _cover_page(canvas, doc, tkr_a, tkr_b, name_a, name_b,
     # BOX VERDICT (fond navy clair)
     # ------------------------------------------------------------------
     winner = m_a.get("winner") or tkr_a
-    verdict_raw = synthesis.get("verdict_text") or ""
+    verdict_raw = _canvas_text(synthesis.get("verdict_text") or "")
     verdict_excerpt = verdict_raw[:110]
     if len(verdict_raw) > 110:
         if ' ' in verdict_excerpt:
@@ -723,7 +738,7 @@ def _cover_page(canvas, doc, tkr_a, tkr_b, name_a, name_b,
         _enc(f"Choix prefere : {winner}"))
     canvas.setFillColor(GREY_TEXT)
     canvas.setFont("Helvetica", 7.5)
-    canvas.drawCentredString(cx, verd_y + 4.5*mm, _enc(verdict_excerpt))
+    canvas.drawCentredString(cx, verd_y + 4.5*mm, verdict_excerpt)
 
     # Source / date
     canvas.setFillColor(GREY_TEXT)
@@ -810,7 +825,12 @@ def _section_exec_summary(story, m_a, m_b, synthesis, tkr_a, tkr_b):
 
     exec_text = synthesis.get("exec_summary") or ""
     if exec_text:
-        story.append(Paragraph(_safe(_enc(exec_text)), S_BODY))
+        # Limiter a ~250 chars (word boundary) pour tenir sur page 2 avec la table
+        if len(exec_text) > 250:
+            exec_text = exec_text[:250]
+            if ' ' in exec_text:
+                exec_text = exec_text[:exec_text.rfind(' ')] + '\u2026'
+        story.append(Paragraph(_safe(exec_text), S_BODY))
         story.append(Spacer(1, 4*mm))
 
     # Tableau KPIs cles cote a cote
@@ -856,7 +876,7 @@ def _section_exec_summary(story, m_a, m_b, synthesis, tkr_a, tkr_b):
     wc_hex = _hex_str(BUY_GREEN if winner == tkr_a else COLOR_B)
     story.append(Paragraph(
         f"<b>Titre prefere : <font color='#{wc_hex}'>{_enc(winner)}</font></b>"
-        f"  \u2014  {_safe(_enc((synthesis.get('verdict_text') or '')[:200]))}",
+        f"  \u2014  {_safe((synthesis.get('verdict_text') or '')[:200])}",
         _s('verd', size=9, leading=13, color=BLACK, sb=3, sa=2)
     ))
     story.append(Spacer(1, 3*mm))
@@ -868,7 +888,7 @@ def _section_profil_pl(story, m_a, m_b, synthesis, tkr_a, tkr_b):
     story += section_title("Profil & Compte de Resultat", "2")
 
     # Texte computed Profil
-    story.append(Paragraph(_safe(_enc(_profil_text(m_a, m_b, tkr_a, tkr_b))), S_BODY))
+    story.append(Paragraph(_safe(_profil_text(m_a, m_b, tkr_a, tkr_b)), S_BODY))
     story.append(Spacer(1, 3*mm))
 
     header = [
@@ -894,7 +914,7 @@ def _section_profil_pl(story, m_a, m_b, synthesis, tkr_a, tkr_b):
 
     # P&L LTM
     if synthesis.get("financial_text"):
-        story.append(Paragraph(_safe(_enc(synthesis["financial_text"])), S_BODY))
+        story.append(Paragraph(_safe(synthesis["financial_text"]), S_BODY))
         story.append(Spacer(1, 3*mm))
 
     hdr_pl = [
@@ -922,7 +942,8 @@ def _section_profil_pl(story, m_a, m_b, synthesis, tkr_a, tkr_b):
         story.append(t_pl)
     story.append(Spacer(1, 3*mm))
 
-    # Graphique marges
+    # Graphique marges (CondPageBreak pour eviter source orpheline page suivante)
+    story.append(CondPageBreak(72*mm))
     buf = _chart_margins(m_a, m_b, tkr_a, tkr_b)
     img = Image(buf, width=TABLE_W, height=65*mm)
     story.append(img)
@@ -961,7 +982,7 @@ def _section_rentabilite_bilan(story, m_a, m_b, tkr_a, tkr_b):
 
     # Bilan (avec CondPageBreak)
     story.append(CondPageBreak(80*mm))
-    story.append(Paragraph(_safe(_enc(_bilan_text(m_a, m_b, tkr_a, tkr_b))), S_BODY))
+    story.append(Paragraph(_safe(_bilan_text(m_a, m_b, tkr_a, tkr_b)), S_BODY))
     story.append(Spacer(1, 3*mm))
 
     hdr_b = [
@@ -991,7 +1012,12 @@ def _section_valorisation(story, m_a, m_b, synthesis, tkr_a, tkr_b):
     story += section_title("Valorisation", "5")
 
     if synthesis.get("valuation_text"):
-        story.append(Paragraph(_safe(_enc(synthesis["valuation_text"])), S_BODY))
+        vt = synthesis["valuation_text"]
+        if len(vt) > 350:
+            vt = vt[:350]
+            if ' ' in vt:
+                vt = vt[:vt.rfind(' ')] + '\u2026'
+        story.append(Paragraph(_safe(vt), S_BODY))
         story.append(Spacer(1, 3*mm))
 
     hdr_v = [
@@ -1021,7 +1047,7 @@ def _section_valorisation(story, m_a, m_b, synthesis, tkr_a, tkr_b):
 
     # DCF (avec CondPageBreak)
     story.append(CondPageBreak(60*mm))
-    story.append(Paragraph(_safe(_enc(_dcf_text(m_a, m_b, tkr_a, tkr_b))), S_BODY))
+    story.append(Paragraph(_safe(_dcf_text(m_a, m_b, tkr_a, tkr_b)), S_BODY))
     story.append(Spacer(1, 3*mm))
 
     hdr_d = [
@@ -1050,7 +1076,7 @@ def _section_qualite_risque(story, m_a, m_b, synthesis, tkr_a, tkr_b):
     story += section_title("Qualite & Risque", "7")
 
     if synthesis.get("quality_text"):
-        story.append(Paragraph(_safe(_enc(synthesis["quality_text"])), S_BODY))
+        story.append(Paragraph(_safe(synthesis["quality_text"]), S_BODY))
         story.append(Spacer(1, 3*mm))
 
     # Tableau qualite scores
@@ -1122,7 +1148,7 @@ def _section_qualite_risque(story, m_a, m_b, synthesis, tkr_a, tkr_b):
 
     # Profil de risque (CondPageBreak)
     story.append(CondPageBreak(100*mm))
-    story.append(Paragraph(_safe(_enc(_risque_text(m_a, m_b, tkr_a, tkr_b))), S_BODY))
+    story.append(Paragraph(_safe(_risque_text(m_a, m_b, tkr_a, tkr_b)), S_BODY))
     story.append(Spacer(1, 3*mm))
 
     hdr_ri = [
@@ -1223,7 +1249,7 @@ def _section_verdict(story, m_a, m_b, synthesis, tkr_a, tkr_b):
     # Verdict LLM
     if synthesis.get("verdict_text"):
         story.append(Paragraph(
-            f"<b>Verdict Analytique :</b>  {_safe(_enc(synthesis['verdict_text']))}",
+            f"<b>Verdict Analytique :</b>  {_safe(synthesis['verdict_text'])}",
             _s('verd2', size=9, leading=13, color=BLACK, sb=2, sa=4)
         ))
         story.append(Spacer(1, 3*mm))
@@ -1235,7 +1261,7 @@ def _section_verdict(story, m_a, m_b, synthesis, tkr_a, tkr_b):
     def _thesis_cell(text, is_bull):
         col    = BUY_GREEN if is_bull else SELL_RED
         prefix = "\u25b2 " if is_bull else "\u25bc "
-        _txt   = _safe(_enc(text or "\u2014"))
+        _txt   = _safe(text or "\u2014")
         return Paragraph(
             f"<font color='#{_hex_str(col)}'><b>{prefix}</b></font>{_txt}",
             _s(f'th{id(text)}', size=8, leading=12, color=BLACK, sb=2, sa=2)
@@ -1367,7 +1393,7 @@ def _section_fcf_capital(story, m_a, m_b, tkr_a, tkr_b):
         f"Un FCF yield superieur signale une capacite accrue a financer la croissance, "
         f"racheter des actions et verser des dividendes sur horizon 12 mois."
     )
-    story.append(Paragraph(_safe(_enc(text)), S_BODY))
+    story.append(Paragraph(_safe(text), S_BODY))
     story.append(Spacer(1, 3*mm))
 
     hdr = [
@@ -1414,7 +1440,7 @@ def _section_dcf_sensitivity(story, m_a, m_b, tkr_a, tkr_b):
         f"Lecture : une hausse du WACC de 1 pt reduit mecaniquement la valeur intrinseque ; "
         f"une baisse du taux terminal penalise davantage les titres de croissance."
     )
-    story.append(Paragraph(_safe(_enc(text)), S_BODY))
+    story.append(Paragraph(_safe(text), S_BODY))
     story.append(Spacer(1, 3*mm))
 
     g_labels = ["-0,5%", "Base", "+0,5%"]
@@ -1532,7 +1558,7 @@ def _section_momentum_marche(story, m_a, m_b, tkr_a, tkr_b):
         f"La VaR 95 % mensuelle estimee est de {var_a} pour {tkr_a} vs {var_b} pour {tkr_b}. "
         f"Ces indicateurs refletent le sentiment court terme et la volatilite des actifs."
     )
-    story.append(Paragraph(_safe(_enc(text)), S_BODY))
+    story.append(Paragraph(_safe(text), S_BODY))
     story.append(Spacer(1, 3*mm))
 
     hdr = [
@@ -1589,7 +1615,7 @@ def _section_52w_price(story, m_a, m_b, tkr_a, tkr_b, synthesis=None):
         f"de comparer directement la dynamique relative des deux titres independamment de leur "
         f"niveau de prix absolu."
     )
-    story.append(Paragraph(_safe(_enc(intro)), S_BODY))
+    story.append(Paragraph(_safe(intro), S_BODY))
     story.append(Spacer(1, 3*mm))
 
     # Graphique 52W normalise
@@ -1702,9 +1728,9 @@ def _section_52w_price(story, m_a, m_b, tkr_a, tkr_b, synthesis=None):
 
     trend_a = _trend_txt(tkr_a, m_a)
     trend_b = _trend_txt(tkr_b, m_b)
-    story.append(Paragraph(_safe(_enc(trend_a)),
+    story.append(Paragraph(_safe(trend_a),
                             _s('trend_a', size=8.5, leading=13, color=BLACK, sb=0, sa=3)))
-    story.append(Paragraph(_safe(_enc(trend_b)),
+    story.append(Paragraph(_safe(trend_b),
                             _s('trend_b', size=8.5, leading=13, color=BLACK, sb=0, sa=3)))
     story.append(Spacer(1, 2*mm))
 
@@ -1770,12 +1796,12 @@ def _section_52w_price(story, m_a, m_b, tkr_a, tkr_b, synthesis=None):
     _llm_narrative = (synthesis or {}).get("price_narrative", "")
     if _llm_narrative and len(_llm_narrative) > 30:
         story.append(Paragraph(
-            f"<b>Contexte macro et dynamique de marche.</b> {_safe(_enc(_llm_narrative))}",
+            f"<b>Contexte macro et dynamique de marche.</b> {_safe(_llm_narrative)}",
             _s('macro_ctx', size=8.5, leading=13, color=BLACK, sb=0, sa=4)))
     elif _macro_parts:
         _macro_text = " ".join(_macro_parts)
         story.append(Paragraph(
-            f"<b>Contexte macro et lecture fondamentale.</b> {_safe(_enc(_macro_text))}",
+            f"<b>Contexte macro et lecture fondamentale.</b> {_safe(_macro_text)}",
             _s('macro_ctx', size=8.5, leading=13, color=BLACK, sb=0, sa=4)))
     story.append(Spacer(1, 3*mm))
 
@@ -1827,7 +1853,7 @@ def _section_52w_price(story, m_a, m_b, tkr_a, tkr_b, synthesis=None):
                 f"({p3m_a if leader_3m == tkr_a else p3m_b})"
             )
         cross = "Sur la periode consideree : " + " ; ".join(comp_parts) + "."
-        story.append(Paragraph(_safe(_enc(cross)),
+        story.append(Paragraph(_safe(cross),
                                 _s('52w_cross', size=8.5, leading=13, color=BLACK)))
     story.append(Spacer(1, 2*mm))
 
@@ -1847,7 +1873,7 @@ def _section_piotroski_detail(story, m_a, m_b, tkr_a, tkr_b):
         f"{tkr_a} : {pio_a_str}/9 | {tkr_b} : {pio_b_str}/9. "
         f"Les composantes ci-dessous detaillent chaque critere (1 = satisfait, 0 = non satisfait)."
     )
-    story.append(Paragraph(_safe(_enc(text)), S_BODY))
+    story.append(Paragraph(_safe(text), S_BODY))
     story.append(Spacer(1, 3*mm))
 
     def _pio_cell(v):
@@ -1934,7 +1960,7 @@ def _section_piotroski_detail(story, m_a, m_b, tkr_a, tkr_b):
         f"Un score >= 7 indique une amelioration de la sante financiere. "
         f"Sources : etats financiers yfinance (exercice le plus recent disponible)."
     )
-    story.append(Paragraph(_safe(_enc(score_text)), S_NOTE))
+    story.append(Paragraph(_safe(score_text), S_NOTE))
     story.append(Spacer(1, 2*mm))
     story.append(src("FinSight IA / yfinance"))
 
