@@ -1773,11 +1773,10 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
 
     # Fetch per-ticker pour indices US (S&P 500 etc.) — remplit VALUE/GROWTH/QUALITY/MOMENTUM
     if secteurs and not _eu_members_by_sec:
-        _SP500_SECTORS = [
-            "Technology", "Health Care", "Financials", "Consumer Discretionary",
-            "Communication Services", "Industrials", "Consumer Staples",
-            "Energy", "Materials", "Real Estate", "Utilities",
-        ]
+        # Utiliser les cles exactes de _SECTOR_TICKERS pour l'univers courant
+        _SP500_SECTORS = [s for (s, u) in _SECTOR_TICKERS.keys() if u == universe]
+        if not _SP500_SECTORS:  # Fallback si univers inconnu
+            _SP500_SECTORS = [s for (s, u) in _SECTOR_TICKERS.keys() if u == "S&P 500"]
         _us_res_raw: list = []
         try:
             from concurrent.futures import ThreadPoolExecutor as _TPEX_us
