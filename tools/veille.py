@@ -897,8 +897,3 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     result = run_veille(days=args.days)
-    if result["pdf_path"]:
-        try:
-            os.startfile(str(result["pdf_path"]))
-        except Exception:
-            pass
