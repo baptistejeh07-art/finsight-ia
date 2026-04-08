@@ -2286,6 +2286,11 @@ def _slide_multiples_historiques(prs, snap, synthesis, ratios):
         if any(v == v for v in ev_plot):
             ax2.plot(x, ev_plot, color="#1A7A4A", linewidth=2.2, marker='s',
                      markersize=6, linestyle='--', label="EV/EBITDA", zorder=4)
+            # Forcer les y-limits pour inclure toutes les valeurs
+            _ev_valid = [v for v in ev_plot if v == v]  # exclure NaN
+            if _ev_valid:
+                _ev_margin = (max(_ev_valid) - min(_ev_valid)) * 0.12 or 1.0
+                ax2.set_ylim(min(_ev_valid) - _ev_margin, max(_ev_valid) + _ev_margin)
 
         ax1.set_xticks(x)
         ax1.set_xticklabels(labels, fontsize=9)
@@ -2697,7 +2702,7 @@ def _slide_lbo(prs, snap, synthesis, ratios):
         )
     else:
         _comment = "EBITDA non disponible — analyse LBO indicative impossible. Veuillez relancer l'analyse avec des données financières complètes."
-    commentary_box(slide, 1.02, 10.50, 23.37, 1.60, _comment)
+    commentary_box(slide, 1.02, 11.60, 23.37, 1.60, _comment)
 
     return slide
 
