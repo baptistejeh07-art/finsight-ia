@@ -2621,16 +2621,23 @@ def _g(obj, *keys, default=None):
     return obj if obj is not None else default
 
 def _valid_hist_labels_pdf(snap) -> list:
-    """Retourne les annees triees avec au moins une donnee reelle (exclut les annees all-None)."""
+    """Retourne les annees triees avec CA disponible et positif (exclut annees sans donnees yfinance)."""
     if not (snap and snap.years):
         return []
     result = []
     for y, fy in snap.years.items():
         if fy is None:
             continue
-        if any(getattr(fy, attr, None) is not None
-               for attr in ("revenue", "cash", "da", "interest_expense")):
-            result.append(y)
+        # Inclure uniquement les annees avec un CA positif (exclut None et 0)
+        rev = getattr(fy, 'revenue', None)
+        if rev is None:
+            continue
+        try:
+            if float(rev) <= 0:
+                continue
+        except (ValueError, TypeError):
+            continue
+        result.append(y)
     return sorted(result, key=lambda y: str(y).replace("_LTM", ""))
 
 
@@ -2852,7 +2859,7 @@ def _fetch_pie_data(ticker: str, peers: list) -> dict:
             except Exception:
                 pass
 
-        if len(ev_data) < 2:
+        if len(ev_data) < 1:
             return {}
         _cap_label = 'Mkt Cap' if _used_mktcap else 'EV'
 
@@ -3043,6 +3050,21 @@ class PDFWriter:
         _ltm_idx  = len(hist_3) - 1
         _ny1_idx  = len(hist_3)
 
+        # Fallback EPS LTM depuis données financières si yfinance n'a pas retourné la valeur
+        if _trailing_eps is None and hist_3:
+            _ni_ltm = _ni(hist_3[-1])
+            if _ni_ltm is not None and _shares and float(_shares) > 0:
+                try:
+                    _trailing_eps = round(float(_ni_ltm) * 1000 / float(_shares), 2)
+                except (ValueError, ZeroDivisionError):
+                    pass
+        # Fallback P/E : cours / EPS LTM si P/E Forward consensus non disponible
+        if _fwd_pe is None and _trailing_eps is not None and price:
+            try:
+                _fwd_pe = round(float(price) / float(_trailing_eps), 1)
+            except (ValueError, ZeroDivisionError):
+                pass
+
         is_data = [
             ["Chiffre d'affaires"]      + rev_vals,
             ["Croissance YoY"]          + grow_vals,
@@ -3053,7 +3075,7 @@ class PDFWriter:
             ["Marge nette"]             + [_frpct(_nm(l)) for l in all_labels],
             _eps_row("EPS LTM ($)",     _trailing_eps, _ltm_idx),
             _eps_row("EPS N+1E (cns.)", _fwd_eps,      _ny1_idx),
-            _eps_row("P/E Forward",     _fwd_pe,        _ny1_idx),
+            _eps_row("P/E" + (" Forward" if _fwd_eps else " LTM"), _fwd_pe, _ltm_idx if _fwd_eps is None else _ny1_idx),
         ]
 
         # Ratios vs pairs
@@ -3166,6 +3188,25 @@ class PDFWriter:
                 ff_methods.append(lbl)
                 ff_lows.append(lo); ff_highs.append(hi)
                 ff_colors.append(col)
+
+        # Fallback final : Monte Carlo si synthesis absente (LLM indisponible)
+        if not ff_methods and ratios and getattr(ratios, 'meta', None):
+            _mc_p10 = ratios.meta.get('dcf_mc_p10')
+            _mc_p50 = ratios.meta.get('dcf_mc_p50')
+            _mc_p90 = ratios.meta.get('dcf_mc_p90')
+            if _mc_p50:
+                try:
+                    _p50 = float(_mc_p50)
+                    _p10 = float(_mc_p10) if _mc_p10 else _p50 * 0.60
+                    _p90 = float(_mc_p90) if _mc_p90 else _p50 * 1.60
+                    ff_methods.append('DCF \u2014 Monte Carlo (P10\u2013P90)')
+                    ff_lows.append(_p10); ff_highs.append(_p90)
+                    ff_colors.append('#1B3A6B')
+                    ff_methods.append('DCF \u2014 M\u00e9diane stochastique (P50)')
+                    ff_lows.append(_p50 * 0.94); ff_highs.append(_p50 * 1.06)
+                    ff_colors.append('#1A7A4A')
+                except (ValueError, TypeError):
+                    pass
 
         # Comparables
         peers    = _g(synthesis, 'comparable_peers') or []
@@ -3529,6 +3570,9 @@ class PDFWriter:
                   'div_paid':  getattr(ratios.years[lbl], 'dividends_paid_abs', None),
                  }
                  for lbl in sorted(ratios.years.keys(), key=lambda k: str(k).replace('_LTM','Z'))
+                 # Exclure annees sans donnees utiles (yfinance manque de donnees historiques lointaines)
+                 if any(getattr(ratios.years[lbl], a, None) is not None
+                        for a in ('pe_ratio', 'ev_ebitda', 'pb_ratio', 'ebitda'))
                 ][-5:]
                 if ratios and getattr(ratios, 'years', None) else []
             ),

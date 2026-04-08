@@ -2246,11 +2246,17 @@ def _slide_multiples_historiques(prs, snap, synthesis, ratios):
         _yrs = ratios.years
         for lbl in sorted(_yrs.keys(), key=lambda k: str(k).replace("_LTM","Z")):
             yr = _yrs[lbl]
+            pe   = getattr(yr, "pe_ratio",  None)
+            ev_eb = getattr(yr, "ev_ebitda", None)
+            pb   = getattr(yr, "pb_ratio",  None)
+            # Exclure annees sans donnees utiles (yfinance manque de donnees historiques lointaines)
+            if pe is None and ev_eb is None and pb is None:
+                continue
             years_data.append({
                 "label": lbl.replace("_LTM", " LTM"),
-                "pe":    getattr(yr, "pe_ratio", None),
-                "ev_eb": getattr(yr, "ev_ebitda", None),
-                "pb":    getattr(yr, "pb_ratio", None),
+                "pe":    pe,
+                "ev_eb": ev_eb,
+                "pb":    pb,
             })
     years_data = years_data[-5:]  # 5 dernières années max
 
@@ -2406,6 +2412,9 @@ def _slide_capital_returns(prs, snap, synthesis, ratios):
             ebitda    = getattr(yr, "ebitda", None)
             capex_r   = getattr(yr, "capex_ratio", None)
             div_pout  = getattr(yr, "dividend_payout", None)
+            # Exclure annees sans donnees utiles
+            if all(v is None for v in (fcf, fcf_yield, ebitda)):
+                continue
             cap_rows.append({
                 "label":     lbl.replace("_LTM", " LTM"),
                 "fcf":       fcf,
