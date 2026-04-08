@@ -625,19 +625,18 @@ def _s03_sommaire(prs, D):
     _footer(slide, D)
 
     sections = [
-        ("01", "Profil & Structure des Secteurs", "Description, positionnement cycle, metriques sectorielles"),
-        ("02", "Valorisation & Multiples Comparatifs", "P/E, EV/EBITDA, EV/Revenue — qui est moins cher ?"),
-        ("03", "Qualite, Marges & Rentabilite", "ROE, ROIC, FCF Yield, marges brute/EBITDA/nette"),
-        ("04", "Croissance & Momentum", "Revenue growth, perf. 52S, scoring multi-criteres"),
-        ("05", "Top Acteurs & Catalyseurs / Risques", "Meilleures societes + drivers et conditions d'invalidation"),
+        ("01", "Profil & Valorisation", "Structure des secteurs, multiples de marche, qualite des bilans"),
+        ("02", "Croissance & Scoring", "Revenue growth, momentum et scoring multidimensionnel"),
+        ("03", "Top Acteurs & Risques", "Meilleures societes et conditions d'invalidation par secteur"),
+        ("04", "Synthese & Allocation", "Comparaison strategique et recommandation de positionnement"),
     ]
-    y_start = 2.5
+    y_start = 2.8
     for i, (num, title, desc) in enumerate(sections):
-        y = y_start + i * 2.0
-        _rect(slide, 0.9, y, 0.7, 1.4, fill=_NAVY)
-        _txb(slide, num, 0.9, y + 0.35, 0.7, 0.8, size=11, bold=True, color=_WHITE, align=PP_ALIGN.CENTER)
-        _txb(slide, title, 1.8, y + 0.1, 22.0, 0.8, size=11, bold=True, color=_NAVY)
-        _txb(slide, desc, 1.8, y + 0.7, 22.0, 0.6, size=8.5, color=_GRAYT)
+        y = y_start + i * 2.4
+        _rect(slide, 0.9, y, 1.1, 1.4, fill=_NAVY)
+        _txb(slide, num, 0.9, y + 0.3, 1.1, 0.8, size=14, bold=True, color=_WHITE, align=PP_ALIGN.CENTER)
+        _txb(slide, title, 2.2, y + 0.1, 21.6, 0.8, size=11, bold=True, color=_NAVY)
+        _txb(slide, desc, 2.2, y + 0.7, 21.6, 0.6, size=8.5, color=_GRAYT)
         _rect(slide, 0.9, y + 1.4, 23.6, 0.02, fill=_GRAYM)
 
 
@@ -876,14 +875,14 @@ def _barre_secteur(slide, sector_name, tickers_data, col, universe):
     rows = [["Societe", "Score", "P/E", "EV/EBITDA", "Croiss.Rev.", "Mg.EBITDA", "Mg.Nette", "ROE", "Beta"]]
     for t in sorted_td:
         rows.append([
-            t.get("company", t.get("ticker", ""))[:20],
+            t.get("company", t.get("ticker", ""))[:24],
             f"{t.get('score_global', 0)}/100",
             _fmt_simple(t.get("pe_ratio"), x=True),
             _fmt_simple(t.get("ev_ebitda"), x=True),
             _fmt(t.get("revenue_growth", 0) * 100 if (t.get("revenue_growth") or 0) < 5 else t.get("revenue_growth", 0), pct=True),
             _fmt_simple(t.get("ebitda_margin"), pct=True),
             _fmt_simple(t.get("net_margin"), pct=True),
-            _fmt_simple(t.get("roe"), pct=True),
+            _fmt_simple(min(t.get("roe") or 0, 999.9) if t.get("roe") is not None else None, pct=True),
             _fmt_simple(t.get("beta"), dp=2),
         ])
 

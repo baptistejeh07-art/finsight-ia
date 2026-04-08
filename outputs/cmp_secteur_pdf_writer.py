@@ -288,7 +288,7 @@ def _chart_radar_pdf(sa, sb, label_a, label_b) -> bytes:
     ax.fill(angles, va, alpha=0.15, color=_HEX_A)
     ax.plot(angles, vb, "s-", linewidth=2, color=_HEX_B, label=label_b)
     ax.fill(angles, vb, alpha=0.15, color=_HEX_B)
-    ax.set_xticks(angles[:-1]); ax.set_xticklabels(categories, fontsize=11)
+    ax.set_xticks(angles[:-1]); ax.set_xticklabels(categories, fontsize=9)
     ax.set_ylim(0, 25)
     ax.legend(loc="upper right", bbox_to_anchor=(1.4, 1.1), fontsize=9)
     plt.tight_layout(pad=0.3)
