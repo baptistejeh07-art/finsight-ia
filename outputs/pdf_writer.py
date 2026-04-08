@@ -1789,6 +1789,295 @@ def _build_extra_risk_scores(elems: list, data: dict):
             elems.append(Spacer(1, 3*mm))
 
 
+def _build_multiples_historiques(data):
+    """Page PDF : Multiples de valorisation historiques P/E + EV/EBITDA sur 5 ans."""
+    import math as _math_mh
+    elems = []
+    elems += section_title("Multiples Historiques de Valorisation", "IB/PE")
+    elems.append(debate_q(
+        "Comment ont \u00e9volu\u00e9 les multiples de valorisation sur 5 ans ? Y a-t-il expansion ou compression ?"))
+
+    years_data = data.get('ratios_years_data') or []
+    cur        = data.get('currency', 'USD')
+
+    # ── Chart matplotlib P/E + EV/EBITDA ──
+    if _MATPLOTLIB_OK and len(years_data) >= 2:
+        try:
+            labels  = [d['label']  for d in years_data]
+            pe_vals = [d['pe']     for d in years_data]
+            ev_vals = [d['ev_eb']  for d in years_data]
+            x = list(range(len(labels)))
+
+            fig, ax1 = plt.subplots(figsize=(6.5, 2.8))
+            ax2 = ax1.twinx()
+            pe_plot = [v if v is not None else float('nan') for v in pe_vals]
+            ev_plot = [v if v is not None else float('nan') for v in ev_vals]
+
+            if any(v == v for v in pe_plot):
+                ax1.plot(x, pe_plot, color='#1B3A6B', lw=2.2, marker='o', ms=5, label='P/E', zorder=4)
+                ax1.fill_between(x, pe_plot, alpha=0.07, color='#1B3A6B')
+            if any(v == v for v in ev_plot):
+                ax2.plot(x, ev_plot, color='#1A7A4A', lw=2.2, marker='s', ms=5, ls='--', label='EV/EBITDA', zorder=4)
+
+            ax1.set_xticks(x); ax1.set_xticklabels(labels, fontsize=8)
+            ax1.set_ylabel('P/E (x)', fontsize=8, color='#1B3A6B')
+            ax2.set_ylabel('EV/EBITDA (x)', fontsize=8, color='#1A7A4A')
+            ax1.tick_params(axis='y', labelcolor='#1B3A6B', labelsize=7.5)
+            ax2.tick_params(axis='y', labelcolor='#1A7A4A', labelsize=7.5)
+            lines1, labs1 = ax1.get_legend_handles_labels()
+            lines2, labs2 = ax2.get_legend_handles_labels()
+            ax1.legend(lines1 + lines2, labs1 + labs2, fontsize=7.5, loc='upper right', framealpha=0.9)
+            ax1.spines['top'].set_visible(False); ax2.spines['top'].set_visible(False)
+            ax1.spines['left'].set_color('#D0D5DD'); ax1.spines['bottom'].set_color('#D0D5DD')
+            ax1.set_facecolor('white'); fig.patch.set_facecolor('white')
+            ax1.grid(axis='y', alpha=0.25, color='#D0D5DD')
+            plt.tight_layout(pad=0.8)
+            buf_mh = io.BytesIO()
+            fig.savefig(buf_mh, format='png', dpi=160, bbox_inches='tight')
+            plt.close(fig); buf_mh.seek(0)
+            elems.append(Image(buf_mh, width=130*mm, height=56*mm))
+        except Exception as _e:
+            log.warning("PDF multiples_historiques chart: %s", _e)
+
+    # ── Tableau synthèse ──
+    if years_data:
+        elems.append(Spacer(1, 3*mm))
+        elems.append(Paragraph("Tableau r\u00e9capitulatif des multiples", S_SUBSECTION))
+        mh_h = [Paragraph(h, S_TH_C) for h in ["Ann\u00e9e", "P/E (x)", "EV/EBITDA (x)", "P/B (x)", "Tendance P/E"]]
+        mh_rows = []
+        pe_prev = None
+        for d in years_data:
+            pe_v = d['pe']; ev_v = d['ev_eb']; pb_v = d['pb']
+            if pe_v is not None and pe_prev is not None:
+                trend = "\u2197 Expansion" if pe_v > pe_prev else "\u2198 Compression"
+                ts = S_TD_G if pe_v > pe_prev else S_TD_R
+            else:
+                trend = "\u2014"; ts = S_TD_C
+            mh_rows.append([
+                Paragraph(_safe(d['label']), S_TD_B),
+                Paragraph(_safe(_fr(pe_v, 1) + 'x' if pe_v else '\u2014'), S_TD_C),
+                Paragraph(_safe(_fr(ev_v, 1) + 'x' if ev_v else '\u2014'), S_TD_C),
+                Paragraph(_safe(_fr(pb_v, 1) + 'x' if pb_v else '\u2014'), S_TD_C),
+                Paragraph(_safe(trend), ts),
+            ])
+            if pe_v is not None: pe_prev = pe_v
+        elems.append(KeepTogether(tbl([mh_h] + mh_rows, cw=[30*mm, 32*mm, 42*mm, 32*mm, 44*mm])))
+
+    # ── Commentary analytique ──
+    pe_clean = [d['pe'] for d in years_data if d['pe'] is not None]
+    ev_clean = [d['ev_eb'] for d in years_data if d['ev_eb'] is not None]
+    if pe_clean and len(pe_clean) >= 2:
+        delta = pe_clean[-1] - pe_clean[0]
+        _dir  = "expansion multiple" if delta > 0 else "compression multiple"
+        _txt  = (f"Le P/E affiche une {_dir} de {abs(delta):.1f}x sur la p\u00e9riode ({pe_clean[0]:.1f}x \u2192 {pe_clean[-1]:.1f}x). "
+                 f"L'EV/EBITDA {('se stabilise' if ev_clean and abs(ev_clean[-1]-ev_clean[0])<2 else 'diverge')} "
+                 f"\u00e0 {_fr(ev_clean[-1] if ev_clean else None, 1)}x. "
+                 f"{'Un re-rating positif soutient la these haussiere.' if delta > 0 else 'La compression multiple reflete une deterioration du profil risk/reward.'}")
+    else:
+        _txt = "Historique de multiples insuffisant pour etablir une tendance significative."
+    elems.append(Spacer(1, 3*mm))
+    elems.append(Paragraph(_safe(_txt), S_BODY))
+    elems.append(src("FinSight IA \u2014 yfinance, calculs internes."))
+    return elems
+
+
+def _build_capital_returns(data):
+    """Page PDF : FCF yield, allocation du capital, dividendes et retour total."""
+    elems = []
+    elems += section_title("Capital Returns & Free Cash Flow", "IB/PE")
+    elems.append(debate_q(
+        "La soci\u00e9t\u00e9 g\u00e9n\u00e8re-t-elle un FCF suffisant pour financer sa croissance et r\u00e9mun\u00e9rer ses actionnaires ?"))
+
+    years_data = data.get('ratios_years_data') or []
+    cur        = data.get('currency', 'USD')
+
+    # ── Chart FCF + Dividendes ──
+    if _MATPLOTLIB_OK and years_data:
+        try:
+            labels_c = [d['label'] for d in years_data]
+            fcf_c    = [d['fcf']       for d in years_data]
+            div_c    = [abs(d['div_paid']) if d['div_paid'] is not None else 0 for d in years_data]
+            x = list(range(len(labels_c)))
+
+            fig, ax = plt.subplots(figsize=(6.5, 2.5))
+            bw = 0.35
+            import numpy as np2
+            xarr = np2.array(x)
+            bars1 = ax.bar(xarr - bw/2, [f/1000 if f else 0 for f in fcf_c], bw,
+                           label='FCF (Mds)', color='#1A7A4A', alpha=0.85)
+            bars2 = ax.bar(xarr + bw/2, [d/1000 for d in div_c], bw,
+                           label='Div. vers\u00e9s (Mds)', color='#2E5FA3', alpha=0.85)
+            ax.set_xticks(list(x)); ax.set_xticklabels(labels_c, fontsize=8)
+            ax.set_ylabel(f"Mds {cur}", fontsize=8)
+            ax.legend(fontsize=7.5, loc='upper left', framealpha=0.9)
+            ax.tick_params(labelsize=7.5)
+            ax.spines['top'].set_visible(False); ax.spines['right'].set_visible(False)
+            ax.spines['left'].set_color('#D0D5DD'); ax.spines['bottom'].set_color('#D0D5DD')
+            ax.set_facecolor('white'); fig.patch.set_facecolor('white')
+            ax.grid(axis='y', alpha=0.25, color='#D0D5DD')
+            plt.tight_layout(pad=0.8)
+            buf_cr = io.BytesIO()
+            fig.savefig(buf_cr, format='png', dpi=160, bbox_inches='tight')
+            plt.close(fig); buf_cr.seek(0)
+            elems.append(Image(buf_cr, width=130*mm, height=50*mm))
+        except Exception as _e:
+            log.warning("PDF capital_returns chart: %s", _e)
+
+    # ── Tableau allocation ──
+    if years_data:
+        elems.append(Spacer(1, 3*mm))
+        elems.append(Paragraph("Tableau d\u2019allocation du capital", S_SUBSECTION))
+        cr_h = [Paragraph(h, S_TH_C) for h in ["Ann\u00e9e", "FCF", "FCF Yield", "Div. Payout", "Capex/Rev"]]
+        cr_rows = []
+        for d in years_data:
+            cr_rows.append([
+                Paragraph(_safe(d['label']), S_TD_B),
+                Paragraph(_safe(_fr(d['fcf']/1000 if d['fcf'] else None, 1, ' Mds')), S_TD_C),
+                Paragraph(_safe(_frpct(d['fcf_yield'])), S_TD_C),
+                Paragraph(_safe(_frpct(d['div_pout'])),  S_TD_C),
+                Paragraph(_safe(_frpct(d['capex_r'])),   S_TD_C),
+            ])
+        elems.append(KeepTogether(tbl([cr_h] + cr_rows, cw=[30*mm, 38*mm, 34*mm, 36*mm, 32*mm])))
+
+    # ── Commentary ──
+    fcf_vals = [d['fcf'] for d in years_data if d['fcf'] is not None]
+    fy_vals  = [d['fcf_yield'] for d in years_data if d['fcf_yield'] is not None]
+    if fcf_vals and len(fcf_vals) >= 2:
+        delta_fcf = fcf_vals[-1] - fcf_vals[0]
+        _dir = "croissance" if delta_fcf > 0 else "contraction"
+        _fy  = _frpct(fy_vals[-1]) if fy_vals else "\u2014"
+        _txt = (f"La g\u00e9n\u00e9ration de FCF affiche une {_dir} de "
+                f"{_fr(abs(delta_fcf)/1000, 1)} Mds sur la p\u00e9riode. "
+                f"Le FCF yield courant de {_fy} "
+                f"{'est attractif pour un investisseur long-only' if fy_vals and fy_vals[-1] and float(fy_vals[-1]) > 0.04 else 'reste modeste au regard du co\u00fbt du capital'}. "
+                f"L\u2019allocation vers les dividendes refl\u00e8te la politique de retour aux actionnaires.")
+    else:
+        _txt = "Donn\u00e9es FCF insuffisantes pour l\u2019analyse de l\u2019allocation du capital."
+    elems.append(Spacer(1, 3*mm))
+    elems.append(Paragraph(_safe(_txt), S_BODY))
+    elems.append(src("FinSight IA \u2014 yfinance, cash flow statements."))
+    return elems
+
+
+def _build_lbo(data):
+    """Page PDF : Analyse LBO — entry/exit multiples, levier, IRR/MOIC — niveau PE."""
+    import math as _math_lbo
+    elems = []
+    elems += section_title("Analyse LBO \u2014 Leveraged Buyout", "IB/PE")
+    elems.append(debate_q(
+        "La soci\u00e9t\u00e9 est-elle une cible PE viable ? A quel prix d\u2019entr\u00e9e un fonds atteint-il un IRR de 20%+ ?"))
+
+    years_data = data.get('ratios_years_data') or []
+    cur        = data.get('currency', 'USD')
+
+    # EBITDA + FCF LTM
+    latest = years_data[-1] if years_data else {}
+    ebitda_raw   = latest.get('ebitda')
+    fcf_raw      = latest.get('fcf')
+    net_debt_raw = latest.get('net_debt')
+    rev_growth   = latest.get('rev_growth')
+
+    ebitda   = float(ebitda_raw)   if ebitda_raw   is not None else None
+    fcf      = float(fcf_raw)      if fcf_raw      is not None else None
+    net_debt = float(net_debt_raw) if net_debt_raw is not None else None
+    _g_rate  = min(float(rev_growth), 0.20) if rev_growth and float(rev_growth) > 0.001 else 0.05
+
+    # ── Hypothèses ──
+    entry_multiples = [8.0, 10.0, 12.0, 14.0]
+    exit_multiples  = [8.0, 10.0, 12.0]
+    leverage_ratio  = 4.0
+    hold_years      = 5
+    debt_repay_pct  = 0.50
+
+    def _lbo_irr(em, xm):
+        if ebitda is None or ebitda <= 0: return None, None
+        entry_ev     = ebitda * em
+        entry_debt   = min(ebitda * leverage_ratio, entry_ev * 0.65)
+        entry_equity = max(entry_ev - entry_debt, 1)
+        ebitda_exit  = ebitda * ((1 + _g_rate) ** hold_years)
+        exit_ev      = ebitda_exit * xm
+        exit_debt    = entry_debt * (1 - debt_repay_pct)
+        exit_equity  = max(exit_ev - exit_debt, 0.01)
+        moic = exit_equity / entry_equity
+        irr  = moic ** (1 / hold_years) - 1
+        return irr, moic
+
+    # ── Table IRR/MOIC ──
+    exit_hdrs = [f"Exit {xm:.0f}x" for xm in exit_multiples]
+    irr_h = [Paragraph("Entry mult.", S_TH_L)] + [Paragraph(h, S_TH_C) for h in exit_hdrs]
+    irr_rows_pdf = []
+    irr_styles   = []
+    for ri, em in enumerate(entry_multiples):
+        row = [Paragraph(f"{em:.0f}x EBITDA", S_TD_B)]
+        for ci_idx, xm in enumerate(exit_multiples):
+            irr, moic = _lbo_irr(em, xm)
+            if irr is not None:
+                cell_txt = f"{irr*100:.1f}% / {moic:.1f}x"
+                if irr >= 0.20:
+                    st = S_TD_G
+                    irr_styles.append(('BACKGROUND', (ci_idx+1, ri+1), (ci_idx+1, ri+1),
+                                       colors.HexColor('#EAF4EF')))
+                elif irr >= 0.15:
+                    st = S_TD_A
+                    irr_styles.append(('BACKGROUND', (ci_idx+1, ri+1), (ci_idx+1, ri+1),
+                                       colors.HexColor('#FDF6E8')))
+                else:
+                    st = S_TD_R
+                    irr_styles.append(('BACKGROUND', (ci_idx+1, ri+1), (ci_idx+1, ri+1),
+                                       colors.HexColor('#FAF0EF')))
+            else:
+                cell_txt = "\u2014"; st = S_TD_C
+            row.append(Paragraph(_safe(cell_txt), st))
+        irr_rows_pdf.append(row)
+
+    cws = [40*mm] + [43*mm] * len(exit_multiples)
+    t_irr = tbl([irr_h] + irr_rows_pdf, cw=cws)
+    if irr_styles:
+        t_irr.setStyle(TableStyle(irr_styles))
+    elems.append(KeepTogether(t_irr))
+    elems.append(Paragraph(
+        f"Hypoth\u00e8ses : Levier {leverage_ratio:.0f}x EBITDA \u00b7 {hold_years} ans holding "
+        f"\u00b7 {debt_repay_pct*100:.0f}% remboursement \u00b7 EBITDA +{_g_rate*100:.0f}%/an  "
+        f"\u25cf vert \u2265 20% \u25cf ambre 15\u201320% \u25cf rouge < 15%",
+        S_NOTE))
+    elems.append(Spacer(1, 4*mm))
+
+    # ── Paramètres LBO ──
+    elems.append(Paragraph("Param\u00e8tres LBO LTM", S_SUBSECTION))
+    _hypo = [
+        ("EBITDA LTM",          _fr(ebitda/1000 if ebitda else None, 1) + f" Mds {cur}"),
+        ("FCF LTM",             _fr(fcf/1000    if fcf    else None, 1) + f" Mds {cur}"),
+        ("Levier PE",           f"{leverage_ratio:.0f}x EBITDA"),
+        ("Dette d\u2019entr\u00e9e",
+         _fr(ebitda * leverage_ratio / 1000 if ebitda else None, 1) + f" Mds {cur}"),
+        ("EBITDA exit (est.)",
+         _fr(ebitda * ((1+_g_rate)**hold_years) / 1000 if ebitda else None, 1) + f" Mds {cur}"),
+        ("IRR cible tier-1",    "\u2265 20%"),
+    ]
+    lbo_h = [Paragraph("Param\u00e8tre", S_TH_L), Paragraph("Valeur", S_TH_C)]
+    lbo_rows = [[Paragraph(_safe(k), S_TD_B), Paragraph(_safe(v), S_TD_C)] for k, v in _hypo]
+    elems.append(KeepTogether(tbl([lbo_h] + lbo_rows, cw=[90*mm, 80*mm])))
+    elems.append(Spacer(1, 4*mm))
+
+    # ── Commentary ──
+    irr_base, moic_base = _lbo_irr(10.0, 10.0)
+    if irr_base is not None:
+        _signal = "attractive" if irr_base >= 0.20 else ("limite (15-20%)" if irr_base >= 0.15 else "insuffisante (<15%)")
+        _txt = (f"A 10x EBITDA d\u2019entr\u00e9e / 10x de sortie, le LBO g\u00e9n\u00e8re un IRR "
+                f"de {irr_base*100:.1f}% (MOIC {moic_base:.1f}x) \u2014 attractivit\u00e9 PE {_signal}. "
+                f"Un fonds tier-1 ciblant 20%+ doit entrer en dessous de "
+                f"{next((em for em in entry_multiples if (_lbo_irr(em,10.0)[0] or 0)>=0.20), entry_multiples[-1]):.0f}x EBITDA. "
+                f"La FCF conversion ({_fr(fcf/1000 if fcf else None, 1)} Mds) est le principal levier de d\u00e9sendettement.")
+    else:
+        _txt = "EBITDA LTM non disponible \u2014 analyse LBO indicative impossible."
+    elems.append(Paragraph(_safe(_txt), S_BODY))
+    elems.append(Paragraph(
+        "Note : Analyse indicative uniquement. Ne tient pas compte des frais de transaction, "
+        "de la structure fiscale optimis\u00e9e ni du management package. "
+        "Sources : FinSight IA, calculs internes.", S_DISC))
+    return elems
+
+
 def _build_risques(data):
     elems = []
     elems += section_title("Analyse des Risques & Sentiment de March\u00e9", 4)
@@ -2250,6 +2539,12 @@ def generate_report(data: dict, output_path: str) -> str:
     story += _build_financials(area_buf, data, margins_buf)
     story.append(PageBreak())
     story += _build_valorisation(ff_buf, pie_buf, mc_buf, data)
+    story.append(PageBreak())
+    story += _build_multiples_historiques(data)
+    story.append(PageBreak())
+    story += _build_capital_returns(data)
+    story.append(PageBreak())
+    story += _build_lbo(data)
     story.append(PageBreak())
     story += _build_risques(data)
 
@@ -3203,8 +3498,30 @@ class PDFWriter:
             'dcf_mc_p10':  (ratios.meta.get('dcf_mc_p10')  if ratios and getattr(ratios, 'meta', None) else None),
             'dcf_mc_p50':  (ratios.meta.get('dcf_mc_p50')  if ratios and getattr(ratios, 'meta', None) else None),
             'dcf_mc_p90':  (ratios.meta.get('dcf_mc_p90')  if ratios and getattr(ratios, 'meta', None) else None),
+            'dcf_mc_p2':   (ratios.meta.get('dcf_mc_p2')   if ratios and getattr(ratios, 'meta', None) else None),
+            'dcf_mc_p98':  (ratios.meta.get('dcf_mc_p98')  if ratios and getattr(ratios, 'meta', None) else None),
             'dcf_mc_n_sim':(ratios.meta.get('dcf_mc_n_sim')   if ratios and getattr(ratios, 'meta', None) else None),
             'mc_dist':     (ratios.meta.get('mc_dist')      if ratios and getattr(ratios, 'meta', None) else None) or [],
+
+            # Ratios historiques IB/PE (Chantiers multiples historiques + capital returns + LBO)
+            'ratios_years_data': (
+                [{'label': lbl.replace('_LTM', ' LTM'),
+                  'pe':    getattr(ratios.years[lbl], 'pe_ratio',        None),
+                  'ev_eb': getattr(ratios.years[lbl], 'ev_ebitda',       None),
+                  'pb':    getattr(ratios.years[lbl], 'pb_ratio',        None),
+                  'fcf':   getattr(ratios.years[lbl], 'fcf',             None),
+                  'fcf_yield': getattr(ratios.years[lbl], 'fcf_yield',   None),
+                  'div_pout':  getattr(ratios.years[lbl], 'dividend_payout', None),
+                  'capex_r':   getattr(ratios.years[lbl], 'capex_ratio', None),
+                  'ebitda':    getattr(ratios.years[lbl], 'ebitda',      None),
+                  'net_debt':  getattr(ratios.years[lbl], 'net_debt',    None),
+                  'rev_growth':getattr(ratios.years[lbl], 'revenue_growth', None),
+                  'div_paid':  getattr(ratios.years[lbl], 'dividends_paid_abs', None),
+                 }
+                 for lbl in sorted(ratios.years.keys(), key=lambda k: str(k).replace('_LTM','Z'))
+                ][-5:]
+                if ratios and getattr(ratios, 'years', None) else []
+            ),
 
             # Zone d'entrée (Chantier 3)
             'entry_zone_conditions': (

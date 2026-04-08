@@ -1089,8 +1089,9 @@ def _slide_company_overview(prs, snap, synthesis, ratios):
     strengths= _g(synthesis, "strengths", []) or []
 
     # Fallback si synthesis vide : description generique depuis raw data
+    _sector_fb = _g(ci, "sector", "N/D") or "N/D"
     if not desc and co_name and co_name != "\u2014":
-        desc = (f"{co_name} ({ticker}) opere dans le secteur {sector or 'N/D'}. "
+        desc = (f"{co_name} ({ticker}) opere dans le secteur {_sector_fb}. "
                 f"Analyse FinSight IA en cours -- donnees de synthese non disponibles "
                 f"pour cette session. Lancer une nouvelle analyse pour obtenir la "
                 f"description complete, les segments et le positionnement strategique.")
@@ -1800,9 +1801,49 @@ def _slide_dcf(prs, snap, synthesis, ratios):
         c.fill.solid(); c.fill.fore_color.rgb = rgb(pale)
         _set_cell(c, "Upside / Downside", font_size=7, bold=False, color_hex=GREY_LIGHT, align=_PA.CENTER)
 
-    # Sensitivity table
-    add_text_box(slide, 1.02, 6.65, 23.37, 0.56,
-                 f"Table de sensibilité — Valeur intrinsèque ({cur_sym})",
+    # ── Monte Carlo DCF — bloc gauche ───────────────────────────────────────
+    mc_meta  = getattr(ratios, "meta", {}) or {}
+    mc_p10   = mc_meta.get("dcf_mc_p10")
+    mc_p50   = mc_meta.get("dcf_mc_p50")
+    mc_p90   = mc_meta.get("dcf_mc_p90")
+    mc_p2    = mc_meta.get("dcf_mc_p2")
+    mc_p98   = mc_meta.get("dcf_mc_p98")
+    mc_n     = mc_meta.get("dcf_mc_n_sim")
+    mc_label = f"Monte Carlo DCF \u2014 {int(mc_n):,} simulations".replace(",", "\u202f") if mc_n else "Monte Carlo DCF"
+
+    add_text_box(slide, 1.02, 6.65, 11.18, 0.56, mc_label, 9, NAVY, bold=True)
+
+    if mc_p50 is not None:
+        _mc_rows = [
+            ["Stress Down (P2)",  f"{_fr(mc_p2, 0)} {cur_sym}"  if mc_p2  else "\u2014", _upside(mc_p2,  price)],
+            ["Pessimiste (P10)",  f"{_fr(mc_p10, 0)} {cur_sym}" if mc_p10 else "\u2014", _upside(mc_p10, price)],
+            ["\u25cf M\u00e9dian (P50)", f"{_fr(mc_p50, 0)} {cur_sym}",                   _upside(mc_p50, price)],
+            ["Optimiste (P90)",   f"{_fr(mc_p90, 0)} {cur_sym}" if mc_p90 else "\u2014", _upside(mc_p90, price)],
+            ["Stress Up (P98)",   f"{_fr(mc_p98, 0)} {cur_sym}" if mc_p98 else "\u2014", _upside(mc_p98, price)],
+        ]
+        mc_tbl = add_table(slide, 1.02, 7.37, 11.18, 3.10,
+                  len(_mc_rows), 3,
+                  col_widths_pct=[0.42, 0.32, 0.26],
+                  header_data=["Sc\u00e9nario", "Valeur / action", "vs Cours"],
+                  rows_data=_mc_rows,
+                  border_hex="DDDDDD")
+        # Highlight médian row
+        try:
+            for _ci in range(3):
+                _c = mc_tbl.cell(3, _ci)
+                _c.fill.solid(); _c.fill.fore_color.rgb = rgb("DDE8F5")
+                for _run in _c.text_frame.paragraphs[0].runs:
+                    _run.font.bold = True; _run.font.color.rgb = rgb(NAVY)
+        except Exception:
+            pass
+    else:
+        add_text_box(slide, 1.02, 7.50, 11.18, 2.80,
+                     "Simulations Monte Carlo non disponibles\npour ce ticker.",
+                     9, GREY_LIGHT)
+
+    # ── Sensitivity table — droite ───────────────────────────────────────────
+    add_text_box(slide, 12.45, 6.65, 11.94, 0.56,
+                 f"Sensibilit\u00e9 WACC \u00d7 TGR \u2014 Valeur ({cur_sym})",
                  9, NAVY, bold=True)
 
     w_deltas = [-0.02, -0.01, 0.00, 0.01, 0.02]
@@ -1817,7 +1858,7 @@ def _slide_dcf(prs, snap, synthesis, ratios):
             row.append(_dcf_value(tbase, wacc, tgr, w_d, t_d))
         sens_rows.append(row)
 
-    sens_tbl = add_table(slide, 1.02, 7.37, 23.37, 3.10,
+    sens_tbl = add_table(slide, 12.45, 7.37, 11.94, 3.10,
               len(sens_rows), len(header_s),
               header_data=header_s,
               rows_data=sens_rows,
@@ -2176,6 +2217,489 @@ def _ff_fallback(slide, ff, price, cur_sym, currency):
               header_data=header,
               rows_data=rows_data,
               row_fills=rows_fills)
+
+
+# ---------------------------------------------------------------------------
+# Slide IB/PE — Multiples Historiques 5 ans
+# ---------------------------------------------------------------------------
+
+def _slide_multiples_historiques(prs, snap, synthesis, ratios):
+    """P/E et EV/EBITDA sur 5 ans — line chart matplotlib + commentary."""
+    from pptx.enum.text import PP_ALIGN
+    slide_layout = prs.slide_layouts[6]
+    slide = prs.slides.add_slide(slide_layout)
+
+    navy_bar(slide)
+    footer_bar(slide)
+    section_dots(slide, 3)
+
+    ci       = snap.company_info if snap else None
+    ticker   = _g(ci, "ticker", "—")
+    currency = _g(ci, "currency", "USD") or "USD"
+
+    slide_title(slide, "Multiples de Valorisation Historiques",
+                f"{ticker} \u00b7 P/E \u0026 EV/EBITDA sur 5 ans \u00b7 Standards march\u00e9")
+
+    # ── Collecte des données historiques ─────────────────────────────────────
+    years_data = []
+    if ratios and getattr(ratios, "years", None):
+        _yrs = ratios.years
+        for lbl in sorted(_yrs.keys(), key=lambda k: str(k).replace("_LTM","Z")):
+            yr = _yrs[lbl]
+            years_data.append({
+                "label": lbl.replace("_LTM", " LTM"),
+                "pe":    getattr(yr, "pe_ratio", None),
+                "ev_eb": getattr(yr, "ev_ebitda", None),
+                "pb":    getattr(yr, "pb_ratio", None),
+            })
+    years_data = years_data[-5:]  # 5 dernières années max
+
+    labels  = [d["label"]  for d in years_data]
+    pe_vals = [d["pe"]     for d in years_data]
+    ev_vals = [d["ev_eb"]  for d in years_data]
+    pb_vals = [d["pb"]     for d in years_data]
+
+    pe_clean  = [v for v in pe_vals  if v is not None]
+    ev_clean  = [v for v in ev_vals  if v is not None]
+    has_data  = len(pe_clean) > 1 or len(ev_clean) > 1
+
+    # ── Matplotlib dual-axis chart ────────────────────────────────────────────
+    try:
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+        import numpy as np
+
+        fig, ax1 = plt.subplots(figsize=(11.5, 3.8))
+        ax2 = ax1.twinx()
+
+        x = np.arange(len(labels))
+        # P/E — axe gauche, navy
+        pe_plot = [v if v is not None else np.nan for v in pe_vals]
+        ev_plot = [v if v is not None else np.nan for v in ev_vals]
+
+        if any(v == v for v in pe_plot):  # has non-nan
+            ax1.plot(x, pe_plot, color="#1B3A6B", linewidth=2.2, marker='o',
+                     markersize=6, label="P/E", zorder=4)
+            ax1.fill_between(x, pe_plot, alpha=0.08, color="#1B3A6B")
+
+        if any(v == v for v in ev_plot):
+            ax2.plot(x, ev_plot, color="#1A7A4A", linewidth=2.2, marker='s',
+                     markersize=6, linestyle='--', label="EV/EBITDA", zorder=4)
+
+        ax1.set_xticks(x)
+        ax1.set_xticklabels(labels, fontsize=9)
+        ax1.set_ylabel("P/E (x)", fontsize=9, color="#1B3A6B")
+        ax2.set_ylabel("EV/EBITDA (x)", fontsize=9, color="#1A7A4A")
+        ax1.tick_params(axis='y', labelcolor="#1B3A6B", labelsize=8)
+        ax2.tick_params(axis='y', labelcolor="#1A7A4A", labelsize=8)
+        ax1.tick_params(axis='x', labelsize=8.5)
+
+        # Légendes combinées
+        lines1, labs1 = ax1.get_legend_handles_labels()
+        lines2, labs2 = ax2.get_legend_handles_labels()
+        ax1.legend(lines1 + lines2, labs1 + labs2, fontsize=8.5, loc='upper right',
+                   framealpha=0.9, edgecolor='#DDDDDD')
+
+        for sp in ['top']:
+            ax1.spines[sp].set_visible(False)
+            ax2.spines[sp].set_visible(False)
+        ax1.spines['left'].set_color('#D0D5DD')
+        ax1.spines['bottom'].set_color('#D0D5DD')
+        ax1.set_facecolor('white')
+        fig.patch.set_facecolor('white')
+        ax1.grid(axis='y', alpha=0.25, color='#D0D5DD', zorder=0)
+
+        # Titre analytique : tendance observée
+        if pe_clean and len(pe_clean) >= 2:
+            delta_pe = pe_clean[-1] - pe_clean[0]
+            _dir = "expansion" if delta_pe > 0 else "compression"
+            ax1.set_title(
+                f"P/E : {_dir} de {abs(delta_pe):.1f}x sur la p\u00e9riode  |  "
+                f"EV/EBITDA actuel : {_fr(ev_clean[-1] if ev_clean else None, 1)}x",
+                fontsize=9, color='#333', pad=6
+            )
+
+        plt.tight_layout(pad=1.2)
+        buf_mc = io.BytesIO()
+        fig.savefig(buf_mc, format='png', dpi=180, bbox_inches='tight')
+        plt.close(fig)
+        buf_mc.seek(0)
+
+        from pptx.util import Cm
+        img_h_cm = 7.0
+        slide.shapes.add_picture(buf_mc, Cm(1.02), Cm(2.40), Cm(15.80), Cm(img_h_cm))
+        _chart_ok = True
+    except Exception as _e:
+        log.warning("multiples_historiques chart: %s", _e)
+        _chart_ok = False
+
+    # ── Tableau synthèse valeurs — droite ────────────────────────────────────
+    tbl_x, tbl_y, tbl_w = 17.20, 2.40, 7.20
+    add_text_box(slide, tbl_x, tbl_y, tbl_w, 0.50,
+                 "SYNTHÈSE DES MULTIPLES", 8, NAVY, bold=True)
+    if years_data:
+        snap_rows = []
+        for d in years_data:
+            snap_rows.append([
+                d["label"],
+                _fr(d["pe"],   1) + "x" if d["pe"]   is not None else "—",
+                _fr(d["ev_eb"],1) + "x" if d["ev_eb"] is not None else "—",
+                _fr(d["pb"],   1) + "x" if d["pb"]    is not None else "—",
+            ])
+        add_table(slide, tbl_x, tbl_y + 0.65, tbl_w, min(0.55 * len(snap_rows) + 0.60, 6.5),
+                  len(snap_rows), 4,
+                  col_widths_pct=[0.30, 0.22, 0.26, 0.22],
+                  header_data=["Année", "P/E", "EV/EB", "P/B"],
+                  rows_data=snap_rows,
+                  border_hex="DDDDDD")
+
+    # ── Commentary analytique ─────────────────────────────────────────────────
+    _pe_last   = pe_clean[-1]  if pe_clean  else None
+    _ev_last   = ev_clean[-1]  if ev_clean  else None
+    _pe_first  = pe_clean[0]   if pe_clean  else None
+    _ev_first  = ev_clean[0]   if ev_clean  else None
+    if _pe_last and _pe_first:
+        _delta = _pe_last - _pe_first
+        _dir   = "expansion multiple" if _delta > 0 else "compression multiple"
+        _comment = (
+            f"Le P/E affiche une {_dir} de {abs(_delta):.1f}x sur la p\u00e9riode ({_fr(_pe_first,1)}x \u2192 {_fr(_pe_last,1)}x), "
+            f"signal d\u2019une r\u00e9\u00e9valuation {'favorable' if _delta > 0 else 'n\u00e9gative'} du profil de croissance. "
+            f"L\u2019EV/EBITDA {'se stabilise' if _ev_last and _ev_first and abs(_ev_last-_ev_first)<2 else 'diverge'} "
+            f"\u00e0 {_fr(_ev_last,1)}x vs {_fr(_ev_first,1)}x historique."
+        )
+    else:
+        _comment = _g(synthesis, "ratio_commentary", "") or "Données historiques insuffisantes pour établir une tendance des multiples."
+    commentary_box(slide, 1.02, 10.00, 23.37, 1.80, _comment)
+
+    return slide
+
+
+# ---------------------------------------------------------------------------
+# Slide IB/PE — Capital Returns & FCF
+# ---------------------------------------------------------------------------
+
+def _slide_capital_returns(prs, snap, synthesis, ratios):
+    """FCF yield, dividendes et retour total aux actionnaires — niveau IB."""
+    from pptx.enum.text import PP_ALIGN
+    slide_layout = prs.slide_layouts[6]
+    slide = prs.slides.add_slide(slide_layout)
+
+    navy_bar(slide)
+    footer_bar(slide)
+    section_dots(slide, 3)
+
+    ci       = snap.company_info if snap else None
+    mkt      = snap.market if snap else None
+    ticker   = _g(ci, "ticker", "—")
+    currency = _g(ci, "currency", "USD") or "USD"
+    cur_sym  = "EUR" if currency == "EUR" else "$"
+    price    = _g(mkt, "share_price")
+
+    slide_title(slide, "Capital Returns \u0026 Free Cash Flow",
+                f"{ticker} \u00b7 FCF yield, dividendes & allocation du capital")
+
+    # ── Collecte données ─────────────────────────────────────────────────────
+    cap_rows = []
+    if ratios and getattr(ratios, "years", None):
+        for lbl in sorted(ratios.years.keys(), key=lambda k: str(k).replace("_LTM","Z")):
+            yr = ratios.years[lbl]
+            fcf       = getattr(yr, "fcf", None)
+            fcf_yield = getattr(yr, "fcf_yield", None)
+            div_pay   = getattr(yr, "dividends_paid_abs", None)
+            ebitda    = getattr(yr, "ebitda", None)
+            capex_r   = getattr(yr, "capex_ratio", None)
+            div_pout  = getattr(yr, "dividend_payout", None)
+            cap_rows.append({
+                "label":     lbl.replace("_LTM", " LTM"),
+                "fcf":       fcf,
+                "fcf_yield": fcf_yield,
+                "div_pay":   div_pay,
+                "ebitda":    ebitda,
+                "capex_r":   capex_r,
+                "div_pout":  div_pout,
+            })
+    cap_rows = cap_rows[-5:]
+
+    # ── KPI boxes top ─────────────────────────────────────────────────────────
+    latest_yr = cap_rows[-1] if cap_rows else {}
+    _kpis = [
+        ("FCF Yield",     _frpct(latest_yr.get("fcf_yield"))  if latest_yr.get("fcf_yield") else "—"),
+        ("FCF (" + ("LTM" if cap_rows else "N/A") + ")",
+                          _frm(latest_yr.get("fcf"), cur_sym) if latest_yr.get("fcf") else "—"),
+        ("Capex / Rev",   _frpct(latest_yr.get("capex_r"))    if latest_yr.get("capex_r") else "—"),
+        ("Div. Payout",   _frpct(latest_yr.get("div_pout"))   if latest_yr.get("div_pout") else "—"),
+    ]
+    kpi_w = 5.60
+    for i, (lbl, val) in enumerate(_kpis):
+        bx = 1.02 + i * (kpi_w + 0.18)
+        add_rect(slide, bx, 2.29, kpi_w, 1.52, NAVY_PALE)
+        add_rect(slide, bx, 2.29, 0.18, 1.52, NAVY)
+        add_text_box(slide, bx + 0.26, 2.42, kpi_w - 0.32, 0.65,
+                     val, 16, NAVY, bold=True)
+        add_text_box(slide, bx + 0.26, 3.05, kpi_w - 0.32, 0.65,
+                     lbl, 8, GREY_TXT)
+
+    # ── FCF bar chart ──────────────────────────────────────────────────────────
+    try:
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+        import numpy as np
+
+        labels_c = [d["label"] for d in cap_rows]
+        fcf_c    = [d["fcf"]   if d["fcf"] is not None else 0 for d in cap_rows]
+        div_c    = [abs(d["div_pay"]) if d["div_pay"] is not None else 0 for d in cap_rows]
+
+        fig, ax = plt.subplots(figsize=(9.0, 3.2))
+        x = np.arange(len(labels_c))
+        bw = 0.35
+        bars_fcf = ax.bar(x - bw/2, [f/1000 if f else 0 for f in fcf_c], bw,
+                          label="FCF (Mds)", color="#1A7A4A", alpha=0.85)
+        bars_div = ax.bar(x + bw/2, [d/1000 if d else 0 for d in div_c], bw,
+                          label="Dividendes versés (Mds)", color="#2E5FA3", alpha=0.85)
+
+        ax.set_xticks(x)
+        ax.set_xticklabels(labels_c, fontsize=8.5)
+        ax.set_ylabel(f"Mds {cur_sym}", fontsize=8.5)
+        ax.legend(fontsize=8, loc='upper left', framealpha=0.9)
+        ax.tick_params(labelsize=8)
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        ax.spines['left'].set_color('#D0D5DD')
+        ax.spines['bottom'].set_color('#D0D5DD')
+        ax.set_facecolor('white')
+        fig.patch.set_facecolor('white')
+        ax.grid(axis='y', alpha=0.25, color='#D0D5DD')
+
+        # Valeurs au dessus des barres
+        for bar in bars_fcf:
+            h = bar.get_height()
+            if h != 0:
+                ax.text(bar.get_x() + bar.get_width()/2, h + abs(h)*0.02,
+                        f"{h:.1f}", ha='center', va='bottom', fontsize=7.5, color='#1A7A4A')
+        for bar in bars_div:
+            h = bar.get_height()
+            if h != 0:
+                ax.text(bar.get_x() + bar.get_width()/2, h + abs(h)*0.02,
+                        f"{h:.1f}", ha='center', va='bottom', fontsize=7.5, color='#2E5FA3')
+
+        plt.tight_layout(pad=1.0)
+        buf_cr = io.BytesIO()
+        fig.savefig(buf_cr, format='png', dpi=180, bbox_inches='tight')
+        plt.close(fig)
+        buf_cr.seek(0)
+
+        from pptx.util import Cm
+        slide.shapes.add_picture(buf_cr, Cm(1.02), Cm(4.20), Cm(14.50), Cm(5.80))
+    except Exception as _e:
+        log.warning("capital_returns chart: %s", _e)
+
+    # ── Tableau allocation du capital — droite ────────────────────────────────
+    add_text_box(slide, 16.20, 4.20, 8.20, 0.50,
+                 "ALLOCATION DU CAPITAL", 8, NAVY, bold=True)
+    if cap_rows:
+        alloc_rows = []
+        for d in cap_rows:
+            alloc_rows.append([
+                d["label"],
+                _frm(d["fcf"],   cur_sym) if d["fcf"]   is not None else "—",
+                _frpct(d["fcf_yield"])    if d["fcf_yield"] is not None else "—",
+                _frpct(d["div_pout"])     if d["div_pout"]  is not None else "—",
+                _frpct(d["capex_r"])      if d["capex_r"]   is not None else "—",
+            ])
+        add_table(slide, 16.20, 4.85, 8.20, min(0.55 * len(alloc_rows) + 0.60, 5.0),
+                  len(alloc_rows), 5,
+                  col_widths_pct=[0.22, 0.20, 0.19, 0.19, 0.20],
+                  header_data=["Ann.", "FCF", "Yield", "Div%", "Capex%"],
+                  rows_data=alloc_rows,
+                  border_hex="DDDDDD")
+
+    # ── Commentary ───────────────────────────────────────────────────────────
+    fcf_vals = [d["fcf"] for d in cap_rows if d["fcf"] is not None]
+    fy_vals  = [d["fcf_yield"] for d in cap_rows if d["fcf_yield"] is not None]
+    if fcf_vals and len(fcf_vals) >= 2:
+        _delta_fcf = fcf_vals[-1] - fcf_vals[0]
+        _dir       = "croissance" if _delta_fcf > 0 else "contraction"
+        _fy_str    = _frpct(fy_vals[-1]) if fy_vals else "—"
+        _comment   = (
+            f"Le FCF affiche une {_dir} de {_frm(abs(_delta_fcf), cur_sym)} sur la p\u00e9riode, "
+            f"avec un FCF yield actuel de {_fy_str} — "
+            f"{'attractif pour un acheteur institutionnel' if fy_vals and fy_vals[-1] and float(fy_vals[-1]) > 0.04 else 'à surveiller au regard de la valorisation de marché'}. "
+            f"L\u2019allocation vers les dividendes "
+            f"{'est maintenue malgré la pression sur les marges' if fcf_vals[-1] and fcf_vals[-1] > 0 else 'reflète un levier financier élevé'}."
+        )
+    else:
+        _comment = "Données FCF insuffisantes pour établir une tendance de l'allocation du capital sur la période."
+    commentary_box(slide, 1.02, 10.30, 23.37, 1.60, _comment)
+
+    return slide
+
+
+# ---------------------------------------------------------------------------
+# Slide IB/PE — Analyse LBO
+# ---------------------------------------------------------------------------
+
+def _slide_lbo(prs, snap, synthesis, ratios):
+    """Analyse LBO — entry/exit multiples, dette, IRR/MOIC — niveau PE."""
+    import math as _math_lbo
+    from pptx.enum.text import PP_ALIGN
+    slide_layout = prs.slide_layouts[6]
+    slide = prs.slides.add_slide(slide_layout)
+
+    navy_bar(slide)
+    footer_bar(slide)
+    section_dots(slide, 3)
+
+    ci       = snap.company_info if snap else None
+    mkt      = snap.market if snap else None
+    ticker   = _g(ci, "ticker", "—")
+    currency = _g(ci, "currency", "USD") or "USD"
+    cur_sym  = "EUR" if currency == "EUR" else "$"
+
+    slide_title(slide, "Analyse LBO \u2014 Leveraged Buyout",
+                f"{ticker} \u00b7 Attractivit\u00e9 PE \u00b7 Multiples d\u2019entr\u00e9e vs IRR cible")
+
+    # ── Données LBO ───────────────────────────────────────────────────────────
+    latest_yr = None
+    if ratios and getattr(ratios, "years", None):
+        _lbl = sorted(ratios.years.keys(), key=lambda k: str(k).replace("_LTM","Z"))[-1]
+        latest_yr = ratios.years[_lbl]
+
+    ebitda_raw   = getattr(latest_yr, "ebitda",    None) if latest_yr else None
+    net_debt_raw = getattr(latest_yr, "net_debt",  None) if latest_yr else None
+    fcf_raw      = getattr(latest_yr, "fcf",       None) if latest_yr else None
+    rev_growth   = getattr(latest_yr, "revenue_growth", None) if latest_yr else None
+
+    ebitda   = float(ebitda_raw)   if ebitda_raw   is not None else None
+    net_debt = float(net_debt_raw) if net_debt_raw is not None else None
+    fcf      = float(fcf_raw)      if fcf_raw      is not None else None
+
+    # Croissance EBITDA projetée (5 ans) : revenue_growth ou 5% par défaut
+    _g_rate = float(rev_growth) if rev_growth and rev_growth > 0.001 else 0.05
+    _g_rate = min(_g_rate, 0.20)  # cap 20%
+
+    # ── Hypothèses LBO ────────────────────────────────────────────────────────
+    entry_multiples = [8.0, 10.0, 12.0, 14.0]
+    exit_multiples  = [8.0, 10.0, 12.0]
+    leverage_ratio  = 4.0  # Dette = 4x EBITDA (hypothèse PE classique)
+    hold_years      = 5
+    debt_repay_pct  = 0.50  # 50% de la dette remboursée en 5 ans
+
+    # ── Table IRR ─────────────────────────────────────────────────────────────
+    def _lbo_irr(entry_mult, exit_mult):
+        if ebitda is None or ebitda <= 0:
+            return None, None
+        entry_ev     = ebitda * entry_mult
+        entry_debt   = min(ebitda * leverage_ratio, entry_ev * 0.65)
+        entry_equity = max(entry_ev - entry_debt, 1)
+
+        # EBITDA projeté dans 5 ans
+        ebitda_exit  = ebitda * ((1 + _g_rate) ** hold_years)
+        exit_ev      = ebitda_exit * exit_mult
+        exit_debt    = entry_debt * (1 - debt_repay_pct)
+        exit_equity  = max(exit_ev - exit_debt, 0.01)
+
+        moic = exit_equity / entry_equity
+        irr  = moic ** (1 / hold_years) - 1
+        return irr, moic
+
+    # Tableau entry × exit : IRR
+    irr_rows = []
+    for em in entry_multiples:
+        row = [f"{em:.0f}x"]
+        for xm in exit_multiples:
+            irr, moic = _lbo_irr(em, xm)
+            if irr is not None:
+                row.append(f"{irr*100:.1f}% / {moic:.1f}x")
+            else:
+                row.append("—")
+        irr_rows.append(row)
+
+    exit_hdrs = [f"Exit {xm:.0f}x" for xm in exit_multiples]
+    tbl_irr = add_table(
+        slide, 1.02, 2.50, 13.50, min(0.65 * len(irr_rows) + 0.65, 4.50),
+        len(irr_rows), len(exit_multiples) + 1,
+        col_widths_pct=[0.22] + [0.26] * len(exit_multiples),
+        header_data=["Entry mult."] + exit_hdrs,
+        rows_data=irr_rows,
+        border_hex="DDDDDD"
+    )
+
+    # ── Color-code les cellules selon IRR ≥ 20% = vert, 15-20% = ambre, <15% = rouge ──
+    try:
+        for ri, em in enumerate(entry_multiples):
+            for ci_idx, xm in enumerate(exit_multiples):
+                irr, _ = _lbo_irr(em, xm)
+                cell = tbl_irr.cell(ri + 1, ci_idx + 1)
+                cell.fill.solid()
+                if irr is not None:
+                    if irr >= 0.20:
+                        cell.fill.fore_color.rgb = rgb(GREEN_PALE)
+                    elif irr >= 0.15:
+                        cell.fill.fore_color.rgb = rgb(AMBER_PALE)
+                    else:
+                        cell.fill.fore_color.rgb = rgb(RED_PALE)
+    except Exception:
+        pass
+
+    # Note sous le tableau
+    add_text_box(slide, 1.02, 7.20, 13.50, 0.50,
+                 f"Hypotheses : Levier {leverage_ratio:.0f}x EBITDA \u00b7 {hold_years} ans holding "
+                 f"\u00b7 {debt_repay_pct*100:.0f}% remboursement dette \u00b7 EBITDA +{_g_rate*100:.0f}%/an",
+                 7.5, GREY_TXT)
+    add_text_box(slide, 1.02, 7.65, 13.50, 0.50,
+                 "Lecture : IRR / MOIC  \u25cf vert \u2265 20%  \u25cf ambre 15-20%  \u25cf rouge < 15%",
+                 7.5, GREY_LIGHT)
+
+    # ── Hypothèses clés — droite ──────────────────────────────────────────────
+    add_text_box(slide, 15.20, 2.50, 9.20, 0.50,
+                 "HYPOTHÈSES & STRUCTURE LBO", 8, NAVY, bold=True)
+
+    _hypo_rows = [
+        ["EBITDA LTM",       _frm(ebitda, cur_sym) if ebitda else "—"],
+        ["FCF LTM",          _frm(fcf, cur_sym)    if fcf    else "—"],
+        ["Levier PE",        f"{leverage_ratio:.0f}x EBITDA"],
+        ["Dette entr\u00e9e",  _frm(ebitda * leverage_ratio if ebitda else None, cur_sym)],
+        ["EBITDA exit (est.)",_frm(ebitda * ((1+_g_rate)**hold_years) if ebitda else None, cur_sym)],
+        ["Holding",          f"{hold_years} ans"],
+        ["IRR cible PE",     "\u2265 20%"],
+    ]
+    add_table(slide, 15.20, 3.10, 9.20, min(0.55 * len(_hypo_rows) + 0.60, 5.50),
+              len(_hypo_rows), 2,
+              col_widths_pct=[0.52, 0.48],
+              header_data=["Param\u00e8tre", "Valeur"],
+              rows_data=_hypo_rows,
+              border_hex="DDDDDD")
+
+    # ── Note méthodologique ───────────────────────────────────────────────────
+    add_rect(slide, 15.20, 8.60, 9.20, 2.80, AMBER_PALE)
+    add_rect(slide, 15.20, 8.60, 0.20, 2.80, AMBER)
+    add_text_box(slide, 15.50, 8.70, 8.80, 0.45,
+                 "NOTE MÉTHODOLOGIQUE", 7.5, AMBER, bold=True)
+    add_text_box(slide, 15.50, 9.15, 8.80, 2.20,
+                 "Analyse indicative uniquement. Le LBO assume un rachat "
+                 "100% equity par un fonds PE. La dette est remboursée par "
+                 "le FCF de la cible. L'IRR ne tient pas compte des frais "
+                 "de transaction ni de la structure fiscale optimisée. "
+                 "Un IRR \u2265 20% est le seuil standard d'un fonds PE tier-1.",
+                 8, GREY_TXT)
+
+    # ── Commentary ───────────────────────────────────────────────────────────
+    irr_base, moic_base = _lbo_irr(10.0, 10.0)
+    if irr_base is not None:
+        _lbo_signal = "attractive" if irr_base >= 0.20 else ("limite" if irr_base >= 0.15 else "insuffisante")
+        _comment = (
+            f"A 10x EBITDA d'entr\u00e9e / 10x de sortie, le LBO g\u00e9n\u00e8re un IRR de {irr_base*100:.1f}% "
+            f"(MOIC {moic_base:.1f}x en {hold_years} ans) — attractivit\u00e9 PE jug\u00e9e {_lbo_signal}. "
+            f"Un fonds tier-1 ciblant 20%+ d'IRR doit entrer en dessous de {next((em for em in entry_multiples if (_lbo_irr(em,10.0)[0] or 0)>=0.20), entry_multiples[-1]):.0f}x EBITDA. "
+            f"La g\u00e9n\u00e9ration de FCF ({_frm(fcf, cur_sym) if fcf else '—'}) est le principal levier de remboursement de la dette."
+        )
+    else:
+        _comment = "EBITDA non disponible — analyse LBO indicative impossible. Veuillez relancer l'analyse avec des données financières complètes."
+    commentary_box(slide, 1.02, 10.50, 23.37, 1.60, _comment)
+
+    return slide
 
 
 # ---------------------------------------------------------------------------
@@ -3058,7 +3582,12 @@ class PPTXWriter:
         # --- Slide 14: Football Field ---
         _slide_football_field(prs, snap, synthesis, ratios)
 
-        # --- Slide 15: Divider Risques ---
+        # --- Slides IB/PE : Multiples historiques + Capital Returns + LBO ---
+        _slide_multiples_historiques(prs, snap, synthesis, ratios)
+        _slide_capital_returns(prs, snap, synthesis, ratios)
+        _slide_lbo(prs, snap, synthesis, ratios)
+
+        # --- Divider Risques ---
         divider_slide(prs, "04", "Risques & Strat\u00e9gie",
                       "Avocat du diable & conditions d'invalidation")
 
