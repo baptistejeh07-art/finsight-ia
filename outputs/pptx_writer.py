@@ -1033,11 +1033,11 @@ def _slide_sommaire(prs, snap=None, synthesis=None):
     ris_desc = _s1(risks) or "Risques structurels & th\u00e8se contraire"
 
     sections = [
-        ("01", "Company Overview",    _truncate(co_desc, 80),  "3\u20135"),
-        ("02", "Analyse Financi\u00e8re",  "Compte de r\u00e9sultat, bilan & liquidit\u00e9, ratios",         "6\u20138"),
-        ("03", "Valorisation",        "DCF, comparable peers, Football Field",                 "9\u201311"),
-        ("04", "Risques & Strat\u00e9gie", _truncate(ris_desc, 80),  "12\u201313"),
-        ("05", "Sentiment & Annexes", "FinBERT, actionnariat & historique de cours",           "14\u201315"),
+        ("01", "Company Overview",    _truncate(co_desc, 80),  "4\u20136"),
+        ("02", "Analyse Financi\u00e8re",  "Compte de r\u00e9sultat, bilan & liquidit\u00e9, ratios",         "7\u201310"),
+        ("03", "Valorisation",        "DCF, comparable peers, Football Field",                 "11\u201314"),
+        ("04", "Risques & Strat\u00e9gie", _truncate(ris_desc, 80),  "15\u201316"),
+        ("05", "Sentiment & Annexes", "FinBERT, actionnariat, historique & conviction",        "17\u201321"),
     ]
     fills = [WHITE, GREY_BG, WHITE, GREY_BG, WHITE]
     ys    = [2.49, 4.42, 6.35, 8.28, 10.21]
@@ -1087,6 +1087,13 @@ def _slide_company_overview(prs, snap, synthesis, ratios):
     desc     = _g(synthesis, "company_description", "") or ""
     segments = _g(synthesis, "segments", []) or []
     strengths= _g(synthesis, "strengths", []) or []
+
+    # Fallback si synthesis vide : description generique depuis raw data
+    if not desc and co_name and co_name != "\u2014":
+        desc = (f"{co_name} ({ticker}) opere dans le secteur {sector or 'N/D'}. "
+                f"Analyse FinSight IA en cours -- donnees de synthese non disponibles "
+                f"pour cette session. Lancer une nouvelle analyse pour obtenir la "
+                f"description complete, les segments et le positionnement strategique.")
 
     # Nombre de segments pour la formulation dynamique
     n_seg = len(segments)
@@ -2853,6 +2860,10 @@ def _slide_conviction_tracker(prs, snap, synthesis, ratios, devil, sentiment):
     # ── Thesis Summary ───────────────────────────────────────────────────────
     thesis_raw = _g(synthesis, "thesis", "") or ""
     thesis_parts = [p.strip() for p in thesis_raw.split(" | ") if p.strip()] if thesis_raw else []
+    # Fallback si these vide
+    if not thesis_parts:
+        _co = _g(ci, "company_name", ticker) or ticker
+        thesis_parts = [f"Donnees de synthese non disponibles pour {_co}. Relancer l'analyse pour obtenir la these complete."]
     add_rect(slide, 9.20, 2.30, 15.20, 0.55, NAVY)
     add_text_box(slide, 9.35, 2.35, 15.0, 0.45, "TH\u00c8SE D\u2019INVESTISSEMENT", 8, WHITE, bold=True)
     y_th = 2.95

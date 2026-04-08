@@ -330,9 +330,9 @@ def _chart_margins(m_a, m_b, tkr_a, tkr_b) -> io.BytesIO:
             if h != 0:
                 ax.text(bar.get_x() + bar.get_width()/2., h + 0.5,
                         f"{h:.1f}%", ha='center', va='bottom', fontsize=7.5, color='#333')
-        # Note si toutes les valeurs sont 0 (données manquantes)
-        if all(v == 0 for v in vals_a + vals_b):
-            ax.text(0.5, 0.5, "Données insuffisantes", ha='center', va='center',
+        # Note si toutes les valeurs sont proches de 0 (donnees manquantes)
+        if all(abs(v) < 0.01 for v in vals_a + vals_b):
+            ax.text(0.5, 0.5, "Donnees insuffisantes", ha='center', va='center',
                     transform=ax.transAxes, fontsize=11, color='#999', style='italic')
         else:
             # Forcer y_min à 0 pour éviter l'axe effondré
@@ -368,7 +368,7 @@ def _chart_returns(m_a, m_b, tkr_a, tkr_b) -> io.BytesIO:
         fig, ax = plt.subplots(figsize=(7, 3.2))
         ax.bar(x - width/2, vals_a, width, label=tkr_a, color='#2E5FA3', alpha=0.9)
         ax.bar(x + width/2, vals_b, width, label=tkr_b, color='#2E8B57', alpha=0.9)
-        if all(v == 0 for v in vals_a + vals_b):
+        if all(abs(v) < 0.01 for v in vals_a + vals_b):
             ax.text(0.5, 0.5, "Donnees insuffisantes", ha='center', va='center',
                     transform=ax.transAxes, fontsize=10, color='#999', style='italic')
         ax.set_xticks(x); ax.set_xticklabels(labels, fontsize=9)
@@ -559,7 +559,7 @@ def _chart_fcf_capital(m_a, m_b, tkr_a, tkr_b) -> io.BytesIO:
         fig, ax = plt.subplots(figsize=(7, 3.2))
         ax.bar(x - width/2, vals_a, width, label=tkr_a, color='#2E5FA3', alpha=0.9)
         ax.bar(x + width/2, vals_b, width, label=tkr_b, color='#2E8B57', alpha=0.9)
-        if all(v == 0 for v in vals_a + vals_b):
+        if all(abs(v) < 0.01 for v in vals_a + vals_b):
             ax.text(0.5, 0.5, "Donnees insuffisantes", ha='center', va='center',
                     transform=ax.transAxes, fontsize=10, color='#999', style='italic')
         ax.set_xticks(x); ax.set_xticklabels(labels, fontsize=9)
