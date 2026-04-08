@@ -6,6 +6,8 @@ Usage :
   python tools/audit.py AAPL
   python tools/audit.py AAPL MSFT MC.PA TSLA NVDA
   python tools/audit.py --preview AAPL        # mode preview : outputs -> preview/{ticker}/
+  python tools/audit.py --vision AAPL         # + audit visuel Gemini Vision apres render
+  python tools/audit.py --preview --vision AAPL
 """
 from __future__ import annotations
 
@@ -431,7 +433,7 @@ def audit_indice(universe: str, preview: bool = False) -> Path:
     return report_path
 
 
-def audit_ticker(ticker: str, preview: bool = False) -> Path:
+def audit_ticker(ticker: str, preview: bool = False, vision: bool = False) -> Path:
     ticker = ticker.upper().replace("/", "-")
 
     # En mode preview : sauvegarder les livrables existants avant l'analyse
@@ -466,6 +468,17 @@ def audit_ticker(ticker: str, preview: bool = False) -> Path:
     report_path = REPORTS / f"audit_{ticker}_{datetime.now().strftime('%Y%m%d_%H%M')}.md"
     report_path.write_text(report_md, encoding="utf-8")
     print(f"\n  [AUDIT] Rapport : {report_path.name}")
+
+    if vision:
+        print(f"\n  [AUDIT] Audit visuel Gemini Vision...")
+        try:
+            sys.path.insert(0, str(ROOT))
+            from tools.audit_visual_gemini import run_audit as _vision_audit
+            _vis_report = _vision_audit(ticker, batch_size=4)
+            print(_vis_report)
+        except Exception as _ve:
+            print(f"  [AUDIT VISION] Erreur : {_ve}")
+
     if preview:
         # Auto-commit + push de tous les fichiers preview (PDF + PPTX + XLSX)
         import subprocess as _sp
@@ -485,8 +498,10 @@ def audit_ticker(ticker: str, preview: bool = False) -> Path:
 
 
 if __name__ == "__main__":
+    import os
     args = sys.argv[1:]
     preview_mode = "--preview" in args
+    vision_mode  = "--vision"  in args
     raw = [a for a in args if not a.startswith("--")]
 
     if not raw:
@@ -524,7 +539,7 @@ if __name__ == "__main__":
         tickers = raw or ["AAPL"]
         for t in tickers:
             try:
-                r = audit_ticker(t, preview=preview_mode)
+                r = audit_ticker(t, preview=preview_mode, vision=vision_mode)
                 reports.append(r)
             except Exception as e:
                 print(f"  [ERREUR] {t} : {e}")
