@@ -1395,8 +1395,12 @@ def render_home() -> None:
                 u_key = target.upper().replace("-", "").replace(" ", "").replace("&", "")
                 st.session_state.screening_universe = u_key
                 st.session_state.stage = "screening_running"
-                # Reset resultats societe precedents pour eviter affichage stale dans sidebar
-                st.session_state.results = None
+                # Reset resultats societe precedents + comparaison indice precedente
+                st.session_state.results       = None
+                st.session_state.icmp_stage    = None
+                st.session_state.icmp_pptx_bytes = None
+                st.session_state.icmp_pdf_bytes  = None
+                st.session_state.icmp_xlsx_bytes = None
             st.rerun()
 
         if "quote_idx" not in st.session_state:
@@ -2213,15 +2217,81 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
 
     # ── Textes PPTX manquants ────────────────────────────────────────────────
     _top3_noms_desc = ", ".join([s[0][:14] for s in secteurs_list[:3]]) if secteurs_list else "N/A"
-    texte_description = (
-        f"Le {display_name} est un indice de référence regroupant {len(tickers_data)} societes "
-        f"réparties sur {len(secteurs_list)} secteurs GICS. "
-        f"L'analyse FinSight couvre la période glissante 12 mois (LTM) sur la base des donnees "
-        f"yfinance et FMP.\n\n"
-        f"Signal global : {signal_global} — Conviction {conviction}%.\n"
-        f"Score composite moyen : {int(avg_score)}/100.\n"
-        f"Secteurs leaders : {_top3_noms_desc}."
-    )
+
+    # Descriptions institutionnelles specifiques aux grands indices
+    _INDICE_DESC = {
+        "S&P 500": (
+            "Le S&P 500 est l'indice boursier de reference des 500 plus grandes capitalisations "
+            "americaines, couvrant ~80% de la capitalisation totale du marche US. Gere par "
+            "S&P Dow Jones Indices, il est pondere par capitalisation flottante. Sa structure "
+            "sectorielle est dominee par la technologie (~29%), les services financiers (~13%) "
+            "et la sante (~13%). Il constitue le benchmark mondial de reference pour les "
+            "gestionnaires institutionnels et le sous-jacent de la majorite des ETF indiciels."
+        ),
+        "NASDAQ": (
+            "Le NASDAQ Composite regroupe plus de 3 000 societes cotees sur le NASDAQ, avec "
+            "une forte concentration technologique (~50% du poids). Il integre des mega-caps "
+            "comme Apple, Microsoft, Nvidia et Alphabet. Sa volatilite est structurellement "
+            "superieure au S&P 500 (beta >1). L'indice sert de barometre de l'innovation "
+            "technologique et de l'appetit au risque des investisseurs institutionnels."
+        ),
+        "NASDAQ 100": (
+            "Le NASDAQ 100 regroupe les 100 plus grandes societes non-financieres cotees sur "
+            "le NASDAQ. Domine par les mega-caps technologiques (Apple, Microsoft, Nvidia, "
+            "Alphabet, Meta), il est l'indice de croissance de reference. Le QQQ ETF en est "
+            "le principal vecteur d'exposition. Son P/E forward historiquement eleve reflete "
+            "les primes de croissance et de pricing power des constituants."
+        ),
+        "CAC 40": (
+            "Le CAC 40 est l'indice de reference de la Bourse de Paris, regroupant les 40 "
+            "plus grandes capitalisations francaises cotees sur Euronext Paris. Il est "
+            "pondere par capitalisation flottante et offre une exposition diversifiee aux "
+            "champions europeens (LVMH, TotalEnergies, Sanofi, BNP Paribas). Sa structure "
+            "est plus equilibree que les indices americains, avec une forte composante "
+            "industrielle, de luxe et financiere."
+        ),
+        "DAX": (
+            "Le DAX (Deutscher Aktien Index) regroupe les 40 plus grandes capitalisations "
+            "allemandes cotees sur la Deutsche Borse. Tres expose au secteur industriel "
+            "(Siemens, BASF, Volkswagen), il sert d'indicateur avance du cycle manufacturier "
+            "europeen. Sa performance est fortement correlee aux exportations mondiales et "
+            "au cycle energetique, ce qui lui confere un profil cyclique marque."
+        ),
+        "FTSE 100": (
+            "Le FTSE 100 regroupe les 100 plus grandes societes cotees au London Stock "
+            "Exchange. Fortement expose aux secteurs energie (Shell, BP), finance et "
+            "materiaux, il offre l'un des rendements sur dividende les plus eleves des "
+            "grands indices developpes (~3,5-4%). La prevalence des multinationales avec "
+            "revenus en devises etrangeres lui confere une sensibilite particuliere aux "
+            "fluctuations de la livre sterling."
+        ),
+    }
+    # Recherche par correspondance partielle
+    _desc_specifique = None
+    for _k, _v in _INDICE_DESC.items():
+        if _k.lower() in display_name.lower() or display_name.lower() in _k.lower():
+            _desc_specifique = _v
+            break
+
+    if _desc_specifique:
+        texte_description = (
+            f"{_desc_specifique}\n\n"
+            f"Analyse FinSight ({today_str}) — {len(tickers_data)} societes, "
+            f"{len(secteurs_list)} secteurs GICS.\n"
+            f"Signal global : {signal_global} — Conviction {conviction}%.\n"
+            f"Score composite moyen : {int(avg_score)}/100. "
+            f"Secteurs leaders : {_top3_noms_desc}."
+        )
+    else:
+        texte_description = (
+            f"Le {display_name} est un indice de reference regroupant {len(tickers_data)} societes "
+            f"reparties sur {len(secteurs_list)} secteurs GICS. "
+            f"L'analyse FinSight couvre la periode glissante 12 mois (LTM) sur la base des donnees "
+            f"yfinance et FMP.\n\n"
+            f"Signal global : {signal_global} — Conviction {conviction}%.\n"
+            f"Score composite moyen : {int(avg_score)}/100.\n"
+            f"Secteurs leaders : {_top3_noms_desc}."
+        )
     _erp_commentary = (
         "tendue — prime de risque insuffisante, prudence sur les entrées"
         if str(erp_pct).startswith("-") else

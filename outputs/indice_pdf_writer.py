@@ -175,18 +175,18 @@ def make_sector_weights_chart(data):
     sigs = [s[3] for s in secteurs]
     bar_cols = [sig_hex(s) for s in sigs]
     y = np.arange(len(noms))
-    fig, ax = plt.subplots(figsize=(5.2, 4.2))
+    fig, ax = plt.subplots(figsize=(6.5, max(4.8, len(noms) * 0.42 + 1.8)))
     bars = ax.barh(y, poids_idx, color=bar_cols, alpha=0.85, height=0.58,
                    edgecolor='white', linewidth=0.5)
     x_max = max(poids_idx) * 1.35 if poids_idx else 30
     for i, (bar, val) in enumerate(zip(bars, poids_idx)):
-        ax.text(val + x_max*0.015, i, f"{val}%", va='center', fontsize=9, color='#333', fontweight='bold')
-    ax.set_yticks(y); ax.set_yticklabels(noms, fontsize=9, color='#333')
-    ax.set_xlabel("Repartition par nombre de societes (%)", fontsize=9, color='#555')
+        ax.text(val + x_max*0.015, i, f"{val}%", va='center', fontsize=10, color='#333', fontweight='bold')
+    ax.set_yticks(y); ax.set_yticklabels(noms, fontsize=10, color='#333')
+    ax.set_xlabel("Repartition par nombre de societes (%)", fontsize=10, color='#555')
     ax.set_xlim(0, x_max)
     moy = sum(poids_idx)/len(poids_idx)
     ax.axvline(x=moy, color='#D0D5DD', linewidth=0.8, linestyle='--', alpha=0.8)
-    ax.text(moy + x_max*0.01, len(noms)-0.6, 'Moy.', fontsize=8, color='#999', style='italic')
+    ax.text(moy + x_max*0.01, len(noms)-0.6, 'Moy.', fontsize=9, color='#999', style='italic')
     for sp in ['top','right']: ax.spines[sp].set_visible(False)
     ax.spines['left'].set_color('#D0D5DD'); ax.spines['bottom'].set_color('#D0D5DD')
     ax.set_facecolor('white'); fig.patch.set_facecolor('white')
@@ -194,11 +194,11 @@ def make_sector_weights_chart(data):
     patches = [mpatches.Patch(color='#1A7A4A', label='Surpond\u00e9rer'),
                mpatches.Patch(color='#B06000', label='Neutre'),
                mpatches.Patch(color='#A82020', label='Sous-pond\u00e9rer')]
-    ax.legend(handles=patches, fontsize=9, loc='upper center',
-              bbox_to_anchor=(0.5, -0.12), frameon=False, ncol=3)
+    ax.legend(handles=patches, fontsize=11, loc='upper center',
+              bbox_to_anchor=(0.5, -0.14), frameon=False, ncol=3)
     ax.set_title(f"Repartition sectorielle - {data['indice']} (nb societes)",
-                 fontsize=11, color='#1B3A6B', fontweight='bold', pad=8)
-    plt.tight_layout(pad=0.5)
+                 fontsize=13, color='#1B3A6B', fontweight='bold', pad=10)
+    plt.tight_layout(pad=0.6)
     buf = io.BytesIO(); fig.savefig(buf, format='png', dpi=160, bbox_inches='tight')
     plt.close(fig); buf.seek(0); return buf
 
@@ -267,9 +267,9 @@ def make_scatter_sectoriel(data):
     patches = [mpatches.Patch(color='#1A7A4A', label='Surpond\u00e9rer'),
                mpatches.Patch(color='#B06000', label='Neutre'),
                mpatches.Patch(color='#A82020', label='Sous-pond\u00e9rer')]
-    ax.legend(handles=patches, fontsize=10, loc='upper center',
+    ax.legend(handles=patches, fontsize=12, loc='upper center',
               bbox_to_anchor=(0.5, -0.13), frameon=False, ncol=3)
-    ax.set_title(chart_title, fontsize=13, color='#1B3A6B', fontweight='bold', pad=12)
+    ax.set_title(chart_title, fontsize=14, color='#1B3A6B', fontweight='bold', pad=12)
     plt.tight_layout(pad=0.5)
     buf = io.BytesIO(); fig.savefig(buf, format='png', dpi=160, bbox_inches='tight')
     plt.close(fig); buf.seek(0); return buf
@@ -302,16 +302,16 @@ def make_score_bars(data):
                 fontsize=10, color='#333', fontweight='bold')
     ax.axvline(x=50, color='#B06000', linewidth=1.2, linestyle='--', alpha=0.7, zorder=5)
     ax.text(51, len(noms_s)-0.4, 'Seuil Neutre (50)', fontsize=9, color='#B06000', style='italic')
-    ax.set_yticks(y); ax.set_yticklabels(noms_s, fontsize=10, color='#333')
+    ax.set_yticks(y); ax.set_yticklabels(noms_s, fontsize=11, color='#333')
     ax.set_xlim(0, 118)
-    ax.set_xlabel('Score composite (0-100)', fontsize=10, color='#555')
+    ax.set_xlabel('Score composite (0-100)', fontsize=11, color='#555')
     ax.grid(axis='x', alpha=0.12, color='#D0D5DD', linewidth=0.5)
     for sp in ['top','right']: ax.spines[sp].set_visible(False)
     ax.spines['left'].set_color('#D0D5DD'); ax.spines['bottom'].set_color('#D0D5DD')
     ax.set_facecolor('white'); fig.patch.set_facecolor('white')
-    ax.tick_params(labelsize=10, length=0)
+    ax.tick_params(labelsize=11, length=0)
     ax.set_title(f"Score composite - Secteurs {data['indice']} (tri\u00e9 par score d\u00e9croissant)",
-                 fontsize=13, color='#1B3A6B', fontweight='bold', pad=10)
+                 fontsize=14, color='#1B3A6B', fontweight='bold', pad=10)
     plt.tight_layout(pad=0.5)
     buf = io.BytesIO(); fig.savefig(buf, format='png', dpi=160, bbox_inches='tight')
     plt.close(fig); buf.seek(0); return buf
@@ -342,7 +342,7 @@ def make_top3_donut(data):
     ax.legend(wedges, labels, loc='lower center', bbox_to_anchor=(0.5, -0.24),
               ncol=2, fontsize=13, frameon=False, handlelength=1.6, columnspacing=1.4)
     ax.set_title(f"Contribution a l'indice — Top 3 vs reste",
-                 fontsize=15, color='#1B3A6B', fontweight='bold', pad=14)
+                 fontsize=11, color='#1B3A6B', fontweight='bold', pad=8)
     fig.patch.set_facecolor('white')
     plt.tight_layout(pad=0.6)
     buf = io.BytesIO(); fig.savefig(buf, format='png', dpi=180, bbox_inches='tight')
@@ -417,7 +417,7 @@ def make_attribution_chart(data):
     ax.tick_params(length=0)
     ax.grid(axis='x', alpha=0.10, color='#D0D5DD', linewidth=0.5)
     ax.set_title("Attribution sectorielle — Contribution au return indice 12 mois",
-                 fontsize=12, color='#1B3A6B', fontweight='bold', pad=8)
+                 fontsize=14, color='#1B3A6B', fontweight='bold', pad=10)
     plt.tight_layout(pad=0.5)
     buf = io.BytesIO(); fig.savefig(buf, format='png', dpi=160, bbox_inches='tight')
     plt.close(fig); buf.seek(0); return buf
@@ -808,11 +808,14 @@ def _build_synthese(data, perf_buf, registry=None):
     conviction = data.get("conviction_pct", "—")
     elems.append(Spacer(1, 5*mm))
     syn_h = [Paragraph(h, S_TH_C) for h in ["Signal", "Nb secteurs", "Implication allocation"]]
+    _surp_impl = ("Surpond\xe9ration active \u2014 renforcer l\u2019exposition"
+                  if nb_surp > 0
+                  else "Aucun secteur en signal Surpond\xe9rer \u2014 maintenir pond\xe9ration neutre")
     syn_rows = [
         [Paragraph("Surpond\xe9rer", S_TD_G), Paragraph(str(nb_surp), S_TD_C),
-         Paragraph("Surpond\xe9ration active — renforcer l\u2019exposition", S_TD_L)],
+         Paragraph(_surp_impl, S_TD_L)],
         [Paragraph("Neutre",       S_TD_A), Paragraph(str(nb_neut), S_TD_C),
-         Paragraph("Pond\xe9ration indice — maintenir", S_TD_L)],
+         Paragraph("Pond\xe9ration indice \u2014 maintenir", S_TD_L)],
         [Paragraph("Sous-pond\xe9rer", S_TD_R), Paragraph(str(nb_sous), S_TD_C),
          Paragraph("R\xe9duire l\u2019exposition en dessous de l\u2019indice", S_TD_L)],
     ]
@@ -1428,7 +1431,7 @@ def _build_top3(data, donut_buf, registry=None):
     elems.append(Spacer(1, 4*mm))
 
     # Donut gauche + textes analytiques droite
-    donut_img = Image(donut_buf, width=94*mm, height=98*mm)
+    donut_img = Image(donut_buf, width=82*mm, height=86*mm)
     analyses_lines = []
     for sect in data["top3_secteurs"]:
         cat = sect.get("catalyseur", "")
@@ -1462,7 +1465,7 @@ def _build_top3(data, donut_buf, registry=None):
     )
     _ev_col_lbl = "Mg.EBITDA" if _all_ev_missing else "EV/EBITDA"
     soc_h = [Paragraph(h, S_TH_C) for h in
-             ["Secteur","Ticker","Signal", _ev_col_lbl,"Score","Prochaine etape"]]
+             ["Secteur","Ticker","Signal", _ev_col_lbl,"Score"]]
     soc_rows = []
     for sect in data["top3_secteurs"]:
         _mg      = sect.get("mg_ebitda", 0) or 0
@@ -1483,23 +1486,26 @@ def _build_top3(data, donut_buf, registry=None):
                 Paragraph(sig, sig_s(sig)),
                 Paragraph(_val_disp, S_TD_C),
                 Paragraph(str(score), S_TD_C),
-                Paragraph("Lancer analyse societe FinSight IA", S_TD_L),
             ])
-    # [36, 16, 30, 24, 18, 46] = 170
-    soc_tbl = tbl([soc_h] + soc_rows, cw=[36*mm, 16*mm, 30*mm, 24*mm, 18*mm, 46*mm])
+    # [52, 20, 36, 28, 34] = 170
+    soc_tbl = tbl([soc_h] + soc_rows, cw=[52*mm, 20*mm, 36*mm, 28*mm, 34*mm])
     elems.append(KeepTogether([
-        Paragraph("Soci\u00e9t\u00e9s representatives — 3 convictions par secteur", S_SUBSECTION),
+        Paragraph("Soci\u00e9t\u00e9s representatives — 3 convictions par secteur *", S_SUBSECTION),
         Spacer(1, 2*mm),
         Paragraph(
             "Ces societes constituent les convictions les plus solides au sein de chaque "
-            "secteur Surpond\u00e9rer. Pour acc\u00e9der \u00e0 l'analyse compl\u00e8te — prix cible, DCF, "
-            "Altman Z-Score, FinBERT — lancer l'analyse soci\u00e9t\u00e9 individuelle.", S_BODY),
+            "secteur Surpond\u00e9rer. Le score FinSight int\u00e8gre momentum, r\u00e9visions BPA et "
+            "valorisation relative.", S_BODY),
         Spacer(1, 2*mm),
         soc_tbl,
     ]))
     elems.append(src(
         "FinSight IA — Societes selectionnees par capitalisation et signal FinSight. "
         "Score = composite 0-100. Analyse complete via module societe ou sectoriel."))
+    elems.append(Paragraph(
+        "* Pour une analyse approfondie et rigoureuse (Football Field, DCF complet, Altman Z-Score, "
+        "FinBERT news) — lancer l'analyse soci\u00e9t\u00e9 individuelle dans FinSight IA.",
+        S_NOTE))
     return elems
 
 

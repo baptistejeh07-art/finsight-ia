@@ -575,25 +575,35 @@ def _chart_sentiment_bars(sentiment_agg: dict) -> bytes:
         return buf.read()
 
     sorted_ps = sorted(par_sec, key=lambda x: x[1], reverse=True)
-    noms   = [_abbrev_sector(p[0], 16) for p in sorted_ps]
+    noms   = [_abbrev_sector(p[0], 20) for p in sorted_ps]
     scores = [float(p[1]) for p in sorted_ps]
     cols   = ['#1A7A4A' if v >= 0.05 else ('#A82020' if v <= -0.05 else '#B06000') for v in scores]
 
-    fig, ax = plt.subplots(figsize=(8.5, max(2.5, len(noms) * 0.38)))
+    fig, ax = plt.subplots(figsize=(9.0, max(3.5, len(noms) * 0.48 + 1.5)))
     fig.patch.set_facecolor('#FFFFFF')
     ax.set_facecolor('#F8F9FA')
 
     y = np.arange(len(noms))
-    ax.barh(y, scores, color=cols, alpha=0.8, height=0.55, edgecolor='white', linewidth=0.5)
+    ax.barh(y, scores, color=cols, alpha=0.85, height=0.60, edgecolor='white', linewidth=0.5)
     ax.axvline(0, color='#333333', linewidth=0.8)
     ax.set_yticks(y)
-    ax.set_yticklabels(noms, fontsize=7)
-    ax.set_xlabel("Score composite (-0.25 à +0.25)", fontsize=7.5, color='#555555')
-    ax.tick_params(labelsize=6.5, colors='#777777')
+    ax.set_yticklabels(noms, fontsize=9)
+    ax.set_xlabel("Score composite (-0.25 a +0.25)", fontsize=9, color='#555555')
+    ax.tick_params(labelsize=8.5, colors='#777777')
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
     ax.grid(True, alpha=0.3, linestyle=':', axis='x')
-    plt.tight_layout()
+    # Legende formelle
+    patches_leg = [
+        mpatches.Patch(color='#1A7A4A', label='Surponderer (score > 0.05)'),
+        mpatches.Patch(color='#B06000', label='Neutre'),
+        mpatches.Patch(color='#A82020', label='Sous-ponderer (score < -0.05)'),
+    ]
+    ax.legend(handles=patches_leg, fontsize=8.5, loc='lower right',
+              framealpha=0.8, frameon=True, ncol=1)
+    ax.set_title("Score composite par secteur — derive du scoring FinSight",
+                 fontsize=10, color='#1B3A6B', fontweight='bold', pad=8)
+    plt.tight_layout(pad=0.5)
 
     buf = io.BytesIO()
     fig.savefig(buf, format='png', dpi=150, bbox_inches='tight',
@@ -693,11 +703,14 @@ def _chart_index_perf(data: dict) -> bytes:
         fig.patch.set_facecolor('#FFFFFF')
         ax.set_facecolor('#F8F9FA')
 
+        _indice_name_perf = ph.get("indice_name", "Indice")
         ax.plot(dates, i_perf, color='#1B3A6B', lw=2.5,
-                label=ph.get("indice_name", "Indice"), zorder=3)
+                label=_indice_name_perf, zorder=3)
         if len(sp_perf) == len(dates):
+            # Eviter doublon legende si l'indice est deja le S&P 500
+            _sp_label = "S&P 500 (ref.)" if "S&P 500" in _indice_name_perf else "S&P 500"
             ax.plot(dates, sp_perf, color='#555555', lw=1.5, linestyle='-.',
-                    label="S&P 500", alpha=0.75, zorder=2)
+                    label=_sp_label, alpha=0.75, zorder=2)
         if len(b_perf) == len(dates):
             ax.plot(dates, b_perf, color='#A82020', lw=1.5, linestyle='--',
                     label="Obligations (^TNX)", alpha=0.8, zorder=2)
@@ -801,19 +814,23 @@ def _s01_cover(prs, D):
     nb_surp  = sum(1 for s in secteurs_cov if len(s) > 3 and "surp"   in str(s[3]).lower())
     nb_neut  = sum(1 for s in secteurs_cov if len(s) > 3 and "neutre" in str(s[3]).lower())
     nb_sousp = sum(1 for s in secteurs_cov if len(s) > 3 and "sous"   in str(s[3]).lower())
+    _cours_cov = D.get("cours", "\u2014")
+    _ytd_cov   = D.get("variation_ytd", "\u2014")
     metrics = [
-        ("Score m\u00e9dian",   sm_str),
-        ("Surpond\u00e9rer",    f"{nb_surp} sect."),
-        ("Neutre",              f"{nb_neut} sect."),
-        ("Sous-pond\u00e9rer",  f"{nb_sousp} sect."),
+        ("Cours",              _cours_cov),
+        ("Variation YTD",      _ytd_cov),
+        ("Surpond\u00e9rer",   f"{nb_surp} sect."),
+        ("Neutre",             f"{nb_neut} sect."),
+        ("Sous-pond\u00e9rer", f"{nb_sousp} sect."),
+        ("Score m\u00e9dian",  sm_str),
     ]
-    box_w = 5.4
-    step  = 22.86 / 4
+    box_w = 3.7
+    step  = 22.86 / 6
     for i, (lbl, val) in enumerate(metrics):
         xpos = 1.27 + i * step
         _rect(slide, xpos, 8.5, box_w, 1.6, fill=_GRAYL)
-        _txb(slide, lbl, xpos + 0.2, 8.6,  box_w - 0.4, 0.5, size=7.5, color=_GRAYT)
-        _txb(slide, val, xpos + 0.2, 9.05, box_w - 0.4, 0.9, size=13,  bold=True, color=_NAVY)
+        _txb(slide, lbl, xpos + 0.15, 8.6,  box_w - 0.3, 0.5, size=7, color=_GRAYT)
+        _txb(slide, val, xpos + 0.15, 9.05, box_w - 0.3, 0.9, size=11, bold=True, color=_NAVY)
 
     # Ligne de separation + credits (identique societe)
     _rect(slide, 1.02, 11.8, 23.37, 0.03, fill=_GRAYD)
@@ -983,8 +1000,8 @@ def _s05_description(prs, D):
     slide = _blank(prs)
     indice = D.get("indice","")
     code   = D.get("code","")
-    _header(slide, "Description de l'Indice",
-            f"{indice} ({code})  ·  Caractéristiques structurelles & valorisation macro",
+    _header(slide, f"{indice}  —  Caractéristiques & Valorisation",
+            f"{code}  ·  Analyse institutionnelle FinSight  ·  Données yfinance / FMP",
             active=1)
 
     # Texte description gauche
@@ -1084,8 +1101,7 @@ def _s06_valorisation(prs, D):
         if isinstance(prime_val, str) and '+' in prime_val:
             _color_cell(tbl, r, 2, _HOLD_L, _BLACK)
 
-    # Lecture analytique — fallback analytique si texte court ou données manquantes
-    texte_val = D.get("texte_valorisation","")
+    # Lecture analytique — toujours regeneree pour la qualite
     _pe_m6 = D.get("pe_mediane_10y","—")
     _pe_f6 = D.get("pe_forward","—")
     _erp6  = D.get("erp","—")
@@ -1096,31 +1112,60 @@ def _s06_valorisation(prs, D):
         _scr6 = round(sum(_scores_l6) / len(_scores_l6)) if _scores_l6 else "—"
     if not isinstance(_scr6, (int, float)):
         _scr6 = "—"
-    if not texte_val or len(texte_val) < 80:
+    if True:  # toujours construire la lecture analytique enrichie
         _pm_str = f"{_pe_m6}x" if isinstance(_pe_m6,(int,float)) else str(_pe_m6)
         _prime6  = D.get("prime_decote","")
         _erp_s6  = D.get("erp_signal","")
         _ytd6    = D.get("variation_ytd","—")
         _cours6  = D.get("cours","—")
         _conv6   = D.get("conviction_pct",50)
-        # Implication investissement selon ERP
+        _bpa6    = D.get("bpa_growth","—")
+        _nb_surp6 = sum(1 for s in D.get("secteurs",[]) if len(s)>3 and "Surp" in str(s[3]))
+        _nb_sous6 = sum(1 for s in D.get("secteurs",[]) if len(s)>3 and "Sous" in str(s[3]))
+        # Diagnostic valorisation
+        try:
+            _pe_num = float(str(_pe_f6).replace("x","").replace(",",".").strip())
+            _pm_num = float(str(_pe_m6).replace("x","").replace(",",".").strip()) if isinstance(_pe_m6,(int,float)) else 17.0
+            _prime_pct = (_pe_num - _pm_num) / _pm_num * 100
+            if _prime_pct > 25:
+                _val_diag = (f"Le P/E Forward de {_pe_f6} se situe {_prime6} vs la mediane historique "
+                             f"({_pm_str}) — valorisation tendue qui exige une croissance BPA soutenue "
+                             f"pour justifier le multiple. Le moindre miss sur les BPA NTM serait "
+                             f"susceptible de comprimer le multiple de facon significative.")
+            elif _prime_pct > 5:
+                _val_diag = (f"Le P/E Forward de {_pe_f6} traduit une prime modeste de {_prime6} "
+                             f"vs la mediane historique ({_pm_str}). La valorisation reste defensible "
+                             f"si les BPA NTM sont livres comme attendu par le consensus.")
+            elif _prime_pct < -10:
+                _val_diag = (f"Le P/E Forward de {_pe_f6} offre une decote de {_prime6} vs l'historique "
+                             f"({_pm_str}) — opportunite si les fondamentaux restent solides. "
+                             f"Un re-rating est possible en cas de revision haussiere des BPA ou de pivot Fed.")
+            else:
+                _val_diag = (f"Le P/E Forward de {_pe_f6} est en ligne avec la mediane historique "
+                             f"({_pm_str}) — valorisation neutre, le marche pricant un scenario central "
+                             f"sans excès dans un sens ni dans l'autre.")
+        except Exception:
+            _val_diag = f"P/E Forward {_pe_f6} vs mediane historique {_pm_str}."
+        # Lecture ERP
         if _erp_s6 in ("Tendu","Comprime"):
-            _erp_impl = ("L'ERP negatif ou tres comprime signale que les actions sont "
-                         "peu rémunérées vs le taux sans risque — prudence sur les points d'entrée, "
-                         "privilegier les secteurs a forte visibilite sur les BPA.")
-        elif _erp_s6 == "Attractif":
-            _erp_impl = ("L'ERP positif signale une prime de risque adequate : "
-                         "les equites offrent un surplus de rendement justifiant un positionnement actif.")
+            _erp_impl = (f"L'ERP Damodaran de {_erp6} signale une prime de risque comprimee — "
+                         "les actions sont peu renunerees vs les taux. Dans ce contexte, la selectivite "
+                         "sectorielle prime : se concentrer sur les secteurs a forte visibilite BPA "
+                         "et pricing power, eviter les dossiers a multiples etires.")
+        elif _erp_s6 in ("Favorable","Attractif"):
+            _erp_impl = (f"L'ERP Damodaran de {_erp6} signale une prime de risque attractive — "
+                         "les equites offrent un surplus de rendement justifiant un positionnement "
+                         "actif. Le contexte macro soutient les surponderations sectorielles ciblees.")
         else:
-            _erp_impl = ("L'ERP reste proche de son niveau de reference — "
-                         "aucun signal extreme. Maintenir une allocation neutre aux equites.")
+            _erp_impl = (f"L'ERP Damodaran de {_erp6} reste dans la zone de reference. "
+                         "Ni comprime ni attractif — privilegier la rotation sectorielle et "
+                         "le stock-picking plutot qu'une exposition beta pure.")
         texte_val = (
-            f"Cours {_cours6} (YTD : {_ytd6}). "
-            f"Le P/E Forward ({_pe_f6}) traite a {_prime6 or 'N/D'} vs la médiane historique 10 ans ({_pm_str}). "
-            f"L'ERP (Damodaran) s'etablit a {_erp6}{' — ' + _erp_s6 if _erp_s6 else ''}. "
+            f"Cours {_cours6} (YTD {_ytd6}) — Croissance BPA forward {_bpa6}. "
+            f"{_val_diag} "
             f"{_erp_impl} "
-            f"Score composite moyen : {_scr6}/100, signal {_sig6} (conviction {_conv6} %). "
-            f"La croissance BPA forward reste le principal vecteur de re-rating si le cycle se confirme."
+            f"Score composite FinSight : {_scr6}/100 — signal {_sig6} (conviction {_conv6}%). "
+            f"{_nb_surp6} secteur(s) en Surponderer, {_nb_sous6} en Sous-ponderer."
         )
     _lecture_box(slide, "Lecture analytique — Valorisation macro", _trunc(texte_val, 950), y_top=7.8, height=5.55)
 
@@ -2090,21 +2135,28 @@ def _s20_etf_perf(prs, D, chart_bytes: bytes):
              color=_BUY if ret > 0 else _SELL)
 
     # Lecture analytique bas droit
+    _cours_s20 = D.get("cours", "\u2014")
+    _ytd_s20   = D.get("variation_ytd", "\u2014")
+    _cours_ctx = f"Cours {indice} : {_cours_s20} (YTD : {_ytd_s20}). " if _cours_s20 not in ("\u2014", "\u2014", "—") else ""
     if etf_list:
         best_etf, best_info = etf_list[0]
         worst_etf, worst_info = etf_list[-1]
+        _best_nom  = best_info.get("nom", "")[:16]
+        _worst_nom = worst_info.get("nom", "")[:16]
         commentary = (
-            f"{best_etf} ({best_info.get('nom','')}) domine avec {best_info.get('return_1y',0):+.1f} % "
-            f"— confirmation du signal Surpondérer soutenu par la monétisation IA. "
-            f"{worst_etf} ({worst_info.get('nom','')}) sous-performe ({worst_info.get('return_1y',0):+.1f} %) "
-            f"en ligne avec le signal Sous-pondérer."
+            f"{_cours_ctx}"
+            f"{best_etf} ({_best_nom}) : {best_info.get('return_1y',0):+.1f}% sur 52S "
+            f"— secteur leader, signal Surponderer confirme. "
+            f"{worst_etf} ({_worst_nom}) : {worst_info.get('return_1y',0):+.1f}% "
+            f"— secteur en retrait, coherent avec le positionnement Sous-ponderer. "
+            f"Dispersion de performance = levier d'alpha sectoriel."
         )
     else:
-        commentary = "Performance relative des ETF SPDR sur 52 semaines — source yfinance."
+        commentary = f"{_cours_ctx}Performance relative des ETF SPDR sur 52 semaines — source yfinance."
 
     _rect(slide, 16.4, 11.0, 8.1, 0.05, fill=_GRAYD)
     _txb(slide, "Lecture du graphique", 16.6, 11.1, 7.8, 0.5, size=7.5, bold=True, color=_NAVY)
-    _txb(slide, commentary[:300], 16.6, 11.65, 7.8, 1.7, size=7, color=_GRAYT, wrap=True)
+    _txb(slide, commentary[:400], 16.6, 11.65, 7.8, 1.7, size=7, color=_GRAYT, wrap=True)
 
     _footer(slide)
     return slide
