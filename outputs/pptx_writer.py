@@ -2364,7 +2364,7 @@ def _slide_multiples_historiques(prs, snap, synthesis, ratios):
         _dir   = "expansion multiple" if _delta > 0 else "compression multiple"
         _comment = (
             f"Le P/E affiche une {_dir} de {abs(_delta):.1f}x sur la p\u00e9riode ({_fr(_pe_first,1)}x \u2192 {_fr(_pe_last,1)}x), "
-            f"signal d\u2019une r\u00e9\u00e9valuation {'favorable' if _delta > 0 else 'n\u00e9gative'} du profil de croissance. "
+            f"signal d\u2019une r\u00e9\u00e9valuation {'favorable' if _delta > 0 else 'négative'} du profil de croissance. "
             f"L\u2019EV/EBITDA {'se stabilise' if _ev_last and _ev_first and abs(_ev_last-_ev_first)<2 else 'diverge'} "
             f"\u00e0 {_fr(_ev_last,1)}x vs {_fr(_ev_first,1)}x historique."
         )
