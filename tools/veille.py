@@ -315,9 +315,9 @@ N\'invente jamais un nom d\'expert ni une citation.
 ARTICLES DISPONIBLES ({len(top20)} sources collectees) :
 {art_list}
 
-MISSION : Redige un article de revue institutionnelle EN FRANCAIS de 1800-2200 mots.
-C\'est un article long, riche, developpe. 4 a 5 pages. Developpe chaque argument en profondeur.
-Un article court (< 1400 mots) est un echec.
+MISSION : Redige un article de revue institutionnelle EN FRANCAIS de 3500-4500 mots.
+C\'est un rapport long de qualite IB/PE, equivalent a 8-10 pages A4. Chaque section est developpee en profondeur.
+Un article court (< 2800 mots) est un echec. Ne tronque pas. Va jusqu\'au bout de chaque section.
 
 STRUCTURE EXACTE :
 
@@ -331,40 +331,48 @@ STRUCTURE EXACTE :
 - [Fait ou conclusion 3]
 - [Fait ou conclusion 4]
 - [Fait ou conclusion 5]
+- [Fait ou conclusion 6]
 
 ### [Titre section 1 DECLARATIF]
-[350-450 mots. Prose analytique. Sources citees inline naturellement. Experts integres la ou ils enrichissent.
-Impacts sur les metiers de la finance d\'entreprise. Vue macro en fin de section.]
+[600-700 mots. Prose analytique dense. Sources citees inline. Experts integres. Impacts metiers finance.
+Vue macro (economie, secteurs, regulation) en fin de section. Sous-titres internes autorises si utile.]
 
 ### [Titre section 2 DECLARATIF]
-[300-380 mots. Meme exigences. Perspectives contradictoires si pertinent.]
+[500-600 mots. Memes exigences. Perspectives contradictoires si pertinent. Exemples concrets d\'entreprises
+ou de cas d\'usage reels. Chiffres UNIQUEMENT si figures dans les sources collectees.]
 
-### [Titre section 3 DECLARATIF -- obligatoire, ne pas fusionner]
-[250-320 mots. Peut couvrir regulation, geopolitique IA, ou troisieme tendance cle.]
+### [Titre section 3 DECLARATIF]
+[450-550 mots. Troisieme tendance cle. Peut couvrir regulation, geopolitique IA, ou angle sectoriel.
+Ne pas fusionner avec section 2.]
+
+### [Titre section 4 DECLARATIF]
+[400-500 mots. Quatrieme angle analytique. Peut traiter risques operationnels, adoption, RH, comptabilite,
+audit, ou tout autre dimension materielle pour un CFO.]
 
 ### Implications globales
-[200-260 mots. Economie, societe, secteurs, indices, regulation europeenne, politique industrielle.
-Cite les positions de regulateurs ou decideurs si pertinent.]
+[300-380 mots. Economie macro, emploi, societe, secteurs (banque, conseil, assurance), indices boursiers,
+regulation europeenne (AI Act, DORA, Bale IV, MiFID), politique industrielle. Cite regulateurs si pertinent.]
 
 ### Points de vigilance
 - [Risque ou limite precis -- pas de generalites]
 - [Risque 2]
 - [Risque 3]
-- [Risque 4 optionnel]
+- [Risque 4]
+- [Risque 5 optionnel]
 
 ### Conclusion
-[80-100 mots. Synthese et projection 6-12 mois. Terminer sur un fait ou un enjeu concret, pas une banalite.]
+[150-180 mots. Synthese et projection 12-24 mois. Terminer sur un fait ou un enjeu concret.]
 
 ---
 
 ### Regard FinSight
-[180-220 mots. UNIQUEMENT ICI : impact sur FinSight IA. Specifique : agents (AgentQuant, AgentSynthese,
-AgentData), fonctionnalites (valorisation, scoring, comparatif).
+[250-300 mots. UNIQUEMENT ICI : impact sur FinSight IA. Specifique : agents (AgentQuant, AgentSynthese,
+AgentData), fonctionnalites (valorisation, scoring, comparatif, DCF, Piotroski).
 
-**(A) Impact sur FinSight** : 2-3 points concrets.
+**(A) Impact sur FinSight** : 3-4 points concrets avec actions specifiques.
 
 **(B) Theses d\'application** *(seulement si l\'analyse fait emerger des idees originales)* :
-1-3 hypotheses inedites sur un usage de l\'IA en finance d\'entreprise. Inattendues, pas des reformulations.]
+2-4 hypotheses inedites sur un usage de l\'IA en finance d\'entreprise. Inattendues, pas des reformulations.]
 
 ### Pour aller plus loin
 [Liste des articles les plus pertinents utilises. Format :
@@ -427,6 +435,31 @@ def llm_write_article(candidates: list[dict], date_fr: str) -> dict:
             }
         except Exception:
             return None
+
+    # 0. Gemini Flash (primary — sorties longues, genereux en tokens)
+    gk_gem = os.getenv("GEMINI_API_KEY")
+    if gk_gem:
+        _gem_models = [
+            "models/gemini-2.5-flash",
+            "models/gemini-2.0-flash",
+            "models/gemini-2.0-flash-lite",
+            "models/gemini-flash-latest",
+        ]
+        for _gm in _gem_models:
+            try:
+                from google import genai as _genai
+                _gem_client = _genai.Client(api_key=gk_gem)
+                _gem_resp = _gem_client.models.generate_content(
+                    model=_gm,
+                    contents=prompt,
+                    config={"max_output_tokens": 8000, "temperature": 0.35},
+                )
+                result = _parse(_gem_resp.text.strip())
+                if result:
+                    print(f"[VEILLE] LLM OK : {_gm} (primary)")
+                    return result
+            except Exception as e:
+                print(f"[VEILLE] Gemini {_gm} : {e}")
 
     # 1. Groq
     groq_keys = [k for k in [
