@@ -963,6 +963,15 @@ def render_sidebar(results) -> None:
                 st.markdown('<span style="font-size:12px;color:#aaa;">Disponibles après analyse</span>',
                             unsafe_allow_html=True)
 
+        # Erreur PPTX société
+        if _in_societe and results.get("pptx_error"):
+            st.error("PPTX : " + results["pptx_error"].split("\n")[0])
+            if st.button("Detail PPTX", key="btn_pptx_err_toggle"):
+                st.session_state["pptx_err_open"] = not st.session_state.get("pptx_err_open", False)
+                st.rerun()
+            if st.session_state.get("pptx_err_open"):
+                st.code(results["pptx_error"], language="text")
+
         # Erreur PDF société — afficher si contexte société
         if _in_societe and results.get("pdf_error"):
             st.error("PDF : " + results["pdf_error"].split("\n")[0])
@@ -1381,6 +1390,7 @@ def render_running() -> None:
             "qa_python": qa_python, "qa_haiku": qa_haiku, "devil": devil,
             "excel_path": excel_path, "pptx_path": pptx_path, "pdf_path": pdf_path,
             "excel_bytes": excel_bytes, "pptx_bytes": pptx_bytes, "pdf_bytes": pdf_bytes,
+            "pptx_error": final_state.get("pptx_error"),
             "pdf_error": final_state.get("pdf_error"),
             "blocked": blocked, "elapsed_ms": elapsed,
         }

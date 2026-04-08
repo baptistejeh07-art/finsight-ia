@@ -447,6 +447,7 @@ def output_node(state: FinSightState) -> dict:
     except Exception as e:
         log.error(f"[output_node] ExcelWriter FAILED: {e}", exc_info=True)
 
+    pptx_error = None
     try:
         import tempfile
         from outputs.pptx_writer import PPTXWriter
@@ -458,6 +459,8 @@ def output_node(state: FinSightState) -> dict:
         pptx_path = f"{snapshot.ticker}_{date.today().isoformat()}_pitchbook.pptx"
         log.info(f"[output_node] PPTX OK — {len(pptx_bytes)} bytes")
     except Exception as e:
+        import traceback as _tb2
+        pptx_error = f"{type(e).__name__}: {e}\n{_tb2.format_exc()}"
         log.error(f"[output_node] PPTXWriter FAILED: {e}", exc_info=True)
 
     pdf_error = None
@@ -486,6 +489,7 @@ def output_node(state: FinSightState) -> dict:
         "excel_bytes": excel_bytes,
         "pptx_bytes":  pptx_bytes,
         "pdf_bytes":   pdf_bytes,
+        "pptx_error":  pptx_error,
         "pdf_error":   pdf_error if 'pdf_error' in dir() else None,
         **_log_entry(state, "output_node", ms,
                      excel=bool(excel_path), pptx=bool(pptx_path), pdf=bool(pdf_path)),
