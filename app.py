@@ -1028,21 +1028,20 @@ def render_sidebar(results) -> None:
 
         # Lancement effectif (hors bouton pour eviter re-render)
         if st.session_state.get("veille_running"):
-            with st.spinner("Veille en cours — collecte + resumes IA..."):
+            with st.spinner("Veille en cours — collecte + redaction IA..."):
                 try:
                     import sys as _sys
                     _veille_root = Path(__file__).parent
                     if str(_veille_root) not in _sys.path:
                         _sys.path.insert(0, str(_veille_root))
                     from tools.veille import run_veille
-                    _pdf = run_veille(days=7)
-                    st.session_state["veille_last_pdf"] = str(_pdf)
-                    try:
-                        import os as _os
-                        _os.startfile(str(_pdf))
-                    except Exception:
-                        pass
-                    st.success(f"Veille generee : {_pdf.name}")
+                    _vr = run_veille(days=15)
+                    _pdf = _vr.get("pdf_path")
+                    if _pdf:
+                        st.session_state["veille_last_pdf"] = str(_pdf)
+                    st.session_state["veille_result"] = _vr
+                    st.session_state.stage = "veille"
+                    st.success("Veille generee.")
                 except Exception as _e:
                     st.error(f"Erreur veille : {_e}")
                 finally:
@@ -1177,6 +1176,61 @@ QUOTES = [
     ('"Le cash est le roi en période de crise, mais le couard en période de croissance."',
      "— Howard Marks · Oaktree Capital"),
 ]
+
+def render_veille() -> None:
+    """Rendu de l'article veille dans la zone principale."""
+    vr = st.session_state.get("veille_result", {})
+    title    = vr.get("title", "Veille IA & Finance d'Entreprise")
+    subtitle = vr.get("subtitle", "")
+    art_md   = vr.get("article_md", "")
+    date_fr  = vr.get("date_fr", "")
+    pdf_path = vr.get("pdf_path")
+
+    # En-tete
+    st.markdown(
+        f'<div style="padding:18px 0 4px 0">'
+        f'<span style="font-size:11px;letter-spacing:2px;color:#8898AA;text-transform:uppercase">'
+        f'FinSight IA · Veille IA & Finance d\'Entreprise · {date_fr}</span></div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(f"# {title}")
+    if subtitle:
+        st.markdown(f"*{subtitle}*")
+
+    st.markdown("---")
+
+    # Boutons d'action
+    col_back, col_dl, _ = st.columns([1.5, 2, 4])
+    with col_back:
+        if st.button("← Retour", key="veille_back"):
+            st.session_state.stage = "home"
+            st.rerun()
+    with col_dl:
+        if pdf_path and Path(pdf_path).exists():
+            st.download_button(
+                "Telecharger PDF",
+                Path(pdf_path).read_bytes(),
+                file_name=Path(pdf_path).name,
+                mime="application/pdf",
+                key="veille_dl_main",
+            )
+
+    st.markdown("")
+
+    # Corps de l'article
+    if art_md:
+        st.markdown(art_md, unsafe_allow_html=False)
+    else:
+        st.info("Article non disponible. Verifiez les quotas LLM.")
+
+    st.markdown("---")
+    st.markdown(
+        '<div style="font-size:11px;color:#8898AA">'
+        'FinSight IA v1.2 — Veille generee par IA. Ne constitue pas un conseil en investissement.'
+        '</div>',
+        unsafe_allow_html=True,
+    )
+
 
 def render_home() -> None:
     import random
@@ -3475,7 +3529,9 @@ def main():
 
     stage = st.session_state.stage
 
-    if stage == "home":
+    if stage == "veille":
+        render_veille()
+    elif stage == "home":
         render_home()
     elif stage == "running":
         render_running()

@@ -1,13 +1,13 @@
 """
 tools/veille.py -- FinSight IA
-Veille technologique institutionnelle : LLM finance, agents IA, fintech.
+Veille : IA appliquee a la finance d'entreprise.
+Format : article institutionnel style note de recherche.
 
 Architecture :
-  1. Fetch RSS toutes sources (fenetre adaptee par source)
-  2. Pre-filtrage negatif + nettoyage arXiv
-  3. Un seul appel LLM : selection top 10 + resumes editoriaux + intro
-  4. Bonus 5 articles via second appel LLM
-  5. PDF institutionnel style FinSight
+  1. Fetch RSS (~24 sources) -- fenetre 7-30j selon source
+  2. Scoring / filtrage / diversification (max 4 par source)
+  3. Un appel LLM : redaction d'un article structure 900-1100 mots
+  4. Build PDF article + retourne markdown pour rendu Streamlit inline
 
 Usage:
   python tools/veille.py
@@ -16,7 +16,6 @@ Usage:
 from __future__ import annotations
 
 import html
-import io
 import json
 import os
 import re
@@ -35,76 +34,84 @@ OUTPUT_DIR = ROOT / "outputs" / "veille"
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 # =============================================================================
-# SOURCES  (fenetre par source : LLM/IA publient rarement, arXiv tous les jours)
+# SOURCES -- IA x Finance d'entreprise (sujet central)
 # =============================================================================
 
 SOURCES = [
-    # -- LLM / IA (fenetre 30j — publient 1-2x/semaine) --
-    {"name": "Anthropic Blog",      "url": "https://www.anthropic.com/rss.xml",                    "cat": "LLM",     "days": 30},
-    {"name": "OpenAI Blog",         "url": "https://openai.com/blog/rss.xml",                      "cat": "LLM",     "days": 30},
-    {"name": "Hugging Face Blog",   "url": "https://huggingface.co/blog/feed.xml",                 "cat": "LLM",     "days": 30},
-    {"name": "Google DeepMind",     "url": "https://deepmind.google/blog/rss.xml",                 "cat": "LLM",     "days": 30},
-    {"name": "Import AI",           "url": "https://importai.substack.com/feed",                   "cat": "LLM",     "days": 30},
-    {"name": "The Batch (DL.AI)",   "url": "https://www.deeplearning.ai/the-batch/feed/",          "cat": "LLM",     "days": 14},
-    {"name": "LangChain Blog",      "url": "https://blog.langchain.dev/rss/",                      "cat": "Agents",  "days": 14},
-    {"name": "Mistral AI Blog",     "url": "https://mistral.ai/news/rss",                          "cat": "LLM",     "days": 30},
-    # -- Fintech / Finance (fenetre 14j) --
-    {"name": "Net Interest",        "url": "https://www.netinterest.co/feed",                      "cat": "Fintech", "days": 14},
-    {"name": "Fintech Brainfood",   "url": "https://fintechbrainfood.substack.com/feed",           "cat": "Fintech", "days": 14},
-    {"name": "Maddyness",           "url": "https://www.maddyness.com/feed/",                      "cat": "Fintech", "days": 7},
-    {"name": "Finextra",            "url": "https://www.finextra.com/rss/headlines.aspx",          "cat": "Fintech", "days": 7},
-    {"name": "AGEFI",               "url": "https://www.agefi.fr/rss/",                            "cat": "Finance", "days": 7},
-    # -- Recherche arXiv (fenetre 5j — publient en masse) --
-    {"name": "arXiv cs.LG",         "url": "http://export.arxiv.org/rss/cs.LG",                   "cat": "Recherche","days": 5},
-    {"name": "arXiv q-fin",         "url": "http://export.arxiv.org/rss/q-fin",                   "cat": "Recherche","days": 5},
-    {"name": "arXiv cs.AI",         "url": "http://export.arxiv.org/rss/cs.AI",                   "cat": "Recherche","days": 5},
-    # -- Tech / VC --
-    {"name": "VentureBeat AI",      "url": "https://venturebeat.com/category/ai/feed/",            "cat": "IA",      "days": 7},
-    {"name": "MIT Tech Review",     "url": "https://www.technologyreview.com/feed/",               "cat": "IA",      "days": 14},
-    {"name": "a16z Blog",           "url": "https://a16z.com/feed/",                               "cat": "VC",      "days": 30},
-    {"name": "Sequoia Capital",     "url": "https://www.sequoiacap.com/feed/",                     "cat": "VC",      "days": 30},
-    {"name": "The Information AI",  "url": "https://www.theinformation.com/feed",                  "cat": "Tech",    "days": 14},
-    {"name": "Towards Data Science","url": "https://towardsdatascience.com/feed",                  "cat": "Data",    "days": 7},
+    # -- Modeles LLM / IA generatifs (30j -- publient rarement) --
+    {"name": "Anthropic Blog",        "url": "https://www.anthropic.com/rss.xml",                                  "cat": "LLM",        "days": 30},
+    {"name": "OpenAI Blog",           "url": "https://openai.com/blog/rss.xml",                                    "cat": "LLM",        "days": 30},
+    {"name": "Hugging Face Blog",     "url": "https://huggingface.co/blog/feed.xml",                               "cat": "LLM",        "days": 30},
+    {"name": "Google DeepMind",       "url": "https://deepmind.google/blog/rss.xml",                               "cat": "LLM",        "days": 30},
+    {"name": "Import AI",             "url": "https://importai.substack.com/feed",                                 "cat": "LLM",        "days": 30},
+    {"name": "The Batch (DL.AI)",     "url": "https://www.deeplearning.ai/the-batch/feed/",                        "cat": "LLM",        "days": 14},
+    {"name": "LangChain Blog",        "url": "https://blog.langchain.dev/rss/",                                    "cat": "Agents",     "days": 14},
+    {"name": "Mistral AI Blog",       "url": "https://mistral.ai/news/rss",                                        "cat": "LLM",        "days": 30},
+    # -- IA x Finance d'entreprise / Fintech (coeur du sujet) --
+    {"name": "Net Interest",          "url": "https://www.netinterest.co/feed",                                    "cat": "IA Finance", "days": 14},
+    {"name": "Fintech Brainfood",     "url": "https://fintechbrainfood.substack.com/feed",                         "cat": "IA Finance", "days": 14},
+    {"name": "CB Insights Research",  "url": "https://www.cbinsights.com/research-briefing/feed/",                 "cat": "IA Finance", "days": 14},
+    {"name": "CFA Institute Blog",    "url": "https://blogs.cfainstitute.org/feed/",                               "cat": "Finance",    "days": 14},
+    {"name": "McKinsey QuantumBlack", "url": "https://www.mckinsey.com/capabilities/quantumblack/rss",             "cat": "IA Finance", "days": 30},
+    {"name": "Finextra",              "url": "https://www.finextra.com/rss/headlines.aspx",                        "cat": "Fintech",    "days": 7},
+    {"name": "AGEFI",                 "url": "https://www.agefi.fr/rss/",                                          "cat": "Finance",    "days": 7},
+    {"name": "Maddyness",             "url": "https://www.maddyness.com/feed/",                                    "cat": "Fintech",    "days": 7},
+    # -- Recherche (arXiv) -- finance quantitative + IA appliquee --
+    {"name": "arXiv q-fin",           "url": "http://export.arxiv.org/rss/q-fin",                                  "cat": "Recherche",  "days": 5},
+    {"name": "arXiv cs.AI",           "url": "http://export.arxiv.org/rss/cs.AI",                                  "cat": "Recherche",  "days": 5},
+    {"name": "arXiv cs.LG",           "url": "http://export.arxiv.org/rss/cs.LG",                                  "cat": "Recherche",  "days": 5},
+    # -- Macro / Impact global (contexte economique et regulatoire) --
+    {"name": "BIS Research Papers",   "url": "https://www.bis.org/rss/bis_papers.rss",                             "cat": "Macro",      "days": 14},
+    {"name": "Banque de France Blog", "url": "https://blocnotesdeleco.banque-france.fr/rss.xml",                   "cat": "Macro",      "days": 14},
+    {"name": "WEF Finance",           "url": "https://www.weforum.org/rss?category=financial-and-monetary-systems","cat": "Macro",      "days": 14},
+    # -- Tech / IA generale (contexte technologique) --
+    {"name": "VentureBeat AI",        "url": "https://venturebeat.com/category/ai/feed/",                          "cat": "IA",         "days": 7},
+    {"name": "MIT Tech Review",       "url": "https://www.technologyreview.com/feed/",                             "cat": "IA",         "days": 14},
 ]
 
-# Mots-cles positifs (scoring)
+ARXIV_MAX_PER_FEED = 8
+
+# -- Mots-cles positifs (scoring) --
 KW_HIGH = [
     "llm", "large language model", "financial analysis", "finance", "trading",
-    "investment", "agent", "rag", "retrieval augmented", "stock market",
-    "portfolio", "valuation", "dcf", "earnings", "risk management",
-    "quantitative", "alpha generation", "fintech", "banking", "asset management",
-    "hedge fund", "earnings call", "transformer", "reasoning", "claude",
-    "gpt-4", "gemini", "groq", "mistral", "anthropic", "openai", "llama",
+    "investment", "agent", "rag", "retrieval augmented", "portfolio",
+    "valuation", "dcf", "earnings", "risk management", "quantitative",
+    "alpha generation", "fintech", "banking", "asset management",
+    "hedge fund", "earnings call", "transformer", "reasoning",
     "agentic", "multi-agent", "tool use", "function calling",
     "sentiment analysis", "forecast", "financial data", "market intelligence",
-    "robo-advisor", "algorithmic trading", "credit scoring", "fraud detection",
+    "corporate finance", "financial modeling", "due diligence",
+    "mergers", "acquisitions", "cfo", "fp&a", "credit analysis",
+    "audit", "capital allocation", "debt financing", "credit scoring",
+    "fraud detection", "robo-advisor", "algorithmic trading",
+    "claude", "gpt-4", "gemini", "groq", "mistral", "anthropic", "openai", "llama",
 ]
 KW_MED = [
     "ai", "machine learning", "deep learning", "neural network", "model",
-    "api", "fintech startup", "regulation", "compliance", "crypto", "defi",
+    "api", "fintech startup", "regulation", "compliance", "crypto",
     "prediction", "benchmark", "inference", "fine-tuning", "rlhf",
     "open source", "evaluation", "leaderboard", "capital markets",
+    "reporting", "automation", "digitalization", "data",
 ]
 
-# Mots-cles negatifs (articles hors-sujet a exclure)
+# -- Mots-cles negatifs (articles clairement hors-sujet) --
 KW_NEG = [
-    "warehouse", "robotic path", "robot navigation", "care home", "smart speaker",
+    "warehouse", "robotic path", "robot navigation", "care home",
     "hospital", "medical imaging", "protein folding", "drug discovery",
-    "poker", "chess", "game theory board", "autonomous driving", "self-driving",
+    "poker", "chess", "game theory board", "autonomous driving",
     "image generation", "text-to-image", "diffusion model art", "video generation",
     "climate model", "weather prediction", "seismic", "geology",
     "social media bot", "misinformation detection",
 ]
 
-# Limite arXiv par sous-feed pour eviter de tout inonder
-ARXIV_MAX_PER_FEED = 8
 
+# =============================================================================
+# NETTOYAGE / SCORING
+# =============================================================================
 
 def _clean_text(text: str) -> str:
-    """Nettoyage HTML + suppression prefixes arXiv bruts."""
     text = html.unescape(text or "")
     text = re.sub(r"<[^>]+>", " ", text)
-    # Supprimer le prefixe arXiv "arXiv:XXXX Announce Type: new Abstract:"
     text = re.sub(r"arXiv:\S+\s+Announce\s+Type:\s*\w+\s+Abstract:\s*", "", text, flags=re.IGNORECASE)
     text = re.sub(r"\s+", " ", text).strip()
     return text
@@ -134,7 +141,6 @@ def _score(title: str, summary: str) -> int:
 
 
 def _is_relevant(title: str, summary: str) -> bool:
-    """Filtre negatif — elimine les articles clairement hors-sujet."""
     text = (title + " " + summary).lower()
     for kw in KW_NEG:
         if kw in text:
@@ -143,7 +149,7 @@ def _is_relevant(title: str, summary: str) -> bool:
 
 
 # =============================================================================
-# FETCH
+# FETCH RSS
 # =============================================================================
 
 def fetch_articles(days_override: int | None = None) -> list[dict]:
@@ -153,8 +159,8 @@ def fetch_articles(days_override: int | None = None) -> list[dict]:
         print("[VEILLE] pip install feedparser requis")
         sys.exit(1)
 
-    now     = datetime.now(timezone.utc)
-    raw     = []
+    now = datetime.now(timezone.utc)
+    raw: list[dict] = []
     arxiv_counts: dict[str, int] = {}
 
     for src in SOURCES:
@@ -164,7 +170,6 @@ def fetch_articles(days_override: int | None = None) -> list[dict]:
 
         try:
             feed = feedparser.parse(src["url"])
-            count = 0
             for entry in feed.entries:
                 if is_arxiv and arxiv_counts.get(src["name"], 0) >= ARXIV_MAX_PER_FEED:
                     break
@@ -176,27 +181,23 @@ def fetch_articles(days_override: int | None = None) -> list[dict]:
                 link    = getattr(entry, "link", "") or ""
                 if not title or not link:
                     continue
-                # Filtre negatif
                 if not _is_relevant(title, summary):
                     continue
-                score = _score(title, summary)
                 raw.append({
                     "source":  src["name"],
                     "cat":     src["cat"],
                     "title":   title[:220],
-                    "summary": summary[:600],
+                    "summary": summary[:500],
                     "link":    link,
                     "date":    pub,
-                    "score":   score,
-                    "idx":     len(raw),
+                    "score":   _score(title, summary),
                 })
                 if is_arxiv:
                     arxiv_counts[src["name"]] = arxiv_counts.get(src["name"], 0) + 1
-                count += 1
         except Exception as e:
             print(f"[VEILLE] {src['name']} : {e}")
 
-    # Diversifier : max 4 articles par source dans le top 30
+    # Tri score + diversification (max 4 par source)
     raw.sort(key=lambda a: (a["score"], a["date"]), reverse=True)
     seen_src: dict[str, int] = {}
     balanced = []
@@ -211,279 +212,224 @@ def fetch_articles(days_override: int | None = None) -> list[dict]:
 
 
 # =============================================================================
-# LLM : SELECTION + RESUMES EDITORIAUX (UN SEUL APPEL)
+# LLM : REDACTION DE L'ARTICLE INSTITUTIONNEL
 # =============================================================================
 
-def llm_select_and_summarize(candidates: list[dict]) -> dict:
-    """
-    Un seul appel Groq :
-    - Selectionne les 10 articles les plus pertinents
-    - Pour chaque article : passage cite, these, contre-these, application FinSight rigoureuse
-    - Intro editoriale 120-150 mots
-    Retourne {editorial, articles:[{...}]}
-    """
-    groq_keys = [k for k in [
-        os.getenv("GROQ_API_KEY_1"),
-        os.getenv("GROQ_API_KEY_2"),
-        os.getenv("GROQ_API_KEY"),
-    ] if k]
-    if not groq_keys:
-        print("[VEILLE] Aucune cle Groq — resumes basiques")
-        return _fallback_selection(candidates)
-
-    # Preparer la liste des candidats pour le prompt
-    top30 = candidates[:30]
+def _build_prompt(candidates: list[dict], date_fr: str) -> str:
+    top20 = candidates[:20]
     art_list = ""
-    for i, a in enumerate(top30):
-        art_list += f"\n[{i}] SOURCE={a['source']} | CAT={a['cat']} | DATE={a['date'].strftime('%d/%m/%Y')}\nTITRE: {a['title']}\nCONTENU: {a['summary'][:400]}\n"
+    for i, a in enumerate(top20):
+        d = a["date"].strftime("%d/%m/%Y") if hasattr(a.get("date"), "strftime") else str(a.get("date",""))[:10]
+        art_list += (
+            f"\n[{i}] SOURCE={a['source']} | CAT={a['cat']} | DATE={d}\n"
+            f"TITRE: {a['title']}\nCONTENU: {a['summary'][:400]}\nLIEN: {a['link']}\n"
+        )
 
-    prompt = f"""Tu es redacteur en chef senior de FinSight IA, plateforme d'analyse financiere multi-agents LLM.
-Ton audience : directeurs d'investissement, analystes sell-side/buy-side, quants, DG fintech.
+    return f"""Tu es redacteur senior d'une revue institutionnelle sur l'IA appliquee a la finance d'entreprise.
+Audience : directeurs financiers (CFO), analystes M&A, responsables corporate finance, investisseurs institutionnels.
 
-LANGUE : TOUT doit etre redige en FRANCAIS. Titres, resumes, implications, editorial : 100% francais.
-Les titres originaux des articles sont en anglais — tu les traduis ou les resumes en francais dans le champ "resume".
+SUJET CENTRAL : Comment l'IA (LLM, agents, GenAI, ML) transforme la FINANCE D'ENTREPRISE.
+Sujets pertinents : valorisation automatisee, analyse financiere IA, due diligence augmentee, credit scoring,
+FP&A predictif, reporting automatise, detection de fraude, gestion des risques, M&A assistee par IA, audit IA,
+modeles de prevision, copilotes financiers, agents d'analyse.
 
-MISSION :
-1. Selectionner les 10 articles les PLUS PERTINENTS pour FinSight parmi les {len(top30)} candidats ci-dessous.
-   Criteres : LLM en finance, agents IA pour l'investissement, donnees financieres, automatisation analyse, fintech.
-   EXCLURE : recherches trop academiques sans application finance, articles non-financiers.
+CONTEXTE MARCHE : Quelques lignes en introduction pour donner le contexte macro. Pas le sujet principal.
 
-2. Pour chaque article selectionne, ecrire un RESUME EDITORIAL en 3 phrases FRANCAISES :
-   - Phrase 1 : Ce que cet article revele ou propose concretement
-   - Phrase 2 : L'innovation cle ou le chiffre marquant
-   - Phrase 3 : Pourquoi c'est significatif pour l'industrie financiere
+ANGLE GLOBAL OBLIGATOIRE : Inclure les implications sur l'economie, la societe, les secteurs, les indices,
+la reglementation (DORA, AI Act, Bale IV, MiFID) et la politique industrielle. Vue macro systematique.
 
-3. Pour chaque article : 1 phrase courte et precise EN FRANCAIS sur l'apport direct pour FinSight IA
-   (ex: "Peut ameliorer le scoring de sentiment dans AgentSentiment via..." — sois specifique)
-
-4. Rediger une INTRODUCTION EDITORIALE de 120-150 mots EN FRANCAIS presentant les themes dominants,
-   comme un editorial de newsletter financiere institutionnelle. Style : direct, concis, sans jargon creux.
-
-ARTICLES CANDIDATS :
+ARTICLES DISPONIBLES ({len(top20)} sources collectees) :
 {art_list}
 
-Reponds UNIQUEMENT en JSON valide sans markdown ni texte autour :
+MISSION : Redige un article de revue institutionnelle EN FRANCAIS de 900-1100 mots.
+Style : analytique, direct, factuel. Pas de jargon creux ("game-changer", "paradigm shift" interdits).
+
+STRUCTURE EXACTE A RESPECTER :
+
+## [Titre accrocheur max 12 mots reflétant le theme dominant]
+*[Sous-titre : contexte en une phrase]*
+**FinSight IA · Veille IA & Finance d'Entreprise · {date_fr}**
+
+### En bref
+[3-4 phrases de lead : l'essentiel de la semaine en IA finance d'entreprise]
+
+### [Titre section 1 — 1er theme dominant]
+[200-250 mots. Cite les sources inline avec des notes : "D'apres [NOM SOURCE]¹" ou "Selon [NOM SOURCE]²...".
+Angle : impacts concrets sur les metiers de la finance d'entreprise.]
+
+### [Titre section 2 — 2eme theme]
+[180-230 mots. Meme format de citations.]
+
+### [Titre section 3 — 3eme theme, fusionner si peu de matiere]
+[150-200 mots.]
+
+### Implications globales
+[150-200 mots. Comment ces evolutions IA affectent : l'economie (emploi, productivite), les societes
+(transformation des metiers finance), les secteurs (banque, assurance, conseil, asset management),
+les indices boursiers (valorisation des acteurs IA finance), la regulation europeenne et internationale,
+et la politique industrielle (souverainete IA, investissements publics). Vue large obligatoire.]
+
+### Conclusion
+[60-80 mots. Synthese et projection a 6-12 mois. Pas de banalites.]
+
+---
+
+### Regard FinSight
+[150-200 mots. UNIQUEMENT ICI : comment ces evolutions peuvent ameliorer ou impacter FinSight IA.
+Sois specifique : agents concernes (AgentQuant, AgentSynthese, AgentData...), fonctionnalites
+(valorisation, scoring, comparatif...), opportunites techniques concretes.]
+
+### Sources
+[1] Titre de l'article — *Nom de la source* — Date — URL
+[2] ...
+[pour chaque source citee dans l'article, avec le vrai lien]
+
+REGLES :
+- TOUT en francais (titres de sections compris)
+- Chaque assertion importante cite sa source avec [n]
+- Finance d'entreprise = priorite. Marches financiers = contexte uniquement
+- Regard FinSight UNIQUEMENT en derniere position, apres Conclusion
+- Sources avec URL reels des articles collectes (utilise les liens fournis ci-dessus)
+
+Reponds UNIQUEMENT en JSON valide sans markdown autour :
 {{
-  "editorial": "<120-150 mots introduction editoriale>",
-  "selection": [
-    {{
-      "idx": <entier — index original de l article>,
-      "resume": "<3 phrases editoriales completes>",
-      "implication": "<1 phrase precise sur l apport FinSight>"
-    }}
-  ]
+  "title": "Titre de l article",
+  "subtitle": "Sous-titre",
+  "article_md": "contenu complet en markdown (de ### En bref jusqu a ### Sources inclus)",
+  "sources": [{{"n":1,"title":"...","source":"...","date":"...","url":"..."}}]
 }}"""
 
-    def _parse_llm_response(raw: str) -> dict | None:
-        raw = re.sub(r"^```(?:json)?", "", raw).strip()
+
+def llm_write_article(candidates: list[dict], date_fr: str) -> dict:
+    """Appelle le LLM pour rediger l'article institutionnel. Retourne {"title","subtitle","article_md","sources"}."""
+    prompt = _build_prompt(candidates, date_fr)
+
+    def _parse(raw: str) -> dict | None:
+        raw = re.sub(r"^```(?:json)?", "", raw.strip()).strip()
         raw = re.sub(r"```$", "", raw).strip()
-        m   = re.search(r'\{.*\}', raw, re.DOTALL)
+        m = re.search(r'\{.*\}', raw, re.DOTALL)
         if not m:
             return None
         try:
             parsed = json.loads(m.group())
         except Exception:
             return None
-        enriched = []
-        for sel in parsed.get("selection", [])[:10]:
-            idx = sel.get("idx")
-            if idx is not None and 0 <= idx < len(top30):
-                art = dict(top30[idx])
-                art["resume_fr"]   = sel.get("resume",      art["summary"][:300])
-                art["implication"] = sel.get("implication", "Impact sur les pipelines FinSight.")
-                enriched.append(art)
-        if not enriched:
+        if not parsed.get("article_md"):
             return None
-        return {"editorial": parsed.get("editorial", ""), "articles": enriched}
+        return parsed
 
-    # Groq : essai llama-3.3-70b puis llama-3.1-8b-instant pour chaque cle
-    GROQ_MODELS = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"]
-    from groq import Groq
-    last_err = None
-    for groq_key in groq_keys:
-        for model in GROQ_MODELS:
-            try:
-                client = Groq(api_key=groq_key)
-                resp   = client.chat.completions.create(
-                    model=model,
-                    messages=[{"role": "user", "content": prompt}],
-                    max_tokens=3000,
-                    temperature=0.35,
-                )
-                result = _parse_llm_response(resp.choices[0].message.content.strip())
-                if result:
-                    print(f"[VEILLE] LLM OK : {model} (key ...{groq_key[-6:]})")
-                    return result
-            except Exception as e:
-                last_err = e
-                print(f"[VEILLE] {model} key ...{groq_key[-6:]} : {e}")
-
-    # Fallback Mistral si cle disponible
-    mistral_key = os.getenv("MISTRAL_API_KEY")
-    if mistral_key:
-        try:
-            from mistralai import Mistral
-            _mc = Mistral(api_key=mistral_key)
-            resp = _mc.chat.complete(
-                model="mistral-small-latest",
-                messages=[{"role": "user", "content": prompt}],
-                max_tokens=3000,
-                temperature=0.35,
-            )
-            result = _parse_llm_response(resp.choices[0].message.content.strip())
-            if result:
-                print("[VEILLE] LLM OK : Mistral small (fallback)")
-                return result
-        except Exception as e:
-            print(f"[VEILLE] Mistral fallback : {e}")
-
-    # Fallback Anthropic si cle disponible
-    anthropic_key = os.getenv("ANTHROPIC_API_KEY")
-    if anthropic_key:
-        try:
-            import anthropic as _anthropic
-            _ac = _anthropic.Anthropic(api_key=anthropic_key)
-            resp = _ac.messages.create(
-                model="claude-haiku-4-5-20251001",
-                max_tokens=3000,
-                messages=[{"role": "user", "content": prompt}],
-            )
-            result = _parse_llm_response(resp.content[0].text.strip())
-            if result:
-                print("[VEILLE] LLM OK : Anthropic haiku (fallback)")
-                return result
-        except Exception as e:
-            print(f"[VEILLE] Anthropic fallback : {e}")
-
-    print(f"[VEILLE] Tous LLM epuises ({last_err}) — fallback basique")
-    return _fallback_selection(candidates)
-
-
-def _fallback_selection(candidates: list[dict]) -> dict:
-    """Fallback sans LLM : top 10 par score — resume indisponible en francais."""
-    arts = []
-    for a in candidates[:10]:
-        a = dict(a)
-        a["resume_fr"]   = "Resume indisponible — quota LLM epuise. Consulter l'article original via le lien ci-dessous."
-        a["implication"] = "Pertinent pour les pipelines FinSight."
-        arts.append(a)
-    return {"editorial": "", "articles": arts}
-
-
-# =============================================================================
-# BONUS 5 ARTICLES
-# =============================================================================
-
-def suggest_bonus(top10: list[dict]) -> list[dict]:
-    themes = ", ".join(sorted({a.get("cat","") for a in top10[:5]}))
-    titles = "; ".join([a["title"][:80] for a in top10[:5]])
-    prompt = (
-        f"Tu es veilleur technologique expert en LLM et finance quantitative. LANGUE : reponds UNIQUEMENT en FRANCAIS.\n"
-        f"Cette semaine dans la veille FinSight : {themes}.\n"
-        f"Articles principaux : {titles}.\n\n"
-        f"Propose 5 ressources COMPLEMENTAIRES et specifiques (GitHub repos, papiers arXiv recents, "
-        f"posts de blog techniques, datasets financiers, outils open-source) "
-        f"utiles pour une plateforme d'analyse financiere multi-agents.\n"
-        f"Sois tres specifique (vrais noms, vrais liens si tu les connais).\n\n"
-        f"JSON UNIQUEMENT en FRANCAIS (array de 5 objets, aucun markdown) :\n"
-        f'[{{"title":"...","source":"...","link":"...","cat":"...","resume_fr":"<2-3 phrases en francais specifiques>","implication":"<1 phrase FinSight en francais>"}}]'
-    )
-
-    def _call_llm(raw: str) -> list[dict]:
-        raw = re.sub(r"^```(?:json)?", "", raw).strip()
-        raw = re.sub(r"```$", "", raw).strip()
-        m = re.search(r'\[.*\]', raw, re.DOTALL)
-        if not m:
-            return []
-        try:
-            bonus = json.loads(m.group())
-        except Exception:
-            return []
-        out = []
-        for b in bonus:
-            b.setdefault("title",       "Article bonus")
-            b.setdefault("source",      "IA suggestion")
-            b.setdefault("link",        "")
-            b.setdefault("cat",         "IA")
-            b.setdefault("resume_fr",   "Contenu pertinent pour FinSight.")
-            b.setdefault("implication", "A explorer pour les pipelines FinSight.")
-            b["date"]  = datetime.now(timezone.utc)
-            b["score"] = 50
-            if b["title"] != "Article bonus":
-                out.append(b)
-        return out[:5]
-
-    # Groq
+    # 1. Groq
     groq_keys = [k for k in [
         os.getenv("GROQ_API_KEY_1"),
         os.getenv("GROQ_API_KEY_2"),
         os.getenv("GROQ_API_KEY"),
     ] if k]
-    for groq_key in groq_keys:
+    for gk in groq_keys:
         for model in ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"]:
             try:
                 from groq import Groq
-                resp = Groq(api_key=groq_key).chat.completions.create(
+                resp = Groq(api_key=gk).chat.completions.create(
                     model=model,
                     messages=[{"role": "user", "content": prompt}],
-                    max_tokens=1400,
-                    temperature=0.55,
+                    max_tokens=2800,
+                    temperature=0.35,
                 )
-                out = _call_llm(resp.choices[0].message.content.strip())
-                if out:
-                    return out
+                result = _parse(resp.choices[0].message.content.strip())
+                if result:
+                    print(f"[VEILLE] LLM OK : {model} (key ...{gk[-6:]})")
+                    return result
             except Exception as e:
-                print(f"[VEILLE] Bonus {model} ...{groq_key[-6:]} : {e}")
+                print(f"[VEILLE] Groq {model} ...{gk[-6:]} : {e}")
 
-    # Mistral fallback
-    mistral_key = os.getenv("MISTRAL_API_KEY")
-    if mistral_key:
+    # 2. Mistral fallback
+    mk = os.getenv("MISTRAL_API_KEY")
+    if mk:
         try:
             from mistralai import Mistral
-            resp = Mistral(api_key=mistral_key).chat.complete(
+            resp = Mistral(api_key=mk).chat.complete(
                 model="mistral-small-latest",
                 messages=[{"role": "user", "content": prompt}],
-                max_tokens=1400,
-                temperature=0.55,
+                max_tokens=2800,
+                temperature=0.35,
             )
-            out = _call_llm(resp.choices[0].message.content.strip())
-            if out:
-                return out
+            result = _parse(resp.choices[0].message.content.strip())
+            if result:
+                print("[VEILLE] LLM OK : Mistral small (fallback)")
+                return result
         except Exception as e:
-            print(f"[VEILLE] Bonus Mistral : {e}")
+            print(f"[VEILLE] Mistral : {e}")
 
-    return []
+    # 3. Anthropic fallback
+    ak = os.getenv("ANTHROPIC_API_KEY")
+    if ak:
+        try:
+            import anthropic as _ant
+            resp = _ant.Anthropic(api_key=ak).messages.create(
+                model="claude-haiku-4-5-20251001",
+                max_tokens=2800,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            result = _parse(resp.content[0].text.strip())
+            if result:
+                print("[VEILLE] LLM OK : Anthropic haiku (fallback)")
+                return result
+        except Exception as e:
+            print(f"[VEILLE] Anthropic : {e}")
+
+    # 4. Fallback basique sans LLM
+    print("[VEILLE] Tous LLM epuises — fallback basique")
+    return _fallback_article(candidates, date_fr)
+
+
+def _fallback_article(candidates: list[dict], date_fr: str) -> dict:
+    """Fallback si aucun LLM disponible : article minimal a partir des titres."""
+    items = candidates[:10]
+    lines = [
+        "### En bref",
+        f"Voici une selection de {len(items)} articles sur l'IA appliquee a la finance d'entreprise "
+        f"collectes cette semaine. Les resumes IA sont indisponibles (quota LLM depasse).",
+        "",
+        "### Articles de la semaine",
+    ]
+    for i, a in enumerate(items, 1):
+        d = a["date"].strftime("%d/%m/%Y") if hasattr(a.get("date"), "strftime") else ""
+        lines.append(f"**{i}. {a['title']}**")
+        lines.append(f"*{a['source']} — {d}*")
+        lines.append(a["summary"][:200] + "...")
+        lines.append(f"[Source]({a['link']})")
+        lines.append("")
+    lines += [
+        "---",
+        "### Regard FinSight",
+        "Synthese indisponible — relancer la veille avec quota LLM disponible.",
+        "### Sources",
+    ]
+    for i, a in enumerate(items, 1):
+        d = a["date"].strftime("%d/%m/%Y") if hasattr(a.get("date"), "strftime") else ""
+        lines.append(f"[{i}] {a['title']} — *{a['source']}* — {d} — {a['link']}")
+    return {
+        "title":      "Veille IA & Finance d'Entreprise",
+        "subtitle":   f"Edition du {date_fr} — synthese indisponible",
+        "article_md": "\n".join(lines),
+        "sources":    [{"n": i+1, "title": a["title"], "source": a["source"],
+                        "date": a["date"].strftime("%d/%m/%Y") if hasattr(a.get("date"), "strftime") else "",
+                        "url": a["link"]} for i, a in enumerate(items)],
+    }
 
 
 # =============================================================================
-# PDF INSTITUTIONNEL
+# PDF INSTITUTIONNEL -- FORMAT ARTICLE
 # =============================================================================
 
-# Palette
 C_NAVY      = "#1B3A6B"
 C_NAVY2     = "#2A5298"
 C_GREEN     = "#1A7A4A"
-C_ORANGE    = "#C05000"
-C_PURPLE    = "#5B2D8E"
-C_AMBER     = "#B06000"
-C_WHITE     = "#FFFFFF"
 C_GREY_BG   = "#F7F9FC"
 C_GREY_MED  = "#E4E9F0"
 C_GREY_DARK = "#8898AA"
 C_BLACK     = "#1A1A1A"
-
-# Couleur par categorie
-CAT_COLORS = {
-    "LLM":      C_NAVY2,
-    "Agents":   C_NAVY2,
-    "Fintech":  C_GREEN,
-    "Finance":  C_GREEN,
-    "Recherche":C_ORANGE,
-    "IA":       C_PURPLE,
-    "VC":       C_AMBER,
-    "Tech":     C_AMBER,
-    "Data":     C_PURPLE,
-}
+C_WHITE     = "#FFFFFF"
+C_AMBER     = "#B06000"
 
 
 def _h(hex_str: str):
@@ -492,280 +438,231 @@ def _h(hex_str: str):
 
 
 def _enc(s: str) -> str:
-    """Encode cp1252 — evite les erreurs ReportLab Windows."""
     return (s or "").encode("cp1252", errors="replace").decode("cp1252")
 
 
-def build_pdf(result: dict, bonus5: list[dict], output_path: Path) -> Path:
+def _md_to_rl(text: str) -> str:
+    """Markdown inline basique -> ReportLab Paragraph XML, cp1252 safe."""
+    import html as _h2
+    text = str(text or "")
+    # Echapper d'abord les entites HTML
+    text = _h2.escape(text, quote=False)
+    # Bold **...**
+    text = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', text)
+    # Italic *...*  (pas double)
+    text = re.sub(r'(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)', r'<i>\1</i>', text)
+    # Citations [n] -> exposant
+    text = re.sub(r'\[(\d+)\]', r'<super><font size="7">[\1]</font></super>', text)
+    # Markdown links [texte](url) -> lien cliquable
+    def _link(m):
+        txt = m.group(1)
+        url = m.group(2)
+        url_esc = _h2.escape(url, quote=True)
+        return f'<link href="{url_esc}" color="{C_NAVY2}"><u>{txt}</u></link>'
+    text = re.sub(r'\[([^\]]+)\]\((https?://[^\)]+)\)', _link, text)
+    return _enc(text)
+
+
+def build_pdf(article_data: dict, output_path: Path) -> Path:
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.units import mm
     from reportlab.lib.styles import ParagraphStyle
     from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_JUSTIFY
     from reportlab.platypus import (
-        SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle,
-        HRFlowable, PageBreak, KeepTogether
+        SimpleDocTemplate, Paragraph, Spacer, HRFlowable, PageBreak
     )
-    from reportlab.lib import colors
 
     W, H = A4
-    ML = MR = 18 * mm
-    MT = 24 * mm
-    MB = 16 * mm
+    ML = MR = 20 * mm
+    MT = 26 * mm
+    MB = 18 * mm
 
     _MOIS_FR = ["janvier","fevrier","mars","avril","mai","juin",
                 "juillet","aout","septembre","octobre","novembre","decembre"]
-    today    = datetime.now()
-    date_fr  = f"{today.day} {_MOIS_FR[today.month-1]} {today.year}"
-    edition  = f"Edition du {date_fr}"
+    today   = datetime.now()
+    date_fr = f"{today.day} {_MOIS_FR[today.month-1]} {today.year}"
 
     doc = SimpleDocTemplate(
         str(output_path), pagesize=A4,
         leftMargin=ML, rightMargin=MR, topMargin=MT, bottomMargin=MB,
-        title=f"FinSight IA — Veille Technologique — {date_fr}",
+        title=f"FinSight IA — Veille IA & Finance — {date_fr}",
         author="FinSight IA",
     )
 
-    # -- Styles -----------------------------------------------------------------
     def _s(name, **kw):
         base = dict(fontName="Helvetica", fontSize=10, leading=14,
                     textColor=_h(C_BLACK), spaceAfter=0)
         base.update(kw)
         return ParagraphStyle(name, **base)
 
-    S_MAIN_TITLE = _s("mt", fontName="Helvetica-Bold", fontSize=26,
-                       textColor=_h(C_NAVY), leading=30, spaceAfter=2)
-    S_MAIN_DATE  = _s("md", fontName="Helvetica", fontSize=11,
-                       textColor=_h(C_GREY_DARK), spaceAfter=0)
-    S_TAGS_LINE  = _s("tl", fontName="Helvetica", fontSize=9,
-                       textColor=_h(C_GREY_DARK), spaceAfter=0)
-    S_EDITO      = _s("ed", fontName="Helvetica", fontSize=9.5, leading=14.5,
-                       textColor=_h(C_BLACK), spaceAfter=0, alignment=TA_JUSTIFY)
-    S_SEC_TITLE  = _s("st", fontName="Helvetica-Bold", fontSize=10,
-                       textColor=_h(C_NAVY), leading=13, spaceAfter=0,
-                       textTransform="uppercase", letterSpacing=0.8)
-    S_ART_NUM    = _s("an", fontName="Helvetica-Bold", fontSize=22,
-                       textColor=_h(C_GREY_MED), leading=24, spaceAfter=0)
-    S_ART_TITLE  = _s("at", fontName="Helvetica-Bold", fontSize=10.5,
-                       textColor=_h(C_NAVY), leading=14, spaceAfter=3)
-    S_META       = _s("am", fontName="Helvetica", fontSize=8,
-                       textColor=_h(C_GREY_DARK), leading=11, spaceAfter=4)
-    S_RESUME     = _s("ar", fontName="Helvetica", fontSize=9.5, leading=14,
-                       textColor=_h(C_BLACK), spaceAfter=4, alignment=TA_JUSTIFY)
-    S_IMPL       = _s("ai", fontName="Helvetica-Bold", fontSize=9,
-                       textColor=_h(C_GREEN), leading=13, spaceAfter=0)
-    S_LINK       = _s("al", fontName="Helvetica", fontSize=8,
-                       textColor=_h(C_NAVY2), leading=11, spaceAfter=0)
-    S_BONUS_T    = _s("bt", fontName="Helvetica-Bold", fontSize=10,
-                       textColor=_h(C_AMBER), leading=14, spaceAfter=3)
-    S_SEC_BONUS  = _s("sb", fontName="Helvetica-Bold", fontSize=10,
-                       textColor=_h(C_AMBER), leading=13, spaceAfter=0,
-                       textTransform="uppercase", letterSpacing=0.8)
-    S_FOOTER     = _s("ft", fontName="Helvetica", fontSize=7.5,
-                       textColor=_h(C_GREY_DARK), leading=10, alignment=TA_CENTER)
+    S_COVER_TITLE  = _s("ct",  fontName="Helvetica-Bold", fontSize=24, textColor=_h(C_NAVY), leading=28, spaceAfter=2)
+    S_COVER_SUB    = _s("cs",  fontName="Helvetica",      fontSize=12, textColor=_h(C_NAVY2), leading=16, spaceAfter=2)
+    S_COVER_DATE   = _s("cd",  fontName="Helvetica",      fontSize=9.5, textColor=_h(C_GREY_DARK), spaceAfter=0)
+    S_SECTION      = _s("sh",  fontName="Helvetica-Bold", fontSize=11, textColor=_h(C_NAVY), leading=15, spaceAfter=4, spaceBefore=8)
+    S_LEAD         = _s("ld",  fontName="Helvetica",      fontSize=10.5, leading=15, textColor=_h(C_BLACK), spaceAfter=4, alignment=TA_JUSTIFY)
+    S_BODY         = _s("bd",  fontName="Helvetica",      fontSize=9.5, leading=14, textColor=_h(C_BLACK), spaceAfter=3, alignment=TA_JUSTIFY)
+    S_FINSIGHT     = _s("fs",  fontName="Helvetica",      fontSize=9.5, leading=14, textColor=_h(C_BLACK), spaceAfter=3, alignment=TA_JUSTIFY)
+    S_SOURCE_ITEM  = _s("si",  fontName="Helvetica",      fontSize=8.5, leading=12, textColor=_h(C_GREY_DARK), spaceAfter=2)
+    S_FOOTER       = _s("ft",  fontName="Helvetica",      fontSize=7.5, textColor=_h(C_GREY_DARK), leading=10, alignment=TA_CENTER)
+    S_BOLD_LABEL   = _s("bl",  fontName="Helvetica-Bold", fontSize=9,   textColor=_h(C_NAVY2), leading=13, spaceAfter=2)
 
-    articles = result.get("articles", [])
-    editorial = result.get("editorial", "")
-    content_w = W - ML - MR
+    title    = article_data.get("title",    "Veille IA & Finance d'Entreprise")
+    subtitle = article_data.get("subtitle", "")
+    art_md   = article_data.get("article_md", "")
+    sources  = article_data.get("sources",  [])
 
     elems = []
 
-    # ==========================================================================
-    # PAGE DE GARDE INTEGREE (pas de page separee — debut du flux)
-    # ==========================================================================
-
-    elems.append(Spacer(1, 6 * mm))
-
-    # Titre principal
-    elems.append(Paragraph(_enc("FinSight IA"), S_MAIN_TITLE))
-    elems.append(Paragraph(_enc("Veille Technologique"), _s("vt",
-        fontName="Helvetica", fontSize=15, textColor=_h(C_NAVY2), leading=18, spaceAfter=2)))
-    elems.append(Paragraph(_enc(edition), S_MAIN_DATE))
-
-    # Ligne de tags thematiques
-    cats = sorted({a.get("cat","") for a in articles if a.get("cat")})
-    tags = "  ·  ".join(cats) if cats else "LLM  ·  Finance  ·  Agents  ·  Recherche"
-    elems.append(Spacer(1, 2 * mm))
-    elems.append(Paragraph(_enc(tags), S_TAGS_LINE))
-    elems.append(Spacer(1, 3 * mm))
-
-    # Ligne de separation epaisse
-    elems.append(HRFlowable(width="100%", thickness=2, color=_h(C_NAVY), spaceAfter=8))
-
-    # -- Editorial intro --------------------------------------------------------
-    if editorial:
-        edito_table = Table(
-            [[Paragraph(_enc(editorial), S_EDITO)]],
-            colWidths=[content_w],
-        )
-        edito_table.setStyle(TableStyle([
-            ("BACKGROUND",  (0,0), (-1,-1), _h(C_GREY_BG)),
-            ("BOX",         (0,0), (-1,-1), 0.5, _h(C_GREY_MED)),
-            ("LEFTPADDING",  (0,0), (-1,-1), 10),
-            ("RIGHTPADDING", (0,0), (-1,-1), 10),
-            ("TOPPADDING",   (0,0), (-1,-1), 8),
-            ("BOTTOMPADDING",(0,0), (-1,-1), 8),
-        ]))
-        elems.append(edito_table)
-        elems.append(Spacer(1, 6 * mm))
-
-    # ==========================================================================
-    # SECTION TOP 10
-    # ==========================================================================
-
-    # En-tete de section
-    sec_row = Table(
-        [[Paragraph(_enc("Selection FinSight — Top 10 articles"), S_SEC_TITLE),
-          Paragraph(_enc(f"{len(articles)} articles  |  {len(set(a.get('source','') for a in articles))} sources"), S_META)]],
-        colWidths=[content_w * 0.72, content_w * 0.28],
-    )
-    sec_row.setStyle(TableStyle([
-        ("ALIGN",       (1,0), (1,0), "RIGHT"),
-        ("VALIGN",      (0,0), (-1,-1), "MIDDLE"),
-        ("LEFTPADDING",  (0,0), (-1,-1), 0),
-        ("RIGHTPADDING", (0,0), (-1,-1), 0),
-        ("TOPPADDING",   (0,0), (-1,-1), 0),
-        ("BOTTOMPADDING",(0,0), (-1,-1), 6),
-    ]))
-    elems.append(sec_row)
-    elems.append(HRFlowable(width="100%", thickness=0.5, color=_h(C_GREY_MED), spaceAfter=6))
-
-    # -- Articles ---------------------------------------------------------------
-    for i, art in enumerate(articles):
-        date_label = art["date"].strftime("%d/%m/%Y") if hasattr(art.get("date"), "strftime") else str(art.get("date",""))[:10]
-        cat        = art.get("cat", "IA")
-        cat_color  = CAT_COLORS.get(cat, C_NAVY2)
-        source     = art.get("source", "?")
-        link       = art.get("link",   "")
-        link_short = re.sub(r"^https?://(?:www\.)?", "", link)[:90]
-        resume     = art.get("resume_fr") or art.get("summary", "")[:350]
-        impl       = art.get("implication", "")
-
-        # Badge categorie colore
-        cat_badge = (
-            f'<font color="{cat_color}"><b>[{_enc(cat.upper())}]</b></font>'
-            f'  <font color="{C_GREY_DARK}">{_enc(source)}  ·  {date_label}</font>'
-        )
-
-        card_content = [
-            Paragraph(_enc(f"{i+1:02d}. {art['title']}"), S_ART_TITLE),
-            Paragraph(cat_badge, S_META),
-            Paragraph(_enc(resume), S_RESUME),
-        ]
-        if impl:
-            card_content.append(Paragraph(_enc(f"  FinSight — {impl}"), S_IMPL))
-        if link:
-            link_href = html.escape(link, quote=True)
-            card_content.append(Spacer(1, 2))
-            card_content.append(Paragraph(
-                f'  <link href="{link_href}" color="{C_NAVY2}"><u>{_enc(link_short)}</u></link>',
-                S_LINK
-            ))
-
-        # Carte avec fond alternant
-        bg_color = C_GREY_BG if i % 2 == 0 else C_WHITE
-        card = Table([[card_content]], colWidths=[content_w])
-        card.setStyle(TableStyle([
-            ("BACKGROUND",   (0,0), (-1,-1), _h(bg_color)),
-            ("LEFTPADDING",  (0,0), (-1,-1), 8),
-            ("RIGHTPADDING", (0,0), (-1,-1), 8),
-            ("TOPPADDING",   (0,0), (-1,-1), 8),
-            ("BOTTOMPADDING",(0,0), (-1,-1), 8),
-        ]))
-        elems.append(KeepTogether([card, Spacer(1, 2)]))
-
+    # ------------------------------------------------------------------
+    # EN-TETE
+    # ------------------------------------------------------------------
     elems.append(Spacer(1, 4 * mm))
+    elems.append(Paragraph(_enc(title), S_COVER_TITLE))
+    if subtitle:
+        elems.append(Paragraph(_enc(subtitle), S_COVER_SUB))
+    elems.append(Paragraph(_enc(f"FinSight IA  ·  Veille IA & Finance d'Entreprise  ·  {date_fr}"), S_COVER_DATE))
+    elems.append(Spacer(1, 3 * mm))
+    elems.append(HRFlowable(width="100%", thickness=2, color=_h(C_NAVY), spaceAfter=6))
 
-    # ==========================================================================
-    # SECTION BONUS
-    # ==========================================================================
+    # ------------------------------------------------------------------
+    # CORPS DE L'ARTICLE (parsing markdown minimal)
+    # ------------------------------------------------------------------
+    in_sources = False
+    in_finsight = False
+    pending_section = None  # titre de section en attente
+    para_buffer: list[str] = []
 
-    if bonus5:
-        elems.append(HRFlowable(width="100%", thickness=1, color=_h(C_GREY_MED), spaceAfter=8))
-        bonus_hdr = Table(
-            [[Paragraph(_enc("Bonus — 5 ressources complementaires selectionnees par l'IA"), S_SEC_BONUS),
-              Paragraph(_enc("Suggestions editoriales"), S_META)]],
-            colWidths=[content_w * 0.75, content_w * 0.25],
-        )
-        bonus_hdr.setStyle(TableStyle([
-            ("ALIGN",       (1,0), (1,0), "RIGHT"),
-            ("VALIGN",      (0,0), (-1,-1), "MIDDLE"),
-            ("LEFTPADDING",  (0,0), (-1,-1), 0),
-            ("RIGHTPADDING", (0,0), (-1,-1), 0),
-            ("TOPPADDING",   (0,0), (-1,-1), 0),
-            ("BOTTOMPADDING",(0,0), (-1,-1), 6),
-        ]))
-        elems.append(bonus_hdr)
-        elems.append(HRFlowable(width="100%", thickness=0.5, color=_h(C_GREY_MED), spaceAfter=6))
+    def _flush_buffer():
+        if para_buffer:
+            text = " ".join(para_buffer).strip()
+            if text:
+                style = S_FINSIGHT if in_finsight else (S_LEAD if pending_section == "En bref" else S_BODY)
+                elems.append(Paragraph(_md_to_rl(text), style))
+                elems.append(Spacer(1, 1.5 * mm))
+            para_buffer.clear()
 
-        for i, art in enumerate(bonus5):
-            date_label = str(art.get("date",""))[:10]
-            cat        = art.get("cat","IA")
-            source     = art.get("source","?")
-            link       = art.get("link","")
-            link_short = re.sub(r"^https?://(?:www\.)?", "", link)[:90]
-            resume     = art.get("resume_fr","")
-            impl       = art.get("implication","")
+    for line in art_md.split("\n"):
+        stripped = line.strip()
 
-            cat_badge = (
-                f'<font color="{C_AMBER}"><b>[BONUS {i+1}]</b></font>'
-                f'  <font color="{C_GREY_DARK}">{_enc(source)}  ·  {_enc(cat)}</font>'
-            )
-            bonus_card_content = [
-                Paragraph(_enc(art.get("title","")), S_BONUS_T),
-                Paragraph(cat_badge, S_META),
-                Paragraph(_enc(resume), S_RESUME),
-            ]
-            if impl:
-                bonus_card_content.append(Paragraph(_enc(f"  FinSight — {impl}"), S_IMPL))
-            if link:
-                link_href = html.escape(link, quote=True)
-                bonus_card_content.append(Spacer(1, 2))
-                bonus_card_content.append(Paragraph(
-                    f'  <link href="{link_href}" color="{C_NAVY2}"><u>{_enc(link_short)}</u></link>',
-                    S_LINK
-                ))
+        # Ligne vide -> flush paragraphe courant
+        if not stripped:
+            _flush_buffer()
+            continue
 
-            bonus_card = Table([[bonus_card_content]], colWidths=[content_w])
-            bonus_card.setStyle(TableStyle([
-                ("BACKGROUND",   (0,0), (-1,-1), _h("#FEFAF3")),
-                ("LINEBEFORE",   (0,0), (0,-1), 2.5, _h(C_AMBER)),
-                ("LEFTPADDING",  (0,0), (-1,-1), 10),
-                ("RIGHTPADDING", (0,0), (-1,-1), 8),
-                ("TOPPADDING",   (0,0), (-1,-1), 7),
-                ("BOTTOMPADDING",(0,0), (-1,-1), 7),
-            ]))
-            elems.append(KeepTogether([bonus_card, Spacer(1, 3)]))
+        # Separateur ---
+        if re.match(r'^-{3,}$', stripped):
+            _flush_buffer()
+            elems.append(Spacer(1, 3 * mm))
+            elems.append(HRFlowable(width="100%", thickness=0.5, color=_h(C_GREY_MED), spaceAfter=4))
+            continue
 
-    # ==========================================================================
+        # Titre h2 (## ...) -> titre principal (pas re-affiche, deja dans l'entete)
+        if stripped.startswith("## "):
+            continue
+
+        # Sous-titre *...* au debut
+        if stripped.startswith("*") and stripped.endswith("*") and not stripped.startswith("**"):
+            continue  # deja dans l'entete
+
+        # Ligne **FinSight IA · ...** -> skip (deja dans entete)
+        if stripped.startswith("**FinSight IA"):
+            continue
+
+        # Titre h3 (### ...) -> section
+        if stripped.startswith("### "):
+            _flush_buffer()
+            sec_name = stripped[4:].strip()
+            in_sources  = "sources" in sec_name.lower()
+            in_finsight = "finsight" in sec_name.lower() or "regard" in sec_name.lower()
+            pending_section = sec_name
+
+            if in_sources:
+                elems.append(Spacer(1, 3 * mm))
+                elems.append(HRFlowable(width="100%", thickness=1, color=_h(C_GREY_MED), spaceAfter=4))
+                elems.append(Paragraph(_enc("Sources"), S_SECTION))
+            elif in_finsight:
+                elems.append(Spacer(1, 3 * mm))
+                elems.append(HRFlowable(width="100%", thickness=1.5, color=_h(C_NAVY2), spaceAfter=6))
+                from reportlab.platypus import Table, TableStyle
+                fs_header = Table(
+                    [[Paragraph(_enc("Regard FinSight"), _s("fsh", fontName="Helvetica-Bold", fontSize=11,
+                        textColor=_h(C_WHITE), leading=14, spaceAfter=0))]],
+                    colWidths=[W - ML - MR],
+                )
+                fs_header.setStyle(TableStyle([
+                    ("BACKGROUND",  (0,0),(-1,-1), _h(C_NAVY)),
+                    ("LEFTPADDING", (0,0),(-1,-1), 8),
+                    ("TOPPADDING",  (0,0),(-1,-1), 6),
+                    ("BOTTOMPADDING",(0,0),(-1,-1), 6),
+                ]))
+                elems.append(fs_header)
+                elems.append(Spacer(1, 3 * mm))
+            else:
+                elems.append(Paragraph(_enc(sec_name), S_SECTION))
+                elems.append(HRFlowable(width="100%", thickness=0.5, color=_h(C_GREY_MED), spaceAfter=4))
+            continue
+
+        # Lignes de sources [n] ...
+        if in_sources:
+            _flush_buffer()
+            # Tente de rendre le lien cliquable
+            m_src = re.match(r'\[(\d+)\]\s*(.+)', stripped)
+            if m_src:
+                num  = m_src.group(1)
+                rest = m_src.group(2)
+                # Cherche URL dans le reste
+                m_url = re.search(r'(https?://\S+)', rest)
+                if m_url:
+                    url  = m_url.group(1).rstrip('.,)')
+                    text_part = rest[:m_url.start()].rstrip(' —-')
+                    import html as _ht
+                    url_esc = _ht.escape(url, quote=True)
+                    rl_line = (
+                        f'<b>[{num}]</b> {_enc(text_part)} '
+                        f'<link href="{url_esc}" color="{C_NAVY2}"><u>{_enc(url[:70])}{"..." if len(url)>70 else ""}</u></link>'
+                    )
+                else:
+                    rl_line = f'<b>[{num}]</b> {_enc(rest)}'
+                elems.append(Paragraph(rl_line, S_SOURCE_ITEM))
+                elems.append(Spacer(1, 1 * mm))
+            else:
+                elems.append(Paragraph(_enc(stripped), S_SOURCE_ITEM))
+            continue
+
+        # Lignes normales -> accumule dans le buffer paragraphe
+        # Gere les lignes bold isolees (ex: **Titre de sous-section**)
+        if stripped.startswith("**") and stripped.endswith("**") and stripped.count("**") == 2:
+            _flush_buffer()
+            elems.append(Paragraph(_md_to_rl(stripped), S_BOLD_LABEL))
+            continue
+
+        para_buffer.append(stripped)
+
+    _flush_buffer()  # flush final
+
+    # ------------------------------------------------------------------
     # FOOTER
-    # ==========================================================================
-
+    # ------------------------------------------------------------------
     elems.append(Spacer(1, 6 * mm))
-    elems.append(HRFlowable(width="100%", thickness=1, color=_h(C_NAVY), spaceAfter=5))
-    n_src = len(set(a.get("source","") for a in articles))
+    elems.append(HRFlowable(width="100%", thickness=1, color=_h(C_NAVY), spaceAfter=4))
     elems.append(Paragraph(
-        _enc(f"FinSight IA v1.0  —  Veille generee le {date_fr}  —  "
-             f"{n_src} sources actives  —  Groq llama-3.3-70b  —  RSS / feedparser"),
-        S_FOOTER
+        _enc(f"FinSight IA v1.2  —  Veille generee le {date_fr}  —  {len(sources)} sources referencees"),
+        S_FOOTER,
     ))
     elems.append(Paragraph(
-        _enc("Document genere automatiquement. Les resumes sont produits par IA et peuvent contenir des approximations."
-             " Ne constitue pas un conseil en investissement."),
-        S_FOOTER
+        _enc("Document genere par IA. Ne constitue pas un conseil en investissement. Sources verifiees au moment de la collecte."),
+        S_FOOTER,
     ))
 
-    # -- Header/footer sur chaque page ------------------------------------------
     def _on_page(canvas, doc_obj):
         canvas.saveState()
-        # Bande navy en haut
         canvas.setFillColor(_h(C_NAVY))
         canvas.rect(0, H - 9 * mm, W, 9 * mm, fill=1, stroke=0)
         canvas.setFillColor(_h(C_WHITE))
         canvas.setFont("Helvetica-Bold", 8)
-        canvas.drawString(ML, H - 6 * mm, "FinSight IA  ·  Veille Technologique")
+        canvas.drawString(ML, H - 6 * mm, "FinSight IA  ·  Veille IA & Finance d'Entreprise")
         canvas.setFont("Helvetica", 8)
-        canvas.drawRightString(W - MR, H - 6 * mm,
-                               f"{date_fr}  ·  Page {doc_obj.page}")
+        canvas.drawRightString(W - MR, H - 6 * mm, f"{date_fr}  ·  Page {doc_obj.page}")
         canvas.restoreState()
 
     doc.build(elems, onFirstPage=_on_page, onLaterPages=_on_page)
@@ -776,54 +673,62 @@ def build_pdf(result: dict, bonus5: list[dict], output_path: Path) -> Path:
 # POINT D'ENTREE
 # =============================================================================
 
-def run_veille(days: int | None = None) -> Path:
+def run_veille(days: int | None = None) -> dict:
+    """
+    Lance la veille complete.
+    Retourne {"pdf_path": Path, "article_md": str, "title": str, "subtitle": str, "date_fr": str}
+    """
     print(f"\n{'='*55}")
-    print("  FINSIGHT IA -- Veille Technologique")
+    print("  FINSIGHT IA -- Veille IA & Finance d'Entreprise")
     print(f"{'='*55}\n")
 
-    # 1. Fetch + filtrage
-    candidates = fetch_articles(days_override=days)
-    if not candidates:
-        print("[VEILLE] Aucun article — essayez --days 30")
-        sys.exit(1)
-
-    # 2. Selection LLM + resumes editoriaux (un seul appel)
-    print(f"[VEILLE] Selection et resumes editoriaux (LLM)...")
-    result = llm_select_and_summarize(candidates)
-    print(f"[VEILLE] {len(result.get('articles',[]))} articles selectionnes")
-
-    # 3. Bonus
-    print("[VEILLE] Suggestions bonus (LLM)...")
-    bonus5 = suggest_bonus(result.get("articles", []))
-    print(f"[VEILLE] {len(bonus5)} articles bonus")
-
-    # 4. PDF
     _MOIS_FR = ["janvier","fevrier","mars","avril","mai","juin",
                 "juillet","aout","septembre","octobre","novembre","decembre"]
-    d = datetime.now()
-    date_tag  = d.strftime("%Y%m%d")
-    # Numero sequentiel sur la date : veille_20260326_1.pdf, _2.pdf, ...
+    today   = datetime.now()
+    date_fr = f"{today.day} {_MOIS_FR[today.month-1]} {today.year}"
+
+    # 1. Fetch
+    candidates = fetch_articles(days_override=days)
+    if not candidates:
+        print("[VEILLE] Aucun article -- essayez --days 30")
+        # Renvoie un resultat vide plutot que sys.exit (pour app.py)
+        return {"pdf_path": None, "article_md": "Aucun article collecte.", "title": "Veille vide", "subtitle": "", "date_fr": date_fr}
+
+    # 2. Redaction LLM
+    print(f"[VEILLE] Redaction article LLM ({len(candidates)} candidats)...")
+    article_data = llm_write_article(candidates, date_fr)
+    print(f"[VEILLE] Article genere ({len(article_data.get('article_md',''))} chars)")
+
+    # 3. PDF
+    date_tag = today.strftime("%Y%m%d")
     seq = 1
     while (OUTPUT_DIR / f"veille_{date_tag}_{seq}.pdf").exists():
         seq += 1
-    out_path  = OUTPUT_DIR / f"veille_{date_tag}_{seq}.pdf"
+    out_path = OUTPUT_DIR / f"veille_{date_tag}_{seq}.pdf"
     print(f"[VEILLE] Generation PDF -> {out_path.name}")
-    build_pdf(result, bonus5, out_path)
+    build_pdf(article_data, out_path)
 
     print(f"\n[VEILLE] Termine : {out_path}")
     print(f"{'='*55}\n")
-    return out_path
+
+    return {
+        "pdf_path":   out_path,
+        "article_md": article_data.get("article_md", ""),
+        "title":      article_data.get("title", "Veille IA & Finance d'Entreprise"),
+        "subtitle":   article_data.get("subtitle", ""),
+        "date_fr":    date_fr,
+    }
 
 
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument("--days", type=int, default=None,
-                        help="Fenetre temporelle globale (ecrase les fenetres par source)")
+    parser.add_argument("--days", type=int, default=None)
     args = parser.parse_args()
 
-    pdf_path = run_veille(days=args.days)
-    try:
-        os.startfile(str(pdf_path))
-    except Exception as e:
-        print(f"[VEILLE] Ouverture PDF : {e}\n -> {pdf_path}")
+    result = run_veille(days=args.days)
+    if result["pdf_path"]:
+        try:
+            os.startfile(str(result["pdf_path"]))
+        except Exception:
+            pass
