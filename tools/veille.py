@@ -163,6 +163,12 @@ def _score(title: str, summary: str) -> int:
     for kw in KW_MED:
         if kw in text:
             score += 3
+    # Bonus longueur resume : vrai article de fond vs simple communique
+    n = len(summary)
+    if n > 600:
+        score += 10
+    elif n > 300:
+        score += 5
     return min(score, 100)
 
 
@@ -172,6 +178,69 @@ def _is_relevant(title: str, summary: str) -> bool:
         if kw in text:
             return False
     return True
+
+
+# =============================================================================
+# DONNEES MARCHE (yfinance) — ancre l'article sur des chiffres reels
+# =============================================================================
+
+def _fetch_market_snapshot() -> str:
+    """Retourne un bloc texte avec les donnees marche actuelles via yfinance.
+    Utilise le meme pattern que fetch_market_context() dans app.py."""
+    try:
+        import yfinance as yf
+        items = [
+            ("^GSPC",    "S&P 500",             "pts"),
+            ("^FCHI",    "CAC 40",              "pts"),
+            ("^VIX",     "VIX (volatilite)",    ""),
+            ("^TNX",     "Taux 10Y US",         "%"),
+            ("^TYX",     "Taux 30Y US",         "%"),
+            ("EURUSD=X", "EUR/USD",             ""),
+            ("GC=F",     "Or",                  "$/oz"),
+            ("BOTZ",     "ETF IA (BOTZ)",       "$"),
+            ("XLF",      "ETF Financieres (XLF)","$"),
+            ("QQQ",      "ETF Tech (QQQ)",      "$"),
+        ]
+        lines = []
+        for sym, label, unit in items:
+            try:
+                hist = yf.Ticker(sym).history(period="5d")
+                if hist.empty:
+                    continue
+                last = float(hist["Close"].iloc[-1])
+                # YTD : premiere cloture de l'annee
+                hist_ytd = yf.Ticker(sym).history(
+                    start=f"{datetime.now().year}-01-01", period="1y"
+                )
+                ytd_str = ""
+                if not hist_ytd.empty and len(hist_ytd) > 1:
+                    first = float(hist_ytd["Close"].iloc[0])
+                    ytd_pct = (last - first) / first * 100
+                    sign = "+" if ytd_pct >= 0 else ""
+                    ytd_str = f" | YTD {sign}{ytd_pct:.1f}%"
+                # Variation 1j
+                d1_str = ""
+                if len(hist) >= 2:
+                    prev = float(hist["Close"].iloc[-2])
+                    d1 = (last - prev) / prev * 100
+                    sign = "+" if d1 >= 0 else ""
+                    d1_str = f" ({sign}{d1:.1f}% J-1)"
+                val_fmt = f"{last:,.0f}" if last > 100 else f"{last:.2f}"
+                lines.append(f"- {label} : {val_fmt} {unit}{d1_str}{ytd_str}")
+            except Exception:
+                pass
+        if not lines:
+            return ""
+        date_snap = datetime.now().strftime("%d/%m/%Y")
+        return (
+            f"\nCONTEXTE MARCHE REEL AU {date_snap} (source yfinance) :\n"
+            + "\n".join(lines)
+            + "\nNote : utiliser ces chiffres comme ancre factuelle. "
+              "Ne pas les inventer ou les modifier.\n"
+        )
+    except Exception as e:
+        print(f"[VEILLE] market snapshot : {e}")
+        return ""
 
 
 # =============================================================================
@@ -259,7 +328,7 @@ def _build_prompt(candidates: list[dict], date_fr: str) -> str:
     # Garder au moins 15 si le filtre est trop agressif
     if len(filtered) < 15:
         filtered = candidates
-    top20 = filtered[:15]  # 15 au lieu de 20 pour reduire la taille du prompt
+    top20 = filtered[:15]
     art_list = ""
     for i, a in enumerate(top20):
         d = a["date"].strftime("%d/%m/%Y") if hasattr(a.get("date"), "strftime") else str(a.get("date",""))[:10]
@@ -267,6 +336,8 @@ def _build_prompt(candidates: list[dict], date_fr: str) -> str:
             f"\n[{i}] {a['source']} | {d}\n"
             f"TITRE: {a['title']}\nEXTRAIT: {a['summary'][:250]}\nLIEN: {a['link']}\n"
         )
+
+    market_block = _fetch_market_snapshot()
 
     return f"""Tu es analyste senior dans une division recherche institutionnelle specialisee en IA appliquee a la finance d\'entreprise.
 Audience : directeurs financiers (CFO), analystes M&A, responsables corporate finance, investisseurs institutionnels.
@@ -312,6 +383,8 @@ INTERDIT d\'inventer des chiffres. Si la source ne les donne pas, formule qualit
 EXPERTS REELS UNIQUEMENT : Tirole, Stiglitz, Blanchard, Lagarde, Gensler, Altman, Amodei, Dimon, Fink, Bengio, LeCun, Ng.
 N\'invente jamais un nom d\'expert ni une citation.
 
+DONNEES MARCHE REELLES (utiliser comme ancre factuelle, ne pas modifier) :
+{market_block}
 ARTICLES DISPONIBLES ({len(top20)} sources collectees) :
 {art_list}
 
@@ -397,6 +470,366 @@ Reponds UNIQUEMENT en JSON valide sans markdown autour :
 
 
 
+# =============================================================================
+# HELPERS LLM (calls isoles, reutilisables)
+# =============================================================================
+
+def _llm_gemini(prompt: str, max_tokens: int = 8000) -> str | None:
+    """Appel Gemini Flash. Retourne le texte brut ou None."""
+    gk = os.getenv("GEMINI_API_KEY")
+    if not gk:
+        return None
+    from google import genai as _genai
+    client = _genai.Client(api_key=gk)  # un seul client, reutilise pour tous les modeles
+    models = ["models/gemini-2.5-flash", "models/gemini-2.0-flash",
+              "models/gemini-flash-latest"]
+    for m in models:
+        for attempt in range(2):
+            try:
+                resp = client.models.generate_content(
+                    model=m, contents=prompt,
+                    config={"max_output_tokens": max_tokens, "temperature": 0.35},
+                )
+                txt = resp.text.strip()
+                if txt:
+                    print(f"[VEILLE] Gemini {m} OK")
+                    return txt
+                break
+            except Exception as e:
+                emsg = str(e)
+                if "503" in emsg and attempt == 0:
+                    time.sleep(15)
+                    continue
+                print(f"[VEILLE] Gemini {m} : {emsg[:100]}")
+                break
+    return None
+
+
+def _llm_groq(prompt: str, max_tokens: int = 4000, model: str = "llama-3.3-70b-versatile") -> str | None:
+    """Appel Groq. Modele 70b = analyse ; 8b = taches simples. Retourne texte brut ou None."""
+    groq_keys = [k for k in [
+        os.getenv("GROQ_API_KEY_1"), os.getenv("GROQ_API_KEY_2"), os.getenv("GROQ_API_KEY"),
+    ] if k]
+    for gk in groq_keys:
+        try:
+            from groq import Groq
+            resp = Groq(api_key=gk).chat.completions.create(
+                model=model,
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=max_tokens,
+                temperature=0.35,
+            )
+            txt = resp.choices[0].message.content.strip()
+            if txt:
+                print(f"[VEILLE] Groq {model} OK (...{gk[-6:]})")
+                return txt
+        except Exception as e:
+            print(f"[VEILLE] Groq {model} ...{gk[-6:] if gk else '?'} : {str(e)[:100]}")
+    return None
+
+
+def _llm_mistral(prompt: str, max_tokens: int = 4000, model: str = "mistral-large-latest") -> str | None:
+    """Appel Mistral. Meilleur pour la qualite en francais. Retourne texte brut ou None."""
+    mk = os.getenv("MISTRAL_API_KEY")
+    if not mk:
+        return None
+    try:
+        from mistralai.client import Mistral
+        resp = Mistral(api_key=mk).chat.complete(
+            model=model,
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=max_tokens,
+            temperature=0.35,
+        )
+        txt = resp.choices[0].message.content.strip()
+        if txt:
+            print(f"[VEILLE] Mistral {model} OK")
+            return txt
+    except Exception as e:
+        print(f"[VEILLE] Mistral {model} : {str(e)[:100]}")
+    return None
+
+
+def _llm_anthropic(prompt: str, max_tokens: int = 3000) -> str | None:
+    """Appel Anthropic Haiku (backup). Retourne texte brut ou None."""
+    ak = os.getenv("ANTHROPIC_API_KEY")
+    if not ak:
+        return None
+    try:
+        import anthropic as _ant
+        resp = _ant.Anthropic(api_key=ak).messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=max_tokens,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        txt = resp.content[0].text.strip()
+        if txt:
+            print("[VEILLE] Anthropic Haiku OK")
+            return txt
+    except Exception as e:
+        print(f"[VEILLE] Anthropic : {str(e)[:100]}")
+    return None
+
+
+def _call_any(prompt: str, max_tokens: int, prefer_french: bool = False) -> str | None:
+    """Appelle les LLM dans l'ordre optimal selon la tache.
+    prefer_french=True : Mistral en premier (meilleur francais).
+    prefer_french=False : Gemini en premier (meilleur volume).
+    """
+    if prefer_french:
+        # Mistral > Groq 70b > Gemini > Anthropic
+        return (
+            _llm_mistral(prompt, max_tokens) or
+            _llm_groq(prompt, max_tokens) or
+            _llm_gemini(prompt, max_tokens) or
+            _llm_anthropic(prompt, max_tokens)
+        )
+    else:
+        # Gemini > Groq 70b > Mistral > Anthropic
+        return (
+            _llm_gemini(prompt, max_tokens) or
+            _llm_groq(prompt, max_tokens) or
+            _llm_mistral(prompt, max_tokens) or
+            _llm_anthropic(prompt, max_tokens)
+        )
+
+
+# =============================================================================
+# MULTI-CALL : prompts decomposed pour modeles a faible context window
+# =============================================================================
+
+def _build_prompt_plan(candidates: list[dict], date_fr: str, market_block: str) -> str:
+    """Prompt leger : titre, sous-titre, En bref, 4 themes de sections.
+    Destine a Groq 8b (rapide, faible output). ~500 tokens output."""
+    titles = "\n".join(
+        f"[{i}] {a['source']} : {a['title']}"
+        for i, a in enumerate(candidates[:15])
+    )
+    return f"""Tu es editeur d'une revue institutionnelle IA x finance d'entreprise.
+Date : {date_fr}
+{market_block}
+TITRES DISPONIBLES :
+{titles}
+
+Genere le plan de l'article en JSON compact :
+{{
+  "title": "Titre declaratif max 12 mots",
+  "subtitle": "Une phrase de contexte factuel",
+  "en_bref": ["Fait 1 verbe action", "Fait 2", "Fait 3", "Fait 4", "Fait 5", "Fait 6"],
+  "theme_s1": "Titre section 1 DECLARATIF — angle : agents/automation FP&A",
+  "theme_s2": "Titre section 2 DECLARATIF — angle : donnees/valorisation/credit",
+  "theme_s3": "Titre section 3 DECLARATIF — angle : regulation/geopolitique",
+  "theme_s4": "Titre section 4 DECLARATIF — angle : adoption/RH/risques operationnels"
+}}
+UNIQUEMENT le JSON, sans markdown."""
+
+
+def _build_prompt_corps(candidates: list[dict], date_fr: str, plan: dict,
+                        part: int, market_block: str) -> str:
+    """Prompt pour sections 1-2 (part=1) ou 3-4+Implications+Vigilance (part=2).
+    ~2000 tokens output, prompt compact (~1800 tokens input)."""
+    # Articles : top 8 pour part 1, suivants pour part 2
+    top = candidates[:8] if part == 1 else candidates[8:16]
+    art_list = ""
+    for i, a in enumerate(top):
+        d = a["date"].strftime("%d/%m/%Y") if hasattr(a.get("date"), "strftime") else ""
+        art_list += (
+            f"\n[{i}] {a['source']} | {d}\n"
+            f"TITRE: {a['title']}\nEXTRAIT: {a['summary'][:300]}\nLIEN: {a['link']}\n"
+        )
+    title = plan.get("title", "")
+    if part == 1:
+        s1, s2 = plan.get("theme_s1", "Section 1"), plan.get("theme_s2", "Section 2")
+        task = f"""Redige les SECTIONS 1 et 2 de l'article intitule "{title}".
+Section 1 : {s1}
+Section 2 : {s2}
+Chaque section : 600-700 mots. Total : 1300-1400 mots.
+Commence directement par ### {s1}"""
+    else:
+        s3, s4 = plan.get("theme_s3", "Section 3"), plan.get("theme_s4", "Section 4")
+        task = f"""Redige les SECTIONS 3, 4, Implications globales et Points de vigilance de l'article "{title}".
+Section 3 : {s3}
+Section 4 : {s4}
+Sections 3 et 4 : 450-500 mots chacune. Implications : 300 mots. Vigilance : 4-5 bullets precis.
+Commence directement par ### {s3}"""
+
+    return f"""Tu es analyste senior, division recherche institutionnelle IA x finance d'entreprise.
+Audience : CFO, analystes M&A. Style : notes JP Morgan. Phrases max 25 mots.
+Citations inline naturelles ("Selon Finextra..."). INTERDIT : inventer chiffres ou experts.
+Experts reels uniquement : Tirole, Lagarde, Dimon, Altman, LeCun, Fink, Bengio, Gensler.
+{market_block}
+SOURCES ({len(top)} articles) :
+{art_list}
+{task}
+Rends UNIQUEMENT le markdown des sections demandees, pas de JSON."""
+
+
+def _build_prompt_tail(candidates: list[dict], date_fr: str, plan: dict) -> str:
+    """Prompt pour Conclusion + Regard FinSight + Pour aller plus loin.
+    Destine a Mistral (meilleur francais, 800-1000 mots)."""
+    top_links = "\n".join(
+        f"- [{a['title']}]({a['link']}) -- *{a['source']}* -- "
+        + (a["date"].strftime("%d/%m/%Y") if hasattr(a.get("date"), "strftime") else "")
+        for a in candidates[:8]
+    )
+    title = plan.get("title", "")
+    themes = " | ".join([
+        plan.get("theme_s1",""), plan.get("theme_s2",""),
+        plan.get("theme_s3",""), plan.get("theme_s4",""),
+    ])
+    return f"""Tu es analyste senior et redacteur en chef d'une revue institutionnelle IA x finance.
+Style : editorial, precis, sans jargon creux. Excellent francais.
+Article : "{title}" — Themes couverts : {themes}
+
+Redige la fin de l'article en markdown :
+
+### Conclusion
+[150-180 mots. Synthese et projection 12-24 mois. Terminer sur un enjeu concret.]
+
+---
+
+### Regard FinSight
+[250-300 mots. Impact concret sur FinSight IA.
+
+**(A) Impact sur FinSight** : 3-4 points precis sur AgentQuant, AgentSynthese, AgentData,
+fonctionnalites valorisation/scoring/comparatif/DCF/Piotroski.
+
+**(B) Theses d'application** : 2-4 hypotheses inedites sur l'IA en finance d'entreprise.
+Inattendues, pas des reformulations. Specifiques et actionnables.]
+
+### Pour aller plus loin
+{top_links}
+
+Rends UNIQUEMENT le markdown ci-dessus, pas de JSON."""
+
+
+def _assemble_multicall(plan: dict, corps1: str, corps2: str,
+                        tail: str, date_fr: str) -> dict:
+    """Assemble les 3 blocs en article complet."""
+    en_bref = "\n".join("- " + b for b in plan.get("en_bref", []))
+    article_md = (
+        f"### En bref\n{en_bref}\n\n"
+        + corps1.strip() + "\n\n"
+        + corps2.strip() + "\n\n"
+        + tail.strip()
+    )
+    return {
+        "title":      plan.get("title", "Veille IA & Finance"),
+        "subtitle":   plan.get("subtitle", f"Edition du {date_fr}"),
+        "article_md": article_md,
+        "sources":    [],
+    }
+
+
+def _try_multicall(candidates: list[dict], date_fr: str) -> dict | None:
+    """Strategie 3 appels sequentiels pour modeles a faible output (Groq/Mistral).
+    Roles : Groq 8b=plan, Groq 70b=corps, Mistral=tail (meilleur francais)."""
+    market_block = _fetch_market_snapshot()
+
+    # --- Appel 1 : Plan (Groq 8b, rapide, ~200 tokens output) ---
+    plan_prompt = _build_prompt_plan(candidates, date_fr, market_block)
+    plan_raw = (
+        _llm_groq(plan_prompt, max_tokens=500, model="llama-3.1-8b-instant") or
+        _llm_groq(plan_prompt, max_tokens=500) or
+        _llm_mistral(plan_prompt, max_tokens=500, model="mistral-small-latest")
+    )
+    if not plan_raw:
+        print("[VEILLE] Multi-call : echec plan")
+        return None
+    try:
+        raw_clean = re.sub(r"^```(?:json)?", "", plan_raw.strip()).strip()
+        raw_clean = re.sub(r"```$", "", raw_clean).strip()
+        plan = json.loads(raw_clean)
+    except Exception:
+        m = re.search(r'\{.*\}', plan_raw, re.DOTALL)
+        if not m:
+            print("[VEILLE] Multi-call : plan JSON invalide")
+            return None
+        try:
+            plan = json.loads(m.group())
+        except Exception:
+            print("[VEILLE] Multi-call : plan JSON invalide (2)")
+            return None
+    print(f"[VEILLE] Multi-call plan OK : \"{plan.get('title','')}\"")
+
+    # --- Appel 2 : Corps sections 1-2 (Groq 70b, analyse structuree) ---
+    c1_prompt = _build_prompt_corps(candidates, date_fr, plan, 1, market_block)
+    corps1 = (
+        _llm_groq(c1_prompt, max_tokens=2500) or
+        _llm_mistral(c1_prompt, max_tokens=2500) or
+        _llm_gemini(c1_prompt, max_tokens=3000)
+    )
+    if not corps1:
+        print("[VEILLE] Multi-call : echec corps 1")
+        return None
+
+    # --- Appel 3 : Corps sections 3-4 + Implications + Vigilance (Groq 70b) ---
+    c2_prompt = _build_prompt_corps(candidates, date_fr, plan, 2, market_block)
+    corps2 = (
+        _llm_groq(c2_prompt, max_tokens=2500) or
+        _llm_mistral(c2_prompt, max_tokens=2500) or
+        _llm_gemini(c2_prompt, max_tokens=3000)
+    )
+    if not corps2:
+        print("[VEILLE] Multi-call : echec corps 2")
+        return None
+
+    # --- Appel 4 : Conclusion + Regard FinSight (Mistral, meilleur francais) ---
+    tail_prompt = _build_prompt_tail(candidates, date_fr, plan)
+    tail = (
+        _llm_mistral(tail_prompt, max_tokens=1500) or
+        _llm_groq(tail_prompt, max_tokens=1500) or
+        _llm_gemini(tail_prompt, max_tokens=2000)
+    )
+    if not tail:
+        print("[VEILLE] Multi-call : echec tail")
+        return None
+
+    result = _assemble_multicall(plan, corps1, corps2, tail, date_fr)
+    print(f"[VEILLE] Multi-call OK : {len(result['article_md'])} chars")
+    return result
+
+
+# =============================================================================
+# VERIFICATION STATISTIQUES : supprime les chiffres sans source
+# =============================================================================
+
+def _verify_stats(article_md: str, candidates: list[dict]) -> str:
+    """Remplace les pourcentages ronds non trouves dans les sources par une formule qualitative.
+    Conservateur : seuls les chiffres ronds multiples de 5 et absents des sources sont flagues."""
+    source_text = " ".join(
+        (a.get("title", "") + " " + a.get("summary", "")).lower()
+        for a in candidates
+    )
+
+    def _check(m):
+        num_str = m.group(1)  # ex: "30" ou "12.4"
+        full = m.group()      # ex: "30%"
+        try:
+            val = float(num_str)
+        except ValueError:
+            return full
+        # Chiffres ronds multiples de 5 : suspect si absent des sources
+        is_round = (val % 5 == 0) and val > 0
+        if not is_round:
+            return full  # garder les chiffres precis (ex: 12.4%)
+        # Verifier presence dans les sources (le nombre exact)
+        if re.search(r'\b' + re.escape(num_str) + r'\b', source_text):
+            return full  # present dans les sources, garder
+        # Chiffre rond non trace -> formule qualitative
+        return "significativement"
+
+    cleaned = re.sub(r'(\d+(?:\.\d+)?)\s*%', _check, article_md)
+    n_replaced = article_md.count("%") - cleaned.count("%")
+    if n_replaced > 0:
+        print(f"[VEILLE] Stats verify : {n_replaced} chiffres ronds non traces remplaces")
+    return cleaned
+
+
+# =============================================================================
+# REDACTION ARTICLE
+# =============================================================================
+
 def llm_write_article(candidates: list[dict], date_fr: str) -> dict:
     """Appelle le LLM pour rediger l'article institutionnel. Retourne {"title","subtitle","article_md","sources"}."""
     prompt = _build_prompt(candidates, date_fr)
@@ -436,97 +869,47 @@ def llm_write_article(candidates: list[dict], date_fr: str) -> dict:
         except Exception:
             return None
 
-    # 0. Gemini Flash (primary — sorties longues, genereux en tokens)
-    gk_gem = os.getenv("GEMINI_API_KEY")
-    if gk_gem:
-        _gem_models = [
-            "models/gemini-2.5-flash",
-            "models/gemini-2.0-flash",
-            "models/gemini-2.0-flash-lite",
-            "models/gemini-flash-latest",
-        ]
-        for _gm in _gem_models:
-            for _attempt in range(2):  # 1 retry sur 503
-                try:
-                    from google import genai as _genai
-                    _gem_client = _genai.Client(api_key=gk_gem)
-                    _gem_resp = _gem_client.models.generate_content(
-                        model=_gm,
-                        contents=prompt,
-                        config={"max_output_tokens": 8000, "temperature": 0.35},
-                    )
-                    result = _parse(_gem_resp.text.strip())
-                    if result:
-                        print(f"[VEILLE] LLM OK : {_gm} (primary)")
-                        return result
-                    break
-                except Exception as e:
-                    _emsg = str(e)
-                    if "503" in _emsg and _attempt == 0:
-                        import time; time.sleep(15)  # retry 503 apres 15s
-                        continue
-                    print(f"[VEILLE] Gemini {_gm} : {_emsg[:120]}")
-                    break
+    def _post(result: dict) -> dict:
+        """Post-processing : verification stats sur l'article final."""
+        if result and result.get("article_md"):
+            result["article_md"] = _verify_stats(result["article_md"], candidates)
+        return result
 
-    # 1. Groq
-    groq_keys = [k for k in [
-        os.getenv("GROQ_API_KEY_1"),
-        os.getenv("GROQ_API_KEY_2"),
-        os.getenv("GROQ_API_KEY"),
-    ] if k]
-    for gk in groq_keys:
-        for model in ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"]:
-            try:
-                from groq import Groq
-                resp = Groq(api_key=gk).chat.completions.create(
-                    model=model,
-                    messages=[{"role": "user", "content": prompt}],
-                    max_tokens=4000,
-                    temperature=0.35,
-                )
-                result = _parse(resp.choices[0].message.content.strip())
-                if result:
-                    print(f"[VEILLE] LLM OK : {model} (key ...{gk[-6:]})")
-                    return result
-            except Exception as e:
-                print(f"[VEILLE] Groq {model} ...{gk[-6:]} : {e}")
+    # === Strategie 1 : Gemini appel unique (8000 tokens = 8-10 pages) ===
+    gem_raw = _llm_gemini(prompt, max_tokens=8000)
+    if gem_raw:
+        result = _parse(gem_raw)
+        if result:
+            return _post(result)
 
-    # 2. Mistral fallback
-    mk = os.getenv("MISTRAL_API_KEY")
-    if mk:
-        try:
-            from mistralai.client import Mistral
-            resp = Mistral(api_key=mk).chat.complete(
-                model="mistral-small-latest",
-                messages=[{"role": "user", "content": prompt}],
-                max_tokens=2800,
-                temperature=0.35,
-            )
-            result = _parse(resp.choices[0].message.content.strip())
-            if result:
-                print("[VEILLE] LLM OK : Mistral small (fallback)")
-                return result
-        except Exception as e:
-            print(f"[VEILLE] Mistral : {e}")
+    # === Strategie 2 : Multi-call Groq/Mistral (4 appels x 4000 tokens) ===
+    print("[VEILLE] Gemini indisponible -> multi-call Groq/Mistral")
+    result = _try_multicall(candidates, date_fr)
+    if result:
+        return _post(result)
 
-    # 3. Anthropic fallback
-    ak = os.getenv("ANTHROPIC_API_KEY")
-    if ak:
-        try:
-            import anthropic as _ant
-            resp = _ant.Anthropic(api_key=ak).messages.create(
-                model="claude-haiku-4-5-20251001",
-                max_tokens=2800,
-                messages=[{"role": "user", "content": prompt}],
-            )
-            result = _parse(resp.content[0].text.strip())
-            if result:
-                print("[VEILLE] LLM OK : Anthropic haiku (fallback)")
-                return result
-        except Exception as e:
-            print(f"[VEILLE] Anthropic : {e}")
+    # === Strategie 3 : Groq single-call JSON (fallback rapide) ===
+    raw = _llm_groq(prompt, max_tokens=4000)
+    if raw:
+        result = _parse(raw)
+        if result:
+            return _post(result)
 
-    # 4. Fallback basique sans LLM
+    # === Strategie 4 : Mistral single-call ===
+    raw = _llm_mistral(prompt, max_tokens=4000)
+    if raw:
+        result = _parse(raw)
+        if result:
+            return _post(result)
+
+    # === Strategie 5 : Anthropic haiku ===
+    raw = _llm_anthropic(prompt, max_tokens=3000)
+    if raw:
+        result = _parse(raw)
+        if result:
+            return _post(result)
+
+    # === Fallback basique sans LLM ===
     print("[VEILLE] Tous LLM epuises — fallback basique")
     return _fallback_article(candidates, date_fr)
 
