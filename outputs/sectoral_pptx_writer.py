@@ -855,7 +855,7 @@ def _chart_valuation_bars(tickers_data) -> bytes:
 
     n = len(points)
     fig_h = max(4.5, n * 0.40 + 1.5)
-    fig, ax = plt.subplots(figsize=(5.8, fig_h))
+    fig, ax = plt.subplots(figsize=(7.5, fig_h))
     fig.patch.set_facecolor('#FFFFFF')
     ax.set_facecolor('#F8F9FA')
 
@@ -881,9 +881,11 @@ def _chart_valuation_bars(tickers_data) -> bytes:
     ax.grid(True, alpha=0.2, axis='x', linestyle=':')
     ax.set_xlim(0, x_max * 1.18)
 
-    kw = dict(transform=ax.transAxes, fontsize=6.5, alpha=0.7)
-    ax.text(0.97, 0.03, "Prime vs mediane", ha='right', color='#A82020', **kw)
-    ax.text(0.03, 0.03, "Decote relative", ha='left', color='#1A7A4A', **kw)
+    from matplotlib.patches import Patch
+    legend_els = [Patch(facecolor='#1A7A4A', label='Sous mediane — opportunite relative'),
+                  Patch(facecolor='#A82020', label='Prime vs mediane — valorisation elevee')]
+    ax.legend(handles=legend_els, loc='lower right', fontsize=7, framealpha=0.85,
+              edgecolor='#CCCCCC', handlelength=1.2, handleheight=0.8)
 
     plt.tight_layout()
     buf = io.BytesIO()
@@ -1135,7 +1137,7 @@ def _s05_presentation(prs, D):
     cats = content.get("catalyseurs", [])
     if cats:
         _rect(slide, 1.1, 7.5, 13.3, 0.45, fill=_NAVY)
-        _txb(slide, "CATALYSEURS CLES", 1.3, 7.55, 12.9, 0.4, size=8, bold=True, color=_WHITE, align=PP_ALIGN.CENTER)
+        _txb(slide, "CATALYSEURS CLES", 1.1, 7.55, 13.3, 0.4, size=8, bold=True, color=_WHITE, align=PP_ALIGN.CENTER)
         for j, (ct, cb) in enumerate(cats[:3]):
             _cx = 1.1 + (13.3 - 12.8) / 2  # centrage horizontal dans le conteneur
             _rect(slide, _cx, 8.05 + j * 1.5, 0.08, 1.35, fill=_BUY)
@@ -1203,7 +1205,7 @@ def _s06_ratios(prs, D):
                font_size=7.5, header_size=8, alt_fill=_GRAYL)
 
     # Analytical text — position dynamique sous la table
-    _s06_text_y = round(2.5 + _s06_tbl_h + 0.3, 2)
+    _s06_text_y = round(2.5 + _s06_tbl_h + 0.7, 2)
     best = td[0] if td else {}
     best_name = best.get("company", best.get("ticker", "Le leader"))[:20]
     ev_best = best.get("ev_ebitda")
@@ -1419,7 +1421,7 @@ def _s11_scores(prs, D):
     # Synthese — incorpore la legende de lecture + analyse (un seul bloc sous la table)
     best = td[0] if td else {}
     best_name = (best.get("company") or best.get("ticker") or "Leader")[:25]
-    _s11_syn_y = round(2.5 + _s11_tbl_h + 1.0, 2)  # gap 1.0cm — espace visible entre table et synthese
+    _s11_syn_y = round(2.5 + _s11_tbl_h + 1.4, 2)  # gap 1.4cm — espace visible entre table et synthese
     _syn_h = min(4.5, max(3.0, 13.5 - _s11_syn_y))
     _rect(slide, 0.9, _s11_syn_y, 23.6, _syn_h, fill=_GRAYL)
     _rect(slide, 0.9, _s11_syn_y, 23.6, 0.7, fill=_NAVY)
@@ -1496,14 +1498,14 @@ def _s13_top3(prs, D):
         _txb(slide, "Catalyseur", cx + 0.4, 8.5, 7.1, 0.5, size=7.5, bold=True, color=_BUY)
         _rect(slide, cx + 0.4, 9.0, 7.1, 1.4, fill=_GREEN_L)
         _rect(slide, cx + 0.4, 9.0, 0.1, 1.4, fill=_BUY)
-        _txb(slide, _fit_s(cat_body, 200), cx + 0.6, 9.05, 6.7, 1.25, size=7.5, color=_GRAYT, wrap=True)
+        _txb(slide, _fit_s(cat_body, 160), cx + 0.6, 9.05, 6.7, 1.25, size=7.5, color=_GRAYT, wrap=True)
 
         # Risk
         risk_title, risk_body = risks[col_i] if col_i < len(risks) else ("Risque", "—")
         _txb(slide, "Risque principal", cx + 0.4, 10.5, 7.1, 0.5, size=7.5, bold=True, color=_SELL)
         _rect(slide, cx + 0.4, 11.1, 7.1, 1.4, fill=_RED_L)
         _rect(slide, cx + 0.4, 11.1, 0.1, 1.4, fill=_SELL)
-        _txb(slide, _fit_s(risk_body, 200), cx + 0.6, 11.15, 6.7, 1.25, size=7.5, color=_GRAYT, wrap=True)
+        _txb(slide, _fit_s(risk_body, 150), cx + 0.6, 11.15, 6.7, 1.25, size=7.5, color=_GRAYT, wrap=True)
 
     _footer(slide)
 
@@ -1591,15 +1593,15 @@ def _s15_entry(prs, D):
 
     # Note methodologique — occupe tout l'espace restant sous la table (plus de KPIs)
     _FOOTER_Y = 13.5
-    _NOTE_H_MAX = min(4.0, _FOOTER_Y - (3.5 + _tbl_h + 0.2))
-    _note_y_calc = round(3.5 + _tbl_h + 0.3, 2)
+    _NOTE_H_MAX = min(2.5, _FOOTER_Y - (3.5 + _tbl_h + 0.2))
+    _note_y_calc = round(3.5 + _tbl_h + 0.5, 2)
     _NOTE_H = max(0, _NOTE_H_MAX)
     if _NOTE_H > 0.4:
         _note_y = _note_y_calc
         _rect(slide, 0.9, _note_y, 23.6, _NOTE_H, fill=_HOLD_L)
         _rect(slide, 0.9, _note_y, 0.1, _NOTE_H, fill=_HOLD)
         _txb(slide, "NOTE METHODOLOGIQUE", 1.3, _note_y + 0.08, 23.1, 0.5,
-             size=8, bold=True, color=_HOLD)
+             size=7.5, bold=True, color=_HOLD)
         if _NOTE_H > 0.9:
             _txb(slide, "La probabilite de rendement positif a 12 mois est calculee sur des configurations similaires identifiees en backtesting sur donnees historiques (2010-2024). Elle ne constitue pas une garantie de performance future.",
                  1.3, _note_y + 0.6, 23.1, _NOTE_H - 0.65, size=7.5, color=_GRAYT, wrap=True)
@@ -1753,10 +1755,10 @@ def _s18_sentiment(prs, D):
     neg_theme = risks[0][0] if risks else "Tendance negative"
     _rect(slide, 0.9, 5.9, 11.4, 1.1, fill=_GREEN_L)
     _rect(slide, 0.9, 5.9, 0.1, 1.1, fill=_BUY)
-    _txb(slide, f"+ {pos_theme} — {cats[0][1][:160] if cats else ''}", 1.3, 5.95, 10.7, 1.0, size=8, color=_GRAYT, wrap=True)
+    _txb(slide, f"+ {pos_theme} — {_fit_s(cats[0][1], 90) if cats else ''}", 1.3, 5.95, 10.7, 1.0, size=8, color=_GRAYT, wrap=True)
     _rect(slide, 13.1, 5.9, 11.4, 1.1, fill=_RED_L)
     _rect(slide, 13.1, 5.9, 0.1, 1.1, fill=_SELL)
-    _txb(slide, f"- {neg_theme} — {risks[0][1][:160] if risks else ''}", 13.5, 5.95, 10.7, 1.0, size=8, color=_GRAYT, wrap=True)
+    _txb(slide, f"- {neg_theme} — {_fit_s(risks[0][1], 90) if risks else ''}", 13.5, 5.95, 10.7, 1.0, size=8, color=_GRAYT, wrap=True)
 
     # Analytical text
     _rect(slide, 0.9, 7.4, 23.6, 5.5, fill=_GRAYL)

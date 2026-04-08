@@ -77,7 +77,7 @@ S_TD_BC = _style('tdbc',size=8, leading=11, color=BLACK, bold=True, align=TA_CEN
 S_TD_G  = _style('tdg', size=8, leading=11, color=BUY_GREEN, bold=True, align=TA_CENTER)
 S_TD_R  = _style('tdr', size=8, leading=11, color=SELL_RED,  bold=True, align=TA_CENTER)
 S_TD_A  = _style('tda', size=8, leading=11, color=HOLD_AMB,  bold=True, align=TA_CENTER)
-S_NOTE  = _style('note',size=6.5,leading=9, color=GREY_TEXT)
+S_NOTE  = _style('note',size=5.5,leading=8, color=GREY_TEXT)
 S_DISC  = _style('disc',size=6.5,leading=9, color=GREY_TEXT, align=TA_JUSTIFY)
 
 
@@ -434,8 +434,8 @@ def _make_valuation_bars(tickers_data: list[dict], sector_name: str) -> io.Bytes
     bar_colors = ['#1A7A4A' if ev < med_ev else '#A82020' for ev in evs]
 
     n = len(points)
-    fig_h = max(5.5, n * 0.46 + 2.0)
-    fig, ax = plt.subplots(figsize=(9.0, fig_h))
+    fig_h = 6.0
+    fig, ax = plt.subplots(figsize=(11.0, fig_h))
     fig.patch.set_facecolor('white')
     ax.set_facecolor('white')
 
@@ -1499,35 +1499,21 @@ def _build_valorisation(scatter_buf, donut_buf, tickers_data: list[dict],
         f"potentiellement injustifiées au regard des fondamentaux.", S_BODY))
     elems.append(Spacer(1, 3*mm))
 
-    scatter_img = Image(scatter_buf, width=125*mm, height=88*mm)
-    scatter_text = (
-        "<b>Lecture du classement</b><br/>"
-        "Le graphique classe les acteurs par EV/EBITDA croissant. "
-        "Les barres vertes indiquent un multiple sous la mediane sectorielle "
-        "\u2014 potentiel opportunite d\u2019entree a analyser."
-        "<br/><br/>"
-        "<b>Ligne mediane</b><br/>"
-        f"La ligne pointillee a {med_ev:.1f}x represente la mediane "
-        "EV/EBITDA du secteur. Les acteurs sous cette ligne peuvent "
-        "offrir les meilleures asymetries risque/rendement."
-        "<br/><br/>"
-        "<b>Couleurs</b><br/>"
-        "Vert : EV/EBITDA sous la mediane (decote relative). "
-        "Rouge : EV/EBITDA au-dessus de la mediane (prime). "
-        "Ne pas confondre decote relative et opportunite absolue \u2014 "
-        "croiser avec les fondamentaux."
-    )
-    scatter_comb = Table([[scatter_img, Paragraph(scatter_text, S_BODY)]],
-                         colWidths=[110*mm, 58*mm])
-    scatter_comb.setStyle(TableStyle([
-        ('VALIGN',      (0,0),(-1,-1), 'TOP'),
-        ('LEFTPADDING', (0,0),(-1,-1), 0), ('RIGHTPADDING',(0,0),(-1,-1), 0),
-        ('TOPPADDING',  (0,0),(-1,-1), 0), ('BOTTOMPADDING',(0,0),(-1,-1), 0),
-        ('LEFTPADDING', (1,0),(1,0),   6),
-    ]))
-    elems.append(scatter_comb)
+    # Chart pleine largeur — non disforme (ratio 11:6 correspond a 170mm x 93mm)
+    scatter_img = Image(scatter_buf, width=TABLE_W, height=93*mm)
+    elems.append(scatter_img)
     elems.append(src(
         f"FinSight IA \u2014 EV/EBITDA LTM vs croissance revenus YoY. yfinance, FMP."))
+    elems.append(Spacer(1, 3*mm))
+    scatter_text = (
+        "Le graphique classe les acteurs par EV/EBITDA croissant. "
+        "<b>Barres vertes</b> : multiple sous la mediane sectorielle"
+        f" ({med_ev:.1f}x) \u2014 potentiel opportunite d\u2019entree a analyser. "
+        "<b>Barres rouges</b> : prime vs mediane \u2014 valorisation elevee, "
+        "ne pas confondre decote relative et opportunite absolue : croiser toujours "
+        "avec les fondamentaux (marge EBITDA, croissance, qualite bilan)."
+    )
+    elems.append(Paragraph(scatter_text, S_BODY))
     elems.append(Spacer(1, 4*mm))
 
     donut_img = Image(donut_buf, width=76*mm, height=80*mm)

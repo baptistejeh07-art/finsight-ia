@@ -1124,14 +1124,6 @@ def _slide_cover(prs, m_a: dict, m_b: dict):
                  f"\u25cf {rec_b}  \u00b7  Cible : {_fr(tbase_b, 0)} {cur_b}  \u00b7  Upside : {up_b}",
                  9, NAVY, bold=True, align=PP_ALIGN.CENTER)
 
-    # Secteur A / B
-    sec_a = m_a.get('sector_a') or ''
-    sec_b = m_b.get('sector_b') or ''
-    add_text_box(slide, 1.27, 8.3, 11.0, 0.56,
-                 sec_a, 9, GREY_TXT, align=PP_ALIGN.CENTER)
-    add_text_box(slide, 13.13, 8.3, 11.0, 0.56,
-                 sec_b, 9, GREY_TXT, align=PP_ALIGN.CENTER)
-
     # Bottom rule + date
     add_rect(slide, 1.02, 12.4, 23.37, 0.03, "AAAAAA")
     add_text_box(slide, 1.02, 12.65, 11.43, 0.56, "Rapport confidentiel", 8, GREY_TXT)
@@ -1267,7 +1259,7 @@ def _slide_profil(prs, m_a: dict, m_b: dict):
     footer_bar(slide)
     slide_title(slide, "Profil Comparatif")
     section_dots(slide, 1)
-    _company_header_band(slide, tkr_a, tkr_b)
+    # Pas de company_header_band — le nom complet est affiche directement dans chaque colonne
 
     def _profile_col(slide, m, side, tkr):
         if side == 'left':
@@ -1282,11 +1274,11 @@ def _slide_profil(prs, m_a: dict, m_b: dict):
         currency = m.get('currency_a' if side == 'left' else 'currency_b') or 'USD'
         cur_sym  = 'EUR' if currency == 'EUR' else '$'
 
-        # En-tete nom (Name + Ticker) — rect plus haut, texte tronque, pas de wrap
-        add_rect(slide, x0, 2.45, w, 0.60, COLOR_A_PAL if side == 'left' else COLOR_B_PAL)
-        add_rect(slide, x0, 2.45, 0.13, 0.60, lbl_color)
-        add_text_box(slide, x0 + 0.22, 2.50, w - 0.3, 0.50,
-                     _truncate(f"{name} ({tkr})", 38), 8, lbl_color, bold=True, wrap=False)
+        # En-tete nom complet (Name + Ticker) — seule ligne d'identification
+        add_rect(slide, x0, 1.80, w, 0.65, COLOR_A_PAL if side == 'left' else COLOR_B_PAL)
+        add_rect(slide, x0, 1.80, 0.13, 0.65, lbl_color)
+        add_text_box(slide, x0 + 0.22, 1.84, w - 0.3, 0.55,
+                     _truncate(f"{name} ({tkr})", 38), 8.5, lbl_color, bold=True, wrap=False)
 
         rows_id = [
             ("Secteur",          _truncate(sector, 22)),
@@ -1303,7 +1295,7 @@ def _slide_profil(prs, m_a: dict, m_b: dict):
             ("Proch. Resultat",  m.get('next_earnings_date') or '\u2014'),
         ]
 
-        y_start = 3.18
+        y_start = 2.60
         row_h   = 0.68
         for ri, (lbl, val) in enumerate(rows_id):
             y = y_start + ri * row_h
@@ -1655,7 +1647,7 @@ def _slide_monte_carlo(prs, m_a: dict, m_b: dict):
         import matplotlib.pyplot as plt
         import numpy as np
 
-        fig, ax = plt.subplots(figsize=(10.0, 5.5))
+        fig, ax = plt.subplots(figsize=(13.0, 5.8))
         fig.patch.set_facecolor('white')
         ax.set_facecolor('#FAFAFA')
 
@@ -1701,7 +1693,21 @@ def _slide_monte_carlo(prs, m_a: dict, m_b: dict):
         ax.tick_params(labelsize=8)
         fig.tight_layout(pad=1.0)
         buf = _make_chart_buf(fig)
-        _insert_chart(slide, buf, 1.02, 6.5, 23.37, 6.2)
+        _insert_chart(slide, buf, 1.02, 6.5, 15.0, 6.2)
+        # Texte explicatif droite
+        from pptx.enum.text import PP_ALIGN as _PA
+        add_rect(slide, 16.5, 6.5, 7.9, 6.2, GREY_BG)
+        add_rect(slide, 16.5, 6.5, 0.13, 6.2, NAVY_MID)
+        expl = (
+            f"DCF Bear/Base/Bull sur 3 scenarios de croissance.\n\n"
+            f"{tkr_a} — Base : {_fr(m_a.get('dcf_base'),0)} {cur_a} "
+            f"| {tkr_b} — Base : {_fr(m_b.get('dcf_base'),0)} {cur_b}\n\n"
+            f"Les barres representent la fourchette de valeur intrinseque "
+            f"selon le scenario macro. Comparer avec le cours actuel "
+            f"({_fr(p_a,0)} {cur_a} / {_fr(p_b,0)} {cur_b}) pour evaluer "
+            f"la marge de securite."
+        )
+        add_text_box(slide, 16.7, 6.7, 7.5, 6.0, expl, 8.5, NAVY_MID, wrap=True)
     except Exception as e:
         log.warning(f"[cmp_pptx] football field error: {e}")
 
@@ -1754,7 +1760,7 @@ def _slide_piotroski(prs, m_a: dict, m_b: dict, synthesis: dict):
                      str(sc_b) if sc_b is not None else "\u2014"))
 
     add_table(
-        slide, 1.02, 4.15, 14.0, 8.0,
+        slide, 1.02, 4.40, 14.0, 7.75,
         num_rows=len(rows_pio), num_cols=3,
         col_widths_pct=[0.60, 0.20, 0.20],
         header_data=["Critere Piotroski", tkr_a, tkr_b],
@@ -1763,8 +1769,8 @@ def _slide_piotroski(prs, m_a: dict, m_b: dict, synthesis: dict):
     )
 
     # Tableaux complementaires
-    add_rect(slide, 15.5, 4.15, 9.5, 0.6, NAVY)
-    add_text_box(slide, 15.65, 4.20, 9.2, 0.5, "Scores Complementaires", 8, WHITE, bold=True)
+    add_rect(slide, 15.5, 4.40, 9.5, 0.6, NAVY)
+    add_text_box(slide, 15.65, 4.46, 9.2, 0.5, "Scores Complementaires", 8, WHITE, bold=True)
 
     rows_sc = [
         ("Beneish M-Score", _fr(m_a.get('beneish_mscore'), 2), _fr(m_b.get('beneish_mscore'), 2)),
@@ -1773,7 +1779,7 @@ def _slide_piotroski(prs, m_a: dict, m_b: dict, synthesis: dict):
         ("Cash Conversion", _frx(m_a.get('cash_conversion')), _frx(m_b.get('cash_conversion'))),
     ]
     add_table(
-        slide, 15.5, 4.90, 9.5, 3.0,
+        slide, 15.5, 5.15, 9.5, 3.0,
         num_rows=len(rows_sc), num_cols=3,
         col_widths_pct=[0.50, 0.25, 0.25],
         header_data=["Indicateur", tkr_a, tkr_b],
@@ -1782,7 +1788,7 @@ def _slide_piotroski(prs, m_a: dict, m_b: dict, synthesis: dict):
     )
 
     # Legende Beneish + Altman
-    add_rect(slide, 15.5, 8.05, 9.5, 4.15, GREY_BG)
+    add_rect(slide, 15.5, 8.30, 9.5, 3.90, GREY_BG)
     legend_lines = [
         "Beneish M-Score : < -1,78 = faible risque",
         "    manipulation comptable ; > -1,78 = risque",
@@ -1794,7 +1800,7 @@ def _slide_piotroski(prs, m_a: dict, m_b: dict, synthesis: dict):
         "Sloan Accruals : proche de 0 = qualite",
         "    earnings elevee (cash-based)",
     ]
-    y_leg = 8.20
+    y_leg = 8.45
     for line in legend_lines:
         add_text_box(slide, 15.7, y_leg, 9.1, 0.38, line, 7.5, GREY_TXT)
         y_leg += 0.38
@@ -2135,14 +2141,14 @@ def _slide_verdict(prs, m_a: dict, m_b: dict, synthesis: dict):
     y_v = 2.95
     add_rect(slide, 1.02, y_v, 23.37, 2.0, NAVY_PALE)
     add_rect(slide, 1.02, y_v, 0.18, 2.0, NAVY_MID)
-    _v_clean = " ".join(_fit(verdict_txt, 340).split()) if verdict_txt else \
+    _v_clean = " ".join(_fit(verdict_txt, 480).split()) if verdict_txt else \
                f"{winner} est privilegiee sur la base des criteres de valorisation, de qualite bilancielle et de momentum."
     add_text_box(slide, 1.4, y_v + 0.12, 22.7, 1.85, _v_clean, 8.5, NAVY, wrap=True)
 
     # Scorecard comparative — compact
     y_sc = 5.35
     add_rect(slide, 1.02, y_sc, 23.37, 0.55, NAVY)
-    add_text_box(slide, 1.15, y_sc + 0.08, 23.0, 0.42, "Scorecard Comparative", 8.5, WHITE, bold=True)
+    add_text_box(slide, 1.30, y_sc + 0.10, 22.8, 0.42, "Scorecard Comparative", 8.5, WHITE, bold=True)
 
     def _score_label(a, b):
         if a is None and b is None: return "\u2014", "\u2014"

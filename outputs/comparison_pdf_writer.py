@@ -100,8 +100,8 @@ S_TD_BC     = _s('tdbc',size=8, leading=11, color=BLACK, bold=True, align=TA_CEN
 S_TD_G      = _s('tdg', size=8, leading=11, color=BUY_GREEN, bold=True, align=TA_CENTER)
 S_TD_R      = _s('tdr', size=8, leading=11, color=SELL_RED,  bold=True, align=TA_CENTER)
 S_TD_A      = _s('tda', size=8, leading=11, color=HOLD_AMB,  bold=True, align=TA_CENTER)
-S_NOTE      = _s('note',size=6.5, leading=9, color=GREY_TEXT)
-S_DISC      = _s('disc',size=6.5, leading=9, color=GREY_TEXT, align=TA_JUSTIFY)
+S_NOTE      = _s('note',size=5.5, leading=8, color=GREY_TEXT)
+S_DISC      = _s('disc',size=5.5, leading=8, color=GREY_TEXT, align=TA_JUSTIFY)
 
 # =============================================================================
 # HELPERS
@@ -337,7 +337,7 @@ def _chart_margins(m_a, m_b, tkr_a, tkr_b) -> io.BytesIO:
         vals_b  = [_pv(m_b.get("ebitda_margin_ltm")), _pv(m_b.get("ebit_margin")), _pv(m_b.get("net_margin_ltm"))]
         x = np.arange(len(labels))
         width = 0.35
-        fig, ax = plt.subplots(figsize=(7, 3.2))
+        fig, ax = plt.subplots(figsize=(8.5, 2.5))
         bars_a = ax.bar(x - width/2, vals_a, width, label=tkr_a, color='#2E5FA3', alpha=0.9)
         bars_b = ax.bar(x + width/2, vals_b, width, label=tkr_b, color='#2E8B57', alpha=0.9)
         for bar in list(bars_a) + list(bars_b):
@@ -942,13 +942,20 @@ def _section_profil_pl(story, m_a, m_b, synthesis, tkr_a, tkr_b):
         story.append(t_pl)
     story.append(Spacer(1, 3*mm))
 
-    # Graphique marges (CondPageBreak pour eviter source orpheline page suivante)
-    story.append(CondPageBreak(72*mm))
+    # Graphique marges — taille reduite pour rester sur page 3
+    story.append(CondPageBreak(58*mm))
     buf = _chart_margins(m_a, m_b, tkr_a, tkr_b)
-    img = Image(buf, width=TABLE_W, height=65*mm)
+    img = Image(buf, width=TABLE_W, height=50*mm)
     story.append(img)
-    story.append(Spacer(1, 2*mm))
+    story.append(Spacer(1, 1*mm))
     story.append(src("FinSight IA / yfinance"))
+    story.append(Spacer(1, 2*mm))
+    story.append(Paragraph(
+        f"Comparaison des marges : {tkr_a} affiche une marge EBITDA de "
+        f"{_frpct(m_a.get('ebitda_margin_ltm'))} vs {_frpct(m_b.get('ebitda_margin_ltm'))} "
+        f"pour {tkr_b}. L'ecart de marge reflete des modeles economiques distincts — "
+        f"a analyser en complement des ratios de croissance et de qualite de bilan.",
+        S_BODY))
 
 
 def _section_rentabilite_bilan(story, m_a, m_b, tkr_a, tkr_b):
@@ -1236,13 +1243,45 @@ def _section_qualite_risque(story, m_a, m_b, synthesis, tkr_a, tkr_b):
         )
         story.append(Paragraph(bullet, _s(f'ri_{key}', size=8, leading=12, color=BLACK, sb=0, sa=3)))
 
+    # Conclusion comparative du profil de risque
+    story.append(Spacer(1, 3*mm))
+    pio_a = m_a.get("piotroski_score"); pio_b = m_b.get("piotroski_score")
+    beta_a = m_a.get("beta"); beta_b = m_b.get("beta")
+    nd_a = m_a.get("net_debt_ebitda"); nd_b = m_b.get("net_debt_ebitda")
+    try:
+        _pio_winner = tkr_a if (pio_a or 0) >= (pio_b or 0) else tkr_b
+        _pio_loser  = tkr_b if _pio_winner == tkr_a else tkr_a
+        _nd_a_f = float(nd_a) if nd_a is not None else 999
+        _nd_b_f = float(nd_b) if nd_b is not None else 999
+        _lev_winner = tkr_a if _nd_a_f <= _nd_b_f else tkr_b
+        _beta_a_f = float(beta_a) if beta_a is not None else 1.0
+        _beta_b_f = float(beta_b) if beta_b is not None else 1.0
+        _vol_comment = (
+            f"{tkr_a} affiche un beta de {_fr(beta_a,2)} vs {_fr(beta_b,2)} pour {tkr_b} "
+            f"— {'expositions similaires au risque de marche' if abs(_beta_a_f - _beta_b_f) < 0.15 else f'{tkr_a if _beta_a_f < _beta_b_f else tkr_b} presente une sensibilite moindre aux variations du marche'}."
+        )
+        conclusion = (
+            f"<b>Synthese comparative du profil de risque :</b> {_enc(_pio_winner)} domine sur la qualite "
+            f"fondamentale (Piotroski {int(pio_a or 0) if _pio_winner == tkr_a else int(pio_b or 0)}/9) "
+            f"tandis que {_enc(_lev_winner)} affiche le levier le plus maitrise. "
+            f"{_enc(_vol_comment)} "
+            f"En agregat, le profil de risque oriente la preference vers la valeur offrant la meilleure "
+            f"combinaison qualite bilancielle / visibilite des flux — a croiser avec la valorisation relative."
+        )
+    except Exception:
+        conclusion = (
+            f"Le profil de risque comparatif de {_enc(tkr_a)} et {_enc(tkr_b)} doit etre "
+            f"analyse en conjonction avec la valorisation et les perspectives de croissance "
+            f"pour identifier la meilleure asymetrie risque/rendement."
+        )
+    story.append(Paragraph(conclusion.replace('&', '&amp;'), S_BODY))
     story.append(Spacer(1, 2*mm))
     story.append(src("FinSight IA / yfinance"))
 
 
 def _section_verdict(story, m_a, m_b, synthesis, tkr_a, tkr_b):
     story.append(PageBreak())
-    story += section_title("Verdict & Theses", "10")
+    story += section_title("Verdict & Theses", "11")
 
     winner = m_a.get("winner") or tkr_a
 
@@ -1588,12 +1627,40 @@ def _section_momentum_marche(story, m_a, m_b, tkr_a, tkr_b):
     buf = _chart_perf_bars(m_a, m_b, tkr_a, tkr_b)
     img = Image(buf, width=TABLE_W * 0.85, height=60*mm)
     story.append(KeepTogether([img, Spacer(1, 2*mm), src("FinSight IA / yfinance")]))
+    story.append(Spacer(1, 3*mm))
+    # Lecture analytique momentum
+    p1y_a = _frpct(m_a.get("perf_1y"), True); p1y_b = _frpct(m_b.get("perf_1y"), True)
+    p3m_a = _frpct(m_a.get("perf_3m"), True); p3m_b = _frpct(m_b.get("perf_3m"), True)
+    var_a = _frpct(m_a.get("var_95_1m")); var_b = _frpct(m_b.get("var_95_1m"))
+    vol_a = _frpct(m_a.get("volatility_52w")); vol_b = _frpct(m_b.get("volatility_52w"))
+    try:
+        _p1y_a_f = float(str(m_a.get("perf_1y") or 0))
+        _p1y_b_f = float(str(m_b.get("perf_1y") or 0))
+        _leader = tkr_a if _p1y_a_f > _p1y_b_f else tkr_b
+        _laggard = tkr_b if _leader == tkr_a else tkr_a
+        momentum_analysis = (
+            f"<b>Lecture analytique :</b> Sur 12 mois, {_enc(_leader)} surperforme avec "
+            f"{p1y_a if _leader == tkr_a else p1y_b} vs {p1y_b if _leader == tkr_a else p1y_a} "
+            f"pour {_enc(_laggard)}. Sur 3 mois, la dynamique recente montre {_enc(tkr_a)} a "
+            f"{p3m_a} vs {p3m_b} pour {_enc(tkr_b)}, signalant une tendance court terme a surveiller. "
+            f"La VaR 95 % mensuelle ({var_a} pour {_enc(tkr_a)} vs {var_b} pour {_enc(tkr_b)}) "
+            f"et la volatilite annualisee ({vol_a} vs {vol_b}) permettent de calibrer "
+            f"le dimensionnement de position en portefeuille — une VaR plus elevee impose "
+            f"une ponderation reduite pour maintenir un budget risque equivalent."
+        )
+    except Exception:
+        momentum_analysis = (
+            f"L'analyse croisee des performances et de la volatilite de {_enc(tkr_a)} et "
+            f"{_enc(tkr_b)} permet d'evaluer l'efficience risque/rendement de chaque titre "
+            f"dans une optique de construction de portefeuille."
+        )
+    story.append(Paragraph(momentum_analysis.replace('&', '&amp;'), S_BODY))
 
 
 def _section_52w_price(story, m_a, m_b, tkr_a, tkr_b, synthesis=None):
     """Section : graphique de cours 52 semaines normalise + texte analytique."""
     story.append(CondPageBreak(80*mm))
-    story += section_title("Evolution Boursiere 52 Semaines", "9b")
+    story += section_title("Evolution Boursiere 52 Semaines", "9")
 
     # Texte introductif
     p1m_a  = _frpct(m_a.get("perf_1m"), True)
@@ -1860,7 +1927,7 @@ def _section_52w_price(story, m_a, m_b, tkr_a, tkr_b, synthesis=None):
 
 def _section_piotroski_detail(story, m_a, m_b, tkr_a, tkr_b):
     story.append(CondPageBreak(100*mm))
-    story += section_title("Analyse Piotroski F-Score", "9")
+    story += section_title("Analyse Piotroski F-Score", "10")
 
     pio_a = m_a.get("piotroski_score")
     pio_b = m_b.get("piotroski_score")
