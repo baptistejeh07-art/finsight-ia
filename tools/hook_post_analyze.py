@@ -19,10 +19,12 @@ if not m:
     sys.exit(0)
 
 ticker = m.group(1).upper()
+_flags = 0x08000000 if sys.platform == "win32" else 0  # CREATE_NO_WINDOW
 subprocess.Popen(
     [sys.executable, "tools/render_outputs.py", ticker],
     cwd=str(ROOT),
     stdout=subprocess.DEVNULL,
     stderr=subprocess.DEVNULL,
+    creationflags=_flags,
 )
 print(json.dumps({"systemMessage": f"[Hook] Render {ticker} lance en arriere-plan"}))

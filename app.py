@@ -24,6 +24,7 @@ import streamlit as st
 # Streamlit Community Cloud : injecte st.secrets → os.environ
 # (doit être APRÈS import streamlit, AVANT tout import de modules métier)
 from core.secrets import inject_secrets
+_NO_WIN = {"creationflags": 0x08000000} if __import__("sys").platform == "win32" else {}
 inject_secrets()
 
 # ---------------------------------------------------------------------------

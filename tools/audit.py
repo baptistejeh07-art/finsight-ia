@@ -28,11 +28,13 @@ REPORTS.mkdir(parents=True, exist_ok=True)
 # Helpers
 # ---------------------------------------------------------------------------
 
+_NO_WIN = {"creationflags": 0x08000000} if __import__("sys").platform == "win32" else {}
+
 def _run(cmd: list[str], timeout: int = 300) -> tuple[int, str]:
     # Force Mistral en mode audit pour preserver les credits Groq (utilisateurs reels)
     import os as _os
     _env = {**_os.environ, "FINSIGHT_LLM_OVERRIDE": "mistral"}
-    r = subprocess.run(cmd, capture_output=True, timeout=timeout, cwd=str(ROOT), env=_env)
+    r = subprocess.run(cmd, capture_output=True, timeout=timeout, cwd=str(ROOT), env=_env, **_NO_WIN)
     out_bytes = r.stdout + r.stderr
     try:
         out_text = out_bytes.decode("utf-8", errors="replace")

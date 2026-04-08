@@ -25,6 +25,7 @@ REPORTS.mkdir(parents=True, exist_ok=True)
 sys.path.insert(0, str(ROOT))
 
 import os
+_NO_WIN = {"creationflags": 0x08000000} if __import__("sys").platform == "win32" else {}
 os.environ.setdefault("FINSIGHT_LLM_OVERRIDE", "mistral")
 
 
