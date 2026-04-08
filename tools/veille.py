@@ -225,71 +225,93 @@ def _build_prompt(candidates: list[dict], date_fr: str) -> str:
             f"TITRE: {a['title']}\nCONTENU: {a['summary'][:400]}\nLIEN: {a['link']}\n"
         )
 
-    return f"""Tu es redacteur senior d'une revue institutionnelle sur l'IA appliquee a la finance d'entreprise.
+    return f"""Tu es analyste senior dans une division recherche institutionnelle specialisee en IA appliquee a la finance d'entreprise.
 Audience : directeurs financiers (CFO), analystes M&A, responsables corporate finance, investisseurs institutionnels.
 
+MODELE DE STYLE : Notes de recherche JP Morgan / Goldman Sachs Macro Research.
+Regles absolues de style :
+1. Titres de sections DECLARATIFS : ils enoncent une conclusion, pas un sujet. Ex : "Les LLM reduisent de 40 % le temps de due diligence" et non "LLM et due diligence".
+2. "En bref" : liste de 4-5 bullets. Chaque bullet commence par un verbe d'action ou une donnee chiffree. Format : "- [Conclusion avec chiffre ou fait precis]"
+3. Chaque section contient AU MOINS UN chiffre, pourcentage ou estimation concrete. Si la source n'en donne pas, extrapoler prudemment et le signaler.
+4. Phrases courtes. Maximum 25 mots par phrase. Pas de subordonnees enchassees.
+5. Zero jargon creux : "game-changer", "paradigm shift", "revolutionner", "transformer profondement" sont INTERDITS.
+6. Pas de formules de politesse, pas de hedging ("il semble que", "peut-etre", "pourrait potentiellement").
+
 SUJET CENTRAL : Comment l'IA (LLM, agents, GenAI, ML) transforme la FINANCE D'ENTREPRISE.
-Sujets pertinents : valorisation automatisee, analyse financiere IA, due diligence augmentee, credit scoring,
+Sujets prioritaires : valorisation automatisee, analyse financiere IA, due diligence augmentee, credit scoring,
 FP&A predictif, reporting automatise, detection de fraude, gestion des risques, M&A assistee par IA, audit IA,
 modeles de prevision, copilotes financiers, agents d'analyse.
+Marches financiers : contexte uniquement, pas sujet principal.
 
-CONTEXTE MARCHE : Quelques lignes en introduction pour donner le contexte macro. Pas le sujet principal.
-
-ANGLE GLOBAL OBLIGATOIRE : Inclure les implications sur l'economie, la societe, les secteurs, les indices,
-la reglementation (DORA, AI Act, Bale IV, MiFID) et la politique industrielle. Vue macro systematique.
+ANGLE GLOBAL OBLIGATOIRE : Implications sur l'economie (emploi, productivite), la societe,
+les secteurs (banque, assurance, conseil, asset management), les indices boursiers,
+la regulation (DORA, AI Act, Bale IV, MiFID) et la politique industrielle. Vue macro systematique.
 
 ARTICLES DISPONIBLES ({len(top20)} sources collectees) :
 {art_list}
 
-MISSION : Redige un article de revue institutionnelle EN FRANCAIS de 900-1100 mots.
-Style : analytique, direct, factuel. Pas de jargon creux ("game-changer", "paradigm shift" interdits).
+MISSION : Redige un article de revue institutionnelle EN FRANCAIS de 950-1150 mots.
 
 STRUCTURE EXACTE A RESPECTER :
 
-## [Titre accrocheur max 12 mots reflétant le theme dominant]
-*[Sous-titre : contexte en une phrase]*
+## [Titre declaratif max 12 mots — enonce une conclusion, pas un sujet]
+*[Sous-titre : une phrase de contexte factuel]*
 **FinSight IA · Veille IA & Finance d'Entreprise · {date_fr}**
 
 ### En bref
-[3-4 phrases de lead : l'essentiel de la semaine en IA finance d'entreprise]
+- [Conclusion 1 avec chiffre ou fait precis — verbe d'action]
+- [Conclusion 2 avec chiffre ou fait precis]
+- [Conclusion 3 avec chiffre ou fait precis]
+- [Conclusion 4 avec chiffre ou fait precis]
+- [Conclusion 5 optionnelle si pertinente]
 
-### [Titre section 1 — 1er theme dominant]
-[200-250 mots. Cite les sources inline avec des notes : "D'apres [NOM SOURCE]¹" ou "Selon [NOM SOURCE]²...".
-Angle : impacts concrets sur les metiers de la finance d'entreprise.]
+### [Titre section 1 DECLARATIF — enonce une conclusion]
+[200-250 mots. Cite les sources inline : "D'apres [NOM SOURCE]¹" ou "Selon [NOM SOURCE]²".
+Au moins un chiffre par section. Impacts concrets sur les metiers de la finance d'entreprise.]
 
-### [Titre section 2 — 2eme theme]
-[180-230 mots. Meme format de citations.]
+### [Titre section 2 DECLARATIF — enonce une conclusion]
+[180-230 mots. Meme format de citations et meme exigence de chiffres.]
 
-### [Titre section 3 — 3eme theme, fusionner si peu de matiere]
+### [Titre section 3 DECLARATIF — fusionner avec section 2 si peu de matiere]
 [150-200 mots.]
 
 ### Implications globales
-[150-200 mots. Comment ces evolutions IA affectent : l'economie (emploi, productivite), les societes
-(transformation des metiers finance), les secteurs (banque, assurance, conseil, asset management),
-les indices boursiers (valorisation des acteurs IA finance), la regulation europeenne et internationale,
-et la politique industrielle (souverainete IA, investissements publics). Vue large obligatoire.]
+[150-200 mots. Vue macro : economie, societe, secteurs, indices boursiers, regulation europeenne, politique industrielle.]
+
+### Points de vigilance
+- [Risque ou limite 1 : factuel et precis]
+- [Risque ou limite 2]
+- [Risque ou limite 3]
 
 ### Conclusion
-[60-80 mots. Synthese et projection a 6-12 mois. Pas de banalites.]
+[50-70 mots max. Synthese et projection a 6-12 mois. Pas de banalites. Terminer par un fait ou chiffre.]
 
 ---
 
 ### Regard FinSight
-[150-200 mots. UNIQUEMENT ICI : comment ces evolutions peuvent ameliorer ou impacter FinSight IA.
+[130-170 mots. UNIQUEMENT ICI : comment ces evolutions impactent FinSight IA.
 Sois specifique : agents concernes (AgentQuant, AgentSynthese, AgentData...), fonctionnalites
-(valorisation, scoring, comparatif...), opportunites techniques concretes.]
+(valorisation, scoring, comparatif...), opportunites techniques concretes.
+
+**(A) Impact sur FinSight** : 2-3 points concrets sur les agents ou modules.
+
+**(B) Theses d'application** *(optionnel — inclure seulement si l'analyse fait emerger des idees originales)* :
+1-3 hypotheses originales sur un usage inedi de l'IA en finance d'entreprise que FinSight pourrait explorer.
+Ces theses doivent etre inattendues, pas des reformulations de l'existant.]
 
 ### Sources
 [1] Titre de l'article — *Nom de la source* — Date — URL
 [2] ...
 [pour chaque source citee dans l'article, avec le vrai lien]
 
-REGLES :
+REGLES ABSOLUES :
 - TOUT en francais (titres de sections compris)
 - Chaque assertion importante cite sa source avec [n]
-- Finance d'entreprise = priorite. Marches financiers = contexte uniquement
-- Regard FinSight UNIQUEMENT en derniere position, apres Conclusion
-- Sources avec URL reels des articles collectes (utilise les liens fournis ci-dessus)
+- Titres de sections DECLARATIFS obligatoires (pas descriptifs)
+- Au moins un chiffre par section thematique
+- Finance d'entreprise = priorite. Marches = contexte
+- Regard FinSight UNIQUEMENT apres Conclusion
+- Sources avec URL reels des articles collectes
 
 Reponds UNIQUEMENT en JSON valide sans markdown autour :
 {{
