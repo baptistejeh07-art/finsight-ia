@@ -577,8 +577,8 @@ def _build_story(D: dict) -> list:
 
     story += section(f"Risques & Catalyseurs — {sector_a}", "7")
     _build_risques_pdf(story, content_a, sector_a)
+    story.append(PageBreak())
 
-    story.append(Spacer(1, 6 * mm))
     story += section(f"Risques & Catalyseurs — {sector_b}", "8")
     _build_risques_pdf(story, content_b, sector_b)
     story.append(PageBreak())
@@ -665,11 +665,12 @@ def _build_top_table(story, tickers, sector_name, col_header):
             Paragraph(_pct(t.get("net_margin"), sign=False), S_TD_C),
             Paragraph(_pct(t.get("roe"), sign=False), S_TD_C),
         ])
-    t = _tbl(top_data, [52*mm, 18*mm, 18*mm, 20*mm, 20*mm, 20*mm, 18*mm, 10*mm], header_col=col_header)
+    t = _tbl(top_data, [46*mm, 18*mm, 18*mm, 20*mm, 20*mm, 20*mm, 18*mm, 16*mm], header_col=col_header)
     story.append(t)
 
 
 def _build_risques_pdf(story, content, sector_name):
+    from reportlab.platypus import KeepTogether as _KT
     cats  = content.get("catalyseurs", [])[:3]
     risks = content.get("risques", [])[:3]
 
@@ -687,11 +688,10 @@ def _build_risques_pdf(story, content, sector_name):
 
     conds = content.get("conditions", [])[:4]
     if conds:
-        story.append(Spacer(1, 3 * mm))
         cond_data = [[Paragraph("Type", S_TH_C), Paragraph("Condition d'invalidation", S_TH_L), Paragraph("Horizon", S_TH_C)]]
         for c in conds:
             cond_data.append([Paragraph(c[0], S_TD_C), Paragraph(c[1][:100], S_TD_L), Paragraph(c[2], S_TD_C)])
-        story.append(_tbl(cond_data, [25*mm, 115*mm, 36*mm]))
+        story.append(_KT([Spacer(1, 3*mm), _tbl(cond_data, [25*mm, 115*mm, 36*mm])]))
 
 
 # ── Entetes / pieds de page ───────────────────────────────────────────────────
