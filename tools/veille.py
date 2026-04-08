@@ -259,159 +259,134 @@ def _build_prompt(candidates: list[dict], date_fr: str) -> str:
     # Garder au moins 15 si le filtre est trop agressif
     if len(filtered) < 15:
         filtered = candidates
-    top20 = filtered[:20]
+    top20 = filtered[:15]  # 15 au lieu de 20 pour reduire la taille du prompt
     art_list = ""
     for i, a in enumerate(top20):
         d = a["date"].strftime("%d/%m/%Y") if hasattr(a.get("date"), "strftime") else str(a.get("date",""))[:10]
         art_list += (
-            f"\n[{i}] SOURCE={a['source']} | CAT={a['cat']} | DATE={d}\n"
-            f"TITRE: {a['title']}\nCONTENU: {a['summary'][:400]}\nLIEN: {a['link']}\n"
+            f"\n[{i}] {a['source']} | {d}\n"
+            f"TITRE: {a['title']}\nEXTRAIT: {a['summary'][:250]}\nLIEN: {a['link']}\n"
         )
 
-    return f"""Tu es analyste senior dans une division recherche institutionnelle specialisee en IA appliquee a la finance d'entreprise.
+    return f"""Tu es analyste senior dans une division recherche institutionnelle specialisee en IA appliquee a la finance d\'entreprise.
 Audience : directeurs financiers (CFO), analystes M&A, responsables corporate finance, investisseurs institutionnels.
 
 MODELE DE STYLE : Notes de recherche JP Morgan / Goldman Sachs Macro Research.
 Regles absolues de style :
-1. Titres de sections DECLARATIFS : ils enoncent une conclusion, pas un sujet. Ex : "Les LLM reduisent de 40 % le temps de due diligence" et non "LLM et due diligence".
-2. "En bref" : liste de 4-5 bullets. Chaque bullet commence par un verbe d'action ou une donnee chiffree. Format : "- [Conclusion avec chiffre ou fait precis]"
-3. Chaque section contient AU MOINS UN fait concret : un exemple d'usage reel, un nom d'organisation, un cas specifique.
-   Si une source mentionne un chiffre dans son resume (champ CONTENU), utilise-le. Sinon, ecris une formulation
-   qualitative solide. INTERDIT d'ecrire "X %" ou "Y fois plus" sans que ce chiffre soit textuellemement
-   present dans un champ CONTENU des articles fournis ci-dessus.
-4. Phrases courtes. Maximum 25 mots par phrase. Pas de subordonnees enchassees.
-5. Zero jargon creux : "game-changer", "paradigm shift", "revolutionner", "transformer profondement" sont INTERDITS.
-6. Pas de formules de politesse, pas de hedging ("il semble que", "peut-etre", "pourrait potentiellement").
+1. Titres de sections DECLARATIFS : ils enoncent une conclusion. Ex : "Les agents IA compriment le cycle de cloture comptable" et non "IA et comptabilite".
+2. "En bref" : liste de 4-5 bullets. Chaque bullet = un fait ou conclusion, verbe d\'action en debut.
+3. Phrases courtes. Maximum 25 mots. Pas de subordonnees enchassees.
+4. Zero jargon creux : "game-changer", "paradigm shift", "revolutionner", "transformer profondement" INTERDITS.
+5. Pas de hedging ("il semble que", "peut-etre", "pourrait potentiellement").
 
-SUJET CENTRAL : Comment l'IA (LLM, agents, GenAI, ML) transforme la FINANCE D'ENTREPRISE.
-Sujets prioritaires : valorisation automatisee, analyse financiere IA, due diligence augmentee, credit scoring,
-FP&A predictif, reporting automatise, detection de fraude, gestion des risques, M&A assistee par IA, audit IA,
-modeles de prevision, copilotes financiers, agents d'analyse.
+SUJET CENTRAL : Comment l\'IA (LLM, agents, GenAI, ML) transforme la FINANCE D\'ENTREPRISE.
+Sujets prioritaires : valorisation automatisee, analyse financiere, due diligence, credit scoring,
+FP&A predictif, reporting automatise, detection de fraude, gestion des risques, M&A assistee par IA,
+modeles de prevision, copilotes financiers, agents d\'analyse.
 Marches financiers : contexte uniquement, pas sujet principal.
 
-ANGLE GLOBAL OBLIGATOIRE : Implications sur l'economie (emploi, productivite), la societe,
-les secteurs (banque, assurance, conseil, asset management), les indices boursiers,
-la regulation (DORA, AI Act, Bale IV, MiFID) et la politique industrielle. Vue macro systematique.
+ANGLE GLOBAL OBLIGATOIRE : Chaque section doit ouvrir sur les implications macro : economie,
+societe, secteurs (banque, assurance, conseil), regulation (DORA, AI Act, Bale IV, MiFID),
+politique industrielle. Pas de section separee pour ca : c\'est tisse dans chaque paragraphe.
 
-EXPERTS A INTEGRER DANS LE CORPS DU TEXTE :
-Ne cree pas de section separee pour les experts. Integre leurs positions directement dans les paragraphes
-thematiques au moment ou leur point de vue eclaire, nuance ou contredit l'argument en cours.
-Profils a convoquer selon la pertinence du sujet :
-- Decideurs politiques / regulateurs (CE, BCE, SEC, AMF, gouvernements)
-- Juristes / juges / avocats (droit IA, responsabilite algorithmique, contentieux)
-- Forces armees / securite nationale (cyberrisque, finance de defense, dual-use)
-- Ingenieurs / chercheurs (fiabilite des modeles, benchmarks, architectures)
-- Economistes (impact emploi, productivite, croissance, inegalites)
-- Grands dirigeants / CEO (declarations publiques, orientations strategiques)
-- Ecologistes / ESG (empreinte energetique IA, reporting durable automatise)
-- Autres si pertinents : philosophes, sociologues, juristes specialises
-Regles d'integration :
-- Si la position vient d'une source collectee : cite [n] normalement.
-- Si c'est une position publique connue (rapport public, discours, interview) : precise "(Position connue)".
-- Les positions contradictoires de deux experts restent dans le meme paragraphe : c'est la tension qui donne de la valeur.
-- L'expert n'est jamais convoque pour illustrer : il est convoque parce qu'il change ou enrichit l'argument.
-- Minimum 3 profils differents d'experts cites au total dans l'article, repartis dans les sections thematiques.
+EXPERTS A CONVOQUER DANS LE CORPS DU TEXTE :
+Integre leurs positions la ou leur point de vue enrichit ou contredit l\'argument. Pas de section dedidee.
+Profils selon pertinence : regulateurs (CE, BCE, AMF), juristes/avocats (droit IA, responsabilite),
+forces armees/securite nationale, ingenieurs/chercheurs, economistes, grands dirigeants/CEO, ecologistes/ESG.
+Regles :
+- Position issue d\'une source collectee : integre le nom de la source naturellement dans la phrase.
+- Position publique connue : indique "(position connue)" apres la citation.
+- Contradictions entre experts : dans le meme paragraphe, c\'est la tension qui apporte la valeur.
+- Minimum 3 profils d\'experts differents repartis dans l\'article.
+
+CITATIONS -- STYLE JOURNAL, PAS ANNEXE :
+N\'utilise JAMAIS les numeros [1], [2], [3] etc. qui renvoient a une liste en fin d\'article.
+Integre la source directement dans la phrase, de facon naturelle :
+  "Selon Finextra, SIX a integre Snowflake pour..."
+  "D\'apres un rapport de McKinsey QuantumBlack, les equipes FP&A..."
+  "Comme l\'a indique Jamie Dimon (JP Morgan) lors de la conference annuelle..."
+  "MIT Technology Review rapporte que..."
+  "Une etude publiee sur arXiv (q-fin) montre que..."
+Ne cite une source que pour des faits specifiques. Les connaissances generales n\'ont pas besoin de citation.
+INTERDIT d\'inventer des chiffres. Si la source ne les donne pas, formule qualitativement.
+EXPERTS REELS UNIQUEMENT : Tirole, Stiglitz, Blanchard, Lagarde, Gensler, Altman, Amodei, Dimon, Fink, Bengio, LeCun, Ng.
+N\'invente jamais un nom d\'expert ni une citation.
 
 ARTICLES DISPONIBLES ({len(top20)} sources collectees) :
 {art_list}
 
-MISSION : Redige un article de revue institutionnelle EN FRANCAIS de 1000-1200 mots.
+MISSION : Redige un article de revue institutionnelle EN FRANCAIS de 1800-2200 mots.
+C\'est un article long, riche, developpe. 4 a 5 pages. Developpe chaque argument en profondeur.
+Un article court (< 1400 mots) est un echec.
 
-INTEGRITE DES SOURCES -- REGLES NON NEGOCIABLES :
-1. N'invente JAMAIS de statistiques. Si aucune source fournie ne contient de chiffre pour une affirmation,
-   ecris "les donnees disponibles ne permettent pas de quantifier" ou omets le chiffre. INTERDIT d'extrapoler
-   ou de fabriquer des pourcentages non cites dans le contenu des articles fournis.
-2. Cite uniquement ce qu'une source dit reellement. Verifie : le CONTENU de l'article (champ CONTENU ci-dessus)
-   doit mentionner ou suggerer le fait que tu attribues a cette source. Ne cite pas un article sur les bug bounty
-   pour une affirmation sur la due diligence.
-3. Si les sources collectees sont insuffisantes pour etayer une affirmation, dis-le explicitement
-   ("Aucune source recente ne quantifie ce point.") plutot que d'inventer.
-4. Les "En bref" bullets ne doivent citer QUE des faits directement extraits des CONTENU des articles fournis.
-5. L'article doit utiliser au minimum 6 sources differentes parmi les articles fournis.
-6. N'utilise PAS une source si son contenu (champ CONTENU) n'a aucun rapport avec l'affirmation.
-   Prefere "aucune source recente ne confirme ce point" plutot que de citer une source non pertinente.
-7. EXPERTS REELS UNIQUEMENT. N'invente JAMAIS de nom d'expert. Cite uniquement des personnes reelles
-   dont la position sur l'IA en finance est documentee publiquement. Exemples acceptables :
-   economistes (Jean Tirole, Joseph Stiglitz, Olivier Blanchard), regulateurs (Christine Lagarde,
-   Gary Gensler, Bruno Le Maire), dirigeants tech/finance (Sam Altman, Dario Amodei, Jamie Dimon,
-   Larry Fink, David Solomon), chercheurs (Yoshua Bengio, Yann LeCun, Andrew Ng).
-   Si tu n'es pas certain qu'une personne a exprime cette position, n'invente pas la citation.
+STRUCTURE EXACTE :
 
-CONTRAINTE DE LONGUEUR : L'article doit faire entre 1000 et 1200 mots. Compte tes mots. Developpe chaque section.
-Un article trop court (< 800 mots) est un echec.
-
-STRUCTURE EXACTE A RESPECTER :
-
-## [Titre declaratif max 12 mots -- enonce une conclusion, pas un sujet]
+## [Titre declaratif max 12 mots]
 *[Sous-titre : une phrase de contexte factuel]*
-**FinSight IA · Veille IA & Finance d'Entreprise · {date_fr}**
+**FinSight IA · Veille IA & Finance d\'Entreprise · {date_fr}**
 
 ### En bref
-- [Conclusion 1 avec chiffre ou fait precis -- verbe d'action]
-- [Conclusion 2 avec chiffre ou fait precis]
-- [Conclusion 3 avec chiffre ou fait precis]
-- [Conclusion 4 avec chiffre ou fait precis]
-- [Conclusion 5 optionnelle si pertinente]
+- [Fait ou conclusion 1 -- verbe d\'action]
+- [Fait ou conclusion 2]
+- [Fait ou conclusion 3]
+- [Fait ou conclusion 4]
+- [Fait ou conclusion 5]
 
-### [Titre section 1 DECLARATIF -- enonce une conclusion]
-[200-250 mots. Cite les sources inline : "D'apres [NOM SOURCE]¹" ou "Selon [NOM SOURCE]²".
-Au moins un chiffre. Impacts concrets sur les metiers de la finance d'entreprise.
-Integre ici les positions d'experts pertinents pour ce theme, directement dans la prose.]
+### [Titre section 1 DECLARATIF]
+[350-450 mots. Prose analytique. Sources citees inline naturellement. Experts integres la ou ils enrichissent.
+Impacts sur les metiers de la finance d\'entreprise. Vue macro en fin de section.]
 
-### [Titre section 2 DECLARATIF -- enonce une conclusion]
-[180-230 mots. Meme format de citations, meme exigence de chiffres et d'experts integres.]
+### [Titre section 2 DECLARATIF]
+[300-380 mots. Meme exigences. Perspectives contradictoires si pertinent.]
 
-### [Titre section 3 DECLARATIF -- fusionner avec section 2 si peu de matiere]
-[150-200 mots.]
+### [Titre section 3 DECLARATIF -- obligatoire, ne pas fusionner]
+[250-320 mots. Peut couvrir regulation, geopolitique IA, ou troisieme tendance cle.]
 
 ### Implications globales
-[150-200 mots. Vue macro : economie, societe, secteurs, indices boursiers, regulation europeenne, politique industrielle.
-Integre ici les positions de regulateurs, economistes ou decideurs politiques si pertinent.]
+[200-260 mots. Economie, societe, secteurs, indices, regulation europeenne, politique industrielle.
+Cite les positions de regulateurs ou decideurs si pertinent.]
 
 ### Points de vigilance
-- [Risque ou limite 1 : factuel et precis]
-- [Risque ou limite 2]
-- [Risque ou limite 3]
+- [Risque ou limite precis -- pas de generalites]
+- [Risque 2]
+- [Risque 3]
+- [Risque 4 optionnel]
 
 ### Conclusion
-[50-70 mots max. Synthese et projection a 6-12 mois. Pas de banalites. Terminer par un fait ou chiffre.]
+[80-100 mots. Synthese et projection 6-12 mois. Terminer sur un fait ou un enjeu concret, pas une banalite.]
 
 ---
 
 ### Regard FinSight
-[130-170 mots. UNIQUEMENT ICI : comment ces evolutions impactent FinSight IA.
-Sois specifique : agents concernes (AgentQuant, AgentSynthese, AgentData...), fonctionnalites
-(valorisation, scoring, comparatif...), opportunites techniques concretes.
+[180-220 mots. UNIQUEMENT ICI : impact sur FinSight IA. Specifique : agents (AgentQuant, AgentSynthese,
+AgentData), fonctionnalites (valorisation, scoring, comparatif).
 
-**(A) Impact sur FinSight** : 2-3 points concrets sur les agents ou modules.
+**(A) Impact sur FinSight** : 2-3 points concrets.
 
-**(B) Theses d'application** *(optionnel -- inclure seulement si l'analyse fait emerger des idees originales)* :
-1-3 hypotheses originales sur un usage inedi de l'IA en finance d'entreprise que FinSight pourrait explorer.
-Ces theses doivent etre inattendues, pas des reformulations de l'existant.]
+**(B) Theses d\'application** *(seulement si l\'analyse fait emerger des idees originales)* :
+1-3 hypotheses inedites sur un usage de l\'IA en finance d\'entreprise. Inattendues, pas des reformulations.]
 
-### Sources
-[1] Titre de l'article -- *Nom de la source* -- Date -- URL
-[2] ...
-[pour chaque source citee dans l'article, avec le vrai lien]
+### Pour aller plus loin
+[Liste des articles les plus pertinents utilises. Format :
+- [Titre de l\'article](URL) -- *Nom de la source* -- Date
+Seulement les sources reellement utiles pour approfondir. 5 a 10 liens maximum.]
 
 REGLES ABSOLUES :
-- TOUT en francais (titres de sections compris)
-- Chaque assertion importante cite sa source avec [n]
-- Titres de sections DECLARATIFS obligatoires (pas descriptifs)
-- Au moins un chiffre par section thematique
-- Finance d'entreprise = priorite. Marches = contexte
-- Experts integres dans le corps du texte, jamais dans une section separee
-- Minimum 3 profils d'experts differents cites dans l'article
+- TOUT en francais
+- Citations inline naturelles, JAMAIS de numeros [n] renvoyant a une annexe
+- Titres DECLARATIFS obligatoires
+- Finance d\'entreprise = priorite. Marches = contexte
+- Experts integres dans la prose, jamais en section separee
 - Regard FinSight UNIQUEMENT apres Conclusion
-- Sources avec URL reels des articles collectes
+- INTERDIT d\'inventer des chiffres ou des noms d\'experts
 
 Reponds UNIQUEMENT en JSON valide sans markdown autour :
 {{{{
-  "title": "Titre de l article",
+  "title": "Titre",
   "subtitle": "Sous-titre",
-  "article_md": "contenu complet en markdown (de ### En bref jusqu a ### Sources inclus)",
-  "sources": [{{{{"n":1,"title":"...","source":"...","date":"...","url":"..."}}}}]
+  "article_md": "contenu complet en markdown (de ### En bref jusqu a ### Pour aller plus loin inclus)"
 }}}}"""
+
 
 
 def llm_write_article(candidates: list[dict], date_fr: str) -> dict:
@@ -432,29 +407,23 @@ def llm_write_article(candidates: list[dict], date_fr: str) -> dict:
                 return parsed
         except Exception:
             pass
-        # Tentative 2 : extraire article_md manuellement (LLM met des vraies newlines)
+        # Tentative 2 : extraire les champs manuellement (LLM met des vraies newlines dans article_md)
         try:
             title    = re.search(r'"title"\s*:\s*"((?:[^"\\]|\\.)*)"', candidate)
             subtitle = re.search(r'"subtitle"\s*:\s*"((?:[^"\\]|\\.)*)"', candidate)
-            # article_md : entre "article_md": " et la prochaine ", "sources"
-            art_m = re.search(r'"article_md"\s*:\s*"(.*?)"\s*,\s*"sources"', candidate, re.DOTALL)
-            src_m = re.search(r'"sources"\s*:\s*(\[.*?\])\s*\}', candidate, re.DOTALL)
+            # article_md : entre "article_md": " et la fin du JSON ("}") — sans "sources" requis
+            art_m = re.search(r'"article_md"\s*:\s*"(.*?)"\s*(?:,\s*"[a-z]|\})', candidate, re.DOTALL)
             if not (title and art_m):
                 return None
             article_md = art_m.group(1)
-            # Restaurer les sauts de ligne reels
             article_md = article_md.replace("\\n", "\n").replace('\\"', '"')
-            sources = []
-            if src_m:
-                try:
-                    sources = json.loads(src_m.group(1))
-                except Exception:
-                    pass
+            if not article_md.strip():
+                return None
             return {
-                "title":      title.group(1) if title else "",
-                "subtitle":   subtitle.group(1) if subtitle else "",
+                "title":      title.group(1).replace('\\"', '"') if title else "",
+                "subtitle":   subtitle.group(1).replace('\\"', '"') if subtitle else "",
                 "article_md": article_md,
-                "sources":    sources,
+                "sources":    [],
             }
         except Exception:
             return None
@@ -592,8 +561,8 @@ def _md_to_rl(text: str) -> str:
     text = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', text)
     # Italic *...*  (pas double)
     text = re.sub(r'(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)', r'<i>\1</i>', text)
-    # Citations [n] -> exposant
-    text = re.sub(r'\[(\d+)\]', r'<super><font size="7">[\1]</font></super>', text)
+    # [n] numeriques isoles (ancienne syntaxe) -> supprimes (on n'utilise plus de numerotation)
+    text = re.sub(r'\s*\[\d+\]', '', text)
     # Markdown links [texte](url) -> lien cliquable
     def _link(m):
         txt = m.group(1)
@@ -719,14 +688,14 @@ def build_pdf(article_data: dict, output_path: Path) -> Path:
         if stripped.startswith("### "):
             _flush_buffer()
             sec_name = stripped[4:].strip()
-            in_sources  = "sources" in sec_name.lower()
+            in_sources  = "sources" in sec_name.lower() or "pour aller" in sec_name.lower()
             in_finsight = "finsight" in sec_name.lower() or "regard" in sec_name.lower()
             pending_section = sec_name
 
             if in_sources:
                 elems.append(Spacer(1, 3 * mm))
                 elems.append(HRFlowable(width="100%", thickness=1, color=_h(C_GREY_MED), spaceAfter=4))
-                elems.append(Paragraph(_enc("Sources"), S_SECTION))
+                elems.append(Paragraph(_enc("Pour aller plus loin"), S_SECTION))
             elif in_finsight:
                 elems.append(Spacer(1, 3 * mm))
                 elems.append(HRFlowable(width="100%", thickness=1.5, color=_h(C_NAVY2), spaceAfter=6))
@@ -749,31 +718,27 @@ def build_pdf(article_data: dict, output_path: Path) -> Path:
                 elems.append(HRFlowable(width="100%", thickness=0.5, color=_h(C_GREY_MED), spaceAfter=4))
             continue
 
-        # Lignes de sources [n] ...
+        # Lignes "Pour aller plus loin" -- format : - [Titre](url) -- *Source* -- Date
         if in_sources:
             _flush_buffer()
-            # Tente de rendre le lien cliquable
-            m_src = re.match(r'\[(\d+)\]\s*(.+)', stripped)
-            if m_src:
-                num  = m_src.group(1)
-                rest = m_src.group(2)
-                # Cherche URL dans le reste
-                m_url = re.search(r'(https?://\S+)', rest)
-                if m_url:
-                    url  = m_url.group(1).rstrip('.,)')
-                    text_part = rest[:m_url.start()].rstrip(' —-')
-                    import html as _ht
-                    url_esc = _ht.escape(url, quote=True)
-                    rl_line = (
-                        f'<b>[{num}]</b> {_enc(text_part)} '
-                        f'<link href="{url_esc}" color="{C_NAVY2}"><u>{_enc(url[:70])}{"..." if len(url)>70 else ""}</u></link>'
-                    )
-                else:
-                    rl_line = f'<b>[{num}]</b> {_enc(rest)}'
+            import html as _ht
+            # Bullet avec lien markdown : - [titre](url) -- *source* -- date
+            m_blink = re.match(r'^[-*]\s+\[(.+?)\]\((https?://[^\)]+)\)(.*)', stripped)
+            if m_blink:
+                title_txt = m_blink.group(1)
+                url       = m_blink.group(2).rstrip('.,)')
+                rest_txt  = m_blink.group(3).strip(' --')
+                url_esc   = _ht.escape(url, quote=True)
+                rl_line = (
+                    f'\u2022 <link href="{url_esc}" color="{C_NAVY2}"><u>{_enc(title_txt)}</u></link>'
+                    + (f' <i>{_enc(rest_txt)}</i>' if rest_txt else '')
+                )
                 elems.append(Paragraph(rl_line, S_SOURCE_ITEM))
                 elems.append(Spacer(1, 1 * mm))
             else:
-                elems.append(Paragraph(_enc(stripped), S_SOURCE_ITEM))
+                # Fallback : rendre tel quel avec liens cliquables si presents
+                elems.append(Paragraph(_md_to_rl(stripped), S_SOURCE_ITEM))
+                elems.append(Spacer(1, 1 * mm))
             continue
 
         # Bullets markdown (- texte) -> chaque bullet sur sa propre ligne
@@ -808,9 +773,8 @@ def build_pdf(article_data: dict, output_path: Path) -> Path:
     # ------------------------------------------------------------------
     elems.append(Spacer(1, 6 * mm))
     elems.append(HRFlowable(width="100%", thickness=1, color=_h(C_NAVY), spaceAfter=4))
-    # Compte les sources referencees depuis article_md (plus fiable que la liste sources JSON)
-    src_nums = re.findall(r'\[(\d+)\]', art_md)
-    n_sources = max((int(n) for n in src_nums), default=len(sources)) if src_nums else len(sources)
+    # Compte les liens "Pour aller plus loin" depuis article_md
+    n_sources = len(re.findall(r'\bhttps?://', art_md))
     elems.append(Paragraph(
         _enc(f"FinSight IA v1.2  —  Veille generee le {date_fr}  —  {n_sources} sources referencees"),
         S_FOOTER,
