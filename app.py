@@ -492,6 +492,12 @@ if "cmp_ticker_b"       not in st.session_state: st.session_state.cmp_ticker_b  
 if "cmp_state_b"        not in st.session_state: st.session_state.cmp_state_b        = None
 if "cmp_bytes"          not in st.session_state: st.session_state.cmp_bytes          = None
 if "scr_cmp_b_preset"   not in st.session_state: st.session_state.scr_cmp_b_preset   = ""
+# Comparison indice
+if "icmp_stage"         not in st.session_state: st.session_state.icmp_stage         = None   # None / "running" / "done"
+if "icmp_universe_b"    not in st.session_state: st.session_state.icmp_universe_b    = ""
+if "icmp_pptx_bytes"    not in st.session_state: st.session_state.icmp_pptx_bytes    = None
+if "icmp_pdf_bytes"     not in st.session_state: st.session_state.icmp_pdf_bytes     = None
+if "icmp_xlsx_bytes"    not in st.session_state: st.session_state.icmp_xlsx_bytes    = None
 
 # ---------------------------------------------------------------------------
 # Routing : détection du type d'input
@@ -2548,6 +2554,540 @@ def render_screening_running() -> None:
 
 
 # ---------------------------------------------------------------------------
+# Indice Comparison — donnees + UI
+# ---------------------------------------------------------------------------
+
+# Indices disponibles pour la comparaison (key -> (display_name, yf_ticker, currency))
+_INDICE_CMP_OPTIONS = {
+    "CAC40":      ("CAC 40",        "^FCHI",     "EUR"),
+    "SP500":      ("S&P 500",       "^GSPC",     "USD"),
+    "DAX40":      ("DAX 40",        "^GDAXI",    "EUR"),
+    "FTSE100":    ("FTSE 100",      "^FTSE",     "GBP"),
+    "STOXX50":    ("Euro Stoxx 50", "^STOXX50E", "EUR"),
+    "NIKKEI225":  ("Nikkei 225",    "^N225",     "JPY"),
+    "NASDAQ100":  ("NASDAQ 100",    "^NDX",      "USD"),
+    "DOWJONES":   ("Dow Jones",     "^DJI",      "USD"),
+}
+
+
+def _fetch_indice_cmp_data(universe_a: str, indice_data_a: dict,
+                            tickers_data_a: list, universe_key_b: str) -> dict:
+    """Construit le dict de comparaison pour deux indices."""
+    import math as _m
+    from datetime import date as _d, timedelta as _td
+    from statistics import median as _med_fn
+
+    _MOIS_FR = {1:"janvier",2:"fevrier",3:"mars",4:"avril",5:"mai",6:"juin",
+                7:"juillet",8:"aout",9:"septembre",10:"octobre",11:"novembre",12:"decembre"}
+    _today = _d.today()
+    today_str = f"{_today.day} {_MOIS_FR[_today.month]} {_today.year}"
+
+    name_a, yf_a, cur_a = _INDICE_CMP_OPTIONS.get(
+        universe_a, (indice_data_a.get("indice", universe_a), "^GSPC", "USD"))
+    name_b, yf_b, cur_b = _INDICE_CMP_OPTIONS.get(
+        universe_key_b, (universe_key_b, "^GSPC", "USD"))
+
+    # ── Helpers calcul stats depuis prix ──────────────────────────────────────
+    def _compute_stats(hist, rf_annual=0.04):
+        """Retourne (perf_ytd, perf_1y, perf_3y, perf_5y, vol_1y, sharpe_1y, max_dd)."""
+        if hist is None or hist.empty:
+            return (None,) * 7
+        try:
+            import numpy as _np
+            close = hist["Close"].dropna()
+            if len(close) < 5:
+                return (None,) * 7
+
+            today_dt = _today
+
+            # Perf YTD
+            try:
+                jan1 = _d(today_dt.year, 1, 1)
+                ytd_base = close[close.index.date <= jan1]
+                perf_ytd = (float(close.iloc[-1]) / float(ytd_base.iloc[-1]) - 1) if len(ytd_base) > 0 else None
+            except Exception:
+                perf_ytd = None
+
+            # Perf 1Y
+            try:
+                d_1y = today_dt - _td(days=365)
+                base_1y = close[close.index.date <= d_1y]
+                perf_1y = (float(close.iloc[-1]) / float(base_1y.iloc[-1]) - 1) if len(base_1y) > 0 else None
+            except Exception:
+                perf_1y = None
+
+            # Perf 3Y
+            try:
+                d_3y = today_dt - _td(days=3*365)
+                base_3y = close[close.index.date <= d_3y]
+                perf_3y = (float(close.iloc[-1]) / float(base_3y.iloc[-1]) - 1) if len(base_3y) > 0 else None
+            except Exception:
+                perf_3y = None
+
+            # Perf 5Y
+            try:
+                d_5y = today_dt - _td(days=5*365)
+                base_5y = close[close.index.date <= d_5y]
+                perf_5y = (float(close.iloc[-1]) / float(base_5y.iloc[-1]) - 1) if len(base_5y) > 0 else None
+            except Exception:
+                perf_5y = None
+
+            # Vol 1Y (annualised daily returns std)
+            try:
+                d_1y = today_dt - _td(days=380)
+                close_1y = close[close.index.date >= d_1y]
+                rets_1y = close_1y.pct_change().dropna()
+                vol_1y = float(rets_1y.std()) * _np.sqrt(252) * 100 if len(rets_1y) > 20 else None
+            except Exception:
+                vol_1y = None
+
+            # Sharpe 1Y
+            try:
+                if vol_1y and perf_1y is not None:
+                    ret_1y_pct = perf_1y * 100
+                    rf_pct = rf_annual * 100
+                    sharpe_1y = (ret_1y_pct - rf_pct) / vol_1y if vol_1y > 0 else None
+                else:
+                    sharpe_1y = None
+            except Exception:
+                sharpe_1y = None
+
+            # Max Drawdown 1Y
+            try:
+                close_1y_dd = close[close.index.date >= (today_dt - _td(days=380))]
+                if len(close_1y_dd) > 5:
+                    rolling_max = close_1y_dd.cummax()
+                    drawdown = (close_1y_dd - rolling_max) / rolling_max
+                    max_dd = float(drawdown.min())
+                else:
+                    max_dd = None
+            except Exception:
+                max_dd = None
+
+            return perf_ytd, perf_1y, perf_3y, perf_5y, vol_1y, sharpe_1y, max_dd
+
+        except Exception as _ex:
+            log.warning(f"[icmp] _compute_stats error: {_ex}")
+            return (None,) * 7
+
+    # ── Fetch prix indice B ───────────────────────────────────────────────────
+    import yfinance as _yf
+    try:
+        hist_b = _yf.Ticker(yf_b).history(period="5y")
+    except Exception:
+        hist_b = None
+
+    (perf_ytd_b, perf_1y_b, perf_3y_b, perf_5y_b,
+     vol_1y_b, sharpe_1y_b, max_dd_b) = _compute_stats(hist_b)
+
+    # ── Indice B — valorisation depuis yfinance ───────────────────────────────
+    pe_fwd_b, pb_b, div_yield_b, erp_b_str = None, None, None, "\u2014"
+    try:
+        info_b = _yf.Ticker(yf_b).info or {}
+        pe_fwd_b  = info_b.get("forwardPE") or info_b.get("trailingPE")
+        pb_b      = info_b.get("priceToBook")
+        div_yield_b = info_b.get("dividendYield")
+    except Exception:
+        pass
+
+    # ERP indice B — rf 10Y local
+    try:
+        rf_sym_b = "^TNX" if cur_b == "USD" else ("^TNX" if cur_b == "GBP" else "^TNX")
+        if cur_b == "EUR":
+            rf_sym_b = "^IRXEUR.B" if False else "^TNX"  # fallback TNX
+        rf_hist_b = _yf.Ticker(rf_sym_b).history(period="5d")
+        rf_b = float(rf_hist_b["Close"].iloc[-1]) / 100 if not rf_hist_b.empty else 0.04
+        if perf_1y_b and vol_1y_b:
+            erp_val_b = (perf_1y_b - rf_b) * 100
+            erp_b_str = f"{erp_val_b:+.1f}".replace(".", ",") + "\u00a0%"
+    except Exception:
+        rf_b = 0.04
+
+    # ── Perf history pour graphique normalisee ────────────────────────────────
+    perf_history = None
+    try:
+        start_str = (_today - _td(days=380)).strftime("%Y-%m-%d")
+        hist_a_1y = _yf.Ticker(_INDICE_CMP_OPTIONS.get(universe_a, (None, "^GSPC", "USD"))[1]).history(start=start_str)
+        hist_b_1y = _yf.Ticker(yf_b).history(start=start_str)
+
+        if hist_a_1y is not None and not hist_a_1y.empty and hist_b_1y is not None and not hist_b_1y.empty:
+            # Aligner sur les memes dates
+            close_a = hist_a_1y["Close"].dropna()
+            close_b = hist_b_1y["Close"].dropna()
+
+            # Reindexer sur l'union des dates
+            dates_a = set(str(d)[:10] for d in close_a.index)
+            dates_b = set(str(d)[:10] for d in close_b.index)
+            common  = sorted(dates_a & dates_b)[:380]
+
+            if len(common) > 10:
+                ca_map = {str(d)[:10]: float(v) for d, v in zip(close_a.index, close_a)}
+                cb_map = {str(d)[:10]: float(v) for d, v in zip(close_b.index, close_b)}
+                base_a = ca_map.get(common[0], 1) or 1
+                base_b = cb_map.get(common[0], 1) or 1
+
+                perf_history = {
+                    "dates":    common,
+                    "indice_a": [round(ca_map.get(d, base_a) / base_a * 100, 1) for d in common],
+                    "indice_b": [round(cb_map.get(d, base_b) / base_b * 100, 1) for d in common],
+                }
+    except Exception as _ex:
+        log.warning(f"[icmp] perf_history error: {_ex}")
+
+    # ── Extraction donnees indice A depuis tickers_data_a ─────────────────────
+    # Performance A depuis perf_history existant dans indice_data_a
+    ph_a = indice_data_a.get("perf_history")
+
+    perf_ytd_a, perf_1y_a, perf_3y_a, perf_5y_a = None, None, None, None
+    vol_1y_a, sharpe_1y_a, max_dd_a = None, None, None
+
+    try:
+        yf_sym_a = _INDICE_CMP_OPTIONS.get(universe_a, (None, None, "USD"))[1]
+        if yf_sym_a:
+            hist_a5 = _yf.Ticker(yf_sym_a).history(period="5y")
+            (perf_ytd_a, perf_1y_a, perf_3y_a, perf_5y_a,
+             vol_1y_a, sharpe_1y_a, max_dd_a) = _compute_stats(hist_a5)
+    except Exception:
+        pass
+
+    # Valorisation A depuis tickers_data_a
+    pe_fwd_a, pb_a, div_yield_a = None, None, None
+    erp_a_str = indice_data_a.get("erp", "\u2014")
+
+    try:
+        _pe_list = [float(t["pe_ratio"] or t.get("pe") or 0)
+                    for t in tickers_data_a
+                    if (t.get("pe_ratio") or t.get("pe")) and
+                    5 < float(t.get("pe_ratio") or t.get("pe") or 0) < 100]
+        if _pe_list:
+            pe_fwd_a = _med_fn(_pe_list)
+    except Exception:
+        pass
+
+    try:
+        _pb_list = [float(t.get("pb") or t.get("priceToBook") or 0)
+                    for t in tickers_data_a
+                    if (t.get("pb") or t.get("priceToBook")) and
+                    0 < float(t.get("pb") or t.get("priceToBook") or 0) < 30]
+        if _pb_list:
+            pb_a = _med_fn(_pb_list)
+    except Exception:
+        pass
+
+    try:
+        _dy_list = [float(t.get("dividend_yield") or 0)
+                    for t in tickers_data_a
+                    if t.get("dividend_yield") and float(t.get("dividend_yield") or 0) > 0]
+        if _dy_list:
+            div_yield_a = _med_fn(_dy_list) / 100  # convertir en decimal
+    except Exception:
+        pass
+
+    # ── Composition sectorielle A ─────────────────────────────────────────────
+    sector_weights_a: dict = {}
+    for t in tickers_data_a:
+        sec = t.get("sector") or "Autre"
+        sector_weights_a[sec] = sector_weights_a.get(sec, 0) + 1
+    total_a = sum(sector_weights_a.values()) or 1
+    sector_weights_a = {k: round(v / total_a * 100, 1) for k, v in sector_weights_a.items()
+                        if k != "Autre"}
+
+    # ── Composition sectorielle B (approximation depuis yfinance constituants) ─
+    sector_weights_b: dict = {}
+    try:
+        # Pas de constituants disponibles pour B — utiliser poids connus approx.
+        _SECTOR_WEIGHTS_APPROX = {
+            "SP500":     {"Technology": 29.0, "Financials": 13.0, "Healthcare": 12.0,
+                          "Consumer Discretionary": 10.0, "Industrials": 8.5,
+                          "Communication Services": 8.0, "Consumer Staples": 6.0,
+                          "Energy": 4.0, "Utilities": 2.5, "Materials": 2.5, "Real Estate": 2.5},
+            "NASDAQ100": {"Technology": 53.0, "Communication Services": 16.0,
+                          "Consumer Discretionary": 14.0, "Healthcare": 6.0,
+                          "Industrials": 5.0, "Consumer Staples": 3.0, "Financials": 2.0},
+            "DAX40":     {"Financials": 18.0, "Consumer Discretionary": 16.0,
+                          "Industrials": 15.0, "Materials": 12.0, "Healthcare": 11.0,
+                          "Technology": 10.0, "Consumer Staples": 8.0, "Energy": 5.0,
+                          "Utilities": 3.0, "Communication Services": 2.0},
+            "FTSE100":   {"Financials": 22.0, "Consumer Staples": 15.0, "Energy": 14.0,
+                          "Healthcare": 12.0, "Industrials": 10.0, "Materials": 8.0,
+                          "Consumer Discretionary": 8.0, "Technology": 4.0,
+                          "Utilities": 4.0, "Telecommunication": 3.0},
+            "CAC40":     {"Consumer Discretionary": 25.0, "Industrials": 18.0,
+                          "Financials": 16.0, "Healthcare": 12.0, "Technology": 9.0,
+                          "Consumer Staples": 8.0, "Materials": 6.0,
+                          "Energy": 3.0, "Utilities": 3.0},
+            "STOXX50":   {"Financials": 20.0, "Consumer Discretionary": 18.0,
+                          "Industrials": 15.0, "Healthcare": 12.0, "Technology": 10.0,
+                          "Consumer Staples": 10.0, "Energy": 6.0,
+                          "Materials": 5.0, "Utilities": 4.0},
+        }
+        sector_weights_b = _SECTOR_WEIGHTS_APPROX.get(universe_key_b, {})
+    except Exception:
+        pass
+
+    # ── Sector comparison (merge A et B) ──────────────────────────────────────
+    all_sectors = sorted(set(list(sector_weights_a.keys()) + list(sector_weights_b.keys())))
+    sector_comparison = []
+    for sec in all_sectors:
+        wa = sector_weights_a.get(sec)
+        wb = sector_weights_b.get(sec)
+        sector_comparison.append((sec, wa, wb))
+    # Trier par poids A desc
+    sector_comparison.sort(key=lambda x: (x[1] or 0) + (x[2] or 0), reverse=True)
+
+    # ── Top 5 constituants A ──────────────────────────────────────────────────
+    top5_a_raw = sorted(tickers_data_a,
+                        key=lambda t: t.get("score_global") or 0, reverse=True)[:5]
+    top5_a = [(t.get("company", t.get("ticker", "")),
+               t.get("ticker", ""),
+               None,  # poids non disponible
+               t.get("sector", "")) for t in top5_a_raw]
+
+    # ── Top 5 constituants B (hardcoded pour indices majeurs) ─────────────────
+    _TOP5_HARDCODED = {
+        "SP500":    [("Apple Inc.", "AAPL", 7.2, "Technology"),
+                     ("Microsoft Corp.", "MSFT", 6.8, "Technology"),
+                     ("NVIDIA Corp.", "NVDA", 5.5, "Technology"),
+                     ("Amazon.com Inc.", "AMZN", 3.6, "Consumer Discretionary"),
+                     ("Alphabet Inc. A", "GOOGL", 2.1, "Communication Services")],
+        "NASDAQ100":[("Apple Inc.", "AAPL", 9.0, "Technology"),
+                     ("Microsoft Corp.", "MSFT", 8.5, "Technology"),
+                     ("NVIDIA Corp.", "NVDA", 7.2, "Technology"),
+                     ("Amazon.com Inc.", "AMZN", 5.0, "Consumer Discretionary"),
+                     ("Meta Platforms", "META", 4.5, "Communication Services")],
+        "DAX40":    [("SAP SE", "SAP", 13.5, "Technology"),
+                     ("Siemens AG", "SIE", 8.2, "Industrials"),
+                     ("Allianz SE", "ALV", 7.8, "Financials"),
+                     ("Deutsche Telekom", "DTE", 6.5, "Communication Services"),
+                     ("BASF SE", "BAS", 4.2, "Materials")],
+        "FTSE100":  [("AstraZeneca PLC", "AZN", 9.5, "Healthcare"),
+                     ("Shell PLC", "SHEL", 7.2, "Energy"),
+                     ("HSBC Holdings", "HSBA", 6.8, "Financials"),
+                     ("Unilever PLC", "ULVR", 5.1, "Consumer Staples"),
+                     ("BP PLC", "BP", 4.5, "Energy")],
+        "CAC40":    [("LVMH Moet Hennessy", "MC.PA", 11.5, "Consumer Discretionary"),
+                     ("TotalEnergies SE", "TTE.PA", 8.3, "Energy"),
+                     ("Hermes International", "RMS.PA", 7.8, "Consumer Discretionary"),
+                     ("Sanofi", "SAN.PA", 6.2, "Healthcare"),
+                     ("Schneider Electric", "SU.PA", 5.9, "Industrials")],
+        "STOXX50":  [("ASML Holding", "ASML", 8.5, "Technology"),
+                     ("LVMH Moet Hennessy", "MC.PA", 6.3, "Consumer Discretionary"),
+                     ("Siemens AG", "SIE", 5.1, "Industrials"),
+                     ("SAP SE", "SAP", 4.9, "Technology"),
+                     ("TotalEnergies SE", "TTE.PA", 4.2, "Energy")],
+        "NIKKEI225":[("Toyota Motor Corp", "7203.T", 3.8, "Consumer Discretionary"),
+                     ("Softbank Group", "9984.T", 3.2, "Technology"),
+                     ("Sony Group Corp", "6758.T", 2.9, "Consumer Discretionary"),
+                     ("Keyence Corp", "6861.T", 2.5, "Technology"),
+                     ("FANUC Corp", "6954.T", 2.1, "Industrials")],
+        "DOWJONES": [("UnitedHealth Group", "UNH", 8.5, "Healthcare"),
+                     ("Goldman Sachs", "GS", 6.8, "Financials"),
+                     ("Microsoft Corp.", "MSFT", 5.9, "Technology"),
+                     ("Home Depot Inc.", "HD", 5.5, "Consumer Discretionary"),
+                     ("Caterpillar Inc.", "CAT", 4.8, "Industrials")],
+    }
+    top5_b = _TOP5_HARDCODED.get(universe_key_b, [])
+
+    # ERP A
+    try:
+        if isinstance(erp_a_str, str) and erp_a_str not in ("\u2014", "—", ""):
+            pass
+        elif vol_1y_a and perf_1y_a:
+            erp_val_a = (perf_1y_a - 0.04) * 100
+            erp_a_str = f"{erp_val_a:+.1f}".replace(".", ",") + "\u00a0%"
+    except Exception:
+        pass
+
+    return {
+        "name_a":       name_a,
+        "name_b":       name_b,
+        "code_a":       universe_a,
+        "code_b":       universe_key_b,
+        "ticker_a":     _INDICE_CMP_OPTIONS.get(universe_a, (None, "^GSPC", "USD"))[1],
+        "ticker_b":     yf_b,
+        "currency_a":   cur_a,
+        "currency_b":   cur_b,
+        "date":         today_str,
+        # Performance
+        "perf_ytd_a":   perf_ytd_a,  "perf_ytd_b":   perf_ytd_b,
+        "perf_1y_a":    perf_1y_a,   "perf_1y_b":    perf_1y_b,
+        "perf_3y_a":    perf_3y_a,   "perf_3y_b":    perf_3y_b,
+        "perf_5y_a":    perf_5y_a,   "perf_5y_b":    perf_5y_b,
+        # Risque
+        "vol_1y_a":     vol_1y_a,    "vol_1y_b":     vol_1y_b,
+        "sharpe_1y_a":  sharpe_1y_a, "sharpe_1y_b":  sharpe_1y_b,
+        "max_dd_a":     max_dd_a,    "max_dd_b":     max_dd_b,
+        # Valorisation
+        "pe_fwd_a":     pe_fwd_a,    "pe_fwd_b":     pe_fwd_b,
+        "pb_a":         pb_a,        "pb_b":         pb_b,
+        "div_yield_a":  div_yield_a, "div_yield_b":  div_yield_b,
+        "erp_a":        erp_a_str,   "erp_b":        erp_b_str,
+        # Score
+        "score_a":      indice_data_a.get("score_global", 50),
+        "score_b":      50,
+        "signal_a":     indice_data_a.get("signal_global", "Neutre"),
+        "signal_b":     "Neutre",
+        # Composition
+        "sector_comparison": sector_comparison,
+        "top5_a":       top5_a,
+        "top5_b":       top5_b,
+        # Historique
+        "perf_history": perf_history,
+    }
+
+
+def _render_indice_comparison_section(results: dict) -> None:
+    """
+    Section 'Comparer deux indices' en bas de la page screening indice.
+    Gere les etats : form / running / done.
+    """
+    universe_a   = results.get("universe", "")
+    indice_data_a = results.get("_indice_data")  # peut etre None si non stocke
+    tickers_data_a = results.get("tickers_data", [])
+    name_a_disp  = _INDICE_CMP_OPTIONS.get(universe_a, (results.get("display_name", "Indice A"),))[0]
+
+    st.markdown(
+        '<div style="margin-top:32px;border-top:1px solid #e5e7eb;padding-top:24px;"></div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        '<div style="font-size:13px;font-weight:700;letter-spacing:.08em;'
+        'color:#777;text-transform:uppercase;margin-bottom:12px;">Comparer deux indices</div>',
+        unsafe_allow_html=True,
+    )
+
+    icmp_stage = st.session_state.get("icmp_stage")
+
+    # ── Resultat disponible ──────────────────────────────────────────────────
+    if icmp_stage == "done":
+        name_b = _INDICE_CMP_OPTIONS.get(
+            st.session_state.get("icmp_universe_b", ""), ("Indice B",))[0]
+        slug   = f"{name_a_disp.replace(' ','_')}_vs_{name_b.replace(' ','_')}"
+
+        st.success(f"Comparaison {name_a_disp} / {name_b} prete.")
+        _pptx = st.session_state.get("icmp_pptx_bytes")
+        if _pptx:
+            st.download_button(
+                label=f"Pitchbook {name_a_disp} vs {name_b}  \u2193  .pptx",
+                data=_pptx,
+                file_name=f"{slug}_comparison.pptx",
+                mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                use_container_width=True,
+            )
+        _pdf = st.session_state.get("icmp_pdf_bytes")
+        if _pdf:
+            st.download_button(
+                label=f"Rapport {name_a_disp} vs {name_b}  \u2193  .pdf",
+                data=_pdf,
+                file_name=f"{slug}_comparison.pdf",
+                mime="application/pdf",
+                use_container_width=True,
+            )
+        _xlsx = st.session_state.get("icmp_xlsx_bytes")
+        if _xlsx:
+            st.download_button(
+                label=f"Excel {name_a_disp} vs {name_b}  \u2193  .xlsx",
+                data=_xlsx,
+                file_name=f"{slug}_comparison.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True,
+            )
+        if st.button("Nouvelle comparaison d'indices", use_container_width=True,
+                     key="icmp_reset"):
+            st.session_state.icmp_stage      = None
+            st.session_state.icmp_universe_b  = ""
+            st.session_state.icmp_pptx_bytes  = None
+            st.session_state.icmp_pdf_bytes   = None
+            st.session_state.icmp_xlsx_bytes  = None
+            st.rerun()
+        return
+
+    # ── Pipeline en cours ────────────────────────────────────────────────────
+    if icmp_stage == "running":
+        universe_b = st.session_state.get("icmp_universe_b", "")
+        name_b     = _INDICE_CMP_OPTIONS.get(universe_b, (universe_b,))[0]
+
+        status_lbl = st.empty()
+        def _status(msg):
+            status_lbl.markdown(
+                f'<div style="font-size:12px;font-weight:500;color:#666;">{_e(msg)}...</div>',
+                unsafe_allow_html=True)
+
+        _status(f"Construction des donnees comparatives {name_a_disp} vs {name_b}")
+        try:
+            # Reconstruire indice_data_a si non stocke
+            if indice_data_a is None:
+                indice_data_a = _build_indice_data(tickers_data_a,
+                                                    results.get("display_name", name_a_disp),
+                                                    universe_a)
+
+            cmp_data = _fetch_indice_cmp_data(
+                universe_a, indice_data_a, tickers_data_a, universe_b)
+
+        except Exception as _ex:
+            import traceback
+            log.warning(f"[icmp] fetch error: {_ex}")
+            traceback.print_exc()
+            st.error(f"Erreur lors de la construction des donnees : {_ex}")
+            st.session_state.icmp_stage = None
+            return
+
+        pptx_bytes = None
+        _status("Generation du pitchbook PPTX")
+        try:
+            from outputs.indice_comparison_pptx_writer import IndiceComparisonPPTXWriter
+            pptx_bytes = IndiceComparisonPPTXWriter.generate(cmp_data)
+        except Exception as _ex:
+            log.warning(f"[icmp] pptx error: {_ex}")
+
+        pdf_bytes = None
+        _status("Generation du rapport PDF")
+        try:
+            from outputs.indice_comparison_pdf_writer import IndiceComparisonPDFWriter
+            pdf_bytes = IndiceComparisonPDFWriter.generate_bytes(cmp_data)
+        except Exception as _ex:
+            log.warning(f"[icmp] pdf error: {_ex}")
+
+        xlsx_bytes = None
+        _status("Generation du fichier Excel")
+        try:
+            from outputs.indice_comparison_writer import IndiceComparisonWriter
+            xlsx_bytes = IndiceComparisonWriter.generate_bytes(cmp_data)
+        except Exception as _ex:
+            log.warning(f"[icmp] xlsx error: {_ex}")
+
+        st.session_state.icmp_pptx_bytes = pptx_bytes
+        st.session_state.icmp_pdf_bytes  = pdf_bytes
+        st.session_state.icmp_xlsx_bytes = xlsx_bytes
+        st.session_state.icmp_stage      = "done"
+        st.rerun()
+        return
+
+    # ── Formulaire ───────────────────────────────────────────────────────────
+    # Indices disponibles = tous sauf l'indice actuel
+    _opts = {k: v for k, v in _INDICE_CMP_OPTIONS.items() if k != universe_a}
+    _opt_labels = [v[0] for v in _opts.values()]
+    _opt_keys   = list(_opts.keys())
+
+    icmp_c1, icmp_c2 = st.columns([3, 1])
+    with icmp_c1:
+        _sel_b = st.selectbox(
+            f"Comparer {name_a_disp} avec :",
+            options=_opt_labels, index=0,
+            key="icmp_sel_b"
+        )
+    with icmp_c2:
+        st.markdown("<div style='margin-top:28px;'></div>", unsafe_allow_html=True)
+        if st.button("Comparer \u2192", type="primary",
+                     use_container_width=True, key="icmp_btn"):
+            _sel_idx = _opt_labels.index(_sel_b)
+            _sel_key = _opt_keys[_sel_idx]
+            st.session_state.icmp_universe_b = _sel_key
+            st.session_state.icmp_stage      = "running"
+            st.rerun()
+
+
+# ---------------------------------------------------------------------------
 # Page SCREENING RESULTS
 # ---------------------------------------------------------------------------
 
@@ -2718,6 +3258,13 @@ def render_screening_results(results: dict) -> None:
                     f'</div>',
                     unsafe_allow_html=True,
                 )
+
+    # --- Comparer deux indices (en haut si analyse d'indice) ---
+    _universe_key = results.get("universe", "")
+    _is_indice_result = _universe_key not in _SECTOR_ALIASES_SET and _universe_key in _INDICE_CMP_OPTIONS
+    if _is_indice_result:
+        _render_indice_comparison_section(results)
+        st.markdown('<div style="margin-top:8px;"></div>', unsafe_allow_html=True)
 
     # --- Comparer deux societes ---
     st.markdown('<div class="sec-t" style="margin-top:36px;">Comparer deux societes</div>',
