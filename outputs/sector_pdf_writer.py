@@ -175,7 +175,7 @@ def _reco(score):
 def _upside(score):
     """Estime un upside indicatif a partir du score."""
     if score is None:
-        return "N/A"
+        return "\u2014"
     s = float(score)
     if s >= 75:
         return f"+{int((s-50)*0.5)}%"
@@ -1433,11 +1433,11 @@ def _build_acteurs(tickers_data: list[dict], sector_name: str, registry=None):
         try:
             up_pct = float(upside.replace('%','').replace('+','').replace('-',''))
             sign   = -1 if upside.startswith('-') else 1
-            cible  = f"{float(t['price']) * (1 + sign * up_pct/100):,.2f}" if t.get('price') else "N/A"
+            cible  = f"{float(t['price']) * (1 + sign * up_pct/100):,.2f}" if t.get('price') else "\u2014"
         except (TypeError, ValueError, KeyError):
-            cible = "N/A"
+            cible = "\u2014"
         cat = catalysts[i % len(catalysts)]
-        row = [t.get('ticker', 'N/A'), reco, prix, cible, upside, conv, cat]
+        row = [t.get('ticker', '?'), reco, prix, cible, upside, conv, cat]
         picks_rows.append([_pc(v, j) for j, v in enumerate(row)])
 
     elems.append(KeepTogether(tbl([picks_h] + picks_rows,
@@ -1587,8 +1587,6 @@ def _build_valorisation(scatter_buf, donut_buf, tickers_data: list[dict],
             if any(k in sv for k in ["Juste valeur", "neutre", "Catalyseur"]):
                 return Paragraph(sv, S_TD_A)
             return Paragraph(sv, S_TD_C)
-        if v == "N/A":
-            return Paragraph(str(v), S_TD_A)
         return Paragraph(str(v), S_TD_C)
 
     sorted_data = sorted(tickers_data, key=lambda x: x.get('score_global') or 0, reverse=True)
