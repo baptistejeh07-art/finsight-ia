@@ -114,30 +114,30 @@ def tbl(data, cw, row_heights=None):
 
 def _na(v, fmt=None):
     if v is None:
-        return "N/A"
+        return "\u2014"
     try:
         f = float(v)
         return fmt(f) if fmt else str(v)
     except (TypeError, ValueError):
-        return "N/A"
+        return "\u2014"
 
 def _fmt_pct(v, sign=True):
     if v is None:
-        return "N/A"
+        return "\u2014"
     try:
         f = float(v)
         prefix = "+" if sign and f >= 0 else ""
         return f"{prefix}{f:.1f}%"
     except (TypeError, ValueError):
-        return "N/A"
+        return "\u2014"
 
 def _fmt_mult(v):
     if v is None:
-        return "N/A"
+        return "\u2014"
     try:
         return f"{float(v):.1f}x"
     except (TypeError, ValueError):
-        return "N/A"
+        return "\u2014"
 
 def _fmt_price(v):
     if v is None:
@@ -151,7 +151,7 @@ def _fmt_price(v):
 def _fmt_mds(v):
     """Formate une valeur monetaire en Mds (divise par 1e9 si valeur absolue)."""
     if v is None:
-        return "N/A"
+        return "\u2014"
     try:
         f = float(v)
         if abs(f) > 1e6:          # valeur absolue (ex: yfinance) → convertir en Mds
@@ -160,15 +160,7 @@ def _fmt_mds(v):
             return f"{f:.0f}"
         return f"{f:.1f}"
     except (TypeError, ValueError):
-        return "N/A"
-
-def _fmt_price(v):
-    if v is None:
-        return "N/A"
-    try:
-        return f"{float(v):,.2f}"
-    except (TypeError, ValueError):
-        return "N/A"
+        return "\u2014"
 
 def _reco(score):
     if score is None:
@@ -402,174 +394,85 @@ def _make_revenue_area(tickers_data: list[dict], sector_name: str) -> io.BytesIO
     return buf
 
 
-def _make_scatter(tickers_data: list[dict], sector_name: str) -> io.BytesIO:
-    """EV/EBITDA vs Croissance revenus — scatter plot qualite IB avec bulles, quadrants, annotations selectivess."""
-
-    def _to_float(v):
-        try:
-            return float(v)
-        except (TypeError, ValueError):
-            return None
-
-    def score_col(s):
-        if s >= 70: return '#1A7A4A'
-        if s >= 50: return '#1B3A6B'
-        return '#A82020'
-
-    # Préparer les données
+def _make_valuation_bars(tickers_data: list[dict], sector_name: str) -> io.BytesIO:
+    """EV/EBITDA ranking bars — graphique clair et lisible, remplace le scatter diforme."""
     points = []
     for t in tickers_data:
-        ev_f = _to_float(t.get('ev_ebitda'))
-        rg_f = _to_float(t.get('revenue_growth') or 0)
-        if rg_f is None:
-            rg_f = 0.0
-        # Normaliser : si valeur en decimal (|rg| < 3), convertir en % (x100)
-        if rg_f is not None and abs(rg_f) < 3.0:
-            rg_f *= 100.0
-        mc = _to_float(t.get('market_cap') or 0)
-        s = t.get('score_global') or 50
-        col = score_col(s)
-        # Taille bulle proportionnelle au market cap, clamp 30-400
-        if mc and mc > 0:
-            sz = float(np.clip(np.sqrt(mc / 1e9) * 0.8, 30, 400))
-        else:
-            sz = 60.0
-        points.append({
-            'ticker': t.get('ticker', ''),
-            'ev': ev_f,
-            'rg': rg_f,
-            'score': s,
-            'col': col,
-            'sz': sz,
-        })
+        ev = t.get('ev_ebitda')
+        if ev is None:
+            continue
+        try:
+            ev_f = float(ev)
+            if 0 < ev_f <= 150:
+                points.append((t.get('ticker', '?'), ev_f, float(t.get('score_global') or 50)))
+        except (TypeError, ValueError):
+            pass
 
-    # Séparer fallback (ev=None) et normaux
-    normal = [p for p in points if p['ev'] is not None]
-    fallback = [p for p in points if p['ev'] is None]
+    if not points:
+        fig, ax = plt.subplots(figsize=(9.0, 5.5))
+        ax.text(0.5, 0.5, 'EV/EBITDA non disponible', ha='center', va='center',
+                transform=ax.transAxes, fontsize=11, color='#999999')
+        ax.set_facecolor('white')
+        fig.patch.set_facecolor('white')
+        buf = io.BytesIO()
+        fig.savefig(buf, format='png', dpi=150, bbox_inches='tight')
+        plt.close(fig)
+        buf.seek(0)
+        return buf
 
-    # Calcul médianes pour quadrants
-    evs_valid = [p['ev'] for p in normal]
-    rgs_all   = [p['rg'] for p in points]
-    med_ev = float(np.median(evs_valid)) if evs_valid else 10.0
-    med_rg = float(np.median(rgs_all)) if rgs_all else 0.0
+    # Cap top 15 par score pour lisibilite
+    if len(points) > 15:
+        points = sorted(points, key=lambda x: -x[2])[:15]
+    # Tri croissant EV/EBITDA pour le bar chart
+    points.sort(key=lambda x: x[1])
 
-    # Cap Y à P90×1.5 pour éviter que les outliers (NVDA/pertes) écrasent le graphique
-    if len(evs_valid) > 3:
-        _p90 = float(np.percentile(evs_valid, 90))
-        y_cap = max(med_ev * 3.0, min(_p90 * 1.6, 150.0))
-    else:
-        y_cap = max(med_ev * 3.0, 80.0)
-    # Marquer les points hors plage et les afficher au plafond avec marker différent
-    for p in normal:
-        if p['ev'] > y_cap:
-            p['ev_disp'] = y_cap * 0.97
-            p['capped'] = True
-        else:
-            p['ev_disp'] = p['ev']
-            p['capped'] = False
+    tickers_list = [p[0] for p in points]
+    evs = [p[1] for p in points]
+    med_ev = float(np.median(evs))
 
-    # Critères d'annotation sélective (top outliers + top BUY)
-    q75_ev = float(np.percentile(evs_valid, 75)) if evs_valid else med_ev * 1.3
-    q25_ev = float(np.percentile(evs_valid, 25)) if evs_valid else med_ev * 0.7
-    q75_rg = float(np.percentile(rgs_all, 75)) if rgs_all else med_rg + 5
+    # Couleur : vert=sous mediane (opportunite), rouge=au-dessus (prime)
+    bar_colors = ['#1A7A4A' if ev < med_ev else '#A82020' for ev in evs]
 
-    # Cap a top 15 par score pour garantir la lisibilite des labels
-    if len(normal) > 15:
-        top15 = sorted(normal, key=lambda x: x['score'], reverse=True)[:15]
-        annotated_tickers = {p['ticker'] for p in top15}
-        normal = top15
-    else:
-        annotated_tickers = {p['ticker'] for p in normal}
+    n = len(points)
+    fig_h = max(5.5, n * 0.46 + 2.0)
+    fig, ax = plt.subplots(figsize=(9.0, fig_h))
+    fig.patch.set_facecolor('white')
+    ax.set_facecolor('white')
 
-    fig, ax = plt.subplots(figsize=(9.0, 5.5))
+    bars = ax.barh(range(n), evs, color=bar_colors, alpha=0.85,
+                   edgecolor='white', linewidth=0.6, height=0.65)
+    ax.set_yticks(range(n))
+    ax.set_yticklabels(tickers_list, fontsize=9)
 
-    # Tracé des points normaux
-    for p in normal:
-        is_ann = p['ticker'] in annotated_tickers
-        alpha = 0.95 if is_ann else 0.55
-        ev_y = p.get('ev_disp', p['ev'])
-        marker = '^' if p.get('capped') else 'o'
-        ax.scatter(p['rg'], ev_y, color=p['col'], s=p['sz'], zorder=4,
-                   alpha=alpha, marker=marker, edgecolors='white', linewidth=0.6)
-        if is_ann:
-            label = p['ticker'] + ('*' if p.get('capped') else '')
-            ax.annotate(label, (p['rg'], ev_y),
-                        textcoords='offset points', xytext=(7, 5),
-                        fontsize=9, color=p['col'], fontweight='bold',
-                        arrowprops=None)
+    # Ligne médiane
+    ax.axvline(med_ev, color='#1B3A6B', linewidth=1.8, linestyle='--', zorder=5)
+    ax.text(med_ev + 0.3, n - 0.5,
+            f'Med: {med_ev:.1f}x', fontsize=8.5, color='#1B3A6B', va='top', fontweight='bold')
 
-    # Tracé des points fallback (EV/EBITDA indisponible) en triangle a y=5
-    for p in fallback:
-        is_ann = p['ticker'] in annotated_tickers or len(fallback) <= 3
-        alpha = 0.95 if is_ann else 0.55
-        ax.scatter(p['rg'], 5, color=p['col'], s=p['sz'], zorder=4,
-                   alpha=alpha, marker='^', edgecolors='white', linewidth=0.6)
-        if is_ann:
-            ax.annotate(p['ticker'], (p['rg'], 5),
-                        textcoords='offset points', xytext=(4, 5),
-                        fontsize=7, color=p['col'], fontweight='bold')
+    # Labels valeurs sur chaque barre
+    x_max = max(evs) if evs else 1
+    for i, ev in enumerate(evs):
+        ax.text(ev + x_max * 0.012, i, f'{ev:.1f}x',
+                va='center', ha='left', fontsize=8, color='#333333')
 
-    # Lignes de quadrant (médiane X et Y)
-    ax.axhline(y=med_ev, color='#CCCCCC', linewidth=0.8, linestyle='--', zorder=2)
-    ax.axvline(x=med_rg, color='#CCCCCC', linewidth=0.8, linestyle='--', zorder=2)
-
-    # Labels quadrants — coin de chaque quadrant
-    xlim = ax.get_xlim()
-    ylim = ax.get_ylim()
-    # Recalculer après tracé pour avoir les bonnes bornes
-    if evs_valid:
-        ev_disp_vals = [p.get('ev_disp', p['ev']) for p in normal] + [5] * len(fallback)
-        y_pad = (y_cap - min(ev_disp_vals)) * 0.08 if ev_disp_vals else 4.0
-        rg_pad = (max(rgs_all) - min(rgs_all)) * 0.08 if len(rgs_all) > 1 else 2.0
-        yl = (max(0, min(ev_disp_vals) - y_pad), y_cap * 1.05)
-        xl = (min(rgs_all) - rg_pad, max(rgs_all) + rg_pad)
-        ax.set_xlim(xl)
-        ax.set_ylim(yl)
-        # Labels quadrants dans chaque coin
-        q_labels = [
-            (xl[0] + rg_pad * 0.2, yl[1] - y_pad * 0.5, "Prime / Forte croissance"),
-            (xl[0] + rg_pad * 0.2, yl[0] + y_pad * 0.5, "Décote / Faible croissance"),
-        ]
-        # Gauche-haut = prime faible croissance, droite-haut = prime forte croissance
-        # On cherche les 4 coins relatifs à la médiane
-        q_labels = [
-            (xl[0] + rg_pad * 0.1, yl[1] - y_pad * 0.3,  "Prime / Faible crois."),
-            (xl[1] - rg_pad * 0.1, yl[1] - y_pad * 0.3,  "Prime / Forte crois."),
-            (xl[0] + rg_pad * 0.1, yl[0] + y_pad * 0.3,  "Décote / Faible crois."),
-            (xl[1] - rg_pad * 0.1, yl[0] + y_pad * 0.3,  "Décote / Forte crois."),
-        ]
-        h_aligns = ['left', 'right', 'left', 'right']
-        for (qx, qy, qlbl), ha in zip(q_labels, h_aligns):
-            ax.text(qx, qy, qlbl, fontsize=6, color='#999999',
-                    ha=ha, va='center', style='italic', zorder=1)
-
-    ax.set_xlabel('Croissance revenus YoY (%)', fontsize=8, color='#555')
-    ax.set_ylabel('EV / EBITDA (x)', fontsize=8, color='#555')
+    ax.set_xlabel('EV / EBITDA (x)', fontsize=9, color='#555555')
+    ax.set_title(f'EV/EBITDA par acteur \u2014 {sector_name}  \u00b7  Vert = sous mediane',
+                 fontsize=10, color='#1B3A6B', fontweight='bold', pad=8)
     for sp in ['top', 'right']:
         ax.spines[sp].set_visible(False)
     ax.spines['left'].set_color('#D0D5DD')
     ax.spines['bottom'].set_color('#D0D5DD')
-    ax.set_facecolor('white')
-    fig.patch.set_facecolor('white')
-    ax.tick_params(labelsize=7, length=0)
-    ax.grid(alpha=0.12, color='#D0D5DD', linewidth=0.5)
+    ax.tick_params(labelsize=8, length=0)
+    ax.grid(True, alpha=0.15, axis='x', linestyle=':')
+    ax.set_xlim(0, x_max * 1.18)
 
     legend_items = [
-        mpatches.Patch(color='#1A7A4A', label='Score \u226570 (BUY)'),
-        mpatches.Patch(color='#1B3A6B', label='Score 50-70 (HOLD)'),
-        mpatches.Patch(color='#A82020', label='Score <50 (SELL)'),
+        mpatches.Patch(color='#1A7A4A', label='Sous mediane \u2014 opportunite relative'),
+        mpatches.Patch(color='#A82020', label='Prime vs mediane \u2014 valorisation elevee'),
     ]
-    # Note si des points ont été tronqués (outliers au-dessus du plafond)
-    capped_tickers = [p['ticker'] for p in normal if p.get('capped')]
-    if capped_tickers:
-        legend_items.append(
-            mpatches.Patch(color='#999999', label=f'^ tronque au plafond : {", ".join(capped_tickers)}')
-        )
-    ax.legend(handles=legend_items, fontsize=8, loc='upper center',
-              bbox_to_anchor=(0.5, -0.14), frameon=False, ncol=3, handlelength=1.2)
-    ax.set_title(f'EV/EBITDA vs Croissance revenus \u2014 {sector_name}',
-                 fontsize=11, color='#1B3A6B', fontweight='bold', pad=8)
-    fig.subplots_adjust(left=0.12, right=0.97, top=0.90, bottom=0.22)
+    ax.legend(handles=legend_items, fontsize=8, loc='lower right', frameon=False)
+
+    fig.subplots_adjust(left=0.18, right=0.90, top=0.90, bottom=0.12)
     buf = io.BytesIO()
     fig.savefig(buf, format='png', dpi=150, bbox_inches='tight')
     plt.close(fig)
@@ -970,19 +873,18 @@ def _build_structure_sectorielle(tickers_data: list[dict], sector_name: str,
 
     def _na_val(v, fmt=None):
         if v is None:
-            return "N/D"
+            return "\u2014"
         if fmt:
             return fmt.format(v)
         return str(v)
 
     # ── Tableau des 4 indicateurs structurels ──────────────────────────────
-    struct_h = [Paragraph(h, S_TH_L)
-                for h in ["Indicateur", "Valeur"]]
+    struct_h = [Paragraph("Indicateur", S_TH_L), Paragraph("Valeur", S_TH_C)]
 
     # HHI
     hhi = sa.get("hhi")
-    hhi_val = f"{hhi:,}" if hhi else "N/D"
-    hhi_lbl = sa.get("hhi_label", "N/D")
+    hhi_val = f"{hhi:,}" if hhi else "\u2014"
+    hhi_lbl = sa.get("hhi_label", "\u2014")
     if hhi:
         if hhi >= 2500:
             hhi_s = S_TD_R
@@ -1002,7 +904,7 @@ def _build_structure_sectorielle(tickers_data: list[dict], sector_name: str,
     elif pe_ltm:
         pe_val = f"{pe_ltm:.1f}x LTM"
     else:
-        pe_val = "N/D"
+        pe_val = "\u2014"
     pe_lbl  = sa.get("pe_cycle_label", "historique insuffisant")
     if pe_prem is not None:
         pe_s = S_TD_R if pe_prem > 15 else (S_TD_G if pe_prem < -10 else S_TD_A)
@@ -1019,8 +921,8 @@ def _build_structure_sectorielle(tickers_data: list[dict], sector_name: str,
     elif roic_std is not None:
         roic_val = f"écart-type {roic_std:.1f}%"
     else:
-        roic_val = "N/D"
-    roic_lbl = sa.get("roic_label", "N/D")
+        roic_val = "\u2014"
+    roic_lbl = sa.get("roic_label", "\u2014")
     if roic_std is not None:
         roic_s = S_TD_R if roic_std >= 15 else (S_TD_A if roic_std >= 8 else S_TD_G)
     else:
@@ -1052,7 +954,7 @@ def _build_structure_sectorielle(tickers_data: list[dict], sector_name: str,
         )
         altman_s = S_TD_R if n_dst > 0 else (S_TD_G if n_sfe >= n_az * 0.75 else S_TD_A)
     else:
-        altman_val = "N/D — lancer Analyse Société"
+        altman_val = "\u2014"
         altman_lbl = "Altman Z disponible via analyse individuelle approfondie"
         altman_s   = S_TD_C
 
@@ -1128,7 +1030,7 @@ def _build_structure_sectorielle(tickers_data: list[dict], sector_name: str,
             f_lbl = "profil mixte — stock-picking sur criteres fondamentaux"
             f_s   = S_TD_A
     else:
-        f_val = "N/D — etats financiers insuffisants"
+        f_val = "\u2014"
         f_lbl = "Piotroski disponible via Analyse Societe individuelle"
         f_s   = S_TD_C
 
@@ -1149,7 +1051,7 @@ def _build_structure_sectorielle(tickers_data: list[dict], sector_name: str,
             peg_lbl = "valorisation tres chère — scenarios bull integres dans les cours"
             peg_s   = S_TD_R
     else:
-        peg_val = "N/D"
+        peg_val = "\u2014"
         peg_lbl = "PEG indisponible (croissance nulle ou PE manquant)"
         peg_s   = S_TD_C
 
@@ -1170,7 +1072,7 @@ def _build_structure_sectorielle(tickers_data: list[dict], sector_name: str,
             fcfy_lbl = "negatif — consommation de cash, surveiller la trajectoire FCF"
             fcfy_s   = S_TD_R
     else:
-        fcfy_val = "N/D"
+        fcfy_val = "\u2014"
         fcfy_lbl = "FCF Yield indisponible"
         fcfy_s   = S_TD_C
 
@@ -1192,7 +1094,7 @@ def _build_structure_sectorielle(tickers_data: list[dict], sector_name: str,
             beta_lbl = "forte dispersion betas — facteurs specifiques dominants, alpha potentiel eleve"
             beta_s   = S_TD_G
     else:
-        beta_val = "N/D"
+        beta_val = "\u2014"
         beta_lbl = "Beta indisponible"
         beta_s   = S_TD_C
 
@@ -1247,7 +1149,7 @@ def _build_structure_sectorielle(tickers_data: list[dict], sector_name: str,
             var_lbl = "risque contenu — faible volatilité sectorielle, beta defensif"
             var_s   = S_TD_G
     else:
-        var_val = "N/D — historique insuffisant"
+        var_val = "\u2014"
         var_lbl = "VaR disponible apres 30 jours de cotation minimum"
         var_s   = S_TD_C
 
@@ -1271,7 +1173,7 @@ def _build_structure_sectorielle(tickers_data: list[dict], sector_name: str,
             dur_lbl = "duration courte — secteur peu sensible aux taux, valorisation ancrée sur cash"
             dur_s   = S_TD_G
     else:
-        dur_val = "N/D"
+        dur_val = "\u2014"
         dur_lbl = "Duration indisponible"
         dur_s   = S_TD_C
 
@@ -1366,7 +1268,7 @@ def _build_structure_sectorielle(tickers_data: list[dict], sector_name: str,
         sc_rows = []
         if bull is not None or base is not None or bear is not None:
             def _fmt_sc(v):
-                if v is None: return "N/D"
+                if v is None: return "\u2014"
                 s = f"{v:+.1f}%"
                 return s
             sc_rows.append([
@@ -1435,13 +1337,14 @@ def _build_acteurs(tickers_data: list[dict], sector_name: str, registry=None):
         f"d'identifier les décotes et primes injustifiées par rapport aux pairs.", S_BODY))
     elems.append(Spacer(1, 3*mm))
 
-    elems.append(Paragraph("Comparatif financier \u2014 Acteurs couverts LTM", S_SUBSECTION))
+    _comp_title = Paragraph("Comparatif financier \u2014 Acteurs couverts LTM", S_SUBSECTION)
     _has_ev = any(t.get('ev_ebitda') for t in tickers_data)
     _comp_cols = ["Ticker", "Rev. LTM (Mds)", "Crois.", "Mg. Brute", "Mg. EBITDA", "ROE"]
-    _comp_cw   = [16*mm, 26*mm, 20*mm, 24*mm, 26*mm, 22*mm]
+    # Largeurs calees sur 170mm (meme standard que les autres tableaux)
+    _comp_cw   = [18*mm, 32*mm, 24*mm, 30*mm, 32*mm, 28*mm]
     if _has_ev:
         _comp_cols.append("EV/EBITDA")
-        _comp_cw.append(26*mm)
+        _comp_cw = [16*mm, 28*mm, 20*mm, 26*mm, 28*mm, 24*mm, 28*mm]
     comp_h = [Paragraph(h, S_TH_C) for h in _comp_cols]
 
     def _cc(v, col):
@@ -1457,15 +1360,15 @@ def _build_acteurs(tickers_data: list[dict], sector_name: str, registry=None):
             sv = str(v)
             if sv.startswith('-'):
                 return Paragraph(sv, S_TD_R)
-        if v == "N/A":
-            return Paragraph(v, S_TD_A)
+        if v in ("N/A", "\u2014"):
+            return Paragraph(str(v), S_TD_C)
         return Paragraph(str(v), S_TD_C)
 
     comp_rows = []
     ccy = tickers_data[0].get('currency', 'EUR') if tickers_data else 'EUR'
     for t in sorted_data[:12]:
         row = [
-            t.get('ticker', 'N/A'),
+            t.get('ticker', '?'),
             _fmt_mds(t.get('revenue_ltm')),
             _fmt_pct(t.get('revenue_growth')),
             _fmt_pct(t.get('gross_margin'), sign=False),
@@ -1476,7 +1379,11 @@ def _build_acteurs(tickers_data: list[dict], sector_name: str, registry=None):
             row.append(_fmt_mult(t.get('ev_ebitda')))
         comp_rows.append([_cc(v, j) for j, v in enumerate(row)])
 
-    elems.append(KeepTogether(tbl([comp_h] + comp_rows, cw=_comp_cw)))
+    elems.append(KeepTogether([
+        _comp_title,
+        Spacer(1, 2*mm),
+        tbl([comp_h] + comp_rows, cw=_comp_cw),
+    ]))
     elems.append(src(f"FinSight IA \u2014 yfinance, FMP. LTM = Last Twelve Months. Devise : {ccy}."))
     elems.append(Spacer(1, 3*mm))
 
@@ -1592,23 +1499,23 @@ def _build_valorisation(scatter_buf, donut_buf, tickers_data: list[dict],
         f"potentiellement injustifiées au regard des fondamentaux.", S_BODY))
     elems.append(Spacer(1, 3*mm))
 
-    scatter_img = Image(scatter_buf, width=125*mm, height=106*mm)
+    scatter_img = Image(scatter_buf, width=125*mm, height=88*mm)
     scatter_text = (
-        "<b>Lecture du positionnement</b><br/>"
-        "Le scatter EV/EBITDA vs croissance revenus permet d'identifier "
-        "les acteurs dont le multiple n'est pas justifie par leur trajectory "
-        "de croissance \u2014 opportunités d'entrée ou de sortie."
+        "<b>Lecture du classement</b><br/>"
+        "Le graphique classe les acteurs par EV/EBITDA croissant. "
+        "Les barres vertes indiquent un multiple sous la mediane sectorielle "
+        "\u2014 potentiel opportunite d\u2019entree a analyser."
+        "<br/><br/>"
+        "<b>Ligne mediane</b><br/>"
+        f"La ligne pointillee a {med_ev:.1f}x represente la mediane "
+        "EV/EBITDA du secteur. Les acteurs sous cette ligne peuvent "
+        "offrir les meilleures asymetries risque/rendement."
         "<br/><br/>"
         "<b>Couleurs</b><br/>"
-        "Vert : score FinSight \u226570 (BUY). "
-        "Navy : score 50-70 (HOLD). "
-        "Rouge : score <50 (SELL). "
-        "Triangle : EV/EBITDA non disponible (pertes)."
-        "<br/><br/>"
-        "<b>Médiane sectorielle</b><br/>"
-        f"La ligne pointillee a {med_ev:.1f}x represente la médiane "
-        "EV/EBITDA du secteur. Les acteurs sous cette ligne avec "
-        "une croissance comparable constituent les meilleures opportunites."
+        "Vert : EV/EBITDA sous la mediane (decote relative). "
+        "Rouge : EV/EBITDA au-dessus de la mediane (prime). "
+        "Ne pas confondre decote relative et opportunite absolue \u2014 "
+        "croiser avec les fondamentaux."
     )
     scatter_comb = Table([[scatter_img, Paragraph(scatter_text, S_BODY)]],
                          colWidths=[110*mm, 58*mm])
@@ -1891,19 +1798,19 @@ def _build_risques(tickers_data: list[dict], sector_name: str, registry=None):
               ["Metrique", "Mediane secteur", "Seuil vigilance", "Evaluation"]]
     fund_rows_data = [
         ("ND/EBITDA (levier)", nd_med,
-         f"{nd_med:.1f}x" if nd_med is not None else "N/D",
+         f"{nd_med:.1f}x" if nd_med is not None else "\u2014",
          "< 2x sain  \u00b7  > 4x alerte",
          _nd_style(nd_med),
          ("Levier maitrise" if nd_med is not None and nd_med < 2.0 else
           "Levier surveiller" if nd_med is not None and nd_med < 4.0 else "Levier excessif")),
         ("FCF Yield (%)", fcf_med,
-         f"{fcf_med:.1f}%" if fcf_med is not None else "N/D",
+         f"{fcf_med:.1f}%" if fcf_med is not None else "\u2014",
          "> 4% attractif  \u00b7  < 1% insuffisant",
          _fcf_style(fcf_med),
          ("Generation cash solide" if fcf_med is not None and fcf_med > 4.0 else
           "Generation cash correcte" if fcf_med is not None and fcf_med > 1.0 else "Faible generation cash")),
         ("Score sante global (/100)", sg_med,
-         f"{sg_med:.0f}/100" if sg_med is not None else "N/D",
+         f"{sg_med:.0f}/100" if sg_med is not None else "\u2014",
          ">= 60 solide  \u00b7  < 40 fragile",
          _sg_style(sg_med),
          ("Bilan sectoriel solide" if sg_med is not None and sg_med >= 60 else
@@ -2195,6 +2102,7 @@ def _build_annexe(tickers_data: list[dict], sector_name: str, reco_commentary: d
             elif kind == 'data':
                 tsa.append(('BACKGROUND', (0,ri),(-1,ri), bg))
         ta.setStyle(TableStyle(tsa))
+        elems.append(ta)
         # Explication globale de la recommandation apres chaque tableau
         _RECO_EXPL = {
             "BUY": (
@@ -2456,7 +2364,7 @@ def _compute_analytics_from_tickers(td: list[dict]) -> dict:
     mcs = [_mc(t) for t in td]
     total_mc = sum(mcs)
     hhi = None
-    hhi_label = "N/D"
+    hhi_label = "\u2014"
     if total_mc > 0:
         shares = [(mc / total_mc) * 100 for mc in mcs]
         hhi = round(sum(s**2 for s in shares))
@@ -2481,7 +2389,7 @@ def _compute_analytics_from_tickers(td: list[dict]) -> dict:
     roic_mean = round(float(np.mean(roic_vals)), 1) if roic_vals else None
     roic_min  = round(min(roic_vals), 1)            if roic_vals else None
     roic_max  = round(max(roic_vals), 1)            if roic_vals else None
-    roic_label = "N/D"
+    roic_label = "\u2014"
     if roic_std is not None:
         if roic_std >= 15:
             roic_label = "forte dispersion — secteur de stock-picking pur, choix de la société > choix du secteur"
@@ -2607,7 +2515,7 @@ def generate_sector_report(
     # Generation des charts
     perf_buf    = _make_perf_chart(tickers_data, sector_name)
     area_buf    = _make_revenue_area(tickers_data, sector_name)
-    scatter_buf = _make_scatter(tickers_data, sector_name)
+    scatter_buf = _make_valuation_bars(tickers_data, sector_name)
     donut_buf   = _make_mktcap_donut(tickers_data, sector_name)
 
     doc_kwargs = dict(

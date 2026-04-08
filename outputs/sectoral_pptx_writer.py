@@ -816,75 +816,78 @@ def _chapter_divider(prs, num_str, chapter_title, subtitle):
 
 
 # ─── CHART BUILDERS ───────────────────────────────────────────────────────────
-def _chart_scatter(tickers_data) -> bytes:
-    """EV/EBITDA vs Croissance Revenue scatter."""
-    tickers   = [t.get("ticker", "") for t in tickers_data]
-    ev_ebitda = []
-    rev_grwth = []
-    scores    = []
-    valid_t   = []
+def _chart_valuation_bars(tickers_data) -> bytes:
+    """EV/EBITDA ranking bar chart — lisible, remplace le scatter diforme."""
+    points = []
     for t in tickers_data:
         ev = t.get("ev_ebitda")
-        rg = t.get("revenue_growth")  # déjà normalisé en décimal par _prepare_data
-        if ev is not None and rg is not None:
-            try:
-                ev_f = float(ev)
-                rg_f = float(rg) * 100  # décimal → %
-                # Filtre outliers : EV/EBITDA ≤ 100x, croissance entre -200% et +300%
-                if 0 < ev_f <= 100 and -200 <= rg_f <= 300:
-                    ev_ebitda.append(ev_f)
-                    rev_grwth.append(rg_f)
-                    scores.append(float(t.get("score_global") or 50))
-                    valid_t.append(t.get("ticker", ""))
-            except: pass
+        if ev is None:
+            continue
+        try:
+            ev_f = float(ev)
+            if 0 < ev_f <= 150:
+                points.append((t.get("ticker", "?"), ev_f, float(t.get("score_global") or 50)))
+        except (TypeError, ValueError):
+            pass
 
-    fig, ax = plt.subplots(figsize=(5.8, 4.5))
+    if not points:
+        fig, ax = plt.subplots(figsize=(5.8, 4.5))
+        ax.text(0.5, 0.5, "EV/EBITDA non disponible", ha='center', va='center',
+                transform=ax.transAxes, fontsize=10, color='#999999')
+        ax.set_facecolor('#FFFFFF')
+        fig.patch.set_facecolor('#FFFFFF')
+        buf = io.BytesIO()
+        fig.savefig(buf, format='png', dpi=150, bbox_inches='tight', facecolor='white', edgecolor='none')
+        plt.close(fig)
+        buf.seek(0)
+        return buf.read()
+
+    # Cap top 15 par score pour lisibilite
+    if len(points) > 15:
+        points = sorted(points, key=lambda x: -x[2])[:15]
+    # Tri croissant EV/EBITDA
+    points.sort(key=lambda x: x[1])
+
+    tickers_list = [p[0] for p in points]
+    evs = [p[1] for p in points]
+    med_ev = float(np.median(evs))
+    bar_colors = ['#1A7A4A' if ev < med_ev else '#A82020' for ev in evs]
+
+    n = len(points)
+    fig_h = max(4.5, n * 0.40 + 1.5)
+    fig, ax = plt.subplots(figsize=(5.8, fig_h))
     fig.patch.set_facecolor('#FFFFFF')
     ax.set_facecolor('#F8F9FA')
 
-    if ev_ebitda:
-        med_ev = float(np.median(ev_ebitda))
-        med_rg = float(np.median(rev_grwth))
-        ax.axvline(med_rg, color='#CCCCCC', linewidth=0.8, linestyle='--')
-        ax.axhline(med_ev, color='#CCCCCC', linewidth=0.8, linestyle='--')
+    ax.barh(range(n), evs, color=bar_colors, alpha=0.85,
+            edgecolor='white', linewidth=0.5, height=0.65)
+    ax.set_yticks(range(n))
+    ax.set_yticklabels(tickers_list, fontsize=7.5)
 
-        sizes = [max(60, s * 2) for s in scores]
-        colors_sc = ['#1A7A4A' if s >= 65 else '#B06000' if s >= 45 else '#A82020' for s in scores]
-        ax.scatter(rev_grwth, ev_ebitda, s=sizes, c=colors_sc, alpha=0.85, zorder=3)
+    ax.axvline(med_ev, color='#1B3A6B', linewidth=1.5, linestyle='--', zorder=5)
+    ax.text(med_ev + 0.2, n - 0.4, f'Med: {med_ev:.1f}x',
+            fontsize=7, color='#1B3A6B', va='top', fontweight='bold')
 
-        # Labels : cap a 15 points (top 15 par score) pour lisibilite scatter
-        if len(valid_t) > 15:
-            scored = sorted(zip(scores, range(len(valid_t))), reverse=True)[:15]
-            show_idx = {idx for _, idx in scored}
-        else:
-            show_idx = set(range(len(valid_t)))
-        for i, tk in enumerate(valid_t):
-            if i in show_idx:
-                ax.annotate(tk, (rev_grwth[i], ev_ebitda[i]),
-                            textcoords="offset points", xytext=(5, 3),
-                            fontsize=6.5, color='#1A1A1A', fontweight='bold')
+    x_max = max(evs) if evs else 1
+    for i, ev in enumerate(evs):
+        ax.text(ev + x_max * 0.01, i, f'{ev:.1f}x', va='center', ha='left', fontsize=6.5, color='#333333')
 
-    ax.set_xlabel("Croissance Revenue YoY (%)", fontsize=8, color='#555555')
-    ax.set_ylabel("EV/EBITDA", fontsize=8, color='#555555')
+    ax.set_xlabel("EV / EBITDA (x)", fontsize=8, color='#555555')
     ax.tick_params(labelsize=7, colors='#777777')
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
     ax.spines['left'].set_color('#DDDDDD')
     ax.spines['bottom'].set_color('#DDDDDD')
-    ax.grid(True, alpha=0.3, linestyle=':')
+    ax.grid(True, alpha=0.2, axis='x', linestyle=':')
+    ax.set_xlim(0, x_max * 1.18)
 
-    # Quadrant labels (axes-relative coords, evite overlap avec ticks)
-    if ev_ebitda:
-        kw = dict(transform=ax.transAxes, fontsize=6.5, alpha=0.7)
-        ax.text(0.97, 0.93, "Premium Justifie", ha='right', color='#555555', **kw)
-        ax.text(0.03, 0.93, "Value Trap ?",     ha='left',  color='#555555', **kw)
-        ax.text(0.97, 0.04, "Opportunite",       ha='right', color='#1A7A4A', **kw)
-        ax.text(0.03, 0.04, "Risque",            ha='left',  color='#A82020', **kw)
+    kw = dict(transform=ax.transAxes, fontsize=6.5, alpha=0.7)
+    ax.text(0.97, 0.03, "Prime vs mediane", ha='right', color='#A82020', **kw)
+    ax.text(0.03, 0.03, "Decote relative", ha='left', color='#1A7A4A', **kw)
 
     plt.tight_layout()
     buf = io.BytesIO()
-    fig.savefig(buf, format='png', dpi=150, bbox_inches='tight',
-                facecolor='white', edgecolor='none')
+    fig.savefig(buf, format='png', dpi=150, bbox_inches='tight', facecolor='white', edgecolor='none')
     plt.close(fig)
     buf.seek(0)
     return buf.read()
@@ -1127,17 +1130,17 @@ def _s05_presentation(prs, D):
     # Description block — font plus grand pour remplir l'espace
     _rect(slide, 0.9, 2.5, 13.7, 10.0, fill=_GRAYL)
     _rect(slide, 0.9, 2.5, 0.1, 10.0, fill=_NAVY)
-    _txb(slide, desc, 1.3, 2.7, 13.1, 4.5, size=12, color=_GRAYT, wrap=True)
+    _txb(slide, desc, 1.3, 2.7, 13.1, 4.5, size=9, color=_GRAYT, wrap=True)
     # Catalyseurs clés sous la description
     cats = content.get("catalyseurs", [])
     if cats:
         _rect(slide, 1.1, 7.5, 13.3, 0.45, fill=_NAVY)
-        _txb(slide, "CATALYSEURS CLÉS", 1.3, 7.55, 12.9, 0.4, size=7.5, bold=True, color=_WHITE, align=PP_ALIGN.CENTER)
+        _txb(slide, "CATALYSEURS CLES", 1.3, 7.55, 12.9, 0.4, size=8, bold=True, color=_WHITE, align=PP_ALIGN.CENTER)
         for j, (ct, cb) in enumerate(cats[:3]):
             _cx = 1.1 + (13.3 - 12.8) / 2  # centrage horizontal dans le conteneur
             _rect(slide, _cx, 8.05 + j * 1.5, 0.08, 1.35, fill=_BUY)
-            _txb(slide, ct, _cx + 0.3, 8.05 + j * 1.5, 12.5, 0.45, size=8, bold=True, color=_NAVY)
-            _txb(slide, cb[:200], _cx + 0.3, 8.5 + j * 1.5, 12.5, 1.05, size=7.5, color=_GRAYT, wrap=True)
+            _txb(slide, ct, _cx + 0.3, 8.05 + j * 1.5, 12.5, 0.45, size=8.5, bold=True, color=_NAVY)
+            _txb(slide, cb[:200], _cx + 0.3, 8.5 + j * 1.5, 12.5, 1.05, size=8, color=_GRAYT, wrap=True)
 
     # Metrics table
     tbl_data = [["Métrique", "Valeur", "Lecture"]]
@@ -1155,8 +1158,9 @@ def _s06_ratios(prs, D):
             f"{D['sector_name']}  ·  Comparaison multiples LTM — {D['N']} sociétés vs médiane sectorielle", 2)
 
     td = D["sorted_td"]
-    td_disp = td[:MAX_TABLE_ROWS]  # cap a MAX_TABLE_ROWS pour eviter overflow
-    tbl_data = [["Société", "EV/EBITDA", "EV/Rev.", "P/E", "Mg Brute", "Mg EBITDA", "ROE"]]
+    MAX_S06 = 8  # cap slide 6 a 8 lignes — garantit lisibilite bloc lecture
+    td_disp = td[:MAX_S06]
+    tbl_data = [["Societe", "EV/EBITDA", "EV/Rev.", "P/E", "Mg Brute", "Mg EBITDA", "ROE"]]
     for t in td_disp:
         pe = t.get("pe_ratio") or t.get("pe")   # fallback: compute_screening utilise "pe"
         # P/E : afficher "neg." si None et earnings negatifs (ex: Intel en perte)
@@ -1193,7 +1197,7 @@ def _s06_ratios(prs, D):
                       _fmt_pct_plain(_med([t.get("ebitda_margin") for t in td if t.get("ebitda_margin")])),
                       _fmt_pct_plain(_med([t.get("roe") for t in td if t.get("roe")]))])
 
-    _s06_tbl_h = min(8.5, len(tbl_data) * 0.55)
+    _s06_tbl_h = min(6.0, len(tbl_data) * 0.55)  # cap 6cm — laisse toujours place au bloc lecture
     _add_table(slide, tbl_data, 0.9, 2.5, 23.6, _s06_tbl_h,
                col_widths=[5.0, 3.0, 2.8, 2.8, 3.2, 3.4, 3.4],
                font_size=7.5, header_size=8, alt_fill=_GRAYL)
@@ -1244,7 +1248,7 @@ def _s07_cycle(prs, D):
         _txb(slide, body, 2.1, yy + 0.95, 13.7, 0.8, size=8, color=_GRAYT, wrap=True)
 
     # Signal box (right)
-    _rect(slide, 16.6, 2.5, 7.9, 10.0, fill=_GRAYL)
+    _rect(slide, 16.6, 2.5, 7.9, 10.9, fill=_GRAYL)  # hauteur etendue pour inclure rec_line
     _txb(slide, "SIGNAL SECTORIEL", 16.6, 2.9, 7.9, 0.7, size=8.5, bold=True, color=_NAVY, align=PP_ALIGN.CENTER)
     _rect(slide, 17.5, 3.9, 6.1, 1.4, fill=D["sig_color"])
     _txb(slide, f"● {D['sig_label']}", 17.5, 4.0, 6.1, 1.2, size=12, bold=True, color=_WHITE, align=PP_ALIGN.CENTER)
@@ -1310,7 +1314,7 @@ def _s09_cartographie(prs, D):
         _row.height = Cm(_row_h_cm)
 
     # Analytical text — position fixe apres la table avec gap suffisant
-    _s09_text_y = round(2.5 + _s09_tbl_h + 0.7, 2)  # gap 0.7 pour aerer table/lecture
+    _s09_text_y = round(2.5 + _s09_tbl_h + 1.2, 2)  # gap 1.2cm — espace visible entre table et lecture
     _s09_text_h = min(4.5, max(2.5, 13.5 - _s09_text_y))
     n_buy  = sum(1 for t in td if _reco(t.get("score_global")) == "BUY")
     n_hold = sum(1 for t in td if _reco(t.get("score_global")) == "HOLD")
@@ -1336,10 +1340,10 @@ def _s09_cartographie(prs, D):
 
 def _s10_scatter(prs, D):
     slide = _blank(prs)
-    _header(slide, "Valorisation vs Croissance",
-            "EV/EBITDA vs Croissance Revenue YoY  ·  4 quadrants  ·  Top 15 par score FinSight", 2)
+    _header(slide, "Classement EV/EBITDA",
+            "EV/EBITDA par acteur  ·  Tri croissant  ·  Vert = sous mediane (opportunite relative)  ·  Top 15", 2)
 
-    img = _chart_scatter(D["tickers_data"])
+    img = _chart_valuation_bars(D["tickers_data"])
     _pic(slide, img, 0.9, 2.3, 14.7, 11.4)
 
     # Analysis panel
@@ -1348,28 +1352,30 @@ def _s10_scatter(prs, D):
     _txb(slide, "CE QUE LE GRAPHIQUE REVELE", 16.3, 2.35, 8.1, 0.6, size=8.5, bold=True, color=_WHITE)
 
     td = D["sorted_td"]
-    ev_vals = [float(t.get("ev_ebitda", 0)) for t in td if t.get("ev_ebitda")]
+    ev_vals = [float(t.get("ev_ebitda", 0)) for t in td if t.get("ev_ebitda") and float(t.get("ev_ebitda", 0)) > 0]
     med_ev = float(np.median(ev_vals)) if ev_vals else 0
 
     premium = [t for t in td if t.get("ev_ebitda") and float(t["ev_ebitda"]) > med_ev * 1.15]
-    décote  = [t for t in td if t.get("ev_ebitda") and float(t["ev_ebitda"]) < med_ev * 0.85]
+    decote  = [t for t in td if t.get("ev_ebitda") and 0 < float(t["ev_ebitda"]) < med_ev * 0.85]
 
     analysis_lines = []
+    if decote:
+        d0 = max(decote, key=lambda t: t.get("score_global") or 0)
+        analysis_lines.append(
+            f"{d0.get('ticker', '')} offre la meilleure asymetrie — "
+            f"EV/EBITDA de {_fmt_x(d0.get('ev_ebitda'))} sous la mediane de {med_ev:.1f}x "
+            f"avec un score FinSight de {int(d0.get('score_global') or 0)}/100."
+        )
     if premium:
         p0 = premium[0]
         analysis_lines.append(
-            f"{p0.get('ticker', '')} domine le quadrant Premium Justifie — valorisation élevée "
-            f"({_fmt_x(p0.get('ev_ebitda'))}) soutenue par {_fmt_pct_plain(p0.get('gross_margin'))} de marge brute."
-        )
-    if décote:
-        d0 = décote[-1]
-        analysis_lines.append(
-            f"{d0.get('ticker', '')} se positionne en zone Opportunite — "
-            f"EV/EBITDA de {_fmt_x(d0.get('ev_ebitda'))} sous la médiane sectorielle de {med_ev:.1f}x."
+            f"{p0.get('ticker', '')} traite en prime ({_fmt_x(p0.get('ev_ebitda'))} vs "
+            f"mediane {med_ev:.1f}x) — verifier si la croissance justifie ce multiple."
         )
     analysis_lines.append(
-        f"La médiane sectorielle ressort a {med_ev:.1f}x — "
-        f"les acteurs en dessous offrent potentiellement les meilleures asymetries risque/rendement."
+        f"Mediane sectorielle : {med_ev:.1f}x. "
+        f"Les barres vertes sous cette ligne sont les candidats privilegies a analyser "
+        f"via Analyse Societe individuelle (DCF, WACC, scenarios)."
     )
     _txb(slide, "\n\n".join(analysis_lines), 16.3, 3.1, 8.0, 10.5, size=8.5, color=_GRAYT, wrap=True)
     _footer(slide)
@@ -1413,7 +1419,7 @@ def _s11_scores(prs, D):
     # Synthese — incorpore la legende de lecture + analyse (un seul bloc sous la table)
     best = td[0] if td else {}
     best_name = (best.get("company") or best.get("ticker") or "Leader")[:25]
-    _s11_syn_y = round(2.5 + _s11_tbl_h + 0.7, 2)  # gap 0.7 pour aerer table/synthese
+    _s11_syn_y = round(2.5 + _s11_tbl_h + 1.0, 2)  # gap 1.0cm — espace visible entre table et synthese
     _syn_h = min(4.5, max(3.0, 13.5 - _s11_syn_y))
     _rect(slide, 0.9, _s11_syn_y, 23.6, _syn_h, fill=_GRAYL)
     _rect(slide, 0.9, _s11_syn_y, 23.6, 0.7, fill=_NAVY)
@@ -1547,8 +1553,9 @@ def _s15_entry(prs, D):
          1.1, 2.55, 23.1, 0.8, size=8.5, color=_GRAYT, wrap=True)
 
     td = D["sorted_td"]
-    td_disp = td[:MAX_TABLE_ROWS]  # cap a MAX_TABLE_ROWS pour eviter overflow
-    tbl_data = [["Ticker", "Société", "Cours actuel", "DCF Base (est.)", "Zone d'achat", "Signal", "Proba. 12M"]]
+    MAX_S15 = 8  # cap slide 15 a 8 lignes — garantit visibilite de la note methodologique
+    td_disp = td[:MAX_S15]
+    tbl_data = [["Ticker", "Societe", "Cours actuel", "DCF Base (est.)", "Zone d achat", "Signal", "Proba. 12M"]]
     for t in td_disp:
         price = t.get("price")
         reco = _reco(t.get("score_global"))
