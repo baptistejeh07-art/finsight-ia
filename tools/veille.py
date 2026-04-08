@@ -38,60 +38,78 @@ OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 # =============================================================================
 
 SOURCES = [
-    # -- Modeles LLM / IA generatifs (30j -- publient rarement) --
-    {"name": "Anthropic Blog",        "url": "https://www.anthropic.com/rss.xml",                                  "cat": "LLM",        "days": 30},
-    {"name": "OpenAI Blog",           "url": "https://openai.com/blog/rss.xml",                                    "cat": "LLM",        "days": 30},
-    {"name": "Hugging Face Blog",     "url": "https://huggingface.co/blog/feed.xml",                               "cat": "LLM",        "days": 30},
-    {"name": "Google DeepMind",       "url": "https://deepmind.google/blog/rss.xml",                               "cat": "LLM",        "days": 30},
-    {"name": "Import AI",             "url": "https://importai.substack.com/feed",                                 "cat": "LLM",        "days": 30},
-    {"name": "The Batch (DL.AI)",     "url": "https://www.deeplearning.ai/the-batch/feed/",                        "cat": "LLM",        "days": 14},
-    {"name": "LangChain Blog",        "url": "https://blog.langchain.dev/rss/",                                    "cat": "Agents",     "days": 14},
-    {"name": "Mistral AI Blog",       "url": "https://mistral.ai/news/rss",                                        "cat": "LLM",        "days": 30},
-    # -- IA x Finance d'entreprise / Fintech (coeur du sujet) --
-    {"name": "Net Interest",          "url": "https://www.netinterest.co/feed",                                    "cat": "IA Finance", "days": 14},
-    {"name": "Fintech Brainfood",     "url": "https://fintechbrainfood.substack.com/feed",                         "cat": "IA Finance", "days": 14},
-    {"name": "CB Insights Research",  "url": "https://www.cbinsights.com/research-briefing/feed/",                 "cat": "IA Finance", "days": 14},
-    {"name": "CFA Institute Blog",    "url": "https://blogs.cfainstitute.org/feed/",                               "cat": "Finance",    "days": 14},
-    {"name": "McKinsey QuantumBlack", "url": "https://www.mckinsey.com/capabilities/quantumblack/rss",             "cat": "IA Finance", "days": 30},
-    {"name": "Finextra",              "url": "https://www.finextra.com/rss/headlines.aspx",                        "cat": "Fintech",    "days": 7},
-    {"name": "AGEFI",                 "url": "https://www.agefi.fr/rss/",                                          "cat": "Finance",    "days": 7},
-    {"name": "Maddyness",             "url": "https://www.maddyness.com/feed/",                                    "cat": "Fintech",    "days": 7},
-    # -- Recherche (arXiv) -- finance quantitative + IA appliquee --
-    {"name": "arXiv q-fin",           "url": "http://export.arxiv.org/rss/q-fin",                                  "cat": "Recherche",  "days": 5},
-    {"name": "arXiv cs.AI",           "url": "http://export.arxiv.org/rss/cs.AI",                                  "cat": "Recherche",  "days": 5},
-    {"name": "arXiv cs.LG",           "url": "http://export.arxiv.org/rss/cs.LG",                                  "cat": "Recherche",  "days": 5},
-    # -- Macro / Impact global (contexte economique et regulatoire) --
-    {"name": "BIS Research Papers",   "url": "https://www.bis.org/rss/bis_papers.rss",                             "cat": "Macro",      "days": 14},
-    {"name": "Banque de France Blog", "url": "https://blocnotesdeleco.banque-france.fr/rss.xml",                   "cat": "Macro",      "days": 14},
-    {"name": "WEF Finance",           "url": "https://www.weforum.org/rss?category=financial-and-monetary-systems","cat": "Macro",      "days": 14},
-    # -- Tech / IA generale (contexte technologique) --
-    {"name": "VentureBeat AI",        "url": "https://venturebeat.com/category/ai/feed/",                          "cat": "IA",         "days": 7},
-    {"name": "MIT Tech Review",       "url": "https://www.technologyreview.com/feed/",                             "cat": "IA",         "days": 14},
+    # =========================================================
+    # TIER 1 : IA x Finance d'entreprise (sujet principal)
+    # =========================================================
+    {"name": "Net Interest",          "url": "https://www.netinterest.co/feed",                                       "cat": "IA Finance", "days": 14},
+    {"name": "Fintech Brainfood",     "url": "https://fintechbrainfood.substack.com/feed",                            "cat": "IA Finance", "days": 14},
+    {"name": "CB Insights Research",  "url": "https://www.cbinsights.com/research-briefing/feed/",                    "cat": "IA Finance", "days": 14},
+    {"name": "McKinsey QuantumBlack", "url": "https://www.mckinsey.com/capabilities/quantumblack/rss",                "cat": "IA Finance", "days": 30},
+    {"name": "McKinsey Finance",      "url": "https://www.mckinsey.com/capabilities/strategy-and-corporate-finance/rss","cat": "IA Finance","days": 30},
+    {"name": "CFA Institute Blog",    "url": "https://blogs.cfainstitute.org/feed/",                                  "cat": "Finance",    "days": 14},
+    {"name": "Finextra",              "url": "https://www.finextra.com/rss/headlines.aspx",                           "cat": "Fintech",    "days": 7},
+    {"name": "The Financial Brand",   "url": "https://thefinancialbrand.com/feed/",                                   "cat": "IA Finance", "days": 14},
+    {"name": "American Banker AI",    "url": "https://www.americanbanker.com/tag/artificial-intelligence/feed",       "cat": "IA Finance", "days": 14},
+    {"name": "AGEFI",                 "url": "https://www.agefi.fr/rss/",                                             "cat": "Finance",    "days": 7},
+    {"name": "Maddyness",             "url": "https://www.maddyness.com/feed/",                                       "cat": "Fintech",    "days": 7},
+    # =========================================================
+    # TIER 2 : Recherche academique (q-fin prioritaire, cs.* filtre)
+    # =========================================================
+    {"name": "arXiv q-fin",           "url": "http://export.arxiv.org/rss/q-fin",                                    "cat": "Recherche",  "days": 7},
+    {"name": "arXiv cs.CE",           "url": "http://export.arxiv.org/rss/cs.CE",                                    "cat": "Recherche",  "days": 7},
+    {"name": "arXiv cs.AI",           "url": "http://export.arxiv.org/rss/cs.AI",                                    "cat": "Recherche",  "days": 5},
+    # =========================================================
+    # TIER 3 : Macro / Regulation (contexte institutionnel)
+    # =========================================================
+    {"name": "BIS Research Papers",   "url": "https://www.bis.org/rss/bis_papers.rss",                               "cat": "Macro",      "days": 14},
+    {"name": "Banque de France Blog", "url": "https://blocnotesdeleco.banque-france.fr/rss.xml",                      "cat": "Macro",      "days": 14},
+    {"name": "BCE Blog",              "url": "https://www.ecb.europa.eu/rss/publications.rss",                        "cat": "Macro",      "days": 14},
+    {"name": "WEF Finance",           "url": "https://www.weforum.org/rss?category=financial-and-monetary-systems",   "cat": "Macro",      "days": 14},
+    # =========================================================
+    # TIER 4 : Tech IA (contexte technologique, fenetre courte)
+    # =========================================================
+    {"name": "LangChain Blog",        "url": "https://blog.langchain.dev/rss/",                                       "cat": "Agents",     "days": 14},
+    {"name": "The Batch (DL.AI)",     "url": "https://www.deeplearning.ai/the-batch/feed/",                           "cat": "LLM",        "days": 14},
+    {"name": "VentureBeat AI",        "url": "https://venturebeat.com/category/ai/feed/",                             "cat": "IA",         "days": 7},
+    {"name": "MIT Tech Review",       "url": "https://www.technologyreview.com/feed/",                                "cat": "IA",         "days": 14},
+    # =========================================================
+    # TIER 5 : LLM / modeles (contexte tech, fenetre longue)
+    # =========================================================
+    {"name": "Anthropic Blog",        "url": "https://www.anthropic.com/rss.xml",                                     "cat": "LLM",        "days": 30},
+    {"name": "OpenAI Blog",           "url": "https://openai.com/blog/rss.xml",                                       "cat": "LLM",        "days": 30},
+    {"name": "Hugging Face Blog",     "url": "https://huggingface.co/blog/feed.xml",                                  "cat": "LLM",        "days": 30},
+    {"name": "Mistral AI Blog",       "url": "https://mistral.ai/news/rss",                                           "cat": "LLM",        "days": 30},
+    {"name": "Import AI",             "url": "https://importai.substack.com/feed",                                    "cat": "LLM",        "days": 30},
 ]
 
 ARXIV_MAX_PER_FEED = 8
 
 # -- Mots-cles positifs (scoring) --
+# Tier A (+15) : combinaisons IA + finance d'entreprise directes
+KW_HIGH_A = [
+    "corporate finance", "due diligence", "financial modeling", "fp&a",
+    "credit scoring", "fraud detection", "audit ai", "ai audit",
+    "capital allocation", "debt financing", "credit analysis",
+    "mergers acquisitions", "m&a ai", "cfo ai", "ai cfo",
+    "financial analysis ai", "ai financial", "earnings forecast",
+    "financial reporting automation", "ai valuation", "dcf ai",
+]
+# Tier B (+10) : finance + tech generalement pertinents
 KW_HIGH = [
     "llm", "large language model", "financial analysis", "finance", "trading",
     "investment", "agent", "rag", "retrieval augmented", "portfolio",
     "valuation", "dcf", "earnings", "risk management", "quantitative",
     "alpha generation", "fintech", "banking", "asset management",
-    "hedge fund", "earnings call", "transformer", "reasoning",
-    "agentic", "multi-agent", "tool use", "function calling",
+    "hedge fund", "earnings call", "agentic", "multi-agent",
     "sentiment analysis", "forecast", "financial data", "market intelligence",
-    "corporate finance", "financial modeling", "due diligence",
-    "mergers", "acquisitions", "cfo", "fp&a", "credit analysis",
-    "audit", "capital allocation", "debt financing", "credit scoring",
-    "fraud detection", "robo-advisor", "algorithmic trading",
-    "claude", "gpt-4", "gemini", "groq", "mistral", "anthropic", "openai", "llama",
+    "credit risk", "financial ai", "ai finance", "robo-advisor",
+    "algorithmic trading", "compliance ai", "regulatory ai",
 ]
 KW_MED = [
-    "ai", "machine learning", "deep learning", "neural network", "model",
-    "api", "fintech startup", "regulation", "compliance", "crypto",
-    "prediction", "benchmark", "inference", "fine-tuning", "rlhf",
-    "open source", "evaluation", "leaderboard", "capital markets",
-    "reporting", "automation", "digitalization", "data",
+    "ai", "machine learning", "neural network", "model", "automation",
+    "fintech startup", "regulation", "compliance", "prediction",
+    "open source", "capital markets", "reporting", "digitalization",
+    "enterprise", "productivity", "efficiency", "cost reduction",
 ]
 
 # -- Mots-cles negatifs (articles clairement hors-sujet) --
@@ -102,6 +120,11 @@ KW_NEG = [
     "image generation", "text-to-image", "diffusion model art", "video generation",
     "climate model", "weather prediction", "seismic", "geology",
     "social media bot", "misinformation detection",
+    # Hors-sujet finance d'entreprise : modeles generaux sans application finance
+    "fuel prices", "plastic", "cognitive framework", "agi framework",
+    "manipulation detection", "harmful content", "safety bug bounty",
+    "cyberwar scaling", "computer vision harder", "llms training other",
+    "measuring progress toward agi", "protecting people from harmful",
 ]
 
 
@@ -131,6 +154,9 @@ def _parse_date(entry) -> datetime:
 def _score(title: str, summary: str) -> int:
     text = (title + " " + summary).lower()
     score = 0
+    for kw in KW_HIGH_A:
+        if kw in text:
+            score += 15
     for kw in KW_HIGH:
         if kw in text:
             score += 10
@@ -216,7 +242,24 @@ def fetch_articles(days_override: int | None = None) -> list[dict]:
 # =============================================================================
 
 def _build_prompt(candidates: list[dict], date_fr: str) -> str:
-    top20 = candidates[:20]
+    # Pre-filtre : ecarte les articles dont le titre est clairement hors-sujet finance d'entreprise
+    _TITLE_NEG = [
+        "cyberwar", "bug bounty", "voice agent", "audio ai", "agi framework",
+        "cognitive framework", "harmful manipulation", "plastic could",
+        "fuel prices", "online seller", "product discovery in chat",
+        "evaluating voice", "llms training other",
+        "political superintelligence", "robot drummer", "society of minds",
+        "scaling laws for cyber", "distributed training run", "image generation",
+        "text-to-image", "protein folding", "drug discovery", "medical imaging",
+    ]
+    filtered = [
+        a for a in candidates
+        if not any(kw in (a.get("title","") + " " + a.get("summary","")).lower() for kw in _TITLE_NEG)
+    ]
+    # Garder au moins 15 si le filtre est trop agressif
+    if len(filtered) < 15:
+        filtered = candidates
+    top20 = filtered[:20]
     art_list = ""
     for i, a in enumerate(top20):
         d = a["date"].strftime("%d/%m/%Y") if hasattr(a.get("date"), "strftime") else str(a.get("date",""))[:10]
@@ -232,7 +275,10 @@ MODELE DE STYLE : Notes de recherche JP Morgan / Goldman Sachs Macro Research.
 Regles absolues de style :
 1. Titres de sections DECLARATIFS : ils enoncent une conclusion, pas un sujet. Ex : "Les LLM reduisent de 40 % le temps de due diligence" et non "LLM et due diligence".
 2. "En bref" : liste de 4-5 bullets. Chaque bullet commence par un verbe d'action ou une donnee chiffree. Format : "- [Conclusion avec chiffre ou fait precis]"
-3. Chaque section contient AU MOINS UN chiffre, pourcentage ou estimation concrete. Si la source n'en donne pas, extrapoler prudemment et le signaler.
+3. Chaque section contient AU MOINS UN fait concret : un exemple d'usage reel, un nom d'organisation, un cas specifique.
+   Si une source mentionne un chiffre dans son resume (champ CONTENU), utilise-le. Sinon, ecris une formulation
+   qualitative solide. INTERDIT d'ecrire "X %" ou "Y fois plus" sans que ce chiffre soit textuellemement
+   present dans un champ CONTENU des articles fournis ci-dessus.
 4. Phrases courtes. Maximum 25 mots par phrase. Pas de subordonnees enchassees.
 5. Zero jargon creux : "game-changer", "paradigm shift", "revolutionner", "transformer profondement" sont INTERDITS.
 6. Pas de formules de politesse, pas de hedging ("il semble que", "peut-etre", "pourrait potentiellement").
@@ -270,6 +316,29 @@ ARTICLES DISPONIBLES ({len(top20)} sources collectees) :
 {art_list}
 
 MISSION : Redige un article de revue institutionnelle EN FRANCAIS de 1000-1200 mots.
+
+INTEGRITE DES SOURCES -- REGLES NON NEGOCIABLES :
+1. N'invente JAMAIS de statistiques. Si aucune source fournie ne contient de chiffre pour une affirmation,
+   ecris "les donnees disponibles ne permettent pas de quantifier" ou omets le chiffre. INTERDIT d'extrapoler
+   ou de fabriquer des pourcentages non cites dans le contenu des articles fournis.
+2. Cite uniquement ce qu'une source dit reellement. Verifie : le CONTENU de l'article (champ CONTENU ci-dessus)
+   doit mentionner ou suggerer le fait que tu attribues a cette source. Ne cite pas un article sur les bug bounty
+   pour une affirmation sur la due diligence.
+3. Si les sources collectees sont insuffisantes pour etayer une affirmation, dis-le explicitement
+   ("Aucune source recente ne quantifie ce point.") plutot que d'inventer.
+4. Les "En bref" bullets ne doivent citer QUE des faits directement extraits des CONTENU des articles fournis.
+5. L'article doit utiliser au minimum 6 sources differentes parmi les articles fournis.
+6. N'utilise PAS une source si son contenu (champ CONTENU) n'a aucun rapport avec l'affirmation.
+   Prefere "aucune source recente ne confirme ce point" plutot que de citer une source non pertinente.
+7. EXPERTS REELS UNIQUEMENT. N'invente JAMAIS de nom d'expert. Cite uniquement des personnes reelles
+   dont la position sur l'IA en finance est documentee publiquement. Exemples acceptables :
+   economistes (Jean Tirole, Joseph Stiglitz, Olivier Blanchard), regulateurs (Christine Lagarde,
+   Gary Gensler, Bruno Le Maire), dirigeants tech/finance (Sam Altman, Dario Amodei, Jamie Dimon,
+   Larry Fink, David Solomon), chercheurs (Yoshua Bengio, Yann LeCun, Andrew Ng).
+   Si tu n'es pas certain qu'une personne a exprime cette position, n'invente pas la citation.
+
+CONTRAINTE DE LONGUEUR : L'article doit faire entre 1000 et 1200 mots. Compte tes mots. Developpe chaque section.
+Un article trop court (< 800 mots) est un echec.
 
 STRUCTURE EXACTE A RESPECTER :
 
@@ -355,13 +424,40 @@ def llm_write_article(candidates: list[dict], date_fr: str) -> dict:
         m = re.search(r'\{.*\}', raw, re.DOTALL)
         if not m:
             return None
+        candidate = m.group()
+        # Tentative 1 : JSON direct
         try:
-            parsed = json.loads(m.group())
+            parsed = json.loads(candidate)
+            if parsed.get("article_md"):
+                return parsed
+        except Exception:
+            pass
+        # Tentative 2 : extraire article_md manuellement (LLM met des vraies newlines)
+        try:
+            title    = re.search(r'"title"\s*:\s*"((?:[^"\\]|\\.)*)"', candidate)
+            subtitle = re.search(r'"subtitle"\s*:\s*"((?:[^"\\]|\\.)*)"', candidate)
+            # article_md : entre "article_md": " et la prochaine ", "sources"
+            art_m = re.search(r'"article_md"\s*:\s*"(.*?)"\s*,\s*"sources"', candidate, re.DOTALL)
+            src_m = re.search(r'"sources"\s*:\s*(\[.*?\])\s*\}', candidate, re.DOTALL)
+            if not (title and art_m):
+                return None
+            article_md = art_m.group(1)
+            # Restaurer les sauts de ligne reels
+            article_md = article_md.replace("\\n", "\n").replace('\\"', '"')
+            sources = []
+            if src_m:
+                try:
+                    sources = json.loads(src_m.group(1))
+                except Exception:
+                    pass
+            return {
+                "title":      title.group(1) if title else "",
+                "subtitle":   subtitle.group(1) if subtitle else "",
+                "article_md": article_md,
+                "sources":    sources,
+            }
         except Exception:
             return None
-        if not parsed.get("article_md"):
-            return None
-        return parsed
 
     # 1. Groq
     groq_keys = [k for k in [
@@ -376,7 +472,7 @@ def llm_write_article(candidates: list[dict], date_fr: str) -> dict:
                 resp = Groq(api_key=gk).chat.completions.create(
                     model=model,
                     messages=[{"role": "user", "content": prompt}],
-                    max_tokens=2800,
+                    max_tokens=4000,
                     temperature=0.35,
                 )
                 result = _parse(resp.choices[0].message.content.strip())
@@ -390,7 +486,7 @@ def llm_write_article(candidates: list[dict], date_fr: str) -> dict:
     mk = os.getenv("MISTRAL_API_KEY")
     if mk:
         try:
-            from mistralai import Mistral
+            from mistralai.client import Mistral
             resp = Mistral(api_key=mk).chat.complete(
                 model="mistral-small-latest",
                 messages=[{"role": "user", "content": prompt}],
@@ -546,6 +642,12 @@ def build_pdf(article_data: dict, output_path: Path) -> Path:
     S_SECTION      = _s("sh",  fontName="Helvetica-Bold", fontSize=11, textColor=_h(C_NAVY), leading=15, spaceAfter=4, spaceBefore=8)
     S_LEAD         = _s("ld",  fontName="Helvetica",      fontSize=10.5, leading=15, textColor=_h(C_BLACK), spaceAfter=4, alignment=TA_JUSTIFY)
     S_BODY         = _s("bd",  fontName="Helvetica",      fontSize=9.5, leading=14, textColor=_h(C_BLACK), spaceAfter=3, alignment=TA_JUSTIFY)
+    S_BULLET       = _s("bu",  fontName="Helvetica",      fontSize=9.5, leading=14, textColor=_h(C_BLACK), spaceAfter=1,
+                               leftIndent=10, firstLineIndent=0)
+    S_BULLET_FS    = _s("bfs", fontName="Helvetica",      fontSize=9.5, leading=14, textColor=_h(C_BLACK), spaceAfter=1,
+                               leftIndent=10, firstLineIndent=0)
+    S_NUMLIST      = _s("nl",  fontName="Helvetica",      fontSize=9.5, leading=14, textColor=_h(C_BLACK), spaceAfter=2,
+                               leftIndent=14, firstLineIndent=0)
     S_FINSIGHT     = _s("fs",  fontName="Helvetica",      fontSize=9.5, leading=14, textColor=_h(C_BLACK), spaceAfter=3, alignment=TA_JUSTIFY)
     S_SOURCE_ITEM  = _s("si",  fontName="Helvetica",      fontSize=8.5, leading=12, textColor=_h(C_GREY_DARK), spaceAfter=2)
     S_FOOTER       = _s("ft",  fontName="Helvetica",      fontSize=7.5, textColor=_h(C_GREY_DARK), leading=10, alignment=TA_CENTER)
@@ -674,6 +776,22 @@ def build_pdf(article_data: dict, output_path: Path) -> Path:
                 elems.append(Paragraph(_enc(stripped), S_SOURCE_ITEM))
             continue
 
+        # Bullets markdown (- texte) -> chaque bullet sur sa propre ligne
+        if re.match(r'^[-*]\s+', stripped):
+            _flush_buffer()
+            bullet_text = re.sub(r'^[-*]\s+', '', stripped)
+            bstyle = S_BULLET_FS if in_finsight else S_BULLET
+            elems.append(Paragraph(_enc("\u2022 ") + _md_to_rl(bullet_text), bstyle))
+            continue
+
+        # Listes numerotees (1. texte) -> chaque item sur sa propre ligne
+        m_num = re.match(r'^(\d+)\.\s+(.+)$', stripped)
+        if m_num:
+            _flush_buffer()
+            num_text = m_num.group(1) + ". " + m_num.group(2)
+            elems.append(Paragraph(_md_to_rl(num_text), S_NUMLIST))
+            continue
+
         # Lignes normales -> accumule dans le buffer paragraphe
         # Gere les lignes bold isolees (ex: **Titre de sous-section**)
         if stripped.startswith("**") and stripped.endswith("**") and stripped.count("**") == 2:
@@ -690,8 +808,11 @@ def build_pdf(article_data: dict, output_path: Path) -> Path:
     # ------------------------------------------------------------------
     elems.append(Spacer(1, 6 * mm))
     elems.append(HRFlowable(width="100%", thickness=1, color=_h(C_NAVY), spaceAfter=4))
+    # Compte les sources referencees depuis article_md (plus fiable que la liste sources JSON)
+    src_nums = re.findall(r'\[(\d+)\]', art_md)
+    n_sources = max((int(n) for n in src_nums), default=len(sources)) if src_nums else len(sources)
     elems.append(Paragraph(
-        _enc(f"FinSight IA v1.2  —  Veille generee le {date_fr}  —  {len(sources)} sources referencees"),
+        _enc(f"FinSight IA v1.2  —  Veille generee le {date_fr}  —  {n_sources} sources referencees"),
         S_FOOTER,
     ))
     elems.append(Paragraph(
