@@ -10,7 +10,7 @@
 ### Workflow obligatoire APRÈS modification
 1. Terminer TOUT le travail du chantier en cours
 2. Rebuild les outputs : `python tools/audit.py --preview TICKER` (jamais `cli_analyze.py` direct)
-3. **Vérifier visuellement TOUS les renders touchés** — lire chaque slide/page PNG un par un avec Read tool
+3. **Vérifier visuellement TOUS les renders touchés** — via Gemini Vision : `python tools/audit_visual_gemini.py TICKER` (remplace la lecture PNG manuelle)
 4. Corriger jusqu'à ce que tout soit propre
 5. Committer + pusher
 6. **Attendre le redéploiement Streamlit Cloud (~1-3 min)**
