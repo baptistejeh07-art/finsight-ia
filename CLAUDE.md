@@ -8,20 +8,35 @@
 3. Seulement après → modifier le code
 
 ### Workflow obligatoire APRÈS modification
-1. Rebuild les outputs : `python tools/audit.py --preview TICKER` (jamais `cli_analyze.py` direct)
-2. **Vérifier visuellement TOUS les renders concernés** — lire chaque slide/page PNG un par un avec Read tool
-3. Corriger jusqu'à ce que tout soit propre
-4. Committer + pusher
-5. **Attendre le redéploiement Streamlit Cloud (~1-3 min)**
-6. **Ouvrir Chrome via `mcp__claude-in-chrome__navigate`** → `https://finsight-ia-lxappmzvfqned33anmbuvh5.streamlit.app/`
-7. Télécharger les fichiers depuis l'Aperçu Claude, les lire avec Read tool
-8. **Seulement si tout est bon → déclarer terminé**
+1. Terminer TOUT le travail du chantier en cours
+2. Rebuild les outputs : `python tools/audit.py --preview TICKER` (jamais `cli_analyze.py` direct)
+3. **Vérifier visuellement TOUS les renders touchés** — lire chaque slide/page PNG un par un avec Read tool
+4. Corriger jusqu'à ce que tout soit propre
+5. Committer + pusher
+6. **Attendre le redéploiement Streamlit Cloud (~1-3 min)**
+7. **Ouvrir Chrome** → `https://finsight-ia-lxappmzvfqned33anmbuvh5.streamlit.app/`
+   — Utiliser `Alt+R` (console) pour lire l'état sans get_page_text
+   — Utiliser `Alt+W` pour vérifier le chargement
+   — Utiliser `Alt+P/T/E` pour télécharger les fichiers
+8. Lire les fichiers téléchargés avec Read tool
+9. **Seulement si TOUT est bon → déclarer terminé**
 
 ### Interdit absolu
-- ❌ Déclarer "terminé" sans vérification visuelle Chrome (renders PNG locaux ne suffisent PAS)
+- ❌ Déclarer "terminé" sans audit visuel final Chrome (renders PNG locaux ne suffisent PAS)
+- ❌ Audit visuel partiel — couvrir TOUS les outputs touchés, pas juste le dernier modifié
+- ❌ Audit intermédiaire pendant le travail — UN SEUL audit, à la fin
 - ❌ `cli_analyze.py` en production — réservé debug interne
 - ❌ Plusieurs previews intermédiaires — UN SEUL preview, la version finale propre
 - ❌ Committer sans avoir lu chaque slide/page concernée
+
+### Raccourcis Chrome (usage interne — lire memory/reference_shortcuts_finsight.md)
+- `Alt+R` → état complet en console (remplace get_page_text, économise ~2000 tokens)
+- `Alt+W` → spinner/loading visible ?
+- `Alt+N` → sections visibles
+- `Alt+D/U/B/G` → scroll
+- `Alt+P/T/E` → download PDF/PPTX/Excel
+- `Alt+A/C/H` → Analyser / Comparer / Accueil
+- Lire console avec pattern `[FinSight`
 
 ### Règles code
 - **Toujours committer ET pusher** après chaque modification (app déployée sur Streamlit Cloud)
