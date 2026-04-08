@@ -1,0 +1,16 @@
+{
+  "ticker": "TECHNOLOGY",
+  "raw_data": null,
+  "sentiment": "SentimentResult(ticker='TECHNOLOGY', timestamp='2026-04-08T14:05:55.201841', score=0.0, score_normalized=0.5, label='NEUTRAL', confidence=0.0, articles_analyzed=0, articles_total=0, breakdown={}, sources=[], samples=[], llm_commentary='', meta={'request_id': '7d00865b-7b3e-441d-8f41-5cbde6748805', 'latency_ms': 2314, 'confidence_score': 0.0, 'invalidation_conditions': 'Aucune news disponible pour cette période.', 'tokens_used': 0})",
+  "data_quality": 0.0,
+  "errors": [
+    "AgentData returned None for TECHNOLOGY"
+  ],
+  "logs": [
+    {
+      "node": "fetch_node",
+      "latency_ms": 4059,
+      "status": "error"
+    }
+  ]
+}
