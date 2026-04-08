@@ -1812,7 +1812,7 @@ def _slide_dcf(prs, snap, synthesis, ratios):
     mc_p2    = mc_meta.get("dcf_mc_p2")
     mc_p98   = mc_meta.get("dcf_mc_p98")
     mc_n     = mc_meta.get("dcf_mc_n_sim")
-    mc_label = f"Monte Carlo DCF \u2014 {int(mc_n):,} simulations".replace(",", "\u202f") if mc_n else "Monte Carlo DCF"
+    mc_label = f"Monte Carlo GBM \u2014 {int(mc_n):,} simulations".replace(",", "\u202f") if mc_n else "Monte Carlo GBM"
 
     add_text_box(slide, 1.02, 6.65, 11.18, 0.56, mc_label, 9, NAVY, bold=True)
 
@@ -1827,7 +1827,7 @@ def _slide_dcf(prs, snap, synthesis, ratios):
         mc_tbl = add_table(slide, 1.02, 7.37, 11.18, 3.10,
                   len(_mc_rows), 3,
                   col_widths_pct=[0.42, 0.32, 0.26],
-                  header_data=["Sc\u00e9nario", "Valeur / action", "vs Cours"],
+                  header_data=["Sc\u00e9nario", "Cours pr\u00e9dit (12M)", "vs Cours"],
                   rows_data=_mc_rows,
                   border_hex="DDDDDD")
         # Highlight médian row
@@ -1841,7 +1841,7 @@ def _slide_dcf(prs, snap, synthesis, ratios):
             pass
     else:
         add_text_box(slide, 1.02, 7.50, 11.18, 2.80,
-                     "Simulations Monte Carlo non disponibles\npour ce ticker.",
+                     "Simulations GBM non disponibles\npour ce ticker.",
                      9, GREY_LIGHT)
 
     # ── Sensitivity table — droite ───────────────────────────────────────────

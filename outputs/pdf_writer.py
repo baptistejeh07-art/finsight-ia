@@ -462,7 +462,7 @@ def _make_mc_histogram(data):
                     color='#E04040', fontsize=7, va='top', ha='left')
         except (ValueError, TypeError):
             pass
-    ax.set_xlabel(f'Valeur intrinseque par action ({cur})', fontsize=9, color='#555')
+    ax.set_xlabel(f'Cours predit a 12 mois ({cur})', fontsize=9, color='#555')
     ax.set_ylabel('Frequence', fontsize=9, color='#555')
     for sp in ['top', 'right']:
         ax.spines[sp].set_visible(False)
@@ -1497,17 +1497,17 @@ def _build_valorisation(ff_buf, pie_buf, mc_buf, data):
     cur    = _d(data, 'currency', 'USD')
     if mc_p50 is not None:
         mc_h = [Paragraph(h, S_TH_C)
-                for h in ["Percentile", "Valeur / action", "Lecture"]]
+                for h in ["Percentile", "Cours pr\u00e9dit (12 mois)", "Lecture"]]
         mc_rows = [
-            [Paragraph("P10 (cas pessimiste)", S_TD_L),
+            [Paragraph("P10 (sc\u00e9nario pessimiste)", S_TD_L),
              Paragraph(f"<b>{_fr(mc_p10, 0)}\u00a0{cur}</b>", S_TD_BC),
-             Paragraph("9 simulations sur 10 donnent une valeur supérieure", S_TD_L)],
-            [Paragraph("P50 \u2014 mediane", S_TD_BC),
+             Paragraph("9 trajectoires sur 10 terminent au-dessus", S_TD_L)],
+            [Paragraph("P50 \u2014 m\u00e9diane", S_TD_BC),
              Paragraph(f"<b>{_fr(mc_p50, 0)}\u00a0{cur}</b>", S_TD_BC),
-             Paragraph("Valeur centrale stochastique", S_TD_L)],
-            [Paragraph("P90 (cas optimiste)", S_TD_L),
+             Paragraph("Cours central probabiliste \u00e0 12 mois", S_TD_L)],
+            [Paragraph("P90 (sc\u00e9nario optimiste)", S_TD_L),
              Paragraph(f"<b>{_fr(mc_p90, 0)}\u00a0{cur}</b>", S_TD_BC),
-             Paragraph("9 simulations sur 10 donnent une valeur inférieure", S_TD_L)],
+             Paragraph("9 trajectoires sur 10 terminent en dessous", S_TD_L)],
         ]
         _mc_tbl = tbl([mc_h] + mc_rows, cw=[52*mm, 36*mm, 82*mm])
         _PASTEL_BLUE = colors.HexColor('#C8D8F0')
@@ -1518,13 +1518,14 @@ def _build_valorisation(ff_buf, pie_buf, mc_buf, data):
             ('TEXTCOLOR',  (0, 3), (-1, 3), WHITE),
         ]))
         _mc_desc = Paragraph(
-            "Distribution stochastique des valeurs intrinseques issue de 10\u00a0000 simulations. "
-            "Le mod\u00e8le fait varier simultan\u00e9ment le WACC, la croissance du chiffre d\u2019affaires "
-            "et la marge EBITDA selon des distributions sectorielles (Damodaran 2024).",
+            "Distribution probabiliste du cours \u00e0 12 mois issue de 10\u00a0000 simulations "
+            "GBM (Geometric Brownian Motion). Le mod\u00e8le utilise la volatilit\u00e9 et la "
+            "tendance historiques propres \u00e0 la soci\u00e9t\u00e9 (2 ans de donn\u00e9es journali\u00e8res). "
+            "Ligne rouge = cours actuel.",
             S_BODY)
         elems.append(KeepTogether([
             Paragraph(
-                "Monte Carlo DCF \u2014 Distribution des valeurs intrinseques",
+                "Monte Carlo GBM \u2014 Pr\u00e9diction probabiliste du cours \u00e0 12 mois",
                 S_SUBSECTION),
             Spacer(1, 2*mm),
             _mc_desc,
@@ -1542,37 +1543,36 @@ def _build_valorisation(ff_buf, pie_buf, mc_buf, data):
                 pass
         _mc_sim_str = f"{mc_n:,}".replace(",", "\u00a0") if mc_n else "10\u00a0000"
         elems.append(src(
-            f"FinSight IA \u2014 {_mc_sim_str} simulations Monte Carlo. "
-            "Distributions : croissance CA (normale), marge EBITDA (normale), "
-            "WACC (triangulaire, bornes sectorielles Damodaran 2024). "
+            f"FinSight IA \u2014 {_mc_sim_str} simulations GBM. "
+            "Param\u00e8tres : d\u00e9rive et volatilit\u00e9 annualis\u00e9es calcul\u00e9es sur 2 ans "
+            "de donn\u00e9es journali\u00e8res propres \u00e0 la soci\u00e9t\u00e9 (yfinance). "
             "Ligne rouge = cours actuel."))
         # Commentaire d'interpretation sous le graphique
         _price = data.get('ff_course') or data.get('current_price')
         if mc_p50 is not None and _price:
-            _upside_p50 = (_price / mc_p50 - 1) * 100 if mc_p50 > 0 else None
-            if _upside_p50 is not None and _upside_p50 > 20:
+            _diff_pct = (mc_p50 / _price - 1) * 100 if _price > 0 else None
+            if _diff_pct is not None and _diff_pct > 20:
                 _mc_interp = (
-                    f"Le cours actuel ({_price:,.0f}\u00a0{cur}) d\u00e9passe la m\u00e9diane stochastique "
-                    f"P50\u00a0=\u00a0{mc_p50:,.0f}\u00a0{cur} de {_upside_p50:+.0f}\u00a0%. "
-                    f"La distribution est concentr\u00e9e entre P10\u00a0=\u00a0{mc_p10:,.0f} et "
-                    f"P90\u00a0=\u00a0{mc_p90:,.0f}\u00a0{cur}\u00a0: le march\u00e9 valorise une "
-                    "croissance tr\u00e8s sup\u00e9rieure aux hypoth\u00e8ses sectorielles du mod\u00e8le, "
-                    "ce qui repr\u00e9sente un risque de r\u00e9\u00e9valuation n\u00e9gative si "
-                    "la croissance d\u00e9\u00e7oit."
+                    f"Le mod\u00e8le GBM pr\u00e9dit un cours m\u00e9dian de {mc_p50:,.0f}\u00a0{cur} "
+                    f"dans 12 mois, soit {_diff_pct:+.0f}\u00a0% par rapport au cours actuel "
+                    f"({_price:,.0f}\u00a0{cur}). La fourchette P10\u2013P90 "
+                    f"({mc_p10:,.0f}\u2013{mc_p90:,.0f}\u00a0{cur}) traduit la dispersion "
+                    "historique du titre."
                 )
-            elif _upside_p50 is not None and _upside_p50 < -20:
+            elif _diff_pct is not None and _diff_pct < -20:
                 _mc_interp = (
-                    f"Le cours actuel ({_price:,.0f}\u00a0{cur}) est {abs(_upside_p50):.0f}\u00a0% "
-                    f"en dessous de la m\u00e9diane stochastique P50\u00a0=\u00a0{mc_p50:,.0f}\u00a0{cur}. "
-                    f"La fourchette P10\u2013P90 ({mc_p10:,.0f}\u2013{mc_p90:,.0f}\u00a0{cur}) "
-                    "sugg\u00e8re une marge de s\u00e9curit\u00e9 significative selon le mod\u00e8le DCF."
+                    f"Le mod\u00e8le GBM pr\u00e9dit un cours m\u00e9dian de {mc_p50:,.0f}\u00a0{cur} "
+                    f"dans 12 mois, soit {_diff_pct:+.0f}\u00a0% par rapport au cours actuel "
+                    f"({_price:,.0f}\u00a0{cur}). La fourchette P10\u2013P90 "
+                    f"({mc_p10:,.0f}\u2013{mc_p90:,.0f}\u00a0{cur}) refl\u00e8te "
+                    "la volatilit\u00e9 historique du titre."
                 )
             else:
                 _mc_interp = (
-                    f"Le cours actuel ({_price:,.0f}\u00a0{cur}) est align\u00e9 avec la "
-                    f"m\u00e9diane stochastique P50\u00a0=\u00a0{mc_p50:,.0f}\u00a0{cur}. "
+                    f"Le mod\u00e8le GBM pr\u00e9dit un cours m\u00e9dian de {mc_p50:,.0f}\u00a0{cur} "
+                    f"dans 12 mois, proche du cours actuel ({_price:,.0f}\u00a0{cur}). "
                     f"La fourchette P10\u2013P90 ({mc_p10:,.0f}\u2013{mc_p90:,.0f}\u00a0{cur}) "
-                    "d\u00e9limite le corridor de valeur intrins\u00e8que probable."
+                    "d\u00e9limite le corridor de prix probable selon la volatilit\u00e9 historique."
                 )
             elems.append(Spacer(1, 3*mm))
             elems.append(Paragraph(_mc_interp, S_BODY))
@@ -3199,10 +3199,10 @@ class PDFWriter:
                     _p50 = float(_mc_p50)
                     _p10 = float(_mc_p10) if _mc_p10 else _p50 * 0.60
                     _p90 = float(_mc_p90) if _mc_p90 else _p50 * 1.60
-                    ff_methods.append('DCF \u2014 Monte Carlo (P10\u2013P90)')
+                    ff_methods.append('GBM \u2014 Monte Carlo (P10\u2013P90)')
                     ff_lows.append(_p10); ff_highs.append(_p90)
                     ff_colors.append('#1B3A6B')
-                    ff_methods.append('DCF \u2014 M\u00e9diane stochastique (P50)')
+                    ff_methods.append('GBM \u2014 M\u00e9diane probabiliste (P50)')
                     ff_lows.append(_p50 * 0.94); ff_highs.append(_p50 * 1.06)
                     ff_colors.append('#1A7A4A')
                 except (ValueError, TypeError):
