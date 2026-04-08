@@ -446,20 +446,27 @@ def llm_write_article(candidates: list[dict], date_fr: str) -> dict:
             "models/gemini-flash-latest",
         ]
         for _gm in _gem_models:
-            try:
-                from google import genai as _genai
-                _gem_client = _genai.Client(api_key=gk_gem)
-                _gem_resp = _gem_client.models.generate_content(
-                    model=_gm,
-                    contents=prompt,
-                    config={"max_output_tokens": 8000, "temperature": 0.35},
-                )
-                result = _parse(_gem_resp.text.strip())
-                if result:
-                    print(f"[VEILLE] LLM OK : {_gm} (primary)")
-                    return result
-            except Exception as e:
-                print(f"[VEILLE] Gemini {_gm} : {e}")
+            for _attempt in range(2):  # 1 retry sur 503
+                try:
+                    from google import genai as _genai
+                    _gem_client = _genai.Client(api_key=gk_gem)
+                    _gem_resp = _gem_client.models.generate_content(
+                        model=_gm,
+                        contents=prompt,
+                        config={"max_output_tokens": 8000, "temperature": 0.35},
+                    )
+                    result = _parse(_gem_resp.text.strip())
+                    if result:
+                        print(f"[VEILLE] LLM OK : {_gm} (primary)")
+                        return result
+                    break
+                except Exception as e:
+                    _emsg = str(e)
+                    if "503" in _emsg and _attempt == 0:
+                        import time; time.sleep(15)  # retry 503 apres 15s
+                        continue
+                    print(f"[VEILLE] Gemini {_gm} : {_emsg[:120]}")
+                    break
 
     # 1. Groq
     groq_keys = [k for k in [
