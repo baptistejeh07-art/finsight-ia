@@ -1559,6 +1559,7 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
         secteurs.append((nom, nb, sc, sig, f"{ev:.1f}x", mg, gr, mom_str))
 
     # Fallback si ETF non disponibles — essai fetch constituants EU
+    _eu_res: list = []               # accessible plus loin pour tickers_raw
     _eu_members_by_sec: dict = {}   # accessible plus loin pour top3
     _eu_perf_history = None         # accessible dans base.update()
     _etf_proxy_ev = None            # ETF proxy EV/EBITDA (reutilise pour top3)
@@ -1769,6 +1770,83 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
                 log.info("EU constituents OK: %d tickers / %d secteurs", len(_eu_res), len(secteurs))
             except Exception as _eu_ex:
                 log.warning("EU constituents fetch erreur: %s", _eu_ex)
+
+    # Fetch per-ticker pour indices US (S&P 500 etc.) — remplit VALUE/GROWTH/QUALITY/MOMENTUM
+    if secteurs and not _eu_members_by_sec:
+        _SP500_SECTORS = [
+            "Technology", "Health Care", "Financials", "Consumer Discretionary",
+            "Communication Services", "Industrials", "Consumer Staples",
+            "Energy", "Materials", "Real Estate", "Utilities",
+        ]
+        _us_res_raw: list = []
+        try:
+            from concurrent.futures import ThreadPoolExecutor as _TPEX_us
+            def _fetch_us_sector(s):
+                try:
+                    return _fetch_real_sector_data(s, universe, max_tickers=8)
+                except Exception as _fe:
+                    log.warning("fetch US sector %s error: %s", s, _fe)
+                    return []
+            with _TPEX_us(max_workers=4) as _usex:
+                for _batch in _usex.map(_fetch_us_sector, _SP500_SECTORS):
+                    _us_res_raw.extend(_batch)
+        except Exception as _us_ex:
+            log.warning("US per-ticker fetch erreur: %s", _us_ex)
+
+        if _us_res_raw:
+            def _norm_us(t: dict) -> dict:
+                _mc   = t.get("market_cap")
+                _rv   = t.get("revenue_ltm")
+                _roe_pct = t.get("roe")          # % (ex: 15.0)
+                _gm_pct  = t.get("gross_margin")  # % (ex: 65.0)
+                _em_pct  = t.get("ebitda_margin") # %
+                _nm_pct  = t.get("net_margin")    # %
+                _rg      = t.get("revenue_growth") # decimal (ex: 0.10)
+                _mom     = t.get("momentum_52w")   # % (ex: 12.5)
+                return {
+                    "ticker":          t.get("ticker"),
+                    "name":            t.get("company", t.get("ticker", "")),
+                    "sector":          t.get("sector", ""),
+                    "price":           t.get("price"),
+                    "mkt_cap":         round(_mc / 1e9, 2) if _mc else None,
+                    "ev":              None,
+                    "rev_ltm":         round(_rv / 1e9, 2) if _rv else None,
+                    "ebitda_ltm":      None,
+                    "ev_ebitda":       t.get("ev_ebitda"),
+                    "ev_revenue":      t.get("ev_revenue"),
+                    "pe_trailing":     t.get("pe_ratio"),
+                    "pe_fwd":          None,
+                    "eps":             None,
+                    "gross_margins":   _gm_pct / 100 if _gm_pct is not None else None,
+                    "ebitda_margins":  _em_pct / 100 if _em_pct is not None else None,
+                    "profit_margins":  _nm_pct / 100 if _nm_pct is not None else None,
+                    "rev_growth":      _rg,
+                    "earnings_growth": None,
+                    "roe":             _roe_pct / 100 if _roe_pct is not None else None,
+                    "roa":             None,
+                    "current_ratio":   None,
+                    "nd_ebitda":       None,
+                    "altman_z":        t.get("altman_z"),
+                    "beneish_m":       t.get("beneish_m"),
+                    "mom_52w":         _mom,
+                    "fcf_yield":       t.get("fcf_yield"),
+                    "next_earnings":   None,
+                    "signal":          "Neutre",
+                    "mg_ebitda":       _em_pct or 0,
+                    "rev_gr":          (_rg or 0) * 100,
+                    "ret_52w":         _mom or 0,
+                    "score_raw":       t.get("score_global", 50),
+                }
+            _eu_res = [_norm_us(t) for t in _us_res_raw]
+            from collections import defaultdict as _dd_us
+            _by_sec_us: dict = {}
+            _tmp_dd = {}
+            for _r in _eu_res:
+                _sec = _r.get("sector", "")
+                if _sec and _sec != "Autre":
+                    _tmp_dd.setdefault(_sec, []).append(_r)
+            _eu_members_by_sec = _tmp_dd
+            log.info("US per-ticker OK: %d tickers / %d secteurs", len(_eu_res), len(_eu_members_by_sec))
 
         # --- ETF proxy fallback pour EV/EBITDA si la majorite des secteurs ont "—" ---
         _etf_proxy_ev = None   # sera reutilise pour top3_secteurs
@@ -2184,7 +2262,7 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
         "etf_proxy_ev_ebitda":  _etf_proxy_ev,        # ETF proxy fallback (None si non-utilise)
         "optimal_portfolios":   optimal_portfolios if universe == "S&P 500" else {},
         **({"perf_history": _eu_perf_history} if _eu_perf_history else {}),
-        # Per-ticker raw data pour IndiceExcelWriter (EU indices uniquement)
+        # Per-ticker raw data pour IndiceExcelWriter (EU + US indices)
         "tickers_raw": _eu_res if _eu_members_by_sec else [],
         "universe":    universe,
     })

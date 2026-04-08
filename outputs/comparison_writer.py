@@ -896,6 +896,25 @@ class ComparisonWriter:
             _write_cell(ws, row_idx, 3, val_a)  # col C
             _write_cell(ws, row_idx, 5, val_b)  # col E
 
+        # 9b. Supprimer les doublons dans COMPARABLES (company A ou B dans pairs)
+        try:
+            ws_comp = wb["COMPARABLES"]
+            tickers_to_exclude = {tkr_a.upper(), tkr_b.upper()} if tkr_a and tkr_b else set()
+            rows_to_delete = []
+            for row in ws_comp.iter_rows():
+                ticker_cell = None
+                for cell in row:
+                    if cell.column == 3 and cell.value:  # col C = TICKER
+                        ticker_cell = cell
+                        break
+                if ticker_cell and str(ticker_cell.value).upper() in tickers_to_exclude:
+                    rows_to_delete.append(ticker_cell.row)
+            # Supprimer de bas en haut pour ne pas decaler les indices
+            for r in sorted(rows_to_delete, reverse=True):
+                ws_comp.delete_rows(r)
+        except Exception as _ce2:
+            log.warning(f"[ComparisonWriter] comparables dedup: {_ce2}")
+
         # 9. Mettre a jour les noms de series dans les graphiques DASHBOARD
         try:
             from openpyxl.chart.series import SeriesLabel
