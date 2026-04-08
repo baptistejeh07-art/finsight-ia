@@ -2263,7 +2263,7 @@ def _slide_multiples_historiques(prs, snap, synthesis, ratios):
     ev_clean  = [v for v in ev_vals  if v is not None]
     has_data  = len(pe_clean) > 1 or len(ev_clean) > 1
 
-    # ── Matplotlib dual-axis chart ────────────────────────────────────────────
+    # ── Matplotlib single-axis chart (P/E + EV/EBITDA sur même échelle) ──────
     try:
         import matplotlib
         matplotlib.use("Agg")
@@ -2271,10 +2271,8 @@ def _slide_multiples_historiques(prs, snap, synthesis, ratios):
         import numpy as np
 
         fig, ax1 = plt.subplots(figsize=(11.5, 3.8))
-        ax2 = ax1.twinx()
 
         x = np.arange(len(labels))
-        # P/E — axe gauche, navy
         pe_plot = [v if v is not None else np.nan for v in pe_vals]
         ev_plot = [v if v is not None else np.nan for v in ev_vals]
 
@@ -2284,31 +2282,24 @@ def _slide_multiples_historiques(prs, snap, synthesis, ratios):
             ax1.fill_between(x, pe_plot, alpha=0.08, color="#1B3A6B")
 
         if any(v == v for v in ev_plot):
-            ax2.plot(x, ev_plot, color="#1A7A4A", linewidth=2.2, marker='s',
+            ax1.plot(x, ev_plot, color="#1A7A4A", linewidth=2.2, marker='s',
                      markersize=6, linestyle='--', label="EV/EBITDA", zorder=4)
-            # Forcer les y-limits pour inclure toutes les valeurs
-            _ev_valid = [v for v in ev_plot if v == v]  # exclure NaN
-            if _ev_valid:
-                _ev_margin = (max(_ev_valid) - min(_ev_valid)) * 0.12 or 1.0
-                ax2.set_ylim(min(_ev_valid) - _ev_margin, max(_ev_valid) + _ev_margin)
+
+        # Auto-scale y pour inclure toutes les séries avec marge
+        _all_vals = [v for v in pe_plot + ev_plot if v == v]
+        if _all_vals:
+            _margin = (max(_all_vals) - min(_all_vals)) * 0.12 or 2.0
+            ax1.set_ylim(max(0, min(_all_vals) - _margin), max(_all_vals) + _margin)
 
         ax1.set_xticks(x)
         ax1.set_xticklabels(labels, fontsize=9)
-        ax1.set_ylabel("P/E (x)", fontsize=9, color="#1B3A6B")
-        ax2.set_ylabel("EV/EBITDA (x)", fontsize=9, color="#1A7A4A")
-        ax1.tick_params(axis='y', labelcolor="#1B3A6B", labelsize=8)
-        ax2.tick_params(axis='y', labelcolor="#1A7A4A", labelsize=8)
+        ax1.set_ylabel("Multiple (x)", fontsize=9, color="#333")
+        ax1.tick_params(axis='y', labelsize=8)
         ax1.tick_params(axis='x', labelsize=8.5)
+        ax1.legend(fontsize=8.5, loc='upper right', framealpha=0.9, edgecolor='#DDDDDD')
 
-        # Légendes combinées
-        lines1, labs1 = ax1.get_legend_handles_labels()
-        lines2, labs2 = ax2.get_legend_handles_labels()
-        ax1.legend(lines1 + lines2, labs1 + labs2, fontsize=8.5, loc='upper right',
-                   framealpha=0.9, edgecolor='#DDDDDD')
-
-        for sp in ['top']:
-            ax1.spines[sp].set_visible(False)
-            ax2.spines[sp].set_visible(False)
+        ax1.spines['top'].set_visible(False)
+        ax1.spines['right'].set_visible(False)
         ax1.spines['left'].set_color('#D0D5DD')
         ax1.spines['bottom'].set_color('#D0D5DD')
         ax1.set_facecolor('white')

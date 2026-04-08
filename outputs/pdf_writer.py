@@ -1809,7 +1809,6 @@ def _build_multiples_historiques(data):
             x = list(range(len(labels)))
 
             fig, ax1 = plt.subplots(figsize=(6.5, 2.8))
-            ax2 = ax1.twinx()
             pe_plot = [v if v is not None else float('nan') for v in pe_vals]
             ev_plot = [v if v is not None else float('nan') for v in ev_vals]
 
@@ -1817,17 +1816,19 @@ def _build_multiples_historiques(data):
                 ax1.plot(x, pe_plot, color='#1B3A6B', lw=2.2, marker='o', ms=5, label='P/E', zorder=4)
                 ax1.fill_between(x, pe_plot, alpha=0.07, color='#1B3A6B')
             if any(v == v for v in ev_plot):
-                ax2.plot(x, ev_plot, color='#1A7A4A', lw=2.2, marker='s', ms=5, ls='--', label='EV/EBITDA', zorder=4)
+                ax1.plot(x, ev_plot, color='#1A7A4A', lw=2.2, marker='s', ms=5, ls='--', label='EV/EBITDA', zorder=4)
+
+            # Auto-scale pour inclure toutes les séries
+            _all_vals = [v for v in pe_plot + ev_plot if v == v]
+            if _all_vals:
+                _margin = (max(_all_vals) - min(_all_vals)) * 0.12 or 2.0
+                ax1.set_ylim(max(0, min(_all_vals) - _margin), max(_all_vals) + _margin)
 
             ax1.set_xticks(x); ax1.set_xticklabels(labels, fontsize=8)
-            ax1.set_ylabel('P/E (x)', fontsize=8, color='#1B3A6B')
-            ax2.set_ylabel('EV/EBITDA (x)', fontsize=8, color='#1A7A4A')
-            ax1.tick_params(axis='y', labelcolor='#1B3A6B', labelsize=7.5)
-            ax2.tick_params(axis='y', labelcolor='#1A7A4A', labelsize=7.5)
-            lines1, labs1 = ax1.get_legend_handles_labels()
-            lines2, labs2 = ax2.get_legend_handles_labels()
-            ax1.legend(lines1 + lines2, labs1 + labs2, fontsize=7.5, loc='upper right', framealpha=0.9)
-            ax1.spines['top'].set_visible(False); ax2.spines['top'].set_visible(False)
+            ax1.set_ylabel('Multiple (x)', fontsize=8, color='#333')
+            ax1.tick_params(axis='y', labelsize=7.5)
+            ax1.legend(fontsize=7.5, loc='upper right', framealpha=0.9)
+            ax1.spines['top'].set_visible(False); ax1.spines['right'].set_visible(False)
             ax1.spines['left'].set_color('#D0D5DD'); ax1.spines['bottom'].set_color('#D0D5DD')
             ax1.set_facecolor('white'); fig.patch.set_facecolor('white')
             ax1.grid(axis='y', alpha=0.25, color='#D0D5DD')
