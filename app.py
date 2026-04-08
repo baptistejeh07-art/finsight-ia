@@ -3242,7 +3242,10 @@ def _render_sector_comparison_section(results: dict) -> None:
                 _sys.path.insert(0, str(Path(__file__).parent))
                 from cli_analyze import _fetch_real_sector_data, _make_test_tickers
 
-                tickers_b = _fetch_real_sector_data(sector_b, "Global", max_tickers=8)
+                # Contexte 2 : pas d'indice specifique — on essaie S&P 500 puis fallback synthetique
+                tickers_b = _fetch_real_sector_data(sector_b, "S&P 500", max_tickers=8)
+                if not tickers_b:
+                    tickers_b = _fetch_real_sector_data(sector_b, "CAC 40", max_tickers=8)
                 if not tickers_b:
                     tickers_b = _make_test_tickers(sector_b, 6)
                 for t in tickers_b:
