@@ -1949,7 +1949,7 @@ def _build_capital_returns(data):
         _txt = (f"La g\u00e9n\u00e9ration de FCF affiche une {_dir} de "
                 f"{_fr(abs(delta_fcf)/1000, 1)} Mds sur la p\u00e9riode. "
                 f"Le FCF yield courant de {_fy} "
-                f"{'est attractif pour un investisseur long-only' if fy_vals and fy_vals[-1] and float(fy_vals[-1]) > 0.04 else 'reste modeste au regard du co\u00fbt du capital'}. "
+                f"{'est attractif pour un investisseur long-only' if fy_vals and fy_vals[-1] and float(fy_vals[-1]) > 0.04 else 'reste modeste au regard du coût du capital'}. "
                 f"L\u2019allocation vers les dividendes refl\u00e8te la politique de retour aux actionnaires.")
     else:
         _txt = "Donn\u00e9es FCF insuffisantes pour l\u2019analyse de l\u2019allocation du capital."
