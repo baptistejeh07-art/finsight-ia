@@ -247,61 +247,57 @@ ANGLE GLOBAL OBLIGATOIRE : Implications sur l'economie (emploi, productivite), l
 les secteurs (banque, assurance, conseil, asset management), les indices boursiers,
 la regulation (DORA, AI Act, Bale IV, MiFID) et la politique industrielle. Vue macro systematique.
 
-PROFILS D'EXPERTS A MOBILISER (si presents dans les sources ou deductibles) :
+EXPERTS A INTEGRER DANS LE CORPS DU TEXTE :
+Ne cree pas de section separee pour les experts. Integre leurs positions directement dans les paragraphes
+thematiques au moment ou leur point de vue eclaire, nuance ou contredit l'argument en cours.
+Profils a convoquer selon la pertinence du sujet :
 - Decideurs politiques / regulateurs (CE, BCE, SEC, AMF, gouvernements)
 - Juristes / juges / avocats (droit IA, responsabilite algorithmique, contentieux)
-- Forces armees / securite nationale (cyberrisque IA, finance de defense, dual-use)
-- Ingenieurs / chercheurs (architectures ML, fiabilite des modeles, benchmarks)
+- Forces armees / securite nationale (cyberrisque, finance de defense, dual-use)
+- Ingenieurs / chercheurs (fiabilite des modeles, benchmarks, architectures)
 - Economistes (impact emploi, productivite, croissance, inegalites)
 - Grands dirigeants / CEO (declarations publiques, orientations strategiques)
 - Ecologistes / ESG (empreinte energetique IA, reporting durable automatise)
-- Autres profils pertinents selon les sources (medecins, philosophes, sociologues si applicable)
-Consigne : si une source mentionne la position d'un de ces profils, l'integrer dans la section "Voix d'experts".
-Si aucune source ne le mentionne explicitement, synthetiser la position probable de ces acteurs en t'appuyant
-sur leur corpus public connu (rapports, declarations, interviews). Distingue toujours ce qui vient
-d'une source collectee [n] de ce qui est une synthese de position connue (mention : "Position connue").
-Minimum 4 profils differents representes dans la section.
+- Autres si pertinents : philosophes, sociologues, juristes specialises
+Regles d'integration :
+- Si la position vient d'une source collectee : cite [n] normalement.
+- Si c'est une position publique connue (rapport public, discours, interview) : precise "(Position connue)".
+- Les positions contradictoires de deux experts restent dans le meme paragraphe : c'est la tension qui donne de la valeur.
+- L'expert n'est jamais convoque pour illustrer : il est convoque parce qu'il change ou enrichit l'argument.
+- Minimum 3 profils differents d'experts cites au total dans l'article, repartis dans les sections thematiques.
 
 ARTICLES DISPONIBLES ({len(top20)} sources collectees) :
 {art_list}
 
-MISSION : Redige un article de revue institutionnelle EN FRANCAIS de 1100-1400 mots.
+MISSION : Redige un article de revue institutionnelle EN FRANCAIS de 1000-1200 mots.
 
 STRUCTURE EXACTE A RESPECTER :
 
-## [Titre declaratif max 12 mots — enonce une conclusion, pas un sujet]
+## [Titre declaratif max 12 mots -- enonce une conclusion, pas un sujet]
 *[Sous-titre : une phrase de contexte factuel]*
 **FinSight IA · Veille IA & Finance d'Entreprise · {date_fr}**
 
 ### En bref
-- [Conclusion 1 avec chiffre ou fait precis — verbe d'action]
+- [Conclusion 1 avec chiffre ou fait precis -- verbe d'action]
 - [Conclusion 2 avec chiffre ou fait precis]
 - [Conclusion 3 avec chiffre ou fait precis]
 - [Conclusion 4 avec chiffre ou fait precis]
 - [Conclusion 5 optionnelle si pertinente]
 
-### [Titre section 1 DECLARATIF — enonce une conclusion]
+### [Titre section 1 DECLARATIF -- enonce une conclusion]
 [200-250 mots. Cite les sources inline : "D'apres [NOM SOURCE]¹" ou "Selon [NOM SOURCE]²".
-Au moins un chiffre par section. Impacts concrets sur les metiers de la finance d'entreprise.]
+Au moins un chiffre. Impacts concrets sur les metiers de la finance d'entreprise.
+Integre ici les positions d'experts pertinents pour ce theme, directement dans la prose.]
 
-### [Titre section 2 DECLARATIF — enonce une conclusion]
-[180-230 mots. Meme format de citations et meme exigence de chiffres.]
+### [Titre section 2 DECLARATIF -- enonce une conclusion]
+[180-230 mots. Meme format de citations, meme exigence de chiffres et d'experts integres.]
 
-### [Titre section 3 DECLARATIF — fusionner avec section 2 si peu de matiere]
+### [Titre section 3 DECLARATIF -- fusionner avec section 2 si peu de matiere]
 [150-200 mots.]
 
 ### Implications globales
-[150-200 mots. Vue macro : economie, societe, secteurs, indices boursiers, regulation europeenne, politique industrielle.]
-
-### Voix d'experts — Ce qu'ils en pensent
-[200-260 mots. Presentez les positions de minimum 4 profils d'experts DIFFERENTS sur les sujets traites.
-Format pour chaque expert :
-**[Profil] — [Nom ou institution si connu]** : [2-4 phrases. Position claire, sans ambiguite.
-Si source collectee : cite [n]. Si position connue publiquement : ajoute "(Position connue)".]
-
-Profils obligatoires a couvrir si possible : decideur politique/regulateur, juriste/avocat,
-economiste, dirigeant/CEO. Ajouter ingenieurs, ecologistes, militaires/securite si les sources s'y pretent.
-Les positions peuvent etre contradictoires entre elles — c'est voulu, c'est le debat reel.]
+[150-200 mots. Vue macro : economie, societe, secteurs, indices boursiers, regulation europeenne, politique industrielle.
+Integre ici les positions de regulateurs, economistes ou decideurs politiques si pertinent.]
 
 ### Points de vigilance
 - [Risque ou limite 1 : factuel et precis]
@@ -320,12 +316,12 @@ Sois specifique : agents concernes (AgentQuant, AgentSynthese, AgentData...), fo
 
 **(A) Impact sur FinSight** : 2-3 points concrets sur les agents ou modules.
 
-**(B) Theses d'application** *(optionnel — inclure seulement si l'analyse fait emerger des idees originales)* :
+**(B) Theses d'application** *(optionnel -- inclure seulement si l'analyse fait emerger des idees originales)* :
 1-3 hypotheses originales sur un usage inedi de l'IA en finance d'entreprise que FinSight pourrait explorer.
 Ces theses doivent etre inattendues, pas des reformulations de l'existant.]
 
 ### Sources
-[1] Titre de l'article — *Nom de la source* — Date — URL
+[1] Titre de l'article -- *Nom de la source* -- Date -- URL
 [2] ...
 [pour chaque source citee dans l'article, avec le vrai lien]
 
@@ -335,18 +331,18 @@ REGLES ABSOLUES :
 - Titres de sections DECLARATIFS obligatoires (pas descriptifs)
 - Au moins un chiffre par section thematique
 - Finance d'entreprise = priorite. Marches = contexte
+- Experts integres dans le corps du texte, jamais dans une section separee
+- Minimum 3 profils d'experts differents cites dans l'article
 - Regard FinSight UNIQUEMENT apres Conclusion
 - Sources avec URL reels des articles collectes
-- Section "Voix d'experts" : minimum 4 profils differents. Les positions peuvent etre contradictoires.
-  Distingue toujours source collectee [n] vs position connue publiquement "(Position connue)".
 
 Reponds UNIQUEMENT en JSON valide sans markdown autour :
-{{
+{{{{
   "title": "Titre de l article",
   "subtitle": "Sous-titre",
   "article_md": "contenu complet en markdown (de ### En bref jusqu a ### Sources inclus)",
-  "sources": [{{"n":1,"title":"...","source":"...","date":"...","url":"..."}}]
-}}"""
+  "sources": [{{{{"n":1,"title":"...","source":"...","date":"...","url":"..."}}}}]
+}}}}"""
 
 
 def llm_write_article(candidates: list[dict], date_fr: str) -> dict:
