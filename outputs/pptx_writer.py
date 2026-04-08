@@ -489,7 +489,10 @@ def kpi_box(slide, x, y, w, h, value, label, sub="",
 
 
 def commentary_box(slide, x, y, w, h, text, accent=NAVY_MID):
-    add_text_box(slide, x, y, w, h, text or "—", 8.5, GREY_TXT, wrap=True)
+    add_rect(slide, x, y, w, h, "F5F7FA")           # fond gris clair
+    add_rect(slide, x, y, 0.22, h, accent)           # barre accent gauche
+    add_text_box(slide, x + 0.30, y + 0.08, w - 0.32, max(h - 0.10, 0.40),
+                 text or "\u2014", 8.5, GREY_TXT, wrap=True)
 
 
 def divider_slide(prs, number_str: str, title: str, subtitle: str):
@@ -882,7 +885,7 @@ def _slide_exec_summary(prs, snap, synthesis, ratios, devil, sentiment):
         add_text_box(slide, 1.4, sy, 10.92, 0.51,
                      _truncate(label, 80), 8.5, NAVY, bold=True)
         add_text_box(slide, 1.4, sy + 0.47, 10.92, 1.05,
-                     _fit(body, 480), 7.5, "333333", wrap=True)
+                     _fit(body, 190), 7.5, "333333", wrap=True)
 
     # Risks section header
     add_rect(slide, 13.08, 3.76, 11.3, 0.71, RED)
@@ -924,7 +927,7 @@ def _slide_exec_summary(prs, snap, synthesis, ratios, devil, sentiment):
         add_text_box(slide, 13.46, ry, 10.54, 0.51,
                      _truncate(risk_text, 80), 8.5, NAVY, bold=True)
         add_text_box(slide, 13.46, ry + 0.47, 10.54, 1.05,
-                     _fit(body_r, 480), 7.5, "333333", wrap=True)
+                     _fit(body_r, 190), 7.5, "333333", wrap=True)
 
     # Vertical divider
     add_rect(slide, 12.57, 3.76, 0.03, 4.84, GREY_LIGHT)
@@ -952,12 +955,12 @@ def _slide_exec_summary(prs, snap, synthesis, ratios, devil, sentiment):
         if i < len(catalysts):
             _cat_name = _g(catalysts[i], "title") or _g(catalysts[i], "name") or ""
             _cat_body = _g(catalysts[i], "description") or _g(catalysts[i], "text") or ""
-            _cat_txt  = _fit(f"{_cat_name[:25]}: {_cat_body}", 80) if _cat_body else _fit(_cat_name, 80)
+            _cat_txt  = _fit(f"{_cat_name[:20]}: {_cat_body}", 65) if _cat_body else _fit(_cat_name, 65)
         else:
             _cat_txt = "\u2014"
         add_rect(slide, 1.02, cy + 0.06, 0.12, 0.26, "1A7A4A")
         add_text_box(slide, 1.22, cy, 10.66, 0.48,
-                     _cat_txt, 7.5, "333333", wrap=False)
+                     _cat_txt, 7.5, "333333", wrap=True)
 
     # --- Valorisation Synthétique section (right) ---
     add_rect(slide, 13.08, 9.26, 11.3, 0.55, NAVY)
@@ -3329,11 +3332,10 @@ def _slide_historique(prs, snap, synthesis):
         add_text_box(slide, chart_x + 8.0, chart_y + 2.0, 7.37, 1.0,
                      "Historique de cours non disponible", 10, GREY_TXT)
 
-    # Commentary (plain text) — 400 chars pour eviter troncature visible
+    # Commentary dans un cadre — 280 chars
     thesis_s = _g(synthesis, "summary", "") or _g(synthesis, "thesis", "") or ""
     if thesis_s.strip():
-        add_text_box(slide, 1.02, 11.48, 23.37, 1.91,
-                     thesis_s[:400], 8.5, GREY_TXT, wrap=True)
+        commentary_box(slide, 1.02, 11.48, 23.37, 1.91, _fit(thesis_s, 280))
 
     return slide
 
@@ -3376,7 +3378,6 @@ def _slide_conviction_tracker(prs, snap, synthesis, ratios, devil, sentiment):
     add_rect(slide, bar_x, bar_y, bar_w, bar_h, "E8ECF0")
     add_rect(slide, bar_x, bar_y, bar_w * conv, bar_h, _REC_COL[0])
     add_text_box(slide, bar_x, bar_y - 0.40, bar_w, 0.38, "NIVEAU DE CONVICTION", 7, NAVY, bold=True)
-    add_text_box(slide, bar_x + bar_w + 0.1, bar_y, 1.2, bar_h, f"{conv_pct}%", 10, NAVY, bold=True)
 
     # ── Devil's Advocate delta ───────────────────────────────────────────────
     devil_conv = _g(devil, "devil_conviction") or 0.5
@@ -3398,7 +3399,7 @@ def _slide_conviction_tracker(prs, snap, synthesis, ratios, devil, sentiment):
     y_th = 2.95
     for i, part in enumerate(thesis_parts[:3]):
         add_rect(slide, 9.20, y_th, 0.10, 0.80, _REC_COL[0])
-        add_text_box(slide, 9.45, y_th + 0.05, 14.85, 0.75, part[:220], 8.5, GREY_TXT, wrap=True)
+        add_text_box(slide, 9.45, y_th + 0.05, 14.85, 0.75, _fit(part, 150), 8.5, GREY_TXT, wrap=True)
         y_th += 0.95
 
     # ── Catalyseurs / Risques ────────────────────────────────────────────────
@@ -3410,29 +3411,29 @@ def _slide_conviction_tracker(prs, snap, synthesis, ratios, devil, sentiment):
     add_text_box(slide, 9.35, y_mid + 0.05, 7.2, 0.40, "CATALYSEURS BULLS", 7.5, WHITE, bold=True)
     y_c = y_mid + 0.60
     for th in (pos_themes[:2] if pos_themes else ["N/D"]):
-        _c_txt = _fit(str(th), 68)
-        add_text_box(slide, 9.45, y_c, 7.10, 0.45, f"\u2022 {_c_txt}", 7, GREY_TXT, wrap=False)
-        y_c += 0.52
+        _c_txt = _fit(str(th), 100)
+        add_text_box(slide, 9.45, y_c, 7.10, 0.65, f"\u2022 {_c_txt}", 7, GREY_TXT, wrap=True)
+        y_c += 0.72
 
     add_rect(slide, 17.00, y_mid, 6.80, 0.50, "A82020")
     add_text_box(slide, 17.10, y_mid + 0.05, 6.6, 0.40, "RISQUES BEARS", 7.5, WHITE, bold=True)
     y_r = y_mid + 0.60
     for th in (neg_themes[:2] if neg_themes else ["N/D"]):
-        _r_txt = _fit(str(th), 68)
-        add_text_box(slide, 17.10, y_r, 6.6, 0.45, f"\u2022 {_r_txt}", 7, GREY_TXT, wrap=False)
-        y_r += 0.52
+        _r_txt = _fit(str(th), 100)
+        add_text_box(slide, 17.10, y_r, 6.6, 0.65, f"\u2022 {_r_txt}", 7, GREY_TXT, wrap=True)
+        y_r += 0.72
 
     # ── Invalidation conditions ──────────────────────────────────────────────
     inv_list = _g(synthesis, "invalidation_list") or []
     if inv_list:
         y_inv = max(y_c, y_r) + 0.40
         if y_inv < 11.5:
-            add_rect(slide, 9.20, y_inv, 15.20, 0.45, "FFF3CD")
-            add_rect(slide, 9.20, y_inv, 0.10, 0.45, "B06000")
+            add_rect(slide, 9.20, y_inv, 15.20, 0.60, "FFF3CD")
+            add_rect(slide, 9.20, y_inv, 0.10, 0.60, "B06000")
             inv_str = "  \u00b7  ".join(
-                f"{_g(it,'axis','?')}: {str(_g(it,'condition',''))[:60]}" for it in inv_list[:2])
-            add_text_box(slide, 9.45, y_inv + 0.04, 14.85, 0.38,
-                         f"\u26a0 Conditions d\u2019invalidation : {inv_str}", 7.5, "7A5000")
+                f"{_g(it,'axis','?')}: {str(_g(it,'condition',''))[:70]}" for it in inv_list[:2])
+            add_text_box(slide, 9.45, y_inv + 0.04, 14.85, 0.55,
+                         f"\u26a0 Conditions d\u2019invalidation : {inv_str}", 7.5, "7A5000", wrap=True)
 
     # ── Note methodologique ──────────────────────────────────────────────────
     add_text_box(slide, 0.90, 13.20, 23.60, 0.45,
