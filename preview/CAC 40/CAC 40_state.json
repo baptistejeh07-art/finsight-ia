@@ -1,0 +1,16 @@
+{
+  "ticker": "CAC 40",
+  "raw_data": null,
+  "sentiment": "SentimentResult(ticker='CAC 40', timestamp='2026-04-09T06:48:27.484813', score=0.0, score_normalized=0.5, label='NEUTRAL', confidence=0.0, articles_analyzed=0, articles_total=0, breakdown={}, sources=[], samples=[], llm_commentary='', meta={'request_id': '847eb2e8-3b57-4815-8747-09736939c8eb', 'latency_ms': 3681, 'confidence_score': 0.0, 'invalidation_conditions': 'Aucune news disponible pour cette période.', 'tokens_used': 0})",
+  "data_quality": 0.0,
+  "errors": [
+    "AgentData returned None for CAC 40"
+  ],
+  "logs": [
+    {
+      "node": "fetch_node",
+      "latency_ms": 3683,
+      "status": "error"
+    }
+  ]
+}
