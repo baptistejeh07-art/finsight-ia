@@ -540,11 +540,12 @@ SCORES:
     )
     results["quality_text"] = (r[:500].rsplit(' ', 1)[0] if r and len(r) > 500 else r) or ""
 
-    # Verdict final (80 mots max)
+    # Verdict final (80 mots max) — ancre sur le gagnant deja calcule
+    winner_for_llm = m_a.get('winner') or tkr_a
     r = _call_llm(
-        f"Verdict comparatif final de 80 mots MAX : quel titre privilegier entre {tkr_a} et {tkr_b}, "
-        f"pourquoi (catalyseur cle, valorisation relative, qualite bilan), "
-        f"et principal risque de la these.\n{data_str}",
+        f"Verdict comparatif final de 80 mots MAX : le titre retenu est {winner_for_llm}. "
+        f"Justifie ce choix (catalyseur cle, valorisation relative, qualite bilan) "
+        f"et mentionne le principal risque de la these.\n{data_str}",
         system=system_msg, max_tokens=300
     )
     results["verdict_text"] = r[:700] if r else ""
@@ -1519,7 +1520,7 @@ def _slide_multiples(prs, m_a: dict, m_b: dict, synthesis: dict):
         ("Div. Yield",        _frpct(m_a.get('dividend_yield')), _frpct(m_b.get('dividend_yield')), "\u2014"),
     ]
     add_table(
-        slide, 1.02, 4.0, 23.37, 4.5,
+        slide, 1.02, 4.3, 23.37, 4.2,
         num_rows=len(rows), num_cols=4,
         col_widths_pct=[0.36, 0.21, 0.21, 0.22],
         header_data=["Multiple", tkr_a, tkr_b, "Med. Secteur"],
@@ -1530,7 +1531,7 @@ def _slide_multiples(prs, m_a: dict, m_b: dict, synthesis: dict):
     # Graphique multiples
     buf = _chart_multiples(m_a, m_b, tkr_a, tkr_b)
     if buf:
-        _insert_chart(slide, buf, 1.02, 8.75, 23.37, 4.0)
+        _insert_chart(slide, buf, 1.02, 8.7, 23.37, 3.9)
 
     return slide
 
@@ -2312,10 +2313,13 @@ class ComparisonPPTXWriter:
         # Winner
         fs_a = m_a.get("finsight_score") or 0
         fs_b = m_b.get("finsight_score") or 0
-        if fs_a >= fs_b:
-            winner = tkr_a; verdict_str = f"{tkr_a} privilege"
+        if fs_a != fs_b:
+            winner = tkr_a if fs_a > fs_b else tkr_b
         else:
-            winner = tkr_b; verdict_str = f"{tkr_b} privilege"
+            pio_a = m_a.get("piotroski_score") or 0
+            pio_b = m_b.get("piotroski_score") or 0
+            winner = tkr_a if pio_a >= pio_b else tkr_b
+        verdict_str = f"{winner} privilege"
         m_a["winner"] = m_b["winner"] = winner
         m_a["verdict_relative"] = m_b["verdict_relative"] = verdict_str
 
