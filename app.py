@@ -1106,6 +1106,80 @@ def render_sidebar(results) -> None:
                     mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
                     use_container_width=True,
                 )
+            # ── Comparatif sectoriel (si disponible) ──
+            _scmp_stage = st.session_state.get("scmp_stage")
+            _scmp_b = st.session_state.get("scmp_sector_b", "")
+            if _scmp_stage == "done" and _scmp_b:
+                st.markdown(
+                    f'<div style="font-size:10px;font-weight:600;letter-spacing:.06em;'
+                    f'color:#aaa;text-transform:uppercase;margin:10px 0 4px;">'
+                    f'Comparatif sectoriel</div>',
+                    unsafe_allow_html=True,
+                )
+                _scmp_pptx = st.session_state.get("scmp_pptx_bytes")
+                if _scmp_pptx:
+                    _scmp_a = scr.get("display_name", "Secteur A") if scr else "Secteur A"
+                    st.download_button(
+                        f"Pitchbook {_scmp_a} vs {_scmp_b} \u2193 .pptx",
+                        _scmp_pptx,
+                        file_name=f"cmp_secteur_{_scmp_a}_vs_{_scmp_b}.pptx",
+                        mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                        use_container_width=True,
+                        key="sb_scmp_pptx",
+                    )
+                _scmp_pdf = st.session_state.get("scmp_pdf_bytes")
+                if _scmp_pdf:
+                    st.download_button(
+                        f"Rapport {_scmp_b} \u2193 .pdf",
+                        _scmp_pdf,
+                        file_name=f"cmp_secteur_{_scmp_b}.pdf",
+                        mime="application/pdf",
+                        use_container_width=True,
+                        key="sb_scmp_pdf",
+                    )
+
+            # ── Comparatif indice (si disponible) ──
+            _icmp_stage = st.session_state.get("icmp_stage")
+            _icmp_b = st.session_state.get("icmp_universe_b", "")
+            if _icmp_stage == "done" and _icmp_b:
+                _icmp_b_label = _icmp_b.replace("_", " ")
+                st.markdown(
+                    f'<div style="font-size:10px;font-weight:600;letter-spacing:.06em;'
+                    f'color:#aaa;text-transform:uppercase;margin:10px 0 4px;">'
+                    f'Comparatif indice</div>',
+                    unsafe_allow_html=True,
+                )
+                _icmp_pptx = st.session_state.get("icmp_pptx_bytes")
+                if _icmp_pptx:
+                    st.download_button(
+                        f"Pitchbook indice comparatif \u2193 .pptx",
+                        _icmp_pptx,
+                        file_name=f"cmp_indice_{_icmp_b_label.replace(' ', '_')}.pptx",
+                        mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                        use_container_width=True,
+                        key="sb_icmp_pptx",
+                    )
+                _icmp_pdf = st.session_state.get("icmp_pdf_bytes")
+                if _icmp_pdf:
+                    st.download_button(
+                        f"Rapport indice comparatif \u2193 .pdf",
+                        _icmp_pdf,
+                        file_name=f"cmp_indice_{_icmp_b_label.replace(' ', '_')}.pdf",
+                        mime="application/pdf",
+                        use_container_width=True,
+                        key="sb_icmp_pdf",
+                    )
+                _icmp_xlsx = st.session_state.get("icmp_xlsx_bytes")
+                if _icmp_xlsx:
+                    st.download_button(
+                        f"Excel indice comparatif \u2193 .xlsx",
+                        _icmp_xlsx,
+                        file_name=f"cmp_indice_{_icmp_b_label.replace(' ', '_')}.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        use_container_width=True,
+                        key="sb_icmp_xlsx",
+                    )
+
             if not scr:
                 st.markdown('<span style="font-size:12px;color:#aaa;">Disponibles après analyse</span>',
                             unsafe_allow_html=True)
