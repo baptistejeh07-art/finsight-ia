@@ -1405,10 +1405,11 @@ def _slide_marges(prs, m_a: dict, m_b: dict, synthesis: dict):
     buf_l = _chart_ebitda_margins(m_a, m_b, tkr_a, tkr_b)
     buf_r = _chart_growth_returns(m_a, m_b, tkr_a, tkr_b)
     y_ch = y2 + 2.1
+    _ch_h = min(4.8, 13.2 - y_ch)  # ne pas depasser le footer (13.39)
     if buf_l:
-        _insert_chart(slide, buf_l, 1.02, y_ch, 11.0, 5.5)
+        _insert_chart(slide, buf_l, 1.02, y_ch, 11.0, _ch_h)
     if buf_r:
-        _insert_chart(slide, buf_r, 13.3, y_ch, 11.07, 5.5)
+        _insert_chart(slide, buf_r, 13.3, y_ch, 11.07, _ch_h)
 
     return slide
 
