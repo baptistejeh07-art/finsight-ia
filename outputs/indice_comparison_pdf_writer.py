@@ -801,32 +801,170 @@ def _build_story(data: dict) -> list:
     story.append(Paragraph(_safe(final_verdict), S_BODY))
     story.append(Spacer(1, 4*mm))
 
-    # Tableau bilan final
+    # ── Tableau bilan final (etendu) ──────────────────────────────────────────
     ver_rows = [
         [Paragraph("Critere", S_TH_L),
          Paragraph(_safe(name_a[:20]), S_TH_C),
          Paragraph(_safe(name_b[:20]), S_TH_C)],
         [Paragraph("Score FinSight", S_TD_B),
-         Paragraph(f"{sc_a}/100", S_TD_C),
-         Paragraph(f"{sc_b}/100", S_TD_C)],
+         Paragraph(f"{sc_a}/100", S_TD_BC),
+         Paragraph(f"{sc_b}/100", S_TD_BC)],
         [Paragraph("Signal", S_TD_B),
          Paragraph(_safe(data.get("signal_a", "\u2014")), S_TD_C),
          Paragraph(_safe(data.get("signal_b", "\u2014")), S_TD_C)],
-        [Paragraph("Perf. 1 an", S_TD_B),
+        [Paragraph("Performance YTD", S_TD_B),
+         Paragraph(_pct_s(data.get("perf_ytd_a")), S_TD_C),
+         Paragraph(_pct_s(data.get("perf_ytd_b")), S_TD_C)],
+        [Paragraph("Performance 1 an", S_TD_B),
          Paragraph(_pct_s(data.get("perf_1y_a")), S_TD_C),
          Paragraph(_pct_s(data.get("perf_1y_b")), S_TD_C)],
+        [Paragraph("Performance 3 ans", S_TD_B),
+         Paragraph(_pct_s(data.get("perf_3y_a")), S_TD_C),
+         Paragraph(_pct_s(data.get("perf_3y_b")), S_TD_C)],
         [Paragraph("P/E Forward", S_TD_B),
-         Paragraph(_enc(_num(data.get("pe_fwd_a"),1) + "x"), S_TD_C),
-         Paragraph(_enc(_num(data.get("pe_fwd_b"),1) + "x"), S_TD_C)],
-        [Paragraph("Volatilite", S_TD_B),
+         Paragraph(_enc(_num(data.get("pe_fwd_a"), 1) + "x"), S_TD_C),
+         Paragraph(_enc(_num(data.get("pe_fwd_b"), 1) + "x"), S_TD_C)],
+        [Paragraph("Rendement div.", S_TD_B),
+         Paragraph(_enc(_num(data.get("div_yield_a"), 1) + " %"), S_TD_C),
+         Paragraph(_enc(_num(data.get("div_yield_b"), 1) + " %"), S_TD_C)],
+        [Paragraph("Volatilite 1 an", S_TD_B),
          Paragraph(_enc(_num(data.get("vol_1y_a")) + " %"), S_TD_C),
          Paragraph(_enc(_num(data.get("vol_1y_b")) + " %"), S_TD_C)],
+        [Paragraph("Sharpe 1 an", S_TD_B),
+         Paragraph(_num(data.get("sharpe_1y_a"), 2), S_TD_C),
+         Paragraph(_num(data.get("sharpe_1y_b"), 2), S_TD_C)],
+        [Paragraph("Max Drawdown", S_TD_B),
+         Paragraph(_enc(_num(data.get("max_dd_a"), 1) + " %"), S_TD_C),
+         Paragraph(_enc(_num(data.get("max_dd_b"), 1) + " %"), S_TD_C)],
     ]
     ver_tbl = _tbl([65, 45, 45], ver_rows)
     story.append(ver_tbl)
+    story.append(Spacer(1, 5*mm))
+
+    # ── Synthese Dimensionnelle ────────────────────────────────────────────────
+    story.append(Paragraph(_safe("Synthese Dimensionnelle"), S_SUBSECTION))
+
+    def _dim_winner(val_a, val_b, higher_is_better=True):
+        try:
+            fa, fb = float(val_a), float(val_b)
+            if abs(fa - fb) < 0.001:
+                return None
+            return name_a if (fa > fb) == higher_is_better else name_b
+        except Exception:
+            return None
+
+    p1a2   = data.get("perf_1y_a");    p1b2   = data.get("perf_1y_b")
+    p3a2   = data.get("perf_3y_a");    p3b2   = data.get("perf_3y_b")
+    sha_a2 = data.get("sharpe_1y_a");  sha_b2 = data.get("sharpe_1y_b")
+    pe_a2  = data.get("pe_fwd_a");     pe_b2  = data.get("pe_fwd_b")
+    vol_a2 = data.get("vol_1y_a");     vol_b2 = data.get("vol_1y_b")
+    dy_a2  = data.get("div_yield_a");  dy_b2  = data.get("div_yield_b")
+    dd_a2  = data.get("max_dd_a");     dd_b2  = data.get("max_dd_b")
+
+    def _dim_row(label, val_a, val_b, fmt_a, fmt_b, higher=True):
+        w = _dim_winner(val_a, val_b, higher)
+        return [
+            Paragraph(_safe(label), S_TD_B),
+            Paragraph(_safe(w or "Egalite"), S_TD_BC),
+            Paragraph(_safe(fmt_a), S_TD_C),
+            Paragraph(_safe(fmt_b), S_TD_C),
+        ]
+
+    dim_rows = [
+        [Paragraph("Dimension", S_TH_L),
+         Paragraph("Avantage", S_TH_C),
+         Paragraph(_safe(name_a[:14]), S_TH_C),
+         Paragraph(_safe(name_b[:14]), S_TH_C)],
+        _dim_row("Performance 1 an",      p1a2,  p1b2,  _pct_s(p1a2),  _pct_s(p1b2),  higher=True),
+        _dim_row("Performance 3 ans",     p3a2,  p3b2,  _pct_s(p3a2),  _pct_s(p3b2),  higher=True),
+        _dim_row("Sharpe 1 an",           sha_a2, sha_b2, _num(sha_a2,2), _num(sha_b2,2), higher=True),
+        _dim_row("Valorisation (P/E)",    pe_a2, pe_b2,
+                 _enc(_num(pe_a2,1)+"x"), _enc(_num(pe_b2,1)+"x"), higher=False),
+        _dim_row("Volatilite",            vol_a2, vol_b2,
+                 _enc(_num(vol_a2,1)+" %"), _enc(_num(vol_b2,1)+" %"), higher=False),
+        _dim_row("Rendement div.",        dy_a2,  dy_b2,
+                 _enc(_num(dy_a2,1)+" %"), _enc(_num(dy_b2,1)+" %"), higher=True),
+        _dim_row("Protection (Max DD)",   dd_a2,  dd_b2,
+                 _enc(_num(dd_a2,1)+" %"), _enc(_num(dd_b2,1)+" %"), higher=True),
+    ]
+    dim_tbl = _tbl([52, 36, 41, 41], dim_rows)
+    story.append(dim_tbl)
+    story.append(Spacer(1, 5*mm))
+
+    # ── Conditions d'investissement ────────────────────────────────────────────
+    story.append(Paragraph(_safe("Conditions d'Investissement"), S_SUBSECTION))
+
+    llm_cond = data.get("llm", {}).get("conditions_investissement", "")
+    if llm_cond:
+        story.extend(_llm_box_pdf(llm_cond))
+    else:
+        # Fallback deterministe — liste des avantages par indice
+        cond_a, cond_b = [], []
+        if sha_a2 and sha_b2:
+            if float(sha_a2) > float(sha_b2):
+                cond_a.append(f"Sharpe superieur ({_num(sha_a2,2)} vs {_num(sha_b2,2)}) : rendement ajuste du risque optimal")
+            else:
+                cond_b.append(f"Sharpe superieur ({_num(sha_b2,2)} vs {_num(sha_a2,2)}) : rendement ajuste du risque optimal")
+        if vol_a2 and vol_b2:
+            if float(vol_a2) < float(vol_b2):
+                cond_a.append(f"Volatilite plus faible ({_num(vol_a2,1)} % vs {_num(vol_b2,1)} %) : profil defensif et retraite")
+            else:
+                cond_b.append(f"Volatilite plus faible ({_num(vol_b2,1)} % vs {_num(vol_a2,1)} %) : profil defensif et retraite")
+        if pe_a2 and pe_b2:
+            if float(pe_a2) < float(pe_b2):
+                cond_a.append(f"P/E Forward plus attractif ({_num(pe_a2,1)}x vs {_num(pe_b2,1)}x) : marges de revalorisation")
+            else:
+                cond_b.append(f"P/E Forward plus attractif ({_num(pe_b2,1)}x vs {_num(pe_a2,1)}x) : marges de revalorisation")
+        if dy_a2 and dy_b2:
+            if float(dy_a2) > float(dy_b2):
+                cond_a.append(f"Rendement dividende superieur ({_num(dy_a2,1)} %) : portefeuilles revenu")
+            else:
+                cond_b.append(f"Rendement dividende superieur ({_num(dy_b2,1)} %) : portefeuilles revenu")
+        if p1a2 and p1b2:
+            if float(p1a2) > float(p1b2):
+                cond_a.append("Momentum 1 an favorable : dynamique court terme positive")
+            else:
+                cond_b.append("Momentum 1 an favorable : dynamique court terme positive")
+        if sc_a > sc_b:
+            cond_a.append(f"Score FinSight composite superieur ({sc_a}/100 vs {sc_b}/100)")
+        elif sc_b > sc_a:
+            cond_b.append(f"Score FinSight composite superieur ({sc_b}/100 vs {sc_a}/100)")
+
+        def _cond_para(items):
+            if not items:
+                return Paragraph(
+                    _safe("Aucun avantage statistique clair dans les donnees disponibles."),
+                    S_BODY)
+            txt = "<br/>".join(f"- {_safe(x)}" for x in items)
+            return Paragraph(txt, S_BODY)
+
+        S_COND_A = ParagraphStyle('ctha', fontName='Helvetica-Bold', fontSize=8.5,
+                                   textColor=COLOR_A, leading=12, spaceAfter=4)
+        S_COND_B = ParagraphStyle('cthb', fontName='Helvetica-Bold', fontSize=8.5,
+                                   textColor=COLOR_B, leading=12, spaceAfter=4)
+        cond_tbl = Table(
+            [[
+                [Paragraph(_safe(f"Privilegier {name_a[:18]}"), S_COND_A),
+                 _cond_para(cond_a)],
+                [Paragraph(_safe(f"Privilegier {name_b[:18]}"), S_COND_B),
+                 _cond_para(cond_b)],
+            ]],
+            colWidths=[83*mm, 83*mm]
+        )
+        cond_tbl.setStyle(TableStyle([
+            ('BACKGROUND',    (0, 0), (0, 0), COL_A_PAL),
+            ('BACKGROUND',    (1, 0), (1, 0), COL_B_PAL),
+            ('GRID',          (0, 0), (-1, -1), 0.5, GREY_RULE),
+            ('VALIGN',        (0, 0), (-1, -1), 'TOP'),
+            ('LEFTPADDING',   (0, 0), (-1, -1), 7),
+            ('RIGHTPADDING',  (0, 0), (-1, -1), 7),
+            ('TOPPADDING',    (0, 0), (-1, -1), 6),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+        ]))
+        story.append(cond_tbl)
 
     # Disclaimer
-    story.append(Spacer(1, 8*mm))
+    story.append(Spacer(1, 6*mm))
     story.append(HRFlowable(width=TABLE_W, thickness=0.5, color=GREY_RULE))
     story.append(Spacer(1, 2*mm))
     story.append(Paragraph(
@@ -873,7 +1011,8 @@ def _generate_indice_llm_pdf(data: dict) -> dict:
             f'{{\n'
             f'  "perf_analysis": "Analyse performance 2 phrases : qui surperforme et facteurs",\n'
             f'  "risque_analysis": "Analyse risque 2 phrases : volatilite et Sharpe ratio",\n'
-            f'  "verdict_analysis": "Verdict final 2-3 phrases : recommandation et conditions"\n'
+            f'  "verdict_analysis": "Verdict final 2-3 phrases : recommandation et conditions",\n'
+            f'  "conditions_investissement": "2-3 phrases : dans quels contextes macro ou profils investisseur preferer chaque indice"\n'
             f'}}'
         )
         import json, re
