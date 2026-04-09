@@ -44,6 +44,7 @@ NAVY_LIGHT = colors.HexColor("#2A5298")
 GREEN      = colors.HexColor("#1A7A4A")
 GREEN_L    = colors.HexColor("#EAF4EF")
 RED        = colors.HexColor("#A82020")
+AMBER      = colors.HexColor("#B8922A")
 RED_L      = colors.HexColor("#FAEAEA")
 WHITE      = colors.white
 BLACK      = colors.HexColor("#1A1A1A")
@@ -188,10 +189,10 @@ def _prepare(tickers_a, sector_a, universe_a, tickers_b, sector_b, universe_b):
             peg   = _med([t.get("peg_ratio") for t in td if t.get("peg_ratio")]),
             pf    = _med([t.get("piotroski_f") for t in td if t.get("piotroski_f") is not None]),
             score = int(_mean([t.get("score_global", 50) for t in td])),
-            s_val = _mean([t.get("score_value", 12) for t in td]),
-            s_gro = _mean([t.get("score_growth", 12) for t in td]),
-            s_qua = _mean([t.get("score_quality", 12) for t in td]),
-            s_mom = _mean([t.get("score_momentum", 12) for t in td]),
+            s_val = _mean([round(float(t.get("score_value") or 12) / 4.0, 1) if (t.get("score_value") or 0) > 30 else float(t.get("score_value") or 12) for t in td]),
+            s_gro = _mean([round(float(t.get("score_growth") or 12) / 4.0, 1) if (t.get("score_growth") or 0) > 30 else float(t.get("score_growth") or 12) for t in td]),
+            s_qua = _mean([round(float(t.get("score_quality") or 12) / 4.0, 1) if (t.get("score_quality") or 0) > 30 else float(t.get("score_quality") or 12) for t in td]),
+            s_mom = _mean([round(float(t.get("score_momentum") or 12) / 4.0, 1) if (t.get("score_momentum") or 0) > 30 else float(t.get("score_momentum") or 12) for t in td]),
         )
 
     sa = _stats(tickers_a)
@@ -201,7 +202,7 @@ def _prepare(tickers_a, sector_a, universe_a, tickers_b, sector_b, universe_b):
         if score >= 65:
             return "Surponderer", GREEN
         if score >= 45:
-            return "Neutre", GREY_TEXT
+            return "Neutre", AMBER
         return "Sous-ponderer", RED
 
     sig_a_lbl, sig_a_col = _sig(sa.get("score", 50))

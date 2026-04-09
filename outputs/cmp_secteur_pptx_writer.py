@@ -51,6 +51,7 @@ _GRAYT  = RGBColor(0x55, 0x55, 0x55)
 _GRAYD  = RGBColor(0xAA, 0xAA, 0xAA)
 _GREEN  = RGBColor(0x1A, 0x7A, 0x4A)
 _RED    = RGBColor(0xA8, 0x20, 0x20)
+_AMBER  = RGBColor(0xB8, 0x92, 0x2A)
 
 # Couleurs differenciantes A vs B
 _COL_A      = RGBColor(0x1B, 0x3A, 0x6B)   # navy   → Secteur A
@@ -227,10 +228,17 @@ def _prepare_data(tickers_a, sector_a, universe_a, tickers_b, sector_b, universe
         mom    = _med([t.get("momentum_52w", 0) for t in td])
         beta   = _med([t.get("beta", 1.0) for t in td if t.get("beta")])
         score  = int(_mean([t.get("score_global", 50) for t in td]))
-        s_val  = _mean([t.get("score_value", 12) for t in td])
-        s_gro  = _mean([t.get("score_growth", 12) for t in td])
-        s_qua  = _mean([t.get("score_quality", 12) for t in td])
-        s_mom  = _mean([t.get("score_momentum", 12) for t in td])
+        # score_value peut etre en 0-25 (fetch_real) ou 0-100 (compute_screening)
+        # Normaliser vers 0-25 : si la valeur > 30, c'est du 0-100 -> diviser par 4
+        def _sub(t, key, default=12):
+            v = t.get(key)
+            if v is None:
+                return default
+            return round(float(v) / 4.0, 1) if float(v) > 30 else float(v)
+        s_val  = _mean([_sub(t, "score_value")    for t in td])
+        s_gro  = _mean([_sub(t, "score_growth")   for t in td])
+        s_qua  = _mean([_sub(t, "score_quality")  for t in td])
+        s_mom  = _mean([_sub(t, "score_momentum") for t in td])
         pf     = _med([t.get("piotroski_f") for t in td if t.get("piotroski_f") is not None])
         az     = _med([t.get("altman_z") for t in td if t.get("altman_z") is not None])
         fcfy   = _med([t.get("fcf_yield") for t in td if t.get("fcf_yield") is not None])
@@ -250,7 +258,7 @@ def _prepare_data(tickers_a, sector_a, universe_a, tickers_b, sector_b, universe
         if score >= 65:
             return _GREEN, "Surponderer"
         if score >= 45:
-            return _GRAYT, "Neutre"
+            return _AMBER, "Neutre"
         return _RED, "Sous-ponderer"
 
     sig_a_col, sig_a_lbl = _sig(sa.get("score", 50))
@@ -719,12 +727,12 @@ def _s06_valorisation(prs, D):
     slide = _blank(prs)
     sa, sb = D["sa"], D["sb"]
     _header(slide, "Valorisation Comparee  —  Multiples de Marche",
-            f"P/E et EV-multiples medianes — {D['sector_a']} vs {D['sector_b']}", 2)
+            f"P/E et EV-multiples medianes — {D['sector_a']} vs {D['sector_b']}", 1)
     _footer(slide, D)
 
     # Chart gauche
     try:
-        img = _chart_valuation(sa, sb, D["sector_a"][:10], D["sector_b"][:10])
+        img = _chart_valuation(sa, sb, D["sector_a"], D["sector_b"])
         _pic(slide, img, 0.9, 2.0, 12.5, 8.0)
     except Exception as e:
         log.warning("[cmp_secteur] _s06 chart: %s", e)
@@ -732,7 +740,7 @@ def _s06_valorisation(prs, D):
 
     # Tableau metriques droite
     rows = [
-        ["Metrique", D["sector_a"][:12], D["sector_b"][:12]],
+        ["Metrique", D["sector_a"], D["sector_b"]],
         ["P/E median", _fmt_simple(sa.get("pe"), x=True), _fmt_simple(sb.get("pe"), x=True)],
         ["EV/EBITDA med.", _fmt_simple(sa.get("ev_eb"), x=True), _fmt_simple(sb.get("ev_eb"), x=True)],
         ["EV/Revenue med.", _fmt_simple(sa.get("ev_rev"), x=True), _fmt_simple(sb.get("ev_rev"), x=True)],
@@ -763,17 +771,17 @@ def _s07_marges(prs, D):
     slide = _blank(prs)
     sa, sb = D["sa"], D["sb"]
     _header(slide, "Qualite & Rentabilite  —  Marges et Retour sur Capital",
-            f"Qui genere plus de valeur par euro de chiffre d'affaires ?", 2)
+            f"Qui genere plus de valeur par euro de chiffre d'affaires ?", 1)
     _footer(slide, D)
 
     try:
-        img = _chart_margins(sa, sb, D["sector_a"][:10], D["sector_b"][:10])
+        img = _chart_margins(sa, sb, D["sector_a"], D["sector_b"])
         _pic(slide, img, 0.9, 2.0, 12.5, 7.5)
     except Exception as e:
         log.warning("[cmp_secteur] _s07 chart: %s", e)
 
     try:
-        img2 = _chart_rentabilite(sa, sb, D["sector_a"][:10], D["sector_b"][:10])
+        img2 = _chart_rentabilite(sa, sb, D["sector_a"], D["sector_b"])
         _pic(slide, img2, 13.5, 2.0, 11.0, 7.5)
     except Exception as e:
         log.warning("[cmp_secteur] _s07 chart2: %s", e)
@@ -798,18 +806,18 @@ def _s08_croissance(prs, D):
     slide = _blank(prs)
     sa, sb = D["sa"], D["sb"]
     _header(slide, "Croissance & Momentum  —  Acceleration ou Ralentissement ?",
-            f"Revenue growth et performance 52 semaines medianes comparees", 3)
+            f"Revenue growth et performance 52 semaines medianes comparees", 2)
     _footer(slide, D)
 
     try:
-        img = _chart_momentum(sa, sb, D["sector_a"][:10], D["sector_b"][:10])
+        img = _chart_momentum(sa, sb, D["sector_a"], D["sector_b"])
         _pic(slide, img, 0.9, 2.0, 14.5, 7.5)
     except Exception as e:
         log.warning("[cmp_secteur] _s08 chart: %s", e)
 
     # Stats complementaires
     rows = [
-        ["", D["sector_a"][:12], D["sector_b"][:12]],
+        ["", D["sector_a"], D["sector_b"]],
         ["Croissance rev. med.", _fmt(sa.get("revg"), pct=True), _fmt(sb.get("revg"), pct=True)],
         ["Perf. 52S med.", _fmt(sa.get("mom"), pct=True), _fmt(sb.get("mom"), pct=True)],
         ["Beta median", _fmt_simple(sa.get("beta"), dp=2), _fmt_simple(sb.get("beta"), dp=2)],
@@ -840,12 +848,12 @@ def _s09_scoring(prs, D):
     slide = _blank(prs)
     sa, sb = D["sa"], D["sb"]
     _header(slide, "Scoring Multi-Criteres  —  Value / Growth / Quality / Momentum",
-            f"Score FinSight decompose par dimension — {D['sector_a']} vs {D['sector_b']}", 3)
+            f"Score FinSight decompose par dimension — {D['sector_a']} vs {D['sector_b']}", 2)
     _footer(slide, D)
 
     # Tableau scores — colonne gauche (x=0.9, w=10.5)
     rows_a = [
-        ["Dimension", D["sector_a"][:12], D["sector_b"][:12]],
+        ["Dimension", D["sector_a"], D["sector_b"]],
         ["Value", f"{sa.get('s_val', 0):.0f}/25", f"{sb.get('s_val', 0):.0f}/25"],
         ["Growth", f"{sa.get('s_gro', 0):.0f}/25", f"{sb.get('s_gro', 0):.0f}/25"],
         ["Quality", f"{sa.get('s_qua', 0):.0f}/25", f"{sb.get('s_qua', 0):.0f}/25"],
@@ -857,7 +865,7 @@ def _s09_scoring(prs, D):
 
     # Radar chart — colonne droite (x=12.0, w=12.5)
     try:
-        img = _chart_radar(sa, sb, D["sector_a"][:12], D["sector_b"][:12])
+        img = _chart_radar(sa, sb, D["sector_a"], D["sector_b"])
         _pic(slide, img, 12.0, 1.6, 12.5, 11.0)
     except Exception as e:
         log.warning("[cmp_secteur] _s09 radar: %s", e)
@@ -880,7 +888,7 @@ def _s10_top_a(prs, D):
     """Slide 10 — Top acteurs Secteur A."""
     slide = _blank(prs)
     _header(slide, f"Top Acteurs  —  {D['sector_a']}",
-            f"{D['na']} societes analysees — classees par score FinSight", 4)
+            f"{D['na']} societes analysees — classees par score FinSight", 3)
     _footer(slide, D)
     _barre_secteur(slide, D["sector_a"], D["td_a"], _COL_A, D["universe_a"],
                    llm_text=D.get("llm", {}).get("top_a_read"))
@@ -890,7 +898,7 @@ def _s11_top_b(prs, D):
     """Slide 11 — Top acteurs Secteur B."""
     slide = _blank(prs)
     _header(slide, f"Top Acteurs  —  {D['sector_b']}",
-            f"{D['nb']} societes analysees — classees par score FinSight", 4)
+            f"{D['nb']} societes analysees — classees par score FinSight", 3)
     _footer(slide, D)
     _barre_secteur(slide, D["sector_b"], D["td_b"], _COL_B, D["universe_b"],
                    llm_text=D.get("llm", {}).get("top_b_read"))
@@ -930,7 +938,7 @@ def _s12_risques_a(prs, D):
     slide = _blank(prs)
     content = _get_content(D["sector_a"])
     _header(slide, f"Risques & Catalyseurs  —  {D['sector_a']}",
-            "Conditions d'investissement et d'invalidation de la these", 4)
+            "Conditions d'investissement et d'invalidation de la these", 3)
     _footer(slide, D)
     _risques_slide(slide, content, _COL_A, _COL_A_PALE,
                    llm_text=D.get("llm", {}).get("these_a"))
@@ -941,7 +949,7 @@ def _s13_risques_b(prs, D):
     slide = _blank(prs)
     content = _get_content(D["sector_b"])
     _header(slide, f"Risques & Catalyseurs  —  {D['sector_b']}",
-            "Conditions d'investissement et d'invalidation de la these", 4)
+            "Conditions d'investissement et d'invalidation de la these", 3)
     _footer(slide, D)
     _risques_slide(slide, content, _COL_B, _COL_B_PALE,
                    llm_text=D.get("llm", {}).get("these_b"))
@@ -990,7 +998,7 @@ def _s14_synthese(prs, D):
     slide = _blank(prs)
     sa, sb = D["sa"], D["sb"]
     _header(slide, "Synthese Comparative  —  Forces & Faiblesses",
-            f"Analyse strategique : atouts et vulnerabilites de chaque secteur", 5)
+            f"Analyse strategique : atouts et vulnerabilites de chaque secteur", 4)
     _footer(slide, D)
 
     mid = 12.7
@@ -1081,7 +1089,7 @@ def _s15_allocation(prs, D):
     slide = _blank(prs)
     sa, sb = D["sa"], D["sb"]
     _header(slide, "Recommandation d'Allocation  —  Positionnement Portefeuille",
-            "Signal FinSight et implications pour la construction de portefeuille", 5)
+            "Signal FinSight et implications pour la construction de portefeuille", 4)
     _footer(slide, D)
 
     # Contexte macro

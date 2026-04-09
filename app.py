@@ -969,8 +969,8 @@ def render_sidebar(results) -> None:
                 st.session_state.from_screening = False
                 st.rerun()
 
-        if st.session_state.get("from_screening") and st.session_state.get("screening_results"):
-            if st.button("← Retour au screening", use_container_width=True):
+        if st.session_state.get("screening_results"):
+            if st.button("\u2190 Retour au screening", use_container_width=True):
                 st.session_state.from_screening = False
                 st.session_state.stage = "screening_results"
                 st.rerun()
@@ -984,7 +984,7 @@ def render_sidebar(results) -> None:
         _in_secteur  = bool(not _in_societe and st.session_state.get("screening_results"))
 
         if _in_societe:
-            # ── Contexte société : afficher uniquement les livrables société ──
+            # ── Contexte société : livrables société ──
             ticker_slug = results.get("ticker", "report")
             _tkr_label  = results.get("ticker", "")
 
@@ -1020,6 +1020,46 @@ def render_sidebar(results) -> None:
                     file_name=f"{ticker_slug}_report.pdf",
                     mime="application/pdf",
                     use_container_width=True)
+
+            # ── Livrables comparatifs (si comparaison disponible) ──
+            _cmp_stage = st.session_state.get("cmp_stage")
+            _cmp_tkr_b = st.session_state.get("cmp_ticker_b", "")
+            if _cmp_stage == "done" and _cmp_tkr_b:
+                st.markdown(
+                    f'<div style="font-size:10px;font-weight:600;letter-spacing:.06em;'
+                    f'color:#aaa;text-transform:uppercase;margin:10px 0 4px;">Comparatif vs {_cmp_tkr_b}</div>',
+                    unsafe_allow_html=True,
+                )
+                _cmp_xlsx = st.session_state.get("cmp_bytes")
+                if _cmp_xlsx:
+                    st.download_button(
+                        f"Comparaison {_tkr_label} vs {_cmp_tkr_b} \u2193 .xlsx",
+                        _cmp_xlsx,
+                        file_name=f"{ticker_slug}_vs_{_cmp_tkr_b}_comparison.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        use_container_width=True,
+                        key="sb_cmp_xlsx",
+                    )
+                _cmp_pptx = st.session_state.get("cmp_pptx_bytes")
+                if _cmp_pptx:
+                    st.download_button(
+                        f"Pitchbook {_tkr_label} vs {_cmp_tkr_b} \u2193 .pptx",
+                        _cmp_pptx,
+                        file_name=f"{ticker_slug}_vs_{_cmp_tkr_b}_comparison.pptx",
+                        mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                        use_container_width=True,
+                        key="sb_cmp_pptx",
+                    )
+                _cmp_pdf = st.session_state.get("cmp_pdf_bytes")
+                if _cmp_pdf:
+                    st.download_button(
+                        f"Rapport {_tkr_label} vs {_cmp_tkr_b} \u2193 .pdf",
+                        _cmp_pdf,
+                        file_name=f"{ticker_slug}_vs_{_cmp_tkr_b}_comparison.pdf",
+                        mime="application/pdf",
+                        use_container_width=True,
+                        key="sb_cmp_pdf",
+                    )
 
         else:
             # ── Contexte secteur / indice : afficher uniquement les livrables screening ──
