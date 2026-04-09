@@ -152,18 +152,18 @@ def _num(v, dp=1) -> str:
 
 def _sig_c(signal: str):
     s = str(signal)
-    if "Surp" in s:
+    if "Surp" in s or "Positif" in s:
         return BUY_GREEN
-    if "Sous" in s:
+    if "Sous" in s or "Negatif" in s:
         return SELL_RED
     return HOLD_AMB
 
 
 def _sig_bg(signal: str):
     s = str(signal)
-    if "Surp" in s:
+    if "Surp" in s or "Positif" in s:
         return colors.HexColor('#E8F5EE')
-    if "Sous" in s:
+    if "Sous" in s or "Negatif" in s:
         return colors.HexColor('#FBEBEB')
     return colors.HexColor('#FDF3E5')
 
@@ -492,16 +492,22 @@ def _top5_table(data: dict, which: str) -> list:
            Paragraph("Secteur", S_TH_C)]
 
     rows = [hdr]
-    for item in top5[:5]:
-        company = _enc(str(item[0] if len(item) > 0 else "\u2014")[:40])
-        ticker  = _enc(str(item[1] if len(item) > 1 else ""))
-        weight  = item[2] if len(item) > 2 else None
-        sector  = _enc(str(item[3] if len(item) > 3 else "")[:25])
-        wt_s    = _enc(_num(weight, 1) + "\u00a0%") if weight is not None else "\u2014"
-        rows.append([Paragraph(company, S_TD_B),
-                     Paragraph(ticker, S_TD_C),
-                     Paragraph(wt_s, S_TD_C),
-                     Paragraph(sector, S_TD_L)])
+    if not top5:
+        nd = "\u2014"
+        rows.append([Paragraph("Donnees non disponibles", S_TD_B),
+                     Paragraph(nd, S_TD_C), Paragraph(nd, S_TD_C),
+                     Paragraph(nd, S_TD_L)])
+    else:
+        for item in top5[:5]:
+            company = _enc(str(item[0] if len(item) > 0 else "\u2014")[:40])
+            ticker  = _enc(str(item[1] if len(item) > 1 else ""))
+            weight  = item[2] if len(item) > 2 else None
+            sector  = _enc(str(item[3] if len(item) > 3 else "")[:25])
+            wt_s    = _enc(_num(weight, 1) + "\u00a0%") if weight is not None else "\u2014"
+            rows.append([Paragraph(company, S_TD_B),
+                         Paragraph(ticker, S_TD_C),
+                         Paragraph(wt_s, S_TD_C),
+                         Paragraph(sector, S_TD_L)])
 
     return [_tbl([65, 20, 25, 50], rows, hdr_fill=color)]
 
@@ -568,7 +574,7 @@ def _sector_chart_img(data: dict) -> Optional[Image]:
     try:
         name_a = data.get("name_a", "Indice A")
         name_b = data.get("name_b", "Indice B")
-        sects  = [str(s[0])[:18] for s in sc_cmp[:10]]
+        sects  = [str(s[0])[:25] for s in sc_cmp[:10]]
         wa     = [float(s[1] or 0) for s in sc_cmp[:10]]
         wb     = [float(s[2] or 0) for s in sc_cmp[:10]]
 
