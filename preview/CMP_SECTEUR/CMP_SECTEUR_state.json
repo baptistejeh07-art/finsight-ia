@@ -1,7 +1,7 @@
 {
   "ticker": "CMP_SECTEUR",
   "raw_data": null,
-  "sentiment": "SentimentResult(ticker='CMP_SECTEUR', timestamp='2026-04-09T17:01:03.794902', score=0.0, score_normalized=0.5, label='NEUTRAL', confidence=0.0, articles_analyzed=0, articles_total=0, breakdown={}, sources=[], samples=[], llm_commentary='', meta={'request_id': '8657ec5c-251f-42a7-9a9b-4e2f614e62fd', 'latency_ms': 2271, 'confidence_score': 0.0, 'invalidation_conditions': 'Aucune news disponible pour cette période.', 'tokens_used': 0})",
+  "sentiment": "SentimentResult(ticker='CMP_SECTEUR', timestamp='2026-04-09T20:13:13.949742', score=0.0, score_normalized=0.5, label='NEUTRAL', confidence=0.0, articles_analyzed=0, articles_total=0, breakdown={}, sources=[], samples=[], llm_commentary='', meta={'request_id': 'f0baed0b-6ea8-461e-83a3-6cfcf8981e24', 'latency_ms': 1751, 'confidence_score': 0.0, 'invalidation_conditions': 'Aucune news disponible pour cette période.', 'tokens_used': 0})",
   "data_quality": 0.0,
   "errors": [
     "AgentData returned None for CMP_SECTEUR"
@@ -9,7 +9,7 @@
   "logs": [
     {
       "node": "fetch_node",
-      "latency_ms": 4199,
+      "latency_ms": 2765,
       "status": "error"
     }
   ]
