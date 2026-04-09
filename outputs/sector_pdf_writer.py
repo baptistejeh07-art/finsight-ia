@@ -2414,6 +2414,65 @@ def _compute_analytics_from_tickers(td: list[dict]) -> dict:
     ebitda_margins = [t.get("ebitda_margin") for t in td if t.get("ebitda_margin")]
     ebitda_median  = round(float(np.median(ebitda_margins)), 1) if ebitda_margins else None
 
+    # --- VaR 95% mensuelle (simulation historique basket market-cap weighted) ---
+    var_95_monthly = None
+    vol_annual     = None
+    max_drawdown_52w = None
+    try:
+        import yfinance as _yf
+        import pandas as _pd
+        _symbols = [t["ticker"] for t in td if t.get("ticker") and t.get("market_cap")]
+        if len(_symbols) >= 2:
+            _total_mc = sum(t.get("market_cap", 0) or 0 for t in td if t.get("ticker"))
+            if _total_mc > 0:
+                _w = {t["ticker"]: (t.get("market_cap") or 0) / _total_mc
+                      for t in td if t.get("ticker")}
+                _raw = _yf.download(_symbols, period="1y", auto_adjust=True,
+                                    progress=False, threads=True)
+                if _raw is not None and not _raw.empty:
+                    _prices = (_raw["Close"] if isinstance(_raw.columns, _pd.MultiIndex)
+                               else _raw)
+                    if len(_prices) >= 30:
+                        _ret = _prices.pct_change().dropna()
+                        _pr = _pd.Series(0.0, index=_ret.index)
+                        _n = 0
+                        for _tk in _symbols:
+                            if _tk in _ret.columns and _w.get(_tk, 0) > 0:
+                                _pr += _ret[_tk].fillna(0) * _w[_tk]
+                                _n += 1
+                        if _n > 0:
+                            _vd = float(np.percentile(_pr, 5))
+                            var_95_monthly   = round(_vd * np.sqrt(21) * 100, 1)
+                            vol_annual       = round(float(_pr.std() * np.sqrt(252)) * 100, 1)
+                            _cum  = (1 + _pr).cumprod()
+                            _rmx  = _cum.cummax()
+                            max_drawdown_52w = round(float(((_cum - _rmx) / _rmx).min()) * 100, 1)
+    except Exception:
+        pass
+
+    # --- Duration implicite via CAPM (pas besoin de donnees externes) ---
+    dur_years = dur_wacc_pct = dur_g_pct = None
+    dur_method = "WACC estime CAPM (Rf=4.5% + beta x ERP 5.5%)"
+    try:
+        if beta_median is not None:
+            _dur_wacc = 0.045 + float(beta_median) * 0.055
+            _growths = [t.get("revenue_growth") for t in td
+                        if t.get("revenue_growth") is not None and t["revenue_growth"] > 0]
+            if _growths:
+                _g_raw = float(np.median(_growths))
+                # revenue_growth peut etre en % (15.0) ou decimal (0.15) selon la source
+                if _g_raw > 1.0:
+                    _g_raw = _g_raw / 100
+            else:
+                _g_raw = 0.04
+            _dur_g = max(0.02, min(_g_raw * 0.35, 0.05, _dur_wacc - 0.02))
+            if _dur_wacc > _dur_g:
+                dur_years    = round((1 + _dur_g) / (_dur_wacc - _dur_g), 1)
+                dur_wacc_pct = round(_dur_wacc * 100, 1)
+                dur_g_pct    = round(_dur_g   * 100, 1)
+    except Exception:
+        pass
+
     return {
         "hhi": hhi, "hhi_label": hhi_label,
         "pe_median_ltm": pe_median_ltm, "pe_median_hist": None,
@@ -2432,7 +2491,13 @@ def _compute_analytics_from_tickers(td: list[dict]) -> dict:
         "piotroski_trap": piotroski_trap,
         "ebitda_median": ebitda_median,
         "wacc_median": None,
-        "var_monthly_95": None,
+        "var_95_monthly":    var_95_monthly,   # cle correcte pour sector_pdf_writer
+        "vol_annual":        vol_annual,
+        "max_drawdown_52w":  max_drawdown_52w,
+        "duration_years":    dur_years,
+        "duration_wacc":     dur_wacc_pct,
+        "duration_growth":   dur_g_pct,
+        "duration_method":   dur_method,
     }
 
 

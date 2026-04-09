@@ -886,6 +886,16 @@ def compute_ticker(ticker: str, cache_row: Optional[dict]) -> Optional[dict]:
                or cache_row.get("sector") or info.get("sector") or ""
     tgr_val  = _tgr(sector)
 
+    # --- Beta (depuis yfinance info) ---
+    beta_val = rt.get("beta")  # info.get("beta") or 1.0 depuis _enrich_realtime
+
+    # --- PEG ratio = P/E / Croissance revenus (%) ---
+    peg_ratio = None
+    if pe and pe > 0 and revenue_growth and revenue_growth > 0:
+        peg_ratio = round(pe / revenue_growth, 2)
+        if peg_ratio > 50 or peg_ratio < 0:
+            peg_ratio = None
+
     return {
         "ticker":      ticker.upper(),
         "company":     cache_row.get("company_name") or info.get("longName") or ticker,
@@ -916,6 +926,10 @@ def compute_ticker(ticker: str, cache_row: Optional[dict]) -> Optional[dict]:
         "altman_z":    altman,
         "beneish_m":   beneish,
         "momentum_52w":mom52w,
+        "beta":        beta_val,
+        "peg_ratio":   peg_ratio,
+        "piotroski_f": None,   # non calcule dans le screening (requiert financials complets)
+        "pe_ratio":    pe,     # alias pour compatibilite avec sector_pdf_writer
         # scores calcules apres agregation
         "score_value":    None,
         "score_growth":   None,

@@ -803,9 +803,11 @@ def _fetch_real_sector_data(sector: str, universe: str, max_tickers: int = 8) ->
             ebitda_m = (info.get("ebitdaMargins") or 0) * 100
             gross_m  = (info.get("grossMargins")  or 0) * 100
             net_m    = (info.get("profitMargins")  or 0) * 100
-            roe      = (info.get("returnOnEquity") or 0) * 100
+            _roe_raw = info.get("returnOnEquity")
+            roe      = round(float(_roe_raw) * 100, 1) if _roe_raw is not None else None
             rev_g    =  info.get("revenueGrowth")  or 0
             mom52    = (info.get("52WeekChange")    or 0) * 100
+            mom52    = max(-300.0, min(300.0, mom52))  # cap +/-300% : valeurs extremes yfinance
             beta     =  info.get("beta")            or 1.0
 
             # ROIC réel = NOPAT / Invested Capital
@@ -944,9 +946,15 @@ def _fetch_real_sector_data(sector: str, universe: str, max_tickers: int = 8) ->
                     peg_ratio = None
 
             # FCF Yield = Free Cash Flow / Market Cap
+            # Fallback : OCF - CapEx si freeCashflow absent (hardware/fabless companies)
             fcf_yield = None
             try:
                 fcf_abs = info.get("freeCashflow")
+                if not fcf_abs:
+                    _ocf   = info.get("operatingCashflow")
+                    _capex = info.get("capitalExpenditures")  # negatif dans yfinance
+                    if _ocf is not None and _capex is not None:
+                        fcf_abs = _ocf + _capex
                 if fcf_abs and mc and mc > 0:
                     fcf_yield = round(float(fcf_abs) / float(mc) * 100, 2)
                     if fcf_yield < -50 or fcf_yield > 50:
@@ -982,7 +990,7 @@ def _fetch_real_sector_data(sector: str, universe: str, max_tickers: int = 8) ->
                 "ebitda_margin":   round(ebitda_m, 1),
                 "gross_margin":    round(gross_m, 1),
                 "net_margin":      round(net_m, 1),
-                "roe":             round(roe, 1),
+                "roe":             roe,  # None si returnOnEquity absent
                 "roic":            roic,
                 "revenue_growth":  rev_g,
                 "momentum_52w":    round(mom52, 1),
@@ -1608,6 +1616,7 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
                         _obj = yf.Ticker(tk)
                         _inf = _obj.info or {}
                         _52w = (_inf.get("52WeekChange") or 0) * 100
+                        _52w = max(-300.0, min(300.0, _52w))  # cap +/-300%
 
                         # Prix et market data
                         _price   = (_inf.get("currentPrice") or
@@ -1630,8 +1639,13 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
                             _cash_ev  = _inf.get("totalCash") or 0
                             _ev_raw   = _mktcap + _tdebt_ev - _cash_ev
 
-                        # FCF Yield
-                        _fcf     = _inf.get("freeCashflow")
+                        # FCF Yield (fallback OCF - CapEx si freeCashflow absent)
+                        _fcf = _inf.get("freeCashflow")
+                        if not _fcf:
+                            _ocf_eu = _inf.get("operatingCashflow")
+                            _cap_eu = _inf.get("capitalExpenditures")
+                            if _ocf_eu is not None and _cap_eu is not None:
+                                _fcf = _ocf_eu + _cap_eu
                         _fcf_yield = (_fcf / _mktcap) if (_fcf and _mktcap and _mktcap > 0) else None
 
                         # ND/EBITDA
