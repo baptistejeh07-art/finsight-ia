@@ -224,7 +224,8 @@ def _prepare_data(tickers_a, sector_a, universe_a, tickers_b, sector_b, universe
         nm     = _med([t.get("net_margin") for t in td])
         roe    = _med([t.get("roe") for t in td])
         roic   = _med([t.get("roic") for t in td if t.get("roic")], default=None)
-        revg   = _med([t.get("revenue_growth", 0) for t in td]) * 100
+        _rg_vals = [v for v in [t.get("revenue_growth") for t in td] if v is not None and abs(float(v)) <= 2.0]
+        revg   = _med(_rg_vals if _rg_vals else [0.0]) * 100
         mom    = _med([t.get("momentum_52w", 0) for t in td])
         beta   = _med([t.get("beta", 1.0) for t in td if t.get("beta")])
         score  = int(_mean([t.get("score_global", 50) for t in td]))
@@ -796,13 +797,13 @@ def _s07_marges(prs, D):
 
     try:
         img = _chart_margins(sa, sb, D["sector_a"], D["sector_b"])
-        _pic(slide, img, 0.9, 2.0, 12.5, 9.5)
+        _pic(slide, img, 0.9, 2.0, 12.5, 7.5)
     except Exception as e:
         log.warning("[cmp_secteur] _s07 chart: %s", e)
 
     try:
         img2 = _chart_rentabilite(sa, sb, D["sector_a"], D["sector_b"])
-        _pic(slide, img2, 13.5, 2.0, 11.0, 9.5)
+        _pic(slide, img2, 13.5, 2.0, 11.0, 7.5)
     except Exception as e:
         log.warning("[cmp_secteur] _s07 chart2: %s", e)
 
@@ -816,9 +817,9 @@ def _s07_marges(prs, D):
         f"({_fmt_simple(min(sa.get('roe') or 0, 999.9) if winner_roe == D['sector_a'] else min(sb.get('roe') or 0, 999.9), pct=True)})."
     )
     diag = D.get("llm", {}).get("margins_read") or fallback_diag
-    _rect(slide, 0.9, 12.0, 23.6, 0.38, fill=_NAVY)
-    _txb(slide, "Lecture analytique FinSight IA", 1.0, 12.03, 15.0, 0.32, size=7.5, bold=True, color=_WHITE)
-    _txb(slide, diag, 0.9, 12.48, 23.6, 5.0, size=8.5, color=_BLACK, wrap=True)
+    _rect(slide, 0.9, 9.8, 23.6, 0.38, fill=_NAVY)
+    _txb(slide, "Lecture analytique FinSight IA", 1.0, 9.83, 15.0, 0.32, size=7.5, bold=True, color=_WHITE)
+    _txb(slide, diag, 0.9, 10.28, 23.6, 3.5, size=8.5, color=_BLACK, wrap=True)
 
 
 def _s07b_capital_alloc(prs, D):
@@ -846,8 +847,9 @@ def _s07b_capital_alloc(prs, D):
         ["Rendement dividende med.", _fmt_pct(sa.get("div_yield")), _fmt_pct(sb.get("div_yield"))],
         ["FCF Yield median",         _fmt_pct_direct(sa.get("fcfy")),  _fmt_pct_direct(sb.get("fcfy"))],
         ["Payout Ratio median",      _fmt_pct(sa.get("payout")),    _fmt_pct(sb.get("payout"))],
-        ["FCF Yield / Div Yield",    f"{(sa.get('fcfy') or 0) / max(sa.get('div_yield') or 1, 0.01):.1f}x" if sa.get("fcfy") else "—",
-                                     f"{(sb.get('fcfy') or 0) / max(sb.get('div_yield') or 1, 0.01):.1f}x" if sb.get("fcfy") else "—"],
+        # fcfy en % (1.4), div_yield en fraction (0.004) → convertir div_yield en %
+        ["FCF Yield / Div Yield",    f"{(sa.get('fcfy') or 0) / max((sa.get('div_yield') or 0)*100, 0.01):.1f}x" if (sa.get("fcfy") and sa.get("div_yield") and (sa.get("div_yield") or 0)*100 > 0.05) else "—",
+                                     f"{(sb.get('fcfy') or 0) / max((sb.get('div_yield') or 0)*100, 0.01):.1f}x" if (sb.get("fcfy") and sb.get("div_yield") and (sb.get("div_yield") or 0)*100 > 0.05) else "—"],
     ]
     _add_table(slide, rows, 0.9, 2.0, 13.0, 5.5,
                col_widths=[5.5, 3.7, 3.7], alt_fill=_GRAYL, font_size=9, header_size=9)
@@ -958,7 +960,7 @@ def _s08_croissance(prs, D):
 
     try:
         img = _chart_momentum(sa, sb, D["sector_a"], D["sector_b"])
-        _pic(slide, img, 0.9, 2.0, 14.5, 9.5)
+        _pic(slide, img, 0.9, 2.0, 14.5, 7.5)
     except Exception as e:
         log.warning("[cmp_secteur] _s08 chart: %s", e)
 
@@ -971,7 +973,7 @@ def _s08_croissance(prs, D):
         ["FCF Yield med.", _fmt_simple(sa.get("fcfy"), pct=True, dp=1), _fmt_simple(sb.get("fcfy"), pct=True, dp=1)],
         ["Score Global", f"{sa.get('score', 0)}/100", f"{sb.get('score', 0)}/100"],
     ]
-    _add_table(slide, rows, 15.8, 2.0, 8.6, 9.0,
+    _add_table(slide, rows, 15.8, 2.0, 8.6, 7.5,
                col_widths=[4.0, 2.3, 2.3], alt_fill=_GRAYL, font_size=9, header_size=9)
 
     # Lecture analytique croissance
@@ -985,9 +987,9 @@ def _s08_croissance(prs, D):
         f"Momentum 52S {'confirme cette tendance' if ((faster_s.get('mom') or 0) > (slower_s.get('mom') or 0)) else 'diverge : marche anticipe ralentissement'}."
     )
     lecture = D.get("llm", {}).get("growth_read") or fallback_lecture
-    _rect(slide, 0.9, 11.8, 23.6, 0.38, fill=_NAVY)
-    _txb(slide, "Lecture analytique FinSight IA", 1.0, 11.83, 15.0, 0.32, size=7.5, bold=True, color=_WHITE)
-    _txb(slide, lecture, 0.9, 12.28, 23.6, 5.0, size=8.5, color=_BLACK, wrap=True)
+    _rect(slide, 0.9, 9.8, 23.6, 0.38, fill=_NAVY)
+    _txb(slide, "Lecture analytique FinSight IA", 1.0, 9.83, 15.0, 0.32, size=7.5, bold=True, color=_WHITE)
+    _txb(slide, lecture, 0.9, 10.28, 23.6, 3.5, size=8.5, color=_BLACK, wrap=True)
 
 
 def _s09_scoring(prs, D):
@@ -1066,7 +1068,7 @@ def _barre_secteur(slide, sector_name, tickers_data, col, universe, llm_text=Non
             _fmt(t.get("revenue_growth", 0) * 100 if (t.get("revenue_growth") or 0) < 5 else t.get("revenue_growth", 0), pct=True),
             _fmt_simple(t.get("ebitda_margin"), pct=True),
             _fmt_simple(t.get("net_margin"), pct=True),
-            _fmt_simple(min(t.get("roe") or 0, 999.9) if t.get("roe") is not None else None, pct=True),
+            ("N/M" if t.get("roe") is not None and abs(t.get("roe")) > 200 else _fmt_simple(t.get("roe"), pct=True)),
             _fmt_simple(t.get("beta"), dp=2),
         ])
 

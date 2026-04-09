@@ -182,7 +182,7 @@ def _prepare(tickers_a, sector_a, universe_a, tickers_b, sector_b, universe_b):
             nm    = _med([t.get("net_margin") for t in td]),
             roe   = _med([t.get("roe") for t in td]),
             roic  = _med([t.get("roic") for t in td if t.get("roic") is not None], default=None),
-            revg  = _med([t.get("revenue_growth", 0) for t in td]) * 100,
+            revg  = _med([v for v in [t.get("revenue_growth") for t in td] if v is not None and abs(float(v)) <= 2.0] or [0.0]) * 100,
             mom   = _med([t.get("momentum_52w", 0) for t in td]),
             beta  = _med([t.get("beta", 1.0) for t in td if t.get("beta")]),
             fcfy  = _med([t.get("fcf_yield") for t in td if t.get("fcf_yield")]),
@@ -463,7 +463,7 @@ def _build_story(D: dict) -> list:
     story = []
 
     # ── PAGE 1 : Cover ────────────────────────────────────────────────────────
-    story.append(Spacer(1, 40 * mm))
+    story.append(Spacer(1, 12 * mm))
     story.append(Paragraph("FinSight IA", _sty("brand", size=12, color=NAVY_LIGHT, bold=True)))
     story.append(Spacer(1, 4 * mm))
     story.append(rule(thick=2, col=NAVY, sb=0, sa=0))
@@ -583,7 +583,7 @@ def _build_story(D: dict) -> list:
     try:
         radar_img = _chart_radar_pdf(sa, sb, sector_a[:12], sector_b[:12])
         story.append(KeepTogether([
-            _img(radar_img, w=90*mm, h=70*mm),
+            _img(radar_img, w=72*mm, h=56*mm),
         ]))
     except Exception as e:
         log.warning("[cmp_secteur_pdf] radar: %s", e)
@@ -827,11 +827,13 @@ def _build_top_table(story, tickers, sector_name, col_header):
         if revg and abs(revg) < 5:  # yfinance donne en decimale (0.08 = 8%)
             revg = revg * 100
         roe_v = t.get("roe")
+        roe_str = None
         if roe_v is not None:
             try:
-                roe_v = min(float(roe_v), 999.9)
+                _rv = float(roe_v)
+                roe_str = "N/M" if abs(_rv) > 200 else _pct(_rv, sign=False)
             except (TypeError, ValueError):
-                roe_v = None
+                roe_str = None
         top_data.append([
             Paragraph(t.get("company", t.get("ticker", ""))[:22], S_TD_L),
             Paragraph(f"{t.get('score_global', 0)}/100", S_TD_C),
@@ -840,7 +842,7 @@ def _build_top_table(story, tickers, sector_name, col_header):
             Paragraph(_pct(revg), S_TD_C),
             Paragraph(_pct(t.get("ebitda_margin"), sign=False), S_TD_C),
             Paragraph(_pct(t.get("net_margin"), sign=False), S_TD_C),
-            Paragraph(_pct(roe_v, sign=False), S_TD_C),
+            Paragraph(roe_str or "—", S_TD_C),
         ])
     t = _tbl(top_data, [46*mm, 18*mm, 18*mm, 20*mm, 20*mm, 20*mm, 18*mm, 16*mm], header_col=col_header)
     story.append(t)

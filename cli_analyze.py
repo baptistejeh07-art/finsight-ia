@@ -962,6 +962,24 @@ def _fetch_real_sector_data(sector: str, universe: str, max_tickers: int = 8) ->
             except Exception:
                 pass
 
+            # Dividende & payout
+            # yfinance retourne dividendYield en % (ex: 0.97 = 0.97%)
+            # On le convertit en fraction pour rester coherent avec _fmt_pct (×100)
+            div_yield_raw = None
+            payout_ratio_raw = None
+            try:
+                _dy = info.get("dividendYield")
+                if _dy and 0 < float(_dy) < 100.0:
+                    div_yield_raw = round(float(_dy) / 100.0, 6)  # 0.97 -> 0.0097
+            except Exception:
+                pass
+            try:
+                _pr = info.get("payoutRatio")
+                if _pr and 0 < float(_pr) < 5.0:
+                    payout_ratio_raw = round(float(_pr), 4)  # payoutRatio reste en fraction
+            except Exception:
+                pass
+
             # Piotroski F-Score (9 criteres depuis etats financiers)
             piotroski = None
             try:
@@ -999,6 +1017,8 @@ def _fetch_real_sector_data(sector: str, universe: str, max_tickers: int = 8) ->
                 "piotroski_f":     piotroski,
                 "peg_ratio":       peg_ratio,
                 "fcf_yield":       fcf_yield,
+                "div_yield":       div_yield_raw,
+                "payout_ratio":    payout_ratio_raw,
                 "beneish_m":       -2.5,
                 "beta":            beta,
                 "price":           price,
@@ -1014,8 +1034,12 @@ def _fetch_real_sector_data(sector: str, universe: str, max_tickers: int = 8) ->
     results = []
     with ThreadPoolExecutor(max_workers=4) as ex:
         futures = {ex.submit(_fetch_one, tk): tk for tk in symbols}
-        for fut in as_completed(futures):
-            r = fut.result()
+        for fut in as_completed(futures, timeout=60):
+            try:
+                r = fut.result(timeout=20)
+            except Exception as _fe:
+                log.debug("_fetch_one timeout/erreur : %s", _fe)
+                r = None
             if r:
                 results.append(r)
 
@@ -1095,6 +1119,9 @@ def _make_test_tickers(sector: str, n: int) -> list[dict]:
             "revenue_ltm": 1e10 + i * 5e8,
             "currency": "USD",
             "sentiment_score": round(0.1 + i * 0.03, 2),
+            "fcf_yield":    round(2.5 + i * 0.4, 2),   # deja en % (ex: 2.5%)
+            "div_yield":    round(0.012 + i * 0.003, 4), # fraction (0.012 = 1.2%)
+            "payout_ratio": round(0.25 + i * 0.05, 4),  # fraction (0.25 = 25%)
         })
     return tickers
 
