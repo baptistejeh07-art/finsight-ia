@@ -391,11 +391,11 @@ def _generate_llm_texts(D: dict) -> dict:
             f"- {sector_a} : Score {sa.get('score',0)}/100, Signal {D['sig_a_lbl']}, "
             f"P/E {sa.get('pe',0):.1f}x, Croiss.Rev {sa.get('revg',0):+.1f}%, "
             f"Mg.EBITDA {sa.get('em',0):.1f}%, ROE {roe_a:.1f}%, Perf.52S {sa.get('mom',0):+.1f}%, "
-            f"Div Yield {dy_a*100:.1f}%, FCF Yield {fy_a*100:.1f}%, Payout {pt_a*100:.0f}%\n"
+            f"Div Yield {dy_a*100:.1f}%, FCF Yield {fy_a:.1f}%, Payout {pt_a*100:.0f}%\n"
             f"- {sector_b} : Score {sb.get('score',0)}/100, Signal {D['sig_b_lbl']}, "
             f"P/E {sb.get('pe',0):.1f}x, Croiss.Rev {sb.get('revg',0):+.1f}%, "
             f"Mg.EBITDA {sb.get('em',0):.1f}%, ROE {roe_b:.1f}%, Perf.52S {sb.get('mom',0):+.1f}%, "
-            f"Div Yield {dy_b*100:.1f}%, FCF Yield {fy_b*100:.1f}%, Payout {pt_b*100:.0f}%\n\n"
+            f"Div Yield {dy_b*100:.1f}%, FCF Yield {fy_b:.1f}%, Payout {pt_b*100:.0f}%\n\n"
             f"Reponds UNIQUEMENT en JSON valide. Textes en francais sans accents ni caracteres speciaux. "
             f"Max 300 caracteres par champ sauf exec_summary (500 max).\n"
             f'{{\n'
@@ -634,10 +634,11 @@ def _build_story(D: dict) -> list:
     fy_a = sa.get("fcfy")
     fy_b = sb.get("fcfy")
 
-    # div_yield / payout / fcfy sont stockes en decimal (0.013 = 1.3%) → ×100 pour affichage
+    # div_yield et payout sont stockes en decimal (0.013 = 1.3%) → ×100
+    # fcfy est deja en % (1.38 = 1.38%) → pas de ×100
     dy_a_p = (dy_a or 0) * 100; dy_b_p = (dy_b or 0) * 100
     pt_a_p = (pt_a or 0) * 100; pt_b_p = (pt_b or 0) * 100
-    fy_a_p = (fy_a or 0) * 100; fy_b_p = (fy_b or 0) * 100
+    fy_a_p = (fy_a or 0);       fy_b_p = (fy_b or 0)
 
     def _ca_winner(va, vb, sa_name, sb_name, higher=True):
         """Retourne le nom du secteur gagnant ou 'Egalite'."""
@@ -717,7 +718,7 @@ def _build_story(D: dict) -> list:
         [Paragraph("Croissance Revenue med.", S_TD_L), Paragraph(_pct(sa.get("revg")), S_TD_C), Paragraph(_pct(sb.get("revg")), S_TD_C)],
         [Paragraph("Performance 52S med.", S_TD_L), Paragraph(_pct(sa.get("mom")), S_TD_C), Paragraph(_pct(sb.get("mom")), S_TD_C)],
         [Paragraph("Beta median", S_TD_L), Paragraph(f"{sa.get('beta', 1):.2f}" if sa.get("beta") else "—", S_TD_C), Paragraph(f"{sb.get('beta', 1):.2f}" if sb.get("beta") else "—", S_TD_C)],
-        [Paragraph("FCF Yield med.", S_TD_L), Paragraph(_pct((sa.get("fcfy") or 0)*100, sign=False), S_TD_C), Paragraph(_pct((sb.get("fcfy") or 0)*100, sign=False), S_TD_C)],
+        [Paragraph("FCF Yield med.", S_TD_L), Paragraph(_pct(sa.get("fcfy") or 0, sign=False), S_TD_C), Paragraph(_pct(sb.get("fcfy") or 0, sign=False), S_TD_C)],
         [Paragraph("Piotroski F-Score med.", S_TD_L), Paragraph(f"{sa.get('pf', 0):.1f}/9" if sa.get("pf") else "—", S_TD_C), Paragraph(f"{sb.get('pf', 0):.1f}/9" if sb.get("pf") else "—", S_TD_C)],
         [Paragraph("Score Global FinSight", S_TD_L), Paragraph(f"{sa.get('score', 0)}/100", S_TD_C), Paragraph(f"{sb.get('score', 0)}/100", S_TD_C)],
     ]

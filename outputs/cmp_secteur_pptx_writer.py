@@ -831,14 +831,20 @@ def _s07b_capital_alloc(prs, D):
 
     # Tableau comparatif gauche
     def _fmt_pct(v):
+        """div_yield et payout sont en fraction (×100). fcfy est deja en %, utiliser _fmt_pct_direct."""
         if v is None: return "—"
         try: return f"{float(v)*100:.1f} %"
+        except: return "—"
+    def _fmt_pct_direct(v):
+        """fcfy est deja en % (1.38 = 1.38%) — pas de ×100."""
+        if v is None: return "—"
+        try: return f"{float(v):.1f} %"
         except: return "—"
 
     rows = [
         ["Indicateur", D["sector_a"], D["sector_b"]],
         ["Rendement dividende med.", _fmt_pct(sa.get("div_yield")), _fmt_pct(sb.get("div_yield"))],
-        ["FCF Yield median",         _fmt_pct(sa.get("fcfy")),      _fmt_pct(sb.get("fcfy"))],
+        ["FCF Yield median",         _fmt_pct_direct(sa.get("fcfy")),  _fmt_pct_direct(sb.get("fcfy"))],
         ["Payout Ratio median",      _fmt_pct(sa.get("payout")),    _fmt_pct(sb.get("payout"))],
         ["FCF Yield / Div Yield",    f"{(sa.get('fcfy') or 0) / max(sa.get('div_yield') or 1, 0.01):.1f}x" if sa.get("fcfy") else "—",
                                      f"{(sb.get('fcfy') or 0) / max(sb.get('div_yield') or 1, 0.01):.1f}x" if sb.get("fcfy") else "—"],
@@ -857,13 +863,14 @@ def _s07b_capital_alloc(prs, D):
         metrics = []
         vals_a  = []
         vals_b  = []
-        for label, key in [("Div Yield", "div_yield"), ("FCF Yield", "fcfy")]:
+        # div_yield est en fraction (×100) ; fcfy est deja en % (pas de ×100)
+        for label, key, scale in [("Div Yield", "div_yield", 100), ("FCF Yield", "fcfy", 1)]:
             va = sa.get(key)
             vb = sb.get(key)
             if va is not None or vb is not None:
                 metrics.append(label)
-                vals_a.append(float(va or 0) * 100)
-                vals_b.append(float(vb or 0) * 100)
+                vals_a.append(float(va or 0) * scale)
+                vals_b.append(float(vb or 0) * scale)
 
         if metrics:
             x  = np.arange(len(metrics))
@@ -902,7 +909,7 @@ def _s07b_capital_alloc(prs, D):
     _rect(slide, 14.5, 2.0, 10.0, 0.4, fill=_COL_A)
     _txb(slide, f"Profil  {D['sector_a'][:20]}", 14.6, 2.02, 9.8, 0.35, size=8, bold=True, color=_WHITE)
     dy_a_str = _fmt_pct(sa.get("div_yield"))
-    fy_a_str = _fmt_pct(sa.get("fcfy"))
+    fy_a_str = _fmt_pct_direct(sa.get("fcfy"))
     pt_a_str = _fmt_pct(sa.get("payout"))
     profil_a = (
         f"Rendement dividende : {dy_a_str}\n"
@@ -914,7 +921,7 @@ def _s07b_capital_alloc(prs, D):
     _rect(slide, 14.5, 5.8, 10.0, 0.4, fill=_COL_B)
     _txb(slide, f"Profil  {D['sector_b'][:20]}", 14.6, 5.82, 9.8, 0.35, size=8, bold=True, color=_WHITE)
     dy_b_str = _fmt_pct(sb.get("div_yield"))
-    fy_b_str = _fmt_pct(sb.get("fcfy"))
+    fy_b_str = _fmt_pct_direct(sb.get("fcfy"))
     pt_b_str = _fmt_pct(sb.get("payout"))
     profil_b = (
         f"Rendement dividende : {dy_b_str}\n"
