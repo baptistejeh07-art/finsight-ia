@@ -243,11 +243,13 @@ def _prepare_data(tickers_a, sector_a, universe_a, tickers_b, sector_b, universe
         az     = _med([t.get("altman_z") for t in td if t.get("altman_z") is not None], default=None)
         fcfy   = _med([t.get("fcf_yield") for t in td if t.get("fcf_yield") is not None])
         peg    = _med([t.get("peg_ratio") for t in td if t.get("peg_ratio")])
+        div_yield = _med([t.get("div_yield") for t in td if t.get("div_yield") and float(t.get("div_yield") or 0) > 0], default=None)
+        payout = _med([t.get("payout_ratio") for t in td if t.get("payout_ratio") and float(t.get("payout_ratio") or 0) > 0], default=None)
         return dict(
             pe=pe, ev_eb=ev_eb, ev_rev=ev_rev, gm=gm, em=em, nm=nm,
             roe=roe, roic=roic, revg=revg, mom=mom, beta=beta,
             score=score, s_val=s_val, s_gro=s_gro, s_qua=s_qua, s_mom=s_mom,
-            pf=pf, az=az, fcfy=fcfy, peg=peg,
+            pf=pf, az=az, fcfy=fcfy, peg=peg, div_yield=div_yield, payout=payout,
         )
 
     sa = _stats(tickers_a)
@@ -819,6 +821,126 @@ def _s07_marges(prs, D):
     _txb(slide, diag, 0.9, 12.48, 23.6, 5.0, size=8.5, color=_BLACK, wrap=True)
 
 
+def _s07b_capital_alloc(prs, D):
+    """Slide 7b — Capital Allocation & Remuneration de l'Actionnaire."""
+    slide = _blank(prs)
+    sa, sb = D["sa"], D["sb"]
+    _header(slide, "Capital Allocation  —  Dividendes, FCF & Remuneration",
+            f"Comparaison politique de distribution — {D['sector_a']} vs {D['sector_b']}", 1)
+    _footer(slide, D)
+
+    # Tableau comparatif gauche
+    def _fmt_pct(v):
+        if v is None: return "—"
+        try: return f"{float(v):.1f} %"
+        except: return "—"
+
+    rows = [
+        ["Indicateur", D["sector_a"], D["sector_b"]],
+        ["Rendement dividende med.", _fmt_pct(sa.get("div_yield")), _fmt_pct(sb.get("div_yield"))],
+        ["FCF Yield median",         _fmt_pct(sa.get("fcfy")),      _fmt_pct(sb.get("fcfy"))],
+        ["Payout Ratio median",      _fmt_pct(sa.get("payout")),    _fmt_pct(sb.get("payout"))],
+        ["FCF Yield / Div Yield",    f"{(sa.get('fcfy') or 0) / max(sa.get('div_yield') or 1, 0.01):.1f}x" if sa.get("fcfy") else "—",
+                                     f"{(sb.get('fcfy') or 0) / max(sb.get('div_yield') or 1, 0.01):.1f}x" if sb.get("fcfy") else "—"],
+    ]
+    _add_table(slide, rows, 0.9, 2.0, 13.0, 5.5,
+               col_widths=[5.5, 3.7, 3.7], alt_fill=_GRAYL, font_size=9, header_size=9)
+
+    # Graphique barres capital allocation
+    try:
+        import matplotlib
+        matplotlib.use('Agg')
+        import matplotlib.pyplot as plt
+        import numpy as np
+        import io as _io
+
+        metrics = []
+        vals_a  = []
+        vals_b  = []
+        for label, key in [("Div Yield", "div_yield"), ("FCF Yield", "fcfy")]:
+            va = sa.get(key)
+            vb = sb.get(key)
+            if va is not None or vb is not None:
+                metrics.append(label)
+                vals_a.append(float(va or 0))
+                vals_b.append(float(vb or 0))
+
+        if metrics:
+            x  = np.arange(len(metrics))
+            bw = 0.32
+            fig, ax = plt.subplots(figsize=(6.5, 4.5))
+            fig.patch.set_facecolor('white')
+            ax.set_facecolor('#FAFBFD')
+            b1 = ax.bar(x - bw/2, vals_a, bw, label=D["sector_a"][:18],
+                        color='#2E5FA3', alpha=0.85)
+            b2 = ax.bar(x + bw/2, vals_b, bw, label=D["sector_b"][:18],
+                        color='#1A7A4A', alpha=0.85)
+            ax.set_xticks(x)
+            ax.set_xticklabels(metrics, fontsize=10)
+            ax.set_ylabel("%", fontsize=9)
+            ax.legend(fontsize=8, framealpha=0.9)
+            ax.spines['top'].set_visible(False)
+            ax.spines['right'].set_visible(False)
+            ax.grid(axis='y', alpha=0.3)
+            for bar in list(b1) + list(b2):
+                h = bar.get_height()
+                if h > 0:
+                    ax.annotate(f'{h:.1f}%',
+                               xy=(bar.get_x()+bar.get_width()/2, h),
+                               xytext=(0, 2), textcoords="offset points",
+                               ha='center', va='bottom', fontsize=8)
+            fig.tight_layout(pad=0.5)
+            buf_chart = _io.BytesIO()
+            fig.savefig(buf_chart, format='png', dpi=130, bbox_inches='tight')
+            plt.close(fig)
+            buf_chart.seek(0)
+            _pic(slide, buf_chart.read(), 0.9, 7.8, 13.0, 5.5)
+    except Exception as e:
+        log.warning("[cmp_secteur_pptx] capital_alloc chart: %s", e)
+
+    # Profils de rendement à droite
+    _rect(slide, 14.5, 2.0, 10.0, 0.4, fill=_COL_A)
+    _txb(slide, f"Profil  {D['sector_a'][:20]}", 14.6, 2.02, 9.8, 0.35, size=8, bold=True, color=_WHITE)
+    dy_a_str = _fmt_pct(sa.get("div_yield"))
+    fy_a_str = _fmt_pct(sa.get("fcfy"))
+    pt_a_str = _fmt_pct(sa.get("payout"))
+    profil_a = (
+        f"Rendement dividende : {dy_a_str}\n"
+        f"FCF Yield : {fy_a_str}\n"
+        f"Payout Ratio : {pt_a_str}"
+    )
+    _txb(slide, profil_a, 14.5, 2.5, 10.0, 3.0, size=9, color=_BLACK, wrap=True)
+
+    _rect(slide, 14.5, 5.8, 10.0, 0.4, fill=_COL_B)
+    _txb(slide, f"Profil  {D['sector_b'][:20]}", 14.6, 5.82, 9.8, 0.35, size=8, bold=True, color=_WHITE)
+    dy_b_str = _fmt_pct(sb.get("div_yield"))
+    fy_b_str = _fmt_pct(sb.get("fcfy"))
+    pt_b_str = _fmt_pct(sb.get("payout"))
+    profil_b = (
+        f"Rendement dividende : {dy_b_str}\n"
+        f"FCF Yield : {fy_b_str}\n"
+        f"Payout Ratio : {pt_b_str}"
+    )
+    _txb(slide, profil_b, 14.5, 6.3, 10.0, 3.0, size=9, color=_BLACK, wrap=True)
+
+    # Interpretation context
+    _rect(slide, 14.5, 9.5, 10.0, 0.4, fill=_NAVY)
+    _txb(slide, "Interpretation  —  Profils de Distribution", 14.6, 9.52, 9.8, 0.35, size=7.5, bold=True, color=_WHITE)
+    dy_a = sa.get("div_yield") or 0
+    dy_b = sb.get("div_yield") or 0
+    fy_a = sa.get("fcfy") or 0
+    fy_b = sb.get("fcfy") or 0
+    high_dy = D["sector_a"] if dy_a > dy_b else D["sector_b"]
+    high_fy = D["sector_a"] if fy_a > fy_b else D["sector_b"]
+    fallback_interp = (
+        f"{high_dy} offre le meilleur rendement dividende. "
+        f"{high_fy} genere davantage de FCF, signe d'une capacite de remuneration durable. "
+        f"Un FCF Yield superieur au dividende verse garantit la soutenabilite de la politique de distribution."
+    )
+    interp_txt = D.get("llm", {}).get("capital_alloc_read") or fallback_interp
+    _txb(slide, interp_txt, 14.5, 10.0, 10.0, 3.3, size=8.5, color=_BLACK, wrap=True)
+
+
 def _s08_croissance(prs, D):
     """Slide 8 — Croissance & Momentum."""
     slide = _blank(prs)
@@ -1226,6 +1348,10 @@ def _generate_llm_texts(D: dict) -> dict:
         sector_a, sector_b = D["sector_a"], D["sector_b"]
         roe_a = min(float(sa.get("roe") or 0), 999.9)
         roe_b = min(float(sb.get("roe") or 0), 999.9)
+        dy_a = sa.get("div_yield") or 0
+        dy_b = sb.get("div_yield") or 0
+        fy_a = sa.get("fcfy") or 0
+        fy_b = sb.get("fcfy") or 0
         prompt = (
             f"Tu es analyste financier senior. Redige des textes courts pour un pitchbook comparatif sectoriel "
             f"entre {sector_a} et {sector_b} (univers : {D['universe_label']}).\n\n"
@@ -1233,17 +1359,20 @@ def _generate_llm_texts(D: dict) -> dict:
             f"- {sector_a} : Score {sa.get('score',0)}/100, Signal {D['sig_a_lbl']}, "
             f"P/E {sa.get('pe',0):.1f}x, EV/EBITDA {sa.get('ev_eb',0):.1f}x, "
             f"Croiss.Rev {sa.get('revg',0):+.1f}%, Mg.EBITDA {sa.get('em',0):.1f}%, "
-            f"ROE {roe_a:.1f}%, Perf.52S {sa.get('mom',0):+.1f}%, Beta {sa.get('beta',1.0):.2f}\n"
+            f"ROE {roe_a:.1f}%, Perf.52S {sa.get('mom',0):+.1f}%, Beta {sa.get('beta',1.0):.2f}, "
+            f"Div Yield {dy_a:.1f}%, FCF Yield {fy_a:.1f}%\n"
             f"- {sector_b} : Score {sb.get('score',0)}/100, Signal {D['sig_b_lbl']}, "
             f"P/E {sb.get('pe',0):.1f}x, EV/EBITDA {sb.get('ev_eb',0):.1f}x, "
             f"Croiss.Rev {sb.get('revg',0):+.1f}%, Mg.EBITDA {sb.get('em',0):.1f}%, "
-            f"ROE {roe_b:.1f}%, Perf.52S {sb.get('mom',0):+.1f}%, Beta {sb.get('beta',1.0):.2f}\n\n"
+            f"ROE {roe_b:.1f}%, Perf.52S {sb.get('mom',0):+.1f}%, Beta {sb.get('beta',1.0):.2f}, "
+            f"Div Yield {dy_b:.1f}%, FCF Yield {fy_b:.1f}%\n\n"
             f"Reponds UNIQUEMENT en JSON valide. Textes en francais sans accents ni caracteres speciaux. "
             f"Maximum 220 caracteres par champ sauf exec_summary (350 max).\n"
             f'{{\n'
             f'  "exec_summary": "Synthese 2-3 phrases : qui privilegier, ecarts cles, signal IA",\n'
             f'  "valuation_read": "Lecture valorisation 1-2 phrases : analyse multiples P/E et EV/EBITDA",\n'
             f'  "margins_read": "Lecture marges 1-2 phrases : qualite operationnelle et rentabilite",\n'
+            f'  "capital_alloc_read": "Capital allocation 1-2 phrases : dividendes, FCF yield et remuneration actionnaire",\n'
             f'  "growth_read": "Lecture croissance 1-2 phrases : acceleration/ralentissement et momentum",\n'
             f'  "scoring_read": "Interpretation scoring 1-2 phrases : analyse radar multidimensionnel",\n'
             f'  "top_a_read": "Synthese top acteurs {sector_a} 1-2 phrases",\n'
@@ -1254,7 +1383,7 @@ def _generate_llm_texts(D: dict) -> dict:
             f'}}'
         )
         import json, re
-        resp = llm.generate(prompt, max_tokens=900)
+        resp = llm.generate(prompt, max_tokens=1000)
         m = re.search(r'\{.*\}', resp, re.DOTALL)
         if m:
             data = json.loads(m.group(0))
@@ -1302,6 +1431,7 @@ class CmpSecteurPPTXWriter:
         _s05_profil(prs, D)               # Slide 5 — Profil cote a cote
         _s06_valorisation(prs, D)         # Slide 6 — P/E, EV/EBITDA
         _s07_marges(prs, D)               # Slide 7 — Marges & Rentabilite
+        _s07b_capital_alloc(prs, D)       # Slide 7b — Capital Allocation
 
         # Section 3 — Croissance & Scoring
         _chapter_divider(prs, "02", "Croissance & Scoring",

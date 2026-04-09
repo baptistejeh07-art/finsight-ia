@@ -706,18 +706,51 @@ def _slide_valorisation(prs, d: dict):
     except Exception as e:
         log.warning(f"[indice_cmp_pptx] val chart error: {e}")
 
-    # ERP commentary
+    # ERP commentary — interpretation dynamique
+    def _parse_erp(s):
+        """Extrait la valeur numerique d'un ERP string comme '+20,5 %' ou '—'."""
+        try:
+            return float(str(s).replace(",", ".").replace("%", "").replace("+", "").strip())
+        except Exception:
+            return None
+
+    erp_a_val = _parse_erp(erp_a)
+    erp_b_val = _parse_erp(erp_b)
+
+    def _erp_signal(v):
+        """Retourne un label qualitatif selon la valeur de l'ERP."""
+        if v is None: return "N/D"
+        if v >= 6.0:  return "Tres attractif"
+        if v >= 4.0:  return "Attractif"
+        if v >= 2.0:  return "Neutre"
+        if v >= 0.0:  return "Tendu"
+        return "Negatif"
+
+    sig_a = _erp_signal(erp_a_val)
+    sig_b = _erp_signal(erp_b_val)
+
+    if erp_a_val is not None and erp_b_val is not None:
+        if erp_a_val > erp_b_val:
+            erp_compare = f"{name_a} offre une prime de risque superieure ({erp_a} vs {erp_b}), signalant un potentiel de revalorisation plus eleve."
+        elif erp_b_val > erp_a_val:
+            erp_compare = f"{name_b} affiche un ERP superieur ({erp_b} vs {erp_a}), refletant une valorisation plus attractive relative aux obligations."
+        else:
+            erp_compare = f"Les deux indices presentent des ERP comparables ({erp_a} vs {erp_b})."
+    elif erp_a_val is not None:
+        erp_compare = f"{name_a} : ERP = {erp_a} ({sig_a}). Donnee {name_b} indisponible."
+    else:
+        erp_compare = f"L'ERP mesure la prime exigee pour detenir des actions vs obligations. Un ERP eleve (>4%) historiquement favorable aux actions."
+
+    erp_txt = (
+        f"{name_a} : ERP {erp_a} ({sig_a})  |  {name_b} : ERP {erp_b} ({sig_b})\n\n"
+        f"{erp_compare} "
+        f"Un ERP > 4% indique une valorisation historiquement attractive; < 2% signale une prime faible vs les obligations."
+    )
+
     _rect(slide, 1.02, 9.1, 7.5, 3.8, _NAVYP)
     _rect(slide, 1.02, 9.1, 0.13, 3.8, _NAVYL)
-    _txb(slide, "Equity Risk Premium",
+    _txb(slide, "Equity Risk Premium  —  Prime de Risque Actions",
          1.3, 9.2, 7.0, 0.5, 8.5, True, _NAVY)
-    erp_txt = (
-        f"{name_a} : ERP = {erp_a}  |  {name_b} : ERP = {erp_b}\n\n"
-        f"L'ERP mesure la prime exigee par les investisseurs pour "
-        f"detenir des actions plutot que des obligations sans risque. "
-        f"Un ERP eleve signale une valorisation plus attractive ou un "
-        f"risque percu plus important."
-    )
     _txb(slide, erp_txt, 1.3, 9.75, 7.0, 3.0, 7.5, False, _GRAYT, wrap=True)
 
 

@@ -188,6 +188,8 @@ def _prepare(tickers_a, sector_a, universe_a, tickers_b, sector_b, universe_b):
             fcfy  = _med([t.get("fcf_yield") for t in td if t.get("fcf_yield")]),
             peg   = _med([t.get("peg_ratio") for t in td if t.get("peg_ratio")]),
             pf    = _med([t.get("piotroski_f") for t in td if t.get("piotroski_f") is not None]),
+            div_yield = _med([t.get("div_yield") for t in td if t.get("div_yield") and float(t.get("div_yield") or 0) > 0], default=None),
+            payout = _med([t.get("payout_ratio") for t in td if t.get("payout_ratio") and float(t.get("payout_ratio") or 0) > 0], default=None),
             score = int(_mean([t.get("score_global", 50) for t in td])),
             s_val = _mean([round(float(t.get("score_value") or 12) / 4.0, 1) if (t.get("score_value") or 0) > 30 else float(t.get("score_value") or 12) for t in td]),
             s_gro = _mean([round(float(t.get("score_growth") or 12) / 4.0, 1) if (t.get("score_growth") or 0) > 30 else float(t.get("score_growth") or 12) for t in td]),
@@ -376,22 +378,31 @@ def _generate_llm_texts(D: dict) -> dict:
         sector_a, sector_b = D["sector_a"], D["sector_b"]
         roe_a = min(float(sa.get("roe") or 0), 999.9)
         roe_b = min(float(sb.get("roe") or 0), 999.9)
+        dy_a = sa.get("div_yield") or 0
+        dy_b = sb.get("div_yield") or 0
+        pt_a = sa.get("payout") or 0
+        pt_b = sb.get("payout") or 0
+        fy_a = sa.get("fcfy") or 0
+        fy_b = sb.get("fcfy") or 0
         prompt = (
             f"Tu es analyste financier senior. Redige des textes analytiques pour un rapport PDF comparatif sectoriel "
             f"entre {sector_a} et {sector_b} (univers : {D['universe_label']}).\n\n"
             f"Donnees medianes :\n"
             f"- {sector_a} : Score {sa.get('score',0)}/100, Signal {D['sig_a_lbl']}, "
             f"P/E {sa.get('pe',0):.1f}x, Croiss.Rev {sa.get('revg',0):+.1f}%, "
-            f"Mg.EBITDA {sa.get('em',0):.1f}%, ROE {roe_a:.1f}%, Perf.52S {sa.get('mom',0):+.1f}%\n"
+            f"Mg.EBITDA {sa.get('em',0):.1f}%, ROE {roe_a:.1f}%, Perf.52S {sa.get('mom',0):+.1f}%, "
+            f"Div Yield {dy_a:.1f}%, FCF Yield {fy_a:.1f}%, Payout {pt_a:.0f}%\n"
             f"- {sector_b} : Score {sb.get('score',0)}/100, Signal {D['sig_b_lbl']}, "
             f"P/E {sb.get('pe',0):.1f}x, Croiss.Rev {sb.get('revg',0):+.1f}%, "
-            f"Mg.EBITDA {sb.get('em',0):.1f}%, ROE {roe_b:.1f}%, Perf.52S {sb.get('mom',0):+.1f}%\n\n"
+            f"Mg.EBITDA {sb.get('em',0):.1f}%, ROE {roe_b:.1f}%, Perf.52S {sb.get('mom',0):+.1f}%, "
+            f"Div Yield {dy_b:.1f}%, FCF Yield {fy_b:.1f}%, Payout {pt_b:.0f}%\n\n"
             f"Reponds UNIQUEMENT en JSON valide. Textes en francais sans accents ni caracteres speciaux. "
             f"Max 300 caracteres par champ sauf exec_summary (500 max).\n"
             f'{{\n'
-            f'  "exec_summary": "Synthese 3 phrases : comparatif clé, signal IA et recommandation",\n'
+            f'  "exec_summary": "Synthese 3 phrases : comparatif cle, signal IA et recommandation",\n'
             f'  "valuation_analysis": "Analyse valorisation 2 phrases : interpretation multiples P/E et EV/EBITDA",\n'
             f'  "margins_analysis": "Analyse marges 2 phrases : qualite operationnelle, ROE et creation de valeur",\n'
+            f'  "capital_alloc_analysis": "Capital allocation 2 phrases : dividendes, FCF yield et politique de remuneration actionnaire",\n'
             f'  "growth_analysis": "Analyse croissance 2 phrases : dynamique revenue, momentum 52S et beta",\n'
             f'  "top_a_analysis": "Synthese top acteurs {sector_a} 2 phrases : meilleurs profils et caracteristiques",\n'
             f'  "top_b_analysis": "Synthese top acteurs {sector_b} 2 phrases : meilleurs profils et caracteristiques",\n'
@@ -399,7 +410,7 @@ def _generate_llm_texts(D: dict) -> dict:
             f'}}'
         )
         import json, re
-        resp = llm.generate(prompt, max_tokens=700)
+        resp = llm.generate(prompt, max_tokens=800)
         m = re.search(r'\{.*\}', resp, re.DOTALL)
         if m:
             data = json.loads(m.group(0))
@@ -611,10 +622,67 @@ def _build_story(D: dict) -> list:
         story.append(_img(m_img, w=TABLE_W, h=70*mm))
     except Exception as e:
         log.warning("[cmp_secteur_pdf] margins chart: %s", e)
+    # ── PAGE 3 suite : Capital Allocation ────────────────────────────────────
+    story += section("Capital Allocation & Remuneration de l'Actionnaire", "4")
+
+    dy_a = sa.get("div_yield")
+    dy_b = sb.get("div_yield")
+    pt_a = sa.get("payout")
+    pt_b = sb.get("payout")
+    fy_a = sa.get("fcfy")
+    fy_b = sb.get("fcfy")
+
+    def _ca_winner(va, vb, sa_name, sb_name, higher=True):
+        """Retourne le nom du secteur gagnant ou 'Egalite'."""
+        try:
+            fa, fb = float(va or 0), float(vb or 0)
+            if abs(fa - fb) < 0.05:
+                return "Egalite"
+            return sa_name if (fa > fb) == higher else sb_name
+        except Exception:
+            return "—"
+
+    ca_data = [
+        [Paragraph("Indicateur", S_TH_L),
+         Paragraph(sector_a[:18], S_TH_C),
+         Paragraph(sector_b[:18], S_TH_C),
+         Paragraph("Avantage", S_TH_C)],
+        [Paragraph("Rendement dividende med.", S_TD_L),
+         Paragraph(_pct(dy_a, sign=False), S_TD_C),
+         Paragraph(_pct(dy_b, sign=False), S_TD_C),
+         Paragraph(_ca_winner(dy_a, dy_b, sector_a[:14], sector_b[:14]), S_TD_C)],
+        [Paragraph("FCF Yield median", S_TD_L),
+         Paragraph(_pct(fy_a, sign=False), S_TD_C),
+         Paragraph(_pct(fy_b, sign=False), S_TD_C),
+         Paragraph(_ca_winner(fy_a, fy_b, sector_a[:14], sector_b[:14]), S_TD_C)],
+        [Paragraph("Payout Ratio median", S_TD_L),
+         Paragraph(_pct(pt_a, sign=False), S_TD_C),
+         Paragraph(_pct(pt_b, sign=False), S_TD_C),
+         Paragraph("—", S_TD_C)],
+        [Paragraph("Score FinSight", S_TD_L),
+         Paragraph(f"{sa.get('score', 0)}/100", S_TD_C),
+         Paragraph(f"{sb.get('score', 0)}/100", S_TD_C),
+         Paragraph(_ca_winner(sa.get("score"), sb.get("score"), sector_a[:14], sector_b[:14]), S_TD_C)],
+    ]
+    story.append(_tbl(ca_data, [75*mm, 35*mm, 35*mm, 35*mm]))
+    story.append(Spacer(1, 4 * mm))
+
+    # Texte LLM ou fallback
+    _gen_higher_dy = sector_a if (dy_a or 0) > (dy_b or 0) else sector_b
+    _gen_higher_fy = sector_a if (fy_a or 0) > (fy_b or 0) else sector_b
+    _ca_fallback = (
+        f"{_gen_higher_dy} offre un rendement dividende superieur ({_pct(sa.get('div_yield') if _gen_higher_dy == sector_a else sb.get('div_yield'), sign=False)}), "
+        f"convenant aux portefeuilles de type 'revenu'. "
+        f"{_gen_higher_fy} presente un FCF Yield plus eleve ({_pct(sa.get('fcfy') if _gen_higher_fy == sector_a else sb.get('fcfy'), sign=False)}), "
+        f"signal d'une generation de cash robuste et d'une meilleure capacite de remuneration future de l'actionnaire."
+    )
+    _ca_text = D.get("llm", {}).get("capital_alloc_analysis") or _ca_fallback
+    story += _llm_box(_ca_text)
+
     story.append(PageBreak())
 
-    # ── PAGE 4 : Croissance & Momentum ────────────────────────────────────────
-    story += section("Croissance & Momentum — Acceleration ou Ralentissement ?", "4")
+    # ── PAGE 5 : Croissance & Momentum ────────────────────────────────────────
+    story += section("Croissance & Momentum — Acceleration ou Ralentissement ?", "5")
     faster = sector_a if (sa.get("revg") or -999) > (sb.get("revg") or -999) else sector_b
     slower = sector_b if faster == sector_a else sector_a
     fs = sa if faster == sector_a else sb; ss = sb if faster == sector_a else sa
@@ -649,35 +717,35 @@ def _build_story(D: dict) -> list:
     story.append(_tbl(comp_data, [80*mm, 48*mm, 48*mm]))
     story.append(PageBreak())
 
-    # ── PAGE 5 : Top acteurs Secteur A ────────────────────────────────────────
-    story += section(f"Top Acteurs — {sector_a}", "5")
+    # ── PAGE 6 : Top acteurs Secteur A ────────────────────────────────────────
+    story += section(f"Top Acteurs — {sector_a}", "6")
     sorted_a = sorted(D["td_a"], key=lambda x: x.get("score_global", 0), reverse=True)[:8]
     _build_top_table(story, sorted_a, sector_a, COL_A)
     story.append(Spacer(1, 3 * mm))
     story += _llm_box(D.get("llm", {}).get("top_a_analysis", ""), col=COL_A)
 
     # ── Top acteurs Secteur B ─────────────────────────────────────────────────
-    story += section(f"Top Acteurs — {sector_b}", "6")
+    story += section(f"Top Acteurs — {sector_b}", "7")
     sorted_b = sorted(D["td_b"], key=lambda x: x.get("score_global", 0), reverse=True)[:8]
     _build_top_table(story, sorted_b, sector_b, COL_B)
     story.append(Spacer(1, 3 * mm))
     story += _llm_box(D.get("llm", {}).get("top_b_analysis", ""), col=COL_B)
     story.append(PageBreak())
 
-    # ── PAGE 6 : Risques & Catalyseurs ───────────────────────────────────────
+    # ── PAGE 7 : Risques & Catalyseurs ───────────────────────────────────────
     content_a = _get_content(sector_a)
     content_b = _get_content(sector_b)
 
-    story += section(f"Risques & Catalyseurs — {sector_a}", "7")
+    story += section(f"Risques & Catalyseurs — {sector_a}", "8")
     _build_risques_pdf(story, content_a, sector_a)
     story.append(PageBreak())
 
-    story += section(f"Risques & Catalyseurs — {sector_b}", "8")
+    story += section(f"Risques & Catalyseurs — {sector_b}", "9")
     _build_risques_pdf(story, content_b, sector_b)
     story.append(PageBreak())
 
-    # ── PAGE 7 : Recommandation ───────────────────────────────────────────────
-    story += section("Recommandation d'Allocation", "9")
+    # ── PAGE 8 : Recommandation ───────────────────────────────────────────────
+    story += section("Recommandation d'Allocation", "10")
     story.append(Paragraph(
         "Positionnement FinSight derive du scoring multidimensionnel (Value + Growth + Quality + Momentum). "
         "Ce signal est indicatif — toute decision d'investissement requiert une analyse complementaire.",
@@ -712,8 +780,8 @@ def _build_story(D: dict) -> list:
         S_NOTE))
     story.append(PageBreak())
 
-    # ── PAGE 8 : Disclaimer ───────────────────────────────────────────────────
-    story += section("Mentions Legales & Methodologie", "10")
+    # ── PAGE 9 : Disclaimer ───────────────────────────────────────────────────
+    story += section("Mentions Legales & Methodologie", "11")
     disclaimers = [
         ("Sources de donnees", "Les donnees financieres sont issues de yfinance (Yahoo Finance), Finnhub et Financial Modeling Prep. FinSight IA ne garantit pas l'exhaustivite ou l'exactitude de ces donnees. Les chiffres presentent les medianes des societes analysees a la date de generation."),
         ("Caractere informatif", "Ce document est produit a des fins d'information uniquement. Il ne constitue pas un conseil en investissement, une recommendation d'achat ou de vente de valeurs mobilieres, ni une invitation a contracter."),
