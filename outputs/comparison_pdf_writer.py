@@ -229,6 +229,17 @@ def _frm(v, cur="$"):
         return _fr(v, 0) + " " + sym_small
     except: return "\u2014"
 
+_SENTIMENT_MAP = {
+    "POSITIVE": "Positif", "BULLISH": "Positif", "TRES_POSITIF": "Tres positif",
+    "NEGATIF": "Negatif", "NEGATIVE": "Negatif", "BEARISH": "Negatif",
+    "NEUTRE": "Neutre", "NEUTRAL": "Neutre", "MIXED": "Mixte",
+}
+
+def _fmt_sentiment(v):
+    if v is None: return "\u2014"
+    return _SENTIMENT_MAP.get(str(v).upper().strip(), str(v).capitalize())
+
+
 def _rec_color(rec):
     r = str(rec or "").upper()
     if r == 'BUY':  return BUY_GREEN
@@ -478,6 +489,8 @@ def _chart_risk_radar(m_a, m_b, tkr_a, tkr_b) -> io.BytesIO:
         ax.fill(angles, vals_b, alpha=0.12, color='#2E8B57')
         ax.set_facecolor('white'); fig.patch.set_facecolor('white')
         ax.grid(color='#D0D5DD', linewidth=0.5)
+        ax.set_title(f"Profil de Risque : {tkr_a} vs {tkr_b}",
+                     fontsize=9, fontweight='bold', pad=14, color='#1A2E5A')
         ax.legend(fontsize=8, loc='upper right', bbox_to_anchor=(1.35, 1.15), frameon=False)
         plt.tight_layout(pad=0.4)
         buf = io.BytesIO(); fig.savefig(buf, format='png', dpi=150, bbox_inches='tight')
@@ -655,12 +668,12 @@ def _cover_page(canvas, doc, tkr_a, tkr_b, name_a, name_b,
     # Sous-titre "Analyse Comparative de Societes"
     canvas.setFillColor(GREY_TEXT)
     canvas.setFont("Helvetica", 10)
-    canvas.drawCentredString(cx, H * 0.78, _enc("Analyse Comparative de Societes"))
+    canvas.drawCentredString(cx, H * 0.69, _enc("Analyse Comparative de Societes"))
 
     # Titre principal "{tkr_a}  vs  {tkr_b}" 38pt navy bold
     canvas.setFillColor(NAVY)
     canvas.setFont("Helvetica-Bold", 38)
-    canvas.drawCentredString(cx, H * 0.73, _enc(f"{tkr_a}  vs  {tkr_b}"))
+    canvas.drawCentredString(cx, H * 0.64, _enc(f"{tkr_a}  vs  {tkr_b}"))
 
     # Noms complets sur une ligne : "Company A (TKR_A) vs Company B (TKR_B)"
     _na = (name_a or tkr_a)[:28]
@@ -668,17 +681,17 @@ def _cover_page(canvas, doc, tkr_a, tkr_b, name_a, name_b,
     subtitle_line = f"{_na} ({tkr_a})  vs  {_nb} ({tkr_b})"
     canvas.setFillColor(GREY_TEXT)
     canvas.setFont("Helvetica", 10)
-    canvas.drawCentredString(cx, H * 0.685, _enc(subtitle_line))
+    canvas.drawCentredString(cx, H * 0.595, _enc(subtitle_line))
 
     # Ligne separatrice sous titres
     canvas.setStrokeColor(GREY_RULE)
     canvas.setLineWidth(0.4)
-    canvas.line(MARGIN_L + 20*mm, H * 0.668, W - MARGIN_R - 20*mm, H * 0.668)
+    canvas.line(MARGIN_L + 20*mm, H * 0.578, W - MARGIN_R - 20*mm, H * 0.578)
 
     # ------------------------------------------------------------------
     # DEUX BADGES RECOMMANDATION + CIBLE (compact, pas de boxes completes)
     # ------------------------------------------------------------------
-    badge_y = H * 0.618
+    badge_y = H * 0.528
 
     def _draw_cover_badge(bx, tkr, rec, m, color_main):
         badge_w = 30*mm
@@ -825,9 +838,9 @@ def _section_exec_summary(story, m_a, m_b, synthesis, tkr_a, tkr_b):
 
     exec_text = synthesis.get("exec_summary") or ""
     if exec_text:
-        # Limiter a ~250 chars (word boundary) pour tenir sur page 2 avec la table
-        if len(exec_text) > 250:
-            exec_text = exec_text[:250]
+        # Limiter a ~500 chars (word boundary)
+        if len(exec_text) > 500:
+            exec_text = exec_text[:500]
             if ' ' in exec_text:
                 exec_text = exec_text[:exec_text.rfind(' ')] + '\u2026'
         story.append(Paragraph(_safe(exec_text), S_BODY))
@@ -879,6 +892,26 @@ def _section_exec_summary(story, m_a, m_b, synthesis, tkr_a, tkr_b):
         f"  \u2014  {_safe((synthesis.get('verdict_text') or '')[:200])}",
         _s('verd', size=9, leading=13, color=BLACK, sb=3, sa=2)
     ))
+    story.append(Spacer(1, 3*mm))
+
+    # Synthese valorisation + qualite comparative
+    pe_a   = _frx(m_a.get("pe_ratio"));    pe_b   = _frx(m_b.get("pe_ratio"))
+    ev_a   = _frx(m_a.get("ev_ebitda"));   ev_b   = _frx(m_b.get("ev_ebitda"))
+    roic_a = _frpct(m_a.get("roic"));      roic_b = _frpct(m_b.get("roic"))
+    pio_a  = m_a.get("piotroski_score");    pio_b  = m_b.get("piotroski_score")
+    pio_a_s = str(int(float(pio_a))) + "/9" if pio_a is not None else "\u2014"
+    pio_b_s = str(int(float(pio_b))) + "/9" if pio_b is not None else "\u2014"
+    up_a   = str(m_a.get("upside_str") or "\u2014")
+    up_b   = str(m_b.get("upside_str") or "\u2014")
+    valcomp_text = (
+        f"Sur le plan de la valorisation, {tkr_a} s'echange a {pe_a}x les benefices "
+        f"(EV/EBITDA {ev_a}x) contre {pe_b}x ({ev_b}x) pour {tkr_b}. "
+        f"La qualite fondamentale (Piotroski F-Score : {pio_a_s} vs {pio_b_s}) "
+        f"et la rentabilite operationnelle (ROIC {roic_a} vs {roic_b}) "
+        f"permettent d'arbitrer entre un titre de croissance prime et un titre de valeur. "
+        f"Le potentiel de hausse consensus ressort a {up_a} pour {tkr_a} et {up_b} pour {tkr_b}."
+    )
+    story.append(Paragraph(_safe(valcomp_text), S_BODY))
     story.append(Spacer(1, 3*mm))
     story.append(src("FinSight IA / yfinance / Finnhub"))
 
@@ -943,9 +976,9 @@ def _section_profil_pl(story, m_a, m_b, synthesis, tkr_a, tkr_b):
     story.append(Spacer(1, 3*mm))
 
     # Graphique marges — taille reduite pour rester sur page 3
-    story.append(CondPageBreak(58*mm))
+    story.append(CondPageBreak(44*mm))
     buf = _chart_margins(m_a, m_b, tkr_a, tkr_b)
-    img = Image(buf, width=TABLE_W, height=50*mm)
+    img = Image(buf, width=TABLE_W, height=38*mm)
     story.append(img)
     story.append(Spacer(1, 1*mm))
     story.append(src("FinSight IA / yfinance"))
@@ -961,6 +994,34 @@ def _section_profil_pl(story, m_a, m_b, synthesis, tkr_a, tkr_b):
 def _section_rentabilite_bilan(story, m_a, m_b, tkr_a, tkr_b):
     story.append(PageBreak())
     story += section_title("Rentabilite & Bilan", "3")
+
+    # Texte introductif rentabilite
+    roic_a  = _frpct(m_a.get("roic"));      roic_b  = _frpct(m_b.get("roic"))
+    roe_a   = _frpct(m_a.get("roe"));       roe_b   = _frpct(m_b.get("roe"))
+    eps_g_a = _frpct(m_a.get("eps_growth")); eps_g_b = _frpct(m_b.get("eps_growth"))
+    cagr_a  = _frpct(m_a.get("revenue_cagr_3y")); cagr_b = _frpct(m_b.get("revenue_cagr_3y"))
+    fcfy_a  = _frpct(m_a.get("fcf_yield")); fcfy_b  = _frpct(m_b.get("fcf_yield"))
+    try:
+        _roic_a_f = float(str(m_a.get("roic") or 0))
+        _roic_b_f = float(str(m_b.get("roic") or 0))
+        _leader_r = tkr_a if _roic_a_f >= _roic_b_f else tkr_b
+        _roic_comment = (
+            f"{_enc(_leader_r)} affiche un ROIC superieur ({roic_a if _leader_r == tkr_a else roic_b}), "
+            f"signe d'une meilleure allocation du capital investi. "
+        )
+    except Exception:
+        _roic_comment = ""
+    rent_text = (
+        f"Analyse de la rentabilite : ROIC {roic_a} vs {roic_b}, ROE {roe_a} vs {roe_b}. "
+        f"{_roic_comment}"
+        f"La croissance des revenus sur 3 ans (CAGR {cagr_a} vs {cagr_b}) et "
+        f"la progression du BPA ({eps_g_a} vs {eps_g_b}) "
+        f"traduisent la capacite de chaque groupe a monetiser sa base d'actifs. "
+        f"Le FCF yield ({fcfy_a} vs {fcfy_b}) complete la lecture en mesurant "
+        f"la generation de cash disponible apres investissements."
+    )
+    story.append(Paragraph(_safe(rent_text), S_BODY))
+    story.append(Spacer(1, 3*mm))
 
     # Tableau rentabilite
     hdr_r = [
@@ -1042,13 +1103,40 @@ def _section_valorisation(story, m_a, m_b, synthesis, tkr_a, tkr_b):
         ["Cible 12m", str(m_a.get("target_price") or "\u2014"), str(m_b.get("target_price") or "\u2014")],
         ["Upside",    str(m_a.get("upside_str") or "\u2014"),   str(m_b.get("upside_str") or "\u2014")],
     ]
-    t_v = _make_tbl_3col(hdr_v, raw_v)
+    # Mise en page cote-a-cote : texte analytique a gauche, tableau a droite
+    pe_a  = _frx(m_a.get("pe_ratio"));     pe_b  = _frx(m_b.get("pe_ratio"))
+    ev_a  = _frx(m_a.get("ev_ebitda"));    ev_b  = _frx(m_b.get("ev_ebitda"))
+    pb_a  = _frx(m_a.get("price_to_book")); pb_b = _frx(m_b.get("price_to_book"))
+    up_a  = str(m_a.get("upside_str") or "\u2014")
+    up_b  = str(m_b.get("upside_str") or "\u2014")
+    _mult_comment = (
+        f"<b>Lecture des multiples :</b> Le P/E de {tkr_a} ({pe_a}x) "
+        f"vs {tkr_b} ({pe_b}x) reflete les attentes de croissance respective. "
+        f"L'EV/EBITDA ({ev_a}x vs {ev_b}x) donne une vue independante "
+        f"de la structure financiere. Le P/B ({pb_a}x vs {pb_b}x) "
+        f"mesure la prime payee sur les actifs nets. "
+        f"Potentiel consensus : {up_a} pour {_enc(tkr_a)}, "
+        f"{up_b} pour {_enc(tkr_b)}."
+    )
+    S_SIDE = _s('sidecom', size=8, leading=11, color=BLACK)
+    t_v = _make_tbl_3col(hdr_v, raw_v, cw=[45*mm, 30*mm, 30*mm])
+    side_left = Paragraph(_safe(_mult_comment), S_SIDE)
     if t_v:
-        story.append(t_v)
+        side_tbl = Table([[side_left, t_v]], colWidths=[65*mm, 105*mm])
+        side_tbl.setStyle(TableStyle([
+            ('VALIGN',  (0, 0), (-1, -1), 'TOP'),
+            ('LEFTPADDING',  (0, 0), (0, 0), 0),
+            ('RIGHTPADDING', (0, 0), (0, 0), 4),
+            ('LEFTPADDING',  (1, 0), (1, 0), 4),
+            ('RIGHTPADDING', (1, 0), (1, 0), 0),
+        ]))
+        story.append(side_tbl)
+    else:
+        story.append(side_left)
     story.append(Spacer(1, 3*mm))
 
     buf = _chart_multiples(m_a, m_b, tkr_a, tkr_b)
-    img = Image(buf, width=TABLE_W, height=70*mm)
+    img = Image(buf, width=TABLE_W, height=55*mm)
     story.append(img)
     story.append(Spacer(1, 3*mm))
 
@@ -1171,8 +1259,8 @@ def _section_qualite_risque(story, m_a, m_b, synthesis, tkr_a, tkr_b):
         ["Perf. 12 mois",    _frpct(m_a.get("perf_1y"), True),  _frpct(m_b.get("perf_1y"), True)],
         ["RSI (14j)",        _fr(m_a.get("rsi"), 1),            _fr(m_b.get("rsi"), 1)],
         ["ND / EBITDA",      _frx(m_a.get("net_debt_ebitda")),  _frx(m_b.get("net_debt_ebitda"))],
-        ["Sentiment",        str(m_a.get("sentiment_label") or "\u2014"),
-                             str(m_b.get("sentiment_label") or "\u2014")],
+        ["Sentiment",        _fmt_sentiment(m_a.get("sentiment_label")),
+                             _fmt_sentiment(m_b.get("sentiment_label"))],
     ]
     t_ri = _make_tbl_3col(hdr_ri, raw_ri)
     if t_ri:
@@ -1424,13 +1512,22 @@ def _section_fcf_capital(story, m_a, m_b, tkr_a, tkr_b):
     dy_b   = _frpct(m_b.get("dividend_yield"))
     cx_a   = _frpct(m_a.get("capex_to_revenue"))
     cx_b   = _frpct(m_b.get("capex_to_revenue"))
+    cc_a = _frpct(m_a.get("cash_conversion")); cc_b = _frpct(m_b.get("cash_conversion"))
+    nd_a = _frm(m_a.get("net_debt"));         nd_b = _frm(m_b.get("net_debt"))
+    nd_ev_a = _frx(m_a.get("net_debt_ebitda")); nd_ev_b = _frx(m_b.get("net_debt_ebitda"))
     text = (
         f"Analyse FCF : {tkr_a} genere {fcf_a} de FCF (rendement {fy_a}) vs {fcf_b} "
         f"({fy_b}) pour {tkr_b}. Capex/Revenus : {cx_a} vs {cx_b}, "
         f"refletant les intensites capitalistiques respectives. "
         f"Dividende {dy_a} vs {dy_b}. "
         f"Un FCF yield superieur signale une capacite accrue a financer la croissance, "
-        f"racheter des actions et verser des dividendes sur horizon 12 mois."
+        f"racheter des actions et verser des dividendes sur horizon 12 mois. "
+        f"Le taux de conversion cash (FCF/EBITDA) ressort a {cc_a} pour {tkr_a} vs {cc_b} "
+        f"pour {tkr_b} : un ratio eleve indique que l'EBITDA se transforme efficacement "
+        f"en cash disponible, limitant les besoins de financement externe. "
+        f"Cote levier, la dette nette s'etablit a {nd_a} ({nd_ev_a}x EBITDA) pour {tkr_a} "
+        f"et {nd_b} ({nd_ev_b}x EBITDA) pour {tkr_b} -- un indicateur cle "
+        f"pour evaluer la capacite de remboursement et la flexibilite bilancielle."
     )
     story.append(Paragraph(_safe(text), S_BODY))
     story.append(Spacer(1, 3*mm))
@@ -1616,8 +1713,8 @@ def _section_momentum_marche(story, m_a, m_b, tkr_a, tkr_b):
         ["Vol. moyen 30j (M)", _fr(m_a.get("avg_volume_30d"), 1),      _fr(m_b.get("avg_volume_30d"), 1)],
         ["Prochains resultats",str(m_a.get("next_earnings_date") or "\u2014"),
                                str(m_b.get("next_earnings_date") or "\u2014")],
-        ["Sentiment",          str(m_a.get("sentiment_label") or "\u2014"),
-                               str(m_b.get("sentiment_label") or "\u2014")],
+        ["Sentiment",          _fmt_sentiment(m_a.get("sentiment_label")),
+                               _fmt_sentiment(m_b.get("sentiment_label"))],
     ]
     t = _make_tbl_3col(hdr, raw)
     if t:
@@ -1633,20 +1730,38 @@ def _section_momentum_marche(story, m_a, m_b, tkr_a, tkr_b):
     p3m_a = _frpct(m_a.get("perf_3m"), True); p3m_b = _frpct(m_b.get("perf_3m"), True)
     var_a = _frpct(m_a.get("var_95_1m")); var_b = _frpct(m_b.get("var_95_1m"))
     vol_a = _frpct(m_a.get("volatility_52w")); vol_b = _frpct(m_b.get("volatility_52w"))
+    rsi_a   = _fr(m_a.get("rsi"), 1);  rsi_b   = _fr(m_b.get("rsi"), 1)
+    hi52_a  = _fr(m_a.get("week52_high"), 2); lo52_a = _fr(m_a.get("week52_low"), 2)
+    hi52_b  = _fr(m_b.get("week52_high"), 2); lo52_b = _fr(m_b.get("week52_low"), 2)
     try:
         _p1y_a_f = float(str(m_a.get("perf_1y") or 0))
         _p1y_b_f = float(str(m_b.get("perf_1y") or 0))
+        _p3m_a_f = float(str(m_a.get("perf_3m") or 0))
+        _p3m_b_f = float(str(m_b.get("perf_3m") or 0))
         _leader = tkr_a if _p1y_a_f > _p1y_b_f else tkr_b
         _laggard = tkr_b if _leader == tkr_a else tkr_a
+        _mom3m_leader = tkr_a if _p3m_a_f > _p3m_b_f else tkr_b
+        _rsi_a_f = float(str(m_a.get("rsi") or 50))
+        _rsi_b_f = float(str(m_b.get("rsi") or 50))
+        def _rsi_comment(rsi_f, tkr):
+            if rsi_f >= 70: return f"{_enc(tkr)} est en territoire de surachat (RSI {rsi_f:.0f})"
+            if rsi_f <= 30: return f"{_enc(tkr)} est en zone de survente (RSI {rsi_f:.0f})"
+            return f"{_enc(tkr)} affiche un RSI neutre ({rsi_f:.0f})"
         momentum_analysis = (
             f"<b>Lecture analytique :</b> Sur 12 mois, {_enc(_leader)} surperforme avec "
             f"{p1y_a if _leader == tkr_a else p1y_b} vs {p1y_b if _leader == tkr_a else p1y_a} "
-            f"pour {_enc(_laggard)}. Sur 3 mois, la dynamique recente montre {_enc(tkr_a)} a "
-            f"{p3m_a} vs {p3m_b} pour {_enc(tkr_b)}, signalant une tendance court terme a surveiller. "
+            f"pour {_enc(_laggard)}. Sur 3 mois, c'est {_enc(_mom3m_leader)} qui prend la tete "
+            f"({p3m_a if _mom3m_leader == tkr_a else p3m_b} vs "
+            f"{p3m_b if _mom3m_leader == tkr_a else p3m_a}), "
+            f"signalant un changement potentiel de dynamique. "
+            f"Techniquement, {_rsi_comment(_rsi_a_f, tkr_a)} et "
+            f"{_rsi_comment(_rsi_b_f, tkr_b)}. "
             f"La VaR 95 % mensuelle ({var_a} pour {_enc(tkr_a)} vs {var_b} pour {_enc(tkr_b)}) "
             f"et la volatilite annualisee ({vol_a} vs {vol_b}) permettent de calibrer "
-            f"le dimensionnement de position en portefeuille — une VaR plus elevee impose "
-            f"une ponderation reduite pour maintenir un budget risque equivalent."
+            f"le dimensionnement de position : une VaR plus elevee impose une ponderation "
+            f"reduite pour maintenir un budget risque equivalent en portefeuille. "
+            f"Le sentiment de marche ressort {_fmt_sentiment(m_a.get('sentiment_label'))} "
+            f"pour {_enc(tkr_a)} et {_fmt_sentiment(m_b.get('sentiment_label'))} pour {_enc(tkr_b)}."
         )
     except Exception:
         momentum_analysis = (
@@ -1934,11 +2049,30 @@ def _section_piotroski_detail(story, m_a, m_b, tkr_a, tkr_b):
     pio_a_str = str(int(float(pio_a))) if pio_a is not None else "\u2014"
     pio_b_str = str(int(float(pio_b))) if pio_b is not None else "\u2014"
 
+    def _pio_level(s):
+        if s is None: return "indetermine"
+        try:
+            iv = int(float(s))
+            if iv >= 7: return "solide (>= 7)"
+            if iv >= 5: return "correct (5-6)"
+            if iv >= 4: return "limite (4)"
+            return "fragile (<= 3)"
+        except: return "indetermine"
+
     text = (
-        f"Le Piotroski F-Score evalue la solidite financiere sur 9 criteres binaires. "
-        f"Score >= 7 = fort ; <= 3 = faible. "
-        f"{tkr_a} : {pio_a_str}/9 | {tkr_b} : {pio_b_str}/9. "
-        f"Les composantes ci-dessous detaillent chaque critere (1 = satisfait, 0 = non satisfait)."
+        f"Le Piotroski F-Score evalue la solidite financiere d'une entreprise sur "
+        f"9 criteres binaires repartis en 3 categories. "
+        f"{tkr_a} obtient {pio_a_str}/9 ({_pio_level(pio_a)}) | "
+        f"{tkr_b} obtient {pio_b_str}/9 ({_pio_level(pio_b)}). "
+        f"-- Rentabilite (4 criteres) : ROA positif (generation de profit sur actifs), "
+        f"CFO positif (cash operationnel reel), amelioration du ROA vs N-1, "
+        f"et accruals < 0 (qualite des benefices : le cash prime sur le resultat comptable). "
+        f"-- Levier & Liquidite (3 criteres) : reduction du ratio d'endettement, "
+        f"amelioration du ratio de liquidite courante, et absence de dilution actionnariale. "
+        f"Ces criteres signalent la robustesse bilancielle et la discipline financiere. "
+        f"-- Efficacite operationnelle (2 criteres) : amelioration de la marge brute "
+        f"et de la rotation des actifs, traduisant une meilleure productivite industrielle. "
+        f"Un score >= 7 distingue les entreprises financierement saines des cas a risque (<= 3)."
     )
     story.append(Paragraph(_safe(text), S_BODY))
     story.append(Spacer(1, 3*mm))
