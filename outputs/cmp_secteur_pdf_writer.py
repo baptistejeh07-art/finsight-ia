@@ -632,11 +632,16 @@ def _build_story(D: dict) -> list:
     fy_a = sa.get("fcfy")
     fy_b = sb.get("fcfy")
 
+    # div_yield / payout / fcfy sont stockes en decimal (0.013 = 1.3%) → ×100 pour affichage
+    dy_a_p = (dy_a or 0) * 100; dy_b_p = (dy_b or 0) * 100
+    pt_a_p = (pt_a or 0) * 100; pt_b_p = (pt_b or 0) * 100
+    fy_a_p = (fy_a or 0) * 100; fy_b_p = (fy_b or 0) * 100
+
     def _ca_winner(va, vb, sa_name, sb_name, higher=True):
         """Retourne le nom du secteur gagnant ou 'Egalite'."""
         try:
             fa, fb = float(va or 0), float(vb or 0)
-            if abs(fa - fb) < 0.05:
+            if abs(fa - fb) < 0.3:  # seuil en % apres multiplication
                 return "Egalite"
             return sa_name if (fa > fb) == higher else sb_name
         except Exception:
@@ -648,16 +653,16 @@ def _build_story(D: dict) -> list:
          Paragraph(sector_b[:18], S_TH_C),
          Paragraph("Avantage", S_TH_C)],
         [Paragraph("Rendement dividende med.", S_TD_L),
-         Paragraph(_pct(dy_a, sign=False), S_TD_C),
-         Paragraph(_pct(dy_b, sign=False), S_TD_C),
-         Paragraph(_ca_winner(dy_a, dy_b, sector_a[:14], sector_b[:14]), S_TD_C)],
+         Paragraph(_pct(dy_a_p, sign=False), S_TD_C),
+         Paragraph(_pct(dy_b_p, sign=False), S_TD_C),
+         Paragraph(_ca_winner(dy_a_p, dy_b_p, sector_a[:14], sector_b[:14]), S_TD_C)],
         [Paragraph("FCF Yield median", S_TD_L),
-         Paragraph(_pct(fy_a, sign=False), S_TD_C),
-         Paragraph(_pct(fy_b, sign=False), S_TD_C),
-         Paragraph(_ca_winner(fy_a, fy_b, sector_a[:14], sector_b[:14]), S_TD_C)],
+         Paragraph(_pct(fy_a_p, sign=False), S_TD_C),
+         Paragraph(_pct(fy_b_p, sign=False), S_TD_C),
+         Paragraph(_ca_winner(fy_a_p, fy_b_p, sector_a[:14], sector_b[:14]), S_TD_C)],
         [Paragraph("Payout Ratio median", S_TD_L),
-         Paragraph(_pct(pt_a, sign=False), S_TD_C),
-         Paragraph(_pct(pt_b, sign=False), S_TD_C),
+         Paragraph(_pct(pt_a_p, sign=False), S_TD_C),
+         Paragraph(_pct(pt_b_p, sign=False), S_TD_C),
          Paragraph("—", S_TD_C)],
         [Paragraph("Score FinSight", S_TD_L),
          Paragraph(f"{sa.get('score', 0)}/100", S_TD_C),
@@ -668,12 +673,12 @@ def _build_story(D: dict) -> list:
     story.append(Spacer(1, 4 * mm))
 
     # Texte LLM ou fallback
-    _gen_higher_dy = sector_a if (dy_a or 0) > (dy_b or 0) else sector_b
-    _gen_higher_fy = sector_a if (fy_a or 0) > (fy_b or 0) else sector_b
+    _gen_higher_dy = sector_a if dy_a_p > dy_b_p else sector_b
+    _gen_higher_fy = sector_a if fy_a_p > fy_b_p else sector_b
     _ca_fallback = (
-        f"{_gen_higher_dy} offre un rendement dividende superieur ({_pct(sa.get('div_yield') if _gen_higher_dy == sector_a else sb.get('div_yield'), sign=False)}), "
+        f"{_gen_higher_dy} offre un rendement dividende superieur ({_pct(dy_a_p if _gen_higher_dy == sector_a else dy_b_p, sign=False)}), "
         f"convenant aux portefeuilles de type 'revenu'. "
-        f"{_gen_higher_fy} presente un FCF Yield plus eleve ({_pct(sa.get('fcfy') if _gen_higher_fy == sector_a else sb.get('fcfy'), sign=False)}), "
+        f"{_gen_higher_fy} presente un FCF Yield plus eleve ({_pct(fy_a_p if _gen_higher_fy == sector_a else fy_b_p, sign=False)}), "
         f"signal d'une generation de cash robuste et d'une meilleure capacite de remuneration future de l'actionnaire."
     )
     _ca_text = D.get("llm", {}).get("capital_alloc_analysis") or _ca_fallback
@@ -710,7 +715,7 @@ def _build_story(D: dict) -> list:
         [Paragraph("Croissance Revenue med.", S_TD_L), Paragraph(_pct(sa.get("revg")), S_TD_C), Paragraph(_pct(sb.get("revg")), S_TD_C)],
         [Paragraph("Performance 52S med.", S_TD_L), Paragraph(_pct(sa.get("mom")), S_TD_C), Paragraph(_pct(sb.get("mom")), S_TD_C)],
         [Paragraph("Beta median", S_TD_L), Paragraph(f"{sa.get('beta', 1):.2f}" if sa.get("beta") else "—", S_TD_C), Paragraph(f"{sb.get('beta', 1):.2f}" if sb.get("beta") else "—", S_TD_C)],
-        [Paragraph("FCF Yield med.", S_TD_L), Paragraph(_pct(sa.get("fcfy"), sign=False), S_TD_C), Paragraph(_pct(sb.get("fcfy"), sign=False), S_TD_C)],
+        [Paragraph("FCF Yield med.", S_TD_L), Paragraph(_pct((sa.get("fcfy") or 0)*100, sign=False), S_TD_C), Paragraph(_pct((sb.get("fcfy") or 0)*100, sign=False), S_TD_C)],
         [Paragraph("Piotroski F-Score med.", S_TD_L), Paragraph(f"{sa.get('pf', 0):.1f}/9" if sa.get("pf") else "—", S_TD_C), Paragraph(f"{sb.get('pf', 0):.1f}/9" if sb.get("pf") else "—", S_TD_C)],
         [Paragraph("Score Global FinSight", S_TD_L), Paragraph(f"{sa.get('score', 0)}/100", S_TD_C), Paragraph(f"{sb.get('score', 0)}/100", S_TD_C)],
     ]

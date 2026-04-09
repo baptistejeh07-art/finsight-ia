@@ -832,7 +832,7 @@ def _s07b_capital_alloc(prs, D):
     # Tableau comparatif gauche
     def _fmt_pct(v):
         if v is None: return "—"
-        try: return f"{float(v):.1f} %"
+        try: return f"{float(v)*100:.1f} %"
         except: return "—"
 
     rows = [
@@ -862,8 +862,8 @@ def _s07b_capital_alloc(prs, D):
             vb = sb.get(key)
             if va is not None or vb is not None:
                 metrics.append(label)
-                vals_a.append(float(va or 0))
-                vals_b.append(float(vb or 0))
+                vals_a.append(float(va or 0) * 100)
+                vals_b.append(float(vb or 0) * 100)
 
         if metrics:
             x  = np.arange(len(metrics))
