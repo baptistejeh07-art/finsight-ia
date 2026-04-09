@@ -968,13 +968,12 @@ def _slide_exec_summary(prs, snap, synthesis, ratios, devil, sentiment):
                  "VALORISATION SYNTH\u00c9TIQUE", 7.5, WHITE, bold=True)
 
     val_tbl = add_table(
-        slide, 13.08, 9.89, 11.3, 1.30,
-        num_rows=3, num_cols=3,
+        slide, 13.08, 9.81, 11.3, 1.42,
+        num_rows=2, num_cols=3,
         col_widths_pct=[0.50, 0.25, 0.25],
         header_data=["Multiple", "Soci\u00e9t\u00e9", "M\u00e9diane pairs"],
         rows_data=[
             ["P/E NTM (x)", _frx(pe_e), _frx(peer_median_pe)],
-            ["EV/EBITDA (x)", _frx(ev_e), _frx(peer_median_ev_e)],
             [f"Cible DCF ({cur_sym})",
              f"{_fr(tbase, 0)} {cur_sym}",
              f"Upside {_upside(tbase, price)}"],
@@ -3408,10 +3407,30 @@ def _slide_conviction_tracker(prs, snap, synthesis, ratios, devil, sentiment):
     # ── Thesis Summary ───────────────────────────────────────────────────────
     thesis_raw = _g(synthesis, "thesis", "") or ""
     thesis_parts = [p.strip() for p in thesis_raw.split(" | ") if p.strip()] if thesis_raw else []
-    # Fallback si these vide
+    # Fallback si these vide — construit depuis les ratios disponibles
     if not thesis_parts:
         _co = _g(ci, "company_name", ticker) or ticker
-        thesis_parts = [f"Donnees de synthese non disponibles pour {_co}. Relancer l'analyse pour obtenir la these complete."]
+        _sector = _g(ci, "sector", "") or ""
+        _p1 = f"Recommandation {rec} pour {_co}" + (f", secteur {_sector}" if _sector else "") + "."
+        _fund_parts = []
+        if ratios:
+            _roic = _g(ratios, "roic")
+            _roe  = _g(ratios, "roe")
+            _nm   = _g(ratios, "net_margin")
+            try:
+                if _roic is not None: _fund_parts.append(f"ROIC {float(_roic)*100:.1f}%")
+            except Exception: pass
+            try:
+                if _roe is not None: _fund_parts.append(f"ROE {float(_roe)*100:.1f}%")
+            except Exception: pass
+            try:
+                if _nm is not None: _fund_parts.append(f"marge nette {float(_nm)*100:.1f}%")
+            except Exception: pass
+        _p2 = ("Fondamentaux : " + ", ".join(_fund_parts) + ".") if _fund_parts else None
+        thesis_parts = [_p1]
+        if _p2:
+            thesis_parts.append(_p2)
+        thesis_parts.append("Relancer l'analyse pour obtenir la these complete avec synthese IA.")
     add_rect(slide, 9.20, 2.30, 15.20, 0.55, NAVY)
     add_text_box(slide, 9.35, 2.35, 15.0, 0.45, "TH\u00c8SE D\u2019INVESTISSEMENT", 8, WHITE, bold=True)
     y_th = 2.95
