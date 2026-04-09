@@ -55,12 +55,12 @@ GREY_RULE  = colors.HexColor("#D0D5DD")
 ROW_ALT    = colors.HexColor("#F0F4F8")
 COL_A      = colors.HexColor("#1B3A6B")   # Secteur A — navy
 COL_A_L    = colors.HexColor("#EEF3FA")
-COL_B      = colors.HexColor("#1A7A4A")   # Secteur B — vert
-COL_B_L    = colors.HexColor("#EAF4EF")
+COL_B      = colors.HexColor("#C9A227")   # Secteur B — or professionnel
+COL_B_L    = colors.HexColor("#FBF3DC")
 
 # Hex pour matplotlib
 _HEX_A = "#1B3A6B"
-_HEX_B = "#1A7A4A"
+_HEX_B = "#C9A227"
 
 PAGE_W, PAGE_H = A4
 MARGIN_L = 17 * mm
@@ -93,7 +93,7 @@ S_TD_A  = _sty("tda",   size=8,   leading=11, color=COL_A, bold=True, align=TA_C
 S_TD_G  = _sty("tdg",   size=8,   leading=11, color=COL_B, bold=True, align=TA_CENTER)
 S_NOTE  = _sty("note",  size=6.5, leading=9,  color=GREY_TEXT)
 S_DISC  = _sty("disc",  size=6.5, leading=9,  color=GREY_TEXT, align=TA_JUSTIFY)
-S_COVER = _sty("cov",   size=28,  leading=36, color=NAVY, bold=True, align=TA_CENTER)
+S_COVER = _sty("cov",   size=22,  leading=30, color=NAVY, bold=True, align=TA_CENTER)
 S_SUB   = _sty("sub",   size=11,  leading=16, color=GREY_TEXT, align=TA_CENTER)
 S_BADGE = _sty("bdg",   size=10,  leading=14, color=WHITE, bold=True, align=TA_CENTER)
 
@@ -291,10 +291,11 @@ def _chart_radar_pdf(sa, sb, label_a, label_b) -> bytes:
     ax.fill(angles, va, alpha=0.15, color=_HEX_A)
     ax.plot(angles, vb, "s-", linewidth=2, color=_HEX_B, label=label_b)
     ax.fill(angles, vb, alpha=0.15, color=_HEX_B)
-    ax.set_xticks(angles[:-1]); ax.set_xticklabels(categories, fontsize=9)
+    ax.set_xticks(angles[:-1]); ax.set_xticklabels(categories, fontsize=10)
     ax.set_ylim(0, 25)
-    ax.legend(loc="upper right", bbox_to_anchor=(1.4, 1.1), fontsize=9)
-    plt.tight_layout(pad=0.3)
+    ax.set_title("Score FinSight (/25 par dimension)", fontsize=9, color="#555555", pad=12)
+    ax.legend(loc="upper right", bbox_to_anchor=(1.55, 1.15), fontsize=10, framealpha=0.8)
+    plt.tight_layout(pad=0.5)
     buf = io.BytesIO(); fig.savefig(buf, format="png", dpi=140, bbox_inches="tight"); plt.close(fig)
     buf.seek(0); return buf.read()
 
@@ -397,20 +398,21 @@ def _generate_llm_texts(D: dict) -> dict:
             f"Mg.EBITDA {sb.get('em',0):.1f}%, ROE {roe_b:.1f}%, Perf.52S {sb.get('mom',0):+.1f}%, "
             f"Div Yield {dy_b*100:.1f}%, FCF Yield {fy_b:.1f}%, Payout {pt_b*100:.0f}%\n\n"
             f"Reponds UNIQUEMENT en JSON valide. Textes en francais sans accents ni caracteres speciaux. "
-            f"Max 300 caracteres par champ sauf exec_summary (500 max).\n"
+            f"Chaque champ doit etre substantiel, rigoureux, analytique — pas une enumeration de chiffres. "
+            f"Min 400 caracteres par champ sauf exec_summary (min 700). Inclure implications investissement.\n"
             f'{{\n'
-            f'  "exec_summary": "Synthese 3 phrases : comparatif cle, signal IA et recommandation",\n'
-            f'  "valuation_analysis": "Analyse valorisation 2 phrases : interpretation multiples P/E et EV/EBITDA",\n'
-            f'  "margins_analysis": "Analyse marges 2 phrases : qualite operationnelle, ROE et creation de valeur",\n'
-            f'  "capital_alloc_analysis": "Capital allocation 2 phrases : dividendes, FCF yield et politique de remuneration actionnaire",\n'
-            f'  "growth_analysis": "Analyse croissance 2 phrases : dynamique revenue, momentum 52S et beta",\n'
-            f'  "top_a_analysis": "Synthese top acteurs {sector_a} 2 phrases : meilleurs profils et caracteristiques",\n'
-            f'  "top_b_analysis": "Synthese top acteurs {sector_b} 2 phrases : meilleurs profils et caracteristiques",\n'
-            f'  "allocation_rec": "Recommandation allocation 3 phrases : signal, surponderations, conditions"\n'
+            f'  "exec_summary": "Synthese executive 4-5 phrases : avantage comparatif fondamental, implication du spread de scoring, signal IA argumente, recommandation allocation et conditions d invalidation",\n'
+            f'  "valuation_analysis": "Analyse multiples 3-4 phrases : interpretation spread P/E et EV/EBITDA, ce que ce differentiel revele sur les anticipations de croissance, si la prime/decote est justifiee par les fondamentaux, implication pour l allocation",\n'
+            f'  "margins_analysis": "Analyse marges 3-4 phrases : quality gap operationnel, drivers structurels de l ecart de marge EBITDA, impact sur la creation de valeur via ROE et ROIC, resilience en cycle baissier",\n'
+            f'  "capital_alloc_analysis": "Capital allocation 3-4 phrases : politique de remuneration comparee (dividendes vs rachat vs reinvestissement), interpretation du FCF yield dans le contexte de taux, quel secteur offre la meilleure protection du capital, signal sur la maturite du cycle",\n'
+            f'  "growth_analysis": "Analyse croissance 3-4 phrases : dynamique revenue comparee et moteurs sous-jacents, convergence ou divergence entre croissance organique et perf 52S, ce que le beta differentiel implique pour le risk-adjusted return, positionnement cyclique",\n'
+            f'  "top_a_analysis": "Leaders {sector_a} 3-4 phrases : caracteristiques communes des meilleures societes, ce qui distingue les profils Surponderer, dynamiques de creation de valeur, implications pour la construction de portefeuille",\n'
+            f'  "top_b_analysis": "Leaders {sector_b} 3-4 phrases : profils value vs growth identifies, resilience des marges, opportunites d entree specifiques, caracteristiques communes des meilleures societes du secteur",\n'
+            f'  "allocation_rec": "Recommandation 4-5 phrases : signal argumente pour chaque secteur, surponderations justifiees quantitativement, conditions macro favorables ou defavorables, horizon de temps et declencheurs de revision, risque principal de la these"\n'
             f'}}'
         )
         import json, re
-        resp = llm.generate(prompt, max_tokens=800)
+        resp = llm.generate(prompt, max_tokens=1600)
         m = re.search(r'\{.*\}', resp, re.DOTALL)
         if m:
             data = json.loads(m.group(0))
@@ -502,17 +504,26 @@ def _build_story(D: dict) -> list:
     story.append(kpi_t)
     story.append(Spacer(1, 6 * mm))
     story.append(Paragraph(D["date_str"], _sty("dt", size=8, color=GREY_TEXT, align=TA_CENTER)))
-    story.append(Spacer(1, 5 * mm))
-
-    # ── Synthese IA sur la cover ──────────────────────────────────────────────
-    exec_text = D.get("llm", {}).get("exec_summary", "")
-    if exec_text:
-        story += _llm_box(exec_text)
+    story.append(Spacer(1, 8 * mm))
 
     story.append(PageBreak())
 
     # ── PAGE 2 : Synthese comparative ────────────────────────────────────────
     story += section("Synthese Comparative", "1")
+
+    # Synthese executive (ex cover)
+    exec_text = D.get("llm", {}).get("exec_summary", "")
+    _exec_fallback = (
+        f"Comparatif sectoriel {sector_a} (score {sa.get('score',0)}/100, signal {D['sig_a_lbl']}) "
+        f"vs {sector_b} (score {sb.get('score',0)}/100, signal {D['sig_b_lbl']}). "
+        f"{'Le scoring FinSight avantage ' + sector_a + ' sur la dimension qualite et momentum.' if sa.get('score', 0) >= sb.get('score', 0) else 'Le scoring FinSight avantage ' + sector_b + ' sur la dimension fondamentale.'} "
+        f"P/E median : {_mult(sa.get('pe'))} vs {_mult(sb.get('pe'))} — ecart de valorisation reflétant des primes de croissance differenciees. "
+        f"Allocation recommandee : surponderer {sector_a if D['sig_a_lbl'] == 'Surponderer' else sector_b} en portefeuille diversifie, "
+        f"sous reserve de stabilisation des taux directeurs et d'absence de choc reglementaire majeur."
+    )
+    story.append(Paragraph(_xml(exec_text or _exec_fallback), S_BODY))
+    story.append(Spacer(1, 4 * mm))
+
     cols = [52*mm, 30*mm, 30*mm, 30*mm, 30*mm]
     syn_data = [
         [Paragraph("Metrique", S_TH_L),
@@ -579,12 +590,44 @@ def _build_story(D: dict) -> list:
     story.append(_tbl(syn_data, cols))
     story.append(Spacer(1, 3 * mm))
 
-    # Radar chart (reduit pour equilibrer la page)
+    # Radar chart en 50/50 avec texte analytique a droite
     try:
         radar_img = _chart_radar_pdf(sa, sb, sector_a[:12], sector_b[:12])
-        story.append(KeepTogether([
-            _img(radar_img, w=72*mm, h=56*mm),
+        HALF = TABLE_W / 2
+        _score_diff = abs((sa.get("score") or 0) - (sb.get("score") or 0))
+        _leader = sector_a if (sa.get("score") or 0) >= (sb.get("score") or 0) else sector_b
+        _leader_s = sa if _leader == sector_a else sb
+        _trailer_s = sb if _leader == sector_a else sa
+        _trailer = sector_b if _leader == sector_a else sector_a
+        _radar_analysis = (
+            f"Le radar de scoring FinSight revele un avantage de {_score_diff} points "
+            f"en faveur de {_leader} (score {_leader_s.get('score', 0)}/100 vs "
+            f"{_trailer_s.get('score', 0)}/100 pour {_trailer}). "
+            f"Sur la dimension Value, {sector_a if (sa.get('s_val') or 0) >= (sb.get('s_val') or 0) else sector_b} "
+            f"domine ({_na(max(sa.get('s_val') or 0, sb.get('s_val') or 0), fmt=lambda x: f'{x:.1f}')}/25). "
+            f"La composante Growth distingue les deux secteurs : "
+            f"{sector_a} a {_na(sa.get('s_gro'), fmt=lambda x: f'{x:.1f}')}/25 "
+            f"contre {_na(sb.get('s_gro'), fmt=lambda x: f'{x:.1f}')}/25 pour {sector_b}. "
+            f"Le profil Quality+Momentum indique "
+            f"{'un avantage structurel ' + _leader + ' sur la creation de valeur a long terme.' if _score_diff > 10 else 'des secteurs proches en qualite, la difference portant principalement sur le momentum de marche.'}"
+        )
+        radar_text_cell = [
+            Paragraph("Profil de Score FinSight", S_SSEC),
+            Spacer(1, 3 * mm),
+            Paragraph(_xml(_radar_analysis), S_BODY),
+        ]
+        layout = Table(
+            [[_img(radar_img, w=HALF - 4*mm, h=HALF - 4*mm), radar_text_cell]],
+            colWidths=[HALF, HALF],
+        )
+        layout.setStyle(TableStyle([
+            ("VALIGN",        (0, 0), (-1, -1), "TOP"),
+            ("TOPPADDING",    (0, 0), (-1, -1), 0),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+            ("LEFTPADDING",   (0, 0), (-1, -1), 2),
+            ("RIGHTPADDING",  (0, 0), (-1, -1), 2),
         ]))
+        story.append(layout)
     except Exception as e:
         log.warning("[cmp_secteur_pdf] radar: %s", e)
 
@@ -592,36 +635,79 @@ def _build_story(D: dict) -> list:
 
     # ── PAGE 3 : Valorisation ─────────────────────────────────────────────────
     story += section("Valorisation Comparee — Multiples de Marche", "2")
-    _val_text = D.get("llm", {}).get("valuation_analysis") or (
-        f"Analyse des multiples medianes — {sector_a} vs {sector_b}. "
-        f"{'Le secteur le moins valorise est ' + (sector_a if (sa.get('pe') or 999) < (sb.get('pe') or 999) else sector_b) + ' (P/E ' + _mult((sa if (sa.get('pe') or 999) < (sb.get('pe') or 999) else sb).get('pe')) + ' vs ' + _mult((sb if (sa.get('pe') or 999) < (sb.get('pe') or 999) else sa).get('pe')) + ').'} "
-        "Un multiple inferieur n'implique pas une opportunite — verifier la coherence avec les fondamentaux."
+    _cheaper = sector_a if (sa.get("pe") or 999) < (sb.get("pe") or 999) else sector_b
+    _cheaper_s = sa if _cheaper == sector_a else sb
+    _pricier_s = sb if _cheaper == sector_a else sa
+    _pricier = sector_b if _cheaper == sector_a else sector_a
+    _val_fallback = (
+        f"{_cheaper} affiche un P/E median inferieur ({_mult(_cheaper_s.get('pe'))} vs "
+        f"{_mult(_pricier_s.get('pe'))} pour {_pricier}), ce qui ne signifie pas necessairement "
+        f"une opportunite : la decote reflete souvent un profil de croissance plus modere "
+        f"ou un risque sectoriel plus eleve. L'EV/EBITDA confirme ou infirme cette lecture : "
+        f"{sector_a} a {_mult(sa.get('ev_eb'))} vs {_mult(sb.get('ev_eb'))} pour {sector_b}. "
+        f"Un spread EV/EBITDA significatif entre les deux secteurs traduit une difference "
+        f"de prime de qualite que le marche attribue aux modeles economiques respectifs. "
+        f"Conclusion : le differentiel de valorisation est "
+        f"{'justifie par l avantage fondamental du secteur prime' if (sa.get('score') or 0) != (sb.get('score') or 0) else 'a surveiller comme potentielle anomalie de marche'}."
     )
-    story.append(Paragraph(_xml(_val_text), S_BODY))
-    story.append(Spacer(1, 3 * mm))
+    _val_text = D.get("llm", {}).get("valuation_analysis") or _val_fallback
+    HALF = TABLE_W / 2
     try:
         v_img = _chart_valuation_pdf(sa, sb, sector_a[:12], sector_b[:12])
-        story.append(_img(v_img, w=TABLE_W, h=70*mm))
+        _val_layout = Table(
+            [[_img(v_img, w=HALF - 3*mm, h=54*mm),
+              [Spacer(1, 2*mm), Paragraph(_xml(_val_text), S_BODY)]]],
+            colWidths=[HALF, HALF],
+        )
+        _val_layout.setStyle(TableStyle([
+            ("VALIGN",        (0, 0), (-1, -1), "TOP"),
+            ("TOPPADDING",    (0, 0), (-1, -1), 0),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+            ("LEFTPADDING",   (0, 0), (-1, -1), 2),
+            ("RIGHTPADDING",  (0, 0), (-1, -1), 4),
+        ]))
+        story.append(_val_layout)
     except Exception as e:
         log.warning("[cmp_secteur_pdf] valuation chart: %s", e)
+        story.append(Paragraph(_xml(_val_text), S_BODY))
 
-    story.append(Spacer(1, 3 * mm))
+    story.append(Spacer(1, 4 * mm))
 
     # ── PAGE 3 suite : Marges ─────────────────────────────────────────────────
     story += section("Qualite & Marges — Rentabilite Operationnelle", "3")
     winner_m = sector_a if (sa.get("em") or -999) > (sb.get("em") or -999) else sector_b
-    _margins_text = D.get("llm", {}).get("margins_analysis") or (
-        f"{winner_m} affiche une marge EBITDA superieure ({_pct((sa if winner_m == sector_a else sb).get('em'), sign=False)}). "
-        f"La marge nette reflete la qualite du modele economique. "
-        f"ROE median le plus eleve : {_pct(min(max(sa.get('roe') or 0, sb.get('roe') or 0), 999.9), sign=False)}."
+    loser_m  = sector_b if winner_m == sector_a else sector_a
+    ws = sa if winner_m == sector_a else sb; ls = sb if winner_m == sector_a else sa
+    _mg_fallback = (
+        f"{winner_m} affiche une marge EBITDA medianne superieure ({_pct(ws.get('em'), sign=False)} "
+        f"vs {_pct(ls.get('em'), sign=False)} pour {loser_m}), refletant un modele economique "
+        f"plus efficient ou un levier operationnel plus prononce. "
+        f"La marge nette complete ce tableau : {sector_a} a {_pct(sa.get('nm'), sign=False)} "
+        f"vs {_pct(sb.get('nm'), sign=False)} pour {sector_b}. "
+        f"Le ROE median ({_pct(min(max(sa.get('roe') or 0, 0), 999.9), sign=False)} pour {sector_a}, "
+        f"{_pct(min(max(sb.get('roe') or 0, 0), 999.9), sign=False)} pour {sector_b}) "
+        f"mesure la creation de valeur sur capitaux propres — un ecart persistant "
+        f"{'avantage structurellement ' + winner_m + ' pour les portefeuilles orientes qualite.' if abs((ws.get('em') or 0) - (ls.get('em') or 0)) > 3 else 'indique une convergence des profils de rentabilite entre les deux secteurs.'}"
     )
-    story.append(Paragraph(_xml(_margins_text), S_BODY))
-    story.append(Spacer(1, 3 * mm))
+    _margins_text = D.get("llm", {}).get("margins_analysis") or _mg_fallback
     try:
         m_img = _chart_margins_pdf(sa, sb, sector_a[:12], sector_b[:12])
-        story.append(_img(m_img, w=TABLE_W, h=70*mm))
+        _mg_layout = Table(
+            [[[Spacer(1, 2*mm), Paragraph(_xml(_margins_text), S_BODY)],
+              _img(m_img, w=HALF - 3*mm, h=54*mm)]],
+            colWidths=[HALF, HALF],
+        )
+        _mg_layout.setStyle(TableStyle([
+            ("VALIGN",        (0, 0), (-1, -1), "TOP"),
+            ("TOPPADDING",    (0, 0), (-1, -1), 0),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+            ("LEFTPADDING",   (0, 0), (-1, -1), 4),
+            ("RIGHTPADDING",  (0, 0), (-1, -1), 2),
+        ]))
+        story.append(_mg_layout)
     except Exception as e:
         log.warning("[cmp_secteur_pdf] margins chart: %s", e)
+        story.append(Paragraph(_xml(_margins_text), S_BODY))
     story.append(PageBreak())
 
     # ── PAGE 4 : Capital Allocation ────────────────────────────────────────────
@@ -663,10 +749,6 @@ def _build_story(D: dict) -> list:
          Paragraph(_pct(fy_a_p, sign=False), S_TD_C),
          Paragraph(_pct(fy_b_p, sign=False), S_TD_C),
          Paragraph(_ca_winner(fy_a_p, fy_b_p, sector_a[:14], sector_b[:14]), S_TD_C)],
-        [Paragraph("Payout Ratio median", S_TD_L),
-         Paragraph(_pct(pt_a_p, sign=False), S_TD_C),
-         Paragraph(_pct(pt_b_p, sign=False), S_TD_C),
-         Paragraph("—", S_TD_C)],
         [Paragraph("Score FinSight", S_TD_L),
          Paragraph(f"{sa.get('score', 0)}/100", S_TD_C),
          Paragraph(f"{sb.get('score', 0)}/100", S_TD_C),
@@ -678,14 +760,23 @@ def _build_story(D: dict) -> list:
     # Texte LLM ou fallback
     _gen_higher_dy = sector_a if dy_a_p > dy_b_p else sector_b
     _gen_higher_fy = sector_a if fy_a_p > fy_b_p else sector_b
+    _gen_lower_dy = sector_b if _gen_higher_dy == sector_a else sector_a
     _ca_fallback = (
-        f"{_gen_higher_dy} offre un rendement dividende superieur ({_pct(dy_a_p if _gen_higher_dy == sector_a else dy_b_p, sign=False)}), "
-        f"convenant aux portefeuilles de type 'revenu'. "
-        f"{_gen_higher_fy} presente un FCF Yield plus eleve ({_pct(fy_a_p if _gen_higher_fy == sector_a else fy_b_p, sign=False)}), "
-        f"signal d'une generation de cash robuste et d'une meilleure capacite de remuneration future de l'actionnaire."
+        f"{_gen_higher_dy} offre un rendement dividende median superieur "
+        f"({_pct(dy_a_p if _gen_higher_dy == sector_a else dy_b_p, sign=False)} "
+        f"vs {_pct(dy_b_p if _gen_higher_dy == sector_a else dy_a_p, sign=False)} pour {_gen_lower_dy}), "
+        f"un profil adapte aux portefeuilles orientes revenu ou aux mandats avec contrainte de distribution. "
+        f"{_gen_higher_fy} enregistre un FCF Yield median plus eleve "
+        f"({_pct(fy_a_p if _gen_higher_fy == sector_a else fy_b_p, sign=False)}), "
+        f"signalant une generation de tresorerie robuste et une capacite superieure "
+        f"de remuneration future de l'actionnaire (rachats ou hausses de dividendes). "
+        f"En contexte de taux eleves, le FCF Yield est une metrique cle : "
+        f"un secteur avec un FCF Yield superieur au rendement obligataire 10 ans offre "
+        f"une prime de risque positive — element determinant pour l'allocation sectorielle."
     )
     _ca_text = D.get("llm", {}).get("capital_alloc_analysis") or _ca_fallback
-    story += _llm_box(_ca_text)
+    story.append(Spacer(1, 3 * mm))
+    story.append(Paragraph(_xml(_ca_text), S_BODY))
 
     # Pas de PageBreak ici — la section Croissance suit naturellement
 
@@ -695,12 +786,20 @@ def _build_story(D: dict) -> list:
     slower = sector_b if faster == sector_a else sector_a
     fs = sa if faster == sector_a else sb; ss = sb if faster == sector_a else sa
     spread = abs((sa.get("revg") or 0) - (sb.get("revg") or 0))
-    _growth_text = D.get("llm", {}).get("growth_analysis") or (
-        f"{faster} enregistre une croissance revenue medianne superieure de {spread:.1f} pts "
-        f"({_pct(fs.get('revg'))} vs {_pct(ss.get('revg'))}). "
-        f"Le momentum 52S {'confirme cette tendance' if ((fs.get('mom') or 0) > (ss.get('mom') or 0)) else 'diverge — le marche anticipe un ralentissement'} "
-        f"pour {faster}."
+    _mom_confirm = (fs.get("mom") or 0) > (ss.get("mom") or 0)
+    _beta_diff = abs((sa.get("beta") or 1.0) - (sb.get("beta") or 1.0))
+    _high_beta = sector_a if (sa.get("beta") or 1.0) > (sb.get("beta") or 1.0) else sector_b
+    _growth_fallback = (
+        f"{faster} enregistre une croissance revenue medianne de {_pct(fs.get('revg'))}, "
+        f"soit {spread:.1f} pts au-dessus de {slower} ({_pct(ss.get('revg'))}). "
+        f"{'Le momentum 52 semaines confirme cet avantage de croissance (' + _pct(fs.get('mom')) + ' vs ' + _pct(ss.get('mom')) + '), indiquant que le marche integre deja cette dynamique dans les prix.' if _mom_confirm else 'Toutefois, le momentum 52 semaines diverge (' + _pct(fs.get('mom')) + ' vs ' + _pct(ss.get('mom')) + ' pour ' + slower + '), signalant que le marche pourrait anticiper un ralentissement de ' + faster + ' ou une acceleration de ' + slower + '.'} "
+        f"Le differentiel de beta ({_na(sa.get('beta'), fmt=lambda x: f'{x:.2f}')} pour {sector_a} "
+        f"vs {_na(sb.get('beta'), fmt=lambda x: f'{x:.2f}')} pour {sector_b}) "
+        f"{'est marginal et n implique pas de biais cyclique significatif' if _beta_diff < 0.25 else 'positionne ' + _high_beta + ' comme plus sensible aux cycles macro — avantage en phase haussiere, risque amplifie en retournement'}. "
+        f"En environnement de taux normalises, la prime de croissance de {faster} "
+        f"{'justifie une surponderaton sous reserve de visibilite sur les marges futures' if (fs.get('em') or 0) >= (ss.get('em') or 0) else 'doit etre pondéree par un ecart de marge defavorable — risque de compression du multiple si la croissance decoit'}."
     )
+    _growth_text = D.get("llm", {}).get("growth_analysis") or _growth_fallback
     story.append(Paragraph(_xml(_growth_text), S_BODY))
     story.append(Spacer(1, 3 * mm))
     try:
@@ -719,7 +818,6 @@ def _build_story(D: dict) -> list:
         [Paragraph("Performance 52S med.", S_TD_L), Paragraph(_pct(sa.get("mom")), S_TD_C), Paragraph(_pct(sb.get("mom")), S_TD_C)],
         [Paragraph("Beta median", S_TD_L), Paragraph(f"{sa.get('beta', 1):.2f}" if sa.get("beta") else "—", S_TD_C), Paragraph(f"{sb.get('beta', 1):.2f}" if sb.get("beta") else "—", S_TD_C)],
         [Paragraph("FCF Yield med.", S_TD_L), Paragraph(_pct(sa.get("fcfy") or 0, sign=False), S_TD_C), Paragraph(_pct(sb.get("fcfy") or 0, sign=False), S_TD_C)],
-        [Paragraph("Piotroski F-Score med.", S_TD_L), Paragraph(f"{sa.get('pf', 0):.1f}/9" if sa.get("pf") else "—", S_TD_C), Paragraph(f"{sb.get('pf', 0):.1f}/9" if sb.get("pf") else "—", S_TD_C)],
         [Paragraph("Score Global FinSight", S_TD_L), Paragraph(f"{sa.get('score', 0)}/100", S_TD_C), Paragraph(f"{sb.get('score', 0)}/100", S_TD_C)],
     ]
     story.append(_tbl(comp_data, [80*mm, 48*mm, 48*mm]))
@@ -730,57 +828,98 @@ def _build_story(D: dict) -> list:
     sorted_a = sorted(D["td_a"], key=lambda x: x.get("score_global", 0), reverse=True)[:8]
     _build_top_table(story, sorted_a, sector_a, COL_A)
     story.append(Spacer(1, 3 * mm))
-    story += _llm_box(D.get("llm", {}).get("top_a_analysis", ""), col=COL_A)
+    _top_a_text = D.get("llm", {}).get("top_a_analysis", "")
+    if not _top_a_text and sorted_a:
+        _best_a = sorted_a[0]
+        _top_a_text = (
+            f"Le panel {sector_a} presente une dispersion de scoring significative — "
+            f"les meilleures societes combinent generalement une marge EBITDA elevee "
+            f"et une croissance organique soutenue. "
+            f"{_best_a.get('company', '')[:20]} se distingue avec un score de {_best_a.get('score_global', 0)}/100, "
+            f"un P/E de {_mult(_best_a.get('pe_ratio'))} et une marge EBITDA de {_pct(_best_a.get('ebitda_margin'), sign=False)}. "
+            f"Les societes les mieux scorees du secteur tendent a presenter "
+            f"une combinaison FCF Yield robuste + ROE superieur a la mediane sectorielle, "
+            f"caracteristique d'un modele economique defensif avec levier de croissance."
+        )
+    if _top_a_text:
+        story.append(Paragraph(_xml(_top_a_text), S_BODY))
 
     # ── Top acteurs Secteur B ─────────────────────────────────────────────────
     story += section(f"Top Acteurs — {sector_b}", "7")
     sorted_b = sorted(D["td_b"], key=lambda x: x.get("score_global", 0), reverse=True)[:8]
     _build_top_table(story, sorted_b, sector_b, COL_B)
     story.append(Spacer(1, 3 * mm))
-    story += _llm_box(D.get("llm", {}).get("top_b_analysis", ""), col=COL_B)
+    _top_b_text = D.get("llm", {}).get("top_b_analysis", "")
+    if not _top_b_text and sorted_b:
+        _best_b = sorted_b[0]
+        _top_b_text = (
+            f"Au sein de {sector_b}, les leaders se caracterisent par un profil fondamental "
+            f"distinct de {sector_a} : marge nette generalement inferieure "
+            f"mais recuperation plus rapide en phase de cycle baissier. "
+            f"{_best_b.get('company', '')[:20]} atteint un score de {_best_b.get('score_global', 0)}/100, "
+            f"avec un EV/EBITDA de {_mult(_best_b.get('ev_ebitda'))} "
+            f"et une croissance revenue de {_pct(_best_b.get('revenue_growth', 0) if abs(_best_b.get('revenue_growth', 0) or 0) > 1 else (_best_b.get('revenue_growth', 0) or 0) * 100)}. "
+            f"La dispersion sectorielle est un element cle : "
+            f"les societes a score eleve dans {sector_b} offrent un ratio risque/rendement "
+            f"attractif pour les portefeuilles cherchant a reduire la correlation avec les indices de croissance."
+        )
+    if _top_b_text:
+        story.append(Paragraph(_xml(_top_b_text), S_BODY))
     story.append(PageBreak())
 
-    # ── PAGE 7 : Risques & Catalyseurs ───────────────────────────────────────
+    # ── PAGE 7 : Risques & Catalyseurs — Analyse Comparative ────────────────
     content_a = _get_content(sector_a)
     content_b = _get_content(sector_b)
 
-    story += section(f"Risques & Catalyseurs — {sector_a}", "8")
-    _build_risques_pdf(story, content_a, sector_a)
-    story.append(PageBreak())
-
-    story += section(f"Risques & Catalyseurs — {sector_b}", "9")
-    _build_risques_pdf(story, content_b, sector_b)
+    story += section(f"Risques & Catalyseurs — {sector_a} vs {sector_b}", "8")
+    _build_risques_comparatifs_pdf(story, content_a, sector_a, content_b, sector_b)
     story.append(PageBreak())
 
     # ── PAGE 8 : Recommandation ───────────────────────────────────────────────
-    story += section("Recommandation d'Allocation", "10")
-    story.append(Paragraph(
-        "Positionnement FinSight derive du scoring multidimensionnel (Value + Growth + Quality + Momentum). "
-        "Ce signal est indicatif — toute decision d'investissement requiert une analyse complementaire.",
-        S_BODY))
-    story.append(Spacer(1, 4 * mm))
+    story += section("Recommandation d'Allocation", "9")
 
-    rec_data = [
+    # Signal FinSight — tableau simplifie
+    sig_data = [
         [Paragraph("", S_TH_L),
          Paragraph(sector_a[:18], S_TH_C),
          Paragraph(sector_b[:18], S_TH_C)],
         [Paragraph("Signal FinSight", S_TD_B),
          Paragraph(D["sig_a_lbl"], _sty("sa_s", size=9, color=D["sig_a_col"], bold=True, align=TA_CENTER)),
          Paragraph(D["sig_b_lbl"], _sty("sb_s", size=9, color=D["sig_b_col"], bold=True, align=TA_CENTER))],
-        [Paragraph("Score (/100)", S_TD_L), Paragraph(f"{sa.get('score', 0)}", S_TD_C), Paragraph(f"{sb.get('score', 0)}", S_TD_C)],
-        [Paragraph("Universe", S_TD_L), Paragraph(_xml(D["universe_a"]), S_TD_C), Paragraph(_xml(D["universe_b"]), S_TD_C)],
-        [Paragraph("Nb societes analysees", S_TD_L), Paragraph(f"{D['na']}", S_TD_C), Paragraph(f"{D['nb']}", S_TD_C)],
-        [Paragraph("P/E median", S_TD_L), Paragraph(_mult(sa.get("pe")), S_TD_C), Paragraph(_mult(sb.get("pe")), S_TD_C)],
-        [Paragraph("EV/EBITDA median", S_TD_L), Paragraph(_mult(sa.get("ev_eb")), S_TD_C), Paragraph(_mult(sb.get("ev_eb")), S_TD_C)],
-        [Paragraph("Marge EBITDA med.", S_TD_L), Paragraph(_pct(sa.get("em"), sign=False), S_TD_C), Paragraph(_pct(sb.get("em"), sign=False), S_TD_C)],
-        [Paragraph("ROE median", S_TD_L), Paragraph(_pct(sa.get("roe"), sign=False), S_TD_C), Paragraph(_pct(sb.get("roe"), sign=False), S_TD_C)],
-        [Paragraph("Croissance Rev. med.", S_TD_L), Paragraph(_pct(sa.get("revg")), S_TD_C), Paragraph(_pct(sb.get("revg")), S_TD_C)],
-        [Paragraph("Perf. 52S med.", S_TD_L), Paragraph(_pct(sa.get("mom")), S_TD_C), Paragraph(_pct(sb.get("mom")), S_TD_C)],
+        [Paragraph("Score (/100)", S_TD_L),
+         Paragraph(f"{sa.get('score', 0)}", S_TD_C),
+         Paragraph(f"{sb.get('score', 0)}", S_TD_C)],
+        [Paragraph("Societes analysees", S_TD_L),
+         Paragraph(f"{D['na']}  |  {_xml(D['universe_a'])}", S_TD_C),
+         Paragraph(f"{D['nb']}  |  {_xml(D['universe_b'])}", S_TD_C)],
+        [Paragraph("P/E  |  EV/EBITDA", S_TD_L),
+         Paragraph(f"{_mult(sa.get('pe'))}  |  {_mult(sa.get('ev_eb'))}", S_TD_C),
+         Paragraph(f"{_mult(sb.get('pe'))}  |  {_mult(sb.get('ev_eb'))}", S_TD_C)],
+        [Paragraph("Mg EBITDA  |  ROE", S_TD_L),
+         Paragraph(f"{_pct(sa.get('em'), sign=False)}  |  {_pct(sa.get('roe'), sign=False)}", S_TD_C),
+         Paragraph(f"{_pct(sb.get('em'), sign=False)}  |  {_pct(sb.get('roe'), sign=False)}", S_TD_C)],
+        [Paragraph("Croissance Rev.  |  Perf. 52S", S_TD_L),
+         Paragraph(f"{_pct(sa.get('revg'))}  |  {_pct(sa.get('mom'))}", S_TD_C),
+         Paragraph(f"{_pct(sb.get('revg'))}  |  {_pct(sb.get('mom'))}", S_TD_C)],
     ]
-    story.append(_tbl(rec_data, [80*mm, 48*mm, 48*mm]))
+    story.append(_tbl(sig_data, [80*mm, 48*mm, 48*mm]))
     story.append(Spacer(1, 4 * mm))
-    story += _llm_box(D.get("llm", {}).get("allocation_rec", ""))
-    story.append(Spacer(1, 2 * mm))
+
+    # Recommandation narrative
+    _winner_rec = sector_a if D["sig_a_lbl"] == "Surponderer" else (sector_b if D["sig_b_lbl"] == "Surponderer" else None)
+    _rec_fallback = (
+        f"{'Les deux secteurs affichent un signal ' + D['sig_a_lbl'] + ' identique selon le scoring FinSight.' if D['sig_a_lbl'] == D['sig_b_lbl'] else 'Le scoring FinSight genere un signal divergent : ' + D['sig_a_lbl'] + ' pour ' + sector_a + ' (score ' + str(sa.get('score', 0)) + '/100) contre ' + D['sig_b_lbl'] + ' pour ' + sector_b + ' (score ' + str(sb.get('score', 0)) + '/100).'} "
+        f"{'En termes d allocation, surponderer ' + _winner_rec + ' dans un portefeuille diversifie presente un ratio risque/rendement favorable selon les metriques actuelles.' if _winner_rec else 'Un positionnement neutre sur les deux secteurs est justifie en attendant une meilleure visibilite sur les catalyseurs de re-rating.'} "
+        f"Les conditions favorables a une surponderans de {sector_a if (sa.get('score') or 0) >= (sb.get('score') or 0) else sector_b} "
+        f"incluent : stabilisation des taux directeurs, maintien des marges au-dessus de la mediane historique, "
+        f"et absence de choc reglementaire ou de compression de multiple liee au risque de taux. "
+        f"En cas de deterioration macro (recession, credit crunch), "
+        f"le secteur le plus defensif ({sector_a if (sa.get('beta') or 1) < (sb.get('beta') or 1) else sector_b}) "
+        f"offre une meilleure protection relative du capital."
+    )
+    _alloc_text = D.get("llm", {}).get("allocation_rec") or _rec_fallback
+    story.append(Paragraph(_xml(_alloc_text), S_BODY))
+    story.append(Spacer(1, 3 * mm))
     story.append(Paragraph(
         "Note : Surponderer = score >= 65 | Neutre = score >= 45 | Sous-ponderer = score < 45. "
         "Le Score FinSight est un indicateur proprietaire multidimensionnel. "
@@ -789,7 +928,7 @@ def _build_story(D: dict) -> list:
     story.append(PageBreak())
 
     # ── PAGE 9 : Disclaimer ───────────────────────────────────────────────────
-    story += section("Mentions Legales & Methodologie", "11")
+    story += section("Mentions Legales & Methodologie", "10")
     disclaimers = [
         ("Sources de donnees", "Les donnees financieres sont issues de yfinance (Yahoo Finance), Finnhub et Financial Modeling Prep. FinSight IA ne garantit pas l'exhaustivite ou l'exactitude de ces donnees. Les chiffres presentent les medianes des societes analysees a la date de generation."),
         ("Caractere informatif", "Ce document est produit a des fins d'information uniquement. Il ne constitue pas un conseil en investissement, une recommendation d'achat ou de vente de valeurs mobilieres, ni une invitation a contracter."),
@@ -873,25 +1012,146 @@ def _build_risques_pdf(story, content, sector_name):
         story.append(_KT([Spacer(1, 3*mm), _tbl(cond_data, [25*mm, 115*mm, 36*mm])]))
 
 
+def _build_risques_comparatifs_pdf(story, content_a, sector_a, content_b, sector_b):
+    """Risques et catalyseurs en analyse croisee comparative (pas chacun dans son coin)."""
+    cats_a  = content_a.get("catalyseurs", [])[:3]
+    cats_b  = content_b.get("catalyseurs", [])[:3]
+    risks_a = content_a.get("risques", [])[:3]
+    risks_b = content_b.get("risques", [])[:3]
+
+    HALF = TABLE_W / 2
+
+    # Catalyseurs cote a cote
+    cat_hdr = [
+        Paragraph(_xml(f"Catalyseurs — {sector_a[:20]}"), _sty("cth_a", size=8, color=WHITE, bold=True)),
+        Paragraph(_xml(f"Catalyseurs — {sector_b[:20]}"), _sty("cth_b", size=8, color=WHITE, bold=True)),
+    ]
+    cat_rows = [cat_hdr]
+    for i in range(max(len(cats_a), len(cats_b))):
+        ca = cats_a[i] if i < len(cats_a) else ("", "")
+        cb = cats_b[i] if i < len(cats_b) else ("", "")
+        ca_txt = f"+ {ca[0]}: {ca[1][:140]}" if ca[0] else "\u2014"
+        cb_txt = f"+ {cb[0]}: {cb[1][:140]}" if cb[0] else "\u2014"
+        cat_rows.append([
+            Paragraph(_xml(ca_txt), S_TD_L),
+            Paragraph(_xml(cb_txt), S_TD_L),
+        ])
+    ct = Table(cat_rows, colWidths=[HALF, HALF])
+    ct.setStyle(TableStyle([
+        ("BACKGROUND",    (0, 0), (0, 0), COL_A),
+        ("BACKGROUND",    (1, 0), (1, 0), COL_B),
+        ("ROWBACKGROUNDS",(0, 1), (-1, -1), [WHITE, ROW_ALT]),
+        ("FONTSIZE",      (0, 0), (-1, -1), 8),
+        ("VALIGN",        (0, 0), (-1, -1), "TOP"),
+        ("TOPPADDING",    (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ("LEFTPADDING",   (0, 0), (-1, -1), 5),
+        ("RIGHTPADDING",  (0, 0), (-1, -1), 5),
+        ("LINEAFTER",     (0, 0), (0, -1), 0.5, GREY_RULE),
+    ]))
+    story.append(ct)
+    story.append(Spacer(1, 3 * mm))
+
+    # Risques cote a cote
+    risk_hdr = [
+        Paragraph(_xml(f"Risques — {sector_a[:20]}"), _sty("rth_a", size=8, color=WHITE, bold=True)),
+        Paragraph(_xml(f"Risques — {sector_b[:20]}"), _sty("rth_b", size=8, color=WHITE, bold=True)),
+    ]
+    risk_rows = [risk_hdr]
+    for i in range(max(len(risks_a), len(risks_b))):
+        ra = risks_a[i] if i < len(risks_a) else ("", "")
+        rb = risks_b[i] if i < len(risks_b) else ("", "")
+        ra_txt = f"- {ra[0]}: {ra[1][:140]}" if ra[0] else "\u2014"
+        rb_txt = f"- {rb[0]}: {rb[1][:140]}" if rb[0] else "\u2014"
+        risk_rows.append([
+            Paragraph(_xml(ra_txt), _sty("rtd_a", size=8, color=RED, leading=11)),
+            Paragraph(_xml(rb_txt), _sty("rtd_b", size=8, color=RED, leading=11)),
+        ])
+    rt = Table(risk_rows, colWidths=[HALF, HALF])
+    rt.setStyle(TableStyle([
+        ("BACKGROUND",    (0, 0), (-1, 0), RED),
+        ("ROWBACKGROUNDS",(0, 1), (-1, -1), [WHITE, RED_L]),
+        ("FONTSIZE",      (0, 0), (-1, -1), 8),
+        ("VALIGN",        (0, 0), (-1, -1), "TOP"),
+        ("TOPPADDING",    (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ("LEFTPADDING",   (0, 0), (-1, -1), 5),
+        ("RIGHTPADDING",  (0, 0), (-1, -1), 5),
+        ("LINEAFTER",     (0, 0), (0, -1), 0.5, GREY_RULE),
+    ]))
+    story.append(rt)
+    story.append(Spacer(1, 4 * mm))
+
+    # Analyse croisee des implications
+    story.append(Paragraph("Analyse croisee des implications", S_SSEC))
+    story.append(Spacer(1, 1 * mm))
+
+    for title, body in risks_a[:2]:
+        if not title:
+            continue
+        impl = (
+            f"Risque {sector_a} — {title[:40]} : {body[:120]}. "
+            f"Du point de vue de {sector_b}, un choc sur ce facteur peut constituer "
+            f"un catalyseur de rotation si les deux secteurs sont faiblement correles, "
+            f"ou une contagion si le risque est d'origine macro-systemique."
+        )
+        story.append(Paragraph(_xml(impl), S_BODY))
+        story.append(Spacer(1, 1 * mm))
+
+    for title, body in risks_b[:2]:
+        if not title:
+            continue
+        impl = (
+            f"Risque {sector_b} — {title[:40]} : {body[:120]}. "
+            f"Pour {sector_a}, ce risque peut amplifier ou attenuuer la pression selon "
+            f"le caractere cyclique ou defensif du choc — a surveiller comme signal d'arbitrage sectoriel."
+        )
+        story.append(Paragraph(_xml(impl), S_BODY))
+        story.append(Spacer(1, 1 * mm))
+
+    # Conditions d'invalidation
+    conds_a = content_a.get("conditions", [])[:2]
+    conds_b = content_b.get("conditions", [])[:2]
+    all_conds = [(sector_a, c) for c in conds_a] + [(sector_b, c) for c in conds_b]
+    if all_conds:
+        story.append(Spacer(1, 2 * mm))
+        story.append(Paragraph("Conditions d'invalidation", S_SSEC))
+        cond_data = [[Paragraph("Secteur", S_TH_C), Paragraph("Type", S_TH_C),
+                      Paragraph("Condition", S_TH_L), Paragraph("Horizon", S_TH_C)]]
+        for sec_name, c in all_conds:
+            cond_data.append([
+                Paragraph(sec_name[:14], S_TD_C),
+                Paragraph(c[0], S_TD_C),
+                Paragraph(c[1][:100], S_TD_L),
+                Paragraph(c[2], S_TD_C),
+            ])
+        story.append(_tbl(cond_data, [30*mm, 22*mm, 98*mm, 26*mm]))
+
+
 # ── Entetes / pieds de page ───────────────────────────────────────────────────
 def _build_page_header_footer(sector_a, sector_b, universe_label, date_str):
     def on_page(canvas, doc):
         canvas.saveState()
-        # Header
+        # Header — bandeau pleine largeur (identique a pdf_writer.py)
         canvas.setFillColor(NAVY)
-        canvas.rect(MARGIN_L, PAGE_H - 14*mm, PAGE_W - MARGIN_L - MARGIN_R, 8*mm, fill=1, stroke=0)
+        canvas.rect(0, PAGE_H - 14*mm, PAGE_W, 14*mm, fill=1, stroke=0)
         canvas.setFillColor(WHITE)
         canvas.setFont("Helvetica-Bold", 8)
-        canvas.drawString(MARGIN_L + 3*mm, PAGE_H - 9*mm, f"FinSight IA  |  Comparatif : {sector_a} vs {sector_b}  |  {universe_label}")
+        canvas.drawString(MARGIN_L, PAGE_H - 9*mm,
+            f"FinSight IA  |  Comparatif sectoriel : {sector_a} vs {sector_b}  |  {universe_label}")
         canvas.setFont("Helvetica", 7.5)
-        canvas.drawRightString(PAGE_W - MARGIN_R, PAGE_H - 9*mm, date_str)
-        # Footer
-        canvas.setFillColor(GREY_LIGHT)
-        canvas.rect(MARGIN_L, MARGIN_B - 5*mm, PAGE_W - MARGIN_L - MARGIN_R, 5*mm, fill=1, stroke=0)
+        canvas.drawRightString(PAGE_W - MARGIN_R, PAGE_H - 9*mm,
+            f"{date_str}  |  Confidentiel  |  Page {doc.page}")
+        # Footer — ligne fine + texte (identique a pdf_writer.py)
+        canvas.setStrokeColor(GREY_MED)
+        canvas.setLineWidth(0.15)
+        canvas.line(MARGIN_L, MARGIN_B - 2*mm, PAGE_W - MARGIN_R, MARGIN_B - 2*mm)
         canvas.setFillColor(GREY_TEXT)
-        canvas.setFont("Helvetica", 7)
-        canvas.drawString(MARGIN_L + 3*mm, MARGIN_B - 3*mm, "Usage confidentiel  |  FinSight IA")
-        canvas.drawRightString(PAGE_W - MARGIN_R, MARGIN_B - 3*mm, f"Page {doc.page}")
+        canvas.setFont("Helvetica", 6.5)
+        canvas.drawString(MARGIN_L, MARGIN_B - 7*mm,
+            "FinSight IA v1.0 — Document genere par IA. Ne constitue pas un conseil en investissement.")
+        canvas.drawRightString(PAGE_W - MARGIN_R, MARGIN_B - 7*mm,
+            "Sources : yfinance · FMP · Finnhub")
         canvas.restoreState()
     return on_page
 

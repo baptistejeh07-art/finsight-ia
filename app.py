@@ -1637,6 +1637,11 @@ def render_home() -> None:
                 st.session_state.icmp_pptx_bytes = None
                 st.session_state.icmp_pdf_bytes  = None
                 st.session_state.icmp_xlsx_bytes = None
+                # Reset comparaison sectorielle precedente pour eviter affichage stale
+                st.session_state.scmp_stage      = None
+                st.session_state.scmp_sector_b   = None
+                st.session_state.scmp_pptx_bytes = None
+                st.session_state.scmp_pdf_bytes  = None
             st.rerun()
 
         if "quote_idx" not in st.session_state:
