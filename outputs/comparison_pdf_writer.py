@@ -975,20 +975,62 @@ def _section_profil_pl(story, m_a, m_b, synthesis, tkr_a, tkr_b):
         story.append(t_pl)
     story.append(Spacer(1, 3*mm))
 
-    # Graphique marges — taille reduite pour rester sur page 3
-    story.append(CondPageBreak(44*mm))
+    # Graphique marges cote a cote avec commentaire analytique
+    story.append(CondPageBreak(48*mm))
     buf = _chart_margins(m_a, m_b, tkr_a, tkr_b)
-    img = Image(buf, width=TABLE_W, height=38*mm)
-    story.append(img)
-    story.append(Spacer(1, 1*mm))
-    story.append(src("FinSight IA / yfinance"))
-    story.append(Spacer(1, 2*mm))
-    story.append(Paragraph(
-        f"Comparaison des marges : {tkr_a} affiche une marge EBITDA de "
-        f"{_frpct(m_a.get('ebitda_margin_ltm'))} vs {_frpct(m_b.get('ebitda_margin_ltm'))} "
-        f"pour {tkr_b}. L'ecart de marge reflete des modeles economiques distincts — "
-        f"a analyser en complement des ratios de croissance et de qualite de bilan.",
-        S_BODY))
+    img = Image(buf, width=105*mm, height=46*mm)
+    _ebitda_a = _frpct(m_a.get('ebitda_margin_ltm'))
+    _ebitda_b = _frpct(m_b.get('ebitda_margin_ltm'))
+    _ebit_a   = _frpct(m_a.get('ebit_margin'))
+    _ebit_b   = _frpct(m_b.get('ebit_margin'))
+    _net_a    = _frpct(m_a.get('net_margin_ltm'))
+    _net_b    = _frpct(m_b.get('net_margin_ltm'))
+    try:
+        _ebitda_a_f = float(str(m_a.get('ebitda_margin_ltm') or 0))
+        _ebitda_b_f = float(str(m_b.get('ebitda_margin_ltm') or 0))
+        _margin_leader = tkr_a if _ebitda_a_f >= _ebitda_b_f else tkr_b
+        _margin_lagger = tkr_b if _margin_leader == tkr_a else tkr_a
+        _margin_l_val  = _ebitda_a if _margin_leader == tkr_a else _ebitda_b
+        _margin_lg_val = _ebitda_b if _margin_leader == tkr_a else _ebitda_a
+        _margin_comment = (
+            f"{_enc(_margin_leader)} domine sur les trois niveaux de marge "
+            f"avec un EBITDA de {_margin_l_val} vs {_margin_lg_val} pour {_enc(_margin_lagger)}. "
+        )
+    except Exception:
+        _margin_comment = ""
+    _comment_text = (
+        f"Comparaison des marges (EBITDA / EBIT / Nette) : "
+        f"{_enc(tkr_a)} affiche {_ebitda_a} / {_ebit_a} / {_net_a} ; "
+        f"{_enc(tkr_b)} affiche {_ebitda_b} / {_ebit_b} / {_net_b}. "
+        f"{_margin_comment}"
+        f"L'ecart de marge reflete des modeles economiques distincts — "
+        f"structure des couts, mix produit/service, levier operationnel. "
+        f"A analyser en complement des ratios de croissance et de qualite de bilan."
+    )
+    _S_SIDE_MARGIN = _s('side_margin', size=8.5, leading=13, color=GREY_TEXT, align=TA_LEFT)
+    _comment_par = Paragraph(_safe(_comment_text), _S_SIDE_MARGIN)
+    _note_par    = Paragraph("Source : FinSight IA / yfinance", S_NOTE)
+    _right_cell  = Table(
+        [[_comment_par], [_note_par]],
+        colWidths=[60*mm],
+    )
+    _right_cell.setStyle(TableStyle([
+        ('VALIGN',         (0, 0), (-1, -1), 'TOP'),
+        ('LEFTPADDING',    (0, 0), (-1, -1), 5),
+        ('RIGHTPADDING',   (0, 0), (-1, -1), 0),
+        ('TOPPADDING',     (0, 0), (-1, -1), 0),
+        ('BOTTOMPADDING',  (0, 0), (-1, -1), 0),
+        ('NOSPLIT',        (0, 0), (-1, -1)),
+    ]))
+    side_margins = Table([[img, _right_cell]], colWidths=[105*mm, 65*mm])
+    side_margins.setStyle(TableStyle([
+        ('VALIGN',       (0, 0), (-1, -1), 'TOP'),
+        ('LEFTPADDING',  (0, 0), (-1, -1), 0),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+        ('TOPPADDING',   (0, 0), (-1, -1), 0),
+        ('BOTTOMPADDING',(0, 0), (-1, -1), 0),
+    ]))
+    story.append(side_margins)
 
 
 def _section_rentabilite_bilan(story, m_a, m_b, tkr_a, tkr_b):
@@ -1118,9 +1160,9 @@ def _section_valorisation(story, m_a, m_b, synthesis, tkr_a, tkr_b):
         f"Potentiel consensus : {up_a} pour {_enc(tkr_a)}, "
         f"{up_b} pour {_enc(tkr_b)}."
     )
-    S_SIDE = _s('sidecom', size=8, leading=11, color=BLACK)
+    _S_MULT = _s('sidecom', size=8.5, leading=13, color=GREY_TEXT, align=TA_LEFT)
     t_v = _make_tbl_3col(hdr_v, raw_v, cw=[45*mm, 30*mm, 30*mm])
-    side_left = Paragraph(_safe(_mult_comment), S_SIDE)
+    side_left = Paragraph(_safe(_mult_comment), _S_MULT)
     if t_v:
         side_tbl = Table([[side_left, t_v]], colWidths=[65*mm, 105*mm])
         side_tbl.setStyle(TableStyle([
@@ -1600,6 +1642,7 @@ def _section_dcf_sensitivity(story, m_a, m_b, tkr_a, tkr_b):
                 row_cells.append(Paragraph(_safe(_enc(str(val))), style))
             rows.append(row_cells)
         t = Table(rows, colWidths=[35*mm, 25*mm, 25*mm, 25*mm])
+        t.hAlign = 'LEFT'
         t.setStyle(TableStyle([
             ('BACKGROUND',    (0, 0), (-1, 0), NAVY),
             ('ROWBACKGROUNDS',(0, 1), (-1, -1), [WHITE, ROW_ALT]),
@@ -2074,9 +2117,6 @@ def _section_piotroski_detail(story, m_a, m_b, tkr_a, tkr_b):
         f"et de la rotation des actifs, traduisant une meilleure productivite industrielle. "
         f"Un score >= 7 distingue les entreprises financierement saines des cas a risque (<= 3)."
     )
-    story.append(Paragraph(_safe(text), S_BODY))
-    story.append(Spacer(1, 3*mm))
-
     def _pio_cell(v):
         if v is None:
             return Paragraph("\u2014", S_TD_C)
@@ -2153,6 +2193,10 @@ def _section_piotroski_detail(story, m_a, m_b, tkr_a, tkr_b):
             ts.append(('BACKGROUND', (0, i), (-1, i), NAVY_LIGHT))
     t_pio.setStyle(TableStyle(ts))
     story.append(t_pio)
+    story.append(Spacer(1, 3*mm))
+
+    # Texte analytique sous le tableau
+    story.append(Paragraph(_safe(text), S_BODY))
     story.append(Spacer(1, 3*mm))
 
     # Barre score total
