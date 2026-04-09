@@ -554,6 +554,23 @@ _SECTOR_YFINANCE = {
 def _resolve_ticker_yahoo(name: str) -> str | None:
     """Tente de resoudre un nom de societe en ticker via Yahoo Finance Search.
     Retourne le premier ticker EQUITY trouve, None sinon."""
+    import logging as _log
+    # Mapping manuel pour les noms courants (fallback si Yahoo echoue)
+    _KNOWN = {
+        "stelantis": "STLA", "stellantis": "STLA",
+        "lvmh": "MC.PA", "airbus": "AIR.PA", "totalenergies": "TTE.PA",
+        "total": "TTE.PA", "bnp": "BNP.PA", "bnp paribas": "BNP.PA",
+        "societe generale": "GLE.PA", "axa": "CS.PA",
+        "hermes": "RMS.PA", "kering": "KER.PA",
+        "renault": "RNO.PA", "peugeot": "STLA",
+        "volkswagen": "VOW3.DE", "mercedes": "MBG.DE", "bmw": "BMW.DE",
+        "tesla": "TSLA", "apple": "AAPL", "microsoft": "MSFT",
+        "google": "GOOGL", "alphabet": "GOOGL", "amazon": "AMZN",
+        "nvidia": "NVDA", "meta": "META", "netflix": "NFLX",
+    }
+    norm = name.strip().lower()
+    if norm in _KNOWN:
+        return _KNOWN[norm]
     try:
         import requests as _req
         r = _req.get(
@@ -565,8 +582,8 @@ def _resolve_ticker_yahoo(name: str) -> str | None:
         for q in r.json().get("quotes", []):
             if q.get("quoteType") == "EQUITY":
                 return q["symbol"]
-    except Exception:
-        pass
+    except Exception as e:
+        _log.warning("[resolve_ticker] Yahoo search failed for '%s': %s", name, e)
     return None
 
 
@@ -1536,6 +1553,14 @@ def render_home() -> None:
                 if _resolved:
                     st.toast(f"Ticker resolu : {_raw} → {_resolved}", icon="🔍")
                     target = _resolved
+                else:
+                    # Resolver a echoue : afficher erreur, ne pas lancer analyse secteur par erreur
+                    st.error(
+                        f"**Ticker non reconnu : \"{_raw}\"**  \n"
+                        f"Entrez le code ticker directement (ex : STLA, AAPL, MC.PA) "
+                        f"ou verifiez l'orthographe du nom."
+                    )
+                    st.stop()
             input_type = detect_input_type(target)
             if input_type == "analyse_individuelle":
                 st.session_state.ticker = target.upper()
