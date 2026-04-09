@@ -104,18 +104,18 @@ def _fr_date() -> str:
 
 def _sig_c(signal: str) -> RGBColor:
     s = str(signal)
-    if "Surp" in s:
+    if "Surp" in s or "Positif" in s:
         return _BUY
-    if "Sous" in s:
+    if "Sous" in s or "Negatif" in s:
         return _SELL
     return _HOLD
 
 
 def _sig_l(signal: str) -> RGBColor:
     s = str(signal)
-    if "Surp" in s:
+    if "Surp" in s or "Positif" in s:
         return _BUY_L
-    if "Sous" in s:
+    if "Sous" in s or "Negatif" in s:
         return _SELL_L
     return _HOLD_L
 
@@ -325,8 +325,8 @@ def _slide_cover(prs, d: dict):
          13.46, 6.28, 10.5, 0.9, 9, True, _NAVY, align=PP_ALIGN.CENTER)
 
     # Currency / zone
-    cur_a = d.get("currency_a", "EUR")
-    cur_b = d.get("currency_b", "USD")
+    cur_a = d.get("currency_a", "USD")
+    cur_b = d.get("currency_b", "EUR")
     _txb(slide, f"Zone : {cur_a}", 1.27, 7.5, 11.0, 0.56, 8.5, False, _GRAYT,
          align=PP_ALIGN.CENTER)
     _txb(slide, f"Zone : {cur_b}", 13.13, 7.5, 11.0, 0.56, 8.5, False, _GRAYT,
@@ -515,7 +515,7 @@ def _slide_perf_chart(prs, d: dict):
             fig.tight_layout(pad=0.5)
 
             img = _chart_buf(fig)
-            _pic(slide, img, 1.02, 2.4, 15.5, 7.2)
+            _pic(slide, img, 1.02, 2.4, 15.5, 9.5)
         except Exception as e:
             log.warning(f"[indice_cmp_pptx] chart perf error: {e}")
 
@@ -535,7 +535,7 @@ def _slide_perf_chart(prs, d: dict):
                     _fr_pct_signed(d.get("perf_5y_b")),
                     _ecart_pct(d.get("perf_5y_a"),  d.get("perf_5y_b"))],
     ]
-    _table(slide, rows, 17.0, 2.4, 7.4, 4.2, col_widths=[2, 2, 2, 2])
+    _table(slide, rows, 17.0, 2.4, 7.4, 5.5, col_widths=[2, 2, 2, 2])
 
 
 def _slide_risque(prs, d: dict):
@@ -664,11 +664,15 @@ def _slide_valorisation(prs, d: dict):
     _table(slide, rows, 1.02, 2.55, 23.37, 6.0,
            col_widths=[5, 4, 4, 4, 5])
 
-    # Graphique barres PE vs PB
+    # Graphique barres PE vs PB — uniquement les categories avec au moins une valeur
     try:
-        cats = ["P/E Forward", "P/B"]
-        vals_a = [float(pe_a or 0), float(pb_a or 0)]
-        vals_b = [float(pe_b or 0), float(pb_b or 0)]
+        _cats_all = [("P/E Forward", pe_a, pe_b), ("P/B", pb_a, pb_b)]
+        _cats_data = [(c, va, vb) for c, va, vb in _cats_all if va is not None or vb is not None]
+        if not _cats_data:
+            raise ValueError("no valuation data")
+        cats = [c[0] for c in _cats_data]
+        vals_a = [float(c[1] or 0) for c in _cats_data]
+        vals_b = [float(c[2] or 0) for c in _cats_data]
         x = np.arange(len(cats))
         bw = 0.3
         fig, ax = plt.subplots(figsize=(7, 3.0))
@@ -768,11 +772,11 @@ def _slide_secteurs(prs, d: dict):
 
     if sector_cmp:
         try:
-            sects = [s[0][:20] for s in sector_cmp[:12]]
+            sects = [s[0][:28] for s in sector_cmp[:12]]
             wa    = [float(s[1] or 0) for s in sector_cmp[:12]]
             wb    = [float(s[2] or 0) for s in sector_cmp[:12]]
 
-            fig, ax = plt.subplots(figsize=(14, 5.5))
+            fig, ax = plt.subplots(figsize=(14, max(4.0, len(sects) * 0.9)))
             fig.patch.set_facecolor('white')
             ax.set_facecolor('#FAFBFD')
 
@@ -832,12 +836,12 @@ def _slide_top5(prs, d: dict, which: str):
     while len(rows) < 6:
         rows.append(["\u2014", "\u2014", "\u2014"])
 
-    _table(slide, rows, 1.02, 2.55, 23.37, 5.5,
+    _table(slide, rows, 1.02, 2.55, 23.37, 7.0,
            col_widths=[12, 3, 8], hdr_fill=color)
 
     # Note
     _txb(slide, "Source : yfinance  \u00b7  Poids par score composite ou market cap.",
-         1.02, 8.3, 23.37, 0.5, 7, False, _GRAYT)
+         1.02, 9.7, 23.37, 0.5, 7, False, _GRAYT)
 
 
 def _slide_score(prs, d: dict):
