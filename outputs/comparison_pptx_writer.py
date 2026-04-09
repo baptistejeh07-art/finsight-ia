@@ -1326,7 +1326,7 @@ def _slide_profil(prs, m_a: dict, m_b: dict):
         ]
 
         y_start = 2.60
-        row_h   = 0.68
+        row_h   = 0.84
         for ri, (lbl, val) in enumerate(rows_id):
             y = y_start + ri * row_h
             fill = WHITE if ri % 2 == 0 else GREY_BG
@@ -1380,10 +1380,10 @@ def _slide_pl(prs, m_a: dict, m_b: dict, synthesis: dict):
     # Commentaire analytique sous le tableau (pas de graphiques — réservés slide "Rentabilité")
     fin_txt = synthesis.get('financial_text') or ""
     if fin_txt:
-        _fc = " ".join(_fit(fin_txt, 320).split())
-        add_rect(slide, 1.02, 8.35, 23.37, 1.6, NAVY_PALE)
-        add_rect(slide, 1.02, 8.35, 0.13, 1.6, NAVY_MID)
-        add_text_box(slide, 1.4, 8.45, 22.8, 1.5, _fc, 8.5, NAVY, wrap=True)
+        _fc = " ".join(_fit(fin_txt, 500).split())
+        add_rect(slide, 1.02, 8.35, 23.37, 4.0, NAVY_PALE)
+        add_rect(slide, 1.02, 8.35, 0.13, 4.0, NAVY_MID)
+        add_text_box(slide, 1.4, 8.45, 22.8, 3.8, _fc, 8.5, NAVY, wrap=True)
 
     return slide
 
@@ -1405,13 +1405,13 @@ def _slide_marges(prs, m_a: dict, m_b: dict, synthesis: dict):
     # Commentaire financier LLM
     txt = synthesis.get('financial_text') or ""
     if txt:
-        _txt_clean = " ".join(_fit(txt, 280).split())
-        add_rect(slide, 1.02, 2.45, 23.37, 1.8, NAVY_PALE)
-        add_rect(slide, 1.02, 2.45, 0.13, 1.8, NAVY_MID)
-        add_text_box(slide, 1.4, 2.55, 22.8, 1.7, _txt_clean, 8.5, NAVY, wrap=True)
+        _txt_clean = " ".join(_fit(txt, 450).split())
+        add_rect(slide, 1.02, 2.45, 23.37, 2.6, NAVY_PALE)
+        add_rect(slide, 1.02, 2.45, 0.13, 2.6, NAVY_MID)
+        add_text_box(slide, 1.4, 2.55, 22.8, 2.5, _txt_clean, 8.5, NAVY, wrap=True)
 
     # KPIs side-by-side
-    y_kpi = 4.2
+    y_kpi = 5.3
     kw = 5.5; kh = 1.8
 
     def _kpi_pair(x, v_a, v_b, lbl, sub=""):
@@ -1504,9 +1504,9 @@ def _slide_multiples(prs, m_a: dict, m_b: dict, synthesis: dict):
     # Commentaire valorisation
     txt = synthesis.get('valuation_text') or ""
     if txt:
-        add_rect(slide, 1.02, 2.45, 23.37, 1.6, NAVY_PALE)
-        add_rect(slide, 1.02, 2.45, 0.13, 1.6, NAVY_MID)
-        add_text_box(slide, 1.4, 2.55, 22.8, 1.45, _fit(txt, 260), 8.5, NAVY, wrap=True)
+        add_rect(slide, 1.02, 2.45, 23.37, 2.2, NAVY_PALE)
+        add_rect(slide, 1.02, 2.45, 0.13, 2.2, NAVY_MID)
+        add_text_box(slide, 1.4, 2.55, 22.8, 2.0, _fit(txt, 420), 8.5, NAVY, wrap=True)
 
     sec_pe   = m_a.get('sector_median_pe') or '\u2014'
     sec_eveb = m_a.get('sector_median_ev_ebitda') or '\u2014'
@@ -1520,7 +1520,7 @@ def _slide_multiples(prs, m_a: dict, m_b: dict, synthesis: dict):
         ("Div. Yield",        _frpct(m_a.get('dividend_yield')), _frpct(m_b.get('dividend_yield')), "\u2014"),
     ]
     add_table(
-        slide, 1.02, 4.3, 23.37, 4.2,
+        slide, 1.02, 4.9, 23.37, 4.2,
         num_rows=len(rows), num_cols=4,
         col_widths_pct=[0.36, 0.21, 0.21, 0.22],
         header_data=["Multiple", tkr_a, tkr_b, "Med. Secteur"],
@@ -1531,7 +1531,7 @@ def _slide_multiples(prs, m_a: dict, m_b: dict, synthesis: dict):
     # Graphique multiples
     buf = _chart_multiples(m_a, m_b, tkr_a, tkr_b)
     if buf:
-        _insert_chart(slide, buf, 1.02, 8.7, 23.37, 3.9)
+        _insert_chart(slide, buf, 1.02, 9.3, 23.37, 3.6)
 
     return slide
 
@@ -1619,6 +1619,21 @@ def _slide_dcf(prs, m_a: dict, m_b: dict):
     add_text_box(slide, 13.07, y_ev + 0.1, 11.2, 0.5,
                  ("Zone d'achat : Cours < DCF base" if ez_b else "Hors zone : Cours > DCF base"),
                  8.5, GREEN if ez_b else RED, bold=True, align=PP_ALIGN.CENTER)
+
+    # Note methodologique DCF
+    y_note = y_ev + 0.95
+    add_rect(slide, 1.02, y_note, 23.37, 2.4, GREY_BG)
+    add_rect(slide, 1.02, y_note, 0.13, 2.4, NAVY_MID)
+    dcf_note = (
+        "Methodologie : la fourchette Bear/Base/Bull reflete trois hypotheses de croissance "
+        "appliquees au modele DCF a 5 ans. Le scenario Base correspond au consensus actuel ; "
+        "Bear integre un ralentissement de -30 %% sur la croissance; Bull extrapole une "
+        "acceleration. La Marge de Securite mesure l'ecart cours/valeur intrinseque Base : "
+        "plus elle est elevee, plus le coussin de protection est important. "
+        "WACC et TGR sont les parametres les plus sensibles : +1pt de TGR peut faire "
+        "varier la valorisation de 15 a 20 %%."
+    )
+    add_text_box(slide, 1.35, y_note + 0.12, 22.8, 2.15, dcf_note, 8, NAVY_MID, wrap=True)
 
     return slide
 
@@ -1799,9 +1814,11 @@ def _slide_piotroski(prs, m_a: dict, m_b: dict, synthesis: dict):
         header_fill=NAVY, border_hex="DDDDDD"
     )
 
-    # Tableaux complementaires
-    add_rect(slide, 15.5, 4.40, 9.5, 0.6, NAVY)
-    add_text_box(slide, 15.65, 4.46, 9.2, 0.5, "Scores Complementaires", 8, WHITE, bold=True)
+    # Tableaux complementaires — commence juste apres le tableau Piotroski (15.02cm)
+    _sc_x = 15.15
+    _sc_w = 9.87
+    add_rect(slide, _sc_x, 4.40, _sc_w, 0.6, NAVY)
+    add_text_box(slide, _sc_x + 0.15, 4.46, _sc_w - 0.2, 0.5, "Scores Complementaires", 8, WHITE, bold=True)
 
     rows_sc = [
         ("Beneish M-Score", _fr(m_a.get('beneish_mscore'), 2), _fr(m_b.get('beneish_mscore'), 2)),
@@ -1810,7 +1827,7 @@ def _slide_piotroski(prs, m_a: dict, m_b: dict, synthesis: dict):
         ("Cash Conversion", _frx(m_a.get('cash_conversion')), _frx(m_b.get('cash_conversion'))),
     ]
     add_table(
-        slide, 15.5, 5.15, 9.5, 3.0,
+        slide, _sc_x, 5.15, _sc_w, 3.0,
         num_rows=len(rows_sc), num_cols=3,
         col_widths_pct=[0.50, 0.25, 0.25],
         header_data=["Indicateur", tkr_a, tkr_b],
@@ -1819,7 +1836,7 @@ def _slide_piotroski(prs, m_a: dict, m_b: dict, synthesis: dict):
     )
 
     # Legende Beneish + Altman
-    add_rect(slide, 15.5, 8.30, 9.5, 3.90, GREY_BG)
+    add_rect(slide, _sc_x, 8.30, _sc_w, 4.8, GREY_BG)
     legend_lines = [
         "Beneish M-Score : < -1,78 = faible risque",
         "    manipulation comptable ; > -1,78 = risque",
@@ -1833,7 +1850,7 @@ def _slide_piotroski(prs, m_a: dict, m_b: dict, synthesis: dict):
     ]
     y_leg = 8.45
     for line in legend_lines:
-        add_text_box(slide, 15.7, y_leg, 9.1, 0.38, line, 7.5, GREY_TXT)
+        add_text_box(slide, _sc_x + 0.15, y_leg, _sc_w - 0.2, 0.38, line, 7.5, GREY_TXT)
         y_leg += 0.38
 
     return slide
@@ -2247,6 +2264,20 @@ def _slide_verdict(prs, m_a: dict, m_b: dict, synthesis: dict):
     if _ctx:
         add_text_box(slide, 1.35, y_traj + 0.90, 22.8, 0.50,
                      _truncate(_ctx, 180), 7, GREY_TXT, wrap=True)
+
+    # Conditions d'invalidation / points d'attention
+    y_inv = y_traj + 1.65
+    inv_a_raw = (m_a.get('invalidation_conditions') or
+                 f"Deterioration marge ou choc macro adverses pour {tkr_a}")
+    inv_b_raw = (m_b.get('invalidation_conditions') or
+                 f"Deterioration marge ou choc macro adverses pour {tkr_b}")
+    inv_txt = (f"{tkr_a} : {_truncate(str(inv_a_raw), 120)}"
+               f"  |  {tkr_b} : {_truncate(str(inv_b_raw), 120)}")
+    add_rect(slide, 1.02, y_inv, 23.37, 1.5, RED_PALE)
+    add_rect(slide, 1.02, y_inv, 0.13, 1.5, RED)
+    add_text_box(slide, 1.35, y_inv + 0.08, 22.8, 0.38,
+                 "RISQUES & CONDITIONS D'INVALIDATION", 7, RED, bold=True, wrap=False)
+    add_text_box(slide, 1.35, y_inv + 0.48, 22.8, 0.85, inv_txt, 7.5, RED, wrap=True)
 
     return slide
 

@@ -693,11 +693,11 @@ def _s05_profil(prs, D):
         arrow = "+" if direction == "up" else "-"
         col = _GREEN if direction == "up" else _RED
         _txb(slide, f"{arrow}", 0.9, 7.95 + j * 1.2, 0.5, 0.5, size=11, bold=True, color=col)
-        _txb(slide, f"{name}", 1.45, 7.95 + j * 1.2, 10.5, 0.45, size=8.5, bold=True, color=_BLACK)
-        _txb(slide, desc[:80], 1.45, 8.42 + j * 1.2, 10.5, 0.55, size=7.5, color=_GRAYT)
+        _txb(slide, f"{name}", 1.45, 7.95 + j * 1.2, 10.5, 0.55, size=8.5, bold=True, color=_BLACK)
+        _txb(slide, desc[:80], 1.45, 8.52 + j * 1.2, 10.5, 0.65, size=7.5, color=_GRAYT)
 
     # Separateur vertical
-    _rect(slide, mid - 0.15, 2.0, 0.04, 11.5, fill=_GRAYM)
+    _rect(slide, mid - 0.15, 2.0, 0.04, 11.4, fill=_GRAYM)
 
     # Secteur B — colonne droite
     _rect(slide, mid + 0.15, 2.1, 11.2, 0.5, fill=_COL_B)
@@ -718,8 +718,8 @@ def _s05_profil(prs, D):
         arrow = "+" if direction == "up" else "-"
         col = _GREEN if direction == "up" else _RED
         _txb(slide, f"{arrow}", mid + 0.15, 7.95 + j * 1.2, 0.5, 0.5, size=11, bold=True, color=col)
-        _txb(slide, f"{name}", mid + 0.7, 7.95 + j * 1.2, 10.5, 0.45, size=8.5, bold=True, color=_BLACK)
-        _txb(slide, desc[:80], mid + 0.7, 8.42 + j * 1.2, 10.5, 0.55, size=7.5, color=_GRAYT)
+        _txb(slide, f"{name}", mid + 0.7, 7.95 + j * 1.2, 10.5, 0.55, size=8.5, bold=True, color=_BLACK)
+        _txb(slide, desc[:80], mid + 0.7, 8.52 + j * 1.2, 10.5, 0.65, size=7.5, color=_GRAYT)
 
 
 def _s06_valorisation(prs, D):
@@ -738,7 +738,18 @@ def _s06_valorisation(prs, D):
         log.warning("[cmp_secteur] _s06 chart: %s", e)
         _txb(slide, f"Graphique indisponible: {e}", 0.9, 5.0, 12.5, 1.0, size=8, color=_GRAYT)
 
-    # Tableau metriques droite
+    # Tableau metriques complementaires sous le chart (gauche)
+    rows_extra = [
+        ["Indicateurs", D["sector_a"], D["sector_b"]],
+        ["FCF Yield med.", _fmt_simple(sa.get("fcfy"), pct=True, dp=1), _fmt_simple(sb.get("fcfy"), pct=True, dp=1)],
+        ["Beta median", _fmt_simple(sa.get("beta"), dp=2), _fmt_simple(sb.get("beta"), dp=2)],
+        ["Altman Z med.", _fmt_simple(sa.get("az"), dp=2), _fmt_simple(sb.get("az"), dp=2)],
+        ["Piotroski med.", _fmt_simple(sa.get("pf"), dp=1), _fmt_simple(sb.get("pf"), dp=1)],
+    ]
+    _add_table(slide, rows_extra, 0.9, 10.3, 12.5, 2.85,
+               col_widths=[4.5, 4.0, 4.0], alt_fill=_GRAYL, font_size=9, header_size=9)
+
+    # Tableau metriques droite (multiples)
     rows = [
         ["Metrique", D["sector_a"], D["sector_b"]],
         ["P/E median", _fmt_simple(sa.get("pe"), x=True), _fmt_simple(sb.get("pe"), x=True)],
@@ -746,7 +757,7 @@ def _s06_valorisation(prs, D):
         ["EV/Revenue med.", _fmt_simple(sa.get("ev_rev"), x=True), _fmt_simple(sb.get("ev_rev"), x=True)],
         ["PEG ratio med.", _fmt_simple(sa.get("peg"), dp=2), _fmt_simple(sb.get("peg"), dp=2)],
     ]
-    _add_table(slide, rows, 14.0, 2.0, 10.5, 5.0,
+    _add_table(slide, rows, 14.0, 2.0, 10.5, 6.0,
                col_widths=[4.5, 3.0, 3.0], alt_fill=_GRAYL, font_size=9, header_size=9)
 
     # Lecture analytique
@@ -761,9 +772,9 @@ def _s06_valorisation(prs, D):
         f"{'une anticipation de croissance superieure' if (sa.get('revg') or 0) > (sb.get('revg') or 0) else 'un profil de risque differentie'}."
     )
     lecture = D.get("llm", {}).get("valuation_read") or fallback_lecture
-    _rect(slide, 14.0, 7.5, 10.5, 0.4, fill=_NAVY)
-    _txb(slide, "Lecture analytique FinSight IA", 14.1, 7.52, 10.3, 0.35, size=7.5, bold=True, color=_WHITE)
-    _txb(slide, lecture, 14.0, 8.0, 10.5, 5.5, size=8.5, color=_BLACK, wrap=True)
+    _rect(slide, 14.0, 8.5, 10.5, 0.4, fill=_NAVY)
+    _txb(slide, "Lecture analytique FinSight IA", 14.1, 8.52, 10.3, 0.35, size=7.5, bold=True, color=_WHITE)
+    _txb(slide, lecture, 14.0, 9.0, 10.5, 4.2, size=8.5, color=_BLACK, wrap=True)
 
 
 def _s07_marges(prs, D):
@@ -776,13 +787,13 @@ def _s07_marges(prs, D):
 
     try:
         img = _chart_margins(sa, sb, D["sector_a"], D["sector_b"])
-        _pic(slide, img, 0.9, 2.0, 12.5, 7.5)
+        _pic(slide, img, 0.9, 2.0, 12.5, 9.5)
     except Exception as e:
         log.warning("[cmp_secteur] _s07 chart: %s", e)
 
     try:
         img2 = _chart_rentabilite(sa, sb, D["sector_a"], D["sector_b"])
-        _pic(slide, img2, 13.5, 2.0, 11.0, 7.5)
+        _pic(slide, img2, 13.5, 2.0, 11.0, 9.5)
     except Exception as e:
         log.warning("[cmp_secteur] _s07 chart2: %s", e)
 
@@ -796,9 +807,9 @@ def _s07_marges(prs, D):
         f"({_fmt_simple(min(sa.get('roe') or 0, 999.9) if winner_roe == D['sector_a'] else min(sb.get('roe') or 0, 999.9), pct=True)})."
     )
     diag = D.get("llm", {}).get("margins_read") or fallback_diag
-    _rect(slide, 0.9, 9.8, 23.6, 0.38, fill=_NAVY)
-    _txb(slide, "Lecture analytique FinSight IA", 1.0, 9.83, 15.0, 0.32, size=7.5, bold=True, color=_WHITE)
-    _txb(slide, diag, 0.9, 10.28, 23.6, 3.2, size=8.5, color=_BLACK, wrap=True)
+    _rect(slide, 0.9, 12.0, 23.6, 0.38, fill=_NAVY)
+    _txb(slide, "Lecture analytique FinSight IA", 1.0, 12.03, 15.0, 0.32, size=7.5, bold=True, color=_WHITE)
+    _txb(slide, diag, 0.9, 12.48, 23.6, 5.0, size=8.5, color=_BLACK, wrap=True)
 
 
 def _s08_croissance(prs, D):
@@ -811,7 +822,7 @@ def _s08_croissance(prs, D):
 
     try:
         img = _chart_momentum(sa, sb, D["sector_a"], D["sector_b"])
-        _pic(slide, img, 0.9, 2.0, 14.5, 7.5)
+        _pic(slide, img, 0.9, 2.0, 14.5, 9.5)
     except Exception as e:
         log.warning("[cmp_secteur] _s08 chart: %s", e)
 
@@ -824,7 +835,7 @@ def _s08_croissance(prs, D):
         ["FCF Yield med.", _fmt_simple(sa.get("fcfy"), pct=True, dp=1), _fmt_simple(sb.get("fcfy"), pct=True, dp=1)],
         ["Score Global", f"{sa.get('score', 0)}/100", f"{sb.get('score', 0)}/100"],
     ]
-    _add_table(slide, rows, 15.8, 2.0, 8.6, 6.5,
+    _add_table(slide, rows, 15.8, 2.0, 8.6, 9.0,
                col_widths=[4.0, 2.3, 2.3], alt_fill=_GRAYL, font_size=9, header_size=9)
 
     # Lecture analytique croissance
@@ -838,9 +849,9 @@ def _s08_croissance(prs, D):
         f"Momentum 52S {'confirme cette tendance' if ((faster_s.get('mom') or 0) > (slower_s.get('mom') or 0)) else 'diverge : marche anticipe ralentissement'}."
     )
     lecture = D.get("llm", {}).get("growth_read") or fallback_lecture
-    _rect(slide, 0.9, 9.7, 23.6, 0.38, fill=_NAVY)
-    _txb(slide, "Lecture analytique FinSight IA", 1.0, 9.73, 15.0, 0.32, size=7.5, bold=True, color=_WHITE)
-    _txb(slide, lecture, 0.9, 10.18, 23.6, 3.2, size=8.5, color=_BLACK, wrap=True)
+    _rect(slide, 0.9, 11.8, 23.6, 0.38, fill=_NAVY)
+    _txb(slide, "Lecture analytique FinSight IA", 1.0, 11.83, 15.0, 0.32, size=7.5, bold=True, color=_WHITE)
+    _txb(slide, lecture, 0.9, 12.28, 23.6, 5.0, size=8.5, color=_BLACK, wrap=True)
 
 
 def _s09_scoring(prs, D):
