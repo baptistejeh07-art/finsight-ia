@@ -927,24 +927,27 @@ def _slide_verdict(prs, d: dict):
     args = _build_verdict_args(d, name_a, name_b)
     y0 = 4.4
     dy = 1.6
+    n_args = len(args[:4])
     for i, (title, body) in enumerate(args[:4]):
         y = y0 + i * dy
         _rect(slide, 1.02, y, 0.15, 1.3, _NAVYL)
         _txb(slide, title, 1.3, y+0.05, 22.5, 0.42, 8.5, True, _NAVY)
         _txb(slide, body,  1.3, y+0.48, 22.5, 0.75, 8, False, _GRAYT, wrap=True)
 
-    # LLM Recommandation
+    # LLM Recommandation — position dynamique apres les args
     llm_text = d.get("llm", {}).get("verdict_read", "")
+    y_llm = y0 + n_args * dy + 0.3  # suit le dernier arg, quel que soit leur nombre
     if llm_text:
-        _rect(slide, 1.02, 11.0, 23.37, 0.38, _NAVY)
-        _txb(slide, "Recommandation FinSight IA", 1.22, 11.03, 15.0, 0.32, 7.5, True, _WHITE)
-        _txb(slide, llm_text, 1.02, 11.48, 23.37, 1.25, 8.5, False, _BLACK, wrap=True)
+        _rect(slide, 1.02, y_llm, 23.37, 0.38, _NAVY)
+        _txb(slide, "Recommandation FinSight IA", 1.22, y_llm + 0.03, 15.0, 0.32, 7.5, True, _WHITE)
+        _txb(slide, llm_text, 1.02, y_llm + 0.48, 23.37, 1.25, 8.5, False, _BLACK, wrap=True)
 
     # Disclaimer
+    y_disc = min(12.9, y_llm + 1.85)
     _txb(slide, "Analyse FinSight IA  \u00b7  Source : yfinance  "
                 "\u00b7  Donnees a titre informatif uniquement  "
                 "\u00b7  Ne constitue pas un conseil en investissement.",
-         1.02, 12.9, 23.37, 0.4, 6.5, False, _GRAYT)
+         1.02, y_disc, 23.37, 0.4, 6.5, False, _GRAYT)
 
 
 def _build_verdict_args(d, name_a, name_b):
