@@ -1311,6 +1311,7 @@ def render_sidebar(results) -> None:
         # ── Veille IA ───────────────────────────────────────────────────────
         st.markdown('<div class="sb-section">', unsafe_allow_html=True)
         st.markdown('<span class="sb-label">Veille IA</span>', unsafe_allow_html=True)
+        _analyse_running = st.session_state.get("stage") in ("running", "screening_running")
         _veille_running = st.session_state.get("veille_running", False)
         if _veille_running:
             st.markdown(
@@ -1318,7 +1319,9 @@ def render_sidebar(results) -> None:
                 unsafe_allow_html=True,
             )
         else:
-            if st.button("Lancer la veille", key="btn_veille", use_container_width=True, type="primary"):
+            if st.button("Lancer la veille", key="btn_veille", use_container_width=True, type="primary",
+                         disabled=_analyse_running,
+                         help="Analyse en cours — attendez la fin avant de lancer la veille" if _analyse_running else None):
                 st.session_state["veille_running"] = True
                 st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
@@ -1393,7 +1396,8 @@ def render_sidebar(results) -> None:
         if "diag_open" not in st.session_state:
             st.session_state["diag_open"] = False
         _diag_label = "🔧 Diagnostic API ▲" if st.session_state["diag_open"] else "🔧 Diagnostic API ▼"
-        if st.button(_diag_label, key="btn_diag_toggle", use_container_width=True):
+        if st.button(_diag_label, key="btn_diag_toggle", use_container_width=True,
+                     disabled=_analyse_running):
             st.session_state["diag_open"] = not st.session_state["diag_open"]
             st.rerun()
         if st.session_state["diag_open"]:
