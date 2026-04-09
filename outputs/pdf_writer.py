@@ -1918,7 +1918,7 @@ def _build_multiples_historiques(data):
         _txt  = (f"Le P/E affiche une {_dir} de {abs(delta):.1f}x sur la p\u00e9riode "
                  f"({pe_clean[0]:.1f}x -> {pe_clean[-1]:.1f}x)."
                  + _ev_mov + _pb_note + _peers_note +
-                 f" {'Un re-rating positif soutient la these haussiere, mais amplifie le risque de valorisation.' if delta > 0 else 'La compression multiple reflete une deterioration du profil risk/reward et limite l\u2019upside.'}")
+                 + (" Un re-rating positif soutient la these haussiere, mais amplifie le risque de valorisation." if delta > 0 else " La compression multiple reflete une deterioration du profil risk/reward et limite l\u2019upside."))
     else:
         _txt = "Historique de multiples insuffisant pour etablir une tendance significative."
     elems.append(Spacer(1, 3*mm))

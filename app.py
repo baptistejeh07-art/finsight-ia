@@ -1039,10 +1039,11 @@ def render_sidebar(results) -> None:
 
         if results and not results.get("error"):
             if st.button("＋  Nouvelle analyse", use_container_width=True, type="primary"):
-                st.session_state.stage        = "home"
-                st.session_state.results      = None
-                st.session_state.ticker       = ""
-                st.session_state.from_screening = False
+                st.session_state.stage              = "home"
+                st.session_state.results            = None
+                st.session_state.ticker             = ""
+                st.session_state.from_screening     = False
+                st.session_state.screening_results  = None
                 st.rerun()
 
         if st.session_state.get("screening_results"):
@@ -1623,6 +1624,9 @@ def render_home() -> None:
                 st.session_state.cmp_bytes      = None
                 st.session_state.cmp_pptx_bytes = None
                 st.session_state.cmp_pdf_bytes  = None
+                # Effacer le screening pour ne pas l'afficher dans la sidebar
+                st.session_state.screening_results  = None
+                st.session_state.from_screening     = False
             else:
                 u_key = target.upper().replace("-", "").replace(" ", "").replace("&", "")
                 st.session_state.screening_universe = u_key

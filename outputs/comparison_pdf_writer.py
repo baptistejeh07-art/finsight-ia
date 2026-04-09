@@ -51,7 +51,7 @@ NAVY        = colors.HexColor('#1B3A6B')
 NAVY_LIGHT  = colors.HexColor('#2A5298')
 NAVY_MID    = colors.HexColor('#2E5FA3')
 COLOR_A     = colors.HexColor('#2E5FA3')   # Societe A -- bleu
-COLOR_B     = colors.HexColor('#2E8B57')   # Societe B -- vert
+COLOR_B     = colors.HexColor('#C9A227')   # Societe B -- or professionnel
 BUY_GREEN   = colors.HexColor('#1A7A4A')
 SELL_RED    = colors.HexColor('#A82020')
 HOLD_AMB    = colors.HexColor('#B06000')
@@ -63,7 +63,7 @@ GREY_TEXT   = colors.HexColor('#555555')
 GREY_RULE   = colors.HexColor('#D0D5DD')
 ROW_ALT     = colors.HexColor('#F0F4F8')
 COLOR_A_PAL = colors.HexColor('#EEF3FA')
-COLOR_B_PAL = colors.HexColor('#EAF4EF')
+COLOR_B_PAL = colors.HexColor('#FBF3DC')
 
 # =============================================================================
 # DIMENSIONS
@@ -350,7 +350,7 @@ def _chart_margins(m_a, m_b, tkr_a, tkr_b) -> io.BytesIO:
         width = 0.35
         fig, ax = plt.subplots(figsize=(8.5, 2.5))
         bars_a = ax.bar(x - width/2, vals_a, width, label=tkr_a, color='#2E5FA3', alpha=0.9)
-        bars_b = ax.bar(x + width/2, vals_b, width, label=tkr_b, color='#2E8B57', alpha=0.9)
+        bars_b = ax.bar(x + width/2, vals_b, width, label=tkr_b, color='#C9A227', alpha=0.9)
         for bar in list(bars_a) + list(bars_b):
             h = bar.get_height()
             if h != 0:
@@ -365,7 +365,7 @@ def _chart_margins(m_a, m_b, tkr_a, tkr_b) -> io.BytesIO:
             ax.set_ylim(bottom=0, top=max(max(vals_a + vals_b) * 1.2, 5))
         ax.set_xticks(x); ax.set_xticklabels(labels, fontsize=9)
         ax.set_ylabel("(%)", fontsize=9, color='#555')
-        ax.legend(fontsize=9, frameon=False)
+        ax.legend(loc='upper right', fontsize=9, frameon=False)
         for sp in ['top', 'right']: ax.spines[sp].set_visible(False)
         ax.spines['left'].set_color('#D0D5DD'); ax.spines['bottom'].set_color('#D0D5DD')
         ax.set_facecolor('white'); fig.patch.set_facecolor('white')
@@ -393,7 +393,7 @@ def _chart_returns(m_a, m_b, tkr_a, tkr_b) -> io.BytesIO:
         x = np.arange(len(labels)); width = 0.35
         fig, ax = plt.subplots(figsize=(7, 3.2))
         ax.bar(x - width/2, vals_a, width, label=tkr_a, color='#2E5FA3', alpha=0.9)
-        ax.bar(x + width/2, vals_b, width, label=tkr_b, color='#2E8B57', alpha=0.9)
+        ax.bar(x + width/2, vals_b, width, label=tkr_b, color='#C9A227', alpha=0.9)
         if all(abs(v) < 0.01 for v in vals_a + vals_b):
             ax.text(0.5, 0.5, "Donnees insuffisantes", ha='center', va='center',
                     transform=ax.transAxes, fontsize=10, color='#999', style='italic')
@@ -423,12 +423,12 @@ def _chart_multiples(m_a, m_b, tkr_a, tkr_b) -> io.BytesIO:
         vals_a = [_fv(m_a.get("pe_ratio")), _fv(m_a.get("ev_ebitda")), _fv(m_a.get("price_to_book")), _fv(m_a.get("ev_sales"))]
         vals_b = [_fv(m_b.get("pe_ratio")), _fv(m_b.get("ev_ebitda")), _fv(m_b.get("price_to_book")), _fv(m_b.get("ev_sales"))]
         y = np.arange(len(labels)); height = 0.35
-        fig, ax = plt.subplots(figsize=(7, 3.5))
+        fig, ax = plt.subplots(figsize=(9.0, 2.8))
         ax.barh(y + height/2, vals_a, height, label=tkr_a, color='#2E5FA3', alpha=0.9)
-        ax.barh(y - height/2, vals_b, height, label=tkr_b, color='#2E8B57', alpha=0.9)
+        ax.barh(y - height/2, vals_b, height, label=tkr_b, color='#C9A227', alpha=0.9)
         ax.set_yticks(y); ax.set_yticklabels(labels, fontsize=9)
         ax.set_xlabel("(x)", fontsize=9, color='#555')
-        ax.legend(fontsize=9, frameon=False)
+        ax.legend(loc='lower right', fontsize=9, frameon=False)
         for sp in ['top', 'right']: ax.spines[sp].set_visible(False)
         ax.spines['left'].set_color('#D0D5DD'); ax.spines['bottom'].set_color('#D0D5DD')
         ax.set_facecolor('white'); fig.patch.set_facecolor('white')
@@ -485,8 +485,8 @@ def _chart_risk_radar(m_a, m_b, tkr_a, tkr_b) -> io.BytesIO:
         ax.set_yticklabels(["1", "2", "3", "4", "5"], fontsize=6, color='#aaa')
         ax.plot(angles, vals_a, 'o-', color='#2E5FA3', linewidth=1.8, label=tkr_a)
         ax.fill(angles, vals_a, alpha=0.12, color='#2E5FA3')
-        ax.plot(angles, vals_b, 's-', color='#2E8B57', linewidth=1.8, label=tkr_b)
-        ax.fill(angles, vals_b, alpha=0.12, color='#2E8B57')
+        ax.plot(angles, vals_b, 's-', color='#C9A227', linewidth=1.8, label=tkr_b)
+        ax.fill(angles, vals_b, alpha=0.12, color='#C9A227')
         ax.set_facecolor('white'); fig.patch.set_facecolor('white')
         ax.grid(color='#D0D5DD', linewidth=0.5)
         ax.set_title(f"Profil de Risque : {tkr_a} vs {tkr_b}",
@@ -508,7 +508,7 @@ def _chart_finsight_scores(m_a, m_b, tkr_a, tkr_b) -> io.BytesIO:
         sa = float(m_a.get("finsight_score") or 0)
         sb = float(m_b.get("finsight_score") or 0)
         fig, ax = plt.subplots(figsize=(6, 1.8))
-        bars = ax.barh([1, 0], [sa, sb], color=['#2E5FA3', '#2E8B57'], height=0.45, alpha=0.9)
+        bars = ax.barh([1, 0], [sa, sb], color=['#2E5FA3', '#C9A227'], height=0.45, alpha=0.9)
         for bar, val, lbl in zip(bars, [sa, sb], [tkr_a, tkr_b]):
             ax.text(val + 0.5, bar.get_y() + bar.get_height()/2.,
                     f"{val:.0f}/100", va='center', fontsize=9, color='#333', fontweight='bold')
@@ -549,7 +549,7 @@ def _chart_perf_bars(m_a, m_b, tkr_a, tkr_b) -> io.BytesIO:
         fig, ax = plt.subplots(figsize=(7, 3.2))
         ax.set_title(_perf_title, fontsize=9.5, fontweight='bold', color='#1B3A6B', pad=5)
         bars_a = ax.bar(x - width/2, vals_a, width, label=tkr_a, color='#2E5FA3', alpha=0.9)
-        bars_b = ax.bar(x + width/2, vals_b, width, label=tkr_b, color='#2E8B57', alpha=0.9)
+        bars_b = ax.bar(x + width/2, vals_b, width, label=tkr_b, color='#C9A227', alpha=0.9)
         for bar in list(bars_a) + list(bars_b):
             h = bar.get_height()
             if abs(h) > 0.1:
@@ -586,7 +586,7 @@ def _chart_fcf_capital(m_a, m_b, tkr_a, tkr_b) -> io.BytesIO:
         x = np.arange(len(labels)); width = 0.35
         fig, ax = plt.subplots(figsize=(7, 3.2))
         ax.bar(x - width/2, vals_a, width, label=tkr_a, color='#2E5FA3', alpha=0.9)
-        ax.bar(x + width/2, vals_b, width, label=tkr_b, color='#2E8B57', alpha=0.9)
+        ax.bar(x + width/2, vals_b, width, label=tkr_b, color='#C9A227', alpha=0.9)
         if all(abs(v) < 0.01 for v in vals_a + vals_b):
             ax.text(0.5, 0.5, "Donnees insuffisantes", ha='center', va='center',
                     transform=ax.transAxes, fontsize=10, color='#999', style='italic')
@@ -638,143 +638,140 @@ def _dcf_sensitivity_matrix(base_val, wacc, g_term):
 
 
 # =============================================================================
-# COVER PAGE (canvas onFirstPage) -- style pdf_writer.py societe
+# COVER PAGE -- style secteur (Platypus story flowables)
 # =============================================================================
-def _cover_page(canvas, doc, tkr_a, tkr_b, name_a, name_b,
-                rec_a, rec_b, date_str, m_a, m_b, synthesis):
-    W, H = A4
-    cx = W / 2
+def _build_cover_story(tkr_a, tkr_b, name_a, name_b,
+                       rec_a, rec_b, date_str, m_a, m_b, synthesis):
+    """Retourne la liste de flowables pour la page de garde (style secteur)."""
+    story = []
 
-    # Fond blanc
-    canvas.setFillColor(WHITE)
-    canvas.rect(0, 0, W, H, fill=1, stroke=0)
+    # Marque "FinSight IA" + regle epaisse (identique secteur)
+    story.append(Spacer(1, 6*mm))
+    story.append(Paragraph(
+        _safe("FinSight IA"),
+        _s('cv_brand', size=14, color=NAVY, bold=True)
+    ))
+    story.append(HRFlowable(width=TABLE_W, thickness=1.2, color=NAVY,
+                             spaceBefore=3, spaceAfter=8))
 
-    # Bande navy top 18mm
-    canvas.setFillColor(NAVY)
-    canvas.rect(0, H - 18*mm, W, 18*mm, fill=1, stroke=0)
-    canvas.setFillColor(WHITE)
-    canvas.setFont("Helvetica-Bold", 13)
-    canvas.drawCentredString(cx, H - 8*mm, "FinSight IA")
-    canvas.setFillColor(colors.HexColor('#90B4E8'))
-    canvas.setFont("Helvetica", 7.5)
-    canvas.drawCentredString(cx, H - 14*mm,
-        _enc("Analyse Comparative -- Rapport d'investissement"))
+    # Sous-titre
+    story.append(Paragraph(
+        _safe("Analyse Comparative de Societes"),
+        _s('cv_sub', size=12, color=GREY_TEXT, align=TA_CENTER, sb=8, sa=4)
+    ))
 
-    # Ligne separatrice sous la bande
-    canvas.setStrokeColor(GREY_RULE)
-    canvas.setLineWidth(0.5)
-    canvas.line(MARGIN_L, H - 20*mm, W - MARGIN_R, H - 20*mm)
+    # Titre principal
+    story.append(Paragraph(
+        _safe(f"{tkr_a}  vs  {tkr_b}"),
+        _s('cv_main', size=28, color=NAVY, bold=True, align=TA_CENTER, leading=38, sb=4, sa=6)
+    ))
 
-    # Sous-titre "Analyse Comparative de Societes"
-    canvas.setFillColor(GREY_TEXT)
-    canvas.setFont("Helvetica", 10)
-    canvas.drawCentredString(cx, H * 0.69, _enc("Analyse Comparative de Societes"))
+    # Noms complets
+    _na = (name_a or tkr_a)[:30]
+    _nb = (name_b or tkr_b)[:30]
+    story.append(Paragraph(
+        _safe(f"{_na} ({tkr_a})   vs   {_nb} ({tkr_b})"),
+        _s('cv_names', size=10, color=GREY_TEXT, align=TA_CENTER, sa=8)
+    ))
 
-    # Titre principal "{tkr_a}  vs  {tkr_b}" 38pt navy bold
-    canvas.setFillColor(NAVY)
-    canvas.setFont("Helvetica-Bold", 38)
-    canvas.drawCentredString(cx, H * 0.64, _enc(f"{tkr_a}  vs  {tkr_b}"))
+    story.append(Spacer(1, 8*mm))
+    story.append(HRFlowable(width=TABLE_W, thickness=0.5, color=GREY_RULE,
+                             spaceBefore=0, spaceAfter=6))
 
-    # Noms complets sur une ligne : "Company A (TKR_A) vs Company B (TKR_B)"
-    _na = (name_a or tkr_a)[:28]
-    _nb = (name_b or tkr_b)[:28]
-    subtitle_line = f"{_na} ({tkr_a})  vs  {_nb} ({tkr_b})"
-    canvas.setFillColor(GREY_TEXT)
-    canvas.setFont("Helvetica", 10)
-    canvas.drawCentredString(cx, H * 0.595, _enc(subtitle_line))
+    # ---- Tableau KPI 2 colonnes (style secteur) ----
+    def _kpi_p(txt, col=WHITE, bold=False, align=TA_CENTER, size=9):
+        return Paragraph(_safe(txt), _s(f'kv{id(txt)}', size=size, color=col,
+                                        bold=bold, align=align, leading=14))
 
-    # Ligne separatrice sous titres
-    canvas.setStrokeColor(GREY_RULE)
-    canvas.setLineWidth(0.4)
-    canvas.line(MARGIN_L + 20*mm, H * 0.578, W - MARGIN_R - 20*mm, H * 0.578)
+    rec_lbl_a = _rec_label(rec_a)
+    rec_lbl_b = _rec_label(rec_b)
+    tgt_a  = str(m_a.get("target_price") or "N/A")
+    tgt_b  = str(m_b.get("target_price") or "N/A")
+    up_a   = str(m_a.get("upside_str") or "N/A")
+    up_b   = str(m_b.get("upside_str") or "N/A")
+    sc_a   = str(m_a.get("finsight_score") or "N/A")
+    sc_b   = str(m_b.get("finsight_score") or "N/A")
+    pe_a   = _frx(m_a.get("pe_ratio"));  pe_b  = _frx(m_b.get("pe_ratio"))
+    ev_a   = _frx(m_a.get("ev_ebitda")); ev_b  = _frx(m_b.get("ev_ebitda"))
+    mg_a   = _frpct(m_a.get("ebitda_margin_ltm"), False)
+    mg_b   = _frpct(m_b.get("ebitda_margin_ltm"), False)
 
-    # ------------------------------------------------------------------
-    # DEUX BADGES RECOMMANDATION + CIBLE (compact, pas de boxes completes)
-    # ------------------------------------------------------------------
-    badge_y = H * 0.528
+    kpi_data = [
+        # Header (fond couleur)
+        [_kpi_p(tkr_a, col=WHITE, bold=True, size=11),
+         _kpi_p(tkr_b, col=WHITE, bold=True, size=11)],
+        # Signal / recommandation
+        [_kpi_p(f"Signal : {rec_lbl_a}", col=WHITE, size=9),
+         _kpi_p(f"Signal : {rec_lbl_b}", col=WHITE, size=9)],
+        # Cible + upside
+        [_kpi_p(f"Cible 12m : {tgt_a}  ({up_a})", col=GREY_TEXT, size=9),
+         _kpi_p(f"Cible 12m : {tgt_b}  ({up_b})", col=GREY_TEXT, size=9)],
+        # Multiples
+        [_kpi_p(f"P/E : {pe_a}  |  EV/EBITDA : {ev_a}", col=GREY_TEXT, size=8.5),
+         _kpi_p(f"P/E : {pe_b}  |  EV/EBITDA : {ev_b}", col=GREY_TEXT, size=8.5)],
+        # Marge EBITDA + Score
+        [_kpi_p(f"Mg EBITDA : {mg_a}  |  Score : {sc_a}/100", col=GREY_TEXT, size=8.5),
+         _kpi_p(f"Mg EBITDA : {mg_b}  |  Score : {sc_b}/100", col=GREY_TEXT, size=8.5)],
+    ]
 
-    def _draw_cover_badge(bx, tkr, rec, m, color_main):
-        badge_w = 30*mm
-        badge_h = 10*mm
-        # Badge recommandation
-        rec_col = _rec_color(rec)
-        canvas.setFillColor(rec_col)
-        canvas.roundRect(bx, badge_y, badge_w, badge_h, 2, fill=1, stroke=0)
-        canvas.setFillColor(WHITE)
-        canvas.setFont("Helvetica-Bold", 8.5)
-        canvas.drawCentredString(bx + badge_w/2, badge_y + 3.2*mm,
-            _enc(_rec_label(rec)))
-        # Cible
-        tgt = m.get("target_price") or ""
-        up  = m.get("upside_str") or ""
-        cible_txt = f"Cible: {tgt}  ({up})" if tgt else "Cible: N/A"
-        cible_w = 42*mm
-        cible_x = bx + badge_w + 3*mm
-        canvas.setFillColor(NAVY)
-        canvas.roundRect(cible_x, badge_y, cible_w, badge_h, 2, fill=1, stroke=0)
-        canvas.setFillColor(WHITE)
-        canvas.setFont("Helvetica-Bold", 7.5)
-        canvas.drawCentredString(cible_x + cible_w/2, badge_y + 3.2*mm, _enc(cible_txt))
-        # Label ticker au-dessus
-        canvas.setFillColor(color_main)
-        canvas.setFont("Helvetica-Bold", 9)
-        canvas.drawString(bx, badge_y + badge_h + 3*mm, _enc(tkr))
+    col_w = TABLE_W / 2
+    kpi_tbl = Table(kpi_data, colWidths=[col_w, col_w])
+    kpi_tbl.setStyle(TableStyle([
+        # En-tete (2 premieres lignes) fond couleur
+        ('BACKGROUND',   (0, 0), (0, 1), COLOR_A),
+        ('BACKGROUND',   (1, 0), (1, 1), COLOR_B),
+        ('TOPPADDING',   (0, 0), (-1, 1), 8),
+        ('BOTTOMPADDING',(0, 0), (-1, 1), 8),
+        # Lignes de donnees
+        ('TOPPADDING',   (0, 2), (-1, -1), 6),
+        ('BOTTOMPADDING',(0, 2), (-1, -1), 6),
+        ('ROWBACKGROUNDS',(0, 2), (-1, -1), [WHITE, GREY_LIGHT]),
+        ('VALIGN',       (0, 0), (-1, -1), 'MIDDLE'),
+        ('LINEAFTER',    (0, 0), (0, -1), 0.5, GREY_RULE),
+        ('GRID',         (0, 2), (-1, -1), 0.3, GREY_MED),
+        ('LEFTPADDING',  (0, 0), (-1, -1), 8),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+    ]))
+    story.append(kpi_tbl)
+    story.append(Spacer(1, 6*mm))
 
-    _draw_cover_badge(MARGIN_L + 5*mm, tkr_a, rec_a, m_a, COLOR_A)
-    _draw_cover_badge(W/2 + 10*mm, tkr_b, rec_b, m_b, COLOR_B)
-
-    # ------------------------------------------------------------------
-    # BOX VERDICT (fond navy clair)
-    # ------------------------------------------------------------------
+    # ---- Verdict box ----
     winner = m_a.get("winner") or tkr_a
-    verdict_raw = _canvas_text(synthesis.get("verdict_text") or "")
-    verdict_excerpt = verdict_raw[:110]
-    if len(verdict_raw) > 110:
-        if ' ' in verdict_excerpt:
-            verdict_excerpt = verdict_excerpt[:verdict_excerpt.rfind(' ')] + '...'
+    verdict_raw = _safe(synthesis.get("verdict_text") or "")
+    if len(verdict_raw) > 220:
+        verdict_raw = verdict_raw[:220]
+        if ' ' in verdict_raw:
+            verdict_raw = verdict_raw[:verdict_raw.rfind(' ')] + '...'
         else:
-            verdict_excerpt += '...'
+            verdict_raw += '...'
 
-    verd_box_x = MARGIN_L
-    verd_box_w = W - MARGIN_L - MARGIN_R
-    verd_y     = badge_y - 28*mm
-    verd_h     = 18*mm
-    canvas.setFillColor(colors.HexColor('#EEF3FA'))
-    canvas.roundRect(verd_box_x, verd_y, verd_box_w, verd_h, 3, fill=1, stroke=0)
-    canvas.setStrokeColor(NAVY_LIGHT)
-    canvas.setLineWidth(0.4)
-    canvas.roundRect(verd_box_x, verd_y, verd_box_w, verd_h, 3, fill=0, stroke=1)
+    verd_data = [[
+        Paragraph(_safe(f"Choix prefere : {winner}"),
+                  _s('verd_t', size=9.5, color=NAVY, bold=True, align=TA_CENTER, sa=3)),
+        ],[
+        Paragraph(verdict_raw,
+                  _s('verd_b', size=8, color=GREY_TEXT, align=TA_CENTER, leading=12)),
+    ]]
+    verd_tbl = Table([[verd_data[0][0]], [verd_data[1][0]]], colWidths=[TABLE_W])
+    verd_tbl.setStyle(TableStyle([
+        ('BACKGROUND',   (0, 0), (-1, -1), colors.HexColor('#EEF3FA')),
+        ('BOX',          (0, 0), (-1, -1), 0.4, NAVY_LIGHT),
+        ('TOPPADDING',   (0, 0), (-1, -1), 6),
+        ('BOTTOMPADDING',(0, 0), (-1, -1), 6),
+        ('LEFTPADDING',  (0, 0), (-1, -1), 10),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 10),
+    ]))
+    story.append(verd_tbl)
+    story.append(Spacer(1, 5*mm))
 
-    canvas.setFillColor(NAVY)
-    canvas.setFont("Helvetica-Bold", 9)
-    canvas.drawCentredString(cx, verd_y + verd_h - 6*mm,
-        _enc(f"Choix prefere : {winner}"))
-    canvas.setFillColor(GREY_TEXT)
-    canvas.setFont("Helvetica", 7.5)
-    canvas.drawCentredString(cx, verd_y + 4.5*mm, verdict_excerpt)
+    # ---- Date / sources ----
+    story.append(Paragraph(
+        _safe(f"Donnees : yfinance  \u00b7  FMP  \u00b7  Finnhub   |   {date_str}   |   Horizon : 12 mois"),
+        _s('cv_date', size=7.5, color=GREY_TEXT, align=TA_CENTER)
+    ))
 
-    # Source / date
-    canvas.setFillColor(GREY_TEXT)
-    canvas.setFont("Helvetica", 7)
-    canvas.drawCentredString(cx, verd_y - 8*mm,
-        _enc(f"Donnees : yfinance  \u00b7  FMP  \u00b7  Finnhub   |   {date_str}   |   Horizon : 12 mois"))
-
-    # Ligne separatrice avant footer
-    canvas.setStrokeColor(GREY_RULE)
-    canvas.setLineWidth(0.5)
-    canvas.line(MARGIN_L, 20*mm, W - MARGIN_R, 20*mm)
-
-    # Footer navy bas 18mm
-    canvas.setFillColor(NAVY)
-    canvas.rect(0, 0, W, 18*mm, fill=1, stroke=0)
-    canvas.setFillColor(colors.HexColor('#90B4E8'))
-    canvas.setFont("Helvetica", 6.5)
-    canvas.drawCentredString(cx, 11*mm,
-        _enc("CONFIDENTIEL \u2014 Usage restreint"))
-    canvas.drawCentredString(cx, 6*mm,
-        _enc("FinSight IA v1.2 \u2014 Ne constitue pas un conseil en investissement"))
-
-    canvas.restoreState()
+    story.append(PageBreak())
+    return story
 
 
 # =============================================================================
@@ -1859,7 +1856,7 @@ def _section_52w_price(story, m_a, m_b, tkr_a, tkr_b, synthesis=None):
                 fig, ax = plt.subplots(figsize=(10, 4))
                 fig.patch.set_facecolor('white')
                 ax.set_facecolor('#FAFAFA')
-                ca = '#2E5FA3'; cb = '#2E8B57'
+                ca = '#2E5FA3'; cb = '#C9A227'
                 if not df_a.empty:
                     close_a = df_a['Close'].squeeze()
                     base_a = close_a.iloc[0]
@@ -2301,11 +2298,11 @@ class ComparisonPDFWriter:
 
         story = []
 
-        # Page 1 : Couverture (placeholder -- rendue via onFirstPage)
-        story.append(Spacer(1, 0))
+        # Page 1 : Couverture (flowables, style secteur)
+        story += _build_cover_story(tkr_a, tkr_b, name_a, name_b,
+                                    rec_a, rec_b, date_str, m_a, m_b, synthesis)
 
-        # Page 2+ : Sections de contenu
-        story.append(PageBreak())
+        # Pages suivantes : Sections de contenu
         _section_exec_summary(story, m_a, m_b, synthesis, tkr_a, tkr_b)       # 1
         _section_profil_pl(story, m_a, m_b, synthesis, tkr_a, tkr_b)          # 2
         _section_rentabilite_bilan(story, m_a, m_b, tkr_a, tkr_b)             # 3
@@ -2318,17 +2315,12 @@ class ComparisonPDFWriter:
         _section_piotroski_detail(story, m_a, m_b, tkr_a, tkr_b)             # 10
         _section_verdict(story, m_a, m_b, synthesis, tkr_a, tkr_b)           # 11
 
-        # Build avec cover page et header/footer
-        def _on_first(canvas, doc):
-            canvas.saveState()
-            _cover_page(canvas, doc, tkr_a, tkr_b, name_a, name_b,
-                        rec_a, rec_b, date_str, m_a, m_b, synthesis)
-
+        # Build : header/footer sur toutes les pages (y compris cover)
         def _on_later(canvas, doc):
             canvas.saveState()
             _header_footer(canvas, doc)
 
-        doc.build(story, onFirstPage=_on_first, onLaterPages=_on_later)
+        doc.build(story, onFirstPage=_on_later, onLaterPages=_on_later)
         buf.seek(0)
         log.info(f"[cmp_pdf] genere en memoire ({buf.getbuffer().nbytes} bytes)")
         return buf
