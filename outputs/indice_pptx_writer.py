@@ -579,7 +579,12 @@ def _chart_sentiment_bars(sentiment_agg: dict) -> bytes:
     scores = [float(p[1]) for p in sorted_ps]
     cols   = ['#1A7A4A' if v >= 0.05 else ('#A82020' if v <= -0.05 else '#B06000') for v in scores]
 
-    fig, ax = plt.subplots(figsize=(9.0, max(3.5, len(noms) * 0.48 + 1.5)))
+    # Figsize cale sur le ratio de la zone d'affichage PPTX (23.6cm x 7.0cm = 3.37:1)
+    # Pour eviter la deformation quand python-pptx etire l'image
+    _disp_w_cm, _disp_h_cm = 23.6, 7.0
+    _fig_w_in = 12.0
+    _fig_h_in = _fig_w_in * (_disp_h_cm / _disp_w_cm)  # = 12.0 * 0.297 = 3.56 in
+    fig, ax = plt.subplots(figsize=(_fig_w_in, _fig_h_in))
     fig.patch.set_facecolor('#FFFFFF')
     ax.set_facecolor('#F8F9FA')
 
@@ -587,23 +592,24 @@ def _chart_sentiment_bars(sentiment_agg: dict) -> bytes:
     ax.barh(y, scores, color=cols, alpha=0.85, height=0.60, edgecolor='white', linewidth=0.5)
     ax.axvline(0, color='#333333', linewidth=0.8)
     ax.set_yticks(y)
-    ax.set_yticklabels(noms, fontsize=9)
-    ax.set_xlabel("Score composite (-0.25 a +0.25)", fontsize=9, color='#555555')
-    ax.tick_params(labelsize=8.5, colors='#777777')
+    ax.set_yticklabels(noms, fontsize=8)
+    ax.set_xlabel("Score composite (-0.25 a +0.25)", fontsize=8, color='#555555')
+    ax.tick_params(labelsize=8, colors='#777777')
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
     ax.grid(True, alpha=0.3, linestyle=':', axis='x')
-    # Legende formelle
+    # Legende formelle — positionnee en haut a droite pour eviter chevauchement
     patches_leg = [
-        mpatches.Patch(color='#1A7A4A', label='Surponderer (score > 0.05)'),
+        mpatches.Patch(color='#1A7A4A', label='Surponderer (> 0.05)'),
         mpatches.Patch(color='#B06000', label='Neutre'),
-        mpatches.Patch(color='#A82020', label='Sous-ponderer (score < -0.05)'),
+        mpatches.Patch(color='#A82020', label='Sous-ponderer (< -0.05)'),
     ]
-    ax.legend(handles=patches_leg, fontsize=8.5, loc='lower right',
-              framealpha=0.8, frameon=True, ncol=1)
+    ax.legend(handles=patches_leg, fontsize=7.5, loc='upper right',
+              framealpha=0.9, frameon=True, ncol=3,
+              bbox_to_anchor=(1.0, 1.15))
     ax.set_title("Score composite par secteur — derive du scoring FinSight",
-                 fontsize=10, color='#1B3A6B', fontweight='bold', pad=8)
-    plt.tight_layout(pad=0.5)
+                 fontsize=9, color='#1B3A6B', fontweight='bold', pad=4)
+    plt.tight_layout(pad=0.4)
 
     buf = io.BytesIO()
     fig.savefig(buf, format='png', dpi=150, bbox_inches='tight',

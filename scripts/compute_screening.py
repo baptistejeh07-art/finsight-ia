@@ -685,6 +685,30 @@ def _enrich_realtime(ticker: str, cache_info: dict) -> dict:
     return extra
 
 
+def _next_earnings_fallback(cache_row: dict, info: dict) -> Optional[str]:
+    """Retourne la prochaine date de resultats depuis le cache ou yfinance info."""
+    # 1. Cache Supabase (source principale)
+    ne = cache_row.get("next_earnings")
+    if ne:
+        return str(ne)
+    # 2. Fallback yfinance info.earningsDate (timestamp ou liste de timestamps)
+    edate = info.get("earningsDate") or info.get("earningsTimestamp")
+    if edate is None:
+        return None
+    try:
+        from datetime import datetime
+        if isinstance(edate, (list, tuple)):
+            edate = edate[0]
+        dt = datetime.fromtimestamp(int(edate))
+        today = datetime.today()
+        # Retourner seulement si la date est dans le futur (prochaine date)
+        if dt.date() >= today.date():
+            return dt.strftime("%Y-%m-%d")
+    except Exception:
+        pass
+    return None
+
+
 # ---------------------------------------------------------------------------
 # Calcul complet d'un ticker
 # ---------------------------------------------------------------------------
@@ -856,6 +880,14 @@ def compute_ticker(ticker: str, cache_row: Optional[dict]) -> Optional[dict]:
     # --- Croissance EPS (yfinance earningsGrowth, decimal) ---
     _eg_raw = info.get("earningsGrowth")
     earnings_growth = round(float(_eg_raw) * 100, 1) if _eg_raw is not None else None
+    # Fallback depuis IS si yfinance ne fournit pas earningsGrowth (courant pour EU)
+    if earnings_growth is None:
+        _ni0 = _get(is_, "Net Income", "Net Income Common Stockholders",
+                    "Net Income From Continuing Operations", year_idx=0)
+        _ni1 = _get(is_, "Net Income", "Net Income Common Stockholders",
+                    "Net Income From Continuing Operations", year_idx=1)
+        if _ni0 and _ni1 and _ni1 != 0:
+            earnings_growth = round((_ni0 - _ni1) / abs(_ni1) * 100, 1)
 
     # --- FCF Yield (%) ---
     _cf_fcf = _get(cf, "Free Cash Flow")
@@ -936,7 +968,7 @@ def compute_ticker(ticker: str, cache_row: Optional[dict]) -> Optional[dict]:
         "score_quality":  None,
         "score_momentum": None,
         "score_global":   None,
-        "next_earnings":     cache_row.get("next_earnings"),
+        "next_earnings":     _next_earnings_fallback(cache_row, info),
         "ebitda_ntm_growth": ebitda_ntm_growth,
         "earnings_growth":   earnings_growth,
         "fcf_yield":         fcf_yield,

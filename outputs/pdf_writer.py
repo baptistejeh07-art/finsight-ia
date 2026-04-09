@@ -1574,8 +1574,24 @@ def _build_valorisation(ff_buf, pie_buf, mc_buf, data):
                     f"La fourchette P10\u2013P90 ({mc_p10:,.0f}\u2013{mc_p90:,.0f}\u00a0{cur}) "
                     "d\u00e9limite le corridor de prix probable selon la volatilit\u00e9 historique."
                 )
+            # Enrichissement : comparaison P50 vs cible + interpretation volatilite
+            _target_mc = data.get('target_price') or data.get('ff_course')
+            _extra_mc  = ""
+            if _target_mc and mc_p50:
+                try:
+                    _gap = (float(mc_p50) / float(_target_mc) - 1) * 100
+                    if abs(_gap) > 5:
+                        _extra_mc += (f" Le P50 GBM ({mc_p50:,.0f}\u00a0{cur}) "
+                                      f"{('depasse' if _gap > 0 else 'reste sous')} "
+                                      f"le prix cible analytique de {abs(_gap):.0f}\u00a0% "
+                                      f"({'convergence haussiere' if _gap > 0 else 'scenario central plus conservateur que la cible DCF'}).")
+                except Exception:
+                    pass
+            _syn_fc = ((data.get('synthesis') or {}).get('financial_commentary') or "")
+            if _syn_fc and not _extra_mc:
+                _extra_mc = " " + _syn_fc[:200] + ("..." if len(_syn_fc) > 200 else "")
             elems.append(Spacer(1, 3*mm))
-            elems.append(Paragraph(_mc_interp, S_BODY))
+            elems.append(Paragraph(_safe(_mc_interp + _extra_mc), S_BODY))
     return elems
 
 
@@ -1867,13 +1883,35 @@ def _build_multiples_historiques(data):
     # ── Commentary analytique ──
     pe_clean = [d['pe'] for d in years_data if d['pe'] is not None]
     ev_clean = [d['ev_eb'] for d in years_data if d['ev_eb'] is not None]
+    pb_clean = [d['pb']    for d in years_data if d.get('pb') is not None]
     if pe_clean and len(pe_clean) >= 2:
         delta = pe_clean[-1] - pe_clean[0]
         _dir  = "expansion multiple" if delta > 0 else "compression multiple"
-        _txt  = (f"Le P/E affiche une {_dir} de {abs(delta):.1f}x sur la p\u00e9riode ({pe_clean[0]:.1f}x \u2192 {pe_clean[-1]:.1f}x). "
-                 f"L'EV/EBITDA {('se stabilise' if ev_clean and abs(ev_clean[-1]-ev_clean[0])<2 else 'diverge')} "
-                 f"\u00e0 {_fr(ev_clean[-1] if ev_clean else None, 1)}x. "
-                 f"{'Un re-rating positif soutient la these haussiere.' if delta > 0 else 'La compression multiple reflete une deterioration du profil risk/reward.'}")
+        _ev_mov = ""
+        if ev_clean and len(ev_clean) >= 2:
+            _ev_delta = ev_clean[-1] - ev_clean[0]
+            _ev_mov = (f" L\u2019EV/EBITDA affiche une {'expansion' if _ev_delta > 0 else 'compression'} "
+                       f"de {abs(_ev_delta):.1f}x ({ev_clean[0]:.1f}x -> {ev_clean[-1]:.1f}x), "
+                       f"{'signal que le march\u00e9 paye davantage l\u2019EBITDA operational' if _ev_delta > 0 else 'refletant une moindre valorisation de la capacite b\u00e9n\u00e9ficiaire'}.")
+        _pb_note = ""
+        if pb_clean and len(pb_clean) >= 2:
+            _pb_delta = pb_clean[-1] - pb_clean[0]
+            _pb_note = (f" Le P/B recule de {pb_clean[0]:.1f}x \u00e0 {pb_clean[-1]:.1f}x, "
+                        f"{'indiquant une dilution de la valeur comptable' if _pb_delta < 0 else 'signe d\u2019une creation de valeur reconnue par le march\u00e9'}.")
+        _peers_note = ""
+        _peers_ev = data.get('peers_median_ev_ebitda') or data.get('ev_ebitda_median_peers')
+        if _peers_ev and ev_clean:
+            try:
+                _prem = (ev_clean[-1] / float(_peers_ev) - 1) * 100
+                _peers_note = (f" La soci\u00e9t\u00e9 se n\u00e9gocie avec une "
+                               f"{'prime' if _prem > 0 else 'decote'} de {abs(_prem):.0f}\u00a0% "
+                               f"vs la m\u00e9diane des pairs sur l\u2019EV/EBITDA.")
+            except Exception:
+                pass
+        _txt  = (f"Le P/E affiche une {_dir} de {abs(delta):.1f}x sur la p\u00e9riode "
+                 f"({pe_clean[0]:.1f}x -> {pe_clean[-1]:.1f}x)."
+                 + _ev_mov + _pb_note + _peers_note +
+                 f" {'Un re-rating positif soutient la these haussiere, mais amplifie le risque de valorisation.' if delta > 0 else 'La compression multiple reflete une deterioration du profil risk/reward et limite l\u2019upside.'}")
     else:
         _txt = "Historique de multiples insuffisant pour etablir une tendance significative."
     elems.append(Spacer(1, 3*mm))
@@ -1941,17 +1979,36 @@ def _build_capital_returns(data):
         elems.append(KeepTogether(tbl([cr_h] + cr_rows, cw=[30*mm, 38*mm, 34*mm, 36*mm, 32*mm])))
 
     # ── Commentary ──
-    fcf_vals = [d['fcf'] for d in years_data if d['fcf'] is not None]
-    fy_vals  = [d['fcf_yield'] for d in years_data if d['fcf_yield'] is not None]
+    fcf_vals  = [d['fcf']       for d in years_data if d['fcf'] is not None]
+    fy_vals   = [d['fcf_yield'] for d in years_data if d['fcf_yield'] is not None]
+    cx_vals   = [d['capex_r']   for d in years_data if d.get('capex_r') is not None]
+    div_vals  = [d['div_paid']  for d in years_data if d.get('div_paid') is not None]
     if fcf_vals and len(fcf_vals) >= 2:
         delta_fcf = fcf_vals[-1] - fcf_vals[0]
         _dir = "croissance" if delta_fcf > 0 else "contraction"
         _fy  = _frpct(fy_vals[-1]) if fy_vals else "\u2014"
+        _capex_note = ""
+        if cx_vals:
+            _cx_avg = sum(cx_vals) / len(cx_vals)
+            _capex_note = (f" L\u2019intensit\u00e9 Capex/CA moyenne de {_frpct(_cx_avg)} "
+                           f"({'elevee, signe d\u2019un profil invest-heavy' if _cx_avg and _cx_avg > 0.08 else 'moderee, compatible avec un profil generateur de FCF'}).")
+        _div_note = ""
+        div_any = any(d != 0 for d in div_vals if d is not None)
+        if not div_any:
+            _div_note = (" La soci\u00e9t\u00e9 n\u2019a vers\u00e9 aucun dividende sur la p\u00e9riode, "
+                         "orient\u00e9e vers la croissance et le r\u00e9investissement interne.")
+        elif div_vals:
+            _div_last = abs(div_vals[-1]) / 1000 if div_vals[-1] else 0
+            _div_note = f" Le versement de dividendes de {_fr(_div_last, 1)}\u00a0Mds t\u00e9moigne d\u2019un partage partiel de la valeur avec les actionnaires."
+        _syn_note = ""
+        _syn_fc = ((data.get('synthesis') or {}).get('financial_commentary') or "")
+        if _syn_fc:
+            _syn_note = " " + _syn_fc[:180] + ("..." if len(_syn_fc) > 180 else "")
         _txt = (f"La g\u00e9n\u00e9ration de FCF affiche une {_dir} de "
-                f"{_fr(abs(delta_fcf)/1000, 1)} Mds sur la p\u00e9riode. "
+                f"{_fr(abs(delta_fcf)/1000, 1)}\u00a0Mds sur la p\u00e9riode. "
                 f"Le FCF yield courant de {_fy} "
-                f"{'est attractif pour un investisseur long-only' if fy_vals and fy_vals[-1] and float(fy_vals[-1]) > 0.04 else 'reste modeste au regard du coût du capital'}. "
-                f"L\u2019allocation vers les dividendes refl\u00e8te la politique de retour aux actionnaires.")
+                f"{'est attractif pour un investisseur long-only' if fy_vals and fy_vals[-1] and float(fy_vals[-1]) > 0.04 else 'reste modeste au regard du co\u00fbt du capital'}."
+                + _capex_note + _div_note + _syn_note)
     else:
         _txt = "Donn\u00e9es FCF insuffisantes pour l\u2019analyse de l\u2019allocation du capital."
     elems.append(Spacer(1, 3*mm))
@@ -2949,8 +3006,13 @@ class PDFWriter:
             pe_ntm      = pe_ntm or getattr(yr_r, 'pe_ratio', None)
             # Dividend yield depuis dividendes verses / (cours * actions)
             _div_paid = getattr(yr_r, 'dividends_paid_abs', None)
-            if _div_paid and _shares and float(_shares) > 0 and price:
-                div_yield = float(_div_paid) / float(_shares) / float(price)
+            if _div_paid is not None:
+                if _div_paid and _shares and float(_shares) > 0 and price:
+                    div_yield = float(_div_paid) / float(_shares) / float(price)
+                else:
+                    div_yield = 0.0  # dividendes nuls explicitement
+            else:
+                div_yield = 0.0  # pas de donnees dividendes -> 0% (aucun dividende)
 
         # Forward estimates (consensus analystes via yfinance)
         _fwd_eps      = None
@@ -2990,13 +3052,21 @@ class PDFWriter:
             p_ = is_proj.get(lbl) or is_proj.get(lbl.replace('F',''))
             return (p_.get(k) if isinstance(p_, dict) else None)
 
+        def _norm_pct(v):
+            """Normalise marge LLM vers decimal 0-1 (le LLM retourne parfois 19.0 au lieu de 0.19)."""
+            if v is None: return None
+            try:
+                fv = float(v)
+                return fv / 100.0 if abs(fv) > 1.5 else fv
+            except: return None
+
         def _rev(l):
             fy = _fy(l)
             return _pv(l,'revenue') if l in [ny1,ny2] else (fy.revenue if fy else None)
 
         def _gm(l):
             ry = _ry(l)
-            return _pv(l,'gross_margin') if l in [ny1,ny2] else \
+            return _norm_pct(_pv(l,'gross_margin')) if l in [ny1,ny2] else \
                    (getattr(ry,'gross_margin',None) if ry else None)
 
         def _ebitda(l):
@@ -3005,7 +3075,7 @@ class PDFWriter:
 
         def _em(l):
             ry = _ry(l)
-            return _pv(l,'ebitda_margin') if l in [ny1,ny2] else \
+            return _norm_pct(_pv(l,'ebitda_margin')) if l in [ny1,ny2] else \
                    (getattr(ry,'ebitda_margin',None) if ry else None)
 
         def _ni(l):
@@ -3014,7 +3084,7 @@ class PDFWriter:
 
         def _nm(l):
             ry = _ry(l)
-            return _pv(l,'net_margin') if l in [ny1,ny2] else \
+            return _norm_pct(_pv(l,'net_margin')) if l in [ny1,ny2] else \
                    (getattr(ry,'net_margin',None) if ry else None)
 
         rev_vals = [_frm(_rev(l)) for l in all_labels]
@@ -3408,7 +3478,7 @@ class PDFWriter:
             'erp_str':           _fr(erp * 100, 1, '\u00a0%'),
             'rf_str':            _fr(rfr * 100, 1, '\u00a0%'),
             'market_cap_str':    _fmt_mkt_cap(mktcap) if mktcap else '\u2014',
-            'dividend_yield_str':_frpct(div_yield) if div_yield else '\u2014',
+            'dividend_yield_str':_frpct(div_yield) if div_yield is not None else '\u2014',
             'pe_ntm_str':        _frx(pe_ntm) if pe_ntm else '\u2014',
             'ev_ebitda_str':     _frx(ev_ebitda_v) if ev_ebitda_v else '\u2014',
 
@@ -3447,6 +3517,7 @@ class PDFWriter:
                                     f"pour ses pairs, et implique une liquidit\u00e9 \u00e9lev\u00e9e "
                                     f"ainsi qu'une exposition institutionnelle importante."),
             'bear_text_intro':      _g(synthesis,'bear_intro') or
+                                    counter_thesis.replace(' | ', ' ') if counter_thesis else
                                     "Le protocole de contradiction syst\u00e9matique (avocat du diable) identifie "
                                     "trois axes de risque susceptibles d'invalider le sc\u00e9nario base. "
                                     "Ils sont trait\u00e9s comme des conditions de surveillance active.",
@@ -3630,6 +3701,27 @@ class PDFWriter:
         pie_result = _fetch_pie_data(ticker, peer_tickers)
         if pie_result:
             d.update(pie_result)
+            # Enrichir pie_text avec les donnees reelles si le LLM n'en a pas fourni
+            if not _g(synthesis, 'pie_text'):
+                _pct_str  = d.get('pie_pct_str', '\u2014')
+                _cap_lbl  = d.get('pie_cap_label', 'EV')
+                _pie_szs  = pie_result.get('pie_sizes') or []
+                _pie_lbs  = pie_result.get('pie_labels') or []
+                _main_ev  = next((s for l, s in zip(_pie_lbs, _pie_szs)
+                                  if ticker in l), None)
+                _tot_ev   = sum(_pie_szs) if _pie_szs else None
+                if _main_ev and _tot_ev:
+                    d['pie_text'] = (
+                        f"{co_name} repr\u00e9sente {_pct_str} de la {_cap_lbl} sectorielle, "
+                        f"soit {_fr(_main_ev, 1)} Mds sur un total de {_fr(_tot_ev, 1)} Mds. "
+                        f"Ce poids relatif conf\u00e8re au titre le statut d\u2019acteur "
+                        f"de r\u00e9f\u00e9rence dans son secteur, avec une prime de liquidit\u00e9 "
+                        f"institutionnelle associ\u00e9e. Les fonds sectoriels et indices \u00e9pond\u00e9r\u00e9s "
+                        f"par la capitalisation sont structurellement surexpos\u00e9s \u00e0 ce titre, "
+                        f"ce qui amplifie les mouvements de flux en cas de r\u00e9allocation sectorielle. "
+                        f"L\u2019\u00e9volution de ce poids sectoriel constitue un signal de flux "
+                        f"de capitaux \u00e0 surveiller activement."
+                    )
 
         return d
 

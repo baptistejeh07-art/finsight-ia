@@ -629,7 +629,19 @@ class IndiceExcelWriter:
         def _v_em(t):   return _pct(t.get("ebitda_margins"))
         def _v_az(t):   return _num(t.get("altman_z"), 2)
         def _v_fcf(t):  return _pct_raw(t.get("fcf_yield"), sign=True) if t.get("fcf_yield") is not None else _NA
-        def _v_dcf(t):  return _NA   # Decote DCF: non calculee en V1
+        def _v_dcf(t):
+            # Decote DCF implicite : P/E actuel vs P/E theorique (Gordon Growth Model)
+            pe  = t.get("pe_trailing")
+            wcc = t.get("wacc")  or 0.10
+            tg  = t.get("tgr")   or 0.025
+            if pe is None or pe <= 0 or wcc <= tg:
+                return _NA
+            try:
+                implied_pe = 1.0 / (float(wcc) - float(tg))
+                decote = round((implied_pe / float(pe) - 1) * 100, 1)
+                return f"{decote:+.1f} %"
+            except Exception:
+                return _NA
 
         value_cols = [
             ("F", _v_ev), ("G", _v_evr), ("H", _v_pe),

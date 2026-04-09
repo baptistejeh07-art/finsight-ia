@@ -968,7 +968,7 @@ def _slide_exec_summary(prs, snap, synthesis, ratios, devil, sentiment):
                  "VALORISATION SYNTH\u00c9TIQUE", 7.5, WHITE, bold=True)
 
     val_tbl = add_table(
-        slide, 13.08, 9.89, 11.3, 1.1,
+        slide, 13.08, 9.89, 11.3, 1.30,
         num_rows=3, num_cols=3,
         col_widths_pct=[0.50, 0.25, 0.25],
         header_data=["Multiple", "Soci\u00e9t\u00e9", "M\u00e9diane pairs"],
@@ -981,23 +981,20 @@ def _slide_exec_summary(prs, snap, synthesis, ratios, devil, sentiment):
         ],
     )
 
-    # Vertical divider (lower section)
-    add_rect(slide, 12.57, 9.17, 0.03, 2.0, GREY_LIGHT)
-
     # Horizontal rule (before KPI)
     add_rect(slide, 1.02, 11.23, 23.37, 0.03, "AAAAAA")
 
-    # 4 KPI boxes (shifted down to accommodate investment case section)
-    kpi_box(slide, 1.02, 11.34, 5.64, 1.96,
+    # 4 KPI boxes — h=1.80 pour eviter chevauchement avec footer (y=13.39)
+    kpi_box(slide, 1.02, 11.34, 5.64, 1.80,
             _frx(ev_e), "EV/EBITDA",
             f"vs {_frx(peer_median_ev_e)} med. pairs")
-    kpi_box(slide, 6.91, 11.34, 5.64, 1.96,
+    kpi_box(slide, 6.91, 11.34, 5.64, 1.80,
             _frpct(wacc_val), "WACC",
             f"Beta {_fr(beta, 2) if beta else '—'}  \u00b7  RFR {_frpct(rfr)}")
-    kpi_box(slide, 12.80, 11.34, 5.64, 1.96,
+    kpi_box(slide, 12.80, 11.34, 5.64, 1.80,
             f"{_fr(tbase, 0)} {cur_sym}", "Valeur DCF base",
             f"Upside {_upside(tbase, price)} vs cours")
-    kpi_box(slide, 18.69, 11.34, 5.64, 1.96,
+    kpi_box(slide, 18.69, 11.34, 5.64, 1.80,
             f"{sent_score:+.3f}".replace(".", ","),
             "Sentiment LLM" if _s2_is_llm else "Sentiment FinBERT",
             f"{sent_label_display}  \u00b7  {sent_articles} art.")
@@ -1331,15 +1328,15 @@ def _slide_is(prs, snap, synthesis, ratios):
             elif rl == "Résultat brut":
                 row.append(_frn(gp))
             elif rl == "Marge brute":
-                row.append(_frpct(gm))
+                row.append(_frpct_margin(gm))
             elif rl == "EBITDA":
                 row.append(_frn(ebitda))
             elif rl == "Marge EBITDA":
-                row.append(_frpct(em))
+                row.append(_frpct_margin(em))
             elif rl == "Résultat net":
                 row.append(_frn(ni))
             elif rl == "Marge nette":
-                row.append(_frpct(nm))
+                row.append(_frpct_margin(nm))
             else:
                 row.append("—")
         rows_data.append(row)
@@ -1389,7 +1386,7 @@ def _slide_is(prs, snap, synthesis, ratios):
                     if is_sub:
                         run.font.size = Pt(7.5)
                         run.font.italic = True
-                        run.font.color.rgb = rgb(GREY_TXT)
+                        run.font.color.rgb = rgb("333333")
                     else:
                         run.font.size = Pt(8)
                         run.font.bold = True
@@ -2044,9 +2041,14 @@ def _slide_peers(prs, snap, synthesis, ratios):
         except Exception:
             pass
 
-    peers_comment = _g(synthesis, "peers_commentary", "") or _g(synthesis, "ratio_commentary", "") or ""
+    _p1 = _g(synthesis, "peers_commentary", "") or ""
+    _p2 = _g(synthesis, "ratio_commentary", "") or ""
+    _p3 = _g(synthesis, "valuation_comment", "") or ""
+    peers_comment = " ".join(p for p in [_p1, _p2, _p3] if p.strip())
+    if not peers_comment.strip():
+        peers_comment = _g(synthesis, "summary", "") or ""
     if peers_comment.strip():
-        commentary_box(slide, 1.02, 8.69, 23.37, 3.43, peers_comment)
+        commentary_box(slide, 1.02, 8.69, 23.37, 4.30, peers_comment)
 
     return slide
 
@@ -2184,9 +2186,14 @@ def _slide_football_field(prs, snap, synthesis, ratios):
         _ff_fallback(slide, ff, price, cur_sym, currency)
         commentary_y = 9.80
 
-    dcf_comment = _g(synthesis, "dcf_commentary", "") or ""
+    _ff_c1 = _g(synthesis, "dcf_commentary", "") or ""
+    _ff_c2 = _g(synthesis, "valuation_comment", "") or ""
+    dcf_comment = " ".join(c for c in [_ff_c1, _ff_c2] if c.strip())
+    if not dcf_comment.strip():
+        dcf_comment = _g(synthesis, "peers_commentary", "") or ""
     if dcf_comment.strip():
-        commentary_box(slide, 1.02, commentary_y, 23.37, min(2.54, 19.05 - commentary_y - 0.8), dcf_comment)
+        _ff_h = min(4.0, 13.25 - commentary_y)
+        commentary_box(slide, 1.02, commentary_y, 23.37, _ff_h, dcf_comment)
 
     return slide
 
@@ -2374,8 +2381,11 @@ def _slide_multiples_historiques(prs, snap, synthesis, ratios):
             f"\u00e0 {_fr(_ev_last,1)}x vs {_fr(_ev_first,1)}x historique."
         )
     else:
-        _comment = _g(synthesis, "ratio_commentary", "") or "Données historiques insuffisantes pour établir une tendance des multiples."
-    commentary_box(slide, 1.02, 10.00, 23.37, 1.80, _comment)
+        _comment = _g(synthesis, "ratio_commentary", "") or "Donn\u00e9es historiques insuffisantes pour \u00e9tablir une tendance des multiples."
+    _mh_c2 = _g(synthesis, "financial_commentary", "") or ""
+    if _mh_c2.strip():
+        _comment = _comment + " " + _mh_c2 if _comment.strip() else _mh_c2
+    commentary_box(slide, 1.02, 10.00, 23.37, 3.10, _comment)
 
     return slide
 
@@ -2538,8 +2548,11 @@ def _slide_capital_returns(prs, snap, synthesis, ratios):
             f"{'est maintenue malgré la pression sur les marges' if fcf_vals[-1] and fcf_vals[-1] > 0 else 'reflète un levier financier élevé'}."
         )
     else:
-        _comment = "Données FCF insuffisantes pour établir une tendance de l'allocation du capital sur la période."
-    commentary_box(slide, 1.02, 10.30, 23.37, 1.60, _comment)
+        _comment = "Donn\u00e9es FCF insuffisantes pour \u00e9tablir une tendance de l\u2019allocation du capital sur la p\u00e9riode."
+    _cr_c2 = _g(synthesis, "financial_commentary", "") or ""
+    if _cr_c2.strip():
+        _comment = _comment + " " + _cr_c2 if _comment.strip() else _cr_c2
+    commentary_box(slide, 1.02, 10.30, 23.37, 2.80, _comment)
 
     return slide
 
@@ -3046,9 +3059,9 @@ def _slide_sentiment(prs, snap, synthesis, sentiment):
             art_txt = "\n".join(f"\u2022 {h[:110]}" for h in all_news_titles[:6])
             add_text_box(slide, 1.02, tbl_y + tbl_h_s + 1.60, 23.37, 1.80,
                          art_txt, 7.5, "333333", wrap=True)
-        comment_y = tbl_y + tbl_h_s + (3.65 if all_news_titles else 1.20)
+        comment_y = tbl_y + tbl_h_s + (3.65 if all_news_titles else 1.80)
     else:
-        comment_y = max(tbl_y + tbl_h_s + 0.50, 11.5)
+        comment_y = max(tbl_y + tbl_h_s + 1.20, 11.5)
 
     # Commentaire sentiment — LLM Groq en priorité, fallback agrégé
     val_comment = _g(sentiment, "llm_commentary", "") or ""
@@ -3072,8 +3085,9 @@ def _slide_sentiment(prs, snap, synthesis, sentiment):
                                       (abs(sent_score) <= 0.05 and rec == "HOLD")
                    else "surveiller.")
             )
-    comment_y = min(comment_y, 12.8)
-    add_text_box(slide, 1.02, comment_y, 23.37, 2.0,
+    comment_y = min(comment_y, 11.8)
+    _comment_h = min(2.0, 13.25 - comment_y)  # eviter chevauchement footer (y=13.39)
+    add_text_box(slide, 1.02, comment_y, 23.37, _comment_h,
                  val_comment, 8.5, "333333", wrap=True)
 
     return slide
@@ -3187,11 +3201,15 @@ def _slide_actionnariat(prs, snap, synthesis):
     # Commentaire
     # ----------------------------------------------------------------
     commentary_y = 2.69 + tbl_h + 0.35
-    valuation_comment = _g(synthesis, "valuation_comment", "") or ""
-    thesis_s          = _g(synthesis, "thesis", "") or ""
-    comment_txt = valuation_comment or thesis_s
+    _act_c1 = _g(synthesis, "valuation_comment", "") or ""
+    _act_c2 = _g(synthesis, "peers_commentary", "") or ""
+    _act_c3 = (_g(synthesis, "thesis", "") or "").replace(" | ", " ")
+    _act_c4 = _g(synthesis, "summary", "") or ""
+    comment_txt = " ".join(c for c in [_act_c1, _act_c2, _act_c3, _act_c4] if c.strip())
     if comment_txt.strip():
-        commentary_box(slide, 1.02, commentary_y, 23.37, min(2.79, 14.0 - commentary_y), comment_txt[:400])
+        _act_h = min(13.25 - commentary_y, 5.50)
+        if _act_h > 0.5:
+            commentary_box(slide, 1.02, commentary_y, 23.37, _act_h, comment_txt)
 
     return slide
 
@@ -3332,10 +3350,10 @@ def _slide_historique(prs, snap, synthesis):
         add_text_box(slide, chart_x + 8.0, chart_y + 2.0, 7.37, 1.0,
                      "Historique de cours non disponible", 10, GREY_TXT)
 
-    # Commentary dans un cadre — 280 chars
+    # Commentary dans un cadre — 320 chars max, h=1.80 pour eviter footer (y=13.39)
     thesis_s = _g(synthesis, "summary", "") or _g(synthesis, "thesis", "") or ""
     if thesis_s.strip():
-        commentary_box(slide, 1.02, 11.48, 23.37, 1.91, _fit(thesis_s, 280))
+        commentary_box(slide, 1.02, 11.55, 23.37, 1.80, _fit(thesis_s, 320))
 
     return slide
 
@@ -3426,17 +3444,18 @@ def _slide_conviction_tracker(prs, snap, synthesis, ratios, devil, sentiment):
     # ── Invalidation conditions ──────────────────────────────────────────────
     inv_list = _g(synthesis, "invalidation_list") or []
     if inv_list:
-        y_inv = max(y_c, y_r) + 0.40
-        if y_inv < 11.5:
-            add_rect(slide, 9.20, y_inv, 15.20, 0.60, "FFF3CD")
-            add_rect(slide, 9.20, y_inv, 0.10, 0.60, "B06000")
+        y_inv = max(y_c, y_r) + 0.30
+        if y_inv < 11.0:
+            _inv_h = min(1.10, 13.00 - y_inv)
+            add_rect(slide, 9.20, y_inv, 15.20, _inv_h, "FFF3CD")
+            add_rect(slide, 9.20, y_inv, 0.10, _inv_h, "B06000")
             inv_str = "  \u00b7  ".join(
-                f"{_g(it,'axis','?')}: {str(_g(it,'condition',''))[:70]}" for it in inv_list[:2])
-            add_text_box(slide, 9.45, y_inv + 0.04, 14.85, 0.55,
+                f"{_g(it,'axis','?')}: {str(_g(it,'condition',''))[:45]}" for it in inv_list[:2])
+            add_text_box(slide, 9.45, y_inv + 0.05, 14.75, _inv_h - 0.10,
                          f"\u26a0 Conditions d\u2019invalidation : {inv_str}", 7.5, "7A5000", wrap=True)
 
     # ── Note methodologique ──────────────────────────────────────────────────
-    add_text_box(slide, 0.90, 13.20, 23.60, 0.45,
+    add_text_box(slide, 0.90, 12.95, 23.60, 0.35,
                  "FinSight IA genere cette analyse a un instant T. Pour le suivi dans le temps, "
                  "comparer les rapports successifs. La conviction reflete les donnees disponibles a la date d'analyse.",
                  7, GREY_TXT, wrap=True)
