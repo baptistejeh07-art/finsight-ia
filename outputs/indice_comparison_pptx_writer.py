@@ -450,12 +450,12 @@ def _slide_sommaire(prs, d: dict):
     dy = 1.6
     for i, (num, title, sub) in enumerate(sections):
         y = y0 + i * dy
-        _rect(slide, 1.02, y, 0.42, 0.7, _NAVYL)
-        _txb(slide, num, 1.02, y+0.08, 0.42, 0.55, 8.5, True, _WHITE,
-             align=PP_ALIGN.CENTER)
-        _txb(slide, title, 1.7, y+0.05, 16.0, 0.48, 9.5, True, _NAVY)
-        _txb(slide, sub,   1.7, y+0.53, 16.0, 0.38, 8, False, _GRAYT)
-        _rect(slide, 1.7, y+0.95, 22.7, 0.01, _GRAYM)
+        _rect(slide, 1.02, y, 0.7, 0.7, _NAVYL)
+        _txb(slide, num, 1.02, y+0.08, 0.7, 0.55, 8.5, True, _WHITE,
+             align=PP_ALIGN.CENTER, wrap=False)
+        _txb(slide, title, 1.9, y+0.05, 16.0, 0.48, 9.5, True, _NAVY)
+        _txb(slide, sub,   1.9, y+0.53, 16.0, 0.38, 8, False, _GRAYT)
+        _rect(slide, 1.9, y+0.95, 22.5, 0.01, _GRAYM)
 
 
 def _slide_perf_chart(prs, d: dict):

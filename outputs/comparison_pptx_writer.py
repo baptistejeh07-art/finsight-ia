@@ -1124,6 +1124,35 @@ def _slide_cover(prs, m_a: dict, m_b: dict):
                  f"\u25cf {rec_b}  \u00b7  Cible : {_fr(tbase_b, 0)} {cur_b}  \u00b7  Upside : {up_b}",
                  9, NAVY, bold=True, align=PP_ALIGN.CENTER)
 
+    # Profil rapide A / B dans la zone vide (y=8.5 → 11.5)
+    sec_a   = m_a.get('sector_a') or '\u2014'
+    sec_b   = m_b.get('sector_b') or '\u2014'
+    fs_a    = str(m_a.get('finsight_score') or '\u2014') + "/100"
+    fs_b    = str(m_b.get('finsight_score') or '\u2014') + "/100"
+    _pa_str = (f"{_fr(price_a, 1)} {cur_a}") if price_a else '\u2014'
+    _pb_str = (f"{_fr(price_b, 1)} {cur_b}") if price_b else '\u2014'
+    mc_a_s  = (_frm(m_a.get('market_cap'), cur_a)) if m_a.get('market_cap') else '\u2014'
+    mc_b_s  = (_frm(m_b.get('market_cap'), cur_b)) if m_b.get('market_cap') else '\u2014'
+
+    # Blocs profil side-by-side
+    for _xi, _m, _nm, _sec, _fs, _cours, _mc in [
+        (1.27,  m_a, tkr_a, sec_a, fs_a, _pa_str, mc_a_s),
+        (13.13, m_b, tkr_b, sec_b, fs_b, _pb_str, mc_b_s),
+    ]:
+        add_rect(slide, _xi, 8.6, 11.0, 3.2, GREY_BG)
+        _lines = [
+            ("Secteur",          _sec),
+            ("Cours actuel",     _cours),
+            ("Market Cap",       _mc),
+            ("Score FinSight",   _fs),
+        ]
+        _ly = 8.85
+        for _lbl, _val in _lines:
+            add_text_box(slide, _xi + 0.25, _ly, 5.0, 0.55, _lbl, 7.5, GREY_TXT)
+            add_text_box(slide, _xi + 5.2, _ly, 5.5, 0.55, _val, 7.5, NAVY,
+                         bold=True, align=PP_ALIGN.RIGHT)
+            _ly += 0.65
+
     # Bottom rule + date
     add_rect(slide, 1.02, 12.4, 23.37, 0.03, "AAAAAA")
     add_text_box(slide, 1.02, 12.65, 11.43, 0.56, "Rapport confidentiel", 8, GREY_TXT)
