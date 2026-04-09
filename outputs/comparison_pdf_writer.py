@@ -1110,7 +1110,7 @@ def _section_valorisation(story, m_a, m_b, synthesis, tkr_a, tkr_b):
     up_a  = str(m_a.get("upside_str") or "\u2014")
     up_b  = str(m_b.get("upside_str") or "\u2014")
     _mult_comment = (
-        f"<b>Lecture des multiples :</b> Le P/E de {tkr_a} ({pe_a}x) "
+        f"Lecture des multiples : Le P/E de {tkr_a} ({pe_a}x) "
         f"vs {tkr_b} ({pe_b}x) reflete les attentes de croissance respective. "
         f"L'EV/EBITDA ({ev_a}x vs {ev_b}x) donne une vue independante "
         f"de la structure financiere. Le P/B ({pb_a}x vs {pb_b}x) "
