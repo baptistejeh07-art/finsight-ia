@@ -900,13 +900,21 @@ def _build_cartographie(data, weights_buf, attribution_buf=None, registry=None):
         mg   = f"{mg_raw:.1f}%" if isinstance(mg_raw, (int, float)) and mg_raw != 0.0 else "\u2014"
         croi = str(s[6]) if len(s) > 6 else "\u2014"
         mom  = str(s[7]) if len(s) > 7 else "\u2014"
+        # EV/EBITDA : afficher N/A* pour immobilier (REITs) si donnee absente
+        _ev_raw = s[4] if len(s) > 4 else "\u2014"
+        _sec_low = str(s[0]).lower()
+        _is_reit = any(k in _sec_low for k in ("real estate", "immobilier", "reit", "foncier"))
+        if _is_reit and str(_ev_raw) in ("\u2014", "—", "", "None"):
+            _ev_str = "N/A*"
+        else:
+            _ev_str = str(_ev_raw)
         comp_rows.append([
             Paragraph(str(rang), S_TD_C),
             Paragraph(s[0], S_TD_B),
             Paragraph(str(s[1]), S_TD_C),
             Paragraph(str(s[2]), S_TD_BC),
             Paragraph(s[3], sig_s(s[3])),
-            Paragraph(str(s[4]), S_TD_C),
+            Paragraph(_ev_str, S_TD_C),
             Paragraph(mg, S_TD_C),
             Paragraph(croi, S_TD_G if '+' in str(croi) else S_TD_R),
             Paragraph(mom,  S_TD_G if '+' in str(mom)  else S_TD_R),
@@ -922,7 +930,9 @@ def _build_cartographie(data, weights_buf, attribution_buf=None, registry=None):
     ]))
     elems.append(src(
         f"FinSight IA — FMP, yfinance. EV/EBITDA et marges = m\u00e9dianes sectorielles LTM. "
-        "Momentum = performance relative 3 mois vs indice. Score = composite 0-100."))
+        "Momentum = performance relative 3 mois vs indice. Score = composite 0-100. "
+        "(*) EV/EBITDA non disponible pour l\u2019immobilier coter (REITs allemands / Vonovia) "
+        "— m\u00e9trique non standard pour ce secteur ; privil\u00e9gier P/NAV ou Price/FFO."))
 
     # ── Table valorisation etendue : P/B, Div Yield, ERP sectoriel ───────────
     pb_map  = data.get("pb_by_sector", {})

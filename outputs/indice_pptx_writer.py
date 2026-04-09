@@ -579,11 +579,11 @@ def _chart_sentiment_bars(sentiment_agg: dict) -> bytes:
     scores = [float(p[1]) for p in sorted_ps]
     cols   = ['#1A7A4A' if v >= 0.05 else ('#A82020' if v <= -0.05 else '#B06000') for v in scores]
 
-    # Figsize cale sur le ratio de la zone d'affichage PPTX (23.6cm x 7.0cm = 3.37:1)
-    # Pour eviter la deformation quand python-pptx etire l'image
-    _disp_w_cm, _disp_h_cm = 23.6, 7.0
-    _fig_w_in = 12.0
-    _fig_h_in = _fig_w_in * (_disp_h_cm / _disp_w_cm)  # = 12.0 * 0.297 = 3.56 in
+    # Figsize cale sur le ratio de la zone d'affichage PPTX (13.5cm x 11.0cm = 1.23:1)
+    # Layout slide 19 : graphique a gauche w=13.5cm h=11.0cm
+    _disp_w_cm, _disp_h_cm = 13.5, 11.0
+    _fig_w_in = 8.0
+    _fig_h_in = _fig_w_in * (_disp_h_cm / _disp_w_cm)  # = 8.0 * 0.815 = 6.52 in
     fig, ax = plt.subplots(figsize=(_fig_w_in, _fig_h_in))
     fig.patch.set_facecolor('#FFFFFF')
     ax.set_facecolor('#F8F9FA')
@@ -908,8 +908,8 @@ def _s02_exec_summary(prs, D):
 
     # Catalyseurs macro (y fixe suffisant apres regime strip eventuel)
     _rect(slide, 0.9, 4.4, 23.6, 0.5, fill=_NAVY)
-    _txb(slide, "CATALYSEURS MACRO", 1.1, 4.45, 22.8, 0.4,
-         size=7.5, bold=True, color=_WHITE)
+    _txb(slide, "CATALYSEURS MACRO", 0.9, 4.4, 23.6, 0.5,
+         size=7.5, bold=True, color=_WHITE, align=PP_ALIGN.CENTER, vcenter=True)
 
     cats = D.get("catalyseurs", [])
     for j, cat in enumerate(cats[:3]):
@@ -1166,14 +1166,57 @@ def _s06_valorisation(prs, D):
             _erp_impl = (f"L'ERP Damodaran de {_erp6} reste dans la zone de reference. "
                          "Ni comprime ni attractif — privilegier la rotation sectorielle et "
                          "le stock-picking plutot qu'une exposition beta pure.")
+        # Croissance implicite requise pour justifier le P/E actuel vs historique
+        try:
+            _pe_num_impl = float(str(_pe_f6).replace("x","").replace(",",".").strip())
+            _pm_num_impl = float(str(_pe_m6).replace("x","").replace(",",".").strip()) if isinstance(_pe_m6,(int,float)) else 17.0
+            _pct_impl = (_pe_num_impl / _pm_num_impl - 1) * 100
+            if abs(_pct_impl) > 5:
+                _miss_consequence = ("entrainerait une contraction de multiple significative"
+                                     if _pct_impl > 0
+                                     else "serait partiellement absorbe par la decote existante")
+                _impl_txt = (
+                    f"A {_pe_f6}, le marche price implicitement une croissance BPA superieure "
+                    f"de {abs(_pct_impl):.0f}% au scenario central — tout ralentissement "
+                    f"{_miss_consequence}. "
+                )
+            else:
+                _impl_txt = ""
+        except Exception:
+            _impl_txt = ""
+        # Implication allocation
+        try:
+            _pe_n2 = float(str(_pe_f6).replace("x","").replace(",",".").strip())
+            if _pe_n2 > 22:
+                _alloc_impl = (
+                    f"Implication allocation : favoriser les secteurs a forte visibilite BPA "
+                    f"et pricing power (cf. slide 11 — top scoreurs). Reduire l'exposition "
+                    f"aux cycliques purs dont la valorisation integre deja un scenario optimiste."
+                )
+            elif _pe_n2 < 14:
+                _alloc_impl = (
+                    f"Implication allocation : valorisation deprimee offre un point d'entree "
+                    f"favorable. Renforcer les secteurs a score FinSight eleve (>65) — "
+                    f"la decote compense le risque de normalisation des multiples."
+                )
+            else:
+                _alloc_impl = (
+                    f"Implication allocation : valorisation equilibree — privilegier la "
+                    f"selectivite sectorielle (slides 11-12) et le momentum BPA vs momentum prix. "
+                    f"Eviter les secteurs en declin de visibilite BPA malgre des multiples apparemment raisonnables."
+                )
+        except Exception:
+            _alloc_impl = ""
         texte_val = (
             f"Cours {_cours6} (YTD {_ytd6}) — Croissance BPA forward {_bpa6}. "
             f"{_val_diag} "
+            f"{_impl_txt}"
             f"{_erp_impl} "
+            f"{_alloc_impl} "
             f"Score composite FinSight : {_scr6}/100 — signal {_sig6} (conviction {_conv6}%). "
             f"{_nb_surp6} secteur(s) en Surponderer, {_nb_sous6} en Sous-ponderer."
         )
-    _lecture_box(slide, "Lecture analytique — Valorisation macro", _trunc(texte_val, 950), y_top=7.8, height=5.55)
+    _lecture_box(slide, "Lecture analytique — Valorisation macro & implications d'allocation", _trunc(texte_val, 1100), y_top=7.8, height=5.55)
 
     _footer(slide)
     return slide
@@ -1306,15 +1349,33 @@ def _s09_cartographie(prs, D):
     score_top = top_s[2] if top_s else "—"
     score_bot = bot_s[2] if bot_s else "—"
     score_spread = (top_s[2] - bot_s[2]) if (top_s and bot_s) else 0
+    # Secteurs proches du seuil Surponderer (score 55-65) — a surveiller
+    _near_surp = [s for s in sorted_s if 55 <= s[2] < 65]
+    _near_str  = " · ".join(s[0] for s in _near_surp[:3]) if _near_surp else ""
+    # Meilleure marge EBITDA parmi les surponderes
+    _top_mg    = max((s[5] for s in sorted_s if "Surp" in str(s[3]) and isinstance(s[5], (int,float)) and s[5] > 0), default=None)
+    _top_mg_s  = f"{_top_mg:.1f}%" if _top_mg else "—"
+    # Strategie selon dispersion
+    if score_spread > 35:
+        _strat = ("La dispersion elevee justifie une approche concentree : surexposer les secteurs verts, "
+                  "eviter les secteurs rouges. Un portefeuille egalement pondere sous-performerait le benchmark.")
+    elif score_spread > 20:
+        _strat = ("La bifurcation moderee autorise une allocation selective : privilegier les leaders de score "
+                  "tout en conservant une exposition diversifiee aux secteurs Neutres proches du seuil de bascule.")
+    else:
+        _strat = ("La faible dispersion des scores signale une convergence sectorielle — "
+                  "le stock-picking prime sur l'allocation sectorielle dans ce contexte.")
     lecture = (
-        f"{nb_surp} secteur(s) sur {nb_s} franchissent le seuil Surpondérer (score > 65) : "
+        f"{nb_surp} secteur(s) sur {nb_s} franchissent le seuil Surponderer (score > 65) : "
         f"{surp_noms or 'aucun'}. "
-        f"{nb_sous} secteur(s) en Sous-pondérer : {sous_noms or 'aucun'}. "
-        f"{nb_neut} secteur(s) en position Neutre. "
-        f"L'écart entre le secteur leader ({top_s[0] if top_s else '—'}, score {score_top}/100) "
-        f"et le secteur le plus faible ({bot_s[0] if bot_s else '—'}, score {score_bot}/100) "
-        f"est de {score_spread} points — une dispersion {'élevée' if score_spread > 30 else 'modérée'} "
-        f"qui témoigne d'une bifurcation sectorielle {'marquée' if score_spread > 30 else 'limitée'}."
+        f"{nb_sous} secteur(s) en Sous-ponderer : {sous_noms or 'aucun'}. "
+        f"{nb_neut} secteur(s) en Neutre. "
+        f"L'ecart leader/retardataire ({top_s[0] if top_s else '—'} {score_top}pts / "
+        f"{bot_s[0] if bot_s else '—'} {score_bot}pts) = {score_spread} pts de spread — "
+        f"bifurcation {'marquee' if score_spread > 30 else 'moderee'}. "
+        + (f"Secteurs proches du seuil de bascule (55-65) : {_near_str}. " if _near_str else "")
+        + (f"Marge EBITDA mediane des surponderes : {_top_mg_s}. " if _top_mg else "")
+        + _strat
     )
     y_top = min(10.5, 2.3 + len(rows) * 0.65 + 0.8)
     _lecture_box(slide, "Lecture analytique — Ce que la cartographie révèle",
@@ -1414,7 +1475,9 @@ def _s11_decomposition(prs, D):
     }
     rows = [["Secteur", "Score Total", "Momentum (40%)", "Révisions (30%)", "Valorisation (30%)", "Signal"]]
     for s in sorted_s:
-        nom, score, sig = s[0], s[2], s[3]
+        nom   = s[0] if len(s) > 0 else "—"
+        score = s[2] if len(s) > 2 else 0
+        sig   = s[3] if len(s) > 3 else "Neutre"
         if nom in sub_map:
             sm, sr, sv = sub_map[nom]
         else:
@@ -1443,14 +1506,29 @@ def _s11_decomposition(prs, D):
     y_note = 2.3 + len(rows) * 0.62 + 0.2
     _txb(slide, note, 0.9, y_note, 23.6, 0.6, size=7, color=_GRAYD, italic=True)
 
-    # Lecture
+    # Lecture enrichie
     top_nom = sorted_s[0][0] if sorted_s else "—"
-    top_mom = sub_map.get(top_nom, (0,0,0))[0]
+    bot_nom = sorted_s[-1][0] if sorted_s else "—"
+    top_scores = sub_map.get(top_nom, (0,0,0))
+    bot_scores = sub_map.get(bot_nom, (0,0,0))
+    # Dimension dominante overall
+    all_mom = [sub_map.get(s[0],(0,0,0))[0] for s in sorted_s if s[0] in sub_map]
+    all_rev = [sub_map.get(s[0],(0,0,0))[1] for s in sorted_s if s[0] in sub_map]
+    all_val = [sub_map.get(s[0],(0,0,0))[2] for s in sorted_s if s[0] in sub_map]
+    _dom = "momentum" if (sum(all_mom) >= sum(all_rev) and sum(all_mom) >= sum(all_val)) else ("revisions BPA" if sum(all_rev) >= sum(all_val) else "valorisation relative")
+    # Secteurs unanimes sur 3 dimensions (scores > 50 partout)
+    _unanimes = [s[0] for s in sorted_s if s[0] in sub_map and all(v > 50 for v in sub_map[s[0]])]
+    _unani_str = " · ".join(_unanimes[:3]) if _unanimes else "aucun"
+    _top_sc = sorted_s[0][2] if sorted_s and len(sorted_s[0]) > 2 else "—"
+    _bot_sc = sorted_s[-1][2] if sorted_s and len(sorted_s[-1]) > 2 else "—"
     lecture = (
-        f"{top_nom} domine avec le score le plus élevé. "
-        f"Le momentum ({top_mom} pts) constitue le premier signal de confirmation. "
-        f"Les secteurs en vert sur les 3 dimensions offrent le meilleur profil composite. "
-        f"Croiser avec la valorisation relative pour identifier les meilleures opportunités d'entrée."
+        f"{top_nom} affiche le profil le plus robuste (score {_top_sc}/100) "
+        f"avec momentum={top_scores[0]}pts, revisions={top_scores[1]}pts, valorisation={top_scores[2]}pts. "
+        f"A l'oppose, {bot_nom} (score {_bot_sc}/100) cumule les handicaps : "
+        f"momentum={bot_scores[0]}, revisions={bot_scores[1]}, valorisation={bot_scores[2]}. "
+        f"Dimension dominante sur l'ensemble de l'univers : {_dom}. "
+        f"Secteurs avec profil composite fort (>50 sur les 3 dimensions) : {_unani_str}. "
+        f"Ces secteurs representent les meilleures opportunites d'entree dans le contexte actuel."
     )
     y_lec = min(10.5, y_note + 0.8)
     _lecture_box(slide, "Analyse des scores — Points saillants",
@@ -1841,6 +1919,26 @@ def _s17_risques(prs, D):
         _rect(slide, 0.9, yy, 0.1, 0.85, fill=_HOLD)
         _txb(slide, str(cond)[:120], 1.15, yy, 22.3, 0.9, size=8.5, color=_GRAYT, wrap=True)
 
+    # Lecture analytique scenarios
+    _sig17 = D.get("signal_global","Neutre")
+    _conv17 = D.get("conviction_pct", 50)
+    _scen_prob_bull = next((int(str(sc.get("prob","25")).replace('%','').strip()) for sc in scenarios[:1] if isinstance(sc,dict) and "Surp" not in str(sc.get("titre",""))), 25)
+    _scen_prob_bear = next((int(str(sc.get("prob","20")).replace('%','').strip()) for sc in scenarios if isinstance(sc,dict) and ("Bear" in str(sc.get("titre","")) or "ecession" in str(sc.get("titre","")))), 20)
+    _residuel = 100 - _scen_prob_bull - _scen_prob_bear
+    _y17_lec = 7.7 + min(len(conds), 4) * 1.1 + 0.2
+    if _y17_lec < 11.5:
+        _h17_lec = 13.35 - _y17_lec
+        _lec17 = (
+            f"Signal {_sig17} (conviction {_conv17}%) — scenario central. "
+            f"Scenario haussier ({_scen_prob_bull}% de probabilite) : catalyseurs macro suffisants pour franchir le seuil Surponderer. "
+            f"Scenario baissier ({_scen_prob_bear}%) : deterioration des fondamentaux, passage Sous-ponderer. "
+            f"Scenario residuel ({_residuel}%) : stagnation ou choc exogene non anticipe. "
+            f"Surveiller les conditions d'invalidation listees ci-dessus : elles constituent les declencheurs de reassessement du signal. "
+            f"Priorite de couverture : les secteurs les plus sensibles au taux (Real Estate, Utilities)."
+        )
+        _lecture_box(slide, "Analyse des risques — Probabilites et implications", _lec17,
+                     y_top=_y17_lec, height=_h17_lec)
+
     _footer(slide)
     return slide
 
@@ -1884,15 +1982,23 @@ def _s18_rotation(prs, D):
         sig = rows[r][4] if len(rows[r]) > 4 else "Neutre"
         _color_cell(tbl, r, 4, _sig_light(sig), _sig_color(sig))
 
-    # Lecture
+    # Lecture enrichie
     texte_rot = _trunc(D.get("texte_rotation",""), 350)
     if not texte_rot:
         surp_rots = [r[0] for r in rotation if len(r) > 4 and "Surp" in str(r[4])]
+        sous_rots = [r[0] for r in rotation if len(r) > 4 and "Sous" in str(r[4])]
+        acc_rots  = [r[0] for r in rotation if len(r) > 4 and "Accum" in str(r[4])]
+        _taux_fort = [r[0] for r in rotation if len(r) > 2 and "lev" in str(r[2]).lower() or "haute" in str(r[2]).lower()]
+        _pib_fort  = [r[0] for r in rotation if len(r) > 3 and "lev" in str(r[3]).lower() or "forte" in str(r[3]).lower()]
         texte_rot = (
-            f"En phase {phase}, surpondérer {' · '.join(surp_rots[:3]) or 'N/A'} "
-            f"(forte visibilité BPA, faible sensibilité taux). "
-            f"Sous-pondérer les secteurs duration longue (Real Estate, Utilities). "
-            f"La rotation sectorielle suit le cycle avec un décalage de 2-3 trimestres."
+            f"En phase {phase}, la grille de rotation favorise : "
+            f"{' · '.join((surp_rots + acc_rots)[:3]) or 'N/A'} "
+            f"(visibilite BPA forte, faible sensibilite aux taux). "
+            + (f"Alleger : {' · '.join(sous_rots[:2])}. " if sous_rots else "")
+            + (f"Secteurs a forte sensibilite taux a surveiller si la BCE pivote : {' · '.join(_taux_fort[:2])}. " if _taux_fort else "")
+            + f"La rotation suit le cycle avec un decalage de 2-3 trimestres — "
+            f"un signal Surponderer qui emerge maintenant anticipe une surperformance sur 6-12 mois. "
+            f"Croiser avec les scores FinSight (slide 11) pour valider la coherence momentum/fondamentaux."
         )
 
     y_lec = min(10.8, 2.3 + len(rows) * 0.65 + 0.3)
@@ -1926,46 +2032,53 @@ def _s19_sentiment(prs, D, chart_bytes: bytes):
     t_pos = sa.get("themes_pos", [])
     t_neg = sa.get("themes_neg", [])
 
-    # Score large gauche
-    _rect(slide, 0.9, 2.3, 5.8, 3.5, fill=_GRAYL)
-    _rect(slide, 0.9, 2.3, 0.12, 3.5, fill=_NAVY)
+    # Layout: graphique gauche (x=0.9, w=13.5) + panneau texte droite (x=14.8, w=9.7)
+    _score_col = _BUY if score > 0.05 else (_SELL if score < -0.05 else _HOLD)
     _score_str = (f"+{score:.2f}" if score > 0.01 else
                   (f"{score:.2f}" if score < -0.01 else "~0.00"))
-    _txb(slide, _score_str, 1.2, 2.5, 5.3, 1.6, size=32, bold=True,
-         color=_BUY if score > 0.05 else (_SELL if score < -0.05 else _HOLD))
-    _txb(slide, "Score composite secteurs", 1.2, 4.05, 5.3, 0.55, size=8, color=_GRAYT)
-    _txb(slide, label, 1.2, 4.55, 5.3, 0.5, size=8.5, bold=True,
-         color=_BUY if score > 0.05 else (_SELL if score < -0.05 else _HOLD))
 
-    # Distribution milieu
+    # === Graphique gauche — chart propre sans distorsion ===
+    # Le chart est genere avec le bon ratio pour la zone 13.5 x 11.0
+    _pic(slide, chart_bytes, 0.9, 2.3, 13.5, 11.0)
+
+    # === Panneau texte droite ===
+    _rx = 14.9
+    _rw = 9.5
+
+    # Score composite + signal
+    _rect(slide, _rx, 2.3, _rw, 3.2, fill=_GRAYL)
+    _rect(slide, _rx, 2.3, 0.12, 3.2, fill=_score_col)
+    _txb(slide, _score_str, _rx + 0.3, 2.4, _rw - 0.5, 1.5,
+         size=28, bold=True, color=_score_col)
+    _txb(slide, "Score composite secteurs", _rx + 0.3, 3.95, _rw - 0.5, 0.45, size=7.5, color=_GRAYT)
+    _txb(slide, label, _rx + 0.3, 4.4, _rw - 0.5, 0.55, size=9, bold=True, color=_score_col)
+
+    # Distribution Surponderer / Neutre / Sous-ponderer
     dist_items = [
         ("Surpondérer",  p_nb, p_pct, _BUY),
         ("Neutre",       n_nb, n_pct, _HOLD),
         ("Sous-pondérer",m_nb, m_pct, _SELL),
     ]
     for j, (lbl, nb, pct, col) in enumerate(dist_items):
-        yy = 2.3 + j * 1.15
-        _rect(slide, 7.2, yy, 7.8, 1.0, fill=_GRAYL)
-        _bar_w = pct * 0.078
+        yy = 5.7 + j * 1.05
+        _rect(slide, _rx, yy, _rw, 0.9, fill=_GRAYL)
+        _bar_w = pct * (_rw / 100.0)
         if _bar_w > 0:
-            _rect(slide, 7.2, yy, _bar_w, 1.0, fill=col)
-        txt_col = _WHITE if pct >= 30 else _BLACK
-        _txb(slide, lbl,  7.4, yy + 0.05, 4.5, 0.45, size=8.5, bold=True, color=txt_col)
-        _txb(slide, f"{nb} secteurs ({pct} %)", 7.4, yy + 0.5, 7.0, 0.45, size=8, color=txt_col)
+            _rect(slide, _rx, yy, _bar_w, 0.9, fill=col)
+        txt_col = _WHITE if pct >= 35 else _BLACK
+        _txb(slide, lbl, _rx + 0.15, yy + 0.05, _rw - 0.3, 0.4, size=8, bold=True, color=txt_col)
+        _txb(slide, f"{nb} sect. ({pct} %)", _rx + 0.15, yy + 0.47, _rw - 0.3, 0.38, size=7.5, color=txt_col)
 
-    # Themes positifs / negatifs
-    _txb(slide, "Secteurs leaders / retardataires", 15.5, 2.3, 8.8, 0.5, size=8.5, bold=True, color=_NAVY)
-    pos_txt = "  ·  ".join(t_pos[:4]) if t_pos else "—"
-    neg_txt = "  ·  ".join(t_neg[:4]) if t_neg else "—"
-    _rect(slide, 15.5, 2.9, 8.8, 1.25, fill=_BUY_L)
-    _txb(slide, "Surpondérer : " + pos_txt[:70], 15.7, 2.95, 8.4, 1.15, size=8, color=_GRAYT, wrap=True)
-    _rect(slide, 15.5, 4.25, 8.8, 1.25, fill=_SELL_L)
-    _txb(slide, "Sous-pondérer : " + neg_txt[:68], 15.7, 4.3, 8.4, 1.15, size=8, color=_GRAYT, wrap=True)
-
-    # Chart sentiment par secteur bas
-    _txb(slide, "Score composite par secteur (dérivé du score quantitatif)", 0.9, 5.9, 23.6, 0.55,
-         size=8, bold=True, color=_NAVY)
-    _pic(slide, chart_bytes, 0.9, 6.5, 23.6, 7.0)
+    # Secteurs leaders / retardataires
+    pos_txt = "  ·  ".join(t_pos[:3]) if t_pos else "—"
+    neg_txt = "  ·  ".join(t_neg[:3]) if t_neg else "—"
+    _rect(slide, _rx, 8.95, _rw, 0.4, fill=_NAVY)
+    _txb(slide, "SECTEURS LEADERS / RETARDATAIRES", _rx + 0.1, 8.97, _rw - 0.2, 0.36,
+         size=7, bold=True, color=_WHITE, align=PP_ALIGN.CENTER)
+    _rect(slide, _rx, 9.4, _rw, 1.5, fill=_BUY_L)
+    _txb(slide, "Surponderer : " + pos_txt[:65], _rx + 0.15, 9.45, _rw - 0.3, 1.4, size=7.5, color=_GRAYT, wrap=True)
+    _rect(slide, _rx, 11.0, _rw, 2.3, fill=_SELL_L)
+    _txb(slide, "Sous-ponderer : " + neg_txt[:65], _rx + 0.15, 11.05, _rw - 0.3, 2.2, size=7.5, color=_GRAYT, wrap=True)
 
     _footer(slide)
     return slide
@@ -2140,29 +2253,64 @@ def _s20_etf_perf(prs, D, chart_bytes: bytes):
              size=8, bold=True,
              color=_BUY if ret > 0 else _SELL)
 
-    # Lecture analytique bas droit
-    _cours_s20 = D.get("cours", "\u2014")
-    _ytd_s20   = D.get("variation_ytd", "\u2014")
-    _cours_ctx = f"Cours {indice} : {_cours_s20} (YTD : {_ytd_s20}). " if _cours_s20 not in ("\u2014", "\u2014", "—") else ""
+    # Lecture analytique bas droit — enrichie "pourquoi ca bouge"
+    _cours_s20   = D.get("cours", "—")
+    _ytd_s20     = D.get("variation_ytd", "—")
+    _erp_s20     = D.get("erp", "—")
+    _bpa_s20     = D.get("bpa_growth", "—")
+    _pe_s20      = D.get("pe_forward", "—")
+    _phase_s20   = D.get("phase_cycle", "")
+    _sig_s20     = D.get("signal_global", "Neutre")
+    _cours_ctx   = f"Cours {indice} : {_cours_s20} (YTD : {_ytd_s20}). " if _cours_s20 not in ("—", "") else ""
     if etf_list:
-        best_etf, best_info = etf_list[0]
+        best_etf,  best_info  = etf_list[0]
         worst_etf, worst_info = etf_list[-1]
-        _best_nom  = best_info.get("nom", "")[:16]
-        _worst_nom = worst_info.get("nom", "")[:16]
+        _best_nom   = best_info.get("nom",  "")[:16]
+        _worst_nom  = worst_info.get("nom", "")[:16]
+        _best_ret   = best_info.get("return_1y", 0)
+        _worst_ret  = worst_info.get("return_1y", 0)
+        _dispersion = abs(_best_ret - _worst_ret)
+        # Pourquoi ca bouge — macro context
+        _why_best = (
+            "porte par la revision haussiere des BPA et la reouverture des marges operationnelles"
+            if _best_ret > 20 else
+            "beneficiant du repositionnement des flux en fin de cycle"
+        )
+        _why_worst = (
+            "penalise par la hausse des taux longs, comprimant les multiples de valorisation"
+            if _worst_ret < -10 else
+            "en sous-performance relative face aux secteurs a forte visibilite BPA"
+        )
+        _rate_ctx = (
+            f"Dans un environnement ERP {_erp_s20}, les secteurs a duration longue subissent "
+            f"la concurrence des obligations — la selectivite sectorielle est cle."
+            if isinstance(_erp_s20, str) and _erp_s20 not in ("—", "") else
+            f"La croissance BPA consensus de {_bpa_s20} justifie un P/E Forward de {_pe_s20}."
+        )
+        _disp_comment = (
+            f"Dispersion {_dispersion:.0f}pt entre extremes — fort levier d'alpha sectoriel."
+            if _dispersion > 15 else
+            f"Dispersion modeste ({_dispersion:.0f}pt) — marche peu discriminant, rotation prudente."
+        )
         commentary = (
             f"{_cours_ctx}"
-            f"{best_etf} ({_best_nom}) : {best_info.get('return_1y',0):+.1f}% sur 52S "
-            f"— secteur leader, signal Surponderer confirme. "
-            f"{worst_etf} ({_worst_nom}) : {worst_info.get('return_1y',0):+.1f}% "
-            f"— secteur en retrait, coherent avec le positionnement Sous-ponderer. "
-            f"Dispersion de performance = levier d'alpha sectoriel."
+            f"{best_etf} ({_best_nom}) en tete (+{_best_ret:.1f}%) {_why_best}. "
+            f"{worst_etf} ({_worst_nom}) en retrait ({_worst_ret:+.1f}%) {_why_worst}. "
+            f"{_rate_ctx} "
+            f"{_disp_comment} "
+            f"Signal global FinSight : {_sig_s20}."
         )
     else:
-        commentary = f"{_cours_ctx}Performance relative des ETF SPDR sur 52 semaines — source yfinance."
+        commentary = (
+            f"{_cours_ctx}"
+            f"Performance relative des ETF SPDR sur 52 semaines — source yfinance. "
+            f"BPA consensus : {_bpa_s20} | P/E Forward : {_pe_s20} | ERP : {_erp_s20}. "
+            f"Signal global FinSight : {_sig_s20}."
+        )
 
     _rect(slide, 16.4, 11.0, 8.1, 0.05, fill=_GRAYD)
-    _txb(slide, "Lecture du graphique", 16.6, 11.1, 7.8, 0.5, size=7.5, bold=True, color=_NAVY)
-    _txb(slide, commentary[:400], 16.6, 11.65, 7.8, 1.7, size=7, color=_GRAYT, wrap=True)
+    _txb(slide, "Pourquoi ca bouge — lecture macro", 16.6, 11.1, 7.8, 0.5, size=7.5, bold=True, color=_NAVY)
+    _txb(slide, commentary[:600], 16.6, 11.65, 7.8, 1.75, size=6.8, color=_GRAYT, wrap=True)
 
     _footer(slide)
     return slide

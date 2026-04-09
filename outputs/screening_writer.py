@@ -1550,11 +1550,13 @@ class ScreeningWriter:
             wb = load_workbook(str(tpl), keep_links=False, data_only=False)
 
             # v4 : DASHBOARD/VALUE/GROWTH/QUALITY/MOMENTUM sont formule-driven
-            # (XLOOKUP sur DONNEES BRUTES) — on injecte seulement les donnees brutes
-            # et la feuille TECHNOLOGY, puis on met a jour la date.
+            # (XLOOKUP sur DONNEES BRUTES) — on injecte les donnees brutes + TECHNOLOGY
+            # + on injecte directement VALUE pour garantir FCF Yield visible
             _inject_donnees_brutes(wb, tickers_data)
             _inject_technology_v4(wb, tickers_data)
             _inject_date_dashboard(wb, date_str)
+            # Injection directe VALUE — evite dependance XLOOKUP pour FCF Yield
+            _inject_value(wb, tickers_data)
 
             # Compatibilite : si le template est encore l'ancien (v3), utiliser
             # les anciens injecteurs en plus

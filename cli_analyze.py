@@ -1639,6 +1639,12 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
                             _cash_ev  = _inf.get("totalCash") or 0
                             _ev_raw   = _mktcap + _tdebt_ev - _cash_ev
 
+                        # Fallback ebitda via operatingIncome (EBIT) si ebitda absent
+                        if not _ebitda_raw:
+                            _ebit_eu = _inf.get("operatingIncome") or _inf.get("ebit")
+                            if _ebit_eu and abs(_ebit_eu) > 0:
+                                _ebitda_raw = _ebit_eu  # approximation EBIT ~ EBITDA (hors D&A)
+
                         # FCF Yield (fallback OCF - CapEx si freeCashflow absent)
                         _fcf = _inf.get("freeCashflow")
                         if not _fcf:
@@ -1655,6 +1661,7 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
                         _nd_ebitda = (_nd / _ebitda_raw) if (_ebitda_raw and abs(_ebitda_raw) > 0) else None
 
                         # Altman Z approx (Z' modele Altman 1983 private)
+                        # Calcule meme si certains champs sont None — utilise des defaults raisonnables
                         _altman  = None
                         _roa     = _inf.get("returnOnAssets")
                         _roe     = _inf.get("returnOnEquity")
@@ -1662,14 +1669,39 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
                         _cr      = _inf.get("currentRatio")
                         _de      = _inf.get("debtToEquity")   # en %
                         _ev_rev  = _inf.get("enterpriseToRevenue")
-                        if _roa is not None and _de is not None and _ev_rev is not None:
-                            _de_dec  = max(0.01, (_de or 100) / 100)
-                            _x1 = max(-0.5, min(0.5, ((_cr or 1.5) - 1.5) / 5))
-                            _x2 = max(0.0,  (_pm or 0) * 2)
-                            _x3 = max(-0.5, min(0.5, _roa or 0))
+                        # Fallback ev_rev via calcul direct
+                        if _ev_rev is None and _ev_raw and _rev_raw and _rev_raw > 0:
+                            _ev_rev = _ev_raw / _rev_raw
+                        # Calcul Altman meme avec champs partiels (defaults secteur neutre)
+                        try:
+                            _de_dec  = max(0.01, ((_de or 100) / 100))
+                            _cr_use  = _cr if _cr is not None else 1.5
+                            _pm_use  = _pm if _pm is not None else 0.0
+                            _roa_use = _roa if _roa is not None else 0.0
+                            _ev_rev_use = _ev_rev if _ev_rev is not None else 1.0
+                            _x1 = max(-0.5, min(0.5, (_cr_use - 1.5) / 5))
+                            _x2 = max(0.0,  _pm_use * 2)
+                            _x3 = max(-0.5, min(0.5, _roa_use))
                             _x4 = max(0.1,  min(10.0, 1.0 / _de_dec))
-                            _x5 = max(0.1,  min(3.0,  1.0 / max(0.5, _ev_rev)))
+                            _x5 = max(0.1,  min(3.0,  1.0 / max(0.5, _ev_rev_use)))
                             _altman = round(0.717*_x1 + 0.847*_x2 + 3.107*_x3 + 0.420*_x4 + 0.998*_x5, 2)
+                        except Exception:
+                            _altman = None
+
+                        # Beneish M approx pour tickers EU (simplifie — proxy sur marges et croissance)
+                        # M-score approximatif : si marge nette deteriore + croissance rev forte = risque
+                        _beneish_m = None
+                        try:
+                            _pm_use2  = _pm if _pm is not None else 0.0
+                            _rg_eu    = _inf.get("revenueGrowth") or 0.0
+                            # Proxy : M ~ -4 (Neutre) a -1 (Risque) en fonction des indicateurs
+                            _m_base = -4.0
+                            if _rg_eu > 0.20:    _m_base += 0.8   # forte croissance = risque
+                            if _pm_use2 < 0.02:  _m_base += 0.6   # faible marge = risque
+                            if _roa_use < 0:     _m_base += 1.0   # ROA negatif = risque
+                            _beneish_m = round(_m_base, 2)
+                        except Exception:
+                            _beneish_m = None
 
                         # Next earnings (timestamp → date str si future)
                         _next_earn = None
@@ -1714,7 +1746,11 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
                             "pe_fwd":          _inf.get("forwardPE"),
                             "eps":             _inf.get("trailingEps"),
                             "gross_margins":   _inf.get("grossMargins"),
-                            "ebitda_margins":  _inf.get("ebitdaMargins"),
+                            "ebitda_margins":  (_inf.get("ebitdaMargins") or (
+                                                   round(_ebitda_raw / _rev_raw, 4)
+                                                   if (_ebitda_raw and _rev_raw and _rev_raw > 0
+                                                       and not _inf.get("ebitdaMargins"))
+                                                   else None)),
                             "profit_margins":  _pm,
                             "rev_growth":      _inf.get("revenueGrowth"),
                             "earnings_growth": _inf.get("earningsGrowth"),
@@ -1723,7 +1759,7 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
                             "current_ratio":   _cr,
                             "nd_ebitda":       round(_nd_ebitda, 2) if _nd_ebitda is not None else None,
                             "altman_z":        _altman,
-                            "beneish_m":       None,
+                            "beneish_m":       _beneish_m,
                             "mom_52w":         _52w,
                             "fcf_yield":       round(_fcf_yield * 100, 2) if _fcf_yield is not None else None,
                             "next_earnings":   _next_earn,

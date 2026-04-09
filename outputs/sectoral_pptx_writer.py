@@ -1136,13 +1136,13 @@ def _s05_presentation(prs, D):
     # Catalyseurs clés sous la description — remontés pour supprimer le gap vide
     cats = content.get("catalyseurs", [])
     if cats:
-        _rect(slide, 1.1, 6.0, 13.3, 0.45, fill=_NAVY)
-        _txb(slide, "CATALYSEURS CLES", 1.1, 6.05, 13.3, 0.4, size=8, bold=True, color=_WHITE, align=PP_ALIGN.CENTER)
+        _rect(slide, 0.9, 6.0, 13.7, 0.45, fill=_NAVY)
+        _txb(slide, "CATALYSEURS CLES", 0.9, 6.05, 13.7, 0.4, size=8, bold=True, color=_WHITE, align=PP_ALIGN.CENTER)
         for j, (ct, cb) in enumerate(cats[:3]):
-            _cx = 1.1 + (13.3 - 12.8) / 2  # centrage horizontal dans le conteneur
+            _cx = 1.0  # alignement gauche dans le conteneur (x=0.9)
             _rect(slide, _cx, 6.55 + j * 1.5, 0.08, 1.35, fill=_BUY)
-            _txb(slide, ct, _cx + 0.3, 6.55 + j * 1.5, 12.5, 0.45, size=8.5, bold=True, color=_NAVY)
-            _txb(slide, cb[:200], _cx + 0.3, 7.0 + j * 1.5, 12.5, 1.05, size=8, color=_GRAYT, wrap=True)
+            _txb(slide, ct, _cx + 0.3, 6.55 + j * 1.5, 13.1, 0.45, size=8.5, bold=True, color=_NAVY)
+            _txb(slide, cb[:200], _cx + 0.3, 7.0 + j * 1.5, 13.1, 1.05, size=8, color=_GRAYT, wrap=True)
 
     # Metrics table
     tbl_data = [["Métrique", "Valeur", "Lecture"]]
@@ -1415,9 +1415,36 @@ def _s11_scores(prs, D):
     # Hauteur table basee sur 0.72cm/row (hauteur reelle rendue par PowerPoint)
     _PER_ROW_S11 = 0.72
     _s11_tbl_h = len(tbl_data) * _PER_ROW_S11
-    _add_table(slide, tbl_data, 0.9, 2.5, 23.6, _s11_tbl_h,
+    _tbl11 = _add_table(slide, tbl_data, 0.9, 2.5, 23.6, _s11_tbl_h,
                col_widths=[2.0, 4.5, 3.0, 2.2, 2.2, 2.8, 3.0, 2.0],
-               font_size=7.5, header_size=7.5, alt_fill=_GRAYL)
+               font_size=7.5, header_size=7.5, alt_fill=None)
+    # Heatmap coloring — colonnes 3-6 = Value/Growth/Quality/Momentum
+    _HM_GREEN = RGBColor(0xC8, 0xE6, 0xC9)   # vert clair >=65
+    _HM_AMBER = RGBColor(0xFF, 0xF3, 0xE0)   # orange clair 45-64
+    _HM_RED   = RGBColor(0xFF, 0xEB, 0xEE)   # rouge clair <45
+    _HM_TXT_G = RGBColor(0x1A, 0x7A, 0x4A)   # texte vert fonce
+    _HM_TXT_A = RGBColor(0xB0, 0x60, 0x00)   # texte orange
+    _HM_TXT_R = RGBColor(0xA8, 0x20, 0x20)   # texte rouge fonce
+    for row_i, t in enumerate(td_disp, start=1):  # start=1 skip header
+        for col_i, score_key in enumerate(["score_value","score_growth","score_quality","score_momentum"], start=3):
+            try:
+                val = int(t.get(score_key) or 0)
+            except (TypeError, ValueError):
+                val = 0
+            if val >= 65:
+                _bg, _fg = _HM_GREEN, _HM_TXT_G
+            elif val >= 45:
+                _bg, _fg = _HM_AMBER, _HM_TXT_A
+            else:
+                _bg, _fg = _HM_RED, _HM_TXT_R
+            cell = _tbl11.cell(row_i, col_i)
+            cell.fill.solid()
+            cell.fill.fore_color.rgb = _bg
+            # Recolor text
+            for para in cell.text_frame.paragraphs:
+                for run in para.runs:
+                    run.font.color.rgb = _fg
+                    run.font.bold = True
 
     # Synthese — position APRES la hauteur reelle rendue (plus d'overlap avec la table)
     best = td[0] if td else {}
