@@ -181,7 +181,7 @@ def _prepare(tickers_a, sector_a, universe_a, tickers_b, sector_b, universe_b):
             em    = _med([t.get("ebitda_margin") for t in td]),
             nm    = _med([t.get("net_margin") for t in td]),
             roe   = _med([t.get("roe") for t in td]),
-            roic  = _med([t.get("roic") for t in td if t.get("roic")]),
+            roic  = _med([t.get("roic") for t in td if t.get("roic") is not None], default=None),
             revg  = _med([t.get("revenue_growth", 0) for t in td]) * 100,
             mom   = _med([t.get("momentum_52w", 0) for t in td]),
             beta  = _med([t.get("beta", 1.0) for t in td if t.get("beta")]),
