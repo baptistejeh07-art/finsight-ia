@@ -551,18 +551,53 @@ _SECTOR_YFINANCE = {
 }
 
 
+def _resolve_input_llm(name: str) -> dict | None:
+    """Fallback LLM : classe l'input en societe/secteur/indice et resout le ticker.
+    Retourne {'type': 'ticker'|'sector'|'index', 'value': str} ou None si echec."""
+    import logging as _log, json as _json, re as _re
+    try:
+        import sys as _sys, os as _os
+        _root = str(Path(__file__).parent)
+        if _root not in _sys.path:
+            _sys.path.insert(0, _root)
+        from core.llm_provider import LLMProvider
+        llm = LLMProvider(provider="mistral")
+        raw = llm.generate(
+            prompt=(
+                f"L'utilisateur a saisi : \"{name}\"\n"
+                f"Classe cet input et reponds en JSON strict :\n"
+                f"- Si c'est une societe cotee : {{\"type\":\"ticker\",\"value\":\"TICKER_YFINANCE\"}}\n"
+                f"  Ex: stelantis -> {{\"type\":\"ticker\",\"value\":\"STLAM.MI\"}}\n"
+                f"  Ex: apple -> {{\"type\":\"ticker\",\"value\":\"AAPL\"}}\n"
+                f"- Si c'est un secteur boursier : {{\"type\":\"sector\",\"value\":\"Technology\"}}\n"
+                f"- Si c'est un indice : {{\"type\":\"index\",\"value\":\"S&P 500\"}}\n"
+                f"Reponds UNIQUEMENT avec le JSON, rien d'autre."
+            ),
+            system="Tu es un expert en tickers boursiers. Reponds uniquement en JSON valide.",
+            max_tokens=40,
+        )
+        if raw:
+            m = _re.search(r'\{.*?\}', raw, _re.DOTALL)
+            if m:
+                return _json.loads(m.group(0))
+    except Exception as e:
+        _log.warning("[resolve_llm] LLM resolution failed for '%s': %s", name, e)
+    return None
+
+
 def _resolve_ticker_yahoo(name: str) -> str | None:
-    """Tente de resoudre un nom de societe en ticker via Yahoo Finance Search.
-    Retourne le premier ticker EQUITY trouve, None sinon."""
+    """Resout un nom de societe en ticker.
+    Ordre : mapping manuel → Yahoo Finance Search → LLM fallback.
+    Retourne le ticker ou None si rien ne fonctionne."""
     import logging as _log
-    # Mapping manuel pour les noms courants (fallback si Yahoo echoue)
+    # Niveau 1 : mapping manuel
     _KNOWN = {
-        "stelantis": "STLA", "stellantis": "STLA",
+        "stelantis": "STLAM.MI", "stellantis": "STLAM.MI",
         "lvmh": "MC.PA", "airbus": "AIR.PA", "totalenergies": "TTE.PA",
         "total": "TTE.PA", "bnp": "BNP.PA", "bnp paribas": "BNP.PA",
         "societe generale": "GLE.PA", "axa": "CS.PA",
         "hermes": "RMS.PA", "kering": "KER.PA",
-        "renault": "RNO.PA", "peugeot": "STLA",
+        "renault": "RNO.PA", "peugeot": "STLAM.MI",
         "volkswagen": "VOW3.DE", "mercedes": "MBG.DE", "bmw": "BMW.DE",
         "tesla": "TSLA", "apple": "AAPL", "microsoft": "MSFT",
         "google": "GOOGL", "alphabet": "GOOGL", "amazon": "AMZN",
@@ -571,6 +606,7 @@ def _resolve_ticker_yahoo(name: str) -> str | None:
     norm = name.strip().lower()
     if norm in _KNOWN:
         return _KNOWN[norm]
+    # Niveau 2 : Yahoo Finance Search
     try:
         import requests as _req
         r = _req.get(
@@ -584,6 +620,10 @@ def _resolve_ticker_yahoo(name: str) -> str | None:
                 return q["symbol"]
     except Exception as e:
         _log.warning("[resolve_ticker] Yahoo search failed for '%s': %s", name, e)
+    # Niveau 3 : LLM fallback
+    llm_result = _resolve_input_llm(name)
+    if llm_result and llm_result.get("type") == "ticker":
+        return llm_result.get("value")
     return None
 
 
@@ -1554,13 +1594,22 @@ def render_home() -> None:
                     st.toast(f"Ticker resolu : {_raw} → {_resolved}", icon="🔍")
                     target = _resolved
                 else:
-                    # Resolver a echoue : afficher erreur, ne pas lancer analyse secteur par erreur
-                    st.error(
-                        f"**Ticker non reconnu : \"{_raw}\"**  \n"
-                        f"Entrez le code ticker directement (ex : STLA, AAPL, MC.PA) "
-                        f"ou verifiez l'orthographe du nom."
-                    )
-                    st.stop()
+                    # Yahoo + mapping ont echoue : tenter LLM pour classifier l'intention
+                    _llm_res = _resolve_input_llm(_raw)
+                    if _llm_res and _llm_res.get("type") == "ticker" and _llm_res.get("value"):
+                        target = _llm_res["value"]
+                        st.toast(f"Ticker resolu via IA : {_raw} → {target}", icon="🤖")
+                    elif _llm_res and _llm_res.get("type") in ("sector", "index") and _llm_res.get("value"):
+                        # Le LLM a identifie un secteur ou indice — laisser detect_input_type traiter
+                        target = _llm_res["value"]
+                        st.toast(f"Interprete comme {_llm_res['type']} : {target}", icon="🤖")
+                    else:
+                        st.error(
+                            f"**Ticker non reconnu : \"{_raw}\"**  \n"
+                            f"Entrez le code ticker directement (ex : STLAM.MI, AAPL, MC.PA) "
+                            f"ou verifiez l'orthographe du nom."
+                        )
+                        st.stop()
             input_type = detect_input_type(target)
             if input_type == "analyse_individuelle":
                 st.session_state.ticker = target.upper()
