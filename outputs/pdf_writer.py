@@ -1890,14 +1890,21 @@ def _build_multiples_historiques(data):
         _ev_mov = ""
         if ev_clean and len(ev_clean) >= 2:
             _ev_delta = ev_clean[-1] - ev_clean[0]
-            _ev_mov = (f" L\u2019EV/EBITDA affiche une {'expansion' if _ev_delta > 0 else 'compression'} "
+            _ev_dir   = "expansion" if _ev_delta > 0 else "compression"
+            _ev_label = ("signal que le march\u00e9 paye davantage l\u2019EBITDA operational"
+                         if _ev_delta > 0 else
+                         "refletant une moindre valorisation de la capacite b\u00e9n\u00e9ficiaire")
+            _ev_mov = (f" L\u2019EV/EBITDA affiche une {_ev_dir} "
                        f"de {abs(_ev_delta):.1f}x ({ev_clean[0]:.1f}x -> {ev_clean[-1]:.1f}x), "
-                       f"{'signal que le march\u00e9 paye davantage l\u2019EBITDA operational' if _ev_delta > 0 else 'refletant une moindre valorisation de la capacite b\u00e9n\u00e9ficiaire'}.")
+                       f"{_ev_label}.")
         _pb_note = ""
         if pb_clean and len(pb_clean) >= 2:
             _pb_delta = pb_clean[-1] - pb_clean[0]
-            _pb_note = (f" Le P/B recule de {pb_clean[0]:.1f}x \u00e0 {pb_clean[-1]:.1f}x, "
-                        f"{'indiquant une dilution de la valeur comptable' if _pb_delta < 0 else 'signe d\u2019une creation de valeur reconnue par le march\u00e9'}.")
+            _pb_label = ("indiquant une dilution de la valeur comptable"
+                         if _pb_delta < 0 else
+                         "signe d\u2019une creation de valeur reconnue par le march\u00e9")
+            _pb_note = (f" Le P/B de {pb_clean[0]:.1f}x \u00e0 {pb_clean[-1]:.1f}x, "
+                        f"{_pb_label}.")
         _peers_note = ""
         _peers_ev = data.get('peers_median_ev_ebitda') or data.get('ev_ebitda_median_peers')
         if _peers_ev and ev_clean:
@@ -1990,8 +1997,11 @@ def _build_capital_returns(data):
         _capex_note = ""
         if cx_vals:
             _cx_avg = sum(cx_vals) / len(cx_vals)
+            _capex_label = ("elevee, signe d\u2019un profil invest-heavy"
+                            if _cx_avg and _cx_avg > 0.08 else
+                            "moderee, compatible avec un profil generateur de FCF")
             _capex_note = (f" L\u2019intensit\u00e9 Capex/CA moyenne de {_frpct(_cx_avg)} "
-                           f"({'elevee, signe d\u2019un profil invest-heavy' if _cx_avg and _cx_avg > 0.08 else 'moderee, compatible avec un profil generateur de FCF'}).")
+                           f"({_capex_label}).")
         _div_note = ""
         div_any = any(d != 0 for d in div_vals if d is not None)
         if not div_any:
