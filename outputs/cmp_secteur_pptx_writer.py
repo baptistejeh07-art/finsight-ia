@@ -556,7 +556,7 @@ def _s01_cover(prs, D):
     # Barre navy
     _rect(slide, 0, 0, 25.4, 1.8, fill=_NAVY)
     _txb(slide, "FinSight IA", 0.9, 0.15, 12.0, 1.2, size=12, bold=True, color=_WHITE)
-    _txb(slide, "Pitchbook  —  Comparatif Sectoriel", 0, 0.25, 24.5, 1.0, size=9.5, color=_GRAYD, align=PP_ALIGN.RIGHT)
+    _txb(slide, "Pitchbook  —  Comparatif Sectoriel", 0, 0.25, 24.5, 1.0, size=9.5, color=_WHITE, align=PP_ALIGN.RIGHT)
 
     # Titre principal
     title = f"{D['sector_a']}  vs  {D['sector_b']}"

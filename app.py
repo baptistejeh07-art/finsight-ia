@@ -551,6 +551,25 @@ _SECTOR_YFINANCE = {
 }
 
 
+def _resolve_ticker_yahoo(name: str) -> str | None:
+    """Tente de resoudre un nom de societe en ticker via Yahoo Finance Search.
+    Retourne le premier ticker EQUITY trouve, None sinon."""
+    try:
+        import requests as _req
+        r = _req.get(
+            "https://query2.finance.yahoo.com/v1/finance/search",
+            params={"q": name, "quotesCount": 5, "newsCount": 0},
+            headers={"User-Agent": "Mozilla/5.0"},
+            timeout=5,
+        )
+        for q in r.json().get("quotes", []):
+            if q.get("quoteType") == "EQUITY":
+                return q["symbol"]
+    except Exception:
+        pass
+    return None
+
+
 def detect_input_type(query: str) -> str:
     q = query.strip().upper().replace(" ", "").replace("-", "").replace("&", "")
     if q in _INDICES_SET:
@@ -1503,6 +1522,20 @@ def render_home() -> None:
 
         target = clicked or (ticker_input if go and ticker_input else None)
         if target:
+            # Resolution : si l'input n'est pas un secteur/indice connu et ressemble
+            # a un nom de societe (minuscules ou espaces), tenter Yahoo Finance Search
+            _q_norm = target.strip().upper().replace(" ", "").replace("-", "").replace("&", "")
+            _raw = target.strip()
+            _is_name = (
+                _q_norm not in _INDICES_SET and
+                _q_norm not in _SECTOR_ALIASES_SET and
+                ((" " in _raw and len(_raw) > 3) or (len(_raw) > 5 and not _raw.isupper()))
+            )
+            if _is_name:
+                _resolved = _resolve_ticker_yahoo(_raw)
+                if _resolved:
+                    st.toast(f"Ticker resolu : {_raw} → {_resolved}", icon="🔍")
+                    target = _resolved
             input_type = detect_input_type(target)
             if input_type == "analyse_individuelle":
                 st.session_state.ticker = target.upper()

@@ -391,11 +391,11 @@ def _generate_llm_texts(D: dict) -> dict:
             f"- {sector_a} : Score {sa.get('score',0)}/100, Signal {D['sig_a_lbl']}, "
             f"P/E {sa.get('pe',0):.1f}x, Croiss.Rev {sa.get('revg',0):+.1f}%, "
             f"Mg.EBITDA {sa.get('em',0):.1f}%, ROE {roe_a:.1f}%, Perf.52S {sa.get('mom',0):+.1f}%, "
-            f"Div Yield {dy_a:.1f}%, FCF Yield {fy_a:.1f}%, Payout {pt_a:.0f}%\n"
+            f"Div Yield {dy_a*100:.1f}%, FCF Yield {fy_a*100:.1f}%, Payout {pt_a*100:.0f}%\n"
             f"- {sector_b} : Score {sb.get('score',0)}/100, Signal {D['sig_b_lbl']}, "
             f"P/E {sb.get('pe',0):.1f}x, Croiss.Rev {sb.get('revg',0):+.1f}%, "
             f"Mg.EBITDA {sb.get('em',0):.1f}%, ROE {roe_b:.1f}%, Perf.52S {sb.get('mom',0):+.1f}%, "
-            f"Div Yield {dy_b:.1f}%, FCF Yield {fy_b:.1f}%, Payout {pt_b:.0f}%\n\n"
+            f"Div Yield {dy_b*100:.1f}%, FCF Yield {fy_b*100:.1f}%, Payout {pt_b*100:.0f}%\n\n"
             f"Reponds UNIQUEMENT en JSON valide. Textes en francais sans accents ni caracteres speciaux. "
             f"Max 300 caracteres par champ sauf exec_summary (500 max).\n"
             f'{{\n'
@@ -579,11 +579,11 @@ def _build_story(D: dict) -> list:
     story.append(_tbl(syn_data, cols))
     story.append(Spacer(1, 3 * mm))
 
-    # Radar chart
+    # Radar chart (reduit pour equilibrer la page)
     try:
         radar_img = _chart_radar_pdf(sa, sb, sector_a[:12], sector_b[:12])
         story.append(KeepTogether([
-            _img(radar_img, w=110*mm, h=110*mm),
+            _img(radar_img, w=90*mm, h=70*mm),
         ]))
     except Exception as e:
         log.warning("[cmp_secteur_pdf] radar: %s", e)
@@ -622,7 +622,9 @@ def _build_story(D: dict) -> list:
         story.append(_img(m_img, w=TABLE_W, h=70*mm))
     except Exception as e:
         log.warning("[cmp_secteur_pdf] margins chart: %s", e)
-    # ── PAGE 3 suite : Capital Allocation ────────────────────────────────────
+    story.append(PageBreak())
+
+    # ── PAGE 4 : Capital Allocation ────────────────────────────────────────────
     story += section("Capital Allocation & Remuneration de l'Actionnaire", "4")
 
     dy_a = sa.get("div_yield")
@@ -684,7 +686,7 @@ def _build_story(D: dict) -> list:
     _ca_text = D.get("llm", {}).get("capital_alloc_analysis") or _ca_fallback
     story += _llm_box(_ca_text)
 
-    story.append(PageBreak())
+    # Pas de PageBreak ici — la section Croissance suit naturellement
 
     # ── PAGE 5 : Croissance & Momentum ────────────────────────────────────────
     story += section("Croissance & Momentum — Acceleration ou Ralentissement ?", "5")
