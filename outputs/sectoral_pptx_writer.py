@@ -1132,17 +1132,17 @@ def _s05_presentation(prs, D):
     # Description block — font plus grand pour remplir l'espace
     _rect(slide, 0.9, 2.5, 13.7, 10.0, fill=_GRAYL)
     _rect(slide, 0.9, 2.5, 0.1, 10.0, fill=_NAVY)
-    _txb(slide, desc, 1.3, 2.7, 13.1, 4.5, size=9, color=_GRAYT, wrap=True)
-    # Catalyseurs clés sous la description
+    _txb(slide, desc, 1.3, 2.7, 13.1, 3.0, size=9, color=_GRAYT, wrap=True)
+    # Catalyseurs clés sous la description — remontés pour supprimer le gap vide
     cats = content.get("catalyseurs", [])
     if cats:
-        _rect(slide, 1.1, 7.5, 13.3, 0.45, fill=_NAVY)
-        _txb(slide, "CATALYSEURS CLES", 1.1, 7.55, 13.3, 0.4, size=8, bold=True, color=_WHITE, align=PP_ALIGN.CENTER)
+        _rect(slide, 1.1, 6.0, 13.3, 0.45, fill=_NAVY)
+        _txb(slide, "CATALYSEURS CLES", 1.1, 6.05, 13.3, 0.4, size=8, bold=True, color=_WHITE, align=PP_ALIGN.CENTER)
         for j, (ct, cb) in enumerate(cats[:3]):
             _cx = 1.1 + (13.3 - 12.8) / 2  # centrage horizontal dans le conteneur
-            _rect(slide, _cx, 8.05 + j * 1.5, 0.08, 1.35, fill=_BUY)
-            _txb(slide, ct, _cx + 0.3, 8.05 + j * 1.5, 12.5, 0.45, size=8.5, bold=True, color=_NAVY)
-            _txb(slide, cb[:200], _cx + 0.3, 8.5 + j * 1.5, 12.5, 1.05, size=8, color=_GRAYT, wrap=True)
+            _rect(slide, _cx, 6.55 + j * 1.5, 0.08, 1.35, fill=_BUY)
+            _txb(slide, ct, _cx + 0.3, 6.55 + j * 1.5, 12.5, 0.45, size=8.5, bold=True, color=_NAVY)
+            _txb(slide, cb[:200], _cx + 0.3, 7.0 + j * 1.5, 12.5, 1.05, size=8, color=_GRAYT, wrap=True)
 
     # Metrics table
     tbl_data = [["Métrique", "Valeur", "Lecture"]]
@@ -1389,7 +1389,7 @@ def _s11_scores(prs, D):
             "Décomposition par dimension  ·  Value · Growth · Quality · Momentum  ·  Score 0-100", 2)
 
     td = D["sorted_td"]
-    MAX_ROWS_S11 = 15
+    MAX_ROWS_S11 = 12
     td_disp = td[:MAX_ROWS_S11]
     n_hidden = max(0, len(td) - MAX_ROWS_S11)
     tbl_data = [["Ticker", "Societe", "Score Global", "Value", "Growth", "Quality", "Momentum", "Reco"]]
@@ -1412,16 +1412,17 @@ def _s11_scores(prs, D):
             "", "", "", "", "", "", "",
         ])
 
-    # Cap table a 6.0cm pour garantir la place du bloc synthese (min 3.5cm) sous la table
-    _s11_tbl_h = min(6.0, len(tbl_data) * 0.56)
+    # Hauteur table basee sur 0.72cm/row (hauteur reelle rendue par PowerPoint)
+    _PER_ROW_S11 = 0.72
+    _s11_tbl_h = len(tbl_data) * _PER_ROW_S11
     _add_table(slide, tbl_data, 0.9, 2.5, 23.6, _s11_tbl_h,
                col_widths=[2.0, 4.5, 3.0, 2.2, 2.2, 2.8, 3.0, 2.0],
                font_size=7.5, header_size=7.5, alt_fill=_GRAYL)
 
-    # Synthese — incorpore la legende de lecture + analyse (un seul bloc sous la table)
+    # Synthese — position APRES la hauteur reelle rendue (plus d'overlap avec la table)
     best = td[0] if td else {}
     best_name = (best.get("company") or best.get("ticker") or "Leader")[:25]
-    _s11_syn_y = round(2.5 + _s11_tbl_h + 1.4, 2)  # gap 1.4cm — espace visible entre table et synthese
+    _s11_syn_y = round(2.5 + _s11_tbl_h + 0.35, 2)  # gap 0.35cm apres hauteur reelle
     _syn_h = min(4.5, max(3.0, 13.5 - _s11_syn_y))
     _rect(slide, 0.9, _s11_syn_y, 23.6, _syn_h, fill=_GRAYL)
     _rect(slide, 0.9, _s11_syn_y, 23.6, 0.7, fill=_NAVY)
@@ -1594,7 +1595,7 @@ def _s15_entry(prs, D):
     # Note methodologique — occupe tout l'espace restant sous la table (plus de KPIs)
     _FOOTER_Y = 13.5
     _NOTE_H_MAX = min(2.5, _FOOTER_Y - (3.5 + _tbl_h + 0.2))
-    _note_y_calc = round(3.5 + _tbl_h + 0.5, 2)
+    _note_y_calc = round(3.5 + _tbl_h + 1.0, 2)
     _NOTE_H = max(0, _NOTE_H_MAX)
     if _NOTE_H > 0.4:
         _note_y = _note_y_calc
