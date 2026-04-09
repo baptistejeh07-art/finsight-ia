@@ -469,6 +469,9 @@ def _slide_perf_chart(prs, d: dict):
     _index_band(slide, name_a, name_b)
 
     ph = d.get("perf_history")
+    if not (ph and ph.get("dates") and ph.get("indice_a") and ph.get("indice_b")):
+        _txb(slide, "Performance historique non disponible — donnees de cours requises.",
+             1.5, 5.5, 14.0, 1.0, size=9, color=_GRAYT, italic=True)
     if ph and ph.get("dates") and ph.get("indice_a") and ph.get("indice_b"):
         try:
             fig, ax = plt.subplots(figsize=(11.5, 4.5))
@@ -861,24 +864,24 @@ def _slide_score(prs, d: dict):
         col  = _sig_c(sig)
         col_l= _sig_l(sig)
 
-        _rect(slide, x0, 2.55, 11.0, 6.0, col_l)
-        _rect(slide, x0, 2.55, 0.18, 6.0, col)
+        _rect(slide, x0, 2.55, 11.0, 5.5, col_l)
+        _rect(slide, x0, 2.55, 0.18, 5.5, col)
         _txb(slide, str(sc), x0+0.4, 3.0, 10.2, 2.5, 60, True, col,
              align=PP_ALIGN.CENTER)
-        _txb(slide, "/ 100", x0+0.4, 5.3, 10.2, 0.7, 18, False, _GRAYT,
+        _txb(slide, "/ 100", x0+0.4, 5.1, 10.2, 0.7, 18, False, _GRAYT,
              align=PP_ALIGN.CENTER)
-        _txb(slide, sig, x0+0.4, 6.1, 10.2, 0.8, 14, True, col,
+        _txb(slide, sig, x0+0.4, 5.85, 10.2, 0.8, 14, True, col,
              align=PP_ALIGN.CENTER)
         _txb(slide, f"Signal FinSight  \u2014  {name}",
-             x0+0.4, 7.15, 10.2, 0.56, 8, False, _GRAYT,
+             x0+0.4, 6.75, 10.2, 0.56, 8, False, _GRAYT,
              align=PP_ALIGN.CENTER)
 
     # Gagnant
     winner = name_a if sc_a > sc_b else (name_b if sc_b > sc_a else "Egalite")
-    _rect(slide, 1.02, 9.1, 23.37, 1.1, _NAVYP)
-    _rect(slide, 1.02, 9.1, 0.15, 1.1, _NAVYL)
+    _rect(slide, 1.02, 8.5, 23.37, 1.0, _NAVYP)
+    _rect(slide, 1.02, 8.5, 0.15, 1.0, _NAVYL)
     _txb(slide, f"Meilleur signal : {winner}  ({sc_a} vs {sc_b})",
-         1.3, 9.3, 22.0, 0.7, 11, True, _NAVY)
+         1.3, 8.7, 22.0, 0.7, 11, True, _NAVY)
 
     # Tableau de bord
     rows = [
@@ -889,7 +892,7 @@ def _slide_score(prs, d: dict):
         ["Volatilite",    _fr_num(d.get("vol_1y_a"))+" %", _fr_num(d.get("vol_1y_b"))+" %"],
         ["Perf. 1 an",    _fr_pct_signed(d.get("perf_1y_a")), _fr_pct_signed(d.get("perf_1y_b"))],
     ]
-    _table(slide, rows, 1.02, 10.5, 23.37, 2.4, col_widths=[5, 4, 4])
+    _table(slide, rows, 1.02, 9.8, 23.37, 2.8, col_widths=[5, 4, 4])
 
 
 def _slide_verdict(prs, d: dict):

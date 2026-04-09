@@ -669,24 +669,24 @@ def _s05_profil(prs, D):
     # Secteur A — colonne gauche
     _rect(slide, 0.9, 2.1, 11.2, 0.5, fill=_COL_A)
     _txb(slide, D["sector_a"], 1.0, 2.13, 11.0, 0.45, size=10, bold=True, color=_WHITE)
-    desc_a = content_a.get("description", "")[:320]
-    _txb(slide, desc_a, 0.9, 2.75, 11.2, 2.5, size=8, color=_BLACK, wrap=True)
+    desc_a = content_a.get("description", "")[:500]
+    _txb(slide, desc_a, 0.9, 2.75, 11.2, 3.5, size=8, color=_BLACK, wrap=True)
 
     # Cycle A
     cycle_a = content_a.get("cycle_comment", "")
-    _rect(slide, 0.9, 5.5, 11.2, 0.5, fill=_COL_A_PALE)
-    _txb(slide, f"Cycle : {cycle_a}", 1.0, 5.53, 11.0, 0.45, size=8, italic=True, color=_COL_A)
+    _rect(slide, 0.9, 6.5, 11.2, 0.5, fill=_COL_A_PALE)
+    _txb(slide, f"Cycle : {cycle_a}", 1.0, 6.53, 11.0, 0.45, size=8, italic=True, color=_COL_A)
 
     # Drivers A
-    _txb(slide, "Drivers principaux", 0.9, 6.3, 11.2, 0.5, size=9, bold=True, color=_NAVY)
+    _txb(slide, "Drivers principaux", 0.9, 7.3, 11.2, 0.5, size=9, bold=True, color=_NAVY)
     drivers_a = content_a.get("drivers", [])[:4]
     for j, drv in enumerate(drivers_a):
         direction, name, desc = (drv[0], drv[1], drv[2]) if len(drv) >= 3 else ("up", str(drv), "")
         arrow = "+" if direction == "up" else "-"
         col = _GREEN if direction == "up" else _RED
-        _txb(slide, f"{arrow}", 0.9, 6.95 + j * 1.2, 0.5, 0.5, size=11, bold=True, color=col)
-        _txb(slide, f"{name}", 1.45, 6.95 + j * 1.2, 10.5, 0.45, size=8.5, bold=True, color=_BLACK)
-        _txb(slide, desc[:80], 1.45, 7.42 + j * 1.2, 10.5, 0.55, size=7.5, color=_GRAYT)
+        _txb(slide, f"{arrow}", 0.9, 7.95 + j * 1.2, 0.5, 0.5, size=11, bold=True, color=col)
+        _txb(slide, f"{name}", 1.45, 7.95 + j * 1.2, 10.5, 0.45, size=8.5, bold=True, color=_BLACK)
+        _txb(slide, desc[:80], 1.45, 8.42 + j * 1.2, 10.5, 0.55, size=7.5, color=_GRAYT)
 
     # Separateur vertical
     _rect(slide, mid - 0.15, 2.0, 0.04, 11.5, fill=_GRAYM)
@@ -694,24 +694,24 @@ def _s05_profil(prs, D):
     # Secteur B — colonne droite
     _rect(slide, mid + 0.15, 2.1, 11.2, 0.5, fill=_COL_B)
     _txb(slide, D["sector_b"], mid + 0.25, 2.13, 11.0, 0.45, size=10, bold=True, color=_WHITE)
-    desc_b = content_b.get("description", "")[:320]
-    _txb(slide, desc_b, mid + 0.15, 2.75, 11.2, 2.5, size=8, color=_BLACK, wrap=True)
+    desc_b = content_b.get("description", "")[:500]
+    _txb(slide, desc_b, mid + 0.15, 2.75, 11.2, 3.5, size=8, color=_BLACK, wrap=True)
 
     # Cycle B
     cycle_b = content_b.get("cycle_comment", "")
-    _rect(slide, mid + 0.15, 5.5, 11.2, 0.5, fill=_COL_B_PALE)
-    _txb(slide, f"Cycle : {cycle_b}", mid + 0.25, 5.53, 11.0, 0.45, size=8, italic=True, color=_COL_B)
+    _rect(slide, mid + 0.15, 6.5, 11.2, 0.5, fill=_COL_B_PALE)
+    _txb(slide, f"Cycle : {cycle_b}", mid + 0.25, 6.53, 11.0, 0.45, size=8, italic=True, color=_COL_B)
 
     # Drivers B
-    _txb(slide, "Drivers principaux", mid + 0.15, 6.3, 11.2, 0.5, size=9, bold=True, color=_GREEN)
+    _txb(slide, "Drivers principaux", mid + 0.15, 7.3, 11.2, 0.5, size=9, bold=True, color=_GREEN)
     drivers_b = content_b.get("drivers", [])[:4]
     for j, drv in enumerate(drivers_b):
         direction, name, desc = (drv[0], drv[1], drv[2]) if len(drv) >= 3 else ("up", str(drv), "")
         arrow = "+" if direction == "up" else "-"
         col = _GREEN if direction == "up" else _RED
-        _txb(slide, f"{arrow}", mid + 0.15, 6.95 + j * 1.2, 0.5, 0.5, size=11, bold=True, color=col)
-        _txb(slide, f"{name}", mid + 0.7, 6.95 + j * 1.2, 10.5, 0.45, size=8.5, bold=True, color=_BLACK)
-        _txb(slide, desc[:80], mid + 0.7, 7.42 + j * 1.2, 10.5, 0.55, size=7.5, color=_GRAYT)
+        _txb(slide, f"{arrow}", mid + 0.15, 7.95 + j * 1.2, 0.5, 0.5, size=11, bold=True, color=col)
+        _txb(slide, f"{name}", mid + 0.7, 7.95 + j * 1.2, 10.5, 0.45, size=8.5, bold=True, color=_BLACK)
+        _txb(slide, desc[:80], mid + 0.7, 8.42 + j * 1.2, 10.5, 0.55, size=7.5, color=_GRAYT)
 
 
 def _s06_valorisation(prs, D):
