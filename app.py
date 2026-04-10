@@ -4644,11 +4644,18 @@ def render_results(results: dict) -> None:
 # ---------------------------------------------------------------------------
 
 def _cmp_back_to_previous():
-    """Retourne a l'analyse initiale depuis la page comparative."""
-    prev_type = st.session_state.get("previous_analysis_type")
+    """Retourne a l'analyse initiale depuis la page comparative.
+    Restaure explicitement les resultats sauvegardes pour eviter les
+    cas ou st.session_state.results aurait ete vide entre temps."""
+    prev_type    = st.session_state.get("previous_analysis_type")
+    prev_results = st.session_state.get("previous_analysis_results")
     if prev_type == "results":
+        if prev_results is not None:
+            st.session_state.results = prev_results
         st.session_state.stage = "results"
     elif prev_type == "screening_results":
+        if prev_results is not None:
+            st.session_state.screening_results = prev_results
         st.session_state.stage = "screening_results"
     else:
         st.session_state.stage = "home"
