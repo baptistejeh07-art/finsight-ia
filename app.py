@@ -505,6 +505,15 @@ if "scmp_sector_a"      not in st.session_state: st.session_state.scmp_sector_a 
 if "scmp_sector_b"      not in st.session_state: st.session_state.scmp_sector_b      = None
 if "scmp_pptx_bytes"    not in st.session_state: st.session_state.scmp_pptx_bytes    = None
 if "scmp_pdf_bytes"     not in st.session_state: st.session_state.scmp_pdf_bytes     = None
+if "scmp_xlsx_bytes"    not in st.session_state: st.session_state.scmp_xlsx_bytes    = None
+
+# Page post-analyse comparative : on garde l'etat de l'analyse initiale
+# pour pouvoir y revenir via le bouton "Retour a l'analyse ..." (sidebar).
+# cmp_kind : "societe" | "secteur" | "indice"
+if "cmp_kind"                  not in st.session_state: st.session_state.cmp_kind                  = None
+if "previous_analysis_type"    not in st.session_state: st.session_state.previous_analysis_type    = None  # "results" | "screening_results"
+if "previous_analysis_results" not in st.session_state: st.session_state.previous_analysis_results = None
+if "previous_analysis_label"   not in st.session_state: st.session_state.previous_analysis_label   = ""
 
 # ---------------------------------------------------------------------------
 # Routing : détection du type d'input
@@ -861,7 +870,44 @@ def render_sidebar(results) -> None:
 
         # (Aperçu Claude retiré — section interne non utilisée)
 
-        if results and not results.get("error"):
+        # Contexte page comparative (societe / secteur / indice)
+        _in_cmp_page = (st.session_state.get("stage") == "comparison_results")
+        _cmp_kind    = st.session_state.get("cmp_kind")
+
+        if _in_cmp_page:
+            # Nouvelle analyse (reset complet) — priorite haute
+            if st.button("＋  Nouvelle analyse", use_container_width=True, type="primary",
+                          key="sb_new_from_cmp"):
+                for _k in ("stage", "results", "ticker", "from_screening",
+                           "screening_results", "cmp_stage", "cmp_kind",
+                           "cmp_ticker_b", "cmp_state_b", "cmp_bytes",
+                           "cmp_pptx_bytes", "cmp_pdf_bytes", "cmp_synthesis",
+                           "scmp_stage", "scmp_sector_b", "scmp_pptx_bytes",
+                           "scmp_pdf_bytes", "scmp_xlsx_bytes",
+                           "scmp_tickers_a", "scmp_tickers_b",
+                           "icmp_stage", "icmp_universe_b",
+                           "icmp_pptx_bytes", "icmp_pdf_bytes", "icmp_xlsx_bytes",
+                           "icmp_cmp_data", "icmp_universe_a",
+                           "previous_analysis_type", "previous_analysis_results",
+                           "previous_analysis_label"):
+                    if _k == "stage":
+                        st.session_state[_k] = "home"
+                    elif _k == "from_screening":
+                        st.session_state[_k] = False
+                    elif _k in ("cmp_ticker_b", "scmp_sector_b", "icmp_universe_b",
+                                "icmp_universe_a", "previous_analysis_label"):
+                        st.session_state[_k] = ""
+                    else:
+                        st.session_state[_k] = None
+                st.rerun()
+
+            # Bouton retour a l'analyse initiale
+            _prev_label = st.session_state.get("previous_analysis_label") or "l'analyse"
+            if st.button(f"\u2190 Retour a {_prev_label}", use_container_width=True,
+                          key="sb_back_prev_analysis"):
+                _cmp_back_to_previous()
+
+        elif results and not results.get("error"):
             if st.button("＋  Nouvelle analyse", use_container_width=True, type="primary"):
                 st.session_state.stage              = "home"
                 st.session_state.results            = None
@@ -870,7 +916,7 @@ def render_sidebar(results) -> None:
                 st.session_state.screening_results  = None
                 st.rerun()
 
-        if st.session_state.get("screening_results"):
+        if (not _in_cmp_page) and st.session_state.get("screening_results"):
             if st.button("\u2190 Retour au screening", use_container_width=True):
                 st.session_state.from_screening = False
                 st.session_state.stage = "screening_results"
@@ -879,6 +925,114 @@ def render_sidebar(results) -> None:
         # Livrables — contextualisés selon l'analyse active
         st.markdown('<div class="sb-section">', unsafe_allow_html=True)
         st.markdown('<span class="sb-label">Livrables</span>', unsafe_allow_html=True)
+
+        # ── Contexte PAGE COMPARATIVE : afficher UNIQUEMENT les livrables comparatifs ──
+        if _in_cmp_page:
+            if _cmp_kind == "societe":
+                _tkr_a_cmp = st.session_state.get("previous_analysis_label", "A")
+                _tkr_b_cmp = st.session_state.get("cmp_ticker_b", "B")
+                _cmp_pdf = st.session_state.get("cmp_pdf_bytes")
+                if _cmp_pdf:
+                    st.download_button(
+                        f"Rapport PDF {_tkr_a_cmp} vs {_tkr_b_cmp} \u2193 .pdf",
+                        _cmp_pdf,
+                        file_name=f"{_tkr_a_cmp}_vs_{_tkr_b_cmp}_comparison.pdf",
+                        mime="application/pdf",
+                        use_container_width=True, key="sb_cmppage_pdf",
+                    )
+                _cmp_pptx = st.session_state.get("cmp_pptx_bytes")
+                if _cmp_pptx:
+                    st.download_button(
+                        f"Pitchbook {_tkr_a_cmp} vs {_tkr_b_cmp} \u2193 .pptx",
+                        _cmp_pptx,
+                        file_name=f"{_tkr_a_cmp}_vs_{_tkr_b_cmp}_comparison.pptx",
+                        mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                        use_container_width=True, key="sb_cmppage_pptx",
+                    )
+                _cmp_xlsx = st.session_state.get("cmp_bytes")
+                if _cmp_xlsx:
+                    st.download_button(
+                        f"Excel financier {_tkr_a_cmp} vs {_tkr_b_cmp} \u2193 .xlsx",
+                        _cmp_xlsx,
+                        file_name=f"{_tkr_a_cmp}_vs_{_tkr_b_cmp}_comparison.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        use_container_width=True, key="sb_cmppage_xlsx",
+                    )
+            elif _cmp_kind == "secteur":
+                _sa = st.session_state.get("scmp_sector_a", "A")
+                _sb = st.session_state.get("scmp_sector_b", "B")
+                _slug = f"cmp_secteur_{_sa}_vs_{_sb}".replace(" ", "_")
+                _sp_pdf = st.session_state.get("scmp_pdf_bytes")
+                if _sp_pdf:
+                    st.download_button(
+                        f"Rapport PDF {_sa} vs {_sb} \u2193 .pdf",
+                        _sp_pdf,
+                        file_name=f"{_slug}.pdf",
+                        mime="application/pdf",
+                        use_container_width=True, key="sb_scmppage_pdf",
+                    )
+                _sp_pptx = st.session_state.get("scmp_pptx_bytes")
+                if _sp_pptx:
+                    st.download_button(
+                        f"Pitchbook {_sa} vs {_sb} \u2193 .pptx",
+                        _sp_pptx,
+                        file_name=f"{_slug}.pptx",
+                        mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                        use_container_width=True, key="sb_scmppage_pptx",
+                    )
+                _sp_xlsx = st.session_state.get("scmp_xlsx_bytes")
+                if _sp_xlsx:
+                    st.download_button(
+                        f"Excel {_sa} vs {_sb} \u2193 .xlsx",
+                        _sp_xlsx,
+                        file_name=f"{_slug}.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        use_container_width=True, key="sb_scmppage_xlsx",
+                    )
+            elif _cmp_kind == "indice":
+                _ua = st.session_state.get("icmp_universe_a", "A")
+                _ub = st.session_state.get("icmp_universe_b", "B")
+                _na = _INDICE_CMP_OPTIONS.get(_ua, (_ua,))[0] if "_INDICE_CMP_OPTIONS" in globals() else _ua
+                _nb = _INDICE_CMP_OPTIONS.get(_ub, (_ub,))[0] if "_INDICE_CMP_OPTIONS" in globals() else _ub
+                _slug = f"cmp_indice_{_na}_vs_{_nb}".replace(" ", "_")
+                _i_pdf = st.session_state.get("icmp_pdf_bytes")
+                if _i_pdf:
+                    st.download_button(
+                        f"Rapport PDF {_na} vs {_nb} \u2193 .pdf",
+                        _i_pdf,
+                        file_name=f"{_slug}.pdf",
+                        mime="application/pdf",
+                        use_container_width=True, key="sb_icmppage_pdf",
+                    )
+                _i_pptx = st.session_state.get("icmp_pptx_bytes")
+                if _i_pptx:
+                    st.download_button(
+                        f"Pitchbook {_na} vs {_nb} \u2193 .pptx",
+                        _i_pptx,
+                        file_name=f"{_slug}.pptx",
+                        mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                        use_container_width=True, key="sb_icmppage_pptx",
+                    )
+                _i_xlsx = st.session_state.get("icmp_xlsx_bytes")
+                if _i_xlsx:
+                    st.download_button(
+                        f"Excel {_na} vs {_nb} \u2193 .xlsx",
+                        _i_xlsx,
+                        file_name=f"{_slug}.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        use_container_width=True, key="sb_icmppage_xlsx",
+                    )
+            st.markdown('</div>', unsafe_allow_html=True)
+            # Sources financieres + veille quand meme
+            st.markdown('<div class="sb-section">', unsafe_allow_html=True)
+            st.markdown('<span class="sb-label">Sources financieres</span>', unsafe_allow_html=True)
+            for name, ok in [("Yahoo Finance", True), ("Financial Modeling Prep", True),
+                              ("Finnhub", True), ("EODHD", True)]:
+                badge = f'<span class="src-ok">Actif</span>' if ok else f'<span class="src-warn">Inactif</span>'
+                st.markdown(f'<div class="src-row"><span>{name}</span>{badge}</div>',
+                            unsafe_allow_html=True)
+            st.markdown('</div>', unsafe_allow_html=True)
+            return
 
         # Détermine le contexte : société (results) ou secteur/indice (screening_results)
         _in_societe  = bool(results and not results.get("error") and results.get("ticker"))
@@ -3197,7 +3351,17 @@ def _render_indice_comparison_section(results: dict) -> None:
         st.session_state.icmp_pptx_bytes = pptx_bytes
         st.session_state.icmp_pdf_bytes  = pdf_bytes
         st.session_state.icmp_xlsx_bytes = xlsx_bytes
-        st.session_state.icmp_stage      = "done"
+        st.session_state.icmp_cmp_data   = cmp_data  # pour la page de synthese comparative
+        st.session_state.icmp_universe_a = universe_a
+
+        # Sauvegarder l'etat de l'analyse indice initiale
+        st.session_state.previous_analysis_type    = "screening_results"
+        st.session_state.previous_analysis_results = st.session_state.get("screening_results")
+        st.session_state.previous_analysis_label   = name_a_disp
+
+        st.session_state.icmp_stage = "done"
+        st.session_state.cmp_kind   = "indice"
+        st.session_state.stage      = "comparison_results"
         st.rerun()
         return
 
@@ -3339,7 +3503,29 @@ def _render_sector_comparison_section(results: dict) -> None:
                 except Exception:
                     pass
 
+                # XLSX secteur comparatif (nouveau writer)
+                try:
+                    from outputs.cmp_secteur_xlsx_writer import generate_cmp_secteur_xlsx
+                    st.session_state.scmp_xlsx_bytes = generate_cmp_secteur_xlsx(
+                        td_a_clean, current_sector, "Global",
+                        tickers_b, sector_b, "Global",
+                    )
+                except Exception as _xex:
+                    log.warning(f"[scmp] xlsx gen failed: {_xex}")
+                    st.session_state.scmp_xlsx_bytes = None
+
+                # Stocker les tickers pour la page de resultats comparatifs
+                st.session_state.scmp_tickers_a = td_a_clean
+                st.session_state.scmp_tickers_b = tickers_b
+
+                # Sauvegarder l'etat de l'analyse sectorielle initiale
+                st.session_state.previous_analysis_type    = "screening_results"
+                st.session_state.previous_analysis_results = st.session_state.get("screening_results")
+                st.session_state.previous_analysis_label   = current_sector
+
                 st.session_state.scmp_stage = "done"
+                st.session_state.cmp_kind   = "secteur"
+                st.session_state.stage      = "comparison_results"
                 st.rerun()
             except Exception as _ex:
                 st.error(f"Erreur generation comparatif : {_ex}")
@@ -3950,11 +4136,23 @@ def _render_comparison_section(state_a: dict) -> None:
                 st.session_state.cmp_bytes = cmp_bytes
 
                 try:
-                    from outputs.comparison_pptx_writer import ComparisonPPTXWriter
+                    from outputs.comparison_pptx_writer import ComparisonPPTXWriter, _generate_synthesis
+                    from outputs.comparison_writer import extract_metrics as _extract, _fetch_supplements as _fetch
                     st.session_state.cmp_pptx_bytes = ComparisonPPTXWriter().generate_bytes(state_a, state_b)
+                    # Stocker la synthese LLM pour la page comparative
+                    try:
+                        _ma = _extract(state_a, _fetch(state_a.get("ticker", "")))
+                        _mb = _extract(state_b, _fetch(state_b.get("ticker", "")))
+                        _ma["ticker_a"] = state_a.get("ticker", "")
+                        _mb["ticker_b"] = state_b.get("ticker", "")
+                        st.session_state.cmp_synthesis = _generate_synthesis(_ma, _mb)
+                    except Exception as _sx:
+                        log.warning(f"[comparison] synthesis extract failed: {_sx}")
+                        st.session_state.cmp_synthesis = None
                 except Exception as _pex:
                     log.warning(f"[comparison] PPTX auto-gen failed: {_pex}")
                     st.session_state.cmp_pptx_bytes = None
+                    st.session_state.cmp_synthesis = None
 
                 try:
                     from outputs.comparison_pdf_writer import ComparisonPDFWriter
@@ -3963,7 +4161,14 @@ def _render_comparison_section(state_a: dict) -> None:
                     log.warning(f"[comparison] PDF auto-gen failed: {_pdex}")
                     st.session_state.cmp_pdf_bytes = None
 
+                # Sauvegarder l'etat initial pour le bouton "Retour"
+                st.session_state.previous_analysis_type    = "results"
+                st.session_state.previous_analysis_results = st.session_state.get("results")
+                st.session_state.previous_analysis_label   = state_a.get("ticker", "analyse")
+
                 st.session_state.cmp_stage = "done"
+                st.session_state.cmp_kind  = "societe"
+                st.session_state.stage     = "comparison_results"
                 st.rerun()
 
             except Exception as _ex:
@@ -4435,6 +4640,436 @@ def render_results(results: dict) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Page post-analyse comparative — societe / secteur / indice
+# ---------------------------------------------------------------------------
+
+def _cmp_back_to_previous():
+    """Retourne a l'analyse initiale depuis la page comparative."""
+    prev_type = st.session_state.get("previous_analysis_type")
+    if prev_type == "results":
+        st.session_state.stage = "results"
+    elif prev_type == "screening_results":
+        st.session_state.stage = "screening_results"
+    else:
+        st.session_state.stage = "home"
+    st.rerun()
+
+
+def _safe_int(v, default=0):
+    try: return int(float(v))
+    except Exception: return default
+
+
+def _safe_pct_100(v):
+    """Retourne un pourcentage (0-100) depuis une valeur qui peut etre en fraction ou en %."""
+    if v is None: return None
+    try:
+        fv = float(v)
+        return fv * 100 if abs(fv) <= 2.0 else fv
+    except Exception:
+        return None
+
+
+def _rec_fr(rec):
+    return {"BUY": "ACHETER", "SELL": "VENDRE", "HOLD": "CONSERVER"}.get(
+        str(rec or "").upper(), str(rec or "—"))
+
+
+def _rec_cls(rec):
+    return {"BUY": "v-buy", "SELL": "v-sell"}.get(str(rec or "").upper(), "v-hold")
+
+
+def render_comparison_results() -> None:
+    """Page post-analyse comparative unifiee.
+
+    Lit st.session_state.cmp_kind ∈ {societe, secteur, indice} et affiche
+    le header + verdict + mini-tableau adapte. Les livrables sont dans le ruban.
+    """
+    kind = st.session_state.get("cmp_kind") or "societe"
+
+    # ------------------------------------------------------------------
+    # Dispatch vers les 3 rendus specialises
+    # ------------------------------------------------------------------
+    if kind == "societe":
+        _render_cmp_societe_page()
+    elif kind == "secteur":
+        _render_cmp_secteur_page()
+    elif kind == "indice":
+        _render_cmp_indice_page()
+    else:
+        st.error(f"Type de comparaison inconnu : {kind}")
+        if st.button("\u2190 Retour"):
+            st.session_state.stage = "home"
+            st.rerun()
+
+
+def _cmp_header(title_main: str, subtitle: str, tkr_a: str, tkr_b: str,
+                rec_a: str, rec_b: str, winner: str,
+                delta_label: str = "Ecart FinSight",
+                delta_value: str = "—") -> None:
+    """En-tete epure commun aux 3 types de comparaison (style analyse societe)."""
+    st.markdown(f'<div class="rc">{_e(title_main)}</div>', unsafe_allow_html=True)
+    st.markdown(
+        f'<div class="rm">{_e(subtitle)}</div>',
+        unsafe_allow_html=True,
+    )
+
+    rec_a_fr  = _rec_fr(rec_a)
+    rec_b_fr  = _rec_fr(rec_b)
+    rec_a_cls = _rec_cls(rec_a)
+    rec_b_cls = _rec_cls(rec_b)
+
+    st.markdown(f"""
+    <div class="verdict-row">
+      <div>
+        <div class="v-lbl">{_e(tkr_a)}</div>
+        <div class="{rec_a_cls}">{rec_a_fr}</div>
+      </div>
+      <div class="v-div"></div>
+      <div>
+        <div class="v-lbl">{_e(tkr_b)}</div>
+        <div class="{rec_b_cls}">{rec_b_fr}</div>
+      </div>
+      <div class="v-div"></div>
+      <div>
+        <div class="v-lbl">Choix prefere</div>
+        <div class="v-tgt">{_e(winner)}</div>
+      </div>
+      <div class="v-div"></div>
+      <div>
+        <div class="v-lbl">{_e(delta_label)}</div>
+        <div class="v-num">{_e(delta_value)}</div>
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+
+def _cmp_verdict_box(verdict_text: str) -> None:
+    """Bloc verdict LLM style sobre (epure)."""
+    if not verdict_text:
+        return
+    st.markdown('<div class="sec-t">Verdict analytique</div>', unsafe_allow_html=True)
+    st.markdown(
+        f'<div style="font-size:14px;line-height:1.85;color:#333;padding:16px 0 8px;">'
+        f'{_e(verdict_text)}</div>',
+        unsafe_allow_html=True,
+    )
+
+
+def _cmp_mini_table(rows: list) -> None:
+    """Mini-tableau comparatif 5-7 lignes.
+
+    rows : liste de tuples (label, val_a, val_b) deja formates en str.
+    """
+    if not rows:
+        return
+    st.markdown('<div class="sec-t" style="margin-top:24px;">Metriques cles</div>',
+                unsafe_allow_html=True)
+    html = ['<table style="width:100%;border-collapse:collapse;font-size:13px;'
+            'margin-top:12px;">']
+    html.append('<thead><tr style="border-bottom:2px solid #1B3A6B;">'
+                '<th style="text-align:left;padding:8px 12px;color:#1B3A6B;'
+                'font-weight:700;">Indicateur</th>'
+                '<th style="text-align:right;padding:8px 12px;color:#1B3A6B;'
+                'font-weight:700;">A</th>'
+                '<th style="text-align:right;padding:8px 12px;color:#1B3A6B;'
+                'font-weight:700;">B</th></tr></thead>')
+    html.append('<tbody>')
+    for i, (lbl, va, vb) in enumerate(rows):
+        bg = '#F8FAFC' if i % 2 == 0 else '#FFFFFF'
+        html.append(
+            f'<tr style="background:{bg};">'
+            f'<td style="padding:8px 12px;color:#333;">{_e(str(lbl))}</td>'
+            f'<td style="padding:8px 12px;text-align:right;color:#111;'
+            f'font-family:DM Mono,monospace;font-weight:600;">{_e(str(va))}</td>'
+            f'<td style="padding:8px 12px;text-align:right;color:#111;'
+            f'font-family:DM Mono,monospace;font-weight:600;">{_e(str(vb))}</td>'
+            f'</tr>'
+        )
+    html.append('</tbody></table>')
+    st.markdown("".join(html), unsafe_allow_html=True)
+
+
+def _cmp_livrables_note() -> None:
+    """Note en bas de page rappelant que les livrables sont dans le ruban."""
+    st.markdown(
+        '<div style="margin-top:32px;padding:16px 20px;background:#F8FAFC;'
+        'border-left:3px solid #1B3A6B;border-radius:2px;font-size:12.5px;'
+        'color:#555;">'
+        '<b style="color:#1B3A6B;">Livrables disponibles</b> — '
+        'Le rapport PDF, le pitchbook PPTX et le fichier Excel sont accessibles '
+        'dans le ruban de gauche. La presente page est une vue de synthese.'
+        '</div>',
+        unsafe_allow_html=True,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Rendu : societe vs societe
+# ---------------------------------------------------------------------------
+def _render_cmp_societe_page() -> None:
+    state_a = st.session_state.get("previous_analysis_results")  # dict results
+    state_b = st.session_state.get("cmp_state_b")
+    if not state_a or not state_b:
+        st.error("Etat de comparaison societe manquant. Retour a l'analyse.")
+        if st.button("\u2190 Retour"):
+            _cmp_back_to_previous()
+        return
+
+    # Metriques des 2 societes
+    from outputs.comparison_writer import extract_metrics, _fetch_supplements
+
+    tkr_a = (state_a.get("raw_data") and getattr(state_a["raw_data"], "ticker", None)) or \
+            state_a.get("ticker", "A")
+    tkr_b = (state_b.get("raw_data") and getattr(state_b["raw_data"], "ticker", None)) or \
+            state_b.get("ticker", "B")
+
+    try:
+        supp_a = _fetch_supplements(tkr_a)
+        supp_b = _fetch_supplements(tkr_b)
+        m_a = extract_metrics(state_a, supp_a)
+        m_b = extract_metrics(state_b, supp_b)
+    except Exception as _mx:
+        st.warning(f"Metriques partielles : {_mx}")
+        m_a = m_b = {}
+
+    name_a = m_a.get("company_name_a") or tkr_a
+    name_b = m_b.get("company_name_b") or tkr_b
+    rec_a  = m_a.get("recommendation") or "HOLD"
+    rec_b  = m_b.get("recommendation") or "HOLD"
+
+    # Winner (FinSight score, tiebreaker Piotroski)
+    fs_a = _safe_int(m_a.get("finsight_score"))
+    fs_b = _safe_int(m_b.get("finsight_score"))
+    if fs_a != fs_b:
+        winner = tkr_a if fs_a > fs_b else tkr_b
+    else:
+        pio_a = _safe_int(m_a.get("piotroski_score"))
+        pio_b = _safe_int(m_b.get("piotroski_score"))
+        winner = tkr_a if pio_a >= pio_b else tkr_b
+    delta = fs_a - fs_b if winner == tkr_a else fs_b - fs_a
+    delta_str = f"+{delta} pts" if delta > 0 else ("—" if delta == 0 else f"{delta} pts")
+
+    _cmp_header(
+        title_main=f"{tkr_a}  vs  {tkr_b}",
+        subtitle=f"{name_a}  \u00b7  {name_b}  \u00b7  Analyse Comparative  \u00b7  "
+                 f"{date.today().strftime('%d.%m.%Y')}",
+        tkr_a=tkr_a, tkr_b=tkr_b,
+        rec_a=rec_a, rec_b=rec_b, winner=winner,
+        delta_label="Ecart FinSight Score",
+        delta_value=delta_str,
+    )
+
+    # Verdict LLM — recupere depuis synthesis comparative
+    synthesis = st.session_state.get("cmp_synthesis") or {}
+    verdict = synthesis.get("verdict_text", "")
+    if not verdict and (rec_a or rec_b):
+        verdict = (
+            f"{winner} est privilegie sur la base du score FinSight composite "
+            f"({fs_a}/100 vs {fs_b}/100), integrant valorisation, croissance, qualite et momentum. "
+            f"Les livrables detailles (PDF, PPTX, Excel) dans le ruban de gauche offrent "
+            f"l'analyse complete : sensibilite DCF, profil de risque, theses bull/bear "
+            f"et football field comparatif."
+        )
+    _cmp_verdict_box(verdict)
+
+    # Mini-tableau comparatif
+    def _fpct(v):
+        pv = _safe_pct_100(v)
+        return f"{pv:.1f}%" if pv is not None else "\u2014"
+    def _fx(v):
+        try: return f"{float(v):.1f}x" if v is not None else "\u2014"
+        except: return "\u2014"
+
+    rows = [
+        ("FinSight Score",   f"{fs_a}/100",          f"{fs_b}/100"),
+        ("Recommandation",   _rec_fr(rec_a),         _rec_fr(rec_b)),
+        ("Marge EBITDA",     _fpct(m_a.get("ebitda_margin_ltm")),
+                             _fpct(m_b.get("ebitda_margin_ltm"))),
+        ("ROIC",             _fpct(m_a.get("roic")), _fpct(m_b.get("roic"))),
+        ("P/E (LTM)",        _fx(m_a.get("pe_ratio")), _fx(m_b.get("pe_ratio"))),
+        ("EV/EBITDA",        _fx(m_a.get("ev_ebitda")), _fx(m_b.get("ev_ebitda"))),
+    ]
+    _cmp_mini_table(rows)
+
+    _cmp_livrables_note()
+
+
+# ---------------------------------------------------------------------------
+# Rendu : secteur vs secteur
+# ---------------------------------------------------------------------------
+def _render_cmp_secteur_page() -> None:
+    sector_a = st.session_state.get("scmp_sector_a") or "Secteur A"
+    sector_b = st.session_state.get("scmp_sector_b") or "Secteur B"
+    tickers_a = st.session_state.get("scmp_tickers_a") or []
+    tickers_b = st.session_state.get("scmp_tickers_b") or []
+
+    # Medianes par secteur (score, EBITDA margin, PE)
+    def _med_float(td, key):
+        vals = []
+        for t in td:
+            v = t.get(key)
+            try:
+                if v is not None:
+                    vals.append(float(v))
+            except Exception:
+                pass
+        if not vals:
+            return None
+        vals.sort()
+        n = len(vals)
+        return vals[n//2] if n % 2 else (vals[n//2-1] + vals[n//2]) / 2
+
+    score_a = _safe_int(_med_float(tickers_a, "score_global"))
+    score_b = _safe_int(_med_float(tickers_b, "score_global"))
+    mg_a    = _med_float(tickers_a, "ebitda_margin")
+    mg_b    = _med_float(tickers_b, "ebitda_margin")
+    pe_a    = _med_float(tickers_a, "pe_ratio") or _med_float(tickers_a, "pe")
+    pe_b    = _med_float(tickers_b, "pe_ratio") or _med_float(tickers_b, "pe")
+
+    winner  = sector_a if score_a >= score_b else sector_b
+    delta   = abs(score_a - score_b)
+    delta_str = f"+{delta} pts" if delta > 0 else "—"
+
+    # Heuristique recommandation secteur : OVERWEIGHT si meilleure mediane score + mg
+    def _sector_rec(sc, mg):
+        if sc is None:
+            return "HOLD"
+        if sc >= 60:
+            return "BUY"
+        if sc >= 45:
+            return "HOLD"
+        return "SELL"
+    rec_a = _sector_rec(score_a, mg_a)
+    rec_b = _sector_rec(score_b, mg_b)
+
+    _cmp_header(
+        title_main=f"{sector_a}  vs  {sector_b}",
+        subtitle=f"Analyse Comparative Sectorielle  \u00b7  "
+                 f"{len(tickers_a)} valeurs vs {len(tickers_b)} valeurs  \u00b7  "
+                 f"{date.today().strftime('%d.%m.%Y')}",
+        tkr_a=sector_a, tkr_b=sector_b,
+        rec_a=rec_a, rec_b=rec_b, winner=winner,
+        delta_label="Ecart Score FinSight median",
+        delta_value=delta_str,
+    )
+
+    verdict = (
+        f"{winner} domine sur la mediane des scores FinSight ({score_a}/100 vs {score_b}/100), "
+        f"signalant une qualite fondamentale agregee superieure. "
+        f"La lecture croisee des multiples et des marges permet d'affiner le choix d'exposition "
+        f"dans une allocation sectorielle. Les livrables detailles dans le ruban de gauche "
+        f"presentent l'analyse complete : top acteurs, catalyseurs, risques et positionnement "
+        f"relatif vs l'univers global."
+    )
+    _cmp_verdict_box(verdict)
+
+    def _fpct_raw(v):
+        if v is None: return "\u2014"
+        try:
+            fv = float(v)
+            pct = fv * 100 if abs(fv) <= 2.0 else fv
+            return f"{pct:.1f}%"
+        except: return "\u2014"
+    def _fx_raw(v):
+        try: return f"{float(v):.1f}x" if v is not None else "\u2014"
+        except: return "\u2014"
+
+    rows = [
+        ("Score FinSight median",   f"{score_a}/100",  f"{score_b}/100"),
+        ("Nombre de valeurs",       str(len(tickers_a)), str(len(tickers_b))),
+        ("Marge EBITDA mediane",    _fpct_raw(mg_a), _fpct_raw(mg_b)),
+        ("P/E median",              _fx_raw(pe_a),   _fx_raw(pe_b)),
+        ("Recommandation",          _rec_fr(rec_a),  _rec_fr(rec_b)),
+    ]
+    _cmp_mini_table(rows)
+
+    _cmp_livrables_note()
+
+
+# ---------------------------------------------------------------------------
+# Rendu : indice vs indice
+# ---------------------------------------------------------------------------
+def _render_cmp_indice_page() -> None:
+    universe_a = st.session_state.get("icmp_universe_a") or "Indice A"
+    universe_b = st.session_state.get("icmp_universe_b") or "Indice B"
+    name_a = _INDICE_CMP_OPTIONS.get(universe_a, (universe_a,))[0] if "_INDICE_CMP_OPTIONS" in globals() else universe_a
+    name_b = _INDICE_CMP_OPTIONS.get(universe_b, (universe_b,))[0] if "_INDICE_CMP_OPTIONS" in globals() else universe_b
+
+    cmp_data = st.session_state.get("icmp_cmp_data") or {}
+    metrics_a = cmp_data.get("metrics_a") or {}
+    metrics_b = cmp_data.get("metrics_b") or {}
+
+    def _g(d, *keys, default=None):
+        for k in keys:
+            v = d.get(k)
+            if v is not None:
+                return v
+        return default
+
+    score_a = _safe_int(_g(metrics_a, "composite_score", "score", "finsight_score"))
+    score_b = _safe_int(_g(metrics_b, "composite_score", "score", "finsight_score"))
+    winner  = name_a if score_a >= score_b else name_b
+    delta   = abs(score_a - score_b)
+    delta_str = f"+{delta} pts" if delta > 0 else "—"
+
+    def _rec_from_score(sc):
+        if sc is None: return "HOLD"
+        if sc >= 60:   return "BUY"
+        if sc >= 45:   return "HOLD"
+        return "SELL"
+
+    rec_a = _rec_from_score(score_a)
+    rec_b = _rec_from_score(score_b)
+
+    _cmp_header(
+        title_main=f"{name_a}  vs  {name_b}",
+        subtitle=f"Analyse Comparative d'Indices  \u00b7  "
+                 f"{date.today().strftime('%d.%m.%Y')}",
+        tkr_a=name_a, tkr_b=name_b,
+        rec_a=rec_a, rec_b=rec_b, winner=winner,
+        delta_label="Ecart Score composite",
+        delta_value=delta_str,
+    )
+
+    verdict = (
+        f"{winner} ressort avec le meilleur score composite, portant une allocation "
+        f"geographique/sectorielle plus favorable dans le contexte macro actuel. "
+        f"Les livrables detailles (PDF, PPTX, Excel) dans le ruban de gauche presentent "
+        f"l'analyse complete : composition sectorielle, concentration, top holdings, "
+        f"performances relatives et hypotheses de rotation."
+    )
+    _cmp_verdict_box(verdict)
+
+    def _fpct_idx(v):
+        if v is None: return "\u2014"
+        try:
+            fv = float(v)
+            pct = fv * 100 if abs(fv) <= 2.0 else fv
+            return f"{pct:+.1f}%"
+        except: return "\u2014"
+
+    def _fnum(v):
+        if v is None: return "\u2014"
+        try: return f"{float(v):.0f}"
+        except: return "\u2014"
+
+    rows = [
+        ("Score composite",         f"{score_a}/100", f"{score_b}/100"),
+        ("Nombre de valeurs",       _fnum(_g(metrics_a, "n_tickers", "count")),
+                                    _fnum(_g(metrics_b, "n_tickers", "count"))),
+        ("Perf. mediane 1Y",        _fpct_idx(_g(metrics_a, "perf_1y_median", "perf_1y")),
+                                    _fpct_idx(_g(metrics_b, "perf_1y_median", "perf_1y"))),
+        ("Marge EBITDA mediane",    _fpct_idx(_g(metrics_a, "ebitda_margin_median", "ebitda_margin")),
+                                    _fpct_idx(_g(metrics_b, "ebitda_margin_median", "ebitda_margin"))),
+        ("Recommandation",          _rec_fr(rec_a), _rec_fr(rec_b)),
+    ]
+    _cmp_mini_table(rows)
+
+    _cmp_livrables_note()
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -4483,6 +5118,13 @@ def main():
         else:
             st.session_state.stage = "home"
             st.rerun()
+    elif stage == "comparison_results":
+        try:
+            render_comparison_results()
+        except Exception as _cmp_err:
+            import traceback as _tb
+            st.error(f"Erreur affichage resultats comparatifs : {_cmp_err}")
+            st.code(_tb.format_exc(), language="text")
     else:
         st.session_state.stage = "home"
         st.rerun()
