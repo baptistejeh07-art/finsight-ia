@@ -1,0 +1,16 @@
+{
+  "ticker": "TECHNOLOGY",
+  "raw_data": null,
+  "sentiment": "SentimentResult(ticker='TECHNOLOGY', timestamp='2026-04-10T04:21:26.094861', score=0.05, score_normalized=0.525, label='NEUTRAL', confidence=0.75, articles_analyzed=1, articles_total=1, breakdown={'avg_positive': 0.15, 'avg_negative': 0.1, 'avg_neutral': 0.75, 'positive_count': 0, 'negative_count': 0, 'neutral_count': 1}, sources=['cnbc_finance'], samples=[{'headline': 'Cramer explains the divergence in tech stocks – and why software may continue to lag', 'source': 'cnbc_finance', 'score': 0.05, 'label': 'NEUTRAL'}], llm_commentary=\"La presse financière souligne une divergence persistante au sein des valeurs technologiques sans impact direct sur TECHNOLOGY. Les commentaires de Cramer ne fournissent pas d'élément décisif pour l'action.\", meta={'request_id': '8612d808-f218-4605-bded-7f498c0287e2', 'latency_ms': 61637, 'confidence_score': 0.75, 'invalidation_conditions': 'Score invalide si : (1) moins de 3 articles analysés (bruit statistique), (2) news > 7 jours (information périmée), (3) ticker ambigu (mêmes lettres = autre société), (4) événement exceptionnel concentre la publication (biais de volume)', 'engine': 'llm_groq', 'tokens_used': 0})",
+  "data_quality": 0.0,
+  "errors": [
+    "AgentData returned None for TECHNOLOGY"
+  ],
+  "logs": [
+    {
+      "node": "fetch_node",
+      "latency_ms": 61642,
+      "status": "error"
+    }
+  ]
+}
