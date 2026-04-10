@@ -2057,7 +2057,7 @@ def _build_capital_returns(data):
         if fcf_last and ebitda_last and ebitda_last != 0:
             try:
                 _conv = abs(float(fcf_last)) / abs(float(ebitda_last))
-                _fcf_conv_note = (f" La conversion EBITDA\u2192FCF de {_conv:.0%} "
+                _fcf_conv_note = (f" La conversion EBITDA->FCF de {_conv:.0%} "
                                   f"{'est excellente (>70\u00a0%), signe d\u2019un mod\u00e8le capital-light' if _conv > 0.7 else 'indique des besoins de capex ou BFR importants'}.")
             except: pass
         _txt = (f"La g\u00e9n\u00e9ration de FCF affiche une {_dir} de "
@@ -3207,7 +3207,7 @@ class PDFWriter:
         if _shares and float(_shares) > 0:
             for _i, _l in enumerate(all_labels):
                 if _i == _ny1_idx and _fwd_eps is not None:
-                    try: _eps_hist[_i] = _frx(float(_fwd_eps))
+                    try: _eps_hist[_i] = _fr(float(_fwd_eps), 2)
                     except: pass
                 elif _i == _ny1_idx + 1:
                     pass  # ny2 : pas d'EPS disponible
@@ -3216,11 +3216,11 @@ class PDFWriter:
                     if _ni_yr is not None:
                         try:
                             _eps_yr = round(float(_ni_yr) * 1000 / float(_shares), 2)
-                            _eps_hist[_i] = _frx(_eps_yr)
+                            _eps_hist[_i] = _fr(_eps_yr, 2)
                         except: pass
             # Remplacer LTM par la valeur yfinance si plus précise
             if _trailing_eps is not None:
-                try: _eps_hist[_ltm_idx] = _frx(float(_trailing_eps))
+                try: _eps_hist[_ltm_idx] = _fr(float(_trailing_eps), 2)
                 except: pass
 
         # Ligne P/E : LTM (trailing) + N+1E (forward)
