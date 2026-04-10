@@ -299,26 +299,50 @@ def synthesis_node(state: FinSightState) -> dict:
 # ---------------------------------------------------------------------------
 
 def qa_node(state: FinSightState) -> dict:
+    """QA + Devil en parallele (Devil ne depend pas de QA, gain ~6-8s).
+
+    AgentQAPython est rapide (deterministe) mais AgentQAHaiku + AgentDevil
+    sont des appels LLM qui peuvent etre paralleles : ils ne se referencent
+    pas mutuellement et lisent uniquement synthesis/ratios.
+    """
     from agents.agent_qa_python import AgentQAPython
     from agents.agent_qa_haiku  import AgentQAHaiku
+    from agents.agent_devil     import AgentDevil
 
     snapshot  = state.get("raw_data")
     ratios    = state.get("ratios")
     synthesis = state.get("synthesis")
 
     t0 = time.time()
-    qa_python = qa_haiku = None
+    qa_python = qa_haiku = devil = None
     qa_passed = True
 
+    # qa_python deterministe rapide → execute en main thread
     try:
         qa_python = AgentQAPython().validate(snapshot, ratios, synthesis)
     except Exception as e:
         log.warning(f"[qa_node] AgentQAPython erreur : {e}")
 
-    try:
-        qa_haiku = AgentQAHaiku().validate(synthesis, qa_python)
-    except Exception as e:
-        log.warning(f"[qa_node] AgentQAHaiku erreur : {e}")
+    # qa_haiku + devil = 2 LLM calls independants → ThreadPoolExecutor
+    def _run_qa_haiku():
+        try:
+            return AgentQAHaiku().validate(synthesis, qa_python)
+        except Exception as e:
+            log.warning(f"[qa_node] AgentQAHaiku erreur : {e}")
+            return None
+
+    def _run_devil():
+        try:
+            return AgentDevil().challenge(synthesis, ratios)
+        except Exception as e:
+            log.warning(f"[qa_node] AgentDevil erreur : {e}")
+            return None
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        f_haiku = executor.submit(_run_qa_haiku)
+        f_devil = executor.submit(_run_devil)
+        qa_haiku = f_haiku.result()
+        devil    = f_devil.result()
 
     # Determiner si QA passe : pas d'erreur critique en QAPython
     if qa_python:
@@ -330,10 +354,12 @@ def qa_node(state: FinSightState) -> dict:
 
     ms = int((time.time() - t0) * 1000)
     retries = state.get("qa_retries") or 0
+    log.info(f"[qa_node] qa+devil parallel — {ms}ms")
 
     return {
         "qa_python":  qa_python,
         "qa_haiku":   qa_haiku,
+        "devil":      devil,
         "qa_passed":  qa_passed,
         "qa_retries": retries,
         **_log_entry(state, "qa_node", ms,
@@ -610,8 +636,8 @@ def build_graph() -> StateGraph:
         },
     )
     graph.add_edge("synthesis_retry",  "qa_node")
-    graph.add_edge("entry_zone_node",  "devil_node")
-    graph.add_edge("devil_node",       "output_node")
+    # devil_node desormais execute en parallele dans qa_node (gain ~6-8s)
+    graph.add_edge("entry_zone_node",  "output_node")
     graph.add_edge("output_node",     END)
 
     return graph.compile()

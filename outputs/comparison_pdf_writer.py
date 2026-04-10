@@ -434,36 +434,45 @@ def _chart_margins(m_a, m_b, tkr_a, tkr_b) -> io.BytesIO:
             if v is None: return 0.0
             fv = float(v)
             return fv * 100 if abs(fv) <= 2.0 else fv
-        labels  = ["Marge\nEBITDA", "Marge\nEBIT", "Marge\nNette"]
+        labels  = ["Marge EBITDA", "Marge EBIT", "Marge Nette"]
         vals_a  = [_pv(m_a.get("ebitda_margin_ltm")), _pv(m_a.get("ebit_margin")), _pv(m_a.get("net_margin_ltm"))]
         vals_b  = [_pv(m_b.get("ebitda_margin_ltm")), _pv(m_b.get("ebit_margin")), _pv(m_b.get("net_margin_ltm"))]
         x = np.arange(len(labels))
         width = 0.35
-        fig, ax = plt.subplots(figsize=(9.5, 3.4))
+        fig, ax = plt.subplots(figsize=(8.5, 4.2))
+        # Titre analytique : qui domine sur les marges
+        try:
+            _ebitda_a = vals_a[0]
+            _ebitda_b = vals_b[0]
+            _leader = tkr_a if _ebitda_a > _ebitda_b else tkr_b
+            _title_chart = f"{_leader} domine les marges (EBITDA {max(_ebitda_a, _ebitda_b):.0f}% vs {min(_ebitda_a, _ebitda_b):.0f}%)"
+        except Exception:
+            _title_chart = "Marges comparees"
+        ax.set_title(_title_chart, fontsize=14, fontweight='bold', color='#1B3A6B', pad=10)
         bars_a = ax.bar(x - width/2, vals_a, width, label=tkr_a, color='#1B3A6B', alpha=0.95)
         bars_b = ax.bar(x + width/2, vals_b, width, label=tkr_b, color='#C9A227', alpha=0.95)
         for bar in list(bars_a) + list(bars_b):
             h = bar.get_height()
             if h != 0:
-                ax.text(bar.get_x() + bar.get_width()/2., h + 0.5,
-                        f"{h:.1f}%", ha='center', va='bottom', fontsize=10, color='#333')
+                ax.text(bar.get_x() + bar.get_width()/2., h + 0.8,
+                        f"{h:.1f}%", ha='center', va='bottom', fontsize=12, color='#333', fontweight='bold')
         # Note si toutes les valeurs sont proches de 0 (donnees manquantes)
         if all(abs(v) < 0.01 for v in vals_a + vals_b):
             ax.text(0.5, 0.5, "Donnees insuffisantes", ha='center', va='center',
-                    transform=ax.transAxes, fontsize=11, color='#999', style='italic')
+                    transform=ax.transAxes, fontsize=13, color='#999', style='italic')
         else:
-            # Forcer y_min à 0 pour éviter l'axe effondré
-            ax.set_ylim(bottom=0, top=max(max(vals_a + vals_b) * 1.2, 5))
-        ax.set_xticks(x); ax.set_xticklabels(labels, fontsize=11)
-        ax.set_ylabel("(%)", fontsize=10, color='#555')
-        ax.legend(loc='upper right', fontsize=11, frameon=False)
+            # Forcer y_min à 0 pour éviter l'axe effondré + top avec marge
+            ax.set_ylim(bottom=0, top=max(max(vals_a + vals_b) * 1.25, 5))
+        ax.set_xticks(x); ax.set_xticklabels(labels, fontsize=13)
+        ax.set_ylabel("(%)", fontsize=12, color='#555')
+        ax.legend(loc='upper right', fontsize=13, frameon=False)
         for sp in ['top', 'right']: ax.spines[sp].set_visible(False)
         ax.spines['left'].set_color('#D0D5DD'); ax.spines['bottom'].set_color('#D0D5DD')
-        ax.tick_params(axis='y', labelsize=10)
+        ax.tick_params(axis='y', labelsize=12)
         ax.set_facecolor('white'); fig.patch.set_facecolor('white')
         ax.yaxis.grid(True, alpha=0.3, color='#D0D5DD'); ax.set_axisbelow(True)
-        plt.tight_layout(pad=0.6)
-        buf = io.BytesIO(); fig.savefig(buf, format='png', dpi=150, bbox_inches='tight')
+        plt.tight_layout(pad=0.8)
+        buf = io.BytesIO(); fig.savefig(buf, format='png', dpi=160, bbox_inches='tight')
         plt.close(fig); buf.seek(0); return buf
     except Exception as e:
         log.warning(f"[cmp_pdf] chart_margins error: {e}")
@@ -826,7 +835,8 @@ def _build_cover_story(tkr_a, tkr_b, name_a, name_b,
 
     # ---- Verdict box ----
     winner = m_a.get("winner") or tkr_a
-    verdict_raw = _safe(_word_clip(synthesis.get("verdict_text") or "", 480))
+    # Clip large (900 chars) pour accomoder le verdict complet "Choix/Pourquoi/Risque"
+    verdict_raw = _safe(_word_clip(synthesis.get("verdict_text") or "", 900))
 
     verd_data = [[
         Paragraph(_safe(f"Choix prefere : {winner}"),
@@ -1187,11 +1197,8 @@ def _section_rentabilite_bilan(story, m_a, m_b, tkr_a, tkr_b):
     story.append(img)
     story.append(Spacer(1, 3*mm))
 
-    # Bilan (avec CondPageBreak)
-    story.append(CondPageBreak(80*mm))
-    story.append(Paragraph(_safe(_bilan_text(m_a, m_b, tkr_a, tkr_b)), S_BODY))
-    story.append(Spacer(1, 3*mm))
-
+    # Bilan — regroupe dans un KeepTogether pour eviter qu'une partie orpheline
+    # (source ou derniere ligne) se retrouve seule sur la page suivante.
     hdr_b = [
         Paragraph("<b>Bilan</b>", S_TH_L),
         Paragraph(f"<b>{_enc(tkr_a)}</b>", S_TH_C),
@@ -1208,14 +1215,20 @@ def _section_rentabilite_bilan(story, m_a, m_b, tkr_a, tkr_b):
         ["Fonds Propres",    _frm(m_a.get("equity")),            _frm(m_b.get("equity"))],
     ]
     t_b = _make_tbl_3col(hdr_b, raw_b)
-    if t_b:
-        story.append(t_b)
-    story.append(Spacer(1, 3*mm))
 
-    # --- Texte analytique sous le tableau Bilan ---
-    story.append(Paragraph(_safe(_bilan_text_below(m_a, m_b, tkr_a, tkr_b)), S_BODY))
-    story.append(Spacer(1, 2*mm))
-    story.append(src("FinSight IA / yfinance"))
+    _bilan_block = [
+        Paragraph(_safe(_bilan_text(m_a, m_b, tkr_a, tkr_b)), S_BODY),
+        Spacer(1, 3*mm),
+    ]
+    if t_b:
+        _bilan_block.append(t_b)
+    _bilan_block.append(Spacer(1, 3*mm))
+    _bilan_block.append(Paragraph(_safe(_bilan_text_below(m_a, m_b, tkr_a, tkr_b)), S_BODY))
+    _bilan_block.append(Spacer(1, 2*mm))
+    _bilan_block.append(src("FinSight IA / yfinance"))
+    # CondPageBreak avant si < 110mm restants (bilan complet fait ~100mm)
+    story.append(CondPageBreak(110*mm))
+    story.append(KeepTogether(_bilan_block))
 
 
 def _section_valorisation(story, m_a, m_b, synthesis, tkr_a, tkr_b):

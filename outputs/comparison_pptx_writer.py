@@ -423,16 +423,24 @@ def divider_slide(prs, number_str: str, title: str, subtitle: str):
     return slide
 
 
-def _company_header_band(slide, tkr_a, tkr_b, name_a="", name_b=""):
-    """Bande bicolore sous le titre identifiant les deux societes."""
-    lbl_a = f"{tkr_a}" + (f"  {_truncate(name_a, 22)}" if name_a else "")
-    lbl_b = f"{tkr_b}" + (f"  {_truncate(name_b, 22)}" if name_b else "")
+def _company_header_band(slide, tkr_a, tkr_b, name_a="", name_b="", m_a=None, m_b=None):
+    """Bande bicolore sous le titre identifiant les deux societes.
+    Format cible : "Apple Inc. (AAPL)" (nom complet + ticker entre parentheses).
+    Si m_a/m_b fournis, on y cherche company_name_a/company_name_b."""
+    # Recuperation auto des noms depuis les metrics si fournis
+    if m_a and not name_a:
+        name_a = m_a.get("company_name_a") or ""
+    if m_b and not name_b:
+        name_b = m_b.get("company_name_b") or ""
+    # Format : "Apple Inc. (AAPL)" si nom dispo, sinon juste le ticker
+    lbl_a = f"{_truncate(name_a, 30)} ({tkr_a})" if name_a else f"{tkr_a}"
+    lbl_b = f"{_truncate(name_b, 30)} ({tkr_b})" if name_b else f"{tkr_b}"
     add_rect(slide, 1.02, 1.73, 11.44, 0.56, COLOR_A_PAL)
     add_rect(slide, 1.02, 1.73, 0.18, 0.56, COLOR_A)
-    add_text_box(slide, 1.35, 1.78, 11.0, 0.46, lbl_a, 8.5, NAVY, bold=True)
+    add_text_box(slide, 1.35, 1.78, 11.0, 0.46, lbl_a, 8.5, NAVY, bold=True, wrap=False)
     add_rect(slide, 12.94, 1.73, 11.44, 0.56, COLOR_B_PAL)
     add_rect(slide, 12.94, 1.73, 0.18, 0.56, COLOR_B)
-    add_text_box(slide, 13.27, 1.78, 11.0, 0.46, lbl_b, 8.5, GREEN, bold=True)
+    add_text_box(slide, 13.27, 1.78, 11.0, 0.46, lbl_b, 8.5, GREEN, bold=True, wrap=False)
 
 
 # ---------------------------------------------------------------------------
@@ -558,15 +566,39 @@ SCORES:
     )
     results["quality_text"] = _word_clip(r, 900)
 
-    # Verdict final (80 mots max) — ancre sur le gagnant deja calcule
+    # Verdict final (120 mots max) — ancre strict sur le gagnant deja calcule.
+    # Contrainte forte : le LLM doit parler UNIQUEMENT du gagnant. Si le verdict
+    # mentionne l'autre ticker avant le gagnant, on re-genere une fois.
     winner_for_llm = m_a.get('winner') or tkr_a
-    r = _call_llm(
-        f"Verdict comparatif final de 80 mots MAX : le titre retenu est {winner_for_llm}. "
-        f"Justifie ce choix (catalyseur cle, valorisation relative, qualite bilan) "
-        f"et mentionne le principal risque de la these.\n{data_str}",
-        system=system_msg, max_tokens=300
+    loser_for_llm  = tkr_b if winner_for_llm == tkr_a else tkr_a
+    _verdict_prompt = (
+        f"Tu dois rediger un verdict d'investissement final pour la comparaison "
+        f"{tkr_a} vs {tkr_b}. Le choix retenu est {winner_for_llm} (NON NEGOCIABLE, "
+        f"c'est le resultat du score composite FinSight, tu ne peux pas le changer). "
+        f"Structure OBLIGATOIRE de ta reponse (120 mots MAX au total) :\n"
+        f"1. Commence par : \"Choix : {winner_for_llm}.\"\n"
+        f"2. Ensuite \"Pourquoi :\" suivi de 2-3 arguments concrets en faveur de "
+        f"{winner_for_llm} (valorisation relative, qualite bilan, catalyseurs).\n"
+        f"3. Termine par \"Risque principal :\" suivi du risque cle de la these "
+        f"{winner_for_llm}.\n"
+        f"Tu ne dois PAS recommander {loser_for_llm} ni suggerer qu'il est meilleur. "
+        f"Utilise les chiffres fournis.\n\n{data_str}"
     )
-    results["verdict_text"] = _word_clip(r, 800)
+    r = _call_llm(_verdict_prompt, system=system_msg, max_tokens=500)
+    # Validation : si le LLM commence par parler du loser, on tronque tout ce qui
+    # precede le winner pour garantir la coherence visuelle avec le badge "CHOIX PREFERE".
+    if r and loser_for_llm in r and winner_for_llm in r:
+        _idx_winner = r.find(winner_for_llm)
+        _idx_loser  = r.find(loser_for_llm)
+        if 0 <= _idx_loser < _idx_winner:
+            # Le loser est cite AVANT le winner -> on start au "Choix :" si present,
+            # sinon on prepend une phrase d'ancrage.
+            _anchor_idx = r.find(f"Choix : {winner_for_llm}")
+            if _anchor_idx > 0:
+                r = r[_anchor_idx:]
+            else:
+                r = f"Choix : {winner_for_llm}. " + r[_idx_winner:]
+    results["verdict_text"] = _word_clip(r, 1200)
 
     def _split_bull_bear(r, sep="|||"):
         """Split bull/bear text — essaie plusieurs separateurs."""
@@ -814,7 +846,7 @@ def _chart_finsight_score(m_a: dict, m_b: dict, tkr_a: str, tkr_b: str) -> Optio
         matplotlib.use('Agg')
         import numpy as np
 
-        fig, ax = plt.subplots(figsize=(11.0, 2.8))
+        fig, ax = plt.subplots(figsize=(8.5, 4.2))
         fig.patch.set_facecolor('white')
         ax.set_facecolor('#FAFAFA')
 
@@ -827,21 +859,21 @@ def _chart_finsight_score(m_a: dict, m_b: dict, tkr_a: str, tkr_b: str) -> Optio
 
         bars = ax.barh(labels, values, color=colors_bar, height=0.55, alpha=0.9)
         for bar, val in zip(bars, values):
-            ax.text(val + 0.5, bar.get_y() + bar.get_height()/2.,
-                    f'{val:.0f}/100', ha='left', va='center', fontsize=11,
+            ax.text(val + 1.0, bar.get_y() + bar.get_height()/2.,
+                    f'{val:.0f}/100', ha='left', va='center', fontsize=14,
                     fontweight='bold', color='#333')
-        ax.set_xlim(0, 110)
-        ax.set_xlabel('Score /100', fontsize=9)
+        ax.set_xlim(0, 115)
+        ax.set_xlabel('Score /100', fontsize=12)
         _fs_winner = tkr_a if fs_a > fs_b else (tkr_b if fs_b > fs_a else None)
         _fs_delta = abs(int(fs_a) - int(fs_b))
         _fs_title = (f"FinSight Score : {_fs_winner} favori ({_fs_delta} pts d'avance)"
                      if _fs_winner else "FinSight Score : egalite")
-        ax.set_title(_fs_title, fontsize=10, fontweight='bold', color='#1B3A6B')
-        ax.axvline(50, color='#AAAAAA', linestyle='--', linewidth=0.8)
-        ax.text(50.5, -0.55, 'Neutre', fontsize=7, color='#888')
+        ax.set_title(_fs_title, fontsize=14, fontweight='bold', color='#1B3A6B', pad=14)
+        ax.axvline(50, color='#AAAAAA', linestyle='--', linewidth=0.9)
+        ax.text(50.8, -0.55, 'Neutre', fontsize=9, color='#888')
         ax.spines['top'].set_visible(False); ax.spines['right'].set_visible(False)
-        ax.tick_params(labelsize=9)
-        fig.tight_layout(pad=1.0)
+        ax.tick_params(labelsize=12)
+        fig.tight_layout(pad=1.2)
         return _make_chart_buf(fig)
     except Exception as e:
         log.warning(f"[cmp_pptx] chart_finsight_score error: {e}")
@@ -886,22 +918,22 @@ def _chart_risk_profile(m_a: dict, m_b: dict, tkr_a: str, tkr_b: str) -> Optiona
         scores_a += scores_a[:1]
         scores_b += scores_b[:1]
 
-        fig, ax = plt.subplots(figsize=(4.8, 4.0), subplot_kw=dict(polar=True))
+        fig, ax = plt.subplots(figsize=(6.4, 5.6), subplot_kw=dict(polar=True))
         fig.patch.set_facecolor('white')
         ax.set_facecolor('#FAFAFA')
 
-        ax.plot(angles, scores_a, 'o-', linewidth=2, color='#2E5FA3', label=tkr_a)
+        ax.plot(angles, scores_a, 'o-', linewidth=2.2, color='#2E5FA3', label=tkr_a)
         ax.fill(angles, scores_a, alpha=0.18, color='#2E5FA3')
-        ax.plot(angles, scores_b, 'o-', linewidth=2, color='#2E8B57', label=tkr_b)
+        ax.plot(angles, scores_b, 'o-', linewidth=2.2, color='#2E8B57', label=tkr_b)
         ax.fill(angles, scores_b, alpha=0.18, color='#2E8B57')
 
         ax.set_xticks(angles[:-1])
-        ax.set_xticklabels(categories, fontsize=7.5)
+        ax.set_xticklabels(categories, fontsize=10)
         ax.set_ylim(0, 1)
         ax.set_yticks([0.25, 0.5, 0.75])
         ax.set_yticklabels([], fontsize=0)
-        ax.legend(loc='upper right', bbox_to_anchor=(1.3, 1.15), fontsize=8)
-        ax.set_title('Profil de Risque', fontsize=9, fontweight='bold', color='#1B3A6B', pad=12)
+        ax.legend(loc='upper right', bbox_to_anchor=(1.25, 1.12), fontsize=11)
+        ax.set_title('Profil de Risque', fontsize=14, fontweight='bold', color='#1B3A6B', pad=18)
         ax.grid(color='#CCCCCC', linestyle='--', linewidth=0.5)
         fig.tight_layout(pad=0.5)
         return _make_chart_buf(fig)
@@ -1017,7 +1049,7 @@ def _chart_52w_price(tkr_a: str, tkr_b: str) -> Optional[io.BytesIO]:
         if df_a.empty and df_b.empty:
             return None
 
-        fig, ax = plt.subplots(figsize=(12, 4.5))
+        fig, ax = plt.subplots(figsize=(10.0, 7.3))
         fig.patch.set_facecolor('white')
         ax.set_facecolor('#FAFAFA')
         ca = '#2E5FA3'; cb = '#2E8B57'
@@ -1027,14 +1059,14 @@ def _chart_52w_price(tkr_a: str, tkr_b: str) -> Optional[io.BytesIO]:
             base_a = close_a.iloc[0]
             if base_a and base_a > 0:
                 ax.plot(close_a.index, close_a / base_a * 100,
-                        color=ca, linewidth=1.8, label=tkr_a)
+                        color=ca, linewidth=2.4, label=tkr_a)
 
         if not df_b.empty:
             close_b = df_b['Close'].squeeze()
             base_b = close_b.iloc[0]
             if base_b and base_b > 0:
                 ax.plot(close_b.index, close_b / base_b * 100,
-                        color=cb, linewidth=1.8, label=tkr_b)
+                        color=cb, linewidth=2.4, label=tkr_b)
 
         ax.axhline(y=100, color='#BBBBBB', linestyle='--', linewidth=0.9, alpha=0.7)
         # Titre analytique : qui sur/sous-performe sur 52 semaines
@@ -1052,16 +1084,16 @@ def _chart_52w_price(tkr_a: str, tkr_b: str) -> Optional[io.BytesIO]:
                 _52_title = 'Performance Relative 52 Semaines (base 100)'
         except Exception:
             _52_title = 'Performance Relative 52 Semaines (base 100)'
-        ax.set_title(_52_title, fontsize=10, fontweight='bold', color='#1B3A6B', pad=5)
-        ax.set_ylabel('Performance (base 100)', fontsize=8)
-        ax.legend(fontsize=9)
+        ax.set_title(_52_title, fontsize=15, fontweight='bold', color='#1B3A6B', pad=14)
+        ax.set_ylabel('Performance (base 100)', fontsize=12)
+        ax.legend(fontsize=13, loc='best', framealpha=0.95)
         ax.spines['top'].set_visible(False)
         ax.spines['right'].set_visible(False)
-        ax.tick_params(labelsize=8)
+        ax.tick_params(labelsize=11)
         ax.xaxis.set_major_formatter(mdates.DateFormatter('%b %y'))
         ax.xaxis.set_major_locator(mdates.MonthLocator(interval=2))
         plt.xticks(rotation=25, ha='right')
-        fig.tight_layout(pad=1.0)
+        fig.tight_layout(pad=1.4)
         return _make_chart_buf(fig)
     except Exception as e:
         log.warning(f"[cmp_pptx] chart_52w_price error: {e}")
@@ -1237,19 +1269,21 @@ def _slide_exec_summary(prs, m_a: dict, m_b: dict, synthesis: dict):
     footer_bar(slide)
     slide_title(slide, "Executive Summary Comparatif")
     section_dots(slide, 1)
-    _company_header_band(slide, tkr_a, tkr_b)
+    _company_header_band(slide, tkr_a, tkr_b, m_a=m_a, m_b=m_b)
 
-    # Sous-titre analytique JPM style
-    add_text_box(slide, 1.02, 2.38, 23.37, 0.45,
-                 _truncate(_jpm_sub, 90), 10, NAVY_MID, bold=True, italic=True)
-
-    # Bande LLM exec summary LLM — plus grande
+    # Bande LLM exec summary : titre JPM INTEGRE au sommet du cadre + texte en dessous
     exec_txt = synthesis.get('exec_summary') or ""
+    _box_y = 2.45
+    _box_h = 3.20
+    add_rect(slide, 1.02, _box_y, 23.37, _box_h, NAVY_PALE)
+    add_rect(slide, 1.02, _box_y, 0.13, _box_h, NAVY_MID)
+    # Titre JPM en haut du cadre (bold, navy fonce, italic)
+    add_text_box(slide, 1.4, _box_y + 0.12, 22.8, 0.50,
+                 _truncate(_jpm_sub, 95), 11, NAVY, bold=True, italic=True)
+    # Texte LLM exec summary juste en dessous
     if exec_txt:
         _exec_clean = " ".join(_fit(exec_txt, 700).split())
-        add_rect(slide, 1.02, 2.90, 23.37, 2.65, NAVY_PALE)
-        add_rect(slide, 1.02, 2.90, 0.13, 2.65, NAVY_MID)
-        add_text_box(slide, 1.4, 3.00, 22.8, 2.50, _exec_clean,
+        add_text_box(slide, 1.4, _box_y + 0.75, 22.8, _box_h - 0.9, _exec_clean,
                      9, NAVY, wrap=True)
 
     # Tableau comparatif avec highlight gagnant (fleches vertes)
@@ -1309,9 +1343,9 @@ def _slide_exec_summary(prs, m_a: dict, m_b: dict, synthesis: dict):
             elif wb: sb = "\u25b2 " + sb
         rows.append((lbl, sa, sb))
 
-    y_tbl = 6.0
+    y_tbl = 5.85
     add_table(
-        slide, 1.02, y_tbl, 23.37, 5.2,
+        slide, 1.02, y_tbl, 23.37, 5.45,
         num_rows=len(rows), num_cols=3,
         col_widths_pct=[0.40, 0.30, 0.30],
         header_data=["Indicateur cle", tkr_a, tkr_b],
@@ -1319,26 +1353,27 @@ def _slide_exec_summary(prs, m_a: dict, m_b: dict, synthesis: dict):
         header_fill=NAVY, border_hex="DDDDDD"
     )
 
-    # Bandeau verdict bas : choix prefere
-    y_verd = 11.55
+    # Bandeau verdict bas : choix prefere — version reduite et plus sobre
+    y_verd = 11.65
     _is_a = (winner == tkr_a)
     _verd_fill = COLOR_A_PAL if _is_a else COLOR_B_PAL
     _verd_accent = COLOR_A if _is_a else COLOR_B
-    add_rect(slide, 1.02, y_verd, 23.37, 1.25, _verd_fill)
-    add_rect(slide, 1.02, y_verd, 0.18, 1.25, _verd_accent)
-    add_text_box(slide, 1.35, y_verd + 0.12, 22.8, 0.45,
-                 f"CHOIX PREFERE : {winner}", 11, NAVY, bold=True)
+    add_rect(slide, 1.02, y_verd, 23.37, 0.95, _verd_fill)
+    add_rect(slide, 1.02, y_verd, 0.18, 0.95, _verd_accent)
     _fs_a = m_a.get('finsight_score') or 0
     _fs_b = m_b.get('finsight_score') or 0
     try:
         _gap = abs(int(_fs_a) - int(_fs_b))
     except Exception:
         _gap = 0
+    # Choix prefere + ecart fusionnes sur une seule ligne pour compacter
+    add_text_box(slide, 1.35, y_verd + 0.12, 22.8, 0.38,
+                 f"Choix prefere : {winner}", 10, NAVY, bold=True)
     _verd_sub = (
-        f"Ecart de score FinSight : {_gap} point(s) - lecture detaillee "
+        f"Ecart de score FinSight : {_gap} point(s)  -  lecture detaillee "
         f"dans les sections suivantes (valorisation, qualite bilancielle, momentum)."
     )
-    add_text_box(slide, 1.35, y_verd + 0.58, 22.8, 0.55, _verd_sub, 8.5, GREY_TXT, wrap=True)
+    add_text_box(slide, 1.35, y_verd + 0.48, 22.8, 0.42, _verd_sub, 8, GREY_TXT, wrap=True)
 
     return slide
 
@@ -1459,7 +1494,7 @@ def _slide_pl(prs, m_a: dict, m_b: dict, synthesis: dict):
     footer_bar(slide)
     slide_title(slide, "Compte de Resultat Compare")
     section_dots(slide, 2)
-    _company_header_band(slide, tkr_a, tkr_b)
+    _company_header_band(slide, tkr_a, tkr_b, m_a=m_a, m_b=m_b)
 
     # Titre JPM dynamique base sur rev cagr
     _cagr_a = _safe_float(m_a.get('revenue_cagr_3y')) or 0
@@ -1516,7 +1551,7 @@ def _slide_marges(prs, m_a: dict, m_b: dict, synthesis: dict):
     footer_bar(slide)
     slide_title(slide, "Rentabilite & Croissance Comparees")
     section_dots(slide, 2)
-    _company_header_band(slide, tkr_a, tkr_b)
+    _company_header_band(slide, tkr_a, tkr_b, m_a=m_a, m_b=m_b)
 
     # Titre analytique JPM
     _mg_a = _safe_float(m_a.get('ebitda_margin_ltm')) or 0
@@ -1538,35 +1573,27 @@ def _slide_marges(prs, m_a: dict, m_b: dict, synthesis: dict):
         add_rect(slide, 1.02, 2.90, 0.13, 2.55, NAVY_MID)
         add_text_box(slide, 1.4, 3.00, 22.8, 2.40, _txt_clean, 9, NAVY, wrap=True)
 
-    # KPIs side-by-side — 2 lignes de 4 mais hauteur reduite
-    y_kpi = 5.70
-    kh = 1.40
-
-    kpi_box(slide, 1.02,  y_kpi, 5.5, kh, _frpct_margin(m_a.get('ebitda_margin_ltm')), f"Marge EBITDA — {tkr_a}", "", COLOR_A_PAL, COLOR_A)
-    kpi_box(slide, 6.90,  y_kpi, 5.5, kh, _frpct_margin(m_b.get('ebitda_margin_ltm')), f"Marge EBITDA — {tkr_b}", "", COLOR_B_PAL, COLOR_B)
-    kpi_box(slide, 12.87, y_kpi, 5.5, kh, _frpct(m_a.get('roic')),                     f"ROIC — {tkr_a}",        "", COLOR_A_PAL, COLOR_A)
-    kpi_box(slide, 18.75, y_kpi, 5.5, kh, _frpct(m_b.get('roic')),                     f"ROIC — {tkr_b}",        "", COLOR_B_PAL, COLOR_B)
-
-    y2 = y_kpi + 1.55
-    kpi_box(slide, 1.02,  y2, 5.5, kh, _frpct(m_a.get('revenue_cagr_3y')), f"Rev CAGR 3y — {tkr_a}", "", COLOR_A_PAL, COLOR_A)
-    kpi_box(slide, 6.90,  y2, 5.5, kh, _frpct(m_b.get('revenue_cagr_3y')), f"Rev CAGR 3y — {tkr_b}", "", COLOR_B_PAL, COLOR_B)
-    kpi_box(slide, 12.87, y2, 5.5, kh, _frpct(m_a.get('roe')),             f"ROE — {tkr_a}",        "", COLOR_A_PAL, COLOR_A)
-    kpi_box(slide, 18.75, y2, 5.5, kh, _frpct(m_b.get('roe')),             f"ROE — {tkr_b}",        "", COLOR_B_PAL, COLOR_B)
-
-    # Graphiques marges + croissance — proportions ratio figsize 6.8/3.2 = 2.125
-    # hauteur 4.2cm donne largeur 8.93cm -> on cadre pour 2 charts cote a cote + espacement
-    y_ch = y2 + 1.55
-    _ch_h = min(4.0, 13.2 - y_ch)
-    _ch_w = _ch_h * 2.125  # Respecte le ratio matplotlib pour eviter deformation
-    # Deux charts centres avec gap 0.4cm
+    # Graphiques marges + croissance — plein cadre (blocs KPI retires car
+    # redondants avec les charts). Zone disponible : y=5.70 -> 13.20 (7.5cm).
+    # figsize 6.8/3.2 = ratio 2.125 ; on respecte pour eviter deformation.
+    y_ch = 5.70
+    _ch_h = 6.80  # 13.20 - 5.70 - 0.70 footer margin = 6.80cm
+    _ch_w = _ch_h * 2.125  # ~14.45cm : trop large pour 2 charts cote a cote
+    # Fallback : on cap sur la largeur disponible pour 2 charts
+    _max_w_per_chart = (23.37 - 0.4) / 2  # ~11.48cm
+    if _ch_w > _max_w_per_chart:
+        _ch_w = _max_w_per_chart
+        _ch_h = _ch_w / 2.125
     _total_w = _ch_w * 2 + 0.4
     _x0 = max(1.02, (25.4 - _total_w) / 2)
+    # Centrer verticalement dans la zone 5.70-13.20
+    _y_centered = 5.70 + (7.50 - _ch_h) / 2
     buf_l = _chart_ebitda_margins(m_a, m_b, tkr_a, tkr_b)
     buf_r = _chart_growth_returns(m_a, m_b, tkr_a, tkr_b)
     if buf_l:
-        _insert_chart(slide, buf_l, _x0, y_ch, _ch_w, _ch_h)
+        _insert_chart(slide, buf_l, _x0, _y_centered, _ch_w, _ch_h)
     if buf_r:
-        _insert_chart(slide, buf_r, _x0 + _ch_w + 0.4, y_ch, _ch_w, _ch_h)
+        _insert_chart(slide, buf_r, _x0 + _ch_w + 0.4, _y_centered, _ch_w, _ch_h)
 
     return slide
 
@@ -1583,7 +1610,7 @@ def _slide_bilan(prs, m_a: dict, m_b: dict):
     footer_bar(slide)
     slide_title(slide, "Bilan & Liquidite Compares")
     section_dots(slide, 2)
-    _company_header_band(slide, tkr_a, tkr_b)
+    _company_header_band(slide, tkr_a, tkr_b, m_a=m_a, m_b=m_b)
 
     # Titre analytique JPM dynamique base sur levier
     _nd_a = _safe_float(m_a.get('net_debt_ebitda'))
@@ -1607,7 +1634,7 @@ def _slide_bilan(prs, m_a: dict, m_b: dict):
         ("Altman Z-Score",    _fr(m_a.get('altman_z'), 2),               _fr(m_b.get('altman_z'), 2)),
     ]
     add_table(
-        slide, 1.02, 2.90, 23.37, 5.4,
+        slide, 1.02, 2.90, 23.37, 6.5,
         num_rows=len(rows), num_cols=3,
         col_widths_pct=[0.44, 0.28, 0.28],
         header_data=["Indicateur Bilan", tkr_a, tkr_b],
@@ -1615,12 +1642,7 @@ def _slide_bilan(prs, m_a: dict, m_b: dict):
         header_fill=NAVY, border_hex="DDDDDD"
     )
 
-    # KPIs bilan
-    y_kpi = 8.55
-    kpi_box(slide, 1.02,  y_kpi, 5.5, 1.6, _fr(m_a.get('net_debt_ebitda'), 1) + "x", f"Net Debt/EBITDA — {tkr_a}", "", COLOR_A_PAL, COLOR_A)
-    kpi_box(slide, 7.0,   y_kpi, 5.5, 1.6, _fr(m_b.get('net_debt_ebitda'), 1) + "x", f"Net Debt/EBITDA — {tkr_b}", "", COLOR_B_PAL, COLOR_B)
-    kpi_box(slide, 12.98, y_kpi, 5.5, 1.6, _frpct(m_a.get('fcf_yield')),             f"FCF Yield — {tkr_a}", "", COLOR_A_PAL, COLOR_A)
-    kpi_box(slide, 18.95, y_kpi, 5.5, 1.6, _frpct(m_b.get('fcf_yield')),             f"FCF Yield — {tkr_b}", "", COLOR_B_PAL, COLOR_B)
+    # Blocs KPI retires (redondants avec le tableau). Le texte LLM prend la place liberee.
 
     # --- Bande LLM analytique bilan ---
     def _lev_q(v):
@@ -1654,14 +1676,15 @@ def _slide_bilan(prs, m_a: dict, m_b: dict):
         f"({_fcfy_a:.1f}% vs {_fcfy_b:.1f}% de FCF yield), soutenant la soutenabilite du dividende "
         f"et la capacite de rachat d'actions."
     )
-    y_txt = y_kpi + 1.85
-    add_rect(slide, 1.02, y_txt, 23.37, 2.5, NAVY_PALE)
-    add_rect(slide, 1.02, y_txt, 0.13, 2.5, NAVY_MID)
+    y_txt = 9.65
+    _txt_h = 3.40
+    add_rect(slide, 1.02, y_txt, 23.37, _txt_h, NAVY_PALE)
+    add_rect(slide, 1.02, y_txt, 0.13, _txt_h, NAVY_MID)
     add_text_box(slide, 1.35, y_txt + 0.12, 22.8, 0.42,
                  "LECTURE BILANCIELLE - Qui dispose du plus de flexibilite financiere ?",
-                 9, NAVY, bold=True)
-    add_text_box(slide, 1.35, y_txt + 0.55, 22.8, 1.9,
-                 " ".join(_fit(bilan_txt, 650).split()), 9, NAVY, wrap=True)
+                 9.5, NAVY, bold=True)
+    add_text_box(slide, 1.35, y_txt + 0.60, 22.8, _txt_h - 0.75,
+                 " ".join(_fit(bilan_txt, 900).split()), 9.5, NAVY, wrap=True)
 
     return slide
 
@@ -1678,7 +1701,7 @@ def _slide_multiples(prs, m_a: dict, m_b: dict, synthesis: dict):
     footer_bar(slide)
     slide_title(slide, "Multiples de Valorisation Compares")
     section_dots(slide, 3)
-    _company_header_band(slide, tkr_a, tkr_b)
+    _company_header_band(slide, tkr_a, tkr_b, m_a=m_a, m_b=m_b)
 
     # Titre analytique JPM dynamique
     _pe_a = _safe_float(m_a.get('pe_ratio')) or 0
@@ -1691,7 +1714,7 @@ def _slide_multiples(prs, m_a: dict, m_b: dict, synthesis: dict):
         _jpm_sub = "Lecture des multiples de valorisation relative"
     add_text_box(slide, 1.02, 2.38, 23.37, 0.45, _jpm_sub, 10, NAVY_MID, bold=True, italic=True)
 
-    # Commentaire valorisation — bande + taille augmentees pour eviter overflow
+    # Commentaire valorisation pleine largeur en haut
     txt = synthesis.get('valuation_text') or ""
     if txt:
         _v_clean = " ".join(_fit(txt, 700).split())
@@ -1710,24 +1733,32 @@ def _slide_multiples(prs, m_a: dict, m_b: dict, synthesis: dict):
         ("FCF Yield",         _frpct(m_a.get('fcf_yield')),   _frpct(m_b.get('fcf_yield')),   "\u2014"),
         ("Div. Yield",        _frpct(m_a.get('dividend_yield')), _frpct(m_b.get('dividend_yield')), "\u2014"),
     ]
+    # Tableau reduit a GAUCHE (40% largeur) pour laisser place au graphique a droite
+    _tbl_y = 5.80
+    _tbl_h = 7.0
     add_table(
-        slide, 1.02, 5.70, 23.37, 3.95,
+        slide, 1.02, _tbl_y, 10.4, _tbl_h,
         num_rows=len(rows), num_cols=4,
-        col_widths_pct=[0.36, 0.21, 0.21, 0.22],
-        header_data=["Multiple", tkr_a, tkr_b, "Med. Secteur"],
+        col_widths_pct=[0.34, 0.22, 0.22, 0.22],
+        header_data=["Multiple", tkr_a, tkr_b, "Med. Sec."],
         rows_data=rows,
         header_fill=NAVY, border_hex="DDDDDD"
     )
 
-    # Graphique multiples — proportions preservees (figsize 11.5x4.2in = ratio 2.74)
+    # Graphique multiples a DROITE, agrandi — ratio matplotlib 11.5/4.2 = 2.74
     buf = _chart_multiples(m_a, m_b, tkr_a, tkr_b)
     if buf:
-        _chart_y = 10.00  # apres le tableau + gap
-        _chart_h = 13.20 - _chart_y  # ~3.2cm avant footer
-        _chart_w = _chart_h * 2.74   # ~8.77cm
-        _chart_w = min(_chart_w, 23.37)
-        _x0 = (25.4 - _chart_w) / 2
-        _insert_chart(slide, buf, _x0, _chart_y, _chart_w, _chart_h)
+        _chart_x = 11.80
+        _chart_y = 5.80
+        _chart_w = 12.60
+        _chart_h = _chart_w / 2.74  # ~4.6cm
+        # Si trop haut, cap a la place disponible
+        if _chart_h > 7.0:
+            _chart_h = 7.0
+            _chart_w = _chart_h * 2.74
+        # Centrer verticalement dans l'espace 5.80-12.80
+        _y_c = 5.80 + (7.0 - _chart_h) / 2
+        _insert_chart(slide, buf, _chart_x, _y_c, _chart_w, _chart_h)
 
     return slide
 
@@ -1744,7 +1775,7 @@ def _slide_dcf(prs, m_a: dict, m_b: dict):
     footer_bar(slide)
     slide_title(slide, "DCF & Prix Cibles Compares")
     section_dots(slide, 3)
-    _company_header_band(slide, tkr_a, tkr_b)
+    _company_header_band(slide, tkr_a, tkr_b, m_a=m_a, m_b=m_b)
 
     # Titre JPM dynamique (DCF upside base)
     cur_a = 'EUR' if (m_a.get('currency_a') or 'USD') == 'EUR' else '$'
@@ -1764,9 +1795,10 @@ def _slide_dcf(prs, m_a: dict, m_b: dict):
     add_text_box(slide, 1.02, 2.10, 23.37, 0.40, _jpm_sub, 10, NAVY_MID, bold=True, italic=True)
 
     y_dcf = 2.58
-    # Panel A
-    add_rect(slide, 1.02, y_dcf, 11.44, 6.8, COLOR_A_PAL)
-    add_rect(slide, 1.02, y_dcf, 0.13, 6.8, COLOR_A)
+    # Panel A — hauteur ajustee au contenu (0.75 header + 11 lignes * 0.53 = 6.58cm)
+    _panel_h = 6.60
+    add_rect(slide, 1.02, y_dcf, 11.44, _panel_h, COLOR_A_PAL)
+    add_rect(slide, 1.02, y_dcf, 0.13, _panel_h, COLOR_A)
     add_text_box(slide, 1.3, y_dcf + 0.1, 11.0, 0.56, f"DCF — {tkr_a}", 9.5, NAVY_MID, bold=True)
 
     rows_dcf_a = [
@@ -1790,9 +1822,9 @@ def _slide_dcf(prs, m_a: dict, m_b: dict):
         add_text_box(slide, 7.5, y + 0.06, 4.6, 0.4, val, 8.5, BLACK, bold=False,
                      align=PP_ALIGN.RIGHT)
 
-    # Panel B
-    add_rect(slide, 12.94, y_dcf, 11.44, 6.8, COLOR_B_PAL)
-    add_rect(slide, 12.94, y_dcf, 0.13, 6.8, COLOR_B)
+    # Panel B — meme hauteur ajustee
+    add_rect(slide, 12.94, y_dcf, 11.44, _panel_h, COLOR_B_PAL)
+    add_rect(slide, 12.94, y_dcf, 0.13, _panel_h, COLOR_B)
     add_text_box(slide, 13.22, y_dcf + 0.1, 11.0, 0.56, f"DCF — {tkr_b}", 9.5, GREEN, bold=True)
 
     rows_dcf_b = [
@@ -1816,10 +1848,10 @@ def _slide_dcf(prs, m_a: dict, m_b: dict):
         add_text_box(slide, 19.4, y + 0.06, 4.4, 0.4, val, 8.5, BLACK, bold=False,
                      align=PP_ALIGN.RIGHT)
 
-    # Verdict entree
+    # Verdict entree — positionne juste apres le panel reduit
     ez_a = m_a.get('entry_zone_ok') or 0
     ez_b = m_b.get('entry_zone_ok') or 0
-    y_ev = y_dcf + 7.1
+    y_ev = y_dcf + _panel_h + 0.20
     add_rect(slide, 1.02, y_ev, 11.44, 0.7, GREEN_PALE if ez_a else RED_PALE)
     add_text_box(slide, 1.15, y_ev + 0.1, 11.2, 0.5,
                  ("Zone d'achat : Cours < DCF base" if ez_a else "Hors zone : Cours > DCF base"),
@@ -1859,7 +1891,7 @@ def _slide_monte_carlo(prs, m_a: dict, m_b: dict):
     footer_bar(slide)
     slide_title(slide, "GBM Monte Carlo & Upside Relatif")
     section_dots(slide, 3)
-    _company_header_band(slide, tkr_a, tkr_b)
+    _company_header_band(slide, tkr_a, tkr_b, m_a=m_a, m_b=m_b)
 
     # Titre JPM dynamique : qui a le meilleur upside probabiliste P50
     _p50_a = _safe_float(m_a.get('monte_carlo_p50'))
@@ -1899,10 +1931,40 @@ def _slide_monte_carlo(prs, m_a: dict, m_b: dict):
         ("Cours actuel S0",  _fr(p_a, 2) + " " + cur_a if p_a else "\u2014",
                              _fr(p_b, 2) + " " + cur_b if p_b else "\u2014"),
     ]
+
+    # --- Layout revu : Texte LLM en haut pleine largeur + tableau bas-gauche + chart bas-droite ---
+    # Texte LLM analytique Monte Carlo / Football Field
+    _base_a = _safe_float(m_a.get('dcf_base'))
+    _base_b = _safe_float(m_b.get('dcf_base'))
+    _upside_base_a = ((_base_a / (_safe_float(p_a) or 1) - 1) * 100) if _base_a and p_a else 0
+    _upside_base_b = ((_base_b / (_safe_float(p_b) or 1) - 1) * 100) if _base_b and p_b else 0
+    _mc_commentary = (
+        f"Le modele DCF Bear/Base/Bull et la simulation GBM Monte Carlo donnent deux lectures "
+        f"complementaires de la valorisation. {tkr_a} affiche un upside base de {_upside_base_a:+.0f}% "
+        f"vs {_upside_base_b:+.0f}% pour {tkr_b}. Le football field ci-dessous visualise les "
+        f"fourchettes intrinseques de chaque titre : plus la bande est etendue, plus l'incertitude "
+        f"sur la valeur est elevee. La ligne pointillee indique le cours actuel ; si elle se situe "
+        f"sous la barre Base, le titre est dans une zone d'achat theorique. A croiser avec les "
+        f"hypotheses WACC/TGR (sensibilite des flux futurs) et la credibilite du scenario macro."
+    )
+    _mc_txt_y = 2.58
+    _mc_txt_h = 2.70
+    add_rect(slide, 1.02, _mc_txt_y, 23.37, _mc_txt_h, NAVY_PALE)
+    add_rect(slide, 1.02, _mc_txt_y, 0.13, _mc_txt_h, NAVY_MID)
+    add_text_box(slide, 1.4, _mc_txt_y + 0.12, 22.8, 0.42,
+                 "LECTURE MONTE CARLO & FOOTBALL FIELD",
+                 9, NAVY, bold=True)
+    add_text_box(slide, 1.4, _mc_txt_y + 0.58, 22.8, _mc_txt_h - 0.75,
+                 " ".join(_mc_commentary.split()),
+                 8.5, NAVY, wrap=True)
+
+    # Tableau Monte Carlo en bas a gauche (40% largeur)
+    _tbl_y = _mc_txt_y + _mc_txt_h + 0.30
+    _tbl_h = 13.20 - _tbl_y - 0.30
     add_table(
-        slide, 1.02, 2.58, 23.37, 3.72,
+        slide, 1.02, _tbl_y, 10.4, _tbl_h,
         num_rows=len(rows_mc), num_cols=3,
-        col_widths_pct=[0.36, 0.32, 0.32],
+        col_widths_pct=[0.40, 0.30, 0.30],
         header_data=["GBM Monte Carlo", tkr_a, tkr_b],
         rows_data=rows_mc,
         header_fill=NAVY, border_hex="DDDDDD"
@@ -1964,28 +2026,16 @@ def _slide_monte_carlo(prs, m_a: dict, m_b: dict):
         ax.xaxis.grid(True, alpha=0.25, color='#D0D5DD'); ax.set_axisbelow(True)
         fig.tight_layout(pad=1.0)
         buf = _make_chart_buf(fig)
-        # Ratio matplotlib 12.5/6.2 = 2.016 → garder proportions pour eviter deformation
-        _mc_h = 5.2
-        _mc_w = _mc_h * 2.016  # ~10.48cm
-        _insert_chart(slide, buf, 1.02, 6.5, _mc_w, _mc_h)
-        # Texte explicatif droite (panel jusqu'a 24.2)
-        _px_x = 1.02 + _mc_w + 0.4
-        _px_w = 24.38 - _px_x
-        add_rect(slide, _px_x, 6.5, _px_w, _mc_h, GREY_BG)
-        add_rect(slide, _px_x, 6.5, 0.13, _mc_h, NAVY_MID)
-        add_text_box(slide, _px_x + 0.20, 6.6, _px_w - 0.3, 0.4,
-                     "LECTURE FOOTBALL FIELD", 9, NAVY, bold=True)
-        expl = (
-            f"DCF Bear/Base/Bull sur 3 scenarios de croissance.\n\n"
-            f"{tkr_a} — Base : {_fr(m_a.get('dcf_base'),0)} {cur_a}\n"
-            f"{tkr_b} — Base : {_fr(m_b.get('dcf_base'),0)} {cur_b}\n\n"
-            f"Les barres representent la fourchette de valeur intrinseque "
-            f"selon le scenario macro. Comparer avec le cours actuel "
-            f"({_fr(p_a,0)} {cur_a} / {_fr(p_b,0)} {cur_b}) pour evaluer "
-            f"la marge de securite."
-        )
-        add_text_box(slide, _px_x + 0.20, 7.10, _px_w - 0.3, _mc_h - 0.7,
-                     expl, 8.5, NAVY_MID, wrap=True)
+        # Ratio matplotlib 12.5/6.2 = 2.016 — chart positionne a droite du tableau
+        _fb_x = 11.80
+        _fb_w = 12.60
+        _fb_h = _fb_w / 2.016  # ~6.25cm
+        if _fb_h > _tbl_h:
+            _fb_h = _tbl_h
+            _fb_w = _fb_h * 2.016
+        # Centrer verticalement dans la meme zone que le tableau
+        _fb_y = _tbl_y + (_tbl_h - _fb_h) / 2
+        _insert_chart(slide, buf, _fb_x, _fb_y, _fb_w, _fb_h)
     except Exception as e:
         log.warning(f"[cmp_pptx] football field error: {e}")
 
@@ -2004,7 +2054,7 @@ def _slide_piotroski(prs, m_a: dict, m_b: dict, synthesis: dict):
     footer_bar(slide)
     slide_title(slide, "Qualite Financiere & Solidite Bilancielle")
     section_dots(slide, 4)
-    _company_header_band(slide, tkr_a, tkr_b)
+    _company_header_band(slide, tkr_a, tkr_b, m_a=m_a, m_b=m_b)
 
     # Titre JPM dynamique base sur Piotroski
     _pio_a = _safe_float(m_a.get('piotroski_score')) or 0
@@ -2016,12 +2066,15 @@ def _slide_piotroski(prs, m_a: dict, m_b: dict, synthesis: dict):
         _jpm_sub = "Piotroski F-Score, Beneish M-Score, Altman Z-Score comparatifs"
     add_text_box(slide, 1.02, 2.10, 23.37, 0.40, _jpm_sub, 10, NAVY_MID, bold=True, italic=True)
 
-    # Commentaire qualite LLM
+    # Commentaire qualite LLM — hauteur augmentee pour eviter overflow
     txt = synthesis.get('quality_text') or ""
     if txt:
-        add_rect(slide, 1.02, 2.58, 23.37, 1.70, NAVY_PALE)
-        add_rect(slide, 1.02, 2.58, 0.13, 1.70, NAVY_MID)
-        add_text_box(slide, 1.4, 2.65, 22.8, 1.55, _fit(txt, 550), 8.5, NAVY, wrap=True)
+        _qt_y = 2.58
+        _qt_h = 2.00
+        add_rect(slide, 1.02, _qt_y, 23.37, _qt_h, NAVY_PALE)
+        add_rect(slide, 1.02, _qt_y, 0.13, _qt_h, NAVY_MID)
+        add_text_box(slide, 1.4, _qt_y + 0.10, 22.8, _qt_h - 0.20,
+                     _fit(txt, 800), 9, NAVY, wrap=True)
 
     def _pio_val(m, key):
         v = m.get(key)
@@ -2040,15 +2093,17 @@ def _slide_piotroski(prs, m_a: dict, m_b: dict, synthesis: dict):
         ("pio_delta_asset_turnover", "Amelioration rotation actifs"),
     ]
     rows_pio = [(lbl, _pio_val(m_a, key), _pio_val(m_b, key)) for key, lbl in pio_keys]
-    # Score total
     sc_a = m_a.get('piotroski_score')
     sc_b = m_b.get('piotroski_score')
     rows_pio.append(("PIOTROSKI F-SCORE TOTAL",
                      str(sc_a) if sc_a is not None else "\u2014",
                      str(sc_b) if sc_b is not None else "\u2014"))
 
+    # Tableau Piotroski reduit et decaler plus bas pour liberer le cadre LLM
+    _pio_y = 4.85
+    _pio_h = 6.10
     add_table(
-        slide, 1.02, 4.40, 14.0, 7.75,
+        slide, 1.02, _pio_y, 14.0, _pio_h,
         num_rows=len(rows_pio), num_cols=3,
         col_widths_pct=[0.60, 0.20, 0.20],
         header_data=["Critere Piotroski", tkr_a, tkr_b],
@@ -2056,11 +2111,14 @@ def _slide_piotroski(prs, m_a: dict, m_b: dict, synthesis: dict):
         header_fill=NAVY, border_hex="DDDDDD"
     )
 
-    # Tableaux complementaires — commence juste apres le tableau Piotroski (15.02cm)
+    # Scores complementaires positionnes EN BAS A DROITE (plus compacts)
+    # Legendes Beneish/Altman/Sloan retirees (trop verboses) — condensees en footnote
     _sc_x = 15.15
     _sc_w = 9.87
-    add_rect(slide, _sc_x, 4.40, _sc_w, 0.6, NAVY)
-    add_text_box(slide, _sc_x + 0.15, 4.46, _sc_w - 0.2, 0.5, "Scores Complementaires", 8, WHITE, bold=True)
+    _sc_y = _pio_y
+    add_rect(slide, _sc_x, _sc_y, _sc_w, 0.5, NAVY)
+    add_text_box(slide, _sc_x + 0.15, _sc_y + 0.08, _sc_w - 0.2, 0.38,
+                 "Scores complementaires", 8.5, WHITE, bold=True)
 
     rows_sc = [
         ("Beneish M-Score", _fr(m_a.get('beneish_mscore'), 2), _fr(m_b.get('beneish_mscore'), 2)),
@@ -2069,7 +2127,7 @@ def _slide_piotroski(prs, m_a: dict, m_b: dict, synthesis: dict):
         ("Cash Conversion", _frx(m_a.get('cash_conversion')), _frx(m_b.get('cash_conversion'))),
     ]
     add_table(
-        slide, _sc_x, 5.15, _sc_w, 3.0,
+        slide, _sc_x, _sc_y + 0.55, _sc_w, 2.40,
         num_rows=len(rows_sc), num_cols=3,
         col_widths_pct=[0.50, 0.25, 0.25],
         header_data=["Indicateur", tkr_a, tkr_b],
@@ -2077,23 +2135,11 @@ def _slide_piotroski(prs, m_a: dict, m_b: dict, synthesis: dict):
         header_fill=NAVY_MID, border_hex="DDDDDD"
     )
 
-    # Legende Beneish + Altman
-    add_rect(slide, _sc_x, 8.30, _sc_w, 4.8, GREY_BG)
-    legend_lines = [
-        "Beneish M-Score : < -1,78 = faible risque",
-        "    manipulation comptable ; > -1,78 = risque",
-        "",
-        "Altman Z-Score : > 2,99 = sain ;",
-        "    1,81-2,99 = zone grise ;",
-        "    < 1,81 = risque de detresse",
-        "",
-        "Sloan Accruals : proche de 0 = qualite",
-        "    earnings elevee (cash-based)",
-    ]
-    y_leg = 8.45
-    for line in legend_lines:
-        add_text_box(slide, _sc_x + 0.15, y_leg, _sc_w - 0.2, 0.38, line, 7.5, GREY_TXT)
-        y_leg += 0.38
+    # Footnote condensee (1 seule ligne) : seuils cles
+    _foot_y = _sc_y + 3.05
+    add_text_box(slide, _sc_x, _foot_y, _sc_w, 0.40,
+                 "Seuils : Beneish <-1,78 sain  -  Altman >2,99 sain  -  Sloan proche 0 = qualite",
+                 7, GREY_TXT, italic=True, wrap=True)
 
     return slide
 
@@ -2110,7 +2156,7 @@ def _slide_risque(prs, m_a: dict, m_b: dict):
     footer_bar(slide)
     slide_title(slide, "Profil de Risque & Momentum Compare")
     section_dots(slide, 4)
-    _company_header_band(slide, tkr_a, tkr_b)
+    _company_header_band(slide, tkr_a, tkr_b, m_a=m_a, m_b=m_b)
 
     # Titre analytique JPM
     _b_a = _safe_float(m_a.get('beta')) or 1.0
@@ -2119,14 +2165,7 @@ def _slide_risque(prs, m_a: dict, m_b: dict):
     _jpm_sub = f"{_def} offre un profil plus defensif (beta {min(_b_a,_b_b):.2f} vs {max(_b_a,_b_b):.2f})"
     add_text_box(slide, 1.02, 2.38, 23.37, 0.45, _jpm_sub, 10, NAVY_MID, bold=True, italic=True)
 
-    # KPIs risque ligne 1 — hauteur reduite
-    y_kpi = 2.90
-    kpi_box(slide, 1.02,  y_kpi, 5.5, 1.45, _fr(m_a.get('beta'), 2),                   f"Beta — {tkr_a}", "vs marche", COLOR_A_PAL, COLOR_A)
-    kpi_box(slide, 6.90,  y_kpi, 5.5, 1.45, _frpct(m_a.get('var_95_1m'), signed=True), f"VaR 95% 1M — {tkr_a}", "",  COLOR_A_PAL, COLOR_A)
-    kpi_box(slide, 12.87, y_kpi, 5.5, 1.45, _fr(m_b.get('beta'), 2),                   f"Beta — {tkr_b}", "vs marche", COLOR_B_PAL, COLOR_B)
-    kpi_box(slide, 18.75, y_kpi, 5.5, 1.45, _frpct(m_b.get('var_95_1m'), signed=True), f"VaR 95% 1M — {tkr_b}", "",  COLOR_B_PAL, COLOR_B)
-
-    # Tableau performances (gauche) — compact
+    # Tableau performances (gauche) — KPIs supprimes, table monte direct
     rows_perf = [
         ("Perf. 1 Mois",  _frpct(m_a.get('perf_1m'), signed=True),  _frpct(m_b.get('perf_1m'), signed=True)),
         ("Perf. 3 Mois",  _frpct(m_a.get('perf_3m'), signed=True),  _frpct(m_b.get('perf_3m'), signed=True)),
@@ -2136,7 +2175,7 @@ def _slide_risque(prs, m_a: dict, m_b: dict):
         ("VaR 95% 1M",    _frpct(m_a.get('var_95_1m')), _frpct(m_b.get('var_95_1m'))),
     ]
     add_table(
-        slide, 1.02, 4.55, 12.0, 3.8,
+        slide, 1.02, 2.95, 11.5, 5.20,
         num_rows=len(rows_perf), num_cols=3,
         col_widths_pct=[0.44, 0.28, 0.28],
         header_data=["Performance / Risque", tkr_a, tkr_b],
@@ -2144,16 +2183,14 @@ def _slide_risque(prs, m_a: dict, m_b: dict):
         header_fill=NAVY, border_hex="DDDDDD"
     )
 
-    # Radar chart — respecte proportions figsize 4.8x4.0 = ratio 1.2
+    # Radar chart — droite, agrandi, titre lisible
     buf = _chart_risk_profile(m_a, m_b, tkr_a, tkr_b)
     if buf:
-        _r_h = 4.7
-        _r_w = _r_h * 1.2  # ~5.64cm
-        _insert_chart(slide, buf, 13.35, 4.55, 10.9, _r_h * 1.6)
+        _insert_chart(slide, buf, 12.85, 2.95, 11.55, 5.20)
 
-    # Fourchette 52 semaines — header bien proportionne
-    y_rng = 8.55
-    _rng_w = 12.0
+    # Fourchette 52 semaines — bandeau plein largeur
+    y_rng = 8.40
+    _rng_w = 23.37
     add_rect(slide, 1.02, y_rng, _rng_w, 0.55, NAVY)
     add_text_box(slide, 1.18, y_rng + 0.12, _rng_w - 0.3, 0.40,
                  "Fourchette 52 Semaines", 9, WHITE, bold=True)
@@ -2164,21 +2201,21 @@ def _slide_risque(prs, m_a: dict, m_b: dict):
         (f"{tkr_b} — 52W Low",  _fr(m_b.get('week52_low'), 2),
          f"{tkr_b} — 52W High", _fr(m_b.get('week52_high'), 2)),
     ]
-    y_52 = y_rng + 0.65
+    y_52 = y_rng + 0.62
+    _row_w = _rng_w / 2
     for ri, (l1, v1, l2, v2) in enumerate(rows_52):
         fill = WHITE if ri % 2 == 0 else GREY_BG
-        add_rect(slide, 1.02, y_52 + ri * 0.62, _rng_w, 0.58, fill)
-        add_text_box(slide, 1.18, y_52 + ri * 0.62 + 0.10, 3.4, 0.45,
-                     l1, 8, GREY_TXT, wrap=False)
-        add_text_box(slide, 4.55, y_52 + ri * 0.62 + 0.10, 2.0, 0.45,
-                     v1, 9, BLACK, bold=True, wrap=False)
-        add_text_box(slide, 6.85, y_52 + ri * 0.62 + 0.10, 3.4, 0.45,
-                     l2, 8, GREY_TXT, wrap=False)
-        add_text_box(slide, 10.15, y_52 + ri * 0.62 + 0.10, 2.0, 0.45,
-                     v2, 9, BLACK, bold=True, wrap=False)
+        add_rect(slide, 1.02, y_52 + ri * 0.55, _rng_w, 0.52, fill)
+        add_text_box(slide, 1.18, y_52 + ri * 0.55 + 0.08, 5.0, 0.40,
+                     l1, 8.5, GREY_TXT, wrap=False)
+        add_text_box(slide, 6.30, y_52 + ri * 0.55 + 0.08, 3.0, 0.40,
+                     v1, 9.5, BLACK, bold=True, wrap=False)
+        add_text_box(slide, 12.80, y_52 + ri * 0.55 + 0.08, 5.0, 0.40,
+                     l2, 8.5, GREY_TXT, wrap=False)
+        add_text_box(slide, 17.95, y_52 + ri * 0.55 + 0.08, 3.0, 0.40,
+                     v2, 9.5, BLACK, bold=True, wrap=False)
 
-    # --- Texte LLM analytique risque (droite sous le radar) ---
-    # Genere deterministe pour eviter surcout LLM
+    # --- Texte LLM analytique risque — pleine largeur ---
     _p3m_a = _safe_float(m_a.get('perf_3m')) or 0
     _p3m_b = _safe_float(m_b.get('perf_3m')) or 0
     if abs(_p3m_a) <= 2: _p3m_a *= 100
@@ -2197,12 +2234,13 @@ def _slide_risque(prs, m_a: dict, m_b: dict):
         f"le dimensionnement de position : une volatilite plus elevee impose "
         f"une ponderation reduite pour maintenir un budget risque equivalent."
     )
-    add_rect(slide, 13.35, 11.35, 10.9, 1.80, NAVY_PALE)
-    add_rect(slide, 13.35, 11.35, 0.13, 1.80, NAVY_MID)
-    add_text_box(slide, 13.60, 11.42, 10.6, 0.35,
-                 "LECTURE RISQUE/MOMENTUM", 8, NAVY, bold=True)
-    add_text_box(slide, 13.60, 11.77, 10.6, 1.45,
-                 " ".join(risque_txt.split()), 8, NAVY, wrap=True)
+    y_llm = 10.75
+    add_rect(slide, 1.02, y_llm, 23.37, 1.85, NAVY_PALE)
+    add_rect(slide, 1.02, y_llm, 0.13, 1.85, NAVY_MID)
+    add_text_box(slide, 1.35, y_llm + 0.10, 22.8, 0.35,
+                 "LECTURE RISQUE/MOMENTUM", 8.5, NAVY, bold=True)
+    add_text_box(slide, 1.35, y_llm + 0.48, 22.8, 1.30,
+                 " ".join(risque_txt.split()), 9, NAVY, wrap=True)
 
     return slide
 
@@ -2219,7 +2257,7 @@ def _slide_finsight_score(prs, m_a: dict, m_b: dict):
     footer_bar(slide)
     slide_title(slide, "FinSight Score Compare")
     section_dots(slide, 5)
-    _company_header_band(slide, tkr_a, tkr_b)
+    _company_header_band(slide, tkr_a, tkr_b, m_a=m_a, m_b=m_b)
 
     fs_a = m_a.get('finsight_score') or 0
     fs_b = m_b.get('finsight_score') or 0
@@ -2233,20 +2271,36 @@ def _slide_finsight_score(prs, m_a: dict, m_b: dict):
         _jpm_sub = "Lecture du score composite FinSight (Valeur / Croissance / Qualite / Momentum)"
     add_text_box(slide, 1.02, 2.38, 23.37, 0.45, _jpm_sub, 10, NAVY_MID, bold=True, italic=True)
 
-    # Graphique score — hauteur reduite, proportions respectees
-    # figsize 11.0 x 2.8 in = ratio 3.93
+    rec_a = (m_a.get('recommendation') or 'HOLD').upper()
+    rec_b = (m_b.get('recommendation') or 'HOLD').upper()
+    def _fill_rec(r):
+        if r == 'BUY': return GREEN_PALE, GREEN
+        if r == 'SELL': return RED_PALE, RED
+        return AMBER_PALE, AMBER
+    fa, aa = _fill_rec(rec_a)
+    fb, ab = _fill_rec(rec_b)
+
+    # Graphique score gauche (ratio 8.5/4.2 ~ 2.02) + BUY blocks droite
     buf = _chart_finsight_score(m_a, m_b, tkr_a, tkr_b)
     if buf:
-        _fs_h = 2.85
-        _fs_w = min(23.37, _fs_h * 3.93)  # ~11.2cm -> on cadre plus etroit
-        _fs_w = min(18.0, _fs_w)
-        _fs_x = (25.4 - _fs_w) / 2
-        _insert_chart(slide, buf, _fs_x, 2.90, _fs_w, _fs_h)
+        _fs_h = 4.55
+        _fs_w = _fs_h * 2.02  # ~9.20cm
+        _insert_chart(slide, buf, 1.02, 2.95, 14.0, _fs_h)
+
+    # BUY/SELL blocks a droite du graphique
+    _kx = 15.40
+    _kw = 8.97
+    kpi_box(slide, _kx, 2.95, _kw, 2.10, rec_a, f"Recommandation — {tkr_a}",
+            _frpct(m_a.get('conviction')) + " conviction", fa, aa)
+    kpi_box(slide, _kx, 5.40, _kw, 2.10, rec_b, f"Recommandation — {tkr_b}",
+            _frpct(m_b.get('conviction')) + " conviction", fb, ab)
 
     # Decomposition score — plus compact
-    y_dec = 6.00
+    y_dec = 7.85
     add_rect(slide, 1.02, y_dec, 23.37, 0.55, NAVY)
-    add_text_box(slide, 1.15, y_dec + 0.10, 23.0, 0.42, "Decomposition du Score (4 axes)", 9, WHITE, bold=True)
+    add_text_box(slide, 1.18, y_dec + 0.10, 23.0, 0.42,
+                 "Decomposition du Score Composite (4 axes : Valeur / Croissance / Qualite / Momentum)",
+                 9, WHITE, bold=True)
 
     # 4 axes de score — Value, Growth, Quality, Momentum
     def _score_axis(m, axis) -> str:
@@ -2279,11 +2333,8 @@ def _slide_finsight_score(prs, m_a: dict, m_b: dict):
         add_text_box(slide, xp + 2.9, y_ax + 0.45, 2.5, 0.60,
                      _score_axis(m_b, axis) + " / 25", 11, GREEN_MID, bold=True)
 
-    # --- Bande LLM analytique score (avant KPIs finaux) ---
-    y_llm = y_ax + 1.35
-    rec_a = (m_a.get('recommendation') or 'HOLD').upper()
-    rec_b = (m_b.get('recommendation') or 'HOLD').upper()
-    # Texte analytique deterministe
+    # --- Bande LLM analytique score — pleine largeur en bas ---
+    y_llm = y_ax + 1.40
     _conv_a = _safe_float(m_a.get('conviction')) or 0
     _conv_b = _safe_float(m_b.get('conviction')) or 0
     if abs(_conv_a) <= 2: _conv_a *= 100
@@ -2302,27 +2353,12 @@ def _slide_finsight_score(prs, m_a: dict, m_b: dict):
         f"robustesse de l'opinion sur la these, a croiser avec l'exposition en portefeuille "
         f"et le catalyseur de deblocage de valeur a 12 mois."
     )
-    add_rect(slide, 1.02, y_llm, 23.37, 1.50, NAVY_PALE)
-    add_rect(slide, 1.02, y_llm, 0.13, 1.50, NAVY_MID)
-    add_text_box(slide, 1.35, y_llm + 0.08, 22.8, 0.35,
-                 "LECTURE ANALYTIQUE DU SCORE COMPOSITE", 8.5, NAVY, bold=True)
-    add_text_box(slide, 1.35, y_llm + 0.43, 22.8, 1.05,
-                 " ".join(score_txt.split()), 8.5, NAVY, wrap=True)
-
-    # KPIs finaux — hauteur reduite
-    y_f = y_llm + 1.62
-    def _fill_rec(r):
-        if r == 'BUY': return GREEN_PALE, GREEN
-        if r == 'SELL': return RED_PALE, RED
-        return AMBER_PALE, AMBER
-
-    fa, aa = _fill_rec(rec_a)
-    fb, ab = _fill_rec(rec_b)
-
-    kpi_box(slide, 1.02,  y_f, 5.5, 1.30, str(fs_a) + " / 100", f"FinSight Score — {tkr_a}", "", COLOR_A_PAL, COLOR_A)
-    kpi_box(slide, 6.90,  y_f, 5.5, 1.30, str(fs_b) + " / 100", f"FinSight Score — {tkr_b}", "", COLOR_B_PAL, COLOR_B)
-    kpi_box(slide, 12.87, y_f, 5.5, 1.30, rec_a, f"Rec. — {tkr_a}", _frpct(m_a.get('conviction')) + " conv.", fa, aa)
-    kpi_box(slide, 18.75, y_f, 5.5, 1.30, rec_b, f"Rec. — {tkr_b}", _frpct(m_b.get('conviction')) + " conv.", fb, ab)
+    add_rect(slide, 1.02, y_llm, 23.37, 1.65, NAVY_PALE)
+    add_rect(slide, 1.02, y_llm, 0.13, 1.65, NAVY_MID)
+    add_text_box(slide, 1.35, y_llm + 0.10, 22.8, 0.35,
+                 "LECTURE ANALYTIQUE DU SCORE COMPOSITE", 9, NAVY, bold=True)
+    add_text_box(slide, 1.35, y_llm + 0.48, 22.8, 1.15,
+                 " ".join(score_txt.split()), 9, NAVY, wrap=True)
 
     return slide
 
@@ -2339,17 +2375,22 @@ def _slide_theses(prs, m_a: dict, m_b: dict, synthesis: dict):
     footer_bar(slide)
     slide_title(slide, "Theses d'Investissement Bull / Bear")
     section_dots(slide, 5)
-    _company_header_band(slide, tkr_a, tkr_b)
+    _company_header_band(slide, tkr_a, tkr_b, m_a=m_a, m_b=m_b)
 
     bull_a = synthesis.get('bull_a') or "Croissance superieure a la moyenne sectorielle avec fort levier operationnel."
     bear_a = synthesis.get('bear_a') or "Valorisation premium susceptible de re-rating si la croissance ralentit."
     bull_b = synthesis.get('bull_b') or "Generation de cash robuste et bilan solide pour soutenir la valorisation."
     bear_b = synthesis.get('bear_b') or "Exposition a un secteur cyclique amplifiant la volatilite des marges."
 
+    # Titre analytique JPM
+    add_text_box(slide, 1.02, 2.38, 23.37, 0.45,
+                 f"Theses bull / bear comparees — arguments de conviction et risques d'execution {tkr_a} vs {tkr_b}",
+                 10, NAVY_MID, bold=True, italic=True)
+
     # Bande 52W — cours & fourchette
     cur_a = "EUR" if (m_a.get('currency_a') or 'USD') == 'EUR' else '$'
     cur_b = "EUR" if (m_b.get('currency_b') or 'USD') == 'EUR' else '$'
-    y_52 = 2.42
+    y_52 = 2.92
     add_rect(slide, 1.02, y_52, 11.44, 0.75, NAVY_PALE)
     add_rect(slide, 1.02, y_52, 0.13, 0.75, COLOR_A)
     add_text_box(slide, 1.25, y_52 + 0.08, 10.0, 0.32,
@@ -2374,10 +2415,10 @@ def _slide_theses(prs, m_a: dict, m_b: dict, synthesis: dict):
 
     # Layout : Bull A/B en haut, Bear A/B en bas. Hauteurs fixes pour eviter overflow.
     # Footer a 13.39cm -> derniere ligne max 13.10
-    y0 = 3.40   # debut Bull
-    bull_h = 4.30
+    y0 = 3.90   # debut Bull
+    bull_h = 4.05
     y1 = y0 + bull_h + 0.30  # debut Bear
-    bear_h = 4.30            # y1 + 0.55 + 3.75 = y1 + 4.30
+    bear_h = 4.05            # y1 + 0.55 + 3.75 = y1 + 4.30
 
     # --- Bull A ---
     add_rect(slide, 1.02, y0, 11.44, 0.55, GREEN_PALE)
@@ -2551,7 +2592,7 @@ def _slide_price_chart(prs, m_a: dict, m_b: dict, synthesis: dict = None):
             f"Catalyseurs : publications trimestrielles, guidance FY+1, evenements sectoriels."
         )
     add_text_box(slide, x_r + 0.25, y_llm + 0.52, w_r - 0.5, _llm_h - 0.7,
-                 " ".join(_fit(llm_txt, 900).split()),
+                 " ".join(_fit(llm_txt, 580).split()),
                  8, NAVY, wrap=True)
 
     return slide
@@ -2607,20 +2648,20 @@ def _slide_verdict(prs, m_a: dict, m_b: dict, synthesis: dict):
 
     add_rect(slide, x_l, y_l, w_l, h_l, _conv_fill)
     add_rect(slide, x_l, y_l, 0.20, h_l, _conv_line)
-    add_text_box(slide, x_l + 0.30, y_l + 0.25, w_l - 0.5, 1.4,
-                 str(rec_w).upper(), 46, _conv_line, bold=True, align=PP_ALIGN.CENTER)
-    add_text_box(slide, x_l + 0.30, y_l + 1.80, w_l - 0.5, 0.60,
-                 f"Conviction : {conv_w:.0f}%", 14, NAVY, align=PP_ALIGN.CENTER)
-    add_text_box(slide, x_l + 0.30, y_l + 2.50, w_l - 0.5, 0.45,
-                 gen_date, 10, GREY_TXT, align=PP_ALIGN.CENTER)
+    add_text_box(slide, x_l + 0.30, y_l + 0.20, w_l - 0.5, 1.30,
+                 str(rec_w).upper(), 42, _conv_line, bold=True, align=PP_ALIGN.CENTER)
+    add_text_box(slide, x_l + 0.30, y_l + 1.55, w_l - 0.5, 0.50,
+                 f"Conviction : {conv_w:.0f}%", 13, NAVY, align=PP_ALIGN.CENTER)
+    add_text_box(slide, x_l + 0.30, y_l + 2.10, w_l - 0.5, 0.40,
+                 gen_date, 9, GREY_TXT, align=PP_ALIGN.CENTER)
 
-    # Barre de conviction (progress bar)
-    add_text_box(slide, x_l + 0.30, y_l + 3.10, w_l - 0.5, 0.30,
-                 "NIVEAU DE CONVICTION", 7, GREY_TXT, bold=True)
-    _bar_y = y_l + 3.42
-    add_rect(slide, x_l + 0.30, _bar_y, w_l - 0.60, 0.30, "DDDDDD")
-    _fill_w = max(0.1, (w_l - 0.60) * (conv_w / 100))
-    add_rect(slide, x_l + 0.30, _bar_y, _fill_w, 0.30, _conv_line)
+    # Barre de conviction (progress bar) — remontee dans le cadre
+    add_text_box(slide, x_l + 0.40, y_l + 2.65, w_l - 0.7, 0.30,
+                 "NIVEAU DE CONVICTION", 7, GREY_TXT, bold=True, align=PP_ALIGN.CENTER)
+    _bar_y = y_l + 2.97
+    add_rect(slide, x_l + 0.40, _bar_y, w_l - 0.80, 0.28, "DDDDDD")
+    _fill_w = max(0.1, (w_l - 0.80) * (conv_w / 100))
+    add_rect(slide, x_l + 0.40, _bar_y, _fill_w, 0.28, _conv_line)
 
     # Delta score
     _delta_str = f"Delta FinSight Score : {delta:+d} vs {tkr_b if is_a else tkr_a}"
@@ -2636,34 +2677,34 @@ def _slide_verdict(prs, m_a: dict, m_b: dict, synthesis: dict):
 
     # Thèse d'investissement (header navy + body)
     add_rect(slide, x_r, y_r, w_r, 0.55, NAVY)
-    add_text_box(slide, x_r + 0.20, y_r + 0.12, w_r - 0.3, 0.35,
-                 "THESE D'INVESTISSEMENT", 9, WHITE, bold=True)
+    add_text_box(slide, x_r + 0.25, y_r + 0.10, w_r - 0.5, 0.40,
+                 "THESE D'INVESTISSEMENT", 10, WHITE, bold=True)
     verdict_txt = synthesis.get('verdict_text') or \
                   f"{winner} est privilegiee sur la base des criteres de valorisation, de qualite bilancielle et de momentum."
-    _vt = " ".join(_fit(verdict_txt, 650).split())
+    _vt = " ".join(_fit(verdict_txt, 600).split())
     add_rect(slide, x_r, y_r + 0.55, w_r, 2.95, GREY_BG)
-    add_text_box(slide, x_r + 0.20, y_r + 0.65, w_r - 0.4, 2.80, _vt, 8.5, BLACK, wrap=True)
+    add_text_box(slide, x_r + 0.25, y_r + 0.65, w_r - 0.5, 2.80, _vt, 8.5, BLACK, wrap=True)
 
     # Catalyseurs bulls + Risques bears — 2 colonnes
     y_cat = y_r + 0.55 + 3.05
     _cat_h = 2.35
     # Bulls
     add_rect(slide, x_r, y_cat, w_r/2 - 0.10, 0.50, GREEN)
-    add_text_box(slide, x_r + 0.15, y_cat + 0.10, w_r/2 - 0.3, 0.35,
-                 "CATALYSEURS BULLS", 8.5, WHITE, bold=True)
+    add_text_box(slide, x_r + 0.25, y_cat + 0.10, w_r/2 - 0.5, 0.40,
+                 "CATALYSEURS BULLS", 9, WHITE, bold=True)
     bull_winner = synthesis.get('bull_a' if is_a else 'bull_b') or "Profil fondamental solide"
     add_rect(slide, x_r, y_cat + 0.50, w_r/2 - 0.10, _cat_h, GREY_BG)
-    add_text_box(slide, x_r + 0.15, y_cat + 0.60, w_r/2 - 0.30, _cat_h - 0.15,
-                 _fit(bull_winner, 300), 8, BLACK, wrap=True)
+    add_text_box(slide, x_r + 0.20, y_cat + 0.60, w_r/2 - 0.40, _cat_h - 0.15,
+                 _fit(bull_winner, 280), 8, BLACK, wrap=True)
     # Bears
     x_be = x_r + w_r/2 + 0.10
     add_rect(slide, x_be, y_cat, w_r/2 - 0.10, 0.50, RED)
-    add_text_box(slide, x_be + 0.15, y_cat + 0.10, w_r/2 - 0.3, 0.35,
-                 "RISQUES BEARS", 8.5, WHITE, bold=True)
+    add_text_box(slide, x_be + 0.25, y_cat + 0.10, w_r/2 - 0.5, 0.40,
+                 "RISQUES BEARS", 9, WHITE, bold=True)
     bear_winner = synthesis.get('bear_a' if is_a else 'bear_b') or "Risques de marche standard"
     add_rect(slide, x_be, y_cat + 0.50, w_r/2 - 0.10, _cat_h, GREY_BG)
-    add_text_box(slide, x_be + 0.15, y_cat + 0.60, w_r/2 - 0.30, _cat_h - 0.15,
-                 _fit(bear_winner, 300), 8, BLACK, wrap=True)
+    add_text_box(slide, x_be + 0.20, y_cat + 0.60, w_r/2 - 0.40, _cat_h - 0.15,
+                 _fit(bear_winner, 280), 8, BLACK, wrap=True)
 
     # Conditions d'invalidation (warning bar)
     y_inv = y_cat + 0.50 + _cat_h + 0.25

@@ -1689,21 +1689,38 @@ def render_running() -> None:
         }
 
         t0    = time.time()
-        graph = build_graph()
         step(0.05, "Initialisation du graphe d'analyse...")
+
+        # --- Cache analyses precedentes (par ticker, session courante) ---
+        # Stocke le final_state complet en session_state. Si l'utilisateur
+        # relance le meme ticker, on retourne directement le cache (~instant).
+        _cache_key = (ticker or "").upper()
+        _state_cache = st.session_state.get("_pipeline_state_cache") or {}
 
         # --- Streaming LangGraph : mise à jour progress en temps réel ---
         final_state: dict = {}
         try:
-            for chunk in graph.stream(
-                {"ticker": ticker, "errors": [], "logs": [], "qa_retries": 0},
-                stream_mode="updates",
-            ):
-                node_name  = list(chunk.keys())[0]
-                node_delta = chunk[node_name]
-                final_state.update(node_delta)
-                pct, label = _NODE_PROGRESS.get(node_name, (0.5, node_name))
-                step(pct, label)
+            if _cache_key in _state_cache:
+                # Cache hit : reutilise l'etat complet
+                final_state = _state_cache[_cache_key]
+                for _label_pct in (0.20, 0.45, 0.70, 0.95):
+                    step(_label_pct, "Recuperation depuis le cache...")
+            else:
+                graph = build_graph()
+                for chunk in graph.stream(
+                    {"ticker": ticker, "errors": [], "logs": [], "qa_retries": 0},
+                    stream_mode="updates",
+                ):
+                    node_name  = list(chunk.keys())[0]
+                    node_delta = chunk[node_name]
+                    final_state.update(node_delta)
+                    pct, label = _NODE_PROGRESS.get(node_name, (0.5, node_name))
+                    step(pct, label)
+                # Sauvegarde en cache (limite 5 tickers max pour borner la memoire)
+                if len(_state_cache) >= 5:
+                    _state_cache.pop(next(iter(_state_cache)))
+                _state_cache[_cache_key] = final_state
+                st.session_state["_pipeline_state_cache"] = _state_cache
         except Exception as _ex:
             log.error(f"[app] LangGraph pipeline error: {_ex}", exc_info=True)
             st.error(f"Erreur pipeline : {_ex}")
@@ -4899,7 +4916,6 @@ def _render_cmp_societe_page() -> None:
     ]
     _cmp_mini_table(rows)
 
-    _cmp_livrables_note()
 
 
 # ---------------------------------------------------------------------------
@@ -4991,7 +5007,6 @@ def _render_cmp_secteur_page() -> None:
     ]
     _cmp_mini_table(rows)
 
-    _cmp_livrables_note()
 
 
 # ---------------------------------------------------------------------------
@@ -5073,7 +5088,6 @@ def _render_cmp_indice_page() -> None:
     ]
     _cmp_mini_table(rows)
 
-    _cmp_livrables_note()
 
 
 # ---------------------------------------------------------------------------
