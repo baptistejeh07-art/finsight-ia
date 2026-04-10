@@ -216,18 +216,44 @@ def _frx(v):
     except: return "\u2014"
 
 def _frm(v, cur="$"):
+    """Format market cap / EV. Valeur stockee en MILLIARDS (comparison_writer.mc_bn).
+    Gere aussi les formats alternatifs (millions, raw) pour robustesse."""
     if v is None: return "\u2014"
     try:
         v = float(v)
-        if abs(v) > 1_000_000_000: v = v / 1_000_000
+        # Detection robuste de l'echelle : si > 1e12 la valeur est en raw USD
+        # (pipeline direct yfinance), si > 1e6 elle est en millions, sinon en milliards.
+        if abs(v) > 1_000_000_000_000:
+            v = v / 1_000_000_000  # raw -> milliards
+        elif abs(v) > 1_000_000:
+            v = v / 1_000          # millions -> milliards
+        # Maintenant v est en milliards
         if cur == "EUR":
             sym_big, sym_small = "Md\u20ac", "M\u20ac"
         else:
             sym_big, sym_small = "Mds" + cur, "M" + cur
-        if abs(v) >= 1000:
-            return _fr(v / 1000, 1) + " " + sym_big
-        return _fr(v, 0) + " " + sym_small
+        if abs(v) >= 1:
+            return _fr(v, 1) + " " + sym_big
+        # Small caps : afficher en millions
+        return _fr(v * 1000, 0) + " " + sym_small
     except: return "\u2014"
+
+
+def _word_clip(s, n, ellipsis="\u2026"):
+    """Clip une chaine a n chars en respectant la frontiere de mot.
+    Retourne le texte integral si < n, sinon coupe au dernier espace et ajoute ellipsis."""
+    if not s:
+        return ""
+    s = str(s).strip()
+    if len(s) <= n:
+        return s
+    cut = s[:n]
+    sp = cut.rfind(" ")
+    if sp > n // 2:
+        cut = cut[:sp]
+    # Retirer ponctuation finale avant d'ajouter l'ellipsis
+    cut = cut.rstrip(" ,;:-")
+    return cut + ellipsis
 
 _SENTIMENT_MAP = {
     "POSITIVE": "Positif", "BULLISH": "Positif", "TRES_POSITIF": "Tres positif",
@@ -306,6 +332,71 @@ def _bilan_text(m_a, m_b, tkr_a, tkr_b):
         f"les deux titres disposent d'une structure a surveiller sur horizon 12 mois."
     )
 
+
+def _bilan_text_below(m_a, m_b, tkr_a, tkr_b):
+    """Texte analytique sous le tableau Bilan (page 4) : lecture qualite bilancielle."""
+    def _f(v):
+        try: return float(v) if v is not None else None
+        except: return None
+    nd_a = _f(m_a.get("net_debt_ebitda"))
+    nd_b = _f(m_b.get("net_debt_ebitda"))
+    cr_a = _f(m_a.get("current_ratio"))
+    cr_b = _f(m_b.get("current_ratio"))
+    ic_a = _f(m_a.get("interest_coverage"))
+    ic_b = _f(m_b.get("interest_coverage"))
+    # Qualite levier
+    def _lev_q(nd):
+        if nd is None: return "indetermine"
+        if nd < 0:   return "position de tresorerie nette (desendette)"
+        if nd < 1.5: return "levier faible et confortable"
+        if nd < 3.0: return "levier modere"
+        return "levier eleve imposant vigilance"
+    _lev_winner = None
+    if nd_a is not None and nd_b is not None:
+        _lev_winner = tkr_a if nd_a < nd_b else tkr_b
+    # Liquidite
+    def _liq_q(cr):
+        if cr is None: return "non calculable"
+        if cr >= 2.0: return "confortable"
+        if cr >= 1.2: return "saine"
+        if cr >= 1.0: return "tendue mais suffisante"
+        return "sous tension"
+    # Couverture interets
+    def _cov_q(ic):
+        if ic is None: return "non calculable"
+        if ic >= 10: return "tres solide"
+        if ic >= 5:  return "solide"
+        if ic >= 2:  return "correcte"
+        return "fragile"
+    parts = []
+    parts.append(
+        f"Lecture de la structure bilancielle : {tkr_a} presente un ratio ND/EBITDA "
+        f"{_lev_q(nd_a)} ({_frx(m_a.get('net_debt_ebitda'))}), tandis que {tkr_b} "
+        f"affiche un profil {_lev_q(nd_b)} ({_frx(m_b.get('net_debt_ebitda'))})."
+    )
+    if _lev_winner:
+        parts.append(
+            f" Sur le critere du levier, {_lev_winner} dispose d'une flexibilite "
+            f"superieure pour absorber un choc macro ou financer une operation de croissance externe."
+        )
+    parts.append(
+        f" La liquidite courante est {_liq_q(cr_a)} pour {tkr_a} ({_frx(m_a.get('current_ratio'))}) "
+        f"vs {_liq_q(cr_b)} pour {tkr_b} ({_frx(m_b.get('current_ratio'))}) -- "
+        f"indicateur du coussin operationnel court terme avant recours a des lignes bancaires."
+    )
+    parts.append(
+        f" La couverture des charges d'interets est {_cov_q(ic_a)} pour {tkr_a} "
+        f"({_frx(m_a.get('interest_coverage'))}) et {_cov_q(ic_b)} pour {tkr_b} "
+        f"({_frx(m_b.get('interest_coverage'))}) : une couverture inferieure a 3x signale "
+        f"une sensibilite accrue a une remontee des taux directeurs."
+    )
+    parts.append(
+        " Implication investisseur : la prime/decote de valorisation doit integrer le "
+        "differentiel de qualite bilancielle, qui conditionne la soutenabilite du dividende "
+        "et la capacite d'autofinancement en bas de cycle."
+    )
+    return "".join(parts)
+
 def _dcf_text(m_a, m_b, tkr_a, tkr_b):
     up_a   = m_a.get("upside_str") or "N/A"
     up_b   = m_b.get("upside_str") or "N/A"
@@ -348,14 +439,14 @@ def _chart_margins(m_a, m_b, tkr_a, tkr_b) -> io.BytesIO:
         vals_b  = [_pv(m_b.get("ebitda_margin_ltm")), _pv(m_b.get("ebit_margin")), _pv(m_b.get("net_margin_ltm"))]
         x = np.arange(len(labels))
         width = 0.35
-        fig, ax = plt.subplots(figsize=(8.5, 2.5))
-        bars_a = ax.bar(x - width/2, vals_a, width, label=tkr_a, color='#2E5FA3', alpha=0.9)
-        bars_b = ax.bar(x + width/2, vals_b, width, label=tkr_b, color='#C9A227', alpha=0.9)
+        fig, ax = plt.subplots(figsize=(9.5, 3.4))
+        bars_a = ax.bar(x - width/2, vals_a, width, label=tkr_a, color='#1B3A6B', alpha=0.95)
+        bars_b = ax.bar(x + width/2, vals_b, width, label=tkr_b, color='#C9A227', alpha=0.95)
         for bar in list(bars_a) + list(bars_b):
             h = bar.get_height()
             if h != 0:
                 ax.text(bar.get_x() + bar.get_width()/2., h + 0.5,
-                        f"{h:.1f}%", ha='center', va='bottom', fontsize=7.5, color='#333')
+                        f"{h:.1f}%", ha='center', va='bottom', fontsize=10, color='#333')
         # Note si toutes les valeurs sont proches de 0 (donnees manquantes)
         if all(abs(v) < 0.01 for v in vals_a + vals_b):
             ax.text(0.5, 0.5, "Donnees insuffisantes", ha='center', va='center',
@@ -363,11 +454,12 @@ def _chart_margins(m_a, m_b, tkr_a, tkr_b) -> io.BytesIO:
         else:
             # Forcer y_min à 0 pour éviter l'axe effondré
             ax.set_ylim(bottom=0, top=max(max(vals_a + vals_b) * 1.2, 5))
-        ax.set_xticks(x); ax.set_xticklabels(labels, fontsize=9)
-        ax.set_ylabel("(%)", fontsize=9, color='#555')
-        ax.legend(loc='upper right', fontsize=9, frameon=False)
+        ax.set_xticks(x); ax.set_xticklabels(labels, fontsize=11)
+        ax.set_ylabel("(%)", fontsize=10, color='#555')
+        ax.legend(loc='upper right', fontsize=11, frameon=False)
         for sp in ['top', 'right']: ax.spines[sp].set_visible(False)
         ax.spines['left'].set_color('#D0D5DD'); ax.spines['bottom'].set_color('#D0D5DD')
+        ax.tick_params(axis='y', labelsize=10)
         ax.set_facecolor('white'); fig.patch.set_facecolor('white')
         ax.yaxis.grid(True, alpha=0.3, color='#D0D5DD'); ax.set_axisbelow(True)
         plt.tight_layout(pad=0.6)
@@ -642,17 +734,14 @@ def _dcf_sensitivity_matrix(base_val, wacc, g_term):
 # =============================================================================
 def _build_cover_story(tkr_a, tkr_b, name_a, name_b,
                        rec_a, rec_b, date_str, m_a, m_b, synthesis):
-    """Retourne la liste de flowables pour la page de garde (style secteur)."""
+    """Retourne la liste de flowables pour la page de garde.
+    Le ruban navy de la marque est dessine via canvas dans _cover_header."""
     story = []
 
-    # Marque "FinSight IA" + regle epaisse (identique secteur)
-    story.append(Spacer(1, 6*mm))
-    story.append(Paragraph(
-        _safe("FinSight IA"),
-        _s('cv_brand', size=14, color=NAVY, bold=True)
-    ))
-    story.append(HRFlowable(width=TABLE_W, thickness=1.2, color=NAVY,
-                             spaceBefore=3, spaceAfter=8))
+    # La banderole navy "FinSight IA / Plateforme d'Analyse..." est dessinee
+    # par _header_footer (is_cover=True) sur la 1ere page en haut (18mm).
+    # topMargin=30mm garantit l'espace libre sous le ruban.
+    story.append(Spacer(1, 4 * mm))
 
     # Sous-titre
     story.append(Paragraph(
@@ -737,13 +826,7 @@ def _build_cover_story(tkr_a, tkr_b, name_a, name_b,
 
     # ---- Verdict box ----
     winner = m_a.get("winner") or tkr_a
-    verdict_raw = _safe(synthesis.get("verdict_text") or "")
-    if len(verdict_raw) > 220:
-        verdict_raw = verdict_raw[:220]
-        if ' ' in verdict_raw:
-            verdict_raw = verdict_raw[:verdict_raw.rfind(' ')] + '...'
-        else:
-            verdict_raw += '...'
+    verdict_raw = _safe(_word_clip(synthesis.get("verdict_text") or "", 480))
 
     verd_data = [[
         Paragraph(_safe(f"Choix prefere : {winner}"),
@@ -780,25 +863,46 @@ def _build_cover_story(tkr_a, tkr_b, name_a, name_b,
 def _header_footer(canvas, doc):
     W, H = A4
     canvas.saveState()
-    # Header navy
-    canvas.setFillColor(NAVY)
-    canvas.rect(0, H - 12*mm, W, 12*mm, fill=1, stroke=0)
-    canvas.setFillColor(WHITE)
-    canvas.setFont("Helvetica-Bold", 8)
-    canvas.drawString(MARGIN_L, H - 8*mm,
-        _enc(getattr(doc, '_cmp_header', 'FinSight IA')))
-    canvas.setFont("Helvetica", 7.5)
-    canvas.drawRightString(W - MARGIN_R, H - 8*mm,
-        _enc(f"Confidentiel  \u00b7  Page {doc.page}"))
-    # Footer
+    is_cover = (doc.page == 1)
+    if is_cover:
+        # === Cover : gros ruban navy style societe (FinSight IA + plateforme) ===
+        RIBBON_H = 18 * mm
+        canvas.setFillColor(NAVY)
+        canvas.rect(0, H - RIBBON_H, W, RIBBON_H, fill=1, stroke=0)
+        canvas.setFillColor(WHITE)
+        canvas.setFont("Helvetica-Bold", 16)
+        canvas.drawCentredString(W / 2, H - 10 * mm, _canvas_text("FinSight IA"))
+        canvas.setFont("Helvetica", 9)
+        canvas.setFillColor(colors.HexColor("#BBCBDD"))
+        canvas.drawCentredString(
+            W / 2, H - 15 * mm,
+            _canvas_text("Plateforme d'Analyse Financiere Institutionnelle")
+        )
+    else:
+        # === Pages de contenu : ruban fin navy ===
+        canvas.setFillColor(NAVY)
+        canvas.rect(0, H - 12 * mm, W, 12 * mm, fill=1, stroke=0)
+        canvas.setFillColor(WHITE)
+        canvas.setFont("Helvetica-Bold", 8)
+        canvas.drawString(
+            MARGIN_L, H - 8 * mm,
+            _enc(getattr(doc, '_cmp_header', 'FinSight IA'))
+        )
+        canvas.setFont("Helvetica", 7.5)
+        canvas.drawRightString(
+            W - MARGIN_R, H - 8 * mm,
+            _enc(f"Confidentiel  \u00b7  Page {doc.page}")
+        )
+    # Footer (toutes pages)
     canvas.setFillColor(GREY_RULE)
-    canvas.rect(0, 0, W, 9*mm, fill=1, stroke=0)
+    canvas.rect(0, 0, W, 9 * mm, fill=1, stroke=0)
     canvas.setFillColor(GREY_TEXT)
     canvas.setFont("Helvetica", 7)
-    canvas.drawString(MARGIN_L, 3.5*mm,
-        _enc("FinSight IA  \u00b7  Analyse algorithmique, non contractuelle"))
-    canvas.drawRightString(W - MARGIN_R, 3.5*mm,
-        _enc(f"Page {doc.page}"))
+    canvas.drawString(
+        MARGIN_L, 3.5 * mm,
+        _enc("FinSight IA  \u00b7  Analyse algorithmique, non contractuelle")
+    )
+    canvas.drawRightString(W - MARGIN_R, 3.5 * mm, _enc(f"Page {doc.page}"))
     canvas.restoreState()
 
 
@@ -835,12 +939,7 @@ def _section_exec_summary(story, m_a, m_b, synthesis, tkr_a, tkr_b):
 
     exec_text = synthesis.get("exec_summary") or ""
     if exec_text:
-        # Limiter a ~500 chars (word boundary)
-        if len(exec_text) > 500:
-            exec_text = exec_text[:500]
-            if ' ' in exec_text:
-                exec_text = exec_text[:exec_text.rfind(' ')] + '\u2026'
-        story.append(Paragraph(_safe(exec_text), S_BODY))
+        story.append(Paragraph(_safe(_word_clip(exec_text, 700)), S_BODY))
         story.append(Spacer(1, 4*mm))
 
     # Tableau KPIs cles cote a cote
@@ -882,12 +981,13 @@ def _section_exec_summary(story, m_a, m_b, synthesis, tkr_a, tkr_b):
     story.append(img)
     story.append(Spacer(1, 3*mm))
 
-    # Verdict excerpt
+    # Verdict excerpt — typographie harmonisee avec le corps de texte
     wc_hex = _hex_str(BUY_GREEN if winner == tkr_a else COLOR_B)
+    _verdict_txt = _safe(_word_clip(synthesis.get('verdict_text') or "", 420))
     story.append(Paragraph(
         f"<b>Titre prefere : <font color='#{wc_hex}'>{_enc(winner)}</font></b>"
-        f"  \u2014  {_safe((synthesis.get('verdict_text') or '')[:200])}",
-        _s('verd', size=9, leading=13, color=BLACK, sb=3, sa=2)
+        f"  \u2014  {_verdict_txt}",
+        _s('verd', size=8.5, leading=13, color=GREY_TEXT, align=TA_JUSTIFY, sb=3, sa=2)
     ))
     story.append(Spacer(1, 3*mm))
 
@@ -1110,6 +1210,10 @@ def _section_rentabilite_bilan(story, m_a, m_b, tkr_a, tkr_b):
     t_b = _make_tbl_3col(hdr_b, raw_b)
     if t_b:
         story.append(t_b)
+    story.append(Spacer(1, 3*mm))
+
+    # --- Texte analytique sous le tableau Bilan ---
+    story.append(Paragraph(_safe(_bilan_text_below(m_a, m_b, tkr_a, tkr_b)), S_BODY))
     story.append(Spacer(1, 2*mm))
     story.append(src("FinSight IA / yfinance"))
 
@@ -1119,11 +1223,7 @@ def _section_valorisation(story, m_a, m_b, synthesis, tkr_a, tkr_b):
     story += section_title("Valorisation", "5")
 
     if synthesis.get("valuation_text"):
-        vt = synthesis["valuation_text"]
-        if len(vt) > 350:
-            vt = vt[:350]
-            if ' ' in vt:
-                vt = vt[:vt.rfind(' ')] + '\u2026'
+        vt = _word_clip(synthesis["valuation_text"], 500)
         story.append(Paragraph(_safe(vt), S_BODY))
         story.append(Spacer(1, 3*mm))
 

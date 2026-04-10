@@ -915,21 +915,46 @@ class ComparisonWriter:
         except Exception as _ce2:
             log.warning(f"[ComparisonWriter] comparables dedup: {_ce2}")
 
-        # 9. Mettre a jour les noms de series dans les graphiques DASHBOARD
+        # 9. Mettre a jour les noms de series dans TOUS les graphiques +
+        #    remplacer les labels "Societe A/B" des cellules DASHBOARD par les tickers.
         try:
             from openpyxl.chart.series import SeriesLabel
+            from openpyxl.chart.data_source import StrRef
+
+            # (a) Remplacer les labels textuels "Societe A" / "Societe B" dans DASHBOARD.
             ws_dash = wb["DASHBOARD"]
-            for chart in ws_dash._charts:
-                for i, ser in enumerate(chart.series):
-                    new_name = tkr_a if i == 0 else tkr_b
-                    try:
-                        ser.title = SeriesLabel(v=new_name)
-                        if hasattr(ser, 'tx') and ser.tx is not None:
+            name_a_display = m_a.get("company_name_a") or tkr_a
+            name_b_display = m_b.get("company_name_b") or tkr_b
+            _LABEL_TOKENS_A = ("Societe A", "Société A", "Soci\u00e9t\u00e9 A", "Soc. A")
+            _LABEL_TOKENS_B = ("Societe B", "Société B", "Soci\u00e9t\u00e9 B", "Soc. B")
+            for row in ws_dash.iter_rows():
+                for cell in row:
+                    if cell.value is None:
+                        continue
+                    sv = str(cell.value)
+                    if any(tok in sv for tok in _LABEL_TOKENS_A):
+                        cell.value = name_a_display
+                    elif any(tok in sv for tok in _LABEL_TOKENS_B):
+                        cell.value = name_b_display
+
+            # (b) Renommer les series dans TOUS les graphiques de TOUTES les feuilles.
+            # Certaines series ont des titres hardcodes (ex: "Microsoft" / "Alphabet")
+            # herites du template original et ne se mettent pas a jour via formules.
+            for sheet_name in wb.sheetnames:
+                ws_any = wb[sheet_name]
+                if not hasattr(ws_any, "_charts") or not ws_any._charts:
+                    continue
+                for chart in ws_any._charts:
+                    for i, ser in enumerate(chart.series):
+                        new_name = tkr_a if i % 2 == 0 else tkr_b
+                        try:
                             ser.tx = SeriesLabel(v=new_name)
-                    except Exception as _e:
-                        log.debug(f"[ComparisonWriter] chart series rename error: {_e}")
+                        except Exception as _e:
+                            log.debug(
+                                f"[ComparisonWriter] {sheet_name} chart series rename error: {_e}"
+                            )
         except Exception as _ce:
-            log.warning(f"[ComparisonWriter] dashboard chart rename: {_ce}")
+            log.warning(f"[ComparisonWriter] chart rename global: {_ce}")
 
         # Sauvegarder en mémoire
         buf = io.BytesIO()
