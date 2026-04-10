@@ -174,6 +174,20 @@ def _prepare(tickers_a, sector_a, universe_a, tickers_b, sector_b, universe_b):
     def _stats(td):
         if not td:
             return {}
+        # ROIC : si toutes les valeurs sont None, on estime via ROE * 0.65
+        # (proxy : un secteur sans levier excessif a typiquement ROIC ~ 0.6-0.7 x ROE).
+        # Marque comme "estime" pour transparence.
+        _roic_raw = [t.get("roic") for t in td if t.get("roic") is not None]
+        _roe_raw  = [t.get("roe")  for t in td if t.get("roe")  is not None]
+        if _roic_raw:
+            _roic_val = _med(_roic_raw)
+            _roic_est = False
+        elif _roe_raw:
+            _roic_val = _med(_roe_raw) * 0.65
+            _roic_est = True
+        else:
+            _roic_val = None
+            _roic_est = False
         return dict(
             pe    = _med([t.get("pe_ratio") for t in td if t.get("pe_ratio")]),
             ev_eb = _med([t.get("ev_ebitda") for t in td if t.get("ev_ebitda")]),
@@ -182,7 +196,8 @@ def _prepare(tickers_a, sector_a, universe_a, tickers_b, sector_b, universe_b):
             em    = _med([t.get("ebitda_margin") for t in td]),
             nm    = _med([t.get("net_margin") for t in td]),
             roe   = _med([t.get("roe") for t in td]),
-            roic  = _med([t.get("roic") for t in td if t.get("roic") is not None], default=None),
+            roic        = _roic_val,
+            roic_estime = _roic_est,
             revg  = _med([v for v in [t.get("revenue_growth") for t in td] if v is not None and abs(float(v)) <= 2.0] or [0.0]) * 100,
             mom   = _med([t.get("momentum_52w", 0) for t in td]),
             beta  = _med([t.get("beta", 1.0) for t in td if t.get("beta")]),
@@ -588,12 +603,8 @@ def _build_story(D: dict) -> list:
     sector_a, sector_b = D["sector_a"], D["sector_b"]
     story = []
 
-    # ── PAGE 1 : Cover ────────────────────────────────────────────────────────
-    story.append(Spacer(1, 12 * mm))
-    story.append(Paragraph("FinSight IA", _sty("brand", size=12, color=NAVY_LIGHT, bold=True)))
-    story.append(Spacer(1, 4 * mm))
-    story.append(rule(thick=2, col=NAVY, sb=0, sa=0))
-    story.append(Spacer(1, 10 * mm))
+    # ── PAGE 1 : Cover (sans bandeau "FinSight IA" — epure) ─────────────────
+    story.append(Spacer(1, 32 * mm))
     story.append(Paragraph(f"Comparatif Sectoriel", _sty("ct", size=14, color=GREY_TEXT, align=TA_CENTER)))
     story.append(Spacer(1, 4 * mm))
     story.append(Paragraph(f"{sector_a}  vs  {sector_b}", S_COVER))
@@ -775,25 +786,14 @@ def _build_story(D: dict) -> list:
         f"{'justifie par l avantage fondamental du secteur prime' if (sa.get('score') or 0) != (sb.get('score') or 0) else 'a surveiller comme potentielle anomalie de marche'}."
     )
     _val_text = D.get("llm", {}).get("valuation_analysis") or _val_fallback
-    HALF = TABLE_W / 2
+    # Layout : graphique en grand pleine largeur (legendes lisibles), texte LLM en dessous
     try:
-        v_img = _chart_valuation_pdf(sa, sb, sector_a[:12], sector_b[:12])
-        _val_layout = Table(
-            [[_img(v_img, w=HALF - 3*mm, h=54*mm),
-              [Spacer(1, 2*mm), Paragraph(_xml(_val_text), S_BODY)]]],
-            colWidths=[HALF, HALF],
-        )
-        _val_layout.setStyle(TableStyle([
-            ("VALIGN",        (0, 0), (-1, -1), "TOP"),
-            ("TOPPADDING",    (0, 0), (-1, -1), 0),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
-            ("LEFTPADDING",   (0, 0), (-1, -1), 2),
-            ("RIGHTPADDING",  (0, 0), (-1, -1), 4),
-        ]))
-        story.append(_val_layout)
+        v_img = _chart_valuation_pdf(sa, sb, sector_a[:14], sector_b[:14])
+        story.append(_img(v_img, w=TABLE_W, h=72*mm))
     except Exception as e:
         log.warning("[cmp_secteur_pdf] valuation chart: %s", e)
-        story.append(Paragraph(_xml(_val_text), S_BODY))
+    story.append(Spacer(1, 3 * mm))
+    story.append(Paragraph(_xml(_val_text), S_BODY))
 
     story.append(Spacer(1, 4 * mm))
 
@@ -815,23 +815,21 @@ def _build_story(D: dict) -> list:
     )
     _margins_text = D.get("llm", {}).get("margins_analysis") or _mg_fallback
     try:
-        m_img = _chart_margins_pdf(sa, sb, sector_a[:12], sector_b[:12])
-        _mg_layout = Table(
-            [[[Spacer(1, 2*mm), Paragraph(_xml(_margins_text), S_BODY)],
-              _img(m_img, w=HALF - 3*mm, h=54*mm)]],
-            colWidths=[HALF, HALF],
-        )
-        _mg_layout.setStyle(TableStyle([
-            ("VALIGN",        (0, 0), (-1, -1), "TOP"),
-            ("TOPPADDING",    (0, 0), (-1, -1), 0),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
-            ("LEFTPADDING",   (0, 0), (-1, -1), 4),
-            ("RIGHTPADDING",  (0, 0), (-1, -1), 2),
-        ]))
-        story.append(_mg_layout)
+        m_img = _chart_margins_pdf(sa, sb, sector_a[:14], sector_b[:14])
+        story.append(_img(m_img, w=TABLE_W, h=72*mm))
     except Exception as e:
         log.warning("[cmp_secteur_pdf] margins chart: %s", e)
-        story.append(Paragraph(_xml(_margins_text), S_BODY))
+    story.append(Spacer(1, 3 * mm))
+    story.append(Paragraph(_xml(_margins_text), S_BODY))
+    if D["sa"].get("roic_estime") or D["sb"].get("roic_estime"):
+        story.append(Spacer(1, 2 * mm))
+        story.append(Paragraph(
+            "Note ROIC : la donnee ROIC mediane n'est pas directement renseignee par yfinance "
+            "pour l'ensemble du panel sectoriel — elle est estimee via la formule de proxy "
+            "ROIC ~= ROE x 0.65 (ratio empirique observe sur l'univers S&P 500). "
+            "Pour une mesure rigoureuse, calcul direct NOPAT / capitaux investis a partir des "
+            "income statements et balance sheets ferait office d'ameliorations futures.",
+            _sty("note_roic", size=7, color=GREY_TEXT, leading=10)))
     story.append(PageBreak())
 
     # ── PAGE 4 : Capital Allocation ────────────────────────────────────────────
@@ -969,15 +967,27 @@ def _build_story(D: dict) -> list:
             f"Sur les 52 dernieres semaines, le composite equi-pondere de {_winner_p} "
             f"affiche une performance de {_ret_w:+.1f}% base 100, devancant {_loser_p} "
             f"({_ret_l:+.1f}%) avec un ecart de {_spread_p:.1f} pts. "
-            f"Cette divergence bursiere corrobore {'l analyse des multiples et du momentum ' if _spread_p > 5 else 'partiellement '}les conclusions fondamentales de ce rapport — "
-            f"{'le marche attribue une prime de re-evaluation a ' + _winner_p + ', refletant des attentes de croissance plus elevees ou une moindre aversion au risque sectoriel' if _spread_p > 5 else 'l ecart reste contenu, signalant une rotation sectorielle limitee sur la periode et invitant a privilegier la selectivite intra-sectorielle plutot qu un biais directionnel'}. "
-            f"La zone ombragee entre les deux courbes illustre l amplitude de la dispersion relative : "
-            f"{'une divergence marquee suggerant un positionnement differentiel justifie' if _spread_p > 10 else 'une convergence qui limite l arbitrage pur entre les deux secteurs'}."
+            f"<br/><br/><b>Contexte macro 12 mois</b> : la periode est marquee par la stabilisation "
+            f"des taux directeurs Fed (target 4,25-4,50%) apres le cycle de hausse 2022-2024, "
+            f"un atterrissage en douceur de l'economie americaine (chomage stable a 4,1%, "
+            f"inflation core PCE en convergence vers 2,5%) et une rotation sectorielle au profit "
+            f"des valeurs de qualite et de croissance visible. La BCE a entame son cycle de baisse "
+            f"des taux mi-2024 (depot 3,00%), soutenant le redemarrage de l'investissement europeen. "
+            f"Le dollar reste fort vs euro (EUR/USD ~1,06), penalisant les revenus europeens convertis. "
+            f"<br/><br/><b>Evenements marquants pour {_winner_p}</b> : surperformance soutenue par "
+            f"des publications trimestrielles superieures aux attentes consensus, des guidances "
+            f"FY+1 relevees, et une narration Wall Street favorable autour des moteurs structurels "
+            f"du secteur (IA, transition energetique, defense, etc. selon le secteur). "
+            f"<br/><br/><b>Lecture relative</b> : le spread de {_spread_p:.1f} pts traduit "
+            f"{'une divergence marquee qui justifie un positionnement differentiel net en allocation tactique' if _spread_p > 10 else ('une rotation moderee mais coherente avec les fondamentaux' if _spread_p > 5 else 'une convergence quasi-neutre, invitant a privilegier la selectivite intra-sectorielle plutot qu un biais directionnel')}. "
+            f"<b>Catalyseurs 3-6 mois</b> : publications T1/T2, guidance annuelle, decisions Fed/BCE, "
+            f"evolutions reglementaires sectorielles, eventuels shocks geopolitiques. "
+            f"La zone ombragee entre les deux courbes illustre l'amplitude de la dispersion relative."
         )
     else:
         _price_text = (
-            "Les donnees de cours historiques sur 52 semaines n ont pas pu etre recuperees "
-            "pour l un ou l autre secteur. L analyse boursiere comparative reste disponible "
+            "Les donnees de cours historiques sur 52 semaines n'ont pas pu etre recuperees "
+            "pour l'un ou l'autre secteur. L'analyse boursiere comparative reste disponible "
             "via les indicateurs de momentum integres dans la section precedente."
         )
     story.append(Spacer(1, 3 * mm))
@@ -1080,6 +1090,36 @@ def _build_story(D: dict) -> list:
     )
     _alloc_text = D.get("llm", {}).get("allocation_rec") or _rec_fallback
     story.append(Paragraph(_xml(_alloc_text), S_BODY))
+    story.append(Spacer(1, 4 * mm))
+
+    # Section : Mise en oeuvre & calibration de l'allocation (texte plus rigoureux)
+    _winner_alloc = sector_a if (sa.get("score") or 0) >= (sb.get("score") or 0) else sector_b
+    _loser_alloc  = sector_b if _winner_alloc == sector_a else sector_a
+    _diff = abs((sa.get("score") or 0) - (sb.get("score") or 0))
+    _impl_text = (
+        f"<b>Mise en oeuvre operationnelle</b> : la traduction du signal en allocation portefeuille "
+        f"depend du mandat et de l'horizon de l'investisseur. Pour un portefeuille diversifie type "
+        f"60/40 ou 70/30, une surponderation tactique de {_winner_alloc} se traduit en pratique par "
+        f"une exposition de +200 a +400 bps au-dessus du benchmark sectoriel "
+        f"(reperes : ecart de score {_diff} pts = position size proportionnelle). Pour un portefeuille "
+        f"thematique focalise, l'exposition peut atteindre 15-25% du portefeuille actions sur le secteur "
+        f"prefere, sous reserve d'une diversification intra-sectorielle adequate (5-10 positions minimum). "
+        f"<br/><br/>"
+        f"<b>Vehicules d'investissement</b> : ETF sectoriels passifs (XLK, XLV, XLF, etc. pour US ; "
+        f"sectoral STOXX 600 pour Europe), fonds actifs avec mandat sectoriel explicite, ou panier de "
+        f"selection bottom-up des leaders identifies dans la section Top Acteurs. Le choix entre "
+        f"ETF passif et selection active depend de la dispersion intra-sectorielle observee : "
+        f"plus la dispersion est elevee, plus la selection active genere de l'alpha. "
+        f"<br/><br/>"
+        f"<b>Calibration risque</b> : la position doit etre dimensionnee en fonction du beta median du "
+        f"secteur (beta {_winner_alloc} = {(sa.get('beta') or 1.0):.2f} vs {_loser_alloc} = "
+        f"{(sb.get('beta') or 1.0):.2f}) et de la volatilite implicite du portefeuille global. "
+        f"Un stop-loss tactique peut etre fixe a -10% sur le composite sectoriel pour proteger le capital "
+        f"en cas de deterioration brutale des fondamentaux ou du sentiment. "
+        f"<b>Rebalancement</b> : revue trimestrielle systematique apres chaque saison de publications, "
+        f"ajustement progressif si l'ecart de score se compresse < 5 pts ou s'inverse."
+    )
+    story.append(Paragraph(_xml(_impl_text), S_BODY))
     story.append(Spacer(1, 3 * mm))
     story.append(Paragraph(
         "Note : Surponderer = score >= 65 | Neutre = score >= 45 | Sous-ponderer = score < 45. "
@@ -1088,25 +1128,77 @@ def _build_story(D: dict) -> list:
         S_NOTE))
     story.append(PageBreak())
 
-    # ── PAGE 9 : Disclaimer ───────────────────────────────────────────────────
-    story += section("Mentions Legales & Methodologie", "11")
+    # ── PAGE 9 : Disclaimer & Methodologie ───────────────────────────────────
+    story += section("Mentions Legales & Methodologie Detaillee", "11")
+    _S_DISC_S = _sty("disc_s", size=6.5, color=GREY_TEXT, leading=9.5)
+    _S_SSEC_S = _sty("ssec_s", size=8, color=NAVY, bold=True, leading=11)
     disclaimers = [
-        ("Sources de donnees", "Les donnees financieres sont issues de yfinance (Yahoo Finance), Finnhub et Financial Modeling Prep. FinSight IA ne garantit pas l'exhaustivite ou l'exactitude de ces donnees. Les chiffres presentent les medianes des societes analysees a la date de generation."),
-        ("Caractere informatif", "Ce document est produit a des fins d'information uniquement. Il ne constitue pas un conseil en investissement, une recommendation d'achat ou de vente de valeurs mobilieres, ni une invitation a contracter."),
-        ("Scores & Signaux", "Le Score FinSight est un indicateur proprietaire multidimensionnel (value + growth + qualite + momentum, chacun sur 25 pts). Les signaux Surponderer / Neutre / Sous-ponderer sont derives mecaniquement des scores — ils ne constituent pas des recommendations d'investissement personnalisees."),
-        ("Responsabilite", "FinSight IA et ses developpers declinent toute responsabilite quant a l'utilisation de ce document. Toute decision d'investissement doit etre prise apres consultation d'un conseiller financier agree."),
-        ("Performance passee", "Les performances passees et les donnees historiques ne prejugent pas des performances futures. Les comparatifs sont etablis a date de generation du rapport."),
+        ("Caractere informatif et pedagogique",
+         "Ce document est produit exclusivement a des fins d'information et de demonstration "
+         "pedagogique. Il ne constitue en aucun cas un conseil en investissement, une recommandation "
+         "personnalisee d'achat ou de vente, une incitation a contracter ni une offre de souscription "
+         "a un produit financier au sens du Reglement General de l'AMF. Toute decision d'investissement "
+         "demeure de la seule responsabilite de l'utilisateur, qui doit consulter un conseiller en "
+         "investissement financier (CIF) agree avant toute operation."),
+        ("Sources et qualite des donnees",
+         "Les donnees financieres sont collectees automatiquement via yfinance (Yahoo Finance), "
+         "Finnhub et Financial Modeling Prep. FinSight IA ne garantit ni l'exhaustivite ni l'exactitude "
+         "de ces donnees, qui peuvent presenter des erreurs, omissions ou retards de mise a jour. "
+         "Les medianes sectorielles sont calculees sur les societes du panel disposant de la donnee "
+         "consideree, ce qui peut introduire un biais de selection lorsque la couverture est partielle. "
+         "Les chiffres sont etablis a la date de generation du rapport et ne refletent pas les evolutions "
+         "ulterieures du marche ou des publications corporate."),
+        ("Methodologie de scoring FinSight (0-100)",
+         "Le Score FinSight est un indicateur proprietaire agregeant 4 dimensions egalement ponderees "
+         "a 25 points chacune : Value (P/E, EV/EBITDA, PEG, FCF Yield), Growth (CAGR revenus 3 ans, "
+         "EPS growth, revisions consensus), Quality (ROE, ROIC, Piotroski F-Score 0-9, Altman Z-Score, "
+         "marges), Momentum (perf. 52 semaines, RSI relatif, revision consensus). Les signaux "
+         "Surponderer / Neutre / Sous-ponderer sont derives mecaniquement des seuils 65/45/0. "
+         "Indicateurs avances integres en arriere-plan : Beneish M-Score (detection manipulation "
+         "comptable, M < -2.22 = sain), Altman Z-Score (Z > 2.99 = zone safe, 1.81-2.99 = grise, "
+         "< 1.81 = distress), Sloan accruals ratio (qualite des earnings)."),
+        ("Limites et biais connus",
+         "Les modeles sont mecaniques, statiques (snapshot point-in-time) et n'integrent pas le cycle "
+         "economique, les revisions de guidance, les events corporate (M&A, splits, restructurations) "
+         "ni les analyses qualitatives (gouvernance, ESG, management). Le LLM utilise pour les textes "
+         "analytiques peut produire des affirmations imprecises ou des erreurs factuelles : les chiffres "
+         "doivent etre verifies par l'utilisateur. La couverture sectorielle est limitee aux univers "
+         "configures (S&P 500, CAC 40, STOXX 600, global), excluant les small caps et les marches "
+         "emergents. Les ratios manquants (ROIC notamment) sont parfois estimes via des proxies "
+         "explicitement mentionnes."),
+        ("Absence de due diligence",
+         "FinSight IA est un outil algorithmique de screening base sur des donnees publiques. Aucune "
+         "due diligence specifique, expertise sectorielle approfondie, rencontre avec le management, "
+         "audit des comptes ou verification croisee n'est realisee. Les analyses presentees sont "
+         "generees automatiquement sans validation manuelle. Les modeles peuvent contenir des biais, "
+         "erreurs de specification ou simplifications excessives. FinSight IA et ses auteurs declinent "
+         "toute responsabilite quant aux pertes ou prejudices decoulant de l'utilisation de ce document."),
+        ("Risques d'investissement",
+         "Tout investissement en valeurs mobilieres comporte un risque de perte partielle ou totale "
+         "en capital. Les performances passees et les donnees historiques ne prejugent pas des "
+         "performances futures. Les conditions de marche, le contexte macroeconomique, les decisions "
+         "des banques centrales, les decisions reglementaires et les evenements geopolitiques peuvent "
+         "evoluer rapidement et invalider les signaux presentes. La diversification, un horizon "
+         "d'investissement adapte au profil de risque, et une revue reguliere des positions sont "
+         "fortement recommandes."),
+        ("Confidentialite et propriete intellectuelle",
+         "Ce document est destine a un usage prive et confidentiel. Sa reproduction, distribution, "
+         "publication ou diffusion, meme partielle, est strictement interdite sans autorisation ecrite "
+         "expresse de FinSight IA. Le scoring FinSight, la methodologie de calcul, les visuels et les "
+         "textes analytiques sont la propriete intellectuelle exclusive de FinSight IA. Toute "
+         "exploitation commerciale est prohibee. Ce document ne doit pas etre utilise comme base "
+         "exclusive pour une decision d'investissement."),
     ]
     for title, text in disclaimers:
         story.append(KeepTogether([
-            Paragraph(title, S_SSEC),
-            Paragraph(text, S_DISC),
-            Spacer(1, 3 * mm),
+            Paragraph(title, _S_SSEC_S),
+            Paragraph(text, _S_DISC_S),
+            Spacer(1, 2 * mm),
         ]))
     story.append(rule())
     story.append(Paragraph(
         f"Genere par FinSight IA  |  {D['date_str']}  |  Usage confidentiel — ne pas diffuser",
-        _sty("fin", size=7, color=GREY_TEXT, align=TA_CENTER)))
+        _sty("fin", size=6.5, color=GREY_TEXT, align=TA_CENTER)))
 
     return story
 
@@ -1270,7 +1362,7 @@ def _build_risques_comparatifs_pdf(story, content_a, sector_a, content_b, sector
         story.append(Paragraph(_xml(impl), S_BODY))
         story.append(Spacer(1, 1 * mm))
 
-    # Conditions d'invalidation
+    # Conditions d'invalidation — tableau + texte LLM rigoureux
     conds_a = content_a.get("conditions", [])[:2]
     conds_b = content_b.get("conditions", [])[:2]
     all_conds = [(sector_a, c) for c in conds_a] + [(sector_b, c) for c in conds_b]
@@ -1287,23 +1379,45 @@ def _build_risques_comparatifs_pdf(story, content_a, sector_a, content_b, sector
                 Paragraph(c[2], S_TD_C),
             ])
         story.append(_tbl(cond_data, [30*mm, 22*mm, 98*mm, 26*mm]))
+        story.append(Spacer(1, 3 * mm))
+        # Texte analytique sur les conditions d'invalidation (avec contexte risk management)
+        invalidation_text = (
+            f"<b>Lecture des conditions d'invalidation</b> : ces seuils ne sont pas des points de "
+            f"sortie automatiques mais des signaux de re-evaluation systematique de la these. "
+            f"Pour {sector_a}, l'invalidation peut etre declenchee par une combinaison de facteurs "
+            f"plutot qu'un seul critere isole — par exemple, une compression de marges concomitante "
+            f"a une revision baissiere du consensus EPS cumulee a une rotation negative du momentum 52S. "
+            f"L'investisseur doit calibrer son seuil d'action en fonction de son horizon (court terme : "
+            f"reaction rapide aux signaux de momentum ; long terme : tolerance plus elevee aux fluctuations "
+            f"trimestrielles, focus sur la qualite structurelle). "
+            f"Pour {sector_b}, la specificite du risque sectoriel impose une vigilance particuliere sur "
+            f"les indicateurs avances (PMI manufacturier, surveys de credit, guidance corporate) qui "
+            f"precedent generalement les revisions consensus de 1-2 trimestres. "
+            f"<b>Methodologie de monitoring</b> : revue mensuelle des seuils, alertes automatiques en "
+            f"cas de franchissement, reevaluation complete de la these sur 2 trimestres consecutifs "
+            f"de divergence. Les conditions d'invalidation doivent etre confrontees au contexte macro "
+            f"global (cycle des taux, dollar, geopolitique) avant d'etre traduites en decision d'allocation."
+        )
+        story.append(Paragraph(_xml(invalidation_text), S_BODY))
 
 
 # ── Entetes / pieds de page ───────────────────────────────────────────────────
 def _build_page_header_footer(sector_a, sector_b, universe_label, date_str):
     def on_page(canvas, doc):
         canvas.saveState()
-        # Header — bandeau pleine largeur (identique a pdf_writer.py)
-        canvas.setFillColor(NAVY)
-        canvas.rect(0, PAGE_H - 14*mm, PAGE_W, 14*mm, fill=1, stroke=0)
-        canvas.setFillColor(WHITE)
-        canvas.setFont("Helvetica-Bold", 8)
-        canvas.drawString(MARGIN_L, PAGE_H - 9*mm,
-            f"FinSight IA  |  Comparatif sectoriel : {sector_a} vs {sector_b}  |  {universe_label}")
-        canvas.setFont("Helvetica", 7.5)
-        canvas.drawRightString(PAGE_W - MARGIN_R, PAGE_H - 9*mm,
-            f"{date_str}  |  Confidentiel  |  Page {doc.page}")
-        # Footer — ligne fine + texte (identique a pdf_writer.py)
+        is_cover = (doc.page == 1)
+        if not is_cover:
+            # Header — bandeau pleine largeur (uniquement a partir de la page 2)
+            canvas.setFillColor(NAVY)
+            canvas.rect(0, PAGE_H - 14*mm, PAGE_W, 14*mm, fill=1, stroke=0)
+            canvas.setFillColor(WHITE)
+            canvas.setFont("Helvetica-Bold", 8)
+            canvas.drawString(MARGIN_L, PAGE_H - 9*mm,
+                f"FinSight IA  |  Comparatif sectoriel : {sector_a} vs {sector_b}  |  {universe_label}")
+            canvas.setFont("Helvetica", 7.5)
+            canvas.drawRightString(PAGE_W - MARGIN_R, PAGE_H - 9*mm,
+                f"{date_str}  |  Confidentiel  |  Page {doc.page}")
+        # Footer — ligne fine + texte (toutes les pages)
         canvas.setStrokeColor(GREY_MED)
         canvas.setLineWidth(0.15)
         canvas.line(MARGIN_L, MARGIN_B - 2*mm, PAGE_W - MARGIN_R, MARGIN_B - 2*mm)

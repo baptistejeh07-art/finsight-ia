@@ -503,68 +503,98 @@ def _generate_synthesis(m_a: dict, m_b: dict) -> dict:
         try: return f"{float(v):.1f}"
         except: return "N/A"
 
+    sec_a = m_a.get('sector_a') or m_a.get('sector') or 'N/D'
+    sec_b = m_b.get('sector_b') or m_b.get('sector') or 'N/D'
+
     data_str = f"""
-{tkr_a} ({name_a}) vs {tkr_b} ({name_b})
+============================================================
+COMPARAISON DETAILLEE : {tkr_a} ({name_a}) vs {tkr_b} ({name_b})
+Secteurs : {sec_a} vs {sec_b}
+============================================================
 
-VALORISATION:
-{tkr_a}: PE={_n(m_a.get('pe_ratio'))}, EV/EBITDA={_x2(m_a.get('ev_ebitda'))}, PB={_n(m_a.get('price_to_book'))}, FCF yield={_pct(m_a.get('fcf_yield'))}
-{tkr_b}: PE={_n(m_b.get('pe_ratio'))}, EV/EBITDA={_x2(m_b.get('ev_ebitda'))}, PB={_n(m_b.get('price_to_book'))}, FCF yield={_pct(m_b.get('fcf_yield'))}
+[1] VALORISATION (multiples)
+{tkr_a}: PE={_n(m_a.get('pe_ratio'))}, Forward PE={_n(m_a.get('forward_pe'))}, EV/EBITDA={_x2(m_a.get('ev_ebitda'))}, EV/Sales={_x2(m_a.get('ev_sales'))}, P/B={_n(m_a.get('price_to_book'))}, P/FCF={_n(m_a.get('p_fcf'))}, PEG={_n(m_a.get('peg_ratio'))}, FCF yield={_pct(m_a.get('fcf_yield'))}, Div yield={_pct(m_a.get('dividend_yield'))}
+{tkr_b}: PE={_n(m_b.get('pe_ratio'))}, Forward PE={_n(m_b.get('forward_pe'))}, EV/EBITDA={_x2(m_b.get('ev_ebitda'))}, EV/Sales={_x2(m_b.get('ev_sales'))}, P/B={_n(m_b.get('price_to_book'))}, P/FCF={_n(m_b.get('p_fcf'))}, PEG={_n(m_b.get('peg_ratio'))}, FCF yield={_pct(m_b.get('fcf_yield'))}, Div yield={_pct(m_b.get('dividend_yield'))}
+Mediane sectorielle : PE~{_n(m_a.get('sector_median_pe'))}, EV/EBITDA~{_x2(m_a.get('sector_median_ev_ebitda'))}
 
-PROFITABILITE:
-{tkr_a}: EBITDA margin={_pct(m_a.get('ebitda_margin_ltm'))}, ROIC={_pct(m_a.get('roic'))}, ROE={_pct(m_a.get('roe'))}, Rev CAGR 3y={_pct(m_a.get('revenue_cagr_3y'))}
-{tkr_b}: EBITDA margin={_pct(m_b.get('ebitda_margin_ltm'))}, ROIC={_pct(m_b.get('roic'))}, ROE={_pct(m_b.get('roe'))}, Rev CAGR 3y={_pct(m_b.get('revenue_cagr_3y'))}
+[2] PROFITABILITE & EFFICACITE OPERATIONNELLE
+{tkr_a}: EBITDA margin LTM={_pct(m_a.get('ebitda_margin_ltm'))} (y-1: {_pct(m_a.get('ebitda_margin_y1'))}, y-2: {_pct(m_a.get('ebitda_margin_y2'))}, trend: {m_a.get('ebitda_margin_trend','N/D')}), EBIT margin={_pct(m_a.get('ebit_margin'))}, Net margin={_pct(m_a.get('net_margin_ltm'))}, ROIC={_pct(m_a.get('roic'))}, ROE={_pct(m_a.get('roe'))}, Cash conversion={_n(m_a.get('cash_conversion'))}
+{tkr_b}: EBITDA margin LTM={_pct(m_b.get('ebitda_margin_ltm'))} (y-1: {_pct(m_b.get('ebitda_margin_y1'))}, y-2: {_pct(m_b.get('ebitda_margin_y2'))}, trend: {m_b.get('ebitda_margin_trend','N/D')}), EBIT margin={_pct(m_b.get('ebit_margin'))}, Net margin={_pct(m_b.get('net_margin_ltm'))}, ROIC={_pct(m_b.get('roic'))}, ROE={_pct(m_b.get('roe'))}, Cash conversion={_n(m_b.get('cash_conversion'))}
 
-LEVIER:
-{tkr_a}: ND/EBITDA={_n(m_a.get('net_debt_ebitda'))}, Beta={_n(m_a.get('beta'))}
-{tkr_b}: ND/EBITDA={_n(m_b.get('net_debt_ebitda'))}, Beta={_n(m_b.get('beta'))}
+[3] CROISSANCE
+{tkr_a}: Rev CAGR 3y={_pct(m_a.get('revenue_cagr_3y'))}, Rev growth fwd={_pct(m_a.get('revenue_growth_fwd'))}, EPS growth={_pct(m_a.get('eps_growth'))}, EPS growth fwd={_pct(m_a.get('eps_growth_fwd'))}
+{tkr_b}: Rev CAGR 3y={_pct(m_b.get('revenue_cagr_3y'))}, Rev growth fwd={_pct(m_b.get('revenue_growth_fwd'))}, EPS growth={_pct(m_b.get('eps_growth'))}, EPS growth fwd={_pct(m_b.get('eps_growth_fwd'))}
 
-SCORES:
-{tkr_a}: FinSight={m_a.get('finsight_score') or 'N/A'}, Piotroski={m_a.get('piotroski_score') or 'N/A'}, Rec={m_a.get('recommendation') or 'N/A'}
-{tkr_b}: FinSight={m_b.get('finsight_score') or 'N/A'}, Piotroski={m_b.get('piotroski_score') or 'N/A'}, Rec={m_b.get('recommendation') or 'N/A'}
+[4] LEVIER, SOLIDITE BILANCIELLE & QUALITE
+{tkr_a}: ND/EBITDA={_n(m_a.get('net_debt_ebitda'))}, Net debt={_n(m_a.get('net_debt'))}M, Cash={_n(m_a.get('cash'))}M, Interest cov={_n(m_a.get('interest_coverage'))}x, Current ratio={_n(m_a.get('current_ratio'))}, Quick ratio={_n(m_a.get('quick_ratio'))}, Capex/Rev={_pct(m_a.get('capex_to_revenue'))}, Piotroski={m_a.get('piotroski_score','N/D')}/9, Altman Z={_n(m_a.get('altman_z'))}, Beneish M={_n(m_a.get('beneish_mscore'))}
+{tkr_b}: ND/EBITDA={_n(m_b.get('net_debt_ebitda'))}, Net debt={_n(m_b.get('net_debt'))}M, Cash={_n(m_b.get('cash'))}M, Interest cov={_n(m_b.get('interest_coverage'))}x, Current ratio={_n(m_b.get('current_ratio'))}, Quick ratio={_n(m_b.get('quick_ratio'))}, Capex/Rev={_pct(m_b.get('capex_to_revenue'))}, Piotroski={m_b.get('piotroski_score','N/D')}/9, Altman Z={_n(m_b.get('altman_z'))}, Beneish M={_n(m_b.get('beneish_mscore'))}
+
+[5] PERFORMANCE BOURSIERE & RISQUE
+{tkr_a}: Cours={_n(m_a.get('share_price'))}, 52W high/low={_n(m_a.get('week52_high'))}/{_n(m_a.get('week52_low'))}, Perf 1M={_pct(m_a.get('perf_1m'))}, 3M={_pct(m_a.get('perf_3m'))}, 1Y={_pct(m_a.get('perf_1y'))}, Beta={_n(m_a.get('beta'))}, Vol 52W={_pct(m_a.get('volatility_52w'))}, RSI={_n(m_a.get('rsi'))}, Momentum score={_n(m_a.get('momentum_score'))}/10, VaR 95% 1M={_pct(m_a.get('var_95_1m'))}
+{tkr_b}: Cours={_n(m_b.get('share_price'))}, 52W high/low={_n(m_b.get('week52_high'))}/{_n(m_b.get('week52_low'))}, Perf 1M={_pct(m_b.get('perf_1m'))}, 3M={_pct(m_b.get('perf_3m'))}, 1Y={_pct(m_b.get('perf_1y'))}, Beta={_n(m_b.get('beta'))}, Vol 52W={_pct(m_b.get('volatility_52w'))}, RSI={_n(m_b.get('rsi'))}, Momentum score={_n(m_b.get('momentum_score'))}/10, VaR 95% 1M={_pct(m_b.get('var_95_1m'))}
+
+[6] DCF & MONTE CARLO (cibles)
+{tkr_a}: DCF base={_n(m_a.get('dcf_base'))}, bull={_n(m_a.get('dcf_bull'))}, bear={_n(m_a.get('dcf_bear'))}, upside base={_pct(m_a.get('dcf_upside_base'))}, MC p10/p50/p90={_n(m_a.get('monte_carlo_p10'))}/{_n(m_a.get('monte_carlo_p50'))}/{_n(m_a.get('monte_carlo_p90'))}
+{tkr_b}: DCF base={_n(m_b.get('dcf_base'))}, bull={_n(m_b.get('dcf_bull'))}, bear={_n(m_b.get('dcf_bear'))}, upside base={_pct(m_b.get('dcf_upside_base'))}, MC p10/p50/p90={_n(m_b.get('monte_carlo_p10'))}/{_n(m_b.get('monte_carlo_p50'))}/{_n(m_b.get('monte_carlo_p90'))}
+
+[7] SCORES COMPOSITES & RECOMMANDATIONS
+{tkr_a}: FinSight={m_a.get('finsight_score','N/D')}/100, Piotroski={m_a.get('piotroski_score','N/D')}/9, Reco={m_a.get('recommendation','N/D')}, Conviction={_pct(m_a.get('conviction'))}, Margin of safety={_pct(m_a.get('margin_of_safety'))}
+{tkr_b}: FinSight={m_b.get('finsight_score','N/D')}/100, Piotroski={m_b.get('piotroski_score','N/D')}/9, Reco={m_b.get('recommendation','N/D')}, Conviction={_pct(m_b.get('conviction'))}, Margin of safety={_pct(m_b.get('margin_of_safety'))}
 """
 
     system_msg = (
-        "Tu es un analyste sell-side senior (style JPMorgan Research). "
-        "Reponds en francais, concis et rigoureux. "
-        "Pas d'emojis. Structure quoi -> pourquoi -> implications investisseur."
+        "Tu es un analyste sell-side senior (style JPMorgan Research, Goldman Sachs). "
+        "Reponds en francais, RIGOUREUX, technique, IB-grade. "
+        "Pas d'emojis, pas de markdown ** mis a part les separateurs explicitement demandes. "
+        "Structure : QUOI (constat chiffre) -> POURQUOI (mecanisme economique) -> IMPLICATIONS (decision investisseur). "
+        "REGLE ABSOLUE : tu disposes ci-dessous de TOUTES les donnees chiffrees. "
+        "Tu ne dois JAMAIS dire 'donnees indisponibles' ni 'multiples non disponibles' ni inventer de chiffres "
+        "absents du contexte fourni. Si un champ est N/A, tu l'omets sans le commenter."
     )
 
     results = {}
 
-    # Executive summary (60 mots max)
+    # Executive summary (110 mots max) — chiffres concrets exiges
     r = _call_llm(
-        f"Redige un executive summary comparatif de 60 mots MAX pour {tkr_a} vs {tkr_b}. "
-        f"Inclure : quel titre offre le meilleur rapport qualite/valorisation et pourquoi.\n{data_str}",
-        system=system_msg, max_tokens=200
+        f"Redige un executive summary comparatif de 110 mots MAX pour {tkr_a} vs {tkr_b}. "
+        f"Cite AU MOINS 4 chiffres concrets (PE, EV/EBITDA, marge EBITDA, ROIC) avec leur ecart relatif. "
+        f"Conclus sur quel titre offre le meilleur rapport qualite/valorisation et pourquoi (1 phrase).\n{data_str}",
+        system=system_msg, max_tokens=350
     )
-    results["exec_summary"] = _word_clip(r, 700)
+    results["exec_summary"] = _word_clip(r, 900)
 
-    # Financial commentary (70 mots max)
+    # Financial commentary (120 mots max) — P&L + bilan + cash gen
     r = _call_llm(
-        f"Redige un commentaire financier comparatif de 70 mots MAX : "
-        f"tendances P&L de {tkr_a} vs {tkr_b}, differences de marges et croissance, "
-        f"implications bilan.\n{data_str}",
-        system=system_msg, max_tokens=250
+        f"Redige un commentaire financier comparatif de 120 mots MAX : "
+        f"tendance des marges EBITDA sur 3 ans (cite les valeurs), CAGR revenus 3y, ROIC vs ROE, "
+        f"qualite de la conversion cash (cash conversion ratio), levier ND/EBITDA. "
+        f"Conclus en 1 phrase sur la societe la plus saine financierement.\n{data_str}",
+        system=system_msg, max_tokens=400
     )
-    results["financial_text"] = _word_clip(r, 700)
+    results["financial_text"] = _word_clip(r, 1000)
 
-    # Valuation commentary (70 mots max)
+    # Valuation commentary (130 mots max) — multiples + prime/decote + DCF
     r = _call_llm(
-        f"Redige un commentaire de valorisation de 70 mots MAX : "
-        f"prime/decote de {tkr_a} vs {tkr_b} sur les multiples cles, "
-        f"justification et upside relatif.\n{data_str}",
-        system=system_msg, max_tokens=250
+        f"Redige un commentaire de valorisation de 130 mots MAX : "
+        f"compare PE, EV/EBITDA, P/B, FCF yield (cite tous les chiffres). "
+        f"Calcule la prime/decote relative en %. "
+        f"Confronte avec la mediane sectorielle. "
+        f"Mentionne les cibles DCF base et l'upside implicite. "
+        f"Conclus sur quelle valorisation est la plus attractive aujourd'hui et pourquoi.\n{data_str}",
+        system=system_msg, max_tokens=450
     )
-    results["valuation_text"] = _word_clip(r, 900)
+    results["valuation_text"] = _word_clip(r, 1100)
 
-    # Quality commentary (60 mots max)
+    # Quality commentary (120 mots max) — Piotroski + Altman + Beneish
     r = _call_llm(
-        f"Redige un commentaire de qualite financiere de 60 mots MAX : "
-        f"solidite bilancielle de {tkr_a} vs {tkr_b}, "
-        f"Piotroski, levier, risques de manipulation comptable.\n{data_str}",
-        system=system_msg, max_tokens=200
+        f"Redige un commentaire de qualite financiere de 120 mots MAX : "
+        f"compare les Piotroski F-Scores avec les composants (ROA, levier, accruals), "
+        f"interprete Altman Z (zone safe/grey/distress) et Beneish M-Score (manipulation comptable). "
+        f"Compare les ratios de liquidite (current/quick) et la couverture interets. "
+        f"Conclus sur la societe au bilan le plus robuste.\n{data_str}",
+        system=system_msg, max_tokens=400
     )
-    results["quality_text"] = _word_clip(r, 900)
+    results["quality_text"] = _word_clip(r, 1100)
 
     # Verdict final (120 mots max) — ancre strict sur le gagnant deja calcule.
     # Contrainte forte : le LLM doit parler UNIQUEMENT du gagnant. Si le verdict
@@ -615,19 +645,21 @@ SCORES:
             return r[:m.start()].strip()[:350], r[m.start():].strip()[:350]
         return r[:350], ""
 
-    # Theses bull/bear A (40 mots chacune)
+    # Theses bull/bear A (60 mots chacune avec chiffres)
     r = _call_llm(
-        f"Pour {tkr_a}, donne 1 these bull (40 mots) et 1 these bear (40 mots) "
-        f"en les separant par '|||'. Ne pas ajouter de titre.\n{data_str}",
-        system=system_msg, max_tokens=200
+        f"Pour {tkr_a}, donne 1 these BULL (60 mots) et 1 these BEAR (60 mots) "
+        f"en les separant par '|||'. Cite au moins 2 chiffres concrets dans chaque these "
+        f"(marge, croissance, multiple, levier). Pas de titre.\n{data_str}",
+        system=system_msg, max_tokens=350
     )
     results["bull_a"], results["bear_a"] = _split_bull_bear(r)
 
-    # Theses bull/bear B (40 mots chacune)
+    # Theses bull/bear B (60 mots chacune avec chiffres)
     r = _call_llm(
-        f"Pour {tkr_b}, donne 1 these bull (40 mots) et 1 these bear (40 mots) "
-        f"en les separant par '|||'. Ne pas ajouter de titre.\n{data_str}",
-        system=system_msg, max_tokens=200
+        f"Pour {tkr_b}, donne 1 these BULL (60 mots) et 1 these BEAR (60 mots) "
+        f"en les separant par '|||'. Cite au moins 2 chiffres concrets dans chaque these "
+        f"(marge, croissance, multiple, levier). Pas de titre.\n{data_str}",
+        system=system_msg, max_tokens=350
     )
     results["bull_b"], results["bear_b"] = _split_bull_bear(r)
 
@@ -649,15 +681,20 @@ SCORES:
         f"Earnings Growth A: {m_a.get('eps_growth','N/D')} | Earnings Growth B: {m_b.get('eps_growth','N/D')}"
     )
     r = _call_llm(
-        f"Analyse en 120 mots MAX la trajectoire boursiere de {tkr_a} vs {tkr_b} sur 12 mois. "
-        f"Donne le CONTEXTE MACRO (taux directeurs, cycle economique, rotation sectorielle) "
-        f"qui EXPLIQUE les mouvements. Cite des evenements concrets (resultats trimestriels, "
-        f"guidance, M&A, regulation) qui ont pu impacter les cours. "
-        f"Termine par les catalyseurs a surveiller pour les 3-6 prochains mois. "
+        f"Analyse en 200 mots MAX la trajectoire boursiere de {tkr_a} vs {tkr_b} sur 12 mois. "
+        f"STRUCTURE OBLIGATOIRE :\n"
+        f"1. Contexte macro 12 mois (cycle taux directeurs Fed/BCE, cycle economique, rotation sectorielle, "
+        f"liquidite marchee actions, dollar) — 3-4 phrases.\n"
+        f"2. Evenements concrets ayant impacte les cours (resultats trimestriels, guidance, M&A, "
+        f"sanctions reglementaires, lancements produits, geopolitique) — cite au moins 2 evenements "
+        f"concrets datables pour CHAQUE titre.\n"
+        f"3. Comparaison des trajectoires : qui surperforme, de combien, et explication. "
+        f"4. Catalyseurs a surveiller sur les 3-6 prochains mois (publications, guidance, secteur).\n"
+        f"Sois precis et factuel, pas de generalites vagues. "
         f"Donnees : {_price_ctx}",
-        system=system_msg, max_tokens=400
+        system=system_msg, max_tokens=700
     )
-    results["price_narrative"] = _word_clip(r, 1500)
+    results["price_narrative"] = _word_clip(r, 2000)
 
     return results
 

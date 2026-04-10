@@ -96,6 +96,59 @@ def _mean(vals: list, default=0.0) -> float:
     return sum(clean) / len(clean) if clean else default
 
 
+# ── Helpers de cadrage standardise (style cmp societe) ──────────────────────
+_NAVY_PALE = RGBColor(0xEE, 0xF3, 0xFA)
+_NAVY_MID  = RGBColor(0x2E, 0x5F, 0xA3)
+
+
+def _llm_box(slide, x: float, y: float, w: float, h: float,
+             title: str, text: str, *, fontsize: float = 9.0):
+    """Box LLM standardisee : fond bleu pale + barre laterale navy + titre + texte.
+
+    Reproduit le pattern utilise dans comparison_pptx_writer.py (cmp societe).
+    """
+    _rect(slide, x, y, w, h, fill=_NAVY_PALE)
+    _rect(slide, x, y, 0.13, h, fill=_NAVY_MID)
+    _txb(slide, title.upper(), x + 0.30, y + 0.10, w - 0.40, 0.36,
+         size=fontsize, bold=True, color=_NAVY)
+    _txb(slide, text or "", x + 0.30, y + 0.50, w - 0.50, h - 0.62,
+         size=fontsize, color=_NAVY, wrap=True)
+
+
+def _bullet_square(slide, x: float, y: float, color, size: float = 0.22):
+    """Petit carre colore servant de bullet pour paragraphes (slides 15/16/18)."""
+    _rect(slide, x, y, size, size, fill=color)
+
+
+def _llm_box_with_bullets(slide, x: float, y: float, w: float, h: float,
+                          title: str, items: list, *, color, fontsize: float = 9.0):
+    """Box LLM avec une liste a puces carrees colorees a gauche.
+
+    items : liste de tuples (heading, body) ou de strings.
+    """
+    _rect(slide, x, y, w, h, fill=_NAVY_PALE)
+    _rect(slide, x, y, 0.13, h, fill=_NAVY_MID)
+    _txb(slide, title.upper(), x + 0.30, y + 0.10, w - 0.40, 0.36,
+         size=fontsize, bold=True, color=_NAVY)
+    if not items:
+        return
+    n = max(1, len(items))
+    avail = h - 0.65
+    item_h = avail / n
+    for i, it in enumerate(items[:5]):
+        iy = y + 0.55 + i * item_h
+        _bullet_square(slide, x + 0.35, iy + 0.12, color, size=0.20)
+        if isinstance(it, tuple) and len(it) == 2:
+            head, body = it
+            _txb(slide, str(head)[:60], x + 0.70, iy, w - 0.85, 0.36,
+                 size=fontsize, bold=True, color=_NAVY, wrap=False)
+            _txb(slide, str(body), x + 0.70, iy + 0.36, w - 0.85, item_h - 0.40,
+                 size=fontsize - 0.5, color=_NAVY, wrap=True)
+        else:
+            _txb(slide, str(it), x + 0.70, iy + 0.05, w - 0.85, item_h - 0.10,
+                 size=fontsize, color=_NAVY, wrap=True)
+
+
 # ── PPTX primitives ──────────────────────────────────────────────────────────
 def _blank(prs):
     return prs.slides.add_slide(prs.slide_layouts[6])
@@ -669,19 +722,20 @@ def _s01_cover(prs, D):
     box_w = 5.6
     step  = 5.85
     start_x = 0.9
+    # KPI boxes rehaussees (8.5 -> 8.0) pour plus de marge avec footer
     for i, (val, lbl, col) in enumerate(kpis):
         bx = start_x + i * step
         pale = _COL_A_PALE if col == _COL_A else _COL_B_PALE
-        _rect(slide, bx, 8.5, box_w, 2.5, fill=pale)
-        _rect(slide, bx, 8.5, 0.22, 2.5, fill=col)  # barre gauche coloree
-        _txb(slide, val, bx + 0.22, 8.65, box_w - 0.22, 1.4, size=28, bold=True, color=col, align=PP_ALIGN.CENTER)
-        _txb(slide, lbl, bx + 0.22, 10.2, box_w - 0.22, 1.0, size=8.5, color=_NAVY, align=PP_ALIGN.CENTER)
+        _rect(slide, bx, 8.0, box_w, 2.4, fill=pale)
+        _rect(slide, bx, 8.0, 0.22, 2.4, fill=col)
+        _txb(slide, val, bx + 0.22, 8.15, box_w - 0.22, 1.35, size=28, bold=True, color=col, align=PP_ALIGN.CENTER)
+        _txb(slide, lbl, bx + 0.22, 9.55, box_w - 0.22, 0.85, size=8.5, color=_NAVY, align=PP_ALIGN.CENTER)
 
-    # Signal badges
-    _rect(slide, 2.2, 11.5, 4.5, 0.9, fill=D["sig_a_col"])
-    _txb(slide, f"● {D['sig_a_lbl']}", 2.2, 11.58, 4.5, 0.75, size=9.5, bold=True, color=_WHITE, align=PP_ALIGN.CENTER)
-    _rect(slide, 18.7, 11.5, 4.5, 0.9, fill=D["sig_b_col"])
-    _txb(slide, f"● {D['sig_b_lbl']}", 18.7, 11.58, 4.5, 0.75, size=9.5, bold=True, color=_WHITE, align=PP_ALIGN.CENTER)
+    # Signal badges (rehausses 11.5 -> 11.0)
+    _rect(slide, 2.2, 11.0, 4.5, 0.9, fill=D["sig_a_col"])
+    _txb(slide, f"● {D['sig_a_lbl']}", 2.2, 11.08, 4.5, 0.75, size=9.5, bold=True, color=_WHITE, align=PP_ALIGN.CENTER)
+    _rect(slide, 18.7, 11.0, 4.5, 0.9, fill=D["sig_b_col"])
+    _txb(slide, f"● {D['sig_b_lbl']}", 18.7, 11.08, 4.5, 0.75, size=9.5, bold=True, color=_WHITE, align=PP_ALIGN.CENTER)
 
     # Footer
     _rect(slide, 0, 13.6, 25.4, 0.7, fill=_GRAYL)
@@ -696,19 +750,19 @@ def _s02_exec_summary(prs, D):
             f"Univers : {D['universe_label']}  |  {D['na']} + {D['nb']} societes analysees", 1)
     _footer(slide, D)
 
-    # Signal A
-    _rect(slide, 0.9, 2.1, 11.4, 0.85, fill=_COL_A_PALE)
-    _rect(slide, 0.9, 2.1, 0.12, 0.85, fill=_COL_A)
-    _txb(slide, f"{D['sector_a']}  —  {D['sig_a_lbl']}", 1.3, 2.18, 10.6, 0.7, size=10, bold=True, color=_COL_A)
+    # Signal A — bandeau h=1.05 pour contenir titre + sous-titre proprement
+    _rect(slide, 0.9, 2.1, 11.4, 1.05, fill=_COL_A_PALE)
+    _rect(slide, 0.9, 2.1, 0.12, 1.05, fill=_COL_A)
+    _txb(slide, f"{D['sector_a']}  —  {D['sig_a_lbl']}", 1.3, 2.20, 10.6, 0.40, size=10, bold=True, color=_COL_A)
     _txb(slide, f"Score {sa.get('score', 0)}/100  |  P/E {_fmt_simple(sa.get('pe'), x=True)}  |  Croiss. {_fmt(sa.get('revg'), pct=True)}  |  Mg. EBITDA {_fmt_simple(sa.get('em'), pct=True)}",
-         1.3, 2.65, 10.8, 0.4, size=7.5, color=_NAVY)
+         1.3, 2.62, 10.6, 0.45, size=7.5, color=_NAVY)
 
-    # Signal B
-    _rect(slide, 13.1, 2.1, 11.4, 0.85, fill=_COL_B_PALE)
-    _rect(slide, 13.1, 2.1, 0.12, 0.85, fill=_COL_B)
-    _txb(slide, f"{D['sector_b']}  —  {D['sig_b_lbl']}", 13.5, 2.18, 10.6, 0.7, size=10, bold=True, color=_COL_B)
+    # Signal B — bandeau h=1.05
+    _rect(slide, 13.1, 2.1, 11.4, 1.05, fill=_COL_B_PALE)
+    _rect(slide, 13.1, 2.1, 0.12, 1.05, fill=_COL_B)
+    _txb(slide, f"{D['sector_b']}  —  {D['sig_b_lbl']}", 13.5, 2.20, 10.6, 0.40, size=10, bold=True, color=_COL_B)
     _txb(slide, f"Score {sb.get('score', 0)}/100  |  P/E {_fmt_simple(sb.get('pe'), x=True)}  |  Croiss. {_fmt(sb.get('revg'), pct=True)}  |  Mg. EBITDA {_fmt_simple(sb.get('em'), pct=True)}",
-         13.5, 2.65, 10.8, 0.4, size=7.5, color=_GREEN)
+         13.5, 2.62, 10.6, 0.45, size=7.5, color=_GREEN)
 
     # Tableau metriques cote a cote
     rows = [
@@ -732,46 +786,55 @@ def _s02_exec_summary(prs, D):
         ["Perf. 52S med.", _fmt(sa.get("mom"), pct=True), _fmt(sb.get("mom"), pct=True),
          D["sector_a"] if (sa.get("mom") or -999) > (sb.get("mom") or -999) else D["sector_b"]],
     ]
-    _add_table(slide, rows, 0.9, 3.2, 23.6, 8.2,
+    _add_table(slide, rows, 0.9, 3.40, 23.6, 7.95,
                col_widths=[5.5, 3.0, 3.0, 3.5],
                header_fill=_NAVY, header_color=_WHITE,
                alt_fill=_GRAYL, font_size=8.5, header_size=8.5)
 
-    # Synthese IA
+    # Synthese IA — box LLM standard
     llm_text = D.get("llm", {}).get("exec_summary", "")
     if llm_text:
-        _rect(slide, 0.9, 11.6, 23.6, 0.38, fill=_NAVY)
-        _txb(slide, "Analyse Comparative", 1.0, 11.63, 23.4, 0.32, size=7.5, bold=True,
-             color=_WHITE, align=PP_ALIGN.CENTER)
-        _rect(slide, 0.9, 12.06, 23.6, 1.55, fill=_GRAYL, line=True, line_col=_GRAYM, line_w=0.5)
-        _txb(slide, llm_text, 1.05, 12.15, 23.3, 1.4, size=8.5, color=_BLACK, wrap=True)
+        _llm_box(slide, 0.9, 11.55, 23.6, 2.05,
+                 "Analyse Comparative", llm_text, fontsize=9)
 
 
 def _s03_sommaire(prs, D):
+    """Slide 3 — Sommaire (style aligne sur cmp societe : cards bleu pale numerotees)."""
     slide = _blank(prs)
     _header(slide, "Sommaire", f"Analyse comparative : {D['sector_a']} vs {D['sector_b']}", 1)
     _footer(slide, D)
 
     sections = [
-        ("01", "Profil & Valorisation", "Structure des secteurs, multiples de marche, qualite des bilans"),
-        ("02", "Performance & Scoring", "Cours 52 semaines, revenue growth et scoring multidimensionnel"),
-        ("03", "Top Acteurs & Risques", "Meilleures societes et conditions d'invalidation par secteur"),
-        ("04", "Synthese & Decision", "Theses d'investissement, verdict comparatif et recommandation"),
+        ("01", "Profil & Valorisation",  "Structure des secteurs, multiples de marche, qualite des bilans",        "Slides 5-8"),
+        ("02", "Performance & Scoring",  "Cours 52 semaines, revenue growth et scoring multidimensionnel",         "Slides 10-11"),
+        ("03", "Top Acteurs & Risques",  "Meilleures societes et conditions d'invalidation par secteur",           "Slides 13-16"),
+        ("04", "Synthese & Decision",    "Theses d'investissement, verdict comparatif et recommandation",          "Slides 18-21"),
     ]
-    y_start = 2.3
-    for i, (num, title, desc) in enumerate(sections):
-        y = y_start + i * 2.7
-        # Barre verticale fine navy a gauche
-        _rect(slide, 0.9, y, 0.12, 2.15, fill=_NAVY)
-        # Numero en gris large
-        _txb(slide, num, 1.3, y - 0.1, 2.8, 1.3, size=26, bold=True, color=_GRAYM)
+
+    y_start  = 2.40
+    card_h   = 2.55
+    card_gap = 0.20
+    card_w   = 23.6
+    x_card   = 0.9
+
+    for i, (num, title, desc, pages) in enumerate(sections):
+        y = y_start + i * (card_h + card_gap)
+        # Card bleu pale + barre laterale navy
+        _rect(slide, x_card, y, card_w, card_h, fill=_NAVY_PALE)
+        _rect(slide, x_card, y, 0.18, card_h, fill=_NAVY)
+        # Numero gros bleu navy a gauche
+        _txb(slide, num, x_card + 0.40, y + 0.30, 3.20, 1.95,
+             size=44, bold=True, color=_NAVY_MID, align=PP_ALIGN.CENTER)
         # Titre bold navy
-        _txb(slide, title, 4.2, y + 0.2, 20.0, 0.75, size=12, bold=True, color=_NAVY)
-        # Description italic gris
-        _txb(slide, desc, 4.2, y + 1.0, 20.0, 0.65, size=8.5, italic=True, color=_GRAYT)
-        # Separateur horizontal (sauf apres le dernier)
-        if i < len(sections) - 1:
-            _rect(slide, 0.9, y + 2.15, 23.6, 0.03, fill=_GRAYM)
+        _txb(slide, title, x_card + 4.00, y + 0.45, card_w - 8.0, 0.80,
+             size=15, bold=True, color=_NAVY)
+        # Description en gris fonce
+        _txb(slide, desc, x_card + 4.00, y + 1.30, card_w - 8.0, 1.00,
+             size=10, color=_GRAYT, wrap=True)
+        # Badge "Slides X-Y" a droite
+        _rect(slide, x_card + card_w - 3.40, y + 0.85, 3.00, 0.85, fill=_NAVY)
+        _txb(slide, pages, x_card + card_w - 3.40, y + 1.05, 3.00, 0.45,
+             size=10, bold=True, color=_WHITE, align=PP_ALIGN.CENTER)
 
 
 def _s05_profil(prs, D):
@@ -783,52 +846,62 @@ def _s05_profil(prs, D):
 
     content_a = _get_content(D["sector_a"])
     content_b = _get_content(D["sector_b"])
-    # Pas de separateur vertical : chaque colonne 11.5cm, gap 1.0cm au centre
     col_w = 11.5
     xa = 0.9
     xb = 13.0
 
-    # Secteur A — colonne gauche
-    _rect(slide, xa, 2.1, col_w, 0.55, fill=_COL_A)
-    _txb(slide, D["sector_a"][:24], xa + 0.12, 2.14, col_w - 0.25, 0.45, size=10, bold=True, color=_WHITE)
+    # Secteur A — bandeau titre rehausse h=0.70
+    _rect(slide, xa, 2.10, col_w, 0.70, fill=_COL_A)
+    _txb(slide, D["sector_a"][:30], xa + 0.20, 2.20, col_w - 0.4, 0.55,
+         size=11, bold=True, color=_WHITE)
+
+    # Description A en box LLM standard
     desc_a = content_a.get("description", "")[:480]
-    _txb(slide, desc_a, xa, 2.78, col_w, 3.3, size=7.8, color=_BLACK, wrap=True)
+    _llm_box(slide, xa, 2.95, col_w, 3.30, "Description sectorielle", desc_a, fontsize=8.5)
 
     # Cycle A
     cycle_a = content_a.get("cycle_comment", "")
-    _rect(slide, xa, 6.25, col_w, 0.48, fill=_COL_A_PALE)
-    _txb(slide, f"Cycle : {cycle_a}", xa + 0.12, 6.28, col_w - 0.25, 0.42, size=8, italic=True, color=_COL_A)
+    _rect(slide, xa, 6.40, col_w, 0.50, fill=_COL_A_PALE)
+    _txb(slide, f"Cycle : {cycle_a}", xa + 0.15, 6.45, col_w - 0.3, 0.42,
+         size=8.5, italic=True, color=_COL_A)
 
-    # Drivers A — style bullet carre
-    _txb(slide, "Drivers principaux", xa, 7.0, col_w, 0.48, size=9, bold=True, color=_NAVY)
+    # Drivers A — bullets carres
+    _txb(slide, "Drivers principaux", xa, 7.10, col_w, 0.42,
+         size=9.5, bold=True, color=_NAVY)
     drivers_a = content_a.get("drivers", [])[:4]
     for j, drv in enumerate(drivers_a):
         direction, name, desc = (drv[0], drv[1], drv[2]) if len(drv) >= 3 else ("up", str(drv), "")
         bullet_col = _COL_A if direction == "up" else _RED
-        _rect(slide, xa, 7.65 + j * 1.45, 0.22, 0.22, fill=bullet_col)
-        _txb(slide, name[:38], xa + 0.38, 7.62 + j * 1.45, col_w - 0.4, 0.48, size=8.5, bold=True, color=_BLACK)
-        _txb(slide, desc[:85], xa + 0.38, 8.13 + j * 1.45, col_w - 0.4, 0.75, size=7.5, italic=True, color=_GRAYT)
+        _bullet_square(slide, xa, 7.75 + j * 1.45, bullet_col, size=0.22)
+        _txb(slide, name[:38], xa + 0.40, 7.70 + j * 1.45, col_w - 0.45, 0.45,
+             size=9, bold=True, color=_BLACK)
+        _txb(slide, desc[:90], xa + 0.40, 8.18 + j * 1.45, col_w - 0.45, 0.85,
+             size=7.5, italic=True, color=_GRAYT, wrap=True)
 
-    # Secteur B — colonne droite
-    _rect(slide, xb, 2.1, col_w, 0.55, fill=_COL_B)
-    _txb(slide, D["sector_b"][:24], xb + 0.12, 2.14, col_w - 0.25, 0.45, size=10, bold=True, color=_WHITE)
+    # Secteur B — bandeau titre rehausse
+    _rect(slide, xb, 2.10, col_w, 0.70, fill=_COL_B)
+    _txb(slide, D["sector_b"][:30], xb + 0.20, 2.20, col_w - 0.4, 0.55,
+         size=11, bold=True, color=_WHITE)
+
     desc_b = content_b.get("description", "")[:480]
-    _txb(slide, desc_b, xb, 2.78, col_w, 3.3, size=7.8, color=_BLACK, wrap=True)
+    _llm_box(slide, xb, 2.95, col_w, 3.30, "Description sectorielle", desc_b, fontsize=8.5)
 
-    # Cycle B
     cycle_b = content_b.get("cycle_comment", "")
-    _rect(slide, xb, 6.25, col_w, 0.48, fill=_COL_B_PALE)
-    _txb(slide, f"Cycle : {cycle_b}", xb + 0.12, 6.28, col_w - 0.25, 0.42, size=8, italic=True, color=_COL_B)
+    _rect(slide, xb, 6.40, col_w, 0.50, fill=_COL_B_PALE)
+    _txb(slide, f"Cycle : {cycle_b}", xb + 0.15, 6.45, col_w - 0.3, 0.42,
+         size=8.5, italic=True, color=_COL_B)
 
-    # Drivers B — style bullet carre
-    _txb(slide, "Drivers principaux", xb, 7.0, col_w, 0.48, size=9, bold=True, color=_COL_B)
+    _txb(slide, "Drivers principaux", xb, 7.10, col_w, 0.42,
+         size=9.5, bold=True, color=_COL_B)
     drivers_b = content_b.get("drivers", [])[:4]
     for j, drv in enumerate(drivers_b):
         direction, name, desc = (drv[0], drv[1], drv[2]) if len(drv) >= 3 else ("up", str(drv), "")
         bullet_col = _COL_B if direction == "up" else _RED
-        _rect(slide, xb, 7.65 + j * 1.45, 0.22, 0.22, fill=bullet_col)
-        _txb(slide, name[:38], xb + 0.38, 7.62 + j * 1.45, col_w - 0.4, 0.48, size=8.5, bold=True, color=_BLACK)
-        _txb(slide, desc[:85], xb + 0.38, 8.13 + j * 1.45, col_w - 0.4, 0.75, size=7.5, italic=True, color=_GRAYT)
+        _bullet_square(slide, xb, 7.75 + j * 1.45, bullet_col, size=0.22)
+        _txb(slide, name[:38], xb + 0.40, 7.70 + j * 1.45, col_w - 0.45, 0.45,
+             size=9, bold=True, color=_BLACK)
+        _txb(slide, desc[:90], xb + 0.40, 8.18 + j * 1.45, col_w - 0.45, 0.85,
+             size=7.5, italic=True, color=_GRAYT, wrap=True)
 
 
 def _s06_valorisation(prs, D):
@@ -883,9 +956,7 @@ def _s06_valorisation(prs, D):
         f"{'une anticipation de croissance superieure' if (sa.get('revg') or 0) > (sb.get('revg') or 0) else 'un profil de risque differentie'}."
     )
     lecture = D.get("llm", {}).get("valuation_read") or fallback_lecture
-    _rect(slide, 14.0, 8.5, 10.5, 0.42, fill=_NAVY)
-    _txb(slide, "Lecture analytique", 14.1, 8.53, 10.3, 0.35, size=7.5, bold=True, color=_WHITE, align=PP_ALIGN.CENTER)
-    _txb(slide, lecture, 14.0, 9.02, 10.5, 4.2, size=8.5, color=_BLACK, wrap=True)
+    _llm_box(slide, 14.0, 8.50, 10.5, 4.85, "Lecture analytique", lecture, fontsize=8.5)
 
 
 def _s07_marges(prs, D):
@@ -918,9 +989,7 @@ def _s07_marges(prs, D):
         f"({_fmt_simple(min(sa.get('roe') or 0, 999.9) if winner_roe == D['sector_a'] else min(sb.get('roe') or 0, 999.9), pct=True)})."
     )
     diag = D.get("llm", {}).get("margins_read") or fallback_diag
-    _rect(slide, 0.9, 7.75, 23.6, 0.42, fill=_NAVY)
-    _txb(slide, "Lecture analytique", 1.0, 7.78, 23.4, 0.35, size=7.5, bold=True, color=_WHITE, align=PP_ALIGN.CENTER)
-    _txb(slide, diag, 0.9, 8.27, 23.6, 5.2, size=8.5, color=_BLACK, wrap=True)
+    _llm_box(slide, 0.9, 7.75, 23.6, 5.55, "Lecture analytique", diag, fontsize=9)
 
 
 def _s07b_capital_alloc(prs, D):
@@ -1008,31 +1077,8 @@ def _s07b_capital_alloc(prs, D):
     except Exception as e:
         log.warning("[cmp_secteur_pptx] capital_alloc chart: %s", e)
 
-    # Profils de rendement a droite (compacts, dans la zone 14.5 → 24.5)
-    _rect(slide, 14.5, 2.0, 9.8, 0.48, fill=_COL_A)
-    _txb(slide, f"{D['sector_a'][:20]}", 14.65, 2.05, 9.5, 0.38, size=8.5, bold=True, color=_WHITE)
-    dy_a_str = _fmt_pct(sa.get("div_yield"))
-    fy_a_str = _fmt_pct_direct(sa.get("fcfy"))
-    pt_a_str = _fmt_pct(sa.get("payout"))
-    profil_a = (
-        f"Rendement dividende med. : {dy_a_str}   FCF Yield med. : {fy_a_str}   Payout Ratio med. : {pt_a_str}"
-    )
-    _txb(slide, profil_a, 14.5, 2.58, 9.8, 1.2, size=8.5, color=_BLACK, wrap=True)
-
-    _rect(slide, 14.5, 4.0, 9.8, 0.48, fill=_COL_B)
-    _txb(slide, f"{D['sector_b'][:20]}", 14.65, 4.05, 9.5, 0.38, size=8.5, bold=True, color=_WHITE)
-    dy_b_str = _fmt_pct(sb.get("div_yield"))
-    fy_b_str = _fmt_pct_direct(sb.get("fcfy"))
-    pt_b_str = _fmt_pct(sb.get("payout"))
-    profil_b = (
-        f"Rendement dividende med. : {dy_b_str}   FCF Yield med. : {fy_b_str}   Payout Ratio med. : {pt_b_str}"
-    )
-    _txb(slide, profil_b, 14.5, 4.58, 9.8, 1.2, size=8.5, color=_BLACK, wrap=True)
-
-    # Lecture analytique (pleine largeur sous la zone droite)
-    _rect(slide, 14.5, 5.9, 9.8, 0.42, fill=_NAVY)
-    _txb(slide, "Lecture analytique", 14.6, 5.93, 9.6, 0.36, size=7.5, bold=True,
-         color=_WHITE, align=PP_ALIGN.CENTER)
+    # Lecture analytique (toute la moitie droite — Tech/Health blocks supprimes,
+    # redondants avec le tableau de gauche). Plus grande box LLM standard.
     dy_a = sa.get("div_yield") or 0
     dy_b = sb.get("div_yield") or 0
     fy_a = sa.get("fcfy") or 0
@@ -1045,10 +1091,13 @@ def _s07b_capital_alloc(prs, D):
         f"{high_fy} genere davantage de FCF ({_fmt_pct_direct(max(fy_a, fy_b))} de FCF Yield), "
         f"signal d'une capacite de remuneration durable et d'une allocation du capital disciplinee. "
         f"Un FCF Yield superieur au dividende verse garantit la soutenabilite et la resilience "
-        f"de la distribution meme en phase de contraction des marges."
+        f"de la distribution meme en phase de contraction des marges. "
+        f"L'arbitrage entre dividende verse et reinvestissement traduit la maturite du cycle "
+        f"d'investissement : un secteur en phase de croissance prefere allouer son cash a "
+        f"l'expansion, un secteur mature monetise via la distribution."
     )
     interp_txt = D.get("llm", {}).get("capital_alloc_read") or fallback_interp
-    _txb(slide, interp_txt, 14.5, 6.42, 9.8, 6.8, size=8.5, color=_BLACK, wrap=True)
+    _llm_box(slide, 14.5, 2.0, 9.95, 11.30, "Lecture analytique", interp_txt, fontsize=9)
 
 
 def _s08_croissance(prs, D):
@@ -1102,10 +1151,8 @@ def _s08_croissance(prs, D):
         f"La courbe normalisee permet d'isoler la performance pure, independamment des niveaux absolus."
     )
     lecture = D.get("llm", {}).get("growth_read") or fallback_lecture
-    _rect(slide, 0.9, 9.8, 23.6, 0.42, fill=_NAVY)
-    _txb(slide, "Lecture analytique", 1.0, 9.83, 23.4, 0.36, size=7.5, bold=True,
-         color=_WHITE, align=PP_ALIGN.CENTER)
-    _txb(slide, lecture, 0.9, 10.32, 23.6, 3.2, size=8.5, color=_BLACK, wrap=True)
+    _llm_box(slide, 0.9, 9.80, 23.6, 3.55, "Lecture analytique cours 52S & macro",
+             lecture, fontsize=9)
 
 
 def _s09_scoring(prs, D):
@@ -1148,10 +1195,8 @@ def _s09_scoring(prs, D):
         f"45-64 pts = neutre, < 45 pts = sous-ponderer."
     )
     interp = D.get("llm", {}).get("scoring_read") or fallback_interp
-    _rect(slide, 0.9, 9.5, 11.5, 0.42, fill=_NAVY)
-    _txb(slide, "Interpretation scoring  —  Analyse multidimensionnelle",
-         1.0, 9.53, 11.3, 0.36, size=7.5, bold=True, color=_WHITE)
-    _txb(slide, interp, 0.9, 10.02, 11.5, 3.5, size=8.5, color=_BLACK, wrap=True)
+    _llm_box(slide, 0.9, 9.45, 11.5, 3.90,
+             "Interpretation scoring multidimensionnel", interp, fontsize=9)
 
 
 def _s10_top_a(prs, D):
@@ -1198,11 +1243,8 @@ def _barre_secteur(slide, sector_name, tickers_data, col, universe, llm_text=Non
                header_fill=col, alt_fill=_GRAYL, font_size=8.5, header_size=8.5)
 
     if llm_text:
-        _rect(slide, 0.9, 10.05, 23.6, 0.42, fill=col)
-        _txb(slide, "Lecture analytique", 1.0, 10.08, 23.4, 0.36, size=7.5, bold=True,
-             color=_WHITE, align=PP_ALIGN.CENTER)
-        _rect(slide, 0.9, 10.55, 23.6, 3.0, fill=_GRAYL, line=True, line_col=_GRAYM, line_w=0.4)
-        _txb(slide, llm_text, 1.05, 10.65, 23.3, 2.8, size=8.5, color=_BLACK, wrap=True)
+        _llm_box(slide, 0.9, 10.05, 23.6, 3.30,
+                 "Lecture analytique", llm_text, fontsize=9)
 
 
 def _s12_risques_a(prs, D):
@@ -1232,37 +1274,39 @@ def _risques_slide(slide, content, col, col_pale, llm_text=None):
     risks = content.get("risques", [])[:3]
     conds = content.get("conditions", [])[:4]
 
-    # Catalyseurs
-    _rect(slide, 0.9, 2.1, 11.4, 0.55, fill=col)
-    _txb(slide, "CATALYSEURS", 0.9, 2.14, 11.4, 0.45, size=8.5, bold=True, color=_WHITE, align=PP_ALIGN.CENTER)
+    # Catalyseurs (bandeau h=0.60 + bullets carres a gauche)
+    _rect(slide, 0.9, 2.10, 11.4, 0.60, fill=col)
+    _txb(slide, "CATALYSEURS", 0.9, 2.16, 11.4, 0.48, size=9, bold=True,
+         color=_WHITE, align=PP_ALIGN.CENTER)
     for i, (title, body) in enumerate(cats):
-        y = 2.85 + i * 2.2
-        _rect(slide, 0.9, y, 11.4, 0.5, fill=col_pale)
-        _txb(slide, f"+ {title}", 1.0, y + 0.04, 11.2, 0.45, size=9, bold=True, color=col)
-        _txb(slide, body[:160], 1.0, y + 0.6, 11.2, 1.45, size=8, color=_BLACK, wrap=True)
+        y = 2.90 + i * 2.20
+        _bullet_square(slide, 0.95, y + 0.10, col, size=0.22)
+        _txb(slide, title[:48], 1.30, y, 11.0, 0.45, size=9.5, bold=True, color=col)
+        _txb(slide, body[:180], 1.30, y + 0.50, 10.95, 1.55, size=8, color=_BLACK, wrap=True)
 
-    # Risques
-    _rect(slide, 13.1, 2.1, 11.4, 0.55, fill=_RED)
-    _txb(slide, "RISQUES", 13.1, 2.14, 11.4, 0.45, size=8.5, bold=True, color=_WHITE, align=PP_ALIGN.CENTER)
+    # Risques (bandeau h=0.60 + bullets carres rouges)
+    _rect(slide, 13.1, 2.10, 11.4, 0.60, fill=_RED)
+    _txb(slide, "RISQUES", 13.1, 2.16, 11.4, 0.48, size=9, bold=True,
+         color=_WHITE, align=PP_ALIGN.CENTER)
     for i, (title, body) in enumerate(risks):
-        y = 2.85 + i * 2.2
-        _rect(slide, 13.1, y, 11.4, 0.5, fill=RGBColor(0xFB, 0xEB, 0xEB))
-        _txb(slide, f"- {title}", 13.2, y + 0.04, 11.2, 0.45, size=9, bold=True, color=_RED)
-        _txb(slide, body[:160], 13.2, y + 0.6, 11.2, 1.45, size=8, color=_BLACK, wrap=True)
+        y = 2.90 + i * 2.20
+        _bullet_square(slide, 13.15, y + 0.10, _RED, size=0.22)
+        _txb(slide, title[:48], 13.50, y, 11.0, 0.45, size=9.5, bold=True, color=_RED)
+        _txb(slide, body[:180], 13.50, y + 0.50, 10.95, 1.55, size=8, color=_BLACK, wrap=True)
 
     # Conditions d'invalidation
     if conds:
-        _rect(slide, 0.9, 9.5, 23.6, 0.45, fill=_NAVY)
-        _txb(slide, "CONDITIONS D'INVALIDATION", 0.9, 9.54, 23.6, 0.4, size=8.5, bold=True, color=_WHITE, align=PP_ALIGN.CENTER)
+        _rect(slide, 0.9, 9.55, 23.6, 0.48, fill=_NAVY)
+        _txb(slide, "CONDITIONS D'INVALIDATION", 0.9, 9.60, 23.6, 0.42, size=9, bold=True,
+             color=_WHITE, align=PP_ALIGN.CENTER)
         col_w = [3.5, 10.0, 2.5]
         rows_cond = [["Type", "Condition", "Horizon"]] + [[c[0], c[1][:100], c[2]] for c in conds]
-        _add_table(slide, rows_cond, 0.9, 10.1, 23.6, 3.2,
+        _add_table(slide, rows_cond, 0.9, 10.15, 23.6, 3.20,
                    col_widths=col_w, header_fill=_NAVY, alt_fill=_GRAYL,
                    font_size=8, header_size=8)
     elif llm_text:
-        _rect(slide, 0.9, 9.5, 23.6, 0.38, fill=col)
-        _txb(slide, "Synthese FinSight IA", 1.0, 9.53, 18.0, 0.32, size=7.5, bold=True, color=_WHITE)
-        _txb(slide, llm_text, 0.9, 9.98, 23.6, 3.2, size=8.5, color=_BLACK, wrap=True)
+        _llm_box(slide, 0.9, 9.55, 23.6, 3.80,
+                 "Synthese FinSight IA", llm_text, fontsize=9)
 
 
 def _s14_synthese(prs, D):
@@ -1306,9 +1350,6 @@ def _s14_synthese(prs, D):
         _txb(slide, desc[:130], xb + 0.38, y_b + j * 2.5 + 0.48, col_w - 0.4, 1.8, size=8, italic=True, color=_GRAYT, wrap=True)
 
     # === RISQUES PRINCIPAUX (red, pleine largeur) ===
-    _rect(slide, xa, 10.5, 23.4, 0.5, fill=_RED)
-    _txb(slide, "RISQUES PRINCIPAUX", xa + 0.12, 10.55, 23.2, 0.42, size=9, bold=True,
-         color=_WHITE, align=PP_ALIGN.CENTER)
     risks_txt = D.get("llm", {}).get("risques_principaux") or ""
     if not risks_txt:
         weaks_a = _build_weaknesses(sa, D["sector_a"])
@@ -1319,7 +1360,11 @@ def _s14_synthese(prs, D):
             f"{D['sector_a']} : {w_a}.  "
             f"{D['sector_b']} : {w_b}."
         )
-    _txb(slide, risks_txt[:320], xa, 11.1, 23.4, 2.4, size=8.5, color=_BLACK, wrap=True)
+    # Header navy "RISQUES PRINCIPAUX" puis box LLM standard
+    _rect(slide, xa, 10.50, 23.4, 0.55, fill=_RED)
+    _txb(slide, "RISQUES PRINCIPAUX", xa + 0.20, 10.56, 23.0, 0.45, size=10, bold=True,
+         color=_WHITE, align=PP_ALIGN.CENTER)
+    _llm_box(slide, xa, 11.10, 23.4, 2.25, "Lecture des risques", risks_txt[:480], fontsize=9)
 
 
 def _split_these_items(llm_text: str, fallback_forces: list) -> list:
@@ -1426,10 +1471,10 @@ def _s15_allocation(prs, D):
     _txb(slide, "Les signaux FinSight sont calcules sur donnees fondamentales reelles (yfinance). Ils ne constituent pas un conseil en investissement.",
          1.0, 2.15, 23.4, 0.45, size=7.5, italic=True, color=_GRAYT)
 
-    # Panel A (decale un peu plus bas)
-    _rect(slide, 0.9, 2.88, 11.2, 0.95, fill=_COL_A)
+    # Panel A — bandeau h=1.05 pour bien contenir titre + univers
+    _rect(slide, 0.9, 2.88, 11.2, 1.05, fill=_COL_A)
     _txb(slide, D["sector_a"][:22], 1.0, 2.96, 11.0, 0.48, size=11, bold=True, color=_WHITE)
-    _txb(slide, D["universe_a"], 1.0, 3.48, 11.0, 0.32, size=8, color=_WHITE)
+    _txb(slide, D["universe_a"], 1.0, 3.50, 11.0, 0.40, size=8.5, color=_WHITE)
 
     _rect(slide, 0.9, 4.0, 11.2, 1.3, fill=D["sig_a_col"])
     _txb(slide, f"● {D['sig_a_lbl']}", 0.9, 4.2, 11.2, 0.75, size=20, bold=True, color=_WHITE, align=PP_ALIGN.CENTER)
@@ -1453,9 +1498,9 @@ def _s15_allocation(prs, D):
     _rect(slide, 12.7, 2.7, 0.04, 7.5, fill=_GRAYM)
 
     # Panel B
-    _rect(slide, 13.1, 2.88, 11.2, 0.95, fill=_COL_B)
+    _rect(slide, 13.1, 2.88, 11.2, 1.05, fill=_COL_B)
     _txb(slide, D["sector_b"][:22], 13.2, 2.96, 11.0, 0.48, size=11, bold=True, color=_WHITE)
-    _txb(slide, D["universe_b"], 13.2, 3.48, 11.0, 0.32, size=8, color=_WHITE)
+    _txb(slide, D["universe_b"], 13.2, 3.50, 11.0, 0.40, size=8.5, color=_WHITE)
 
     _rect(slide, 13.1, 4.0, 11.2, 1.3, fill=D["sig_b_col"])
     _txb(slide, f"● {D['sig_b_lbl']}", 13.1, 4.2, 11.2, 0.75, size=20, bold=True, color=_WHITE, align=PP_ALIGN.CENTER)
@@ -1474,14 +1519,11 @@ def _s15_allocation(prs, D):
         _txb(slide, label, 13.2, y + 0.1, 7.0, 0.52, size=8.5, color=_GRAYT)
         _txb(slide, val, 13.2, y + 0.1, 11.0, 0.52, size=8.5, bold=True, color=_GREEN, align=PP_ALIGN.RIGHT)
 
-    # Recommandation IA (plus de texte, encadre)
+    # Recommandation IA — box LLM standard
     alloc_text = D.get("llm", {}).get("allocation_read") or ""
-    _rect(slide, 0.9, 10.25, 23.6, 0.45, fill=_NAVY)
-    _txb(slide, "Recommandation", 1.0, 10.28, 23.4, 0.38, size=8, bold=True,
-         color=_WHITE, align=PP_ALIGN.CENTER)
     if alloc_text:
-        _rect(slide, 0.9, 10.78, 23.6, 2.6, fill=_GRAYL, line=True, line_col=_GRAYM, line_w=0.4)
-        _txb(slide, alloc_text, 1.05, 10.88, 23.3, 2.4, size=8.5, color=_BLACK, wrap=True)
+        _llm_box(slide, 0.9, 10.20, 23.6, 3.10, "Recommandation",
+                 alloc_text, fontsize=9)
 
     # Note de bas de page
     _txb(slide, "Score FinSight : indicateur proprietaire 0-100 (value + growth + qualite + momentum, 25 pts chacun). Signal : Surponderer >=65, Neutre 45-64, Sous-ponderer <45.",
@@ -1522,10 +1564,9 @@ def _s15b_verdict(prs, D):
         f"L'ecart de {gap} pts face a {loser} ({loser_score}/100) legitime une surponderation "
         f"tactique sur un horizon 6-12 mois, sous reserve de stabilite macro."
     )
-    _rect(slide, 0.9, 3.7, 23.6, 0.42, fill=_NAVY)
-    _txb(slide, "These d'allocation", 1.0, 3.73, 23.4, 0.36, size=8, bold=True, color=_WHITE)
-    _rect(slide, 0.9, 4.2, 23.6, 1.7, fill=_GRAYL, line=True, line_col=_GRAYM, line_w=0.4)
-    _txb(slide, alloc_thesis[:380], 1.05, 4.3, 23.3, 1.55, size=8.5, color=_BLACK, wrap=True)
+    # These d'allocation — box LLM standard
+    _llm_box(slide, 0.9, 3.70, 23.6, 2.20, "These d'allocation",
+             alloc_thesis[:480], fontsize=9)
 
     # 3 colonnes : Catalyseurs | Risques | Invalidation
     col_w3 = 7.4
@@ -1574,11 +1615,12 @@ def _s15b_verdict(prs, D):
         _txb(slide, cb[:110], xs[2] + 0.32, y_cond + 0.44, col_w3 - 0.32, 1.3, size=7.5, color=_GRAYT, wrap=True)
         y_cond += 1.95
 
-    # Horizon & conviction
-    _rect(slide, 0.9, 10.88, 23.6, 0.4, fill=_GRAYL)
+    # Horizon & conviction — bandeau h=0.55 pour cadrage propre
+    _rect(slide, 0.9, 10.85, 23.6, 0.55, fill=_GRAYL,
+          line=True, line_col=_GRAYM, line_w=0.4)
     _txb(slide, ("Horizon recommande : 6-12 mois  |  Conviction FORTE si ecart score > 15 pts"
-                 "  |  Reequilibrer si ecart < 5 pts  |  Revisable a chaque publication de resultats trimestriels"),
-         1.0, 10.91, 23.4, 0.34, size=7.5, italic=True, color=_NAVY, align=PP_ALIGN.CENTER)
+                 "  |  Reequilibrer si ecart < 5 pts  |  Revisable a chaque publication trimestrielle"),
+         1.0, 10.95, 23.4, 0.40, size=8, italic=True, color=_NAVY, align=PP_ALIGN.CENTER)
 
 
 def _s16_disclaimer(prs, D):
@@ -1597,59 +1639,76 @@ def _s16_disclaimer(prs, D):
 
     methodo = [
         ("Scoring FinSight (0-100)",
-         "Agregation de 4 dimensions egalement ponderes a 25 pts chacune : "
-         "Value (P/E, EV/EBITDA, PEG, FCF Yield), Growth (CAGR revenus, EPS growth), "
+         "Agregation de 4 dimensions egalement ponderees a 25 pts chacune : "
+         "Value (P/E, EV/EBITDA, PEG, FCF Yield), Growth (CAGR revenus, EPS growth, revisions), "
          "Quality (ROE, ROIC, Piotroski F-Score, Altman Z, marges), "
          "Momentum (perf. 52S, RSI relative, revision consensus). "
-         "Seuils : >= 65 = Surponderer, 45-64 = Neutre, < 45 = Sous-ponderer."),
+         "Seuils d'allocation : >= 65 = Surponderer, 45-64 = Neutre, < 45 = Sous-ponderer."),
+        ("Indicateurs de qualite financiere",
+         "Piotroski F-Score (0-9) : 9 criteres binaires (ROA positif, CFO > NI, levier en baisse, etc.). "
+         "Altman Z-Score : modele de detresse financiere (Z>2.99 = sain, 1.81-2.99 = grise, <1.81 = distress). "
+         "Beneish M-Score : modele de detection de manipulation comptable (M < -2.22 = sain, M > -1.78 = signal). "
+         "Ces scores sont retires des affichages principaux pour preserver la lisibilite mais restent "
+         "calcules en arriere-plan et integres au scoring composite Quality."),
         ("Construction de l'univers",
-         "Univers S&P 500, CAC 40, STOXX 600 ou global selon le parametre selectionne. "
+         "Univers S&P 500, CAC 40, STOXX 600 ou global selon le parametre selectionne par l'utilisateur. "
          "Toutes les societes du secteur avec donnees yfinance disponibles (min. 3 ratios renseignes). "
-         "Valeurs aberrantes eliminees (P/E > 999x, ROE < -500%). "
-         "Medianes utilisees pour la robustesse aux outliers."),
+         "Valeurs aberrantes filtrees : P/E > 999x exclus, ROE < -500% exclus, ratios LTM uniquement. "
+         "Medianes utilisees plutot que moyennes pour la robustesse aux outliers."),
         ("Sources de donnees",
-         "yfinance (Yahoo Finance) : cours, bilan, compte de resultats, flux de tresorerie — "
-         "frequence trimestrielle ou annuelle selon disponibilite. "
-         "Finnhub : news et sentiment. FMP (Financial Modeling Prep) : donnees supplementaires si disponibles. "
-         "Perf. 52S : donnees hebdomadaires, composite top-15 normalise base 100."),
+         "yfinance (Yahoo Finance) : cours, bilan, compte de resultats, flux de tresorerie — frequence "
+         "trimestrielle ou annuelle selon disponibilite. Finnhub : news et sentiment. FMP : donnees "
+         "supplementaires si disponibles. Perf. 52S : composite top-15 normalise base 100."),
         ("Limites & Mises en garde",
-         "Donnees retardees de 24h sur yfinance free tier. Certains ratios (ROIC, Piotroski) "
-         "peuvent etre indisponibles pour des societes hors US. Medianes sectorielles masquent "
-         "la dispersion intra-sectorielle. Les signaux sont mecaniques et non ajustes du cycle."),
+         "Donnees retardees de 24h sur yfinance free tier. Certains ratios (ROIC, Piotroski) peuvent etre "
+         "indisponibles pour des societes hors US. Medianes sectorielles masquent la dispersion intra. "
+         "Les signaux sont mecaniques, statiques (snapshot point-in-time) et non ajustes du cycle. "
+         "Aucune analyse qualitative manuelle (management, gouvernance, ESG) n'est realisee."),
     ]
     y = 2.55
     for title, text in methodo:
-        _txb(slide, title, xa, y, col_w, 0.38, size=8, bold=True, color=_NAVY)
-        _txb(slide, text, xa, y + 0.42, col_w, 1.4, size=7, color=_GRAYT, wrap=True)
-        y += 1.95
+        _txb(slide, title, xa, y, col_w, 0.34, size=7.5, bold=True, color=_NAVY)
+        _txb(slide, text, xa, y + 0.38, col_w, 1.65, size=6.5, color=_GRAYT, wrap=True)
+        y += 2.05
 
     # === MENTIONS LEGALES (droite) ===
     _rect(slide, xb, 2.0, col_w, 0.42, fill=_NAVYL)
     _txb(slide, "MENTIONS LEGALES", xb, 2.03, col_w, 0.36, size=8, bold=True, color=_WHITE, align=PP_ALIGN.CENTER)
 
     legals = [
-        ("Caractere informatif",
+        ("Caractere informatif et pedagogique",
          "Ce document est produit exclusivement a des fins d'information et de demonstration pedagogique. "
-         "Il ne constitue pas un conseil en investissement, une recommandation d'achat ou de vente "
-         "de valeurs mobilieres, ni une offre ou sollicitation de souscription a un produit financier."),
-        ("Non-engagement de FinSight IA",
-         "FinSight IA est un outil algorithmique de screening. Les analyses presentees "
-         "sont generees automatiquement et n'engagent pas la responsabilite de leurs auteurs. "
-         "Aucune due diligence specifique n'a ete realisee sur les societes mentionnees."),
-        ("Risques associes",
-         "Tout investissement comporte un risque de perte en capital. Les performances passees "
-         "ne prejugent pas des performances futures. Les conditions de marche peuvent evoluer "
-         "rapidement et invalider les signaux presentes dans ce document."),
-        ("Confidentialite",
-         "Ce document est destine a usage prive et confidentiel. Sa reproduction, distribution "
-         "ou diffusion, meme partielle, est interdite sans autorisation expresse. "
+         "Il ne constitue en aucun cas un conseil en investissement, une recommandation personnalisee, "
+         "une incitation a l'achat ou a la vente de valeurs mobilieres, ni une offre ou sollicitation "
+         "de souscription a un produit financier au sens du Reglement General de l'AMF. "
+         "L'utilisateur est seul responsable de ses decisions d'investissement et doit consulter un "
+         "conseiller en investissement financier (CIF) agree avant toute operation."),
+        ("Absence de due diligence et limites de l'analyse",
+         "FinSight IA est un outil algorithmique de screening base sur des donnees publiques (yfinance, "
+         "Finnhub, FMP). Les analyses presentees sont generees automatiquement par des modeles statistiques "
+         "et un LLM, sans validation manuelle, sans rencontre avec le management, sans audit des comptes. "
+         "Aucune due diligence specifique, expertise sectorielle approfondie ou verification croisee "
+         "n'est realisee. Les modeles peuvent contenir des biais, erreurs ou simplifications. "
+         "FinSight IA et ses auteurs declinent toute responsabilite quant aux pertes ou prejudices "
+         "decoulant de l'utilisation de ce document."),
+        ("Risques d'investissement",
+         "Tout investissement en valeurs mobilieres comporte un risque de perte partielle ou totale "
+         "en capital. Les performances passees ne prejugent pas des performances futures. Les "
+         "conditions de marche, le contexte macroeconomique, les decisions reglementaires et les "
+         "evenements geopolitiques peuvent evoluer rapidement et invalider les signaux presentes. "
+         "La diversification et un horizon d'investissement adapte sont recommandes."),
+        ("Confidentialite et propriete intellectuelle",
+         "Ce document est destine a un usage prive et confidentiel. Sa reproduction, distribution, "
+         "publication ou diffusion, meme partielle, est strictement interdite sans autorisation "
+         "ecrite expresse. Le scoring FinSight, la methodologie et les visuels sont la propriete "
+         "intellectuelle exclusive de FinSight IA. Toute exploitation commerciale est prohibee. "
          "Ne pas utiliser comme base exclusive pour une decision d'investissement."),
     ]
     y = 2.55
     for title, text in legals:
-        _txb(slide, title, xb, y, col_w, 0.38, size=8, bold=True, color=_NAVY)
-        _txb(slide, text, xb, y + 0.42, col_w, 1.4, size=7, color=_GRAYT, wrap=True)
-        y += 1.95
+        _txb(slide, title, xb, y, col_w, 0.34, size=7.5, bold=True, color=_NAVY)
+        _txb(slide, text, xb, y + 0.38, col_w, 1.65, size=6.5, color=_GRAYT, wrap=True)
+        y += 2.05
 
     _rect(slide, 0.9, 13.3, 23.6, 0.25, fill=_GRAYL)
     _txb(slide, f"Genere par FinSight IA  |  {D['date_str']}  |  Usage confidentiel",

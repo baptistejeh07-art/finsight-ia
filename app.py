@@ -4780,10 +4780,11 @@ def _cmp_verdict_box(verdict_text: str) -> None:
     )
 
 
-def _cmp_mini_table(rows: list) -> None:
+def _cmp_mini_table(rows: list, header_a: str = "A", header_b: str = "B") -> None:
     """Mini-tableau comparatif 5-7 lignes.
 
     rows : liste de tuples (label, val_a, val_b) deja formates en str.
+    header_a / header_b : libelles des colonnes (noms de societe / secteur / indice).
     """
     if not rows:
         return
@@ -4794,10 +4795,10 @@ def _cmp_mini_table(rows: list) -> None:
     html.append('<thead><tr style="border-bottom:2px solid #1B3A6B;">'
                 '<th style="text-align:left;padding:8px 12px;color:#1B3A6B;'
                 'font-weight:700;">Indicateur</th>'
-                '<th style="text-align:right;padding:8px 12px;color:#1B3A6B;'
-                'font-weight:700;">A</th>'
-                '<th style="text-align:right;padding:8px 12px;color:#1B3A6B;'
-                'font-weight:700;">B</th></tr></thead>')
+                f'<th style="text-align:right;padding:8px 12px;color:#1B3A6B;'
+                f'font-weight:700;">{_e(str(header_a))}</th>'
+                f'<th style="text-align:right;padding:8px 12px;color:#1B3A6B;'
+                f'font-weight:700;">{_e(str(header_b))}</th></tr></thead>')
     html.append('<tbody>')
     for i, (lbl, va, vb) in enumerate(rows):
         bg = '#F8FAFC' if i % 2 == 0 else '#FFFFFF'
@@ -4890,10 +4891,7 @@ def _render_cmp_societe_page() -> None:
     if not verdict and (rec_a or rec_b):
         verdict = (
             f"{winner} est privilegie sur la base du score FinSight composite "
-            f"({fs_a}/100 vs {fs_b}/100), integrant valorisation, croissance, qualite et momentum. "
-            f"Les livrables detailles (PDF, PPTX, Excel) dans le ruban de gauche offrent "
-            f"l'analyse complete : sensibilite DCF, profil de risque, theses bull/bear "
-            f"et football field comparatif."
+            f"({fs_a}/100 vs {fs_b}/100), integrant valorisation, croissance, qualite et momentum."
         )
     _cmp_verdict_box(verdict)
 
@@ -4914,7 +4912,9 @@ def _render_cmp_societe_page() -> None:
         ("P/E (LTM)",        _fx(m_a.get("pe_ratio")), _fx(m_b.get("pe_ratio"))),
         ("EV/EBITDA",        _fx(m_a.get("ev_ebitda")), _fx(m_b.get("ev_ebitda"))),
     ]
-    _cmp_mini_table(rows)
+    _hdr_a = f"{name_a} ({tkr_a})" if name_a and name_a != tkr_a else tkr_a
+    _hdr_b = f"{name_b} ({tkr_b})" if name_b and name_b != tkr_b else tkr_b
+    _cmp_mini_table(rows, header_a=_hdr_a, header_b=_hdr_b)
 
 
 
@@ -4981,9 +4981,7 @@ def _render_cmp_secteur_page() -> None:
         f"{winner} domine sur la mediane des scores FinSight ({score_a}/100 vs {score_b}/100), "
         f"signalant une qualite fondamentale agregee superieure. "
         f"La lecture croisee des multiples et des marges permet d'affiner le choix d'exposition "
-        f"dans une allocation sectorielle. Les livrables detailles dans le ruban de gauche "
-        f"presentent l'analyse complete : top acteurs, catalyseurs, risques et positionnement "
-        f"relatif vs l'univers global."
+        f"dans une allocation sectorielle."
     )
     _cmp_verdict_box(verdict)
 
@@ -5005,7 +5003,7 @@ def _render_cmp_secteur_page() -> None:
         ("P/E median",              _fx_raw(pe_a),   _fx_raw(pe_b)),
         ("Recommandation",          _rec_fr(rec_a),  _rec_fr(rec_b)),
     ]
-    _cmp_mini_table(rows)
+    _cmp_mini_table(rows, header_a=sector_a, header_b=sector_b)
 
 
 
@@ -5056,10 +5054,7 @@ def _render_cmp_indice_page() -> None:
 
     verdict = (
         f"{winner} ressort avec le meilleur score composite, portant une allocation "
-        f"geographique/sectorielle plus favorable dans le contexte macro actuel. "
-        f"Les livrables detailles (PDF, PPTX, Excel) dans le ruban de gauche presentent "
-        f"l'analyse complete : composition sectorielle, concentration, top holdings, "
-        f"performances relatives et hypotheses de rotation."
+        f"geographique/sectorielle plus favorable dans le contexte macro actuel."
     )
     _cmp_verdict_box(verdict)
 
@@ -5086,7 +5081,7 @@ def _render_cmp_indice_page() -> None:
                                     _fpct_idx(_g(metrics_b, "ebitda_margin_median", "ebitda_margin"))),
         ("Recommandation",          _rec_fr(rec_a), _rec_fr(rec_b)),
     ]
-    _cmp_mini_table(rows)
+    _cmp_mini_table(rows, header_a=name_a, header_b=name_b)
 
 
 

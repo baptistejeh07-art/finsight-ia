@@ -261,7 +261,7 @@ class AgentSynthese:
         prompt = _build_prompt(snapshot, ratios, sentiment)
         raw = None
         try:
-            raw = self.llm.generate(prompt=prompt, system=_SYSTEM, max_tokens=2500)
+            raw = self.llm.generate(prompt=prompt, system=_SYSTEM, max_tokens=4000)
         except Exception as e:
             log.warning(f"[AgentSynthese] {self.llm.provider} echec ({type(e).__name__}: {e})")
 
@@ -277,7 +277,7 @@ class AgentSynthese:
             log.warning(f"[AgentSynthese] fallback → {_prov}")
             try:
                 _fb = LLMProvider(provider=_prov, model=_model)
-                raw = _fb.generate(prompt=prompt, system=_SYSTEM, max_tokens=2500)
+                raw = _fb.generate(prompt=prompt, system=_SYSTEM, max_tokens=4000)
             except Exception as _e:
                 log.error(f"[AgentSynthese] {_prov} echec ({type(_e).__name__}: {_e})")
 
