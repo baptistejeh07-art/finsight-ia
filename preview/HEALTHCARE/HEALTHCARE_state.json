@@ -1,0 +1,16 @@
+{
+  "ticker": "HEALTHCARE",
+  "raw_data": null,
+  "sentiment": "SentimentResult(ticker='HEALTHCARE', timestamp='2026-04-10T04:21:33.495912', score=0.0, score_normalized=0.5, label='NEUTRAL', confidence=0.0, articles_analyzed=0, articles_total=0, breakdown={}, sources=[], samples=[], llm_commentary='', meta={'request_id': '88818044-c772-4bcd-900e-17f5f79ae236', 'latency_ms': 1732, 'confidence_score': 0.0, 'invalidation_conditions': 'Aucune news disponible pour cette période.', 'tokens_used': 0})",
+  "data_quality": 0.0,
+  "errors": [
+    "AgentData returned None for HEALTHCARE"
+  ],
+  "logs": [
+    {
+      "node": "fetch_node",
+      "latency_ms": 2912,
+      "status": "error"
+    }
+  ]
+}
