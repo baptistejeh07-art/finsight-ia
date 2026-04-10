@@ -518,24 +518,27 @@ def _make_margins_chart(data):
     nm_vals = [_parse_pct(nm_row[i]) if nm_row and i < len(nm_row) else None for i in range(n)]
 
     x = np.arange(n)
-    width = 0.25
     fig, ax = plt.subplots(figsize=(8, 4.4), dpi=160)
 
     all_vals_flat = [v for v in gm_vals + em_vals + nm_vals if v is not None]
     ymax = max(all_vals_flat) * 1.12 if all_vals_flat else 100
     ax.set_ylim(bottom=0, top=ymax)
 
-    def _bar(vals, offset, color, label):
-        # Ne tracer que les positions avec valeur connue (evite les barres fantomes pour banques)
-        valid_x = [x[i] + offset for i, v in enumerate(vals) if v is not None]
+    def _line(vals, color, label):
+        valid_x = [x[i] for i, v in enumerate(vals) if v is not None]
         valid_v = [v for v in vals if v is not None]
         if not valid_v:
             return
-        ax.bar(valid_x, valid_v, width, color=color, alpha=0.85, label=label, zorder=3)
+        ax.plot(valid_x, valid_v, color=color, linewidth=2.2, marker='o',
+                markersize=5, label=label, zorder=3)
+        # Valeur au-dessus de chaque point
+        for xi, vi in zip(valid_x, valid_v):
+            ax.annotate(f"{vi:.1f}%", (xi, vi), textcoords="offset points",
+                        xytext=(0, 6), ha='center', fontsize=7.5, color=color)
 
-    _bar(gm_vals, -width, '#1B3A6B', 'Marge brute')
-    _bar(em_vals,  0,     '#2A5298', 'Marge EBITDA')
-    _bar(nm_vals,  width, '#5580B8', 'Marge nette')
+    _line(gm_vals, '#1B3A6B', 'Marge brute')
+    _line(em_vals, '#1A7A4A', 'Marge EBITDA')
+    _line(nm_vals, '#2A5298', 'Marge nette')
 
     ax.set_xticks(x)
     ax.set_xticklabels(years, fontsize=9, color='#555')
@@ -1590,8 +1593,26 @@ def _build_valorisation(ff_buf, pie_buf, mc_buf, data):
             _syn_fc = ((data.get('synthesis') or {}).get('financial_commentary') or "")
             if _syn_fc and not _extra_mc:
                 _extra_mc = " " + _syn_fc[:200] + ("..." if len(_syn_fc) > 200 else "")
+            # Enrichissement : volatilite implicite + limite du modele GBM
+            _vol = data.get('volatility_annualized') or data.get('hist_vol')
+            _vol_note = ""
+            if _vol is not None:
+                try:
+                    _vol_pct = float(_vol) * 100
+                    _vol_note = (f" La volatilit\u00e9 annualis\u00e9e du titre ({_vol_pct:.0f}\u00a0%) "
+                                 f"{'est elevee, amplifiant la dispersion des scenarios' if _vol_pct > 40 else 'est moderee, resserrant le corridor P10-P90'}. "
+                                 "Le mod\u00e8le GBM suppose une distribution log-normale des rendements — "
+                                 "les chocs exogenes (recession, r\u00e9gulation, disruption sectorielle) "
+                                 "ne sont pas captur\u00e9s. Le P50 constitue un ancrage probabiliste, "
+                                 "non un prix cible analytique.")
+                except: pass
+            if not _vol_note:
+                _vol_note = (" Le mod\u00e8le GBM suppose une distribution log-normale des rendements — "
+                             "les chocs exogenes (recession, r\u00e9gulation, disruption sectorielle) "
+                             "ne sont pas captur\u00e9s. Le P50 est un ancrage probabiliste, "
+                             "non un prix cible. Croiser avec le DCF et les comparables.")
             elems.append(Spacer(1, 3*mm))
-            elems.append(Paragraph(_safe(_mc_interp + _extra_mc), S_BODY))
+            elems.append(Paragraph(_safe(_mc_interp + _extra_mc + _vol_note), S_BODY))
     return elems
 
 
@@ -1809,7 +1830,7 @@ def _build_multiples_historiques(data):
     """Page PDF : Multiples de valorisation historiques P/E + EV/EBITDA sur 5 ans."""
     import math as _math_mh
     elems = []
-    elems += section_title("Multiples Historiques de Valorisation", "IB/PE")
+    elems += section_title("Multiples Historiques de Valorisation", 4)
     elems.append(debate_q(
         "Comment ont \u00e9volu\u00e9 les multiples de valorisation sur 5 ans ? Y a-t-il expansion ou compression ?"))
 
@@ -1930,7 +1951,7 @@ def _build_multiples_historiques(data):
 def _build_capital_returns(data):
     """Page PDF : FCF yield, allocation du capital, dividendes et retour total."""
     elems = []
-    elems += section_title("Capital Returns & Free Cash Flow", "IB/PE")
+    elems += section_title("Capital Returns & Free Cash Flow", 5)
     elems.append(debate_q(
         "La soci\u00e9t\u00e9 g\u00e9n\u00e8re-t-elle un FCF suffisant pour financer sa croissance et r\u00e9mun\u00e9rer ses actionnaires ?"))
 
@@ -2014,13 +2035,35 @@ def _build_capital_returns(data):
         _syn_fc = ((data.get('synthesis') or {}).get('financial_commentary') or "")
         if _syn_fc:
             _syn_note = " " + _syn_fc[:180] + ("..." if len(_syn_fc) > 180 else "")
-        _fy_qual = ('est attractif pour un investisseur long-only'
+        _fy_qual = ('est attractif pour un investisseur long-only (>4\u00a0%)'
                     if fy_vals and fy_vals[-1] and float(fy_vals[-1]) > 0.04
                     else 'reste modeste au regard du co\u00fbt du capital')
+        # Payout ratio : enrichissement si disponible
+        _payout_vals = [d['div_pout'] for d in years_data if d.get('div_pout') is not None]
+        _payout_note = ""
+        if _payout_vals:
+            _pout_last = _payout_vals[-1]
+            _pout_lbl = ("conservateur, pr\u00e9servant la flexibilit\u00e9 financi\u00e8re"
+                         if _pout_last < 0.35
+                         else ("mod\u00e9r\u00e9, \u00e9quilibrant distribution et r\u00e9investissement"
+                               if _pout_last < 0.60
+                               else "elev\u00e9, r\u00e9duisant la marge de s\u00e9curit\u00e9 du dividende"))
+            _payout_note = (f" Le taux de distribution (payout) de {_frpct(_pout_last)} "
+                            f"est {_pout_lbl}.")
+        # Qualite FCF : conversion EBITDA→FCF
+        _fcf_conv_note = ""
+        fcf_last = fcf_vals[-1] if fcf_vals else None
+        ebitda_last = years_data[-1].get('ebitda') if years_data else None
+        if fcf_last and ebitda_last and ebitda_last != 0:
+            try:
+                _conv = abs(float(fcf_last)) / abs(float(ebitda_last))
+                _fcf_conv_note = (f" La conversion EBITDA\u2192FCF de {_conv:.0%} "
+                                  f"{'est excellente (>70\u00a0%), signe d\u2019un mod\u00e8le capital-light' if _conv > 0.7 else 'indique des besoins de capex ou BFR importants'}.")
+            except: pass
         _txt = (f"La g\u00e9n\u00e9ration de FCF affiche une {_dir} de "
                 f"{_fr(abs(delta_fcf)/1000, 1)}\u00a0Mds sur la p\u00e9riode. "
                 f"Le FCF yield courant de {_fy} {_fy_qual}."
-                + _capex_note + _div_note + _syn_note)
+                + _capex_note + _payout_note + _fcf_conv_note + _div_note + _syn_note)
     else:
         _txt = "Donn\u00e9es FCF insuffisantes pour l\u2019analyse de l\u2019allocation du capital."
     elems.append(Spacer(1, 3*mm))
@@ -2033,7 +2076,7 @@ def _build_lbo(data):
     """Page PDF : Analyse LBO — entry/exit multiples, levier, IRR/MOIC — niveau PE."""
     import math as _math_lbo
     elems = []
-    elems += section_title("Analyse LBO \u2014 Leveraged Buyout", "IB/PE")
+    elems += section_title("Analyse LBO \u2014 Leveraged Buyout", 6)
     elems.append(debate_q(
         "La soci\u00e9t\u00e9 est-elle une cible PE viable ? A quel prix d\u2019entr\u00e9e un fonds atteint-il un IRR de 20%+ ?"))
 
@@ -2133,11 +2176,33 @@ def _build_lbo(data):
     irr_base, moic_base = _lbo_irr(10.0, 10.0)
     if irr_base is not None:
         _signal = "attractive" if irr_base >= 0.20 else ("limite (15-20%)" if irr_base >= 0.15 else "insuffisante (<15%)")
+        # Chercher le multiple d'entree max qui delivre IRR >= 20%
+        _entry_20_max = next((em for em in entry_multiples if (_lbo_irr(em, 10.0)[0] or 0) >= 0.20), None)
+        _entry_note = (f"Un fonds tier-1 ciblant \u226520% IRR doit entrer \u2264{_entry_20_max:.0f}x EBITDA."
+                       if _entry_20_max else "Aucun multiple d'entree standard ne delivre un IRR >= 20% avec sortie a 10x.")
+        # Qualite du levier : ratio debt/ebitda
+        _net_debt_ebitda = (net_debt / ebitda) if (net_debt is not None and ebitda and ebitda > 0) else None
+        if _net_debt_ebitda is not None:
+            _lev_comment = (f"La dette nette actuelle repr\u00e9sente {_net_debt_ebitda:.1f}x EBITDA, "
+                            + ("un levier \u00e9lev\u00e9 qui limite l'espace d'endettement additionnel. "
+                               if _net_debt_ebitda > 3.0
+                               else "un levier raisonnable qui pr\u00e9serve la capacit\u00e9 de LBO. "))
+        else:
+            _lev_comment = ""
+        # FCF comme moteur de desendettement
+        _fcf_abs_mds = fcf / 1000 if fcf else None
+        _fcf_comment = (f"La FCF generation ({_fr(_fcf_abs_mds, 1)} Mds) constitue le moteur de d\u00e9sendettement : "
+                        f"un rem boursement de {debt_repay_pct*100:.0f}% de la dette en {hold_years} ans suppose "
+                        f"un FCF stable ou croissant sur la p\u00e9riode de holding. "
+                        if _fcf_abs_mds else "")
         _txt = (f"A 10x EBITDA d\u2019entr\u00e9e / 10x de sortie, le LBO g\u00e9n\u00e8re un IRR "
                 f"de {irr_base*100:.1f}% (MOIC {moic_base:.1f}x) \u2014 attractivit\u00e9 PE {_signal}. "
-                f"Un fonds tier-1 ciblant 20%+ doit entrer en dessous de "
-                f"{next((em for em in entry_multiples if (_lbo_irr(em,10.0)[0] or 0)>=0.20), entry_multiples[-1]):.0f}x EBITDA. "
-                f"La FCF conversion ({_fr(fcf/1000 if fcf else None, 1)} Mds) est le principal levier de d\u00e9sendettement.")
+                f"{_entry_note} "
+                f"{_lev_comment}"
+                f"{_fcf_comment}"
+                f"La viabilit\u00e9 LBO reste conditionnelle \u00e0 la visibilit\u00e9 du free cash flow, "
+                f"au niveau de taux d\u2019int\u00e9r\u00eat sur la dette senior, et \u00e0 la capacit\u00e9 "
+                f"du management \u00e0 ex\u00e9cuter le plan op\u00e9rationnel dans un environnement de levier {leverage_ratio:.0f}x.")
     else:
         _txt = "EBITDA LTM non disponible \u2014 analyse LBO indicative impossible."
     elems.append(Paragraph(_safe(_txt), S_BODY))
@@ -3116,21 +3181,11 @@ class PDFWriter:
                 grow_vals.append('\u2014')
             prev_r = r
 
-        # EPS rows : valeur unique positionnee dans la colonne LTM et N+1E
-        _n_cols   = len(all_labels)
-        _dash_row = ['\u2014'] * _n_cols
-        def _eps_row(label, val, col_idx):
-            row = list(_dash_row)
-            if val is not None and col_idx < _n_cols:
-                try:
-                    row[col_idx] = _frx(float(val))
-                except (ValueError, TypeError):
-                    pass
-            return [label] + row
-
         # col LTM = index (len(hist_3) - 1), col N+1E = index len(hist_3)
         _ltm_idx  = len(hist_3) - 1
         _ny1_idx  = len(hist_3)
+        _n_cols   = len(all_labels)
+        _dash_row = ['\u2014'] * _n_cols
 
         # Fallback EPS LTM depuis données financières si yfinance n'a pas retourné la valeur
         if _trailing_eps is None and hist_3:
@@ -3147,6 +3202,37 @@ class PDFWriter:
             except (ValueError, ZeroDivisionError):
                 pass
 
+        # EPS historique calculé par année depuis résultat net / actions (même méthode que fallback LTM)
+        _eps_hist = list(_dash_row)
+        if _shares and float(_shares) > 0:
+            for _i, _l in enumerate(all_labels):
+                if _i == _ny1_idx and _fwd_eps is not None:
+                    try: _eps_hist[_i] = _frx(float(_fwd_eps))
+                    except: pass
+                elif _i == _ny1_idx + 1:
+                    pass  # ny2 : pas d'EPS disponible
+                else:
+                    _ni_yr = _ni(_l)
+                    if _ni_yr is not None:
+                        try:
+                            _eps_yr = round(float(_ni_yr) * 1000 / float(_shares), 2)
+                            _eps_hist[_i] = _frx(_eps_yr)
+                        except: pass
+            # Remplacer LTM par la valeur yfinance si plus précise
+            if _trailing_eps is not None:
+                try: _eps_hist[_ltm_idx] = _frx(float(_trailing_eps))
+                except: pass
+
+        # Ligne P/E : LTM (trailing) + N+1E (forward)
+        _pe_row = list(_dash_row)
+        if _fwd_pe is not None:
+            try: _pe_row[_ny1_idx] = _frx(float(_fwd_pe))
+            except: pass
+        if _trailing_eps is not None and price:
+            try: _pe_row[_ltm_idx] = _frx(round(float(price) / float(_trailing_eps), 1))
+            except: pass
+        _pe_label = "P/E (LTM / Fwd)"
+
         is_data = [
             ["Chiffre d'affaires"]      + rev_vals,
             ["Croissance YoY"]          + grow_vals,
@@ -3155,9 +3241,8 @@ class PDFWriter:
             ["Marge EBITDA"]            + [_frpct(_em(l)) for l in all_labels],
             ["R\u00e9sultat net"]       + [_frm(_ni(l)) for l in all_labels],
             ["Marge nette"]             + [_frpct(_nm(l)) for l in all_labels],
-            _eps_row("EPS LTM ($)",     _trailing_eps, _ltm_idx),
-            _eps_row("EPS N+1E (cns.)", _fwd_eps,      _ny1_idx),
-            _eps_row("P/E" + (" Forward" if _fwd_eps else " LTM"), _fwd_pe, _ltm_idx if _fwd_eps is None else _ny1_idx),
+            ["EPS ($)"]                 + _eps_hist,
+            [_pe_label]                 + _pe_row,
         ]
 
         # Ratios vs pairs

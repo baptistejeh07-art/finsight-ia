@@ -944,8 +944,9 @@ def _chart_distribution(tickers_data) -> bytes:
     return buf.read()
 
 
-def _chart_performance(tickers_data) -> bytes:
-    """52W relative performance line chart via yfinance."""
+def _chart_performance(tickers_data, best_ticker=None, worst_ticker=None) -> bytes:
+    """52W relative performance line chart via yfinance.
+    best_ticker et worst_ticker sont surlignés (vert/rouge épais), les autres en gris fin."""
     import datetime as dt
     colors_line = ['#1B3A6B', '#1A7A4A', '#A82020', '#B06000', '#2A5298',
                    '#6B3A1B', '#3A6B1B', '#6B1B3A']
@@ -957,6 +958,14 @@ def _chart_performance(tickers_data) -> bytes:
         log.warning("sectoral_pptx _chart_performance: %d tickers disponibles — "
                     "affichage tronque a MAX_TICKERS_CHART=%d",
                     len(tickers_data), MAX_TICKERS_CHART)
+
+    def _line_style(ticker):
+        """Retourne (color, linewidth, alpha, zorder) selon le role du ticker."""
+        if best_ticker and ticker == best_ticker:
+            return '#1A7A4A', 2.8, 1.0, 4  # vert, epais, au premier plan
+        if worst_ticker and ticker == worst_ticker:
+            return '#A82020', 2.8, 1.0, 4  # rouge, epais, au premier plan
+        return '#BBBBBB', 1.0, 0.55, 2     # gris, fin, en arriere-plan
 
     plotted = 0
     try:
@@ -971,9 +980,13 @@ def _chart_performance(tickers_data) -> bytes:
                 hist = hist_df['Close']
                 if len(hist) < 4: continue
                 norm = (hist / hist.iloc[0] - 1) * 100
+                col, lw, alpha, zord = _line_style(ticker)
+                # Si highlight ON mais ce ticker n'est pas dans best/worst : gris
+                # Si highlight OFF (aucun best/worst fourni) : couleurs originales
+                if best_ticker is None and worst_ticker is None:
+                    col, lw, alpha, zord = colors_line[i % len(colors_line)], 1.6, 0.9, 3
                 ax.plot(norm.index, norm.values,
-                        color=colors_line[i % len(colors_line)],
-                        linewidth=1.6, label=ticker, alpha=0.9)
+                        color=col, linewidth=lw, label=ticker, alpha=alpha, zorder=zord)
                 plotted += 1
             except: pass
     except: pass
@@ -988,8 +1001,11 @@ def _chart_performance(tickers_data) -> bytes:
         for i, t in enumerate(display_td):
             np.random.seed(i * 7)
             y = np.cumsum(np.random.randn(53) * 1.5)
-            ax.plot(x, y, color=colors_line[i % len(colors_line)],
-                    linewidth=1.6, label=t.get("ticker", f"T{i+1}"), alpha=0.9)
+            ticker = t.get("ticker", f"T{i+1}")
+            col, lw, alpha, zord = _line_style(ticker)
+            if best_ticker is None and worst_ticker is None:
+                col, lw, alpha, zord = colors_line[i % len(colors_line)], 1.6, 0.9, 3
+            ax.plot(x, y, color=col, linewidth=lw, label=ticker, alpha=alpha, zorder=zord)
         ax.set_xlabel("Semaines (illustratif)", fontsize=8, color='#555555')
     else:
         ax.set_xlabel("Date", fontsize=8, color='#555555')
@@ -1163,41 +1179,86 @@ def _s06_ratios(prs, D):
     MAX_S06 = 8  # cap slide 6 a 8 lignes — garantit lisibilite bloc lecture
     td_disp = td[:MAX_S06]
     tbl_data = [["Societe", "EV/EBITDA", "EV/Rev.", "P/E", "Mg Brute", "Mg EBITDA", "ROE"]]
+
+    def _fallback_ev_ebitda(t):
+        """Calcul EV/EBITDA depuis composantes si valeur directe absente."""
+        v = t.get("ev_ebitda")
+        if v is not None:
+            return v
+        # Tentative : market_cap / (ebitda_margin * revenue_ltm)
+        mc  = t.get("market_cap")
+        em  = t.get("ebitda_margin")
+        rev = t.get("revenue_ltm") or t.get("revenue")
+        if mc and em and rev and float(em) > 0 and float(rev) > 0:
+            ebitda_est = float(em) * float(rev)
+            # EV = market_cap + net_debt (approx 0 si inconnu)
+            nd = t.get("net_debt") or 0
+            ev_est = float(mc) + float(nd)
+            if ebitda_est > 0:
+                return round(ev_est / ebitda_est, 1)
+        return None
+
+    def _fallback_ev_revenue(t):
+        """Calcul EV/Revenue depuis composantes si valeur directe absente."""
+        v = t.get("ev_revenue")
+        if v is not None:
+            return v
+        mc  = t.get("market_cap")
+        rev = t.get("revenue_ltm") or t.get("revenue")
+        if mc and rev and float(rev) > 0:
+            nd = t.get("net_debt") or 0
+            ev_est = float(mc) + float(nd)
+            return round(ev_est / float(rev), 1)
+        return None
+
+    def _fallback_pe(t):
+        """Calcul P/E depuis price/eps si valeur directe absente."""
+        v = t.get("pe_ratio") or t.get("pe")
+        if v is not None:
+            return v, False  # (value, is_negative_earnings)
+        # Tentative : market_cap / net_income
+        mc = t.get("market_cap")
+        ni = t.get("net_income")
+        if mc and ni and float(ni) != 0:
+            if float(ni) < 0:
+                return None, True  # earnings negatifs
+            return round(float(mc) / float(ni), 1), False
+        # Tentative : price / trailing_eps
+        px  = t.get("price") or t.get("current_price")
+        eps = t.get("trailing_eps") or t.get("eps_ttm") or t.get("eps")
+        if px and eps and float(eps) != 0:
+            if float(eps) < 0:
+                return None, True
+            return round(float(px) / float(eps), 1), False
+        ni2 = t.get("eps_ttm") or t.get("eps")
+        try:
+            return None, ni2 is not None and float(ni2) < 0
+        except (ValueError, TypeError):
+            return None, False
+
     for t in td_disp:
-        pe = t.get("pe_ratio") or t.get("pe")   # fallback: compute_screening utilise "pe"
-        # P/E : afficher "neg." si None et earnings negatifs (ex: Intel en perte)
-        if pe is not None:
-            _pe_str = _fmt_x(pe)
-        else:
-            _ni = t.get("net_income") or t.get("eps_ttm") or t.get("eps")
-            try:
-                _pe_str = "neg." if _ni is not None and float(_ni) < 0 else "—"
-            except (ValueError, TypeError):
-                _pe_str = "—"
+        _pe_val, _pe_neg = _fallback_pe(t)
+        _pe_str = _fmt_x(_pe_val) if _pe_val is not None else ("neg." if _pe_neg else "—")
         tbl_data.append([
             t.get("company", t.get("ticker", ""))[:28],
-            _fmt_x(t.get("ev_ebitda")),
-            _fmt_x(t.get("ev_revenue")),
+            _fmt_x(_fallback_ev_ebitda(t)),
+            _fmt_x(_fallback_ev_revenue(t)),
             _pe_str,
             _fmt_pct_plain(t.get("gross_margin")),
             _fmt_pct_plain(t.get("ebitda_margin")),
             _fmt_pct_plain(t.get("roe")),
         ])
-    # Médiane row (calculée sur tout l'univers td, pas seulement td_disp)
-    def _col_med(key):
-        vals = [t.get(key) or t.get("pe") if key == "pe_ratio" else t.get(key)
-                for t in td if (t.get(key) or (key == "pe_ratio" and t.get("pe"))) is not None]
-        vals = [v for v in vals if v is not None]
-        m = _med(vals) if vals else None
-        if m is None: return "—"
-        if key in ("ev_ebitda", "ev_revenue", "pe_ratio"):
-            return _fmt_x(m)
-        return _fmt_pct_plain(m)
+    # Médiane row (calculée sur tout l'univers td avec fallbacks)
+    _ev_ebitda_vals = [v for t in td for v in [_fallback_ev_ebitda(t)] if v is not None]
+    _ev_rev_vals    = [v for t in td for v in [_fallback_ev_revenue(t)] if v is not None]
+    _pe_vals        = [v for t in td for v, _ in [_fallback_pe(t)] if v is not None]
     tbl_data.append(["MEDIANE",
-                      _col_med("ev_ebitda"), _col_med("ev_revenue"), _col_med("pe_ratio"),
-                      _fmt_pct_plain(_med([t.get("gross_margin") for t in td if t.get("gross_margin")])),
+                      _fmt_x(_med(_ev_ebitda_vals)) if _ev_ebitda_vals else "—",
+                      _fmt_x(_med(_ev_rev_vals))    if _ev_rev_vals    else "—",
+                      _fmt_x(_med(_pe_vals))         if _pe_vals        else "—",
+                      _fmt_pct_plain(_med([t.get("gross_margin")  for t in td if t.get("gross_margin")])),
                       _fmt_pct_plain(_med([t.get("ebitda_margin") for t in td if t.get("ebitda_margin")])),
-                      _fmt_pct_plain(_med([t.get("roe") for t in td if t.get("roe")]))])
+                      _fmt_pct_plain(_med([t.get("roe")           for t in td if t.get("roe")]))])
 
     _s06_tbl_h = min(6.0, len(tbl_data) * 0.55)  # cap 6cm — laisse toujours place au bloc lecture
     _add_table(slide, tbl_data, 0.9, 2.5, 23.6, _s06_tbl_h,
@@ -1851,15 +1912,6 @@ def _s20_performance(prs, D):
     _header(slide, "Performance Boursiere Relative — 52 Semaines",
             f"{D['sector_name']}  ·  {D['universe']}  ·  Indexe a 100 au debut de la periode", 4)
 
-    img = _chart_performance(D["tickers_data"])
-    # Graphique agrandi — legende matplotlib dans le chart (haut gauche)
-    _pic(slide, img, 0.9, 2.3, 16.5, 10.2)
-
-    # Panel droit — texte analytique uniquement (legende dans le graphique)
-    _rect(slide, 17.6, 2.3, 6.8, 10.2, fill=_GRAYL)
-    _rect(slide, 17.6, 2.3, 6.8, 0.65, fill=_NAVY)
-    _txb(slide, "LECTURE ANALYTIQUE", 17.8, 2.35, 6.5, 0.55, size=8, bold=True, color=_WHITE)
-
     td_s = sorted(D["tickers_data"], key=lambda x: x.get("momentum_52w") or 0, reverse=True)
     best  = td_s[0]  if td_s  else {}
     worst = td_s[-1] if td_s  else {}
@@ -1867,6 +1919,15 @@ def _s20_performance(prs, D):
     best_mom = best.get("momentum_52w") or 0
     worst_tk  = worst.get("ticker", "—")
     worst_mom = worst.get("momentum_52w") or 0
+
+    img = _chart_performance(D["tickers_data"], best_ticker=best_tk, worst_ticker=worst_tk)
+    # Graphique agrandi — legende matplotlib dans le chart (haut gauche)
+    _pic(slide, img, 0.9, 2.3, 16.5, 10.2)
+
+    # Panel droit — texte analytique uniquement (legende dans le graphique)
+    _rect(slide, 17.6, 2.3, 6.8, 10.2, fill=_GRAYL)
+    _rect(slide, 17.6, 2.3, 6.8, 0.65, fill=_NAVY)
+    _txb(slide, "LECTURE ANALYTIQUE", 17.8, 2.35, 6.5, 0.55, size=8, bold=True, color=_WHITE)
     n_pos   = sum(1 for t in D["tickers_data"] if (t.get("momentum_52w") or 0) > 0)
     n_neg   = len(D["tickers_data"]) - n_pos
     spread  = abs(best_mom - worst_mom)

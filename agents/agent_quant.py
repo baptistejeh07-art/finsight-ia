@@ -415,7 +415,8 @@ class AgentQuant:
         capex_abs = abs(fy.capex) if fy.capex is not None else None
         yr.capex_ratio     = _pct(capex_abs,     fy.revenue)
         yr.rd_ratio        = _pct(fy.rd,          fy.revenue)
-        yr.dividend_payout = _pct(fy.dividends,   yr.net_income)
+        _divs_for_payout = fy.dividends if (hasattr(fy, 'dividends') and fy.dividends) else yr.dividends_paid_abs
+        yr.dividend_payout = _pct(_divs_for_payout, yr.net_income)
 
         # --- Altman Z-Score (modèle sélectionné selon secteur) ---
         yr.altman_z, yr.altman_z_model = self._compute_altman(fy, yr, sector)
