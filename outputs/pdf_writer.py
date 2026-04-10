@@ -3215,7 +3215,7 @@ class PDFWriter:
                     _ni_yr = _ni(_l)
                     if _ni_yr is not None:
                         try:
-                            _eps_yr = round(float(_ni_yr) * 1000 / float(_shares), 2)
+                            _eps_yr = round(float(_ni_yr) / float(_shares), 2)
                             _eps_hist[_i] = _fr(_eps_yr, 2)
                         except: pass
             # Remplacer LTM par la valeur yfinance si plus précise
