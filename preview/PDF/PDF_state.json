@@ -1,0 +1,16 @@
+{
+  "ticker": "PDF",
+  "raw_data": null,
+  "sentiment": "SentimentResult(ticker='PDF', timestamp='2026-04-10T03:45:21.298883', score=0.0, score_normalized=0.5, label='NEUTRAL', confidence=0.0, articles_analyzed=0, articles_total=0, breakdown={}, sources=[], samples=[], llm_commentary='', meta={'request_id': 'a9772779-fabd-44cb-b75a-5e24124c0c25', 'latency_ms': 1828, 'confidence_score': 0.0, 'invalidation_conditions': 'Aucune news disponible pour cette période.', 'tokens_used': 0})",
+  "data_quality": 0.0,
+  "errors": [
+    "AgentData returned None for PDF"
+  ],
+  "logs": [
+    {
+      "node": "fetch_node",
+      "latency_ms": 3715,
+      "status": "error"
+    }
+  ]
+}
