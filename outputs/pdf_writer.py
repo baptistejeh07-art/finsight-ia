@@ -2050,15 +2050,17 @@ def _build_capital_returns(data):
                                else "elev\u00e9, r\u00e9duisant la marge de s\u00e9curit\u00e9 du dividende"))
             _payout_note = (f" Le taux de distribution (payout) de {_frpct(_pout_last)} "
                             f"est {_pout_lbl}.")
-        # Qualite FCF : conversion EBITDA→FCF
+        # Qualite FCF : conversion EBITDA -> FCF
         _fcf_conv_note = ""
         fcf_last = fcf_vals[-1] if fcf_vals else None
         ebitda_last = years_data[-1].get('ebitda') if years_data else None
         if fcf_last and ebitda_last and ebitda_last != 0:
             try:
                 _conv = abs(float(fcf_last)) / abs(float(ebitda_last))
-                _fcf_conv_note = (f" La conversion EBITDA->FCF de {_conv:.0%} "
-                                  f"{'est excellente (>70\u00a0%), signe d\u2019un mod\u00e8le capital-light' if _conv > 0.7 else 'indique des besoins de capex ou BFR importants'}.")
+                _conv_excellent = "est excellente (>70\u00a0%), signe d\u2019un mod\u00e8le capital-light"
+                _conv_standard  = "indique des besoins de capex ou BFR importants"
+                _conv_qual = _conv_excellent if _conv > 0.7 else _conv_standard
+                _fcf_conv_note = f" La conversion EBITDA->FCF de {_conv:.0%} {_conv_qual}."
             except: pass
         _txt = (f"La g\u00e9n\u00e9ration de FCF affiche une {_dir} de "
                 f"{_fr(abs(delta_fcf)/1000, 1)}\u00a0Mds sur la p\u00e9riode. "
