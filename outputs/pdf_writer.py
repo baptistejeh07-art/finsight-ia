@@ -2014,10 +2014,12 @@ def _build_capital_returns(data):
         _syn_fc = ((data.get('synthesis') or {}).get('financial_commentary') or "")
         if _syn_fc:
             _syn_note = " " + _syn_fc[:180] + ("..." if len(_syn_fc) > 180 else "")
+        _fy_qual = ('est attractif pour un investisseur long-only'
+                    if fy_vals and fy_vals[-1] and float(fy_vals[-1]) > 0.04
+                    else 'reste modeste au regard du co\u00fbt du capital')
         _txt = (f"La g\u00e9n\u00e9ration de FCF affiche une {_dir} de "
                 f"{_fr(abs(delta_fcf)/1000, 1)}\u00a0Mds sur la p\u00e9riode. "
-                f"Le FCF yield courant de {_fy} "
-                f"{'est attractif pour un investisseur long-only' if fy_vals and fy_vals[-1] and float(fy_vals[-1]) > 0.04 else 'reste modeste au regard du co\u00fbt du capital'}."
+                f"Le FCF yield courant de {_fy} {_fy_qual}."
                 + _capex_note + _div_note + _syn_note)
     else:
         _txt = "Donn\u00e9es FCF insuffisantes pour l\u2019analyse de l\u2019allocation du capital."

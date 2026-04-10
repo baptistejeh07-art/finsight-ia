@@ -1,8 +1,8 @@
 """
 cmp_secteur_pdf_writer.py — FinSight IA
 Rapport PDF comparatif sectoriel via ReportLab.
-~10 pages : cover, synthese, profil, valorisation, marges, croissance,
-             top acteurs, risques/catalyseurs, recommandation, disclaimer.
+~11 pages : cover, synthese, profil, valorisation, marges, croissance,
+             cours 52S, top acteurs, risques/catalyseurs, recommandation, disclaimer.
 
 Usage :
     from outputs.cmp_secteur_pdf_writer import generate_cmp_secteur_pdf
@@ -26,6 +26,7 @@ log = logging.getLogger(__name__)
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
 import numpy as np
 
 from reportlab.lib.pagesizes import A4
@@ -325,6 +326,129 @@ def _chart_momentum_pdf(sa, sb, label_a, label_b) -> bytes:
     plt.tight_layout(pad=0.5)
     buf = io.BytesIO(); fig.savefig(buf, format="png", dpi=140, bbox_inches="tight"); plt.close(fig)
     buf.seek(0); return buf.read()
+
+
+def _fetch_price_52w(tickers_a, tickers_b):
+    """Construit un composite de cours normalise base 100 sur 52 semaines.
+
+    Prend les 15 meilleurs tickers de chaque secteur (par score),
+    telecharge 1 an de donnees hebdomadaires via yfinance,
+    et retourne deux Series pandas normalisees.
+    Retourne (None, None) si yfinance est indisponible.
+    """
+    try:
+        import yfinance as yf
+        import pandas as pd
+
+        top_a = sorted(tickers_a, key=lambda t: t.get("score_global", 0), reverse=True)[:15]
+        top_b = sorted(tickers_b, key=lambda t: t.get("score_global", 0), reverse=True)[:15]
+        syms_a = [t["ticker"] for t in top_a if t.get("ticker")]
+        syms_b = [t["ticker"] for t in top_b if t.get("ticker")]
+        all_syms = list(dict.fromkeys(syms_a + syms_b))
+
+        if not all_syms:
+            return None, None
+
+        hist = yf.download(
+            all_syms, period="1y", interval="1wk",
+            auto_adjust=True, progress=False, timeout=30,
+        )
+        if hist.empty:
+            return None, None
+
+        # Extraire les prix de cloture
+        if len(all_syms) == 1:
+            close = hist[["Close"]]
+            close.columns = all_syms
+        else:
+            if hasattr(hist.columns, "levels"):
+                close = hist["Close"]
+            else:
+                close = hist[["Close"]]
+                close.columns = all_syms
+
+        close = close.ffill()
+
+        def _composite(syms):
+            cols = [s for s in syms if s in close.columns]
+            if not cols:
+                return None
+            sub = close[cols].dropna(how="all")
+            if sub.empty or len(sub) < 5:
+                return None
+            first = sub.iloc[0].replace(0, np.nan)
+            norm = sub.div(first) * 100
+            return norm.mean(axis=1)
+
+        perf_a = _composite(syms_a)
+        perf_b = _composite(syms_b)
+        return perf_a, perf_b
+
+    except Exception as exc:
+        log.warning("[cmp_secteur_pdf] price 52w fetch: %s", exc)
+        return None, None
+
+
+def _chart_price_52w_pdf(perf_a, perf_b, sector_a, sector_b) -> bytes:
+    """Courbe de performance normalisee base 100 sur 52 semaines."""
+    fig, ax = plt.subplots(figsize=(8.5, 4.0))
+
+    # Aligner les deux series sur les memes dates
+    import pandas as pd
+    combined = pd.concat({"a": perf_a, "b": perf_b}, axis=1).dropna(how="all")
+    combined = combined.ffill().dropna(how="any")
+
+    if combined.empty or len(combined) < 4:
+        plt.close(fig)
+        return b""
+
+    dates  = combined.index
+    vals_a = combined["a"].values
+    vals_b = combined["b"].values
+
+    ax.plot(dates, vals_a, color=_HEX_A, linewidth=2.2, label=sector_a[:14], zorder=3)
+    ax.plot(dates, vals_b, color=_HEX_B, linewidth=2.2, label=sector_b[:14], zorder=3)
+
+    # Zone entre les deux courbes
+    ax.fill_between(dates, vals_a, vals_b,
+                    where=(vals_a >= vals_b), alpha=0.07, color=_HEX_A, interpolate=True)
+    ax.fill_between(dates, vals_a, vals_b,
+                    where=(vals_a < vals_b),  alpha=0.07, color=_HEX_B, interpolate=True)
+
+    # Ligne de reference base 100
+    ax.axhline(100, color="#999999", linewidth=0.6, linestyle="--", alpha=0.6, zorder=1)
+
+    # Annotations finales
+    ret_a = vals_a[-1] - 100
+    ret_b = vals_b[-1] - 100
+    offset_a =  6 if ret_a >= ret_b else -14
+    offset_b = -14 if ret_a >= ret_b else  6
+    ax.annotate(f"{ret_a:+.1f}%", xy=(dates[-1], vals_a[-1]),
+                xytext=(6, offset_a), textcoords="offset points",
+                color=_HEX_A, fontsize=8.5, fontweight="bold", va="center")
+    ax.annotate(f"{ret_b:+.1f}%", xy=(dates[-1], vals_b[-1]),
+                xytext=(6, offset_b), textcoords="offset points",
+                color=_HEX_B, fontsize=8.5, fontweight="bold", va="center")
+
+    # Mise en forme
+    ax.set_ylabel("Performance (base 100)", fontsize=8.5, color="#555")
+    ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda v, _: f"{v:.0f}"))
+    ax.xaxis.set_major_formatter(mdates.DateFormatter("%b %y"))
+    ax.xaxis.set_major_locator(mdates.MonthLocator(interval=2))
+    plt.setp(ax.xaxis.get_majorticklabels(), rotation=0, ha="center", fontsize=8)
+    ax.legend(loc="upper left", fontsize=8.5, framealpha=0.85,
+              edgecolor="#ccc", borderpad=0.6)
+    ax.grid(True, alpha=0.18, linewidth=0.4)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.set_xlim(dates[0], dates[-1])
+
+    fig.tight_layout(pad=0.8)
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png", dpi=150, bbox_inches="tight")
+    plt.close(fig)
+    buf.seek(0)
+    return buf.read()
 
 
 def _img(img_bytes, w=TABLE_W, h=None):
@@ -823,8 +947,45 @@ def _build_story(D: dict) -> list:
     story.append(_tbl(comp_data, [80*mm, 48*mm, 48*mm]))
     story.append(PageBreak())
 
-    # ── PAGE 6 : Top acteurs Secteur A ────────────────────────────────────────
-    story += section(f"Top Acteurs — {sector_a}", "6")
+    # ── PAGE 6 : Performance boursiere 52 semaines ───────────────────────────
+    story += section("Performance Boursiere — Cours Comparatif 52 Semaines", "6")
+    _pa, _pb = D.get("perf_a_52w"), D.get("perf_b_52w")
+    if _pa is not None and _pb is not None:
+        try:
+            price_img = _chart_price_52w_pdf(_pa, _pb, sector_a, sector_b)
+            if price_img:
+                story.append(_img(price_img, w=TABLE_W, h=80*mm))
+        except Exception as _e:
+            log.warning("[cmp_secteur_pdf] price chart: %s", _e)
+    _ret_a = float(_pa.iloc[-1] - 100) if _pa is not None and len(_pa) > 0 else None
+    _ret_b = float(_pb.iloc[-1] - 100) if _pb is not None and len(_pb) > 0 else None
+    _winner_p = sector_a if (_ret_a or -999) >= (_ret_b or -999) else sector_b
+    _loser_p  = sector_b if _winner_p == sector_a else sector_a
+    _ret_w = _ret_a if _winner_p == sector_a else _ret_b
+    _ret_l = _ret_b if _winner_p == sector_a else _ret_a
+    if _ret_a is not None and _ret_b is not None:
+        _spread_p = abs(_ret_a - _ret_b)
+        _price_text = (
+            f"Sur les 52 dernieres semaines, le composite equi-pondere de {_winner_p} "
+            f"affiche une performance de {_ret_w:+.1f}% base 100, devancant {_loser_p} "
+            f"({_ret_l:+.1f}%) avec un ecart de {_spread_p:.1f} pts. "
+            f"Cette divergence bursiere corrobore {'l analyse des multiples et du momentum ' if _spread_p > 5 else 'partiellement '}les conclusions fondamentales de ce rapport — "
+            f"{'le marche attribue une prime de re-evaluation a ' + _winner_p + ', refletant des attentes de croissance plus elevees ou une moindre aversion au risque sectoriel' if _spread_p > 5 else 'l ecart reste contenu, signalant une rotation sectorielle limitee sur la periode et invitant a privilegier la selectivite intra-sectorielle plutot qu un biais directionnel'}. "
+            f"La zone ombragee entre les deux courbes illustre l amplitude de la dispersion relative : "
+            f"{'une divergence marquee suggerant un positionnement differentiel justifie' if _spread_p > 10 else 'une convergence qui limite l arbitrage pur entre les deux secteurs'}."
+        )
+    else:
+        _price_text = (
+            "Les donnees de cours historiques sur 52 semaines n ont pas pu etre recuperees "
+            "pour l un ou l autre secteur. L analyse boursiere comparative reste disponible "
+            "via les indicateurs de momentum integres dans la section precedente."
+        )
+    story.append(Spacer(1, 3 * mm))
+    story.append(Paragraph(_xml(_price_text), S_BODY))
+    story.append(PageBreak())
+
+    # ── PAGE 7 : Top acteurs Secteur A ────────────────────────────────────────
+    story += section(f"Top Acteurs — {sector_a}", "7")
     sorted_a = sorted(D["td_a"], key=lambda x: x.get("score_global", 0), reverse=True)[:8]
     _build_top_table(story, sorted_a, sector_a, COL_A)
     story.append(Spacer(1, 3 * mm))
@@ -845,7 +1006,7 @@ def _build_story(D: dict) -> list:
         story.append(Paragraph(_xml(_top_a_text), S_BODY))
 
     # ── Top acteurs Secteur B ─────────────────────────────────────────────────
-    story += section(f"Top Acteurs — {sector_b}", "7")
+    story += section(f"Top Acteurs — {sector_b}", "8")
     sorted_b = sorted(D["td_b"], key=lambda x: x.get("score_global", 0), reverse=True)[:8]
     _build_top_table(story, sorted_b, sector_b, COL_B)
     story.append(Spacer(1, 3 * mm))
@@ -871,12 +1032,12 @@ def _build_story(D: dict) -> list:
     content_a = _get_content(sector_a)
     content_b = _get_content(sector_b)
 
-    story += section(f"Risques & Catalyseurs — {sector_a} vs {sector_b}", "8")
+    story += section(f"Risques & Catalyseurs — {sector_a} vs {sector_b}", "9")
     _build_risques_comparatifs_pdf(story, content_a, sector_a, content_b, sector_b)
     story.append(PageBreak())
 
     # ── PAGE 8 : Recommandation ───────────────────────────────────────────────
-    story += section("Recommandation d'Allocation", "9")
+    story += section("Recommandation d'Allocation", "10")
 
     # Signal FinSight — tableau simplifie
     sig_data = [
@@ -928,7 +1089,7 @@ def _build_story(D: dict) -> list:
     story.append(PageBreak())
 
     # ── PAGE 9 : Disclaimer ───────────────────────────────────────────────────
-    story += section("Mentions Legales & Methodologie", "10")
+    story += section("Mentions Legales & Methodologie", "11")
     disclaimers = [
         ("Sources de donnees", "Les donnees financieres sont issues de yfinance (Yahoo Finance), Finnhub et Financial Modeling Prep. FinSight IA ne garantit pas l'exhaustivite ou l'exactitude de ces donnees. Les chiffres presentent les medianes des societes analysees a la date de generation."),
         ("Caractere informatif", "Ce document est produit a des fins d'information uniquement. Il ne constitue pas un conseil en investissement, une recommendation d'achat ou de vente de valeurs mobilieres, ni une invitation a contracter."),
@@ -1168,6 +1329,7 @@ def generate_cmp_secteur_pdf(
 ) -> None:
     D = _prepare(tickers_a, sector_a, universe_a, tickers_b, sector_b, universe_b)
     D["llm"] = _generate_llm_texts(D)
+    D["perf_a_52w"], D["perf_b_52w"] = _fetch_price_52w(D["td_a"], D["td_b"])
     story = _build_story(D)
 
     on_page = _build_page_header_footer(sector_a, sector_b, D["universe_label"], D["date_str"])
