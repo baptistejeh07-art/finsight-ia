@@ -32,6 +32,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
+import matplotlib.dates as mdates
 
 log = logging.getLogger(__name__)
 
@@ -58,6 +59,8 @@ _COL_A      = RGBColor(0x1B, 0x3A, 0x6B)   # navy   → Secteur A
 _COL_A_PALE = RGBColor(0xEE, 0xF3, 0xFA)
 _COL_B      = RGBColor(0x1A, 0x7A, 0x4A)   # vert   → Secteur B
 _COL_B_PALE = RGBColor(0xEA, 0xF4, 0xEF)
+_GOLD       = RGBColor(0xC9, 0xA2, 0x27)   # or     → Secteur B (THESE slides)
+_GOLD_PALE  = RGBColor(0xFD, 0xF6, 0xE3)
 
 # ── Dimensions ───────────────────────────────────────────────────────────────
 _SW = Inches(10.0)
@@ -369,7 +372,7 @@ def _chart_valuation(sa: dict, sb: dict, label_a: str, label_b: str) -> bytes:
     vals_a  = [sa.get("pe", 0) or 0, sa.get("ev_eb", 0) or 0, sa.get("ev_rev", 0) or 0]
     vals_b  = [sb.get("pe", 0) or 0, sb.get("ev_eb", 0) or 0, sb.get("ev_rev", 0) or 0]
 
-    fig, ax = plt.subplots(figsize=(7.5, 3.0))
+    fig, ax = plt.subplots(figsize=(7.5, 4.2))
     x = np.arange(len(metrics))
     w = 0.35
     bars_a = ax.bar(x - w/2, vals_a, w, label=label_a, color=_HEX_A, alpha=0.9)
@@ -403,7 +406,7 @@ def _chart_margins(sa: dict, sb: dict, label_a: str, label_b: str) -> bytes:
     vals_a  = [sa.get("gm", 0) or 0, sa.get("em", 0) or 0, sa.get("nm", 0) or 0]
     vals_b  = [sb.get("gm", 0) or 0, sb.get("em", 0) or 0, sb.get("nm", 0) or 0]
 
-    fig, ax = plt.subplots(figsize=(7.5, 3.0))
+    fig, ax = plt.subplots(figsize=(7.5, 4.2))
     x = np.arange(len(metrics))
     w = 0.35
     bars_a = ax.bar(x - w/2, vals_a, w, label=label_a, color=_HEX_A, alpha=0.9)
@@ -522,7 +525,7 @@ def _chart_rentabilite(sa: dict, sb: dict, label_a: str, label_b: str) -> bytes:
         vals_a  = [sa.get("roe", 0) or 0, _roic_a or 0, sa.get("fcfy", 0) or 0]
         vals_b  = [sb.get("roe", 0) or 0, _roic_b or 0, sb.get("fcfy", 0) or 0]
 
-    fig, ax = plt.subplots(figsize=(7.5, 3.0))
+    fig, ax = plt.subplots(figsize=(7.5, 4.2))
     x = np.arange(len(metrics))
     w = 0.35
     bars_a = ax.bar(x - w/2, vals_a, w, label=label_a, color=_HEX_A, alpha=0.9)
@@ -550,14 +553,104 @@ def _chart_rentabilite(sa: dict, sb: dict, label_a: str, label_b: str) -> bytes:
     return buf.read()
 
 
+def _fetch_price_52w_pptx(tickers_a, tickers_b):
+    """Composite cours normalise base 100 sur 52 semaines pour PPTX."""
+    try:
+        import yfinance as yf
+        top_a = sorted(tickers_a, key=lambda t: t.get("score_global", 0), reverse=True)[:15]
+        top_b = sorted(tickers_b, key=lambda t: t.get("score_global", 0), reverse=True)[:15]
+        syms_a = [t["ticker"] for t in top_a if t.get("ticker")]
+        syms_b = [t["ticker"] for t in top_b if t.get("ticker")]
+        all_syms = list(dict.fromkeys(syms_a + syms_b))
+        if not all_syms:
+            return None, None
+        hist = yf.download(all_syms, period="1y", interval="1wk",
+                           auto_adjust=True, progress=False, timeout=30)
+        if hist.empty:
+            return None, None
+        if len(all_syms) == 1:
+            close = hist[["Close"]]
+            close.columns = all_syms
+        else:
+            close = hist["Close"] if hasattr(hist.columns, "levels") else hist[["Close"]]
+        close = close.ffill()
+
+        def _composite(syms):
+            cols = [s for s in syms if s in close.columns]
+            if not cols:
+                return None
+            sub = close[cols].dropna(how="all")
+            if sub.empty or len(sub) < 5:
+                return None
+            first = sub.iloc[0].replace(0, np.nan)
+            norm = sub.div(first) * 100
+            return norm.mean(axis=1)
+
+        return _composite(syms_a), _composite(syms_b)
+    except Exception as exc:
+        log.warning("[cmp_secteur_pptx] price 52w fetch: %s", exc)
+        return None, None
+
+
+def _chart_price_52w_pptx(perf_a, perf_b, sector_a, sector_b) -> bytes:
+    """Courbe normalisee base 100 sur 52 semaines pour slide PPTX."""
+    fig, ax = plt.subplots(figsize=(11.0, 4.5))
+    fig.patch.set_facecolor("white")
+    ax.set_facecolor("#FAFBFD")
+    if perf_a is not None:
+        ax.plot(perf_a.index, perf_a.values, color=_HEX_A, linewidth=2.5, label=sector_a)
+    if perf_b is not None:
+        ax.plot(perf_b.index, perf_b.values, color="#C9A227", linewidth=2.5, label=sector_b)
+    if perf_a is not None and perf_b is not None:
+        try:
+            idx = perf_a.index.intersection(perf_b.index)
+            a_vals = perf_a.reindex(idx).values
+            b_vals = perf_b.reindex(idx).values
+            ax.fill_between(idx, a_vals, b_vals,
+                            where=(a_vals >= b_vals), alpha=0.12, color=_HEX_A)
+            ax.fill_between(idx, a_vals, b_vals,
+                            where=(a_vals < b_vals), alpha=0.12, color="#C9A227")
+        except Exception:
+            pass
+    for perf, col, nm in [(perf_a, _HEX_A, sector_a[:14]), (perf_b, "#C9A227", sector_b[:14])]:
+        if perf is not None and len(perf) > 0:
+            last_v = float(perf.iloc[-1])
+            perf_pct = last_v - 100.0
+            ax.annotate(f"{nm}: {perf_pct:+.1f}%",
+                        xy=(perf.index[-1], last_v),
+                        xytext=(8, 0), textcoords="offset points",
+                        fontsize=9, fontweight="bold", color=col, va="center")
+    ax.axhline(100, color="#AAAAAA", linestyle="--", linewidth=0.8, alpha=0.6)
+    ax.xaxis.set_major_formatter(mdates.DateFormatter("%b %y"))
+    ax.xaxis.set_major_locator(mdates.MonthLocator(interval=2))
+    plt.setp(ax.xaxis.get_majorticklabels(), rotation=30, ha="right", fontsize=8)
+    ax.set_ylabel("Indice base 100", fontsize=9)
+    ax.yaxis.grid(True, linestyle="--", alpha=0.4)
+    ax.set_axisbelow(True)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.legend(fontsize=9, framealpha=0.9, loc="upper left")
+    ax.set_title("Performance comparative 52 semaines — composite normalise base 100 (top 15 par secteur)",
+                 fontsize=9, color="#555555", pad=6)
+    plt.tight_layout(pad=0.5)
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png", dpi=140, bbox_inches="tight")
+    plt.close(fig)
+    buf.seek(0)
+    return buf.read()
+
+
 # ── Slides ────────────────────────────────────────────────────────────────────
 
 def _s01_cover(prs, D):
     slide = _blank(prs)
-    # Barre navy
-    _rect(slide, 0, 0, 25.4, 1.8, fill=_NAVY)
-    _txb(slide, "FinSight IA", 0.9, 0.15, 12.0, 1.2, size=12, bold=True, color=_WHITE)
-    _txb(slide, "Pitchbook  —  Comparatif Sectoriel", 0, 0.25, 24.5, 1.0, size=9.5, color=_WHITE, align=PP_ALIGN.RIGHT)
+    # Barre navy (style societe : fond navy + texte grise discret)
+    _rect(slide, 0, 0, 25.4, 1.85, fill=_NAVY)
+    _txb(slide, "FinSight IA", 0, 0.15, 25.4, 0.7, size=10, bold=False,
+         color=RGBColor(0x88, 0x99, 0xBB), align=PP_ALIGN.CENTER)
+    _rect(slide, 10.7, 0.9, 4.0, 0.04, fill=RGBColor(0xAA, 0xBB, 0xCC))
+    _txb(slide, "Pitchbook  —  Comparatif Sectoriel", 0, 0.98, 25.4, 0.75, size=9,
+         color=RGBColor(0xCC, 0xDD, 0xEE), align=PP_ALIGN.CENTER)
 
     # Titre principal
     title = f"{D['sector_a']}  vs  {D['sector_b']}"
@@ -605,17 +698,17 @@ def _s02_exec_summary(prs, D):
 
     # Signal A
     _rect(slide, 0.9, 2.1, 11.4, 0.85, fill=_COL_A_PALE)
-    _rect(slide, 0.9, 2.1, 0.1, 0.85, fill=_COL_A)
-    _txb(slide, f"{D['sector_a']}  —  {D['sig_a_lbl']}", 1.3, 2.18, 6.0, 0.7, size=10, bold=True, color=_COL_A)
-    _txb(slide, f"Score {sa.get('score', 0)}/100  |  P/E {_fmt_simple(sa.get('pe'), x=True)}  |  Croissance rev. {_fmt(sa.get('revg'), pct=True)}  |  Marge EBITDA {_fmt_simple(sa.get('em'), pct=True)}",
-         1.3, 2.62, 10.8, 0.5, size=8, color=_NAVY)
+    _rect(slide, 0.9, 2.1, 0.12, 0.85, fill=_COL_A)
+    _txb(slide, f"{D['sector_a']}  —  {D['sig_a_lbl']}", 1.3, 2.18, 10.6, 0.7, size=10, bold=True, color=_COL_A)
+    _txb(slide, f"Score {sa.get('score', 0)}/100  |  P/E {_fmt_simple(sa.get('pe'), x=True)}  |  Croiss. {_fmt(sa.get('revg'), pct=True)}  |  Mg. EBITDA {_fmt_simple(sa.get('em'), pct=True)}",
+         1.3, 2.65, 10.8, 0.4, size=7.5, color=_NAVY)
 
     # Signal B
     _rect(slide, 13.1, 2.1, 11.4, 0.85, fill=_COL_B_PALE)
-    _rect(slide, 13.1, 2.1, 0.1, 0.85, fill=_COL_B)
-    _txb(slide, f"{D['sector_b']}  —  {D['sig_b_lbl']}", 13.5, 2.18, 6.0, 0.7, size=10, bold=True, color=_COL_B)
-    _txb(slide, f"Score {sb.get('score', 0)}/100  |  P/E {_fmt_simple(sb.get('pe'), x=True)}  |  Croissance rev. {_fmt(sb.get('revg'), pct=True)}  |  Marge EBITDA {_fmt_simple(sb.get('em'), pct=True)}",
-         13.5, 2.62, 10.8, 0.5, size=8, color=_GREEN)
+    _rect(slide, 13.1, 2.1, 0.12, 0.85, fill=_COL_B)
+    _txb(slide, f"{D['sector_b']}  —  {D['sig_b_lbl']}", 13.5, 2.18, 10.6, 0.7, size=10, bold=True, color=_COL_B)
+    _txb(slide, f"Score {sb.get('score', 0)}/100  |  P/E {_fmt_simple(sb.get('pe'), x=True)}  |  Croiss. {_fmt(sb.get('revg'), pct=True)}  |  Mg. EBITDA {_fmt_simple(sb.get('em'), pct=True)}",
+         13.5, 2.65, 10.8, 0.4, size=7.5, color=_GREEN)
 
     # Tableau metriques cote a cote
     rows = [
@@ -648,8 +741,10 @@ def _s02_exec_summary(prs, D):
     llm_text = D.get("llm", {}).get("exec_summary", "")
     if llm_text:
         _rect(slide, 0.9, 11.6, 23.6, 0.38, fill=_NAVY)
-        _txb(slide, "Synthese FinSight IA", 1.0, 11.63, 15.0, 0.32, size=7.5, bold=True, color=_WHITE)
-        _txb(slide, llm_text, 0.9, 12.08, 23.6, 1.5, size=8.5, color=_BLACK, wrap=True)
+        _txb(slide, "Analyse Comparative", 1.0, 11.63, 23.4, 0.32, size=7.5, bold=True,
+             color=_WHITE, align=PP_ALIGN.CENTER)
+        _rect(slide, 0.9, 12.06, 23.6, 1.55, fill=_GRAYL, line=True, line_col=_GRAYM, line_w=0.5)
+        _txb(slide, llm_text, 1.05, 12.15, 23.3, 1.4, size=8.5, color=_BLACK, wrap=True)
 
 
 def _s03_sommaire(prs, D):
@@ -659,77 +754,81 @@ def _s03_sommaire(prs, D):
 
     sections = [
         ("01", "Profil & Valorisation", "Structure des secteurs, multiples de marche, qualite des bilans"),
-        ("02", "Croissance & Scoring", "Revenue growth, momentum et scoring multidimensionnel"),
+        ("02", "Performance & Scoring", "Cours 52 semaines, revenue growth et scoring multidimensionnel"),
         ("03", "Top Acteurs & Risques", "Meilleures societes et conditions d'invalidation par secteur"),
-        ("04", "Synthese & Allocation", "Comparaison strategique et recommandation de positionnement"),
+        ("04", "Synthese & Decision", "Theses d'investissement, verdict comparatif et recommandation"),
     ]
-    y_start = 2.8
+    y_start = 2.3
     for i, (num, title, desc) in enumerate(sections):
-        y = y_start + i * 2.4
-        _rect(slide, 0.9, y, 1.1, 1.4, fill=_NAVY)
-        _txb(slide, num, 0.9, y + 0.3, 1.1, 0.8, size=14, bold=True, color=_WHITE, align=PP_ALIGN.CENTER)
-        _txb(slide, title, 2.2, y + 0.1, 21.6, 0.8, size=11, bold=True, color=_NAVY)
-        _txb(slide, desc, 2.2, y + 0.7, 21.6, 0.6, size=8.5, color=_GRAYT)
-        _rect(slide, 0.9, y + 1.4, 23.6, 0.02, fill=_GRAYM)
+        y = y_start + i * 2.7
+        # Barre verticale fine navy a gauche
+        _rect(slide, 0.9, y, 0.12, 2.15, fill=_NAVY)
+        # Numero en gris large
+        _txb(slide, num, 1.3, y - 0.1, 2.8, 1.3, size=26, bold=True, color=_GRAYM)
+        # Titre bold navy
+        _txb(slide, title, 4.2, y + 0.2, 20.0, 0.75, size=12, bold=True, color=_NAVY)
+        # Description italic gris
+        _txb(slide, desc, 4.2, y + 1.0, 20.0, 0.65, size=8.5, italic=True, color=_GRAYT)
+        # Separateur horizontal (sauf apres le dernier)
+        if i < len(sections) - 1:
+            _rect(slide, 0.9, y + 2.15, 23.6, 0.03, fill=_GRAYM)
 
 
 def _s05_profil(prs, D):
     """Slide 5 — Profil des 2 secteurs cote a cote."""
     slide = _blank(prs)
-    _header(slide, f"Profil & Structure des Secteurs",
+    _header(slide, "Profil & Structure des Secteurs",
             f"{D['sector_a']}  vs  {D['sector_b']}  |  Positionnement structurel", 1)
     _footer(slide, D)
 
     content_a = _get_content(D["sector_a"])
     content_b = _get_content(D["sector_b"])
-    mid = 12.7
+    # Pas de separateur vertical : chaque colonne 11.5cm, gap 1.0cm au centre
+    col_w = 11.5
+    xa = 0.9
+    xb = 13.0
 
     # Secteur A — colonne gauche
-    _rect(slide, 0.9, 2.1, 11.2, 0.5, fill=_COL_A)
-    _txb(slide, D["sector_a"], 1.0, 2.13, 11.0, 0.45, size=10, bold=True, color=_WHITE)
-    desc_a = content_a.get("description", "")[:500]
-    _txb(slide, desc_a, 0.9, 2.75, 11.2, 3.5, size=8, color=_BLACK, wrap=True)
+    _rect(slide, xa, 2.1, col_w, 0.55, fill=_COL_A)
+    _txb(slide, D["sector_a"][:24], xa + 0.12, 2.14, col_w - 0.25, 0.45, size=10, bold=True, color=_WHITE)
+    desc_a = content_a.get("description", "")[:480]
+    _txb(slide, desc_a, xa, 2.78, col_w, 3.3, size=7.8, color=_BLACK, wrap=True)
 
     # Cycle A
     cycle_a = content_a.get("cycle_comment", "")
-    _rect(slide, 0.9, 6.5, 11.2, 0.5, fill=_COL_A_PALE)
-    _txb(slide, f"Cycle : {cycle_a}", 1.0, 6.53, 11.0, 0.45, size=8, italic=True, color=_COL_A)
+    _rect(slide, xa, 6.25, col_w, 0.48, fill=_COL_A_PALE)
+    _txb(slide, f"Cycle : {cycle_a}", xa + 0.12, 6.28, col_w - 0.25, 0.42, size=8, italic=True, color=_COL_A)
 
-    # Drivers A
-    _txb(slide, "Drivers principaux", 0.9, 7.3, 11.2, 0.5, size=9, bold=True, color=_NAVY)
+    # Drivers A — style bullet carre
+    _txb(slide, "Drivers principaux", xa, 7.0, col_w, 0.48, size=9, bold=True, color=_NAVY)
     drivers_a = content_a.get("drivers", [])[:4]
     for j, drv in enumerate(drivers_a):
         direction, name, desc = (drv[0], drv[1], drv[2]) if len(drv) >= 3 else ("up", str(drv), "")
-        arrow = "+" if direction == "up" else "-"
-        col = _GREEN if direction == "up" else _RED
-        _txb(slide, f"{arrow}", 0.9, 7.95 + j * 1.2, 0.5, 0.5, size=11, bold=True, color=col)
-        _txb(slide, f"{name}", 1.45, 7.95 + j * 1.2, 10.5, 0.55, size=8.5, bold=True, color=_BLACK)
-        _txb(slide, desc[:80], 1.45, 8.52 + j * 1.2, 10.5, 0.65, size=7.5, color=_GRAYT)
-
-    # Separateur vertical
-    _rect(slide, mid - 0.15, 2.0, 0.04, 11.4, fill=_GRAYM)
+        bullet_col = _COL_A if direction == "up" else _RED
+        _rect(slide, xa, 7.65 + j * 1.45, 0.22, 0.22, fill=bullet_col)
+        _txb(slide, name[:38], xa + 0.38, 7.62 + j * 1.45, col_w - 0.4, 0.48, size=8.5, bold=True, color=_BLACK)
+        _txb(slide, desc[:85], xa + 0.38, 8.13 + j * 1.45, col_w - 0.4, 0.75, size=7.5, italic=True, color=_GRAYT)
 
     # Secteur B — colonne droite
-    _rect(slide, mid + 0.15, 2.1, 11.2, 0.5, fill=_COL_B)
-    _txb(slide, D["sector_b"], mid + 0.25, 2.13, 11.0, 0.45, size=10, bold=True, color=_WHITE)
-    desc_b = content_b.get("description", "")[:500]
-    _txb(slide, desc_b, mid + 0.15, 2.75, 11.2, 3.5, size=8, color=_BLACK, wrap=True)
+    _rect(slide, xb, 2.1, col_w, 0.55, fill=_COL_B)
+    _txb(slide, D["sector_b"][:24], xb + 0.12, 2.14, col_w - 0.25, 0.45, size=10, bold=True, color=_WHITE)
+    desc_b = content_b.get("description", "")[:480]
+    _txb(slide, desc_b, xb, 2.78, col_w, 3.3, size=7.8, color=_BLACK, wrap=True)
 
     # Cycle B
     cycle_b = content_b.get("cycle_comment", "")
-    _rect(slide, mid + 0.15, 6.5, 11.2, 0.5, fill=_COL_B_PALE)
-    _txb(slide, f"Cycle : {cycle_b}", mid + 0.25, 6.53, 11.0, 0.45, size=8, italic=True, color=_COL_B)
+    _rect(slide, xb, 6.25, col_w, 0.48, fill=_COL_B_PALE)
+    _txb(slide, f"Cycle : {cycle_b}", xb + 0.12, 6.28, col_w - 0.25, 0.42, size=8, italic=True, color=_COL_B)
 
-    # Drivers B
-    _txb(slide, "Drivers principaux", mid + 0.15, 7.3, 11.2, 0.5, size=9, bold=True, color=_GREEN)
+    # Drivers B — style bullet carre
+    _txb(slide, "Drivers principaux", xb, 7.0, col_w, 0.48, size=9, bold=True, color=_COL_B)
     drivers_b = content_b.get("drivers", [])[:4]
     for j, drv in enumerate(drivers_b):
         direction, name, desc = (drv[0], drv[1], drv[2]) if len(drv) >= 3 else ("up", str(drv), "")
-        arrow = "+" if direction == "up" else "-"
-        col = _GREEN if direction == "up" else _RED
-        _txb(slide, f"{arrow}", mid + 0.15, 7.95 + j * 1.2, 0.5, 0.5, size=11, bold=True, color=col)
-        _txb(slide, f"{name}", mid + 0.7, 7.95 + j * 1.2, 10.5, 0.55, size=8.5, bold=True, color=_BLACK)
-        _txb(slide, desc[:80], mid + 0.7, 8.52 + j * 1.2, 10.5, 0.65, size=7.5, color=_GRAYT)
+        bullet_col = _COL_B if direction == "up" else _RED
+        _rect(slide, xb, 7.65 + j * 1.45, 0.22, 0.22, fill=bullet_col)
+        _txb(slide, name[:38], xb + 0.38, 7.62 + j * 1.45, col_w - 0.4, 0.48, size=8.5, bold=True, color=_BLACK)
+        _txb(slide, desc[:85], xb + 0.38, 8.13 + j * 1.45, col_w - 0.4, 0.75, size=7.5, italic=True, color=_GRAYT)
 
 
 def _s06_valorisation(prs, D):
@@ -740,10 +839,10 @@ def _s06_valorisation(prs, D):
             f"P/E et EV-multiples medianes — {D['sector_a']} vs {D['sector_b']}", 1)
     _footer(slide, D)
 
-    # Chart gauche
+    # Chart gauche (aspect ratio correct : figsize 7.5x4.2 → placement 12.5x5.5)
     try:
         img = _chart_valuation(sa, sb, D["sector_a"], D["sector_b"])
-        _pic(slide, img, 0.9, 2.0, 12.5, 8.0)
+        _pic(slide, img, 0.9, 2.0, 12.5, 5.5)
     except Exception as e:
         log.warning("[cmp_secteur] _s06 chart: %s", e)
         _txb(slide, f"Graphique indisponible: {e}", 0.9, 5.0, 12.5, 1.0, size=8, color=_GRAYT)
@@ -753,10 +852,12 @@ def _s06_valorisation(prs, D):
         ["Indicateurs", D["sector_a"], D["sector_b"]],
         ["FCF Yield med.", _fmt_simple(sa.get("fcfy"), pct=True, dp=1), _fmt_simple(sb.get("fcfy"), pct=True, dp=1)],
         ["Beta median", _fmt_simple(sa.get("beta"), dp=2), _fmt_simple(sb.get("beta"), dp=2)],
-        ["Altman Z med.", _fmt_simple(sa.get("az"), dp=2), _fmt_simple(sb.get("az"), dp=2)],
         ["Piotroski med.", _fmt_simple(sa.get("pf"), dp=1), _fmt_simple(sb.get("pf"), dp=1)],
     ]
-    _add_table(slide, rows_extra, 0.9, 10.3, 12.5, 2.85,
+    # Altman Z : afficher seulement si au moins un secteur a la donnee
+    if sa.get("az") is not None or sb.get("az") is not None:
+        rows_extra.insert(3, ["Altman Z med.", _fmt_simple(sa.get("az"), dp=2), _fmt_simple(sb.get("az"), dp=2)])
+    _add_table(slide, rows_extra, 0.9, 7.8, 12.5, 2.85,
                col_widths=[4.5, 4.0, 4.0], alt_fill=_GRAYL, font_size=9, header_size=9)
 
     # Tableau metriques droite (multiples)
@@ -782,9 +883,9 @@ def _s06_valorisation(prs, D):
         f"{'une anticipation de croissance superieure' if (sa.get('revg') or 0) > (sb.get('revg') or 0) else 'un profil de risque differentie'}."
     )
     lecture = D.get("llm", {}).get("valuation_read") or fallback_lecture
-    _rect(slide, 14.0, 8.5, 10.5, 0.4, fill=_NAVY)
-    _txb(slide, "Lecture analytique FinSight IA", 14.1, 8.52, 10.3, 0.35, size=7.5, bold=True, color=_WHITE)
-    _txb(slide, lecture, 14.0, 9.0, 10.5, 4.2, size=8.5, color=_BLACK, wrap=True)
+    _rect(slide, 14.0, 8.5, 10.5, 0.42, fill=_NAVY)
+    _txb(slide, "Lecture analytique", 14.1, 8.53, 10.3, 0.35, size=7.5, bold=True, color=_WHITE, align=PP_ALIGN.CENTER)
+    _txb(slide, lecture, 14.0, 9.02, 10.5, 4.2, size=8.5, color=_BLACK, wrap=True)
 
 
 def _s07_marges(prs, D):
@@ -797,13 +898,13 @@ def _s07_marges(prs, D):
 
     try:
         img = _chart_margins(sa, sb, D["sector_a"], D["sector_b"])
-        _pic(slide, img, 0.9, 2.0, 12.5, 7.5)
+        _pic(slide, img, 0.9, 2.0, 12.5, 5.5)
     except Exception as e:
         log.warning("[cmp_secteur] _s07 chart: %s", e)
 
     try:
         img2 = _chart_rentabilite(sa, sb, D["sector_a"], D["sector_b"])
-        _pic(slide, img2, 13.5, 2.0, 11.0, 7.5)
+        _pic(slide, img2, 13.5, 2.0, 11.0, 5.5)
     except Exception as e:
         log.warning("[cmp_secteur] _s07 chart2: %s", e)
 
@@ -817,9 +918,9 @@ def _s07_marges(prs, D):
         f"({_fmt_simple(min(sa.get('roe') or 0, 999.9) if winner_roe == D['sector_a'] else min(sb.get('roe') or 0, 999.9), pct=True)})."
     )
     diag = D.get("llm", {}).get("margins_read") or fallback_diag
-    _rect(slide, 0.9, 9.8, 23.6, 0.38, fill=_NAVY)
-    _txb(slide, "Lecture analytique FinSight IA", 1.0, 9.83, 15.0, 0.32, size=7.5, bold=True, color=_WHITE)
-    _txb(slide, diag, 0.9, 10.28, 23.6, 3.5, size=8.5, color=_BLACK, wrap=True)
+    _rect(slide, 0.9, 7.75, 23.6, 0.42, fill=_NAVY)
+    _txb(slide, "Lecture analytique", 1.0, 7.78, 23.4, 0.35, size=7.5, bold=True, color=_WHITE, align=PP_ALIGN.CENTER)
+    _txb(slide, diag, 0.9, 8.27, 23.6, 5.2, size=8.5, color=_BLACK, wrap=True)
 
 
 def _s07b_capital_alloc(prs, D):
@@ -877,7 +978,7 @@ def _s07b_capital_alloc(prs, D):
         if metrics:
             x  = np.arange(len(metrics))
             bw = 0.32
-            fig, ax = plt.subplots(figsize=(6.5, 4.5))
+            fig, ax = plt.subplots(figsize=(7.5, 3.2))
             fig.patch.set_facecolor('white')
             ax.set_facecolor('#FAFBFD')
             b1 = ax.bar(x - bw/2, vals_a, bw, label=D["sector_a"][:18],
@@ -907,34 +1008,31 @@ def _s07b_capital_alloc(prs, D):
     except Exception as e:
         log.warning("[cmp_secteur_pptx] capital_alloc chart: %s", e)
 
-    # Profils de rendement à droite
-    _rect(slide, 14.5, 2.0, 10.0, 0.4, fill=_COL_A)
-    _txb(slide, f"Profil  {D['sector_a'][:20]}", 14.6, 2.02, 9.8, 0.35, size=8, bold=True, color=_WHITE)
+    # Profils de rendement a droite (compacts, dans la zone 14.5 → 24.5)
+    _rect(slide, 14.5, 2.0, 9.8, 0.48, fill=_COL_A)
+    _txb(slide, f"{D['sector_a'][:20]}", 14.65, 2.05, 9.5, 0.38, size=8.5, bold=True, color=_WHITE)
     dy_a_str = _fmt_pct(sa.get("div_yield"))
     fy_a_str = _fmt_pct_direct(sa.get("fcfy"))
     pt_a_str = _fmt_pct(sa.get("payout"))
     profil_a = (
-        f"Rendement dividende : {dy_a_str}\n"
-        f"FCF Yield : {fy_a_str}\n"
-        f"Payout Ratio : {pt_a_str}"
+        f"Rendement dividende med. : {dy_a_str}   FCF Yield med. : {fy_a_str}   Payout Ratio med. : {pt_a_str}"
     )
-    _txb(slide, profil_a, 14.5, 2.5, 10.0, 3.0, size=9, color=_BLACK, wrap=True)
+    _txb(slide, profil_a, 14.5, 2.58, 9.8, 1.2, size=8.5, color=_BLACK, wrap=True)
 
-    _rect(slide, 14.5, 5.8, 10.0, 0.4, fill=_COL_B)
-    _txb(slide, f"Profil  {D['sector_b'][:20]}", 14.6, 5.82, 9.8, 0.35, size=8, bold=True, color=_WHITE)
+    _rect(slide, 14.5, 4.0, 9.8, 0.48, fill=_COL_B)
+    _txb(slide, f"{D['sector_b'][:20]}", 14.65, 4.05, 9.5, 0.38, size=8.5, bold=True, color=_WHITE)
     dy_b_str = _fmt_pct(sb.get("div_yield"))
     fy_b_str = _fmt_pct_direct(sb.get("fcfy"))
     pt_b_str = _fmt_pct(sb.get("payout"))
     profil_b = (
-        f"Rendement dividende : {dy_b_str}\n"
-        f"FCF Yield : {fy_b_str}\n"
-        f"Payout Ratio : {pt_b_str}"
+        f"Rendement dividende med. : {dy_b_str}   FCF Yield med. : {fy_b_str}   Payout Ratio med. : {pt_b_str}"
     )
-    _txb(slide, profil_b, 14.5, 6.3, 10.0, 3.0, size=9, color=_BLACK, wrap=True)
+    _txb(slide, profil_b, 14.5, 4.58, 9.8, 1.2, size=8.5, color=_BLACK, wrap=True)
 
-    # Interpretation context
-    _rect(slide, 14.5, 9.5, 10.0, 0.4, fill=_NAVY)
-    _txb(slide, "Interpretation  —  Profils de Distribution", 14.6, 9.52, 9.8, 0.35, size=7.5, bold=True, color=_WHITE)
+    # Lecture analytique (pleine largeur sous la zone droite)
+    _rect(slide, 14.5, 5.9, 9.8, 0.42, fill=_NAVY)
+    _txb(slide, "Lecture analytique", 14.6, 5.93, 9.6, 0.36, size=7.5, bold=True,
+         color=_WHITE, align=PP_ALIGN.CENTER)
     dy_a = sa.get("div_yield") or 0
     dy_b = sb.get("div_yield") or 0
     fy_a = sa.get("fcfy") or 0
@@ -942,54 +1040,72 @@ def _s07b_capital_alloc(prs, D):
     high_dy = D["sector_a"] if dy_a > dy_b else D["sector_b"]
     high_fy = D["sector_a"] if fy_a > fy_b else D["sector_b"]
     fallback_interp = (
-        f"{high_dy} offre le meilleur rendement dividende. "
-        f"{high_fy} genere davantage de FCF, signe d'une capacite de remuneration durable. "
-        f"Un FCF Yield superieur au dividende verse garantit la soutenabilite de la politique de distribution."
+        f"{high_dy} offre le meilleur rendement dividende (med. {_fmt_pct(max(dy_a, dy_b))}), "
+        f"ce qui reflete un modele de maturite bilancielle et une politique de distribution etablie. "
+        f"{high_fy} genere davantage de FCF ({_fmt_pct_direct(max(fy_a, fy_b))} de FCF Yield), "
+        f"signal d'une capacite de remuneration durable et d'une allocation du capital disciplinee. "
+        f"Un FCF Yield superieur au dividende verse garantit la soutenabilite et la resilience "
+        f"de la distribution meme en phase de contraction des marges."
     )
     interp_txt = D.get("llm", {}).get("capital_alloc_read") or fallback_interp
-    _txb(slide, interp_txt, 14.5, 10.0, 10.0, 3.3, size=8.5, color=_BLACK, wrap=True)
+    _txb(slide, interp_txt, 14.5, 6.42, 9.8, 6.8, size=8.5, color=_BLACK, wrap=True)
 
 
 def _s08_croissance(prs, D):
-    """Slide 8 — Croissance & Momentum."""
+    """Slide 10 — Performance Boursiere : cours comparatif 52 semaines."""
     slide = _blank(prs)
     sa, sb = D["sa"], D["sb"]
-    _header(slide, "Croissance & Momentum  —  Acceleration ou Ralentissement ?",
-            f"Revenue growth et performance 52 semaines medianes comparees", 2)
+    _header(slide, "Performance Boursiere  —  Cours Comparatif 52 Semaines",
+            f"Composite normalise base 100 — top 15 societes par secteur  |  {D['sector_a']} vs {D['sector_b']}", 2)
     _footer(slide, D)
 
-    try:
-        img = _chart_momentum(sa, sb, D["sector_a"], D["sector_b"])
-        _pic(slide, img, 0.9, 2.0, 14.5, 7.5)
-    except Exception as e:
-        log.warning("[cmp_secteur] _s08 chart: %s", e)
+    perf_a = D.get("perf_a_52w")
+    perf_b = D.get("perf_b_52w")
 
-    # Stats complementaires
+    if perf_a is not None or perf_b is not None:
+        try:
+            img = _chart_price_52w_pptx(perf_a, perf_b, D["sector_a"], D["sector_b"])
+            _pic(slide, img, 0.9, 2.0, 16.5, 7.5)
+        except Exception as e:
+            log.warning("[cmp_secteur] _s08 52w chart: %s", e)
+            _txb(slide, "Graphique cours indisponible", 0.9, 5.0, 16.5, 1.0, size=8, color=_GRAYT)
+    else:
+        _txb(slide, "Donnees cours indisponibles — verifier connexion yfinance",
+             0.9, 6.0, 16.5, 1.0, size=8.5, color=_GRAYT, align=PP_ALIGN.CENTER)
+
+    # Stats table on right (colonnes assez larges pour les noms de secteur)
+    sa_lbl = D["sector_a"][:9] if len(D["sector_a"]) > 9 else D["sector_a"]
+    sb_lbl = D["sector_b"][:9] if len(D["sector_b"]) > 9 else D["sector_b"]
     rows = [
-        ["", D["sector_a"], D["sector_b"]],
-        ["Croissance rev. med.", _fmt(sa.get("revg"), pct=True), _fmt(sb.get("revg"), pct=True)],
+        ["", sa_lbl, sb_lbl],
         ["Perf. 52S med.", _fmt(sa.get("mom"), pct=True), _fmt(sb.get("mom"), pct=True)],
+        ["Croiss. rev. med.", _fmt(sa.get("revg"), pct=True), _fmt(sb.get("revg"), pct=True)],
         ["Beta median", _fmt_simple(sa.get("beta"), dp=2), _fmt_simple(sb.get("beta"), dp=2)],
         ["FCF Yield med.", _fmt_simple(sa.get("fcfy"), pct=True, dp=1), _fmt_simple(sb.get("fcfy"), pct=True, dp=1)],
         ["Score Global", f"{sa.get('score', 0)}/100", f"{sb.get('score', 0)}/100"],
     ]
-    _add_table(slide, rows, 15.8, 2.0, 8.6, 7.5,
-               col_widths=[4.0, 2.3, 2.3], alt_fill=_GRAYL, font_size=9, header_size=9)
+    _add_table(slide, rows, 17.5, 2.0, 7.0, 7.5,
+               col_widths=[2.8, 2.1, 2.1], alt_fill=_GRAYL, font_size=8.5, header_size=8)
 
-    # Lecture analytique croissance
-    faster = D["sector_a"] if (sa.get("revg") or -999) > (sb.get("revg") or -999) else D["sector_b"]
+    # Lecture analytique
+    faster = D["sector_a"] if (sa.get("mom") or -999) > (sb.get("mom") or -999) else D["sector_b"]
     faster_s = sa if faster == D["sector_a"] else sb
     slower_s = sb if faster == D["sector_a"] else sa
+    spread_m = abs((sa.get("mom") or 0) - (sb.get("mom") or 0))
     spread_g = abs((sa.get("revg") or 0) - (sb.get("revg") or 0))
     fallback_lecture = (
-        f"{faster} croit {spread_g:.1f} pts plus vite "
-        f"({_fmt(faster_s.get('revg'), pct=True)} vs {_fmt(slower_s.get('revg'), pct=True)}). "
-        f"Momentum 52S {'confirme cette tendance' if ((faster_s.get('mom') or 0) > (slower_s.get('mom') or 0)) else 'diverge : marche anticipe ralentissement'}."
+        f"{faster} surperforme sur 52 semaines avec un ecart de {spread_m:.1f} pts "
+        f"({_fmt(faster_s.get('mom'), pct=True)} vs {_fmt(slower_s.get('mom'), pct=True)}). "
+        f"Cet ecart de performance reflete des dynamiques fondamentales distinctes : "
+        f"{'croissance des revenus superieure de ' + str(round(spread_g, 1)) + ' pts, ' if spread_g > 1 else ''}"
+        f"qualite bilancielle et momentum sectoriel divergents. "
+        f"La courbe normalisee permet d'isoler la performance pure, independamment des niveaux absolus."
     )
     lecture = D.get("llm", {}).get("growth_read") or fallback_lecture
-    _rect(slide, 0.9, 9.8, 23.6, 0.38, fill=_NAVY)
-    _txb(slide, "Lecture analytique FinSight IA", 1.0, 9.83, 15.0, 0.32, size=7.5, bold=True, color=_WHITE)
-    _txb(slide, lecture, 0.9, 10.28, 23.6, 3.5, size=8.5, color=_BLACK, wrap=True)
+    _rect(slide, 0.9, 9.8, 23.6, 0.42, fill=_NAVY)
+    _txb(slide, "Lecture analytique", 1.0, 9.83, 23.4, 0.36, size=7.5, bold=True,
+         color=_WHITE, align=PP_ALIGN.CENTER)
+    _txb(slide, lecture, 0.9, 10.32, 23.6, 3.2, size=8.5, color=_BLACK, wrap=True)
 
 
 def _s09_scoring(prs, D):
@@ -1012,25 +1128,30 @@ def _s09_scoring(prs, D):
     _add_table(slide, rows_a, 0.9, 2.2, 10.5, 7.0,
                col_widths=[4.0, 3.25, 3.25], alt_fill=_GRAYL, font_size=10, header_size=10)
 
-    # Radar chart — colonne droite (x=12.0, w=12.5)
+    # Radar chart — coin droit reduit pour laisser plus d'espace au texte
     try:
         img = _chart_radar(sa, sb, D["sector_a"], D["sector_b"])
-        _pic(slide, img, 12.0, 1.6, 12.5, 11.0)
+        _pic(slide, img, 13.0, 1.8, 11.5, 9.5)
     except Exception as e:
         log.warning("[cmp_secteur] _s09 radar: %s", e)
 
-    # Interpretation globale
+    # Interpretation globale (pleine largeur sous le tableau)
     winner = D["sector_a"] if sa.get("score", 0) > sb.get("score", 0) else D["sector_b"]
     score_w = sa.get("score", 0) if winner == D["sector_a"] else sb.get("score", 0)
     score_l = sb.get("score", 0) if winner == D["sector_a"] else sa.get("score", 0)
     fallback_interp = (
-        f"Sur le scoring FinSight global, {winner} ressort en avance ({score_w}/100 vs {score_l}/100). "
-        f"Ecart de {abs(score_w - score_l)} pts — difference structurelle de profil."
+        f"{winner} ressort en avance sur le scoring FinSight global ({score_w}/100 vs {score_l}/100), "
+        f"avec un ecart de {abs(score_w - score_l)} pts revelant une superiorite structurelle. "
+        f"L'analyse radar permet d'identifier les dimensions de force et de faiblesse relatives : "
+        f"un secteur peut dominer sur la qualite tout en etant penalise sur la valorisation. "
+        f"L'ecart global conditionne le signal d'allocation : >= 65 pts = surponderer, "
+        f"45-64 pts = neutre, < 45 pts = sous-ponderer."
     )
     interp = D.get("llm", {}).get("scoring_read") or fallback_interp
-    _rect(slide, 0.9, 9.5, 10.5, 0.38, fill=_NAVY)
-    _txb(slide, "Interpretation FinSight IA", 1.0, 9.53, 10.3, 0.32, size=7.5, bold=True, color=_WHITE)
-    _txb(slide, interp, 0.9, 9.98, 10.5, 3.2, size=8.5, color=_BLACK, wrap=True)
+    _rect(slide, 0.9, 9.5, 11.5, 0.42, fill=_NAVY)
+    _txb(slide, "Interpretation scoring  —  Analyse multidimensionnelle",
+         1.0, 9.53, 11.3, 0.36, size=7.5, bold=True, color=_WHITE)
+    _txb(slide, interp, 0.9, 10.02, 11.5, 3.5, size=8.5, color=_BLACK, wrap=True)
 
 
 def _s10_top_a(prs, D):
@@ -1057,7 +1178,7 @@ def _barre_secteur(slide, sector_name, tickers_data, col, universe, llm_text=Non
     """Tableau top 8 acteurs d'un secteur."""
     sorted_td = sorted(tickers_data, key=lambda x: x.get("score_global", 0), reverse=True)[:8]
 
-    table_h = 9.5 if llm_text else 11.0
+    table_h = 7.8 if llm_text else 11.0
     rows = [["Societe", "Score", "P/E", "EV/EBITDA", "Croiss.Rev.", "Mg.EBITDA", "Mg.Nette", "ROE", "Beta"]]
     for t in sorted_td:
         rows.append([
@@ -1077,9 +1198,11 @@ def _barre_secteur(slide, sector_name, tickers_data, col, universe, llm_text=Non
                header_fill=col, alt_fill=_GRAYL, font_size=8.5, header_size=8.5)
 
     if llm_text:
-        _rect(slide, 0.9, 11.7, 23.6, 0.38, fill=col)
-        _txb(slide, "Lecture analytique FinSight IA", 1.0, 11.73, 18.0, 0.32, size=7.5, bold=True, color=_WHITE)
-        _txb(slide, llm_text, 0.9, 12.18, 23.6, 1.35, size=8.5, color=_BLACK, wrap=True)
+        _rect(slide, 0.9, 10.05, 23.6, 0.42, fill=col)
+        _txb(slide, "Lecture analytique", 1.0, 10.08, 23.4, 0.36, size=7.5, bold=True,
+             color=_WHITE, align=PP_ALIGN.CENTER)
+        _rect(slide, 0.9, 10.55, 23.6, 3.0, fill=_GRAYL, line=True, line_col=_GRAYM, line_w=0.4)
+        _txb(slide, llm_text, 1.05, 10.65, 23.3, 2.8, size=8.5, color=_BLACK, wrap=True)
 
 
 def _s12_risques_a(prs, D):
@@ -1143,56 +1266,97 @@ def _risques_slide(slide, content, col, col_pale, llm_text=None):
 
 
 def _s14_synthese(prs, D):
-    """Slide 14 — Synthese comparative : forces / faiblesses des 2 secteurs."""
+    """Slide 18 — Synthese : THESE LONG A (navy) + THESE LONG B (gold) + RISQUES PRINCIPAUX (red)."""
     slide = _blank(prs)
     sa, sb = D["sa"], D["sb"]
-    _header(slide, "Synthese Comparative  —  Forces & Faiblesses",
-            f"Analyse strategique : atouts et vulnerabilites de chaque secteur", 4)
+    _header(slide, "Synthese Comparative  —  Theses d'Investissement",
+            f"Arguments structurels et risques majeurs : {D['sector_a']} vs {D['sector_b']}", 4)
     _footer(slide, D)
 
-    mid = 12.7
+    col_w = 11.2
+    xa = 0.9
+    xb = 13.1
 
-    # Secteur A
-    _rect(slide, 0.9, 2.1, 11.2, 0.55, fill=_COL_A)
-    _txb(slide, D["sector_a"], 1.0, 2.13, 11.0, 0.45, size=10, bold=True, color=_WHITE)
+    # === THESE LONG SECTEUR A (navy) ===
+    _rect(slide, xa, 2.1, col_w, 0.6, fill=_COL_A)
+    _txb(slide, f"THESE LONG  {D['sector_a'].upper()}", xa + 0.12, 2.16, col_w - 0.25, 0.48,
+         size=9.5, bold=True, color=_WHITE)
 
-    # Forces A
     forces_a = _build_forces(sa, D["sector_a"])
-    _txb(slide, "Forces", 0.9, 2.85, 5.5, 0.45, size=9, bold=True, color=_GREEN)
-    for j, f in enumerate(forces_a[:3]):
-        _txb(slide, f"+ {f}", 0.9, 3.4 + j * 1.1, 11.2, 0.85, size=8, color=_BLACK, wrap=True)
+    these_a_llm = D.get("llm", {}).get("these_long_a", "")
+    y_a = 2.9
+    items_a = _split_these_items(these_a_llm, forces_a)
+    for j, (title, desc) in enumerate(items_a[:3]):
+        _rect(slide, xa, y_a + j * 2.5, 0.22, 0.22, fill=_COL_A)
+        _txb(slide, title[:42], xa + 0.38, y_a + j * 2.5 - 0.04, col_w - 0.4, 0.48, size=8.5, bold=True, color=_BLACK)
+        _txb(slide, desc[:130], xa + 0.38, y_a + j * 2.5 + 0.48, col_w - 0.4, 1.8, size=8, italic=True, color=_GRAYT, wrap=True)
 
-    # Faiblesses A
-    weaks_a = _build_weaknesses(sa, D["sector_a"])
-    _txb(slide, "Vulnerabilites", 0.9, 7.0, 5.5, 0.45, size=9, bold=True, color=_RED)
-    for j, w in enumerate(weaks_a[:3]):
-        _txb(slide, f"- {w}", 0.9, 7.55 + j * 1.1, 11.2, 0.85, size=8, color=_BLACK, wrap=True)
-
-    # Signal A
-    _rect(slide, 0.9, 11.2, 11.2, 0.7, fill=D["sig_a_col"])
-    _txb(slide, f"Signal FinSight : {D['sig_a_lbl']}  |  Score {sa.get('score', 0)}/100",
-         0.9, 11.28, 11.2, 0.55, size=9, bold=True, color=_WHITE, align=PP_ALIGN.CENTER)
-
-    # Separateur
-    _rect(slide, mid - 0.1, 2.0, 0.04, 10.0, fill=_GRAYM)
-
-    # Secteur B
-    _rect(slide, mid + 0.1, 2.1, 11.2, 0.55, fill=_COL_B)
-    _txb(slide, D["sector_b"], mid + 0.2, 2.13, 11.0, 0.45, size=10, bold=True, color=_WHITE)
+    # === THESE LONG SECTEUR B (gold) ===
+    _rect(slide, xb, 2.1, col_w, 0.6, fill=_GOLD)
+    _txb(slide, f"THESE LONG  {D['sector_b'].upper()}", xb + 0.12, 2.16, col_w - 0.25, 0.48,
+         size=9.5, bold=True, color=_WHITE)
 
     forces_b = _build_forces(sb, D["sector_b"])
-    _txb(slide, "Forces", mid + 0.1, 2.85, 5.5, 0.45, size=9, bold=True, color=_GREEN)
-    for j, f in enumerate(forces_b[:3]):
-        _txb(slide, f"+ {f}", mid + 0.1, 3.4 + j * 1.1, 11.2, 0.85, size=8, color=_BLACK, wrap=True)
+    these_b_llm = D.get("llm", {}).get("these_long_b", "")
+    y_b = 2.9
+    items_b = _split_these_items(these_b_llm, forces_b)
+    for j, (title, desc) in enumerate(items_b[:3]):
+        _rect(slide, xb, y_b + j * 2.5, 0.22, 0.22, fill=_GOLD)
+        _txb(slide, title[:42], xb + 0.38, y_b + j * 2.5 - 0.04, col_w - 0.4, 0.48, size=8.5, bold=True, color=_BLACK)
+        _txb(slide, desc[:130], xb + 0.38, y_b + j * 2.5 + 0.48, col_w - 0.4, 1.8, size=8, italic=True, color=_GRAYT, wrap=True)
 
-    weaks_b = _build_weaknesses(sb, D["sector_b"])
-    _txb(slide, "Vulnerabilites", mid + 0.1, 7.0, 5.5, 0.45, size=9, bold=True, color=_RED)
-    for j, w in enumerate(weaks_b[:3]):
-        _txb(slide, f"- {w}", mid + 0.1, 7.55 + j * 1.1, 11.2, 0.85, size=8, color=_BLACK, wrap=True)
+    # === RISQUES PRINCIPAUX (red, pleine largeur) ===
+    _rect(slide, xa, 10.5, 23.4, 0.5, fill=_RED)
+    _txb(slide, "RISQUES PRINCIPAUX", xa + 0.12, 10.55, 23.2, 0.42, size=9, bold=True,
+         color=_WHITE, align=PP_ALIGN.CENTER)
+    risks_txt = D.get("llm", {}).get("risques_principaux") or ""
+    if not risks_txt:
+        weaks_a = _build_weaknesses(sa, D["sector_a"])
+        weaks_b = _build_weaknesses(sb, D["sector_b"])
+        w_a = weaks_a[0] if weaks_a else ""
+        w_b = weaks_b[0] if weaks_b else ""
+        risks_txt = (
+            f"{D['sector_a']} : {w_a}.  "
+            f"{D['sector_b']} : {w_b}."
+        )
+    _txb(slide, risks_txt[:320], xa, 11.1, 23.4, 2.4, size=8.5, color=_BLACK, wrap=True)
 
-    _rect(slide, mid + 0.1, 11.2, 11.2, 0.7, fill=D["sig_b_col"])
-    _txb(slide, f"Signal FinSight : {D['sig_b_lbl']}  |  Score {sb.get('score', 0)}/100",
-         mid + 0.1, 11.28, 11.2, 0.55, size=9, bold=True, color=_WHITE, align=PP_ALIGN.CENTER)
+
+def _split_these_items(llm_text: str, fallback_forces: list) -> list:
+    """Transforme un texte LLM ou les forces en liste (title, desc) pour THESE LONG."""
+    if llm_text and len(llm_text) > 40:
+        # Tenter de splititer par ". " en phrases
+        parts = [p.strip() for p in llm_text.split(". ") if len(p.strip()) > 15]
+        result = []
+        for p in parts[:3]:
+            # Chercher un separateur ":" ou " — "
+            if " : " in p:
+                t, d = p.split(" : ", 1)
+                result.append((t.strip(), d.strip()))
+            elif " - " in p:
+                t, d = p.split(" - ", 1)
+                result.append((t.strip(), d.strip()))
+            else:
+                # Prendre les 4 premiers mots comme titre
+                words = p.split()
+                title = " ".join(words[:4]) if len(words) >= 4 else p[:30]
+                desc = " ".join(words[4:]) if len(words) > 4 else ""
+                result.append((title, desc))
+        if result:
+            return result
+    # Fallback : utiliser les forces en les splittant sur " — "
+    result = []
+    for force in fallback_forces[:3]:
+        if " — " in force:
+            t, d = force.split(" — ", 1)
+        elif "(" in force:
+            t = force[:force.index("(")].strip()
+            d = force[force.index("("):].strip()
+        else:
+            t = force[:35]
+            d = force[35:] if len(force) > 35 else ""
+        result.append((t.strip(), d.strip()))
+    return result
 
 
 def _build_forces(s: dict, sector_name: str) -> list[str]:
@@ -1250,25 +1414,25 @@ def _build_weaknesses(s: dict, sector_name: str) -> list[str]:
 
 
 def _s15_allocation(prs, D):
-    """Slide 15 — Recommandation d'allocation."""
+    """Slide 19 — Recommandation d'allocation."""
     slide = _blank(prs)
     sa, sb = D["sa"], D["sb"]
-    _header(slide, "Recommandation d'Allocation  —  Positionnement Portefeuille",
+    _header(slide, "Recommandation  —  Positionnement Portefeuille",
             "Signal FinSight et implications pour la construction de portefeuille", 4)
     _footer(slide, D)
 
     # Contexte macro
-    _rect(slide, 0.9, 2.1, 23.6, 0.6, fill=_GRAYL)
-    _txb(slide, "Contexte d'analyse : les signaux FinSight sont calcules sur donnees fondamentales reelles (yfinance). Ils ne constituent pas un conseil d'investissement.",
-         1.0, 2.15, 23.4, 0.5, size=7.5, italic=True, color=_GRAYT)
+    _rect(slide, 0.9, 2.1, 23.6, 0.55, fill=_GRAYL)
+    _txb(slide, "Les signaux FinSight sont calcules sur donnees fondamentales reelles (yfinance). Ils ne constituent pas un conseil en investissement.",
+         1.0, 2.15, 23.4, 0.45, size=7.5, italic=True, color=_GRAYT)
 
-    # Panel A
-    _rect(slide, 0.9, 3.0, 11.2, 1.0, fill=_COL_A)
-    _txb(slide, D["sector_a"], 1.0, 3.08, 11.0, 0.45, size=12, bold=True, color=_WHITE)
-    _txb(slide, D["universe_a"], 1.0, 3.58, 11.0, 0.35, size=8.5, color=_WHITE)
+    # Panel A (decale un peu plus bas)
+    _rect(slide, 0.9, 2.88, 11.2, 0.95, fill=_COL_A)
+    _txb(slide, D["sector_a"][:22], 1.0, 2.96, 11.0, 0.48, size=11, bold=True, color=_WHITE)
+    _txb(slide, D["universe_a"], 1.0, 3.48, 11.0, 0.32, size=8, color=_WHITE)
 
-    _rect(slide, 0.9, 4.2, 11.2, 1.4, fill=D["sig_a_col"])
-    _txb(slide, f"● {D['sig_a_lbl']}", 0.9, 4.45, 11.2, 0.8, size=22, bold=True, color=_WHITE, align=PP_ALIGN.CENTER)
+    _rect(slide, 0.9, 4.0, 11.2, 1.3, fill=D["sig_a_col"])
+    _txb(slide, f"● {D['sig_a_lbl']}", 0.9, 4.2, 11.2, 0.75, size=20, bold=True, color=_WHITE, align=PP_ALIGN.CENTER)
 
     # KPIs A
     kpi_rows_a = [
@@ -1280,21 +1444,21 @@ def _s15_allocation(prs, D):
         ("Perf. 52S", _fmt(sa.get("mom"), pct=True)),
     ]
     for j, (label, val) in enumerate(kpi_rows_a):
-        y = 5.8 + j * 0.85
-        _rect(slide, 0.9, y, 11.2, 0.75, fill=_GRAYL if j % 2 == 0 else _WHITE)
-        _txb(slide, label, 1.0, y + 0.12, 7.0, 0.55, size=9, color=_GRAYT)
-        _txb(slide, val, 1.0, y + 0.12, 11.0, 0.55, size=9, bold=True, color=_NAVY, align=PP_ALIGN.RIGHT)
+        y = 5.5 + j * 0.75
+        _rect(slide, 0.9, y, 11.2, 0.68, fill=_GRAYL if j % 2 == 0 else _WHITE)
+        _txb(slide, label, 1.0, y + 0.1, 7.0, 0.52, size=8.5, color=_GRAYT)
+        _txb(slide, val, 1.0, y + 0.1, 11.0, 0.52, size=8.5, bold=True, color=_NAVY, align=PP_ALIGN.RIGHT)
 
     # Separateur
-    _rect(slide, 12.7, 2.8, 0.04, 10.5, fill=_GRAYM)
+    _rect(slide, 12.7, 2.7, 0.04, 7.5, fill=_GRAYM)
 
     # Panel B
-    _rect(slide, 13.1, 3.0, 11.2, 1.0, fill=_COL_B)
-    _txb(slide, D["sector_b"], 13.2, 3.08, 11.0, 0.45, size=12, bold=True, color=_WHITE)
-    _txb(slide, D["universe_b"], 13.2, 3.58, 11.0, 0.35, size=8.5, color=_WHITE)
+    _rect(slide, 13.1, 2.88, 11.2, 0.95, fill=_COL_B)
+    _txb(slide, D["sector_b"][:22], 13.2, 2.96, 11.0, 0.48, size=11, bold=True, color=_WHITE)
+    _txb(slide, D["universe_b"], 13.2, 3.48, 11.0, 0.32, size=8, color=_WHITE)
 
-    _rect(slide, 13.1, 4.2, 11.2, 1.4, fill=D["sig_b_col"])
-    _txb(slide, f"● {D['sig_b_lbl']}", 13.1, 4.45, 11.2, 0.8, size=22, bold=True, color=_WHITE, align=PP_ALIGN.CENTER)
+    _rect(slide, 13.1, 4.0, 11.2, 1.3, fill=D["sig_b_col"])
+    _txb(slide, f"● {D['sig_b_lbl']}", 13.1, 4.2, 11.2, 0.75, size=20, bold=True, color=_WHITE, align=PP_ALIGN.CENTER)
 
     kpi_rows_b = [
         ("Score FinSight", f"{sb.get('score', 0)}/100"),
@@ -1305,45 +1469,191 @@ def _s15_allocation(prs, D):
         ("Perf. 52S", _fmt(sb.get("mom"), pct=True)),
     ]
     for j, (label, val) in enumerate(kpi_rows_b):
-        y = 5.8 + j * 0.85
-        _rect(slide, 13.1, y, 11.2, 0.75, fill=_GRAYL if j % 2 == 0 else _WHITE)
-        _txb(slide, label, 13.2, y + 0.12, 7.0, 0.55, size=9, color=_GRAYT)
-        _txb(slide, val, 13.2, y + 0.12, 11.0, 0.55, size=9, bold=True, color=_GREEN, align=PP_ALIGN.RIGHT)
+        y = 5.5 + j * 0.75
+        _rect(slide, 13.1, y, 11.2, 0.68, fill=_GRAYL if j % 2 == 0 else _WHITE)
+        _txb(slide, label, 13.2, y + 0.1, 7.0, 0.52, size=8.5, color=_GRAYT)
+        _txb(slide, val, 13.2, y + 0.1, 11.0, 0.52, size=8.5, bold=True, color=_GREEN, align=PP_ALIGN.RIGHT)
 
-    # Recommandation IA
-    alloc_text = D.get("llm", {}).get("allocation_read")
+    # Recommandation IA (plus de texte, encadre)
+    alloc_text = D.get("llm", {}).get("allocation_read") or ""
+    _rect(slide, 0.9, 10.25, 23.6, 0.45, fill=_NAVY)
+    _txb(slide, "Recommandation", 1.0, 10.28, 23.4, 0.38, size=8, bold=True,
+         color=_WHITE, align=PP_ALIGN.CENTER)
     if alloc_text:
-        _rect(slide, 0.9, 11.0, 23.6, 0.38, fill=_NAVY)
-        _txb(slide, "Recommandation FinSight IA", 1.0, 11.03, 18.0, 0.32, size=7.5, bold=True, color=_WHITE)
-        _txb(slide, alloc_text, 0.9, 11.48, 23.6, 1.25, size=8.5, color=_BLACK, wrap=True)
+        _rect(slide, 0.9, 10.78, 23.6, 2.6, fill=_GRAYL, line=True, line_col=_GRAYM, line_w=0.4)
+        _txb(slide, alloc_text, 1.05, 10.88, 23.3, 2.4, size=8.5, color=_BLACK, wrap=True)
 
     # Note de bas de page
-    _txb(slide, "Note : Score FinSight = indicateur proprietaire multidimensionnel (value + growth + qualite + momentum). Signal = Surponderer si score >= 65, Neutre si >= 45, Sous-ponderer si < 45.",
-         0.9, 12.85, 23.6, 0.55, size=7, italic=True, color=_GRAYD, wrap=True)
+    _txb(slide, "Score FinSight : indicateur proprietaire 0-100 (value + growth + qualite + momentum, 25 pts chacun). Signal : Surponderer >=65, Neutre 45-64, Sous-ponderer <45.",
+         0.9, 13.38, 23.6, 0.3, size=6.5, italic=True, color=_GRAYD, wrap=True)
+
+
+def _s15b_verdict(prs, D):
+    """Slide 20 — Verdict Comparatif & Conviction d'Allocation."""
+    slide = _blank(prs)
+    sa, sb = D["sa"], D["sb"]
+    _header(slide, "Verdict Comparatif  —  Conviction d'Allocation",
+            f"Secteur a privilegier, arguments decisionnels et conditions d'invalidation", 4)
+    _footer(slide, D)
+
+    score_a = sa.get("score", 0)
+    score_b = sb.get("score", 0)
+    winner = D["sector_a"] if score_a >= score_b else D["sector_b"]
+    loser  = D["sector_b"] if score_a >= score_b else D["sector_a"]
+    winner_sig = D["sig_a_lbl"] if score_a >= score_b else D["sig_b_lbl"]
+    winner_col = _COL_A if score_a >= score_b else _GOLD
+    winner_score = max(score_a, score_b)
+    loser_score  = min(score_a, score_b)
+    gap = abs(score_a - score_b)
+
+    # Box verdict principal
+    _rect(slide, 0.9, 2.1, 23.6, 1.4, fill=winner_col)
+    _txb(slide, f"SECTEUR PRIVILEGIE : {winner.upper()}", 1.0, 2.2, 23.4, 0.75,
+         size=17, bold=True, color=_WHITE, align=PP_ALIGN.CENTER)
+    _txb(slide, (f"Signal : {winner_sig}  |  Score {winner_score}/100 vs {loser_score}/100 ({loser})"
+                 f"  |  Ecart {gap} pts"),
+         1.0, 2.97, 23.4, 0.4, size=8.5, color=_WHITE, align=PP_ALIGN.CENTER)
+
+    # These d'allocation (LLM)
+    alloc_thesis = D.get("llm", {}).get("verdict_read") or (
+        f"{winner} presente le profil risque/rendement le plus attractif dans l'univers {D['universe_label']}. "
+        f"Avec un score FinSight de {winner_score}/100, la superiorite structurelle s'exprime sur "
+        f"les dimensions value, growth et qualite. "
+        f"L'ecart de {gap} pts face a {loser} ({loser_score}/100) legitime une surponderation "
+        f"tactique sur un horizon 6-12 mois, sous reserve de stabilite macro."
+    )
+    _rect(slide, 0.9, 3.7, 23.6, 0.42, fill=_NAVY)
+    _txb(slide, "These d'allocation", 1.0, 3.73, 23.4, 0.36, size=8, bold=True, color=_WHITE)
+    _rect(slide, 0.9, 4.2, 23.6, 1.7, fill=_GRAYL, line=True, line_col=_GRAYM, line_w=0.4)
+    _txb(slide, alloc_thesis[:380], 1.05, 4.3, 23.3, 1.55, size=8.5, color=_BLACK, wrap=True)
+
+    # 3 colonnes : Catalyseurs | Risques | Invalidation
+    col_w3 = 7.4
+    xs = [0.9, 8.6, 16.3]
+
+    # Catalyseurs (secteur gagnant)
+    _rect(slide, xs[0], 6.15, col_w3, 0.48, fill=_GREEN)
+    _txb(slide, "CATALYSEURS CLES", xs[0], 6.18, col_w3, 0.4, size=8, bold=True,
+         color=_WHITE, align=PP_ALIGN.CENTER)
+    winner_content = _get_content(winner)
+    cats = winner_content.get("catalyseurs", [])[:2]
+    y_cat = 6.8
+    for title, body in cats:
+        _rect(slide, xs[0], y_cat, 0.2, 0.2, fill=_GREEN)
+        _txb(slide, title[:36], xs[0] + 0.32, y_cat - 0.02, col_w3 - 0.32, 0.42, size=8, bold=True, color=_BLACK)
+        _txb(slide, body[:110], xs[0] + 0.32, y_cat + 0.44, col_w3 - 0.32, 1.3, size=7.5, color=_GRAYT, wrap=True)
+        y_cat += 1.95
+
+    # Risques (communs ou secteur gagnant)
+    _rect(slide, xs[1], 6.15, col_w3, 0.48, fill=_RED)
+    _txb(slide, "RISQUES PRINCIPAUX", xs[1], 6.18, col_w3, 0.4, size=8, bold=True,
+         color=_WHITE, align=PP_ALIGN.CENTER)
+    weaks = _build_weaknesses(sa if score_a >= score_b else sb, winner)
+    y_risk = 6.8
+    for risk in weaks[:2]:
+        parts = risk.split(" — ", 1) if " — " in risk else risk.split("—", 1)
+        rt = parts[0].strip()[:36]
+        rd = parts[1].strip()[:110] if len(parts) > 1 else risk[36:]
+        _rect(slide, xs[1], y_risk, 0.2, 0.2, fill=_RED)
+        _txb(slide, rt, xs[1] + 0.32, y_risk - 0.02, col_w3 - 0.32, 0.42, size=8, bold=True, color=_BLACK)
+        _txb(slide, rd, xs[1] + 0.32, y_risk + 0.44, col_w3 - 0.32, 1.3, size=7.5, color=_GRAYT, wrap=True)
+        y_risk += 1.95
+
+    # Conditions d'invalidation
+    _rect(slide, xs[2], 6.15, col_w3, 0.48, fill=_AMBER)
+    _txb(slide, "CONDITIONS D'INVALIDATION", xs[2], 6.18, col_w3, 0.4, size=8, bold=True,
+         color=_WHITE, align=PP_ALIGN.CENTER)
+    conditions = [
+        ("Deterioration macro", "Recession ou hausse taux materielle — revoir positionnement"),
+        ("Revision benefices", "Profit warning > -10% / 2 trimestres — signal de sortie"),
+    ]
+    y_cond = 6.8
+    for ct, cb in conditions:
+        _rect(slide, xs[2], y_cond, 0.2, 0.2, fill=_AMBER)
+        _txb(slide, ct[:36], xs[2] + 0.32, y_cond - 0.02, col_w3 - 0.32, 0.42, size=8, bold=True, color=_BLACK)
+        _txb(slide, cb[:110], xs[2] + 0.32, y_cond + 0.44, col_w3 - 0.32, 1.3, size=7.5, color=_GRAYT, wrap=True)
+        y_cond += 1.95
+
+    # Horizon & conviction
+    _rect(slide, 0.9, 10.88, 23.6, 0.4, fill=_GRAYL)
+    _txb(slide, ("Horizon recommande : 6-12 mois  |  Conviction FORTE si ecart score > 15 pts"
+                 "  |  Reequilibrer si ecart < 5 pts  |  Revisable a chaque publication de resultats trimestriels"),
+         1.0, 10.91, 23.4, 0.34, size=7.5, italic=True, color=_NAVY, align=PP_ALIGN.CENTER)
 
 
 def _s16_disclaimer(prs, D):
-    """Slide 16 — Disclaimer."""
+    """Slide 21 — Mentions legales & Methodologie detaillee."""
     slide = _blank(prs)
     _rect(slide, 0, 0, 25.4, 1.8, fill=_NAVY)
-    _txb(slide, "FinSight IA  —  Mentions Legales & Methodologie", 0.9, 0.3, 23.6, 1.2,
-         size=13, bold=True, color=_WHITE)
+    _txb(slide, "Methodologie & Mentions Legales", 0.9, 0.3, 23.6, 1.2, size=13, bold=True, color=_WHITE)
 
-    disclaimers = [
-        ("Caractere informatif", "Ce document est produit a des fins d'information uniquement. Il ne constitue pas un conseil en investissement, une recommendation d'achat ou de vente de valeurs mobilieres, ni une invitation a contracter."),
-        ("Sources des donnees", "Les donnees financieres sont issues de yfinance (Yahoo Finance), Finnhub et Financial Modeling Prep. FinSight IA ne garantit pas l'exhaustivite ou l'exactitude de ces donnees. Les chiffres presentent les medianes des societes analysees."),
-        ("Scores & Signaux FinSight", "Le Score FinSight est un indicateur proprietaire multidimensionnel (value + growth + qualite + momentum, chacun sur 25 pts). Les signaux Surponderer / Neutre / Sous-ponderer sont derives mecaniquement des scores — ils ne constituent pas des recommendations d'investissement personnalisees."),
-        ("Performance passee", "Les performances passees et les donnees historiques ne prejugent pas des performances futures. Les comparatifs sectoriels sont etablis a date de generation du rapport."),
-        ("Responsabilite", "FinSight IA et ses developpers declinent toute responsabilite quant a l'utilisation de ce document. Toute decision d'investissement doit etre prise apres consultation d'un conseiller financier agree."),
+    # Deux colonnes : Methodologie (gauche) + Mentions legales (droite)
+    col_w = 11.2
+    xa, xb = 0.9, 13.1
+
+    # === METHODOLOGIE (gauche) ===
+    _rect(slide, xa, 2.0, col_w, 0.42, fill=_NAVY)
+    _txb(slide, "METHODOLOGIE", xa, 2.03, col_w, 0.36, size=8, bold=True, color=_WHITE, align=PP_ALIGN.CENTER)
+
+    methodo = [
+        ("Scoring FinSight (0-100)",
+         "Agregation de 4 dimensions egalement ponderes a 25 pts chacune : "
+         "Value (P/E, EV/EBITDA, PEG, FCF Yield), Growth (CAGR revenus, EPS growth), "
+         "Quality (ROE, ROIC, Piotroski F-Score, Altman Z, marges), "
+         "Momentum (perf. 52S, RSI relative, revision consensus). "
+         "Seuils : >= 65 = Surponderer, 45-64 = Neutre, < 45 = Sous-ponderer."),
+        ("Construction de l'univers",
+         "Univers S&P 500, CAC 40, STOXX 600 ou global selon le parametre selectionne. "
+         "Toutes les societes du secteur avec donnees yfinance disponibles (min. 3 ratios renseignes). "
+         "Valeurs aberrantes eliminees (P/E > 999x, ROE < -500%). "
+         "Medianes utilisees pour la robustesse aux outliers."),
+        ("Sources de donnees",
+         "yfinance (Yahoo Finance) : cours, bilan, compte de resultats, flux de tresorerie — "
+         "frequence trimestrielle ou annuelle selon disponibilite. "
+         "Finnhub : news et sentiment. FMP (Financial Modeling Prep) : donnees supplementaires si disponibles. "
+         "Perf. 52S : donnees hebdomadaires, composite top-15 normalise base 100."),
+        ("Limites & Mises en garde",
+         "Donnees retardees de 24h sur yfinance free tier. Certains ratios (ROIC, Piotroski) "
+         "peuvent etre indisponibles pour des societes hors US. Medianes sectorielles masquent "
+         "la dispersion intra-sectorielle. Les signaux sont mecaniques et non ajustes du cycle."),
     ]
-    y = 2.2
-    for title, text in disclaimers:
-        _txb(slide, title, 0.9, y, 23.6, 0.4, size=9, bold=True, color=_NAVY)
-        _txb(slide, text, 0.9, y + 0.45, 23.6, 1.0, size=7.5, color=_GRAYT, wrap=True)
-        y += 1.7
+    y = 2.55
+    for title, text in methodo:
+        _txb(slide, title, xa, y, col_w, 0.38, size=8, bold=True, color=_NAVY)
+        _txb(slide, text, xa, y + 0.42, col_w, 1.4, size=7, color=_GRAYT, wrap=True)
+        y += 1.95
 
-    _txb(slide, f"Genere par FinSight IA  |  {D['date_str']}  |  Usage confidentiel — ne pas diffuser",
-         0.9, 13.5, 23.6, 0.4, size=7.5, bold=True, color=_NAVY, align=PP_ALIGN.CENTER)
+    # === MENTIONS LEGALES (droite) ===
+    _rect(slide, xb, 2.0, col_w, 0.42, fill=_NAVYL)
+    _txb(slide, "MENTIONS LEGALES", xb, 2.03, col_w, 0.36, size=8, bold=True, color=_WHITE, align=PP_ALIGN.CENTER)
+
+    legals = [
+        ("Caractere informatif",
+         "Ce document est produit exclusivement a des fins d'information et de demonstration pedagogique. "
+         "Il ne constitue pas un conseil en investissement, une recommandation d'achat ou de vente "
+         "de valeurs mobilieres, ni une offre ou sollicitation de souscription a un produit financier."),
+        ("Non-engagement de FinSight IA",
+         "FinSight IA est un outil algorithmique de screening. Les analyses presentees "
+         "sont generees automatiquement et n'engagent pas la responsabilite de leurs auteurs. "
+         "Aucune due diligence specifique n'a ete realisee sur les societes mentionnees."),
+        ("Risques associes",
+         "Tout investissement comporte un risque de perte en capital. Les performances passees "
+         "ne prejugent pas des performances futures. Les conditions de marche peuvent evoluer "
+         "rapidement et invalider les signaux presentes dans ce document."),
+        ("Confidentialite",
+         "Ce document est destine a usage prive et confidentiel. Sa reproduction, distribution "
+         "ou diffusion, meme partielle, est interdite sans autorisation expresse. "
+         "Ne pas utiliser comme base exclusive pour une decision d'investissement."),
+    ]
+    y = 2.55
+    for title, text in legals:
+        _txb(slide, title, xb, y, col_w, 0.38, size=8, bold=True, color=_NAVY)
+        _txb(slide, text, xb, y + 0.42, col_w, 1.4, size=7, color=_GRAYT, wrap=True)
+        y += 1.95
+
+    _rect(slide, 0.9, 13.3, 23.6, 0.25, fill=_GRAYL)
+    _txb(slide, f"Genere par FinSight IA  |  {D['date_str']}  |  Usage confidentiel",
+         0.9, 13.32, 23.6, 0.22, size=7, bold=True, color=_NAVY, align=PP_ALIGN.CENTER)
 
 
 # ── Generateur de textes analytiques LLM ─────────────────────────────────────
@@ -1357,42 +1667,59 @@ def _generate_llm_texts(D: dict) -> dict:
         sector_a, sector_b = D["sector_a"], D["sector_b"]
         roe_a = min(float(sa.get("roe") or 0), 999.9)
         roe_b = min(float(sb.get("roe") or 0), 999.9)
-        dy_a = sa.get("div_yield") or 0
-        dy_b = sb.get("div_yield") or 0
+        dy_a = (sa.get("div_yield") or 0) * 100
+        dy_b = (sb.get("div_yield") or 0) * 100
         fy_a = sa.get("fcfy") or 0
         fy_b = sb.get("fcfy") or 0
+        pt_a = (sa.get("payout") or 0) * 100
+        pt_b = (sb.get("payout") or 0) * 100
+        score_a = sa.get("score", 0)
+        score_b = sb.get("score", 0)
+        winner = sector_a if score_a >= score_b else sector_b
         prompt = (
-            f"Tu es analyste financier senior. Redige des textes courts pour un pitchbook comparatif sectoriel "
-            f"entre {sector_a} et {sector_b} (univers : {D['universe_label']}).\n\n"
-            f"Donnees medianes :\n"
-            f"- {sector_a} : Score {sa.get('score',0)}/100, Signal {D['sig_a_lbl']}, "
-            f"P/E {sa.get('pe',0):.1f}x, EV/EBITDA {sa.get('ev_eb',0):.1f}x, "
-            f"Croiss.Rev {sa.get('revg',0):+.1f}%, Mg.EBITDA {sa.get('em',0):.1f}%, "
+            f"Tu es analyste financier senior chez une grande banque d'investissement. "
+            f"Redige des textes analytiques precis et professionnels (style rapport JPMorgan) "
+            f"pour un pitchbook comparatif sectoriel entre {sector_a} et {sector_b} "
+            f"(univers : {D['universe_label']}, {D['na']} + {D['nb']} societes).\n\n"
+            f"DONNEES MEDIANES :\n"
+            f"- {sector_a} : Score {score_a}/100, Signal {D['sig_a_lbl']}, "
+            f"P/E {sa.get('pe',0):.1f}x, EV/EBITDA {sa.get('ev_eb',0):.1f}x, EV/Rev {sa.get('ev_rev',0):.1f}x, "
+            f"Croiss.Rev {sa.get('revg',0):+.1f}%, Mg.Brute {sa.get('gm',0):.1f}%, "
+            f"Mg.EBITDA {sa.get('em',0):.1f}%, Mg.Nette {sa.get('nm',0):.1f}%, "
             f"ROE {roe_a:.1f}%, Perf.52S {sa.get('mom',0):+.1f}%, Beta {sa.get('beta',1.0):.2f}, "
-            f"Div Yield {dy_a:.1f}%, FCF Yield {fy_a:.1f}%\n"
-            f"- {sector_b} : Score {sb.get('score',0)}/100, Signal {D['sig_b_lbl']}, "
-            f"P/E {sb.get('pe',0):.1f}x, EV/EBITDA {sb.get('ev_eb',0):.1f}x, "
-            f"Croiss.Rev {sb.get('revg',0):+.1f}%, Mg.EBITDA {sb.get('em',0):.1f}%, "
+            f"Div.Yield {dy_a:.1f}%, FCF.Yield {fy_a:.1f}%, Payout {pt_a:.0f}%\n"
+            f"- {sector_b} : Score {score_b}/100, Signal {D['sig_b_lbl']}, "
+            f"P/E {sb.get('pe',0):.1f}x, EV/EBITDA {sb.get('ev_eb',0):.1f}x, EV/Rev {sb.get('ev_rev',0):.1f}x, "
+            f"Croiss.Rev {sb.get('revg',0):+.1f}%, Mg.Brute {sb.get('gm',0):.1f}%, "
+            f"Mg.EBITDA {sb.get('em',0):.1f}%, Mg.Nette {sb.get('nm',0):.1f}%, "
             f"ROE {roe_b:.1f}%, Perf.52S {sb.get('mom',0):+.1f}%, Beta {sb.get('beta',1.0):.2f}, "
-            f"Div Yield {dy_b:.1f}%, FCF Yield {fy_b:.1f}%\n\n"
-            f"Reponds UNIQUEMENT en JSON valide. Textes en francais sans accents ni caracteres speciaux. "
-            f"Maximum 220 caracteres par champ sauf exec_summary (350 max).\n"
+            f"Div.Yield {dy_b:.1f}%, FCF.Yield {fy_b:.1f}%, Payout {pt_b:.0f}%\n\n"
+            f"REGLES DE REDACTION :\n"
+            f"- Francais sans accents ni caracteres speciaux (encodage ASCII strict)\n"
+            f"- Citer les chiffres precis fournis ci-dessus\n"
+            f"- Style analytique, pas de formules generiques\n"
+            f"- Maximum indique par champ\n"
+            f"- Reponds UNIQUEMENT en JSON valide, aucun texte avant ou apres\n\n"
             f'{{\n'
-            f'  "exec_summary": "Synthese 2-3 phrases : qui privilegier, ecarts cles, signal IA",\n'
-            f'  "valuation_read": "Lecture valorisation 1-2 phrases : analyse multiples P/E et EV/EBITDA",\n'
-            f'  "margins_read": "Lecture marges 1-2 phrases : qualite operationnelle et rentabilite",\n'
-            f'  "capital_alloc_read": "Capital allocation 1-2 phrases : dividendes, FCF yield et remuneration actionnaire",\n'
-            f'  "growth_read": "Lecture croissance 1-2 phrases : acceleration/ralentissement et momentum",\n'
-            f'  "scoring_read": "Interpretation scoring 1-2 phrases : analyse radar multidimensionnel",\n'
-            f'  "top_a_read": "Synthese top acteurs {sector_a} 1-2 phrases",\n'
-            f'  "top_b_read": "Synthese top acteurs {sector_b} 1-2 phrases",\n'
-            f'  "these_a": "These investissement {sector_a} : 2 phrases, arguments cles",\n'
-            f'  "these_b": "These investissement {sector_b} : 2 phrases, arguments cles",\n'
-            f'  "allocation_read": "Recommandation allocation portefeuille 2-3 phrases : surponderations cles"\n'
+            f'  "exec_summary": "3 phrases max (400 car.) : synthese globale, qui privilegier et pourquoi, ecarts cles",\n'
+            f'  "valuation_read": "2 phrases (300 car.) : analyse multiples P/E EV/EBITDA, prime/decote et implications",\n'
+            f'  "margins_read": "2-3 phrases (350 car.) : qualite operationnelle, qui genere plus de valeur et pourquoi, implications pour l investisseur",\n'
+            f'  "capital_alloc_read": "2-3 phrases (380 car.) : politique de distribution, FCF yield vs dividende, soutenabilite et implications allocation",\n'
+            f'  "growth_read": "2-3 phrases (350 car.) : dynamique de croissance revenue, momentum cours 52S, divergence ou convergence et implications",\n'
+            f'  "scoring_read": "2-3 phrases (350 car.) : analyse radar multidimensionnel, forces et faiblesses relatives par dimension, signal resultant",\n'
+            f'  "top_a_read": "2-3 phrases (300 car.) : profil des meilleurs acteurs {sector_a}, caracteristiques communes, champion sectoriel",\n'
+            f'  "top_b_read": "2-3 phrases (300 car.) : profil des meilleurs acteurs {sector_b}, caracteristiques communes, champion sectoriel",\n'
+            f'  "these_a": "2-3 phrases (320 car.) : these investissement {sector_a}, 2-3 arguments structurels avec chiffres",\n'
+            f'  "these_b": "2-3 phrases (320 car.) : these investissement {sector_b}, 2-3 arguments structurels avec chiffres",\n'
+            f'  "these_long_a": "3 arguments {sector_a} format Titre : Description (380 car. total), separes par . ",\n'
+            f'  "these_long_b": "3 arguments {sector_b} format Titre : Description (380 car. total), separes par . ",\n'
+            f'  "risques_principaux": "2-3 risques communs ou specifiques (280 car.) : risque macro, valorisation, execution",\n'
+            f'  "verdict_read": "3 phrases (420 car.) : verdict allocation, {winner} recommande, raisons quantifiees, horizon et conditions",\n'
+            f'  "allocation_read": "3 phrases (400 car.) : recommandation portefeuille detaillee, surponderation cles, ratio risque/rendement"\n'
             f'}}'
         )
         import json, re
-        resp = llm.generate(prompt, max_tokens=1000)
+        resp = llm.generate(prompt, max_tokens=2200)
         m = re.search(r'\{.*\}', resp, re.DOTALL)
         if m:
             data = json.loads(m.group(0))
@@ -1406,7 +1733,7 @@ def _generate_llm_texts(D: dict) -> dict:
 # ── Classe principale ─────────────────────────────────────────────────────────
 
 class CmpSecteurPPTXWriter:
-    """Generateur de pitchbook comparatif sectoriel 16 slides."""
+    """Generateur de pitchbook comparatif sectoriel 21 slides."""
 
     @staticmethod
     def generate(
@@ -1425,43 +1752,48 @@ class CmpSecteurPPTXWriter:
         D = _prepare_data(tickers_a, sector_a, universe_a, tickers_b, sector_b, universe_b)
         D["llm"] = _generate_llm_texts(D)
 
+        # Fetch des cours 52S (une seule fois avant les slides)
+        log.info("[CmpSecteurPPTXWriter] Fetch cours 52S...")
+        D["perf_a_52w"], D["perf_b_52w"] = _fetch_price_52w_pptx(tickers_a, tickers_b)
+
         prs = Presentation()
         prs.slide_width  = _SW
         prs.slide_height = _SH
 
         # Section 1 — Vue d'ensemble
-        _s01_cover(prs, D)                # Slide 1 — Cover
-        _s02_exec_summary(prs, D)         # Slide 2 — Executive Summary (tableau metriques)
-        _s03_sommaire(prs, D)             # Slide 3 — Sommaire
+        _s01_cover(prs, D)                # Slide 1  — Cover
+        _s02_exec_summary(prs, D)         # Slide 2  — Executive Summary
+        _s03_sommaire(prs, D)             # Slide 3  — Sommaire
 
         # Section 2 — Profil & Valorisation
         _chapter_divider(prs, "01", "Profil & Valorisation",
                          "Structure des secteurs, multiples et qualite des bilans")
-        _s05_profil(prs, D)               # Slide 5 — Profil cote a cote
-        _s06_valorisation(prs, D)         # Slide 6 — P/E, EV/EBITDA
-        _s07_marges(prs, D)               # Slide 7 — Marges & Rentabilite
-        _s07b_capital_alloc(prs, D)       # Slide 7b — Capital Allocation
+        _s05_profil(prs, D)               # Slide 5  — Profil cote a cote
+        _s06_valorisation(prs, D)         # Slide 6  — P/E, EV/EBITDA
+        _s07_marges(prs, D)               # Slide 7  — Marges & Rentabilite
+        _s07b_capital_alloc(prs, D)       # Slide 8  — Capital Allocation
 
-        # Section 3 — Croissance & Scoring
-        _chapter_divider(prs, "02", "Croissance & Scoring",
-                         "Revenue growth, momentum et scoring multidimensionnel")
-        _s08_croissance(prs, D)           # Slide 9 — Croissance & Momentum
-        _s09_scoring(prs, D)              # Slide 10 — Radar scoring
+        # Section 3 — Performance & Scoring
+        _chapter_divider(prs, "02", "Performance & Scoring",
+                         "Cours 52 semaines, revenue growth et scoring multidimensionnel")
+        _s08_croissance(prs, D)           # Slide 10 — Cours 52S comparatif
+        _s09_scoring(prs, D)              # Slide 11 — Radar scoring
 
         # Section 4 — Top Acteurs & Risques
         _chapter_divider(prs, "03", "Top Acteurs & Risques",
                          "Meilleures societes et conditions d'invalidation par secteur")
-        _s10_top_a(prs, D)                # Slide 12 — Top acteurs A
-        _s11_top_b(prs, D)                # Slide 13 — Top acteurs B
-        _s12_risques_a(prs, D)            # Slide 14 — Risques A
-        _s13_risques_b(prs, D)            # Slide 15 — Risques B
+        _s10_top_a(prs, D)                # Slide 13 — Top acteurs A
+        _s11_top_b(prs, D)                # Slide 14 — Top acteurs B
+        _s12_risques_a(prs, D)            # Slide 15 — Risques A
+        _s13_risques_b(prs, D)            # Slide 16 — Risques B
 
-        # Section 5 — Synthese & Allocation
-        _chapter_divider(prs, "04", "Synthese & Allocation",
-                         "Comparaison strategique et recommandation de positionnement")
-        _s14_synthese(prs, D)             # Slide 17 — Synthese comparative
-        _s15_allocation(prs, D)           # Slide 18 — Recommandation allocation
-        _s16_disclaimer(prs, D)           # Slide 19 — Disclaimer
+        # Section 5 — Synthese & Decision
+        _chapter_divider(prs, "04", "Synthese & Decision",
+                         "Theses d'investissement, verdict comparatif et recommandation")
+        _s14_synthese(prs, D)             # Slide 18 — THESE LONG A+B + RISQUES
+        _s15_allocation(prs, D)           # Slide 19 — Recommandation allocation
+        _s15b_verdict(prs, D)             # Slide 20 — Verdict Comparatif (NEW)
+        _s16_disclaimer(prs, D)           # Slide 21 — Methodologie & Mentions legales
 
         buf = io.BytesIO()
         prs.save(buf)
