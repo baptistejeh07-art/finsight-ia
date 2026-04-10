@@ -2066,15 +2066,15 @@ def _slide_piotroski(prs, m_a: dict, m_b: dict, synthesis: dict):
         _jpm_sub = "Piotroski F-Score, Beneish M-Score, Altman Z-Score comparatifs"
     add_text_box(slide, 1.02, 2.10, 23.37, 0.40, _jpm_sub, 10, NAVY_MID, bold=True, italic=True)
 
-    # Commentaire qualite LLM — hauteur augmentee pour eviter overflow
+    # Commentaire qualite LLM — clip strict pour eviter tout overflow
     txt = synthesis.get('quality_text') or ""
     if txt:
         _qt_y = 2.58
-        _qt_h = 2.00
+        _qt_h = 2.10
         add_rect(slide, 1.02, _qt_y, 23.37, _qt_h, NAVY_PALE)
         add_rect(slide, 1.02, _qt_y, 0.13, _qt_h, NAVY_MID)
-        add_text_box(slide, 1.4, _qt_y + 0.10, 22.8, _qt_h - 0.20,
-                     _fit(txt, 800), 9, NAVY, wrap=True)
+        add_text_box(slide, 1.4, _qt_y + 0.10, 22.6, _qt_h - 0.20,
+                     " ".join(_fit(txt, 360).split()), 8.5, NAVY, wrap=True)
 
     def _pio_val(m, key):
         v = m.get(key)
