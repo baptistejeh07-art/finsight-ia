@@ -1,0 +1,16 @@
+{
+  "ticker": "CMP_SECTEUR",
+  "raw_data": null,
+  "sentiment": "SentimentResult(ticker='CMP_SECTEUR', timestamp='2026-04-10T04:31:08.718560', score=0.0, score_normalized=0.5, label='NEUTRAL', confidence=0.0, articles_analyzed=0, articles_total=0, breakdown={}, sources=[], samples=[], llm_commentary='', meta={'request_id': '45b52f93-a2b1-44fc-bdd0-821493e17492', 'latency_ms': 2193, 'confidence_score': 0.0, 'invalidation_conditions': 'Aucune news disponible pour cette période.', 'tokens_used': 0})",
+  "data_quality": 0.0,
+  "errors": [
+    "AgentData returned None for CMP_SECTEUR"
+  ],
+  "logs": [
+    {
+      "node": "fetch_node",
+      "latency_ms": 3208,
+      "status": "error"
+    }
+  ]
+}
