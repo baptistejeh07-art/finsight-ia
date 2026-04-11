@@ -1544,7 +1544,8 @@ def render_home() -> None:
                     clicked = qt
 
         _quick_label("Secteurs")
-        quick_sec = ["Technology", "Healthcare", "Financials", "Energy", "Industrials"]
+        # Libelles francais (i18n) — _slug_from_any normalise correctement a la resolution
+        quick_sec = ["Technologie", "Santé", "Finance", "Énergie", "Industrie"]
         sec_cols = st.columns(5)
         for i, qs in enumerate(quick_sec):
             with sec_cols[i]:
