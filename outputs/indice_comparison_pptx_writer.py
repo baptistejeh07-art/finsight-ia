@@ -668,8 +668,8 @@ def _slide_profil(prs, d: dict, which: str):
     kpis = [
         (f"{sc}/100", "Score FinSight", sig),
         (_fr_pct_signed(p1y), "Performance 1 an", "vs 5 ans"),
-        (_fr_num(pe, 1) + "x", "P/E Forward", "Médiane des constituants"),
-        (_fr_pct(dy) if dy else "\u2014", "Rendement dividende", "Médiane pondérée"),
+        (_fr_num(pe, 1) + "x", "P/E Forward", "mediane des constituants"),
+        (_fr_pct(dy) if dy else "\u2014", "Rendement dividende", "mediane pondérée"),
     ]
     xs = [1.02, 6.92, 12.81, 18.70]
     for i, (val, lbl, sub) in enumerate(kpis):
@@ -1728,7 +1728,7 @@ def _slide_21_methodologie(prs, d: dict):
          "demeure de la seule responsabilité de l'utilisateur."),
         ("Absence de due diligence",
          "FinSight IA est un outil algorithmique de screening basé sur des données publiques. "
-         "Les analyses sont générées automatiquement par des modèles statistiques et un LLM, sans "
+         "Les analyses sont generees automatiquement par des modèles statistiques et un LLM, sans "
          "validation manuelle, sans rencontre avec les émetteurs des indices, sans audit des "
          "compositions. Les modèles peuvent contenir des biais ou erreurs de spécification. "
          "FinSight IA et ses auteurs déclinent toute responsabilité quant aux pertes décolant de "

@@ -990,7 +990,7 @@ def _build_cartographie(data, weights_buf, attribution_buf=None, registry=None):
                                       cw=[42*mm, 20*mm, 22*mm, 26*mm, 60*mm])))
         elems.append(src(
             f"FinSight IA — P/Book et Div.Yield : ETF SPDR yfinance ou valeurs sectorielles "
-            f"Médianes S&amp;P 500. ERP sectoriel = Div.Yield + croissance LT Normalisée - "
+            f"medianes S&amp;P 500. ERP sectoriel = Div.Yield + croissance LT Normalisée - "
             f"{data.get('rf_rate','4.50%')} (10Y US)."))
 
     # ── Attribution sectorielle ────────────────────────────────────────────────
@@ -1067,7 +1067,7 @@ def _build_graphiques(data, scatter_buf, scores_buf, corr_buf=None, registry=Non
             "une valeur relative.", S_BODY))
         elems.append(Spacer(1, 3*mm))
         elems.append(Image(scatter_buf, width=TABLE_W, height=95*mm))
-        elems.append(src("FinSight IA — EV/EBITDA médian LTM vs croissance BPA Médiane secteur. FMP, Bloomberg."))
+        elems.append(src("FinSight IA — EV/EBITDA médian LTM vs croissance BPA mediane secteur. FMP, Bloomberg."))
         # Interprétation inline
         _secteurs = data["secteurs"]
         _surp = [s[0] for s in _secteurs if "Surp" in str(s[3])]
@@ -1803,7 +1803,7 @@ class IndicePDFWriter:
                 _log.getLogger(__name__).warning("[IndicePDFWriter] AgentMacro: %s", _me)
                 data.setdefault("macro", {})
 
-        # Buffers graphiques (Générés une seule fois, rewound avant chaque passe)
+        # Buffers graphiques (Generes une seule fois, rewound avant chaque passe)
         perf_buf        = make_indice_perf_chart(data)
         weights_buf     = make_sector_weights_chart(data)
         scatter_buf     = make_scatter_sectoriel(data)

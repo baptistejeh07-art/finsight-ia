@@ -291,7 +291,7 @@ def _on_page(canvas, doc, data):
         canvas.setFillColor(GREY_TEXT)
         canvas.setFont("Helvetica", 6.5)
         canvas.drawString(MARGIN_L, MARGIN_B - 7*mm,
-                          "FinSight IA v1.0 — Document généré par IA. Ne constitue pas un conseil en investissement.")
+                          "FinSight IA v1.0 — Document genere par IA. Ne constitue pas un conseil en investissement.")
         canvas.drawRightString(PAGE_W - MARGIN_R, MARGIN_B - 7*mm,
                                "Sources : yfinance")
 

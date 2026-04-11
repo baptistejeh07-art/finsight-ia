@@ -268,7 +268,7 @@ def _legend_badge(slide, x, y):
 
 # ── Preparation des données ───────────────────────────────────────────────────
 def _prepare_data(tickers_a, sector_a, universe_a, tickers_b, sector_b, universe_b):
-    """Calcule les Médianes et Agrégats pour les deux secteurs."""
+    """Calcule les medianes et Agrégats pour les deux secteurs."""
     def _stats(td):
         if not td:
             return {}
@@ -909,7 +909,7 @@ def _s06_valorisation(prs, D):
     slide = _blank(prs)
     sa, sb = D["sa"], D["sb"]
     _header(slide, "Valorisation Comparée  —  Multiples de Marché",
-            f"P/E et EV-multiples Médianes — {D['sector_a']} vs {D['sector_b']}", 1)
+            f"P/E et EV-multiples medianes — {D['sector_a']} vs {D['sector_b']}", 1)
     _footer(slide, D)
 
     # Chart gauche (aspect ratio correct : figsize 7.5x4.2 → placement 12.5x5.5)
@@ -964,7 +964,7 @@ def _s07_marges(prs, D):
     slide = _blank(prs)
     sa, sb = D["sa"], D["sb"]
     _header(slide, "Qualité & Rentabilité  —  Marges et Retour sur Capital",
-            f"Qui généré plus de valeur par euro de chiffre d'affaires ?", 1)
+            f"Qui genere plus de valeur par euro de chiffre d'affaires ?", 1)
     _footer(slide, D)
 
     try:
@@ -1088,7 +1088,7 @@ def _s07b_capital_alloc(prs, D):
     fallback_interp = (
         f"{high_dy} offre le meilleur rendement dividende (med. {_fmt_pct(max(dy_a, dy_b))}), "
         f"ce qui reflète un modèle de maturité bilancielle et une politique de distribution établie. "
-        f"{high_fy} généré davantage de FCF ({_fmt_pct_direct(max(fy_a, fy_b))} de FCF Yield), "
+        f"{high_fy} genere davantage de FCF ({_fmt_pct_direct(max(fy_a, fy_b))} de FCF Yield), "
         f"signal d'une capacite de rémunération durable et d'une allocation du capital disciplinée. "
         f"Un FCF Yield superieur au dividende versé garantit la soutenabilite et la résilience "
         f"de la distribution meme en phase de contraction des marges. "
@@ -1654,14 +1654,14 @@ def _s16_disclaimer(prs, D):
          "Univers S&P 500, CAC 40, STOXX 600 ou global selon le parametre sélectionné par l'utilisateur. "
          "Toutes les sociétés du secteur avec données yfinance disponibles (min. 3 ratios renseignés). "
          "Valeurs aberrantes filtrees : P/E > 999x exclus, ROE < -500% exclus, ratios LTM uniquement. "
-         "Médianes utilisees plutot que moyennes pour la robustesse aux outliers."),
+         "medianes utilisees plutot que moyennes pour la robustesse aux outliers."),
         ("Sources de données",
          "yfinance (Yahoo Finance) : cours, bilan, compte de résultats, flux de trésorerie — fréquence "
          "trimestrielle ou annuelle selon disponibilite. Finnhub : news et sentiment. FMP : données "
          "supplementaires si disponibles. Perf. 52S : composite top-15 Normalisé base 100."),
         ("Limites & Mises en garde",
          "Données retardees de 24h sur yfinance free tier. Certains ratios (ROIC, Piotroski) peuvent être "
-         "indisponibles pour des sociétés hors US. Médianes sectorielles masquent la dispersion intra. "
+         "indisponibles pour des sociétés hors US. medianes sectorielles masquent la dispersion intra. "
          "Les signaux sont Mécaniques, statiques (snapshot point-in-time) et non ajustés du cycle. "
          "Aucune analyse qualitative manuelle (management, gouvernance, ESG) n'est réalisée."),
     ]
@@ -1685,7 +1685,7 @@ def _s16_disclaimer(prs, D):
          "conseiller en investissement financier (CIF) agréé avant toute opération."),
         ("Absence de due diligence et limites de l'analyse",
          "FinSight IA est un outil algorithmique de screening basé sur des données publiques (yfinance, "
-         "Finnhub, FMP). Les analyses présentées sont générées automatiquement par des modèles statistiques "
+         "Finnhub, FMP). Les analyses présentées sont generees automatiquement par des modèles statistiques "
          "et un LLM, sans validation manuelle, sans rencontre avec le management, sans audit des comptes. "
          "Aucune due diligence spécifique, expertise sectorielle approfondie ou vérification croisee "
          "n'est réalisée. Les modèles peuvent contenir des biais, erreurs ou simplifications. "
@@ -1766,7 +1766,7 @@ def _generate_llm_texts(D: dict) -> dict:
             f'{{\n'
             f'  "exec_summary": "3 phrases max (400 car.) : synthèse globale, qui privilegier et pourquoi, écarts cles",\n'
             f'  "valuation_read": "2 phrases (300 car.) : analyse multiples P/E EV/EBITDA, prime/décote et implications",\n'
-            f'  "margins_read": "2-3 phrases (350 car.) : qualité opérationnelle, qui généré plus de valeur et pourquoi, implications pour l investisseur",\n'
+            f'  "margins_read": "2-3 phrases (350 car.) : qualité opérationnelle, qui genere plus de valeur et pourquoi, implications pour l investisseur",\n'
             f'  "capital_alloc_read": "2-3 phrases (380 car.) : politique de distribution, FCF yield vs dividende, soutenabilite et implications allocation",\n'
             f'  "growth_read": "2-3 phrases (350 car.) : dynamique de croissance revenue, momentum cours 52S, divergence ou convergence et implications",\n'
             f'  "scoring_read": "2-3 phrases (350 car.) : analyse radar multidimensionnel, forces et faiblesses relatives par dimension, signal résultant",\n'

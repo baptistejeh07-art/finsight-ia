@@ -559,7 +559,7 @@ def _inject_value(wb, data: list[dict]) -> None:
         for j, v in enumerate(vals, 1):
             _v(ws, r, j, v)
 
-    # Médianes — ligne dynamique après les 15 lignes de Données + 1 vide
+    # medianes — ligne dynamique après les 15 lignes de Données + 1 vide
     _med_row = _start + 15 + 2  # +15 data rows + 1 label + 1 values
     med_defs = [
         (2,  "ev_ebitda",    _fmt_mult),
@@ -668,7 +668,7 @@ def _inject_quality(wb, data: list[dict]) -> None:
         for j, v in enumerate(vals, 1):
             _v(ws, r, j, v)
 
-    # Médianes — ligne dynamique
+    # medianes — ligne dynamique
     _med_row = _start + 15 + 2
     med_defs = [
         (2,  "altman_z",      _fmt_z),
@@ -726,7 +726,7 @@ def _inject_momentum(wb, data: list[dict]) -> None:
         for j, v in enumerate(vals, 1):
             _v(ws, r, j, v)
 
-    # Médianes — ligne dynamique
+    # medianes — ligne dynamique
     _med_row = _start + 15 + 2
     med_mom = _med_vals(sorted_data, "momentum_52w")
     _v(ws, _med_row, 2, _fmt_pct(med_mom) if med_mom is not None else "\u2014")
@@ -901,7 +901,7 @@ def _inject_sector_sheets(wb, data: list[dict]) -> None:
         # Tickers en B..Bn
         for j, t in enumerate(sorted_tlist, 2):
             _v(ws, ticker_row, j, t.get("ticker", ""))
-        _v(ws, ticker_row, med_col, "Médiane")
+        _v(ws, ticker_row, med_col, "mediane")
 
         # 12 lignes ratios a partir de ticker_row + 1
         for ratio_idx, (_, ratio_key, fmt_fn) in enumerate(_RATIO_ROWS):

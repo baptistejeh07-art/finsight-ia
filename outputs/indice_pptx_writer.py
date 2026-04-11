@@ -475,7 +475,7 @@ def _chart_zone_entree(data: dict) -> bytes:
         if _pe_global < 5 or _pe_global > 50: _pe_global = 17.0
     except:
         _pe_global = 17.0
-    _pe_med_global = data.get("pe_Médiane_10y", 17.0) or 17.0
+    _pe_med_global = data.get("pe_mediane_10y", 17.0) or 17.0
     if not isinstance(_pe_med_global, (int, float)): _pe_med_global = 17.0
 
     # Construire mapping nom -> (pe_fwd, pe_med)
@@ -486,7 +486,7 @@ def _chart_zone_entree(data: dict) -> bytes:
             # Estimation ancree sur pe_global (identique aux secteurs)
             pe_fwd = round(_pe_global + (s.get("score", 50) - 50) * 0.05, 1)
         # Cap pe_med au réaliste (évite bandes trop larges)
-        pe_med_val = min(s.get("pe_Médiane_10y", _pe_med_global), _pe_global * 1.3)
+        pe_med_val = min(s.get("pe_mediane_10y", _pe_med_global), _pe_global * 1.3)
         pe_data[s["nom"]] = (pe_fwd, float(pe_med_val))
 
     for s in secteurs:
@@ -520,7 +520,7 @@ def _chart_zone_entree(data: dict) -> bytes:
     ax.set_facecolor('#F8F9FA')
 
     y = np.arange(len(noms))
-    # Bande "zone normale" autour de Médiane
+    # Bande "zone normale" autour de mediane
     for i, (med, fwd, sig, nom) in enumerate(zip(pe_meds, pe_fwds, sigs, noms)):
         ax.barh(i, med * 0.3, left=med * 0.85, height=0.3,
                 color='#E8ECF0', alpha=0.7, zorder=3)
@@ -548,7 +548,7 @@ def _chart_zone_entree(data: dict) -> bytes:
         Line2D([0],[0], marker='o', color='w', markerfacecolor='#1A7A4A', markersize=7, label='Surpondérer'),
         Line2D([0],[0], marker='o', color='w', markerfacecolor='#B06000',  markersize=7, label='Neutre'),
         Line2D([0],[0], marker='o', color='w', markerfacecolor='#A82020',  markersize=7, label='Sous-pondérer'),
-        Line2D([0],[0], marker='|', color='#AAAAAA', markersize=8, label='Médiane 10Y'),
+        Line2D([0],[0], marker='|', color='#AAAAAA', markersize=8, label='mediane 10Y'),
     ]
     ax.legend(handles=legend_el, fontsize=6.5, framealpha=0.7, loc='lower right')
     plt.tight_layout()
@@ -811,7 +811,7 @@ def _s01_cover(prs, D):
 
     # KPI boxes (fond gris clair, texte navy — lisibles sur blanc)
     secteurs_cov = D.get("secteurs", [])
-    score_med = D.get("score_Médian")
+    score_med = D.get("score_median")
     if not score_med and secteurs_cov:
         scores_l = [s[2] for s in secteurs_cov if len(s) > 2
                     and isinstance(s[2], (int, float))]
@@ -925,10 +925,10 @@ def _s02_exec_summary(prs, D):
     _cours_s02 = D.get("cours", "—")
     _ytd_s02   = D.get("variation_ytd", "—")
     _pe_f_s02  = D.get("pe_forward", "—")
-    _pe_m_s02  = D.get("pe_Médiane_10y", "—")
+    _pe_m_s02  = D.get("pe_mediane_10y", "—")
     _erp_s02b  = D.get("erp", "—")
     _erp_sig_s02 = D.get("erp_signal", "")
-    _scr_s02   = D.get("score_Médian")
+    _scr_s02   = D.get("score_median")
     if not isinstance(_scr_s02, (int, float)):
         _scores_l02 = [s[2] for s in D.get("secteurs", []) if len(s) > 2 and isinstance(s[2], (int, float))]
         _scr_s02 = round(sum(_scores_l02) / len(_scores_l02)) if _scores_l02 else "—"
@@ -1019,7 +1019,7 @@ def _s05_description(prs, D):
     cours     = D.get("cours","—")
     ytd       = D.get("variation_ytd","—")
     pe_fwd    = D.get("pe_forward","—")
-    pe_med    = D.get("pe_Médiane_10y","—")
+    pe_med    = D.get("pe_mediane_10y","—")
     erp       = D.get("erp","—")
     bpa       = D.get("bpa_growth","—")
     nb_s      = D.get("nb_secteurs",11)
@@ -1030,7 +1030,7 @@ def _s05_description(prs, D):
         ["Cours actuel",          cours],
         ["Variation YTD",         ytd],
         ["P/E Forward",           pe_fwd],
-        ["P/E Médiane 10 ans",    f"{pe_med}x" if isinstance(pe_med, (int,float)) else str(pe_med)],
+        ["P/E mediane 10 ans",    f"{pe_med}x" if isinstance(pe_med, (int,float)) else str(pe_med)],
         ["ERP (Damodaran)",       erp],
         ["Croissance BPA",        bpa],
         ["Secteurs analysés",     str(nb_s)],
@@ -1047,13 +1047,13 @@ def _s05_description(prs, D):
     _surp_str = "  ·  ".join([_abbrev_sector(x,18) for x in surp[:3]]) or "aucun"
     _sous_str = "  ·  ".join([_abbrev_sector(x,18) for x in sous[:3]]) or "aucun"
     _pe_f5  = D.get("pe_forward","—")
-    _pe_m5  = D.get("pe_Médiane_10y","—")
+    _pe_m5  = D.get("pe_mediane_10y","—")
     _erp5   = D.get("erp","—")
     _erp_s5 = D.get("erp_signal","")
     _pm5    = f"{_pe_m5}x" if isinstance(_pe_m5,(int,float)) else str(_pe_m5)
     _prime5 = D.get("prime_décote","")
     _sig5   = D.get("signal_global","Neutre")
-    _scr5   = D.get("score_Médian")
+    _scr5   = D.get("score_median")
     if not isinstance(_scr5, (int, float)):
         _scores_l5 = [s[2] for s in D.get("secteurs", []) if len(s) > 2 and isinstance(s[2], (int, float))]
         _scr5 = round(sum(_scores_l5) / len(_scores_l5)) if _scores_l5 else "—"
@@ -1085,14 +1085,14 @@ def _s06_valorisation(prs, D):
 
     # Table valorisation
     pe_fwd    = D.get("pe_forward","—")
-    pe_med    = D.get("pe_Médiane_10y","—")
+    pe_med    = D.get("pe_mediane_10y","—")
     prime     = D.get("prime_décote","—")
     erp       = D.get("erp","—")
     bpa       = D.get("bpa_growth","—")
     rows = [
         ["INDICATEUR",         "VALEUR",     "vs HISTORIQUE",    "INTERPRÉTATION"],
         ["P/E Forward",        pe_fwd,       prime,              "Prime vs médiane 10Y"],
-        ["P/E Médiane 10 ans", f"{pe_med}x" if isinstance(pe_med,(int,float)) else str(pe_med),
+        ["P/E mediane 10 ans", f"{pe_med}x" if isinstance(pe_med,(int,float)) else str(pe_med),
                                "Reference",  "Niveau historique normalisé"],
         ["ERP (Damodaran)",    erp,          "Correct",          "Rendement excess equites"],
         ["Croissance BPA",     bpa,          "+",                "Consensu analystes 12M"],
@@ -1108,11 +1108,11 @@ def _s06_valorisation(prs, D):
             _color_cell(tbl, r, 2, _HOLD_L, _BLACK)
 
     # Lecture analytique — toujours regeneree pour la qualité
-    _pe_m6 = D.get("pe_Médiane_10y","—")
+    _pe_m6 = D.get("pe_mediane_10y","—")
     _pe_f6 = D.get("pe_forward","—")
     _erp6  = D.get("erp","—")
     _sig6  = D.get("signal_global","Neutre")
-    _scr6  = D.get("score_Médian")
+    _scr6  = D.get("score_median")
     if not isinstance(_scr6, (int, float)):
         _scores_l6 = [s[2] for s in D.get("secteurs", []) if len(s) > 2 and isinstance(s[2], (int, float))]
         _scr6 = round(sum(_scores_l6) / len(_scores_l6)) if _scores_l6 else "—"
@@ -1134,24 +1134,24 @@ def _s06_valorisation(prs, D):
             _pm_num = float(str(_pe_m6).replace("x","").replace(",",".").strip()) if isinstance(_pe_m6,(int,float)) else 17.0
             _prime_pct = (_pe_num - _pm_num) / _pm_num * 100
             if _prime_pct > 25:
-                _val_diag = (f"Le P/E Forward de {_pe_f6} se situe {_prime6} vs la Médiane historique "
+                _val_diag = (f"Le P/E Forward de {_pe_f6} se situe {_prime6} vs la mediane historique "
                              f"({_pm_str}) — valorisation tendue qui exige une croissance BPA soutenue "
                              f"pour justifier le multiple. Le moindre miss sur les BPA NTM serait "
                              f"susceptible de comprimer le multiple de facon significative.")
             elif _prime_pct > 5:
                 _val_diag = (f"Le P/E Forward de {_pe_f6} traduit une prime modeste de {_prime6} "
-                             f"vs la Médiane historique ({_pm_str}). La valorisation reste defensible "
+                             f"vs la mediane historique ({_pm_str}). La valorisation reste defensible "
                              f"si les BPA NTM sont livres comme attendu par le consensus.")
             elif _prime_pct < -10:
                 _val_diag = (f"Le P/E Forward de {_pe_f6} offre une décote de {_prime6} vs l'historique "
                              f"({_pm_str}) — opportunite si les fondamentaux restent solides. "
                              f"Un re-rating est possible en cas de révision haussière des BPA ou de pivot Fed.")
             else:
-                _val_diag = (f"Le P/E Forward de {_pe_f6} est en ligne avec la Médiane historique "
+                _val_diag = (f"Le P/E Forward de {_pe_f6} est en ligne avec la mediane historique "
                              f"({_pm_str}) — valorisation neutre, le Marché pricant un scénario central "
                              f"sans excès dans un sens ni dans l'autre.")
         except Exception:
-            _val_diag = f"P/E Forward {_pe_f6} vs Médiane historique {_pm_str}."
+            _val_diag = f"P/E Forward {_pe_f6} vs mediane historique {_pm_str}."
         # Lecture ERP
         if _erp_s6 in ("Tendu","Comprime"):
             _erp_impl = (f"L'ERP Damodaran de {_erp6} signale une prime de risque comprimee — "
@@ -1374,7 +1374,7 @@ def _s09_cartographie(prs, D):
         f"{bot_s[0] if bot_s else '—'} {score_bot}pts) = {score_spread} pts de spread — "
         f"bifurcation {'marquee' if score_spread > 30 else 'modérée'}. "
         + (f"Secteurs proches du seuil de bascule (55-65) : {_near_str}. " if _near_str else "")
-        + (f"Marge EBITDA Médiane des surponderes : {_top_mg_s}. " if _top_mg else "")
+        + (f"Marge EBITDA mediane des surponderes : {_top_mg_s}. " if _top_mg else "")
         + _strat
     )
     y_top = min(10.5, 2.3 + len(rows) * 0.65 + 0.8)
@@ -1435,7 +1435,7 @@ def _s10_scatter(prs, D, chart_bytes: bytes):
             f"{'  ·  '.join(premium) or 'Aucun secteur Surpondérer'} {_prem_label if premium else ''}.\n\n"
             f"{'  ·  '.join(opport) or 'Aucun'} : valorisation attractive — "
             f"croissance correcte, meilleur ratio risque/rendement.\n\n"
-            f"Les pointilles representent les Médianes sectorielles (EV/EBITDA et BPA growth). "
+            f"Les pointilles representent les medianes sectorielles (EV/EBITDA et BPA growth). "
             f"Favoriser les secteurs en bas droite (forte croissance, valorisation modérée)."
             f"{_proxy_note}"
         )
@@ -1799,32 +1799,32 @@ def _s15_zone_entree(prs, D, chart_bytes: bytes):
     top3    = D.get("top3_secteurs",[])
     secteurs = D.get("secteurs",[])
     _pe_g   = D.get("pe_forward","—")
-    _pe_med = D.get("pe_Médiane_10y","—")
+    _pe_med = D.get("pe_mediane_10y","—")
 
     noms_b  = []
     noms_h  = []
     for t in top3:
         pef = t.get("pe_forward_raw",0) or 0
-        pem = t.get("pe_Médiane_10y",18.0) or 18.0
+        pem = t.get("pe_mediane_10y",18.0) or 18.0
         if pef > 0 and pef < pem * 1.05:
             noms_b.append(t["nom"])
         elif pef > 0 and pef > pem * 1.15:
             noms_h.append(t["nom"])
 
-    # Secteurs tous confondus sous/sur Médiane
+    # Secteurs tous confondus sous/sur mediane
     all_sous = [s[0] for s in secteurs if True]  # placeholder
     _pm_str = f"{_pe_med}x" if isinstance(_pe_med,(int,float)) else str(_pe_med)
 
     txt_col = (
         f"PE médiane 10 ans : {_pm_str}\n"
         f"PE Forward indice : {_pe_g}\n\n"
-        f"Zone d'entrée favorable (PE < Médiane) :\n"
+        f"Zone d'entrée favorable (PE < mediane) :\n"
         f"{'  ·  '.join([_abbrev_sector(n,18) for n in noms_b]) or 'Aucun secteur top3'}\n\n"
-        f"Zone de prudence (PE > Médiane +15 %) :\n"
+        f"Zone de prudence (PE > mediane +15 %) :\n"
         f"{'  ·  '.join([_abbrev_sector(n,18) for n in noms_h]) or 'Aucun'}\n\n"
         f"Méthodologie : le PE Forward estime est ancre sur le PE global de l'indice "
         f"Ajusté du score sectoriel (+/- Écart). Les secteurs a gauche de la ligne "
-        f"pointillee (Médiane 10 ans) offrent un meilleur point d'entree. "
+        f"pointillee (mediane 10 ans) offrent un meilleur point d'entree. "
         f"Un Écart > +20 % vs la médiane justifie une prudence accrue sur le timing."
     )
     _rect(slide, 16.3, 2.3, 8.1, 10.5, fill=_GRAYL)

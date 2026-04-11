@@ -442,7 +442,7 @@ def _fill_par_secteur(ws, sector_agg: dict, universe: str, nb_total: int,
         _write(ws, 2 + clr_i, "M", None)
 
     # ---- SCORECARD SECTORIELLE ----
-    _write(ws, 5, "B", "SCORECARD SECTORIELLE  \u00b7  Score composite, metriques Médianes, signal d'investissement \u2014 " + universe)
+    _write(ws, 5, "B", "SCORECARD SECTORIELLE  \u00b7  Score composite, metriques medianes, signal d'investissement \u2014 " + universe)
 
     # Effacer d'abord toute la zone de Données scorecard (lignes 8-17)
     for clr in range(8, 18):
@@ -476,7 +476,7 @@ def _fill_par_secteur(ws, sector_agg: dict, universe: str, nb_total: int,
     _write(ws, 18, "B", f"{universe} \u2014 Total")
     _write(ws, 18, "C", nb_total)
     _write(ws, 18, "D", tot_score)
-    _write(ws, 18, "F", "Médiane")
+    _write(ws, 18, "F", "mediane")
     _write(ws, 18, "G", tot_mg)
     _write(ws, 18, "H", tot_rg)
 

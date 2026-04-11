@@ -1320,7 +1320,7 @@ def render_sidebar(results) -> None:
                         st.session_state["veille_last_pdf"] = str(_pdf)
                     st.session_state["veille_result"] = _vr
                     st.session_state.stage = "veille"
-                    st.success("Veille Générée.")
+                    st.success("Veille Generee.")
                 except Exception as _e:
                     st.error(f"Erreur veille : {_e}")
                 finally:
@@ -1506,7 +1506,7 @@ def render_veille() -> None:
     st.markdown("---")
     st.markdown(
         '<div style="font-size:11px;color:#8898AA">'
-        'FinSight IA v1.2 — Veille Générée par IA. Ne constitue pas un conseil en investissement.'
+        'FinSight IA v1.2 — Veille Generee par IA. Ne constitue pas un conseil en investissement.'
         '</div>',
         unsafe_allow_html=True,
     )
@@ -2235,7 +2235,7 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
                             else "Neutre")
     except Exception:
         pass
-    # ERP fallback : derive depuis la Médiane PE constituants si l'indice ne fournit pas de PE
+    # ERP fallback : derive depuis la mediane PE constituants si l'indice ne fournit pas de PE
     if erp_pct in ("—", "\u2014") and pe_str not in ("—", "\u2014"):
         try:
             _pe_num = float(pe_str.replace("x", "").strip())
@@ -2319,7 +2319,7 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
             _noms_c = [_ETF_MAP_APP[e] for e in _etfs_c]
             corr_matrix = {"etfs": _etfs_c, "noms": _noms_c,
                            "values": _corr.values.tolist(),
-                           "corr_Médian": round(float(_corr.values[_corr.values < 1].mean()), 2)}
+                           "corr_median": round(float(_corr.values[_corr.values < 1].mean()), 2)}
 
             # Breadth & factor tilts
             _cyc = ["Technology","Consumer Discretionary","Financials","Industrials","Energy","Materials","Communication Services"]
@@ -2380,7 +2380,7 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
     except Exception:
         pass
 
-    # ── BPA growth moyen (Médiane revenus des secteurs) ───────────────────
+    # ── BPA growth moyen (mediane revenus des secteurs) ───────────────────
     _bpa_raw = []
     for s in secteurs_list:
         try:
@@ -2431,7 +2431,7 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
         "par_secteur": finbert["par_secteur"],
     }
 
-    # ── P/E Médiane historique 10 ans + prime/décote ─────────────────────────
+    # ── P/E mediane historique 10 ans + prime/décote ─────────────────────────
     _PE_HIST_APP = {
         "S&P 500":   (13.0, 24.0), "SP500":     (13.0, 24.0),
         "NASDAQ":    (18.0, 38.0), "NASDAQ 100":(18.0, 38.0),
@@ -2560,10 +2560,10 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
         "variation_ytd":  ytd_str,
         "pe_forward":     pe_str,
         "bpa_growth":     _bpa_growth_str,
-        "pe_Médiane_10y": _pe_med_str,
+        "pe_mediane_10y": _pe_med_str,
         "prime_décote":   _prime_decote_str,
         "score_global":   int(avg_score),
-        "score_Médian":   int(avg_score),
+        "score_median":   int(avg_score),
         "secteurs":       secteurs_list,
         "texte_macro":        texte_macro,
         "texte_signal":       texte_signal,
@@ -3426,7 +3426,7 @@ def _render_sector_comparison_section(results: dict) -> None:
 
     st.markdown('<div class="sec-t" style="margin-top:36px;">Comparatif Sectoriel</div>',
                 unsafe_allow_html=True)
-    st.caption(f"Comparer {current_sector} avec un autre secteur — PPTX + PDF Générés en temps réel")
+    st.caption(f"Comparer {current_sector} avec un autre secteur — PPTX + PDF Generes en temps réel")
 
     # État comparatif sectoriel
     if "scmp_stage" not in st.session_state:
@@ -4587,7 +4587,7 @@ def render_results(results: dict) -> None:
 <div class="gls-row"><span class="gls-term">PER (P/E)</span><span class="gls-def">Prix / Bénéfice par action. Indique combien le marché paie pour 1 € de bénéfice. Un PER élevé reflète des attentes de croissance.</span></div>
 <div class="gls-row"><span class="gls-term">EV/EBITDA</span><span class="gls-def">Valeur d'entreprise / EBITDA. Multiple de valorisation indépendant de la structure de capital et fiscalité.</span></div>
 <div class="gls-row"><span class="gls-term">P/B (Price-to-Book)</span><span class="gls-def">Prix / Valeur comptable. Rapport entre capitalisation et actif net comptable. &lt;1 = potentiellement sous-évalué.</span></div>
-<div class="gls-row"><span class="gls-term">FCF Yield</span><span class="gls-def">Free Cash Flow / Market Cap. Rendement du cash généré après investissements. Plus élevé = meilleur.</span></div>
+<div class="gls-row"><span class="gls-term">FCF Yield</span><span class="gls-def">Free Cash Flow / Market Cap. Rendement du cash genere après investissements. Plus élevé = meilleur.</span></div>
 <div class="gls-row"><span class="gls-term">P/FCF</span><span class="gls-def">Prix / Free Cash Flow par action. Alternative au PER basée sur les flux réels plutôt que le bénéfice comptable.</span></div>
 <div class="gls-row"><span class="gls-term">PEG</span><span class="gls-def">PER / Taux de croissance des bénéfices. PEG &lt;1 suggère une valorisation attractive relativement à la croissance.</span></div>
 <div class="gls-row"><span class="gls-term">DCF</span><span class="gls-def">Discounted Cash Flow. Valorisation par actualisation des flux futurs estimés au taux WACC. Dépend fortement des hypothèses de croissance.</span></div>
@@ -4927,7 +4927,7 @@ def _render_cmp_secteur_page() -> None:
     tickers_a = st.session_state.get("scmp_tickers_a") or []
     tickers_b = st.session_state.get("scmp_tickers_b") or []
 
-    # Médianes par secteur (score, EBITDA margin, PE)
+    # medianes par secteur (score, EBITDA margin, PE)
     def _med_float(td, key):
         vals = []
         for t in td:
@@ -4954,7 +4954,7 @@ def _render_cmp_secteur_page() -> None:
     delta   = abs(score_a - score_b)
     delta_str = f"+{delta} pts" if delta > 0 else "—"
 
-    # Heuristique recommandation secteur : OVERWEIGHT si meilleure Médiane score + mg
+    # Heuristique recommandation secteur : OVERWEIGHT si meilleure mediane score + mg
     def _sector_rec(sc, mg):
         if sc is None:
             return "HOLD"
@@ -4978,7 +4978,7 @@ def _render_cmp_secteur_page() -> None:
     )
 
     verdict = (
-        f"{winner} domine sur la Médiane des scores FinSight ({score_a}/100 vs {score_b}/100), "
+        f"{winner} domine sur la mediane des scores FinSight ({score_a}/100 vs {score_b}/100), "
         f"signalant une qualité fondamentale agregee superieure. "
         f"La lecture croisee des multiples et des marges permet d'affiner le choix d'exposition "
         f"dans une allocation sectorielle."
@@ -4999,7 +4999,7 @@ def _render_cmp_secteur_page() -> None:
     rows = [
         ("Score FinSight Médian",   f"{score_a}/100",  f"{score_b}/100"),
         ("Nombre de valeurs",       str(len(tickers_a)), str(len(tickers_b))),
-        ("Marge EBITDA Médiane",    _fpct_raw(mg_a), _fpct_raw(mg_b)),
+        ("Marge EBITDA mediane",    _fpct_raw(mg_a), _fpct_raw(mg_b)),
         ("P/E Médian",              _fx_raw(pe_a),   _fx_raw(pe_b)),
         ("Recommandation",          _rec_fr(rec_a),  _rec_fr(rec_b)),
     ]
@@ -5075,10 +5075,10 @@ def _render_cmp_indice_page() -> None:
         ("Score composite",         f"{score_a}/100", f"{score_b}/100"),
         ("Nombre de valeurs",       _fnum(_g(metrics_a, "n_tickers", "count")),
                                     _fnum(_g(metrics_b, "n_tickers", "count"))),
-        ("Perf. Médiane 1Y",        _fpct_idx(_g(metrics_a, "perf_1y_Médian", "perf_1y")),
-                                    _fpct_idx(_g(metrics_b, "perf_1y_Médian", "perf_1y"))),
-        ("Marge EBITDA Médiane",    _fpct_idx(_g(metrics_a, "ebitda_margin_Médian", "ebitda_margin")),
-                                    _fpct_idx(_g(metrics_b, "ebitda_margin_Médian", "ebitda_margin"))),
+        ("Perf. mediane 1Y",        _fpct_idx(_g(metrics_a, "perf_1y_median", "perf_1y")),
+                                    _fpct_idx(_g(metrics_b, "perf_1y_median", "perf_1y"))),
+        ("Marge EBITDA mediane",    _fpct_idx(_g(metrics_a, "ebitda_margin_median", "ebitda_margin")),
+                                    _fpct_idx(_g(metrics_b, "ebitda_margin_median", "ebitda_margin"))),
         ("Recommandation",          _rec_fr(rec_a), _rec_fr(rec_b)),
     ]
     _cmp_mini_table(rows, header_a=name_a, header_b=name_b)

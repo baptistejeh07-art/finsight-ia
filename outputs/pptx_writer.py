@@ -986,7 +986,7 @@ def _slide_exec_summary(prs, snap, synthesis, ratios, devil, sentiment):
     # 4 KPI boxes — h=1.80 pour éviter chevauchement avec footer (y=13.39)
     kpi_box(slide, 1.02, 11.34, 5.64, 1.80,
             _frx(ev_e), "EV/EBITDA",
-            f"vs {_frx(peer_Médian_ev_e)} med. pairs")
+            f"vs {_frx(peer_median_ev_e)} med. pairs")
     kpi_box(slide, 6.91, 11.34, 5.64, 1.80,
             _frpct(wacc_val), "WACC",
             f"Beta {_fr(beta, 2) if beta else '—'}  \u00b7  RFR {_frpct(rfr)}")
@@ -1989,7 +1989,7 @@ def _slide_peers(prs, snap, synthesis, ratios):
     med_pe  = _peer_median(peers, "pe")
     med_gm  = _peer_median(peers, "gross_margin")
     med_em  = _peer_median(peers, "ebitda_margin")
-    median_row = ["Médiane peers", "—", "—",
+    median_row = ["mediane peers", "—", "—",
                   _frx(med_eve), _frx(med_evr), _frx(med_pe),
                   _frpct_margin(med_gm), _frpct_margin(med_em)]
     rows_data.append(median_row)

@@ -1643,7 +1643,7 @@ def _section_verdict(story, m_a, m_b, synthesis, tkr_a, tkr_b):
     # Disclaimer
     story.append(rule(sa=2))
     story.append(Paragraph(
-        "Ce rapport est généré par un algorithme d'analyse financière (FinSight IA). "
+        "Ce rapport est genere par un algorithme d'analyse financière (FinSight IA). "
         "Il ne constitue pas un conseil en investissement. "
         "Les données sont issues de sources publiques (yfinance, Finnhub). "
         "L'analyse LLM est fournie a titre indicatif. "
@@ -2435,5 +2435,5 @@ class ComparisonPDFWriter:
 
         doc.build(story, onFirstPage=_on_later, onLaterPages=_on_later)
         buf.seek(0)
-        log.info(f"[cmp_pdf] généré en memoire ({buf.getbuffer().nbytes} bytes)")
+        log.info(f"[cmp_pdf] genere en memoire ({buf.getbuffer().nbytes} bytes)")
         return buf
