@@ -1178,7 +1178,7 @@ def _s06_valorisation(prs, D):
                 _impl_txt = (
                     f"A {_pe_f6}, le Marché price implicitement une croissance BPA superieure "
                     f"de {abs(_pct_impl):.0f}% au scénario central — tout ralentissement "
-                    f"{_miss_conséquence}. "
+                    f"{_miss_consequence}. "
                 )
             else:
                 _impl_txt = ""

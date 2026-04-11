@@ -1612,16 +1612,16 @@ def _build_valorisation(scatter_buf, donut_buf, tickers_data: list[dict],
     # Paragraphe analytique post-multiples
     valid_ev = [t.get('ev_ebitda') for t in tickers_data if t.get('ev_ebitda') and float(t['ev_ebitda']) > 0]
     med_ev2 = float(np.median([float(v) for v in valid_ev])) if valid_ev else 0
-    décotes = [t for t in tickers_data if t.get('ev_ebitda') and float(t.get('ev_ebitda', 0)) > 0
+    decotes = [t for t in tickers_data if t.get('ev_ebitda') and float(t.get('ev_ebitda', 0)) > 0
                and float(t['ev_ebitda']) < med_ev2 * 0.85]
     primes  = [t for t in tickers_data if t.get('ev_ebitda') and float(t.get('ev_ebitda', 0)) > 0
                and float(t['ev_ebitda']) > med_ev2 * 1.15]
-    décote_names = ", ".join(t.get('ticker', '') for t in décotes[:3]) if décotes else "aucun acteur"
+    decote_names = ", ".join(t.get('ticker', '') for t in decotes[:3]) if decotes else "aucun acteur"
     prime_names  = ", ".join(t.get('ticker', '') for t in primes[:3]) if primes else "aucun acteur"
     elems.append(Paragraph(
         f"<b>Lecture de la grille de valorisation.</b> La médiane EV/EBITDA sectorielle "
         f"s'établit a <b>{med_ev2:.1f}x</b> LTM. Les acteurs traites en décote significative "
-        f"(<85% de la médiane) — <b>{décote_names}</b> — offrent potentiellement les meilleures "
+        f"(<85% de la médiane) — <b>{decote_names}</b> — offrent potentiellement les meilleures "
         f"asymetries risque/rendement, sous reserve de catalyseurs fondamentaux. "
         f"A l'inverse, les acteurs en prime marquee (>115% de la médiane) — <b>{prime_names}</b> — "
         f"exigent une croissance visible et une qualité de bilan supérieure pour justifier "

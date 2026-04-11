@@ -754,8 +754,8 @@ def _build_synthese(data, perf_buf, registry=None):
         }
         _regime_lbl = _regime_labels.get(_regime, _regime.lower())
         elems.append(Paragraph(
-            f"<b>Régime de Marché : {_régime}.</b> L'environnement macro est actuellement "
-            f"{_régime_lbl}, avec un VIX a {_vix_str}, un spread 10Y-3M de {_spread_str} "
+            f"<b>Régime de Marché : {_regime}.</b> L'environnement macro est actuellement "
+            f"{_regime_lbl}, avec un VIX a {_vix_str}, un spread 10Y-3M de {_spread_str} "
             f"et le S&P 500 a {_sp_ma_str} de sa moyenne mobile 200 jours. "
             f"La tendance de fond reste {_sp_trend.lower()}.", S_BODY))
         elems.append(Spacer(1, 2*mm))
@@ -1388,7 +1388,7 @@ def _build_top3(data, donut_buf, registry=None):
 
     _surp_list = [s for s in data["secteurs"] if s[3] in ("Surpondérer", "Surpond\xe9rer")]
     nb_surp_reel = len(_surp_list)
-    _surp_label = (f"{nb_surp_réel} secteur(s) affichent un signal <b>Surpond\u00e9rer</b>"
+    _surp_label = (f"{nb_surp_reel} secteur(s) affichent un signal <b>Surpond\u00e9rer</b>"
                    if nb_surp_reel > 0
                    else "aucun secteur ne franchit le seuil Surpond\u00e9rer")
     _n_comp = len(data["top3_secteurs"]) - nb_surp_reel
@@ -1402,7 +1402,7 @@ def _build_top3(data, donut_buf, registry=None):
     _nb_s_tot = data['nb_secteurs']
     _s_tot_lbl = "secteur couvert" if _nb_s_tot == 1 else "secteurs couverts"
     elems.append(Paragraph(
-        f"Sur {_nb_s_tot} {_s_tot_lbl}, {_surp_label}.{_complément} "
+        f"Sur {_nb_s_tot} {_s_tot_lbl}, {_surp_label}.{_complement} "
         "Ces secteurs combinent momentum prix positif, révision haussière des BPA et "
         "valorisation raisonnable par rapport \u00e0 leur historique. "
         "Pour le d\u00e9tail complet — ratios LTM/NTM, Football Field, DCF, FinBERT — "
@@ -1410,7 +1410,7 @@ def _build_top3(data, donut_buf, registry=None):
     elems.append(Spacer(1, 4*mm))
 
     # Tableau Synthèse
-    _titre_synth = ("Vue d'ensemble — Secteurs Surpond\u00e9rer" if nb_surp_réel > 0
+    _titre_synth = ("Vue d'ensemble — Secteurs Surpond\u00e9rer" if nb_surp_reel > 0
                     else "Vue d'ensemble — Meilleurs secteurs de l'univers")
     elems.append(Paragraph(_titre_synth, S_SUBSECTION))
     synth_h = [Paragraph(h, S_TH_C) for h in

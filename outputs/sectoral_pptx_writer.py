@@ -1331,7 +1331,7 @@ def _s07_cycle(prs, D):
         _AMBER_C = RGBColor(0xE6, 0x7E, 0x22)
         _REGIME_C = {"Bull": _BUY, "Bear": _SELL, "Volatile": _AMBER_C, "Transition": _AMBER_C}
         _rc = _REGIME_C.get(_regime, _NAVY)
-        regime_line = f"Régime : {_régime}"
+        regime_line = f"Régime : {_regime}"
         rec_line = f"Rec. 6M : {_rec_6m}%  ({_rec_lvl})" if _rec_6m is not None else ""
         _rect(slide, 16.9, 11.2, 7.3, 0.05, fill=_GRAYD)
         _txb(slide, "CONTEXTE MACRO", 16.6, 11.35, 7.9, 0.5, size=7, bold=True, color=_GRAYD, align=PP_ALIGN.CENTER)
@@ -1616,8 +1616,8 @@ def _s14_distribution(prs, D):
     td = D["sorted_td"]
     ev_vals = [float(t.get("ev_ebitda", 0)) for t in td if t.get("ev_ebitda")]
     premium_actors = [t for t in td if t.get("ev_ebitda") and float(t["ev_ebitda"]) > ev_med * 1.15]
-    décote_actors  = [t for t in td if t.get("ev_ebitda") and float(t["ev_ebitda"]) < ev_med * 0.85]
-    n_sous = len(décote_actors)
+    decote_actors  = [t for t in td if t.get("ev_ebitda") and float(t["ev_ebitda"]) < ev_med * 0.85]
+    n_sous = len(decote_actors)
     n_sur  = len(premium_actors)
 
     analysis = (

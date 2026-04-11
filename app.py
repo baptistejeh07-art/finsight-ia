@@ -2514,7 +2514,7 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
 
     if _desc_specifique:
         texte_description = (
-            f"{_desc_spécifique}\n\n"
+            f"{_desc_specifique}\n\n"
             f"Analyse FinSight ({today_str}) — {len(tickers_data)} sociétés, "
             f"{len(secteurs_list)} secteurs GICS.\n"
             f"Signal global : {signal_global} — Conviction {conviction}%.\n"
@@ -2537,7 +2537,7 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
         "correcte — prime de risque adequate pour le niveau de taux actuel"
     )
     texte_valorisation = (
-        f"Le {display_name} traite a {pe_str} de P/E Forward, soit {_prime_décote_str} "
+        f"Le {display_name} traite a {pe_str} de P/E Forward, soit {_prime_decote_str} "
         f"vs la médiane historique 10 ans ({_pe_med_str}x). "
         f"L'ERP (Damodaran) s'établit à {erp_pct}, signalant une valorisation {_erp_commentary}. "
         f"Score composite {int(avg_score)}/100 — signal {signal_global} (conviction {conviction}%)."
