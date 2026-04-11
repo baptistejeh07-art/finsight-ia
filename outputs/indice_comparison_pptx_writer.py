@@ -117,6 +117,17 @@ def _fr_num(v, dp=1) -> str:
         return "\u2014"
 
 
+def _fr_x(v, dp=1) -> str:
+    """Comme _fr_num mais ajoute le suffixe 'x' pour les multiples.
+    Retourne '—' (sans x) si la valeur est manquante."""
+    if v is None:
+        return "\u2014"
+    try:
+        return f"{float(v):.{dp}f}".replace(".", ",") + "x"
+    except Exception:
+        return "\u2014"
+
+
 def _fr_date() -> str:
     import datetime
     d = datetime.date.today()
@@ -326,7 +337,9 @@ def _header(slide, title, subtitle="", section_active=0):
     _rect(slide, 0, 0, 25.4, 1.65, _NAVY)
     _txb(slide, title, 1.02, 0.28, 18.0, 0.97, 13, True, _WHITE)
     if subtitle:
-        _txb(slide, subtitle, 1.02, 1.73, 23.37, 0.5, 9, False, _NAVY_MID, italic=True)
+        # Subtitle juste sous la navy bar avec 5mm de marge (evite chevauchement
+        # avec les bandeaux d'identification placés a partir de y=2.10)
+        _txb(slide, subtitle, 1.02, 1.68, 23.37, 0.40, 9, False, _NAVY_MID, italic=True)
     # Dots section navigation 1-4
     if section_active:
         for i in range(1, 5):
@@ -523,7 +536,7 @@ def _slide_02_exec_summary(prs, d: dict):
     _txb(slide, f"{name_a}  —  {sig_a}", 1.30, 2.20, 10.6, 0.40,
          10, True, _sig_c(sig_a))
     _txb(slide,
-         f"Score {sc_a}/100  |  P/E Fwd {_fr_num(d.get('pe_fwd_a'), 1)}x  |  "
+         f"Score {sc_a}/100  |  P/E Fwd {_fr_x(d.get('pe_fwd_a'), 1)}  |  "
          f"Vol {_fr_num(d.get('vol_1y_a'))} %  |  Sharpe {_fr_num(d.get('sharpe_1y_a'), 2)}",
          1.30, 2.62, 10.6, 0.45, 8, False, _NAVY)
 
@@ -533,15 +546,23 @@ def _slide_02_exec_summary(prs, d: dict):
     _txb(slide, f"{name_b}  —  {sig_b}", 13.50, 2.20, 10.6, 0.40,
          10, True, _sig_c(sig_b))
     _txb(slide,
-         f"Score {sc_b}/100  |  P/E Fwd {_fr_num(d.get('pe_fwd_b'), 1)}x  |  "
+         f"Score {sc_b}/100  |  P/E Fwd {_fr_x(d.get('pe_fwd_b'), 1)}  |  "
          f"Vol {_fr_num(d.get('vol_1y_b'))} %  |  Sharpe {_fr_num(d.get('sharpe_1y_b'), 2)}",
          13.50, 2.62, 10.6, 0.45, 8, False, _BUY)
 
     # Tableau comparatif des métriques clés
+    def _winner_eq(va, vb, name_a, name_b, higher=True):
+        """Retourne le gagnant ou '—' si scores egaux."""
+        if va is None or vb is None or va == vb:
+            return "\u2014"
+        if higher:
+            return name_a if va > vb else name_b
+        return name_a if va < vb else name_b
+
     rows = [
         ["Indicateur", name_a[:18], name_b[:18], "Avantage"],
         ["Score FinSight", f"{sc_a}/100", f"{sc_b}/100",
-         name_a if sc_a >= sc_b else name_b],
+         _winner_eq(sc_a, sc_b, name_a, name_b, higher=True)],
         ["Performance YTD",
          _fr_pct_signed(d.get("perf_ytd_a")),
          _fr_pct_signed(d.get("perf_ytd_b")),
@@ -567,12 +588,12 @@ def _slide_02_exec_summary(prs, d: dict):
          _fr_pct_signed(d.get("max_dd_b")),
          _favorise_higher(d.get("max_dd_a"), d.get("max_dd_b"), name_a, name_b)],
         ["P/E Forward",
-         _fr_num(d.get("pe_fwd_a"), 1) + "x",
-         _fr_num(d.get("pe_fwd_b"), 1) + "x",
+         _fr_x(d.get("pe_fwd_a"), 1),
+         _fr_x(d.get("pe_fwd_b"), 1),
          _favorise_lower(d.get("pe_fwd_a"), d.get("pe_fwd_b"), name_a, name_b)],
         ["P/B (Book Value)",
-         _fr_num(d.get("pb_a"), 1) + "x",
-         _fr_num(d.get("pb_b"), 1) + "x",
+         _fr_x(d.get("pb_a"), 1),
+         _fr_x(d.get("pb_b"), 1),
          _favorise_lower(d.get("pb_a"), d.get("pb_b"), name_a, name_b)],
         ["Rendement dividende",
          _fr_pct(d.get("div_yield_a")) if d.get("div_yield_a") else "\u2014",
@@ -668,7 +689,7 @@ def _slide_profil(prs, d: dict, which: str):
     kpis = [
         (f"{sc}/100", "Score FinSight", sig),
         (_fr_pct_signed(p1y), "Performance 1 an", "vs 5 ans"),
-        (_fr_num(pe, 1) + "x", "P/E Forward", "mediane des constituants"),
+        (_fr_x(pe, 1), "P/E Forward", "mediane des constituants"),
         (_fr_pct(dy) if dy else "\u2014", "Rendement dividende", "mediane pondérée"),
     ]
     xs = [1.02, 6.92, 12.81, 18.70]
@@ -980,7 +1001,7 @@ def _slide_10_perf_chart(prs, d: dict):
             f"ces dynamiques croisées et leur exposition différenciée."
         )
     _llm_box(slide, 17.85, 7.85, 6.55, 2.75,
-             "Contexte macro 12 mois — taux, FX, rotation sectorielle", perf_macro, fontsize=8.5)
+             "Contexte macro 12 mois", perf_macro, fontsize=8.5)
 
     # Bande footer LLM lecture analytique
     perf_lecture = d.get("llm", {}).get("perf_chart_read", "")
@@ -1186,10 +1207,15 @@ def _slide_12_risque(prs, d: dict):
             f"décevant. Le Max Drawdown capture le pire scénario réalisé sur la période et "
             f"informe sur la résilience en phase de stress."
         )
-    _vol_a = d.get("vol_1y_a") or 0
-    _vol_b = d.get("vol_1y_b") or 0
-    _safer = name_a if _vol_a < _vol_b else name_b
-    _risk_title = f"{_safer} moins volatil ({min(_vol_a, _vol_b):.1f}%) — meilleur couple rendement/risque"
+    # JPM title : choisi sur Sharpe (proxy correct du couple rendement/risque)
+    _sh_a = d.get("sharpe_1y_a")
+    _sh_b = d.get("sharpe_1y_b")
+    if _sh_a is not None and _sh_b is not None and _sh_a != _sh_b:
+        _better = name_a if _sh_a > _sh_b else name_b
+        _better_sh = max(_sh_a, _sh_b)
+        _risk_title = f"{_better} — Sharpe {_better_sh:.2f} : meilleur couple rendement/risque"
+    else:
+        _risk_title = f"{name_a} vs {name_b} — profil risque comparé"
     _llm_box(slide, 1.02, 10.50, 23.37, 2.80,
              _risk_title, risque_read, fontsize=9)
 
@@ -1310,11 +1336,11 @@ def _slide_15_valorisation(prs, d: dict):
     rows = [
         ["Indicateur", name_a[:18], name_b[:18], "Écart", "Avantage"],
         ["P/E Forward",
-         _fr_num(pe_a, 1) + "x", _fr_num(pe_b, 1) + "x",
+         _fr_x(pe_a, 1), _fr_x(pe_b, 1),
          _ecart_mult(pe_a, pe_b),
          _favorise_lower(pe_a, pe_b, name_a, name_b)],
         ["P/B (Book Value)",
-         _fr_num(pb_a, 1) + "x", _fr_num(pb_b, 1) + "x",
+         _fr_x(pb_a, 1), _fr_x(pb_b, 1),
          _ecart_mult(pb_a, pb_b),
          _favorise_lower(pb_a, pb_b, name_a, name_b)],
         ["Rendement dividende",
@@ -1381,10 +1407,13 @@ def _slide_15_valorisation(prs, d: dict):
             f"distribution agrégée. À comparer aux moyennes historiques 5-10 ans pour identifier "
             f"les anomalies de mean reversion."
         )
-    _pe_a = d.get("pe_fwd_a") or 0
-    _pe_b = d.get("pe_fwd_b") or 0
-    _cheap = name_a if _pe_a < _pe_b else name_b
-    _val_title = f"{_cheap} décoté ({min(_pe_a, _pe_b):.1f}x P/E fwd) — opportunité de re-rating"
+    _pe_a = d.get("pe_fwd_a")
+    _pe_b = d.get("pe_fwd_b")
+    if _pe_a is not None and _pe_b is not None and _pe_a != _pe_b:
+        _cheap = name_a if _pe_a < _pe_b else name_b
+        _val_title = f"{_cheap} décoté ({min(_pe_a, _pe_b):.1f}x P/E fwd)"
+    else:
+        _val_title = f"{name_a} vs {name_b} — valorisation comparée"
     _llm_box(slide, 16.0, 3.10, 8.40, 10.20,
              _val_title, val_read, fontsize=9)
 

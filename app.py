@@ -3231,6 +3231,69 @@ def _fetch_indice_cmp_data(universe_a: str, indice_data_a: dict,
     except Exception:
         pass
 
+    # ── Score composite proxy pour indice B (depuis perf 1Y, Sharpe, vol) ─────
+    # Algo simple : 25pts perf + 25pts Sharpe + 25pts (faible vol = bon) + 25pts perf3Y
+    def _score_proxy(perf_1y, sharpe_1y, vol_1y, perf_3y):
+        sc = 50  # baseline neutre
+        try:
+            if perf_1y is not None:
+                # +1pt par % de perf au-dessus de 0, plafonne a +25
+                sc += max(-15, min(25, float(perf_1y) * 100 * 1.0))
+            if sharpe_1y is not None:
+                # Sharpe 1.0 = +10pts, 2.0 = +20pts
+                sc += max(-10, min(15, float(sharpe_1y) * 10))
+            if vol_1y is not None:
+                # Vol 15% = neutre, 20%+ = malus, 10%- = bonus
+                sc -= max(-5, min(10, (float(vol_1y) - 15) * 0.5))
+            if perf_3y is not None:
+                sc += max(-5, min(5, float(perf_3y) * 100 * 0.1))
+        except Exception:
+            pass
+        return int(max(0, min(100, sc)))
+
+    score_b_proxy = _score_proxy(perf_1y_b, sharpe_1y_b, vol_1y_b, perf_3y_b)
+    # Recalcule signal_b depuis le score
+    if score_b_proxy >= 65:
+        signal_b_proxy = "Surpondérer"
+    elif score_b_proxy >= 45:
+        signal_b_proxy = "Neutre"
+    else:
+        signal_b_proxy = "Sous-pondérer"
+
+    # ── Fallbacks valorisation pour les indices majeurs (yfinance .info est
+    # souvent vide pour les symboles d'indices comme ^GSPC, ^FCHI, etc.) ──────
+    _PE_FALLBACK = {
+        "SP500": 21.5, "SPX": 21.5, "S&P500": 21.5,
+        "CAC40": 14.0, "DAX40": 13.5, "FTSE100": 12.0,
+        "STOXX50": 13.5, "EUROSTOXX50": 13.5,
+        "NASDAQ100": 28.0, "DOWJONES": 18.0, "NIKKEI225": 17.5,
+    }
+    _PB_FALLBACK = {
+        "SP500": 4.5, "SPX": 4.5, "S&P500": 4.5,
+        "CAC40": 1.8, "DAX40": 1.6, "FTSE100": 1.7,
+        "STOXX50": 1.9, "EUROSTOXX50": 1.9,
+        "NASDAQ100": 6.5, "DOWJONES": 5.0, "NIKKEI225": 1.5,
+    }
+    _DY_FALLBACK = {
+        "SP500": 0.014, "SPX": 0.014, "S&P500": 0.014,
+        "CAC40": 0.032, "DAX40": 0.028, "FTSE100": 0.038,
+        "STOXX50": 0.030, "EUROSTOXX50": 0.030,
+        "NASDAQ100": 0.008, "DOWJONES": 0.020, "NIKKEI225": 0.020,
+    }
+    if pe_fwd_b is None:
+        pe_fwd_b = _PE_FALLBACK.get(universe_key_b)
+    if pb_b is None:
+        pb_b = _PB_FALLBACK.get(universe_key_b)
+    if div_yield_b is None:
+        div_yield_b = _DY_FALLBACK.get(universe_key_b)
+    # Idem pour A si yfinance n'a rien sorti des constituants
+    if pe_fwd_a is None:
+        pe_fwd_a = _PE_FALLBACK.get(universe_a)
+    if pb_a is None:
+        pb_a = _PB_FALLBACK.get(universe_a)
+    if div_yield_a is None:
+        div_yield_a = _DY_FALLBACK.get(universe_a)
+
     return {
         "name_a":       name_a,
         "name_b":       name_b,
@@ -3257,9 +3320,9 @@ def _fetch_indice_cmp_data(universe_a: str, indice_data_a: dict,
         "erp_a":        erp_a_str,   "erp_b":        erp_b_str,
         # Score
         "score_a":      indice_data_a.get("score_global", 50),
-        "score_b":      50,
+        "score_b":      score_b_proxy,
         "signal_a":     indice_data_a.get("signal_global", "Neutre"),
-        "signal_b":     "Neutre",
+        "signal_b":     signal_b_proxy,
         # Composition
         "sector_comparison": sector_comparison,
         "top5_a":       top5_a,
