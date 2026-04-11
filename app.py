@@ -4337,6 +4337,34 @@ def _render_glossaire(key_suffix: str = "main") -> None:
 <div class="gls-row"><span class="gls-term">Recommandation</span><span class="gls-def">ACHETER / CONSERVER / VENDRE. Synthèse de l'ensemble des analyses quantitatives et qualitatives. Ne constitue pas un conseil en investissement.</span></div>
 </div>
 
+<div class="gls-card">
+<div class="gls-cat">LBO & Private Equity</div>
+<div class="gls-row"><span class="gls-term">LBO</span><span class="gls-def">Leveraged Buyout — rachat d'une société financé majoritairement par dette (60-80%) et minoritairement par les fonds propres d'un sponsor PE.</span></div>
+<div class="gls-row"><span class="gls-term">Multiple d'entrée</span><span class="gls-def">EV/EBITDA payé pour acquérir la cible. Détermine le prix d'achat et le levier maximal soutenable. Plus bas = meilleur rendement potentiel.</span></div>
+<div class="gls-row"><span class="gls-term">TLB (Term Loan B)</span><span class="gls-def">Dette senior amortissable (1%/an typique) avec cash sweep. Coût ~7-9%, structure prioritaire au remboursement.</span></div>
+<div class="gls-row"><span class="gls-term">Mezzanine / PIK</span><span class="gls-def">Dette subordonnée à intérêts capitalisés (Payment-In-Kind). Coût ~10-12%, ne consomme pas de cash mais grossit le solde dû chaque année.</span></div>
+<div class="gls-row"><span class="gls-term">IRR Sponsor</span><span class="gls-def">Taux de rendement interne pour l'investisseur PE sur les fonds propres engagés. Cible institutionnelle : 20%+ pour un fonds tier-1.</span></div>
+<div class="gls-row"><span class="gls-term">MOIC</span><span class="gls-def">Multiple on Invested Capital. Multiple cash sur le capital investi (equity exit / equity entry). 2x = doublement, 3x+ = excellent.</span></div>
+<div class="gls-row"><span class="gls-term">ICR</span><span class="gls-def">Interest Coverage Ratio. EBITDA / Charges d'intérêts. Mesure la capacité à servir la dette. Covenant typique : ICR ≥ 2,0x.</span></div>
+<div class="gls-row"><span class="gls-term">Cash Sweep</span><span class="gls-def">Mécanisme imposant que tout FCF excédentaire serve à rembourser la dette par anticipation. Réduit le levier et libère de la valeur pour l'equity.</span></div>
+<div class="gls-row"><span class="gls-term">Sources & Uses</span><span class="gls-def">Tableau d'équilibre du financement : à gauche les sources (TLB + Mezz + Equity sponsor), à droite les usages (EV deal + frais transaction + cash circulant).</span></div>
+<div class="gls-row"><span class="gls-term">Covenant</span><span class="gls-def">Clause contractuelle imposant des seuils financiers (levier max, ICR min). Step-down typique : levier max décroissant 6,5x → 4,5x sur 5 ans.</span></div>
+<div class="gls-row"><span class="gls-term">Equity Bridge</span><span class="gls-def">Décomposition de la création de valeur entre entrée et sortie : EBITDA growth + multiple expansion + désendettement (debt paydown).</span></div>
+</div>
+
+<div class="gls-card">
+<div class="gls-cat">Allocation & Macro</div>
+<div class="gls-row"><span class="gls-term">Surpondérer</span><span class="gls-def">Recommandation d'allocation : poids supérieur au benchmark (score FinSight ≥ 65). Conviction haussière forte sur 6-12 mois.</span></div>
+<div class="gls-row"><span class="gls-term">Neutre</span><span class="gls-def">Poids égal au benchmark (score 45-64). Pas de conviction directionnelle marquée — exposition standard.</span></div>
+<div class="gls-row"><span class="gls-term">Sous-pondérer</span><span class="gls-def">Poids inférieur au benchmark (score &lt; 45). Conviction baissière ou risque structurel identifié.</span></div>
+<div class="gls-row"><span class="gls-term">Spread FinSight</span><span class="gls-def">Écart de scores entre deux entités comparées (sociétés / secteurs / indices). &gt;30 pts = bifurcation marquée, &lt;15 pts = convergence.</span></div>
+<div class="gls-row"><span class="gls-term">Régime macro</span><span class="gls-def">Phase de cycle économique (expansion / ralentissement / récession / reprise). Détermine les secteurs/indices favorisés selon la sensibilité aux taux et à la croissance.</span></div>
+<div class="gls-row"><span class="gls-term">Allocation optimale</span><span class="gls-def">Pondération obtenue par optimisation de portefeuille (Markowitz) maximisant Sharpe ou minimisant volatilité sous contraintes de poids min/max.</span></div>
+<div class="gls-row"><span class="gls-term">Dispersion sectorielle</span><span class="gls-def">Écart-type des scores entre secteurs d'un indice. Une dispersion élevée crée des opportunités d'allocation tactique.</span></div>
+<div class="gls-row"><span class="gls-term">Mean reversion</span><span class="gls-def">Hypothèse de retour à la moyenne historique d'un multiple ou d'un ratio. Base des stratégies value/contrarian.</span></div>
+<div class="gls-row"><span class="gls-term">Re-rating</span><span class="gls-def">Variation du multiple (P/E, EV/EBITDA) qu'un investisseur est prêt à payer. Re-rating positif = expansion du multiple, re-rating négatif = compression.</span></div>
+</div>
+
 </div>
         """, unsafe_allow_html=True)
 
