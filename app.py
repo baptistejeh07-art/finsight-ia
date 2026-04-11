@@ -3783,6 +3783,9 @@ def render_screening_results(results: dict) -> None:
                 st.session_state.stage            = "running"
                 st.rerun()
 
+    # --- Glossaire termes financiers ---
+    _render_glossaire("screening")
+
     # --- Footer ---
     st.markdown(
         f'<div class="page-footer">'
@@ -4249,6 +4252,95 @@ def _render_comparison_section(state_a: dict) -> None:
         st.rerun()
 
 
+def _render_glossaire(key_suffix: str = "main") -> None:
+    """Glossaire des termes financiers — toggle manuel.
+
+    key_suffix : suffixe pour les session_state keys (evite les collisions
+    quand plusieurs pages utilisent le glossaire).
+    """
+    st.markdown('<div class="sec-t">Glossaire des termes financiers</div>', unsafe_allow_html=True)
+    _state_key = f"glossaire_open_{key_suffix}"
+    _btn_key = f"btn_glossaire_toggle_{key_suffix}"
+    if _state_key not in st.session_state:
+        st.session_state[_state_key] = False
+    _gl_label = "Comprendre les indicateurs ▲" if st.session_state[_state_key] else "Comprendre les indicateurs ▼"
+    if st.button(_gl_label, key=_btn_key, use_container_width=True):
+        st.session_state[_state_key] = not st.session_state[_state_key]
+        st.rerun()
+    if st.session_state[_state_key]:
+        st.markdown("""
+<style>
+.gls-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px;margin:16px 0 24px 0;}
+.gls-card{background:#f8f9fb;border:1px solid #e2e6ea;border-radius:8px;padding:14px 16px;}
+.gls-cat{font-size:11px;font-weight:700;letter-spacing:.08em;color:#6c757d;text-transform:uppercase;margin-bottom:8px;}
+.gls-row{display:flex;gap:8px;margin-bottom:6px;align-items:flex-start;}
+.gls-term{font-size:12px;font-weight:700;color:#1B3A6B;min-width:110px;padding-top:1px;}
+.gls-def{font-size:12px;color:#333;line-height:1.45;}
+</style>
+<div class="gls-grid">
+
+<div class="gls-card">
+<div class="gls-cat">Valorisation</div>
+<div class="gls-row"><span class="gls-term">PER (P/E)</span><span class="gls-def">Prix / Bénéfice par action. Indique combien le marché paie pour 1 € de bénéfice. Un PER élevé reflète des attentes de croissance.</span></div>
+<div class="gls-row"><span class="gls-term">EV/EBITDA</span><span class="gls-def">Valeur d'entreprise / EBITDA. Multiple de valorisation indépendant de la structure de capital et fiscalité.</span></div>
+<div class="gls-row"><span class="gls-term">P/B (Price-to-Book)</span><span class="gls-def">Prix / Valeur comptable. Rapport entre capitalisation et actif net comptable. &lt;1 = potentiellement sous-évalué.</span></div>
+<div class="gls-row"><span class="gls-term">FCF Yield</span><span class="gls-def">Free Cash Flow / Market Cap. Rendement du cash genere après investissements. Plus élevé = meilleur.</span></div>
+<div class="gls-row"><span class="gls-term">P/FCF</span><span class="gls-def">Prix / Free Cash Flow par action. Alternative au PER basée sur les flux réels plutôt que le bénéfice comptable.</span></div>
+<div class="gls-row"><span class="gls-term">PEG</span><span class="gls-def">PER / Taux de croissance des bénéfices. PEG &lt;1 suggère une valorisation attractive relativement à la croissance.</span></div>
+<div class="gls-row"><span class="gls-term">DCF</span><span class="gls-def">Discounted Cash Flow. Valorisation par actualisation des flux futurs estimés au taux WACC. Dépend fortement des hypothèses de croissance.</span></div>
+</div>
+
+<div class="gls-card">
+<div class="gls-cat">Profitabilité</div>
+<div class="gls-row"><span class="gls-term">EBITDA Margin</span><span class="gls-def">EBITDA / CA. Marge opérationnelle avant amortissements, intérêts et impôts. Reflet de la rentabilité brute d'exploitation.</span></div>
+<div class="gls-row"><span class="gls-term">EBIT Margin</span><span class="gls-def">EBIT / CA. Marge opérationnelle après amortissements. Reflète l'efficacité opérationnelle réelle.</span></div>
+<div class="gls-row"><span class="gls-term">Net Margin</span><span class="gls-def">Résultat net / CA. Part du chiffre d'affaires restant après toutes charges. Dépend aussi de l'effet de levier et de la fiscalité.</span></div>
+<div class="gls-row"><span class="gls-term">ROIC</span><span class="gls-def">Return on Invested Capital. NOPAT / Capital investi. Mesure la capacité à créer de la valeur sur les capitaux déployés. ROIC &gt; WACC = création de valeur.</span></div>
+<div class="gls-row"><span class="gls-term">ROE</span><span class="gls-def">Return on Equity. Résultat net / Fonds propres. Rentabilité pour l'actionnaire. Peut être gonflé par l'endettement.</span></div>
+<div class="gls-row"><span class="gls-term">CAGR CA 3 ans</span><span class="gls-def">Compound Annual Growth Rate du chiffre d'affaires sur 3 ans. Taux de croissance annualisé.</span></div>
+</div>
+
+<div class="gls-card">
+<div class="gls-cat">Structure financière & Levier</div>
+<div class="gls-row"><span class="gls-term">ND/EBITDA</span><span class="gls-def">Dette nette / EBITDA. Nb d'années d'EBITDA pour rembourser la dette nette. &lt;2x = faible levier, &gt;4x = levier élevé.</span></div>
+<div class="gls-row"><span class="gls-term">Interest Coverage</span><span class="gls-def">EBIT / Frais financiers. Capacité à couvrir les intérêts. &lt;1,5x = zone de risque.</span></div>
+<div class="gls-row"><span class="gls-term">Current Ratio</span><span class="gls-def">Actifs courants / Passifs courants. Liquidité à court terme. &gt;1 = couverture des dettes court terme.</span></div>
+<div class="gls-row"><span class="gls-term">Quick Ratio</span><span class="gls-def">Actifs liquides (sans stocks) / Passifs courants. Version stricte du current ratio.</span></div>
+<div class="gls-row"><span class="gls-term">WACC</span><span class="gls-def">Weighted Average Cost of Capital. Coût moyen pondéré du capital (dette + fonds propres). Taux d'actualisation du DCF.</span></div>
+<div class="gls-row"><span class="gls-term">Free Cash Flow</span><span class="gls-def">Cash opérationnel - Capex. Flux de trésorerie disponible après investissements. Base de la valeur intrinsèque.</span></div>
+</div>
+
+<div class="gls-card">
+<div class="gls-cat">Qualité comptable</div>
+<div class="gls-row"><span class="gls-term">Piotroski F-Score</span><span class="gls-def">Score 0-9 sur 9 critères (rentabilité, liquidité, levier, efficacité). &gt;6 = bonne santé financière, &lt;3 = signaux négatifs.</span></div>
+<div class="gls-row"><span class="gls-term">Beneish M-Score</span><span class="gls-def">Modèle de détection de manipulation comptable. &gt;-1,78 = risque potentiel de fraude aux résultats.</span></div>
+<div class="gls-row"><span class="gls-term">Altman Z-Score</span><span class="gls-def">Score de risque de faillite. &gt;2,99 = zone sûre, 1,81-2,99 = zone grise, &lt;1,81 = zone de détresse.</span></div>
+<div class="gls-row"><span class="gls-term">Sloan Accruals</span><span class="gls-def">Mesure la part du résultat comptable non soutenue par le cash (accruals). Un ratio élevé suggère des bénéfices de moindre qualité.</span></div>
+<div class="gls-row"><span class="gls-term">Cash Conversion</span><span class="gls-def">FCF / Résultat net. Qualité de conversion des bénéfices comptables en cash. Idéalement &gt;0,8.</span></div>
+</div>
+
+<div class="gls-card">
+<div class="gls-cat">Risque & Marché</div>
+<div class="gls-row"><span class="gls-term">Bêta</span><span class="gls-def">Sensibilité du titre aux mouvements du marché. Bêta=1 = même volatilité que le marché. &gt;1 = plus volatil (amplificateur), &lt;1 = plus défensif.</span></div>
+<div class="gls-row"><span class="gls-term">VaR 95% 1M</span><span class="gls-def">Value at Risk mensuelle à 95%. Perte maximale attendue dans 95% des cas sur un mois. Ex: -8% signifie que dans 5% des mois, la perte dépasse 8%.</span></div>
+<div class="gls-row"><span class="gls-term">Volatilité 52S</span><span class="gls-def">Écart-type annualisé des rendements journaliers sur 52 semaines. Mesure l'amplitude des fluctuations du cours.</span></div>
+<div class="gls-row"><span class="gls-term">52W High / Low</span><span class="gls-def">Plus haut / plus bas du cours sur les 52 dernières semaines. Repères techniques de la fourchette de trading récente.</span></div>
+<div class="gls-row"><span class="gls-term">ERP</span><span class="gls-def">Equity Risk Premium. Prime de risque des actions vs taux sans risque. Pilote le coût des fonds propres dans le WACC.</span></div>
+</div>
+
+<div class="gls-card">
+<div class="gls-cat">Scores FinSight</div>
+<div class="gls-row"><span class="gls-term">Score FinSight</span><span class="gls-def">Score composite 0-100 : Valeur (25pts) + Croissance (25pts) + Qualité (25pts) + Momentum (25pts). Agrège les signaux quantitatifs en un seul chiffre.</span></div>
+<div class="gls-row"><span class="gls-term">Score Momentum</span><span class="gls-def">Score 0-100 basé sur la performance boursière 3 mois. Capture la dynamique court terme du titre.</span></div>
+<div class="gls-row"><span class="gls-term">Conviction IA</span><span class="gls-def">Niveau de certitude de l'agent de synthèse dans sa recommandation (0-100%). Basé sur la cohérence des signaux et la qualité des données.</span></div>
+<div class="gls-row"><span class="gls-term">Delta conviction</span><span class="gls-def">Variation de conviction après passage de l'agent Devil's Advocate. Un delta négatif signifie que les arguments baissiers ont affaibli la thèse initiale.</span></div>
+<div class="gls-row"><span class="gls-term">Recommandation</span><span class="gls-def">ACHETER / CONSERVER / VENDRE. Synthèse de l'ensemble des analyses quantitatives et qualitatives. Ne constitue pas un conseil en investissement.</span></div>
+</div>
+
+</div>
+        """, unsafe_allow_html=True)
+
+
 def render_results(results: dict) -> None:
     # Back to screening button
     if st.session_state.get("from_screening") and st.session_state.get("screening_results"):
@@ -4560,88 +4652,9 @@ def render_results(results: dict) -> None:
     _render_comparison_section(results)
 
     # ------------------------------------------------------------------
-    # Glossaire termes financiers — toggle manuel
+    # Glossaire termes financiers — helper partage
     # ------------------------------------------------------------------
-    st.markdown('<div class="sec-t">Glossaire des termes financiers</div>', unsafe_allow_html=True)
-
-    if "glossaire_open" not in st.session_state:
-        st.session_state["glossaire_open"] = False
-    _gl_label = "Comprendre les indicateurs ▲" if st.session_state["glossaire_open"] else "Comprendre les indicateurs ▼"
-    if st.button(_gl_label, key="btn_glossaire_toggle", use_container_width=True):
-        st.session_state["glossaire_open"] = not st.session_state["glossaire_open"]
-        st.rerun()
-    if st.session_state["glossaire_open"]:
-        st.markdown("""
-<style>
-.gls-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px;margin:16px 0 24px 0;}
-.gls-card{background:#f8f9fb;border:1px solid #e2e6ea;border-radius:8px;padding:14px 16px;}
-.gls-cat{font-size:11px;font-weight:700;letter-spacing:.08em;color:#6c757d;text-transform:uppercase;margin-bottom:8px;}
-.gls-row{display:flex;gap:8px;margin-bottom:6px;align-items:flex-start;}
-.gls-term{font-size:12px;font-weight:700;color:#1B3A6B;min-width:110px;padding-top:1px;}
-.gls-def{font-size:12px;color:#333;line-height:1.45;}
-</style>
-<div class="gls-grid">
-
-<div class="gls-card">
-<div class="gls-cat">Valorisation</div>
-<div class="gls-row"><span class="gls-term">PER (P/E)</span><span class="gls-def">Prix / Bénéfice par action. Indique combien le marché paie pour 1 € de bénéfice. Un PER élevé reflète des attentes de croissance.</span></div>
-<div class="gls-row"><span class="gls-term">EV/EBITDA</span><span class="gls-def">Valeur d'entreprise / EBITDA. Multiple de valorisation indépendant de la structure de capital et fiscalité.</span></div>
-<div class="gls-row"><span class="gls-term">P/B (Price-to-Book)</span><span class="gls-def">Prix / Valeur comptable. Rapport entre capitalisation et actif net comptable. &lt;1 = potentiellement sous-évalué.</span></div>
-<div class="gls-row"><span class="gls-term">FCF Yield</span><span class="gls-def">Free Cash Flow / Market Cap. Rendement du cash genere après investissements. Plus élevé = meilleur.</span></div>
-<div class="gls-row"><span class="gls-term">P/FCF</span><span class="gls-def">Prix / Free Cash Flow par action. Alternative au PER basée sur les flux réels plutôt que le bénéfice comptable.</span></div>
-<div class="gls-row"><span class="gls-term">PEG</span><span class="gls-def">PER / Taux de croissance des bénéfices. PEG &lt;1 suggère une valorisation attractive relativement à la croissance.</span></div>
-<div class="gls-row"><span class="gls-term">DCF</span><span class="gls-def">Discounted Cash Flow. Valorisation par actualisation des flux futurs estimés au taux WACC. Dépend fortement des hypothèses de croissance.</span></div>
-</div>
-
-<div class="gls-card">
-<div class="gls-cat">Profitabilité</div>
-<div class="gls-row"><span class="gls-term">EBITDA Margin</span><span class="gls-def">EBITDA / CA. Marge opérationnelle avant amortissements, intérêts et impôts. Reflet de la rentabilité brute d'exploitation.</span></div>
-<div class="gls-row"><span class="gls-term">EBIT Margin</span><span class="gls-def">EBIT / CA. Marge opérationnelle après amortissements. Reflète l'efficacité opérationnelle réelle.</span></div>
-<div class="gls-row"><span class="gls-term">Net Margin</span><span class="gls-def">Résultat net / CA. Part du chiffre d'affaires restant après toutes charges. Dépend aussi de l'effet de levier et de la fiscalité.</span></div>
-<div class="gls-row"><span class="gls-term">ROIC</span><span class="gls-def">Return on Invested Capital. NOPAT / Capital investi. Mesure la capacité à créer de la valeur sur les capitaux déployés. ROIC &gt; WACC = création de valeur.</span></div>
-<div class="gls-row"><span class="gls-term">ROE</span><span class="gls-def">Return on Equity. Résultat net / Fonds propres. Rentabilité pour l'actionnaire. Peut être gonflé par l'endettement.</span></div>
-<div class="gls-row"><span class="gls-term">CAGR CA 3 ans</span><span class="gls-def">Compound Annual Growth Rate du chiffre d'affaires sur 3 ans. Taux de croissance annualisé.</span></div>
-</div>
-
-<div class="gls-card">
-<div class="gls-cat">Structure financière & Levier</div>
-<div class="gls-row"><span class="gls-term">ND/EBITDA</span><span class="gls-def">Dette nette / EBITDA. Nb d'années d'EBITDA pour rembourser la dette nette. &lt;2x = faible levier, &gt;4x = levier élevé.</span></div>
-<div class="gls-row"><span class="gls-term">Interest Coverage</span><span class="gls-def">EBIT / Frais financiers. Capacité à couvrir les intérêts. &lt;1,5x = zone de risque.</span></div>
-<div class="gls-row"><span class="gls-term">Current Ratio</span><span class="gls-def">Actifs courants / Passifs courants. Liquidité à court terme. &gt;1 = couverture des dettes court terme.</span></div>
-<div class="gls-row"><span class="gls-term">Quick Ratio</span><span class="gls-def">Actifs liquides (sans stocks) / Passifs courants. Version stricte du current ratio.</span></div>
-<div class="gls-row"><span class="gls-term">WACC</span><span class="gls-def">Weighted Average Cost of Capital. Coût moyen pondéré du capital (dette + fonds propres). Taux d'actualisation du DCF.</span></div>
-<div class="gls-row"><span class="gls-term">Free Cash Flow</span><span class="gls-def">Cash opérationnel - Capex. Flux de trésorerie disponible après investissements. Base de la valeur intrinsèque.</span></div>
-</div>
-
-<div class="gls-card">
-<div class="gls-cat">Qualité comptable</div>
-<div class="gls-row"><span class="gls-term">Piotroski F-Score</span><span class="gls-def">Score 0-9 sur 9 critères (rentabilité, liquidité, levier, efficacité). &gt;6 = bonne santé financière, &lt;3 = signaux négatifs.</span></div>
-<div class="gls-row"><span class="gls-term">Beneish M-Score</span><span class="gls-def">Modèle de détection de manipulation comptable. &gt;-1,78 = risque potentiel de fraude aux résultats.</span></div>
-<div class="gls-row"><span class="gls-term">Altman Z-Score</span><span class="gls-def">Score de risque de faillite. &gt;2,99 = zone sûre, 1,81-2,99 = zone grise, &lt;1,81 = zone de détresse.</span></div>
-<div class="gls-row"><span class="gls-term">Sloan Accruals</span><span class="gls-def">Mesure la part du résultat comptable non soutenue par le cash (accruals). Un ratio élevé suggère des bénéfices de moindre qualité.</span></div>
-<div class="gls-row"><span class="gls-term">Cash Conversion</span><span class="gls-def">FCF / Résultat net. Qualité de conversion des bénéfices comptables en cash. Idéalement &gt;0,8.</span></div>
-</div>
-
-<div class="gls-card">
-<div class="gls-cat">Risque & Marché</div>
-<div class="gls-row"><span class="gls-term">Bêta</span><span class="gls-def">Sensibilité du titre aux mouvements du marché. Bêta=1 = même volatilité que le marché. &gt;1 = plus volatil (amplificateur), &lt;1 = plus défensif.</span></div>
-<div class="gls-row"><span class="gls-term">VaR 95% 1M</span><span class="gls-def">Value at Risk mensuelle à 95%. Perte maximale attendue dans 95% des cas sur un mois. Ex: -8% signifie que dans 5% des mois, la perte dépasse 8%.</span></div>
-<div class="gls-row"><span class="gls-term">Volatilité 52S</span><span class="gls-def">Écart-type annualisé des rendements journaliers sur 52 semaines. Mesure l'amplitude des fluctuations du cours.</span></div>
-<div class="gls-row"><span class="gls-term">52W High / Low</span><span class="gls-def">Plus haut / plus bas du cours sur les 52 dernières semaines. Repères techniques de la fourchette de trading récente.</span></div>
-<div class="gls-row"><span class="gls-term">ERP</span><span class="gls-def">Equity Risk Premium. Prime de risque des actions vs taux sans risque. Pilote le coût des fonds propres dans le WACC.</span></div>
-</div>
-
-<div class="gls-card">
-<div class="gls-cat">Scores FinSight</div>
-<div class="gls-row"><span class="gls-term">Score FinSight</span><span class="gls-def">Score composite 0-100 : Valeur (25pts) + Croissance (25pts) + Qualité (25pts) + Momentum (25pts). Agrège les signaux quantitatifs en un seul chiffre.</span></div>
-<div class="gls-row"><span class="gls-term">Score Momentum</span><span class="gls-def">Score 0-100 basé sur la performance boursière 3 mois. Capture la dynamique court terme du titre.</span></div>
-<div class="gls-row"><span class="gls-term">Conviction IA</span><span class="gls-def">Niveau de certitude de l'agent de synthèse dans sa recommandation (0-100%). Basé sur la cohérence des signaux et la qualité des données.</span></div>
-<div class="gls-row"><span class="gls-term">Delta conviction</span><span class="gls-def">Variation de conviction après passage de l'agent Devil's Advocate. Un delta négatif signifie que les arguments baissiers ont affaibli la thèse initiale.</span></div>
-<div class="gls-row"><span class="gls-term">Recommandation</span><span class="gls-def">ACHETER / CONSERVER / VENDRE. Synthèse de l'ensemble des analyses quantitatives et qualitatives. Ne constitue pas un conseil en investissement.</span></div>
-</div>
-
-</div>
-        """, unsafe_allow_html=True)
+    _render_glossaire("societe")
 
     # ------------------------------------------------------------------
     # Footer
@@ -4916,6 +4929,7 @@ def _render_cmp_societe_page() -> None:
     _hdr_b = f"{name_b} ({tkr_b})" if name_b and name_b != tkr_b else tkr_b
     _cmp_mini_table(rows, header_a=_hdr_a, header_b=_hdr_b)
 
+    _render_glossaire("cmp_societe")
 
 
 # ---------------------------------------------------------------------------
@@ -5005,6 +5019,7 @@ def _render_cmp_secteur_page() -> None:
     ]
     _cmp_mini_table(rows, header_a=sector_a, header_b=sector_b)
 
+    _render_glossaire("cmp_secteur")
 
 
 # ---------------------------------------------------------------------------
@@ -5083,6 +5098,7 @@ def _render_cmp_indice_page() -> None:
     ]
     _cmp_mini_table(rows, header_a=name_a, header_b=name_b)
 
+    _render_glossaire("cmp_indice")
 
 
 # ---------------------------------------------------------------------------
