@@ -2001,7 +2001,7 @@ def _build_capital_returns(data):
                 Paragraph(_safe(d['label']), S_TD_B),
                 Paragraph(_safe(_fr(d['fcf']/1000 if d['fcf'] else None, 1, ' Mds')), S_TD_C),
                 Paragraph(_safe(_frpct(d['fcf_yield'])), S_TD_C),
-                Paragraph(_safe(_frpct(d['div_pout'])),  S_TD_C),
+                Paragraph(_safe(_frpct(d['div_pout']) if d.get('div_pout') is not None else "0%"),  S_TD_C),
                 Paragraph(_safe(_frpct(d['capex_r'])),   S_TD_C),
             ])
         elems.append(KeepTogether(tbl([cr_h] + cr_rows, cw=[30*mm, 38*mm, 34*mm, 36*mm, 32*mm])))
@@ -2014,6 +2014,15 @@ def _build_capital_returns(data):
     if fcf_vals and len(fcf_vals) >= 2:
         delta_fcf = fcf_vals[-1] - fcf_vals[0]
         _dir = "croissance" if delta_fcf > 0 else "contraction"
+        # Detection peak FCF (volatilite intra-periode)
+        _fcf_peak = max(fcf_vals)
+        _fcf_peak_idx = fcf_vals.index(_fcf_peak)
+        _fcf_drawdown_note = ""
+        if _fcf_peak > 0 and fcf_vals[-1] < _fcf_peak * 0.7 and _fcf_peak_idx < len(fcf_vals) - 1:
+            _dd_pct = (1 - fcf_vals[-1] / _fcf_peak) * 100
+            _fcf_drawdown_note = (
+                f" Le FCF s\u2019est contract\u00e9 de {_dd_pct:.0f}\u202f% par rapport au pic de p\u00e9riode, "
+                f"refl\u00e9tant un cycle d\u2019investissement \u00e9lev\u00e9 (capex) ou une pression sur le BFR.")
         _fy  = _frpct(fy_vals[-1]) if fy_vals else "\u2014"
         _capex_note = ""
         if cx_vals:
@@ -2065,7 +2074,7 @@ def _build_capital_returns(data):
         _txt = (f"La g\u00e9n\u00e9ration de FCF affiche une {_dir} de "
                 f"{_fr(abs(delta_fcf)/1000, 1)}\u00a0Mds sur la p\u00e9riode. "
                 f"Le FCF yield courant de {_fy} {_fy_qual}."
-                + _capex_note + _payout_note + _fcf_conv_note + _div_note + _syn_note)
+                + _fcf_drawdown_note + _capex_note + _payout_note + _fcf_conv_note + _div_note + _syn_note)
     else:
         _txt = "Donn\u00e9es FCF insuffisantes pour l\u2019analyse de l\u2019allocation du capital."
     elems.append(Spacer(1, 3*mm))
@@ -2443,32 +2452,7 @@ def _build_risques(data):
     ]))
     elems.append(Spacer(1, 6*mm))
 
-    # FIX 4 — Glossaire des indicateurs
-    _glos_h = [Paragraph("Indicateur", S_TH_L), Paragraph("D\u00e9finition", S_TH_L)]
-    _glos_rows = [
-        [Paragraph("DCF", S_TD_B),
-         Paragraph("Discounted Cash Flow \u2014 actualisation des flux futurs au WACC", S_TD_L)],
-        [Paragraph("WACC", S_TD_B),
-         Paragraph("Co\u00fbt moyen pond\u00e9r\u00e9 du capital (fonds propres + dette)", S_TD_L)],
-        [Paragraph("TGR", S_TD_B),
-         Paragraph("Taux de croissance terminal au-del\u00e0 de l'horizon explicite", S_TD_L)],
-        [Paragraph("EV/EBITDA", S_TD_B),
-         Paragraph("Valeur d'entreprise divis\u00e9e par l'EBITDA LTM", S_TD_L)],
-        [Paragraph("P/E NTM", S_TD_B),
-         Paragraph("Price-to-Earnings sur les 12 prochains mois estim\u00e9s", S_TD_L)],
-        [Paragraph("LTM", S_TD_B),
-         Paragraph("Last Twelve Months \u2014 12 derniers mois glissants", S_TD_L)],
-        [Paragraph("Altman Z-Score", S_TD_B),
-         Paragraph("Score de d\u00e9tresse financi\u00e8re (> 2,99 = sain)", S_TD_L)],
-        [Paragraph("Beneish M-Score", S_TD_B),
-         Paragraph("D\u00e9tection de manipulation comptable (< \u22122,22 = OK)", S_TD_L)],
-    ]
-    elems.append(KeepTogether([
-        Paragraph("Glossaire des indicateurs", S_SUBSECTION),
-        Spacer(1, 2*mm),
-        tbl([_glos_h] + _glos_rows, cw=[40*mm, 130*mm]),
-    ]))
-    elems.append(Spacer(1, 6*mm))
+    # Glossaire retiré du PDF — disponible uniquement sur l'interface Streamlit
 
     # Disclaimer
     elems.append(rule())

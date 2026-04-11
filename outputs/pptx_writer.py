@@ -488,11 +488,180 @@ def kpi_box(slide, x, y, w, h, value, label, sub="",
                      sub, 7, sub_color)
 
 
-def commentary_box(slide, x, y, w, h, text, accent=NAVY_MID):
+def commentary_box(slide, x, y, w, h, text, accent=NAVY_MID, title=None):
+    """Box commentaire avec titre analytique optionnel style JPM/GS.
+
+    Si `title` fourni : barre titre navy en haut + corps texte en dessous.
+    Sinon : juste le corps de texte (mode legacy).
+    """
     add_rect(slide, x, y, w, h, "F5F7FA")           # fond gris clair
     add_rect(slide, x, y, 0.22, h, accent)           # barre accent gauche
-    add_text_box(slide, x + 0.30, y + 0.08, w - 0.32, max(h - 0.10, 0.40),
-                 text or "\u2014", 8.5, GREY_TXT, wrap=True)
+    if title:
+        # Titre analytique JPM/GS en haut
+        add_text_box(slide, x + 0.30, y + 0.08, w - 0.32, 0.42,
+                     title, 9.5, NAVY, bold=True, wrap=False)
+        add_text_box(slide, x + 0.30, y + 0.55, w - 0.32, max(h - 0.62, 0.40),
+                     text or "\u2014", 8.5, GREY_TXT, wrap=True)
+    else:
+        add_text_box(slide, x + 0.30, y + 0.08, w - 0.32, max(h - 0.10, 0.40),
+                     text or "\u2014", 8.5, GREY_TXT, wrap=True)
+
+
+def _jpm_title(slide_type: str, ratios=None, snap=None, synthesis=None,
+               extra: dict = None) -> str:
+    """Génère un titre analytique style JPM/GS dynamique basé sur les données.
+
+    slide_type : "is" (income statement), "bilan", "ratios", "dcf", "peers",
+                 "football", "lbo", "risques", "score", "verdict", etc.
+    Retourne une string courte (< 100 chars) qui résume l'insight clé de la slide.
+    """
+    extra = extra or {}
+    try:
+        # Helpers pour extraction
+        ci = snap.company_info if snap else None
+        ticker = _g(ci, "ticker", "Société") or "Société"
+        latest_yr = None
+        if ratios and getattr(ratios, "years", None):
+            _lbl = sorted(ratios.years.keys(),
+                          key=lambda k: str(k).replace("_LTM", "Z"))[-1]
+            latest_yr = ratios.years[_lbl]
+
+        def _gv(field):
+            return getattr(latest_yr, field, None) if latest_yr else None
+
+        rev_g = _gv("revenue_growth")
+        eb_marg = _gv("ebitda_margin")
+        nm = _gv("net_margin")
+        roe = _gv("roe")
+        roic = _gv("roic")
+        nd_eb = _gv("net_debt_ebitda")
+
+        # Conversion en %
+        def _pct(v):
+            if v is None:
+                return None
+            try:
+                fv = float(v)
+                return fv * 100 if abs(fv) <= 2 else fv
+            except Exception:
+                return None
+
+        rev_g_pct = _pct(rev_g)
+        eb_marg_pct = _pct(eb_marg)
+        nm_pct = _pct(nm)
+        roe_pct = _pct(roe)
+        roic_pct = _pct(roic)
+
+        if slide_type == "is":
+            # Compte de résultat : focus revenue + marges
+            if rev_g_pct is not None and eb_marg_pct is not None:
+                if rev_g_pct >= 10 and eb_marg_pct >= 20:
+                    return f"{ticker} combine forte croissance ({rev_g_pct:+.1f}%) et marges premium ({eb_marg_pct:.1f}%)"
+                elif rev_g_pct >= 5:
+                    return f"{ticker} en croissance soutenue ({rev_g_pct:+.1f}% revenue), marge EBITDA {eb_marg_pct:.1f}%"
+                elif rev_g_pct < 0:
+                    return f"{ticker} en contraction ({rev_g_pct:+.1f}% revenue) — pression sur les marges ({eb_marg_pct:.1f}%)"
+                else:
+                    return f"{ticker} en plateau ({rev_g_pct:+.1f}% rev), marges stables {eb_marg_pct:.1f}%"
+            return f"{ticker} — analyse compte de résultat et tendances de marges"
+
+        if slide_type == "bilan":
+            # Bilan : focus levier + liquidité
+            if nd_eb is not None:
+                try:
+                    nd_v = float(nd_eb)
+                    if nd_v < 0:
+                        return f"{ticker} en cash net positif — bilan robuste, capacité d'investissement intacte"
+                    if nd_v < 1:
+                        return f"{ticker} faiblement endetté (ND/EBITDA {nd_v:.1f}x) — solidité bilancielle"
+                    if nd_v < 3:
+                        return f"{ticker} levier modéré (ND/EBITDA {nd_v:.1f}x), structure équilibrée"
+                    return f"{ticker} levier élevé (ND/EBITDA {nd_v:.1f}x) — surveiller la capacité de service de la dette"
+                except Exception:
+                    pass
+            return f"{ticker} — analyse de la structure bilancielle"
+
+        if slide_type == "ratios":
+            if roe_pct is not None and roic_pct is not None:
+                if roe_pct >= 20 and roic_pct >= 15:
+                    return f"{ticker} génère ROE {roe_pct:.0f}% / ROIC {roic_pct:.0f}% — création de valeur premium"
+                elif roe_pct >= 15:
+                    return f"{ticker} ROE {roe_pct:.0f}% — rentabilité solide vs cost of equity"
+                else:
+                    return f"{ticker} ROE {roe_pct:.0f}% / ROIC {roic_pct:.0f}% — rentabilité à surveiller"
+            return f"{ticker} — analyse rentabilité et création de valeur"
+
+        if slide_type == "dcf":
+            tbase = _g(synthesis, "target_base") if synthesis else None
+            mkt = snap.market if snap else None
+            price = _g(mkt, "share_price") if mkt else None
+            if tbase and price:
+                try:
+                    upside = (float(tbase) / float(price) - 1) * 100
+                    if upside >= 20:
+                        return f"DCF base implique upside de {upside:+.0f}% — valorisation attractive"
+                    elif upside >= 0:
+                        return f"DCF base proche du cours ({upside:+.0f}%) — valorisation alignée"
+                    else:
+                        return f"DCF base en dessous du cours ({upside:+.0f}%) — surévaluation potentielle"
+                except Exception:
+                    pass
+            return f"{ticker} — valorisation DCF et sensibilités"
+
+        if slide_type == "peers":
+            return f"{ticker} — positionnement vs comparables sectoriels"
+
+        if slide_type == "football":
+            return f"{ticker} — football field et fourchette de valorisation"
+
+        if slide_type == "lbo":
+            irr = extra.get("irr_base")
+            if irr is not None:
+                try:
+                    irr_v = float(irr) * 100
+                    if irr_v >= 20:
+                        return f"LBO {ticker} : IRR {irr_v:.1f}% — deal attractif pour sponsor PE top-tier"
+                    elif irr_v >= 15:
+                        return f"LBO {ticker} : IRR {irr_v:.1f}% — viable pour fonds mid-market"
+                    elif irr_v >= 0:
+                        return f"LBO {ticker} : IRR {irr_v:.1f}% — sous le seuil PE typique"
+                    else:
+                        return f"LBO {ticker} : IRR négatif — deal non viable dans les conditions actuelles"
+                except Exception:
+                    pass
+            return f"{ticker} — analyse LBO et returns sponsor"
+
+        if slide_type == "risques":
+            return f"{ticker} — risques structurels et conditions d'invalidation"
+
+        if slide_type == "score":
+            score = _g(synthesis, "finsight_score") if synthesis else None
+            if score:
+                try:
+                    s = int(score)
+                    if s >= 75:
+                        return f"{ticker} — Score FinSight {s}/100 — signal d'achat fort"
+                    elif s >= 55:
+                        return f"{ticker} — Score FinSight {s}/100 — signal modéré favorable"
+                    else:
+                        return f"{ticker} — Score FinSight {s}/100 — signal de prudence"
+                except Exception:
+                    pass
+            return f"{ticker} — Score FinSight composite"
+
+        if slide_type == "verdict":
+            rec = _g(synthesis, "recommendation") if synthesis else None
+            if rec:
+                return f"{ticker} — verdict final : {str(rec).upper()}"
+            return f"{ticker} — synthèse et recommandation finale"
+
+        if slide_type == "capital":
+            return f"{ticker} — politique de retour au capital actionnaire"
+
+    except Exception:
+        pass
+
+    return ""
 
 
 def divider_slide(prs, number_str: str, title: str, subtitle: str):
@@ -936,7 +1105,8 @@ def _slide_exec_summary(prs, snap, synthesis, ratios, devil, sentiment):
     add_rect(slide, 1.02, 9.17, 23.37, 0.03, "AAAAAA")
 
     # -------------------------------------------------------------------------
-    # Investment Case — Catalyseurs (left) + Valorisation Synthétique (right)
+    # Investment Case — Catalyseurs sur toute la largeur (Valorisation Synthétique
+    # supprimée — redondante avec slides DCF/Multiples qui suivent)
     # -------------------------------------------------------------------------
     catalysts   = _g(synthesis, "catalysts", []) or []
     peers       = _g(synthesis, "comparable_peers", []) or []
@@ -945,40 +1115,26 @@ def _slide_exec_summary(prs, snap, synthesis, ratios, devil, sentiment):
     peer_median_ev_e = _peer_median(peers, "ev_ebitda")
     peer_median_pe   = _peer_median(peers, "pe")
 
-    # --- Catalyseurs section (left) ---
-    add_rect(slide, 1.02, 9.26, 11.14, 0.55, "1A7A4A")
-    add_text_box(slide, 1.15, 9.26, 11.0, 0.55,
-                 "CATALYSEURS \u00c0 SURVEILLER (12M)", 7.5, WHITE, bold=True)
+    # --- Catalyseurs section (pleine largeur) ---
+    add_rect(slide, 1.02, 9.26, 23.37, 0.55, "1A7A4A")
+    add_text_box(slide, 1.15, 9.26, 23.20, 0.55,
+                 "CATALYSEURS \u00c0 SURVEILLER (12 MOIS)", 8, WHITE, bold=True)
 
-    _cat_ys = [9.89, 10.44]
-    for i, cy in enumerate(_cat_ys):
+    # Affichage 4 catalyseurs en 2 colonnes — hauteur augmentée pour éviter troncature
+    _cat_layout = [
+        (1.02, 9.89),  (12.70, 9.89),   # row 1 : 2 catalyseurs côte à côte
+        (1.02, 10.55), (12.70, 10.55),  # row 2 : 2 catalyseurs côte à côte
+    ]
+    for i, (cx, cy) in enumerate(_cat_layout):
         if i < len(catalysts):
             _cat_name = _g(catalysts[i], "title") or _g(catalysts[i], "name") or ""
             _cat_body = _g(catalysts[i], "description") or _g(catalysts[i], "text") or ""
-            _cat_txt  = _fit(f"{_cat_name[:20]}: {_cat_body}", 65) if _cat_body else _fit(_cat_name, 65)
+            _cat_txt  = _truncate(f"{_cat_name[:24]} : {_cat_body}", 110) if _cat_body else _truncate(_cat_name, 110)
         else:
             _cat_txt = "\u2014"
-        add_rect(slide, 1.02, cy + 0.06, 0.12, 0.26, "1A7A4A")
-        add_text_box(slide, 1.22, cy, 10.66, 0.48,
-                     _cat_txt, 7.5, "333333", wrap=True)
-
-    # --- Valorisation Synthétique section (right) ---
-    add_rect(slide, 13.08, 9.26, 11.3, 0.55, NAVY)
-    add_text_box(slide, 13.21, 9.26, 11.1, 0.55,
-                 "VALORISATION SYNTH\u00c9TIQUE", 7.5, WHITE, bold=True)
-
-    val_tbl = add_table(
-        slide, 13.08, 9.81, 11.3, 1.42,
-        num_rows=2, num_cols=3,
-        col_widths_pct=[0.50, 0.25, 0.25],
-        header_data=["Multiple", "Soci\u00e9t\u00e9", "M\u00e9diane pairs"],
-        rows_data=[
-            ["P/E NTM (x)", _frx(pe_e), _frx(peer_median_pe)],
-            [f"Cible DCF ({cur_sym})",
-             f"{_fr(tbase, 0)} {cur_sym}",
-             f"Upside {_upside(tbase, price)}"],
-        ],
-    )
+        add_rect(slide, cx, cy + 0.06, 0.12, 0.26, "1A7A4A")
+        add_text_box(slide, cx + 0.20, cy, 11.40, 0.65,
+                     _cat_txt, 7.0, "333333", wrap=True)
 
     # Horizontal rule (before KPI)
     add_rect(slide, 1.02, 11.23, 23.37, 0.03, "AAAAAA")
@@ -1394,20 +1550,55 @@ def _slide_is(prs, snap, synthesis, ratios):
             except Exception:
                 pass
 
-    # Commentary — utilise financial_commentary en priorite, puis fallback sur les autres champs
+    # Commentary — IS-spécifique en priorité (pas valuation_comment qui est hors-sujet)
     fin_comment = _g(synthesis, "financial_commentary", "") or ""
     if not fin_comment.strip():
-        # Fallback 1 : valuation_comment (souvent renseigné meme quand financial_commentary vide)
-        fin_comment = _g(synthesis, "valuation_comment", "") or ""
-    if not fin_comment.strip():
-        # Fallback 2 : thesis (3 phrases separees par ' | ')
-        thesis_raw = _g(synthesis, "thesis", "") or ""
-        fin_comment = thesis_raw.replace(" | ", " ")
-    if not fin_comment.strip():
-        # Fallback 3 : summary général
-        fin_comment = _g(synthesis, "summary", "") or ""
+        # Fallback : générer un commentaire IS déterministe basé sur les chiffres
+        latest_yr_c = None
+        if ratios and getattr(ratios, "years", None):
+            _lbl_c = sorted(ratios.years.keys(),
+                            key=lambda k: str(k).replace("_LTM", "Z"))[-1]
+            latest_yr_c = ratios.years[_lbl_c]
+        if latest_yr_c:
+            _rev_g = getattr(latest_yr_c, "revenue_growth", None)
+            _eb_m = getattr(latest_yr_c, "ebitda_margin", None)
+            _nm = getattr(latest_yr_c, "net_margin", None)
+            _gm = getattr(latest_yr_c, "gross_margin", None)
+            def _pp(v):
+                if v is None: return None
+                try:
+                    fv = float(v)
+                    return fv * 100 if abs(fv) <= 2 else fv
+                except: return None
+            _rg = _pp(_rev_g)
+            _ebmp = _pp(_eb_m)
+            _nmp = _pp(_nm)
+            _gmp = _pp(_gm)
+            parts = []
+            if _rg is not None:
+                if _rg >= 5:
+                    parts.append(f"Croissance revenue de {_rg:+.1f}% sur la dernière période, "
+                                 f"reflétant une dynamique commerciale soutenue.")
+                elif _rg < 0:
+                    parts.append(f"Contraction du chiffre d'affaires de {_rg:+.1f}%, "
+                                 f"révélant une pression sur la demande ou un effet base défavorable.")
+                else:
+                    parts.append(f"Plateau du chiffre d'affaires ({_rg:+.1f}%), "
+                                 f"suggérant une phase de maturité ou de transition stratégique.")
+            if _gmp is not None:
+                parts.append(f"Marge brute de {_gmp:.1f}%, indicateur du pricing power et "
+                             f"de la structure de coûts variables.")
+            if _ebmp is not None:
+                parts.append(f"Marge EBITDA à {_ebmp:.1f}%, mesure de la profitabilité "
+                             f"opérationnelle avant amortissements.")
+            if _nmp is not None:
+                parts.append(f"Marge nette de {_nmp:.1f}%, après prise en compte de la "
+                             f"structure financière et de la fiscalité.")
+            fin_comment = " ".join(parts) if parts else ""
     if fin_comment.strip():
-        commentary_box(slide, 1.02, 8.94, 23.37, 3.40, _truncate(fin_comment, 700))
+        _is_title = _jpm_title("is", ratios=ratios, snap=snap, synthesis=synthesis)
+        commentary_box(slide, 1.02, 8.94, 23.37, 3.40,
+                       _truncate(fin_comment, 700), title=_is_title)
 
     return slide
 
@@ -1502,9 +1693,65 @@ def _slide_bilan(prs, snap, synthesis, ratios):
         except Exception:
             pass
 
-    fin_comment = _g(synthesis, "financial_commentary", "") or ""
+    # Commentary bilan : prioriser un texte spécifique au bilan, sinon générer
+    fin_comment = _g(synthesis, "balance_sheet_commentary", "") or ""
+    if not fin_comment.strip():
+        # Fallback : générer un commentaire bilan déterministe
+        latest_yr_b = None
+        if ratios and getattr(ratios, "years", None):
+            _lbl_b = sorted(ratios.years.keys(),
+                            key=lambda k: str(k).replace("_LTM", "Z"))[-1]
+            latest_yr_b = ratios.years[_lbl_b]
+        if latest_yr_b:
+            _nd_eb = getattr(latest_yr_b, "net_debt_ebitda", None)
+            _cur_r = getattr(latest_yr_b, "current_ratio", None)
+            _qck_r = getattr(latest_yr_b, "quick_ratio", None)
+            _icr = getattr(latest_yr_b, "interest_coverage", None)
+            parts_b = []
+            if _nd_eb is not None:
+                try:
+                    nd_v = float(_nd_eb)
+                    if nd_v < 0:
+                        parts_b.append(f"Position de cash net positif ({nd_v:.2f}x EBITDA), "
+                                       f"conférant une flexibilité financière maximale.")
+                    elif nd_v < 1:
+                        parts_b.append(f"Levier très faible (ND/EBITDA {nd_v:.2f}x), "
+                                       f"laissant une large capacité d'investissement ou de retour au capital.")
+                    elif nd_v < 3:
+                        parts_b.append(f"Levier modéré (ND/EBITDA {nd_v:.2f}x), "
+                                       f"compatible avec un profil investment grade.")
+                    else:
+                        parts_b.append(f"Levier élevé (ND/EBITDA {nd_v:.2f}x), "
+                                       f"contraignant la marge de manœuvre stratégique.")
+                except Exception:
+                    pass
+            if _cur_r is not None:
+                try:
+                    cr_v = float(_cur_r)
+                    parts_b.append(f"Current ratio à {cr_v:.2f}x, mesure de la couverture "
+                                   f"des passifs courants par les actifs courants.")
+                except Exception:
+                    pass
+            if _icr is not None:
+                try:
+                    icr_v = float(_icr)
+                    if icr_v >= 5:
+                        parts_b.append(f"Couverture des intérêts solide ({icr_v:.1f}x EBIT), "
+                                       f"capacité de service de la dette robuste.")
+                    elif icr_v >= 2:
+                        parts_b.append(f"Couverture des intérêts adéquate ({icr_v:.1f}x EBIT).")
+                    else:
+                        parts_b.append(f"Couverture des intérêts tendue ({icr_v:.1f}x EBIT) — "
+                                       f"surveillance recommandée.")
+                except Exception:
+                    pass
+            fin_comment = " ".join(parts_b) if parts_b else (
+                _g(synthesis, "financial_commentary", "") or ""
+            )
     if fin_comment.strip():
-        commentary_box(slide, 1.02, 11.30, 23.37, 1.30, fin_comment[:500])
+        _bs_title = _jpm_title("bilan", ratios=ratios, snap=snap, synthesis=synthesis)
+        commentary_box(slide, 1.02, 11.20, 23.37, 2.20,
+                       fin_comment[:600], title=_bs_title)
 
     return slide
 
@@ -1704,7 +1951,8 @@ def _slide_ratios(prs, snap, synthesis, ratios):
 
     ratio_comment = _g(synthesis, "ratio_commentary", "") or ""
     if ratio_comment.strip():
-        commentary_box(slide, 1.02, 10.08, 23.37, 2.29, ratio_comment)
+        _ratios_title = _jpm_title("ratios", ratios=ratios, snap=snap, synthesis=synthesis)
+        commentary_box(slide, 1.02, 10.08, 23.37, 2.29, ratio_comment, title=_ratios_title)
 
     return slide
 
@@ -1901,7 +2149,8 @@ def _slide_dcf(prs, snap, synthesis, ratios):
 
     dcf_comment = _g(synthesis, "dcf_commentary", "") or ""
     if dcf_comment.strip():
-        commentary_box(slide, 1.02, 10.88, 23.37, 1.52, dcf_comment)
+        _dcf_title = _jpm_title("dcf", ratios=ratios, snap=snap, synthesis=synthesis)
+        commentary_box(slide, 1.02, 10.88, 23.37, 1.52, dcf_comment, title=_dcf_title)
 
     return slide
 
@@ -2047,7 +2296,8 @@ def _slide_peers(prs, snap, synthesis, ratios):
     if not peers_comment.strip():
         peers_comment = _g(synthesis, "summary", "") or ""
     if peers_comment.strip():
-        commentary_box(slide, 1.02, 8.69, 23.37, 4.30, peers_comment)
+        _peers_title = _jpm_title("peers", ratios=ratios, snap=snap, synthesis=synthesis)
+        commentary_box(slide, 1.02, 8.69, 23.37, 4.30, peers_comment, title=_peers_title)
 
     return slide
 
@@ -2192,7 +2442,8 @@ def _slide_football_field(prs, snap, synthesis, ratios):
         dcf_comment = _g(synthesis, "peers_commentary", "") or ""
     if dcf_comment.strip():
         _ff_h = min(4.0, 13.25 - commentary_y)
-        commentary_box(slide, 1.02, commentary_y, 23.37, _ff_h, dcf_comment)
+        _ff_title = _jpm_title("football", ratios=ratios, snap=snap, synthesis=synthesis)
+        commentary_box(slide, 1.02, commentary_y, 23.37, _ff_h, dcf_comment, title=_ff_title)
 
     return slide
 
@@ -2384,7 +2635,8 @@ def _slide_multiples_historiques(prs, snap, synthesis, ratios):
     _mh_c2 = _g(synthesis, "financial_commentary", "") or ""
     if _mh_c2.strip():
         _comment = _comment + " " + _mh_c2 if _comment.strip() else _mh_c2
-    commentary_box(slide, 1.02, 10.00, 23.37, 3.10, _comment)
+    _mh_title = _jpm_title("ratios", ratios=ratios, snap=snap, synthesis=synthesis)
+    commentary_box(slide, 1.02, 10.00, 23.37, 3.10, _comment, title=_mh_title)
 
     return slide
 
@@ -2445,7 +2697,7 @@ def _slide_capital_returns(prs, snap, synthesis, ratios):
         ("FCF (" + ("LTM" if cap_rows else "N/A") + ")",
                           _frm(latest_yr.get("fcf"), cur_sym) if latest_yr.get("fcf") else "—"),
         ("Capex / Rev",   _frpct(latest_yr.get("capex_r"))    if latest_yr.get("capex_r") else "—"),
-        ("Div. Payout",   _frpct(latest_yr.get("div_pout"))   if latest_yr.get("div_pout") else "—"),
+        ("Div. Payout",   _frpct(latest_yr.get("div_pout"))   if latest_yr.get("div_pout") is not None else "0%"),
     ]
     kpi_w = 5.60
     for i, (lbl, val) in enumerate(_kpis):
@@ -2522,7 +2774,7 @@ def _slide_capital_returns(prs, snap, synthesis, ratios):
                 d["label"],
                 _frm(d["fcf"],   cur_sym) if d["fcf"]   is not None else "—",
                 _frpct(d["fcf_yield"])    if d["fcf_yield"] is not None else "—",
-                _frpct(d["div_pout"])     if d["div_pout"]  is not None else "—",
+                _frpct(d["div_pout"])     if d["div_pout"]  is not None else "0%",
                 _frpct(d["capex_r"])      if d["capex_r"]   is not None else "—",
             ])
         add_table(slide, 16.20, 4.85, 8.20, min(0.55 * len(alloc_rows) + 0.60, 5.0),
@@ -2551,7 +2803,8 @@ def _slide_capital_returns(prs, snap, synthesis, ratios):
     _cr_c2 = _g(synthesis, "financial_commentary", "") or ""
     if _cr_c2.strip():
         _comment = _comment + " " + _cr_c2 if _comment.strip() else _cr_c2
-    commentary_box(slide, 1.02, 10.30, 23.37, 2.80, _comment)
+    _cr_title = _jpm_title("capital", ratios=ratios, snap=snap, synthesis=synthesis)
+    commentary_box(slide, 1.02, 10.30, 23.37, 2.80, _comment, title=_cr_title)
 
     return slide
 
@@ -2759,7 +3012,9 @@ def _slide_lbo(prs, snap, synthesis, ratios):
             "EBITDA non disponible — analyse LBO indicative impossible. "
             "Veuillez relancer l'analyse avec des données financières complètes."
         )
-    commentary_box(slide, 1.02, 11.60, 23.37, 1.60, _comment)
+    _lbo_one_title = _jpm_title("lbo", ratios=ratios, snap=snap, synthesis=synthesis,
+                                extra={"irr_base": irr_base})
+    commentary_box(slide, 1.02, 11.60, 23.37, 1.60, _comment, title=_lbo_one_title)
 
     return slide
 
@@ -3060,11 +3315,13 @@ def _slide_lbo_cadre(prs, snap, pack: dict):
 
     # ── Sources & Uses (côte à côte) ──
     su = pack["sources_uses"]
+    _PP_CENTER = __import__("pptx").enum.text.PP_ALIGN.CENTER
 
-    # Header SOURCES (gauche)
+    # Header SOURCES (gauche) — text_box aligné EXACTEMENT sur le rect
     add_rect(slide, 1.02, sources_y, 11.40, 0.50, NAVY)
-    add_text_box(slide, 1.20, sources_y + 0.10, 11.0, 0.36,
-                 "SOURCES (financement)", 10, WHITE, bold=True, align=__import__("pptx").enum.text.PP_ALIGN.CENTER)
+    add_text_box(slide, 1.02, sources_y + 0.10, 11.40, 0.36,
+                 "SOURCES (financement)", 10, WHITE, bold=True,
+                 align=_PP_CENTER, wrap=False)
 
     sources_rows = [
         ["Sponsor Equity", _frm(su["sponsor_equity"], cur),
@@ -3082,10 +3339,11 @@ def _slide_lbo_cadre(prs, snap, pack: dict):
               rows_data=sources_rows,
               border_hex="DDDDDD")
 
-    # Header USES (droite)
+    # Header USES (droite) — text_box aligné EXACTEMENT sur le rect
     add_rect(slide, 12.94, sources_y, 11.46, 0.50, NAVY)
-    add_text_box(slide, 13.12, sources_y + 0.10, 11.0, 0.36,
-                 "USES (utilisation)", 10, WHITE, bold=True, align=__import__("pptx").enum.text.PP_ALIGN.CENTER)
+    add_text_box(slide, 12.94, sources_y + 0.10, 11.46, 0.36,
+                 "USES (utilisation)", 10, WHITE, bold=True,
+                 align=_PP_CENTER, wrap=False)
 
     uses_rows = [
         ["Purchase price equity", _frm(su["purchase_equity"], cur)],
@@ -3101,14 +3359,51 @@ def _slide_lbo_cadre(prs, snap, pack: dict):
               rows_data=uses_rows,
               border_hex="DDDDDD")
 
-    # ── Box LLM hypothèses (footer) ──
-    hypotheses_text = pack["llm_texts"].get("hypotheses_text") or (
-        f"Multiple d'entrée {pack['entry_mult']:.1f}x EBITDA "
-        f"(vs marché {pack['multiple_marche']:.1f}x). Leverage 5x EBITDA "
-        f"(Senior 3,5x à 8% + Mezz 1,5x à 10%). Sortie conservatrice à "
-        f"{pack['exit_mult']:.1f}x. Hypothèses opérationnelles importées du DCF."
-    )
-    commentary_box(slide, 1.02, 11.50, 23.37, 1.80, hypotheses_text)
+    # ── Box LLM hypothèses (footer) — texte adapté selon éligibilité ──
+    if not pack["eligible"]:
+        # Texte explicatif pour profil NON éligible
+        reasons = []
+        from pptx.util import Cm as _Cm
+        latest_yr_l = None
+        if hasattr(snap, "ratios"):
+            pass  # ratios passés via pack ailleurs
+        # Reconstruire les raisons depuis les métriques connues du pack
+        ebitda = pack.get("ebitda", 0)
+        ev_market = pack.get("ev_market", 0)
+        ebit = ebitda * 0.85 if ebitda else 0
+        if ebitda <= 0:
+            reasons.append("EBITDA négatif ou nul — la société ne génère pas de cash flow opérationnel "
+                           "suffisant pour servir une dette LBO")
+        # Inférer les autres raisons depuis les sources_uses
+        sponsor_eq = su.get("sponsor_equity", 0)
+        senior = su.get("senior_debt", 0)
+        if ebitda > 0:
+            margin_estimate = ebitda / max(ev_market / 14, 1)  # rough
+            if (sponsor_eq / max(su.get("total_sources", 1), 1)) > 0.7:
+                reasons.append("Sponsor equity représenterait > 70% du financement — leverage insuffisant "
+                               "pour atteindre les rendements PE typiques (>20% IRR)")
+        if not reasons:
+            reasons.append("Combinaison des critères (marge EBITDA, cash conversion, levier actuel) ne permet pas "
+                           "un montage LBO standard mid-market")
+
+        hypotheses_text = (
+            f"Profil non éligible au LBO mid-market standard. Raisons identifiées : "
+            f"{' ; '.join(reasons)}. "
+            f"L'analyse ci-dessus est fournie à titre théorique uniquement — un sponsor PE n'engagerait "
+            f"pas de capital sur cette cible dans les conditions actuelles. Les chiffres affichés "
+            f"(IRR, MOIC, sources/uses) traduisent ce que donnerait un montage forcé avec les hypothèses "
+            f"standards, ils ne représentent pas une recommandation."
+        )
+    else:
+        hypotheses_text = pack["llm_texts"].get("hypotheses_text") or (
+            f"Multiple d'entrée {pack['entry_mult']:.1f}x EBITDA "
+            f"(vs marché {pack['multiple_marche']:.1f}x). Leverage 5x EBITDA "
+            f"(Senior 3,5x à 8% + Mezz 1,5x à 10%). Sortie conservatrice à "
+            f"{pack['exit_mult']:.1f}x. Hypothèses opérationnelles importées du DCF."
+        )
+
+    _lbo_title = _jpm_title("lbo", snap=snap, extra={"irr_base": pack.get("returns", {}).get("irr_base")})
+    commentary_box(slide, 1.02, 11.50, 23.37, 1.80, hypotheses_text, title=_lbo_title)
     return slide
 
 
@@ -3220,7 +3515,8 @@ def _slide_lbo_returns(prs, snap, pack: dict):
         f"{'Très attractif (>20%)' if irr_base >= 0.20 else ('Acceptable (15-20%)' if irr_base >= 0.15 else 'Sous le seuil PE typique')}. "
         f"La sensibilité aux multiples révèle les zones de robustesse."
     )
-    commentary_box(slide, 1.02, 11.20, 23.37, 2.10, returns_text)
+    _lbo_ret_title = _jpm_title("lbo", snap=snap, extra={"irr_base": irr_base})
+    commentary_box(slide, 1.02, 11.20, 23.37, 2.10, returns_text, title=_lbo_ret_title)
     return slide
 
 
@@ -3278,10 +3574,11 @@ def _slide_lbo_stress(prs, snap, pack: dict):
 
     for i, (lbl, key, col_c, col_p) in enumerate(zip(col_labels, col_keys, col_colors, col_pales)):
         cx = col_xs[i]
-        # Header de colonne
+        # Header de colonne — text_box aligné EXACTEMENT sur le rect
         add_rect(slide, cx, 8.10, col_w, 0.55, col_c)
-        add_text_box(slide, cx, 8.18, col_w, 0.40,
-                     lbl, 11, WHITE, bold=True, align=__import__("pptx").enum.text.PP_ALIGN.CENTER)
+        add_text_box(slide, cx, 8.20, col_w, 0.36,
+                     lbl, 11, WHITE, bold=True,
+                     align=__import__("pptx").enum.text.PP_ALIGN.CENTER, wrap=False)
         # Body
         add_rect(slide, cx, 8.65, col_w, 2.80, col_p)
         s = sc[key]
@@ -3305,7 +3602,13 @@ def _slide_lbo_stress(prs, snap, pack: dict):
         f"à la hausse des taux et au multiple compression. "
         f"La thèse s'invalide si EBITDA -200 bps ou multiple sortie -2×."
     )
-    commentary_box(slide, 1.02, 11.65, 23.37, 1.65, risks_text)
+    _stress_irr = None
+    try:
+        _stress_irr = pack["scenarios"]["base"]["irr"]
+    except Exception:
+        pass
+    _stress_title = _jpm_title("lbo", snap=snap, extra={"irr_base": _stress_irr})
+    commentary_box(slide, 1.02, 11.65, 23.37, 1.65, risks_text, title=_stress_title)
     return slide
 
 
@@ -3795,7 +4098,8 @@ def _slide_actionnariat(prs, snap, synthesis):
     if comment_txt.strip():
         _act_h = min(13.25 - commentary_y, 5.50)
         if _act_h > 0.5:
-            commentary_box(slide, 1.02, commentary_y, 23.37, _act_h, comment_txt)
+            _act_title = _jpm_title("verdict", snap=snap, synthesis=synthesis)
+            commentary_box(slide, 1.02, commentary_y, 23.37, _act_h, comment_txt, title=_act_title)
 
     return slide
 
@@ -3939,7 +4243,8 @@ def _slide_historique(prs, snap, synthesis):
     # Commentary dans un cadre — 320 chars max, h=1.80 pour éviter footer (y=13.39)
     thesis_s = _g(synthesis, "summary", "") or _g(synthesis, "thesis", "") or ""
     if thesis_s.strip():
-        commentary_box(slide, 1.02, 11.55, 23.37, 1.80, _fit(thesis_s, 320))
+        _hist_title = _jpm_title("verdict", snap=snap, synthesis=synthesis)
+        commentary_box(slide, 1.02, 11.55, 23.37, 1.80, _fit(thesis_s, 320), title=_hist_title)
 
     return slide
 
@@ -4035,28 +4340,28 @@ def _slide_conviction_tracker(prs, snap, synthesis, ratios, devil, sentiment):
     add_text_box(slide, 9.35, y_mid + 0.05, 7.2, 0.40, "CATALYSEURS BULLS", 7.5, WHITE, bold=True)
     y_c = y_mid + 0.60
     for th in (pos_themes[:2] if pos_themes else ["N/D"]):
-        _c_txt = _fit(str(th), 100)
-        add_text_box(slide, 9.45, y_c, 7.10, 0.65, f"\u2022 {_c_txt}", 7, GREY_TXT, wrap=True)
-        y_c += 0.72
+        _c_txt = _fit(str(th), 75)
+        add_text_box(slide, 9.45, y_c, 7.10, 1.20, f"\u2022 {_c_txt}", 7, GREY_TXT, wrap=True)
+        y_c += 1.25
 
     add_rect(slide, 17.00, y_mid, 6.80, 0.50, "A82020")
     add_text_box(slide, 17.10, y_mid + 0.05, 6.6, 0.40, "RISQUES BEARS", 7.5, WHITE, bold=True)
     y_r = y_mid + 0.60
     for th in (neg_themes[:2] if neg_themes else ["N/D"]):
-        _r_txt = _fit(str(th), 100)
-        add_text_box(slide, 17.10, y_r, 6.6, 0.65, f"\u2022 {_r_txt}", 7, GREY_TXT, wrap=True)
-        y_r += 0.72
+        _r_txt = _fit(str(th), 75)
+        add_text_box(slide, 17.10, y_r, 6.6, 1.20, f"\u2022 {_r_txt}", 7, GREY_TXT, wrap=True)
+        y_r += 1.25
 
     # ── Invalidation conditions ──────────────────────────────────────────────
     inv_list = _g(synthesis, "invalidation_list") or []
     if inv_list:
         y_inv = max(y_c, y_r) + 0.30
-        if y_inv < 11.0:
-            _inv_h = min(1.10, 13.00 - y_inv)
+        if y_inv < 11.5:
+            _inv_h = min(1.55, 12.90 - y_inv)
             add_rect(slide, 9.20, y_inv, 15.20, _inv_h, "FFF3CD")
             add_rect(slide, 9.20, y_inv, 0.10, _inv_h, "B06000")
             inv_str = "  \u00b7  ".join(
-                f"{_g(it,'axis','?')}: {str(_g(it,'condition',''))[:45]}" for it in inv_list[:2])
+                f"{_g(it,'axis','?')}: {str(_g(it,'condition',''))[:90]}" for it in inv_list[:2])
             add_text_box(slide, 9.45, y_inv + 0.05, 14.75, _inv_h - 0.10,
                          f"\u26a0 Conditions d\u2019invalidation : {inv_str}", 7.5, "7A5000", wrap=True)
 
