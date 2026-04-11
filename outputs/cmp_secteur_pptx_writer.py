@@ -383,10 +383,34 @@ from outputs.sectoral_pptx_writer import _SECTOR_CONTENT
 
 
 def _get_content(sector_name: str) -> dict:
-    """Cherche le contenu dans la librairie (insensible a la casse / partiel)."""
+    """Cherche le contenu dans la librairie (insensible a la casse / FR ou EN).
+
+    Resolution via core/sector_labels qui mappe FR (Sante, Energie, Industrie...)
+    et EN (Healthcare, Energy, Industrials) vers le slug canonique. La librairie
+    _SECTOR_CONTENT est keyed par les noms anglais GICS (Healthcare, Energy, etc.)
+    """
     key = sector_name.strip()
     if key in _SECTOR_CONTENT:
         return _SECTOR_CONTENT[key]
+
+    # Resolution via le slug canonique → label EN yfinance
+    try:
+        from core.sector_labels import slug_from_any, en_label
+        slug = slug_from_any(key)
+        if slug is not None:
+            en_key = en_label(slug)
+            # Cherche par label EN exact
+            if en_key in _SECTOR_CONTENT:
+                return _SECTOR_CONTENT[en_key]
+            # Variantes courantes : Healthcare / Health Care
+            for variant in (en_key, en_key.replace(" ", ""), en_key.replace("Healthcare", "Health Care"),
+                            en_key.replace("Health Care", "Healthcare")):
+                if variant in _SECTOR_CONTENT:
+                    return _SECTOR_CONTENT[variant]
+    except Exception:
+        pass
+
+    # Fallback partiel substring
     key_lc = key.lower()
     for k, v in _SECTOR_CONTENT.items():
         if k.lower() == key_lc or key_lc in k.lower() or k.lower() in key_lc:
@@ -986,14 +1010,33 @@ def _s07_marges(prs, D):
     except Exception as e:
         log.warning("[cmp_secteur] _s07 chart2: %s", e)
 
-    # Lecture analytique marges
+    # Lecture analytique marges — texte enrichi (fallback robuste si LLM vide)
     winner_margin = D["sector_a"] if (sa.get("em") or -999) > (sb.get("em") or -999) else D["sector_b"]
     winner_roe    = D["sector_a"] if (sa.get("roe") or -999) > (sb.get("roe") or -999) else D["sector_b"]
+    _em_a = sa.get("em") or 0
+    _em_b = sb.get("em") or 0
+    _roe_a = min(sa.get("roe") or 0, 999.9)
+    _roe_b = min(sb.get("roe") or 0, 999.9)
+    _gm_a = sa.get("gm") or 0
+    _gm_b = sb.get("gm") or 0
+    _spread_em = abs(_em_a - _em_b)
+    _spread_roe = abs(_roe_a - _roe_b)
     fallback_diag = (
-        f"{winner_margin} affiche une marge EBITDA superieure "
-        f"({_fmt_simple(sa.get('em') if winner_margin == D['sector_a'] else sb.get('em'), pct=True)}). "
-        f"{winner_roe} domine sur le ROE "
-        f"({_fmt_simple(min(sa.get('roe') or 0, 999.9) if winner_roe == D['sector_a'] else min(sb.get('roe') or 0, 999.9), pct=True)})."
+        f"{winner_margin} domine sur la rentabilité opérationnelle avec une marge EBITDA "
+        f"de {(_em_a if winner_margin == D['sector_a'] else _em_b):.1f}% contre "
+        f"{(_em_b if winner_margin == D['sector_a'] else _em_a):.1f}% pour {D['sector_b'] if winner_margin == D['sector_a'] else D['sector_a']} "
+        f"(spread de {_spread_em:.1f} points). Cette différence reflète des structures "
+        f"de coûts très distinctes : la marge brute s'établit à {_gm_a:.1f}% vs {_gm_b:.1f}%, "
+        f"traduisant des positionnements concurrentiels et un pricing power différenciés. "
+        f"Sur la création de valeur actionnariale, {winner_roe} affiche un ROE de "
+        f"{(_roe_a if winner_roe == D['sector_a'] else _roe_b):.1f}% (vs {(_roe_b if winner_roe == D['sector_a'] else _roe_a):.1f}% pour l'autre secteur), "
+        f"signalant une efficience supérieure du capital employé. "
+        f"L'écart de {_spread_roe:.1f} points sur le ROE conditionne directement la prime "
+        f"de valorisation que le marché accorde à chaque univers : un secteur high-ROE "
+        f"justifie un multiple plus élevé tant que la croissance se maintient. "
+        f"Pour un allocataire, ces métriques orientent l'arbitrage value/quality : "
+        f"{winner_margin} offre la meilleure résilience cyclique, tandis que les "
+        f"écarts de marge nette captent l'effet du levier financier et de la fiscalité."
     )
     diag = D.get("llm", {}).get("margins_read") or fallback_diag
     # JPM-style dynamic title
@@ -1244,10 +1287,11 @@ def _s11_top_b(prs, D):
 
 
 def _barre_secteur(slide, sector_name, tickers_data, col, universe, llm_text=None):
-    """Tableau top 8 acteurs d'un secteur."""
-    sorted_td = sorted(tickers_data, key=lambda x: x.get("score_global", 0), reverse=True)[:8]
+    """Tableau top 6 acteurs d'un secteur + box LLM systematique en bas."""
+    sorted_td = sorted(tickers_data, key=lambda x: x.get("score_global", 0), reverse=True)[:6]
 
-    table_h = 7.8 if llm_text else 11.0
+    # Toujours laisser de la place pour la box LLM analytique
+    table_h = 5.50
     rows = [["Société", "Score", "P/E", "EV/EBITDA", "Croiss.Rev.", "Mg.EBITDA", "Mg.Nette", "ROE", "Beta"]]
     for t in sorted_td:
         rows.append([
@@ -1264,15 +1308,32 @@ def _barre_secteur(slide, sector_name, tickers_data, col, universe, llm_text=Non
 
     _add_table(slide, rows, 0.9, 2.0, 23.6, table_h,
                col_widths=[4.5, 2.0, 2.0, 2.5, 2.5, 2.5, 2.5, 2.0, 1.8],
-               header_fill=col, alt_fill=_GRAYL, font_size=8.5, header_size=8.5)
+               header_fill=col, alt_fill=_GRAYL, font_size=9, header_size=9)
 
-    if llm_text:
-        # JPM-style dynamic title : focus sur le leader du secteur
-        _top_name = sorted_td[0].get("company") or sorted_td[0].get("ticker", "—") if sorted_td else "—"
-        _top_score = sorted_td[0].get("score_global", 0) if sorted_td else 0
-        _ts_title = f"{_top_name} — leader {sector_name} ({_top_score}/100) sur {len(universe)} sociétés analysées"
-        _llm_box(slide, 0.9, 10.05, 23.6, 3.30,
-                 _ts_title, llm_text, fontsize=9)
+    # Box LLM systematique (avec fallback enrichi si LLM ne renvoie rien)
+    _top_name = sorted_td[0].get("company") or sorted_td[0].get("ticker", "—") if sorted_td else "—"
+    _top_score = sorted_td[0].get("score_global", 0) if sorted_td else 0
+    _2nd = (sorted_td[1].get("company") or sorted_td[1].get("ticker", "—")) if len(sorted_td) > 1 else "—"
+    _3rd = (sorted_td[2].get("company") or sorted_td[2].get("ticker", "—")) if len(sorted_td) > 2 else "—"
+    _avg_score = sum(t.get("score_global", 0) for t in sorted_td) / max(1, len(sorted_td))
+    _avg_marge = sum(t.get("ebitda_margin", 0) for t in sorted_td) / max(1, len(sorted_td))
+    _avg_growth = sum(((t.get("revenue_growth") or 0) * 100 if abs(t.get("revenue_growth", 0)) < 5 else t.get("revenue_growth", 0)) for t in sorted_td) / max(1, len(sorted_td))
+
+    if not llm_text or len(llm_text.strip()) < 40:
+        llm_text = (
+            f"Le top {len(sorted_td)} {sector_name} est dominé par {_top_name} "
+            f"({_top_score}/100), suivi de {_2nd} et {_3rd}. Score moyen du top : "
+            f"{_avg_score:.0f}/100, marge EBITDA médiane {_avg_marge:.1f}%, croissance "
+            f"revenus {_avg_growth:+.1f}%. Ces leaders concentrent l'essentiel de la "
+            f"valeur sectorielle et constituent les coeurs de portefeuille recommandés "
+            f"pour une exposition {sector_name.lower()}. Les niveaux de marge et de "
+            f"rentabilité témoignent d'avantages compétitifs durables (économies "
+            f"d'échelle, barrières à l'entrée, pricing power) qui justifient les "
+            f"primes de valorisation observées sur le segment."
+        )
+    _ts_title = f"{_top_name} — leader {sector_name} ({_top_score}/100) sur {len(universe)} sociétés"
+    _llm_box(slide, 0.9, 7.85, 23.6, 5.45,
+             _ts_title, llm_text, fontsize=9)
 
 
 def _s12_risques_a(prs, D):
@@ -1434,24 +1495,57 @@ def _split_these_items(llm_text: str, fallback_forces: list) -> list:
 
 
 def _build_forces(s: dict, sector_name: str) -> list[str]:
+    """Construit 3 forces sectorielles avec descriptions enrichies (~25 mots)."""
     forces = []
     if (s.get("em") or 0) > 20:
-        forces.append(f"Marge EBITDA élevée ({s.get('em', 0):.0f}%) — forte capacite a générer du cash opérationnel")
+        forces.append(
+            f"Marge EBITDA élevée ({s.get('em', 0):.0f}%) — Forte capacité à générer "
+            f"du cash opérationnel, signature d'un pricing power solide et d'une "
+            f"structure de coûts maîtrisée. Permet d'absorber les chocs cycliques "
+            f"sans dilution de la rentabilité."
+        )
     if (s.get("revg") or 0) > 5:
-        forces.append(f"Croissance revenue soutenue ({s.get('revg', 0):+.1f}%) — secteur en expansion structurelle")
+        forces.append(
+            f"Croissance revenue soutenue ({s.get('revg', 0):+.1f}%) — Secteur en "
+            f"expansion structurelle portée par des moteurs long terme (innovation, "
+            f"démographie, transition). Croissance organique créatrice de valeur "
+            f"actionnariale durable."
+        )
     if (s.get("roe") or 0) > 15:
-        forces.append(f"ROE attractif ({s.get('roe', 0):.0f}%) — modèle a forte création de valeur actionnariale")
+        forces.append(
+            f"ROE attractif ({s.get('roe', 0):.0f}%) — Modèle à forte création de "
+            f"valeur actionnariale. Capacité à composer le capital au-dessus du coût "
+            f"des fonds propres, génératrice de re-rating positif sur le moyen terme."
+        )
     if (s.get("roic") or 0) > 10:
-        forces.append(f"ROIC > Coût du capital ({s.get('roic', 0):.1f}%) — allocation capital disciplinée")
+        forces.append(
+            f"ROIC > coût du capital ({s.get('roic', 0):.1f}%) — Allocation du capital "
+            f"disciplinée. Chaque euro investi génère un retour supérieur au WACC, "
+            f"créant un coussin de valeur même en phase de ralentissement macro."
+        )
     if (s.get("fcfy") or 0) > 3:
-        forces.append(f"FCF Yield ({s.get('fcfy', 0):.1f}%) — génération de cash visible, base pour dividendes et rachats")
+        forces.append(
+            f"FCF Yield {s.get('fcfy', 0):.1f}% — Génération de cash visible, base "
+            f"solide pour le retour aux actionnaires (dividendes + rachats) et le "
+            f"désendettement. Garantit la résilience en phase de contraction des marges."
+        )
     if (s.get("mom") or 0) > 5:
-        forces.append(f"Momentum 52S positif ({s.get('mom', 0):+.1f}%) — confiance des investisseurs confirmee")
-    # Padding : toujours 3 items pour équilibrer la mise en page
+        forces.append(
+            f"Momentum 52S positif ({s.get('mom', 0):+.1f}%) — Confiance des "
+            f"investisseurs confirmée par les flux institutionnels. Surperformance "
+            f"sectorielle qui valide la thèse fondamentale et soutient le multiple."
+        )
+    # Padding : descriptions enrichies pour équilibrage
     _pad = [
-        "Bilan sectoriel solide — solidité financière confirmee",
-        "Diversification des revenus géographique structurelle",
-        "Visibilite sur les flux de trésorerie favorable",
+        f"Solidité bilancielle — Niveau d'endettement maîtrisé et liquidité élevée. "
+        f"Le secteur dispose d'une capacité d'investissement intacte pour saisir les "
+        f"opportunités de consolidation et d'innovation sur le moyen terme.",
+        f"Diversification structurelle — Exposition multi-géographique et "
+        f"multi-segments qui amortit les chocs spécifiques. Modèle de revenus "
+        f"récurrents qui réduit la volatilité des cash flows.",
+        f"Visibilité sur les flux — Carnet de commandes et contrats long terme "
+        f"qui sécurisent une partie des revenus futurs. Forecasting accuracy "
+        f"supérieure à la moyenne du marché, prime au risque réduite.",
     ]
     i = 0
     while len(forces) < 3:
@@ -1461,24 +1555,55 @@ def _build_forces(s: dict, sector_name: str) -> list[str]:
 
 
 def _build_weaknesses(s: dict, sector_name: str) -> list[str]:
+    """Construit 3 faiblesses sectorielles avec descriptions enrichies."""
     weaks = []
     if (s.get("pe") or 0) > 30:
-        weaks.append(f"Valorisation tendue (P/E {s.get('pe', 0):.0f}x) — peu de marge de sécurité en cas de déception")
+        weaks.append(
+            f"Valorisation tendue (P/E {s.get('pe', 0):.0f}x) — Peu de marge de "
+            f"sécurité en cas de déception sur les résultats ou la guidance. "
+            f"Multiple compression possible si la croissance ralentit sous les attentes."
+        )
     if (s.get("revg") or 0) < 2:
-        weaks.append(f"Croissance revenue faible ({s.get('revg', 0):+.1f}%) — risque de re-rating baissier")
+        weaks.append(
+            f"Croissance revenue faible ({s.get('revg', 0):+.1f}%) — Risque de "
+            f"re-rating baissier si le marché perd patience. Secteur potentiellement "
+            f"en phase mature ou exposé à la disruption d'acteurs émergents."
+        )
     if (s.get("nm") or 0) < 5:
-        weaks.append(f"Marge nette comprimee ({s.get('nm', 0):.1f}%) — Sensibilité élevée aux hausses de Coûts")
+        weaks.append(
+            f"Marge nette comprimée ({s.get('nm', 0):.1f}%) — Sensibilité élevée aux "
+            f"hausses de coûts (matières premières, salaires, énergie). Tout choc "
+            f"macro se traduit immédiatement en érosion des bénéfices."
+        )
     if (s.get("beta") or 1) > 1.3:
-        weaks.append(f"Beta élevé ({s.get('beta', 0):.2f}) — volatilite superieure au marché, prudence en phase de correction")
+        weaks.append(
+            f"Beta élevé ({s.get('beta', 0):.2f}) — Volatilité supérieure au marché. "
+            f"En phase de correction, le secteur sous-performe et amplifie les "
+            f"drawdowns du portefeuille global. Gestion du risque renforcée requise."
+        )
     if (s.get("mom") or 0) < -5:
-        weaks.append(f"Momentum negatif 52S ({s.get('mom', 0):+.1f}%) — pression vendeuse persistante")
+        weaks.append(
+            f"Momentum négatif 52S ({s.get('mom', 0):+.1f}%) — Pression vendeuse "
+            f"persistante. Les flux institutionnels confirment le désintérêt actuel, "
+            f"signal qu'un catalyseur fort sera nécessaire pour inverser la tendance."
+        )
     if (s.get("ev_eb") or 0) > 20:
-        weaks.append(f"EV/EBITDA premium ({s.get('ev_eb', 0):.0f}x) — execution sans faute requise")
-    # Padding : toujours 2 items minimum pour équilibrer
+        weaks.append(
+            f"EV/EBITDA premium ({s.get('ev_eb', 0):.0f}x) — Exécution sans faute "
+            f"requise pour justifier le multiple. Toute déception trimestrielle peut "
+            f"déclencher une compression de 20-30% du multiple en quelques séances."
+        )
+    # Padding enrichi
     _pad = [
-        "Surveillance du consensus — révision de valorisation possible",
-        "Sensibilité macro a surveiller sur les 12 prochains mois",
-        "Execution du management déterminante pour maintenir les multiples",
+        f"Sensibilité au consensus — Toute révision baissière du consensus EPS "
+        f"peut déclencher un mouvement vendeur de court terme. Surveillance "
+        f"systématique des publications trimestrielles et des préannonces requise.",
+        f"Sensibilité macro 12 mois — Le secteur reste exposé aux variations de "
+        f"taux directeurs, au cycle d'investissement et aux décisions politiques "
+        f"sectorielles. Risk-off macro = sous-performance probable.",
+        f"Exécution du management — Capacité à délivrer les guidances trimestrielles "
+        f"déterminante pour maintenir les multiples. Tout changement de leadership "
+        f"ou révision stratégique peut peser sur la perception court terme.",
     ]
     i = 0
     while len(weaks) < 2:

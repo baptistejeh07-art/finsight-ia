@@ -928,6 +928,24 @@ def compute_ticker(ticker: str, cache_row: Optional[dict]) -> Optional[dict]:
         if peg_ratio > 50 or peg_ratio < 0:
             peg_ratio = None
 
+    # --- Dividende & Payout ratio (depuis yfinance.info) ---
+    # yfinance retourne dividendYield en % (ex: 0.97 = 0.97%)
+    # On convertit en fraction pour rester coherent avec _fmt_pct (×100)
+    div_yield_raw = None
+    payout_ratio_raw = None
+    try:
+        _dy = info.get("dividendYield")
+        if _dy and 0 < float(_dy) < 100.0:
+            div_yield_raw = round(float(_dy) / 100.0, 6)  # 0.97 -> 0.0097
+    except Exception:
+        pass
+    try:
+        _pr = info.get("payoutRatio")
+        if _pr is not None and 0 < float(_pr) < 5.0:
+            payout_ratio_raw = round(float(_pr), 4)  # payoutRatio reste en fraction
+    except Exception:
+        pass
+
     return {
         "ticker":      ticker.upper(),
         "company":     cache_row.get("company_name") or info.get("longName") or ticker,
@@ -972,6 +990,8 @@ def compute_ticker(ticker: str, cache_row: Optional[dict]) -> Optional[dict]:
         "ebitda_ntm_growth": ebitda_ntm_growth,
         "earnings_growth":   earnings_growth,
         "fcf_yield":         fcf_yield,
+        "div_yield":         div_yield_raw,
+        "payout_ratio":      payout_ratio_raw,
         "analyst_revision":  analyst_revision,
         "wacc": wacc_val,
         "tgr":  tgr_val,

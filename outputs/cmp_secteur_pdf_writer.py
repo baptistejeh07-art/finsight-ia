@@ -147,6 +147,25 @@ def _xml(s: str) -> str:
     return str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
+def _rich(s: str) -> str:
+    """Variante de _xml qui PRESERVE les balises ReportLab inline (<b>, </b>,
+    <i>, </i>, <br/>, <font ...>).
+
+    Strategie : echappe d'abord & puis < > en `&lt;` `&gt;`, puis re-introduit
+    les balises connues. Permet d'utiliser de la mise en forme dans des textes
+    qui contiennent par ailleurs des donnees utilisateur a echapper.
+    """
+    if not s:
+        return ""
+    # Escape complet
+    out = str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    # Restaure les balises inline ReportLab
+    _SAFE_TAGS = ("b", "/b", "i", "/i", "u", "/u", "br/", "br /", "sub", "/sub", "sup", "/sup")
+    for tag in _SAFE_TAGS:
+        out = out.replace(f"&lt;{tag}&gt;", f"<{tag}>")
+    return out
+
+
 def _safe_float(v, default=0.0):
     try:
         f = float(v)
@@ -994,7 +1013,7 @@ def _build_story(D: dict) -> list:
             "via les indicateurs de momentum intégrés dans la section precedente."
         )
     story.append(Spacer(1, 3 * mm))
-    story.append(Paragraph(_xml(_price_text), S_BODY))
+    story.append(Paragraph(_rich(_price_text), S_BODY))
     story.append(PageBreak())
 
     # ── PAGE 7 : Top acteurs Secteur A ────────────────────────────────────────
@@ -1407,25 +1426,23 @@ def _build_risques_comparatifs_pdf(story, content_a, sector_a, content_b, sector
             f"de divergence. Les conditions d'invalidation doivent être confrontees au contexte macro "
             f"global (cycle des taux, dollar, géopolitique) avant d'être traduites en décision d'allocation."
         )
-        story.append(Paragraph(_xml(invalidation_text), S_BODY))
+        story.append(Paragraph(_rich(invalidation_text), S_BODY))
 
 
 # ── Entetes / pieds de page ───────────────────────────────────────────────────
 def _build_page_header_footer(sector_a, sector_b, universe_label, date_str):
     def on_page(canvas, doc):
         canvas.saveState()
-        is_cover = (doc.page == 1)
-        if not is_cover:
-            # Header — bandeau pleine largeur (uniquement a partir de la page 2)
-            canvas.setFillColor(NAVY)
-            canvas.rect(0, PAGE_H - 14*mm, PAGE_W, 14*mm, fill=1, stroke=0)
-            canvas.setFillColor(WHITE)
-            canvas.setFont("Helvetica-Bold", 8)
-            canvas.drawString(MARGIN_L, PAGE_H - 9*mm,
-                f"FinSight IA  |  Comparatif sectoriel : {sector_a} vs {sector_b}  |  {universe_label}")
-            canvas.setFont("Helvetica", 7.5)
-            canvas.drawRightString(PAGE_W - MARGIN_R, PAGE_H - 9*mm,
-                f"{date_str}  |  Confidentiel  |  Page {doc.page}")
+        # Header — bandeau pleine largeur sur TOUTES les pages (y compris cover)
+        canvas.setFillColor(NAVY)
+        canvas.rect(0, PAGE_H - 14*mm, PAGE_W, 14*mm, fill=1, stroke=0)
+        canvas.setFillColor(WHITE)
+        canvas.setFont("Helvetica-Bold", 8)
+        canvas.drawString(MARGIN_L, PAGE_H - 9*mm,
+            f"FinSight IA  |  Comparatif sectoriel : {sector_a} vs {sector_b}  |  {universe_label}")
+        canvas.setFont("Helvetica", 7.5)
+        canvas.drawRightString(PAGE_W - MARGIN_R, PAGE_H - 9*mm,
+            f"{date_str}  |  Confidentiel  |  Page {doc.page}")
         # Footer — ligne fine + texte (toutes les pages)
         canvas.setStrokeColor(GREY_MED)
         canvas.setLineWidth(0.15)
