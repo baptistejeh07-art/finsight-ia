@@ -701,8 +701,10 @@ def _slide_profil(prs, d: dict, which: str):
             f"déterminent son comportement face aux cycles macroéconomiques. "
             f"L'horizon recommandé pour une allocation cœur de portefeuille est de 3 à 5 ans."
         )
+    # JPM-style dynamic title : KPI signature de l'indice
+    _car_title = f"{name} ({code}) — perf 1Y {_fr_pct_signed(p1y)}, P/E {_fr_num(pe, 1)}x"
     _llm_box(slide, 14.30, 5.50, 10.10, 4.30,
-             "Caractéristiques structurelles", llm_text, fontsize=9)
+             _car_title, llm_text, fontsize=9)
 
     # Bande footer "Lecture du profil"
     profil_read = d.get("llm", {}).get("profil_a_read" if is_a else "profil_b_read", "")
@@ -712,8 +714,10 @@ def _slide_profil(prs, d: dict, which: str):
             f"actuelles : niveau des taux directeurs, cycle économique, et flux de capitaux. "
             f"Le score FinSight {sc}/100 traduit un signal {sig.lower()} sur un horizon 6-12 mois."
         )
+    # JPM-style dynamic title
+    _prof_title = f"{name} — Score FinSight {sc}/100 : signal {sig.lower()} sur 6-12 mois"
     _llm_box(slide, 1.02, 10.10, 23.37, 3.20,
-             "Lecture analytique du profil", profil_read, fontsize=9)
+             _prof_title, profil_read, fontsize=9)
 
 
 # ── Slide 7 — Composition sectorielle comparée ──────────────────────────────
@@ -784,8 +788,18 @@ def _slide_07_secteurs(prs, d: dict):
             f"indices pour obtenir une exposition équilibrée ou en privilégier un selon "
             f"sa conviction sectorielle."
         )
+    # JPM-style dynamic title : plus gros écart sectoriel
+    _sect_title = f"{name_a} vs {name_b} — composition sectorielle"
+    try:
+        if sector_cmp:
+            _spreads = [(s[0], float(s[1] or 0) - float(s[2] or 0)) for s in sector_cmp[:11]]
+            _max = max(_spreads, key=lambda x: abs(x[1]))
+            _winner = name_a if _max[1] > 0 else name_b
+            _sect_title = f"{_winner} surpondère {_max[0]} (+{abs(_max[1]):.1f} pts) — biais structurel principal"
+    except Exception:
+        pass
     _llm_box(slide, 16.00, 3.10, 8.40, 7.50,
-             "Lecture sectorielle", sectoral_read, fontsize=9)
+             _sect_title, sectoral_read, fontsize=9)
 
     # Bande footer "Implications allocation"
     impl = d.get("llm", {}).get("sectoral_impl", "")
@@ -966,7 +980,7 @@ def _slide_10_perf_chart(prs, d: dict):
             f"ces dynamiques croisées et leur exposition différenciée."
         )
     _llm_box(slide, 17.85, 7.85, 6.55, 2.75,
-             "Lecture macro 12 mois", perf_macro, fontsize=8.5)
+             "Contexte macro 12 mois — taux, FX, rotation sectorielle", perf_macro, fontsize=8.5)
 
     # Bande footer LLM lecture analytique
     perf_lecture = d.get("llm", {}).get("perf_chart_read", "")
@@ -977,8 +991,12 @@ def _slide_10_perf_chart(prs, d: dict):
             f"sur la période. Une divergence persistante signale une rotation structurelle entre "
             f"les deux univers, à confronter aux flux institutionnels et aux révisions de consensus."
         )
+    _p1y_a = d.get("perf_1y_a") or 0
+    _p1y_b = d.get("perf_1y_b") or 0
+    _perf_winner = name_a if _p1y_a >= _p1y_b else name_b
+    _traj_title = f"{_perf_winner} surperforme sur 52S ({max(_p1y_a, _p1y_b):+.1f}%) — divergence structurelle"
     _llm_box(slide, 1.02, 10.85, 23.37, 2.45,
-             "Lecture analytique de la trajectoire", perf_lecture, fontsize=9)
+             _traj_title, perf_lecture, fontsize=9)
 
 
 # ── Slide 11 — Décomposition perfs ──────────────────────────────────────────
@@ -1168,8 +1186,12 @@ def _slide_12_risque(prs, d: dict):
             f"décevant. Le Max Drawdown capture le pire scénario réalisé sur la période et "
             f"informe sur la résilience en phase de stress."
         )
+    _vol_a = d.get("vol_1y_a") or 0
+    _vol_b = d.get("vol_1y_b") or 0
+    _safer = name_a if _vol_a < _vol_b else name_b
+    _risk_title = f"{_safer} moins volatil ({min(_vol_a, _vol_b):.1f}%) — meilleur couple rendement/risque"
     _llm_box(slide, 1.02, 10.50, 23.37, 2.80,
-             "Lecture analytique du risque", risque_read, fontsize=9)
+             _risk_title, risque_read, fontsize=9)
 
 
 # ── Slide 13 — Risk/Return scatter ──────────────────────────────────────────
@@ -1359,8 +1381,12 @@ def _slide_15_valorisation(prs, d: dict):
             f"distribution agrégée. À comparer aux moyennes historiques 5-10 ans pour identifier "
             f"les anomalies de mean reversion."
         )
+    _pe_a = d.get("pe_fwd_a") or 0
+    _pe_b = d.get("pe_fwd_b") or 0
+    _cheap = name_a if _pe_a < _pe_b else name_b
+    _val_title = f"{_cheap} décoté ({min(_pe_a, _pe_b):.1f}x P/E fwd) — opportunité de re-rating"
     _llm_box(slide, 16.0, 3.10, 8.40, 10.20,
-             "Lecture valorisation", val_read, fontsize=9)
+             _val_title, val_read, fontsize=9)
 
 
 # ── Slide 16 — ERP focus ────────────────────────────────────────────────────
@@ -1436,9 +1462,9 @@ def _slide_16_erp_focus(prs, d: dict):
             f"cas de hausse des taux ou de déception sur les bénéfices. La comparaison ERP entre "
             f"deux indices permet d'identifier le mieux rémunéré relativement au risque."
         )
+    _erp_title = f"ERP {name_a} {erp_a} vs {name_b} {erp_b} — prime de risque actions comparée"
     _llm_box(slide, 1.02, 7.65, 23.37, 5.65,
-             "Lecture analytique de la prime de risque",
-             erp_read, fontsize=9)
+             _erp_title, erp_read, fontsize=9)
 
 
 # ── Slide 17 — Score FinSight comparatif ────────────────────────────────────
@@ -1557,7 +1583,7 @@ def _slide_19_theses(prs, d: dict):
             f"Les deux indices sont corrélés sur les chocs systémiques (récession, crise de liquidité)."
         )
     _llm_box(slide, 0.9, 11.00, 23.6, 2.30,
-             "Lecture des risques", bear_text, fontsize=9)
+             f"{name_a} vs {name_b} — risques structurels et points d'invalidation", bear_text, fontsize=9)
 
 
 # ── Slide 20 — Verdict final / Recommandation ───────────────────────────────
@@ -1598,8 +1624,10 @@ def _slide_20_verdict(prs, d: dict):
             f"vs l'autre indice ({min(sc_a, sc_b)}/100) légitime une surpondération tactique, "
             f"sous réserve de stabilité macroéconomique et d'absence de choc réglementaire majeur."
         )
+    _gap = abs(sc_a - sc_b)
+    _verdict_title = f"{winner} privilégié ({max(sc_a, sc_b)}/100) — écart {_gap} pts : conviction {winner_sig.lower()}"
     _llm_box(slide, 0.9, 3.70, 23.6, 2.30,
-             "Thèse d'allocation", alloc_thesis[:520], fontsize=9)
+             _verdict_title, alloc_thesis[:520], fontsize=9)
 
     # 3 colonnes : Catalyseurs / Risques / Invalidation
     col_w3 = 7.4

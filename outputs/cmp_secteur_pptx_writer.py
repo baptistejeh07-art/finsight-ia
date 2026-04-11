@@ -956,7 +956,14 @@ def _s06_valorisation(prs, D):
         f"{'une anticipation de croissance superieure' if (sa.get('revg') or 0) > (sb.get('revg') or 0) else 'un profil de risque différentié'}."
     )
     lecture = D.get("llm", {}).get("valuation_read") or fallback_lecture
-    _llm_box(slide, 14.0, 8.50, 10.5, 4.85, "Lecture analytique", lecture, fontsize=8.5)
+    # JPM-style dynamic title
+    if pe_spread >= 5:
+        _val_title = f"{cheaper} décoté de {pe_spread:.1f}x P/E vs {premium} — arbitrage value clair"
+    elif pe_spread >= 2:
+        _val_title = f"{cheaper} affiche une prime inférieure de {pe_spread:.1f}x P/E à {premium}"
+    else:
+        _val_title = f"{D['sector_a']} vs {D['sector_b']} — multiples convergents ({pe_spread:.1f}x d'écart)"
+    _llm_box(slide, 14.0, 8.50, 10.5, 4.85, _val_title, lecture, fontsize=8.5)
 
 
 def _s07_marges(prs, D):
@@ -989,7 +996,15 @@ def _s07_marges(prs, D):
         f"({_fmt_simple(min(sa.get('roe') or 0, 999.9) if winner_roe == D['sector_a'] else min(sb.get('roe') or 0, 999.9), pct=True)})."
     )
     diag = D.get("llm", {}).get("margins_read") or fallback_diag
-    _llm_box(slide, 0.9, 7.75, 23.6, 5.55, "Lecture analytique", diag, fontsize=9)
+    # JPM-style dynamic title
+    em_a = (sa.get("em") or 0) * (100 if abs(sa.get("em") or 0) <= 2 else 1)
+    em_b = (sb.get("em") or 0) * (100 if abs(sb.get("em") or 0) <= 2 else 1)
+    em_spread = abs(em_a - em_b)
+    if winner_margin == winner_roe:
+        _marg_title = f"{winner_margin} domine marges ET rentabilité — qualité opérationnelle supérieure"
+    else:
+        _marg_title = f"{winner_margin} marges premium ({em_spread:.0f} bps d'écart) vs {winner_roe} ROE supérieur"
+    _llm_box(slide, 0.9, 7.75, 23.6, 5.55, _marg_title, diag, fontsize=9)
 
 
 def _s07b_capital_alloc(prs, D):
@@ -1097,7 +1112,15 @@ def _s07b_capital_alloc(prs, D):
         f"l'expansion, un secteur mature monétisé via la distribution."
     )
     interp_txt = D.get("llm", {}).get("capital_alloc_read") or fallback_interp
-    _llm_box(slide, 14.5, 2.0, 9.95, 11.30, "Lecture analytique", interp_txt, fontsize=9)
+    # JPM-style dynamic title
+    dy_max = max(dy_a, dy_b) * 100
+    if dy_max >= 3.5:
+        _ca_title = f"{high_dy} — yield {dy_max:.1f}% : politique de retour au capital généreuse"
+    elif dy_max >= 1.5:
+        _ca_title = f"{high_dy} leader yield ({dy_max:.1f}%) — équilibre distribution / réinvestissement"
+    else:
+        _ca_title = f"{high_fy} privilégie le réinvestissement — yields modérés ({dy_max:.1f}%)"
+    _llm_box(slide, 14.5, 2.0, 9.95, 11.30, _ca_title, interp_txt, fontsize=9)
 
 
 def _s08_croissance(prs, D):
@@ -1151,8 +1174,9 @@ def _s08_croissance(prs, D):
         f"La courbe Normalisée permet d'isoler la performance pure, independamment des niveaux absolus."
     )
     lecture = D.get("llm", {}).get("growth_read") or fallback_lecture
-    _llm_box(slide, 0.9, 9.80, 23.6, 3.55, "Lecture analytique cours 52S & macro",
-             lecture, fontsize=9)
+    # JPM-style dynamic title : performer 52S
+    _gr_title = f"{faster_s.get('name', D['sector_a'])} surperforme sur 52S — momentum {_fmt(faster_s.get('mom'), pct=True)}"
+    _llm_box(slide, 0.9, 9.80, 23.6, 3.55, _gr_title, lecture, fontsize=9)
 
 
 def _s09_scoring(prs, D):
@@ -1243,8 +1267,12 @@ def _barre_secteur(slide, sector_name, tickers_data, col, universe, llm_text=Non
                header_fill=col, alt_fill=_GRAYL, font_size=8.5, header_size=8.5)
 
     if llm_text:
+        # JPM-style dynamic title : focus sur le leader du secteur
+        _top_name = sorted_td[0].get("company") or sorted_td[0].get("ticker", "—") if sorted_td else "—"
+        _top_score = sorted_td[0].get("score_global", 0) if sorted_td else 0
+        _ts_title = f"{_top_name} — leader {sector_name} ({_top_score}/100) sur {len(universe)} sociétés analysées"
         _llm_box(slide, 0.9, 10.05, 23.6, 3.30,
-                 "Lecture analytique", llm_text, fontsize=9)
+                 _ts_title, llm_text, fontsize=9)
 
 
 def _s12_risques_a(prs, D):
@@ -1364,7 +1392,8 @@ def _s14_synthese(prs, D):
     _rect(slide, xa, 10.50, 23.4, 0.55, fill=_RED)
     _txb(slide, "RISQUES PRINCIPAUX", xa + 0.20, 10.56, 23.0, 0.45, size=10, bold=True,
          color=_WHITE, align=PP_ALIGN.CENTER)
-    _llm_box(slide, xa, 11.10, 23.4, 2.25, "Lecture des risques", risks_txt[:480], fontsize=9)
+    _risk_title = f"{D['sector_a']} vs {D['sector_b']} — risques structurels et points d'invalidation"
+    _llm_box(slide, xa, 11.10, 23.4, 2.25, _risk_title, risks_txt[:480], fontsize=9)
 
 
 def _split_these_items(llm_text: str, fallback_forces: list) -> list:
@@ -1519,10 +1548,13 @@ def _s15_allocation(prs, D):
         _txb(slide, label, 13.2, y + 0.1, 7.0, 0.52, size=8.5, color=_GRAYT)
         _txb(slide, val, 13.2, y + 0.1, 11.0, 0.52, size=8.5, bold=True, color=_GREEN, align=PP_ALIGN.RIGHT)
 
-    # Recommandation IA — box LLM standard
+    # Recommandation IA — box LLM standard, titre JPM dynamique
     alloc_text = D.get("llm", {}).get("allocation_read") or ""
     if alloc_text:
-        _llm_box(slide, 0.9, 10.20, 23.6, 3.10, "Recommandation",
+        _winner_alloc = D["sector_a"] if sa.get("score", 0) >= sb.get("score", 0) else D["sector_b"]
+        _w_score = max(sa.get("score", 0), sb.get("score", 0))
+        _alloc_title = f"Surpondérer {_winner_alloc} — score {_w_score}/100, conviction supérieure"
+        _llm_box(slide, 0.9, 10.20, 23.6, 3.10, _alloc_title,
                  alloc_text, fontsize=9)
 
     # Note de bas de page
@@ -1564,8 +1596,9 @@ def _s15b_verdict(prs, D):
         f"L'écart de {gap} pts face a {loser} ({loser_score}/100) legitime une surponderation "
         f"tactique sur un horizon 6-12 mois, sous reserve de stabilité macro."
     )
-    # Thèse d'allocation — box LLM standard
-    _llm_box(slide, 0.9, 3.70, 23.6, 2.20, "Thèse d'allocation",
+    # Thèse d'allocation — titre JPM dynamique
+    _verdict_title = f"{winner} privilégié ({winner_score}/100) — écart {gap} pts vs {loser} : conviction {winner_sig.lower()}"
+    _llm_box(slide, 0.9, 3.70, 23.6, 2.20, _verdict_title,
              alloc_thesis[:480], fontsize=9)
 
     # 3 colonnes : Catalyseurs | Risques | Invalidation

@@ -1216,7 +1216,8 @@ def _s06_valorisation(prs, D):
             f"Score composite FinSight : {_scr6}/100 — signal {_sig6} (conviction {_conv6}%). "
             f"{_nb_surp6} secteur(s) en Surpondérer, {_nb_sous6} en Sous-pondérer."
         )
-    _lecture_box(slide, "Lecture analytique — Valorisation macro & implications d'allocation", _trunc(texte_val, 1100), y_top=7.8, height=5.55)
+    _val_title = f"Score FinSight {_scr6}/100 — signal {_sig6}, {_nb_surp6} secteurs Surpondérer / {_nb_sous6} Sous-pondérer"
+    _lecture_box(slide, _val_title, _trunc(texte_val, 1100), y_top=7.8, height=5.55)
 
     _footer(slide)
     return slide
@@ -1378,7 +1379,11 @@ def _s09_cartographie(prs, D):
         + _strat
     )
     y_top = min(10.5, 2.3 + len(rows) * 0.65 + 0.8)
-    _lecture_box(slide, "Lecture analytique — Ce que la cartographie révèle",
+    _carto_title = (
+        f"{nb_surp} secteurs Surpondérer / {nb_sous} Sous-pondérer — spread {score_spread} pts "
+        f"({'bifurcation marquée' if score_spread > 30 else 'dispersion modérée'})"
+    )
+    _lecture_box(slide, _carto_title,
                  lecture, y_top=y_top, height=13.35 - y_top)
 
     _footer(slide)
@@ -2186,7 +2191,8 @@ def _s20_etf_perf(prs, D, chart_bytes: bytes):
                     f"Cours actuel : {_cours_val} (YTD : {_ytd_val})."
                 ]
 
-            _lecture_box(slide, f"Lecture analytique — {indice} sur 52 semaines",
+            _hist_title = f"{indice} {_final_idx:+.1f}% sur 52S — cours {_cours_val}, YTD {_ytd_val}"
+            _lecture_box(slide, _hist_title,
                          "  ".join(_narrative_parts), y_top=9.0, height=4.35, max_chars=900)
         else:
             # Pas de perf_history : tableau scores + note

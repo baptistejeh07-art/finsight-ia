@@ -798,7 +798,10 @@ def _build_story(data: dict) -> list:
         f"Les sections suivantes détaillent chacune des dimensions : profil & composition, "
         f"performance & risque, valorisation, et décision d'allocation."
     )
-    story += _llm_box_std("Lecture de la synthèse comparative", synth_read)
+    _winner = name_a if sc_a >= sc_b else name_b
+    _gap = abs(sc_a - sc_b)
+    _synth_title = f"{_winner} en avance — score FinSight {max(sc_a, sc_b)}/100 ({_gap} pts d'écart)"
+    story += _llm_box_std(_synth_title, synth_read)
     story.append(PageBreak())
 
     # ── PAGE 3 : PROFIL & COMPOSITION SECTORIELLE ──────────────────────────
@@ -826,7 +829,18 @@ def _build_story(data: dict) -> list:
         f"financials-heavy profite des hausses de taux. À pondérer selon le régime macro et "
         f"les anticipations de cycle."
     )
-    story += _llm_box_std("Lecture sectorielle", sectoral_read)
+    # JPM-style dynamic title : plus gros écart sectoriel
+    _sect_title = f"{name_a} vs {name_b} — biais sectoriels structurels"
+    try:
+        _sc = data.get("sector_comparison") or []
+        if _sc:
+            _spreads = [(s[0], float(s[1] or 0) - float(s[2] or 0)) for s in _sc[:11]]
+            _max = max(_spreads, key=lambda x: abs(x[1]))
+            _winner = name_a if _max[1] > 0 else name_b
+            _sect_title = f"{_winner} surpondère {_max[0]} (+{abs(_max[1]):.1f} pts) — divergence structurelle clé"
+    except Exception:
+        pass
+    story += _llm_box_std(_sect_title, sectoral_read)
     story.append(PageBreak())
 
     # ── PAGE 4 : TOP HOLDINGS COMPARÉS ─────────────────────────────────────
@@ -890,7 +904,7 @@ def _build_story(data: dict) -> list:
         f"(effet 'magnificent 7' sur le S&P 500). À l'inverse, une dispersion plus large offre "
         f"une diversification intrinsèque mais réduit la sensibilité aux leaders sectoriels."
     )
-    story += _llm_box_std("Concentration et risque idiosyncrasique", concentration_read)
+    story += _llm_box_std(f"{name_a} vs {name_b} — concentration top constituants et risque idiosyncrasique", concentration_read)
     story.append(PageBreak())
 
     # ── PAGE 5 : PERFORMANCE 52W + MACRO ───────────────────────────────────
@@ -911,7 +925,12 @@ def _build_story(data: dict) -> list:
         f"exposition différenciée. Catalyseurs 3-6 mois : publications T1/T2, guidance annuelle, "
         f"décisions Fed/BCE, évolutions réglementaires sectorielles."
     )
-    story += _llm_box_std("Lecture macro 12 mois", perf_macro)
+    _p1y_a = data.get("perf_1y_a") or 0
+    _p1y_b = data.get("perf_1y_b") or 0
+    _perf_winner = name_a if _p1y_a >= _p1y_b else name_b
+    _perf_max = max(_p1y_a, _p1y_b)
+    _macro_title = f"{_perf_winner} surperforme sur 12 mois ({_perf_max:+.1f}%) — contexte macro favorable"
+    story += _llm_box_std(_macro_title, perf_macro)
     story.append(PageBreak())
 
     # ── PAGE 6 : DÉCOMPOSITION PERFS ────────────────────────────────────────
@@ -946,7 +965,11 @@ def _build_story(data: dict) -> list:
         f"tandis qu'une surperformance constante signale un avantage compétitif durable. "
         f"À croiser avec les valorisations relatives pour identifier les opportunités de mean reversion."
     )
-    story += _llm_box_std("Lecture de la décomposition", perf_decomp)
+    _ytd_a = data.get("perf_ytd_a") or 0
+    _ytd_b = data.get("perf_ytd_b") or 0
+    _ytd_winner = name_a if _ytd_a >= _ytd_b else name_b
+    _decomp_title = f"{_ytd_winner} mène YTD ({max(_ytd_a, _ytd_b):+.1f}%) — décomposition multi-horizons"
+    story += _llm_box_std(_decomp_title, perf_decomp)
     story.append(PageBreak())
 
     # ── PAGE 7 : RISQUE COMPARATIF ────────────────────────────────────────
@@ -986,7 +1009,11 @@ def _build_story(data: dict) -> list:
         f"0,5-1 = correct, < 0,5 = décevant). Le Max Drawdown capture le pire scénario réalisé "
         f"sur la période et informe sur la résilience en phase de stress."
     )
-    story += _llm_box_std("Lecture analytique du risque", risque_read)
+    _vol_a = data.get("vol_1y_a") or 0
+    _vol_b = data.get("vol_1y_b") or 0
+    _safer = name_a if _vol_a < _vol_b else name_b
+    _risk_title = f"{_safer} moins volatil ({min(_vol_a, _vol_b):.1f}%) — profil risque/rendement supérieur"
+    story += _llm_box_std(_risk_title, risque_read)
 
     # Risk-return scatter sur la même page si possible (compact)
     rr_img = _risk_return_chart(data, width=170*mm, height=70*mm)
@@ -1037,7 +1064,11 @@ def _build_story(data: dict) -> list:
         f"distribution agrégée. À comparer aux moyennes historiques 5-10 ans pour identifier "
         f"les anomalies de mean reversion."
     )
-    story += _llm_box_std("Lecture valorisation", val_read)
+    _pe_a = data.get("pe_fwd_a") or 0
+    _pe_b = data.get("pe_fwd_b") or 0
+    _cheap = name_a if _pe_a < _pe_b else name_b
+    _val_title = f"{_cheap} décoté ({min(_pe_a, _pe_b):.1f}x P/E fwd) — opportunité valorisation relative"
+    story += _llm_box_std(_val_title, val_read)
     story.append(PageBreak())
 
     # ── PAGE 9 : ERP FOCUS ────────────────────────────────────────────────
@@ -1084,7 +1115,7 @@ def _build_story(data: dict) -> list:
         f"des taux ou de déception sur les bénéfices. La comparaison ERP entre deux indices "
         f"permet d'identifier le mieux rémunéré relativement au risque pris."
     )
-    story += _llm_box_std("Interprétation de la prime de risque actions", erp_read)
+    story += _llm_box_std(f"ERP {name_a} {erp_a} vs {name_b} {erp_b} — prime de risque actions comparée", erp_read)
     story.append(PageBreak())
 
     # ── PAGE 10 : THÈSES BULL/BEAR ────────────────────────────────────────
@@ -1193,7 +1224,7 @@ def _build_story(data: dict) -> list:
         f"Méthodologie de monitoring : revue mensuelle des seuils, alertes automatiques en cas "
         f"de franchissement, réévaluation complète sur 2 trimestres consécutifs de divergence."
     )
-    story += _llm_box_std("Méthodologie de monitoring", inv_text)
+    story += _llm_box_std(f"Monitoring de la thèse {winner} — seuils de réévaluation et signaux d'invalidation", inv_text)
     story.append(PageBreak())
 
     # ── PAGE 12 : RECOMMANDATION D'ALLOCATION ──────────────────────────────

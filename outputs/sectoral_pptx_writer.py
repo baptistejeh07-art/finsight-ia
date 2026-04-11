@@ -1387,7 +1387,8 @@ def _s09_cartographie(prs, D):
 
     _rect(slide, 0.9, _s09_text_y, 23.6, _s09_text_h, fill=_GRAYL)
     _rect(slide, 0.9, _s09_text_y, 0.1, _s09_text_h, fill=_NAVY)
-    _txb(slide, "Lecture analytique — Ce que la cartographie revele", 1.3, _s09_text_y + 0.15, 23.0, 0.6, size=9, bold=True, color=_NAVY)
+    _carto_title = f"{D['sector_name']} — {n_buy} BUY / {n_hold} HOLD / {n_sell} SELL · {best_name} en tête ({int(best.get('score_global') or 0)}/100)"
+    _txb(slide, _carto_title, 1.3, _s09_text_y + 0.15, 23.0, 0.6, size=9, bold=True, color=_NAVY)
     analysis = (
         f"Le secteur {D['sector_name']} présente {n_buy} BUY / {n_hold} HOLD / {n_sell} SELL "
         f"sur {len(td)} valeurs analysées. "
