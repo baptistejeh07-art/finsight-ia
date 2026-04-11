@@ -132,8 +132,130 @@ def merge_and_set(ws, range_str, value, *, font_obj=None, fill_obj=None,
 # CONSTRUCTION ONGLET VISIBLE "LBO MODEL"
 # ═════════════════════════════════════════════════════════════════════════════
 
+# ═════════════════════════════════════════════════════════════════════════════
+# COPIE DEPUIS LE TEMPLATE EXCEL DE REFERENCE
+# ═════════════════════════════════════════════════════════════════════════════
+# La generation cell-par-cell des deux feuilles LBO etait fragile et divergait
+# de la version visuelle validee par Baptiste. On utilise desormais
+# `assets/lbo_template.xlsx` (extrait de TSLA_LBO_REFERENCE.xlsx) comme source
+# de verite et on copie les feuilles verbatim a chaque generation.
+# Les formules referencent INPUT!, DCF!, COMPARABLES!, STOCK_DATA! qui existent
+# deja dans le wb cible — donc rien a re-injecter dynamiquement.
+
+from copy import copy as _shallow_copy
+
+LBO_TEMPLATE_PATH = Path(__file__).parent.parent / "assets" / "lbo_template.xlsx"
+
+
+def _copy_sheet_into(wb, sheet_name: str, template_ws):
+    """Copie integrale de template_ws (d'un autre wb) dans wb sous sheet_name.
+
+    Preserve : valeurs, formules, fonts, fills, borders, alignments, number
+    formats, merges, col widths, row heights, conditional formatting, sheet
+    state (hidden/visible).
+    """
+    if sheet_name in wb.sheetnames:
+        del wb[sheet_name]
+    ws = wb.create_sheet(sheet_name)
+
+    # Cellules
+    for row in template_ws.iter_rows():
+        for cell in row:
+            new_cell = ws[cell.coordinate]
+            new_cell.value = cell.value
+            if cell.has_style:
+                new_cell.font          = _shallow_copy(cell.font)
+                new_cell.fill          = _shallow_copy(cell.fill)
+                new_cell.border        = _shallow_copy(cell.border)
+                new_cell.alignment     = _shallow_copy(cell.alignment)
+                new_cell.number_format = cell.number_format
+                new_cell.protection    = _shallow_copy(cell.protection)
+
+    # Merged ranges
+    for mr in template_ws.merged_cells.ranges:
+        ws.merge_cells(str(mr))
+
+    # Col widths
+    for col_letter, dim in template_ws.column_dimensions.items():
+        new_dim = ws.column_dimensions[col_letter]
+        if dim.width is not None:
+            new_dim.width = dim.width
+        if dim.hidden:
+            new_dim.hidden = True
+
+    # Row heights
+    for row_idx, dim in template_ws.row_dimensions.items():
+        new_dim = ws.row_dimensions[row_idx]
+        if dim.height is not None:
+            new_dim.height = dim.height
+        if dim.hidden:
+            new_dim.hidden = True
+
+    # Conditional formatting (heatmap sensibilite)
+    try:
+        for cf_range, rules in template_ws.conditional_formatting._cf_rules.items():
+            for rule in rules:
+                ws.conditional_formatting.add(str(cf_range.sqref), _shallow_copy(rule))
+    except Exception:
+        pass
+
+    # Sheet state (visible / hidden)
+    ws.sheet_state = template_ws.sheet_state
+
+    # Print options & page setup
+    try:
+        ws.print_options = _shallow_copy(template_ws.print_options)
+        ws.page_margins  = _shallow_copy(template_ws.page_margins)
+        ws.page_setup    = _shallow_copy(template_ws.page_setup)
+        ws.sheet_view    = _shallow_copy(template_ws.sheet_view)
+    except Exception:
+        pass
+
+    return ws
+
+
+def _load_lbo_template():
+    """Charge le template LBO (cache simple par appel — pas de cache global
+    pour eviter les soucis de partage entre threads Streamlit)."""
+    if not LBO_TEMPLATE_PATH.exists():
+        raise FileNotFoundError(
+            f"Template LBO introuvable : {LBO_TEMPLATE_PATH}. "
+            f"Le fichier doit etre commit dans assets/."
+        )
+    return load_workbook(LBO_TEMPLATE_PATH, data_only=False)
+
+
 def build_lbo_visible(wb):
-    """Construit l'onglet visible LBO MODEL (style cmp DCF FinSight)."""
+    """Construit l'onglet visible LBO MODEL en copiant le template de reference."""
+    tpl = _load_lbo_template()
+    if "LBO MODEL" not in tpl.sheetnames:
+        raise RuntimeError("Template LBO ne contient pas l'onglet 'LBO MODEL'.")
+    ws = _copy_sheet_into(wb, "LBO MODEL", tpl["LBO MODEL"])
+
+    # Cellules nommees LBO_* (referencees par pptx_writer / pdf_writer)
+    cell_name_map = {
+        "LBO_ELIGIBLE":      "D96",
+        "LBO_IRR_BASE":      "D97",
+        "LBO_MOIC_BASE":     "D98",
+        "LBO_IRR_BULL":      "D99",
+        "LBO_IRR_BEAR":      "D100",
+        "LBO_LEVERAGE_EXIT": "D101",
+        "LBO_EQUITY_ENTRY":  "D102",
+        "LBO_EQUITY_EXIT":   "D103",
+    }
+    for name, cell_ref in cell_name_map.items():
+        if name in wb.defined_names:
+            del wb.defined_names[name]
+        defn = DefinedName(name=name, attr_text=f"'LBO MODEL'!${cell_ref[0]}${cell_ref[1:]}")
+        wb.defined_names[name] = defn
+
+    return ws
+
+
+def _legacy_build_lbo_visible(wb):
+    """Ancienne implementation cell-par-cell — gardee pour reference / fallback.
+    Ne plus utiliser : build_lbo_visible() utilise desormais le template Excel.
+    """
     if "LBO MODEL" in wb.sheetnames:
         del wb["LBO MODEL"]
     ws = wb.create_sheet("LBO MODEL")
@@ -720,6 +842,17 @@ def section_header(ws, row, title, end_col="M"):
 # ═════════════════════════════════════════════════════════════════════════════
 
 def build_lbo_calc(wb):
+    """Construit l'onglet masque _LBO_CALC en copiant le template de reference."""
+    tpl = _load_lbo_template()
+    if "_LBO_CALC" not in tpl.sheetnames:
+        raise RuntimeError("Template LBO ne contient pas l'onglet '_LBO_CALC'.")
+    ws = _copy_sheet_into(wb, "_LBO_CALC", tpl["_LBO_CALC"])
+    # Garantir l'etat masque (le template l'a deja, mais double-check)
+    ws.sheet_state = "hidden"
+    return ws
+
+
+def _legacy_build_lbo_calc(wb):
     """Onglet masqué : tous les calculs lourds JPM/GS-grade."""
     if "_LBO_CALC" in wb.sheetnames:
         del wb["_LBO_CALC"]
