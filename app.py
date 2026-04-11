@@ -908,11 +908,25 @@ def render_sidebar(results) -> None:
 
         elif results and not results.get("error"):
             if st.button("＋  Nouvelle analyse", use_container_width=True, type="primary"):
-                st.session_state.stage              = "home"
-                st.session_state.results            = None
-                st.session_state.ticker             = ""
-                st.session_state.from_screening     = False
-                st.session_state.screening_results  = None
+                # Reset COMPLET — sinon livrables / cmp / from_screening
+                # peuvent reapparaitre sur l'analyse suivante
+                for _k in (
+                    "results", "ticker", "from_screening",
+                    "screening_results", "screening_parent", "screening_universe",
+                    "icmp_stage", "icmp_universe_b", "icmp_universe_a",
+                    "icmp_pptx_bytes", "icmp_pdf_bytes", "icmp_xlsx_bytes",
+                    "icmp_cmp_data",
+                    "scmp_stage", "scmp_sector_b", "scmp_universe_b",
+                    "scmp_pptx_bytes", "scmp_pdf_bytes", "scmp_xlsx_bytes",
+                    "scmp_tickers_a", "scmp_tickers_b", "scmp_cmp_data",
+                    "cmp_stage", "cmp_kind", "cmp_state_b", "cmp_bytes",
+                    "cmp_pptx_bytes", "cmp_pdf_bytes", "cmp_ticker_b",
+                    "previous_analysis_type", "previous_analysis_results",
+                    "previous_analysis_label",
+                ):
+                    if _k in st.session_state:
+                        del st.session_state[_k]
+                st.session_state.stage = "home"
                 st.rerun()
 
         if (not _in_cmp_page) and st.session_state.get("screening_results"):
@@ -1513,6 +1527,15 @@ def render_veille() -> None:
 
 def render_home() -> None:
     import random
+    # Garde defensive : si une analyse est en cours, on redirige vers l'ecran
+    # running approprie au lieu de reafficher la home (evite que l'utilisateur
+    # puisse modifier le ticker pendant qu'une analyse tourne).
+    _stage_now = st.session_state.get("stage", "home")
+    if _stage_now == "running":
+        return render_running()
+    if _stage_now == "screening_running":
+        return render_screening_running()
+
     _, col, _ = st.columns([1, 2.2, 1])
     with col:
         st.markdown('<div style="height:56px"></div>', unsafe_allow_html=True)
@@ -1522,6 +1545,7 @@ def render_home() -> None:
         ticker_input = st.text_input(
             "ticker", placeholder="AAPL, CAC40, Technology...",
             label_visibility="collapsed", max_chars=30,
+            key="home_search_input",
         ).strip()
 
         go = st.button("Analyser →", use_container_width=True, type="primary")
@@ -3591,7 +3615,24 @@ def render_screening_results(results: dict) -> None:
     nav_cols = st.columns([1, 1, 4])
     with nav_cols[0]:
         if st.button("+ Nouvelle recherche", type="primary", use_container_width=True):
-            st.session_state.screening_parent = None
+            # Reset COMPLET de l'etat (sinon livrables / cmp / from_screening
+            # peuvent persister sur l'analyse suivante)
+            for _k in (
+                "screening_results", "screening_parent", "screening_universe",
+                "from_screening", "results", "ticker",
+                "icmp_stage", "icmp_universe_b", "icmp_universe_a",
+                "icmp_pptx_bytes", "icmp_pdf_bytes", "icmp_xlsx_bytes",
+                "icmp_cmp_data",
+                "scmp_stage", "scmp_sector_b", "scmp_universe_b",
+                "scmp_pptx_bytes", "scmp_pdf_bytes", "scmp_xlsx_bytes",
+                "scmp_tickers_a", "scmp_tickers_b", "scmp_cmp_data",
+                "cmp_stage", "cmp_kind", "cmp_state_b", "cmp_bytes",
+                "cmp_pptx_bytes", "cmp_pdf_bytes", "cmp_ticker_b",
+                "previous_analysis_type", "previous_analysis_results",
+                "previous_analysis_label",
+            ):
+                if _k in st.session_state:
+                    del st.session_state[_k]
             st.session_state.stage = "home"
             st.rerun()
     with nav_cols[1]:
@@ -4703,10 +4744,30 @@ def render_results(results: dict) -> None:
 
 def _cmp_back_to_previous():
     """Retourne a l'analyse initiale depuis la page comparative.
-    Restaure explicitement les resultats sauvegardes pour eviter les
-    cas ou st.session_state.results aurait ete vide entre temps."""
+    Restaure explicitement les resultats sauvegardes ET nettoie tout l'etat
+    comparatif (livrables/donnees/stages) pour que la section "Comparer"
+    se reaffiche dans son etat initial (formulaire vide)."""
     prev_type    = st.session_state.get("previous_analysis_type")
     prev_results = st.session_state.get("previous_analysis_results")
+
+    # Nettoyage COMPLET de l'etat comparatif (cmp societe + secteur + indice)
+    _cmp_keys_to_clear = (
+        # Comparaison société
+        "cmp_stage", "cmp_kind", "cmp_state_b", "cmp_bytes",
+        "cmp_pptx_bytes", "cmp_pdf_bytes",
+        # Comparaison secteur
+        "scmp_stage", "scmp_sector_a", "scmp_sector_b",
+        "scmp_tickers_a", "scmp_tickers_b",
+        "scmp_pptx_bytes", "scmp_pdf_bytes", "scmp_xlsx_bytes",
+        "scmp_universe_b", "scmp_cmp_data",
+        # Comparaison indice
+        "icmp_stage", "icmp_universe_b", "icmp_cmp_data",
+        "icmp_pptx_bytes", "icmp_pdf_bytes", "icmp_xlsx_bytes",
+    )
+    for _k in _cmp_keys_to_clear:
+        if _k in st.session_state:
+            del st.session_state[_k]
+
     if prev_type == "results":
         if prev_results is not None:
             st.session_state.results = prev_results
@@ -5059,9 +5120,9 @@ def _render_cmp_indice_page() -> None:
     name_a = _INDICE_CMP_OPTIONS.get(universe_a, (universe_a,))[0] if "_INDICE_CMP_OPTIONS" in globals() else universe_a
     name_b = _INDICE_CMP_OPTIONS.get(universe_b, (universe_b,))[0] if "_INDICE_CMP_OPTIONS" in globals() else universe_b
 
+    # cmp_data est un dict plat retourne par _fetch_indice_cmp_data avec
+    # cles suffixees _a / _b (score_a, perf_1y_a, pe_fwd_a, etc.)
     cmp_data = st.session_state.get("icmp_cmp_data") or {}
-    metrics_a = cmp_data.get("metrics_a") or {}
-    metrics_b = cmp_data.get("metrics_b") or {}
 
     def _g(d, *keys, default=None):
         for k in keys:
@@ -5070,8 +5131,8 @@ def _render_cmp_indice_page() -> None:
                 return v
         return default
 
-    score_a = _safe_int(_g(metrics_a, "composite_score", "score", "finsight_score"))
-    score_b = _safe_int(_g(metrics_b, "composite_score", "score", "finsight_score"))
+    score_a = _safe_int(cmp_data.get("score_a"))
+    score_b = _safe_int(cmp_data.get("score_b"))
     winner  = name_a if score_a >= score_b else name_b
     delta   = abs(score_a - score_b)
     delta_str = f"+{delta} pts" if delta > 0 else "—"
@@ -5114,15 +5175,29 @@ def _render_cmp_indice_page() -> None:
         try: return f"{float(v):.0f}"
         except: return "\u2014"
 
+    def _fxx(v):
+        if v is None: return "\u2014"
+        try: return f"{float(v):.1f}x"
+        except: return "\u2014"
+
+    def _f2(v):
+        if v is None: return "\u2014"
+        try: return f"{float(v):.2f}"
+        except: return "\u2014"
+
     rows = [
-        ("Score composite",         f"{score_a}/100", f"{score_b}/100"),
-        ("Nombre de valeurs",       _fnum(_g(metrics_a, "n_tickers", "count")),
-                                    _fnum(_g(metrics_b, "n_tickers", "count"))),
-        ("Perf. mediane 1Y",        _fpct_idx(_g(metrics_a, "perf_1y_median", "perf_1y")),
-                                    _fpct_idx(_g(metrics_b, "perf_1y_median", "perf_1y"))),
-        ("Marge EBITDA mediane",    _fpct_idx(_g(metrics_a, "ebitda_margin_median", "ebitda_margin")),
-                                    _fpct_idx(_g(metrics_b, "ebitda_margin_median", "ebitda_margin"))),
-        ("Recommandation",          _rec_fr(rec_a), _rec_fr(rec_b)),
+        ("Score composite",      f"{score_a}/100", f"{score_b}/100"),
+        ("Performance 1 an",     _fpct_idx(cmp_data.get("perf_1y_a")),
+                                 _fpct_idx(cmp_data.get("perf_1y_b"))),
+        ("Performance 3 ans",    _fpct_idx(cmp_data.get("perf_3y_a")),
+                                 _fpct_idx(cmp_data.get("perf_3y_b"))),
+        ("Volatilité 1 an",      _fpct_idx(cmp_data.get("vol_1y_a")),
+                                 _fpct_idx(cmp_data.get("vol_1y_b"))),
+        ("Sharpe 1 an",          _f2(cmp_data.get("sharpe_1y_a")),
+                                 _f2(cmp_data.get("sharpe_1y_b"))),
+        ("P/E forward",          _fxx(cmp_data.get("pe_fwd_a")),
+                                 _fxx(cmp_data.get("pe_fwd_b"))),
+        ("Recommandation",       _rec_fr(rec_a), _rec_fr(rec_b)),
     ]
     _cmp_mini_table(rows, header_a=name_a, header_b=name_b)
 

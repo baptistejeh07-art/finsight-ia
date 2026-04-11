@@ -1224,7 +1224,9 @@ def _build_story(data: dict) -> list:
         f"Méthodologie de monitoring : revue mensuelle des seuils, alertes automatiques en cas "
         f"de franchissement, réévaluation complète sur 2 trimestres consécutifs de divergence."
     )
-    story += _llm_box_std(f"Monitoring de la thèse {winner} — seuils de réévaluation et signaux d'invalidation", inv_text)
+    # winner pre-calcule pour le titre JPM (l'usage detaille est repete plus bas)
+    _winner_inv = name_a if sc_a >= sc_b else name_b
+    story += _llm_box_std(f"Monitoring de la thèse {_winner_inv} — seuils de réévaluation et signaux d'invalidation", inv_text)
     story.append(PageBreak())
 
     # ── PAGE 12 : RECOMMANDATION D'ALLOCATION ──────────────────────────────
