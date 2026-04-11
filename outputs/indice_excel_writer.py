@@ -30,28 +30,29 @@ _NA = "\u2014"   # em-dash
 _FULL  = "\u2588"
 _EMPTY = "\u2591"
 
-# Mapping secteur yfinance canonical -> nom affiche dans template
+# Mapping secteur yfinance/GICS -> libelle francais (i18n via core/sector_labels)
 # Couvre les deux nomenclatures yfinance (ancienne et moderne)
 _SECT_DISP = {
     # Noms anciens yfinance (GICS)
-    "Technology":             "Technology",
-    "Health Care":            "Healthcare",
-    "Financials":             "Financials",
-    "Consumer Discretionary": "Consumer Disc.",
-    "Communication Services": "Comm. Services",
-    "Industrials":            "Industrials",
-    "Consumer Staples":       "Consumer Défensive",
-    "Energy":                 "Energy",
-    "Materials":              "Materials",
-    "Real Estate":            "Real Estate",
-    "Utilities":              "Utilities",
+    "Technology":             "Technologie",
+    "Health Care":            "Santé",
+    "Financials":             "Finance",
+    "Consumer Discretionary": "Conso. Cycl.",
+    "Communication Services": "Télécoms",
+    "Industrials":            "Industrie",
+    "Consumer Staples":       "Conso. Déf.",
+    "Energy":                 "Énergie",
+    "Materials":              "Matériaux",
+    "Real Estate":            "Immobilier",
+    "Utilities":              "Serv. Publ.",
     # Noms modernes yfinance (retournes pour tickers EU)
-    "Financial Services":     "Financials",
-    "Consumer Cyclical":      "Consumer Disc.",
-    "Consumer Défensive":     "Consumer Défensive",
-    "Basic Materials":        "Materials",
-    "Healthcare":             "Healthcare",
-    "Comm. Services":         "Comm. Services",
+    "Financial Services":     "Finance",
+    "Consumer Cyclical":      "Conso. Cycl.",
+    "Consumer Defensive":     "Conso. Déf.",
+    "Consumer Défensive":     "Conso. Déf.",
+    "Basic Materials":        "Matériaux",
+    "Healthcare":             "Santé",
+    "Comm. Services":         "Télécoms",
 }
 
 # Ordre des secteurs (pour PAR SECTEUR, SECTOR OVERVIEW col M)

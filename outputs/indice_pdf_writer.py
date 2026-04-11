@@ -275,14 +275,34 @@ def make_scatter_sectoriel(data):
     plt.close(fig); buf.seek(0); return buf
 
 
-_SECTOR_ABBREV_PDF = {
-    "Communication Services":  "Comm. Services",
-    "Consumer Discretionary":  "Cons. Discret.",
-    "Consumer Staples":        "Cons. Staples",
-}
-
 def _abbrev_pdf(name: str) -> str:
-    return _SECTOR_ABBREV_PDF.get(str(name), str(name))
+    """Retourne l'abreviation FR courte du secteur (pour barres de scores PDF).
+
+    Utilise core/sector_labels pour normaliser depuis n'importe quel format.
+    """
+    if not name:
+        return ""
+    try:
+        from core.sector_labels import slug_from_any
+    except ImportError:
+        return str(name)
+    slug = slug_from_any(name)
+    if slug is None:
+        return str(name)
+    SHORT_FR_PDF = {
+        "TECHNOLOGY":       "Technologie",
+        "HEALTHCARE":       "Santé",
+        "FINANCIALS":       "Finance",
+        "CONSUMERCYCLICAL": "Conso. Cycl.",
+        "CONSUMERDEFENSIVE":"Conso. Déf.",
+        "ENERGY":           "Énergie",
+        "INDUSTRIALS":      "Industrie",
+        "MATERIALS":        "Matériaux",
+        "REALESTATE":       "Immobilier",
+        "UTILITIES":        "Serv. Publ.",
+        "COMMUNICATION":    "Télécoms",
+    }
+    return SHORT_FR_PDF.get(slug, str(name))
 
 def make_score_bars(data):
     secteurs = data["secteurs"]
@@ -978,8 +998,14 @@ def _build_cartographie(data, weights_buf, attribution_buf=None, registry=None):
                 _lecture = "Prime faible — valoris\u00e9 serr\u00e9 vs taux"
             else:
                 _lecture = "Prime mod\u00e9r\u00e9e — valorisation raisonnable"
+            # Affichage du nom de secteur en francais
+            try:
+                from core.sector_labels import fr_label as _fr_lbl
+                _nom_fr = _fr_lbl(nom)
+            except Exception:
+                _nom_fr = nom
             val_rows.append([
-                Paragraph(nom, S_TD_B),
+                Paragraph(_nom_fr, S_TD_B),
                 Paragraph(_pb_s, S_TD_C),
                 Paragraph(_dy_s, S_TD_G if (_dy or 0) > 2.5 else S_TD_C),
                 Paragraph(_erp_s, _erp_style),

@@ -65,14 +65,32 @@ _LINE_COLORS_RGB = [
 
 # ── Helpers generiques ─────────────────────────────────────────────────────────
 
-_SECTOR_ABBREV = {
-    "Communication Services":  "Comm. Services",
-    "Consumer Discretionary":  "Cons. Discret.",
-    "Consumer Staples":        "Cons. Staples",
-}
-
 def _abbrev_sector(name: str, maxlen: int = 16) -> str:
-    s = _SECTOR_ABBREV.get(str(name), str(name))
+    """Retourne l'abreviation FR courte du secteur (i18n via core/sector_labels)."""
+    if not name:
+        return ""
+    try:
+        from core.sector_labels import slug_from_any
+    except ImportError:
+        return str(name)[:maxlen]
+    slug = slug_from_any(name)
+    if slug is None:
+        s = str(name)
+        return s[:maxlen] if len(s) > maxlen else s
+    SHORT_FR = {
+        "TECHNOLOGY":       "Technologie",
+        "HEALTHCARE":       "Santé",
+        "FINANCIALS":       "Finance",
+        "CONSUMERCYCLICAL": "Conso. Cycl.",
+        "CONSUMERDEFENSIVE":"Conso. Déf.",
+        "ENERGY":           "Énergie",
+        "INDUSTRIALS":      "Industrie",
+        "MATERIALS":        "Matériaux",
+        "REALESTATE":       "Immobilier",
+        "UTILITIES":        "Serv. Publ.",
+        "COMMUNICATION":    "Télécoms",
+    }
+    s = SHORT_FR.get(slug, str(name))
     return s[:maxlen] if len(s) > maxlen else s
 
 def _trunc(text: str, n: int) -> str:
@@ -1959,17 +1977,17 @@ def _s18_rotation(prs, D):
     rotation = D.get("rotation",[])
     if not rotation:
         rotation = [
-            ("Technology",             "Expansion",  "Faible",     "Forte",    "Surpondérer"),
-            ("Health Care",            "Tous cycles","Modérée",    "Modérée",  "Surpondérer"),
-            ("Financials",             "Expansion",  "Haute",      "Haute",    "Surpondérer"),
-            ("Consumer Discretionary", "Expansion",  "Modérée",    "Haute",    "Neutre"),
-            ("Comm. Services",         "Expansion",  "Faible",     "Modérée",  "Neutre"),
-            ("Industrials",            "Expansion",  "Modérée",    "Forte",    "Neutre"),
-            ("Consumer Staples",       "Contraction","Modérée",    "Faible",   "Neutre"),
-            ("Energy",                 "Tous cycles","Faible",     "Modérée",  "Neutre"),
-            ("Real Estate",            "Contraction","Très haute", "Faible",   "Sous-pondérer"),
-            ("Utilities",              "Contraction","Très haute", "Faible",   "Sous-pondérer"),
-            ("Materials",              "Expansion",  "Faible",     "Forte",    "Neutre"),
+            ("Technologie",             "Expansion",  "Faible",     "Forte",    "Surpondérer"),
+            ("Santé",                   "Tous cycles","Modérée",    "Modérée",  "Surpondérer"),
+            ("Finance",                 "Expansion",  "Haute",      "Haute",    "Surpondérer"),
+            ("Conso. Cyclique",         "Expansion",  "Modérée",    "Haute",    "Neutre"),
+            ("Télécoms",                "Expansion",  "Faible",     "Modérée",  "Neutre"),
+            ("Industrie",               "Expansion",  "Modérée",    "Forte",    "Neutre"),
+            ("Conso. Défensive",        "Contraction","Modérée",    "Faible",   "Neutre"),
+            ("Énergie",                 "Tous cycles","Faible",     "Modérée",  "Neutre"),
+            ("Immobilier",              "Contraction","Très haute", "Faible",   "Sous-pondérer"),
+            ("Services Publics",        "Contraction","Très haute", "Faible",   "Sous-pondérer"),
+            ("Matériaux",               "Expansion",  "Faible",     "Forte",    "Neutre"),
         ]
 
     rows = [["Secteur", "Phase favorisée", "Sens. Taux", "Sens. PIB", "Signal Rotation"]]

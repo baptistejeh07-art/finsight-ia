@@ -1256,7 +1256,13 @@ def _build_risques_pdf(story, content, sector_name):
         risk_data.append([Paragraph(f"- {title}", _sty("rb", size=8, color=RED, bold=True)), Paragraph(body[:200], S_TD_L)])
 
     cols2 = [55*mm, 121*mm]
-    story.append(_tbl(cat_data,  cols2, header_col=COL_A if "Technology" in sector_name or "Industrial" in sector_name or "Health" in sector_name else NAVY_LIGHT))
+    # Couleur header : bleu si secteur "growth-friendly" (tech/santé/industrie), navy sinon
+    try:
+        from core.sector_labels import slug_from_any as _slug
+        _is_growth = _slug(sector_name) in {"TECHNOLOGY", "INDUSTRIALS", "HEALTHCARE"}
+    except Exception:
+        _is_growth = "Technology" in sector_name or "Industrial" in sector_name or "Health" in sector_name
+    story.append(_tbl(cat_data,  cols2, header_col=COL_A if _is_growth else NAVY_LIGHT))
     story.append(Spacer(1, 3 * mm))
     story.append(_tbl(risk_data, cols2, header_col=RED))
 

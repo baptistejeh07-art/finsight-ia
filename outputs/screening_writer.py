@@ -150,30 +150,35 @@ def _fmt_cov(v: Any) -> str:
 
 
 def _sector_short(s: str) -> str:
-    MAP = {
-        # Noms yfinance
-        "Consumer Cyclical":      "Consumer Disc.",
-        "Consumer Défensive":     "Consumer Staples",
-        "Basic Materials":        "Materials",
-        "Financial Services":     "Financials",
-        "Communication Services": "Comm. Services",
-        "Information Technology": "Technology",
-        "Health Care":            "Healthcare",
-        # Noms standard GICS
-        "Consumer Discretionary": "Consumer Disc.",
-        "Consumer Staples":       "Consumer Staples",
-        "Healthcare":             "Healthcare",
-        "Financials":             "Financials",
-        "Technology":             "Technology",
-        "Materials":              "Materials",
-        "Real Estate":            "Real Estate",
-        "Industrials":            "Industrials",
-        "Energy":                 "Energy",
-        "Utilities":              "Utilities",
-    }
+    """Retourne le libelle court francais du secteur (pour entetes Excel/PDF).
+
+    Utilise core/sector_labels pour le mapping FR centralise. Accepte tous les
+    formats d'entree (yfinance EN, GICS, slug, francais).
+    """
     if not s:
         return ""
-    return MAP.get(s, s)
+    try:
+        from core.sector_labels import fr_label, slug_from_any
+    except ImportError:
+        return s
+    slug = slug_from_any(s)
+    if slug is None:
+        return s
+    # Versions courtes pour les entetes serres (Excel/PDF tableaux)
+    SHORT_FR = {
+        "TECHNOLOGY":       "Technologie",
+        "HEALTHCARE":       "Santé",
+        "FINANCIALS":       "Finance",
+        "CONSUMERCYCLICAL": "Conso. Cycl.",
+        "CONSUMERDEFENSIVE":"Conso. Déf.",
+        "ENERGY":           "Énergie",
+        "INDUSTRIALS":      "Industrie",
+        "MATERIALS":        "Matériaux",
+        "REALESTATE":       "Immobilier",
+        "UTILITIES":        "Services Publ.",
+        "COMMUNICATION":    "Télécoms",
+    }
+    return SHORT_FR.get(slug, fr_label(s))
 
 
 def _signal(score: Optional[float]) -> str:

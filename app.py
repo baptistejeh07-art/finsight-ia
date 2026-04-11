@@ -522,42 +522,34 @@ if "previous_analysis_label"   not in st.session_state: st.session_state.previou
 _INDICES_SET = {
     "CAC40", "SP500", "S&P500", "SPX", "DAX40", "FTSE100", "STOXX50", "ALL", "EUROSTOXX50",
 }
-_SECTOR_ALIASES_SET = {
-    "TECHNOLOGY", "TECH", "HEALTHCARE", "HEALTH",
-    "FINANCIALS", "FINANCE", "FINANCIAL", "FINANCIALSERVICES",
-    "CONSUMER", "CONSUMERCYCLICAL", "CONSUMERDEFENSIVE",
-    "ENERGY", "INDUSTRIALS", "MATERIALS", "BASICMATERIALS",
-    "REALESTATE", "UTILITIES", "COMMUNICATION", "COMMUNICATIONSERVICES", "TELECOM",
-}
+# ─── Secteurs : i18n centralisé via core/sector_labels ──────────────────────
+# Source de verite : core/sector_labels.py (mapping FR/EN/slug + helpers).
+# Les dicts ci-dessous sont generes pour preserver la compatibilite avec
+# l'ancien code qui utilise _SECTOR_ALIASES_SET / _UNIVERSE_DISPLAY / _SECTOR_YFINANCE.
+from core.sector_labels import (
+    SECTOR_LABELS as _SECTOR_LABELS_CANON,
+    SECTOR_LABELS_FR_ACCENTED as _FR_ACCENTED,
+    fr_label as _fr_label,
+    en_label as _en_label,
+    slug_from_any as _slug_from_any,
+)
+
+# Set d'aliases : tous les slugs canoniques (TECHNOLOGY, HEALTHCARE, etc.)
+_SECTOR_ALIASES_SET = set(_SECTOR_LABELS_CANON.keys())
+
+# Display francais (UI Streamlit) — labels avec accents UTF-8
 _UNIVERSE_DISPLAY = {
+    # Indices
     "CAC40": "CAC 40", "SP500": "S&P 500", "S&P500": "S&P 500", "SPX": "S&P 500",
     "DAX40": "DAX 40", "FTSE100": "FTSE 100", "STOXX50": "Euro Stoxx 50",
     "EUROSTOXX50": "Euro Stoxx 50", "ALL": "Univers Global",
-    "TECHNOLOGY": "Technology", "TECH": "Technology",
-    "HEALTHCARE": "Health Care", "HEALTH": "Health Care",
-    "FINANCIALS": "Financial Services", "FINANCE": "Financial Services",
-    "FINANCIAL": "Financial Services", "FINANCIALSERVICES": "Financial Services",
-    "CONSUMER": "Consumer Cyclical", "CONSUMERCYCLICAL": "Consumer Cyclical",
-    "CONSUMERDEFENSIVE": "Consumer Défensive",
-    "ENERGY": "Energy", "INDUSTRIALS": "Industrials",
-    "MATERIALS": "Basic Materials", "BASICMATERIALS": "Basic Materials",
-    "REALESTATE": "Real Estate", "UTILITIES": "Utilities",
-    "COMMUNICATION": "Communication Services",
-    "COMMUNICATIONSERVICES": "Communication Services", "TELECOM": "Communication Services",
 }
-_SECTOR_YFINANCE = {
-    "TECHNOLOGY": "Technology", "TECH": "Technology",
-    "HEALTHCARE": "Health Care", "HEALTH": "Health Care",
-    "FINANCIALS": "Financial Services", "FINANCE": "Financial Services",
-    "FINANCIAL": "Financial Services", "FINANCIALSERVICES": "Financial Services",
-    "CONSUMER": "Consumer Cyclical", "CONSUMERCYCLICAL": "Consumer Cyclical",
-    "CONSUMERDEFENSIVE": "Consumer Défensive",
-    "ENERGY": "Energy", "INDUSTRIALS": "Industrials",
-    "MATERIALS": "Basic Materials", "BASICMATERIALS": "Basic Materials",
-    "REALESTATE": "Real Estate", "UTILITIES": "Utilities",
-    "COMMUNICATION": "Communication Services",
-    "COMMUNICATIONSERVICES": "Communication Services", "TELECOM": "Communication Services",
-}
+# Ajout des secteurs depuis le mapping canonique
+for _slug, _fr in _FR_ACCENTED.items():
+    _UNIVERSE_DISPLAY[_slug] = _fr
+
+# Mapping slug -> label yfinance (anglais) pour les appels API
+_SECTOR_YFINANCE = {_slug: _SECTOR_LABELS_CANON[_slug][0] for _slug in _SECTOR_LABELS_CANON}
 
 
 def _resolve_input_llm(name: str) -> dict | None:
@@ -640,7 +632,8 @@ def detect_input_type(query: str) -> str:
     q = query.strip().upper().replace(" ", "").replace("-", "").replace("&", "")
     if q in _INDICES_SET:
         return "screening_indice"
-    if q in _SECTOR_ALIASES_SET:
+    # Resolution sectorielle FR/EN/slug via core/sector_labels
+    if _slug_from_any(query) is not None:
         return "screening_secteur"
     # Heuristique : si l'input contient un espace ou fait > 5 chars sans ressembler
     # à un ticker (tout en majuscules courts), c'est probablement un secteur.
@@ -661,6 +654,12 @@ def _get_universe_tickers(universe: str) -> list:
         _sys.path.insert(0, _scripts)
 
     u = universe.upper().replace("-", "").replace(" ", "").replace("&", "")
+
+    # Si l'input est un secteur FR ("Technologie") ou EN ("Technology"),
+    # on resout vers le slug canonique avant lookup univers
+    _maybe_slug = _slug_from_any(universe)
+    if _maybe_slug is not None:
+        u = _maybe_slug
 
     if u == "CAC40":
         from cache_update import CAC40_TICKERS

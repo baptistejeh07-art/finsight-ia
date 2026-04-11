@@ -2511,6 +2511,14 @@ def generate_sector_report(
     date_str: str = None,
     sector_analytics: dict = None,
 ) -> str:
+    # i18n : on garde l'original (anglais yfinance) pour les data lookups,
+    # et on cree une version francaise pour tous les affichages downstream.
+    sector_name_en = sector_name
+    try:
+        from core.sector_labels import fr_label as _fr_lbl
+        sector_name = _fr_lbl(sector_name)
+    except Exception:
+        pass
     """
     Genere un rapport PDF sectoriel institutionnel.
 

@@ -670,8 +670,16 @@ def _prepare_data(tickers_data: list[dict], sector_name: str, universe: str) -> 
         "September", "septembre").replace("October", "octobre").replace(
         "November", "novembre").replace("December", "decembre")
 
+    # Traduction FR du nom de secteur pour affichage (i18n)
+    try:
+        from core.sector_labels import fr_label as _fr_lbl
+        _sector_name_display = _fr_lbl(sector_name)
+    except Exception:
+        _sector_name_display = sector_name
+
     return {
-        "sector_name": sector_name,
+        "sector_name": _sector_name_display,        # affichage francais
+        "sector_name_en": sector_name,               # original yfinance EN (data lookups)
         "universe": universe,
         "date_str": date_str,
         "N": len(td),
