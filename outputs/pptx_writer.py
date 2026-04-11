@@ -2764,6 +2764,551 @@ def _slide_lbo(prs, snap, synthesis, ratios):
     return slide
 
 
+# ═════════════════════════════════════════════════════════════════════════════
+# 3 SLIDES LBO INSTITUTIONNELLES (cadre / returns / stress)
+# ═════════════════════════════════════════════════════════════════════════════
+
+def _build_lbo_pack(snap, synthesis, ratios) -> dict:
+    """Construit le pack de données LBO + textes LLM pour les 3 slides.
+
+    Réplique simplifiée de la mécanique du modèle Excel `outputs/lbo_model.py`,
+    mais en pur Python pour ne pas dépendre du recalcul Excel.
+
+    Returns:
+        dict avec : eligible, mega_flag, hypotheses, sources_uses, returns,
+        sensitivity (5×5), scenarios (bull/base/bear), debt_schedule, llm_texts
+    """
+    # ── Extraction métriques ──
+    ci = snap.company_info if snap else None
+    ticker = _g(ci, "ticker", "—")
+    company = _g(ci, "company_name", ticker)
+    sector = _g(ci, "sector", "")
+    currency = _g(ci, "currency", "USD") or "USD"
+    cur_sym = "EUR" if currency == "EUR" else "$"
+
+    latest_yr = None
+    if ratios and getattr(ratios, "years", None):
+        _lbl = sorted(ratios.years.keys(),
+                      key=lambda k: str(k).replace("_LTM", "Z"))[-1]
+        latest_yr = ratios.years[_lbl]
+
+    ebitda = float(getattr(latest_yr, "ebitda", 0) or 0) if latest_yr else 0.0
+    ebit = float(getattr(latest_yr, "ebit", ebitda * 0.85) or 0) if latest_yr else 0.0
+    fcf = float(getattr(latest_yr, "fcf", 0) or 0) if latest_yr else 0.0
+    net_debt = float(getattr(latest_yr, "net_debt", 0) or 0) if latest_yr else 0.0
+    rev = float(getattr(latest_yr, "revenue", 0) or 0) if latest_yr else 0.0
+    rev_growth = getattr(latest_yr, "revenue_growth", None) if latest_yr else None
+    ebitda_margin = float(getattr(latest_yr, "ebitda_margin", 0) or 0) if latest_yr else 0.0
+    roic = getattr(latest_yr, "roic", None) if latest_yr else None
+
+    # Market cap & EV
+    mkt = snap.market if snap else None
+    market_cap = float(_g(mkt, "market_cap", 0) or 0)
+    ev_market = market_cap + net_debt
+
+    # ── Critères d'éligibilité ──
+    cash_conv = (fcf / ebitda) if ebitda > 0 else 0
+    nd_ebitda = (net_debt / ebitda) if ebitda > 0 else 99.0
+    ebitda_marg_pct = ebitda_margin * 100 if abs(ebitda_margin) <= 2 else ebitda_margin
+
+    elig_marge = ebitda_marg_pct > 15
+    elig_cash = cash_conv > 0.6
+    elig_levier = nd_ebitda < 3.5
+    elig_ebitda = ebitda > 0
+    eligible = all([elig_marge, elig_cash, elig_levier, elig_ebitda])
+
+    # Mega-deal flag (en millions $)
+    if ev_market > 100_000:
+        mega_flag = "theorique"
+    elif ev_market > 50_000:
+        mega_flag = "mega"
+    else:
+        mega_flag = "standard"
+
+    # ── Hypothèses LBO standards ──
+    multiple_marche = ev_market / ebitda if ebitda > 0 else 14.0
+    # Multiple d'entrée = max(14, multiple_marche * 1.1) — réaliste
+    entry_mult = max(14.0, round(multiple_marche * 1.1, 1)) if multiple_marche > 0 else 14.0
+    leverage = 5.0       # Total leverage
+    senior_lvg = 3.5
+    mezz_lvg = 1.5
+    senior_rate = 0.08
+    mezz_rate = 0.10
+    exit_mult = entry_mult  # conservatisme
+    hold_years = 5
+    fees_pct = 0.025
+    cash_min_pct = 0.05
+
+    # ── Sources & Uses ──
+    ev_deal = entry_mult * ebitda
+    senior_debt = senior_lvg * ebitda
+    mezz_debt = mezz_lvg * ebitda
+    purchase_eq = ev_deal - net_debt
+    refi = max(net_debt, 0)
+    fees_amount = ev_deal * fees_pct
+    min_cash = ev_deal * cash_min_pct
+    total_uses = purchase_eq + refi + fees_amount + min_cash
+    sponsor_eq = total_uses - senior_debt - mezz_debt
+    total_sources = sponsor_eq + senior_debt + mezz_debt
+
+    # ── Projections + Returns base case ──
+    g_rate = float(rev_growth) if rev_growth and rev_growth > 0.001 else 0.05
+    g_rate = min(max(g_rate, 0.0), 0.20)
+    ebitda_y5 = ebitda * ((1 + g_rate) ** hold_years)
+
+    # Debt schedule simplifié : senior remboursée à 50% sur 5 ans, mezz bullet
+    senior_y5 = senior_debt * 0.5
+    mezz_y5 = mezz_debt * ((1 + 0.05) ** hold_years)  # PIK 5%/an
+    cash_y5 = (fcf if fcf > 0 else ebitda * 0.5) * hold_years * 0.3  # 30% du FCF capitalisé
+    net_debt_y5 = max(senior_y5 + mezz_y5 - cash_y5, 0)
+    leverage_y5 = net_debt_y5 / ebitda_y5 if ebitda_y5 > 0 else 0
+
+    ev_exit = ebitda_y5 * exit_mult
+    equity_exit = ev_exit - net_debt_y5
+    moic_base = (equity_exit / sponsor_eq) if sponsor_eq > 0 else 0
+    irr_base = (moic_base ** (1 / hold_years) - 1) if moic_base > 0 else -0.99
+
+    # ── Sensibilité 5×5 (entry × exit) ──
+    sens_grid = []
+    entry_offsets = [-2, -1, 0, 1, 2]
+    exit_offsets = [-2, -1, 0, 1, 2]
+    for off_e in entry_offsets:
+        row = []
+        em = entry_mult + off_e
+        if em <= 0:
+            row = [None] * 5
+            sens_grid.append(row)
+            continue
+        ev_d = em * ebitda
+        senior_d = senior_lvg * ebitda
+        mezz_d = mezz_lvg * ebitda
+        purchase_d = ev_d - net_debt
+        total_u = purchase_d + max(net_debt, 0) + ev_d * fees_pct + ev_d * cash_min_pct
+        sponsor_d = total_u - senior_d - mezz_d
+        for off_x in exit_offsets:
+            xm = exit_mult + off_x
+            if xm <= 0 or sponsor_d <= 0:
+                row.append(None)
+                continue
+            ev_x = ebitda_y5 * xm
+            eq_x = ev_x - net_debt_y5
+            moic = eq_x / sponsor_d if sponsor_d > 0 else 0
+            irr = (moic ** (1 / hold_years) - 1) if moic > 0 else -0.99
+            row.append(irr)
+        sens_grid.append(row)
+
+    # ── Scénarios bull/base/bear ──
+    def _scenario(rev_adj, marg_adj, exit_adj):
+        eb = ebitda * (1 + marg_adj)
+        eb_y5 = eb * ((1 + g_rate + rev_adj) ** hold_years)
+        ev_x = eb_y5 * (exit_mult + exit_adj)
+        nd_y5 = max(senior_y5 + mezz_y5 - cash_y5, 0)
+        eq_x = ev_x - nd_y5
+        moic = eq_x / sponsor_eq if sponsor_eq > 0 else 0
+        irr = (moic ** (1 / hold_years) - 1) if moic > 0 else -0.99
+        lvg_x = nd_y5 / eb_y5 if eb_y5 > 0 else 0
+        icr = (eb_y5 * 0.85) / max(senior_y5 * senior_rate + mezz_y5 * 0.05, 1)
+        return {"irr": irr, "moic": moic, "leverage": lvg_x, "icr": icr}
+
+    scenarios = {
+        "bull": _scenario(0.03, 0.02, 1),
+        "base": {"irr": irr_base, "moic": moic_base,
+                 "leverage": leverage_y5,
+                 "icr": (ebit * ((1 + g_rate) ** hold_years)) / max(senior_y5 * senior_rate + mezz_y5 * 0.05, 1)},
+        "bear": _scenario(-0.03, -0.02, -1),
+    }
+
+    # ── Debt schedule simplifié pour affichage ──
+    debt_schedule = []
+    senior_bal = senior_debt
+    mezz_bal = mezz_debt
+    cash_bal = 0
+    for yr in range(hold_years + 1):
+        ebitda_yr = ebitda * ((1 + g_rate) ** yr)
+        if yr > 0:
+            interest_senior = senior_bal * senior_rate
+            interest_mezz = mezz_bal * 0.05
+            mezz_bal *= 1.05  # PIK
+            mandatory = senior_bal * 0.01
+            fcf_yr = ebitda_yr * 0.85 - interest_senior - interest_mezz
+            sweep = max(min((fcf_yr - mandatory) * 0.75, senior_bal - mandatory), 0)
+            senior_bal = max(senior_bal - mandatory - sweep, 0)
+            cash_bal += max(fcf_yr - mandatory - sweep, 0)
+        net_d = senior_bal + mezz_bal - cash_bal
+        debt_schedule.append({
+            "year": yr, "ebitda": ebitda_yr,
+            "senior": senior_bal, "mezz": mezz_bal,
+            "cash": cash_bal, "net_debt": net_d,
+            "leverage": net_d / ebitda_yr if ebitda_yr > 0 else 0
+        })
+
+    # ── Génération textes LLM via agent_lbo ──
+    lbo_data_for_llm = {
+        "eligible": eligible, "mega_flag": mega_flag,
+        "irr_base": irr_base, "moic_base": moic_base,
+        "irr_bull": scenarios["bull"]["irr"],
+        "irr_bear": scenarios["bear"]["irr"],
+        "leverage_exit": leverage_y5,
+        "equity_entry": sponsor_eq,
+        "equity_exit": equity_exit,
+        "company_name": company, "ticker": ticker,
+    }
+    metrics_min = {
+        "ebitda_margin_ltm": ebitda_margin,
+        "roic": roic,
+        "net_debt_ebitda": nd_ebitda,
+        "company_name_a": company,
+        "ticker_a": ticker,
+        "sector": sector,
+    }
+    try:
+        from agents.agent_lbo import generate_lbo_texts
+        llm_texts = generate_lbo_texts(lbo_data_for_llm, metrics_min)
+    except Exception as _e:
+        llm_texts = {
+            "eligibility_text": "",
+            "hypotheses_text": "",
+            "returns_text": "",
+            "risks_text": "",
+        }
+
+    return {
+        "ticker": ticker,
+        "company": company,
+        "sector": sector,
+        "cur_sym": cur_sym,
+        "eligible": eligible,
+        "mega_flag": mega_flag,
+        "ebitda": ebitda,
+        "ebitda_y5": ebitda_y5,
+        "ev_market": ev_market,
+        "ev_deal": ev_deal,
+        "multiple_marche": multiple_marche,
+        "entry_mult": entry_mult,
+        "exit_mult": exit_mult,
+        "leverage": leverage,
+        "hold_years": hold_years,
+        "sources_uses": {
+            "sponsor_equity": sponsor_eq,
+            "senior_debt": senior_debt,
+            "mezz_debt": mezz_debt,
+            "total_sources": total_sources,
+            "purchase_equity": purchase_eq,
+            "refi": refi,
+            "fees": fees_amount,
+            "min_cash": min_cash,
+            "total_uses": total_uses,
+        },
+        "returns": {
+            "sponsor_equity": sponsor_eq,
+            "equity_exit": equity_exit,
+            "irr_base": irr_base,
+            "moic_base": moic_base,
+        },
+        "sensitivity": {
+            "entry_mults": [entry_mult + o for o in entry_offsets],
+            "exit_mults": [exit_mult + o for o in exit_offsets],
+            "grid": sens_grid,
+        },
+        "scenarios": scenarios,
+        "debt_schedule": debt_schedule,
+        "llm_texts": llm_texts,
+    }
+
+
+def _slide_lbo_cadre(prs, snap, pack: dict):
+    """Slide LBO 1/3 — Cadre du deal (Sources & Uses + éligibilité)."""
+    slide_layout = prs.slide_layouts[6]
+    slide = prs.slides.add_slide(slide_layout)
+    navy_bar(slide)
+    footer_bar(slide)
+    section_dots(slide, 3)
+
+    ticker = pack["ticker"]
+    company = pack["company"]
+    cur = pack["cur_sym"]
+
+    slide_title(slide, "Modèle LBO — Cadre du Deal",
+                f"{company} ({ticker})  ·  Sources & Uses, hypothèses et éligibilité")
+
+    # ── Bandeau profil + éligibilité ──
+    elig_color = GREEN_PALE if pack["eligible"] else RED_PALE
+    elig_accent = GREEN if pack["eligible"] else RED
+    elig_label = "✓ PROFIL LBO-ABLE" if pack["eligible"] else "✗ PROFIL NON ÉLIGIBLE"
+    elig_sub = ("Société éligible aux critères LBO mid-market standard"
+                if pack["eligible"]
+                else "Critères non satisfaits — analyse à titre théorique")
+    add_rect(slide, 1.02, 2.45, 23.37, 1.20, elig_color)
+    add_rect(slide, 1.02, 2.45, 0.20, 1.20, elig_accent)
+    add_text_box(slide, 1.40, 2.55, 22.0, 0.55,
+                 elig_label, 13, elig_accent, bold=True)
+    add_text_box(slide, 1.40, 3.10, 22.0, 0.50,
+                 elig_sub, 9, NAVY_MID)
+
+    # Mega-deal flag
+    if pack["mega_flag"] != "standard":
+        mega_text = ("⚠⚠ Scénario théorique — EV > 100 Md$, hors marché LBO historique"
+                     if pack["mega_flag"] == "theorique"
+                     else "⚠ Mega-deal — EV 50-100 Md$, syndicate sponsorship requis")
+        add_rect(slide, 1.02, 3.80, 23.37, 0.55, AMBER_PALE)
+        add_rect(slide, 1.02, 3.80, 0.20, 0.55, AMBER)
+        add_text_box(slide, 1.40, 3.88, 22.0, 0.42,
+                     mega_text, 9.5, AMBER, bold=True)
+        sources_y = 4.55
+    else:
+        sources_y = 4.00
+
+    # ── Sources & Uses (côte à côte) ──
+    su = pack["sources_uses"]
+
+    # Header SOURCES (gauche)
+    add_rect(slide, 1.02, sources_y, 11.40, 0.50, NAVY)
+    add_text_box(slide, 1.20, sources_y + 0.10, 11.0, 0.36,
+                 "SOURCES (financement)", 10, WHITE, bold=True, align=__import__("pptx").enum.text.PP_ALIGN.CENTER)
+
+    sources_rows = [
+        ["Sponsor Equity", _frm(su["sponsor_equity"], cur),
+         f"{(su['sponsor_equity']/su['total_sources']*100 if su['total_sources']>0 else 0):.1f} %"],
+        ["Senior Term Loan B", _frm(su["senior_debt"], cur),
+         f"{(su['senior_debt']/su['total_sources']*100 if su['total_sources']>0 else 0):.1f} %"],
+        ["Mezzanine", _frm(su["mezz_debt"], cur),
+         f"{(su['mezz_debt']/su['total_sources']*100 if su['total_sources']>0 else 0):.1f} %"],
+        ["TOTAL SOURCES", _frm(su["total_sources"], cur), "100,0 %"],
+    ]
+    add_table(slide, 1.02, sources_y + 0.55, 11.40, 3.0,
+              4, 3,
+              col_widths_pct=[0.50, 0.30, 0.20],
+              header_data=None,
+              rows_data=sources_rows,
+              border_hex="DDDDDD")
+
+    # Header USES (droite)
+    add_rect(slide, 12.94, sources_y, 11.46, 0.50, NAVY)
+    add_text_box(slide, 13.12, sources_y + 0.10, 11.0, 0.36,
+                 "USES (utilisation)", 10, WHITE, bold=True, align=__import__("pptx").enum.text.PP_ALIGN.CENTER)
+
+    uses_rows = [
+        ["Purchase price equity", _frm(su["purchase_equity"], cur)],
+        ["Refinancement dette", _frm(su["refi"], cur)],
+        ["Transaction fees", _frm(su["fees"], cur)],
+        ["Cash minimum BS", _frm(su["min_cash"], cur)],
+        ["TOTAL USES", _frm(su["total_uses"], cur)],
+    ]
+    add_table(slide, 12.94, sources_y + 0.55, 11.46, 3.5,
+              5, 2,
+              col_widths_pct=[0.65, 0.35],
+              header_data=None,
+              rows_data=uses_rows,
+              border_hex="DDDDDD")
+
+    # ── Box LLM hypothèses (footer) ──
+    hypotheses_text = pack["llm_texts"].get("hypotheses_text") or (
+        f"Multiple d'entrée {pack['entry_mult']:.1f}x EBITDA "
+        f"(vs marché {pack['multiple_marche']:.1f}x). Leverage 5x EBITDA "
+        f"(Senior 3,5x à 8% + Mezz 1,5x à 10%). Sortie conservatrice à "
+        f"{pack['exit_mult']:.1f}x. Hypothèses opérationnelles importées du DCF."
+    )
+    commentary_box(slide, 1.02, 11.50, 23.37, 1.80, hypotheses_text)
+    return slide
+
+
+def _slide_lbo_returns(prs, snap, pack: dict):
+    """Slide LBO 2/3 — Returns Sponsor (KPIs + heatmap sensibilité)."""
+    slide_layout = prs.slide_layouts[6]
+    slide = prs.slides.add_slide(slide_layout)
+    navy_bar(slide)
+    footer_bar(slide)
+    section_dots(slide, 3)
+
+    ticker = pack["ticker"]
+    company = pack["company"]
+    cur = pack["cur_sym"]
+
+    slide_title(slide, "Modèle LBO — Returns Sponsor",
+                f"{company} ({ticker})  ·  IRR, MOIC et sensibilité multiples")
+
+    # ── 4 KPIs en haut ──
+    ret = pack["returns"]
+    irr_base = ret["irr_base"]
+    moic_base = ret["moic_base"]
+
+    _irr_fill = GREEN_PALE if irr_base >= 0.20 else (AMBER_PALE if irr_base >= 0.15 else RED_PALE)
+    _irr_accent = GREEN if irr_base >= 0.20 else (AMBER if irr_base >= 0.15 else RED)
+    kpi_box(slide, 1.02, 2.45, 5.60, 2.30,
+            f"{irr_base*100:.1f}%", "IRR Sponsor", "Base case 5 ans",
+            fill=_irr_fill, accent=_irr_accent)
+    kpi_box(slide, 6.92, 2.45, 5.60, 2.30,
+            f"{moic_base:.2f}x", "MOIC", "Money-on-invested",
+            fill=NAVY_PALE, accent=NAVY_MID)
+    kpi_box(slide, 12.81, 2.45, 5.60, 2.30,
+            _frm(ret["sponsor_equity"], cur), "Equity entry", "Sponsor au closing",
+            fill=NAVY_PALE, accent=NAVY_MID)
+    kpi_box(slide, 18.71, 2.45, 5.60, 2.30,
+            _frm(ret["equity_exit"], cur), "Equity exit Y5", "Vente sponsor",
+            fill=NAVY_PALE, accent=NAVY_MID)
+
+    # ── Heatmap sensibilité IRR 5×5 ──
+    add_text_box(slide, 1.02, 5.10, 23.37, 0.45,
+                 "SENSIBILITÉ IRR — Multiple d'entrée × Multiple de sortie",
+                 9, NAVY, bold=True)
+
+    sens = pack["sensitivity"]
+    grid = sens["grid"]
+    ent_mults = sens["entry_mults"]
+    ex_mults = sens["exit_mults"]
+
+    # Header row : multiples sortie
+    head_row = ["Entry ↓ / Exit →"] + [f"{m:.1f}x" for m in ex_mults]
+    sens_rows = []
+    for i, em in enumerate(ent_mults):
+        row = [f"{em:.1f}x"]
+        for j in range(5):
+            v = grid[i][j] if i < len(grid) and j < len(grid[i]) else None
+            row.append(f"{v*100:+.1f}%" if v is not None else "—")
+        sens_rows.append(row)
+
+    tbl_sens = add_table(
+        slide, 1.02, 5.65, 16.50, 5.20,
+        len(sens_rows), 6,
+        col_widths_pct=[0.20, 0.16, 0.16, 0.16, 0.16, 0.16],
+        header_data=head_row,
+        rows_data=sens_rows,
+        border_hex="DDDDDD"
+    )
+
+    # Heatmap colors
+    try:
+        for ri in range(len(grid)):
+            for ci_idx in range(5):
+                v = grid[ri][ci_idx] if ri < len(grid) and ci_idx < len(grid[ri]) else None
+                if v is None:
+                    continue
+                cell = tbl_sens.cell(ri + 1, ci_idx + 1)
+                cell.fill.solid()
+                if v >= 0.25:
+                    cell.fill.fore_color.rgb = rgb(GREEN_PALE)
+                elif v >= 0.15:
+                    cell.fill.fore_color.rgb = rgb(AMBER_PALE)
+                elif v >= 0:
+                    cell.fill.fore_color.rgb = rgb("FDF3E5")
+                else:
+                    cell.fill.fore_color.rgb = rgb(RED_PALE)
+    except Exception:
+        pass
+
+    # ── Tableau hypothèses retenues (droite) ──
+    add_text_box(slide, 17.85, 5.10, 6.55, 0.45,
+                 "HYPOTHÈSES BASE", 9, NAVY, bold=True)
+    hypo_rows = [
+        ["Multiple entrée", f"{pack['entry_mult']:.1f}x"],
+        ["Multiple sortie", f"{pack['exit_mult']:.1f}x"],
+        ["Leverage total", f"{pack['leverage']:.1f}x"],
+        ["Période", f"{pack['hold_years']} ans"],
+        ["EBITDA Y5", _frm(pack["ebitda_y5"], cur)],
+    ]
+    add_table(slide, 17.85, 5.65, 6.55, 4.20,
+              5, 2,
+              col_widths_pct=[0.55, 0.45],
+              header_data=None,
+              rows_data=hypo_rows,
+              border_hex="DDDDDD")
+
+    # ── Box LLM lecture des returns (footer) ──
+    returns_text = pack["llm_texts"].get("returns_text") or (
+        f"IRR sponsor base {irr_base*100:.1f}% sur {pack['hold_years']} ans, "
+        f"MOIC {moic_base:.2f}x. "
+        f"{'Très attractif (>20%)' if irr_base >= 0.20 else ('Acceptable (15-20%)' if irr_base >= 0.15 else 'Sous le seuil PE typique')}. "
+        f"La sensibilité aux multiples révèle les zones de robustesse."
+    )
+    commentary_box(slide, 1.02, 11.20, 23.37, 2.10, returns_text)
+    return slide
+
+
+def _slide_lbo_stress(prs, snap, pack: dict):
+    """Slide LBO 3/3 — Debt Schedule + Scénarios + Risques."""
+    slide_layout = prs.slide_layouts[6]
+    slide = prs.slides.add_slide(slide_layout)
+    navy_bar(slide)
+    footer_bar(slide)
+    section_dots(slide, 3)
+
+    ticker = pack["ticker"]
+    company = pack["company"]
+    cur = pack["cur_sym"]
+
+    slide_title(slide, "Modèle LBO — Debt Schedule & Stress Test",
+                f"{company} ({ticker})  ·  Évolution leverage et scénarios bull/bear")
+
+    # ── Debt Schedule (Y0-Y5) ──
+    add_text_box(slide, 1.02, 2.45, 23.37, 0.45,
+                 "DEBT SCHEDULE — Évolution du leverage sur 5 ans", 9, NAVY, bold=True)
+
+    sched = pack["debt_schedule"]
+    head = ["Année", "EBITDA", "Senior", "Mezz", "Cash", "Net Debt", "Lvg (×)"]
+    sched_rows = []
+    for d in sched:
+        sched_rows.append([
+            f"Y{d['year']}",
+            _frm(d["ebitda"], cur),
+            _frm(d["senior"], cur),
+            _frm(d["mezz"], cur),
+            _frm(d["cash"], cur),
+            _frm(d["net_debt"], cur),
+            f"{d['leverage']:.2f}x",
+        ])
+
+    add_table(slide, 1.02, 3.00, 23.37, 4.30,
+              len(sched_rows), 7,
+              col_widths_pct=[0.10, 0.15, 0.15, 0.15, 0.15, 0.15, 0.15],
+              header_data=head,
+              rows_data=sched_rows,
+              border_hex="DDDDDD")
+
+    # ── Scénarios Bull / Base / Bear (3 colonnes) ──
+    add_text_box(slide, 1.02, 7.55, 23.37, 0.45,
+                 "SCÉNARIOS DE STRESS — Bull / Base / Bear", 9, NAVY, bold=True)
+
+    sc = pack["scenarios"]
+    col_w = 7.62
+    col_xs = [1.02, 8.97, 16.92]
+    col_labels = ["BULL", "BASE", "BEAR"]
+    col_keys = ["bull", "base", "bear"]
+    col_colors = [GREEN, NAVY_MID, RED]
+    col_pales = [GREEN_PALE, NAVY_PALE, RED_PALE]
+
+    for i, (lbl, key, col_c, col_p) in enumerate(zip(col_labels, col_keys, col_colors, col_pales)):
+        cx = col_xs[i]
+        # Header de colonne
+        add_rect(slide, cx, 8.10, col_w, 0.55, col_c)
+        add_text_box(slide, cx, 8.18, col_w, 0.40,
+                     lbl, 11, WHITE, bold=True, align=__import__("pptx").enum.text.PP_ALIGN.CENTER)
+        # Body
+        add_rect(slide, cx, 8.65, col_w, 2.80, col_p)
+        s = sc[key]
+        irr_v = s["irr"] * 100
+        rows_text = [
+            ("IRR Sponsor", f"{irr_v:+.1f}%"),
+            ("MOIC", f"{s['moic']:.2f}x"),
+            ("Leverage exit", f"{s['leverage']:.2f}x"),
+            ("ICR exit", f"{s['icr']:.1f}x"),
+        ]
+        for ri, (lab, val) in enumerate(rows_text):
+            ry = 8.75 + ri * 0.65
+            add_text_box(slide, cx + 0.30, ry, col_w * 0.55, 0.45,
+                         lab, 9, GREY_TXT)
+            add_text_box(slide, cx + col_w * 0.55, ry, col_w * 0.40, 0.45,
+                         val, 11, col_c, bold=True, align=__import__("pptx").enum.text.PP_ALIGN.RIGHT)
+
+    # ── Box LLM risques (footer) ──
+    risks_text = pack["llm_texts"].get("risks_text") or (
+        f"Le scénario bear traduit la sensibilité du deal à la compression des marges, "
+        f"à la hausse des taux et au multiple compression. "
+        f"La thèse s'invalide si EBITDA -200 bps ou multiple sortie -2×."
+    )
+    commentary_box(slide, 1.02, 11.65, 23.37, 1.65, risks_text)
+    return slide
+
+
 # ---------------------------------------------------------------------------
 # Slide 16 — Risques & Conditions d'Invalidation
 # ---------------------------------------------------------------------------
@@ -3677,10 +4222,19 @@ class PPTXWriter:
             _slide_capital_returns(prs, snap, synthesis, ratios)
         except Exception as _e_cr:
             log.error("[PPTXWriter] _slide_capital_returns FAILED: %s", _e_cr, exc_info=True)
+        # ── 3 slides LBO institutionnelles (cadre / returns / stress) ───
         try:
-            _slide_lbo(prs, snap, synthesis, ratios)
+            _lbo_pack = _build_lbo_pack(snap, synthesis, ratios)
+            _slide_lbo_cadre(prs, snap, _lbo_pack)
+            _slide_lbo_returns(prs, snap, _lbo_pack)
+            _slide_lbo_stress(prs, snap, _lbo_pack)
         except Exception as _e_lbo:
-            log.error("[PPTXWriter] _slide_lbo FAILED: %s", _e_lbo, exc_info=True)
+            log.error("[PPTXWriter] LBO slides FAILED: %s", _e_lbo, exc_info=True)
+            # Fallback : ancienne slide LBO unique
+            try:
+                _slide_lbo(prs, snap, synthesis, ratios)
+            except Exception as _e_lbo2:
+                log.error("[PPTXWriter] _slide_lbo fallback FAILED: %s", _e_lbo2, exc_info=True)
 
         # --- Divider Risques ---
         divider_slide(prs, "04", "Risques & Strat\u00e9gie",
