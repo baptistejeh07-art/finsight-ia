@@ -72,7 +72,7 @@ def _fr_pct(v, signed=False) -> str:
         return "\u2014"
     try:
         fv = float(v)
-        # Valeurs deja en % (>2) ou en decimal (<2)
+        # Valeurs déjà en % (>2) ou en decimal (<2)
         if abs(fv) > 2:
             pass  # deja en %
         else:
@@ -386,7 +386,7 @@ def _slide_overview(prs, d: dict):
     p5b    = _fr_pct_signed(d.get("perf_5y_b"))
 
     rows = [
-        ["Horizon", name_a[:20], name_b[:20], "Ecart"],
+        ["Horizon", name_a[:20], name_b[:20], "Écart"],
         ["YTD",  ytd_a, ytd_b, _ecart_pct(d.get("perf_ytd_a"), d.get("perf_ytd_b"))],
         ["1 an",  p1a,  p1b,  _ecart_pct(d.get("perf_1y_a"),  d.get("perf_1y_b"))],
         ["3 ans", p3a,  p3b,  _ecart_pct(d.get("perf_3y_a"),  d.get("perf_3y_b"))],
@@ -407,11 +407,11 @@ def _slide_overview(prs, d: dict):
     _txb(slide, f"Signal {name_b} : {sig_b} ({d.get('score_b',0)}/100)",
          13.65, 10.62, 10.5, 0.62, 8.5, True, _NAVY)
 
-    # LLM synthese
+    # LLM synthèse
     llm_text = d.get("llm", {}).get("overview_read", "")
     if llm_text:
         _rect(slide, 1.02, 11.6, 23.37, 0.38, _NAVY)
-        _txb(slide, "Synthese FinSight IA", 1.22, 11.63, 15.0, 0.32, 7.5, True, _WHITE)
+        _txb(slide, "Synthèse FinSight IA", 1.22, 11.63, 15.0, 0.32, 7.5, True, _WHITE)
         _txb(slide, llm_text, 1.02, 12.08, 23.37, 1.35, 8.5, False, _BLACK, wrap=True)
 
 
@@ -438,12 +438,12 @@ def _slide_sommaire(prs, d: dict):
     _footer(slide)
 
     sections = [
-        ("01", "Performance Historique",   "Evolution comparee, YTD / 1Y / 3Y / 5Y"),
+        ("01", "Performance Historique",   "Évolution comparée, YTD / 1Y / 3Y / 5Y"),
         ("02", "Risque Comparatif",         "Volatilite, Sharpe, Max Drawdown"),
         ("03", "Valorisation",              "P/E Forward, P/B, Rendement du dividende, ERP"),
-        ("04", "Composition Sectorielle",  "Poids GICS par secteur — ecarts entre indices"),
+        ("04", "Composition Sectorielle",  "Poids GICS par secteur — écarts entre indices"),
         ("05", "Constituants",              f"Top 5 valeurs {name_a} et {name_b}"),
-        ("06", "Verdict",                   "Signal FinSight, score compare, recommandation"),
+        ("06", "Verdict",                   "Signal FinSight, score comparé, recommandation"),
     ]
 
     y0 = 2.4
@@ -463,14 +463,14 @@ def _slide_perf_chart(prs, d: dict):
     slide = _blank(prs)
     name_a = d.get("name_a", "Indice A")
     name_b = d.get("name_b", "Indice B")
-    _header(slide, "Performance Historique Comparee",
-            "Evolution normalisee base 100 sur 1 an")
+    _header(slide, "Performance Historique Comparée",
+            "Évolution Normalisée base 100 sur 1 an")
     _footer(slide)
     _index_band(slide, name_a, name_b)
 
     ph = d.get("perf_history")
     if not (ph and ph.get("dates") and ph.get("indice_a") and ph.get("indice_b")):
-        _txb(slide, "Performance historique non disponible — donnees de cours requises.",
+        _txb(slide, "Performance historique non disponible — données de cours requises.",
              1.5, 5.5, 14.0, 1.0, size=9, color=_GRAYT, italic=True)
     if ph and ph.get("dates") and ph.get("indice_a") and ph.get("indice_b"):
         try:
@@ -521,7 +521,7 @@ def _slide_perf_chart(prs, d: dict):
 
     # Mini tableau perf
     rows = [
-        ["Horizon", name_a[:18], name_b[:18], "Ecart"],
+        ["Horizon", name_a[:18], name_b[:18], "Écart"],
         ["YTD",     _fr_pct_signed(d.get("perf_ytd_a")),
                     _fr_pct_signed(d.get("perf_ytd_b")),
                     _ecart_pct(d.get("perf_ytd_a"), d.get("perf_ytd_b"))],
@@ -558,10 +558,10 @@ def _slide_risque(prs, d: dict):
     kpis = [
         (_fr_num(vol_a) + " / " + _fr_num(vol_b) + "\u00a0%",
          "Volatilite annualisee (A / B)",
-         "Risque total exprime en ecart-type des rendements quotidiens"),
+         "Risque total exprime en écart-type des rendements quotidiens"),
         (_fr_num(sha_a, 2) + " / " + _fr_num(sha_b, 2),
          "Sharpe ratio 1 an (A / B)",
-         "Rendement ajuste du risque — rf : 10Y local"),
+         "Rendement Ajusté du risque — rf : 10Y local"),
         (_fr_pct_signed(dd_a) + " / " + _fr_pct_signed(dd_b),
          "Max Drawdown (A / B)",
          "Perte maximale du plus haut au plus bas sur la periode"),
@@ -574,7 +574,7 @@ def _slide_risque(prs, d: dict):
         _txb(slide, lbl, xs[i]+0.3, 3.65, 7.2, 0.5, 7.5, True, _GRAYT)
         _txb(slide, sub, xs[i]+0.3, 4.1, 7.2, 0.75, 7, False, _GRAYT)
 
-    # Graphique barres radar (vol + sharpe + max_dd normalises)
+    # Graphique barres radar (vol + sharpe + max_dd normalisés)
     try:
         cats = ["Volatilite", "Sharpe", "Max Drawdown"]
         vals_a = [
@@ -643,7 +643,7 @@ def _slide_valorisation(prs, d: dict):
     erp_b = d.get("erp_b", "\u2014")
 
     rows = [
-        ["Indicateur", name_a[:22], name_b[:22], "Ecart", "Favorise"],
+        ["Indicateur", name_a[:22], name_b[:22], "Écart", "Favorise"],
         ["P/E Forward",
          _fr_num(pe_a, 1) + "x",
          _fr_num(pe_b, 1) + "x",
@@ -664,7 +664,7 @@ def _slide_valorisation(prs, d: dict):
     _table(slide, rows, 1.02, 2.55, 23.37, 6.0,
            col_widths=[5, 4, 4, 4, 5])
 
-    # Graphique barres PE vs PB — uniquement les categories avec au moins une valeur
+    # Graphique barres PE vs PB — uniquement les catégories avec au moins une valeur
     try:
         _cats_all = [("P/E Forward", pe_a, pe_b), ("P/B", pb_a, pb_b)]
         _cats_data = [(c, va, vb) for c, va, vb in _cats_all if va is not None or vb is not None]
@@ -706,7 +706,7 @@ def _slide_valorisation(prs, d: dict):
     except Exception as e:
         log.warning(f"[indice_cmp_pptx] val chart error: {e}")
 
-    # ERP commentary — interpretation dynamique
+    # ERP commentary — interprétation dynamique
     def _parse_erp(s):
         """Extrait la valeur numerique d'un ERP string comme '+20,5 %' ou '—'."""
         try:
@@ -720,7 +720,7 @@ def _slide_valorisation(prs, d: dict):
     def _erp_signal(v):
         """Retourne un label qualitatif selon la valeur de l'ERP."""
         if v is None: return "N/D"
-        if v >= 6.0:  return "Tres attractif"
+        if v >= 6.0:  return "Très attractif"
         if v >= 4.0:  return "Attractif"
         if v >= 2.0:  return "Neutre"
         if v >= 0.0:  return "Tendu"
@@ -731,19 +731,19 @@ def _slide_valorisation(prs, d: dict):
 
     if erp_a_val is not None and erp_b_val is not None:
         if erp_a_val > erp_b_val:
-            erp_compare = f"{name_a} offre une prime de risque superieure ({erp_a} vs {erp_b}), signalant un potentiel de revalorisation plus eleve."
+            erp_compare = f"{name_a} offre une prime de risque superieure ({erp_a} vs {erp_b}), signalant un potentiel de revalorisation plus élevé."
         elif erp_b_val > erp_a_val:
-            erp_compare = f"{name_b} affiche un ERP superieur ({erp_b} vs {erp_a}), refletant une valorisation plus attractive relative aux obligations."
+            erp_compare = f"{name_b} affiche un ERP superieur ({erp_b} vs {erp_a}), reflétant une valorisation plus attractive relative aux obligations."
         else:
-            erp_compare = f"Les deux indices presentent des ERP comparables ({erp_a} vs {erp_b})."
+            erp_compare = f"Les deux indices présentent des ERP comparables ({erp_a} vs {erp_b})."
     elif erp_a_val is not None:
-        erp_compare = f"{name_a} : ERP = {erp_a} ({sig_a}). Donnee {name_b} indisponible."
+        erp_compare = f"{name_a} : ERP = {erp_a} ({sig_a}). Donnée {name_b} indisponible."
     else:
-        erp_compare = f"L'ERP mesure la prime exigee pour detenir des actions vs obligations. Un ERP eleve (>4%) historiquement favorable aux actions."
+        erp_compare = f"L'ERP mesure la prime exigee pour detenir des actions vs obligations. Un ERP élevé (>4%) historiquement favorable aux actions."
 
     erp_txt = (
         f"{name_a} : ERP {erp_a} ({sig_a})  |  {name_b} : ERP {erp_b} ({sig_b})\n\n"
-        f"{erp_compare} "
+        f"{erp_comparé} "
         f"Un ERP > 4% indique une valorisation historiquement attractive; < 2% signale une prime faible vs les obligations."
     )
 
@@ -755,7 +755,7 @@ def _slide_valorisation(prs, d: dict):
 
 
 def _ecart_mult(va, vb) -> str:
-    """Ecart en x entre deux multiples."""
+    """Écart en x entre deux multiples."""
     if va is None or vb is None:
         return "\u2014"
     try:
@@ -792,12 +792,12 @@ def _favorise_higher(va, vb, na, nb) -> str:
 
 
 def _slide_secteurs(prs, d: dict):
-    """Composition sectorielle — barres horizontales cote a cote."""
+    """Composition sectorielle — barres horizontales côte à côte."""
     slide = _blank(prs)
     name_a = d.get("name_a", "Indice A")
     name_b = d.get("name_b", "Indice B")
     _header(slide, "Composition Sectorielle Comparative",
-            "Poids par secteur GICS (%) — ecarts entre indices")
+            "Poids par secteur GICS (%) — écarts entre indices")
     _footer(slide)
     _index_band(slide, name_a, name_b)
 
@@ -834,7 +834,7 @@ def _slide_secteurs(prs, d: dict):
         except Exception as e:
             log.warning(f"[indice_cmp_pptx] secteurs chart error: {e}")
     else:
-        _txb(slide, "Donnees de composition sectorielle non disponibles.",
+        _txb(slide, "Données de composition sectorielle non disponibles.",
              1.02, 4.0, 23.37, 1.0, 9, False, _GRAYT)
 
 
@@ -848,7 +848,7 @@ def _slide_top5(prs, d: dict, which: str):
 
     slide = _blank(prs)
     _header(slide, f"Top 5 Constituants \u2014 {name}",
-            "Societes les plus representees dans l'indice")
+            "Sociétés les plus représentées dans l'indice")
     _footer(slide)
 
     # Bandeau couleur
@@ -856,7 +856,7 @@ def _slide_top5(prs, d: dict, which: str):
     _rect(slide, 1.02, 1.73, 0.15, 0.52, color)
     _txb(slide, name, 1.3, 1.77, 23.0, 0.44, 8.5, True, _NAVY)
 
-    rows = [["Societe / Ticker", "Poids (%)", "Secteur"]]
+    rows = [["Société / Ticker", "Poids (%)", "Secteur"]]
     for item in top5[:5]:
         company  = str(item[0] if len(item) > 0 else "\u2014")[:40]
         ticker   = str(item[1] if len(item) > 1 else "")
@@ -922,7 +922,7 @@ def _slide_score(prs, d: dict):
 
     # Tableau de bord
     rows = [
-        ["Critere", name_a[:20], name_b[:20]],
+        ["Critère", name_a[:20], name_b[:20]],
         ["Score global",  f"{sc_a}/100", f"{sc_b}/100"],
         ["Signal",        sig_a, sig_b],
         ["P/E Forward",   _fr_num(d.get("pe_fwd_a"),1)+"x", _fr_num(d.get("pe_fwd_b"),1)+"x"],
@@ -971,7 +971,7 @@ def _slide_verdict(prs, d: dict):
         _txb(slide, title, 1.3, y+0.05, 22.5, 0.42, 8.5, True, _NAVY)
         _txb(slide, body,  1.3, y+0.48, 22.5, 0.75, 8, False, _GRAYT, wrap=True)
 
-    # LLM Recommandation — position dynamique apres les args
+    # LLM Recommandation — position dynamique après les args
     llm_text = d.get("llm", {}).get("verdict_read", "")
     y_llm = y0 + n_args * dy + 0.3  # suit le dernier arg, quel que soit leur nombre
     if llm_text:
@@ -982,7 +982,7 @@ def _slide_verdict(prs, d: dict):
     # Disclaimer
     y_disc = min(12.9, y_llm + 1.85)
     _txb(slide, "Analyse FinSight IA  \u00b7  Source : yfinance  "
-                "\u00b7  Donnees a titre informatif uniquement  "
+                "\u00b7  Données a titre informatif uniquement  "
                 "\u00b7  Ne constitue pas un conseil en investissement.",
          1.02, y_disc, 23.37, 0.4, 6.5, False, _GRAYT)
 
@@ -1015,13 +1015,13 @@ def _build_verdict_args(d, name_a, name_b):
         cheaper = name_a if pea < peb else name_b
         args.append(("Valorisation (P/E Forward)",
                       f"{name_a} : {pea:.1f}x  vs  {name_b} : {peb:.1f}x  "
-                      f"\u2014  {cheaper} se traite a une decote relative."))
+                      f"\u2014  {cheaper} se traite a une décote relative."))
 
     # Risque / Sharpe
     if sha_a is not None and sha_b is not None:
         sa, sb = float(sha_a), float(sha_b)
         better = name_a if sa > sb else name_b
-        args.append(("Rendement ajuste du risque (Sharpe)",
+        args.append(("Rendement Ajusté du risque (Sharpe)",
                       f"{name_a} : {sa:.2f}  vs  {name_b} : {sb:.2f}  "
                       f"\u2014  {better} offre un meilleur ratio rendement/risque."))
 
@@ -1070,16 +1070,18 @@ def _generate_indice_llm(d: dict) -> dict:
         prompt = (
             f"Tu es analyste financier senior. Redige des textes courts pour un pitchbook comparatif "
             f"entre deux indices : {name_a} vs {name_b}.\n\n"
-            f"Donnees cles :\n"
+            f"Données cles :\n"
             f"- {name_a} : Score {sc_a}/100, Signal {sig_a}, Perf.1Y {float(p1a or 0)*100:.1f}%, "
             f"Vol {float(vol_a or 0):.1f}%, Sharpe {float(sha_a or 0):.2f}, "
             f"P/E Fwd {float(pe_a or 0):.1f}x, DivYield {float(dy_a or 0)*100:.1f}%\n"
             f"- {name_b} : Score {sc_b}/100, Signal {sig_b}, Perf.1Y {float(p1b or 0)*100:.1f}%, "
             f"Vol {float(vol_b or 0):.1f}%, Sharpe {float(sha_b or 0):.2f}, "
             f"P/E Fwd {float(pe_b or 0):.1f}x, DivYield {float(dy_b or 0)*100:.1f}%\n\n"
-            f"Reponds UNIQUEMENT en JSON valide. Textes en francais sans accents. Max 250 caracteres par champ.\n"
+            f"Reponds UNIQUEMENT en JSON valide. Textes en francais correct avec TOUS les accents "
+            f"(e e e a u c i o), cedilles, apostrophes droites ' et guillemets francais << >>. "
+            f"Max 250 caractères par champ.\n"
             f'{{\n'
-            f'  "overview_read": "Synthese 2 phrases : performance, valorisation et signal global",\n'
+            f'  "overview_read": "Synthèse 2 phrases : performance, valorisation et signal global",\n'
             f'  "risque_read": "Lecture risque 2 phrases : volatilite, Sharpe et profil de risque",\n'
             f'  "verdict_read": "Recommandation finale 2-3 phrases : que privilegier et conditions"\n'
             f'}}'
@@ -1092,7 +1094,7 @@ def _generate_indice_llm(d: dict) -> dict:
             log.info("[indice_cmp_pptx] LLM texts OK (%d champs)", len(data_out))
             return data_out
     except Exception as e:
-        log.warning("[indice_cmp_pptx] LLM generation failed: %s", e)
+        log.warning("[indice_cmp_pptx] LLM génération failed: %s", e)
     return {}
 
 
@@ -1102,8 +1104,8 @@ class IndiceComparisonPPTXWriter:
 
     @staticmethod
     def generate(data: dict, output_path: str = None) -> bytes:
-        """Genere le PPTX comparatif et retourne les bytes."""
-        # Generer les textes LLM une seule fois
+        """Généré le PPTX comparatif et retourne les bytes."""
+        # Générer les textes LLM une seule fois
         data = dict(data)   # copie pour ne pas muter l'original
         data["llm"] = _generate_indice_llm(data)
 
@@ -1119,7 +1121,7 @@ class IndiceComparisonPPTXWriter:
         _slide_sommaire(prs, data)
         # Slide 4 — Divider 01 Performance
         _divider(prs, "01", "Performance Historique",
-                 "Evolution comparee sur YTD, 1 an, 3 ans et 5 ans")
+                 "Évolution comparée sur YTD, 1 an, 3 ans et 5 ans")
         # Slide 5 — Perf chart
         _slide_perf_chart(prs, data)
         # Slide 6 — Divider 02 Risque
@@ -1134,7 +1136,7 @@ class IndiceComparisonPPTXWriter:
         _slide_valorisation(prs, data)
         # Slide 10 — Divider 04 Secteurs
         _divider(prs, "04", "Composition Sectorielle",
-                 "Poids GICS par secteur — ecarts entre les deux indices")
+                 "Poids GICS par secteur — écarts entre les deux indices")
         # Slide 11 — Secteurs
         _slide_secteurs(prs, data)
         # Slide 12 — Divider 05 Constituants
@@ -1146,7 +1148,7 @@ class IndiceComparisonPPTXWriter:
         _slide_top5(prs, data, "b")
         # Slide 15 — Divider 06 Verdict
         _divider(prs, "06", "Verdict Final",
-                 "Signal FinSight, score compare et recommandation")
+                 "Signal FinSight, score comparé et recommandation")
         # Slide 16 — Score
         _slide_score(prs, data)
         # Slide 17 — Verdict

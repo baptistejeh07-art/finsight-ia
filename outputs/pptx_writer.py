@@ -2,7 +2,7 @@
 # FinSight IA — PPTX Writer (Pitchbook 20 slides)
 # outputs/pptx_writer.py
 #
-# Genere un pitchbook IB professionnel en 20 slides via python-pptx.
+# Généré un pitchbook IB professionnel en 20 slides via python-pptx.
 # Utilise le FinSightState (dict) produit par le pipeline LangGraph.
 #
 # Usage :
@@ -55,14 +55,14 @@ def _lazy_imports():
 
 
 # ---------------------------------------------------------------------------
-# Sanitisation XML — supprime les caractères interdits en XML 1.0
+# Sanitisation XML — supprimé les caractères interdits en XML 1.0
 # Source courante : texte LLM ou API contenant des chars de contrôle
 # ---------------------------------------------------------------------------
 
 import re as _re
 
 def _x(text) -> str:
-    """Supprime les caractères invalides XML 1.0 (0x00-0x08, 0x0B-0x0C, 0x0E-0x1F, 0x7F)."""
+    """Supprimé les caractères invalides XML 1.0 (0x00-0x08, 0x0B-0x0C, 0x0E-0x1F, 0x7F)."""
     if text is None:
         return ""
     s = str(text)
@@ -98,7 +98,7 @@ def _frm(v, cur_sym: str = "$") -> str:
     try:
         v = float(v)
         # Guard : LLM peut envoyer des valeurs en EUR/USD absolus (ex: 195_000_000_000)
-        # au lieu de millions (195_000). Si > 1e9, on normalise en millions.
+        # au lieu de millions (195_000). Si > 1e9, on Normalisé en millions.
         if abs(v) > 1_000_000_000:
             v = v / 1_000_000
         if cur_sym == "EUR":
@@ -179,7 +179,7 @@ def _g(obj, attr, default=None):
 
 
 def _valid_years(snap) -> list:
-    """Retourne les annees triees qui ont au moins une donnee reelle (exclut les annees all-None)."""
+    """Retourne les années triees qui ont au moins une Donnée réelle (exclut les années all-None)."""
     if not (snap and snap.years):
         return []
     result = []
@@ -222,7 +222,7 @@ def _set_slide_bg(slide, hex_color: str):
 
 def _add_text_alpha(slide, x, y, w, h, text, font_size,
                     color_hex="FFFFFF", alpha_val=15000, bold=False):
-    """Ajoute un textbox avec couleur semi-transparente (alpha en millièmes, 15000=15%)."""
+    """Ajouté un textbox avec couleur semi-transparente (alpha en millièmes, 15000=15%)."""
     from pptx.util import Cm, Pt
     from pptx.oxml.ns import qn
     from lxml import etree
@@ -690,7 +690,7 @@ def _truncate(s, n: int) -> str:
 
 
 def _fit(s, n: int) -> str:
-    """Coupe a n chars sans ajouter '...' — pour les zones ou le debordement est invisible."""
+    """Coupe a n chars sans ajouter '...' — pour les zones ou le débordement est invisible."""
     s = _safe_str(s)
     if len(s) <= n:
         return s
@@ -800,7 +800,7 @@ def _slide_cover(prs, snap, synthesis, ratios, devil, sentiment):
         9, WHITE, bold=True, align=PP_ALIGN.CENTER
     )
 
-    # Bottom rule + credits (8pt)
+    # Bottom rule + crédits (8pt)
     add_rect(slide, 1.02, 12.4, 23.37, 0.03, "AAAAAA")
     add_text_box(slide, 1.02, 12.65, 11.43, 0.56,
                  "Rapport confidentiel", 8, GREY_TXT)
@@ -983,10 +983,10 @@ def _slide_exec_summary(prs, snap, synthesis, ratios, devil, sentiment):
     # Horizontal rule (before KPI)
     add_rect(slide, 1.02, 11.23, 23.37, 0.03, "AAAAAA")
 
-    # 4 KPI boxes — h=1.80 pour eviter chevauchement avec footer (y=13.39)
+    # 4 KPI boxes — h=1.80 pour éviter chevauchement avec footer (y=13.39)
     kpi_box(slide, 1.02, 11.34, 5.64, 1.80,
             _frx(ev_e), "EV/EBITDA",
-            f"vs {_frx(peer_median_ev_e)} med. pairs")
+            f"vs {_frx(peer_Médian_ev_e)} med. pairs")
     kpi_box(slide, 6.91, 11.34, 5.64, 1.80,
             _frpct(wacc_val), "WACC",
             f"Beta {_fr(beta, 2) if beta else '—'}  \u00b7  RFR {_frpct(rfr)}")
@@ -1027,7 +1027,7 @@ def _slide_sommaire(prs, snap=None, synthesis=None):
         parts = [str(x)[:40] for x in items[:n] if x]
         return "  \u00b7  ".join(parts) if parts else ""
 
-    co_desc  = f"{co_name}  \u00b7  {sector}" if co_name and sector else (co_name or "Presentation, mod\u00e8le \u00e9conomique")
+    co_desc  = f"{co_name}  \u00b7  {sector}" if co_name and sector else (co_name or "Présentation, mod\u00e8le \u00e9conomique")
     str_desc = _s1(strengths) or "Analyse strat\u00e9gique & positionnement"
     ris_desc = _s1(risks) or "Risques structurels & th\u00e8se contraire"
 
@@ -1090,10 +1090,10 @@ def _slide_company_overview(prs, snap, synthesis, ratios):
     # Fallback si synthesis vide : description generique depuis raw data
     _sector_fb = _g(ci, "sector", "N/D") or "N/D"
     if not desc and co_name and co_name != "\u2014":
-        desc = (f"{co_name} ({ticker}) opere dans le secteur {_sector_fb}. "
-                f"Analyse FinSight IA en cours -- donnees de synthese non disponibles "
+        desc = (f"{co_name} ({ticker}) opère dans le secteur {_sector_fb}. "
+                f"Analyse FinSight IA en cours -- Données de Synthèse non disponibles "
                 f"pour cette session. Lancer une nouvelle analyse pour obtenir la "
-                f"description complete, les segments et le positionnement strategique.")
+                f"description complète, les segments et le positionnement strategique.")
 
     # Nombre de segments pour la formulation dynamique
     n_seg = len(segments)
@@ -1236,7 +1236,7 @@ def _slide_business_model(prs, snap, synthesis):
 
 
 # ---------------------------------------------------------------------------
-# Slide 8 — Compte de Resultat
+# Slide 8 — Compte de Résultat
 # ---------------------------------------------------------------------------
 
 def _slide_is(prs, snap, synthesis, ratios):
@@ -1397,14 +1397,14 @@ def _slide_is(prs, snap, synthesis, ratios):
     # Commentary — utilise financial_commentary en priorite, puis fallback sur les autres champs
     fin_comment = _g(synthesis, "financial_commentary", "") or ""
     if not fin_comment.strip():
-        # Fallback 1 : valuation_comment (souvent renseigne meme quand financial_commentary vide)
+        # Fallback 1 : valuation_comment (souvent renseigné meme quand financial_commentary vide)
         fin_comment = _g(synthesis, "valuation_comment", "") or ""
     if not fin_comment.strip():
         # Fallback 2 : thesis (3 phrases separees par ' | ')
         thesis_raw = _g(synthesis, "thesis", "") or ""
         fin_comment = thesis_raw.replace(" | ", " ")
     if not fin_comment.strip():
-        # Fallback 3 : summary general
+        # Fallback 3 : summary général
         fin_comment = _g(synthesis, "summary", "") or ""
     if fin_comment.strip():
         commentary_box(slide, 1.02, 8.94, 23.37, 3.40, _truncate(fin_comment, 700))
@@ -1413,7 +1413,7 @@ def _slide_is(prs, snap, synthesis, ratios):
 
 
 # ---------------------------------------------------------------------------
-# Slide 9 — Bilan & Liquidite
+# Slide 9 — Bilan & Liquidité
 # ---------------------------------------------------------------------------
 
 def _slide_bilan(prs, snap, synthesis, ratios):
@@ -1442,7 +1442,7 @@ def _slide_bilan(prs, snap, synthesis, ratios):
     total_debt = ((_safe_float(ltd) or 0) + (_safe_float(std) or 0)) or None
     net_debt_val = ((_safe_float(total_debt) or 0) - (_safe_float(cash) or 0)) if (total_debt is not None or cash is not None) else None
 
-    kpi_box(slide, 1.02, 2.67, 7.37, 2.29, _frm(cash, cur_sym), "Cash & equivalents")
+    kpi_box(slide, 1.02, 2.67, 7.37, 2.29, _frm(cash, cur_sym), "Cash & équivalents")
     kpi_box(slide, 1.02, 5.28, 7.37, 2.29, _frm(ltd, cur_sym), "Dette long terme")
     kpi_box(slide, 1.02, 7.90, 7.37, 2.29, _frm(net_debt_val, cur_sym), "Dette nette",
             fill=NAVY, accent=WHITE)
@@ -1549,11 +1549,11 @@ def _slide_ratios(prs, snap, synthesis, ratios):
         if v is None: return "—"
         try:
             v = float(v)
-            if v < 0:    return "Deficit"
+            if v < 0:    return "Déficit"
             if v < 15:   return "Sous-value"
             if v < 25:   return "Correct"
             if v < 40:   return "Premium"
-            return "Eleve"
+            return "Élevé"
         except: return "—"
 
     def _lecture_eve(v):
@@ -1663,7 +1663,7 @@ def _slide_ratios(prs, snap, synthesis, ratios):
     # Per-cell coloring of Lecture column (col 3) + Valeur column navy bold (col 1)
     _GOOD_READS  = {"solide", "correct", "en ligne", "dans la norme", "sous-value", "aucun signal",
                     "bon", "excellent", "leger"}
-    _WARN_READS  = {"élevé", "très élevé", "premium", "risque manip.", "détresse", "deficit",
+    _WARN_READS  = {"élevé", "très élevé", "premium", "risque manip.", "détresse", "déficit",
                     "supérieur", "inférieure", "bas", "zone grise", "décote", "intensif"}
     _NEUT_READS  = {"en ligne", "prime technologique", "modéré"}  # amber category
 
@@ -1710,7 +1710,7 @@ def _slide_ratios(prs, snap, synthesis, ratios):
 
 
 # ---------------------------------------------------------------------------
-# Slide 12 — DCF & Scenarios
+# Slide 12 — DCF & Scénarios
 # ---------------------------------------------------------------------------
 
 def _slide_dcf(prs, snap, synthesis, ratios):
@@ -1767,7 +1767,7 @@ def _slide_dcf(prs, snap, synthesis, ratios):
     except Exception:
         pass
 
-    # RIGHT: 3-column scenario table (matches reference exactly)
+    # RIGHT: 3-column scénario table (matches reference exactly)
     from pptx.util import Pt
     from pptx.enum.text import PP_ALIGN as _PA
     sc_tbl_obj = slide.shapes.add_table(4, 3, __import__('pptx.util', fromlist=['Cm']).Cm(12.45), __import__('pptx.util', fromlist=['Cm']).Cm(2.29), __import__('pptx.util', fromlist=['Cm']).Cm(11.94), __import__('pptx.util', fromlist=['Cm']).Cm(3.81)).table
@@ -1983,7 +1983,7 @@ def _slide_peers(prs, snap, synthesis, ratios):
         rows_data.append(prow)
         rows_fills.append(WHITE if len(rows_data) % 2 == 0 else GREY_BG)
 
-    # Median row
+    # Médian row
     med_eve = _peer_median(peers, "ev_ebitda")
     med_evr = _peer_median(peers, "ev_revenue")
     med_pe  = _peer_median(peers, "pe")
@@ -2028,7 +2028,7 @@ def _slide_peers(prs, snap, synthesis, ratios):
         except Exception:
             pass
 
-    # Median row (last row): bold=True, NOT italic
+    # Médian row (last row): bold=True, NOT italic
     median_ri = len(rows_data)
     for ci in range(len(header)):
         cell = peers_tbl.cell(median_ri, ci)
@@ -2258,7 +2258,7 @@ def _slide_multiples_historiques(prs, snap, synthesis, ratios):
             pe   = getattr(yr, "pe_ratio",  None)
             ev_eb = getattr(yr, "ev_ebitda", None)
             pb   = getattr(yr, "pb_ratio",  None)
-            # Exclure annees sans donnees utiles (yfinance manque de donnees historiques lointaines)
+            # Exclure années sans Données utiles (yfinance manque de Données historiques lointaines)
             if pe is None and ev_eb is None and pb is None:
                 continue
             years_data.append({
@@ -2424,7 +2424,7 @@ def _slide_capital_returns(prs, snap, synthesis, ratios):
             ebitda    = getattr(yr, "ebitda", None)
             capex_r   = getattr(yr, "capex_ratio", None)
             div_pout  = getattr(yr, "dividend_payout", None)
-            # Exclure annees sans donnees utiles
+            # Exclure années sans Données utiles
             if all(v is None for v in (fcf, fcf_yield, ebitda)):
                 continue
             cap_rows.append({
@@ -2763,7 +2763,7 @@ def _slide_risques(prs, snap, synthesis, devil, extra_scores: dict = None):
         if not body.strip():
             body = str(neg_themes_s[i]) if i < len(neg_themes_s) else ""
         # Fallback 2 : utiliser le texte du risque lui-meme comme corps de carte
-        # (le titre affiche le debut, le corps affiche l'integralite — plus de carte vide)
+        # (le titre affiche le debut, le corps affiche l'intégralité — plus de carte vide)
         if not body.strip() and risk and risk != label:
             body = risk
         # Fallback 3 : synthesis.risks complet si counter_risks ne fournit que des titres courts
@@ -2796,7 +2796,7 @@ def _slide_risques(prs, snap, synthesis, devil, extra_scores: dict = None):
             ["Société",   "Détérioration matérielle des marges opérationnelles","2-3 trim."],
         ]
     else:
-        _AXIS_NORM = {"Societe": "Société", "societe": "Société", "société": "Société",
+        _AXIS_NORM = {"Société": "Société", "société": "Société", "société": "Société",
                       "Sectoriel": "Sectoriel", "Macro": "Macro"}
         inv_rows = []
         for item in invalidation[:3]:
@@ -2824,8 +2824,8 @@ def _slide_risques(prs, snap, synthesis, devil, extra_scores: dict = None):
             pass
 
     # --- Bande scores compact : 2 lignes (12.30 → 13.33) ----------------------
-    # Ligne 1 : Detresse · M&A · Regime macroeconomique
-    # Ligne 2 : Qualite Earnings · Structure Capital · Soutenabilite Dividende
+    # Ligne 1 : Detresse · M&A · Régime macroeconomique
+    # Ligne 2 : Qualité Earnings · Structure Capital · Soutenabilite Dividende
     # Zone disponible : 12.24 (fin table) → 13.39 (footer) = 1.15cm
     if extra_scores:
         _dist  = extra_scores.get('composite_distress') or {}
@@ -2837,15 +2837,15 @@ def _slide_risques(prs, snap, synthesis, devil, extra_scores: dict = None):
 
         _CMAP = {
             'Sain': "1A7A4A", 'Saine': "1A7A4A",
-            'Modere': AMBER, 'Moderé': AMBER, 'Moderee': AMBER,
+            'Modéré': AMBER, 'Moderé': AMBER, 'Modérée': AMBER,
             'Vigilance': AMBER, 'Critique': RED,
-            'Tres attractive': "1A7A4A", 'Attractive': "1A7A4A",
+            'Très attractive': "1A7A4A", 'Attractive': "1A7A4A",
             'Moderate': AMBER, 'Peu attractive': RED,
             'Bull': "1A7A4A", 'Bear': RED,
             'Volatile': AMBER, 'Transition': AMBER,
             'Excellente': "1A7A4A", 'Correcte': "1B3A6B",
             'Faible': RED, 'N/D': "B0B0B0",
-            'Tres soutenable': "1A7A4A", 'Soutenable': "1A7A4A",
+            'Très soutenable': "1A7A4A", 'Soutenable': "1A7A4A",
             'Tendu': AMBER, 'Insoutenable': RED,
         }
 
@@ -2854,7 +2854,7 @@ def _slide_risques(prs, snap, synthesis, devil, extra_scores: dict = None):
         bx_w    = 7.79
         bx_x    = [1.02, 9.01, 17.01]
 
-        # --- Ligne 1 : Distress / M&A / Regime ---
+        # --- Ligne 1 : Distress / M&A / Régime ---
         row1_y  = 12.30
         row1_items = []
         if _dist.get('score') is not None:
@@ -2865,11 +2865,11 @@ def _slide_risques(prs, snap, synthesis, devil, extra_scores: dict = None):
             m_lbl = _ma.get('label', '—')
             row1_items.append((f"M&A : {_ma['score']}/100  {m_lbl}",
                                _CMAP.get(m_lbl, NAVY)))
-        regime = _macro.get('regime', '')
-        rec_6m = _macro.get('recession_prob_6m')
+        regime = _macro.get('régime', '')
+        rec_6m = _macro.get('récession_prob_6m')
         if regime and regime != 'Inconnu':
             rec_part = f"  Rec.6M:{rec_6m}%" if rec_6m is not None else ''
-            row1_items.append((f"Régime : {regime}{rec_part}", _CMAP.get(regime, NAVY)))
+            row1_items.append((f"Régime : {régime}{rec_part}", _CMAP.get(regime, NAVY)))
 
         for i, (txt, col) in enumerate(row1_items[:3]):
             x = bx_x[i]
@@ -3271,7 +3271,7 @@ def _slide_historique(prs, snap, synthesis):
     _trend_txt = ("en hausse" if perf_52w and perf_52w > 0.05
                   else ("en repli" if perf_52w and perf_52w < -0.05 else "stable"))
     _hist_subtitle = (f"Cours {_trend_txt} de {_perf_label} sur 12 mois"
-                      if _perf_label else "Evolution du cours — 12 derniers mois")
+                      if _perf_label else "Évolution du cours — 12 derniers mois")
     add_text_box(slide, 1.02, 5.13, 23.37, 0.46,
                  _hist_subtitle, 9, NAVY, bold=True)
 
@@ -3349,7 +3349,7 @@ def _slide_historique(prs, snap, synthesis):
         add_text_box(slide, chart_x + 8.0, chart_y + 2.0, 7.37, 1.0,
                      "Historique de cours non disponible", 10, GREY_TXT)
 
-    # Commentary dans un cadre — 320 chars max, h=1.80 pour eviter footer (y=13.39)
+    # Commentary dans un cadre — 320 chars max, h=1.80 pour éviter footer (y=13.39)
     thesis_s = _g(synthesis, "summary", "") or _g(synthesis, "thesis", "") or ""
     if thesis_s.strip():
         commentary_box(slide, 1.02, 11.55, 23.37, 1.80, _fit(thesis_s, 320))
@@ -3362,7 +3362,7 @@ def _slide_historique(prs, snap, synthesis):
 # ---------------------------------------------------------------------------
 
 def _slide_conviction_tracker(prs, snap, synthesis, ratios, devil, sentiment):
-    """Slide 21 : Conviction Tracker JPM-style — visualisation de la these d investissement."""
+    """Slide 21 : Conviction Tracker JPM-style — visualisation de la Thèse d investissement."""
     from pptx.enum.text import PP_ALIGN
     slide_layout = prs.slide_layouts[6]
     slide = prs.slides.add_slide(slide_layout)
@@ -3407,7 +3407,7 @@ def _slide_conviction_tracker(prs, snap, synthesis, ratios, devil, sentiment):
     # ── Thesis Summary ───────────────────────────────────────────────────────
     thesis_raw = _g(synthesis, "thesis", "") or ""
     thesis_parts = [p.strip() for p in thesis_raw.split(" | ") if p.strip()] if thesis_raw else []
-    # Fallback si these vide — construit depuis les ratios disponibles
+    # Fallback si Thèse vide — construit depuis les ratios disponibles
     if not thesis_parts:
         _co = _g(ci, "company_name", ticker) or ticker
         _sector = _g(ci, "sector", "") or ""
@@ -3430,7 +3430,7 @@ def _slide_conviction_tracker(prs, snap, synthesis, ratios, devil, sentiment):
         thesis_parts = [_p1]
         if _p2:
             thesis_parts.append(_p2)
-        thesis_parts.append("Relancer l'analyse pour obtenir la these complete avec synthese IA.")
+        thesis_parts.append("Relancer l'analyse pour obtenir la Thèse complète avec Synthèse IA.")
     add_rect(slide, 9.20, 2.30, 15.20, 0.55, NAVY)
     add_text_box(slide, 9.35, 2.35, 15.0, 0.45, "TH\u00c8SE D\u2019INVESTISSEMENT", 8, WHITE, bold=True)
     y_th = 2.95
@@ -3475,8 +3475,8 @@ def _slide_conviction_tracker(prs, snap, synthesis, ratios, devil, sentiment):
 
     # ── Note methodologique ──────────────────────────────────────────────────
     add_text_box(slide, 0.90, 12.95, 23.60, 0.35,
-                 "FinSight IA genere cette analyse a un instant T. Pour le suivi dans le temps, "
-                 "comparer les rapports successifs. La conviction reflete les donnees disponibles a la date d'analyse.",
+                 "FinSight IA Généré cette analyse a un instant T. Pour le suivi dans le temps, "
+                 "comparer les rapports successifs. La conviction Reflète les Données disponibles a la date d'analyse.",
                  7, GREY_TXT, wrap=True)
 
     return slide
@@ -3600,14 +3600,14 @@ class PPTXWriter:
         # --- Slide 6: Business Model ---
         _slide_business_model(prs, snap, synthesis)
 
-        # --- Slide 7: Divider Analyse Financiere ---
+        # --- Slide 7: Divider Analyse Financière ---
         divider_slide(prs, "02", "Analyse Financi\u00e8re",
                       "Compte de r\u00e9sultat, bilan, liquidit\u00e9 & ratios")
 
-        # --- Slide 8: Compte de Resultat ---
+        # --- Slide 8: Compte de Résultat ---
         _slide_is(prs, snap, synthesis, ratios)
 
-        # --- Slide 9: Bilan & Liquidite ---
+        # --- Slide 9: Bilan & Liquidité ---
         _slide_bilan(prs, snap, synthesis, ratios)
 
         # --- Slide 10: Ratios Cles ---
@@ -3617,7 +3617,7 @@ class PPTXWriter:
         divider_slide(prs, "03", "Valorisation",
                       "DCF, comparable peers & Football Field Chart")
 
-        # --- Slide 12: DCF & Scenarios ---
+        # --- Slide 12: DCF & Scénarios ---
         _slide_dcf(prs, snap, synthesis, ratios)
 
         # --- Slide 13: Comparable Peers ---

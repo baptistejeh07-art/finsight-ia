@@ -159,7 +159,7 @@ def make_indice_perf_chart(data):
     ax.set_facecolor('white'); fig.patch.set_facecolor('white')
     ax.grid(axis='y', alpha=0.15, color='#D0D5DD', linewidth=0.5)
     ax.legend(fontsize=10, loc='upper left', frameon=False)
-    ax.set_title(f'Performance comparee assets - base 100, {label_start}',
+    ax.set_title(f'Performance comparée assets - base 100, {label_start}',
                  fontsize=12, color='#1B3A6B', fontweight='bold', pad=8)
     plt.tight_layout(pad=0.4)
     buf = io.BytesIO(); fig.savefig(buf, format='png', dpi=160, bbox_inches='tight')
@@ -169,7 +169,7 @@ def make_indice_perf_chart(data):
 def make_sector_weights_chart(data):
     secteurs = data["secteurs"]
     noms  = [s[0] for s in secteurs]
-    # Poids proportionnels au nombre de societes par secteur
+    # Poids proportionnels au nombre de sociétés par secteur
     total_nb = sum(s[1] for s in secteurs) or 1
     poids_idx = [round(100 * s[1] / total_nb, 1) for s in secteurs]
     sigs = [s[3] for s in secteurs]
@@ -182,7 +182,7 @@ def make_sector_weights_chart(data):
     for i, (bar, val) in enumerate(zip(bars, poids_idx)):
         ax.text(val + x_max*0.015, i, f"{val}%", va='center', fontsize=10, color='#333', fontweight='bold')
     ax.set_yticks(y); ax.set_yticklabels(noms, fontsize=10, color='#333')
-    ax.set_xlabel("Repartition par nombre de societes (%)", fontsize=10, color='#555')
+    ax.set_xlabel("Repartition par nombre de sociétés (%)", fontsize=10, color='#555')
     ax.set_xlim(0, x_max)
     moy = sum(poids_idx)/len(poids_idx)
     ax.axvline(x=moy, color='#D0D5DD', linewidth=0.8, linestyle='--', alpha=0.8)
@@ -196,7 +196,7 @@ def make_sector_weights_chart(data):
                mpatches.Patch(color='#A82020', label='Sous-pond\u00e9rer')]
     ax.legend(handles=patches, fontsize=11, loc='upper center',
               bbox_to_anchor=(0.5, -0.14), frameon=False, ncol=3)
-    ax.set_title(f"Repartition sectorielle - {data['indice']} (nb societes)",
+    ax.set_title(f"Repartition sectorielle - {data['indice']} (nb sociétés)",
                  fontsize=13, color='#1B3A6B', fontweight='bold', pad=10)
     plt.tight_layout(pad=0.6)
     buf = io.BytesIO(); fig.savefig(buf, format='png', dpi=160, bbox_inches='tight')
@@ -232,7 +232,7 @@ def make_scatter_sectoriel(data):
         chart_title = f"Mg. EBITDA vs Croissance BPA - Secteurs {data['indice']}"
     else:
         y_vals = ev_raw
-        y_label = 'EV / EBITDA median (x)'
+        y_label = 'EV / EBITDA Médian (x)'
         y_med_label = 'Med. EV/EBITDA'
         chart_title = f"EV/EBITDA vs Croissance BPA - Secteurs {data['indice']}"
 
@@ -318,7 +318,7 @@ def make_score_bars(data):
 
 
 def make_top3_donut(data):
-    # Poids réels calculés depuis nb_societes de chaque secteur
+    # Poids réels calculés depuis nb_sociétés de chaque secteur
     secteurs_all = data["secteurs"]
     total_nb = sum(s[1] for s in secteurs_all) or 1
     poids_map_real = {s[0]: round(100.0 * s[1] / total_nb, 1) for s in secteurs_all}
@@ -502,7 +502,7 @@ def _cover_page(c, doc, data):
     # 5 metriques
     metrics = [
         ("Secteurs analyses",  str(data["nb_secteurs"])),
-        ("Soci\u00e9t\u00e9s couvertes", str(data["nb_societes"])),
+        ("Soci\u00e9t\u00e9s couvertes", str(data["nb_sociétés"])),
         ("Cours indice",       data["cours"]),
         ("Variation YTD",      data["variation_ytd"]),
         ("P/E Forward",        data["pe_forward"]),
@@ -573,7 +573,7 @@ def _build_sommaire(data, page_nums=None):
 
     indice_rl = data["indice"].replace("&", "&amp;")
     sections = [
-        ("1.", f"Synth\u00e8se Macro &amp; Signal Global",    "synthese",
+        ("1.", f"Synth\u00e8se Macro &amp; Signal Global",    "Synthèse",
          f"  Signal global \xb7 Conviction \xb7 Catalyseurs \xb7 Risques macro"),
         ("2.", "Cartographie des Secteurs",                   "carto",
          f"  Tableau comparatif {data.get('nb_secteurs','?')} secteur(s) \xb7 Score \xb7 EV/EBITDA \xb7 Attribution \xb7 Breadth"),
@@ -614,7 +614,7 @@ def _build_sommaire(data, page_nums=None):
 def _build_synthese(data, perf_buf, registry=None):
     indice_rl = data["indice"].replace("&", "&amp;")
     elems = []
-    if registry is not None: elems.append(SectionAnchor('synthese', registry))
+    if registry is not None: elems.append(SectionAnchor('Synthèse', registry))
     elems += section_title("Synth\u00e8se Macro &amp; Signal Global", 1)
 
     # ── KPI macro header : PE / 10Y / ERP ─────────────────────────────────────
@@ -638,7 +638,7 @@ def _build_synthese(data, perf_buf, registry=None):
     ]
     # [28, 22, 24, 24, 22, 50] = 170mm
     elems.append(KeepTogether(tbl([kpi_h, kpi_row], cw=[28*mm,22*mm,24*mm,24*mm,22*mm,50*mm])))
-    # Interpretation ERP
+    # Interprétation ERP
     _erp_interp = {
         "Tendu":    ("<b>ERP sous 2%</b> \u2014 prime actions insuffisante par rapport au taux sans risque. "
                      "Chaque BUY doit \u00eatre justifi\u00e9 par une croissance visible et un pricing power d\u00e9montr\u00e9."),
@@ -689,16 +689,16 @@ def _build_synthese(data, perf_buf, registry=None):
         _pe_min, _pe_max = _pe_range
         _pe_pct = max(0, min(100, round((_pe_val - _pe_min) / max(_pe_max - _pe_min, 1) * 100)))
         if _pe_pct >= 75:
-            _pe_pos, _pe_pos_s = "Cherte elevee", S_TD_R
+            _pe_pos, _pe_pos_s = "Cherte élevée", S_TD_R
             _pe_interp = (f"Le P/E forward de {_pe_val:.1f}x se situe dans le <b>quartile supérieur</b> "
                           f"de sa fourchette historique 10 ans ({_pe_min:.0f}x\u2013{_pe_max:.0f}x). "
                           f"La valorisation intègre une croissance des benefices soutenue ; "
                           f"tout choc sur les marges ou la guidance pourrait triggerer une recompression multiple.")
         elif _pe_pct >= 50:
-            _pe_pos, _pe_pos_s = "Valorisation elevee", S_TD_A
+            _pe_pos, _pe_pos_s = "Valorisation élevée", S_TD_A
             _pe_interp = (f"Le P/E forward de {_pe_val:.1f}x s'inscrit <b>au-dessus de la médiane historique</b> "
                           f"({_pe_min:.0f}x\u2013{_pe_max:.0f}x). La prime de valorisation est justifiable "
-                          f"si la visibilite BPA reste intacte. Surveiller les revisions d'analystes.")
+                          f"si la visibilite BPA reste intacte. Surveiller les révisions d'analystes.")
         elif _pe_pct >= 25:
             _pe_pos, _pe_pos_s = "Valorisation raisonnable", S_TD_G
             _pe_interp = (f"Le P/E forward de {_pe_val:.1f}x s'inscrit <b>dans la moitié inférieure</b> "
@@ -730,19 +730,19 @@ def _build_synthese(data, perf_buf, registry=None):
             Spacer(1, 3*mm),
         ]))
 
-    # ── Régime de marche + Probabilite de recession ──────────────────────────
+    # ── Régime de Marché + Probabilite de récession ──────────────────────────
     _macro = data.get("macro") or {}
-    _regime  = _macro.get("regime")
+    _regime  = _macro.get("régime")
     _vix     = _macro.get("vix")
     _spread  = _macro.get("yield_spread_10y_3m")
     _sp_ma   = _macro.get("sp500_vs_ma200")
-    _rec_6m  = _macro.get("recession_prob_6m")
-    _rec_12m = _macro.get("recession_prob_12m")
-    _rec_lvl = _macro.get("recession_level", "Inconnu")
-    _drivers = _macro.get("recession_drivers", [])
+    _rec_6m  = _macro.get("récession_prob_6m")
+    _rec_12m = _macro.get("récession_prob_12m")
+    _rec_lvl = _macro.get("récession_level", "Inconnu")
+    _drivers = _macro.get("récession_drivers", [])
 
     if _regime and _regime != "Inconnu":
-        elems.append(Paragraph("Environnement macro — Régime de marche", S_SUBSECTION))
+        elems.append(Paragraph("Environnement macro — Régime de Marché", S_SUBSECTION))
         elems.append(Spacer(1, 2*mm))
         _vix_str    = f"{_vix:.0f}" if _vix    is not None else "indetermine"
         _spread_str = f"{_spread:+.1f}%" if _spread is not None else "non disponible"
@@ -754,23 +754,23 @@ def _build_synthese(data, perf_buf, registry=None):
         }
         _regime_lbl = _regime_labels.get(_regime, _regime.lower())
         elems.append(Paragraph(
-            f"<b>Régime de marche : {_regime}.</b> L'environnement macro est actuellement "
-            f"{_regime_lbl}, avec un VIX a {_vix_str}, un spread 10Y-3M de {_spread_str} "
+            f"<b>Régime de Marché : {_régime}.</b> L'environnement macro est actuellement "
+            f"{_régime_lbl}, avec un VIX a {_vix_str}, un spread 10Y-3M de {_spread_str} "
             f"et le S&P 500 a {_sp_ma_str} de sa moyenne mobile 200 jours. "
             f"La tendance de fond reste {_sp_trend.lower()}.", S_BODY))
         elems.append(Spacer(1, 2*mm))
         if _rec_6m is not None:
             _drivers_str = " et ".join(_drivers[:2]) if _drivers else "aucun signal recessif dominant"
-            _rec_qualif  = ("elevee" if _rec_lvl == "Elevee" else
-                            ("moderee" if _rec_lvl == "Moderee" else "faible"))
+            _rec_qualif  = ("élevée" if _rec_lvl == "Élevée" else
+                            ("modérée" if _rec_lvl == "Modérée" else "faible"))
             elems.append(Paragraph(
-                f"<b>Risque de recession.</b> La probabilité de recession sur 6 mois est estimee "
+                f"<b>Risque de récession.</b> La probabilité de récession sur 6 mois est Estimée "
                 f"a <b>{_rec_6m}%</b> (niveau {_rec_qualif}), contre {_rec_12m}% sur 12 mois. "
                 f"Les principaux signaux d'alerte incluent {_drivers_str}. "
-                "Cette evaluation est indicative et fondee sur des indicateurs de marche "
-                "(VIX, courbe des taux, momentum) plutot que sur un modele econometrique.", S_BODY))
+                "Cette évaluation est indicative et fondee sur des indicateurs de Marché "
+                "(VIX, courbe des taux, momentum) plutot que sur un modèle econometrique.", S_BODY))
             elems.append(src(
-                "Indicateur de marche (non econometrique) : VIX + spread 10Y-3M + "
+                "Indicateur de Marché (non econometrique) : VIX + spread 10Y-3M + "
                 "position S&P 500 vs MA200 + momentum 6M. Source : FinSight IA / yfinance."))
         elems.append(Spacer(1, 4*mm))
     else:
@@ -788,7 +788,7 @@ def _build_synthese(data, perf_buf, registry=None):
     elems.append(Spacer(1, 4*mm))
 
     elems.append(debate_q(
-        "Quels catalyseurs pourraient faire devier l'indice de son scenario central ?"))
+        "Quels catalyseurs pourraient faire devier l'indice de son scénario central ?"))
     cat_h = [Paragraph(h, S_TH_L) for h in ["Catalyseur", "Mecanisme", "Horizon"]]
     cat_rows = []
     for nom, mecanisme, horizon in data["catalyseurs"]:
@@ -798,7 +798,7 @@ def _build_synthese(data, perf_buf, registry=None):
     elems.append(KeepTogether(tbl([cat_h] + cat_rows, cw=[42*mm, 110*mm, 18*mm])))
     elems.append(src("FinSight IA — Analyse interne. Probabilités non assignees (cf. section Risques)."))
 
-    # Bloc synthese signal — fill empty space page 3
+    # Bloc Synthèse signal — fill empty space page 3
     secteurs = data["secteurs"]
     nb_surp  = sum(1 for s in secteurs if len(s) > 3 and "Surp" in str(s[3]))
     nb_sous  = sum(1 for s in secteurs if len(s) > 3 and "Sous" in str(s[3]))
@@ -842,7 +842,7 @@ def _build_cartographie(data, weights_buf, attribution_buf=None, registry=None):
     elems += section_title("Cartographie des Secteurs", 2)
     elems.append(Spacer(1, 4*mm))
 
-    # Graphique + mini tableau cote a cote
+    # Graphique + mini tableau côte à côte
     # combined: [80, 90] = 170mm. Image 80mm, right_col 90mm.
     weights_img = Image(weights_buf, width=80*mm, height=68*mm)
     sig_rows = []
@@ -885,7 +885,7 @@ def _build_cartographie(data, weights_buf, attribution_buf=None, registry=None):
     ]))
     elems.append(combined)
     elems.append(src(
-        f"FinSight IA — Ponderations GICS. Score composite : 40% momentum, 30% rév. BPA, 30% valorisation."))
+        f"FinSight IA — Pondérations GICS. Score composite : 40% momentum, 30% rév. BPA, 30% valorisation."))
     elems.append(Spacer(1, 4*mm))
 
     # Tableau comparatif complet — colonnes exactement 170mm
@@ -900,7 +900,7 @@ def _build_cartographie(data, weights_buf, attribution_buf=None, registry=None):
         mg   = f"{mg_raw:.1f}%" if isinstance(mg_raw, (int, float)) and mg_raw != 0.0 else "\u2014"
         croi = str(s[6]) if len(s) > 6 else "\u2014"
         mom  = str(s[7]) if len(s) > 7 else "\u2014"
-        # EV/EBITDA : afficher N/A* pour immobilier (REITs) si donnee absente
+        # EV/EBITDA : afficher N/A* pour immobilier (REITs) si Donnée absente
         _ev_raw = s[4] if len(s) > 4 else "\u2014"
         _sec_low = str(s[0]).lower()
         _is_reit = any(k in _sec_low for k in ("real estate", "immobilier", "reit", "foncier"))
@@ -919,7 +919,7 @@ def _build_cartographie(data, weights_buf, attribution_buf=None, registry=None):
             Paragraph(croi, S_TD_G if '+' in str(croi) else S_TD_R),
             Paragraph(mom,  S_TD_G if '+' in str(mom)  else S_TD_R),
         ])
-    # [8, 33, 10, 14, 30, 22, 18, 17, 18] = 170mm — Signal 30mm ok pour "Sous-ponderer"
+    # [8, 33, 10, 14, 30, 22, 18, 17, 18] = 170mm — Signal 30mm ok pour "Sous-pondérer"
     comp_tbl = tbl([comp_h] + comp_rows,
         cw=[8*mm, 33*mm, 10*mm, 14*mm, 30*mm, 22*mm, 18*mm, 17*mm, 18*mm],
         compact=True)
@@ -955,7 +955,7 @@ def _build_cartographie(data, weights_buf, attribution_buf=None, registry=None):
             "Financial Services": "Financials",
             "Healthcare": "Health Care",
             "Basic Materials": "Materials",
-            "Consumer Defensive": "Consumer Staples",
+            "Consumer Défensive": "Consumer Staples",
             "Consumer Cyclical": "Consumer Discretionary",
         }
         val_rows = []
@@ -990,7 +990,7 @@ def _build_cartographie(data, weights_buf, attribution_buf=None, registry=None):
                                       cw=[42*mm, 20*mm, 22*mm, 26*mm, 60*mm])))
         elems.append(src(
             f"FinSight IA — P/Book et Div.Yield : ETF SPDR yfinance ou valeurs sectorielles "
-            f"medianes S&amp;P 500. ERP sectoriel = Div.Yield + croissance LT normalisee - "
+            f"Médianes S&amp;P 500. ERP sectoriel = Div.Yield + croissance LT Normalisée - "
             f"{data.get('rf_rate','4.50%')} (10Y US)."))
 
     # ── Attribution sectorielle ────────────────────────────────────────────────
@@ -998,15 +998,15 @@ def _build_cartographie(data, weights_buf, attribution_buf=None, registry=None):
         elems.append(Spacer(1, 5*mm))
         elems.append(Paragraph("Attribution sectorielle au return indice", S_SUBSECTION))
         elems.append(Paragraph(
-            "Le graphique ci-dessous decompose le return total de l'indice en contributions "
+            "Le graphique ci-dessous Décompose le return total de l'indice en contributions "
             "sectorielles : <b>contribution = poids sectoriel \xd7 return 1 an</b>. "
             "Cette lecture permet d'identifier quels secteurs ont tire ou freine la "
-            "performance de l'indice, et d'evaluer la concentration du return.", S_BODY))
+            "performance de l'indice, et d'évaluer la concentration du return.", S_BODY))
         elems.append(Spacer(1, 2*mm))
         elems.append(Image(attribution_buf, width=TABLE_W, height=88*mm))
         elems.append(src(
             "FinSight IA — ETF SPDR sectoriels, yfinance. "
-            "Poids = nb societes par secteur / total indice. Contribution = poids x return 12 mois."))
+            "Poids = nb sociétés par secteur / total indice. Contribution = poids x return 12 mois."))
 
     # ── Factor tilts & Breadth ─────────────────────────────────────────────────
     analytics = data.get("indice_analytics", {})
@@ -1016,34 +1016,34 @@ def _build_cartographie(data, weights_buf, attribution_buf=None, registry=None):
         _tilt    = analytics.get("tilt", "—")
         _spread  = analytics.get("tilt_spread", 0)
         _cyc     = analytics.get("cyclical_return", 0)
-        _def     = analytics.get("defensive_return", 0)
+        _def     = analytics.get("défensive_return", 0)
         _breadth = analytics.get("breadth_pct", 0)
         _br_nb   = analytics.get("breadth_nb", 0)
         _br_tot  = analytics.get("nb_total", 0)
-        _tilt_s  = S_TD_G if _tilt == "Cyclique" else (S_TD_R if _tilt == "Defensif" else S_TD_A)
+        _tilt_s  = S_TD_G if _tilt == "Cyclique" else (S_TD_R if _tilt == "Défensif" else S_TD_A)
         _br_s    = S_TD_G if _breadth >= 70 else (S_TD_R if _breadth < 40 else S_TD_A)
         ftbl_h = [Paragraph(h, S_TH_C) for h in
-                  ["Indicateur", "Valeur", "Detail", "Interpretation"]]
+                  ["Indicateur", "Valeur", "Detail", "Interprétation"]]
         ftbl_rows = [
             [Paragraph("Biais sectoriel", S_TD_B),
              Paragraph(_tilt, _tilt_s),
-             Paragraph(f"Cyclique {_cyc:+.1f}% vs Defensif {_def:+.1f}% (ecart {_spread:.1f}pp)", S_TD_L),
+             Paragraph(f"Cyclique {_cyc:+.1f}% vs Défensif {_def:+.1f}% (Écart {_spread:.1f}pp)", S_TD_L),
              Paragraph(
                  "Cyclique = Tech, Discret., Comm., Fin., Indus., Energy, Mat. | "
-                 "Defensif = Staples, Health, Utilities, Real Estate", S_TD_L)],
+                 "Défensif = Staples, Health, Utilities, Real Estate", S_TD_L)],
             [Paragraph("Breadth sectorielle", S_TD_B),
              Paragraph(f"{_breadth}%", _br_s),
              Paragraph(f"{_br_nb}/{_br_tot} secteurs en momentum positif (return 12M > 0)", S_TD_L),
              Paragraph(
-                 ">70% : marche porteur, beta recommande | "
-                 "<40% : marche fragile, stock-picking defensif", S_TD_L)],
+                 ">70% : Marché porteur, beta recommande | "
+                 "<40% : Marché fragile, stock-picking défensif", S_TD_L)],
         ]
         # [40, 22, 62, 46] = 170
         elems.append(KeepTogether(tbl([ftbl_h] + ftbl_rows,
                                       cw=[40*mm, 22*mm, 62*mm, 46*mm])))
         elems.append(src(
             "FinSight IA — ETF SPDR, yfinance. "
-            "Biais = écart de return annualise cyclique/defensif. "
+            "Biais = écart de return annualise cyclique/défensif. "
             "Breadth = % secteurs return 12M > 0."))
     return elems
 
@@ -1067,8 +1067,8 @@ def _build_graphiques(data, scatter_buf, scores_buf, corr_buf=None, registry=Non
             "une valeur relative.", S_BODY))
         elems.append(Spacer(1, 3*mm))
         elems.append(Image(scatter_buf, width=TABLE_W, height=95*mm))
-        elems.append(src("FinSight IA — EV/EBITDA médian LTM vs croissance BPA mediane secteur. FMP, Bloomberg."))
-        # Interpretation inline
+        elems.append(src("FinSight IA — EV/EBITDA médian LTM vs croissance BPA Médiane secteur. FMP, Bloomberg."))
+        # Interprétation inline
         _secteurs = data["secteurs"]
         _surp = [s[0] for s in _secteurs if "Surp" in str(s[3])]
         _sous = [s[0] for s in _secteurs if "Sous" in str(s[3])]
@@ -1078,7 +1078,7 @@ def _build_graphiques(data, scatter_buf, scores_buf, corr_buf=None, registry=Non
         elems.append(Paragraph(
             "<b>Lecture du positionnement.</b> "
             "Les secteurs dans le <b>quadrant inf\xe9rieur gauche</b> (faible EV/EBITDA, "
-            "faible croissance BPA) offrent une d\xe9cote relative \u2014 opportunit\xe9 si "
+            "faible croissance BPA) offrent une d\xe9côté relative \u2014 opportunit\xe9 si "
             "les fondamentaux se stabilisent. Ceux dans le <b>quadrant sup\xe9rieur droit</b> "
             "paient une prime justifi\xe9e par leur croissance visible. "
             f"Secteurs signal <b>Surpond\xe9rer</b> : {_surp_str}. "
@@ -1097,7 +1097,7 @@ def _build_graphiques(data, scatter_buf, scores_buf, corr_buf=None, registry=Non
     nb_sous = sum(1 for s in data["secteurs"] if "Sous" in str(s[3]))
     elems.append(Paragraph(
         "Le score composite (0-100) agr\u00e8ge trois signaux : momentum prix 3 mois (40%), "
-        "revision des estimations BPA sur 1 mois (30%) et valorisation relative (30%). "
+        "révision des estimations BPA sur 1 mois (30%) et valorisation relative (30%). "
         "La ligne pointill\u00e9e orange marque le seuil 50 — <b>au-dessus : signal Surpond\u00e9rer</b> "
         "possible, <b>en dessous de 40 : Sous-pond\u00e9rer</b>. "
         f"{nb_surp} {'secteur franchit' if nb_surp == 1 else 'secteurs franchissent'} le seuil Surpond\u00e9rer (60), "
@@ -1156,9 +1156,9 @@ def _build_graphiques(data, scatter_buf, scores_buf, corr_buf=None, registry=Non
         elems.append(Spacer(1, 3*mm))
         elems.append(Image(corr_buf, width=TABLE_W, height=120*mm))
         elems.append(src(
-            "FinSight IA — Correlations calculees sur rendements journaliers 52S "
+            "FinSight IA — Correlations calculées sur rendements journaliers 52S "
             "des ETF SPDR sectoriels (XLK, XLV, XLF...). yfinance."))
-        # Interpretation quantitative
+        # Interprétation quantitative
         corr_d = data.get("correlation_matrix", {})
         if corr_d and corr_d.get("matrix"):
             mat = corr_d["matrix"]
@@ -1173,20 +1173,20 @@ def _build_graphiques(data, scatter_buf, scores_buf, corr_buf=None, registry=Non
                 elems.append(Spacer(1, 3*mm))
                 corr_interp = [
                     ["Corrélation médiane", f"{med_c:.2f}",
-                     "Niveau de dependance systemique moyen entre secteurs"],
+                     "Niveau de dépendance systemique moyen entre secteurs"],
                     ["Paire la moins correlee",
                      f"{_abbrev_pdf(min_c[1])} / {_abbrev_pdf(min_c[2])}  ({min_c[0]:.2f})",
                      "Meilleur benefice de diversification inter-sectoriel disponible"],
                     ["Paire la plus correlee",
                      f"{_abbrev_pdf(max_c[1])} / {_abbrev_pdf(max_c[2])}  ({max_c[0]:.2f})",
-                     "Secteurs a ne pas sur-ponderer simultanement — beta commun eleve"],
+                     "Secteurs a ne pas sur-ponderer simultanement — beta commun élevé"],
                 ]
-                corr_h = [Paragraph(h, S_TH_L) for h in ["Indicateur", "Valeur", "Interpretation"]]
+                corr_h = [Paragraph(h, S_TH_L) for h in ["Indicateur", "Valeur", "Interprétation"]]
                 corr_rows = [[Paragraph(r[0], S_TD_B), Paragraph(r[1], S_TD_C),
                               Paragraph(r[2], S_TD_L)] for r in corr_interp]
                 elems.append(KeepTogether(tbl([corr_h] + corr_rows,
                                               cw=[46*mm, 64*mm, 60*mm])))
-                elems.append(src("FinSight IA — calcul interne sur donnees ETF SPDR."))
+                elems.append(src("FinSight IA — calcul interne sur Données ETF SPDR."))
     return elems
 
 
@@ -1199,7 +1199,7 @@ def _build_rotation(data, registry=None):
     elems.append(Spacer(1, 4*mm))
 
     elems.append(debate_q(
-        "Ou en sommes-nous dans le cycle economique et quels secteurs privilegier ?"))
+        "Ou en sommes-nous dans le cycle Économique et quels secteurs privilegier ?"))
     elems.append(Paragraph(data["texte_rotation"], S_BODY))
     elems.append(Spacer(1, 3*mm))
 
@@ -1208,13 +1208,13 @@ def _build_rotation(data, registry=None):
 
     def rot_signal_s(sig):
         if sig == "Accumuler": return S_TD_G
-        if sig in ("All\xe9ger", "Alleger"): return S_TD_R
+        if sig in ("All\xe9ger", "Alléger"): return S_TD_R
         return S_TD_A
 
     rot_rows = []
     for item in data["rotation"]:
         s, phase, taux, pib, sig = item
-        phase_s = S_TD_G if phase == "Expansion" else (S_TD_R if phase in ("R\xe9cession","Recession") else S_TD_A)
+        phase_s = S_TD_G if phase == "Expansion" else (S_TD_R if phase in ("R\xe9cession","Récession") else S_TD_A)
         rot_rows.append([
             Paragraph(s, S_TD_B),
             Paragraph(phase, phase_s),
@@ -1226,10 +1226,10 @@ def _build_rotation(data, registry=None):
     elems.append(KeepTogether(tbl([rot_h] + rot_rows,
         cw=[44*mm, 32*mm, 26*mm, 26*mm, 42*mm])))
     elems.append(src(
-        "FinSight IA — Modele de rotation 4 phases. "
-        "Sensibilites : Faible / Moderee / Elevee / Positive (taux)."))
+        "FinSight IA — Modèle de rotation 4 phases. "
+        "Sensibilités : Faible / Modérée / Élevée / Positive (taux)."))
 
-    # Encadre cycle — dynamique depuis les donnees reelles
+    # Encadre cycle — dynamique depuis les Données réelles
     _surp_noms_rot = data.get("surp_noms") or " \xb7 ".join(
         s["nom"] for s in data["top3_secteurs"] if "Surp" in str(s.get("signal",""))) or "—"
     _sous_noms_rot = data.get("sous_noms") or " \xb7 ".join(
@@ -1245,11 +1245,11 @@ def _build_rotation(data, registry=None):
         ["Phase actuelle",
          data.get("phase_cycle", "Expansion avancee"),
          "Croissance positive, taux restrictifs, marges sous pression selective"],
-        ["Secteurs a surponderer", _surp_noms_rot.replace("/", "\xb7"),
-         "Forte visibilite BPA, faible sensibilite aux taux, pricing power intact"],
+        ["Secteurs a Surpondérer", _surp_noms_rot.replace("/", "\xb7"),
+         "Forte visibilite BPA, faible Sensibilité aux taux, pricing power intact"],
         ["Secteurs a neutraliser", _neutre_noms,
-         "Croissance correcte mais risque de deceleration si PIB ralentit"],
-        ["Secteurs a alleger", _sous_noms_rot.replace("/", "\xb7"),
+         "Croissance correcte mais risque de décélération si PIB ralentit"],
+        ["Secteurs a alléger", _sous_noms_rot.replace("/", "\xb7"),
          "Signal de vente relatif — compression de multiple anticipee"],
         ["Catalyseur de rotation", "Confirmation pivot Fed (<2,5% CPI sur 3M)",
          "R\u00e9\u00e9valuer les signaux en Sous-pond\u00e9rer en premier si pivot se confirme"],
@@ -1260,7 +1260,7 @@ def _build_rotation(data, registry=None):
     # [38, 52, 80] = 170
     elems.append(KeepTogether(tbl([cycle_h] + cycle_rows, cw=[38*mm, 52*mm, 80*mm])))
     elems.append(src(
-        "FinSight IA — Modele cycle interne. Indicateurs : ISM, courbe taux, Leading indicators OCDE."))
+        "FinSight IA — Modèle cycle interne. Indicateurs : ISM, courbe taux, Leading indicators OCDE."))
     return elems
 
 
@@ -1327,7 +1327,7 @@ def _build_allocation(data, allocation_buf=None, registry=None):
         # Signal de surponderabilite : si 2/3 portfolios > egal
         _votes = sum([1 for w in [_w_mv, _w_tg, _w_erc] if w > eq_w * 0.9])
         _sig_a = (S_TD_G if _votes >= 2 else (S_TD_R if _votes == 0 else S_TD_A))
-        _sig_t = ("Surponderer" if _votes >= 2 else ("Sous-ponderer" if _votes == 0 else "Neutre"))
+        _sig_t = ("Surpondérer" if _votes >= 2 else ("Sous-pondérer" if _votes == 0 else "Neutre"))
         def _w(v): return Paragraph(f"{v:.1f}%", S_TD_G if v > eq_w else (S_TD_R if v < eq_w*0.6 else S_TD_A))
         alloc_rows.append([
             Paragraph(nom, S_TD_B),
@@ -1355,7 +1355,7 @@ def _build_allocation(data, allocation_buf=None, registry=None):
          Paragraph(f"{opt['tangency']['vol']:.1f}%", S_TD_C),
          Paragraph(str(opt['tangency']['sharpe']), _sr(opt['tangency']['sharpe']))],
         [Paragraph("Equal Risk Contribution", S_TD_B),
-         Paragraph("Contribution egale au risque — profil diversifie", S_TD_L),
+         Paragraph("Contribution egale au risque — profil diversifié", S_TD_L),
          Paragraph(f"{opt['erc']['return']:+.1f}%", S_TD_C),
          Paragraph(f"{opt['erc']['vol']:.1f}%", S_TD_C),
          Paragraph(str(opt['erc']['sharpe']), _sr(opt['erc']['sharpe']))],
@@ -1363,9 +1363,9 @@ def _build_allocation(data, allocation_buf=None, registry=None):
     # [38, 68, 20, 20, 24] = 170mm
     elems.append(KeepTogether(tbl([met_h] + met_rows, cw=[38*mm,68*mm,20*mm,20*mm,24*mm])))
     elems.append(Paragraph(
-        f"<i>Note : performances et Sharpe calcules sur rendements historiques 52 semaines. "
+        f"<i>Note : performances et Sharpe calculés sur rendements historiques 52 semaines. "
         f"Ils ne constituent pas une prevision. Dans un contexte ERP {_esig} ({_erp}), "
-        + ("le Tangency portfolio est particulierement pertinent — la prime actions justifie "
+        + ("le Tangency portfolio est particulièrement pertinent — la prime actions justifie "
            "une exposition optimisee." if _esig == "Favorable"
            else "le Min-Variance est recommande — proteger le capital prime sur le rendement." if _esig == "Tendu"
            else "les trois profils sont valides selon l'horizon et le profil de risque.")
@@ -1386,31 +1386,31 @@ def _build_top3(data, donut_buf, registry=None):
     elems += section_title("Top 3 Secteurs Recommand\u00e9s", 6)
     elems.append(Spacer(1, 3*mm))
 
-    _surp_list = [s for s in data["secteurs"] if s[3] in ("Surponderer", "Surpond\xe9rer")]
+    _surp_list = [s for s in data["secteurs"] if s[3] in ("Surpondérer", "Surpond\xe9rer")]
     nb_surp_reel = len(_surp_list)
-    _surp_label = (f"{nb_surp_reel} secteur(s) affichent un signal <b>Surpond\u00e9rer</b>"
+    _surp_label = (f"{nb_surp_réel} secteur(s) affichent un signal <b>Surpond\u00e9rer</b>"
                    if nb_surp_reel > 0
                    else "aucun secteur ne franchit le seuil Surpond\u00e9rer")
     _n_comp = len(data["top3_secteurs"]) - nb_surp_reel
     if _n_comp > 0:
-        _comp_s = ("secteur Neutre est presente en complement"
+        _comp_s = ("secteur Neutre est présente en complément"
                    if _n_comp == 1
-                   else f"{_n_comp} secteurs Neutres sont presentes en complement")
+                   else f"{_n_comp} secteurs Neutres sont présentés en complément")
         _complement = f" Le {_comp_s}."
     else:
         _complement = ""
     _nb_s_tot = data['nb_secteurs']
     _s_tot_lbl = "secteur couvert" if _nb_s_tot == 1 else "secteurs couverts"
     elems.append(Paragraph(
-        f"Sur {_nb_s_tot} {_s_tot_lbl}, {_surp_label}.{_complement} "
-        "Ces secteurs combinent momentum prix positif, revision haussiere des BPA et "
+        f"Sur {_nb_s_tot} {_s_tot_lbl}, {_surp_label}.{_complément} "
+        "Ces secteurs combinent momentum prix positif, révision haussière des BPA et "
         "valorisation raisonnable par rapport \u00e0 leur historique. "
         "Pour le d\u00e9tail complet — ratios LTM/NTM, Football Field, DCF, FinBERT — "
         "lancer l'analyse sectorielle d\u00e9di\u00e9e dans FinSight IA.", S_BODY))
     elems.append(Spacer(1, 4*mm))
 
-    # Tableau synthese
-    _titre_synth = ("Vue d'ensemble — Secteurs Surpond\u00e9rer" if nb_surp_reel > 0
+    # Tableau Synthèse
+    _titre_synth = ("Vue d'ensemble — Secteurs Surpond\u00e9rer" if nb_surp_réel > 0
                     else "Vue d'ensemble — Meilleurs secteurs de l'univers")
     elems.append(Paragraph(_titre_synth, S_SUBSECTION))
     synth_h = [Paragraph(h, S_TH_C) for h in
@@ -1468,7 +1468,7 @@ def _build_top3(data, donut_buf, registry=None):
         "Analyses g\u00e9n\u00e9r\u00e9es par l'agent Synth\u00e8se."))
     elems.append(Spacer(1, 5*mm))
 
-    # Tableau 9 societes — colonne EV/EBITDA ou Mg.EBITDA selon dispo
+    # Tableau 9 sociétés — colonne EV/EBITDA ou Mg.EBITDA selon dispo
     _all_ev_missing = all(
         str(s.get("ev_ebitda","—")) in ("—","\u2014","","None")
         for s in data.get("top3_secteurs",[])
@@ -1482,7 +1482,7 @@ def _build_top3(data, donut_buf, registry=None):
         _sect_ev = str(sect.get("ev_ebitda", "\u2014"))
         _sect_ev_ok = _sect_ev not in ("\u2014", "—", "", "None")
         _ev_sect = (f"{_mg:.1f}%" if _all_ev_missing and _mg else "\u2014")
-        for tkr, sig, ev, score in sect["societes"]:
+        for tkr, sig, ev, score in sect["sociétés"]:
             if _all_ev_missing:
                 _val_disp = _ev_sect
             elif str(ev) in ("\u2014", "—", "", "None") and _sect_ev_ok:
@@ -1503,15 +1503,15 @@ def _build_top3(data, donut_buf, registry=None):
         Paragraph("Soci\u00e9t\u00e9s representatives — 3 convictions par secteur *", S_SUBSECTION),
         Spacer(1, 2*mm),
         Paragraph(
-            "Ces societes constituent les convictions les plus solides au sein de chaque "
+            "Ces sociétés constituent les convictions les plus solides au sein de chaque "
             "secteur Surpond\u00e9rer. Le score FinSight int\u00e8gre momentum, r\u00e9visions BPA et "
             "valorisation relative.", S_BODY),
         Spacer(1, 2*mm),
         soc_tbl,
     ]))
     elems.append(src(
-        "FinSight IA — Societes selectionnees par capitalisation et signal FinSight. "
-        "Score = composite 0-100. Analyse complete via module societe ou sectoriel."))
+        "FinSight IA — Sociétés sélectionnées par capitalisation et signal FinSight. "
+        "Score = composite 0-100. Analyse complète via module société ou sectoriel."))
     elems.append(Paragraph(
         "* Pour une analyse approfondie et rigoureuse (Football Field, DCF complet, Altman Z-Score, "
         "FinBERT news) — lancer l'analyse soci\u00e9t\u00e9 individuelle dans FinSight IA.",
@@ -1530,10 +1530,10 @@ def _build_risques(data, registry=None):
     sig_central = data["signal_global"]
     elems.append(Paragraph(
         f"L'analyse adversariale identifie trois axes de risque susceptibles d'invalider "
-        f"le scenario central <b>{sig_central}</b> sur le {indice_rl}. Notre approche ne traite "
+        f"le scénario central <b>{sig_central}</b> sur le {indice_rl}. Notre approche ne traite "
         "pas ces risques comme des probabilites faibles a ignorer, mais comme des "
         "<b>conditions de surveillance active</b> qui doivent modifier le positionnement "
-        "si elles se materialisent. Chaque risque est evalue sur sa probabilité estimée "
+        "si elles se materialisent. Chaque risque est évalue sur sa probabilité estimée "
         "a 12 mois, son mecanisme de transmission et son impact potentiel sur les niveaux "
         "de l'indice et les multiples.", S_BODY))
     elems.append(Spacer(1, 2*mm))
@@ -1543,7 +1543,7 @@ def _build_risques(data, registry=None):
             p_int = int(str(prob).replace('%',''))
         except (ValueError, TypeError):
             p_int = 30
-        _prob_qualif = ("elevee" if p_int >= 40 else ("moderee" if p_int >= 25 else "faible"))
+        _prob_qualif = ("élevée" if p_int >= 40 else ("modérée" if p_int >= 25 else "faible"))
         elems.append(Paragraph(
             f"<b>{nom} ({prob}, impact {impact.lower()}).</b> {mec} "
             f"La probabilite de materialisation sur 12 mois est jugee {_prob_qualif}.", S_BODY))
@@ -1553,10 +1553,10 @@ def _build_risques(data, registry=None):
     elems.append(Spacer(1, 4*mm))
 
     elems.append(debate_q(
-        f"Quelles conditions invalideraient le signal {sig_central} et vers quel scenario ?"))
+        f"Quelles conditions invalideraient le signal {sig_central} et vers quel scénario ?"))
     inv_h = [Paragraph(h, S_TH_L) for h in
              ["Sc\u00e9nario","Condition d\u00e9clencheur","Signal r\u00e9sultant","Horizon"]]
-    inv_data = [[s[0], s[1], s[2], s[3]] for s in (data.get("scenarios") or [
+    inv_data = [[s[0], s[1], s[2], s[3]] for s in (data.get("scénarios") or [
         ("Bull case", "Score > 60 + BPA NTM > +8% YoY", "Surpond\u00e9rer", "3-6 mois"),
         ("Bear case", "Score < 40 via r\u00e9cession ou choc g\u00e9opolitique", "Sous-pond\u00e9rer", "6-12 mois"),
         ("Stagflation", "CPI > 3,5% + PIB < 1%", "Sous-pond\u00e9rer s\u00e9lectif", "6-9 mois"),
@@ -1578,7 +1578,7 @@ def _build_risques(data, registry=None):
     elems.append(Spacer(1, 4*mm))
     elems.append(Paragraph("Gestion du risque portefeuille", S_SUBSECTION))
     elems.append(Paragraph(data.get("texte_gestion_risque",
-        f"Dans le scenario central, le {indice_rl} evolue dans une fourchette cible sur 12 mois, "
+        f"Dans le scénario central, le {indice_rl} évolue dans une fourchette cible sur 12 mois, "
         "soutenu par la r\u00e9silience des marges des secteurs Surpond\u00e9rer. Le portefeuille mod\u00e8le "
         "recommande une surexposition s\u00e9lective sur les secteurs identifi\u00e9s, une couverture "
         "partielle via les secteurs d\u00e9fensifs en cas de choc de croissance, et une r\u00e9duction "
@@ -1599,8 +1599,8 @@ def _build_sentiment(data, registry=None):
     if fb["nb_articles"] == 0:
         elems.append(Paragraph(
             "L'analyse de sentiment FinBERT n'est pas disponible dans le cadre du screening "
-            "d'indice. Le modele FinBERT est active lors des analyses sectorielles ou "
-            "societe individuelles, ou il traite les flux RSS et Finnhub propres a chaque "
+            "d'indice. Le modèle FinBERT est active lors des analyses sectorielles ou "
+            "société individuelles, ou il traite les flux RSS et Finnhub propres a chaque "
             "valeur. Pour acceder au sentiment sectoriel detaille, lancer l'analyse "
             "sectorielle dediee depuis FinSight IA.", S_BODY))
         elems.append(Spacer(1, 4*mm))
@@ -1631,10 +1631,10 @@ def _build_sentiment(data, registry=None):
         ]
         elems.append(KeepTogether(tbl([sent_h] + sent_rows, cw=[24*mm, 20*mm, 26*mm, 100*mm])))
         elems.append(src(
-            f"FinBERT — Corpus presse financiere anglophone. {fb['nb_articles']} articles, 7 jours."))
+            f"FinBERT — Corpus presse financière anglophone. {fb['nb_articles']} articles, 7 jours."))
         elems.append(Spacer(1, 4*mm))
 
-        # Sentiment par secteur — deux colonnes cote a cote
+        # Sentiment par secteur — deux colonnes côte à côte
         elems.append(Paragraph("Sentiment FinBERT — Distribution par secteur", S_SUBSECTION))
         ps_h = [Paragraph(h, S_TH_C) for h in ["Secteur","Score moyen","Orientation"]]
         ps_rows = []
@@ -1681,14 +1681,14 @@ def _build_sentiment(data, registry=None):
         ]))
         elems.append(two_col)
         elems.append(src(
-            "FinBERT — Score par secteur = moyenne ponderee des articles mentionnant le secteur."))
+            "FinBERT — Score par secteur = moyenne pondérée des articles mentionnant le secteur."))
         elems.append(Spacer(1, 4*mm))
 
-    # Methodologie — [40, 130] = 170
+    # Méthodologie — [40, 130] = 170
     elems.append(Paragraph("Sources &amp; M\u00e9thodologie", S_SUBSECTION))
     meth_h = [Paragraph(h, S_TH_L) for h in ["Composante","M\u00e9thodologie"]]
     meth_rows = [[Paragraph(k, S_TD_B), Paragraph(v, S_TD_L)]
-                 for k, v in data["methodologie"]]
+                 for k, v in data["Méthodologie"]]
     elems.append(KeepTogether(tbl([meth_h] + meth_rows, cw=[40*mm, 130*mm])))
     elems.append(src(
         f"FinSight IA v1.0 — Mise \u00e0 jour quotidienne. Donn\u00e9es au {data['date_analyse']}."))
@@ -1702,40 +1702,40 @@ def _build_disclaimer(data):
     elems.append(rule())
     S_DISC_TITLE = _style('disc_title', size=6.5, leading=9, color=GREY_TEXT, bold=True)
     elems.append(Paragraph(
-        "INFORMATIONS REGLEMENTAIRES ET AVERTISSEMENTS IMPORTANTS", S_DISC_TITLE))
+        "INFORMATIONS RÉGLEMENTAIRES ET AVERTISSEMENTS IMPORTANTS", S_DISC_TITLE))
     elems.append(Spacer(1, 1.5*mm))
     elems.append(Paragraph(
-        f"<b>Nature du document.</b> Ce rapport a ete genere automatiquement par FinSight IA v1.0 "
-        f"le {data['date_analyse']}. Il est produit integralement par un systeme d'intelligence "
+        f"<b>Nature du document.</b> Ce rapport a été Généré automatiquement par FinSight IA v1.0 "
+        f"le {data['date_analyse']}. Il est produit intégralement par un systeme d'intelligence "
         "artificielle et <b>ne constitue pas un conseil en investissement</b> au sens de la "
-        "directive europeenne MiFID II (2014/65/UE) ni au sens de toute autre reglementation "
-        "applicable. FinSight IA n'est pas un prestataire de services d'investissement agree. "
-        "Ce document est fourni a titre informatif uniquement et ne saurait etre interprete "
+        "directive européenne MiFID II (2014/65/UE) ni au sens de toute autre réglementation "
+        "applicable. FinSight IA n'est pas un prestataire de services d'investissement agréé. "
+        "Ce document est fourni a titre informatif uniquement et ne saurait être interprète "
         "comme une recommandation personnalisee d'achat, de vente ou de conservation de tout "
         "instrument financier.", S_DISC))
     elems.append(Spacer(1, 1.5*mm))
     elems.append(Paragraph(
-        "<b>Conflits d'interet.</b> FinSight IA est un outil d'analyse automatise sans position "
-        "proprietaire dans les titres ou indices couverts. Aucune remuneration n'est percue de "
+        "<b>Conflits d'intérêt.</b> FinSight IA est un outil d'analyse automatise sans position "
+        "proprietaire dans les titres ou indices couverts. Aucune rémunération n'est percue de "
         "la part des emetteurs analyses. Nonobstant, le lecteur est invite a considerer que tout "
-        "modele analytique comporte des biais inherents a ses hypotheses de construction.", S_DISC))
+        "modèle analytique comporte des biais inherents a ses hypotheses de construction.", S_DISC))
     elems.append(Spacer(1, 1.5*mm))
     elems.append(Paragraph(
-        "<b>Fiabilite des donnees.</b> Les donnees financieres sont issues de sources publiques "
-        "(yfinance, Financial Modeling Prep, Finnhub) et de modeles internes. Malgre les "
-        "controles appliques, ces donnees peuvent contenir des inexactitudes, des delais ou "
-        "des erreurs. Les projections et estimations presentees reposent sur des hypotheses "
-        "qui peuvent ne pas se realiser. Les performances passees ne prejudgent pas des "
+        "<b>Fiabilite des Données.</b> Les Données financières sont issues de sources publiques "
+        "(yfinance, Financial Modeling Prep, Finnhub) et de modèles internes. Malgre les "
+        "contrôles appliques, ces Données peuvent contenir des inexactitudes, des délais ou "
+        "des erreurs. Les projections et estimations présentées reposent sur des hypotheses "
+        "qui peuvent ne pas se réaliser. Les performances passees ne prejudgent pas des "
         "performances futures.", S_DISC))
     elems.append(Spacer(1, 1.5*mm))
     elems.append(Paragraph(
         "<b>Restrictions de diffusion.</b> Ce document est strictement confidentiel et destine "
-        "exclusivement a son destinataire. Il ne peut etre reproduit, distribue ou communique "
-        "a des tiers sans autorisation expresse. Sa diffusion peut etre soumise a des "
-        "restrictions legales dans certaines juridictions. FinSight IA decline toute "
-        "responsabilite pour les decisions prises sur la base de ce document. Tout investisseur "
+        "exclusivement a son destinataire. Il ne peut être reproduit, distribue ou communique "
+        "a des tiers sans autorisation expresse. Sa diffusion peut être soumise a des "
+        "restrictions legales dans certaines juridictions. FinSight IA décline toute "
+        "responsabilité pour les Décisions prises sur la base de ce document. Tout investisseur "
         "est invite a proceder a sa propre analyse et a consulter un conseiller financier "
-        "qualifie avant toute decision d'investissement. — <b>Document confidentiel.</b>", S_DISC))
+        "qualifie avant toute Décision d'investissement. — <b>Document confidentiel.</b>", S_DISC))
     return elems
 
 
@@ -1763,7 +1763,7 @@ def _build_story(data, perf_buf, weights_buf, scatter_buf, scores_buf,
     story.append(Paragraph("A propos de cette analyse", S_SUBSECTION))
     story.append(Paragraph(
         f"Cette analyse d'indice couvre l'ensemble des {data['nb_secteurs']} secteurs GICS du "
-        f"{indice_rl} ({data['nb_societes']} soci\u00e9t\u00e9s). Elle produit un signal global "
+        f"{indice_rl} ({data['nb_sociétés']} soci\u00e9t\u00e9s). Elle produit un signal global "
         "d'allocation sectorielle (Surpond\u00e9rer / Neutre / Sous-pond\u00e9rer) et un score composite "
         "par secteur. Les donn\u00e9es sont issues de yfinance, FMP et Finnhub. Le sentiment est "
         "analys\u00e9 par FinBERT sur 7 jours glissants. La m\u00e9thodologie compl\u00e8te est d\u00e9taill\u00e9e "
@@ -1791,7 +1791,7 @@ class IndicePDFWriter:
         Genere le rapport PDF d'analyse d'indice FinSight IA.
         Retourne output_path. Double-passe pour pagination dynamique.
         """
-        # Macro regime + recession (si pas deja calcule par app.py)
+        # Macro régime + récession (si pas déjà calculé par app.py)
         if not data.get("macro"):
             try:
                 import sys as _sys, os as _os
@@ -1803,7 +1803,7 @@ class IndicePDFWriter:
                 _log.getLogger(__name__).warning("[IndicePDFWriter] AgentMacro: %s", _me)
                 data.setdefault("macro", {})
 
-        # Buffers graphiques (generes une seule fois, rewound avant chaque passe)
+        # Buffers graphiques (Générés une seule fois, rewound avant chaque passe)
         perf_buf        = make_indice_perf_chart(data)
         weights_buf     = make_sector_weights_chart(data)
         scatter_buf     = make_scatter_sectoriel(data)
@@ -1839,7 +1839,7 @@ class IndicePDFWriter:
         _all_bufs = (perf_buf, weights_buf, scatter_buf, scores_buf,
                      donut_buf, attribution_buf, corr_buf, allocation_buf)
 
-        # Passe 1 — collecter numeros de page reels
+        # Passe 1 — collecter numeros de page réels
         registry = {}
         with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as tmp:
             tmp_path = tmp.name
@@ -1861,5 +1861,5 @@ class IndicePDFWriter:
                                donut_buf, attribution_buf, corr_buf, allocation_buf, dict(registry), {})
         doc2.build(story2, onFirstPage=make_on_page(data), onLaterPages=make_on_page(data))
 
-        print(f"Rapport indice genere : {output_path}  |  Sections : {registry}")
+        print(f"Rapport indice Généré : {output_path}  |  Sections : {registry}")
         return output_path

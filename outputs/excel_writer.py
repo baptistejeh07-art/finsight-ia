@@ -66,8 +66,8 @@ def _build_year_col(snapshot) -> dict:
     cols = ["D", "E", "F", "G", "H"]
     labels = sorted(snapshot.years.keys(), key=lambda y: int(y.split("_")[0]))
     labels = labels[-5:]  # max 5, les plus recents
-    # Exclure les annees sans donnees suffisantes (revenue + au moins un agregat IS)
-    # pour eviter des colonnes creuses dans RATIOS/DCF qui afficheraient N/A.
+    # Exclure les années sans Données suffisantes (revenue + au moins un agrégat IS)
+    # pour éviter des colonnes creuses dans RATIOS/DCF qui afficheraient N/A.
     labels_with_rev = [
         l for l in labels
         if getattr(snapshot.years.get(l), "revenue", None) is not None
@@ -80,7 +80,7 @@ def _build_year_col(snapshot) -> dict:
     if labels_with_rev:
         labels = labels_with_rev[-5:]
     n = len(labels)
-    # Alignement droite : plus recent -> H (index 4), precedent -> G (index 3), etc.
+    # Alignement droite : plus récent -> H (index 4), precedent -> G (index 3), etc.
     mapping = {}
     for i, label in enumerate(reversed(labels)):
         col = cols[4 - i]  # 0->H, 1->G, 2->F, 3->E, 4->D
@@ -215,27 +215,27 @@ class ExcelWriter:
 
         ci = snapshot.company_info
 
-        # D117 Base Year = toujours l'annee LTM (alignement droite -> H = toujours la plus recente)
-        # Avec right-align, H est toujours le label le plus recent dans year_col_map
+        # D117 Base Year = toujours l'année LTM (alignement droite -> H = toujours la plus récente)
+        # Avec right-align, H est toujours le label le plus récent dans year_col_map
         most_recent_lbl = max(year_col_map.keys(), key=lambda y: int(y.split("_")[0])) if year_col_map else None
         ltm_year = int(most_recent_lbl.split("_")[0]) if most_recent_lbl else ci.base_year
 
-        # Ecrire les etiquettes d'annee directement dans D5-H5 et dans D132-H132.
+        # Ecrire les etiquettes d'année directement dans D5-H5 et dans D132-H132.
         # D5-H5 : remplace les formules du template par des valeurs statiques
         #   (ex: "2022", "2023", "2025 (LTM)") — alignement droite garanti.
         # D132-H132 : cellules helper hors zone impression (backup / formules tier).
         # Note : on ecrit directement sur ws[] sans passer par _safe_write
         #   car les cellules D5-H5 contiennent des formules template (startswith "=")
         #   que la garde dynamique bloquerait. Ces formules sont intentionnellement
-        #   remplacees par des valeurs statiques calculees cote Python.
-        # Construire d'abord le dict col -> valeur annee
+        #   remplacees par des valeurs statiques calculées côté Python.
+        # Construire d'abord le dict col -> valeur année
         _year_vals: dict[str, object] = {}
         for label, col in year_col_map.items():
             year_int = int(label.split("_")[0])
             is_ltm = (col == 'H')
             _year_vals[col] = f"{year_int} (LTM)" if is_ltm else year_int
-        # Ecrire D5-H5 et D132-H132 : "" pour les colonnes inactives (evite le 0
-        # que retournerait =INPUT!Dx dans RATIOS/DCF/SCENARIOS quand la cellule est None)
+        # Ecrire D5-H5 et D132-H132 : "" pour les colonnes inactives (évite le 0
+        # que retournerait =INPUT!Dx dans RATIOS/DCF/SCÉNARIOS quand la cellule est None)
         for col in ['D', 'E', 'F', 'G', 'H']:
             ws[f'{col}5']   = _year_vals.get(col, "")
             ws[f'{col}132'] = _year_vals.get(col, None)
@@ -253,23 +253,23 @@ class ExcelWriter:
         for year_str, fy in snapshot.years.items():
             col = year_col_map.get(year_str)
             if col is None:
-                log.warning(f"[ExcelWriter] Annee '{year_str}' sans colonne — ignore")
+                log.warning(f"[ExcelWriter] Année '{year_str}' sans colonne — ignore")
                 continue
 
             for field, row in _IS_ROWS.items():
                 val = getattr(fy, field, None)
                 # Fallback dividends IS : si absent, utiliser dividends_paid du CF
-                # (societes europeennes ne reportent pas toujours les dividendes en IS)
+                # (sociétés européennes ne reportent pas toujours les dividendes en IS)
                 if val is None and field == "dividends":
                     dp = getattr(fy, "dividends_paid", None)
                     if dp is not None:
                         val = abs(dp)  # positif avant negation par _IS_COST_FIELDS
                 if val is not None and field in _IS_COST_FIELDS:
                     val = -abs(val)
-                # Fallback 0 pour interest_expense/income : certaines societes
+                # Fallback 0 pour interest_expense/income : certaines sociétés
                 # (ex: Apple FY2024+) ne les declarent plus separement.
                 # Le template F128 requiert ces cellules non-vides pour
-                # afficher les headers d'annees — 0 = "non declare separement".
+                # afficher les headers d'années — 0 = "non declare separement".
                 if val is None and field in ("interest_expense", "interest_income"):
                     if getattr(fy, "revenue", None) is not None:
                         val = 0
@@ -284,7 +284,7 @@ class ExcelWriter:
             for field, row in _CF_ROWS.items():
                 written += _safe_write(ws, col, row, getattr(fy, field, None))
 
-            # Tax rate effectif par annee -> row 104 (col E-H selon annee)
+            # Tax rate effectif par année -> row 104 (col E-H selon année)
             # EBT = net_income_yf + |tax_expense_real| (approximation IS)
             _tax_abs = abs(fy.tax_expense_real or 0.0)
             _ni      = fy.net_income_yf or 0.0
@@ -295,7 +295,7 @@ class ExcelWriter:
                 written += 1
 
         # ------------------------------------------------------------------
-        # 2b. Mise a jour formules E24:H24 : utiliser taux effectif (row 104)
+        # 2b. Mise à jour formules E24:H24 : utiliser taux effectif (row 104)
         #     au lieu du taux fixe 21% — bypass safe_write (formule->formule)
         # ------------------------------------------------------------------
         for _c in ["E", "F", "G", "H"]:
@@ -380,7 +380,7 @@ def _safe_write(ws, col: str, row: int, value) -> int:
     if value is None:
         return 0
     # Filtre NaN et inf : openpyxl ecrit "nan" ou "inf" comme string
-    # ce qui genere des erreurs de formule dans sheet1.xml
+    # ce qui Généré des erreurs de formule dans sheet1.xml
     if isinstance(value, float) and (math.isnan(value) or math.isinf(value)):
         log.warning(f"[ExcelWriter] SKIP {col}{row} — valeur NaN/inf ignoree")
         return 0

@@ -143,7 +143,7 @@ def _mult(v):
 
 
 def _xml(s: str) -> str:
-    """Echappe les caracteres speciaux XML pour les Paragraph ReportLab."""
+    """Echappe les caractères speciaux XML pour les Paragraph ReportLab."""
     return str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
@@ -169,7 +169,7 @@ def _mean(vals, default=0.0):
     return sum(clean) / len(clean) if clean else default
 
 
-# ── Preparation donnees ───────────────────────────────────────────────────────
+# ── Preparation données ───────────────────────────────────────────────────────
 def _prepare(tickers_a, sector_a, universe_a, tickers_b, sector_b, universe_b):
     def _stats(td):
         if not td:
@@ -218,10 +218,10 @@ def _prepare(tickers_a, sector_a, universe_a, tickers_b, sector_b, universe_b):
 
     def _sig(score):
         if score >= 65:
-            return "Surponderer", GREEN
+            return "Surpondérer", GREEN
         if score >= 45:
             return "Neutre", AMBER
-        return "Sous-ponderer", RED
+        return "Sous-pondérer", RED
 
     sig_a_lbl, sig_a_col = _sig(sa.get("score", 50))
     sig_b_lbl, sig_b_col = _sig(sb.get("score", 50))
@@ -344,7 +344,7 @@ def _chart_momentum_pdf(sa, sb, label_a, label_b) -> bytes:
 
 
 def _fetch_price_52w(tickers_a, tickers_b):
-    """Construit un composite de cours normalise base 100 sur 52 semaines.
+    """Construit un composite de cours Normalisé base 100 sur 52 semaines.
 
     Prend les 15 meilleurs tickers de chaque secteur (par score),
     telecharge 1 an de donnees hebdomadaires via yfinance,
@@ -405,7 +405,7 @@ def _fetch_price_52w(tickers_a, tickers_b):
 
 
 def _chart_price_52w_pdf(perf_a, perf_b, sector_a, sector_b) -> bytes:
-    """Courbe de performance normalisee base 100 sur 52 semaines."""
+    """Courbe de performance Normalisée base 100 sur 52 semaines."""
     fig, ax = plt.subplots(figsize=(8.5, 4.0))
 
     # Aligner les deux series sur les memes dates
@@ -527,7 +527,7 @@ def _generate_llm_texts(D: dict) -> dict:
         prompt = (
             f"Tu es analyste financier senior. Redige des textes analytiques pour un rapport PDF comparatif sectoriel "
             f"entre {sector_a} et {sector_b} (univers : {D['universe_label']}).\n\n"
-            f"Donnees medianes :\n"
+            f"Données Médianes :\n"
             f"- {sector_a} : Score {sa.get('score',0)}/100, Signal {D['sig_a_lbl']}, "
             f"P/E {sa.get('pe',0):.1f}x, Croiss.Rev {sa.get('revg',0):+.1f}%, "
             f"Mg.EBITDA {sa.get('em',0):.1f}%, ROE {roe_a:.1f}%, Perf.52S {sa.get('mom',0):+.1f}%, "
@@ -536,18 +536,21 @@ def _generate_llm_texts(D: dict) -> dict:
             f"P/E {sb.get('pe',0):.1f}x, Croiss.Rev {sb.get('revg',0):+.1f}%, "
             f"Mg.EBITDA {sb.get('em',0):.1f}%, ROE {roe_b:.1f}%, Perf.52S {sb.get('mom',0):+.1f}%, "
             f"Div Yield {dy_b*100:.1f}%, FCF Yield {fy_b:.1f}%, Payout {pt_b*100:.0f}%\n\n"
-            f"Reponds UNIQUEMENT en JSON valide. Textes en francais sans accents ni caracteres speciaux. "
-            f"Chaque champ doit etre substantiel, rigoureux, analytique — pas une enumeration de chiffres. "
-            f"Min 400 caracteres par champ sauf exec_summary (min 700). Inclure implications investissement.\n"
+            f"Reponds UNIQUEMENT en JSON valide. "
+            f"RÈGLE TYPOGRAPHIE : ecris en francais correct avec TOUS les accents (e e e a u c i o), "
+            f"cedilles, apostrophes droites ' et guillemets francais << >>. JAMAIS sans accents — "
+            f"ce serait du francais casse, inacceptable en rapport IB-grade.\n"
+            f"Chaque champ doit être substantiel, rigoureux, analytique — pas une enumeration de chiffres. "
+            f"Min 400 caractères par champ sauf exec_summary (min 700). Inclure implications investissement.\n"
             f'{{\n'
-            f'  "exec_summary": "Synthese executive 4-5 phrases : avantage comparatif fondamental, implication du spread de scoring, signal IA argumente, recommandation allocation et conditions d invalidation",\n'
-            f'  "valuation_analysis": "Analyse multiples 3-4 phrases : interpretation spread P/E et EV/EBITDA, ce que ce differentiel revele sur les anticipations de croissance, si la prime/decote est justifiee par les fondamentaux, implication pour l allocation",\n'
-            f'  "margins_analysis": "Analyse marges 3-4 phrases : quality gap operationnel, drivers structurels de l ecart de marge EBITDA, impact sur la creation de valeur via ROE et ROIC, resilience en cycle baissier",\n'
-            f'  "capital_alloc_analysis": "Capital allocation 3-4 phrases : politique de remuneration comparee (dividendes vs rachat vs reinvestissement), interpretation du FCF yield dans le contexte de taux, quel secteur offre la meilleure protection du capital, signal sur la maturite du cycle",\n'
-            f'  "growth_analysis": "Analyse croissance 3-4 phrases : dynamique revenue comparee et moteurs sous-jacents, convergence ou divergence entre croissance organique et perf 52S, ce que le beta differentiel implique pour le risk-adjusted return, positionnement cyclique",\n'
-            f'  "top_a_analysis": "Leaders {sector_a} 3-4 phrases : caracteristiques communes des meilleures societes, ce qui distingue les profils Surponderer, dynamiques de creation de valeur, implications pour la construction de portefeuille",\n'
-            f'  "top_b_analysis": "Leaders {sector_b} 3-4 phrases : profils value vs growth identifies, resilience des marges, opportunites d entree specifiques, caracteristiques communes des meilleures societes du secteur",\n'
-            f'  "allocation_rec": "Recommandation 4-5 phrases : signal argumente pour chaque secteur, surponderations justifiees quantitativement, conditions macro favorables ou defavorables, horizon de temps et declencheurs de revision, risque principal de la these"\n'
+            f'  "exec_summary": "Synthèse executive 4-5 phrases : avantage comparatif fondamental, implication du spread de scoring, signal IA argumente, recommandation allocation et conditions d invalidation",\n'
+            f'  "valuation_analysis": "Analyse multiples 3-4 phrases : interprétation spread P/E et EV/EBITDA, ce que ce différentiel revele sur les anticipations de croissance, si la prime/décote est justifiee par les fondamentaux, implication pour l allocation",\n'
+            f'  "margins_analysis": "Analyse marges 3-4 phrases : quality gap opérationnel, drivers structurels de l écart de marge EBITDA, impact sur la création de valeur via ROE et ROIC, résilience en cycle baissier",\n'
+            f'  "capital_alloc_analysis": "Capital allocation 3-4 phrases : politique de rémunération comparée (dividendes vs rachat vs réinvestissement), interprétation du FCF yield dans le contexte de taux, quel secteur offre la meilleure protection du capital, signal sur la maturité du cycle",\n'
+            f'  "growth_analysis": "Analyse croissance 3-4 phrases : dynamique revenue comparée et moteurs sous-jacents, convergence ou divergence entre croissance organique et perf 52S, ce que le beta différentiel implique pour le risk-adjusted return, positionnement cyclique",\n'
+            f'  "top_a_analysis": "Leaders {sector_a} 3-4 phrases : caractéristiques communes des meilleures sociétés, ce qui distingue les profils Surpondérer, dynamiques de création de valeur, implications pour la construction de portefeuille",\n'
+            f'  "top_b_analysis": "Leaders {sector_b} 3-4 phrases : profils value vs growth identifies, résilience des marges, opportunites d entree spécifiques, caractéristiques communes des meilleures sociétés du secteur",\n'
+            f'  "allocation_rec": "Recommandation 4-5 phrases : signal argumente pour chaque secteur, surponderations justifiees quantitativement, conditions macro favorables ou défavorables, horizon de temps et declencheurs de révision, risque principal de la Thèse"\n'
             f'}}'
         )
         import json, re
@@ -558,7 +561,7 @@ def _generate_llm_texts(D: dict) -> dict:
             log.info("[cmp_secteur_pdf] LLM texts OK (%d champs)", len(data))
             return data
     except Exception as e:
-        log.warning("[cmp_secteur_pdf] LLM texts generation failed: %s", e)
+        log.warning("[cmp_secteur_pdf] LLM texts génération failed: %s", e)
     return {}
 
 
@@ -568,7 +571,7 @@ S_LLM_BODY  = _sty("llm_body",  size=8.5, leading=13, color=BLACK, align=TA_JUST
 
 
 def _llm_box(text: str, col=NAVY, w=None) -> list:
-    """Cree un bloc IA : bandeau color + texte corps."""
+    """Crée un bloc IA : bandeau color + texte corps."""
     if not text:
         return []
     bw = w or TABLE_W
@@ -643,18 +646,18 @@ def _build_story(D: dict) -> list:
 
     story.append(PageBreak())
 
-    # ── PAGE 2 : Synthese comparative ────────────────────────────────────────
-    story += section("Synthese Comparative", "1")
+    # ── PAGE 2 : Synthèse comparative ────────────────────────────────────────
+    story += section("Synthèse Comparative", "1")
 
-    # Synthese executive (ex cover)
+    # Synthèse executive (ex cover)
     exec_text = D.get("llm", {}).get("exec_summary", "")
     _exec_fallback = (
         f"Comparatif sectoriel {sector_a} (score {sa.get('score',0)}/100, signal {D['sig_a_lbl']}) "
         f"vs {sector_b} (score {sb.get('score',0)}/100, signal {D['sig_b_lbl']}). "
-        f"{'Le scoring FinSight avantage ' + sector_a + ' sur la dimension qualite et momentum.' if sa.get('score', 0) >= sb.get('score', 0) else 'Le scoring FinSight avantage ' + sector_b + ' sur la dimension fondamentale.'} "
-        f"P/E median : {_mult(sa.get('pe'))} vs {_mult(sb.get('pe'))} — ecart de valorisation reflétant des primes de croissance differenciees. "
-        f"Allocation recommandee : surponderer {sector_a if D['sig_a_lbl'] == 'Surponderer' else sector_b} en portefeuille diversifie, "
-        f"sous reserve de stabilisation des taux directeurs et d'absence de choc reglementaire majeur."
+        f"{'Le scoring FinSight avantage ' + sector_a + ' sur la dimension qualité et momentum.' if sa.get('score', 0) >= sb.get('score', 0) else 'Le scoring FinSight avantage ' + sector_b + ' sur la dimension fondamentale.'} "
+        f"P/E Médian : {_mult(sa.get('pe'))} vs {_mult(sb.get('pe'))} — écart de valorisation reflétant des primes de croissance differenciees. "
+        f"Allocation recommandee : Surpondérer {sector_a if D['sig_a_lbl'] == 'Surpondérer' else sector_b} en portefeuille diversifié, "
+        f"sous reserve de stabilisation des taux directeurs et d'absence de choc réglementaire majeur."
     )
     story.append(Paragraph(_xml(exec_text or _exec_fallback), S_BODY))
     story.append(Spacer(1, 4 * mm))
@@ -671,12 +674,12 @@ def _build_story(D: dict) -> list:
          Paragraph(f"{sb.get('score', 0)}/100", S_TD_C),
          _avantage_cell(sa.get("score"), sb.get("score"), sector_a, sector_b),
          Paragraph(f"{abs((sa.get('score') or 0) - (sb.get('score') or 0))} pts", S_TD_C)],
-        [Paragraph("P/E median", S_TD_L),
+        [Paragraph("P/E Médian", S_TD_L),
          Paragraph(_mult(sa.get("pe")), S_TD_C),
          Paragraph(_mult(sb.get("pe")), S_TD_C),
          _avantage_cell(sb.get("pe"), sa.get("pe"), sector_b, sector_a),   # lower is better
          Paragraph(_mult(abs((sa.get("pe") or 0) - (sb.get("pe") or 0))), S_TD_C)],
-        [Paragraph("EV/EBITDA median", S_TD_L),
+        [Paragraph("EV/EBITDA Médian", S_TD_L),
          Paragraph(_mult(sa.get("ev_eb")), S_TD_C),
          Paragraph(_mult(sb.get("ev_eb")), S_TD_C),
          _avantage_cell(sb.get("ev_eb"), sa.get("ev_eb"), sector_b, sector_a),
@@ -696,12 +699,12 @@ def _build_story(D: dict) -> list:
          Paragraph(_pct(sb.get("nm"), sign=False), S_TD_C),
          _avantage_cell(sa.get("nm"), sb.get("nm"), sector_a, sector_b),
          Paragraph(_pct(abs((sa.get("nm") or 0) - (sb.get("nm") or 0)), sign=False), S_TD_C)],
-        [Paragraph("ROE median", S_TD_L),
+        [Paragraph("ROE Médian", S_TD_L),
          Paragraph(_pct(sa.get("roe"), sign=False), S_TD_C),
          Paragraph(_pct(sb.get("roe"), sign=False), S_TD_C),
          _avantage_cell(sa.get("roe"), sb.get("roe"), sector_a, sector_b),
          Paragraph(_pct(abs((sa.get("roe") or 0) - (sb.get("roe") or 0)), sign=False), S_TD_C)],
-        [Paragraph("ROIC median", S_TD_L),
+        [Paragraph("ROIC Médian", S_TD_L),
          Paragraph(_pct(sa.get("roic"), sign=False), S_TD_C),
          Paragraph(_pct(sb.get("roic"), sign=False), S_TD_C),
          _avantage_cell(sa.get("roic"), sb.get("roic"), sector_a, sector_b),
@@ -711,7 +714,7 @@ def _build_story(D: dict) -> list:
          Paragraph(_pct(sb.get("fcfy"), sign=False), S_TD_C),
          _avantage_cell(sa.get("fcfy"), sb.get("fcfy"), sector_a, sector_b),
          Paragraph(_pct(abs((sa.get("fcfy") or 0) - (sb.get("fcfy") or 0)), sign=False), S_TD_C)],
-        [Paragraph("Beta median", S_TD_L),
+        [Paragraph("Beta Médian", S_TD_L),
          Paragraph(f"{sa.get('beta', 1.0):.2f}" if sa.get("beta") else "—", S_TD_C),
          Paragraph(f"{sb.get('beta', 1.0):.2f}" if sb.get("beta") else "—", S_TD_C),
          _avantage_cell(sb.get("beta"), sa.get("beta"), sector_b, sector_a),
@@ -744,7 +747,7 @@ def _build_story(D: dict) -> list:
             f"{sector_a} a {_na(sa.get('s_gro'), fmt=lambda x: f'{x:.1f}')}/25 "
             f"contre {_na(sb.get('s_gro'), fmt=lambda x: f'{x:.1f}')}/25 pour {sector_b}. "
             f"Le profil Quality+Momentum indique "
-            f"{'un avantage structurel ' + _leader + ' sur la creation de valeur a long terme.' if _score_diff > 10 else 'des secteurs proches en qualite, la difference portant principalement sur le momentum de marche.'}"
+            f"{'un avantage structurel ' + _leader + ' sur la création de valeur a long terme.' if _score_diff > 10 else 'des secteurs proches en qualité, la difference portant principalement sur le momentum de marché.'}"
         )
         radar_text_cell = [
             Paragraph("Profil de Score FinSight", S_SSEC),
@@ -769,21 +772,21 @@ def _build_story(D: dict) -> list:
     story.append(PageBreak())
 
     # ── PAGE 3 : Valorisation ─────────────────────────────────────────────────
-    story += section("Valorisation Comparee — Multiples de Marche", "2")
+    story += section("Valorisation Comparée — Multiples de Marché", "2")
     _cheaper = sector_a if (sa.get("pe") or 999) < (sb.get("pe") or 999) else sector_b
     _cheaper_s = sa if _cheaper == sector_a else sb
     _pricier_s = sb if _cheaper == sector_a else sa
     _pricier = sector_b if _cheaper == sector_a else sector_a
     _val_fallback = (
-        f"{_cheaper} affiche un P/E median inferieur ({_mult(_cheaper_s.get('pe'))} vs "
+        f"{_cheaper} affiche un P/E Médian inferieur ({_mult(_cheaper_s.get('pe'))} vs "
         f"{_mult(_pricier_s.get('pe'))} pour {_pricier}), ce qui ne signifie pas necessairement "
-        f"une opportunite : la decote reflete souvent un profil de croissance plus modere "
-        f"ou un risque sectoriel plus eleve. L'EV/EBITDA confirme ou infirme cette lecture : "
+        f"une opportunite : la décote reflète souvent un profil de croissance plus modéré "
+        f"ou un risque sectoriel plus élevé. L'EV/EBITDA confirme ou infirme cette lecture : "
         f"{sector_a} a {_mult(sa.get('ev_eb'))} vs {_mult(sb.get('ev_eb'))} pour {sector_b}. "
         f"Un spread EV/EBITDA significatif entre les deux secteurs traduit une difference "
-        f"de prime de qualite que le marche attribue aux modeles economiques respectifs. "
-        f"Conclusion : le differentiel de valorisation est "
-        f"{'justifie par l avantage fondamental du secteur prime' if (sa.get('score') or 0) != (sb.get('score') or 0) else 'a surveiller comme potentielle anomalie de marche'}."
+        f"de prime de qualité que le marché attribue aux modèles Économiques respectifs. "
+        f"Conclusion : le Différentiel de valorisation est "
+        f"{'justifie par l avantage fondamental du secteur prime' if (sa.get('score') or 0) != (sb.get('score') or 0) else 'a surveiller comme potentielle anomalie de marché'}."
     )
     _val_text = D.get("llm", {}).get("valuation_analysis") or _val_fallback
     # Layout : graphique en grand pleine largeur (legendes lisibles), texte LLM en dessous
@@ -798,20 +801,20 @@ def _build_story(D: dict) -> list:
     story.append(Spacer(1, 4 * mm))
 
     # ── PAGE 3 suite : Marges ─────────────────────────────────────────────────
-    story += section("Qualite & Marges — Rentabilite Operationnelle", "3")
+    story += section("Qualité & Marges — Rentabilité Opérationnelle", "3")
     winner_m = sector_a if (sa.get("em") or -999) > (sb.get("em") or -999) else sector_b
     loser_m  = sector_b if winner_m == sector_a else sector_a
     ws = sa if winner_m == sector_a else sb; ls = sb if winner_m == sector_a else sa
     _mg_fallback = (
         f"{winner_m} affiche une marge EBITDA medianne superieure ({_pct(ws.get('em'), sign=False)} "
-        f"vs {_pct(ls.get('em'), sign=False)} pour {loser_m}), refletant un modele economique "
-        f"plus efficient ou un levier operationnel plus prononce. "
-        f"La marge nette complete ce tableau : {sector_a} a {_pct(sa.get('nm'), sign=False)} "
+        f"vs {_pct(ls.get('em'), sign=False)} pour {loser_m}), reflétant un modèle Économique "
+        f"plus efficient ou un levier opérationnel plus prononce. "
+        f"La marge nette complète ce tableau : {sector_a} a {_pct(sa.get('nm'), sign=False)} "
         f"vs {_pct(sb.get('nm'), sign=False)} pour {sector_b}. "
-        f"Le ROE median ({_pct(min(max(sa.get('roe') or 0, 0), 999.9), sign=False)} pour {sector_a}, "
+        f"Le ROE Médian ({_pct(min(max(sa.get('roe') or 0, 0), 999.9), sign=False)} pour {sector_a}, "
         f"{_pct(min(max(sb.get('roe') or 0, 0), 999.9), sign=False)} pour {sector_b}) "
-        f"mesure la creation de valeur sur capitaux propres — un ecart persistant "
-        f"{'avantage structurellement ' + winner_m + ' pour les portefeuilles orientes qualite.' if abs((ws.get('em') or 0) - (ls.get('em') or 0)) > 3 else 'indique une convergence des profils de rentabilite entre les deux secteurs.'}"
+        f"mesure la création de valeur sur capitaux propres — un écart persistant "
+        f"{'avantage structurellement ' + winner_m + ' pour les portefeuilles orientes qualité.' if abs((ws.get('em') or 0) - (ls.get('em') or 0)) > 3 else 'indique une convergence des profils de rentabilité entre les deux secteurs.'}"
     )
     _margins_text = D.get("llm", {}).get("margins_analysis") or _mg_fallback
     try:
@@ -824,16 +827,16 @@ def _build_story(D: dict) -> list:
     if D["sa"].get("roic_estime") or D["sb"].get("roic_estime"):
         story.append(Spacer(1, 2 * mm))
         story.append(Paragraph(
-            "Note ROIC : la donnee ROIC mediane n'est pas directement renseignee par yfinance "
-            "pour l'ensemble du panel sectoriel — elle est estimee via la formule de proxy "
+            "Note ROIC : la donnée ROIC Médiane n'est pas directement renseignée par yfinance "
+            "pour l'ensemble du panel sectoriel — elle est estimée via la formule de proxy "
             "ROIC ~= ROE x 0.65 (ratio empirique observe sur l'univers S&P 500). "
             "Pour une mesure rigoureuse, calcul direct NOPAT / capitaux investis a partir des "
-            "income statements et balance sheets ferait office d'ameliorations futures.",
+            "income statements et balance sheets ferait office d'améliorations futures.",
             _sty("note_roic", size=7, color=GREY_TEXT, leading=10)))
     story.append(PageBreak())
 
     # ── PAGE 4 : Capital Allocation ────────────────────────────────────────────
-    story += section("Capital Allocation & Remuneration de l'Actionnaire", "4")
+    story += section("Capital Allocation & Rémunération de l'Actionnaire", "4")
 
     dy_a = sa.get("div_yield")
     dy_b = sb.get("div_yield")
@@ -843,7 +846,7 @@ def _build_story(D: dict) -> list:
     fy_b = sb.get("fcfy")
 
     # div_yield et payout sont stockes en decimal (0.013 = 1.3%) → ×100
-    # fcfy est deja en % (1.38 = 1.38%) → pas de ×100
+    # fcfy est déjà en % (1.38 = 1.38%) → pas de ×100
     dy_a_p = (dy_a or 0) * 100; dy_b_p = (dy_b or 0) * 100
     pt_a_p = (pt_a or 0) * 100; pt_b_p = (pt_b or 0) * 100
     fy_a_p = (fy_a or 0);       fy_b_p = (fy_b or 0)
@@ -867,7 +870,7 @@ def _build_story(D: dict) -> list:
          Paragraph(_pct(dy_a_p, sign=False), S_TD_C),
          Paragraph(_pct(dy_b_p, sign=False), S_TD_C),
          Paragraph(_ca_winner(dy_a_p, dy_b_p, sector_a[:14], sector_b[:14]), S_TD_C)],
-        [Paragraph("FCF Yield median", S_TD_L),
+        [Paragraph("FCF Yield Médian", S_TD_L),
          Paragraph(_pct(fy_a_p, sign=False), S_TD_C),
          Paragraph(_pct(fy_b_p, sign=False), S_TD_C),
          Paragraph(_ca_winner(fy_a_p, fy_b_p, sector_a[:14], sector_b[:14]), S_TD_C)],
@@ -884,17 +887,17 @@ def _build_story(D: dict) -> list:
     _gen_higher_fy = sector_a if fy_a_p > fy_b_p else sector_b
     _gen_lower_dy = sector_b if _gen_higher_dy == sector_a else sector_a
     _ca_fallback = (
-        f"{_gen_higher_dy} offre un rendement dividende median superieur "
+        f"{_gen_higher_dy} offre un rendement dividende Médian superieur "
         f"({_pct(dy_a_p if _gen_higher_dy == sector_a else dy_b_p, sign=False)} "
         f"vs {_pct(dy_b_p if _gen_higher_dy == sector_a else dy_a_p, sign=False)} pour {_gen_lower_dy}), "
         f"un profil adapte aux portefeuilles orientes revenu ou aux mandats avec contrainte de distribution. "
-        f"{_gen_higher_fy} enregistre un FCF Yield median plus eleve "
+        f"{_gen_higher_fy} enregistre un FCF Yield Médian plus élevé "
         f"({_pct(fy_a_p if _gen_higher_fy == sector_a else fy_b_p, sign=False)}), "
-        f"signalant une generation de tresorerie robuste et une capacite superieure "
-        f"de remuneration future de l'actionnaire (rachats ou hausses de dividendes). "
-        f"En contexte de taux eleves, le FCF Yield est une metrique cle : "
+        f"signalant une génération de trésorerie robuste et une capacite superieure "
+        f"de rémunération future de l'actionnaire (rachats ou hausses de dividendes). "
+        f"En contexte de taux élevés, le FCF Yield est une metrique cle : "
         f"un secteur avec un FCF Yield superieur au rendement obligataire 10 ans offre "
-        f"une prime de risque positive — element determinant pour l'allocation sectorielle."
+        f"une prime de risque positive — element déterminant pour l'allocation sectorielle."
     )
     _ca_text = D.get("llm", {}).get("capital_alloc_analysis") or _ca_fallback
     story.append(Spacer(1, 3 * mm))
@@ -903,7 +906,7 @@ def _build_story(D: dict) -> list:
     # Pas de PageBreak ici — la section Croissance suit naturellement
 
     # ── PAGE 5 : Croissance & Momentum ────────────────────────────────────────
-    story += section("Croissance & Momentum — Acceleration ou Ralentissement ?", "5")
+    story += section("Croissance & Momentum — Accélération ou Ralentissement ?", "5")
     faster = sector_a if (sa.get("revg") or -999) > (sb.get("revg") or -999) else sector_b
     slower = sector_b if faster == sector_a else sector_a
     fs = sa if faster == sector_a else sb; ss = sb if faster == sector_a else sa
@@ -914,12 +917,12 @@ def _build_story(D: dict) -> list:
     _growth_fallback = (
         f"{faster} enregistre une croissance revenue medianne de {_pct(fs.get('revg'))}, "
         f"soit {spread:.1f} pts au-dessus de {slower} ({_pct(ss.get('revg'))}). "
-        f"{'Le momentum 52 semaines confirme cet avantage de croissance (' + _pct(fs.get('mom')) + ' vs ' + _pct(ss.get('mom')) + '), indiquant que le marche integre deja cette dynamique dans les prix.' if _mom_confirm else 'Toutefois, le momentum 52 semaines diverge (' + _pct(fs.get('mom')) + ' vs ' + _pct(ss.get('mom')) + ' pour ' + slower + '), signalant que le marche pourrait anticiper un ralentissement de ' + faster + ' ou une acceleration de ' + slower + '.'} "
-        f"Le differentiel de beta ({_na(sa.get('beta'), fmt=lambda x: f'{x:.2f}')} pour {sector_a} "
+        f"{'Le momentum 52 semaines confirme cet avantage de croissance (' + _pct(fs.get('mom')) + ' vs ' + _pct(ss.get('mom')) + '), indiquant que le marché intègre déjà cette dynamique dans les prix.' if _mom_confirm else 'Toutefois, le momentum 52 semaines diverge (' + _pct(fs.get('mom')) + ' vs ' + _pct(ss.get('mom')) + ' pour ' + slower + '), signalant que le marché pourrait anticiper un ralentissement de ' + faster + ' ou une accélération de ' + slower + '.'} "
+        f"Le Différentiel de beta ({_na(sa.get('beta'), fmt=lambda x: f'{x:.2f}')} pour {sector_a} "
         f"vs {_na(sb.get('beta'), fmt=lambda x: f'{x:.2f}')} pour {sector_b}) "
-        f"{'est marginal et n implique pas de biais cyclique significatif' if _beta_diff < 0.25 else 'positionne ' + _high_beta + ' comme plus sensible aux cycles macro — avantage en phase haussiere, risque amplifie en retournement'}. "
-        f"En environnement de taux normalises, la prime de croissance de {faster} "
-        f"{'justifie une surponderaton sous reserve de visibilite sur les marges futures' if (fs.get('em') or 0) >= (ss.get('em') or 0) else 'doit etre pondéree par un ecart de marge defavorable — risque de compression du multiple si la croissance decoit'}."
+        f"{'est marginal et n implique pas de biais cyclique significatif' if _beta_diff < 0.25 else 'positionne ' + _high_beta + ' comme plus sensible aux cycles macro — avantage en phase haussière, risque amplifie en retournement'}. "
+        f"En environnement de taux normalisés, la prime de croissance de {faster} "
+        f"{'justifie une surponderaton sous reserve de visibilite sur les marges futures' if (fs.get('em') or 0) >= (ss.get('em') or 0) else 'doit être pondéree par un écart de marge défavorable — risque de compression du multiple si la croissance decoit'}."
     )
     _growth_text = D.get("llm", {}).get("growth_analysis") or _growth_fallback
     story.append(Paragraph(_xml(_growth_text), S_BODY))
@@ -930,7 +933,7 @@ def _build_story(D: dict) -> list:
     except Exception as e:
         log.warning("[cmp_secteur_pdf] momentum chart: %s", e)
 
-    # Tableau complementaire
+    # Tableau complémentaire
     story.append(Spacer(1, 4 * mm))
     comp_data = [
         [Paragraph("Indicateur", S_TH_L),
@@ -938,15 +941,15 @@ def _build_story(D: dict) -> list:
          Paragraph(sector_b[:15], S_TH_C)],
         [Paragraph("Croissance Revenue med.", S_TD_L), Paragraph(_pct(sa.get("revg")), S_TD_C), Paragraph(_pct(sb.get("revg")), S_TD_C)],
         [Paragraph("Performance 52S med.", S_TD_L), Paragraph(_pct(sa.get("mom")), S_TD_C), Paragraph(_pct(sb.get("mom")), S_TD_C)],
-        [Paragraph("Beta median", S_TD_L), Paragraph(f"{sa.get('beta', 1):.2f}" if sa.get("beta") else "—", S_TD_C), Paragraph(f"{sb.get('beta', 1):.2f}" if sb.get("beta") else "—", S_TD_C)],
+        [Paragraph("Beta Médian", S_TD_L), Paragraph(f"{sa.get('beta', 1):.2f}" if sa.get("beta") else "—", S_TD_C), Paragraph(f"{sb.get('beta', 1):.2f}" if sb.get("beta") else "—", S_TD_C)],
         [Paragraph("FCF Yield med.", S_TD_L), Paragraph(_pct(sa.get("fcfy") or 0, sign=False), S_TD_C), Paragraph(_pct(sb.get("fcfy") or 0, sign=False), S_TD_C)],
         [Paragraph("Score Global FinSight", S_TD_L), Paragraph(f"{sa.get('score', 0)}/100", S_TD_C), Paragraph(f"{sb.get('score', 0)}/100", S_TD_C)],
     ]
     story.append(_tbl(comp_data, [80*mm, 48*mm, 48*mm]))
     story.append(PageBreak())
 
-    # ── PAGE 6 : Performance boursiere 52 semaines ───────────────────────────
-    story += section("Performance Boursiere — Cours Comparatif 52 Semaines", "6")
+    # ── PAGE 6 : Performance boursière 52 semaines ───────────────────────────
+    story += section("Performance Boursière — Cours Comparatif 52 Semaines", "6")
     _pa, _pb = D.get("perf_a_52w"), D.get("perf_b_52w")
     if _pa is not None and _pb is not None:
         try:
@@ -964,31 +967,31 @@ def _build_story(D: dict) -> list:
     if _ret_a is not None and _ret_b is not None:
         _spread_p = abs(_ret_a - _ret_b)
         _price_text = (
-            f"Sur les 52 dernieres semaines, le composite equi-pondere de {_winner_p} "
+            f"Sur les 52 dernières semaines, le composite equi-pondéré de {_winner_p} "
             f"affiche une performance de {_ret_w:+.1f}% base 100, devancant {_loser_p} "
-            f"({_ret_l:+.1f}%) avec un ecart de {_spread_p:.1f} pts. "
+            f"({_ret_l:+.1f}%) avec un écart de {_spread_p:.1f} pts. "
             f"<br/><br/><b>Contexte macro 12 mois</b> : la periode est marquee par la stabilisation "
-            f"des taux directeurs Fed (target 4,25-4,50%) apres le cycle de hausse 2022-2024, "
-            f"un atterrissage en douceur de l'economie americaine (chomage stable a 4,1%, "
+            f"des taux directeurs Fed (target 4,25-4,50%) après le cycle de hausse 2022-2024, "
+            f"un atterrissage en douceur de l'Économie américaine (chomage stable a 4,1%, "
             f"inflation core PCE en convergence vers 2,5%) et une rotation sectorielle au profit "
-            f"des valeurs de qualite et de croissance visible. La BCE a entame son cycle de baisse "
-            f"des taux mi-2024 (depot 3,00%), soutenant le redemarrage de l'investissement europeen. "
-            f"Le dollar reste fort vs euro (EUR/USD ~1,06), penalisant les revenus europeens convertis. "
-            f"<br/><br/><b>Evenements marquants pour {_winner_p}</b> : surperformance soutenue par "
+            f"des valeurs de qualité et de croissance visible. La BCE a entame son cycle de baisse "
+            f"des taux mi-2024 (depot 3,00%), soutenant le redemarrage de l'investissement européen. "
+            f"Le dollar reste fort vs euro (EUR/USD ~1,06), penalisant les revenus européens convertis. "
+            f"<br/><br/><b>Événements marquants pour {_winner_p}</b> : surperformance soutenue par "
             f"des publications trimestrielles superieures aux attentes consensus, des guidances "
             f"FY+1 relevees, et une narration Wall Street favorable autour des moteurs structurels "
-            f"du secteur (IA, transition energetique, defense, etc. selon le secteur). "
+            f"du secteur (IA, transition énergétique, défense, etc. selon le secteur). "
             f"<br/><br/><b>Lecture relative</b> : le spread de {_spread_p:.1f} pts traduit "
-            f"{'une divergence marquee qui justifie un positionnement differentiel net en allocation tactique' if _spread_p > 10 else ('une rotation moderee mais coherente avec les fondamentaux' if _spread_p > 5 else 'une convergence quasi-neutre, invitant a privilegier la selectivite intra-sectorielle plutot qu un biais directionnel')}. "
-            f"<b>Catalyseurs 3-6 mois</b> : publications T1/T2, guidance annuelle, decisions Fed/BCE, "
-            f"evolutions reglementaires sectorielles, eventuels shocks geopolitiques. "
+            f"{'une divergence marquee qui justifie un positionnement différentiel net en allocation tactique' if _spread_p > 10 else ('une rotation modérée mais cohérente avec les fondamentaux' if _spread_p > 5 else 'une convergence quasi-neutre, invitant a privilegier la sélectivité intra-sectorielle plutot qu un biais directionnel')}. "
+            f"<b>Catalyseurs 3-6 mois</b> : publications T1/T2, guidance annuelle, décisions Fed/BCE, "
+            f"évolutions réglementaires sectorielles, eventuels shocks géopolitiques. "
             f"La zone ombragee entre les deux courbes illustre l'amplitude de la dispersion relative."
         )
     else:
         _price_text = (
-            "Les donnees de cours historiques sur 52 semaines n'ont pas pu etre recuperees "
-            "pour l'un ou l'autre secteur. L'analyse boursiere comparative reste disponible "
-            "via les indicateurs de momentum integres dans la section precedente."
+            "Les données de cours historiques sur 52 semaines n'ont pas pu être recuperees "
+            "pour l'un ou l'autre secteur. L'analyse boursière comparative reste disponible "
+            "via les indicateurs de momentum intégrés dans la section precedente."
         )
     story.append(Spacer(1, 3 * mm))
     story.append(Paragraph(_xml(_price_text), S_BODY))
@@ -1003,14 +1006,14 @@ def _build_story(D: dict) -> list:
     if not _top_a_text and sorted_a:
         _best_a = sorted_a[0]
         _top_a_text = (
-            f"Le panel {sector_a} presente une dispersion de scoring significative — "
-            f"les meilleures societes combinent generalement une marge EBITDA elevee "
+            f"Le panel {sector_a} présente une dispersion de scoring significative — "
+            f"les meilleures sociétés combinent généralement une marge EBITDA élevée "
             f"et une croissance organique soutenue. "
             f"{_best_a.get('company', '')[:20]} se distingue avec un score de {_best_a.get('score_global', 0)}/100, "
             f"un P/E de {_mult(_best_a.get('pe_ratio'))} et une marge EBITDA de {_pct(_best_a.get('ebitda_margin'), sign=False)}. "
-            f"Les societes les mieux scorees du secteur tendent a presenter "
-            f"une combinaison FCF Yield robuste + ROE superieur a la mediane sectorielle, "
-            f"caracteristique d'un modele economique defensif avec levier de croissance."
+            f"Les sociétés les mieux scorees du secteur tendent a présenter "
+            f"une combinaison FCF Yield robuste + ROE superieur a la Médiane sectorielle, "
+            f"caractéristique d'un modèle Économique défensif avec levier de croissance."
         )
     if _top_a_text:
         story.append(Paragraph(_xml(_top_a_text), S_BODY))
@@ -1025,14 +1028,14 @@ def _build_story(D: dict) -> list:
         _best_b = sorted_b[0]
         _top_b_text = (
             f"Au sein de {sector_b}, les leaders se caracterisent par un profil fondamental "
-            f"distinct de {sector_a} : marge nette generalement inferieure "
+            f"distinct de {sector_a} : marge nette généralement inferieure "
             f"mais recuperation plus rapide en phase de cycle baissier. "
             f"{_best_b.get('company', '')[:20]} atteint un score de {_best_b.get('score_global', 0)}/100, "
             f"avec un EV/EBITDA de {_mult(_best_b.get('ev_ebitda'))} "
             f"et une croissance revenue de {_pct(_best_b.get('revenue_growth', 0) if abs(_best_b.get('revenue_growth', 0) or 0) > 1 else (_best_b.get('revenue_growth', 0) or 0) * 100)}. "
             f"La dispersion sectorielle est un element cle : "
-            f"les societes a score eleve dans {sector_b} offrent un ratio risque/rendement "
-            f"attractif pour les portefeuilles cherchant a reduire la correlation avec les indices de croissance."
+            f"les sociétés a score élevé dans {sector_b} offrent un ratio risque/rendement "
+            f"attractif pour les portefeuilles cherchant a réduire la correlation avec les indices de croissance."
         )
     if _top_b_text:
         story.append(Paragraph(_xml(_top_b_text), S_BODY))
@@ -1060,7 +1063,7 @@ def _build_story(D: dict) -> list:
         [Paragraph("Score (/100)", S_TD_L),
          Paragraph(f"{sa.get('score', 0)}", S_TD_C),
          Paragraph(f"{sb.get('score', 0)}", S_TD_C)],
-        [Paragraph("Societes analysees", S_TD_L),
+        [Paragraph("Sociétés analysées", S_TD_L),
          Paragraph(f"{D['na']}  |  {_xml(D['universe_a'])}", S_TD_C),
          Paragraph(f"{D['nb']}  |  {_xml(D['universe_b'])}", S_TD_C)],
         [Paragraph("P/E  |  EV/EBITDA", S_TD_L),
@@ -1077,15 +1080,15 @@ def _build_story(D: dict) -> list:
     story.append(Spacer(1, 4 * mm))
 
     # Recommandation narrative
-    _winner_rec = sector_a if D["sig_a_lbl"] == "Surponderer" else (sector_b if D["sig_b_lbl"] == "Surponderer" else None)
+    _winner_rec = sector_a if D["sig_a_lbl"] == "Surpondérer" else (sector_b if D["sig_b_lbl"] == "Surpondérer" else None)
     _rec_fallback = (
-        f"{'Les deux secteurs affichent un signal ' + D['sig_a_lbl'] + ' identique selon le scoring FinSight.' if D['sig_a_lbl'] == D['sig_b_lbl'] else 'Le scoring FinSight genere un signal divergent : ' + D['sig_a_lbl'] + ' pour ' + sector_a + ' (score ' + str(sa.get('score', 0)) + '/100) contre ' + D['sig_b_lbl'] + ' pour ' + sector_b + ' (score ' + str(sb.get('score', 0)) + '/100).'} "
-        f"{'En termes d allocation, surponderer ' + _winner_rec + ' dans un portefeuille diversifie presente un ratio risque/rendement favorable selon les metriques actuelles.' if _winner_rec else 'Un positionnement neutre sur les deux secteurs est justifie en attendant une meilleure visibilite sur les catalyseurs de re-rating.'} "
+        f"{'Les deux secteurs affichent un signal ' + D['sig_a_lbl'] + ' identique selon le scoring FinSight.' if D['sig_a_lbl'] == D['sig_b_lbl'] else 'Le scoring FinSight généré un signal divergent : ' + D['sig_a_lbl'] + ' pour ' + sector_a + ' (score ' + str(sa.get('score', 0)) + '/100) contre ' + D['sig_b_lbl'] + ' pour ' + sector_b + ' (score ' + str(sb.get('score', 0)) + '/100).'} "
+        f"{'En termes d allocation, Surpondérer ' + _winner_rec + ' dans un portefeuille diversifié présente un ratio risque/rendement favorable selon les metriques actuelles.' if _winner_rec else 'Un positionnement neutre sur les deux secteurs est justifie en attendant une meilleure visibilite sur les catalyseurs de re-rating.'} "
         f"Les conditions favorables a une surponderans de {sector_a if (sa.get('score') or 0) >= (sb.get('score') or 0) else sector_b} "
-        f"incluent : stabilisation des taux directeurs, maintien des marges au-dessus de la mediane historique, "
-        f"et absence de choc reglementaire ou de compression de multiple liee au risque de taux. "
-        f"En cas de deterioration macro (recession, credit crunch), "
-        f"le secteur le plus defensif ({sector_a if (sa.get('beta') or 1) < (sb.get('beta') or 1) else sector_b}) "
+        f"incluent : stabilisation des taux directeurs, maintien des marges au-dessus de la Médiane historique, "
+        f"et absence de choc réglementaire ou de compression de multiple liée au risque de taux. "
+        f"En cas de détérioration macro (récession, crédit crunch), "
+        f"le secteur le plus défensif ({sector_a if (sa.get('beta') or 1) < (sb.get('beta') or 1) else sector_b}) "
         f"offre une meilleure protection relative du capital."
     )
     _alloc_text = D.get("llm", {}).get("allocation_rec") or _rec_fallback
@@ -1097,97 +1100,97 @@ def _build_story(D: dict) -> list:
     _loser_alloc  = sector_b if _winner_alloc == sector_a else sector_a
     _diff = abs((sa.get("score") or 0) - (sb.get("score") or 0))
     _impl_text = (
-        f"<b>Mise en oeuvre operationnelle</b> : la traduction du signal en allocation portefeuille "
-        f"depend du mandat et de l'horizon de l'investisseur. Pour un portefeuille diversifie type "
+        f"<b>Mise en oeuvre opérationnelle</b> : la traduction du signal en allocation portefeuille "
+        f"dépend du mandat et de l'horizon de l'investisseur. Pour un portefeuille diversifié type "
         f"60/40 ou 70/30, une surponderation tactique de {_winner_alloc} se traduit en pratique par "
         f"une exposition de +200 a +400 bps au-dessus du benchmark sectoriel "
-        f"(reperes : ecart de score {_diff} pts = position size proportionnelle). Pour un portefeuille "
+        f"(reperes : écart de score {_diff} pts = position size proportionnelle). Pour un portefeuille "
         f"thematique focalise, l'exposition peut atteindre 15-25% du portefeuille actions sur le secteur "
-        f"prefere, sous reserve d'une diversification intra-sectorielle adequate (5-10 positions minimum). "
+        f"préféré, sous reserve d'une diversification intra-sectorielle adequate (5-10 positions minimum). "
         f"<br/><br/>"
-        f"<b>Vehicules d'investissement</b> : ETF sectoriels passifs (XLK, XLV, XLF, etc. pour US ; "
+        f"<b>Véhicules d'investissement</b> : ETF sectoriels passifs (XLK, XLV, XLF, etc. pour US ; "
         f"sectoral STOXX 600 pour Europe), fonds actifs avec mandat sectoriel explicite, ou panier de "
-        f"selection bottom-up des leaders identifies dans la section Top Acteurs. Le choix entre "
-        f"ETF passif et selection active depend de la dispersion intra-sectorielle observee : "
-        f"plus la dispersion est elevee, plus la selection active genere de l'alpha. "
+        f"sélection bottom-up des leaders identifies dans la section Top Acteurs. Le choix entre "
+        f"ETF passif et sélection active dépend de la dispersion intra-sectorielle observee : "
+        f"plus la dispersion est élevée, plus la sélection active généré de l'alpha. "
         f"<br/><br/>"
-        f"<b>Calibration risque</b> : la position doit etre dimensionnee en fonction du beta median du "
+        f"<b>Calibration risque</b> : la position doit être dimensionnee en fonction du beta Médian du "
         f"secteur (beta {_winner_alloc} = {(sa.get('beta') or 1.0):.2f} vs {_loser_alloc} = "
         f"{(sb.get('beta') or 1.0):.2f}) et de la volatilite implicite du portefeuille global. "
-        f"Un stop-loss tactique peut etre fixe a -10% sur le composite sectoriel pour proteger le capital "
-        f"en cas de deterioration brutale des fondamentaux ou du sentiment. "
-        f"<b>Rebalancement</b> : revue trimestrielle systematique apres chaque saison de publications, "
-        f"ajustement progressif si l'ecart de score se compresse < 5 pts ou s'inverse."
+        f"Un stop-loss tactique peut être fixe a -10% sur le composite sectoriel pour proteger le capital "
+        f"en cas de détérioration brutale des fondamentaux ou du sentiment. "
+        f"<b>Rebalancement</b> : revue trimestrielle systematique après chaque saison de publications, "
+        f"ajustement progressif si l'écart de score se compressé < 5 pts ou s'inverse."
     )
     story.append(Paragraph(_xml(_impl_text), S_BODY))
     story.append(Spacer(1, 3 * mm))
     story.append(Paragraph(
-        "Note : Surponderer = score >= 65 | Neutre = score >= 45 | Sous-ponderer = score < 45. "
+        "Note : Surpondérer = score >= 65 | Neutre = score >= 45 | Sous-pondérer = score < 45. "
         "Le Score FinSight est un indicateur proprietaire multidimensionnel. "
         "Il ne constitue pas un conseil en investissement.",
         S_NOTE))
     story.append(PageBreak())
 
-    # ── PAGE 9 : Disclaimer & Methodologie ───────────────────────────────────
-    story += section("Mentions Legales & Methodologie Detaillee", "11")
+    # ── PAGE 9 : Disclaimer & Méthodologie ───────────────────────────────────
+    story += section("Mentions Légales & Méthodologie Detaillee", "11")
     _S_DISC_S = _sty("disc_s", size=6.5, color=GREY_TEXT, leading=9.5)
     _S_SSEC_S = _sty("ssec_s", size=8, color=NAVY, bold=True, leading=11)
     disclaimers = [
-        ("Caractere informatif et pedagogique",
-         "Ce document est produit exclusivement a des fins d'information et de demonstration "
+        ("Caractère informatif et pedagogique",
+         "Ce document est produit exclusivement a des fins d'information et de démonstration "
          "pedagogique. Il ne constitue en aucun cas un conseil en investissement, une recommandation "
          "personnalisee d'achat ou de vente, une incitation a contracter ni une offre de souscription "
-         "a un produit financier au sens du Reglement General de l'AMF. Toute decision d'investissement "
-         "demeure de la seule responsabilite de l'utilisateur, qui doit consulter un conseiller en "
-         "investissement financier (CIF) agree avant toute operation."),
-        ("Sources et qualite des donnees",
-         "Les donnees financieres sont collectees automatiquement via yfinance (Yahoo Finance), "
+         "a un produit financier au sens du Règlement Général de l'AMF. Toute décision d'investissement "
+         "demeure de la seule responsabilité de l'utilisateur, qui doit consulter un conseiller en "
+         "investissement financier (CIF) agréé avant toute opération."),
+        ("Sources et qualité des données",
+         "Les données financières sont collectees automatiquement via yfinance (Yahoo Finance), "
          "Finnhub et Financial Modeling Prep. FinSight IA ne garantit ni l'exhaustivite ni l'exactitude "
-         "de ces donnees, qui peuvent presenter des erreurs, omissions ou retards de mise a jour. "
-         "Les medianes sectorielles sont calculees sur les societes du panel disposant de la donnee "
-         "consideree, ce qui peut introduire un biais de selection lorsque la couverture est partielle. "
-         "Les chiffres sont etablis a la date de generation du rapport et ne refletent pas les evolutions "
-         "ulterieures du marche ou des publications corporate."),
-        ("Methodologie de scoring FinSight (0-100)",
-         "Le Score FinSight est un indicateur proprietaire agregeant 4 dimensions egalement ponderees "
+         "de ces données, qui peuvent présenter des erreurs, omissions ou retards de mise à jour. "
+         "Les Médianes sectorielles sont calculées sur les sociétés du panel disposant de la donnée "
+         "consideree, ce qui peut introduire un biais de sélection lorsque la couverture est partielle. "
+         "Les chiffres sont établis a la date de génération du rapport et ne refletent pas les évolutions "
+         "ulterieures du marché ou des publications corporate."),
+        ("Méthodologie de scoring FinSight (0-100)",
+         "Le Score FinSight est un indicateur proprietaire agregeant 4 dimensions également pondérées "
          "a 25 points chacune : Value (P/E, EV/EBITDA, PEG, FCF Yield), Growth (CAGR revenus 3 ans, "
-         "EPS growth, revisions consensus), Quality (ROE, ROIC, Piotroski F-Score 0-9, Altman Z-Score, "
-         "marges), Momentum (perf. 52 semaines, RSI relatif, revision consensus). Les signaux "
-         "Surponderer / Neutre / Sous-ponderer sont derives mecaniquement des seuils 65/45/0. "
-         "Indicateurs avances integres en arriere-plan : Beneish M-Score (detection manipulation "
+         "EPS growth, révisions consensus), Quality (ROE, ROIC, Piotroski F-Score 0-9, Altman Z-Score, "
+         "marges), Momentum (perf. 52 semaines, RSI relatif, révision consensus). Les signaux "
+         "Surpondérer / Neutre / Sous-pondérer sont derives mécaniquement des seuils 65/45/0. "
+         "Indicateurs avances intégrés en arriere-plan : Beneish M-Score (detection manipulation "
          "comptable, M < -2.22 = sain), Altman Z-Score (Z > 2.99 = zone safe, 1.81-2.99 = grise, "
-         "< 1.81 = distress), Sloan accruals ratio (qualite des earnings)."),
+         "< 1.81 = distress), Sloan accruals ratio (qualité des earnings)."),
         ("Limites et biais connus",
-         "Les modeles sont mecaniques, statiques (snapshot point-in-time) et n'integrent pas le cycle "
-         "economique, les revisions de guidance, les events corporate (M&A, splits, restructurations) "
+         "Les modèles sont Mécaniques, statiques (snapshot point-in-time) et n'integrent pas le cycle "
+         "Économique, les révisions de guidance, les events corporate (M&A, splits, restructurations) "
          "ni les analyses qualitatives (gouvernance, ESG, management). Le LLM utilise pour les textes "
-         "analytiques peut produire des affirmations imprecises ou des erreurs factuelles : les chiffres "
-         "doivent etre verifies par l'utilisateur. La couverture sectorielle est limitee aux univers "
-         "configures (S&P 500, CAC 40, STOXX 600, global), excluant les small caps et les marches "
-         "emergents. Les ratios manquants (ROIC notamment) sont parfois estimes via des proxies "
+         "analytiques peut produire des affirmations imprécises ou des erreurs factuelles : les chiffres "
+         "doivent être vérifiés par l'utilisateur. La couverture sectorielle est limitee aux univers "
+         "configures (S&P 500, CAC 40, STOXX 600, global), excluant les small caps et les marchés "
+         "emergents. Les ratios manquants (ROIC notamment) sont parfois estimés via des proxies "
          "explicitement mentionnes."),
         ("Absence de due diligence",
-         "FinSight IA est un outil algorithmique de screening base sur des donnees publiques. Aucune "
-         "due diligence specifique, expertise sectorielle approfondie, rencontre avec le management, "
-         "audit des comptes ou verification croisee n'est realisee. Les analyses presentees sont "
-         "generees automatiquement sans validation manuelle. Les modeles peuvent contenir des biais, "
-         "erreurs de specification ou simplifications excessives. FinSight IA et ses auteurs declinent "
-         "toute responsabilite quant aux pertes ou prejudices decoulant de l'utilisation de ce document."),
+         "FinSight IA est un outil algorithmique de screening basé sur des données publiques. Aucune "
+         "due diligence spécifique, expertise sectorielle approfondie, rencontre avec le management, "
+         "audit des comptes ou vérification croisee n'est réalisée. Les analyses présentées sont "
+         "générées automatiquement sans validation manuelle. Les modèles peuvent contenir des biais, "
+         "erreurs de specification ou simplifications excessives. FinSight IA et ses auteurs déclinent "
+         "toute responsabilité quant aux pertes ou prejudices découlant de l'utilisation de ce document."),
         ("Risques d'investissement",
-         "Tout investissement en valeurs mobilieres comporte un risque de perte partielle ou totale "
-         "en capital. Les performances passees et les donnees historiques ne prejugent pas des "
-         "performances futures. Les conditions de marche, le contexte macroeconomique, les decisions "
-         "des banques centrales, les decisions reglementaires et les evenements geopolitiques peuvent "
-         "evoluer rapidement et invalider les signaux presentes. La diversification, un horizon "
-         "d'investissement adapte au profil de risque, et une revue reguliere des positions sont "
+         "Tout investissement en valeurs mobilières comporte un risque de perte partielle ou totale "
+         "en capital. Les performances passees et les données historiques ne préjugent pas des "
+         "performances futures. Les conditions de marché, le contexte macroeconomique, les décisions "
+         "des banques centrales, les décisions réglementaires et les événements géopolitiques peuvent "
+         "evoluer rapidement et invalider les signaux présentés. La diversification, un horizon "
+         "d'investissement adapte au profil de risque, et une revue régulière des positions sont "
          "fortement recommandes."),
-        ("Confidentialite et propriete intellectuelle",
+        ("Confidentialité et propriete intellectuelle",
          "Ce document est destine a un usage prive et confidentiel. Sa reproduction, distribution, "
          "publication ou diffusion, meme partielle, est strictement interdite sans autorisation ecrite "
-         "expresse de FinSight IA. Le scoring FinSight, la methodologie de calcul, les visuels et les "
+         "expresse de FinSight IA. Le scoring FinSight, la Méthodologie de calcul, les visuels et les "
          "textes analytiques sont la propriete intellectuelle exclusive de FinSight IA. Toute "
-         "exploitation commerciale est prohibee. Ce document ne doit pas etre utilise comme base "
-         "exclusive pour une decision d'investissement."),
+         "exploitation commerciale est prohibee. Ce document ne doit pas être utilise comme base "
+         "exclusive pour une décision d'investissement."),
     ]
     for title, text in disclaimers:
         story.append(KeepTogether([
@@ -1197,7 +1200,7 @@ def _build_story(D: dict) -> list:
         ]))
     story.append(rule())
     story.append(Paragraph(
-        f"Genere par FinSight IA  |  {D['date_str']}  |  Usage confidentiel — ne pas diffuser",
+        f"Généré par FinSight IA  |  {D['date_str']}  |  Usage confidentiel — ne pas diffuser",
         _sty("fin", size=6.5, color=GREY_TEXT, align=TA_CENTER)))
 
     return story
@@ -1205,7 +1208,7 @@ def _build_story(D: dict) -> list:
 
 def _build_top_table(story, tickers, sector_name, col_header):
     top_data = [[
-        Paragraph("Societe", S_TH_L),
+        Paragraph("Société", S_TH_L),
         Paragraph("Score", S_TH_C),
         Paragraph("P/E", S_TH_C),
         Paragraph("EV/EBITDA", S_TH_C),
@@ -1274,7 +1277,7 @@ def _build_risques_comparatifs_pdf(story, content_a, sector_a, content_b, sector
 
     HALF = TABLE_W / 2
 
-    # Catalyseurs cote a cote
+    # Catalyseurs côte à côte
     cat_hdr = [
         Paragraph(_xml(f"Catalyseurs — {sector_a[:20]}"), _sty("cth_a", size=8, color=WHITE, bold=True)),
         Paragraph(_xml(f"Catalyseurs — {sector_b[:20]}"), _sty("cth_b", size=8, color=WHITE, bold=True)),
@@ -1305,7 +1308,7 @@ def _build_risques_comparatifs_pdf(story, content_a, sector_a, content_b, sector
     story.append(ct)
     story.append(Spacer(1, 3 * mm))
 
-    # Risques cote a cote
+    # Risques côte à côte
     risk_hdr = [
         Paragraph(_xml(f"Risques — {sector_a[:20]}"), _sty("rth_a", size=8, color=WHITE, bold=True)),
         Paragraph(_xml(f"Risques — {sector_b[:20]}"), _sty("rth_b", size=8, color=WHITE, bold=True)),
@@ -1357,7 +1360,7 @@ def _build_risques_comparatifs_pdf(story, content_a, sector_a, content_b, sector
         impl = (
             f"Risque {sector_b} — {title[:40]} : {body[:120]}. "
             f"Pour {sector_a}, ce risque peut amplifier ou attenuuer la pression selon "
-            f"le caractere cyclique ou defensif du choc — a surveiller comme signal d'arbitrage sectoriel."
+            f"le caractère cyclique ou défensif du choc — a surveiller comme signal d'arbitrage sectoriel."
         )
         story.append(Paragraph(_xml(impl), S_BODY))
         story.append(Spacer(1, 1 * mm))
@@ -1383,20 +1386,20 @@ def _build_risques_comparatifs_pdf(story, content_a, sector_a, content_b, sector
         # Texte analytique sur les conditions d'invalidation (avec contexte risk management)
         invalidation_text = (
             f"<b>Lecture des conditions d'invalidation</b> : ces seuils ne sont pas des points de "
-            f"sortie automatiques mais des signaux de re-evaluation systematique de la these. "
-            f"Pour {sector_a}, l'invalidation peut etre declenchee par une combinaison de facteurs "
-            f"plutot qu'un seul critere isole — par exemple, une compression de marges concomitante "
-            f"a une revision baissiere du consensus EPS cumulee a une rotation negative du momentum 52S. "
+            f"sortie automatiques mais des signaux de re-évaluation systematique de la Thèse. "
+            f"Pour {sector_a}, l'invalidation peut être declenchee par une combinaison de facteurs "
+            f"plutot qu'un seul critère isole — par exemple, une compression de marges concomitante "
+            f"a une révision baissière du consensus EPS cumulée a une rotation negative du momentum 52S. "
             f"L'investisseur doit calibrer son seuil d'action en fonction de son horizon (court terme : "
-            f"reaction rapide aux signaux de momentum ; long terme : tolerance plus elevee aux fluctuations "
-            f"trimestrielles, focus sur la qualite structurelle). "
-            f"Pour {sector_b}, la specificite du risque sectoriel impose une vigilance particuliere sur "
-            f"les indicateurs avances (PMI manufacturier, surveys de credit, guidance corporate) qui "
-            f"precedent generalement les revisions consensus de 1-2 trimestres. "
-            f"<b>Methodologie de monitoring</b> : revue mensuelle des seuils, alertes automatiques en "
-            f"cas de franchissement, reevaluation complete de la these sur 2 trimestres consecutifs "
-            f"de divergence. Les conditions d'invalidation doivent etre confrontees au contexte macro "
-            f"global (cycle des taux, dollar, geopolitique) avant d'etre traduites en decision d'allocation."
+            f"reaction rapide aux signaux de momentum ; long terme : tolerance plus élevée aux fluctuations "
+            f"trimestrielles, focus sur la qualité structurelle). "
+            f"Pour {sector_b}, la spécificité du risque sectoriel impose une vigilance particulière sur "
+            f"les indicateurs avances (PMI manufacturier, surveys de crédit, guidance corporate) qui "
+            f"precedent généralement les révisions consensus de 1-2 trimestres. "
+            f"<b>Méthodologie de monitoring</b> : revue mensuelle des seuils, alertes automatiques en "
+            f"cas de franchissement, réévaluation complète de la Thèse sur 2 trimestres consecutifs "
+            f"de divergence. Les conditions d'invalidation doivent être confrontees au contexte macro "
+            f"global (cycle des taux, dollar, géopolitique) avant d'être traduites en décision d'allocation."
         )
         story.append(Paragraph(_xml(invalidation_text), S_BODY))
 
@@ -1424,7 +1427,7 @@ def _build_page_header_footer(sector_a, sector_b, universe_label, date_str):
         canvas.setFillColor(GREY_TEXT)
         canvas.setFont("Helvetica", 6.5)
         canvas.drawString(MARGIN_L, MARGIN_B - 7*mm,
-            "FinSight IA v1.0 — Document genere par IA. Ne constitue pas un conseil en investissement.")
+            "FinSight IA v1.0 — Document généré par IA. Ne constitue pas un conseil en investissement.")
         canvas.drawRightString(PAGE_W - MARGIN_R, MARGIN_B - 7*mm,
             "Sources : yfinance · FMP · Finnhub")
         canvas.restoreState()

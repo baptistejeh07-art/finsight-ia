@@ -173,7 +173,7 @@ def _sig_bg(signal: str):
 # =============================================================================
 
 def _on_page(canvas, doc, data):
-    """En-tete et pied de page sur chaque page (sauf cover page 1)."""
+    """En-tête et pied de page sur chaque page (sauf cover page 1)."""
     canvas.saveState()
     page_num = doc.page
 
@@ -222,7 +222,7 @@ def _on_page(canvas, doc, data):
         canvas.drawRightString(PAGE_W - MARGIN_R, 7*mm, date_str)
 
     else:
-        # ── En-tete pages suivantes ──────────────────────────────────────────
+        # ── En-tête pages suivantes ──────────────────────────────────────────
         name_a = _enc(data.get("name_a", "Indice A"))
         name_b = _enc(data.get("name_b", "Indice B"))
         canvas.setFillColor(NAVY)
@@ -251,7 +251,7 @@ def _on_page(canvas, doc, data):
 # =============================================================================
 
 def _llm_box_pdf(text: str, col=None) -> list:
-    """Cree un bloc 'Analyse FinSight IA' : bandeau navy + corps gris clair."""
+    """Crée un bloc 'Analyse FinSight IA' : bandeau navy + corps gris clair."""
     if not text:
         return []
     if col is None:
@@ -338,7 +338,7 @@ def _perf_table(data: dict) -> list:
     hdr = [Paragraph("Horizon", S_TH_L),
            Paragraph(name_a, S_TH_C),
            Paragraph(name_b, S_TH_C),
-           Paragraph("Ecart (pp)", S_TH_C)]
+           Paragraph("Écart (pp)", S_TH_C)]
 
     def _e(va, vb):
         if va is None or vb is None:
@@ -454,12 +454,12 @@ def _sector_table(data: dict) -> list:
     sc_cmp = data.get("sector_comparison", [])
 
     if not sc_cmp:
-        return [Paragraph("Donnees sectorielles non disponibles.", S_BODY)]
+        return [Paragraph("Données sectorielles non disponibles.", S_BODY)]
 
     hdr = [Paragraph("Secteur", S_TH_L),
            Paragraph(name_a, S_TH_C),
            Paragraph(name_b, S_TH_C),
-           Paragraph("Ecart", S_TH_C)]
+           Paragraph("Écart", S_TH_C)]
 
     rows = [hdr]
     for item in sc_cmp[:12]:
@@ -486,7 +486,7 @@ def _top5_table(data: dict, which: str) -> list:
     top5   = data.get("top5_a" if which == "a" else "top5_b", [])
     color  = COLOR_A if which == "a" else COLOR_B
 
-    hdr = [Paragraph("Societe", S_TH_L),
+    hdr = [Paragraph("Société", S_TH_L),
            Paragraph("Ticker", S_TH_C),
            Paragraph("Poids (%)", S_TH_C),
            Paragraph("Secteur", S_TH_C)]
@@ -494,7 +494,7 @@ def _top5_table(data: dict, which: str) -> list:
     rows = [hdr]
     if not top5:
         nd = "\u2014"
-        rows.append([Paragraph("Donnees non disponibles", S_TD_B),
+        rows.append([Paragraph("Données non disponibles", S_TD_B),
                      Paragraph(nd, S_TD_C), Paragraph(nd, S_TD_C),
                      Paragraph(nd, S_TD_L)])
     else:
@@ -619,7 +619,7 @@ def _build_story(data: dict) -> list:
     story = []
 
     # ── COVER ─────────────────────────────────────────────────────────────────
-    # Espace pour laisser la place a l'en-tete canvas
+    # Espace pour laisser la place a l'en-tête canvas
     story.append(Spacer(1, 45*mm))
 
     # Signal boxes
@@ -656,7 +656,7 @@ def _build_story(data: dict) -> list:
                   fontSize=8, textColor=WHITE, alignment=TA_CENTER)),
         Paragraph(f"<b>{_safe(name_b[:18])}</b>", ParagraphStyle('khb', fontName='Helvetica-Bold',
                   fontSize=8, textColor=WHITE, alignment=TA_CENTER)),
-        Paragraph("<b>Ecart</b>", ParagraphStyle('khe', fontName='Helvetica-Bold',
+        Paragraph("<b>Écart</b>", ParagraphStyle('khe', fontName='Helvetica-Bold',
                   fontSize=8, textColor=WHITE, alignment=TA_CENTER)),
     ]]
     for horizon, key_a, key_b in [
@@ -694,9 +694,9 @@ def _build_story(data: dict) -> list:
     ]))
     story.append(kpi_tbl)
     story.append(Spacer(1, 5*mm))
-    story.append(Paragraph(_safe(f"Rapport genere le {date_s}  "
+    story.append(Paragraph(_safe(f"Rapport généré le {date_s}  "
                                  f"\u00b7  FinSight IA  "
-                                 f"\u00b7  Donnees : yfinance"), S_NOTE))
+                                 f"\u00b7  Données : yfinance"), S_NOTE))
     story.append(PageBreak())
 
     # ── SECTION 1 : PERFORMANCE ───────────────────────────────────────────────
@@ -713,7 +713,7 @@ def _build_story(data: dict) -> list:
     story.extend(_llm_box_pdf(data.get("llm", {}).get("perf_analysis", "")))
     story.append(Paragraph(
         _safe(f"Comparaison de la performance annualisee de {name_a} et {name_b}. "
-              f"L'ecart est exprime en points de pourcentage (pp)."),
+              f"L'écart est exprime en points de pourcentage (pp)."),
         S_NOTE))
 
     # ── SECTION 2 : RISQUE ───────────────────────────────────────────────────
@@ -722,7 +722,7 @@ def _build_story(data: dict) -> list:
     story.append(Spacer(1, 3*mm))
     story.extend(_llm_box_pdf(data.get("llm", {}).get("risque_analysis", "")))
     story.append(Paragraph(
-        _safe("Volatilite : ecart-type annualise des rendements quotidiens. "
+        _safe("Volatilite : écart-type annualise des rendements quotidiens. "
               "Sharpe ratio : (rendement - taux sans risque 10Y) / volatilite. "
               "Max Drawdown : perte maximale du plus haut au plus bas."),
         S_NOTE))
@@ -771,9 +771,9 @@ def _build_story(data: dict) -> list:
         )
     else:
         verdict_txt = (
-            f"Les deux indices presentent des profils comparables "
+            f"Les deux indices présentent des profils comparables "
             f"({name_a} : {sc_a}/100  vs  {name_b} : {sc_b}/100). "
-            f"Le choix dependra de l'objectif investisseur."
+            f"Le choix dépendra de l'objectif investisseur."
         )
 
     # Ajouter arguments
@@ -782,7 +782,7 @@ def _build_story(data: dict) -> list:
     if pe_a and pe_b:
         cheaper = name_a if float(pe_a) < float(pe_b) else name_b
         verdict_txt += (
-            f"Sur le plan de la valorisation, {cheaper} se traite a une decote "
+            f"Sur le plan de la valorisation, {cheaper} se traite a une décote "
             f"relative (P/E : {name_a} {_num(pe_a,1)}x vs {name_b} {_num(pe_b,1)}x). "
         )
 
@@ -793,7 +793,7 @@ def _build_story(data: dict) -> list:
         verdict_txt += (
             f"{better} offre un meilleur Sharpe ratio "
             f"({_num(sha_a,2)} vs {_num(sha_b,2)}), "
-            f"signalant un rendement ajuste du risque superieur. "
+            f"signalant un rendement Ajusté du risque superieur. "
         )
 
     llm_verdict = data.get("llm", {}).get("verdict_analysis", "")
@@ -803,7 +803,7 @@ def _build_story(data: dict) -> list:
 
     # ── Tableau bilan final (etendu) ──────────────────────────────────────────
     ver_rows = [
-        [Paragraph("Critere", S_TH_L),
+        [Paragraph("Critère", S_TH_L),
          Paragraph(_safe(name_a[:20]), S_TH_C),
          Paragraph(_safe(name_b[:20]), S_TH_C)],
         [Paragraph("Score FinSight", S_TD_B),
@@ -841,8 +841,8 @@ def _build_story(data: dict) -> list:
     story.append(ver_tbl)
     story.append(Spacer(1, 5*mm))
 
-    # ── Synthese Dimensionnelle ────────────────────────────────────────────────
-    story.append(Paragraph(_safe("Synthese Dimensionnelle"), S_SUBSECTION))
+    # ── Synthèse Dimensionnelle ────────────────────────────────────────────────
+    story.append(Paragraph(_safe("Synthèse Dimensionnelle"), S_SUBSECTION))
 
     def _dim_winner(val_a, val_b, higher_is_better=True):
         try:
@@ -898,18 +898,18 @@ def _build_story(data: dict) -> list:
     if llm_cond:
         story.extend(_llm_box_pdf(llm_cond))
     else:
-        # Fallback deterministe — liste des avantages par indice
+        # Fallback déterministe — liste des avantages par indice
         cond_a, cond_b = [], []
         if sha_a2 and sha_b2:
             if float(sha_a2) > float(sha_b2):
-                cond_a.append(f"Sharpe superieur ({_num(sha_a2,2)} vs {_num(sha_b2,2)}) : rendement ajuste du risque optimal")
+                cond_a.append(f"Sharpe superieur ({_num(sha_a2,2)} vs {_num(sha_b2,2)}) : rendement Ajusté du risque optimal")
             else:
-                cond_b.append(f"Sharpe superieur ({_num(sha_b2,2)} vs {_num(sha_a2,2)}) : rendement ajuste du risque optimal")
+                cond_b.append(f"Sharpe superieur ({_num(sha_b2,2)} vs {_num(sha_a2,2)}) : rendement Ajusté du risque optimal")
         if vol_a2 and vol_b2:
             if float(vol_a2) < float(vol_b2):
-                cond_a.append(f"Volatilite plus faible ({_num(vol_a2,1)} % vs {_num(vol_b2,1)} %) : profil defensif et retraite")
+                cond_a.append(f"Volatilite plus faible ({_num(vol_a2,1)} % vs {_num(vol_b2,1)} %) : profil défensif et retraite")
             else:
-                cond_b.append(f"Volatilite plus faible ({_num(vol_b2,1)} % vs {_num(vol_a2,1)} %) : profil defensif et retraite")
+                cond_b.append(f"Volatilite plus faible ({_num(vol_b2,1)} % vs {_num(vol_a2,1)} %) : profil défensif et retraite")
         if pe_a2 and pe_b2:
             if float(pe_a2) < float(pe_b2):
                 cond_a.append(f"P/E Forward plus attractif ({_num(pe_a2,1)}x vs {_num(pe_b2,1)}x) : marges de revalorisation")
@@ -933,7 +933,7 @@ def _build_story(data: dict) -> list:
         def _cond_para(items):
             if not items:
                 return Paragraph(
-                    _safe("Aucun avantage statistique clair dans les donnees disponibles."),
+                    _safe("Aucun avantage statistique clair dans les données disponibles."),
                     S_BODY)
             txt = "<br/>".join(f"- {_safe(x)}" for x in items)
             return Paragraph(txt, S_BODY)
@@ -968,9 +968,9 @@ def _build_story(data: dict) -> list:
     story.append(HRFlowable(width=TABLE_W, thickness=0.5, color=GREY_RULE))
     story.append(Spacer(1, 2*mm))
     story.append(Paragraph(
-        _safe("Ce rapport est genere automatiquement par FinSight IA a titre informatif. "
+        _safe("Ce rapport est généré automatiquement par FinSight IA a titre informatif. "
               "Il ne constitue pas un conseil en investissement. "
-              "Les donnees proviennent de yfinance et peuvent presenter des retards. "
+              "Les données proviennent de yfinance et peuvent présenter des retards. "
               "Tout investissement comporte un risque de perte en capital."),
         S_DISC))
 
@@ -1007,12 +1007,13 @@ def _generate_indice_llm_pdf(data: dict) -> dict:
             f"Vol {float(vol_a or 0):.1f}%, Sharpe {float(sha_a or 0):.2f}, P/E Fwd {float(pe_a or 0):.1f}x\n"
             f"- {name_b} : Score {sc_b}/100, Signal {sig_b}, Perf.1Y {float(p1b or 0)*100:.1f}%, "
             f"Vol {float(vol_b or 0):.1f}%, Sharpe {float(sha_b or 0):.2f}, P/E Fwd {float(pe_b or 0):.1f}x\n"
-            f"Reponds en JSON valide. Textes en francais sans accents. Max 300 caracteres par champ.\n"
+            f"Reponds en JSON valide. Textes en francais correct avec TOUS les accents (e e e a u c i o), "
+            f"cedilles, apostrophes droites ' et guillemets francais << >>. Max 300 caractères par champ.\n"
             f'{{\n'
             f'  "perf_analysis": "Analyse performance 2 phrases : qui surperforme et facteurs",\n'
             f'  "risque_analysis": "Analyse risque 2 phrases : volatilite et Sharpe ratio",\n'
             f'  "verdict_analysis": "Verdict final 2-3 phrases : recommandation et conditions",\n'
-            f'  "conditions_investissement": "2-3 phrases : dans quels contextes macro ou profils investisseur preferer chaque indice"\n'
+            f'  "conditions_investissement": "2-3 phrases : dans quels contextes macro ou profils investisseur préférer chaque indice"\n'
             f'}}'
         )
         import json, re
@@ -1021,7 +1022,7 @@ def _generate_indice_llm_pdf(data: dict) -> dict:
         if m:
             return json.loads(m.group(0))
     except Exception as e:
-        log.warning("[indice_cmp_pdf] LLM generation failed: %s", e)
+        log.warning("[indice_cmp_pdf] LLM génération failed: %s", e)
     return {}
 
 

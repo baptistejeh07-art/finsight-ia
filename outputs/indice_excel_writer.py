@@ -2,11 +2,11 @@
 # FinSight IA -- Indice Excel Writer
 # outputs/indice_excel_writer.py
 #
-# Injecte les donnees d'analyse d'indice dans TEMPLATE_INDICE.xlsx.
+# Injecte les Données d'analyse d'indice dans TEMPLATE_INDICE.xlsx.
 #
-# REGLES ABSOLUES :
+# RÈGLES ABSOLUES :
 #   - NE PAS TOUCHER les cellules formule (VALUE cols O-P, QUALITY cols O-R, etc.)
-#   - SEULE feuille DONNEES BRUTES est 100% injection Python
+#   - SEULE feuille DONNÉES BRUTES est 100% injection Python
 #   - Feuilles par secteur (TECHNOLOGY, CONSUMER DISC., etc.) = formules auto
 #   - Guard systematique : if cell.value startswith("=") -> skip
 # =============================================================================
@@ -40,7 +40,7 @@ _SECT_DISP = {
     "Consumer Discretionary": "Consumer Disc.",
     "Communication Services": "Comm. Services",
     "Industrials":            "Industrials",
-    "Consumer Staples":       "Consumer Defensive",
+    "Consumer Staples":       "Consumer Défensive",
     "Energy":                 "Energy",
     "Materials":              "Materials",
     "Real Estate":            "Real Estate",
@@ -48,7 +48,7 @@ _SECT_DISP = {
     # Noms modernes yfinance (retournes pour tickers EU)
     "Financial Services":     "Financials",
     "Consumer Cyclical":      "Consumer Disc.",
-    "Consumer Defensive":     "Consumer Defensive",
+    "Consumer Défensive":     "Consumer Défensive",
     "Basic Materials":        "Materials",
     "Healthcare":             "Healthcare",
     "Comm. Services":         "Comm. Services",
@@ -87,7 +87,7 @@ def _pct(v, decimals=1, sign=False):
         return _NA
 
 def _pct_raw(v, decimals=1, sign=True):
-    """Deja en % -> string. v=5.5 -> '+5.5%'."""
+    """Déjà en % -> string. v=5.5 -> '+5.5%'."""
     if v is None: return _NA
     try:
         s = f"{float(v):.{decimals}f}%"
@@ -107,7 +107,7 @@ def _x(v, decimals=1):
     except Exception: return _NA
 
 def _mds(v, decimals=1, prefix=""):
-    """En Mds (valeur deja en Mds)."""
+    """En Mds (valeur déjà en Mds)."""
     if v is None: return _NA
     try: return f"{prefix}{float(v):.{decimals}f}"
     except Exception: return _NA
@@ -161,7 +161,7 @@ def _compute_4d_scores(tickers: list[dict]) -> list[dict]:
     gr    = [round(s_rg[i]*0.35 + s_em[i]*0.30 + s_roe[i]*0.20 + s_eg[i]*0.15)
              for i in range(n)]
 
-    # ---- QUALITY : Altman Z eleve, faible ND/EBITDA, bon current ratio, forte mg nette
+    # ---- QUALITY : Altman Z élevé, faible ND/EBITDA, bon current ratio, forte mg nette
     s_az2 = _percentile_scores([t.get("altman_z")     for t in tickers], higher_is_better=True)
     s_nd  = _percentile_scores([t.get("nd_ebitda")    for t in tickers], higher_is_better=False)
     s_cr  = _percentile_scores([t.get("current_ratio") for t in tickers], higher_is_better=True)
@@ -188,7 +188,7 @@ def _compute_4d_scores(tickers: list[dict]) -> list[dict]:
     return enriched
 
 # ---------------------------------------------------------------------------
-# Agregats par secteur
+# Agrégats par secteur
 # ---------------------------------------------------------------------------
 
 def _sector_aggregates(tickers: list[dict]) -> dict:
@@ -247,14 +247,14 @@ def _write(ws, row: int, col: int | str, value):
             cell.value = None  # clear formula avant ecriture
     except ImportError:
         pass
-    # Guard formule normale (=SUM etc.) — celles-ci sont generalement correctes
+    # Guard formule normale (=SUM etc.) — celles-ci sont généralement correctes
     if cell.value and isinstance(cell.value, str) and cell.value.startswith("="):
         return
     cell.value = value
 
 
 # ---------------------------------------------------------------------------
-# Remplissage feuille DONNEES BRUTES
+# Remplissage feuille DONNÉES BRUTES
 # ---------------------------------------------------------------------------
 
 def _fill_donnees_brutes(ws, tickers: list[dict], universe: str) -> None:
@@ -263,9 +263,9 @@ def _fill_donnees_brutes(ws, tickers: list[dict], universe: str) -> None:
     Ligne 1: titre, Ligne 2: headers (pre-existants, pas touches).
     """
     # Titre ligne 1
-    _write(ws, 1, "A", f"FinSight IA  \u00b7  {universe}  \u00b7  Donnees brutes")
+    _write(ws, 1, "A", f"FinSight IA  \u00b7  {universe}  \u00b7  Données brutes")
 
-    # Effacer les lignes 3-42 pour eviter donnees stales du template
+    # Effacer les lignes 3-42 pour éviter Données stales du template
     try:
         from openpyxl.worksheet.formula import ArrayFormula as _AF
     except ImportError:
@@ -285,7 +285,7 @@ def _fill_donnees_brutes(ws, tickers: list[dict], universe: str) -> None:
 
         # A: Ticker
         _write(ws, row, 1,  t.get("ticker", ""))
-        # B: Societe
+        # B: Société
         _write(ws, row, 2,  t.get("name",   ""))
         # C: Secteur
         _write(ws, row, 3,  sec_disp)
@@ -343,7 +343,7 @@ def _fill_donnees_brutes(ws, tickers: list[dict], universe: str) -> None:
         _write(ws, row, 28, t.get("score_global"))
         # AC: Next Earnings
         _write(ws, row, 29, t.get("next_earnings") or _NA)
-        # AD: Signal — calcule depuis score_global recompute (evite signal stale de l'input)
+        # AD: Signal — calcule depuis score_global recompute (évite signal stale de l'input)
         _sg = t.get("score_global")
         _signal = ("Surpond\u00e9rer" if (_sg or 0) >= 60
                    else ("Sous-pond\u00e9rer" if (_sg or 0) < 40 else "Neutre"))
@@ -379,7 +379,7 @@ def _fill_ranking_sheet(ws, tickers_sorted: list[dict], score_field: str,
         _write(ws, row, "A", offset + 1)
         # Ticker
         _write(ws, row, "B", t.get("ticker", ""))
-        # Societe
+        # Société
         _write(ws, row, "C", t.get("name", ""))
         # Secteur
         _write(ws, row, "D", sec_disp)
@@ -442,9 +442,9 @@ def _fill_par_secteur(ws, sector_agg: dict, universe: str, nb_total: int,
         _write(ws, 2 + clr_i, "M", None)
 
     # ---- SCORECARD SECTORIELLE ----
-    _write(ws, 5, "B", "SCORECARD SECTORIELLE  \u00b7  Score composite, metriques medianes, signal d'investissement \u2014 " + universe)
+    _write(ws, 5, "B", "SCORECARD SECTORIELLE  \u00b7  Score composite, metriques Médianes, signal d'investissement \u2014 " + universe)
 
-    # Effacer d'abord toute la zone de donnees scorecard (lignes 8-17)
+    # Effacer d'abord toute la zone de Données scorecard (lignes 8-17)
     for clr in range(8, 18):
         for col in ["B", "C", "D", "E", "F", "G", "H", "I", "J"]:
             cell = ws[f"{col}{clr}"]
@@ -476,7 +476,7 @@ def _fill_par_secteur(ws, sector_agg: dict, universe: str, nb_total: int,
     _write(ws, 18, "B", f"{universe} \u2014 Total")
     _write(ws, 18, "C", nb_total)
     _write(ws, 18, "D", tot_score)
-    _write(ws, 18, "F", "Mediane")
+    _write(ws, 18, "F", "Médiane")
     _write(ws, 18, "G", tot_mg)
     _write(ws, 18, "H", tot_rg)
 
@@ -484,7 +484,7 @@ def _fill_par_secteur(ws, sector_agg: dict, universe: str, nb_total: int,
     # NE PAS TOUCHER ces lignes
 
     # ---- COMPOSITION DETAIL (lignes 22+) ----
-    # Effacer d'abord la zone de donnees existante (lignes 22-35)
+    # Effacer d'abord la zone de Données existante (lignes 22-35)
     for clr in range(22, 36):
         for col in ["B", "C", "D", "E", "F"]:
             cell = ws[f"{col}{clr}"]
@@ -510,7 +510,7 @@ def _fill_par_secteur(ws, sector_agg: dict, universe: str, nb_total: int,
         _write(ws, 21 + j, "H", sec)
         _write(ws, 21 + j, "I", round(mg * 100, 1) if (mg and mg > 0.005) else _NA)
 
-    # Nb societes par secteur (lignes apres mg_ebitda + 2)
+    # Nb sociétés par secteur (lignes après mg_ebitda + 2)
     nb_sorted = sorted(sector_agg.items(), key=lambda x: x[1]["nb"], reverse=True)
     nb_aux_r  = 21 + len(mg_sorted) + 2
     _write(ws, nb_aux_r,     "H", "Secteur")
@@ -561,7 +561,7 @@ class IndiceExcelWriter:
     def generate(data: dict, output_path: str,
                  template_path: str | None = None) -> None:
         """
-        Genere l'Excel indice en injectant les donnees dans le template.
+        Genere l'Excel indice en injectant les Données dans le template.
 
         Args:
             data         : dict retourne par _fetch_real_indice_data / _make_test_indice_data
@@ -586,7 +586,7 @@ class IndiceExcelWriter:
         shutil.copy2(tpl, out)
         log.info("[IndiceExcelWriter] Template copie -> %s", out)
 
-        # Donnees tickers
+        # Données tickers
         tickers_raw: list[dict] = data.get("tickers_raw", [])
         universe: str = data.get("universe", data.get("indice", "Indice"))
 
@@ -597,7 +597,7 @@ class IndiceExcelWriter:
         # Calcul des 4 scores par percentile
         tickers = _compute_4d_scores(tickers_raw)
 
-        # Agregats par secteur
+        # Agrégats par secteur
         sector_agg = _sector_aggregates(tickers)
 
         # Date du jour
@@ -613,13 +613,13 @@ class IndiceExcelWriter:
         # Ouvrir le workbook copie
         wb = openpyxl.load_workbook(str(out))
 
-        # ---- DONNEES BRUTES ----
+        # ---- DONNÉES BRUTES ----
         db_name = next((s for s in wb.sheetnames
                         if "brutes" in s.lower() or "brut" in s.lower()), None)
         if db_name:
             _fill_donnees_brutes(wb[db_name], by_global, universe)
         else:
-            log.warning("[IndiceExcelWriter] Feuille DONNEES BRUTES introuvable")
+            log.warning("[IndiceExcelWriter] Feuille DONNÉES BRUTES introuvable")
 
         # ---- VALUE ----
         def _v_ev(t):   return _num(t.get("ev_ebitda"), 1)
@@ -630,7 +630,7 @@ class IndiceExcelWriter:
         def _v_az(t):   return _num(t.get("altman_z"), 2)
         def _v_fcf(t):  return _pct_raw(t.get("fcf_yield"), sign=True) if t.get("fcf_yield") is not None else _NA
         def _v_dcf(t):
-            # Decote DCF implicite : P/E actuel vs P/E theorique (Gordon Growth Model)
+            # Décote DCF implicite : P/E actuel vs P/E theorique (Gordon Growth Model)
             pe  = t.get("pe_trailing")
             wcc = t.get("wacc")  or 0.10
             tg  = t.get("tgr")   or 0.025
@@ -639,7 +639,7 @@ class IndiceExcelWriter:
             try:
                 implied_pe = 1.0 / (float(wcc) - float(tg))
                 decote = round((implied_pe / float(pe) - 1) * 100, 1)
-                return f"{decote:+.1f} %"
+                return f"{décote:+.1f} %"
             except Exception:
                 return _NA
 
@@ -659,7 +659,7 @@ class IndiceExcelWriter:
         def _g_roe(t): return _pct(t.get("roe"), sign=True)
         def _g_eg(t):  return _pct(t.get("earnings_growth"), sign=True)
         def _g_rev(t):
-            v = t.get("analyst_revision")
+            v = t.get("analyst_révision")
             if v is None: return _NA
             return f"+{int(v)}" if v > 0 else str(int(v))
         def _g_sig(t): return t.get("signal", "Neutre")
@@ -725,7 +725,7 @@ class IndiceExcelWriter:
         if "DASHBOARD" in wb.sheetnames:
             _fill_dashboard(wb["DASHBOARD"], universe, today_str)
 
-        # ---- Print areas (sans fitToPage : evite la compression illegible) ----
+        # ---- Print areas (sans fitToPage : évite la compression illegible) ----
         # PAR SECTEUR : A1:K35 englobe SCORECARD + COMPOSITION DETAIL
         if "PAR SECTEUR" in wb.sheetnames:
             wb["PAR SECTEUR"].print_area = "A1:K35"
@@ -736,9 +736,9 @@ class IndiceExcelWriter:
         if "SECTOR OVERVIEW" in wb.sheetnames:
             wb["SECTOR OVERVIEW"].print_area = "A1:L50"
 
-        # ---- Date stale : remplace toute date DD/MM/YYYY dans les 5 premieres lignes ----
+        # ---- Date stale : remplace toute date DD/MM/YYYY dans les 5 premières lignes ----
         # Couvre B1 des feuilles sectorielles, headers SECTOR OVERVIEW, PAR SECTEUR, etc.
-        # Remplace toute date stale DD/MM/YYYY dans les 5 premieres lignes (50 cols)
+        # Remplace toute date stale DD/MM/YYYY dans les 5 premières lignes (50 cols)
         # Couvre aussi les formules string ("=...date...") pour SECTOR OVERVIEW headers
         import re as _re
         _date_pat = _re.compile(r'\d{2}/\d{2}/\d{4}')

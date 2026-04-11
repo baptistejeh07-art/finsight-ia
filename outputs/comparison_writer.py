@@ -33,7 +33,7 @@ _SECTOR_PE: dict[str, float] = {
     "Health Care": 22.0, "Healthcare": 22.0,
     "Financials": 13.0, "Financial Services": 13.0,
     "Consumer Discretionary": 20.0, "Consumer Cyclical": 20.0,
-    "Consumer Staples": 18.0, "Consumer Defensive": 18.0,
+    "Consumer Staples": 18.0, "Consumer Défensive": 18.0,
     "Communication Services": 18.0,
     "Industrials": 21.0,
     "Energy": 12.0,
@@ -46,7 +46,7 @@ _SECTOR_EVEBITDA: dict[str, float] = {
     "Health Care": 14.0, "Healthcare": 14.0,
     "Financials": 9.0,  "Financial Services": 9.0,
     "Consumer Discretionary": 12.0, "Consumer Cyclical": 12.0,
-    "Consumer Staples": 12.0, "Consumer Defensive": 12.0,
+    "Consumer Staples": 12.0, "Consumer Défensive": 12.0,
     "Communication Services": 11.0,
     "Industrials": 13.0,
     "Energy": 6.0,
@@ -355,14 +355,14 @@ def _fetch_supplements(ticker: str) -> dict:
                     out["interest_coverage"] = round(abs(float(ebit)) / abs(float(ie)), 1)
                 elif ebit is not None and ie is None:
                     # Fallback : derive depuis EBIT - Pretax Income (ex. Apple dont
-                    # l'interest expense net est absorbe par les revenus de tresorerie)
+                    # l'interest expense net est absorbe par les revenus de trésorerie)
                     pretax = _vi_ic(["Pretax Income", "Income Before Tax"])
                     if pretax is not None:
                         net_non_op = ebit - pretax  # positif = charge nette
                         if net_non_op > 1000:
                             out["interest_coverage"] = round(ebit / net_non_op, 1)
                         elif net_non_op <= 0:
-                            # Revenus d'interets > charges : couverture excellente
+                            # Revenus d'intérêts > charges : couverture excellente
                             out["interest_coverage"] = 999.0
         except Exception as e:
             log.debug(f"[comparison] interest_coverage error {ticker}: {e}")
@@ -398,7 +398,7 @@ def _fetch_supplements(ticker: str) -> dict:
         except Exception:
             pass
 
-        # Secteur (fallback si non stocke dans l'etat pipeline)
+        # Secteur (fallback si non stocke dans l'État pipeline)
         try:
             out["sector"] = full.get("sector", "") or ""
         except Exception:
@@ -641,7 +641,7 @@ def extract_metrics(state: dict, supp: dict) -> dict:
         "gbm_sigma_annual": mc_meta.get("gbm_sigma_annual"),
         "gbm_mu_annual":    mc_meta.get("gbm_mu_annual"),
 
-        # QUALITE FINANCIERE (rows 28-33)
+        # QUALITÉ FINANCIÈRE (rows 28-33)
         "piotroski_score": supp.get("piotroski_score"),
         "sloan_accruals":  sloan,
         "cash_conversion": cc,
@@ -678,7 +678,7 @@ def extract_metrics(state: dict, supp: dict) -> dict:
         "verdict_relative": None,  # calculé après comparaison
         "winner":           None,  # calculé après comparaison
 
-        # LIQUIDITE (rows 53-55)
+        # LIQUIDITÉ (rows 53-55)
         "current_ratio":    _safe(yr, "current_ratio"),
         "quick_ratio":      _safe(yr, "quick_ratio"),
         "capex_to_revenue": _safe(yr, "capex_ratio"),
@@ -689,10 +689,10 @@ def extract_metrics(state: dict, supp: dict) -> dict:
         "perf_1y": supp.get("perf_1y"),
 
         # SECTEUR (rows 59-60)
-        "sector_median_pe":       _SECTOR_PE.get(sector),
-        "sector_median_ev_ebitda": _SECTOR_EVEBITDA.get(sector),
+        "sector_Médian_pe":       _SECTOR_PE.get(sector),
+        "sector_Médian_ev_ebitda": _SECTOR_EVEBITDA.get(sector),
 
-        # MARCHE (rows 61-67)
+        # MARCHÉ (rows 61-67)
         "week52_high":       supp.get("week52_high"),
         "week52_low":        supp.get("week52_low"),
         "market_cap":        mc_bn,
@@ -721,7 +721,7 @@ def extract_metrics(state: dict, supp: dict) -> dict:
         "eps_growth_fwd":     supp.get("earnings_growth_est"),
     }
 
-    # --- Clés derives pour PDF/PPTX (formatees ou calculees) ---
+    # --- Clés derives pour PDF/PPTX (formatees ou calculées) ---
     # Prix formate (French decimal)
     try:
         if price and price > 0:
@@ -775,13 +775,13 @@ def extract_metrics(state: dict, supp: dict) -> dict:
 
 
 def _compute_duration(wacc, tgr) -> Optional[float]:
-    """Duration implicite = (1+g) / (WACC - g). Retourne en annees."""
+    """Duration implicite = (1+g) / (WACC - g). Retourne en années."""
     try:
         if wacc is None or tgr is None:
             return None
         w = float(wacc)
         g = float(tgr)
-        # WACC peut etre en % (ex: 9.5) ou decimal (ex: 0.095)
+        # WACC peut être en % (ex: 9.5) ou decimal (ex: 0.095)
         if w > 1: w = w / 100.0
         if g > 1: g = g / 100.0
         if w <= g or w <= 0:
@@ -866,8 +866,8 @@ class ComparisonWriter:
             verdict = f"{name_b} privilegie"
             winner  = name_b
         else:
-            verdict = "Equivalent"
-            winner  = "Equivalent"
+            verdict = "Équivalent"
+            winner  = "Équivalent"
         m_a["verdict_relative"] = verdict
         m_a["winner"]           = winner
         m_b["verdict_relative"] = verdict
@@ -915,18 +915,18 @@ class ComparisonWriter:
         except Exception as _ce2:
             log.warning(f"[ComparisonWriter] comparables dedup: {_ce2}")
 
-        # 9. Mettre a jour les noms de series dans TOUS les graphiques +
-        #    remplacer les labels "Societe A/B" des cellules DASHBOARD par les tickers.
+        # 9. Mettre à jour les noms de series dans TOUS les graphiques +
+        #    remplacer les labels "Société A/B" des cellules DASHBOARD par les tickers.
         try:
             from openpyxl.chart.series import SeriesLabel
             from openpyxl.chart.data_source import StrRef
 
-            # (a) Remplacer les labels textuels "Societe A" / "Societe B" dans DASHBOARD.
+            # (a) Remplacer les labels textuels "Société A" / "Société B" dans DASHBOARD.
             ws_dash = wb["DASHBOARD"]
             name_a_display = m_a.get("company_name_a") or tkr_a
             name_b_display = m_b.get("company_name_b") or tkr_b
-            _LABEL_TOKENS_A = ("Societe A", "Société A", "Soci\u00e9t\u00e9 A", "Soc. A")
-            _LABEL_TOKENS_B = ("Societe B", "Société B", "Soci\u00e9t\u00e9 B", "Soc. B")
+            _LABEL_TOKENS_A = ("Société A", "Société A", "Soci\u00e9t\u00e9 A", "Soc. A")
+            _LABEL_TOKENS_B = ("Société B", "Société B", "Soci\u00e9t\u00e9 B", "Soc. B")
             for row in ws_dash.iter_rows():
                 for cell in row:
                     if cell.value is None:
@@ -939,7 +939,7 @@ class ComparisonWriter:
 
             # (b) Renommer les series dans TOUS les graphiques de TOUTES les feuilles.
             # Certaines series ont des titres hardcodes (ex: "Microsoft" / "Alphabet")
-            # herites du template original et ne se mettent pas a jour via formules.
+            # herites du template original et ne se mettent pas à jour via formules.
             for sheet_name in wb.sheetnames:
                 ws_any = wb[sheet_name]
                 if not hasattr(ws_any, "_charts") or not ws_any._charts:
@@ -960,7 +960,7 @@ class ComparisonWriter:
         buf = io.BytesIO()
         wb.save(buf)
         buf.seek(0)
-        log.info(f"[ComparisonWriter] fichier genere ({buf.getbuffer().nbytes // 1024} ko)")
+        log.info(f"[ComparisonWriter] fichier Généré ({buf.getbuffer().nbytes // 1024} ko)")
         return buf.read()
 
 

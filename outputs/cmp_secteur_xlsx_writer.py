@@ -63,7 +63,7 @@ def _pct_to_100(v):
 
 
 def _agg_sector(tickers, key):
-    """Retourne (median, mean, min, max) pour une cle numerique."""
+    """Retourne (Médian, mean, min, max) pour une cle numerique."""
     vals = [_safe_float(t.get(key)) for t in tickers]
     vals = [v for v in vals if v is not None]
     if not vals:
@@ -76,7 +76,7 @@ def _agg_sector(tickers, key):
 
 
 # ---------------------------------------------------------------------------
-# Generation XLSX
+# Génération XLSX
 # ---------------------------------------------------------------------------
 def generate_cmp_secteur_xlsx(
     tickers_a: list,
@@ -90,8 +90,8 @@ def generate_cmp_secteur_xlsx(
     Genere un fichier XLSX comparatif sectoriel en memoire.
 
     Structure :
-      - Feuille 1 "SYNTHESE"   : KPIs comparatifs des 2 secteurs
-      - Feuille 2 "AGREGATS"   : mediane / moyenne / min / max par secteur
+      - Feuille 1 "SYNTHÈSE"   : KPIs comparatifs des 2 secteurs
+      - Feuille 2 "AGRÉGATS"   : mediane / moyenne / min / max par secteur
       - Feuille 3 "TOP_A"      : top valeurs du secteur A (score, PE, marge...)
       - Feuille 4 "TOP_B"      : top valeurs du secteur B
       - Feuille 5 "DATA_RAW_A" : toutes les donnees brutes du secteur A
@@ -137,9 +137,9 @@ def generate_cmp_secteur_xlsx(
     thin = Side(border_style="thin", color=GREY_RULE)
     border = Border(left=thin, right=thin, top=thin, bottom=thin)
 
-    # === Feuille 1 : SYNTHESE ===
+    # === Feuille 1 : SYNTHÈSE ===
     ws = wb.active
-    ws.title = "SYNTHESE"
+    ws.title = "SYNTHÈSE"
 
     # Header
     ws.merge_cells("A1:E1")
@@ -154,8 +154,8 @@ def generate_cmp_secteur_xlsx(
     ws["A2"].font = font_sub_title
     ws["A2"].alignment = align_c
 
-    # Ligne en-tete tableau (row 4)
-    headers = ["Indicateur", sector_a, sector_b, "Ecart", "Commentaire"]
+    # Ligne en-tête tableau (row 4)
+    headers = ["Indicateur", sector_a, sector_b, "Écart", "Commentaire"]
     for i, h in enumerate(headers, start=1):
         c = ws.cell(row=4, column=i, value=h)
         c.font = font_header
@@ -165,7 +165,7 @@ def generate_cmp_secteur_xlsx(
 
     # Lignes de metriques
     def _row_metric(lbl, val_a, val_b, fmt="num", commentary=""):
-        """Ajoute une ligne et retourne le dict pour post-traitement."""
+        """Ajouté une ligne et retourne le dict pour post-traitement."""
         fa = _safe_float(val_a)
         fb = _safe_float(val_b)
         if fmt == "pct":
@@ -185,7 +185,7 @@ def generate_cmp_secteur_xlsx(
             sd = f"{delta:+.0f}" if delta is not None else "—"
         return [lbl, sa, sb, sd, commentary]
 
-    # Agregats
+    # Agrégats
     score_a_med, _, _, _ = _agg_sector(tickers_a, "score_global")
     score_b_med, _, _, _ = _agg_sector(tickers_b, "score_global")
     mg_a_med, _, _, _    = _agg_sector(tickers_a, "ebitda_margin")
@@ -206,17 +206,17 @@ def generate_cmp_secteur_xlsx(
     rows_data = [
         _row_metric("Nombre de valeurs", len(tickers_a), len(tickers_b), "num",
                     "Taille de l'echantillon"),
-        _row_metric("Score FinSight median", score_a_med, score_b_med, "num",
-                    "Qualite fondamentale agregee (0-100)"),
-        _row_metric("Marge EBITDA mediane", mg_a_med, mg_b_med, "pct",
-                    "Profitabilite operationnelle"),
-        _row_metric("P/E median", pe_a_med, pe_b_med, "x",
+        _row_metric("Score FinSight Médian", score_a_med, score_b_med, "num",
+                    "Qualité fondamentale agregee (0-100)"),
+        _row_metric("Marge EBITDA Médiane", mg_a_med, mg_b_med, "pct",
+                    "Profitabilite opérationnelle"),
+        _row_metric("P/E Médian", pe_a_med, pe_b_med, "x",
                     "Valorisation relative"),
-        _row_metric("EV/EBITDA median", ev_a_med, ev_b_med, "x",
-                    "Valorisation hors structure financiere"),
-        _row_metric("ROE median", roe_a_med, roe_b_med, "pct",
-                    "Rentabilite des fonds propres"),
-        _row_metric("Croissance revenus mediane", rev_a_med, rev_b_med, "pct",
+        _row_metric("EV/EBITDA Médian", ev_a_med, ev_b_med, "x",
+                    "Valorisation hors structure financière"),
+        _row_metric("ROE Médian", roe_a_med, roe_b_med, "pct",
+                    "Rentabilité des fonds propres"),
+        _row_metric("Croissance revenus Médiane", rev_a_med, rev_b_med, "pct",
                     "Dynamique commerciale"),
     ]
 
@@ -233,19 +233,19 @@ def generate_cmp_secteur_xlsx(
     for col, w in zip("ABCDE", [34, 18, 18, 14, 42]):
         ws.column_dimensions[col].width = w
 
-    # === Feuille 2 : AGREGATS ===
-    ws2 = wb.create_sheet("AGREGATS")
+    # === Feuille 2 : AGRÉGATS ===
+    ws2 = wb.create_sheet("AGRÉGATS")
     ws2.merge_cells("A1:F1")
-    ws2["A1"] = f"Agregats statistiques par secteur"
+    ws2["A1"] = f"Agrégats statistiques par secteur"
     ws2["A1"].font = Font(name="Calibri", size=14, bold=True, color="FF1B3A6B")
     ws2["A1"].alignment = align_c
 
     ws2.merge_cells("A2:F2")
-    ws2["A2"] = f"{sector_a} vs {sector_b}  |  Mediane / Moyenne / Min / Max"
+    ws2["A2"] = f"{sector_a} vs {sector_b}  |  Médiane / Moyenne / Min / Max"
     ws2["A2"].font = font_sub_title
     ws2["A2"].alignment = align_c
 
-    hdr2 = ["Secteur", "Indicateur", "Mediane", "Moyenne", "Min", "Max"]
+    hdr2 = ["Secteur", "Indicateur", "Médiane", "Moyenne", "Min", "Max"]
     for i, h in enumerate(hdr2, start=1):
         c = ws2.cell(row=4, column=i, value=h)
         c.font = font_header
@@ -305,7 +305,7 @@ def generate_cmp_secteur_xlsx(
         ws_top["A1"].font = Font(name="Calibri", size=14, bold=True, color="FF1B3A6B")
         ws_top["A1"].alignment = align_c
 
-        hdr = ["Ticker", "Societe", "Score", "P/E", "EV/EBITDA", "Mg EBITDA", "Reco"]
+        hdr = ["Ticker", "Société", "Score", "P/E", "EV/EBITDA", "Mg EBITDA", "Reco"]
         for i, h in enumerate(hdr, start=1):
             c = ws_top.cell(row=3, column=i, value=h)
             c.font = font_header
@@ -343,17 +343,17 @@ def generate_cmp_secteur_xlsx(
         for col, w in zip("ABCDEFG", [10, 32, 10, 10, 12, 12, 12]):
             ws_top.column_dimensions[col].width = w
 
-    # === Feuille 5 et 6 : DATA_RAW (toutes les donnees brutes) ===
+    # === Feuille 5 et 6 : DATA_RAW (toutes les données brutes) ===
     for idx_sheet, (sector_lbl, tickers) in enumerate(
         [(sector_a, tickers_a), (sector_b, tickers_b)], start=1
     ):
         ws_raw = wb.create_sheet(f"DATA_RAW_{'A' if idx_sheet == 1 else 'B'}")
         ws_raw.merge_cells("A1:H1")
-        ws_raw["A1"] = f"Donnees brutes — {sector_lbl}"
+        ws_raw["A1"] = f"Données brutes — {sector_lbl}"
         ws_raw["A1"].font = Font(name="Calibri", size=12, bold=True, color="FF1B3A6B")
         ws_raw["A1"].alignment = align_c
 
-        hdr_raw = ["Ticker", "Societe", "Score", "PE", "EV/EBITDA",
+        hdr_raw = ["Ticker", "Société", "Score", "PE", "EV/EBITDA",
                    "Marge EBITDA", "ROE", "Croiss. rev."]
         for i, h in enumerate(hdr_raw, start=1):
             c = ws_raw.cell(row=3, column=i, value=h)

@@ -3,7 +3,7 @@
 # outputs/screening_writer.py
 #
 # Charge le template assets/FinSight_IA_Screening_CAC40_v3.xlsx et injecte
-# les donnees aux positions exactes sans modifier le formatage existant.
+# les Données aux positions exactes sans modifier le formatage existant.
 # Fallback from-scratch si le template est absent.
 # Zero LLM. Pure openpyxl.
 # =============================================================================
@@ -153,7 +153,7 @@ def _sector_short(s: str) -> str:
     MAP = {
         # Noms yfinance
         "Consumer Cyclical":      "Consumer Disc.",
-        "Consumer Defensive":     "Consumer Staples",
+        "Consumer Défensive":     "Consumer Staples",
         "Basic Materials":        "Materials",
         "Financial Services":     "Financials",
         "Communication Services": "Comm. Services",
@@ -335,7 +335,7 @@ _SECTOR_SHEET_MAP = {
     "Real Estate":     "REAL ESTATE",
 }
 
-# Ligne ou injecter les tickers (en-tete du tableau ratios)
+# Ligne ou injecter les tickers (en-Tête du tableau ratios)
 # Structure template : ligne merged (label) juste au-dessus, puis ticker row, puis 12 lignes valeurs
 _RATIO_TICKER_ROW = {
     "TECHNOLOGY":     19,   # A18=merged label, A19='Ratio'/tickers, A20..A31=valeurs
@@ -423,7 +423,7 @@ def _inject_donnees_brutes(wb, data: list[dict]) -> None:
         for j, v in enumerate(row_vals, 1):
             _v(ws, r, j, v)
 
-    # Note valeurs negatives (apres la derniere ligne de donnees)
+    # Note valeurs negatives (après la dernière ligne de Données)
     note_r = 3 + min(len(data), 100)
     note_cell = ws.cell(row=note_r + 1, column=1)
     note_cell.value = (
@@ -432,7 +432,7 @@ def _inject_donnees_brutes(wb, data: list[dict]) -> None:
         "\u2014 = donn\u00e9e non disponible."
     )
 
-    log.debug("[inject] DONNEES BRUTES : %d lignes", min(len(data), 100))
+    log.debug("[inject] DONNÉES BRUTES : %d lignes", min(len(data), 100))
 
 
 def _inject_dashboard(wb, data: list[dict], universe_name: str,
@@ -464,7 +464,7 @@ def _inject_dashboard(wb, data: list[dict], universe_name: str,
     _v(ws, 7, 13, f"{best['ticker']} {int(best_sg or 0)}/100")      # M7
     _v(ws, 7, 19, date_str)                                         # S7
 
-    # Top 5 par categorie — colonnes de depart : B=2, H=8, N=14, T=20
+    # Top 5 par catégorie — colonnes de depart : B=2, H=8, N=14, T=20
     top5_cats = [
         ("score_value",    "ev_ebitda",      _fmt_mult,  2),
         ("score_growth",   "revenue_growth", _fmt_pct,   8),
@@ -516,7 +516,7 @@ def _inject_dashboard(wb, data: list[dict], universe_name: str,
         for j, v in enumerate(vals, 2):  # col B = 2
             _v(ws, r, j, v)
 
-    log.debug("[inject] DASHBOARD : Top10 injecte, KPIs mis a jour")
+    log.debug("[inject] DASHBOARD : Top10 injecte, KPIs mis à jour")
 
 
 def _inject_value(wb, data: list[dict]) -> None:
@@ -559,7 +559,7 @@ def _inject_value(wb, data: list[dict]) -> None:
         for j, v in enumerate(vals, 1):
             _v(ws, r, j, v)
 
-    # Medianes — ligne dynamique apres les 15 lignes de donnees + 1 vide
+    # Médianes — ligne dynamique après les 15 lignes de Données + 1 vide
     _med_row = _start + 15 + 2  # +15 data rows + 1 label + 1 values
     med_defs = [
         (2,  "ev_ebitda",    _fmt_mult),
@@ -572,7 +572,7 @@ def _inject_value(wb, data: list[dict]) -> None:
     for col, key, fmt_fn in med_defs:
         med = _med_vals(sorted_data, key)
         _v(ws, _med_row, col, fmt_fn(med) if med is not None else "\u2014")
-    # FCF Yield median
+    # FCF Yield Médian
     fcf_vals = [_fcf_yield(t) for t in sorted_data]
     fcf_meds = [v for v in fcf_vals if v is not None]
     _v(ws, _med_row, 8, _fmt_pct(median(fcf_meds), sign=False) if fcf_meds else "\u2014")
@@ -604,8 +604,8 @@ def _inject_growth(wb, data: list[dict]) -> None:
         # EPS growth depuis earnings_growth si disponible
         _eg = t.get("earnings_growth")
         _eg_str = _fmt_pct(_eg) if _eg is not None else "\u2014"
-        # Revisions analystes
-        _ar = t.get("analyst_revision")
+        # Révisions analystes
+        _ar = t.get("analyst_révision")
         _ar_str = f"{_ar:+.0f}" if _ar is not None and _ar != 0 else "\u2014"
         vals = [
             i + 1,
@@ -668,7 +668,7 @@ def _inject_quality(wb, data: list[dict]) -> None:
         for j, v in enumerate(vals, 1):
             _v(ws, r, j, v)
 
-    # Medianes — ligne dynamique
+    # Médianes — ligne dynamique
     _med_row = _start + 15 + 2
     med_defs = [
         (2,  "altman_z",      _fmt_z),
@@ -726,7 +726,7 @@ def _inject_momentum(wb, data: list[dict]) -> None:
         for j, v in enumerate(vals, 1):
             _v(ws, r, j, v)
 
-    # Medianes — ligne dynamique
+    # Médianes — ligne dynamique
     _med_row = _start + 15 + 2
     med_mom = _med_vals(sorted_data, "momentum_52w")
     _v(ws, _med_row, 2, _fmt_pct(med_mom) if med_mom is not None else "\u2014")
@@ -835,7 +835,7 @@ def _inject_sector_sheets(wb, data: list[dict]) -> None:
             continue
         tlist = sectors.get(sec_name, [])
         if not tlist:
-            log.debug("[inject] %s : aucune societe, feuille ignoree", sheet_name)
+            log.debug("[inject] %s : aucune société, feuille ignoree", sheet_name)
             continue
 
         ws = wb[sheet_name]
@@ -901,7 +901,7 @@ def _inject_sector_sheets(wb, data: list[dict]) -> None:
         # Tickers en B..Bn
         for j, t in enumerate(sorted_tlist, 2):
             _v(ws, ticker_row, j, t.get("ticker", ""))
-        _v(ws, ticker_row, med_col, "Mediane")
+        _v(ws, ticker_row, med_col, "Médiane")
 
         # 12 lignes ratios a partir de ticker_row + 1
         for ratio_idx, (_, ratio_key, fmt_fn) in enumerate(_RATIO_ROWS):
@@ -918,7 +918,7 @@ def _inject_sector_sheets(wb, data: list[dict]) -> None:
             med = median(vals_raw) if vals_raw else None
             _v(ws, r, med_col, fmt_fn(med) if med is not None else "\u2014")
 
-        log.debug("[inject] %s : %d societes, tickers ligne %d",
+        log.debug("[inject] %s : %d sociétés, tickers ligne %d",
                   sheet_name, n, ticker_row)
 
 
@@ -927,7 +927,7 @@ def _inject_sector_sheets(wb, data: list[dict]) -> None:
 # ===========================================================================
 
 def _inject_date_dashboard(wb, date_str: str) -> None:
-    """Met a jour uniquement la date dans DASHBOARD (R3C17). Tout le reste = formules."""
+    """Met à jour uniquement la date dans DASHBOARD (R3C17). Tout le reste = formules."""
     ws_name = "DASHBOARD"
     if ws_name not in wb.sheetnames:
         return
@@ -1411,7 +1411,7 @@ def _build_par_secteur(wb: Workbook, data: list[dict], date_str: str):
 
 
 def _build_donnees_brutes(wb: Workbook, data: list[dict], date_str: str):
-    ws = wb.create_sheet("DONNEES BRUTES")
+    ws = wb.create_sheet("DONNÉES BRUTES")
     ccy = _dominant_ccy(data)
 
     HEADERS = [
@@ -1522,7 +1522,7 @@ class ScreeningWriter:
 
         date_str = date.today().strftime("%d/%m/%Y")
 
-        # Resolution du template — cherche dans plusieurs racines possibles
+        # Résolution du template — cherche dans plusieurs racines possibles
         # (CWD peut differ de __file__ sous Streamlit)
         if template_path is not None:
             tpl = Path(template_path).resolve()
@@ -1550,12 +1550,12 @@ class ScreeningWriter:
             wb = load_workbook(str(tpl), keep_links=False, data_only=False)
 
             # v4 : DASHBOARD/VALUE/GROWTH/QUALITY/MOMENTUM sont formule-driven
-            # (XLOOKUP sur DONNEES BRUTES) — on injecte les donnees brutes + TECHNOLOGY
+            # (XLOOKUP sur DONNÉES BRUTES) — on injecte les Données brutes + TECHNOLOGY
             # + on injecte directement VALUE pour garantir FCF Yield visible
             _inject_donnees_brutes(wb, tickers_data)
             _inject_technology_v4(wb, tickers_data)
             _inject_date_dashboard(wb, date_str)
-            # Injection directe VALUE — evite dependance XLOOKUP pour FCF Yield
+            # Injection directe VALUE — évite dépendance XLOOKUP pour FCF Yield
             _inject_value(wb, tickers_data)
 
             # Compatibilite : si le template est encore l'ancien (v3), utiliser
@@ -1583,6 +1583,6 @@ class ScreeningWriter:
             _build_donnees_brutes(wb, tickers_data, date_str)
 
         wb.save(str(out))
-        log.info("[ScreeningWriter] %s genere (%d tickers)",
+        log.info("[ScreeningWriter] %s Généré (%d tickers)",
                  out.name, len(tickers_data))
         return str(out)

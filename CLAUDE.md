@@ -41,7 +41,27 @@
 ### Règles code
 - **Toujours committer ET pusher** après chaque modification (app déployée sur Streamlit Cloud)
 - Ne jamais écraser les cellules formule dans excel_writer.py (double garde : FORMULA_CELLS + startswith("="))
-- Terminal Windows cp1252 — pas de caractères Unicode dans les print() des scripts
+- Terminal Windows cp1252 — pas de caractères Unicode dans les print() des scripts (uniquement print() shell, voir règle ci-dessous)
+
+### ⚠️ RÈGLE TYPOGRAPHIE FRANÇAISE — NON NÉGOCIABLE
+**Tous les textes destinés à être lus par l'utilisateur DOIVENT être en français correct avec accents.**
+
+Cela inclut :
+- Tout texte hardcodé dans les writers `outputs/*.py` (PDF, PPTX, Excel, briefing)
+- Tout label/titre/section/disclaimer dans `app.py` (interface Streamlit)
+- Tous les prompts LLM (qui doivent eux-mêmes EXIGER les accents en sortie)
+- Tous les fallback/template strings affichés à l'utilisateur
+
+**Niveau exigé** : accents complets (é è ê à ù ç î ô), cédilles, apostrophes droites `'`, guillemets français `« »`. Pas d'espaces insécables fines (U+202F).
+
+**Seule exception** : les `print()` shell exécutés par les scripts Windows (terminal cp1252). Pour ces cas uniquement, du texte sans accent est toléré (mais pas obligatoire si UTF-8 fonctionne).
+
+**Vérification automatique** : `python tools/restore_accents.py` parcourt tous les writers et restaure automatiquement les accents oubliés. Le dictionnaire est extensible. À lancer après toute modification de strings dans les writers.
+
+**Diagnostic** : si un nouveau cas de "français cassé" apparaît, c'est typiquement parce que :
+1. Un nouveau prompt LLM ne contient pas la règle "écris en français correct avec accents" → ajouter
+2. Une nouvelle string hardcodée a été tapée sans accent par habitude → faire `restore_accents.py`
+3. Un mot rare manque au dictionnaire → l'ajouter dans `tools/restore_accents.py`
 
 ## Commandes clés
 ```bash

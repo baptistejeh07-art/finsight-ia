@@ -86,7 +86,7 @@ def generate_briefing(
     # Synthèse
     # ------------------------------------------------------------------
     if synthesis and synthesis.summary:
-        A(f"\n  SYNTHESE :")
+        A(f"\n  SYNTHÈSE :")
         # Wrap à 70 chars
         words = synthesis.summary.split()
         line, buf = "  ", []
@@ -137,7 +137,7 @@ def generate_briefing(
     # ------------------------------------------------------------------
     # Sentiment marché
     # ------------------------------------------------------------------
-    A(f"\n  SENTIMENT MARCHE :")
+    A(f"\n  SENTIMENT MARCHÉ :")
     if sentiment:
         A(f"    {sentiment.label} | Score : {sentiment.score:+.3f} | "
           f"Confiance : {sentiment.confidence:.0%} | "
@@ -176,13 +176,13 @@ def generate_briefing(
     # ------------------------------------------------------------------
     if devil:
         delta_str = f"{devil.conviction_delta:+.2f}"
-        solidity  = ("These fragile" if devil.conviction_delta < -0.2
-                     else "These robuste" if devil.conviction_delta > 0.2
-                     else "These moderement solide")
+        solidity  = ("Thèse fragile" if devil.conviction_delta < -0.2
+                     else "Thèse robuste" if devil.conviction_delta > 0.2
+                     else "Thèse modérément solide")
         A(f"\n  AVOCAT DU DIABLE : {devil.original_reco} → {devil.counter_reco}")
         A(f"  Delta conviction : {delta_str}  ({solidity})")
         if devil.counter_thesis:
-            A(f"  Contre-these : {devil.counter_thesis[:180]}")
+            A(f"  Contre-Thèse : {devil.counter_thesis[:180]}")
         for a in devil.key_assumptions[:2]:
             A(f"    ? {a[:100]}")
 

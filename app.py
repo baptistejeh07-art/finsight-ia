@@ -240,7 +240,7 @@ div[data-testid="stButton"] > button:not([kind="primary"]):not([data-testid="stB
 </style>
 """, unsafe_allow_html=True)
 
-# JS — supprime le texte "board_" (artefact BaseBUI) des expanders
+# JS — supprimé le texte "board_" (artefact BaseBUI) des expanders
 import streamlit.components.v1 as _components
 _sb_class = "sb-open" if st.session_state.get("sidebar_open", True) else "sb-closed"
 _components.html(f"""
@@ -363,7 +363,7 @@ _components.html("""
     },
 
     // ── Etat applicatif (logs console — remplace get_page_text) ───────────
-    // Alt+R : Rapport d'etat complet (page courante, ticker, loading, sections, downloads)
+    // Alt+R : Rapport d'État complet (page courante, ticker, loading, sections, downloads)
     'r': function() {
       var spinner = doc.querySelector('[data-testid="stSpinner"], .stSpinner, [class*="spinner"]');
       var isLoading = !!spinner && spinner.offsetParent !== null;
@@ -385,7 +385,7 @@ _components.html("""
       // Detection page
       var page = 'inconnu';
       if (isLoading) page = 'ANALYSE_EN_COURS';
-      else if (dls.length > 0) page = 'RESULTATS';
+      else if (dls.length > 0) page = 'RÉSULTATS';
       else if (ticker !== '' || inputs.length > 0) page = 'ACCUEIL';
       console.log('[FinSight STATE]', JSON.stringify({
         page: page,
@@ -445,7 +445,7 @@ _components.html("""
       console.log('  DOWNLOADS   : Alt+P=PDF  Alt+T=PPTX  Alt+E=Excel  Alt+O=Liste DL');
       console.log('  SCROLL      : Alt+D=Bas  Alt+U=Haut  Alt+B=Bottom  Alt+G=Top');
       console.log('  INPUT       : Alt+I=Focus champ texte');
-      console.log('  ETAT        : Alt+R=Rapport complet  Alt+W=Loading?  Alt+N=Sections  Alt+F=Erreurs');
+      console.log('  ÉTAT        : Alt+R=Rapport complet  Alt+W=Loading?  Alt+N=Sections  Alt+F=Erreurs');
       console.log('  AIDE        : Alt+K=Cette aide');
     }
   };
@@ -507,9 +507,9 @@ if "scmp_pptx_bytes"    not in st.session_state: st.session_state.scmp_pptx_byte
 if "scmp_pdf_bytes"     not in st.session_state: st.session_state.scmp_pdf_bytes     = None
 if "scmp_xlsx_bytes"    not in st.session_state: st.session_state.scmp_xlsx_bytes    = None
 
-# Page post-analyse comparative : on garde l'etat de l'analyse initiale
+# Page post-analyse comparative : on garde l'État de l'analyse initiale
 # pour pouvoir y revenir via le bouton "Retour a l'analyse ..." (sidebar).
-# cmp_kind : "societe" | "secteur" | "indice"
+# cmp_kind : "société" | "secteur" | "indice"
 if "cmp_kind"                  not in st.session_state: st.session_state.cmp_kind                  = None
 if "previous_analysis_type"    not in st.session_state: st.session_state.previous_analysis_type    = None  # "results" | "screening_results"
 if "previous_analysis_results" not in st.session_state: st.session_state.previous_analysis_results = None
@@ -538,7 +538,7 @@ _UNIVERSE_DISPLAY = {
     "FINANCIALS": "Financial Services", "FINANCE": "Financial Services",
     "FINANCIAL": "Financial Services", "FINANCIALSERVICES": "Financial Services",
     "CONSUMER": "Consumer Cyclical", "CONSUMERCYCLICAL": "Consumer Cyclical",
-    "CONSUMERDEFENSIVE": "Consumer Defensive",
+    "CONSUMERDEFENSIVE": "Consumer Défensive",
     "ENERGY": "Energy", "INDUSTRIALS": "Industrials",
     "MATERIALS": "Basic Materials", "BASICMATERIALS": "Basic Materials",
     "REALESTATE": "Real Estate", "UTILITIES": "Utilities",
@@ -551,7 +551,7 @@ _SECTOR_YFINANCE = {
     "FINANCIALS": "Financial Services", "FINANCE": "Financial Services",
     "FINANCIAL": "Financial Services", "FINANCIALSERVICES": "Financial Services",
     "CONSUMER": "Consumer Cyclical", "CONSUMERCYCLICAL": "Consumer Cyclical",
-    "CONSUMERDEFENSIVE": "Consumer Defensive",
+    "CONSUMERDEFENSIVE": "Consumer Défensive",
     "ENERGY": "Energy", "INDUSTRIALS": "Industrials",
     "MATERIALS": "Basic Materials", "BASICMATERIALS": "Basic Materials",
     "REALESTATE": "Real Estate", "UTILITIES": "Utilities",
@@ -561,7 +561,7 @@ _SECTOR_YFINANCE = {
 
 
 def _resolve_input_llm(name: str) -> dict | None:
-    """Fallback LLM : classe l'input en societe/secteur/indice et resout le ticker.
+    """Fallback LLM : classe l'input en société/secteur/indice et resout le ticker.
     Retourne {'type': 'ticker'|'sector'|'index', 'value': str} ou None si echec."""
     import logging as _log, json as _json, re as _re
     try:
@@ -575,7 +575,7 @@ def _resolve_input_llm(name: str) -> dict | None:
             prompt=(
                 f"L'utilisateur a saisi : \"{name}\"\n"
                 f"Classe cet input et reponds en JSON strict :\n"
-                f"- Si c'est une societe cotee : {{\"type\":\"ticker\",\"value\":\"TICKER_YFINANCE\"}}\n"
+                f"- Si c'est une société Cotée : {{\"type\":\"ticker\",\"value\":\"TICKER_YFINANCE\"}}\n"
                 f"  Ex: stelantis -> {{\"type\":\"ticker\",\"value\":\"STLAM.MI\"}}\n"
                 f"  Ex: apple -> {{\"type\":\"ticker\",\"value\":\"AAPL\"}}\n"
                 f"- Si c'est un secteur boursier : {{\"type\":\"sector\",\"value\":\"Technology\"}}\n"
@@ -590,12 +590,12 @@ def _resolve_input_llm(name: str) -> dict | None:
             if m:
                 return _json.loads(m.group(0))
     except Exception as e:
-        _log.warning("[resolve_llm] LLM resolution failed for '%s': %s", name, e)
+        _log.warning("[resolve_llm] LLM résolution failed for '%s': %s", name, e)
     return None
 
 
 def _resolve_ticker_yahoo(name: str) -> str | None:
-    """Resout un nom de societe en ticker.
+    """Resout un nom de société en ticker.
     Ordre : mapping manuel → Yahoo Finance Search → LLM fallback.
     Retourne le ticker ou None si rien ne fonctionne."""
     import logging as _log
@@ -604,7 +604,7 @@ def _resolve_ticker_yahoo(name: str) -> str | None:
         "stelantis": "STLAM.MI", "stellantis": "STLAM.MI",
         "lvmh": "MC.PA", "airbus": "AIR.PA", "totalenergies": "TTE.PA",
         "total": "TTE.PA", "bnp": "BNP.PA", "bnp paribas": "BNP.PA",
-        "societe generale": "GLE.PA", "axa": "CS.PA",
+        "société générale": "GLE.PA", "axa": "CS.PA",
         "hermes": "RMS.PA", "kering": "KER.PA",
         "renault": "RNO.PA", "peugeot": "STLAM.MI",
         "volkswagen": "VOW3.DE", "mercedes": "MBG.DE", "bmw": "BMW.DE",
@@ -731,7 +731,7 @@ def _fetch_sector_tickers(sector_key: str) -> list:
             _sys.path.insert(0, _root)
         from cli_analyze import _SECTOR_TICKERS as _ST
         sector_display = _SECTOR_YFINANCE.get(sector_key, sector_key.title())
-        # Priorite S&P 500, sinon premier univers trouvé (normalise sans espaces)
+        # Priorite S&P 500, sinon premier univers trouvé (Normalisé sans espaces)
         _norm = sector_display.lower().replace(" ", "")
         for (s, u), tks in _ST.items():
             if s.lower().replace(" ", "") == _norm and u == "S&P 500":
@@ -740,7 +740,7 @@ def _fetch_sector_tickers(sector_key: str) -> list:
             for (s, u), tks in _ST.items():
                 if s.lower().replace(" ", "") == _norm and u == universe_pref:
                     return list(tks)
-        # Dernier recours : n'importe quelle cle avec ce secteur (normalise sans espaces)
+        # Dernier recours : n'importe quelle cle avec ce secteur (Normalisé sans espaces)
         _norm = sector_display.lower().replace(" ", "")
         for (s, u), tks in _ST.items():
             if s.lower().replace(" ", "") == _norm:
@@ -759,7 +759,7 @@ def _fetch_sector_tickers(sector_key: str) -> list:
         llm = LLMProvider(provider="mistral")
         raw = llm.generate(
             prompt=(
-                f"Donne-moi exactement 8 tickers yfinance valides (S&P 500 de preference) "
+                f"Donne-moi exactement 8 tickers yfinance valides (S&P 500 de préférence) "
                 f"pour le secteur '{sector_label}'. "
                 f"Reponds UNIQUEMENT avec les tickers separes par des virgules, rien d'autre. "
                 f"Exemple : AAPL,MSFT,NVDA,META,GOOGL,AMD,AVGO,ORCL"
@@ -870,7 +870,7 @@ def render_sidebar(results) -> None:
 
         # (Aperçu Claude retiré — section interne non utilisée)
 
-        # Contexte page comparative (societe / secteur / indice)
+        # Contexte page comparative (société / secteur / indice)
         _in_cmp_page = (st.session_state.get("stage") == "comparison_results")
         _cmp_kind    = st.session_state.get("cmp_kind")
 
@@ -928,7 +928,7 @@ def render_sidebar(results) -> None:
 
         # ── Contexte PAGE COMPARATIVE : afficher UNIQUEMENT les livrables comparatifs ──
         if _in_cmp_page:
-            if _cmp_kind == "societe":
+            if _cmp_kind == "société":
                 _tkr_a_cmp = st.session_state.get("previous_analysis_label", "A")
                 _tkr_b_cmp = st.session_state.get("cmp_ticker_b", "B")
                 _cmp_pdf = st.session_state.get("cmp_pdf_bytes")
@@ -946,7 +946,7 @@ def render_sidebar(results) -> None:
                         f"Pitchbook {_tkr_a_cmp} vs {_tkr_b_cmp} \u2193 .pptx",
                         _cmp_pptx,
                         file_name=f"{_tkr_a_cmp}_vs_{_tkr_b_cmp}_comparison.pptx",
-                        mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                        mime="application/vnd.openxmlformats-officedocument.presentationml.présentation",
                         use_container_width=True, key="sb_cmppage_pptx",
                     )
                 _cmp_xlsx = st.session_state.get("cmp_bytes")
@@ -977,7 +977,7 @@ def render_sidebar(results) -> None:
                         f"Pitchbook {_sa} vs {_sb} \u2193 .pptx",
                         _sp_pptx,
                         file_name=f"{_slug}.pptx",
-                        mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                        mime="application/vnd.openxmlformats-officedocument.presentationml.présentation",
                         use_container_width=True, key="sb_scmppage_pptx",
                     )
                 _sp_xlsx = st.session_state.get("scmp_xlsx_bytes")
@@ -1010,7 +1010,7 @@ def render_sidebar(results) -> None:
                         f"Pitchbook {_na} vs {_nb} \u2193 .pptx",
                         _i_pptx,
                         file_name=f"{_slug}.pptx",
-                        mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                        mime="application/vnd.openxmlformats-officedocument.presentationml.présentation",
                         use_container_width=True, key="sb_icmppage_pptx",
                     )
                 _i_xlsx = st.session_state.get("icmp_xlsx_bytes")
@@ -1023,9 +1023,9 @@ def render_sidebar(results) -> None:
                         use_container_width=True, key="sb_icmppage_xlsx",
                     )
             st.markdown('</div>', unsafe_allow_html=True)
-            # Sources financieres + veille quand meme
+            # Sources financières + veille quand meme
             st.markdown('<div class="sb-section">', unsafe_allow_html=True)
-            st.markdown('<span class="sb-label">Sources financieres</span>', unsafe_allow_html=True)
+            st.markdown('<span class="sb-label">Sources financières</span>', unsafe_allow_html=True)
             for name, ok in [("Yahoo Finance", True), ("Financial Modeling Prep", True),
                               ("Finnhub", True), ("EODHD", True)]:
                 badge = f'<span class="src-ok">Actif</span>' if ok else f'<span class="src-warn">Inactif</span>'
@@ -1051,7 +1051,7 @@ def render_sidebar(results) -> None:
             if pptx_data:
                 st.download_button(f"Pitchbook {_tkr_label} \u2193 .pptx", pptx_data,
                     file_name=f"{ticker_slug}_pitchbook.pptx",
-                    mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                    mime="application/vnd.openxmlformats-officedocument.presentationml.présentation",
                     use_container_width=True)
 
             xlsx_data = results.get("excel_bytes")
@@ -1101,7 +1101,7 @@ def render_sidebar(results) -> None:
                         f"Pitchbook {_tkr_label} vs {_cmp_tkr_b} \u2193 .pptx",
                         _cmp_pptx,
                         file_name=f"{ticker_slug}_vs_{_cmp_tkr_b}_comparison.pptx",
-                        mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                        mime="application/vnd.openxmlformats-officedocument.presentationml.présentation",
                         use_container_width=True,
                         key="sb_cmp_pptx",
                     )
@@ -1158,7 +1158,7 @@ def render_sidebar(results) -> None:
                     _pptx_label,
                     scr["pptx_bytes"],
                     file_name=f"pitchbook_{_pptx_slug}.pptx",
-                    mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                    mime="application/vnd.openxmlformats-officedocument.presentationml.présentation",
                     use_container_width=True,
                 )
             # ── Comparatif sectoriel (si disponible) ──
@@ -1178,7 +1178,7 @@ def render_sidebar(results) -> None:
                         f"Pitchbook {_scmp_a} vs {_scmp_b} \u2193 .pptx",
                         _scmp_pptx,
                         file_name=f"cmp_secteur_{_scmp_a}_vs_{_scmp_b}.pptx",
-                        mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                        mime="application/vnd.openxmlformats-officedocument.presentationml.présentation",
                         use_container_width=True,
                         key="sb_scmp_pptx",
                     )
@@ -1210,7 +1210,7 @@ def render_sidebar(results) -> None:
                         f"Pitchbook indice comparatif \u2193 .pptx",
                         _icmp_pptx,
                         file_name=f"cmp_indice_{_icmp_b_label.replace(' ', '_')}.pptx",
-                        mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                        mime="application/vnd.openxmlformats-officedocument.presentationml.présentation",
                         use_container_width=True,
                         key="sb_icmp_pptx",
                     )
@@ -1305,7 +1305,7 @@ def render_sidebar(results) -> None:
                 st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
 
-        # Lancement effectif (hors bouton pour eviter re-render)
+        # Lancement effectif (hors bouton pour éviter re-render)
         if st.session_state.get("veille_running"):
             with st.spinner("Veille en cours — collecte + redaction IA..."):
                 try:
@@ -1320,7 +1320,7 @@ def render_sidebar(results) -> None:
                         st.session_state["veille_last_pdf"] = str(_pdf)
                     st.session_state["veille_result"] = _vr
                     st.session_state.stage = "veille"
-                    st.success("Veille generee.")
+                    st.success("Veille Générée.")
                 except Exception as _e:
                     st.error(f"Erreur veille : {_e}")
                 finally:
@@ -1371,7 +1371,7 @@ def render_sidebar(results) -> None:
             )
         st.markdown('</div>', unsafe_allow_html=True)
 
-        # Diagnostic API — toggle manuel (evite l'artefact "board_" de st.expander)
+        # Diagnostic API — toggle manuel (évite l'artefact "board_" de st.expander)
         if "diag_open" not in st.session_state:
             st.session_state["diag_open"] = False
         _diag_label = "🔧 Diagnostic API ▲" if st.session_state["diag_open"] else "🔧 Diagnostic API ▼"
@@ -1466,7 +1466,7 @@ def render_veille() -> None:
     date_fr  = vr.get("date_fr", "")
     pdf_path = vr.get("pdf_path")
 
-    # En-tete
+    # En-Tête
     st.markdown(
         f'<div style="padding:18px 0 4px 0">'
         f'<span style="font-size:11px;letter-spacing:2px;color:#8898AA;text-transform:uppercase">'
@@ -1506,7 +1506,7 @@ def render_veille() -> None:
     st.markdown("---")
     st.markdown(
         '<div style="font-size:11px;color:#8898AA">'
-        'FinSight IA v1.2 — Veille generee par IA. Ne constitue pas un conseil en investissement.'
+        'FinSight IA v1.2 — Veille Générée par IA. Ne constitue pas un conseil en investissement.'
         '</div>',
         unsafe_allow_html=True,
     )
@@ -1562,8 +1562,8 @@ def render_home() -> None:
 
         target = clicked or (ticker_input if go and ticker_input else None)
         if target:
-            # Resolution : si l'input n'est pas un secteur/indice connu et ressemble
-            # a un nom de societe (minuscules ou espaces), tenter Yahoo Finance Search
+            # Résolution : si l'input n'est pas un secteur/indice connu et ressemble
+            # a un nom de société (minuscules ou espaces), tenter Yahoo Finance Search
             _q_norm = target.strip().upper().replace(" ", "").replace("-", "").replace("&", "")
             _raw = target.strip()
             _is_name = (
@@ -1574,18 +1574,18 @@ def render_home() -> None:
             if _is_name:
                 _resolved = _resolve_ticker_yahoo(_raw)
                 if _resolved:
-                    st.toast(f"Ticker resolu : {_raw} → {_resolved}", icon="🔍")
+                    st.toast(f"Ticker résolu : {_raw} → {_resolved}", icon="🔍")
                     target = _resolved
                 else:
                     # Yahoo + mapping ont echoue : tenter LLM pour classifier l'intention
                     _llm_res = _resolve_input_llm(_raw)
                     if _llm_res and _llm_res.get("type") == "ticker" and _llm_res.get("value"):
                         target = _llm_res["value"]
-                        st.toast(f"Ticker resolu via IA : {_raw} → {target}", icon="🤖")
+                        st.toast(f"Ticker résolu via IA : {_raw} → {target}", icon="🤖")
                     elif _llm_res and _llm_res.get("type") in ("sector", "index") and _llm_res.get("value"):
                         # Le LLM a identifie un secteur ou indice — laisser detect_input_type traiter
                         target = _llm_res["value"]
-                        st.toast(f"Interprete comme {_llm_res['type']} : {target}", icon="🤖")
+                        st.toast(f"Interprète comme {_llm_res['type']} : {target}", icon="🤖")
                     else:
                         st.error(
                             f"**Ticker non reconnu : \"{_raw}\"**  \n"
@@ -1597,7 +1597,7 @@ def render_home() -> None:
             if input_type == "analyse_individuelle":
                 st.session_state.ticker = target.upper()
                 st.session_state.stage  = "running"
-                # Reset comparaison precedente pour eviter affichage stale
+                # Reset comparaison precedente pour éviter affichage stale
                 st.session_state.cmp_stage      = None
                 st.session_state.cmp_bytes      = None
                 st.session_state.cmp_pptx_bytes = None
@@ -1609,13 +1609,13 @@ def render_home() -> None:
                 u_key = target.upper().replace("-", "").replace(" ", "").replace("&", "")
                 st.session_state.screening_universe = u_key
                 st.session_state.stage = "screening_running"
-                # Reset resultats societe precedents + comparaison indice precedente
+                # Reset résultats société precedents + comparaison indice precedente
                 st.session_state.results       = None
                 st.session_state.icmp_stage    = None
                 st.session_state.icmp_pptx_bytes = None
                 st.session_state.icmp_pdf_bytes  = None
                 st.session_state.icmp_xlsx_bytes = None
-                # Reset comparaison sectorielle precedente pour eviter affichage stale
+                # Reset comparaison sectorielle precedente pour éviter affichage stale
                 st.session_state.scmp_stage      = None
                 st.session_state.scmp_sector_b   = None
                 st.session_state.scmp_pptx_bytes = None
@@ -1701,7 +1701,7 @@ def render_running() -> None:
         final_state: dict = {}
         try:
             if _cache_key in _state_cache:
-                # Cache hit : reutilise l'etat complet
+                # Cache hit : reutilise l'État complet
                 final_state = _state_cache[_cache_key]
                 for _label_pct in (0.20, 0.45, 0.70, 0.95):
                     step(_label_pct, "Recuperation depuis le cache...")
@@ -1814,7 +1814,7 @@ def _gen_catalyseurs(secteurs_list, signal_global, avg_score):
             _desc_cat1 = (
                 f"Score composite {best_mom[2]}/100 — positionnement sectoriel favorable. "
                 "Confirmation de la tendance attendue sur les prochaines publications BPA NTM. "
-                "Secteur le mieux place pour capter un re-rating si le cycle s'accelere."
+                "Secteur le mieux place pour capter un re-rating si le cycle s'accélère."
             )
         else:
             _desc_cat1 = (
@@ -1830,58 +1830,58 @@ def _gen_catalyseurs(secteurs_list, signal_global, avg_score):
     pts_to_surp = max(1, 60 - avg_score)
     if signal_global == "Surpond\xe9rer":
         cats.append(("Expansion des marges",
-            f"Score composite {avg_score}/100 — pricing power et levier operationnel "
+            f"Score composite {avg_score}/100 — pricing power et levier Opérationnel "
             "permettent une expansion EBITDA. Re-rating multiple possible.",
             "6-12 mois"))
     elif signal_global == "Neutre":
-        cats.append(("Passage en Surponderer",
-            f"Score a {pts_to_surp} points du seuil Surponderer (60/100). "
-            "Surprise BPA positive ou confirmation acceleration du cycle suffisante.",
+        cats.append(("Passage en Surpondérer",
+            f"Score a {pts_to_surp} points du seuil Surpondérer (60/100). "
+            "Surprise BPA positive ou confirmation accélération du cycle suffisante.",
             "6-12 mois"))
     else:
         cats.append(("Stabilisation des estimations",
-            "Arret des revisions BPA baissiers — signal de retournement sur les "
+            "Arret des révisions BPA baissiers — signal de retournement sur les "
             "secteurs les plus deverses de l'univers.",
             "9-15 mois"))
     # Cat 3 : macro standard adapté au signal
     if avg_score >= 55:
-        cats.append(("Conditions financieres accommodantes",
-            "Assouplissement du credit et reduction de la prime de risque — "
-            "soutien aux multiples des secteurs a duration elevee.",
+        cats.append(("Conditions financières accommodantes",
+            "Assouplissement du crédit et réduction de la prime de risque — "
+            "soutien aux multiples des secteurs a duration élevée.",
             "12-18 mois"))
     else:
         cats.append(("Pivot des banques centrales",
             "Baisse des taux directeurs — re-rating des secteurs croissance "
-            "et reduction de la pression sur les bilans endettes.",
+            "et réduction de la pression sur les bilans endettes.",
             "12-24 mois"))
     return cats[:3]
 
 
 def _gen_risques(secteurs_list, signal_global, avg_score):
     """Génère 3 risques macro avec probabilités dérivées du score réel."""
-    # Probabilites derivees du score (plus le score est bas, plus le risque de recession est eleve)
+    # Probabilites derivees du score (plus le score est bas, plus le risque de récession est élevé)
     p_rec  = 40 if avg_score < 45 else (30 if avg_score < 55 else 20)
     p_inf  = 45 if avg_score < 50 else 35
     p_geo  = 25
     pts_to_sous = max(1, avg_score - 40)
     # Secteurs sensibles aux taux dans l'univers
     rate_secs = [s[0] for s in secteurs_list if s[0] in ("Real Estate","Utilities","Consumer Discretionary")]
-    rate_note = (f"Secteurs {', '.join(rate_secs[:2])} tres exposes"
+    rate_note = (f"Secteurs {', '.join(rate_secs[:2])} très exposes"
                  if rate_secs else "Compression des multiples de valorisation")
     return [
-        ("Recession / ralentissement PIB",
-         f"Contraction économique — révision baissière BPA estimee a "
+        ("Récession / ralentissement PIB",
+         f"Contraction économique — révision baissière BPA Estimée a "
          f"{5 + max(0, int((50-avg_score)*0.3))}-15%. Score composite "
          f"passerait sous 40 ({pts_to_sous} pts de marge actuelle).",
-         f"{p_rec}%", "Eleve"),
+         f"{p_rec}%", "Élevé"),
         ("Inflation persistante / hausse taux",
          f"Maintien des taux longs — {rate_note}. "
-         "Compression des multiples des actifs a duration elevee.",
+         "Compression des multiples des actifs a duration élevée.",
          f"{p_inf}%", "Modéré"),
-        ("Choc geopolitique / matieres premieres",
+        ("Choc géopolitique / matières premières",
          "Disruption des chaines d'approvisionnement et/ou hausse brutale "
-         "du prix des matieres premieres — impact direct sur les marges.",
-         f"{p_geo}%", "Eleve"),
+         "du prix des matières premières — impact direct sur les marges.",
+         f"{p_geo}%", "Élevé"),
     ]
 
 
@@ -1890,23 +1890,23 @@ def _gen_scenarios(signal_global, avg_score):
     pts_to_surp = max(1, 60 - avg_score)
     pts_to_sous = max(1, avg_score - 40)
     if signal_global == "Surpond\xe9rer":
-        bull = f"Maintien score > 60 sur 3 mois + BPA NTM > +8% YoY + conditions financieres stables"
+        bull = f"Maintien score > 60 sur 3 mois + BPA NTM > +8% YoY + conditions financières stables"
         bear = f"Score < 50 sur 2 mois consecutifs + contraction macro confirmee"
     elif signal_global == "Neutre":
         bull = (f"Score > 60 ({pts_to_surp} pts manquants) + surprise BPA Q2 > +5% "
                 f"+ CPI < 2,5% sur 2M consecutifs")
-        bear = (f"Score < 40 ({pts_to_sous} pts de marge) via recession technique "
-                f"(2T PIB < 0%) ou choc geopolitique majeur")
+        bear = (f"Score < 40 ({pts_to_sous} pts de marge) via récession technique "
+                f"(2T PIB < 0%) ou choc géopolitique majeur")
     else:
         bull = f"Score > 50 sur 2M + reversal technique + stabilisation des flux"
-        bear = f"Score < 30 — degradation acceleree BPA + deterioration bilans sectoriels"
+        bear = f"Score < 30 — degradation acceleree BPA + détérioration bilans sectoriels"
     return [
-        ("Bull case", bull, "Surponderer", "3-6 mois"),
-        ("Bear case", bear, "Sous-ponderer", "6-12 mois"),
+        ("Bull case", bull, "Surpondérer", "3-6 mois"),
+        ("Bear case", bear, "Sous-pondérer", "6-12 mois"),
         ("Stagflation",
          f"CPI > 3,5% + PIB < 1% — compression multiple "
          f"{5 + max(0, int(avg_score * 0.05)):.0f}-15% attendue",
-         "Sous-ponderer selectif", "6-9 mois"),
+         "Sous-pondérer selectif", "6-9 mois"),
     ]
 
 
@@ -1989,14 +1989,14 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
             return None
         mgs  = [m for m in (_get_margin(x) for x in items) if m is not None]
         mg   = round(_med(mgs), 1) if mgs else 0.0
-        # Momentum : deja en % dans compute_screening — pas de x100
+        # Momentum : déjà en % dans compute_screening — pas de x100
         moms = [x["momentum_52w"] for x in items
                 if x.get("momentum_52w") is not None
                 and isinstance(x["momentum_52w"], (int, float))
                 and not _math.isnan(float(x["momentum_52w"]))]
         mom_pct = round(_med(moms), 1) if moms else 0.0
         mom_str = f"+{mom_pct:.1f}%" if mom_pct >= 0 else f"{mom_pct:.1f}%"
-        # Revenue growth : deja en % dans compute_screening — pas de x100
+        # Revenue growth : déjà en % dans compute_screening — pas de x100
         revg = [x.get("revenue_growth") for x in items if x.get("revenue_growth") is not None]
         croi_pct = round(_med(revg), 1) if revg else 0.0
         croi_str = f"+{croi_pct:.1f}%" if croi_pct >= 0 else f"{croi_pct:.1f}%"
@@ -2014,11 +2014,11 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
                      else ("Sous-pond\xe9rer" if avg_score < 40 else "Neutre"))
     conviction = min(95, max(50, int(avg_score)))
 
-    # ── Top 3 secteurs — Surponderer en priorite, puis meilleurs Neutre ────
+    # ── Top 3 secteurs — Surpondérer en priorite, puis meilleurs Neutre ────
     _SIG_SURP = "Surpond\xe9rer"
     surp_secs   = [s for s in secteurs_list if s[3] == _SIG_SURP]
     other_secs  = [s for s in secteurs_list if s[3] != _SIG_SURP]
-    # On prend les Surponderer d'abord, puis complement avec les meilleurs Neutre si < 3
+    # On prend les Surpondérer d'abord, puis complément avec les meilleurs Neutre si < 3
     top3_secs = surp_secs[:3] + other_secs[: max(0, 3 - len(surp_secs))]
 
     def _build_top3_entry(s):
@@ -2033,7 +2033,7 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
             sig_t = ("Surpond\xe9rer" if (tkr.get("score_global") or 0) >= 60
                      else ("Sous-pond\xe9rer" if (tkr.get("score_global") or 0) < 40 else "Neutre"))
             societes.append((tkr.get("ticker","?"), sig_t, ev_t, tkr.get("score_global") or 0))
-        # PE forward median du secteur (pour chart zone d'entree)
+        # PE forward Médian du secteur (pour chart zone d'entree)
         _pe_raw_list = []
         for _t in sec_items:
             _pv = _t.get("pe_ratio") or _t.get("pe")
@@ -2056,10 +2056,10 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
             ),
             "risque":     (
                 f"Croiss. revenus {s[6]} sur LTM — "
-                + ("sensibilite taux moderee" if s[0] in ("Real Estate","Utilities") else
+                + ("Sensibilité taux modérée" if s[0] in ("Real Estate","Utilities") else
                    "compression multiple si cycle se retourne")
             ),
-            "societes":   societes if societes else [("\u2014", "Neutre", "\u2014", 0)],
+            "sociétés":   societes if societes else [("\u2014", "Neutre", "\u2014", 0)],
         }
 
     top3 = [_build_top3_entry(s) for s in top3_secs]
@@ -2072,11 +2072,11 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
         "Consumer Discretionary": ("Expansion","Modérée","Élevée","Neutre"),
         "Industrials": ("Expansion","Faible","Élevée","Neutre"),
         "Communication Services": ("Expansion","Modérée","Modérée","Neutre"),
-        "Consumer Staples": ("Recession","Faible","Faible","Neutre"),
+        "Consumer Staples": ("Récession","Faible","Faible","Neutre"),
         "Energy": ("Expansion","Faible","Modérée","Neutre"),
         "Real Estate": ("Reprise","Élevée","Modérée","All\xe9ger"),
         "Materials": ("Reprise","Faible","Élevée","Neutre"),
-        "Utilities": ("Recession","Élevée","Faible","All\xe9ger"),
+        "Utilities": ("Récession","Élevée","Faible","All\xe9ger"),
     }
     rotation = []
     for s in secteurs_list:
@@ -2085,7 +2085,7 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
                    else ("All\xe9ger" if s[3] == "Sous-pond\xe9rer" else "Neutre"))
         rotation.append((s[0], ph[0], ph[1], ph[2], rot_sig))
 
-    # ── nb_societes et cours indice ───────────────────────────────────────
+    # ── nb_sociétés et cours indice ───────────────────────────────────────
     _cours_map = {
         # Indices boursiers
         "CAC40":"^FCHI", "SP500":"^GSPC", "DAX40":"^GDAXI",
@@ -2180,26 +2180,26 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
     _nb_sec = len(secteurs_list)
     _sec_lbl = "secteur" if _nb_sec == 1 else "secteurs"
     texte_macro = (
-        f"Le {display_name} presente un signal global {signal_global} (conviction {conviction}%) "
-        f"base sur l'analyse de {len(tickers_data)} societes réparties sur {_nb_sec} {_sec_lbl}. "
-        f"Le score composite moyen de {avg_score:.0f}/100 reflete un equilibre entre momentum, "
-        f"valorisation et revision des BPA. Les secteurs les plus solides sont : {top_noms}."
+        f"Le {display_name} présente un signal global {signal_global} (conviction {conviction}%) "
+        f"basé sur l'analyse de {len(tickers_data)} sociétés réparties sur {_nb_sec} {_sec_lbl}. "
+        f"Le score composite moyen de {avg_score:.0f}/100 reflète un équilibre entre momentum, "
+        f"valorisation et révision des BPA. Les secteurs les plus solides sont : {top_noms}."
     )
     _s_lbl  = "secteur" if _nb_s == 1 else "secteurs"
     _n_lbl  = "Neutre"  if _nb_n == 1 else "Neutres"
     texte_signal = (
         f"Signal global {signal_global} (conviction {conviction}%). "
-        f"L'analyse sectorielle identifie {_nb_s} {_s_lbl} Surponderer, "
-        f"{_nb_n} {_n_lbl} et {_nb_r} Sous-ponderer. "
+        f"L'analyse sectorielle identifie {_nb_s} {_s_lbl} Surpondérer, "
+        f"{_nb_n} {_n_lbl} et {_nb_r} Sous-pondérer. "
         "Horizon d'allocation recommande : 12 mois."
     )
     _verbe_rot = "Favoriser" if _surp_noms != "aucun" else "Surveiller"
     _cible_rot = _surp_noms if _surp_noms != "aucun" else top_noms
     texte_rotation = (
         "L'analyse du cycle économique actuel oriente le positionnement vers les secteurs "
-        "a forte visibilité de BPA et résilience des marges. La sensibilite aux taux reste "
-        f"le principal facteur de differentiation. {_verbe_rot} {_cible_rot} "
-        "dans un contexte de croissance moderee."
+        "a forte visibilité de BPA et résilience des marges. La Sensibilité aux taux reste "
+        f"le principal facteur de différentiation. {_verbe_rot} {_cible_rot} "
+        "dans un contexte de croissance modérée."
     )
 
     # ── ERP / 10Y Treasury ───────────────────────────────────────────────
@@ -2235,7 +2235,7 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
                             else "Neutre")
     except Exception:
         pass
-    # ERP fallback : derive depuis la mediane PE constituants si l'indice ne fournit pas de PE
+    # ERP fallback : derive depuis la Médiane PE constituants si l'indice ne fournit pas de PE
     if erp_pct in ("—", "\u2014") and pe_str not in ("—", "\u2014"):
         try:
             _pe_num = float(pe_str.replace("x", "").strip())
@@ -2319,7 +2319,7 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
             _noms_c = [_ETF_MAP_APP[e] for e in _etfs_c]
             corr_matrix = {"etfs": _etfs_c, "noms": _noms_c,
                            "values": _corr.values.tolist(),
-                           "corr_median": round(float(_corr.values[_corr.values < 1].mean()), 2)}
+                           "corr_Médian": round(float(_corr.values[_corr.values < 1].mean()), 2)}
 
             # Breadth & factor tilts
             _cyc = ["Technology","Consumer Discretionary","Financials","Industrials","Energy","Materials","Communication Services"]
@@ -2328,7 +2328,7 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
             _cyc_ret = _np_app.mean([_ret_by_nom.get(s, 0) for s in _cyc if s in _ret_by_nom])
             _def_ret = _np_app.mean([_ret_by_nom.get(s, 0) for s in _def if s in _ret_by_nom])
             breadth_score = sum(1 for v in _ret_by_nom.values() if v > 0) / len(_ret_by_nom) * 100
-            factor_tilts  = {"cyclique_ret": round(_cyc_ret, 1), "defensif_ret": round(_def_ret, 1)}
+            factor_tilts  = {"cyclique_ret": round(_cyc_ret, 1), "défensif_ret": round(_def_ret, 1)}
 
             # Contribution sectorielle
             _tot_ret = sum(_ret_by_nom.values()) or 1
@@ -2380,7 +2380,7 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
     except Exception:
         pass
 
-    # ── BPA growth moyen (mediane revenus des secteurs) ───────────────────
+    # ── BPA growth moyen (Médiane revenus des secteurs) ───────────────────
     _bpa_raw = []
     for s in secteurs_list:
         try:
@@ -2397,9 +2397,9 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
     finbert = {
         "nb_articles": 0,
         "score_agrege": _sc_sent_agg,
-        "positif": {"nb": 0, "score": "N/A", "themes": "Donnees non disponibles"},
-        "neutre":  {"nb": 0, "score": "N/A", "themes": "Donnees non disponibles"},
-        "negatif": {"nb": 0, "score": "N/A", "themes": "Donnees non disponibles"},
+        "positif": {"nb": 0, "score": "N/A", "themes": "Données non disponibles"},
+        "neutre":  {"nb": 0, "score": "N/A", "themes": "Données non disponibles"},
+        "negatif": {"nb": 0, "score": "N/A", "themes": "Données non disponibles"},
         "par_secteur": _par_sec_sent,
     }
     # sentiment_agg : structure attendue par S19 PPTX
@@ -2431,7 +2431,7 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
         "par_secteur": finbert["par_secteur"],
     }
 
-    # ── P/E mediane historique 10 ans + prime/décote ─────────────────────────
+    # ── P/E Médiane historique 10 ans + prime/décote ─────────────────────────
     _PE_HIST_APP = {
         "S&P 500":   (13.0, 24.0), "SP500":     (13.0, 24.0),
         "NASDAQ":    (18.0, 38.0), "NASDAQ 100":(18.0, 38.0),
@@ -2450,58 +2450,58 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
     try:
         _pe_num = float(pe_str.replace("x","").replace(",",".").strip())
         _prime_val = (_pe_num - _pe_med_app) / _pe_med_app * 100
-        _prime_decote_str = f"+{_prime_val:.0f}% prime" if _prime_val > 0 else f"{_prime_val:.0f}% decote"
+        _prime_decote_str = f"+{_prime_val:.0f}% prime" if _prime_val > 0 else f"{_prime_val:.0f}% décote"
     except Exception:
         pass
 
     # ── Textes PPTX manquants ────────────────────────────────────────────────
     _top3_noms_desc = ", ".join([s[0][:14] for s in secteurs_list[:3]]) if secteurs_list else "N/A"
 
-    # Descriptions institutionnelles specifiques aux grands indices
+    # Descriptions institutionnelles spécifiques aux grands indices
     _INDICE_DESC = {
         "S&P 500": (
             "Le S&P 500 est l'indice boursier de reference des 500 plus grandes capitalisations "
-            "americaines, couvrant ~80% de la capitalisation totale du marche US. Gere par "
-            "S&P Dow Jones Indices, il est pondere par capitalisation flottante. Sa structure "
+            "américaines, couvrant ~80% de la capitalisation totale du Marché US. Gere par "
+            "S&P Dow Jones Indices, il est pondéré par capitalisation flottante. Sa structure "
             "sectorielle est dominee par la technologie (~29%), les services financiers (~13%) "
             "et la sante (~13%). Il constitue le benchmark mondial de reference pour les "
             "gestionnaires institutionnels et le sous-jacent de la majorite des ETF indiciels."
         ),
         "NASDAQ": (
-            "Le NASDAQ Composite regroupe plus de 3 000 societes cotees sur le NASDAQ, avec "
-            "une forte concentration technologique (~50% du poids). Il integre des mega-caps "
+            "Le NASDAQ Composite regroupe plus de 3 000 sociétés Cotées sur le NASDAQ, avec "
+            "une forte concentration technologique (~50% du poids). Il intègre des mega-caps "
             "comme Apple, Microsoft, Nvidia et Alphabet. Sa volatilite est structurellement "
             "superieure au S&P 500 (beta >1). L'indice sert de barometre de l'innovation "
             "technologique et de l'appetit au risque des investisseurs institutionnels."
         ),
         "NASDAQ 100": (
-            "Le NASDAQ 100 regroupe les 100 plus grandes societes non-financieres cotees sur "
+            "Le NASDAQ 100 regroupe les 100 plus grandes sociétés non-financières Cotées sur "
             "le NASDAQ. Domine par les mega-caps technologiques (Apple, Microsoft, Nvidia, "
             "Alphabet, Meta), il est l'indice de croissance de reference. Le QQQ ETF en est "
-            "le principal vecteur d'exposition. Son P/E forward historiquement eleve reflete "
+            "le principal vecteur d'exposition. Son P/E forward historiquement élevé Reflète "
             "les primes de croissance et de pricing power des constituants."
         ),
         "CAC 40": (
             "Le CAC 40 est l'indice de reference de la Bourse de Paris, regroupant les 40 "
-            "plus grandes capitalisations francaises cotees sur Euronext Paris. Il est "
-            "pondere par capitalisation flottante et offre une exposition diversifiee aux "
-            "champions europeens (LVMH, TotalEnergies, Sanofi, BNP Paribas). Sa structure "
-            "est plus equilibree que les indices americains, avec une forte composante "
-            "industrielle, de luxe et financiere."
+            "plus grandes capitalisations francaises Cotées sur Euronext Paris. Il est "
+            "pondéré par capitalisation flottante et offre une exposition diversifiée aux "
+            "champions européens (LVMH, TotalEnergies, Sanofi, BNP Paribas). Sa structure "
+            "est plus équilibrée que les indices américains, avec une forte composante "
+            "industrielle, de luxe et financière."
         ),
         "DAX": (
             "Le DAX (Deutscher Aktien Index) regroupe les 40 plus grandes capitalisations "
-            "allemandes cotees sur la Deutsche Borse. Tres expose au secteur industriel "
+            "allemandes Cotées sur la Deutsche Borse. Très expose au secteur industriel "
             "(Siemens, BASF, Volkswagen), il sert d'indicateur avance du cycle manufacturier "
-            "europeen. Sa performance est fortement correlee aux exportations mondiales et "
-            "au cycle energetique, ce qui lui confere un profil cyclique marque."
+            "européen. Sa performance est fortement correlee aux exportations mondiales et "
+            "au cycle énergétique, ce qui lui confere un profil cyclique marque."
         ),
         "FTSE 100": (
-            "Le FTSE 100 regroupe les 100 plus grandes societes cotees au London Stock "
-            "Exchange. Fortement expose aux secteurs energie (Shell, BP), finance et "
-            "materiaux, il offre l'un des rendements sur dividende les plus eleves des "
-            "grands indices developpes (~3,5-4%). La prevalence des multinationales avec "
-            "revenus en devises etrangeres lui confere une sensibilite particuliere aux "
+            "Le FTSE 100 regroupe les 100 plus grandes sociétés Cotées au London Stock "
+            "Exchange. Fortement expose aux secteurs énergie (Shell, BP), finance et "
+            "materiaux, il offre l'un des rendements sur dividende les plus élevés des "
+            "grands indices développés (~3,5-4%). La prevalence des multinationales avec "
+            "revenus en devises étrangères lui confere une Sensibilité particulière aux "
             "fluctuations de la livre sterling."
         ),
     }
@@ -2514,8 +2514,8 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
 
     if _desc_specifique:
         texte_description = (
-            f"{_desc_specifique}\n\n"
-            f"Analyse FinSight ({today_str}) — {len(tickers_data)} societes, "
+            f"{_desc_spécifique}\n\n"
+            f"Analyse FinSight ({today_str}) — {len(tickers_data)} sociétés, "
             f"{len(secteurs_list)} secteurs GICS.\n"
             f"Signal global : {signal_global} — Conviction {conviction}%.\n"
             f"Score composite moyen : {int(avg_score)}/100. "
@@ -2523,9 +2523,9 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
         )
     else:
         texte_description = (
-            f"Le {display_name} est un indice de reference regroupant {len(tickers_data)} societes "
+            f"Le {display_name} est un indice de reference regroupant {len(tickers_data)} sociétés "
             f"reparties sur {len(secteurs_list)} secteurs GICS. "
-            f"L'analyse FinSight couvre la periode glissante 12 mois (LTM) sur la base des donnees "
+            f"L'analyse FinSight couvre la periode glissante 12 mois (LTM) sur la base des Données "
             f"yfinance et FMP.\n\n"
             f"Signal global : {signal_global} — Conviction {conviction}%.\n"
             f"Score composite moyen : {int(avg_score)}/100.\n"
@@ -2537,7 +2537,7 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
         "correcte — prime de risque adequate pour le niveau de taux actuel"
     )
     texte_valorisation = (
-        f"Le {display_name} traite a {pe_str} de P/E Forward, soit {_prime_decote_str} "
+        f"Le {display_name} traite a {pe_str} de P/E Forward, soit {_prime_décote_str} "
         f"vs la médiane historique 10 ans ({_pe_med_str}x). "
         f"L'ERP (Damodaran) s'établit à {erp_pct}, signalant une valorisation {_erp_commentary}. "
         f"Score composite {int(avg_score)}/100 — signal {signal_global} (conviction {conviction}%)."
@@ -2552,7 +2552,7 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
         "indice":         display_name,
         "code":           universe[:6].upper(),
         "nb_secteurs":    len(secteurs_list),
-        "nb_societes":    len(tickers_data),
+        "nb_sociétés":    len(tickers_data),
         "signal_global":  signal_global,
         "conviction_pct": conviction,
         "date_analyse":   today_str,
@@ -2560,10 +2560,10 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
         "variation_ytd":  ytd_str,
         "pe_forward":     pe_str,
         "bpa_growth":     _bpa_growth_str,
-        "pe_mediane_10y": _pe_med_str,
-        "prime_decote":   _prime_decote_str,
+        "pe_Médiane_10y": _pe_med_str,
+        "prime_décote":   _prime_decote_str,
         "score_global":   int(avg_score),
-        "score_median":   int(avg_score),
+        "score_Médian":   int(avg_score),
         "secteurs":       secteurs_list,
         "texte_macro":        texte_macro,
         "texte_signal":       texte_signal,
@@ -2573,7 +2573,7 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
         "texte_cycle":        texte_cycle,
         "catalyseurs":  _gen_catalyseurs(secteurs_list, signal_global, int(avg_score)),
         "risques":      _gen_risques(secteurs_list, signal_global, int(avg_score)),
-        "scenarios":    _gen_scenarios(signal_global, int(avg_score)),
+        "scénarios":    _gen_scenarios(signal_global, int(avg_score)),
         "perf_history": _fetch_perf_history(_cours_map.get(universe.upper()), display_name, _d),
         "top3_secteurs":  top3,
         "surp_noms":      _surp_noms,
@@ -2592,13 +2592,13 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
         "breadth_score":  breadth_score,
         "factor_tilts":   factor_tilts,
         "optimal_portfolios": optimal_portfolios,
-        "methodologie": [
+        "Méthodologie": [
             ("Score sectoriel",   "Composite 0-100 : 40% momentum, 30% rev. BPA, 30% valorisation"),
-            ("Signal",            "Surponderer (>60) / Neutre (40-60) / Sous-ponderer (<40)"),
-            ("Valorisation",      "EV/EBITDA median LTM — source FMP / yfinance"),
+            ("Signal",            "Surpondérer (>60) / Neutre (40-60) / Sous-pondérer (<40)"),
+            ("Valorisation",      "EV/EBITDA Médian LTM — source FMP / yfinance"),
             ("Momentum",          "Performance relative 52 semaines"),
-            ("Univers",           f"{display_name} — {len(tickers_data)} societes analysees"),
-            ("Mise a jour",       today_str),
+            ("Univers",           f"{display_name} — {len(tickers_data)} sociétés analysées"),
+            ("Mise à jour",       today_str),
         ],
     }
 
@@ -2640,7 +2640,7 @@ def render_screening_running() -> None:
                 st.rerun()
             return
 
-        _status(f"Calcul des ratios pour {len(tickers)} societes")
+        _status(f"Calcul des ratios pour {len(tickers)} sociétés")
 
         import os as _os
 
@@ -2692,14 +2692,14 @@ def render_screening_running() -> None:
                 st.rerun()
             return
 
-        _status("Generation du fichier Excel")
+        _status("Génération du fichier Excel")
 
         from outputs.screening_writer import ScreeningWriter
         out_dir = Path(__file__).parent / "outputs" / "generated"
         out_dir.mkdir(exist_ok=True)
         slug    = universe.replace("/", "_").replace(" ", "_")
         out_path = str(out_dir / f"screening_{slug}.xlsx")
-        # template_path resolu depuis app.py (non cache par sys.modules)
+        # template_path résolu depuis app.py (non cache par sys.modules)
         _tpl = Path(__file__).parent / "assets" / "FinSight_IA_Screening_v4.xlsx"
         _tpl_arg = str(_tpl) if _tpl.exists() else None
         print(f"[app] template_path={_tpl_arg!r} exists={_tpl.exists()}", flush=True)
@@ -2727,7 +2727,7 @@ def render_screening_running() -> None:
         indice_xlsx_bytes_out = None
 
         if _is_sector:
-            _status("Generation du rapport PDF sectoriel")
+            _status("Génération du rapport PDF sectoriel")
             try:
                 import importlib, outputs.sector_pdf_writer as _spw
                 importlib.reload(_spw)
@@ -2745,7 +2745,7 @@ def render_screening_running() -> None:
                 log.warning(f"[app] sector_pdf_writer error: {_ex_pdf}")
                 traceback.print_exc()
 
-            _status("Generation du pitchbook PPTX sectoriel")
+            _status("Génération du pitchbook PPTX sectoriel")
             try:
                 import outputs.sectoral_pptx_writer as _sppw
                 _sec_sorted = sorted(tickers_data, key=lambda x: x.get("score_global") or 0, reverse=True)
@@ -2759,7 +2759,7 @@ def render_screening_running() -> None:
                 log.warning(f"[app] SectoralPPTXWriter error: {_ex_pptx}")
                 traceback.print_exc()
         else:
-            _status("Generation du rapport PDF indice")
+            _status("Génération du rapport PDF indice")
             _indice_data = None
             try:
                 from outputs.indice_pdf_writer import IndicePDFWriter
@@ -2773,7 +2773,7 @@ def render_screening_running() -> None:
                 log.warning(f"[app] IndicePDFWriter error: {_ex_pdf}")
                 traceback.print_exc()
 
-            _status("Generation du pitchbook PPTX indice")
+            _status("Génération du pitchbook PPTX indice")
             try:
                 from outputs.indice_pptx_writer import IndicePPTXWriter
                 if _indice_data is None:
@@ -2785,11 +2785,11 @@ def render_screening_running() -> None:
                 traceback.print_exc()
 
             # ---- IndiceExcelWriter (scoring 4D, template TEMPLATE_INDICE.xlsx) ----
-            # Pour indices EU uniquement (donnees individuelles disponibles)
+            # Pour indices EU uniquement (Données individuelles disponibles)
             _EU_INDICE_KEYS = {"CAC40", "DAX40", "FTSE100", "STOXX50", "EUROSTOXX50"}
             indice_xlsx_bytes_out = None
             if universe in _EU_INDICE_KEYS:
-                _status("Generation du fichier Excel indice (scoring 4D)")
+                _status("Génération du fichier Excel indice (scoring 4D)")
                 try:
                     from outputs.indice_excel_writer import IndiceExcelWriter
 
@@ -2823,10 +2823,10 @@ def render_screening_running() -> None:
                             "beneish_m":         t.get("beneish_m"),
                             "mom_52w":           t.get("momentum_52w"),
                             "fcf_yield":         t.get("fcf_yield"),
-                            "analyst_revision":  t.get("analyst_revision"),
+                            "analyst_révision":  t.get("analyst_révision"),
                             "next_earnings":  t.get("next_earnings"),
-                            "signal":         ("Surponderer" if sg >= 60
-                                               else ("Sous-ponderer" if sg < 40 else "Neutre")),
+                            "signal":         ("Surpondérer" if sg >= 60
+                                               else ("Sous-pondérer" if sg < 40 else "Neutre")),
                         }
 
                     _tkrs_indice = [_cs_to_indice_tkr(t) for t in tickers_data if t.get("ticker")]
@@ -2842,7 +2842,7 @@ def render_screening_running() -> None:
 
         status_lbl.markdown(
             f'<div style="text-align:center;font-size:12px;font-weight:600;color:#1a7a52;">'
-            f'Screening termine en {elapsed/1000:.1f}s — {len(tickers_data)} societes</div>',
+            f'Screening termine en {elapsed/1000:.1f}s — {len(tickers_data)} sociétés</div>',
             unsafe_allow_html=True,
         )
         time.sleep(0.4)
@@ -2863,7 +2863,7 @@ def render_screening_running() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Indice Comparison — donnees + UI
+# Indice Comparison — Données + UI
 # ---------------------------------------------------------------------------
 
 # Indices disponibles pour la comparaison (key -> (display_name, yf_ticker, currency))
@@ -3012,7 +3012,7 @@ def _fetch_indice_cmp_data(universe_a: str, indice_data_a: dict,
     except Exception:
         rf_b = 0.04
 
-    # ── Perf history pour graphique normalisee ────────────────────────────────
+    # ── Perf history pour graphique Normalisée ────────────────────────────────
     perf_history = None
     try:
         start_str = (_today - _td(days=380)).strftime("%Y-%m-%d")
@@ -3043,7 +3043,7 @@ def _fetch_indice_cmp_data(universe_a: str, indice_data_a: dict,
     except Exception as _ex:
         log.warning(f"[icmp] perf_history error: {_ex}")
 
-    # ── Extraction donnees indice A depuis tickers_data_a ─────────────────────
+    # ── Extraction Données indice A depuis tickers_data_a ─────────────────────
     # Performance A depuis perf_history existant dans indice_data_a
     ph_a = indice_data_a.get("perf_history")
 
@@ -3267,7 +3267,7 @@ def _render_indice_comparison_section(results: dict) -> None:
 
     icmp_stage = st.session_state.get("icmp_stage")
 
-    # ── Resultat disponible ──────────────────────────────────────────────────
+    # ── Résultat disponible ──────────────────────────────────────────────────
     if icmp_stage == "done":
         name_b = _INDICE_CMP_OPTIONS.get(
             st.session_state.get("icmp_universe_b", ""), ("Indice B",))[0]
@@ -3280,7 +3280,7 @@ def _render_indice_comparison_section(results: dict) -> None:
                 label=f"Pitchbook {name_a_disp} vs {name_b}  \u2193  .pptx",
                 data=_pptx,
                 file_name=f"{slug}_comparison.pptx",
-                mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                mime="application/vnd.openxmlformats-officedocument.presentationml.présentation",
                 use_container_width=True,
             )
         _pdf = st.session_state.get("icmp_pdf_bytes")
@@ -3322,7 +3322,7 @@ def _render_indice_comparison_section(results: dict) -> None:
                 f'<div style="font-size:12px;font-weight:500;color:#666;">{_e(msg)}...</div>',
                 unsafe_allow_html=True)
 
-        _status(f"Construction des donnees comparatives {name_a_disp} vs {name_b}")
+        _status(f"Construction des Données comparatives {name_a_disp} vs {name_b}")
         try:
             # Reconstruire indice_data_a si non stocke
             if indice_data_a is None:
@@ -3337,12 +3337,12 @@ def _render_indice_comparison_section(results: dict) -> None:
             import traceback
             log.warning(f"[icmp] fetch error: {_ex}")
             traceback.print_exc()
-            st.error(f"Erreur lors de la construction des donnees : {_ex}")
+            st.error(f"Erreur lors de la construction des Données : {_ex}")
             st.session_state.icmp_stage = None
             return
 
         pptx_bytes = None
-        _status("Generation du pitchbook PPTX")
+        _status("Génération du pitchbook PPTX")
         try:
             from outputs.indice_comparison_pptx_writer import IndiceComparisonPPTXWriter
             pptx_bytes = IndiceComparisonPPTXWriter.generate(cmp_data)
@@ -3350,7 +3350,7 @@ def _render_indice_comparison_section(results: dict) -> None:
             log.warning(f"[icmp] pptx error: {_ex}")
 
         pdf_bytes = None
-        _status("Generation du rapport PDF")
+        _status("Génération du rapport PDF")
         try:
             from outputs.indice_comparison_pdf_writer import IndiceComparisonPDFWriter
             pdf_bytes = IndiceComparisonPDFWriter.generate_bytes(cmp_data)
@@ -3358,7 +3358,7 @@ def _render_indice_comparison_section(results: dict) -> None:
             log.warning(f"[icmp] pdf error: {_ex}")
 
         xlsx_bytes = None
-        _status("Generation du fichier Excel")
+        _status("Génération du fichier Excel")
         try:
             from outputs.indice_comparison_writer import IndiceComparisonWriter
             xlsx_bytes = IndiceComparisonWriter.generate_bytes(cmp_data)
@@ -3371,7 +3371,7 @@ def _render_indice_comparison_section(results: dict) -> None:
         st.session_state.icmp_cmp_data   = cmp_data  # pour la page de synthese comparative
         st.session_state.icmp_universe_a = universe_a
 
-        # Sauvegarder l'etat de l'analyse indice initiale
+        # Sauvegarder l'État de l'analyse indice initiale
         st.session_state.previous_analysis_type    = "screening_results"
         st.session_state.previous_analysis_results = st.session_state.get("screening_results")
         st.session_state.previous_analysis_label   = name_a_disp
@@ -3407,17 +3407,17 @@ def _render_indice_comparison_section(results: dict) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Comparatif sectoriel — UI (apres analyse sectorielle simple)
+# Comparatif sectoriel — UI (après analyse sectorielle simple)
 # ---------------------------------------------------------------------------
 
 _CMP_SECTOR_CHOICES = [
-    "Technology", "Healthcare", "Consumer Cyclical", "Consumer Defensive",
+    "Technology", "Healthcare", "Consumer Cyclical", "Consumer Défensive",
     "Financial Services", "Industrials", "Energy", "Basic Materials",
     "Real Estate", "Communication Services", "Utilities",
 ]
 
 def _render_sector_comparison_section(results: dict) -> None:
-    """Affiche la section de comparatif sectoriel apres une analyse sectorielle simple."""
+    """Affiche la section de comparatif sectoriel après une analyse sectorielle simple."""
     import io as _io
     import sys as _sys
 
@@ -3426,9 +3426,9 @@ def _render_sector_comparison_section(results: dict) -> None:
 
     st.markdown('<div class="sec-t" style="margin-top:36px;">Comparatif Sectoriel</div>',
                 unsafe_allow_html=True)
-    st.caption(f"Comparer {current_sector} avec un autre secteur — PPTX + PDF generes en temps reel")
+    st.caption(f"Comparer {current_sector} avec un autre secteur — PPTX + PDF Générés en temps réel")
 
-    # Etat comparatif sectoriel
+    # État comparatif sectoriel
     if "scmp_stage" not in st.session_state:
         st.session_state.scmp_stage = None   # None / "running" / "done"
     if "scmp_pptx_bytes" not in st.session_state:
@@ -3449,7 +3449,7 @@ def _render_sector_comparison_section(results: dict) -> None:
 
     if scmp_stage == "done":
         scmp_b = st.session_state.get("scmp_sector_b", "")
-        st.success(f"Comparatif {current_sector} vs {scmp_b} genere")
+        st.success(f"Comparatif {current_sector} vs {scmp_b} Généré")
         dl1, dl2, dl3 = st.columns(3)
         with dl1:
             if st.session_state.scmp_pptx_bytes:
@@ -3457,7 +3457,7 @@ def _render_sector_comparison_section(results: dict) -> None:
                     f"Pitchbook {current_sector} vs {scmp_b} .pptx",
                     st.session_state.scmp_pptx_bytes,
                     file_name=f"cmp_secteur_{current_sector}_vs_{scmp_b}.pptx",
-                    mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                    mime="application/vnd.openxmlformats-officedocument.presentationml.présentation",
                     use_container_width=True,
                 )
         with dl2:
@@ -3479,12 +3479,12 @@ def _render_sector_comparison_section(results: dict) -> None:
 
     if scmp_stage == "running":
         sector_b = st.session_state.get("scmp_sector_b", "")
-        with st.spinner(f"Generation comparatif {current_sector} vs {sector_b}..."):
+        with st.spinner(f"Génération comparatif {current_sector} vs {sector_b}..."):
             try:
                 _sys.path.insert(0, str(Path(__file__).parent))
                 from cli_analyze import _fetch_real_sector_data, _make_test_tickers
 
-                # Contexte 2 : pas d'indice specifique — on essaie S&P 500 puis fallback synthetique
+                # Contexte 2 : pas d'indice spécifique — on essaie S&P 500 puis fallback synthetique
                 tickers_b = _fetch_real_sector_data(sector_b, "S&P 500", max_tickers=8)
                 if not tickers_b:
                     tickers_b = _fetch_real_sector_data(sector_b, "CAC 40", max_tickers=8)
@@ -3531,11 +3531,11 @@ def _render_sector_comparison_section(results: dict) -> None:
                     log.warning(f"[scmp] xlsx gen failed: {_xex}")
                     st.session_state.scmp_xlsx_bytes = None
 
-                # Stocker les tickers pour la page de resultats comparatifs
+                # Stocker les tickers pour la page de résultats comparatifs
                 st.session_state.scmp_tickers_a = td_a_clean
                 st.session_state.scmp_tickers_b = tickers_b
 
-                # Sauvegarder l'etat de l'analyse sectorielle initiale
+                # Sauvegarder l'État de l'analyse sectorielle initiale
                 st.session_state.previous_analysis_type    = "screening_results"
                 st.session_state.previous_analysis_results = st.session_state.get("screening_results")
                 st.session_state.previous_analysis_label   = current_sector
@@ -3545,11 +3545,11 @@ def _render_sector_comparison_section(results: dict) -> None:
                 st.session_state.stage      = "comparison_results"
                 st.rerun()
             except Exception as _ex:
-                st.error(f"Erreur generation comparatif : {_ex}")
+                st.error(f"Erreur Génération comparatif : {_ex}")
                 st.session_state.scmp_stage = None
         return
 
-    # Formulaire de selection
+    # Formulaire de sélection
     other_choices = [s for s in _CMP_SECTOR_CHOICES if s != current_sector]
     sc1, sc2 = st.columns([3, 1])
     with sc1:
@@ -3560,7 +3560,7 @@ def _render_sector_comparison_section(results: dict) -> None:
         )
     with sc2:
         st.markdown("<div style='margin-top:28px;'></div>", unsafe_allow_html=True)
-        if st.button("Generer comparatif", type="primary", use_container_width=True, key="scmp_run"):
+        if st.button("Générer comparatif", type="primary", use_container_width=True, key="scmp_run"):
             st.session_state.scmp_sector_b = sector_b_sel
             st.session_state.scmp_stage = "running"
             st.rerun()
@@ -3580,7 +3580,7 @@ def render_screening_results(results: dict) -> None:
     today        = date.today().strftime("%d.%m.%Y")
 
     if not tickers_data:
-        st.warning("Aucune donnee de screening disponible.")
+        st.warning("Aucune Donnée de screening disponible.")
         if st.button("<- Retour"):
             st.session_state.stage = "home"
             st.rerun()
@@ -3604,7 +3604,7 @@ def render_screening_results(results: dict) -> None:
     # --- Header ---
     st.markdown(f'<div class="rc">{_e(display_name)} — Screening</div>', unsafe_allow_html=True)
     st.markdown(
-        f'<div class="rm">{n} societes analysees · {today} · '
+        f'<div class="rm">{n} sociétés analysées · {today} · '
         f'<span style="color:#1a7a52">{elapsed_ms/1000:.1f}s</span></div>',
         unsafe_allow_html=True,
     )
@@ -3621,14 +3621,14 @@ def render_screening_results(results: dict) -> None:
     top_sector = max(sec_counts, key=sec_counts.get) if sec_counts else "—"
 
     cells = "".join([
-        f'<div class="mkt-cell"><div class="mkt-n">SOCIETES</div>'
+        f'<div class="mkt-cell"><div class="mkt-n">SOCIÉTÉS</div>'
         f'<div class="mkt-v">{n}</div><div class="mkt-na">dans l\'univers</div></div>',
 
         f'<div class="mkt-cell"><div class="mkt-n">MEILLEUR SCORE</div>'
         f'<div class="mkt-v">{best.get("score_global") or 0:.0f}/100</div>'
         f'<div class="mkt-na">{_e((best.get("company") or "")[:22])}</div></div>',
 
-        f'<div class="mkt-cell"><div class="mkt-n">SCORE MEDIAN</div>'
+        f'<div class="mkt-cell"><div class="mkt-n">SCORE MÉDIAN</div>'
         f'<div class="mkt-v">{med_sc:.0f}/100</div><div class="mkt-na">univers</div></div>',
 
         f'<div class="mkt-cell"><div class="mkt-n">SECTEUR DOM.</div>'
@@ -3648,7 +3648,7 @@ def render_screening_results(results: dict) -> None:
     top10 = tickers_data[:10]
 
     hcols = st.columns([0.4, 2.4, 1.0, 1.0, 1.0, 1.0, 1.2])
-    for hc, h in zip(hcols, ["#", "Societe", "Score", "Value", "Growth", "Quality", ""]):
+    for hc, h in zip(hcols, ["#", "Société", "Score", "Value", "Growth", "Quality", ""]):
         with hc:
             st.markdown(
                 f'<div style="font-size:10px;font-weight:600;color:#777;letter-spacing:1px;'
@@ -3702,8 +3702,8 @@ def render_screening_results(results: dict) -> None:
                 st.session_state.stage        = "running"
                 st.rerun()
 
-    # --- Top 5 par categorie ---
-    st.markdown('<div class="sec-t" style="margin-top:36px;">Top 5 par categorie</div>',
+    # --- Top 5 par catégorie ---
+    st.markdown('<div class="sec-t" style="margin-top:36px;">Top 5 par catégorie</div>',
                 unsafe_allow_html=True)
     cat_cols = st.columns(4)
     categories = [
@@ -3751,8 +3751,8 @@ def render_screening_results(results: dict) -> None:
         _render_sector_comparison_section(results)
         st.markdown('<div style="margin-top:8px;"></div>', unsafe_allow_html=True)
 
-    # --- Comparer deux societes ---
-    st.markdown('<div class="sec-t" style="margin-top:36px;">Comparer deux societes</div>',
+    # --- Comparer deux sociétés ---
+    st.markdown('<div class="sec-t" style="margin-top:36px;">Comparer deux sociétés</div>',
                 unsafe_allow_html=True)
 
     _ticker_pairs = sorted(
@@ -3765,9 +3765,9 @@ def render_screening_results(results: dict) -> None:
 
     cmp_c1, cmp_c2, cmp_c3 = st.columns([2, 2, 1])
     with cmp_c1:
-        sel_a = st.selectbox("Societe A", options=_ticker_labels, index=0, key="scr_cmp_sel_a")
+        sel_a = st.selectbox("Société A", options=_ticker_labels, index=0, key="scr_cmp_sel_a")
     with cmp_c2:
-        sel_b = st.selectbox("Societe B", options=_ticker_labels,
+        sel_b = st.selectbox("Société B", options=_ticker_labels,
                              index=min(1, len(_ticker_labels) - 1), key="scr_cmp_sel_b")
     with cmp_c3:
         st.markdown("<div style='margin-top:28px;'></div>", unsafe_allow_html=True)
@@ -3787,8 +3787,8 @@ def render_screening_results(results: dict) -> None:
     st.markdown(
         f'<div class="page-footer">'
         f'<span>FINSIGHT SCREENING · v1.0</span>'
-        f'<span>Donnees au {today}</span>'
-        f'<span>© {date.today().year} — Outil d\'aide a la decision uniquement</span>'
+        f'<span>Données au {today}</span>'
+        f'<span>© {date.today().year} — Outil d\'aide a la Décision uniquement</span>'
         f'</div>',
         unsafe_allow_html=True,
     )
@@ -4094,7 +4094,7 @@ def _render_comparison_section(state_a: dict) -> None:
                 label=f"Pitchbook {tkr_a} vs {tkr_b}  \u2193  .pptx",
                 data=cmp_pptx,
                 file_name=fname_pptx,
-                mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                mime="application/vnd.openxmlformats-officedocument.presentationml.présentation",
                 use_container_width=True,
             )
         # Rapport PDF comparatif (pré-généré)
@@ -4140,7 +4140,7 @@ def _render_comparison_section(state_a: dict) -> None:
                     state_b.update(node_delta)
 
                 if state_b.get("raw_data") is None:
-                    st.error(f"Aucune donnee disponible pour {ticker_b}.")
+                    st.error(f"Aucune Donnée disponible pour {ticker_b}.")
                     st.session_state.cmp_stage = None
                     return
 
@@ -4156,7 +4156,7 @@ def _render_comparison_section(state_a: dict) -> None:
                     from outputs.comparison_pptx_writer import ComparisonPPTXWriter, _generate_synthesis
                     from outputs.comparison_writer import extract_metrics as _extract, _fetch_supplements as _fetch
                     st.session_state.cmp_pptx_bytes = ComparisonPPTXWriter().generate_bytes(state_a, state_b)
-                    # Stocker la synthese LLM pour la page comparative
+                    # Stocker la Synthèse LLM pour la page comparative
                     try:
                         _ma = _extract(state_a, _fetch(state_a.get("ticker", "")))
                         _mb = _extract(state_b, _fetch(state_b.get("ticker", "")))
@@ -4178,13 +4178,13 @@ def _render_comparison_section(state_a: dict) -> None:
                     log.warning(f"[comparison] PDF auto-gen failed: {_pdex}")
                     st.session_state.cmp_pdf_bytes = None
 
-                # Sauvegarder l'etat initial pour le bouton "Retour"
+                # Sauvegarder l'État initial pour le bouton "Retour"
                 st.session_state.previous_analysis_type    = "results"
                 st.session_state.previous_analysis_results = st.session_state.get("results")
                 st.session_state.previous_analysis_label   = state_a.get("ticker", "analyse")
 
                 st.session_state.cmp_stage = "done"
-                st.session_state.cmp_kind  = "societe"
+                st.session_state.cmp_kind  = "société"
                 st.session_state.stage     = "comparison_results"
                 st.rerun()
 
@@ -4209,12 +4209,12 @@ def _render_comparison_section(state_a: dict) -> None:
 
     if compare_clicked and ticker_b_input.strip():
         raw_input = ticker_b_input.strip().upper()
-        # Resolution : si l'input ne ressemble pas a un ticker (contient un espace
+        # Résolution : si l'input ne ressemble pas a un ticker (contient un espace
         # ou plus de 6 chars sans point), chercher via Yahoo Finance Search
         resolved_ticker = raw_input
         _needs_resolve = len(raw_input) > 6 and "." not in raw_input
         if not _needs_resolve:
-            # Verifier si le ticker est valide via yfinance
+            # Vérifier si le ticker est valide via yfinance
             try:
                 import yfinance as _yf
                 _chk = _yf.Ticker(raw_input)
@@ -4232,11 +4232,11 @@ def _render_comparison_section(state_a: dict) -> None:
                     headers={"User-Agent": "Mozilla/5.0"}, timeout=5,
                 )
                 _quotes = _r.json().get("quotes", [])
-                # Prendre le premier resultat EQUITY
+                # Prendre le premier résultat EQUITY
                 for _q in _quotes:
                     if _q.get("quoteType") == "EQUITY":
                         resolved_ticker = _q["symbol"]
-                        st.info(f"Ticker resolu : {raw_input} -> {resolved_ticker} ({_q.get('shortname','')})")
+                        st.info(f"Ticker résolu : {raw_input} -> {resolved_ticker} ({_q.get('shortname','')})")
                         break
             except Exception:
                 pass  # garder raw_input
@@ -4540,7 +4540,7 @@ def render_results(results: dict) -> None:
             )
 
     # ------------------------------------------------------------------
-    # IA Section — toggle manuel (evite l'artefact "board_" de st.expander)
+    # IA Section — toggle manuel (évite l'artefact "board_" de st.expander)
     # ------------------------------------------------------------------
     st.markdown('<div class="sec-t">Raisonnement IA</div>', unsafe_allow_html=True)
 
@@ -4657,7 +4657,7 @@ def render_results(results: dict) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Page post-analyse comparative — societe / secteur / indice
+# Page post-analyse comparative — société / secteur / indice
 # ---------------------------------------------------------------------------
 
 def _cmp_back_to_previous():
@@ -4685,7 +4685,7 @@ def _safe_int(v, default=0):
 
 
 def _safe_pct_100(v):
-    """Retourne un pourcentage (0-100) depuis une valeur qui peut etre en fraction ou en %."""
+    """Retourne un pourcentage (0-100) depuis une valeur qui peut être en fraction ou en %."""
     if v is None: return None
     try:
         fv = float(v)
@@ -4709,12 +4709,12 @@ def render_comparison_results() -> None:
     Lit st.session_state.cmp_kind ∈ {societe, secteur, indice} et affiche
     le header + verdict + mini-tableau adapte. Les livrables sont dans le ruban.
     """
-    kind = st.session_state.get("cmp_kind") or "societe"
+    kind = st.session_state.get("cmp_kind") or "société"
 
     # ------------------------------------------------------------------
     # Dispatch vers les 3 rendus specialises
     # ------------------------------------------------------------------
-    if kind == "societe":
+    if kind == "société":
         _render_cmp_societe_page()
     elif kind == "secteur":
         _render_cmp_secteur_page()
@@ -4729,9 +4729,9 @@ def render_comparison_results() -> None:
 
 def _cmp_header(title_main: str, subtitle: str, tkr_a: str, tkr_b: str,
                 rec_a: str, rec_b: str, winner: str,
-                delta_label: str = "Ecart FinSight",
+                delta_label: str = "Écart FinSight",
                 delta_value: str = "—") -> None:
-    """En-tete epure commun aux 3 types de comparaison (style analyse societe)."""
+    """En-Tête epure commun aux 3 types de comparaison (style analyse société)."""
     st.markdown(f'<div class="rc">{_e(title_main)}</div>', unsafe_allow_html=True)
     st.markdown(
         f'<div class="rm">{_e(subtitle)}</div>',
@@ -4823,25 +4823,25 @@ def _cmp_livrables_note() -> None:
         'color:#555;">'
         '<b style="color:#1B3A6B;">Livrables disponibles</b> — '
         'Le rapport PDF, le pitchbook PPTX et le fichier Excel sont accessibles '
-        'dans le ruban de gauche. La presente page est une vue de synthese.'
+        'dans le ruban de gauche. La présente page est une vue de Synthèse.'
         '</div>',
         unsafe_allow_html=True,
     )
 
 
 # ---------------------------------------------------------------------------
-# Rendu : societe vs societe
+# Rendu : société vs société
 # ---------------------------------------------------------------------------
 def _render_cmp_societe_page() -> None:
     state_a = st.session_state.get("previous_analysis_results")  # dict results
     state_b = st.session_state.get("cmp_state_b")
     if not state_a or not state_b:
-        st.error("Etat de comparaison societe manquant. Retour a l'analyse.")
+        st.error("État de comparaison société manquant. Retour a l'analyse.")
         if st.button("\u2190 Retour"):
             _cmp_back_to_previous()
         return
 
-    # Metriques des 2 societes
+    # Metriques des 2 sociétés
     from outputs.comparison_writer import extract_metrics, _fetch_supplements
 
     tkr_a = (state_a.get("raw_data") and getattr(state_a["raw_data"], "ticker", None)) or \
@@ -4881,7 +4881,7 @@ def _render_cmp_societe_page() -> None:
                  f"{date.today().strftime('%d.%m.%Y')}",
         tkr_a=tkr_a, tkr_b=tkr_b,
         rec_a=rec_a, rec_b=rec_b, winner=winner,
-        delta_label="Ecart FinSight Score",
+        delta_label="Écart FinSight Score",
         delta_value=delta_str,
     )
 
@@ -4891,7 +4891,7 @@ def _render_cmp_societe_page() -> None:
     if not verdict and (rec_a or rec_b):
         verdict = (
             f"{winner} est privilegie sur la base du score FinSight composite "
-            f"({fs_a}/100 vs {fs_b}/100), integrant valorisation, croissance, qualite et momentum."
+            f"({fs_a}/100 vs {fs_b}/100), integrant valorisation, croissance, qualité et momentum."
         )
     _cmp_verdict_box(verdict)
 
@@ -4927,7 +4927,7 @@ def _render_cmp_secteur_page() -> None:
     tickers_a = st.session_state.get("scmp_tickers_a") or []
     tickers_b = st.session_state.get("scmp_tickers_b") or []
 
-    # Medianes par secteur (score, EBITDA margin, PE)
+    # Médianes par secteur (score, EBITDA margin, PE)
     def _med_float(td, key):
         vals = []
         for t in td:
@@ -4954,7 +4954,7 @@ def _render_cmp_secteur_page() -> None:
     delta   = abs(score_a - score_b)
     delta_str = f"+{delta} pts" if delta > 0 else "—"
 
-    # Heuristique recommandation secteur : OVERWEIGHT si meilleure mediane score + mg
+    # Heuristique recommandation secteur : OVERWEIGHT si meilleure Médiane score + mg
     def _sector_rec(sc, mg):
         if sc is None:
             return "HOLD"
@@ -4973,13 +4973,13 @@ def _render_cmp_secteur_page() -> None:
                  f"{date.today().strftime('%d.%m.%Y')}",
         tkr_a=sector_a, tkr_b=sector_b,
         rec_a=rec_a, rec_b=rec_b, winner=winner,
-        delta_label="Ecart Score FinSight median",
+        delta_label="Écart Score FinSight Médian",
         delta_value=delta_str,
     )
 
     verdict = (
-        f"{winner} domine sur la mediane des scores FinSight ({score_a}/100 vs {score_b}/100), "
-        f"signalant une qualite fondamentale agregee superieure. "
+        f"{winner} domine sur la Médiane des scores FinSight ({score_a}/100 vs {score_b}/100), "
+        f"signalant une qualité fondamentale agregee superieure. "
         f"La lecture croisee des multiples et des marges permet d'affiner le choix d'exposition "
         f"dans une allocation sectorielle."
     )
@@ -4997,10 +4997,10 @@ def _render_cmp_secteur_page() -> None:
         except: return "\u2014"
 
     rows = [
-        ("Score FinSight median",   f"{score_a}/100",  f"{score_b}/100"),
+        ("Score FinSight Médian",   f"{score_a}/100",  f"{score_b}/100"),
         ("Nombre de valeurs",       str(len(tickers_a)), str(len(tickers_b))),
-        ("Marge EBITDA mediane",    _fpct_raw(mg_a), _fpct_raw(mg_b)),
-        ("P/E median",              _fx_raw(pe_a),   _fx_raw(pe_b)),
+        ("Marge EBITDA Médiane",    _fpct_raw(mg_a), _fpct_raw(mg_b)),
+        ("P/E Médian",              _fx_raw(pe_a),   _fx_raw(pe_b)),
         ("Recommandation",          _rec_fr(rec_a),  _rec_fr(rec_b)),
     ]
     _cmp_mini_table(rows, header_a=sector_a, header_b=sector_b)
@@ -5048,13 +5048,13 @@ def _render_cmp_indice_page() -> None:
                  f"{date.today().strftime('%d.%m.%Y')}",
         tkr_a=name_a, tkr_b=name_b,
         rec_a=rec_a, rec_b=rec_b, winner=winner,
-        delta_label="Ecart Score composite",
+        delta_label="Écart Score composite",
         delta_value=delta_str,
     )
 
     verdict = (
         f"{winner} ressort avec le meilleur score composite, portant une allocation "
-        f"geographique/sectorielle plus favorable dans le contexte macro actuel."
+        f"géographique/sectorielle plus favorable dans le contexte macro actuel."
     )
     _cmp_verdict_box(verdict)
 
@@ -5075,10 +5075,10 @@ def _render_cmp_indice_page() -> None:
         ("Score composite",         f"{score_a}/100", f"{score_b}/100"),
         ("Nombre de valeurs",       _fnum(_g(metrics_a, "n_tickers", "count")),
                                     _fnum(_g(metrics_b, "n_tickers", "count"))),
-        ("Perf. mediane 1Y",        _fpct_idx(_g(metrics_a, "perf_1y_median", "perf_1y")),
-                                    _fpct_idx(_g(metrics_b, "perf_1y_median", "perf_1y"))),
-        ("Marge EBITDA mediane",    _fpct_idx(_g(metrics_a, "ebitda_margin_median", "ebitda_margin")),
-                                    _fpct_idx(_g(metrics_b, "ebitda_margin_median", "ebitda_margin"))),
+        ("Perf. Médiane 1Y",        _fpct_idx(_g(metrics_a, "perf_1y_Médian", "perf_1y")),
+                                    _fpct_idx(_g(metrics_b, "perf_1y_Médian", "perf_1y"))),
+        ("Marge EBITDA Médiane",    _fpct_idx(_g(metrics_a, "ebitda_margin_Médian", "ebitda_margin")),
+                                    _fpct_idx(_g(metrics_b, "ebitda_margin_Médian", "ebitda_margin"))),
         ("Recommandation",          _rec_fr(rec_a), _rec_fr(rec_b)),
     ]
     _cmp_mini_table(rows, header_a=name_a, header_b=name_b)
@@ -5121,7 +5121,7 @@ def main():
             st.markdown("**Livrables disponibles :**")
             for _lbl, _key, _fname, _mime in [
                 ("Rapport PDF", "pdf_bytes", f"{results.get('ticker','report')}_report.pdf", "application/pdf"),
-                ("Pitchbook", "pptx_bytes", f"{results.get('ticker','report')}_pitchbook.pptx", "application/vnd.openxmlformats-officedocument.presentationml.presentation"),
+                ("Pitchbook", "pptx_bytes", f"{results.get('ticker','report')}_pitchbook.pptx", "application/vnd.openxmlformats-officedocument.presentationml.présentation"),
                 ("Ratios Excel", "excel_bytes", f"{results.get('ticker','report')}_ratios.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
             ]:
                 _b = results.get(_key)
@@ -5139,7 +5139,7 @@ def main():
             render_comparison_results()
         except Exception as _cmp_err:
             import traceback as _tb
-            st.error(f"Erreur affichage resultats comparatifs : {_cmp_err}")
+            st.error(f"Erreur affichage résultats comparatifs : {_cmp_err}")
             st.code(_tb.format_exc(), language="text")
     else:
         st.session_state.stage = "home"

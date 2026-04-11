@@ -137,19 +137,19 @@ def _set(ws, row, col, value, font=None, fill=None, align=None, border=None, num
 
 
 def _hdr(ws, row, col, text):
-    """Cellule d'en-tete navy."""
+    """Cellule d'en-Tête navy."""
     _set(ws, row, col, text, font=_FONT_HDR, fill=_FILL_NAVY,
          align=_AL_CENTER, border=_BORDER_ALL)
 
 
 def _hdr_a(ws, row, col, text):
-    """En-tete couleur indice A."""
+    """En-Tête couleur indice A."""
     _set(ws, row, col, text, font=_FONT_HDR, fill=_FILL_A,
          align=_AL_CENTER, border=_BORDER_ALL)
 
 
 def _hdr_b(ws, row, col, text):
-    """En-tete couleur indice B."""
+    """En-Tête couleur indice B."""
     _set(ws, row, col, text, font=_FONT_HDR, fill=_FILL_B,
          align=_AL_CENTER, border=_BORDER_ALL)
 
@@ -243,7 +243,7 @@ def _build_vue_ensemble(wb: Workbook, data: dict):
         ("Signal",       sig_a,           sig_b,
          "Score et recommandation FinSight composite"),
         ("Score /100",   str(sc_a),       str(sc_b),
-         "Score base 0-100, >60=Surponderer, <40=Sous-ponderer"),
+         "Score base 0-100, >60=Surpondérer, <40=Sous-pondérer"),
         ("Devise",       data.get("currency_a", "EUR"), data.get("currency_b", "USD"),
          "Devise de reference de l'indice"),
     ]
@@ -263,7 +263,7 @@ def _build_vue_ensemble(wb: Workbook, data: dict):
     _hdr(ws, 11, 2, "Horizon")
     _hdr_a(ws, 11, 3, name_a[:22])
     _hdr_b(ws, 11, 4, name_b[:22])
-    _hdr(ws, 11, 5, "Ecart (pp)")
+    _hdr(ws, 11, 5, "Écart (pp)")
 
     perf_rows = [
         ("YTD",   data.get("perf_ytd_a"), data.get("perf_ytd_b")),
@@ -277,7 +277,7 @@ def _build_vue_ensemble(wb: Workbook, data: dict):
         _label(ws, r, 2, horizon)
         _val(ws, r, 3, _pct_str(va, signed=True), alt)
         _val(ws, r, 4, _pct_str(vb, signed=True), alt)
-        # Ecart
+        # Écart
         if va is not None and vb is not None:
             try:
                 fa = float(va) * 100 if abs(float(va)) < 2 else float(va)
@@ -301,7 +301,7 @@ def _build_vue_ensemble(wb: Workbook, data: dict):
     risque_rows = [
         ("Volatilite annualisee",
          _pct_str(data.get("vol_1y_a")), _pct_str(data.get("vol_1y_b")),
-         "Ecart-type rendements quotidiens annualises"),
+         "Écart-type rendements quotidiens annualises"),
         ("Sharpe ratio (1 an)",
          _num_str(data.get("sharpe_1y_a"), 2), _num_str(data.get("sharpe_1y_b"), 2),
          "(Rendement - rf) / volatilite"),
@@ -400,7 +400,7 @@ def _build_secteurs(wb: Workbook, data: dict):
     _hdr(ws, 4, 2, "Secteur")
     _hdr_a(ws, 4, 3, name_a[:22])
     _hdr_b(ws, 4, 4, name_b[:22])
-    _hdr(ws, 4, 5, "Ecart (pp)")
+    _hdr(ws, 4, 5, "Écart (pp)")
 
     if sc_cmp:
         for i, item in enumerate(sc_cmp[:15]):
@@ -423,7 +423,7 @@ def _build_secteurs(wb: Workbook, data: dict):
     else:
         ws.merge_cells(start_row=5, start_column=2, end_row=5, end_column=5)
         ws.cell(row=5, column=2,
-                value="Donnees de composition sectorielle non disponibles.").font = _FONT_GREY
+                value="Données de composition sectorielle non disponibles.").font = _FONT_GREY
 
     ws.freeze_panes = "B5"
 
@@ -450,7 +450,7 @@ def _build_constituants(wb: Workbook, data: dict):
         start = 3 if which == "A" else 11
 
         _merge_section(ws, start, 2, 5, f"Top 5  \u2014  {name}")
-        _set(ws, start+1, 2, "Societe",
+        _set(ws, start+1, 2, "Société",
              font=_FONT_HDR, fill=fill_hdr, align=_AL_LEFT, border=_BORDER_ALL)
         _hdr(ws, start+1, 3, "Ticker")
         _hdr(ws, start+1, 4, "Poids (%)")
