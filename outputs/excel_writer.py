@@ -359,6 +359,16 @@ class ExcelWriter:
         if comparables and "COMPARABLES" in wb.sheetnames:
             written += _write_comparables(wb["COMPARABLES"], comparables)
 
+        # ------------------------------------------------------------------
+        # 6. Modèle LBO — feuilles LBO MODEL (visible) + _LBO_CALC (masquée)
+        # ------------------------------------------------------------------
+        try:
+            from outputs.lbo_model import build_lbo_sheets
+            build_lbo_sheets(wb)
+            log.info(f"[ExcelWriter] LBO sheets ajoutées (LBO MODEL + _LBO_CALC masquée)")
+        except Exception as _lbo_ex:
+            log.warning(f"[ExcelWriter] LBO sheets failed: {_lbo_ex}")
+
         wb.calculation.fullCalcOnLoad = True
         wb.save(str(output_path))
         log.info(f"[ExcelWriter] '{ticker}' — {written} cellules ecrites → {output_path.name}")

@@ -2705,18 +2705,60 @@ def _slide_lbo(prs, snap, synthesis, ratios):
                  "Un IRR \u2265 20% est le seuil standard d'un fonds PE tier-1.",
                  8, GREY_TXT)
 
-    # ── Commentary ───────────────────────────────────────────────────────────
+    # ── Commentary — agent LLM dedie si disponible ──────────────────────────
     irr_base, moic_base = _lbo_irr(10.0, 10.0)
-    if irr_base is not None:
+    irr_bull, _         = _lbo_irr(8.0, 12.0)
+    irr_bear, _         = _lbo_irr(14.0, 8.0)
+
+    _comment = ""
+    try:
+        from agents.agent_lbo import generate_lbo_texts
+        # Construire un dict lbo_data minimal a partir du calcul Python
+        # (l'agent fera lui-meme ses propres references si besoin)
+        _eligible = (
+            ebitda is not None and ebitda > 0
+            and (rev_growth or 0) >= 0
+            and (net_debt is None or (net_debt / max(ebitda, 1)) < 4.0)
+        )
+        _lbo_data_min = {
+            "eligible": _eligible,
+            "mega_flag": "standard",
+            "irr_base": irr_base,
+            "moic_base": moic_base,
+            "irr_bull": irr_bull,
+            "irr_bear": irr_bear,
+            "leverage_exit": leverage_ratio * (1 - debt_repay_pct),
+            "equity_entry": ebitda * 10.0 - (ebitda * leverage_ratio) if ebitda else None,
+            "equity_exit": (ebitda * ((1+_g_rate)**hold_years) * 10.0 - ebitda * leverage_ratio * (1-debt_repay_pct)) if ebitda else None,
+            "company_name": _g(ci, "company_name", ticker),
+            "ticker": ticker,
+        }
+        _metrics_min = {
+            "ebitda_margin_ltm": getattr(latest_yr, "ebitda_margin", None) if latest_yr else None,
+            "roic": getattr(latest_yr, "roic", None) if latest_yr else None,
+            "net_debt_ebitda": (net_debt / max(ebitda, 1)) if (net_debt and ebitda) else None,
+            "company_name_a": _g(ci, "company_name", ticker),
+            "ticker_a": ticker,
+            "sector": _g(ci, "sector", ""),
+        }
+        _texts = generate_lbo_texts(_lbo_data_min, _metrics_min)
+        _comment = _texts.get("returns_text") or _texts.get("eligibility_text") or ""
+    except Exception as _e:
+        _comment = ""
+
+    if not _comment and irr_base is not None:
         _lbo_signal = "attractive" if irr_base >= 0.20 else ("limite" if irr_base >= 0.15 else "insuffisante")
         _comment = (
-            f"A 10x EBITDA d'entr\u00e9e / 10x de sortie, le LBO g\u00e9n\u00e8re un IRR de {irr_base*100:.1f}% "
-            f"(MOIC {moic_base:.1f}x en {hold_years} ans) — attractivit\u00e9 PE jug\u00e9e {_lbo_signal}. "
+            f"À 10x EBITDA d'entrée / 10x de sortie, le LBO génère un IRR de {irr_base*100:.1f}% "
+            f"(MOIC {moic_base:.1f}x en {hold_years} ans) — attractivité PE jugée {_lbo_signal}. "
             f"Un fonds tier-1 ciblant 20%+ d'IRR doit entrer en dessous de {next((em for em in entry_multiples if (_lbo_irr(em,10.0)[0] or 0)>=0.20), entry_multiples[-1]):.0f}x EBITDA. "
-            f"La g\u00e9n\u00e9ration de FCF ({_frm(fcf, cur_sym) if fcf else '—'}) est le principal levier de remboursement de la dette."
+            f"La génération de FCF ({_frm(fcf, cur_sym) if fcf else '—'}) est le principal levier de remboursement de la dette."
         )
-    else:
-        _comment = "EBITDA non disponible — analyse LBO indicative impossible. Veuillez relancer l'analyse avec des données financières complètes."
+    if not _comment:
+        _comment = (
+            "EBITDA non disponible — analyse LBO indicative impossible. "
+            "Veuillez relancer l'analyse avec des données financières complètes."
+        )
     commentary_box(slide, 1.02, 11.60, 23.37, 1.60, _comment)
 
     return slide
