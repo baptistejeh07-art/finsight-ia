@@ -1188,11 +1188,9 @@ def _s08_croissance(prs, D):
         _txb(slide, "Données cours indisponibles — vérifier connexion yfinance",
              0.9, 6.0, 16.5, 1.0, size=8.5, color=_GRAYT, align=PP_ALIGN.CENTER)
 
-    # Stats table on right (colonnes assez larges pour les noms de secteur)
-    sa_lbl = D["sector_a"][:9] if len(D["sector_a"]) > 9 else D["sector_a"]
-    sb_lbl = D["sector_b"][:9] if len(D["sector_b"]) > 9 else D["sector_b"]
+    # Stats table on right (colonnes assez larges pour "Technology" / "Healthcare")
     rows = [
-        ["", sa_lbl, sb_lbl],
+        ["", D["sector_a"], D["sector_b"]],
         ["Perf. 52S med.", _fmt(sa.get("mom"), pct=True), _fmt(sb.get("mom"), pct=True)],
         ["Croiss. rev. med.", _fmt(sa.get("revg"), pct=True), _fmt(sb.get("revg"), pct=True)],
         ["Beta Médian", _fmt_simple(sa.get("beta"), dp=2), _fmt_simple(sb.get("beta"), dp=2)],
@@ -1200,12 +1198,15 @@ def _s08_croissance(prs, D):
         ["Score Global", f"{sa.get('score', 0)}/100", f"{sb.get('score', 0)}/100"],
     ]
     _add_table(slide, rows, 17.5, 2.0, 7.0, 7.5,
-               col_widths=[2.8, 2.1, 2.1], alt_fill=_GRAYL, font_size=8.5, header_size=8)
+               col_widths=[2.4, 2.3, 2.3], alt_fill=_GRAYL, font_size=8, header_size=8)
 
     # Lecture analytique
-    faster = D["sector_a"] if (sa.get("mom") or -999) > (sb.get("mom") or -999) else D["sector_b"]
-    faster_s = sa if faster == D["sector_a"] else sb
-    slower_s = sb if faster == D["sector_a"] else sa
+    _mom_a = sa.get("mom") or -999
+    _mom_b = sb.get("mom") or -999
+    if _mom_a > _mom_b:
+        faster, faster_s, slower_s = D["sector_a"], sa, sb
+    else:
+        faster, faster_s, slower_s = D["sector_b"], sb, sa
     spread_m = abs((sa.get("mom") or 0) - (sb.get("mom") or 0))
     spread_g = abs((sa.get("revg") or 0) - (sb.get("revg") or 0))
     fallback_lecture = (
@@ -1217,8 +1218,8 @@ def _s08_croissance(prs, D):
         f"La courbe Normalisée permet d'isoler la performance pure, independamment des niveaux absolus."
     )
     lecture = D.get("llm", {}).get("growth_read") or fallback_lecture
-    # JPM-style dynamic title : performer 52S
-    _gr_title = f"{faster_s.get('name', D['sector_a'])} surperforme sur 52S — momentum {_fmt(faster_s.get('mom'), pct=True)}"
+    # JPM-style dynamic title : performer 52S — utilise le nom du secteur (faster), pas faster_s qui est un dict de stats
+    _gr_title = f"{faster} surperforme sur 52S — momentum {_fmt(faster_s.get('mom'), pct=True)}"
     _llm_box(slide, 0.9, 9.80, 23.6, 3.55, _gr_title, lecture, fontsize=9)
 
 
