@@ -103,15 +103,15 @@ _NAVY_MID  = RGBColor(0x2E, 0x5F, 0xA3)
 
 def _llm_box(slide, x: float, y: float, w: float, h: float,
              title: str, text: str, *, fontsize: float = 9.0):
-    """Box LLM standardisée : fond bleu pale + barre laterale navy + titre + texte.
-
-    Reproduit le pattern utilise dans comparison_pptx_writer.py (cmp societe).
-    """
+    """Box LLM standardisée : fond bleu pale + barre laterale navy + titre + texte."""
     _rect(slide, x, y, w, h, fill=_NAVY_PALE)
     _rect(slide, x, y, 0.13, h, fill=_NAVY_MID)
-    _txb(slide, title.upper(), x + 0.30, y + 0.10, w - 0.40, 0.36,
-         size=fontsize, bold=True, color=_NAVY)
-    _txb(slide, text or "", x + 0.30, y + 0.50, w - 0.50, h - 0.62,
+    # Titre tronqué pour éviter débordement (max ~chars pour la largeur dispo)
+    _max_title_chars = int(w * 8)  # ~8 chars par cm à 8.5pt
+    _title_display = title[:_max_title_chars].upper() if len(title) > _max_title_chars else title.upper()
+    _txb(slide, _title_display, x + 0.30, y + 0.10, w - 0.40, 0.50,
+         size=min(fontsize, 8.0), bold=True, color=_NAVY, wrap=True)
+    _txb(slide, text or "", x + 0.30, y + 0.65, w - 0.50, h - 0.77,
          size=fontsize, color=_NAVY, wrap=True)
 
 
@@ -1384,14 +1384,14 @@ def _risques_slide(slide, content, col, col_pale, llm_text=None):
         _txb(slide, title[:48], 13.50, y, 11.0, 0.45, size=9.5, bold=True, color=_RED)
         _txb(slide, body[:180], 13.50, y + 0.50, 10.95, 1.55, size=8, color=_BLACK, wrap=True)
 
-    # Conditions d'invalidation
+    # Conditions d'invalidation — rehaussé et plus de texte
     if conds:
-        _rect(slide, 0.9, 9.55, 23.6, 0.48, fill=_NAVY)
-        _txb(slide, "CONDITIONS D'INVALIDATION", 0.9, 9.60, 23.6, 0.42, size=9, bold=True,
+        _rect(slide, 0.9, 9.20, 23.6, 0.48, fill=_NAVY)
+        _txb(slide, "CONDITIONS D'INVALIDATION", 0.9, 9.25, 23.6, 0.42, size=9, bold=True,
              color=_WHITE, align=PP_ALIGN.CENTER)
-        col_w = [3.5, 10.0, 2.5]
-        rows_cond = [["Type", "Condition", "Horizon"]] + [[c[0], c[1][:100], c[2]] for c in conds]
-        _add_table(slide, rows_cond, 0.9, 10.15, 23.6, 3.20,
+        col_w = [3.5, 13.0, 2.5]
+        rows_cond = [["Type", "Condition", "Horizon"]] + [[c[0], c[1][:180], c[2]] for c in conds]
+        _add_table(slide, rows_cond, 0.9, 9.80, 23.6, 3.55,
                    col_widths=col_w, header_fill=_NAVY, alt_fill=_GRAYL,
                    font_size=8, header_size=8)
     elif llm_text:
@@ -1764,15 +1764,22 @@ def _s15b_verdict(prs, D):
     _txb(slide, "CONDITIONS D'INVALIDATION", xs[2], 6.18, col_w3, 0.4, size=8, bold=True,
          color=_WHITE, align=PP_ALIGN.CENTER)
     conditions = [
-        ("Détérioration macro", "Récession ou hausse taux materielle — revoir positionnement"),
-        ("Révision benefices", "Profit warning > -10% / 2 trimestres — signal de sortie"),
+        ("Détérioration macro",
+         "Récession confirmée (2 trimestres PIB négatif) ou hausse des taux directeurs "
+         "supérieure à 100 bps — revoir le positionnement sectoriel et réduire l'exposition cyclique."),
+        ("Révision bénéfices",
+         "Profit warning supérieur à -10% sur 2 trimestres consécutifs ou révision baissière "
+         "du consensus BPA de plus de 15% — signal de sortie, réévaluer la thèse d'investissement."),
+        ("Compression multiples",
+         "P/E Forward en contraction de plus de 20% par rapport à la médiane 5 ans sans "
+         "justification fondamentale (croissance revenue maintenue) — risque de re-rating négatif."),
     ]
     y_cond = 6.8
     for ct, cb in conditions:
         _rect(slide, xs[2], y_cond, 0.2, 0.2, fill=_AMBER)
-        _txb(slide, ct[:36], xs[2] + 0.32, y_cond - 0.02, col_w3 - 0.32, 0.42, size=8, bold=True, color=_BLACK)
-        _txb(slide, cb[:110], xs[2] + 0.32, y_cond + 0.44, col_w3 - 0.32, 1.3, size=7.5, color=_GRAYT, wrap=True)
-        y_cond += 1.95
+        _txb(slide, ct[:36], xs[2] + 0.32, y_cond - 0.02, col_w3 - 0.32, 0.42, size=7.5, bold=True, color=_BLACK)
+        _txb(slide, cb[:200], xs[2] + 0.32, y_cond + 0.40, col_w3 - 0.32, 1.35, size=7, color=_GRAYT, wrap=True)
+        y_cond += 1.85
 
     # Horizon & conviction — bandeau h=0.55 pour cadrage propre
     _rect(slide, 0.9, 10.85, 23.6, 0.55, fill=_GRAYL,

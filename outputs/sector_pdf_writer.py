@@ -484,7 +484,7 @@ def _make_valuation_bars(tickers_data: list[dict], sector_name: str) -> io.Bytes
 
 def _make_mktcap_donut(tickers_data: list[dict], sector_name: str) -> io.BytesIO:
     """Répartition Market Cap sectorielle — donut avec légende standard."""
-    valid = [(t.get('ticker', ''), float(t['market_cap']))
+    valid = [((t.get('company') or t.get('ticker', ''))[:24], float(t['market_cap']))
              for t in tickers_data if t.get('market_cap')]
     if not valid:
         valid = [('N/A', 1)]
@@ -1010,7 +1010,7 @@ def _build_structure_sectorielle(tickers_data: list[dict], sector_name: str,
               for h in ["Indicateur", "Valeur", "Interpretation analytique"]]
 
     # --- Piotroski F-Score distribution ---
-    n_f = sa.get("piotroski_n") or 0
+    n_f = sa.get("piotroski_n") or sa.get("n_piotroski") or 0
     n_q = sa.get("piotroski_quality") or 0
     n_n_f = sa.get("piotroski_neutral") or 0
     n_t = sa.get("piotroski_trap") or 0
@@ -1374,17 +1374,25 @@ def _generate_subsector_llm(subsectors: list[dict], sector_name: str) -> dict:
             f"Pas de markdown **, pas d'emojis.\n"
             f"Réponds en JSON valide :\n"
             f'{{\n'
-            f'  "intro": "100 mots : vue d\'ensemble de la décomposition sous-sectorielle",\n'
+            f'  "intro": "120 mots : vue d\'ensemble de la décomposition sous-sectorielle, '
+            f'poids relatifs et dynamiques croisées",\n'
         )
         for s in subsectors[:8]:
             n = s["name"].replace('"', "'")
+            best_tickers = ", ".join(b[0] for b in s.get("best", [])[:3])
             prompt += (
+                f'  "{n}_presentation": "100 mots : présentation du sous-secteur {n} — '
+                f'acteurs influents ({best_tickers}), taille du marché, spécificités structurelles, '
+                f'positionnement dans la chaîne de valeur",\n'
                 f'  "{n}_drivers": "80 mots : drivers de croissance spécifiques à {n}",\n'
                 f'  "{n}_risques": "80 mots : risques et vulnérabilités propres à {n}",\n'
                 f'  "{n}_profil": "60 mots : profil financier typique de {n}",\n'
             )
-        prompt += f'  "allocation": "100 mots : recommandation d\'allocation entre sous-secteurs"\n}}'
-        resp = llm.generate(prompt, max_tokens=3000)
+        prompt += (
+            f'  "allocation": "150 mots : recommandation d\'allocation entre sous-secteurs, '
+            f'sous-secteurs à privilégier, horizon, conviction et catalyseurs déterminants"\n}}'
+        )
+        resp = llm.generate(prompt, max_tokens=4500)
         m = re.search(r'\{.*\}', resp, re.DOTALL)
         if m:
             return json.loads(m.group(0))
@@ -1436,9 +1444,10 @@ def _build_subsector_decomposition(tickers_data: list[dict], sector_name: str, r
     elems.append(src(f"FinSight IA \u2014 Agrégation par sous-secteur GICS. Score = composite 0-100."))
     elems.append(Spacer(1, 4*mm))
 
-    # Détail par sous-secteur : drivers, risques, profil
+    # Détail par sous-secteur : présentation, drivers, risques, profil
     for s in subsectors[:6]:
         n = s["name"]
+        presentation = llm_data.get(f"{n}_presentation", "")
         drivers = llm_data.get(f"{n}_drivers", "")
         risques = llm_data.get(f"{n}_risques", "")
         profil = llm_data.get(f"{n}_profil", "")
@@ -1446,9 +1455,12 @@ def _build_subsector_decomposition(tickers_data: list[dict], sector_name: str, r
 
         block = []
         block.append(Paragraph(_safe(
-            f"{n} \u2014 {s['nb']} sociétés \u00b7 Score {s['score']}/100 \u00b7 {s['signal']}"),
+            f"{n} \u2014 {s['nb']} soci\u00e9t\u00e9s \u00b7 Score {s['score']}/100 \u00b7 {s['signal']}"),
             S_SUBSECTION))
         block.append(Spacer(1, 1*mm))
+        if presentation:
+            block.append(Paragraph(_safe(presentation), S_BODY))
+            block.append(Spacer(1, 1*mm))
         if drivers:
             block.append(Paragraph(f"<b>Drivers :</b> {_safe(drivers)}", S_BODY))
         if risques:
@@ -2292,12 +2304,45 @@ def _build_conclusion(tickers_data: list[dict], sector_name: str,
     sell_list  = [t for t in sorted_data if _reco(t.get('score_global')) == "SELL"]
     buy_count, hold_count, sell_count = len(buy_list), len(hold_list), len(sell_list)
 
-    elems.append(Paragraph(
-        f"Notre positionnement sur le secteur <b>{sector_name}</b> est "
-        f"<b>{'constructif' if buy_count >= hold_count else 'neutre'} avec une sélectivité accrue</b>. "
-        f"Sur {len(tickers_data)} valeurs analysées : "
-        f"<b>{buy_count} BUY</b>, <b>{hold_count} HOLD</b>, <b>{sell_count} SELL</b>. "
-        f"Classement détaillé (cours, cible, upside) disponible en Annexe.", S_BODY))
+    # Recommandation LLM détaillée
+    _reco_llm_text = ""
+    try:
+        from core.llm_provider import LLMProvider
+        _llm_reco = LLMProvider(provider="groq", model="llama-3.3-70b-versatile")
+        # Subsectors pour enrichir la reco
+        _industries = {}
+        for t in tickers_data:
+            ind = t.get("industry") or "Autre"
+            _industries.setdefault(ind, []).append(t.get("score_global") or 0)
+        _ind_summary = ", ".join(
+            f"{k} (score moy. {sum(v)//len(v)})" for k, v in
+            sorted(_industries.items(), key=lambda x: sum(x[1])/len(x[1]), reverse=True)[:5]
+        )
+        _reco_prompt = (
+            f"Tu es un analyste buy-side senior. Rédige une recommandation sectorielle détaillée "
+            f"(200 mots) pour le secteur {sector_name}.\n"
+            f"Données : {len(tickers_data)} sociétés, {buy_count} BUY, {hold_count} HOLD, {sell_count} SELL.\n"
+            f"Sous-secteurs : {_ind_summary}.\n"
+            f"Structure ta réponse : (1) le secteur est-il prometteur et pourquoi, (2) horizon "
+            f"d'investissement recommandé, (3) quels sous-secteurs privilégier, (4) catalyseurs "
+            f"déterminants pour les 6-12 prochains mois, (5) risques à surveiller.\n"
+            f"Français correct avec accents. Pas de markdown. Pas d'emojis."
+        )
+        _reco_llm_text = _llm_reco.generate(_reco_prompt, max_tokens=500) or ""
+    except Exception:
+        pass
+
+    if _reco_llm_text.strip():
+        elems.append(Paragraph("Recommandation sectorielle", S_SUBSECTION))
+        elems.append(Spacer(1, 1*mm))
+        elems.append(Paragraph(_safe(_reco_llm_text), S_BODY))
+    else:
+        elems.append(Paragraph(
+            f"Notre positionnement sur le secteur <b>{sector_name}</b> est "
+            f"<b>{'constructif' if buy_count >= hold_count else 'neutre'} avec une s\u00e9lectivit\u00e9 accrue</b>. "
+            f"Sur {len(tickers_data)} valeurs analys\u00e9es : "
+            f"<b>{buy_count} BUY</b>, <b>{hold_count} HOLD</b>, <b>{sell_count} SELL</b>. "
+            f"Classement d\u00e9taill\u00e9 (cours, cible, upside) disponible en Annexe.", S_BODY))
     elems.append(Spacer(1, 5*mm))
 
     # 3 tableaux compacts côte à côte : BUY | HOLD | SELL — max 5 tickers chacun
