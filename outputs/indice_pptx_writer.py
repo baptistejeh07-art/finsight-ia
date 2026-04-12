@@ -1326,6 +1326,7 @@ def _s09_cartographie(prs, D):
         "Healthcare":         "Health Care",
         "Basic Materials":    "Materials",
         "Consumer Défensive": "Consumer Staples",
+        "Consumer Defensive": "Consumer Staples",
         "Consumer Cyclical":  "Consumer Discretionary",
     }
     rows = [["Rg", "Secteur", "Score", "Signal", "Mg.EBITDA", "Croiss.", "P/Book", "Div.Yield"]]
@@ -2332,12 +2333,89 @@ def _s20_etf_perf(prs, D, chart_bytes: bytes):
             f"Signal global FinSight : {_sig_s20}."
         )
 
+    # Enrichissement LLM avec événements datés impactant le cours
+    _llm_macro_comment = ""
+    try:
+        from core.llm_provider import LLMProvider
+        _llm_prov = LLMProvider(provider="groq", model="llama-3.3-70b-versatile")
+        _llm_prompt_s20 = (
+            f"Tu es un analyste macro sell-side. Rédige un commentaire concis (150 mots max) "
+            f"sur les facteurs ayant impacté le cours de l'indice {indice} sur les 12 derniers mois. "
+            f"Données : YTD {_ytd_s20}, ERP {_erp_s20}, P/E Forward {_pe_s20}, BPA growth {_bpa_s20}. "
+            f"IMPORTANT : cite des événements DATÉS (mois + année) et leur impact chiffré sur le cours. "
+            f"Exemples : pivot Fed juin 2025, élections, tensions géopolitiques, publications résultats. "
+            f"Français correct avec accents. Pas de markdown. Pas d'emojis."
+        )
+        _llm_macro_comment = _llm_prov.generate(_llm_prompt_s20, max_tokens=400) or ""
+    except Exception as _llm_e:
+        log.warning("[indice_pptx] s20 LLM macro: %s", _llm_e)
+
+    if _llm_macro_comment.strip():
+        commentary = _llm_macro_comment.strip()
+
     _rect(slide, 16.4, 11.0, 8.1, 0.05, fill=_GRAYD)
-    _txb(slide, "Pourquoi ca bouge — lecture macro", 16.6, 11.1, 7.8, 0.5, size=7.5, bold=True, color=_NAVY)
-    _txb(slide, commentary[:600], 16.6, 11.65, 7.8, 1.75, size=6.8, color=_GRAYT, wrap=True)
+    _txb(slide, "Pourquoi ça bouge — événements clés datés", 16.6, 11.1, 7.8, 0.5, size=7.5, bold=True, color=_NAVY)
+    _txb(slide, commentary[:700], 16.6, 11.65, 7.8, 1.75, size=6.8, color=_GRAYT, wrap=True)
 
     _footer(slide)
     return slide
+
+
+def _s21_disclaimer(prs, D):
+    """Slide 21 — Avertissement légal et méthodologie."""
+    slide = _blank(prs)
+    _header(slide, "Avertissement & Méthodologie",
+            "Informations réglementaires et sources de données", 4)
+
+    indice = D.get("indice", "Indice")
+    date_str = D.get("date_analyse", "")
+    nb_soc = D.get("nb_sociétés", 0)
+    nb_sec = D.get("nb_secteurs", 0)
+
+    # Avertissement légal
+    _rect(slide, 0.9, 2.10, 23.6, 2.80, _GRAYL)
+    _rect(slide, 0.9, 2.10, 0.12, 2.80, _SELL)
+    _txb(slide, "AVERTISSEMENT LÉGAL", 1.15, 2.15, 23.2, 0.35,
+         size=9, bold=True, color=_SELL)
+    disc_text = (
+        f"Ce document a été généré automatiquement par FinSight IA v1.0 le {date_str}. "
+        f"Il est produit intégralement par un système d'intelligence artificielle et "
+        f"ne constitue pas un conseil en investissement au sens de la directive européenne "
+        f"MiFID II (2014/65/UE). FinSight IA n'est pas un prestataire de services "
+        f"d'investissement agréé. Tout investisseur est invité à procéder à sa propre "
+        f"diligence et à consulter un professionnel qualifié avant toute décision. "
+        f"Les performances passées ne préjugent pas des performances futures."
+    )
+    _txb(slide, disc_text, 1.15, 2.55, 23.2, 2.30,
+         size=7.5, color=_GRAYT, wrap=True)
+
+    # Méthodologie
+    _rect(slide, 0.9, 5.20, 23.6, 0.40, _NAVY)
+    _txb(slide, "MÉTHODOLOGIE & SOURCES", 1.05, 5.22, 23.3, 0.35,
+         size=8.5, bold=True, color=_WHITE)
+
+    metho_items = [
+        (f"Univers", f"{indice} — {nb_soc} sociétés, {nb_sec} secteurs GICS"),
+        ("Score composite", "Moyenne pondérée : 40% momentum prix 3M, 30% révision BPA, 30% valorisation relative"),
+        ("Signal", "Surpondérer (score >= 60) · Neutre (40-60) · Sous-pondérer (< 40)"),
+        ("Allocation Markowitz", "Optimisation mean-variance sur rendements ETF SPDR 52S. Contrainte max 40% par secteur."),
+        ("ERP sectoriel", "Earnings Yield (1/PE forward) - Taux 10Y US. Seuils : Tendu < 2%, Neutre 2-4%, Favorable > 4%."),
+        ("Rotation sectorielle", "Modèle 4 phases (Expansion, Ralentissement, Récession, Reprise). ISM, courbe taux, Leading indicators."),
+        ("Sentiment", "FinBERT (ProsusAI/finbert) sur articles Finnhub 7 jours. Score agrégé par secteur."),
+        ("Sources données", "yfinance (cours, fondamentaux), FMP (multiples), Finnhub (news), ETF SPDR (sectoriels US)."),
+    ]
+    y = 5.80
+    for label, desc in metho_items:
+        _txb(slide, f"{label} :", 1.05, y, 5.0, 0.35, size=7.5, bold=True, color=_NAVY)
+        _txb(slide, desc, 6.05, y, 18.4, 0.35, size=7.5, color=_GRAYT, wrap=True)
+        y += 0.42
+
+    # Confidentialité
+    _txb(slide, "Document confidentiel — Diffusion restreinte. © 2026 FinSight IA.",
+         0.9, 12.60, 23.6, 0.40, size=7, bold=True, color=_NAVY,
+         align=PP_ALIGN.CENTER)
+
+    _footer(slide)
 
 
 # ── Classe principale ──────────────────────────────────────────────────────────
@@ -2442,6 +2520,8 @@ class IndicePPTXWriter:
         _safe(_s19_sentiment, prs, data, sent_bytes, label="s19_sentiment")
         # Slide 20 — Performance ETF
         _safe(_s20_etf_perf, prs, data, etf_bytes, label="s20_etf_perf")
+        # Slide 21 — Avertissement & Méthodologie
+        _safe(_s21_disclaimer, prs, data, label="s21_disclaimer")
 
         buf = io.BytesIO()
         prs.save(buf)

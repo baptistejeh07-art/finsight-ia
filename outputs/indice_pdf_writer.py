@@ -338,30 +338,33 @@ def make_score_bars(data):
 
 
 def make_top3_donut(data):
-    # Poids réels calculés depuis nb_sociétés de chaque secteur
+    """Donut complet : tous les secteurs de l'indice avec leurs poids réels."""
     secteurs_all = data["secteurs"]
     total_nb = sum(s[1] for s in secteurs_all) or 1
-    poids_map_real = {s[0]: round(100.0 * s[1] / total_nb, 1) for s in secteurs_all}
-    top3 = data["top3_secteurs"]
-    noms_top  = [s["nom"] for s in top3]
-    poids_top = [poids_map_real.get(n, round(100.0 / len(secteurs_all), 1)) for n in noms_top]
-    reste     = max(0.0, 100.0 - sum(poids_top))
-    labels    = [f"{n} ({p:.0f}%)" for n, p in zip(noms_top, poids_top)] + [f"Autres ({reste:.0f}%)"]
-    sizes     = poids_top + [reste]
-    palette   = ['#1B3A6B', '#2A5298', '#5580B8', '#D0D5DD']
-    explode   = [0.04] * len(top3) + [0]
-    fig, ax = plt.subplots(figsize=(6.0, 6.4))
-    wedges, _ = ax.pie(sizes, labels=None, autopct=None,
-                       colors=palette[:len(sizes)], explode=explode,
+    # Trier par poids décroissant
+    sect_sorted = sorted(secteurs_all, key=lambda s: s[1], reverse=True)
+    noms = [s[0] for s in sect_sorted]
+    poids = [round(100.0 * s[1] / total_nb, 1) for s in sect_sorted]
+    labels = [f"{n} ({p:.0f}%)" for n, p in zip(noms, poids)]
+    # Palette étendue pour tous les secteurs
+    _PALETTE = ['#1B3A6B', '#2A5298', '#5580B8', '#1A7A4A', '#C9A227',
+                '#A82020', '#B06000', '#6B4C9A', '#2E8B57', '#CD853F',
+                '#708090', '#BC8F8F', '#4682B4', '#D2691E', '#8FBC8F']
+    palette = (_PALETTE * 3)[:len(noms)]
+    explode = [0.03 if i < 3 else 0 for i in range(len(noms))]
+    fig, ax = plt.subplots(figsize=(6.5, 7.0))
+    wedges, _ = ax.pie(poids, labels=None, autopct=None,
+                       colors=palette, explode=explode,
                        startangle=90, wedgeprops=dict(linewidth=0.8, edgecolor='white'))
-    centre = plt.Circle((0, 0), 0.40, color='white')
+    centre = plt.Circle((0, 0), 0.35, color='white')
     ax.add_patch(centre)
-    total_top = sum(poids_top)
-    ax.text(0,  0.10, "Top 3",    ha='center', va='center', fontsize=14, fontweight='bold', color='#1B3A6B')
-    ax.text(0, -0.14, f"{total_top:.0f}%", ha='center', va='center', fontsize=19, fontweight='bold', color='#1B3A6B')
-    ax.legend(wedges, labels, loc='lower center', bbox_to_anchor=(0.5, -0.24),
-              ncol=2, fontsize=13, frameon=False, handlelength=1.6, columnspacing=1.4)
-    ax.set_title(f"Contribution a l'indice — Top 3 vs reste",
+    n_sect = len(noms)
+    ax.text(0,  0.08, f"{n_sect}", ha='center', va='center', fontsize=18, fontweight='bold', color='#1B3A6B')
+    ax.text(0, -0.12, "secteurs", ha='center', va='center', fontsize=10, color='#555555')
+    ncol = 2 if n_sect <= 8 else 3
+    ax.legend(wedges, labels, loc='lower center', bbox_to_anchor=(0.5, -0.28),
+              ncol=ncol, fontsize=10, frameon=False, handlelength=1.4, columnspacing=1.2)
+    ax.set_title("Répartition sectorielle de l'indice",
                  fontsize=11, color='#1B3A6B', fontweight='bold', pad=8)
     fig.patch.set_facecolor('white')
     plt.tight_layout(pad=0.6)
@@ -1466,20 +1469,47 @@ def _build_top3(data, donut_buf, registry=None):
     elems.append(src(_src_note))
     elems.append(Spacer(1, 4*mm))
 
-    # Donut gauche + textes analytiques droite
+    # Donut gauche + textes analytiques LLM droite
     donut_img = Image(donut_buf, width=82*mm, height=86*mm)
-    analyses_lines = []
-    for sect in data["top3_secteurs"]:
-        cat = sect.get("catalyseur", "")
-        rsk = sect.get("risque", "")
-        analyses_lines.append(
-            f"<b>{sect['nom']}</b> — {sect['signal']} \xb7 Score {sect['score']} \xb7 "
-            f"EV/EBITDA {sect['ev_ebitda']}<br/>"
-            f"Catalyseur : {cat}<br/>"
-            f"Risque : {rsk}"
-            "<br/><br/>"
+
+    # Génération LLM du texte analytique pour les secteurs recommandés
+    _top3_llm_text = ""
+    try:
+        from core.llm_provider import LLMProvider
+        import json as _json, re as _re
+        _llm = LLMProvider(provider="groq", model="llama-3.3-70b-versatile")
+        _sect_desc = "\n".join(
+            f"- {s['nom']} : score {s['score']}/100, signal {s['signal']}, "
+            f"EV/EBITDA {s['ev_ebitda']}, catalyseur={s.get('catalyseur','')}, risque={s.get('risque','')}"
+            for s in data["top3_secteurs"]
         )
-    analyses_text = "".join(analyses_lines)
+        _top3_prompt = (
+            f"Tu es un analyste sell-side senior. Rédige une analyse concise (250 mots) des "
+            f"secteurs recommandés de l'indice {data.get('indice', '')} :\n{_sect_desc}\n\n"
+            f"RÈGLES : français correct avec accents, prose technique, cite les chiffres. "
+            f"Pas de markdown **, pas d'emojis. Structure en 3 paragraphes courts "
+            f"(un par secteur) avec drivers, risques et conviction."
+        )
+        _top3_llm_text = _llm.generate(_top3_prompt, max_tokens=600) or ""
+    except Exception as _llm_err:
+        import logging as _log_m
+        _log_m.getLogger(__name__).warning("[indice_pdf] top3 LLM: %s", _llm_err)
+
+    if not _top3_llm_text.strip():
+        # Fallback : texte structuré depuis les données
+        analyses_lines = []
+        for sect in data["top3_secteurs"]:
+            cat = sect.get("catalyseur", "")
+            rsk = sect.get("risque", "")
+            analyses_lines.append(
+                f"<b>{sect['nom']}</b> — {sect['signal']} \xb7 Score {sect['score']} \xb7 "
+                f"EV/EBITDA {sect['ev_ebitda']}<br/>"
+                f"Catalyseur : {cat}<br/>"
+                f"Risque : {rsk}<br/><br/>"
+            )
+        _top3_llm_text = "".join(analyses_lines)
+
+    analyses_text = _top3_llm_text
     donut_row = Table([[donut_img, Paragraph(analyses_text, S_BODY)]],
                       colWidths=[82*mm, 88*mm])
     donut_row.setStyle(TableStyle([
