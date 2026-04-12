@@ -677,6 +677,35 @@ def _prepare_data(tickers_data: list[dict], sector_name: str, universe: str) -> 
     except Exception:
         _sector_name_display = sector_name
 
+    # Agrégation par sous-secteur (industry GICS)
+    _industry_groups = {}
+    for t in td:
+        ind = t.get("industry") or "Autre"
+        _industry_groups.setdefault(ind, []).append(t)
+    subsectors = []
+    for ind_name, items in _industry_groups.items():
+        if ind_name == "Autre" and len(_industry_groups) > 1:
+            continue
+        nb = len(items)
+        sc = int(_avg([x.get("score_global") or 0 for x in items]))
+        evs = [x["ev_ebitda"] for x in items if x.get("ev_ebitda") and 1 < x["ev_ebitda"] < 100]
+        ev = _med(evs) if evs else None
+        mgs = [x.get("ebitda_margin") or 0 for x in items if x.get("ebitda_margin")]
+        mg = _med(mgs) if mgs else None
+        grs = [x.get("revenue_growth") or 0 for x in items if x.get("revenue_growth") is not None]
+        gr = _med(grs) * 100 if grs else None  # en %
+        moms = [x.get("momentum_52w") or 0 for x in items if x.get("momentum_52w") is not None]
+        mom = _med(moms) if moms else None
+        sig = "Surpondérer" if sc >= 60 else ("Sous-pondérer" if sc < 40 else "Neutre")
+        best = sorted(items, key=lambda x: x.get("score_global") or 0, reverse=True)[:3]
+        subsectors.append({
+            "name": ind_name, "nb": nb, "score": sc, "signal": sig,
+            "ev_ebitda": ev, "margin": mg, "growth": gr, "momentum": mom,
+            "best": [(b.get("ticker", ""), b.get("score_global", 0)) for b in best],
+            "pct": round(nb / len(td) * 100, 1),
+        })
+    subsectors.sort(key=lambda x: x["score"], reverse=True)
+
     return {
         "sector_name": _sector_name_display,        # affichage francais
         "sector_name_en": sector_name,               # original yfinance EN (data lookups)
@@ -695,6 +724,7 @@ def _prepare_data(tickers_data: list[dict], sector_name: str, universe: str) -> 
         "top3": top3,
         "content": content,
         "tickers_data": td,
+        "subsectors": subsectors,
     }
 
 
@@ -1346,6 +1376,90 @@ def _s07_cycle(prs, D):
         _txb(slide, regime_line, 16.6, 11.85, 7.9, 0.55, size=8.5, bold=True, color=_rc, align=PP_ALIGN.CENTER)
         if rec_line:
             _txb(slide, rec_line, 16.6, 12.45, 7.9, 0.5, size=7.5, color=_GRAYT, align=PP_ALIGN.CENTER)
+    _footer(slide)
+
+
+def _s08_subsectors(prs, D):
+    """Slide décomposition par sous-secteur (industry GICS)."""
+    subsectors = D.get("subsectors", [])
+    if len(subsectors) <= 1:
+        return  # pas de slide si un seul sous-secteur
+
+    slide = _blank(prs)
+    _header(slide, "Décomposition par Sous-Secteur",
+            f"{D['sector_name']}  ·  {len(subsectors)} industries GICS identifiées", 1)
+
+    # Tableau sous-secteurs
+    from pptx.util import Cm as _Cm, Pt as _Pt
+    hdrs = ["Sous-secteur", "Nb", "Score", "Signal", "EV/EBITDA", "Marge", "Croiss.", "Mom."]
+    n_rows = min(len(subsectors), 10)
+    tbl_h = 0.45 + n_rows * 0.42
+    tbl_shape = slide.shapes.add_table(n_rows + 1, 8, _Cm(0.9), _Cm(2.20), _Cm(23.6), _Cm(tbl_h))
+    table = tbl_shape.table
+    col_widths = [6.0, 1.5, 1.8, 2.8, 2.5, 2.2, 2.2, 2.2]
+    total_cw = sum(col_widths)
+    for i, cw in enumerate(col_widths):
+        table.columns[i].width = _Cm(cw * 23.6 / total_cw)
+
+    # Header
+    for c, h in enumerate(hdrs):
+        cell = table.cell(0, c)
+        cell.text = h
+        for p in cell.text_frame.paragraphs:
+            p.alignment = PP_ALIGN.CENTER if c > 0 else PP_ALIGN.LEFT
+            for run in p.runs:
+                run.font.size = _Pt(8)
+                run.font.bold = True
+                run.font.color.rgb = _WHITE
+        cell.fill.solid()
+        cell.fill.fore_color.rgb = _NAVY
+
+    # Data rows
+    _SIG_COLORS = {"Surpondérer": _BUY, "Sous-pondérer": _SELL, "Neutre": _HOLD}
+    for r, s in enumerate(subsectors[:n_rows]):
+        vals = [
+            s["name"][:28],
+            str(s["nb"]),
+            str(s["score"]),
+            s["signal"],
+            f"{s['ev_ebitda']:.1f}x" if s["ev_ebitda"] else "\u2014",
+            f"{s['margin']:.1f}%" if s["margin"] else "\u2014",
+            f"{s['growth']:+.1f}%" if s["growth"] else "\u2014",
+            f"{s['momentum']:+.1f}%" if s["momentum"] else "\u2014",
+        ]
+        for c, v in enumerate(vals):
+            cell = table.cell(r + 1, c)
+            cell.text = v
+            for p in cell.text_frame.paragraphs:
+                p.alignment = PP_ALIGN.CENTER if c > 0 else PP_ALIGN.LEFT
+                for run in p.runs:
+                    run.font.size = _Pt(8)
+                    if c == 3:
+                        run.font.color.rgb = _SIG_COLORS.get(v, _BLACK)
+                        run.font.bold = True
+                    else:
+                        run.font.color.rgb = _BLACK
+            bg = RGBColor(0xF5, 0xF7, 0xFA) if r % 2 == 0 else _WHITE
+            cell.fill.solid()
+            cell.fill.fore_color.rgb = bg
+
+    # Box LLM sous les données — top 3 sous-secteurs avec best tickers
+    y_box = 2.20 + tbl_h + 0.30
+    remaining_h = 13.0 - y_box
+    if remaining_h > 1.5 and subsectors:
+        top_subs = subsectors[:3]
+        for i, s in enumerate(top_subs):
+            col_x = 0.9 + i * 8.0
+            # Bandeau titre
+            _rect(slide, col_x, y_box, 7.5, 0.45, _NAVY_PALE)
+            _rect(slide, col_x, y_box, 0.12, 0.45, _NAVY_MID)
+            _txb(slide, f"{s['name'][:24]} — {s['signal']}", col_x + 0.25, y_box + 0.05,
+                 7.0, 0.38, size=8, bold=True, color=_NAVY)
+            # Best tickers
+            best_txt = "\n".join(f"• {b[0]} ({b[1]}/100)" for b in s["best"][:3])
+            _txb(slide, best_txt, col_x + 0.25, y_box + 0.50, 7.0, min(remaining_h - 0.6, 2.5),
+                 size=7.5, color=_GRAYT, wrap=True)
+
     _footer(slide)
 
 
@@ -2012,7 +2126,9 @@ class SectoralPPTXWriter:
         _s06_ratios(prs, D)
         # Slide 7 — Positionnement cycle
         _s07_cycle(prs, D)
-        # Slide 8 — Chapter 02 divider
+        # Slide 8 — Décomposition sous-sectorielle (si >1 industry)
+        _s08_subsectors(prs, D)
+        # Slide 9 — Chapter 02 divider
         _chapter_divider(prs, "02", "Cartographie des Sociétés",
                          f"{D['N']} sociétés analysées — scores FinSight, scatter & décomposition")
         # Slide 9 — Cartographie
