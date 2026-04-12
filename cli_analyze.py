@@ -997,6 +997,7 @@ def _fetch_real_sector_data(sector: str, universe: str, max_tickers: int = 8) ->
                 "ticker":          tk,
                 "company":         name[:35],
                 "sector":          info.get("sector", sector),
+                "industry":        info.get("industryDisp") or info.get("industry") or "",
                 "score_global":    score,
                 "score_value":     round(s_val, 1),
                 "score_growth":    round(s_gro, 1),
