@@ -1451,8 +1451,8 @@ def _s08_subsectors(prs, D):
         for i, s in enumerate(top_subs):
             col_x = 0.9 + i * 8.0
             # Bandeau titre
-            _rect(slide, col_x, y_box, 7.5, 0.45, _NAVY_PALE)
-            _rect(slide, col_x, y_box, 0.12, 0.45, _NAVY_MID)
+            _rect(slide, col_x, y_box, 7.5, 0.45, _GRAYL)
+            _rect(slide, col_x, y_box, 0.12, 0.45, _NAVYL)
             _txb(slide, f"{s['name'][:24]} — {s['signal']}", col_x + 0.25, y_box + 0.05,
                  7.0, 0.38, size=8, bold=True, color=_NAVY)
             # Best tickers
