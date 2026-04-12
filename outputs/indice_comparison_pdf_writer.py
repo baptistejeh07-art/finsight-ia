@@ -3,9 +3,9 @@
 # outputs/indice_comparison_pdf_writer.py
 #
 # Rapport PDF comparatif d'indices boursiers, format aligné cmp société/secteur.
-#   - Cover épurée (sans bandeau navy)
+#   - Cover avec bandeau navy (identique aux autres pages)
 #   - 13 pages avec texte LLM enrichi à chaque section
-#   - Box LLM standardisée
+#   - Texte LLM = titre navy + paragraphe justifié (pas de box, réservées au PPTX)
 #   - Mentions légales et méthodologie étoffées
 #
 # Usage :
@@ -109,7 +109,7 @@ S_TD_G       = _s('tdg', size=8, leading=11, color=BUY_GREEN, bold=True, align=T
 S_TD_R       = _s('tdr', size=8, leading=11, color=SELL_RED,  bold=True, align=TA_CENTER)
 S_NOTE       = _s('note', size=6.5, leading=9, color=GREY_TEXT)
 S_LLM_TTL    = _s('llm_t', size=9, leading=12, color=NAVY, bold=True)
-S_LLM_BODY   = _s('llm_b', size=9, leading=13, color=NAVY, align=TA_JUSTIFY)
+S_LLM_BODY   = _s('llm_b', size=8.5, leading=13, color=GREY_TEXT, align=TA_JUSTIFY)
 S_DISC       = _s('disc', size=6.5, leading=9.5, color=GREY_TEXT, align=TA_JUSTIFY)
 S_DISC_TTL   = _s('disc_t', size=8, leading=11, color=NAVY, bold=True)
 
@@ -258,14 +258,24 @@ def _on_page(canvas, doc, data):
     page_num = doc.page
 
     if page_num == 1:
-        # Cover épurée — pas de bandeau navy
-        # Titre rendu via _build_story
+        # Cover — bandeau navy en haut (comme les autres pages)
+        name_a = _enc(data.get("name_a", "Indice A"))
+        name_b = _enc(data.get("name_b", "Indice B"))
+        canvas.setFillColor(NAVY)
+        canvas.rect(0, PAGE_H - 14*mm, PAGE_W, 14*mm, fill=1, stroke=0)
+        canvas.setFillColor(WHITE)
+        canvas.setFont("Helvetica-Bold", 8)
+        canvas.drawString(MARGIN_L, PAGE_H - 9*mm,
+                          f"FinSight IA  |  Comparatif Indices : {name_a} vs {name_b}")
+        canvas.setFont("Helvetica", 7.5)
+        date_str = _enc(data.get("date", str(_date_cls.today())))
+        canvas.drawRightString(PAGE_W - MARGIN_R, PAGE_H - 9*mm,
+                               f"{date_str}  |  Confidentiel  |  Page {page_num}")
         # Footer minimal
         canvas.setFillColor(NAVY)
         canvas.rect(0, 0, PAGE_W, 10*mm, fill=1, stroke=0)
         canvas.setFillColor(WHITE)
         canvas.setFont("Helvetica", 6.5)
-        date_str = _enc(data.get("date", str(_date_cls.today())))
         canvas.drawString(MARGIN_L, 3.5*mm,
                           "FinSight IA  \u00b7  Document confidentiel")
         canvas.drawRightString(PAGE_W - MARGIN_R, 3.5*mm, date_str)
@@ -303,26 +313,16 @@ def _on_page(canvas, doc, data):
 # =============================================================================
 
 def _llm_box_std(title: str, text: str, width=TABLE_W) -> list:
-    """Box LLM standardisée style cmp société/secteur (NAVY_PALE + barre latérale)."""
+    """Texte LLM : titre navy + paragraphe justifié, sans box (boxes réservées au PPTX)."""
     if not text:
         return []
-    inner = Table(
-        [[
-            Paragraph(_safe(title.upper()), S_LLM_TTL),
-        ], [
-            Paragraph(_safe(text), S_LLM_BODY),
-        ]],
-        colWidths=[width],
-    )
-    inner.setStyle(TableStyle([
-        ('BACKGROUND',    (0, 0), (-1, -1), NAVY_PALE),
-        ('LEFTPADDING',   (0, 0), (-1, -1), 8),
-        ('RIGHTPADDING',  (0, 0), (-1, -1), 8),
-        ('TOPPADDING',    (0, 0), (-1, -1), 5),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
-        ('LINEBEFORE',    (0, 0), (0, -1), 2.5, NAVY_MID),
-    ]))
-    return [KeepTogether([inner]), Spacer(1, 3*mm)]
+    elems = [
+        Paragraph(_safe(title.upper()), S_LLM_TTL),
+        Spacer(1, 1.5*mm),
+        Paragraph(_safe(text), S_LLM_BODY),
+        Spacer(1, 3*mm),
+    ]
+    return [KeepTogether(elems)]
 
 
 def _section_header(title: str, num: str = "") -> list:
@@ -1393,33 +1393,33 @@ def _generate_indice_llm_pdf(data: dict) -> dict:
             f"cédilles, apostrophes droites ' et guillemets français « ». N'écris JAMAIS sans "
             f"accents — ce serait du français cassé, inacceptable en rapport IB-grade.\n"
             f"RÈGLES STYLE : prose technique sell-side senior, raisonnements économiques précis, "
-            f"cite les chiffres fournis. Pas de markdown **, pas d'emojis. Min 400 caractères "
-            f"par champ sauf indication contraire.\n"
+            f"cite les chiffres fournis. Pas de markdown **, pas d'emojis. Développe chaque analyse "
+            f"en profondeur avec des arguments structurés et des chiffres contextualisés.\n"
             f"Réponds UNIQUEMENT en JSON valide.\n\n"
             f'{{\n'
-            f'  "exec_summary": "120 mots MAX : synthèse de la comparaison, qui privilégier et pourquoi",\n'
-            f'  "synthesis_read": "100 mots MAX : lecture du tableau de synthèse",\n'
-            f'  "profil_intro": "100 mots MAX : présentation des deux indices, devise, biais",\n'
-            f'  "sectoral_read": "120 mots MAX : analyse de la composition sectorielle et écarts",\n'
-            f'  "top_intro": "80 mots MAX : intro sur les top constituants et la concentration",\n'
-            f'  "concentration_read": "120 mots MAX : analyse de la concentration et risque idiosyncrasique",\n'
-            f'  "perf_macro_read": "150 mots MAX : contexte macro 12 mois, événements et catalyseurs",\n'
-            f'  "perf_decomp_read": "120 mots MAX : décomposition perfs par horizon, momentum vs structurel",\n'
-            f'  "risque_read": "120 mots MAX : lecture du profil de risque, vol/Sharpe/drawdown",\n'
-            f'  "valorisation_read": "120 mots MAX : analyse multiples P/E P/B div, mean reversion",\n'
-            f'  "erp_read": "120 mots MAX : interprétation ERP, prime de risque actions vs obligations",\n'
-            f'  "Thèses_intro": "80 mots MAX : intro thèses bull/bear",\n'
-            f'  "bull_a": "70 mots MAX : thèse bull pour {name_a}",\n'
-            f'  "bear_a": "70 mots MAX : thèse bear pour {name_a}",\n'
-            f'  "bull_b": "70 mots MAX : thèse bull pour {name_b}",\n'
-            f'  "bear_b": "70 mots MAX : thèse bear pour {name_b}",\n'
-            f'  "invalidation_read": "150 mots MAX : méthodologie de monitoring des conditions d invalidation",\n'
-            f'  "verdict_read": "120 mots MAX : verdict d allocation, indice à privilégier, raisons",\n'
-            f'  "allocation_impl": "150 mots MAX : mise en œuvre opérationnelle, véhicules, calibration"\n'
+            f'  "exec_summary": "200 mots : synthèse complète de la comparaison, qui privilégier, pourquoi, catalyseurs clés",\n'
+            f'  "synthesis_read": "150 mots : lecture détaillée du tableau de synthèse, écarts significatifs",\n'
+            f'  "profil_intro": "150 mots : présentation des deux indices, devise, biais géographique et sectoriel",\n'
+            f'  "sectoral_read": "180 mots : analyse approfondie de la composition sectorielle, écarts et implications",\n'
+            f'  "top_intro": "120 mots : intro sur les top constituants, concentration et implications pour le risque",\n'
+            f'  "concentration_read": "180 mots : analyse de la concentration, risque idiosyncrasique, comparaison Herfindahl",\n'
+            f'  "perf_macro_read": "200 mots : contexte macro 12 mois, événements marquants, catalyseurs et risques",\n'
+            f'  "perf_decomp_read": "180 mots : décomposition perfs par horizon, momentum vs structurel, attribution",\n'
+            f'  "risque_read": "180 mots : profil de risque détaillé, vol/Sharpe/drawdown, régimes de marché",\n'
+            f'  "valorisation_read": "180 mots : analyse multiples P/E P/B div yield, mean reversion, prime/décote historique",\n'
+            f'  "erp_read": "180 mots : interprétation ERP, prime de risque actions vs obligations, implications allocation",\n'
+            f'  "Thèses_intro": "120 mots : intro thèses bull/bear, cadre d analyse et hypothèses",\n'
+            f'  "bull_a": "100 mots : thèse bull argumentée pour {name_a}",\n'
+            f'  "bear_a": "100 mots : thèse bear argumentée pour {name_a}",\n'
+            f'  "bull_b": "100 mots : thèse bull argumentée pour {name_b}",\n'
+            f'  "bear_b": "100 mots : thèse bear argumentée pour {name_b}",\n'
+            f'  "invalidation_read": "200 mots : méthodologie de monitoring, seuils d invalidation, signaux de réévaluation",\n'
+            f'  "verdict_read": "180 mots : verdict d allocation détaillé, indice à privilégier, raisons quantitatives",\n'
+            f'  "allocation_impl": "200 mots : mise en œuvre opérationnelle, véhicules ETF, calibration, horizons"\n'
             f'}}'
         )
         import json, re
-        resp = llm.generate(prompt, max_tokens=2400)
+        resp = llm.generate(prompt, max_tokens=4500)
         m = re.search(r'\{.*\}', resp, re.DOTALL)
         if m:
             data_out = json.loads(m.group(0))

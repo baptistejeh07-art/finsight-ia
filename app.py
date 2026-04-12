@@ -929,7 +929,10 @@ def render_sidebar(results) -> None:
                 st.session_state.stage = "home"
                 st.rerun()
 
-        if (not _in_cmp_page) and st.session_state.get("screening_results"):
+        # Bouton retour au screening : seulement si on vient du screening
+        # ET qu'on est sur une page d'analyse (pas déjà sur le screening lui-même)
+        _on_screening = (st.session_state.get("stage") == "screening_results")
+        if (not _in_cmp_page) and (not _on_screening) and st.session_state.get("from_screening") and st.session_state.get("screening_results"):
             if st.button("\u2190 Retour au screening", use_container_width=True):
                 st.session_state.from_screening = False
                 st.session_state.stage = "screening_results"
@@ -3168,12 +3171,14 @@ def _fetch_indice_cmp_data(universe_a: str, indice_data_a: dict,
     # Trier par poids A desc
     sector_comparison.sort(key=lambda x: (x[1] or 0) + (x[2] or 0), reverse=True)
 
-    # ── Top 5 constituants A ──────────────────────────────────────────────────
+    # ── Top 5 constituants A (triés par market cap, poids estimés) ──────────────
+    _all_mcaps = [t.get("market_cap") or 0 for t in tickers_data_a]
+    _total_mcap = sum(_all_mcaps) or 1
     top5_a_raw = sorted(tickers_data_a,
-                        key=lambda t: t.get("score_global") or 0, reverse=True)[:5]
+                        key=lambda t: t.get("market_cap") or 0, reverse=True)[:5]
     top5_a = [(t.get("company", t.get("ticker", "")),
                t.get("ticker", ""),
-               None,  # poids non disponible
+               round((t.get("market_cap") or 0) / _total_mcap * 100, 1) if (t.get("market_cap") or 0) > 0 else None,
                t.get("sector", "")) for t in top5_a_raw]
 
     # ── Top 5 constituants B (hardcoded pour indices majeurs) ─────────────────

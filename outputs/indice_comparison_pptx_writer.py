@@ -337,9 +337,8 @@ def _header(slide, title, subtitle="", section_active=0):
     _rect(slide, 0, 0, 25.4, 1.65, _NAVY)
     _txb(slide, title, 1.02, 0.28, 18.0, 0.97, 13, True, _WHITE)
     if subtitle:
-        # Subtitle juste sous la navy bar avec 5mm de marge (evite chevauchement
-        # avec les bandeaux d'identification placés a partir de y=2.10)
-        _txb(slide, subtitle, 1.02, 1.68, 23.37, 0.40, 9, False, _NAVY_MID, italic=True)
+        # Subtitle juste sous la navy bar — rehaussé pour éviter chevauchement
+        _txb(slide, subtitle, 1.02, 1.55, 23.37, 0.40, 9, False, _NAVY_MID, italic=True)
     # Dots section navigation 1-4
     if section_active:
         for i in range(1, 5):
@@ -358,13 +357,15 @@ def _footer(slide):
 
 
 def _index_band(slide, name_a, name_b, *, y=2.30):
-    """Bande bicolore identifiant les deux indices."""
+    """Bande bicolore identifiant les deux indices — noms centrés."""
     _rect(slide, 1.02, y, 11.44, 0.62, _COL_AL)
     _rect(slide, 1.02, y, 0.15, 0.62, _COL_A)
-    _txb(slide, name_a, 1.30, y + 0.10, 11.0, 0.46, 10, True, _NAVY)
+    _txb(slide, name_a, 1.17, y + 0.10, 11.29, 0.46, 10, True, _NAVY,
+         align=PP_ALIGN.CENTER)
     _rect(slide, 12.94, y, 11.44, 0.62, _COL_BL)
     _rect(slide, 12.94, y, 0.15, 0.62, _COL_B)
-    _txb(slide, name_b, 13.22, y + 0.10, 11.0, 0.46, 10, True, _BUY)
+    _txb(slide, name_b, 13.09, y + 0.10, 11.29, 0.46, 10, True, _BUY,
+         align=PP_ALIGN.CENTER)
 
 
 def _divider(prs, num_str, title, subtitle):
