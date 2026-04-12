@@ -799,8 +799,12 @@ def _build_synthese(data, perf_buf, registry=None):
     else:
         elems.append(Spacer(1, 4*mm))
 
+    elems.append(Paragraph("Contexte macro\u00e9conomique et positionnement", S_SUBSECTION))
+    elems.append(Spacer(1, 1*mm))
     elems.append(Paragraph(data["texte_macro"], S_BODY))
     elems.append(Spacer(1, 3*mm))
+    elems.append(Paragraph("Signal global et conviction d'allocation", S_SUBSECTION))
+    elems.append(Spacer(1, 1*mm))
     elems.append(Paragraph(data["texte_signal"], S_BODY))
     elems.append(Spacer(1, 3*mm))
 
@@ -1228,7 +1232,9 @@ def _build_rotation(data, registry=None):
     elems.append(Spacer(1, 4*mm))
 
     elems.append(debate_q(
-        "Ou en sommes-nous dans le cycle Économique et quels secteurs privilegier ?"))
+        "O\u00f9 en sommes-nous dans le cycle \u00e9conomique et quels secteurs privil\u00e9gier ?"))
+    elems.append(Paragraph("Analyse du positionnement cyclique et recommandation de rotation", S_SUBSECTION))
+    elems.append(Spacer(1, 1*mm))
     elems.append(Paragraph(data["texte_rotation"], S_BODY))
     elems.append(Spacer(1, 3*mm))
 

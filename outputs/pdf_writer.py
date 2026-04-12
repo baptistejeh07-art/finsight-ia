@@ -1183,6 +1183,8 @@ def _build_synthese(perf_buf, data):
     kdb_text = _d(data, 'kdb_text')
     if kdb_text:
         elems.append(Spacer(1, 2*mm))
+        elems.append(Paragraph("Lecture des indicateurs cl\u00e9s", S_SUBSECTION))
+        elems.append(Spacer(1, 1*mm))
         elems.append(Paragraph(_safe(kdb_text), S_BODY))
     elems.append(Spacer(1, 4*mm))
 
@@ -1292,7 +1294,11 @@ def _build_financials(area_buf, data, margins_buf=None):
     elems.append(src(_area_src))
     elems.append(Spacer(1, 3*mm))
 
-    elems.append(Paragraph(_safe(_d(data, 'financials_text_post')), S_BODY))
+    _fin_post = _d(data, 'financials_text_post')
+    if _fin_post:
+        elems.append(Paragraph("Trajectoire financi\u00e8re et perspectives", S_SUBSECTION))
+        elems.append(Spacer(1, 1*mm))
+        elems.append(Paragraph(_safe(_fin_post), S_BODY))
     elems.append(Spacer(1, 4*mm))
 
     # Ratios vs pairs — titre + tableau gardes ensemble
@@ -1389,6 +1395,8 @@ def _build_financials(area_buf, data, margins_buf=None):
             f"la marge EBITDA mesure la g\u00e9n\u00e9ration de cash avant capex, "
             f"et la marge nette traduit la rentabilit\u00e9 finale pour l'actionnaire."
         )
+    elems.append(Paragraph("\u00c9volution des marges \u2014 interpr\u00e9tation", S_SUBSECTION))
+    elems.append(Spacer(1, 1*mm))
     elems.append(Paragraph(_margins_comment, S_BODY))
     elems.append(Spacer(1, 3*mm))
     return elems

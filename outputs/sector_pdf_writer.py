@@ -1670,6 +1670,8 @@ def _build_valorisation(scatter_buf, donut_buf, tickers_data: list[dict],
         "ne pas confondre decote relative et opportunite absolue : croiser toujours "
         "avec les fondamentaux (marge EBITDA, croissance, qualite bilan)."
     )
+    elems.append(Paragraph("Lecture du positionnement valorisation vs croissance", S_SUBSECTION))
+    elems.append(Spacer(1, 1*mm))
     elems.append(Paragraph(scatter_text, S_BODY))
     elems.append(Spacer(1, 4*mm))
 
