@@ -1042,7 +1042,7 @@ def _slide_exec_summary(prs, snap, synthesis, ratios, devil, sentiment):
 
     # Thesis bullets — espacement dynamique avec corps de texte
     thesis_parts = _split_text(thesis, 3)
-    pos_themes   = _g(synthesis, "positive_thèmes", []) or []
+    pos_themes   = _g(synthesis, "positive_themes", []) or []
     strength_ys = [4.57, 6.10, 7.63]
     for i, sy in enumerate(strength_ys):
         label = strengths[i] if i < len(strengths) else (thesis_parts[i] if i < len(thesis_parts) else "")
@@ -1065,7 +1065,7 @@ def _slide_exec_summary(prs, snap, synthesis, ratios, devil, sentiment):
     counter_risks = _g(devil, "counter_risks", []) or []
     counter_thesis_txt = _g(devil, "counter_thesis", "") or ""
     risk_bodies  = _split_text(counter_thesis_txt, 3) if counter_thesis_txt else [""] * 3
-    neg_themes   = _g(synthesis, "negative_thèmes", []) or []
+    neg_themes   = _g(synthesis, "negative_themes", []) or []
 
     risk_ys = [4.57, 6.10, 7.63]
     for i, ry in enumerate(risk_ys):
@@ -1142,7 +1142,7 @@ def _slide_exec_summary(prs, snap, synthesis, ratios, devil, sentiment):
     # 4 KPI boxes — h=1.80 pour éviter chevauchement avec footer (y=13.39)
     kpi_box(slide, 1.02, 11.34, 5.64, 1.80,
             _frx(ev_e), "EV/EBITDA",
-            f"vs {_frx(peer_Médian_ev_e)} med. pairs")
+            f"vs {_frx(peer_median_ev_e)} med. pairs")
     kpi_box(slide, 6.91, 11.34, 5.64, 1.80,
             _frpct(wacc_val), "WACC",
             f"Beta {_fr(beta, 2) if beta else '—'}  \u00b7  RFR {_frpct(rfr)}")
@@ -3633,7 +3633,7 @@ def _slide_risques(prs, snap, synthesis, devil, extra_scores: dict = None):
 
     risk_sources  = counter_risks if counter_risks else risks_s
     ct_parts      = _split_text(counter_thesis, 3)
-    neg_themes_s  = _g(synthesis, "negative_thèmes", []) or []
+    neg_themes_s  = _g(synthesis, "negative_themes", []) or []
 
     card_configs = [
         (RED_PALE,   RED,        "Risque 1"),
@@ -3874,8 +3874,8 @@ def _slide_sentiment(prs, snap, synthesis, sentiment):
         if v is None: return "\u2014"
         return str(int(v))
 
-    pos_themes  = _g(synthesis, "positive_thèmes", []) or []
-    neg_themes  = _g(synthesis, "negative_thèmes", []) or []
+    pos_themes  = _g(synthesis, "positive_themes", []) or []
+    neg_themes  = _g(synthesis, "negative_themes", []) or []
     # Limiter à 1 thème par ligne pour éviter l'explosion de hauteur du tableau
     pos_theme_str  = _truncate(str(pos_themes[0]), 240) if pos_themes else "Catalyseurs, croissance, r\u00e9sultats"
     neg_theme_str  = _truncate(str(neg_themes[0]), 240) if neg_themes else "Risques macro, concurrence, dette"
@@ -4346,8 +4346,8 @@ def _slide_conviction_tracker(prs, snap, synthesis, ratios, devil, sentiment):
         y_th += 0.95
 
     # ── Catalyseurs / Risques ────────────────────────────────────────────────
-    pos_themes = _g(synthesis, "positive_thèmes") or []
-    neg_themes = _g(synthesis, "negative_thèmes") or []
+    pos_themes = _g(synthesis, "positive_themes") or []
+    neg_themes = _g(synthesis, "negative_themes") or []
     y_mid = max(y_th + 0.30, 5.95)
 
     add_rect(slide, 9.20, y_mid, 7.40, 0.50, "1A7A4A")

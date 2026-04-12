@@ -75,7 +75,7 @@ _SECTOR_CONTENT = {
             ("down", "Sensibilité Taux", "Compression multiples si taux > 4,5 % — impact modéré sur FCF structurel"),
         ],
         "cycle_comment": "Secteur en phase d'expansion | porté par l'IA et le cloud souverain",
-        "métriques": [("Rule of 40", "42", "Sain > 40"), ("NRR Médian", "108 %", "Retention solide"), ("Cloud Mix", "38 %", "En hausse"), ("R&D/Rev.", "12 %", "Investi"), ("ARR Growth", "+24 %", "Accélération"), ("Churn", "4,2 %", "Stable")],
+        "metriques_dict": [("Rule of 40", "42", "Sain > 40"), ("NRR Médian", "108 %", "Retention solide"), ("Cloud Mix", "38 %", "En hausse"), ("R&D/Rev.", "12 %", "Investi"), ("ARR Growth", "+24 %", "Accélération"), ("Churn", "4,2 %", "Stable")],
         "conditions": [("Macro", "Récession UE confirmee — contraction PIB > 1,5 %", "6-12 mois"), ("Sectoriel", "Réduction budgets IT > 15 % grands comptes", "12-18 mois"), ("Réglementaire", "AI Act surcoût Conformité > 15 % CA", "18-24 mois"), ("Fondamental", "Révision baissière EPS > 20 % sur 2 trimestres", "6-9 mois")],
     },
     "Consumer Cyclical": {
@@ -101,7 +101,7 @@ _SECTOR_CONTENT = {
             ("down", "Substitution Digital", "Plateformes e-commerce capturent des parts en distribution"),
         ],
         "cycle_comment": "Secteur en consolidation | luxe résilient, mid-market sous pression",
-        "métriques": [("SSSG", "+4,2 %", "Positif"), ("Inventory Turn", "3,8x", "Sain"), ("Online Mix", "28 %", "En hausse"), ("Price/Mix", "+2,1 %", "Favorable"), ("Return Rate", "18 %", "Stable"), ("Loyalty Rev.", "42 %", "Fort")],
+        "metriques_dict": [("SSSG", "+4,2 %", "Positif"), ("Inventory Turn", "3,8x", "Sain"), ("Online Mix", "28 %", "En hausse"), ("Price/Mix", "+2,1 %", "Favorable"), ("Return Rate", "18 %", "Stable"), ("Loyalty Rev.", "42 %", "Fort")],
         "conditions": [("Macro", "PIB Zone Euro négatif 2 trimestres", "6-9 mois"), ("Chine", "PIB chinois < 3,5 %", "9-12 mois"), ("Crédit", "Taux 10Y > 5 % pendant 6 mois", "6-12 mois"), ("Fondamental", "SSSG négatif 3 trimestres", "9 mois")],
     },
     "Consumer Défensive": {
@@ -127,7 +127,7 @@ _SECTOR_CONTENT = {
             ("down", "Saturation Matures", "Volumes stagnants en Europe — croissance principalement par prix"),
         ],
         "cycle_comment": "Secteur défensif | résilient en récession, sous-performant en expansion",
-        "métriques": [("Org. Growth", "+3,8 %", "Sain"), ("Gross Margin", "42 %", "Stable"), ("FCF Yield", "4,2 %", "Attractif"), ("Div. Yield", "2,8 %", "Stable"), ("Elasticite Prix", "-0,4", "Faible"), ("Market Share", "+0,3 pt", "Gain")],
+        "metriques_dict": [("Org. Growth", "+3,8 %", "Sain"), ("Gross Margin", "42 %", "Stable"), ("FCF Yield", "4,2 %", "Attractif"), ("Div. Yield", "2,8 %", "Stable"), ("Elasticite Prix", "-0,4", "Faible"), ("Market Share", "+0,3 pt", "Gain")],
         "conditions": [("Macro", "Récession profonde > 3 trimestres", "9-12 mois"), ("Distribution", "Perte > 15 % référencements top 3", "6-9 mois"), ("MDD", "Part MDD > 45 % en valeur", "12-18 mois"), ("Réglementaire", "Taxe nutritionnelle majeure", "12-24 mois")],
     },
     "Financial Services": {
@@ -153,7 +153,7 @@ _SECTOR_CONTENT = {
             ("down", "Régulation", "Bale IV — impact CET1 estime a -80bps grandes banques EU"),
         ],
         "cycle_comment": "Secteur en maturité cyclique | NIM en pic, qualité d'actif à surveiller",
-        "métriques": [("NIM Médian", "2,8 %", "Sain"), ("CET1 Médian", "14,2 %", "Confortable"), ("ROE Médian", "11,4 %", "Acceptable"), ("Cost/Income", "58 %", "A ameliorer"), ("NPL Ratio", "2,1 %", "Contrôle"), ("P/Book", "0,8x", "Décote")],
+        "metriques_dict": [("NIM Médian", "2,8 %", "Sain"), ("CET1 Médian", "14,2 %", "Confortable"), ("ROE Médian", "11,4 %", "Acceptable"), ("Cost/Income", "58 %", "A ameliorer"), ("NPL Ratio", "2,1 %", "Contrôle"), ("P/Book", "0,8x", "Décote")],
         "conditions": [("Taux", "BCE baisse < 2 % — compression NIM > 40 bps", "6-12 mois"), ("Crédit", "NPL > 5 % immobilier commercial", "12-18 mois"), ("Macro", "Récession > 2 trimestrès — provisionnement", "6-9 mois"), ("Réglementaire", "Bale IV CET1 > 15 %", "24-36 mois")],
     },
     "Industrials": {
@@ -179,7 +179,7 @@ _SECTOR_CONTENT = {
             ("down", "Coûts Production", "Énergie et main-d'oeuvre qualifiee compriment les marges"),
         ],
         "cycle_comment": "Secteur en expansion sélective | défense et transition tirent la croissance",
-        "métriques": [("Book-to-Bill", "1,18x", "Positif"), ("EBIT Margin", "11,4 %", "Stable"), ("Capex/Rev", "5,2 %", "Modéré"), ("Backlog (mois)", "18", "Sécurisé"), ("FCF Conv.", "78 %", "Bon"), ("ROCE", "13,2 %", "Sain")],
+        "metriques_dict": [("Book-to-Bill", "1,18x", "Positif"), ("EBIT Margin", "11,4 %", "Stable"), ("Capex/Rev", "5,2 %", "Modéré"), ("Backlog (mois)", "18", "Sécurisé"), ("FCF Conv.", "78 %", "Bon"), ("ROCE", "13,2 %", "Sain")],
         "conditions": [("Macro", "Contraction capex global > 10 %", "6-9 mois"), ("Défense", "Gel budgets défense EU > 20 %", "12-18 mois"), ("Supply Chain", "Penurie semi-conducteurs > 6 mois", "3-6 mois"), ("Fondamental", "Book-to-Bill < 0,9 pendant 3 trimestres", "9-12 mois")],
     },
     "Healthcare": {
@@ -205,7 +205,7 @@ _SECTOR_CONTENT = {
             ("down", "Pricing Pressure", "Reformes prix medicaments EU et US — compression revenus"),
         ],
         "cycle_comment": "Secteur défensif-croissance | innovation compense risques réglementaires",
-        "métriques": [("R&D/Rev.", "18 %", "Élevé"), ("Pipeline Score", "7,2/10", "Solide"), ("Marge Brute", "68 %", "Premium"), ("Patent Cliff", "2026-28", "A surveiller"), ("ROE", "22 %", "Attractif"), ("FCF Yield", "3,8 %", "Sain")],
+        "metriques_dict": [("R&D/Rev.", "18 %", "Élevé"), ("Pipeline Score", "7,2/10", "Solide"), ("Marge Brute", "68 %", "Premium"), ("Patent Cliff", "2026-28", "A surveiller"), ("ROE", "22 %", "Attractif"), ("FCF Yield", "3,8 %", "Sain")],
         "conditions": [("Réglementaire", "Reforme prix US — impact > 20 % revenues", "12-18 mois"), ("Pipeline", "Echec phase III > 25 % du CA", "Immediat"), ("Brevet", "Expiration sans relai — -15 % revenues", "12-24 mois"), ("Macro", "Coupes budgets santé > 10 %", "24-36 mois")],
     },
     "Energy": {
@@ -231,7 +231,7 @@ _SECTOR_CONTENT = {
             ("down", "Capex Renouvelable", "Dépenses investissement renouvelables pesent sur FCF"),
         ],
         "cycle_comment": "Secteur en transition | dividendes élevés, visibilité long terme réduite",
-        "métriques": [("FCF Yield", "7,2 %", "Très attractif"), ("Div. Yield", "4,8 %", "Élevé"), ("Breakeven", "52 USD", "Confortable"), ("ROACE", "14,2 %", "Bon"), ("ND/EBITDA", "1,2x", "Faible"), ("Capex/OCF", "48 %", "Modéré")],
+        "metriques_dict": [("FCF Yield", "7,2 %", "Très attractif"), ("Div. Yield", "4,8 %", "Élevé"), ("Breakeven", "52 USD", "Confortable"), ("ROACE", "14,2 %", "Bon"), ("ND/EBITDA", "1,2x", "Faible"), ("Capex/OCF", "48 %", "Modéré")],
         "conditions": [("Petrole", "Brent < 55 USD/bbl 6 mois — coupes dividendes", "3-6 mois"), ("Politique", "Taxes exceptionnelles profits majors", "Immediat"), ("Transition", "Calendrier sortie fossiles avance 10 ans", "24-36 mois"), ("Demande", "Pic demande petroliere confirme avant 2030", "24-48 mois")],
     },
     "Basic Materials": {
@@ -257,7 +257,7 @@ _SECTOR_CONTENT = {
             ("down", "Surcapacités", "Acier et aluminium — prix sous pression structurelle"),
         ],
         "cycle_comment": "Secteur en transition cyclique | matériaux verts tirent la croissance long terme",
-        "métriques": [("EV/EBITDA", "6,2x", "Décote"), ("FCF Yield", "5,8 %", "Attractif"), ("ND/EBITDA", "1,8x", "Gerable"), ("ROIC", "11,2 %", "Correct"), ("Capex/Rev", "8,4 %", "Élevé"), ("Div. Yield", "3,2 %", "Satisfaisant")],
+        "metriques_dict": [("EV/EBITDA", "6,2x", "Décote"), ("FCF Yield", "5,8 %", "Attractif"), ("ND/EBITDA", "1,8x", "Gerable"), ("ROIC", "11,2 %", "Correct"), ("Capex/Rev", "8,4 %", "Élevé"), ("Div. Yield", "3,2 %", "Satisfaisant")],
         "conditions": [("Chine", "Croissance PIB < 3,5 % pendant 2 trimestres", "6-9 mois"), ("Prix", "Cuivre < 7 000 USD/t pendant 6 mois", "3-6 mois"), ("Capex", "Annulation projets miniers majeurs", "Immediat"), ("Régulation", "Taxes export matières premières critiques", "12-18 mois")],
     },
     "Real Estate": {
@@ -283,7 +283,7 @@ _SECTOR_CONTENT = {
             ("down", "Refinancement", "Mur de dette — risque dilution pour les leverages"),
         ],
         "cycle_comment": "Secteur en réévaluation | ANR en décote, sensibilité aux taux majeure",
-        "métriques": [("Décote ANR", "-22 %", "Opportunite"), ("Div. Yield", "4,8 %", "Attractif"), ("LTV Médian", "38 %", "Prudent"), ("ICR Médian", "3,2x", "Sain"), ("Vacance", "7,4 %", "Modérée"), ("EPRA NTA", "ref.", "Benchmark")],
+        "metriques_dict": [("Décote ANR", "-22 %", "Opportunite"), ("Div. Yield", "4,8 %", "Attractif"), ("LTV Médian", "38 %", "Prudent"), ("ICR Médian", "3,2x", "Sain"), ("Vacance", "7,4 %", "Modérée"), ("EPRA NTA", "ref.", "Benchmark")],
         "conditions": [("Taux", "OAT 10Y > 4,5 % pendant 12 mois", "6-12 mois"), ("Vacance", "Vacance bureau > 15 %", "12-18 mois"), ("Dette", "LTV > 50 % — covenant breach", "Immediat"), ("Macro", "Récession — loyers -10 %", "9-12 mois")],
     },
     "Communication Services": {
@@ -309,7 +309,7 @@ _SECTOR_CONTENT = {
             ("down", "Capex Reseau", "Phase investissement fibre — FCF sous pression 2-3 ans"),
         ],
         "cycle_comment": "Secteur en transformation | consolidation et fibre sont les catalyseurs",
-        "métriques": [("EBITDA Margin", "32 %", "Stable"), ("ARPU", "28 EUR/m", "En hausse"), ("Churn", "1,2 %", "Faible"), ("Capex/Rev", "18 %", "Élevé"), ("Fiber Cover.", "68 %", "En cours"), ("FCF Yield", "3,4 %", "Modéré")],
+        "metriques_dict": [("EBITDA Margin", "32 %", "Stable"), ("ARPU", "28 EUR/m", "En hausse"), ("Churn", "1,2 %", "Faible"), ("Capex/Rev", "18 %", "Élevé"), ("Fiber Cover.", "68 %", "En cours"), ("FCF Yield", "3,4 %", "Modéré")],
         "conditions": [("Prix", "ARPU mobile < 22 EUR — guerre des prix", "6-9 mois"), ("Capex", "Retards fibre > 18 mois", "9-12 mois"), ("Réglementaire", "Blocage fusions autorites concurrence", "Immediat"), ("Substitution", "Revenu voix < 20 % CA total", "18-24 mois")],
     },
     "Utilities": {
@@ -335,7 +335,7 @@ _SECTOR_CONTENT = {
             ("down", "Révision Tarifs", "Regulateurs peuvent comprimer les marges"),
         ],
         "cycle_comment": "Secteur défensif-rendement | sensibilité taux élevée, dividendes stables",
-        "métriques": [("RAB Return", "6,2 %", "Regule"), ("Div. Yield", "4,4 %", "Attractif"), ("ND/EBITDA", "4,2x", "Élevé stable"), ("RES Mix", "42 %", "En hausse"), ("Payout", "68 %", "Stable"), ("ROCE", "7,8 %", "Regule")],
+        "metriques_dict": [("RAB Return", "6,2 %", "Regule"), ("Div. Yield", "4,4 %", "Attractif"), ("ND/EBITDA", "4,2x", "Élevé stable"), ("RES Mix", "42 %", "En hausse"), ("Payout", "68 %", "Stable"), ("ROCE", "7,8 %", "Regule")],
         "conditions": [("Taux", "OAT 10Y > 4,5 % pendant 12 mois", "6-12 mois"), ("Régulation", "Baisse WACC regule > 100bps", "24-36 mois"), ("Meteo", "Secheresse generalisee 2 ans", "Annuel"), ("Politique", "Nationalisation ou gel tarifaire", "Immediat")],
     },
 }
@@ -524,7 +524,7 @@ def _build_content_from_data(td: list, sector_name: str, score_moyen: int,
         "risques":      risks,
         "drivers":      drivers,
         "cycle_comment": f"Secteur {sector_name} | {sig_label.lower()} | score {score_moyen}/100",
-        "métriques":    metriques,
+        "metriques_dict":    metriques,
         "conditions":   conditions,
     }
 
@@ -1177,11 +1177,11 @@ def _s03_sommaire(prs, D):
 def _s05_presentation(prs, D):
     slide = _blank(prs)
     _header(slide, "Présentation du Secteur",
-            f"{D['sector_name']}  ·  Caractéristiques structurelles & métriques de référence", 1)
+            f"{D['sector_name']}  ·  Caractéristiques structurelles & metriques_dict de référence", 1)
 
     content = D["content"]
     desc = content.get("description", "")
-    métriques = content.get("métriques", [])
+    metriques_dict = content.get("metriques_dict", [])
 
     # Description block — font plus grand pour remplir l'espace
     _rect(slide, 0.9, 2.5, 13.7, 10.0, fill=_GRAYL)
@@ -1200,7 +1200,7 @@ def _s05_presentation(prs, D):
 
     # Metrics table
     tbl_data = [["Métrique", "Valeur", "Lecture"]]
-    for met in métriques:
+    for met in metriques_dict:
         tbl_data.append(list(met))
     _add_table(slide, tbl_data, 15.1, 2.5, 9.4, len(tbl_data) * 0.58,
                col_widths=[3.5, 2.5, 3.4], font_size=7.5, header_size=7.5, alt_fill=_GRAYL)

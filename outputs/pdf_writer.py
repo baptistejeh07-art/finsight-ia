@@ -845,7 +845,7 @@ def _cover_page(c, doc, data):
 
     # Bullet 4 : risques cles (2 max sur la cover — espace limite)
     # Utiliser risk_themes_full (texte analytique complet) si disponible
-    _risks_full = data.get('risk_thèmes_full') or data.get('risk_thèmes') or []
+    _risks_full = data.get('risk_thèmes_full') or data.get('risk_themes') or []
     _r1 = _risks_full[0] if len(_risks_full) > 0 else 'Voir section Analyse des Risques'
     _r2 = _risks_full[1] if len(_risks_full) > 1 else ''
     def _wrap_risk(txt, maxch=115):
@@ -939,7 +939,7 @@ def _build_investment_case(data):
     # Bullets thèse (positive_themes depuis data)
     pos_themes  = data.get('pos_thèmes_ic') or []
     cats        = data.get('catalysts') or []
-    risk_themes = data.get('risk_thèmes') or []
+    risk_themes = data.get('risk_themes') or []
     risk_full   = data.get('risk_thèmes_full') or []
 
     # ---- Bandeau titre --------------------------------------------------------
@@ -1010,10 +1010,12 @@ def _build_investment_case(data):
         if i < len(cats):
             c_name = _d(cats[i], 'name', '\u2014')
             c_anal = _d(cats[i], 'analysis', '')
-            txt = f"{_safe(c_name)}" + (f" \u2014 {_safe(c_anal[:80])}" if c_anal else "")
+            _anal_limit = 220
+            _anal_trim = c_anal[:_anal_limit] + ('\u2026' if len(c_anal) > _anal_limit else '')
+            _inner = f"{_safe(c_name)}" + (f" \u2014 {_safe(_anal_trim)}" if c_anal else "")
         else:
-            txt = '\u2014'
-        left_elems.append(Paragraph(f"\u2022  {_safe(txt)}", S_IC_B))
+            _inner = '\u2014'
+        left_elems.append(Paragraph(f"\u2022  {_inner}", S_IC_B))
         left_elems.append(Spacer(1, 2*mm))
 
     left_col = Table([[e] for e in left_elems],
@@ -1082,7 +1084,8 @@ def _build_investment_case(data):
         risk_body = risk_full[i]   if i < len(risk_full)   else ''
         txt = _safe(risk_lbl)
         if risk_body and risk_body != risk_lbl:
-            body_short = risk_body[:160] + ('\u2026' if len(risk_body) > 160 else '')
+            _body_limit = 260
+            body_short = risk_body[:_body_limit] + ('\u2026' if len(risk_body) > _body_limit else '')
             txt = f"<b>{_safe(risk_lbl)}</b> \u2014 {_safe(body_short)}"
         else:
             txt = f"<b>{_safe(risk_lbl)}</b>"
@@ -1498,8 +1501,9 @@ def _build_valorisation(ff_buf, pie_buf, mc_buf, data):
     elems.append(Spacer(1, 3*mm))
 
     # Football Field — titre LLM analytique
+    _ticker_ff = _d(data, 'ticker', 'la soci\u00e9t\u00e9')
     elems.append(Paragraph(
-        f"Football Field \u2014 Zone de convergence des valorisations de {_ticker_f}", S_SUBSECTION))
+        f"Football Field \u2014 Zone de convergence des valorisations de {_ticker_ff}", S_SUBSECTION))
     _ff_n = len(data.get('ff_methods') or [])
     # Ratio hauteur/largeur base sur le figsize utilise dans _make_ff_chart : (10, max(4.5, 1.4+n*0.72))
     _ff_fig_h = max(4.5, 1.4 + _ff_n * 0.72)
@@ -1965,8 +1969,8 @@ def _build_multiples_historiques(data):
                 pass
         _txt  = (f"Le P/E affiche une {_dir} de {abs(delta):.1f}x sur la p\u00e9riode "
                  f"({pe_clean[0]:.1f}x -> {pe_clean[-1]:.1f}x)."
-                 + _ev_mov + _pb_note + _peers_note +
-                 + (" Un re-rating positif soutient la these haussiere, mais amplifie le risque de valorisation." if delta > 0 else " La compression multiple reflète une détérioration du profil risk/reward et limite l\u2019upside."))
+                 + _ev_mov + _pb_note + _peers_note
+                 + (" Un re-rating positif soutient la th\u00e8se haussi\u00e8re, mais amplifie le risque de valorisation." if delta > 0 else " La compression multiple refl\u00e8te une d\u00e9t\u00e9rioration du profil risk/reward et limite l\u2019upside."))
     else:
         _txt = "Historique de multiples insuffisant pour etablir une tendance significative."
     elems.append(Spacer(1, 3*mm))
@@ -2312,7 +2316,7 @@ def _build_risques(data):
             Paragraph(orient, st),
             Paragraph(_d(r, 'articles'), S_TD_C),
             Paragraph(_d(r, 'score'), S_TD_C),
-            Paragraph(_safe(_d(r, 'thèmes')), S_TD_L),
+            Paragraph(_safe(_d(r, 'themes')), S_TD_L),
         ])
     if not sent_rows:
         sent_rows = [[Paragraph('\u2014', S_TD_C), Paragraph('\u2014', S_TD_C),
@@ -3173,11 +3177,25 @@ class PDFWriter:
             return (p_.get(k) if isinstance(p_, dict) else None)
 
         def _norm_pct(v):
-            """Normalise marge LLM vers decimal 0-1 (le LLM retourne parfois 19.0 au lieu de 0.19)."""
+            """Normalise marge LLM vers decimal 0-1.
+            Cas gérés :
+            - 0.19       (fraction) → 0.19
+            - 19.0       (pourcentage direct) → 0.19
+            - 1900.0     (LLM bug ×10000) → 0.19
+            - 190.0      (×100 bug) → 0.19
+            """
             if v is None: return None
             try:
                 fv = float(v)
-                return fv / 100.0 if abs(fv) > 1.5 else fv
+                afv = abs(fv)
+                # Limites raisonnables pour une marge : [-100%, +100%]
+                # Divise par 100 jusqu'à rentrer dans [-1.5, 1.5]
+                while afv > 1.5:
+                    fv = fv / 100.0
+                    afv = abs(fv)
+                    if afv < 0.00001:  # garde-fou
+                        break
+                return fv
             except: return None
 
         def _rev(l):
@@ -3483,10 +3501,10 @@ class PDFWriter:
                 return ', '.join(ts[:2])
             # Fallback : synthesis positive/negative themes si samples insuffisants
             if orient == 'pos':
-                _raw = _g(synthesis, 'positive_thèmes') or []
+                _raw = _g(synthesis, 'positive_themes') or []
                 ts = [t if isinstance(t, str) else (_g(t,'title') or _g(t,'name') or '') for t in _raw[:2]]
             elif orient == 'neg':
-                _raw = _g(synthesis, 'negative_thèmes') or []
+                _raw = _g(synthesis, 'negative_themes') or []
                 ts = [t if isinstance(t, str) else (_g(t,'title') or _g(t,'name') or '') for t in _raw[:2]]
             return ', '.join(t for t in ts if t) or '\u2014'
 
@@ -3507,16 +3525,16 @@ class PDFWriter:
             f"publi\u00e9s au cours des sept derniers jours fait ressortir un sentiment globalement "
             f"{sent_label} avec une inflexion {direction} "
             f"(score agr\u00e9g\u00e9 : {_fr(sent_score, 3)}). "
-            f"Les publications favorables sont port\u00e9es par {_thèmes('pos')}. "
-            f"Les publications d\u00e9favorables se concentrent sur {_thèmes('neg')}."
+            f"Les publications favorables sont port\u00e9es par {_themes('pos')}. "
+            f"Les publications d\u00e9favorables se concentrent sur {_themes('neg')}."
         )
         sentiment_data = [
             {'orientation':'Positif', 'articles':str(round(avg_pos * n_art)),
-             'score':_fr(avg_pos, 2), 'thèmes':_themes('pos')},
+             'score':_fr(avg_pos, 2), 'themes':_themes('pos')},
             {'orientation':'Neutre',  'articles':str(round(avg_neu * n_art)),
-             'score':_fr(avg_neu, 2), 'thèmes':_themes('neu')},
+             'score':_fr(avg_neu, 2), 'themes':_themes('neu')},
             {'orientation':'N\u00e9gatif','articles':str(round(avg_neg * n_art)),
-             'score':_fr(avg_neg, 2), 'thèmes':_themes('neg')},
+             'score':_fr(avg_neg, 2), 'themes':_themes('neg')},
         ]
 
         # Devil
@@ -3525,7 +3543,7 @@ class PDFWriter:
         # Fallback : utiliser les themes negatifs de la synthese si devil.counter_risks vide
         _neg_full = []
         if not counter_risks:
-            _neg = _g(synthesis, 'negative_thèmes') or []
+            _neg = _g(synthesis, 'negative_themes') or []
             _neg_full = [t if isinstance(t, str) else (_g(t,'title') or _g(t,'name') or '')
                          for t in _neg[:3]]
             _neg_full = [c for c in _neg_full if c]
@@ -3699,7 +3717,7 @@ class PDFWriter:
             # Investment Case — données spécifiques
             'pos_thèmes_ic': [
                 t if isinstance(t, str) else (_g(t,'title') or _g(t,'name') or '')
-                for t in (_g(synthesis,'positive_thèmes') or [])[:3]
+                for t in (_g(synthesis,'positive_themes') or [])[:3]
             ],
             'pe_ref_str':  bm.get('pe', '15\u201322x'),
             'ev_ref_str':  bm.get('ev_e', '10\u201316x'),
@@ -3740,7 +3758,7 @@ class PDFWriter:
             'bull_price':    (_fr(tbull, 0) + ' ' + cur) if tbull else '-',
             'base_price':    (_fr(tbase, 0) + ' ' + cur) if tbase else '-',
             'current_price': (_fr(price, 2) + ' ' + cur) if price else '-',
-            'risk_thèmes':      titles[:3],
+            'risk_themes':      titles[:3],
             'risk_thèmes_full': (ct_parts[:3] if ct_parts else _neg_full[:3]) or titles[:3],
 
             # Devil / invalidation

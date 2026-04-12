@@ -1670,8 +1670,8 @@ def _build_sentiment(data, registry=None):
         elems.append(Paragraph(
             f"L'analyse FinBERT conduite sur <b>{fb['nb_articles']} articles</b> des sept derniers "
             f"jours produit un sentiment agrege de <b>{fb['score_agrege']}</b> sur l'ensemble du "
-            f"{indice_rl}. Les publications favorables portent sur : {fb['positif']['thèmes']}. "
-            f"Les signaux négatifs se concentrent sur : {fb['négatif']['thèmes']}.", S_BODY))
+            f"{indice_rl}. Les publications favorables portent sur : {fb['positif']['themes']}. "
+            f"Les signaux négatifs se concentrent sur : {fb['négatif']['themes']}.", S_BODY))
         elems.append(Spacer(1, 3*mm))
 
         # Distribution globale — [24, 20, 26, 100] = 170
@@ -1681,15 +1681,15 @@ def _build_sentiment(data, registry=None):
             [Paragraph("Positif",  S_TD_G),
              Paragraph(str(fb["positif"]["nb"]),  S_TD_C),
              Paragraph(fb["positif"]["score"],    S_TD_G),
-             Paragraph(fb["positif"]["thèmes"],   S_TD_L)],
+             Paragraph(fb["positif"]["themes"],   S_TD_L)],
             [Paragraph("Neutre",   S_TD_A),
              Paragraph(str(fb["neutre"]["nb"]),   S_TD_C),
              Paragraph(fb["neutre"]["score"],     S_TD_C),
-             Paragraph(fb["neutre"]["thèmes"],    S_TD_L)],
+             Paragraph(fb["neutre"]["themes"],    S_TD_L)],
             [Paragraph("Négatif",  S_TD_R),
              Paragraph(str(fb["négatif"]["nb"]),  S_TD_C),
              Paragraph(fb["négatif"]["score"],    S_TD_R),
-             Paragraph(fb["négatif"]["thèmes"],   S_TD_L)],
+             Paragraph(fb["négatif"]["themes"],   S_TD_L)],
         ]
         elems.append(KeepTogether(tbl([sent_h] + sent_rows, cw=[24*mm, 20*mm, 26*mm, 100*mm])))
         elems.append(src(
