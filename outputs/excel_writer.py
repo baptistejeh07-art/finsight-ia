@@ -363,18 +363,21 @@ class ExcelWriter:
         # 6. Modèle LBO — feuilles LBO MODEL (visible) + _LBO_CALC (masquée)
         # ------------------------------------------------------------------
         try:
-            from outputs.lbo_model import build_lbo_sheets
-            build_lbo_sheets(wb)
-            # Repositionner LBO MODEL juste après DCF (référence Baptiste)
-            _sheet_names = wb.sheetnames
-            _dcf_idx = _sheet_names.index("DCF") if "DCF" in _sheet_names else None
-            if _dcf_idx is not None:
-                for _lbo_name in ("LBO MODEL", "_LBO_CALC"):
-                    if _lbo_name in _sheet_names:
-                        _cur_idx = wb.sheetnames.index(_lbo_name)
-                        _target = _dcf_idx + 1
-                        wb.move_sheet(_lbo_name, offset=_target - _cur_idx)
-            log.info(f"[ExcelWriter] LBO sheets ajoutées (LBO MODEL + _LBO_CALC après DCF)")
+            _lbo_ref = Path(__file__).parent.parent / "assets" / "TSLA_LBO_REFERENCE.xlsx"
+            if _lbo_ref.exists():
+                _copy_lbo_from_template(wb, str(_lbo_ref))
+                # Repositionner LBO MODEL juste après DCF (référence Baptiste)
+                _sheet_names = wb.sheetnames
+                _dcf_idx = _sheet_names.index("DCF") if "DCF" in _sheet_names else None
+                if _dcf_idx is not None:
+                    for _lbo_name in ("LBO MODEL", "_LBO_CALC"):
+                        if _lbo_name in _sheet_names:
+                            _cur_idx = wb.sheetnames.index(_lbo_name)
+                            _target = _dcf_idx + 1
+                            wb.move_sheet(_lbo_name, offset=_target - _cur_idx)
+                log.info("[ExcelWriter] LBO sheets copiées depuis template référence (après DCF)")
+            else:
+                log.warning("[ExcelWriter] Template LBO introuvable: %s", _lbo_ref)
         except Exception as _lbo_ex:
             log.warning(f"[ExcelWriter] LBO sheets failed: {_lbo_ex}")
 
@@ -382,6 +385,61 @@ class ExcelWriter:
         wb.save(str(output_path))
         log.info(f"[ExcelWriter] '{ticker}' — {written} cellules ecrites → {output_path.name}")
         return output_path
+
+
+def _copy_lbo_from_template(wb_dst, template_path: str):
+    """Copie les feuilles LBO MODEL et _LBO_CALC depuis le template de référence.
+    Copie cellule par cellule : valeurs, formules, styles, merged cells, dimensions."""
+    from openpyxl import load_workbook
+    from openpyxl.utils import get_column_letter
+    from copy import copy
+
+    wb_src = load_workbook(template_path)
+
+    for sheet_name in ("LBO MODEL", "_LBO_CALC"):
+        if sheet_name not in wb_src.sheetnames:
+            continue
+        # Supprimer si existe déjà
+        if sheet_name in wb_dst.sheetnames:
+            del wb_dst[sheet_name]
+
+        ws_src = wb_src[sheet_name]
+        ws_dst = wb_dst.create_sheet(sheet_name)
+
+        # Copier les dimensions de colonnes
+        for col_letter, dim in ws_src.column_dimensions.items():
+            ws_dst.column_dimensions[col_letter].width = dim.width
+            ws_dst.column_dimensions[col_letter].hidden = dim.hidden
+
+        # Copier les dimensions de lignes
+        for row_num, dim in ws_src.row_dimensions.items():
+            ws_dst.row_dimensions[row_num].height = dim.height
+            ws_dst.row_dimensions[row_num].hidden = dim.hidden
+
+        # Copier cellule par cellule (valeur/formule + style)
+        for row in ws_src.iter_rows(min_row=1, max_row=ws_src.max_row,
+                                     min_col=1, max_col=ws_src.max_column):
+            for cell in row:
+                dst_cell = ws_dst.cell(row=cell.row, column=cell.column)
+                dst_cell.value = cell.value  # préserve les formules (str commençant par =)
+                if cell.has_style:
+                    dst_cell.font = copy(cell.font)
+                    dst_cell.fill = copy(cell.fill)
+                    dst_cell.border = copy(cell.border)
+                    dst_cell.alignment = copy(cell.alignment)
+                    dst_cell.number_format = cell.number_format
+                    dst_cell.protection = copy(cell.protection)
+
+        # Copier les merged cells
+        for merged_range in ws_src.merged_cells.ranges:
+            ws_dst.merge_cells(str(merged_range))
+
+        # Masquer _LBO_CALC
+        if sheet_name == "_LBO_CALC":
+            ws_dst.sheet_state = "hidden"
+
+    wb_src.close()
+    log.info("[ExcelWriter] LBO sheets copiées depuis %s", template_path)
 
 
 # ---------------------------------------------------------------------------
