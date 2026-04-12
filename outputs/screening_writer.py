@@ -797,7 +797,7 @@ def _inject_par_secteur(wb, data: list[dict]) -> None:
         avg_sc = _med_vals(tlist, "score_global")
         tend   = (
             "\u2191 Positif" if (avg_sc or 0) >= 60 else
-            "\u2193 Negatif" if (avg_sc or 0) < 45 else
+            "\u2193 Négatif" if (avg_sc or 0) < 45 else
             "\u2192 Neutre"
         )
         vals = [

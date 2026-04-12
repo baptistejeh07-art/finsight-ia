@@ -257,7 +257,7 @@ def _word_clip(s, n, ellipsis="\u2026"):
 
 _SENTIMENT_MAP = {
     "POSITIVE": "Positif", "BULLISH": "Positif", "TRÈS_POSITIF": "Très positif",
-    "NEGATIF": "Negatif", "NEGATIVE": "Negatif", "BEARISH": "Negatif",
+    "NEGATIF": "Négatif", "NEGATIVE": "Négatif", "BEARISH": "Négatif",
     "NEUTRE": "Neutre", "NEUTRAL": "Neutre", "MIXED": "Mixte",
 }
 
@@ -329,7 +329,7 @@ def _bilan_text(m_a, m_b, tkr_a, tkr_b):
         f"Structure bilancielle : {tkr_a} affiche un ND/EBITDA de {nd_a} vs {nd_b} pour {tkr_b}. "
         f"Liquidité : Current Ratio {tkr_a} {cr_a} vs {cr_b}. "
         f"Couverture des intérêts : {tkr_a} {ic_a} vs {ic_b} pour {tkr_b} -- "
-        f"les deux titres disposent d'une structure a surveiller sur horizon 12 mois."
+        f"les deux titrès disposent d'une structure a surveiller sur horizon 12 mois."
     )
 
 
@@ -359,7 +359,7 @@ def _bilan_text_below(m_a, m_b, tkr_a, tkr_b):
         if cr is None: return "non calculable"
         if cr >= 2.0: return "confortable"
         if cr >= 1.2: return "saine"
-        if cr >= 1.0: return "tendue mais suffisante"
+        if cr >= 1.0: return "tendue mais suffisanté"
         return "sous tension"
     # Couverture intérêts
     def _cov_q(ic):
@@ -377,7 +377,7 @@ def _bilan_text_below(m_a, m_b, tkr_a, tkr_b):
     if _lev_winner:
         parts.append(
             f" Sur le critère du levier, {_lev_winner} dispose d'une flexibilite "
-            f"superieure pour absorber un choc macro ou financer une opération de croissance externe."
+            f"supérieure pour absorber un choc macro ou financer une opération de croissance externe."
         )
     parts.append(
         f" La liquidité courante est {_liq_q(cr_a)} pour {tkr_a} ({_frx(m_a.get('current_ratio'))}) "
@@ -387,7 +387,7 @@ def _bilan_text_below(m_a, m_b, tkr_a, tkr_b):
     parts.append(
         f" La couverture des charges d'intérêts est {_cov_q(ic_a)} pour {tkr_a} "
         f"({_frx(m_a.get('interest_coverage'))}) et {_cov_q(ic_b)} pour {tkr_b} "
-        f"({_frx(m_b.get('interest_coverage'))}) : une couverture inferieure a 3x signale "
+        f"({_frx(m_b.get('interest_coverage'))}) : une couverture inférieure a 3x signale "
         f"une Sensibilité accrue a une remontée des taux directeurs."
     )
     parts.append(
@@ -458,7 +458,7 @@ def _chart_margins(m_a, m_b, tkr_a, tkr_b) -> io.BytesIO:
                         f"{h:.1f}%", ha='center', va='bottom', fontsize=12, color='#333', fontweight='bold')
         # Note si toutes les valeurs sont proches de 0 (données manquantes)
         if all(abs(v) < 0.01 for v in vals_a + vals_b):
-            ax.text(0.5, 0.5, "Données insuffisantes", ha='center', va='center',
+            ax.text(0.5, 0.5, "Données insuffisantés", ha='center', va='center',
                     transform=ax.transAxes, fontsize=13, color='#999', style='italic')
         else:
             # Forcer y_min à 0 pour éviter l'axe effondré + top avec marge
@@ -496,7 +496,7 @@ def _chart_returns(m_a, m_b, tkr_a, tkr_b) -> io.BytesIO:
         ax.bar(x - width/2, vals_a, width, label=tkr_a, color='#2E5FA3', alpha=0.9)
         ax.bar(x + width/2, vals_b, width, label=tkr_b, color='#C9A227', alpha=0.9)
         if all(abs(v) < 0.01 for v in vals_a + vals_b):
-            ax.text(0.5, 0.5, "Données insuffisantes", ha='center', va='center',
+            ax.text(0.5, 0.5, "Données insuffisantés", ha='center', va='center',
                     transform=ax.transAxes, fontsize=10, color='#999', style='italic')
         ax.set_xticks(x); ax.set_xticklabels(labels, fontsize=9)
         ax.set_ylabel("(%)", fontsize=9, color='#555')
@@ -689,7 +689,7 @@ def _chart_fcf_capital(m_a, m_b, tkr_a, tkr_b) -> io.BytesIO:
         ax.bar(x - width/2, vals_a, width, label=tkr_a, color='#2E5FA3', alpha=0.9)
         ax.bar(x + width/2, vals_b, width, label=tkr_b, color='#C9A227', alpha=0.9)
         if all(abs(v) < 0.01 for v in vals_a + vals_b):
-            ax.text(0.5, 0.5, "Données insuffisantes", ha='center', va='center',
+            ax.text(0.5, 0.5, "Données insuffisantés", ha='center', va='center',
                     transform=ax.transAxes, fontsize=10, color='#999', style='italic')
         ax.set_xticks(x); ax.set_xticklabels(labels, fontsize=9)
         ax.set_ylabel("(%)", fontsize=9, color='#555')
@@ -1155,7 +1155,7 @@ def _section_rentabilite_bilan(story, m_a, m_b, tkr_a, tkr_b):
         _roic_b_f = float(str(m_b.get("roic") or 0))
         _leader_r = tkr_a if _roic_a_f >= _roic_b_f else tkr_b
         _roic_comment = (
-            f"{_enc(_leader_r)} affiche un ROIC superieur ({roic_a if _leader_r == tkr_a else roic_b}), "
+            f"{_enc(_leader_r)} affiche un ROIC supérieur ({roic_a if _leader_r == tkr_a else roic_b}), "
             f"signe d'une meilleure allocation du capital investi. "
         )
     except Exception:
@@ -1455,10 +1455,10 @@ def _section_qualite_risque(story, m_a, m_b, synthesis, tkr_a, tkr_b):
         ("piotroski_score", 4.0, 7.0, True,
          "Qualité comptable (Piotroski F-Score)",
          "évalue la solidité fondamentale sur 9 critères binaires (rentabilité, levier, efficience). "
-         "Un score superieur a 7 signale une entreprise financierement solide."),
+         "Un score supérieur a 7 signale une entreprise financierement solide."),
         ("current_ratio", 1.0, 2.0, True,
          "Liquidité (Current Ratio)",
-         "rapport actifs courants / passifs courants. Un ratio superieur a 1,5 indique une capacite "
+         "rapport actifs courants / passifs courants. Un ratio supérieur a 1,5 indique une capacite "
          "confortable a honorer les obligations court terme sans stress de trésorerie."),
         ("revenue_cagr_3y", 0.03, 0.10, True,
          "Croissance (CAGR revenus 3 ans)",
@@ -1506,13 +1506,13 @@ def _section_qualite_risque(story, m_a, m_b, synthesis, tkr_a, tkr_b):
             f"tandis que {_enc(_lev_winner)} affiche le levier le plus maitrise. "
             f"{_enc(_vol_comment)} "
             f"En agrégat, le profil de risque oriente la préférence vers la valeur offrant la meilleure "
-            f"combinaison qualité bilancielle / visibilite des flux — a croiser avec la valorisation relative."
+            f"combinaison qualité bilancielle / visibilité des flux — a croiser avec la valorisation relative."
         )
     except Exception:
         conclusion = (
             f"Le profil de risque comparatif de {_enc(tkr_a)} et {_enc(tkr_b)} doit être "
             f"analyse en conjonction avec la valorisation et les perspectives de croissance "
-            f"pour identifier la meilleure asymetrie risque/rendement."
+            f"pour identifier la meilleure asymétrie risque/rendement."
         )
     story.append(Paragraph(conclusion.replace('&', '&amp;'), S_BODY))
     story.append(Spacer(1, 2*mm))
@@ -1672,7 +1672,7 @@ def _section_fcf_capital(story, m_a, m_b, tkr_a, tkr_b):
         f"({fy_b}) pour {tkr_b}. Capex/Revenus : {cx_a} vs {cx_b}, "
         f"reflétant les intensites capitalistiques respectives. "
         f"Dividende {dy_a} vs {dy_b}. "
-        f"Un FCF yield superieur signale une capacite accrue a financer la croissance, "
+        f"Un FCF yield supérieur signale une capacite accrue a financer la croissance, "
         f"racheter des actions et verser des dividendes sur horizon 12 mois. "
         f"Le taux de conversion cash (FCF/EBITDA) ressort a {cc_a} pour {tkr_a} vs {cc_b} "
         f"pour {tkr_b} : un ratio élevé indique que l'EBITDA se transforme efficacement "
@@ -1726,7 +1726,7 @@ def _section_dcf_sensitivity(story, m_a, m_b, tkr_a, tkr_b):
         f"{tkr_b} : WACC base {_frpct(wacc_b)}, g {_frpct(g_b)}. "
         f"Les cases en ligne centrale (base) correspondent aux hypotheses du modèle DCF. "
         f"Lecture : une hausse du WACC de 1 pt réduit mécaniquement la valeur intrinseque ; "
-        f"une baisse du taux terminal pénalisé davantage les titres de croissance."
+        f"une baisse du taux terminal pénalisé davantage les titrès de croissance."
     )
     story.append(Paragraph(_safe(text), S_BODY))
     story.append(Spacer(1, 3*mm))
@@ -1798,7 +1798,7 @@ def _section_dcf_sensitivity(story, m_a, m_b, tkr_a, tkr_b):
 
     def _dcf_interp(tkr, wacc, g, base, mat):
         if not mat or base <= 0:
-            return f"Les données DCF de {_enc(tkr)} sont insuffisantes pour une analyse de Sensibilité complète."
+            return f"Les données DCF de {_enc(tkr)} sont insuffisantés pour une analyse de Sensibilité complète."
         lo_val  = mat[2][0] if mat and len(mat) > 2 and len(mat[2]) > 0 else None
         hi_val  = mat[0][2] if mat and len(mat) > 0 and len(mat[0]) > 2 else None
         spread  = f"{_enc(str(lo_val))} a {_enc(str(hi_val))}" if lo_val and hi_val else "non disponible"
@@ -1823,7 +1823,7 @@ def _section_dcf_sensitivity(story, m_a, m_b, tkr_a, tkr_b):
         "Lecture transversale : comparer les fourchettes des deux sociétés permet d'identifier "
         "laquelle présente la valorisation la plus sensible aux chocs de taux. Un écart de spread "
         "plus important signale un profil de flux futurs concentrés sur le long terme, "
-        "caractéristique des titres de croissance a duration élevée.",
+        "caractéristique des titrès de croissance a duration élevée.",
         _s('dcfi_cross', size=8.5, leading=13, color=BLACK)
     ))
     story.append(Spacer(1, 2*mm))
@@ -1845,7 +1845,7 @@ def _section_momentum_marche(story, m_a, m_b, tkr_a, tkr_b):
         f"Profil de momentum : {tkr_a} affiche {p1m_a} sur 1 mois et {p1y_a} sur 12 mois "
         f"vs {p1m_b} et {p1y_b} pour {tkr_b}. "
         f"La VaR 95 % mensuelle estimée est de {var_a} pour {tkr_a} vs {var_b} pour {tkr_b}. "
-        f"Ces indicateurs refletent le sentiment court terme et la volatilite des actifs."
+        f"Ces indicateurs reflètent le sentiment court terme et la volatilité des actifs."
     )
     story.append(Paragraph(_safe(text), S_BODY))
     story.append(Spacer(1, 3*mm))
@@ -1910,7 +1910,7 @@ def _section_momentum_marche(story, m_a, m_b, tkr_a, tkr_b):
             f"Techniquement, {_rsi_comment(_rsi_a_f, tkr_a)} et "
             f"{_rsi_comment(_rsi_b_f, tkr_b)}. "
             f"La VaR 95 % mensuelle ({var_a} pour {_enc(tkr_a)} vs {var_b} pour {_enc(tkr_b)}) "
-            f"et la volatilite annualisee ({vol_a} vs {vol_b}) permettent de calibrer "
+            f"et la volatilité annualisee ({vol_a} vs {vol_b}) permettent de calibrer "
             f"le dimensionnement de position : une VaR plus élevée impose une pondération "
             f"réduite pour maintenir un budget risque équivalent en portefeuille. "
             f"Le sentiment de marché ressort {_fmt_sentiment(m_a.get('sentiment_label'))} "
@@ -1918,7 +1918,7 @@ def _section_momentum_marche(story, m_a, m_b, tkr_a, tkr_b):
         )
     except Exception:
         momentum_analysis = (
-            f"L'analyse croisee des performances et de la volatilite de {_enc(tkr_a)} et "
+            f"L'analyse croisee des performances et de la volatilité de {_enc(tkr_a)} et "
             f"{_enc(tkr_b)} permet d'évaluer l'efficience risque/rendement de chaque titre "
             f"dans une optique de construction de portefeuille."
         )
@@ -1947,7 +1947,7 @@ def _section_52w_price(story, m_a, m_b, tkr_a, tkr_b, synthesis=None):
     intro = (
         f"Le graphique ci-dessous présente l'évolution des cours de {_enc(tkr_a)} et {_enc(tkr_b)} "
         f"sur les 52 dernières semaines, normalisés en base 100. Cette representation permet "
-        f"de comparer directement la dynamique relative des deux titres independamment de leur "
+        f"de comparer directement la dynamique relative des deux titrès independamment de leur "
         f"niveau de prix absolu."
     )
     story.append(Paragraph(_safe(intro), S_BODY))
@@ -2028,7 +2028,7 @@ def _section_52w_price(story, m_a, m_b, tkr_a, tkr_b, synthesis=None):
             try:
                 fp = float(p1y)
                 if fp > 0.15:
-                    parts.append(f"{_enc(tkr)} affiche une tendance haussière marquee sur 12 mois ({_frpct(p1y, True)})")
+                    parts.append(f"{_enc(tkr)} affiche une tendance haussière marquée sur 12 mois ({_frpct(p1y, True)})")
                 elif fp > 0.03:
                     parts.append(f"{_enc(tkr)} évolue en tendance haussière modérée ({_frpct(p1y, True)})")
                 elif fp > -0.03:
@@ -2092,7 +2092,7 @@ def _section_52w_price(story, m_a, m_b, tkr_a, tkr_b, synthesis=None):
             _macro_parts.append(
                 f"Les deux valeurs evoluent dans le meme secteur ({_sec_a}), "
                 f"la divergence de trajectoire reflète donc des dynamiques propres "
-                f"(mix produits, geographies, execution) plutot qu'une rotation sectorielle."
+                f"(mix produits, geographies, exécution) plutot qu'une rotation sectorielle."
             )
         else:
             _macro_parts.append(
@@ -2108,7 +2108,7 @@ def _section_52w_price(story, m_a, m_b, tkr_a, tkr_b, synthesis=None):
                 _leader_pe = tkr_a if _pa < _pb else tkr_b
                 _macro_parts.append(
                     f"{_enc(_leader_pe)} offre un profil de valorisation plus attractif "
-                    f"(P/E {min(_pa,_pb):.1f}x vs {max(_pa,_pb):.1f}x), suggerant une asymetrie "
+                    f"(P/E {min(_pa,_pb):.1f}x vs {max(_pa,_pb):.1f}x), suggerant une asymétrie "
                     f"risque/rendement favorable si la croissance des résultats se maintient."
                 )
         except (ValueError, TypeError):
@@ -2147,7 +2147,7 @@ def _section_52w_price(story, m_a, m_b, tkr_a, tkr_b, synthesis=None):
     ana_a = (
         f"<b>{_enc(tkr_a)}</b> : Le titre a évolue entre {lo_a} et {hi_a} sur 52 semaines, "
         f"affichant une performance de {p1m_a} sur 1 mois, {p3m_a} sur 3 mois et {p1y_a} sur "
-        f"12 mois. La volatilite annualisee ressort a {vol_a}, reflectant "
+        f"12 mois. La volatilité annualisee ressort a {vol_a}, reflectant "
         + ("un titre relativement stable adapte aux profils prudents."
            if m_a.get("volatility_52w") is not None and float(m_a.get("volatility_52w") or 0.3) < 0.25
            else "un niveau de risque de prix notable qu'il convient d'integrer dans le dimensionnement de position.")
@@ -2155,8 +2155,8 @@ def _section_52w_price(story, m_a, m_b, tkr_a, tkr_b, synthesis=None):
     ana_b = (
         f"<b>{_enc(tkr_b)}</b> : Le titre a évolue entre {lo_b} et {hi_b} sur 52 semaines, "
         f"avec des performances de {p1m_b} sur 1 mois, {p3m_b} sur 3 mois et {p1y_b} sur "
-        f"12 mois. La volatilite annualisee de {vol_b} "
-        + ("indique un comportement de cours contenu, favorable aux strategies de portage."
+        f"12 mois. La volatilité annualisee de {vol_b} "
+        + ("indique un comportement de cours contenu, favorable aux stratégies de portage."
            if m_b.get("volatility_52w") is not None and float(m_b.get("volatility_52w") or 0.3) < 0.25
            else "signale une amplitude de prix élevée, cohérente avec un profil de croissance ou de retournement.")
     )
@@ -2187,7 +2187,7 @@ def _section_52w_price(story, m_a, m_b, tkr_a, tkr_b, synthesis=None):
                 f"{_enc(leader_3m)} affiche le meilleur momentum récent sur 3 mois "
                 f"({p3m_a if leader_3m == tkr_a else p3m_b})"
             )
-        cross = "Sur la periode consideree : " + " ; ".join(comp_parts) + "."
+        cross = "Sur la période consideree : " + " ; ".join(comp_parts) + "."
         story.append(Paragraph(_safe(cross),
                                 _s('52w_cross', size=8.5, leading=13, color=BLACK)))
     story.append(Spacer(1, 2*mm))
@@ -2312,7 +2312,7 @@ def _section_piotroski_detail(story, m_a, m_b, tkr_a, tkr_b):
     # Barre score total
     score_text = (
         f"Score total : {tkr_a} {pio_a_str}/9 vs {tkr_b} {pio_b_str}/9. "
-        f"Un score >= 7 indique une amélioration de la sante financière. "
+        f"Un score >= 7 indique une amélioration de la santé financière. "
         f"Sources : états financiers yfinance (exercice le plus récent disponible)."
     )
     story.append(Paragraph(_safe(score_text), S_NOTE))

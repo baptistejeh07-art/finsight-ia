@@ -650,7 +650,7 @@ def _make_revenue_area(data):
               handlelength=1.2, handleheight=0.9)
     q0, q1 = (quarters[0] if quarters else ''), (quarters[-1] if quarters else '')
     ax.set_title(
-        f'Revenus par segment \u2014 {len(quarters)} trimestres ({q0} \u2192 {q1}, Md$)',
+        f'Revenus par segment \u2014 {len(quarters)} trimestrès ({q0} \u2192 {q1}, Md$)',
         fontsize=12, color='#1B3A6B', fontweight='bold', pad=8)
     plt.tight_layout(pad=0.5)
     buf = io.BytesIO()
@@ -845,7 +845,7 @@ def _cover_page(c, doc, data):
 
     # Bullet 4 : risques cles (2 max sur la cover — espace limite)
     # Utiliser risk_themes_full (texte analytique complet) si disponible
-    _risks_full = data.get('risk_themes_full') or data.get('risk_themes') or []
+    _risks_full = data.get('risk_thèmes_full') or data.get('risk_thèmes') or []
     _r1 = _risks_full[0] if len(_risks_full) > 0 else 'Voir section Analyse des Risques'
     _r2 = _risks_full[1] if len(_risks_full) > 1 else ''
     def _wrap_risk(txt, maxch=115):
@@ -937,10 +937,10 @@ def _build_investment_case(data):
     ev_val   = _d(data, 'ev_ebitda_str', '\u2014')
 
     # Bullets thèse (positive_themes depuis data)
-    pos_themes  = data.get('pos_themes_ic') or []
+    pos_themes  = data.get('pos_thèmes_ic') or []
     cats        = data.get('catalysts') or []
-    risk_themes = data.get('risk_themes') or []
-    risk_full   = data.get('risk_themes_full') or []
+    risk_themes = data.get('risk_thèmes') or []
+    risk_full   = data.get('risk_thèmes_full') or []
 
     # ---- Bandeau titre --------------------------------------------------------
     rec_col = _rec_color(rec)
@@ -1569,7 +1569,7 @@ def _build_valorisation(ff_buf, pie_buf, mc_buf, data):
         _mc_sim_str = f"{mc_n:,}".replace(",", "\u00a0") if mc_n else "10\u00a0000"
         elems.append(src(
             f"FinSight IA \u2014 {_mc_sim_str} simulations GBM. "
-            "Param\u00e8tres : d\u00e9rive et volatilit\u00e9 annualis\u00e9es calcul\u00e9es sur 2 ans "
+            "Param\u00e8très : d\u00e9rive et volatilit\u00e9 annualis\u00e9es calcul\u00e9es sur 2 ans "
             "de donn\u00e9es journali\u00e8res propres \u00e0 la soci\u00e9t\u00e9 (yfinance). "
             "Ligne rouge = cours actuel."))
         # Titre LLM + commentaire d'interprétation sous le graphique
@@ -1627,15 +1627,15 @@ def _build_valorisation(ff_buf, pie_buf, mc_buf, data):
                 try:
                     _vol_pct = float(_vol) * 100
                     _vol_note = (f" La volatilit\u00e9 annualis\u00e9e du titre ({_vol_pct:.0f}\u00a0%) "
-                                 f"{'est elevee, amplifiant la dispersion des scenarios' if _vol_pct > 40 else 'est moderee, resserrant le corridor P10-P90'}. "
+                                 f"{'est élevée, amplifiant la dispersion des scenarios' if _vol_pct > 40 else 'est modérée, resserrant le corridor P10-P90'}. "
                                  "Le mod\u00e8le GBM suppose une distribution log-normale des rendements — "
-                                 "les chocs exogenes (recession, r\u00e9gulation, disruption sectorielle) "
+                                 "les chocs exogenes (récession, r\u00e9gulation, disruption sectorielle) "
                                  "ne sont pas captur\u00e9s. Le P50 constitue un ancrage probabiliste, "
                                  "non un prix cible analytique.")
                 except: pass
             if not _vol_note:
                 _vol_note = (" Le mod\u00e8le GBM suppose une distribution log-normale des rendements — "
-                             "les chocs exogenes (recession, r\u00e9gulation, disruption sectorielle) "
+                             "les chocs exogenes (récession, r\u00e9gulation, disruption sectorielle) "
                              "ne sont pas captur\u00e9s. Le P50 est un ancrage probabiliste, "
                              "non un prix cible. Croiser avec le DCF et les comparables.")
             elems.append(Spacer(1, 3*mm))
@@ -1678,7 +1678,7 @@ def _build_extra_risk_scores(elems: list, data: dict):
         _LABEL_COLOR = {
             'Sain':    BUY_GREEN, 'Modere': HOLD_AMB, 'Moderé': HOLD_AMB,
             'Vigilance': HOLD_AMB, 'Critique': SELL_RED,
-            'Tres attractive': BUY_GREEN, 'Attractive': BUY_GREEN,
+            'Très attractive': BUY_GREEN, 'Attractive': BUY_GREEN,
             'Moderate': HOLD_AMB, 'Peu attractive': SELL_RED,
         }
         scoring_h = [
@@ -1784,8 +1784,8 @@ def _build_extra_risk_scores(elems: list, data: dict):
             regime  = macro.get('regime', 'Inconnu')
             vix     = macro.get('vix')
             spread  = macro.get('yield_spread_10y_3m')
-            rec_6m  = macro.get('recession_prob_6m')
-            rec_lvl = macro.get('recession_level', 'Inconnu')
+            rec_6m  = macro.get('récession_prob_6m')
+            rec_lvl = macro.get('récession_level', 'Inconnu')
 
             vix_str    = f"VIX {vix:.0f}" if vix else '—'
             spread_str = f"Spread 10Y-3M : {spread:+.1f}%" if spread is not None else '—'
@@ -1803,7 +1803,7 @@ def _build_extra_risk_scores(elems: list, data: dict):
                 Paragraph(f"{vix_str}  \u00b7  {spread_str}", S_TD_L),
             ])
             macro_rows.append([
-                Paragraph("Proba. recession", S_TD_B),
+                Paragraph("Proba. récession", S_TD_B),
                 Paragraph(rec_str, S_TD_C),
                 Paragraph(
                     ("Environnement macro favorable aux actifs risques."
@@ -1844,7 +1844,7 @@ def _build_extra_risk_scores(elems: list, data: dict):
                               cw=[42*mm, 30*mm, 98*mm]))
             src_parts2 = [
                 "Régime : VIX + spread 10Y-3M + position S&P 500 vs MA200.",
-                "Recession : indicateur de marche, non econometrique.",
+                "Récession : indicateur de marche, non econometrique.",
                 "Structure dette : proportion dette court terme / dette totale (seuil risque : > 40% CT).",
                 "Liquidité : ratio Amihud (|ret|/vol$), Roll spread, proxy H/L.",
                 "Source : FinSight IA / yfinance.",
@@ -1959,14 +1959,14 @@ def _build_multiples_historiques(data):
             try:
                 _prem = (ev_clean[-1] / float(_peers_ev) - 1) * 100
                 _peers_note = (f" La soci\u00e9t\u00e9 se n\u00e9gocie avec une "
-                               f"{'prime' if _prem > 0 else 'decote'} de {abs(_prem):.0f}\u00a0% "
+                               f"{'prime' if _prem > 0 else 'décote'} de {abs(_prem):.0f}\u00a0% "
                                f"vs la m\u00e9diane des pairs sur l\u2019EV/EBITDA.")
             except Exception:
                 pass
         _txt  = (f"Le P/E affiche une {_dir} de {abs(delta):.1f}x sur la p\u00e9riode "
                  f"({pe_clean[0]:.1f}x -> {pe_clean[-1]:.1f}x)."
                  + _ev_mov + _pb_note + _peers_note +
-                 + (" Un re-rating positif soutient la these haussiere, mais amplifie le risque de valorisation." if delta > 0 else " La compression multiple reflete une deterioration du profil risk/reward et limite l\u2019upside."))
+                 + (" Un re-rating positif soutient la these haussiere, mais amplifie le risque de valorisation." if delta > 0 else " La compression multiple reflète une détérioration du profil risk/reward et limite l\u2019upside."))
     else:
         _txt = "Historique de multiples insuffisant pour etablir une tendance significative."
     elems.append(Spacer(1, 3*mm))
@@ -2054,9 +2054,9 @@ def _build_capital_returns(data):
         _capex_note = ""
         if cx_vals:
             _cx_avg = sum(cx_vals) / len(cx_vals)
-            _capex_label = ("elevee, signe d\u2019un profil invest-heavy"
+            _capex_label = ("élevée, signe d\u2019un profil invest-heavy"
                             if _cx_avg and _cx_avg > 0.08 else
-                            "moderee, compatible avec un profil generateur de FCF")
+                            "modérée, compatible avec un profil générateur de FCF")
             _capex_note = (f" L\u2019intensit\u00e9 Capex/CA moyenne de {_frpct(_cx_avg)} "
                            f"({_capex_label}).")
         _div_note = ""
@@ -2103,7 +2103,7 @@ def _build_capital_returns(data):
                 f"Le FCF yield courant de {_fy} {_fy_qual}."
                 + _fcf_drawdown_note + _capex_note + _payout_note + _fcf_conv_note + _div_note + _syn_note)
     else:
-        _txt = "Donn\u00e9es FCF insuffisantes pour l\u2019analyse de l\u2019allocation du capital."
+        _txt = "Donn\u00e9es FCF insuffisantés pour l\u2019analyse de l\u2019allocation du capital."
     elems.append(Spacer(1, 3*mm))
     elems.append(Paragraph(_safe(_txt), S_BODY))
     elems.append(src("FinSight IA \u2014 yfinance, cash flow statements."))
@@ -2194,7 +2194,7 @@ def _build_lbo(data):
     elems.append(Spacer(1, 4*mm))
 
     # ── Paramètres LBO ──
-    elems.append(Paragraph("Param\u00e8tres LBO LTM", S_SUBSECTION))
+    elems.append(Paragraph("Param\u00e8très LBO LTM", S_SUBSECTION))
     _hypo = [
         ("EBITDA LTM",          _fr(ebitda/1000 if ebitda else None, 1) + f" Mds {cur}"),
         ("FCF LTM",             _fr(fcf/1000    if fcf    else None, 1) + f" Mds {cur}"),
@@ -2213,7 +2213,7 @@ def _build_lbo(data):
     # ── Commentary ──
     irr_base, moic_base = _lbo_irr(10.0, 10.0)
     if irr_base is not None:
-        _signal = "attractive" if irr_base >= 0.20 else ("limite (15-20%)" if irr_base >= 0.15 else "insuffisante (<15%)")
+        _signal = "attractive" if irr_base >= 0.20 else ("limite (15-20%)" if irr_base >= 0.15 else "insuffisanté (<15%)")
         # Chercher le multiple d'entree max qui delivre IRR >= 20%
         _entry_20_max = next((em for em in entry_multiples if (_lbo_irr(em, 10.0)[0] or 0) >= 0.20), None)
         _entry_note = (f"Un fonds tier-1 ciblant \u226520% IRR doit entrer \u2264{_entry_20_max:.0f}x EBITDA."
@@ -2229,7 +2229,7 @@ def _build_lbo(data):
             _lev_comment = ""
         # FCF comme moteur de desendettement
         _fcf_abs_mds = fcf / 1000 if fcf else None
-        _fcf_comment = (f"La FCF generation ({_fr(_fcf_abs_mds, 1)} Mds) constitue le moteur de d\u00e9sendettement : "
+        _fcf_comment = (f"La FCF génération ({_fr(_fcf_abs_mds, 1)} Mds) constitue le moteur de d\u00e9sendettement : "
                         f"un rem boursement de {debt_repay_pct*100:.0f}% de la dette en {hold_years} ans suppose "
                         f"un FCF stable ou croissant sur la p\u00e9riode de holding. "
                         if _fcf_abs_mds else "")
@@ -2282,7 +2282,7 @@ def _build_risques(data):
     inv_data = data.get('invalidation_data') or []
     inv_h = [Paragraph(h, S_TH_L)
              for h in ["Axe", "Condition d'invalidation", "Horizon"]]
-    _inv_fallback = "D\u00e9gradation significative des fondamentaux sur 2 trimestres cons\u00e9cutifs."
+    _inv_fallback = "D\u00e9gradation significative des fondamentaux sur 2 trimestrès cons\u00e9cutifs."
     inv_rows = [
         [Paragraph(_d(r, 'axe') or '\u2014', S_TD_B),
          Paragraph(_safe(_d(r, 'condition') or _inv_fallback), S_TD_L),
@@ -2312,7 +2312,7 @@ def _build_risques(data):
             Paragraph(orient, st),
             Paragraph(_d(r, 'articles'), S_TD_C),
             Paragraph(_d(r, 'score'), S_TD_C),
-            Paragraph(_safe(_d(r, 'themes')), S_TD_L),
+            Paragraph(_safe(_d(r, 'thèmes')), S_TD_L),
         ])
     if not sent_rows:
         sent_rows = [[Paragraph('\u2014', S_TD_C), Paragraph('\u2014', S_TD_C),
@@ -2419,11 +2419,11 @@ def _build_risques(data):
              Paragraph("D\u00e9clencheur", S_TH_L),
              Paragraph("Cible r\u00e9vis\u00e9e", S_TH_C)]
     rev_rows = []
-    for r in (data.get('revision_data') or []):
+    for r in (data.get('révision_data') or []):
         sty = r.get('style', '').lower()
         rs  = S_TD_G if sty == 'buy' else (S_TD_R if sty == 'sell' else S_TD_C)
         rev_rows.append([
-            Paragraph(_d(r, 'revision'), rs),
+            Paragraph(_d(r, 'révision'), rs),
             Paragraph(_safe(_d(r, 'trigger')), S_TD_L),
             Paragraph(_d(r, 'target'), rs),
         ])
@@ -2493,7 +2493,7 @@ def _build_risques(data):
         Paragraph(
             "<b>Sentiment de marché</b> \u2014 L'analyse de sentiment combine deux approches : "
             "(1) FinBERT (ProsusAI/finbert), modèle NLP pré-entraîné sur un corpus financier "
-            "anglophone, appliqué aux titres d'articles Finnhub ; (2) classification LLM "
+            "anglophone, appliqué aux titrès d'articles Finnhub ; (2) classification LLM "
             "(Groq llama-3.3-70b) pour les articles en français. Le score agrégé pondère les "
             "résultats sur un corpus de 7 jours. Le sentiment est un indicateur contrarian : "
             "un pessimisme extrême peut signaler un point d'entrée, un optimisme excessif un "
@@ -2798,7 +2798,7 @@ def _g(obj, *keys, default=None):
     return obj if obj is not None else default
 
 def _valid_hist_labels_pdf(snap) -> list:
-    """Retourne les annees triees avec CA disponible et positif (exclut annees sans donnees yfinance)."""
+    """Retourne les annees triees avec CA disponible et positif (exclut annees sans données yfinance)."""
     if not (snap and snap.years):
         return []
     result = []
@@ -2939,7 +2939,7 @@ def _fetch_perf_data(ticker: str, exchange: str = '') -> dict:
 
 
 def _fetch_area_data(ticker: str) -> dict:
-    """Fetch 8 derniers trimestres de revenus (total ou par segment via yfinance)."""
+    """Fetch 8 derniers trimestrès de revenus (total ou par segment via yfinance)."""
     try:
         import yfinance as yf
         import pandas as pd
@@ -3483,10 +3483,10 @@ class PDFWriter:
                 return ', '.join(ts[:2])
             # Fallback : synthesis positive/negative themes si samples insuffisants
             if orient == 'pos':
-                _raw = _g(synthesis, 'positive_themes') or []
+                _raw = _g(synthesis, 'positive_thèmes') or []
                 ts = [t if isinstance(t, str) else (_g(t,'title') or _g(t,'name') or '') for t in _raw[:2]]
             elif orient == 'neg':
-                _raw = _g(synthesis, 'negative_themes') or []
+                _raw = _g(synthesis, 'negative_thèmes') or []
                 ts = [t if isinstance(t, str) else (_g(t,'title') or _g(t,'name') or '') for t in _raw[:2]]
             return ', '.join(t for t in ts if t) or '\u2014'
 
@@ -3507,16 +3507,16 @@ class PDFWriter:
             f"publi\u00e9s au cours des sept derniers jours fait ressortir un sentiment globalement "
             f"{sent_label} avec une inflexion {direction} "
             f"(score agr\u00e9g\u00e9 : {_fr(sent_score, 3)}). "
-            f"Les publications favorables sont port\u00e9es par {_themes('pos')}. "
-            f"Les publications d\u00e9favorables se concentrent sur {_themes('neg')}."
+            f"Les publications favorables sont port\u00e9es par {_thèmes('pos')}. "
+            f"Les publications d\u00e9favorables se concentrent sur {_thèmes('neg')}."
         )
         sentiment_data = [
             {'orientation':'Positif', 'articles':str(round(avg_pos * n_art)),
-             'score':_fr(avg_pos, 2), 'themes':_themes('pos')},
+             'score':_fr(avg_pos, 2), 'thèmes':_themes('pos')},
             {'orientation':'Neutre',  'articles':str(round(avg_neu * n_art)),
-             'score':_fr(avg_neu, 2), 'themes':_themes('neu')},
+             'score':_fr(avg_neu, 2), 'thèmes':_themes('neu')},
             {'orientation':'N\u00e9gatif','articles':str(round(avg_neg * n_art)),
-             'score':_fr(avg_neg, 2), 'themes':_themes('neg')},
+             'score':_fr(avg_neg, 2), 'thèmes':_themes('neg')},
         ]
 
         # Devil
@@ -3525,7 +3525,7 @@ class PDFWriter:
         # Fallback : utiliser les themes negatifs de la synthese si devil.counter_risks vide
         _neg_full = []
         if not counter_risks:
-            _neg = _g(synthesis, 'negative_themes') or []
+            _neg = _g(synthesis, 'negative_thèmes') or []
             _neg_full = [t if isinstance(t, str) else (_g(t,'title') or _g(t,'name') or '')
                          for t in _neg[:3]]
             _neg_full = [c for c in _neg_full if c]
@@ -3586,10 +3586,10 @@ class PDFWriter:
 
         # Revision — \u00bb (») est dans cp1252 (0xBB) ; \u2192 (→) ne l'est pas
         rev_data = [
-            {'revision':'\u00bb BUY',  'style':'buy',
+            {'révision':'\u00bb BUY',  'style':'buy',
              'trigger': _g(synthesis,'buy_trigger')  or 'Acc\u00e9l\u00e9ration croissance + catalyseurs haussiers confirm\u00e9s',
              'target': _fr(tbull, 0, f'\u00a0{cur}') if tbull else '\u2014'},
-            {'revision':'\u00bb SELL', 'style':'sell',
+            {'révision':'\u00bb SELL', 'style':'sell',
              'trigger': _g(synthesis,'sell_trigger') or 'R\u00e9cession confirm\u00e9e ou d\u00e9gradation structurelle des marges',
              'target': _fr(tbear, 0, f'\u00a0{cur}') if tbear else '\u2014'},
         ]
@@ -3640,7 +3640,7 @@ class PDFWriter:
                                     "Une hausse de 100 bps du WACC comprime la valeur d'environ 12\u00a0%.",
             'post_comp_text':       _g(synthesis,'comparables_commentary') or _g(synthesis,'peers_commentary') or (
                                     f"L'analyse comparative des multiples confirme un "
-                                    f"positionnement valu\u00e9 par rapport aux pairs sectoriels. "
+                                    f"positionnément valu\u00e9 par rapport aux pairs sectoriels. "
                                     f"L'EV/EBITDA de {_frx(ev_e)}x se situe au-dessus de la "
                                     f"m\u00e9diane de r\u00e9f\u00e9rence ({bm.get('ev_e','12-25x')}), "
                                     f"justifi\u00e9 par des marges structurellement sup\u00e9rieures "
@@ -3697,9 +3697,9 @@ class PDFWriter:
             ],
 
             # Investment Case — données spécifiques
-            'pos_themes_ic': [
+            'pos_thèmes_ic': [
                 t if isinstance(t, str) else (_g(t,'title') or _g(t,'name') or '')
-                for t in (_g(synthesis,'positive_themes') or [])[:3]
+                for t in (_g(synthesis,'positive_thèmes') or [])[:3]
             ],
             'pe_ref_str':  bm.get('pe', '15\u201322x'),
             'ev_ref_str':  bm.get('ev_e', '10\u201316x'),
@@ -3740,8 +3740,8 @@ class PDFWriter:
             'bull_price':    (_fr(tbull, 0) + ' ' + cur) if tbull else '-',
             'base_price':    (_fr(tbase, 0) + ' ' + cur) if tbase else '-',
             'current_price': (_fr(price, 2) + ' ' + cur) if price else '-',
-            'risk_themes':      titles[:3],
-            'risk_themes_full': (ct_parts[:3] if ct_parts else _neg_full[:3]) or titles[:3],
+            'risk_thèmes':      titles[:3],
+            'risk_thèmes_full': (ct_parts[:3] if ct_parts else _neg_full[:3]) or titles[:3],
 
             # Devil / invalidation
             'bear_args':         bear_args,
@@ -3753,7 +3753,7 @@ class PDFWriter:
 
             # Synthese finale
             'next_review':   _g(synthesis,'next_review') or '',
-            'revision_data': rev_data,
+            'révision_data': rev_data,
             'page_nums':     {'synthese':4,'financials':6,'valorisation':8,'risques':10},
 
             # Monte Carlo DCF (Chantier 1)

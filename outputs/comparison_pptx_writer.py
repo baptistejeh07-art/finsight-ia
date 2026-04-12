@@ -1301,7 +1301,7 @@ def _slide_exec_summary(prs, m_a: dict, m_b: dict, synthesis: dict):
     if _pe_leader and _pe_leader == winner:
         _jpm_sub = f"{winner} combine valorisation attractive et fondamentaux solides"
     elif _mg_leader == winner:
-        _jpm_sub = f"{winner} prime justifiee par une profitabilite superieure"
+        _jpm_sub = f"{winner} prime justifiée par une profitabilite supérieure"
     else:
         _jpm_sub = f"{winner} privilegie sur la qualité/valorisation relative"
 
@@ -1657,7 +1657,7 @@ def _slide_bilan(prs, m_a: dict, m_b: dict):
     _nd_b = _safe_float(m_b.get('net_debt_ebitda'))
     if _nd_a is not None and _nd_b is not None:
         _lev_leader = tkr_a if _nd_a < _nd_b else tkr_b
-        _jpm_sub = f"{_lev_leader} préserve une flexibilite bilancielle superieure"
+        _jpm_sub = f"{_lev_leader} préserve une flexibilite bilancielle supérieure"
     else:
         _jpm_sub = "Lecture comparative de la structure bilancielle"
     add_text_box(slide, 1.02, 2.38, 23.37, 0.45,
@@ -1911,7 +1911,7 @@ def _slide_dcf(prs, m_a: dict, m_b: dict):
         "Bear intègre un ralentissement de -30 %% sur la croissance; Bull extrapole une "
         "accélération. La Marge de Sécurité mesure l'écart cours/valeur intrinseque Base : "
         "plus elle est élevée, plus le coussin de protection est important. "
-        "WACC et TGR sont les parametres les plus sensibles : +1pt de TGR peut faire "
+        "WACC et TGR sont les parametrès les plus sensibles : +1pt de TGR peut faire "
         "varier la valorisation de 15 a 20 %%."
     )
     add_text_box(slide, 1.35, y_note + 0.12, 22.8, 2.15, dcf_note, 8, NAVY_MID, wrap=True)
@@ -1985,7 +1985,7 @@ def _slide_monte_carlo(prs, m_a: dict, m_b: dict):
         f"fourchettes intrinseques de chaque titre : plus la bande est etendue, plus l'incertitude "
         f"sur la valeur est élevée. La ligne pointillee indique le cours actuel ; si elle se situe "
         f"sous la barre Base, le titre est dans une zone d'achat theorique. A croiser avec les "
-        f"hypotheses WACC/TGR (Sensibilité des flux futurs) et la credibilite du scénario macro."
+        f"hypotheses WACC/TGR (Sensibilité des flux futurs) et la crédibilité du scénario macro."
     )
     _mc_txt_y = 2.58
     _mc_txt_h = 2.70
@@ -2270,8 +2270,8 @@ def _slide_risque(prs, m_a: dict, m_b: dict):
         f"(beta {min(_b_a, _b_b):.2f}), adapte aux portefeuilles prudents. "
         f"Sur le momentum 3 mois, {_mom_leader} prend la tête "
         f"({max(_p3m_a, _p3m_b):+.1f}% vs {min(_p3m_a, _p3m_b):+.1f}%). "
-        f"La volatilite annualisee ({_vol_a:.0f}% vs {_vol_b:.0f}%) calibré "
-        f"le dimensionnement de position : une volatilite plus élevée impose "
+        f"La volatilité annualisee ({_vol_a:.0f}% vs {_vol_b:.0f}%) calibré "
+        f"le dimensionnement de position : une volatilité plus élevée impose "
         f"une pondération réduite pour maintenir un budget risque équivalent."
     )
     y_llm = 10.75
@@ -2417,14 +2417,14 @@ def _slide_theses(prs, m_a: dict, m_b: dict, synthesis: dict):
     section_dots(slide, 5)
     _company_header_band(slide, tkr_a, tkr_b, m_a=m_a, m_b=m_b)
 
-    bull_a = synthesis.get('bull_a') or "Croissance superieure a la moyenne sectorielle avec fort levier opérationnel."
+    bull_a = synthesis.get('bull_a') or "Croissance supérieure a la moyenne sectorielle avec fort levier opérationnel."
     bear_a = synthesis.get('bear_a') or "Valorisation premium susceptible de re-rating si la croissance ralentit."
     bull_b = synthesis.get('bull_b') or "Génération de cash robuste et bilan solide pour soutenir la valorisation."
-    bear_b = synthesis.get('bear_b') or "Exposition a un secteur cyclique amplifiant la volatilite des marges."
+    bear_b = synthesis.get('bear_b') or "Exposition a un secteur cyclique amplifiant la volatilité des marges."
 
     # Titre analytique JPM
     add_text_box(slide, 1.02, 2.38, 23.37, 0.45,
-                 f"Thèses bull / bear comparées — arguments de conviction et risques d'execution {tkr_a} vs {tkr_b}",
+                 f"Thèses bull / bear comparées — arguments de conviction et risques d'exécution {tkr_a} vs {tkr_b}",
                  10, NAVY_MID, bold=True, italic=True)
 
     # Bande 52W — cours & fourchette
@@ -2627,7 +2627,7 @@ def _slide_price_chart(prs, m_a: dict, m_b: dict, synthesis: dict = None):
             f"Le spread de performance reflète une combinaison de moments pricing-power, "
             f"discipline opérationnelle et reallocation des flux institutionnels. "
             f"{_def_tk} (beta {min(_beta_a, _beta_b):.2f}) offre un profil plus défensif "
-            f"et resiste mieux dans les phases de stress. Durabilite : dépend de la visibilite "
+            f"et resiste mieux dans les phases de stress. Durabilite : dépend de la visibilité "
             f"des résultats trimestriels et de l'évolution du cycle macro 6-12 mois. "
             f"Catalyseurs : publications trimestrielles, guidance FY+1, événements sectoriels."
         )

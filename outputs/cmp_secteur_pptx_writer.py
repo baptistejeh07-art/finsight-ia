@@ -8,7 +8,7 @@ Usage :
     bytes_ = CmpSecteurPPTXWriter.generate(
         tickers_a, sector_a, universe_a,
         tickers_b, sector_b, universe_b,
-        output_path="cmp_tech_vs_sante.pptx"
+        output_path="cmp_tech_vs_santé.pptx"
     )
 
 tickers_a / tickers_b : list[dict] tel que retourne par _fetch_real_sector_data
@@ -421,7 +421,7 @@ def _get_content(sector_name: str) -> dict:
                        f"Analyse basée sur les données financières réelles des principaux acteurs.",
         "catalyseurs": [
             ("Croissance Structurelle", "Demande sectorielle portée par des tendances long terme favorables."),
-            ("Transformation Digitale", "Adoption technologique acceleree — gains de productivite et nouveaux modèles."),
+            ("Transformation Digitale", "Adoption technologique accélérée — gains de productivite et nouveaux modèles."),
             ("Consolidation", "Fusions-acquisitions — Économies d'échelle et elimination des acteurs faibles."),
         ],
         "risques": [
@@ -975,9 +975,9 @@ def _s06_valorisation(prs, D):
     premium = D["sector_a"] if pe_a > pe_b else D["sector_b"]
     pe_spread = abs(pe_a - pe_b)
     fallback_lecture = (
-        f"{cheaper} côté a une prime inferieure de {pe_spread:.1f}x P/E "
+        f"{cheaper} côté a une prime inférieure de {pe_spread:.1f}x P/E "
         f"vs {premium}. Écart reflète "
-        f"{'une anticipation de croissance superieure' if (sa.get('revg') or 0) > (sb.get('revg') or 0) else 'un profil de risque différentié'}."
+        f"{'une anticipation de croissance supérieure' if (sa.get('revg') or 0) > (sb.get('revg') or 0) else 'un profil de risque différentié'}."
     )
     lecture = D.get("llm", {}).get("valuation_read") or fallback_lecture
     # JPM-style dynamic title
@@ -1027,13 +1027,13 @@ def _s07_marges(prs, D):
         f"{(_em_b if winner_margin == D['sector_a'] else _em_a):.1f}% pour {D['sector_b'] if winner_margin == D['sector_a'] else D['sector_a']} "
         f"(spread de {_spread_em:.1f} points). Cette différence reflète des structures "
         f"de coûts très distinctes : la marge brute s'établit à {_gm_a:.1f}% vs {_gm_b:.1f}%, "
-        f"traduisant des positionnements concurrentiels et un pricing power différenciés. "
+        f"traduisant des positionnéments concurrentiels et un pricing power différenciés. "
         f"Sur la création de valeur actionnariale, {winner_roe} affiche un ROE de "
         f"{(_roe_a if winner_roe == D['sector_a'] else _roe_b):.1f}% (vs {(_roe_b if winner_roe == D['sector_a'] else _roe_a):.1f}% pour l'autre secteur), "
         f"signalant une efficience supérieure du capital employé. "
         f"L'écart de {_spread_roe:.1f} points sur le ROE conditionne directement la prime "
         f"de valorisation que le marché accorde à chaque univers : un secteur high-ROE "
-        f"justifie un multiple plus élevé tant que la croissance se maintient. "
+        f"justifié un multiple plus élevé tant que la croissance se maintient. "
         f"Pour un allocataire, ces métriques orientent l'arbitrage value/quality : "
         f"{winner_margin} offre la meilleure résilience cyclique, tandis que les "
         f"écarts de marge nette captent l'effet du levier financier et de la fiscalité."
@@ -1148,7 +1148,7 @@ def _s07b_capital_alloc(prs, D):
         f"ce qui reflète un modèle de maturité bilancielle et une politique de distribution établie. "
         f"{high_fy} Généré davantage de FCF ({_fmt_pct_direct(max(fy_a, fy_b))} de FCF Yield), "
         f"signal d'une capacite de rémunération durable et d'une allocation du capital disciplinée. "
-        f"Un FCF Yield superieur au dividende versé garantit la soutenabilite et la résilience "
+        f"Un FCF Yield supérieur au dividende versé garantit la soutenabilite et la résilience "
         f"de la distribution meme en phase de contraction des marges. "
         f"L'arbitrage entre dividende versé et réinvestissement traduit la maturité du cycle "
         f"d'investissement : un secteur en phase de croissance préféré allouer son cash a "
@@ -1213,7 +1213,7 @@ def _s08_croissance(prs, D):
         f"{faster} surperforme sur 52 semaines avec un écart de {spread_m:.1f} pts "
         f"({_fmt(faster_s.get('mom'), pct=True)} vs {_fmt(slower_s.get('mom'), pct=True)}). "
         f"Cet écart de performance reflète des dynamiques fondamentales distinctes : "
-        f"{'croissance des revenus superieure de ' + str(round(spread_g, 1)) + ' pts, ' if spread_g > 1 else ''}"
+        f"{'croissance des revenus supérieure de ' + str(round(spread_g, 1)) + ' pts, ' if spread_g > 1 else ''}"
         f"qualité bilancielle et momentum sectoriel divergents. "
         f"La courbe Normalisée permet d'isoler la performance pure, independamment des niveaux absolus."
     )
@@ -1765,10 +1765,10 @@ def _s15b_verdict(prs, D):
          color=_WHITE, align=PP_ALIGN.CENTER)
     conditions = [
         ("Détérioration macro",
-         "Récession confirmée (2 trimestres PIB négatif) ou hausse des taux directeurs "
-         "supérieure à 100 bps — revoir le positionnement sectoriel et réduire l'exposition cyclique."),
+         "Récession confirmée (2 trimestrès PIB négatif) ou hausse des taux directeurs "
+         "supérieure à 100 bps — revoir le positionnément sectoriel et réduire l'exposition cyclique."),
         ("Révision bénéfices",
-         "Profit warning supérieur à -10% sur 2 trimestres consécutifs ou révision baissière "
+         "Profit warning supérieur à -10% sur 2 trimestrès consécutifs ou révision baissière "
          "du consensus BPA de plus de 15% — signal de sortie, réévaluer la thèse d'investissement."),
         ("Compression multiples",
          "P/E Forward en contraction de plus de 20% par rapport à la médiane 5 ans sans "
@@ -1812,7 +1812,7 @@ def _s16_disclaimer(prs, D):
          "Seuils d'allocation : >= 65 = Surpondérer, 45-64 = Neutre, < 45 = Sous-pondérer."),
         ("Indicateurs de qualité financière",
          "Piotroski F-Score (0-9) : 9 critères binaires (ROA positif, CFO > NI, levier en baisse, etc.). "
-         "Altman Z-Score : modèle de detresse financière (Z>2.99 = sain, 1.81-2.99 = grise, <1.81 = distress). "
+         "Altman Z-Score : modèle de détresse financière (Z>2.99 = sain, 1.81-2.99 = grise, <1.81 = distress). "
          "Beneish M-Score : modèle de detection de manipulation comptable (M < -2.22 = sain, M > -1.78 = signal). "
          "Ces scores sont retires des affichages principaux pour préserver la lisibilite mais restent "
          "calculés en arriere-plan et intégrés au scoring composite Quality."),
@@ -1823,7 +1823,7 @@ def _s16_disclaimer(prs, D):
          "Médianes utilisees plutot que moyennes pour la robustesse aux outliers."),
         ("Sources de données",
          "yfinance (Yahoo Finance) : cours, bilan, compte de résultats, flux de trésorerie — fréquence "
-         "trimestrielle ou annuelle selon disponibilite. Finnhub : news et sentiment. FMP : données "
+         "trimestrielle ou annuelle selon disponibilité. Finnhub : news et sentiment. FMP : données "
          "supplementaires si disponibles. Perf. 52S : composite top-15 Normalisé base 100."),
         ("Limites & Mises en garde",
          "Données retardees de 24h sur yfinance free tier. Certains ratios (ROIC, Piotroski) peuvent être "
@@ -1942,7 +1942,7 @@ def _generate_llm_texts(D: dict) -> dict:
             f'  "Thèse_b": "2-3 phrases (320 car.) : Thèse investissement {sector_b}, 2-3 arguments structurels avec chiffres",\n'
             f'  "Thèse_long_a": "3 arguments {sector_a} format Titre : Description (380 car. total), separes par . ",\n'
             f'  "Thèse_long_b": "3 arguments {sector_b} format Titre : Description (380 car. total), separes par . ",\n'
-            f'  "risques_principaux": "2-3 risques communs ou spécifiques (280 car.) : risque macro, valorisation, execution",\n'
+            f'  "risques_principaux": "2-3 risques communs ou spécifiques (280 car.) : risque macro, valorisation, exécution",\n'
             f'  "verdict_read": "3 phrases (420 car.) : verdict allocation, {winner} recommande, raisons quantifiees, horizon et conditions",\n'
             f'  "allocation_read": "3 phrases (400 car.) : recommandation portefeuille detaillee, surponderation cles, ratio risque/rendement"\n'
             f'}}'

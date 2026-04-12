@@ -304,7 +304,7 @@ def _build_vue_ensemble(wb: Workbook, data: dict):
          "Écart-type rendements quotidiens annualises"),
         ("Sharpe ratio (1 an)",
          _num_str(data.get("sharpe_1y_a"), 2), _num_str(data.get("sharpe_1y_b"), 2),
-         "(Rendement - rf) / volatilite"),
+         "(Rendement - rf) / volatilité"),
         ("Max Drawdown",
          _pct_str(data.get("max_dd_a"), signed=True),
          _pct_str(data.get("max_dd_b"), signed=True),

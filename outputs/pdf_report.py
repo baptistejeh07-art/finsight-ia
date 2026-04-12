@@ -321,7 +321,7 @@ def _sec2_entreprise(snapshot, synthesis, styles):
     if synthesis and getattr(synthesis, "valuation_comment", ""):
         elems.append(Paragraph(synthesis.valuation_comment, styles["body"]))
     else:
-        elems.append(Paragraph("Données de positionnement non disponibles.", styles["body"]))
+        elems.append(Paragraph("Données de positionnément non disponibles.", styles["body"]))
 
     if synthesis and getattr(synthesis, "strengths", []):
         elems.append(Paragraph("<b>Points forts</b>", styles["subsection"]))
@@ -598,7 +598,7 @@ def _sec4_valorisation(snapshot, ratios, synthesis, styles):
             ["Moyenne pondérée", "—", "—", avg_imp, _upside(avg_imp.split()[0] if imp_prices else None, price)],
         ]
     else:
-        mult_data.append(["Données insuffisantes", "—", "—", "—", "—"])
+        mult_data.append(["Données insuffisantés", "—", "—", "—", "—"])
 
     mt = Table(mult_data, colWidths=[80, 80, 90, 100, 100])
     mt.setStyle(_ts_base())

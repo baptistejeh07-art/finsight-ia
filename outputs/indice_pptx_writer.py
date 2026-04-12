@@ -904,7 +904,7 @@ def _s02_exec_summary(prs, D):
 
     # Régime de Marché — badges individuels
     _mac = D.get("macro") or {}
-    _reg = _mac.get("régime", "")
+    _reg = _mac.get("regime_v", "")
     if _reg and _reg != "Inconnu":
         _RSIG_COL = {"Bull": _BUY, "Bear": _SELL, "Volatile": _HOLD, "Transition": _HOLD}
         _r_col = _RSIG_COL.get(_reg, _NAVYL)
@@ -924,7 +924,7 @@ def _s02_exec_summary(prs, D):
                  size=7.5, bold=(_bfill == _r_col), color=_btxt, align=PP_ALIGN.CENTER, vcenter=True)
             _bx += _bw + 0.15
 
-    # Catalyseurs macro (y fixe suffisant après régime strip eventuel)
+    # Catalyseurs macro (y fixe suffisant après regime_v strip eventuel)
     _rect(slide, 0.9, 4.4, 23.6, 0.5, fill=_NAVY)
     _txb(slide, "CATALYSEURS MACRO", 0.9, 4.4, 23.6, 0.5,
          size=7.5, bold=True, color=_WHITE, align=PP_ALIGN.CENTER, vcenter=True)
@@ -958,7 +958,7 @@ def _s02_exec_summary(prs, D):
     _pm_s02    = f"{_pe_m_s02}x" if isinstance(_pe_m_s02, (int, float)) else str(_pe_m_s02)
     _prime_s02 = D.get("prime_décote", "")
     _prime_lbl = "prime de valorisation significative" if isinstance(_prime_s02, str) and "+" in str(_prime_s02) else "valorisation en ligne avec l'historique"
-    _erp_lbl   = " (prime insuffisante — prudence sur les entrées)" if _erp_sig_s02 in ("Tendu", "Comprime") else (" (adequat)" if _erp_sig_s02 else "")
+    _erp_lbl   = " (prime insuffisanté — prudence sur les entrées)" if _erp_sig_s02 in ("Tendu", "Comprime") else (" (adéquat)" if _erp_sig_s02 else "")
     _suppl_s02 = (
         f"Le {D.get('indice', '')} affiche un cours de {_cours_s02} (YTD : {_ytd_s02}). "
         f"P/E Forward {_pe_f_s02} vs médiane historique 10 ans {_pm_s02} — {_prime_lbl}. "
@@ -1087,7 +1087,7 @@ def _s05_description(prs, D):
         f"{nb_n} secteur(s) en position Neutre. "
         f"Horizon d'allocation recommande : 12 mois."
     )
-    _lecture_box(slide, "Lecture — Signal global & positionnement sectoriel",
+    _lecture_box(slide, "Lecture — Signal global & positionnément sectoriel",
                  _trunc(lec_txt, 700), y_top=9.8, height=3.5)
 
     _footer(slide)
@@ -1162,7 +1162,7 @@ def _s06_valorisation(prs, D):
                              f"si les BPA NTM sont livres comme attendu par le consensus.")
             elif _prime_pct < -10:
                 _val_diag = (f"Le P/E Forward de {_pe_f6} offre une décote de {_prime6} vs l'historique "
-                             f"({_pm_str}) — opportunite si les fondamentaux restent solides. "
+                             f"({_pm_str}) — opportunité si les fondamentaux restent solides. "
                              f"Un re-rating est possible en cas de révision haussière des BPA ou de pivot Fed.")
             else:
                 _val_diag = (f"Le P/E Forward de {_pe_f6} est en ligne avec la Médiane historique "
@@ -1174,11 +1174,11 @@ def _s06_valorisation(prs, D):
         if _erp_s6 in ("Tendu","Comprime"):
             _erp_impl = (f"L'ERP Damodaran de {_erp6} signale une prime de risque comprimee — "
                          "les actions sont peu renunerees vs les taux. Dans ce contexte, la sélectivité "
-                         "sectorielle prime : se concentrer sur les secteurs a forte visibilite BPA "
+                         "sectorielle prime : se concentrer sur les secteurs a forte visibilité BPA "
                          "et pricing power, éviter les dossiers a multiples etires.")
         elif _erp_s6 in ("Favorable","Attractif"):
             _erp_impl = (f"L'ERP Damodaran de {_erp6} signale une prime de risque attractive — "
-                         "les equites offrent un surplus de rendement justifiant un positionnement "
+                         "les equites offrent un surplus de rendement justifiant un positionnément "
                          "actif. Le contexte macro soutient les surponderations sectorielles ciblees.")
         else:
             _erp_impl = (f"L'ERP Damodaran de {_erp6} reste dans la zone de reference. "
@@ -1194,9 +1194,9 @@ def _s06_valorisation(prs, D):
                                      if _pct_impl > 0
                                      else "serait partiellement absorbe par la décote existante")
                 _impl_txt = (
-                    f"A {_pe_f6}, le Marché price implicitement une croissance BPA superieure "
+                    f"A {_pe_f6}, le Marché price implicitement une croissance BPA supérieure "
                     f"de {abs(_pct_impl):.0f}% au scénario central — tout ralentissement "
-                    f"{_miss_conséquence}. "
+                    f"{_miss_consequence}. "
                 )
             else:
                 _impl_txt = ""
@@ -1207,7 +1207,7 @@ def _s06_valorisation(prs, D):
             _pe_n2 = float(str(_pe_f6).replace("x","").replace(",",".").strip())
             if _pe_n2 > 22:
                 _alloc_impl = (
-                    f"Implication allocation : favoriser les secteurs a forte visibilite BPA "
+                    f"Implication allocation : favoriser les secteurs a forte visibilité BPA "
                     f"et pricing power (cf. slide 11 — top scoreurs). Réduire l'exposition "
                     f"aux cycliques purs dont la valorisation intègre déjà un scénario optimiste."
                 )
@@ -1221,7 +1221,7 @@ def _s06_valorisation(prs, D):
                 _alloc_impl = (
                     f"Implication allocation : valorisation équilibrée — privilegier la "
                     f"sélectivité sectorielle (slides 11-12) et le momentum BPA vs momentum prix. "
-                    f"Éviter les secteurs en declin de visibilite BPA malgre des multiples apparemment raisonnables."
+                    f"Éviter les secteurs en declin de visibilité BPA malgre des multiples apparemment raisonnables."
                 )
         except Exception:
             _alloc_impl = ""
@@ -1291,7 +1291,7 @@ def _s07_cycle(prs, D):
     alloc = _trunc(D.get("texte_cycle",""), 420)
     _rect(slide, 9.5, 9.3, 15.0, 2.9, fill=_GRAYL)
     _rect(slide, 9.5, 9.3, 0.1, 2.9, fill=_BUY)
-    _txb(slide, "Allocation recommandée selon le positionnement de cycle",
+    _txb(slide, "Allocation recommandée selon le positionnément de cycle",
          9.8, 9.4, 14.5, 0.6, size=8, bold=True, color=_NAVY)
     _txb(slide, alloc, 9.8, 10.0, 14.5, 2.0, size=7.5, color=_GRAYT, wrap=True)
 
@@ -1377,11 +1377,11 @@ def _s09_cartographie(prs, D):
     _top_mg_s  = f"{_top_mg:.1f}%" if _top_mg else "—"
     # Strategie selon dispersion
     if score_spread > 35:
-        _strat = ("La dispersion élevée justifie une approche concentrée : surexposer les secteurs verts, "
+        _strat = ("La dispersion élevée justifié une approche concentrée : surexposer les secteurs verts, "
                   "éviter les secteurs rouges. Un portefeuille également pondéré sous-performerait le benchmark.")
     elif score_spread > 20:
         _strat = ("La bifurcation modérée autorise une allocation selective : privilegier les leaders de score "
-                  "tout en conservant une exposition diversifiée aux secteurs Neutres proches du seuil de bascule.")
+                  "tout en conservant une exposition diversifiée aux secteurs Neutrès proches du seuil de bascule.")
     else:
         _strat = ("La faible dispersion des scores signale une convergence sectorielle — "
                   "le stock-picking prime sur l'allocation sectorielle dans ce contexte.")
@@ -1392,9 +1392,9 @@ def _s09_cartographie(prs, D):
         f"{nb_neut} secteur(s) en Neutre. "
         f"L'Écart leader/retardataire ({top_s[0] if top_s else '—'} {score_top}pts / "
         f"{bot_s[0] if bot_s else '—'} {score_bot}pts) = {score_spread} pts de spread — "
-        f"bifurcation {'marquee' if score_spread > 30 else 'modérée'}. "
+        f"bifurcation {'marquée' if score_spread > 30 else 'modérée'}. "
         + (f"Secteurs proches du seuil de bascule (55-65) : {_near_str}. " if _near_str else "")
-        + (f"Marge EBITDA Médiane des surponderes : {_top_mg_s}. " if _top_mg else "")
+        + (f"Marge EBITDA Médiane des surpondérés : {_top_mg_s}. " if _top_mg else "")
         + _strat
     )
     y_top = min(10.5, 2.3 + len(rows) * 0.65 + 0.8)
@@ -1434,9 +1434,9 @@ def _s10_scatter(prs, D, chart_bytes: bytes):
         opport = [_abbrev_sector(s[0],18) for s in surp_s if isinstance(s[5],(int,float)) and s[5] <= 20][:2]
         txt = (
             f"{'  ·  '.join(best) or 'N/A'} : forte marge EBITDA + score Surpondérer — "
-            f"profil qualité avec visibilite élevée sur les benefices.\n\n"
+            f"profil qualité avec visibilité élevée sur les benefices.\n\n"
             f"{'  ·  '.join(opport) or 'N/A'} : zone Opportunite — "
-            f"croissance correcte, marge adequate, valorisation attractive.\n\n"
+            f"croissance correcte, marge adéquate, valorisation attractive.\n\n"
             f"EV/EBITDA non disponible pour cet indice (EU) via yfinance. "
             f"La Mg. EBITDA est utilisee comme proxy de qualité opérationnelle. "
             f"Favoriser les secteurs a forte marge et croissance BPA positive."
@@ -1552,7 +1552,7 @@ def _s11_decomposition(prs, D):
         f"momentum={bot_scores[0]}, révisions={bot_scores[1]}, valorisation={bot_scores[2]}. "
         f"Dimension dominante sur l'ensemble de l'univers : {_dom}. "
         f"Secteurs avec profil composite fort (>50 sur les 3 dimensions) : {_unani_str}. "
-        f"Ces secteurs representent les meilleures opportunites d'entree dans le contexte actuel."
+        f"Ces secteurs representent les meilleures opportunités d'entree dans le contexte actuel."
     )
     y_lec = min(10.5, y_note + 0.8)
     _lecture_box(slide, "Analyse des scores — Points saillants",
@@ -1578,7 +1578,7 @@ def _s13_top3(prs, D):
     # Padding to always render 3 panels (avoids blank slots when <3 sectors)
     while len(top3) < 3:
         top3 = list(top3) + [{"nom": "—", "signal": "Neutre", "score": 0,
-                               "ev_ebitda": "—", "catalyseur": "Données insuffisantes",
+                               "ev_ebitda": "—", "catalyseur": "Données insuffisantés",
                                "risque": "—", "sociétés": []}]
 
     panel_w = 7.5
@@ -1799,7 +1799,7 @@ def _s14_allocation(prs, D):
         f"sur-allocation sur {t_max} — secteur offrant le meilleur ratio rendement/risque sur 52 semaines. "
         f"Ce portefeuille est le plus agressif des trois.\n\n"
         f"Min-Variance (Sharpe = {sharpe.get('mv', 0):.2f}) : poids dominant sur {mv_max} — "
-        f"secteur le moins volatil sur la periode. Approche défensive, adaptee a un contexte d'incertitude élevée.\n\n"
+        f"secteur le moins volatil sur la période. Approche défensive, adaptee a un contexte d'incertitude élevée.\n\n"
         f"ERC (Sharpe = {sharpe.get('erc', 0):.2f}) : allocation équilibrée, {erc_max} ressort dominant. "
         f"Chaque secteur contribue également au risque total du portefeuille.\n\n"
         f"Note : Basé sur rendements journaliers 52S ETF SPDR. Contraintes : poids 0-40% par secteur."
@@ -1849,7 +1849,7 @@ def _s15_zone_entree(prs, D, chart_bytes: bytes):
         f"Méthodologie : le PE Forward estime est ancre sur le PE global de l'indice "
         f"Ajusté du score sectoriel (+/- Écart). Les secteurs a gauche de la ligne "
         f"pointillee (Médiane 10 ans) offrent un meilleur point d'entree. "
-        f"Un Écart > +20 % vs la médiane justifie une prudence accrue sur le timing."
+        f"Un Écart > +20 % vs la médiane justifié une prudence accrue sur le timing."
     )
     _rect(slide, 16.3, 2.3, 8.1, 10.5, fill=_GRAYL)
     _rect(slide, 16.3, 2.3, 0.12, 10.5, fill=_NAVY)
@@ -1878,7 +1878,7 @@ def _s17_risques(prs, D):
     if not scenarios:
         scenarios = [
             {"titre":"Récession technique","prob":"18 %",
-             "desc":"Deux trimestres PIB < 0 % — révision BPA -15/-20 %. Signal passerait Sous-pondérer."},
+             "desc":"Deux trimestrès PIB < 0 % — révision BPA -15/-20 %. Signal passerait Sous-pondérer."},
             {"titre":"Resserrement Fed prolongé","prob":"35 %",
              "desc":"Fed Funds > 4,5 % jusqu'en 2027 — compression multiples growth et rotation sectorielle."},
             {"titre":"Choc géopolitique","prob":"20 %",
@@ -1931,7 +1931,7 @@ def _s17_risques(prs, D):
         conds = [
             f"{indice} casse le support clé — signal passe Sous-pondérer",
             "Fed pivot dovish confirmé + CPI < 2,5 % — signal passe Surpondérer",
-            "Révisions BPA agrégées < -5 % sur 2 trimestres consécutifs",
+            "Révisions BPA agrégées < -5 % sur 2 trimestrès consécutifs",
         ]
 
     _rect(slide, 0.9, 7.0, 23.6, 0.55, fill=_NAVY)
@@ -1954,13 +1954,13 @@ def _s17_risques(prs, D):
         _h17_lec = 13.35 - _y17_lec
         _lec17 = (
             f"Signal {_sig17} (conviction {_conv17}%) — scénario central. "
-            f"Scénario haussier ({_scen_prob_bull}% de probabilite) : catalyseurs macro suffisants pour franchir le seuil Surpondérer. "
+            f"Scénario haussier ({_scen_prob_bull}% de probabilité) : catalyseurs macro suffisants pour franchir le seuil Surpondérer. "
             f"Scénario baissier ({_scen_prob_bear}%) : détérioration des fondamentaux, passage Sous-pondérer. "
             f"Scénario residuel ({_residuel}%) : stagnation ou choc exogene non anticipe. "
             f"Surveiller les conditions d'invalidation listees ci-dessus : elles constituent les declencheurs de reassessement du signal. "
             f"Priorite de couverture : les secteurs les plus sensibles au taux (Real Estate, Utilities)."
         )
-        _lecture_box(slide, "Analyse des risques — Probabilites et implications", _lec17,
+        _lecture_box(slide, "Analyse des risques — Probabilités et implications", _lec17,
                      y_top=_y17_lec, height=_h17_lec)
 
     _footer(slide)
@@ -2017,10 +2017,10 @@ def _s18_rotation(prs, D):
         texte_rot = (
             f"En phase {phase}, la grille de rotation favorise : "
             f"{' · '.join((surp_rots + acc_rots)[:3]) or 'N/A'} "
-            f"(visibilite BPA forte, faible Sensibilité aux taux). "
+            f"(visibilité BPA forte, faible Sensibilité aux taux). "
             + (f"Alléger : {' · '.join(sous_rots[:2])}. " if sous_rots else "")
             + (f"Secteurs a forte Sensibilité taux a surveiller si la BCE pivote : {' · '.join(_taux_fort[:2])}. " if _taux_fort else "")
-            + f"La rotation suit le cycle avec un decalage de 2-3 trimestres — "
+            + f"La rotation suit le cycle avec un decalage de 2-3 trimestrès — "
             f"un signal Surpondérer qui emerge maintenant anticipe une surperformance sur 6-12 mois. "
             f"Croiser avec les scores FinSight (slide 11) pour valider la cohérence momentum/fondamentaux."
         )
@@ -2051,10 +2051,10 @@ def _s19_sentiment(prs, D, chart_bytes: bytes):
     p_pct = sa.get("positif_pct", 0)
     n_nb  = sa.get("neutre_nb",  0)
     n_pct = sa.get("neutre_pct", 0)
-    m_nb  = sa.get("negatif_nb",  0)
-    m_pct = sa.get("negatif_pct", 0)
-    t_pos = sa.get("themes_pos", [])
-    t_neg = sa.get("themes_neg", [])
+    m_nb  = sa.get("négatif_nb",  0)
+    m_pct = sa.get("négatif_pct", 0)
+    t_pos = sa.get("thèmes_pos", [])
+    t_neg = sa.get("thèmes_neg", [])
 
     # Layout: graphique gauche (x=0.9, w=13.5) + panneau texte droite (x=14.8, w=9.7)
     _score_col = _BUY if score > 0.05 else (_SELL if score < -0.05 else _HOLD)
@@ -2252,7 +2252,7 @@ def _s20_etf_perf(prs, D, chart_bytes: bytes):
         return slide
 
     _header(slide, "Performance des ETF Sectoriels — 52 Semaines",
-            f"{indice}  ·  ETF sectoriels SPDR/iShares  ·  Indexe a 100 au debut de la periode  ·  Données yfinance",
+            f"{indice}  ·  ETF sectoriels SPDR/iShares  ·  Indexe a 100 au debut de la période  ·  Données yfinance",
             active=5)
 
     _pic(slide, chart_bytes, 0.9, 2.3, 15.0, 11.1)
@@ -2299,18 +2299,18 @@ def _s20_etf_perf(prs, D, chart_bytes: bytes):
         _why_best = (
             "porté par la révision haussière des BPA et la réouverture des marges Opérationnelles"
             if _best_ret > 20 else
-            "beneficiant du repositionnement des flux en fin de cycle"
+            "beneficiant du repositionnément des flux en fin de cycle"
         )
         _why_worst = (
             "pénalisé par la hausse des taux longs, comprimant les multiples de valorisation"
             if _worst_ret < -10 else
-            "en sous-performance relative face aux secteurs a forte visibilite BPA"
+            "en sous-performance relative face aux secteurs a forte visibilité BPA"
         )
         _rate_ctx = (
             f"Dans un environnement ERP {_erp_s20}, les secteurs a duration longue subissent "
             f"la concurrence des obligations — la sélectivité sectorielle est cle."
             if isinstance(_erp_s20, str) and _erp_s20 not in ("—", "") else
-            f"La croissance BPA consensus de {_bpa_s20} justifie un P/E Forward de {_pe_s20}."
+            f"La croissance BPA consensus de {_bpa_s20} justifié un P/E Forward de {_pe_s20}."
         )
         _disp_comment = (
             f"Dispersion {_dispersion:.0f}pt entre extremes — fort levier d'alpha sectoriel."
@@ -2431,7 +2431,7 @@ class IndicePPTXWriter:
         """
         log.info("IndicePPTXWriter: Génération pour %s", data.get("indice","—"))
 
-        # Macro régime (si pas déjà calculé)
+        # Macro regime_v (si pas déjà calculé)
         if not data.get("macro"):
             try:
                 import sys as _sys, os as _os

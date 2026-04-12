@@ -56,7 +56,7 @@ _SECTOR_CONTENT = {
             "les services informatiques, les semi-conducteurs et les equipements telecom. "
             "Porté par la transformation digitale des entreprises et l'adoption de l'IA generative, "
             "ce secteur affiche des multiples de valorisation parmi les plus élevés du Marché, "
-            "justifies par des perspectives de croissance supérieures et des marges en expansion."
+            "justifiés par des perspectives de croissance supérieures et des marges en expansion."
         ),
         "catalyseurs": [
             ("Adoption IA Generative", "Accélération des mandats IA dans les grands comptes européens — contrats pluriannuels en hausse de 38 % sur T1 2026."),
@@ -70,7 +70,7 @@ _SECTOR_CONTENT = {
         ],
         "drivers": [
             ("up", "Intelligence Artificielle", "Adoption entreprises +42 % en 2026 — premier driver de dépenses IT"),
-            ("up", "Cloud Hybride Souverain", "Contraintes souveraineté données — migration vers solutions EU acceleree par NIS2"),
+            ("up", "Cloud Hybride Souverain", "Contraintes souveraineté données — migration vers solutions EU accélérée par NIS2"),
             ("up", "Modernisation SI Publics", "Plans gouvernementaux 2026-2028 — budgets numeriques confirmes 6 États EU"),
             ("down", "Sensibilité Taux", "Compression multiples si taux > 4,5 % — impact modéré sur FCF structurel"),
         ],
@@ -80,7 +80,7 @@ _SECTOR_CONTENT = {
     },
     "Consumer Cyclical": {
         "description": (
-            "Le secteur Consommation Cyclique inclut les acteurs du luxe, de la distribution specialisee, "
+            "Le secteur Consommation Cyclique inclut les acteurs du luxe, de la distribution spécialisée, "
             "de l'automobile et du tourisme. Sensible aux cycles économiques, il bénéficie de l'essor "
             "des Marchés emergents et de la résilience du luxe haut de gamme européen face aux pressions macro."
         ),
@@ -91,7 +91,7 @@ _SECTOR_CONTENT = {
         ],
         "risques": [
             ("Sensibilité Taux", "Hausse des taux comprime le pouvoir d'achat discrétionnaire — impact sur volumes et marges promotionnelles."),
-            ("Ralentissement Chine", "Croissance chinoise < 4 % penaliserait les acteurs du luxe exposes a 30-40 % de leur CA en Asie."),
+            ("Ralentissement Chine", "Croissance chinoise < 4 % pénaliserait les acteurs du luxe exposes a 30-40 % de leur CA en Asie."),
             ("Disruption Digitale", "Montee des plateformes D2C — pression sur les réseaux de distribution traditionnels."),
         ],
         "drivers": [
@@ -108,7 +108,7 @@ _SECTOR_CONTENT = {
         "description": (
             "Le secteur Consommation Défensive regroupe les producteurs et distributeurs de biens essentiels "
             "— alimentation, boissons, hygiene-beaute. Modèle résilient par nature, il offre une protection "
-            "en periode de récession tout en beneficiant du pricing power des marques leaders."
+            "en période de récession tout en beneficiant du pricing power des marques leaders."
         ),
         "catalyseurs": [
             ("Pricing Power", "Capacité a répercuter l'inflation des intrants — les leaders de marque maintiennent des marges brutes > 40 %."),
@@ -154,7 +154,7 @@ _SECTOR_CONTENT = {
         ],
         "cycle_comment": "Secteur en maturité cyclique | NIM en pic, qualité d'actif à surveiller",
         "métriques": [("NIM Médian", "2,8 %", "Sain"), ("CET1 Médian", "14,2 %", "Confortable"), ("ROE Médian", "11,4 %", "Acceptable"), ("Cost/Income", "58 %", "A ameliorer"), ("NPL Ratio", "2,1 %", "Contrôle"), ("P/Book", "0,8x", "Décote")],
-        "conditions": [("Taux", "BCE baisse < 2 % — compression NIM > 40 bps", "6-12 mois"), ("Crédit", "NPL > 5 % immobilier commercial", "12-18 mois"), ("Macro", "Récession > 2 trimestres — provisionnement", "6-9 mois"), ("Réglementaire", "Bale IV CET1 > 15 %", "24-36 mois")],
+        "conditions": [("Taux", "BCE baisse < 2 % — compression NIM > 40 bps", "6-12 mois"), ("Crédit", "NPL > 5 % immobilier commercial", "12-18 mois"), ("Macro", "Récession > 2 trimestrès — provisionnement", "6-9 mois"), ("Réglementaire", "Bale IV CET1 > 15 %", "24-36 mois")],
     },
     "Industrials": {
         "description": (
@@ -163,14 +163,14 @@ _SECTOR_CONTENT = {
             "reindustrialisation européens et de la hausse des budgets défense."
         ),
         "catalyseurs": [
-            ("Rearmement Européen", "Hausse des budgets défense a 2 % du PIB — carnet de commandes a 5-7 ans pour les acteurs specialises."),
+            ("Rearmement Européen", "Hausse des budgets défense a 2 % du PIB — carnet de commandes a 5-7 ans pour les acteurs spécialisés."),
             ("Reindustrialisation EU", "Plans de relocalisation — investissements publics massifs dans l'automatisation."),
             ("Transition Énergétique", "Equipements eoliens, solaires et réseaux — croissance structurelle du carnet de commandes."),
         ],
         "risques": [
             ("Ralentissement Capex", "Gel des investissements industriels en cas de récession — impact sur commandes machines."),
             ("Tension Supply Chain", "Disponibilite des semi-conducteurs et matières premières critiques — risques livraisons."),
-            ("Pression Marges", "Hausse des Coûts energetiques et des salaires dans l'industrie — compression marges execution."),
+            ("Pression Marges", "Hausse des Coûts energetiques et des salaires dans l'industrie — compression marges exécution."),
         ],
         "drivers": [
             ("up", "Défense & Sécurité", "Budgets défense EU en hausse de 15-20 % — carnets record"),
@@ -191,7 +191,7 @@ _SECTOR_CONTENT = {
         "catalyseurs": [
             ("Innovation Therapeutique", "Pipeline oncologie et maladies rares — lancements produits blockbusters attendus 2026-2027."),
             ("MedTech IA", "Intégration de l'IA dans le diagnostic et la chirurgie assistee — premium innovateurs."),
-            ("Vieillissement Demo", "Population > 65 ans en Europe +3 % pa — croissance structurelle des dépenses sante."),
+            ("Vieillissement Demo", "Population > 65 ans en Europe +3 % pa — croissance structurelle des dépenses santé."),
         ],
         "risques": [
             ("Pression Prix Medicaments", "Révision des prix de référence — impact de -5 a -15 % sur les revenus medicaments matures."),
@@ -200,18 +200,18 @@ _SECTOR_CONTENT = {
         ],
         "drivers": [
             ("up", "Innovation Oncologie", "Immunotherapies et ADC — Marché > 200 Mds USD en 2027"),
-            ("up", "MedTech IA", "Diagnostic assiste — barrières a l'entree élevées"),
+            ("up", "MedTech IA", "Diagnostic assiste — barrières à l'entrée élevées"),
             ("down", "Expiration Brevets", "Perte revenus blockbusters 2026-2028"),
             ("down", "Pricing Pressure", "Reformes prix medicaments EU et US — compression revenus"),
         ],
         "cycle_comment": "Secteur défensif-croissance | innovation compense risques réglementaires",
         "métriques": [("R&D/Rev.", "18 %", "Élevé"), ("Pipeline Score", "7,2/10", "Solide"), ("Marge Brute", "68 %", "Premium"), ("Patent Cliff", "2026-28", "A surveiller"), ("ROE", "22 %", "Attractif"), ("FCF Yield", "3,8 %", "Sain")],
-        "conditions": [("Réglementaire", "Reforme prix US — impact > 20 % revenues", "12-18 mois"), ("Pipeline", "Echec phase III > 25 % du CA", "Immediat"), ("Brevet", "Expiration sans relai — -15 % revenues", "12-24 mois"), ("Macro", "Coupes budgets sante > 10 %", "24-36 mois")],
+        "conditions": [("Réglementaire", "Reforme prix US — impact > 20 % revenues", "12-18 mois"), ("Pipeline", "Echec phase III > 25 % du CA", "Immediat"), ("Brevet", "Expiration sans relai — -15 % revenues", "12-24 mois"), ("Macro", "Coupes budgets santé > 10 %", "24-36 mois")],
     },
     "Energy": {
         "description": (
             "Le secteur Énergie couvre les majors petrolieres et gazieres, les énergies renouvelables et "
-            "les services parapetroliers. Il reste marque par la volatilite des prix des matières premières, "
+            "les services parapetroliers. Il reste marque par la volatilité des prix des matières premières, "
             "tout en beneficiant de la transition énergétique."
         ),
         "catalyseurs": [
@@ -227,7 +227,7 @@ _SECTOR_CONTENT = {
         "drivers": [
             ("up", "Prix Hydrocarbures", "OPEP+ discipline — soutien structurel des prix 2026"),
             ("up", "GNL & Souveraineté", "Diversification approvisionnement EU — prime GNL persistante"),
-            ("down", "Transition Énergétique", "Pression réglementaire et ESG — prime de risque croissante"),
+            ("down", "Transition Énergétique", "Pression réglementaire et ESG — prime de risque croissanté"),
             ("down", "Capex Renouvelable", "Dépenses investissement renouvelables pesent sur FCF"),
         ],
         "cycle_comment": "Secteur en transition | dividendes élevés, visibilité long terme réduite",
@@ -278,7 +278,7 @@ _SECTOR_CONTENT = {
         ],
         "drivers": [
             ("up", "Pivot Taux", "Chaque -25bps BCE = +3-5 % sur les ANR sectoriels"),
-            ("up", "Residentiel Déficitaire", "Offre structurellement insuffisante metropoles EU"),
+            ("up", "Residentiel Déficitaire", "Offre structurellement insuffisanté metropoles EU"),
             ("down", "Bureau Post-Covid", "Vacance bureau — actifs secondaires a risque"),
             ("down", "Refinancement", "Mur de dette — risque dilution pour les leverages"),
         ],
@@ -295,7 +295,7 @@ _SECTOR_CONTENT = {
         "catalyseurs": [
             ("Fibre & 5G", "Deploiement capillaire de la fibre optique — mix favorable vers abonnements premium."),
             ("Consolidation Telecom", "Fusions nationales approuvées — Économies d'Échelle et amélioration des marges EBITDA."),
-            ("Streaming & Contenu", "Monétisation acceleree des plateformes — ARPU en hausse via offres publicitaires premium."),
+            ("Streaming & Contenu", "Monétisation accélérée des plateformes — ARPU en hausse via offres publicitaires premium."),
         ],
         "risques": [
             ("Guerre des Prix Mobile", "Concurrence low-cost intensifiee — pression sur les ARPU en France et Espagne."),
@@ -324,7 +324,7 @@ _SECTOR_CONTENT = {
             ("Hydrogene & Stockage", "Positionnement nouvelles technologies — optionalite valorisation long terme."),
         ],
         "risques": [
-            ("Taux Élevés", "Sensibilité marquee aux taux longs — compression des multiples si OAT > 4 %."),
+            ("Taux Élevés", "Sensibilité marquée aux taux longs — compression des multiples si OAT > 4 %."),
             ("Risque Regule", "Révision des tarifs d'acces reseau — impact sur la rémunération du capital investi."),
             ("Volatilite Meteo", "Secheresse ou faible ventossité — impact sur production hydraulique et eolienne."),
         ],
@@ -375,7 +375,7 @@ def _build_content_from_llm(sector_name: str, ev_med: float, rev_med: float,
         resp = _LLMpptx(provider="mistral", model="mistral-small-latest").generate(
             prompt=prompt,
             system=(
-                f"Tu es analyste buy-side specialise en {sector_name}. "
+                f"Tu es analyste buy-side spécialisé en {sector_name}. "
                 "Reponds en francais avec accents. JSON strict. "
                 "Spécifique au secteur demande, jamais de texte generique. "
                 "Phrases complets, pas de points de suspension (...)."
@@ -506,8 +506,8 @@ def _build_content_from_data(td: list, sector_name: str, score_moyen: int,
     # Conditions based on signal level
     alert_score = max(30, score_moyen - 15)
     conditions = [
-        ("Macro",       "Récession confirmee — 2 trimestres négatifs",          "6-9 mois"),
-        ("Sectoriel",   f"Score moyen < {alert_score} — degradation generalisee","6-12 mois"),
+        ("Macro",       "Récession confirmee — 2 trimestrès négatifs",          "6-9 mois"),
+        ("Sectoriel",   f"Score moyen < {alert_score} — dégradation generalisee","6-12 mois"),
         ("Fondamental", "Révision baissière EPS > 15 %",                         "3-6 mois"),
         ("Réglementaire", "Mesures restrictives majeures",                       "Variable"),
     ]
@@ -920,7 +920,7 @@ def _chart_valuation_bars(tickers_data) -> bytes:
     ax.set_xlim(0, x_max * 1.18)
 
     from matplotlib.patches import Patch
-    legend_els = [Patch(facecolor='#1A7A4A', label='Sous Médiane — opportunite relative'),
+    legend_els = [Patch(facecolor='#1A7A4A', label='Sous Médiane — opportunité relative'),
                   Patch(facecolor='#A82020', label='Prime vs Médiane — valorisation élevée')]
     ax.legend(handles=legend_els, loc='lower right', fontsize=7, framealpha=0.85,
               edgecolor='#CCCCCC', handlelength=1.2, handleheight=0.8)
@@ -945,7 +945,7 @@ def _chart_distribution(tickers_data) -> bytes:
 
     if not td_ev:
         fig, ax = plt.subplots(figsize=(5.8, 4.5))
-        ax.text(0.5, 0.5, "Données insuffisantes", ha='center', va='center', transform=ax.transAxes)
+        ax.text(0.5, 0.5, "Données insuffisantés", ha='center', va='center', transform=ax.transAxes)
         buf = io.BytesIO()
         fig.savefig(buf, format='png', dpi=150); plt.close(fig); buf.seek(0)
         return buf.read()
@@ -1219,7 +1219,7 @@ def _s06_ratios(prs, D):
     tbl_data = [["Société", "EV/EBITDA", "EV/Rev.", "P/E", "Mg Brute", "Mg EBITDA", "ROE"]]
 
     def _fallback_ev_ebitda(t):
-        """Calcul EV/EBITDA depuis composantes si valeur directe absente."""
+        """Calcul EV/EBITDA depuis composantés si valeur directe absente."""
         v = t.get("ev_ebitda")
         if v is not None:
             return v
@@ -1237,7 +1237,7 @@ def _s06_ratios(prs, D):
         return None
 
     def _fallback_ev_revenue(t):
-        """Calcul EV/Revenue depuis composantes si valeur directe absente."""
+        """Calcul EV/Revenue depuis composantés si valeur directe absente."""
         v = t.get("ev_revenue")
         if v is not None:
             return v
@@ -1318,8 +1318,8 @@ def _s06_ratios(prs, D):
         f"{best_name} ({_fmt_x(ev_best)}) se distingue comme le leader de qualité, "
         f"combine a une marge EBITDA de {_fmt_pct_plain(best.get('ebitda_margin'))} et une croissance "
         f"de {_fmt_pct_rev(best.get('revenue_growth'))}. "
-        f"La dispersion des multiples revele l heterogeneite des profils au sein du secteur "
-        f"{D['sector_name']} — une lecture croisee P/E vs EV/EBITDA permet d isoler les "
+        f"La dispersion des multiples revele l hétérogèneite des profils au sein du secteur "
+        f"{D['sector_name']} — une lecture croisée P/E vs EV/EBITDA permet d isoler les "
         f"effets de structure de capital et les distorsions comptables."
     )
     _txb(slide, analysis, 1.1, _s06_text_y + 0.8, 23.2, 2.0, size=8.5, color=_GRAYT, wrap=True)
@@ -1362,14 +1362,14 @@ def _s07_cycle(prs, D):
 
     # Régime macro + récession (si disponible)
     _macro = D.get("macro") or {}
-    _regime  = _macro.get("régime", "")
+    _regime  = _macro.get("regime_v", "")
     _rec_6m  = _macro.get("récession_prob_6m")
     _rec_lvl = _macro.get("récession_level", "")
     if _regime and _regime != "Inconnu":
         _AMBER_C = RGBColor(0xE6, 0x7E, 0x22)
         _REGIME_C = {"Bull": _BUY, "Bear": _SELL, "Volatile": _AMBER_C, "Transition": _AMBER_C}
         _rc = _REGIME_C.get(_regime, _NAVY)
-        regime_line = f"Régime : {_régime}"
+        regime_line = f"Régime : {_regime_var}"
         rec_line = f"Rec. 6M : {_rec_6m}%  ({_rec_lvl})" if _rec_6m is not None else ""
         _rect(slide, 16.9, 11.2, 7.3, 0.05, fill=_GRAYD)
         _txb(slide, "CONTEXTE MACRO", 16.6, 11.35, 7.9, 0.5, size=7, bold=True, color=_GRAYD, align=PP_ALIGN.CENTER)
@@ -1516,7 +1516,7 @@ def _s09_cartographie(prs, D):
         f"sur {len(td)} valeurs analysées. "
         f"{best_name} (score {int(best.get('score_global') or 0)}/100) constitue le coeur offensif recommande "
         f"— fondamentaux solides et visibilité supérieure sur les revenus. "
-        f"La répartition des recommandations reflète un positionnement selectif cohérent avec la phase sectorielle actuelle. "
+        f"La répartition des recommandations reflète un positionnément selectif cohérent avec la phase sectorielle actuelle. "
         f"Les catalyseurs identifies — résultats trimestriels, guidance annuel, opérations M&A — "
         f"constituent les événements cles a surveiller pour un renforcement conditionnel des positions."
     )
@@ -1527,7 +1527,7 @@ def _s09_cartographie(prs, D):
 def _s10_scatter(prs, D):
     slide = _blank(prs)
     _header(slide, "Classement EV/EBITDA",
-            "EV/EBITDA par acteur  ·  Tri croissant  ·  Vert = sous Médiane (opportunite relative)  ·  Top 15", 2)
+            "EV/EBITDA par acteur  ·  Tri croissant  ·  Vert = sous Médiane (opportunité relative)  ·  Top 15", 2)
 
     img = _chart_valuation_bars(D["tickers_data"])
     _pic(slide, img, 0.9, 2.3, 14.7, 11.4)
@@ -1548,7 +1548,7 @@ def _s10_scatter(prs, D):
     if decote:
         d0 = max(decote, key=lambda t: t.get("score_global") or 0)
         analysis_lines.append(
-            f"{d0.get('ticker', '')} offre la meilleure asymetrie — "
+            f"{d0.get('ticker', '')} offre la meilleure asymétrie — "
             f"EV/EBITDA de {_fmt_x(d0.get('ev_ebitda'))} sous la Médiane de {med_ev:.1f}x "
             f"avec un score FinSight de {int(d0.get('score_global') or 0)}/100."
         )
@@ -1556,7 +1556,7 @@ def _s10_scatter(prs, D):
         p0 = premium[0]
         analysis_lines.append(
             f"{p0.get('ticker', '')} traite en prime ({_fmt_x(p0.get('ev_ebitda'))} vs "
-            f"Médiane {med_ev:.1f}x) — vérifier si la croissance justifie ce multiple."
+            f"Médiane {med_ev:.1f}x) — vérifier si la croissance justifié ce multiple."
         )
     analysis_lines.append(
         f"Médiane sectorielle : {med_ev:.1f}x. "
@@ -1592,7 +1592,7 @@ def _s11_scores(prs, D):
     # Ligne footer si des lignes sont cachees
     if n_hidden > 0:
         tbl_data.append([
-            f"... et {n_hidden} autres valeur{'s' if n_hidden > 1 else ''} (voir rapport PDF)",
+            f"... et {n_hidden} autrès valeur{'s' if n_hidden > 1 else ''} (voir rapport PDF)",
             "", "", "", "", "", "", "",
         ])
 
@@ -1646,7 +1646,7 @@ def _s11_scores(prs, D):
         f"Growth={int(best.get('score_growth') or 0)}, "
         f"Quality={int(best.get('score_quality') or 0)}, "
         f"Momentum={int(best.get('score_momentum') or 0)}. "
-        f"La dispersion des scores entre les {len(td)} sociétés Reflète des profils heterogenes — "
+        f"La dispersion des scores entre les {len(td)} sociétés Reflète des profils hétérogènes — "
         f"une allocation selective privilegiant les leaders qualitatifs est recommandee "
         f"dans la configuration sectorielle actuelle."
     )
@@ -1748,7 +1748,7 @@ def _s14_distribution(prs, D):
         f"{n_sur} acteur(s) se detachent nettement du reste du secteur, creant une prime de valorisation "
         f"significative vs la médiane de {ev_med:.1f}x.\n\n"
         f"{n_sous} société(s) se traitent sous la médiane — potentiellement les meilleures "
-        f"asymetries risque/rendement sous reserve de catalyseurs fondamentaux.\n\n"
+        f"asymétries risque/rendement sous reserve de catalyseurs fondamentaux.\n\n"
         f"La dispersion des multiples est caractéristique d'un secteur {D['sector_name']} "
         f"en phase de différentiation — les investisseurs selectifs peuvent exploiter cet Écart."
     )
@@ -1815,7 +1815,7 @@ def _s15_entry(prs, D):
         _txb(slide, "NOTE METHODOLOGIQUE", 1.3, _note_y + 0.08, 23.1, 0.5,
              size=7.5, bold=True, color=_HOLD)
         if _NOTE_H > 0.9:
-            _txb(slide, "La probabilite de rendement positif a 12 mois est calculée sur des configurations similaires identifiees en backtesting sur Données historiques (2010-2024). Elle ne constitue pas une garantie de performance future.",
+            _txb(slide, "La probabilité de rendement positif a 12 mois est calculée sur des configurations similaires identifiees en backtesting sur Données historiques (2010-2024). Elle ne constitue pas une garantie de performance future.",
                  1.3, _note_y + 0.6, 23.1, _NOTE_H - 0.65, size=7.5, color=_GRAYT, wrap=True)
 
     _footer(slide)
@@ -1905,7 +1905,7 @@ def _s17_risques(prs, D):
     metrics = [
         (nd_str,  "ND/EBITDA Médian", "levier sectoriel", nd_col,  0.9),
         (fcf_str, "FCF Yield Médian",  "Génération cash",  fcf_col, 9.1),
-        (sg_str,  "Score sante moyen", "solidité bilans",  sg_col,  17.3),
+        (sg_str,  "Score santé moyen", "solidité bilans",  sg_col,  17.3),
     ]
     box_h = 2.2
     for val, l1, l2, col, bx in metrics:
@@ -1986,11 +1986,11 @@ def _s18_sentiment(prs, D):
     sent_analysis = (
         f"Le sentiment agrégé FinBERT sur le secteur {D['sector_name']} ({D['universe']}) "
         f"ressort {sent_tone} ({agg_score:.2f}), avec {pct_pos:.0f}% d'articles a tonalité positive sur {total} analysés. "
-        f"La dispersion inter-valeurs est prononcée : {best_sent[1] or best_sent[2]} ({best_sent[0]:+.2f}) Porté la composante haussière "
+        f"La dispersion inter-valeurs est prononcée : {best_sent[1] or best_sent[2]} ({best_sent[0]:+.2f}) Porté la composanté haussière "
         f"tandis que {worst_sent[1] or worst_sent[2]} ({worst_sent[0]:+.2f}) reflète les pressions structurelles. "
         f"Cette hétérogénéité valide une approche sélective plutôt que directionnelle sur le secteur — "
         f"le sentiment moyen masque des situations fondamentalement différentes entre leaders et retardataires. "
-        f"La composante thématique (catalyseurs vs risques) suggère que les flux narratifs restent "
+        f"La composanté thématique (catalyseurs vs risques) suggère que les flux narratifs restent "
         f"{'orientés positivement, avec des newsflows soutenus sur la croissance et les marges' if agg_score > 0.1 else 'équilibrés, reflétant une phase de transition sectorielle' if agg_score >= -0.1 else 'sous pression, les révisions négatives dominant le flux informationnel'}. "
         f"Le suivi du ratio Positif/Négatif dans les prochaines semaines constitue un indicateur avancé pour anticiper les rotations sectorielles."
     )
@@ -2033,7 +2033,7 @@ def _s19_sources(prs, D):
 def _s20_performance(prs, D):
     slide = _blank(prs)
     _header(slide, "Performance Boursière Relative — 52 Semaines",
-            f"{D['sector_name']}  ·  {D['universe']}  ·  Indexe a 100 au debut de la periode", 4)
+            f"{D['sector_name']}  ·  {D['universe']}  ·  Indexe a 100 au debut de la période", 4)
 
     td_s = sorted(D["tickers_data"], key=lambda x: x.get("momentum_52w") or 0, reverse=True)
     best  = td_s[0]  if td_s  else {}
@@ -2067,7 +2067,7 @@ def _s20_performance(prs, D):
          6.55, 8, False, _GRAYT),
         ("INTERPRÉTATION", 7.70, 7, True, _NAVY),
         ("La dispersion des trajectoires reflète la bifurcation sectorielle : certains "
-         "acteurs captent l'essentiel de la création de valeur tandis que d'autres subissent "
+         "acteurs captent l'essentiel de la création de valeur tandis que d'autrès subissent "
          "des sorties de capitaux structurelles.", 8.15, 7.5, False, _GRAYT),
         ("Le momentum 52W est intégré dans le score FinSight comme signal de confirmation "
          "de la thèse d'investissement.", 9.35, 7.5, False, _GRAYT),
@@ -2095,7 +2095,7 @@ class SectoralPPTXWriter:
         """
         D = _prepare_data(tickers_data, sector_name, universe)
 
-        # Macro régime + récession
+        # Macro regime_v + récession
         _macro = {}
         try:
             import sys as _sys, os as _os
@@ -2119,7 +2119,7 @@ class SectoralPPTXWriter:
         _s03_sommaire(prs, D)
         # Slide 4 — Chapter 01 divider
         _chapter_divider(prs, "01", "Présentation du Secteur",
-                         "Caractéristiques structurelles, ratios comparatifs & positionnement cycle")
+                         "Caractéristiques structurelles, ratios comparatifs & positionnément cycle")
         # Slide 5 — Présentation
         _s05_presentation(prs, D)
         # Slide 6 — Ratios comparatifs

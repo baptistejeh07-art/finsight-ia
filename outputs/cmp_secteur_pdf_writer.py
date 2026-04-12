@@ -9,7 +9,7 @@ Usage :
     generate_cmp_secteur_pdf(
         tickers_a, sector_a, universe_a,
         tickers_b, sector_b, universe_b,
-        output_path="cmp_tech_vs_sante.pdf"
+        output_path="cmp_tech_vs_santé.pdf"
     )
 """
 from __future__ import annotations
@@ -563,13 +563,13 @@ def _generate_llm_texts(D: dict) -> dict:
             f"Min 400 caractères par champ sauf exec_summary (min 700). Inclure implications investissement.\n"
             f'{{\n'
             f'  "exec_summary": "Synthèse executive 4-5 phrases : avantage comparatif fondamental, implication du spread de scoring, signal IA argumente, recommandation allocation et conditions d invalidation",\n'
-            f'  "valuation_analysis": "Analyse multiples 3-4 phrases : interprétation spread P/E et EV/EBITDA, ce que ce différentiel revele sur les anticipations de croissance, si la prime/décote est justifiee par les fondamentaux, implication pour l allocation",\n'
+            f'  "valuation_analysis": "Analyse multiples 3-4 phrases : interprétation spread P/E et EV/EBITDA, ce que ce différentiel revele sur les anticipations de croissance, si la prime/décote est justifiée par les fondamentaux, implication pour l allocation",\n'
             f'  "margins_analysis": "Analyse marges 3-4 phrases : quality gap opérationnel, drivers structurels de l écart de marge EBITDA, impact sur la création de valeur via ROE et ROIC, résilience en cycle baissier",\n'
             f'  "capital_alloc_analysis": "Capital allocation 3-4 phrases : politique de rémunération comparée (dividendes vs rachat vs réinvestissement), interprétation du FCF yield dans le contexte de taux, quel secteur offre la meilleure protection du capital, signal sur la maturité du cycle",\n'
-            f'  "growth_analysis": "Analyse croissance 3-4 phrases : dynamique revenue comparée et moteurs sous-jacents, convergence ou divergence entre croissance organique et perf 52S, ce que le beta différentiel implique pour le risk-adjusted return, positionnement cyclique",\n'
+            f'  "growth_analysis": "Analyse croissance 3-4 phrases : dynamique revenue comparée et moteurs sous-jacents, convergence ou divergence entre croissance organique et perf 52S, ce que le beta différentiel implique pour le risk-adjusted return, positionnément cyclique",\n'
             f'  "top_a_analysis": "Leaders {sector_a} 3-4 phrases : caractéristiques communes des meilleures sociétés, ce qui distingue les profils Surpondérer, dynamiques de création de valeur, implications pour la construction de portefeuille",\n'
-            f'  "top_b_analysis": "Leaders {sector_b} 3-4 phrases : profils value vs growth identifies, résilience des marges, opportunites d entree spécifiques, caractéristiques communes des meilleures sociétés du secteur",\n'
-            f'  "allocation_rec": "Recommandation 4-5 phrases : signal argumente pour chaque secteur, surponderations justifiees quantitativement, conditions macro favorables ou défavorables, horizon de temps et declencheurs de révision, risque principal de la Thèse"\n'
+            f'  "top_b_analysis": "Leaders {sector_b} 3-4 phrases : profils value vs growth identifies, résilience des marges, opportunités d entree spécifiques, caractéristiques communes des meilleures sociétés du secteur",\n'
+            f'  "allocation_rec": "Recommandation 4-5 phrases : signal argumente pour chaque secteur, surponderations justifiées quantitativement, conditions macro favorables ou défavorables, horizon de temps et declencheurs de révision, risque principal de la Thèse"\n'
             f'}}'
         )
         import json, re
@@ -674,7 +674,7 @@ def _build_story(D: dict) -> list:
         f"Comparatif sectoriel {sector_a} (score {sa.get('score',0)}/100, signal {D['sig_a_lbl']}) "
         f"vs {sector_b} (score {sb.get('score',0)}/100, signal {D['sig_b_lbl']}). "
         f"{'Le scoring FinSight avantage ' + sector_a + ' sur la dimension qualité et momentum.' if sa.get('score', 0) >= sb.get('score', 0) else 'Le scoring FinSight avantage ' + sector_b + ' sur la dimension fondamentale.'} "
-        f"P/E Médian : {_mult(sa.get('pe'))} vs {_mult(sb.get('pe'))} — écart de valorisation reflétant des primes de croissance differenciees. "
+        f"P/E Médian : {_mult(sa.get('pe'))} vs {_mult(sb.get('pe'))} — écart de valorisation reflétant des primes de croissance différenciées. "
         f"Allocation recommandee : Surpondérer {sector_a if D['sig_a_lbl'] == 'Surpondérer' else sector_b} en portefeuille diversifié, "
         f"sous reserve de stabilisation des taux directeurs et d'absence de choc réglementaire majeur."
     )
@@ -762,7 +762,7 @@ def _build_story(D: dict) -> list:
             f"{_trailer_s.get('score', 0)}/100 pour {_trailer}). "
             f"Sur la dimension Value, {sector_a if (sa.get('s_val') or 0) >= (sb.get('s_val') or 0) else sector_b} "
             f"domine ({_na(max(sa.get('s_val') or 0, sb.get('s_val') or 0), fmt=lambda x: f'{x:.1f}')}/25). "
-            f"La composante Growth distingue les deux secteurs : "
+            f"La composanté Growth distingue les deux secteurs : "
             f"{sector_a} a {_na(sa.get('s_gro'), fmt=lambda x: f'{x:.1f}')}/25 "
             f"contre {_na(sb.get('s_gro'), fmt=lambda x: f'{x:.1f}')}/25 pour {sector_b}. "
             f"Le profil Quality+Momentum indique "
@@ -797,15 +797,15 @@ def _build_story(D: dict) -> list:
     _pricier_s = sb if _cheaper == sector_a else sa
     _pricier = sector_b if _cheaper == sector_a else sector_a
     _val_fallback = (
-        f"{_cheaper} affiche un P/E Médian inferieur ({_mult(_cheaper_s.get('pe'))} vs "
+        f"{_cheaper} affiche un P/E Médian inférieur ({_mult(_cheaper_s.get('pe'))} vs "
         f"{_mult(_pricier_s.get('pe'))} pour {_pricier}), ce qui ne signifie pas necessairement "
-        f"une opportunite : la décote reflète souvent un profil de croissance plus modéré "
+        f"une opportunité : la décote reflète souvent un profil de croissance plus modéré "
         f"ou un risque sectoriel plus élevé. L'EV/EBITDA confirme ou infirme cette lecture : "
         f"{sector_a} a {_mult(sa.get('ev_eb'))} vs {_mult(sb.get('ev_eb'))} pour {sector_b}. "
         f"Un spread EV/EBITDA significatif entre les deux secteurs traduit une difference "
         f"de prime de qualité que le marché attribue aux modèles Économiques respectifs. "
         f"Conclusion : le Différentiel de valorisation est "
-        f"{'justifie par l avantage fondamental du secteur prime' if (sa.get('score') or 0) != (sb.get('score') or 0) else 'a surveiller comme potentielle anomalie de marché'}."
+        f"{'justifié par l avantage fondamental du secteur prime' if (sa.get('score') or 0) != (sb.get('score') or 0) else 'a surveiller comme potentielle anomalie de marché'}."
     )
     _val_text = D.get("llm", {}).get("valuation_analysis") or _val_fallback
     # Layout : graphique en grand pleine largeur (legendes lisibles), texte LLM en dessous
@@ -825,7 +825,7 @@ def _build_story(D: dict) -> list:
     loser_m  = sector_b if winner_m == sector_a else sector_a
     ws = sa if winner_m == sector_a else sb; ls = sb if winner_m == sector_a else sa
     _mg_fallback = (
-        f"{winner_m} affiche une marge EBITDA medianne superieure ({_pct(ws.get('em'), sign=False)} "
+        f"{winner_m} affiche une marge EBITDA medianne supérieure ({_pct(ws.get('em'), sign=False)} "
         f"vs {_pct(ls.get('em'), sign=False)} pour {loser_m}), reflétant un modèle Économique "
         f"plus efficient ou un levier opérationnel plus prononce. "
         f"La marge nette complète ce tableau : {sector_a} a {_pct(sa.get('nm'), sign=False)} "
@@ -906,16 +906,16 @@ def _build_story(D: dict) -> list:
     _gen_higher_fy = sector_a if fy_a_p > fy_b_p else sector_b
     _gen_lower_dy = sector_b if _gen_higher_dy == sector_a else sector_a
     _ca_fallback = (
-        f"{_gen_higher_dy} offre un rendement dividende Médian superieur "
+        f"{_gen_higher_dy} offre un rendement dividende Médian supérieur "
         f"({_pct(dy_a_p if _gen_higher_dy == sector_a else dy_b_p, sign=False)} "
         f"vs {_pct(dy_b_p if _gen_higher_dy == sector_a else dy_a_p, sign=False)} pour {_gen_lower_dy}), "
         f"un profil adapte aux portefeuilles orientes revenu ou aux mandats avec contrainte de distribution. "
         f"{_gen_higher_fy} enregistre un FCF Yield Médian plus élevé "
         f"({_pct(fy_a_p if _gen_higher_fy == sector_a else fy_b_p, sign=False)}), "
-        f"signalant une génération de trésorerie robuste et une capacite superieure "
+        f"signalant une génération de trésorerie robuste et une capacite supérieure "
         f"de rémunération future de l'actionnaire (rachats ou hausses de dividendes). "
         f"En contexte de taux élevés, le FCF Yield est une metrique cle : "
-        f"un secteur avec un FCF Yield superieur au rendement obligataire 10 ans offre "
+        f"un secteur avec un FCF Yield supérieur au rendement obligataire 10 ans offre "
         f"une prime de risque positive — element déterminant pour l'allocation sectorielle."
     )
     _ca_text = D.get("llm", {}).get("capital_alloc_analysis") or _ca_fallback
@@ -939,9 +939,9 @@ def _build_story(D: dict) -> list:
         f"{'Le momentum 52 semaines confirme cet avantage de croissance (' + _pct(fs.get('mom')) + ' vs ' + _pct(ss.get('mom')) + '), indiquant que le marché intègre déjà cette dynamique dans les prix.' if _mom_confirm else 'Toutefois, le momentum 52 semaines diverge (' + _pct(fs.get('mom')) + ' vs ' + _pct(ss.get('mom')) + ' pour ' + slower + '), signalant que le marché pourrait anticiper un ralentissement de ' + faster + ' ou une accélération de ' + slower + '.'} "
         f"Le Différentiel de beta ({_na(sa.get('beta'), fmt=lambda x: f'{x:.2f}')} pour {sector_a} "
         f"vs {_na(sb.get('beta'), fmt=lambda x: f'{x:.2f}')} pour {sector_b}) "
-        f"{'est marginal et n implique pas de biais cyclique significatif' if _beta_diff < 0.25 else 'positionne ' + _high_beta + ' comme plus sensible aux cycles macro — avantage en phase haussière, risque amplifie en retournement'}. "
+        f"{'est marginal et n implique pas de biais cyclique significatif' if _beta_diff < 0.25 else 'positionné ' + _high_beta + ' comme plus sensible aux cycles macro — avantage en phase haussière, risque amplifie en retournement'}. "
         f"En environnement de taux normalisés, la prime de croissance de {faster} "
-        f"{'justifie une surponderaton sous reserve de visibilite sur les marges futures' if (fs.get('em') or 0) >= (ss.get('em') or 0) else 'doit être pondéree par un écart de marge défavorable — risque de compression du multiple si la croissance decoit'}."
+        f"{'justifié une surponderaton sous reserve de visibilité sur les marges futures' if (fs.get('em') or 0) >= (ss.get('em') or 0) else 'doit être pondéree par un écart de marge défavorable — risque de compression du multiple si la croissance decoit'}."
     )
     _growth_text = D.get("llm", {}).get("growth_analysis") or _growth_fallback
     story.append(Paragraph(_xml(_growth_text), S_BODY))
@@ -989,7 +989,7 @@ def _build_story(D: dict) -> list:
             f"Sur les 52 dernières semaines, le composite equi-pondéré de {_winner_p} "
             f"affiche une performance de {_ret_w:+.1f}% base 100, devancant {_loser_p} "
             f"({_ret_l:+.1f}%) avec un écart de {_spread_p:.1f} pts. "
-            f"<br/><br/><b>Contexte macro 12 mois</b> : la periode est marquee par la stabilisation "
+            f"<br/><br/><b>Contexte macro 12 mois</b> : la période est marquée par la stabilisation "
             f"des taux directeurs Fed (target 4,25-4,50%) après le cycle de hausse 2022-2024, "
             f"un atterrissage en douceur de l'Économie américaine (chomage stable a 4,1%, "
             f"inflation core PCE en convergence vers 2,5%) et une rotation sectorielle au profit "
@@ -997,11 +997,11 @@ def _build_story(D: dict) -> list:
             f"des taux mi-2024 (depot 3,00%), soutenant le redemarrage de l'investissement européen. "
             f"Le dollar reste fort vs euro (EUR/USD ~1,06), penalisant les revenus européens convertis. "
             f"<br/><br/><b>Événements marquants pour {_winner_p}</b> : surperformance soutenue par "
-            f"des publications trimestrielles superieures aux attentes consensus, des guidances "
-            f"FY+1 relevees, et une narration Wall Street favorable autour des moteurs structurels "
+            f"des publications trimestrielles supérieures aux attentes consensus, des guidances "
+            f"FY+1 rélevées, et une narration Wall Street favorable autour des moteurs structurels "
             f"du secteur (IA, transition énergétique, défense, etc. selon le secteur). "
             f"<br/><br/><b>Lecture relative</b> : le spread de {_spread_p:.1f} pts traduit "
-            f"{'une divergence marquee qui justifie un positionnement différentiel net en allocation tactique' if _spread_p > 10 else ('une rotation modérée mais cohérente avec les fondamentaux' if _spread_p > 5 else 'une convergence quasi-neutre, invitant a privilegier la sélectivité intra-sectorielle plutot qu un biais directionnel')}. "
+            f"{'une divergence marquée qui justifié un positionnément différentiel net en allocation tactique' if _spread_p > 10 else ('une rotation modérée mais cohérente avec les fondamentaux' if _spread_p > 5 else 'une convergence quasi-neutre, invitant a privilegier la sélectivité intra-sectorielle plutot qu un biais directionnel')}. "
             f"<b>Catalyseurs 3-6 mois</b> : publications T1/T2, guidance annuelle, décisions Fed/BCE, "
             f"évolutions réglementaires sectorielles, eventuels shocks géopolitiques. "
             f"La zone ombragee entre les deux courbes illustre l'amplitude de la dispersion relative."
@@ -1031,7 +1031,7 @@ def _build_story(D: dict) -> list:
             f"{_best_a.get('company', '')[:20]} se distingue avec un score de {_best_a.get('score_global', 0)}/100, "
             f"un P/E de {_mult(_best_a.get('pe_ratio'))} et une marge EBITDA de {_pct(_best_a.get('ebitda_margin'), sign=False)}. "
             f"Les sociétés les mieux scorees du secteur tendent a présenter "
-            f"une combinaison FCF Yield robuste + ROE superieur a la Médiane sectorielle, "
+            f"une combinaison FCF Yield robuste + ROE supérieur a la Médiane sectorielle, "
             f"caractéristique d'un modèle Économique défensif avec levier de croissance."
         )
     if _top_a_text:
@@ -1047,7 +1047,7 @@ def _build_story(D: dict) -> list:
         _best_b = sorted_b[0]
         _top_b_text = (
             f"Au sein de {sector_b}, les leaders se caracterisent par un profil fondamental "
-            f"distinct de {sector_a} : marge nette généralement inferieure "
+            f"distinct de {sector_a} : marge nette généralement inférieure "
             f"mais recuperation plus rapide en phase de cycle baissier. "
             f"{_best_b.get('company', '')[:20]} atteint un score de {_best_b.get('score_global', 0)}/100, "
             f"avec un EV/EBITDA de {_mult(_best_b.get('ev_ebitda'))} "
@@ -1102,7 +1102,7 @@ def _build_story(D: dict) -> list:
     _winner_rec = sector_a if D["sig_a_lbl"] == "Surpondérer" else (sector_b if D["sig_b_lbl"] == "Surpondérer" else None)
     _rec_fallback = (
         f"{'Les deux secteurs affichent un signal ' + D['sig_a_lbl'] + ' identique selon le scoring FinSight.' if D['sig_a_lbl'] == D['sig_b_lbl'] else 'Le scoring FinSight Généré un signal divergent : ' + D['sig_a_lbl'] + ' pour ' + sector_a + ' (score ' + str(sa.get('score', 0)) + '/100) contre ' + D['sig_b_lbl'] + ' pour ' + sector_b + ' (score ' + str(sb.get('score', 0)) + '/100).'} "
-        f"{'En termes d allocation, Surpondérer ' + _winner_rec + ' dans un portefeuille diversifié présente un ratio risque/rendement favorable selon les metriques actuelles.' if _winner_rec else 'Un positionnement neutre sur les deux secteurs est justifie en attendant une meilleure visibilite sur les catalyseurs de re-rating.'} "
+        f"{'En termes d allocation, Surpondérer ' + _winner_rec + ' dans un portefeuille diversifié présente un ratio risque/rendement favorable selon les metriques actuelles.' if _winner_rec else 'Un positionnément neutre sur les deux secteurs est justifié en attendant une meilleure visibilité sur les catalyseurs de re-rating.'} "
         f"Les conditions favorables a une surponderans de {sector_a if (sa.get('score') or 0) >= (sb.get('score') or 0) else sector_b} "
         f"incluent : stabilisation des taux directeurs, maintien des marges au-dessus de la Médiane historique, "
         f"et absence de choc réglementaire ou de compression de multiple liée au risque de taux. "
@@ -1125,7 +1125,7 @@ def _build_story(D: dict) -> list:
         f"une exposition de +200 a +400 bps au-dessus du benchmark sectoriel "
         f"(reperes : écart de score {_diff} pts = position size proportionnelle). Pour un portefeuille "
         f"thematique focalise, l'exposition peut atteindre 15-25% du portefeuille actions sur le secteur "
-        f"préféré, sous reserve d'une diversification intra-sectorielle adequate (5-10 positions minimum). "
+        f"préféré, sous reserve d'une diversification intra-sectorielle adéquate (5-10 positions minimum). "
         f"<br/><br/>"
         f"<b>Véhicules d'investissement</b> : ETF sectoriels passifs (XLK, XLV, XLF, etc. pour US ; "
         f"sectoral STOXX 600 pour Europe), fonds actifs avec mandat sectoriel explicite, ou panier de "
@@ -1135,7 +1135,7 @@ def _build_story(D: dict) -> list:
         f"<br/><br/>"
         f"<b>Calibration risque</b> : la position doit être dimensionnee en fonction du beta Médian du "
         f"secteur (beta {_winner_alloc} = {(sa.get('beta') or 1.0):.2f} vs {_loser_alloc} = "
-        f"{(sb.get('beta') or 1.0):.2f}) et de la volatilite implicite du portefeuille global. "
+        f"{(sb.get('beta') or 1.0):.2f}) et de la volatilité implicite du portefeuille global. "
         f"Un stop-loss tactique peut être fixe a -10% sur le composite sectoriel pour proteger le capital "
         f"en cas de détérioration brutale des fondamentaux ou du sentiment. "
         f"<b>Rebalancement</b> : revue trimestrielle systematique après chaque saison de publications, "
@@ -1168,7 +1168,7 @@ def _build_story(D: dict) -> list:
          "de ces données, qui peuvent présenter des erreurs, omissions ou retards de mise à jour. "
          "Les Médianes sectorielles sont calculées sur les sociétés du panel disposant de la donnée "
          "consideree, ce qui peut introduire un biais de sélection lorsque la couverture est partielle. "
-         "Les chiffres sont établis a la date de génération du rapport et ne refletent pas les évolutions "
+         "Les chiffres sont établis a la date de génération du rapport et ne reflètent pas les évolutions "
          "ulterieures du marché ou des publications corporate."),
         ("Méthodologie de scoring FinSight (0-100)",
          "Le Score FinSight est un indicateur proprietaire agregeant 4 dimensions également pondérées "
@@ -1422,7 +1422,7 @@ def _build_risques_comparatifs_pdf(story, content_a, sector_a, content_b, sector
             f"les indicateurs avances (PMI manufacturier, surveys de crédit, guidance corporate) qui "
             f"precedent généralement les révisions consensus de 1-2 trimestres. "
             f"<b>Méthodologie de monitoring</b> : revue mensuelle des seuils, alertes automatiques en "
-            f"cas de franchissement, réévaluation complète de la Thèse sur 2 trimestres consecutifs "
+            f"cas de franchissement, réévaluation complète de la Thèse sur 2 trimestrès consecutifs "
             f"de divergence. Les conditions d'invalidation doivent être confrontees au contexte macro "
             f"global (cycle des taux, dollar, géopolitique) avant d'être traduites en décision d'allocation."
         )

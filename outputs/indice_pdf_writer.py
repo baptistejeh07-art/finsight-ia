@@ -607,7 +607,7 @@ def _build_sommaire(data, page_nums=None):
         ("5.", "Allocation Optimale",                         "allocation",
          "  Min-Variance \xb7 Tangency (Max Sharpe) \xb7 Equal Risk Contribution \xb7 Poids cibles"),
         ("6.", "Top 3 Secteurs Recommand\u00e9s",             "top3",
-         "  D\u00e9tail signal \xb7 Soci\u00e9t\u00e9s representatives \xb7 Catalyseurs"),
+         "  D\u00e9tail signal \xb7 Soci\u00e9t\u00e9s représentatives \xb7 Catalyseurs"),
         ("7.", "Risques Macro &amp; Conditions d'Invalidation", "risques",
          "  Cartographie risques \xb7 Probabilit\u00e9s \xb7 Horizons"),
         ("8.", "Sentiment Agr\u00e9g\u00e9 &amp; M\u00e9thodologie", "sentiment",
@@ -663,10 +663,10 @@ def _build_synthese(data, perf_buf, registry=None):
     elems.append(KeepTogether(tbl([kpi_h, kpi_row], cw=[28*mm,22*mm,24*mm,24*mm,22*mm,50*mm])))
     # Interprétation ERP
     _erp_interp = {
-        "Tendu":    ("<b>ERP sous 2%</b> \u2014 prime actions insuffisante par rapport au taux sans risque. "
+        "Tendu":    ("<b>ERP sous 2%</b> \u2014 prime actions insuffisanté par rapport au taux sans risque. "
                      "Chaque BUY doit \u00eatre justifi\u00e9 par une croissance visible et un pricing power d\u00e9montr\u00e9."),
         "Favorable":("<b>ERP au-dessus de 4%</b> \u2014 le march\u00e9 actions offre une prime attractive "
-                     "vs les taux. Le contexte macro justifie une surpond\u00e9ration actions. "
+                     "vs les taux. Le contexte macro justifié une surpond\u00e9ration actions. "
                      "Les signaux Surpond\u00e9rer ont une base macro solide."),
         "Neutre":   ("<b>ERP entre 2% et 4%</b> \u2014 valorisation raisonnable. "
                      "La s\u00e9lection sectorielle prime sur l'exposition beta. "
@@ -721,7 +721,7 @@ def _build_synthese(data, perf_buf, registry=None):
             _pe_pos, _pe_pos_s = "Valorisation élevée", S_TD_A
             _pe_interp = (f"Le P/E forward de {_pe_val:.1f}x s'inscrit <b>au-dessus de la médiane historique</b> "
                           f"({_pe_min:.0f}x\u2013{_pe_max:.0f}x). La prime de valorisation est justifiable "
-                          f"si la visibilite BPA reste intacte. Surveiller les révisions d'analystes.")
+                          f"si la visibilité BPA reste intacte. Surveiller les révisions d'analystes.")
         elif _pe_pct >= 25:
             _pe_pos, _pe_pos_s = "Valorisation raisonnable", S_TD_G
             _pe_interp = (f"Le P/E forward de {_pe_val:.1f}x s'inscrit <b>dans la moitié inférieure</b> "
@@ -755,7 +755,7 @@ def _build_synthese(data, perf_buf, registry=None):
 
     # ── Régime de Marché + Probabilite de récession ──────────────────────────
     _macro = data.get("macro") or {}
-    _regime  = _macro.get("régime")
+    _regime  = _macro.get("regime_v")
     _vix     = _macro.get("vix")
     _spread  = _macro.get("yield_spread_10y_3m")
     _sp_ma   = _macro.get("sp500_vs_ma200")
@@ -777,8 +777,8 @@ def _build_synthese(data, perf_buf, registry=None):
         }
         _regime_lbl = _regime_labels.get(_regime, _regime.lower())
         elems.append(Paragraph(
-            f"<b>Régime de Marché : {_régime}.</b> L'environnement macro est actuellement "
-            f"{_régime_lbl}, avec un VIX a {_vix_str}, un spread 10Y-3M de {_spread_str} "
+            f"<b>Régime de Marché : {_regime_var}.</b> L'environnement macro est actuellement "
+            f"{_regime_var_lbl}, avec un VIX a {_vix_str}, un spread 10Y-3M de {_spread_str} "
             f"et le S&P 500 a {_sp_ma_str} de sa moyenne mobile 200 jours. "
             f"La tendance de fond reste {_sp_trend.lower()}.", S_BODY))
         elems.append(Spacer(1, 2*mm))
@@ -799,7 +799,7 @@ def _build_synthese(data, perf_buf, registry=None):
     else:
         elems.append(Spacer(1, 4*mm))
 
-    elems.append(Paragraph("Contexte macro\u00e9conomique et positionnement", S_SUBSECTION))
+    elems.append(Paragraph("Contexte macro\u00e9conomique et positionnément", S_SUBSECTION))
     elems.append(Spacer(1, 1*mm))
     elems.append(Paragraph(data["texte_macro"], S_BODY))
     elems.append(Spacer(1, 3*mm))
@@ -849,7 +849,7 @@ def _build_synthese(data, perf_buf, registry=None):
     _conv_para = Paragraph(
         f"Conviction globale {conviction} % — les {nb_surp} secteur(s) Surpond\xe9rer "
         f"({top3_nms}) concentrent les opportunit\xe9s d\u2019alpha. Toute d\xe9t\xe9rioration "
-        "du signal doit declencher une revue de positionnement dans les 5 jours ouvrables.", S_BODY)
+        "du signal doit declencher une revue de positionnément dans les 5 jours ouvrables.", S_BODY)
     elems.append(KeepTogether([
         debate_q("Quelle est la distribution actuelle des signaux sectoriels ?"),
         tbl([syn_h] + syn_rows, cw=[36*mm, 28*mm, 106*mm]),
@@ -970,7 +970,7 @@ def _build_cartographie(data, weights_buf, attribution_buf=None, registry=None):
         elems.append(Paragraph("Valorisation \u00c9tendue &amp; Rendement Sectoriel", S_SUBSECTION))
         elems.append(Paragraph(
             "Ce tableau compl\u00e8te le comparatif EV/EBITDA avec trois dimensions "
-            "additionnelles : <b>Price/Book</b> (positionnement valeur vs croissance), "
+            "additionnelles : <b>Price/Book</b> (positionnément valeur vs croissance), "
             "<b>Dividend Yield</b> (rendement courant), et <b>ERP sectoriel implicite</b> "
             "(Div. Yield + croissance LT - taux sans risque) qui estime la prime de risque "
             "propre \u00e0 chaque secteur.", S_BODY))
@@ -1092,7 +1092,7 @@ def _build_graphiques(data, scatter_buf, scores_buf, corr_buf=None, registry=Non
     elems.append(Paragraph("Positionnement EV/EBITDA vs Croissance BPA", S_SUBSECTION))
     if scatter_buf is not None:
         elems.append(Paragraph(
-            "Le scatter ci-dessous positionne chaque secteur sur deux axes : "
+            "Le scatter ci-dessous positionné chaque secteur sur deux axes : "
             "valorisation (EV/EBITDA m\u00e9dian LTM) et croissance BPA m\u00e9diane. "
             "Les lignes pointill\u00e9es repr\u00e9sentent les m\u00e9dianes sectorielles — "
             "les secteurs dans le <b>quadrant sup\u00e9rieur droit</b> paient une prime justifi\u00e9e "
@@ -1109,7 +1109,7 @@ def _build_graphiques(data, scatter_buf, scores_buf, corr_buf=None, registry=Non
         _sous_str = ", ".join(_sous) if _sous else "aucun"
         elems.append(Spacer(1, 4*mm))
         elems.append(Paragraph(
-            "<b>Lecture du positionnement.</b> "
+            "<b>Lecture du positionnément.</b> "
             "Les secteurs dans le <b>quadrant inf\xe9rieur gauche</b> (faible EV/EBITDA, "
             "faible croissance BPA) offrent une d\xe9côté relative \u2014 opportunit\xe9 si "
             "les fondamentaux se stabilisent. Ceux dans le <b>quadrant sup\xe9rieur droit</b> "
@@ -1120,7 +1120,7 @@ def _build_graphiques(data, scatter_buf, scores_buf, corr_buf=None, registry=Non
         elems.append(Paragraph(
             "L'analyse comparative EV/EBITDA vs croissance BPA n\u00e9cessite au moins deux secteurs. "
             "Pour un univers mono-sectoriel, consulter le tableau comparatif (section 2) "
-            "qui donne les m\u00e9dianes LTM par soci\u00e9t\u00e9 representative.", S_BODY))
+            "qui donne les m\u00e9dianes LTM par soci\u00e9t\u00e9 représentative.", S_BODY))
         elems.append(src("FinSight IA — Graphique non disponible pour univers mono-sectoriel."))
 
     elems.append(CondPageBreak(120*mm))
@@ -1212,7 +1212,7 @@ def _build_graphiques(data, scatter_buf, scores_buf, corr_buf=None, registry=Non
                      "Meilleur benefice de diversification inter-sectoriel disponible"],
                     ["Paire la plus correlee",
                      f"{_abbrev_pdf(max_c[1])} / {_abbrev_pdf(max_c[2])}  ({max_c[0]:.2f})",
-                     "Secteurs a ne pas sur-ponderer simultanement — beta commun élevé"],
+                     "Secteurs a ne pas sur-pondérér simultanement — beta commun élevé"],
                 ]
                 corr_h = [Paragraph(h, S_TH_L) for h in ["Indicateur", "Valeur", "Interprétation"]]
                 corr_rows = [[Paragraph(r[0], S_TD_B), Paragraph(r[1], S_TD_C),
@@ -1233,7 +1233,7 @@ def _build_rotation(data, registry=None):
 
     elems.append(debate_q(
         "O\u00f9 en sommes-nous dans le cycle \u00e9conomique et quels secteurs privil\u00e9gier ?"))
-    elems.append(Paragraph("Analyse du positionnement cyclique et recommandation de rotation", S_SUBSECTION))
+    elems.append(Paragraph("Analyse du positionnément cyclique et recommandation de rotation", S_SUBSECTION))
     elems.append(Spacer(1, 1*mm))
     elems.append(Paragraph(data["texte_rotation"], S_BODY))
     elems.append(Spacer(1, 3*mm))
@@ -1281,7 +1281,7 @@ def _build_rotation(data, registry=None):
          data.get("phase_cycle", "Expansion avancee"),
          "Croissance positive, taux restrictifs, marges sous pression selective"],
         ["Secteurs a Surpondérer", _surp_noms_rot.replace("/", "\xb7"),
-         "Forte visibilite BPA, faible Sensibilité aux taux, pricing power intact"],
+         "Forte visibilité BPA, faible Sensibilité aux taux, pricing power intact"],
         ["Secteurs a neutraliser", _neutre_noms,
          "Croissance correcte mais risque de décélération si PIB ralentit"],
         ["Secteurs a alléger", _sous_noms_rot.replace("/", "\xb7"),
@@ -1399,8 +1399,8 @@ def _build_allocation(data, allocation_buf=None, registry=None):
     elems.append(KeepTogether(tbl([met_h] + met_rows, cw=[38*mm,68*mm,20*mm,20*mm,24*mm])))
     elems.append(Paragraph(
         f"<i>Note : performances et Sharpe calculés sur rendements historiques 52 semaines. "
-        f"Ils ne constituent pas une prevision. Dans un contexte ERP {_esig} ({_erp}), "
-        + ("le Tangency portfolio est particulièrement pertinent — la prime actions justifie "
+        f"Ils ne constituent pas une prévision. Dans un contexte ERP {_esig} ({_erp}), "
+        + ("le Tangency portfolio est particulièrement pertinent — la prime actions justifié "
            "une exposition optimisee." if _esig == "Favorable"
            else "le Min-Variance est recommande — proteger le capital prime sur le rendement." if _esig == "Tendu"
            else "les trois profils sont valides selon l'horizon et le profil de risque.")
@@ -1423,21 +1423,21 @@ def _build_top3(data, donut_buf, registry=None):
 
     _surp_list = [s for s in data["secteurs"] if s[3] in ("Surpondérer", "Surpond\xe9rer")]
     nb_surp_reel = len(_surp_list)
-    _surp_label = (f"{nb_surp_réel} secteur(s) affichent un signal <b>Surpond\u00e9rer</b>"
+    _surp_label = (f"{nb_surp_reel} secteur(s) affichent un signal <b>Surpond\u00e9rer</b>"
                    if nb_surp_reel > 0
                    else "aucun secteur ne franchit le seuil Surpond\u00e9rer")
     _n_comp = len(data["top3_secteurs"]) - nb_surp_reel
     if _n_comp > 0:
         _comp_s = ("secteur Neutre est présente en complément"
                    if _n_comp == 1
-                   else f"{_n_comp} secteurs Neutres sont présentés en complément")
+                   else f"{_n_comp} secteurs Neutrès sont présentés en complément")
         _complement = f" Le {_comp_s}."
     else:
         _complement = ""
     _nb_s_tot = data['nb_secteurs']
     _s_tot_lbl = "secteur couvert" if _nb_s_tot == 1 else "secteurs couverts"
     elems.append(Paragraph(
-        f"Sur {_nb_s_tot} {_s_tot_lbl}, {_surp_label}.{_complément} "
+        f"Sur {_nb_s_tot} {_s_tot_lbl}, {_surp_label}.{_complement} "
         "Ces secteurs combinent momentum prix positif, révision haussière des BPA et "
         "valorisation raisonnable par rapport \u00e0 leur historique. "
         "Pour le d\u00e9tail complet — ratios LTM/NTM, Football Field, DCF, FinBERT — "
@@ -1445,7 +1445,7 @@ def _build_top3(data, donut_buf, registry=None):
     elems.append(Spacer(1, 4*mm))
 
     # Tableau Synthèse
-    _titre_synth = ("Vue d'ensemble — Secteurs Surpond\u00e9rer" if nb_surp_réel > 0
+    _titre_synth = ("Vue d'ensemble — Secteurs Surpond\u00e9rer" if nb_surp_reel > 0
                     else "Vue d'ensemble — Meilleurs secteurs de l'univers")
     elems.append(Paragraph(_titre_synth, S_SUBSECTION))
     synth_h = [Paragraph(h, S_TH_C) for h in
@@ -1562,7 +1562,7 @@ def _build_top3(data, donut_buf, registry=None):
     # [52, 20, 36, 28, 34] = 170
     soc_tbl = tbl([soc_h] + soc_rows, cw=[52*mm, 20*mm, 36*mm, 28*mm, 34*mm])
     elems.append(KeepTogether([
-        Paragraph("Soci\u00e9t\u00e9s representatives — 3 convictions par secteur *", S_SUBSECTION),
+        Paragraph("Soci\u00e9t\u00e9s représentatives — 3 convictions par secteur *", S_SUBSECTION),
         Spacer(1, 2*mm),
         Paragraph(
             "Ces sociétés constituent les convictions les plus solides au sein de chaque "
@@ -1593,8 +1593,8 @@ def _build_risques(data, registry=None):
     elems.append(Paragraph(
         f"L'analyse adversariale identifie trois axes de risque susceptibles d'invalider "
         f"le scénario central <b>{sig_central}</b> sur le {indice_rl}. Notre approche ne traite "
-        "pas ces risques comme des probabilites faibles a ignorer, mais comme des "
-        "<b>conditions de surveillance active</b> qui doivent modifier le positionnement "
+        "pas ces risques comme des probabilités faibles a ignorer, mais comme des "
+        "<b>conditions de surveillance active</b> qui doivent modifier le positionnément "
         "si elles se materialisent. Chaque risque est évalue sur sa probabilité estimée "
         "a 12 mois, son mecanisme de transmission et son impact potentiel sur les niveaux "
         "de l'indice et les multiples.", S_BODY))
@@ -1608,7 +1608,7 @@ def _build_risques(data, registry=None):
         _prob_qualif = ("élevée" if p_int >= 40 else ("modérée" if p_int >= 25 else "faible"))
         elems.append(Paragraph(
             f"<b>{nom} ({prob}, impact {impact.lower()}).</b> {mec} "
-            f"La probabilite de materialisation sur 12 mois est jugee {_prob_qualif}.", S_BODY))
+            f"La probabilité de materialisation sur 12 mois est jugee {_prob_qualif}.", S_BODY))
         elems.append(Spacer(1, 2*mm))
     elems.append(src(
         f"FinSight IA — Analyse adversariale. Probabilités estimées au {data['date_analyse']}."))
@@ -1670,26 +1670,26 @@ def _build_sentiment(data, registry=None):
         elems.append(Paragraph(
             f"L'analyse FinBERT conduite sur <b>{fb['nb_articles']} articles</b> des sept derniers "
             f"jours produit un sentiment agrege de <b>{fb['score_agrege']}</b> sur l'ensemble du "
-            f"{indice_rl}. Les publications favorables portent sur : {fb['positif']['themes']}. "
-            f"Les signaux negatifs se concentrent sur : {fb['negatif']['themes']}.", S_BODY))
+            f"{indice_rl}. Les publications favorables portent sur : {fb['positif']['thèmes']}. "
+            f"Les signaux négatifs se concentrent sur : {fb['négatif']['thèmes']}.", S_BODY))
         elems.append(Spacer(1, 3*mm))
 
         # Distribution globale — [24, 20, 26, 100] = 170
         sent_h = [Paragraph(h, S_TH_C) for h in
-                  ["Orientation","Articles","Score moyen","Themes dominants"]]
+                  ["Orientation","Articles","Score moyen","Thèmes dominants"]]
         sent_rows = [
             [Paragraph("Positif",  S_TD_G),
              Paragraph(str(fb["positif"]["nb"]),  S_TD_C),
              Paragraph(fb["positif"]["score"],    S_TD_G),
-             Paragraph(fb["positif"]["themes"],   S_TD_L)],
+             Paragraph(fb["positif"]["thèmes"],   S_TD_L)],
             [Paragraph("Neutre",   S_TD_A),
              Paragraph(str(fb["neutre"]["nb"]),   S_TD_C),
              Paragraph(fb["neutre"]["score"],     S_TD_C),
-             Paragraph(fb["neutre"]["themes"],    S_TD_L)],
-            [Paragraph("Negatif",  S_TD_R),
-             Paragraph(str(fb["negatif"]["nb"]),  S_TD_C),
-             Paragraph(fb["negatif"]["score"],    S_TD_R),
-             Paragraph(fb["negatif"]["themes"],   S_TD_L)],
+             Paragraph(fb["neutre"]["thèmes"],    S_TD_L)],
+            [Paragraph("Négatif",  S_TD_R),
+             Paragraph(str(fb["négatif"]["nb"]),  S_TD_C),
+             Paragraph(fb["négatif"]["score"],    S_TD_R),
+             Paragraph(fb["négatif"]["thèmes"],   S_TD_L)],
         ]
         elems.append(KeepTogether(tbl([sent_h] + sent_rows, cw=[24*mm, 20*mm, 26*mm, 100*mm])))
         elems.append(src(
@@ -1701,7 +1701,7 @@ def _build_sentiment(data, registry=None):
         ps_h = [Paragraph(h, S_TH_C) for h in ["Secteur","Score moyen","Orientation"]]
         ps_rows = []
         for sect, score, orient in fb["par_secteur"]:
-            os_ = S_TD_G if orient == "Positif" else (S_TD_R if orient in ("Negatif","N\xe9gatif") else S_TD_C)
+            os_ = S_TD_G if orient == "Positif" else (S_TD_R if orient in ("Négatif","N\xe9gatif") else S_TD_C)
             try:
                 sc_s = S_TD_G if float(score) > 0 else (S_TD_R if float(score) < -0.10 else S_TD_C)
             except ValueError:
@@ -1748,7 +1748,7 @@ def _build_sentiment(data, registry=None):
 
     # Méthodologie — [40, 130] = 170
     elems.append(Paragraph("Sources &amp; M\u00e9thodologie", S_SUBSECTION))
-    meth_h = [Paragraph(h, S_TH_L) for h in ["Composante","M\u00e9thodologie"]]
+    meth_h = [Paragraph(h, S_TH_L) for h in ["Composanté","M\u00e9thodologie"]]
     meth_rows = [[Paragraph(k, S_TD_B), Paragraph(v, S_TD_L)]
                  for k, v in data["Méthodologie"]]
     elems.append(KeepTogether(tbl([meth_h] + meth_rows, cw=[40*mm, 130*mm])))
@@ -1778,7 +1778,7 @@ def _build_disclaimer(data):
     elems.append(Spacer(1, 1.5*mm))
     elems.append(Paragraph(
         "<b>Conflits d'intérêt.</b> FinSight IA est un outil d'analyse automatise sans position "
-        "proprietaire dans les titres ou indices couverts. Aucune rémunération n'est percue de "
+        "proprietaire dans les titrès ou indices couverts. Aucune rémunération n'est percue de "
         "la part des emetteurs analyses. Nonobstant, le lecteur est invite a considerer que tout "
         "modèle analytique comporte des biais inherents a ses hypotheses de construction.", S_DISC))
     elems.append(Spacer(1, 1.5*mm))
@@ -1853,7 +1853,7 @@ class IndicePDFWriter:
         Genere le rapport PDF d'analyse d'indice FinSight IA.
         Retourne output_path. Double-passe pour pagination dynamique.
         """
-        # Macro régime + récession (si pas déjà calculé par app.py)
+        # Macro regime_v + récession (si pas déjà calculé par app.py)
         if not data.get("macro"):
             try:
                 import sys as _sys, os as _os

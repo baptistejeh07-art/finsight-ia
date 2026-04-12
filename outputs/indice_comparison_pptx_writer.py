@@ -138,7 +138,7 @@ def _sig_c(signal: str) -> RGBColor:
     s = str(signal)
     if "Surp" in s or "Positif" in s:
         return _BUY
-    if "Sous" in s or "Negatif" in s or "Négatif" in s:
+    if "Sous" in s or "Négatif" in s or "Négatif" in s:
         return _SELL
     return _HOLD
 
@@ -147,7 +147,7 @@ def _sig_l(signal: str) -> RGBColor:
     s = str(signal)
     if "Surp" in s or "Positif" in s:
         return _BUY_L
-    if "Sous" in s or "Negatif" in s or "Négatif" in s:
+    if "Sous" in s or "Négatif" in s or "Négatif" in s:
         return _SELL_L
     return _HOLD_L
 
@@ -1488,7 +1488,7 @@ def _slide_16_erp_focus(prs, d: dict):
             f"détenir des actions plutôt que des obligations souveraines (proxy taux 10 ans local). "
             f"Un ERP élevé (>4 %) traduit une valorisation actions historiquement attractive : le "
             f"surplus de rendement compense largement le risque additionnel. Un ERP faible (<2 %) "
-            f"signale au contraire une prime insuffisante, exposant à un re-rating baissier en "
+            f"signale au contraire une prime insuffisanté, exposant à un re-rating baissier en "
             f"cas de hausse des taux ou de déception sur les bénéfices. La comparaison ERP entre "
             f"deux indices permet d'identifier le mieux rémunéré relativement au risque."
         )
@@ -1707,9 +1707,9 @@ def _slide_20_verdict(prs, d: dict):
          9, True, _WHITE, align=PP_ALIGN.CENTER)
     invals = d.get("llm", {}).get("verdict_invalidation") or [
         ("Détérioration macro",
-         "Récession ou hausse taux matérielle — revoir le positionnement."),
+         "Récession ou hausse taux matérielle — revoir le positionnément."),
         ("Révision bénéfices",
-         "Profit warning > -10 % sur 2 trimestres — signal de sortie."),
+         "Profit warning > -10 % sur 2 trimestrès — signal de sortie."),
     ]
     y_inv = 6.85
     for it, ib in invals[:2]:

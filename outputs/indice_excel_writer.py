@@ -62,7 +62,7 @@ _SECTOR_ORDER = list(dict.fromkeys(_SECT_DISP.values()))
 # Orientation signal depuis score
 def _orientation(score: int) -> str:
     if score >= 65: return "\u2191 Positif"
-    if score < 45:  return "\u2193 Negatif"
+    if score < 45:  return "\u2193 Négatif"
     return "\u2192 Neutre"
 
 def _bar(score: int, n: int = 10) -> str:

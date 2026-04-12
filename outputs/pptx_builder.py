@@ -181,8 +181,8 @@ class PPTXBuilder:
             # Altman Z flag
             if yr.altman_z is not None:
                 z = yr.altman_z
-                z_label = "Sante financiere : SAINE" if z >= ALTMAN_Z_SAINE else (
-                    "Sante financiere : ZONE GRISE" if z >= ALTMAN_Z_GRISE else "DETRESSE FINANCIERE")
+                z_label = "Sante financière : SAINE" if z >= ALTMAN_Z_SAINE else (
+                    "Sante financière : ZONE GRISE" if z >= ALTMAN_Z_GRISE else "DETRESSE FINANCIERE")
                 z_color = _GREEN if z >= ALTMAN_Z_SAINE else (_ORANGE if z >= ALTMAN_Z_GRISE else _RED)
                 _rect(sl, Inches(0.5), Inches(6.6), Inches(4.5), Inches(0.45), z_color)
                 _text_box(sl, Inches(0.5), Inches(6.6), Inches(4.5), Inches(0.45),

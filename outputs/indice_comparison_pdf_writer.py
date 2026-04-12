@@ -184,7 +184,7 @@ def _sig_c(signal: str):
     s = str(signal)
     if "Surp" in s or "Positif" in s:
         return BUY_GREEN
-    if "Sous" in s or "Negatif" in s or "Négatif" in s:
+    if "Sous" in s or "Négatif" in s or "Négatif" in s:
         return SELL_RED
     return HOLD_AMB
 
@@ -193,7 +193,7 @@ def _sig_bg(signal: str):
     s = str(signal)
     if "Surp" in s or "Positif" in s:
         return colors.HexColor('#E8F5EE')
-    if "Sous" in s or "Negatif" in s or "Négatif" in s:
+    if "Sous" in s or "Négatif" in s or "Négatif" in s:
         return colors.HexColor('#FBEBEB')
     return colors.HexColor('#FDF3E5')
 
@@ -1111,7 +1111,7 @@ def _build_story(data: dict) -> list:
         f"des actions plutôt que des obligations souveraines (proxy taux 10 ans local). Un ERP "
         f"élevé (>4 %) traduit une valorisation actions historiquement attractive : le surplus "
         f"de rendement compense largement le risque additionnel. Un ERP faible (<2 %) signale "
-        f"au contraire une prime insuffisante, exposant à un re-rating baissier en cas de hausse "
+        f"au contraire une prime insuffisanté, exposant à un re-rating baissier en cas de hausse "
         f"des taux ou de déception sur les bénéfices. La comparaison ERP entre deux indices "
         f"permet d'identifier le mieux rémunéré relativement au risque pris."
     )
@@ -1190,11 +1190,11 @@ def _build_story(data: dict) -> list:
          Paragraph("Condition d'invalidation", S_TH_L),
          Paragraph("Horizon", S_TH_C)],
         [Paragraph("Macro", S_TD_B),
-         Paragraph(_safe("Récession confirmée (2 trimestres consécutifs de PIB négatif) ou "
+         Paragraph(_safe("Récession confirmée (2 trimestrès consécutifs de PIB négatif) ou "
                          "hausse rapide des taux 10 ans > 100 bps en 3 mois"), S_TD_L),
          Paragraph("3-6 mois", S_TD_C)],
         [Paragraph("Bénéfices", S_TD_B),
-         Paragraph(_safe("Révision baissière du consensus EPS > -10 % sur 2 trimestres "
+         Paragraph(_safe("Révision baissière du consensus EPS > -10 % sur 2 trimestrès "
                          "consécutifs sur l'indice gagnant"), S_TD_L),
          Paragraph("3-6 mois", S_TD_C)],
         [Paragraph("Réglementaire", S_TD_B),
@@ -1222,7 +1222,7 @@ def _build_story(data: dict) -> list:
         f"négative du momentum 52S. L'investisseur doit calibrer son seuil d'action en fonction "
         f"de son horizon (court terme : réaction rapide ; long terme : tolérance plus élevée). "
         f"Méthodologie de monitoring : revue mensuelle des seuils, alertes automatiques en cas "
-        f"de franchissement, réévaluation complète sur 2 trimestres consécutifs de divergence."
+        f"de franchissement, réévaluation complète sur 2 trimestrès consécutifs de divergence."
     )
     # winner pre-calcule pour le titre JPM (l'usage detaille est repete plus bas)
     _winner_inv = name_a if sc_a >= sc_b else name_b

@@ -609,7 +609,7 @@ def _jpm_title(slide_type: str, ratios=None, snap=None, synthesis=None,
             return f"{ticker} — valorisation DCF et sensibilités"
 
         if slide_type == "peers":
-            return f"{ticker} — positionnement vs comparables sectoriels"
+            return f"{ticker} — positionnément vs comparables sectoriels"
 
         if slide_type == "football":
             return f"{ticker} — football field et fourchette de valorisation"
@@ -1042,7 +1042,7 @@ def _slide_exec_summary(prs, snap, synthesis, ratios, devil, sentiment):
 
     # Thesis bullets — espacement dynamique avec corps de texte
     thesis_parts = _split_text(thesis, 3)
-    pos_themes   = _g(synthesis, "positive_themes", []) or []
+    pos_themes   = _g(synthesis, "positive_thèmes", []) or []
     strength_ys = [4.57, 6.10, 7.63]
     for i, sy in enumerate(strength_ys):
         label = strengths[i] if i < len(strengths) else (thesis_parts[i] if i < len(thesis_parts) else "")
@@ -1065,7 +1065,7 @@ def _slide_exec_summary(prs, snap, synthesis, ratios, devil, sentiment):
     counter_risks = _g(devil, "counter_risks", []) or []
     counter_thesis_txt = _g(devil, "counter_thesis", "") or ""
     risk_bodies  = _split_text(counter_thesis_txt, 3) if counter_thesis_txt else [""] * 3
-    neg_themes   = _g(synthesis, "negative_themes", []) or []
+    neg_themes   = _g(synthesis, "negative_thèmes", []) or []
 
     risk_ys = [4.57, 6.10, 7.63]
     for i, ry in enumerate(risk_ys):
@@ -1184,7 +1184,7 @@ def _slide_sommaire(prs, snap=None, synthesis=None):
         return "  \u00b7  ".join(parts) if parts else ""
 
     co_desc  = f"{co_name}  \u00b7  {sector}" if co_name and sector else (co_name or "Présentation, mod\u00e8le \u00e9conomique")
-    str_desc = _s1(strengths) or "Analyse strat\u00e9gique & positionnement"
+    str_desc = _s1(strengths) or "Analyse strat\u00e9gique & positionnément"
     ris_desc = _s1(risks) or "Risques structurels & th\u00e8se contraire"
 
     sections = [
@@ -1249,7 +1249,7 @@ def _slide_company_overview(prs, snap, synthesis, ratios):
         desc = (f"{co_name} ({ticker}) opère dans le secteur {_sector_fb}. "
                 f"Analyse FinSight IA en cours -- Données de Synthèse non disponibles "
                 f"pour cette session. Lancer une nouvelle analyse pour obtenir la "
-                f"description complète, les segments et le positionnement strategique.")
+                f"description complète, les segments et le positionnément stratégique.")
 
     # Nombre de segments pour la formulation dynamique
     n_seg = len(segments)
@@ -2631,7 +2631,7 @@ def _slide_multiples_historiques(prs, snap, synthesis, ratios):
             f"\u00e0 {_fr(_ev_last,1)}x vs {_fr(_ev_first,1)}x historique."
         )
     else:
-        _comment = _g(synthesis, "ratio_commentary", "") or "Donn\u00e9es historiques insuffisantes pour \u00e9tablir une tendance des multiples."
+        _comment = _g(synthesis, "ratio_commentary", "") or "Donn\u00e9es historiques insuffisantés pour \u00e9tablir une tendance des multiples."
     _mh_c2 = _g(synthesis, "financial_commentary", "") or ""
     if _mh_c2.strip():
         _comment = _comment + " " + _mh_c2 if _comment.strip() else _mh_c2
@@ -2799,7 +2799,7 @@ def _slide_capital_returns(prs, snap, synthesis, ratios):
             f"{'est maintenue malgré la pression sur les marges' if fcf_vals[-1] and fcf_vals[-1] > 0 else 'reflète un levier financier élevé'}."
         )
     else:
-        _comment = "Donn\u00e9es FCF insuffisantes pour \u00e9tablir une tendance de l\u2019allocation du capital sur la p\u00e9riode."
+        _comment = "Donn\u00e9es FCF insuffisantés pour \u00e9tablir une tendance de l\u2019allocation du capital sur la p\u00e9riode."
     _cr_c2 = _g(synthesis, "financial_commentary", "") or ""
     if _cr_c2.strip():
         _comment = _comment + " " + _cr_c2 if _comment.strip() else _cr_c2
@@ -3000,7 +3000,7 @@ def _slide_lbo(prs, snap, synthesis, ratios):
         _comment = ""
 
     if not _comment and irr_base is not None:
-        _lbo_signal = "attractive" if irr_base >= 0.20 else ("limite" if irr_base >= 0.15 else "insuffisante")
+        _lbo_signal = "attractive" if irr_base >= 0.20 else ("limite" if irr_base >= 0.15 else "insuffisanté")
         _comment = (
             f"À 10x EBITDA d'entrée / 10x de sortie, le LBO génère un IRR de {irr_base*100:.1f}% "
             f"(MOIC {moic_base:.1f}x en {hold_years} ans) — attractivité PE jugée {_lbo_signal}. "
@@ -3633,7 +3633,7 @@ def _slide_risques(prs, snap, synthesis, devil, extra_scores: dict = None):
 
     risk_sources  = counter_risks if counter_risks else risks_s
     ct_parts      = _split_text(counter_thesis, 3)
-    neg_themes_s  = _g(synthesis, "negative_themes", []) or []
+    neg_themes_s  = _g(synthesis, "negative_thèmes", []) or []
 
     card_configs = [
         (RED_PALE,   RED,        "Risque 1"),
@@ -3755,11 +3755,11 @@ def _slide_risques(prs, snap, synthesis, devil, extra_scores: dict = None):
             m_lbl = _ma.get('label', '—')
             row1_items.append((f"M&A : {_ma['score']}/100  {m_lbl}",
                                _CMAP.get(m_lbl, NAVY)))
-        regime = _macro.get('régime', '')
+        regime = _macro.get('regime_v', '')
         rec_6m = _macro.get('récession_prob_6m')
         if regime and regime != 'Inconnu':
             rec_part = f"  Rec.6M:{rec_6m}%" if rec_6m is not None else ''
-            row1_items.append((f"Régime : {régime}{rec_part}", _CMAP.get(regime, NAVY)))
+            row1_items.append((f"Régime : {regime_v}{rec_part}", _CMAP.get(regime, NAVY)))
 
         for i, (txt, col) in enumerate(row1_items[:3]):
             x = bx_x[i]
@@ -3874,8 +3874,8 @@ def _slide_sentiment(prs, snap, synthesis, sentiment):
         if v is None: return "\u2014"
         return str(int(v))
 
-    pos_themes  = _g(synthesis, "positive_themes", []) or []
-    neg_themes  = _g(synthesis, "negative_themes", []) or []
+    pos_themes  = _g(synthesis, "positive_thèmes", []) or []
+    neg_themes  = _g(synthesis, "negative_thèmes", []) or []
     # Limiter à 1 thème par ligne pour éviter l'explosion de hauteur du tableau
     pos_theme_str  = _truncate(str(pos_themes[0]), 240) if pos_themes else "Catalyseurs, croissance, r\u00e9sultats"
     neg_theme_str  = _truncate(str(neg_themes[0]), 240) if neg_themes else "Risques macro, concurrence, dette"
@@ -3943,7 +3943,7 @@ def _slide_sentiment(prs, snap, synthesis, sentiment):
             all_news_titles = []
         if all_news_titles:
             add_text_box(slide, 1.02, tbl_y + tbl_h_s + 1.15, 23.37, 0.40,
-                         "Titres des articles analys\u00e9s (bruts, non class\u00e9s) :",
+                         "Titrès des articles analys\u00e9s (bruts, non class\u00e9s) :",
                          8, NAVY_MID, bold=True)
             art_txt = "\n".join(f"\u2022 {h[:110]}" for h in all_news_titles[:6])
             add_text_box(slide, 1.02, tbl_y + tbl_h_s + 1.60, 23.37, 1.80,
@@ -3959,8 +3959,8 @@ def _slide_sentiment(prs, snap, synthesis, sentiment):
         if _warn_finbert:
             val_comment = (
                 f"Analyse de sentiment indisponible ce run : le mod\u00e8le LLM Groq n\u2019a pas pu classifier "
-                f"les {sent_articles} articles. FinBERT \u00e9tant English-only, tous les titres "
-                f"fran\u00e7ais ont \u00e9t\u00e9 class\u00e9s neutres par d\u00e9faut. "
+                f"les {sent_articles} articles. FinBERT \u00e9tant English-only, tous les titrès "
+                f"fran\u00e7ais ont \u00e9t\u00e9 class\u00e9s neutrès par d\u00e9faut. "
                 f"Relancer l\u2019analyse avec Groq actif pour obtenir un score exploitable."
             )
         else:
@@ -4012,7 +4012,7 @@ def _slide_actionnariat(prs, snap, synthesis):
             {"name": "Institutionnels passifs",  "type": "Institutionnel", "pct": 24.0, "style": "Passif"},
             {"name": "Institutionnels actifs",   "type": "Institutionnel", "pct": 12.0, "style": "Actif"},
             {"name": "Insiders & dirigeants",    "type": "Insiders",       "pct": 8.0,  "style": "Insider"},
-            {"name": "Autres (Retail)",          "type": "Retail & autres","pct": 56.0, "style": "\u2014"},
+            {"name": "Autrès (Retail)",          "type": "Retail & autres","pct": 56.0, "style": "\u2014"},
         ]
 
     # ----------------------------------------------------------------
@@ -4346,8 +4346,8 @@ def _slide_conviction_tracker(prs, snap, synthesis, ratios, devil, sentiment):
         y_th += 0.95
 
     # ── Catalyseurs / Risques ────────────────────────────────────────────────
-    pos_themes = _g(synthesis, "positive_themes") or []
-    neg_themes = _g(synthesis, "negative_themes") or []
+    pos_themes = _g(synthesis, "positive_thèmes") or []
+    neg_themes = _g(synthesis, "negative_thèmes") or []
     y_mid = max(y_th + 0.30, 5.95)
 
     add_rect(slide, 9.20, y_mid, 7.40, 0.50, "1A7A4A")
