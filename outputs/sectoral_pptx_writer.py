@@ -481,7 +481,7 @@ def _build_content_from_data(td: list, sector_name: str, score_moyen: int,
                         f"Revenus en progression a {rev_med:+.1f} % — tendance positive"))
     else:
         drivers.append(("down", "Croissance Sous Pression",
-                        f"Revenus medianes a {rev_med:+.1f} % — surveillance requise"))
+                        f"Revenus Médianes a {rev_med:+.1f} % — surveillance requise"))
     if mg_med > 20:
         drivers.append(("up", "Marges Solides",
                         f"Marge EBITDA Médian a {mg_med:.1f} % — structure rentable"))
@@ -495,7 +495,7 @@ def _build_content_from_data(td: list, sector_name: str, score_moyen: int,
 
     # Métriques: real computed values from state
     metriques = [
-        ("EV/EBITDA", f"{ev_med:.1f}x",     "mediane secteur"),
+        ("EV/EBITDA", f"{ev_med:.1f}x",     "Médiane secteur"),
         ("Mg EBITDA", f"{mg_med:.1f} %",     "LTM"),
         ("Croissance", f"{rev_med:+.1f} %",  "YoY"),
         ("Momentum",  f"{mom_med:+.1f} %",   "52W"),
@@ -920,8 +920,8 @@ def _chart_valuation_bars(tickers_data) -> bytes:
     ax.set_xlim(0, x_max * 1.18)
 
     from matplotlib.patches import Patch
-    legend_els = [Patch(facecolor='#1A7A4A', label='Sous mediane — opportunite relative'),
-                  Patch(facecolor='#A82020', label='Prime vs mediane — valorisation élevée')]
+    legend_els = [Patch(facecolor='#1A7A4A', label='Sous Médiane — opportunite relative'),
+                  Patch(facecolor='#A82020', label='Prime vs Médiane — valorisation élevée')]
     ax.legend(handles=legend_els, loc='lower right', fontsize=7, framealpha=0.85,
               edgecolor='#CCCCCC', handlelength=1.2, handleheight=0.8)
 
@@ -959,7 +959,7 @@ def _chart_distribution(tickers_data) -> bytes:
     fig.patch.set_facecolor('#FFFFFF')
     ax.set_facecolor('#F8F9FA')
     bars = ax.bar(labels, vals, color=colors, alpha=0.85, zorder=3)
-    ax.axhline(med, color='#1B3A6B', linewidth=1.5, linestyle='--', label=f"mediane {med:.1f}x")
+    ax.axhline(med, color='#1B3A6B', linewidth=1.5, linestyle='--', label=f"Médiane {med:.1f}x")
     # Labels de valeur supprimés (slides epures)
     ax.set_ylabel("EV/EBITDA", fontsize=8, color='#555555')
     n_labels = len(labels)
@@ -1286,7 +1286,7 @@ def _s06_ratios(prs, D):
             _fmt_pct_plain(t.get("ebitda_margin")),
             _fmt_pct_plain(t.get("roe")),
         ])
-    # mediane row (calculée sur tout l'univers td avec fallbacks)
+    # Médiane row (calculée sur tout l'univers td avec fallbacks)
     _ev_ebitda_vals = [v for t in td for v in [_fallback_ev_ebitda(t)] if v is not None]
     _ev_rev_vals    = [v for t in td for v in [_fallback_ev_revenue(t)] if v is not None]
     _pe_vals        = [v for t in td for v, _ in [_fallback_pe(t)] if v is not None]
@@ -1314,7 +1314,7 @@ def _s06_ratios(prs, D):
     _rect(slide, 0.9, _s06_text_y, 23.6, 0.7, fill=_NAVY)
     _txb(slide, "LECTURE ANALYTIQUE", 1.1, _s06_text_y + 0.05, 23.2, 0.6, size=8.5, bold=True, color=_WHITE)
     analysis = (
-        f"La mediane EV/EBITDA sectorielle s établit a {ev_med:.1f}x LTM. "
+        f"La Médiane EV/EBITDA sectorielle s établit a {ev_med:.1f}x LTM. "
         f"{best_name} ({_fmt_x(ev_best)}) se distingue comme le leader de qualité, "
         f"combine a une marge EBITDA de {_fmt_pct_plain(best.get('ebitda_margin'))} et une croissance "
         f"de {_fmt_pct_rev(best.get('revenue_growth'))}. "
@@ -1369,7 +1369,7 @@ def _s07_cycle(prs, D):
         _AMBER_C = RGBColor(0xE6, 0x7E, 0x22)
         _REGIME_C = {"Bull": _BUY, "Bear": _SELL, "Volatile": _AMBER_C, "Transition": _AMBER_C}
         _rc = _REGIME_C.get(_regime, _NAVY)
-        regime_line = f"Régime : {_regime}"
+        regime_line = f"Régime : {_régime}"
         rec_line = f"Rec. 6M : {_rec_6m}%  ({_rec_lvl})" if _rec_6m is not None else ""
         _rect(slide, 16.9, 11.2, 7.3, 0.05, fill=_GRAYD)
         _txb(slide, "CONTEXTE MACRO", 16.6, 11.35, 7.9, 0.5, size=7, bold=True, color=_GRAYD, align=PP_ALIGN.CENTER)
@@ -1527,7 +1527,7 @@ def _s09_cartographie(prs, D):
 def _s10_scatter(prs, D):
     slide = _blank(prs)
     _header(slide, "Classement EV/EBITDA",
-            "EV/EBITDA par acteur  ·  Tri croissant  ·  Vert = sous mediane (opportunite relative)  ·  Top 15", 2)
+            "EV/EBITDA par acteur  ·  Tri croissant  ·  Vert = sous Médiane (opportunite relative)  ·  Top 15", 2)
 
     img = _chart_valuation_bars(D["tickers_data"])
     _pic(slide, img, 0.9, 2.3, 14.7, 11.4)
@@ -1549,17 +1549,17 @@ def _s10_scatter(prs, D):
         d0 = max(decote, key=lambda t: t.get("score_global") or 0)
         analysis_lines.append(
             f"{d0.get('ticker', '')} offre la meilleure asymetrie — "
-            f"EV/EBITDA de {_fmt_x(d0.get('ev_ebitda'))} sous la mediane de {med_ev:.1f}x "
+            f"EV/EBITDA de {_fmt_x(d0.get('ev_ebitda'))} sous la Médiane de {med_ev:.1f}x "
             f"avec un score FinSight de {int(d0.get('score_global') or 0)}/100."
         )
     if premium:
         p0 = premium[0]
         analysis_lines.append(
             f"{p0.get('ticker', '')} traite en prime ({_fmt_x(p0.get('ev_ebitda'))} vs "
-            f"mediane {med_ev:.1f}x) — vérifier si la croissance justifie ce multiple."
+            f"Médiane {med_ev:.1f}x) — vérifier si la croissance justifie ce multiple."
         )
     analysis_lines.append(
-        f"mediane sectorielle : {med_ev:.1f}x. "
+        f"Médiane sectorielle : {med_ev:.1f}x. "
         f"Les barres vertes sous cette ligne sont les candidats privilegies a analyser "
         f"via Analyse Société individuelle (DCF, WACC, scénarios)."
     )
@@ -2025,7 +2025,7 @@ def _s19_sources(prs, D):
 
     # Disclaimer
     _rect(slide, 0.9, 12.3, 23.6, 1.0, fill=_NAVY)
-    _txb(slide, "Ce rapport est genere par FinSight IA v1.0. Il ne constitue pas un conseil en investissement au sens de la directive MiFID II (2014/65/UE). Document confidentiel — usage interne uniquement. Toute reproduction ou diffusion est interdite sans autorisation.",
+    _txb(slide, "Ce rapport est Généré par FinSight IA v1.0. Il ne constitue pas un conseil en investissement au sens de la directive MiFID II (2014/65/UE). Document confidentiel — usage interne uniquement. Toute reproduction ou diffusion est interdite sans autorisation.",
          1.1, 12.35, 23.2, 0.9, size=7, color=_GRAYD, wrap=True)
     _footer(slide)
 

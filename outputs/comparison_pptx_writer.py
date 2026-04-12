@@ -515,7 +515,7 @@ Secteurs : {sec_a} vs {sec_b}
 [1] VALORISATION (multiples)
 {tkr_a}: PE={_n(m_a.get('pe_ratio'))}, Forward PE={_n(m_a.get('forward_pe'))}, EV/EBITDA={_x2(m_a.get('ev_ebitda'))}, EV/Sales={_x2(m_a.get('ev_sales'))}, P/B={_n(m_a.get('price_to_book'))}, P/FCF={_n(m_a.get('p_fcf'))}, PEG={_n(m_a.get('peg_ratio'))}, FCF yield={_pct(m_a.get('fcf_yield'))}, Div yield={_pct(m_a.get('dividend_yield'))}
 {tkr_b}: PE={_n(m_b.get('pe_ratio'))}, Forward PE={_n(m_b.get('forward_pe'))}, EV/EBITDA={_x2(m_b.get('ev_ebitda'))}, EV/Sales={_x2(m_b.get('ev_sales'))}, P/B={_n(m_b.get('price_to_book'))}, P/FCF={_n(m_b.get('p_fcf'))}, PEG={_n(m_b.get('peg_ratio'))}, FCF yield={_pct(m_b.get('fcf_yield'))}, Div yield={_pct(m_b.get('dividend_yield'))}
-Mediane sectorielle : PE~{_n(m_a.get('sector_median_pe'))}, EV/EBITDA~{_x2(m_a.get('sector_median_ev_ebitda'))}
+Mediane sectorielle : PE~{_n(m_a.get('sector_Médian_pe'))}, EV/EBITDA~{_x2(m_a.get('sector_Médian_ev_ebitda'))}
 
 [2] PROFITABILITE & EFFICACITE OPERATIONNELLE
 {tkr_a}: EBITDA margin LTM={_pct(m_a.get('ebitda_margin_ltm'))} (y-1: {_pct(m_a.get('ebitda_margin_y1'))}, y-2: {_pct(m_a.get('ebitda_margin_y2'))}, trend: {m_a.get('ebitda_margin_trend','N/D')}), EBIT margin={_pct(m_a.get('ebit_margin'))}, Net margin={_pct(m_a.get('net_margin_ltm'))}, ROIC={_pct(m_a.get('roic'))}, ROE={_pct(m_a.get('roe'))}, Cash conversion={_n(m_a.get('cash_conversion'))}
@@ -581,7 +581,7 @@ Mediane sectorielle : PE~{_n(m_a.get('sector_median_pe'))}, EV/EBITDA~{_x2(m_a.g
         f"Redige un commentaire de valorisation de 130 mots MAX : "
         f"comparé PE, EV/EBITDA, P/B, FCF yield (cite tous les chiffres). "
         f"Calcule la prime/décote relative en %. "
-        f"Confronte avec la mediane sectorielle. "
+        f"Confronte avec la Médiane sectorielle. "
         f"Mentionne les cibles DCF base et l'upside implicite. "
         f"Conclus sur quelle valorisation est la plus attractive aujourd'hui et pourquoi.\n{data_str}",
         system=system_msg, max_tokens=450
@@ -601,7 +601,7 @@ Mediane sectorielle : PE~{_n(m_a.get('sector_median_pe'))}, EV/EBITDA~{_x2(m_a.g
 
     # Verdict final (120 mots max) — ancre strict sur le gagnant déjà calcule.
     # Contrainte forte : le LLM doit parler UNIQUEMENT du gagnant. Si le verdict
-    # mentionne l'autre ticker avant le gagnant, on re-genere une fois.
+    # mentionne l'autre ticker avant le gagnant, on re-Généré une fois.
     winner_for_llm = m_a.get('winner') or tkr_a
     loser_for_llm  = tkr_b if winner_for_llm == tkr_a else tkr_a
     _verdict_prompt = (
@@ -823,8 +823,8 @@ def _chart_multiples(m_a: dict, m_b: dict, tkr_a: str, tkr_b: str) -> Optional[i
 
         metrics_lbl = ['PE', 'EV/EBITDA', 'P/B', 'PEG']
         sector = m_a.get('sector_a', '') or ''
-        sec_pe = m_a.get('sector_median_pe') or 20.0
-        sec_eveb = m_a.get('sector_median_ev_ebitda') or 14.0
+        sec_pe = m_a.get('sector_Médian_pe') or 20.0
+        sec_eveb = m_a.get('sector_Médian_ev_ebitda') or 14.0
 
         vals_a = [
             _safe_float(m_a.get('pe_ratio')) or 0,
@@ -844,7 +844,7 @@ def _chart_multiples(m_a: dict, m_b: dict, tkr_a: str, tkr_b: str) -> Optional[i
         w = 0.28
         ax.bar(x - w,   vals_a, w, label=tkr_a, color=ca, alpha=0.85)
         ax.bar(x,       vals_b, w, label=tkr_b, color=cb, alpha=0.85)
-        # mediane sectorielle
+        # Médiane sectorielle
         s_vals = [v if v is not None else 0 for v in sector_refs]
         ax.bar(x + w, s_vals, w, label='Med. secteur', color=c_sector, alpha=0.7)
 
@@ -1054,7 +1054,7 @@ def _chart_growth_returns(m_a: dict, m_b: dict, tkr_a: str, tkr_b: str) -> Optio
         _roic_a = vals_a[1]; _roic_b = vals_b[1]
         if _roic_a and _roic_b:
             _roic_leader = tkr_a if _roic_a > _roic_b else tkr_b
-            _chart_title = f"{_roic_leader} genere plus de valeur : ROIC {max(_roic_a,_roic_b):.0f}% vs {min(_roic_a,_roic_b):.0f}%"
+            _chart_title = f"{_roic_leader} Généré plus de valeur : ROIC {max(_roic_a,_roic_b):.0f}% vs {min(_roic_a,_roic_b):.0f}%"
         else:
             _chart_title = 'Croissance & Rentabilité'
         ax.set_title(_chart_title, fontsize=11, fontweight='bold', color='#1B3A6B', pad=6)
@@ -1712,7 +1712,7 @@ def _slide_bilan(prs, m_a: dict, m_b: dict):
         f"({_fr(_nd_b, 1)}x). La liquidité courante ressort {_liq_q(_cr_a)} pour {tkr_a} "
         f"vs {_liq_q(_cr_b)} pour {tkr_b}. "
         f"Sur le critère du levier, {_lev_winner} dispose de plus de marge pour absorber un choc "
-        f"macro ou financer une opération externe. {_fcf_winner} genere davantage de FCF relatif "
+        f"macro ou financer une opération externe. {_fcf_winner} Généré davantage de FCF relatif "
         f"({_fcfy_a:.1f}% vs {_fcfy_b:.1f}% de FCF yield), soutenant la soutenabilite du dividende "
         f"et la capacite de rachat d'actions."
     )
@@ -1762,8 +1762,8 @@ def _slide_multiples(prs, m_a: dict, m_b: dict, synthesis: dict):
         add_rect(slide, 1.02, 2.90, 0.13, 2.6, NAVY_MID)
         add_text_box(slide, 1.4, 3.00, 22.8, 2.45, _v_clean, 9, NAVY, wrap=True)
 
-    sec_pe   = m_a.get('sector_median_pe') or '\u2014'
-    sec_eveb = m_a.get('sector_median_ev_ebitda') or '\u2014'
+    sec_pe   = m_a.get('sector_Médian_pe') or '\u2014'
+    sec_eveb = m_a.get('sector_Médian_ev_ebitda') or '\u2014'
 
     rows = [
         ("PE Ratio",          _frx(m_a.get('pe_ratio')),      _frx(m_b.get('pe_ratio')),      _frx(sec_pe) if sec_pe != '\u2014' else '\u2014'),

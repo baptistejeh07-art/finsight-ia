@@ -508,7 +508,7 @@ if "scmp_pdf_bytes"     not in st.session_state: st.session_state.scmp_pdf_bytes
 if "scmp_xlsx_bytes"    not in st.session_state: st.session_state.scmp_xlsx_bytes    = None
 
 # Page post-analyse comparative : on garde l'État de l'analyse initiale
-# pour pouvoir y revenir via le bouton "Retour a l'analyse ..." (sidebar).
+# pour pouvoir y revenir via le bouton "Retour à l'analyse ..." (sidebar).
 # cmp_kind : "société" | "secteur" | "indice"
 if "cmp_kind"                  not in st.session_state: st.session_state.cmp_kind                  = None
 if "previous_analysis_type"    not in st.session_state: st.session_state.previous_analysis_type    = None  # "results" | "screening_results"
@@ -523,8 +523,8 @@ _INDICES_SET = {
     "CAC40", "SP500", "S&P500", "SPX", "DAX40", "FTSE100", "STOXX50", "ALL", "EUROSTOXX50",
 }
 # ─── Secteurs : i18n centralisé via core/sector_labels ──────────────────────
-# Source de verite : core/sector_labels.py (mapping FR/EN/slug + helpers).
-# Les dicts ci-dessous sont generes pour preserver la compatibilite avec
+# Source de vérité : core/sector_labels.py (mapping FR/EN/slug + helpers).
+# Les dicts ci-dessous sont Générés pour préserver la compatibilite avec
 # l'ancien code qui utilise _SECTOR_ALIASES_SET / _UNIVERSE_DISPLAY / _SECTOR_YFINANCE.
 from core.sector_labels import (
     SECTOR_LABELS as _SECTOR_LABELS_CANON,
@@ -632,7 +632,7 @@ def detect_input_type(query: str) -> str:
     q = query.strip().upper().replace(" ", "").replace("-", "").replace("&", "")
     if q in _INDICES_SET:
         return "screening_indice"
-    # Resolution sectorielle FR/EN/slug via core/sector_labels
+    # Résolution sectorielle FR/EN/slug via core/sector_labels
     if _slug_from_any(query) is not None:
         return "screening_secteur"
     # Heuristique : si l'input contient un espace ou fait > 5 chars sans ressembler
@@ -902,7 +902,7 @@ def render_sidebar(results) -> None:
 
             # Bouton retour a l'analyse initiale
             _prev_label = st.session_state.get("previous_analysis_label") or "l'analyse"
-            if st.button(f"\u2190 Retour a {_prev_label}", use_container_width=True,
+            if st.button(f"\u2190 Retour à {_prev_label}", use_container_width=True,
                           key="sb_back_prev_analysis"):
                 _cmp_back_to_previous()
 
@@ -1336,7 +1336,7 @@ def render_sidebar(results) -> None:
                         st.session_state["veille_last_pdf"] = str(_pdf)
                     st.session_state["veille_result"] = _vr
                     st.session_state.stage = "veille"
-                    st.success("Veille Generee.")
+                    st.success("Veille Générée.")
                 except Exception as _e:
                     st.error(f"Erreur veille : {_e}")
                 finally:
@@ -1522,7 +1522,7 @@ def render_veille() -> None:
     st.markdown("---")
     st.markdown(
         '<div style="font-size:11px;color:#8898AA">'
-        'FinSight IA v1.2 — Veille Generee par IA. Ne constitue pas un conseil en investissement.'
+        'FinSight IA v1.2 — Veille Générée par IA. Ne constitue pas un conseil en investissement.'
         '</div>',
         unsafe_allow_html=True,
     )
@@ -1530,8 +1530,8 @@ def render_veille() -> None:
 
 def render_home() -> None:
     import random
-    # Garde defensive : si une analyse est en cours, on redirige vers l'ecran
-    # running approprie au lieu de reafficher la home (evite que l'utilisateur
+    # Garde défensive : si une analyse est en cours, on redirige vers l'ecran
+    # running approprie au lieu de reafficher la home (évite que l'utilisateur
     # puisse modifier le ticker pendant qu'une analyse tourne).
     _stage_now = st.session_state.get("stage", "home")
     if _stage_now == "running":
@@ -1571,7 +1571,7 @@ def render_home() -> None:
                     clicked = qt
 
         _quick_label("Secteurs")
-        # Libelles francais (i18n) — _slug_from_any normalise correctement a la resolution
+        # Libelles francais (i18n) — _slug_from_any Normalisé correctement a la résolution
         quick_sec = ["Technologie", "Santé", "Finance", "Énergie", "Industrie"]
         sec_cols = st.columns(5)
         for i, qs in enumerate(quick_sec):
@@ -2267,7 +2267,7 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
                             else "Neutre")
     except Exception:
         pass
-    # ERP fallback : derive depuis la mediane PE constituants si l'indice ne fournit pas de PE
+    # ERP fallback : derive depuis la Médiane PE constituants si l'indice ne fournit pas de PE
     if erp_pct in ("—", "\u2014") and pe_str not in ("—", "\u2014"):
         try:
             _pe_num = float(pe_str.replace("x", "").strip())
@@ -2351,7 +2351,7 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
             _noms_c = [_ETF_MAP_APP[e] for e in _etfs_c]
             corr_matrix = {"etfs": _etfs_c, "noms": _noms_c,
                            "values": _corr.values.tolist(),
-                           "corr_median": round(float(_corr.values[_corr.values < 1].mean()), 2)}
+                           "corr_Médian": round(float(_corr.values[_corr.values < 1].mean()), 2)}
 
             # Breadth & factor tilts
             _cyc = ["Technology","Consumer Discretionary","Financials","Industrials","Energy","Materials","Communication Services"]
@@ -2412,7 +2412,7 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
     except Exception:
         pass
 
-    # ── BPA growth moyen (mediane revenus des secteurs) ───────────────────
+    # ── BPA growth moyen (Médiane revenus des secteurs) ───────────────────
     _bpa_raw = []
     for s in secteurs_list:
         try:
@@ -2463,7 +2463,7 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
         "par_secteur": finbert["par_secteur"],
     }
 
-    # ── P/E mediane historique 10 ans + prime/décote ─────────────────────────
+    # ── P/E Médiane historique 10 ans + prime/décote ─────────────────────────
     _PE_HIST_APP = {
         "S&P 500":   (13.0, 24.0), "SP500":     (13.0, 24.0),
         "NASDAQ":    (18.0, 38.0), "NASDAQ 100":(18.0, 38.0),
@@ -2546,7 +2546,7 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
 
     if _desc_specifique:
         texte_description = (
-            f"{_desc_specifique}\n\n"
+            f"{_desc_spécifique}\n\n"
             f"Analyse FinSight ({today_str}) — {len(tickers_data)} sociétés, "
             f"{len(secteurs_list)} secteurs GICS.\n"
             f"Signal global : {signal_global} — Conviction {conviction}%.\n"
@@ -2569,7 +2569,7 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
         "correcte — prime de risque adequate pour le niveau de taux actuel"
     )
     texte_valorisation = (
-        f"Le {display_name} traite a {pe_str} de P/E Forward, soit {_prime_decote_str} "
+        f"Le {display_name} traite a {pe_str} de P/E Forward, soit {_prime_décote_str} "
         f"vs la médiane historique 10 ans ({_pe_med_str}x). "
         f"L'ERP (Damodaran) s'établit à {erp_pct}, signalant une valorisation {_erp_commentary}. "
         f"Score composite {int(avg_score)}/100 — signal {signal_global} (conviction {conviction}%)."
@@ -2592,10 +2592,10 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
         "variation_ytd":  ytd_str,
         "pe_forward":     pe_str,
         "bpa_growth":     _bpa_growth_str,
-        "pe_mediane_10y": _pe_med_str,
+        "pe_Médiane_10y": _pe_med_str,
         "prime_décote":   _prime_decote_str,
         "score_global":   int(avg_score),
-        "score_median":   int(avg_score),
+        "score_Médian":   int(avg_score),
         "secteurs":       secteurs_list,
         "texte_macro":        texte_macro,
         "texte_signal":       texte_signal,
@@ -3547,7 +3547,7 @@ def _render_sector_comparison_within_indice(results: dict) -> None:
                 st.download_button(
                     "Télécharger PPTX", st.session_state.isec_pptx_bytes,
                     file_name=f"cmp_secteur_{sec_a}_{sec_b}.pptx",
-                    mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                    mime="application/vnd.openxmlformats-officedocument.presentationml.présentation",
                     key="dl_isec_pptx")
         with dl2:
             if st.session_state.isec_pdf_bytes:
@@ -3635,7 +3635,7 @@ def _render_sector_comparison_section(results: dict) -> None:
 
     st.markdown('<div class="sec-t" style="margin-top:36px;">Comparatif Sectoriel</div>',
                 unsafe_allow_html=True)
-    st.caption(f"Comparer {current_sector} avec un autre secteur — PPTX + PDF Generes en temps réel")
+    st.caption(f"Comparer {current_sector} avec un autre secteur — PPTX + PDF Générés en temps réel")
 
     # État comparatif sectoriel
     if "scmp_stage" not in st.session_state:
@@ -3800,7 +3800,7 @@ def render_screening_results(results: dict) -> None:
     nav_cols = st.columns([1, 1, 4])
     with nav_cols[0]:
         if st.button("+ Nouvelle recherche", type="primary", use_container_width=True):
-            # Reset COMPLET de l'etat (sinon livrables / cmp / from_screening
+            # Reset COMPLET de l'État (sinon livrables / cmp / from_screening
             # peuvent persister sur l'analyse suivante)
             for _k in (
                 "screening_results", "screening_parent", "screening_universe",
@@ -4513,7 +4513,7 @@ def _render_glossaire(key_suffix: str = "main") -> None:
 <div class="gls-row"><span class="gls-term">PER (P/E)</span><span class="gls-def">Prix / Bénéfice par action. Indique combien le marché paie pour 1 € de bénéfice. Un PER élevé reflète des attentes de croissance.</span></div>
 <div class="gls-row"><span class="gls-term">EV/EBITDA</span><span class="gls-def">Valeur d'entreprise / EBITDA. Multiple de valorisation indépendant de la structure de capital et fiscalité.</span></div>
 <div class="gls-row"><span class="gls-term">P/B (Price-to-Book)</span><span class="gls-def">Prix / Valeur comptable. Rapport entre capitalisation et actif net comptable. &lt;1 = potentiellement sous-évalué.</span></div>
-<div class="gls-row"><span class="gls-term">FCF Yield</span><span class="gls-def">Free Cash Flow / Market Cap. Rendement du cash genere après investissements. Plus élevé = meilleur.</span></div>
+<div class="gls-row"><span class="gls-term">FCF Yield</span><span class="gls-def">Free Cash Flow / Market Cap. Rendement du cash généré après investissements. Plus élevé = meilleur.</span></div>
 <div class="gls-row"><span class="gls-term">P/FCF</span><span class="gls-def">Prix / Free Cash Flow par action. Alternative au PER basée sur les flux réels plutôt que le bénéfice comptable.</span></div>
 <div class="gls-row"><span class="gls-term">PEG</span><span class="gls-def">PER / Taux de croissance des bénéfices. PEG &lt;1 suggère une valorisation attractive relativement à la croissance.</span></div>
 <div class="gls-row"><span class="gls-term">DCF</span><span class="gls-def">Discounted Cash Flow. Valorisation par actualisation des flux futurs estimés au taux WACC. Dépend fortement des hypothèses de croissance.</span></div>
@@ -4911,7 +4911,7 @@ def render_results(results: dict) -> None:
     # ------------------------------------------------------------------
     # Glossaire termes financiers — helper partage
     # ------------------------------------------------------------------
-    _render_glossaire("societe")
+    _render_glossaire("société")
 
     # ------------------------------------------------------------------
     # Footer
@@ -4932,13 +4932,13 @@ def render_results(results: dict) -> None:
 
 def _cmp_back_to_previous():
     """Retourne a l'analyse initiale depuis la page comparative.
-    Restaure explicitement les resultats sauvegardes ET nettoie tout l'etat
+    Restaure explicitement les resultats sauvegardes ET nettoie tout l'État
     comparatif (livrables/donnees/stages) pour que la section "Comparer"
     se reaffiche dans son etat initial (formulaire vide)."""
     prev_type    = st.session_state.get("previous_analysis_type")
     prev_results = st.session_state.get("previous_analysis_results")
 
-    # Nettoyage COMPLET de l'etat comparatif (cmp societe + secteur + indice)
+    # Nettoyage COMPLET de l'État comparatif (cmp société + secteur + indice)
     _cmp_keys_to_clear = (
         # Comparaison société
         "cmp_stage", "cmp_kind", "cmp_state_b", "cmp_bytes",
@@ -4965,7 +4965,13 @@ def _cmp_back_to_previous():
             st.session_state.screening_results = prev_results
         st.session_state.stage = "screening_results"
     else:
-        st.session_state.stage = "home"
+        # Fallback : si screening_results existe, y retourner plutôt que home
+        if st.session_state.get("screening_results"):
+            st.session_state.stage = "screening_results"
+        elif st.session_state.get("results"):
+            st.session_state.stage = "results"
+        else:
+            st.session_state.stage = "home"
     st.rerun()
 
 
@@ -5126,7 +5132,7 @@ def _render_cmp_societe_page() -> None:
     state_a = st.session_state.get("previous_analysis_results")  # dict results
     state_b = st.session_state.get("cmp_state_b")
     if not state_a or not state_b:
-        st.error("État de comparaison société manquant. Retour a l'analyse.")
+        st.error("État de comparaison société manquant. Retour à l'analyse.")
         if st.button("\u2190 Retour"):
             _cmp_back_to_previous()
         return
@@ -5206,7 +5212,7 @@ def _render_cmp_societe_page() -> None:
     _hdr_b = f"{name_b} ({tkr_b})" if name_b and name_b != tkr_b else tkr_b
     _cmp_mini_table(rows, header_a=_hdr_a, header_b=_hdr_b)
 
-    _render_glossaire("cmp_societe")
+    _render_glossaire("cmp_société")
 
 
 # ---------------------------------------------------------------------------
@@ -5218,7 +5224,7 @@ def _render_cmp_secteur_page() -> None:
     tickers_a = st.session_state.get("scmp_tickers_a") or []
     tickers_b = st.session_state.get("scmp_tickers_b") or []
 
-    # medianes par secteur (score, EBITDA margin, PE)
+    # Médianes par secteur (score, EBITDA margin, PE)
     def _med_float(td, key):
         vals = []
         for t in td:
@@ -5245,7 +5251,7 @@ def _render_cmp_secteur_page() -> None:
     delta   = abs(score_a - score_b)
     delta_str = f"+{delta} pts" if delta > 0 else "—"
 
-    # Heuristique recommandation secteur : OVERWEIGHT si meilleure mediane score + mg
+    # Heuristique recommandation secteur : OVERWEIGHT si meilleure Médiane score + mg
     def _sector_rec(sc, mg):
         if sc is None:
             return "HOLD"
@@ -5269,7 +5275,7 @@ def _render_cmp_secteur_page() -> None:
     )
 
     verdict = (
-        f"{winner} domine sur la mediane des scores FinSight ({score_a}/100 vs {score_b}/100), "
+        f"{winner} domine sur la Médiane des scores FinSight ({score_a}/100 vs {score_b}/100), "
         f"signalant une qualité fondamentale agregee superieure. "
         f"La lecture croisee des multiples et des marges permet d'affiner le choix d'exposition "
         f"dans une allocation sectorielle."
@@ -5290,7 +5296,7 @@ def _render_cmp_secteur_page() -> None:
     rows = [
         ("Score FinSight Médian",   f"{score_a}/100",  f"{score_b}/100"),
         ("Nombre de valeurs",       str(len(tickers_a)), str(len(tickers_b))),
-        ("Marge EBITDA mediane",    _fpct_raw(mg_a), _fpct_raw(mg_b)),
+        ("Marge EBITDA Médiane",    _fpct_raw(mg_a), _fpct_raw(mg_b)),
         ("P/E Médian",              _fx_raw(pe_a),   _fx_raw(pe_b)),
         ("Recommandation",          _rec_fr(rec_a),  _rec_fr(rec_b)),
     ]

@@ -148,7 +148,7 @@ def _xml(s: str) -> str:
 
 
 def _rich(s: str) -> str:
-    """Variante de _xml qui PRESERVE les balises ReportLab inline (<b>, </b>,
+    """Variante de _xml qui PRÉSERVE les balises ReportLab inline (<b>, </b>,
     <i>, </i>, <br/>, <font ...>).
 
     Strategie : echappe d'abord & puis < > en `&lt;` `&gt;`, puis re-introduit
@@ -546,7 +546,7 @@ def _generate_llm_texts(D: dict) -> dict:
         prompt = (
             f"Tu es analyste financier senior. Redige des textes analytiques pour un rapport PDF comparatif sectoriel "
             f"entre {sector_a} et {sector_b} (univers : {D['universe_label']}).\n\n"
-            f"Données medianes :\n"
+            f"Données Médianes :\n"
             f"- {sector_a} : Score {sa.get('score',0)}/100, Signal {D['sig_a_lbl']}, "
             f"P/E {sa.get('pe',0):.1f}x, Croiss.Rev {sa.get('revg',0):+.1f}%, "
             f"Mg.EBITDA {sa.get('em',0):.1f}%, ROE {roe_a:.1f}%, Perf.52S {sa.get('mom',0):+.1f}%, "
@@ -846,7 +846,7 @@ def _build_story(D: dict) -> list:
     if D["sa"].get("roic_estime") or D["sb"].get("roic_estime"):
         story.append(Spacer(1, 2 * mm))
         story.append(Paragraph(
-            "Note ROIC : la donnée ROIC mediane n'est pas directement renseignée par yfinance "
+            "Note ROIC : la donnée ROIC Médiane n'est pas directement renseignée par yfinance "
             "pour l'ensemble du panel sectoriel — elle est estimée via la formule de proxy "
             "ROIC ~= ROE x 0.65 (ratio empirique observe sur l'univers S&P 500). "
             "Pour une mesure rigoureuse, calcul direct NOPAT / capitaux investis a partir des "
@@ -1031,7 +1031,7 @@ def _build_story(D: dict) -> list:
             f"{_best_a.get('company', '')[:20]} se distingue avec un score de {_best_a.get('score_global', 0)}/100, "
             f"un P/E de {_mult(_best_a.get('pe_ratio'))} et une marge EBITDA de {_pct(_best_a.get('ebitda_margin'), sign=False)}. "
             f"Les sociétés les mieux scorees du secteur tendent a présenter "
-            f"une combinaison FCF Yield robuste + ROE superieur a la mediane sectorielle, "
+            f"une combinaison FCF Yield robuste + ROE superieur a la Médiane sectorielle, "
             f"caractéristique d'un modèle Économique défensif avec levier de croissance."
         )
     if _top_a_text:
@@ -1101,10 +1101,10 @@ def _build_story(D: dict) -> list:
     # Recommandation narrative
     _winner_rec = sector_a if D["sig_a_lbl"] == "Surpondérer" else (sector_b if D["sig_b_lbl"] == "Surpondérer" else None)
     _rec_fallback = (
-        f"{'Les deux secteurs affichent un signal ' + D['sig_a_lbl'] + ' identique selon le scoring FinSight.' if D['sig_a_lbl'] == D['sig_b_lbl'] else 'Le scoring FinSight genere un signal divergent : ' + D['sig_a_lbl'] + ' pour ' + sector_a + ' (score ' + str(sa.get('score', 0)) + '/100) contre ' + D['sig_b_lbl'] + ' pour ' + sector_b + ' (score ' + str(sb.get('score', 0)) + '/100).'} "
+        f"{'Les deux secteurs affichent un signal ' + D['sig_a_lbl'] + ' identique selon le scoring FinSight.' if D['sig_a_lbl'] == D['sig_b_lbl'] else 'Le scoring FinSight Généré un signal divergent : ' + D['sig_a_lbl'] + ' pour ' + sector_a + ' (score ' + str(sa.get('score', 0)) + '/100) contre ' + D['sig_b_lbl'] + ' pour ' + sector_b + ' (score ' + str(sb.get('score', 0)) + '/100).'} "
         f"{'En termes d allocation, Surpondérer ' + _winner_rec + ' dans un portefeuille diversifié présente un ratio risque/rendement favorable selon les metriques actuelles.' if _winner_rec else 'Un positionnement neutre sur les deux secteurs est justifie en attendant une meilleure visibilite sur les catalyseurs de re-rating.'} "
         f"Les conditions favorables a une surponderans de {sector_a if (sa.get('score') or 0) >= (sb.get('score') or 0) else sector_b} "
-        f"incluent : stabilisation des taux directeurs, maintien des marges au-dessus de la mediane historique, "
+        f"incluent : stabilisation des taux directeurs, maintien des marges au-dessus de la Médiane historique, "
         f"et absence de choc réglementaire ou de compression de multiple liée au risque de taux. "
         f"En cas de détérioration macro (récession, crédit crunch), "
         f"le secteur le plus défensif ({sector_a if (sa.get('beta') or 1) < (sb.get('beta') or 1) else sector_b}) "
@@ -1131,7 +1131,7 @@ def _build_story(D: dict) -> list:
         f"sectoral STOXX 600 pour Europe), fonds actifs avec mandat sectoriel explicite, ou panier de "
         f"sélection bottom-up des leaders identifies dans la section Top Acteurs. Le choix entre "
         f"ETF passif et sélection active dépend de la dispersion intra-sectorielle observee : "
-        f"plus la dispersion est élevée, plus la sélection active genere de l'alpha. "
+        f"plus la dispersion est élevée, plus la sélection active Généré de l'alpha. "
         f"<br/><br/>"
         f"<b>Calibration risque</b> : la position doit être dimensionnee en fonction du beta Médian du "
         f"secteur (beta {_winner_alloc} = {(sa.get('beta') or 1.0):.2f} vs {_loser_alloc} = "
@@ -1166,7 +1166,7 @@ def _build_story(D: dict) -> list:
          "Les données financières sont collectees automatiquement via yfinance (Yahoo Finance), "
          "Finnhub et Financial Modeling Prep. FinSight IA ne garantit ni l'exhaustivite ni l'exactitude "
          "de ces données, qui peuvent présenter des erreurs, omissions ou retards de mise à jour. "
-         "Les medianes sectorielles sont calculées sur les sociétés du panel disposant de la donnée "
+         "Les Médianes sectorielles sont calculées sur les sociétés du panel disposant de la donnée "
          "consideree, ce qui peut introduire un biais de sélection lorsque la couverture est partielle. "
          "Les chiffres sont établis a la date de génération du rapport et ne refletent pas les évolutions "
          "ulterieures du marché ou des publications corporate."),
@@ -1192,7 +1192,7 @@ def _build_story(D: dict) -> list:
          "FinSight IA est un outil algorithmique de screening basé sur des données publiques. Aucune "
          "due diligence spécifique, expertise sectorielle approfondie, rencontre avec le management, "
          "audit des comptes ou vérification croisee n'est réalisée. Les analyses présentées sont "
-         "generees automatiquement sans validation manuelle. Les modèles peuvent contenir des biais, "
+         "générées automatiquement sans validation manuelle. Les modèles peuvent contenir des biais, "
          "erreurs de specification ou simplifications excessives. FinSight IA et ses auteurs déclinent "
          "toute responsabilité quant aux pertes ou prejudices découlant de l'utilisation de ce document."),
         ("Risques d'investissement",
@@ -1450,7 +1450,7 @@ def _build_page_header_footer(sector_a, sector_b, universe_label, date_str):
         canvas.setFillColor(GREY_TEXT)
         canvas.setFont("Helvetica", 6.5)
         canvas.drawString(MARGIN_L, MARGIN_B - 7*mm,
-            "FinSight IA v1.0 — Document genere par IA. Ne constitue pas un conseil en investissement.")
+            "FinSight IA v1.0 — Document généré par IA. Ne constitue pas un conseil en investissement.")
         canvas.drawRightString(PAGE_W - MARGIN_R, MARGIN_B - 7*mm,
             "Sources : yfinance · FMP · Finnhub")
         canvas.restoreState()

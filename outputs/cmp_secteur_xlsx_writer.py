@@ -208,7 +208,7 @@ def generate_cmp_secteur_xlsx(
                     "Taille de l'echantillon"),
         _row_metric("Score FinSight Médian", score_a_med, score_b_med, "num",
                     "Qualité fondamentale agregee (0-100)"),
-        _row_metric("Marge EBITDA mediane", mg_a_med, mg_b_med, "pct",
+        _row_metric("Marge EBITDA Médiane", mg_a_med, mg_b_med, "pct",
                     "Profitabilite opérationnelle"),
         _row_metric("P/E Médian", pe_a_med, pe_b_med, "x",
                     "Valorisation relative"),
@@ -216,7 +216,7 @@ def generate_cmp_secteur_xlsx(
                     "Valorisation hors structure financière"),
         _row_metric("ROE Médian", roe_a_med, roe_b_med, "pct",
                     "Rentabilité des fonds propres"),
-        _row_metric("Croissance revenus mediane", rev_a_med, rev_b_med, "pct",
+        _row_metric("Croissance revenus Médiane", rev_a_med, rev_b_med, "pct",
                     "Dynamique commerciale"),
     ]
 
@@ -241,11 +241,11 @@ def generate_cmp_secteur_xlsx(
     ws2["A1"].alignment = align_c
 
     ws2.merge_cells("A2:F2")
-    ws2["A2"] = f"{sector_a} vs {sector_b}  |  mediane / Moyenne / Min / Max"
+    ws2["A2"] = f"{sector_a} vs {sector_b}  |  Médiane / Moyenne / Min / Max"
     ws2["A2"].font = font_sub_title
     ws2["A2"].alignment = align_c
 
-    hdr2 = ["Secteur", "Indicateur", "mediane", "Moyenne", "Min", "Max"]
+    hdr2 = ["Secteur", "Indicateur", "Médiane", "Moyenne", "Min", "Max"]
     for i, h in enumerate(hdr2, start=1):
         c = ws2.cell(row=4, column=i, value=h)
         c.font = font_header

@@ -1142,7 +1142,7 @@ def _slide_exec_summary(prs, snap, synthesis, ratios, devil, sentiment):
     # 4 KPI boxes — h=1.80 pour éviter chevauchement avec footer (y=13.39)
     kpi_box(slide, 1.02, 11.34, 5.64, 1.80,
             _frx(ev_e), "EV/EBITDA",
-            f"vs {_frx(peer_median_ev_e)} med. pairs")
+            f"vs {_frx(peer_Médian_ev_e)} med. pairs")
     kpi_box(slide, 6.91, 11.34, 5.64, 1.80,
             _frpct(wacc_val), "WACC",
             f"Beta {_fr(beta, 2) if beta else '—'}  \u00b7  RFR {_frpct(rfr)}")
@@ -2238,7 +2238,7 @@ def _slide_peers(prs, snap, synthesis, ratios):
     med_pe  = _peer_median(peers, "pe")
     med_gm  = _peer_median(peers, "gross_margin")
     med_em  = _peer_median(peers, "ebitda_margin")
-    median_row = ["mediane peers", "—", "—",
+    median_row = ["Médiane peers", "—", "—",
                   _frx(med_eve), _frx(med_evr), _frx(med_pe),
                   _frpct_margin(med_gm), _frpct_margin(med_em)]
     rows_data.append(median_row)
@@ -3082,7 +3082,7 @@ def _build_lbo_pack(snap, synthesis, ratios) -> dict:
 
     # ── Hypothèses LBO standards ──
     multiple_marche = ev_market / ebitda if ebitda > 0 else 14.0
-    # Multiple d'entrée = max(14, multiple_marche * 1.1) — réaliste
+    # Multiple d'entrée = max(14, multiple_Marché * 1.1) — réaliste
     entry_mult = max(14.0, round(multiple_marche * 1.1, 1)) if multiple_marche > 0 else 14.0
     leverage = 5.0       # Total leverage
     senior_lvg = 3.5
@@ -3238,7 +3238,7 @@ def _build_lbo_pack(snap, synthesis, ratios) -> dict:
         "ebitda_y5": ebitda_y5,
         "ev_market": ev_market,
         "ev_deal": ev_deal,
-        "multiple_marche": multiple_marche,
+        "multiple_Marché": multiple_marche,
         "entry_mult": entry_mult,
         "exit_mult": exit_mult,
         "leverage": leverage,
@@ -3265,7 +3265,7 @@ def _build_lbo_pack(snap, synthesis, ratios) -> dict:
             "exit_mults": [exit_mult + o for o in exit_offsets],
             "grid": sens_grid,
         },
-        "scenarios": scenarios,
+        "scénarios": scenarios,
         "debt_schedule": debt_schedule,
         "llm_texts": llm_texts,
     }
@@ -3397,7 +3397,7 @@ def _slide_lbo_cadre(prs, snap, pack: dict):
     else:
         hypotheses_text = pack["llm_texts"].get("hypotheses_text") or (
             f"Multiple d'entrée {pack['entry_mult']:.1f}x EBITDA "
-            f"(vs marché {pack['multiple_marche']:.1f}x). Leverage 5x EBITDA "
+            f"(vs marché {pack['multiple_Marché']:.1f}x). Leverage 5x EBITDA "
             f"(Senior 3,5x à 8% + Mezz 1,5x à 10%). Sortie conservatrice à "
             f"{pack['exit_mult']:.1f}x. Hypothèses opérationnelles importées du DCF."
         )
@@ -3564,7 +3564,7 @@ def _slide_lbo_stress(prs, snap, pack: dict):
     add_text_box(slide, 1.02, 7.55, 23.37, 0.45,
                  "SCÉNARIOS DE STRESS — Bull / Base / Bear", 9, NAVY, bold=True)
 
-    sc = pack["scenarios"]
+    sc = pack["scénarios"]
     col_w = 7.62
     col_xs = [1.02, 8.97, 16.92]
     col_labels = ["BULL", "BASE", "BEAR"]
@@ -3604,7 +3604,7 @@ def _slide_lbo_stress(prs, snap, pack: dict):
     )
     _stress_irr = None
     try:
-        _stress_irr = pack["scenarios"]["base"]["irr"]
+        _stress_irr = pack["scénarios"]["base"]["irr"]
     except Exception:
         pass
     _stress_title = _jpm_title("lbo", snap=snap, extra={"irr_base": _stress_irr})
@@ -3759,7 +3759,7 @@ def _slide_risques(prs, snap, synthesis, devil, extra_scores: dict = None):
         rec_6m = _macro.get('récession_prob_6m')
         if regime and regime != 'Inconnu':
             rec_part = f"  Rec.6M:{rec_6m}%" if rec_6m is not None else ''
-            row1_items.append((f"Régime : {regime}{rec_part}", _CMAP.get(regime, NAVY)))
+            row1_items.append((f"Régime : {régime}{rec_part}", _CMAP.get(regime, NAVY)))
 
         for i, (txt, col) in enumerate(row1_items[:3]):
             x = bx_x[i]
