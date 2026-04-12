@@ -1043,7 +1043,7 @@ def _build_investment_case(data):
     right_elems.append(h_val)
     right_elems.append(Spacer(1, 2*mm))
 
-    # Tableau valorisation
+    # Tableau valorisation — avec palier adaptatif
     val_h = [
         Paragraph("Multiple",         S_TH_L),
         Paragraph("Soci\u00e9t\u00e9", S_TH_C),
@@ -1051,19 +1051,37 @@ def _build_investment_case(data):
     ]
     pe_ref  = _d(data, 'pe_ref_str',  '15\u201325x')
     ev_ref  = _d(data, 'ev_ref_str',  '8\u201318x')
+    ps_val  = _d(data, 'ps_ratio_str', '\u2014')
+
+    # Détection palier : si EV/EBITDA "—" mais revenue_ltm existe → palier 2
+    _ev_missing = str(ev_val) in ('\u2014', '—', '', 'None', 'n.m.', None)
+    _val_tier_note = ""
     val_rows = [
         [Paragraph("P/E NTM (x)",       S_TD_B),
          Paragraph(_safe(pe_val),        S_TD_C),
          Paragraph(_safe(pe_ref),        S_TD_C)],
-        [Paragraph("EV/EBITDA (x)",      S_TD_B),
-         Paragraph(_safe(ev_val),        S_TD_C),
-         Paragraph(_safe(ev_ref),        S_TD_C)],
-        [Paragraph(f"Cible DCF Base ({cur})", S_TD_B),
-         Paragraph(_safe(tbase),         S_TD_C),
-         Paragraph(f"Upside {_safe(upside)}", S_TD_C)],
     ]
+    if _ev_missing and ps_val not in ('\u2014', '—', '', 'None'):
+        # Palier 2 : afficher P/S au lieu de EV/EBITDA
+        val_rows.append([
+            Paragraph("P/S LTM (x) *",   S_TD_B),
+            Paragraph(_safe(ps_val),      S_TD_C),
+            Paragraph("1\u20138x",         S_TD_C)])
+        _val_tier_note = "* Palier 2 : EBITDA n\u00e9gatif ou indisponible \u2014 valorisation via P/S (Price-to-Sales)."
+    else:
+        val_rows.append([
+            Paragraph("EV/EBITDA (x)",    S_TD_B),
+            Paragraph(_safe(ev_val),      S_TD_C),
+            Paragraph(_safe(ev_ref),      S_TD_C)])
+    val_rows.append([
+        Paragraph(f"Cible DCF Base ({cur})", S_TD_B),
+        Paragraph(_safe(tbase),         S_TD_C),
+        Paragraph(f"Upside {_safe(upside)}", S_TD_C)])
     val_tbl = tbl([val_h] + val_rows, cw=[44*mm, 19*mm, 19*mm])
     right_elems.append(val_tbl)
+    if _val_tier_note:
+        right_elems.append(Spacer(1, 1*mm))
+        right_elems.append(Paragraph(f"<i>{_val_tier_note}</i>", S_NOTE))
     right_elems.append(Spacer(1, 4*mm))
 
     # Sous-titre Risques
@@ -2502,6 +2520,21 @@ def _build_risques(data):
             "résultats sur un corpus de 7 jours. Le sentiment est un indicateur contrarian : "
             "un pessimisme extrême peut signaler un point d'entrée, un optimisme excessif un "
             "risque de correction.",
+            S_BODY),
+        Spacer(1, 2*mm),
+        Paragraph(
+            "<b>M\u00e9triques alternatives de valorisation (paliers)</b> \u2014 Lorsque "
+            "l'EV/EBITDA n'est pas applicable (EBITDA n\u00e9gatif), FinSight bascule sur des "
+            "multiples adapt\u00e9s au profil de la soci\u00e9t\u00e9 : "
+            "<b>P/S (Price-to-Sales)</b> pour les soci\u00e9t\u00e9s en croissance sans "
+            "profitabilit\u00e9 \u00e9tablie (SaaS, biotech avanc\u00e9e) ; "
+            "<b>EV/Gross Profit</b> pour celles \u00e0 marge brute positive mais EBITDA "
+            "n\u00e9gatif (R&amp;D lourd) ; "
+            "<b>Rule of 40</b> (croissance revenue % + marge EBITDA % &gt; 40 = sant\u00e9 "
+            "op\u00e9rationnelle d\u00e9montr\u00e9e) pour les SaaS. "
+            "Le <b>palier de valorisation</b> est indiqu\u00e9 dans le tableau de synth\u00e8se : "
+            "Palier 1 = profitable (EV/EBITDA), Palier 2 = croissance (P/S), "
+            "Palier 3 = pr\u00e9-revenue (P/B).",
             S_BODY),
         Spacer(1, 2*mm),
         Paragraph(

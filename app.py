@@ -3891,11 +3891,21 @@ def render_screening_results(results: dict) -> None:
         with rcols[0]:
             st.markdown(f'<div class="scr-rank">{i+1}</div>', unsafe_allow_html=True)
         with rcols[1]:
+            # Badge palier : T1 = profitable, T2 = croissance, T3 = pré-revenue
+            _tier = t.get("valuation_tier") or 1
+            _tier_color = {1: "#1A7A4A", 2: "#B06000", 3: "#A82020"}.get(_tier, "#555")
+            _tier_label = {1: "T1", 2: "T2", 3: "T3"}.get(_tier, "T1")
+            _tier_title = {1: "Palier 1 — profitable (EV/EBITDA)",
+                           2: "Palier 2 — croissance (P/S)",
+                           3: "Palier 3 — pr\u00e9-revenue (P/B)"}.get(_tier, "")
             st.markdown(
                 f'<div style="padding:2px 0;">'
                 f'<div style="font-size:13px;font-weight:600;color:#111;">'
                 f'{_e((t.get("company") or "")[:28])}</div>'
-                f'<div class="scr-ticker">{_e(ticker_v)}</div></div>',
+                f'<div class="scr-ticker">{_e(ticker_v)} '
+                f'<span style="font-size:9px;font-weight:700;color:#fff;background:{_tier_color};'
+                f'padding:1px 5px;border-radius:3px;margin-left:4px;" title="{_tier_title}">'
+                f'{_tier_label}</span></div></div>',
                 unsafe_allow_html=True,
             )
         with rcols[2]:
