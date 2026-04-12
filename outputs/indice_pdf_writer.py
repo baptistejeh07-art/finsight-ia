@@ -522,13 +522,14 @@ def _cover_page(c, doc, data):
     c.setFont('Helvetica', 8)
     c.drawCentredString(cx, by + box_h_b / 2 - 3*mm, f"Conviction {data['conviction_pct']} %")
 
-    # 5 metriques
+    # 5 metriques — tolère les deux conventions de nommage
+    _nb_soc = data.get("nb_sociétés") or data.get("nb_societes", "\u2014")
     metrics = [
-        ("Secteurs analyses",  str(data["nb_secteurs"])),
-        ("Soci\u00e9t\u00e9s couvertes", str(data["nb_sociétés"])),
-        ("Cours indice",       data["cours"]),
-        ("Variation YTD",      data["variation_ytd"]),
-        ("P/E Forward",        data["pe_forward"]),
+        ("Secteurs analyses",  str(data.get("nb_secteurs", "\u2014"))),
+        ("Soci\u00e9t\u00e9s couvertes", str(_nb_soc)),
+        ("Cours indice",       data.get("cours", "\u2014")),
+        ("Variation YTD",      data.get("variation_ytd", "\u2014")),
+        ("P/E Forward",        data.get("pe_forward", "\u2014")),
     ]
     col_span = (w - MARGIN_L - MARGIN_R) / 5
     my_lbl = h * 0.618; my_val = h * 0.600
@@ -1377,23 +1378,36 @@ def _build_allocation(data, allocation_buf=None, registry=None):
     elems.append(Paragraph("Performances attendues (historiques 52S)", S_SUBSECTION))
     met_h = [Paragraph(h, S_TH_C) for h in
              ["Portefeuille", "Objectif", "Return attendu", "Volatilite", "Ratio de Sharpe"]]
-    def _sr(sh): return S_TD_G if sh >= 0.8 else (S_TD_R if sh < 0.4 else S_TD_A)
+    def _sr(sh):
+        try:
+            sh = float(sh)
+            return S_TD_G if sh >= 0.8 else (S_TD_R if sh < 0.4 else S_TD_A)
+        except: return S_TD_C
+
+    def _opt_get(key, field, fmt="{:+.1f}%", default="\u2014"):
+        try:
+            v = opt.get(key, {}).get(field)
+            if v is None:
+                return default
+            return fmt.format(float(v))
+        except: return default
+
     met_rows = [
         [Paragraph("Min-Variance", S_TD_B),
          Paragraph("Minimiser le risque — profil conservateur", S_TD_L),
-         Paragraph(f"{opt['min_var']['return']:+.1f}%", S_TD_C),
-         Paragraph(f"{opt['min_var']['vol']:.1f}%", S_TD_C),
-         Paragraph(str(opt['min_var']['sharpe']), _sr(opt['min_var']['sharpe']))],
+         Paragraph(_opt_get('min_var', 'return'), S_TD_C),
+         Paragraph(_opt_get('min_var', 'vol', "{:.1f}%"), S_TD_C),
+         Paragraph(_opt_get('min_var', 'sharpe', "{:.2f}"), _sr(opt.get('min_var', {}).get('sharpe', 0)))],
         [Paragraph("Tangency", S_TD_B),
          Paragraph("Maximiser le Sharpe — optimum risque/rendement", S_TD_L),
-         Paragraph(f"{opt['tangency']['return']:+.1f}%", S_TD_C),
-         Paragraph(f"{opt['tangency']['vol']:.1f}%", S_TD_C),
-         Paragraph(str(opt['tangency']['sharpe']), _sr(opt['tangency']['sharpe']))],
+         Paragraph(_opt_get('tangency', 'return'), S_TD_C),
+         Paragraph(_opt_get('tangency', 'vol', "{:.1f}%"), S_TD_C),
+         Paragraph(_opt_get('tangency', 'sharpe', "{:.2f}"), _sr(opt.get('tangency', {}).get('sharpe', 0)))],
         [Paragraph("Equal Risk Contribution", S_TD_B),
          Paragraph("Contribution egale au risque — profil diversifié", S_TD_L),
-         Paragraph(f"{opt['erc']['return']:+.1f}%", S_TD_C),
-         Paragraph(f"{opt['erc']['vol']:.1f}%", S_TD_C),
-         Paragraph(str(opt['erc']['sharpe']), _sr(opt['erc']['sharpe']))],
+         Paragraph(_opt_get('erc', 'return'), S_TD_C),
+         Paragraph(_opt_get('erc', 'vol', "{:.1f}%"), S_TD_C),
+         Paragraph(_opt_get('erc', 'sharpe', "{:.2f}"), _sr(opt.get('erc', {}).get('sharpe', 0)))],
     ]
     # [38, 68, 20, 20, 24] = 170mm
     elems.append(KeepTogether(tbl([met_h] + met_rows, cw=[38*mm,68*mm,20*mm,20*mm,24*mm])))
@@ -1544,7 +1558,7 @@ def _build_top3(data, donut_buf, registry=None):
         _sect_ev = str(sect.get("ev_ebitda", "\u2014"))
         _sect_ev_ok = _sect_ev not in ("\u2014", "—", "", "None")
         _ev_sect = (f"{_mg:.1f}%" if _all_ev_missing and _mg else "\u2014")
-        for tkr, sig, ev, score in sect["sociétés"]:
+        for tkr, sig, ev, score in (sect.get("sociétés") or sect.get("societes") or []):
             if _all_ev_missing:
                 _val_disp = _ev_sect
             elif str(ev) in ("\u2014", "—", "", "None") and _sect_ev_ok:
@@ -1750,7 +1764,7 @@ def _build_sentiment(data, registry=None):
     elems.append(Paragraph("Sources &amp; M\u00e9thodologie", S_SUBSECTION))
     meth_h = [Paragraph(h, S_TH_L) for h in ["Composanté","M\u00e9thodologie"]]
     meth_rows = [[Paragraph(k, S_TD_B), Paragraph(v, S_TD_L)]
-                 for k, v in data["Méthodologie"]]
+                 for k, v in (data.get("Méthodologie") or data.get("methodologie") or [])]
     elems.append(KeepTogether(tbl([meth_h] + meth_rows, cw=[40*mm, 130*mm])))
     elems.append(src(
         f"FinSight IA v1.0 — Mise \u00e0 jour quotidienne. Donn\u00e9es au {data['date_analyse']}."))
@@ -1823,9 +1837,11 @@ def _build_story(data, perf_buf, weights_buf, scatter_buf, scores_buf,
     story.append(_build_sommaire(data, page_nums))
     story.append(Spacer(1, 5*mm))
     story.append(Paragraph("A propos de cette analyse", S_SUBSECTION))
+    _nb_soc_intro = data.get("nb_sociétés") or data.get("nb_societes", "\u2014")
+    _nb_sec_intro = data.get("nb_secteurs", "\u2014")
     story.append(Paragraph(
-        f"Cette analyse d'indice couvre l'ensemble des {data['nb_secteurs']} secteurs GICS du "
-        f"{indice_rl} ({data['nb_sociétés']} soci\u00e9t\u00e9s). Elle produit un signal global "
+        f"Cette analyse d'indice couvre l'ensemble des {_nb_sec_intro} secteurs GICS du "
+        f"{indice_rl} ({_nb_soc_intro} soci\u00e9t\u00e9s). Elle produit un signal global "
         "d'allocation sectorielle (Surpond\u00e9rer / Neutre / Sous-pond\u00e9rer) et un score composite "
         "par secteur. Les donn\u00e9es sont issues de yfinance, FMP et Finnhub. Le sentiment est "
         "analys\u00e9 par FinBERT sur 7 jours glissants. La m\u00e9thodologie compl\u00e8te est d\u00e9taill\u00e9e "
