@@ -659,7 +659,7 @@ def _content_header(c, doc, sector_name: str, date_str: str):
     c.setFillColor(GREY_TEXT)
     c.setFont('Helvetica', 6.5)
     c.drawString(MARGIN_L, MARGIN_B - 7*mm,
-                 "FinSight IA v1.0 \u2014 Document genere par IA. Ne constitue pas un conseil en investissement.")
+                 "FinSight IA v1.0 \u2014 Document g\u00e9n\u00e9r\u00e9 par IA. Ne constitue pas un conseil en investissement.")
     c.drawRightString(w - MARGIN_R, MARGIN_B - 7*mm,
                       "Sources : yfinance \u00b7 FMP \u00b7 Finnhub \u00b7 FinBERT")
 
@@ -1458,23 +1458,24 @@ def _build_subsector_decomposition(tickers_data: list[dict], sector_name: str, r
         profil = llm_data.get(f"{n}_profil", "")
         best_str = ", ".join(f"{b[0]} ({b[2]}/100)" for b in s["best"])
 
-        block = []
-        block.append(Paragraph(_safe(
+        # Titre en KeepTogether avec première ligne de contenu
+        _title_para = Paragraph(_safe(
             f"{n} \u2014 {s['nb']} soci\u00e9t\u00e9s \u00b7 Score {s['score']}/100 \u00b7 {s['signal']}"),
-            S_SUBSECTION))
-        block.append(Spacer(1, 1*mm))
+            S_SUBSECTION)
         if presentation:
-            block.append(Paragraph(_safe(presentation), S_BODY))
-            block.append(Spacer(1, 1*mm))
+            elems.append(KeepTogether([_title_para, Spacer(1, 1*mm),
+                                        Paragraph(_safe(presentation), S_BODY)]))
+        else:
+            elems.append(_title_para)
+        elems.append(Spacer(1, 1*mm))
         if drivers:
-            block.append(Paragraph(f"<b>Drivers :</b> {_safe(drivers)}", S_BODY))
+            elems.append(Paragraph(f"<b>Drivers :</b> {_safe(drivers)}", S_BODY))
         if risques:
-            block.append(Paragraph(f"<b>Risques :</b> {_safe(risques)}", S_BODY))
+            elems.append(Paragraph(f"<b>Risques :</b> {_safe(risques)}", S_BODY))
         if profil:
-            block.append(Paragraph(f"<b>Profil financier :</b> {_safe(profil)}", S_BODY))
-        block.append(Paragraph(f"<b>Top sociétés :</b> {_safe(best_str)}", S_BODY))
-        block.append(Spacer(1, 3*mm))
-        elems.append(KeepTogether(block))
+            elems.append(Paragraph(f"<b>Profil financier :</b> {_safe(profil)}", S_BODY))
+        elems.append(Paragraph(f"<b>Top soci\u00e9t\u00e9s :</b> {_safe(best_str)}", S_BODY))
+        elems.append(Spacer(1, 3*mm))
 
     # Recommandation allocation
     alloc = llm_data.get("allocation", "")
@@ -2320,33 +2321,38 @@ def _build_conclusion(tickers_data: list[dict], sector_name: str,
     sell_list  = [t for t in sorted_data if _reco(t.get('score_global')) == "SELL"]
     buy_count, hold_count, sell_count = len(buy_list), len(hold_list), len(sell_list)
 
-    # Recommandation LLM détaillée
-    _reco_llm_text = ""
-    try:
-        from core.llm_provider import LLMProvider
-        _llm_reco = LLMProvider(provider="groq", model="llama-3.3-70b-versatile")
-        # Subsectors pour enrichir la reco
-        _industries = {}
-        for t in tickers_data:
-            ind = t.get("industry") or "Autre"
-            _industries.setdefault(ind, []).append(t.get("score_global") or 0)
-        _ind_summary = ", ".join(
-            f"{k} (score moy. {sum(v)//len(v)})" for k, v in
-            sorted(_industries.items(), key=lambda x: sum(x[1])/len(x[1]), reverse=True)[:5]
-        )
-        _reco_prompt = (
-            f"Tu es un analyste buy-side senior. Rédige une recommandation sectorielle détaillée "
-            f"(200 mots) pour le secteur {sector_name}.\n"
-            f"Données : {len(tickers_data)} sociétés, {buy_count} BUY, {hold_count} HOLD, {sell_count} SELL.\n"
-            f"Sous-secteurs : {_ind_summary}.\n"
-            f"Structure ta réponse : (1) le secteur est-il prometteur et pourquoi, (2) horizon "
-            f"d'investissement recommandé, (3) quels sous-secteurs privilégier, (4) catalyseurs "
-            f"déterminants pour les 6-12 prochains mois, (5) risques à surveiller.\n"
-            f"Français correct avec accents. Pas de markdown. Pas d'emojis."
-        )
-        _reco_llm_text = _llm_reco.generate(_reco_prompt, max_tokens=500) or ""
-    except Exception:
-        pass
+    # Recommandation LLM détaillée — cache via attribut module pour éviter double appel (passe1 + passe2)
+    import logging as _log_reco
+    _log = _log_reco.getLogger(__name__)
+    _cache_key = f"_reco_cache_{sector_name}"
+    _reco_llm_text = globals().get(_cache_key, "")
+    if not _reco_llm_text:
+        try:
+            from core.llm_provider import LLMProvider
+            _llm_reco = LLMProvider(provider="groq", model="llama-3.3-70b-versatile")
+            _industries = {}
+            for t in tickers_data:
+                ind = t.get("industry") or "Autre"
+                _industries.setdefault(ind, []).append(t.get("score_global") or 0)
+            _ind_summary = ", ".join(
+                f"{k} (score moy. {sum(v)//len(v)})" for k, v in
+                sorted(_industries.items(), key=lambda x: sum(x[1])/len(x[1]), reverse=True)[:5]
+            )
+            _reco_prompt = (
+                f"Tu es un analyste buy-side senior. R\u00e9dige une recommandation sectorielle d\u00e9taill\u00e9e "
+                f"(200 mots) pour le secteur {sector_name}.\n"
+                f"Donn\u00e9es : {len(tickers_data)} soci\u00e9t\u00e9s, {buy_count} BUY, {hold_count} HOLD, {sell_count} SELL.\n"
+                f"Sous-secteurs : {_ind_summary}.\n"
+                f"Structure ta r\u00e9ponse : (1) le secteur est-il prometteur et pourquoi, (2) horizon "
+                f"d'investissement recommand\u00e9, (3) quels sous-secteurs privil\u00e9gier, (4) catalyseurs "
+                f"d\u00e9terminants pour les 6-12 prochains mois, (5) risques \u00e0 surveiller.\n"
+                f"Fran\u00e7ais correct avec accents. Pas de markdown. Pas d'emojis."
+            )
+            _reco_llm_text = _llm_reco.generate(_reco_prompt, max_tokens=500) or ""
+            globals()[_cache_key] = _reco_llm_text
+            _log.info("[sector_pdf] reco LLM OK: %d chars", len(_reco_llm_text))
+        except Exception as _e_reco:
+            _log.warning("[sector_pdf] reco LLM failed: %s", _e_reco)
 
     if _reco_llm_text.strip():
         elems.append(Paragraph("Recommandation sectorielle", S_SUBSECTION))
@@ -2526,13 +2532,15 @@ def _build_story(perf_buf, area_buf, scatter_buf, donut_buf,
     story.append(Spacer(1, 5*mm))
     story.append(Paragraph("\u00c0 propos de cette analyse", S_SUBSECTION))
     N = len(tickers_data)
+    _univ_safe = _safe(universe)
+    _sector_safe = _safe(sector_name)
     story.append(Paragraph(
-        f"Cette analyse sectorielle couvre <b>{N} acteurs</b> representatifs de l'ecosysteme "
-        f"<b>{sector_name}</b> ({universe}). Les données financieres sont issues de yfinance, "
+        f"Cette analyse sectorielle couvre <b>{N} acteurs</b> repr\u00e9sentatifs de l'\u00e9cosyst\u00e8me "
+        f"<b>{_sector_safe}</b> ({_univ_safe}). Les donn\u00e9es financi\u00e8res sont issues de yfinance, "
         f"FMP et Finnhub. L'analyse de sentiment est conduite par <b>FinBERT</b> sur le corpus "
-        f"presse financiere des sept derniers jours. La valorisation integre les multiples LTM "
+        f"presse financi\u00e8re des sept derniers jours. La valorisation int\u00e8gre les multiples LTM "
         f"et une analyse EV/EBITDA vs croissance. Un <b>protocole adversarial</b> identifie "
-        f"les risques sectoriels avec probabilite et exposition par ticker.", S_BODY))
+        f"les risques sectoriels avec probabilit\u00e9 et exposition par ticker.", S_BODY))
     story.append(PageBreak())
 
     story += _build_macro(perf_buf, area_buf, tickers_data, sector_name, universe, registry, sector_analytics)
@@ -2586,10 +2594,13 @@ def _compute_analytics_from_tickers(td: list[dict]) -> dict:
     pe_cycle_label = "historique PE insuffisant"
     pe_premium = None
 
-    # Dispersion ROIC / ROE
-    roic_vals = [t.get("roic") for t in td if t.get("roic") is not None]
+    # Dispersion ROIC / ROE — cap valeurs aberrantes (ROE peut dépasser 1000% pour buyback agressif)
+    def _cap_outliers(vals, lo=-100.0, hi=200.0):
+        return [max(lo, min(hi, float(v))) for v in vals if v is not None]
+
+    roic_vals = _cap_outliers([t.get("roic") for t in td if t.get("roic") is not None])
     if not roic_vals:
-        roic_vals = [t.get("roe") for t in td if t.get("roe") is not None]
+        roic_vals = _cap_outliers([t.get("roe") for t in td if t.get("roe") is not None])
     roic_std  = round(float(np.std(roic_vals)), 1)  if len(roic_vals) >= 2 else None
     roic_mean = round(float(np.mean(roic_vals)), 1) if roic_vals else None
     roic_min  = round(min(roic_vals), 1)            if roic_vals else None
