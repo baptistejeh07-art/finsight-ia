@@ -1593,9 +1593,12 @@ def render_home() -> None:
             # a un nom de société (minuscules ou espaces), tenter Yahoo Finance Search
             _q_norm = target.strip().upper().replace(" ", "").replace("-", "").replace("&", "")
             _raw = target.strip()
+            # _slug_from_any résout les noms français (Technologie→TECHNOLOGY, Santé→HEALTHCARE etc.)
+            _resolved_slug = _slug_from_any(_raw)
             _is_name = (
                 _q_norm not in _INDICES_SET and
                 _q_norm not in _SECTOR_ALIASES_SET and
+                not _resolved_slug and
                 ((" " in _raw and len(_raw) > 3) or (len(_raw) > 5 and not _raw.isupper()))
             )
             if _is_name:
