@@ -1315,6 +1315,13 @@ def _build_structure_sectorielle(tickers_data: list[dict], sector_name: str,
     return elems
 
 
+def _safe(s):
+    """Échappe les caractères XML pour ReportLab Paragraph."""
+    if not s:
+        return ""
+    return str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
 def _aggregate_subsectors(tickers_data: list[dict]) -> list[dict]:
     """Agrège les tickers par sous-secteur (industry) et calcule les métriques."""
     from statistics import median as _med
