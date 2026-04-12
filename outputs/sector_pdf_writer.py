@@ -1337,7 +1337,12 @@ def _aggregate_subsectors(tickers_data: list[dict]) -> list[dict]:
         scores = [x.get("score_global") or 0 for x in items]
         avg_score = int(sum(scores) / nb) if nb else 0
         evs = [x["ev_ebitda"] for x in items if x.get("ev_ebitda") and 1 < x["ev_ebitda"] < 100]
-        ev_med = f"{_med(evs):.1f}x" if evs else "\u2014"
+        if evs:
+            ev_med = f"{_med(evs):.1f}x"
+        else:
+            # Fallback P/S si EV/EBITDA indisponible
+            ps_vals = [x.get("ps_ratio") for x in items if x.get("ps_ratio")]
+            ev_med = f"{_med(ps_vals):.1f}x P/S" if ps_vals else "\u2014"
         mgs = [x.get("ebitda_margin") or x.get("gross_margin") or 0 for x in items if (x.get("ebitda_margin") or x.get("gross_margin"))]
         mg_med = f"{_med(mgs):.1f}%" if mgs else "\u2014"
         grs = [x.get("revenue_growth") or 0 for x in items if x.get("revenue_growth") is not None]
@@ -1507,13 +1512,12 @@ def _build_acteurs(tickers_data: list[dict], sector_name: str, registry=None):
     elems.append(Spacer(1, 3*mm))
 
     _comp_title = Paragraph("Comparatif financier \u2014 Acteurs couverts LTM", S_SUBSECTION)
-    _has_ev = any(t.get('ev_ebitda') for t in tickers_data)
-    _comp_cols = ["Ticker", "Rev. LTM (Mds)", "Crois.", "Mg. Brute", "Mg. EBITDA", "ROE"]
-    # Largeurs calees sur 170mm (meme standard que les autres tableaux)
-    _comp_cw   = [18*mm, 32*mm, 24*mm, 30*mm, 32*mm, 28*mm]
-    if _has_ev:
-        _comp_cols.append("EV/EBITDA")
-        _comp_cw = [16*mm, 28*mm, 20*mm, 26*mm, 28*mm, 24*mm, 28*mm]
+    # Colonne valorisation adaptative : EV/EBITDA si dispo, sinon P/S
+    _n_ev = sum(1 for t in tickers_data if t.get('ev_ebitda'))
+    _n_ps = sum(1 for t in tickers_data if t.get('ps_ratio'))
+    _val_col_label = "EV/EBITDA" if _n_ev > len(tickers_data) * 0.5 else "Valorisation*"
+    _comp_cols = ["Ticker", "Rev. LTM (Mds)", "Crois.", "Mg. Brute", "Mg. EBITDA", "ROE", _val_col_label]
+    _comp_cw = [16*mm, 28*mm, 20*mm, 26*mm, 28*mm, 24*mm, 28*mm]
     comp_h = [Paragraph(h, S_TH_C) for h in _comp_cols]
 
     def _cc(v, col):
@@ -1544,8 +1548,15 @@ def _build_acteurs(tickers_data: list[dict], sector_name: str, registry=None):
             _fmt_pct(t.get('ebitda_margin'), sign=False),
             _fmt_pct(t.get('roe')),
         ]
-        if _has_ev:
-            row.append(_fmt_mult(t.get('ev_ebitda')))
+        # Valorisation adaptative : EV/EBITDA si dispo, sinon P/S avec indicateur
+        _ev_val = t.get('ev_ebitda')
+        _ps_val = t.get('ps_ratio')
+        if _ev_val:
+            row.append(_fmt_mult(_ev_val))
+        elif _ps_val:
+            row.append(f"{_ps_val:.1f}x P/S")
+        else:
+            row.append("\u2014")
         comp_rows.append([_cc(v, j) for j, v in enumerate(row)])
 
     elems.append(KeepTogether([
@@ -1553,7 +1564,12 @@ def _build_acteurs(tickers_data: list[dict], sector_name: str, registry=None):
         Spacer(1, 2*mm),
         tbl([comp_h] + comp_rows, cw=_comp_cw),
     ]))
-    elems.append(src(f"FinSight IA \u2014 yfinance, FMP. LTM = Last Twelve Months. Devise : {ccy}."))
+    _n_tier2 = sum(1 for t in tickers_data if t.get('valuation_tier', 1) >= 2)
+    _val_note = f"FinSight IA \u2014 yfinance, FMP. LTM = Last Twelve Months. Devise : {ccy}."
+    if _n_tier2 > 0:
+        _val_note += (f" * {_n_tier2} soci\u00e9t\u00e9(s) valoris\u00e9e(s) via P/S "
+                      f"(EBITDA n\u00e9gatif \u2014 palier 2). P/S = Price-to-Sales.")
+    elems.append(src(_val_note))
     elems.append(Spacer(1, 3*mm))
 
     # Paragraph analytique post-tableau

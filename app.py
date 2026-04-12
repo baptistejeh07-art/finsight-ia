@@ -4517,6 +4517,10 @@ def _render_glossaire(key_suffix: str = "main") -> None:
 <div class="gls-row"><span class="gls-term">P/FCF</span><span class="gls-def">Prix / Free Cash Flow par action. Alternative au PER basée sur les flux réels plutôt que le bénéfice comptable.</span></div>
 <div class="gls-row"><span class="gls-term">PEG</span><span class="gls-def">PER / Taux de croissance des bénéfices. PEG &lt;1 suggère une valorisation attractive relativement à la croissance.</span></div>
 <div class="gls-row"><span class="gls-term">DCF</span><span class="gls-def">Discounted Cash Flow. Valorisation par actualisation des flux futurs estimés au taux WACC. Dépend fortement des hypothèses de croissance.</span></div>
+<div class="gls-row"><span class="gls-term">P/S (Price-to-Sales)</span><span class="gls-def">Prix / Chiffre d'affaires. Utilisé pour les sociétés sans EBITDA positif (SaaS, biotech en croissance). Un P/S élevé se justifie par une forte croissance revenue. Palier 2.</span></div>
+<div class="gls-row"><span class="gls-term">EV/Gross Profit</span><span class="gls-def">Valeur d'entreprise / Profit brut. Alternative à EV/EBITDA pour les sociétés à marge brute positive mais EBITDA négatif (investissements R&amp;D lourds).</span></div>
+<div class="gls-row"><span class="gls-term">Rule of 40</span><span class="gls-def">Croissance revenue (%) + Marge EBITDA (%). Métrique SaaS : &gt;40% = société saine qui équilibre croissance et rentabilité. &lt;20% = signal d'alerte.</span></div>
+<div class="gls-row"><span class="gls-term">Palier de valorisation</span><span class="gls-def">Palier 1 = profitable (EV/EBITDA). Palier 2 = croissance (P/S, Rule of 40). Palier 3 = pré-revenue (P/B). Le palier détermine la métrique de valorisation principale.</span></div>
 </div>
 
 <div class="gls-card">

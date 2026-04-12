@@ -948,6 +948,46 @@ def compute_ticker(ticker: str, cache_row: Optional[dict]) -> Optional[dict]:
 
     industry = info.get("industryDisp") or info.get("industry") or ""
 
+    # ── Métriques alternatives de valorisation (paliers 2/3) ──────────────
+    # P/S (Price-to-Sales) — disponible même sans EBITDA positif
+    ps_ratio = None
+    try:
+        _ps = info.get("priceToSalesTrailing12Months")
+        if _ps and 0 < float(_ps) < 500:
+            ps_ratio = round(float(_ps), 2)
+    except Exception:
+        pass
+
+    # EV/Gross Profit — pour sociétés à marge brute positive mais EBITDA négatif
+    ev_gross_profit = None
+    try:
+        _gp = info.get("grossProfits")
+        if ev and _gp and float(_gp) > 0:
+            ev_gross_profit = round(float(ev) / float(_gp), 2)
+    except Exception:
+        pass
+
+    # Rule of 40 — SaaS : croissance revenue (%) + marge EBITDA (%) > 40 = sain
+    rule_of_40 = None
+    if revenue_growth is not None and ebitda_margin is not None:
+        _rg_pct = revenue_growth if abs(revenue_growth) > 1 else revenue_growth * 100
+        rule_of_40 = round(_rg_pct + ebitda_margin, 1)
+
+    # Palier de valorisation
+    # 1 = profitable (EBITDA > 0, EV/EBITDA disponible)
+    # 2 = croissance (revenue > 0 mais EBITDA <= 0 ou absent)
+    # 3 = pré-revenue ou restructuration
+    if ev_ebitda and ev_ebitda > 0:
+        valuation_tier = 1
+    elif revenue_ltm and revenue_ltm > 0:
+        valuation_tier = 2
+    else:
+        valuation_tier = 3
+
+    # Métrique de valorisation principale selon le palier
+    primary_valuation = ev_ebitda if valuation_tier == 1 else (ps_ratio if valuation_tier == 2 else None)
+    primary_valuation_label = "EV/EBITDA" if valuation_tier == 1 else ("P/S" if valuation_tier == 2 else "N/A")
+
     return {
         "ticker":      ticker.upper(),
         "company":     cache_row.get("company_name") or info.get("longName") or ticker,
@@ -998,6 +1038,13 @@ def compute_ticker(ticker: str, cache_row: Optional[dict]) -> Optional[dict]:
         "analyst_revision":  analyst_revision,
         "wacc": wacc_val,
         "tgr":  tgr_val,
+        # Métriques alternatives (paliers 2/3)
+        "ps_ratio":              ps_ratio,
+        "ev_gross_profit":       ev_gross_profit,
+        "rule_of_40":            rule_of_40,
+        "valuation_tier":        valuation_tier,
+        "primary_valuation":     primary_valuation,
+        "primary_valuation_label": primary_valuation_label,
     }
 
 

@@ -1025,8 +1025,17 @@ def _fetch_real_sector_data(sector: str, universe: str, max_tickers: int = 8) ->
                 "price":           price,
                 "market_cap":      mc,
                 "revenue_ltm":     info.get("totalRevenue"),
+                "ebitda_ltm":      info.get("ebitda"),
                 "currency":        info.get("currency", "USD"),
                 "sentiment_score": 0.0,
+                # Métriques alternatives (paliers 2/3)
+                "ps_ratio":        round(float(info.get("priceToSalesTrailing12Months")), 2)
+                                   if info.get("priceToSalesTrailing12Months") else None,
+                "ev_gross_profit": round(float(info.get("enterpriseValue", 0)) / float(info.get("grossProfits", 1)), 2)
+                                   if info.get("enterpriseValue") and info.get("grossProfits") and float(info.get("grossProfits", 0)) > 0 else None,
+                "rule_of_40":      round((rev_g * 100 if abs(rev_g) < 1 else rev_g) + ebitda_m, 1)
+                                   if rev_g is not None and ebitda_m else None,
+                "valuation_tier":  1 if ev_ebitda and ev_ebitda > 0 else (2 if info.get("totalRevenue") else 3),
             }
         except Exception as e:
             log.warning("yfinance.info '%s' erreur: %s", tk, e)
