@@ -1636,7 +1636,9 @@ def render_home() -> None:
                 st.session_state.screening_results  = None
                 st.session_state.from_screening     = False
             else:
-                u_key = target.upper().replace("-", "").replace(" ", "").replace("&", "")
+                # Résoudre le slug canonique (Santé→HEALTHCARE, Technologie→TECHNOLOGY)
+                _target_slug = _slug_from_any(target)
+                u_key = _target_slug if _target_slug else target.upper().replace("-", "").replace(" ", "").replace("&", "")
                 st.session_state.screening_universe = u_key
                 st.session_state.stage = "screening_running"
                 # Reset résultats société precedents + comparaison indice precedente
