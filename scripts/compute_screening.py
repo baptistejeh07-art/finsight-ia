@@ -946,10 +946,13 @@ def compute_ticker(ticker: str, cache_row: Optional[dict]) -> Optional[dict]:
     except Exception:
         pass
 
+    industry = info.get("industryDisp") or info.get("industry") or ""
+
     return {
         "ticker":      ticker.upper(),
         "company":     cache_row.get("company_name") or info.get("longName") or ticker,
         "sector":      sector,
+        "industry":    industry,
         "country":     "FR" if ticker.endswith(".PA") else
                        "DE" if ticker.endswith(".DE") else
                        "GB" if ticker.endswith(".L")  else

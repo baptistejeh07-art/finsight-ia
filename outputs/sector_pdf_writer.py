@@ -230,17 +230,19 @@ def build_sommaire(sector_name: str, page_nums: dict = None):
 
     sections = [
         ("1.", "Vue Macro & Dynamiques Sectorielles", "macro",
-         "  Performance relative \u00b7 Revenus par sous-segment \u00b7 Tendances cles"),
+         "  Performance relative \u00b7 Revenus par sous-segment \u00b7 Tendances cl\u00e9s"),
         ("2.", "Structure et Dynamique Sectorielle",  "structure",
-         "  HHI \u00b7 Cycle valorisation \u00b7 Dispersion ROIC \u00b7 Solidite bilantielle"),
-        ("3.", "Analyse des Acteurs Cles",             "acteurs",
+         "  HHI \u00b7 Cycle valorisation \u00b7 Dispersion ROIC \u00b7 Solidit\u00e9 bilantielle"),
+        ("2b.", "D\u00e9composition par Sous-Secteur", "subsectors",
+         "  Industries GICS \u00b7 Drivers \u00b7 Risques \u00b7 Profil financier \u00b7 Allocation"),
+        ("3.", "Analyse des Acteurs Cl\u00e9s",             "acteurs",
          "  Revenus \u00b7 Marges \u00b7 Positionnement concurrentiel"),
         ("4.", "Valorisation Comparative",             "valorisation",
          "  EV/EBITDA \u00b7 P/E \u00b7 Multiples vs croissance"),
         ("5.", "Risques Sectoriels & Sentiment",       "risques",
          "  Cartographie des risques \u00b7 Analyse FinBERT"),
         ("6.", "Top Picks & Recommandations",          "conclusion",
-         "  BUY / HOLD / SELL \u00b7 Allocation portefeuille modèle"),
+         "  BUY / HOLD / SELL \u00b7 Allocation portefeuille mod\u00e8le"),
     ]
     rows = []
     for num, titre, key, sub in sections:
@@ -1313,6 +1315,154 @@ def _build_structure_sectorielle(tickers_data: list[dict], sector_name: str,
     return elems
 
 
+def _aggregate_subsectors(tickers_data: list[dict]) -> list[dict]:
+    """Agrège les tickers par sous-secteur (industry) et calcule les métriques."""
+    from statistics import median as _med
+    groups = {}
+    for t in tickers_data:
+        ind = t.get("industry") or "Autre"
+        groups.setdefault(ind, []).append(t)
+    result = []
+    for ind_name, items in groups.items():
+        if ind_name == "Autre" and len(groups) > 1:
+            continue
+        nb = len(items)
+        scores = [x.get("score_global") or 0 for x in items]
+        avg_score = int(sum(scores) / nb) if nb else 0
+        evs = [x["ev_ebitda"] for x in items if x.get("ev_ebitda") and 1 < x["ev_ebitda"] < 100]
+        ev_med = f"{_med(evs):.1f}x" if evs else "\u2014"
+        mgs = [x.get("ebitda_margin") or x.get("gross_margin") or 0 for x in items if (x.get("ebitda_margin") or x.get("gross_margin"))]
+        mg_med = f"{_med(mgs):.1f}%" if mgs else "\u2014"
+        grs = [x.get("revenue_growth") or 0 for x in items if x.get("revenue_growth") is not None]
+        gr_med = f"{_med(grs):+.1f}%" if grs else "\u2014"
+        moms = [x.get("momentum_52w") or 0 for x in items if x.get("momentum_52w") is not None]
+        mom_med = f"{_med(moms):+.1f}%" if moms else "\u2014"
+        sig = "Surpondérer" if avg_score >= 60 else ("Sous-pondérer" if avg_score < 40 else "Neutre")
+        best = sorted(items, key=lambda x: x.get("score_global") or 0, reverse=True)[:3]
+        best_names = [(b.get("ticker", ""), b.get("company", ""), b.get("score_global", 0)) for b in best]
+        result.append({
+            "name": ind_name, "nb": nb, "score": avg_score, "signal": sig,
+            "ev_ebitda": ev_med, "margin": mg_med, "growth": gr_med, "momentum": mom_med,
+            "best": best_names, "pct": round(nb / len(tickers_data) * 100, 1),
+        })
+    result.sort(key=lambda x: x["score"], reverse=True)
+    return result
+
+
+def _generate_subsector_llm(subsectors: list[dict], sector_name: str) -> dict:
+    """Génère les insights LLM par sous-secteur (drivers, risques, spécificités)."""
+    try:
+        from core.llm_provider import LLMProvider
+        llm = LLMProvider(provider="groq", model="llama-3.3-70b-versatile")
+        import json, re
+        subs_desc = "\n".join(
+            f"- {s['name']} ({s['nb']} socs, score {s['score']}/100, {s['signal']}, "
+            f"EV/EBITDA {s['ev_ebitda']}, marge {s['margin']}, croiss. {s['growth']}, mom. {s['momentum']})"
+            for s in subsectors
+        )
+        prompt = (
+            f"Tu es un analyste sell-side senior. Analyse les sous-secteurs de {sector_name} :\n\n"
+            f"{subs_desc}\n\n"
+            f"RÈGLES : français correct avec accents, prose technique, cite les chiffres. "
+            f"Pas de markdown **, pas d'emojis.\n"
+            f"Réponds en JSON valide :\n"
+            f'{{\n'
+            f'  "intro": "100 mots : vue d\'ensemble de la décomposition sous-sectorielle",\n'
+        )
+        for s in subsectors[:8]:
+            n = s["name"].replace('"', "'")
+            prompt += (
+                f'  "{n}_drivers": "80 mots : drivers de croissance spécifiques à {n}",\n'
+                f'  "{n}_risques": "80 mots : risques et vulnérabilités propres à {n}",\n'
+                f'  "{n}_profil": "60 mots : profil financier typique de {n}",\n'
+            )
+        prompt += f'  "allocation": "100 mots : recommandation d\'allocation entre sous-secteurs"\n}}'
+        resp = llm.generate(prompt, max_tokens=3000)
+        m = re.search(r'\{.*\}', resp, re.DOTALL)
+        if m:
+            return json.loads(m.group(0))
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning("[sector_pdf] subsector LLM error: %s", e)
+    return {}
+
+
+def _build_subsector_decomposition(tickers_data: list[dict], sector_name: str, registry=None):
+    """Section — Décomposition par sous-secteur (industry GICS)."""
+    subsectors = _aggregate_subsectors(tickers_data)
+    if len(subsectors) <= 1:
+        return []  # pas de décomposition si un seul sous-secteur
+
+    elems = []
+    elems.append(Spacer(1, 8*mm))
+    if registry is not None:
+        elems.append(SectionAnchor('subsectors', registry))
+    elems += section_title("Décomposition par Sous-Secteur", "2b")
+    elems.append(Spacer(1, 3*mm))
+
+    # Génération LLM
+    llm_data = _generate_subsector_llm(subsectors, sector_name)
+    intro = llm_data.get("intro", "")
+    if intro:
+        elems.append(Paragraph(_safe(intro), S_BODY))
+        elems.append(Spacer(1, 3*mm))
+
+    # Tableau récapitulatif
+    hdr = [Paragraph(h, S_TH_L if i == 0 else S_TH_C) for i, h in enumerate(
+        ["Sous-secteur", "Nb", "Score", "Signal", "EV/EBITDA", "Marge", "Croiss.", "Mom."])]
+    rows = []
+    for s in subsectors:
+        sig_s = S_TD_G if s["signal"] == "Surpondérer" else (S_TD_R if s["signal"] == "Sous-pondérer" else S_TD_A)
+        rows.append([
+            Paragraph(_safe(s["name"]), S_TD_L),
+            Paragraph(str(s["nb"]), S_TD_C),
+            Paragraph(str(s["score"]), S_TD_BC),
+            Paragraph(s["signal"], sig_s),
+            Paragraph(s["ev_ebitda"], S_TD_C),
+            Paragraph(s["margin"], S_TD_C),
+            Paragraph(s["growth"], S_TD_C),
+            Paragraph(s["momentum"], S_TD_C),
+        ])
+    _cw = [42*mm, 12*mm, 16*mm, 24*mm, 20*mm, 18*mm, 18*mm, 18*mm]
+    _subsec_tbl = tbl([hdr] + rows, cw=_cw)
+    elems.append(_subsec_tbl)
+    elems.append(src(f"FinSight IA \u2014 Agrégation par sous-secteur GICS. Score = composite 0-100."))
+    elems.append(Spacer(1, 4*mm))
+
+    # Détail par sous-secteur : drivers, risques, profil
+    for s in subsectors[:6]:
+        n = s["name"]
+        drivers = llm_data.get(f"{n}_drivers", "")
+        risques = llm_data.get(f"{n}_risques", "")
+        profil = llm_data.get(f"{n}_profil", "")
+        best_str = ", ".join(f"{b[0]} ({b[2]}/100)" for b in s["best"])
+
+        block = []
+        block.append(Paragraph(_safe(
+            f"{n} \u2014 {s['nb']} sociétés \u00b7 Score {s['score']}/100 \u00b7 {s['signal']}"),
+            S_SUBSECTION))
+        block.append(Spacer(1, 1*mm))
+        if drivers:
+            block.append(Paragraph(f"<b>Drivers :</b> {_safe(drivers)}", S_BODY))
+        if risques:
+            block.append(Paragraph(f"<b>Risques :</b> {_safe(risques)}", S_BODY))
+        if profil:
+            block.append(Paragraph(f"<b>Profil financier :</b> {_safe(profil)}", S_BODY))
+        block.append(Paragraph(f"<b>Top sociétés :</b> {_safe(best_str)}", S_BODY))
+        block.append(Spacer(1, 3*mm))
+        elems.append(KeepTogether(block))
+
+    # Recommandation allocation
+    alloc = llm_data.get("allocation", "")
+    if alloc:
+        elems.append(Paragraph("Recommandation d'allocation sous-sectorielle", S_SUBSECTION))
+        elems.append(Spacer(1, 1*mm))
+        elems.append(Paragraph(_safe(alloc), S_BODY))
+        elems.append(Spacer(1, 3*mm))
+
+    return elems
+
+
 def _build_acteurs(tickers_data: list[dict], sector_name: str, registry=None):
     elems = []
     elems.append(Spacer(1, 10*mm))
@@ -2317,6 +2467,7 @@ def _build_story(perf_buf, area_buf, scatter_buf, donut_buf,
 
     story += _build_macro(perf_buf, area_buf, tickers_data, sector_name, universe, registry, sector_analytics)
     story += _build_structure_sectorielle(tickers_data, sector_name, sector_analytics or {}, registry)
+    story += _build_subsector_decomposition(tickers_data, sector_name, registry)
     story += _build_acteurs(tickers_data, sector_name, registry)
     story.append(CondPageBreak(100*mm))  # saut page seulement si < 100mm restants (evite page vide)
     story += _build_valorisation(scatter_buf, donut_buf, tickers_data, sector_name, registry)
