@@ -365,7 +365,16 @@ class ExcelWriter:
         try:
             from outputs.lbo_model import build_lbo_sheets
             build_lbo_sheets(wb)
-            log.info(f"[ExcelWriter] LBO sheets ajoutées (LBO MODEL + _LBO_CALC masquée)")
+            # Repositionner LBO MODEL juste après DCF (référence Baptiste)
+            _sheet_names = wb.sheetnames
+            _dcf_idx = _sheet_names.index("DCF") if "DCF" in _sheet_names else None
+            if _dcf_idx is not None:
+                for _lbo_name in ("LBO MODEL", "_LBO_CALC"):
+                    if _lbo_name in _sheet_names:
+                        _cur_idx = wb.sheetnames.index(_lbo_name)
+                        _target = _dcf_idx + 1
+                        wb.move_sheet(_lbo_name, offset=_target - _cur_idx)
+            log.info(f"[ExcelWriter] LBO sheets ajoutées (LBO MODEL + _LBO_CALC après DCF)")
         except Exception as _lbo_ex:
             log.warning(f"[ExcelWriter] LBO sheets failed: {_lbo_ex}")
 

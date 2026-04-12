@@ -1120,20 +1120,20 @@ def _slide_exec_summary(prs, snap, synthesis, ratios, devil, sentiment):
     add_text_box(slide, 1.15, 9.26, 23.20, 0.55,
                  "CATALYSEURS \u00c0 SURVEILLER (12 MOIS)", 8, WHITE, bold=True)
 
-    # Affichage 4 catalyseurs en 2 colonnes — hauteur augmentée pour éviter troncature
+    # Affichage 4 catalyseurs en 2 colonnes — hauteur et truncate élargis
     _cat_layout = [
         (1.02, 9.89),  (12.70, 9.89),   # row 1 : 2 catalyseurs côte à côte
-        (1.02, 10.55), (12.70, 10.55),  # row 2 : 2 catalyseurs côte à côte
+        (1.02, 10.70), (12.70, 10.70),  # row 2 : 2 catalyseurs côte à côte
     ]
     for i, (cx, cy) in enumerate(_cat_layout):
         if i < len(catalysts):
             _cat_name = _g(catalysts[i], "title") or _g(catalysts[i], "name") or ""
             _cat_body = _g(catalysts[i], "description") or _g(catalysts[i], "text") or ""
-            _cat_txt  = _truncate(f"{_cat_name[:24]} : {_cat_body}", 110) if _cat_body else _truncate(_cat_name, 110)
+            _cat_txt  = _truncate(f"{_cat_name[:28]} : {_cat_body}", 140) if _cat_body else _truncate(_cat_name, 140)
         else:
             _cat_txt = "\u2014"
         add_rect(slide, cx, cy + 0.06, 0.12, 0.26, "1A7A4A")
-        add_text_box(slide, cx + 0.20, cy, 11.40, 0.65,
+        add_text_box(slide, cx + 0.20, cy, 11.40, 0.80,
                      _cat_txt, 7.0, "333333", wrap=True)
 
     # Horizontal rule (before KPI)
@@ -1750,7 +1750,7 @@ def _slide_bilan(prs, snap, synthesis, ratios):
             )
     if fin_comment.strip():
         _bs_title = _jpm_title("bilan", ratios=ratios, snap=snap, synthesis=synthesis)
-        commentary_box(slide, 1.02, 11.20, 23.37, 2.20,
+        commentary_box(slide, 1.02, 10.75, 23.37, 2.60,
                        fin_comment[:600], title=_bs_title)
 
     return slide
@@ -2150,7 +2150,7 @@ def _slide_dcf(prs, snap, synthesis, ratios):
     dcf_comment = _g(synthesis, "dcf_commentary", "") or ""
     if dcf_comment.strip():
         _dcf_title = _jpm_title("dcf", ratios=ratios, snap=snap, synthesis=synthesis)
-        commentary_box(slide, 1.02, 10.88, 23.37, 1.52, dcf_comment, title=_dcf_title)
+        commentary_box(slide, 1.02, 11.20, 23.37, 1.52, dcf_comment, title=_dcf_title)
 
     return slide
 
@@ -3745,7 +3745,7 @@ def _slide_risques(prs, snap, synthesis, devil, extra_scores: dict = None):
         bx_x    = [1.02, 9.01, 17.01]
 
         # --- Ligne 1 : Distress / M&A / Régime ---
-        row1_y  = 12.30
+        row1_y  = 12.05
         row1_items = []
         if _dist.get('score') is not None:
             d_lbl = _dist.get('label', '—')
@@ -3977,7 +3977,7 @@ def _slide_sentiment(prs, snap, synthesis, sentiment):
     comment_y = min(comment_y, 11.8)
     _comment_h = min(2.0, 13.25 - comment_y)  # eviter chevauchement footer (y=13.39)
     add_text_box(slide, 1.02, comment_y, 23.37, _comment_h,
-                 val_comment, 8.5, "333333", wrap=True)
+                 _truncate(val_comment, 420), 8.5, "333333", wrap=True)
 
     return slide
 
@@ -4166,10 +4166,10 @@ def _slide_historique(prs, snap, synthesis):
     add_text_box(slide, 1.02, 5.13, 23.37, 0.46,
                  _hist_subtitle, 9, NAVY, bold=True)
 
-    # Graphique line chart matplotlib (standard sell-side — prix = ligne, pas barres)
+    # Graphique line chart matplotlib — à gauche, box LLM macro à droite
     chart_x = 1.02
     chart_y = 5.84
-    chart_w = 23.37
+    chart_w = 15.50
     chart_h = 5.08
 
     _chart_inserted = False
@@ -4240,11 +4240,25 @@ def _slide_historique(prs, snap, synthesis):
         add_text_box(slide, chart_x + 8.0, chart_y + 2.0, 7.37, 1.0,
                      "Historique de cours non disponible", 10, GREY_TXT)
 
-    # Commentary dans un cadre — 320 chars max, h=1.80 pour éviter footer (y=13.39)
+    # Box LLM macro à droite du chart — contexte expliquant les fluctuations
+    _macro_ctx = _g(synthesis, "macro_context", "") or _g(synthesis, "market_context", "") or ""
+    if not _macro_ctx.strip():
+        _macro_ctx = (
+            f"L'évolution du cours sur 52 semaines reflète les dynamiques macroéconomiques "
+            f"(politique monétaire, cycle économique) et les catalyseurs spécifiques au titre. "
+            f"Les phases de surperformance et de correction identifiées sur le graphique "
+            f"doivent être croisées avec le calendrier des publications de résultats "
+            f"et les révisions de consensus pour distinguer le signal du bruit."
+        )
+    _macro_title = f"Contexte macro et catalyseurs — {ticker}"
+    commentary_box(slide, 17.00, 5.84, 7.39, 5.08,
+                   _truncate(_macro_ctx, 500), title=_macro_title)
+
+    # Commentary en bas — verdict
     thesis_s = _g(synthesis, "summary", "") or _g(synthesis, "thesis", "") or ""
     if thesis_s.strip():
         _hist_title = _jpm_title("verdict", snap=snap, synthesis=synthesis)
-        commentary_box(slide, 1.02, 11.55, 23.37, 1.80, _fit(thesis_s, 320), title=_hist_title)
+        commentary_box(slide, 1.02, 11.20, 23.37, 2.15, _fit(thesis_s, 450), title=_hist_title)
 
     return slide
 

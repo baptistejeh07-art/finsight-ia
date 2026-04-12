@@ -1343,18 +1343,28 @@ def _build_financials(area_buf, data, margins_buf=None):
     _gm_v,  _gm_ref,  _gm_lec  = _rv('Marge brute')
     _roe_v, _roe_ref, _roe_lec  = _rv('Return on Equity')
     _az_v,  _az_ref,  _az_lec   = _rv('Altman')
+    # Titre LLM analytique pour les ratios — traduit les chiffres en insights
+    _ratio_title = (
+        f"Lecture des ratios cl\u00e9s \u2014 {_ticker_f} vs pairs sectoriels"
+    )
     _ratio_para = (
-        f"L'EV/EBITDA de {_ticker_f} ressort \u00e0 {_eve_v}\u00a0x (r\u00e9f\u00e9rence sectorielle\u00a0: "
-        f"{_eve_ref}), signal\u00e9 comme \u00ab\u00a0{_eve_lec}\u00a0\u00bb par rapport aux pairs. "
-        f"La marge brute s'\u00e9tablit \u00e0 {_gm_v} (benchmark\u00a0: {_gm_ref}), "
-        f"indicateur\u00a0: \u00ab\u00a0{_gm_lec}\u00a0\u00bb. "
-        f"Le Return on Equity (ROE) de {_roe_v} se compare \u00e0 {_roe_ref} pour le secteur "
-        f"(\u00ab\u00a0{_roe_lec}\u00a0\u00bb). "
-        f"L'Altman Z-Score de {_az_v} indique\u00a0: \u00ab\u00a0{_az_lec}\u00a0\u00bb "
-        f"(seuil de sant\u00e9 financier\u00a0: 2,99)."
+        f"L'EV/EBITDA ({_eve_v}\u00a0x vs {_eve_ref} sectoriel) mesure la cherté de l'entreprise "
+        f"rapportée à sa capacité bénéficiaire opérationnelle : un multiple inférieur aux pairs "
+        f"signale une sous-valorisation potentielle, un multiple supérieur traduit une prime de "
+        f"croissance ou de qualité. Ici, le ratio est jugé « {_eve_lec} ». "
+        f"La marge brute ({_gm_v} vs {_gm_ref}) révèle le pouvoir de fixation des prix et "
+        f"l'avantage concurrentiel structurel : une marge élevée témoigne d'un fossé économique "
+        f"(pricing power, barrières à l'entrée). Lecture : « {_gm_lec} ». "
+        f"Le ROE ({_roe_v} vs {_roe_ref}) quantifie la rentabilité des capitaux propres et donc "
+        f"la capacité du management à créer de la valeur pour l'actionnaire au-delà du coût du "
+        f"capital. Appréciation : « {_roe_lec} ». "
+        f"L'Altman Z-Score ({_az_v}, seuil de solvabilité : 2,99) est un indicateur composite "
+        f"de santé financière intégrant liquidité, profitabilité, levier et rotation des actifs : "
+        f"un score supérieur à 2,99 écarte le risque de détresse financière à horizon 2 ans. "
+        f"Diagnostic : « {_az_lec} »."
     )
     elems.append(Spacer(1, 4*mm))
-    elems.append(Paragraph("Analyse des ratios cl\u00e9s", S_SUBSECTION))
+    elems.append(Paragraph(_safe(_ratio_title), S_SUBSECTION))
     elems.append(Spacer(1, 2*mm))
     elems.append(Paragraph(_safe(_ratio_para), S_BODY))
 
@@ -1456,7 +1466,11 @@ def _build_valorisation(ff_buf, pie_buf, mc_buf, data):
         elems.append(Paragraph(_safe(_post_comp), S_BODY))
         elems.append(Spacer(1, 4*mm))
 
-    # Donut + texte
+    # Donut + texte — avec titre LLM
+    elems.append(Paragraph(
+        f"R\u00e9partition des m\u00e9thodes de valorisation \u2014 poids relatifs et convergence",
+        S_SUBSECTION))
+    elems.append(Spacer(1, 2*mm))
     pie_img  = Image(pie_buf, width=75*mm, height=75*mm)
     pie_text = _d(data, 'pie_text')
     pie_tbl  = Table([[pie_img, Paragraph(_safe(pie_text), S_BODY)]],
@@ -1475,9 +1489,9 @@ def _build_valorisation(ff_buf, pie_buf, mc_buf, data):
         "Donn\u00e9es illustratives."))
     elems.append(Spacer(1, 3*mm))
 
-    # Football Field
+    # Football Field — titre LLM analytique
     elems.append(Paragraph(
-        "Football Field \u2014 Convergence des m\u00e9thodes de valorisation", S_SUBSECTION))
+        f"Football Field \u2014 Zone de convergence des valorisations de {_ticker_f}", S_SUBSECTION))
     _ff_n = len(data.get('ff_methods') or [])
     # Ratio hauteur/largeur base sur le figsize utilise dans _make_ff_chart : (10, max(4.5, 1.4+n*0.72))
     _ff_fig_h = max(4.5, 1.4 + _ff_n * 0.72)
@@ -1550,7 +1564,12 @@ def _build_valorisation(ff_buf, pie_buf, mc_buf, data):
             "Param\u00e8tres : d\u00e9rive et volatilit\u00e9 annualis\u00e9es calcul\u00e9es sur 2 ans "
             "de donn\u00e9es journali\u00e8res propres \u00e0 la soci\u00e9t\u00e9 (yfinance). "
             "Ligne rouge = cours actuel."))
-        # Commentaire d'interpretation sous le graphique
+        # Titre LLM + commentaire d'interprétation sous le graphique
+        elems.append(Spacer(1, 3*mm))
+        elems.append(Paragraph(
+            f"Interpr\u00e9tation probabiliste \u2014 trajectoire m\u00e9diane et dispersion \u00e0 12 mois",
+            S_SUBSECTION))
+        elems.append(Spacer(1, 2*mm))
         _price = data.get('ff_course') or data.get('current_price')
         if mc_p50 is not None and _price:
             _diff_pct = (mc_p50 / _price - 1) * 100 if _price > 0 else None
@@ -2411,7 +2430,7 @@ def _build_risques(data):
     ]))
     elems.append(Spacer(1, 6*mm))
 
-    # Methodologie & Hypotheses — section courte pour remplir la page finale
+    # Methodologie & Hypotheses — section étoffée (alignée cmp société)
     _wacc_str = _d(data, 'wacc_str', 'N/A')
     _tgr_str  = _d(data, 'tgr_str',  'N/A')
     _beta_str = _d(data, 'beta_str', 'N/A')
@@ -2421,33 +2440,63 @@ def _build_risques(data):
         Paragraph("M\u00e9thodologie &amp; Hypoth\u00e8ses", S_SUBSECTION),
         Spacer(1, 2*mm),
         Paragraph(
-            f"<b>Mod\u00e8le DCF</b> \u2014 La valorisation par actualisation des flux de "
-            f"tr\u00e9sorerie (DCF) repose sur un horizon explicite de cinq ans, un co\u00fbt "
-            f"moyen pond\u00e9r\u00e9 du capital (WACC) de {_wacc_str} et un taux de croissance "
-            f"terminal (TGR) de {_tgr_str}. Le WACC est estim\u00e9 selon le mod\u00e8le CAPM : "
-            f"taux sans risque {_rf_str}, prime de risque march\u00e9 {_erp_str}, "
-            f"b\u00eata {_beta_str}.",
+            f"<b>Mod\u00e8le DCF (Discounted Cash Flow)</b> \u2014 La valorisation par actualisation des flux de "
+            f"tr\u00e9sorerie repose sur un horizon explicite de cinq ans, prolongé par une valeur "
+            f"terminale en perpétuité de Gordon-Shapiro. Le coût moyen pondéré du capital (WACC) retenu "
+            f"est de {_wacc_str}, le taux de croissance terminal (TGR) de {_tgr_str}. "
+            f"Le WACC est estimé via le modèle CAPM : taux sans risque {_rf_str} (OAT/Treasury 10 ans), "
+            f"prime de risque marché {_erp_str} (consensus Damodaran), bêta {_beta_str} (régression "
+            f"sur 2 ans de rendements hebdomadaires vs l'indice de référence). Les flux de trésorerie "
+            f"disponibles (FCF) sont projetés sur la base des taux de croissance historiques ajustés "
+            f"du consensus analystes. La valeur terminale représente typiquement 60-80\u00a0% de la "
+            f"valeur d'entreprise, d'où la sensibilité élevée au TGR et au WACC.",
             S_BODY),
         Spacer(1, 2*mm),
         Paragraph(
-            f"<b>Analyse de sensibilit\u00e9</b> \u2014 La table de sensibilit\u00e9 pr\u00e9sente "
-            f"la valeur intrins\u00e8que estim\u00e9e pour une plage de WACC (\u00b12\u00a0pp) "
-            f"et de TGR (\u00b11\u00a0pp) autour du sc\u00e9nario central. Une hausse de "
-            f"100\u00a0bps du WACC comprime la valeur d'environ 12\u00a0%.",
+            f"<b>Analyse de sensibilité</b> \u2014 La table de sensibilité présente "
+            f"la valeur intrinsèque estimée pour une plage de WACC (\u00b12\u00a0pp) "
+            f"et de TGR (\u00b11\u00a0pp) autour du scénario central. Ce croisement bidimensionnel "
+            f"permet de visualiser l'impact marginal de chaque paramètre sur la valorisation. "
+            f"Une hausse de 100\u00a0bps du WACC comprime la valeur d'environ 12\u00a0%. "
+            f"La diagonale du tableau représente les combinaisons les plus probables. Les cases "
+            f"extrêmes (WACC bas / TGR haut) sont peu réalistes et servent de borne supérieure.",
             S_BODY),
         Spacer(1, 2*mm),
         Paragraph(
-            "<b>Comparables</b> \u2014 Les multiples de valorisation (EV/EBITDA, EV/Revenue, "
-            "P/E) sont calcul\u00e9s sur la base des douze derniers mois (LTM) et compar\u00e9s "
-            "\u00e0 un panel de pairs sectoriels. Les fourchettes de r\u00e9f\u00e9rence sont "
-            "calibr\u00e9es selon le secteur de la soci\u00e9t\u00e9 analys\u00e9e.",
+            "<b>Multiples de valorisation (Comparables)</b> \u2014 Les multiples EV/EBITDA, EV/Revenue "
+            "et P/E sont calculés sur la base des douze derniers mois (LTM) et comparés "
+            "à un panel de 4-5 pairs sectoriels sélectionnés par proximité de modèle économique, "
+            "de taille et de géographie. Les fourchettes de référence sont calibrées au percentile "
+            "25-75 du panel. Un multiple au-dessus du P75 signale une prime de croissance ou de "
+            "qualité ; en dessous du P25, une décote potentielle. Le Football Field confronte "
+            "les résultats des trois approches (DCF, comparables, Monte Carlo) pour identifier "
+            "les zones de convergence et renforcer la robustesse de la cible.",
             S_BODY),
         Spacer(1, 2*mm),
         Paragraph(
-            "<b>Sentiment</b> \u2014 L'analyse de sentiment est r\u00e9alis\u00e9e par FinBERT "
-            "(ProsusAI/finbert), mod\u00e8le de traitement du langage naturel pr\u00e9-entra\u00een\u00e9 "
-            "sur un corpus financier anglophone. Le score agr\u00e9g\u00e9 est calcul\u00e9 sur "
-            "un corpus d'articles des sept derniers jours issus de Finnhub et de flux RSS.",
+            "<b>Monte Carlo (Geometric Brownian Motion)</b> \u2014 10\u00a0000 trajectoires de prix "
+            "sont simulées sur 252 jours de bourse en utilisant la dérive et la volatilité "
+            "annualisées estimées sur 2 ans de données journalières. Le modèle GBM suppose une "
+            "distribution log-normale des rendements et ne capture pas les chocs exogènes "
+            "(récession, régulation, disruption). Les percentiles P10/P50/P90 délimitent le "
+            "corridor probabiliste du cours à 12 mois.",
+            S_BODY),
+        Spacer(1, 2*mm),
+        Paragraph(
+            "<b>Sentiment de marché</b> \u2014 L'analyse de sentiment combine deux approches : "
+            "(1) FinBERT (ProsusAI/finbert), modèle NLP pré-entraîné sur un corpus financier "
+            "anglophone, appliqué aux titres d'articles Finnhub ; (2) classification LLM "
+            "(Groq llama-3.3-70b) pour les articles en français. Le score agrégé pondère les "
+            "résultats sur un corpus de 7 jours. Le sentiment est un indicateur contrarian : "
+            "un pessimisme extrême peut signaler un point d'entrée, un optimisme excessif un "
+            "risque de correction.",
+            S_BODY),
+        Spacer(1, 2*mm),
+        Paragraph(
+            "<b>Sources de données</b> \u2014 Cours et fondamentaux : yfinance (Yahoo Finance API). "
+            "News et événements : Finnhub, flux RSS Yahoo Finance. Comparables et ratios : FMP "
+            "(Financial Modeling Prep, plan gratuit). Les données peuvent présenter un décalage "
+            "de 15-20 minutes par rapport au temps réel. Les estimations consensus sont indicatives.",
             S_BODY),
     ]))
     elems.append(Spacer(1, 6*mm))
