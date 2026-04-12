@@ -1296,6 +1296,8 @@ def _make_test_indice_data(universe: str = "S&P 500") -> dict:
         "pe_forward":       "21.5x",
         "pe_mediane_10y":   "18.2x",
         "erp":              "4.2%",
+        "erp_signal":       "Favorable",
+        "rf_rate":          "4.50%",
         "bpa_growth":       "+8.5%",
         "date_analyse":     date_str,
         "texte_description": (

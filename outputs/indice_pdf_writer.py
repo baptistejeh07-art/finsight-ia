@@ -817,12 +817,14 @@ def _build_synthese(data, perf_buf, registry=None):
 
     elems.append(debate_q(
         "Quels catalyseurs pourraient faire devier l'indice de son scénario central ?"))
+    def _xml_esc(s):
+        return str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
     cat_h = [Paragraph(h, S_TH_L) for h in ["Catalyseur", "Mecanisme", "Horizon"]]
     cat_rows = []
     for nom, mecanisme, horizon in data["catalyseurs"]:
-        cat_rows.append([Paragraph(nom, S_TD_B),
-                         Paragraph(mecanisme, S_TD_L),
-                         Paragraph(horizon, S_TD_C)])
+        cat_rows.append([Paragraph(_xml_esc(nom), S_TD_B),
+                         Paragraph(_xml_esc(mecanisme), S_TD_L),
+                         Paragraph(_xml_esc(horizon), S_TD_C)])
     elems.append(KeepTogether(tbl([cat_h] + cat_rows, cw=[42*mm, 110*mm, 18*mm])))
     elems.append(src("FinSight IA — Analyse interne. Probabilités non assignees (cf. section Risques)."))
 
