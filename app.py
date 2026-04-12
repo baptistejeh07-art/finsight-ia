@@ -3504,6 +3504,118 @@ def _render_indice_comparison_section(results: dict) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Comparaison sectorielle au sein d'un indice (après analyse indice)
+# ---------------------------------------------------------------------------
+
+def _render_sector_comparison_within_indice(results: dict) -> None:
+    """Après une analyse indice, permet de comparer deux secteurs de l'indice."""
+    tickers_data = results.get("tickers_data", [])
+    if not tickers_data:
+        return
+
+    # Extraire les secteurs disponibles
+    sectors_available = sorted(set(
+        t.get("sector", "") for t in tickers_data if t.get("sector")
+    ))
+    if len(sectors_available) < 2:
+        return
+
+    indice_name = results.get("display_name", results.get("universe", "Indice"))
+
+    st.markdown(
+        f'<div class="sec-t" style="margin-top:36px;">Comparer deux secteurs de {indice_name}</div>',
+        unsafe_allow_html=True)
+    st.caption(f"Comparer deux secteurs au sein de {indice_name} — PPTX + PDF générés en temps réel")
+
+    # Session state
+    if "isec_stage" not in st.session_state:
+        st.session_state.isec_stage = None
+    if "isec_pptx_bytes" not in st.session_state:
+        st.session_state.isec_pptx_bytes = None
+    if "isec_pdf_bytes" not in st.session_state:
+        st.session_state.isec_pdf_bytes = None
+
+    isec_stage = st.session_state.isec_stage
+
+    if isec_stage == "done":
+        sec_a = st.session_state.get("isec_sector_a", "")
+        sec_b = st.session_state.get("isec_sector_b", "")
+        st.success(f"Comparatif {sec_a} vs {sec_b} au sein de {indice_name} généré")
+        dl1, dl2 = st.columns(2)
+        with dl1:
+            if st.session_state.isec_pptx_bytes:
+                st.download_button(
+                    "Télécharger PPTX", st.session_state.isec_pptx_bytes,
+                    file_name=f"cmp_secteur_{sec_a}_{sec_b}.pptx",
+                    mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                    key="dl_isec_pptx")
+        with dl2:
+            if st.session_state.isec_pdf_bytes:
+                st.download_button(
+                    "Télécharger PDF", st.session_state.isec_pdf_bytes,
+                    file_name=f"cmp_secteur_{sec_a}_{sec_b}.pdf",
+                    mime="application/pdf", key="dl_isec_pdf")
+        if st.button("Nouveau comparatif sectoriel", key="isec_reset"):
+            st.session_state.isec_stage = None
+            st.rerun()
+        return
+
+    col_a, col_b = st.columns(2)
+    with col_a:
+        sec_a = st.selectbox("Secteur A", sectors_available, key="isec_sel_a")
+    with col_b:
+        remaining = [s for s in sectors_available if s != sec_a]
+        sec_b = st.selectbox("Secteur B", remaining, key="isec_sel_b")
+
+    if st.button("Générer comparatif sectoriel", key="isec_go"):
+        st.session_state.isec_sector_a = sec_a
+        st.session_state.isec_sector_b = sec_b
+        st.session_state.isec_stage = "running"
+        st.rerun()
+
+    if isec_stage == "running":
+        sec_a = st.session_state.get("isec_sector_a", "")
+        sec_b = st.session_state.get("isec_sector_b", "")
+        with st.spinner(f"Génération comparatif {sec_a} vs {sec_b}..."):
+            try:
+                # Filtrer les tickers par secteur depuis les données de l'indice
+                tickers_a = [t for t in tickers_data if t.get("sector") == sec_a]
+                tickers_b = [t for t in tickers_data if t.get("sector") == sec_b]
+
+                # PPTX
+                pptx_bytes = None
+                try:
+                    from outputs.cmp_secteur_pptx_writer import CmpSecteurPPTXWriter
+                    pptx_bytes = CmpSecteurPPTXWriter.generate(
+                        tickers_a=tickers_a, tickers_b=tickers_b,
+                        sector_a=sec_a, sector_b=sec_b,
+                        universe=indice_name,
+                    )
+                except Exception as _ex:
+                    log.warning("[isec] PPTX error: %s", _ex)
+
+                # PDF
+                pdf_bytes = None
+                try:
+                    from outputs.cmp_secteur_pdf_writer import generate_cmp_secteur_pdf
+                    pdf_bytes = generate_cmp_secteur_pdf(
+                        tickers_a=tickers_a, tickers_b=tickers_b,
+                        sector_a=sec_a, sector_b=sec_b,
+                        universe=indice_name,
+                    )
+                except Exception as _ex:
+                    log.warning("[isec] PDF error: %s", _ex)
+
+                st.session_state.isec_pptx_bytes = pptx_bytes
+                st.session_state.isec_pdf_bytes = pdf_bytes
+                st.session_state.isec_stage = "done"
+                st.rerun()
+            except Exception as _ex:
+                st.error(f"Erreur : {_ex}")
+                st.session_state.isec_stage = None
+
+
+# ---------------------------------------------------------------------------
 # Comparatif sectoriel — UI (après analyse sectorielle simple)
 # ---------------------------------------------------------------------------
 
@@ -3858,6 +3970,9 @@ def render_screening_results(results: dict) -> None:
     _is_sector_result = _universe_key in _SECTOR_ALIASES_SET
     if _is_indice_result:
         _render_indice_comparison_section(results)
+        st.markdown('<div style="margin-top:8px;"></div>', unsafe_allow_html=True)
+        # Comparaison sectorielle au sein de l'indice
+        _render_sector_comparison_within_indice(results)
         st.markdown('<div style="margin-top:8px;"></div>', unsafe_allow_html=True)
 
     # --- Comparatif sectoriel (si analyse sectorielle simple) ---
