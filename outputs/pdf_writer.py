@@ -1419,7 +1419,47 @@ def _build_financials(area_buf, data, margins_buf=None):
     elems.append(Paragraph("\u00c9volution des marges \u2014 interpr\u00e9tation", S_SUBSECTION))
     elems.append(Spacer(1, 1*mm))
     elems.append(Paragraph(_margins_comment, S_BODY))
-    elems.append(Spacer(1, 3*mm))
+    elems.append(Spacer(1, 4*mm))
+
+    # Analyse LLM approfondie : qualité du mix, drivers de marge, positionnement concurrentiel
+    _ticker_fin = _d(data, 'ticker', 'La soci\u00e9t\u00e9')
+    _sector_fin = _d(data, 'sector', '')
+    _ratios_lines = []
+    for r in (data.get('ratios_vs_peers') or [])[:6]:
+        _ratios_lines.append(f"{_d(r, 'label', '')}: {_d(r, 'value', '\u2014')} "
+                             f"(r\u00e9f {_d(r, 'reference', '\u2014')})")
+    _ratios_str = " | ".join(_ratios_lines) if _ratios_lines else "donn\u00e9es ratios non disponibles"
+
+    _llm_margin_analysis = ""
+    try:
+        from core.llm_provider import LLMProvider
+        _llm_m = LLMProvider(provider="groq", model="llama-3.3-70b-versatile")
+        _prompt_margin = (
+            f"Tu es un analyste sell-side senior (buy-side tier-1). R\u00e9dige une analyse "
+            f"(270 mots) de la qualit\u00e9 op\u00e9rationnelle et du positionnement concurrentiel "
+            f"de {_ticker_fin} (secteur {_sector_fin}).\n"
+            f"Donn\u00e9es ratios cl\u00e9s : {_ratios_str}.\n\n"
+            f"Structure en 3 paragraphes :\n"
+            f"1. <b>Qualit\u00e9 des marges</b> : drivers structurels (mix produit, pricing power, "
+            f"effet de levier op\u00e9rationnel), durabilit\u00e9 dans le cycle actuel\n"
+            f"2. <b>Structure de co\u00fbts</b> : intensit\u00e9 R&amp;D/capex/marketing, barri\u00e8res "
+            f"\u00e0 l'entr\u00e9e, vuln\u00e9rabilit\u00e9 aux chocs co\u00fbts matiers premi\u00e8res/main d'oeuvre\n"
+            f"3. <b>Positionnement concurrentiel</b> : moat (fosse \u00e9conomique), avantages "
+            f"structurels vs pairs sectoriels, risque d'\u00e9rosion comp\u00e9titive\n\n"
+            f"Chaque paragraphe : 80-90 mots. Cite des chiffres pr\u00e9cis. "
+            f"Fran\u00e7ais correct avec accents. Utilise <b>..</b> pour les termes cl\u00e9s. "
+            f"Pas de listes. Pas d'emojis."
+        )
+        _llm_margin_analysis = _llm_m.generate(_prompt_margin, max_tokens=700) or ""
+    except Exception:
+        pass
+
+    if _llm_margin_analysis.strip():
+        elems.append(Paragraph(
+            "Qualit\u00e9 op\u00e9rationnelle et positionnement concurrentiel", S_SUBSECTION))
+        elems.append(Spacer(1, 1*mm))
+        elems.append(Paragraph(_safe(_llm_margin_analysis), S_BODY))
+        elems.append(Spacer(1, 3*mm))
     return elems
 
 
@@ -1495,11 +1535,11 @@ def _build_valorisation(ff_buf, pie_buf, mc_buf, data):
         elems.append(Paragraph(_safe(_post_comp), S_BODY))
         elems.append(Spacer(1, 4*mm))
 
-    # Donut + texte — avec titre LLM
-    elems.append(Paragraph(
-        f"R\u00e9partition des m\u00e9thodes de valorisation \u2014 poids relatifs et convergence",
-        S_SUBSECTION))
-    elems.append(Spacer(1, 2*mm))
+    # Donut + texte — titre lié au donut dans un KeepTogether (évite orphelin)
+    _sec_for_title = _d(data, 'sector', '') or _d(data, 'pie_sector_name', '')
+    _cap_lbl_title = _d(data, 'pie_cap_label', 'EV')
+    _pie_title_txt = (f"Poids relatif {_cap_lbl_title} \u2014 positionnement "
+                      f"sectoriel de la soci\u00e9t\u00e9")
     pie_img  = Image(pie_buf, width=75*mm, height=75*mm)
     pie_text = _d(data, 'pie_text')
     pie_tbl  = Table([[pie_img, Paragraph(_safe(pie_text), S_BODY)]],
@@ -1512,7 +1552,12 @@ def _build_valorisation(ff_buf, pie_buf, mc_buf, data):
         ('BOTTOMPADDING',(0, 0), (-1, -1), 0),
         ('LEFTPADDING',  (1, 0), (1, 0),   5),
     ]))
-    elems.append(pie_tbl)
+    # Keep title + donut together
+    elems.append(KeepTogether([
+        Paragraph(_pie_title_txt, S_SUBSECTION),
+        Spacer(1, 2*mm),
+        pie_tbl,
+    ]))
     elems.append(src(
         f"FinSight IA \u2014 EV proxy calcul\u00e9 sur cours au {_d(data, 'date_analyse')}. "
         "Donn\u00e9es illustratives."))
@@ -1985,13 +2030,44 @@ def _build_multiples_historiques(data):
                                f"vs la m\u00e9diane des pairs sur l\u2019EV/EBITDA.")
             except Exception:
                 pass
-        _txt  = (f"Le P/E affiche une {_dir} de {abs(delta):.1f}x sur la p\u00e9riode "
+        _txt_fallback  = (f"Le P/E affiche une {_dir} de {abs(delta):.1f}x sur la p\u00e9riode "
                  f"({pe_clean[0]:.1f}x -> {pe_clean[-1]:.1f}x)."
                  + _ev_mov + _pb_note + _peers_note
                  + (" Un re-rating positif soutient la th\u00e8se haussi\u00e8re, mais amplifie le risque de valorisation." if delta > 0 else " La compression multiple refl\u00e8te une d\u00e9t\u00e9rioration du profil risk/reward et limite l\u2019upside."))
+
+        # Enrichissement LLM — commentaire multi-paragraphes sur l'historique des multiples
+        _llm_text_mh = ""
+        try:
+            from core.llm_provider import LLMProvider
+            _llm = LLMProvider(provider="groq", model="llama-3.3-70b-versatile")
+            _ticker_mh = _d(data, 'ticker', 'La soci\u00e9t\u00e9')
+            _sector_mh = _d(data, 'sector', '')
+            _pe_series = ", ".join(f"{pe:.1f}x" for pe in pe_clean)
+            _ev_series = ", ".join(f"{ev:.1f}x" for ev in ev_clean) if ev_clean else "n.d."
+            _pb_series = ", ".join(f"{pb:.1f}x" for pb in pb_clean) if pb_clean else "n.d."
+            _peers_str = f" Médiane pairs EV/EBITDA: {_peers_ev:.1f}x." if _peers_ev else ""
+            _prompt_mh = (
+                f"Tu es un analyste sell-side senior. Rédige un commentaire analytique "
+                f"(250 mots max) sur l'évolution des multiples de valorisation de {_ticker_mh} "
+                f"sur 5 ans, secteur {_sector_mh}.\n"
+                f"Données : P/E {_pe_series} | EV/EBITDA {_ev_series} | P/B {_pb_series}.{_peers_str}\n\n"
+                f"Structure :\n"
+                f"1. Lecture de la tendance P/E et EV/EBITDA (expansion/compression) avec hypothèses économiques\n"
+                f"2. Analyse du mean-reversion potentiel et positionnement relatif aux pairs\n"
+                f"3. Implications pour la thèse d'investissement (re-rating vs de-rating)\n"
+                f"4. Risques spécifiques au cycle de valorisation actuel\n\n"
+                f"Français correct avec accents. Pas de markdown. Pas d'emojis. "
+                f"Cite les chiffres précis."
+            )
+            _llm_text_mh = _llm.generate(_prompt_mh, max_tokens=600) or ""
+        except Exception:
+            pass
+        _txt = _llm_text_mh.strip() or _txt_fallback
     else:
-        _txt = "Historique de multiples insuffisant pour etablir une tendance significative."
+        _txt = "Historique de multiples insuffisant pour \u00e9tablir une tendance significative."
     elems.append(Spacer(1, 3*mm))
+    elems.append(Paragraph("Interpr\u00e9tation de l'historique des multiples", S_SUBSECTION))
+    elems.append(Spacer(1, 1*mm))
     elems.append(Paragraph(_safe(_txt), S_BODY))
     elems.append(src("FinSight IA \u2014 yfinance, calculs internes."))
     return elems
@@ -2120,13 +2196,43 @@ def _build_capital_returns(data):
                 _conv_qual = _conv_excellent if _conv > 0.7 else _conv_standard
                 _fcf_conv_note = f" La conversion EBITDA->FCF de {_conv:.0%} {_conv_qual}."
             except: pass
-        _txt = (f"La g\u00e9n\u00e9ration de FCF affiche une {_dir} de "
+        _txt_fallback = (f"La g\u00e9n\u00e9ration de FCF affiche une {_dir} de "
                 f"{_fr(abs(delta_fcf)/1000, 1)}\u00a0Mds sur la p\u00e9riode. "
                 f"Le FCF yield courant de {_fy} {_fy_qual}."
                 + _fcf_drawdown_note + _capex_note + _payout_note + _fcf_conv_note + _div_note + _syn_note)
+
+        # Enrichissement LLM
+        _llm_text_cr = ""
+        try:
+            from core.llm_provider import LLMProvider
+            _llm = LLMProvider(provider="groq", model="llama-3.3-70b-versatile")
+            _ticker_cr = _d(data, 'ticker', 'La soci\u00e9t\u00e9')
+            _sector_cr = _d(data, 'sector', '')
+            _fcf_series = ", ".join(f"{f/1000:.1f}Mds" for f in fcf_vals[-4:])
+            _fy_series = ", ".join(_frpct(f) for f in fy_vals[-4:]) if fy_vals else "n.d."
+            _cx_last = _frpct(cx_vals[-1]) if cx_vals else "n.d."
+            _prompt_cr = (
+                f"Tu es un analyste sell-side senior. Rédige un commentaire "
+                f"(250 mots) sur le Capital Returns & Free Cash Flow de {_ticker_cr} "
+                f"(secteur {_sector_cr}).\n"
+                f"Données : FCF sur 4 ans {_fcf_series} | FCF Yield {_fy_series} | "
+                f"Capex/CA actuel {_cx_last}.\n\n"
+                f"Structure :\n"
+                f"1. Tendance de génération de cash et qualité du FCF (conversion EBITDA→FCF)\n"
+                f"2. Politique d'allocation du capital (capex, dividendes, rachats, acquisitions)\n"
+                f"3. Soutenabilité du modèle face au coût du capital\n"
+                f"4. Implications pour la thèse d'investissement (profil cash generator vs growth reinvestment)\n\n"
+                f"Français correct avec accents. Pas de markdown. Pas d'emojis. Cite les chiffres."
+            )
+            _llm_text_cr = _llm.generate(_prompt_cr, max_tokens=600) or ""
+        except Exception:
+            pass
+        _txt = _llm_text_cr.strip() or _txt_fallback
     else:
-        _txt = "Donn\u00e9es FCF insuffisantés pour l\u2019analyse de l\u2019allocation du capital."
+        _txt = "Donn\u00e9es FCF insuffisantes pour l\u2019analyse de l\u2019allocation du capital."
     elems.append(Spacer(1, 3*mm))
+    elems.append(Paragraph("Analyse du Capital Returns et g\u00e9n\u00e9ration de cash", S_SUBSECTION))
+    elems.append(Spacer(1, 1*mm))
     elems.append(Paragraph(_safe(_txt), S_BODY))
     elems.append(src("FinSight IA \u2014 yfinance, cash flow statements."))
     return elems
@@ -2255,7 +2361,7 @@ def _build_lbo(data):
                         f"un rem boursement de {debt_repay_pct*100:.0f}% de la dette en {hold_years} ans suppose "
                         f"un FCF stable ou croissant sur la p\u00e9riode de holding. "
                         if _fcf_abs_mds else "")
-        _txt = (f"A 10x EBITDA d\u2019entr\u00e9e / 10x de sortie, le LBO g\u00e9n\u00e8re un IRR "
+        _txt_fallback = (f"A 10x EBITDA d\u2019entr\u00e9e / 10x de sortie, le LBO g\u00e9n\u00e8re un IRR "
                 f"de {irr_base*100:.1f}% (MOIC {moic_base:.1f}x) \u2014 attractivit\u00e9 PE {_signal}. "
                 f"{_entry_note} "
                 f"{_lev_comment}"
@@ -2263,8 +2369,39 @@ def _build_lbo(data):
                 f"La viabilit\u00e9 LBO reste conditionnelle \u00e0 la visibilit\u00e9 du free cash flow, "
                 f"au niveau de taux d\u2019int\u00e9r\u00eat sur la dette senior, et \u00e0 la capacit\u00e9 "
                 f"du management \u00e0 ex\u00e9cuter le plan op\u00e9rationnel dans un environnement de levier {leverage_ratio:.0f}x.")
+
+        # Enrichissement LLM — commentaire LBO détaillé
+        _llm_text_lbo = ""
+        try:
+            from core.llm_provider import LLMProvider
+            _llm = LLMProvider(provider="groq", model="llama-3.3-70b-versatile")
+            _ticker_lbo = _d(data, 'ticker', 'La soci\u00e9t\u00e9')
+            _sector_lbo = _d(data, 'sector', '')
+            _ebitda_lbo = f"{ebitda/1000:.1f} Mds" if ebitda else "n.d."
+            _fcf_lbo = f"{fcf/1000:.1f} Mds" if fcf else "n.d."
+            _debt_lbo = f"{_net_debt_ebitda:.1f}x EBITDA" if _net_debt_ebitda is not None else "n.d."
+            _prompt_lbo = (
+                f"Tu es un analyste Private Equity senior (profil MD dans un fonds tier-1). "
+                f"R\u00e9dige un commentaire (270 mots) sur la viabilit\u00e9 LBO de {_ticker_lbo} "
+                f"(secteur {_sector_lbo}).\n"
+                f"Donn\u00e9es : EBITDA LTM {_ebitda_lbo}, FCF LTM {_fcf_lbo}, "
+                f"dette nette actuelle {_debt_lbo}, IRR base (10x/10x) {irr_base*100:.1f}%, "
+                f"MOIC {moic_base:.1f}x.\n\n"
+                f"Structure :\n"
+                f"1. Attractivit\u00e9 en tant que cible PE : forces du mod\u00e8le \u00e9conomique pour un LBO\n"
+                f"2. Capacit\u00e9 d'endettement et levier soutenable (FCF/int\u00e9r\u00eats, couverture)\n"
+                f"3. Leviers de cr\u00e9ation de valeur post-acquisition (op\u00e9rationnel, financier, multiple arbitrage)\n"
+                f"4. Risques sp\u00e9cifiques au LBO (volatilit\u00e9 FCF, cyclicit\u00e9, risque de refinancement)\n\n"
+                f"Fran\u00e7ais correct avec accents. Pas de markdown. Pas d'emojis. Cite les chiffres."
+            )
+            _llm_text_lbo = _llm.generate(_prompt_lbo, max_tokens=650) or ""
+        except Exception:
+            pass
+        _txt = _llm_text_lbo.strip() or _txt_fallback
     else:
         _txt = "EBITDA LTM non disponible \u2014 analyse LBO indicative impossible."
+    elems.append(Paragraph("Analyse de viabilit\u00e9 PE", S_SUBSECTION))
+    elems.append(Spacer(1, 1*mm))
     elems.append(Paragraph(_safe(_txt), S_BODY))
     elems.append(Paragraph(
         "Note : Analyse indicative uniquement. Ne tient pas compte des frais de transaction, "
@@ -3282,11 +3419,12 @@ class PDFWriter:
         _dash_row = ['\u2014'] * _n_cols
 
         # Fallback EPS LTM depuis données financières si yfinance n'a pas retourné la valeur
+        # net_income et shares_diluted sont tous deux en millions → division directe
         if _trailing_eps is None and hist_3:
             _ni_ltm = _ni(hist_3[-1])
             if _ni_ltm is not None and _shares and float(_shares) > 0:
                 try:
-                    _trailing_eps = round(float(_ni_ltm) * 1000 / float(_shares), 2)
+                    _trailing_eps = round(float(_ni_ltm) / float(_shares), 2)
                 except (ValueError, ZeroDivisionError):
                     pass
         # Fallback P/E : cours / EPS LTM si P/E Forward consensus non disponible
@@ -3859,11 +3997,11 @@ class PDFWriter:
 
         # --- Fetch chart data (yfinance, non-bloquant) ---
         peer_tickers = [_g(p, 'ticker') for p in (peers or []) if _g(p, 'ticker')][:5]
-        # Fallback secteur si la synthese n'a pas fourni de tickers
-        if not peer_tickers:
+        # Fallback secteur si la synthese n'a pas fourni assez de tickers (<3)
+        if len(peer_tickers) < 3:
             _SECTOR_PEERS = {
                 'consumer cyclical': ['GM', 'F', 'RIVN', 'LCID', 'HMC'],
-                'technology':        ['MSFT', 'GOOGL', 'META', 'AMZN', 'NVDA'],
+                'technology':        ['AAPL', 'MSFT', 'GOOGL', 'META', 'AMZN', 'NVDA'],
                 'health':            ['JNJ', 'PFE', 'MRK', 'ABBV', 'TMO'],
                 'financ':            ['JPM', 'BAC', 'GS', 'WFC', 'MS'],
                 'energy':            ['XOM', 'CVX', 'COP', 'SLB', 'EOG'],
@@ -3875,10 +4013,19 @@ class PDFWriter:
                 'real estate':       ['AMT', 'PLD', 'EQIX', 'SPG', 'PSA'],
             }
             s_low = (sector or '').lower()
+            _fallback_peers = []
             for _k, _v in _SECTOR_PEERS.items():
                 if _k in s_low:
-                    peer_tickers = [t for t in _v if t.upper() != ticker.upper()][:5]
+                    _fallback_peers = [t for t in _v if t.upper() != ticker.upper()]
                     break
+            # Compléter avec le fallback sans dupliquer
+            _existing_up = {t.upper() for t in peer_tickers}
+            for _fp in _fallback_peers:
+                if _fp.upper() not in _existing_up:
+                    peer_tickers.append(_fp)
+                    _existing_up.add(_fp.upper())
+                    if len(peer_tickers) >= 5:
+                        break
 
         perf_result = _fetch_perf_data(ticker, exchange)
         if perf_result:
