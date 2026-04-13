@@ -2782,8 +2782,11 @@ def _build_story(perf_buf, area_buf, scatter_buf, donut_buf,
     story.append(CondPageBreak(100*mm))  # saut page seulement si < 100mm restants (evite page vide)
     story += _build_valorisation(scatter_buf, donut_buf, tickers_data, sector_name, registry)
     story += _build_risques(tickers_data, sector_name, registry)
-    story += _build_conclusion(tickers_data, sector_name, sector_analytics or {}, registry)
+    # Annexe (ranking complet) AVANT conclusion (qui contient mentions legales).
+    # Regle : les informations reglementaires / disclaimer doivent TOUJOURS
+    # etre en derniere position du PDF. Aucune section analytique apres.
     story += _build_annexe(tickers_data, sector_name, reco_commentary=reco_commentary or {})
+    story += _build_conclusion(tickers_data, sector_name, sector_analytics or {}, registry)
     return story
 
 

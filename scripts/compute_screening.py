@@ -620,6 +620,19 @@ def _compute_scores(data: list[dict]) -> list[dict]:
                         scores.append(float(v))
                     except (ValueError, TypeError):
                         pass
+            # Fallback : si TOUS les multiples principaux sont None (frequent
+            # pour Tech via yfinance throttling), utiliser ps_ratio + ev_gross_profit
+            # + pb_ratio pour eviter score VALUE = None systematique
+            if not scores:
+                for k in ("ps_ratio", "ev_gross_profit", "pb_ratio"):
+                    v = t.get(k)
+                    if v is not None:
+                        try:
+                            fv = float(v)
+                            if fv > 0:
+                                scores.append(fv)
+                        except (ValueError, TypeError):
+                            pass
         return (sum(scores) / len(scores)) if scores else None
 
     # ═══ GROWTH composite — revenue_growth partout, fallback ═══
