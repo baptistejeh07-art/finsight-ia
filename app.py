@@ -687,15 +687,89 @@ def _get_universe_tickers(universe: str) -> list:
         return _fetch_sector_tickers(u)
 
 
+# ═════════════════════════════════════════════════════════════════════════════
+# Whitelists sous-secteurs — filtrent le pool Financial Services
+# ═════════════════════════════════════════════════════════════════════════════
+# Ces sets servent a splitter "Financial Services" en deux analyses distinctes
+# Banques / Assurance. Classification manuelle (Supabase n'a pas de colonne
+# industry). Maintenance legere : une banque entrante au S&P 500 passera en
+# umbrella FINANCIALS si non whitelistee, pas d'erreur cassante.
+
+_BANKS_SP500_TICKERS: set[str] = {
+    # Megabanks
+    "JPM", "BAC", "WFC", "C", "GS", "MS",
+    # Super-regionals
+    "USB", "PNC", "TFC", "COF", "BK", "STT", "NTRS",
+    # Regionals
+    "FITB", "HBAN", "RF", "KEY", "CFG", "MTB", "CMA", "ZION",
+    # Brokers/payments adjacents
+    "SCHW", "AXP", "DFS", "SYF",
+}
+
+_BANKS_EU_TICKERS: set[str] = {
+    # France (CAC 40 / SBF 120)
+    "BNP.PA", "ACA.PA", "GLE.PA",
+    # UK (FTSE 100)
+    "HSBA.L", "BARC.L", "LLOY.L", "NWG.L", "STAN.L",
+    # Germany (DAX)
+    "DBK.DE", "CBK.DE",
+    # Italy/Spain (EURO STOXX 50)
+    "ISP.MI", "UCG.MI", "SAN.MC", "BBVA.MC",
+    # Netherlands
+    "INGA.AS",
+    # Switzerland
+    "UBSG.SW",
+}
+
+_INSURANCE_SP500_TICKERS: set[str] = {
+    # P&C / Multi-line
+    "BRK.B", "TRV", "PGR", "ALL", "CB", "HIG", "AIG",
+    "CINF", "L", "RE", "WRB", "MKL", "RNR", "AIZ",
+    # Life / Annuities
+    "MET", "PRU", "LNC", "UNM", "GL",
+    # Health insurers (optionnel — separables en HEALTHCARE parfois)
+    "UNH", "ELV", "HUM", "CI", "CNC", "MOH",
+    # Brokers
+    "MMC", "AON", "AJG", "WTW", "BRO",
+    # Specialty
+    "AFL", "HIG",
+}
+
+_INSURANCE_EU_TICKERS: set[str] = {
+    "AXA.PA", "CS.PA",  # France
+    "ALV.DE", "MUV2.DE",  # Germany
+    "ZURN.SW", "SLHN.SW",  # Switzerland
+    "AV.L", "LGEN.L", "PRU.L",  # UK
+    "G.MI",  # Italy
+    "MAP.MC",  # Spain
+}
+
+
 def _fetch_sector_tickers(sector_key: str) -> list:
-    """Query Supabase for tickers in a given sector, fallback sur _SECTOR_TICKERS local."""
+    """Query Supabase for tickers in a given sector, fallback sur _SECTOR_TICKERS local.
+
+    Sous-secteurs (BANKS, INSURANCE) : fetch le pool du secteur ombrelle
+    (Financial Services) puis filtre via la whitelist correspondante.
+    """
     import os, requests as _req
+    from core.sector_labels import is_sub_sector, umbrella_slug
+
     url = os.getenv("SUPABASE_URL", "").rstrip("/")
     key = os.getenv("SUPABASE_SECRET_KEY", "")
 
+    # Sous-secteur : fetch l'ombrelle puis filtre
+    _sub_whitelist: set | None = None
+    _fetch_slug = sector_key
+    if is_sub_sector(sector_key):
+        _fetch_slug = umbrella_slug(sector_key)
+        if sector_key == "BANKS":
+            _sub_whitelist = _BANKS_SP500_TICKERS | _BANKS_EU_TICKERS
+        elif sector_key == "INSURANCE":
+            _sub_whitelist = _INSURANCE_SP500_TICKERS | _INSURANCE_EU_TICKERS
+
     tickers = []
     if url and key:
-        sector_name = _SECTOR_YFINANCE.get(sector_key, sector_key.title())
+        sector_name = _SECTOR_YFINANCE.get(_fetch_slug, _fetch_slug.title())
         offset = 0
         while True:
             try:
@@ -718,6 +792,10 @@ def _fetch_sector_tickers(sector_key: str) -> list:
                 break
             offset += 1000
 
+    # Filtre sous-secteur (BANKS/INSURANCE) : ne garde que les tickers whitelistes
+    if tickers and _sub_whitelist is not None:
+        tickers = [t for t in tickers if t in _sub_whitelist]
+
     if tickers:
         return tickers
 
@@ -729,21 +807,31 @@ def _fetch_sector_tickers(sector_key: str) -> list:
         if _root not in _sys.path:
             _sys.path.insert(0, _root)
         from cli_analyze import _SECTOR_TICKERS as _ST
-        sector_display = _SECTOR_YFINANCE.get(sector_key, sector_key.title())
+        sector_display = _SECTOR_YFINANCE.get(_fetch_slug, _fetch_slug.title())
         # Priorite S&P 500, sinon premier univers trouvé (Normalisé sans espaces)
         _norm = sector_display.lower().replace(" ", "")
+        _apply = (lambda xs: [x for x in xs if x in _sub_whitelist]) if _sub_whitelist else list
         for (s, u), tks in _ST.items():
             if s.lower().replace(" ", "") == _norm and u == "S&P 500":
-                return list(tks)
+                _r = _apply(tks)
+                if _r:
+                    return _r
         for universe_pref in ("CAC 40", "DAX", "FTSE 100"):
             for (s, u), tks in _ST.items():
                 if s.lower().replace(" ", "") == _norm and u == universe_pref:
-                    return list(tks)
-        # Dernier recours : n'importe quelle cle avec ce secteur (Normalisé sans espaces)
-        _norm = sector_display.lower().replace(" ", "")
+                    _r = _apply(tks)
+                    if _r:
+                        return _r
+        # Dernier recours : n'importe quelle cle avec ce secteur
         for (s, u), tks in _ST.items():
             if s.lower().replace(" ", "") == _norm:
-                return list(tks)
+                _r = _apply(tks)
+                if _r:
+                    return _r
+        # Si on est en sous-secteur et rien trouve via whitelist, retourne la
+        # whitelist brute (tickers hardcodes pour garantir non-vide)
+        if _sub_whitelist:
+            return sorted(_sub_whitelist)
     except Exception:
         pass
 
@@ -1572,7 +1660,7 @@ def render_home() -> None:
 
         _quick_label("Secteurs")
         # Libelles francais (i18n) — _slug_from_any Normalisé correctement a la résolution
-        quick_sec = ["Technologie", "Santé", "Finance", "Énergie", "Industrie"]
+        quick_sec = ["Technologie", "Santé", "Banques", "Énergie", "Industrie"]
         sec_cols = st.columns(5)
         for i, qs in enumerate(quick_sec):
             with sec_cols[i]:

@@ -533,25 +533,99 @@ def _percentile_score(values: list[Optional[float]],
             for i in range(len(values))]
 
 
-def _compute_scores(data: list[dict]) -> list[dict]:
-    """Calcule les 4 scores + score_global par rang dans l'univers."""
-    n = len(data)
+def _detect_pool_profile(data: list[dict]) -> str:
+    """Detecte le profil metier majoritaire d'un univers de screening.
 
-    # Value : ev_ebitda bas = bon, pe bas = bon, ev_revenue bas = bon
+    Retourne STANDARD, BANK, INSURANCE, REIT, UTILITY ou OIL_GAS selon
+    core.sector_profiles.detect_profile appliquee a chaque ticker.
+    Vote majoritaire, STANDARD par defaut si pas de majorite claire.
+    """
+    try:
+        from core.sector_profiles import detect_profile
+    except Exception:
+        return "STANDARD"
+    from collections import Counter
+    votes = Counter()
+    for t in data:
+        try:
+            p = detect_profile(t.get("sector", "") or "", t.get("industry", "") or "")
+            votes[p] += 1
+        except Exception:
+            votes["STANDARD"] += 1
+    if not votes:
+        return "STANDARD"
+    top, count = votes.most_common(1)[0]
+    # Seuil 50% pour forcer un profil non-standard (eviter faux positifs)
+    if top != "STANDARD" and count >= len(data) * 0.5:
+        return top
+    return "STANDARD"
+
+
+def _compute_scores(data: list[dict]) -> list[dict]:
+    """Calcule les 4 scores + score_global par rang dans l'univers.
+
+    Adapte les metriques composites au profil metier majoritaire du pool :
+    - STANDARD : EV/EBITDA, P/E, EV/Rev pour value ; marges+Altman pour quality
+    - BANK/INSURANCE : P/E, P/TBV (P/B fallback) pour value ; ROE pour quality
+    - REIT : P/FFO (P/E fallback), P/B pour value ; debt metrics pour quality
+    - UTILITY : P/E, EV/EBITDA, div_yield (inverse) pour value ; debt ratio pour quality
+    - OIL_GAS : EV/EBITDA, P/E pour value (cyclique) ; margins+Altman
+    """
+    n = len(data)
+    profile = _detect_pool_profile(data)
+    log.info("[scores] profil pool detecte : %s (%d tickers)", profile, n)
+
+    # ═══ VALUE composite — adapte par profil ═══
     def _value_composite(t):
         scores = []
-        for k in ("ev_ebitda", "pe", "ev_revenue"):
-            v = t.get(k)
-            if v is not None:
-                try:
-                    scores.append(float(v))
-                except (ValueError, TypeError):
-                    pass
+        if profile in ("BANK", "INSURANCE"):
+            # P/E (principal), P/B (substitut P/TBV)
+            for k in ("pe", "pb_ratio"):
+                v = t.get(k)
+                if v is not None:
+                    try:
+                        fv = float(v)
+                        if fv > 0:
+                            scores.append(fv)
+                    except (ValueError, TypeError):
+                        pass
+        elif profile == "REIT":
+            # P/FFO non disponible -> P/E + P/B (proxies)
+            for k in ("pe", "pb_ratio"):
+                v = t.get(k)
+                if v is not None:
+                    try:
+                        fv = float(v)
+                        if fv > 0:
+                            scores.append(fv)
+                    except (ValueError, TypeError):
+                        pass
+        elif profile == "UTILITY":
+            # P/E + EV/EBITDA (classique regulated assets)
+            for k in ("pe", "ev_ebitda"):
+                v = t.get(k)
+                if v is not None:
+                    try:
+                        fv = float(v)
+                        if fv > 0:
+                            scores.append(fv)
+                    except (ValueError, TypeError):
+                        pass
+        else:
+            # STANDARD / OIL_GAS : mix complet
+            for k in ("ev_ebitda", "pe", "ev_revenue"):
+                v = t.get(k)
+                if v is not None:
+                    try:
+                        scores.append(float(v))
+                    except (ValueError, TypeError):
+                        pass
         return (sum(scores) / len(scores)) if scores else None
 
-    # Growth : revenue_growth haut, ebitda_ntm_growth haut
+    # ═══ GROWTH composite — revenue_growth partout, fallback ═══
     def _growth_composite(t):
         scores = []
+        # Revenue growth dispo pour quasi-tous les profils (banks = NII growth proxy)
         for k in ("revenue_growth", "ebitda_ntm_growth"):
             v = t.get(k)
             if v is not None:
@@ -561,23 +635,63 @@ def _compute_scores(data: list[dict]) -> list[dict]:
                     pass
         return (sum(scores) / len(scores)) if scores else None
 
-    # Quality : gross_margin haut, net_margin haut, altman_z haut, current_ratio haut
+    # ═══ QUALITY composite — adapte par profil ═══
     def _quality_composite(t):
         scores = []
-        for k in ("gross_margin", "net_margin", "current_ratio"):
-            v = t.get(k)
-            if v is not None:
+        if profile in ("BANK", "INSURANCE"):
+            # ROE principal (rentabilite des fonds propres) — cle banques
+            roe = t.get("roe")
+            if roe is not None:
                 try:
-                    scores.append(float(v))
+                    scores.append(float(roe))
                 except (ValueError, TypeError):
                     pass
-        # altman_z : normalise sur [-5, 10] → [0, 1]
-        z = t.get("altman_z")
-        if z is not None:
-            try:
-                scores.append((float(z) + 5) / 15)
-            except (ValueError, TypeError):
-                pass
+            # Net margin (rentabilite intrinseque)
+            nm = t.get("net_margin")
+            if nm is not None:
+                try:
+                    scores.append(float(nm))
+                except (ValueError, TypeError):
+                    pass
+        elif profile == "REIT":
+            # ROE + debt metrics (interest_coverage inverse si dispo)
+            roe = t.get("roe")
+            if roe is not None:
+                try:
+                    scores.append(float(roe))
+                except (ValueError, TypeError):
+                    pass
+            nm = t.get("net_margin")
+            if nm is not None:
+                try:
+                    scores.append(float(nm))
+                except (ValueError, TypeError):
+                    pass
+        elif profile == "UTILITY":
+            # Net margin + ROE (capital-intensif, debt-heavy)
+            for k in ("net_margin", "roe", "ebitda_margin"):
+                v = t.get(k)
+                if v is not None:
+                    try:
+                        scores.append(float(v))
+                    except (ValueError, TypeError):
+                        pass
+        else:
+            # STANDARD / OIL_GAS : marges + altman
+            for k in ("gross_margin", "net_margin", "current_ratio"):
+                v = t.get(k)
+                if v is not None:
+                    try:
+                        scores.append(float(v))
+                    except (ValueError, TypeError):
+                        pass
+            # altman_z : normalise sur [-5, 10] → [0, 1]
+            z = t.get("altman_z")
+            if z is not None:
+                try:
+                    scores.append((float(z) + 5) / 15)
+                except (ValueError, TypeError):
+                    pass
         return (sum(scores) / len(scores)) if scores else None
 
     # Momentum
@@ -948,6 +1062,15 @@ def compute_ticker(ticker: str, cache_row: Optional[dict]) -> Optional[dict]:
 
     industry = info.get("industryDisp") or info.get("industry") or ""
 
+    # ── P/B ratio (cle pour banques, assurance, REIT) ─────────────────────
+    pb_ratio = None
+    try:
+        _pb = info.get("priceToBook")
+        if _pb and 0 < float(_pb) < 100:
+            pb_ratio = round(float(_pb), 2)
+    except Exception:
+        pass
+
     # ── Métriques alternatives de valorisation (paliers 2/3) ──────────────
     # P/S (Price-to-Sales) — disponible même sans EBITDA positif
     ps_ratio = None
@@ -1022,6 +1145,7 @@ def compute_ticker(ticker: str, cache_row: Optional[dict]) -> Optional[dict]:
         "beta":        beta_val,
         "peg_ratio":   peg_ratio,
         "piotroski_f": None,   # non calcule dans le screening (requiert financials complets)
+        "pb_ratio":    pb_ratio,
         "pe_ratio":    pe,     # alias pour compatibilite avec sector_pdf_writer
         # scores calcules apres agregation
         "score_value":    None,

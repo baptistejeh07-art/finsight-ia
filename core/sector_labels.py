@@ -35,6 +35,9 @@ SECTOR_LABELS: dict[str, tuple[str, str]] = {
     # slug              (anglais yfinance,        francais affichage)
     "TECHNOLOGY":       ("Technology",            "Technologie"),
     "HEALTHCARE":       ("Healthcare",            "Sante"),
+    # Financial Services split en 3 sous-secteurs metier (profil specifique)
+    "BANKS":            ("Financial Services",    "Banques"),
+    "INSURANCE":        ("Financial Services",    "Assurance"),
     "FINANCIALS":       ("Financial Services",    "Services Financiers"),
     "CONSUMERCYCLICAL": ("Consumer Cyclical",     "Consommation Cyclique"),
     "CONSUMERDEFENSIVE":("Consumer Defensive",    "Consommation Defensive"),
@@ -53,6 +56,8 @@ SECTOR_LABELS: dict[str, tuple[str, str]] = {
 SECTOR_LABELS_FR_ACCENTED: dict[str, str] = {
     "TECHNOLOGY":       "Technologie",
     "HEALTHCARE":       "Santé",
+    "BANKS":            "Banques",
+    "INSURANCE":        "Assurance",
     "FINANCIALS":       "Services Financiers",
     "CONSUMERCYCLICAL": "Consommation Cyclique",
     "CONSUMERDEFENSIVE":"Consommation Défensive",
@@ -96,8 +101,15 @@ _RAW_ALIASES: dict[str, list[str]] = {
     ],
     "FINANCIALS": [
         "financials", "financial", "financialservices", "finance",
-        "services financiers", "banques", "banque", "banks", "banking",
-        "assurance", "insurance",
+        "services financiers",
+    ],
+    "BANKS": [
+        "banques", "banque", "banks", "banking", "bank", "bancor",
+        "bancorp", "bnp", "credit agricole",
+    ],
+    "INSURANCE": [
+        "assurance", "assurances", "insurance", "insurer", "insurers",
+        "reassurance", "réassurance", "reinsurance",
     ],
     "CONSUMERCYCLICAL": [
         "consumercyclical", "consumer cyclical", "consumer", "discretionary",
@@ -199,7 +211,44 @@ def all_slugs() -> list[str]:
 
 
 def all_fr_labels(accented: bool = True) -> list[str]:
-    """Liste des 11 libelles francais (pour dropdowns Streamlit, etc.)."""
+    """Liste des libelles francais (pour dropdowns Streamlit, etc.)."""
     if accented:
         return [SECTOR_LABELS_FR_ACCENTED[s] for s in SECTOR_LABELS]
     return [SECTOR_LABELS[s][1] for s in SECTOR_LABELS]
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# SOUS-SECTEURS — slugs qui derivent d'un secteur ombrelle (FINANCIALS...)
+# ═════════════════════════════════════════════════════════════════════════════
+# Permet de traiter BANKS/INSURANCE comme des analyses dediees :
+# - Fetch le pool du secteur ombrelle (Financial Services)
+# - Filtre par whitelist de tickers propres au sous-secteur
+# - Applique le profil metier correspondant (BANK, INSURANCE...) au lieu de STANDARD
+
+_SUB_SECTOR_UMBRELLA: dict[str, str] = {
+    "BANKS":     "FINANCIALS",
+    "INSURANCE": "FINANCIALS",
+}
+
+# Slug -> profil metier (core/sector_profiles.py) force pour ce sous-secteur
+_SUB_SECTOR_PROFILE: dict[str, str] = {
+    "BANKS":     "BANK",
+    "INSURANCE": "INSURANCE",
+}
+
+
+def is_sub_sector(slug: str) -> bool:
+    """True si le slug est un sous-secteur (BANKS/INSURANCE) qui derive d'un ombrelle."""
+    return slug in _SUB_SECTOR_UMBRELLA
+
+
+def umbrella_slug(slug: str) -> str:
+    """Retourne le slug ombrelle pour un sous-secteur (BANKS -> FINANCIALS),
+    ou le slug lui-meme si ce n'est pas un sous-secteur."""
+    return _SUB_SECTOR_UMBRELLA.get(slug, slug)
+
+
+def forced_profile(slug: str) -> str | None:
+    """Retourne le profil metier force (BANK/INSURANCE) pour un sous-secteur,
+    ou None si slug standard (profil detecte automatiquement)."""
+    return _SUB_SECTOR_PROFILE.get(slug)
