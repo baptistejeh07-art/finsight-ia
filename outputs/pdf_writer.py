@@ -3508,7 +3508,16 @@ class PDFWriter:
         except (ValueError, TypeError):
             bm_lbl = '\u2014'
 
-        ratios_vs_peers = [
+        # Profil sectoriel — adapte les ratios selon banque / REIT / utility / etc.
+        try:
+            from core.sector_profiles import detect_profile, is_non_standard, STANDARD, BANK, INSURANCE, REIT, UTILITY, OIL_GAS
+            _industry_raw = getattr(ci, 'industry', None) or _g(snap.company_info, 'industry', '')
+            _profile = detect_profile(sector, _industry_raw)
+        except Exception:
+            _profile = "STANDARD"
+
+        # Ratios standards (corporate classique)
+        _ratios_std = [
             {'label':'P/E (x)',          'value':_frx(pe_v),   'reference':bm['pe'],  'lecture':_read_label(pe_v, bm['pe'])},
             {'label':'EV / EBITDA (x)',  'value':_frx(ev_e),   'reference':bm['ev_e'],'lecture':_read_label(ev_e, bm['ev_e'])},
             {'label':'EV / Revenue (x)', 'value':_frx(ev_r),   'reference':bm['ev_r'],'lecture':_read_label(ev_r, bm['ev_r'])},
@@ -3518,6 +3527,59 @@ class PDFWriter:
             {'label':'Altman Z-Score',   'value':_fr(az_v, 2), 'reference':'> 2,99 = sain', 'lecture':az_lbl},
             {'label':'Beneish M-Score',  'value':_fr(bm_v, 2), 'reference':'< \u22122,22 = OK','lecture':bm_lbl},
         ]
+
+        # Ratios adaptés au profil sectoriel — références en string pour _read_label
+        if _profile == "BANK":
+            _pb_v = _a('pb_ratio') if hasattr(yr_r, 'pb_ratio') else None
+            _dy_v = _g(snap.market, 'dividend_yield', None) if snap and snap.market else None
+            ratios_vs_peers = [
+                {'label':'P/TBV (x)',        'value':_frx(_pb_v),  'reference':'0,8\u20131,5x', 'lecture':_read_label(_pb_v, '0.8-1.5')},
+                {'label':'P/E (x)',          'value':_frx(pe_v),   'reference':'8\u201314x',    'lecture':_read_label(pe_v, '8-14')},
+                {'label':'Return on Equity', 'value':_frpct(roe),  'reference':'8\u201315 %',   'lecture':_read_label(roe, '8-15', pct=True)},
+                {'label':'Dividend Yield',   'value':_frpct(_dy_v),'reference':'3\u20137 %',    'lecture':_read_label(_dy_v, '3-7', pct=True)},
+                {'label':'Altman Z-Score',   'value':_fr(az_v, 2), 'reference':'n/a banque',    'lecture':'n/a'},
+                {'label':'Beneish M-Score',  'value':_fr(bm_v, 2), 'reference':'< \u22122,22 = OK','lecture':bm_lbl},
+            ]
+        elif _profile == "REIT":
+            ratios_vs_peers = [
+                {'label':'P/E (x)',          'value':_frx(pe_v),   'reference':'15\u201325x',   'lecture':_read_label(pe_v, '15-25')},
+                {'label':'EV / EBITDA (x)',  'value':_frx(ev_e),   'reference':'15\u201325x',   'lecture':_read_label(ev_e, '15-25')},
+                {'label':'P/Book (x)',       'value':_frx(_a('pb_ratio')),'reference':'0,8\u20131,4x',  'lecture':_read_label(_a('pb_ratio'), '0.8-1.4')},
+                {'label':'Marge EBITDA',     'value':_frpct(em),   'reference':'60\u201380 %',  'lecture':_read_label(em, '60-80', pct=True)},
+                {'label':'Return on Equity', 'value':_frpct(roe),  'reference':'6\u201312 %',   'lecture':_read_label(roe, '6-12', pct=True)},
+                {'label':'Altman Z-Score',   'value':_fr(az_v, 2), 'reference':'n/a REIT',      'lecture':'n/a'},
+            ]
+        elif _profile == "UTILITY":
+            ratios_vs_peers = [
+                {'label':'P/E (x)',          'value':_frx(pe_v),   'reference':'12\u201318x',   'lecture':_read_label(pe_v, '12-18')},
+                {'label':'EV / EBITDA (x)',  'value':_frx(ev_e),   'reference':'8\u201312x',    'lecture':_read_label(ev_e, '8-12')},
+                {'label':'Marge brute',      'value':_frpct(gm_v), 'reference':bm['gm'],        'lecture':_read_label(gm_v, bm['gm'], pct=True)},
+                {'label':'Marge EBITDA',     'value':_frpct(em),   'reference':'25\u201335 %',  'lecture':_read_label(em, '25-35', pct=True)},
+                {'label':'Return on Equity', 'value':_frpct(roe),  'reference':'7\u201311 %',   'lecture':_read_label(roe, '7-11', pct=True)},
+                {'label':'Altman Z-Score',   'value':_fr(az_v, 2), 'reference':'> 1,81 = sain (levier)', 'lecture':az_lbl},
+            ]
+        elif _profile == "INSURANCE":
+            _pb_v = _a('pb_ratio')
+            _dy_v = _g(snap.market, 'dividend_yield', None) if snap and snap.market else None
+            ratios_vs_peers = [
+                {'label':'P/Book (x)',       'value':_frx(_pb_v),  'reference':'0,8\u20131,5x', 'lecture':_read_label(_pb_v, '0.8-1.5')},
+                {'label':'P/E (x)',          'value':_frx(pe_v),   'reference':'8\u201314x',    'lecture':_read_label(pe_v, '8-14')},
+                {'label':'Return on Equity', 'value':_frpct(roe),  'reference':'8\u201314 %',   'lecture':_read_label(roe, '8-14', pct=True)},
+                {'label':'Dividend Yield',   'value':_frpct(_dy_v),'reference':'4\u20137 %',    'lecture':_read_label(_dy_v, '4-7', pct=True)},
+                {'label':'Altman Z-Score',   'value':_fr(az_v, 2), 'reference':'n/a assurance', 'lecture':'n/a'},
+                {'label':'Beneish M-Score',  'value':_fr(bm_v, 2), 'reference':'< \u22122,22 = OK','lecture':bm_lbl},
+            ]
+        elif _profile == "OIL_GAS":
+            ratios_vs_peers = [
+                {'label':'P/E (x)',          'value':_frx(pe_v),   'reference':'8\u201312x',    'lecture':_read_label(pe_v, '8-12')},
+                {'label':'EV / EBITDA (x)',  'value':_frx(ev_e),   'reference':'3\u20135x',     'lecture':_read_label(ev_e, '3-5')},
+                {'label':'EV / Revenue (x)', 'value':_frx(ev_r),   'reference':'1\u20133x',     'lecture':_read_label(ev_r, '1-3')},
+                {'label':'Marge EBITDA',     'value':_frpct(em),   'reference':'20\u201340 %',  'lecture':_read_label(em, '20-40', pct=True)},
+                {'label':'Return on Equity', 'value':_frpct(roe),  'reference':'10\u201320 %',  'lecture':_read_label(roe, '10-20', pct=True)},
+                {'label':'Altman Z-Score',   'value':_fr(az_v, 2), 'reference':'> 2,99 = sain', 'lecture':az_lbl},
+            ]
+        else:
+            ratios_vs_peers = _ratios_std
 
         # DCF sensitivity
         wacc_vals = [wacc - 0.02, wacc - 0.01, wacc, wacc + 0.01, wacc + 0.02]

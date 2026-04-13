@@ -280,6 +280,7 @@ def fetch(ticker: str) -> Optional[FinancialSnapshot]:
             company_name  = info.get("longName") or info.get("shortName", ticker),
             ticker        = ticker.upper(),
             sector        = info.get("sector") or info.get("industryDisp", ""),
+            industry      = info.get("industryDisp") or info.get("industry", ""),
             base_year     = base_year,
             currency      = info.get("currency", "USD"),
             units         = "M",

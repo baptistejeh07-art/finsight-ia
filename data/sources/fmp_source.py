@@ -128,6 +128,7 @@ def fetch(ticker: str) -> Optional[FinancialSnapshot]:
         company_name  = prof.get("companyName", ticker),
         ticker        = ticker.upper(),
         sector        = prof.get("sector", ""),
+        industry      = prof.get("industry", ""),
         currency      = prof.get("currency", "EUR"),
         units         = "M",
     )

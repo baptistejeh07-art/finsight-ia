@@ -87,6 +87,7 @@ class CompanyInfo:
     company_name: str = ""
     ticker: str = ""
     sector: str = ""
+    industry: str = ""  # yfinance industryDisp (ex: "Banks - Diversified", "REIT - Industrial")
     base_year: int = 2022
     currency: str = "USD"
     units: str = "M"

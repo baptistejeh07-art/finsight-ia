@@ -172,6 +172,16 @@ def _build_prompt(snapshot, ratios, sentiment) -> str:
         if ic is not None: bs_parts.append(f"IntCov:{_f(ic,1)}x")
         bs_ctx = " | ".join(bs_parts)
 
+    # ─── Profil sectoriel (banque, REIT, utility, etc.) → adapte les hints LLM ───
+    try:
+        from core.sector_profiles import detect_profile, get_prompt_hints, is_non_standard
+        _industry = getattr(ci, 'industry', '') or ''
+        _profile = detect_profile(ci.sector, _industry)
+        _profile_hints = get_prompt_hints(_profile) if is_non_standard(_profile) else ""
+    except Exception:
+        _profile_hints = ""
+    _profile_section = f"\nPROFIL SECTORIEL SPÉCIFIQUE : {_profile_hints}" if _profile_hints else ""
+
     return f"""Analyse {ci.company_name} ({ci.ticker}) — secteur:{ci.sector} — {date.today().isoformat()}
 Cours:{price_s} {ci.currency} | WACC:{wacc_s} | TGR:{tgr_s}
 {chr(10).join(lines)}
@@ -179,7 +189,7 @@ RevenuHistorique: {rev_series_str}
 MargesHistoriques: {margins_series_str}
 FCF:{fcf_s} | Capex:{capex_s} | Dividendes:{div_s}
 BilanQualite: {bs_ctx}
-{sector_ctx}
+{sector_ctx}{_profile_section}
 Sentiment: {sent_block}
 
 JSON requis (tous les champs obligatoires) :
