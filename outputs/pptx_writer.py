@@ -1887,18 +1887,91 @@ def _slide_ratios(prs, snap, synthesis, ratios):
             return "Intensif"
         except: return "—"
 
-    rows = [
-        ["P/E",            _frx(pe),       "15\u201325x",  _lecture_pe(pe)],
-        ["EV/EBITDA",      _frx(ev_e),     "8\u201314x",   _lecture_eve(ev_e)],
-        ["EV/Revenue",     _frx(ev_r),     "1\u20135x",    _lecture_evr(ev_r)],
-        ["Marge brute",    _frpct(gm),     "> 40 %",       _lecture_gm(gm)],
-        ["Marge EBITDA",   _frpct(em),     "> 20 %",       _lecture_em(em)],
-        ["ROE",            _frpct(roe),    "> 15 %",       _lecture_roe(roe)],
-        ["ROIC",           _frpct(roic),   "> 10 %",       _lecture_roic(roic)],
-        ["CapEx / Revenue",_frpct(capex_rev), "< 15 %",   _lecture_capex(capex_rev)],
-        ["Altman Z",       _fr(az, 2),     "> 2,99",       _lecture_z(az)],
-        ["Beneish M",      _fr(bm, 2),     "< -2,22",      _lecture_bm(bm)],
-    ]
+    # Profil sectoriel — adapte les ratios selon banque / REIT / etc.
+    try:
+        from core.sector_profiles import detect_profile
+        _ci_sector = snap.company_info.sector if snap and snap.company_info else ""
+        _ci_industry = getattr(snap.company_info, 'industry', '') if snap and snap.company_info else ""
+        _profile_pptx = detect_profile(_ci_sector, _ci_industry)
+    except Exception:
+        _profile_pptx = "STANDARD"
+
+    pb = _ratio(ratios, "pb_ratio")
+    dy_raw = None
+    try:
+        dy_raw = snap.market.dividend_yield if snap and snap.market else None
+    except Exception:
+        pass
+
+    def _fmt_dy_pptx(v):
+        if v is None: return "—"
+        try:
+            fv = float(v)
+            pct = fv * 100 if abs(fv) < 1 else fv
+            return f"{pct:.1f} %"
+        except: return "—"
+
+    if _profile_pptx == "BANK":
+        rows = [
+            ["P/TBV",           _frx(pb),        "0,8\u20131,5x",  "\u2014"],
+            ["P/E",             _frx(pe),        "8\u201314x",     _lecture_pe(pe)],
+            ["ROE",             _frpct(roe),     "8\u201315 %",    _lecture_roe(roe)],
+            ["ROIC",            _frpct(roic),    "> 10 %",         _lecture_roic(roic)],
+            ["Dividend Yield",  _fmt_dy_pptx(dy_raw), "3\u20137 %", "\u2014"],
+            ["Altman Z",        _fr(az, 2),      "n/a banque",     "n/a"],
+        ]
+    elif _profile_pptx == "REIT":
+        rows = [
+            ["P/E",             _frx(pe),        "15\u201325x",    _lecture_pe(pe)],
+            ["EV/EBITDA",       _frx(ev_e),      "15\u201325x",    _lecture_eve(ev_e)],
+            ["P/B",             _frx(pb),        "0,8\u20131,4x",  "\u2014"],
+            ["Marge EBITDA",    _frpct(em),      "> 60 %",         _lecture_em(em)],
+            ["ROE",             _frpct(roe),     "6\u201312 %",    _lecture_roe(roe)],
+            ["Dividend Yield",  _fmt_dy_pptx(dy_raw), "3,5\u20136,5 %", "\u2014"],
+            ["Altman Z",        _fr(az, 2),      "n/a REIT",       "n/a"],
+        ]
+    elif _profile_pptx == "UTILITY":
+        rows = [
+            ["P/E",             _frx(pe),        "12\u201318x",    _lecture_pe(pe)],
+            ["EV/EBITDA",       _frx(ev_e),      "8\u201312x",     _lecture_eve(ev_e)],
+            ["Marge EBITDA",    _frpct(em),      "> 25 %",         _lecture_em(em)],
+            ["ROE",             _frpct(roe),     "7\u201311 %",    _lecture_roe(roe)],
+            ["Dividend Yield",  _fmt_dy_pptx(dy_raw), "3,5\u20136 %", "\u2014"],
+            ["Debt/EBITDA",     _fr(_ratio(ratios, "net_debt_ebitda"), 1, "x"), "< 5,5x", "\u2014"],
+            ["Altman Z",        _fr(az, 2),      "> 1,81",         _lecture_z(az)],
+        ]
+    elif _profile_pptx == "INSURANCE":
+        rows = [
+            ["P/B",             _frx(pb),        "0,8\u20131,5x",  "\u2014"],
+            ["P/E",             _frx(pe),        "8\u201314x",     _lecture_pe(pe)],
+            ["ROE",             _frpct(roe),     "8\u201314 %",    _lecture_roe(roe)],
+            ["Dividend Yield",  _fmt_dy_pptx(dy_raw), "4\u20137 %", "\u2014"],
+            ["Altman Z",        _fr(az, 2),      "n/a assurance",  "n/a"],
+            ["Beneish M",       _fr(bm, 2),      "< -2,22",        _lecture_bm(bm)],
+        ]
+    elif _profile_pptx == "OIL_GAS":
+        rows = [
+            ["P/E",             _frx(pe),        "8\u201312x",     _lecture_pe(pe)],
+            ["EV/EBITDA",       _frx(ev_e),      "3\u20135x",      _lecture_eve(ev_e)],
+            ["EV/Revenue",      _frx(ev_r),      "1\u20133x",      _lecture_evr(ev_r)],
+            ["Marge EBITDA",    _frpct(em),      "20\u201340 %",   _lecture_em(em)],
+            ["ROE",             _frpct(roe),     "10\u201320 %",   _lecture_roe(roe)],
+            ["Dividend Yield",  _fmt_dy_pptx(dy_raw), "3\u20138 %", "\u2014"],
+            ["Altman Z",        _fr(az, 2),      "> 2,99",         _lecture_z(az)],
+        ]
+    else:
+        rows = [
+            ["P/E",            _frx(pe),       "15\u201325x",  _lecture_pe(pe)],
+            ["EV/EBITDA",      _frx(ev_e),     "8\u201314x",   _lecture_eve(ev_e)],
+            ["EV/Revenue",     _frx(ev_r),     "1\u20135x",    _lecture_evr(ev_r)],
+            ["Marge brute",    _frpct(gm),     "> 40 %",       _lecture_gm(gm)],
+            ["Marge EBITDA",   _frpct(em),     "> 20 %",       _lecture_em(em)],
+            ["ROE",            _frpct(roe),    "> 15 %",       _lecture_roe(roe)],
+            ["ROIC",           _frpct(roic),   "> 10 %",       _lecture_roic(roic)],
+            ["CapEx / Revenue",_frpct(capex_rev), "< 15 %",   _lecture_capex(capex_rev)],
+            ["Altman Z",       _fr(az, 2),     "> 2,99",       _lecture_z(az)],
+            ["Beneish M",      _fr(bm, 2),     "< -2,22",      _lecture_bm(bm)],
+        ]
 
     ratio_tbl = add_table(slide, 1.02, 2.54, 23.37, 7.11,
               len(rows), 4,
