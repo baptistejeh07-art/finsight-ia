@@ -1425,9 +1425,10 @@ def _build_financials(area_buf, data, margins_buf=None):
     _ticker_fin = _d(data, 'ticker', 'La soci\u00e9t\u00e9')
     _sector_fin = _d(data, 'sector', '')
     _ratios_lines = []
+    _em = "\u2014"  # extrait hors de la f-string : Python <3.12 interdit \ dans une expression f-string
     for r in (data.get('ratios_vs_peers') or [])[:6]:
-        _ratios_lines.append(f"{_d(r, 'label', '')}: {_d(r, 'value', '\u2014')} "
-                             f"(r\u00e9f {_d(r, 'reference', '\u2014')})")
+        _ratios_lines.append(f"{_d(r, 'label', '')}: {_d(r, 'value', _em)} "
+                             f"(r\u00e9f {_d(r, 'reference', _em)})")
     _ratios_str = " | ".join(_ratios_lines) if _ratios_lines else "donn\u00e9es ratios non disponibles"
 
     _llm_margin_analysis = ""

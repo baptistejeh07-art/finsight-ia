@@ -1682,10 +1682,12 @@ def _build_combined_regex():
     # Filtrer les keys identiques a value (case-insensitive)
     keys = [k for k, v in REPLACEMENTS.items() if k.lower() != v.lower()]
     keys = sorted(set(keys), key=lambda k: -len(k))
+    # Lookbehind exclut aussi `.` `/` `-` : evite de matcher dans les MIME types
+    # (`presentationml.presentation`), URLs, et Python identifiers (`_present_var`)
     pattern = (
-        r'(?<![A-Za-zÀ-ÿ])(?:'
+        r'(?<![A-Za-zÀ-ÿ./_-])(?:'
         + "|".join(re.escape(k) for k in keys)
-        + r')(?![A-Za-zÀ-ÿ])'
+        + r')(?![A-Za-zÀ-ÿ_-])'
     )
     return re.compile(pattern, flags=re.IGNORECASE)
 

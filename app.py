@@ -1050,7 +1050,7 @@ def render_sidebar(results) -> None:
                         f"Pitchbook {_tkr_a_cmp} vs {_tkr_b_cmp} \u2193 .pptx",
                         _cmp_pptx,
                         file_name=f"{_tkr_a_cmp}_vs_{_tkr_b_cmp}_comparison.pptx",
-                        mime="application/vnd.openxmlformats-officedocument.presentationml.présentation",
+                        mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
                         use_container_width=True, key="sb_cmppage_pptx",
                     )
                 _cmp_xlsx = st.session_state.get("cmp_bytes")
@@ -1081,7 +1081,7 @@ def render_sidebar(results) -> None:
                         f"Pitchbook {_sa} vs {_sb} \u2193 .pptx",
                         _sp_pptx,
                         file_name=f"{_slug}.pptx",
-                        mime="application/vnd.openxmlformats-officedocument.presentationml.présentation",
+                        mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
                         use_container_width=True, key="sb_scmppage_pptx",
                     )
                 _sp_xlsx = st.session_state.get("scmp_xlsx_bytes")
@@ -1114,7 +1114,7 @@ def render_sidebar(results) -> None:
                         f"Pitchbook {_na} vs {_nb} \u2193 .pptx",
                         _i_pptx,
                         file_name=f"{_slug}.pptx",
-                        mime="application/vnd.openxmlformats-officedocument.presentationml.présentation",
+                        mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
                         use_container_width=True, key="sb_icmppage_pptx",
                     )
                 _i_xlsx = st.session_state.get("icmp_xlsx_bytes")
@@ -1155,7 +1155,7 @@ def render_sidebar(results) -> None:
             if pptx_data:
                 st.download_button(f"Pitchbook {_tkr_label} \u2193 .pptx", pptx_data,
                     file_name=f"{ticker_slug}_pitchbook.pptx",
-                    mime="application/vnd.openxmlformats-officedocument.presentationml.présentation",
+                    mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
                     use_container_width=True)
 
             xlsx_data = results.get("excel_bytes")
@@ -1205,7 +1205,7 @@ def render_sidebar(results) -> None:
                         f"Pitchbook {_tkr_label} vs {_cmp_tkr_b} \u2193 .pptx",
                         _cmp_pptx,
                         file_name=f"{ticker_slug}_vs_{_cmp_tkr_b}_comparison.pptx",
-                        mime="application/vnd.openxmlformats-officedocument.presentationml.présentation",
+                        mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
                         use_container_width=True,
                         key="sb_cmp_pptx",
                     )
@@ -1262,7 +1262,7 @@ def render_sidebar(results) -> None:
                     _pptx_label,
                     scr["pptx_bytes"],
                     file_name=f"pitchbook_{_pptx_slug}.pptx",
-                    mime="application/vnd.openxmlformats-officedocument.presentationml.présentation",
+                    mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
                     use_container_width=True,
                 )
             # ── Comparatif sectoriel (si disponible) ──
@@ -1282,7 +1282,7 @@ def render_sidebar(results) -> None:
                         f"Pitchbook {_scmp_a} vs {_scmp_b} \u2193 .pptx",
                         _scmp_pptx,
                         file_name=f"cmp_secteur_{_scmp_a}_vs_{_scmp_b}.pptx",
-                        mime="application/vnd.openxmlformats-officedocument.presentationml.présentation",
+                        mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
                         use_container_width=True,
                         key="sb_scmp_pptx",
                     )
@@ -1314,7 +1314,7 @@ def render_sidebar(results) -> None:
                         f"Pitchbook indice comparatif \u2193 .pptx",
                         _icmp_pptx,
                         file_name=f"cmp_indice_{_icmp_b_label.replace(' ', '_')}.pptx",
-                        mime="application/vnd.openxmlformats-officedocument.presentationml.présentation",
+                        mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
                         use_container_width=True,
                         key="sb_icmp_pptx",
                     )
@@ -2634,7 +2634,7 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
 
     if _desc_specifique:
         texte_description = (
-            f"{_desc_spécifique}\n\n"
+            f"{_desc_specifique}\n\n"
             f"Analyse FinSight ({today_str}) — {len(tickers_data)} sociétés, "
             f"{len(secteurs_list)} secteurs GICS.\n"
             f"Signal global : {signal_global} — Conviction {conviction}%.\n"
@@ -3465,7 +3465,7 @@ def _render_indice_comparison_section(results: dict) -> None:
                 label=f"Pitchbook {name_a_disp} vs {name_b}  \u2193  .pptx",
                 data=_pptx,
                 file_name=f"{slug}_comparison.pptx",
-                mime="application/vnd.openxmlformats-officedocument.presentationml.présentation",
+                mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
                 use_container_width=True,
             )
         _pdf = st.session_state.get("icmp_pdf_bytes")
@@ -3596,12 +3596,17 @@ def _render_indice_comparison_section(results: dict) -> None:
 # ---------------------------------------------------------------------------
 
 def _render_sector_comparison_within_indice(results: dict) -> None:
-    """Après une analyse indice, permet de comparer deux secteurs de l'indice."""
+    """Apres une analyse indice, permet de comparer deux secteurs DE l'indice.
+
+    Reuse l'infrastructure cmp_secteur normale (scmp_* state keys + page
+    comparison_results) pour garantir la meme UX que le bouton "Comparer 2
+    secteurs" de la homepage. Stage "running" -> redirection vers la page
+    de resultats dediee, pas d'affichage in-line.
+    """
     tickers_data = results.get("tickers_data", [])
     if not tickers_data:
         return
 
-    # Extraire les secteurs disponibles
     sectors_available = sorted(set(
         t.get("sector", "") for t in tickers_data if t.get("sector")
     ))
@@ -3613,94 +3618,87 @@ def _render_sector_comparison_within_indice(results: dict) -> None:
     st.markdown(
         f'<div class="sec-t" style="margin-top:36px;">Comparer deux secteurs de {indice_name}</div>',
         unsafe_allow_html=True)
-    st.caption(f"Comparer deux secteurs au sein de {indice_name} — PPTX + PDF générés en temps réel")
 
-    # Session state
-    if "isec_stage" not in st.session_state:
-        st.session_state.isec_stage = None
-    if "isec_pptx_bytes" not in st.session_state:
-        st.session_state.isec_pptx_bytes = None
-    if "isec_pdf_bytes" not in st.session_state:
-        st.session_state.isec_pdf_bytes = None
-
-    isec_stage = st.session_state.isec_stage
-
-    if isec_stage == "done":
-        sec_a = st.session_state.get("isec_sector_a", "")
-        sec_b = st.session_state.get("isec_sector_b", "")
-        st.success(f"Comparatif {sec_a} vs {sec_b} au sein de {indice_name} généré")
-        dl1, dl2 = st.columns(2)
-        with dl1:
-            if st.session_state.isec_pptx_bytes:
-                st.download_button(
-                    "Télécharger PPTX", st.session_state.isec_pptx_bytes,
-                    file_name=f"cmp_secteur_{sec_a}_{sec_b}.pptx",
-                    mime="application/vnd.openxmlformats-officedocument.presentationml.présentation",
-                    key="dl_isec_pptx")
-        with dl2:
-            if st.session_state.isec_pdf_bytes:
-                st.download_button(
-                    "Télécharger PDF", st.session_state.isec_pdf_bytes,
-                    file_name=f"cmp_secteur_{sec_a}_{sec_b}.pdf",
-                    mime="application/pdf", key="dl_isec_pdf")
-        if st.button("Nouveau comparatif sectoriel", key="isec_reset"):
-            st.session_state.isec_stage = None
-            st.rerun()
-        return
-
-    col_a, col_b = st.columns(2)
-    with col_a:
-        sec_a = st.selectbox("Secteur A", sectors_available, key="isec_sel_a")
-    with col_b:
-        remaining = [s for s in sectors_available if s != sec_a]
-        sec_b = st.selectbox("Secteur B", remaining, key="isec_sel_b")
-
-    if st.button("Générer comparatif sectoriel", key="isec_go"):
-        st.session_state.isec_sector_a = sec_a
-        st.session_state.isec_sector_b = sec_b
-        st.session_state.isec_stage = "running"
-        st.rerun()
-
-    if isec_stage == "running":
-        sec_a = st.session_state.get("isec_sector_a", "")
-        sec_b = st.session_state.get("isec_sector_b", "")
-        with st.spinner(f"Génération comparatif {sec_a} vs {sec_b}..."):
+    if st.session_state.get("scmp_stage") == "running":
+        sec_a = st.session_state.get("scmp_sector_a_isec", "")
+        sec_b = st.session_state.get("scmp_sector_b", "")
+        with st.spinner(f"Generation comparatif {sec_a} vs {sec_b}..."):
             try:
-                # Filtrer les tickers par secteur depuis les données de l'indice
                 tickers_a = [t for t in tickers_data if t.get("sector") == sec_a]
                 tickers_b = [t for t in tickers_data if t.get("sector") == sec_b]
+                # Nettoyage state interne
+                for tk_list in (tickers_a, tickers_b):
+                    for t in tk_list:
+                        t.pop("_sector_analytics", None)
 
-                # PPTX
-                pptx_bytes = None
+                from outputs.cmp_secteur_pptx_writer import CmpSecteurPPTXWriter
+                from outputs.cmp_secteur_pdf_writer import generate_cmp_secteur_pdf
+
+                pptx_bytes = CmpSecteurPPTXWriter.generate(
+                    tickers_a, sec_a, indice_name,
+                    tickers_b, sec_b, indice_name,
+                )
+                st.session_state.scmp_pptx_bytes = pptx_bytes
+
+                import tempfile, os as _os
+                with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as _tf:
+                    _pdf_path = _tf.name
+                generate_cmp_secteur_pdf(
+                    tickers_a, sec_a, indice_name,
+                    tickers_b, sec_b, indice_name,
+                    output_path=_pdf_path,
+                )
+                st.session_state.scmp_pdf_bytes = open(_pdf_path, "rb").read()
                 try:
-                    from outputs.cmp_secteur_pptx_writer import CmpSecteurPPTXWriter
-                    pptx_bytes = CmpSecteurPPTXWriter.generate(
-                        tickers_a=tickers_a, tickers_b=tickers_b,
-                        sector_a=sec_a, sector_b=sec_b,
-                        universe=indice_name,
-                    )
-                except Exception as _ex:
-                    log.warning("[isec] PPTX error: %s", _ex)
+                    _os.unlink(_pdf_path)
+                except Exception:
+                    pass
 
-                # PDF
-                pdf_bytes = None
+                # XLSX (template-driven, peut echouer silencieusement)
                 try:
-                    from outputs.cmp_secteur_pdf_writer import generate_cmp_secteur_pdf
-                    pdf_bytes = generate_cmp_secteur_pdf(
-                        tickers_a=tickers_a, tickers_b=tickers_b,
-                        sector_a=sec_a, sector_b=sec_b,
-                        universe=indice_name,
+                    from outputs.cmp_secteur_xlsx_writer import generate_cmp_secteur_xlsx
+                    st.session_state.scmp_xlsx_bytes = generate_cmp_secteur_xlsx(
+                        tickers_a, sec_a, indice_name,
+                        tickers_b, sec_b, indice_name,
                     )
-                except Exception as _ex:
-                    log.warning("[isec] PDF error: %s", _ex)
+                except Exception as _xex:
+                    log.warning("[isec_scmp] xlsx gen failed: %s", _xex)
+                    st.session_state.scmp_xlsx_bytes = None
 
-                st.session_state.isec_pptx_bytes = pptx_bytes
-                st.session_state.isec_pdf_bytes = pdf_bytes
-                st.session_state.isec_stage = "done"
+                st.session_state.scmp_tickers_a = tickers_a
+                st.session_state.scmp_tickers_b = tickers_b
+                # Preserver l'analyse indice initiale
+                st.session_state.previous_analysis_type    = "screening_results"
+                st.session_state.previous_analysis_results = st.session_state.get("screening_results")
+                st.session_state.previous_analysis_label   = indice_name
+                # Aligner avec scmp_* pour profiter de la page comparison_results
+                st.session_state.scmp_sector_a = sec_a
+                st.session_state.scmp_stage    = "done"
+                st.session_state.cmp_kind      = "secteur"
+                st.session_state.stage         = "comparison_results"
                 st.rerun()
             except Exception as _ex:
-                st.error(f"Erreur : {_ex}")
-                st.session_state.isec_stage = None
+                st.error(f"Erreur generation comparatif : {_ex}")
+                st.session_state.scmp_stage = None
+        return
+
+    # Formulaire de selection — 2 selectbox + bouton "Comparer" a droite,
+    # tous sur la meme ligne (UX alignee sur cmp 2 societes)
+    col_a, col_b, col_btn = st.columns([3, 3, 2])
+    with col_a:
+        sec_a = st.selectbox("Secteur A", sectors_available, key="isec_sel_a",
+                             label_visibility="collapsed")
+    with col_b:
+        remaining = [s for s in sectors_available if s != sec_a]
+        sec_b = st.selectbox("Secteur B", remaining, key="isec_sel_b",
+                             label_visibility="collapsed")
+    with col_btn:
+        if st.button("Comparer", type="primary", use_container_width=True,
+                     key="isec_go"):
+            st.session_state.scmp_sector_a_isec = sec_a
+            st.session_state.scmp_sector_b      = sec_b
+            st.session_state.scmp_stage         = "running"
+            st.rerun()
 
 
 # ---------------------------------------------------------------------------
@@ -3753,7 +3751,7 @@ def _render_sector_comparison_section(results: dict) -> None:
                     f"Pitchbook {current_sector} vs {scmp_b} .pptx",
                     st.session_state.scmp_pptx_bytes,
                     file_name=f"cmp_secteur_{current_sector}_vs_{scmp_b}.pptx",
-                    mime="application/vnd.openxmlformats-officedocument.presentationml.présentation",
+                    mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
                     use_container_width=True,
                 )
         with dl2:
@@ -3889,16 +3887,18 @@ def _render_sector_comparison_section(results: dict) -> None:
         s for s in _CMP_SECTOR_CHOICES
         if _slug_from_any(s) != _curr_slug
     ]
+    # Selectbox + bouton "Comparer" sur la meme ligne (alignes comme cmp societe)
     sc1, sc2 = st.columns([3, 1])
     with sc1:
         sector_b_sel = st.selectbox(
-            "Secteur a comparer",
+            label="",
             options=other_choices,
             key="scmp_sector_b_sel",
+            label_visibility="collapsed",
         )
     with sc2:
-        st.markdown("<div style='margin-top:28px;'></div>", unsafe_allow_html=True)
-        if st.button("Générer comparatif", type="primary", use_container_width=True, key="scmp_run"):
+        if st.button("Comparer", type="primary", use_container_width=True,
+                     key="scmp_run"):
             st.session_state.scmp_sector_b = sector_b_sel
             st.session_state.scmp_stage = "running"
             st.rerun()
@@ -4465,7 +4465,7 @@ def _render_comparison_section(state_a: dict) -> None:
                 label=f"Pitchbook {tkr_a} vs {tkr_b}  \u2193  .pptx",
                 data=cmp_pptx,
                 file_name=fname_pptx,
-                mime="application/vnd.openxmlformats-officedocument.presentationml.présentation",
+                mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
                 use_container_width=True,
             )
         # Rapport PDF comparatif (pré-généré)
@@ -5577,7 +5577,7 @@ def main():
             st.markdown("**Livrables disponibles :**")
             for _lbl, _key, _fname, _mime in [
                 ("Rapport PDF", "pdf_bytes", f"{results.get('ticker','report')}_report.pdf", "application/pdf"),
-                ("Pitchbook", "pptx_bytes", f"{results.get('ticker','report')}_pitchbook.pptx", "application/vnd.openxmlformats-officedocument.presentationml.présentation"),
+                ("Pitchbook", "pptx_bytes", f"{results.get('ticker','report')}_pitchbook.pptx", "application/vnd.openxmlformats-officedocument.presentationml.presentation"),
                 ("Ratios Excel", "excel_bytes", f"{results.get('ticker','report')}_ratios.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
             ]:
                 _b = results.get(_key)
