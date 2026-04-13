@@ -1968,10 +1968,14 @@ def _run_analysis_pipeline(tkr_in: str) -> None:
                     "moins riche en analyse qualitative."
                 )
                 # Detail des erreurs par provider (expander pour ne pas polluer)
+                # IMPORTANT : NE PAS utiliser _e comme variable de boucle !
+                # _e est le helper html-escape global. L'utiliser en boucle locale
+                # rend Python confus (UnboundLocalError sur tous les usages de _e
+                # ailleurs dans la fonction).
                 if _prov_errs:
                     with st.expander("Voir les erreurs LLM par provider"):
-                        for _p, _e in _prov_errs.items():
-                            st.code(f"{_p}: {_e}", language="text")
+                        for _prov_name, _prov_err in _prov_errs.items():
+                            st.code(f"{_prov_name}: {_prov_err}", language="text")
                         st.markdown(
                             "**Action recommandee** : verifier les API keys dans "
                             "Streamlit Cloud Settings > Secrets. Les providers "
@@ -2512,15 +2516,17 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
         )["Close"]
         _hist_etf = _hist_etf.dropna(how="all")
         _ret_1y   = {}
-        for _e in _etfs:
-            if _e in _hist_etf.columns and len(_hist_etf[_e].dropna()) >= 2:
-                _s = _hist_etf[_e].dropna()
-                _ret_1y[_e] = (_s.iloc[-1] / _s.iloc[0] - 1) * 100
+        # IMPORTANT : ne pas utiliser _e comme variable de boucle (shadow le
+        # helper html-escape global et casse Python avec UnboundLocalError)
+        for _etf_sym in _etfs:
+            if _etf_sym in _hist_etf.columns and len(_hist_etf[_etf_sym].dropna()) >= 2:
+                _s = _hist_etf[_etf_sym].dropna()
+                _ret_1y[_etf_sym] = (_s.iloc[-1] / _s.iloc[0] - 1) * 100
 
         # P/B + DivYield depuis info ETF
-        for _e, _nom in _ETF_MAP_APP.items():
+        for _etf_sym, _nom in _ETF_MAP_APP.items():
             try:
-                _inf = _yf_etf.Ticker(_e).info or {}
+                _inf = _yf_etf.Ticker(_etf_sym).info or {}
                 _pb  = _inf.get("priceToBook")
                 _dy  = _inf.get("yield") or _inf.get("dividendYield")
                 if _dy and _dy < 0.5: _dy = round(_dy * 100, 2)
