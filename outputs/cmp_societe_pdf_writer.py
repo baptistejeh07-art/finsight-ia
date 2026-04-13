@@ -9,9 +9,9 @@
 # Textes analytiques computed (sans LLM) pour Profil, Bilan, DCF, Risque.
 #
 # Usage :
-#   from outputs.comparison_pdf_writer import ComparisonPDFWriter
-#   path = ComparisonPDFWriter().generate(state_a, state_b, output_path)
-#   buf  = ComparisonPDFWriter().generate_bytes(state_a, state_b)
+#   from outputs.cmp_societe_pdf_writer import CmpSocietePDFWriter
+#   path = CmpSocietePDFWriter().generate(state_a, state_b, output_path)
+#   buf  = CmpSocietePDFWriter().generate_bytes(state_a, state_b)
 # =============================================================================
 
 from __future__ import annotations
@@ -2120,7 +2120,7 @@ def _section_52w_price(story, m_a, m_b, tkr_a, tkr_b, synthesis=None):
             _defensif = tkr_a if _ba < _bb else tkr_b
             _cyclique = tkr_b if _ba < _bb else tkr_a
             _macro_parts.append(
-                f"En termes de profil de risque, {_enc(_defensif)} (beta {min(_ba,_bb):.2f}) "
+                f"En termes de profil de risque, {_enc(_défensif)} (beta {min(_ba,_bb):.2f}) "
                 f"offre un caractère plus défensif tandis que {_enc(_cyclique)} (beta {max(_ba,_bb):.2f}) "
                 f"amplifie les mouvements de marché — un parametre cle pour le sizing de position."
             )
@@ -2323,7 +2323,7 @@ def _section_piotroski_detail(story, m_a, m_b, tkr_a, tkr_b):
 # =============================================================================
 # WRITER PRINCIPAL
 # =============================================================================
-class ComparisonPDFWriter:
+class CmpSocietePDFWriter:
     """Généré un rapport PDF comparatif A4 entre deux entreprises."""
 
     def generate(self, state_a: dict, state_b: dict, output_path: str = None) -> str:
@@ -2340,7 +2340,7 @@ class ComparisonPDFWriter:
         return output_path
 
     def generate_bytes(self, state_a: dict, state_b: dict) -> io.BytesIO:
-        from outputs.comparison_writer import extract_metrics, _fetch_supplements
+        from outputs.cmp_societe_xlsx_writer import extract_metrics, _fetch_supplements
 
         def _get_ticker(state, default="A"):
             snap = state.get("raw_data") or state.get("snapshot")
@@ -2371,7 +2371,7 @@ class ComparisonPDFWriter:
         m_a["winner"] = m_b["winner"] = winner
 
         # Synthèse LLM
-        from outputs.comparison_pptx_writer import _generate_synthesis
+        from outputs.cmp_societe_pptx_writer import _generate_synthesis
         import re as _re_md
         log.info("[cmp_pdf] synthèse LLM...")
         synthesis = _generate_synthesis(m_a, m_b)

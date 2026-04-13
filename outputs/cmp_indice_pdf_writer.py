@@ -9,8 +9,8 @@
 #   - Mentions légales et méthodologie étoffées
 #
 # Usage :
-#   from outputs.indice_comparison_pdf_writer import IndiceComparisonPDFWriter
-#   pdf_bytes = IndiceComparisonPDFWriter.generate_bytes(data)
+#   from outputs.cmp_indice_pdf_writer import CmpIndicePDFWriter
+#   pdf_bytes = CmpIndicePDFWriter.generate_bytes(data)
 # =============================================================================
 from __future__ import annotations
 
@@ -1434,7 +1434,7 @@ def _generate_indice_llm_pdf(data: dict) -> dict:
 # CLASSE PRINCIPALE
 # =============================================================================
 
-class IndiceComparisonPDFWriter:
+class CmpIndicePDFWriter:
     """Rapport PDF comparatif d'indices boursiers — 13 pages IB-grade."""
 
     @staticmethod
@@ -1457,6 +1457,6 @@ class IndiceComparisonPDFWriter:
 
     @staticmethod
     def generate(data: dict, output_path: str) -> str:
-        pdf_bytes = IndiceComparisonPDFWriter.generate_bytes(data)
+        pdf_bytes = CmpIndicePDFWriter.generate_bytes(data)
         Path(output_path).write_bytes(pdf_bytes)
         return output_path

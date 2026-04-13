@@ -191,15 +191,15 @@ if __name__ == "__main__":
     cmp_data = build_cmp_data()
 
     print("\nGenerating PPTX...")
-    from outputs.indice_comparison_pptx_writer import IndiceComparisonPPTXWriter
+    from outputs.cmp_indice_pptx_writer import CmpIndicePPTXWriter
     out_pptx = "outputs/generated/cli_tests/audit_icmp_sp500_cac40.pptx"
-    b = IndiceComparisonPPTXWriter.generate(cmp_data, output_path=out_pptx)
+    b = CmpIndicePPTXWriter.generate(cmp_data, output_path=out_pptx)
     print(f"PPTX OK: {len(b)} bytes -> {out_pptx}")
 
     print("Generating PDF...")
-    from outputs.indice_comparison_pdf_writer import IndiceComparisonPDFWriter
+    from outputs.cmp_indice_pdf_writer import CmpIndicePDFWriter
     out_pdf = "outputs/generated/cli_tests/audit_icmp_sp500_cac40.pdf"
-    pdf_b = IndiceComparisonPDFWriter.generate_bytes(cmp_data)
+    pdf_b = CmpIndicePDFWriter.generate_bytes(cmp_data)
     Path(out_pdf).write_bytes(pdf_b)
     print(f"PDF OK: {len(pdf_b)} bytes -> {out_pdf}")
 

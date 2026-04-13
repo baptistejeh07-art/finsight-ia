@@ -6,8 +6,8 @@
 # Accepte deux états pipeline LangGraph + metriques extraites.
 #
 # Usage :
-#   from outputs.comparison_pptx_writer import ComparisonPPTXWriter
-#   path = ComparisonPPTXWriter().generate(state_a, state_b, output_path)
+#   from outputs.cmp_societe_pptx_writer import CmpSocietePPTXWriter
+#   path = CmpSocietePPTXWriter().generate(state_a, state_b, output_path)
 # =============================================================================
 
 from __future__ import annotations
@@ -2769,12 +2769,12 @@ def _slide_verdict(prs, m_a: dict, m_b: dict, synthesis: dict):
 # Point d'entree principal
 # ---------------------------------------------------------------------------
 
-class ComparisonPPTXWriter:
+class CmpSocietePPTXWriter:
     """
     Genere un pitchbook comparatif IB-quality en 22 slides.
 
     Usage :
-        writer = ComparisonPPTXWriter()
+        writer = CmpSocietePPTXWriter()
         path   = writer.generate(state_a, state_b, output_path)
     """
 
@@ -2794,7 +2794,7 @@ class ComparisonPPTXWriter:
         from pptx.util import Cm
 
         # 1. Extraire les metriques
-        from outputs.comparison_writer import extract_metrics, _fetch_supplements
+        from outputs.cmp_societe_xlsx_writer import extract_metrics, _fetch_supplements
 
         def _get_tkr(state, default="A"):
             snap = state.get("raw_data") or state.get("snapshot")

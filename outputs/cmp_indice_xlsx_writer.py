@@ -4,8 +4,8 @@ Genere un fichier Excel comparatif pour deux indices boursiers.
 Cree le fichier from scratch (openpyxl) — pas de template requis.
 
 Usage:
-    buf = IndiceComparisonWriter.generate_bytes(data)   # -> bytes
-    path = IndiceComparisonWriter.generate(data, output_path)
+    buf = CmpIndiceXlsxWriter.generate_bytes(data)   # -> bytes
+    path = CmpIndiceXlsxWriter.generate(data, output_path)
 """
 from __future__ import annotations
 
@@ -477,12 +477,12 @@ def _build_constituants(wb: Workbook, data: dict):
 # CLASSE PRINCIPALE
 # =============================================================================
 
-class IndiceComparisonWriter:
+class CmpIndiceXlsxWriter:
 
     @staticmethod
     def generate_bytes(data: dict) -> bytes:
         if not _OXL:
-            raise ImportError("openpyxl requis pour IndiceComparisonWriter")
+            raise ImportError("openpyxl requis pour CmpIndiceXlsxWriter")
 
         wb = Workbook()
         # Supprimer la feuille vide par defaut
@@ -499,6 +499,6 @@ class IndiceComparisonWriter:
 
     @staticmethod
     def generate(data: dict, output_path: str) -> str:
-        xlsx_bytes = IndiceComparisonWriter.generate_bytes(data)
+        xlsx_bytes = CmpIndiceXlsxWriter.generate_bytes(data)
         Path(output_path).write_bytes(xlsx_bytes)
         return output_path

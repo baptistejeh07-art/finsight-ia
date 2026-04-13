@@ -11,8 +11,8 @@
 #   - Cadrage strict, accents partout
 #
 # Usage :
-#   from outputs.indice_comparison_pptx_writer import IndiceComparisonPPTXWriter
-#   pptx_bytes = IndiceComparisonPPTXWriter.generate(data)
+#   from outputs.cmp_indice_pptx_writer import CmpIndicePPTXWriter
+#   pptx_bytes = CmpIndicePPTXWriter.generate(data)
 #
 # Données attendues dans `data` :
 #   name_a/b, code_a/b, ticker_a/b, currency_a/b, date
@@ -1932,7 +1932,7 @@ def _generate_indice_llm(d: dict) -> dict:
 # Classe principale
 # ═════════════════════════════════════════════════════════════════════════════
 
-class IndiceComparisonPPTXWriter:
+class CmpIndicePPTXWriter:
     """Pitchbook comparatif d'indices boursiers — 21 slides IB-grade."""
 
     @staticmethod
@@ -1987,7 +1987,7 @@ class IndiceComparisonPPTXWriter:
         if output_path:
             from pathlib import Path
             Path(output_path).write_bytes(pptx_bytes)
-            log.info("[IndiceComparisonPPTXWriter] Sauvegardé : %s (%d Ko)",
+            log.info("[CmpIndicePPTXWriter] Sauvegardé : %s (%d Ko)",
                      output_path, len(pptx_bytes) // 1024)
 
         return pptx_bytes

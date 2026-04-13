@@ -487,30 +487,30 @@ if "screening_universe" not in st.session_state: st.session_state.screening_univ
 if "from_screening"     not in st.session_state: st.session_state.from_screening     = False
 if "screening_parent"   not in st.session_state: st.session_state.screening_parent   = None
 # Comparison société
-if "cmp_stage"          not in st.session_state: st.session_state.cmp_stage          = None   # None / "running" / "done"
-if "cmp_ticker_b"       not in st.session_state: st.session_state.cmp_ticker_b       = ""
-if "cmp_state_b"        not in st.session_state: st.session_state.cmp_state_b        = None
-if "cmp_bytes"          not in st.session_state: st.session_state.cmp_bytes          = None
+if "cmp_societe_stage"          not in st.session_state: st.session_state.cmp_societe_stage          = None   # None / "running" / "done"
+if "cmp_societe_ticker_b"       not in st.session_state: st.session_state.cmp_societe_ticker_b       = ""
+if "cmp_societe_state_b"        not in st.session_state: st.session_state.cmp_societe_state_b        = None
+if "cmp_societe_xlsx_bytes"          not in st.session_state: st.session_state.cmp_societe_xlsx_bytes          = None
 if "scr_cmp_b_preset"   not in st.session_state: st.session_state.scr_cmp_b_preset   = ""
 # Comparison indice
-if "icmp_stage"         not in st.session_state: st.session_state.icmp_stage         = None   # None / "running" / "done"
-if "icmp_universe_b"    not in st.session_state: st.session_state.icmp_universe_b    = ""
-if "icmp_pptx_bytes"    not in st.session_state: st.session_state.icmp_pptx_bytes    = None
-if "icmp_pdf_bytes"     not in st.session_state: st.session_state.icmp_pdf_bytes     = None
-if "icmp_xlsx_bytes"    not in st.session_state: st.session_state.icmp_xlsx_bytes    = None
+if "cmp_indice_stage"         not in st.session_state: st.session_state.cmp_indice_stage         = None   # None / "running" / "done"
+if "cmp_indice_universe_b"    not in st.session_state: st.session_state.cmp_indice_universe_b    = ""
+if "cmp_indice_pptx_bytes"    not in st.session_state: st.session_state.cmp_indice_pptx_bytes    = None
+if "cmp_indice_pdf_bytes"     not in st.session_state: st.session_state.cmp_indice_pdf_bytes     = None
+if "cmp_indice_xlsx_bytes"    not in st.session_state: st.session_state.cmp_indice_xlsx_bytes    = None
 
 # Comparison sectorielle (scmp)
-if "scmp_stage"         not in st.session_state: st.session_state.scmp_stage         = None
-if "scmp_sector_a"      not in st.session_state: st.session_state.scmp_sector_a      = None
-if "scmp_sector_b"      not in st.session_state: st.session_state.scmp_sector_b      = None
-if "scmp_pptx_bytes"    not in st.session_state: st.session_state.scmp_pptx_bytes    = None
-if "scmp_pdf_bytes"     not in st.session_state: st.session_state.scmp_pdf_bytes     = None
-if "scmp_xlsx_bytes"    not in st.session_state: st.session_state.scmp_xlsx_bytes    = None
+if "cmp_secteur_stage"         not in st.session_state: st.session_state.cmp_secteur_stage         = None
+if "cmp_secteur_sector_a"      not in st.session_state: st.session_state.cmp_secteur_sector_a      = None
+if "cmp_secteur_sector_b"      not in st.session_state: st.session_state.cmp_secteur_sector_b      = None
+if "cmp_secteur_pptx_bytes"    not in st.session_state: st.session_state.cmp_secteur_pptx_bytes    = None
+if "cmp_secteur_pdf_bytes"     not in st.session_state: st.session_state.cmp_secteur_pdf_bytes     = None
+if "cmp_secteur_xlsx_bytes"    not in st.session_state: st.session_state.cmp_secteur_xlsx_bytes    = None
 
 # Page post-analyse comparative : on garde l'État de l'analyse initiale
 # pour pouvoir y revenir via le bouton "Retour à l'analyse ..." (sidebar).
-# cmp_kind : "société" | "secteur" | "indice"
-if "cmp_kind"                  not in st.session_state: st.session_state.cmp_kind                  = None
+# comparison_kind : "société" | "secteur" | "indice"
+if "comparison_kind"                  not in st.session_state: st.session_state.comparison_kind                  = None
 if "previous_analysis_type"    not in st.session_state: st.session_state.previous_analysis_type    = None  # "results" | "screening_results"
 if "previous_analysis_results" not in st.session_state: st.session_state.previous_analysis_results = None
 if "previous_analysis_label"   not in st.session_state: st.session_state.previous_analysis_label   = ""
@@ -959,30 +959,30 @@ def render_sidebar(results) -> None:
 
         # Contexte page comparative (société / secteur / indice)
         _in_cmp_page = (st.session_state.get("stage") == "comparison_results")
-        _cmp_kind    = st.session_state.get("cmp_kind")
+        _comparison_kind    = st.session_state.get("comparison_kind")
 
         if _in_cmp_page:
             # Nouvelle analyse (reset complet) — priorite haute
             if st.button("＋  Nouvelle analyse", use_container_width=True, type="primary",
                           key="sb_new_from_cmp"):
                 for _k in ("stage", "results", "ticker", "from_screening",
-                           "screening_results", "cmp_stage", "cmp_kind",
-                           "cmp_ticker_b", "cmp_state_b", "cmp_bytes",
-                           "cmp_pptx_bytes", "cmp_pdf_bytes", "cmp_synthesis",
-                           "scmp_stage", "scmp_sector_b", "scmp_pptx_bytes",
-                           "scmp_pdf_bytes", "scmp_xlsx_bytes",
-                           "scmp_tickers_a", "scmp_tickers_b",
-                           "icmp_stage", "icmp_universe_b",
-                           "icmp_pptx_bytes", "icmp_pdf_bytes", "icmp_xlsx_bytes",
-                           "icmp_cmp_data", "icmp_universe_a",
+                           "screening_results", "cmp_societe_stage", "comparison_kind",
+                           "cmp_societe_ticker_b", "cmp_societe_state_b", "cmp_societe_xlsx_bytes",
+                           "cmp_societe_pptx_bytes", "cmp_societe_pdf_bytes", "cmp_societe_synthesis",
+                           "cmp_secteur_stage", "cmp_secteur_sector_b", "cmp_secteur_pptx_bytes",
+                           "cmp_secteur_pdf_bytes", "cmp_secteur_xlsx_bytes",
+                           "cmp_secteur_tickers_a", "cmp_secteur_tickers_b",
+                           "cmp_indice_stage", "cmp_indice_universe_b",
+                           "cmp_indice_pptx_bytes", "cmp_indice_pdf_bytes", "cmp_indice_xlsx_bytes",
+                           "cmp_indice_data", "cmp_indice_universe_a",
                            "previous_analysis_type", "previous_analysis_results",
                            "previous_analysis_label"):
                     if _k == "stage":
                         st.session_state[_k] = "home"
                     elif _k == "from_screening":
                         st.session_state[_k] = False
-                    elif _k in ("cmp_ticker_b", "scmp_sector_b", "icmp_universe_b",
-                                "icmp_universe_a", "previous_analysis_label"):
+                    elif _k in ("cmp_societe_ticker_b", "cmp_secteur_sector_b", "cmp_indice_universe_b",
+                                "cmp_indice_universe_a", "previous_analysis_label"):
                         st.session_state[_k] = ""
                     else:
                         st.session_state[_k] = None
@@ -1001,14 +1001,14 @@ def render_sidebar(results) -> None:
                 for _k in (
                     "results", "ticker", "from_screening",
                     "screening_results", "screening_parent", "screening_universe",
-                    "icmp_stage", "icmp_universe_b", "icmp_universe_a",
-                    "icmp_pptx_bytes", "icmp_pdf_bytes", "icmp_xlsx_bytes",
-                    "icmp_cmp_data",
-                    "scmp_stage", "scmp_sector_b", "scmp_universe_b",
-                    "scmp_pptx_bytes", "scmp_pdf_bytes", "scmp_xlsx_bytes",
-                    "scmp_tickers_a", "scmp_tickers_b", "scmp_cmp_data",
-                    "cmp_stage", "cmp_kind", "cmp_state_b", "cmp_bytes",
-                    "cmp_pptx_bytes", "cmp_pdf_bytes", "cmp_ticker_b",
+                    "cmp_indice_stage", "cmp_indice_universe_b", "cmp_indice_universe_a",
+                    "cmp_indice_pptx_bytes", "cmp_indice_pdf_bytes", "cmp_indice_xlsx_bytes",
+                    "cmp_indice_data",
+                    "cmp_secteur_stage", "cmp_secteur_sector_b", "cmp_secteur_universe_b",
+                    "cmp_secteur_pptx_bytes", "cmp_secteur_pdf_bytes", "cmp_secteur_xlsx_bytes",
+                    "cmp_secteur_tickers_a", "cmp_secteur_tickers_b", "cmp_secteur_data",
+                    "cmp_societe_stage", "comparison_kind", "cmp_societe_state_b", "cmp_societe_xlsx_bytes",
+                    "cmp_societe_pptx_bytes", "cmp_societe_pdf_bytes", "cmp_societe_ticker_b",
                     "previous_analysis_type", "previous_analysis_results",
                     "previous_analysis_label",
                 ):
@@ -1032,41 +1032,41 @@ def render_sidebar(results) -> None:
 
         # ── Contexte PAGE COMPARATIVE : afficher UNIQUEMENT les livrables comparatifs ──
         if _in_cmp_page:
-            if _cmp_kind == "société":
+            if _comparison_kind == "société":
                 _tkr_a_cmp = st.session_state.get("previous_analysis_label", "A")
-                _tkr_b_cmp = st.session_state.get("cmp_ticker_b", "B")
-                _cmp_pdf = st.session_state.get("cmp_pdf_bytes")
-                if _cmp_pdf:
+                _tkr_b_cmp = st.session_state.get("cmp_societe_ticker_b", "B")
+                _cmp_societe_pdf = st.session_state.get("cmp_societe_pdf_bytes")
+                if _cmp_societe_pdf:
                     st.download_button(
                         f"Rapport PDF {_tkr_a_cmp} vs {_tkr_b_cmp} \u2193 .pdf",
-                        _cmp_pdf,
+                        _cmp_societe_pdf,
                         file_name=f"{_tkr_a_cmp}_vs_{_tkr_b_cmp}_comparison.pdf",
                         mime="application/pdf",
                         use_container_width=True, key="sb_cmppage_pdf",
                     )
-                _cmp_pptx = st.session_state.get("cmp_pptx_bytes")
-                if _cmp_pptx:
+                _cmp_societe_pptx = st.session_state.get("cmp_societe_pptx_bytes")
+                if _cmp_societe_pptx:
                     st.download_button(
                         f"Pitchbook {_tkr_a_cmp} vs {_tkr_b_cmp} \u2193 .pptx",
-                        _cmp_pptx,
+                        _cmp_societe_pptx,
                         file_name=f"{_tkr_a_cmp}_vs_{_tkr_b_cmp}_comparison.pptx",
                         mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
                         use_container_width=True, key="sb_cmppage_pptx",
                     )
-                _cmp_xlsx = st.session_state.get("cmp_bytes")
-                if _cmp_xlsx:
+                _cmp_societe_xlsx = st.session_state.get("cmp_societe_xlsx_bytes")
+                if _cmp_societe_xlsx:
                     st.download_button(
                         f"Excel financier {_tkr_a_cmp} vs {_tkr_b_cmp} \u2193 .xlsx",
-                        _cmp_xlsx,
+                        _cmp_societe_xlsx,
                         file_name=f"{_tkr_a_cmp}_vs_{_tkr_b_cmp}_comparison.xlsx",
                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                         use_container_width=True, key="sb_cmppage_xlsx",
                     )
-            elif _cmp_kind == "secteur":
-                _sa = st.session_state.get("scmp_sector_a", "A")
-                _sb = st.session_state.get("scmp_sector_b", "B")
+            elif _comparison_kind == "secteur":
+                _sa = st.session_state.get("cmp_secteur_sector_a", "A")
+                _sb = st.session_state.get("cmp_secteur_sector_b", "B")
                 _slug = f"cmp_secteur_{_sa}_vs_{_sb}".replace(" ", "_")
-                _sp_pdf = st.session_state.get("scmp_pdf_bytes")
+                _sp_pdf = st.session_state.get("cmp_secteur_pdf_bytes")
                 if _sp_pdf:
                     st.download_button(
                         f"Rapport PDF {_sa} vs {_sb} \u2193 .pdf",
@@ -1075,7 +1075,7 @@ def render_sidebar(results) -> None:
                         mime="application/pdf",
                         use_container_width=True, key="sb_scmppage_pdf",
                     )
-                _sp_pptx = st.session_state.get("scmp_pptx_bytes")
+                _sp_pptx = st.session_state.get("cmp_secteur_pptx_bytes")
                 if _sp_pptx:
                     st.download_button(
                         f"Pitchbook {_sa} vs {_sb} \u2193 .pptx",
@@ -1084,7 +1084,7 @@ def render_sidebar(results) -> None:
                         mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
                         use_container_width=True, key="sb_scmppage_pptx",
                     )
-                _sp_xlsx = st.session_state.get("scmp_xlsx_bytes")
+                _sp_xlsx = st.session_state.get("cmp_secteur_xlsx_bytes")
                 if _sp_xlsx:
                     st.download_button(
                         f"Excel {_sa} vs {_sb} \u2193 .xlsx",
@@ -1093,13 +1093,13 @@ def render_sidebar(results) -> None:
                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                         use_container_width=True, key="sb_scmppage_xlsx",
                     )
-            elif _cmp_kind == "indice":
-                _ua = st.session_state.get("icmp_universe_a", "A")
-                _ub = st.session_state.get("icmp_universe_b", "B")
+            elif _comparison_kind == "indice":
+                _ua = st.session_state.get("cmp_indice_universe_a", "A")
+                _ub = st.session_state.get("cmp_indice_universe_b", "B")
                 _na = _INDICE_CMP_OPTIONS.get(_ua, (_ua,))[0] if "_INDICE_CMP_OPTIONS" in globals() else _ua
                 _nb = _INDICE_CMP_OPTIONS.get(_ub, (_ub,))[0] if "_INDICE_CMP_OPTIONS" in globals() else _ub
                 _slug = f"cmp_indice_{_na}_vs_{_nb}".replace(" ", "_")
-                _i_pdf = st.session_state.get("icmp_pdf_bytes")
+                _i_pdf = st.session_state.get("cmp_indice_pdf_bytes")
                 if _i_pdf:
                     st.download_button(
                         f"Rapport PDF {_na} vs {_nb} \u2193 .pdf",
@@ -1108,7 +1108,7 @@ def render_sidebar(results) -> None:
                         mime="application/pdf",
                         use_container_width=True, key="sb_icmppage_pdf",
                     )
-                _i_pptx = st.session_state.get("icmp_pptx_bytes")
+                _i_pptx = st.session_state.get("cmp_indice_pptx_bytes")
                 if _i_pptx:
                     st.download_button(
                         f"Pitchbook {_na} vs {_nb} \u2193 .pptx",
@@ -1117,7 +1117,7 @@ def render_sidebar(results) -> None:
                         mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
                         use_container_width=True, key="sb_icmppage_pptx",
                     )
-                _i_xlsx = st.session_state.get("icmp_xlsx_bytes")
+                _i_xlsx = st.session_state.get("cmp_indice_xlsx_bytes")
                 if _i_xlsx:
                     st.download_button(
                         f"Excel {_na} vs {_nb} \u2193 .xlsx",
@@ -1181,43 +1181,43 @@ def render_sidebar(results) -> None:
                     use_container_width=True)
 
             # ── Livrables comparatifs (si comparaison disponible) ──
-            _cmp_stage = st.session_state.get("cmp_stage")
-            _cmp_tkr_b = st.session_state.get("cmp_ticker_b", "")
-            if _cmp_stage == "done" and _cmp_tkr_b:
+            _cmp_stage = st.session_state.get("cmp_societe_stage")
+            _cmp_societe_tkr_b = st.session_state.get("cmp_societe_ticker_b", "")
+            if _cmp_stage == "done" and _cmp_societe_tkr_b:
                 st.markdown(
                     f'<div style="font-size:10px;font-weight:600;letter-spacing:.06em;'
-                    f'color:#aaa;text-transform:uppercase;margin:10px 0 4px;">Comparatif vs {_cmp_tkr_b}</div>',
+                    f'color:#aaa;text-transform:uppercase;margin:10px 0 4px;">Comparatif vs {_cmp_societe_tkr_b}</div>',
                     unsafe_allow_html=True,
                 )
-                _cmp_xlsx = st.session_state.get("cmp_bytes")
-                if _cmp_xlsx:
+                _cmp_societe_xlsx = st.session_state.get("cmp_societe_xlsx_bytes")
+                if _cmp_societe_xlsx:
                     st.download_button(
-                        f"Comparaison {_tkr_label} vs {_cmp_tkr_b} \u2193 .xlsx",
-                        _cmp_xlsx,
-                        file_name=f"{ticker_slug}_vs_{_cmp_tkr_b}_comparison.xlsx",
+                        f"Comparaison {_tkr_label} vs {_cmp_societe_tkr_b} \u2193 .xlsx",
+                        _cmp_societe_xlsx,
+                        file_name=f"{ticker_slug}_vs_{_cmp_societe_tkr_b}_comparison.xlsx",
                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                         use_container_width=True,
-                        key="sb_cmp_xlsx",
+                        key="sb_cmp_societe_xlsx",
                     )
-                _cmp_pptx = st.session_state.get("cmp_pptx_bytes")
-                if _cmp_pptx:
+                _cmp_societe_pptx = st.session_state.get("cmp_societe_pptx_bytes")
+                if _cmp_societe_pptx:
                     st.download_button(
-                        f"Pitchbook {_tkr_label} vs {_cmp_tkr_b} \u2193 .pptx",
-                        _cmp_pptx,
-                        file_name=f"{ticker_slug}_vs_{_cmp_tkr_b}_comparison.pptx",
+                        f"Pitchbook {_tkr_label} vs {_cmp_societe_tkr_b} \u2193 .pptx",
+                        _cmp_societe_pptx,
+                        file_name=f"{ticker_slug}_vs_{_cmp_societe_tkr_b}_comparison.pptx",
                         mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
                         use_container_width=True,
-                        key="sb_cmp_pptx",
+                        key="sb_cmp_societe_pptx",
                     )
-                _cmp_pdf = st.session_state.get("cmp_pdf_bytes")
-                if _cmp_pdf:
+                _cmp_societe_pdf = st.session_state.get("cmp_societe_pdf_bytes")
+                if _cmp_societe_pdf:
                     st.download_button(
-                        f"Rapport {_tkr_label} vs {_cmp_tkr_b} \u2193 .pdf",
-                        _cmp_pdf,
-                        file_name=f"{ticker_slug}_vs_{_cmp_tkr_b}_comparison.pdf",
+                        f"Rapport {_tkr_label} vs {_cmp_societe_tkr_b} \u2193 .pdf",
+                        _cmp_societe_pdf,
+                        file_name=f"{ticker_slug}_vs_{_cmp_societe_tkr_b}_comparison.pdf",
                         mime="application/pdf",
                         use_container_width=True,
-                        key="sb_cmp_pdf",
+                        key="sb_cmp_societe_pdf",
                     )
 
         else:
@@ -1266,77 +1266,77 @@ def render_sidebar(results) -> None:
                     use_container_width=True,
                 )
             # ── Comparatif sectoriel (si disponible) ──
-            _scmp_stage = st.session_state.get("scmp_stage")
-            _scmp_b = st.session_state.get("scmp_sector_b", "")
-            if _scmp_stage == "done" and _scmp_b:
+            _cmp_secteur_stage = st.session_state.get("cmp_secteur_stage")
+            _cmp_secteur_b = st.session_state.get("cmp_secteur_sector_b", "")
+            if _cmp_secteur_stage == "done" and _cmp_secteur_b:
                 st.markdown(
                     f'<div style="font-size:10px;font-weight:600;letter-spacing:.06em;'
                     f'color:#aaa;text-transform:uppercase;margin:10px 0 4px;">'
                     f'Comparatif sectoriel</div>',
                     unsafe_allow_html=True,
                 )
-                _scmp_pptx = st.session_state.get("scmp_pptx_bytes")
-                if _scmp_pptx:
-                    _scmp_a = scr.get("display_name", "Secteur A") if scr else "Secteur A"
+                _cmp_secteur_pptx = st.session_state.get("cmp_secteur_pptx_bytes")
+                if _cmp_secteur_pptx:
+                    _cmp_secteur_a = scr.get("display_name", "Secteur A") if scr else "Secteur A"
                     st.download_button(
-                        f"Pitchbook {_scmp_a} vs {_scmp_b} \u2193 .pptx",
-                        _scmp_pptx,
-                        file_name=f"cmp_secteur_{_scmp_a}_vs_{_scmp_b}.pptx",
+                        f"Pitchbook {_cmp_secteur_a} vs {_cmp_secteur_b} \u2193 .pptx",
+                        _cmp_secteur_pptx,
+                        file_name=f"cmp_secteur_{_cmp_secteur_a}_vs_{_cmp_secteur_b}.pptx",
                         mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
                         use_container_width=True,
-                        key="sb_scmp_pptx",
+                        key="sb_cmp_secteur_pptx",
                     )
-                _scmp_pdf = st.session_state.get("scmp_pdf_bytes")
-                if _scmp_pdf:
+                _cmp_secteur_pdf = st.session_state.get("cmp_secteur_pdf_bytes")
+                if _cmp_secteur_pdf:
                     st.download_button(
-                        f"Rapport {_scmp_b} \u2193 .pdf",
-                        _scmp_pdf,
-                        file_name=f"cmp_secteur_{_scmp_b}.pdf",
+                        f"Rapport {_cmp_secteur_b} \u2193 .pdf",
+                        _cmp_secteur_pdf,
+                        file_name=f"cmp_secteur_{_cmp_secteur_b}.pdf",
                         mime="application/pdf",
                         use_container_width=True,
-                        key="sb_scmp_pdf",
+                        key="sb_cmp_secteur_pdf",
                     )
 
             # ── Comparatif indice (si disponible) ──
-            _icmp_stage = st.session_state.get("icmp_stage")
-            _icmp_b = st.session_state.get("icmp_universe_b", "")
-            if _icmp_stage == "done" and _icmp_b:
-                _icmp_b_label = _icmp_b.replace("_", " ")
+            _cmp_indice_stage = st.session_state.get("cmp_indice_stage")
+            _cmp_indice_b = st.session_state.get("cmp_indice_universe_b", "")
+            if _cmp_indice_stage == "done" and _cmp_indice_b:
+                _cmp_indice_b_label = _cmp_indice_b.replace("_", " ")
                 st.markdown(
                     f'<div style="font-size:10px;font-weight:600;letter-spacing:.06em;'
                     f'color:#aaa;text-transform:uppercase;margin:10px 0 4px;">'
                     f'Comparatif indice</div>',
                     unsafe_allow_html=True,
                 )
-                _icmp_pptx = st.session_state.get("icmp_pptx_bytes")
-                if _icmp_pptx:
+                _cmp_indice_pptx = st.session_state.get("cmp_indice_pptx_bytes")
+                if _cmp_indice_pptx:
                     st.download_button(
                         f"Pitchbook indice comparatif \u2193 .pptx",
-                        _icmp_pptx,
-                        file_name=f"cmp_indice_{_icmp_b_label.replace(' ', '_')}.pptx",
+                        _cmp_indice_pptx,
+                        file_name=f"cmp_indice_{_cmp_indice_b_label.replace(' ', '_')}.pptx",
                         mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
                         use_container_width=True,
-                        key="sb_icmp_pptx",
+                        key="sb_cmp_indice_pptx",
                     )
-                _icmp_pdf = st.session_state.get("icmp_pdf_bytes")
-                if _icmp_pdf:
+                _cmp_indice_pdf = st.session_state.get("cmp_indice_pdf_bytes")
+                if _cmp_indice_pdf:
                     st.download_button(
                         f"Rapport indice comparatif \u2193 .pdf",
-                        _icmp_pdf,
-                        file_name=f"cmp_indice_{_icmp_b_label.replace(' ', '_')}.pdf",
+                        _cmp_indice_pdf,
+                        file_name=f"cmp_indice_{_cmp_indice_b_label.replace(' ', '_')}.pdf",
                         mime="application/pdf",
                         use_container_width=True,
-                        key="sb_icmp_pdf",
+                        key="sb_cmp_indice_pdf",
                     )
-                _icmp_xlsx = st.session_state.get("icmp_xlsx_bytes")
-                if _icmp_xlsx:
+                _cmp_indice_xlsx = st.session_state.get("cmp_indice_xlsx_bytes")
+                if _cmp_indice_xlsx:
                     st.download_button(
                         f"Excel indice comparatif \u2193 .xlsx",
-                        _icmp_xlsx,
-                        file_name=f"cmp_indice_{_icmp_b_label.replace(' ', '_')}.xlsx",
+                        _cmp_indice_xlsx,
+                        file_name=f"cmp_indice_{_cmp_indice_b_label.replace(' ', '_')}.xlsx",
                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                         use_container_width=True,
-                        key="sb_icmp_xlsx",
+                        key="sb_cmp_indice_xlsx",
                     )
 
             if not scr:
@@ -1716,10 +1716,10 @@ def render_home() -> None:
                 st.session_state.ticker = target.upper()
                 st.session_state.stage  = "running"
                 # Reset comparaison precedente pour éviter affichage stale
-                st.session_state.cmp_stage      = None
-                st.session_state.cmp_bytes      = None
-                st.session_state.cmp_pptx_bytes = None
-                st.session_state.cmp_pdf_bytes  = None
+                st.session_state.cmp_societe_stage      = None
+                st.session_state.cmp_societe_xlsx_bytes      = None
+                st.session_state.cmp_societe_pptx_bytes = None
+                st.session_state.cmp_societe_pdf_bytes  = None
                 # Effacer le screening pour ne pas l'afficher dans la sidebar
                 st.session_state.screening_results  = None
                 st.session_state.from_screening     = False
@@ -1731,15 +1731,15 @@ def render_home() -> None:
                 st.session_state.stage = "screening_running"
                 # Reset résultats société precedents + comparaison indice precedente
                 st.session_state.results       = None
-                st.session_state.icmp_stage    = None
-                st.session_state.icmp_pptx_bytes = None
-                st.session_state.icmp_pdf_bytes  = None
-                st.session_state.icmp_xlsx_bytes = None
+                st.session_state.cmp_indice_stage    = None
+                st.session_state.cmp_indice_pptx_bytes = None
+                st.session_state.cmp_indice_pdf_bytes  = None
+                st.session_state.cmp_indice_xlsx_bytes = None
                 # Reset comparaison sectorielle precedente pour éviter affichage stale
-                st.session_state.scmp_stage      = None
-                st.session_state.scmp_sector_b   = None
-                st.session_state.scmp_pptx_bytes = None
-                st.session_state.scmp_pdf_bytes  = None
+                st.session_state.cmp_secteur_stage      = None
+                st.session_state.cmp_secteur_sector_b   = None
+                st.session_state.cmp_secteur_pptx_bytes = None
+                st.session_state.cmp_secteur_pdf_bytes  = None
             st.rerun()
 
         if "quote_idx" not in st.session_state:
@@ -3033,7 +3033,7 @@ _INDICE_CMP_OPTIONS = {
 }
 
 
-def _fetch_indice_cmp_data(universe_a: str, indice_data_a: dict,
+def _fetch_cmp_indice_data(universe_a: str, indice_data_a: dict,
                             tickers_data_a: list, universe_key_b: str) -> dict:
     """Construit le dict de comparaison pour deux indices."""
     import math as _m
@@ -3464,7 +3464,7 @@ def _fetch_indice_cmp_data(universe_a: str, indice_data_a: dict,
     }
 
 
-def _render_indice_comparison_section(results: dict) -> None:
+def _render_cmp_indice_section(results: dict) -> None:
     """
     Section 'Comparer deux indices' en bas de la page screening indice.
     Gere les etats : form / running / done.
@@ -3484,16 +3484,16 @@ def _render_indice_comparison_section(results: dict) -> None:
         unsafe_allow_html=True,
     )
 
-    icmp_stage = st.session_state.get("icmp_stage")
+    cmp_indice_stage = st.session_state.get("cmp_indice_stage")
 
     # ── Résultat disponible ──────────────────────────────────────────────────
-    if icmp_stage == "done":
+    if cmp_indice_stage == "done":
         name_b = _INDICE_CMP_OPTIONS.get(
-            st.session_state.get("icmp_universe_b", ""), ("Indice B",))[0]
+            st.session_state.get("cmp_indice_universe_b", ""), ("Indice B",))[0]
         slug   = f"{name_a_disp.replace(' ','_')}_vs_{name_b.replace(' ','_')}"
 
         st.success(f"Comparaison {name_a_disp} / {name_b} prete.")
-        _pptx = st.session_state.get("icmp_pptx_bytes")
+        _pptx = st.session_state.get("cmp_indice_pptx_bytes")
         if _pptx:
             st.download_button(
                 label=f"Pitchbook {name_a_disp} vs {name_b}  \u2193  .pptx",
@@ -3502,7 +3502,7 @@ def _render_indice_comparison_section(results: dict) -> None:
                 mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
                 use_container_width=True,
             )
-        _pdf = st.session_state.get("icmp_pdf_bytes")
+        _pdf = st.session_state.get("cmp_indice_pdf_bytes")
         if _pdf:
             st.download_button(
                 label=f"Rapport {name_a_disp} vs {name_b}  \u2193  .pdf",
@@ -3511,7 +3511,7 @@ def _render_indice_comparison_section(results: dict) -> None:
                 mime="application/pdf",
                 use_container_width=True,
             )
-        _xlsx = st.session_state.get("icmp_xlsx_bytes")
+        _xlsx = st.session_state.get("cmp_indice_xlsx_bytes")
         if _xlsx:
             st.download_button(
                 label=f"Excel {name_a_disp} vs {name_b}  \u2193  .xlsx",
@@ -3521,18 +3521,18 @@ def _render_indice_comparison_section(results: dict) -> None:
                 use_container_width=True,
             )
         if st.button("Nouvelle comparaison d'indices", use_container_width=True,
-                     key="icmp_reset"):
-            st.session_state.icmp_stage      = None
-            st.session_state.icmp_universe_b  = ""
-            st.session_state.icmp_pptx_bytes  = None
-            st.session_state.icmp_pdf_bytes   = None
-            st.session_state.icmp_xlsx_bytes  = None
+                     key="cmp_indice_reset"):
+            st.session_state.cmp_indice_stage      = None
+            st.session_state.cmp_indice_universe_b  = ""
+            st.session_state.cmp_indice_pptx_bytes  = None
+            st.session_state.cmp_indice_pdf_bytes   = None
+            st.session_state.cmp_indice_xlsx_bytes  = None
             st.rerun()
         return
 
     # ── Pipeline en cours ────────────────────────────────────────────────────
-    if icmp_stage == "running":
-        universe_b = st.session_state.get("icmp_universe_b", "")
+    if cmp_indice_stage == "running":
+        universe_b = st.session_state.get("cmp_indice_universe_b", "")
         name_b     = _INDICE_CMP_OPTIONS.get(universe_b, (universe_b,))[0]
 
         status_lbl = st.empty()
@@ -3549,7 +3549,7 @@ def _render_indice_comparison_section(results: dict) -> None:
                                                     results.get("display_name", name_a_disp),
                                                     universe_a)
 
-            cmp_data = _fetch_indice_cmp_data(
+            cmp_data = _fetch_cmp_indice_data(
                 universe_a, indice_data_a, tickers_data_a, universe_b)
 
         except Exception as _ex:
@@ -3557,46 +3557,46 @@ def _render_indice_comparison_section(results: dict) -> None:
             log.warning(f"[icmp] fetch error: {_ex}")
             traceback.print_exc()
             st.error(f"Erreur lors de la construction des Données : {_ex}")
-            st.session_state.icmp_stage = None
+            st.session_state.cmp_indice_stage = None
             return
 
         pptx_bytes = None
         _status("Génération du pitchbook PPTX")
         try:
-            from outputs.indice_comparison_pptx_writer import IndiceComparisonPPTXWriter
-            pptx_bytes = IndiceComparisonPPTXWriter.generate(cmp_data)
+            from outputs.cmp_indice_pptx_writer import CmpIndicePPTXWriter
+            pptx_bytes = CmpIndicePPTXWriter.generate(cmp_data)
         except Exception as _ex:
             log.warning(f"[icmp] pptx error: {_ex}")
 
         pdf_bytes = None
         _status("Génération du rapport PDF")
         try:
-            from outputs.indice_comparison_pdf_writer import IndiceComparisonPDFWriter
-            pdf_bytes = IndiceComparisonPDFWriter.generate_bytes(cmp_data)
+            from outputs.cmp_indice_pdf_writer import CmpIndicePDFWriter
+            pdf_bytes = CmpIndicePDFWriter.generate_bytes(cmp_data)
         except Exception as _ex:
             log.warning(f"[icmp] pdf error: {_ex}")
 
         xlsx_bytes = None
         _status("Génération du fichier Excel")
         try:
-            from outputs.indice_comparison_writer import IndiceComparisonWriter
-            xlsx_bytes = IndiceComparisonWriter.generate_bytes(cmp_data)
+            from outputs.cmp_indice_xlsx_writer import CmpIndiceXlsxWriter
+            xlsx_bytes = CmpIndiceXlsxWriter.generate_bytes(cmp_data)
         except Exception as _ex:
             log.warning(f"[icmp] xlsx error: {_ex}")
 
-        st.session_state.icmp_pptx_bytes = pptx_bytes
-        st.session_state.icmp_pdf_bytes  = pdf_bytes
-        st.session_state.icmp_xlsx_bytes = xlsx_bytes
-        st.session_state.icmp_cmp_data   = cmp_data  # pour la page de synthese comparative
-        st.session_state.icmp_universe_a = universe_a
+        st.session_state.cmp_indice_pptx_bytes = pptx_bytes
+        st.session_state.cmp_indice_pdf_bytes  = pdf_bytes
+        st.session_state.cmp_indice_xlsx_bytes = xlsx_bytes
+        st.session_state.cmp_indice_data   = cmp_data  # pour la page de synthese comparative
+        st.session_state.cmp_indice_universe_a = universe_a
 
         # Sauvegarder l'État de l'analyse indice initiale
         st.session_state.previous_analysis_type    = "screening_results"
         st.session_state.previous_analysis_results = st.session_state.get("screening_results")
         st.session_state.previous_analysis_label   = name_a_disp
 
-        st.session_state.icmp_stage = "done"
-        st.session_state.cmp_kind   = "indice"
+        st.session_state.cmp_indice_stage = "done"
+        st.session_state.comparison_kind   = "indice"
         st.session_state.stage      = "comparison_results"
         st.rerun()
         return
@@ -3607,21 +3607,21 @@ def _render_indice_comparison_section(results: dict) -> None:
     _opt_labels = [v[0] for v in _opts.values()]
     _opt_keys   = list(_opts.keys())
 
-    icmp_c1, icmp_c2 = st.columns([3, 1])
-    with icmp_c1:
+    cmp_indice_c1, cmp_indice_c2 = st.columns([3, 1])
+    with cmp_indice_c1:
         _sel_b = st.selectbox(
             f"Comparer {name_a_disp} avec :",
             options=_opt_labels, index=0,
-            key="icmp_sel_b"
+            key="cmp_indice_sel_b"
         )
-    with icmp_c2:
+    with cmp_indice_c2:
         st.markdown("<div style='margin-top:28px;'></div>", unsafe_allow_html=True)
         if st.button("Comparer \u2192", type="primary",
-                     use_container_width=True, key="icmp_btn"):
+                     use_container_width=True, key="cmp_indice_btn"):
             _sel_idx = _opt_labels.index(_sel_b)
             _sel_key = _opt_keys[_sel_idx]
-            st.session_state.icmp_universe_b = _sel_key
-            st.session_state.icmp_stage      = "running"
+            st.session_state.cmp_indice_universe_b = _sel_key
+            st.session_state.cmp_indice_stage      = "running"
             st.rerun()
 
 
@@ -3629,10 +3629,10 @@ def _render_indice_comparison_section(results: dict) -> None:
 # Comparaison sectorielle au sein d'un indice (après analyse indice)
 # ---------------------------------------------------------------------------
 
-def _render_sector_comparison_within_indice(results: dict) -> None:
+def _render_cmp_secteur_within_indice(results: dict) -> None:
     """Apres une analyse indice, permet de comparer deux secteurs DE l'indice.
 
-    Reuse l'infrastructure cmp_secteur normale (scmp_* state keys + page
+    Reuse l'infrastructure cmp_secteur normale (cmp_secteur_* state keys + page
     comparison_results) pour garantir la meme UX que le bouton "Comparer 2
     secteurs" de la homepage. Stage "running" -> redirection vers la page
     de resultats dediee, pas d'affichage in-line.
@@ -3653,9 +3653,9 @@ def _render_sector_comparison_within_indice(results: dict) -> None:
         f'<div class="sec-t" style="margin-top:36px;">Comparer deux secteurs de {indice_name}</div>',
         unsafe_allow_html=True)
 
-    if st.session_state.get("scmp_stage") == "running":
-        sec_a = st.session_state.get("scmp_sector_a_isec", "")
-        sec_b = st.session_state.get("scmp_sector_b", "")
+    if st.session_state.get("cmp_secteur_stage") == "running":
+        sec_a = st.session_state.get("cmp_secteur_sector_a_isec", "")
+        sec_b = st.session_state.get("cmp_secteur_sector_b", "")
         with st.spinner(f"Generation comparatif {sec_a} vs {sec_b}..."):
             try:
                 tickers_a = [t for t in tickers_data if t.get("sector") == sec_a]
@@ -3672,7 +3672,7 @@ def _render_sector_comparison_within_indice(results: dict) -> None:
                     tickers_a, sec_a, indice_name,
                     tickers_b, sec_b, indice_name,
                 )
-                st.session_state.scmp_pptx_bytes = pptx_bytes
+                st.session_state.cmp_secteur_pptx_bytes = pptx_bytes
 
                 import tempfile, os as _os
                 with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as _tf:
@@ -3682,7 +3682,7 @@ def _render_sector_comparison_within_indice(results: dict) -> None:
                     tickers_b, sec_b, indice_name,
                     output_path=_pdf_path,
                 )
-                st.session_state.scmp_pdf_bytes = open(_pdf_path, "rb").read()
+                st.session_state.cmp_secteur_pdf_bytes = open(_pdf_path, "rb").read()
                 try:
                     _os.unlink(_pdf_path)
                 except Exception:
@@ -3691,29 +3691,29 @@ def _render_sector_comparison_within_indice(results: dict) -> None:
                 # XLSX (template-driven, peut echouer silencieusement)
                 try:
                     from outputs.cmp_secteur_xlsx_writer import generate_cmp_secteur_xlsx
-                    st.session_state.scmp_xlsx_bytes = generate_cmp_secteur_xlsx(
+                    st.session_state.cmp_secteur_xlsx_bytes = generate_cmp_secteur_xlsx(
                         tickers_a, sec_a, indice_name,
                         tickers_b, sec_b, indice_name,
                     )
                 except Exception as _xex:
                     log.warning("[isec_scmp] xlsx gen failed: %s", _xex)
-                    st.session_state.scmp_xlsx_bytes = None
+                    st.session_state.cmp_secteur_xlsx_bytes = None
 
-                st.session_state.scmp_tickers_a = tickers_a
-                st.session_state.scmp_tickers_b = tickers_b
+                st.session_state.cmp_secteur_tickers_a = tickers_a
+                st.session_state.cmp_secteur_tickers_b = tickers_b
                 # Preserver l'analyse indice initiale
                 st.session_state.previous_analysis_type    = "screening_results"
                 st.session_state.previous_analysis_results = st.session_state.get("screening_results")
                 st.session_state.previous_analysis_label   = indice_name
-                # Aligner avec scmp_* pour profiter de la page comparison_results
-                st.session_state.scmp_sector_a = sec_a
-                st.session_state.scmp_stage    = "done"
-                st.session_state.cmp_kind      = "secteur"
+                # Aligner avec cmp_secteur_* pour profiter de la page comparison_results
+                st.session_state.cmp_secteur_sector_a = sec_a
+                st.session_state.cmp_secteur_stage    = "done"
+                st.session_state.comparison_kind      = "secteur"
                 st.session_state.stage         = "comparison_results"
                 st.rerun()
             except Exception as _ex:
                 st.error(f"Erreur generation comparatif : {_ex}")
-                st.session_state.scmp_stage = None
+                st.session_state.cmp_secteur_stage = None
         return
 
     # Formulaire de selection — 2 selectbox + bouton "Comparer" a droite,
@@ -3729,9 +3729,9 @@ def _render_sector_comparison_within_indice(results: dict) -> None:
     with col_btn:
         if st.button("Comparer", type="primary", use_container_width=True,
                      key="isec_go"):
-            st.session_state.scmp_sector_a_isec = sec_a
-            st.session_state.scmp_sector_b      = sec_b
-            st.session_state.scmp_stage         = "running"
+            st.session_state.cmp_secteur_sector_a_isec = sec_a
+            st.session_state.cmp_secteur_sector_b      = sec_b
+            st.session_state.cmp_secteur_stage         = "running"
             st.rerun()
 
 
@@ -3745,7 +3745,7 @@ _CMP_SECTOR_CHOICES = [
     "Immobilier", "T\u00e9l\u00e9communications", "Services Publics",
 ]
 
-def _render_sector_comparison_section(results: dict) -> None:
+def _render_cmp_secteur_section(results: dict) -> None:
     """Affiche la section de comparatif sectoriel après une analyse sectorielle simple."""
     import io as _io
     import sys as _sys
@@ -3757,56 +3757,56 @@ def _render_sector_comparison_section(results: dict) -> None:
                 unsafe_allow_html=True)
 
     # État comparatif sectoriel
-    if "scmp_stage" not in st.session_state:
-        st.session_state.scmp_stage = None   # None / "running" / "done"
-    if "scmp_pptx_bytes" not in st.session_state:
-        st.session_state.scmp_pptx_bytes = None
-    if "scmp_pdf_bytes" not in st.session_state:
-        st.session_state.scmp_pdf_bytes = None
-    if "scmp_sector_b" not in st.session_state:
-        st.session_state.scmp_sector_b = None
+    if "cmp_secteur_stage" not in st.session_state:
+        st.session_state.cmp_secteur_stage = None   # None / "running" / "done"
+    if "cmp_secteur_pptx_bytes" not in st.session_state:
+        st.session_state.cmp_secteur_pptx_bytes = None
+    if "cmp_secteur_pdf_bytes" not in st.session_state:
+        st.session_state.cmp_secteur_pdf_bytes = None
+    if "cmp_secteur_sector_b" not in st.session_state:
+        st.session_state.cmp_secteur_sector_b = None
 
     # Si secteur change => reset
-    if st.session_state.get("scmp_sector_a") != current_sector:
-        st.session_state.scmp_stage = None
-        st.session_state.scmp_pptx_bytes = None
-        st.session_state.scmp_pdf_bytes = None
-        st.session_state.scmp_sector_a = current_sector
+    if st.session_state.get("cmp_secteur_sector_a") != current_sector:
+        st.session_state.cmp_secteur_stage = None
+        st.session_state.cmp_secteur_pptx_bytes = None
+        st.session_state.cmp_secteur_pdf_bytes = None
+        st.session_state.cmp_secteur_sector_a = current_sector
 
-    scmp_stage = st.session_state.scmp_stage
+    cmp_secteur_stage = st.session_state.cmp_secteur_stage
 
-    if scmp_stage == "done":
-        scmp_b = st.session_state.get("scmp_sector_b", "")
-        st.success(f"Comparatif {current_sector} vs {scmp_b} Généré")
+    if cmp_secteur_stage == "done":
+        cmp_secteur_b_local = st.session_state.get("cmp_secteur_sector_b", "")
+        st.success(f"Comparatif {current_sector} vs {cmp_secteur_b_local} Généré")
         dl1, dl2, dl3 = st.columns(3)
         with dl1:
-            if st.session_state.scmp_pptx_bytes:
+            if st.session_state.cmp_secteur_pptx_bytes:
                 st.download_button(
-                    f"Pitchbook {current_sector} vs {scmp_b} .pptx",
-                    st.session_state.scmp_pptx_bytes,
-                    file_name=f"cmp_secteur_{current_sector}_vs_{scmp_b}.pptx",
+                    f"Pitchbook {current_sector} vs {cmp_secteur_b_local} .pptx",
+                    st.session_state.cmp_secteur_pptx_bytes,
+                    file_name=f"cmp_secteur_{current_sector}_vs_{cmp_secteur_b_local}.pptx",
                     mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
                     use_container_width=True,
                 )
         with dl2:
-            if st.session_state.scmp_pdf_bytes:
+            if st.session_state.cmp_secteur_pdf_bytes:
                 st.download_button(
-                    f"Rapport {current_sector} vs {scmp_b} .pdf",
-                    st.session_state.scmp_pdf_bytes,
-                    file_name=f"cmp_secteur_{current_sector}_vs_{scmp_b}.pdf",
+                    f"Rapport {current_sector} vs {cmp_secteur_b_local} .pdf",
+                    st.session_state.cmp_secteur_pdf_bytes,
+                    file_name=f"cmp_secteur_{current_sector}_vs_{cmp_secteur_b_local}.pdf",
                     mime="application/pdf",
                     use_container_width=True,
                 )
         with dl3:
-            if st.button("Nouvelle comparaison", key="scmp_reset"):
-                st.session_state.scmp_stage = None
-                st.session_state.scmp_pptx_bytes = None
-                st.session_state.scmp_pdf_bytes = None
+            if st.button("Nouvelle comparaison", key="cmp_secteur_reset"):
+                st.session_state.cmp_secteur_stage = None
+                st.session_state.cmp_secteur_pptx_bytes = None
+                st.session_state.cmp_secteur_pdf_bytes = None
                 st.rerun()
         return
 
-    if scmp_stage == "running":
-        sector_b = st.session_state.get("scmp_sector_b", "")
+    if cmp_secteur_stage == "running":
+        sector_b = st.session_state.get("cmp_secteur_sector_b", "")
         with st.spinner(f"Génération comparatif {current_sector} vs {sector_b}..."):
             try:
                 _sys.path.insert(0, str(Path(__file__).parent))
@@ -3869,7 +3869,7 @@ def _render_sector_comparison_section(results: dict) -> None:
                     td_a_clean, current_sector, "Global",
                     tickers_b, sector_b, "Global",
                 )
-                st.session_state.scmp_pptx_bytes = pptx_bytes
+                st.session_state.cmp_secteur_pptx_bytes = pptx_bytes
 
                 import tempfile, os as _os
                 with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as _tf:
@@ -3879,7 +3879,7 @@ def _render_sector_comparison_section(results: dict) -> None:
                     tickers_b, sector_b, "Global",
                     output_path=_pdf_path,
                 )
-                st.session_state.scmp_pdf_bytes = open(_pdf_path, "rb").read()
+                st.session_state.cmp_secteur_pdf_bytes = open(_pdf_path, "rb").read()
                 try:
                     _os.unlink(_pdf_path)
                 except Exception:
@@ -3888,30 +3888,30 @@ def _render_sector_comparison_section(results: dict) -> None:
                 # XLSX secteur comparatif (nouveau writer)
                 try:
                     from outputs.cmp_secteur_xlsx_writer import generate_cmp_secteur_xlsx
-                    st.session_state.scmp_xlsx_bytes = generate_cmp_secteur_xlsx(
+                    st.session_state.cmp_secteur_xlsx_bytes = generate_cmp_secteur_xlsx(
                         td_a_clean, current_sector, "Global",
                         tickers_b, sector_b, "Global",
                     )
                 except Exception as _xex:
                     log.warning(f"[scmp] xlsx gen failed: {_xex}")
-                    st.session_state.scmp_xlsx_bytes = None
+                    st.session_state.cmp_secteur_xlsx_bytes = None
 
                 # Stocker les tickers pour la page de résultats comparatifs
-                st.session_state.scmp_tickers_a = td_a_clean
-                st.session_state.scmp_tickers_b = tickers_b
+                st.session_state.cmp_secteur_tickers_a = td_a_clean
+                st.session_state.cmp_secteur_tickers_b = tickers_b
 
                 # Sauvegarder l'État de l'analyse sectorielle initiale
                 st.session_state.previous_analysis_type    = "screening_results"
                 st.session_state.previous_analysis_results = st.session_state.get("screening_results")
                 st.session_state.previous_analysis_label   = current_sector
 
-                st.session_state.scmp_stage = "done"
-                st.session_state.cmp_kind   = "secteur"
+                st.session_state.cmp_secteur_stage = "done"
+                st.session_state.comparison_kind   = "secteur"
                 st.session_state.stage      = "comparison_results"
                 st.rerun()
             except Exception as _ex:
                 st.error(f"Erreur Génération comparatif : {_ex}")
-                st.session_state.scmp_stage = None
+                st.session_state.cmp_secteur_stage = None
         return
 
     # Formulaire de sélection — filtre X vs X via comparaison par slug canonique
@@ -3927,14 +3927,14 @@ def _render_sector_comparison_section(results: dict) -> None:
         sector_b_sel = st.selectbox(
             label="",
             options=other_choices,
-            key="scmp_sector_b_sel",
+            key="cmp_secteur_sector_b_sel",
             label_visibility="collapsed",
         )
     with sc2:
         if st.button("Comparer", type="primary", use_container_width=True,
-                     key="scmp_run"):
-            st.session_state.scmp_sector_b = sector_b_sel
-            st.session_state.scmp_stage = "running"
+                     key="cmp_secteur_run"):
+            st.session_state.cmp_secteur_sector_b = sector_b_sel
+            st.session_state.cmp_secteur_stage = "running"
             st.rerun()
 
 
@@ -3968,14 +3968,14 @@ def render_screening_results(results: dict) -> None:
             for _k in (
                 "screening_results", "screening_parent", "screening_universe",
                 "from_screening", "results", "ticker",
-                "icmp_stage", "icmp_universe_b", "icmp_universe_a",
-                "icmp_pptx_bytes", "icmp_pdf_bytes", "icmp_xlsx_bytes",
-                "icmp_cmp_data",
-                "scmp_stage", "scmp_sector_b", "scmp_universe_b",
-                "scmp_pptx_bytes", "scmp_pdf_bytes", "scmp_xlsx_bytes",
-                "scmp_tickers_a", "scmp_tickers_b", "scmp_cmp_data",
-                "cmp_stage", "cmp_kind", "cmp_state_b", "cmp_bytes",
-                "cmp_pptx_bytes", "cmp_pdf_bytes", "cmp_ticker_b",
+                "cmp_indice_stage", "cmp_indice_universe_b", "cmp_indice_universe_a",
+                "cmp_indice_pptx_bytes", "cmp_indice_pdf_bytes", "cmp_indice_xlsx_bytes",
+                "cmp_indice_data",
+                "cmp_secteur_stage", "cmp_secteur_sector_b", "cmp_secteur_universe_b",
+                "cmp_secteur_pptx_bytes", "cmp_secteur_pdf_bytes", "cmp_secteur_xlsx_bytes",
+                "cmp_secteur_tickers_a", "cmp_secteur_tickers_b", "cmp_secteur_data",
+                "cmp_societe_stage", "comparison_kind", "cmp_societe_state_b", "cmp_societe_xlsx_bytes",
+                "cmp_societe_pptx_bytes", "cmp_societe_pdf_bytes", "cmp_societe_ticker_b",
                 "previous_analysis_type", "previous_analysis_results",
                 "previous_analysis_label",
             ):
@@ -4142,15 +4142,15 @@ def render_screening_results(results: dict) -> None:
     _is_indice_result = _universe_key not in _SECTOR_ALIASES_SET and _universe_key in _INDICE_CMP_OPTIONS
     _is_sector_result = _universe_key in _SECTOR_ALIASES_SET
     if _is_indice_result:
-        _render_indice_comparison_section(results)
+        _render_cmp_indice_section(results)
         st.markdown('<div style="margin-top:8px;"></div>', unsafe_allow_html=True)
         # Comparaison sectorielle au sein de l'indice
-        _render_sector_comparison_within_indice(results)
+        _render_cmp_secteur_within_indice(results)
         st.markdown('<div style="margin-top:8px;"></div>', unsafe_allow_html=True)
 
     # --- Comparatif sectoriel (si analyse sectorielle simple) ---
     if _is_sector_result:
-        _render_sector_comparison_section(results)
+        _render_cmp_secteur_section(results)
         st.markdown('<div style="margin-top:8px;"></div>', unsafe_allow_html=True)
 
     # --- Comparer deux sociétés ---
@@ -4468,31 +4468,31 @@ def _render_comparison_section(state_a: dict) -> None:
         unsafe_allow_html=True,
     )
 
-    cmp_stage = st.session_state.get("cmp_stage")
+    cmp_societe_stage = st.session_state.get("cmp_societe_stage")
 
     # ── Auto-déclenchement depuis le screening sectoriel ────────────────
     _preset_b = st.session_state.get("scr_cmp_b_preset", "")
-    if _preset_b and not cmp_stage:
-        st.session_state.cmp_ticker_b       = _preset_b
-        st.session_state.cmp_stage          = "running"
+    if _preset_b and not cmp_societe_stage:
+        st.session_state.cmp_societe_ticker_b       = _preset_b
+        st.session_state.cmp_societe_stage          = "running"
         st.session_state.scr_cmp_b_preset   = ""
         st.rerun()
 
     # ── Résultat disponible ──────────────────────────────────────────────
-    if cmp_stage == "done" and st.session_state.get("cmp_bytes"):
+    if cmp_societe_stage == "done" and st.session_state.get("cmp_societe_xlsx_bytes"):
         tkr_a = (state_a.get("raw_data") and state_a["raw_data"].ticker) or state_a.get("ticker", "A")
-        tkr_b = st.session_state.get("cmp_ticker_b", "B")
+        tkr_b = st.session_state.get("cmp_societe_ticker_b", "B")
         fname_xlsx = f"{tkr_a}_vs_{tkr_b}_comparison.xlsx"
         st.success(f"Comparaison {tkr_a} / {tkr_b} prête.")
         st.download_button(
             label=f"Comparaison {tkr_a} vs {tkr_b}  ↓  .xlsx",
-            data=st.session_state["cmp_bytes"],
+            data=st.session_state["cmp_societe_xlsx_bytes"],
             file_name=fname_xlsx,
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             use_container_width=True,
         )
         # Pitchbook PPTX comparatif (pré-généré)
-        cmp_pptx = st.session_state.get("cmp_pptx_bytes")
+        cmp_pptx = st.session_state.get("cmp_societe_pptx_bytes")
         if cmp_pptx:
             fname_pptx = f"{tkr_a}_vs_{tkr_b}_comparison.pptx"
             st.download_button(
@@ -4503,7 +4503,7 @@ def _render_comparison_section(state_a: dict) -> None:
                 use_container_width=True,
             )
         # Rapport PDF comparatif (pré-généré)
-        cmp_pdf = st.session_state.get("cmp_pdf_bytes")
+        cmp_pdf = st.session_state.get("cmp_societe_pdf_bytes")
         if cmp_pdf:
             fname_pdf = f"{tkr_a}_vs_{tkr_b}_comparison.pdf"
             st.download_button(
@@ -4514,20 +4514,20 @@ def _render_comparison_section(state_a: dict) -> None:
                 use_container_width=True,
             )
         if st.button("Nouvelle comparaison", use_container_width=True):
-            st.session_state.cmp_stage      = None
-            st.session_state.cmp_ticker_b   = ""
-            st.session_state.cmp_bytes      = None
-            st.session_state.cmp_state_b    = None
-            st.session_state.cmp_pptx_bytes = None
-            st.session_state.cmp_pdf_bytes  = None
+            st.session_state.cmp_societe_stage      = None
+            st.session_state.cmp_societe_ticker_b   = ""
+            st.session_state.cmp_societe_xlsx_bytes      = None
+            st.session_state.cmp_societe_state_b    = None
+            st.session_state.cmp_societe_pptx_bytes = None
+            st.session_state.cmp_societe_pdf_bytes  = None
             st.rerun()
         return
 
     # ── Pipeline en cours pour société B ────────────────────────────────
-    if cmp_stage == "running":
-        ticker_b = st.session_state.get("cmp_ticker_b", "")
+    if cmp_societe_stage == "running":
+        ticker_b = st.session_state.get("cmp_societe_ticker_b", "")
         if not ticker_b:
-            st.session_state.cmp_stage = None
+            st.session_state.cmp_societe_stage = None
             st.rerun()
             return
 
@@ -4546,57 +4546,57 @@ def _render_comparison_section(state_a: dict) -> None:
 
                 if state_b.get("raw_data") is None:
                     st.error(f"Aucune Donnée disponible pour {ticker_b}.")
-                    st.session_state.cmp_stage = None
+                    st.session_state.cmp_societe_stage = None
                     return
 
-                st.session_state.cmp_state_b = state_b
+                st.session_state.cmp_societe_state_b = state_b
 
                 # Générer TOUS les fichiers comparaison (XLSX + PPTX + PDF)
                 # pour éviter le double-clic au téléchargement
-                from outputs.comparison_writer import ComparisonWriter
-                cmp_bytes = ComparisonWriter().write(state_a, state_b)
-                st.session_state.cmp_bytes = cmp_bytes
+                from outputs.cmp_societe_xlsx_writer import CmpSocieteXlsxWriter
+                cmp_societe_xlsx_bytes = CmpSocieteXlsxWriter().write(state_a, state_b)
+                st.session_state.cmp_societe_xlsx_bytes = cmp_societe_xlsx_bytes
 
                 try:
-                    from outputs.comparison_pptx_writer import ComparisonPPTXWriter, _generate_synthesis
-                    from outputs.comparison_writer import extract_metrics as _extract, _fetch_supplements as _fetch
-                    st.session_state.cmp_pptx_bytes = ComparisonPPTXWriter().generate_bytes(state_a, state_b)
+                    from outputs.cmp_societe_pptx_writer import CmpSocietePPTXWriter, _generate_synthesis
+                    from outputs.cmp_societe_xlsx_writer import extract_metrics as _extract, _fetch_supplements as _fetch
+                    st.session_state.cmp_societe_pptx_bytes = CmpSocietePPTXWriter().generate_bytes(state_a, state_b)
                     # Stocker la Synthèse LLM pour la page comparative
                     try:
                         _ma = _extract(state_a, _fetch(state_a.get("ticker", "")))
                         _mb = _extract(state_b, _fetch(state_b.get("ticker", "")))
                         _ma["ticker_a"] = state_a.get("ticker", "")
                         _mb["ticker_b"] = state_b.get("ticker", "")
-                        st.session_state.cmp_synthesis = _generate_synthesis(_ma, _mb)
+                        st.session_state.cmp_societe_synthesis = _generate_synthesis(_ma, _mb)
                     except Exception as _sx:
                         log.warning(f"[comparison] synthesis extract failed: {_sx}")
-                        st.session_state.cmp_synthesis = None
+                        st.session_state.cmp_societe_synthesis = None
                 except Exception as _pex:
                     log.warning(f"[comparison] PPTX auto-gen failed: {_pex}")
-                    st.session_state.cmp_pptx_bytes = None
-                    st.session_state.cmp_synthesis = None
+                    st.session_state.cmp_societe_pptx_bytes = None
+                    st.session_state.cmp_societe_synthesis = None
 
                 try:
-                    from outputs.comparison_pdf_writer import ComparisonPDFWriter
-                    st.session_state.cmp_pdf_bytes = ComparisonPDFWriter().generate_bytes(state_a, state_b)
+                    from outputs.cmp_societe_pdf_writer import CmpSocietePDFWriter
+                    st.session_state.cmp_societe_pdf_bytes = CmpSocietePDFWriter().generate_bytes(state_a, state_b)
                 except Exception as _pdex:
                     log.warning(f"[comparison] PDF auto-gen failed: {_pdex}")
-                    st.session_state.cmp_pdf_bytes = None
+                    st.session_state.cmp_societe_pdf_bytes = None
 
                 # Sauvegarder l'État initial pour le bouton "Retour"
                 st.session_state.previous_analysis_type    = "results"
                 st.session_state.previous_analysis_results = st.session_state.get("results")
                 st.session_state.previous_analysis_label   = state_a.get("ticker", "analyse")
 
-                st.session_state.cmp_stage = "done"
-                st.session_state.cmp_kind  = "société"
+                st.session_state.cmp_societe_stage = "done"
+                st.session_state.comparison_kind  = "société"
                 st.session_state.stage     = "comparison_results"
                 st.rerun()
 
             except Exception as _ex:
                 log.error(f"[comparison] erreur pipeline B: {_ex}", exc_info=True)
                 st.error(f"Erreur comparaison : {_ex}")
-                st.session_state.cmp_stage = None
+                st.session_state.cmp_societe_stage = None
         return
 
     # ── Formulaire de saisie ─────────────────────────────────────────────
@@ -4606,7 +4606,7 @@ def _render_comparison_section(state_a: dict) -> None:
         ticker_b_input = st.text_input(
             label="",
             placeholder=f"Comparer {tkr_a} avec... (ex : MSFT, MC.PA, NVDA)",
-            key="cmp_ticker_input",
+            key="cmp_societe_ticker_input",
             label_visibility="collapsed",
         )
     with col2:
@@ -4645,12 +4645,12 @@ def _render_comparison_section(state_a: dict) -> None:
                         break
             except Exception:
                 pass  # garder raw_input
-        st.session_state.cmp_ticker_b   = resolved_ticker
-        st.session_state.cmp_stage      = "running"
-        st.session_state.cmp_bytes      = None
-        st.session_state.cmp_state_b    = None
-        st.session_state.cmp_pptx_bytes = None
-        st.session_state.cmp_pdf_bytes  = None
+        st.session_state.cmp_societe_ticker_b   = resolved_ticker
+        st.session_state.cmp_societe_stage      = "running"
+        st.session_state.cmp_societe_xlsx_bytes      = None
+        st.session_state.cmp_societe_state_b    = None
+        st.session_state.cmp_societe_pptx_bytes = None
+        st.session_state.cmp_societe_pdf_bytes  = None
         st.rerun()
 
 
@@ -5118,16 +5118,16 @@ def _cmp_back_to_previous():
     # Nettoyage COMPLET de l'État comparatif (cmp société + secteur + indice)
     _cmp_keys_to_clear = (
         # Comparaison société
-        "cmp_stage", "cmp_kind", "cmp_state_b", "cmp_bytes",
-        "cmp_pptx_bytes", "cmp_pdf_bytes",
+        "cmp_societe_stage", "comparison_kind", "cmp_societe_state_b", "cmp_societe_xlsx_bytes",
+        "cmp_societe_pptx_bytes", "cmp_societe_pdf_bytes",
         # Comparaison secteur
-        "scmp_stage", "scmp_sector_a", "scmp_sector_b",
-        "scmp_tickers_a", "scmp_tickers_b",
-        "scmp_pptx_bytes", "scmp_pdf_bytes", "scmp_xlsx_bytes",
-        "scmp_universe_b", "scmp_cmp_data",
+        "cmp_secteur_stage", "cmp_secteur_sector_a", "cmp_secteur_sector_b",
+        "cmp_secteur_tickers_a", "cmp_secteur_tickers_b",
+        "cmp_secteur_pptx_bytes", "cmp_secteur_pdf_bytes", "cmp_secteur_xlsx_bytes",
+        "cmp_secteur_universe_b", "cmp_secteur_data",
         # Comparaison indice
-        "icmp_stage", "icmp_universe_b", "icmp_cmp_data",
-        "icmp_pptx_bytes", "icmp_pdf_bytes", "icmp_xlsx_bytes",
+        "cmp_indice_stage", "cmp_indice_universe_b", "cmp_indice_data",
+        "cmp_indice_pptx_bytes", "cmp_indice_pdf_bytes", "cmp_indice_xlsx_bytes",
     )
     for _k in _cmp_keys_to_clear:
         if _k in st.session_state:
@@ -5179,10 +5179,10 @@ def _rec_cls(rec):
 def render_comparison_results() -> None:
     """Page post-analyse comparative unifiee.
 
-    Lit st.session_state.cmp_kind ∈ {societe, secteur, indice} et affiche
+    Lit st.session_state.comparison_kind ∈ {societe, secteur, indice} et affiche
     le header + verdict + mini-tableau adapte. Les livrables sont dans le ruban.
     """
-    kind = st.session_state.get("cmp_kind") or "société"
+    kind = st.session_state.get("comparison_kind") or "société"
 
     # ------------------------------------------------------------------
     # Dispatch vers les 3 rendus specialises
@@ -5307,7 +5307,7 @@ def _cmp_livrables_note() -> None:
 # ---------------------------------------------------------------------------
 def _render_cmp_societe_page() -> None:
     state_a = st.session_state.get("previous_analysis_results")  # dict results
-    state_b = st.session_state.get("cmp_state_b")
+    state_b = st.session_state.get("cmp_societe_state_b")
     if not state_a or not state_b:
         st.error("État de comparaison société manquant. Retour à l'analyse.")
         if st.button("\u2190 Retour"):
@@ -5315,7 +5315,7 @@ def _render_cmp_societe_page() -> None:
         return
 
     # Metriques des 2 sociétés
-    from outputs.comparison_writer import extract_metrics, _fetch_supplements
+    from outputs.cmp_societe_xlsx_writer import extract_metrics, _fetch_supplements
 
     tkr_a = (state_a.get("raw_data") and getattr(state_a["raw_data"], "ticker", None)) or \
             state_a.get("ticker", "A")
@@ -5359,7 +5359,7 @@ def _render_cmp_societe_page() -> None:
     )
 
     # Verdict LLM — recupere depuis synthesis comparative
-    synthesis = st.session_state.get("cmp_synthesis") or {}
+    synthesis = st.session_state.get("cmp_societe_synthesis") or {}
     verdict = synthesis.get("verdict_text", "")
     if not verdict and (rec_a or rec_b):
         verdict = (
@@ -5396,10 +5396,10 @@ def _render_cmp_societe_page() -> None:
 # Rendu : secteur vs secteur
 # ---------------------------------------------------------------------------
 def _render_cmp_secteur_page() -> None:
-    sector_a = st.session_state.get("scmp_sector_a") or "Secteur A"
-    sector_b = st.session_state.get("scmp_sector_b") or "Secteur B"
-    tickers_a = st.session_state.get("scmp_tickers_a") or []
-    tickers_b = st.session_state.get("scmp_tickers_b") or []
+    sector_a = st.session_state.get("cmp_secteur_sector_a") or "Secteur A"
+    sector_b = st.session_state.get("cmp_secteur_sector_b") or "Secteur B"
+    tickers_a = st.session_state.get("cmp_secteur_tickers_a") or []
+    tickers_b = st.session_state.get("cmp_secteur_tickers_b") or []
 
     # Médianes par secteur (score, EBITDA margin, PE)
     def _med_float(td, key):
@@ -5486,14 +5486,14 @@ def _render_cmp_secteur_page() -> None:
 # Rendu : indice vs indice
 # ---------------------------------------------------------------------------
 def _render_cmp_indice_page() -> None:
-    universe_a = st.session_state.get("icmp_universe_a") or "Indice A"
-    universe_b = st.session_state.get("icmp_universe_b") or "Indice B"
+    universe_a = st.session_state.get("cmp_indice_universe_a") or "Indice A"
+    universe_b = st.session_state.get("cmp_indice_universe_b") or "Indice B"
     name_a = _INDICE_CMP_OPTIONS.get(universe_a, (universe_a,))[0] if "_INDICE_CMP_OPTIONS" in globals() else universe_a
     name_b = _INDICE_CMP_OPTIONS.get(universe_b, (universe_b,))[0] if "_INDICE_CMP_OPTIONS" in globals() else universe_b
 
-    # cmp_data est un dict plat retourne par _fetch_indice_cmp_data avec
+    # cmp_data est un dict plat retourne par _fetch_cmp_indice_data avec
     # cles suffixees _a / _b (score_a, perf_1y_a, pe_fwd_a, etc.)
-    cmp_data = st.session_state.get("icmp_cmp_data") or {}
+    cmp_data = st.session_state.get("cmp_indice_data") or {}
 
     def _g(d, *keys, default=None):
         for k in keys:

@@ -3,7 +3,7 @@ comparison_writer.py — FinSight IA
 Injecte deux états pipeline dans TEMPLATE_COMPARISON.xlsx (feuille DATA_RAW).
 
 Usage:
-    path = ComparisonWriter().write(state_a, state_b)
+    path = CmpSocieteXlsxWriter().write(state_a, state_b)
 
 state_a / state_b : dict renvoyé par le pipeline LangGraph (st.session_state.results)
   Champs utilisés : raw_data (FinancialSnapshot), ratios (RatiosResult),
@@ -811,7 +811,7 @@ def _compute_peg(yr, rev_cagr) -> Optional[float]:
 # Writer principal
 # ---------------------------------------------------------------------------
 
-class ComparisonWriter:
+class CmpSocieteXlsxWriter:
     """Injecte deux états pipeline dans TEMPLATE_COMPARISON.xlsx."""
 
     def write(self, state_a: dict, state_b: dict) -> bytes:
@@ -846,7 +846,7 @@ class ComparisonWriter:
             return state.get("ticker", default)
         tkr_a = _get_tkr(state_a)
         tkr_b = _get_tkr(state_b)
-        log.info(f"[ComparisonWriter] fetch supplements {tkr_a} / {tkr_b}")
+        log.info(f"[CmpSocieteXlsxWriter] fetch supplements {tkr_a} / {tkr_b}")
         supp_a = _fetch_supplements(tkr_a)
         supp_b = _fetch_supplements(tkr_b)
 
@@ -913,7 +913,7 @@ class ComparisonWriter:
             for r in sorted(rows_to_delete, reverse=True):
                 ws_comp.delete_rows(r)
         except Exception as _ce2:
-            log.warning(f"[ComparisonWriter] comparables dedup: {_ce2}")
+            log.warning(f"[CmpSocieteXlsxWriter] comparables dedup: {_ce2}")
 
         # 9. Mettre à jour les noms de series dans TOUS les graphiques +
         #    remplacer les labels "Société A/B" des cellules DASHBOARD par les tickers.
@@ -951,16 +951,16 @@ class ComparisonWriter:
                             ser.tx = SeriesLabel(v=new_name)
                         except Exception as _e:
                             log.debug(
-                                f"[ComparisonWriter] {sheet_name} chart series rename error: {_e}"
+                                f"[CmpSocieteXlsxWriter] {sheet_name} chart series rename error: {_e}"
                             )
         except Exception as _ce:
-            log.warning(f"[ComparisonWriter] chart rename global: {_ce}")
+            log.warning(f"[CmpSocieteXlsxWriter] chart rename global: {_ce}")
 
         # Sauvegarder en mémoire
         buf = io.BytesIO()
         wb.save(buf)
         buf.seek(0)
-        log.info(f"[ComparisonWriter] fichier Généré ({buf.getbuffer().nbytes // 1024} ko)")
+        log.info(f"[CmpSocieteXlsxWriter] fichier Généré ({buf.getbuffer().nbytes // 1024} ko)")
         return buf.read()
 
 
@@ -993,4 +993,4 @@ def _write_cell(ws, row: int, col: int, value) -> None:
     try:
         ws.cell(row=row, column=col, value=value)
     except Exception as e:
-        log.debug(f"[ComparisonWriter] cell({row},{col})={value!r} erreur: {e}")
+        log.debug(f"[CmpSocieteXlsxWriter] cell({row},{col})={value!r} erreur: {e}")

@@ -61,8 +61,8 @@ def generate_outputs(state_a: dict, state_b: dict, tkr_a: str, tkr_b: str) -> di
 
     # PPTX
     try:
-        from outputs.comparison_pptx_writer import ComparisonPPTXWriter
-        pptx_bytes = ComparisonPPTXWriter().generate_bytes(state_a, state_b)
+        from outputs.cmp_societe_pptx_writer import CmpSocietePPTXWriter
+        pptx_bytes = CmpSocietePPTXWriter().generate_bytes(state_a, state_b)
         pptx_path  = CMP_DIR / f"{stem}_comparison.pptx"
         pptx_path.write_bytes(pptx_bytes)
         print(f"  [OK] PPTX -> {pptx_path.name} ({len(pptx_bytes)//1024} Ko)")
@@ -74,8 +74,8 @@ def generate_outputs(state_a: dict, state_b: dict, tkr_a: str, tkr_b: str) -> di
 
     # PDF
     try:
-        from outputs.comparison_pdf_writer import ComparisonPDFWriter
-        pdf_raw    = ComparisonPDFWriter().generate_bytes(state_a, state_b)
+        from outputs.cmp_societe_pdf_writer import CmpSocietePDFWriter
+        pdf_raw    = CmpSocietePDFWriter().generate_bytes(state_a, state_b)
         # generate_bytes peut retourner bytes ou BytesIO
         pdf_bytes  = pdf_raw.getvalue() if hasattr(pdf_raw, "getvalue") else bytes(pdf_raw)
         pdf_path   = CMP_DIR / f"{stem}_comparison.pdf"
