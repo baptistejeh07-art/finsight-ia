@@ -63,6 +63,134 @@ class SynthesisResult:
         return asdict(self)
 
 
+def _build_deterministic_fallback(snapshot, ratios) -> "SynthesisResult":
+    """Genere un SynthesisResult de fallback quand TOUS les LLM ont echoue.
+
+    Au lieu de retourner None (qui produit un PDF avec '—' partout), on
+    populate les champs critiques depuis snapshot/ratios en utilisant des
+    heuristiques deterministes. Le PDF est alors utilisable meme en cas
+    de panne complete des providers LLM.
+
+    Marqueurs : meta['fallback_mode'] = True pour que les writers puissent
+    afficher un disclaimer si necessaire.
+    """
+    ci = snapshot.company_info
+    mkt = snapshot.market
+    price = mkt.share_price if mkt else None
+
+    # Latest year ratios pour calcul cible
+    latest_yr = None
+    if ratios and getattr(ratios, "years", None):
+        try:
+            latest_yr = list(ratios.years.values())[-1]
+        except Exception:
+            pass
+
+    # ── Cible 12M : a partir d'une simple regle multiple sectoriel ──
+    # Si pas de Monte Carlo dispo, cible = price avec +/-15% bear/bull
+    target_base = price
+    target_bear = price * 0.85 if price else None
+    target_bull = price * 1.20 if price else None
+
+    # Recommendation deterministe : neutre par defaut
+    recommendation = "HOLD"
+    conviction = 0.50
+
+    # ── Generations textuelles minimales ──
+    _co = ci.company_name or ci.ticker
+    _sec = ci.sector or "non specifie"
+    _ev_ebitda = getattr(latest_yr, "ev_ebitda", None) if latest_yr else None
+    _gross = getattr(latest_yr, "gross_margin", None) if latest_yr else None
+    _ebitda_m = getattr(latest_yr, "ebitda_margin", None) if latest_yr else None
+    _roe = getattr(latest_yr, "roe", None) if latest_yr else None
+
+    _ratios_summary = []
+    if _ev_ebitda is not None:
+        _ratios_summary.append(f"EV/EBITDA {_ev_ebitda:.1f}x")
+    if _ebitda_m is not None:
+        _ratios_summary.append(f"marge EBITDA {_ebitda_m*100:.1f}%")
+    if _roe is not None:
+        _ratios_summary.append(f"ROE {_roe*100:.1f}%")
+    _ratios_str = ", ".join(_ratios_summary) if _ratios_summary else "ratios LTM"
+
+    thesis = (
+        f"{_co} presente un profil financier {_ratios_str} dans le secteur {_sec}. "
+        f"| L'analyse fondamentale indique un equilibre risque/rendement neutre a court terme. "
+        f"| Une revision de la these necessite la confirmation des prochains catalyseurs operationnels."
+    )
+
+    summary = (
+        f"Analyse fondamentale {_co} ({ci.ticker}) — secteur {_sec}. "
+        f"Ratios cles : {_ratios_str}. Recommandation neutre par defaut, "
+        f"a reviser selon evolution des fondamentaux et catalyseurs sectoriels."
+    )
+
+    company_description = (
+        f"{_co} opere dans le secteur {_sec}. "
+        f"Profil financier caracterise par {_ratios_str}. "
+        f"Description detaillee non disponible (mode fallback deterministe)."
+    )
+
+    catalysts = [
+        {"title": "Publication trimestrielle",
+         "description": f"Resultats du prochain trimestre — surveiller marges et guidance "
+                        f"vs consensus. Impact direct sur la perception de la trajectoire."},
+        {"title": "Evolution macro sectorielle",
+         "description": f"Cycle {_sec} : taux directeurs, demande finale, et indicateurs "
+                        f"avances PMI/credit. Toute inflexion macro impacte le re-rating."},
+        {"title": "Annonces strategiques",
+         "description": f"Operations M&A, lancement produits, ou changement de guidance "
+                        f"peuvent declencher une revision rapide de la these."},
+    ]
+
+    risks = [
+        {"title": "Compression des marges",
+         "description": f"Pression concurrentielle ou hausse des couts intrants peuvent "
+                        f"degrader la rentabilite operationnelle (marge EBITDA actuelle "
+                        f"{_ebitda_m*100:.1f}% si dispo)." if _ebitda_m else
+                        "Pression concurrentielle ou hausse des couts intrants."},
+        {"title": "Choc macroeconomique",
+         "description": "Recession, hausse des taux directeurs, ou degradation du credit "
+                        "sectoriel peuvent declencher un de-rating significatif."},
+        {"title": "Risque de revision baissiere",
+         "description": "Les revisions du consensus sur les 1-2 prochains trimestres "
+                        "constituent un signal d'alerte avance."},
+    ]
+
+    base_hypothesis = (
+        f"Maintien des marges actuelles, croissance organique en ligne avec le secteur."
+    )
+    bear_hypothesis = (
+        f"Compression marges -200 bps + ralentissement revenu -10% vs consensus."
+    )
+    bull_hypothesis = (
+        f"Expansion marges +100 bps + acceleration revenu +15% vs consensus."
+    )
+
+    return SynthesisResult(
+        ticker=snapshot.ticker,
+        company_name=_co,
+        recommendation=recommendation,
+        conviction=conviction,
+        target_base=target_base,
+        target_bull=target_bull,
+        target_bear=target_bear,
+        summary=summary,
+        company_description=company_description,
+        thesis=thesis,
+        risks=risks,
+        catalysts=catalysts,
+        bear_hypothesis=bear_hypothesis,
+        base_hypothesis=base_hypothesis,
+        bull_hypothesis=bull_hypothesis,
+        confidence_score=0.30,  # signaler la basse confiance
+        meta={
+            "fallback_mode": True,
+            "fallback_reason": "Tous les providers LLM ont echoue",
+        },
+    )
+
+
 _SYSTEM = """Tu es un analyste financier senior Investment Banking.
 Tu produis des analyses objectives, concises, professionnelles en français.
 LANGUE : français avec TOUS les accents (é, è, ê, à, ù, ô, î, û, ç, œ, etc.) — JAMAIS de caractères sans accent (ex: "Modérée" et non "Moderee", "résilience" et non "resilience").
@@ -292,23 +420,34 @@ class AgentSynthese:
                 log.error(f"[AgentSynthese] {_prov} echec ({type(_e).__name__}: {_e})")
 
         if not raw:
-            log.error("[AgentSynthese] Tous les providers ont echoue")
-            return None
+            log.error("[AgentSynthese] Tous les providers ont echoue — fallback deterministe")
+            _fb = _build_deterministic_fallback(snapshot, ratios)
+            _fb.meta["latency_ms"] = int((time.time() - t_start) * 1000)
+            return _fb
 
         latency_ms = int((time.time() - t_start) * 1000)
         parsed = _parse_json(raw)
         if not parsed:
-            log.error(f"[AgentSynthese] JSON non parseable :\n{raw[:300]}")
-            return None
+            log.error(f"[AgentSynthese] JSON non parseable — fallback deterministe :\n{raw[:300]}")
+            _fb = _build_deterministic_fallback(snapshot, ratios)
+            _fb.meta["latency_ms"] = latency_ms
+            _fb.meta["fallback_reason"] = "JSON LLM non parseable"
+            return _fb
+
+        # Helper : cast safe en float (LLM peut retourner string, null, dict)
+        def _fnum(v):
+            if v is None: return None
+            try: return float(v)
+            except (TypeError, ValueError): return None
 
         result = SynthesisResult(
             ticker               = snapshot.ticker,
             company_name         = ci.company_name,
             recommendation       = parsed.get("recommendation", "HOLD").upper(),
-            conviction           = float(parsed.get("conviction", 0.5)),
-            target_base          = parsed.get("target_price_base"),
-            target_bull          = parsed.get("target_price_bull"),
-            target_bear          = parsed.get("target_price_bear"),
+            conviction           = _fnum(parsed.get("conviction")) or 0.5,
+            target_base          = _fnum(parsed.get("target_price_base")),
+            target_bull          = _fnum(parsed.get("target_price_bull")),
+            target_bear          = _fnum(parsed.get("target_price_bear")),
             summary              = parsed.get("summary", ""),
             company_description  = parsed.get("company_description", ""),
             segments             = parsed.get("segments", []),
@@ -326,7 +465,7 @@ class AgentSynthese:
             comparable_peers     = parsed.get("comparable_peers", []),
             football_field       = parsed.get("football_field", []),
             is_projections       = parsed.get("is_projections", {}),
-            confidence_score     = float(parsed.get("confidence_score", 0.5)),
+            confidence_score     = _fnum(parsed.get("confidence_score")) or 0.5,
             invalidation_conditions = parsed.get("invalidation_conditions", ""),
             bear_hypothesis      = parsed.get("bear_hypothesis", ""),
             base_hypothesis      = parsed.get("base_hypothesis", ""),
@@ -341,7 +480,7 @@ class AgentSynthese:
                 "model":       self.llm.model,
                 "latency_ms":  latency_ms,
                 "tokens_used": None,
-                "confidence_score": float(parsed.get("confidence_score", 0.5)),
+                "confidence_score": _fnum(parsed.get("confidence_score")) or 0.5,
                 "invalidation_conditions": parsed.get("invalidation_conditions", ""),
             },
         )

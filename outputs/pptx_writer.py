@@ -1142,7 +1142,7 @@ def _slide_exec_summary(prs, snap, synthesis, ratios, devil, sentiment):
     # 4 KPI boxes — y=10.90 pour suivre HR (10.75), h=2.40 pour remplir jusqu'à footer
     kpi_box(slide, 1.02, 10.90, 5.64, 2.40,
             _frx(ev_e), "EV/EBITDA",
-            f"vs {_frx(peer_median_ev_e)} med. pairs")
+            f"vs {_frx(peer_Médian_ev_e)} med. pairs")
     kpi_box(slide, 6.91, 10.90, 5.64, 2.40,
             _frpct(wacc_val), "WACC",
             f"Beta {_fr(beta, 2) if beta else '—'}  \u00b7  RFR {_frpct(rfr)}")
@@ -3375,16 +3375,16 @@ def _slide_lbo_cadre(prs, snap, pack: dict):
     add_text_box(slide, 1.40, 3.10, 22.0, 0.50,
                  elig_sub, 9, NAVY_MID)
 
-    # Mega-deal flag
+    # Mega-deal flag — box agrandie + texte centre verticalement
     if pack["mega_flag"] != "standard":
-        mega_text = ("⚠⚠ Scénario théorique — EV > 100 Md$, hors marché LBO historique"
+        mega_text = ("\u26a0\u26a0 Scenario theorique \u2014 EV > 100 Md$, hors marche LBO historique"
                      if pack["mega_flag"] == "theorique"
-                     else "⚠ Mega-deal — EV 50-100 Md$, syndicate sponsorship requis")
-        add_rect(slide, 1.02, 3.80, 23.37, 0.55, AMBER_PALE)
-        add_rect(slide, 1.02, 3.80, 0.20, 0.55, AMBER)
-        add_text_box(slide, 1.40, 3.88, 22.0, 0.42,
-                     mega_text, 9.5, AMBER, bold=True)
-        sources_y = 4.55
+                     else "\u26a0 Mega-deal \u2014 EV 50-100 Md$, syndicate sponsorship requis")
+        add_rect(slide, 1.02, 3.80, 23.37, 0.75, AMBER_PALE)
+        add_rect(slide, 1.02, 3.80, 0.20, 0.75, AMBER)
+        add_text_box(slide, 1.40, 3.96, 22.0, 0.55,
+                     mega_text, 11, AMBER, bold=True)
+        sources_y = 4.75
     else:
         sources_y = 4.00
 
@@ -3667,13 +3667,14 @@ def _slide_lbo_stress(prs, snap, pack: dict):
 
     for i, (lbl, key, col_c, col_p) in enumerate(zip(col_labels, col_keys, col_colors, col_pales)):
         cx = col_xs[i]
-        # Header de colonne — text_box aligné EXACTEMENT sur le rect
-        add_rect(slide, cx, 8.10, col_w, 0.55, col_c)
-        add_text_box(slide, cx, 8.20, col_w, 0.36,
-                     lbl, 11, WHITE, bold=True,
+        # Header de colonne — bandeau plus haut (0.65 au lieu de 0.55) avec
+        # texte centre verticalement (0.45 de hauteur, marge 0.10 top/bottom)
+        add_rect(slide, cx, 8.05, col_w, 0.65, col_c)
+        add_text_box(slide, cx, 8.15, col_w, 0.45,
+                     lbl, 13, WHITE, bold=True,
                      align=__import__("pptx").enum.text.PP_ALIGN.CENTER, wrap=False)
-        # Body
-        add_rect(slide, cx, 8.65, col_w, 2.80, col_p)
+        # Body — collé au bandeau header
+        add_rect(slide, cx, 8.70, col_w, 2.50, col_p)
         s = sc[key]
         irr_v = s["irr"] * 100
         rows_text = [
@@ -3683,17 +3684,18 @@ def _slide_lbo_stress(prs, snap, pack: dict):
             ("ICR exit", f"{s['icr']:.1f}x"),
         ]
         for ri, (lab, val) in enumerate(rows_text):
-            ry = 8.75 + ri * 0.65
-            add_text_box(slide, cx + 0.30, ry, col_w * 0.55, 0.45,
+            ry = 8.85 + ri * 0.58  # rows un peu plus serres pour rentrer dans 2.50
+            add_text_box(slide, cx + 0.30, ry, col_w * 0.55, 0.42,
                          lab, 9, GREY_TXT)
-            add_text_box(slide, cx + col_w * 0.55, ry, col_w * 0.40, 0.45,
+            add_text_box(slide, cx + col_w * 0.55, ry, col_w * 0.40, 0.42,
                          val, 11, col_c, bold=True, align=__import__("pptx").enum.text.PP_ALIGN.RIGHT)
 
-    # ── Box LLM risques (footer) — texte tronqué 380 chars + box élargie ──
+    # Body rect ends a 8.70 + 2.50 = 11.20.
+    # Commentary box DECALEE plus bas pour eviter chevauchement avec ICR exit.
     risks_text = pack["llm_texts"].get("risks_text") or (
-        f"Le scénario bear traduit la sensibilité du deal à la compression des marges, "
-        f"à la hausse des taux et au multiple compression. "
-        f"La thèse s'invalide si EBITDA -200 bps ou multiple sortie -2×."
+        f"Le scenario bear traduit la sensibilite du deal a la compression des marges, "
+        f"a la hausse des taux et au multiple compression. "
+        f"La these s'invalide si EBITDA -200 bps ou multiple sortie -2x."
     )
     risks_text = _truncate(risks_text, 380)
     _stress_irr = None
@@ -3702,7 +3704,9 @@ def _slide_lbo_stress(prs, snap, pack: dict):
     except Exception:
         pass
     _stress_title = _jpm_title("lbo", snap=snap, extra={"irr_base": _stress_irr})
-    commentary_box(slide, 1.02, 11.45, 23.37, 1.85, risks_text, title=_stress_title)
+    # Decalage vertical : commentary box demarre a 11.50 (au lieu de 11.45)
+    # avec 0.30cm de gap au dessus. Hauteur 1.80 -> ends 13.30, footer a 13.44.
+    commentary_box(slide, 1.02, 11.50, 23.37, 1.80, risks_text, title=_stress_title)
     return slide
 
 
@@ -3849,11 +3853,11 @@ def _slide_risques(prs, snap, synthesis, devil, extra_scores: dict = None):
             m_lbl = _ma.get('label', '—')
             row1_items.append((f"M&A : {_ma['score']}/100  {m_lbl}",
                                _CMAP.get(m_lbl, NAVY)))
-        regime = _macro.get('regime_v', '')
+        regime = _macro.get('régime_v', '')
         rec_6m = _macro.get('récession_prob_6m')
         if regime and regime != 'Inconnu':
             rec_part = f"  Rec.6M:{rec_6m}%" if rec_6m is not None else ''
-            row1_items.append((f"Régime : {regime_v}{rec_part}", _CMAP.get(regime, NAVY)))
+            row1_items.append((f"Régime : {régime_v}{rec_part}", _CMAP.get(regime, NAVY)))
 
         for i, (txt, col) in enumerate(row1_items[:3]):
             x = bx_x[i]

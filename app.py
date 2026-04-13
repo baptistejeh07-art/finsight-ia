@@ -1875,6 +1875,21 @@ def render_running() -> None:
                 st.rerun()
             return
 
+        # Visibilite mode fallback : si l'agent Synthese a echoue (LLM ban,
+        # quotas, JSON cassé), un SynthesisResult deterministe a ete genere a
+        # la place. Le PDF/PPTX seront utilisables mais avec moins de profondeur.
+        try:
+            _syn_meta = getattr(synthesis, "meta", None) or {}
+            if _syn_meta.get("fallback_mode"):
+                _reason = _syn_meta.get("fallback_reason", "providers LLM indisponibles")
+                st.warning(
+                    f"Analyse generee en mode degrade — {_reason}. "
+                    "Les sections narratives (these, catalyseurs, cible 12M) "
+                    "utilisent un fallback deterministe. Verifier les quotas LLM."
+                )
+        except Exception:
+            pass
+
         elapsed = int((time.time() - t0) * 1000)
 
         # --- Log V2 pipeline complet ---
@@ -2761,13 +2776,7 @@ def render_screening_running() -> None:
             return
 
         _is_indice_run = universe not in _SECTOR_ALIASES_SET
-        if _is_indice_run:
-            _status(
-                f"Fetch yfinance pour {len(tickers)} societes de {display_name} "
-                f"+ ratios + scoring + writers PDF/PPTX/XLSX (~60-90s, normal)"
-            )
-        else:
-            _status(f"Calcul des ratios pour {len(tickers)} societes")
+        _status(f"Calcul des ratios pour {len(tickers)} societes")
 
         import os as _os
 
