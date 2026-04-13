@@ -523,7 +523,7 @@ def _cover_page(c, doc, data):
     c.drawCentredString(cx, by + box_h_b / 2 - 3*mm, f"Conviction {data['conviction_pct']} %")
 
     # 5 metriques — tolère les deux conventions de nommage
-    _nb_soc = data.get("nb_sociétés") or data.get("nb_societes", "\u2014")
+    _nb_soc = data.get("nb_sociétés") or data.get("nb_sociétés", "\u2014")
     metrics = [
         ("Secteurs analyses",  str(data.get("nb_secteurs", "\u2014"))),
         ("Soci\u00e9t\u00e9s couvertes", str(_nb_soc)),
@@ -756,7 +756,7 @@ def _build_synthese(data, perf_buf, registry=None):
 
     # ── Régime de Marché + Probabilite de récession ──────────────────────────
     _macro = data.get("macro") or {}
-    _regime  = _macro.get("regime_v")
+    _regime  = _macro.get("régime_v")
     _vix     = _macro.get("vix")
     _spread  = _macro.get("yield_spread_10y_3m")
     _sp_ma   = _macro.get("sp500_vs_ma200")
@@ -778,8 +778,8 @@ def _build_synthese(data, perf_buf, registry=None):
         }
         _regime_lbl = _regime_labels.get(_regime, _regime.lower())
         elems.append(Paragraph(
-            f"<b>Régime de Marché : {_regime_var}.</b> L'environnement macro est actuellement "
-            f"{_regime_var_lbl}, avec un VIX a {_vix_str}, un spread 10Y-3M de {_spread_str} "
+            f"<b>Régime de Marché : {_régime_var}.</b> L'environnement macro est actuellement "
+            f"{_régime_var_lbl}, avec un VIX a {_vix_str}, un spread 10Y-3M de {_spread_str} "
             f"et le S&P 500 a {_sp_ma_str} de sa moyenne mobile 200 jours. "
             f"La tendance de fond reste {_sp_trend.lower()}.", S_BODY))
         elems.append(Spacer(1, 2*mm))
@@ -1439,7 +1439,7 @@ def _build_top3(data, donut_buf, registry=None):
 
     _surp_list = [s for s in data["secteurs"] if s[3] in ("Surpondérer", "Surpond\xe9rer")]
     nb_surp_reel = len(_surp_list)
-    _surp_label = (f"{nb_surp_reel} secteur(s) affichent un signal <b>Surpond\u00e9rer</b>"
+    _surp_label = (f"{nb_surp_réel} secteur(s) affichent un signal <b>Surpond\u00e9rer</b>"
                    if nb_surp_reel > 0
                    else "aucun secteur ne franchit le seuil Surpond\u00e9rer")
     _n_comp = len(data["top3_secteurs"]) - nb_surp_reel
@@ -1453,7 +1453,7 @@ def _build_top3(data, donut_buf, registry=None):
     _nb_s_tot = data['nb_secteurs']
     _s_tot_lbl = "secteur couvert" if _nb_s_tot == 1 else "secteurs couverts"
     elems.append(Paragraph(
-        f"Sur {_nb_s_tot} {_s_tot_lbl}, {_surp_label}.{_complement} "
+        f"Sur {_nb_s_tot} {_s_tot_lbl}, {_surp_label}.{_complément} "
         "Ces secteurs combinent momentum prix positif, révision haussière des BPA et "
         "valorisation raisonnable par rapport \u00e0 leur historique. "
         "Pour le d\u00e9tail complet — ratios LTM/NTM, Football Field, DCF, FinBERT — "
@@ -1461,7 +1461,7 @@ def _build_top3(data, donut_buf, registry=None):
     elems.append(Spacer(1, 4*mm))
 
     # Tableau Synthèse
-    _titre_synth = ("Vue d'ensemble — Secteurs Surpond\u00e9rer" if nb_surp_reel > 0
+    _titre_synth = ("Vue d'ensemble — Secteurs Surpond\u00e9rer" if nb_surp_réel > 0
                     else "Vue d'ensemble — Meilleurs secteurs de l'univers")
     elems.append(Paragraph(_titre_synth, S_SUBSECTION))
     synth_h = [Paragraph(h, S_TH_C) for h in
@@ -1560,7 +1560,7 @@ def _build_top3(data, donut_buf, registry=None):
         _sect_ev = str(sect.get("ev_ebitda", "\u2014"))
         _sect_ev_ok = _sect_ev not in ("\u2014", "—", "", "None")
         _ev_sect = (f"{_mg:.1f}%" if _all_ev_missing and _mg else "\u2014")
-        for tkr, sig, ev, score in (sect.get("sociétés") or sect.get("societes") or []):
+        for tkr, sig, ev, score in (sect.get("sociétés") or sect.get("sociétés") or []):
             if _all_ev_missing:
                 _val_disp = _ev_sect
             elif str(ev) in ("\u2014", "—", "", "None") and _sect_ev_ok:
@@ -1766,7 +1766,7 @@ def _build_sentiment(data, registry=None):
     elems.append(Paragraph("Sources &amp; M\u00e9thodologie", S_SUBSECTION))
     meth_h = [Paragraph(h, S_TH_L) for h in ["Composanté","M\u00e9thodologie"]]
     meth_rows = [[Paragraph(k, S_TD_B), Paragraph(v, S_TD_L)]
-                 for k, v in (data.get("Méthodologie") or data.get("methodologie") or [])]
+                 for k, v in (data.get("Méthodologie") or data.get("Méthodologie") or [])]
     elems.append(KeepTogether(tbl([meth_h] + meth_rows, cw=[40*mm, 130*mm])))
     elems.append(src(
         f"FinSight IA v1.0 — Mise \u00e0 jour quotidienne. Donn\u00e9es au {data['date_analyse']}."))
@@ -1839,7 +1839,7 @@ def _build_story(data, perf_buf, weights_buf, scatter_buf, scores_buf,
     story.append(_build_sommaire(data, page_nums))
     story.append(Spacer(1, 5*mm))
     story.append(Paragraph("A propos de cette analyse", S_SUBSECTION))
-    _nb_soc_intro = data.get("nb_sociétés") or data.get("nb_societes", "\u2014")
+    _nb_soc_intro = data.get("nb_sociétés") or data.get("nb_sociétés", "\u2014")
     _nb_sec_intro = data.get("nb_secteurs", "\u2014")
     story.append(Paragraph(
         f"Cette analyse d'indice couvre l'ensemble des {_nb_sec_intro} secteurs GICS du "
@@ -1871,7 +1871,7 @@ class IndicePDFWriter:
         Genere le rapport PDF d'analyse d'indice FinSight IA.
         Retourne output_path. Double-passe pour pagination dynamique.
         """
-        # Macro regime_v + récession (si pas déjà calculé par app.py)
+        # Macro régime_v + récession (si pas déjà calculé par app.py)
         if not data.get("macro"):
             try:
                 import sys as _sys, os as _os

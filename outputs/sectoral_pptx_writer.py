@@ -984,8 +984,16 @@ def _chart_distribution(tickers_data) -> bytes:
 
 def _chart_performance(tickers_data, best_ticker=None, worst_ticker=None) -> bytes:
     """52W relative performance line chart via yfinance.
-    best_ticker et worst_ticker sont surlignés (vert/rouge épais), les autres en gris fin."""
+    best_ticker et worst_ticker sont surlignés (vert/rouge épais), les autres en gris fin.
+    La légende affiche les noms commerciaux (company) au lieu des tickers."""
     import datetime as dt
+    # Build ticker -> company name lookup pour la legende
+    _name_map = {}
+    for _t in tickers_data:
+        _tk = _t.get("ticker", "")
+        _nm = _t.get("company") or _t.get("name") or _tk
+        if _tk:
+            _name_map[_tk] = _nm[:28]  # cap 28 chars pour la legende
     colors_line = ['#1B3A6B', '#1A7A4A', '#A82020', '#B06000', '#2A5298',
                    '#6B3A1B', '#3A6B1B', '#6B1B3A']
     fig, ax = plt.subplots(figsize=(9.5, 4.4))
@@ -1023,8 +1031,13 @@ def _chart_performance(tickers_data, best_ticker=None, worst_ticker=None) -> byt
                 # Si highlight OFF (aucun best/worst fourni) : couleurs originales
                 if best_ticker is None and worst_ticker is None:
                     col, lw, alpha, zord = colors_line[i % len(colors_line)], 1.6, 0.9, 3
+                # Legende avec nom commercial, mais uniquement pour les lignes
+                # mises en avant (best/worst) ou si aucune mise en avant
+                _is_highlighted = (ticker == best_ticker or ticker == worst_ticker
+                                   or (best_ticker is None and worst_ticker is None))
+                _lbl = _name_map.get(ticker, ticker) if _is_highlighted else "_nolegend_"
                 ax.plot(norm.index, norm.values,
-                        color=col, linewidth=lw, label=ticker, alpha=alpha, zorder=zord)
+                        color=col, linewidth=lw, label=_lbl, alpha=alpha, zorder=zord)
                 plotted += 1
             except: pass
     except: pass
@@ -1043,7 +1056,10 @@ def _chart_performance(tickers_data, best_ticker=None, worst_ticker=None) -> byt
             col, lw, alpha, zord = _line_style(ticker)
             if best_ticker is None and worst_ticker is None:
                 col, lw, alpha, zord = colors_line[i % len(colors_line)], 1.6, 0.9, 3
-            ax.plot(x, y, color=col, linewidth=lw, label=ticker, alpha=alpha, zorder=zord)
+            _is_highlighted = (ticker == best_ticker or ticker == worst_ticker
+                               or (best_ticker is None and worst_ticker is None))
+            _lbl = _name_map.get(ticker, ticker) if _is_highlighted else "_nolegend_"
+            ax.plot(x, y, color=col, linewidth=lw, label=_lbl, alpha=alpha, zorder=zord)
         ax.set_xlabel("Semaines (illustratif)", fontsize=8, color='#555555')
     else:
         ax.set_xlabel("Date", fontsize=8, color='#555555')
@@ -1176,30 +1192,46 @@ def _s03_sommaire(prs, D):
 
 def _s05_presentation(prs, D):
     slide = _blank(prs)
-    _header(slide, "Présentation du Secteur",
-            f"{D['sector_name']}  ·  Caractéristiques structurelles & metriques_dict de référence", 1)
+    _header(slide, "Pr\u00e9sentation du Secteur",
+            f"{D['sector_name']}  \u00b7  Caract\u00e9ristiques structurelles & m\u00e9triques de r\u00e9f\u00e9rence", 1)
 
     content = D["content"]
     desc = content.get("description", "")
     metriques_dict = content.get("metriques_dict", [])
 
-    # Description block — font plus grand pour remplir l'espace
-    _rect(slide, 0.9, 2.5, 13.7, 10.0, fill=_GRAYL)
-    _rect(slide, 0.9, 2.5, 0.1, 10.0, fill=_NAVY)
-    _txb(slide, desc, 1.3, 2.7, 13.1, 3.0, size=9, color=_GRAYT, wrap=True)
-    # Catalyseurs clés sous la description — remontés pour supprimer le gap vide
+    # ─── Bloc Description (compact, partie haute) ─────────────────────────
+    _rect(slide, 0.9, 2.5, 13.7, 3.5, fill=_GRAYL)
+    _rect(slide, 0.9, 2.5, 0.1, 3.5, fill=_NAVY)
+    _rect(slide, 0.9, 2.5, 13.7, 0.55, fill=_NAVY)
+    _txb(slide, "PANORAMA SECTORIEL", 1.1, 2.58, 13.3, 0.45,
+         size=9, bold=True, color=_WHITE)
+    _txb(slide, desc, 1.3, 3.2, 13.1, 2.6, size=10, color=_GRAYT, wrap=True)
+
+    # ─── Bloc Catalyseurs Cl\u00e9s (sous la description, bien s\u00e9par\u00e9) ────────
     cats = content.get("catalyseurs", [])
     if cats:
-        _rect(slide, 0.9, 6.0, 13.7, 0.45, fill=_NAVY)
-        _txb(slide, "CATALYSEURS CLES", 0.9, 6.05, 13.7, 0.4, size=8, bold=True, color=_WHITE, align=PP_ALIGN.CENTER)
+        _cat_y0 = 6.3
+        _cat_h_total = 6.2
+        _rect(slide, 0.9, _cat_y0, 13.7, _cat_h_total, fill=_GRAYL)
+        _rect(slide, 0.9, _cat_y0, 13.7, 0.55, fill=_NAVY)
+        _txb(slide, "CATALYSEURS CL\u00c9S", 1.1, _cat_y0 + 0.08, 13.3, 0.45,
+             size=9, bold=True, color=_WHITE)
+        # 3 catalyseurs, hauteur 1.85 chacun, gap 0.1
+        _row_h = 1.85
+        _row_gap = 0.1
         for j, (ct, cb) in enumerate(cats[:3]):
-            _cx = 1.0  # alignement gauche dans le conteneur (x=0.9)
-            _rect(slide, _cx, 6.55 + j * 1.5, 0.08, 1.35, fill=_BUY)
-            _txb(slide, ct, _cx + 0.3, 6.55 + j * 1.5, 13.1, 0.45, size=8.5, bold=True, color=_NAVY)
-            _txb(slide, cb[:200], _cx + 0.3, 7.0 + j * 1.5, 13.1, 1.05, size=8, color=_GRAYT, wrap=True)
+            _y = _cat_y0 + 0.7 + j * (_row_h + _row_gap)
+            # Barre navy a gauche (couleur cohérente avec le reste du deck)
+            _rect(slide, 1.1, _y, 0.12, _row_h, fill=_NAVY)
+            # Titre LLM (court, bold)
+            _txb(slide, _fit_s(ct, 60), 1.4, _y + 0.05, 13.0, 0.45,
+                 size=10, bold=True, color=_NAVY)
+            # Description LLM (wrap, plus d'espace)
+            _txb(slide, cb[:260], 1.4, _y + 0.55, 13.0, _row_h - 0.6,
+                 size=9, color=_GRAYT, wrap=True)
 
-    # Metrics table
-    tbl_data = [["Métrique", "Valeur", "Lecture"]]
+    # ─── Metrics table (droite) ───────────────────────────────────────────
+    tbl_data = [["M\u00e9trique", "Valeur", "Lecture"]]
     for met in metriques_dict:
         tbl_data.append(list(met))
     _add_table(slide, tbl_data, 15.1, 2.5, 9.4, len(tbl_data) * 0.58,
@@ -1362,14 +1394,14 @@ def _s07_cycle(prs, D):
 
     # Régime macro + récession (si disponible)
     _macro = D.get("macro") or {}
-    _regime  = _macro.get("regime_v", "")
+    _regime  = _macro.get("régime_v", "")
     _rec_6m  = _macro.get("récession_prob_6m")
     _rec_lvl = _macro.get("récession_level", "")
     if _regime and _regime != "Inconnu":
         _AMBER_C = RGBColor(0xE6, 0x7E, 0x22)
         _REGIME_C = {"Bull": _BUY, "Bear": _SELL, "Volatile": _AMBER_C, "Transition": _AMBER_C}
         _rc = _REGIME_C.get(_regime, _NAVY)
-        regime_line = f"Régime : {_regime_var}"
+        regime_line = f"Régime : {_régime_var}"
         rec_line = f"Rec. 6M : {_rec_6m}%  ({_rec_lvl})" if _rec_6m is not None else ""
         _rect(slide, 16.9, 11.2, 7.3, 0.05, fill=_GRAYD)
         _txb(slide, "CONTEXTE MACRO", 16.6, 11.35, 7.9, 0.5, size=7, bold=True, color=_GRAYD, align=PP_ALIGN.CENTER)
@@ -1443,22 +1475,57 @@ def _s08_subsectors(prs, D):
             cell.fill.solid()
             cell.fill.fore_color.rgb = bg
 
-    # Box LLM sous les données — top 3 sous-secteurs avec best tickers
-    y_box = 2.20 + tbl_h + 0.30
+    # Analyse LLM sous le tableau — bloc unique avec titre dynamique
+    y_box = 2.20 + tbl_h + 0.35
     remaining_h = 13.0 - y_box
-    if remaining_h > 1.5 and subsectors:
-        top_subs = subsectors[:3]
-        for i, s in enumerate(top_subs):
-            col_x = 0.9 + i * 8.0
-            # Bandeau titre
-            _rect(slide, col_x, y_box, 7.5, 0.45, _GRAYL)
-            _rect(slide, col_x, y_box, 0.12, 0.45, _NAVYL)
-            _txb(slide, f"{s['name'][:24]} — {s['signal']}", col_x + 0.25, y_box + 0.05,
-                 7.0, 0.38, size=8, bold=True, color=_NAVY)
-            # Best tickers
-            best_txt = "\n".join(f"• {b[0]} ({b[1]}/100)" for b in s["best"][:3])
-            _txb(slide, best_txt, col_x + 0.25, y_box + 0.50, 7.0, min(remaining_h - 0.6, 2.5),
-                 size=7.5, color=_GRAYT, wrap=True)
+    if remaining_h > 2.0 and subsectors:
+        _top = subsectors[0]
+        _bottom = subsectors[-1]
+        _score_spread = _top["score"] - _bottom["score"]
+        _top_best = ", ".join(b[0] for b in _top.get("best", [])[:3])
+
+        # Titre analytique dynamique Généré depuis les Données
+        if _score_spread >= 25:
+            _title = f"DISPERSION MARQU\u00c9E \u2014 {_top['name'][:24]} domine avec un \u00e9cart de {_score_spread} points"
+        elif _top["score"] >= 60:
+            _title = f"LEADERSHIP {_top['name'][:30].upper()} CONFIRM\u00c9 \u2014 score {_top['score']}/100"
+        else:
+            _title = f"PHOTO SECTORIELLE \u2014 {len(subsectors)} sous-segments, score moyen {sum(s['score'] for s in subsectors)//len(subsectors)}/100"
+
+        _rect(slide, 0.9, y_box, 23.6, 0.55, fill=_NAVY)
+        _txb(slide, _title, 1.1, y_box + 0.08, 23.2, 0.45,
+             size=10, bold=True, color=_WHITE)
+
+        # Bloc d'analyse
+        _body_y = y_box + 0.7
+        _body_h = min(remaining_h - 0.9, 4.5)
+        _rect(slide, 0.9, _body_y, 23.6, _body_h, fill=_GRAYL)
+        _rect(slide, 0.9, _body_y, 0.12, _body_h, fill=_NAVY)
+
+        # Text analytique basé sur les Données réelles
+        _analysis = (
+            f"Le sous-segment {_top['name']} ressort en t\u00eate du classement avec un score "
+            f"composite de {_top['score']}/100 et un signal {_top['signal'].lower()}, port\u00e9 "
+            f"par {_top['nb']} acteurs dont {_top_best}. La valorisation m\u00e9diane ressort \u00e0 "
+            f"{_top['ev_ebitda']:.1f}x EV/EBITDA avec une marge EBITDA de {_top['margin']:.1f}% "
+            f"et une trajectoire top-line \u00e0 {_top['growth']:+.1f}% YoY. "
+        )
+        if len(subsectors) > 1:
+            _analysis += (
+                f"\u00c0 l'inverse, {_bottom['name']} ferme la Marché ({_bottom['score']}/100, "
+                f"signal {_bottom['signal'].lower()}), reflétant des fondamentaux sous pression "
+                f"ou une valorisation d\u00e9j\u00e0 tendue. L'\u00e9cart de {_score_spread} points "
+                f"entre les extr\u00eames du classement justifie une approche s\u00e9lective plut\u00f4t "
+                f"qu'une exposition beta uniforme au secteur. "
+            )
+        _analysis += (
+            f"Cette cartographie guide le calibrage d'allocation sous-sectorielle : "
+            f"Surpondérer les segments avec score \u2265 60 et momentum positif, "
+            f"Sous-pondérer les segments avec marges compressees ou croissance negative, "
+            f"et conserver une exposition neutre aux segments en transition."
+        )
+        _txb(slide, _analysis, 1.2, _body_y + 0.15, 23.4, _body_h - 0.25,
+             size=9, color=_GRAYT, wrap=True)
 
     _footer(slide)
 
@@ -2000,8 +2067,8 @@ def _s18_sentiment(prs, D):
 
 def _s19_sources(prs, D):
     slide = _blank(prs)
-    _header(slide, "Sources & Méthodologie",
-            "Traçabilité complète des données  ·  Data lineage  ·  Agents FinSight IA v1.0", 4)
+    _header(slide, "Avertissement & M\u00e9thodologie",
+            "Tra\u00e7abilit\u00e9 compl\u00e8te des donn\u00e9es  \u00b7  Data lineage  \u00b7  Agents FinSight IA v1.0", 4)
 
     tbl_data = [
         ["Agent", "Source données", "Données collectées", "Fréquence"],
@@ -2095,7 +2162,7 @@ class SectoralPPTXWriter:
         """
         D = _prepare_data(tickers_data, sector_name, universe)
 
-        # Macro regime_v + récession
+        # Macro régime_v + récession
         _macro = {}
         try:
             import sys as _sys, os as _os

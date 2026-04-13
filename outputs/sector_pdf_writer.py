@@ -512,30 +512,32 @@ def _make_mktcap_donut(tickers_data: list[dict], sector_name: str) -> io.BytesIO
     pcts   = [v / total * 100 for v in sizes]
     palette = ['#1B3A6B','#2A5298','#3D6099','#5580B8','#7AA0CC','#A0BEDC','#D0D5DD'][:len(main_items)]
 
-    fig, ax = plt.subplots(figsize=(5.5, 5.0))
+    # Ratio 1:1 strict pour eviter toute deformation dans le PDF
+    fig, ax = plt.subplots(figsize=(6.0, 6.0))
     wedges, _ = ax.pie(sizes, labels=None, autopct=None, colors=palette,
                        startangle=90,
                        wedgeprops=dict(linewidth=0.8, edgecolor='white'))
-    centre = plt.Circle((0, 0), 0.40, color='white')
+    ax.set_aspect('equal')
+    centre = plt.Circle((0, 0), 0.42, color='white')
     ax.add_patch(centre)
-    ax.text(0, 0.10, sector_name[:12], ha='center', va='center',
-            fontsize=9, fontweight='bold', color='#1B3A6B')
-    ax.text(0, -0.14, 'Market Cap', ha='center', va='center',
-            fontsize=8, color='#555555')
+    ax.text(0, 0.12, sector_name[:14], ha='center', va='center',
+            fontsize=12, fontweight='bold', color='#1B3A6B')
+    ax.text(0, -0.16, 'Market Cap', ha='center', va='center',
+            fontsize=10, color='#555555')
 
-    # Légende standard avec pourcentages — fontsize 9
+    # Légende agrandie avec pourcentages
     legend_labels = [f"{n}  {p:.1f}%" for n, p in zip(names, pcts)]
     ax.legend(wedges, legend_labels,
-              loc='lower center', bbox_to_anchor=(0.5, -0.18),
-              ncol=min(len(names), 3), fontsize=9, frameon=False,
-              handleheight=0.9, handlelength=1.4, columnspacing=1.2)
+              loc='lower center', bbox_to_anchor=(0.5, -0.14),
+              ncol=min(len(names), 2), fontsize=11, frameon=False,
+              handleheight=1.0, handlelength=1.5, columnspacing=1.4)
 
-    ax.set_title(f'Répartition Market Cap \u2014 {sector_name}', fontsize=11,
-                 color='#1B3A6B', fontweight='bold', pad=12)
+    ax.set_title(f'Répartition Market Cap \u2014 {sector_name}', fontsize=14,
+                 color='#1B3A6B', fontweight='bold', pad=14)
     fig.patch.set_facecolor('white')
-    fig.subplots_adjust(bottom=0.22)
+    fig.subplots_adjust(bottom=0.20, top=0.92)
     buf = io.BytesIO()
-    fig.savefig(buf, format='png', dpi=160, bbox_inches='tight')
+    fig.savefig(buf, format='png', dpi=180, bbox_inches='tight', facecolor='white')
     plt.close(fig)
     buf.seek(0)
     return buf
@@ -1397,6 +1399,68 @@ def _aggregate_subsectors(tickers_data: list[dict]) -> list[dict]:
     return result
 
 
+def _subsector_fallback_text(subsectors: list[dict], sector_name: str) -> dict:
+    """Genere un dict d'insights deterministe — utilise en fallback quand le LLM
+    echoue (timeout, ban Groq, 401...). Texte analytique base sur les metriques
+    agregees et les top tickers de chaque sous-secteur."""
+    d: dict = {}
+    if not subsectors:
+        return d
+    _top = subsectors[0]
+    _poids_top = _top.get("pct", 0)
+    d["intro"] = (
+        f"Le secteur {sector_name} se decompose en {len(subsectors)} sous-segments distincts, "
+        f"avec {_top['name']} en tete ({_poids_top}% des acteurs couverts, score "
+        f"{_top['score']}/100, signal {_top['signal']}). "
+        f"La dispersion des scores composites ({subsectors[0]['score']}-"
+        f"{subsectors[-1]['score']}/100) refletet des dynamiques de croissance et de "
+        f"valorisation sensiblement differenciees entre segments, justifiant une allocation "
+        f"selective plutot qu'un biais beta sectoriel uniforme. Les multiples EV/EBITDA, les "
+        f"marges EBITDA et le momentum 52W fournissent une grille de lecture complete pour "
+        f"identifier les poches de valeur et les segments en acceleration fondamentale."
+    )
+    for s in subsectors[:8]:
+        n = s["name"]
+        _best = s.get("best", [])
+        _best_txt = ", ".join(f"{b[1]} ({b[0]})" for b in _best[:3]) if _best else "—"
+        d[f"{n}_presentation"] = (
+            f"Le sous-segment {n} regroupe {s['nb']} emetteurs couverts ({s['pct']}% du pool "
+            f"sectoriel), portes par des acteurs influents tels que {_best_txt}. Le score "
+            f"composite moyen ressort a {s['score']}/100 avec un signal {s['signal']}, refletant "
+            f"une combinaison de valorisation (EV/EBITDA median {s['ev_ebitda']}), de rentabilite "
+            f"operationnelle (marge {s['margin']}) et de trajectoire top-line ({s['growth']} YoY)."
+        )
+        d[f"{n}_drivers"] = (
+            f"Les drivers structurels de {n} incluent l'innovation produit, la consolidation "
+            f"concurrentielle et les cycles d'investissement. La croissance observee ({s['growth']}) "
+            f"et le momentum boursier 52W ({s['momentum']}) materialisent la capacite des acteurs "
+            f"a convertir ces drivers en creation de valeur mesurable."
+        )
+        d[f"{n}_risques"] = (
+            f"Les risques specifiques a {n} portent sur la compression des marges en cas de "
+            f"pression concurrentielle, la sensibilite au cycle macro et les arbitrages reglementaires. "
+            f"Une marge mediane de {s['margin']} laisse peu de coussin en cas de retournement, et "
+            f"le momentum actuel ({s['momentum']}) doit etre lu a l'aune de la volatilite propre au "
+            f"segment."
+        )
+        d[f"{n}_profil"] = (
+            f"Profil financier typique : rentabilite moyenne ({s['margin']}), croissance "
+            f"{s['growth']}, valorisation {s['ev_ebitda']}. Segment plutot {s['signal'].lower()}."
+        )
+    d["allocation"] = (
+        f"L'allocation sous-sectorielle recommandee privilegie {subsectors[0]['name']} "
+        f"(score {subsectors[0]['score']}/100) comme surpondere de conviction, complete par "
+        + (f"{subsectors[1]['name']} (score {subsectors[1]['score']}/100) en poche tactique. " if len(subsectors) > 1 else ". ") +
+        f"Les segments en bas du classement ({subsectors[-1]['name']}, score "
+        f"{subsectors[-1]['score']}/100) meritent une exposition reduite en attendant une "
+        f"amelioration des fondamentaux ou une recote de valorisation. Horizon 12-18 mois, "
+        f"conviction moderee a elevee selon le respect des catalyseurs (publications trimestrielles, "
+        f"guidance annuelle, momentum macro sectoriel). Une reevaluation mensuelle du scoring "
+        f"composite permet de detecter les bascules de signal et d'ajuster les poids tactiques."
+    )
+    return d
+
+
 def _generate_subsector_llm(subsectors: list[dict], sector_name: str, profile: str = "STANDARD") -> dict:
     """Génère les insights LLM par sous-secteur (drivers, risques, spécificités).
     Le profil sectoriel adapte les hints pour utiliser les bonnes métriques.
@@ -1447,11 +1511,18 @@ def _generate_subsector_llm(subsectors: list[dict], sector_name: str, profile: s
         resp = llm.generate(prompt, max_tokens=4500)
         m = re.search(r'\{.*\}', resp, re.DOTALL)
         if m:
-            return json.loads(m.group(0))
+            _llm = json.loads(m.group(0))
+            # Complete avec fallback deterministe les cles manquantes
+            _fb = _subsector_fallback_text(subsectors, sector_name)
+            for k, v in _fb.items():
+                if k not in _llm or not _llm.get(k):
+                    _llm[k] = v
+            return _llm
     except Exception as e:
         import logging
         logging.getLogger(__name__).warning("[sector_pdf] subsector LLM error: %s", e)
-    return {}
+    # Fallback complet deterministe
+    return _subsector_fallback_text(subsectors, sector_name)
 
 
 def _build_subsector_decomposition(tickers_data: list[dict], sector_name: str, registry=None):
@@ -1820,7 +1891,7 @@ def _build_valorisation(scatter_buf, donut_buf, tickers_data: list[dict],
     elems.append(Paragraph(scatter_text, S_BODY))
     elems.append(Spacer(1, 4*mm))
 
-    donut_img = Image(donut_buf, width=76*mm, height=80*mm)
+    donut_img = Image(donut_buf, width=84*mm, height=84*mm)
     donut_note = (
         "<b>Concentration sectorielle</b><br/>"
         "La répartition des capitalisations boursières illustre "
@@ -1835,7 +1906,7 @@ def _build_valorisation(scatter_buf, donut_buf, tickers_data: list[dict],
         "identifier les meilleures asymétries risque/rendement."
     )
     donut_comb = Table([[Paragraph(donut_note, S_BODY), donut_img]],
-                       colWidths=[90*mm, 76*mm])
+                       colWidths=[82*mm, 84*mm])
     donut_comb.setStyle(TableStyle([
         ('VALIGN',       (0,0),(-1,-1), 'TOP'),
         ('LEFTPADDING',  (0,0),(-1,-1), 0), ('RIGHTPADDING',(0,0),(-1,-1), 0),
@@ -2532,26 +2603,71 @@ def _build_conclusion(tickers_data: list[dict], sector_name: str,
     elems.append(rule())
     S_DISC_TITLE = _style('disc_title', size=6.5, leading=9, color=GREY_TEXT, bold=True)
     elems.append(Paragraph(
-        "INFORMATIONS REGLEMENTAIRES ET AVERTISSEMENTS IMPORTANTS", S_DISC_TITLE))
+        "INFORMATIONS R\u00c9GLEMENTAIRES ET AVERTISSEMENTS IMPORTANTS", S_DISC_TITLE))
     elems.append(Spacer(1, 1.5*mm))
     elems.append(Paragraph(
-        "<b>Nature du document.</b> Ce rapport a ete généré automatiquement par FinSight IA v1.0. "
-        "Il est produit integralement par un systeme d'intelligence artificielle et "
-        "<b>ne constitue pas un conseil en investissement</b> au sens de la directive europeenne "
-        "MiFID II (2014/65/UE). FinSight IA n'est pas un prestataire de services d'investissement "
-        "agree. Ce document est fourni a titre informatif uniquement.", S_DISC))
+        "<b>Nature du document.</b> Ce rapport a ete g\u00e9n\u00e9r\u00e9 automatiquement par FinSight IA "
+        "(version 1.0) a partir de donn\u00e9es publiques et de mod\u00e8les quantitatifs et de langage. "
+        "Il est produit int\u00e9gralement par un syst\u00e8me d'intelligence artificielle sans "
+        "intervention humaine directe dans la r\u00e9daction. Il <b>ne constitue pas un conseil en "
+        "investissement personnalis\u00e9</b> au sens de la directive europ\u00e9enne MiFID II "
+        "(2014/65/UE) ni une recommandation au sens du r\u00e8glement (UE) 596/2014 sur les abus "
+        "de march\u00e9 (MAR). FinSight IA n'est ni un prestataire de services d'investissement "
+        "agr\u00e9\u00e9 par l'AMF ou une autre autorit\u00e9 comp\u00e9tente, ni un conseiller en "
+        "investissements financiers (CIF). Ce document est fourni a titre informatif et "
+        "\u00e9ducatif uniquement.", S_DISC))
     elems.append(Spacer(1, 1.5*mm))
     elems.append(Paragraph(
-        "<b>Fiabilite des données.</b> Les données financières sont issues de sources publiques "
-        "(yfinance, Financial Modeling Prep, Finnhub) et de modèles internes. Malgre les "
-        "controles appliques, ces données peuvent contenir des inexactitudes. Les projections "
-        "reposent sur des hypotheses qui peuvent ne pas se realiser.", S_DISC))
+        "<b>Fiabilit\u00e9 des donn\u00e9es et mod\u00e8les.</b> Les donn\u00e9es financi\u00e8res sont issues "
+        "principalement de yfinance (Yahoo Finance), Financial Modeling Prep et Finnhub, "
+        "compl\u00e9t\u00e9es par une analyse de sentiment FinBERT sur le corpus presse financi\u00e8re "
+        "des sept derniers jours. Malgr\u00e9 les contr\u00f4les automatiques appliqu\u00e9s (d\u00e9tection "
+        "de valeurs aberrantes, rapprochement multi-sources, cap sur les ratios extr\u00eames), "
+        "ces donn\u00e9es peuvent contenir des inexactitudes, des retards de mise a jour ou des "
+        "effets de change non neutralis\u00e9s. Les projections et les scores composites reposent "
+        "sur des hypoth\u00e8ses m\u00e9thodologiques qui peuvent ne pas se r\u00e9aliser, notamment en "
+        "cas de rupture de tendance, de retournement macro\u00e9conomique ou de choc exog\u00e8ne. "
+        "Les performances pass\u00e9es ne pr\u00e9jugent pas des performances futures.", S_DISC))
     elems.append(Spacer(1, 1.5*mm))
     elems.append(Paragraph(
-        "<b>Restrictions de diffusion.</b> Ce document est strictement confidentiel. "
-        "Il ne peut etre reproduit ou distribue sans autorisation expresse. "
-        "FinSight IA decline toute responsabilite pour les decisions prises sur la base "
-        "de ce document. \u2014 <b>Document confidentiel.</b>", S_DISC))
+        "<b>Cadre r\u00e9glementaire applicable.</b> Ce rapport s'inscrit dans le cadre de la "
+        "recherche d'investissement dite <i>non substantielle</i> au sens de MiFID II. Il ne "
+        "d\u00e9clenche ni l'obligation d'inducement, ni la s\u00e9paration de co\u00fbts de recherche "
+        "(unbundling). Les \u00e9metteurs cit\u00e9s sont soumis aux r\u00e8glementations de leurs "
+        "juridictions respectives : r\u00e8glement Prospectus 2017/1129, r\u00e8glement MAR sur les "
+        "abus de march\u00e9, directive Transparence 2004/109/CE, SFDR (r\u00e8glement 2019/2088) "
+        "pour la publication des risques de durabilit\u00e9, et Taxonomie Verte (r\u00e8glement "
+        "2020/852) pour les activit\u00e9s \u00e9conomiques durables. Les lecteurs am\u00e9ricains "
+        "doivent tenir compte des r\u00e8gles SEC (Rule 15a-6, Regulation Analyst Certification) "
+        "applicables a la diffusion de recherche.", S_DISC))
+    elems.append(Spacer(1, 1.5*mm))
+    elems.append(Paragraph(
+        "<b>Conflits d'int\u00e9r\u00eats et ind\u00e9pendance.</b> FinSight IA ne d\u00e9tient pas de "
+        "position directe dans les titres analys\u00e9s et n'effectue pas d'activit\u00e9 de "
+        "tenue de march\u00e9 ou de banque d'investissement sur les \u00e9metteurs cit\u00e9s. Les "
+        "scores FinSight sont calcul\u00e9s automatiquement par agr\u00e9gation quantitative "
+        "(Value 30% \u00b7 Growth 25% \u00b7 Quality 25% \u00b7 Momentum 20%) et ne refl\u00e8tent pas "
+        "d'opinion subjective. Toutefois, les choix m\u00e9thodologiques (pond\u00e9rations, "
+        "seuils, univers de comparaison) comportent une part d'arbitraire susceptible "
+        "d'introduire un biais syst\u00e9mique sur certaines typologies d'\u00e9metteurs.", S_DISC))
+    elems.append(Spacer(1, 1.5*mm))
+    elems.append(Paragraph(
+        "<b>Protection des donn\u00e9es personnelles.</b> Conform\u00e9ment au R\u00e8glement G\u00e9n\u00e9ral "
+        "sur la Protection des Donn\u00e9es (RGPD, r\u00e8glement UE 2016/679), FinSight IA ne "
+        "collecte pas de donn\u00e9es personnelles nominatives dans le cadre de la production "
+        "de ce rapport. Les journaux d'ex\u00e9cution pipeline sont anonymis\u00e9s et purg\u00e9s "
+        "apr\u00e8s 30 jours. Les utilisateurs peuvent exercer leurs droits d'acc\u00e8s et "
+        "d'effacement en contactant le responsable de traitement.", S_DISC))
+    elems.append(Spacer(1, 1.5*mm))
+    elems.append(Paragraph(
+        "<b>Restrictions de diffusion et responsabilit\u00e9.</b> Ce document est strictement "
+        "confidentiel et destin\u00e9 au destinataire initial. Il ne peut \u00eatre reproduit, "
+        "transmis ou distribu\u00e9 a des tiers sans l'autorisation expresse de FinSight IA. "
+        "FinSight IA d\u00e9cline toute responsabilit\u00e9 pour les d\u00e9cisions d'investissement "
+        "prises sur la base de ce document, y compris en cas de pertes directes ou "
+        "indirectes. Les lecteurs sont invit\u00e9s a consulter un conseiller en investissement "
+        "agr\u00e9\u00e9 avant toute d\u00e9cision patrimoniale. \u2014 <b>Document confidentiel \u00b7 "
+        "Ne pas redistribuer.</b>", S_DISC))
     return elems
 
 

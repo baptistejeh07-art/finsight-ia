@@ -640,7 +640,7 @@ class IndiceExcelWriter:
             try:
                 implied_pe = 1.0 / (float(wcc) - float(tg))
                 decote = round((implied_pe / float(pe) - 1) * 100, 1)
-                return f"{decote_val:+.1f} %"
+                return f"{décote_val:+.1f} %"
             except Exception:
                 return _NA
 

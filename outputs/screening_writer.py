@@ -627,7 +627,7 @@ def _inject_value_v4(ws, data: list[dict]) -> None:
         r = 7 + i  # rows 7..26
         sv = t.get("score_value")
         _score_str = f"{int(round(sv))}/100" if sv is not None else "\u2014"
-        # B=rang, C=ticker, D=societe, F=score, G=ev_ebitda, H=ev_rev, I=pe,
+        # B=rang, C=ticker, D=société, F=score, G=ev_ebitda, H=ev_rev, I=pe,
         # J=mg brute, K=mg ebitda, L=altman z, M=fcf yield, N=signal
         _v(ws, r, 2,  i + 1)                                            # B
         _v(ws, r, 3,  t.get("ticker", "") or "\u2014")                  # C
