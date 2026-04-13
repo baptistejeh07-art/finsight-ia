@@ -1,6 +1,7 @@
 # =============================================================================
 # FinSight IA — Dépendances Streamlit Community Cloud
 # pip install -r requirements.txt
+# Cache-bust: 2026-04-13-22h (force rebuild SCC)
 #
 # EXCLUS intentionnellement (voir requirements-local.txt pour dev complet) :
 #   - torch / transformers  : 700MB+, OOM sur free tier SCC (1GB RAM)
