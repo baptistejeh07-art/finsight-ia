@@ -1774,23 +1774,28 @@ def render_home() -> None:
 # ---------------------------------------------------------------------------
 
 def render_running() -> None:
-    # Variable renommee en `_running_tkr` pour eliminer tout risque de shadowing
-    # avec une variable locale du meme nom plus loin dans la fonction.
-    # Defensive : si pas dans session_state (cas anormal), rediriger vers home.
-    _running_tkr = (st.session_state.get("ticker") or "").strip()
-    if not _running_tkr:
+    """Wrapper minimaliste : extrait le ticker et delegue a _do_render_running.
+
+    Approche bullet-proof : ticker passe comme PARAMETRE de fonction, donc
+    garanti defini avant le body. Aucun UnboundLocalError possible.
+    """
+    _t = st.session_state.get("ticker")
+    if not _t or not str(_t).strip():
         st.error("Aucun ticker selectionne. Retour a l'accueil.")
         st.session_state.stage = "home"
         st.rerun()
         return
-    # Alias `ticker` pour le reste de la fonction (compat code existant)
-    ticker = _running_tkr
+    _do_render_running(str(_t).strip())
+
+
+def _do_render_running(ticker: str) -> None:
+    """Pipeline reel de l'analyse, avec ticker en parametre garanti."""
     _, col, _ = st.columns([1, 2, 1])
 
     with col:
         st.markdown(
             f'<div style="text-align:center;margin-top:64px;">'
-            f'<div style="font-size:52px;font-weight:700;letter-spacing:-1px;color:#111;margin-bottom:6px;">{_e(_running_tkr)}</div>'
+            f'<div style="font-size:52px;font-weight:700;letter-spacing:-1px;color:#111;margin-bottom:6px;">{_e(ticker)}</div>'
             f'<div style="font-size:12px;color:#777;margin-bottom:44px;">Analyse en cours — veuillez patienter</div>'
             f'</div>',
             unsafe_allow_html=True,
