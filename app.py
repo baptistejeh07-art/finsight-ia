@@ -1923,17 +1923,31 @@ def render_running() -> None:
             return
 
         # Visibilite mode fallback : si l'agent Synthese a echoue (LLM ban,
-        # quotas, JSON cassé), un SynthesisResult deterministe a ete genere a
+        # quotas, JSON casse), un SynthesisResult deterministe a ete genere a
         # la place. Le PDF/PPTX seront utilisables mais avec moins de profondeur.
         try:
             _syn_meta = getattr(synthesis, "meta", None) or {}
             if _syn_meta.get("fallback_mode"):
                 _reason = _syn_meta.get("fallback_reason", "providers LLM indisponibles")
+                _prov_errs = _syn_meta.get("provider_errors", {}) or {}
+                # Message principal
                 st.warning(
-                    f"Analyse generee en mode degrade — {_reason}. "
-                    "Les sections narratives (these, catalyseurs, cible 12M) "
-                    "utilisent un fallback deterministe. Verifier les quotas LLM."
+                    "**Analyse generee en mode degrade** — les sections narratives "
+                    "(these, catalyseurs, cible 12M, conviction) utilisent un fallback "
+                    "deterministe base sur les ratios. Le PDF reste utilisable mais "
+                    "moins riche en analyse qualitative."
                 )
+                # Detail des erreurs par provider (expander pour ne pas polluer)
+                if _prov_errs:
+                    with st.expander("Voir les erreurs LLM par provider"):
+                        for _p, _e in _prov_errs.items():
+                            st.code(f"{_p}: {_e}", language="text")
+                        st.markdown(
+                            "**Action recommandee** : verifier les API keys dans "
+                            "Streamlit Cloud Settings > Secrets. Les providers "
+                            "necessaires sont GROQ_API_KEY (primaire), MISTRAL_API_KEY, "
+                            "CEREBRAS_API_KEY, ANTHROPIC_API_KEY (fallbacks)."
+                        )
         except Exception:
             pass
 

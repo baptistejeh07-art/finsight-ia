@@ -398,10 +398,14 @@ class AgentSynthese:
 
         prompt = _build_prompt(snapshot, ratios, sentiment)
         raw = None
+        # Collecte des erreurs par provider pour diagnostic
+        _provider_errors: dict[str, str] = {}
         try:
             raw = self.llm.generate(prompt=prompt, system=_SYSTEM, max_tokens=4000)
         except Exception as e:
-            log.warning(f"[AgentSynthese] {self.llm.provider} echec ({type(e).__name__}: {e})")
+            _err_msg = f"{type(e).__name__}: {str(e)[:120]}"
+            _provider_errors[self.llm.provider] = _err_msg
+            log.warning(f"[AgentSynthese] {self.llm.provider} echec ({_err_msg})")
 
         # Cascade fallback : Groq (primaire) → Mistral → Cerebras → Anthropic
         _fallbacks = [
@@ -414,15 +418,23 @@ class AgentSynthese:
                 break
             log.warning(f"[AgentSynthese] fallback → {_prov}")
             try:
-                _fb = LLMProvider(provider=_prov, model=_model)
-                raw = _fb.generate(prompt=prompt, system=_SYSTEM, max_tokens=4000)
+                _fb_llm = LLMProvider(provider=_prov, model=_model)
+                raw = _fb_llm.generate(prompt=prompt, system=_SYSTEM, max_tokens=4000)
             except Exception as _e:
-                log.error(f"[AgentSynthese] {_prov} echec ({type(_e).__name__}: {_e})")
+                _err_msg = f"{type(_e).__name__}: {str(_e)[:120]}"
+                _provider_errors[_prov] = _err_msg
+                log.error(f"[AgentSynthese] {_prov} echec ({_err_msg})")
 
         if not raw:
             log.error("[AgentSynthese] Tous les providers ont echoue — fallback deterministe")
             _fb = _build_deterministic_fallback(snapshot, ratios)
             _fb.meta["latency_ms"] = int((time.time() - t_start) * 1000)
+            # Detail des erreurs par provider pour diagnostic UI
+            _fb.meta["provider_errors"] = _provider_errors
+            # Resume lisible : "groq: rate_limit | mistral: API key missing | ..."
+            _fb.meta["fallback_reason"] = " | ".join(
+                f"{p}: {e[:60]}" for p, e in _provider_errors.items()
+            ) or "Tous les providers LLM ont echoue"
             return _fb
 
         latency_ms = int((time.time() - t_start) * 1000)

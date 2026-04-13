@@ -244,9 +244,13 @@ class LLMProvider:
     def _call_anthropic(self, prompt: str, system: Optional[str], max_tokens: int) -> str:
         if self._client is None:
             import anthropic
-            self._client = anthropic.Anthropic(
-                api_key=_get_secret("ANTHROPIC_API_KEY")
-            )
+            _key = _get_secret("ANTHROPIC_API_KEY")
+            if not _key or _key.startswith("sk-ant-api03-...") or len(_key) < 20:
+                raise ValueError(
+                    "[Anthropic] ANTHROPIC_API_KEY non configuree ou placeholder. "
+                    "Streamlit Cloud : ajouter la cle dans Settings > Secrets."
+                )
+            self._client = anthropic.Anthropic(api_key=_key)
         kwargs: dict = {
             "model": self.model,
             "max_tokens": max_tokens,
@@ -295,7 +299,13 @@ class LLMProvider:
 
     def _call_mistral(self, prompt: str, system: Optional[str], max_tokens: int) -> str:
         from mistralai.client import Mistral
-        client = Mistral(api_key=_get_secret("MISTRAL_API_KEY"))
+        _key = _get_secret("MISTRAL_API_KEY")
+        if not _key or len(_key) < 16:
+            raise ValueError(
+                "[Mistral] MISTRAL_API_KEY non configuree. "
+                "Streamlit Cloud : ajouter la cle dans Settings > Secrets."
+            )
+        client = Mistral(api_key=_key)
         messages = []
         if system:
             messages.append({"role": "system", "content": system})
@@ -324,7 +334,13 @@ class LLMProvider:
 
     def _call_cerebras(self, prompt: str, system: Optional[str], max_tokens: int) -> str:
         from cerebras.cloud.sdk import Cerebras
-        client = Cerebras(api_key=_get_secret("CEREBRAS_API_KEY"))
+        _key = _get_secret("CEREBRAS_API_KEY")
+        if not _key or len(_key) < 16:
+            raise ValueError(
+                "[Cerebras] CEREBRAS_API_KEY non configuree. "
+                "Streamlit Cloud : ajouter la cle dans Settings > Secrets."
+            )
+        client = Cerebras(api_key=_key)
         messages = []
         if system:
             messages.append({"role": "system", "content": system})
