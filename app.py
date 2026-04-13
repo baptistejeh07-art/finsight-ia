@@ -1017,6 +1017,21 @@ def render_sidebar(results) -> None:
                 st.session_state.stage = "home"
                 st.rerun()
 
+            # Bouton "Actualiser" : force le re-run du pipeline pour le ticker
+            # courant en bypassant le cache. Utile si la 1ere analyse a echoue.
+            _curr_ticker = (results.get("ticker") if results else None) or st.session_state.get("ticker")
+            if _curr_ticker and st.button("\u21bb  Actualiser l'analyse",
+                                          use_container_width=True,
+                                          key="sb_force_refresh"):
+                # Pop le ticker du cache pipeline et re-route vers running
+                _cr = st.session_state.get("_pipeline_state_cache") or {}
+                _cr.pop(_curr_ticker.upper(), None)
+                st.session_state["_pipeline_state_cache"] = _cr
+                st.session_state["_force_refresh_analysis"] = True
+                st.session_state.ticker = _curr_ticker
+                st.session_state.stage = "running"
+                st.rerun()
+
         # Bouton retour au screening : seulement si on vient du screening
         # ET qu'on est sur une page d'analyse (pas déjà sur le screening lui-même)
         _on_screening = (st.session_state.get("stage") == "screening_results")
@@ -1814,15 +1829,37 @@ def render_running() -> None:
         # --- Cache analyses precedentes (par ticker, session courante) ---
         # Stocke le final_state complet en session_state. Si l'utilisateur
         # relance le meme ticker, on retourne directement le cache (~instant).
+        # IMPORTANT : version-tag de la cle pour invalider les anciens caches
+        # apres chaque deploiement structurant. Bumper a chaque fois qu'on
+        # change quelque chose qui affecte la qualite du PDF/PPTX.
+        _CACHE_VERSION = "v3-fallback-deterministe"
+        _cache_root = st.session_state.get("_pipeline_state_cache") or {}
+        # Reset du cache si le tag de version a change (ancien cache obsolete)
+        if _cache_root.get("_version") != _CACHE_VERSION:
+            _cache_root = {"_version": _CACHE_VERSION}
+            st.session_state["_pipeline_state_cache"] = _cache_root
         _cache_key = (ticker or "").upper()
-        _state_cache = st.session_state.get("_pipeline_state_cache") or {}
+        _state_cache = _cache_root  # alias
+
+        # --- Force refresh : si l'utilisateur a clique "Actualiser" ---
+        _force_refresh = st.session_state.pop("_force_refresh_analysis", False)
 
         # --- Streaming LangGraph : mise à jour progress en temps réel ---
         final_state: dict = {}
         try:
-            if _cache_key in _state_cache:
-                # Cache hit : reutilise l'État complet
-                final_state = _state_cache[_cache_key]
+            _cached = _state_cache.get(_cache_key) if not _force_refresh else None
+            # Garde-fou : ne PAS reutiliser un state degrade (synthesis None ou
+            # fallback_mode actif) — force un re-fetch propre.
+            _cache_is_clean = False
+            if _cached:
+                _csyn = _cached.get("synthesis")
+                if _csyn is not None:
+                    _cmeta = getattr(_csyn, "meta", None) or {}
+                    if not _cmeta.get("fallback_mode"):
+                        _cache_is_clean = True
+            if _cache_is_clean:
+                # Cache hit propre : reutilise l'État complet
+                final_state = _cached
                 for _label_pct in (0.20, 0.45, 0.70, 0.95):
                     step(_label_pct, "Recuperation depuis le cache...")
             else:
@@ -1836,11 +1873,21 @@ def render_running() -> None:
                     final_state.update(node_delta)
                     pct, label = _NODE_PROGRESS.get(node_name, (0.5, node_name))
                     step(pct, label)
-                # Sauvegarde en cache (limite 5 tickers max pour borner la memoire)
-                if len(_state_cache) >= 5:
-                    _state_cache.pop(next(iter(_state_cache)))
-                _state_cache[_cache_key] = final_state
-                st.session_state["_pipeline_state_cache"] = _state_cache
+                # Sauvegarde en cache UNIQUEMENT si le state est propre
+                # (synthesis non-None ET pas en fallback_mode)
+                _new_syn = final_state.get("synthesis")
+                _new_meta = getattr(_new_syn, "meta", None) or {} if _new_syn else {}
+                _new_clean = (_new_syn is not None) and (not _new_meta.get("fallback_mode"))
+                if _new_clean:
+                    # Limite 5 tickers max (+ la cle _version)
+                    while len(_state_cache) >= 6:
+                        # Pop le premier qui n'est pas _version
+                        for _k in list(_state_cache.keys()):
+                            if _k != "_version":
+                                _state_cache.pop(_k)
+                                break
+                    _state_cache[_cache_key] = final_state
+                    st.session_state["_pipeline_state_cache"] = _state_cache
         except Exception as _ex:
             log.error(f"[app] LangGraph pipeline error: {_ex}", exc_info=True)
             st.error(f"Erreur pipeline : {_ex}")
