@@ -1348,10 +1348,13 @@ def _detect_sector_profile(tickers_data: list, sector_name: str) -> str:
     if total == 0:
         return "STANDARD"
 
-    # Profil dominant si >60% des tickers
+    # Profil dominant si >= 50% des tickers sont non-standard
+    # (seuil bas car les pools mixtes doivent basculer dès que le profil spécifique dépasse le standard)
     dominant, dom_count = max(profile_counts.items(), key=lambda x: x[1])
-    if dom_count / total >= 0.6 and dominant != "STANDARD":
+    if dominant != "STANDARD" and dom_count / total >= 0.5:
         return dominant
+    # Cas particulier : si aucun profil ne domine mais BANK + INSURANCE > STANDARD
+    # → garder STANDARD (secteur vraiment mélangé)
     return "STANDARD"
 
 
@@ -1596,6 +1599,17 @@ def _build_acteurs(tickers_data: list[dict], sector_name: str, registry=None):
         try: return f"{float(v):.1f}x"
         except: return "\u2014"
 
+    def _fmt_dy(v):
+        """Dividend yield : cli_analyze stocke en fraction (0.0194 = 1.94%)."""
+        if v is None: return "\u2014"
+        try:
+            fv = float(v)
+            # Si valeur < 1 : fraction → multiplier par 100
+            # Sinon : déjà en %
+            pct = fv * 100 if abs(fv) < 1 else fv
+            return f"{pct:.1f}%"
+        except: return "\u2014"
+
     comp_rows = []
     ccy = tickers_data[0].get('currency', 'EUR') if tickers_data else 'EUR'
     for t in sorted_data[:12]:
@@ -1609,28 +1623,28 @@ def _build_acteurs(tickers_data: list[dict], sector_name: str, registry=None):
                 _fmt_pct(t.get('roe')),
                 _fmt_x(t.get('pe_ratio') or t.get('pe')),
                 _fmt_x(t.get('pb_ratio') or t.get('pb')),
-                _fmt_pct(t.get('div_yield')),
+                _fmt_dy(t.get('div_yield')),
             ]
         elif _sec_profile == "REIT":
             row += [
                 _fmt_pct(t.get('ebitda_margin'), sign=False),
                 _fmt_pct(t.get('roe')),
                 _fmt_x(t.get('pb_ratio') or t.get('pb')),
-                _fmt_pct(t.get('div_yield')),
+                _fmt_dy(t.get('div_yield')),
             ]
         elif _sec_profile == "UTILITY":
             row += [
                 _fmt_pct(t.get('ebitda_margin'), sign=False),
                 _fmt_pct(t.get('roe')),
                 _fmt_x(t.get('ev_ebitda')),
-                _fmt_pct(t.get('div_yield')),
+                _fmt_dy(t.get('div_yield')),
             ]
         elif _sec_profile == "INSURANCE":
             row += [
                 _fmt_pct(t.get('roe')),
                 _fmt_x(t.get('pe_ratio') or t.get('pe')),
                 _fmt_x(t.get('pb_ratio') or t.get('pb')),
-                _fmt_pct(t.get('div_yield')),
+                _fmt_dy(t.get('div_yield')),
             ]
         elif _sec_profile == "OIL_GAS":
             row += [

@@ -1026,6 +1026,7 @@ def _fetch_real_sector_data(sector: str, universe: str, max_tickers: int = 8) ->
                 "market_cap":      mc,
                 "revenue_ltm":     info.get("totalRevenue"),
                 "ebitda_ltm":      info.get("ebitda"),
+                "pb_ratio":        round(float(info.get("priceToBook")), 2) if info.get("priceToBook") else None,
                 "currency":        info.get("currency", "USD"),
                 "sentiment_score": 0.0,
                 # Métriques alternatives (paliers 2/3)
