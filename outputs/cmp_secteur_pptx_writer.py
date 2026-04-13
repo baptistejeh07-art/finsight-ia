@@ -1368,23 +1368,26 @@ def _risques_slide(slide, content, col, col_pale, llm_text=None):
     _rect(slide, 0.9, 2.10, 11.4, 0.60, fill=col)
     _txb(slide, "CATALYSEURS", 0.9, 2.16, 11.4, 0.48, size=9, bold=True,
          color=_WHITE, align=PP_ALIGN.CENTER)
+    # Hauteur de ligne 2.10cm (était 2.20) → 3 rows finissent a y=8.95
+    # Body cap a 280 chars (était 180) pour permettre 2-3 lignes réelles
     for i, (title, body) in enumerate(cats):
-        y = 2.90 + i * 2.20
+        y = 2.85 + i * 2.10
         _bullet_square(slide, 0.95, y + 0.10, col, size=0.22)
         _txb(slide, title[:48], 1.30, y, 11.0, 0.45, size=9.5, bold=True, color=col)
-        _txb(slide, body[:180], 1.30, y + 0.50, 10.95, 1.55, size=8, color=_BLACK, wrap=True)
+        _txb(slide, body[:280], 1.30, y + 0.50, 10.95, 1.50, size=8, color=_BLACK, wrap=True)
 
     # Risques (bandeau h=0.60 + bullets carres rouges)
     _rect(slide, 13.1, 2.10, 11.4, 0.60, fill=_RED)
     _txb(slide, "RISQUES", 13.1, 2.16, 11.4, 0.48, size=9, bold=True,
          color=_WHITE, align=PP_ALIGN.CENTER)
     for i, (title, body) in enumerate(risks):
-        y = 2.90 + i * 2.20
+        y = 2.85 + i * 2.10
         _bullet_square(slide, 13.15, y + 0.10, _RED, size=0.22)
         _txb(slide, title[:48], 13.50, y, 11.0, 0.45, size=9.5, bold=True, color=_RED)
-        _txb(slide, body[:180], 13.50, y + 0.50, 10.95, 1.55, size=8, color=_BLACK, wrap=True)
+        _txb(slide, body[:280], 13.50, y + 0.50, 10.95, 1.50, size=8, color=_BLACK, wrap=True)
 
-    # Conditions d'invalidation — rehaussé et plus de texte
+    # Conditions d'invalidation — bandeau abaisse a 9.10 (était 9.20) pour
+    # ne pas chevaucher le 3e body qui finit a 9.05
     if conds:
         _rect(slide, 0.9, 9.20, 23.6, 0.48, fill=_NAVY)
         _txb(slide, "CONDITIONS D'INVALIDATION", 0.9, 9.25, 23.6, 0.42, size=9, bold=True,
@@ -1420,10 +1423,11 @@ def _s14_synthese(prs, D):
     these_a_llm = D.get("llm", {}).get("Thèse_long_a", "")
     y_a = 2.9
     items_a = _split_these_items(these_a_llm, forces_a)
+    # cap desc 220 chars (était 130) + h 2.20 (était 1.8) → tolere 4 lignes
     for j, (title, desc) in enumerate(items_a[:3]):
         _rect(slide, xa, y_a + j * 2.5, 0.22, 0.22, fill=_COL_A)
         _txb(slide, title[:42], xa + 0.38, y_a + j * 2.5 - 0.04, col_w - 0.4, 0.48, size=8.5, bold=True, color=_BLACK)
-        _txb(slide, desc[:130], xa + 0.38, y_a + j * 2.5 + 0.48, col_w - 0.4, 1.8, size=8, italic=True, color=_GRAYT, wrap=True)
+        _txb(slide, desc[:220], xa + 0.38, y_a + j * 2.5 + 0.48, col_w - 0.4, 2.0, size=8, italic=True, color=_GRAYT, wrap=True)
 
     # === THÈSE LONG SECTEUR B (gold) ===
     _rect(slide, xb, 2.1, col_w, 0.6, fill=_GOLD)
@@ -1437,7 +1441,7 @@ def _s14_synthese(prs, D):
     for j, (title, desc) in enumerate(items_b[:3]):
         _rect(slide, xb, y_b + j * 2.5, 0.22, 0.22, fill=_GOLD)
         _txb(slide, title[:42], xb + 0.38, y_b + j * 2.5 - 0.04, col_w - 0.4, 0.48, size=8.5, bold=True, color=_BLACK)
-        _txb(slide, desc[:130], xb + 0.38, y_b + j * 2.5 + 0.48, col_w - 0.4, 1.8, size=8, italic=True, color=_GRAYT, wrap=True)
+        _txb(slide, desc[:220], xb + 0.38, y_b + j * 2.5 + 0.48, col_w - 0.4, 2.0, size=8, italic=True, color=_GRAYT, wrap=True)
 
     # === RISQUES PRINCIPAUX (red, pleine largeur) ===
     risks_txt = D.get("llm", {}).get("risques_principaux") or ""
@@ -1626,10 +1630,10 @@ def _s15_allocation(prs, D):
     _txb(slide, "Les signaux FinSight sont calculés sur données fondamentales réelles (yfinance). Ils ne constituent pas un conseil en investissement.",
          1.0, 2.15, 23.4, 0.45, size=7.5, italic=True, color=_GRAYT)
 
-    # Panel A — bandeau h=1.05 pour bien contenir titre + univers
+    # Panel A — bandeau h=1.05 ; "Global" rehausse de 0.10 pour cadrage propre
     _rect(slide, 0.9, 2.88, 11.2, 1.05, fill=_COL_A)
-    _txb(slide, D["sector_a"][:22], 1.0, 2.96, 11.0, 0.48, size=11, bold=True, color=_WHITE)
-    _txb(slide, D["universe_a"], 1.0, 3.50, 11.0, 0.40, size=8.5, color=_WHITE)
+    _txb(slide, D["sector_a"][:22], 1.0, 2.95, 11.0, 0.46, size=11, bold=True, color=_WHITE)
+    _txb(slide, D["universe_a"], 1.0, 3.40, 11.0, 0.40, size=8.5, color=_WHITE)
 
     _rect(slide, 0.9, 4.0, 11.2, 1.3, fill=D["sig_a_col"])
     _txb(slide, f"● {D['sig_a_lbl']}", 0.9, 4.2, 11.2, 0.75, size=20, bold=True, color=_WHITE, align=PP_ALIGN.CENTER)
@@ -1652,10 +1656,10 @@ def _s15_allocation(prs, D):
     # Separateur
     _rect(slide, 12.7, 2.7, 0.04, 7.5, fill=_GRAYM)
 
-    # Panel B
+    # Panel B — meme cadrage que A
     _rect(slide, 13.1, 2.88, 11.2, 1.05, fill=_COL_B)
-    _txb(slide, D["sector_b"][:22], 13.2, 2.96, 11.0, 0.48, size=11, bold=True, color=_WHITE)
-    _txb(slide, D["universe_b"], 13.2, 3.50, 11.0, 0.40, size=8.5, color=_WHITE)
+    _txb(slide, D["sector_b"][:22], 13.2, 2.95, 11.0, 0.46, size=11, bold=True, color=_WHITE)
+    _txb(slide, D["universe_b"], 13.2, 3.40, 11.0, 0.40, size=8.5, color=_WHITE)
 
     _rect(slide, 13.1, 4.0, 11.2, 1.3, fill=D["sig_b_col"])
     _txb(slide, f"● {D['sig_b_lbl']}", 13.1, 4.2, 11.2, 0.75, size=20, bold=True, color=_WHITE, align=PP_ALIGN.CENTER)
@@ -1781,27 +1785,31 @@ def _s15b_verdict(prs, D):
         _txb(slide, cb[:200], xs[2] + 0.32, y_cond + 0.40, col_w3 - 0.32, 1.35, size=7, color=_GRAYT, wrap=True)
         y_cond += 1.85
 
-    # Horizon & conviction — bandeau h=0.55 pour cadrage propre
-    _rect(slide, 0.9, 10.85, 23.6, 0.55, fill=_GRAYL,
+    # Horizon & conviction — abaisse en bas de slide pour ne pas être chevauche
+    # par les boxes Conditions d'invalidation (qui descendent jusqu'a y~12.0)
+    _rect(slide, 0.9, 12.65, 23.6, 0.55, fill=_GRAYL,
           line=True, line_col=_GRAYM, line_w=0.4)
     _txb(slide, ("Horizon recommande : 6-12 mois  |  Conviction FORTE si écart score > 15 pts"
                  "  |  Rééquilibrer si écart < 5 pts  |  Révisable a chaque publication trimestrielle"),
-         1.0, 10.95, 23.4, 0.40, size=8, italic=True, color=_NAVY, align=PP_ALIGN.CENTER)
+         1.0, 12.75, 23.4, 0.40, size=8, italic=True, color=_NAVY, align=PP_ALIGN.CENTER)
 
 
 def _s16_disclaimer(prs, D):
     """Slide 21 — Mentions légales & Méthodologie detaillee."""
     slide = _blank(prs)
+    # Bandeau navy haut de slide
     _rect(slide, 0, 0, 25.4, 1.8, fill=_NAVY)
-    _txb(slide, "Méthodologie & Mentions Légales", 0.9, 0.3, 23.6, 1.2, size=13, bold=True, color=_WHITE)
+    _txb(slide, "M\u00e9thodologie & Mentions L\u00e9gales", 0.9, 0.45, 23.6, 0.95,
+         size=14, bold=True, color=_WHITE)
 
     # Deux colonnes : Méthodologie (gauche) + Mentions légales (droite)
     col_w = 11.2
     xa, xb = 0.9, 13.1
 
-    # === MÉTHODOLOGIE (gauche) ===
-    _rect(slide, xa, 2.0, col_w, 0.42, fill=_NAVY)
-    _txb(slide, "MÉTHODOLOGIE", xa, 2.03, col_w, 0.36, size=8, bold=True, color=_WHITE, align=PP_ALIGN.CENTER)
+    # === MÉTHODOLOGIE (gauche) — bandeau plus haut/spacieux ===
+    _rect(slide, xa, 2.20, col_w, 0.55, fill=_NAVY)
+    _txb(slide, "M\u00c9THODOLOGIE", xa, 2.27, col_w, 0.42, size=10, bold=True,
+         color=_WHITE, align=PP_ALIGN.CENTER)
 
     methodo = [
         ("Scoring FinSight (0-100)",
@@ -1831,15 +1839,16 @@ def _s16_disclaimer(prs, D):
          "Les signaux sont Mécaniques, statiques (snapshot point-in-time) et non ajustés du cycle. "
          "Aucune analyse qualitative manuelle (management, gouvernance, ESG) n'est réalisée."),
     ]
-    y = 2.55
+    y = 2.95
     for title, text in methodo:
         _txb(slide, title, xa, y, col_w, 0.34, size=7.5, bold=True, color=_NAVY)
-        _txb(slide, text, xa, y + 0.38, col_w, 1.65, size=6.5, color=_GRAYT, wrap=True)
-        y += 2.05
+        _txb(slide, text, xa, y + 0.38, col_w, 1.55, size=6.5, color=_GRAYT, wrap=True)
+        y += 2.0
 
-    # === MENTIONS LÉGALES (droite) ===
-    _rect(slide, xb, 2.0, col_w, 0.42, fill=_NAVYL)
-    _txb(slide, "MENTIONS LÉGALES", xb, 2.03, col_w, 0.36, size=8, bold=True, color=_WHITE, align=PP_ALIGN.CENTER)
+    # === MENTIONS LÉGALES (droite) — meme cadrage que MÉTHODOLOGIE ===
+    _rect(slide, xb, 2.20, col_w, 0.55, fill=_NAVYL)
+    _txb(slide, "MENTIONS L\u00c9GALES", xb, 2.27, col_w, 0.42, size=10, bold=True,
+         color=_WHITE, align=PP_ALIGN.CENTER)
 
     legals = [
         ("Caractère informatif et pedagogique",
@@ -1870,11 +1879,11 @@ def _s16_disclaimer(prs, D):
          "intellectuelle exclusive de FinSight IA. Toute exploitation commerciale est prohibee. "
          "Ne pas utiliser comme base exclusive pour une décision d'investissement."),
     ]
-    y = 2.55
+    y = 2.95
     for title, text in legals:
         _txb(slide, title, xb, y, col_w, 0.34, size=7.5, bold=True, color=_NAVY)
-        _txb(slide, text, xb, y + 0.38, col_w, 1.65, size=6.5, color=_GRAYT, wrap=True)
-        y += 2.05
+        _txb(slide, text, xb, y + 0.38, col_w, 1.55, size=6.5, color=_GRAYT, wrap=True)
+        y += 2.0
 
     _rect(slide, 0.9, 13.3, 23.6, 0.25, fill=_GRAYL)
     _txb(slide, f"Généré par FinSight IA  |  {D['date_str']}  |  Usage confidentiel",

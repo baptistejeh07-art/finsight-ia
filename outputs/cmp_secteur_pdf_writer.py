@@ -1111,7 +1111,8 @@ def _build_story(D: dict) -> list:
         f"offre une meilleure protection relative du capital."
     )
     _alloc_text = D.get("llm", {}).get("allocation_rec") or _rec_fallback
-    story.append(Paragraph(_xml(_alloc_text), S_BODY))
+    # _rich préserve les balises <b>/<i>/<br/> si le LLM les retourne
+    story.append(Paragraph(_rich(_alloc_text), S_BODY))
     story.append(Spacer(1, 4 * mm))
 
     # Section : Mise en oeuvre & calibration de l'allocation (texte plus rigoureux)
@@ -1141,7 +1142,8 @@ def _build_story(D: dict) -> list:
         f"<b>Rebalancement</b> : revue trimestrielle systematique après chaque saison de publications, "
         f"ajustement progressif si l'écart de score se compressé < 5 pts ou s'inverse."
     )
-    story.append(Paragraph(_xml(_impl_text), S_BODY))
+    # _impl_text contient des balises <b>/<br/> hardcodees — _rich les préserve
+    story.append(Paragraph(_rich(_impl_text), S_BODY))
     story.append(Spacer(1, 3 * mm))
     story.append(Paragraph(
         "Note : Surpondérer = score >= 65 | Neutre = score >= 45 | Sous-pondérer = score < 45. "
@@ -1248,10 +1250,20 @@ def _build_top_table(story, tickers, sector_name, col_header):
                 roe_str = "N/M" if abs(_rv) > 200 else _pct(_rv, sign=False)
             except (TypeError, ValueError):
                 roe_str = None
+        # P/E : si valeur absente mais earnings/marge nette negatifs, afficher "neg."
+        _pe_v = t.get("pe_ratio")
+        if _pe_v is None:
+            _nm = t.get("net_margin")
+            try:
+                _pe_str = "neg." if _nm is not None and float(_nm) < 0 else "\u2014"
+            except (TypeError, ValueError):
+                _pe_str = "\u2014"
+        else:
+            _pe_str = _mult(_pe_v)
         top_data.append([
             Paragraph(t.get("company", t.get("ticker", ""))[:22], S_TD_L),
             Paragraph(f"{t.get('score_global', 0)}/100", S_TD_C),
-            Paragraph(_mult(t.get("pe_ratio")), S_TD_C),
+            Paragraph(_pe_str, S_TD_C),
             Paragraph(_mult(t.get("ev_ebitda")), S_TD_C),
             Paragraph(_pct(revg), S_TD_C),
             Paragraph(_pct(t.get("ebitda_margin"), sign=False), S_TD_C),
@@ -1363,31 +1375,32 @@ def _build_risques_comparatifs_pdf(story, content_a, sector_a, content_b, sector
     story.append(rt)
     story.append(Spacer(1, 4 * mm))
 
-    # Analyse croisee des implications
+    # Analyse croisee des implications — version compacte (1 paragraphe par secteur)
     story.append(Paragraph("Analyse croisee des implications", S_SSEC))
     story.append(Spacer(1, 1 * mm))
 
-    for title, body in risks_a[:2]:
-        if not title:
-            continue
-        impl = (
-            f"Risque {sector_a} — {title[:40]} : {body[:120]}. "
-            f"Du point de vue de {sector_b}, un choc sur ce facteur peut constituer "
-            f"un catalyseur de rotation si les deux secteurs sont faiblement correles, "
-            f"ou une contagion si le risque est d'origine macro-systemique."
+    if risks_a:
+        _ra_top = risks_a[0]
+        _ra_2nd = risks_a[1] if len(risks_a) > 1 else ("", "")
+        impl_a = (
+            f"<b>{sector_a}</b> — Les deux risques majeurs identifies "
+            f"({_ra_top[0][:40]}, {_ra_2nd[0][:40] if _ra_2nd[0] else 'second axe'}) "
+            f"peuvent declencher une rotation vers {sector_b} en cas de divergence des "
+            f"fondamentaux, ou au contraire une contagion si le choc est d'origine macro-systemique."
         )
-        story.append(Paragraph(_xml(impl), S_BODY))
+        story.append(Paragraph(_rich(impl_a), S_BODY))
         story.append(Spacer(1, 1 * mm))
 
-    for title, body in risks_b[:2]:
-        if not title:
-            continue
-        impl = (
-            f"Risque {sector_b} — {title[:40]} : {body[:120]}. "
-            f"Pour {sector_a}, ce risque peut amplifier ou attenuuer la pression selon "
-            f"le caractère cyclique ou défensif du choc — a surveiller comme signal d'arbitrage sectoriel."
+    if risks_b:
+        _rb_top = risks_b[0]
+        _rb_2nd = risks_b[1] if len(risks_b) > 1 else ("", "")
+        impl_b = (
+            f"<b>{sector_b}</b> — Symetriquement, "
+            f"{_rb_top[0][:40]}{(' et ' + _rb_2nd[0][:40]) if _rb_2nd[0] else ''} "
+            f"impactent la pression concurrentielle sur {sector_a} selon le caractère cyclique "
+            f"ou défensif du choc — a surveiller comme signal d'arbitrage sectoriel."
         )
-        story.append(Paragraph(_xml(impl), S_BODY))
+        story.append(Paragraph(_rich(impl_b), S_BODY))
         story.append(Spacer(1, 1 * mm))
 
     # Conditions d'invalidation — tableau + texte LLM rigoureux
@@ -1407,24 +1420,16 @@ def _build_risques_comparatifs_pdf(story, content_a, sector_a, content_b, sector
                 Paragraph(c[2], S_TD_C),
             ])
         story.append(_tbl(cond_data, [30*mm, 22*mm, 98*mm, 26*mm]))
-        story.append(Spacer(1, 3 * mm))
-        # Texte analytique sur les conditions d'invalidation (avec contexte risk management)
+        story.append(Spacer(1, 2 * mm))
+        # Texte analytique compact (4 lignes max) — tient sur p7 avec le reste
         invalidation_text = (
-            f"<b>Lecture des conditions d'invalidation</b> : ces seuils ne sont pas des points de "
-            f"sortie automatiques mais des signaux de re-évaluation systematique de la Thèse. "
-            f"Pour {sector_a}, l'invalidation peut être declenchee par une combinaison de facteurs "
-            f"plutot qu'un seul critère isole — par exemple, une compression de marges concomitante "
-            f"a une révision baissière du consensus EPS cumulée a une rotation negative du momentum 52S. "
-            f"L'investisseur doit calibrer son seuil d'action en fonction de son horizon (court terme : "
-            f"reaction rapide aux signaux de momentum ; long terme : tolerance plus élevée aux fluctuations "
-            f"trimestrielles, focus sur la qualité structurelle). "
-            f"Pour {sector_b}, la spécificité du risque sectoriel impose une vigilance particulière sur "
-            f"les indicateurs avances (PMI manufacturier, surveys de crédit, guidance corporate) qui "
-            f"precedent généralement les révisions consensus de 1-2 trimestres. "
-            f"<b>Méthodologie de monitoring</b> : revue mensuelle des seuils, alertes automatiques en "
-            f"cas de franchissement, réévaluation complète de la Thèse sur 2 trimestrès consecutifs "
-            f"de divergence. Les conditions d'invalidation doivent être confrontees au contexte macro "
-            f"global (cycle des taux, dollar, géopolitique) avant d'être traduites en décision d'allocation."
+            f"<b>Lecture des conditions d'invalidation</b> : ces seuils ne sont pas des points "
+            f"de sortie automatiques mais des signaux de re-évaluation systematique. Pour "
+            f"{sector_a}, calibrer en combinant compression de marges, révision baissière du "
+            f"consensus EPS et rotation negative du momentum 52S. Pour {sector_b}, surveiller les "
+            f"indicateurs avances (PMI, surveys de crédit, guidance corporate) qui précèdent les "
+            f"révisions consensus de 1-2 trimestres. <b>Monitoring</b> : revue mensuelle, alertes "
+            f"automatiques, réévaluation complète sur 2 trimestres consécutifs de divergence."
         )
         story.append(Paragraph(_rich(invalidation_text), S_BODY))
 

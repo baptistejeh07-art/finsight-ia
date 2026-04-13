@@ -3708,9 +3708,9 @@ def _render_sector_comparison_within_indice(results: dict) -> None:
 # ---------------------------------------------------------------------------
 
 _CMP_SECTOR_CHOICES = [
-    "Technology", "Healthcare", "Consumer Cyclical", "Consumer Défensive",
-    "Financial Services", "Industrials", "Energy", "Basic Materials",
-    "Real Estate", "Communication Services", "Utilities",
+    "Technologie", "Sant\u00e9", "Consommation Cyclique", "Consommation D\u00e9fensive",
+    "Services Financiers", "Industrie", "\u00c9nergie", "Mat\u00e9riaux",
+    "Immobilier", "T\u00e9l\u00e9communications", "Services Publics",
 ]
 
 def _render_sector_comparison_section(results: dict) -> None:
@@ -3780,12 +3780,49 @@ def _render_sector_comparison_section(results: dict) -> None:
                 _sys.path.insert(0, str(Path(__file__).parent))
                 from cli_analyze import _fetch_real_sector_data, _make_test_tickers
 
-                # Contexte 2 : pas d'indice spécifique — on essaie S&P 500 puis fallback synthetique
-                tickers_b = _fetch_real_sector_data(sector_b, "S&P 500", max_tickers=8)
+                # Convertit l'input FR (dropdown) en label anglais yfinance pour
+                # le lookup dans _SECTOR_TICKERS (cli_analyze) — évite le retour
+                # vide quand on passe "Sante" au lieu de "Healthcare".
+                try:
+                    from core.sector_labels import en_label as _en_label
+                    _sector_b_en = _en_label(sector_b) or sector_b
+                except Exception:
+                    _sector_b_en = sector_b
+
+                # Contexte Global : essais cascade S&P 500 -> CAC 40 -> DAX -> FTSE
+                tickers_b = _fetch_real_sector_data(_sector_b_en, "S&P 500", max_tickers=8)
                 if not tickers_b:
-                    tickers_b = _fetch_real_sector_data(sector_b, "CAC 40", max_tickers=8)
+                    tickers_b = _fetch_real_sector_data(_sector_b_en, "CAC 40", max_tickers=8)
                 if not tickers_b:
-                    tickers_b = _make_test_tickers(sector_b, 6)
+                    tickers_b = _fetch_real_sector_data(_sector_b_en, "DAX", max_tickers=8)
+                if not tickers_b:
+                    tickers_b = _fetch_real_sector_data(_sector_b_en, "FTSE 100", max_tickers=8)
+
+                # Dernier recours : fetch via Supabase (pool plus large) puis enrichit
+                # avec compute_screening.build_tickers_data (yfinance info + scores)
+                if not tickers_b:
+                    try:
+                        _b_slug = _slug_from_any(sector_b) or sector_b
+                        _b_pool = _fetch_sector_tickers(_b_slug)[:15]
+                        if _b_pool:
+                            from scripts.compute_screening import build_tickers_data as _btd
+                            tickers_b = _btd(_b_pool, workers=4) or []
+                            # on ne garde que les 8 meilleurs
+                            tickers_b = sorted(
+                                [t for t in tickers_b if t.get("score_global") is not None],
+                                key=lambda x: x["score_global"], reverse=True,
+                            )[:8]
+                    except Exception as _e_b:
+                        log.warning("[scmp] supabase enrichment fallback failed: %s", _e_b)
+
+                # Ultime fallback : synthetique (warn user, tickers nommes <Secteur> Corp N)
+                if not tickers_b:
+                    st.warning(
+                        f"Données temps réel indisponibles pour {sector_b} — "
+                        "comparatif sur Données illustratives."
+                    )
+                    tickers_b = _make_test_tickers(_sector_b_en, 6)
+
                 for t in tickers_b:
                     t.pop("_sector_analytics", None)
 
@@ -3845,8 +3882,13 @@ def _render_sector_comparison_section(results: dict) -> None:
                 st.session_state.scmp_stage = None
         return
 
-    # Formulaire de sélection
-    other_choices = [s for s in _CMP_SECTOR_CHOICES if s != current_sector]
+    # Formulaire de sélection — filtre X vs X via comparaison par slug canonique
+    # (évite que "Technologie" et "Technology" soient vus comme différents)
+    _curr_slug = _slug_from_any(current_sector)
+    other_choices = [
+        s for s in _CMP_SECTOR_CHOICES
+        if _slug_from_any(s) != _curr_slug
+    ]
     sc1, sc2 = st.columns([3, 1])
     with sc1:
         sector_b_sel = st.selectbox(

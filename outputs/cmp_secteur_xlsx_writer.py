@@ -2,9 +2,25 @@
 cmp_secteur_xlsx_writer.py — FinSight IA
 Writer XLSX comparatif sectoriel (secteur A vs secteur B).
 
-Complement aux writers existants :
-  - cmp_secteur_pdf_writer.py (rapport A4)
-  - cmp_secteur_pptx_writer.py (pitchbook)
+Charge le template assets/CMP_SECTEUR_TEMPLATE.xlsx (designe par Baptiste,
+6 feuilles : SYNTHÈSE, AGRÉGATS, TOP_TECH, TOP_HC, DATA_TECH, DATA_HC) puis
+injecte uniquement DATA_TECH et DATA_HC. Toutes les autres feuilles sont
+formule-driven (MEDIAN/INDEX/LARGE/AVERAGE...) et se mettent a jour
+automatiquement a l'ouverture du fichier dans Excel.
+
+Layout attendu par le template :
+
+  DATA_TECH (max 88 lignes utiles)
+    A3:I3 = headers (TICKER, SOCIÉTÉ, SCORE FINSIGHT, P/E, EV/EBITDA,
+            MARGE EBITDA, ROE, CROISS. REV., RANG_UNIQUE)
+    A4..  = donnees (col I = formule RANK.EQ + COUNTIF)
+    J1    = nom du secteur 1
+
+  DATA_HC (pas de col I)
+    A3:H3 = headers (TICKER, SOCIÉTÉ, SCORE FINSIGHT, P/E, EV/EBITDA,
+            MARGE EBITDA, ROE, CROISS. REV.)
+    A4..  = donnees
+    I1    = nom du secteur 2
 
 Usage :
     from outputs.cmp_secteur_xlsx_writer import generate_cmp_secteur_xlsx
@@ -17,67 +33,150 @@ from __future__ import annotations
 
 import io
 import logging
-from datetime import date
+from pathlib import Path
 from typing import Optional
 
 log = logging.getLogger(__name__)
 
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
+# ═══════════════════════════════════════════════════════════════════════════
+# Helpers de conversion (pareil que le tab DATA_TECH)
+# ═══════════════════════════════════════════════════════════════════════════
+
 def _safe_float(v) -> Optional[float]:
+    """Convertit en float, retourne None si invalide ou NaN."""
     if v is None:
         return None
     try:
         fv = float(v)
-        if fv != fv:  # NaN check
+        if fv != fv:  # NaN
             return None
         return fv
     except Exception:
         return None
 
 
-def _median(vals):
-    vals = [v for v in vals if v is not None]
-    if not vals:
-        return None
-    vals.sort()
-    n = len(vals)
-    return vals[n // 2] if n % 2 else (vals[n // 2 - 1] + vals[n // 2]) / 2
-
-
-def _mean(vals):
-    vals = [v for v in vals if v is not None]
-    if not vals:
-        return None
-    return sum(vals) / len(vals)
-
-
-def _pct_to_100(v):
-    """Convert fraction (0.15) or already-% (15) to %."""
+def _to_pct_100(v) -> Optional[float]:
+    """Convertit un ratio (0.27 ou 27) en pourcentage 27.0 (multiplicateur 100
+    si valeur absolue <= 2). Retourne None si invalide."""
     fv = _safe_float(v)
     if fv is None:
         return None
-    return fv * 100 if abs(fv) <= 2.0 else fv
+    return round(fv * 100, 2) if abs(fv) <= 2.0 else round(fv, 2)
 
 
-def _agg_sector(tickers, key):
-    """Retourne (Médian, mean, min, max) pour une cle numerique."""
-    vals = [_safe_float(t.get(key)) for t in tickers]
-    vals = [v for v in vals if v is not None]
-    if not vals:
-        return None, None, None, None
-    vals_sorted = sorted(vals)
-    n = len(vals_sorted)
-    med = vals_sorted[n // 2] if n % 2 else (vals_sorted[n // 2 - 1] + vals_sorted[n // 2]) / 2
-    mean = sum(vals) / n
-    return med, mean, min(vals), max(vals)
+def _to_mult(v) -> Optional[float]:
+    """Convertit un multiple (P/E, EV/EBITDA) en float arrondi a 2 decimales.
+    Filtre les valeurs aberrantes (> 999 ou < 0)."""
+    fv = _safe_float(v)
+    if fv is None or fv > 999 or fv <= 0:
+        return None
+    return round(fv, 2)
 
 
-# ---------------------------------------------------------------------------
-# Génération XLSX
-# ---------------------------------------------------------------------------
+def _ticker_row_values(ticker: dict) -> list:
+    """Construit la ligne A-H pour un ticker (sans col I = formule rank).
+
+    Conversion strict aux unites attendues par le template :
+        A: ticker (str)
+        B: nom de societe (str, max 60 chars)
+        C: score 0-100 (int)
+        D: P/E (float, multiple brut, vide si negatif)
+        E: EV/EBITDA (float, multiple brut, vide si negatif)
+        F: Marge EBITDA en % (ex: 27.5 = 27,5%)
+        G: ROE en %
+        H: Croissance Revenus en %
+    """
+    return [
+        ticker.get("ticker", "") or "",
+        (ticker.get("company") or ticker.get("ticker") or "")[:60],
+        int(round(_safe_float(ticker.get("score_global")) or 0)),
+        _to_mult(ticker.get("pe_ratio") or ticker.get("pe")),
+        _to_mult(ticker.get("ev_ebitda")),
+        _to_pct_100(ticker.get("ebitda_margin")),
+        _to_pct_100(ticker.get("roe")),
+        _to_pct_100(ticker.get("revenue_growth")),
+    ]
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Injection
+# ═══════════════════════════════════════════════════════════════════════════
+
+def _clear_data_sheet(ws, max_clear_row: int, max_col: int) -> None:
+    """Efface les Données existantes (rows 4..max_clear_row, cols 1..max_col).
+    Preserve les headers (row 3) et la cellule J1 ou I1 (nom secteur)."""
+    for r in range(4, max_clear_row + 1):
+        for c in range(1, max_col + 1):
+            cell = ws.cell(row=r, column=c)
+            if cell.value is not None:
+                cell.value = None
+
+
+def _inject_data_tech(ws, tickers: list, sector_name: str) -> None:
+    """Injecte les Données du secteur 1 dans DATA_TECH.
+    - rows 4..(4+N-1) cols A-H : valeurs ticker
+    - col I : formule RANK.EQ + COUNTIF (anti-egalite)
+    - J1 : nom du secteur
+    """
+    # Titre cellule J1
+    ws["J1"] = sector_name
+
+    # Clear ancien contenu (jusqu'a la row 91 = max template, 9 cols)
+    _clear_data_sheet(ws, max_clear_row=91, max_col=9)
+
+    # Injection
+    sorted_tk = sorted(
+        tickers,
+        key=lambda t: _safe_float(t.get("score_global")) or 0,
+        reverse=True,
+    )
+    for i, tk in enumerate(sorted_tk[:88]):  # cap a 88 lignes (template)
+        r = 4 + i
+        vals = _ticker_row_values(tk)
+        for ci, v in enumerate(vals, start=1):
+            ws.cell(row=r, column=ci, value=v)
+        # Col I (9) : formule RANK.EQ pour le scoring unique
+        # =RANK.EQ(C{r},$C$4:$C$9999,0)+COUNTIF($C$5:C{r},C{r})-1
+        ws.cell(
+            row=r,
+            column=9,
+            value=f"=RANK.EQ(C{r},$C$4:$C$9999,0)+COUNTIF($C$5:C{r},C{r})-1",
+        )
+
+    log.info("[cmp_secteur_xlsx] DATA_TECH injectee : %d lignes (%s)",
+             len(sorted_tk[:88]), sector_name)
+
+
+def _inject_data_hc(ws, tickers: list, sector_name: str) -> None:
+    """Injecte les Données du secteur 2 dans DATA_HC.
+    - rows 4..(4+N-1) cols A-H : valeurs ticker (pas de col I)
+    - I1 : nom du secteur
+    """
+    ws["I1"] = sector_name
+
+    # Clear (jusqu'a row 91 = sécurité, 8 cols)
+    _clear_data_sheet(ws, max_clear_row=91, max_col=8)
+
+    sorted_tk = sorted(
+        tickers,
+        key=lambda t: _safe_float(t.get("score_global")) or 0,
+        reverse=True,
+    )
+    for i, tk in enumerate(sorted_tk[:88]):
+        r = 4 + i
+        vals = _ticker_row_values(tk)
+        for ci, v in enumerate(vals, start=1):
+            ws.cell(row=r, column=ci, value=v)
+
+    log.info("[cmp_secteur_xlsx] DATA_HC injectee : %d lignes (%s)",
+             len(sorted_tk[:88]), sector_name)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# API publique
+# ═══════════════════════════════════════════════════════════════════════════
+
 def generate_cmp_secteur_xlsx(
     tickers_a: list,
     sector_a: str,
@@ -89,303 +188,102 @@ def generate_cmp_secteur_xlsx(
     """
     Genere un fichier XLSX comparatif sectoriel en memoire.
 
-    Structure :
-      - Feuille 1 "SYNTHÈSE"   : KPIs comparatifs des 2 secteurs
-      - Feuille 2 "AGRÉGATS"   : mediane / moyenne / min / max par secteur
-      - Feuille 3 "TOP_A"      : top valeurs du secteur A (score, PE, marge...)
-      - Feuille 4 "TOP_B"      : top valeurs du secteur B
-      - Feuille 5 "DATA_RAW_A" : toutes les donnees brutes du secteur A
-      - Feuille 6 "DATA_RAW_B" : toutes les donnees brutes du secteur B
+    Charge assets/CMP_SECTEUR_TEMPLATE.xlsx puis injecte uniquement
+    DATA_TECH et DATA_HC. Toutes les autres feuilles (SYNTHÈSE, AGRÉGATS,
+    TOP_TECH, TOP_HC) sont formule-driven et se mettent a jour
+    automatiquement a l'ouverture dans Excel (Ctrl+Alt+F9 si nécessaire).
+
+    Args:
+        tickers_a    : liste de dicts ticker du secteur 1 (Tech/etc)
+        sector_a     : nom de secteur 1 (FR ou EN, ira en J1 de DATA_TECH)
+        universe_a   : univers (informatif, non utilise par le template)
+        tickers_b    : liste de dicts ticker du secteur 2 (HC/etc)
+        sector_b     : nom de secteur 2 (FR ou EN, ira en I1 de DATA_HC)
+        universe_b   : univers (informatif)
+
+    Returns:
+        bytes du fichier xlsx genere.
     """
     try:
-        import openpyxl
-        from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
-        from openpyxl.utils import get_column_letter
+        from openpyxl import load_workbook
     except ImportError as _ie:
         raise RuntimeError(f"openpyxl manquant : {_ie}")
 
-    wb = openpyxl.Workbook()
+    # Résolution du template — cherche dans assets/ relatif au repo root
+    _root = Path(__file__).resolve().parent.parent
+    tpl_path = _root / "assets" / "CMP_SECTEUR_TEMPLATE.xlsx"
 
-    # === Styles ===
-    NAVY         = "FF1B3A6B"
-    NAVY_LIGHT   = "FFEEF3FA"
-    GREY_LIGHT   = "FFF5F7FA"
-    WHITE        = "FFFFFFFF"
-    GREEN        = "FF1A7A4A"
-    GREEN_LIGHT  = "FFEAF4EF"
-    GOLD         = "FFC9A227"
-    GOLD_LIGHT   = "FFFBF3DC"
-    GREY_RULE    = "FFD0D5DD"
-    BLACK        = "FF1A1A1A"
-
-    font_title     = Font(name="Calibri", size=14, bold=True, color="FFFFFF")
-    font_sub_title = Font(name="Calibri", size=11, bold=True, color="FF555555", italic=True)
-    font_header    = Font(name="Calibri", size=10, bold=True, color="FFFFFF")
-    font_body      = Font(name="Calibri", size=10, color="FF1A1A1A")
-    font_body_bold = Font(name="Calibri", size=10, bold=True, color="FF1A1A1A")
-    font_label     = Font(name="Calibri", size=9, color="FF555555")
-
-    fill_navy   = PatternFill("solid", fgColor=NAVY)
-    fill_alt    = PatternFill("solid", fgColor=GREY_LIGHT)
-    fill_A      = PatternFill("solid", fgColor=NAVY_LIGHT)
-    fill_B      = PatternFill("solid", fgColor=GOLD_LIGHT)
-
-    align_l = Alignment(horizontal="left",   vertical="center", wrap_text=True)
-    align_c = Alignment(horizontal="center", vertical="center", wrap_text=True)
-    align_r = Alignment(horizontal="right",  vertical="center")
-
-    thin = Side(border_style="thin", color=GREY_RULE)
-    border = Border(left=thin, right=thin, top=thin, bottom=thin)
-
-    # === Feuille 1 : SYNTHÈSE ===
-    ws = wb.active
-    ws.title = "SYNTHÈSE"
-
-    # Header
-    ws.merge_cells("A1:E1")
-    ws["A1"] = f"FinSight IA  -  Comparatif Sectoriel : {sector_a} vs {sector_b}"
-    ws["A1"].font = Font(name="Calibri", size=14, bold=True, color="FF1B3A6B")
-    ws["A1"].alignment = align_c
-
-    ws.merge_cells("A2:E2")
-    ws["A2"] = (f"{universe_a}  vs  {universe_b}  |  "
-                f"{len(tickers_a)} valeurs vs {len(tickers_b)} valeurs  |  "
-                f"{date.today().strftime('%d.%m.%Y')}")
-    ws["A2"].font = font_sub_title
-    ws["A2"].alignment = align_c
-
-    # Ligne en-tête tableau (row 4)
-    headers = ["Indicateur", sector_a, sector_b, "Écart", "Commentaire"]
-    for i, h in enumerate(headers, start=1):
-        c = ws.cell(row=4, column=i, value=h)
-        c.font = font_header
-        c.fill = fill_navy
-        c.alignment = align_c
-        c.border = border
-
-    # Lignes de metriques
-    def _row_metric(lbl, val_a, val_b, fmt="num", commentary=""):
-        """Ajouté une ligne et retourne le dict pour post-traitement."""
-        fa = _safe_float(val_a)
-        fb = _safe_float(val_b)
-        if fmt == "pct":
-            sa = f"{_pct_to_100(val_a):.1f}%" if fa is not None else "—"
-            sb = f"{_pct_to_100(val_b):.1f}%" if fb is not None else "—"
-            delta = (_pct_to_100(val_a) - _pct_to_100(val_b)) if (fa is not None and fb is not None) else None
-            sd = f"{delta:+.1f}pts" if delta is not None else "—"
-        elif fmt == "x":
-            sa = f"{fa:.1f}x" if fa is not None else "—"
-            sb = f"{fb:.1f}x" if fb is not None else "—"
-            delta = (fa - fb) if (fa is not None and fb is not None) else None
-            sd = f"{delta:+.1f}x" if delta is not None else "—"
-        else:
-            sa = f"{fa:.0f}" if fa is not None else "—"
-            sb = f"{fb:.0f}" if fb is not None else "—"
-            delta = (fa - fb) if (fa is not None and fb is not None) else None
-            sd = f"{delta:+.0f}" if delta is not None else "—"
-        return [lbl, sa, sb, sd, commentary]
-
-    # Agrégats
-    score_a_med, _, _, _ = _agg_sector(tickers_a, "score_global")
-    score_b_med, _, _, _ = _agg_sector(tickers_b, "score_global")
-    mg_a_med, _, _, _    = _agg_sector(tickers_a, "ebitda_margin")
-    mg_b_med, _, _, _    = _agg_sector(tickers_b, "ebitda_margin")
-    pe_a_med, _, _, _    = _agg_sector(tickers_a, "pe_ratio")
-    if pe_a_med is None:
-        pe_a_med, _, _, _ = _agg_sector(tickers_a, "pe")
-    pe_b_med, _, _, _    = _agg_sector(tickers_b, "pe_ratio")
-    if pe_b_med is None:
-        pe_b_med, _, _, _ = _agg_sector(tickers_b, "pe")
-    ev_a_med, _, _, _    = _agg_sector(tickers_a, "ev_ebitda")
-    ev_b_med, _, _, _    = _agg_sector(tickers_b, "ev_ebitda")
-    roe_a_med, _, _, _   = _agg_sector(tickers_a, "roe")
-    roe_b_med, _, _, _   = _agg_sector(tickers_b, "roe")
-    rev_a_med, _, _, _   = _agg_sector(tickers_a, "revenue_growth")
-    rev_b_med, _, _, _   = _agg_sector(tickers_b, "revenue_growth")
-
-    rows_data = [
-        _row_metric("Nombre de valeurs", len(tickers_a), len(tickers_b), "num",
-                    "Taille de l'echantillon"),
-        _row_metric("Score FinSight Médian", score_a_med, score_b_med, "num",
-                    "Qualité fondamentale agregee (0-100)"),
-        _row_metric("Marge EBITDA Médiane", mg_a_med, mg_b_med, "pct",
-                    "Profitabilite opérationnelle"),
-        _row_metric("P/E Médian", pe_a_med, pe_b_med, "x",
-                    "Valorisation relative"),
-        _row_metric("EV/EBITDA Médian", ev_a_med, ev_b_med, "x",
-                    "Valorisation hors structure financière"),
-        _row_metric("ROE Médian", roe_a_med, roe_b_med, "pct",
-                    "Rentabilité des fonds propres"),
-        _row_metric("Croissance revenus Médiane", rev_a_med, rev_b_med, "pct",
-                    "Dynamique commerciale"),
-    ]
-
-    for ri, row in enumerate(rows_data, start=5):
-        for ci, val in enumerate(row, start=1):
-            c = ws.cell(row=ri, column=ci, value=val)
-            c.font = font_body_bold if ci == 1 else font_body
-            c.alignment = align_l if ci in (1, 5) else align_c
-            c.border = border
-            if ri % 2 == 0:
-                c.fill = fill_alt
-
-    # Largeurs colonnes
-    for col, w in zip("ABCDE", [34, 18, 18, 14, 42]):
-        ws.column_dimensions[col].width = w
-
-    # === Feuille 2 : AGRÉGATS ===
-    ws2 = wb.create_sheet("AGRÉGATS")
-    ws2.merge_cells("A1:F1")
-    ws2["A1"] = f"Agrégats statistiques par secteur"
-    ws2["A1"].font = Font(name="Calibri", size=14, bold=True, color="FF1B3A6B")
-    ws2["A1"].alignment = align_c
-
-    ws2.merge_cells("A2:F2")
-    ws2["A2"] = f"{sector_a} vs {sector_b}  |  Médiane / Moyenne / Min / Max"
-    ws2["A2"].font = font_sub_title
-    ws2["A2"].alignment = align_c
-
-    hdr2 = ["Secteur", "Indicateur", "Médiane", "Moyenne", "Min", "Max"]
-    for i, h in enumerate(hdr2, start=1):
-        c = ws2.cell(row=4, column=i, value=h)
-        c.font = font_header
-        c.fill = fill_navy
-        c.alignment = align_c
-        c.border = border
-
-    def _fmt_agg(v, mode):
-        if v is None: return "—"
-        if mode == "pct":
-            return f"{_pct_to_100(v):.1f}%"
-        if mode == "x":
-            return f"{v:.1f}x"
-        return f"{v:.0f}" if abs(v) > 1 else f"{v:.2f}"
-
-    metrics_cfg = [
-        ("Score FinSight", "score_global", "num"),
-        ("Marge EBITDA", "ebitda_margin", "pct"),
-        ("P/E", "pe_ratio", "x"),
-        ("EV/EBITDA", "ev_ebitda", "x"),
-        ("ROE", "roe", "pct"),
-        ("Croissance revenus", "revenue_growth", "pct"),
-    ]
-
-    row_idx = 5
-    for sector_lbl, tickers, fill_col in [
-        (sector_a, tickers_a, fill_A),
-        (sector_b, tickers_b, fill_B),
-    ]:
-        for lbl, key, mode in metrics_cfg:
-            med, mean, mn, mx = _agg_sector(tickers, key)
-            # fallback pe_ratio -> pe
-            if med is None and key == "pe_ratio":
-                med, mean, mn, mx = _agg_sector(tickers, "pe")
-            vals = [sector_lbl, lbl, _fmt_agg(med, mode), _fmt_agg(mean, mode),
-                    _fmt_agg(mn, mode), _fmt_agg(mx, mode)]
-            for ci, v in enumerate(vals, start=1):
-                c = ws2.cell(row=row_idx, column=ci, value=v)
-                c.font = font_body_bold if ci == 1 else font_body
-                c.alignment = align_l if ci in (1, 2) else align_c
-                c.border = border
-                if ci == 1:
-                    c.fill = fill_col
-            row_idx += 1
-        row_idx += 1  # ligne vide entre les 2 secteurs
-
-    for col, w in zip("ABCDEF", [22, 26, 14, 14, 14, 14]):
-        ws2.column_dimensions[col].width = w
-
-    # === Feuille 3 et 4 : TOP valeurs par secteur ===
-    for idx_sheet, (sector_lbl, tickers) in enumerate(
-        [(sector_a, tickers_a), (sector_b, tickers_b)], start=1
-    ):
-        ws_top = wb.create_sheet(f"TOP_{'A' if idx_sheet == 1 else 'B'}")
-        ws_top.merge_cells("A1:G1")
-        ws_top["A1"] = f"Top valeurs — {sector_lbl}"
-        ws_top["A1"].font = Font(name="Calibri", size=14, bold=True, color="FF1B3A6B")
-        ws_top["A1"].alignment = align_c
-
-        hdr = ["Ticker", "Société", "Score", "P/E", "EV/EBITDA", "Mg EBITDA", "Reco"]
-        for i, h in enumerate(hdr, start=1):
-            c = ws_top.cell(row=3, column=i, value=h)
-            c.font = font_header
-            c.fill = fill_navy
-            c.alignment = align_c
-            c.border = border
-
-        # Tri par score decroissant
-        sorted_tks = sorted(
-            tickers, key=lambda t: _safe_float(t.get("score_global")) or 0, reverse=True
+    if not tpl_path.exists():
+        log.warning(
+            "[cmp_secteur_xlsx] Template introuvable a %s — fallback minimal",
+            tpl_path,
+        )
+        return _generate_fallback_xlsx(
+            tickers_a, sector_a, tickers_b, sector_b
         )
 
-        for ri, tk in enumerate(sorted_tks[:20], start=4):
-            pe_val = _safe_float(tk.get("pe_ratio")) or _safe_float(tk.get("pe"))
-            row_vals = [
-                tk.get("ticker", ""),
-                (tk.get("company") or "")[:40],
-                f"{_safe_float(tk.get('score_global')) or 0:.0f}"
-                    if _safe_float(tk.get("score_global")) is not None else "—",
-                f"{pe_val:.1f}x" if pe_val is not None else "—",
-                f"{_safe_float(tk.get('ev_ebitda')):.1f}x"
-                    if _safe_float(tk.get("ev_ebitda")) is not None else "—",
-                f"{_pct_to_100(tk.get('ebitda_margin')):.1f}%"
-                    if _pct_to_100(tk.get("ebitda_margin")) is not None else "—",
-                tk.get("recommendation", "—"),
-            ]
-            for ci, v in enumerate(row_vals, start=1):
-                c = ws_top.cell(row=ri, column=ci, value=v)
-                c.font = font_body_bold if ci == 1 else font_body
-                c.alignment = align_l if ci in (1, 2) else align_c
-                c.border = border
-                if ri % 2 == 0:
-                    c.fill = fill_alt
+    log.info("[cmp_secteur_xlsx] Chargement template : %s", tpl_path.name)
+    wb = load_workbook(str(tpl_path), keep_links=False, data_only=False)
 
-        for col, w in zip("ABCDEFG", [10, 32, 10, 10, 12, 12, 12]):
-            ws_top.column_dimensions[col].width = w
+    # Vérification structure attendue
+    if "DATA_TECH" not in wb.sheetnames or "DATA_HC" not in wb.sheetnames:
+        log.error(
+            "[cmp_secteur_xlsx] Template invalide (sheets manquantes) — "
+            "attendu DATA_TECH + DATA_HC, trouve %s",
+            wb.sheetnames,
+        )
+        return _generate_fallback_xlsx(
+            tickers_a, sector_a, tickers_b, sector_b
+        )
 
-    # === Feuille 5 et 6 : DATA_RAW (toutes les données brutes) ===
-    for idx_sheet, (sector_lbl, tickers) in enumerate(
-        [(sector_a, tickers_a), (sector_b, tickers_b)], start=1
-    ):
-        ws_raw = wb.create_sheet(f"DATA_RAW_{'A' if idx_sheet == 1 else 'B'}")
-        ws_raw.merge_cells("A1:H1")
-        ws_raw["A1"] = f"Données brutes — {sector_lbl}"
-        ws_raw["A1"].font = Font(name="Calibri", size=12, bold=True, color="FF1B3A6B")
-        ws_raw["A1"].alignment = align_c
-
-        hdr_raw = ["Ticker", "Société", "Score", "PE", "EV/EBITDA",
-                   "Marge EBITDA", "ROE", "Croiss. rev."]
-        for i, h in enumerate(hdr_raw, start=1):
-            c = ws_raw.cell(row=3, column=i, value=h)
-            c.font = font_header
-            c.fill = fill_navy
-            c.alignment = align_c
-            c.border = border
-
-        for ri, tk in enumerate(tickers, start=4):
-            pe_val = _safe_float(tk.get("pe_ratio")) or _safe_float(tk.get("pe"))
-            row_vals = [
-                tk.get("ticker", ""),
-                (tk.get("company") or "")[:40],
-                _safe_float(tk.get("score_global")),
-                pe_val,
-                _safe_float(tk.get("ev_ebitda")),
-                _pct_to_100(tk.get("ebitda_margin")),
-                _pct_to_100(tk.get("roe")),
-                _pct_to_100(tk.get("revenue_growth")),
-            ]
-            for ci, v in enumerate(row_vals, start=1):
-                c = ws_raw.cell(row=ri, column=ci, value=v if v is not None else "—")
-                c.font = font_body
-                c.alignment = align_l if ci in (1, 2) else align_r
-                c.border = border
-                if ri % 2 == 0:
-                    c.fill = fill_alt
-
-        for col, w in zip("ABCDEFGH", [10, 32, 10, 10, 12, 14, 10, 14]):
-            ws_raw.column_dimensions[col].width = w
+    # Injection des Données
+    _inject_data_tech(wb["DATA_TECH"], tickers_a, sector_a)
+    _inject_data_hc(wb["DATA_HC"], tickers_b, sector_b)
 
     # Sauvegarde en memoire
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return buf.getvalue()
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Fallback minimaliste si le template est introuvable
+# ═══════════════════════════════════════════════════════════════════════════
+
+def _generate_fallback_xlsx(tickers_a, sector_a, tickers_b, sector_b) -> bytes:
+    """Fallback minimal si le template n'est pas dispo (erreur de deploiement).
+    Cree juste 2 feuilles brutes pour ne pas casser le download stream."""
+    try:
+        from openpyxl import Workbook
+    except ImportError as _ie:
+        raise RuntimeError(f"openpyxl manquant : {_ie}")
+
+    wb = Workbook()
+    wb.active.title = "DATA_TECH"
+    ws_t = wb.active
+    ws_t["J1"] = sector_a
+    ws_t["A3"] = "TICKER"
+    ws_t["B3"] = "SOCI\u00c9T\u00c9"
+    ws_t["C3"] = "SCORE FINSIGHT"
+    ws_t["D3"] = "P/E"
+    ws_t["E3"] = "EV/EBITDA"
+    ws_t["F3"] = "MARGE EBITDA"
+    ws_t["G3"] = "ROE"
+    ws_t["H3"] = "CROISS. REV."
+    for i, tk in enumerate(sorted(tickers_a, key=lambda t: _safe_float(t.get("score_global")) or 0, reverse=True)[:88]):
+        for ci, v in enumerate(_ticker_row_values(tk), start=1):
+            ws_t.cell(row=4 + i, column=ci, value=v)
+
+    ws_h = wb.create_sheet("DATA_HC")
+    ws_h["I1"] = sector_b
+    for ci, h in enumerate(["TICKER", "SOCI\u00c9T\u00c9", "SCORE FINSIGHT", "P/E",
+                            "EV/EBITDA", "MARGE EBITDA", "ROE", "CROISS. REV."], start=1):
+        ws_h.cell(row=3, column=ci, value=h)
+    for i, tk in enumerate(sorted(tickers_b, key=lambda t: _safe_float(t.get("score_global")) or 0, reverse=True)[:88]):
+        for ci, v in enumerate(_ticker_row_values(tk), start=1):
+            ws_h.cell(row=4 + i, column=ci, value=v)
+
     buf = io.BytesIO()
     wb.save(buf)
     buf.seek(0)
