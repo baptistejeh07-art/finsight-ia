@@ -1774,7 +1774,14 @@ def render_home() -> None:
 # ---------------------------------------------------------------------------
 
 def render_running() -> None:
-    ticker = st.session_state.ticker
+    # Defensive : si ticker n'est pas dans session_state (cas anormal de routing),
+    # rediriger vers home plutot que crash UnboundLocalError
+    ticker = st.session_state.get("ticker") or ""
+    if not ticker:
+        st.error("Aucun ticker selectionne. Retour a l'accueil.")
+        st.session_state.stage = "home"
+        st.rerun()
+        return
     _, col, _ = st.columns([1, 2, 1])
 
     with col:
