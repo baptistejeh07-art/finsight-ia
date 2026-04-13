@@ -526,16 +526,33 @@ def _inject_dashboard(wb, data: list[dict], universe_name: str,
 
 def _inject_value(wb, data: list[dict]) -> None:
     """
-    VALUE — Rang, Ticker, Societe, Secteur, Score, EV/EBITDA, EV/Revenue, P/E,
-           Mg Brute, Mg EBITDA, Altman Z, FCF Yield, Decote DCF.
-    Header row auto-detecte (R3 TEMPLATE_INDICE, R4 v3).
+    VALUE — injection adaptée au layout du template.
+
+    v4 (FinSight_IA_Screening_v4) : B6='#' → headers en row 6, Données rows 7-26
+      cols B=rang, C=ticker, D=societe, F=score_value, G=ev_ebitda, H=ev_revenue,
+      I=pe, J=gross_margin, K=ebitda_margin, L=altman_z, M=fcf_yield, N=signal.
+      Écrase les formules XLOOKUP du template (qui référencent AB=Score Global,
+      donc trient sur le mauvais score). Pas de ligne médiane en v4.
+
+    v3/TEMPLATE_INDICE : header "Rang" en R3 ou R4, données en 15 lignes +
+      médianes. Ancien layout 13 cols A-M.
     """
     ws_name = "VALUE"
     if ws_name not in wb.sheetnames:
         log.warning("[inject] feuille '%s' absente du template", ws_name)
         return
     ws = wb[ws_name]
-    # Detect header row : "Rang" en R3 (TEMPLATE_INDICE) ou R4 (v3)
+
+    # Détection v4 : header '#' en B6
+    _b6 = ws.cell(6, 2).value
+    _is_v4 = isinstance(_b6, str) and _b6.strip() == "#"
+
+    if _is_v4:
+        _inject_value_v4(ws, data)
+        return
+
+    # --- v3 / TEMPLATE_INDICE (ancien layout) ---
+    # Header row : "Rang" en R3 (TEMPLATE_INDICE) ou R4 (v3)
     _hdr = 3 if str(ws.cell(3, 1).value).strip().lower() == "rang" else 4
     _start = _hdr + 1
 
@@ -583,7 +600,50 @@ def _inject_value(wb, data: list[dict]) -> None:
     _v(ws, _med_row, 8, _fmt_pct(median(fcf_meds), sign=False) if fcf_meds else "\u2014")
     _v(ws, 22, 9,  "\u2014")   # Decote DCF
 
-    log.debug("[inject] VALUE : %d lignes", len(sorted_data))
+    log.debug("[inject] VALUE v3 : %d lignes", len(sorted_data))
+
+
+def _inject_value_v4(ws, data: list[dict]) -> None:
+    """
+    VALUE v4 — écrase rows 7-26 (20 rangs max) avec le Top 20 par score_value.
+    Écrit les valeurs directement (pas de XLOOKUP). Préserve row 6 (headers)
+    et row 28+ (footer).
+    """
+    sorted_data = sorted(
+        [t for t in data if t.get("score_value") is not None],
+        key=lambda x: x["score_value"], reverse=True
+    )[:20]
+
+    # Efface les 20 lignes de Données (y compris formules résiduelles) avant écriture
+    # Col 2=B à col 14=N (on préserve col 5=E qui est vide / merged)
+    for r in range(7, 27):
+        for c in range(2, 15):
+            cell = ws.cell(row=r, column=c)
+            # Ne touche que si la cellule contient une formule ou une valeur
+            if cell.value is not None:
+                cell.value = None
+
+    for i, t in enumerate(sorted_data):
+        r = 7 + i  # rows 7..26
+        sv = t.get("score_value")
+        _score_str = f"{int(round(sv))}/100" if sv is not None else "\u2014"
+        # B=rang, C=ticker, D=societe, F=score, G=ev_ebitda, H=ev_rev, I=pe,
+        # J=mg brute, K=mg ebitda, L=altman z, M=fcf yield, N=signal
+        _v(ws, r, 2,  i + 1)                                            # B
+        _v(ws, r, 3,  t.get("ticker", "") or "\u2014")                  # C
+        _v(ws, r, 4,  t.get("company", "") or "\u2014")                 # D
+        _v(ws, r, 6,  _score_str)                                       # F
+        _v(ws, r, 7,  _fmt_mult(t.get("ev_ebitda")))                    # G
+        _v(ws, r, 8,  _fmt_mult(t.get("ev_revenue")))                   # H
+        _v(ws, r, 9,  _fmt_mult(t.get("pe")))                           # I
+        _v(ws, r, 10, _fmt_pct(t.get("gross_margin"),  sign=False))     # J
+        _v(ws, r, 11, _fmt_pct(t.get("ebitda_margin"), sign=False))     # K
+        _v(ws, r, 12, _fmt_z(t.get("altman_z")))                        # L
+        _v(ws, r, 13, _fmt_pct(_fcf_yield(t), sign=False))              # M
+        _v(ws, r, 14, _signal(t.get("score_global")))                   # N
+
+    log.debug("[inject] VALUE v4 : %d lignes (rows 7-%d)",
+              len(sorted_data), 6 + len(sorted_data))
 
 
 def _inject_growth(wb, data: list[dict]) -> None:

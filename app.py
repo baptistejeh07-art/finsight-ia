@@ -3635,7 +3635,6 @@ def _render_sector_comparison_section(results: dict) -> None:
 
     st.markdown('<div class="sec-t" style="margin-top:36px;">Comparatif Sectoriel</div>',
                 unsafe_allow_html=True)
-    st.caption(f"Comparer {current_sector} avec un autre secteur — PPTX + PDF Générés en temps réel")
 
     # État comparatif sectoriel
     if "scmp_stage" not in st.session_state:
