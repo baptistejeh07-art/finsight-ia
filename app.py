@@ -1774,28 +1774,43 @@ def render_home() -> None:
 # ---------------------------------------------------------------------------
 
 def render_running() -> None:
-    """Wrapper minimaliste : extrait le ticker et delegue a _do_render_running.
-
-    Approche bullet-proof : ticker passe comme PARAMETRE de fonction, donc
-    garanti defini avant le body. Aucun UnboundLocalError possible.
-    """
-    _t = st.session_state.get("ticker")
-    if not _t or not str(_t).strip():
+    """Wrapper minimaliste : extrait le ticker et delegue au pipeline."""
+    _tkr_from_session = st.session_state.get("ticker")
+    if not _tkr_from_session or not str(_tkr_from_session).strip():
         st.error("Aucun ticker selectionne. Retour a l'accueil.")
         st.session_state.stage = "home"
         st.rerun()
         return
-    _do_render_running(str(_t).strip())
+    # Note : on extrait dans une variable locale puis on passe en argument
+    # positionnel (pas keyword) pour eviter tout binding bizarre.
+    _tkr_clean = str(_tkr_from_session).strip()
+    _run_analysis_pipeline(_tkr_clean)
 
 
-def _do_render_running(ticker: str) -> None:
-    """Pipeline reel de l'analyse, avec ticker en parametre garanti."""
+def _run_analysis_pipeline(tkr_in: str) -> None:
+    """Pipeline d'analyse complete pour un ticker donne.
+
+    Le parametre s'appelle tkr_in pour eliminer tout risque de shadowing
+    avec un nom commun comme 'ticker'. On reassigne immediatement dans une
+    variable locale `ticker` pour la compat avec le reste du code.
+    """
+    # Validation defensive du parametre (devrait toujours etre OK car appele
+    # depuis render_running qui valide deja, mais belt-and-suspenders)
+    if not tkr_in or not isinstance(tkr_in, str):
+        st.error("Pipeline appele sans ticker valide.")
+        st.session_state.stage = "home"
+        st.rerun()
+        return
+    # Variable locale assignee EXPLICITEMENT au debut de la fonction
+    ticker: str = tkr_in
     _, col, _ = st.columns([1, 2, 1])
 
     with col:
+        # Utilise tkr_in directement (le parametre, pas l'alias) pour eviter
+        # toute possibilite de scope shadow
         st.markdown(
             f'<div style="text-align:center;margin-top:64px;">'
-            f'<div style="font-size:52px;font-weight:700;letter-spacing:-1px;color:#111;margin-bottom:6px;">{_e(ticker)}</div>'
+            f'<div style="font-size:52px;font-weight:700;letter-spacing:-1px;color:#111;margin-bottom:6px;">{_e(tkr_in)}</div>'
             f'<div style="font-size:12px;color:#777;margin-bottom:44px;">Analyse en cours — veuillez patienter</div>'
             f'</div>',
             unsafe_allow_html=True,
