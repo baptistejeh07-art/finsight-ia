@@ -1115,41 +1115,41 @@ def _slide_exec_summary(prs, snap, synthesis, ratios, devil, sentiment):
     peer_median_ev_e = _peer_median(peers, "ev_ebitda")
     peer_median_pe   = _peer_median(peers, "pe")
 
-    # --- Catalyseurs section (pleine largeur) ---
-    add_rect(slide, 1.02, 9.26, 23.37, 0.55, "1A7A4A")
-    add_text_box(slide, 1.15, 9.26, 23.20, 0.55,
-                 "CATALYSEURS \u00c0 SURVEILLER (12 MOIS)", 8, WHITE, bold=True)
+    # --- Catalyseurs section (pleine largeur) — header à y=8.80 (avant 9.26) ---
+    add_rect(slide, 1.02, 8.80, 23.37, 0.45, "1A7A4A")
+    add_text_box(slide, 1.15, 8.82, 23.20, 0.42,
+                 "CATALYSEURS \u00c0 SURVEILLER (12 MOIS)", 7.5, WHITE, bold=True)
 
-    # Affichage 4 catalyseurs en 2 colonnes — hauteur et truncate élargis
+    # Affichage 4 catalyseurs en 2 colonnes — boxes agrandies (h=1.10), police 6.5pt
     _cat_layout = [
-        (1.02, 9.89),  (12.70, 9.89),   # row 1 : 2 catalyseurs côte à côte
-        (1.02, 10.70), (12.70, 10.70),  # row 2 : 2 catalyseurs côte à côte
+        (1.02, 9.35),  (12.70, 9.35),   # row 1 : 2 catalyseurs côte à côte
+        (1.02, 10.00), (12.70, 10.00),  # row 2
     ]
     for i, (cx, cy) in enumerate(_cat_layout):
         if i < len(catalysts):
             _cat_name = _g(catalysts[i], "title") or _g(catalysts[i], "name") or ""
             _cat_body = _g(catalysts[i], "description") or _g(catalysts[i], "text") or ""
-            _cat_txt  = _truncate(f"{_cat_name[:28]} : {_cat_body}", 140) if _cat_body else _truncate(_cat_name, 140)
+            _cat_txt  = _truncate(f"{_cat_name[:30]} : {_cat_body}", 160) if _cat_body else _truncate(_cat_name, 160)
         else:
             _cat_txt = "\u2014"
-        add_rect(slide, cx, cy + 0.06, 0.12, 0.26, "1A7A4A")
-        add_text_box(slide, cx + 0.20, cy, 11.40, 0.80,
-                     _cat_txt, 7.0, "333333", wrap=True)
+        add_rect(slide, cx, cy + 0.05, 0.10, 0.22, "1A7A4A")
+        add_text_box(slide, cx + 0.18, cy, 11.42, 0.62,
+                     _cat_txt, 6.5, "333333", wrap=True)
 
     # Horizontal rule (before KPI)
-    add_rect(slide, 1.02, 11.23, 23.37, 0.03, "AAAAAA")
+    add_rect(slide, 1.02, 10.75, 23.37, 0.03, "AAAAAA")
 
-    # 4 KPI boxes — h=1.80 pour éviter chevauchement avec footer (y=13.39)
-    kpi_box(slide, 1.02, 11.34, 5.64, 1.80,
+    # 4 KPI boxes — y=10.90 pour suivre HR (10.75), h=2.40 pour remplir jusqu'à footer
+    kpi_box(slide, 1.02, 10.90, 5.64, 2.40,
             _frx(ev_e), "EV/EBITDA",
             f"vs {_frx(peer_median_ev_e)} med. pairs")
-    kpi_box(slide, 6.91, 11.34, 5.64, 1.80,
+    kpi_box(slide, 6.91, 10.90, 5.64, 2.40,
             _frpct(wacc_val), "WACC",
             f"Beta {_fr(beta, 2) if beta else '—'}  \u00b7  RFR {_frpct(rfr)}")
-    kpi_box(slide, 12.80, 11.34, 5.64, 1.80,
+    kpi_box(slide, 12.80, 10.90, 5.64, 2.40,
             f"{_fr(tbase, 0)} {cur_sym}", "Valeur DCF base",
             f"Upside {_upside(tbase, price)} vs cours")
-    kpi_box(slide, 18.69, 11.34, 5.64, 1.80,
+    kpi_box(slide, 18.69, 10.90, 5.64, 2.40,
             f"{sent_score:+.3f}".replace(".", ","),
             "Sentiment LLM" if _s2_is_llm else "Sentiment FinBERT",
             f"{sent_label_display}  \u00b7  {sent_articles} art.")
@@ -2562,7 +2562,9 @@ def _slide_multiples_historiques(prs, snap, synthesis, ratios):
         ax1.set_ylabel("Multiple (x)", fontsize=9, color="#333")
         ax1.tick_params(axis='y', labelsize=8)
         ax1.tick_params(axis='x', labelsize=8.5)
-        ax1.legend(fontsize=8.5, loc='upper right', framealpha=0.9, edgecolor='#DDDDDD')
+        ax1.legend(fontsize=9, loc='upper center', bbox_to_anchor=(0.5, 1.12),
+                   ncol=2, framealpha=0.95, edgecolor='#DDDDDD',
+                   handlelength=1.8, handletextpad=0.5)
 
         ax1.spines['top'].set_visible(False)
         ax1.spines['right'].set_visible(False)
@@ -3317,10 +3319,10 @@ def _slide_lbo_cadre(prs, snap, pack: dict):
     su = pack["sources_uses"]
     _PP_CENTER = __import__("pptx").enum.text.PP_ALIGN.CENTER
 
-    # Header SOURCES (gauche) — text_box aligné EXACTEMENT sur le rect
-    add_rect(slide, 1.02, sources_y, 11.40, 0.50, NAVY)
-    add_text_box(slide, 1.02, sources_y + 0.10, 11.40, 0.36,
-                 "SOURCES (financement)", 10, WHITE, bold=True,
+    # Header SOURCES (gauche) — text_box centré verticalement dans le rect
+    add_rect(slide, 1.02, sources_y, 11.40, 0.55, NAVY)
+    add_text_box(slide, 1.02, sources_y + 0.08, 11.40, 0.42,
+                 "SOURCES (financement)", 10.5, WHITE, bold=True,
                  align=_PP_CENTER, wrap=False)
 
     sources_rows = [
@@ -3332,17 +3334,17 @@ def _slide_lbo_cadre(prs, snap, pack: dict):
          f"{(su['mezz_debt']/su['total_sources']*100 if su['total_sources']>0 else 0):.1f} %"],
         ["TOTAL SOURCES", _frm(su["total_sources"], cur), "100,0 %"],
     ]
-    add_table(slide, 1.02, sources_y + 0.55, 11.40, 3.0,
+    add_table(slide, 1.02, sources_y + 0.62, 11.40, 3.0,
               4, 3,
               col_widths_pct=[0.50, 0.30, 0.20],
               header_data=None,
               rows_data=sources_rows,
               border_hex="DDDDDD")
 
-    # Header USES (droite) — text_box aligné EXACTEMENT sur le rect
-    add_rect(slide, 12.94, sources_y, 11.46, 0.50, NAVY)
-    add_text_box(slide, 12.94, sources_y + 0.10, 11.46, 0.36,
-                 "USES (utilisation)", 10, WHITE, bold=True,
+    # Header USES (droite) — text_box centré verticalement dans le rect
+    add_rect(slide, 12.94, sources_y, 11.46, 0.55, NAVY)
+    add_text_box(slide, 12.94, sources_y + 0.08, 11.46, 0.42,
+                 "USES (utilisation)", 10.5, WHITE, bold=True,
                  align=_PP_CENTER, wrap=False)
 
     uses_rows = [
@@ -3352,7 +3354,7 @@ def _slide_lbo_cadre(prs, snap, pack: dict):
         ["Cash minimum BS", _frm(su["min_cash"], cur)],
         ["TOTAL USES", _frm(su["total_uses"], cur)],
     ]
-    add_table(slide, 12.94, sources_y + 0.55, 11.46, 3.5,
+    add_table(slide, 12.94, sources_y + 0.62, 11.46, 3.5,
               5, 2,
               col_widths_pct=[0.65, 0.35],
               header_data=None,
@@ -3540,16 +3542,34 @@ def _slide_lbo_stress(prs, snap, pack: dict):
                  "DEBT SCHEDULE — Évolution du leverage sur 5 ans", 9, NAVY, bold=True)
 
     sched = pack["debt_schedule"]
-    head = ["Année", "EBITDA", "Senior", "Mezz", "Cash", "Net Debt", "Lvg (×)"]
+    # Unité dans le header, pas dans chaque cellule
+    _unit = f"Mds{cur}" if cur != "EUR" else "Md€"
+    head = ["Année", f"EBITDA ({_unit})", f"Senior ({_unit})", f"Mezz ({_unit})",
+            f"Cash ({_unit})", f"Net Debt ({_unit})", "Lvg (×)"]
+
+    def _val_only(v):
+        """Retourne juste le nombre en Mds (float) sans suffixe."""
+        if v is None: return "—"
+        try:
+            fv = float(v)
+            if abs(fv) > 1_000_000_000:
+                fv = fv / 1_000_000  # normalise valeurs absolues → millions
+            # fv est en millions, on convertit en Mds si ≥ 1000 M
+            if abs(fv) >= 1000:
+                return _fr(fv / 1000, 1)
+            return _fr(fv / 1000, 2)  # < 1 Md → 2 décimales
+        except:
+            return "—"
+
     sched_rows = []
     for d in sched:
         sched_rows.append([
             f"Y{d['year']}",
-            _frm(d["ebitda"], cur),
-            _frm(d["senior"], cur),
-            _frm(d["mezz"], cur),
-            _frm(d["cash"], cur),
-            _frm(d["net_debt"], cur),
+            _val_only(d["ebitda"]),
+            _val_only(d["senior"]),
+            _val_only(d["mezz"]),
+            _val_only(d["cash"]),
+            _val_only(d["net_debt"]),
             f"{d['leverage']:.2f}x",
         ])
 
@@ -3596,19 +3616,20 @@ def _slide_lbo_stress(prs, snap, pack: dict):
             add_text_box(slide, cx + col_w * 0.55, ry, col_w * 0.40, 0.45,
                          val, 11, col_c, bold=True, align=__import__("pptx").enum.text.PP_ALIGN.RIGHT)
 
-    # ── Box LLM risques (footer) ──
+    # ── Box LLM risques (footer) — texte tronqué 380 chars + box élargie ──
     risks_text = pack["llm_texts"].get("risks_text") or (
         f"Le scénario bear traduit la sensibilité du deal à la compression des marges, "
         f"à la hausse des taux et au multiple compression. "
         f"La thèse s'invalide si EBITDA -200 bps ou multiple sortie -2×."
     )
+    risks_text = _truncate(risks_text, 380)
     _stress_irr = None
     try:
         _stress_irr = pack["scénarios"]["base"]["irr"]
     except Exception:
         pass
     _stress_title = _jpm_title("lbo", snap=snap, extra={"irr_base": _stress_irr})
-    commentary_box(slide, 1.02, 11.65, 23.37, 1.65, risks_text, title=_stress_title)
+    commentary_box(slide, 1.02, 11.45, 23.37, 1.85, risks_text, title=_stress_title)
     return slide
 
 

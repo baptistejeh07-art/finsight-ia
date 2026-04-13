@@ -1439,27 +1439,37 @@ def _build_financials(area_buf, data, margins_buf=None):
             f"(270 mots) de la qualit\u00e9 op\u00e9rationnelle et du positionnement concurrentiel "
             f"de {_ticker_fin} (secteur {_sector_fin}).\n"
             f"Donn\u00e9es ratios cl\u00e9s : {_ratios_str}.\n\n"
-            f"Structure en 3 paragraphes :\n"
-            f"1. <b>Qualit\u00e9 des marges</b> : drivers structurels (mix produit, pricing power, "
+            f"Structure en 3 paragraphes distincts s\u00e9par\u00e9s par une ligne vide :\n"
+            f"1. Qualit\u00e9 des marges : drivers structurels (mix produit, pricing power, "
             f"effet de levier op\u00e9rationnel), durabilit\u00e9 dans le cycle actuel\n"
-            f"2. <b>Structure de co\u00fbts</b> : intensit\u00e9 R&amp;D/capex/marketing, barri\u00e8res "
-            f"\u00e0 l'entr\u00e9e, vuln\u00e9rabilit\u00e9 aux chocs co\u00fbts matiers premi\u00e8res/main d'oeuvre\n"
-            f"3. <b>Positionnement concurrentiel</b> : moat (fosse \u00e9conomique), avantages "
+            f"2. Structure de co\u00fbts : intensit\u00e9 R&D/capex/marketing, barri\u00e8res "
+            f"\u00e0 l'entr\u00e9e, vuln\u00e9rabilit\u00e9 aux chocs co\u00fbts mati\u00e8res premi\u00e8res/main d'oeuvre\n"
+            f"3. Positionnement concurrentiel : moat (foss\u00e9 \u00e9conomique), avantages "
             f"structurels vs pairs sectoriels, risque d'\u00e9rosion comp\u00e9titive\n\n"
             f"Chaque paragraphe : 80-90 mots. Cite des chiffres pr\u00e9cis. "
-            f"Fran\u00e7ais correct avec accents. Utilise <b>..</b> pour les termes cl\u00e9s. "
-            f"Pas de listes. Pas d'emojis."
+            f"Fran\u00e7ais correct avec accents. "
+            f"IMPORTANT : texte brut uniquement. "
+            f"N'utilise AUCUNE balise HTML (<b>, <i>, <p>). "
+            f"N'utilise AUCUN markdown (**, __, ##). "
+            f"Pas de listes \u00e0 puces. Pas d'emojis."
         )
         _llm_margin_analysis = _llm_m.generate(_prompt_margin, max_tokens=700) or ""
     except Exception:
         pass
 
     if _llm_margin_analysis.strip():
+        # Échappement léger : préserve les retours ligne, on force pas de HTML
+        _cleaned = _llm_margin_analysis.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+        # Double saut de ligne → nouveau paragraphe visuel
+        _paras = [p.strip() for p in _cleaned.split('\n\n') if p.strip()]
         elems.append(Paragraph(
             "Qualit\u00e9 op\u00e9rationnelle et positionnement concurrentiel", S_SUBSECTION))
         elems.append(Spacer(1, 1*mm))
-        elems.append(Paragraph(_safe(_llm_margin_analysis), S_BODY))
-        elems.append(Spacer(1, 3*mm))
+        for _p in _paras:
+            # Remet les retours ligne simples en espaces pour wrapping propre
+            _p_clean = _p.replace('\n', ' ')
+            elems.append(Paragraph(_p_clean, S_BODY))
+            elems.append(Spacer(1, 1.5*mm))
     return elems
 
 
