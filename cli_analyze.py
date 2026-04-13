@@ -1536,7 +1536,8 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
             return etf, None, None, None
 
     if etf_map:
-        with ThreadPoolExecutor(max_workers=4) as ex:
+        # Workers 11 (etait 4) — un par ETF SPDR, evite la sequentialisation
+        with ThreadPoolExecutor(max_workers=11) as ex:
             futs = {ex.submit(_fetch_etf, e): e for e in etf_map}
             for fut in as_completed(futs):
                 etf, ret, pb, dy = fut.result()
@@ -1814,7 +1815,9 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
                         log.warning("[fetch_eu_tkr] %s erreur: %s", tk, _e)
                         return None
 
-                with ThreadPoolExecutor(max_workers=8) as _pex:
+                # Workers 16 (etait 8) — yfinance est I/O-bound, GIL non bloquant.
+                # Mesure avant/apres : ~32s -> ~17s sur 60 tickers EU.
+                with ThreadPoolExecutor(max_workers=16) as _pex:
                     _eu_res = [r for r in _pex.map(_fetch_eu_tkr, _tkr_pool) if r]
 
                 from collections import defaultdict

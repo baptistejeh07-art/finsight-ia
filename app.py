@@ -2760,7 +2760,14 @@ def render_screening_running() -> None:
                 st.rerun()
             return
 
-        _status(f"Calcul des ratios pour {len(tickers)} sociétés")
+        _is_indice_run = universe not in _SECTOR_ALIASES_SET
+        if _is_indice_run:
+            _status(
+                f"Fetch yfinance pour {len(tickers)} societes de {display_name} "
+                f"+ ratios + scoring + writers PDF/PPTX/XLSX (~60-90s, normal)"
+            )
+        else:
+            _status(f"Calcul des ratios pour {len(tickers)} societes")
 
         import os as _os
 
@@ -2804,7 +2811,9 @@ def render_screening_running() -> None:
 
         t0 = time.time()
         try:
-            tickers_data = build_tickers_data(tickers, workers=4)
+            # Workers 8 pour indices (50-100 tickers), 4 pour secteurs (~10-30)
+            _wk = 8 if _is_indice_run else 4
+            tickers_data = build_tickers_data(tickers, workers=_wk)
         except Exception as ex:
             st.error(f"Erreur screening : {ex}")
             if st.button("<- Retour"):
@@ -2879,8 +2888,9 @@ def render_screening_running() -> None:
                 log.warning(f"[app] SectoralPPTXWriter error: {_ex_pptx}")
                 traceback.print_exc()
         else:
-            _status("Génération du rapport PDF indice")
+            _status(f"Generation du rapport PDF indice ({len(tickers_data)} societes analysees)")
             _indice_data = None
+            _pdf_err = None
             try:
                 from outputs.indice_pdf_writer import IndicePDFWriter
                 _indice_data = _build_indice_data(tickers_data, display_name, universe)
@@ -2892,8 +2902,10 @@ def render_screening_running() -> None:
                 import traceback
                 log.warning(f"[app] IndicePDFWriter error: {_ex_pdf}")
                 traceback.print_exc()
+                _pdf_err = str(_ex_pdf)[:200]
 
-            _status("Génération du pitchbook PPTX indice")
+            _status("Generation du pitchbook PPTX indice")
+            _pptx_err = None
             try:
                 from outputs.indice_pptx_writer import IndicePPTXWriter
                 if _indice_data is None:
@@ -2903,6 +2915,19 @@ def render_screening_running() -> None:
                 import traceback
                 log.warning(f"[app] IndicePPTXWriter error: {_ex_pptx}")
                 traceback.print_exc()
+                _pptx_err = str(_ex_pptx)[:200]
+
+            # Visibilite utilisateur : si un writer indice a echoue, le signaler
+            # explicitement (sinon Baptiste se demande pourquoi le PDF/PPTX manque).
+            if _pdf_err or _pptx_err:
+                _missing = []
+                if _pdf_err:  _missing.append(f"PDF ({_pdf_err})")
+                if _pptx_err: _missing.append(f"PPTX ({_pptx_err})")
+                st.warning(
+                    "Livrables indice partiellement generes. Manque : "
+                    + ", ".join(_missing)
+                    + ". Le XLSX et les autres livrables disponibles sont accessibles dans le ruban."
+                )
 
             # ---- IndiceExcelWriter (scoring 4D, template TEMPLATE_INDICE.xlsx) ----
             # Pour indices EU uniquement (Données individuelles disponibles)
