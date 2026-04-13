@@ -1322,6 +1322,39 @@ def _safe(s):
     return str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
+def _detect_sector_profile(tickers_data: list, sector_name: str) -> str:
+    """Détecte le profil dominant d'un secteur à partir des industries des tickers.
+
+    Returns un des : STANDARD, BANK, INSURANCE, REIT, UTILITY, OIL_GAS
+    Si aucun profil domine (<60% des tickers), retourne STANDARD.
+    """
+    try:
+        from core.sector_profiles import detect_profile, STANDARD
+    except Exception:
+        return "STANDARD"
+
+    if not tickers_data:
+        return "STANDARD"
+
+    # Compter les profils sur tous les tickers
+    profile_counts = {}
+    for t in tickers_data:
+        ind = t.get("industry") or ""
+        sec = t.get("sector") or sector_name or ""
+        p = detect_profile(sec, ind)
+        profile_counts[p] = profile_counts.get(p, 0) + 1
+
+    total = sum(profile_counts.values())
+    if total == 0:
+        return "STANDARD"
+
+    # Profil dominant si >60% des tickers
+    dominant, dom_count = max(profile_counts.items(), key=lambda x: x[1])
+    if dom_count / total >= 0.6 and dominant != "STANDARD":
+        return dominant
+    return "STANDARD"
+
+
 def _aggregate_subsectors(tickers_data: list[dict]) -> list[dict]:
     """Agrège les tickers par sous-secteur (industry) et calcule les métriques."""
     from statistics import median as _med
@@ -1361,10 +1394,17 @@ def _aggregate_subsectors(tickers_data: list[dict]) -> list[dict]:
     return result
 
 
-def _generate_subsector_llm(subsectors: list[dict], sector_name: str) -> dict:
-    """Génère les insights LLM par sous-secteur (drivers, risques, spécificités)."""
+def _generate_subsector_llm(subsectors: list[dict], sector_name: str, profile: str = "STANDARD") -> dict:
+    """Génère les insights LLM par sous-secteur (drivers, risques, spécificités).
+    Le profil sectoriel adapte les hints pour utiliser les bonnes métriques.
+    """
     try:
         from core.llm_provider import LLMProvider
+        try:
+            from core.sector_profiles import get_prompt_hints
+            _profile_hint = get_prompt_hints(profile)
+        except Exception:
+            _profile_hint = ""
         llm = LLMProvider(provider="groq", model="llama-3.3-70b-versatile")
         import json, re
         subs_desc = "\n".join(
@@ -1375,6 +1415,10 @@ def _generate_subsector_llm(subsectors: list[dict], sector_name: str) -> dict:
         prompt = (
             f"Tu es un analyste sell-side senior. Analyse les sous-secteurs de {sector_name} :\n\n"
             f"{subs_desc}\n\n"
+        )
+        if _profile_hint:
+            prompt += f"PROFIL SECTORIEL SPÉCIFIQUE :\n{_profile_hint}\n\n"
+        prompt += (
             f"RÈGLES : français correct avec accents, prose technique, cite les chiffres. "
             f"Pas de markdown **, pas d'emojis.\n"
             f"Réponds en JSON valide :\n"
@@ -1420,8 +1464,9 @@ def _build_subsector_decomposition(tickers_data: list[dict], sector_name: str, r
     elems += section_title("Décomposition par Sous-Secteur", "2b")
     elems.append(Spacer(1, 3*mm))
 
-    # Génération LLM
-    llm_data = _generate_subsector_llm(subsectors, sector_name)
+    # Génération LLM — injecte le profil sectoriel dominant
+    _profile_for_llm = _detect_sector_profile(tickers_data, sector_name)
+    llm_data = _generate_subsector_llm(subsectors, sector_name, profile=_profile_for_llm)
     intro = llm_data.get("intro", "")
     if intro:
         elems.append(Paragraph(_safe(intro), S_BODY))
@@ -1512,12 +1557,24 @@ def _build_acteurs(tickers_data: list[dict], sector_name: str, registry=None):
         f"d'identifier les décotes et primes injustifiées par rapport aux pairs.", S_BODY))
     elems.append(Spacer(1, 3*mm))
 
+    # Profil sectoriel dominant — détermine les colonnes du tableau comparatif
+    _sec_profile = _detect_sector_profile(tickers_data, sector_name)
     _comp_title = Paragraph("Comparatif financier \u2014 Acteurs couverts LTM", S_SUBSECTION)
-    # Colonne valorisation adaptative : EV/EBITDA si dispo, sinon P/S
-    _n_ev = sum(1 for t in tickers_data if t.get('ev_ebitda'))
-    _n_ps = sum(1 for t in tickers_data if t.get('ps_ratio'))
-    _val_col_label = "EV/EBITDA" if _n_ev > len(tickers_data) * 0.5 else "Valorisation*"
-    _comp_cols = ["Ticker", "Rev. LTM (Mds)", "Crois.", "Mg. Brute", "Mg. EBITDA", "ROE", _val_col_label]
+
+    # Colonnes adaptées au profil
+    if _sec_profile == "BANK":
+        _comp_cols = ["Ticker", "Rev. LTM (Mds)", "Crois.", "ROE", "P/E", "P/TBV", "Div. Yield"]
+    elif _sec_profile == "REIT":
+        _comp_cols = ["Ticker", "Rev. LTM (Mds)", "Crois.", "Mg. EBITDA", "ROE", "P/B", "Div. Yield"]
+    elif _sec_profile == "UTILITY":
+        _comp_cols = ["Ticker", "Rev. LTM (Mds)", "Crois.", "Mg. EBITDA", "ROE", "EV/EBITDA", "Div. Yield"]
+    elif _sec_profile == "INSURANCE":
+        _comp_cols = ["Ticker", "Rev. LTM (Mds)", "Crois.", "ROE", "P/E", "P/B", "Div. Yield"]
+    elif _sec_profile == "OIL_GAS":
+        _comp_cols = ["Ticker", "Rev. LTM (Mds)", "Crois.", "Mg. EBITDA", "ROE", "EV/EBITDA", "P/E"]
+    else:
+        _comp_cols = ["Ticker", "Rev. LTM (Mds)", "Crois.", "Mg. Brute", "Mg. EBITDA", "ROE", "EV/EBITDA"]
+
     _comp_cw = [16*mm, 28*mm, 20*mm, 26*mm, 28*mm, 24*mm, 28*mm]
     comp_h = [Paragraph(h, S_TH_C) for h in _comp_cols]
 
@@ -1530,13 +1587,14 @@ def _build_acteurs(tickers_data: list[dict], sector_name: str, registry=None):
                 return Paragraph(sv, S_TD_G)
             if sv.startswith('-'):
                 return Paragraph(sv, S_TD_R)
-        if col == 4:
-            sv = str(v)
-            if sv.startswith('-'):
-                return Paragraph(sv, S_TD_R)
         if v in ("N/A", "\u2014"):
             return Paragraph(str(v), S_TD_C)
         return Paragraph(str(v), S_TD_C)
+
+    def _fmt_x(v):
+        if v is None: return "\u2014"
+        try: return f"{float(v):.1f}x"
+        except: return "\u2014"
 
     comp_rows = []
     ccy = tickers_data[0].get('currency', 'EUR') if tickers_data else 'EUR'
@@ -1545,19 +1603,53 @@ def _build_acteurs(tickers_data: list[dict], sector_name: str, registry=None):
             t.get('ticker', '?'),
             _fmt_mds(t.get('revenue_ltm')),
             _fmt_pct(t.get('revenue_growth')),
-            _fmt_pct(t.get('gross_margin'), sign=False),
-            _fmt_pct(t.get('ebitda_margin'), sign=False),
-            _fmt_pct(t.get('roe')),
         ]
-        # Valorisation adaptative : EV/EBITDA si dispo, sinon P/S avec indicateur
-        _ev_val = t.get('ev_ebitda')
-        _ps_val = t.get('ps_ratio')
-        if _ev_val:
-            row.append(_fmt_mult(_ev_val))
-        elif _ps_val:
-            row.append(f"{_ps_val:.1f}x P/S")
+        if _sec_profile == "BANK":
+            row += [
+                _fmt_pct(t.get('roe')),
+                _fmt_x(t.get('pe_ratio') or t.get('pe')),
+                _fmt_x(t.get('pb_ratio') or t.get('pb')),
+                _fmt_pct(t.get('div_yield')),
+            ]
+        elif _sec_profile == "REIT":
+            row += [
+                _fmt_pct(t.get('ebitda_margin'), sign=False),
+                _fmt_pct(t.get('roe')),
+                _fmt_x(t.get('pb_ratio') or t.get('pb')),
+                _fmt_pct(t.get('div_yield')),
+            ]
+        elif _sec_profile == "UTILITY":
+            row += [
+                _fmt_pct(t.get('ebitda_margin'), sign=False),
+                _fmt_pct(t.get('roe')),
+                _fmt_x(t.get('ev_ebitda')),
+                _fmt_pct(t.get('div_yield')),
+            ]
+        elif _sec_profile == "INSURANCE":
+            row += [
+                _fmt_pct(t.get('roe')),
+                _fmt_x(t.get('pe_ratio') or t.get('pe')),
+                _fmt_x(t.get('pb_ratio') or t.get('pb')),
+                _fmt_pct(t.get('div_yield')),
+            ]
+        elif _sec_profile == "OIL_GAS":
+            row += [
+                _fmt_pct(t.get('ebitda_margin'), sign=False),
+                _fmt_pct(t.get('roe')),
+                _fmt_x(t.get('ev_ebitda')),
+                _fmt_x(t.get('pe_ratio') or t.get('pe')),
+            ]
         else:
-            row.append("\u2014")
+            # STANDARD : fallback palier 2 sur P/S si EV/EBITDA absent
+            _ev_val = t.get('ev_ebitda')
+            _ps_val = t.get('ps_ratio')
+            _val_cell = _fmt_x(_ev_val) if _ev_val else (f"{_ps_val:.1f}x P/S" if _ps_val else "\u2014")
+            row += [
+                _fmt_pct(t.get('gross_margin'), sign=False),
+                _fmt_pct(t.get('ebitda_margin'), sign=False),
+                _fmt_pct(t.get('roe')),
+                _val_cell,
+            ]
         comp_rows.append([_cc(v, j) for j, v in enumerate(row)])
 
     elems.append(KeepTogether([
@@ -1567,7 +1659,17 @@ def _build_acteurs(tickers_data: list[dict], sector_name: str, registry=None):
     ]))
     _n_tier2 = sum(1 for t in tickers_data if t.get('valuation_tier', 1) >= 2)
     _val_note = f"FinSight IA \u2014 yfinance, FMP. LTM = Last Twelve Months. Devise : {ccy}."
-    if _n_tier2 > 0:
+    # Note profil sectoriel
+    _profile_notes = {
+        "BANK":     " Secteur bancaire : valorisation sur P/TBV et P/E (EV/EBITDA non applicable).",
+        "REIT":     " Foncières cotées : valorisation sur P/B et FFO (EBITDA partiellement déformé par les amortissements).",
+        "UTILITY":  " Utilities régulées : multiples stables soutenus par le cadre régulatoire.",
+        "INSURANCE":" Assurance : valorisation sur P/EV et P/B (revenus techniques + portefeuille d'investissement).",
+        "OIL_GAS":  " Oil & Gas E&P : multiples cycliques, à lire en relatif au prix du baril et aux réserves.",
+    }
+    if _sec_profile in _profile_notes:
+        _val_note += _profile_notes[_sec_profile]
+    if _n_tier2 > 0 and _sec_profile == "STANDARD":
         _val_note += (f" * {_n_tier2} soci\u00e9t\u00e9(s) valoris\u00e9e(s) via P/S "
                       f"(EBITDA n\u00e9gatif \u2014 palier 2). P/S = Price-to-Sales.")
     elems.append(src(_val_note))
