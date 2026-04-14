@@ -1365,19 +1365,20 @@ def _make_test_indice_data(universe: str = "S&P 500") -> dict:
         ],
         "secteurs":      secteurs,
         "top3_secteurs": top3_secteurs,
+        # Risques et conditions generiques (le writer enrichit via LLM)
         "risques": [
-            ("Recession technique",    "Ralentissement PIB < 0 sur 2 trimestres — revision BPA agrege -15/-20%", "20 %", "ELEVE"),
-            ("Choc taux",              "Fed hike surprise si CPI reaccelere > 3.5% — compression multiples growth", "15 %", "ELEVE"),
-            ("Choc geopolitique",      "Escalade Asie/ME — spike VIX > 35, rotation defensive", "18 %", "MODERE"),
-            ("Deception AI capex",     "ROI IA inferieur aux attentes — derating secteur Tech (P/E 28x -> 22x)", "25 %", "MODERE"),
-            ("Stress credit CRE",      "Pertes immobilier commercial propagees aux banques regionales", "12 %", "FAIBLE"),
+            ("Recession macro", "Ralentissement PIB < 0 sur 2 trimestres — revision BPA agregee 10-20%", "20 %", "ELEVE"),
+            ("Choc taux", "Revision hawkish des banques centrales — compression multiples growth", "15 %", "ELEVE"),
+            ("Choc geopolitique", "Escalade tensions majeures — spike VIX, rotation defensive", "18 %", "MODERE"),
+            ("Compression marges", "Pression couts matieres premieres / main d'oeuvre sur EBITDA", "25 %", "MODERE"),
+            ("Regulation sectorielle", "Durcissement reglementaire sur les secteurs exposes", "12 %", "FAIBLE"),
         ],
         "scenarios": [],
         "conditions_invalidation": [
-            f"{universe} casse le support 4 800 pts — signal bascule Sous-ponderer",
-            "Fed hike inattendu post-CPI > 3.5% — derating massif growth",
-            "Revisions BPA agragees < -5% sur 2 trimestres consecutifs",
-            "VIX > 35 sur plus de 10 seances consecutives",
+            f"Le {universe} casse son support technique majeur — signal bascule Sous-ponderer",
+            "Durcissement monetaire inattendu des banques centrales — compression multiples",
+            "Revisions BPA agregees < -5% sur 2 trimestres consecutifs",
+            "Pic de volatilite (VIX > 35) persistant sur plus de 10 seances",
         ],
         "rotation":      rotation,
         "sentiment_agg": {
@@ -1392,19 +1393,9 @@ def _make_test_indice_data(universe: str = "S&P 500") -> dict:
             "positif": {"nb": 15, "score": "0.42", "themes": "Resultats T4, IA, Innovation semi"},
             "neutre":  {"nb": 12, "score": "0.02", "themes": "Guidances 2026, Macro taux"},
             "negatif": {"nb": 7,  "score": "-0.35","themes": "Regulation, Taux LT, CRE"},
-            "par_secteur": [
-                ("Technology",             "0.38",  "Positif"),
-                ("Health Care",            "0.22",  "Positif"),
-                ("Financials",             "0.14",  "Positif"),
-                ("Communication Services", "0.08",  "Neutre"),
-                ("Consumer Discretionary", "0.04",  "Neutre"),
-                ("Industrials",            "0.01",  "Neutre"),
-                ("Consumer Staples",       "-0.05", "Neutre"),
-                ("Materials",              "-0.04", "Neutre"),
-                ("Energy",                 "-0.12", "Negatif"),
-                ("Real Estate",            "-0.22", "Negatif"),
-                ("Utilities",              "-0.18", "Negatif"),
-            ],
+            # par_secteur vide par defaut : laisse le writer utiliser les VRAIS
+            # scores sectoriels calcules depuis les tickers_data, pas de hardcoded
+            "par_secteur": [],
         },
         "etf_perf": etf_perf,
         "finbert": {
