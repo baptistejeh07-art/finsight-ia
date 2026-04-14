@@ -2409,24 +2409,69 @@ def _build_risques(tickers_data: list[dict], sector_name: str, registry=None):
                              sorted(tickers_data, key=lambda x: x.get('score_global') or 0,
                                     reverse=True)[:2])
 
-    risk_data = [
-        ("Récession macro",
-         f"Contraction de la demande finale \u2014 pression sur les revenus et les marges. "
-         f"Acteurs avec bilan fragile (ND/EBITDA élevé) les plus exposes.",
-         "25%", "Élevé", vuln_tickers),
-        ("Disruption concurrentielle",
-         f"Entrée de nouveaux acteurs technologiques ou consolidation \u2014 "
-         f"pression tarifaire et erosion des parts de marche.",
-         "35%", "Modéré", "Tous"),
-        ("Pression réglementaire",
-         f"Durcissement des normes sectorielles \u2014 couts de conformité additionnels "
-         f"et contraintes sur les modèles economiques.",
-         "40%", "Modéré", "Tous"),
-        ("Taux d'intérêt prolonges",
-         f"Persistance des taux élevés \u2014 cout du capital penalisant pour les acteurs "
-         f"endettes. Benefique pour les bilans solides.",
-         "45%", "Mixte", f"{best_tickers} vs {vuln_tickers}"),
-    ]
+    # Risques specifiques au secteur via LLM (chasse hardcoding #90)
+    # Avant : 4 risques fixes identiques pour tous les secteurs (Recession/Disruption/
+    # Regulation/Taux) avec probabilites hardcoded 25/35/40/45 %.
+    # Apres : LLM genere 4 risques VRAIMENT specifiques au secteur analyse.
+    risk_data = []
+    try:
+        import json as _json_risk
+        from core.llm_provider import llm_call
+        _prompt_risk = (
+            f"Tu es strategist buy-side. Identifie les 4 risques les plus importants "
+            f"specifiques au secteur {sector_name} a horizon 12 mois.\n\n"
+            f"Contexte : {len(tickers_data)} societes analysees, tickers vulnerables : "
+            f"{vuln_tickers}, tickers solides : {best_tickers}.\n\n"
+            f"Les risques doivent etre SPECIFIQUES au secteur (pas des risques generiques "
+            f"qui s'appliquent a tous les secteurs). Pour chaque risque, estime probabilite "
+            f"et impact bases sur le contexte macro/sectoriel actuel.\n\n"
+            f"Reponds en JSON strict, sans markdown, sans commentaires :\n"
+            f'{{"risques":['
+            f'{{"axe":"titre court (ex: Saturation demande cloud pour Tech)",'
+            f'"analyse":"2 phrases sur le mecanisme, en quoi c est specifique au secteur",'
+            f'"prob":"25%","impact":"Eleve|Modere|Mixte","tickers":"X,Y ou Tous"}},'
+            f'{{"axe":"...","analyse":"...","prob":"...","impact":"...","tickers":"..."}},'
+            f'{{"axe":"...","analyse":"...","prob":"...","impact":"...","tickers":"..."}},'
+            f'{{"axe":"...","analyse":"...","prob":"...","impact":"...","tickers":"..."}}]}}'
+        )
+        _resp_risk = llm_call(_prompt_risk, phase="long", max_tokens=900) or ""
+        _js_s = _resp_risk.find("{")
+        _js_e = _resp_risk.rfind("}") + 1
+        if _js_s >= 0 and _js_e > _js_s:
+            _p = _json_risk.loads(_resp_risk[_js_s:_js_e])
+            _rs = _p.get("risques", [])
+            for _r in _rs[:4]:
+                risk_data.append((
+                    str(_r.get("axe", "Risque"))[:60],
+                    str(_r.get("analyse", ""))[:500],
+                    str(_r.get("prob", "30%"))[:6],
+                    str(_r.get("impact", "Modere"))[:12],
+                    str(_r.get("tickers", "Tous"))[:60],
+                ))
+    except Exception as _e_risk:
+        import logging as _log_risk
+        _log_risk.getLogger(__name__).warning("sector_pdf risques LLM: %s", _e_risk)
+
+    # Fallback deterministe si LLM a echoue (garde un rapport toujours valide)
+    if not risk_data:
+        risk_data = [
+            ("Recession macro",
+             f"Contraction de la demande finale \u2014 pression sur les revenus et les marges. "
+             f"Acteurs avec bilan fragile les plus exposes.",
+             "25%", "Eleve", vuln_tickers),
+            ("Disruption concurrentielle",
+             f"Entree de nouveaux acteurs technologiques ou consolidation \u2014 "
+             f"pression tarifaire et erosion des parts de marche.",
+             "35%", "Modere", "Tous"),
+            ("Pression reglementaire",
+             f"Durcissement des normes sectorielles \u2014 couts de conformite additionnels "
+             f"et contraintes sur les modeles economiques.",
+             "40%", "Modere", "Tous"),
+            ("Taux d'interet prolonges",
+             f"Persistance des taux eleves \u2014 cout du capital penalisant pour les acteurs "
+             f"endettes. Benefique pour les bilans solides.",
+             "45%", "Mixte", f"{best_tickers} vs {vuln_tickers}"),
+        ]
     risk_rows = []
     for axe, analyse, prob, impact, expo in risk_data:
         p_int = int(prob.replace('%', ''))
