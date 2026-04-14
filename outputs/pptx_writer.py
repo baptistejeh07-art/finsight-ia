@@ -2684,17 +2684,18 @@ def _slide_multiples_historiques(prs, snap, synthesis, ratios):
     years_data = years_data[-5:]  # 5 dernières années max
 
     labels  = [d["label"]  for d in years_data]
-    # Filtre valeurs aberrantes : P/E > 200 ou < 0 sont probablement des bugs
-    # (exemple NVDA 2023 : 1082x car EPS quasi nul en denominateur)
+    # Filtre uniquement valeurs strictement aberrantes (negative, EPS quasi-nul
+    # > 1000x). P/E eleve comme TSLA LTM 362x DOIT apparaitre sur la courbe
+    # pour que la slide monte jusqu'en LTM 2025 (B15.1 Baptiste : ne pas filtrer).
     def _filter_pe(v):
         try:
             f = float(v) if v is not None else None
-            return f if (f is not None and 0 < f < 200) else None
+            return f if (f is not None and 0 < f < 1000) else None
         except: return None
     def _filter_ev(v):
         try:
             f = float(v) if v is not None else None
-            return f if (f is not None and 0 < f < 100) else None
+            return f if (f is not None and 0 < f < 500) else None
         except: return None
 
     pe_vals = [_filter_pe(d["pe"])    for d in years_data]
@@ -2727,11 +2728,19 @@ def _slide_multiples_historiques(prs, snap, synthesis, ratios):
             ax1.plot(x, ev_plot, color="#1A7A4A", linewidth=2.2, marker='s',
                      markersize=6, linestyle='--', label="EV/EBITDA", zorder=4)
 
-        # Auto-scale y pour inclure toutes les séries avec marge
-        _all_vals = [v for v in pe_plot + ev_plot if v == v]
+        # Auto-scale y : si valeur extreme > 2x la seconde plus haute (ex TSLA
+        # LTM P/E = 362x vs autres annees 30-50x), passe en echelle log pour
+        # eviter d'ecraser visuellement les annees basses (B15.1 TSLA).
+        _all_vals = sorted([v for v in pe_plot + ev_plot if v == v])
         if _all_vals:
-            _margin = (max(_all_vals) - min(_all_vals)) * 0.12 or 2.0
-            ax1.set_ylim(max(0, min(_all_vals) - _margin), max(_all_vals) + _margin)
+            _max_v = _all_vals[-1]
+            _2nd_v = _all_vals[-2] if len(_all_vals) > 1 else _max_v
+            if _max_v > 2.0 * max(_2nd_v, 1.0) and _max_v > 80:
+                ax1.set_yscale("log")
+                ax1.set_ylim(max(1.0, _all_vals[0] * 0.7), _max_v * 1.35)
+            else:
+                _margin = (_max_v - _all_vals[0]) * 0.12 or 2.0
+                ax1.set_ylim(max(0, _all_vals[0] - _margin), _max_v + _margin)
 
         ax1.set_xticks(x)
         ax1.set_xticklabels(labels, fontsize=9)
@@ -4382,6 +4391,63 @@ def _slide_historique(prs, snap, synthesis):
             import io as _io
 
             months_lbl = [_g(pt, "month", "") or "" for pt in history[-len(prices):]]
+            n_pts = len(prices)
+
+            # ── Overlay benchmark indice + ETF sectoriel (B25.1 TSLA audit) ──
+            # Determine la zone par suffixe ticker : ".PA/.DE/.AS/.MI/..." = EU
+            _t_up = str(ticker).upper()
+            _is_eu = any(_t_up.endswith(s) for s in (
+                ".PA", ".DE", ".AS", ".MI", ".MC", ".BR", ".LS", ".VI",
+                ".CO", ".HE", ".ST", ".OL", ".SW", ".L", ".IR"))
+            _zone = "EU" if _is_eu else "US"
+            _bench_ticker = "^STOXX50E" if _is_eu else "^GSPC"
+            _bench_label  = "Euro Stoxx 50" if _is_eu else "S&P 500"
+
+            # ETF sectoriel correspondant a la societe (ex XLY pour TSLA)
+            _etf_ticker = None
+            _etf_label  = None
+            try:
+                from core.sector_etfs import get_etf_for as _get_etf
+                _sector_for_etf = _g(ci, "sector", "") or ""
+                if _sector_for_etf:
+                    _etf_info = _get_etf(_sector_for_etf, zone=_zone)
+                    if _etf_info:
+                        _etf_ticker = _etf_info["ticker"]
+                        _etf_label  = _etf_ticker  # ticker court en legende
+            except Exception:
+                pass
+
+            # Fetch historique 1-an des overlays via yfinance (echantillonnage
+            # mensuel pour aligner sur les n_pts points du stock_history)
+            def _fetch_monthly_close(tk: str, n: int) -> list[float] | None:
+                try:
+                    import yfinance as _yf
+                    _h = _yf.Ticker(tk).history(period="1y", interval="1mo")
+                    if _h is None or _h.empty or "Close" not in _h.columns:
+                        return None
+                    _closes = [float(v) for v in _h["Close"].tolist() if v == v]
+                    if len(_closes) < 2:
+                        return None
+                    # Aligne sur n points : prend les n derniers (ou pad)
+                    if len(_closes) >= n:
+                        return _closes[-n:]
+                    # Moins de points que le stock : pad debut avec 1er close
+                    return [_closes[0]] * (n - len(_closes)) + _closes
+                except Exception:
+                    return None
+
+            _bench_prices = _fetch_monthly_close(_bench_ticker, n_pts)
+            _etf_prices   = _fetch_monthly_close(_etf_ticker, n_pts) if _etf_ticker else None
+
+            # Rebase les series a 100 au premier point pour comparaison
+            def _rebase(seq: list[float]) -> list[float]:
+                if not seq or not seq[0]:
+                    return seq
+                return [v / seq[0] * 100.0 for v in seq]
+
+            stock_base = _rebase(prices)
+            bench_base = _rebase(_bench_prices) if _bench_prices else None
+            etf_base   = _rebase(_etf_prices)   if _etf_prices   else None
 
             fig_w_in = 12.0
             fig_h_in = chart_h * (fig_w_in / chart_w)
@@ -4389,39 +4455,52 @@ def _slide_historique(prs, snap, synthesis):
             fig.patch.set_facecolor('#F5F7FA')
             ax.set_facecolor('#F5F7FA')
 
-            x_idx = list(range(len(prices)))
-            ax.plot(x_idx, prices, color='#2E5FA3', linewidth=2.2, zorder=3)
-            ax.fill_between(x_idx, prices, min(prices) * 0.98,
+            x_idx = list(range(n_pts))
+            # Societe (courbe principale, bleue, plus epaisse)
+            ax.plot(x_idx, stock_base, color='#2E5FA3', linewidth=2.4,
+                    zorder=4, label=ticker)
+            ax.fill_between(x_idx, stock_base, min(stock_base) * 0.98,
                             color='#2E5FA3', alpha=0.08)
 
-            # Marqueur dernier cours
-            ax.scatter([x_idx[-1]], [prices[-1]], color='#2E5FA3', s=40, zorder=4)
-            ax.annotate(f"{prices[-1]:.0f} {currency}",
-                        xy=(x_idx[-1], prices[-1]),
-                        xytext=(-10, 6), textcoords='offset points',
+            # Benchmark indice (gris fonce, trait plein fin)
+            if bench_base:
+                ax.plot(x_idx, bench_base, color='#6B7280', linewidth=1.6,
+                        linestyle='-', zorder=3, label=_bench_label)
+            # ETF sectoriel (vert olive, pointille)
+            if etf_base:
+                ax.plot(x_idx, etf_base, color='#B06000', linewidth=1.6,
+                        linestyle='--', zorder=3, label=f"ETF {_etf_label}")
+
+            # Marqueur dernier cours societe (annotation base 100)
+            ax.scatter([x_idx[-1]], [stock_base[-1]], color='#2E5FA3', s=40, zorder=5)
+            _perf_lbl = f"{stock_base[-1]-100:+.1f}%"
+            ax.annotate(_perf_lbl,
+                        xy=(x_idx[-1], stock_base[-1]),
+                        xytext=(-14, 6), textcoords='offset points',
                         fontsize=8, color='#1B3A6B', fontweight='bold')
 
-            # Plus haut / plus bas
-            idx_hi = prices.index(p_high)
-            idx_lo = prices.index(p_low)
-            ax.annotate(f"H: {p_high:.0f}", xy=(idx_hi, p_high),
-                        xytext=(0, 8), textcoords='offset points',
-                        fontsize=7, color='#1B5E20',
-                        arrowprops=dict(arrowstyle='-', color='#1B5E20', lw=0.7))
-            ax.annotate(f"B: {p_low:.0f}", xy=(idx_lo, p_low),
-                        xytext=(0, -14), textcoords='offset points',
-                        fontsize=7, color='#B71C1C',
-                        arrowprops=dict(arrowstyle='-', color='#B71C1C', lw=0.7))
+            # Ligne de reference base 100
+            ax.axhline(y=100, color='#BDBDBD', linewidth=0.8, linestyle=':',
+                       zorder=1, alpha=0.7)
 
             ax.set_xticks(x_idx)
-            ax.set_xticklabels(months_lbl, fontsize=7.5, color='#555', rotation=20, ha='right')
+            ax.set_xticklabels(months_lbl, fontsize=7.5, color='#555',
+                               rotation=20, ha='right')
             ax.tick_params(axis='y', labelsize=8, labelcolor='#555')
-            ax.set_ylabel(currency, fontsize=8, color='#555')
+            ax.set_ylabel("Base 100", fontsize=8, color='#555')
             ax.spines['top'].set_visible(False)
             ax.spines['right'].set_visible(False)
             ax.spines['left'].set_color('#D0D5DD')
             ax.spines['bottom'].set_color('#D0D5DD')
             ax.grid(axis='y', alpha=0.3, color='#D0D5DD', linewidth=0.5)
+
+            # Legende si au moins un overlay a pu etre recupere
+            if bench_base or etf_base:
+                _leg = ax.legend(loc='upper left', fontsize=8, frameon=True,
+                                 facecolor='#FFFFFF', edgecolor='#D0D5DD',
+                                 framealpha=0.92)
+                if _leg:
+                    _leg.get_frame().set_linewidth(0.5)
 
             plt.tight_layout(pad=0.5)
             _buf = _io.BytesIO()

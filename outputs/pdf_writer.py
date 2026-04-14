@@ -1819,8 +1819,55 @@ def _build_valorisation(ff_buf, pie_buf, mc_buf, data):
                              "les chocs exogenes (récession, r\u00e9gulation, disruption sectorielle) "
                              "ne sont pas captur\u00e9s. Le P50 est un ancrage probabiliste, "
                              "non un prix cible. Croiser avec le DCF et les comparables.")
+            # Enrichissement LLM : A9.1 Baptiste a demande un texte probabiliste
+            # plus approfondi. On tente un llm_call pour generer 350-450 mots
+            # et on retombe sur le texte hardcoded si l'appel echoue.
+            _mc_llm_txt = ""
+            try:
+                from core.llm_provider import llm_call as _llm_call_mc
+                _ticker_mc = (data.get('company_info') or {}).get('ticker') if isinstance(data.get('company_info'), dict) else None
+                if not _ticker_mc:
+                    _ticker_mc = data.get('ticker', 'la soci\u00e9t\u00e9')
+                _vol_str_mc = f"{_vol_pct:.0f}%" if 'vol_pct' in dir() and isinstance(locals().get('_vol_pct'), (int, float)) else "n/d"
+                _prompt_mc = (
+                    f"Tu es analyste quantitatif sell-side. Redige une interpretation "
+                    f"probabiliste approfondie (350-450 mots) de la simulation Monte Carlo "
+                    f"GBM 12 mois sur {_ticker_mc}.\n\n"
+                    f"Donnees : Cours actuel {_price:,.0f} {cur}, P50 {mc_p50:,.0f} {cur} "
+                    f"({_diff_pct:+.0f}%), P10 {mc_p10:,.0f}, P90 {mc_p90:,.0f}, "
+                    f"volatilite annualisee {_vol_str_mc}, {_mc_sim_str} simulations.\n\n"
+                    f"Structure en 3 paragraphes separes par une ligne vide "
+                    f"(~130 mots chacun) :\n"
+                    f"1. Lecture quantitative : que dit le P50 vs cours spot, quelle est "
+                    f"l'amplitude du corridor P10-P90, comment l'interpreter comme mesure "
+                    f"du risque de valorisation (stress-test implicite), comparaison avec "
+                    f"la distribution historique des rendements du titre.\n"
+                    f"2. Limites methodologiques du GBM : hypothese log-normale, "
+                    f"fat-tails sous-estimees, chocs exogenes (recession, regulation, "
+                    f"disruption, scandales comptables) non captures, changement de regime "
+                    f"macro invisible, parametres constants (drift + vol) alors que "
+                    f"realite non-stationnaire.\n"
+                    f"3. Usage pratique : comment croiser le P50 avec le DCF analytique "
+                    f"et le consensus sell-side, dans quelles conditions le corridor "
+                    f"P10-P90 devient informatif pour un investisseur long-only, quels "
+                    f"triggers qualitatifs compleater l'analyse (catalyseurs, earnings, "
+                    f"revisions, macro). Citer 2-3 scenarios concrets.\n\n"
+                    f"Francais correct avec accents. Pas de markdown. Pas d'emojis. "
+                    f"Reste specifique a {_ticker_mc}, pas generique."
+                )
+                _mc_llm_txt = _llm_call_mc(_prompt_mc, phase="long", max_tokens=1200) or ""
+            except Exception:
+                pass
             elems.append(Spacer(1, 3*mm))
-            elems.append(Paragraph(_safe(_mc_interp + _extra_mc + _vol_note), S_BODY))
+            if _mc_llm_txt.strip():
+                # Texte LLM par paragraphe avec espace entre (structure demandee)
+                for _para in _mc_llm_txt.strip().split("\n\n"):
+                    _p = _para.strip()
+                    if _p:
+                        elems.append(Paragraph(_safe(_p), S_BODY))
+                        elems.append(Spacer(1, 1.5*mm))
+            else:
+                elems.append(Paragraph(_safe(_mc_interp + _extra_mc + _vol_note), S_BODY))
     return elems
 
 
@@ -2091,12 +2138,33 @@ def _build_multiples_historiques(data):
         elems.append(Paragraph("Tableau r\u00e9capitulatif des multiples", S_SUBSECTION))
         mh_h = [Paragraph(h, S_TH_C) for h in ["Ann\u00e9e", "P/E (x)", "EV/EBITDA (x)", "P/B (x)", "Tendance P/E"]]
         mh_rows = []
+        # A10.2 : pour la 1ere annee (ex 2022 TSLA), on n'a pas de year-1 dans
+        # les 5 annees affichees. On compare donc sa valeur a la mediane de la
+        # periode pour fournir un signal "au-dessus/sous mediane" plutot qu'un
+        # tiret inutile. Pour les autres annees, comparaison year-over-year.
+        _pe_all = [d['pe'] for d in years_data if d.get('pe') is not None]
+        _pe_median_period = None
+        if _pe_all:
+            _sorted_pe = sorted(_pe_all)
+            _mid = len(_sorted_pe) // 2
+            _pe_median_period = (
+                _sorted_pe[_mid] if len(_sorted_pe) % 2 == 1
+                else (_sorted_pe[_mid - 1] + _sorted_pe[_mid]) / 2
+            )
         pe_prev = None
-        for d in years_data:
+        for _idx, d in enumerate(years_data):
             pe_v = d['pe']; ev_v = d['ev_eb']; pb_v = d['pb']
             if pe_v is not None and pe_prev is not None:
                 trend = "\u2197 Expansion" if pe_v > pe_prev else "\u2198 Compression"
                 ts = S_TD_G if pe_v > pe_prev else S_TD_R
+            elif pe_v is not None and _pe_median_period is not None and _idx == 0:
+                # 1ere annee : comparaison vs mediane de la periode
+                if pe_v > _pe_median_period * 1.05:
+                    trend = "Au-dessus mediane"; ts = S_TD_G
+                elif pe_v < _pe_median_period * 0.95:
+                    trend = "Sous mediane"; ts = S_TD_R
+                else:
+                    trend = "Proche mediane"; ts = S_TD_C
             else:
                 trend = "\u2014"; ts = S_TD_C
             mh_rows.append([
@@ -2250,11 +2318,20 @@ def _build_capital_returns(data):
         cr_h = [Paragraph(h, S_TH_C) for h in ["Ann\u00e9e", "FCF", "FCF Yield", "Div. Payout", "Capex/Rev"]]
         cr_rows = []
         for d in years_data:
+            # Div. Payout : None -> "0,0 %" (non-dividend payer explicite) ;
+            # 0.0 -> _frpct affiche "0,0 %" ; sinon formate le ratio reel.
+            # A11.1 TSLA : distinguer clairement "ne verse aucun dividende"
+            # plutot que de laisser un tiret comme valeur inconnue.
+            _dp_raw = d.get('div_pout')
+            if _dp_raw is None:
+                _dp_cell = "0,0 %"
+            else:
+                _dp_cell = _frpct(_dp_raw)
             cr_rows.append([
                 Paragraph(_safe(d['label']), S_TD_B),
                 Paragraph(_safe(_fr(d['fcf']/1000 if d['fcf'] else None, 1, ' Mds')), S_TD_C),
                 Paragraph(_safe(_frpct(d['fcf_yield'])), S_TD_C),
-                Paragraph(_safe(_frpct(d['div_pout']) if d.get('div_pout') is not None else "0%"),  S_TD_C),
+                Paragraph(_safe(_dp_cell),  S_TD_C),
                 Paragraph(_safe(_frpct(d['capex_r'])),   S_TD_C),
             ])
         elems.append(KeepTogether(tbl([cr_h] + cr_rows, cw=[30*mm, 38*mm, 34*mm, 36*mm, 32*mm])))
@@ -2300,18 +2377,29 @@ def _build_capital_returns(data):
         _fy_qual = ('est attractif pour un investisseur long-only (>4\u00a0%)'
                     if fy_vals and fy_vals[-1] and float(fy_vals[-1]) > 0.04
                     else 'reste modeste au regard du co\u00fbt du capital')
-        # Payout ratio : enrichissement si disponible
+        # Payout ratio : enrichissement si disponible. Pour un non-dividend
+        # payer (ex TSLA) on affiche explicitement 0,0 % au lieu de laisser
+        # la ligne vide (A11.1 Baptiste).
         _payout_vals = [d['div_pout'] for d in years_data if d.get('div_pout') is not None]
         _payout_note = ""
         if _payout_vals:
             _pout_last = _payout_vals[-1]
-            _pout_lbl = ("conservateur, pr\u00e9servant la flexibilit\u00e9 financi\u00e8re"
-                         if _pout_last < 0.35
-                         else ("mod\u00e9r\u00e9, \u00e9quilibrant distribution et r\u00e9investissement"
-                               if _pout_last < 0.60
-                               else "elev\u00e9, r\u00e9duisant la marge de s\u00e9curit\u00e9 du dividende"))
-            _payout_note = (f" Le taux de distribution (payout) de {_frpct(_pout_last)} "
-                            f"est {_pout_lbl}.")
+            if _pout_last < 0.01:
+                _payout_note = (" Le taux de distribution (payout) ressort a "
+                                "0\u202f% : la soci\u00e9t\u00e9 re\u00e9investit integralement "
+                                "ses r\u00e9sultats dans sa croissance.")
+            else:
+                _pout_lbl = ("conservateur, pr\u00e9servant la flexibilit\u00e9 financi\u00e8re"
+                             if _pout_last < 0.35
+                             else ("mod\u00e9r\u00e9, \u00e9quilibrant distribution et r\u00e9investissement"
+                                   if _pout_last < 0.60
+                                   else "elev\u00e9, r\u00e9duisant la marge de s\u00e9curit\u00e9 du dividende"))
+                _payout_note = (f" Le taux de distribution (payout) de {_frpct(_pout_last)} "
+                                f"est {_pout_lbl}.")
+        elif not div_any:
+            # Aucun div_pout remonte ET aucun dividende verse : explicite
+            _payout_note = (" Le taux de distribution (payout) est de 0\u202f% sur "
+                            "toute la p\u00e9riode, la soci\u00e9t\u00e9 ne versant aucun dividende.")
         # Qualite FCF : conversion EBITDA -> FCF
         _fcf_conv_note = ""
         fcf_last = fcf_vals[-1] if fcf_vals else None
@@ -3359,8 +3447,14 @@ def _fetch_area_data(ticker: str) -> dict:
         return {}
 
 
-def _fetch_pie_data(ticker: str, peers: list) -> dict:
-    """Fetch EV (enterprise value) du ticker + peers pour le donut chart."""
+def _fetch_pie_data(ticker: str, peers: list, main_snap_market=None) -> dict:
+    """Fetch EV (enterprise value) du ticker + peers pour le donut chart.
+
+    A8.1 Baptiste : pour eviter le chart N/A quand yfinance est rate-limite sur
+    les peers, on utilise en priorite la market_cap deja presente dans le snap
+    pour le ticker cible (zero appel yf) puis on ne fait que des fast_info
+    (pas de yft.info lent) sur les peers. Si < 2 tickers valides on renvoie {}.
+    """
     try:
         import yfinance as yf
 
@@ -3381,9 +3475,19 @@ def _fetch_pie_data(ticker: str, peers: list) -> dict:
         all_t = [ticker] + peer_tickers[:5]
         ev_data = {}
         _used_mktcap = False
+
+        # Seed le main ticker depuis snap.market si dispo (pas d'appel yf)
+        if main_snap_market is not None:
+            _main_mc = getattr(main_snap_market, 'market_cap', None)
+            if _main_mc and float(_main_mc) > 0:
+                ev_data[ticker] = float(_main_mc) / 1e9
+                _used_mktcap = True
+
         for t in all_t:
             if not t:
                 continue
+            if t in ev_data:
+                continue  # deja seed pour main ticker
             try:
                 yft  = yf.Ticker(t)
                 info = yft.fast_info
@@ -3395,22 +3499,19 @@ def _fetch_pie_data(ticker: str, peers: list) -> dict:
                 except Exception:
                     pass
                 ev   = getattr(info, 'enterprise_value', None)
-                if ev is None:
-                    ev = yft.info.get('enterpriseValue')
                 if ev and float(ev) > 0:
                     ev_data[t] = float(ev) / 1e9
                 else:
-                    # Fallback market cap (tickers EU souvent sans EV dans fast_info)
+                    # Fast_info market_cap only (pas d'appel yft.info lent)
                     mc = getattr(info, 'market_cap', None)
-                    if mc is None:
-                        mc = yft.info.get('marketCap')
                     if mc and float(mc) > 0:
                         ev_data[t] = float(mc) / 1e9
                         _used_mktcap = True
             except Exception:
                 pass
 
-        if len(ev_data) < 1:
+        # Besoin d'au moins 2 points pour un donut informatif
+        if len(ev_data) < 2:
             return {}
         _cap_label = 'Mkt Cap' if _used_mktcap else 'EV'
 
@@ -4395,7 +4496,8 @@ class PDFWriter:
             d.update(area_result)
         d['area_is_real'] = bool(area_result and area_result.get('area_segments'))
 
-        pie_result = _fetch_pie_data(ticker, peer_tickers)
+        pie_result = _fetch_pie_data(ticker, peer_tickers,
+                                     main_snap_market=getattr(snap, 'market', None))
         if pie_result:
             d.update(pie_result)
             # Enrichir pie_text avec les donnees reelles si le LLM n'en a pas fourni
