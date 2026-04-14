@@ -782,7 +782,7 @@ def _build_macro(perf_buf, area_buf, tickers_data: list[dict],
         elems.append(Paragraph(
             f"L'analyse du secteur <b>{sector_name}</b> s'appuie sur l'ETF de r\u00e9f\u00e9rence "
             f"<b>{_etf_info['ticker']}</b> emis par <b>{_etf_issuer}</b>. Cet instrument constitue "
-            f"le benchmark pass ing du secteur et l'ancrage de notre analyse fondamentale. "
+            f"le benchmark passif du secteur et l'ancrage de notre analyse fondamentale. "
             f"AUM : <b>{_aum_str}</b>. TER : <b>{_ter_str}</b>. Top holdings disponibles : {_n_holdings}. "
             f"Le graphique de performance pr\u00e9sent\u00e9 ci-dessous superpose la courbe r\u00e9elle de "
             f"l'ETF avec trois paniers d\u00e9riv\u00e9s du scoring FinSight (BUY / HOLD / SELL) pour "
