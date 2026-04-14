@@ -472,20 +472,31 @@ def slide_title(slide, title: str, subtitle: str = ""):
 
 
 def kpi_box(slide, x, y, w, h, value, label, sub="",
-            fill=NAVY_PALE, accent=NAVY_MID):
+            fill=NAVY_PALE, accent=NAVY_MID, compact: bool = False):
+    """KPI box avec option compact (B2.3) : police et y-offsets reduits
+    pour les slides ou l'espace est contraint."""
     from pptx.enum.text import PP_ALIGN
     add_rect(slide, x, y, w, h, fill)
     add_rect(slide, x, y, 0.13, h, accent)
     val_color = NAVY if fill != NAVY else WHITE
     lbl_color = GREY_TXT if fill != NAVY else WHITE
     sub_color = GREY_LIGHT if fill != NAVY else NAVY_PALE
-    add_text_box(slide, x + 0.25, y + 0.15, w - 0.38, 1.1,
-                 value, 19, val_color, bold=True)
-    add_text_box(slide, x + 0.25, y + 1.25, w - 0.38, 0.57,
-                 label, 8, lbl_color)
-    if sub:
-        add_text_box(slide, x + 0.25, y + 1.8, w - 0.38, 0.46,
-                     sub, 7, sub_color)
+    if compact:
+        add_text_box(slide, x + 0.22, y + 0.08, w - 0.34, 0.70,
+                     value, 14, val_color, bold=True)
+        add_text_box(slide, x + 0.22, y + 0.78, w - 0.34, 0.38,
+                     label, 7, lbl_color)
+        if sub:
+            add_text_box(slide, x + 0.22, y + 1.14, w - 0.34, 0.35,
+                         sub, 6, sub_color)
+    else:
+        add_text_box(slide, x + 0.25, y + 0.15, w - 0.38, 1.1,
+                     value, 19, val_color, bold=True)
+        add_text_box(slide, x + 0.25, y + 1.25, w - 0.38, 0.57,
+                     label, 8, lbl_color)
+        if sub:
+            add_text_box(slide, x + 0.25, y + 1.8, w - 0.38, 0.46,
+                         sub, 7, sub_color)
 
 
 def commentary_box(slide, x, y, w, h, text, accent=NAVY_MID, title=None):
@@ -1037,30 +1048,30 @@ def _slide_exec_summary(prs, snap, synthesis, ratios, devil, sentiment):
     sent_label_display = _sent_label_fr(sent_label, sent_score)
     _s2_is_llm  = _g(sentiment, "engine", "finbert") not in ("finbert", "finbert_fallback", None, "")
 
-    # Rec band
-    add_rect(slide, 1.02, 2.08, 23.37, 1.22, rec_fill)
-    add_rect(slide, 1.02, 2.08, 0.13, 1.22, rec_accent)
-    add_text_box(slide, 1.4, 2.13, 3.05, 1.12,
+    # Rec band — box HOLD rabaissee (B2.1 : avant h=1.22, maintenant h=0.85)
+    add_rect(slide, 1.02, 2.08, 23.37, 0.85, rec_fill)
+    add_rect(slide, 1.02, 2.08, 0.13, 0.85, rec_accent)
+    add_text_box(slide, 1.4, 2.13, 3.05, 0.75,
                  f"● {rec.upper()}", 11, rec_accent, bold=True)
     bull_str = (
         f"Bear : {_fr(tbear, 0)} {cur_sym} ({_upside(tbear, price)})  ·  "
         f"Bull : {_fr(tbull, 0)} {cur_sym} ({_upside(tbull, price)})"
     )
     add_text_box(
-        slide, 4.7, 2.13, 19.3, 1.12,
+        slide, 4.7, 2.13, 19.3, 0.75,
         f"Prix cible base : {_fr(tbase, 0)} {cur_sym}  ·  Upside : {_upside(tbase, price)}  ·  {bull_str}",
         9, NAVY
     )
 
-    # Thesis section header
-    add_rect(slide, 1.02, 3.76, 11.56, 0.71, NAVY)
-    add_text_box(slide, 1.02, 3.76, 11.56, 0.71,
+    # Thesis section header remonte (avant y=3.76, maintenant y=3.25 apres box HOLD 2.93)
+    add_rect(slide, 1.02, 3.25, 11.56, 0.55, NAVY)
+    add_text_box(slide, 1.02, 3.25, 11.56, 0.55,
                  "TH\u00c8SE D'INVESTISSEMENT", 9, WHITE, bold=True)
 
-    # Thesis bullets — espacement dynamique avec corps de texte
+    # Thesis bullets remontees : avant [4.57, 6.10, 7.63], maintenant [3.95, 5.40, 6.85]
     thesis_parts = _split_text(thesis, 3)
     pos_themes   = _g(synthesis, "positive_themes", []) or []
-    strength_ys = [4.57, 6.10, 7.63]
+    strength_ys = [3.95, 5.40, 6.85]
     for i, sy in enumerate(strength_ys):
         label = strengths[i] if i < len(strengths) else (thesis_parts[i] if i < len(thesis_parts) else "")
         body  = thesis_parts[i] if i < len(thesis_parts) else ""
@@ -1070,12 +1081,12 @@ def _slide_exec_summary(prs, snap, synthesis, ratios, devil, sentiment):
         add_rect(slide, 1.02, sy + 0.05, 0.15, 0.36, NAVY_MID)
         add_text_box(slide, 1.4, sy, 10.92, 0.51,
                      _truncate(label, 80), 8.5, NAVY, bold=True)
-        add_text_box(slide, 1.4, sy + 0.47, 10.92, 1.05,
+        add_text_box(slide, 1.4, sy + 0.47, 10.92, 1.00,
                      _fit(body, 190), 7.5, "333333", wrap=True)
 
     # Risks section header
     add_rect(slide, 13.08, 3.76, 11.3, 0.71, RED)
-    add_text_box(slide, 13.08, 3.76, 11.3, 0.71,
+    add_text_box(slide, 13.08, 3.25, 11.3, 0.55,
                  "RISQUES PRINCIPAUX", 9, WHITE, bold=True)
 
     # Risques avec corps de texte
@@ -1084,7 +1095,8 @@ def _slide_exec_summary(prs, snap, synthesis, ratios, devil, sentiment):
     risk_bodies  = _split_text(counter_thesis_txt, 3) if counter_thesis_txt else [""] * 3
     neg_themes   = _g(synthesis, "negative_themes", []) or []
 
-    risk_ys = [4.57, 6.10, 7.63]
+    # Risques remontes (fix B2.1/B2.2) : alignes avec Thesis [3.95, 5.40, 6.85]
+    risk_ys = [3.95, 5.40, 6.85]
     for i, ry in enumerate(risk_ys):
         risk_text = (risks_s[i] if i < len(risks_s) else
                      (counter_risks[i] if i < len(counter_risks) else ""))
@@ -1112,14 +1124,14 @@ def _slide_exec_summary(prs, snap, synthesis, ratios, devil, sentiment):
         add_rect(slide, 13.08, ry + 0.05, 0.15, 0.36, RED)
         add_text_box(slide, 13.46, ry, 10.54, 0.51,
                      _truncate(risk_text, 80), 8.5, NAVY, bold=True)
-        add_text_box(slide, 13.46, ry + 0.47, 10.54, 1.05,
+        add_text_box(slide, 13.46, ry + 0.47, 10.54, 1.00,
                      _fit(body_r, 190), 7.5, "333333", wrap=True)
 
-    # Vertical divider
-    add_rect(slide, 12.57, 3.76, 0.03, 4.84, GREY_LIGHT)
+    # Vertical divider (remonte avec les sections : de 3.76 a 3.25)
+    add_rect(slide, 12.57, 3.25, 0.03, 4.95, GREY_LIGHT)
 
-    # Horizontal rule
-    add_rect(slide, 1.02, 9.17, 23.37, 0.03, "AAAAAA")
+    # Horizontal rule (remonte : de 9.17 a 8.35 pour faire place au header catalyseurs)
+    add_rect(slide, 1.02, 8.35, 23.37, 0.03, "AAAAAA")
 
     # -------------------------------------------------------------------------
     # Investment Case — Catalyseurs sur toute la largeur (Valorisation Synthétique
@@ -1132,16 +1144,16 @@ def _slide_exec_summary(prs, snap, synthesis, ratios, devil, sentiment):
     peer_median_ev_e = _peer_median(peers, "ev_ebitda")
     peer_median_pe   = _peer_median(peers, "pe")
 
-    # --- Catalyseurs section (pleine largeur) — header legerement rehausse
-    # (Baptiste audit : reduire vers le haut pour mieux utiliser l'espace) ---
-    add_rect(slide, 1.02, 8.40, 23.37, 0.45, "1A7A4A")
-    add_text_box(slide, 1.15, 8.42, 23.20, 0.42,
+    # --- Catalyseurs section (pleine largeur) — boxes reparties verticalement
+    # apres reduction HOLD (B2.1/B2.2) : + d'espace disponible
+    add_rect(slide, 1.02, 8.45, 23.37, 0.45, "1A7A4A")
+    add_text_box(slide, 1.15, 8.47, 23.20, 0.42,
                  "CATALYSEURS \u00c0 SURVEILLER (12 MOIS)", 7.5, WHITE, bold=True)
 
-    # Affichage 4 catalyseurs en 2 colonnes — boxes agrandies (h=1.10), police 6.5pt
+    # 4 catalyseurs en 2 colonnes — boxes agrandies, plus d'espace vertical
     _cat_layout = [
-        (1.02, 8.95),  (12.70, 8.95),   # row 1 : 2 catalyseurs côte à côte
-        (1.02, 9.65),  (12.70, 9.65),   # row 2
+        (1.02, 9.00),  (12.70, 9.00),   # row 1
+        (1.02, 9.70),  (12.70, 9.70),   # row 2
     ]
     for i, (cx, cy) in enumerate(_cat_layout):
         if i < len(catalysts):
@@ -1154,23 +1166,23 @@ def _slide_exec_summary(prs, snap, synthesis, ratios, devil, sentiment):
         add_text_box(slide, cx + 0.18, cy, 11.42, 0.62,
                      _cat_txt, 6.5, "333333", wrap=True)
 
-    # Horizontal rule (before KPI)
-    add_rect(slide, 1.02, 10.75, 23.37, 0.03, "AAAAAA")
+    # Horizontal rule (before KPI) — remonte pour aerer les catalyseurs
+    add_rect(slide, 1.02, 10.45, 23.37, 0.03, "AAAAAA")
 
-    # 4 KPI boxes — y=10.90 pour suivre HR (10.75), h=2.40 pour remplir jusqu'à footer
-    kpi_box(slide, 1.02, 10.90, 5.64, 2.40,
+    # 4 KPI boxes COMPACTES (B2.3 : police 19->14, h 2.40->1.55)
+    kpi_box(slide, 1.02, 10.60, 5.64, 1.55,
             _frx(ev_e), "EV/EBITDA",
-            f"vs {_frx(peer_median_ev_e)} med. pairs")
-    kpi_box(slide, 6.91, 10.90, 5.64, 2.40,
+            f"vs {_frx(peer_median_ev_e)} med. pairs", compact=True)
+    kpi_box(slide, 6.91, 10.60, 5.64, 1.55,
             _frpct(wacc_val), "WACC",
-            f"Beta {_fr(beta, 2) if beta else '—'}  \u00b7  RFR {_frpct(rfr)}")
-    kpi_box(slide, 12.80, 10.90, 5.64, 2.40,
+            f"Beta {_fr(beta, 2) if beta else '—'}  \u00b7  RFR {_frpct(rfr)}", compact=True)
+    kpi_box(slide, 12.80, 10.60, 5.64, 1.55,
             f"{_fr(tbase, 0)} {cur_sym}", "Valeur DCF base",
-            f"Upside {_upside(tbase, price)} vs cours")
-    kpi_box(slide, 18.69, 10.90, 5.64, 2.40,
+            f"Upside {_upside(tbase, price)} vs cours", compact=True)
+    kpi_box(slide, 18.69, 10.60, 5.64, 1.55,
             f"{sent_score:+.3f}".replace(".", ","),
             "Sentiment LLM" if _s2_is_llm else "Sentiment FinBERT",
-            f"{sent_label_display}  \u00b7  {sent_articles} art.")
+            f"{sent_label_display}  \u00b7  {sent_articles} art.", compact=True)
 
     return slide
 
@@ -1652,9 +1664,12 @@ def _slide_bilan(prs, snap, synthesis, ratios):
     total_debt = ((_safe_float(ltd) or 0) + (_safe_float(std) or 0)) or None
     net_debt_val = ((_safe_float(total_debt) or 0) - (_safe_float(cash) or 0)) if (total_debt is not None or cash is not None) else None
 
-    kpi_box(slide, 1.02, 2.67, 7.37, 2.29, _frm(cash, cur_sym), "Cash & équivalents")
-    kpi_box(slide, 1.02, 5.28, 7.37, 2.29, _frm(ltd, cur_sym), "Dette long terme")
-    kpi_box(slide, 1.02, 7.90, 7.37, 2.29, _frm(net_debt_val, cur_sym), "Dette nette",
+    # KPI boxes resserrees (B9.1/B9.2 : avant h=2.29 chaque => Dette nette
+    # chevauchait la commentary box en bas). Reduit h=2.00 et ajuste les y
+    # pour laisser un vrai gap avant la box LLM.
+    kpi_box(slide, 1.02, 2.67, 7.37, 2.00, _frm(cash, cur_sym), "Cash & équivalents")
+    kpi_box(slide, 1.02, 5.00, 7.37, 2.00, _frm(ltd, cur_sym), "Dette long terme")
+    kpi_box(slide, 1.02, 7.33, 7.37, 2.00, _frm(net_debt_val, cur_sym), "Dette nette",
             fill=NAVY, accent=WHITE)
 
     # Ratio table (7 rows × 4 cols with Signal column)
@@ -1767,11 +1782,35 @@ def _slide_bilan(prs, snap, synthesis, ratios):
             fin_comment = " ".join(parts_b) if parts_b else (
                 _g(synthesis, "financial_commentary", "") or ""
             )
+    # Enrichissement LLM si fin_comment trop court (B9.3)
+    if not fin_comment or len(fin_comment) < 500:
+        try:
+            from core.llm_provider import llm_call as _llm_call_b9
+            _ticker_b9 = _g(ci, "ticker", "la societe") or "la societe"
+            _prompt_b9 = (
+                f"Tu es analyste buy-side senior. Redige une analyse approfondie "
+                f"(250-320 mots) de la structure bilancielle de {_ticker_b9}.\n\n"
+                f"Structure en 3 paragraphes distincts (~100 mots chacun) :\n"
+                f"1. Qualite du bilan : cash position, structure de la dette (court/long terme), "
+                f"profil de maturite, headroom vs covenants\n"
+                f"2. Solvabilite et liquidite : current ratio, quick ratio, couverture interets, "
+                f"Altman Z, ce que ca implique pour la viabilite long terme\n"
+                f"3. Flexibilite strategique : capacite d'investir / acquerir / retourner cash, "
+                f"marge de manoeuvre en cas de downturn, notation de credit implicite\n\n"
+                f"Francais correct avec accents. Pas de markdown."
+            )
+            _extra_b9 = _llm_call_b9(_prompt_b9, phase="long", max_tokens=900) or ""
+            if _extra_b9.strip():
+                fin_comment = (fin_comment + "\n\n" + _extra_b9) if fin_comment else _extra_b9
+        except Exception:
+            pass
+
     if fin_comment.strip():
         _bs_title = _jpm_title("bilan", ratios=ratios, snap=snap, synthesis=synthesis)
-        # Box rehaussee : y=10.75 -> 9.80 pour descendre plus loin et h etendue
-        commentary_box(slide, 1.02, 9.80, 23.37, 3.50,
-                       fin_comment[:900], title=_bs_title)
+        # Commentary box repositionnee : y=9.95 (apres Dette nette 7.33+2.00=9.33 + gap 0.60)
+        # h=3.35 pour remplir jusqu'au footer
+        commentary_box(slide, 1.02, 9.95, 23.37, 3.35,
+                       fin_comment[:1400], title=_bs_title)
 
     return slide
 
