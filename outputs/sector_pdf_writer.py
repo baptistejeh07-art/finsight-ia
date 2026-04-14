@@ -262,13 +262,18 @@ def build_sommaire(sector_name: str, page_nums: dict = None):
 
 
 # ─── CHARTS ───────────────────────────────────────────────────────────────────
-def _make_perf_chart(tickers_data: list[dict], sector_name: str) -> io.BytesIO:
-    """Performance relative basket sectoriel vs S&P 500 — base 100, 13 mois.
+def _make_perf_chart(tickers_data: list[dict], sector_name: str,
+                     universe: str = "S&P 500") -> io.BytesIO:
+    """Performance relative — 4 courbes : ETF sectoriel + panier BUY / HOLD / SELL.
 
-    Tente d'abord un VRAI fetch yfinance des top 15 tickers du basket + ^GSPC
-    sur 1 an. En cas d'echec (rate limit, network), fallback sur une simulation
-    coherente basee sur le momentum_52w median (graphique illustratif marque
-    explicitement comme tel dans le titre).
+    Graphique validé avec Baptiste pour l'analyse sectorielle ETF-first :
+    - ETF sectoriel (référence noire épaisse) : courbe réelle yfinance
+    - Panier BUY (vert) : moyenne equal-weight 52W des tickers classés BUY
+    - Panier HOLD (orange) : moyenne HOLD
+    - Panier SELL (rouge) : moyenne SELL
+
+    Permet de valider visuellement le scoring FinSight : si BUY > ETF et
+    SELL < ETF, le stock-picking ajoute de l'alpha vs le benchmark passif.
     """
     _MOIS = ['Jan','Fev','Mar','Avr','Mai','Jun','Jul','Aou','Sep','Oct','Nov','Dec']
     _today = date.today()
@@ -278,71 +283,104 @@ def _make_perf_chart(tickers_data: list[dict], sector_name: str) -> io.BytesIO:
         y = _today.year - ((_today.month - 1 - i < 0) and (i > _today.month - 1))
         months.append(f"{_MOIS[m]} {str(y)[2:]}")
 
-    # Tentative fetch yfinance reel
-    basket = None
-    sp500  = None
+    # Determine l'ETF de reference pour ce secteur + univers
+    etf_ticker = None
+    etf_name = None
+    try:
+        from core.sector_etfs import get_etf_for
+        _etf = get_etf_for(sector_name, universe=universe)
+        if _etf:
+            etf_ticker = _etf["ticker"]
+            etf_name = _etf["name"]
+    except Exception as _e:
+        log.warning("sector_pdf perf_chart: get_etf_for echoue: %s", _e)
+
+    # Classement FinSight par signal (BUY / HOLD / SELL)
+    def _reco(score):
+        if score is None:
+            return "HOLD"
+        try:
+            s = float(score)
+            if s >= 65: return "BUY"
+            if s < 45:  return "SELL"
+            return "HOLD"
+        except: return "HOLD"
+    tickers_buy  = [t.get("ticker") for t in tickers_data if _reco(t.get("score_global")) == "BUY"  and t.get("ticker")]
+    tickers_hold = [t.get("ticker") for t in tickers_data if _reco(t.get("score_global")) == "HOLD" and t.get("ticker")]
+    tickers_sell = [t.get("ticker") for t in tickers_data if _reco(t.get("score_global")) == "SELL" and t.get("ticker")]
+
+    # Fetch yfinance batch : ETF + tous les tickers sectoriels
+    curves = {}  # {label: [base100 values]}
     is_real = False
     try:
         import yfinance as _yf
-        # Top 15 tickers du basket (par score_global)
-        top_tk = sorted(tickers_data, key=lambda x: x.get("score_global") or 0,
-                        reverse=True)[:15]
-        symbols = [t.get("ticker") for t in top_tk if t.get("ticker")]
-        if symbols:
-            hist = _yf.download(symbols + ["^GSPC"], period="13mo", interval="1mo",
-                                auto_adjust=True, progress=False, timeout=20)
+        _all_symbols = [t.get("ticker") for t in tickers_data if t.get("ticker")]
+        _to_fetch = list(set(_all_symbols))
+        if etf_ticker:
+            _to_fetch.append(etf_ticker)
+        if _to_fetch:
+            hist = _yf.download(_to_fetch, period="13mo", interval="1mo",
+                                auto_adjust=True, progress=False, timeout=25)
             if not hist.empty:
                 _close = hist["Close"] if "Close" in hist.columns else hist
                 if hasattr(_close, "columns"):
-                    # Basket = moyenne equi-ponderee normalisee base 100
-                    _bask_cols = [c for c in symbols if c in _close.columns]
-                    if _bask_cols:
-                        _bask_norm = _close[_bask_cols].apply(
+                    def _normalize_basket(tickers_list):
+                        cols = [c for c in tickers_list if c in _close.columns]
+                        if not cols:
+                            return None
+                        _norm = _close[cols].apply(
                             lambda s: s / s.dropna().iloc[0] * 100 if len(s.dropna()) > 0 else s)
-                        basket = _bask_norm.mean(axis=1).dropna().values[-13:]
-                    if "^GSPC" in _close.columns:
-                        _sp = _close["^GSPC"].dropna()
-                        if len(_sp) > 0:
-                            sp500 = (_sp / _sp.iloc[0] * 100).values[-13:]
-                if basket is not None and sp500 is not None and len(basket) >= 8 and len(sp500) >= 8:
+                        _mean = _norm.mean(axis=1).dropna()
+                        return list(_mean.values[-13:]) if len(_mean) > 0 else None
+                    # ETF reference
+                    if etf_ticker and etf_ticker in _close.columns:
+                        _etf_s = _close[etf_ticker].dropna()
+                        if len(_etf_s) > 0:
+                            curves["ETF"] = list((_etf_s / _etf_s.iloc[0] * 100).values[-13:])
+                    # 3 paniers
+                    _b_curve = _normalize_basket(tickers_buy)
+                    _h_curve = _normalize_basket(tickers_hold)
+                    _s_curve = _normalize_basket(tickers_sell)
+                    if _b_curve: curves["BUY"] = _b_curve
+                    if _h_curve: curves["HOLD"] = _h_curve
+                    if _s_curve: curves["SELL"] = _s_curve
+                if len(curves) >= 2:
                     is_real = True
     except Exception as _e:
-        log.warning(f"sector_pdf_writer _make_perf_chart: vrai fetch echoue ({_e}) — fallback simule")
+        log.warning(f"sector_pdf perf_chart: fetch echoue ({_e}) — fallback simule")
 
-    if not is_real:
-        log.warning("sector_pdf_writer _make_perf_chart: utilisation de données simulees "
-                    "(graphique illustratif)")
+    if not is_real or not curves:
+        log.warning("sector_pdf perf_chart: fallback illustratif")
         np.random.seed(42)
-        avg_mom = 0.0
-        count = 0
-        for t in tickers_data:
-            m = t.get('momentum_52w')
-            if m is not None:
-                try:
-                    avg_mom += float(m)
-                    count += 1
-                except (TypeError, ValueError):
-                    pass
-        avg_mom = avg_mom / count if count else 10.0
-        basket_final = 100 + avg_mom
-        basket = np.linspace(100, basket_final, 13) + np.random.normal(0, 2, 13)
-        basket[0] = 100
-        sp500   = np.linspace(100, 122, 13) + np.random.normal(0, 1.2, 13)
-        sp500[0] = 100
+        avg_mom = 10.0
+        curves["ETF"]  = list(np.linspace(100, 100 + avg_mom, 13) + np.random.normal(0, 1.5, 13))
+        curves["BUY"]  = list(np.linspace(100, 100 + avg_mom + 8, 13) + np.random.normal(0, 2.0, 13))
+        curves["HOLD"] = list(np.linspace(100, 100 + avg_mom, 13) + np.random.normal(0, 1.8, 13))
+        curves["SELL"] = list(np.linspace(100, 100 + avg_mom - 10, 13) + np.random.normal(0, 2.2, 13))
+        for k in curves:
+            curves[k][0] = 100
 
-    # Aligner les longueurs si fetch yf retourne moins de 13 points
-    n_pts = min(len(basket), len(sp500), 13)
-    basket = list(basket[-n_pts:])
-    sp500  = list(sp500[-n_pts:])
+    # Aligner les longueurs
+    n_pts = min(min(len(v) for v in curves.values()), 13)
+    for k in curves:
+        curves[k] = list(curves[k][-n_pts:])
     x = np.arange(n_pts)
     months_used = months[-n_pts:]
 
-    fig, ax = plt.subplots(figsize=(6.5, 2.6))
-    ax.plot(x, basket, color='#1B3A6B', linewidth=1.8, label=f'Basket {sector_name}')
-    ax.plot(x, sp500,  color='#A0A0A0', linewidth=1.0, linestyle='--', label='S&P 500')
-    ax.fill_between(x, basket, sp500,
-                    where=[float(b) > float(s) for b, s in zip(basket, sp500)],
-                    alpha=0.08, color='#1B3A6B')
+    # Styles des 4 courbes
+    _STYLES = {
+        "ETF":  {"color": "#1B3A6B", "lw": 2.4, "ls": "-",  "zorder": 4, "label": f"ETF {etf_ticker}" if etf_ticker else "ETF sectoriel"},
+        "BUY":  {"color": "#1A7A4A", "lw": 1.8, "ls": "-",  "zorder": 3, "label": f"Panier BUY ({len(tickers_buy)})"},
+        "HOLD": {"color": "#B06000", "lw": 1.3, "ls": "--", "zorder": 2, "label": f"Panier HOLD ({len(tickers_hold)})"},
+        "SELL": {"color": "#A82020", "lw": 1.8, "ls": "-",  "zorder": 3, "label": f"Panier SELL ({len(tickers_sell)})"},
+    }
+
+    fig, ax = plt.subplots(figsize=(6.5, 2.9))
+    for k in ["ETF", "BUY", "HOLD", "SELL"]:
+        if k in curves:
+            _st = _STYLES[k]
+            ax.plot(x, curves[k], color=_st["color"], linewidth=_st["lw"],
+                    linestyle=_st["ls"], label=_st["label"], zorder=_st["zorder"])
     _n = len(x)
     _tick_step = max(1, _n // 5) if _n >= 2 else 1
     ax.set_xticks(x[::_tick_step])
@@ -354,13 +392,15 @@ def _make_perf_chart(tickers_data: list[dict], sector_name: str) -> io.BytesIO:
     ax.spines['bottom'].set_color('#D0D5DD')
     ax.set_facecolor('white')
     fig.patch.set_facecolor('white')
-    ax.legend(fontsize=8, loc='upper left', frameon=False)
-    _start = months_used[0]  # e.g. "Mar 25"
+    ax.axhline(100, color='#D0D5DD', linewidth=0.6, zorder=1)
+    ax.legend(fontsize=7.5, loc='upper left', frameon=True, framealpha=0.9,
+              edgecolor='#DDDDDD', handlelength=1.8)
+    _start = months_used[0]
     _MOIS_FULL = ['Janvier','Fevrier','Mars','Avril','Mai','Juin','Juillet','Aout','Septembre','Octobre','Novembre','Decembre']
     _abbr, _yr = _start.split()
     _full = _MOIS_FULL[_MOIS.index(_abbr)] if _abbr in _MOIS else _abbr
     _suffix = "" if is_real else " (illustratif)"
-    ax.set_title(f'Performance relative \u2014 base 100, {_full} 20{_yr}{_suffix}',
+    ax.set_title(f'Performance relative \u2014 ETF vs paniers FinSight  \u00b7  base 100, {_full} 20{_yr}{_suffix}',
                  fontsize=8.5, color='#1B3A6B', fontweight='bold', pad=4)
     plt.tight_layout(pad=0.3)
     buf = io.BytesIO()
@@ -2090,12 +2130,15 @@ def _build_valorisation(scatter_buf, donut_buf, tickers_data: list[dict],
         else:
             lecture = "Survalorise vs fondamentaux"
         if _is_fin_pdf:
+            # div_yield est stocke en fraction (0.0191), roe en pourcent (15.6)
+            _dy = t.get('div_yield')
+            _dy_pct = _dy * 100 if isinstance(_dy, (int, float)) and _dy and abs(_dy) < 1 else _dy
             row = [
                 t.get('ticker', 'N/A'),
                 _fmt_mult(t.get('pe_ratio') or t.get('pe')),
                 _fmt_mult(t.get('pb_ratio')),
                 _fmt_pct(t.get('roe'), sign=False),
-                _fmt_pct(t.get('div_yield'), sign=False),
+                _fmt_pct(_dy_pct, sign=False),
                 lecture,
             ]
         else:
@@ -2851,12 +2894,15 @@ def _generate_reco_commentary(buy_list, hold_list, sell_list, sector_name, secto
 
         def _ticker_summary(t):
             if _is_fin:
-                # Pour banques/assurance : P/E, P/B, ROE (Mg.EBITDA non pertinent)
+                # Pour banques/assurance : P/E, P/B, ROE, Div Yield (Mg.EBITDA non pertinent)
+                _dy = t.get('div_yield')
+                _dy_pct = _dy * 100 if isinstance(_dy, (int, float)) and _dy and abs(_dy) < 1 else _dy
                 return (
                     f"{t.get('ticker','?')} (Score {int(t.get('score_global') or 0)}/100, "
                     f"P/E {_fmt_mult(t.get('pe') or t.get('pe_ratio'))}, "
                     f"P/B {_fmt_mult(t.get('pb_ratio'))}, "
-                    f"ROE {_fmt_pct(t.get('roe'), sign=False)})"
+                    f"ROE {_fmt_pct(t.get('roe'), sign=False)}, "
+                    f"DivY {_fmt_pct(_dy_pct, sign=False)})"
                 )
             return (
                 f"{t.get('ticker','?')} (Score {int(t.get('score_global') or 0)}/100, "
@@ -3229,8 +3275,8 @@ def generate_sector_report(
     _reco_profile = _detect_sector_profile(tickers_data, sector_name)
     reco_commentary = _generate_reco_commentary(_buy_l, _hold_l, _sell_l, sector_name, _reco_profile)
 
-    # Generation des charts
-    perf_buf    = _make_perf_chart(tickers_data, sector_name)
+    # Generation des charts — perf_chart avec univers pour resoudre l'ETF
+    perf_buf    = _make_perf_chart(tickers_data, sector_name, universe)
     area_buf    = _make_revenue_area(tickers_data, sector_name)
     scatter_buf = _make_valuation_bars(tickers_data, sector_name)
     donut_buf   = _make_mktcap_donut(tickers_data, sector_name)
