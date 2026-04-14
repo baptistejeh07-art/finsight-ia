@@ -62,8 +62,12 @@ def detect_profile(sector: str | None, industry: str | None = None) -> str:
             return BANK
         if any(kw in i for kw in ("insurance", "assurance", "reinsurance")):
             return INSURANCE
-        # Credit services, asset managers, capital markets → STANDARD
-        # (car valorisés comme des societes normales sur P/E)
+        # Capital markets / investment banks (Goldman Sachs, Morgan Stanley) →
+        # BANK : pas d'EBITDA significatif, valorisation P/B + ROE comme banques
+        if "capital markets" in i:
+            return BANK
+        # Asset managers (BlackRock, Brookfield) : fee-based, marges nettes →
+        # restent en STANDARD (comparables a societes de services)
         return STANDARD
 
     # Oil & Gas E&P (exploration & production) ou integrated
