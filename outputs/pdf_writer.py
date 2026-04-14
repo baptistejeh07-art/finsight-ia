@@ -845,7 +845,7 @@ def _cover_page(c, doc, data):
 
     # Bullet 4 : risques cles (2 max sur la cover — espace limite)
     # Utiliser risk_themes_full (texte analytique complet) si disponible
-    _risks_full = data.get('risk_thèmes_full') or data.get('risk_themes') or []
+    _risks_full = data.get('risk_themes_full') or data.get('risk_themes') or []
     _r1 = _risks_full[0] if len(_risks_full) > 0 else 'Voir section Analyse des Risques'
     _r2 = _risks_full[1] if len(_risks_full) > 1 else ''
     def _wrap_risk(txt, maxch=115):
@@ -937,10 +937,10 @@ def _build_investment_case(data):
     ev_val   = _d(data, 'ev_ebitda_str', '\u2014')
 
     # Bullets thèse (positive_themes depuis data)
-    pos_themes  = data.get('pos_thèmes_ic') or []
+    pos_themes  = data.get('pos_themes_ic') or []
     cats        = data.get('catalysts') or []
     risk_themes = data.get('risk_themes') or []
-    risk_full   = data.get('risk_thèmes_full') or []
+    risk_full   = data.get('risk_themes_full') or []
 
     # ---- Bandeau titre --------------------------------------------------------
     rec_col = _rec_color(rec)
@@ -2589,7 +2589,7 @@ def _build_risques(data):
              Paragraph("D\u00e9clencheur", S_TH_L),
              Paragraph("Cible r\u00e9vis\u00e9e", S_TH_C)]
     rev_rows = []
-    for r in (data.get('révision_data') or []):
+    for r in (data.get('revision_data') or []):
         sty = r.get('style', '').lower()
         rs  = S_TD_G if sty == 'buy' else (S_TD_R if sty == 'sell' else S_TD_C)
         rev_rows.append([
@@ -3959,7 +3959,7 @@ class PDFWriter:
             ],
 
             # Investment Case — données spécifiques
-            'pos_thèmes_ic': [
+            'pos_themes_ic': [
                 t if isinstance(t, str) else (_g(t,'title') or _g(t,'name') or '')
                 for t in (_g(synthesis,'positive_themes') or [])[:3]
             ],
@@ -4003,7 +4003,7 @@ class PDFWriter:
             'base_price':    (_fr(tbase, 0) + ' ' + cur) if tbase else '-',
             'current_price': (_fr(price, 2) + ' ' + cur) if price else '-',
             'risk_themes':      titles[:3],
-            'risk_thèmes_full': (ct_parts[:3] if ct_parts else _neg_full[:3]) or titles[:3],
+            'risk_themes_full': (ct_parts[:3] if ct_parts else _neg_full[:3]) or titles[:3],
 
             # Devil / invalidation
             'bear_args':         bear_args,
@@ -4015,7 +4015,7 @@ class PDFWriter:
 
             # Synthese finale
             'next_review':   _g(synthesis,'next_review') or '',
-            'révision_data': rev_data,
+            'revision_data': rev_data,
             'page_nums':     {'synthese':4,'financials':6,'valorisation':8,'risques':10},
 
             # Monte Carlo DCF (Chantier 1)

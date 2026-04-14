@@ -660,7 +660,7 @@ class IndiceExcelWriter:
         def _g_roe(t): return _pct(t.get("roe"), sign=True)
         def _g_eg(t):  return _pct(t.get("earnings_growth"), sign=True)
         def _g_rev(t):
-            v = t.get("analyst_révision")
+            v = t.get("analyst_revision")
             if v is None: return _NA
             return f"+{int(v)}" if v > 0 else str(int(v))
         def _g_sig(t): return t.get("signal", "Neutre")

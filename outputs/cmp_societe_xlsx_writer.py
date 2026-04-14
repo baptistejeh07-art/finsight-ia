@@ -689,8 +689,8 @@ def extract_metrics(state: dict, supp: dict) -> dict:
         "perf_1y": supp.get("perf_1y"),
 
         # SECTEUR (rows 59-60)
-        "sector_Médian_pe":       _SECTOR_PE.get(sector),
-        "sector_Médian_ev_ebitda": _SECTOR_EVEBITDA.get(sector),
+        "sector_median_pe":       _SECTOR_PE.get(sector),
+        "sector_median_ev_ebitda": _SECTOR_EVEBITDA.get(sector),
 
         # MARCHÉ (rows 61-67)
         "week52_high":       supp.get("week52_high"),

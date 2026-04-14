@@ -3340,7 +3340,7 @@ def _build_lbo_pack(snap, synthesis, ratios) -> dict:
             "exit_mults": [exit_mult + o for o in exit_offsets],
             "grid": sens_grid,
         },
-        "scénarios": scenarios,
+        "scenarios": scenarios,
         "debt_schedule": debt_schedule,
         "llm_texts": llm_texts,
     }
@@ -3657,7 +3657,7 @@ def _slide_lbo_stress(prs, snap, pack: dict):
     add_text_box(slide, 1.02, 7.55, 23.37, 0.45,
                  "SCÉNARIOS DE STRESS — Bull / Base / Bear", 9, NAVY, bold=True)
 
-    sc = pack["scénarios"]
+    sc = pack["scenarios"]
     col_w = 7.62
     col_xs = [1.02, 8.97, 16.92]
     col_labels = ["BULL", "BASE", "BEAR"]
@@ -3700,7 +3700,7 @@ def _slide_lbo_stress(prs, snap, pack: dict):
     risks_text = _truncate(risks_text, 380)
     _stress_irr = None
     try:
-        _stress_irr = pack["scénarios"]["base"]["irr"]
+        _stress_irr = pack["scenarios"]["base"]["irr"]
     except Exception:
         pass
     _stress_title = _jpm_title("lbo", snap=snap, extra={"irr_base": _stress_irr})

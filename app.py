@@ -1777,25 +1777,25 @@ def render_running() -> None:
     """Wrapper minimaliste : extrait le ticker et delegue au pipeline."""
     _tkr_from_session = st.session_state.get("ticker")
     if not _tkr_from_session or not str(_tkr_from_session).strip():
-        st.error("Aucun ticker selectionne. Retour a l'accueil.")
+        st.error("Aucun ticker sélectionné. Retour a l'accueil.")
         st.session_state.stage = "home"
         st.rerun()
         return
     # Note : on extrait dans une variable locale puis on passe en argument
-    # positionnel (pas keyword) pour eviter tout binding bizarre.
+    # positionnel (pas keyword) pour éviter tout binding bizarre.
     _tkr_clean = str(_tkr_from_session).strip()
     _run_analysis_pipeline(_tkr_clean)
 
 
 def _run_analysis_pipeline(tkr_in: str) -> None:
-    """Pipeline d'analyse complete pour un ticker donne.
+    """Pipeline d'analyse complète pour un ticker donne.
 
     Le parametre s'appelle tkr_in pour eliminer tout risque de shadowing
     avec un nom commun comme 'ticker'. On reassigne immediatement dans une
     variable locale `ticker` pour la compat avec le reste du code.
     """
-    # Validation defensive du parametre (devrait toujours etre OK car appele
-    # depuis render_running qui valide deja, mais belt-and-suspenders)
+    # Validation défensive du parametre (devrait toujours être OK car appele
+    # depuis render_running qui valide déjà, mais belt-and-suspenders)
     if not tkr_in or not isinstance(tkr_in, str):
         st.error("Pipeline appele sans ticker valide.")
         st.session_state.stage = "home"
@@ -1806,7 +1806,7 @@ def _run_analysis_pipeline(tkr_in: str) -> None:
     _, col, _ = st.columns([1, 2, 1])
 
     with col:
-        # Utilise tkr_in directement (le parametre, pas l'alias) pour eviter
+        # Utilise tkr_in directement (le parametre, pas l'alias) pour éviter
         # toute possibilite de scope shadow
         st.markdown(
             f'<div style="text-align:center;margin-top:64px;">'
@@ -1860,8 +1860,8 @@ def _run_analysis_pipeline(tkr_in: str) -> None:
         # Stocke le final_state complet en session_state. Si l'utilisateur
         # relance le meme ticker, on retourne directement le cache (~instant).
         # IMPORTANT : version-tag de la cle pour invalider les anciens caches
-        # apres chaque deploiement structurant. Bumper a chaque fois qu'on
-        # change quelque chose qui affecte la qualite du PDF/PPTX.
+        # après chaque deploiement structurant. Bumper a chaque fois qu'on
+        # change quelque chose qui affecte la qualité du PDF/PPTX.
         _CACHE_VERSION = "v3-fallback-deterministe"
         _cache_root = st.session_state.get("_pipeline_state_cache") or {}
         # Reset du cache si le tag de version a change (ancien cache obsolete)
@@ -1952,8 +1952,8 @@ def _run_analysis_pipeline(tkr_in: str) -> None:
                 st.rerun()
             return
 
-        # Visibilite mode fallback : si l'agent Synthese a echoue (LLM ban,
-        # quotas, JSON casse), un SynthesisResult deterministe a ete genere a
+        # Visibilite mode fallback : si l'agent Synthèse a echoue (LLM ban,
+        # quotas, JSON casse), un SynthesisResult déterministe a été Généré a
         # la place. Le PDF/PPTX seront utilisables mais avec moins de profondeur.
         try:
             _syn_meta = getattr(synthesis, "meta", None) or {}
@@ -1962,9 +1962,9 @@ def _run_analysis_pipeline(tkr_in: str) -> None:
                 _prov_errs = _syn_meta.get("provider_errors", {}) or {}
                 # Message principal
                 st.warning(
-                    "**Analyse generee en mode degrade** — les sections narratives "
-                    "(these, catalyseurs, cible 12M, conviction) utilisent un fallback "
-                    "deterministe base sur les ratios. Le PDF reste utilisable mais "
+                    "**Analyse Générée en mode degrade** — les sections narratives "
+                    "(Thèse, catalyseurs, cible 12M, conviction) utilisent un fallback "
+                    "déterministe basé sur les ratios. Le PDF reste utilisable mais "
                     "moins riche en analyse qualitative."
                 )
                 # Detail des erreurs par provider (expander pour ne pas polluer)
@@ -1977,9 +1977,9 @@ def _run_analysis_pipeline(tkr_in: str) -> None:
                         for _prov_name, _prov_err in _prov_errs.items():
                             st.code(f"{_prov_name}: {_prov_err}", language="text")
                         st.markdown(
-                            "**Action recommandee** : verifier les API keys dans "
+                            "**Action recommandee** : vérifier les API keys dans "
                             "Streamlit Cloud Settings > Secrets. Les providers "
-                            "necessaires sont GROQ_API_KEY (primaire), MISTRAL_API_KEY, "
+                            "nécessaires sont GROQ_API_KEY (primaire), MISTRAL_API_KEY, "
                             "CEREBRAS_API_KEY, ANTHROPIC_API_KEY (fallbacks)."
                         )
         except Exception:
@@ -2289,7 +2289,7 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
                 + ("Sensibilité taux modérée" if s[0] in ("Real Estate","Utilities") else
                    "compression multiple si cycle se retourne")
             ),
-            "sociétés":   societes if societes else [("\u2014", "Neutre", "\u2014", 0)],
+            "societes":   societes if societes else [("\u2014", "Neutre", "\u2014", 0)],
         }
 
     top3 = [_build_top3_entry(s) for s in top3_secs]
@@ -2560,7 +2560,7 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
             _cyc_ret = _np_app.mean([_ret_by_nom.get(s, 0) for s in _cyc if s in _ret_by_nom])
             _def_ret = _np_app.mean([_ret_by_nom.get(s, 0) for s in _def if s in _ret_by_nom])
             breadth_score = sum(1 for v in _ret_by_nom.values() if v > 0) / len(_ret_by_nom) * 100
-            factor_tilts  = {"cyclique_ret": round(_cyc_ret, 1), "défensif_ret": round(_def_ret, 1)}
+            factor_tilts  = {"cyclique_ret": round(_cyc_ret, 1), "defensif_ret": round(_def_ret, 1)}
 
             # Contribution sectorielle
             _tot_ret = sum(_ret_by_nom.values()) or 1
@@ -2784,7 +2784,7 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
         "indice":         display_name,
         "code":           universe[:6].upper(),
         "nb_secteurs":    len(secteurs_list),
-        "nb_sociétés":    len(tickers_data),
+        "nb_societes":    len(tickers_data),
         "signal_global":  signal_global,
         "conviction_pct": conviction,
         "date_analyse":   today_str,
@@ -2793,7 +2793,7 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
         "pe_forward":     pe_str,
         "bpa_growth":     _bpa_growth_str,
         "pe_Médiane_10y": _pe_med_str,
-        "prime_décote":   _prime_decote_str,
+        "prime_decote":   _prime_decote_str,
         "score_global":   int(avg_score),
         "score_Médian":   int(avg_score),
         "secteurs":       secteurs_list,
@@ -2805,7 +2805,7 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
         "texte_cycle":        texte_cycle,
         "catalyseurs":  _gen_catalyseurs(secteurs_list, signal_global, int(avg_score)),
         "risques":      _gen_risques(secteurs_list, signal_global, int(avg_score)),
-        "scénarios":    _gen_scenarios(signal_global, int(avg_score)),
+        "scenarios":    _gen_scenarios(signal_global, int(avg_score)),
         "perf_history": _fetch_perf_history(_cours_map.get(universe.upper()), display_name, _d),
         "top3_secteurs":  top3,
         "surp_noms":      _surp_noms,
@@ -2873,7 +2873,7 @@ def render_screening_running() -> None:
             return
 
         _is_indice_run = universe not in _SECTOR_ALIASES_SET
-        _status(f"Calcul des ratios pour {len(tickers)} societes")
+        _status(f"Calcul des ratios pour {len(tickers)} sociétés")
 
         import os as _os
 
@@ -2994,7 +2994,7 @@ def render_screening_running() -> None:
                 log.warning(f"[app] SectoralPPTXWriter error: {_ex_pptx}")
                 traceback.print_exc()
         else:
-            _status(f"Generation du rapport PDF indice ({len(tickers_data)} societes analysees)")
+            _status(f"Génération du rapport PDF indice ({len(tickers_data)} sociétés analysées)")
             _indice_data = None
             _pdf_err = None
             try:
@@ -3010,7 +3010,7 @@ def render_screening_running() -> None:
                 traceback.print_exc()
                 _pdf_err = str(_ex_pdf)[:200]
 
-            _status("Generation du pitchbook PPTX indice")
+            _status("Génération du pitchbook PPTX indice")
             _pptx_err = None
             try:
                 from outputs.indice_pptx_writer import IndicePPTXWriter
@@ -3030,7 +3030,7 @@ def render_screening_running() -> None:
                 if _pdf_err:  _missing.append(f"PDF ({_pdf_err})")
                 if _pptx_err: _missing.append(f"PPTX ({_pptx_err})")
                 st.warning(
-                    "Livrables indice partiellement generes. Manque : "
+                    "Livrables indice partiellement Générés. Manque : "
                     + ", ".join(_missing)
                     + ". Le XLSX et les autres livrables disponibles sont accessibles dans le ruban."
                 )
@@ -3074,7 +3074,7 @@ def render_screening_running() -> None:
                             "beneish_m":         t.get("beneish_m"),
                             "mom_52w":           t.get("momentum_52w"),
                             "fcf_yield":         t.get("fcf_yield"),
-                            "analyst_révision":  t.get("analyst_révision"),
+                            "analyst_revision":  t.get("analyst_revision"),
                             "next_earnings":  t.get("next_earnings"),
                             "signal":         ("Surpondérer" if sg >= 60
                                                else ("Sous-pondérer" if sg < 40 else "Neutre")),
@@ -3727,7 +3727,7 @@ def _render_cmp_indice_section(results: dict) -> None:
 # ---------------------------------------------------------------------------
 
 def _render_cmp_secteur_within_indice(results: dict) -> None:
-    """Apres une analyse indice, permet de comparer deux secteurs DE l'indice.
+    """Après une analyse indice, permet de comparer deux secteurs DE l'indice.
 
     Reuse l'infrastructure cmp_secteur normale (cmp_secteur_* state keys + page
     comparison_results) pour garantir la meme UX que le bouton "Comparer 2
@@ -3753,7 +3753,7 @@ def _render_cmp_secteur_within_indice(results: dict) -> None:
     if st.session_state.get("cmp_secteur_stage") == "running":
         sec_a = st.session_state.get("cmp_secteur_sector_a_isec", "")
         sec_b = st.session_state.get("cmp_secteur_sector_b", "")
-        with st.spinner(f"Generation comparatif {sec_a} vs {sec_b}..."):
+        with st.spinner(f"Génération comparatif {sec_a} vs {sec_b}..."):
             try:
                 tickers_a = [t for t in tickers_data if t.get("sector") == sec_a]
                 tickers_b = [t for t in tickers_data if t.get("sector") == sec_b]
@@ -3798,7 +3798,7 @@ def _render_cmp_secteur_within_indice(results: dict) -> None:
 
                 st.session_state.cmp_secteur_tickers_a = tickers_a
                 st.session_state.cmp_secteur_tickers_b = tickers_b
-                # Preserver l'analyse indice initiale
+                # Préserver l'analyse indice initiale
                 st.session_state.previous_analysis_type    = "screening_results"
                 st.session_state.previous_analysis_results = st.session_state.get("screening_results")
                 st.session_state.previous_analysis_label   = indice_name
@@ -3809,12 +3809,12 @@ def _render_cmp_secteur_within_indice(results: dict) -> None:
                 st.session_state.stage         = "comparison_results"
                 st.rerun()
             except Exception as _ex:
-                st.error(f"Erreur generation comparatif : {_ex}")
+                st.error(f"Erreur Génération comparatif : {_ex}")
                 st.session_state.cmp_secteur_stage = None
         return
 
-    # Formulaire de selection — 2 selectbox + bouton "Comparer" a droite,
-    # tous sur la meme ligne (UX alignee sur cmp 2 societes)
+    # Formulaire de sélection — 2 selectbox + bouton "Comparer" a droite,
+    # tous sur la meme ligne (UX alignée sur cmp 2 sociétés)
     col_a, col_b, col_btn = st.columns([3, 3, 2])
     with col_a:
         sec_a = st.selectbox("Secteur A", sectors_available, key="isec_sel_a",
@@ -4018,7 +4018,7 @@ def _render_cmp_secteur_section(results: dict) -> None:
         s for s in _CMP_SECTOR_CHOICES
         if _slug_from_any(s) != _curr_slug
     ]
-    # Selectbox + bouton "Comparer" sur la meme ligne (alignes comme cmp societe)
+    # Selectbox + bouton "Comparer" sur la meme ligne (alignés comme cmp société)
     sc1, sc2 = st.columns([3, 1])
     with sc1:
         sector_b_sel = st.selectbox(
@@ -5486,7 +5486,7 @@ def _render_cmp_societe_page() -> None:
     _hdr_b = f"{name_b} ({tkr_b})" if name_b and name_b != tkr_b else tkr_b
     _cmp_mini_table(rows, header_a=_hdr_a, header_b=_hdr_b)
 
-    _render_glossaire("cmp_société")
+    _render_glossaire("cmp_societe")
 
 
 # ---------------------------------------------------------------------------

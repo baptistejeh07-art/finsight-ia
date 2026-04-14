@@ -799,7 +799,7 @@ def _s01_cover(prs, D):
     # Tagline code + secteurs + sociétés
     code = D.get("code", "")
     nb_s = D.get("nb_secteurs", 0)
-    nb_c = D.get("nb_sociétés", 0)
+    nb_c = D.get("nb_societes", 0)
     parts = [p for p in [
         code,
         (f"{nb_s} secteurs analys\u00e9s" if nb_s else ""),
@@ -872,7 +872,7 @@ def _s02_exec_summary(prs, D):
     indice = D.get("indice","")
     code   = D.get("code","")
     nb_s   = D.get("nb_secteurs",0)
-    nb_c   = D.get("nb_sociétés",0)
+    nb_c   = D.get("nb_societes",0)
     _header(slide, "Executive Summary",
             f"{indice} ({code})  ·  {nb_s} secteurs  ·  {nb_c} sociétés  ·  Horizon 12 mois",
             active=1)
@@ -956,7 +956,7 @@ def _s02_exec_summary(prs, D):
     _surp_s02  = D.get("surp_noms", "") or ""
     _sous_s02  = D.get("sous_noms", "") or ""
     _pm_s02    = f"{_pe_m_s02}x" if isinstance(_pe_m_s02, (int, float)) else str(_pe_m_s02)
-    _prime_s02 = D.get("prime_décote", "")
+    _prime_s02 = D.get("prime_decote", "")
     _prime_lbl = "prime de valorisation significative" if isinstance(_prime_s02, str) and "+" in str(_prime_s02) else "valorisation en ligne avec l'historique"
     _erp_lbl   = " (prime insuffisanté — prudence sur les entrées)" if _erp_sig_s02 in ("Tendu", "Comprime") else (" (adéquat)" if _erp_sig_s02 else "")
     _suppl_s02 = (
@@ -1041,7 +1041,7 @@ def _s05_description(prs, D):
     erp       = D.get("erp","—")
     bpa       = D.get("bpa_growth","—")
     nb_s      = D.get("nb_secteurs",11)
-    nb_c      = D.get("nb_sociétés","—")
+    nb_c      = D.get("nb_societes","—")
 
     rows = [
         ["MÉTRIQUE",              "VALEUR"],
@@ -1069,7 +1069,7 @@ def _s05_description(prs, D):
     _erp5   = D.get("erp","—")
     _erp_s5 = D.get("erp_signal","")
     _pm5    = f"{_pe_m5}x" if isinstance(_pe_m5,(int,float)) else str(_pe_m5)
-    _prime5 = D.get("prime_décote","")
+    _prime5 = D.get("prime_decote","")
     _sig5   = D.get("signal_global","Neutre")
     _scr5   = D.get("score_Médian")
     if not isinstance(_scr5, (int, float)):
@@ -1104,7 +1104,7 @@ def _s06_valorisation(prs, D):
     # Table valorisation
     pe_fwd    = D.get("pe_forward","—")
     pe_med    = D.get("pe_Médiane_10y","—")
-    prime     = D.get("prime_décote","—")
+    prime     = D.get("prime_decote","—")
     erp       = D.get("erp","—")
     bpa       = D.get("bpa_growth","—")
     rows = [
@@ -1138,7 +1138,7 @@ def _s06_valorisation(prs, D):
         _scr6 = "—"
     if True:  # toujours construire la lecture analytique enrichie
         _pm_str = f"{_pe_m6}x" if isinstance(_pe_m6,(int,float)) else str(_pe_m6)
-        _prime6  = D.get("prime_décote","")
+        _prime6  = D.get("prime_decote","")
         _erp_s6  = D.get("erp_signal","")
         _ytd6    = D.get("variation_ytd","—")
         _cours6  = D.get("cours","—")
@@ -1303,7 +1303,7 @@ def _s09_cartographie(prs, D):
     slide = _blank(prs)
     indice  = D.get("indice","")
     nb_s    = D.get("nb_secteurs",11)
-    nb_c    = D.get("nb_sociétés","")
+    nb_c    = D.get("nb_societes","")
     _header(slide, "Cartographie des Secteurs",
             f"{nb_s} secteurs GICS  ·  {nb_c} sociétés  ·  Tri par score FinSight décroissant",
             active=2)
@@ -1488,7 +1488,7 @@ def _s11_decomposition(prs, D):
     for t in top3:
         sub_map[t["nom"]] = (
             t.get("score_momentum", round(t.get("score",50) * 0.4)),
-            t.get("score_révisions", round(t.get("score",50) * 0.3)),
+            t.get("score_revisions", round(t.get("score",50) * 0.3)),
             t.get("score_valorisation", round(t.get("score",50) * 0.3)),
         )
 
@@ -1579,7 +1579,7 @@ def _s13_top3(prs, D):
     while len(top3) < 3:
         top3 = list(top3) + [{"nom": "—", "signal": "Neutre", "score": 0,
                                "ev_ebitda": "—", "catalyseur": "Données insuffisantés",
-                               "risque": "—", "sociétés": []}]
+                               "risque": "—", "societes": []}]
 
     panel_w = 7.5
     for i, sect in enumerate(top3[:3]):
@@ -1590,7 +1590,7 @@ def _s13_top3(prs, D):
         ev    = sect.get("ev_ebitda","—")
         cat   = sect.get("catalyseur","—")[:180]
         rsk   = sect.get("risque","—")[:180]
-        socs  = sect.get("sociétés",[])
+        socs  = sect.get("societes",[])
 
         # Panel bg
         _rect(slide, xoff, 2.3, panel_w, 11.1, fill=_GRAYL)
@@ -1874,7 +1874,7 @@ def _s17_risques(prs, D):
             f"Analyse adversariale  ·  3 scénarios alternatifs  ·  Conditions d'invalidation du signal {sig_disp}",
             active=4)
 
-    scenarios = D.get("scénarios",[])
+    scenarios = D.get("scenarios",[])
     if not scenarios:
         scenarios = [
             {"titre":"Récession technique","prob":"18 %",
@@ -2051,10 +2051,10 @@ def _s19_sentiment(prs, D, chart_bytes: bytes):
     p_pct = sa.get("positif_pct", 0)
     n_nb  = sa.get("neutre_nb",  0)
     n_pct = sa.get("neutre_pct", 0)
-    m_nb  = sa.get("négatif_nb",  0)
-    m_pct = sa.get("négatif_pct", 0)
-    t_pos = sa.get("thèmes_pos", [])
-    t_neg = sa.get("thèmes_neg", [])
+    m_nb  = sa.get("negatif_nb",  0)
+    m_pct = sa.get("negatif_pct", 0)
+    t_pos = sa.get("themes_pos", [])
+    t_neg = sa.get("themes_neg", [])
 
     # Layout: graphique gauche (x=0.9, w=13.5) + panneau texte droite (x=14.8, w=9.7)
     _score_col = _BUY if score > 0.05 else (_SELL if score < -0.05 else _HOLD)
@@ -2369,7 +2369,7 @@ def _s21_disclaimer(prs, D):
 
     indice = D.get("indice", "Indice")
     date_str = D.get("date_analyse", "")
-    nb_soc = D.get("nb_sociétés", 0)
+    nb_soc = D.get("nb_societes", 0)
     nb_sec = D.get("nb_secteurs", 0)
 
     # Avertissement légal

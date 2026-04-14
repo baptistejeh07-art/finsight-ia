@@ -515,7 +515,7 @@ Secteurs : {sec_a} vs {sec_b}
 [1] VALORISATION (multiples)
 {tkr_a}: PE={_n(m_a.get('pe_ratio'))}, Forward PE={_n(m_a.get('forward_pe'))}, EV/EBITDA={_x2(m_a.get('ev_ebitda'))}, EV/Sales={_x2(m_a.get('ev_sales'))}, P/B={_n(m_a.get('price_to_book'))}, P/FCF={_n(m_a.get('p_fcf'))}, PEG={_n(m_a.get('peg_ratio'))}, FCF yield={_pct(m_a.get('fcf_yield'))}, Div yield={_pct(m_a.get('dividend_yield'))}
 {tkr_b}: PE={_n(m_b.get('pe_ratio'))}, Forward PE={_n(m_b.get('forward_pe'))}, EV/EBITDA={_x2(m_b.get('ev_ebitda'))}, EV/Sales={_x2(m_b.get('ev_sales'))}, P/B={_n(m_b.get('price_to_book'))}, P/FCF={_n(m_b.get('p_fcf'))}, PEG={_n(m_b.get('peg_ratio'))}, FCF yield={_pct(m_b.get('fcf_yield'))}, Div yield={_pct(m_b.get('dividend_yield'))}
-Mediane sectorielle : PE~{_n(m_a.get('sector_Médian_pe'))}, EV/EBITDA~{_x2(m_a.get('sector_Médian_ev_ebitda'))}
+Mediane sectorielle : PE~{_n(m_a.get('sector_median_pe'))}, EV/EBITDA~{_x2(m_a.get('sector_median_ev_ebitda'))}
 
 [2] PROFITABILITE & EFFICACITE OPERATIONNELLE
 {tkr_a}: EBITDA margin LTM={_pct(m_a.get('ebitda_margin_ltm'))} (y-1: {_pct(m_a.get('ebitda_margin_y1'))}, y-2: {_pct(m_a.get('ebitda_margin_y2'))}, trend: {m_a.get('ebitda_margin_trend','N/D')}), EBIT margin={_pct(m_a.get('ebit_margin'))}, Net margin={_pct(m_a.get('net_margin_ltm'))}, ROIC={_pct(m_a.get('roic'))}, ROE={_pct(m_a.get('roe'))}, Cash conversion={_n(m_a.get('cash_conversion'))}
@@ -823,8 +823,8 @@ def _chart_multiples(m_a: dict, m_b: dict, tkr_a: str, tkr_b: str) -> Optional[i
 
         metrics_lbl = ['PE', 'EV/EBITDA', 'P/B', 'PEG']
         sector = m_a.get('sector_a', '') or ''
-        sec_pe = m_a.get('sector_Médian_pe') or 20.0
-        sec_eveb = m_a.get('sector_Médian_ev_ebitda') or 14.0
+        sec_pe = m_a.get('sector_median_pe') or 20.0
+        sec_eveb = m_a.get('sector_median_ev_ebitda') or 14.0
 
         vals_a = [
             _safe_float(m_a.get('pe_ratio')) or 0,
@@ -1762,8 +1762,8 @@ def _slide_multiples(prs, m_a: dict, m_b: dict, synthesis: dict):
         add_rect(slide, 1.02, 2.90, 0.13, 2.6, NAVY_MID)
         add_text_box(slide, 1.4, 3.00, 22.8, 2.45, _v_clean, 9, NAVY, wrap=True)
 
-    sec_pe   = m_a.get('sector_Médian_pe') or '\u2014'
-    sec_eveb = m_a.get('sector_Médian_ev_ebitda') or '\u2014'
+    sec_pe   = m_a.get('sector_median_pe') or '\u2014'
+    sec_eveb = m_a.get('sector_median_ev_ebitda') or '\u2014'
 
     rows = [
         ("PE Ratio",          _frx(m_a.get('pe_ratio')),      _frx(m_b.get('pe_ratio')),      _frx(sec_pe) if sec_pe != '\u2014' else '\u2014'),

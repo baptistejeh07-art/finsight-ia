@@ -523,7 +523,7 @@ def _cover_page(c, doc, data):
     c.drawCentredString(cx, by + box_h_b / 2 - 3*mm, f"Conviction {data['conviction_pct']} %")
 
     # 5 metriques — tolère les deux conventions de nommage
-    _nb_soc = data.get("nb_sociétés") or data.get("nb_sociétés", "\u2014")
+    _nb_soc = data.get("nb_societes") or data.get("nb_societes", "\u2014")
     metrics = [
         ("Secteurs analyses",  str(data.get("nb_secteurs", "\u2014"))),
         ("Soci\u00e9t\u00e9s couvertes", str(_nb_soc)),
@@ -1052,7 +1052,7 @@ def _build_cartographie(data, weights_buf, attribution_buf=None, registry=None):
         _tilt    = analytics.get("tilt", "—")
         _spread  = analytics.get("tilt_spread", 0)
         _cyc     = analytics.get("cyclical_return", 0)
-        _def     = analytics.get("défensive_return", 0)
+        _def     = analytics.get("defensive_return", 0)
         _breadth = analytics.get("breadth_pct", 0)
         _br_nb   = analytics.get("breadth_nb", 0)
         _br_tot  = analytics.get("nb_total", 0)
@@ -1560,7 +1560,7 @@ def _build_top3(data, donut_buf, registry=None):
         _sect_ev = str(sect.get("ev_ebitda", "\u2014"))
         _sect_ev_ok = _sect_ev not in ("\u2014", "—", "", "None")
         _ev_sect = (f"{_mg:.1f}%" if _all_ev_missing and _mg else "\u2014")
-        for tkr, sig, ev, score in (sect.get("sociétés") or sect.get("sociétés") or []):
+        for tkr, sig, ev, score in (sect.get("societes") or sect.get("societes") or []):
             if _all_ev_missing:
                 _val_disp = _ev_sect
             elif str(ev) in ("\u2014", "—", "", "None") and _sect_ev_ok:
@@ -1634,7 +1634,7 @@ def _build_risques(data, registry=None):
         f"Quelles conditions invalideraient le signal {sig_central} et vers quel scénario ?"))
     inv_h = [Paragraph(h, S_TH_L) for h in
              ["Sc\u00e9nario","Condition d\u00e9clencheur","Signal r\u00e9sultant","Horizon"]]
-    inv_data = [[s[0], s[1], s[2], s[3]] for s in (data.get("scénarios") or [
+    inv_data = [[s[0], s[1], s[2], s[3]] for s in (data.get("scenarios") or [
         ("Bull case", "Score > 60 + BPA NTM > +8% YoY", "Surpond\u00e9rer", "3-6 mois"),
         ("Bear case", "Score < 40 via r\u00e9cession ou choc g\u00e9opolitique", "Sous-pond\u00e9rer", "6-12 mois"),
         ("Stagflation", "CPI > 3,5% + PIB < 1%", "Sous-pond\u00e9rer s\u00e9lectif", "6-9 mois"),
@@ -1839,7 +1839,7 @@ def _build_story(data, perf_buf, weights_buf, scatter_buf, scores_buf,
     story.append(_build_sommaire(data, page_nums))
     story.append(Spacer(1, 5*mm))
     story.append(Paragraph("A propos de cette analyse", S_SUBSECTION))
-    _nb_soc_intro = data.get("nb_sociétés") or data.get("nb_sociétés", "\u2014")
+    _nb_soc_intro = data.get("nb_societes") or data.get("nb_societes", "\u2014")
     _nb_sec_intro = data.get("nb_secteurs", "\u2014")
     story.append(Paragraph(
         f"Cette analyse d'indice couvre l'ensemble des {_nb_sec_intro} secteurs GICS du "

@@ -670,7 +670,7 @@ def _inject_growth(wb, data: list[dict]) -> None:
         _eg = t.get("earnings_growth")
         _eg_str = _fmt_pct(_eg) if _eg is not None else "\u2014"
         # Révisions analystes
-        _ar = t.get("analyst_révision")
+        _ar = t.get("analyst_revision")
         _ar_str = f"{_ar:+.0f}" if _ar is not None and _ar != 0 else "\u2014"
         vals = [
             i + 1,

@@ -150,7 +150,7 @@ REPLACEMENTS = {
     "marche":          "marché",
     "marches":         "marchés",
     "societe":         "société",
-    "societes":        "sociétés",
+    "societes":        "societes",
     "fondamentale":    "fondamentale",
     "fondamentales":   "fondamentales",
     "fondamentaux":    "fondamentaux",
@@ -251,7 +251,7 @@ REPLACEMENTS = {
     "regime":          "régime",
     "regimes":         "régimes",
     "scenario":        "scénario",
-    "scenarios":       "scénarios",
+    "scenarios":       "scenarios",
     "horizon":         "horizon",
     "objectif":        "objectif",
     "objectifs":       "objectifs",
@@ -1397,7 +1397,7 @@ REPLACEMENTS = {
     "Sensibilites":          "Sensibilités",
     "sensible":              "sensible",
     "sensibles":             "sensibles",
-    "economique":            "économique",
+    "economique":            "economique",
     "economiques":           "économiques",
     "economiquement":        "économiquement",
     "Economique":            "Économique",
@@ -1725,9 +1725,55 @@ def transform_line(line: str) -> tuple[str, int]:
     return line, 0
 
 
+def _ast_accented_identifiers(src: str) -> set[str]:
+    """Retourne les identifiants Python (Name, Attribute, FunctionDef, arg, dict
+    string keys) qui contiennent des accents. Sert de garde-fou pour eviter que
+    restore_accents.py ne casse silencieusement des variables Python."""
+    import ast as _ast
+    import re as _re
+    _ACCENTED = _re.compile(r'[éèêëàâäùûüôöïîçÉÈÊËÀÂÄÙÛÜÔÖÏÎÇ]')
+    found = set()
+    try:
+        tree = _ast.parse(src)
+    except SyntaxError:
+        return found
+    for node in _ast.walk(tree):
+        if isinstance(node, _ast.Name) and _ACCENTED.search(node.id):
+            found.add(("Name", node.id))
+        elif isinstance(node, _ast.Attribute) and _ACCENTED.search(node.attr):
+            found.add(("Attribute", node.attr))
+        elif isinstance(node, _ast.FunctionDef) and _ACCENTED.search(node.name):
+            found.add(("FunctionDef", node.name))
+        elif isinstance(node, _ast.arg) and _ACCENTED.search(node.arg):
+            found.add(("Arg", node.arg))
+        # String literals qui ressemblent a des identifiers Python (snake_case
+        # ou avec underscore). Heuristique : doit contenir un `_` OU commencer
+        # par minuscule sans capitalisation francaise. Filtre les vrais mots
+        # francais comme "Surpondérer", "Santé", "Énergie".
+        elif isinstance(node, _ast.Constant) and isinstance(node.value, str):
+            v = node.value
+            if (_ACCENTED.search(v) and len(v) < 30 and "_" in v):
+                # ASCII-fier pour tester si ressemble a un identifier Python
+                _from = "éèêëàâäùûüôöïîçÉÈÊËÀÂÄÙÛÜÔÖÏÎÇ"
+                _to   = "eeeeaaauuuooiicEEEEAAAUUUOOIIC"
+                _ascii = v.translate(str.maketrans(_from, _to))
+                if _re.match(r'^[a-z_][a-z0-9_]*$', _ascii):
+                    found.add(("StringIdentifier", v))
+    return found
+
+
 def transform_file(path: Path) -> tuple[int, int]:
-    """Transforme un fichier en place. Retourne (lines_changed, total_replacements)."""
+    """Transforme un fichier en place. Retourne (lines_changed, total_replacements).
+
+    GARDE-FOU AST : si la transformation cree des nouveaux identifiants Python
+    avec accents (qui causeraient NameError au runtime), on REVERT le fichier
+    et on signale l'erreur. Idem pour les string-identifiers (cles dict).
+    """
     src = path.read_text(encoding="utf-8")
+
+    # AST audit AVANT
+    accented_before = _ast_accented_identifiers(src)
+
     lines = src.split("\n")
     new_lines = []
     total = 0
@@ -1739,25 +1785,39 @@ def transform_file(path: Path) -> tuple[int, int]:
             total += n
         new_lines.append(new_line)
     new_src = "\n".join(new_lines)
-    if new_src != src:
-        path.write_text(new_src, encoding="utf-8")
+
+    if new_src == src:
+        return changed, total
+
+    # AST audit APRES
+    accented_after = _ast_accented_identifiers(new_src)
+    new_broken = accented_after - accented_before
+    if new_broken:
+        # REVERT : ne pas ecrire le fichier, signaler l'erreur
+        print(f"  [SKIP] {path.name} : restore_accents aurait cree des identifiants Python brises :")
+        for kind, name in sorted(new_broken):
+            print(f"           {kind:18s} {name!r}")
+        print(f"           -> Revert (fichier non modifie). Investiguer manuellement.")
+        return 0, 0
+
+    path.write_text(new_src, encoding="utf-8")
     return changed, total
 
 
 def main():
     targets = [
-        # Comparatif societe (cas 1)
-        ROOT / "outputs" / "comparison_pptx_writer.py",
-        ROOT / "outputs" / "comparison_pdf_writer.py",
-        ROOT / "outputs" / "comparison_writer.py",
+        # Comparatif societe (cas 1) — renommes en cmp_societe_*_writer
+        ROOT / "outputs" / "cmp_societe_pptx_writer.py",
+        ROOT / "outputs" / "cmp_societe_pdf_writer.py",
+        ROOT / "outputs" / "cmp_societe_xlsx_writer.py",
         # Comparatif sectoriel (cas 2)
         ROOT / "outputs" / "cmp_secteur_pptx_writer.py",
         ROOT / "outputs" / "cmp_secteur_pdf_writer.py",
         ROOT / "outputs" / "cmp_secteur_xlsx_writer.py",
-        # Comparatif indice (cas 3)
-        ROOT / "outputs" / "indice_comparison_pptx_writer.py",
-        ROOT / "outputs" / "indice_comparison_pdf_writer.py",
-        ROOT / "outputs" / "indice_comparison_writer.py",
+        # Comparatif indice (cas 3) — renommes en cmp_indice_*_writer
+        ROOT / "outputs" / "cmp_indice_pptx_writer.py",
+        ROOT / "outputs" / "cmp_indice_pdf_writer.py",
+        ROOT / "outputs" / "cmp_indice_xlsx_writer.py",
         # Rapport individuel societe (Baptiste : sauf pdf_writer.py qu'il refait)
         ROOT / "outputs" / "pptx_writer.py",
         ROOT / "outputs" / "excel_writer.py",
