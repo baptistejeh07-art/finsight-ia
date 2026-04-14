@@ -984,7 +984,7 @@ def _chart_distribution(tickers_data) -> bytes:
 
 def _chart_performance(tickers_data, best_ticker=None, worst_ticker=None) -> bytes:
     """52W relative performance line chart via yfinance.
-    best_ticker et worst_ticker sont surlignés (vert/rouge épais), les autres en gris fin.
+    Top 3 momentum + worst sont surlignés en couleurs distinctes, autres en gris.
     La légende affiche les noms commerciaux (company) au lieu des tickers."""
     import datetime as dt
     # Build ticker -> company name lookup pour la legende
@@ -994,8 +994,20 @@ def _chart_performance(tickers_data, best_ticker=None, worst_ticker=None) -> byt
         _nm = _t.get("company") or _t.get("name") or _tk
         if _tk:
             _name_map[_tk] = _nm[:28]  # cap 28 chars pour la legende
-    colors_line = ['#1B3A6B', '#1A7A4A', '#A82020', '#B06000', '#2A5298',
-                   '#6B3A1B', '#3A6B1B', '#6B1B3A']
+
+    # Top 3 par momentum_52w (couleurs distinctes) + worst (rouge)
+    _ranked = sorted([t for t in tickers_data if t.get("ticker")],
+                     key=lambda x: x.get("momentum_52w") or -1e9, reverse=True)
+    _top3_tk = [t.get("ticker") for t in _ranked[:3]]
+    _worst_tk = worst_ticker or (_ranked[-1].get("ticker") if _ranked else None)
+    _highlight_colors = {
+        (_top3_tk[0] if len(_top3_tk) > 0 else None): ('#1A7A4A', 2.8),  # vert vif
+        (_top3_tk[1] if len(_top3_tk) > 1 else None): ('#1B3A6B', 2.2),  # navy
+        (_top3_tk[2] if len(_top3_tk) > 2 else None): ('#B06000', 2.2),  # ambre
+        _worst_tk: ('#A82020', 2.5),                                       # rouge
+    }
+    _highlight_colors.pop(None, None)
+
     fig, ax = plt.subplots(figsize=(9.5, 4.4))
     fig.patch.set_facecolor('#FFFFFF')
     ax.set_facecolor('#F8F9FA')
@@ -1007,11 +1019,10 @@ def _chart_performance(tickers_data, best_ticker=None, worst_ticker=None) -> byt
 
     def _line_style(ticker):
         """Retourne (color, linewidth, alpha, zorder) selon le role du ticker."""
-        if best_ticker and ticker == best_ticker:
-            return '#1A7A4A', 2.8, 1.0, 4  # vert, epais, au premier plan
-        if worst_ticker and ticker == worst_ticker:
-            return '#A82020', 2.8, 1.0, 4  # rouge, epais, au premier plan
-        return '#BBBBBB', 1.0, 0.55, 2     # gris, fin, en arriere-plan
+        if ticker in _highlight_colors:
+            col, lw = _highlight_colors[ticker]
+            return col, lw, 1.0, 4
+        return '#BBBBBB', 0.9, 0.45, 2     # gris, fin, en arriere-plan
 
     plotted = 0
     try:
@@ -1027,14 +1038,8 @@ def _chart_performance(tickers_data, best_ticker=None, worst_ticker=None) -> byt
                 if len(hist) < 4: continue
                 norm = (hist / hist.iloc[0] - 1) * 100
                 col, lw, alpha, zord = _line_style(ticker)
-                # Si highlight ON mais ce ticker n'est pas dans best/worst : gris
-                # Si highlight OFF (aucun best/worst fourni) : couleurs originales
-                if best_ticker is None and worst_ticker is None:
-                    col, lw, alpha, zord = colors_line[i % len(colors_line)], 1.6, 0.9, 3
-                # Legende avec nom commercial, mais uniquement pour les lignes
-                # mises en avant (best/worst) ou si aucune mise en avant
-                _is_highlighted = (ticker == best_ticker or ticker == worst_ticker
-                                   or (best_ticker is None and worst_ticker is None))
+                # Legende uniquement pour top 3 + worst (highlight)
+                _is_highlighted = ticker in _highlight_colors
                 _lbl = _name_map.get(ticker, ticker) if _is_highlighted else "_nolegend_"
                 ax.plot(norm.index, norm.values,
                         color=col, linewidth=lw, label=_lbl, alpha=alpha, zorder=zord)
@@ -1054,10 +1059,7 @@ def _chart_performance(tickers_data, best_ticker=None, worst_ticker=None) -> byt
             y = np.cumsum(np.random.randn(53) * 1.5)
             ticker = t.get("ticker", f"T{i+1}")
             col, lw, alpha, zord = _line_style(ticker)
-            if best_ticker is None and worst_ticker is None:
-                col, lw, alpha, zord = colors_line[i % len(colors_line)], 1.6, 0.9, 3
-            _is_highlighted = (ticker == best_ticker or ticker == worst_ticker
-                               or (best_ticker is None and worst_ticker is None))
+            _is_highlighted = ticker in _highlight_colors
             _lbl = _name_map.get(ticker, ticker) if _is_highlighted else "_nolegend_"
             ax.plot(x, y, color=col, linewidth=lw, label=_lbl, alpha=alpha, zorder=zord)
         ax.set_xlabel("Semaines (illustratif)", fontsize=8, color='#555555')
@@ -1072,7 +1074,11 @@ def _chart_performance(tickers_data, best_ticker=None, worst_ticker=None) -> byt
     ax.spines['left'].set_color('#DDDDDD')
     ax.spines['bottom'].set_color('#DDDDDD')
     ax.grid(True, alpha=0.3, linestyle=':')
-    ax.legend(loc='upper left', fontsize=7.5, framealpha=0.85, edgecolor='#DDDDDD')
+    _leg = ax.legend(loc='upper left', fontsize=8, framealpha=0.95,
+                     edgecolor='#888888', facecolor='#FFFFFF',
+                     ncol=1, borderpad=0.6, labelspacing=0.5)
+    if _leg is not None:
+        _leg.get_frame().set_linewidth(0.8)
     plt.tight_layout()
     buf = io.BytesIO()
     fig.savefig(buf, format='png', dpi=150, bbox_inches='tight',
@@ -1211,12 +1217,12 @@ def _s05_presentation(prs, D):
     cats = content.get("catalyseurs", [])
     if cats:
         _cat_y0 = 6.3
-        _cat_h_total = 6.2
+        _cat_h_total = 6.65
         _rect(slide, 0.9, _cat_y0, 13.7, _cat_h_total, fill=_GRAYL)
         _rect(slide, 0.9, _cat_y0, 13.7, 0.55, fill=_NAVY)
         _txb(slide, "CATALYSEURS CL\u00c9S", 1.1, _cat_y0 + 0.08, 13.3, 0.45,
              size=9, bold=True, color=_WHITE)
-        # 3 catalyseurs, hauteur 1.85 chacun, gap 0.1
+        # 3 catalyseurs, hauteur 1.85 chacun, gap 0.1 — box agrandie pour englober la 3e barre
         _row_h = 1.85
         _row_gap = 0.1
         for j, (ct, cb) in enumerate(cats[:3]):
@@ -1476,7 +1482,8 @@ def _s08_subsectors(prs, D):
             cell.fill.fore_color.rgb = bg
 
     # Analyse LLM sous le tableau — bloc unique avec titre dynamique
-    y_box = 2.20 + tbl_h + 0.35
+    # Gap elargi (0.65) pour mieux separer table et analyse
+    y_box = 2.20 + tbl_h + 0.65
     remaining_h = 13.0 - y_box
     if remaining_h > 2.0 and subsectors:
         _top = subsectors[0]
@@ -1484,20 +1491,22 @@ def _s08_subsectors(prs, D):
         _score_spread = _top["score"] - _bottom["score"]
         _top_best = ", ".join(b[0] for b in _top.get("best", [])[:3])
 
-        # Titre analytique dynamique Généré depuis les Données
+        # Titre analytique dynamique Généré depuis les Données — limite stricte sur le nom
+        # pour eviter le debordement de la barre de titre (slide 8 banques)
+        _top_name_short = _top['name'][:20]
         if _score_spread >= 25:
-            _title = f"DISPERSION MARQU\u00c9E \u2014 {_top['name'][:24]} domine avec un \u00e9cart de {_score_spread} points"
+            _title = f"DISPERSION MARQU\u00c9E \u2014 {_top_name_short} domine (+{_score_spread} pts)"
         elif _top["score"] >= 60:
-            _title = f"LEADERSHIP {_top['name'][:30].upper()} CONFIRM\u00c9 \u2014 score {_top['score']}/100"
+            _title = f"LEADERSHIP {_top_name_short.upper()} \u2014 score {_top['score']}/100"
         else:
-            _title = f"PHOTO SECTORIELLE \u2014 {len(subsectors)} sous-segments, score moyen {sum(s['score'] for s in subsectors)//len(subsectors)}/100"
+            _title = f"PHOTO SECTORIELLE \u2014 {len(subsectors)} sous-segments, moy. {sum(s['score'] for s in subsectors)//len(subsectors)}/100"
 
-        _rect(slide, 0.9, y_box, 23.6, 0.55, fill=_NAVY)
-        _txb(slide, _title, 1.1, y_box + 0.08, 23.2, 0.45,
+        _rect(slide, 0.9, y_box, 23.6, 0.65, fill=_NAVY)
+        _txb(slide, _title, 1.1, y_box + 0.13, 23.2, 0.45,
              size=10, bold=True, color=_WHITE)
 
         # Bloc d'analyse
-        _body_y = y_box + 0.7
+        _body_y = y_box + 0.8
         _body_h = min(remaining_h - 0.9, 4.5)
         _rect(slide, 0.9, _body_y, 23.6, _body_h, fill=_GRAYL)
         _rect(slide, 0.9, _body_y, 0.12, _body_h, fill=_NAVY)
@@ -1759,13 +1768,37 @@ def _s13_top3(prs, D):
                 _txb(slide, f"Upside : {upside:+.0f} %", cx + 4.4, 4.3, 3.0, 0.6, size=9, color=_WHITE)
             except: pass
 
-        # Key ratios
+        # Key ratios — adaptes au profil sectoriel detecte
         _txb(slide, "Ratios cles", cx + 0.4, 5.6, 7.1, 0.5, size=7.5, bold=True, color=_NAVY)
-        ratios = [
-            ("EV/EBITDA", _fmt_x(t.get("ev_ebitda"))),
-            ("Marge EBITDA", _fmt_pct_plain(t.get("ebitda_margin"))),
-            ("Altman Z", _fmt_num(t.get("altman_z"))),
-        ]
+        try:
+            from core.sector_profiles import detect_profile
+            _t_profile = detect_profile(t.get("sector", ""), t.get("industry", ""))
+        except Exception:
+            _t_profile = "STANDARD"
+        if _t_profile == "BANK":
+            ratios = [
+                ("P/E", _fmt_x(t.get("pe") or t.get("pe_ratio"))),
+                ("P/B", _fmt_x(t.get("pb_ratio"))),
+                ("ROE", _fmt_pct_plain(t.get("roe"))),
+            ]
+        elif _t_profile == "INSURANCE":
+            ratios = [
+                ("P/E", _fmt_x(t.get("pe") or t.get("pe_ratio"))),
+                ("P/B", _fmt_x(t.get("pb_ratio"))),
+                ("ROE", _fmt_pct_plain(t.get("roe"))),
+            ]
+        elif _t_profile == "REIT":
+            ratios = [
+                ("P/E", _fmt_x(t.get("pe") or t.get("pe_ratio"))),
+                ("P/B", _fmt_x(t.get("pb_ratio"))),
+                ("Div Yield", _fmt_pct_plain(t.get("div_yield"))),
+            ]
+        else:
+            ratios = [
+                ("EV/EBITDA", _fmt_x(t.get("ev_ebitda"))),
+                ("Marge EBITDA", _fmt_pct_plain(t.get("ebitda_margin"))),
+                ("Altman Z", _fmt_num(t.get("altman_z"))),
+            ]
         for j, (rl, rv) in enumerate(ratios):
             ry = 6.1 + j * 0.75
             _rect(slide, cx + 0.4, ry, 7.1, 0.72, fill=_GRAYM)

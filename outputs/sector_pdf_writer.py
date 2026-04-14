@@ -2790,14 +2790,25 @@ def _build_conclusion(tickers_data: list[dict], sector_name: str,
 
 
 # ─── LLM COMMENTARY ───────────────────────────────────────────────────────────
-def _generate_reco_commentary(buy_list, hold_list, sell_list, sector_name):
-    """Appel Groq unique — 2-3 phrases par groupe BUY/HOLD/SELL."""
+def _generate_reco_commentary(buy_list, hold_list, sell_list, sector_name, sector_profile="STANDARD"):
+    """Appel Groq unique — 2-3 phrases par groupe BUY/HOLD/SELL.
+    sector_profile : adapte les ratios cites (banques/assurance n'ont pas Mg.EBITDA)."""
     try:
         import sys as _sys, os as _os
         _sys.path.insert(0, _os.path.dirname(_os.path.dirname(__file__)))
         from core.llm_provider import LLMProvider
 
+        _is_fin = sector_profile in ("BANK", "INSURANCE")
+
         def _ticker_summary(t):
+            if _is_fin:
+                # Pour banques/assurance : P/E, P/B, ROE (Mg.EBITDA non pertinent)
+                return (
+                    f"{t.get('ticker','?')} (Score {int(t.get('score_global') or 0)}/100, "
+                    f"P/E {_fmt_mult(t.get('pe') or t.get('pe_ratio'))}, "
+                    f"P/B {_fmt_mult(t.get('pb_ratio'))}, "
+                    f"ROE {_fmt_pct(t.get('roe'), sign=False)})"
+                )
             return (
                 f"{t.get('ticker','?')} (Score {int(t.get('score_global') or 0)}/100, "
                 f"EV/EBITDA {_fmt_mult(t.get('ev_ebitda'))}, "
@@ -2809,9 +2820,23 @@ def _generate_reco_commentary(buy_list, hold_list, sell_list, sector_name):
         hold_str = ", ".join(_ticker_summary(t) for t in hold_list[:5]) or "Aucune"
         sell_str = ", ".join(_ticker_summary(t) for t in sell_list[:5]) or "Aucune"
 
+        if _is_fin:
+            _profile_hint = (
+                "Contexte : secteur financier (banques/assurance). Les ratios pertinents sont "
+                "P/E, P/B, ROE, CET1, NPL, Combined Ratio — JAMAIS EBITDA ni Mg.EBITDA "
+                "(non applicables aux institutions financieres). Raisonne sur la valorisation "
+                "par les fonds propres (P/B), la rentabilite (ROE), la qualite du bilan "
+                "(provisions, ratio prudentiel) et l'environnement de taux."
+            )
+        else:
+            _profile_hint = (
+                "Contexte : secteur non-financier. Raisonne sur valorisation (EV/EBITDA, P/E), "
+                "marges (Mg.EBITDA), croissance (revenus YoY), qualite du bilan et catalyseurs."
+            )
         prompt = (
             f"Tu es analyste sectoriel senior. Redige une synthèse d'investissement "
             f"sur le secteur {sector_name} en francais, sans majuscules superflues, sans bullet points.\n\n"
+            f"{_profile_hint}\n\n"
             f"BUY : {buy_str}\n"
             f"HOLD : {hold_str}\n"
             f"SELL : {sell_str}\n\n"
@@ -3152,7 +3177,8 @@ def generate_sector_report(
     _buy_l  = [t for t in _sorted if _reco(t.get('score_global')) == "BUY"]
     _hold_l = [t for t in _sorted if _reco(t.get('score_global')) == "HOLD"]
     _sell_l = [t for t in _sorted if _reco(t.get('score_global')) == "SELL"]
-    reco_commentary = _generate_reco_commentary(_buy_l, _hold_l, _sell_l, sector_name)
+    _reco_profile = _detect_sector_profile(tickers_data, sector_name)
+    reco_commentary = _generate_reco_commentary(_buy_l, _hold_l, _sell_l, sector_name, _reco_profile)
 
     # Generation des charts
     perf_buf    = _make_perf_chart(tickers_data, sector_name)
