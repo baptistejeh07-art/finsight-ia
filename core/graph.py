@@ -268,9 +268,17 @@ def synthesis_node(state: FinSightState) -> dict:
 
         conf = synthesis.confidence_score
         rec  = synthesis.recommendation
+        # ROBUST-2 Baptiste 2026-04-14 : eleve conf = max(LLM auto-reporte,
+        # data_quality). Un LLM prudent retournait 0.30-0.40 sur META malgre
+        # un snapshot complete (data_quality >= 0.90). Le MAX evite de bloquer
+        # a tort les mega-caps sur auto-evaluation conservatrice.
+        _data_q = state.get("data_quality") or 0.0
+        if _data_q and _data_q > conf:
+            log.info(f"[synthesis_node] conf LLM={conf:.0%} ecrase par data_quality={_data_q:.0%}")
+            conf = _data_q
         # Floor : confidence_score < 0.1 anormalement bas → utiliser data_quality
         if conf < 0.1:
-            conf = state.get("data_quality") or 0.70
+            conf = _data_q or 0.70
             log.warning(f"[synthesis_node] confidence_score anormalement bas — remplace par {conf:.0%}")
 
         log.info(f"[synthesis_node] confidence={conf} rec={rec} — {ms}ms")
@@ -555,15 +563,26 @@ def route_after_fetch(state: FinSightState) -> str:
 
 
 def route_after_synthesis(state: FinSightState) -> str:
-    """Apres synthesis : si confidence < 0.65 → bloque, sinon QA.
-    Si confidence_score est None (LLM KO), utilise data_quality comme garde-fou."""
-    conf = state.get("confidence_score")
-    if conf is None:
-        # confidence_score non positionne : utiliser data_quality comme proxy
-        conf = state.get("data_quality") or 0.70
-        log.warning(f"[route_after_synthesis] confidence_score=None — proxy data_quality={conf:.0%}")
-    if conf < 0.45:
-        log.warning(f"[route_after_synthesis] confidence={conf:.0%} < 45% — pipeline bloque")
+    """Apres synthesis : si confidence < 0.45 -> bloque, sinon QA.
+
+    ROBUST-2 Baptiste 2026-04-14 : META (mega-cap US complete) etait bloque
+    alors que data_quality etait a 0.95+. Cause : le LLM reportait un
+    confidence_score auto-evalue trop prudent (0.30-0.40). Correction :
+    on prend le MAX entre le confidence LLM auto-reporte et data_quality,
+    parce qu'une snapshot complete est par construction fiable meme si
+    le LLM a ete conservateur dans son auto-evaluation.
+    """
+    llm_conf = state.get("confidence_score")
+    data_q   = state.get("data_quality") or 0.0
+    if llm_conf is None:
+        effective_conf = data_q or 0.70
+        log.warning(f"[route_after_synthesis] confidence_score=None — proxy data_quality={effective_conf:.0%}")
+    else:
+        effective_conf = max(float(llm_conf), float(data_q))
+        if effective_conf > llm_conf:
+            log.info(f"[route_after_synthesis] llm_conf={llm_conf:.0%} ecrase par data_quality={data_q:.0%}")
+    if effective_conf < 0.45:
+        log.warning(f"[route_after_synthesis] confidence={effective_conf:.0%} < 45% — pipeline bloque")
         return "blocked_node"
     return "qa_node"
 
