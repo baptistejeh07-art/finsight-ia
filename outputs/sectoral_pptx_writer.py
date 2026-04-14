@@ -1530,7 +1530,7 @@ def _s08_subsectors(prs, D):
 
     # Analyse LLM sous le tableau — bloc unique avec titre dynamique
     # Gap elargi (0.65) pour mieux separer table et analyse
-    y_box = 2.20 + tbl_h + 0.65
+    y_box = 2.20 + tbl_h + 0.95  # espace supplementaire sous table (audit Baptiste Tech 2026-04-14)
     remaining_h = 13.0 - y_box
     if remaining_h > 2.0 and subsectors:
         _top = subsectors[0]

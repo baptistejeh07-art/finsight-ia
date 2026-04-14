@@ -1901,14 +1901,51 @@ def _build_acteurs(tickers_data: list[dict], sector_name: str, registry=None):
     sorted_data = sorted(tickers_data, key=lambda x: x.get('score_global') or 0, reverse=True)
     best = sorted_data[0] if sorted_data else {}
 
-    elems.append(Paragraph(
-        f"L'analyse des <b>{N} acteurs</b> du secteur <b>{sector_name}</b> révèle des profils "
-        f"de risque/rendement distincts. <b>{best.get('company', 'Le leader sectoriel')}</b> "
-        f"affiche le score composite le plus élevé ({best.get('score_global', 'N/A')}/100), "
-        f"tire par ses fondamentaux de qualité et son positionnément concurrentiel. "
-        f"La dispersion des marges EBITDA illustre les differences de modèles economiques "
-        f"entre acteurs établis et challengers. L'analyse des ratios de valorisation permet "
-        f"d'identifier les décotes et primes injustifiées par rapport aux pairs.", S_BODY))
+    # Intro acteurs : appel LLM pour generer un texte contextuel (chasse hardcoding #90)
+    _acteurs_intro_llm = ""
+    try:
+        from core.llm_provider import llm_call
+        _worst = sorted_data[-1] if sorted_data else {}
+        _top3_names = ", ".join(
+            f"{t.get('ticker','?')} ({int(t.get('score_global') or 0)}/100)"
+            for t in sorted_data[:3]
+        )
+        _prompt_acteurs = (
+            f"Tu es analyste buy-side senior. Redige une introduction (200-240 mots) "
+            f"a l'analyse des acteurs du secteur {sector_name} couvrant {N} societes.\n\n"
+            f"Top 3 par score FinSight : {_top3_names}\n"
+            f"Leader : {best.get('company','?')} (score {best.get('score_global','?')}/100, "
+            f"marge EBITDA {best.get('ebitda_margin','?')}, "
+            f"croissance {best.get('revenue_growth','?')})\n"
+            f"Lanterne rouge : {_worst.get('company','?')} "
+            f"(score {_worst.get('score_global','?')}/100)\n\n"
+            f"Structure en 2 paragraphes :\n"
+            f"1. Panorama du secteur : hierarchie concurrentielle, ce qui distingue "
+            f"les leaders des challengers, driveurs de differenciation\n"
+            f"2. Lecture de la dispersion : ce que le spread des scores FinSight "
+            f"implique pour la strategie d'allocation (concentration vs diversification), "
+            f"quels ratios privilegier pour le stock-picking\n\n"
+            f"Francais correct avec accents. Pas de markdown. Pas d'emojis."
+        )
+        _acteurs_intro_llm = llm_call(_prompt_acteurs, phase="long", max_tokens=700) or ""
+    except Exception:
+        pass
+
+    if _acteurs_intro_llm.strip():
+        for _p in _acteurs_intro_llm.split("\n\n"):
+            _clean = _p.strip().replace("\n", " ")
+            if _clean:
+                elems.append(Paragraph(_safe(_clean), S_BODY))
+                elems.append(Spacer(1, 2*mm))
+    else:
+        elems.append(Paragraph(
+            f"L'analyse des <b>{N} acteurs</b> du secteur <b>{sector_name}</b> r\u00e9v\u00e8le des profils "
+            f"de risque/rendement distincts. <b>{best.get('company', 'Le leader sectoriel')}</b> "
+            f"affiche le score composite le plus \u00e9lev\u00e9 ({best.get('score_global', 'N/A')}/100), "
+            f"tir\u00e9 par ses fondamentaux de qualit\u00e9 et son positionnement concurrentiel. "
+            f"La dispersion des marges EBITDA illustre les differences de mod\u00e8les \u00e9conomiques "
+            f"entre acteurs \u00e9tablis et challengers. L'analyse des ratios de valorisation permet "
+            f"d'identifier les d\u00e9cotes et primes injustifi\u00e9es par rapport aux pairs.", S_BODY))
     elems.append(Spacer(1, 3*mm))
 
     # Profil sectoriel dominant — détermine les colonnes du tableau comparatif
