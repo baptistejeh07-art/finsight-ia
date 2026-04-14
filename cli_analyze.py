@@ -1214,6 +1214,7 @@ def _make_test_indice_data(universe: str = "S&P 500") -> dict:
     scores = [s[2] for s in secteurs]
     avg_score = round(statistics.mean(scores), 1)
     nb_surp = sum(1 for s in secteurs if s[3] == "Surpondérer")
+    nb_sous = sum(1 for s in secteurs if s[3] in ("Sous-pondérer", "Sous-ponderer"))
     conviction = round(nb_surp / len(secteurs) * 100)
     signal_global = ("Surpondérer" if avg_score > 62 else
                      ("Sous-ponderer" if avg_score < 45 else "Neutre"))
@@ -1358,10 +1359,11 @@ def _make_test_indice_data(universe: str = "S&P 500") -> dict:
             {"nom": "Taux chomage",       "valeur": "4.1%", "tendance": "Stable",  "signal": "Neutre"},
             {"nom": "CPI Core YoY",       "valeur": "3.1%", "tendance": "Baisse",  "signal": "Neutre"},
         ],
+        # Catalyseurs generiques (le writer enrichit via LLM selon l'univers)
         "catalyseurs": [
-            ("Cycle IA",          "CAPEX hyperscalers +35% YoY — monetisation acceleree services cloud et semi", "6-12 mois"),
-            ("Desinflation",      "PCE Core convergence vers 2.5% d ici fin 2026 — Fed pivot dovish attendu", "9-18 mois"),
-            ("Resilience margins","Marges nettes S&P 500 a 12.4% vs 11.8% consensus — revision haussiere BPA", "3-6 mois"),
+            ("Politique monetaire", "Trajectoire des taux directeurs des banques centrales et son impact sur les multiples", "6-12 mois"),
+            ("Trajectoire inflation", "Convergence de l'inflation vers la cible 2% — conditions de pivot monetaire", "9-18 mois"),
+            ("Revisions BPA", "Dynamique consensus sur les benefices aggreges de l'univers analyse", "3-6 mois"),
         ],
         "secteurs":      secteurs,
         "top3_secteurs": top3_secteurs,
@@ -1381,20 +1383,23 @@ def _make_test_indice_data(universe: str = "S&P 500") -> dict:
             "Pic de volatilite (VIX > 35) persistant sur plus de 10 seances",
         ],
         "rotation":      rotation,
+        # Sentiment_agg : distribution des secteurs par signal (calculee depuis
+        # les vraies donnees tickers_data, pas de hardcoded counts/scores)
         "sentiment_agg": {
-            "label":       "Neutre",
-            "score":        0.06,
-            "nb_articles":  34,
-            "positif_nb":   15, "positif_pct": 44,
-            "neutre_nb":    12, "neutre_pct":  35,
-            "negatif_nb":   7,  "negatif_pct": 21,
-            "themes_pos":   ["Resultats T4", "Cycle IA", "Innovation semi"],
-            "themes_neg":   ["Regulation", "Taux LT", "CRE"],
-            "positif": {"nb": 15, "score": "0.42", "themes": "Resultats T4, IA, Innovation semi"},
-            "neutre":  {"nb": 12, "score": "0.02", "themes": "Guidances 2026, Macro taux"},
-            "negatif": {"nb": 7,  "score": "-0.35","themes": "Regulation, Taux LT, CRE"},
+            "label":       signal_global,
+            "score":        0.0,
+            "nb_articles":  0,
+            "positif_nb":   nb_surp, "positif_pct": round(100*nb_surp/max(len(secteurs),1)),
+            "neutre_nb":    len(secteurs) - nb_surp - nb_sous,
+            "neutre_pct":   round(100*(len(secteurs) - nb_surp - nb_sous)/max(len(secteurs),1)),
+            "negatif_nb":   nb_sous, "negatif_pct": round(100*nb_sous/max(len(secteurs),1)),
+            "themes_pos":   [],  # le writer remplit depuis les donnees reelles
+            "themes_neg":   [],
+            "positif": {"nb": nb_surp, "score": "—", "themes": "—"},
+            "neutre":  {"nb": len(secteurs) - nb_surp - nb_sous, "score": "—", "themes": "—"},
+            "negatif": {"nb": nb_sous, "score": "—", "themes": "—"},
             # par_secteur vide par defaut : laisse le writer utiliser les VRAIS
-            # scores sectoriels calcules depuis les tickers_data, pas de hardcoded
+            # scores sectoriels calcules depuis les tickers_data
             "par_secteur": [],
         },
         "etf_perf": etf_perf,
