@@ -3557,36 +3557,94 @@ class PDFWriter:
             except (ValueError, ZeroDivisionError):
                 pass
 
+        # Ligne P/E (init avant EPS historique pour pouvoir ecrire par annee depuis le block histo)
+        _pe_row = list(_dash_row)
+        _pe_label = "P/E (LTM / Fwd / Histo)"
+
         # EPS historique calculé par année depuis résultat net / actions (même méthode que fallback LTM)
+        # EPS N+2 (ny2) : derive de net_income projete / shares si projections disponibles
         _eps_hist = list(_dash_row)
+        _eps_num  = [None] * len(all_labels)  # valeurs numeriques pour P/E histo
         if _shares and float(_shares) > 0:
             for _i, _l in enumerate(all_labels):
                 if _i == _ny1_idx and _fwd_eps is not None:
-                    try: _eps_hist[_i] = _fr(float(_fwd_eps), 2)
+                    try:
+                        _eps_num[_i] = float(_fwd_eps)
+                        _eps_hist[_i] = _fr(_eps_num[_i], 2)
                     except: pass
-                elif _i == _ny1_idx + 1:
-                    pass  # ny2 : pas d'EPS disponible
                 else:
                     _ni_yr = _ni(_l)
                     if _ni_yr is not None:
                         try:
-                            _eps_yr = round(float(_ni_yr) / float(_shares), 2)
-                            _eps_hist[_i] = _fr(_eps_yr, 2)
+                            _eps_yr = float(_ni_yr) / float(_shares)
+                            _eps_num[_i]  = _eps_yr
+                            _eps_hist[_i] = _fr(round(_eps_yr, 2), 2)
                         except: pass
             # Remplacer LTM par la valeur yfinance si plus précise
             if _trailing_eps is not None:
-                try: _eps_hist[_ltm_idx] = _fr(float(_trailing_eps), 2)
+                try:
+                    _eps_num[_ltm_idx]  = float(_trailing_eps)
+                    _eps_hist[_ltm_idx] = _fr(float(_trailing_eps), 2)
+                except: pass
+            # Fallback EPS N+2 : si pas de net_income ny2 dans is_proj, deriver
+            # depuis EPS N+1 et la croissance revenue (proxy operational leverage)
+            _ny2_idx = _ny1_idx + 1
+            if _ny2_idx < len(_eps_num) and _eps_num[_ny2_idx] is None:
+                _eps_ny1 = _eps_num[_ny1_idx] if _ny1_idx < len(_eps_num) else None
+                _rev_ny1 = _rev(ny1)
+                _rev_ny2 = _rev(ny2)
+                if _eps_ny1 and _rev_ny1 and _rev_ny2:
+                    try:
+                        _rev_growth = float(_rev_ny2) / float(_rev_ny1)
+                        _eps_num[_ny2_idx]  = _eps_ny1 * _rev_growth
+                        _eps_hist[_ny2_idx] = _fr(round(_eps_num[_ny2_idx], 2), 2)
+                    except: pass
+
+        # P/E historique : fetch des cours year-end yfinance + EPS historique
+        # Permet de completer la ligne P/E pour les annees historiques (pas seulement LTM/Fwd)
+        _year_close = {}  # {year_int: close_price}
+        try:
+            import yfinance as _yf_pe
+            _hist_df = _yf_pe.Ticker(ticker).history(period='5y', interval='1mo')
+            if _hist_df is not None and not _hist_df.empty and 'Close' in _hist_df.columns:
+                # Derniere valeur de decembre pour chaque annee
+                for _idx, _row in _hist_df.iterrows():
+                    _y = _idx.year
+                    _year_close[_y] = float(_row['Close'])
+        except Exception:
+            pass
+
+        def _label_to_year(lbl):
+            """Extrait l'annee d'un label comme '2023', '2024A', '2025 LTM', '2026F'."""
+            try:
+                s = str(lbl).strip()
+                # Prend les 4 premiers chiffres
+                digits = ''.join(c for c in s[:6] if c.isdigit())
+                return int(digits[:4]) if len(digits) >= 4 else None
+            except: return None
+
+        # Remplir P/E pour toutes les annees historiques
+        for _i, _l in enumerate(all_labels):
+            if _i == _ltm_idx or _i == _ny1_idx:
+                continue  # LTM et N+1E sont deja geres plus bas
+            if _i > _ny1_idx:
+                continue  # ny2 : pas de cours futur disponible
+            _eps_i = _eps_num[_i] if _i < len(_eps_num) else None
+            _year_i = _label_to_year(_l)
+            if _eps_i and _eps_i > 0 and _year_i and _year_i in _year_close:
+                try:
+                    _pe_hist_val = _year_close[_year_i] / _eps_i
+                    if 2 < _pe_hist_val < 200:  # filtre valeurs aberrantes
+                        _pe_row[_i] = _frx(round(_pe_hist_val, 1))
                 except: pass
 
-        # Ligne P/E : LTM (trailing) + N+1E (forward)
-        _pe_row = list(_dash_row)
+        # Ligne P/E : LTM (trailing) + N+1E (forward) — historiques remplies dans le bloc precedent
         if _fwd_pe is not None:
             try: _pe_row[_ny1_idx] = _frx(float(_fwd_pe))
             except: pass
         if _trailing_eps is not None and price:
             try: _pe_row[_ltm_idx] = _frx(round(float(price) / float(_trailing_eps), 1))
             except: pass
-        _pe_label = "P/E (LTM / Fwd)"
 
         is_data = [
             ["Chiffre d'affaires"]      + rev_vals,

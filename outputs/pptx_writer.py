@@ -658,6 +658,23 @@ def _jpm_title(slide_type: str, ratios=None, snap=None, synthesis=None,
         if slide_type == "capital":
             return f"{ticker} — politique de retour au capital actionnaire"
 
+        if slide_type == "sentiment":
+            # Titre base sur le score FinBERT / LLM si disponible
+            _sc = None
+            _rec = _g(synthesis, "recommendation") if synthesis else None
+            try:
+                if extra.get("score") is not None:
+                    _sc = float(extra["score"])
+            except Exception:
+                pass
+            if _sc is not None:
+                if _sc > 0.2:
+                    return f"{ticker} — sentiment presse financiere positif, alignement avec thèse"
+                if _sc < -0.2:
+                    return f"{ticker} — sentiment negatif, points de vigilance a surveiller"
+                return f"{ticker} — sentiment neutre, cohérence avec la recommandation {_rec or ''}"
+            return f"{ticker} — analyse du sentiment de marché et signaux d'alerte"
+
     except Exception:
         pass
 
@@ -1385,8 +1402,9 @@ def _slide_business_model(prs, snap, synthesis):
                      _truncate(seg_name, 60), 10, NAVY, bold=True, wrap=True)
         # Hauteur description etendue pour utiliser l'espace jusqu'au footer (13.39 - col_y - 3.81)
         desc_h = col_h - 3.81 - 0.30  # marge 0.30 cm avant le bas de la carte
+        # Limite truncate doublee (520 -> 1100) pour remplir l'espace disponible
         add_text_box(slide, cx + 0.25, col_y + 3.81, col_w - 0.50, max(desc_h, 5.0),
-                     _truncate(seg_desc, 520), 8, GREY_TXT, wrap=True)
+                     _truncate(seg_desc, 1100), 8, GREY_TXT, wrap=True)
 
     return slide
 
@@ -1750,8 +1768,9 @@ def _slide_bilan(prs, snap, synthesis, ratios):
             )
     if fin_comment.strip():
         _bs_title = _jpm_title("bilan", ratios=ratios, snap=snap, synthesis=synthesis)
-        commentary_box(slide, 1.02, 10.75, 23.37, 2.60,
-                       fin_comment[:600], title=_bs_title)
+        # Box rehaussee : y=10.75 -> 9.80 pour descendre plus loin et h etendue
+        commentary_box(slide, 1.02, 9.80, 23.37, 3.50,
+                       fin_comment[:900], title=_bs_title)
 
     return slide
 
@@ -2594,9 +2613,22 @@ def _slide_multiples_historiques(prs, snap, synthesis, ratios):
     years_data = years_data[-5:]  # 5 dernières années max
 
     labels  = [d["label"]  for d in years_data]
-    pe_vals = [d["pe"]     for d in years_data]
-    ev_vals = [d["ev_eb"]  for d in years_data]
-    pb_vals = [d["pb"]     for d in years_data]
+    # Filtre valeurs aberrantes : P/E > 200 ou < 0 sont probablement des bugs
+    # (exemple NVDA 2023 : 1082x car EPS quasi nul en denominateur)
+    def _filter_pe(v):
+        try:
+            f = float(v) if v is not None else None
+            return f if (f is not None and 0 < f < 200) else None
+        except: return None
+    def _filter_ev(v):
+        try:
+            f = float(v) if v is not None else None
+            return f if (f is not None and 0 < f < 100) else None
+        except: return None
+
+    pe_vals = [_filter_pe(d["pe"])    for d in years_data]
+    ev_vals = [_filter_ev(d["ev_eb"]) for d in years_data]
+    pb_vals = [d["pb"]                for d in years_data]
 
     pe_clean  = [v for v in pe_vals  if v is not None]
     ev_clean  = [v for v in ev_vals  if v is not None]
@@ -2635,8 +2667,9 @@ def _slide_multiples_historiques(prs, snap, synthesis, ratios):
         ax1.set_ylabel("Multiple (x)", fontsize=9, color="#333")
         ax1.tick_params(axis='y', labelsize=8)
         ax1.tick_params(axis='x', labelsize=8.5)
-        ax1.legend(fontsize=9, loc='upper center', bbox_to_anchor=(0.5, 1.12),
-                   ncol=2, framealpha=0.95, edgecolor='#DDDDDD',
+        # Legend deplacee a l'interieur upper right pour eviter chevauchement avec titre
+        ax1.legend(fontsize=9, loc='upper right',
+                   framealpha=0.95, edgecolor='#DDDDDD',
                    handlelength=1.8, handletextpad=0.5)
 
         ax1.spines['top'].set_visible(False)
@@ -2647,15 +2680,8 @@ def _slide_multiples_historiques(prs, snap, synthesis, ratios):
         fig.patch.set_facecolor('white')
         ax1.grid(axis='y', alpha=0.25, color='#D0D5DD', zorder=0)
 
-        # Titre analytique : tendance observée
-        if pe_clean and len(pe_clean) >= 2:
-            delta_pe = pe_clean[-1] - pe_clean[0]
-            _dir = "expansion" if delta_pe > 0 else "compression"
-            ax1.set_title(
-                f"P/E : {_dir} de {abs(delta_pe):.1f}x sur la p\u00e9riode  |  "
-                f"EV/EBITDA actuel : {_fr(ev_clean[-1] if ev_clean else None, 1)}x",
-                fontsize=9, color='#333', pad=6
-            )
+        # Titre analytique retire pour eviter conflit avec la legende interne ;
+        # le commentaire analytique en bas de slide contient deja cette information.
 
         plt.tight_layout(pad=1.2)
         buf_mc = io.BytesIO()
@@ -3478,7 +3504,9 @@ def _slide_lbo_cadre(prs, snap, pack: dict):
         )
 
     _lbo_title = _jpm_title("lbo", snap=snap, extra={"irr_base": pack.get("returns", {}).get("irr_base")})
-    commentary_box(slide, 1.02, 11.50, 23.37, 1.80, hypotheses_text, title=_lbo_title)
+    # Commentary box rehaussee pour utiliser l'espace vertical disponible sous les tables
+    # (avant : y=11.50 h=1.80 laissait 3.4cm vides ; maintenant : y=8.70 h=4.55)
+    commentary_box(slide, 1.02, 8.70, 23.37, 4.55, hypotheses_text, title=_lbo_title)
     return slide
 
 
@@ -3591,7 +3619,8 @@ def _slide_lbo_returns(prs, snap, pack: dict):
         f"La sensibilité aux multiples révèle les zones de robustesse."
     )
     _lbo_ret_title = _jpm_title("lbo", snap=snap, extra={"irr_base": irr_base})
-    commentary_box(slide, 1.02, 11.20, 23.37, 2.10, returns_text, title=_lbo_ret_title)
+    # Box rehaussee pour utiliser espace entre hypotheses table (finit ~8.8) et footer
+    commentary_box(slide, 1.02, 10.30, 23.37, 3.00, returns_text, title=_lbo_ret_title)
     return slide
 
 
@@ -4072,10 +4101,12 @@ def _slide_sentiment(prs, snap, synthesis, sentiment):
                                       (abs(sent_score) <= 0.05 and rec == "HOLD")
                    else "surveiller.")
             )
-    comment_y = min(comment_y, 11.8)
-    _comment_h = min(2.0, 13.25 - comment_y)  # eviter chevauchement footer (y=13.39)
-    add_text_box(slide, 1.02, comment_y, 23.37, _comment_h,
-                 _truncate(val_comment, 420), 8.5, "333333", wrap=True)
+    comment_y = min(comment_y, 10.90)
+    _comment_h = min(2.50, 13.25 - comment_y)  # eviter chevauchement footer (y=13.39)
+    # Commentary box avec titre au lieu d'un simple textbox (coherence avec les autres slides)
+    _sent_title = _jpm_title("sentiment", snap=snap, synthesis=synthesis)
+    commentary_box(slide, 1.02, comment_y, 23.37, _comment_h,
+                   _truncate(val_comment, 600), title=_sent_title)
 
     return slide
 
@@ -4339,25 +4370,48 @@ def _slide_historique(prs, snap, synthesis):
                      "Historique de cours non disponible", 10, GREY_TXT)
 
     # Box LLM macro à droite du chart — contexte expliquant les fluctuations
+    # Appel LLM dédie pour analyser les événements macro/sectoriels qui ont
+    # rythmé l'évolution du cours (au lieu d'un texte generique hardcoded)
     _macro_ctx = _g(synthesis, "macro_context", "") or _g(synthesis, "market_context", "") or ""
     if not _macro_ctx.strip():
-        _macro_ctx = (
-            f"L'évolution du cours sur 52 semaines reflète les dynamiques macroéconomiques "
-            f"(politique monétaire, cycle économique) et les catalyseurs spécifiques au titre. "
-            f"Les phases de surperformance et de correction identifiées sur le graphique "
-            f"doivent être croisées avec le calendrier des publications de résultats "
-            f"et les révisions de consensus pour distinguer le signal du bruit."
-        )
+        try:
+            from core.llm_provider import LLMProvider
+            _llm_m = LLMProvider(provider="groq", model="llama-3.3-70b-versatile")
+            _sector_m = _g(ci, "sector", "") or ""
+            _perf_str = f"{perf_52w*100:+.1f}%" if perf_52w is not None else "n/d"
+            _prompt_macro = (
+                f"Tu es analyste sell-side senior. Redige un commentaire macro "
+                f"(180-220 mots) expliquant l'evolution du cours de {ticker} "
+                f"(secteur {_sector_m}) sur les 12 derniers mois (perf {_perf_str}).\n\n"
+                f"Structure en 2 paragraphes courts :\n"
+                f"1. Evenements macro majeurs des 12 derniers mois qui ont impacte le secteur "
+                f"{_sector_m} : politique monetaire (Fed/BCE), inflation, cycle economique, "
+                f"tensions geopolitiques, taux longs, cours des matieres premieres. "
+                f"Cite les dates cles et les mouvements associes.\n"
+                f"2. Catalyseurs specifiques a {ticker} : resultats trimestriels "
+                f"(surprises/deceptions), annonces produit, guidance, operations M&A, "
+                f"changements de management, revisions de consensus. Relie les pics et "
+                f"creux du graphique a des evenements identifiables.\n\n"
+                f"Francais correct avec accents. Pas de markdown. Pas d'emojis. "
+                f"Evite les generalites : cite des dates et des chiffres."
+            )
+            _macro_ctx = _llm_m.generate(_prompt_macro, max_tokens=600) or ""
+        except Exception:
+            pass
+        if not _macro_ctx.strip():
+            _macro_ctx = (
+                f"Analyse contextuelle non disponible pour {ticker}. Les fluctuations "
+                f"du cours sur 52 semaines doivent etre mises en perspective avec le "
+                f"calendrier de publications, les revisions de consensus et l'environnement "
+                f"macro (politique monetaire, cycle sectoriel)."
+            )
     _macro_title = f"Contexte macro et catalyseurs — {ticker}"
-    commentary_box(slide, 17.00, 5.84, 7.39, 5.08,
-                   _truncate(_macro_ctx, 500), title=_macro_title)
+    # Box plus grande pour accueillir le texte LLM etendu (180-220 mots)
+    commentary_box(slide, 17.00, 5.84, 7.39, 7.55,
+                   _truncate(_macro_ctx, 1400), title=_macro_title)
 
-    # Commentary en bas — verdict
-    thesis_s = _g(synthesis, "summary", "") or _g(synthesis, "thesis", "") or ""
-    if thesis_s.strip():
-        _hist_title = _jpm_title("verdict", snap=snap, synthesis=synthesis)
-        commentary_box(slide, 1.02, 11.20, 23.37, 2.15, _fit(thesis_s, 450), title=_hist_title)
-
+    # Box "verdict final" en bas RETIREE (duplique avec la slide suivante
+    # Conviction & These d'Investissement qui traite exactement ce sujet)
     return slide
 
 
@@ -4451,18 +4505,20 @@ def _slide_conviction_tracker(prs, snap, synthesis, ratios, devil, sentiment):
     add_rect(slide, 9.20, y_mid, 7.40, 0.50, "1A7A4A")
     add_text_box(slide, 9.35, y_mid + 0.05, 7.2, 0.40, "CATALYSEURS BULLS", 7.5, WHITE, bold=True)
     y_c = y_mid + 0.60
+    # Limite _fit elargie 75 -> 220 pour eviter truncation ("d'ici..." sur NVDA)
+    # + hauteur box 1.20 -> 2.20 cm pour permettre wrap sur 3-4 lignes
     for th in (pos_themes[:2] if pos_themes else ["N/D"]):
-        _c_txt = _fit(str(th), 75)
-        add_text_box(slide, 9.45, y_c, 7.10, 1.20, f"\u2022 {_c_txt}", 7, GREY_TXT, wrap=True)
-        y_c += 1.25
+        _c_txt = _fit(str(th), 220)
+        add_text_box(slide, 9.45, y_c, 7.10, 2.20, f"\u2022 {_c_txt}", 7, GREY_TXT, wrap=True)
+        y_c += 2.25
 
     add_rect(slide, 17.00, y_mid, 6.80, 0.50, "A82020")
     add_text_box(slide, 17.10, y_mid + 0.05, 6.6, 0.40, "RISQUES BEARS", 7.5, WHITE, bold=True)
     y_r = y_mid + 0.60
     for th in (neg_themes[:2] if neg_themes else ["N/D"]):
-        _r_txt = _fit(str(th), 75)
-        add_text_box(slide, 17.10, y_r, 6.6, 1.20, f"\u2022 {_r_txt}", 7, GREY_TXT, wrap=True)
-        y_r += 1.25
+        _r_txt = _fit(str(th), 220)
+        add_text_box(slide, 17.10, y_r, 6.6, 2.20, f"\u2022 {_r_txt}", 7, GREY_TXT, wrap=True)
+        y_r += 2.25
 
     # ── Invalidation conditions ──────────────────────────────────────────────
     inv_list = _g(synthesis, "invalidation_list") or []
