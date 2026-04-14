@@ -2014,14 +2014,43 @@ def _s17_risques(prs, D):
     _y17_lec = 7.7 + min(len(conds), 4) * 1.1 + 0.2
     if _y17_lec < 11.5:
         _h17_lec = 13.35 - _y17_lec
-        _lec17 = (
-            f"Signal {_sig17} (conviction {_conv17}%) — scénario central. "
-            f"Scénario haussier ({_scen_prob_bull}% de probabilité) : catalyseurs macro suffisants pour franchir le seuil Surpondérer. "
-            f"Scénario baissier ({_scen_prob_bear}%) : détérioration des fondamentaux, passage Sous-pondérer. "
-            f"Scénario residuel ({_residuel}%) : stagnation ou choc exogene non anticipe. "
-            f"Surveiller les conditions d'invalidation listees ci-dessus : elles constituent les declencheurs de reassessement du signal. "
-            f"Priorite de couverture : les secteurs les plus sensibles au taux (Real Estate, Utilities)."
-        )
+        # LLM analyse des risques (audit Baptiste 2026-04-14 : chasse hardcoding #90)
+        _lec17_llm = ""
+        try:
+            from core.llm_provider import llm_call
+            _scen_desc = " | ".join(
+                f"{sc.get('titre','?') if isinstance(sc,dict) else (sc[0] if isinstance(sc,(list,tuple)) and len(sc)>0 else '?')} "
+                f"({sc.get('prob','?') if isinstance(sc,dict) else '?'})"
+                for sc in scenarios[:3]
+            )
+            _prompt_s17 = (
+                f"Tu es strategist buy-side senior. Redige une analyse (200-260 mots) "
+                f"des risques macro et scenarios alternatifs pour l'indice {indice}.\n\n"
+                f"Signal central : {_sig17} (conviction {_conv17}%).\n"
+                f"Scenarios identifies : {_scen_desc}\n\n"
+                f"Structure en 3 paragraphes :\n"
+                f"1. Lecture des scenarios alternatifs : ce qu'implique la probabilite "
+                f"de chaque scenario, les triggers respectifs a surveiller\n"
+                f"2. Conditions d'invalidation du signal central : ce qui ferait "
+                f"basculer la these et sur quel horizon\n"
+                f"3. Couverture recommandee : secteurs defensifs a renforcer, "
+                f"instruments de hedge possibles (options, obligations, or)\n\n"
+                f"Francais correct avec accents. Pas de markdown. Pas d'emojis."
+            )
+            _lec17_llm = llm_call(_prompt_s17, phase="long", max_tokens=700) or ""
+        except Exception:
+            pass
+        if not _lec17_llm.strip():
+            _lec17 = (
+                f"Signal {_sig17} (conviction {_conv17}%) — sc\u00e9nario central. "
+                f"Sc\u00e9nario haussier ({_scen_prob_bull}% de probabilit\u00e9) : catalyseurs macro "
+                f"suffisants pour franchir le seuil Surpond\u00e9rer. "
+                f"Sc\u00e9nario baissier ({_scen_prob_bear}%) : d\u00e9t\u00e9rioration des fondamentaux, "
+                f"passage Sous-pond\u00e9rer. Sc\u00e9nario r\u00e9siduel ({_residuel}%) : stagnation ou "
+                f"choc exog\u00e8ne non anticip\u00e9. Surveiller les conditions d'invalidation."
+            )
+        else:
+            _lec17 = _lec17_llm[:1400]
         _lecture_box(slide, "Analyse des risques — Probabilités et implications", _lec17,
                      y_top=_y17_lec, height=_h17_lec)
 
