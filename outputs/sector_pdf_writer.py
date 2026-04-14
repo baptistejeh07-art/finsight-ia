@@ -888,36 +888,48 @@ def _build_macro(perf_buf, area_buf, tickers_data: list[dict],
         f"FinSight IA \u2014 Basket {sector_name} (top 15 par score) vs S&P 500, base 100."))
     elems.append(Spacer(1, 4*mm))
 
-    # Row 2 : composition ETF (left, 130mm) + analytical text (right)
-    # Refonte ETF-first : chart montre les VRAIS holdings du sous-jacent, plus
-    # les segments fictifs (audit Baptiste 2026-04-14 #98).
-    _aw = 130 * mm
-    area_img = Image(area_buf, width=_aw, height=_aw * 3.6 / 7.0)
+    # Row 2 : composition ETF — refonte SEC-PDF-P3 Baptiste.
+    # Le chart est affiche en pleine largeur comme la perf row 1. Le texte
+    # analytique suit EN PLEINE LARGEUR en dessous pour exploiter tout l'espace
+    # horizontal (auparavant le texte etait enferme dans une colonne de 44mm
+    # a droite du chart, ce qui laissait beaucoup de blanc et forcait le texte
+    # sur une grande colonne verticale peu lisible).
     _etf_tk_text = _etf_info["ticker"] if _etf_info else "l'ETF sectoriel"
-    area_text = Paragraph(
-        f"<b>Composition de l'ETF {_etf_tk_text}</b> \u2014 Ce graphique affiche les "
-        f"<b>top 10 holdings</b> r\u00e9els du sous-jacent passif, pond\u00e9r\u00e9s par leur "
-        f"poids effectif au dernier rebalancement. La concentration du top 3 "
-        f"indique le degr\u00e9 d'oligopolisation du secteur. Un poids cumul\u00e9 > 40 % "
-        f"sur 3 noms traduit une d\u00e9pendance structurelle \u00e0 quelques acteurs "
-        f"dominants, amplifiant la sensibilit\u00e9 de l'ETF aux surprises BPA "
-        f"individuelles. La queue (\u00ab Autres \u00bb) correspond aux holdings en dehors "
-        f"du top 10, qui diversifient statistiquement le risque id\u00e9osyncratique. "
-        f"Croissance moyenne des revenus du basket FinSight : "
-        f"<b>{avg_growth:+.1f}%</b>, marge EBITDA m\u00e9diane "
-        f"<b>{avg_ebitda:.1f}%</b>.",
-        S_BODY)
-    area_row = Table([[area_img, area_text]], colWidths=[_aw + 2*mm, TABLE_W - _aw - 2*mm])
-    area_row.setStyle(TableStyle([
-        ('VALIGN',         (0,0),(-1,-1), 'TOP'),
-        ('LEFTPADDING',    (0,0),(-1,-1), 0), ('RIGHTPADDING', (0,0),(-1,-1), 0),
-        ('TOPPADDING',     (0,0),(-1,-1), 0), ('BOTTOMPADDING',(0,0),(-1,-1), 0),
-        ('LEFTPADDING',    (1,0),(1,0),   6),
-    ]))
-    elems.append(area_row)
+    area_img = Image(area_buf, width=TABLE_W, height=TABLE_W * 3.6 / 7.0)
+    elems.append(area_img)
+    elems.append(Spacer(1, 2*mm))
     _etf_issuer_lbl = "SPDR / iShares" if _etf_info else "provider ETF"
     elems.append(src(
         f"Source : {_etf_issuer_lbl} via yfinance funds_data. Top 10 holdings pond\u00e9r\u00e9s reels."))
+    elems.append(Spacer(1, 2*mm))
+    elems.append(Paragraph(
+        f"<b>Composition de l'ETF {_etf_tk_text}.</b> Ce graphique affiche les "
+        f"<b>top 10 holdings</b> r\u00e9els du sous-jacent passif, pond\u00e9r\u00e9s par leur "
+        f"poids effectif au dernier rebalancement communique par l'issuer. La "
+        f"concentration du top 3 indique le degr\u00e9 d'oligopolisation du secteur : "
+        f"un poids cumul\u00e9 superieur \u00e0 40 % sur 3 noms traduit une d\u00e9pendance "
+        f"structurelle \u00e0 quelques acteurs dominants, amplifiant la sensibilit\u00e9 "
+        f"de l'ETF aux surprises BPA individuelles et reduisant l'effet de "
+        f"diversification attendu d'une exposition passive. Dans ce contexte, le "
+        f"stock-picking devient mecaniquement plus rentable parce que la dispersion "
+        f"de rendements entre les grosses lignes et les petites reste elevee, et "
+        f"l'ETF n'apporte qu'une moyenne ponderee par la capitalisation sans "
+        f"differenciation qualitative.",
+        S_BODY))
+    elems.append(Spacer(1, 1.5*mm))
+    elems.append(Paragraph(
+        f"La queue de distribution (\u00ab Autres \u00bb) correspond aux holdings en dehors "
+        f"du top 10 et diversifie statistiquement le risque id\u00e9osyncratique, mais "
+        f"son poids effectif reste limite dans la plupart des ETF sectoriels "
+        f"(typiquement 20-30 %). L'analyse fondamentale detaillee doit donc se "
+        f"concentrer sur les top holdings : ce sont eux qui portent l'essentiel du "
+        f"rendement et du risque de l'ETF, et ce sont eux que FinSight IA compare "
+        f"au basket actif dans la courbe de performance ci-dessus. La croissance "
+        f"moyenne des revenus du basket FinSight ressort \u00e0 <b>{avg_growth:+.1f}%</b> "
+        f"avec une marge EBITDA m\u00e9diane de <b>{avg_ebitda:.1f}%</b>, ce qui "
+        f"fournit un ancrage fondamental pour juger de la soutenabilite des "
+        f"multiples de valorisation du secteur dans le cycle actuel.",
+        S_BODY))
     elems.append(Spacer(1, 4*mm))
 
     # ── Régime de marche + Probabilite de recession (AgentMacro) ─────────────
@@ -2178,6 +2190,40 @@ def _build_acteurs(tickers_data: list[dict], sector_name: str, registry=None):
     return elems
 
 
+def _enrich_valuation_fallback(tickers_data: list[dict]) -> None:
+    """SEC-PDF-P11 fallback : quand yfinance ne renvoie pas ev_ebitda / ev_revenue
+    pour certains tickers (rate-limit NVDA, AVGO, ASML.AS...), on calcule des
+    proxies a partir de market_cap + ebitda_ltm + revenue_ltm. Pour les
+    societes cash-riches ce proxy (MktCap/EBITDA au lieu de EV/EBITDA) est
+    une approximation raisonnable. Les cellules sont marquees avec '*' pour
+    signaler le proxy. Mutation in-place."""
+    for t in tickers_data:
+        _mc = t.get('market_cap') or 0
+        _eb = t.get('ebitda_ltm') or 0
+        _rv = t.get('revenue_ltm') or 0
+        # Normalise market_cap : parfois en Mds, parfois en absolu
+        if _mc and _mc < 1e6:
+            _mc_abs = _mc * 1e9
+        else:
+            _mc_abs = _mc
+        if not t.get('ev_ebitda') and _mc_abs > 0 and _eb and _eb > 0:
+            try:
+                _proxy = round(float(_mc_abs) / float(_eb), 1)
+                if 0 < _proxy < 200:
+                    t['ev_ebitda'] = _proxy
+                    t.setdefault('_ev_ebitda_proxy', True)
+            except Exception:
+                pass
+        if not t.get('ev_revenue') and _mc_abs > 0 and _rv and _rv > 0:
+            try:
+                _proxy = round(float(_mc_abs) / float(_rv), 1)
+                if 0 < _proxy < 100:
+                    t['ev_revenue'] = _proxy
+                    t.setdefault('_ev_revenue_proxy', True)
+            except Exception:
+                pass
+
+
 def _build_valorisation(scatter_buf, donut_buf, tickers_data: list[dict],
                         sector_name: str, registry=None):
     elems = []
@@ -2186,6 +2232,11 @@ def _build_valorisation(scatter_buf, donut_buf, tickers_data: list[dict],
     elems += section_title("Valorisation Comparative", 4)
     elems.append(debate_q(
         "Les multiples actuels integrent-ils correctement la bifurcation croissance / maturite ?"))
+
+    # Enrichissement fallback proxy EV/EBITDA + EV/Revenue pour les tickers
+    # dont yfinance n'a pas renvoye la valeur (ex NVDA, AVGO, ASML.AS en
+    # rate-limit). Mutation in-place de tickers_data. SEC-PDF-P11.
+    _enrich_valuation_fallback(tickers_data)
 
     meds = [float(t['ev_ebitda']) for t in tickers_data if t.get('ev_ebitda')]
     med_ev = np.median(meds) if meds else 0
@@ -2219,18 +2270,46 @@ def _build_valorisation(scatter_buf, donut_buf, tickers_data: list[dict],
     elems.append(Spacer(1, 4*mm))
 
     donut_img = Image(donut_buf, width=84*mm, height=84*mm)
+    # SEC-PDF-P11 : le texte hardcode a ete remplace par un texte contextualise
+    # avec le ratio de concentration (top 3 / total) calcule sur les tickers
+    # reels du secteur. Pas de LLM ici pour economiser le budget tokens, mais
+    # le contenu est dynamique et specifique au secteur analyse.
+    _sorted_mc = sorted(
+        [(t.get('ticker', '?'), float(t.get('market_cap') or 0))
+         for t in tickers_data if t.get('market_cap')],
+        key=lambda x: x[1], reverse=True)
+    _top3_sum = sum(mc for _, mc in _sorted_mc[:3])
+    _total_mc = sum(mc for _, mc in _sorted_mc)
+    _top3_pct = (_top3_sum / _total_mc * 100) if _total_mc > 0 else 0
+    _top3_names = ", ".join(tk for tk, _ in _sorted_mc[:3]) or "n.d."
+    if _top3_pct >= 60:
+        _concentration_label = "<b>oligopole tres concentre</b>"
+        _reading = ("traduit de fortes barrieres a l'entree et des effets "
+                    "de reseau solides. Les leaders captent l'essentiel du "
+                    "rendement sectoriel, justifiant une prime de valorisation.")
+    elif _top3_pct >= 40:
+        _concentration_label = "<b>structure oligopolistique moderee</b>"
+        _reading = ("laisse de l'espace a des challengers credibles mais les "
+                    "leaders dominent clairement la formation des multiples. "
+                    "L'analyse fondamentale reste pertinente au-dela du top 3.")
+    else:
+        _concentration_label = "<b>secteur fragmente</b>"
+        _reading = ("implique une concurrence frontale entre de nombreux "
+                    "acteurs et une compression plus probable des marges. "
+                    "Le stock-picking devient critique pour battre le benchmark.")
     donut_note = (
-        "<b>Concentration sectorielle</b><br/>"
-        "La répartition des capitalisations boursières illustre "
-        "la structure oligopolistique ou fragmentée du secteur. "
-        "Une forte concentration chez les leaders indique des "
-        "barrières à l'entrée élevées et des effets de reseau."
+        f"<b>Concentration sectorielle du {sector_name}</b><br/>"
+        f"Le top 3 ({_top3_names}) represente <b>{_top3_pct:.0f}%</b> de la "
+        f"capitalisation totale du secteur analyse. Cette structure {_concentration_label} "
+        f"{_reading}"
         "<br/><br/>"
-        "<b>Implications portefeuille</b><br/>"
-        "Les leaders par capitalisation ne sont pas necessairement "
-        "les meilleures opportunités \u2014 le score FinSight intègre "
-        "qualité, croissance, valorisation et momentum pour "
-        "identifier les meilleures asymétries risque/rendement."
+        "<b>Implications portefeuille.</b> "
+        "Les leaders par capitalisation ne sont pas systematiquement les "
+        "meilleures opportunites d'asymetrie : le score composite FinSight "
+        "integre valorisation, croissance, qualite et momentum pour faire "
+        "emerger les decotes relatives que la ponderation mechanique par "
+        "capitalisation ignore. Comparer ce donut avec le classement par "
+        "score en annexe permet d'identifier les asymetries les plus fortes."
     )
     donut_comb = Table([[Paragraph(donut_note, S_BODY), donut_img]],
                        colWidths=[82*mm, 84*mm])
@@ -2917,11 +2996,17 @@ def _build_annexe(tickers_data: list[dict], sector_name: str, reco_commentary: d
     return elems
 
 
-def _build_conclusion(tickers_data: list[dict], sector_name: str,
-                      sector_analytics: dict = None, registry=None):
+def _build_conclusion_reco(tickers_data: list[dict], sector_name: str,
+                           sector_analytics: dict = None, registry=None):
+    """Section 6 : Top Picks & Recommandation Sectorielle (SANS disclaimer).
+
+    SEC-PDF-6 : cette section est remontee avant l'annexe pour que le lecteur
+    ait les recommandations avant le ranking complet. Le disclaimer legal
+    reste en toute fin de PDF dans `_build_disclaimer`.
+    """
     elems = []
     elems.append(PageBreak())
-    elems.append(Spacer(1, 10*mm))
+    elems.append(Spacer(1, 6*mm))
     if registry is not None:
         elems.append(SectionAnchor('conclusion', registry))
     elems += section_title("Top Picks & Recommandation Sectorielle", 6)
@@ -3038,8 +3123,16 @@ def _build_conclusion(tickers_data: list[dict], sector_name: str,
                    Paragraph(r[2], S_TD_C), Paragraph(r[3], S_TD_L)] for r in alloc_data]
     elems.append(KeepTogether(tbl([alloc_h] + alloc_rows, cw=[38*mm, 40*mm, 28*mm, 64*mm])))
     elems.append(Spacer(1, 6*mm))
+    return elems
 
-    # Disclaimer
+
+def _build_disclaimer():
+    """Disclaimer legal : toute derniere section du PDF, apres l'annexe.
+    Deplace hors de `_build_conclusion_reco` pour permettre a la section 6
+    (recommandations) de remonter avant l'annexe (SEC-PDF-6)."""
+    elems = []
+    elems.append(PageBreak())
+    elems.append(Spacer(1, 6*mm))
     elems.append(rule())
     S_DISC_TITLE = _style('disc_title', size=6.5, leading=9, color=GREY_TEXT, bold=True)
     elems.append(Paragraph(
@@ -3250,11 +3343,12 @@ def _build_story(perf_buf, area_buf, scatter_buf, donut_buf,
     story.append(CondPageBreak(100*mm))  # saut page seulement si < 100mm restants (evite page vide)
     story += _build_valorisation(scatter_buf, donut_buf, tickers_data, sector_name, registry)
     story += _build_risques(tickers_data, sector_name, registry)
-    # Annexe (ranking complet) AVANT conclusion (qui contient mentions legales).
-    # Regle : les informations reglementaires / disclaimer doivent TOUJOURS
-    # etre en derniere position du PDF. Aucune section analytique apres.
+    # SEC-PDF-6 : section 6 (recommandation) remontee AVANT l'annexe pour
+    # que le lecteur ait les top picks immediatement apres les risques.
+    # Le disclaimer legal reste bien en derniere position (_build_disclaimer).
+    story += _build_conclusion_reco(tickers_data, sector_name, sector_analytics or {}, registry)
     story += _build_annexe(tickers_data, sector_name, reco_commentary=reco_commentary or {})
-    story += _build_conclusion(tickers_data, sector_name, sector_analytics or {}, registry)
+    story += _build_disclaimer()
     return story
 
 
