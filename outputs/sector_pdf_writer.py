@@ -1742,13 +1742,12 @@ def _generate_subsector_llm(subsectors: list[dict], sector_name: str, profile: s
     Le profil sectoriel adapte les hints pour utiliser les bonnes métriques.
     """
     try:
-        from core.llm_provider import LLMProvider
+        from core.llm_provider import llm_call
         try:
             from core.sector_profiles import get_prompt_hints
             _profile_hint = get_prompt_hints(profile)
         except Exception:
             _profile_hint = ""
-        llm = LLMProvider(provider="groq", model="llama-3.3-70b-versatile")
         import json, re
         subs_desc = "\n".join(
             f"- {s['name']} ({s['nb']} socs, score {s['score']}/100, {s['signal']}, "
@@ -1784,7 +1783,8 @@ def _generate_subsector_llm(subsectors: list[dict], sector_name: str, profile: s
             f'  "allocation": "150 mots : recommandation d\'allocation entre sous-secteurs, '
             f'sous-secteurs à privilégier, horizon, conviction et catalyseurs déterminants"\n}}'
         )
-        resp = llm.generate(prompt, max_tokens=4500)
+        # Refonte 2026-04-14 : llm_call(phase=long) -> Mistral primary (gratuit, qualite FR top)
+        resp = llm_call(prompt, phase="long", max_tokens=4500)
         m = re.search(r'\{.*\}', resp, re.DOTALL)
         if m:
             _llm = json.loads(m.group(0))
@@ -2847,8 +2847,7 @@ def _build_conclusion(tickers_data: list[dict], sector_name: str,
     _reco_llm_text = globals().get(_cache_key, "")
     if not _reco_llm_text:
         try:
-            from core.llm_provider import LLMProvider
-            _llm_reco = LLMProvider(provider="groq", model="llama-3.3-70b-versatile")
+            from core.llm_provider import llm_call
             _industries = {}
             for t in tickers_data:
                 ind = t.get("industry") or "Autre"
@@ -2859,15 +2858,17 @@ def _build_conclusion(tickers_data: list[dict], sector_name: str,
             )
             _reco_prompt = (
                 f"Tu es un analyste buy-side senior. R\u00e9dige une recommandation sectorielle d\u00e9taill\u00e9e "
-                f"(200 mots) pour le secteur {sector_name}.\n"
+                f"(350 mots) pour le secteur {sector_name}.\n"
                 f"Donn\u00e9es : {len(tickers_data)} soci\u00e9t\u00e9s, {buy_count} BUY, {hold_count} HOLD, {sell_count} SELL.\n"
                 f"Sous-secteurs : {_ind_summary}.\n"
                 f"Structure ta r\u00e9ponse : (1) le secteur est-il prometteur et pourquoi, (2) horizon "
                 f"d'investissement recommand\u00e9, (3) quels sous-secteurs privil\u00e9gier, (4) catalyseurs "
-                f"d\u00e9terminants pour les 6-12 prochains mois, (5) risques \u00e0 surveiller.\n"
+                f"d\u00e9terminants pour les 6-12 prochains mois, (5) risques \u00e0 surveiller, "
+                f"(6) conditions de revision de la these.\n"
                 f"Fran\u00e7ais correct avec accents. Pas de markdown. Pas d'emojis."
             )
-            _reco_llm_text = _llm_reco.generate(_reco_prompt, max_tokens=500) or ""
+            # Refonte 2026-04-14 : critical phase -> Mistral primary (qualite FR top)
+            _reco_llm_text = llm_call(_reco_prompt, phase="critical", max_tokens=900) or ""
             globals()[_cache_key] = _reco_llm_text
             _log.info("[sector_pdf] reco LLM OK: %d chars", len(_reco_llm_text))
         except Exception as _e_reco:
