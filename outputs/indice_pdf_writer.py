@@ -181,7 +181,8 @@ def make_indice_perf_chart(data):
 
 def make_sector_weights_chart(data):
     secteurs = data["secteurs"]
-    noms  = [s[0] for s in secteurs]
+    # Traduction FR systematique des noms secteurs pour les axes des charts
+    noms  = [_abbrev_pdf(s[0]) for s in secteurs]
     # Poids proportionnels au nombre de sociétés par secteur
     total_nb = sum(s[1] for s in secteurs) or 1
     poids_idx = [round(100 * s[1] / total_nb, 1) for s in secteurs]
@@ -356,7 +357,8 @@ def make_top3_donut(data):
     total_nb = sum(s[1] for s in secteurs_all) or 1
     # Trier par poids décroissant
     sect_sorted = sorted(secteurs_all, key=lambda s: s[1], reverse=True)
-    noms = [s[0] for s in sect_sorted]
+    # Noms secteurs traduits en FR pour le donut et la legende
+    noms = [_abbrev_pdf(s[0]) for s in sect_sorted]
     poids = [round(100.0 * s[1] / total_nb, 1) for s in sect_sorted]
     labels = [f"{n} ({p:.0f}%)" for n, p in zip(noms, poids)]
     # Palette étendue pour tous les secteurs
@@ -1668,13 +1670,53 @@ def _build_risques(data, registry=None):
         "FinSight IA — Sc\u00e9narios alternatifs. Conditions \u00e0 r\u00e9\u00e9valuer \u00e0 chaque rapport mensuel."))
     elems.append(Spacer(1, 4*mm))
     elems.append(Paragraph("Gestion du risque portefeuille", S_SUBSECTION))
-    elems.append(Paragraph(data.get("texte_gestion_risque",
-        f"Dans le scénario central, le {indice_rl} évolue dans une fourchette cible sur 12 mois, "
-        "soutenu par la r\u00e9silience des marges des secteurs Surpond\u00e9rer. Le portefeuille mod\u00e8le "
-        "recommande une surexposition s\u00e9lective sur les secteurs identifi\u00e9s, une couverture "
-        "partielle via les secteurs d\u00e9fensifs en cas de choc de croissance, et une r\u00e9duction "
-        "tactique du beta portefeuille si les conditions macro se d\u00e9t\u00e9riorent de mani\u00e8re "
-        f"significative. La prochaine revue est programmee dans 30 jours."), S_BODY))
+    # Texte LLM dynamique base sur le contexte concret de l'indice — remplace
+    # le fallback hardcoded generique signale par Baptiste
+    _risk_text = data.get("texte_gestion_risque", "")
+    if not _risk_text.strip():
+        try:
+            import sys as _sys, os as _os
+            _sys.path.insert(0, _os.path.dirname(_os.path.dirname(__file__)))
+            from core.llm_provider import LLMProvider
+            _llm_r = LLMProvider(provider="groq", model="llama-3.3-70b-versatile")
+            # Contexte chiffre : signal central, nb secteurs, surponderes, phase cycle
+            _sec_surp = [s[0] for s in data.get("secteurs", [])
+                         if len(s) > 3 and "Surp" in str(s[3])]
+            _sec_sous = [s[0] for s in data.get("secteurs", [])
+                         if len(s) > 3 and "Sous" in str(s[3])]
+            _phase = data.get("phase_cycle", "n/d")
+            _nb_surp = len(_sec_surp)
+            _nb_sous = len(_sec_sous)
+            _surp_str = ", ".join(_sec_surp[:3]) if _sec_surp else "aucun"
+            _sous_str = ", ".join(_sec_sous[:3]) if _sec_sous else "aucun"
+            _prompt_r = (
+                f"Tu es un g\u00e9rant buy-side senior. R\u00e9dige un commentaire "
+                f"(200-240 mots) de gestion de risque portefeuille pour le {indice_rl} "
+                f"dans le sc\u00e9nario central {sig_central}.\n\n"
+                f"Contexte : phase de cycle {_phase}, {_nb_surp} secteurs en Surpond\u00e9rer "
+                f"({_surp_str}), {_nb_sous} en Sous-pond\u00e9rer ({_sous_str}).\n\n"
+                f"Structure en 2 paragraphes :\n"
+                f"1. Positionnement recommand\u00e9 (sur/sous-pond\u00e9rations sectorielles, "
+                f"niveau de beta portefeuille, couvertures d\u00e9fensives)\n"
+                f"2. Triggers de r\u00e9vision de l'allocation (niveaux de risque macro a "
+                f"surveiller, conditions qui feraient basculer vers un profil plus "
+                f"d\u00e9fensif ou offensif)\n\n"
+                f"Francais correct avec accents. Pas de markdown. Pas d'emojis. "
+                f"Cite les secteurs par leur nom francais, pas l'anglais."
+            )
+            _risk_text = _llm_r.generate(_prompt_r, max_tokens=600) or ""
+        except Exception:
+            pass
+    if not _risk_text.strip():
+        _risk_text = (
+            f"Dans le sc\u00e9nario central, le {indice_rl} \u00e9volue dans une fourchette "
+            f"cible sur 12 mois. Le portefeuille mod\u00e8le recommande une surexposition "
+            f"s\u00e9lective sur les secteurs identifi\u00e9s comme Surpond\u00e9rer, une "
+            f"couverture partielle via les secteurs d\u00e9fensifs en cas de choc, et une "
+            f"r\u00e9duction tactique du beta si les conditions macro se d\u00e9t\u00e9riorent. "
+            f"La prochaine revue est programmee dans 30 jours."
+        )
+    elems.append(Paragraph(_risk_text, S_BODY))
     return elems
 
 

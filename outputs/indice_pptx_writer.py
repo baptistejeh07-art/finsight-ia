@@ -1358,20 +1358,22 @@ def _s09_cartographie(prs, D):
         sig = sorted_s[r-1][3] if r-1 < len(sorted_s) else "Neutre"
         _color_cell(tbl, r, sig_col, _sig_light(sig), _sig_color(sig))
 
-    # Lecture analytique enrichie
+    # Lecture analytique enrichie — noms secteurs traduits en francais
     nb_surp = sum(1 for s in secteurs if len(s) > 3 and "Surp" in str(s[3]))
     nb_sous = sum(1 for s in secteurs if len(s) > 3 and "Sous" in str(s[3]))
     nb_neut = nb_s - nb_surp - nb_sous
-    surp_noms = " · ".join(s[0] for s in sorted_s if len(s) > 3 and "Surp" in str(s[3]))
-    sous_noms = " · ".join(s[0] for s in sorted_s if len(s) > 3 and "Sous" in str(s[3]))
+    surp_noms = " · ".join(_abbrev_sector(s[0], 22) for s in sorted_s if len(s) > 3 and "Surp" in str(s[3]))
+    sous_noms = " · ".join(_abbrev_sector(s[0], 22) for s in sorted_s if len(s) > 3 and "Sous" in str(s[3]))
     top_s  = sorted_s[0]  if sorted_s else None
     bot_s  = sorted_s[-1] if sorted_s else None
+    top_nom = _abbrev_sector(top_s[0], 22) if top_s else "—"
+    bot_nom = _abbrev_sector(bot_s[0], 22) if bot_s else "—"
     score_top = top_s[2] if top_s else "—"
     score_bot = bot_s[2] if bot_s else "—"
     score_spread = (top_s[2] - bot_s[2]) if (top_s and bot_s) else 0
     # Secteurs proches du seuil Surpondérer (score 55-65) — a surveiller
     _near_surp = [s for s in sorted_s if 55 <= s[2] < 65]
-    _near_str  = " · ".join(s[0] for s in _near_surp[:3]) if _near_surp else ""
+    _near_str  = " · ".join(_abbrev_sector(s[0], 22) for s in _near_surp[:3]) if _near_surp else ""
     # Meilleure marge EBITDA parmi les surponderes
     _top_mg    = max((s[5] for s in sorted_s if "Surp" in str(s[3]) and isinstance(s[5], (int,float)) and s[5] > 0), default=None)
     _top_mg_s  = f"{_top_mg:.1f}%" if _top_mg else "—"
@@ -1390,8 +1392,8 @@ def _s09_cartographie(prs, D):
         f"{surp_noms or 'aucun'}. "
         f"{nb_sous} secteur(s) en Sous-pondérer : {sous_noms or 'aucun'}. "
         f"{nb_neut} secteur(s) en Neutre. "
-        f"L'Écart leader/retardataire ({top_s[0] if top_s else '—'} {score_top}pts / "
-        f"{bot_s[0] if bot_s else '—'} {score_bot}pts) = {score_spread} pts de spread — "
+        f"L'Écart leader/retardataire ({top_nom} {score_top}pts / "
+        f"{bot_nom} {score_bot}pts) = {score_spread} pts de spread — "
         f"bifurcation {'marquée' if score_spread > 30 else 'modérée'}. "
         + (f"Secteurs proches du seuil de bascule (55-65) : {_near_str}. " if _near_str else "")
         + (f"Marge EBITDA Médiane des surpondérés : {_top_mg_s}. " if _top_mg else "")
@@ -1530,29 +1532,31 @@ def _s11_decomposition(prs, D):
     y_note = 2.3 + len(rows) * 0.62 + 0.2
     _txb(slide, note, 0.9, y_note, 23.6, 0.6, size=7, color=_GRAYD, italic=True)
 
-    # Lecture enrichie
-    top_nom = sorted_s[0][0] if sorted_s else "—"
-    bot_nom = sorted_s[-1][0] if sorted_s else "—"
-    top_scores = sub_map.get(top_nom, (0,0,0))
-    bot_scores = sub_map.get(bot_nom, (0,0,0))
+    # Lecture enrichie — noms secteurs traduits en francais
+    top_nom_raw = sorted_s[0][0] if sorted_s else "—"
+    bot_nom_raw = sorted_s[-1][0] if sorted_s else "—"
+    top_nom = _abbrev_sector(top_nom_raw, 22) if sorted_s else "—"
+    bot_nom = _abbrev_sector(bot_nom_raw, 22) if sorted_s else "—"
+    top_scores = sub_map.get(top_nom_raw, (0,0,0))
+    bot_scores = sub_map.get(bot_nom_raw, (0,0,0))
     # Dimension dominante overall
     all_mom = [sub_map.get(s[0],(0,0,0))[0] for s in sorted_s if s[0] in sub_map]
     all_rev = [sub_map.get(s[0],(0,0,0))[1] for s in sorted_s if s[0] in sub_map]
     all_val = [sub_map.get(s[0],(0,0,0))[2] for s in sorted_s if s[0] in sub_map]
     _dom = "momentum" if (sum(all_mom) >= sum(all_rev) and sum(all_mom) >= sum(all_val)) else ("révisions BPA" if sum(all_rev) >= sum(all_val) else "valorisation relative")
-    # Secteurs unanimes sur 3 dimensions (scores > 50 partout)
-    _unanimes = [s[0] for s in sorted_s if s[0] in sub_map and all(v > 50 for v in sub_map[s[0]])]
+    # Secteurs unanimes sur 3 dimensions (scores > 50 partout) — noms FR
+    _unanimes = [_abbrev_sector(s[0], 22) for s in sorted_s if s[0] in sub_map and all(v > 50 for v in sub_map[s[0]])]
     _unani_str = " · ".join(_unanimes[:3]) if _unanimes else "aucun"
     _top_sc = sorted_s[0][2] if sorted_s and len(sorted_s[0]) > 2 else "—"
     _bot_sc = sorted_s[-1][2] if sorted_s and len(sorted_s[-1]) > 2 else "—"
     lecture = (
         f"{top_nom} affiche le profil le plus robuste (score {_top_sc}/100) "
         f"avec momentum={top_scores[0]}pts, révisions={top_scores[1]}pts, valorisation={top_scores[2]}pts. "
-        f"A l'oppose, {bot_nom} (score {_bot_sc}/100) cumulé les handicaps : "
+        f"\u00c0 l'oppos\u00e9, {bot_nom} (score {_bot_sc}/100) cumule les handicaps : "
         f"momentum={bot_scores[0]}, révisions={bot_scores[1]}, valorisation={bot_scores[2]}. "
         f"Dimension dominante sur l'ensemble de l'univers : {_dom}. "
         f"Secteurs avec profil composite fort (>50 sur les 3 dimensions) : {_unani_str}. "
-        f"Ces secteurs representent les meilleures opportunités d'entree dans le contexte actuel."
+        f"Ces secteurs repr\u00e9sentent les meilleures opportunit\u00e9s d'entr\u00e9e dans le contexte actuel."
     )
     y_lec = min(10.5, y_note + 0.8)
     _lecture_box(slide, "Analyse des scores — Points saillants",
@@ -2093,16 +2097,21 @@ def _s19_sentiment(prs, D, chart_bytes: bytes):
         _txb(slide, lbl, _rx + 0.15, yy + 0.05, _rw - 0.3, 0.4, size=8, bold=True, color=txt_col)
         _txb(slide, f"{nb} sect. ({pct} %)", _rx + 0.15, yy + 0.47, _rw - 0.3, 0.38, size=7.5, color=txt_col)
 
-    # Secteurs leaders / retardataires
-    pos_txt = "  ·  ".join(t_pos[:3]) if t_pos else "—"
-    neg_txt = "  ·  ".join(t_neg[:3]) if t_neg else "—"
-    _rect(slide, _rx, 8.95, _rw, 0.4, fill=_NAVY)
-    _txb(slide, "SECTEURS LEADERS / RETARDATAIRES", _rx + 0.1, 8.97, _rw - 0.2, 0.36,
+    # Secteurs leaders / retardataires — texte traduit en FR + truncation elargie
+    _t_pos_fr = [_abbrev_sector(t, 22) if len(t) < 30 else t for t in t_pos]
+    _t_neg_fr = [_abbrev_sector(t, 22) if len(t) < 30 else t for t in t_neg]
+    pos_txt = "  ·  ".join(_t_pos_fr[:3]) if _t_pos_fr else "—"
+    neg_txt = "  ·  ".join(_t_neg_fr[:3]) if _t_neg_fr else "—"
+    _rect(slide, _rx, 8.80, _rw, 0.4, fill=_NAVY)
+    _txb(slide, "SECTEURS LEADERS / RETARDATAIRES", _rx + 0.1, 8.82, _rw - 0.2, 0.36,
          size=7, bold=True, color=_WHITE, align=PP_ALIGN.CENTER)
-    _rect(slide, _rx, 9.4, _rw, 1.5, fill=_BUY_L)
-    _txb(slide, "Surpondérer : " + pos_txt[:65], _rx + 0.15, 9.45, _rw - 0.3, 1.4, size=7.5, color=_GRAYT, wrap=True)
-    _rect(slide, _rx, 11.0, _rw, 2.3, fill=_SELL_L)
-    _txb(slide, "Sous-pondérer : " + neg_txt[:65], _rx + 0.15, 11.05, _rw - 0.3, 2.2, size=7.5, color=_GRAYT, wrap=True)
+    # Boxes agrandies : 1.5 -> 2.10 et 2.3 -> 2.10 (symetriques), texte jusqu'a 250 chars
+    _rect(slide, _rx, 9.25, _rw, 2.05, fill=_BUY_L)
+    _txb(slide, "Surpond\u00e9rer : " + pos_txt[:250], _rx + 0.15, 9.30, _rw - 0.3, 1.95,
+         size=7.5, color=_GRAYT, wrap=True)
+    _rect(slide, _rx, 11.40, _rw, 1.90, fill=_SELL_L)
+    _txb(slide, "Sous-pond\u00e9rer : " + neg_txt[:250], _rx + 0.15, 11.45, _rw - 0.3, 1.80,
+         size=7.5, color=_GRAYT, wrap=True)
 
     _footer(slide)
     return slide
@@ -2402,13 +2411,17 @@ def _s21_disclaimer(prs, D):
         ("ERP sectoriel", "Earnings Yield (1/PE forward) - Taux 10Y US. Seuils : Tendu < 2%, Neutre 2-4%, Favorable > 4%."),
         ("Rotation sectorielle", "Modèle 4 phases (Expansion, Ralentissement, Récession, Reprise). ISM, courbe taux, Leading indicators."),
         ("Sentiment", "FinBERT (ProsusAI/finbert) sur articles Finnhub 7 jours. Score agrégé par secteur."),
+        ("Biais de cadrage", "Score FinSight composite, pas de backtest performance. Les ratios utilisés (momentum/révisions BPA/valorisation) sont de natures différentes et leur pondération peut être débattue."),
+        ("Limites sectorielles", "Les sous-secteurs (banques vs assurance, E&P vs raffinage) ne sont pas traités indépendamment — le profil dominant de chaque secteur GICS guide l'analyse."),
+        ("Horizon d'allocation", "12 mois glissants. Les signaux sont révisés mensuellement selon la dynamique des ratios et l'évolution du contexte macro (réunions BCE/Fed, publications trimestrielles)."),
         ("Sources données", "yfinance (cours, fondamentaux), FMP (multiples), Finnhub (news), ETF SPDR (sectoriels US)."),
     ]
     y = 5.80
+    # Spacing elargi (0.42 -> 0.62) pour remplir l'espace vertical disponible
     for label, desc in metho_items:
-        _txb(slide, f"{label} :", 1.05, y, 5.0, 0.35, size=7.5, bold=True, color=_NAVY)
-        _txb(slide, desc, 6.05, y, 18.4, 0.35, size=7.5, color=_GRAYT, wrap=True)
-        y += 0.42
+        _txb(slide, f"{label} :", 1.05, y, 5.0, 0.40, size=7.5, bold=True, color=_NAVY)
+        _txb(slide, desc, 6.05, y, 18.4, 0.55, size=7.5, color=_GRAYT, wrap=True)
+        y += 0.62
 
     # Confidentialité
     _txb(slide, "Document confidentiel — Diffusion restreinte. © 2026 FinSight IA.",

@@ -1132,15 +1132,16 @@ def _slide_exec_summary(prs, snap, synthesis, ratios, devil, sentiment):
     peer_median_ev_e = _peer_median(peers, "ev_ebitda")
     peer_median_pe   = _peer_median(peers, "pe")
 
-    # --- Catalyseurs section (pleine largeur) — header à y=8.80 (avant 9.26) ---
-    add_rect(slide, 1.02, 8.80, 23.37, 0.45, "1A7A4A")
-    add_text_box(slide, 1.15, 8.82, 23.20, 0.42,
+    # --- Catalyseurs section (pleine largeur) — header legerement rehausse
+    # (Baptiste audit : reduire vers le haut pour mieux utiliser l'espace) ---
+    add_rect(slide, 1.02, 8.40, 23.37, 0.45, "1A7A4A")
+    add_text_box(slide, 1.15, 8.42, 23.20, 0.42,
                  "CATALYSEURS \u00c0 SURVEILLER (12 MOIS)", 7.5, WHITE, bold=True)
 
     # Affichage 4 catalyseurs en 2 colonnes — boxes agrandies (h=1.10), police 6.5pt
     _cat_layout = [
-        (1.02, 9.35),  (12.70, 9.35),   # row 1 : 2 catalyseurs côte à côte
-        (1.02, 10.00), (12.70, 10.00),  # row 2
+        (1.02, 8.95),  (12.70, 8.95),   # row 1 : 2 catalyseurs côte à côte
+        (1.02, 9.65),  (12.70, 9.65),   # row 2
     ]
     for i, (cx, cy) in enumerate(_cat_layout):
         if i < len(catalysts):
