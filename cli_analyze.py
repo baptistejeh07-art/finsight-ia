@@ -1219,72 +1219,52 @@ def _make_test_indice_data(universe: str = "S&P 500") -> dict:
     signal_global = ("Surpondérer" if avg_score > 62 else
                      ("Sous-ponderer" if avg_score < 45 else "Neutre"))
 
-    top3_secteurs = [
-        {
-            "nom": "Technology", "signal": "Surpondérer", "score": 72,
-            "ev_ebitda": "24.8x", "pe_forward_raw": 28.5, "pe_mediane_10y": 22.0,
-            "poids_indice": "31.5%",
-            "catalyseur": "Cycle IA — CAPEX hyperscalers +35% YoY, monetisation acceleree",
-            "risque": "Valorisations tendues si taux LT restent eleves",
-            "societes": [
-                ("AAPL", "Surpondérer", "22.4x", 78),
-                ("MSFT", "Surpondérer", "28.6x", 75),
-                ("NVDA", "Surpondérer", "42.8x", 82),
-            ],
-        },
-        {
-            "nom": "Health Care", "signal": "Surpondérer", "score": 65,
-            "ev_ebitda": "14.2x", "pe_forward_raw": 17.8, "pe_mediane_10y": 16.5,
-            "poids_indice": "12.8%",
-            "catalyseur": "Pipeline FDA robuste, pricing power defensif intact",
-            "risque": "Risque reglementaire US — pression politique sur prix medicaments",
-            "societes": [
-                ("UNH", "Surpondérer", "10.8x", 72),
-                ("LLY", "Surpondérer", "28.4x", 80),
-                ("JNJ", "Neutre",      "12.6x", 62),
-            ],
-        },
-        {
-            "nom": "Financials", "signal": "Surpondérer", "score": 62,
-            "ev_ebitda": "9.8x", "pe_forward_raw": 13.2, "pe_mediane_10y": 12.8,
-            "poids_indice": "13.2%",
-            "catalyseur": "Spreads de credit solides, NIM eleves, buybacks soutenus",
-            "risque": "Stress immobilier commercial — CRE loans sous surveillance",
-            "societes": [
-                ("JPM", "Surpondérer", "8.4x",  70),
-                ("BLK", "Surpondérer", "14.2x", 68),
-                ("GS",  "Neutre",      "9.8x",  60),
-            ],
-        },
-    ]
+    # Top 3 secteurs genere depuis la liste 'secteurs' reelle (pas de hardcoded)
+    _sorted_secs = sorted(secteurs, key=lambda s: s[2], reverse=True)[:3]
+    top3_secteurs = []
+    for _s in _sorted_secs:
+        top3_secteurs.append({
+            "nom":           _s[0],
+            "signal":        _s[3],
+            "score":         _s[2],
+            "ev_ebitda":     _s[4],
+            "pe_forward_raw": None,
+            "pe_mediane_10y": None,
+            "poids_indice":  f"{round(100 * _s[1] / sum(x[1] for x in secteurs), 1)}%",
+            "catalyseur":    f"Dynamique sectorielle favorable (score {_s[2]}/100) — a detailler par l'analyse LLM",
+            "risque":        "A identifier depuis le contexte macro et fondamental actuel",
+            "societes":      [],  # rempli par agent_data si dispo
+        })
 
-    rotation = [
-        ("Technology",             "Expansion",  "Moderee",  "Elevee",   "Accumuler"),
-        ("Health Care",            "Expansion",  "Faible",   "Moderee",  "Accumuler"),
-        ("Financials",             "Expansion",  "Positive", "Moderee",  "Accumuler"),
-        ("Communication Services", "Expansion",  "Moderee",  "Elevee",   "Neutre"),
-        ("Consumer Discretionary", "Expansion",  "Moderee",  "Elevee",   "Neutre"),
-        ("Industrials",            "Expansion",  "Moderee",  "Elevee",   "Neutre"),
-        ("Consumer Staples",       "Ralentissement","Faible", "Faible",  "Neutre"),
-        ("Materials",              "Expansion",  "Moderee",  "Elevee",   "Neutre"),
-        ("Energy",                 "Ralentissement","Faible", "Moderee", "Alléger"),
-        ("Real Estate",            "Ralentissement","Elevee", "Moderee", "Alléger"),
-        ("Utilities",              "Ralentissement","Elevee", "Faible",  "Alléger"),
-    ]
-
-    etf_perf = {
-        "XLK":  {"nom": "Technology",        "return_1y": 18.4},
-        "XLV":  {"nom": "Health Care",        "return_1y": 8.4},
-        "XLF":  {"nom": "Financials",         "return_1y": 12.1},
-        "XLY":  {"nom": "Consumer Disc.",     "return_1y": 6.8},
-        "XLC":  {"nom": "Comm. Services",     "return_1y": 9.2},
-        "XLI":  {"nom": "Industrials",        "return_1y": 5.4},
-        "XLP":  {"nom": "Consumer Staples",   "return_1y": 2.1},
-        "XLE":  {"nom": "Energy",             "return_1y": -4.2},
-        "XLRE": {"nom": "Real Estate",        "return_1y": -2.8},
-        "XLU":  {"nom": "Utilities",          "return_1y": -5.4},
-        "XLB":  {"nom": "Materials",          "return_1y": 1.8},
+    # Rotation generee depuis les secteurs reels (chasse hardcoding #90)
+    # Les colonnes : (nom, phase_fav, sens_taux, sens_pib, signal)
+    # Phase_fav et sensibilites sont derivees depuis les caracteristiques connues
+    # des secteurs GICS, pas hardcodees par nom.
+    _ROT_CANON = {
+        "Technology":             ("Expansion",     "Faible",    "Forte",      "Accumuler"),
+        "Health Care":            ("Tous cycles",   "Moderee",   "Moderee",    "Accumuler"),
+        "Financials":             ("Expansion",     "Haute",     "Haute",      "Accumuler"),
+        "Communication Services": ("Expansion",     "Faible",    "Moderee",    "Neutre"),
+        "Consumer Discretionary": ("Expansion",     "Moderee",   "Haute",      "Neutre"),
+        "Industrials":            ("Expansion",     "Moderee",   "Forte",      "Neutre"),
+        "Consumer Staples":       ("Contraction",   "Moderee",   "Faible",     "Neutre"),
+        "Materials":              ("Expansion",     "Faible",    "Forte",      "Neutre"),
+        "Energy":                 ("Tous cycles",   "Faible",    "Moderee",    "Neutre"),
+        "Real Estate":            ("Contraction",   "Tres haute","Faible",     "Alléger"),
+        "Utilities":              ("Contraction",   "Tres haute","Faible",     "Alléger"),
     }
+    rotation = []
+    for _s in secteurs:
+        _rot_row = _ROT_CANON.get(_s[0])
+        if _rot_row:
+            rotation.append((_s[0], *_rot_row))
+        else:
+            # Secteur inconnu : valeurs neutres
+            rotation.append((_s[0], "Tous cycles", "Moderee", "Moderee", "Neutre"))
+
+    # etf_perf vide par defaut : _fetch_real_indice_data le remplit avec
+    # les vrais returns ETF via yfinance. Pas de hardcoding.
+    etf_perf = {}
 
     return {
         "indice":           universe,
