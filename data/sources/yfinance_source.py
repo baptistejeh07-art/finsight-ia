@@ -185,12 +185,76 @@ def _detect_years(df: pd.DataFrame, max_years: int = 5) -> list[int]:
 # Point d'entrée public
 # ---------------------------------------------------------------------------
 
+# ROBUST-1 Baptiste 2026-04-14 : ticker Swiss/EU sans suffixe (ex ABBN -> ABBN.SW)
+# Ordre des suffixes a tester : zones avec le plus de listings en premier.
+_EXCHANGE_SUFFIX_FALLBACKS = (
+    ".SW",  # SIX Swiss Exchange : ABBN, NESN, ROG, NOVN, UHR
+    ".DE",  # Xetra : SAP, SIE, BMW, MBG
+    ".PA",  # Euronext Paris : MC, TTE, BNP, AIR
+    ".AS",  # Amsterdam : ASML, UNA, HEIA
+    ".MI",  # Milan : STLAM, ENEL, ISP, RACE
+    ".L",   # London : SHEL, AZN, HSBA
+    ".MC",  # Madrid : SAN, IBE
+    ".BR",  # Brussels : UCB, ABI
+    ".ST",  # Stockholm : ERIC-B, VOLV-B
+    ".OL",  # Oslo : EQNR, DNB
+    ".CO",  # Copenhagen : NOVO-B, MAERSK-B
+    ".HE",  # Helsinki : NOKIA, KNEBV
+    ".VI",  # Vienna : VOE, ERSTE
+    ".LS",  # Lisbon : EDP, GALP
+    ".IR",  # Dublin : RYA
+)
+
+
+def _resolve_ticker_with_suffix(ticker: str) -> str:
+    """Tente le ticker direct puis les suffixes d'exchange courants si la
+    validation fast_info echoue. Ne fait que des appels fast_info (rapides).
+
+    Cas d'usage : Baptiste tape 'ABBN' (ABB Ltd Suisse) dans l'interface, le
+    ticker yfinance correct est 'ABBN.SW'. Cette fonction essaye le direct,
+    puis chaque suffixe dans l'ordre, et retourne le premier qui repond.
+    Si tous echouent, retourne le ticker d'origine (comportement inchange).
+    """
+    # Si le ticker contient deja un suffixe (. dedans), on ne touche pas
+    if "." in ticker or "-" in ticker:
+        return ticker
+    # Seuls les tickers courts majuscules sont eligibles au fallback suffix
+    _clean = ticker.strip().upper()
+    if not (3 <= len(_clean) <= 6 and _clean.isalpha()):
+        return ticker
+
+    # Test direct en premier
+    try:
+        _fi = yf.Ticker(_clean).fast_info
+        _px = getattr(_fi, "last_price", None)
+        if _px and float(_px) > 0:
+            return _clean
+    except Exception:
+        pass
+
+    # Fallback : essaye chaque suffixe
+    for _sfx in _EXCHANGE_SUFFIX_FALLBACKS:
+        _cand = _clean + _sfx
+        try:
+            _fi2 = yf.Ticker(_cand).fast_info
+            _px2 = getattr(_fi2, "last_price", None)
+            if _px2 and float(_px2) > 0:
+                log.info(f"[yfinance] ticker resolu via suffix : {_clean} -> {_cand}")
+                return _cand
+        except Exception:
+            continue
+    return ticker
+
+
 def fetch(ticker: str) -> Optional[FinancialSnapshot]:
     """
     Collecte complète via yfinance.
     Auto-détecte les 3 exercices les plus récents disponibles.
     """
     try:
+        # ROBUST-1 : resout ABBN -> ABBN.SW si besoin (zero impact cas nominal)
+        ticker = _resolve_ticker_with_suffix(ticker)
+
         tk   = yf.Ticker(ticker)
         info = {}
         try:
