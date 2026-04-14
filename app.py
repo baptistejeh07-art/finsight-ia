@@ -4108,36 +4108,15 @@ def render_screening_results(results: dict) -> None:
         return
 
     # --- Navigation ---
+    # Bouton "Nouvelle recherche" central RETIRE (audit Baptiste 2026-04-14) :
+    # il faisait doublon avec le bouton "Nouvelle analyse" de la sidebar gauche
+    # qui est maintenant disponible aussi en screening_results.
     parent = st.session_state.get("screening_parent")
-    nav_cols = st.columns([1, 1, 4])
-    with nav_cols[0]:
-        if st.button("+ Nouvelle recherche", type="primary", use_container_width=True):
-            # Reset COMPLET de l'État (sinon livrables / cmp / from_screening
-            # peuvent persister sur l'analyse suivante)
-            for _k in (
-                "screening_results", "screening_parent", "screening_universe",
-                "from_screening", "results", "ticker",
-                "cmp_indice_stage", "cmp_indice_universe_b", "cmp_indice_universe_a",
-                "cmp_indice_pptx_bytes", "cmp_indice_pdf_bytes", "cmp_indice_xlsx_bytes",
-                "cmp_indice_data",
-                "cmp_secteur_stage", "cmp_secteur_sector_b", "cmp_secteur_universe_b",
-                "cmp_secteur_pptx_bytes", "cmp_secteur_pdf_bytes", "cmp_secteur_xlsx_bytes",
-                "cmp_secteur_tickers_a", "cmp_secteur_tickers_b", "cmp_secteur_data",
-                "cmp_societe_stage", "comparison_kind", "cmp_societe_state_b", "cmp_societe_xlsx_bytes",
-                "cmp_societe_pptx_bytes", "cmp_societe_pdf_bytes", "cmp_societe_ticker_b",
-                "previous_analysis_type", "previous_analysis_results",
-                "previous_analysis_label",
-            ):
-                if _k in st.session_state:
-                    del st.session_state[_k]
-            st.session_state.stage = "home"
+    if parent:
+        if st.button(f"<- {parent['display_name']}", use_container_width=False):
+            st.session_state.screening_results = parent
+            st.session_state.screening_parent  = None
             st.rerun()
-    with nav_cols[1]:
-        if parent:
-            if st.button(f"<- {parent['display_name']}", use_container_width=True):
-                st.session_state.screening_results = parent
-                st.session_state.screening_parent  = None
-                st.rerun()
 
     # --- Header ---
     st.markdown(f'<div class="rc">{_e(display_name)} — Screening</div>', unsafe_allow_html=True)
