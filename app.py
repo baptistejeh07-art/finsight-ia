@@ -1875,10 +1875,19 @@ def _run_analysis_pipeline(tkr_in: str) -> None:
             (1.00, "Génération des livrables"),
         ]
 
-        _current_pct = [0.05]  # barre ne recule jamais (evite aller-retour sur synthesis_retry)
+        # Barre de progression PERSISTANTE en session_state — ne recule jamais,
+        # meme en cas de st.rerun() (ex: synthesis_retry, fallback_node) qui
+        # re-appelle render_running avec un progress_bar frais.
+        # Fix 2026-04-14 : Baptiste reportait "la barre jusqu'a un moment puis
+        # elle revient tout en arriere" — cause : _current_pct etait une
+        # variable locale recreee a chaque rerun.
+        _pct_key = f"_running_pct_{ticker}"
+        if _pct_key not in st.session_state:
+            st.session_state[_pct_key] = 0.05
+        progress_bar.progress(st.session_state[_pct_key])
         def step(pct, label):
-            if pct >= _current_pct[0]:
-                _current_pct[0] = pct
+            if pct >= st.session_state.get(_pct_key, 0.05):
+                st.session_state[_pct_key] = pct
                 progress_bar.progress(pct)
             status_lbl.markdown(
                 f'<div style="text-align:center;font-size:12px;font-weight:500;color:#666;">{_e(label)}…</div>',
@@ -2059,6 +2068,8 @@ def _run_analysis_pipeline(tkr_in: str) -> None:
             unsafe_allow_html=True,
         )
         time.sleep(0.5)
+        # Cleanup du tracker de progression (la barre est terminee)
+        st.session_state.pop(_pct_key, None)
 
         st.session_state.results = {
             "ticker": ticker, "snapshot": snapshot, "ratios": ratios,
