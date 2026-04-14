@@ -982,9 +982,12 @@ def _chart_distribution(tickers_data) -> bytes:
     return buf.read()
 
 
-def _chart_performance(tickers_data, best_ticker=None, worst_ticker=None) -> bytes:
+def _chart_performance(tickers_data, best_ticker=None, worst_ticker=None,
+                       sector_name=None, universe=None) -> bytes:
     """52W relative performance line chart via yfinance.
     Top 3 momentum + worst sont surlignés en couleurs distinctes, autres en gris.
+    NOUVEAU (refonte #86) : overlay ETF sectoriel en ligne pointillee noire pour
+    benchmark visuel immediat.
     La légende affiche les noms commerciaux (company) au lieu des tickers."""
     import datetime as dt
     # Build ticker -> company name lookup pour la legende
@@ -994,6 +997,17 @@ def _chart_performance(tickers_data, best_ticker=None, worst_ticker=None) -> byt
         _nm = _t.get("company") or _t.get("name") or _tk
         if _tk:
             _name_map[_tk] = _nm[:28]  # cap 28 chars pour la legende
+
+    # Resolve l'ETF sectoriel de reference via core.sector_etfs
+    _etf_ticker = None
+    if sector_name:
+        try:
+            from core.sector_etfs import get_etf_for
+            _etf_info = get_etf_for(sector_name, universe=universe or "S&P 500")
+            if _etf_info:
+                _etf_ticker = _etf_info["ticker"]
+        except Exception:
+            pass
 
     # Top 3 par momentum_52w (couleurs distinctes) + worst (rouge)
     _ranked = sorted([t for t in tickers_data if t.get("ticker")],
@@ -1027,6 +1041,21 @@ def _chart_performance(tickers_data, best_ticker=None, worst_ticker=None) -> byt
     plotted = 0
     try:
         import yfinance as yf
+        # Overlay ETF sectoriel en premier (ligne noire pointillee, benchmark)
+        if _etf_ticker:
+            try:
+                _etf_hist = yf.Ticker(_etf_ticker).history(period='1y', interval='1wk')
+                if not _etf_hist.empty and 'Close' in _etf_hist.columns:
+                    _etf_s = _etf_hist['Close']
+                    if len(_etf_s) >= 4:
+                        _etf_norm = (_etf_s / _etf_s.iloc[0] - 1) * 100
+                        ax.plot(_etf_norm.index, _etf_norm.values,
+                                color='#000000', linewidth=2.5, linestyle='--',
+                                label=f"ETF {_etf_ticker} (benchmark)",
+                                alpha=0.95, zorder=5)
+            except Exception:
+                pass
+
         for i, t in enumerate(tickers_data[:MAX_TICKERS_CHART]):
             ticker = t.get("ticker")
             if not ticker: continue
@@ -2199,7 +2228,8 @@ def _s20_performance(prs, D):
     worst_tk  = worst.get("ticker", "—")
     worst_mom = worst.get("momentum_52w") or 0
 
-    img = _chart_performance(D["tickers_data"], best_ticker=best_tk, worst_ticker=worst_tk)
+    img = _chart_performance(D["tickers_data"], best_ticker=best_tk, worst_ticker=worst_tk,
+                             sector_name=D.get("sector_name"), universe=D.get("universe"))
     # Graphique agrandi — legende matplotlib dans le chart (haut gauche)
     _pic(slide, img, 0.9, 2.3, 16.5, 10.2)
 
