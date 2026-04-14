@@ -1309,47 +1309,45 @@ def _make_test_indice_data(universe: str = "S&P 500") -> dict:
             f"{len(secteurs)} secteurs, la repartition sectorielle reflete le tissu "
             f"\u00e9conomique sous-jacent de l'univers analys\u00e9."
         ),
+        # Textes chasse hardcoding #90 : generiques data-driven, pas de sector
+        # names hardcoded. Le LLM du writer enrichit a partir de ces bases.
         "texte_macro": (
-            "L'environnement macro reste marque par une resilience de la croissance americaine "
-            "(GDP +2.4% T4 2025) combinee a une desinflation graduelle (PCE Core 2.7%). La "
-            "Fed maintient ses taux directeurs dans une fourchette de 4.25-4.50%, signalant "
-            "2 baisses anticipées pour 2026. Le marché du travail reste solide (chômage 4.1%), "
-            "soutenant la consommation et les marges des secteurs cycliques. Les tensions "
-            "géopolitiques et les risques tarifaires constituent les principaux facteurs "
-            "d'incertitude sur l'horizon 12 mois."
+            f"L'environnement macro conditionne l'allocation sur le {universe} : politique "
+            f"mon\u00e9taire des banques centrales, trajectoire de l'inflation, cycle economique, "
+            f"tensions g\u00e9opolitiques et dynamique des taux longs. Ces facteurs determinent "
+            f"le r\u00e9gime de valorisation sectoriel et la tol\u00e9rance au risque des "
+            f"investisseurs institutionnels sur un horizon 12 mois glissants."
         ),
         "texte_signal": (
             f"Le signal global sur le {universe} est {signal_global} avec une conviction de "
-            f"{conviction}% (sur la base des {len(secteurs)} secteurs analyses). "
-            f"{nb_surp} secteurs ressortent Surpondérer — Technology, Health Care et Financials "
-            "— portés respectivement par le cycle IA, le pricing power défensif et les spreads "
-            "de crédit élevés. 6 secteurs sont Neutre en raison d'une visibilité limitée sur "
-            "les BPA dans un contexte de taux restrictifs. 2 secteurs (Real Estate, Utilities) "
-            "sont Sous-pondérer sous pression directe de la politique monétaire."
+            f"{conviction}% (sur la base des {len(secteurs)} secteurs analys\u00e9s). "
+            f"{nb_surp} secteur(s) ressortent en Surpond\u00e9rer et refletent les dynamiques "
+            f"sectorielles positives identifi\u00e9es par le scoring FinSight (momentum, "
+            f"r\u00e9visions BPA, valorisation relative). Les secteurs Neutre sont en attente "
+            f"de catalyseurs, et les secteurs Sous-pond\u00e9rer presentent des fondamentaux "
+            f"degrad\u00e9s ou une valorisation tendue."
         ),
         "texte_valorisation": (
-            f"Le P/E Forward à 21.5x s'inscrit en prime de 18% par rapport à la médiane 10 ans "
-            "(18.2x), justifié en partie par la monétisation de l'IA et la qualité supérieure "
-            "des marges. L'ERP ressort à 4.2% — niveau attractif mais contraint par le 10Y US "
-            "à 4.3%. La compression de multiple reste le principal risque si les taux LT "
-            "demeurent restrictifs. Le secteur Technologie (P/E 28.5x vs médiane 22x) concentre "
-            "la prime de valorisation."
+            f"Le P/E Forward du {universe} est a croiser avec la m\u00e9diane historique 10 ans "
+            f"pour juger du niveau de valorisation relative. L'ERP Damodaran fournit une mesure "
+            f"de la prime de risque exigee vs le taux sans risque 10 ans, ancrant l'attractivit\u00e9 "
+            f"relative de l'equity vs les obligations. La compression de multiple reste le risque "
+            f"cle dans les regimes de taux restrictifs."
         ),
         "texte_cycle": (
-            "L'analyse des indicateurs avancées positionne le cycle en phase d'expansion avancée : "
-            "ISM Manufacturier autour du seuil 50 (49.8), courbe des taux partiellement normalisée "
-            "(10Y-2Y +0.2%), Leading Indicators OCDE en légère hausse. Cette configuration "
-            "favorise les secteurs avec forte visibilité BPA et moindre sensibilité aux taux : "
-            "Technology, Health Care, Financials. Les secteurs défensifs (Consumer Staples, "
-            "Utilities) offrent moins de potentiel relatif dans ce régime de cycle."
+            f"L'analyse cyclique combine trois indicateurs cles : l'ISM Manufacturier (seuil 50 "
+            f"= contraction/expansion), la courbe des taux 10Y-2Y (normalisation = reprise ; "
+            f"inversion = recession) et les Leading Indicators. Cette configuration d\u00e9termine "
+            f"la phase de cycle et oriente l'allocation sectorielle selon la sensibilit\u00e9 "
+            f"connue de chaque secteur au regime macroeconomique actuel."
         ),
         "texte_rotation": (
-            "La rotation sectorielle recommandee s'appuie sur le modele cycle 4-phases FinSight. "
-            "En phase d'expansion avancée, le signal Accumuler se concentre sur les secteurs a "
-            "forte croissance BPA et pricing power : Technology (IA), Health Care (FDA pipeline), "
-            "Financials (NIM). Le signal Alléger cible Real Estate (pression taux directe) et "
-            "Utilities (compression de dividende relatif). Un pivot Fed dovish constituerait "
-            "le principal catalyseur de rotation vers les secteurs sensibles aux taux."
+            f"La rotation sectorielle s'appuie sur le modele cycle 4-phases (Expansion / "
+            f"Ralentissement / Recession / Reprise). Chaque secteur a une Sensibilit\u00e9 "
+            f"specifique au cycle determinee par sa structure de co\u00fbts, son exposition au "
+            f"cycle de consommation et sa duration financiere. Le signal FinSight synthetise "
+            f"cette sensibilite avec les donnees fondamentales actuelles pour recommander les "
+            f"sur/sous-ponderations tactiques."
         ),
         "phase_cycle":  "Expansion avancée",
         "cycle_detail": "Milieu-fin de cycle — ISM proche 50, courbe taux normalisée",
