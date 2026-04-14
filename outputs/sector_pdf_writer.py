@@ -2036,21 +2036,30 @@ def _build_valorisation(scatter_buf, donut_buf, tickers_data: list[dict],
     elems.append(Spacer(1, 5*mm))
 
     # Tableau multiples — colonnes dynamiques selon disponibilité des données
-    _m_has_ev  = any(t.get('ev_ebitda')  for t in tickers_data)
-    _m_has_pe  = any(t.get('pe_ratio') or t.get('pe') for t in tickers_data)
-    _m_has_evr = any(t.get('ev_revenue') for t in tickers_data)
-    _mult_cols = ["Ticker"]
-    _mult_cw   = [14*mm]
-    if _m_has_ev:
-        _mult_cols.append("EV/EBITDA"); _mult_cw.append(22*mm)
-    if _m_has_pe:
-        _mult_cols.append("P/E"); _mult_cw.append(18*mm)
-    if _m_has_evr:
-        _mult_cols.append("EV/Rev"); _mult_cw.append(18*mm)
-    _mult_cols += ["Mg. EBITDA", "ROE", "Lecture"]
-    _mult_cw   += [22*mm, 20*mm]
-    # Lecture colonne prend le reste
-    _mult_cw.append(170*mm - sum(_mult_cw))
+    # Pour BANK/INSURANCE : pas d'EBITDA, pas d'EV/EBITDA -> P/B + Div Yield a la place
+    _vp_profile = _detect_sector_profile(tickers_data, sector_name)
+    _is_fin_pdf = _vp_profile in ("BANK", "INSURANCE")
+
+    if _is_fin_pdf:
+        _mult_cols = ["Ticker", "P/E", "P/B", "ROE", "Div. Yield", "Lecture"]
+        _mult_cw   = [14*mm, 18*mm, 18*mm, 18*mm, 22*mm]
+        _mult_cw.append(170*mm - sum(_mult_cw))
+    else:
+        _m_has_ev  = any(t.get('ev_ebitda')  for t in tickers_data)
+        _m_has_pe  = any(t.get('pe_ratio') or t.get('pe') for t in tickers_data)
+        _m_has_evr = any(t.get('ev_revenue') for t in tickers_data)
+        _mult_cols = ["Ticker"]
+        _mult_cw   = [14*mm]
+        if _m_has_ev:
+            _mult_cols.append("EV/EBITDA"); _mult_cw.append(22*mm)
+        if _m_has_pe:
+            _mult_cols.append("P/E"); _mult_cw.append(18*mm)
+        if _m_has_evr:
+            _mult_cols.append("EV/Rev"); _mult_cw.append(18*mm)
+        _mult_cols += ["Mg. EBITDA", "ROE", "Lecture"]
+        _mult_cw   += [22*mm, 20*mm]
+        # Lecture colonne prend le reste
+        _mult_cw.append(170*mm - sum(_mult_cw))
 
     _lect_col_idx = len(_mult_cols) - 1
 
@@ -2080,18 +2089,28 @@ def _build_valorisation(scatter_buf, donut_buf, tickers_data: list[dict],
             lecture = "Catalyseur requis"
         else:
             lecture = "Survalorise vs fondamentaux"
-        row = [t.get('ticker', 'N/A')]
-        if _m_has_ev:
-            row.append(_fmt_mult(t.get('ev_ebitda')))
-        if _m_has_pe:
-            row.append(_fmt_mult(t.get('pe_ratio') or t.get('pe')))
-        if _m_has_evr:
-            row.append(_fmt_mult(t.get('ev_revenue')))
-        row += [
-            _fmt_pct(t.get('ebitda_margin'), sign=False),
-            _fmt_pct(t.get('roe')),
-            lecture,
-        ]
+        if _is_fin_pdf:
+            row = [
+                t.get('ticker', 'N/A'),
+                _fmt_mult(t.get('pe_ratio') or t.get('pe')),
+                _fmt_mult(t.get('pb_ratio')),
+                _fmt_pct(t.get('roe'), sign=False),
+                _fmt_pct(t.get('div_yield'), sign=False),
+                lecture,
+            ]
+        else:
+            row = [t.get('ticker', 'N/A')]
+            if _m_has_ev:
+                row.append(_fmt_mult(t.get('ev_ebitda')))
+            if _m_has_pe:
+                row.append(_fmt_mult(t.get('pe_ratio') or t.get('pe')))
+            if _m_has_evr:
+                row.append(_fmt_mult(t.get('ev_revenue')))
+            row += [
+                _fmt_pct(t.get('ebitda_margin'), sign=False),
+                _fmt_pct(t.get('roe')),
+                lecture,
+            ]
         mult_rows.append([_mc(v, j) for j, v in enumerate(row)])
 
     mult_h = [Paragraph(h, S_TH_C) for h in _mult_cols]
@@ -2102,34 +2121,64 @@ def _build_valorisation(scatter_buf, donut_buf, tickers_data: list[dict],
     ]))
     elems.append(Spacer(1, 5*mm))
 
-    # Paragraphe analytique post-multiples
-    valid_ev = [t.get('ev_ebitda') for t in tickers_data if t.get('ev_ebitda') and float(t['ev_ebitda']) > 0]
-    med_ev2 = float(np.median([float(v) for v in valid_ev])) if valid_ev else 0
-    _decotes = [t for t in tickers_data if t.get('ev_ebitda') and float(t.get('ev_ebitda', 0)) > 0
-               and float(t['ev_ebitda']) < med_ev2 * 0.85]
-    primes  = [t for t in tickers_data if t.get('ev_ebitda') and float(t.get('ev_ebitda', 0)) > 0
-               and float(t['ev_ebitda']) > med_ev2 * 1.15]
-    decote_names = ", ".join(t.get('ticker', '') for t in _decotes[:3]) if _decotes else "aucun acteur"
-    prime_names  = ", ".join(t.get('ticker', '') for t in primes[:3]) if primes else "aucun acteur"
-    elems.append(Paragraph(
-        f"<b>Lecture de la grille de valorisation.</b> La m\u00e9diane EV/EBITDA sectorielle "
-        f"s'\u00e9tablit \u00e0 <b>{med_ev2:.1f}x</b> LTM. Les acteurs trait\u00e9s en d\u00e9cote significative "
-        f"(<85% de la m\u00e9diane) \u2014 <b>{decote_names}</b> \u2014 offrent potentiellement les meilleures "
-        f"asym\u00e9tries risque/rendement, sous r\u00e9serve de catalyseurs fondamentaux. "
-        f"\u00c0 l'inverse, les acteurs en prime marqu\u00e9e (>115% de la m\u00e9diane) \u2014 <b>{prime_names}</b> \u2014 "
-        f"exigent une croissance visible et une qualit\u00e9 de bilan sup\u00e9rieure pour justifier "
-        f"leur niveau de valorisation dans un contexte de taux normalis\u00e9s.",
-        S_BODY))
-    elems.append(Spacer(1, 4*mm))
-    elems.append(Paragraph(
-        f"<b>Divergences P/E vs EV/EBITDA.</b> L'écart entre le P/E et l'EV/EBITDA pour "
-        f"certains acteurs signale des structures de capital hétérogènes — effet de levier "
-        f"financier, importance des minoritaires ou spécificités comptables. "
-        f"L'EV/Revenue constitue un complementaire utile pour les acteurs dont les marges "
-        f"EBITDA sont transitoirement comprimees par des investissements stratégiques. "
-        f"Une lecture croisée de ces trois ratios avec le ROE permet d'isoler les vrais "
-        f"générateurs de valeur sur longue période.",
-        S_BODY))
+    # Paragraphe analytique post-multiples — adapte au profil sectoriel
+    if _is_fin_pdf:
+        # Pour banques/assurance : raisonner sur P/B et ROE (pas EV/EBITDA)
+        valid_pb = [t.get('pb_ratio') for t in tickers_data if t.get('pb_ratio') and float(t['pb_ratio']) > 0]
+        med_pb = float(np.median([float(v) for v in valid_pb])) if valid_pb else 0
+        _decotes = [t for t in tickers_data if t.get('pb_ratio') and float(t.get('pb_ratio', 0)) > 0
+                    and float(t['pb_ratio']) < med_pb * 0.85]
+        primes  = [t for t in tickers_data if t.get('pb_ratio') and float(t.get('pb_ratio', 0)) > 0
+                   and float(t['pb_ratio']) > med_pb * 1.15]
+        decote_names = ", ".join(t.get('ticker', '') for t in _decotes[:3]) if _decotes else "aucun acteur"
+        prime_names  = ", ".join(t.get('ticker', '') for t in primes[:3]) if primes else "aucun acteur"
+        elems.append(Paragraph(
+            f"<b>Lecture de la grille de valorisation.</b> La m\u00e9diane P/B sectorielle "
+            f"s'\u00e9tablit \u00e0 <b>{med_pb:.2f}x</b>. Les acteurs trait\u00e9s en d\u00e9cote significative "
+            f"(<85% de la m\u00e9diane) \u2014 <b>{decote_names}</b> \u2014 peuvent offrir une asym\u00e9trie "
+            f"int\u00e9ressante si le ROE reste sup\u00e9rieur au co\u00fbt des fonds propres. "
+            f"\u00c0 l'inverse, les acteurs en prime (>115% de la m\u00e9diane) \u2014 <b>{prime_names}</b> \u2014 "
+            f"exigent un ROE durablement \u00e9lev\u00e9 et une qualit\u00e9 d'actifs irr\u00e9prochable.",
+            S_BODY))
+        elems.append(Spacer(1, 4*mm))
+        elems.append(Paragraph(
+            "<b>Cadre d'analyse bancaire.</b> Pour les institutions financi\u00e8res, le P/B "
+            "(price-to-book) est l'ancrage principal : il refl\u00e8te la prime ou la d\u00e9cote "
+            "que le march\u00e9 paie sur les fonds propres comptables. Un P/B sup\u00e9rieur \u00e0 1x "
+            "se justifie uniquement si le ROE d\u00e9passe le co\u00fbt des fonds propres (souvent 9-11%). "
+            "EV/EBITDA, EV/Revenue et marges EBITDA ne sont pas pertinents \u2014 les revenus "
+            "bancaires (NII + commissions) ne se traduisent pas en EBITDA significatif et le bilan "
+            "est domin\u00e9 par les actifs financiers, non les immobilisations corporelles. "
+            "Compl\u00e9ter avec CET1, NPL ratio et Cost/Income pour l'analyse prudentielle.",
+            S_BODY))
+    else:
+        valid_ev = [t.get('ev_ebitda') for t in tickers_data if t.get('ev_ebitda') and float(t['ev_ebitda']) > 0]
+        med_ev2 = float(np.median([float(v) for v in valid_ev])) if valid_ev else 0
+        _decotes = [t for t in tickers_data if t.get('ev_ebitda') and float(t.get('ev_ebitda', 0)) > 0
+                   and float(t['ev_ebitda']) < med_ev2 * 0.85]
+        primes  = [t for t in tickers_data if t.get('ev_ebitda') and float(t.get('ev_ebitda', 0)) > 0
+                   and float(t['ev_ebitda']) > med_ev2 * 1.15]
+        decote_names = ", ".join(t.get('ticker', '') for t in _decotes[:3]) if _decotes else "aucun acteur"
+        prime_names  = ", ".join(t.get('ticker', '') for t in primes[:3]) if primes else "aucun acteur"
+        elems.append(Paragraph(
+            f"<b>Lecture de la grille de valorisation.</b> La m\u00e9diane EV/EBITDA sectorielle "
+            f"s'\u00e9tablit \u00e0 <b>{med_ev2:.1f}x</b> LTM. Les acteurs trait\u00e9s en d\u00e9cote significative "
+            f"(<85% de la m\u00e9diane) \u2014 <b>{decote_names}</b> \u2014 offrent potentiellement les meilleures "
+            f"asym\u00e9tries risque/rendement, sous r\u00e9serve de catalyseurs fondamentaux. "
+            f"\u00c0 l'inverse, les acteurs en prime marqu\u00e9e (>115% de la m\u00e9diane) \u2014 <b>{prime_names}</b> \u2014 "
+            f"exigent une croissance visible et une qualit\u00e9 de bilan sup\u00e9rieure pour justifier "
+            f"leur niveau de valorisation dans un contexte de taux normalis\u00e9s.",
+            S_BODY))
+        elems.append(Spacer(1, 4*mm))
+        elems.append(Paragraph(
+            f"<b>Divergences P/E vs EV/EBITDA.</b> L'écart entre le P/E et l'EV/EBITDA pour "
+            f"certains acteurs signale des structures de capital hétérogènes — effet de levier "
+            f"financier, importance des minoritaires ou spécificités comptables. "
+            f"L'EV/Revenue constitue un complementaire utile pour les acteurs dont les marges "
+            f"EBITDA sont transitoirement comprimees par des investissements stratégiques. "
+            f"Une lecture croisée de ces trois ratios avec le ROE permet d'isoler les vrais "
+            f"générateurs de valeur sur longue période.",
+            S_BODY))
     return elems
 
 
