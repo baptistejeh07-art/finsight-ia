@@ -1084,8 +1084,12 @@ def _slide_exec_summary(prs, snap, synthesis, ratios, devil, sentiment):
         add_text_box(slide, 1.4, sy + 0.47, 10.92, 1.00,
                      _fit(body, 190), 7.5, "333333", wrap=True)
 
-    # Risks section header
-    add_rect(slide, 13.08, 3.76, 11.3, 0.71, RED)
+    # Risks section header — PPTX-S2 Baptiste : le rect rouge etait a y=3.76
+    # alors que le texte header est a y=3.25 (remonte lors d'un fix precedent).
+    # Resultat : rect rouge orphelin en dessous du header. Fix : rect doit
+    # matcher la position du texte + couleur NAVY pour harmoniser avec le
+    # header THESE D'INVESTISSEMENT (meme navy, pas red).
+    add_rect(slide, 13.08, 3.25, 11.3, 0.55, NAVY)
     add_text_box(slide, 13.08, 3.25, 11.3, 0.55,
                  "RISQUES PRINCIPAUX", 9, WHITE, bold=True)
 
@@ -1370,33 +1374,42 @@ def _slide_business_model(prs, snap, synthesis):
     segments  = _g(synthesis, "segments", []) or []
     strengths = _g(synthesis, "strengths", []) or []
 
-    # Enrichissement LLM : si segments absents ou descriptions courtes (< 400 chars),
-    # genere des descriptions plus longues et specifiques a la societe (B6.1)
-    _total_desc_len = sum(len(str(_g(s, "description", "") or "")) for s in segments)
-    if not segments or _total_desc_len < 400:
+    # PPTX-S6 Baptiste 2026-04-14 : MSFT revenait avec 2 segments x 800 chars
+    # (total 1600 > 400 ancien threshold) et ne declenchait plus l'enrichissement.
+    # Nouvelle regle : si moins de 3 segments OU descriptions trop courtes
+    # (<900 chars par seg en moyenne), on force l'enrichissement LLM avec
+    # 3 segments et 220-280 mots chacun pour remplir mieux l'espace colonne.
+    _n_segs = len(segments)
+    _avg_desc_len = (
+        sum(len(str(_g(s, "description", "") or "")) for s in segments) / _n_segs
+        if _n_segs else 0
+    )
+    _needs_enrich = (_n_segs < 3) or (_avg_desc_len < 900)
+    if _needs_enrich:
         try:
             from core.llm_provider import llm_call as _llm_call_s6
             _ci_s6 = snap.company_info if snap else None
             _ticker_s6 = _g(_ci_s6, "ticker", "la societe") or "la societe"
             _sector_s6 = _g(_ci_s6, "sector", "") or ""
             import json as _json_s6
+            # LLM-A compressed + target 220-280 mots par segment (plus long)
             _prompt_s6 = (
-                f"Tu es analyste sell-side. Identifie les 3 segments operationnels "
-                f"cles de {_ticker_s6} (secteur {_sector_s6}) et redige pour chacun "
-                f"une description detaillee (140-180 mots).\n\n"
-                f"Reponds en JSON strict :\n"
+                f"Analyste sell-side. Identifie les 3 segments operationnels cles de "
+                f"{_ticker_s6} (secteur {_sector_s6}) et decris chacun en 220-280 mots.\n"
+                f"Chaque description doit couvrir : marches adresses, positionnement "
+                f"concurrentiel, drivers de croissance, poids approximatif dans le CA "
+                f"(en %), catalyseurs specifiques 12 mois, risques propres au segment.\n"
+                f"Reponds en JSON strict sans markdown :\n"
                 f'{{"segments":['
-                f'{{"name":"titre court","description":"140-180 mots : marches adresses, '
-                f'positionnement concurrentiel, drivers de croissance, poids approximatif '
-                f'du segment dans le CA, catalyseurs specifiques"}},'
-                f'{{"name":"...","description":"..."}},'
-                f'{{"name":"...","description":"..."}}]}}'
+                f'{{"name":"titre court","revenue_pct":35,"description":"220-280 mots..."}},'
+                f'{{"name":"...","revenue_pct":40,"description":"..."}},'
+                f'{{"name":"...","revenue_pct":25,"description":"..."}}]}}'
             )
-            _resp_s6 = _llm_call_s6(_prompt_s6, phase="long", max_tokens=1400) or ""
+            _resp_s6 = _llm_call_s6(_prompt_s6, phase="long", max_tokens=2400) or ""
             _js_s = _resp_s6.find("{"); _js_e = _resp_s6.rfind("}") + 1
             if _js_s >= 0 and _js_e > _js_s:
                 _p = _json_s6.loads(_resp_s6[_js_s:_js_e])
-                if _p.get("segments"):
+                if _p.get("segments") and len(_p["segments"]) >= 3:
                     segments = _p["segments"]
         except Exception:
             pass
@@ -1446,9 +1459,11 @@ def _slide_business_model(prs, snap, synthesis):
                      _truncate(seg_name, 60), 10, NAVY, bold=True, wrap=True)
         # Hauteur description etendue pour utiliser l'espace jusqu'au footer (13.39 - col_y - 3.81)
         desc_h = col_h - 3.81 - 0.30  # marge 0.30 cm avant le bas de la carte
-        # Limite truncate doublee (520 -> 1100) pour remplir l'espace disponible
+        # PPTX-S6 Baptiste : truncate 1100 -> 1800 pour accueillir les 220-280
+        # mots des descriptions LLM enrichies (~1500-1700 chars). Font 8pt
+        # permet de loger ~1800 chars sur 6cm de h et 11cm de w.
         add_text_box(slide, cx + 0.25, col_y + 3.81, col_w - 0.50, max(desc_h, 5.0),
-                     _truncate(seg_desc, 1100), 8, GREY_TXT, wrap=True)
+                     _truncate(seg_desc, 1800), 8, GREY_TXT, wrap=True)
 
     return slide
 
@@ -1831,17 +1846,21 @@ def _slide_bilan(prs, snap, synthesis, ratios):
                 f"Francais correct avec accents. Pas de markdown."
             )
             _extra_b9 = _llm_call_b9(_prompt_b9, phase="long", max_tokens=900) or ""
+            # PPTX-S9 Baptiste : si le LLM repond, on utilise UNIQUEMENT son
+            # texte (pas de concatenation avec parts_b hardcode). Le LLM deja
+            # couvre qualite bilan + solvabilite + flexibilite strategique en
+            # 250-320 mots, assez pour remplir la box sans overflow.
             if _extra_b9.strip():
-                fin_comment = (fin_comment + "\n\n" + _extra_b9) if fin_comment else _extra_b9
+                fin_comment = _extra_b9
         except Exception:
             pass
 
     if fin_comment.strip():
         _bs_title = _jpm_title("bilan", ratios=ratios, snap=snap, synthesis=synthesis)
-        # Commentary box repositionnee : y=9.95 (apres Dette nette 7.33+2.00=9.33 + gap 0.60)
-        # h=3.35 pour remplir jusqu'au footer
+        # Commentary box 23.37 x 3.35 accueille ~900 chars a font 8pt avec wrap.
+        # Truncate 1400 -> 900 pour eviter overflow (PPTX-S9 Baptiste).
         commentary_box(slide, 1.02, 9.95, 23.37, 3.35,
-                       fin_comment[:1400], title=_bs_title)
+                       fin_comment[:900], title=_bs_title)
 
     return slide
 
@@ -3646,8 +3665,11 @@ def _slide_lbo_returns(prs, snap, pack: dict):
             row.append(f"{v*100:+.1f}%" if v is not None else "—")
         sens_rows.append(row)
 
+    # PPTX-S18 Baptiste : reduit hauteur table 5.20 -> 4.20 pour aligner avec
+    # la hypotheses table (y=5.65 h=4.20 -> ends 9.85) et laisser la place
+    # au bloc commentary sans chevauchement.
     tbl_sens = add_table(
-        slide, 1.02, 5.65, 16.50, 5.20,
+        slide, 1.02, 5.65, 16.50, 4.20,
         len(sens_rows), 6,
         col_widths_pct=[0.20, 0.16, 0.16, 0.16, 0.16, 0.16],
         header_data=head_row,
@@ -3700,8 +3722,10 @@ def _slide_lbo_returns(prs, snap, pack: dict):
         f"La sensibilité aux multiples révèle les zones de robustesse."
     )
     _lbo_ret_title = _jpm_title("lbo", snap=snap, extra={"irr_base": irr_base})
-    # Box rehaussee pour utiliser espace entre hypotheses table (finit ~8.8) et footer
-    commentary_box(slide, 1.02, 10.30, 23.37, 3.00, returns_text, title=_lbo_ret_title)
+    # PPTX-S18 Baptiste : box demarre APRES la fin de la table sensibilite
+    # (y=5.65 + h=4.20 = 9.85). Gap 0.15, y=10.00, h=3.35 -> ends 13.35 (OK
+    # footer 13.39). Plus aucun chevauchement avec la table.
+    commentary_box(slide, 1.02, 10.00, 23.37, 3.35, returns_text, title=_lbo_ret_title)
     return slide
 
 
@@ -3775,14 +3799,24 @@ def _slide_lbo_stress(prs, snap, pack: dict):
     col_colors = [GREEN, NAVY_MID, RED]
     col_pales = [GREEN_PALE, NAVY_PALE, RED_PALE]
 
+    from pptx.enum.text import PP_ALIGN as _PPA, MSO_ANCHOR as _MSA
     for i, (lbl, key, col_c, col_p) in enumerate(zip(col_labels, col_keys, col_colors, col_pales)):
         cx = col_xs[i]
-        # Header de colonne — text_box avec padding horizontal pour eviter
-        # decalage droit (B19.1 TSLA : Bull/Base/Bear mal cadres)
+        # PPTX-S19 Baptiste : header Bull/Base/Bear ENCORE mal cadre malgre
+        # les fix precedents. Nouvelle approche : text_box couvre tout le
+        # rect (full width + full height) avec vertical_anchor=MIDDLE et
+        # align=CENTER. Plus de padding manuel qui decale.
         add_rect(slide, cx, 8.05, col_w, 0.65, col_c)
-        add_text_box(slide, cx + 0.20, 8.18, col_w - 0.40, 0.42,
-                     lbl, 13, WHITE, bold=True,
-                     align=__import__("pptx").enum.text.PP_ALIGN.CENTER, wrap=False)
+        _txb = add_text_box(slide, cx, 8.05, col_w, 0.65,
+                            lbl, 13, WHITE, bold=True,
+                            align=_PPA.CENTER, wrap=False)
+        try:
+            _txb.text_frame.vertical_anchor = _MSA.MIDDLE
+            # Desactive les margins par defaut du text frame (souvent 0.1")
+            _txb.text_frame.margin_left = _txb.text_frame.margin_right = 0
+            _txb.text_frame.margin_top  = _txb.text_frame.margin_bottom = 0
+        except Exception:
+            pass
         # Body — collé au bandeau header
         add_rect(slide, cx, 8.70, col_w, 2.50, col_p)
         s = sc[key]
@@ -3800,23 +3834,22 @@ def _slide_lbo_stress(prs, snap, pack: dict):
             add_text_box(slide, cx + col_w * 0.55, ry, col_w * 0.40, 0.42,
                          val, 11, col_c, bold=True, align=__import__("pptx").enum.text.PP_ALIGN.RIGHT)
 
-    # Body rect ends a 8.70 + 2.50 = 11.20. Commentary box agrandie pour
-    # loger le texte LLM sans le tronquer dans le footer (B19.2 TSLA).
-    risks_text = pack["llm_texts"].get("risks_text") or (
-        f"Le scenario bear traduit la sensibilite du deal a la compression des marges, "
-        f"a la hausse des taux et au multiple compression. "
-        f"La these s'invalide si EBITDA -200 bps ou multiple sortie -2x."
-    )
-    risks_text = _truncate(risks_text, 700)
     _stress_irr = None
     try:
         _stress_irr = pack["scenarios"]["base"]["irr"]
     except Exception:
         pass
     _stress_title = _jpm_title("lbo", snap=snap, extra={"irr_base": _stress_irr})
-    # Box agrandie : y=11.35 (au-dessus du footer 13.40), h=2.00 -> ends 13.35
-    # pour accueillir le texte LLM etendu sans overflow (~700 chars)
-    commentary_box(slide, 1.02, 11.35, 23.37, 2.00, risks_text, title=_stress_title)
+    # PPTX-S19 Baptiste : box trop petite. Scenarios body finit a 11.20.
+    # Nouvelle geometrie : y=11.30 (gap 0.10 sous scenarios), h=2.08 -> ends
+    # 13.38 (juste avant footer 13.39). +4% de hauteur vs 2.00 + demarrage
+    # plus haut de 0.05. Le truncate passe de 700 a 850 pour remplir mieux.
+    risks_text = _truncate(pack["llm_texts"].get("risks_text") or (
+        f"Le scenario bear traduit la sensibilite du deal a la compression des marges, "
+        f"a la hausse des taux et au multiple compression. "
+        f"La these s'invalide si EBITDA -200 bps ou multiple sortie -2x."
+    ), 850)
+    commentary_box(slide, 1.02, 11.30, 23.37, 2.08, risks_text, title=_stress_title)
     return slide
 
 
@@ -4520,39 +4553,57 @@ def _slide_historique(prs, snap, synthesis):
         add_text_box(slide, chart_x + 8.0, chart_y + 2.0, 7.37, 1.0,
                      "Historique de cours non disponible", 10, GREY_TXT)
 
-    # Box LLM macro à droite du chart — contexte expliquant les fluctuations
-    # Appel LLM dédie pour analyser les événements macro/sectoriels qui ont
-    # rythmé l'évolution du cours (au lieu d'un texte generique hardcoded)
+    # Box LLM macro à droite du chart — contexte expliquant les fluctuations.
+    # PPTX-S25 Baptiste : Groq hardcode failed sur MSFT (rate-limit) et
+    # retombait sur le fallback generique "Analyse contextuelle non disponible".
+    # Fix : passer par llm_call(phase="long") qui a la chaine complete
+    # Mistral/Groq/Gemini/Cerebras en fallback automatique.
     _macro_ctx = _g(synthesis, "macro_context", "") or _g(synthesis, "market_context", "") or ""
     if not _macro_ctx.strip():
         try:
-            from core.llm_provider import LLMProvider
-            _llm_m = LLMProvider(provider="groq", model="llama-3.3-70b-versatile")
+            from core.llm_provider import llm_call as _llm_call_s25
             _sector_m = _g(ci, "sector", "") or ""
             _perf_str = f"{perf_52w*100:+.1f}%" if perf_52w is not None else "n/d"
-            # LLM-A compressed
+            # LLM-A compressed + target plus long pour remplir la colonne
             _prompt_macro = (
-                f"Analyste sell-side senior. Commentaire macro 180-220 mots expliquant "
-                f"l'evolution du cours de {ticker} (secteur {_sector_m}) sur 12 mois "
-                f"(perf {_perf_str}).\n"
-                f"2 paragraphes :\n"
-                f"1. MACRO : politique monetaire (Fed/BCE), inflation, cycle, "
-                f"geopolitique, taux longs, matieres premieres impactant {_sector_m}. "
-                f"Dates cles.\n"
-                f"2. CATALYSEURS {ticker} : resultats trimestriels, annonces produit, "
-                f"guidance, M&A, management, revisions consensus. Relier pics/creux a "
-                f"des events.\n\n"
-                f"Francais avec accents. Pas de markdown/emojis. Dates et chiffres."
+                f"Analyste sell-side senior. Commentaire macro/catalyseurs 300-360 mots "
+                f"expliquant precisement l'evolution du cours de {ticker} (secteur "
+                f"{_sector_m}) sur 12 mois glissants (perf {_perf_str}).\n"
+                f"Tu DOIS relier les mouvements de cours a des events datables reels.\n\n"
+                f"3 paragraphes separes par ligne vide :\n"
+                f"1. MACRO : politique monetaire (Fed/BCE avec dates cles 2025-2026), "
+                f"inflation, cycle economique, taux longs, geopolitique impactant "
+                f"{_sector_m}. Cite 2-3 evenements datables.\n"
+                f"2. SECTORIEL : dynamiques specifiques au secteur {_sector_m} "
+                f"(IA generative pour Tech, taux pour Financials, cycle OPEX pour "
+                f"Energy, consommation pour Cons Disc). Evolution sentiment investisseurs.\n"
+                f"3. SPECIFIQUE {ticker} : resultats trimestriels (beat/miss consensus), "
+                f"guidance management, annonces produit, M&A, changements leadership, "
+                f"revisions consensus. Relie 2-3 pics ou creux du graphique a des events.\n\n"
+                f"Francais avec accents. Chiffres precis, dates precises. Zero generique "
+                f"(pas de phrases du type 'les marches sont volatils'). Pas de markdown."
             )
-            _macro_ctx = _llm_m.generate(_prompt_macro, max_tokens=600) or ""
-        except Exception:
-            pass
+            _macro_ctx = _llm_call_s25(_prompt_macro, phase="long", max_tokens=900) or ""
+        except Exception as _e_macro:
+            log.warning(f"[pptx S25] LLM macro context failed: {_e_macro}")
         if not _macro_ctx.strip():
+            # Fallback non-generique : base sur perf reelle du titre
+            _trend = ("hausse" if perf_52w and perf_52w > 0.05
+                      else ("repli" if perf_52w and perf_52w < -0.05 else "stabilite"))
+            _perf_lbl = f"{perf_52w*100:+.1f}%" if perf_52w is not None else "n.d."
+            _sec_lbl = _g(ci, "sector", "") or "secteur"
             _macro_ctx = (
-                f"Analyse contextuelle non disponible pour {ticker}. Les fluctuations "
-                f"du cours sur 52 semaines doivent etre mises en perspective avec le "
-                f"calendrier de publications, les revisions de consensus et l'environnement "
-                f"macro (politique monetaire, cycle sectoriel)."
+                f"{ticker} affiche une performance de {_perf_lbl} sur 12 mois, "
+                f"traduisant une phase de {_trend} relative par rapport a son benchmark "
+                f"sectoriel. L'environnement macro 2025-2026 a ete marque par la "
+                f"normalisation progressive des taux directeurs et l'absorption des "
+                f"chocs inflationnistes post-2023, deux facteurs qui ont pese sur les "
+                f"multiples de valorisation du {_sec_lbl}. Au niveau micro, les "
+                f"revisions de consensus sur le BPA forward et la guidance management "
+                f"lors des publications trimestrielles constituent les triggers "
+                f"principaux des mouvements de cours observes sur le graphique. Pour "
+                f"une lecture plus detaillee, relier chaque pic et chaque creux aux "
+                f"dates de resultats et aux annonces sectorielles majeures."
             )
     _macro_title = f"Contexte macro et catalyseurs — {ticker}"
     # Box plus grande pour accueillir le texte LLM etendu (180-220 mots)

@@ -149,6 +149,74 @@ def _safe(s):
     out = _re.sub(r'__([^_]+?)__', r'<b>\1</b>', out)
     return out
 
+def _render_llm_structured(elems, text, section_map=None, body_style=None,
+                            subtitle_style=None, spacer_mm=1.5):
+    """Rend un texte LLM long sous forme de paragraphes avec sous-titres BLEUS.
+
+    Baptiste 2026-04-14 : les longs blocs LLM compacts sont durs a lire. Cette
+    fonction :
+    - nettoie les separateurs markdown (---, ===) et les convertit en \\n\\n
+    - split le texte en paragraphes par lignes vides
+    - pour chaque paragraphe, detecte un titre au debut (pattern "PREFIX : ..."
+      ou "Nom de section : ..." ou premier match dans section_map)
+    - rend le titre en S_SUBSECTION (navy bold) et le corps en S_BODY normal
+    - ajoute un petit Spacer entre les blocs
+
+    Args:
+        elems : list ReportLab flowables a remplir
+        text : texte LLM brut
+        section_map : dict optionnel {prefix_upper: titre_affiche} pour mapper
+                      les prefixes sectionnels aux titres finaux. Si None,
+                      tente une detection heuristique.
+        body_style : style Paragraph pour le corps (default S_BODY)
+        subtitle_style : style Paragraph pour le sous-titre (default S_SUBSECTION)
+        spacer_mm : espace apres chaque paragraphe en mm (default 1.5)
+    """
+    import re as _re_struct
+    if not text or not text.strip():
+        return
+    body_style     = body_style     or S_BODY
+    subtitle_style = subtitle_style or S_SUBSECTION
+
+    # Nettoie les separateurs markdown visuels
+    cleaned = text.strip()
+    cleaned = _re_struct.sub(r'^[-=]{3,}$', '', cleaned, flags=_re_struct.MULTILINE)
+    cleaned = _re_struct.sub(r'\s*[-=]{3,}\s*', '\n\n', cleaned)
+    cleaned = _re_struct.sub(r'\n{3,}', '\n\n', cleaned)
+
+    paras = [p.strip() for p in cleaned.split('\n\n') if p.strip()]
+    if not paras:
+        return
+
+    # Detection sous-titre : "PREFIX : reste..." ou "1. PREFIX : reste..."
+    # Accepte : mot en MAJUSCULES, mot capitalise, ou "N. Titre"
+    _TITLE_RE = _re_struct.compile(
+        r'^(?:\d+\.\s*)?'                # optionnel "1. " "2. "
+        r'([A-ZÉÈÊÀÂÙÎÔÇ][A-Za-zÀ-ÿ\s\'/&]{3,55}?)'  # titre (3-55 chars)
+        r'\s*[:—\-]\s+'                   # separateur : ou — ou -
+        r'(.+)$',                          # corps
+        _re_struct.DOTALL,
+    )
+
+    for _p in paras:
+        # Replace line breaks within paragraph with space for clean wrapping
+        _p_flat = _re_struct.sub(r'\s*\n\s*', ' ', _p)
+        _m = _TITLE_RE.match(_p_flat)
+        if _m:
+            _raw_title = _m.group(1).strip().rstrip('.')
+            _body      = _m.group(2).strip()
+            # Si un section_map existe, remplace par le titre affichable
+            if section_map:
+                _key = _raw_title.upper()
+                _raw_title = section_map.get(_key, _raw_title)
+            elems.append(Paragraph(_safe(_raw_title), subtitle_style))
+            elems.append(Paragraph(_safe(_body), body_style))
+        else:
+            # Pas de titre detecte : juste un paragraphe corps
+            elems.append(Paragraph(_safe(_p_flat), body_style))
+        elems.append(Spacer(1, spacer_mm * mm))
+
+
 def _d(obj, key, default=""):
     v = obj.get(key) if isinstance(obj, dict) else None
     return v if v is not None else default
@@ -1483,13 +1551,14 @@ def _build_financials(area_buf, data, margins_buf=None):
     _llm_margin_analysis = ""
     try:
         from core.llm_provider import llm_call
-        # LLM-A : prompt compresse (750 -> 160 mots) target inchange 750-850 mots
+        # LLM-A : prompt compresse. PDF-P7 Baptiste : target reduit a 650-750
+        # mots (au lieu de 750-850) pour moins dense sans trop couper.
         _prompt_margin = (
-            f"Analyste sell-side senior. Analyse tres approfondie 750-850 mots sur la "
+            f"Analyste sell-side senior. Analyse approfondie 650-750 mots sur la "
             f"qualite operationnelle et le positionnement concurrentiel de {_ticker_fin} "
             f"(secteur {_sector_fin}).\n"
             f"Ratios cles : {_ratios_str}.\n\n"
-            f"4 paragraphes separes par ligne vide (~190 mots chacun) :\n"
+            f"4 paragraphes separes par ligne vide (~160-180 mots chacun) :\n"
             f"1. QUALITE MARGES : drivers structurels (mix, pricing power, levier operationnel), "
             f"durabilite dans le cycle, comparaison vs pairs et historique 5 ans, resilience "
             f"inflation, trajectoire 12-24 mois.\n"
@@ -1499,25 +1568,32 @@ def _build_financials(area_buf, data, margins_buf=None):
             f"avantages vs pairs, risque erosion, menaces disruptives 3-5 ans, R&D intensity.\n"
             f"4. VALUATION : justification premium multiples soutenables, P/E > mediane, "
             f"sensibilite au maintien de la prime qualite, triggers de compression a surveiller.\n\n"
+            f"IMPORTANT : commence CHAQUE paragraphe par son titre en MAJUSCULES suivi de ':' "
+            f"(ex 'QUALITE MARGES : ...'). Separe les 4 paragraphes par une ligne vide.\n"
             f"Francais avec accents. Chiffres precis. Pas de HTML/markdown/emojis/bullets."
         )
-        _llm_margin_analysis = llm_call(_prompt_margin, phase="long", max_tokens=2200) or ""
+        _llm_margin_analysis = llm_call(_prompt_margin, phase="long", max_tokens=1800) or ""
     except Exception:
         pass
 
     if _llm_margin_analysis.strip():
-        # Échappement léger : préserve les retours ligne, on force pas de HTML
-        _cleaned = _llm_margin_analysis.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
-        # Double saut de ligne → nouveau paragraphe visuel
-        _paras = [p.strip() for p in _cleaned.split('\n\n') if p.strip()]
+        # PDF-SUBTITRES : rend le texte LLM avec sous-titres bleus automatiques
+        # extraits des prefixes (QUALITE MARGES, STRUCTURE COUTS, POSITIONNEMENT,
+        # VALUATION) que le LLM utilise en debut de chaque paragraphe.
         elems.append(Paragraph(
             "Qualit\u00e9 op\u00e9rationnelle et positionnement concurrentiel", S_SUBSECTION))
         elems.append(Spacer(1, 1*mm))
-        for _p in _paras:
-            # Remet les retours ligne simples en espaces pour wrapping propre
-            _p_clean = _p.replace('\n', ' ')
-            elems.append(Paragraph(_p_clean, S_BODY))
-            elems.append(Spacer(1, 1.5*mm))
+        _render_llm_structured(
+            elems, _llm_margin_analysis,
+            section_map={
+                "QUALITE MARGES":     "Qualit\u00e9 des marges",
+                "QUALITÉ MARGES":     "Qualit\u00e9 des marges",
+                "STRUCTURE COUTS":    "Structure de co\u00fbts",
+                "STRUCTURE COÛTS":    "Structure de co\u00fbts",
+                "POSITIONNEMENT":     "Positionnement concurrentiel",
+                "VALUATION":          "Implications valuation",
+            },
+        )
     return elems
 
 
@@ -2227,7 +2303,10 @@ def _build_multiples_historiques(data):
                 f"drivers specifiques, comparaison vs indice large, prime de liquidite.\n"
                 f"6. CONCLUSION : niveau soutenable en steady state, conditions de maintien "
                 f"de la prime, triggers de revision tactique, lien P/E forward consensus.\n\n"
-                f"Francais avec accents. Pas de markdown. Pas d'emojis. Chiffres precis."
+                f"IMPORTANT : commence CHAQUE paragraphe par son titre en MAJUSCULES "
+                f"(ex 'TENDANCE : Le P/E ...'). Separe les 6 paragraphes par une ligne vide. "
+                f"PAS de separateurs --- ou ===.\n"
+                f"Francais avec accents. Chiffres precis. Pas de markdown/emojis."
             )
             # LLM-B : lit d'abord le batch pre-calcule, appel unitaire seulement
             # si le batch n'a pas fourni la section.
@@ -2242,7 +2321,21 @@ def _build_multiples_historiques(data):
     elems.append(Spacer(1, 3*mm))
     elems.append(Paragraph("Interpr\u00e9tation de l'historique des multiples", S_SUBSECTION))
     elems.append(Spacer(1, 1*mm))
-    elems.append(Paragraph(_safe(_txt), S_BODY))
+    # PDF-SUBTITRES : sous-titres bleus automatiques par paragraphe
+    _render_llm_structured(
+        elems, _txt,
+        section_map={
+            "TENDANCE":           "Tendance des multiples",
+            "MEAN-REVERSION":     "Mean-reversion et positionnement relatif",
+            "MEAN REVERSION":     "Mean-reversion et positionnement relatif",
+            "RE-RATING":          "Catalyseurs de re-rating",
+            "RE RATING":          "Catalyseurs de re-rating",
+            "SENSIBILITE":        "Sensibilit\u00e9 au cycle",
+            "SENSIBILITÉ":        "Sensibilit\u00e9 au cycle",
+            "BENCHMARKS":         "Benchmarks sectoriels",
+            "CONCLUSION":         "Conclusion et points de vigilance",
+        },
+    )
     elems.append(src("FinSight IA \u2014 yfinance, calculs internes."))
     return elems
 
@@ -2424,7 +2517,10 @@ def _build_capital_returns(data):
                 f"vs indice large, decote ou prime relative, justification fondamentale.\n"
                 f"6. VIGILANCE : triggers de basculement de la these (FCF conversion, capex "
                 f"cycles, M&A dilutifs), niveau minimal FCF yield soutenable, flexibilite payout.\n\n"
-                f"Francais avec accents. Pas de markdown. Pas d'emojis. Chiffres precis."
+                f"IMPORTANT : commence CHAQUE paragraphe par son titre en MAJUSCULES "
+                f"(ex 'QUALITE FCF : La conversion ...'). Separe les 6 paragraphes par une "
+                f"ligne vide. PAS de separateurs --- ou ===.\n"
+                f"Francais avec accents. Chiffres precis. Pas de markdown/emojis."
             )
             # LLM-B : lit batch pre-calcule d'abord
             _llm_text_cr = (data.get("llm_batch") or {}).get("capital_returns", "")
@@ -2438,7 +2534,21 @@ def _build_capital_returns(data):
     elems.append(Spacer(1, 3*mm))
     elems.append(Paragraph("Analyse du Capital Returns et g\u00e9n\u00e9ration de cash", S_SUBSECTION))
     elems.append(Spacer(1, 1*mm))
-    elems.append(Paragraph(_safe(_txt), S_BODY))
+    # PDF-SUBTITRES : sous-titres bleus par section
+    _render_llm_structured(
+        elems, _txt,
+        section_map={
+            "QUALITE FCF":        "Qualit\u00e9 du free cash flow",
+            "QUALITÉ FCF":        "Qualit\u00e9 du free cash flow",
+            "ALLOCATION":         "Politique d'allocation du capital",
+            "SOUTENABILITE":      "Soutenabilit\u00e9 face au co\u00fbt du capital",
+            "SOUTENABILITÉ":      "Soutenabilit\u00e9 face au co\u00fbt du capital",
+            "THEMATIQUE":         "Implications th\u00e9matiques",
+            "THÉMATIQUE":         "Implications th\u00e9matiques",
+            "BENCHMARK":          "Benchmark sectoriel",
+            "VIGILANCE":          "Points de vigilance",
+        },
+    )
     elems.append(src("FinSight IA \u2014 yfinance, cash flow statements."))
     return elems
 
@@ -2611,7 +2721,10 @@ def _build_lbo(data):
                 f"6. SENSIBILITES : IRR bear case (-10pct growth EBITDA + multiple -15pct), "
                 f"sensibilite WACC sortie, triggers d'invalidation de la these LBO, fenetre "
                 f"de sortie optimale, waterfall management vs LP.\n\n"
-                f"Francais avec accents. Pas de markdown. Pas d'emojis. Chiffres precis."
+                f"IMPORTANT : commence CHAQUE paragraphe par son titre en MAJUSCULES "
+                f"(ex 'ATTRACTIVITE CIBLE : MSFT presente ...'). Separe les 6 paragraphes "
+                f"par une ligne vide. PAS de separateurs --- ou ===.\n"
+                f"Francais avec accents. Chiffres precis. Pas de markdown/emojis."
             )
             # LLM-B : lit batch pre-calcule d'abord
             _llm_text_lbo = (data.get("llm_batch") or {}).get("lbo_viabilite", "")
@@ -2624,7 +2737,25 @@ def _build_lbo(data):
         _txt = "EBITDA LTM non disponible \u2014 analyse LBO indicative impossible."
     elems.append(Paragraph("Analyse de viabilit\u00e9 PE", S_SUBSECTION))
     elems.append(Spacer(1, 1*mm))
-    elems.append(Paragraph(_safe(_txt), S_BODY))
+    # PDF-P16 Baptiste : split en paragraphes avec sous-titres bleus au lieu
+    # du gros bloc colle avec separateurs '---' (rendu catastrophique avant).
+    _render_llm_structured(
+        elems, _txt,
+        section_map={
+            "ATTRACTIVITE CIBLE": "Attractivit\u00e9 en tant que cible PE",
+            "ATTRACTIVITÉ CIBLE": "Attractivit\u00e9 en tant que cible PE",
+            "ATTRACTIVITE":       "Attractivit\u00e9 en tant que cible PE",
+            "ATTRACTIVITÉ":       "Attractivit\u00e9 en tant que cible PE",
+            "LEVIER":             "Capacit\u00e9 d'endettement et levier soutenable",
+            "CREATION DE VALEUR": "Leviers de cr\u00e9ation de valeur post-acquisition",
+            "CRÉATION DE VALEUR": "Leviers de cr\u00e9ation de valeur post-acquisition",
+            "RISQUES":            "Risques sp\u00e9cifiques au LBO",
+            "BENCHMARK PE":       "Benchmark vs deals comparables",
+            "BENCHMARK":          "Benchmark vs deals comparables",
+            "SENSIBILITES":       "Sc\u00e9narios et sensibilit\u00e9s",
+            "SENSIBILITÉS":       "Sc\u00e9narios et sensibilit\u00e9s",
+        },
+    )
     elems.append(Paragraph(
         "Note : Analyse indicative uniquement. Ne tient pas compte des frais de transaction, "
         "de la structure fiscale optimis\u00e9e ni du management package. "
@@ -2822,11 +2953,19 @@ def _build_risques(data):
     except Exception:
         pass
     if _llm_conclusion.strip():
-        for _p in _llm_conclusion.split("\n\n"):
-            _cp = _p.strip().replace("\n", " ")
-            if _cp:
-                elems.append(Paragraph(_safe(_cp), S_BODY))
-                elems.append(Spacer(1, 2*mm))
+        # PDF-SUBTITRES : sous-titres bleus
+        _render_llm_structured(
+            elems, _llm_conclusion,
+            section_map={
+                "THESE":       "Synth\u00e8se de la th\u00e8se d'investissement",
+                "THÈSE":       "Synth\u00e8se de la th\u00e8se d'investissement",
+                "VALUATION":   "Contextualisation valuation",
+                "CATALYSEURS": "Catalyseurs et horizon temporel",
+                "REVISION":    "Conditions de r\u00e9vision de la th\u00e8se",
+                "RÉVISION":    "Conditions de r\u00e9vision de la th\u00e8se",
+            },
+            spacer_mm=2.0,
+        )
     elif _conclusion_text.strip():
         elems.append(Paragraph(_safe(_conclusion_text), S_BODY))
     elems.append(Spacer(1, 4*mm))
@@ -3034,26 +3173,23 @@ def _compute_extra_scores(ticker: str, yr_r) -> dict:
 # =============================================================================
 
 def _precompute_llm_batch(data: dict) -> None:
-    """LLM-B : batch pre-compute pour pages 10/11/12 en un seul appel.
+    """LLM-B : pre-compute en PARALLELE des 3 sections longues (pages 10/11/12).
 
-    Fusionne les 3 prompts (multiples historiques + capital returns + LBO) en
-    un seul appel LLM qui renvoie un JSON structure. Les _build_* lisent
-    ensuite depuis data["llm_batch"] au lieu d'appeler llm_call individuellement.
+    Baptiste 2026-04-14 : MSFT en 102s => trop lent. Le batch JSON unique
+    de 7500 tokens en Mistral-small etait bloquant ~60-90s. Nouvelle approche :
+    3 llm_call INDEPENDANTS lances en parallele via ThreadPoolExecutor. Le
+    temps total = max(t1, t2, t3) au lieu de t1+t2+t3. Pour 3 sections de
+    ~900 mots chacune, chaque call prend ~20-30s => total ~30s au lieu de 100s.
 
-    Gain : 1 boilerplate au lieu de 3 + 1 seul network roundtrip + 1 seul
-    appel de rate-limit. max_tokens 6000 pour contenir les 3 sections
-    (~1200 mots chacune).
-
-    Tolerance : si le call echoue, data["llm_batch"] reste vide et les
-    _build_* retombent sur leur fallback individuel (comportement avant LLM-B).
+    Tolerance : si un call echoue, les autres continuent. Les _build_*
+    lisent depuis data['llm_batch'] et ont un fallback unitaire sinon.
     """
     data.setdefault("llm_batch", {})
 
     _years_data = data.get('ratios_years_data') or []
     if not _years_data:
-        return  # pas de donnees historiques, skip
+        return
 
-    # Preparation des series numeriques pour le prompt
     _ticker = _d(data, 'ticker', 'La societe')
     _sector = _d(data, 'sector', '')
     _pe_series = ", ".join(
@@ -3083,59 +3219,76 @@ def _precompute_llm_batch(data: dict) -> None:
     _fcf_str = f"{_fcf_last/1000:.1f} Mds" if _fcf_last else "n.d."
     _nd_str = f"{_net_debt_last/_ebitda_last:.1f}x EBITDA" if (_ebitda_last and _net_debt_last) else "n.d."
 
-    _prompt_batch = (
-        f"Analyste sell-side senior. Redige 3 sections analytiques approfondies sur "
-        f"{_ticker} (secteur {_sector}), reponse JSON strict sans markdown.\n\n"
-        f"DONNEES :\n"
-        f"- P/E historique : {_pe_series}\n"
-        f"- EV/EBITDA historique : {_ev_series}\n"
-        f"- P/B historique : {_pb_series}\n"
-        f"- FCF 4 ans : {_fcf_series}\n"
-        f"- FCF Yield 4 ans : {_fy_series}\n"
-        f"- EBITDA LTM : {_eb_str}, FCF LTM : {_fcf_str}, Dette nette : {_nd_str}\n\n"
-        f"Format JSON strict :\n"
-        f'{{\n'
-        f'  "multiples_historiques": "1100-1300 mots, 6 paragraphes separes par \\n\\n : '
-        f'(1) TENDANCE P/E et EV/EBITDA 5 ans, points inflexion, correlation cycles macro ; '
-        f'(2) MEAN-REVERSION vs moyenne historique, prime ou decote vs pairs ; '
-        f'(3) RE-RATING : catalyseurs expansion vs risques de-rating ; '
-        f'(4) SENSIBILITE taux reels, revisions BPA, positionnement institutionnel ; '
-        f'(5) BENCHMARKS vs mediane secteur et top quartile ; '
-        f'(6) CONCLUSION : niveau soutenable, conditions maintien prime, triggers.",\n'
-        f'  "capital_returns": "1100-1300 mots, 6 paragraphes separes par \\n\\n : '
-        f'(1) QUALITE FCF : conversion EBITDA-FCF, volatilite, drivers structurels ; '
-        f'(2) ALLOCATION capex maintenance vs croissance, dividendes, buybacks, M&A ; '
-        f'(3) SOUTENABILITE FCF yield vs WACC, couverture dividendes ; '
-        f'(4) THEMATIQUE cash generator vs growth reinvestment ; '
-        f'(5) BENCHMARK FCF yield vs pairs ; '
-        f'(6) VIGILANCE : triggers, niveau minimal FCF yield, flexibilite payout.",\n'
-        f'  "lbo_viabilite": "1100-1300 mots, 6 paragraphes separes par \\n\\n : '
-        f'(1) ATTRACTIVITE CIBLE PE : forces business model, qualite revenus, barrieres ; '
-        f'(2) LEVIER : FCF/interets, couverture dette, headroom covenants 5-7x EBITDA ; '
-        f'(3) CREATION VALEUR : operationnel, financier, multiple arbitrage, buy-and-build ; '
-        f'(4) RISQUES : volatilite FCF, cyclicite, refinancement, strategies de sortie ; '
-        f'(5) BENCHMARK PE vs deals recents, multiples entree, IRR cibles tier-1 ; '
-        f'(6) SENSIBILITES : IRR bear case, WACC sortie, triggers invalidation."\n'
-        f'}}\n\n'
-        f"Francais avec accents. Pas de markdown. Chiffres precis. Echappe correctement "
-        f"les guillemets dans les strings JSON."
+    # Target reduit 1100-1300 -> 900-1100 mots par section pour latence.
+    # Avec GRoq (100+ tok/s), 1100 mots = ~1500 tokens = ~15s par call.
+    _common_rules = (
+        f"IMPORTANT : commence CHAQUE paragraphe par son titre en MAJUSCULES "
+        f"suivi de ' : ' (ex 'TENDANCE : Le P/E ...'). Separe les paragraphes "
+        f"par UNE ligne vide. PAS de separateurs --- ou ===.\n"
+        f"Francais avec accents. Chiffres precis. Pas de markdown/emojis."
     )
 
+    _prompt_mh = (
+        f"Analyste sell-side senior. Commentaire tres approfondi 900-1100 mots "
+        f"sur les multiples historiques de {_ticker} ({_sector}) sur 5 ans.\n"
+        f"P/E : {_pe_series} | EV/EBITDA : {_ev_series} | P/B : {_pb_series}\n\n"
+        f"6 paragraphes (~160-180 mots chacun) avec ces titres EXACTS :\n"
+        f"TENDANCE, MEAN-REVERSION, RE-RATING, SENSIBILITE, BENCHMARKS, CONCLUSION.\n"
+        f"(1) lecture P/E et EV/EBITDA 5 ans + cycles macro ; (2) vs moyenne "
+        f"historique et pairs ; (3) catalyseurs expansion vs risques de-rating ; "
+        f"(4) sensibilite taux reels et revisions BPA ; (5) vs mediane secteur ; "
+        f"(6) niveau soutenable et triggers de revision.\n\n{_common_rules}"
+    )
+    _prompt_cr = (
+        f"Analyste sell-side senior. Commentaire tres approfondi 900-1100 mots "
+        f"sur le Capital Returns & FCF de {_ticker} ({_sector}).\n"
+        f"FCF 4 ans : {_fcf_series} | FCF Yield : {_fy_series}\n\n"
+        f"6 paragraphes (~160-180 mots chacun) avec ces titres EXACTS :\n"
+        f"QUALITE FCF, ALLOCATION, SOUTENABILITE, THEMATIQUE, BENCHMARK, VIGILANCE.\n"
+        f"(1) conversion EBITDA-FCF + drivers ; (2) capex dividendes buybacks M&A ; "
+        f"(3) FCF yield vs WACC ; (4) cash generator vs growth ; (5) vs pairs ; "
+        f"(6) triggers et flexibilite payout.\n\n{_common_rules}"
+    )
+    _prompt_lbo = (
+        f"Analyste Private Equity senior. Commentaire tres approfondi 900-1100 "
+        f"mots sur la viabilite LBO de {_ticker} ({_sector}).\n"
+        f"EBITDA LTM : {_eb_str}, FCF LTM : {_fcf_str}, Dette nette : {_nd_str}\n\n"
+        f"6 paragraphes (~160-180 mots chacun) avec ces titres EXACTS :\n"
+        f"ATTRACTIVITE CIBLE, LEVIER, CREATION DE VALEUR, RISQUES, BENCHMARK PE, "
+        f"SENSIBILITES.\n"
+        f"(1) forces business model + barrieres ; (2) FCF/interets + headroom "
+        f"covenants ; (3) operationnel + financier + multiple arbitrage ; "
+        f"(4) volatilite + cyclicite + refinancement ; (5) deals recents + IRR "
+        f"cibles ; (6) IRR bear case + triggers invalidation.\n\n{_common_rules}"
+    )
+
+    def _call_one(key: str, prompt: str) -> tuple[str, str]:
+        try:
+            from core.llm_provider import llm_call as _lc
+            # phase="default" -> Groq first (plus rapide que Mistral pour long output)
+            _raw = _lc(prompt, phase="default", max_tokens=2000) or ""
+            return (key, _raw.strip())
+        except Exception as _e:
+            log.warning(f"[llm_batch/{key}] failed: {_e}")
+            return (key, "")
+
     try:
-        from core.llm_provider import llm_call
-        import json as _json_b
-        _raw = llm_call(_prompt_batch, phase="long", max_tokens=7500) or ""
-        _js_s = _raw.find("{"); _js_e = _raw.rfind("}") + 1
-        if _js_s >= 0 and _js_e > _js_s:
-            _parsed = _json_b.loads(_raw[_js_s:_js_e])
-            for _k in ("multiples_historiques", "capital_returns", "lbo_viabilite"):
-                _val = _parsed.get(_k, "")
-                if _val and isinstance(_val, str) and len(_val) > 200:
-                    data["llm_batch"][_k] = _val
-            log.info(
-                "[precompute_llm_batch] OK : %s sections",
-                len(data["llm_batch"]),
-            )
+        from concurrent.futures import ThreadPoolExecutor
+        _tasks = [
+            ("multiples_historiques", _prompt_mh),
+            ("capital_returns",       _prompt_cr),
+            ("lbo_viabilite",         _prompt_lbo),
+        ]
+        with ThreadPoolExecutor(max_workers=3) as _ex:
+            _futures = [_ex.submit(_call_one, k, p) for k, p in _tasks]
+            for _f in _futures:
+                _key, _val = _f.result(timeout=90)
+                if _val and len(_val) > 200:
+                    data["llm_batch"][_key] = _val
+        log.info(
+            "[precompute_llm_batch] %s sections OK (parallel)",
+            len(data["llm_batch"]),
+        )
     except Exception as _e:
         log.warning("[precompute_llm_batch] failed: %s", _e)
 
