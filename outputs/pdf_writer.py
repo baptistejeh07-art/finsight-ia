@@ -1772,8 +1772,17 @@ def _build_valorisation(ff_buf, pie_buf, mc_buf, data):
             if _vol is not None:
                 try:
                     _vol_pct = float(_vol) * 100
+                    # Extraction hors f-string (Python <3.12 interdit \ dans expression f-string)
+                    _apos = "\u2019"
+                    _vol_qual = (
+                        f"est \u00e9lev\u00e9e, amplifiant la dispersion des scenarios et "
+                        f"traduisant un profil risk-on sensible aux revisions d{_apos}hypoth\u00e8ses"
+                    ) if _vol_pct > 40 else (
+                        "est mod\u00e9r\u00e9e, resserrant le corridor P10-P90 et "
+                        "sugg\u00e9rant un ancrage fondamental dominant sur la dynamique de cours"
+                    )
                     _vol_note = (f" La volatilit\u00e9 annualis\u00e9e du titre ({_vol_pct:.0f}\u00a0%) "
-                                 f"{'est élevée, amplifiant la dispersion des scenarios et traduisant un profil risk-on sensible aux revisions d\u2019hypothèses' if _vol_pct > 40 else 'est modérée, resserrant le corridor P10-P90 et suggérant un ancrage fondamental dominant sur la dynamique de cours'}. "
+                                 f"{_vol_qual}. "
                                  "Le mod\u00e8le GBM (Geometric Brownian Motion) suppose une "
                                  "distribution log-normale des rendements avec d\u00e9rive et "
                                  "volatilit\u00e9 constantes, calibr\u00e9es sur 2 ans de donn\u00e9es "
