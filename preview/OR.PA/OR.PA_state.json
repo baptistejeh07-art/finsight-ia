@@ -1,0 +1,16 @@
+{
+  "ticker": "OR.PA",
+  "raw_data": null,
+  "sentiment": "SentimentResult(ticker='OR.PA', timestamp='2026-04-14T15:37:38.484006', score=0.0, score_normalized=0.5, label='NEUTRAL', confidence=0.0, articles_analyzed=0, articles_total=0, breakdown={}, sources=[], samples=[], llm_commentary='', meta={'request_id': '886e665a-3767-4844-8e63-5b30d8915297', 'latency_ms': 125841, 'confidence_score': 0.0, 'invalidation_conditions': 'Aucune news disponible pour cette période.', 'tokens_used': 0})",
+  "data_quality": 0.0,
+  "errors": [
+    "AgentData returned None for OR.PA"
+  ],
+  "logs": [
+    {
+      "node": "fetch_node",
+      "latency_ms": 125844,
+      "status": "error"
+    }
+  ]
+}
