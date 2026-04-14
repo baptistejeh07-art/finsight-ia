@@ -1862,8 +1862,8 @@ def _build_extra_risk_scores(elems: list, data: dict):
             regime  = macro.get('regime', 'Inconnu')
             vix     = macro.get('vix')
             spread  = macro.get('yield_spread_10y_3m')
-            rec_6m  = macro.get('récession_prob_6m')
-            rec_lvl = macro.get('récession_level', 'Inconnu')
+            rec_6m  = macro.get('recession_prob_6m')
+            rec_lvl = macro.get('recession_level', 'Inconnu')
 
             vix_str    = f"VIX {vix:.0f}" if vix else '—'
             spread_str = f"Spread 10Y-3M : {spread:+.1f}%" if spread is not None else '—'

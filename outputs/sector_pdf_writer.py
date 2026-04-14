@@ -728,10 +728,10 @@ def _build_macro(perf_buf, area_buf, tickers_data: list[dict],
     _vix     = _macro.get("vix")
     _spread  = _macro.get("yield_spread_10y_3m")
     _sp_ma   = _macro.get("sp500_vs_ma200")
-    _rec_6m  = _macro.get("récession_prob_6m")
-    _rec_12m = _macro.get("récession_prob_12m")
-    _rec_lvl = _macro.get("récession_level", "Inconnu")
-    _drivers = _macro.get("récession_drivers", [])
+    _rec_6m  = _macro.get("recession_prob_6m")
+    _rec_12m = _macro.get("recession_prob_12m")
+    _rec_lvl = _macro.get("recession_level", "Inconnu")
+    _drivers = _macro.get("recession_drivers", [])
 
     if _regime and _regime != "Inconnu":
         _REGIME_S = {

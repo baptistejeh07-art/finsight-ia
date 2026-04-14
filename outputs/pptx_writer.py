@@ -1142,7 +1142,7 @@ def _slide_exec_summary(prs, snap, synthesis, ratios, devil, sentiment):
     # 4 KPI boxes — y=10.90 pour suivre HR (10.75), h=2.40 pour remplir jusqu'à footer
     kpi_box(slide, 1.02, 10.90, 5.64, 2.40,
             _frx(ev_e), "EV/EBITDA",
-            f"vs {_frx(peer_Médian_ev_e)} med. pairs")
+            f"vs {_frx(peer_median_ev_e)} med. pairs")
     kpi_box(slide, 6.91, 10.90, 5.64, 2.40,
             _frpct(wacc_val), "WACC",
             f"Beta {_fr(beta, 2) if beta else '—'}  \u00b7  RFR {_frpct(rfr)}")
@@ -3853,11 +3853,11 @@ def _slide_risques(prs, snap, synthesis, devil, extra_scores: dict = None):
             m_lbl = _ma.get('label', '—')
             row1_items.append((f"M&A : {_ma['score']}/100  {m_lbl}",
                                _CMAP.get(m_lbl, NAVY)))
-        regime = _macro.get('régime_v', '')
-        rec_6m = _macro.get('récession_prob_6m')
+        regime = _macro.get('regime', '')
+        rec_6m = _macro.get('recession_prob_6m')
         if regime and regime != 'Inconnu':
             rec_part = f"  Rec.6M:{rec_6m}%" if rec_6m is not None else ''
-            row1_items.append((f"Régime : {régime_v}{rec_part}", _CMAP.get(regime, NAVY)))
+            row1_items.append((f"Régime : {regime_v}{rec_part}", _CMAP.get(regime, NAVY)))
 
         for i, (txt, col) in enumerate(row1_items[:3]):
             x = bx_x[i]

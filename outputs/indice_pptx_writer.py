@@ -904,11 +904,11 @@ def _s02_exec_summary(prs, D):
 
     # Régime de Marché — badges individuels
     _mac = D.get("macro") or {}
-    _reg = _mac.get("régime_v", "")
+    _reg = _mac.get("regime", "")
     if _reg and _reg != "Inconnu":
         _RSIG_COL = {"Bull": _BUY, "Bear": _SELL, "Volatile": _HOLD, "Transition": _HOLD}
         _r_col = _RSIG_COL.get(_reg, _NAVYL)
-        _rec_6 = _mac.get("récession_prob_6m")
+        _rec_6 = _mac.get("recession_prob_6m")
         _vx    = _mac.get("vix")
         _sp_s  = _mac.get("yield_spread_10y_3m")
         _badges = [(f"Régime {_reg}", _r_col, _WHITE)]
@@ -924,7 +924,7 @@ def _s02_exec_summary(prs, D):
                  size=7.5, bold=(_bfill == _r_col), color=_btxt, align=PP_ALIGN.CENTER, vcenter=True)
             _bx += _bw + 0.15
 
-    # Catalyseurs macro (y fixe suffisant après régime_v strip eventuel)
+    # Catalyseurs macro (y fixe suffisant après regime_v strip eventuel)
     _rect(slide, 0.9, 4.4, 23.6, 0.5, fill=_NAVY)
     _txb(slide, "CATALYSEURS MACRO", 0.9, 4.4, 23.6, 0.5,
          size=7.5, bold=True, color=_WHITE, align=PP_ALIGN.CENTER, vcenter=True)
@@ -1196,7 +1196,7 @@ def _s06_valorisation(prs, D):
                 _impl_txt = (
                     f"A {_pe_f6}, le Marché price implicitement une croissance BPA supérieure "
                     f"de {abs(_pct_impl):.0f}% au scénario central — tout ralentissement "
-                    f"{_miss_conséquence}. "
+                    f"{_miss_consequence}. "
                 )
             else:
                 _impl_txt = ""
@@ -2431,7 +2431,7 @@ class IndicePPTXWriter:
         """
         log.info("IndicePPTXWriter: Génération pour %s", data.get("indice","—"))
 
-        # Macro régime_v (si pas déjà calculé)
+        # Macro regime_v (si pas déjà calculé)
         if not data.get("macro"):
             try:
                 import sys as _sys, os as _os

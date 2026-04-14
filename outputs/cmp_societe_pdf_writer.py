@@ -2120,7 +2120,7 @@ def _section_52w_price(story, m_a, m_b, tkr_a, tkr_b, synthesis=None):
             _defensif = tkr_a if _ba < _bb else tkr_b
             _cyclique = tkr_b if _ba < _bb else tkr_a
             _macro_parts.append(
-                f"En termes de profil de risque, {_enc(_défensif)} (beta {min(_ba,_bb):.2f}) "
+                f"En termes de profil de risque, {_enc(_defensif)} (beta {min(_ba,_bb):.2f}) "
                 f"offre un caractère plus défensif tandis que {_enc(_cyclique)} (beta {max(_ba,_bb):.2f}) "
                 f"amplifie les mouvements de marché — un parametre cle pour le sizing de position."
             )

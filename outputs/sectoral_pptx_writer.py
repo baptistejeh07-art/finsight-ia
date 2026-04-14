@@ -1394,14 +1394,14 @@ def _s07_cycle(prs, D):
 
     # Régime macro + récession (si disponible)
     _macro = D.get("macro") or {}
-    _regime  = _macro.get("régime_v", "")
-    _rec_6m  = _macro.get("récession_prob_6m")
-    _rec_lvl = _macro.get("récession_level", "")
+    _regime  = _macro.get("regime", "")
+    _rec_6m  = _macro.get("recession_prob_6m")
+    _rec_lvl = _macro.get("recession_level", "")
     if _regime and _regime != "Inconnu":
         _AMBER_C = RGBColor(0xE6, 0x7E, 0x22)
         _REGIME_C = {"Bull": _BUY, "Bear": _SELL, "Volatile": _AMBER_C, "Transition": _AMBER_C}
         _rc = _REGIME_C.get(_regime, _NAVY)
-        regime_line = f"Régime : {_régime_var}"
+        regime_line = f"Régime : {_regime}"
         rec_line = f"Rec. 6M : {_rec_6m}%  ({_rec_lvl})" if _rec_6m is not None else ""
         _rect(slide, 16.9, 11.2, 7.3, 0.05, fill=_GRAYD)
         _txb(slide, "CONTEXTE MACRO", 16.6, 11.35, 7.9, 0.5, size=7, bold=True, color=_GRAYD, align=PP_ALIGN.CENTER)
@@ -2162,7 +2162,7 @@ class SectoralPPTXWriter:
         """
         D = _prepare_data(tickers_data, sector_name, universe)
 
-        # Macro régime_v + récession
+        # Macro regime_v + récession
         _macro = {}
         try:
             import sys as _sys, os as _os

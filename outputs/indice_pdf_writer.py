@@ -756,14 +756,14 @@ def _build_synthese(data, perf_buf, registry=None):
 
     # ── Régime de Marché + Probabilite de récession ──────────────────────────
     _macro = data.get("macro") or {}
-    _regime  = _macro.get("régime_v")
+    _regime  = _macro.get("regime")
     _vix     = _macro.get("vix")
     _spread  = _macro.get("yield_spread_10y_3m")
     _sp_ma   = _macro.get("sp500_vs_ma200")
-    _rec_6m  = _macro.get("récession_prob_6m")
-    _rec_12m = _macro.get("récession_prob_12m")
-    _rec_lvl = _macro.get("récession_level", "Inconnu")
-    _drivers = _macro.get("récession_drivers", [])
+    _rec_6m  = _macro.get("recession_prob_6m")
+    _rec_12m = _macro.get("recession_prob_12m")
+    _rec_lvl = _macro.get("recession_level", "Inconnu")
+    _drivers = _macro.get("recession_drivers", [])
 
     if _regime and _regime != "Inconnu":
         elems.append(Paragraph("Environnement macro — Régime de Marché", S_SUBSECTION))
@@ -778,8 +778,8 @@ def _build_synthese(data, perf_buf, registry=None):
         }
         _regime_lbl = _regime_labels.get(_regime, _regime.lower())
         elems.append(Paragraph(
-            f"<b>Régime de Marché : {_régime_var}.</b> L'environnement macro est actuellement "
-            f"{_régime_var_lbl}, avec un VIX a {_vix_str}, un spread 10Y-3M de {_spread_str} "
+            f"<b>Régime de Marché : {_regime}.</b> L'environnement macro est actuellement "
+            f"{_regime_lbl}, avec un VIX a {_vix_str}, un spread 10Y-3M de {_spread_str} "
             f"et le S&P 500 a {_sp_ma_str} de sa moyenne mobile 200 jours. "
             f"La tendance de fond reste {_sp_trend.lower()}.", S_BODY))
         elems.append(Spacer(1, 2*mm))
@@ -1439,7 +1439,7 @@ def _build_top3(data, donut_buf, registry=None):
 
     _surp_list = [s for s in data["secteurs"] if s[3] in ("Surpondérer", "Surpond\xe9rer")]
     nb_surp_reel = len(_surp_list)
-    _surp_label = (f"{nb_surp_réel} secteur(s) affichent un signal <b>Surpond\u00e9rer</b>"
+    _surp_label = (f"{nb_surp_reel} secteur(s) affichent un signal <b>Surpond\u00e9rer</b>"
                    if nb_surp_reel > 0
                    else "aucun secteur ne franchit le seuil Surpond\u00e9rer")
     _n_comp = len(data["top3_secteurs"]) - nb_surp_reel
@@ -1453,7 +1453,7 @@ def _build_top3(data, donut_buf, registry=None):
     _nb_s_tot = data['nb_secteurs']
     _s_tot_lbl = "secteur couvert" if _nb_s_tot == 1 else "secteurs couverts"
     elems.append(Paragraph(
-        f"Sur {_nb_s_tot} {_s_tot_lbl}, {_surp_label}.{_complément} "
+        f"Sur {_nb_s_tot} {_s_tot_lbl}, {_surp_label}.{_complement} "
         "Ces secteurs combinent momentum prix positif, révision haussière des BPA et "
         "valorisation raisonnable par rapport \u00e0 leur historique. "
         "Pour le d\u00e9tail complet — ratios LTM/NTM, Football Field, DCF, FinBERT — "
@@ -1461,7 +1461,7 @@ def _build_top3(data, donut_buf, registry=None):
     elems.append(Spacer(1, 4*mm))
 
     # Tableau Synthèse
-    _titre_synth = ("Vue d'ensemble — Secteurs Surpond\u00e9rer" if nb_surp_réel > 0
+    _titre_synth = ("Vue d'ensemble — Secteurs Surpond\u00e9rer" if nb_surp_reel > 0
                     else "Vue d'ensemble — Meilleurs secteurs de l'univers")
     elems.append(Paragraph(_titre_synth, S_SUBSECTION))
     synth_h = [Paragraph(h, S_TH_C) for h in
@@ -1871,7 +1871,7 @@ class IndicePDFWriter:
         Genere le rapport PDF d'analyse d'indice FinSight IA.
         Retourne output_path. Double-passe pour pagination dynamique.
         """
-        # Macro régime_v + récession (si pas déjà calculé par app.py)
+        # Macro regime_v + récession (si pas déjà calculé par app.py)
         if not data.get("macro"):
             try:
                 import sys as _sys, os as _os
