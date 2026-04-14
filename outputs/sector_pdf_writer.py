@@ -1922,22 +1922,20 @@ def _build_acteurs(tickers_data: list[dict], sector_name: str, registry=None):
             f"{t.get('ticker','?')} ({int(t.get('score_global') or 0)}/100)"
             for t in sorted_data[:3]
         )
+        # LLM-A compressed
         _prompt_acteurs = (
-            f"Tu es analyste buy-side senior. Redige une introduction (200-240 mots) "
-            f"a l'analyse des acteurs du secteur {sector_name} couvrant {N} societes.\n\n"
-            f"Top 3 par score FinSight : {_top3_names}\n"
-            f"Leader : {best.get('company','?')} (score {best.get('score_global','?')}/100, "
-            f"marge EBITDA {best.get('ebitda_margin','?')}, "
-            f"croissance {best.get('revenue_growth','?')})\n"
-            f"Lanterne rouge : {_worst.get('company','?')} "
-            f"(score {_worst.get('score_global','?')}/100)\n\n"
-            f"Structure en 2 paragraphes :\n"
-            f"1. Panorama du secteur : hierarchie concurrentielle, ce qui distingue "
-            f"les leaders des challengers, driveurs de differenciation\n"
-            f"2. Lecture de la dispersion : ce que le spread des scores FinSight "
-            f"implique pour la strategie d'allocation (concentration vs diversification), "
-            f"quels ratios privilegier pour le stock-picking\n\n"
-            f"Francais correct avec accents. Pas de markdown. Pas d'emojis."
+            f"Analyste buy-side senior. Introduction 200-240 mots a l'analyse des "
+            f"{N} acteurs du secteur {sector_name}.\n"
+            f"Top 3 FinSight : {_top3_names}. Leader : {best.get('company','?')} "
+            f"(score {best.get('score_global','?')}/100, marge EBITDA "
+            f"{best.get('ebitda_margin','?')}, croissance {best.get('revenue_growth','?')}). "
+            f"Lanterne : {_worst.get('company','?')} (score {_worst.get('score_global','?')}/100).\n\n"
+            f"2 paragraphes :\n"
+            f"1. PANORAMA : hierarchie concurrentielle, ce qui distingue leaders et "
+            f"challengers, drivers de differentiation.\n"
+            f"2. DISPERSION : ce que le spread implique pour l'allocation (concentration "
+            f"vs diversification), ratios privilegies pour le stock-picking.\n\n"
+            f"Francais avec accents. Pas de markdown/emojis."
         )
         _acteurs_intro_llm = llm_call(_prompt_acteurs, phase="long", max_tokens=700) or ""
     except Exception:
@@ -2506,22 +2504,15 @@ def _build_risques(tickers_data: list[dict], sector_name: str, registry=None):
     try:
         import json as _json_risk
         from core.llm_provider import llm_call
+        # LLM-A compressed
         _prompt_risk = (
-            f"Tu es strategist buy-side. Identifie les 4 risques les plus importants "
-            f"specifiques au secteur {sector_name} a horizon 12 mois.\n\n"
-            f"Contexte : {len(tickers_data)} societes analysees, tickers vulnerables : "
-            f"{vuln_tickers}, tickers solides : {best_tickers}.\n\n"
-            f"Les risques doivent etre SPECIFIQUES au secteur (pas des risques generiques "
-            f"qui s'appliquent a tous les secteurs). Pour chaque risque, estime probabilite "
-            f"et impact bases sur le contexte macro/sectoriel actuel.\n\n"
-            f"Reponds en JSON strict, sans markdown, sans commentaires :\n"
-            f'{{"risques":['
-            f'{{"axe":"titre court (ex: Saturation demande cloud pour Tech)",'
-            f'"analyse":"2 phrases sur le mecanisme, en quoi c est specifique au secteur",'
-            f'"prob":"25%","impact":"Eleve|Modere|Mixte","tickers":"X,Y ou Tous"}},'
-            f'{{"axe":"...","analyse":"...","prob":"...","impact":"...","tickers":"..."}},'
-            f'{{"axe":"...","analyse":"...","prob":"...","impact":"...","tickers":"..."}},'
-            f'{{"axe":"...","analyse":"...","prob":"...","impact":"...","tickers":"..."}}]}}'
+            f"Strategist buy-side. 4 risques SPECIFIQUES au secteur {sector_name} "
+            f"a 12 mois (pas generiques). {len(tickers_data)} societes, vulnerables : "
+            f"{vuln_tickers}, solides : {best_tickers}.\n"
+            f"JSON strict, sans markdown :\n"
+            f'{{"risques":[{{"axe":"titre court","analyse":"2 phrases sur le mecanisme '
+            f'specifique","prob":"25pct","impact":"Eleve|Modere|Mixte","tickers":"X,Y"}}'
+            f",x4]}}"
         )
         _resp_risk = llm_call(_prompt_risk, phase="long", max_tokens=900) or ""
         _js_s = _resp_risk.find("{")
@@ -3043,21 +3034,21 @@ def _build_conclusion_reco(tickers_data: list[dict], sector_name: str,
             except Exception:
                 pass
 
+            # LLM-A compressed
             _reco_prompt = (
-                f"Tu es un analyste buy-side senior. R\u00e9dige une recommandation sectorielle d\u00e9taill\u00e9e "
-                f"(350 mots) pour le secteur {sector_name}.\n"
-                f"Donn\u00e9es : {len(tickers_data)} soci\u00e9t\u00e9s, {buy_count} BUY, {hold_count} HOLD, {sell_count} SELL.\n"
-                f"Sous-secteurs : {_ind_summary}.\n"
+                f"Analyste buy-side senior. Recommandation sectorielle detaillee 350 mots "
+                f"pour {sector_name}.\n"
+                f"{len(tickers_data)} societes : {buy_count} BUY / {hold_count} HOLD / "
+                f"{sell_count} SELL. Sous-secteurs : {_ind_summary}.\n"
             )
             if _profile_hints:
-                _reco_prompt += f"\nPROFIL SECTORIEL SPECIFIQUE :\n{_profile_hints}\n\n"
+                _reco_prompt += f"Profil specifique : {_profile_hints}\n"
             _reco_prompt += (
-                f"Structure ta r\u00e9ponse : (1) le secteur est-il prometteur et pourquoi, (2) horizon "
-                f"d'investissement recommand\u00e9, (3) quels sous-secteurs privil\u00e9gier, (4) catalyseurs "
-                f"d\u00e9terminants pour les 6-12 prochains mois, (5) risques \u00e0 surveiller, "
-                f"(6) conditions de revision de la these.\n"
-                f"Fran\u00e7ais correct avec accents. Pas de markdown. Pas d'emojis. "
-                f"Utilise les m\u00e9triques sp\u00e9cifiques au profil sectoriel identifi\u00e9 ci-dessus."
+                f"Structure : (1) secteur prometteur ? pourquoi, (2) horizon recommande, "
+                f"(3) sous-secteurs a privilegier, (4) catalyseurs 6-12 mois, (5) risques, "
+                f"(6) conditions de revision.\n"
+                f"Francais avec accents. Pas de markdown/emojis. Utilise les metriques "
+                f"specifiques au profil ci-dessus."
             )
             # Refonte 2026-04-14 : critical phase -> Mistral primary (qualite FR top)
             _reco_llm_text = llm_call(_reco_prompt, phase="critical", max_tokens=900) or ""
@@ -3238,38 +3229,27 @@ def _generate_reco_commentary(buy_list, hold_list, sell_list, sector_name, secto
         hold_str = ", ".join(_ticker_summary(t) for t in hold_list[:5]) or "Aucune"
         sell_str = ", ".join(_ticker_summary(t) for t in sell_list[:5]) or "Aucune"
 
+        # LLM-A compressed
         if _is_fin:
             _profile_hint = (
-                "Contexte : secteur financier (banques/assurance). Les ratios pertinents sont "
-                "P/E, P/B, ROE, CET1, NPL, Combined Ratio — JAMAIS EBITDA ni Mg.EBITDA "
-                "(non applicables aux institutions financieres). Raisonne sur la valorisation "
-                "par les fonds propres (P/B), la rentabilite (ROE), la qualite du bilan "
-                "(provisions, ratio prudentiel) et l'environnement de taux."
+                "Financier : P/B, ROE, CET1, NPL, Combined Ratio. Pas d'EV/EBITDA."
             )
         else:
-            _profile_hint = (
-                "Contexte : secteur non-financier. Raisonne sur valorisation (EV/EBITDA, P/E), "
-                "marges (Mg.EBITDA), croissance (revenus YoY), qualite du bilan et catalyseurs."
-            )
+            _profile_hint = "Non-financier : EV/EBITDA, P/E, Mg.EBITDA, croissance."
         prompt = (
-            f"Tu es analyste sectoriel senior. Redige une synthèse d'investissement "
-            f"sur le secteur {sector_name} en francais, sans majuscules superflues, sans bullet points.\n\n"
-            f"{_profile_hint}\n\n"
-            f"BUY : {buy_str}\n"
-            f"HOLD : {hold_str}\n"
-            f"SELL : {sell_str}\n\n"
-            f"Reponds avec EXACTEMENT ce format (3 blocs, rien d'autre) :\n"
-            f"BUY: <2-3 phrases expliquant pourquoi ces titrès meritent un achat — "
-            f"valorisation, qualité bilan, croissance, catalyseurs>\n"
-            f"HOLD: <2-3 phrases expliquant pourquoi ces titrès sont en attente — "
-            f"catalyseurs manquants, valorisation correcte mais pas d'asymétrie forte>\n"
-            f"SELL: <2-3 phrases expliquant pourquoi ces titrès sont a eviter — "
-            f"détérioration fondamentaux, risque rerating, pression sur marges>\n"
-            f"Si un groupe est vide, ecris '<groupe>: Aucune valeur dans cette categorie.'"
+            f"Analyste sectoriel senior. Synthese investissement sur {sector_name} "
+            f"en francais sans bullet.\n"
+            f"Contexte : {_profile_hint}\n"
+            f"BUY : {buy_str}\nHOLD : {hold_str}\nSELL : {sell_str}\n\n"
+            f"Format EXACT (3 blocs) :\n"
+            f"BUY: <2-3 phrases : valorisation, bilan, croissance, catalyseurs>\n"
+            f"HOLD: <2-3 phrases : catalyseurs manquants, valorisation correcte>\n"
+            f"SELL: <2-3 phrases : deterioration fonda, risque rerating, marges>\n"
+            f"Si groupe vide : '<groupe>: Aucune valeur.'"
         )
         system = (
-            "Tu es analyste buy-side senior. Tes commentaires sont factuels, precis, "
-            "bases sur les données fournies. 2-3 phrases max par groupe. Pas de bullet points."
+            "Analyste buy-side senior. Factuel, precis, base sur les donnees. "
+            "2-3 phrases max par groupe. Pas de bullet."
         )
         llm = LLMProvider(provider="mistral")
         raw = llm.generate(prompt=prompt, system=system, max_tokens=500)

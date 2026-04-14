@@ -4530,21 +4530,19 @@ def _slide_historique(prs, snap, synthesis):
             _llm_m = LLMProvider(provider="groq", model="llama-3.3-70b-versatile")
             _sector_m = _g(ci, "sector", "") or ""
             _perf_str = f"{perf_52w*100:+.1f}%" if perf_52w is not None else "n/d"
+            # LLM-A compressed
             _prompt_macro = (
-                f"Tu es analyste sell-side senior. Redige un commentaire macro "
-                f"(180-220 mots) expliquant l'evolution du cours de {ticker} "
-                f"(secteur {_sector_m}) sur les 12 derniers mois (perf {_perf_str}).\n\n"
-                f"Structure en 2 paragraphes courts :\n"
-                f"1. Evenements macro majeurs des 12 derniers mois qui ont impacte le secteur "
-                f"{_sector_m} : politique monetaire (Fed/BCE), inflation, cycle economique, "
-                f"tensions geopolitiques, taux longs, cours des matieres premieres. "
-                f"Cite les dates cles et les mouvements associes.\n"
-                f"2. Catalyseurs specifiques a {ticker} : resultats trimestriels "
-                f"(surprises/deceptions), annonces produit, guidance, operations M&A, "
-                f"changements de management, revisions de consensus. Relie les pics et "
-                f"creux du graphique a des evenements identifiables.\n\n"
-                f"Francais correct avec accents. Pas de markdown. Pas d'emojis. "
-                f"Evite les generalites : cite des dates et des chiffres."
+                f"Analyste sell-side senior. Commentaire macro 180-220 mots expliquant "
+                f"l'evolution du cours de {ticker} (secteur {_sector_m}) sur 12 mois "
+                f"(perf {_perf_str}).\n"
+                f"2 paragraphes :\n"
+                f"1. MACRO : politique monetaire (Fed/BCE), inflation, cycle, "
+                f"geopolitique, taux longs, matieres premieres impactant {_sector_m}. "
+                f"Dates cles.\n"
+                f"2. CATALYSEURS {ticker} : resultats trimestriels, annonces produit, "
+                f"guidance, M&A, management, revisions consensus. Relier pics/creux a "
+                f"des events.\n\n"
+                f"Francais avec accents. Pas de markdown/emojis. Dates et chiffres."
             )
             _macro_ctx = _llm_m.generate(_prompt_macro, max_tokens=600) or ""
         except Exception:

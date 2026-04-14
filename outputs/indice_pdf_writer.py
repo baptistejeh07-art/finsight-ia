@@ -1150,25 +1150,20 @@ def _build_graphiques(data, scatter_buf, scores_buf, corr_buf=None, registry=Non
         try:
             from core.llm_provider import llm_call
             _indice_name = data.get("indice", "l'indice")
+            # LLM-A compressed
             _prompt_p7 = (
-                f"Tu es un analyste buy-side senior. Redige une analyse approfondie "
-                f"(320-380 mots) de la lecture du positionnement EV/EBITDA vs croissance "
-                f"BPA pour {_indice_name}.\n\n"
-                f"Contexte quantitatif :\n"
-                f"- Secteurs Surponderer : {_surp_str}\n"
-                f"- Secteurs Sous-ponderer : {_sous_str}\n"
-                f"- Secteurs decote EV/EBITDA (3 plus bas) : {_cheap_str}\n"
-                f"- Secteurs prime EV/EBITDA (3 plus eleves) : {_exp_str}\n\n"
-                f"Structure en 3 paragraphes distincts separes par une ligne vide "
-                f"(chaque paragraphe ~100-120 mots) :\n"
-                f"1. Quadrant inferieur gauche (decote + faible croissance) : lecture "
-                f"analytique, risques de value trap, conditions de re-rating\n"
-                f"2. Quadrant superieur droit (prime + forte croissance) : justification "
-                f"de la prime, sensibilite aux revisions BPA, risques specifiques\n"
-                f"3. Implications portefeuille : ou renforcer, ou alleger, avec quels "
-                f"catalyseurs a surveiller et quels signaux macro cross-checker\n\n"
-                f"Francais correct avec accents. Cite les noms secteurs en francais. "
-                f"Pas de markdown. Pas d'emojis. Pas de listes a puces."
+                f"Analyste buy-side senior. Analyse 320-380 mots du positionnement "
+                f"EV/EBITDA vs croissance BPA pour {_indice_name}.\n"
+                f"Surponderer : {_surp_str}\nSous-ponderer : {_sous_str}\n"
+                f"Decotes : {_cheap_str}\nPrimes : {_exp_str}\n\n"
+                f"3 paragraphes separes par ligne vide (~110 mots chacun) :\n"
+                f"1. DECOTE + FAIBLE CROISSANCE : lecture, risques value trap, "
+                f"conditions de re-rating.\n"
+                f"2. PRIME + FORTE CROISSANCE : justification, sensibilite revisions "
+                f"BPA, risques specifiques.\n"
+                f"3. IMPLICATIONS : ou renforcer, ou alleger, catalyseurs et signaux "
+                f"macro a cross-checker.\n\n"
+                f"Francais avec accents. Noms secteurs en francais. Pas de markdown/emojis/bullets."
             )
             _llm_text = llm_call(_prompt_p7, phase="long", max_tokens=1000) or ""
         except Exception as _e:

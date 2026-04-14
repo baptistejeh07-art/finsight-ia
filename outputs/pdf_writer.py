@@ -1483,36 +1483,25 @@ def _build_financials(area_buf, data, margins_buf=None):
     _llm_margin_analysis = ""
     try:
         from core.llm_provider import llm_call
+        # LLM-A : prompt compresse (750 -> 160 mots) target inchange 750-850 mots
         _prompt_margin = (
-            f"Tu es un analyste sell-side senior (buy-side tier-1). R\u00e9dige une analyse "
-            f"tres approfondie (750-850 mots) de la qualit\u00e9 op\u00e9rationnelle et du "
-            f"positionnement concurrentiel de {_ticker_fin} (secteur {_sector_fin}).\n"
-            f"Donn\u00e9es ratios cl\u00e9s : {_ratios_str}.\n\n"
-            f"Structure en 4 paragraphes distincts s\u00e9par\u00e9s par une ligne vide :\n"
-            f"1. Qualit\u00e9 des marges (180-200 mots) : drivers structurels (mix produit, "
-            f"pricing power, effet de levier op\u00e9rationnel), durabilit\u00e9 dans le cycle actuel, "
-            f"comparaison quantifi\u00e9e vs pairs et vs moyenne historique 5 ans, r\u00e9silience "
-            f"face aux chocs inflationnistes et au cycle de consommation, trajectoire attendue "
-            f"sur les 12-24 prochains mois\n"
-            f"2. Structure de co\u00fbts (180-200 mots) : intensit\u00e9 R&D/capex/marketing vs "
-            f"revenu, barri\u00e8res \u00e0 l'entr\u00e9e, vuln\u00e9rabilit\u00e9 aux chocs mati\u00e8res premi\u00e8res, "
-            f"exposition aux tensions main d'oeuvre, capacit\u00e9 de r\u00e9percussion sur les prix, "
-            f"efficience op\u00e9rationnelle OPEX/CA, scale effects en volume\n"
-            f"3. Positionnement concurrentiel (180-200 mots) : moat (brand, scale, switching "
-            f"costs, network effects, proprietary tech, regulatory), avantages structurels vs "
-            f"pairs sectoriels, risque d'\u00e9rosion comp\u00e9titive, menaces disruptives \u00e0 "
-            f"horizon 3-5 ans, capacit\u00e9 d'innovation mesuree par R&D intensity\n"
-            f"4. Implications valuation (180-200 mots) : ce que la qualit\u00e9 des marges et "
-            f"le moat impliquent en termes de multiples premium soutenables, justification "
-            f"d'un P/E > mediane sectorielle, sensibilite de la valuation au maintien de la "
-            f"prime de qualite, conditions de compression de multiple a surveiller\n\n"
-            f"Cite des chiffres pr\u00e9cis et des comparables. Fran\u00e7ais correct avec accents. "
-            f"IMPORTANT : texte brut uniquement. "
-            f"N'utilise AUCUNE balise HTML (<b>, <i>, <p>). "
-            f"N'utilise AUCUN markdown (**, __, ##). "
-            f"Pas de listes \u00e0 puces. Pas d'emojis."
+            f"Analyste sell-side senior. Analyse tres approfondie 750-850 mots sur la "
+            f"qualite operationnelle et le positionnement concurrentiel de {_ticker_fin} "
+            f"(secteur {_sector_fin}).\n"
+            f"Ratios cles : {_ratios_str}.\n\n"
+            f"4 paragraphes separes par ligne vide (~190 mots chacun) :\n"
+            f"1. QUALITE MARGES : drivers structurels (mix, pricing power, levier operationnel), "
+            f"durabilite dans le cycle, comparaison vs pairs et historique 5 ans, resilience "
+            f"inflation, trajectoire 12-24 mois.\n"
+            f"2. STRUCTURE COUTS : R&D/capex/marketing vs revenu, barrieres entree, vulnerabilite "
+            f"matieres premieres, tensions main d'oeuvre, repercussion prix, OPEX/CA, scale effects.\n"
+            f"3. POSITIONNEMENT : moat (brand, scale, switching costs, network, tech, regulatory), "
+            f"avantages vs pairs, risque erosion, menaces disruptives 3-5 ans, R&D intensity.\n"
+            f"4. VALUATION : justification premium multiples soutenables, P/E > mediane, "
+            f"sensibilite au maintien de la prime qualite, triggers de compression a surveiller.\n\n"
+            f"Francais avec accents. Chiffres precis. Pas de HTML/markdown/emojis/bullets."
         )
-        _llm_margin_analysis = llm_call(_prompt_margin, phase="long", max_tokens=2000) or ""
+        _llm_margin_analysis = llm_call(_prompt_margin, phase="long", max_tokens=2200) or ""
     except Exception:
         pass
 
@@ -1827,31 +1816,22 @@ def _build_valorisation(ff_buf, pie_buf, mc_buf, data):
                 if not _ticker_mc:
                     _ticker_mc = data.get('ticker', 'la soci\u00e9t\u00e9')
                 _vol_str_mc = f"{_vol_pct:.0f}%" if 'vol_pct' in dir() and isinstance(locals().get('_vol_pct'), (int, float)) else "n/d"
+                # LLM-A compressed
                 _prompt_mc = (
-                    f"Tu es analyste quantitatif sell-side. Redige une interpretation "
-                    f"probabiliste approfondie (350-450 mots) de la simulation Monte Carlo "
-                    f"GBM 12 mois sur {_ticker_mc}.\n\n"
-                    f"Donnees : Cours actuel {_price:,.0f} {cur}, P50 {mc_p50:,.0f} {cur} "
-                    f"({_diff_pct:+.0f}%), P10 {mc_p10:,.0f}, P90 {mc_p90:,.0f}, "
-                    f"volatilite annualisee {_vol_str_mc}, {_mc_sim_str} simulations.\n\n"
-                    f"Structure en 3 paragraphes separes par une ligne vide "
-                    f"(~130 mots chacun) :\n"
-                    f"1. Lecture quantitative : que dit le P50 vs cours spot, quelle est "
-                    f"l'amplitude du corridor P10-P90, comment l'interpreter comme mesure "
-                    f"du risque de valorisation (stress-test implicite), comparaison avec "
-                    f"la distribution historique des rendements du titre.\n"
-                    f"2. Limites methodologiques du GBM : hypothese log-normale, "
-                    f"fat-tails sous-estimees, chocs exogenes (recession, regulation, "
-                    f"disruption, scandales comptables) non captures, changement de regime "
-                    f"macro invisible, parametres constants (drift + vol) alors que "
-                    f"realite non-stationnaire.\n"
-                    f"3. Usage pratique : comment croiser le P50 avec le DCF analytique "
-                    f"et le consensus sell-side, dans quelles conditions le corridor "
-                    f"P10-P90 devient informatif pour un investisseur long-only, quels "
-                    f"triggers qualitatifs compleater l'analyse (catalyseurs, earnings, "
-                    f"revisions, macro). Citer 2-3 scenarios concrets.\n\n"
-                    f"Francais correct avec accents. Pas de markdown. Pas d'emojis. "
-                    f"Reste specifique a {_ticker_mc}, pas generique."
+                    f"Analyste quantitatif sell-side. Interpretation probabiliste 350-450 "
+                    f"mots de la simulation Monte Carlo GBM 12 mois sur {_ticker_mc}.\n"
+                    f"Donnees : Spot {_price:,.0f} {cur}, P50 {mc_p50:,.0f} ({_diff_pct:+.0f}%), "
+                    f"P10 {mc_p10:,.0f}, P90 {mc_p90:,.0f}, vol annualisee {_vol_str_mc}, "
+                    f"{_mc_sim_str} simulations.\n\n"
+                    f"3 paragraphes separes par ligne vide (~130 mots chacun) :\n"
+                    f"1. LECTURE : P50 vs spot, amplitude corridor P10-P90, interpretation "
+                    f"stress-test implicite, comparaison distribution historique du titre.\n"
+                    f"2. LIMITES GBM : log-normale, fat-tails sous-estimees, chocs exogenes "
+                    f"(recession, regulation, disruption) non captures, parametres constants.\n"
+                    f"3. USAGE : croiser P50 avec DCF et consensus, conditions ou corridor "
+                    f"devient informatif, triggers qualitatifs (earnings, revisions, macro). "
+                    f"Citer 2-3 scenarios concrets.\n\n"
+                    f"Francais avec accents. Pas de markdown/emojis. Specifique a {_ticker_mc}."
                 )
                 _mc_llm_txt = _llm_call_mc(_prompt_mc, phase="long", max_tokens=1200) or ""
             except Exception:
@@ -2249,7 +2229,11 @@ def _build_multiples_historiques(data):
                 f"de la prime, triggers de revision tactique, lien P/E forward consensus.\n\n"
                 f"Francais avec accents. Pas de markdown. Pas d'emojis. Chiffres precis."
             )
-            _llm_text_mh = _llm_call_mh(_prompt_mh, phase="long", max_tokens=3000) or ""
+            # LLM-B : lit d'abord le batch pre-calcule, appel unitaire seulement
+            # si le batch n'a pas fourni la section.
+            _llm_text_mh = (data.get("llm_batch") or {}).get("multiples_historiques", "")
+            if not _llm_text_mh:
+                _llm_text_mh = _llm_call_mh(_prompt_mh, phase="long", max_tokens=3000) or ""
         except Exception:
             pass
         _txt = _llm_text_mh.strip() or _txt_fallback
@@ -2442,7 +2426,10 @@ def _build_capital_returns(data):
                 f"cycles, M&A dilutifs), niveau minimal FCF yield soutenable, flexibilite payout.\n\n"
                 f"Francais avec accents. Pas de markdown. Pas d'emojis. Chiffres precis."
             )
-            _llm_text_cr = _llm_call_cr(_prompt_cr, phase="long", max_tokens=3000) or ""
+            # LLM-B : lit batch pre-calcule d'abord
+            _llm_text_cr = (data.get("llm_batch") or {}).get("capital_returns", "")
+            if not _llm_text_cr:
+                _llm_text_cr = _llm_call_cr(_prompt_cr, phase="long", max_tokens=3000) or ""
         except Exception:
             pass
         _txt = _llm_text_cr.strip() or _txt_fallback
@@ -2626,7 +2613,10 @@ def _build_lbo(data):
                 f"de sortie optimale, waterfall management vs LP.\n\n"
                 f"Francais avec accents. Pas de markdown. Pas d'emojis. Chiffres precis."
             )
-            _llm_text_lbo = _llm_call_lbo(_prompt_lbo, phase="long", max_tokens=3000) or ""
+            # LLM-B : lit batch pre-calcule d'abord
+            _llm_text_lbo = (data.get("llm_batch") or {}).get("lbo_viabilite", "")
+            if not _llm_text_lbo:
+                _llm_text_lbo = _llm_call_lbo(_prompt_lbo, phase="long", max_tokens=3000) or ""
         except Exception:
             pass
         _txt = _llm_text_lbo.strip() or _txt_fallback
@@ -2812,26 +2802,21 @@ def _build_risques(data):
         _sector_conc = _d(data, 'sector', '')
         _target_conc = _d(data, 'target_price_full', '')
         _upside_conc = _d(data, 'upside_str', '')
+        # LLM-A compressed
         _prompt_conclusion = (
-            f"Tu es un analyste buy-side senior. Redige une conclusion tres etoffee "
-            f"(550-650 mots) pour le rapport d'analyse de {_ticker_conc} "
-            f"(secteur {_sector_conc}).\n\n"
-            f"Recommandation : {rec}, prix cible {_target_conc}, upside {_upside_conc}.\n\n"
-            f"Structure en 4 paragraphes distincts (chaque paragraphe ~140 mots) :\n"
-            f"1. Synthese de la these d'investissement : quels sont les 3 piliers "
-            f"fondamentaux qui justifient la recommandation, comment les drivers de "
-            f"valeur se combinent\n"
-            f"2. Contextualisation valuation : ou se situe le titre vs mediane "
-            f"historique 10 ans, vs pairs sectoriels, quelle prime/decote est "
-            f"justifiable et pourquoi\n"
-            f"3. Catalyseurs et horizon temporel : 3 catalyseurs datables avec leur "
-            f"impact attendu sur le cours, horizon 6-12-18 mois, sequence "
-            f"probable des events\n"
-            f"4. Conditions de revision de la these : declencheurs qui feraient "
-            f"passer la reco BUY->HOLD ou HOLD->SELL (ou inversement), metriques a "
-            f"surveiller en priorite, prochaine revue recommandee\n\n"
-            f"Francais correct avec accents. Pas de markdown. Pas d'emojis. "
-            f"Texte brut uniquement."
+            f"Analyste buy-side senior. Conclusion tres etoffee 550-650 mots pour "
+            f"{_ticker_conc} (secteur {_sector_conc}).\n"
+            f"Reco : {rec}, prix cible {_target_conc}, upside {_upside_conc}.\n\n"
+            f"4 paragraphes (~140 mots chacun) :\n"
+            f"1. THESE : 3 piliers fondamentaux qui justifient la reco, combinaison "
+            f"des drivers de valeur.\n"
+            f"2. VALUATION : position vs mediane historique 10 ans et vs pairs, "
+            f"prime/decote justifiable et pourquoi.\n"
+            f"3. CATALYSEURS : 3 events datables avec impact attendu, horizon "
+            f"6-12-18 mois, sequence probable.\n"
+            f"4. REVISION : triggers qui feraient basculer la reco (BUY->HOLD ou "
+            f"inversement), metriques a surveiller, prochaine revue.\n\n"
+            f"Francais avec accents. Texte brut. Pas de markdown/emojis."
         )
         _llm_conclusion = llm_call(_prompt_conclusion, phase="critical", max_tokens=1600) or ""
     except Exception:
@@ -3048,6 +3033,113 @@ def _compute_extra_scores(ticker: str, yr_r) -> dict:
 # MAIN ENTRY POINT
 # =============================================================================
 
+def _precompute_llm_batch(data: dict) -> None:
+    """LLM-B : batch pre-compute pour pages 10/11/12 en un seul appel.
+
+    Fusionne les 3 prompts (multiples historiques + capital returns + LBO) en
+    un seul appel LLM qui renvoie un JSON structure. Les _build_* lisent
+    ensuite depuis data["llm_batch"] au lieu d'appeler llm_call individuellement.
+
+    Gain : 1 boilerplate au lieu de 3 + 1 seul network roundtrip + 1 seul
+    appel de rate-limit. max_tokens 6000 pour contenir les 3 sections
+    (~1200 mots chacune).
+
+    Tolerance : si le call echoue, data["llm_batch"] reste vide et les
+    _build_* retombent sur leur fallback individuel (comportement avant LLM-B).
+    """
+    data.setdefault("llm_batch", {})
+
+    _years_data = data.get('ratios_years_data') or []
+    if not _years_data:
+        return  # pas de donnees historiques, skip
+
+    # Preparation des series numeriques pour le prompt
+    _ticker = _d(data, 'ticker', 'La societe')
+    _sector = _d(data, 'sector', '')
+    _pe_series = ", ".join(
+        f"{float(d['pe']):.1f}x" for d in _years_data
+        if d.get('pe') is not None
+    ) or "n.d."
+    _ev_series = ", ".join(
+        f"{float(d['ev_eb']):.1f}x" for d in _years_data
+        if d.get('ev_eb') is not None
+    ) or "n.d."
+    _pb_series = ", ".join(
+        f"{float(d['pb']):.1f}x" for d in _years_data
+        if d.get('pb') is not None
+    ) or "n.d."
+    _fcf_series = ", ".join(
+        f"{float(d['fcf'])/1000:.1f}Mds" for d in _years_data[-4:]
+        if d.get('fcf') is not None
+    ) or "n.d."
+    _fy_series = ", ".join(
+        _frpct(d['fcf_yield']) for d in _years_data[-4:]
+        if d.get('fcf_yield') is not None
+    ) or "n.d."
+    _ebitda_last = _years_data[-1].get('ebitda') if _years_data else None
+    _fcf_last    = _years_data[-1].get('fcf')    if _years_data else None
+    _net_debt_last = _years_data[-1].get('net_debt') if _years_data else None
+    _eb_str = f"{_ebitda_last/1000:.1f} Mds" if _ebitda_last else "n.d."
+    _fcf_str = f"{_fcf_last/1000:.1f} Mds" if _fcf_last else "n.d."
+    _nd_str = f"{_net_debt_last/_ebitda_last:.1f}x EBITDA" if (_ebitda_last and _net_debt_last) else "n.d."
+
+    _prompt_batch = (
+        f"Analyste sell-side senior. Redige 3 sections analytiques approfondies sur "
+        f"{_ticker} (secteur {_sector}), reponse JSON strict sans markdown.\n\n"
+        f"DONNEES :\n"
+        f"- P/E historique : {_pe_series}\n"
+        f"- EV/EBITDA historique : {_ev_series}\n"
+        f"- P/B historique : {_pb_series}\n"
+        f"- FCF 4 ans : {_fcf_series}\n"
+        f"- FCF Yield 4 ans : {_fy_series}\n"
+        f"- EBITDA LTM : {_eb_str}, FCF LTM : {_fcf_str}, Dette nette : {_nd_str}\n\n"
+        f"Format JSON strict :\n"
+        f'{{\n'
+        f'  "multiples_historiques": "1100-1300 mots, 6 paragraphes separes par \\n\\n : '
+        f'(1) TENDANCE P/E et EV/EBITDA 5 ans, points inflexion, correlation cycles macro ; '
+        f'(2) MEAN-REVERSION vs moyenne historique, prime ou decote vs pairs ; '
+        f'(3) RE-RATING : catalyseurs expansion vs risques de-rating ; '
+        f'(4) SENSIBILITE taux reels, revisions BPA, positionnement institutionnel ; '
+        f'(5) BENCHMARKS vs mediane secteur et top quartile ; '
+        f'(6) CONCLUSION : niveau soutenable, conditions maintien prime, triggers.",\n'
+        f'  "capital_returns": "1100-1300 mots, 6 paragraphes separes par \\n\\n : '
+        f'(1) QUALITE FCF : conversion EBITDA-FCF, volatilite, drivers structurels ; '
+        f'(2) ALLOCATION capex maintenance vs croissance, dividendes, buybacks, M&A ; '
+        f'(3) SOUTENABILITE FCF yield vs WACC, couverture dividendes ; '
+        f'(4) THEMATIQUE cash generator vs growth reinvestment ; '
+        f'(5) BENCHMARK FCF yield vs pairs ; '
+        f'(6) VIGILANCE : triggers, niveau minimal FCF yield, flexibilite payout.",\n'
+        f'  "lbo_viabilite": "1100-1300 mots, 6 paragraphes separes par \\n\\n : '
+        f'(1) ATTRACTIVITE CIBLE PE : forces business model, qualite revenus, barrieres ; '
+        f'(2) LEVIER : FCF/interets, couverture dette, headroom covenants 5-7x EBITDA ; '
+        f'(3) CREATION VALEUR : operationnel, financier, multiple arbitrage, buy-and-build ; '
+        f'(4) RISQUES : volatilite FCF, cyclicite, refinancement, strategies de sortie ; '
+        f'(5) BENCHMARK PE vs deals recents, multiples entree, IRR cibles tier-1 ; '
+        f'(6) SENSIBILITES : IRR bear case, WACC sortie, triggers invalidation."\n'
+        f'}}\n\n'
+        f"Francais avec accents. Pas de markdown. Chiffres precis. Echappe correctement "
+        f"les guillemets dans les strings JSON."
+    )
+
+    try:
+        from core.llm_provider import llm_call
+        import json as _json_b
+        _raw = llm_call(_prompt_batch, phase="long", max_tokens=7500) or ""
+        _js_s = _raw.find("{"); _js_e = _raw.rfind("}") + 1
+        if _js_s >= 0 and _js_e > _js_s:
+            _parsed = _json_b.loads(_raw[_js_s:_js_e])
+            for _k in ("multiples_historiques", "capital_returns", "lbo_viabilite"):
+                _val = _parsed.get(_k, "")
+                if _val and isinstance(_val, str) and len(_val) > 200:
+                    data["llm_batch"][_k] = _val
+            log.info(
+                "[precompute_llm_batch] OK : %s sections",
+                len(data["llm_batch"]),
+            )
+    except Exception as _e:
+        log.warning("[precompute_llm_batch] failed: %s", _e)
+
+
 def generate_report(data: dict, output_path: str) -> str:
     """
     Genere un rapport PDF FinSight IA a partir d'un dictionnaire de donnees.
@@ -3081,6 +3173,17 @@ def generate_report(data: dict, output_path: str) -> str:
     for _b in (perf_buf, ff_buf, pie_buf, area_buf, margins_buf, mc_buf):
         if _b is not None:
             _b.seek(0)
+
+    # LLM-B Baptiste 2026-04-14 : batch pre-compute pages 10 + 11 + 12
+    # (multiples historiques + capital returns + LBO). Un seul llm_call avec
+    # JSON output contenant les 3 sections, au lieu de 3 appels successifs.
+    # Gain : 1 boilerplate au lieu de 3 + 1 seul network roundtrip. Les
+    # _build_* lisent depuis data["llm_batch"] au lieu d'appeler eux-memes.
+    try:
+        _precompute_llm_batch(data)
+    except Exception as _ebatch:
+        log.warning("[generate_report] _precompute_llm_batch failed: %s", _ebatch)
+        data.setdefault("llm_batch", {})
 
     out = Path(output_path)
     out.parent.mkdir(parents=True, exist_ok=True)

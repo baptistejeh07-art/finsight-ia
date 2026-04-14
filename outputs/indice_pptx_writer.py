@@ -1475,19 +1475,17 @@ def _s10_scatter(prs, D, chart_bytes: bytes):
         from core.llm_provider import llm_call
         _surp_names = ", ".join(_abbrev_sector(s[0], 22) for s in surp_s[:4]) or "aucun"
         _sous_names = ", ".join(_abbrev_sector(s[0], 22) for s in sous_s[:4]) or "aucun"
+        # LLM-A compressed
         _prompt_s10 = (
-            f"Tu es analyste sell-side senior. Redige une analyse (200-240 mots) "
-            f"de la carte valorisation vs croissance pour {indice}.\n\n"
-            f"Secteurs Surponderer : {_surp_names}\n"
-            f"Secteurs Sous-ponderer : {_sous_names}\n\n"
-            f"Structure en 2 paragraphes :\n"
-            f"1. Lecture du scatter : quadrants dominants, couple "
-            f"valorisation/croissance, signaux d'inflexion a surveiller\n"
-            f"2. Implications allocation : sur/sous-pond\u00e9ration recommand\u00e9e, "
-            f"condition de basculement vers un profil plus d\u00e9fensif ou "
-            f"offensif, horizon 12 mois\n\n"
-            f"Francais correct avec accents. Pas de markdown. Pas d'emojis. "
-            f"Cite les secteurs en francais."
+            f"Analyste sell-side senior. Analyse 200-240 mots de la carte "
+            f"valorisation/croissance pour {indice}.\n"
+            f"Surponderer : {_surp_names}\nSous-ponderer : {_sous_names}\n\n"
+            f"2 paragraphes :\n"
+            f"1. SCATTER : quadrants dominants, couple valorisation/croissance, "
+            f"signaux d'inflexion a surveiller.\n"
+            f"2. ALLOCATION : sur/sous-ponderation recommandee, basculement "
+            f"defensif/offensif, horizon 12 mois.\n\n"
+            f"Francais avec accents. Secteurs en FR. Pas de markdown/emojis."
         )
         _llm_extra_s10 = llm_call(_prompt_s10, phase="long", max_tokens=700) or ""
     except Exception:
@@ -1892,19 +1890,18 @@ def _s15_zone_entree(prs, D, chart_bytes: bytes):
         _indice_name = D.get("indice", "l'indice")
         _buy_sec  = ", ".join(_abbrev_sector(n, 22) for n in noms_b) or "aucun"
         _high_sec = ", ".join(_abbrev_sector(n, 22) for n in noms_h) or "aucun"
+        # LLM-A compressed
         _prompt_s15 = (
-            f"Tu es analyste sell-side senior. Redige une analyse (200-240 mots) "
-            f"sur les zones d'entree par secteur pour {_indice_name}.\n\n"
-            f"PE Forward indice : {_pe_g}. PE median 10 ans : {_pm_str}.\n"
-            f"Secteurs en zone d'entree favorable : {_buy_sec}\n"
-            f"Secteurs en zone de prudence : {_high_sec}\n\n"
-            f"Structure en 2 paragraphes :\n"
-            f"1. Interpretation des zones d'entree : conditions pour que le PE "
-            f"se re-rate, triggers macro et microstructure a surveiller\n"
-            f"2. Tactique d'accumulation : phasing recommande pour les secteurs "
-            f"en zone favorable, sizing initial vs rampe de conviction, stop-loss "
-            f"analytique base sur la deterioration des fondamentaux\n\n"
-            f"Francais correct avec accents. Pas de markdown. Pas d'emojis."
+            f"Analyste sell-side senior. Analyse 200-240 mots sur les zones d'entree "
+            f"par secteur pour {_indice_name}.\n"
+            f"PE Forward indice {_pe_g}. PE median 10 ans {_pm_str}.\n"
+            f"Favorables : {_buy_sec}\nPrudence : {_high_sec}\n\n"
+            f"2 paragraphes :\n"
+            f"1. ZONES : conditions de re-rating PE, triggers macro et "
+            f"microstructure a surveiller.\n"
+            f"2. TACTIQUE : phasing, sizing initial vs rampe de conviction, "
+            f"stop-loss analytique base sur deterioration fonda.\n\n"
+            f"Francais avec accents. Pas de markdown/emojis."
         )
         _llm_zone_s15 = llm_call(_prompt_s15, phase="long", max_tokens=700) or ""
     except Exception:
@@ -2023,19 +2020,16 @@ def _s17_risques(prs, D):
                 f"({sc.get('prob','?') if isinstance(sc,dict) else '?'})"
                 for sc in scenarios[:3]
             )
+            # LLM-A compressed
             _prompt_s17 = (
-                f"Tu es strategist buy-side senior. Redige une analyse (200-260 mots) "
-                f"des risques macro et scenarios alternatifs pour l'indice {indice}.\n\n"
-                f"Signal central : {_sig17} (conviction {_conv17}%).\n"
-                f"Scenarios identifies : {_scen_desc}\n\n"
-                f"Structure en 3 paragraphes :\n"
-                f"1. Lecture des scenarios alternatifs : ce qu'implique la probabilite "
-                f"de chaque scenario, les triggers respectifs a surveiller\n"
-                f"2. Conditions d'invalidation du signal central : ce qui ferait "
-                f"basculer la these et sur quel horizon\n"
-                f"3. Couverture recommandee : secteurs defensifs a renforcer, "
-                f"instruments de hedge possibles (options, obligations, or)\n\n"
-                f"Francais correct avec accents. Pas de markdown. Pas d'emojis."
+                f"Strategist buy-side senior. Analyse 200-260 mots des risques macro "
+                f"et scenarios pour {indice}.\n"
+                f"Central : {_sig17} (conviction {_conv17}%). Scenarios : {_scen_desc}\n\n"
+                f"3 paragraphes :\n"
+                f"1. SCENARIOS : ce qu'implique chaque probabilite, triggers a surveiller.\n"
+                f"2. INVALIDATION : ce qui ferait basculer la these et sur quel horizon.\n"
+                f"3. COUVERTURE : defensifs a renforcer, hedges (options, bonds, or).\n\n"
+                f"Francais avec accents. Pas de markdown/emojis."
             )
             _lec17_llm = llm_call(_prompt_s17, phase="long", max_tokens=700) or ""
         except Exception:
@@ -2204,20 +2198,16 @@ def _s19_sentiment(prs, D, chart_bytes: bytes):
     try:
         from core.llm_provider import llm_call
         _indice_name = D.get("indice", "l'indice")
+        # LLM-A compressed
         _prompt_s19 = (
-            f"Tu es analyste sentiment senior. Redige une analyse (150-180 mots) "
-            f"du sentiment sectoriel composite de {_indice_name}.\n\n"
-            f"Score composite : {_score_str} ({label}). "
-            f"Surponderer : {p_nb} sect. ({p_pct}%). "
-            f"Neutre : {n_nb} sect. ({n_pct}%). "
-            f"Sous-ponderer : {m_nb} sect. ({m_pct}%).\n"
-            f"Secteurs leaders : {pos_txt}\n"
-            f"Secteurs retardataires : {neg_txt}\n\n"
-            f"Structure : (1) lecture du signal composite et ce qu'il implique "
-            f"pour les 3 prochains mois, (2) divergences a surveiller entre "
-            f"sentiment et fondamentaux (convergence/divergence), (3) impact "
-            f"sur le positionnement actuel.\n"
-            f"Francais correct avec accents. Pas de markdown."
+            f"Analyste sentiment senior. Analyse 150-180 mots du sentiment sectoriel "
+            f"composite de {_indice_name}.\n"
+            f"Score : {_score_str} ({label}). Surp {p_nb} ({p_pct}%) / Neutre {n_nb} "
+            f"({n_pct}%) / Sous {m_nb} ({m_pct}%).\n"
+            f"Leaders : {pos_txt}\nRetardataires : {neg_txt}\n\n"
+            f"Structure : (1) signal composite + implications 3 mois, (2) divergences "
+            f"sentiment vs fondamentaux, (3) impact positionnement actuel.\n"
+            f"Francais avec accents. Pas de markdown."
         )
         _llm_sent_s19 = llm_call(_prompt_s19, phase="long", max_tokens=500) or ""
     except Exception:
@@ -2468,24 +2458,21 @@ def _s20_etf_perf(prs, D, chart_bytes: bytes):
     _llm_macro_comment = ""
     try:
         from core.llm_provider import llm_call
+        # LLM-A compressed
         _llm_prompt_s20 = (
-            f"Tu es analyste macro sell-side senior. Redige un commentaire approfondi "
-            f"(300-360 mots) sur les facteurs macro et catalyseurs sectoriels ayant "
-            f"impacte le cours de l'indice {indice} sur les 12 derniers mois.\n\n"
-            f"Donnees : YTD {_ytd_s20}, ERP {_erp_s20}, P/E Forward {_pe_s20}, "
-            f"BPA growth {_bpa_s20}, phase cycle {_phase_s20}.\n\n"
-            f"Structure en 3 paragraphes (120 mots chacun) :\n"
-            f"1. Environnement macro dates : politique monetaire (Fed/BCE avec dates "
-            f"cles), inflation, taux longs, cycle economique. Cite les evenements "
-            f"datables (pivot Fed, reunion BCE, publication ISM, CPI) et leur impact "
-            f"chiffre sur l'indice.\n"
-            f"2. Catalyseurs sectoriels specifiques : quels secteurs ont porte/freine "
-            f"la performance, revisions de consensus, publications trimestrielles "
-            f"marquantes, M&A de reference.\n"
-            f"3. Implications forward : catalyseurs a surveiller sur les 6 prochains "
-            f"mois, niveaux techniques critiques, conditions de bascule du regime.\n\n"
-            f"Francais correct avec accents. Pas de markdown. Pas d'emojis. "
-            f"Cite des chiffres precis et des dates."
+            f"Analyste macro sell-side senior. Commentaire 300-360 mots sur les "
+            f"facteurs macro et catalyseurs qui ont impacte {indice} sur 12 mois.\n"
+            f"YTD {_ytd_s20}, ERP {_erp_s20}, PE Forward {_pe_s20}, BPA growth "
+            f"{_bpa_s20}, phase {_phase_s20}.\n\n"
+            f"3 paragraphes (~120 mots) :\n"
+            f"1. MACRO DATES : politique monetaire (Fed/BCE dates cles), inflation, "
+            f"taux longs, cycle. Events datables (pivot Fed, reunion BCE, ISM, CPI) "
+            f"et impact chiffre.\n"
+            f"2. CATALYSEURS : secteurs porteurs/freins, revisions consensus, "
+            f"publications marquantes, M&A de reference.\n"
+            f"3. FORWARD : catalyseurs 6 mois, niveaux techniques critiques, "
+            f"conditions de bascule de regime.\n\n"
+            f"Francais avec accents. Pas de markdown/emojis. Chiffres et dates precis."
         )
         _llm_macro_comment = llm_call(_llm_prompt_s20, phase="long", max_tokens=900) or ""
     except Exception as _llm_e:
