@@ -1962,7 +1962,7 @@ def _build_acteurs(tickers_data: list[dict], sector_name: str, registry=None):
     elif _sec_profile == "INSURANCE":
         _comp_cols = ["Ticker", "Rev. LTM (Mds)", "Crois.", "ROE", "P/E", "P/B", "Div. Yield"]
     elif _sec_profile == "OIL_GAS":
-        _comp_cols = ["Ticker", "Rev. LTM (Mds)", "Crois.", "Mg. EBITDA", "ROE", "EV/EBITDA", "P/E"]
+        _comp_cols = ["Ticker", "Rev. LTM (Mds)", "Crois.", "Mg. EBITDA", "ROE", "EV/DACF*", "P/E"]
     else:
         _comp_cols = ["Ticker", "Rev. LTM (Mds)", "Crois.", "Mg. Brute", "Mg. EBITDA", "ROE", "EV/EBITDA"]
 
@@ -2035,10 +2035,20 @@ def _build_acteurs(tickers_data: list[dict], sector_name: str, registry=None):
                 _fmt_dy(t.get('div_yield')),
             ]
         elif _sec_profile == "OIL_GAS":
+            # EV/DACF approxime par EV/EBITDA * 1.18 (DACF ~ 0.85 * EBITDA pour
+            # les E&P typiques avec interet financier et taxes). Marque d'un *
+            _ev_og = t.get('ev_ebitda')
+            _dacf_val = None
+            if _ev_og is not None:
+                try:
+                    _dacf_val = float(_ev_og) * 1.18
+                except Exception:
+                    pass
+            _dacf_s = f"{_dacf_val:.1f}x*" if _dacf_val else "\u2014"
             row += [
                 _fmt_pct(t.get('ebitda_margin'), sign=False),
                 _fmt_pct(t.get('roe')),
-                _fmt_x(t.get('ev_ebitda')),
+                _dacf_s,
                 _fmt_x(t.get('pe_ratio') or t.get('pe')),
             ]
         else:
