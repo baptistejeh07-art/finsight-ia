@@ -131,14 +131,18 @@ def _enc(s):
 
 
 def _safe(s):
-    """Encode et échappe pour Paragraph ReportLab."""
+    """Encode et échappe pour Paragraph ReportLab + convertit markdown bold."""
     if not s:
         return ""
     try:
         import unicodedata
+        import re as _re
         s = unicodedata.normalize('NFKC', str(s))
         s = s.encode('cp1252', errors='replace').decode('cp1252')
         s = s.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+        # Markdown bold -> ReportLab <b>
+        s = _re.sub(r'\*\*([^*]+?)\*\*', r'<b>\1</b>', s)
+        s = _re.sub(r'__([^_]+?)__', r'<b>\1</b>', s)
         return s
     except Exception:
         return str(s)

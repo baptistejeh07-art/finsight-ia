@@ -702,46 +702,68 @@ _BANKS_SP500_TICKERS: set[str] = {
     "USB", "PNC", "TFC", "COF", "BK", "STT", "NTRS",
     # Regionals
     "FITB", "HBAN", "RF", "KEY", "CFG", "MTB", "CMA", "ZION",
-    # Brokers/payments adjacents
-    "SCHW", "AXP", "DFS", "SYF",
+    "PB", "WBS", "FHN", "SNV", "WAL", "EWBC", "BPOP",
+    "PNFP", "FFIN", "CFR", "SBNY", "ONB", "FCNCA", "GBCI",
+    # Asset managers / brokers / payments adjacents
+    "SCHW", "AXP", "DFS", "SYF", "AMP", "TROW", "BLK",
+    "BX", "KKR", "APO", "BEN", "IVZ",
 }
 
 _BANKS_EU_TICKERS: set[str] = {
-    # France (CAC 40 / SBF 120)
-    "BNP.PA", "ACA.PA", "GLE.PA",
-    # UK (FTSE 100)
-    "HSBA.L", "BARC.L", "LLOY.L", "NWG.L", "STAN.L",
-    # Germany (DAX)
-    "DBK.DE", "CBK.DE",
-    # Italy/Spain (EURO STOXX 50)
-    "ISP.MI", "UCG.MI", "SAN.MC", "BBVA.MC",
-    # Netherlands
-    "INGA.AS",
+    # France
+    "BNP.PA", "ACA.PA", "GLE.PA", "KN.PA",
+    # UK
+    "HSBA.L", "BARC.L", "LLOY.L", "NWG.L", "STAN.L", "VMUK.L",
+    # Germany
+    "DBK.DE", "CBK.DE", "AAREAL.DE",
+    # Italy
+    "ISP.MI", "UCG.MI", "BMPS.MI", "BAMI.MI", "BPER.MI", "BCBP.MI",
+    # Spain
+    "SAN.MC", "BBVA.MC", "CABK.MC", "BKT.MC", "SAB.MC", "UNI.MC",
+    # Netherlands / Belgium
+    "INGA.AS", "ABN.AS", "KBC.BR",
     # Switzerland
     "UBSG.SW",
+    # Nordics
+    "NDA-FI.HE", "DANSKE.CO", "SEB-A.ST", "SHB-A.ST", "SWED-A.ST", "DNB.OL",
+    # Other EU
+    "ERST.VI", "RBI.VI", "BOIY.IR", "AIBG.IR",
 }
 
 _INSURANCE_SP500_TICKERS: set[str] = {
     # P&C / Multi-line
     "BRK.B", "TRV", "PGR", "ALL", "CB", "HIG", "AIG",
     "CINF", "L", "RE", "WRB", "MKL", "RNR", "AIZ",
+    "FAF", "ORI", "EG", "AFG", "SIGI", "KMPR", "PLMR",
     # Life / Annuities
-    "MET", "PRU", "LNC", "UNM", "GL",
+    "MET", "PRU", "LNC", "UNM", "GL", "PFG", "VOYA",
+    "EQH", "BHF", "AEL", "CNO",
     # Health insurers (optionnel — separables en HEALTHCARE parfois)
     "UNH", "ELV", "HUM", "CI", "CNC", "MOH",
     # Brokers
-    "MMC", "AON", "AJG", "WTW", "BRO",
-    # Specialty
-    "AFL", "HIG",
+    "MMC", "AON", "AJG", "WTW", "BRO", "RYAN",
+    # Specialty / Reinsurance
+    "AFL", "ESGR", "JRVR", "HALO",
 }
 
 _INSURANCE_EU_TICKERS: set[str] = {
-    "AXA.PA", "CS.PA",  # France
-    "ALV.DE", "MUV2.DE",  # Germany
-    "ZURN.SW", "SLHN.SW",  # Switzerland
-    "AV.L", "LGEN.L", "PRU.L",  # UK
-    "G.MI",  # Italy
-    "MAP.MC",  # Spain
+    # France
+    "CS.PA", "CNP.PA", "SCR.PA",
+    # Germany
+    "ALV.DE", "MUV2.DE", "HNR1.DE", "TLX.DE",
+    # Switzerland
+    "ZURN.SW", "SLHN.SW", "BALN.SW", "HELN.SW",
+    # UK
+    "AV.L", "LGEN.L", "PRU.L", "ADM.L", "BEZ.L", "DLG.L", "HSX.L",
+    "LRE.L", "PHNX.L", "SBRE.L",
+    # Italy
+    "G.MI", "UNI.MI",
+    # Spain
+    "MAP.MC",
+    # Netherlands
+    "ASRNL.AS", "AGN.AS", "NN.AS",
+    # Nordics
+    "SAMPO.HE", "GJF.OL", "TRYG.CO", "TOP.CO",
 }
 
 

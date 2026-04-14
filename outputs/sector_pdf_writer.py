@@ -875,6 +875,10 @@ def _build_structure_sectorielle(tickers_data: list[dict], sector_name: str,
     elems += section_title("Structure et Dynamique Sectorielle", 2)
     elems.append(Spacer(1, 3*mm))
 
+    # Detection profil sectoriel pour adapter les indicateurs (banques /
+    # assurance / REIT n'ont pas Altman Z ni Piotroski pertinents)
+    _sector_profile = _detect_sector_profile(tickers_data, sector_name)
+
     def _na_val(v, fmt=None):
         if v is None:
             return "\u2014"
@@ -946,7 +950,23 @@ def _build_structure_sectorielle(tickers_data: list[dict], sector_name: str,
     else:
         az_safe_label = "Z>3"
         az_model_tag  = "Z original"
-    if n_az > 0:
+
+    # ADAPTATION PROFIL : pour banques/assurance, Altman Z n'est pas pertinent
+    # (modele calibre pour manufacturing/non-financiers). On remplace par un
+    # message explicatif pointant vers les metriques prudentielles bancaires.
+    if _sector_profile in ("BANK", "INSURANCE"):
+        if _sector_profile == "BANK":
+            altman_val = "Métriques prudentielles : CET1, NPL, LCR"
+            altman_lbl = ("Altman Z non applicable aux banques. Ratios pertinents : "
+                          "CET1 > 10% (Bâle III), NPL < 3%, LCR > 100%. Source : Pillar 3 trimestriels.")
+            az_model_tag = "Bâle III"
+        else:  # INSURANCE
+            altman_val = "Métriques prudentielles : Solvency II, Combined Ratio"
+            altman_lbl = ("Altman Z non applicable aux assureurs. Ratios pertinents : "
+                          "Solvency II ratio > 150%, Combined Ratio < 100%. Source : SFCR annuels.")
+            az_model_tag = "Solvency II"
+        altman_s = S_TD_C
+    elif n_az > 0:
         altman_val = (
             f"{n_sfe}/{n_az} zone safe ({az_safe_label}) | "
             f"{n_gry}/{n_az} zone grise | {n_dst}/{n_az} détresse"
@@ -1012,11 +1032,28 @@ def _build_structure_sectorielle(tickers_data: list[dict], sector_name: str,
               for h in ["Indicateur", "Valeur", "Interpretation analytique"]]
 
     # --- Piotroski F-Score distribution ---
+    # ADAPTATION PROFIL : Piotroski calibre pour entreprises non-financieres.
+    # Pour banques/assurance, remplacer par les indicateurs metier pertinents.
     n_f = sa.get("piotroski_n") or sa.get("n_piotroski") or 0
     n_q = sa.get("piotroski_quality") or 0
     n_n_f = sa.get("piotroski_neutral") or 0
     n_t = sa.get("piotroski_trap") or 0
-    if n_f > 0:
+    if _sector_profile == "BANK":
+        f_val = "ROE > Coût des fonds propres + provisions"
+        f_lbl = ("Piotroski non applicable aux banques (calibre non-financier). "
+                 "Indicateurs cles : ROE > 10%, ratio efficacite < 60%, provisions / pret < 1%.")
+        f_s   = S_TD_C
+    elif _sector_profile == "INSURANCE":
+        f_val = "Combined Ratio < 100%, ROE > 10%"
+        f_lbl = ("Piotroski non applicable aux assureurs. Indicateurs cles : "
+                 "Combined Ratio < 100% (sous-jacent rentable), ROE > 10%, ratio sinistralite stable.")
+        f_s   = S_TD_C
+    elif _sector_profile == "REIT":
+        f_val = "P/FFO, occupancy rate, LTV"
+        f_lbl = ("Piotroski moins pertinent pour REITs. Indicateurs cles : "
+                 "P/FFO < 18x, occupancy > 92%, LTV < 50%, dividend coverage > 1.2x.")
+        f_s   = S_TD_C
+    elif n_f > 0:
         pct_q = round(n_q / n_f * 100)
         pct_t = round(n_t / n_f * 100)
         f_val = (
@@ -1318,10 +1355,27 @@ def _build_structure_sectorielle(tickers_data: list[dict], sector_name: str,
 
 
 def _safe(s):
-    """Échappe les caractères XML pour ReportLab Paragraph."""
+    """Échappe les caractères XML pour ReportLab Paragraph + convertit le
+    markdown bold (**texte**) en balises ReportLab <b>texte</b>.
+
+    Les LLM (Groq, Mistral, Anthropic) retournent souvent du markdown
+    inline avec **bold** au lieu de respecter le format demande. ReportLab
+    ne parse pas le markdown -> sans cette conversion, les ** apparaissent
+    en brut dans le PDF (ex: "**banque en ligne**").
+    """
     if not s:
         return ""
-    return str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    out = str(s)
+    # 1. Echapper les caracteres XML d'abord (pour eviter qu'un < dans le
+    #    contenu ne casse le parser ReportLab)
+    out = out.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    # 2. Convertir le markdown **bold** en <b>bold</b> (ReportLab inline tag)
+    #    Pattern : **texte non-vide non-greedy**
+    import re as _re
+    out = _re.sub(r'\*\*([^*]+?)\*\*', r'<b>\1</b>', out)
+    # 3. Convertir aussi __bold__ -> <b>bold</b> (autre variante markdown)
+    out = _re.sub(r'__([^_]+?)__', r'<b>\1</b>', out)
+    return out
 
 
 def _detect_sector_profile(tickers_data: list, sector_name: str) -> str:
@@ -1374,15 +1428,39 @@ def _aggregate_subsectors(tickers_data: list[dict]) -> list[dict]:
         nb = len(items)
         scores = [x.get("score_global") or 0 for x in items]
         avg_score = int(sum(scores) / nb) if nb else 0
-        evs = [x["ev_ebitda"] for x in items if x.get("ev_ebitda") and 1 < x["ev_ebitda"] < 100]
-        if evs:
-            ev_med = f"{_med(evs):.1f}x"
+        # Detection profil pour adapter les metriques affichees
+        try:
+            from core.sector_profiles import detect_profile
+            _ind_profiles = [detect_profile(x.get("sector", ""), x.get("industry", ""))
+                             for x in items]
+            _sub_profile = max(set(_ind_profiles), key=_ind_profiles.count) if _ind_profiles else "STANDARD"
+        except Exception:
+            _sub_profile = "STANDARD"
+
+        # EV/EBITDA : pour banques, P/E est plus pertinent (EV/EBITDA aberrant)
+        if _sub_profile in ("BANK", "INSURANCE"):
+            pes = [x.get("pe") or x.get("pe_ratio") for x in items
+                   if (x.get("pe") or x.get("pe_ratio")) and 1 < (x.get("pe") or x.get("pe_ratio")) < 100]
+            ev_med = f"{_med(pes):.1f}x P/E" if pes else "\u2014"
         else:
-            # Fallback P/S si EV/EBITDA indisponible
-            ps_vals = [x.get("ps_ratio") for x in items if x.get("ps_ratio")]
-            ev_med = f"{_med(ps_vals):.1f}x P/S" if ps_vals else "\u2014"
-        mgs = [x.get("ebitda_margin") or x.get("gross_margin") or 0 for x in items if (x.get("ebitda_margin") or x.get("gross_margin"))]
-        mg_med = f"{_med(mgs):.1f}%" if mgs else "\u2014"
+            evs = [x["ev_ebitda"] for x in items if x.get("ev_ebitda") and 1 < x["ev_ebitda"] < 100]
+            if evs:
+                ev_med = f"{_med(evs):.1f}x"
+            else:
+                # Fallback P/S si EV/EBITDA indisponible
+                ps_vals = [x.get("ps_ratio") for x in items if x.get("ps_ratio")]
+                ev_med = f"{_med(ps_vals):.1f}x P/S" if ps_vals else "\u2014"
+
+        # Marge : pour banques/assurance, EBITDA margin est aberrant (~80-95%
+        # car les revenus = NII + commissions et l'EBITDA = ces revenus moins
+        # les frais operationnels). On affiche ROE qui est plus parlant.
+        if _sub_profile in ("BANK", "INSURANCE"):
+            roes = [x.get("roe") for x in items if x.get("roe") is not None]
+            mg_med = f"{_med(roes):.1f}% ROE" if roes else "\u2014"
+        else:
+            mgs = [x.get("ebitda_margin") or x.get("gross_margin") or 0 for x in items
+                   if (x.get("ebitda_margin") or x.get("gross_margin"))]
+            mg_med = f"{_med(mgs):.1f}%" if mgs else "\u2014"
         grs = [x.get("revenue_growth") or 0 for x in items if x.get("revenue_growth") is not None]
         gr_med = f"{_med(grs):+.1f}%" if grs else "\u2014"
         moms = [x.get("momentum_52w") or 0 for x in items if x.get("momentum_52w") is not None]
@@ -1609,6 +1687,10 @@ def _build_subsector_decomposition(tickers_data: list[dict], sector_name: str, r
 
 def _build_acteurs(tickers_data: list[dict], sector_name: str, registry=None):
     elems = []
+    # CondPageBreak : la section 3 est dense (tableau comparatif + 2 paragraphes
+    # LLM). Si moins de 130mm restants sur la page courante, sauter a la suivante
+    # pour eviter que le titre "3." reste seul en bas de la page precedente.
+    elems.append(CondPageBreak(130*mm))
     elems.append(Spacer(1, 10*mm))
     if registry is not None:
         elems.append(SectionAnchor('acteurs', registry))

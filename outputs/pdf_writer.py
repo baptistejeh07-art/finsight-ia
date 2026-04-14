@@ -136,11 +136,18 @@ def _enc(s):
 
 def _safe(s):
     """Echappe &, <, > pour injection dans ReportLab Paragraph (parser XML).
-    Decode d'abord les entites HTML du LLM (&gt; → >) avant re-escaping."""
+    Decode d'abord les entites HTML du LLM (&gt; → >) avant re-escaping.
+    Convertit aussi le markdown **bold** en <b>bold</b> (LLM retourne souvent
+    du markdown au lieu du format demande)."""
     if not s: return ""
     import html as _html
+    import re as _re
     decoded = _html.unescape(str(s))
-    return decoded.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+    out = decoded.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+    # Markdown bold -> ReportLab <b>
+    out = _re.sub(r'\*\*([^*]+?)\*\*', r'<b>\1</b>', out)
+    out = _re.sub(r'__([^_]+?)__', r'<b>\1</b>', out)
+    return out
 
 def _d(obj, key, default=""):
     v = obj.get(key) if isinstance(obj, dict) else None

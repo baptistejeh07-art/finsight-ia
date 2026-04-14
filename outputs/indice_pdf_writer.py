@@ -77,6 +77,19 @@ def section_title(text, num):
 def debate_q(text): return Paragraph(f"\u25b6  {text}", S_DEBATE)
 def src(text):      return Paragraph(f"Source : {text}", S_NOTE)
 
+
+def _safe(s) -> str:
+    """Echappe les chars XML pour ReportLab + convertit markdown **bold** -> <b>.
+    Les LLM (Groq, Mistral, Anthropic) retournent souvent du markdown au lieu
+    du format demande -> sans cette conversion les ** apparaissent en brut."""
+    if not s:
+        return ""
+    import re as _re
+    out = str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    out = _re.sub(r'\*\*([^*]+?)\*\*', r'<b>\1</b>', out)
+    out = _re.sub(r'__([^_]+?)__', r'<b>\1</b>', out)
+    return out
+
 def tbl(data, cw, row_heights=None, compact=False):
     assert abs(sum(cw) - TABLE_W) < 0.5, (
         f"Somme colonnes = {sum(cw)/mm:.1f}mm != 170mm — {[c/mm for c in cw]}")

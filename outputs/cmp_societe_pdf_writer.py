@@ -131,16 +131,20 @@ def _canvas_text(s):
     return s.encode('cp1252', errors='replace').decode('cp1252')
 
 def _safe(s):
-    """Echappe &, <, > pour Paragraph ReportLab. Supprimé le markdown LLM.
-    Decode d'abord les entites HTML du LLM (&gt; → >) avant re-escaping."""
+    """Echappe &, <, > pour Paragraph ReportLab + convertit markdown LLM en
+    balises ReportLab inline (<b>, <i>). Decode d'abord les entites HTML."""
     if not s: return ""
     import re, html as _html
     s = str(s)
     s = _html.unescape(s)  # decode &gt; &lt; &amp; &nbsp; etc.
-    s = re.sub(r'\*\*(.+?)\*\*', r'\1', s)
-    s = re.sub(r'\*(.+?)\*', r'\1', s)
-    s = re.sub(r'\*+', '', s)
-    return s.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+    # Echappe d'abord les caracteres XML (eviter cassure parser ReportLab)
+    s = s.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+    # Puis convertit markdown -> tags ReportLab
+    s = re.sub(r'\*\*([^*]+?)\*\*', r'<b>\1</b>', s)
+    s = re.sub(r'__([^_]+?)__', r'<b>\1</b>', s)
+    # Italique simple (1 etoile) - eviter de matcher dans **bold**
+    s = re.sub(r'(?<![*])\*([^*\n]+?)\*(?![*])', r'<i>\1</i>', s)
+    return s
 
 def rule(w=TABLE_W, thick=0.5, col=GREY_RULE, sb=4, sa=4):
     return HRFlowable(width=w, thickness=thick, color=col, spaceAfter=sa, spaceBefore=sb)

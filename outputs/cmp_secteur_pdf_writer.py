@@ -143,8 +143,16 @@ def _mult(v):
 
 
 def _xml(s: str) -> str:
-    """Echappe les caractères speciaux XML pour les Paragraph ReportLab."""
-    return str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    """Echappe les caractères speciaux XML pour les Paragraph ReportLab.
+    Convertit aussi le markdown **bold** en <b>bold</b> pour eviter que les
+    LLM outputs (qui retournent souvent du markdown) apparaissent en brut."""
+    if not s:
+        return ""
+    import re as _re
+    out = str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    out = _re.sub(r'\*\*([^*]+?)\*\*', r'<b>\1</b>', out)
+    out = _re.sub(r'__([^_]+?)__', r'<b>\1</b>', out)
+    return out
 
 
 def _rich(s: str) -> str:
