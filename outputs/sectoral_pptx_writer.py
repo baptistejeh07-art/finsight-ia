@@ -1511,13 +1511,22 @@ def _s08_subsectors(prs, D):
         _rect(slide, 0.9, _body_y, 23.6, _body_h, fill=_GRAYL)
         _rect(slide, 0.9, _body_y, 0.12, _body_h, fill=_NAVY)
 
-        # Text analytique basé sur les Données réelles
+        # Text analytique basé sur les Données réelles — fmt safe pour None (banques)
+        def _f1(v, suf=""):
+            return f"{v:.1f}{suf}" if isinstance(v, (int, float)) else "n/d"
+        def _fp(v):
+            return f"{v:+.1f}%" if isinstance(v, (int, float)) else "n/d"
+        _ev_part = (
+            f"{_f1(_top.get('ev_ebitda'))}x EV/EBITDA avec une marge EBITDA de "
+            f"{_f1(_top.get('margin'), '%')}"
+            if isinstance(_top.get('ev_ebitda'), (int, float))
+            else "des metriques de valorisation specifiques au secteur (ratios financiers)"
+        )
         _analysis = (
             f"Le sous-segment {_top['name']} ressort en t\u00eate du classement avec un score "
             f"composite de {_top['score']}/100 et un signal {_top['signal'].lower()}, port\u00e9 "
-            f"par {_top['nb']} acteurs dont {_top_best}. La valorisation m\u00e9diane ressort \u00e0 "
-            f"{_top['ev_ebitda']:.1f}x EV/EBITDA avec une marge EBITDA de {_top['margin']:.1f}% "
-            f"et une trajectoire top-line \u00e0 {_top['growth']:+.1f}% YoY. "
+            f"par {_top['nb']} acteurs dont {_top_best}. La valorisation m\u00e9diane ressort sur "
+            f"{_ev_part} et une trajectoire top-line \u00e0 {_fp(_top.get('growth'))} YoY. "
         )
         if len(subsectors) > 1:
             _analysis += (
