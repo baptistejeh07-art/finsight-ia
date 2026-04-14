@@ -2339,11 +2339,15 @@ def _s20_etf_perf(prs, D, chart_bytes: bytes):
                 _color_cell(tbl_etf, r, 3, _sig_light(sig_r), _sig_color(sig_r))
             _rect(slide, 0.9, 11.8, 23.6, 1.5, fill=_GRAYL)
             _rect(slide, 0.9, 11.8, 0.12, 1.5, fill=_GRAYD)
-            _txb(slide, "Note — ETF sectoriels SPDR non disponibles pour cet indice",
+            _txb(slide, "Note — ETF sectoriels SPDR/iShares",
                  1.2, 11.9, 22.8, 0.5, size=8, bold=True, color=_GRAYT)
             _txb(slide,
-                 "Les ETF sectoriels SPDR sont references sur le Marché US (S&P 500). "
-                 "Pour les indices européens, les équivalents iShares / Amundi ne sont pas encore intégrés.",
+                 "Les ETF sectoriels sont mapp\u00e9s via core/sector_etfs.py : "
+                 "SPDR Select Sector pour le S&P 500/Nasdaq, iShares STOXX Europe 600 "
+                 "pour CAC 40/DAX 40/FTSE 100 (UCITS, suffixe .DE sur Xetra). "
+                 "Le fetch du pipeline indice n'est pas encore branche sur cette matrice "
+                 "pour les indices europeens : l'analyse sectorielle directe reste "
+                 "disponible via 'Analyse sectorielle' pour acceder aux holdings reels.",
                  1.2, 12.45, 22.8, 0.8, size=7.5, color=_GRAYT, wrap=True)
         _footer(slide)
         return slide
