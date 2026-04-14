@@ -1370,7 +1370,38 @@ def _slide_business_model(prs, snap, synthesis):
     segments  = _g(synthesis, "segments", []) or []
     strengths = _g(synthesis, "strengths", []) or []
 
-    # Fallback si pas de segments LLM : construire depuis strengths
+    # Enrichissement LLM : si segments absents ou descriptions courtes (< 400 chars),
+    # genere des descriptions plus longues et specifiques a la societe (B6.1)
+    _total_desc_len = sum(len(str(_g(s, "description", "") or "")) for s in segments)
+    if not segments or _total_desc_len < 400:
+        try:
+            from core.llm_provider import llm_call as _llm_call_s6
+            _ci_s6 = snap.company_info if snap else None
+            _ticker_s6 = _g(_ci_s6, "ticker", "la societe") or "la societe"
+            _sector_s6 = _g(_ci_s6, "sector", "") or ""
+            import json as _json_s6
+            _prompt_s6 = (
+                f"Tu es analyste sell-side. Identifie les 3 segments operationnels "
+                f"cles de {_ticker_s6} (secteur {_sector_s6}) et redige pour chacun "
+                f"une description detaillee (140-180 mots).\n\n"
+                f"Reponds en JSON strict :\n"
+                f'{{"segments":['
+                f'{{"name":"titre court","description":"140-180 mots : marches adresses, '
+                f'positionnement concurrentiel, drivers de croissance, poids approximatif '
+                f'du segment dans le CA, catalyseurs specifiques"}},'
+                f'{{"name":"...","description":"..."}},'
+                f'{{"name":"...","description":"..."}}]}}'
+            )
+            _resp_s6 = _llm_call_s6(_prompt_s6, phase="long", max_tokens=1400) or ""
+            _js_s = _resp_s6.find("{"); _js_e = _resp_s6.rfind("}") + 1
+            if _js_s >= 0 and _js_e > _js_s:
+                _p = _json_s6.loads(_resp_s6[_js_s:_js_e])
+                if _p.get("segments"):
+                    segments = _p["segments"]
+        except Exception:
+            pass
+
+    # Fallback si toujours rien : construire depuis strengths
     if not segments:
         _fallback_labels = ["Core Business", "Growth Driver", "International", "Innovation"]
         segments = [
@@ -3458,10 +3489,11 @@ def _slide_lbo_cadre(prs, snap, pack: dict):
     su = pack["sources_uses"]
     _PP_CENTER = __import__("pptx").enum.text.PP_ALIGN.CENTER
 
-    # Header SOURCES (gauche) — text_box centré verticalement dans le rect
+    # Header SOURCES (gauche) — rect + text centre (font reduit pour eviter
+    # l'overflow 'financement)' hors cadre — B17.1 Baptiste TSLA)
     add_rect(slide, 1.02, sources_y, 11.40, 0.55, NAVY)
-    add_text_box(slide, 1.02, sources_y + 0.08, 11.40, 0.42,
-                 "SOURCES (financement)", 10.5, WHITE, bold=True,
+    add_text_box(slide, 1.20, sources_y + 0.10, 11.04, 0.38,
+                 "SOURCES (financement)", 9.5, WHITE, bold=True,
                  align=_PP_CENTER, wrap=False)
 
     sources_rows = [
@@ -3480,10 +3512,10 @@ def _slide_lbo_cadre(prs, snap, pack: dict):
               rows_data=sources_rows,
               border_hex="DDDDDD")
 
-    # Header USES (droite) — text_box centré verticalement dans le rect
+    # Header USES (droite) — rect + text centre (meme fix que SOURCES)
     add_rect(slide, 12.94, sources_y, 11.46, 0.55, NAVY)
-    add_text_box(slide, 12.94, sources_y + 0.08, 11.46, 0.42,
-                 "USES (utilisation)", 10.5, WHITE, bold=True,
+    add_text_box(slide, 13.12, sources_y + 0.10, 11.10, 0.38,
+                 "USES (utilisation)", 9.5, WHITE, bold=True,
                  align=_PP_CENTER, wrap=False)
 
     uses_rows = [
@@ -3736,10 +3768,10 @@ def _slide_lbo_stress(prs, snap, pack: dict):
 
     for i, (lbl, key, col_c, col_p) in enumerate(zip(col_labels, col_keys, col_colors, col_pales)):
         cx = col_xs[i]
-        # Header de colonne — bandeau plus haut (0.65 au lieu de 0.55) avec
-        # texte centre verticalement (0.45 de hauteur, marge 0.10 top/bottom)
+        # Header de colonne — text_box avec padding horizontal pour eviter
+        # decalage droit (B19.1 TSLA : Bull/Base/Bear mal cadres)
         add_rect(slide, cx, 8.05, col_w, 0.65, col_c)
-        add_text_box(slide, cx, 8.15, col_w, 0.45,
+        add_text_box(slide, cx + 0.20, 8.18, col_w - 0.40, 0.42,
                      lbl, 13, WHITE, bold=True,
                      align=__import__("pptx").enum.text.PP_ALIGN.CENTER, wrap=False)
         # Body — collé au bandeau header
@@ -3759,23 +3791,23 @@ def _slide_lbo_stress(prs, snap, pack: dict):
             add_text_box(slide, cx + col_w * 0.55, ry, col_w * 0.40, 0.42,
                          val, 11, col_c, bold=True, align=__import__("pptx").enum.text.PP_ALIGN.RIGHT)
 
-    # Body rect ends a 8.70 + 2.50 = 11.20.
-    # Commentary box DECALEE plus bas pour eviter chevauchement avec ICR exit.
+    # Body rect ends a 8.70 + 2.50 = 11.20. Commentary box agrandie pour
+    # loger le texte LLM sans le tronquer dans le footer (B19.2 TSLA).
     risks_text = pack["llm_texts"].get("risks_text") or (
         f"Le scenario bear traduit la sensibilite du deal a la compression des marges, "
         f"a la hausse des taux et au multiple compression. "
         f"La these s'invalide si EBITDA -200 bps ou multiple sortie -2x."
     )
-    risks_text = _truncate(risks_text, 380)
+    risks_text = _truncate(risks_text, 700)
     _stress_irr = None
     try:
         _stress_irr = pack["scenarios"]["base"]["irr"]
     except Exception:
         pass
     _stress_title = _jpm_title("lbo", snap=snap, extra={"irr_base": _stress_irr})
-    # Decalage vertical : commentary box demarre a 11.50 (au lieu de 11.45)
-    # avec 0.30cm de gap au dessus. Hauteur 1.80 -> ends 13.30, footer a 13.44.
-    commentary_box(slide, 1.02, 11.50, 23.37, 1.80, risks_text, title=_stress_title)
+    # Box agrandie : y=11.35 (au-dessus du footer 13.40), h=2.00 -> ends 13.35
+    # pour accueillir le texte LLM etendu sans overflow (~700 chars)
+    commentary_box(slide, 1.02, 11.35, 23.37, 2.00, risks_text, title=_stress_title)
     return slide
 
 
