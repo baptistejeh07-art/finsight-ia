@@ -410,60 +410,121 @@ def _make_perf_chart(tickers_data: list[dict], sector_name: str,
     return buf
 
 
-def _make_revenue_area(tickers_data: list[dict], sector_name: str) -> io.BytesIO:
-    """Revenus agrégés par sous-segment — 8 trimestres."""
-    trimestres = ['T1 24', 'T2 24', 'T3 24', 'T4 24', 'T1 25', 'T2 25', 'T3 25', 'T4 25']
+def _make_revenue_area(tickers_data: list[dict], sector_name: str,
+                       universe: str = "S&P 500") -> io.BytesIO:
+    """Composition de l'ETF sectoriel — top 10 holdings reels avec leurs poids.
 
-    # Decompose le revenu LTM en 4 sous-segments fictifs mais cohérents
-    total_rev = sum((t.get('revenue_ltm') or 0) for t in tickers_data)
-    if total_rev <= 0:
-        total_rev = 100.0
+    REFONTE 2026-04-14 (#98 + chantier ETF-first #86) : remplace le graphique
+    hardcoded "Revenus agreges par sous-segment" (segments fictifs Core Business
+    / Services / International / Digital / Autres avec splits 40/25/18/10/7)
+    par une visualisation des VRAIS holdings de l'ETF sectoriel de reference.
 
-    growth = sum((t.get('revenue_growth') or 0) for t in tickers_data) / max(len(tickers_data), 1)
-    growth_q = (1 + growth / 100) ** 0.25  # croissance trimestrielle
+    Les poids sont recuperes via core.etf_holdings.fetch_etf_holdings et affiches
+    sous forme de bar chart horizontal tri\u00e9 par poids decroissant. Inclut
+    "Autres" en 11e position pour la queue si disponible.
+    """
+    # Determine l'ETF de reference
+    etf_ticker = None
+    holdings = []
+    try:
+        from core.sector_etfs import get_etf_for
+        from core.etf_holdings import fetch_etf_holdings
+        _etf = get_etf_for(sector_name, universe=universe)
+        if _etf:
+            etf_ticker = _etf["ticker"]
+            _data = fetch_etf_holdings(etf_ticker)
+            if _data:
+                holdings = sorted(_data.get("holdings", []),
+                                  key=lambda h: h.get("weight", 0) or 0, reverse=True)[:10]
+    except Exception as _e:
+        log.warning("_make_revenue_area ETF fetch: %s", _e)
 
-    # 5 segments proportionnels
-    splits = [0.40, 0.25, 0.18, 0.10, 0.07]
-    seg_labels = ['Core Business', 'Services', 'International', 'Digital', 'Autres']
-    seg_colors = ['#1B3A6B', '#2A5298', '#5580B8', '#88AACC', '#B8CCE0']
+    if not holdings:
+        # Fallback : si pas d'ETF dispo (univers non mapp\u00e9), utiliser les
+        # tickers_data pondere par market_cap
+        by_mc = sorted(
+            [(t.get("ticker", "?"), t.get("market_cap") or 0,
+              (t.get("company") or t.get("name") or t.get("ticker", ""))[:25])
+             for t in tickers_data if t.get("market_cap")],
+            key=lambda x: x[1], reverse=True)[:10]
+        if by_mc:
+            total_mc = sum(x[1] for x in by_mc) or 1
+            holdings = [
+                {"ticker": t, "name": n, "weight": mc / total_mc}
+                for t, mc, n in by_mc
+            ]
+        else:
+            holdings = []
 
-    base_q = total_rev / 4  # revenus LTM / 4 = 1 trimestre moyen
-    x = np.arange(8)
-    segs = []
-    for sp in splits:
-        base = base_q * sp * 0.92  # N-1 legere-ment inférieur
-        vals = [base * (growth_q ** i) for i in range(8)]
-        segs.append(vals)
+    # Si toujours vide, generer un chart vide mais valide
+    if not holdings:
+        fig, ax = plt.subplots(figsize=(7.0, 3.2))
+        ax.text(0.5, 0.5, "Composition ETF non disponible",
+                ha="center", va="center", transform=ax.transAxes,
+                fontsize=11, color="#888")
+        ax.set_facecolor("white")
+        fig.patch.set_facecolor("white")
+        ax.axis("off")
+        plt.tight_layout(pad=0.3)
+        buf = io.BytesIO()
+        fig.savefig(buf, format="png", dpi=160, bbox_inches="tight")
+        plt.close(fig)
+        buf.seek(0)
+        return buf
 
-    fig, ax = plt.subplots(figsize=(7.0, 3.2))
-    ax.stackplot(x, *segs, labels=seg_labels, colors=seg_colors, alpha=0.88)
-    ax.axvline(x=3.5, color='#B06000', linewidth=0.8, linestyle='--', alpha=0.6)
-    y_max = sum(s[-1] for s in segs) * 1.15
-    ax.text(1.5, y_max * 0.92, '2024', ha='center', fontsize=7.5, color='#B06000',
-            fontweight='bold', alpha=0.7)
-    ax.text(5.5, y_max * 0.92, '2025', ha='center', fontsize=7.5, color='#B06000',
-            fontweight='bold', alpha=0.7)
-    ax.set_xticks(x)
-    ax.set_xticklabels(trimestres, fontsize=9, color='#555')
+    # Normalise les poids (certains fetchers les donnent en fraction, d'autres en %)
+    labels = []
+    weights_pct = []
+    for h in holdings:
+        w = h.get("weight", 0) or 0
+        w_pct = w * 100 if 0 < w < 1 else w
+        name = h.get("name") or h.get("ticker", "?")
+        # Format court "TICKER · Nom"
+        lbl = f"{h.get('ticker', '?')}  {name[:22]}"
+        labels.append(lbl)
+        weights_pct.append(float(w_pct))
+
+    total_covered = sum(weights_pct)
+    # Ajoute "Autres" pour la queue (complement a 100%)
+    if total_covered < 99:
+        labels.append("Autres (queue)")
+        weights_pct.append(max(0, 100 - total_covered))
+
+    # Bar chart horizontal tri\u00e9 (deja tri\u00e9 par poids decroissant, on reverse pour
+    # matplotlib qui affiche bottom-up)
+    labels_rev = list(reversed(labels))
+    weights_rev = list(reversed(weights_pct))
+
+    fig, ax = plt.subplots(figsize=(7.0, 3.6))
+    y = np.arange(len(labels_rev))
+    # Couleur gradient navy -> bleu clair pour les top holdings, gris pour "Autres"
+    _colors = []
+    for lbl in labels_rev:
+        if lbl == "Autres (queue)":
+            _colors.append("#B8CCE0")
+        else:
+            _colors.append("#1B3A6B")
+    bars = ax.barh(y, weights_rev, color=_colors, alpha=0.88, height=0.65,
+                   edgecolor="white", linewidth=0.6)
+    for bar, val in zip(bars, weights_rev):
+        ax.text(val + max(weights_rev) * 0.01, bar.get_y() + bar.get_height() / 2,
+                f"{val:.1f}%", va="center", fontsize=8.5, color="#333",
+                fontweight="bold")
+    ax.set_yticks(y)
+    ax.set_yticklabels(labels_rev, fontsize=8.5, color="#333")
+    ax.set_xlabel("Poids dans l'ETF (%)", fontsize=9, color="#555")
+    ax.set_xlim(0, max(weights_rev) * 1.18)
     ax.tick_params(length=0)
-    for sp in ['top', 'right']:
+    for sp in ["top", "right"]:
         ax.spines[sp].set_visible(False)
-    ax.spines['left'].set_color('#D0D5DD')
-    ax.spines['bottom'].set_color('#D0D5DD')
-    ax.set_facecolor('white')
-    fig.patch.set_facecolor('white')
-    ax.grid(axis='y', alpha=0.2, color='#D0D5DD', linewidth=0.5)
-    ax.set_ylim(0, y_max)
-    # Y-axis : afficher en Mds si valeurs > 1e9, sinon en M
-    if y_max > 1e9:
-        ax.yaxis.set_major_formatter(mticker.FuncFormatter(lambda v, _: f"{v/1e9:.0f} Mds"))
-    elif y_max > 1e6:
-        ax.yaxis.set_major_formatter(mticker.FuncFormatter(lambda v, _: f"{v/1e6:.0f} M"))
-    ax.yaxis.set_tick_params(labelsize=9)
-    ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.14),
-              ncol=5, fontsize=9, frameon=False)
-    ax.set_title(f'Revenus agrégés par sous-segment \u2014 {sector_name}',
-                 fontsize=11, color='#1B3A6B', fontweight='bold', pad=6)
+    ax.spines["left"].set_color("#D0D5DD")
+    ax.spines["bottom"].set_color("#D0D5DD")
+    ax.set_facecolor("white")
+    fig.patch.set_facecolor("white")
+    ax.grid(axis="x", alpha=0.15, color="#D0D5DD", linewidth=0.5)
+    _title_suffix = f" ({etf_ticker})" if etf_ticker else ""
+    ax.set_title(f"Composition de l'ETF sectoriel{_title_suffix} \u2014 {sector_name}",
+                 fontsize=12, color='#1B3A6B', fontweight='bold', pad=8)
     plt.tight_layout(pad=0.3)
     buf = io.BytesIO()
     fig.savefig(buf, format='png', dpi=160, bbox_inches='tight')
@@ -827,17 +888,24 @@ def _build_macro(perf_buf, area_buf, tickers_data: list[dict],
         f"FinSight IA \u2014 Basket {sector_name} (top 15 par score) vs S&P 500, base 100."))
     elems.append(Spacer(1, 4*mm))
 
-    # Row 2 : area chart (left, 130mm) + analytical text (right) — ratio figsize (7.0, 3.2)
+    # Row 2 : composition ETF (left, 130mm) + analytical text (right)
+    # Refonte ETF-first : chart montre les VRAIS holdings du sous-jacent, plus
+    # les segments fictifs (audit Baptiste 2026-04-14 #98).
     _aw = 130 * mm
-    area_img = Image(area_buf, width=_aw, height=_aw * 3.2 / 7.0)
+    area_img = Image(area_buf, width=_aw, height=_aw * 3.6 / 7.0)
+    _etf_tk_text = _etf_info["ticker"] if _etf_info else "l'ETF sectoriel"
     area_text = Paragraph(
-        f"<b>Revenus agrégés par sous-segment</b> — L'analyse de la structure des revenus "
-        f"du secteur <b>{sector_name}</b> révèle la contribution relative de chaque acteur. "
-        f"La croissance moyenne de <b>{avg_growth:+.1f}%</b> masque des écarts significatifs "
-        f"entre segments matures et poles de croissance emergents. "
-        f"La marge EBITDA sectorielle de <b>{avg_ebitda:.1f}%</b> positionné le secteur "
-        f"par rapport a ses comparables internationaux. "
-        f"Cette hétérogénéité constitue un facteur de selection actif determinant.",
+        f"<b>Composition de l'ETF {_etf_tk_text}</b> \u2014 Ce graphique affiche les "
+        f"<b>top 10 holdings</b> r\u00e9els du sous-jacent passif, pond\u00e9r\u00e9s par leur "
+        f"poids effectif au dernier rebalancement. La concentration du top 3 "
+        f"indique le degr\u00e9 d'oligopolisation du secteur. Un poids cumul\u00e9 > 40 % "
+        f"sur 3 noms traduit une d\u00e9pendance structurelle \u00e0 quelques acteurs "
+        f"dominants, amplifiant la sensibilit\u00e9 de l'ETF aux surprises BPA "
+        f"individuelles. La queue (\u00ab Autres \u00bb) correspond aux holdings en dehors "
+        f"du top 10, qui diversifient statistiquement le risque id\u00e9osyncratique. "
+        f"Croissance moyenne des revenus du basket FinSight : "
+        f"<b>{avg_growth:+.1f}%</b>, marge EBITDA m\u00e9diane "
+        f"<b>{avg_ebitda:.1f}%</b>.",
         S_BODY)
     area_row = Table([[area_img, area_text]], colWidths=[_aw + 2*mm, TABLE_W - _aw - 2*mm])
     area_row.setStyle(TableStyle([
@@ -847,7 +915,9 @@ def _build_macro(perf_buf, area_buf, tickers_data: list[dict],
         ('LEFTPADDING',    (1,0),(1,0),   6),
     ]))
     elems.append(area_row)
-    elems.append(src("FinSight IA \u2014 Revenus agrégés par sous-segment (estimation illustrative)."))
+    _etf_issuer_lbl = "SPDR / iShares" if _etf_info else "provider ETF"
+    elems.append(src(
+        f"Source : {_etf_issuer_lbl} via yfinance funds_data. Top 10 holdings pond\u00e9r\u00e9s reels."))
     elems.append(Spacer(1, 4*mm))
 
     # ── Régime de marche + Probabilite de recession (AgentMacro) ─────────────
@@ -3329,7 +3399,7 @@ def generate_sector_report(
 
     # Generation des charts — perf_chart avec univers pour resoudre l'ETF
     perf_buf    = _make_perf_chart(tickers_data, sector_name, universe)
-    area_buf    = _make_revenue_area(tickers_data, sector_name)
+    area_buf    = _make_revenue_area(tickers_data, sector_name, universe)
     scatter_buf = _make_valuation_bars(tickers_data, sector_name)
     donut_buf   = _make_mktcap_donut(tickers_data, sector_name)
 
