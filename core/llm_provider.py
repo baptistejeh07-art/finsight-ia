@@ -457,16 +457,27 @@ class LLMProvider:
 # llm_call(phase) : routing haut-niveau avec fallback skip-forward
 # ---------------------------------------------------------------------------
 
-# Chaines de providers par phase du pipeline (validees avec Baptiste 2026-04-14)
+# Chaines de providers par phase du pipeline (Baptiste 2026-04-14 : plan gratuit only)
+#
+# STRATEGIE : plan 100% gratuit tant que Baptiste n'a pas ajoute de budget OpenAI/
+# Claude. Utilise Groq (rotation multi-cles a venir), Mistral (qualite FR top),
+# Gemini (1M TPM gratuit), Cerebras (fallback), Anthropic (backup credits).
+#
+# OpenAI est code et fonctionnel mais retire des chaines par defaut : il se
+# reactivera automatiquement si les cles OPENAI_API_KEY_1/_2 sont ajoutees
+# dans .env ET qu'on remet "openai" dans la chaine.
 _PHASE_CHAIN: dict[str, list[str]] = {
     # Petits prompts rapides : QA, devil advocate court, parsing, extraction
-    "short":    ["groq", "openai", "mistral", "gemini"],
+    # Groq primary (gratuit, rapide) -> Mistral -> Gemini -> Cerebras
+    "short":    ["groq", "mistral", "gemini", "cerebras"],
     # Prompts longs analytiques : synthese, commentary, margin analysis, ratios
-    "long":     ["openai", "mistral", "groq", "gemini", "cerebras"],
+    # Mistral primary (qualite FR top, gratuit) -> Groq -> Gemini -> Cerebras
+    "long":     ["mistral", "groq", "gemini", "cerebras"],
     # Prompts critiques finaux : these, conclusion, recommandation
-    "critical": ["openai", "mistral", "anthropic", "gemini"],
-    # Fallback par defaut (compat ancien code)
-    "default":  ["groq", "openai", "mistral", "gemini", "cerebras", "anthropic"],
+    # Mistral primary (meilleur en FR) -> Gemini -> Groq -> Anthropic (backup)
+    "critical": ["mistral", "gemini", "groq", "anthropic"],
+    # Fallback par defaut (compat ancien code) : Groq -> Mistral -> Gemini -> etc.
+    "default":  ["groq", "mistral", "gemini", "cerebras", "anthropic"],
 }
 
 
