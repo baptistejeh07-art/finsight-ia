@@ -991,9 +991,12 @@ def _build_investment_case(data):
     left_elems.append(h_these)
     left_elems.append(Spacer(1, 2*mm))
 
-    # Bullets thèse
-    for i in range(3):
-        txt = pos_themes[i] if i < len(pos_themes) else '\u2014'
+    # Bullets thèse — n'affiche QUE les themes non vides (fix A3.1 : bullets vides)
+    _pos_clean = [str(t).strip() for t in pos_themes if t and str(t).strip()]
+    if not _pos_clean:
+        # Fallback unique si aucun theme disponible
+        _pos_clean = ["Th\u00e8se d'investissement d\u00e9taill\u00e9e dans les sections suivantes du rapport."]
+    for txt in _pos_clean[:3]:
         left_elems.append(Paragraph(
             f"\u2022  {_safe(txt)}", S_IC_B))
         left_elems.append(Spacer(1, 2*mm))
@@ -1013,15 +1016,17 @@ def _build_investment_case(data):
     left_elems.append(h_cat)
     left_elems.append(Spacer(1, 2*mm))
 
-    for i in range(3):
-        if i < len(cats):
-            c_name = _d(cats[i], 'name', '\u2014')
-            c_anal = _d(cats[i], 'analysis', '')
-            _anal_limit = 220
-            _anal_trim = c_anal[:_anal_limit] + ('\u2026' if len(c_anal) > _anal_limit else '')
-            _inner = f"{_safe(c_name)}" + (f" \u2014 {_safe(_anal_trim)}" if c_anal else "")
-        else:
-            _inner = '\u2014'
+    # Catalyseurs : n'affiche que les non-vides
+    _cats_clean = [c for c in cats if c and (_d(c, 'name', '') or _d(c, 'analysis', ''))]
+    if not _cats_clean:
+        _cats_clean = [{"name": "Catalyseurs d\u00e9taill\u00e9s en section Valorisation",
+                        "analysis": ""}]
+    for c_item in _cats_clean[:3]:
+        c_name = _d(c_item, 'name', '\u2014')
+        c_anal = _d(c_item, 'analysis', '')
+        _anal_limit = 220
+        _anal_trim = c_anal[:_anal_limit] + ('\u2026' if len(c_anal) > _anal_limit else '')
+        _inner = f"{_safe(c_name)}" + (f" \u2014 {_safe(_anal_trim)}" if c_anal else "")
         left_elems.append(Paragraph(f"\u2022  {_inner}", S_IC_B))
         left_elems.append(Spacer(1, 2*mm))
 
@@ -1104,9 +1109,15 @@ def _build_investment_case(data):
     right_elems.append(h_risk)
     right_elems.append(Spacer(1, 2*mm))
 
-    for i in range(3):
-        risk_lbl  = risk_themes[i] if i < len(risk_themes) else '\u2014'
-        risk_body = risk_full[i]   if i < len(risk_full)   else ''
+    # Risques : n'affiche que les non-vides (fix A3.1 bullets vides)
+    _risk_items = []
+    for i, lbl in enumerate(risk_themes):
+        if lbl and str(lbl).strip() and str(lbl).strip() != "\u2014":
+            _risk_items.append((str(lbl).strip(),
+                                risk_full[i] if i < len(risk_full) else ""))
+    if not _risk_items:
+        _risk_items = [("Risques d\u00e9taill\u00e9s dans la section 5 du rapport", "")]
+    for risk_lbl, risk_body in _risk_items[:3]:
         txt = _safe(risk_lbl)
         if risk_body and risk_body != risk_lbl:
             _body_limit = 260
@@ -1473,34 +1484,37 @@ def _build_financials(area_buf, data, margins_buf=None):
 
     _llm_margin_analysis = ""
     try:
-        from core.llm_provider import LLMProvider
-        _llm_m = LLMProvider(provider="groq", model="llama-3.3-70b-versatile")
+        from core.llm_provider import llm_call
         _prompt_margin = (
             f"Tu es un analyste sell-side senior (buy-side tier-1). R\u00e9dige une analyse "
-            f"approfondie (500-550 mots) de la qualit\u00e9 op\u00e9rationnelle et du positionnement "
-            f"concurrentiel de {_ticker_fin} (secteur {_sector_fin}).\n"
+            f"tres approfondie (750-850 mots) de la qualit\u00e9 op\u00e9rationnelle et du "
+            f"positionnement concurrentiel de {_ticker_fin} (secteur {_sector_fin}).\n"
             f"Donn\u00e9es ratios cl\u00e9s : {_ratios_str}.\n\n"
-            f"Structure en 3 paragraphes distincts s\u00e9par\u00e9s par une ligne vide :\n"
-            f"1. Qualit\u00e9 des marges (160-180 mots) : drivers structurels (mix produit, "
+            f"Structure en 4 paragraphes distincts s\u00e9par\u00e9s par une ligne vide :\n"
+            f"1. Qualit\u00e9 des marges (180-200 mots) : drivers structurels (mix produit, "
             f"pricing power, effet de levier op\u00e9rationnel), durabilit\u00e9 dans le cycle actuel, "
-            f"comparaison quantifi\u00e9e vs pairs et vs moyenne historique, r\u00e9silience face aux "
-            f"chocs inflationnistes et au cycle de consommation\n"
-            f"2. Structure de co\u00fbts (160-180 mots) : intensit\u00e9 R&D/capex/marketing, "
-            f"barri\u00e8res \u00e0 l'entr\u00e9e, vuln\u00e9rabilit\u00e9 aux chocs co\u00fbts mati\u00e8res premi\u00e8res, "
-            f"exposition aux tensions sur la main d'oeuvre, capacit\u00e9 de r\u00e9percussion sur les "
-            f"prix (pricing power), efficience op\u00e9rationnelle mesur\u00e9e par le ratio OPEX/CA\n"
-            f"3. Positionnement concurrentiel (160-180 mots) : moat (foss\u00e9 \u00e9conomique), "
-            f"avantages structurels vs pairs sectoriels, risque d'\u00e9rosion comp\u00e9titive, "
-            f"barri\u00e8res \u00e0 l'entr\u00e9e (brand equity, scale, switching costs, network effects), "
-            f"menaces disruptives \u00e0 horizon 3-5 ans, capacit\u00e9 d'innovation et positionnement "
-            f"sur les segments \u00e0 forte croissance\n\n"
+            f"comparaison quantifi\u00e9e vs pairs et vs moyenne historique 5 ans, r\u00e9silience "
+            f"face aux chocs inflationnistes et au cycle de consommation, trajectoire attendue "
+            f"sur les 12-24 prochains mois\n"
+            f"2. Structure de co\u00fbts (180-200 mots) : intensit\u00e9 R&D/capex/marketing vs "
+            f"revenu, barri\u00e8res \u00e0 l'entr\u00e9e, vuln\u00e9rabilit\u00e9 aux chocs mati\u00e8res premi\u00e8res, "
+            f"exposition aux tensions main d'oeuvre, capacit\u00e9 de r\u00e9percussion sur les prix, "
+            f"efficience op\u00e9rationnelle OPEX/CA, scale effects en volume\n"
+            f"3. Positionnement concurrentiel (180-200 mots) : moat (brand, scale, switching "
+            f"costs, network effects, proprietary tech, regulatory), avantages structurels vs "
+            f"pairs sectoriels, risque d'\u00e9rosion comp\u00e9titive, menaces disruptives \u00e0 "
+            f"horizon 3-5 ans, capacit\u00e9 d'innovation mesuree par R&D intensity\n"
+            f"4. Implications valuation (180-200 mots) : ce que la qualit\u00e9 des marges et "
+            f"le moat impliquent en termes de multiples premium soutenables, justification "
+            f"d'un P/E > mediane sectorielle, sensibilite de la valuation au maintien de la "
+            f"prime de qualite, conditions de compression de multiple a surveiller\n\n"
             f"Cite des chiffres pr\u00e9cis et des comparables. Fran\u00e7ais correct avec accents. "
             f"IMPORTANT : texte brut uniquement. "
             f"N'utilise AUCUNE balise HTML (<b>, <i>, <p>). "
             f"N'utilise AUCUN markdown (**, __, ##). "
             f"Pas de listes \u00e0 puces. Pas d'emojis."
         )
-        _llm_margin_analysis = _llm_m.generate(_prompt_margin, max_tokens=1400) or ""
+        _llm_margin_analysis = llm_call(_prompt_margin, phase="long", max_tokens=2000) or ""
     except Exception:
         pass
 
@@ -2146,28 +2160,34 @@ def _build_multiples_historiques(data):
             _ev_series = ", ".join(f"{ev:.1f}x" for ev in ev_clean) if ev_clean else "n.d."
             _pb_series = ", ".join(f"{pb:.1f}x" for pb in pb_clean) if pb_clean else "n.d."
             _peers_str = f" Médiane pairs EV/EBITDA: {_peers_ev:.1f}x." if _peers_ev else ""
+            from core.llm_provider import llm_call as _llm_call_mh
             _prompt_mh = (
-                f"Tu es un analyste sell-side senior. Rédige un commentaire analytique "
-                f"approfondi (500-550 mots) sur l'évolution des multiples de valorisation de "
-                f"{_ticker_mh} sur 5 ans, secteur {_sector_mh}.\n"
-                f"Données : P/E {_pe_series} | EV/EBITDA {_ev_series} | P/B {_pb_series}.{_peers_str}\n\n"
-                f"Structure en 4 paragraphes distincts séparés par une ligne vide "
-                f"(chaque paragraphe ~125 mots) :\n"
-                f"1. Lecture de la tendance P/E et EV/EBITDA (expansion/compression) avec "
-                f"hypothèses économiques sous-jacentes, identification des points d'inflexion et "
-                f"corrélation avec les cycles macro ou sectoriels\n"
-                f"2. Analyse du mean-reversion potentiel vers la moyenne historique 10 ans et "
-                f"positionnement relatif aux pairs sectoriels, quantification de la prime/décote "
-                f"actuelle et sa justification fondamentale\n"
-                f"3. Implications pour la thèse d'investissement (re-rating vs de-rating), "
-                f"identification des catalyseurs qui pourraient enclencher un re-rating haussier "
-                f"ou une compression de multiple\n"
-                f"4. Risques spécifiques au cycle de valorisation actuel, sensibilité aux taux "
-                f"d'intérêt réels, au momentum des révisions BPA et au positionnement investisseurs\n\n"
-                f"Français correct avec accents. Pas de markdown. Pas d'emojis. "
-                f"Cite les chiffres précis."
+                f"Tu es un analyste sell-side senior. Redige un commentaire analytique "
+                f"tres approfondi (800-900 mots) sur l'evolution des multiples de valorisation "
+                f"de {_ticker_mh} sur 5 ans, secteur {_sector_mh}.\n"
+                f"Donnees : P/E {_pe_series} | EV/EBITDA {_ev_series} | P/B {_pb_series}.{_peers_str}\n\n"
+                f"Structure en 5 paragraphes distincts separes par une ligne vide "
+                f"(chaque paragraphe ~160 mots) :\n"
+                f"1. Lecture de la tendance P/E et EV/EBITDA sur 5 ans : expansion ou "
+                f"compression, points d'inflexion identifiables, correlation avec les cycles "
+                f"macro (hausse/baisse des taux, regime inflation, cycle sectoriel)\n"
+                f"2. Mean-reversion et positionnement relatif : convergence vers la moyenne "
+                f"historique 10 ans, quantification de la prime ou decote actuelle vs pairs "
+                f"sectoriels, justification fondamentale de l'ecart\n"
+                f"3. Implications thematiques : re-rating potentiel si catalyseurs "
+                f"(accelere BPA, pivot monetaire, M&A sectoriel) vs de-rating si risques "
+                f"(compression marges, erosion moat, menace disruptive) se materialisent\n"
+                f"4. Risques specifiques au cycle de valorisation actuel : sensibilite aux "
+                f"taux reels, au momentum des revisions consensus BPA, au positionnement des "
+                f"investisseurs institutionnels, au levier operationnel dans un regime de "
+                f"croissance ralenti\n"
+                f"5. Conclusion et points de vigilance : niveau de valorisation soutenable "
+                f"en steady state, conditions de maintien de la prime, triggers de revision "
+                f"tactique, liens avec le P/E forward consensus\n\n"
+                f"Francais correct avec accents. Pas de markdown. Pas d'emojis. "
+                f"Cite les chiffres precis."
             )
-            _llm_text_mh = _llm.generate(_prompt_mh, max_tokens=1400) or ""
+            _llm_text_mh = _llm_call_mh(_prompt_mh, phase="long", max_tokens=2200) or ""
         except Exception:
             pass
         _txt = _llm_text_mh.strip() or _txt_fallback
@@ -2319,29 +2339,33 @@ def _build_capital_returns(data):
             _fcf_series = ", ".join(f"{f/1000:.1f}Mds" for f in fcf_vals[-4:])
             _fy_series = ", ".join(_frpct(f) for f in fy_vals[-4:]) if fy_vals else "n.d."
             _cx_last = _frpct(cx_vals[-1]) if cx_vals else "n.d."
+            from core.llm_provider import llm_call as _llm_call_cr
             _prompt_cr = (
-                f"Tu es un analyste sell-side senior. Rédige un commentaire approfondi "
-                f"(500-550 mots) sur le Capital Returns & Free Cash Flow de {_ticker_cr} "
+                f"Tu es un analyste sell-side senior. Redige un commentaire tres approfondi "
+                f"(800-900 mots) sur le Capital Returns & Free Cash Flow de {_ticker_cr} "
                 f"(secteur {_sector_cr}).\n"
-                f"Données : FCF sur 4 ans {_fcf_series} | FCF Yield {_fy_series} | "
+                f"Donnees : FCF sur 4 ans {_fcf_series} | FCF Yield {_fy_series} | "
                 f"Capex/CA actuel {_cx_last}.\n\n"
-                f"Structure en 4 paragraphes distincts séparés par une ligne vide "
-                f"(chaque paragraphe ~125 mots) :\n"
-                f"1. Tendance de génération de cash et qualité du FCF (conversion EBITDA→FCF, "
-                f"volatilité year-over-year, drivers structurels, sensibilité au BFR et "
-                f"saisonnalité des paiements)\n"
-                f"2. Politique d'allocation du capital (répartition entre capex de maintenance, "
-                f"capex de croissance, dividendes, rachats d'actions, acquisitions, désendettement), "
-                f"historique des décisions et discipline du management\n"
-                f"3. Soutenabilité du modèle face au coût du capital (FCF yield vs WACC, "
-                f"couverture des dividendes par le FCF, flexibilité financière en cas de "
-                f"ralentissement, capacité de résilience en scenario stress)\n"
-                f"4. Implications pour la thèse d'investissement (profil cash generator vs "
-                f"growth reinvestment, attractivité pour les investisseurs income-oriented vs "
-                f"total return, positionnement dans le cycle de maturité de la société)\n\n"
-                f"Français correct avec accents. Pas de markdown. Pas d'emojis. Cite les chiffres."
+                f"Structure en 5 paragraphes distincts separes par une ligne vide "
+                f"(chaque paragraphe ~160 mots) :\n"
+                f"1. Tendance generation de cash : qualite du FCF (conversion EBITDA->FCF), "
+                f"volatilite year-over-year, drivers structurels (mix produit, pricing power), "
+                f"sensibilite au BFR, saisonnalite\n"
+                f"2. Politique d'allocation du capital : repartition capex maintenance vs "
+                f"croissance, dividendes, rachats d'actions, acquisitions, desendettement. "
+                f"Historique des decisions et discipline du management sur les 5 dernieres annees\n"
+                f"3. Soutenabilite du modele face au cout du capital : FCF yield vs WACC, "
+                f"couverture des dividendes par le FCF, flexibilite financiere en cas de "
+                f"ralentissement, capacite de resilience en scenario stress (baisse revenu 20%)\n"
+                f"4. Implications thematiques : profil cash generator vs growth reinvestment, "
+                f"attractivite pour les investisseurs income-oriented vs total return, "
+                f"positionnement dans le cycle de maturite de la societe\n"
+                f"5. Points de vigilance et conditions de revision : triggers qui feraient "
+                f"basculer la these (degradation FCF conversion, capex cycles, M&A dilutifs), "
+                f"niveau minimal de FCF yield soutenable, flexibilite de payout ratio\n\n"
+                f"Francais correct avec accents. Pas de markdown. Pas d'emojis. Cite les chiffres."
             )
-            _llm_text_cr = _llm.generate(_prompt_cr, max_tokens=1400) or ""
+            _llm_text_cr = _llm_call_cr(_prompt_cr, phase="long", max_tokens=2200) or ""
         except Exception:
             pass
         _txt = _llm_text_cr.strip() or _txt_fallback
@@ -2497,35 +2521,39 @@ def _build_lbo(data):
             _ebitda_lbo = f"{ebitda/1000:.1f} Mds" if ebitda else "n.d."
             _fcf_lbo = f"{fcf/1000:.1f} Mds" if fcf else "n.d."
             _debt_lbo = f"{_net_debt_ebitda:.1f}x EBITDA" if _net_debt_ebitda is not None else "n.d."
+            from core.llm_provider import llm_call as _llm_call_lbo
             _prompt_lbo = (
                 f"Tu es un analyste Private Equity senior (profil MD dans un fonds tier-1). "
-                f"R\u00e9dige un commentaire approfondi (500-550 mots) sur la viabilit\u00e9 LBO de "
-                f"{_ticker_lbo} (secteur {_sector_lbo}).\n"
+                f"R\u00e9dige un commentaire tres approfondi (800-900 mots) sur la viabilit\u00e9 "
+                f"LBO de {_ticker_lbo} (secteur {_sector_lbo}).\n"
                 f"Donn\u00e9es : EBITDA LTM {_ebitda_lbo}, FCF LTM {_fcf_lbo}, "
                 f"dette nette actuelle {_debt_lbo}, IRR base (10x/10x) {irr_base*100:.1f}%, "
                 f"MOIC {moic_base:.1f}x.\n\n"
-                f"Structure en 4 paragraphes distincts s\u00e9par\u00e9s par une ligne vide "
-                f"(chaque paragraphe ~125 mots) :\n"
-                f"1. Attractivit\u00e9 en tant que cible PE : forces du mod\u00e8le \u00e9conomique pour "
-                f"un LBO, qualit\u00e9 des revenus (r\u00e9currence, visibilit\u00e9), barri\u00e8res \u00e0 "
-                f"l'entr\u00e9e et pricing power, taille critique pour un fonds tier-1, attractivit\u00e9 "
-                f"strat\u00e9gique vs investisseurs industriels\n"
-                f"2. Capacit\u00e9 d'endettement et levier soutenable (ratio FCF/int\u00e9r\u00eats, "
-                f"couverture de la dette senior, headroom vs covenants typiques, capacit\u00e9 \u00e0 "
-                f"supporter un ratio 5-7x EBITDA, sensibilit\u00e9 aux taux de financement et au "
-                f"refinancing risk sur la p\u00e9riode de holding)\n"
-                f"3. Leviers de cr\u00e9ation de valeur post-acquisition : op\u00e9rationnel (cost "
-                f"savings, margin expansion via op\u00e9rational excellence), financier "
-                f"(optimisation du BFR, working capital, fiscal), multiple arbitrage (entry "
-                f"vs exit multiples), buy-and-build et sector roll-up\n"
-                f"4. Risques sp\u00e9cifiques au LBO : volatilit\u00e9 du FCF, cyclicit\u00e9 du secteur, "
-                f"risque de refinancement en cas de durcissement du cr\u00e9dit, sensibilit\u00e9 "
-                f"macro aux taux directeurs, concurrence entre PE pour les actifs de qualit\u00e9, "
-                f"strat\u00e9gies de sortie (IPO, sale, secondary buyout) et liquidit\u00e9 du march\u00e9 "
-                f"secondaire\n\n"
+                f"Structure en 5 paragraphes distincts s\u00e9par\u00e9s par une ligne vide "
+                f"(chaque paragraphe ~160 mots) :\n"
+                f"1. Attractivite en tant que cible PE : forces du mod\u00e8le economique pour "
+                f"un LBO, qualite des revenus (recurrence, visibilite), barri\u00e8res a l'entree "
+                f"et pricing power, taille critique pour un fonds tier-1, attractivite "
+                f"strategique vs investisseurs industriels\n"
+                f"2. Capacite d'endettement et levier soutenable : ratio FCF/interets, "
+                f"couverture de la dette senior, headroom vs covenants typiques, capacite a "
+                f"supporter un ratio 5-7x EBITDA, sensibilite aux taux de financement et au "
+                f"refinancing risk sur la periode de holding 5 ans\n"
+                f"3. Leviers de creation de valeur post-acquisition : operationnel (cost "
+                f"savings, margin expansion via operational excellence, pricing optimisation), "
+                f"financier (optimisation du BFR, working capital, fiscal, capital structure), "
+                f"multiple arbitrage (entry vs exit multiples), buy-and-build et sector roll-up\n"
+                f"4. Risques specifiques au LBO : volatilite du FCF, cyclicite du secteur, "
+                f"risque de refinancement en cas de durcissement du credit, sensibilite macro "
+                f"aux taux directeurs, concurrence entre PE pour les actifs de qualite, "
+                f"strategies de sortie (IPO, trade sale, secondary buyout) et liquidite du "
+                f"marche secondaire\n"
+                f"5. Scenarios et sensibilites : IRR en bear case (10% croissance EBITDA vs "
+                f"base case, multiple sortie compresse 15%), sensibilite au WACC de sortie, "
+                f"triggers d'invalidation de la these LBO, fenetre de sortie optimale\n\n"
                 f"Fran\u00e7ais correct avec accents. Pas de markdown. Pas d'emojis. Cite les chiffres."
             )
-            _llm_text_lbo = _llm.generate(_prompt_lbo, max_tokens=1400) or ""
+            _llm_text_lbo = _llm_call_lbo(_prompt_lbo, phase="long", max_tokens=2200) or ""
         except Exception:
             pass
         _txt = _llm_text_lbo.strip() or _txt_fallback
@@ -2701,7 +2729,48 @@ def _build_risques(data):
         [tbl(reco_tbl, cw=[28*mm, 32*mm, 28*mm, 22*mm, 28*mm, 32*mm])]
     ))
     elems.append(Spacer(1, 4*mm))
-    elems.append(Paragraph(_safe(_d(data, 'conclusion_text')), S_BODY))
+
+    # Conclusion LLM etendue (fix A13.1 : avant 3 lignes seulement)
+    _conclusion_text = _d(data, 'conclusion_text') or ''
+    _llm_conclusion = ""
+    try:
+        from core.llm_provider import llm_call
+        _ticker_conc = _d(data, 'ticker', 'La societe')
+        _sector_conc = _d(data, 'sector', '')
+        _target_conc = _d(data, 'target_price_full', '')
+        _upside_conc = _d(data, 'upside_str', '')
+        _prompt_conclusion = (
+            f"Tu es un analyste buy-side senior. Redige une conclusion tres etoffee "
+            f"(550-650 mots) pour le rapport d'analyse de {_ticker_conc} "
+            f"(secteur {_sector_conc}).\n\n"
+            f"Recommandation : {rec}, prix cible {_target_conc}, upside {_upside_conc}.\n\n"
+            f"Structure en 4 paragraphes distincts (chaque paragraphe ~140 mots) :\n"
+            f"1. Synthese de la these d'investissement : quels sont les 3 piliers "
+            f"fondamentaux qui justifient la recommandation, comment les drivers de "
+            f"valeur se combinent\n"
+            f"2. Contextualisation valuation : ou se situe le titre vs mediane "
+            f"historique 10 ans, vs pairs sectoriels, quelle prime/decote est "
+            f"justifiable et pourquoi\n"
+            f"3. Catalyseurs et horizon temporel : 3 catalyseurs datables avec leur "
+            f"impact attendu sur le cours, horizon 6-12-18 mois, sequence "
+            f"probable des events\n"
+            f"4. Conditions de revision de la these : declencheurs qui feraient "
+            f"passer la reco BUY->HOLD ou HOLD->SELL (ou inversement), metriques a "
+            f"surveiller en priorite, prochaine revue recommandee\n\n"
+            f"Francais correct avec accents. Pas de markdown. Pas d'emojis. "
+            f"Texte brut uniquement."
+        )
+        _llm_conclusion = llm_call(_prompt_conclusion, phase="critical", max_tokens=1600) or ""
+    except Exception:
+        pass
+    if _llm_conclusion.strip():
+        for _p in _llm_conclusion.split("\n\n"):
+            _cp = _p.strip().replace("\n", " ")
+            if _cp:
+                elems.append(Paragraph(_safe(_cp), S_BODY))
+                elems.append(Spacer(1, 2*mm))
+    elif _conclusion_text.strip():
+        elems.append(Paragraph(_safe(_conclusion_text), S_BODY))
     elems.append(Spacer(1, 4*mm))
 
     # Conditions de revision — titre + tableau gardes ensemble
@@ -3632,19 +3701,28 @@ class PDFWriter:
                 return int(digits[:4]) if len(digits) >= 4 else None
             except: return None
 
-        # Remplir P/E pour toutes les annees historiques
+        # Remplir P/E pour toutes les annees historiques + N+2 si EPS dispo
+        # (Baptiste TSLA 2026-04-14 : ne pas filtrer les valeurs extremes, il
+        # veut voir P/E=362x pour TSLA car c'est la realite avec EPS faible)
         for _i, _l in enumerate(all_labels):
             if _i == _ltm_idx or _i == _ny1_idx:
                 continue  # LTM et N+1E sont deja geres plus bas
-            if _i > _ny1_idx:
-                continue  # ny2 : pas de cours futur disponible
             _eps_i = _eps_num[_i] if _i < len(_eps_num) else None
+            if not _eps_i or _eps_i <= 0:
+                continue
             _year_i = _label_to_year(_l)
-            if _eps_i and _eps_i > 0 and _year_i and _year_i in _year_close:
+            # Pour annees futures (ny2) : utilise le cours actuel comme proxy
+            # (P/E forward N+2 = current_price / EPS_N+2_projected)
+            if _i > _ny1_idx:
+                if price:
+                    try:
+                        _pe_row[_i] = _frx(round(float(price) / float(_eps_i), 1))
+                    except: pass
+                continue
+            # Historiques : cherche le cours year-end de l'annee ciblee
+            if _year_i and _year_i in _year_close:
                 try:
-                    _pe_hist_val = _year_close[_year_i] / _eps_i
-                    if 2 < _pe_hist_val < 200:  # filtre valeurs aberrantes
-                        _pe_row[_i] = _frx(round(_pe_hist_val, 1))
+                    _pe_row[_i] = _frx(round(_year_close[_year_i] / _eps_i, 1))
                 except: pass
 
         # Ligne P/E : LTM (trailing) + N+1E (forward) — historiques remplies dans le bloc precedent
