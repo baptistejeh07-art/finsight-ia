@@ -1236,12 +1236,59 @@ def _s05_presentation(prs, D):
             _txb(slide, cb[:260], 1.4, _y + 0.55, 13.0, _row_h - 0.6,
                  size=9, color=_GRAYT, wrap=True)
 
-    # ─── Metrics table (droite) ───────────────────────────────────────────
+    # ─── Metrics table (droite haut) ───────────────────────────────────────
     tbl_data = [["M\u00e9trique", "Valeur", "Lecture"]]
     for met in metriques_dict:
         tbl_data.append(list(met))
-    _add_table(slide, tbl_data, 15.1, 2.5, 9.4, len(tbl_data) * 0.58,
+    _metrics_h = len(tbl_data) * 0.58
+    _add_table(slide, tbl_data, 15.1, 2.5, 9.4, _metrics_h,
                col_widths=[3.5, 2.5, 3.4], font_size=7.5, header_size=7.5, alt_fill=_GRAYL)
+
+    # ─── Section ETF de r\u00e9f\u00e9rence (droite bas) ─── refonte #86
+    # Affiche l'ETF sectoriel + top 5 holdings r\u00e9els en dessous des m\u00e9triques
+    try:
+        from core.sector_etfs import get_etf_for, etf_issuer
+        from core.etf_holdings import fetch_etf_holdings, format_aum, format_ter
+        _etf_info = get_etf_for(D.get('sector_name', ''), universe=D.get('universe', 'S&P 500'))
+        _etf_data = None
+        if _etf_info:
+            _etf_data = fetch_etf_holdings(_etf_info['ticker'])
+        if _etf_info and _etf_data:
+            _etf_y0 = 2.5 + _metrics_h + 0.3
+            _etf_h  = 13.5 - _etf_y0 - 0.3
+            _rect(slide, 15.1, _etf_y0, 9.4, _etf_h, fill=_GRAYL)
+            _rect(slide, 15.1, _etf_y0, 0.1, _etf_h, fill=_NAVY)
+            _rect(slide, 15.1, _etf_y0, 9.4, 0.55, fill=_NAVY)
+            _txb(slide, f"ETF DE R\u00c9F\u00c9RENCE : {_etf_info['ticker']}",
+                 15.25, _etf_y0 + 0.08, 9.1, 0.45,
+                 size=8.5, bold=True, color=_WHITE)
+            _yy = _etf_y0 + 0.75
+            _txb(slide, _etf_info['name'][:60], 15.3, _yy, 9.0, 0.4,
+                 size=7.5, bold=True, color=_NAVY)
+            _yy += 0.4
+            _issuer_short = etf_issuer(_etf_info['zone']).split('(')[0].strip()[:40]
+            _txb(slide, f"Emetteur : {_issuer_short}", 15.3, _yy, 9.0, 0.32,
+                 size=7, color=_GRAYT)
+            _yy += 0.30
+            _aum_str = format_aum(_etf_data.get('aum_usd'))
+            _ter_str = format_ter(_etf_data.get('ter_bps'))
+            _txb(slide, f"AUM : {_aum_str}  \u00b7  TER : {_ter_str}",
+                 15.3, _yy, 9.0, 0.32, size=7, color=_GRAYT)
+            _yy += 0.40
+            _txb(slide, "TOP 5 HOLDINGS", 15.3, _yy, 9.0, 0.32,
+                 size=7, bold=True, color=_NAVY)
+            _yy += 0.32
+            _top5 = sorted(_etf_data.get('holdings', []),
+                           key=lambda h: h.get('weight', 0) or 0, reverse=True)[:5]
+            for _h in _top5:
+                _w = _h.get('weight', 0) or 0
+                _w_pct = _w * 100 if _w < 1 else _w
+                _line = f"{_h.get('ticker','?'):<8}  {str(_h.get('name',''))[:22]:<22}  {_w_pct:>4.1f} %"
+                _txb(slide, _line, 15.3, _yy, 9.0, 0.30, size=6.8, color=_GRAYT)
+                _yy += 0.30
+    except Exception as _etf_e:
+        import logging as _log_etf
+        _log_etf.getLogger(__name__).warning("sectoral_pptx ETF block: %s", _etf_e)
 
     _footer(slide)
 
