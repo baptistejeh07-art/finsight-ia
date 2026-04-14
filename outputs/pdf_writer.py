@@ -1309,7 +1309,12 @@ def _build_financials(area_buf, data, margins_buf=None):
     if not rows_is:
         rows_is = [[Paragraph('\u2014', S_TD_C)] * (n_cols + 1)]
     _cur_label = _d(data, 'currency', 'USD')
-    elems.append(Paragraph(f"Compte de r\u00e9sultat consolid\u00e9 ({_cur_label} Md)", S_SUBSECTION))
+    _sec_is = _d(data, 'sector', '')
+    _ind_is = _d(data, 'industry', '')
+    _sec_note_parts = [p for p in [_sec_is, _ind_is] if p and p != '\u2014']
+    _sec_note = f" \u2014 {' / '.join(_sec_note_parts)}" if _sec_note_parts else ""
+    elems.append(Paragraph(
+        f"Compte de r\u00e9sultat consolid\u00e9 ({_cur_label} Md){_sec_note}", S_SUBSECTION))
     elems.append(KeepTogether(tbl([h_is] + rows_is, cw=cw_is)))
     elems.append(src(
         "FinSight IA \u2014 FMP, yfinance. LTM = 12 derniers mois. F = pr\u00e9visions mod\u00e8le interne."))
@@ -1331,8 +1336,11 @@ def _build_financials(area_buf, data, margins_buf=None):
 
     # Ratios vs pairs — titre + tableau gardes ensemble
     ticker = _d(data, 'ticker', 'Titre')
+    _sector_hdr = _d(data, 'sector', '')
+    _ref_hdr = (f"R\u00e9f\u00e9rence sectorielle ({_sector_hdr})"
+                if _sector_hdr else "R\u00e9f\u00e9rence sectorielle")
     h_r = [Paragraph(h, S_TH_L) for h in [
-        "Indicateur", f"{ticker} LTM", "R\u00e9f\u00e9rence sectorielle", "Lecture"]]
+        "Indicateur", f"{ticker} LTM", _ref_hdr, "Lecture"]]
 
     def _read_style(lec):
         pos = ("Sup\u00e9rieure", "Sup\u00e9rieur", "Solide", "Aucun signal",
@@ -1402,30 +1410,55 @@ def _build_financials(area_buf, data, margins_buf=None):
     elems.append(Spacer(1, 2*mm))
     elems.append(Paragraph(_safe(_ratio_para), S_BODY))
 
-    # Graphique evolution des marges
+    # Graphique evolution des marges — layout side-by-side (chart gauche, texte droite)
     elems.append(Spacer(1, 4*mm))
     elems.append(Paragraph("Ratios de rentabilit\u00e9 \u2014 \u00c9volution", S_SUBSECTION))
     elems.append(Spacer(1, 2*mm))
-    if margins_buf is not None:
-        margins_buf.seek(0)
-        elems.append(Image(margins_buf, width=TABLE_W, height=88*mm))
-    else:
-        elems.append(Paragraph("(Graphique marges non disponible)", S_NOTE))
-    elems.append(src("FinSight IA \u2014 Marges calcul\u00e9es sur donn\u00e9es historiques yfinance."))
-    elems.append(Spacer(1, 2*mm))
+
     _margins_comment = _d(data, 'ratios_text') or ''
     if not _margins_comment:
         _ticker_m = _d(data, 'ticker', 'La soci\u00e9t\u00e9')
         _margins_comment = (
             f"Le graphique pr\u00e9sente l'\u00e9volution des trois marges cl\u00e9s de {_ticker_m} "
-            f"sur la p\u00e9riode historique et les exercices projet\u00e9s. "
-            f"La marge brute refl\u00e8te l'efficacit\u00e9 op\u00e9rationnelle, "
-            f"la marge EBITDA mesure la g\u00e9n\u00e9ration de cash avant capex, "
-            f"et la marge nette traduit la rentabilit\u00e9 finale pour l'actionnaire."
+            f"sur la p\u00e9riode historique et les exercices projet\u00e9s. La marge brute refl\u00e8te "
+            f"l'efficacit\u00e9 op\u00e9rationnelle au niveau du coeur de m\u00e9tier : elle mesure "
+            f"le pricing power et la capacit\u00e9 \u00e0 r\u00e9percuter les hausses de co\u00fbts. "
+            f"La marge EBITDA mesure la g\u00e9n\u00e9ration de cash avant capex et charges "
+            f"financi\u00e8res, offrant la meilleure proxy de la rentabilit\u00e9 op\u00e9rationnelle "
+            f"soutenable et de la capacit\u00e9 d'autofinancement. Une progression durable de cette "
+            f"marge sur 3-5 ans traduit un levier op\u00e9rationnel effectif et une discipline "
+            f"de co\u00fbts efficace. La marge nette traduit la rentabilit\u00e9 finale pour "
+            f"l'actionnaire apr\u00e8s int\u00e9gration du co\u00fbt du capital et des charges "
+            f"fiscales \u2014 elle int\u00e8gre donc la structure financi\u00e8re et la fiscalit\u00e9 "
+            f"effective. L'\u00e9cart entre marge EBITDA et marge nette renseigne sur l'intensit\u00e9 "
+            f"des amortissements (reflet de l'asset intensity) et le poids du financement. "
+            f"Les projections 2026-2027 int\u00e8grent les hypoth\u00e8ses macro\u00e9conomiques "
+            f"courantes et les guides de direction disponibles."
         )
-    elems.append(Paragraph("\u00c9volution des marges \u2014 interpr\u00e9tation", S_SUBSECTION))
-    elems.append(Spacer(1, 1*mm))
-    elems.append(Paragraph(_margins_comment, S_BODY))
+
+    if margins_buf is not None:
+        margins_buf.seek(0)
+        # Chart ~58% largeur a gauche, texte ~42% a droite (TABLE_W = 170mm)
+        _chart_w = 100*mm
+        _chart_h = 68*mm
+        _text_w  = TABLE_W - _chart_w - 4*mm
+        _mg_img  = Image(margins_buf, width=_chart_w, height=_chart_h)
+        _mg_text = Paragraph(_safe(_margins_comment), S_BODY)
+        _mg_tbl = Table([[_mg_img, _mg_text]],
+                        colWidths=[_chart_w, _text_w + 4*mm])
+        _mg_tbl.setStyle(TableStyle([
+            ('VALIGN',       (0, 0), (-1, -1), 'TOP'),
+            ('LEFTPADDING',  (0, 0), (-1, -1), 0),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+            ('TOPPADDING',   (0, 0), (-1, -1), 0),
+            ('BOTTOMPADDING',(0, 0), (-1, -1), 0),
+            ('LEFTPADDING',  (1, 0), (1, 0),   4),
+        ]))
+        elems.append(_mg_tbl)
+    else:
+        elems.append(Paragraph("(Graphique marges non disponible)", S_NOTE))
+        elems.append(Paragraph(_safe(_margins_comment), S_BODY))
+    elems.append(src("FinSight IA \u2014 Marges calcul\u00e9es sur donn\u00e9es historiques yfinance."))
     elems.append(Spacer(1, 4*mm))
 
     # Analyse LLM approfondie : qualité du mix, drivers de marge, positionnement concurrentiel
@@ -1444,24 +1477,30 @@ def _build_financials(area_buf, data, margins_buf=None):
         _llm_m = LLMProvider(provider="groq", model="llama-3.3-70b-versatile")
         _prompt_margin = (
             f"Tu es un analyste sell-side senior (buy-side tier-1). R\u00e9dige une analyse "
-            f"(270 mots) de la qualit\u00e9 op\u00e9rationnelle et du positionnement concurrentiel "
-            f"de {_ticker_fin} (secteur {_sector_fin}).\n"
+            f"approfondie (500-550 mots) de la qualit\u00e9 op\u00e9rationnelle et du positionnement "
+            f"concurrentiel de {_ticker_fin} (secteur {_sector_fin}).\n"
             f"Donn\u00e9es ratios cl\u00e9s : {_ratios_str}.\n\n"
             f"Structure en 3 paragraphes distincts s\u00e9par\u00e9s par une ligne vide :\n"
-            f"1. Qualit\u00e9 des marges : drivers structurels (mix produit, pricing power, "
-            f"effet de levier op\u00e9rationnel), durabilit\u00e9 dans le cycle actuel\n"
-            f"2. Structure de co\u00fbts : intensit\u00e9 R&D/capex/marketing, barri\u00e8res "
-            f"\u00e0 l'entr\u00e9e, vuln\u00e9rabilit\u00e9 aux chocs co\u00fbts mati\u00e8res premi\u00e8res/main d'oeuvre\n"
-            f"3. Positionnement concurrentiel : moat (foss\u00e9 \u00e9conomique), avantages "
-            f"structurels vs pairs sectoriels, risque d'\u00e9rosion comp\u00e9titive\n\n"
-            f"Chaque paragraphe : 80-90 mots. Cite des chiffres pr\u00e9cis. "
-            f"Fran\u00e7ais correct avec accents. "
+            f"1. Qualit\u00e9 des marges (160-180 mots) : drivers structurels (mix produit, "
+            f"pricing power, effet de levier op\u00e9rationnel), durabilit\u00e9 dans le cycle actuel, "
+            f"comparaison quantifi\u00e9e vs pairs et vs moyenne historique, r\u00e9silience face aux "
+            f"chocs inflationnistes et au cycle de consommation\n"
+            f"2. Structure de co\u00fbts (160-180 mots) : intensit\u00e9 R&D/capex/marketing, "
+            f"barri\u00e8res \u00e0 l'entr\u00e9e, vuln\u00e9rabilit\u00e9 aux chocs co\u00fbts mati\u00e8res premi\u00e8res, "
+            f"exposition aux tensions sur la main d'oeuvre, capacit\u00e9 de r\u00e9percussion sur les "
+            f"prix (pricing power), efficience op\u00e9rationnelle mesur\u00e9e par le ratio OPEX/CA\n"
+            f"3. Positionnement concurrentiel (160-180 mots) : moat (foss\u00e9 \u00e9conomique), "
+            f"avantages structurels vs pairs sectoriels, risque d'\u00e9rosion comp\u00e9titive, "
+            f"barri\u00e8res \u00e0 l'entr\u00e9e (brand equity, scale, switching costs, network effects), "
+            f"menaces disruptives \u00e0 horizon 3-5 ans, capacit\u00e9 d'innovation et positionnement "
+            f"sur les segments \u00e0 forte croissance\n\n"
+            f"Cite des chiffres pr\u00e9cis et des comparables. Fran\u00e7ais correct avec accents. "
             f"IMPORTANT : texte brut uniquement. "
             f"N'utilise AUCUNE balise HTML (<b>, <i>, <p>). "
             f"N'utilise AUCUN markdown (**, __, ##). "
             f"Pas de listes \u00e0 puces. Pas d'emojis."
         )
-        _llm_margin_analysis = _llm_m.generate(_prompt_margin, max_tokens=700) or ""
+        _llm_margin_analysis = _llm_m.generate(_prompt_margin, max_tokens=1400) or ""
     except Exception:
         pass
 
@@ -1594,6 +1633,28 @@ def _build_valorisation(ff_buf, pie_buf, mc_buf, data):
     if ff_comment:
         elems.append(Spacer(1, 2*mm))
         elems.append(Paragraph(_safe(ff_comment), S_BODY))
+    # Commentaire analytique approfondi sous le football field
+    elems.append(Spacer(1, 2*mm))
+    _ff_methods_list = data.get('ff_methods') or []
+    _ff_reading = (
+        f"Le football field compile {len(_ff_methods_list)} m\u00e9thodes de valorisation "
+        f"ind\u00e9pendantes \u2014 DCF multi-sc\u00e9nario, comparables de multiples sectoriels, "
+        f"EV/Revenue et benchmarks de fusion-acquisition \u2014 pour d\u00e9terminer une fourchette "
+        f"de valeur intrins\u00e8que robuste. La convergence des m\u00e9thodes autour d'une zone "
+        f"centrale constitue le signal le plus fort d'une valorisation cr\u00e9dible : lorsque "
+        f"plusieurs approches ind\u00e9pendantes pointent vers la m\u00eame fourchette, le risque "
+        f"mod\u00e8le est minimis\u00e9. \u00c0 l'inverse, une dispersion marqu\u00e9e signale une "
+        f"sensibilit\u00e9 \u00e9lev\u00e9e aux hypoth\u00e8ses cl\u00e9s (croissance terminal, WACC, "
+        f"multiples de sortie) et invite \u00e0 privil\u00e9gier les m\u00e9thodes les plus cal\u00e9es "
+        f"sur la r\u00e9alit\u00e9 fondamentale de l'actif. La position du cours actuel par rapport "
+        f"\u00e0 la fourchette globale d\u00e9termine le risk/reward : en-dessous du P25 des valeurs "
+        f"implicites, une opportunit\u00e9 de d\u00e9cote ; entre P25 et P75, une valorisation dans "
+        f"la norme sectorielle ; au-dessus du P75, une prime qui exige une execution "
+        f"op\u00e9rationnelle sans faille pour \u00eatre soutenue. Cette triangulation m\u00e9thodologique "
+        f"est la pratique standard dans les \u00e9quipes M&A et equity research institutionnelles "
+        f"pour encadrer un prix cible."
+    )
+    elems.append(Paragraph(_safe(_ff_reading), S_BODY))
     elems.append(src(_d(data, 'ff_source_text',
         "FinSight IA. Ligne pointill\u00e9e orange = cours actuel. "
         "La convergence des m\u00e9thodes renforce la robustesse de la cible.")))
@@ -1704,7 +1765,7 @@ def _build_valorisation(ff_buf, pie_buf, mc_buf, data):
                     pass
             _syn_fc = ((data.get('synthesis') or {}).get('financial_commentary') or "")
             if _syn_fc and not _extra_mc:
-                _extra_mc = " " + _syn_fc[:200] + ("..." if len(_syn_fc) > 200 else "")
+                _extra_mc = " " + _syn_fc[:400] + ("..." if len(_syn_fc) > 400 else "")
             # Enrichissement : volatilite implicite + limite du modele GBM
             _vol = data.get('volatility_annualized') or data.get('hist_vol')
             _vol_note = ""
@@ -1712,11 +1773,23 @@ def _build_valorisation(ff_buf, pie_buf, mc_buf, data):
                 try:
                     _vol_pct = float(_vol) * 100
                     _vol_note = (f" La volatilit\u00e9 annualis\u00e9e du titre ({_vol_pct:.0f}\u00a0%) "
-                                 f"{'est élevée, amplifiant la dispersion des scenarios' if _vol_pct > 40 else 'est modérée, resserrant le corridor P10-P90'}. "
-                                 "Le mod\u00e8le GBM suppose une distribution log-normale des rendements — "
-                                 "les chocs exogenes (récession, r\u00e9gulation, disruption sectorielle) "
-                                 "ne sont pas captur\u00e9s. Le P50 constitue un ancrage probabiliste, "
-                                 "non un prix cible analytique.")
+                                 f"{'est élevée, amplifiant la dispersion des scenarios et traduisant un profil risk-on sensible aux revisions d\u2019hypothèses' if _vol_pct > 40 else 'est modérée, resserrant le corridor P10-P90 et suggérant un ancrage fondamental dominant sur la dynamique de cours'}. "
+                                 "Le mod\u00e8le GBM (Geometric Brownian Motion) suppose une "
+                                 "distribution log-normale des rendements avec d\u00e9rive et "
+                                 "volatilit\u00e9 constantes, calibr\u00e9es sur 2 ans de donn\u00e9es "
+                                 "journali\u00e8res. Ses limites sont importantes : les chocs exog\u00e8nes "
+                                 "(r\u00e9cession, r\u00e9gulation, disruption sectorielle, scandales "
+                                 "comptables, guerres, pand\u00e9mies) ne sont pas captur\u00e9s, ni les "
+                                 "changements de r\u00e9gime macro (rotation value/growth, durcissement "
+                                 "monetaire inattendu). Les queues de distribution sont donc "
+                                 "probablement sous-estim\u00e9es par le GBM (\u00ab fat tails \u00bb). "
+                                 "Le P50 constitue un ancrage probabiliste \u00e0 crois\u00e9r avec la "
+                                 "cible DCF analytique et le consensus sell-side, non un prix cible "
+                                 "autonome. Dans les p\u00e9riodes de forte dispersion des sc\u00e9narios "
+                                 "macro (comme actuellement avec les d\u00e9bats sur les taux et "
+                                 "l'inflation), l'\u00e9cart P10-P90 fournit une mesure utile du "
+                                 "risque de valorisation mais doit \u00eatre compl\u00e9t\u00e9 par un "
+                                 "stress-testing qualitatif sur les hypoth\u00e8ses cl\u00e9s.")
                 except: pass
             if not _vol_note:
                 _vol_note = (" Le mod\u00e8le GBM suppose une distribution log-normale des rendements — "
@@ -2066,18 +2139,26 @@ def _build_multiples_historiques(data):
             _peers_str = f" Médiane pairs EV/EBITDA: {_peers_ev:.1f}x." if _peers_ev else ""
             _prompt_mh = (
                 f"Tu es un analyste sell-side senior. Rédige un commentaire analytique "
-                f"(250 mots max) sur l'évolution des multiples de valorisation de {_ticker_mh} "
-                f"sur 5 ans, secteur {_sector_mh}.\n"
+                f"approfondi (500-550 mots) sur l'évolution des multiples de valorisation de "
+                f"{_ticker_mh} sur 5 ans, secteur {_sector_mh}.\n"
                 f"Données : P/E {_pe_series} | EV/EBITDA {_ev_series} | P/B {_pb_series}.{_peers_str}\n\n"
-                f"Structure :\n"
-                f"1. Lecture de la tendance P/E et EV/EBITDA (expansion/compression) avec hypothèses économiques\n"
-                f"2. Analyse du mean-reversion potentiel et positionnement relatif aux pairs\n"
-                f"3. Implications pour la thèse d'investissement (re-rating vs de-rating)\n"
-                f"4. Risques spécifiques au cycle de valorisation actuel\n\n"
+                f"Structure en 4 paragraphes distincts séparés par une ligne vide "
+                f"(chaque paragraphe ~125 mots) :\n"
+                f"1. Lecture de la tendance P/E et EV/EBITDA (expansion/compression) avec "
+                f"hypothèses économiques sous-jacentes, identification des points d'inflexion et "
+                f"corrélation avec les cycles macro ou sectoriels\n"
+                f"2. Analyse du mean-reversion potentiel vers la moyenne historique 10 ans et "
+                f"positionnement relatif aux pairs sectoriels, quantification de la prime/décote "
+                f"actuelle et sa justification fondamentale\n"
+                f"3. Implications pour la thèse d'investissement (re-rating vs de-rating), "
+                f"identification des catalyseurs qui pourraient enclencher un re-rating haussier "
+                f"ou une compression de multiple\n"
+                f"4. Risques spécifiques au cycle de valorisation actuel, sensibilité aux taux "
+                f"d'intérêt réels, au momentum des révisions BPA et au positionnement investisseurs\n\n"
                 f"Français correct avec accents. Pas de markdown. Pas d'emojis. "
                 f"Cite les chiffres précis."
             )
-            _llm_text_mh = _llm.generate(_prompt_mh, max_tokens=600) or ""
+            _llm_text_mh = _llm.generate(_prompt_mh, max_tokens=1400) or ""
         except Exception:
             pass
         _txt = _llm_text_mh.strip() or _txt_fallback
@@ -2230,19 +2311,28 @@ def _build_capital_returns(data):
             _fy_series = ", ".join(_frpct(f) for f in fy_vals[-4:]) if fy_vals else "n.d."
             _cx_last = _frpct(cx_vals[-1]) if cx_vals else "n.d."
             _prompt_cr = (
-                f"Tu es un analyste sell-side senior. Rédige un commentaire "
-                f"(250 mots) sur le Capital Returns & Free Cash Flow de {_ticker_cr} "
+                f"Tu es un analyste sell-side senior. Rédige un commentaire approfondi "
+                f"(500-550 mots) sur le Capital Returns & Free Cash Flow de {_ticker_cr} "
                 f"(secteur {_sector_cr}).\n"
                 f"Données : FCF sur 4 ans {_fcf_series} | FCF Yield {_fy_series} | "
                 f"Capex/CA actuel {_cx_last}.\n\n"
-                f"Structure :\n"
-                f"1. Tendance de génération de cash et qualité du FCF (conversion EBITDA→FCF)\n"
-                f"2. Politique d'allocation du capital (capex, dividendes, rachats, acquisitions)\n"
-                f"3. Soutenabilité du modèle face au coût du capital\n"
-                f"4. Implications pour la thèse d'investissement (profil cash generator vs growth reinvestment)\n\n"
+                f"Structure en 4 paragraphes distincts séparés par une ligne vide "
+                f"(chaque paragraphe ~125 mots) :\n"
+                f"1. Tendance de génération de cash et qualité du FCF (conversion EBITDA→FCF, "
+                f"volatilité year-over-year, drivers structurels, sensibilité au BFR et "
+                f"saisonnalité des paiements)\n"
+                f"2. Politique d'allocation du capital (répartition entre capex de maintenance, "
+                f"capex de croissance, dividendes, rachats d'actions, acquisitions, désendettement), "
+                f"historique des décisions et discipline du management\n"
+                f"3. Soutenabilité du modèle face au coût du capital (FCF yield vs WACC, "
+                f"couverture des dividendes par le FCF, flexibilité financière en cas de "
+                f"ralentissement, capacité de résilience en scenario stress)\n"
+                f"4. Implications pour la thèse d'investissement (profil cash generator vs "
+                f"growth reinvestment, attractivité pour les investisseurs income-oriented vs "
+                f"total return, positionnement dans le cycle de maturité de la société)\n\n"
                 f"Français correct avec accents. Pas de markdown. Pas d'emojis. Cite les chiffres."
             )
-            _llm_text_cr = _llm.generate(_prompt_cr, max_tokens=600) or ""
+            _llm_text_cr = _llm.generate(_prompt_cr, max_tokens=1400) or ""
         except Exception:
             pass
         _txt = _llm_text_cr.strip() or _txt_fallback
@@ -2400,19 +2490,33 @@ def _build_lbo(data):
             _debt_lbo = f"{_net_debt_ebitda:.1f}x EBITDA" if _net_debt_ebitda is not None else "n.d."
             _prompt_lbo = (
                 f"Tu es un analyste Private Equity senior (profil MD dans un fonds tier-1). "
-                f"R\u00e9dige un commentaire (270 mots) sur la viabilit\u00e9 LBO de {_ticker_lbo} "
-                f"(secteur {_sector_lbo}).\n"
+                f"R\u00e9dige un commentaire approfondi (500-550 mots) sur la viabilit\u00e9 LBO de "
+                f"{_ticker_lbo} (secteur {_sector_lbo}).\n"
                 f"Donn\u00e9es : EBITDA LTM {_ebitda_lbo}, FCF LTM {_fcf_lbo}, "
                 f"dette nette actuelle {_debt_lbo}, IRR base (10x/10x) {irr_base*100:.1f}%, "
                 f"MOIC {moic_base:.1f}x.\n\n"
-                f"Structure :\n"
-                f"1. Attractivit\u00e9 en tant que cible PE : forces du mod\u00e8le \u00e9conomique pour un LBO\n"
-                f"2. Capacit\u00e9 d'endettement et levier soutenable (FCF/int\u00e9r\u00eats, couverture)\n"
-                f"3. Leviers de cr\u00e9ation de valeur post-acquisition (op\u00e9rationnel, financier, multiple arbitrage)\n"
-                f"4. Risques sp\u00e9cifiques au LBO (volatilit\u00e9 FCF, cyclicit\u00e9, risque de refinancement)\n\n"
+                f"Structure en 4 paragraphes distincts s\u00e9par\u00e9s par une ligne vide "
+                f"(chaque paragraphe ~125 mots) :\n"
+                f"1. Attractivit\u00e9 en tant que cible PE : forces du mod\u00e8le \u00e9conomique pour "
+                f"un LBO, qualit\u00e9 des revenus (r\u00e9currence, visibilit\u00e9), barri\u00e8res \u00e0 "
+                f"l'entr\u00e9e et pricing power, taille critique pour un fonds tier-1, attractivit\u00e9 "
+                f"strat\u00e9gique vs investisseurs industriels\n"
+                f"2. Capacit\u00e9 d'endettement et levier soutenable (ratio FCF/int\u00e9r\u00eats, "
+                f"couverture de la dette senior, headroom vs covenants typiques, capacit\u00e9 \u00e0 "
+                f"supporter un ratio 5-7x EBITDA, sensibilit\u00e9 aux taux de financement et au "
+                f"refinancing risk sur la p\u00e9riode de holding)\n"
+                f"3. Leviers de cr\u00e9ation de valeur post-acquisition : op\u00e9rationnel (cost "
+                f"savings, margin expansion via op\u00e9rational excellence), financier "
+                f"(optimisation du BFR, working capital, fiscal), multiple arbitrage (entry "
+                f"vs exit multiples), buy-and-build et sector roll-up\n"
+                f"4. Risques sp\u00e9cifiques au LBO : volatilit\u00e9 du FCF, cyclicit\u00e9 du secteur, "
+                f"risque de refinancement en cas de durcissement du cr\u00e9dit, sensibilit\u00e9 "
+                f"macro aux taux directeurs, concurrence entre PE pour les actifs de qualit\u00e9, "
+                f"strat\u00e9gies de sortie (IPO, sale, secondary buyout) et liquidit\u00e9 du march\u00e9 "
+                f"secondaire\n\n"
                 f"Fran\u00e7ais correct avec accents. Pas de markdown. Pas d'emojis. Cite les chiffres."
             )
-            _llm_text_lbo = _llm.generate(_prompt_lbo, max_tokens=650) or ""
+            _llm_text_lbo = _llm.generate(_prompt_lbo, max_tokens=1400) or ""
         except Exception:
             pass
         _txt = _llm_text_lbo.strip() or _txt_fallback
@@ -3280,6 +3384,7 @@ class PDFWriter:
         ticker      = (ci.ticker if ci else None) or state.get('ticker', 'UNKNOWN')
         co_name     = (ci.company_name if ci else None) or ticker
         sector      = (ci.sector if ci else None) or ''
+        industry    = getattr(ci, 'industry', '') or '' if ci else ''
         exchange    = getattr(ci, 'exchange', '') or '' if ci else ''
         price       = (mkt.share_price if mkt else None)
         wacc        = (mkt.wacc if mkt else None) or 0.10
@@ -3869,6 +3974,7 @@ class PDFWriter:
             'ticker':            ticker,
             'ticker_exchange':   f"{ticker} {exchange}".strip(),
             'sector':            sector,
+            'industry':          industry,
             'exchange':          exchange,
             'currency':          cur,
             'date_analyse':      gen_date,
@@ -3914,17 +4020,45 @@ class PDFWriter:
                                     f"m\u00e9diane de r\u00e9f\u00e9rence ({bm.get('ev_e','12-25x')}), "
                                     f"justifi\u00e9 par des marges structurellement sup\u00e9rieures "
                                     f"et une dynamique de croissance diff\u00e9renci\u00e9e. "
+                                    f"Cette prime sectorielle refl\u00e8te \u00e9galement un profil de "
+                                    f"rentabilit\u00e9 sur capital investi (ROIC) sup\u00e9rieur au "
+                                    f"co\u00fbt du capital, une visibilit\u00e9 des cash-flows \u00e0 "
+                                    f"moyen terme renforc\u00e9e par la r\u00e9currence des revenus, "
+                                    f"et une meilleure couverture des risques cycliques gr\u00e2ce "
+                                    f"\u00e0 la diversification g\u00e9ographique et par segment. "
                                     f"La convergence des m\u00e9thodes DCF et comparables vers une "
                                     f"fourchette {_fr(tbear,0)}-{_fr(tbull,0)}\u00a0{cur} "
                                     f"renforce la robustesse de la cible centrale \u00e0 "
-                                    f"{_fr(tbase,0)}\u00a0{cur}.") if (ev_e and tbear and tbase and tbull) else '',
+                                    f"{_fr(tbase,0)}\u00a0{cur}. Une telle convergence r\u00e9duit "
+                                    f"le risque mod\u00e8le et valide l'approche multi-m\u00e9thodes "
+                                    f"recommand\u00e9e par les meilleures pratiques sell-side. Le "
+                                    f"spread entre le bear case et le bull case mesure la "
+                                    f"sensibilit\u00e9 de la valorisation aux hypoth\u00e8ses cl\u00e9s "
+                                    f"(taux de croissance terminal, WACC, marges steady-state) "
+                                    f"et doit \u00eatre mis en perspective avec le niveau de "
+                                    f"conviction du sc\u00e9nario central.") if (ev_e and tbear and tbase and tbull) else '',
             'pie_text':             _g(synthesis,'pie_text') or (
                                     f"La capitalisation boursi\u00e8re de {co_name} repr\u00e9sente "
                                     f"une fraction significative de la valeur d'entreprise totale "
                                     f"du secteur. Ce poids sectoriel refl\u00e8te le statut de "
                                     f"la soci\u00e9t\u00e9 comme r\u00e9f\u00e9rence de valorisation "
                                     f"pour ses pairs, et implique une liquidit\u00e9 \u00e9lev\u00e9e "
-                                    f"ainsi qu'une exposition institutionnelle importante."),
+                                    f"ainsi qu'une exposition institutionnelle importante. "
+                                    f"Une part relative \u00e9lev\u00e9e dans la valeur sectorielle "
+                                    f"indique \u00e9galement que {co_name} est probablement "
+                                    f"sur-repr\u00e9sent\u00e9e dans les indices sectoriels et les "
+                                    f"portefeuilles benchmark\u00e9s, ce qui amplifie la sensibilit\u00e9 "
+                                    f"du cours aux flux passifs et aux ajustements de pond\u00e9ration "
+                                    f"par les gestionnaires. \u00c0 l'inverse, une part plus modeste "
+                                    f"dans la valeur sectorielle peut signaler un profil plus "
+                                    f"sp\u00e9cialis\u00e9 ou un positionnement sur un sous-segment "
+                                    f"niche, avec un beta id\u00e9osyncratique plus prononc\u00e9 et "
+                                    f"une corr\u00e9lation moindre aux rotations top-down. "
+                                    f"L'analyse du poids relatif EV doit \u00eatre lue conjointement "
+                                    f"avec la concentration sectorielle (indice HHI) et le profil "
+                                    f"de liquidit\u00e9 pour appr\u00e9cier la capacit\u00e9 d'absorption "
+                                    f"de flux institutionnels importants sans impact de march\u00e9 "
+                                    f"significatif."),
             'bear_text_intro':      _g(synthesis,'bear_intro') or
                                     counter_thesis.replace(' | ', ' ') if counter_thesis else
                                     "Le protocole de contradiction syst\u00e9matique (avocat du diable) identifie "
