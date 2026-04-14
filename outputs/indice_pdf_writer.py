@@ -893,7 +893,7 @@ def _build_cartographie(data, weights_buf, attribution_buf=None, registry=None):
     sig_rows = []
     for s in secteurs:
         sig_rows.append([
-            Paragraph(s[0], S_TD_L),
+            Paragraph(_abbrev_pdf(s[0]), S_TD_L),
             Paragraph(s[3], sig_s(s[3])),
             Paragraph(str(s[2]), S_TD_C),
         ])
@@ -955,7 +955,7 @@ def _build_cartographie(data, weights_buf, attribution_buf=None, registry=None):
             _ev_str = str(_ev_raw)
         comp_rows.append([
             Paragraph(str(rang), S_TD_C),
-            Paragraph(s[0], S_TD_B),
+            Paragraph(_abbrev_pdf(s[0]), S_TD_B),
             Paragraph(str(s[1]), S_TD_C),
             Paragraph(str(s[2]), S_TD_BC),
             Paragraph(s[3], sig_s(s[3])),
@@ -1489,7 +1489,7 @@ def _build_top3(data, donut_buf, registry=None):
         croi = str(s_data[6]) if s_data and len(s_data) > 6 else "\u2014"
         mom  = str(s_data[7]) if s_data and len(s_data) > 7 else "\u2014"
         synth_rows.append([
-            Paragraph(f"<b>{sect['nom']}</b>", S_TD_B),
+            Paragraph(f"<b>{_abbrev_pdf(sect['nom'])}</b>", S_TD_B),
             Paragraph(sect["signal"], sig_s(sect["signal"])),
             Paragraph(str(sect["score"]), S_TD_BC),
             Paragraph(sect["ev_ebitda"], S_TD_C),
@@ -1584,7 +1584,7 @@ def _build_top3(data, donut_buf, registry=None):
             else:
                 _val_disp = ev
             soc_rows.append([
-                Paragraph(sect["nom"], S_TD_L),
+                Paragraph(_abbrev_pdf(sect["nom"]), S_TD_L),
                 Paragraph(f"<b>{tkr}</b>", S_TD_BC),
                 Paragraph(sig, sig_s(sig)),
                 Paragraph(_val_disp, S_TD_C),
