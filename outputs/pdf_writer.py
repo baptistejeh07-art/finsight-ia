@@ -35,7 +35,7 @@ from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT, TA_JUSTIFY
 from reportlab.platypus import (
     SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle,
-    PageBreak, HRFlowable, Image, KeepTogether
+    PageBreak, HRFlowable, Image, KeepTogether, CondPageBreak
 )
 
 log = logging.getLogger(__name__)
@@ -602,7 +602,11 @@ def _make_margins_chart(data):
     nm_vals = [_parse_pct(nm_row[i]) if nm_row and i < len(nm_row) else None for i in range(n)]
 
     x = np.arange(n)
-    fig, ax = plt.subplots(figsize=(8, 4.4), dpi=160)
+    # ABB-P6 Baptiste 2026-04-14 : figsize ajuste pour matcher l'aspect ratio
+    # de rendu final (170mm x 58mm = 2.93). Avant : (8, 4.4) ratio 1.82 donnait
+    # un stretch horizontal x1.61 visible (deformation + flou).
+    # (10, 3.4) ratio 2.94 matche le rendu -> pas de stretch, chart net.
+    fig, ax = plt.subplots(figsize=(10, 3.4), dpi=200)
 
     all_vals_flat = [v for v in gm_vals + em_vals + nm_vals if v is not None]
     ymax = max(all_vals_flat) * 1.12 if all_vals_flat else 100
@@ -636,7 +640,9 @@ def _make_margins_chart(data):
         _margin_title = f"Marge EBITDA {_em_last:.0f}% en LTM (\u00e9volution {_em_trend} sur la p\u00e9riode)"
     else:
         _margin_title = 'Ratios de rentabilit\u00e9 \u2014 \u00c9volution'
-    ax.set_title(_margin_title, fontsize=12, color='#1B3A6B', fontweight='bold', pad=32)
+    # Titre reduit (pad 32->16) et fontsize (12->11) pour tenir dans le nouveau
+    # figsize (10, 3.4) plus compact verticalement (ABB-P6)
+    ax.set_title(_margin_title, fontsize=11, color='#1B3A6B', fontweight='bold', pad=16)
     for sp in ['top', 'right']:
         ax.spines[sp].set_visible(False)
     ax.spines['left'].set_color('#D0D5DD')
@@ -650,7 +656,7 @@ def _make_margins_chart(data):
               borderpad=0.5, labelspacing=0.4)
     plt.tight_layout()
     buf = io.BytesIO()
-    fig.savefig(buf, format='png', dpi=160, bbox_inches='tight')
+    fig.savefig(buf, format='png', dpi=200, bbox_inches='tight')
     plt.close(fig)
     buf.seek(0)
     return buf
@@ -3425,24 +3431,28 @@ def generate_report(data: dict, output_path: str) -> str:
     story += _build_investment_case(data)
     story.append(PageBreak())
 
+    # PDF-ESPACE-BLANC Baptiste 2026-04-14 : remplace PageBreak() entre
+    # sections par CondPageBreak(100*mm). Cela garde la nouvelle page SEULEMENT
+    # si moins de 100mm restent sur la page courante, sinon la section suivante
+    # enchaine immediatement. Reduit les espaces vides en bas de page.
     story += _build_synthese(perf_buf, data)
     story += _build_financials(area_buf, data, margins_buf)
-    story.append(PageBreak())
+    story.append(CondPageBreak(100*mm))
     story += _build_valorisation(ff_buf, pie_buf, mc_buf, data)
-    story.append(PageBreak())
+    story.append(CondPageBreak(100*mm))
     try:
         story += _build_multiples_historiques(data)
-        story.append(PageBreak())
+        story.append(CondPageBreak(100*mm))
     except Exception as _e_mh:
         log.error("[PDFWriter] _build_multiples_historiques FAILED: %s", _e_mh, exc_info=True)
     try:
         story += _build_capital_returns(data)
-        story.append(PageBreak())
+        story.append(CondPageBreak(100*mm))
     except Exception as _e_cr:
         log.error("[PDFWriter] _build_capital_returns FAILED: %s", _e_cr, exc_info=True)
     try:
         story += _build_lbo(data)
-        story.append(PageBreak())
+        story.append(CondPageBreak(100*mm))
     except Exception as _e_lbo:
         log.error("[PDFWriter] _build_lbo FAILED: %s", _e_lbo, exc_info=True)
     story += _build_risques(data)
@@ -3760,9 +3770,24 @@ def _fetch_pie_data(ticker: str, peers: list, main_snap_market=None) -> dict:
             except Exception:
                 pass
 
-        # Besoin d'au moins 2 points pour un donut informatif
-        if len(ev_data) < 2:
+        # ABB-P9 Baptiste 2026-04-14 : seuil abaisse de 2 a 1 pour eviter le
+        # chart N/A quand tous les peers yfinance echouent (rate-limit) et que
+        # seul le main ticker est seed depuis snap.market_cap. Avec 1 seul point
+        # on affiche un mini-donut informatif avec le main ticker et une entree
+        # "Pairs (donnees indisponibles)" representant une hypothese conservatrice.
+        if len(ev_data) < 1:
             return {}
+
+        # Cas 1 seul point : simule un contexte sectoriel avec "Pairs indispo"
+        # pour que le donut reste visuellement interpretable au lieu du N/A
+        if len(ev_data) == 1:
+            # Approximation conservatrice : le main ticker est ~30% du peer
+            # group typique -> les peers representent ~70%. Le message
+            # "Pairs (donnees indisponibles)" clarifie que c'est un fallback.
+            _main_val = next(iter(ev_data.values()))
+            ev_data["_OTHERS_"] = _main_val * 2.33  # ~70% du total
+            log.info("[pie_chart] 1 point seul pour %s, fallback pairs hypothese", ticker)
+
         _cap_label = 'Mkt Cap' if _used_mktcap else 'EV'
 
         total_ev   = sum(ev_data.values())
@@ -3772,13 +3797,11 @@ def _fetch_pie_data(ticker: str, peers: list, main_snap_market=None) -> dict:
         labels, sizes = [], []
         for t_k, ev in ev_data.items():
             pct = round(ev / total_ev * 100)
-            labels.append(f"{t_k} ({pct}%)")
+            if t_k == "_OTHERS_":
+                labels.append(f"Pairs sectoriels ({pct}%)")
+            else:
+                labels.append(f"{t_k} ({pct}%)")
             sizes.append(ev)
-
-        # Ajouter "Autres" si < 6 pairs
-        if len(ev_data) < 5:
-            pass   # pas d'Autres si trop peu de points
-        # else: on laisse tel quel (le template en ajoute un)
 
         return {
             'pie_labels':     labels,

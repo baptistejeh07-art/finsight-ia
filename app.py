@@ -586,27 +586,225 @@ def _resolve_input_llm(name: str) -> dict | None:
     return None
 
 
+# NIGHT-5 Baptiste 2026-04-14 : Extended mapping manuel 100+ societes US/EU
+# pour couvrir les tickers moins connus sans appel yfinance/LLM. Couvre
+# CAC 40, DAX 40, S&P 500 top 50, FTSE 100 top 20, STOXX Europe leaders.
+_KNOWN_TICKERS = {
+    # ─── US Mega/Large caps ────────────────────────────────
+    "apple": "AAPL", "aapl": "AAPL",
+    "microsoft": "MSFT", "msft": "MSFT",
+    "google": "GOOGL", "alphabet": "GOOGL", "googl": "GOOGL", "goog": "GOOG",
+    "amazon": "AMZN", "amzn": "AMZN",
+    "tesla": "TSLA", "tsla": "TSLA",
+    "nvidia": "NVDA", "nvda": "NVDA",
+    "meta": "META", "facebook": "META",
+    "netflix": "NFLX", "nflx": "NFLX",
+    "berkshire": "BRK-B", "berkshire hathaway": "BRK-B",
+    "jpmorgan": "JPM", "jp morgan": "JPM", "jpm": "JPM",
+    "visa": "V", "mastercard": "MA",
+    "johnson": "JNJ", "johnson & johnson": "JNJ", "jnj": "JNJ",
+    "unitedhealth": "UNH", "united health": "UNH",
+    "walmart": "WMT", "wmt": "WMT",
+    "procter": "PG", "procter gamble": "PG", "pg": "PG",
+    "exxon": "XOM", "exxonmobil": "XOM", "xom": "XOM",
+    "chevron": "CVX", "cvx": "CVX",
+    "home depot": "HD", "hd": "HD",
+    "abbvie": "ABBV", "abbv": "ABBV",
+    "eli lilly": "LLY", "lly": "LLY",
+    "coca cola": "KO", "cocacola": "KO", "ko": "KO",
+    "pepsi": "PEP", "pepsico": "PEP", "pep": "PEP",
+    "costco": "COST", "cost": "COST",
+    "amd": "AMD", "advanced micro devices": "AMD",
+    "intel": "INTC", "intc": "INTC",
+    "broadcom": "AVGO", "avgo": "AVGO",
+    "oracle": "ORCL", "orcl": "ORCL",
+    "salesforce": "CRM", "crm": "CRM",
+    "adobe": "ADBE", "adbe": "ADBE",
+    "disney": "DIS", "walt disney": "DIS", "dis": "DIS",
+    "mcdonald": "MCD", "mcdonalds": "MCD", "mcd": "MCD",
+    "nike": "NKE", "nke": "NKE",
+    "boeing": "BA", "ba": "BA",
+    "palantir": "PLTR", "pltr": "PLTR",
+    "starbucks": "SBUX", "sbux": "SBUX",
+    "goldman sachs": "GS", "goldman": "GS", "gs": "GS",
+    "morgan stanley": "MS", "ms": "MS",
+    "bank of america": "BAC", "bofa": "BAC", "bac": "BAC",
+    "pfizer": "PFE", "pfe": "PFE",
+    "merck": "MRK", "mrk": "MRK",
+    "uber": "UBER", "ford": "F",
+    "general motors": "GM", "gm": "GM",
+    "stellantis": "STLAM.MI", "stelantis": "STLAM.MI",
+    "peugeot": "STLAM.MI", "fiat": "STLAM.MI",
+    # ─── France / CAC 40 ───────────────────────────────────
+    "lvmh": "MC.PA", "louis vuitton": "MC.PA", "mc.pa": "MC.PA",
+    "airbus": "AIR.PA", "air.pa": "AIR.PA",
+    "totalenergies": "TTE.PA", "total": "TTE.PA", "tte.pa": "TTE.PA",
+    "bnp": "BNP.PA", "bnp paribas": "BNP.PA", "bnp.pa": "BNP.PA",
+    "société générale": "GLE.PA", "societe generale": "GLE.PA",
+    "socgen": "GLE.PA", "gle.pa": "GLE.PA",
+    "axa": "CS.PA", "cs.pa": "CS.PA",
+    "hermes": "RMS.PA", "hermès": "RMS.PA", "rms.pa": "RMS.PA",
+    "kering": "KER.PA", "ker.pa": "KER.PA",
+    "renault": "RNO.PA", "rno.pa": "RNO.PA",
+    "sanofi": "SAN.PA", "san.pa": "SAN.PA",
+    "air liquide": "AI.PA", "ai.pa": "AI.PA",
+    "schneider": "SU.PA", "schneider electric": "SU.PA", "su.pa": "SU.PA",
+    "vinci": "DG.PA", "dg.pa": "DG.PA",
+    "danone": "BN.PA", "bn.pa": "BN.PA",
+    "pernod": "RI.PA", "pernod ricard": "RI.PA", "ri.pa": "RI.PA",
+    "saint gobain": "SGO.PA", "saint-gobain": "SGO.PA", "sgo.pa": "SGO.PA",
+    "orange": "ORA.PA", "ora.pa": "ORA.PA",
+    "engie": "ENGI.PA", "engi.pa": "ENGI.PA",
+    "veolia": "VIE.PA", "vie.pa": "VIE.PA",
+    "thales": "HO.PA", "ho.pa": "HO.PA",
+    "safran": "SAF.PA", "saf.pa": "SAF.PA",
+    "dassault": "AM.PA", "dassault aviation": "AM.PA", "am.pa": "AM.PA",
+    "capgemini": "CAP.PA", "cap.pa": "CAP.PA",
+    "carrefour": "CA.PA", "ca.pa": "CA.PA",
+    "legrand": "LR.PA", "lr.pa": "LR.PA",
+    "publicis": "PUB.PA", "pub.pa": "PUB.PA",
+    "edenred": "EDEN.PA", "eden.pa": "EDEN.PA",
+    "stmicroelectronics": "STMPA.PA", "stm": "STMPA.PA",
+    "michelin": "ML.PA", "ml.pa": "ML.PA",
+    "bouygues": "EN.PA", "en.pa": "EN.PA",
+    "eurofins": "ERF.PA", "erf.pa": "ERF.PA",
+    "bureau veritas": "BVI.PA", "bvi.pa": "BVI.PA",
+    "worldline": "WLN.PA", "wln.pa": "WLN.PA",
+    "teleperformance": "TEP.PA", "tep.pa": "TEP.PA",
+    "alstom": "ALO.PA", "alo.pa": "ALO.PA",
+    "essilor": "EL.PA", "essilorluxottica": "EL.PA", "el.pa": "EL.PA",
+    "loreal": "OR.PA", "l'oreal": "OR.PA", "or.pa": "OR.PA",
+    "unibail": "URW.PA", "urw": "URW.PA",
+    # ─── DAX 40 & autres allemands ─────────────────────────
+    "sap": "SAP.DE", "sap.de": "SAP.DE",
+    "siemens": "SIE.DE", "sie.de": "SIE.DE",
+    "volkswagen": "VOW3.DE", "vw": "VOW3.DE", "vow3.de": "VOW3.DE",
+    "mercedes": "MBG.DE", "mercedes-benz": "MBG.DE", "mbg.de": "MBG.DE",
+    "bmw": "BMW.DE", "bmw.de": "BMW.DE",
+    "allianz": "ALV.DE", "alv.de": "ALV.DE",
+    "bayer": "BAYN.DE", "bayn.de": "BAYN.DE",
+    "basf": "BAS.DE", "bas.de": "BAS.DE",
+    "adidas": "ADS.DE", "ads.de": "ADS.DE",
+    "deutsche bank": "DBK.DE", "db": "DBK.DE", "dbk.de": "DBK.DE",
+    "deutsche telekom": "DTE.DE", "dtelekom": "DTE.DE", "dte.de": "DTE.DE",
+    "munich re": "MUV2.DE", "muv2.de": "MUV2.DE",
+    "henkel": "HEN3.DE", "hen3.de": "HEN3.DE",
+    "porsche": "P911.DE", "p911.de": "P911.DE",
+    "infineon": "IFX.DE", "ifx.de": "IFX.DE",
+    "airbus de": "AIR.PA",  # listed primary on Paris
+    # ─── Suisse / SMI ──────────────────────────────────────
+    "nestle": "NESN.SW", "nestlé": "NESN.SW", "nesn.sw": "NESN.SW", "nesn": "NESN.SW",
+    "roche": "ROG.SW", "rog.sw": "ROG.SW", "rog": "ROG.SW",
+    "novartis": "NOVN.SW", "novn.sw": "NOVN.SW", "novn": "NOVN.SW",
+    "ubs": "UBSG.SW", "ubsg.sw": "UBSG.SW",
+    "zurich insurance": "ZURN.SW", "zurich": "ZURN.SW", "zurn.sw": "ZURN.SW",
+    "abb": "ABBN.SW", "abb ltd": "ABBN.SW", "abbn": "ABBN.SW", "abbn.sw": "ABBN.SW",
+    "swatch": "UHR.SW", "uhr.sw": "UHR.SW",
+    "richemont": "CFR.SW", "cfr.sw": "CFR.SW",
+    "glencore": "GLEN.L", "glen.l": "GLEN.L",
+    # ─── UK / FTSE 100 ─────────────────────────────────────
+    "shell": "SHEL.L", "royal dutch shell": "SHEL.L", "shel.l": "SHEL.L",
+    "bp": "BP.L", "british petroleum": "BP.L", "bp.l": "BP.L",
+    "hsbc": "HSBA.L", "hsba.l": "HSBA.L",
+    "astrazeneca": "AZN.L", "azn.l": "AZN.L", "azn": "AZN.L",
+    "gsk": "GSK.L", "glaxosmithkline": "GSK.L", "gsk.l": "GSK.L",
+    "vodafone": "VOD.L", "vod.l": "VOD.L",
+    "diageo": "DGE.L", "dge.l": "DGE.L",
+    "barclays": "BARC.L", "barc.l": "BARC.L",
+    "lloyds": "LLOY.L", "lloy.l": "LLOY.L",
+    "unilever": "ULVR.L", "ulvr.l": "ULVR.L",
+    "rolls royce": "RR.L", "rolls-royce": "RR.L", "rr.l": "RR.L",
+    # ─── Pays-Bas / AEX ────────────────────────────────────
+    "asml": "ASML.AS", "asml.as": "ASML.AS",
+    "heineken": "HEIA.AS", "heia.as": "HEIA.AS",
+    "philips": "PHIA.AS", "phia.as": "PHIA.AS",
+    "ing": "INGA.AS", "ing groep": "INGA.AS", "inga.as": "INGA.AS",
+    "ahold": "AD.AS", "ahold delhaize": "AD.AS", "ad.as": "AD.AS",
+    "prosus": "PRX.AS", "prx.as": "PRX.AS",
+    "adyen": "ADYEN.AS", "adyen.as": "ADYEN.AS",
+    # ─── Italie / FTSE MIB ─────────────────────────────────
+    "ferrari": "RACE.MI", "race.mi": "RACE.MI", "race": "RACE.MI",
+    "eni": "ENI.MI", "eni.mi": "ENI.MI",
+    "intesa": "ISP.MI", "intesa sanpaolo": "ISP.MI", "isp.mi": "ISP.MI",
+    "unicredit": "UCG.MI", "ucg.mi": "UCG.MI",
+    "enel": "ENEL.MI", "enel.mi": "ENEL.MI",
+    "generali": "G.MI", "g.mi": "G.MI",
+    # ─── Espagne / IBEX 35 ─────────────────────────────────
+    "santander": "SAN.MC", "banco santander": "SAN.MC", "san.mc": "SAN.MC",
+    "iberdrola": "IBE.MC", "ibe.mc": "IBE.MC",
+    "bbva": "BBVA.MC", "bbva.mc": "BBVA.MC",
+    "inditex": "ITX.MC", "zara": "ITX.MC", "itx.mc": "ITX.MC",
+    "repsol": "REP.MC", "rep.mc": "REP.MC",
+    "telefonica": "TEF.MC", "tef.mc": "TEF.MC",
+    # ─── Belgique / Bel20 ──────────────────────────────────
+    "ab inbev": "ABI.BR", "anheuser-busch": "ABI.BR", "abi.br": "ABI.BR",
+    "kbc": "KBC.BR", "kbc.br": "KBC.BR",
+    "ucb": "UCB.BR", "ucb.br": "UCB.BR",
+    # ─── Nordiques ─────────────────────────────────────────
+    "novo nordisk": "NOVO-B.CO", "novo-b.co": "NOVO-B.CO",
+    "maersk": "MAERSK-B.CO", "maersk-b.co": "MAERSK-B.CO",
+    "ericsson": "ERIC-B.ST", "eric-b.st": "ERIC-B.ST",
+    "volvo": "VOLV-B.ST", "volv-b.st": "VOLV-B.ST",
+    "nokia": "NOKIA.HE", "nokia.he": "NOKIA.HE",
+    "equinor": "EQNR.OL", "eqnr.ol": "EQNR.OL",
+    "dnb": "DNB.OL", "dnb.ol": "DNB.OL",
+}
+
+_LEVENSHTEIN_THRESHOLD = 2  # max distance for fuzzy match on names
+
+
+def _levenshtein(a: str, b: str) -> int:
+    """Simple Levenshtein distance for fuzzy ticker name matching."""
+    if len(a) < len(b):
+        return _levenshtein(b, a)
+    if not b:
+        return len(a)
+    prev_row = range(len(b) + 1)
+    for i, ca in enumerate(a):
+        curr_row = [i + 1]
+        for j, cb in enumerate(b):
+            ins = prev_row[j + 1] + 1
+            dels = curr_row[j] + 1
+            sub = prev_row[j] + (ca != cb)
+            curr_row.append(min(ins, dels, sub))
+        prev_row = curr_row
+    return prev_row[-1]
+
+
+def _fuzzy_ticker_match(name: str) -> str | None:
+    """Tente un match fuzzy sur le _KNOWN_TICKERS dict avec Levenshtein <= 2.
+    Couvre les typos classiques comme 'microsft' -> 'microsoft', 'appl' -> 'apple'."""
+    norm = name.strip().lower()
+    if not norm or len(norm) < 3:
+        return None
+    best_match, best_dist = None, _LEVENSHTEIN_THRESHOLD + 1
+    for key in _KNOWN_TICKERS:
+        # Skip les cles trop eloignees en longueur (optimization)
+        if abs(len(key) - len(norm)) > _LEVENSHTEIN_THRESHOLD:
+            continue
+        d = _levenshtein(norm, key)
+        if d < best_dist:
+            best_dist = d
+            best_match = key
+    if best_dist <= _LEVENSHTEIN_THRESHOLD:
+        return _KNOWN_TICKERS[best_match]
+    return None
+
+
 def _resolve_ticker_yahoo(name: str) -> str | None:
     """Resout un nom de société en ticker.
-    Ordre : mapping manuel → Yahoo Finance Search → LLM fallback.
+    Ordre : mapping manuel → fuzzy match Levenshtein → Yahoo Search → LLM.
     Retourne le ticker ou None si rien ne fonctionne."""
     import logging as _log
-    # Niveau 1 : mapping manuel
-    _KNOWN = {
-        "stelantis": "STLAM.MI", "stellantis": "STLAM.MI",
-        "lvmh": "MC.PA", "airbus": "AIR.PA", "totalenergies": "TTE.PA",
-        "total": "TTE.PA", "bnp": "BNP.PA", "bnp paribas": "BNP.PA",
-        "société générale": "GLE.PA", "axa": "CS.PA",
-        "hermes": "RMS.PA", "kering": "KER.PA",
-        "renault": "RNO.PA", "peugeot": "STLAM.MI",
-        "volkswagen": "VOW3.DE", "mercedes": "MBG.DE", "bmw": "BMW.DE",
-        "tesla": "TSLA", "apple": "AAPL", "microsoft": "MSFT",
-        "google": "GOOGL", "alphabet": "GOOGL", "amazon": "AMZN",
-        "nvidia": "NVDA", "meta": "META", "netflix": "NFLX",
-    }
     norm = name.strip().lower()
-    if norm in _KNOWN:
-        return _KNOWN[norm]
+    # Niveau 1 : mapping manuel exact
+    if norm in _KNOWN_TICKERS:
+        return _KNOWN_TICKERS[norm]
+    # Niveau 1b : fuzzy match Levenshtein (typos)
+    fuzzy = _fuzzy_ticker_match(norm)
+    if fuzzy:
+        _log.info(f"[resolve_ticker] fuzzy match : '{name}' -> {fuzzy}")
+        return fuzzy
     # Niveau 2 : Yahoo Finance Search
     try:
         import requests as _req
