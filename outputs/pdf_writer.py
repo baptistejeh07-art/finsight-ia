@@ -189,10 +189,12 @@ def _render_llm_structured(elems, text, section_map=None, body_style=None,
         return
 
     # Detection sous-titre : "PREFIX : reste..." ou "1. PREFIX : reste..."
-    # Accepte : mot en MAJUSCULES, mot capitalise, ou "N. Titre"
+    # IMPORTANT : strip markdown bold ** ou __ AU DEBUT du paragraphe avant
+    # le regex, parce que le LLM retourne souvent "**ATTRACTIVITE CIBLE** :"
+    # malgre l'instruction "pas de markdown" dans le prompt.
     _TITLE_RE = _re_struct.compile(
         r'^(?:\d+\.\s*)?'                # optionnel "1. " "2. "
-        r'([A-ZÉÈÊÀÂÙÎÔÇ][A-Za-zÀ-ÿ\s\'/&]{3,55}?)'  # titre (3-55 chars)
+        r'([A-Z0-9ÉÈÊÀÂÙÎÔÇ][A-Za-z0-9À-ÿ\s\'/&\-]{2,60}?)'  # titre
         r'\s*[:—\-]\s+'                   # separateur : ou — ou -
         r'(.+)$',                          # corps
         _re_struct.DOTALL,
@@ -201,13 +203,20 @@ def _render_llm_structured(elems, text, section_map=None, body_style=None,
     for _p in paras:
         # Replace line breaks within paragraph with space for clean wrapping
         _p_flat = _re_struct.sub(r'\s*\n\s*', ' ', _p)
-        _m = _TITLE_RE.match(_p_flat)
+        # Strip leading markdown bold/italic markers au debut du paragraphe
+        # et aussi au milieu pour la detection du titre. On garde un clone
+        # sans markers pour le regex, le body original reste intact.
+        _p_for_match = _p_flat
+        # Retire **texte** -> texte (1ere occurrence au debut)
+        _p_for_match = _re_struct.sub(r'^\*{1,3}([^*]{2,80})\*{1,3}', r'\1', _p_for_match)
+        _p_for_match = _re_struct.sub(r'^_{2,3}([^_]{2,80})_{2,3}', r'\1', _p_for_match)
+        _m = _TITLE_RE.match(_p_for_match)
         if _m:
-            _raw_title = _m.group(1).strip().rstrip('.')
+            _raw_title = _m.group(1).strip().rstrip('.').rstrip('*').rstrip('_')
             _body      = _m.group(2).strip()
             # Si un section_map existe, remplace par le titre affichable
             if section_map:
-                _key = _raw_title.upper()
+                _key = _raw_title.upper().strip()
                 _raw_title = section_map.get(_key, _raw_title)
             elems.append(Paragraph(_safe(_raw_title), subtitle_style))
             elems.append(Paragraph(_safe(_body), body_style))
