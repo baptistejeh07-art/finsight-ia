@@ -1016,6 +1016,33 @@ def render_sidebar(results) -> None:
                           key="sb_back_prev_analysis"):
                 _cmp_back_to_previous()
 
+        # Contexte ANALYSE SECTORIELLE / INDICE (screening_results)
+        # On affiche aussi le bouton Nouvelle analyse dans ce stage pour coherence
+        # avec le ruban de gauche des analyses societe
+        elif (st.session_state.get("stage") == "screening_results"
+              and st.session_state.get("screening_results")):
+            if st.button("+  Nouvelle analyse", use_container_width=True, type="primary",
+                          key="sb_new_from_screening"):
+                # Reset complet : meme liste de cles que le bouton societe
+                for _k in (
+                    "results", "ticker", "from_screening",
+                    "screening_results", "screening_parent", "screening_universe",
+                    "cmp_indice_stage", "cmp_indice_universe_b", "cmp_indice_universe_a",
+                    "cmp_indice_pptx_bytes", "cmp_indice_pdf_bytes", "cmp_indice_xlsx_bytes",
+                    "cmp_indice_data",
+                    "cmp_secteur_stage", "cmp_secteur_sector_b", "cmp_secteur_universe_b",
+                    "cmp_secteur_pptx_bytes", "cmp_secteur_pdf_bytes", "cmp_secteur_xlsx_bytes",
+                    "cmp_secteur_tickers_a", "cmp_secteur_tickers_b", "cmp_secteur_data",
+                    "cmp_societe_stage", "comparison_kind", "cmp_societe_state_b", "cmp_societe_xlsx_bytes",
+                    "cmp_societe_pptx_bytes", "cmp_societe_pdf_bytes", "cmp_societe_ticker_b",
+                    "previous_analysis_type", "previous_analysis_results",
+                    "previous_analysis_label",
+                ):
+                    if _k in st.session_state:
+                        del st.session_state[_k]
+                st.session_state.stage = "home"
+                st.rerun()
+
         elif results and not results.get("error"):
             if st.button("＋  Nouvelle analyse", use_container_width=True, type="primary"):
                 # Reset COMPLET — sinon livrables / cmp / from_screening

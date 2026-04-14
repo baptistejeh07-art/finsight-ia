@@ -158,22 +158,23 @@ def make_indice_perf_chart(data):
         label_start = "N-12M"
         indice_name = data["indice"]
 
-    fig, ax = plt.subplots(figsize=(8.0, 3.8))
-    ax.plot(x, i_perf, color='#1B3A6B', linewidth=2.0, label=indice_name)
-    ax.plot(x, bonds,  color='#A0A0A0', linewidth=1.2, linestyle='--', label='US 10Y Bond')
-    ax.plot(x, gold,   color='#B06000', linewidth=1.2, linestyle=':', label='Gold')
+    # Tailles police agrandies (audit Baptiste S&P 500 p5 2026-04-14)
+    fig, ax = plt.subplots(figsize=(8.0, 4.2))
+    ax.plot(x, i_perf, color='#1B3A6B', linewidth=2.4, label=indice_name)
+    ax.plot(x, bonds,  color='#A0A0A0', linewidth=1.4, linestyle='--', label='US 10Y Bond')
+    ax.plot(x, gold,   color='#B06000', linewidth=1.4, linestyle=':', label='Gold')
     ax.fill_between(x, i_perf, 100, where=[v > 100 for v in i_perf], alpha=0.08, color='#1B3A6B')
     ax.set_xticks([x[i] for i in tick_idx])
-    ax.set_xticklabels(tick_lbl, fontsize=9, color='#555')
-    ax.yaxis.set_tick_params(labelsize=10)
+    ax.set_xticklabels(tick_lbl, fontsize=12, color='#555')
+    ax.yaxis.set_tick_params(labelsize=13)
     ax.tick_params(length=0)
     for sp in ['top','right']: ax.spines[sp].set_visible(False)
     ax.spines['left'].set_color('#D0D5DD'); ax.spines['bottom'].set_color('#D0D5DD')
     ax.set_facecolor('white'); fig.patch.set_facecolor('white')
     ax.grid(axis='y', alpha=0.15, color='#D0D5DD', linewidth=0.5)
-    ax.legend(fontsize=10, loc='upper left', frameon=False)
+    ax.legend(fontsize=13, loc='upper left', frameon=False)
     ax.set_title(f'Performance comparée assets - base 100, {label_start}',
-                 fontsize=12, color='#1B3A6B', fontweight='bold', pad=8)
+                 fontsize=16, color='#1B3A6B', fontweight='bold', pad=10)
     plt.tight_layout(pad=0.4)
     buf = io.BytesIO(); fig.savefig(buf, format='png', dpi=160, bbox_inches='tight')
     plt.close(fig); buf.seek(0); return buf
@@ -367,20 +368,21 @@ def make_top3_donut(data):
                 '#708090', '#BC8F8F', '#4682B4', '#D2691E', '#8FBC8F']
     palette = (_PALETTE * 3)[:len(noms)]
     explode = [0.03 if i < 3 else 0 for i in range(len(noms))]
-    fig, ax = plt.subplots(figsize=(6.5, 7.0))
+    # Tailles agrandies (audit Baptiste S&P 500 p11 2026-04-14)
+    fig, ax = plt.subplots(figsize=(7.2, 7.8))
     wedges, _ = ax.pie(poids, labels=None, autopct=None,
                        colors=palette, explode=explode,
-                       startangle=90, wedgeprops=dict(linewidth=0.8, edgecolor='white'))
+                       startangle=90, wedgeprops=dict(linewidth=1.0, edgecolor='white'))
     centre = plt.Circle((0, 0), 0.35, color='white')
     ax.add_patch(centre)
     n_sect = len(noms)
-    ax.text(0,  0.08, f"{n_sect}", ha='center', va='center', fontsize=18, fontweight='bold', color='#1B3A6B')
-    ax.text(0, -0.12, "secteurs", ha='center', va='center', fontsize=10, color='#555555')
+    ax.text(0,  0.08, f"{n_sect}", ha='center', va='center', fontsize=22, fontweight='bold', color='#1B3A6B')
+    ax.text(0, -0.12, "secteurs", ha='center', va='center', fontsize=12, color='#555555')
     ncol = 2 if n_sect <= 8 else 3
-    ax.legend(wedges, labels, loc='lower center', bbox_to_anchor=(0.5, -0.28),
-              ncol=ncol, fontsize=10, frameon=False, handlelength=1.4, columnspacing=1.2)
+    ax.legend(wedges, labels, loc='lower center', bbox_to_anchor=(0.5, -0.30),
+              ncol=ncol, fontsize=13, frameon=False, handlelength=1.6, columnspacing=1.4)
     ax.set_title("Répartition sectorielle de l'indice",
-                 fontsize=11, color='#1B3A6B', fontweight='bold', pad=8)
+                 fontsize=16, color='#1B3A6B', fontweight='bold', pad=10)
     fig.patch.set_facecolor('white')
     plt.tight_layout(pad=0.6)
     buf = io.BytesIO(); fig.savefig(buf, format='png', dpi=180, bbox_inches='tight')
@@ -429,11 +431,12 @@ def make_attribution_chart(data):
     contrib = data.get("sector_contribution", [])
     if not contrib:
         return None
-    noms = [c[0] for c in contrib]
+    # Traduction FR des noms secteurs (audit Baptiste S&P 500 p6 2026-04-14)
+    noms = [_abbrev_pdf(c[0]) for c in contrib]
     vals = [c[1] for c in contrib]   # contribution en points de %
     rets = [c[2] for c in contrib]   # return 1Y brut
     cols = ['#1A7A4A' if v >= 0 else '#A82020' for v in vals]
-    fig, ax = plt.subplots(figsize=(8.5, 4.8))
+    fig, ax = plt.subplots(figsize=(9.0, 5.2))
     y = np.arange(len(noms))
     ax.barh(y, vals, color=cols, alpha=0.85, height=0.60,
             edgecolor='white', linewidth=0.5)
@@ -442,11 +445,11 @@ def make_attribution_chart(data):
     for i, (val, ret) in enumerate(zip(vals, rets)):
         label = f"{val:+.1f}pp  ({ret:+.1f}%)"
         ax.text(val + x_pad if val >= 0 else val - x_pad, i,
-                label, va='center', fontsize=8.5, color='#333',
+                label, va='center', fontsize=10, color='#333',
                 fontweight='bold', ha='left' if val >= 0 else 'right')
     ax.axvline(x=0, color='#888', linewidth=0.8, linestyle='-')
-    ax.set_yticks(y); ax.set_yticklabels(noms, fontsize=9, color='#333')
-    ax.set_xlabel("Contribution au return indice (points de %)", fontsize=9, color='#555')
+    ax.set_yticks(y); ax.set_yticklabels(noms, fontsize=11, color='#333')
+    ax.set_xlabel("Contribution au return indice (points de %)", fontsize=11, color='#555')
     x_abs = x_range + 3 * x_pad
     ax.set_xlim(-x_abs, x_abs)
     for sp in ['top','right']: ax.spines[sp].set_visible(False)
@@ -455,7 +458,7 @@ def make_attribution_chart(data):
     ax.tick_params(length=0)
     ax.grid(axis='x', alpha=0.10, color='#D0D5DD', linewidth=0.5)
     ax.set_title("Attribution sectorielle — Contribution au return indice 12 mois",
-                 fontsize=14, color='#1B3A6B', fontweight='bold', pad=10)
+                 fontsize=16, color='#1B3A6B', fontweight='bold', pad=10)
     plt.tight_layout(pad=0.5)
     buf = io.BytesIO(); fig.savefig(buf, format='png', dpi=160, bbox_inches='tight')
     plt.close(fig); buf.seek(0); return buf
@@ -1078,16 +1081,17 @@ def _build_cartographie(data, weights_buf, attribution_buf=None, registry=None):
         ftbl_rows = [
             [Paragraph("Biais sectoriel", S_TD_B),
              Paragraph(_tilt, _tilt_s),
-             Paragraph(f"Cyclique {_cyc:+.1f}% vs Défensif {_def:+.1f}% (Écart {_spread:.1f}pp)", S_TD_L),
+             Paragraph(f"Cyclique {_cyc:+.1f}% vs D\u00e9fensif {_def:+.1f}% (\u00c9cart {_spread:.1f}pp)", S_TD_L),
              Paragraph(
-                 "Cyclique = Tech, Discret., Comm., Fin., Indus., Energy, Mat. | "
-                 "Défensif = Staples, Health, Utilities, Real Estate", S_TD_L)],
+                 "Cyclique = Technologie, Conso. Cycl., T\u00e9l\u00e9coms, Finance, "
+                 "Industrie, \u00c9nergie, Mat\u00e9riaux | "
+                 "D\u00e9fensif = Conso. D\u00e9f., Sant\u00e9, Serv. Publ., Immobilier", S_TD_L)],
             [Paragraph("Breadth sectorielle", S_TD_B),
              Paragraph(f"{_breadth}%", _br_s),
              Paragraph(f"{_br_nb}/{_br_tot} secteurs en momentum positif (return 12M > 0)", S_TD_L),
              Paragraph(
-                 ">70% : Marché porteur, beta recommande | "
-                 "<40% : Marché fragile, stock-picking défensif", S_TD_L)],
+                 ">70% : March\u00e9 porteur, beta recommand\u00e9 | "
+                 "<40% : March\u00e9 fragile, stock-picking d\u00e9fensif", S_TD_L)],
         ]
         # [40, 22, 62, 46] = 170
         elems.append(KeepTogether(tbl([ftbl_h] + ftbl_rows,
@@ -1119,21 +1123,79 @@ def _build_graphiques(data, scatter_buf, scores_buf, corr_buf=None, registry=Non
         elems.append(Spacer(1, 3*mm))
         elems.append(Image(scatter_buf, width=TABLE_W, height=95*mm))
         elems.append(src("FinSight IA — EV/EBITDA médian LTM vs croissance BPA Médiane secteur. FMP, Bloomberg."))
-        # Interprétation inline
+        # Interprétation enrichie via LLM (audit Baptiste S&P 500 p7 2026-04-14)
         _secteurs = data["secteurs"]
-        _surp = [s[0] for s in _secteurs if "Surp" in str(s[3])]
-        _sous = [s[0] for s in _secteurs if "Sous" in str(s[3])]
+        # Noms secteurs en francais pour affichage ET pour injection dans prompt LLM
+        _surp = [_abbrev_pdf(s[0]) for s in _secteurs if "Surp" in str(s[3])]
+        _sous = [_abbrev_pdf(s[0]) for s in _secteurs if "Sous" in str(s[3])]
+        _neut = [_abbrev_pdf(s[0]) for s in _secteurs if "Neutre" in str(s[3])
+                 or (s[3] not in ("Surp", "Sous") and "Surp" not in str(s[3]) and "Sous" not in str(s[3]))]
         _surp_str = ", ".join(_surp) if _surp else "aucun"
         _sous_str = ", ".join(_sous) if _sous else "aucun"
+
+        # Top/bottom EV/EBITDA pour alimenter le prompt
+        _ev_pairs = []
+        for s in _secteurs:
+            try:
+                _ev = float(str(s[4]).replace('x','').replace(',','.').strip() or 0)
+                if _ev > 0:
+                    _ev_pairs.append((_abbrev_pdf(s[0]), _ev, str(s[6])))
+            except Exception:
+                pass
+        _ev_pairs.sort(key=lambda x: x[1])
+        _cheap_str  = ", ".join(f"{n} {v:.1f}x" for n, v, _ in _ev_pairs[:3]) or "n.d."
+        _exp_str    = ", ".join(f"{n} {v:.1f}x" for n, v, _ in _ev_pairs[-3:]) or "n.d."
+
+        _llm_text = ""
+        try:
+            from core.llm_provider import llm_call
+            _indice_name = data.get("indice", "l'indice")
+            _prompt_p7 = (
+                f"Tu es un analyste buy-side senior. Redige une analyse approfondie "
+                f"(320-380 mots) de la lecture du positionnement EV/EBITDA vs croissance "
+                f"BPA pour {_indice_name}.\n\n"
+                f"Contexte quantitatif :\n"
+                f"- Secteurs Surponderer : {_surp_str}\n"
+                f"- Secteurs Sous-ponderer : {_sous_str}\n"
+                f"- Secteurs decote EV/EBITDA (3 plus bas) : {_cheap_str}\n"
+                f"- Secteurs prime EV/EBITDA (3 plus eleves) : {_exp_str}\n\n"
+                f"Structure en 3 paragraphes distincts separes par une ligne vide "
+                f"(chaque paragraphe ~100-120 mots) :\n"
+                f"1. Quadrant inferieur gauche (decote + faible croissance) : lecture "
+                f"analytique, risques de value trap, conditions de re-rating\n"
+                f"2. Quadrant superieur droit (prime + forte croissance) : justification "
+                f"de la prime, sensibilite aux revisions BPA, risques specifiques\n"
+                f"3. Implications portefeuille : ou renforcer, ou alleger, avec quels "
+                f"catalyseurs a surveiller et quels signaux macro cross-checker\n\n"
+                f"Francais correct avec accents. Cite les noms secteurs en francais. "
+                f"Pas de markdown. Pas d'emojis. Pas de listes a puces."
+            )
+            _llm_text = llm_call(_prompt_p7, phase="long", max_tokens=1000) or ""
+        except Exception as _e:
+            log.warning("[indice_pdf] scatter p7 LLM echoue: %s", _e)
         elems.append(Spacer(1, 4*mm))
-        elems.append(Paragraph(
-            "<b>Lecture du positionnément.</b> "
-            "Les secteurs dans le <b>quadrant inf\xe9rieur gauche</b> (faible EV/EBITDA, "
-            "faible croissance BPA) offrent une d\xe9côté relative \u2014 opportunit\xe9 si "
-            "les fondamentaux se stabilisent. Ceux dans le <b>quadrant sup\xe9rieur droit</b> "
-            "paient une prime justifi\xe9e par leur croissance visible. "
-            f"Secteurs signal <b>Surpond\xe9rer</b> : {_surp_str}. "
-            f"Secteurs signal <b>Sous-pond\xe9rer</b> : {_sous_str}.", S_BODY))
+        if _llm_text.strip():
+            # Split en paragraphes pour mise en page
+            for _para in _llm_text.strip().split("\n\n"):
+                _clean = _para.strip().replace("\n", " ")
+                if _clean:
+                    elems.append(Paragraph(_clean, S_BODY))
+                    elems.append(Spacer(1, 2*mm))
+        else:
+            # Fallback texte deterministe si LLM echoue
+            elems.append(Paragraph(
+                "<b>Lecture du positionnement.</b> "
+                "Les secteurs dans le <b>quadrant inf\xe9rieur gauche</b> (faible EV/EBITDA, "
+                "faible croissance BPA) offrent une d\xe9cote relative \u2014 opportunit\xe9 "
+                "si les fondamentaux se stabilisent. Ceux dans le <b>quadrant sup\xe9rieur "
+                "droit</b> paient une prime justifi\xe9e par leur croissance visible. "
+                f"Secteurs signal <b>Surpond\xe9rer</b> : {_surp_str}. "
+                f"Secteurs signal <b>Sous-pond\xe9rer</b> : {_sous_str}. "
+                f"Les secteurs en d\xe9cote EV/EBITDA ({_cheap_str}) meritent une analyse "
+                f"fondamentale approfondie pour distinguer opportunite structurelle et "
+                f"value trap cyclique. \xc0 l'inverse, les secteurs en prime ({_exp_str}) "
+                f"exigent une croissance BPA durable sur 18-24 mois pour justifier leur "
+                f"valorisation.", S_BODY))
     else:
         elems.append(Paragraph(
             "L'analyse comparative EV/EBITDA vs croissance BPA n\u00e9cessite au moins deux secteurs. "
