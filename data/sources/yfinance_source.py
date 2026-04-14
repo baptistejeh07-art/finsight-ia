@@ -276,11 +276,29 @@ def fetch(ticker: str) -> Optional[FinancialSnapshot]:
         log.info(f"[yfinance] '{ticker}' : exercices {available_years_asc} → {year_labels}")
 
         # --- Company Info ---
+        # Fix 2026-04-14 (Baptiste TSLA N/A) : yfinance peut renvoyer sector="" ou None
+        # selon la condition de rate-limit. On utilise un fallback prioritaire :
+        # sector -> sectorDisp -> sectorKey -> industry (dernier recours).
+        _sector_raw = (info.get("sector")
+                       or info.get("sectorDisp")
+                       or info.get("sectorKey")
+                       or info.get("industry")
+                       or info.get("industryDisp")
+                       or "")
+        # Normalize sectorKey ("consumer-cyclical") en format humain ("Consumer Cyclical")
+        if _sector_raw and "-" in _sector_raw and _sector_raw.islower():
+            _sector_raw = " ".join(w.capitalize() for w in _sector_raw.split("-"))
+        _industry_raw = (info.get("industryDisp")
+                         or info.get("industry")
+                         or info.get("industryKey")
+                         or "")
+        if _industry_raw and "-" in _industry_raw and _industry_raw.islower():
+            _industry_raw = " ".join(w.capitalize() for w in _industry_raw.split("-"))
         company_info = CompanyInfo(
             company_name  = info.get("longName") or info.get("shortName", ticker),
             ticker        = ticker.upper(),
-            sector        = info.get("sector") or info.get("industryDisp", ""),
-            industry      = info.get("industryDisp") or info.get("industry", ""),
+            sector        = _sector_raw,
+            industry      = _industry_raw,
             base_year     = base_year,
             currency      = info.get("currency", "USD"),
             units         = "M",

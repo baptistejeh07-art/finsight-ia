@@ -79,10 +79,22 @@ def _merge_snapshots(
     # Stock history : prendre le plus complet
     stock_hist = primary.stock_history if primary.stock_history else secondary.stock_history
 
-    # Company info : primary prioritaire, fallback secondary si champs vides
+    # Company info : primary prioritaire, fallback secondary CHAMP PAR CHAMP
+    # Bug TSLA 2026-04-14 : yfinance peut renvoyer sector="" pour certains
+    # tickers en rate-limit, et le fallback complet ne marche que si
+    # company_name est vide aussi. Fix : fallback field-by-field.
+    from dataclasses import fields as _dc_fields, replace as _dc_replace
     ci = primary.company_info
-    if not ci.company_name and secondary.company_info.company_name:
-        ci = secondary.company_info
+    s_ci = secondary.company_info
+    _updates = {}
+    for _f in _dc_fields(ci):
+        _p_val = getattr(ci, _f.name, None)
+        _s_val = getattr(s_ci, _f.name, None)
+        # Si primary est vide (None ou "") ET secondary a une valeur, fallback
+        if (not _p_val or _p_val in ("", "N/A")) and _s_val and _s_val not in ("", "N/A"):
+            _updates[_f.name] = _s_val
+    if _updates:
+        ci = _dc_replace(ci, **_updates)
 
     # Traçabilité sources
     sources = []
