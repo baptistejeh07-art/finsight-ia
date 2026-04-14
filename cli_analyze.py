@@ -1303,11 +1303,11 @@ def _make_test_indice_data(universe: str = "S&P 500") -> dict:
         "date_analyse":     date_str,
         "texte_description": (
             f"Le {universe} regroupe les {meta['nb_societes']} plus grandes capitalisations "
-            "boursieres domestiques, pondérees par leur capitalisation flottante. Cet indice "
-            "constitue la reference mondiale pour les allocataires d'actifs institutionnels, "
-            "avec une capitalisation totale de pres de 40 000 milliards de dollars. La "
-            "composition GICS couvre 11 secteurs, le secteur Technologie dominant avec pres "
-            "de 32% de l'indice."
+            f"domestiques, pond\u00e9r\u00e9es par leur capitalisation flottante. Cet indice "
+            f"constitue un benchmark de r\u00e9f\u00e9rence pour les allocataires d'actifs "
+            f"institutionnels sur sa zone g\u00e9ographique. La composition GICS couvre "
+            f"{len(secteurs)} secteurs, la repartition sectorielle reflete le tissu "
+            f"\u00e9conomique sous-jacent de l'univers analys\u00e9."
         ),
         "texte_macro": (
             "L'environnement macro reste marque par une resilience de la croissance americaine "

@@ -3615,7 +3615,10 @@ def _render_cmp_indice_section(results: dict) -> None:
     Section 'Comparer deux indices' en bas de la page screening indice.
     Gere les etats : form / running / done.
     """
-    universe_a   = results.get("universe", "")
+    universe_a_raw = results.get("universe", "")
+    # Normalisation : "CAC 40" -> "CAC40" pour matcher les cles du dict
+    _universe_a_norm = str(universe_a_raw).replace(" ", "").replace("&", "").upper()
+    universe_a = _universe_a_norm if _universe_a_norm in _INDICE_CMP_OPTIONS else universe_a_raw
     indice_data_a = results.get("_indice_data")  # peut etre None si non stocke
     tickers_data_a = results.get("tickers_data", [])
     name_a_disp  = _INDICE_CMP_OPTIONS.get(universe_a, (results.get("display_name", "Indice A"),))[0]
@@ -4284,8 +4287,13 @@ def render_screening_results(results: dict) -> None:
                 )
 
     # --- Comparer deux indices (en haut si analyse d'indice) ---
+    # Fix 2026-04-14 : normaliser la clef d'univers pour matcher _INDICE_CMP_OPTIONS
+    # (les keys sont "CAC40" sans espace, mais results["universe"] peut valoir "CAC 40")
     _universe_key = results.get("universe", "")
-    _is_indice_result = _universe_key not in _SECTOR_ALIASES_SET and _universe_key in _INDICE_CMP_OPTIONS
+    _universe_key_norm = str(_universe_key).replace(" ", "").replace("&", "").upper()
+    _is_indice_result = (_universe_key not in _SECTOR_ALIASES_SET
+                         and (_universe_key in _INDICE_CMP_OPTIONS
+                              or _universe_key_norm in _INDICE_CMP_OPTIONS))
     _is_sector_result = _universe_key in _SECTOR_ALIASES_SET
     if _is_indice_result:
         _render_cmp_indice_section(results)

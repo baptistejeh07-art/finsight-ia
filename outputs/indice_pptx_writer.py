@@ -1028,10 +1028,14 @@ def _s05_description(prs, D):
             f"{code}  ·  Analyse institutionnelle FinSight  ·  Données yfinance / FMP",
             active=1)
 
-    # Texte description gauche
-    desc = D.get("texte_description","")[:700]
+    # Texte description gauche — wrapp\u00e9 dans une box analytique avec titre
+    # (audit Baptiste 2026-04-14 : slide 5 texte sans box LLM)
+    desc = D.get("texte_description","")[:1400]
+    _rect(slide, 0.9, 2.3, 13.4, 7.1, fill=_GRAYL)
     _rect(slide, 0.9, 2.3, 0.12, 7.1, fill=_NAVY)
-    _txb(slide, desc, 1.2, 2.3, 13.4, 7.1, size=8.5, color=_GRAYT, wrap=True)
+    _txb(slide, "DESCRIPTION DE L'INDICE & CONTEXTE", 1.2, 2.4, 13.2, 0.45,
+         size=8.5, bold=True, color=_NAVY)
+    _txb(slide, desc, 1.2, 3.0, 13.1, 6.3, size=8.5, color=_GRAYT, wrap=True)
 
     # Tableau metriques droite
     cours     = D.get("cours","—")
@@ -1465,10 +1469,37 @@ def _s10_scatter(prs, D, chart_bytes: bytes):
             f"Favoriser les secteurs en bas droite (forte croissance, valorisation modérée)."
             f"{_proxy_note}"
         )
-    _rect(slide, 15.6, 2.3, 8.9, 8.6, fill=_GRAYL)
-    _rect(slide, 15.6, 2.3, 0.12, 8.6, fill=_NAVY)
-    _txb(slide, "Lecture du Scatter", 15.9, 2.4, 8.4, 0.6, size=8.5, bold=True, color=_NAVY)
-    _txb(slide, txt[:600], 15.9, 3.1, 8.4, 7.7, size=8, color=_GRAYT, wrap=True)
+    # Enrichissement LLM : analyse approfondie (audit Baptiste slide 10 2026-04-14)
+    _llm_extra_s10 = ""
+    try:
+        from core.llm_provider import llm_call
+        _surp_names = ", ".join(_abbrev_sector(s[0], 22) for s in surp_s[:4]) or "aucun"
+        _sous_names = ", ".join(_abbrev_sector(s[0], 22) for s in sous_s[:4]) or "aucun"
+        _prompt_s10 = (
+            f"Tu es analyste sell-side senior. Redige une analyse (200-240 mots) "
+            f"de la carte valorisation vs croissance pour {indice}.\n\n"
+            f"Secteurs Surponderer : {_surp_names}\n"
+            f"Secteurs Sous-ponderer : {_sous_names}\n\n"
+            f"Structure en 2 paragraphes :\n"
+            f"1. Lecture du scatter : quadrants dominants, couple "
+            f"valorisation/croissance, signaux d'inflexion a surveiller\n"
+            f"2. Implications allocation : sur/sous-pond\u00e9ration recommand\u00e9e, "
+            f"condition de basculement vers un profil plus d\u00e9fensif ou "
+            f"offensif, horizon 12 mois\n\n"
+            f"Francais correct avec accents. Pas de markdown. Pas d'emojis. "
+            f"Cite les secteurs en francais."
+        )
+        _llm_extra_s10 = llm_call(_prompt_s10, phase="long", max_tokens=700) or ""
+    except Exception:
+        pass
+    _full_txt_s10 = (txt + "\n\n" + _llm_extra_s10).strip() if _llm_extra_s10 else txt
+
+    _rect(slide, 15.6, 2.3, 8.9, 11.0, fill=_GRAYL)
+    _rect(slide, 15.6, 2.3, 0.12, 11.0, fill=_NAVY)
+    _txb(slide, "Lecture du Scatter & Implications", 15.9, 2.4, 8.4, 0.6,
+         size=8.5, bold=True, color=_NAVY)
+    _txb(slide, _full_txt_s10[:2000], 15.9, 3.1, 8.4, 10.0,
+         size=7.5, color=_GRAYT, wrap=True)
 
     _footer(slide)
     return slide
@@ -1850,15 +1881,42 @@ def _s15_zone_entree(prs, D, chart_bytes: bytes):
         f"{'  ·  '.join([_abbrev_sector(n,18) for n in noms_b]) or 'Aucun secteur top3'}\n\n"
         f"Zone de prudence (PE > Médiane +15 %) :\n"
         f"{'  ·  '.join([_abbrev_sector(n,18) for n in noms_h]) or 'Aucun'}\n\n"
-        f"Méthodologie : le PE Forward estime est ancre sur le PE global de l'indice "
-        f"Ajusté du score sectoriel (+/- Écart). Les secteurs a gauche de la ligne "
-        f"pointillee (Médiane 10 ans) offrent un meilleur point d'entree. "
-        f"Un Écart > +20 % vs la médiane justifié une prudence accrue sur le timing."
+        f"Méthodologie : le PE Forward est ancre sur le PE global de l'indice "
+        f"ajust\u00e9 du score sectoriel. Les secteurs \u00e0 gauche de la m\u00e9diane "
+        f"10 ans offrent un meilleur point d'entr\u00e9e."
     )
-    _rect(slide, 16.3, 2.3, 8.1, 10.5, fill=_GRAYL)
-    _rect(slide, 16.3, 2.3, 0.12, 10.5, fill=_NAVY)
-    _txb(slide, "Lecture — Zone d'entrée", 16.6, 2.4, 7.6, 0.6, size=8.5, bold=True, color=_NAVY)
-    _txb(slide, txt_col[:700], 16.6, 3.1, 7.6, 9.5, size=7.5, color=_GRAYT, wrap=True)
+    # Enrichissement LLM (audit Baptiste slide 15 2026-04-14)
+    _llm_zone_s15 = ""
+    try:
+        from core.llm_provider import llm_call
+        _indice_name = D.get("indice", "l'indice")
+        _buy_sec  = ", ".join(_abbrev_sector(n, 22) for n in noms_b) or "aucun"
+        _high_sec = ", ".join(_abbrev_sector(n, 22) for n in noms_h) or "aucun"
+        _prompt_s15 = (
+            f"Tu es analyste sell-side senior. Redige une analyse (200-240 mots) "
+            f"sur les zones d'entree par secteur pour {_indice_name}.\n\n"
+            f"PE Forward indice : {_pe_g}. PE median 10 ans : {_pm_str}.\n"
+            f"Secteurs en zone d'entree favorable : {_buy_sec}\n"
+            f"Secteurs en zone de prudence : {_high_sec}\n\n"
+            f"Structure en 2 paragraphes :\n"
+            f"1. Interpretation des zones d'entree : conditions pour que le PE "
+            f"se re-rate, triggers macro et microstructure a surveiller\n"
+            f"2. Tactique d'accumulation : phasing recommande pour les secteurs "
+            f"en zone favorable, sizing initial vs rampe de conviction, stop-loss "
+            f"analytique base sur la deterioration des fondamentaux\n\n"
+            f"Francais correct avec accents. Pas de markdown. Pas d'emojis."
+        )
+        _llm_zone_s15 = llm_call(_prompt_s15, phase="long", max_tokens=700) or ""
+    except Exception:
+        pass
+    _full_s15 = (txt_col + "\n\n" + _llm_zone_s15).strip() if _llm_zone_s15 else txt_col
+
+    _rect(slide, 16.3, 2.3, 8.1, 11.0, fill=_GRAYL)
+    _rect(slide, 16.3, 2.3, 0.12, 11.0, fill=_NAVY)
+    _txb(slide, "Lecture — Zone d'entr\u00e9e & tactique", 16.6, 2.4, 7.6, 0.6,
+         size=8.5, bold=True, color=_NAVY)
+    _txb(slide, _full_s15[:2000], 16.6, 3.1, 7.6, 10.0,
+         size=7.5, color=_GRAYT, wrap=True)
 
     _footer(slide)
     return slide
@@ -2097,7 +2155,7 @@ def _s19_sentiment(prs, D, chart_bytes: bytes):
         _txb(slide, lbl, _rx + 0.15, yy + 0.05, _rw - 0.3, 0.4, size=8, bold=True, color=txt_col)
         _txb(slide, f"{nb} sect. ({pct} %)", _rx + 0.15, yy + 0.47, _rw - 0.3, 0.38, size=7.5, color=txt_col)
 
-    # Secteurs leaders / retardataires — texte traduit en FR + truncation elargie
+    # Secteurs leaders / retardataires — texte traduit en FR + LLM enrichi
     _t_pos_fr = [_abbrev_sector(t, 22) if len(t) < 30 else t for t in t_pos]
     _t_neg_fr = [_abbrev_sector(t, 22) if len(t) < 30 else t for t in t_neg]
     pos_txt = "  ·  ".join(_t_pos_fr[:3]) if _t_pos_fr else "—"
@@ -2105,13 +2163,43 @@ def _s19_sentiment(prs, D, chart_bytes: bytes):
     _rect(slide, _rx, 8.80, _rw, 0.4, fill=_NAVY)
     _txb(slide, "SECTEURS LEADERS / RETARDATAIRES", _rx + 0.1, 8.82, _rw - 0.2, 0.36,
          size=7, bold=True, color=_WHITE, align=PP_ALIGN.CENTER)
-    # Boxes agrandies : 1.5 -> 2.10 et 2.3 -> 2.10 (symetriques), texte jusqu'a 250 chars
-    _rect(slide, _rx, 9.25, _rw, 2.05, fill=_BUY_L)
-    _txb(slide, "Surpond\u00e9rer : " + pos_txt[:250], _rx + 0.15, 9.30, _rw - 0.3, 1.95,
+    _rect(slide, _rx, 9.25, _rw, 1.05, fill=_BUY_L)
+    _txb(slide, "Surpond\u00e9rer : " + pos_txt[:250], _rx + 0.15, 9.30, _rw - 0.3, 0.95,
          size=7.5, color=_GRAYT, wrap=True)
-    _rect(slide, _rx, 11.40, _rw, 1.90, fill=_SELL_L)
-    _txb(slide, "Sous-pond\u00e9rer : " + neg_txt[:250], _rx + 0.15, 11.45, _rw - 0.3, 1.80,
+    _rect(slide, _rx, 10.40, _rw, 1.05, fill=_SELL_L)
+    _txb(slide, "Sous-pond\u00e9rer : " + neg_txt[:250], _rx + 0.15, 10.45, _rw - 0.3, 0.95,
          size=7.5, color=_GRAYT, wrap=True)
+
+    # Enrichissement LLM (audit Baptiste slide 19 2026-04-14) : analyse sentiment
+    _llm_sent_s19 = ""
+    try:
+        from core.llm_provider import llm_call
+        _indice_name = D.get("indice", "l'indice")
+        _prompt_s19 = (
+            f"Tu es analyste sentiment senior. Redige une analyse (150-180 mots) "
+            f"du sentiment sectoriel composite de {_indice_name}.\n\n"
+            f"Score composite : {_score_str} ({label}). "
+            f"Surponderer : {p_nb} sect. ({p_pct}%). "
+            f"Neutre : {n_nb} sect. ({n_pct}%). "
+            f"Sous-ponderer : {m_nb} sect. ({m_pct}%).\n"
+            f"Secteurs leaders : {pos_txt}\n"
+            f"Secteurs retardataires : {neg_txt}\n\n"
+            f"Structure : (1) lecture du signal composite et ce qu'il implique "
+            f"pour les 3 prochains mois, (2) divergences a surveiller entre "
+            f"sentiment et fondamentaux (convergence/divergence), (3) impact "
+            f"sur le positionnement actuel.\n"
+            f"Francais correct avec accents. Pas de markdown."
+        )
+        _llm_sent_s19 = llm_call(_prompt_s19, phase="long", max_tokens=500) or ""
+    except Exception:
+        pass
+    if _llm_sent_s19.strip():
+        _rect(slide, _rx, 11.55, _rw, 1.75, fill=_GRAYL)
+        _rect(slide, _rx, 11.55, 0.08, 1.75, fill=_NAVY)
+        _txb(slide, "LECTURE SENTIMENT & IMPLICATIONS", _rx + 0.15, 11.60, _rw - 0.3, 0.35,
+             size=7, bold=True, color=_NAVY)
+        _txb(slide, _llm_sent_s19[:900], _rx + 0.15, 11.98, _rw - 0.3, 1.30,
+             size=6.5, color=_GRAYT, wrap=True)
 
     _footer(slide)
     return slide
@@ -2343,28 +2431,42 @@ def _s20_etf_perf(prs, D, chart_bytes: bytes):
         )
 
     # Enrichissement LLM avec événements datés impactant le cours
+    # Refonte 2026-04-14 : llm_call(phase=long) -> Mistral primary + prompt etendu
     _llm_macro_comment = ""
     try:
-        from core.llm_provider import LLMProvider
-        _llm_prov = LLMProvider(provider="groq", model="llama-3.3-70b-versatile")
+        from core.llm_provider import llm_call
         _llm_prompt_s20 = (
-            f"Tu es un analyste macro sell-side. Rédige un commentaire concis (150 mots max) "
-            f"sur les facteurs ayant impacté le cours de l'indice {indice} sur les 12 derniers mois. "
-            f"Données : YTD {_ytd_s20}, ERP {_erp_s20}, P/E Forward {_pe_s20}, BPA growth {_bpa_s20}. "
-            f"IMPORTANT : cite des événements DATÉS (mois + année) et leur impact chiffré sur le cours. "
-            f"Exemples : pivot Fed juin 2025, élections, tensions géopolitiques, publications résultats. "
-            f"Français correct avec accents. Pas de markdown. Pas d'emojis."
+            f"Tu es analyste macro sell-side senior. Redige un commentaire approfondi "
+            f"(300-360 mots) sur les facteurs macro et catalyseurs sectoriels ayant "
+            f"impacte le cours de l'indice {indice} sur les 12 derniers mois.\n\n"
+            f"Donnees : YTD {_ytd_s20}, ERP {_erp_s20}, P/E Forward {_pe_s20}, "
+            f"BPA growth {_bpa_s20}, phase cycle {_phase_s20}.\n\n"
+            f"Structure en 3 paragraphes (120 mots chacun) :\n"
+            f"1. Environnement macro dates : politique monetaire (Fed/BCE avec dates "
+            f"cles), inflation, taux longs, cycle economique. Cite les evenements "
+            f"datables (pivot Fed, reunion BCE, publication ISM, CPI) et leur impact "
+            f"chiffre sur l'indice.\n"
+            f"2. Catalyseurs sectoriels specifiques : quels secteurs ont porte/freine "
+            f"la performance, revisions de consensus, publications trimestrielles "
+            f"marquantes, M&A de reference.\n"
+            f"3. Implications forward : catalyseurs a surveiller sur les 6 prochains "
+            f"mois, niveaux techniques critiques, conditions de bascule du regime.\n\n"
+            f"Francais correct avec accents. Pas de markdown. Pas d'emojis. "
+            f"Cite des chiffres precis et des dates."
         )
-        _llm_macro_comment = _llm_prov.generate(_llm_prompt_s20, max_tokens=400) or ""
+        _llm_macro_comment = llm_call(_llm_prompt_s20, phase="long", max_tokens=900) or ""
     except Exception as _llm_e:
         log.warning("[indice_pptx] s20 LLM macro: %s", _llm_e)
 
     if _llm_macro_comment.strip():
         commentary = _llm_macro_comment.strip()
 
+    # Box elargie pour accueillir le texte LLM etendu (1.75 -> 2.60 cm)
     _rect(slide, 16.4, 11.0, 8.1, 0.05, fill=_GRAYD)
-    _txb(slide, "Pourquoi ça bouge — événements clés datés", 16.6, 11.1, 7.8, 0.5, size=7.5, bold=True, color=_NAVY)
-    _txb(slide, commentary[:700], 16.6, 11.65, 7.8, 1.75, size=6.8, color=_GRAYT, wrap=True)
+    _txb(slide, "Pourquoi ca bouge — environnement macro et catalyseurs",
+         16.6, 11.1, 7.8, 0.5, size=7.5, bold=True, color=_NAVY)
+    _txb(slide, commentary[:2000], 16.6, 11.65, 7.8, 2.15,
+         size=6.8, color=_GRAYT, wrap=True)
 
     _footer(slide)
     return slide
