@@ -264,11 +264,12 @@ def build_sommaire(sector_name: str, page_nums: dict = None):
 # ─── CHARTS ───────────────────────────────────────────────────────────────────
 def _make_perf_chart(tickers_data: list[dict], sector_name: str) -> io.BytesIO:
     """Performance relative basket sectoriel vs S&P 500 — base 100, 13 mois.
-    Utilise le momentum_52w median comme base de reconstruction — donnees simulees coherentes."""
-    log.warning("sector_pdf_writer _make_perf_chart: utilisation de données simulees "
-                "(yfinance non appele ici) — graphique illustratif")
 
-    # Labels dynamiques : partir de il y a 13 mois jusqu'au mois courant
+    Tente d'abord un VRAI fetch yfinance des top 15 tickers du basket + ^GSPC
+    sur 1 an. En cas d'echec (rate limit, network), fallback sur une simulation
+    coherente basee sur le momentum_52w median (graphique illustratif marque
+    explicitement comme tel dans le titre).
+    """
     _MOIS = ['Jan','Fev','Mar','Avr','Mai','Jun','Jul','Aou','Sep','Oct','Nov','Dec']
     _today = date.today()
     months = []
@@ -276,42 +277,76 @@ def _make_perf_chart(tickers_data: list[dict], sector_name: str) -> io.BytesIO:
         m = (_today.month - 1 - i) % 12
         y = _today.year - ((_today.month - 1 - i < 0) and (i > _today.month - 1))
         months.append(f"{_MOIS[m]} {str(y)[2:]}")
-    np.random.seed(42)
 
-    # Estime la performance basket depuis momentum_52w moyen
-    avg_mom = 0.0
-    count = 0
-    for t in tickers_data:
-        m = t.get('momentum_52w')
-        if m is not None:
-            try:
-                avg_mom += float(m)
-                count += 1
-            except (TypeError, ValueError):
-                pass
-    avg_mom = avg_mom / count if count else 10.0
+    # Tentative fetch yfinance reel
+    basket = None
+    sp500  = None
+    is_real = False
+    try:
+        import yfinance as _yf
+        # Top 15 tickers du basket (par score_global)
+        top_tk = sorted(tickers_data, key=lambda x: x.get("score_global") or 0,
+                        reverse=True)[:15]
+        symbols = [t.get("ticker") for t in top_tk if t.get("ticker")]
+        if symbols:
+            hist = _yf.download(symbols + ["^GSPC"], period="13mo", interval="1mo",
+                                auto_adjust=True, progress=False, timeout=20)
+            if not hist.empty:
+                _close = hist["Close"] if "Close" in hist.columns else hist
+                if hasattr(_close, "columns"):
+                    # Basket = moyenne equi-ponderee normalisee base 100
+                    _bask_cols = [c for c in symbols if c in _close.columns]
+                    if _bask_cols:
+                        _bask_norm = _close[_bask_cols].apply(
+                            lambda s: s / s.dropna().iloc[0] * 100 if len(s.dropna()) > 0 else s)
+                        basket = _bask_norm.mean(axis=1).dropna().values[-13:]
+                    if "^GSPC" in _close.columns:
+                        _sp = _close["^GSPC"].dropna()
+                        if len(_sp) > 0:
+                            sp500 = (_sp / _sp.iloc[0] * 100).values[-13:]
+                if basket is not None and sp500 is not None and len(basket) >= 8 and len(sp500) >= 8:
+                    is_real = True
+    except Exception as _e:
+        log.warning(f"sector_pdf_writer _make_perf_chart: vrai fetch echoue ({_e}) — fallback simule")
 
-    x = np.arange(13)
-    # Basket : croissance cohérente avec le momentum annuel
-    basket_final = 100 + avg_mom
-    basket = np.linspace(100, basket_final, 13) + np.random.normal(0, 2, 13)
-    basket[0] = 100
-    sp500   = np.linspace(100, 122, 13) + np.random.normal(0, 1.2, 13)
-    sp500[0] = 100
-    etf     = np.linspace(100, 118, 13) + np.random.normal(0, 1.5, 13)
-    etf[0]  = 100
+    if not is_real:
+        log.warning("sector_pdf_writer _make_perf_chart: utilisation de données simulees "
+                    "(graphique illustratif)")
+        np.random.seed(42)
+        avg_mom = 0.0
+        count = 0
+        for t in tickers_data:
+            m = t.get('momentum_52w')
+            if m is not None:
+                try:
+                    avg_mom += float(m)
+                    count += 1
+                except (TypeError, ValueError):
+                    pass
+        avg_mom = avg_mom / count if count else 10.0
+        basket_final = 100 + avg_mom
+        basket = np.linspace(100, basket_final, 13) + np.random.normal(0, 2, 13)
+        basket[0] = 100
+        sp500   = np.linspace(100, 122, 13) + np.random.normal(0, 1.2, 13)
+        sp500[0] = 100
+
+    # Aligner les longueurs si fetch yf retourne moins de 13 points
+    n_pts = min(len(basket), len(sp500), 13)
+    basket = list(basket[-n_pts:])
+    sp500  = list(sp500[-n_pts:])
+    x = np.arange(n_pts)
+    months_used = months[-n_pts:]
 
     fig, ax = plt.subplots(figsize=(6.5, 2.6))
     ax.plot(x, basket, color='#1B3A6B', linewidth=1.8, label=f'Basket {sector_name}')
     ax.plot(x, sp500,  color='#A0A0A0', linewidth=1.0, linestyle='--', label='S&P 500')
-    ax.plot(x, etf,    color='#5580B8', linewidth=1.0, linestyle=':',  label='ETF sectoriel')
     ax.fill_between(x, basket, sp500,
                     where=[float(b) > float(s) for b, s in zip(basket, sp500)],
                     alpha=0.08, color='#1B3A6B')
     _n = len(x)
     _tick_step = max(1, _n // 5) if _n >= 2 else 1
     ax.set_xticks(x[::_tick_step])
-    ax.set_xticklabels(months[::_tick_step], fontsize=8, color='#555')
+    ax.set_xticklabels(months_used[::_tick_step], fontsize=8, color='#555')
     ax.tick_params(length=0)
     for sp in ['top', 'right']:
         ax.spines[sp].set_visible(False)
@@ -320,12 +355,13 @@ def _make_perf_chart(tickers_data: list[dict], sector_name: str) -> io.BytesIO:
     ax.set_facecolor('white')
     fig.patch.set_facecolor('white')
     ax.legend(fontsize=8, loc='upper left', frameon=False)
-    _start = months[0]  # e.g. "Mar 25"
+    _start = months_used[0]  # e.g. "Mar 25"
     _MOIS_FULL = ['Janvier','Fevrier','Mars','Avril','Mai','Juin','Juillet','Aout','Septembre','Octobre','Novembre','Decembre']
     _abbr, _yr = _start.split()
     _full = _MOIS_FULL[_MOIS.index(_abbr)] if _abbr in _MOIS else _abbr
-    ax.set_title(f'Performance relative \u2014 base 100, {_full} 20{_yr}', fontsize=8.5,
-                 color='#1B3A6B', fontweight='bold', pad=4)
+    _suffix = "" if is_real else " (illustratif)"
+    ax.set_title(f'Performance relative \u2014 base 100, {_full} 20{_yr}{_suffix}',
+                 fontsize=8.5, color='#1B3A6B', fontweight='bold', pad=4)
     plt.tight_layout(pad=0.3)
     buf = io.BytesIO()
     fig.savefig(buf, format='png', dpi=160, bbox_inches='tight')
@@ -696,7 +732,7 @@ def _build_macro(perf_buf, area_buf, tickers_data: list[dict],
     perf_img = Image(perf_buf, width=TABLE_W, height=TABLE_W * 2.6 / 6.5)
     elems.append(perf_img)
     elems.append(src(
-        f"FinSight IA \u2014 Basket {sector_name} vs S&P 500 vs ETF sectoriel, base 100."))
+        f"FinSight IA \u2014 Basket {sector_name} (top 15 par score) vs S&P 500, base 100."))
     elems.append(Spacer(1, 4*mm))
 
     # Row 2 : area chart (left, 130mm) + analytical text (right) — ratio figsize (7.0, 3.2)
