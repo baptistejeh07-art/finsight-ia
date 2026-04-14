@@ -3857,7 +3857,7 @@ def _slide_risques(prs, snap, synthesis, devil, extra_scores: dict = None):
         rec_6m = _macro.get('recession_prob_6m')
         if regime and regime != 'Inconnu':
             rec_part = f"  Rec.6M:{rec_6m}%" if rec_6m is not None else ''
-            row1_items.append((f"Régime : {regime_v}{rec_part}", _CMAP.get(regime, NAVY)))
+            row1_items.append((f"Régime : {regime}{rec_part}", _CMAP.get(regime, NAVY)))
 
         for i, (txt, col) in enumerate(row1_items[:3]):
             x = bx_x[i]
