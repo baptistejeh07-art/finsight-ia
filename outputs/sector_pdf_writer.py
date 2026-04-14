@@ -2938,16 +2938,31 @@ def _build_conclusion(tickers_data: list[dict], sector_name: str,
                 f"{k} (score moy. {sum(v)//len(v)})" for k, v in
                 sorted(_industries.items(), key=lambda x: sum(x[1])/len(x[1]), reverse=True)[:5]
             )
+            # Inject profile-specific hints (#88 Energy/Insurance approfondis)
+            _profile_hints = ""
+            try:
+                from core.sector_profiles import detect_profile, get_prompt_hints
+                _reco_profile2 = detect_profile(sector_name,
+                                                tickers_data[0].get("industry", "") if tickers_data else "")
+                _profile_hints = get_prompt_hints(_reco_profile2) or ""
+            except Exception:
+                pass
+
             _reco_prompt = (
                 f"Tu es un analyste buy-side senior. R\u00e9dige une recommandation sectorielle d\u00e9taill\u00e9e "
                 f"(350 mots) pour le secteur {sector_name}.\n"
                 f"Donn\u00e9es : {len(tickers_data)} soci\u00e9t\u00e9s, {buy_count} BUY, {hold_count} HOLD, {sell_count} SELL.\n"
                 f"Sous-secteurs : {_ind_summary}.\n"
+            )
+            if _profile_hints:
+                _reco_prompt += f"\nPROFIL SECTORIEL SPECIFIQUE :\n{_profile_hints}\n\n"
+            _reco_prompt += (
                 f"Structure ta r\u00e9ponse : (1) le secteur est-il prometteur et pourquoi, (2) horizon "
                 f"d'investissement recommand\u00e9, (3) quels sous-secteurs privil\u00e9gier, (4) catalyseurs "
                 f"d\u00e9terminants pour les 6-12 prochains mois, (5) risques \u00e0 surveiller, "
                 f"(6) conditions de revision de la these.\n"
-                f"Fran\u00e7ais correct avec accents. Pas de markdown. Pas d'emojis."
+                f"Fran\u00e7ais correct avec accents. Pas de markdown. Pas d'emojis. "
+                f"Utilise les m\u00e9triques sp\u00e9cifiques au profil sectoriel identifi\u00e9 ci-dessus."
             )
             # Refonte 2026-04-14 : critical phase -> Mistral primary (qualite FR top)
             _reco_llm_text = llm_call(_reco_prompt, phase="critical", max_tokens=900) or ""
