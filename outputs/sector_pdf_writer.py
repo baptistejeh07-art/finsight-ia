@@ -757,6 +757,58 @@ def _build_macro(perf_buf, area_buf, tickers_data: list[dict],
     avg_ebitda = sum((t.get('ebitda_margin') or 0) for t in tickers_data) / max(N, 1)
     _mc_str = f"{total_mc/1e9:,.0f} Mds" if total_mc > 1e9 else f"{total_mc:,.0f} Mds"
 
+    # ── ETF sectoriel de reference ────────────────────────────────────────────
+    # Integration module core/sector_etfs + core/etf_holdings (chantier ETF-first)
+    _etf_info = None
+    _etf_data = None
+    try:
+        from core.sector_etfs import get_etf_for, etf_issuer
+        from core.etf_holdings import fetch_etf_holdings, format_aum, format_ter
+        _etf_info = get_etf_for(sector_name, universe=universe)
+        if _etf_info:
+            _etf_data = fetch_etf_holdings(_etf_info["ticker"])
+    except Exception as _e:
+        log.warning("sector_pdf ETF section: %s", _e)
+
+    if _etf_info and _etf_data:
+        _etf_issuer = etf_issuer(_etf_info["zone"])
+        _ter_str = format_ter(_etf_data.get("ter_bps"))
+        _aum_str = format_aum(_etf_data.get("aum_usd"))
+        _n_holdings = len(_etf_data.get("holdings", []))
+        elems.append(Paragraph(
+            f"<b>ETF de reference : {_etf_info['ticker']} — {_etf_info['name']}</b>",
+            S_SUBSECTION))
+        elems.append(Spacer(1, 1*mm))
+        elems.append(Paragraph(
+            f"L'analyse du secteur <b>{sector_name}</b> s'appuie sur l'ETF de r\u00e9f\u00e9rence "
+            f"<b>{_etf_info['ticker']}</b> emis par <b>{_etf_issuer}</b>. Cet instrument constitue "
+            f"le benchmark pass ing du secteur et l'ancrage de notre analyse fondamentale. "
+            f"AUM : <b>{_aum_str}</b>. TER : <b>{_ter_str}</b>. Top holdings disponibles : {_n_holdings}. "
+            f"Le graphique de performance pr\u00e9sent\u00e9 ci-dessous superpose la courbe r\u00e9elle de "
+            f"l'ETF avec trois paniers d\u00e9riv\u00e9s du scoring FinSight (BUY / HOLD / SELL) pour "
+            f"appr\u00e9cier l'ajout de valeur du stock-picking par rapport \u00e0 une exposition "
+            f"benchmark\u00e9e sur l'ETF.", S_BODY))
+        # Top 5 holdings en mini-tableau
+        _top5 = sorted(_etf_data.get("holdings", []),
+                       key=lambda h: h.get("weight", 0) or 0, reverse=True)[:5]
+        if _top5:
+            _h_rows = [[Paragraph(h, S_TH_C) for h in ["Rg", "Ticker", "Soci\u00e9t\u00e9", "Poids"]]]
+            for _i, _h in enumerate(_top5, 1):
+                _w = _h.get("weight", 0) or 0
+                _w_pct = _w * 100 if _w < 1 else _w
+                _h_rows.append([
+                    Paragraph(str(_i), S_TD_C),
+                    Paragraph(f"<b>{_h.get('ticker','?')}</b>", S_TD_BC),
+                    Paragraph(str(_h.get('name', ''))[:40], S_TD_L),
+                    Paragraph(f"{_w_pct:.1f} %", S_TD_C),
+                ])
+            elems.append(Spacer(1, 1*mm))
+            elems.append(Paragraph("Top 5 holdings (poids decroissant)", S_NOTE))
+            elems.append(tbl(_h_rows, cw=[12*mm, 22*mm, 110*mm, 26*mm]))
+            elems.append(src(
+                f"Source : {_etf_issuer}. Holdings au dernier rebalancement disponible via yfinance."))
+        elems.append(Spacer(1, 4*mm))
+
     elems.append(Paragraph(
         f"Le secteur <b>{sector_name}</b> ({universe}) couvre <b>{N} sociétés</b> "
         f"pour une capitalisation totale de <b>{_mc_str}</b>. "
