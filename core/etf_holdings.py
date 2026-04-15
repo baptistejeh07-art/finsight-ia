@@ -17,6 +17,7 @@ repetes a yfinance (rate-limiting + latence).
 Usage typique :
 
     from core.etf_holdings import fetch_etf_holdings
+from core.yfinance_cache import get_ticker
 
     data = fetch_etf_holdings("XLK")
     # -> {
@@ -104,7 +105,7 @@ def _fetch_from_yfinance(ticker: str) -> dict | None:
         return None
 
     try:
-        yft = yf.Ticker(ticker)
+        yft = get_ticker(ticker)
         info = yft.info or {}
         funds_data = getattr(yft, "funds_data", None)
 

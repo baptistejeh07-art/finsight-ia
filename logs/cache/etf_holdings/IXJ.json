@@ -1,0 +1,64 @@
+{
+  "ticker": "IXJ",
+  "name": "iShares Global Healthcare ETF",
+  "aum_usd": 3624047616,
+  "ter_bps": 0,
+  "description": "The fund invests at least 80% of its assets in the component securities of its underlying index and in investments that have economic characteristics that are substantially identical to the component securities of its underlying index and may invest up to 20% of its assets in certain futures, options and swap contracts, cash and cash equivalents. The index measures the performance of companies that S&P Dow Jones Indices LLC, a subsidiary of S&P Global, Inc., deems to be a part of the healthcare ",
+  "holdings": [
+    {
+      "ticker": "LLY",
+      "name": "Eli Lilly and Co",
+      "weight": 0.094979495
+    },
+    {
+      "ticker": "JNJ",
+      "name": "Johnson & Johnson",
+      "weight": 0.0767624
+    },
+    {
+      "ticker": "ABBV",
+      "name": "AbbVie Inc",
+      "weight": 0.0500899
+    },
+    {
+      "ticker": "AZN.L",
+      "name": "AstraZeneca PLC",
+      "weight": 0.040070903
+    },
+    {
+      "ticker": "MRK",
+      "name": "Merck & Co Inc",
+      "weight": 0.03982
+    },
+    {
+      "ticker": "NOVN.SW",
+      "name": "Novartis AG Registered Shares",
+      "weight": 0.0381384
+    },
+    {
+      "ticker": "ROP.SW",
+      "name": "Roche Holding AG Ordinary Shares new",
+      "weight": 0.0366961
+    },
+    {
+      "ticker": "UNH",
+      "name": "UnitedHealth Group Inc",
+      "weight": 0.0326916
+    },
+    {
+      "ticker": "AMGN",
+      "name": "Amgen Inc",
+      "weight": 0.02527
+    },
+    {
+      "ticker": "TMO",
+      "name": "Thermo Fisher Scientific Inc",
+      "weight": 0.024630899
+    }
+  ],
+  "sector_weightings": {
+    "healthcare": 1.0
+  },
+  "fetched_at": "2026-04-15T11:41:00.435073",
+  "source": "yfinance"
+}

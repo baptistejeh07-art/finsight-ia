@@ -1,0 +1,66 @@
+{
+  "ticker": "XLF",
+  "name": "State Street Financial Select Sector SPDR ETF",
+  "aum_usd": 47790944256,
+  "ter_bps": 0,
+  "description": "The fund generally invests substantially all, but at least 95%, of its total assets in the securities comprising the index. The index includes companies that have been identified as Financial companies by the Global Industry Classification Standard, including securities of companies from the following industries: financial services; insurance; banks; capital markets; mortgage real estate investment trusts; and consumer finance. The fund is non-diversified.",
+  "holdings": [
+    {
+      "ticker": "BRK-B",
+      "name": "Berkshire Hathaway Inc Class B",
+      "weight": 0.124460496
+    },
+    {
+      "ticker": "JPM",
+      "name": "JPMorgan Chase & Co",
+      "weight": 0.1123332
+    },
+    {
+      "ticker": "V",
+      "name": "Visa Inc Class A",
+      "weight": 0.0719639
+    },
+    {
+      "ticker": "MA",
+      "name": "Mastercard Inc Class A",
+      "weight": 0.0576374
+    },
+    {
+      "ticker": "BAC",
+      "name": "Bank of America Corp",
+      "weight": 0.045816302
+    },
+    {
+      "ticker": "GS",
+      "name": "The Goldman Sachs Group Inc",
+      "weight": 0.035936102
+    },
+    {
+      "ticker": "WFC",
+      "name": "Wells Fargo & Co",
+      "weight": 0.0348709
+    },
+    {
+      "ticker": "C",
+      "name": "Citigroup Inc",
+      "weight": 0.028070299
+    },
+    {
+      "ticker": "MS",
+      "name": "Morgan Stanley",
+      "weight": 0.028043
+    },
+    {
+      "ticker": "AXP",
+      "name": "American Express Co",
+      "weight": 0.022944901
+    }
+  ],
+  "sector_weightings": {
+    "technology": 0.016900001,
+    "financial_services": 0.98080003,
+    "industrials": 0.0023
+  },
+  "fetched_at": "2026-04-14T19:37:17.673397",
+  "source": "yfinance"
+}

@@ -9,6 +9,7 @@ import io, logging, re as _re
 from typing import Optional
 
 import matplotlib
+from core.yfinance_cache import get_ticker
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
@@ -653,7 +654,7 @@ def _chart_etf_perf(data: dict) -> bytes:
         etf_list = list(etf_perf.keys())[:8]
         for i, etf in enumerate(etf_list):
             try:
-                hist_df = yf.Ticker(etf).history(period='1y', interval='1wk')
+                hist_df = get_ticker(etf).history(period='1y', interval='1wk')
                 if hist_df.empty or 'Close' not in hist_df.columns:
                     continue
                 hist = hist_df['Close']

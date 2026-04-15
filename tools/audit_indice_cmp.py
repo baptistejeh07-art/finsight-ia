@@ -6,6 +6,7 @@ import sys, logging, math
 from pathlib import Path
 from datetime import date, timedelta
 from statistics import median as med
+from core.yfinance_cache import get_ticker
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 logging.basicConfig(level=logging.WARNING)
@@ -16,7 +17,7 @@ import numpy as np
 def _compute_stats(sym, rf=0.04):
     """Calcule perf YTD/1Y/3Y, vol, sharpe, max_dd depuis yfinance."""
     today = date.today()
-    hist = yf.Ticker(sym).history(period="5y")
+    hist = get_ticker(sym).history(period="5y")
     if hist is None or hist.empty:
         return {}
     close = hist["Close"].dropna()

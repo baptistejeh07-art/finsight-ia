@@ -16,6 +16,7 @@ import io
 import logging
 from datetime import date as _date_cls
 from pathlib import Path
+from core.yfinance_cache import get_ticker
 
 try:
     import matplotlib
@@ -3753,7 +3754,7 @@ def _fetch_area_data(ticker: str) -> dict:
     try:
         import yfinance as yf
         import pandas as pd
-        t  = yf.Ticker(ticker)
+        t  = get_ticker(ticker)
         qf = t.quarterly_income_stmt
 
         if qf is None or qf.empty:
@@ -3837,7 +3838,7 @@ def _fetch_pie_data(ticker: str, peers: list, main_snap_market=None) -> dict:
             if t in ev_data:
                 continue  # deja seed pour main ticker
             try:
-                yft  = yf.Ticker(t)
+                yft  = get_ticker(t)
                 info = yft.fast_info
                 # Filtrer les tickers non-USD (mismatch devise KRW/JPY/HKD)
                 try:
@@ -3977,7 +3978,7 @@ class PDFWriter:
         _trailing_eps = None
         try:
             import yfinance as yf
-            _yf_info = yf.Ticker(ticker).info or {}
+            _yf_info = get_ticker(ticker).info or {}
             _fwd_eps      = _yf_info.get("forwardEps")
             _fwd_pe       = _yf_info.get("forwardPE")
             _trailing_eps = _yf_info.get("trailingEps")
@@ -4145,7 +4146,7 @@ class PDFWriter:
         _year_close = {}  # {year_int: close_price}
         try:
             import yfinance as _yf_pe
-            _hist_df = _yf_pe.Ticker(ticker).history(period='5y', interval='1mo')
+            _hist_df = get_ticker(ticker).history(period='5y', interval='1mo')
             if _hist_df is not None and not _hist_df.empty and 'Close' in _hist_df.columns:
                 # Derniere valeur de decembre pour chaque annee
                 for _idx, _row in _hist_df.iterrows():
@@ -4898,7 +4899,7 @@ class PDFWriter:
         if not co_name or co_name.upper() == ticker.upper():
             try:
                 import yfinance as yf
-                info = yf.Ticker(ticker).info
+                info = get_ticker(ticker).info
                 co_name = info.get('longName') or info.get('shortName') or ticker
             except Exception:
                 co_name = ticker

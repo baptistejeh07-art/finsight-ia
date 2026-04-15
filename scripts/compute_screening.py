@@ -31,6 +31,7 @@ import numpy as np
 import requests
 import yfinance as yf
 from dotenv import load_dotenv
+from core.yfinance_cache import get_ticker
 
 # Chargement .env local uniquement (ignoré sur Streamlit Cloud où il n'existe pas)
 _env_local = Path(__file__).parent.parent / ".env"
@@ -94,7 +95,7 @@ def _fetch_analyst_revision(ticker: str) -> Optional[int]:
             return entry.get("value")
 
     result: Optional[int] = None
-    tkobj = yf.Ticker(ticker)
+    tkobj = get_ticker(ticker)
 
     # --- Source 1 : yfinance eps_revisions ---
     try:
@@ -750,7 +751,7 @@ def _enrich_realtime(ticker: str, cache_info: dict) -> dict:
     """
     extra: dict = {}
     try:
-        tk = yf.Ticker(ticker)
+        tk = get_ticker(ticker)
 
         def _info():
             try:

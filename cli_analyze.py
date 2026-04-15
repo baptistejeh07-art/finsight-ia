@@ -17,6 +17,7 @@ import logging
 import time
 from pathlib import Path
 from dotenv import load_dotenv
+from core.yfinance_cache import get_ticker
 load_dotenv(Path(__file__).parent / ".env", override=True)
 
 logging.basicConfig(
@@ -289,7 +290,7 @@ def _fetch_pe_historical(tk: str) -> list[float]:
     try:
         import yfinance as yf
         import numpy as np
-        stock = yf.Ticker(tk)
+        stock = get_ticker(tk)
         # Cours historique mensuel sur 5 ans
         hist = stock.history(period="5y", interval="1mo")
         if hist.empty:
@@ -792,7 +793,7 @@ def _fetch_real_sector_data(sector: str, universe: str, max_tickers: int = 8) ->
 
     def _fetch_one(tk: str) -> dict | None:
         try:
-            stock = yf.Ticker(tk)
+            stock = get_ticker(tk)
             info = stock.info or {}
             name = info.get("longName") or info.get("shortName") or tk
             if name == tk and not info.get("marketCap"):
@@ -1467,7 +1468,7 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
     ytd_str = "—"
     pe_fwd_str = "—"
     try:
-        ticker_obj = yf.Ticker(code)
+        ticker_obj = get_ticker(code)
         info = ticker_obj.info or {}
         cours = info.get("regularMarketPrice") or info.get("previousClose")
         if cours:
@@ -1493,7 +1494,7 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
 
     def _fetch_etf(etf: str) -> tuple:
         try:
-            t = yf.Ticker(etf)
+            t = get_ticker(etf)
             hist = t.history(period="1y", interval="1mo")["Close"]
             if len(hist) < 2:
                 return etf, None, None, None
@@ -1525,7 +1526,7 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
     erp_pct    = "—"
     erp_signal = "—"
     try:
-        tnx_hist = yf.Ticker("^TNX").history(period="5d")
+        tnx_hist = get_ticker("^TNX").history(period="5d")
         if not tnx_hist.empty:
             rf_rate    = float(tnx_hist["Close"].iloc[-1]) / 100
             rf_pct_str = f"{rf_rate*100:.2f}%"
@@ -1533,7 +1534,7 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
         # Fallback : SPY comme proxy du S&P 500 si ^GSPC ne retourne pas de PE
         if not (pe_fwd_num and 0 < pe_fwd_num < 100):
             try:
-                _spy_info = yf.Ticker("SPY").info or {}
+                _spy_info = get_ticker("SPY").info or {}
                 pe_fwd_num = _spy_info.get("forwardPE") or _spy_info.get("trailingPE")
             except Exception:
                 pe_fwd_num = None
@@ -1628,7 +1629,7 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
 
                 def _fetch_eu_tkr(tk):
                     try:
-                        _obj = yf.Ticker(tk)
+                        _obj = get_ticker(tk)
                         _inf = _obj.info or {}
                         _52w = (_inf.get("52WeekChange") or 0) * 100
                         _52w = max(-300.0, min(300.0, _52w))  # cap +/-300%
@@ -1921,7 +1922,7 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
             _proxy_ticker = _ETF_INDEX_PROXIES.get(universe)
             if _proxy_ticker:
                 try:
-                    _proxy_obj  = yf.Ticker(_proxy_ticker)
+                    _proxy_obj  = get_ticker(_proxy_ticker)
                     _proxy_info = _proxy_obj.info or {}
                     _proxy_ev_raw = _proxy_info.get("enterpriseToEbitda")
                     if _proxy_ev_raw and 1.0 < float(_proxy_ev_raw) < 200:
@@ -2215,7 +2216,7 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
         _proxy_ticker_t3 = _ETF_INDEX_PROXIES.get(universe)
         if _proxy_ticker_t3:
             try:
-                _p3_obj  = yf.Ticker(_proxy_ticker_t3)
+                _p3_obj  = get_ticker(_proxy_ticker_t3)
                 _p3_info = _p3_obj.info or {}
                 _p3_ev   = _p3_info.get("enterpriseToEbitda")
                 if _p3_ev and 1.0 < float(_p3_ev) < 200:

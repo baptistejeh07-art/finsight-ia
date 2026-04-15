@@ -19,6 +19,7 @@ import statistics
 from datetime import date, datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+from core.yfinance_cache import get_ticker
 
 log = logging.getLogger(__name__)
 
@@ -4455,7 +4456,7 @@ def _slide_historique(prs, snap, synthesis):
             def _fetch_monthly_close(tk: str, n: int) -> list[float] | None:
                 try:
                     import yfinance as _yf
-                    _h = _yf.Ticker(tk).history(period="1y", interval="1mo")
+                    _h = get_ticker(tk).history(period="1y", interval="1mo")
                     if _h is None or _h.empty or "Close" not in _h.columns:
                         return None
                     _closes = [float(v) for v in _h["Close"].tolist() if v == v]

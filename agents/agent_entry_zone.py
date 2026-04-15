@@ -22,6 +22,7 @@ import logging
 import time
 from dataclasses import dataclass, field
 from typing import Optional
+from core.yfinance_cache import get_ticker
 
 log = logging.getLogger(__name__)
 
@@ -260,7 +261,7 @@ class AgentEntryZone:
     def _compute_mm50(self, ticker: str) -> Optional[float]:
         try:
             import yfinance as yf
-            hist = yf.Ticker(ticker).history(period="4mo", interval="1d")
+            hist = get_ticker(ticker).history(period="4mo", interval="1d")
             if hist.empty or len(hist) < 10:
                 return None
             close = hist["Close"].dropna()
@@ -316,7 +317,7 @@ class AgentEntryZone:
             import numpy as np
 
             # Données mensuelles 5 ans (pour le backtest des rendements)
-            hist = yf.Ticker(ticker).history(period="5y", interval="1mo")
+            hist = get_ticker(ticker).history(period="5y", interval="1mo")
             if hist.empty or len(hist) < 13:
                 return {"n": 0, "pct_pos": None,
                         "label": "Backtest insuffisant (N < 5 occurrences)"}

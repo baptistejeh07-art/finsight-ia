@@ -13,6 +13,7 @@ import re as _re
 import time
 from datetime import date
 from pathlib import Path
+from core.yfinance_cache import get_ticker
 
 log = logging.getLogger(__name__)
 
@@ -1131,7 +1132,7 @@ def fetch_market_context() -> list:
         result = []
         for sym, label in items:
             try:
-                hist = yf.Ticker(sym).history(period="2d")
+                hist = get_ticker(sym).history(period="2d")
                 if len(hist) >= 2:
                     prev = hist["Close"].iloc[-2]
                     last = hist["Close"].iloc[-1]
@@ -2536,10 +2537,10 @@ def _fetch_perf_history(sym, indice_name, today):
         import yfinance as _yf2
         from datetime import timedelta as _td2
         _start = (today - _td2(days=380)).strftime("%Y-%m-%d")
-        _h   = _yf2.Ticker(sym).history(start=_start)
-        _hb  = _yf2.Ticker("^TNX").history(start=_start)
-        _hg  = _yf2.Ticker("GC=F").history(start=_start)
-        _hsp = _yf2.Ticker("^GSPC").history(start=_start)
+        _h   = get_ticker(sym).history(start=_start)
+        _hb  = get_ticker("^TNX").history(start=_start)
+        _hg  = get_ticker("GC=F").history(start=_start)
+        _hsp = get_ticker("^GSPC").history(start=_start)
         if _h is None or _h.empty:
             return None
         _base = float(_h["Close"].iloc[0])
@@ -2720,7 +2721,7 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
         import yfinance as _yf
         _sym = _cours_map.get(universe.upper())
         if _sym:
-            _tk = _yf.Ticker(_sym)
+            _tk = get_ticker(_sym)
             # Source 1 : history (plus fiable que .info pour les indices EU)
             try:
                 _hist_1d = _tk.history(period="5d")
@@ -2827,7 +2828,7 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
     erp_pct     = "—"
     erp_signal_s = "—"
     try:
-        _tnx = _yf_erp.Ticker("^TNX").history(period="5d")
+        _tnx = get_ticker("^TNX").history(period="5d")
         if not _tnx.empty:
             rf_rate_f  = float(_tnx["Close"].iloc[-1]) / 100
             rf_pct_str = f"{rf_rate_f*100:.2f}%"
@@ -2835,13 +2836,13 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
         _pe_erp  = None
         if _sym_idx:
             try:
-                _idx_info = _yf_erp.Ticker(_sym_idx).info or {}
+                _idx_info = get_ticker(_sym_idx).info or {}
                 _pe_erp = _idx_info.get("forwardPE") or _idx_info.get("trailingPE")
             except Exception:
                 pass
         if not (_pe_erp and 0 < _pe_erp < 100):
             try:
-                _spy_info = _yf_erp.Ticker("SPY").info or {}
+                _spy_info = get_ticker("SPY").info or {}
                 _pe_erp = _spy_info.get("forwardPE") or _spy_info.get("trailingPE")
             except Exception:
                 pass
@@ -2914,7 +2915,7 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
         # P/B + DivYield depuis info ETF
         for _etf_sym, _nom in _ETF_MAP_APP.items():
             try:
-                _inf = _yf_etf.Ticker(_etf_sym).info or {}
+                _inf = get_ticker(_etf_sym).info or {}
                 _pb  = _inf.get("priceToBook")
                 _dy  = _inf.get("yield") or _inf.get("dividendYield")
                 if _dy and _dy < 0.5: _dy = round(_dy * 100, 2)
@@ -3621,7 +3622,7 @@ def _fetch_cmp_indice_data(universe_a: str, indice_data_a: dict,
     # ── Fetch prix indice B ───────────────────────────────────────────────────
     import yfinance as _yf
     try:
-        hist_b = _yf.Ticker(yf_b).history(period="5y")
+        hist_b = get_ticker(yf_b).history(period="5y")
     except Exception:
         hist_b = None
 
@@ -3631,7 +3632,7 @@ def _fetch_cmp_indice_data(universe_a: str, indice_data_a: dict,
     # ── Indice B — valorisation depuis yfinance ───────────────────────────────
     pe_fwd_b, pb_b, div_yield_b, erp_b_str = None, None, None, "\u2014"
     try:
-        info_b = _yf.Ticker(yf_b).info or {}
+        info_b = get_ticker(yf_b).info or {}
         pe_fwd_b  = info_b.get("forwardPE") or info_b.get("trailingPE")
         pb_b      = info_b.get("priceToBook")
         div_yield_b = info_b.get("dividendYield")
@@ -3643,7 +3644,7 @@ def _fetch_cmp_indice_data(universe_a: str, indice_data_a: dict,
         rf_sym_b = "^TNX" if cur_b == "USD" else ("^TNX" if cur_b == "GBP" else "^TNX")
         if cur_b == "EUR":
             rf_sym_b = "^IRXEUR.B" if False else "^TNX"  # fallback TNX
-        rf_hist_b = _yf.Ticker(rf_sym_b).history(period="5d")
+        rf_hist_b = get_ticker(rf_sym_b).history(period="5d")
         rf_b = float(rf_hist_b["Close"].iloc[-1]) / 100 if not rf_hist_b.empty else 0.04
         if perf_1y_b and vol_1y_b:
             erp_val_b = (perf_1y_b - rf_b) * 100
@@ -3655,8 +3656,8 @@ def _fetch_cmp_indice_data(universe_a: str, indice_data_a: dict,
     perf_history = None
     try:
         start_str = (_today - _td(days=380)).strftime("%Y-%m-%d")
-        hist_a_1y = _yf.Ticker(_INDICE_CMP_OPTIONS.get(universe_a, (None, "^GSPC", "USD"))[1]).history(start=start_str)
-        hist_b_1y = _yf.Ticker(yf_b).history(start=start_str)
+        hist_a_1y = get_ticker(_INDICE_CMP_OPTIONS.get(universe_a, (None, "^GSPC", "USD"))[1]).history(start=start_str)
+        hist_b_1y = get_ticker(yf_b).history(start=start_str)
 
         if hist_a_1y is not None and not hist_a_1y.empty and hist_b_1y is not None and not hist_b_1y.empty:
             # Aligner sur les memes dates
@@ -3692,7 +3693,7 @@ def _fetch_cmp_indice_data(universe_a: str, indice_data_a: dict,
     try:
         yf_sym_a = _INDICE_CMP_OPTIONS.get(universe_a, (None, None, "USD"))[1]
         if yf_sym_a:
-            hist_a5 = _yf.Ticker(yf_sym_a).history(period="5y")
+            hist_a5 = get_ticker(yf_sym_a).history(period="5y")
             (perf_ytd_a, perf_1y_a, perf_3y_a, perf_5y_a,
              vol_1y_a, sharpe_1y_a, max_dd_a) = _compute_stats(hist_a5)
     except Exception:
@@ -5265,7 +5266,7 @@ def _render_comparison_section(state_a: dict) -> None:
             # Vérifier si le ticker est valide via yfinance
             try:
                 import yfinance as _yf
-                _chk = _yf.Ticker(raw_input)
+                _chk = get_ticker(raw_input)
                 _qt = (_chk.info or {}).get("quoteType", "")
                 if _qt not in ("EQUITY", "ETF"):
                     _needs_resolve = True

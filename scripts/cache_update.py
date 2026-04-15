@@ -32,6 +32,7 @@ import pandas as pd
 import requests
 import yfinance as yf
 from dotenv import load_dotenv
+from core.yfinance_cache import get_ticker
 
 # ---------------------------------------------------------------------------
 # Setup
@@ -396,7 +397,7 @@ def fetch_raw(ticker: str, _retry: bool = True) -> Optional[dict]:
     Retourne un dict pret pour Supabase ou None si donnees absentes.
     """
     try:
-        tk = yf.Ticker(ticker)
+        tk = get_ticker(ticker)
 
         def _is():
             return tk.income_stmt

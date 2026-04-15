@@ -23,6 +23,7 @@ import sys
 import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from core.yfinance_cache import get_ticker
 
 ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT))
@@ -204,12 +205,12 @@ def _fetch_market_snapshot() -> str:
         lines = []
         for sym, label, unit in items:
             try:
-                hist = yf.Ticker(sym).history(period="5d")
+                hist = get_ticker(sym).history(period="5d")
                 if hist.empty:
                     continue
                 last = float(hist["Close"].iloc[-1])
                 # YTD : premiere cloture de l'annee
-                hist_ytd = yf.Ticker(sym).history(
+                hist_ytd = get_ticker(sym).history(
                     start=f"{datetime.now().year}-01-01", period="1y"
                 )
                 ytd_str = ""

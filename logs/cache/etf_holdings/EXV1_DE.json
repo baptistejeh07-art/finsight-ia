@@ -1,0 +1,64 @@
+{
+  "ticker": "EXV1.DE",
+  "name": "iShares STOXX Europe 600 Banks UCITS ETF (DE)",
+  "aum_usd": 3184551680,
+  "ter_bps": 0,
+  "description": "",
+  "holdings": [
+    {
+      "ticker": "HSBA.L",
+      "name": "HSBC Holdings PLC",
+      "weight": 0.1428323
+    },
+    {
+      "ticker": "SAN.MC",
+      "name": "Banco Santander SA",
+      "weight": 0.082915805
+    },
+    {
+      "ticker": "BBVA.MC",
+      "name": "Banco Bilbao Vizcaya Argentaria SA",
+      "weight": 0.0619703
+    },
+    {
+      "ticker": "UCG.MI",
+      "name": "UniCredit SpA",
+      "weight": 0.0546932
+    },
+    {
+      "ticker": "BNP.PA",
+      "name": "BNP Paribas Act. Cat.A",
+      "weight": 0.0501171
+    },
+    {
+      "ticker": "ISP.MI",
+      "name": "Intesa Sanpaolo",
+      "weight": 0.047041003
+    },
+    {
+      "ticker": "INGA.AS",
+      "name": "ING Groep NV",
+      "weight": 0.038452
+    },
+    {
+      "ticker": "LLOY.L",
+      "name": "Lloyds Banking Group PLC",
+      "weight": 0.0369974
+    },
+    {
+      "ticker": "BARC.L",
+      "name": "Barclays PLC",
+      "weight": 0.0366491
+    },
+    {
+      "ticker": "NWG.L",
+      "name": "NatWest Group PLC",
+      "weight": 0.030899601
+    }
+  ],
+  "sector_weightings": {
+    "financial_services": 1.0
+  },
+  "fetched_at": "2026-04-14T18:32:25.756184",
+  "source": "yfinance"
+}

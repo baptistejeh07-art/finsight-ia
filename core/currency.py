@@ -53,6 +53,8 @@ import logging
 import time
 from typing import Optional
 
+from core.yfinance_cache import get_ticker
+
 log = logging.getLogger(__name__)
 
 
@@ -183,7 +185,7 @@ def fetch_fx_rate(from_ccy: str, to_ccy: str) -> Optional[float]:
     rate = None
     try:
         import yfinance as yf
-        tk = yf.Ticker(ticker_symbol)
+        tk = get_ticker(ticker_symbol)
         # fast_info est plus fiable que info pour les FX
         try:
             fi = tk.fast_info
@@ -207,7 +209,7 @@ def fetch_fx_rate(from_ccy: str, to_ccy: str) -> Optional[float]:
         # Tenter l'inverse : {TO}{FROM}=X puis 1/rate
         try:
             import yfinance as yf
-            tk_inv = yf.Ticker(f"{to_ccy}{from_ccy}=X")
+            tk_inv = get_ticker(f"{to_ccy}{from_ccy}=X")
             fi = tk_inv.fast_info
             inv_rate = getattr(fi, "last_price", None) or getattr(fi, "lastPrice", None)
             if inv_rate and inv_rate > 0:

@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Optional
 
 import yfinance as yf
+from core.yfinance_cache import get_ticker
 
 log = logging.getLogger(__name__)
 
@@ -232,7 +233,7 @@ def _fetch_supplements(ticker: str) -> dict:
     """
     out: dict = {}
     try:
-        stock = yf.Ticker(ticker)
+        stock = get_ticker(ticker)
         info  = stock.fast_info
         full  = stock.info or {}
 
@@ -606,14 +607,14 @@ def extract_metrics(state: dict, supp: dict) -> dict:
         pass
 
     # Sector : priorité au snapshot, sinon supplément yfinance, sinon fallback
-    # live yf.Ticker(ticker).info["sector"] en dernier recours (cover PPTX S1).
+    # live get_ticker(ticker).info["sector"] en dernier recours (cover PPTX S1).
     sector = _safe(ci, "sector") or supp.get("sector") or ""
     if not sector:
         _tkr_for_sec = _safe(snapshot, "ticker") or state.get("ticker", "")
         if _tkr_for_sec:
             try:
                 import yfinance as _yf_live
-                _live_info = _yf_live.Ticker(_tkr_for_sec).info or {}
+                _live_info = get_ticker(_tkr_for_sec).info or {}
                 sector = _live_info.get("sector") or _live_info.get("sectorDisp") or ""
             except Exception:
                 sector = ""

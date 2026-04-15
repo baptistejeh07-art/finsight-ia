@@ -19,6 +19,7 @@ import yfinance as yf
 from data.models import (
     CompanyInfo, FinancialYear, FinancialSnapshot, MarketData, StockPoint,
 )
+from core.yfinance_cache import get_ticker
 
 log = logging.getLogger(__name__)
 
@@ -225,7 +226,7 @@ def _resolve_ticker_with_suffix(ticker: str) -> str:
 
     # Test direct en premier
     try:
-        _fi = yf.Ticker(_clean).fast_info
+        _fi = get_ticker(_clean).fast_info
         _px = getattr(_fi, "last_price", None)
         if _px and float(_px) > 0:
             return _clean
@@ -236,7 +237,7 @@ def _resolve_ticker_with_suffix(ticker: str) -> str:
     for _sfx in _EXCHANGE_SUFFIX_FALLBACKS:
         _cand = _clean + _sfx
         try:
-            _fi2 = yf.Ticker(_cand).fast_info
+            _fi2 = get_ticker(_cand).fast_info
             _px2 = getattr(_fi2, "last_price", None)
             if _px2 and float(_px2) > 0:
                 log.info(f"[yfinance] ticker resolu via suffix : {_clean} -> {_cand}")
@@ -255,7 +256,7 @@ def fetch(ticker: str) -> Optional[FinancialSnapshot]:
         # ROBUST-1 : resout ABBN -> ABBN.SW si besoin (zero impact cas nominal)
         ticker = _resolve_ticker_with_suffix(ticker)
 
-        tk   = yf.Ticker(ticker)
+        tk   = get_ticker(ticker)
         info = {}
         try:
             info = tk.info or {}
@@ -294,7 +295,7 @@ def fetch(ticker: str) -> Optional[FinancialSnapshot]:
         def _fetch_rfr():
             """Taux sans risque = US 10Y Treasury (^TNX) / 100."""
             try:
-                tnx = yf.Ticker("^TNX").history(period="5d")
+                tnx = get_ticker("^TNX").history(period="5d")
                 if not tnx.empty:
                     return round(float(tnx["Close"].iloc[-1]) / 100.0, 4)
             except Exception:

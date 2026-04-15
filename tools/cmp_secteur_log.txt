@@ -1,0 +1,27 @@
+19:50:19  INFO      cli_analyze — === COMPARATIF SECTORIEL : Technology/S&P 500 vs Healthcare/S&P 500 ===
+19:50:20  INFO      cli_analyze — Fetch secteur reel: 8 tickers (AAPL, MSFT, NVDA, META, GOOGL, AMD, AVGO, ORCL)
+19:50:34  INFO      cli_analyze — Secteur Technology/S&P 500: 8/8 tickers OK
+19:50:35  INFO      cli_analyze — PE historique: 8 tickers avec données
+19:50:36  INFO      cli_analyze — VaR secteur: {'var_95_monthly': np.float64(-9.2), 'vol_annual': 21.5, 'max_drawdown_52w': -17.3, 'n_tickers_used': 8}
+19:50:36  INFO      cli_analyze — Cache: 0 scénarios bull, 0 conviction_delta, 0 wacc
+19:50:36  INFO      cli_analyze — Sector analytics: HHI=1741 | PE ltm=31.1 vs hist=32.1 | ROIC std=44.3
+19:50:36  INFO      cli_analyze — Fetch secteur reel: 8 tickers (JNJ, UNH, PFE, ABT, MRK, TMO, ABBV, DHR)
+19:50:44  INFO      cli_analyze — Secteur Healthcare/S&P 500: 8/8 tickers OK
+19:50:45  INFO      cli_analyze — PE historique: 8 tickers avec données
+19:50:46  INFO      cli_analyze — VaR secteur: {'var_95_monthly': np.float64(-7.4), 'vol_annual': 17.0, 'max_drawdown_52w': -10.3, 'n_tickers_used': 8}
+19:50:46  INFO      cli_analyze — Cache: 0 scénarios bull, 0 conviction_delta, 0 wacc
+19:50:46  INFO      cli_analyze — Sector analytics: HHI=1575 | PE ltm=25.0 vs hist=25.9 | ROIC std=2052.8
+19:51:44  INFO      httpx — HTTP Request: POST https://api.mistral.ai/v1/chat/completions "HTTP/1.1 200 OK"
+19:51:56  INFO      outputs.cmp_secteur_pdf_writer — [CmpSecteurPDF] Sauvegarde : C:\Users\bapti\finsight-ia\outputs\generated\cli_tests\cmp_secteur_Technology_S&P_500_vs_Healthcare_S&P_500.pdf (272 Ko)
+19:51:56  INFO      cli_analyze — PDF comparatif sectoriel : cmp_secteur_Technology_S&P_500_vs_Healthcare_S&P_500.pdf  (272 Ko)
+19:52:51  INFO      httpx — HTTP Request: POST https://api.mistral.ai/v1/chat/completions "HTTP/1.1 200 OK"
+19:52:51  INFO      outputs.cmp_secteur_pptx_writer — [cmp_secteur_pptx] LLM texts OK (15 champs)
+19:52:51  INFO      outputs.cmp_secteur_pptx_writer — [CmpSecteurPPTXWriter] Fetch cours 52S...
+19:52:57  INFO      outputs.cmp_secteur_pptx_writer — [CmpSecteurPPTXWriter] Sauvegarde : C:\Users\bapti\finsight-ia\outputs\generated\cli_tests\cmp_secteur_Technology_S&P_500_vs_Healthcare_S&P_500.pptx (307 Ko)
+19:52:57  INFO      cli_analyze — PPTX comparatif sectoriel : cmp_secteur_Technology_S&P_500_vs_Healthcare_S&P_500.pptx  (307 Ko)
+
+Fichiers generes dans : C:\Users\bapti\finsight-ia\outputs\generated\cli_tests
+  * cmp_secteur_Technology_S&P_500_vs_Healthcare_S&P_500.pdf
+  * cmp_secteur_Technology_S&P_500_vs_Healthcare_S&P_500.pptx
+
+Temps total : 157.6s

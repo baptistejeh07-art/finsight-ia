@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(*)",
+      "Write(*)",
+      "Read(*)"
+    ],
+    "defaultMode": "bypassPermissions"
+  },
+  "prefersReducedMotion": true
+}

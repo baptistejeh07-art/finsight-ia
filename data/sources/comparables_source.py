@@ -17,6 +17,7 @@ import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from typing import Optional
+from core.yfinance_cache import get_ticker
 
 log = logging.getLogger(__name__)
 
@@ -188,7 +189,7 @@ def _fetch_one(peer_ticker: str) -> PeerData:
         import yfinance as yf
         from core.currency import convert, get_target_currency
 
-        info = yf.Ticker(peer_ticker).info or {}
+        info = get_ticker(peer_ticker).info or {}
 
         name  = info.get("longName") or info.get("shortName") or peer_ticker
         price = info.get("currentPrice") or info.get("regularMarketPrice")

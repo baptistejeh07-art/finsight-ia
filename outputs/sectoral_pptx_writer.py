@@ -10,6 +10,7 @@ from typing import Any, Optional
 
 import numpy as np
 import matplotlib
+from core.yfinance_cache import get_ticker
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
@@ -1045,7 +1046,7 @@ def _chart_performance(tickers_data, best_ticker=None, worst_ticker=None,
         # Overlay ETF sectoriel en premier (ligne noire pointillee, benchmark)
         if _etf_ticker:
             try:
-                _etf_hist = yf.Ticker(_etf_ticker).history(period='1y', interval='1wk')
+                _etf_hist = get_ticker(_etf_ticker).history(period='1y', interval='1wk')
                 if not _etf_hist.empty and 'Close' in _etf_hist.columns:
                     _etf_s = _etf_hist['Close']
                     if len(_etf_s) >= 4:
@@ -1062,7 +1063,7 @@ def _chart_performance(tickers_data, best_ticker=None, worst_ticker=None,
             if not ticker:
                 continue
             try:
-                hist_df = yf.Ticker(ticker).history(period='1y', interval='1wk')
+                hist_df = get_ticker(ticker).history(period='1y', interval='1wk')
                 if hist_df.empty or 'Close' not in hist_df.columns:
                     continue
                 hist = hist_df['Close']

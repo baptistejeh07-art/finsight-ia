@@ -1,0 +1,65 @@
+{
+  "ticker": "XLK",
+  "name": "State Street Technology Select Sector SPDR ETF",
+  "aum_usd": 84198424576,
+  "ter_bps": 0,
+  "description": "In seeking to track the performance of the index, the fund employs a replication strategy, which means that the fund typically invests in substantially all of the securities represented in the index in approximately the same proportions as the index. It generally invests substantially all, but at least 95%, of its total assets in the securities comprising the index. The fund is non-diversified.",
+  "holdings": [
+    {
+      "ticker": "NVDA",
+      "name": "NVIDIA Corp",
+      "weight": 0.1548409
+    },
+    {
+      "ticker": "AAPL",
+      "name": "Apple Inc",
+      "weight": 0.136134
+    },
+    {
+      "ticker": "MSFT",
+      "name": "Microsoft Corp",
+      "weight": 0.1004308
+    },
+    {
+      "ticker": "AVGO",
+      "name": "Broadcom Inc",
+      "weight": 0.053617
+    },
+    {
+      "ticker": "MU",
+      "name": "Micron Technology Inc",
+      "weight": 0.0338377
+    },
+    {
+      "ticker": "PLTR",
+      "name": "Palantir Technologies Inc Ordinary Shares - Class A",
+      "weight": 0.029736198
+    },
+    {
+      "ticker": "AMD",
+      "name": "Advanced Micro Devices Inc",
+      "weight": 0.0295157
+    },
+    {
+      "ticker": "CSCO",
+      "name": "Cisco Systems Inc",
+      "weight": 0.0272812
+    },
+    {
+      "ticker": "AMAT",
+      "name": "Applied Materials Inc",
+      "weight": 0.0241419
+    },
+    {
+      "ticker": "LRCX",
+      "name": "Lam Research Corp",
+      "weight": 0.0237437
+    }
+  ],
+  "sector_weightings": {
+    "technology": 0.9904,
+    "communication_services": 0.0095999995
+  },
+  "fetched_at": "2026-04-14T18:32:15.437736",
+  "source": "yfinance"
+}

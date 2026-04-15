@@ -1,0 +1,288 @@
+C:\Users\bapti\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\langchain_core\_api\deprecation.py:25: UserWarning: Core Pydantic V1 functionality isn't compatible with Python 3.14 or greater.
+  from pydantic.v1.fields import FieldInfo as FieldInfoV1
+=== INVESTIGATION DATA CHAIN : AAPL vs MSFT ===
+
+[1/3] Pipeline AAPL...
+Loading weights:   0%|          | 0/201 [00:00<?, ?it/s]Loading weights: 100%|##########| 201/201 [00:00<00:00, 45783.38it/s]
+[FMP] /v3/profile/AAPL?: Client error '403 Forbidden' for url 'https://financialmodelingprep.com/api/v3/profile/AAPL?&apikey=ZA66Y5AWezmgKVYTq1EyQAGMONzgBlDd'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+[Mistral] Tentative 2/4 — attente 5s (rate limit)
+[FMP] /v3/income-statement/AAPL?limit=5: Client error '403 Forbidden' for url 'https://financialmodelingprep.com/api/v3/income-statement/AAPL?limit=5&apikey=ZA66Y5AWezmgKVYTq1EyQAGMONzgBlDd'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+[Mistral] Tentative 3/4 — attente 15s (rate limit)
+[FMP] /v3/balance-sheet-statement/AAPL?limit=5: Client error '403 Forbidden' for url 'https://financialmodelingprep.com/api/v3/balance-sheet-statement/AAPL?limit=5&apikey=ZA66Y5AWezmgKVYTq1EyQAGMONzgBlDd'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+[FMP] /v3/cash-flow-statement/AAPL?limit=5: Client error '403 Forbidden' for url 'https://financialmodelingprep.com/api/v3/cash-flow-statement/AAPL?limit=5&apikey=ZA66Y5AWezmgKVYTq1EyQAGMONzgBlDd'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+[FMP] Aucun income statement pour 'AAPL'
+[DBLogger] Supabase indisponible : Invalid API key
+[Mistral] Tentative 2/4 — attente 5s (rate limit)
+[Mistral] Tentative 2/4 — attente 5s (rate limit)
+[qa_node] 1 erreur(s) critique(s) QA
+[route_after_qa] QA echec — retry synthesis (1/1)
+[Mistral] Tentative 2/4 — attente 5s (rate limit)
+[Mistral] Tentative 2/4 — attente 5s (rate limit)
+[Mistral] Tentative 2/4 — attente 5s (rate limit)
+[qa_node] 1 erreur(s) critique(s) QA
+HTTP Error 404: {"quoteSummary":{"result":null,"error":{"code":"Not Found","description":"Quote not found for symbol: SMSNG.KS"}}}
+[ExcelWriter] Annee '2021' sans colonne — ignore
+[ExcelWriter] COMPARABLES : formule non declaree K9
+[ExcelWriter] COMPARABLES : formule non declaree K10
+[ExcelWriter] COMPARABLES : formule non declaree K11
+[ExcelWriter] COMPARABLES : formule non declaree K12
+pdf_writer _fetch_perf_data: 14 mois disponibles — tronque a 13 (fallback FALLBACK_SEMAINES=13)
+[PDFWriter] _build_multiples_historiques FAILED: bad operand type for unary +: 'str'
+Traceback (most recent call last):
+  File "C:\Users\bapti\finsight-ia\outputs\pdf_writer.py", line 2681, in generate_report
+    story += _build_multiples_historiques(data)
+             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "C:\Users\bapti\finsight-ia\outputs\pdf_writer.py", line 1942, in _build_multiples_historiques
+    + (" Un re-rating positif soutient la these haussiere, mais amplifie le risque de valorisation." if delta > 0 else " La compression multiple reflete une deterioration du profil risk/reward et limite l\u2019upside."))
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: bad operand type for unary +: 'str'
+[FMP] /v3/profile/MSFT?: Client error '403 Forbidden' for url 'https://financialmodelingprep.com/api/v3/profile/MSFT?&apikey=ZA66Y5AWezmgKVYTq1EyQAGMONzgBlDd'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+[FMP] /v3/income-statement/MSFT?limit=5: Client error '403 Forbidden' for url 'https://financialmodelingprep.com/api/v3/income-statement/MSFT?limit=5&apikey=ZA66Y5AWezmgKVYTq1EyQAGMONzgBlDd'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+[FMP] /v3/balance-sheet-statement/MSFT?limit=5: Client error '403 Forbidden' for url 'https://financialmodelingprep.com/api/v3/balance-sheet-statement/MSFT?limit=5&apikey=ZA66Y5AWezmgKVYTq1EyQAGMONzgBlDd'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/403
+[FMP] /v3/cash-flow-statement/MSFT?limit=5: _ssl.c:1063: The handshake operation timed out
+[FMP] Aucun income statement pour 'MSFT'
+[DBLogger] Supabase indisponible : Invalid API key
+[AgentSynthese] JSON non parseable :
+{"recommendation":"BUY","conviction":0.78,"target_price_base":410.0,"target_price_bull":450.0,"target_price_bear":350.0,"summary":"Microsoft affiche une résilience exceptionnelle avec des marges nettes stables à 36,1% et un ROIC de 30,1%. La valorisation actuelle (P/E 27,1x vs médiane sectorielle 30
+[synthesis_node] synthesize() retourne None — fallback conf=95%
+[AgentQAHaiku] synthesis=None — validation impossible, skip
+[AgentDevil] synthesis=None — skip
+[ExcelWriter] COMPARABLES : formule non declaree K9
+[ExcelWriter] COMPARABLES : formule non declaree K10
+[ExcelWriter] COMPARABLES : formule non declaree K11
+[ExcelWriter] COMPARABLES : formule non declaree K12
+[ExcelWriter] COMPARABLES : formule non declaree K13
+pdf_writer _fetch_perf_data: 14 mois disponibles — tronque a 13 (fallback FALLBACK_SEMAINES=13)
+[PDFWriter] _build_multiples_historiques FAILED: bad operand type for unary +: 'str'
+Traceback (most recent call last):
+  File "C:\Users\bapti\finsight-ia\outputs\pdf_writer.py", line 2681, in generate_report
+    story += _build_multiples_historiques(data)
+             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "C:\Users\bapti\finsight-ia\outputs\pdf_writer.py", line 1942, in _build_multiples_historiques
+    + (" Un re-rating positif soutient la these haussiere, mais amplifie le risque de valorisation." if delta > 0 else " La compression multiple reflete une deterioration du profil risk/reward et limite l\u2019upside."))
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: bad operand type for unary +: 'str'
+[1/3] Pipeline MSFT...
+
+[2/3] Inspection raw_data (FinancialSnapshot)...
+  type(raw_data AAPL) = FinancialSnapshot
+  ticker: str
+  company_info: CompanyInfo(7 fields)
+  income_statements: None
+  balance_sheets: None
+  cashflows: None
+  market_data: None
+  ratios: None
+  meta: dict
+
+[3/3] extract_metrics + dump m_a/m_b...
+
+  m_a : 93 rempli(s) / 2 None
+  m_b : 91 rempli(s) / 4 None
+
+--- CHAMPS REMPLIS (m_a AAPL) ---
+  altman_model: 'nonmfg_1995'
+  altman_z: 1.69
+  analysis_date: datetime.datetime(2026, 4, 10, 19, 17, 45, 203815)
+  avg_volume_30d: 47.3
+  beneish_mscore: -2.251
+  beta: 1.109
+  capex_to_revenue: 0.0306
+  cash: 35934.0
+  cash_conversion: 0.99
+  company_name_a: 'Apple Inc.'
+  company_name_b: 'Apple Inc.'
+  conviction: 0.78
+  currency_a: 'USD'
+  currency_b: 'USD'
+  current_ratio: 0.6503
+  dcf_base: 285.0
+  dcf_bear: 240.0
+  dcf_bull: 320.0
+  dcf_upside_base: 0.0951
+  dividend_yield: 0.004
+  duration_implicit: 14.1
+  ebit_margin: 0.3197
+  ebitda_margin_ltm: 0.3478
+  ebitda_margin_trend: 'Stable'
+  ebitda_margin_y1: 0.3444
+  ebitda_margin_y2: 0.3283
+  enterprise_value: 3883.3
+  entry_zone_ok: 1
+  eps_growth: 0.195
+  eps_growth_fwd: 0.183
+  ev_ebitda: 26.83
+  ev_sales: 8.83
+  fcf_yield: 0.0291
+  finsight_score: 44
+  forward_eps: 9.32665
+  forward_pe: 27.834219
+  free_cash_flow: 110993.0
+  gbm_mu_annual: 0.2241
+  gbm_sigma_annual: 0.2824
+  interest_coverage: 414.5
+  margin_of_safety: 0.0869
+  market_cap: 3820.6
+  momentum_score: 5.0
+  monte_carlo_p10: 215.92
+  monte_carlo_p50: 311.73
+  monte_carlo_p90: 449.09
+  net_debt: 62723.0
+  net_debt_ebitda: 0.4333
+  net_margin_ltm: 0.2692
+  next_earnings_date: '2026-04-30'
+  p_fcf: 34.4
+  pe_ratio: 34.11
+  peg_ratio: 18.85
+  perf_1m: 0.0229
+  perf_1y: 0.2981
+  perf_3m: 0.0014
+  pio_accruals: 0
+  pio_cfo_positive: 1
+  pio_delta_asset_turnover: 1
+  pio_delta_gross_margin: 1
+  pio_delta_leverage: 1
+  pio_delta_liquidity: 1
+  pio_delta_roa: 1
+  pio_no_dilution: 0
+  pio_roa_positive: 1
+  piotroski_score: 7
+  price_str: '260,24$'
+  price_to_book: 51.82
+  quick_ratio: 0.6115
+  recommendation: 'BUY'
+  revenue_cagr_3y: 0.0181
+  revenue_growth_fwd: 0.157
+  roe: 1.5191
+  roic: 0.8437
+  rsi: np.float64(66.2)
+  sector_a: 'Technology'
+  sector_b: 'Technology'
+  sector_median_ev_ebitda: 18.0
+  sector_median_pe: 30.0
+  sentiment_label: 'POSITIVE'
+  share_price: 260.24
+  sloan_accruals: 0.0104
+  target_price: '285'
+  terminal_growth: 0.03
+  ticker_a: 'AAPL'
+  ticker_b: 'AAPL'
+  trailing_eps: 7.89
+  upside_str: '+9,5 %'
+  var_95_1m: -0.0806
+  volatility_52w: np.float64(0.2403)
+  wacc: 0.1028
+  week52_high: 288.62
+  week52_low: 186.06
+
+--- CHAMPS NONE (m_a AAPL) ---
+  verdict_relative
+  winner
+
+--- CHAMPS REMPLIS (m_b MSFT) ---
+  altman_model: 'nonmfg_1995'
+  altman_z: 4.61
+  analysis_date: datetime.datetime(2026, 4, 10, 19, 17, 45, 204179)
+  avg_volume_30d: 36.9
+  beneish_mscore: -2.569
+  beta: 1.107
+  capex_to_revenue: 0.2291
+  cash: 30242.0
+  cash_conversion: 0.7
+  company_name_a: 'Microsoft Corporation'
+  company_name_b: 'Microsoft Corporation'
+  currency_a: 'USD'
+  currency_b: 'USD'
+  current_ratio: 2.0143
+  dcf_base: 587.31
+  dcf_bear: 499.21
+  dcf_bull: 675.41
+  dcf_upside_base: 0.5827
+  dividend_yield: 0.0093
+  duration_implicit: 14.1
+  ebit_margin: 0.4473
+  ebitda_margin_ltm: 0.5685
+  ebitda_margin_trend: 'Croissante'
+  ebitda_margin_y1: 0.5426
+  ebitda_margin_y2: 0.4961
+  enterprise_value: 2768.5
+  entry_zone_ok: 1
+  eps_growth: 0.1554
+  eps_growth_fwd: 0.598
+  ev_ebitda: 17.29
+  ev_sales: 9.18
+  fcf_yield: 0.0259
+  finsight_score: 58
+  forward_eps: 18.84783
+  forward_pe: 19.701471
+  free_cash_flow: 71434.0
+  gbm_mu_annual: -0.0582
+  gbm_sigma_annual: 0.2419
+  interest_coverage: 52.8352
+  margin_of_safety: 0.3682
+  market_cap: 2755.6
+  momentum_score: 1.6
+  monte_carlo_p10: 247.45
+  monte_carlo_p50: 338.93
+  monte_carlo_p90: 463.37
+  net_debt: 12909.0
+  net_debt_ebitda: 0.0806
+  net_margin_ltm: 0.3615
+  next_earnings_date: '2026-04-29'
+  p_fcf: 38.6
+  pe_ratio: 27.06
+  peg_ratio: 2.18
+  perf_1m: 0.0031
+  perf_1y: -0.1872
+  perf_3m: -0.1351
+  pio_accruals: 1
+  pio_cfo_positive: 1
+  pio_delta_asset_turnover: 0
+  pio_delta_gross_margin: 0
+  pio_delta_leverage: 1
+  pio_delta_liquidity: 1
+  pio_delta_roa: 0
+  pio_no_dilution: 0
+  pio_roa_positive: 1
+  piotroski_score: 5
+  price_str: '371,09$'
+  price_to_book: 8.02
+  quick_ratio: 1.9994
+  revenue_cagr_3y: 0.1242
+  revenue_growth_fwd: 0.167
+  roe: 0.2965
+  roic: 0.3015
+  rsi: np.float64(40.5)
+  sector_a: 'Technology'
+  sector_b: 'Technology'
+  sector_median_ev_ebitda: 18.0
+  sector_median_pe: 30.0
+  sentiment_label: 'NEUTRAL'
+  share_price: 371.09
+  sloan_accruals: 0.0014
+  target_price: '587'
+  terminal_growth: 0.03
+  ticker_a: 'MSFT'
+  ticker_b: 'MSFT'
+  trailing_eps: 15.97
+  upside_str: '+58,3 %'
+  var_95_1m: -0.1041
+  volatility_52w: np.float64(0.2392)
+  wacc: 0.1032
+  week52_high: 555.45
+  week52_low: 355.67
+
+--- CHAMPS NONE (m_b MSFT) ---
+  conviction
+  recommendation
+  verdict_relative
+  winner
+
+[OK] Dump -> C:\Users\bapti\finsight-ia\tools\data_chain_dump_AAPL_vs_MSFT.json

@@ -1,0 +1,64 @@
+{
+  "ticker": "XLE",
+  "name": "State Street Energy Select Sector SPDR ETF",
+  "aum_usd": 43603132416,
+  "ter_bps": 0,
+  "description": "In seeking to track the performance of the index, the fund employs a replication strategy. It generally invests substantially all, but at least 95%, of its total assets in the securities comprising the index. The index includes companies that have been identified as Energy companies by the GICS®, including securities of companies from the following industries: oil, gas and consumable fuels; and energy equipment and services. It is non-diversified.",
+  "holdings": [
+    {
+      "ticker": "XOM",
+      "name": "Exxon Mobil Corp",
+      "weight": 0.23742211
+    },
+    {
+      "ticker": "CVX",
+      "name": "Chevron Corp",
+      "weight": 0.17302771
+    },
+    {
+      "ticker": "COP",
+      "name": "ConocoPhillips",
+      "weight": 0.0721499
+    },
+    {
+      "ticker": "EOG",
+      "name": "EOG Resources Inc",
+      "weight": 0.0414882
+    },
+    {
+      "ticker": "SLB",
+      "name": "SLB Ltd",
+      "weight": 0.0406428
+    },
+    {
+      "ticker": "WMB",
+      "name": "Williams Companies Inc",
+      "weight": 0.040598202
+    },
+    {
+      "ticker": "VLO",
+      "name": "Valero Energy Corp",
+      "weight": 0.0398584
+    },
+    {
+      "ticker": "PSX",
+      "name": "Phillips 66",
+      "weight": 0.038822997
+    },
+    {
+      "ticker": "MPC",
+      "name": "Marathon Petroleum Corp",
+      "weight": 0.0380973
+    },
+    {
+      "ticker": "KMI",
+      "name": "Kinder Morgan Inc Class P",
+      "weight": 0.034719
+    }
+  ],
+  "sector_weightings": {
+    "energy": 1.0
+  },
+  "fetched_at": "2026-04-14T18:39:55.587752",
+  "source": "yfinance"
+}
