@@ -234,6 +234,15 @@ _BANK_CELL_MAP: dict = {}
 _INSURANCE_CELL_MAP: dict = {}
 _REIT_CELL_MAP: dict = {}
 _UTILITY_CELL_MAP: dict = {}
+
+# OIL_GAS — template TTE.PA livré 2026-04-15 (Baptiste).
+# Vérification du fichier : le layout INPUT est IDENTIQUE à STANDARD
+# (tax row 25, weight_equity H106, weight_debt H107, terminal_growth H109).
+# Le template diffère uniquement par ses feuilles sectorielles SOTP / DCF /
+# COMPARABLES. On laisse le cell_map vide → fallback automatique STANDARD
+# pour l'INPUT, ce qui permet de reconduire toute la plomberie existante
+# sans risque. Les sheets SOTP/DCF/COMPARABLES restent non injectées par
+# le writer — à traiter plus tard si automatisation souhaitée.
 _OIL_GAS_CELL_MAP: dict = {}
 
 

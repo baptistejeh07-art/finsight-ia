@@ -198,10 +198,11 @@ class ExcelWriter:
         # actuel inchangé).
         _active_template = _TEMPLATE
         _profile = "STANDARD"
+        _cell_map: dict = {}  # rempli par le router selon _profile
         try:
             from outputs.excel_profile_router import (
                 detect_profile_from_snapshot, get_template_for,
-                profile_template_exists,
+                profile_template_exists, get_cell_map,
             )
             _profile = detect_profile_from_snapshot(snapshot)
             if profile_template_exists(_profile):
@@ -216,6 +217,7 @@ class ExcelWriter:
                         f"[ExcelWriter] Profil sectoriel : {_profile} "
                         f"(template spécifique absent → fallback STANDARD)"
                     )
+            _cell_map = get_cell_map(_profile)
         except Exception as _e_router:
             log.warning(
                 f"[ExcelWriter] Profile router failed ({_e_router}) — "
@@ -223,6 +225,19 @@ class ExcelWriter:
             )
             _active_template = _TEMPLATE
             _profile = "STANDARD"
+            _cell_map = {}
+
+        # Sélectionne les cell_maps actifs — fallback sur les constantes module
+        # (STANDARD) si le router n'a rien retourné. Ainsi le comportement reste
+        # identique pour toutes les analyses STANDARD, et OIL_GAS/etc. utilisent
+        # leur propre layout dès qu'un template spécifique existe.
+        _is_rows_active        = _cell_map.get("is_rows")        or _IS_ROWS
+        _is_cost_fields_active = _cell_map.get("is_cost_fields") or _IS_COST_FIELDS
+        _bs_asset_rows_active  = _cell_map.get("bs_asset_rows")  or _BS_ASSET_ROWS
+        _bs_liab_rows_active   = _cell_map.get("bs_liab_rows")   or _BS_LIAB_ROWS
+        _cf_rows_active        = _cell_map.get("cf_rows")        or _CF_ROWS
+        _mkt_fields_active     = _cell_map.get("mkt_fields")     or _MKT_FIELDS
+        _tax_rate_row_active   = _cell_map.get("tax_rate_row", 104)
 
         if not _active_template.exists():
             raise FileNotFoundError(f"Template introuvable : {_active_template}")
@@ -297,7 +312,7 @@ class ExcelWriter:
                 log.warning(f"[ExcelWriter] Année '{year_str}' sans colonne — ignore")
                 continue
 
-            for field, row in _IS_ROWS.items():
+            for field, row in _is_rows_active.items():
                 val = getattr(fy, field, None)
                 # Fallback dividends IS : si absent, utiliser dividends_paid du CF
                 # (sociétés européennes ne reportent pas toujours les dividendes en IS)
@@ -305,7 +320,7 @@ class ExcelWriter:
                     dp = getattr(fy, "dividends_paid", None)
                     if dp is not None:
                         val = abs(dp)  # positif avant negation par _IS_COST_FIELDS
-                if val is not None and field in _IS_COST_FIELDS:
+                if val is not None and field in _is_cost_fields_active:
                     val = -abs(val)
                 # Fallback 0 pour interest_expense/income : certaines sociétés
                 # (ex: Apple FY2024+) ne les declarent plus separement.
@@ -316,23 +331,23 @@ class ExcelWriter:
                         val = 0
                 written += _safe_write(ws, col, row, val)
 
-            for field, row in _BS_ASSET_ROWS.items():
+            for field, row in _bs_asset_rows_active.items():
                 written += _safe_write(ws, col, row, getattr(fy, field, None))
 
-            for field, row in _BS_LIAB_ROWS.items():
+            for field, row in _bs_liab_rows_active.items():
                 written += _safe_write(ws, col, row, getattr(fy, field, None))
 
-            for field, row in _CF_ROWS.items():
+            for field, row in _cf_rows_active.items():
                 written += _safe_write(ws, col, row, getattr(fy, field, None))
 
-            # Tax rate effectif par année -> row 104 (col E-H selon année)
+            # Tax rate effectif par année -> row tax_rate_row (col E-H selon année)
             # EBT = net_income_yf + |tax_expense_real| (approximation IS)
             _tax_abs = abs(fy.tax_expense_real or 0.0)
             _ni      = fy.net_income_yf or 0.0
             _ebt_yr  = _ni + _tax_abs
             if _ebt_yr > 0 and _tax_abs > 0:
                 _tr_yr = round(min(0.40, max(0.05, _tax_abs / _ebt_yr)), 4)
-                _safe_write(ws, col, 104, _tr_yr)
+                _safe_write(ws, col, _tax_rate_row_active, _tr_yr)
                 written += 1
 
         # ------------------------------------------------------------------
@@ -349,7 +364,7 @@ class ExcelWriter:
         # 3. Market data — colonne H uniquement (données point-in-time)
         # ------------------------------------------------------------------
         mkt = snapshot.market
-        for field, cell_ref in _MKT_FIELDS.items():
+        for field, cell_ref in _mkt_fields_active.items():
             val = getattr(mkt, field, None)
             if val is None:
                 continue
