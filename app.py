@@ -566,16 +566,32 @@ def _resolve_input_llm(name: str) -> dict | None:
         raw = llm.generate(
             prompt=(
                 f"L'utilisateur a saisi : \"{name}\"\n"
-                f"Classe cet input et reponds en JSON strict :\n"
-                f"- Si c'est une société Cotée : {{\"type\":\"ticker\",\"value\":\"TICKER_YFINANCE\"}}\n"
-                f"  Ex: stelantis -> {{\"type\":\"ticker\",\"value\":\"STLAM.MI\"}}\n"
-                f"  Ex: apple -> {{\"type\":\"ticker\",\"value\":\"AAPL\"}}\n"
-                f"- Si c'est un secteur boursier : {{\"type\":\"sector\",\"value\":\"Technology\"}}\n"
-                f"- Si c'est un indice : {{\"type\":\"index\",\"value\":\"S&P 500\"}}\n"
-                f"Reponds UNIQUEMENT avec le JSON, rien d'autre."
+                f"Classe cet input et resous-le en ticker yfinance valide.\n"
+                f"Réponds en JSON strict, un seul objet, rien d'autre.\n\n"
+                f"Si c'est une société cotée : {{\"type\":\"ticker\",\"value\":\"TICKER_YFINANCE\"}}\n"
+                f"  IMPORTANT : inclus toujours le suffixe marché yfinance quand applicable :\n"
+                f"  - Paris (Euronext FR)    → .PA    ex: total → TTE.PA, lvmh → MC.PA, orange → ORA.PA\n"
+                f"  - Milan (Borsa Italiana) → .MI    ex: stellantis → STLAM.MI, ferrari → RACE.MI\n"
+                f"  - Londres (LSE)          → .L     ex: hsbc → HSBA.L, shell → SHEL.L, bp → BP.L\n"
+                f"  - Francfort (Xetra)      → .DE    ex: sap → SAP.DE, siemens → SIE.DE, volkswagen → VOW3.DE\n"
+                f"  - Amsterdam (Euronext)   → .AS    ex: asml → ASML.AS, heineken → HEIA.AS\n"
+                f"  - Zurich (SIX)           → .SW    ex: nestle → NESN.SW, roche → ROG.SW, novartis → NOVN.SW\n"
+                f"  - Madrid (BME)           → .MC    ex: santander → SAN.MC, iberdrola → IBE.MC\n"
+                f"  - Stockholm (Nasdaq)     → .ST    ex: volvo → VOLV-B.ST\n"
+                f"  - Oslo (Nordic)          → .OL    ex: equinor → EQNR.OL\n"
+                f"  - Copenhague (Nasdaq)    → .CO    ex: novo nordisk → NOVO-B.CO\n"
+                f"  - Hong Kong              → .HK    ex: tencent → 0700.HK\n"
+                f"  - Tokyo                  → .T     ex: toyota → 7203.T\n"
+                f"  - Toronto (TSX)          → .TO    ex: shopify → SHOP.TO\n"
+                f"  - Actions US (NYSE/Nasdaq) : PAS de suffixe, ex: apple → AAPL, tesla → TSLA\n\n"
+                f"Si l'utilisateur a tapé un ticker sans suffixe mais que le vrai ticker en a un, corrige :\n"
+                f"  TTE → TTE.PA, STLAM → STLAM.MI, HSBA → HSBA.L, NESN → NESN.SW\n\n"
+                f"Si c'est un secteur boursier : {{\"type\":\"sector\",\"value\":\"Technology\"}}\n"
+                f"Si c'est un indice : {{\"type\":\"index\",\"value\":\"S&P 500\"}}\n\n"
+                f"Réponds UNIQUEMENT avec le JSON, rien d'autre. Pas de markdown, pas de commentaire."
             ),
-            system="Tu es un expert en tickers boursiers. Reponds uniquement en JSON valide.",
-            max_tokens=40,
+            system="Tu es un expert en tickers boursiers yfinance. Tu connais les suffixes marché (.PA, .MI, .L, .DE, .AS, .SW, .MC, .ST, .OL, .CO, .HK, .T, .TO). Réponds uniquement en JSON valide, un seul objet.",
+            max_tokens=60,
         )
         if raw:
             m = _re.search(r'\{.*?\}', raw, _re.DOTALL)
@@ -2261,10 +2277,53 @@ def _run_analysis_pipeline(tkr_in: str) -> None:
         errors     = final_state.get("errors") or []
 
         if snapshot is None:
-            st.error(f"Aucune donnée disponible pour « {ticker} ».")
+            # ── Fallback LLM : agent_data n'a rien trouvé pour ce ticker ──
+            # Cas typique : user tape "total", "TTE", "stellantis" → yfinance
+            # ne trouve rien parce que le ticker correct est "TTE.PA" /
+            # "STLAM.MI". On demande au LLM de corriger le ticker et on
+            # relance UNE fois la pipeline avec le nouveau ticker.
+            #
+            # Garde-fou : flag de session pour éviter une boucle infinie si
+            # le LLM persiste à renvoyer un ticker cassé.
+            _retry_key = f"_llm_ticker_retry_{ticker.upper()}"
+            _already_retried = st.session_state.get(_retry_key, False)
+            if not _already_retried:
+                st.session_state[_retry_key] = True
+                _fixed = None
+                try:
+                    _llm_res = _resolve_input_llm(ticker)
+                    if _llm_res and _llm_res.get("type") == "ticker":
+                        _candidate = (_llm_res.get("value") or "").strip().upper()
+                        # Le LLM ne doit pas renvoyer le même ticker cassé
+                        if _candidate and _candidate != ticker.upper():
+                            _fixed = _candidate
+                except Exception as _ex_llm:
+                    log.warning(f"[app] LLM ticker fallback failed for '{ticker}': {_ex_llm}")
+
+                if _fixed:
+                    st.toast(
+                        f"Ticker « {ticker} » introuvable — correction IA : {ticker} → {_fixed}",
+                        icon="🤖",
+                    )
+                    # Retry la pipeline avec le ticker corrigé.
+                    # Reset la progress bar et le cache pour le ticker cassé.
+                    st.session_state.pop(f"_running_pct_{ticker}", None)
+                    st.session_state.ticker = _fixed
+                    st.session_state.stage = "running"
+                    st.rerun()
+
+            st.error(
+                f"**Aucune donnée disponible pour « {ticker} ».**  \n"
+                "Le ticker saisi est introuvable sur les sources (yfinance / FMP / Finnhub) "
+                "et la résolution IA n'a pas pu proposer de correction. Vérifiez l'orthographe "
+                "ou utilisez le code exact (ex : TTE.PA, STLAM.MI, AAPL)."
+            )
             if errors:
                 st.code("\n".join(str(e) for e in errors), language="text")
             if st.button("← Retour"):
+                # Reset le flag de retry pour que le prochain essai puisse
+                # à nouveau déclencher le fallback LLM.
+                st.session_state.pop(_retry_key, None)
                 st.session_state.stage = "home"
                 st.rerun()
             return
