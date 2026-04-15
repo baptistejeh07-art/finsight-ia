@@ -1156,13 +1156,15 @@ def _build_graphiques(data, scatter_buf, scores_buf, corr_buf=None, registry=Non
                 f"EV/EBITDA vs croissance BPA pour {_indice_name}.\n"
                 f"Surponderer : {_surp_str}\nSous-ponderer : {_sous_str}\n"
                 f"Decotes : {_cheap_str}\nPrimes : {_exp_str}\n\n"
-                f"3 paragraphes separes par ligne vide (~110 mots chacun) :\n"
-                f"1. DECOTE + FAIBLE CROISSANCE : lecture, risques value trap, "
+                f"3 paragraphes separes par ligne vide (~110 mots chacun) avec ces "
+                f"titres EXACTS en MAJUSCULES au debut de chaque paragraphe suivi de ' : ' :\n"
+                f"1. DECOTE : lecture du quadrant inferieur gauche, risques value trap, "
                 f"conditions de re-rating.\n"
-                f"2. PRIME + FORTE CROISSANCE : justification, sensibilite revisions "
-                f"BPA, risques specifiques.\n"
+                f"2. PRIME : justification du quadrant superieur droit, sensibilite "
+                f"revisions BPA, risques specifiques.\n"
                 f"3. IMPLICATIONS : ou renforcer, ou alleger, catalyseurs et signaux "
                 f"macro a cross-checker.\n\n"
+                f"IMPORTANT : commence CHAQUE paragraphe par son titre MAJUSCULE + ' : '.\n"
                 f"Francais avec accents. Noms secteurs en francais. Pas de markdown/emojis/bullets."
             )
             _llm_text = llm_call(_prompt_p7, phase="long", max_tokens=1000) or ""
@@ -1174,11 +1176,10 @@ def _build_graphiques(data, scatter_buf, scores_buf, corr_buf=None, registry=Non
             try:
                 from outputs.pdf_writer import _render_llm_structured as _rls
                 _rls(elems, _llm_text, section_map={
-                    "DECOTE":        "Decote + faible croissance",
-                    "DECOTE + FAIBLE CROISSANCE": "Decote + faible croissance",
-                    "PRIME":         "Prime + forte croissance",
-                    "PRIME + FORTE CROISSANCE":  "Prime + forte croissance",
-                    "IMPLICATIONS":  "Implications allocation",
+                    "DECOTE":        "D\u00e9cote \u2014 quadrant inf\u00e9rieur gauche",
+                    "DÉCOTE":        "D\u00e9cote \u2014 quadrant inf\u00e9rieur gauche",
+                    "PRIME":         "Prime \u2014 quadrant sup\u00e9rieur droit",
+                    "IMPLICATIONS":  "Implications d'allocation",
                 })
             except Exception:
                 for _para in _llm_text.strip().split("\n\n"):
