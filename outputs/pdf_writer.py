@@ -200,17 +200,56 @@ def _render_llm_structured(elems, text, section_map=None, body_style=None,
         _re_struct.DOTALL,
     )
 
-    # NIGHT-6 edge case AAPL : le LLM omet parfois le titre du PREMIER
-    # paragraphe alors que les suivants ont bien leurs titres. On pre-parse
-    # TOUS les paragraphes et si le 1er n'a pas de titre mais les autres ont
-    # des titres reconnus dans section_map, on injecte le premier key du map
-    # comme titre par defaut pour le 1er paragraphe.
+    # NIGHT-6 edge case AAPL + indice Technology : le LLM omet parfois le
+    # titre du PREMIER paragraphe, OU ecrit un titre LONG (>60 chars) genre
+    # "DECOTE : lecture du quadrant inferieur gauche, risques value trap,
+    # conditions de re-rating" qui echappe au regex generique.
+    # Strategie : priorite section_map (detection par prefixe exact), puis
+    # regex generique si pas de section_map ou pas de match.
+    _section_keys = []
+    if section_map:
+        # Trie par longueur decroissante pour matcher les cles longues en premier
+        # (ex "ATTRACTIVITE CIBLE" avant "ATTRACTIVITE")
+        _section_keys = sorted(section_map.keys(), key=len, reverse=True)
+
+    def _extract_via_section_map(_p_for_match: str):
+        """Cherche si le paragraphe commence par un key du section_map.
+        Retourne (key, body) ou (None, None)."""
+        _stripped = _re_struct.sub(r'^\*{1,3}', '', _p_for_match)  # remove opening **
+        _upper = _stripped.upper()
+        for _k in _section_keys:
+            if _upper.startswith(_k):
+                # Trouve la fin du titre : premier ':' apres le key + closing **
+                _end = len(_k)
+                # Skip optional ** closing avant le :
+                _rest = _stripped[_end:]
+                _m_sep = _re_struct.search(r'[:—\-]\s*\*{0,3}\s*', _rest)
+                if _m_sep:
+                    # Certains LLM ecrivent "TITRE : description de TITRE :\n body"
+                    # On prefere le DERNIER ':' avant un \n OU la PREMIERE occurrence
+                    # simple pour ne pas manger le body. Regle : si le body apres
+                    # le 1er ':' commence par une majuscule ET >10 chars, prendre.
+                    _body_candidate = _rest[_m_sep.end():].strip().lstrip('*').lstrip('_').strip()
+                    if _body_candidate and len(_body_candidate) > 10:
+                        return _k, _body_candidate
+        return None, None
+
     _parsed = []  # [(title_or_None, body), ...]
     for _p in paras:
         _p_flat = _re_struct.sub(r'\s*\n\s*', ' ', _p)
         _p_for_match = _p_flat
-        _p_for_match = _re_struct.sub(r'^\*{1,3}([^*]{2,80})\*{1,3}', r'\1', _p_for_match)
-        _p_for_match = _re_struct.sub(r'^_{2,3}([^_]{2,80})_{2,3}', r'\1', _p_for_match)
+        _p_for_match = _re_struct.sub(r'^\*{1,3}([^*]{2,200})\*{1,3}', r'\1', _p_for_match)
+        _p_for_match = _re_struct.sub(r'^_{2,3}([^_]{2,200})_{2,3}', r'\1', _p_for_match)
+
+        # Priorite 1 : section_map-based detection
+        _title_sm = None
+        if _section_keys:
+            _k, _body = _extract_via_section_map(_p_for_match)
+            if _k:
+                _parsed.append((_k, _body))
+                continue
+
+        # Priorite 2 : regex generique
         _m = _TITLE_RE.match(_p_for_match)
         if _m:
             _raw_title = _m.group(1).strip().rstrip('.').rstrip('*').rstrip('_')
