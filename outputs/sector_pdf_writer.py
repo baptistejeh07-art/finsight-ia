@@ -3081,15 +3081,16 @@ def _build_conclusion_reco(tickers_data: list[dict], sector_name: str,
         elems.append(Paragraph("Recommandation sectorielle", S_SUBSECTION))
         elems.append(Spacer(1, 1*mm))
         # NIGHT-3 Baptiste : propagate helper pour sous-titres bleus dans la reco
+        # ACCENTS obligatoires dans les titres affiches (regle typographie FR)
         try:
             from outputs.pdf_writer import _render_llm_structured as _rls
             _rls(elems, _reco_llm_text, section_map={
-                "PROMETTEUR":      "Secteur prometteur ou non",
-                "HORIZON":         "Horizon d'investissement",
-                "SOUS-SECTEURS":   "Sous-secteurs a privilegier",
-                "CATALYSEURS":     "Catalyseurs 6-12 mois",
-                "RISQUES":         "Risques a surveiller",
-                "REVISION":        "Conditions de revision",
+                "PROMETTEUR":      "Secteur prometteur : analyse structurelle",
+                "HORIZON":         "Horizon d'investissement recommand\u00e9",
+                "SOUS-SECTEURS":   "Sous-secteurs \u00e0 privil\u00e9gier",
+                "CATALYSEURS":     "Catalyseurs sur 6-12 mois",
+                "RISQUES":         "Risques \u00e0 surveiller",
+                "REVISION":        "Conditions de r\u00e9vision de la th\u00e8se",
             })
         except Exception:
             elems.append(Paragraph(_safe(_reco_llm_text), S_BODY))
