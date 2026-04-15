@@ -3053,6 +3053,8 @@ def _build_risques(data):
         pass
     if _llm_conclusion.strip():
         # PDF-SUBTITRES : sous-titres bleus
+        # NB : le LLM ecrit parfois "4. Scenarios..." au lieu de "4. REVISION...",
+        # donc on ajoute aussi SCENARIOS au section_map pour catcher ce cas.
         _render_llm_structured(
             elems, _llm_conclusion,
             section_map={
@@ -3062,6 +3064,8 @@ def _build_risques(data):
                 "CATALYSEURS": "Catalyseurs et horizon temporel",
                 "REVISION":    "Conditions de r\u00e9vision de la th\u00e8se",
                 "RÉVISION":    "Conditions de r\u00e9vision de la th\u00e8se",
+                "SCENARIOS":   "Sc\u00e9narios de r\u00e9vision et m\u00e9triques \u00e0 surveiller",
+                "SCÉNARIOS":   "Sc\u00e9narios de r\u00e9vision et m\u00e9triques \u00e0 surveiller",
             },
             spacer_mm=2.0,
         )
