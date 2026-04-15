@@ -5710,8 +5710,20 @@ def render_results(results: dict) -> None:
             pb_c, pb_w = _cls_pb(yr.pb_ratio, benchmark=(0.8, 1.3))
             roe_b_c, roe_b_w = _cls_roe_bank(yr.roe)
             roa_c, roa_w = _cls_roa_bank(yr.roa)
+            ic_c, ic_w = _cls_coverage(yr.interest_coverage, lo=2.0, hi=4.0)
             dp  = yr.dividend_payout
-            dp_c = "bg" if dp is not None and 0.3 < dp < 0.6 else "bn"
+            dp_c = "bg" if dp is not None and 0.3 < dp < 0.7 else "bn"
+
+            # Asset Leverage = Total Assets / Equity (proxy solvabilité bilan)
+            # Pour une assurance européenne ~12-18x est normal (float important).
+            _asset_lev = None
+            try:
+                if yr.total_assets and yr.total_equity and yr.total_equity > 0:
+                    _asset_lev = round(yr.total_assets / yr.total_equity, 1)
+            except Exception:
+                pass
+            _al_c = ("bg" if _asset_lev and _asset_lev < 15 else
+                     "bn" if _asset_lev and _asset_lev < 20 else "br")
 
             cells = "".join([
                 _rc("P/B",               _x(yr.pb_ratio),
@@ -5728,21 +5740,22 @@ def render_results(results: dict) -> None:
                     "Net Premiums Earned YoY", rg_w, rg_c),
                 _rc("Payout Dividende",  _p(yr.dividend_payout),
                     "Div / NI · cible 40-70%", 60, dp_c),
-                _rc("Market Cap",        (f"{yr.market_cap/1000:,.1f} Mds" if yr.market_cap else "N/A"),
-                    "Capitalisation boursière", 60, "bn"),
+                _rc("Interest Coverage", _x(yr.interest_coverage),
+                    "EBIT / Intérêts · > 4x sain", ic_w, ic_c),
+                _rc("Asset Leverage",    (f"{_asset_lev:.1f}x" if _asset_lev else "N/A"),
+                    "Total Assets / Equity · 12-18x normal", 60, _al_c),
                 _rc("Debt/Equity",       _x(yr.debt_equity),
                     "Levier bilantiel", 60, "bn"),
-                _rc("Combined Ratio",    "voir SFCR",
-                    "Losses + Expenses / NPE · < 100% sain", 50, "bn"),
-                _rc("Solvency II",       "voir SFCR",
-                    "Own Funds / SCR · > 150% cible", 50, "bn"),
-                _rc("Embedded Value",    "voir rapport annuel",
-                    "NAV + VIF (Life uniquement)", 50, "bn"),
+                _rc("Market Cap",        (f"{yr.market_cap/1000:,.1f} Mds" if yr.market_cap else "N/A"),
+                    "Capitalisation boursière", 60, "bn"),
+                _rc("Dividend Yield*",   (f"{(yr.fcf_yield or 0)*100:.1f}%" if yr.fcf_yield else "N/A"),
+                    "FCF Yield proxy (div Y dans rapport)", 60, "bn"),
             ])
             _profile_note = (
-                'Profil <b>INSURANCE</b> — ratios adaptés : P/B, ROE, Combined Ratio '
-                'remplacent EV/EBITDA. Combined Ratio, Solvency II, Embedded Value '
-                'à consulter dans le SFCR annuel.'
+                'Profil <b>INSURANCE</b> — ratios adaptés : P/B, ROE, Asset Leverage. '
+                'Les ratios prudentiels (Combined Ratio, Solvency II, Embedded Value) '
+                'ne sont pas dans les états financiers yfinance — à consulter dans '
+                'le SFCR annuel de l\'assureur (publication réglementaire trimestrielle).'
             )
         elif _profile == "REIT":
             pb_c, pb_w = _cls_pb(yr.pb_ratio, benchmark=(0.85, 1.15))

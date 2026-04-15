@@ -202,14 +202,21 @@ class AgentQuant:
             years_ratios[year_label] = yr
 
         # Croissance YoY (nécessite l'année précédente)
+        # Passe les FinancialYear raw (avec revenue, net_income, etc.) en plus
+        # des YearRatios pour supporter les sociétés financières (banques,
+        # assurances) qui n'ont pas de gross_profit → le fallback
+        # _rev_from_yr(gross_profit/gross_margin) retourne None et casse
+        # revenue_growth. Fix #181 (bug AXA).
         for i, year_label in enumerate(all_labels):
             if i == 0:
                 prev_yr = years_ratios.get(year_label)
                 continue
             curr_yr = years_ratios.get(year_label)
             p_yr    = years_ratios.get(all_labels[i - 1])
+            curr_fy = snapshot.years.get(year_label)
+            prev_fy = snapshot.years.get(all_labels[i - 1])
             if curr_yr and p_yr:
-                self._compute_growth(curr_yr, p_yr)
+                self._compute_growth(curr_yr, p_yr, curr_fy, prev_fy)
             prev_yr = curr_yr
 
         # Beneish M-Score (nécessite 2 ans consécutifs)
@@ -427,15 +434,34 @@ class AgentQuant:
     # Croissance YoY
     # ------------------------------------------------------------------
 
-    def _compute_growth(self, curr: YearRatios, prev: YearRatios) -> None:
+    def _compute_growth(
+        self,
+        curr: YearRatios,
+        prev: YearRatios,
+        curr_fy=None,
+        prev_fy=None,
+    ) -> None:
+        """Croissance YoY sur revenue, EBITDA, gross profit, FCF.
+
+        curr_fy/prev_fy sont les FinancialYear raw (optionnels) — fournis
+        pour lire fy.revenue directement. Fallback sur _rev_from_yr qui
+        dérive revenue depuis gross_profit/gross_margin quand fy n'est pas
+        fourni (ex: tests unitaires) — utile pour les corporates mais
+        retourne None pour les financières sans gross_profit (bug #181 AXA).
+        """
         def _growth(c, p):
             if c is None or p is None or p == 0:
                 return None
             return round((c - p) / abs(p), 4)
 
-        curr.revenue_growth = _growth(
-            _rev_from_yr(curr), _rev_from_yr(prev)
-        )
+        # Revenue : priorité à fy.revenue (direct, couvre les financières),
+        # fallback _rev_from_yr (dérivé gross_profit/gross_margin)
+        _curr_rev = (getattr(curr_fy, "revenue", None) if curr_fy is not None
+                     else None) or _rev_from_yr(curr)
+        _prev_rev = (getattr(prev_fy, "revenue", None) if prev_fy is not None
+                     else None) or _rev_from_yr(prev)
+        curr.revenue_growth = _growth(_curr_rev, _prev_rev)
+
         curr.ebitda_growth = _growth(curr.ebitda, prev.ebitda)
         curr.gp_growth     = _growth(curr.gross_profit, prev.gross_profit)
         curr.fcf_growth    = _growth(curr.fcf,    prev.fcf)
