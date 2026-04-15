@@ -196,8 +196,8 @@ def _copy_sheet_into(wb, sheet_name: str, template_ws):
         for cf_range, rules in template_ws.conditional_formatting._cf_rules.items():
             for rule in rules:
                 ws.conditional_formatting.add(str(cf_range.sqref), _shallow_copy(rule))
-    except Exception:
-        pass
+    except Exception as _e:
+        log.debug(f"[lbo_model:_copy_sheet_into] exception skipped: {_e}")
 
     # Sheet state (visible / hidden)
     ws.sheet_state = template_ws.sheet_state
@@ -208,8 +208,8 @@ def _copy_sheet_into(wb, sheet_name: str, template_ws):
         ws.page_margins  = _shallow_copy(template_ws.page_margins)
         ws.page_setup    = _shallow_copy(template_ws.page_setup)
         ws.sheet_view    = _shallow_copy(template_ws.sheet_view)
-    except Exception:
-        pass
+    except Exception as _e:
+        log.debug(f"[lbo_model:_copy_sheet_into] exception skipped: {_e}")
 
     return ws
 
@@ -1351,8 +1351,8 @@ def read_lbo_data(xlsx_path) -> dict:
         try:
             out["company_name"] = ws["C7"].value
             out["ticker"] = ws["C8"].value
-        except Exception:
-            pass
+        except Exception as _e:
+            log.debug(f"[lbo_model:read_lbo_data] exception skipped: {_e}")
 
         return out
     except Exception:

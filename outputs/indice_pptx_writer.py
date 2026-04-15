@@ -666,10 +666,10 @@ def _chart_etf_perf(data: dict) -> bytes:
                         color=colors_line[i % len(colors_line)],
                         linewidth=1.6, label=label, alpha=0.9)
                 plotted += 1
-            except Exception:
-                pass
-    except Exception:
-        pass
+            except Exception as _e:
+                log.debug(f"[indice_pptx_writer:_chart_etf_perf] exception skipped: {_e}")
+    except Exception as _e:
+        log.debug(f"[indice_pptx_writer:_chart_etf_perf] exception skipped: {_e}")
 
     if plotted == 0:
         # Fallback simule basé sur return_1y
@@ -1489,8 +1489,8 @@ def _s10_scatter(prs, D, chart_bytes: bytes):
             f"Francais avec accents. Secteurs en FR. Pas de markdown/emojis."
         )
         _llm_extra_s10 = llm_call(_prompt_s10, phase="long", max_tokens=700) or ""
-    except Exception:
-        pass
+    except Exception as _e:
+        log.debug(f"[indice_pptx_writer:_s10_scatter] exception skipped: {_e}")
     _full_txt_s10 = (txt + "\n\n" + _llm_extra_s10).strip() if _llm_extra_s10 else txt
 
     _rect(slide, 15.6, 2.3, 8.9, 11.0, fill=_GRAYL)
@@ -1812,8 +1812,8 @@ def _s14_allocation(prs, D):
                         cell = tbl.cell(r, ci)
                         cell.fill.solid()
                         cell.fill.fore_color.rgb = _RGB(0xEA, 0xF4, 0xEF)
-                except Exception:
-                    pass
+                except Exception as _e:
+                    log.debug(f"[indice_pptx_writer:_fmt_w] exception skipped: {_e}")
 
     # Panel droit — lecture analytique
     try:
@@ -1905,8 +1905,8 @@ def _s15_zone_entree(prs, D, chart_bytes: bytes):
             f"Francais avec accents. Pas de markdown/emojis."
         )
         _llm_zone_s15 = llm_call(_prompt_s15, phase="long", max_tokens=700) or ""
-    except Exception:
-        pass
+    except Exception as _e:
+        log.debug(f"[indice_pptx_writer:_s15_zone_entree] exception skipped: {_e}")
     _full_s15 = (txt_col + "\n\n" + _llm_zone_s15).strip() if _llm_zone_s15 else txt_col
 
     _rect(slide, 16.3, 2.3, 8.1, 11.0, fill=_GRAYL)
@@ -2041,8 +2041,8 @@ def _s17_risques(prs, D):
                 f"Francais avec accents. Pas de markdown/emojis."
             )
             _lec17_llm = llm_call(_prompt_s17, phase="long", max_tokens=700) or ""
-        except Exception:
-            pass
+        except Exception as _e:
+            log.debug(f"[indice_pptx_writer:_prob_to_int] exception skipped: {_e}")
         if not _lec17_llm.strip():
             _lec17 = (
                 f"Signal {_sig17} (conviction {_conv17}%) — sc\u00e9nario central. "
@@ -2219,8 +2219,8 @@ def _s19_sentiment(prs, D, chart_bytes: bytes):
             f"Francais avec accents. Pas de markdown."
         )
         _llm_sent_s19 = llm_call(_prompt_s19, phase="long", max_tokens=500) or ""
-    except Exception:
-        pass
+    except Exception as _e:
+        log.debug(f"[indice_pptx_writer:_s19_sentiment] exception skipped: {_e}")
     if _llm_sent_s19.strip():
         _rect(slide, _rx, 11.55, _rw, 1.75, fill=_GRAYL)
         _rect(slide, _rx, 11.55, 0.08, 1.75, fill=_NAVY)
@@ -2613,8 +2613,8 @@ class IndicePPTXWriter:
                 try:
                     sl = prs.slides.add_slide(prs.slide_layouts[6])
                     _txb(sl, label, Cm(0.5), Cm(0.5), Cm(8), Cm(1), 11, bold=False)
-                except Exception:
-                    pass
+                except Exception as _e:
+                    log.debug(f"[indice_pptx_writer:_safe] exception skipped: {_e}")
 
         # Slide 1 — Cover
         _safe(_s01_cover, prs, data, label="s01_cover")

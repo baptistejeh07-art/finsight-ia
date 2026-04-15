@@ -407,8 +407,8 @@ def _get_content(sector_name: str) -> dict:
                             en_key.replace("Health Care", "Healthcare")):
                 if variant in _SECTOR_CONTENT:
                     return _SECTOR_CONTENT[variant]
-    except Exception:
-        pass
+    except Exception as _e:
+        log.debug(f"[cmp_secteur_pptx_writer:_get_content] exception skipped: {_e}")
 
     # Fallback partiel substring
     key_lc = key.lower()
@@ -687,8 +687,8 @@ def _chart_price_52w_pptx(perf_a, perf_b, sector_a, sector_b) -> bytes:
                             where=(a_vals >= b_vals), alpha=0.12, color=_HEX_A)
             ax.fill_between(idx, a_vals, b_vals,
                             where=(a_vals < b_vals), alpha=0.12, color="#C9A227")
-        except Exception:
-            pass
+        except Exception as _e:
+            log.debug(f"[cmp_secteur_pptx_writer:_chart_price_52w_pptx] exception skipped: {_e}")
     for perf, col, nm in [(perf_a, _HEX_A, sector_a[:14]), (perf_b, "#C9A227", sector_b[:14])]:
         if perf is not None and len(perf) > 0:
             last_v = float(perf.iloc[-1])

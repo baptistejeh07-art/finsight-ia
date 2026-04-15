@@ -2065,8 +2065,8 @@ def _section_52w_price(story, m_a, m_b, tkr_a, tkr_b, synthesis=None):
                     parts.append(f"{_enc(tkr)} évolue en tendance baissière modérée ({_frpct(p1y, True)})")
                 else:
                     parts.append(f"{_enc(tkr)} subit une tendance baissière prononcee ({_frpct(p1y, True)})")
-            except Exception:
-                pass
+            except Exception as _e:
+                log.debug(f"[cmp_societe_pdf_writer:_trend_txt] exception skipped: {_e}")
         # Drawdown from 52W high
         if price and hi:
             try:
@@ -2075,16 +2075,16 @@ def _section_52w_price(story, m_a, m_b, tkr_a, tkr_b, synthesis=None):
                     parts.append(f"en retrait de {abs(dd)*100:.1f} % par rapport au plus haut 52 semaines ({_fr(hi, 2)})".replace(".", ","))
                 else:
                     parts.append(f"proche de son plus haut 52 semaines ({_fr(hi, 2)})")
-            except Exception:
-                pass
+            except Exception as _e:
+                log.debug(f"[cmp_societe_pdf_writer:_trend_txt] exception skipped: {_e}")
         # Recovery from 52W low
         if price and lo:
             try:
                 rec = (float(price) - float(lo)) / float(lo)
                 if rec > 0.20:
                     parts.append(f"en hausse de {rec*100:.1f} % depuis le plus bas 52 semaines ({_fr(lo, 2)})".replace(".", ","))
-            except Exception:
-                pass
+            except Exception as _e:
+                log.debug(f"[cmp_societe_pdf_writer:_trend_txt] exception skipped: {_e}")
         if parts:
             return ". ".join(parts) + "."
         return f"{_enc(tkr)} : données de tendance indisponibles."
@@ -2375,8 +2375,8 @@ class CmpSocietePDFWriter:
             if snap is not None and not isinstance(snap, (str, dict)):
                 try:
                     return snap.ticker or default
-                except Exception:
-                    pass
+                except Exception as _e:
+                    log.debug(f"[cmp_societe_pdf_writer:_get_ticker] exception skipped: {_e}")
             if isinstance(snap, dict):
                 t = snap.get("ticker") or snap.get("company_info", {}).get("ticker")
                 if t:

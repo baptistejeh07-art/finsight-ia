@@ -818,8 +818,8 @@ def _slide_07_secteurs(prs, d: dict):
             _max = max(_spreads, key=lambda x: abs(x[1]))
             _winner = name_a if _max[1] > 0 else name_b
             _sect_title = f"{_winner} surpondère {_max[0]} (+{abs(_max[1]):.1f} pts) — biais structurel principal"
-    except Exception:
-        pass
+    except Exception as _e:
+        log.debug(f"[cmp_indice_pptx_writer:_slide_07_secteurs] exception skipped: {_e}")
     _llm_box(slide, 16.00, 3.10, 8.40, 7.50,
              _sect_title, sectoral_read, fontsize=9)
 

@@ -1007,8 +1007,8 @@ def _chart_performance(tickers_data, best_ticker=None, worst_ticker=None,
             _etf_info = get_etf_for(sector_name, universe=universe or "S&P 500")
             if _etf_info:
                 _etf_ticker = _etf_info["ticker"]
-        except Exception:
-            pass
+        except Exception as _e:
+            log.debug(f"[sectoral_pptx_writer:_chart_performance] exception skipped: {_e}")
 
     # Top 3 par momentum_52w (couleurs distinctes) + worst (rouge)
     _ranked = sorted([t for t in tickers_data if t.get("ticker")],
@@ -1055,8 +1055,8 @@ def _chart_performance(tickers_data, best_ticker=None, worst_ticker=None,
                                 color='#000000', linewidth=2.5, linestyle='--',
                                 label=f"ETF {_etf_ticker} (benchmark)",
                                 alpha=0.95, zorder=5)
-            except Exception:
-                pass
+            except Exception as _e:
+                log.debug(f"[sectoral_pptx_writer:_chart_performance] exception skipped: {_e}")
 
         # Ne plotter QUE les tickers highlight (top 3 + worst) — zero ligne anonyme
         for ticker in _highlighted_set:
@@ -1075,10 +1075,10 @@ def _chart_performance(tickers_data, best_ticker=None, worst_ticker=None,
                 ax.plot(norm.index, norm.values,
                         color=col, linewidth=lw, label=_lbl, alpha=1.0, zorder=4)
                 plotted += 1
-            except Exception:
-                pass
-    except Exception:
-        pass
+            except Exception as _e:
+                log.debug(f"[sectoral_pptx_writer:_chart_performance] exception skipped: {_e}")
+    except Exception as _e:
+        log.debug(f"[sectoral_pptx_writer:_chart_performance] exception skipped: {_e}")
 
     if plotted == 0:
         # Fallback illustrative — warning car données non réelles
@@ -1365,8 +1365,8 @@ def _s06_ratios(prs, D):
                 _proxy = round(mc / float(_eb_ltm), 1)
                 if 0 < _proxy < 200:
                     return _proxy
-            except Exception:
-                pass
+            except Exception as _e:
+                log.debug(f"[sectoral_pptx_writer:_fallback_ev_ebitda] exception skipped: {_e}")
         # Priorite 3 : ebitda_margin * revenue_ltm
         em  = t.get("ebitda_margin")
         rev = t.get("revenue_ltm") or t.get("revenue")

@@ -2941,8 +2941,8 @@ class CmpSocietePPTXWriter:
             if snap is not None and not isinstance(snap, (str, dict)):
                 try:
                     return snap.ticker or default
-                except Exception:
-                    pass
+                except Exception as _e:
+                    log.debug(f"[cmp_societe_pptx_writer:_get_tkr] exception skipped: {_e}")
             if isinstance(snap, dict):
                 t = snap.get("ticker") or snap.get("company_info", {}).get("ticker")
                 if t:
@@ -3081,5 +3081,5 @@ class CmpSocietePPTXWriter:
         finally:
             try:
                 os.unlink(tmp.name)
-            except Exception:
-                pass
+            except Exception as _e:
+                log.debug(f"[cmp_societe_pptx_writer:generate_bytes] exception skipped: {_e}")

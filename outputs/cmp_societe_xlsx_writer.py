@@ -284,16 +284,16 @@ def _fetch_supplements(ticker: str) -> dict:
                 cp = _g(full, "currentPrice") or _g(info, "last_price")
                 if dr and cp and float(cp) > 0:
                     out["dividend_yield"] = round(float(dr) / float(cp), 4)
-        except Exception:
-            pass
+        except Exception as _e:
+            log.debug(f"[cmp_societe_xlsx_writer:_fetch_supplements] exception skipped: {_e}")
 
         # Target price consensus (fallback DCF)
         try:
             tp = _g(full, "targetMeanPrice")
             if tp and float(tp) > 0:
                 out["target_mean_price"] = round(float(tp), 2)
-        except Exception:
-            pass
+        except Exception as _e:
+            log.debug(f"[cmp_societe_xlsx_writer:_fetch_supplements] exception skipped: {_e}")
 
         # VaR 95% mensuelle (si historique disponible)
         try:
@@ -305,8 +305,8 @@ def _fetch_supplements(ticker: str) -> dict:
                 monthly_r = [float(sum(returns.iloc[i:i+21])) for i in range(0, len(returns) - 20, 21)]
                 if monthly_r:
                     out["var_95_1m"] = round(float(np.percentile(monthly_r, 5)), 4)
-        except Exception:
-            pass
+        except Exception as _e:
+            log.debug(f"[cmp_societe_xlsx_writer:_fetch_supplements] exception skipped: {_e}")
 
         # Prochaine date de résultats
         try:
@@ -317,8 +317,8 @@ def _fetch_supplements(ticker: str) -> dict:
                     if hasattr(ed, "__iter__") and not isinstance(ed, str):
                         ed = list(ed)[0]
                     out["next_earnings_date"] = str(ed)[:10]
-        except Exception:
-            pass
+        except Exception as _e:
+            log.debug(f"[cmp_societe_xlsx_writer:_fetch_supplements] exception skipped: {_e}")
 
         # Piotroski F-Score + composantes
         try:
@@ -346,8 +346,8 @@ def _fetch_supplements(ticker: str) -> dict:
                                 v = float(inc.loc[k, col])
                                 if pd.notna(v):
                                     return v
-                            except Exception:
-                                pass
+                            except Exception as _e:
+                                log.debug(f"[cmp_societe_xlsx_writer:_vi_ic] exception skipped: {_e}")
                     return None
                 ebit = _vi_ic(["EBIT", "Operating Income", "Ebit"])
                 ie   = _vi_ic(["Interest Expense", "Interest Expense Non Operating",
@@ -388,22 +388,22 @@ def _fetch_supplements(ticker: str) -> dict:
                         out["rsi"] = 100.0
                     else:
                         out["rsi"] = 50.0
-        except Exception:
-            pass
+        except Exception as _e:
+            log.debug(f"[cmp_societe_xlsx_writer:_fetch_supplements] exception skipped: {_e}")
 
         # EV/Sales depuis yfinance.info
         try:
             evs = _g(full, "enterpriseToRevenue")
             if evs and float(evs) > 0:
                 out["ev_sales"] = round(float(evs), 2)
-        except Exception:
-            pass
+        except Exception as _e:
+            log.debug(f"[cmp_societe_xlsx_writer:_fetch_supplements] exception skipped: {_e}")
 
         # Secteur (fallback si non stocke dans l'État pipeline)
         try:
             out["sector"] = full.get("sector", "") or ""
-        except Exception:
-            pass
+        except Exception as _e:
+            log.debug(f"[cmp_societe_xlsx_writer:_fetch_supplements] exception skipped: {_e}")
 
         # Forward estimates (consensus analystes)
         try:
@@ -412,8 +412,8 @@ def _fetch_supplements(ticker: str) -> dict:
             out["trailing_eps"]         = full.get("trailingEps")
             out["revenue_growth"]       = full.get("revenueGrowth")   # YoY fwd
             out["earnings_growth_est"]  = full.get("earningsGrowth")
-        except Exception:
-            pass
+        except Exception as _e:
+            log.debug(f"[cmp_societe_xlsx_writer:_fetch_supplements] exception skipped: {_e}")
 
     except Exception as e:
         log.warning(f"[comparison] _fetch_supplements({ticker}) erreur : {e}")
@@ -537,8 +537,8 @@ def extract_metrics(state: dict, supp: dict) -> dict:
     try:
         if ratios and ratios.meta:
             mc_meta = ratios.meta
-    except Exception:
-        pass
+    except Exception as _e:
+        log.debug(f"[cmp_societe_xlsx_writer:extract_metrics] exception skipped: {_e}")
 
     # Prix courant (pipeline + fallback supplements)
     price = _safe(mkt, "share_price") or supp.get("share_price")
@@ -571,16 +571,16 @@ def extract_metrics(state: dict, supp: dict) -> dict:
         ni  = _safe(yr, "net_income")
         if fcf is not None and ni and ni != 0:
             cc = round(fcf / abs(ni), 2)
-    except Exception:
-        pass
+    except Exception as _e:
+        log.debug(f"[cmp_societe_xlsx_writer:extract_metrics] exception skipped: {_e}")
 
     # Sloan accruals depuis qa_python.meta
     sloan = None
     try:
         if qa_python and hasattr(qa_python, "meta"):
             sloan = qa_python.meta.get("sloan_ratio")
-    except Exception:
-        pass
+    except Exception as _e:
+        log.debug(f"[cmp_societe_xlsx_writer:extract_metrics] exception skipped: {_e}")
 
     # Dividend yield (calculé depuis dividendes_paid / market_cap comme fallback)
     # Ne pas utiliser dividend_payout qui est le taux de distribution (NI), pas le yield
@@ -590,8 +590,8 @@ def extract_metrics(state: dict, supp: dict) -> dict:
         mc  = _safe(yr, "market_cap")
         if dps and mc and mc > 0:
             div_yield = round(abs(dps) / mc, 4)
-    except Exception:
-        pass
+    except Exception as _e:
+        log.debug(f"[cmp_societe_xlsx_writer:extract_metrics] exception skipped: {_e}")
 
     # Market cap / EV en milliards
     mc_bn = None
@@ -603,8 +603,8 @@ def extract_metrics(state: dict, supp: dict) -> dict:
             mc_bn = round(mc_val / 1e3, 1)  # yfinance en M → Mds
         if ev_val and ev_val > 0:
             ev_bn = round(ev_val / 1e3, 1)
-    except Exception:
-        pass
+    except Exception as _e:
+        log.debug(f"[cmp_societe_xlsx_writer:extract_metrics] exception skipped: {_e}")
 
     # Sector : priorité au snapshot, sinon supplément yfinance, sinon fallback
     # live get_ticker(ticker).info["sector"] en dernier recours (cover PPTX S1).
@@ -767,8 +767,8 @@ def extract_metrics(state: dict, supp: dict) -> dict:
                         _rev0 = getattr(_snap_yrs[_keys[0]], "revenue", None)
                     if len(_keys) >= 2:
                         _rev1 = getattr(_snap_yrs[_keys[1]], "revenue", None)
-                except Exception:
-                    pass
+                except Exception as _e:
+                    log.debug(f"[cmp_societe_xlsx_writer:extract_metrics] exception skipped: {_e}")
 
                 # 1. ROA > 0
                 if _ni0 is not None and _ta0 and _ta0 > 0:
@@ -929,8 +929,8 @@ class CmpSocieteXlsxWriter:
             if snap is not None and not isinstance(snap, (str, dict)):
                 try:
                     return snap.ticker or default
-                except Exception:
-                    pass
+                except Exception as _e:
+                    log.debug(f"[cmp_societe_xlsx_writer:_get_tkr] exception skipped: {_e}")
             if isinstance(snap, dict):
                 t = snap.get("ticker") or snap.get("company_info", {}).get("ticker")
                 if t:

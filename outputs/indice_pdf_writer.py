@@ -1141,8 +1141,8 @@ def _build_graphiques(data, scatter_buf, scores_buf, corr_buf=None, registry=Non
                 _ev = float(str(s[4]).replace('x','').replace(',','.').strip() or 0)
                 if _ev > 0:
                     _ev_pairs.append((_abbrev_pdf(s[0]), _ev, str(s[6])))
-            except Exception:
-                pass
+            except Exception as _e:
+                log.debug(f"[indice_pdf_writer:_build_graphiques] exception skipped: {_e}")
         _ev_pairs.sort(key=lambda x: x[1])
         _cheap_str  = ", ".join(f"{n} {v:.1f}x" for n, v, _ in _ev_pairs[:3]) or "n.d."
         _exp_str    = ", ".join(f"{n} {v:.1f}x" for n, v, _ in _ev_pairs[-3:]) or "n.d."
@@ -1774,8 +1774,8 @@ def _build_risques(data, registry=None):
                 f"Cite les secteurs par leur nom francais, pas l'anglais."
             )
             _risk_text = _llm_r.generate(_prompt_r, max_tokens=600) or ""
-        except Exception:
-            pass
+        except Exception as _e:
+            log.debug(f"[indice_pdf_writer:inv_signal_s] exception skipped: {_e}")
     if not _risk_text.strip():
         _risk_text = (
             f"Dans le sc\u00e9nario central, le {indice_rl} \u00e9volue dans une fourchette "

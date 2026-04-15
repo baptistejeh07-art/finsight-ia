@@ -842,8 +842,8 @@ def _build_story(data: dict) -> list:
             _max = max(_spreads, key=lambda x: abs(x[1]))
             _winner = name_a if _max[1] > 0 else name_b
             _sect_title = f"{_winner} surpondère {_max[0]} (+{abs(_max[1]):.1f} pts) — divergence structurelle clé"
-    except Exception:
-        pass
+    except Exception as _e:
+        log.debug(f"[cmp_indice_pdf_writer:_build_story] exception skipped: {_e}")
     story += _llm_box_std(_sect_title, sectoral_read)
     story.append(PageBreak())
 
