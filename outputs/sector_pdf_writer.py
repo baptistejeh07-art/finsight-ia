@@ -534,22 +534,35 @@ def _make_revenue_area(tickers_data: list[dict], sector_name: str,
 
 
 def _make_valuation_bars(tickers_data: list[dict], sector_name: str) -> io.BytesIO:
-    """EV/EBITDA ranking bars — graphique clair et lisible, remplace le scatter diforme."""
+    """EV/EBITDA ranking bars — graphique clair et lisible, remplace le scatter diforme.
+
+    Bug 2026-04-15 : pour le profil BANK/INSURANCE, les institutions financieres
+    n'ont pas de EV/EBITDA (ratio non pertinent). On bascule automatiquement
+    sur P/B (price-to-book) qui est le ratio de reference dans le secteur bancaire.
+    """
+    # Detect si on est sur un secteur financier (bascule sur P/B si besoin)
+    _profile = _detect_sector_profile(tickers_data, sector_name)
+    _use_pb = _profile in ("BANK", "INSURANCE")
+    _metric_key = "pb_ratio" if _use_pb else "ev_ebitda"
+    _metric_max = 20 if _use_pb else 150
+    _metric_label = "P/B" if _use_pb else "EV/EBITDA"
+    _metric_suffix = "x"
+
     points = []
     for t in tickers_data:
-        ev = t.get('ev_ebitda')
+        ev = t.get(_metric_key)
         if ev is None:
             continue
         try:
             ev_f = float(ev)
-            if 0 < ev_f <= 150:
+            if 0 < ev_f <= _metric_max:
                 points.append((t.get('ticker', '?'), ev_f, float(t.get('score_global') or 50)))
         except (TypeError, ValueError):
             pass
 
     if not points:
         fig, ax = plt.subplots(figsize=(9.0, 5.5))
-        ax.text(0.5, 0.5, 'EV/EBITDA non disponible', ha='center', va='center',
+        ax.text(0.5, 0.5, f'{_metric_label} non disponible', ha='center', va='center',
                 transform=ax.transAxes, fontsize=11, color='#999999')
         ax.set_facecolor('white')
         fig.patch.set_facecolor('white')
@@ -594,8 +607,8 @@ def _make_valuation_bars(tickers_data: list[dict], sector_name: str) -> io.Bytes
         ax.text(ev + x_max * 0.012, i, f'{ev:.1f}x',
                 va='center', ha='left', fontsize=8, color='#333333')
 
-    ax.set_xlabel('EV / EBITDA (x)', fontsize=9, color='#555555')
-    ax.set_title(f'EV/EBITDA par acteur \u2014 {sector_name}  \u00b7  Vert = sous médiane',
+    ax.set_xlabel(f'{_metric_label} ({_metric_suffix})', fontsize=9, color='#555555')
+    ax.set_title(f'{_metric_label} par acteur \u2014 {sector_name}  \u00b7  Vert = sous médiane',
                  fontsize=10, color='#1B3A6B', fontweight='bold', pad=8)
     for sp in ['top', 'right']:
         ax.spines[sp].set_visible(False)
