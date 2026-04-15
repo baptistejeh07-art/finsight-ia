@@ -897,8 +897,13 @@ def _build_macro(perf_buf, area_buf, tickers_data: list[dict],
     # Row 1 : perf chart full width — ratio figsize (6.5, 2.6) = 0.4
     perf_img = Image(perf_buf, width=TABLE_W, height=TABLE_W * 2.6 / 6.5)
     elems.append(perf_img)
-    elems.append(src(
-        f"FinSight IA \u2014 Basket {sector_name} (top 15 par score) vs S&P 500, base 100."))
+    # Source label : ETF {nom} ({ticker}) si dispo, sinon basket
+    _perf_src_label = (
+        f"FinSight IA \u2014 ETF {sector_name} ({_etf_info['ticker']}) vs S&P 500, base 100."
+        if _etf_info else
+        f"FinSight IA \u2014 Basket {sector_name} (top 15 par score) vs S&P 500, base 100."
+    )
+    elems.append(src(_perf_src_label))
     elems.append(Spacer(1, 4*mm))
 
     # Row 2 : composition ETF — refonte SEC-PDF-P3 Baptiste.
@@ -907,7 +912,11 @@ def _build_macro(perf_buf, area_buf, tickers_data: list[dict],
     # horizontal (auparavant le texte etait enferme dans une colonne de 44mm
     # a droite du chart, ce qui laissait beaucoup de blanc et forcait le texte
     # sur une grande colonne verticale peu lisible).
-    _etf_tk_text = _etf_info["ticker"] if _etf_info else "l'ETF sectoriel"
+    # Label pour le texte : "ETF Santé (XLV)" au lieu de "ETF XLV"
+    if _etf_info:
+        _etf_tk_text = f"ETF {sector_name} ({_etf_info['ticker']})"
+    else:
+        _etf_tk_text = "l'ETF sectoriel"
     area_img = Image(area_buf, width=TABLE_W, height=TABLE_W * 3.6 / 7.0)
     elems.append(area_img)
     elems.append(Spacer(1, 2*mm))
@@ -916,7 +925,7 @@ def _build_macro(perf_buf, area_buf, tickers_data: list[dict],
         f"Source : {_etf_issuer_lbl} via yfinance funds_data. Top 10 holdings pond\u00e9r\u00e9s reels."))
     elems.append(Spacer(1, 2*mm))
     elems.append(Paragraph(
-        f"<b>Composition de l'ETF {_etf_tk_text}.</b> Ce graphique affiche les "
+        f"<b>Composition de l'{_etf_tk_text}.</b> Ce graphique affiche les "
         f"<b>top 10 holdings</b> r\u00e9els du sous-jacent passif, pond\u00e9r\u00e9s par leur "
         f"poids effectif au dernier rebalancement communique par l'issuer. La "
         f"concentration du top 3 indique le degr\u00e9 d'oligopolisation du secteur : "
@@ -3484,13 +3493,43 @@ def _build_story(perf_buf, area_buf, scatter_buf, donut_buf,
     N = len(tickers_data)
     _univ_safe = _safe(universe)
     _sector_safe = _safe(sector_name)
+    # ETF de référence pour le framing "ETF-first"
+    _ref_etf_ticker = None
+    _ref_etf_name   = None
+    try:
+        from core.sector_etfs import get_etf_for as _get_etf_ref
+        _etf_ref_dict = _get_etf_ref(sector_name, universe=universe)
+        if _etf_ref_dict:
+            _ref_etf_ticker = _etf_ref_dict.get("ticker")
+            _ref_etf_name   = _etf_ref_dict.get("name")
+    except Exception:
+        pass
+
+    if _ref_etf_ticker:
+        _etf_intro = (
+            f"Cette analyse sectorielle s'ancre sur l'<b>ETF {_sector_safe} ({_ref_etf_ticker})</b>"
+            + (f" — {_safe(_ref_etf_name)}" if _ref_etf_name else "")
+            + f". Le pool d'analyse couvre <b>{N} acteurs</b> repr\u00e9sentatifs du secteur "
+            + f"<b>{_sector_safe}</b> ({_univ_safe}), s\u00e9lectionn\u00e9s parmi les holdings de "
+            + f"l'ETF et les leaders r\u00e9gionaux, permettant de positionner chaque soci\u00e9t\u00e9 "
+            + f"analys\u00e9e relativement au benchmark passif sectoriel."
+        )
+    else:
+        _etf_intro = (
+            f"Cette analyse sectorielle couvre <b>{N} acteurs</b> repr\u00e9sentatifs de "
+            f"l'\u00e9cosyst\u00e8me <b>{_sector_safe}</b> ({_univ_safe}). Aucun ETF de r\u00e9f\u00e9rence "
+            f"n'a \u00e9t\u00e9 identifi\u00e9 pour cet univers : le benchmark est constitu\u00e9 par le "
+            f"panier pond\u00e9r\u00e9 market-cap des acteurs couverts."
+        )
+
     story.append(Paragraph(
-        f"Cette analyse sectorielle couvre <b>{N} acteurs</b> repr\u00e9sentatifs de l'\u00e9cosyst\u00e8me "
-        f"<b>{_sector_safe}</b> ({_univ_safe}). Les donn\u00e9es financi\u00e8res sont issues de yfinance, "
-        f"FMP et Finnhub. L'analyse de sentiment est conduite par <b>FinBERT</b> sur le corpus "
-        f"presse financi\u00e8re des sept derniers jours. La valorisation int\u00e8gre les multiples LTM "
-        f"et une analyse EV/EBITDA vs croissance. Un <b>protocole adversarial</b> identifie "
-        f"les risques sectoriels avec probabilit\u00e9 et exposition par ticker.", S_BODY))
+        _etf_intro + " Les donn\u00e9es financi\u00e8res sont issues de <b>yfinance</b>, "
+        f"<b>FMP</b> et <b>Finnhub</b>. L'analyse de sentiment est conduite par <b>FinBERT</b> "
+        f"sur le corpus presse financi\u00e8re des sept derniers jours. La valorisation "
+        f"int\u00e8gre les multiples LTM pertinents selon le profil sectoriel (EV/EBITDA, "
+        f"P/TBV, P/FFO, etc.) crois\u00e9s avec la croissance des revenus. Un "
+        f"<b>protocole adversarial</b> identifie les risques sectoriels avec probabilit\u00e9 "
+        f"et exposition par ticker.", S_BODY))
     story.append(PageBreak())
 
     story += _build_macro(perf_buf, area_buf, tickers_data, sector_name, universe, registry, sector_analytics)

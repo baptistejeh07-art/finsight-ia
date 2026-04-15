@@ -703,6 +703,9 @@ def extract_metrics(state: dict, supp: dict) -> dict:
         "sentiment_label":   _safe(sentiment, "label"),
 
         # PIOTROSKI COMPOSANTES (rows 68-76)
+        # Source primaire : supp (yfinance direct via _compute_pio_components).
+        # Fallback : calcul depuis ratios.years[latest/prev] + snapshot.years
+        # si yfinance a échoué (Streamlit Cloud rate limit).
         "pio_roa_positive":         supp.get("pio_roa_positive"),
         "pio_cfo_positive":         supp.get("pio_cfo_positive"),
         "pio_delta_roa":            supp.get("pio_delta_roa"),
@@ -720,6 +723,83 @@ def extract_metrics(state: dict, supp: dict) -> dict:
         "revenue_growth_fwd": supp.get("revenue_growth"),
         "eps_growth_fwd":     supp.get("earnings_growth_est"),
     }
+
+    # --- Piotroski F-Score : fallback depuis ratios.years si supp fail -------
+    # Quand yfinance échoue (Streamlit Cloud rate limit), `supp` revient avec
+    # tous les pio_* à None → P13 du PDF comparatif affiche "—" partout.
+    # On recalcule depuis ratios.years[-1] et ratios.years[-2] + snapshot.years
+    # (dispo via le pipeline LangGraph déjà exécuté).
+    if m.get("pio_roa_positive") is None:
+        try:
+            yr_now  = yr
+            yr_prev = yr1  # année N-1 (déjà extrait plus haut)
+            if yr_now and yr_prev:
+                _ni0 = _safe(yr_now,  "net_income")
+                _ni1 = _safe(yr_prev, "net_income")
+                _ta0 = _safe(yr_now,  "total_assets")
+                _ta1 = _safe(yr_prev, "total_assets")
+                _fcf0 = _safe(yr_now, "fcf")  # proxy CFO
+                _gm0 = _safe(yr_now,  "gross_margin")
+                _gm1 = _safe(yr_prev, "gross_margin")
+                _cr0 = _safe(yr_now,  "current_ratio")
+                _cr1 = _safe(yr_prev, "current_ratio")
+                _td0 = _safe(yr_now,  "total_debt")
+                _td1 = _safe(yr_prev, "total_debt")
+
+                # Revenue depuis snapshot.years (pas dans YearRatios)
+                _rev0 = _rev1 = None
+                try:
+                    _snap_yrs = getattr(snapshot, "years", None) or {}
+                    _keys = sorted(_snap_yrs.keys(), reverse=True)
+                    if _keys:
+                        _rev0 = getattr(_snap_yrs[_keys[0]], "revenue", None)
+                    if len(_keys) >= 2:
+                        _rev1 = getattr(_snap_yrs[_keys[1]], "revenue", None)
+                except Exception:
+                    pass
+
+                # 1. ROA > 0
+                if _ni0 is not None and _ta0 and _ta0 > 0:
+                    m["pio_roa_positive"] = 1 if (_ni0 / _ta0) > 0 else 0
+                # 2. CFO > 0 (proxy via FCF puisque CFO pur non disponible dans YR)
+                if _fcf0 is not None:
+                    m["pio_cfo_positive"] = 1 if _fcf0 > 0 else 0
+                # 3. Delta ROA > 0
+                if (_ni0 is not None and _ni1 is not None and
+                    _ta0 and _ta1 and _ta0 > 0 and _ta1 > 0):
+                    m["pio_delta_roa"] = 1 if (_ni0/_ta0) > (_ni1/_ta1) else 0
+                # 4. Accruals : FCF / TA > NI / TA  (i.e. FCF > NI)
+                if _fcf0 is not None and _ni0 is not None:
+                    m["pio_accruals"] = 1 if _fcf0 > _ni0 else 0
+                # 5. Delta Levier : total_debt / TA baisse
+                if (_td0 is not None and _td1 is not None and
+                    _ta0 and _ta1 and _ta0 > 0 and _ta1 > 0):
+                    m["pio_delta_leverage"] = 1 if (_td0/_ta0) <= (_td1/_ta1) else 0
+                # 6. Delta Liquidité : current_ratio monte
+                if _cr0 is not None and _cr1 is not None:
+                    m["pio_delta_liquidity"] = 1 if _cr0 >= _cr1 else 0
+                # 7. Pas de dilution : shares_outstanding stable (approx via market_cap/price)
+                # Non calculable simplement depuis YR — laisse None
+                # 8. Delta Gross Margin
+                if _gm0 is not None and _gm1 is not None:
+                    m["pio_delta_gross_margin"] = 1 if _gm0 >= _gm1 else 0
+                # 9. Delta Asset Turnover : revenue / TA monte
+                if (_rev0 and _rev1 and _ta0 and _ta1 and
+                    _ta0 > 0 and _ta1 > 0):
+                    m["pio_delta_asset_turnover"] = 1 if (_rev0/_ta0) >= (_rev1/_ta1) else 0
+
+                # Recalcule piotroski_score depuis les composantes disponibles
+                _pio_vals = [m.get(f"pio_{k}") for k in (
+                    "roa_positive","cfo_positive","delta_roa","accruals",
+                    "delta_leverage","delta_liquidity","no_dilution",
+                    "delta_gross_margin","delta_asset_turnover"
+                )]
+                _pio_set = [v for v in _pio_vals if v is not None]
+                if len(_pio_set) >= 5 and m.get("piotroski_score") is None:
+                    # Règle de 3 pour normaliser sur 9 points
+                    m["piotroski_score"] = round(sum(_pio_set) * 9 / len(_pio_set))
+        except Exception as _e_pio_fb:
+            log.debug(f"[comparison] piotroski fallback error: {_e_pio_fb}")
 
     # --- Clés derives pour PDF/PPTX (formatees ou calculées) ---
     # Prix formate (French decimal)

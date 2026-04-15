@@ -1009,6 +1009,109 @@ def compute_ticker(ticker: str, cache_row: Optional[dict]) -> Optional[dict]:
     if net_margin is not None and not (-200.0 <= net_margin <= 99.9):
         net_margin = None
 
+    # --- Piotroski F-Score (9 critères binaires, Piotroski 2000) ---
+    # Calculé ici avec les données IS/BS/CF Supabase (2+ années). Les critères
+    # non calculables à cause de données manquantes sont notés 0 par défaut.
+    piotroski_f_score = None
+    try:
+        _pf = 0
+        _pf_valid = 0  # nb de critères effectivement évalués
+
+        # Profitability (4 critères)
+        # 1. ROA > 0 (NI / TA)
+        _ni0 = net_income
+        _ta0 = total_ass
+        _ta1 = _get(bs, "Total Assets", year_idx=1)
+        if _ni0 is not None and _ta0 and _ta0 > 0:
+            _pf_valid += 1
+            _roa0 = _ni0 / _ta0
+            if _roa0 > 0:
+                _pf += 1
+
+            # 3. ΔROA > 0
+            _ni1 = _get(is_, "Net Income",
+                        "Net Income From Continuing Operation Net Minority Interest",
+                        "Net Income Common Stockholders", year_idx=1)
+            if _ni1 is not None and _ta1 and _ta1 > 0:
+                _pf_valid += 1
+                _roa1 = _ni1 / _ta1
+                if _roa0 > _roa1:
+                    _pf += 1
+
+        # 2. CFO > 0 (Operating Cash Flow)
+        _cfo0 = _get(cf, "Operating Cash Flow", "Cash Flow From Continuing Operating Activities")
+        if _cfo0 is not None:
+            _pf_valid += 1
+            if _cfo0 > 0:
+                _pf += 1
+
+            # 4. CFO > NI (quality of earnings)
+            if _ni0 is not None:
+                _pf_valid += 1
+                if _cfo0 > _ni0:
+                    _pf += 1
+
+        # Leverage, Liquidity, Funding (3 critères)
+        # 5. ΔLeverage < 0 (LT Debt / TA baisse)
+        _ltd0 = ltd
+        _ltd1 = _get(bs, "Long Term Debt", "Long Term Debt And Capital Lease Obligation", year_idx=1) or 0
+        if _ta0 and _ta0 > 0 and _ta1 and _ta1 > 0:
+            _pf_valid += 1
+            _lev0 = _ltd0 / _ta0
+            _lev1 = _ltd1 / _ta1
+            if _lev0 < _lev1:
+                _pf += 1
+
+        # 6. ΔLiquidity > 0 (Current Ratio monte)
+        _ca0 = curr_ass
+        _cl0 = curr_liab
+        _ca1 = _get(bs, "Current Assets", "Total Current Assets", year_idx=1)
+        _cl1 = _get(bs, "Current Liabilities", "Total Current Liabilities", year_idx=1)
+        if _ca0 and _cl0 and _cl0 > 0 and _ca1 and _cl1 and _cl1 > 0:
+            _pf_valid += 1
+            _cr0 = _ca0 / _cl0
+            _cr1 = _ca1 / _cl1
+            if _cr0 > _cr1:
+                _pf += 1
+
+        # 7. No new shares issued (shares stables ou baisse)
+        # Proxy : shares actuel vs "Ordinary Shares Number" year_idx=1 dans BS
+        _sh0 = _get(bs, "Share Issued", "Ordinary Shares Number", year_idx=0)
+        _sh1 = _get(bs, "Share Issued", "Ordinary Shares Number", year_idx=1)
+        if _sh0 and _sh1 and _sh1 > 0:
+            _pf_valid += 1
+            if _sh0 <= _sh1 * 1.005:  # <= 0.5% issuance tolérée
+                _pf += 1
+
+        # Operating efficiency (2 critères)
+        # 8. ΔGross Margin > 0
+        _rev0 = revenue0
+        _rev1 = revenue1
+        _gp0  = gross_profit
+        _gp1  = _get(is_, "Gross Profit", year_idx=1)
+        if _rev0 and _rev0 > 0 and _gp0 is not None and _rev1 and _rev1 > 0 and _gp1 is not None:
+            _pf_valid += 1
+            _gm0 = _gp0 / _rev0
+            _gm1 = _gp1 / _rev1
+            if _gm0 > _gm1:
+                _pf += 1
+
+        # 9. ΔAsset Turnover > 0 (Revenue / TA)
+        if _rev0 and _ta0 and _ta0 > 0 and _rev1 and _ta1 and _ta1 > 0:
+            _pf_valid += 1
+            _at0 = _rev0 / _ta0
+            _at1 = _rev1 / _ta1
+            if _at0 > _at1:
+                _pf += 1
+
+        # Exige au moins 5 critères valides pour un score significatif.
+        # En dessous, score None (non affiché).
+        if _pf_valid >= 5:
+            # Normalise sur 9 si moins de critères évalués (règle de trois)
+            piotroski_f_score = round(_pf * 9 / _pf_valid)
+    except Exception as _e_pio:
+        log.debug(f"[{ticker}] Piotroski F-Score non calculé : {_e_pio}")
+
     # --- Croissance ---
     revenue_growth = (
         round((revenue0 - revenue1) / abs(revenue1) * 100, 1)
@@ -1210,7 +1313,7 @@ def compute_ticker(ticker: str, cache_row: Optional[dict]) -> Optional[dict]:
         "momentum_52w":mom52w,
         "beta":        beta_val,
         "peg_ratio":   peg_ratio,
-        "piotroski_f": None,   # non calcule dans le screening (requiert financials complets)
+        "piotroski_f": piotroski_f_score,   # 9 critères binaires Piotroski 2000 (fallback None si < 5 critères valides)
         "pb_ratio":    pb_ratio,
         "pe_ratio":    pe,     # alias pour compatibilite avec sector_pdf_writer
         # scores calcules apres agregation

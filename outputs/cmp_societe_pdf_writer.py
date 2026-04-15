@@ -50,7 +50,7 @@ from reportlab.platypus import (
 NAVY        = colors.HexColor('#1B3A6B')
 NAVY_LIGHT  = colors.HexColor('#2A5298')
 NAVY_MID    = colors.HexColor('#2E5FA3')
-COLOR_A     = colors.HexColor('#2E5FA3')   # Societe A -- bleu
+COLOR_A     = colors.HexColor('#1B3A6B')   # Societe A -- navy marque FinSight
 COLOR_B     = colors.HexColor('#C9A227')   # Societe B -- or professionnel
 BUY_GREEN   = colors.HexColor('#1A7A4A')
 SELL_RED    = colors.HexColor('#A82020')

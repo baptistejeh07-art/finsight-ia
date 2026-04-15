@@ -1763,15 +1763,15 @@ def _s10_scatter(prs, D):
 
 def _s11_scores(prs, D):
     slide = _blank(prs)
-    _header(slide, "Scores FinSight Detailles",
+    _header(slide, "Scores FinSight detaillés — top 10",
             "Décomposition par dimension  ·  Value · Growth · Quality · Momentum  ·  Score 0-100", 2)
 
     td = D["sorted_td"]
-    # SEC-PPTX-S12 Baptiste : top 10 strict pour garantir la lisibilite et
-    # laisser de la place au bloc synthese LLM en dessous (min 3cm visible).
+    # SEC-PPTX-S11 Baptiste : MAX 10 data rows strict (+ header = 11 rows total).
+    # Baptiste a explicitement demande "10 ou 11 ligne maximum" et titre "top 10".
+    # Pas de ligne footer "... et X autrès" pour respecter la limite absolue.
     MAX_ROWS_S11 = 10
     td_disp = td[:MAX_ROWS_S11]
-    n_hidden = max(0, len(td) - MAX_ROWS_S11)
     tbl_data = [["Ticker", "Société", "Score Global", "Value", "Growth", "Quality", "Momentum", "Reco"]]
     for t in td_disp:
         reco = _reco(t.get("score_global"))
@@ -1784,12 +1784,6 @@ def _s11_scores(prs, D):
             str(int(t.get("score_quality") or 0)),
             str(int(t.get("score_momentum") or 0)),
             reco,
-        ])
-    # Ligne footer si des lignes sont cachees
-    if n_hidden > 0:
-        tbl_data.append([
-            f"... et {n_hidden} autrès valeur{'s' if n_hidden > 1 else ''} (voir rapport PDF)",
-            "", "", "", "", "", "", "",
         ])
 
     # Hauteur table basée sur 0.72cm/row (hauteur réelle rendue par PowerPoint)
