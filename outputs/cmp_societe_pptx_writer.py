@@ -599,95 +599,130 @@ Mediane sectorielle : PE~{_n(m_a.get('sector_median_pe'))}, EV/EBITDA~{_x2(m_a.g
     )
     results["quality_text"] = _word_clip(r, 1100)
 
-    # Verdict final (120 mots max) — ancre strict sur le gagnant déjà calcule.
-    # Contrainte forte : le LLM doit parler UNIQUEMENT du gagnant. Si le verdict
-    # mentionne l'autre ticker avant le gagnant, on re-Généré une fois.
-    winner_for_llm = m_a.get('winner') or tkr_a
-    loser_for_llm  = tkr_b if winner_for_llm == tkr_a else tkr_a
-    # Finsight scores explicites dans le prompt pour que le LLM comprenne
-    # POURQUOI winner est choisi (et non pas le contraire)
-    _fs_winner_num = m_a.get('finsight_score') if winner_for_llm == tkr_a else m_b.get('finsight_score')
-    _fs_loser_num  = m_b.get('finsight_score') if winner_for_llm == tkr_a else m_a.get('finsight_score')
+    # ── Verdict final — REFONTE DÉCISIONNELLE (Baptiste #173-177) ───────
+    # Le LLM est LIBRE de choisir entre tkr_a, tkr_b, ou "Pas de préférence
+    # forte" selon son analyse pondérée. Le score FinSight est fourni comme
+    # INDICATION (pas comme vérité), aux côtés des news fraîches et du
+    # contexte macro live. Aucune coercion post-LLM.
+    #
+    # Les macro/news sont injectés via core.llm_context pour que le LLM ait
+    # accès au contexte le plus récent possible.
+    _fs_a_num = m_a.get('finsight_score') or 0
+    _fs_b_num = m_b.get('finsight_score') or 0
+
+    # Bloc contexte enrichi pour chaque ticker (macro partagé + news par ticker
+    # + finsight score expliqué)
+    _ctx_block = ""
+    try:
+        from core.llm_context import (
+            fetch_macro_live, format_macro_for_prompt,
+            format_news_for_prompt, format_finsight_explanation,
+        )
+        _macro = fetch_macro_live()
+
+        # Sentiment results : on essaie de récupérer depuis le state si dispo,
+        # sinon fallback sur les champs m_*. Dans le flow app.py, les sentiment
+        # results sont dans state.sentiment, mais ici on n'a que m_a/m_b.
+        # Les samples du sentiment sont exposés via _samples_a/b dans m_*.
+        _sentiment_a = m_a.get("_sentiment_result")
+        _sentiment_b = m_b.get("_sentiment_result")
+
+        _ctx_parts = [
+            "=" * 70,
+            "CONTEXTE DÉCISIONNEL ENRICHI (pour choix éclairé)",
+            "=" * 70,
+            format_macro_for_prompt(_macro),
+            "",
+            format_news_for_prompt(_sentiment_a, ticker=tkr_a),
+            "",
+            format_news_for_prompt(_sentiment_b, ticker=tkr_b),
+            "",
+            format_finsight_explanation(
+                score_global=_fs_a_num,
+                score_value=m_a.get("score_value"),
+                score_growth=m_a.get("score_growth"),
+                score_quality=m_a.get("score_quality"),
+                score_momentum=m_a.get("score_momentum"),
+                profile=m_a.get("_profile", "STANDARD"),
+                ticker=tkr_a,
+            ),
+            "",
+            format_finsight_explanation(
+                score_global=_fs_b_num,
+                score_value=m_b.get("score_value"),
+                score_growth=m_b.get("score_growth"),
+                score_quality=m_b.get("score_quality"),
+                score_momentum=m_b.get("score_momentum"),
+                profile=m_b.get("_profile", "STANDARD"),
+                ticker=tkr_b,
+            ),
+            "=" * 70,
+        ]
+        _ctx_block = "\n".join(_ctx_parts)
+    except Exception as _e_ctx:
+        import logging as _log
+        _log.getLogger(__name__).warning(f"[cmp_synthesis] contexte enrichi fail: {_e_ctx}")
+        _ctx_block = ""
+
     _verdict_prompt = (
-        f"VERDICT FINAL COMPARATIF — {tkr_a} vs {tkr_b}\n\n"
-        f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-        f"RÈGLE N°1 (ABSOLUE, NON NÉGOCIABLE) : LE CHOIX EST {winner_for_llm}.\n"
-        f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-        f"Le score composite FinSight (calcule déterministiquement sur valorisation + "
-        f"croissance + qualite + momentum) désigne {winner_for_llm} comme le choix "
-        f"privilégié :\n"
-        f"  - {winner_for_llm} : score FinSight {_fs_winner_num or 'N/A'}/100\n"
-        f"  - {loser_for_llm}  : score FinSight {_fs_loser_num or 'N/A'}/100\n"
-        f"Tu NE PEUX PAS recommander {loser_for_llm}, ni dire qu'il est 'plus attractif' "
-        f"ou 'plus sain', ni conclure en sa faveur. Si tu le fais, ta réponse sera "
-        f"rejetée et réécrite automatiquement.\n\n"
-        f"STRUCTURE OBLIGATOIRE de ta reponse (exactement 3 parties, 120 mots MAX total) :\n"
-        f"1. Première ligne EXACTE : \"Choix : {winner_for_llm}.\" (sans rien avant)\n"
-        f"2. Puis \"Pourquoi :\" suivi de 2-3 arguments CHIFFRÉS en faveur de "
-        f"{winner_for_llm} (valorisation relative, qualité bilan, moteurs de croissance).\n"
-        f"3. Puis \"Risque principal :\" suivi du risque clé spécifique à {winner_for_llm}.\n\n"
-        f"NE COMMENCE PAS par \"Choix : {loser_for_llm}\". NE COMMENCE PAS par une "
-        f"analyse de {loser_for_llm}. NE DIS PAS que {loser_for_llm} est meilleur.\n\n"
+        f"VERDICT FINAL COMPARATIF — {tkr_a} ({name_a}) vs {tkr_b} ({name_b})\n\n"
+        f"TU ES LE DÉCIDEUR. Analyse les deux sociétés et rends un verdict ÉCLAIRÉ en "
+        f"pondérant intelligemment :\n"
+        f"  1. Les métriques fondamentales (multiples, marges, ROIC, bilan)\n"
+        f"  2. Le contexte macro ACTUEL (taux, VIX, régime, récession)\n"
+        f"  3. Les news RÉCENTES avec sentiment\n"
+        f"  4. Le score FinSight comme repère chiffré (PAS comme vérité — il est\n"
+        f"     rétrospectif et ne tient pas compte de la macro ni des news)\n"
+        f"  5. Ta connaissance des catalyseurs sectoriels forward-looking\n\n"
+        f"Tu peux CHOISIR {tkr_a}, OU choisir {tkr_b}, OU déclarer NEUTRE si les "
+        f"arguments pour et contre sont équilibrés — c'est un choix honnête "
+        f"préférable à un verdict arbitraire.\n\n"
+        f"STRUCTURE OBLIGATOIRE de ta réponse (120 mots MAX au total) :\n"
+        f"1. Première ligne : \"Choix : {tkr_a}.\" OU \"Choix : {tkr_b}.\" OU "
+        f"\"Choix : Pas de préférence forte.\"\n"
+        f"2. \"Pourquoi :\" suivi de 2-3 arguments CHIFFRÉS qui justifient ton choix "
+        f"(ou dans le cas neutre, les forces des deux côtés).\n"
+        f"3. \"Risque principal :\" suivi du risque clé de la thèse retenue "
+        f"(ou des deux risques si neutre).\n\n"
+        f"Si tu diverges d'une indication simpliste qui dirait juste \"le meilleur "
+        f"score FinSight gagne\", explique explicitement pourquoi.\n\n"
+        f"{_ctx_block}\n\n"
         f"{data_str}"
     )
     r = _call_llm(_verdict_prompt, system=system_msg, max_tokens=500)
 
-    # ── Coercion dure : aligne verdict LLM sur le choix FinSight calcule. ────
-    # Bug Baptiste : le LLM ignore parfois "NON NEGOCIABLE" et écrit
-    # "Choix : TSLA" alors que finsight_score désigne NVDA. Cover P1 dit alors
-    # NVDA mais le verdict LLM dit TSLA — incohérence visible à l'écran.
-    #
-    # Stratégie en 4 étapes :
-    # 1. Supprime toute phrase "Choix : {loser}" (remplace par "Choix : {winner}")
-    # 2. Si le texte n'ouvre pas par "Choix : {winner}", on force le préfixe
-    # 3. Si le LLM a conclu en faveur du loser dans le corps, on rajoute
-    #    un avertissement d'alignement à la fin
-    # 4. Garde-fou : si r est None/vide, générer un fallback déterministe
+    # Pas de coercion — on fait juste un clip de longueur et on nettoie.
     _clean = (r or "").strip()
-
-    # Étape 1 : remplace "Choix : {loser}" (variantes : ":", "-", "—")
-    import re as _re_v
-    _pattern_loser_choix = _re_v.compile(
-        rf"\bChoix\s*[:\-—]?\s*{_re_v.escape(loser_for_llm)}\b",
-        flags=_re_v.IGNORECASE,
-    )
-    _clean = _pattern_loser_choix.sub(f"Choix : {winner_for_llm}", _clean)
-
-    # Étape 2 : vérifie le début du texte
-    _expected_start = f"Choix : {winner_for_llm}"
-    if not _clean.lower().startswith(_expected_start.lower()):
-        # Cherche "Choix : {winner}" quelque part dans le texte
-        _anchor_idx = _clean.lower().find(f"choix : {winner_for_llm.lower()}")
-        if _anchor_idx > 0:
-            _clean = _clean[_anchor_idx:]
-        else:
-            # Aucune ancre trouvée → préfixe forcé
-            _clean = f"{_expected_start}. {_clean}"
-
-    # Étape 3 : si le loser est mentionné en début de phrase comme "recommandation"
-    # ou "privilège", neutralise ces phrases.
-    _bad_patterns = [
-        rf"(?i)nous recommand\w*\s*{_re_v.escape(loser_for_llm)}",
-        rf"(?i)privil[eé]gi\w*\s*{_re_v.escape(loser_for_llm)}",
-        rf"(?i)pr[eé]f[eé]r\w*\s*{_re_v.escape(loser_for_llm)}",
-        rf"(?i){_re_v.escape(loser_for_llm)}\s*(est|semble|apparait)\s*(le\s*)?(meilleur|plus attractif|plus sain)",
-    ]
-    for _bp in _bad_patterns:
-        _clean = _re_v.sub(_bp, f"{winner_for_llm} reste le choix privilégié", _clean)
-
-    # Étape 4 : fallback déterministe si LLM a complètement échoué
     if not _clean or len(_clean) < 50:
-        _fs_w = m_a.get("finsight_score") if winner_for_llm == tkr_a else m_b.get("finsight_score")
-        _fs_l = m_b.get("finsight_score") if winner_for_llm == tkr_a else m_a.get("finsight_score")
+        # Fallback si LLM a complètement échoué : affiche les deux avec scores
         _clean = (
-            f"Choix : {winner_for_llm}. Pourquoi : le score composite FinSight de "
-            f"{winner_for_llm} ({_fs_w or 'N/A'}/100) dépasse celui de {loser_for_llm} "
-            f"({_fs_l or 'N/A'}/100), reflétant un meilleur équilibre entre valorisation, "
-            f"croissance, qualité et momentum. Risque principal : dépendance aux conditions "
-            f"macro et à la soutenabilité des moteurs structurels du secteur."
+            f"Choix : Pas de préférence forte. "
+            f"Pourquoi : les deux sociétés présentent un profil équilibré — "
+            f"{tkr_a} affiche un score FinSight de {_fs_a_num:.0f}/100 et "
+            f"{tkr_b} {_fs_b_num:.0f}/100. En l'absence d'analyse LLM disponible, "
+            f"un investisseur doit arbitrer selon son horizon, sa tolérance au risque "
+            f"et sa conviction sectorielle. Risque principal : exécution et conditions "
+            f"macro défavorables pour les deux profils."
         )
 
     results["verdict_text"] = _word_clip(_clean, 1200)
+
+    # ── Parse le ticker choisi par le LLM pour le partager aux writers ──
+    # Les writers (cover PDF, cover PPTX, UI Streamlit) affichent le "Choix
+    # préféré" = décision du LLM, pas du finsight_score.
+    import re as _re_v
+    _llm_choice = None
+    _verdict_lower = _clean.lower()
+    _m_choice = _re_v.search(r"choix\s*[:\-]?\s*(\w[\w\.\-]*)", _verdict_lower)
+    if _m_choice:
+        _raw_choice = _m_choice.group(1).strip().upper()
+        # Nettoie la ponctuation finale
+        _raw_choice = _raw_choice.rstrip(".,;:!?")
+        if _raw_choice in (tkr_a.upper(), tkr_b.upper()):
+            _llm_choice = _raw_choice
+        elif "pas de" in _verdict_lower[:60] or "neutre" in _verdict_lower[:60] or "équilibré" in _verdict_lower[:60]:
+            _llm_choice = "NEUTRAL"
+    results["llm_choice"] = _llm_choice  # None | "TKR_A" | "TKR_B" | "NEUTRAL"
 
     def _split_bull_bear(r, sep="|||"):
         """Split bull/bear text — essaie plusieurs separateurs."""

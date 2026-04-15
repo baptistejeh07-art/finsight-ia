@@ -194,6 +194,19 @@ def _build_deterministic_fallback(snapshot, ratios) -> "SynthesisResult":
 _SYSTEM = """Tu es un analyste financier senior Investment Banking.
 Tu produis des analyses objectives, concises, professionnelles en français.
 LANGUE : français avec TOUS les accents (é, è, ê, à, ù, ô, î, û, ç, œ, etc.) — JAMAIS de caractères sans accent (ex: "Modérée" et non "Moderee", "résilience" et non "resilience").
+
+CADRE DÉCISIONNEL — IMPORTANT :
+Tu es le DÉCIDEUR pour la recommandation BUY/HOLD/SELL. Tu disposes dans le prompt de 4 sources :
+  1. Les métriques fondamentales (P&L, bilan, cash-flow, multiples LTM)
+  2. Le contexte macro ACTUEL (taux, VIX, régime de marché, probabilité récession)
+  3. Les news RÉCENTES du ticker avec sentiment pré-calculé
+  4. Ta connaissance sectorielle et des catalyseurs forward-looking
+
+Tu dois pondérer intelligemment TOUTES ces sources. Le contexte macro et les news
+récentes sont souvent décisifs — un bon ratio LTM dans un régime macro défavorable
+ne vaut pas un BUY automatique. Tu peux contredire ce que les chiffres seuls
+suggèrent si la macro ou les news justifient la divergence.
+
 REGLES ABSOLUES :
 1. Output = JSON valide uniquement, zero markdown, zero texte avant/apres le JSON
 2. Tous les champs sont obligatoires et ne peuvent PAS etre null
@@ -242,6 +255,31 @@ def _build_prompt(snapshot, ratios, sentiment) -> str:
     sent_block = "N/A"
     if sentiment:
         sent_block = f"{sentiment.label} score={sentiment.score:+.3f} conf={sentiment.confidence:.0%} n={sentiment.articles_analyzed}"
+
+    # ── Contexte enrichi : macro live + news fresh ───────────────────────
+    # Refonte #173-177 Baptiste : le LLM est le décideur, on lui donne TOUT
+    # le contexte actuel (pas juste les chiffres LTM).
+    _macro_news_block = ""
+    try:
+        from core.llm_context import (
+            fetch_macro_live, format_macro_for_prompt,
+            format_news_for_prompt,
+        )
+        _macro = fetch_macro_live()
+        _parts = [
+            "",  # saut de ligne avant
+            "=" * 70,
+            "CONTEXTE DÉCISIONNEL ENRICHI (pour décision éclairée)",
+            "=" * 70,
+            format_macro_for_prompt(_macro),
+            "",
+            format_news_for_prompt(sentiment, ticker=ci.ticker),
+            "=" * 70,
+            "",
+        ]
+        _macro_news_block = "\n".join(_parts)
+    except Exception as _e_ctx:
+        log.warning(f"[agent_synthese] contexte enrichi fail: {_e_ctx}")
 
     price_s  = f"{mkt.share_price}" if mkt.share_price else "N/A"
     wacc_s   = f"{(mkt.wacc or 0.10)*100:.1f}%"
@@ -319,7 +357,7 @@ FCF:{fcf_s} | Capex:{capex_s} | Dividendes:{div_s}
 BilanQualite: {bs_ctx}
 {sector_ctx}{_profile_section}
 Sentiment: {sent_block}
-
+{_macro_news_block}
 JSON requis (tous les champs obligatoires) :
 {{
   "recommendation":"BUY|HOLD|SELL",
