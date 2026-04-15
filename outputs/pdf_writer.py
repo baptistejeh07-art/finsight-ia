@@ -1648,33 +1648,34 @@ def _build_financials(area_buf, data, margins_buf=None):
                              f"(r\u00e9f {_d(r, 'reference', _em)})")
     _ratios_str = " | ".join(_ratios_lines) if _ratios_lines else "donn\u00e9es ratios non disponibles"
 
-    _llm_margin_analysis = ""
-    try:
-        from core.llm_provider import llm_call
-        # LLM-A : prompt compresse. PDF-P7 Baptiste : target reduit a 650-750
-        # mots (au lieu de 750-850) pour moins dense sans trop couper.
-        _prompt_margin = (
-            f"Analyste sell-side senior. Analyse approfondie 650-750 mots sur la "
-            f"qualite operationnelle et le positionnement concurrentiel de {_ticker_fin} "
-            f"(secteur {_sector_fin}).\n"
-            f"Ratios cles : {_ratios_str}.\n\n"
-            f"4 paragraphes separes par ligne vide (~160-180 mots chacun) :\n"
-            f"1. QUALITE MARGES : drivers structurels (mix, pricing power, levier operationnel), "
-            f"durabilite dans le cycle, comparaison vs pairs et historique 5 ans, resilience "
-            f"inflation, trajectoire 12-24 mois.\n"
-            f"2. STRUCTURE COUTS : R&D/capex/marketing vs revenu, barrieres entree, vulnerabilite "
-            f"matieres premieres, tensions main d'oeuvre, repercussion prix, OPEX/CA, scale effects.\n"
-            f"3. POSITIONNEMENT : moat (brand, scale, switching costs, network, tech, regulatory), "
-            f"avantages vs pairs, risque erosion, menaces disruptives 3-5 ans, R&D intensity.\n"
-            f"4. VALUATION : justification premium multiples soutenables, P/E > mediane, "
-            f"sensibilite au maintien de la prime qualite, triggers de compression a surveiller.\n\n"
-            f"IMPORTANT : commence CHAQUE paragraphe par son titre en MAJUSCULES suivi de ':' "
-            f"(ex 'QUALITE MARGES : ...'). Separe les 4 paragraphes par une ligne vide.\n"
-            f"Francais avec accents. Chiffres precis. Pas de HTML/markdown/emojis/bullets."
-        )
-        _llm_margin_analysis = llm_call(_prompt_margin, phase="long", max_tokens=1800) or ""
-    except Exception as _e:
-        log.debug(f"[pdf_writer:_build_financials] exception skipped: {_e}")
+    # #195 : lit en priorite depuis le batch LLM parallele. Fallback vers un
+    # appel synchrone si absent (ex: batch qui a timeout ou Groq down).
+    _llm_margin_analysis = (data.get("llm_batch") or {}).get("margin_analysis", "")
+    if not _llm_margin_analysis:
+        try:
+            from core.llm_provider import llm_call
+            _prompt_margin = (
+                f"Analyste sell-side senior. Analyse approfondie 650-750 mots sur la "
+                f"qualite operationnelle et le positionnement concurrentiel de {_ticker_fin} "
+                f"(secteur {_sector_fin}).\n"
+                f"Ratios cles : {_ratios_str}.\n\n"
+                f"4 paragraphes separes par ligne vide (~160-180 mots chacun) :\n"
+                f"1. QUALITE MARGES : drivers structurels (mix, pricing power, levier operationnel), "
+                f"durabilite dans le cycle, comparaison vs pairs et historique 5 ans, resilience "
+                f"inflation, trajectoire 12-24 mois.\n"
+                f"2. STRUCTURE COUTS : R&D/capex/marketing vs revenu, barrieres entree, vulnerabilite "
+                f"matieres premieres, tensions main d'oeuvre, repercussion prix, OPEX/CA, scale effects.\n"
+                f"3. POSITIONNEMENT : moat (brand, scale, switching costs, network, tech, regulatory), "
+                f"avantages vs pairs, risque erosion, menaces disruptives 3-5 ans, R&D intensity.\n"
+                f"4. VALUATION : justification premium multiples soutenables, P/E > mediane, "
+                f"sensibilite au maintien de la prime qualite, triggers de compression a surveiller.\n\n"
+                f"IMPORTANT : commence CHAQUE paragraphe par son titre en MAJUSCULES suivi de ':' "
+                f"(ex 'QUALITE MARGES : ...'). Separe les 4 paragraphes par une ligne vide.\n"
+                f"Francais avec accents. Chiffres precis. Pas de HTML/markdown/emojis/bullets."
+            )
+            _llm_margin_analysis = llm_call(_prompt_margin, phase="long", max_tokens=1800) or ""
+        except Exception as _e:
+            log.debug(f"[pdf_writer:_build_financials] exception skipped: {_e}")
 
     if _llm_margin_analysis.strip():
         # PDF-SUBTITRES : rend le texte LLM avec sous-titres bleus automatiques
@@ -1982,36 +1983,34 @@ def _build_valorisation(ff_buf, pie_buf, mc_buf, data):
                              "les chocs exogenes (récession, r\u00e9gulation, disruption sectorielle) "
                              "ne sont pas captur\u00e9s. Le P50 est un ancrage probabiliste, "
                              "non un prix cible. Croiser avec le DCF et les comparables.")
-            # Enrichissement LLM : A9.1 Baptiste a demande un texte probabiliste
-            # plus approfondi. On tente un llm_call pour generer 350-450 mots
-            # et on retombe sur le texte hardcoded si l'appel echoue.
-            _mc_llm_txt = ""
-            try:
-                from core.llm_provider import llm_call as _llm_call_mc
-                _ticker_mc = (data.get('company_info') or {}).get('ticker') if isinstance(data.get('company_info'), dict) else None
-                if not _ticker_mc:
-                    _ticker_mc = data.get('ticker', 'la soci\u00e9t\u00e9')
-                _vol_str_mc = f"{_vol_pct:.0f}%" if 'vol_pct' in dir() and isinstance(locals().get('_vol_pct'), (int, float)) else "n/d"
-                # LLM-A compressed
-                _prompt_mc = (
-                    f"Analyste quantitatif sell-side. Interpretation probabiliste 350-450 "
-                    f"mots de la simulation Monte Carlo GBM 12 mois sur {_ticker_mc}.\n"
-                    f"Donnees : Spot {_price:,.0f} {cur}, P50 {mc_p50:,.0f} ({_diff_pct:+.0f}%), "
-                    f"P10 {mc_p10:,.0f}, P90 {mc_p90:,.0f}, vol annualisee {_vol_str_mc}, "
-                    f"{_mc_sim_str} simulations.\n\n"
-                    f"3 paragraphes separes par ligne vide (~130 mots chacun) :\n"
-                    f"1. LECTURE : P50 vs spot, amplitude corridor P10-P90, interpretation "
-                    f"stress-test implicite, comparaison distribution historique du titre.\n"
-                    f"2. LIMITES GBM : log-normale, fat-tails sous-estimees, chocs exogenes "
-                    f"(recession, regulation, disruption) non captures, parametres constants.\n"
-                    f"3. USAGE : croiser P50 avec DCF et consensus, conditions ou corridor "
-                    f"devient informatif, triggers qualitatifs (earnings, revisions, macro). "
-                    f"Citer 2-3 scenarios concrets.\n\n"
-                    f"Francais avec accents. Pas de markdown/emojis. Specifique a {_ticker_mc}."
-                )
-                _mc_llm_txt = _llm_call_mc(_prompt_mc, phase="long", max_tokens=1200) or ""
-            except Exception as _e:
-                log.debug(f"[pdf_writer:_build_valorisation] exception skipped: {_e}")
+            # #195 : lit en priorite depuis le batch LLM parallele.
+            _mc_llm_txt = (data.get("llm_batch") or {}).get("mc_commentary", "")
+            if not _mc_llm_txt:
+                try:
+                    from core.llm_provider import llm_call as _llm_call_mc
+                    _ticker_mc = (data.get('company_info') or {}).get('ticker') if isinstance(data.get('company_info'), dict) else None
+                    if not _ticker_mc:
+                        _ticker_mc = data.get('ticker', 'la soci\u00e9t\u00e9')
+                    _vol_str_mc = f"{_vol_pct:.0f}%" if 'vol_pct' in dir() and isinstance(locals().get('_vol_pct'), (int, float)) else "n/d"
+                    _prompt_mc = (
+                        f"Analyste quantitatif sell-side. Interpretation probabiliste 350-450 "
+                        f"mots de la simulation Monte Carlo GBM 12 mois sur {_ticker_mc}.\n"
+                        f"Donnees : Spot {_price:,.0f} {cur}, P50 {mc_p50:,.0f} ({_diff_pct:+.0f}%), "
+                        f"P10 {mc_p10:,.0f}, P90 {mc_p90:,.0f}, vol annualisee {_vol_str_mc}, "
+                        f"{_mc_sim_str} simulations.\n\n"
+                        f"3 paragraphes separes par ligne vide (~130 mots chacun) :\n"
+                        f"1. LECTURE : P50 vs spot, amplitude corridor P10-P90, interpretation "
+                        f"stress-test implicite, comparaison distribution historique du titre.\n"
+                        f"2. LIMITES GBM : log-normale, fat-tails sous-estimees, chocs exogenes "
+                        f"(recession, regulation, disruption) non captures, parametres constants.\n"
+                        f"3. USAGE : croiser P50 avec DCF et consensus, conditions ou corridor "
+                        f"devient informatif, triggers qualitatifs (earnings, revisions, macro). "
+                        f"Citer 2-3 scenarios concrets.\n\n"
+                        f"Francais avec accents. Pas de markdown/emojis. Specifique a {_ticker_mc}."
+                    )
+                    _mc_llm_txt = _llm_call_mc(_prompt_mc, phase="long", max_tokens=1200) or ""
+                except Exception as _e:
+                    log.debug(f"[pdf_writer:_build_valorisation] exception skipped: {_e}")
             elems.append(Spacer(1, 3*mm))
             if _mc_llm_txt.strip():
                 # Texte LLM par paragraphe avec espace entre (structure demandee)
@@ -3025,33 +3024,34 @@ def _build_risques(data):
     elems.append(Spacer(1, 4*mm))
 
     # Conclusion LLM etendue (fix A13.1 : avant 3 lignes seulement)
+    # #195 : lit en priorite depuis le batch LLM parallele.
     _conclusion_text = _d(data, 'conclusion_text') or ''
-    _llm_conclusion = ""
-    try:
-        from core.llm_provider import llm_call
-        _ticker_conc = _d(data, 'ticker', 'La societe')
-        _sector_conc = _d(data, 'sector', '')
-        _target_conc = _d(data, 'target_price_full', '')
-        _upside_conc = _d(data, 'upside_str', '')
-        # LLM-A compressed
-        _prompt_conclusion = (
-            f"Analyste buy-side senior. Conclusion tres etoffee 550-650 mots pour "
-            f"{_ticker_conc} (secteur {_sector_conc}).\n"
-            f"Reco : {rec}, prix cible {_target_conc}, upside {_upside_conc}.\n\n"
-            f"4 paragraphes (~140 mots chacun) :\n"
-            f"1. THESE : 3 piliers fondamentaux qui justifient la reco, combinaison "
-            f"des drivers de valeur.\n"
-            f"2. VALUATION : position vs mediane historique 10 ans et vs pairs, "
-            f"prime/decote justifiable et pourquoi.\n"
-            f"3. CATALYSEURS : 3 events datables avec impact attendu, horizon "
-            f"6-12-18 mois, sequence probable.\n"
-            f"4. REVISION : triggers qui feraient basculer la reco (BUY->HOLD ou "
-            f"inversement), metriques a surveiller, prochaine revue.\n\n"
-            f"Francais avec accents. Texte brut. Pas de markdown/emojis."
-        )
-        _llm_conclusion = llm_call(_prompt_conclusion, phase="critical", max_tokens=1600) or ""
-    except Exception as _e:
-        log.debug(f"[pdf_writer:_build_risques] exception skipped: {_e}")
+    _llm_conclusion = (data.get("llm_batch") or {}).get("conclusion", "")
+    if not _llm_conclusion:
+        try:
+            from core.llm_provider import llm_call
+            _ticker_conc = _d(data, 'ticker', 'La societe')
+            _sector_conc = _d(data, 'sector', '')
+            _target_conc = _d(data, 'target_price_full', '')
+            _upside_conc = _d(data, 'upside_str', '')
+            _prompt_conclusion = (
+                f"Analyste buy-side senior. Conclusion tres etoffee 550-650 mots pour "
+                f"{_ticker_conc} (secteur {_sector_conc}).\n"
+                f"Reco : {rec}, prix cible {_target_conc}, upside {_upside_conc}.\n\n"
+                f"4 paragraphes (~140 mots chacun) :\n"
+                f"1. THESE : 3 piliers fondamentaux qui justifient la reco, combinaison "
+                f"des drivers de valeur.\n"
+                f"2. VALUATION : position vs mediane historique 10 ans et vs pairs, "
+                f"prime/decote justifiable et pourquoi.\n"
+                f"3. CATALYSEURS : 3 events datables avec impact attendu, horizon "
+                f"6-12-18 mois, sequence probable.\n"
+                f"4. REVISION : triggers qui feraient basculer la reco (BUY->HOLD ou "
+                f"inversement), metriques a surveiller, prochaine revue.\n\n"
+                f"Francais avec accents. Texte brut. Pas de markdown/emojis."
+            )
+            _llm_conclusion = llm_call(_prompt_conclusion, phase="critical", max_tokens=1600) or ""
+        except Exception as _e:
+            log.debug(f"[pdf_writer:_build_risques] exception skipped: {_e}")
     if _llm_conclusion.strip():
         # PDF-SUBTITRES : sous-titres bleus
         # NB : le LLM ecrit parfois "4. Scenarios..." au lieu de "4. REVISION...",
@@ -3366,11 +3366,96 @@ def _precompute_llm_batch(data: dict) -> None:
         f"cibles ; (6) IRR bear case + triggers invalidation.\n\n{_common_rules}"
     )
 
-    def _call_one(key: str, prompt: str) -> tuple[str, str]:
+    # #195 — Hoist 3 LLM calls supplémentaires dans le batch parallèle
+    # (avant ils étaient synchrones dans _build_financials / _build_valorisation /
+    # _build_risques, bloquant le story build à ~25s en série).
+    _ratios_lines = []
+    _em_batch = "\u2014"
+    for r in (data.get('ratios_vs_peers') or [])[:6]:
+        _ratios_lines.append(
+            f"{_d(r, 'label', '')}: {_d(r, 'value', _em_batch)} "
+            f"(ref {_d(r, 'reference', _em_batch)})"
+        )
+    _ratios_str = " | ".join(_ratios_lines) if _ratios_lines else "donnees ratios non disponibles"
+
+    _prompt_margin = (
+        f"Analyste sell-side senior. Analyse approfondie 650-750 mots sur la "
+        f"qualite operationnelle et le positionnement concurrentiel de {_ticker} "
+        f"(secteur {_sector}).\n"
+        f"Ratios cles : {_ratios_str}.\n\n"
+        f"4 paragraphes separes par ligne vide (~160-180 mots chacun) :\n"
+        f"1. QUALITE MARGES : drivers structurels (mix, pricing power, levier operationnel), "
+        f"durabilite dans le cycle, comparaison vs pairs et historique 5 ans, resilience "
+        f"inflation, trajectoire 12-24 mois.\n"
+        f"2. STRUCTURE COUTS : R&D/capex/marketing vs revenu, barrieres entree, vulnerabilite "
+        f"matieres premieres, tensions main d'oeuvre, repercussion prix, OPEX/CA, scale effects.\n"
+        f"3. POSITIONNEMENT : moat (brand, scale, switching costs, network, tech, regulatory), "
+        f"avantages vs pairs, risque erosion, menaces disruptives 3-5 ans, R&D intensity.\n"
+        f"4. VALUATION : justification premium multiples soutenables, P/E > mediane, "
+        f"sensibilite au maintien de la prime qualite, triggers de compression a surveiller.\n\n"
+        f"IMPORTANT : commence CHAQUE paragraphe par son titre en MAJUSCULES suivi de ':' "
+        f"(ex 'QUALITE MARGES : ...'). Separe les 4 paragraphes par une ligne vide.\n"
+        f"Francais avec accents. Chiffres precis. Pas de HTML/markdown/emojis/bullets."
+    )
+
+    # Monte Carlo : on a besoin des percentiles (dcf_mc_p10/50/90) + prix spot
+    def _to_float_or_none(x):
+        try:
+            return float(x) if x is not None else None
+        except (TypeError, ValueError):
+            return None
+
+    _mc_p50   = _to_float_or_none(data.get('dcf_mc_p50'))
+    _mc_p10   = _to_float_or_none(data.get('dcf_mc_p10'))
+    _mc_p90   = _to_float_or_none(data.get('dcf_mc_p90'))
+    _mc_price = _to_float_or_none(data.get('share_price_raw') or data.get('current_price'))
+    _mc_sigma = _to_float_or_none(data.get('sigma') or data.get('mc_sigma'))
+    _mc_cur   = _d(data, 'currency', 'USD')
+    _prompt_mc = None
+    if _mc_p50 and _mc_price and _mc_price > 0:
+        _mc_diff_pct = (_mc_p50 / _mc_price - 1) * 100
+        _mc_vol_str  = f"{_mc_sigma*100:.0f}%" if _mc_sigma else "n/d"
+        _prompt_mc = (
+            f"Analyste quantitatif sell-side. Interpretation probabiliste 350-450 "
+            f"mots de la simulation Monte Carlo GBM 12 mois sur {_ticker}.\n"
+            f"Donnees : Spot {_mc_price:,.0f} {_mc_cur}, P50 {_mc_p50:,.0f} "
+            f"({_mc_diff_pct:+.0f}%), P10 {_mc_p10 or 0:,.0f}, "
+            f"P90 {_mc_p90 or 0:,.0f}, vol annualisee {_mc_vol_str}.\n\n"
+            f"3 paragraphes separes par ligne vide (~130 mots chacun) :\n"
+            f"1. LECTURE : P50 vs spot, amplitude corridor P10-P90, interpretation "
+            f"stress-test implicite, comparaison distribution historique du titre.\n"
+            f"2. LIMITES GBM : log-normale, fat-tails sous-estimees, chocs exogenes "
+            f"(recession, regulation, disruption) non captures, parametres constants.\n"
+            f"3. USAGE : croiser P50 avec DCF et consensus, conditions ou corridor "
+            f"devient informatif, triggers qualitatifs (earnings, revisions, macro). "
+            f"Citer 2-3 scenarios concrets.\n\n"
+            f"Francais avec accents. Pas de markdown/emojis. Specifique a {_ticker}."
+        )
+
+    _rec_conc    = _d(data, 'recommendation', 'HOLD')
+    _target_conc = _d(data, 'target_price_full', '')
+    _upside_conc = _d(data, 'upside_str', '')
+    _prompt_conclusion = (
+        f"Analyste buy-side senior. Conclusion tres etoffee 550-650 mots pour "
+        f"{_ticker} (secteur {_sector}).\n"
+        f"Reco : {_rec_conc}, prix cible {_target_conc}, upside {_upside_conc}.\n\n"
+        f"4 paragraphes (~140 mots chacun) :\n"
+        f"1. THESE : 3 piliers fondamentaux qui justifient la reco, combinaison "
+        f"des drivers de valeur.\n"
+        f"2. VALUATION : position vs mediane historique 10 ans et vs pairs, "
+        f"prime/decote justifiable et pourquoi.\n"
+        f"3. CATALYSEURS : 3 events datables avec impact attendu, horizon "
+        f"6-12-18 mois, sequence probable.\n"
+        f"4. REVISION : triggers qui feraient basculer la reco (BUY->HOLD ou "
+        f"inversement), metriques a surveiller, prochaine revue.\n\n"
+        f"Francais avec accents. Texte brut. Pas de markdown/emojis."
+    )
+
+    def _call_one(key: str, prompt: str, max_tok: int = 2000) -> tuple[str, str]:
         try:
             from core.llm_provider import llm_call as _lc
             # phase="default" -> Groq first (plus rapide que Mistral pour long output)
-            _raw = _lc(prompt, phase="default", max_tokens=2000) or ""
+            _raw = _lc(prompt, phase="default", max_tokens=max_tok) or ""
             return (key, _raw.strip())
         except Exception as _e:
             log.warning(f"[llm_batch/{key}] failed: {_e}")
@@ -3378,13 +3463,23 @@ def _precompute_llm_batch(data: dict) -> None:
 
     try:
         from concurrent.futures import ThreadPoolExecutor
+        # 6 sections LLM au lieu de 3 : les 3 originales (pages 10/11/12) +
+        # margin_analysis (_build_financials) + mc_commentary (_build_valorisation
+        # Monte Carlo) + conclusion (_build_risques). Les 3 dernières étaient
+        # synchrones dans le story build, bloquant ~25s en série.
         _tasks = [
-            ("multiples_historiques", _prompt_mh),
-            ("capital_returns",       _prompt_cr),
-            ("lbo_viabilite",         _prompt_lbo),
+            ("multiples_historiques", _prompt_mh,         2000),
+            ("capital_returns",       _prompt_cr,         2000),
+            ("lbo_viabilite",         _prompt_lbo,        2000),
+            ("margin_analysis",       _prompt_margin,     1800),
+            ("conclusion",            _prompt_conclusion, 1600),
         ]
-        with ThreadPoolExecutor(max_workers=3) as _ex:
-            _futures = [_ex.submit(_call_one, k, p) for k, p in _tasks]
+        # mc_commentary seulement si on a les data percentiles
+        if _prompt_mc:
+            _tasks.append(("mc_commentary", _prompt_mc, 1200))
+
+        with ThreadPoolExecutor(max_workers=6) as _ex:
+            _futures = [_ex.submit(_call_one, k, p, t) for k, p, t in _tasks]
             for _f in _futures:
                 _key, _val = _f.result(timeout=90)
                 if _val and len(_val) > 200:
