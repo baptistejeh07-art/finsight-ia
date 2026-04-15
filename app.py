@@ -6229,37 +6229,123 @@ def _render_cmp_societe_page() -> None:
     rec_a  = m_a.get("recommendation") or "HOLD"
     rec_b  = m_b.get("recommendation") or "HOLD"
 
-    # Winner (FinSight score, tiebreaker Piotroski)
+    # ── Winner : REFONTE C4 — priorité au choix LLM (synthesis.llm_choice) ──
+    # Le finsight_score devient une indication secondaire. Le LLM peut dire
+    # NEUTRAL → "Pas de préférence forte".
+    synthesis = st.session_state.get("cmp_societe_synthesis") or {}
+    _llm_choice = synthesis.get("llm_choice") if isinstance(synthesis, dict) else None
+
     fs_a = _safe_int(m_a.get("finsight_score"))
     fs_b = _safe_int(m_b.get("finsight_score"))
-    if fs_a != fs_b:
-        winner = tkr_a if fs_a > fs_b else tkr_b
-    else:
-        pio_a = _safe_int(m_a.get("piotroski_score"))
-        pio_b = _safe_int(m_b.get("piotroski_score"))
-        winner = tkr_a if pio_a >= pio_b else tkr_b
-    delta = fs_a - fs_b if winner == tkr_a else fs_b - fs_a
-    delta_str = f"+{delta} pts" if delta > 0 else ("—" if delta == 0 else f"{delta} pts")
 
+    if _llm_choice in (tkr_a.upper(), tkr_b.upper()):
+        winner = _llm_choice
+        winner_source = "llm"
+    elif _llm_choice == "NEUTRAL":
+        winner = None
+        winner_source = "llm_neutral"
+    else:
+        # Fallback finsight si LLM n'a pas parsé de choix clair
+        if fs_a != fs_b:
+            winner = tkr_a if fs_a > fs_b else tkr_b
+        else:
+            pio_a = _safe_int(m_a.get("piotroski_score"))
+            pio_b = _safe_int(m_b.get("piotroski_score"))
+            winner = tkr_a if pio_a >= pio_b else tkr_b
+        winner_source = "finsight_fallback"
+
+    delta = fs_a - fs_b
+    delta_abs = abs(delta)
+    delta_str = f"+{delta_abs} pts" if delta_abs > 0 else "—"
+
+    # Header : afficher "Pas de préférence forte" si LLM neutre
+    _winner_display = winner if winner else "Pas de préférence forte"
     _cmp_header(
         title_main=f"{tkr_a}  vs  {tkr_b}",
         subtitle=f"{name_a}  \u00b7  {name_b}  \u00b7  Analyse Comparative  \u00b7  "
                  f"{date.today().strftime('%d.%m.%Y')}",
         tkr_a=tkr_a, tkr_b=tkr_b,
-        rec_a=rec_a, rec_b=rec_b, winner=winner,
+        rec_a=rec_a, rec_b=rec_b, winner=_winner_display,
         delta_label="Écart FinSight Score",
         delta_value=delta_str,
     )
 
     # Verdict LLM — recupere depuis synthesis comparative
-    synthesis = st.session_state.get("cmp_societe_synthesis") or {}
-    verdict = synthesis.get("verdict_text", "")
-    if not verdict and (rec_a or rec_b):
+    verdict = synthesis.get("verdict_text", "") if isinstance(synthesis, dict) else ""
+    if not verdict:
         verdict = (
-            f"{winner} est privilegie sur la base du score FinSight composite "
-            f"({fs_a}/100 vs {fs_b}/100), integrant valorisation, croissance, qualité et momentum."
+            f"{_winner_display} — le verdict analytique LLM n'a pas pu être généré "
+            f"(providers LLM indisponibles). Lecture indicative : {tkr_a} score FinSight "
+            f"{fs_a}/100 vs {tkr_b} {fs_b}/100 (rétrospectif, sans news ni macro)."
         )
     _cmp_verdict_box(verdict)
+
+    # ── Bloc indication FinSight + explication méthodo (C5) ──────────────
+    _finsight_explainer_html = (
+        '<div style="margin:20px 0 12px;padding:16px 20px;background:#F8FAFC;'
+        'border-left:3px solid #1B3A6B;border-radius:2px;font-size:12.5px;'
+        'color:#444;line-height:1.6;">'
+        '<div style="font-weight:700;color:#1B3A6B;margin-bottom:6px;">'
+        'Indication FinSight (rétrospective)</div>'
+        f'<div><b>{_e(tkr_a)}</b> : {fs_a}/100  &nbsp;·&nbsp;  '
+        f'<b>{_e(tkr_b)}</b> : {fs_b}/100</div>'
+        '<div style="margin-top:8px;font-size:11.5px;color:#666;font-style:italic;">'
+        'Le score FinSight est une <b>indication quantitative rétrospective</b>, '
+        'pas une recommandation. Il ne tient pas compte du sentiment des news '
+        'récentes, ni du contexte macro actuel, ni des catalyseurs forward-looking. '
+        'Le verdict ci-dessus, produit par un LLM analyste, intègre ces éléments '
+        'pour une décision éclairée.'
+        '</div></div>'
+    )
+    st.markdown(_finsight_explainer_html, unsafe_allow_html=True)
+
+    # Toggle "Comment le score FinSight est calculé"
+    _fs_toggle_key = "_cmp_societe_fs_toggle"
+    if _fs_toggle_key not in st.session_state:
+        st.session_state[_fs_toggle_key] = False
+    _fs_toggle_lbl = ("Comment le score FinSight est calculé \u25b2"
+                      if st.session_state[_fs_toggle_key]
+                      else "Comment le score FinSight est calculé \u25bc")
+    if st.button(_fs_toggle_lbl, key="btn_fs_toggle_cmp_societe"):
+        st.session_state[_fs_toggle_key] = not st.session_state[_fs_toggle_key]
+        st.rerun()
+    if st.session_state[_fs_toggle_key]:
+        st.markdown(
+            '<div style="margin:12px 0 24px;padding:18px 22px;background:#FFFFFF;'
+            'border:1px solid #D5DCE5;border-radius:4px;font-size:12.5px;color:#333;'
+            'line-height:1.75;">'
+            '<div style="font-weight:700;color:#1B3A6B;font-size:13px;margin-bottom:10px;">'
+            'Méthodologie du score FinSight (0-100)</div>'
+            '<div style="margin-bottom:8px;">Composite à 4 dimensions équipondérées (25% chacune), '
+            'chacune calculée par <b>percentile rank</b> contre le pool analysé :</div>'
+            '<div style="padding-left:16px;margin-bottom:10px;">'
+            '<div style="margin-bottom:4px;"><b>Value (25%)</b> — multiples faibles = meilleur. '
+            'STANDARD : EV/EBITDA, P/E, EV/Revenue. BANK/INSURANCE : P/E + P/B. REIT : P/E + P/B. '
+            'UTILITY : P/E + EV/EBITDA. Plus le multiple est bas vs les pairs du pool, plus le score monte.</div>'
+            '<div style="margin-bottom:4px;"><b>Growth (25%)</b> — revenue_growth LTM + '
+            'ebitda_ntm_growth. Plus haut = mieux.</div>'
+            '<div style="margin-bottom:4px;"><b>Quality (25%)</b> — STANDARD : gross_margin, '
+            'net_margin, current_ratio, Altman Z normalisé. BANK/INSURANCE : ROE + net margin. '
+            'REIT : ROE + net_margin. UTILITY : net margin + ROE + ebitda_margin. Plus haut = mieux.</div>'
+            '<div style="margin-bottom:4px;"><b>Momentum (25%)</b> — performance cours 52 semaines. '
+            'Plus haut = mieux.</div>'
+            '</div>'
+            '<div style="padding:10px 14px;background:#FFF8E8;border-left:3px solid #B06000;'
+            'border-radius:2px;margin-top:10px;">'
+            '<b style="color:#B06000;">Limite importante</b> — Le score est <b>100% rétrospectif</b> '
+            '(données LTM). Il ne tient <b>pas</b> compte : (1) du sentiment des news récentes, '
+            '(2) du contexte macro actuel (taux, VIX, régime de marché, récession), '
+            '(3) des catalyseurs forward-looking (lancements produits, rate cases, M&A pipeline). '
+            'Ces dimensions sont intégrées par le verdict analytique LLM ci-dessus.'
+            '</div>'
+            '<div style="margin-top:10px;font-size:11.5px;color:#666;">'
+            '<b>Pourquoi les scores ont l\'air \'ronds\'</b> — Avec un pool de N tickers, '
+            'le percentile rank donne des valeurs 100/N, 200/N, ..., 100. Sur un pool de 10-20 '
+            'valeurs, ça fait des pas entiers de 5-10 points. C\'est un artefact mathématique, '
+            'pas du hardcode.</div>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
 
     # Mini-tableau comparatif
     def _fpct(v):
