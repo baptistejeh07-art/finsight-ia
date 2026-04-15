@@ -287,6 +287,27 @@ def _render_llm_structured(elems, text, section_map=None, body_style=None,
             _deduped.append((_t, _b))
     _parsed = _deduped
 
+    # Safety-net : si un paragraphe a un body très court (< 60 chars) suivi
+    # d'un paragraphe sans titre, fusionner avec le suivant. Évite le bug où
+    # le LLM ajoute "enjeux stratégiques" comme sous-titre orphelin sous
+    # "DISPERSION :" qui devient alors le seul body court rendu (bug rapporté
+    # par Baptiste 2026-04-15 sur le PDF secteur énergie).
+    _merged = []
+    _i = 0
+    while _i < len(_parsed):
+        _t, _b = _parsed[_i]
+        if (_i + 1 < len(_parsed)
+                and _t is not None
+                and len(_b) < 60
+                and _parsed[_i + 1][0] is None):
+            _next_body = _parsed[_i + 1][1]
+            _merged.append((_t, f"{_b} {_next_body}".strip()))
+            _i += 2
+        else:
+            _merged.append((_t, _b))
+            _i += 1
+    _parsed = _merged
+
     # Render
     for _title, _body in _parsed:
         if _title is not None:

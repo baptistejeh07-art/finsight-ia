@@ -4627,7 +4627,13 @@ def render_screening_results(results: dict) -> None:
         st.markdown('<div style="margin-top:8px;"></div>', unsafe_allow_html=True)
 
     # --- Comparer deux sociétés ---
-    st.markdown('<div class="sec-t" style="margin-top:36px;">Comparer deux sociétés</div>',
+    # #202 : si contexte indice/secteur, préciser "appartenant à …" pour guider l'utilisateur
+    _cmp_soc_title = "Comparer deux sociétés"
+    if _is_indice_result and _universe_key:
+        _cmp_soc_title = f"Comparer deux sociétés appartenant à {_universe_key}"
+    elif _is_sector_result and _universe_key:
+        _cmp_soc_title = f"Comparer deux sociétés du secteur {_universe_key}"
+    st.markdown(f'<div class="sec-t" style="margin-top:36px;">{_cmp_soc_title}</div>',
                 unsafe_allow_html=True)
 
     _ticker_pairs = sorted(

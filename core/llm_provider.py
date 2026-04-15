@@ -481,9 +481,48 @@ _PHASE_CHAIN: dict[str, list[str]] = {
 }
 
 
+def _strip_markdown(text: str) -> str:
+    """Nettoie les marqueurs markdown que les LLM renvoient parfois malgré les
+    consignes "pas de markdown". Appliqué par défaut à la sortie de llm_call
+    (#196) : les writers PDF/PPTX/Excel font du texte brut, jamais de markdown.
+
+    Cas gérés :
+    - **bold** → bold (y compris multi-ligne, non-greedy)
+    - *italic* → italic (non-greedy, pas les * isolés au milieu d'un mot)
+    - ## Heading, ### Heading → Heading
+    - __bold__ / _italic_ → texte
+    - `inline code` → inline code (backticks retirés)
+    - ** ou __ orphelins → supprimés
+    - Lignes entièrement composées de --- / === → supprimées (séparateurs)
+    - Bullet markers "- ", "* " en début de ligne → retirés (on garde le texte)
+    """
+    if not text:
+        return text
+    import re as _re
+    t = str(text)
+    # Bold **text** et __text__ (non-greedy, DOTALL pour multi-ligne)
+    t = _re.sub(r'\*\*([^*]+?)\*\*', r'\1', t)
+    t = _re.sub(r'__([^_]+?)__', r'\1', t)
+    # Italic *text* et _text_ (non-greedy, évite les _ dans les identifiants)
+    t = _re.sub(r'(?<!\w)\*([^*\n]+?)\*(?!\w)', r'\1', t)
+    t = _re.sub(r'(?<!\w)_([^_\n]+?)_(?!\w)', r'\1', t)
+    # Headings en début de ligne
+    t = _re.sub(r'^\s{0,3}#{1,6}\s+', '', t, flags=_re.MULTILINE)
+    # Backticks inline
+    t = _re.sub(r'`([^`\n]+?)`', r'\1', t)
+    # Markers orphelins restants (** seuls, * seuls collés)
+    t = _re.sub(r'\*\*+', '', t)
+    # Lignes séparatrices --- ou ===
+    t = _re.sub(r'^\s*[-=]{3,}\s*$', '', t, flags=_re.MULTILINE)
+    # Bullets markdown en début de ligne → retirés (on garde le texte)
+    t = _re.sub(r'^\s{0,3}[-*+]\s+', '', t, flags=_re.MULTILINE)
+    return t
+
+
 def llm_call(prompt: str, phase: str = "default",
              system: Optional[str] = None, max_tokens: int = 1024,
-             model: Optional[str] = None) -> str:
+             model: Optional[str] = None,
+             strip_markdown: bool = True) -> str:
     """Appel LLM haut-niveau avec routing automatique par phase + fallback.
 
     Args:
@@ -493,9 +532,12 @@ def llm_call(prompt: str, phase: str = "default",
         system : message systeme optionnel
         max_tokens : budget tokens sortie
         model : override le modele par defaut du provider
+        strip_markdown : si True (défaut), nettoie les markers markdown
+                         (** * ## ### __ -- etc) que le LLM renvoie parfois.
+                         Désactiver uniquement pour du JSON ou du code brut.
 
     Returns:
-        Texte genere
+        Texte genere (markdown strippé par défaut)
 
     Raises:
         RuntimeError si tous les providers de la chaine ont echoue.
@@ -505,7 +547,10 @@ def llm_call(prompt: str, phase: str = "default",
     for _provider in chain:
         try:
             _llm = LLMProvider(provider=_provider, model=model)
-            return _llm.generate(prompt, system=system, max_tokens=max_tokens)
+            _out = _llm.generate(prompt, system=system, max_tokens=max_tokens)
+            if strip_markdown and _out:
+                _out = _strip_markdown(_out)
+            return _out
         except _ProviderExhausted as e:
             # Budget sature (TPD/TPM) — skip forward sans retry
             _log.warning(f"[llm_call:{phase}] {_provider} sature, skip: {e}")

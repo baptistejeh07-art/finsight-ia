@@ -1591,9 +1591,9 @@ def _s08_subsectors(prs, D):
             cell.fill.fore_color.rgb = bg
 
     # Analyse LLM sous le tableau — bloc unique avec titre dynamique
-    # Gap elargi (1.2) pour garantir qu'aucune cellule expansee ne touche
-    # le navy title (SEC-PPTX-S8 audit Baptiste Tech).
-    y_box = 2.20 + tbl_h + 1.2
+    # Gap 0.85 (vs 1.2 previous) : réhausse le bloc DISPERSION/LEADERSHIP
+    # de 0.35 cm pour aérer la slide (#200 Baptiste audit énergie).
+    y_box = 2.20 + tbl_h + 0.85
     remaining_h = 13.0 - y_box
     if remaining_h > 2.0 and subsectors:
         _top = subsectors[0]

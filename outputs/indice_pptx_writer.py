@@ -2209,24 +2209,26 @@ def _s19_sentiment(prs, D, chart_bytes: bytes):
         _indice_name = D.get("indice", "l'indice")
         # LLM-A compressed
         _prompt_s19 = (
-            f"Analyste sentiment senior. Analyse 150-180 mots du sentiment sectoriel "
+            f"Analyste sentiment senior. Analyse 100-120 mots du sentiment sectoriel "
             f"composite de {_indice_name}.\n"
             f"Score : {_score_str} ({label}). Surp {p_nb} ({p_pct}%) / Neutre {n_nb} "
             f"({n_pct}%) / Sous {m_nb} ({m_pct}%).\n"
             f"Leaders : {pos_txt}\nRetardataires : {neg_txt}\n\n"
             f"Structure : (1) signal composite + implications 3 mois, (2) divergences "
-            f"sentiment vs fondamentaux, (3) impact positionnement actuel.\n"
+            f"sentiment vs fondamentaux, (3) impact positionnement.\n"
             f"Francais avec accents. Pas de markdown."
         )
-        _llm_sent_s19 = llm_call(_prompt_s19, phase="long", max_tokens=500) or ""
+        _llm_sent_s19 = llm_call(_prompt_s19, phase="long", max_tokens=400) or ""
     except Exception as _e:
         log.debug(f"[indice_pptx_writer:_s19_sentiment] exception skipped: {_e}")
     if _llm_sent_s19.strip():
-        _rect(slide, _rx, 11.55, _rw, 1.75, fill=_GRAYL)
-        _rect(slide, _rx, 11.55, 0.08, 1.75, fill=_NAVY)
-        _txb(slide, "LECTURE SENTIMENT & IMPLICATIONS", _rx + 0.15, 11.60, _rw - 0.3, 0.35,
+        # #197 : hauteur augmentée (1.75 → 2.55) + prompt réduit (150-180 → 100-120
+        # mots) pour éviter que le texte sorte de la box
+        _rect(slide, _rx, 10.80, _rw, 2.55, fill=_GRAYL)
+        _rect(slide, _rx, 10.80, 0.08, 2.55, fill=_NAVY)
+        _txb(slide, "LECTURE SENTIMENT & IMPLICATIONS", _rx + 0.15, 10.85, _rw - 0.3, 0.35,
              size=7, bold=True, color=_NAVY)
-        _txb(slide, _llm_sent_s19[:900], _rx + 0.15, 11.98, _rw - 0.3, 1.30,
+        _txb(slide, _llm_sent_s19[:750], _rx + 0.15, 11.22, _rw - 0.3, 2.10,
              size=6.5, color=_GRAYT, wrap=True)
 
     _footer(slide)
@@ -2467,21 +2469,27 @@ def _s20_etf_perf(prs, D, chart_bytes: bytes):
     _llm_macro_comment = ""
     try:
         from core.llm_provider import llm_call
-        # LLM-A compressed
+        # #198 : prompt enrichi pour narrer le cours boursier de l'indice
+        # au-delà des chiffres bruts (Baptiste demande + de narratif qualitatif)
         _llm_prompt_s20 = (
-            f"Analyste macro sell-side senior. Commentaire 300-360 mots sur les "
-            f"facteurs macro et catalyseurs qui ont impacte {indice} sur 12 mois.\n"
+            f"Analyste macro sell-side senior. Commentaire 300-360 mots sur la "
+            f"trajectoire du cours de {indice} sur 12 mois et les facteurs macro "
+            f"qui l'ont façonnée.\n"
             f"YTD {_ytd_s20}, ERP {_erp_s20}, PE Forward {_pe_s20}, BPA growth "
             f"{_bpa_s20}, phase {_phase_s20}.\n\n"
             f"3 paragraphes (~120 mots) :\n"
-            f"1. MACRO DATES : politique monetaire (Fed/BCE dates cles), inflation, "
-            f"taux longs, cycle. Events datables (pivot Fed, reunion BCE, ISM, CPI) "
-            f"et impact chiffre.\n"
-            f"2. CATALYSEURS : secteurs porteurs/freins, revisions consensus, "
-            f"publications marquantes, M&A de reference.\n"
+            f"1. NARRATIF DE MARCHE : raconte la trajectoire du cours — moments "
+            f"clés (rally, correction, consolidation), psychologie d'investisseurs, "
+            f"qui achète/vend, narrative dominante. Moins de chiffres, plus "
+            f"d'histoire. Pourquoi le marché a-t-il bougé ainsi ? Quelles "
+            f"convictions sous-jacentes ?\n"
+            f"2. MACRO DRIVERS : politique monétaire (Fed/BCE pivots, réunions), "
+            f"inflation, taux longs, cycle. Events datables (ISM, CPI) et IMPACT "
+            f"concret sur le cours (+X% après Y).\n"
             f"3. FORWARD : catalyseurs 6 mois, niveaux techniques critiques, "
-            f"conditions de bascule de regime.\n\n"
-            f"Francais avec accents. Pas de markdown/emojis. Chiffres et dates precis."
+            f"conditions de bascule de régime, ce qui ferait casser la tendance.\n\n"
+            f"Francais avec accents. Pas de markdown/emojis. Narratif vivant, pas "
+            f"un tableau de chiffres. Chaque chiffre doit être mis en contexte."
         )
         _llm_macro_comment = llm_call(_llm_prompt_s20, phase="long", max_tokens=900) or ""
     except Exception as _llm_e:
@@ -2547,16 +2555,18 @@ def _s21_disclaimer(prs, D):
         ("Horizon d'allocation", "12 mois glissants. Les signaux sont révisés mensuellement selon la dynamique des ratios et l'évolution du contexte macro (réunions BCE/Fed, publications trimestrielles)."),
         ("Sources données", "yfinance (cours, fondamentaux), FMP (multiples), Finnhub (news), ETF SPDR (sectoriels US)."),
     ]
-    y = 5.80
-    # Spacing elargi (0.42 -> 0.62) pour remplir l'espace vertical disponible
+    y = 5.75
+    # Spacing 0.56 (vs 0.62) pour éviter chevauchement avec la ligne confidentialité
+    # 11 items × 0.56 = 6.16 cm → fin texte ~12.50 cm, laisse 1.40 cm pour confidentialité
     for label, desc in metho_items:
         _txb(slide, f"{label} :", 1.05, y, 5.0, 0.40, size=7.5, bold=True, color=_NAVY)
-        _txb(slide, desc, 6.05, y, 18.4, 0.55, size=7.5, color=_GRAYT, wrap=True)
-        y += 0.62
+        _txb(slide, desc, 6.05, y, 18.4, 0.52, size=7.5, color=_GRAYT, wrap=True)
+        y += 0.56
 
-    # Confidentialité
+    # Confidentialité — décalée de 12.60 → 12.85 pour éviter chevauchement avec
+    # le dernier item méthodologie (#199)
     _txb(slide, "Document confidentiel — Diffusion restreinte. © 2026 FinSight IA.",
-         0.9, 12.60, 23.6, 0.40, size=7, bold=True, color=_NAVY,
+         0.9, 12.85, 23.6, 0.40, size=7, bold=True, color=_NAVY,
          align=PP_ALIGN.CENTER)
 
     _footer(slide)

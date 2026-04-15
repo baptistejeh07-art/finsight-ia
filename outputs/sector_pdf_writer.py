@@ -2054,12 +2054,16 @@ def _build_acteurs(tickers_data: list[dict], sector_name: str, registry=None):
             f"(score {best.get('score_global','?')}/100, marge EBITDA "
             f"{best.get('ebitda_margin','?')}, croissance {best.get('revenue_growth','?')}). "
             f"Lanterne : {_worst.get('company','?')} (score {_worst.get('score_global','?')}/100).\n\n"
-            f"2 paragraphes :\n"
+            f"EXACTEMENT 2 paragraphes. Chaque paragraphe commence par son titre en "
+            f"majuscules suivi de ' : ' puis le corps du paragraphe IMMEDIATEMENT sur "
+            f"la MEME ligne (pas de saut de ligne entre le titre et le corps, pas de "
+            f"sous-titre intermediaire).\n"
             f"1. PANORAMA : hierarchie concurrentielle, ce qui distingue leaders et "
             f"challengers, drivers de differentiation.\n"
             f"2. DISPERSION : ce que le spread implique pour l'allocation (concentration "
             f"vs diversification), ratios privilegies pour le stock-picking.\n\n"
-            f"Francais avec accents. Pas de markdown/emojis."
+            f"Francais avec accents. Pas de markdown/emojis. Pas de sous-titres dans un "
+            f"paragraphe."
         )
         _acteurs_intro_llm = llm_call(_prompt_acteurs, phase="long", max_tokens=700) or ""
     except Exception as _e:
