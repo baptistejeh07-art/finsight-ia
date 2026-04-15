@@ -126,13 +126,21 @@ PEERS_BY_SECTOR: dict[str, list[str]] = {
 class PeerData:
     ticker:       str
     name:         str
-    share_price:  Optional[float] = None   # USD/sh
-    ev:           Optional[float] = None   # $M
-    revenue_ltm:  Optional[float] = None   # $M
-    ebitda_ltm:   Optional[float] = None   # $M
-    eps_ltm:      Optional[float] = None   # USD/sh
-    ebitda_growth_ntm: Optional[float] = None  # % (souvent indispo en free tier)
+    # Montants monétaires convertis dans la devise cible (EUR par défaut via
+    # core.currency.convert()). Refonte #182 Baptiste : avant ce fix, ces
+    # champs étaient dans la devise native du peer (USD pour NVDA, GBp pour
+    # BRBY.L, CHF pour NESN.SW...), ce qui faisait un tableau COMPARABLES
+    # avec 3-5 devises mélangées sans conversion.
+    share_price:  Optional[float] = None   # devise cible (EUR défaut)
+    ev:           Optional[float] = None   # M€ (devise cible)
+    revenue_ltm:  Optional[float] = None   # M€
+    ebitda_ltm:   Optional[float] = None   # M€
+    eps_ltm:      Optional[float] = None   # devise cible/sh
+    ebitda_growth_ntm: Optional[float] = None  # % (ratio sans devise, pas converti)
     fetch_ok:     bool = False
+    # Métadonnées FX (pour debug/audit)
+    native_currency: Optional[str] = None   # devise d'origine du peer
+    target_currency: Optional[str] = None   # devise cible après conversion
 
 
 # ---------------------------------------------------------------------------
@@ -169,10 +177,18 @@ def get_peers(ticker: str, sector: str = "", industry: str = "") -> list[str]:
 # ---------------------------------------------------------------------------
 
 def _fetch_one(peer_ticker: str) -> PeerData:
-    """Collecte les donnees d'un seul peer via yfinance."""
+    """Collecte les donnees d'un seul peer via yfinance.
+
+    Refonte #182 : tous les montants monétaires (share_price, ev, revenue,
+    ebitda, eps) sont convertis dans la devise cible via core.currency.convert()
+    — EUR par défaut. La devise native du peer est extraite de `info.currency`
+    ou `info.financialCurrency` (priorité à la devise financière de reporting).
+    """
     try:
         import yfinance as yf
-        info = yf.Ticker(peer_ticker).info
+        from core.currency import convert, get_target_currency
+
+        info = yf.Ticker(peer_ticker).info or {}
 
         name  = info.get("longName") or info.get("shortName") or peer_ticker
         price = info.get("currentPrice") or info.get("regularMarketPrice")
@@ -181,21 +197,46 @@ def _fetch_one(peer_ticker: str) -> PeerData:
         ebitda_raw = info.get("ebitda")
         eps       = info.get("trailingEps")
 
+        # Devise native du peer : pour les prix/EPS on utilise `currency`
+        # (devise de cotation), pour les totaux IS on préfère
+        # `financialCurrency` (devise de reporting comptable, peut différer
+        # pour les sociétés cross-listées).
+        price_ccy = info.get("currency") or "USD"
+        fin_ccy   = info.get("financialCurrency") or price_ccy or "USD"
+
+        target_ccy = get_target_currency()
+
         def _m(v):
             """Convertit en millions, arrondi."""
             if v is None:
                 return None
-            return round(v / 1_000_000, 2)
+            return v / 1_000_000
+
+        # Conversion : share_price + eps utilisent price_ccy (cotation)
+        # IS totaux utilisent fin_ccy (reporting)
+        price_conv  = convert(price, price_ccy, target_ccy) if price is not None else None
+        eps_conv    = convert(eps,   price_ccy, target_ccy) if eps   is not None else None
+        ev_conv     = convert(_m(ev_raw),     fin_ccy, target_ccy)
+        rev_conv    = convert(_m(rev_raw),    fin_ccy, target_ccy)
+        ebitda_conv = convert(_m(ebitda_raw), fin_ccy, target_ccy)
+
+        if (price_ccy != target_ccy) or (fin_ccy != target_ccy):
+            log.info(
+                f"[Comparables] {peer_ticker} converted "
+                f"price {price_ccy}→{target_ccy}, is {fin_ccy}→{target_ccy}"
+            )
 
         return PeerData(
             ticker=peer_ticker,
             name=name,
-            share_price=round(float(price), 2) if price else None,
-            ev=_m(ev_raw),
-            revenue_ltm=_m(rev_raw),
-            ebitda_ltm=_m(ebitda_raw),
-            eps_ltm=round(float(eps), 2) if eps else None,
+            share_price=round(float(price_conv), 2) if price_conv is not None else None,
+            ev=round(float(ev_conv), 2) if ev_conv is not None else None,
+            revenue_ltm=round(float(rev_conv), 2) if rev_conv is not None else None,
+            ebitda_ltm=round(float(ebitda_conv), 2) if ebitda_conv is not None else None,
+            eps_ltm=round(float(eps_conv), 2) if eps_conv is not None else None,
             fetch_ok=True,
+            native_currency=fin_ccy,
+            target_currency=target_ccy,
         )
     except Exception as e:
         log.warning(f"[Comparables] Erreur fetch {peer_ticker}: {e}")

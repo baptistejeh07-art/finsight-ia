@@ -4783,10 +4783,20 @@ def _build_ia_html(snapshot, ratios, synthesis, qa_python, qa_haiku, devil, sent
         if mkt.share_price and synthesis.target_base:
             upside = (synthesis.target_base - mkt.share_price) / mkt.share_price * 100
             sign = "hausse" if upside > 0 else "baisse"
+            # Conversion devise EUR par défaut (#182)
+            try:
+                from core.currency import convert as _fx_c2, get_target_currency as _tc2
+                _tgt_ccy2 = _tc2()
+                _p_conv = _fx_c2(mkt.share_price, ci.currency or "USD", _tgt_ccy2) or mkt.share_price
+                _t_conv = _fx_c2(synthesis.target_base, ci.currency or "USD", _tgt_ccy2) or synthesis.target_base
+            except Exception:
+                _tgt_ccy2 = ci.currency
+                _p_conv = mkt.share_price
+                _t_conv = synthesis.target_base
             text += (
-                f"Le cours cible base case de {_hl(f'{synthesis.target_base:.0f} {ci.currency}')} "
+                f"Le cours cible base case de {_hl(f'{_t_conv:.0f} {_tgt_ccy2}')} "
                 f"représente un potentiel de {_hl(f'{abs(upside):.1f}%')} de {_e(sign)} "
-                f"par rapport au cours actuel de {_e(f'{mkt.share_price:.0f} {ci.currency}')}."
+                f"par rapport au cours actuel de {_e(f'{_p_conv:.0f} {_tgt_ccy2}')}."
             )
 
         formula_block = ""
@@ -5471,8 +5481,25 @@ def render_results(results: dict) -> None:
         reco_fr = {"BUY": "ACHETER", "SELL": "VENDRE", "HOLD": "CONSERVER"}.get(reco, reco)
         reco_cls = {"BUY": "v-buy", "SELL": "v-sell"}.get(reco, "v-hold")
         conv    = int(synthesis.conviction * 100)
-        price   = f"{ci.currency} {mkt.share_price:,.0f}" if mkt.share_price else "N/A"
-        tgt     = f"{ci.currency} {synthesis.target_base:,.0f}" if synthesis.target_base else "N/A"
+
+        # ── REFONTE DEVISE #182 — convertit vers EUR par défaut ──────
+        # ci.currency = devise native (USD/EUR/GBp/...)
+        # target_ccy = EUR par défaut, lu depuis st.session_state.user_currency
+        # core.currency.convert() gère GBp (/100) et fallback 1:1 si FX échoue
+        try:
+            from core.currency import convert as _fx_convert, get_target_currency
+            _target_ccy = get_target_currency()
+            _native = ci.currency or "USD"
+            _price_conv = _fx_convert(mkt.share_price, _native, _target_ccy) if mkt.share_price else None
+            _tgt_conv   = _fx_convert(synthesis.target_base, _native, _target_ccy) if synthesis.target_base else None
+        except Exception as _e_fx:
+            log.warning(f"[UI] FX convert fail: {_e_fx}")
+            _target_ccy = ci.currency or "USD"
+            _price_conv = mkt.share_price
+            _tgt_conv   = synthesis.target_base
+
+        price   = f"{_target_ccy} {_price_conv:,.0f}" if _price_conv is not None else "N/A"
+        tgt     = f"{_target_ccy} {_tgt_conv:,.0f}"   if _tgt_conv   is not None else "N/A"
 
         st.markdown(f"""
         <div class="verdict-row">
@@ -5928,10 +5955,21 @@ def render_results(results: dict) -> None:
     st.markdown('<div class="sec-t">Scénarios de valorisation — Distribution triangulaire</div>', unsafe_allow_html=True)
 
     if synthesis:
-        cur  = mkt.share_price or 0
-        tb   = synthesis.target_bull or 0
-        tba  = synthesis.target_base or 0
-        tbr  = synthesis.target_bear or 0
+        # Conversion devise EUR par défaut (#182)
+        try:
+            from core.currency import convert as _fx_sc, get_target_currency as _tc_sc
+            _sc_ccy  = _tc_sc()
+            _native  = ci.currency or "USD"
+            cur  = (_fx_sc(mkt.share_price,        _native, _sc_ccy) or 0) if mkt.share_price else 0
+            tb   = (_fx_sc(synthesis.target_bull,  _native, _sc_ccy) or 0) if synthesis.target_bull else 0
+            tba  = (_fx_sc(synthesis.target_base,  _native, _sc_ccy) or 0) if synthesis.target_base else 0
+            tbr  = (_fx_sc(synthesis.target_bear,  _native, _sc_ccy) or 0) if synthesis.target_bear else 0
+        except Exception:
+            _sc_ccy = ci.currency
+            cur  = mkt.share_price or 0
+            tb   = synthesis.target_bull or 0
+            tba  = synthesis.target_base or 0
+            tbr  = synthesis.target_bear or 0
 
         def _up(t):
             if cur and t:
@@ -5943,19 +5981,19 @@ def render_results(results: dict) -> None:
         <div class="scen-grid">
           <div class="scen-cell">
             <div class="scen-tag">Bull Case</div>
-            <div class="sp-bull">{_e(ci.currency)} {tb:,.0f}</div>
+            <div class="sp-bull">{_e(_sc_ccy)} {tb:,.0f}</div>
             <div class="scen-prob">{_e(_up(tb))}</div>
             <div class="scen-bar"><div style="width:30%;height:100%;background:#2d7a5a;border-radius:1px"></div></div>
           </div>
           <div class="scen-cell">
             <div class="scen-tag">Base Case</div>
-            <div class="sp-base">{_e(ci.currency)} {tba:,.0f}</div>
+            <div class="sp-base">{_e(_sc_ccy)} {tba:,.0f}</div>
             <div class="scen-prob">{_e(_up(tba))}</div>
             <div class="scen-bar"><div style="width:55%;height:100%;background:#8a7040;border-radius:1px"></div></div>
           </div>
           <div class="scen-cell">
             <div class="scen-tag">Bear Case</div>
-            <div class="sp-bear">{_e(ci.currency)} {tbr:,.0f}</div>
+            <div class="sp-bear">{_e(_sc_ccy)} {tbr:,.0f}</div>
             <div class="scen-prob">{_e(_up(tbr))}</div>
             <div class="scen-bar"><div style="width:15%;height:100%;background:#a04040;border-radius:1px"></div></div>
           </div>
