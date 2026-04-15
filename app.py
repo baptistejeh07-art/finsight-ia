@@ -2122,6 +2122,132 @@ def render_running() -> None:
     _run_analysis_pipeline(_tkr_clean)
 
 
+def render_cmp_direct_running() -> None:
+    """Pipeline MINIMAL direct pour cmp société depuis screening (#201).
+
+    Post-indice / post-secteur, quand l'utilisateur clique "Comparer 2 sociétés",
+    on évite l'analyse standalone de A (qui prenait ~90s) et on lance
+    directement fetch+quant pour A et B, puis les writers cmp. Gain ~60-80s.
+
+    Le flow remplace le vieux chemin stage="running" → analyse A complète
+    → _render_comparison_section → cmp B → comparison_results. Maintenant :
+    stage="cmp_direct_running" → fetch+quant A et B → cmp writers →
+    comparison_results direct.
+    """
+    tkr_a = st.session_state.get("ticker", "")
+    tkr_b = st.session_state.get("scr_cmp_b_preset", "") or st.session_state.get("cmp_societe_ticker_b", "")
+    if not tkr_a or not tkr_b:
+        st.error("Tickers A/B manquants pour la comparaison directe.")
+        st.session_state.stage = "home"
+        st.rerun()
+        return
+
+    _, col, _ = st.columns([1, 2, 1])
+    with col:
+        st.markdown(
+            f'<div style="text-align:center;margin-top:64px;">'
+            f'<div style="font-size:40px;font-weight:700;letter-spacing:-1px;color:#111;margin-bottom:6px;">'
+            f'{_e(tkr_a)}  vs  {_e(tkr_b)}</div>'
+            f'<div style="font-size:12px;color:#777;margin-bottom:44px;">'
+            f'Analyse comparative directe — mode rapide (fetch minimal)</div>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+        progress_bar = st.progress(0)
+        status_lbl = st.empty()
+        def _step(pct, lbl):
+            progress_bar.progress(pct)
+            status_lbl.markdown(
+                f'<div style="text-align:center;font-size:12px;font-weight:500;color:#666;">{_e(lbl)}…</div>',
+                unsafe_allow_html=True,
+            )
+
+        try:
+            from core.graph import fetch_node as _fn, quant_node as _qn
+
+            _step(0.15, f"Collecte des données {tkr_a}")
+            state_a: dict = {
+                "ticker": tkr_a.upper(),
+                "errors": [], "logs": [], "qa_retries": 0,
+            }
+            state_a.update(_fn(state_a))
+            if state_a.get("raw_data") is None:
+                st.error(f"Aucune donnée disponible pour {tkr_a}.")
+                st.session_state.stage = "screening_results"
+                st.session_state.scr_cmp_b_preset = ""
+                return
+            state_a.update(_qn(state_a))
+
+            _step(0.45, f"Collecte des données {tkr_b}")
+            state_b: dict = {
+                "ticker": tkr_b.upper(),
+                "errors": [], "logs": [], "qa_retries": 0,
+            }
+            state_b.update(_fn(state_b))
+            if state_b.get("raw_data") is None:
+                st.error(f"Aucune donnée disponible pour {tkr_b}.")
+                st.session_state.stage = "screening_results"
+                st.session_state.scr_cmp_b_preset = ""
+                return
+            state_b.update(_qn(state_b))
+
+            _step(0.65, "Métriques + synthèse LLM comparative")
+            from outputs.cmp_societe_common import build_cmp_context
+            ctx = build_cmp_context(state_a, state_b, force_regenerate_llm=True)
+
+            # Alimenter le session_state pour que _render_cmp_societe_page puisse lire
+            st.session_state["_cmp_cache"] = {
+                "supp_a": ctx.supp_a, "supp_b": ctx.supp_b,
+                "m_a": ctx.m_a, "m_b": ctx.m_b,
+                "synthesis": ctx.synthesis,
+            }
+            st.session_state.cmp_societe_state_b = state_b
+            st.session_state.cmp_societe_synthesis = ctx.synthesis
+            st.session_state.cmp_societe_ticker_b = tkr_b
+
+            _step(0.80, "Génération Excel comparatif")
+            try:
+                from outputs.cmp_societe_xlsx_writer import CmpSocieteXlsxWriter
+                st.session_state.cmp_societe_xlsx_bytes = CmpSocieteXlsxWriter().write(state_a, state_b)
+            except Exception as _xex:
+                log.warning(f"[cmp_direct] xlsx failed: {_xex}")
+                st.session_state.cmp_societe_xlsx_bytes = None
+
+            _step(0.90, "Génération Pitchbook PPTX")
+            try:
+                from outputs.cmp_societe_pptx_writer import CmpSocietePPTXWriter
+                st.session_state.cmp_societe_pptx_bytes = CmpSocietePPTXWriter().generate_bytes(state_a, state_b)
+            except Exception as _pex:
+                log.warning(f"[cmp_direct] pptx failed: {_pex}")
+                st.session_state.cmp_societe_pptx_bytes = None
+
+            _step(0.97, "Génération Rapport PDF")
+            try:
+                from outputs.cmp_societe_pdf_writer import CmpSocietePDFWriter
+                st.session_state.cmp_societe_pdf_bytes = CmpSocietePDFWriter().generate_bytes(state_a, state_b)
+            except Exception as _pdfe:
+                log.warning(f"[cmp_direct] pdf failed: {_pdfe}")
+                st.session_state.cmp_societe_pdf_bytes = None
+
+            # État pour _render_cmp_societe_page : elle lit previous_analysis_results
+            # comme state_a. Notre state_a minimal (fetch+quant) suffit.
+            st.session_state.previous_analysis_results = state_a
+            st.session_state.previous_analysis_label = tkr_a
+
+            _step(1.00, "Terminé")
+            st.session_state.cmp_societe_stage = "done"
+            st.session_state.comparison_kind = "société"
+            st.session_state.stage = "comparison_results"
+            st.session_state.scr_cmp_b_preset = ""  # nettoyage
+            st.rerun()
+        except Exception as _e_cmp:
+            import traceback as _tb
+            log.error(f"[cmp_direct] fatal: {_e_cmp}\n{_tb.format_exc()}")
+            st.error(f"Erreur comparaison directe : {_e_cmp}")
+            st.session_state.stage = "screening_results"
+            st.session_state.scr_cmp_b_preset = ""
+
+
 def _run_analysis_pipeline(tkr_in: str) -> None:
     """Pipeline d'analyse complète pour un ticker donne.
 
@@ -4658,10 +4784,13 @@ def render_screening_results(results: dict) -> None:
             _tkr_a = _ticker_keys[_idx_a]
             _tkr_b = _ticker_keys[_idx_b]
             if _tkr_a and _tkr_b and _tkr_a != _tkr_b:
+                # #201 : nouveau stage "cmp_direct_running" qui fait A+B en
+                # mode minimal (fetch+quant) + writers cmp, sans analyse
+                # standalone de A. Gain ~60-80s post-indice/secteur.
                 st.session_state.ticker           = _tkr_a
                 st.session_state.scr_cmp_b_preset = _tkr_b
                 st.session_state.from_screening   = True
-                st.session_state.stage            = "running"
+                st.session_state.stage            = "cmp_direct_running"
                 st.rerun()
 
     # --- Glossaire termes financiers ---
@@ -6636,6 +6765,8 @@ def main():
         render_home()
     elif stage == "running":
         render_running()
+    elif stage == "cmp_direct_running":
+        render_cmp_direct_running()
     elif stage == "screening_running":
         render_screening_running()
     elif stage == "results" and results:
