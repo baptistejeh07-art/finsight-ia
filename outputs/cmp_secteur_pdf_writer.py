@@ -993,8 +993,21 @@ def _build_story(D: dict) -> list:
     _ret_l = _ret_b if _winner_p == sector_a else _ret_a
     if _ret_a is not None and _ret_b is not None:
         _spread_p = abs(_ret_a - _ret_b)
+        # Date range précis : du (aujourd'hui - 52s) au (aujourd'hui)
+        try:
+            from datetime import date as _d_cls, timedelta as _td_cls
+            _today_fr = _d_cls.today()
+            _start_fr = _today_fr - _td_cls(weeks=52)
+            _MOIS_FR = ["janvier","février","mars","avril","mai","juin",
+                        "juillet","août","septembre","octobre","novembre","décembre"]
+            _date_range = (
+                f"du {_start_fr.day} {_MOIS_FR[_start_fr.month-1]} {_start_fr.year} "
+                f"au {_today_fr.day} {_MOIS_FR[_today_fr.month-1]} {_today_fr.year}"
+            )
+        except Exception:
+            _date_range = "sur les 52 dernières semaines"
         _price_text = (
-            f"Sur les 52 dernières semaines, le composite equi-pondéré de {_winner_p} "
+            f"Sur la période {_date_range}, le composite equi-pondéré de {_winner_p} "
             f"affiche une performance de {_ret_w:+.1f}% base 100, devancant {_loser_p} "
             f"({_ret_l:+.1f}%) avec un écart de {_spread_p:.1f} pts. "
             f"<br/><br/><b>Contexte macro 12 mois</b> : la période est marquée par la stabilisation "

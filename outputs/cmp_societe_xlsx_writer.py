@@ -605,7 +605,18 @@ def extract_metrics(state: dict, supp: dict) -> dict:
     except Exception:
         pass
 
+    # Sector : priorité au snapshot, sinon supplément yfinance, sinon fallback
+    # live yf.Ticker(ticker).info["sector"] en dernier recours (cover PPTX S1).
     sector = _safe(ci, "sector") or supp.get("sector") or ""
+    if not sector:
+        _tkr_for_sec = _safe(snapshot, "ticker") or state.get("ticker", "")
+        if _tkr_for_sec:
+            try:
+                import yfinance as _yf_live
+                _live_info = _yf_live.Ticker(_tkr_for_sec).info or {}
+                sector = _live_info.get("sector") or _live_info.get("sectorDisp") or ""
+            except Exception:
+                sector = ""
 
     m: dict = {
         # IDENTITE (rows 2-10)
