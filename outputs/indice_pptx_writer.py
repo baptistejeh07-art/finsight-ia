@@ -2008,8 +2008,13 @@ def _s17_risques(prs, D):
     # Lecture analytique scénarios
     _sig17 = D.get("signal_global","Neutre")
     _conv17 = D.get("conviction_pct", 50)
-    _scen_prob_bull = next((int(str(sc.get("prob","25")).replace('%','').strip()) for sc in scenarios[:1] if isinstance(sc,dict) and "Surp" not in str(sc.get("titre",""))), 25)
-    _scen_prob_bear = next((int(str(sc.get("prob","20")).replace('%','').strip()) for sc in scenarios if isinstance(sc,dict) and ("Bear" in str(sc.get("titre","")) or "ecession" in str(sc.get("titre","")))), 20)
+    # Fix 2026-04-15 : regex robuste au lieu de int(.replace()) fragile
+    import re as _re_sbb
+    def _prob_to_int(_s, _default=25):
+        _m = _re_sbb.search(r'(\d+)', str(_s).replace('%', '').replace('pct', ''))
+        return int(_m.group(1)) if _m else _default
+    _scen_prob_bull = next((_prob_to_int(sc.get("prob","25"), 25) for sc in scenarios[:1] if isinstance(sc,dict) and "Surp" not in str(sc.get("titre",""))), 25)
+    _scen_prob_bear = next((_prob_to_int(sc.get("prob","20"), 20) for sc in scenarios if isinstance(sc,dict) and ("Bear" in str(sc.get("titre","")) or "ecession" in str(sc.get("titre","")))), 20)
     _residuel = 100 - _scen_prob_bull - _scen_prob_bear
     _y17_lec = 7.7 + min(len(conds), 4) * 1.1 + 0.2
     if _y17_lec < 11.5:
