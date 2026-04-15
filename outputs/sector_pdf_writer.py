@@ -2562,12 +2562,18 @@ def _build_risques(tickers_data: list[dict], sector_name: str, registry=None):
         ]
     risk_rows = []
     for axe, analyse, prob, impact, expo in risk_data:
-        p_int = int(prob.replace('%', ''))
+        # Bug fix 2026-04-15 : le LLM peut renvoyer 'prob' sous differents formats
+        # apres LLM-A compression (ex "35pct" au lieu de "35%"). On normalise.
+        import re as _re_prob
+        _p_clean = str(prob).replace('%', '').replace('pct', '').strip()
+        _m = _re_prob.search(r'(\d+)', _p_clean)
+        p_int = int(_m.group(1)) if _m else 30
+        prob_display = f"{p_int}%"  # re-affiche en % pour le PDF, pas "35pct"
         prob_s = S_TD_R if p_int >= 50 else (S_TD_A if p_int >= 30 else S_TD_G)
         imp_s  = S_TD_R if impact == "Élevé" else (S_TD_A if impact in ("Modéré","Mixte") else S_TD_G)
         risk_rows.append([
             Paragraph(axe, S_TD_B), Paragraph(analyse, S_TD_L),
-            Paragraph(prob, prob_s), Paragraph(impact, imp_s),
+            Paragraph(prob_display, prob_s), Paragraph(impact, imp_s),
             Paragraph(expo, S_TD_C),
         ])
     elems.append(KeepTogether(tbl([risk_h] + risk_rows,
