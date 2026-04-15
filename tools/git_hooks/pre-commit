@@ -1,0 +1,36 @@
+#!/bin/sh
+# FinSight IA — pre-commit hook
+# Lance tests/test_core.py si un module core est staged.
+# Refuse le commit si les tests echouent.
+#
+# Installation :
+#   cp tools/git_hooks/pre-commit .git/hooks/pre-commit
+#   chmod +x .git/hooks/pre-commit
+#
+# Skip : git commit --no-verify (ne pas abuser)
+
+# Liste des patterns qui declenchent les tests
+PATTERNS='^(core/|outputs/excel_profile_router\.py|tests/test_core\.py)'
+
+STAGED=$(git diff --cached --name-only --diff-filter=ACM | grep -E "$PATTERNS")
+
+if [ -z "$STAGED" ]; then
+    # Aucun module sensible modifie : skip
+    exit 0
+fi
+
+echo "[pre-commit] Modules core modifies : lancement test_core.py..."
+echo "$STAGED" | sed 's/^/  /'
+echo ""
+
+python tests/test_core.py
+RESULT=$?
+
+if [ $RESULT -ne 0 ]; then
+    echo ""
+    echo "[pre-commit] ECHEC : test_core.py a echoue (exit $RESULT)"
+    echo "[pre-commit] Commit refuse. Corrigez les tests ou utilisez --no-verify en dernier recours."
+    exit 1
+fi
+
+exit 0
