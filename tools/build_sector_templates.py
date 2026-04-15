@@ -50,48 +50,92 @@ _BASE = _ASSETS / "FinSight_IA_Template_OIL_GAS_v1.xlsx"
 SECTOR_CONFIG = {
     "INSURANCE": {
         "file": "FinSight_IA_Template_INSURANCE_v1.xlsx",
-        # DASHBOARD R54 label
+        # DASHBOARD R54 label + 2 KPIs
         "kpi_section_label": "MÉTRIQUES ASSURANCE (LTM)",
-        # R55 KPI 1 : P/TBV (Market Cap / (Equity - Intangibles))
         "kpi1_label": "P/TBV",
         "kpi1_formula": "=IFERROR(INPUT!H97/(INPUT!H60-INPUT!H42),NA())",
         "kpi1_benchmark": "Bmk : 1,0-1,5x • Prime si >1,5x",
-        # R56 KPI 2 : ROE
         "kpi2_label": "ROE",
         "kpi2_formula": "=IFERROR(INPUT!H26/INPUT!H60,NA())",
         "kpi2_benchmark": "Bmk : 10-15% stable • Reg Bâle-like",
-        # SCENARIOS R9 label (remplace "EBITDAX Margin (OIL_GAS)")
+        # SCENARIOS R9 label
         "scenario_r9_label": "Net Combined Ratio (ASSURANCE)",
-        # SECTOR_REF new row to add (pour scenario lookup si D116 matche)
         "sector_ref_name": "Assurance / Insurance",
+        # RATIOS sheet valuation section header + R9-R14 remplacement
+        "ratios_r7_label": "RATIOS DE VALORISATION — ASSURANCE",
+        "ratios_r9_label": "P/TBV (Price / Tangible BV)",
+        "ratios_r9_formula_h": "=IFERROR(INPUT!H97/(INPUT!H60-INPUT!H42),\"–\")",
+        "ratios_r10_label": "P/B (Price / Book Value)",
+        "ratios_r10_formula_h": "=IFERROR(INPUT!H97/INPUT!H60,\"–\")",
+        "ratios_r13_label": "Solvency II Ratio",
+        "ratios_r13_note": "n.d. — source SFCR",
+        "ratios_r14_label": "Embedded Value / Share",
+        "ratios_r14_note": "n.d. — source EEV",
+        "ratios_r20_label": "EBITDA Margin",
+        # Section operationnelle (R58)
+        "ratios_r58_section": "MÉTRIQUES OPÉRATIONNELLES — ASSURANCE",
+        "ratios_r60_label": "Combined Ratio (n.d.)",
+        "ratios_r61_label": "Loss Ratio (n.d.)",
+        "ratios_r62_label": "Expense Ratio (n.d.)",
+        "ratios_r63_label": "Investment Yield (n.d.)",
+        # DCF Brent deck label → sector-neutral
+        "dcf_brent_label": "(Section Brent désactivée — non pertinente Assurance)",
     },
     "REIT": {
         "file": "FinSight_IA_Template_REIT_v1.xlsx",
         "kpi_section_label": "MÉTRIQUES REIT (LTM)",
-        # P/FFO = Market Cap / (Net Income + |D&A|)
         "kpi1_label": "P/FFO",
         "kpi1_formula": "=IFERROR(INPUT!H97/(INPUT!H26+ABS(INPUT!H16)),NA())",
         "kpi1_benchmark": "Bmk : 12-18x • Prime si qualité assets",
-        # LTV = Total Debt / Total Assets
         "kpi2_label": "LTV",
         "kpi2_formula": "=IFERROR((INPUT!H48+INPUT!H54)/INPUT!H44,NA())",
         "kpi2_benchmark": "Bmk : <40% sain • Stress si >50%",
         "scenario_r9_label": "NOI Margin (REIT)",
         "sector_ref_name": "Immobilier / REIT",
+        "ratios_r7_label": "RATIOS DE VALORISATION — REIT",
+        "ratios_r9_label": "P/FFO (Price / Funds From Ops)",
+        "ratios_r9_formula_h": "=IFERROR(INPUT!H97/(INPUT!H26+ABS(INPUT!H16)),\"–\")",
+        "ratios_r10_label": "P/AFFO (Price / Adj. FFO)",
+        "ratios_r10_formula_h": "=IFERROR(INPUT!H97/(INPUT!H26+ABS(INPUT!H16)-ABS(INPUT!H78)),\"–\")",
+        "ratios_r13_label": "P/NAV (Price / Net Asset Value)",
+        "ratios_r13_note": "n.d. — source expert",
+        "ratios_r14_label": "Cap Rate",
+        "ratios_r14_note": "n.d. — source expert",
+        "ratios_r20_label": "EBITDA Margin (NOI proxy)",
+        "ratios_r58_section": "MÉTRIQUES OPÉRATIONNELLES — REIT",
+        "ratios_r60_label": "FFO / Share",
+        "ratios_r61_label": "AFFO / Share",
+        "ratios_r62_label": "LTV Ratio",
+        "ratios_r63_label": "Occupancy Rate (n.d.)",
+        "dcf_brent_label": "(Section Brent désactivée — non pertinente REIT)",
     },
     "UTILITY": {
         "file": "FinSight_IA_Template_UTILITY_v1.xlsx",
         "kpi_section_label": "MÉTRIQUES UTILITY (LTM)",
-        # EV/EBITDA = EV / EBITDA (standard pour utilities)
         "kpi1_label": "EV/EBITDA",
         "kpi1_formula": "=IFERROR(INPUT!H98/INPUT!H30,NA())",
         "kpi1_benchmark": "Bmk : 8-11x • Prime si croissance RAB",
-        # Dividend Yield = |Dividends Paid| / Market Cap
         "kpi2_label": "Dividend Yield",
         "kpi2_formula": "=IFERROR(ABS(INPUT!H85)/INPUT!H97,NA())",
         "kpi2_benchmark": "Bmk : 3-5% • Clé utility",
         "scenario_r9_label": "EBITDA Margin (UTILITY)",
         "sector_ref_name": None,  # "Energie / Utilities" existe déjà
+        "ratios_r7_label": "RATIOS DE VALORISATION — UTILITY",
+        "ratios_r9_label": "EV/EBITDA",
+        "ratios_r9_formula_h": "=IFERROR(INPUT!H98/INPUT!H30,\"–\")",
+        "ratios_r10_label": "P/E (Price / Earnings)",
+        "ratios_r10_formula_h": "=IFERROR(INPUT!H97/INPUT!H26,\"–\")",
+        "ratios_r13_label": "EV / RAB (Regulated Asset Base)",
+        "ratios_r13_note": "n.d. — source régulateur",
+        "ratios_r14_label": "Dividend Yield",
+        "ratios_r14_note": "",
+        "ratios_r20_label": "EBITDA Margin",
+        "ratios_r58_section": "MÉTRIQUES OPÉRATIONNELLES — UTILITY",
+        "ratios_r60_label": "Dividend Payout Ratio",
+        "ratios_r61_label": "Dividend Coverage",
+        "ratios_r62_label": "CapEx / Revenue",
+        "ratios_r63_label": "Allowed ROE (n.d.)",
+        "dcf_brent_label": "(Section Brent désactivée — non pertinente Utility)",
     },
 }
 
@@ -179,7 +223,85 @@ def build_template(profile: str, config: dict) -> Path:
             ws_ref.cell(row=r, column=5).value = opt
         print(f"  SECTOR_REF : +{len(drivers)} rows pour '{config['sector_ref_name']}'")
 
-    # ── 4. Save ──────────────────────────────────────────────────────────────
+    # ── 4. RATIOS sheet : section VALUATION + OPERATIONAL sectorielles ──────
+    ws_rat = wb["RATIOS"]
+    # R7 label section valorisation
+    if config.get("ratios_r7_label"):
+        ws_rat.cell(row=7, column=2).value = config["ratios_r7_label"]
+    # R9 (EV/DACF → sector KPI 1)
+    if config.get("ratios_r9_label"):
+        ws_rat.cell(row=9, column=2).value = config["ratios_r9_label"]
+        ws_rat.cell(row=9, column=8).value = config["ratios_r9_formula_h"]
+        # Clear D9-G9 (historical years will show "–" fallback)
+        for c in range(4, 8):
+            ws_rat.cell(row=9, column=c).value = "–"
+    # R10 (EV/EBITDAX → sector KPI 2)
+    if config.get("ratios_r10_label"):
+        ws_rat.cell(row=10, column=2).value = config["ratios_r10_label"]
+        ws_rat.cell(row=10, column=8).value = config["ratios_r10_formula_h"]
+        for c in range(4, 8):
+            ws_rat.cell(row=10, column=c).value = "–"
+    # R13 & R14 (oil&gas-specific : EV/Production, Price/Reserves → sector notes)
+    if config.get("ratios_r13_label"):
+        ws_rat.cell(row=13, column=2).value = config["ratios_r13_label"]
+        ws_rat.cell(row=13, column=8).value = config.get("ratios_r13_note", "n.d.")
+    if config.get("ratios_r14_label"):
+        ws_rat.cell(row=14, column=2).value = config["ratios_r14_label"]
+        ws_rat.cell(row=14, column=8).value = config.get("ratios_r14_note", "n.d.")
+    # R20 EBITDAX Margin → EBITDA Margin (ou label sectoriel)
+    if config.get("ratios_r20_label"):
+        ws_rat.cell(row=20, column=2).value = config["ratios_r20_label"]
+    # R58 : section opérationnelle sectorielle
+    if config.get("ratios_r58_section"):
+        ws_rat.cell(row=58, column=2).value = config["ratios_r58_section"]
+    # R60-R63 : labels opérationnels sectoriels
+    # Pour INSURANCE/REIT : la plupart des ratios (Combined Ratio, NAV, Cap Rate)
+    # ne sont pas calculables depuis yfinance → on met les labels + "n.d."
+    # Pour UTILITY : les ratios sont calculables donc on remplace les formules
+    for idx, key in enumerate(["ratios_r60_label", "ratios_r61_label",
+                                "ratios_r62_label", "ratios_r63_label"]):
+        if config.get(key):
+            r = 60 + idx
+            ws_rat.cell(row=r, column=2).value = config[key]
+            # Clear les formules OIL_GAS originales (H60=Net Debt/EBITDAX, H61=CapEx/DD&A,
+            # H62=DACF, H63=FCF Yield — non pertinents pour INSURANCE/REIT)
+            if profile == "UTILITY":
+                # UTILITY : formules propres
+                if idx == 0:  # Dividend Payout Ratio = |Dividends| / NI
+                    formula = "=IFERROR(ABS(INPUT!H85)/INPUT!H26,\"–\")"
+                elif idx == 1:  # Dividend Coverage = NI / |Dividends|
+                    formula = "=IFERROR(INPUT!H26/ABS(INPUT!H85),\"–\")"
+                elif idx == 2:  # CapEx / Revenue
+                    formula = "=IFERROR(ABS(INPUT!H78)/INPUT!H9,\"–\")"
+                else:  # Allowed ROE placeholder
+                    formula = "n.d."
+                for c in range(5, 9):  # E, F, G, H
+                    year_col = chr(ord('D') + (c - 4))  # D/E/F/G/H
+                    f = formula.replace("H26", f"{year_col}26").replace(
+                        "H60", f"{year_col}60").replace(
+                        "H85", f"{year_col}85").replace(
+                        "H78", f"{year_col}78").replace(
+                        "H9", f"{year_col}9")
+                    ws_rat.cell(row=r, column=c).value = f if f.startswith("=") else f
+            else:
+                # INSURANCE/REIT : clear + placeholder
+                for c in range(5, 9):  # E-H
+                    ws_rat.cell(row=r, column=c).value = "n.d."
+    print(f"  RATIOS section : {config.get('ratios_r58_section', '-')}")
+
+    # ── 5. DCF sheet : désactive la section Brent (B40-B46) ─────────────────
+    if config.get("dcf_brent_label"):
+        ws_dcf = wb["DCF"]
+        ws_dcf.cell(row=40, column=2).value = config["dcf_brent_label"]
+        # Clear B41-B46 brent-specific content
+        for r in range(41, 47):
+            for c in range(2, 10):
+                cell = ws_dcf.cell(row=r, column=c)
+                if cell.value is not None and not (isinstance(cell.value, str) and cell.value.startswith("=")):
+                    cell.value = None
+        print(f"  DCF Brent deck : neutralisé")
+
+    # ── 6. Save ──────────────────────────────────────────────────────────────
     wb.save(str(target))
     sz = target.stat().st_size // 1024
     print(f"  Saved : {target.name} ({sz} ko)")
