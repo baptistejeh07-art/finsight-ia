@@ -13,6 +13,31 @@ Contenu actuellement implémenté dans le code : les ratios par profil sont déf
 
 ---
 
+## Vue d'ensemble — Ratios à implémenter par profil
+
+Résumé compact de tous les ratios à mettre dans les templates XLSX. Les colonnes **P1/P2/P3** correspondent à trois niveaux de priorité :
+
+- **P1** = ratio critique, indispensable (doit apparaître en haut de l'onglet INPUT + dans le tableau de synthèse)
+- **P2** = ratio important, à intégrer dans le second bloc
+- **P3** = ratio complémentaire, peut être placé en annexe ou en note
+
+| Profil | P1 (critique) | P2 (important) | P3 (complément) | Modèle de valo |
+|---|---|---|---|---|
+| **STANDARD** | EV/EBITDA · P/E · ROE · FCF Yield · Debt/EBITDA | EV/Rev · ROIC · Marge EBITDA · Net Margin · Interest Coverage | Altman Z · PEG · Piotroski F · Gross Margin | DCF 3-phases |
+| **BANK** | P/TBV · P/E · ROE · NIM · CET1 Ratio · Cost/Income | ROA · NPL Ratio · Coverage · Div Yield · Loan/Deposit | P/PPOP · LCR · NSFR · Non-II / Total Rev · Dividend Coverage | DDM (Gordon) + Justified P/B |
+| **INSURANCE** | P/B · P/E · Combined Ratio · ROE · Solvency II | Loss Ratio · Expense Ratio · Investment Yield · Div Yield | P/EV (Life) · NBV Margin · Cat Reserves · Reserve Releases | P/B ancré ROE ou Embedded Value (Life) |
+| **REIT** | P/FFO · P/AFFO · P/NAV · FFO/share · Div Yield · LTV | Occupancy · Same-Store NOI Growth · Debt/EBITDA · ICR · Dividend Coverage | WALT · Cap Rate · Debt Maturity · Capex / Revenue | NAV + P/FFO multiple |
+| **UTILITY** | P/E · EV/EBITDA · P/RAB · Allowed ROE · Div Yield · Debt/RAB | Earned ROE · RAB Growth · FFO/Debt · Capex/D&A · Payout Ratio | Load Factor · Customer Count · T&D Losses · Rate Case Timing | RAB × multiple sectoriel (SOTP) |
+| **OIL_GAS** | EV/DACF · EV/EBITDAX · Price/Reserves 1P · Net Debt/EBITDAX · Breakeven WTI | EV/Production · FCF Yield @ strip · F&D Cost · Cash Cost/BOE · RRR | Hedging % · R/P Ratio · 3P Upside · Decline Rate · Royalty Rate | NAV 1P + 2P discount (+SOTP pour integrated) |
+| **TECH / SaaS** | EV/Revenue · EV/Gross Profit · Rule of 40 · NRR · Gross Margin | ARR Growth · CAC Payback · Magic Number · FCF Margin · Gross Retention | R&D / Revenue · SBC / Revenue · ARR / Employee · DBNRR · Logo Retention | EV/Rev + EV/FCF exit multiple |
+| **RETAIL / STAPLES** | EV/EBITDA · P/E · SSSG (comp sales) · Gross Margin · Inventory Turns | Store Count · Revenue / sq ft · GMROI · Online Mix % · Div Yield | CapEx / Store · Lease-adj Debt · Unit Growth · Private Label Mix | EV/EBITDA + multiple growth-adjusted |
+| **PHARMA / BIOTECH** | rNPV Pipeline · Peak Sales · Patent Cliff · R&D / Revenue · EV/NTM Sales | Gross Margin · Operating Margin · Phase III assets · FCF / Net Income · Dividend Coverage | Phase II assets · Milestone payments · License deals · Orphan % | rNPV risk-adj + DCF residual |
+| **AIRLINES** | EV/EBITDAR · CASM ex-fuel · RASM · Load Factor · ASM Growth | Fuel cost / gallon · Stage Length · Labor CASM · Fleet Age · Unit Revenue | Ancillary Revenue % · Loyalty Miles Liability · Capex / Revenue · Fleet Mix | EV/EBITDAR + replacement value |
+| **METALS & MINING** | NAV (DCF par mine) · AISC / unit · Reserves 1P+2P · Production · EV/EBITDA | Grade (g/t or %) · LOM · Capex / oz · Net Debt/EBITDA · FCF yield @ spot | Royalty rate · Country risk · Stripping ratio · Cash cost quartile | NAV discount (0.8-1.2x) + spot EV/EBITDA |
+| **TELECOM** | EV/EBITDA · FCF Yield · Div Yield · ARPU · Subscriber Growth | Churn · Capex / Revenue · Net Debt/EBITDA · EBITDA Margin · Post-paid mix | ARPU Growth · Revenue / HH · FTTH coverage · Spectrum Holdings · Tower Lease Cost | EV/EBITDA + DCF + dividend support |
+
+---
+
 ## 1. BANK — Banques commerciales + banques d'investissement
 
 **Tickers concernés** : BAC, JPM, C, WFC, GS, MS, USB, PNC, BK, TFC, SCHW, BNP.PA, BARC.L, DBK.DE, HSBA.L, ISP.MI, SAN.MC, UBSG.SW, etc.
@@ -400,54 +425,254 @@ Profil par défaut. Template actuel déjà adapté. Rappel des sections types :
 - FCF Yield (> 5%)
 - DCF standard à 3 phases (explicit, fade, terminal)
 
-**Sous-profils à éventuellement distinguer** (non implémentés dans `core/sector_profiles.py` — à ajouter si besoin) :
+**Sous-profils à distinguer** (non implémentés dans `core/sector_profiles.py` — à ajouter dans `_CONFIGS` en même temps que la refonte XLSX).
+
+---
 
 ### 6a. TECH / SaaS
-- **Rule of 40** = Revenue Growth % + EBITDA Margin % (cible > 40)
-- **ARR** (Annual Recurring Revenue), **NRR** (Net Revenue Retention) > 110%
-- **Gross Retention** > 92%
-- **CAC Payback** < 18 mois
-- **Magic Number** (ARR growth / S&M spend)
-- Valorisation : EV/Revenue (5-15x) ou EV/Gross Profit quand gross margin très élevée
 
-### 6b. RETAIL / CONSUMER STAPLES
-- **Same-Store Sales Growth** (SSSG / LFL)
-- **Inventory Turns**
-- **GMROI** (Gross Margin Return on Inventory)
-- **Store Count + Expansion Pipeline**
-- **Online Mix %**
-- Valorisation : EV/EBITDA (10-15x), P/E (15-25x), Div Yield (2-4%)
+**Tickers** : MSFT, ORCL, CRM, NOW, ADBE, INTU, WDAY, TEAM, SNOW, DDOG, NET, ZS, CRWD, OKTA, ZM, DOCU, HUBS, MDB, ESTC, DBX, ASAN, MNDY.
+
+#### À retirer
+- P/E pour sociétés non-profitables (utiliser EV/Revenue et Rule of 40)
+- Marge brute < 50% attendue pour SaaS → red flag si c'est le cas (signal de non-SaaS)
+- Net Debt/EBITDA (souvent cash-net, ratio non pertinent)
+
+#### Ratios à implémenter
+
+| Métrique | Formule | Benchmark | Source |
+|---|---|---|---|
+| **EV/Revenue** | EV / Revenue LTM | 5-15x (SaaS mature), 15-30x (hyper-growth) | yfinance |
+| **EV/Gross Profit** | EV / (Revenue − COGS) | 8-25x | IS Supabase |
+| **Rule of 40** | Rev Growth % + FCF Margin % | > 40 sain, > 60 excellent | Calculé |
+| **ARR** (Annual Recurring Revenue) | Subscription Revenue × 4 (trimestriel) | — | Earnings reports |
+| **ARR Growth YoY** | — | > 30% (growth), > 15% (mature) | Idem |
+| **NRR** (Net Revenue Retention) | (Starting ARR + Expansion − Churn) / Starting ARR | > 110% sain, > 120% excellent | Earnings reports |
+| **GRR** (Gross Revenue Retention) | (Starting ARR − Churn) / Starting ARR | > 92% | Idem |
+| **Gross Margin** | Gross Profit / Revenue | 70-85% (SaaS), 60-75% (legacy) | IS |
+| **FCF Margin** | FCF / Revenue | 20-35% (mature), 0-15% (growth) | CF/IS |
+| **Magic Number** | Q-on-Q ARR growth × 4 / S&M spend | > 1.0 efficace, > 1.5 excellent | Calculé |
+| **CAC Payback** | CAC / (ARPU × Gross Margin) | < 18 mois B2C, < 24 mois B2B | Calculé |
+| **R&D / Revenue** | R&D / Revenue | 15-30% | IS |
+| **SBC / Revenue** | Stock-Based Comp / Revenue | 5-15% (sain) ; > 20% = dilutif | CF |
+| **LTV / CAC** | Lifetime Value / Customer Acquisition Cost | > 3x | Calculé |
+
+#### Modèle de valorisation
+- **EV / NTM Revenue multiple** ancré sur la distribution historique du secteur SaaS (5-15x selon Rule of 40).
+- **Fade DCF** (exit multiple method) : modéliser growth fade jusqu'à maturité (~15-20% FCF margin en régime), terminal EV/Revenue ~5x.
+- **Reverse DCF** pour tester la croissance implicite pricée.
+
+#### Structure XLSX
+```
+Top-line       ├ ARR (Subscription Rev x4)
+               ├ Non-recurring (Services, Licenses)
+               ├ Total Revenue
+               └ Revenue Growth %
+Métriques SaaS ├ NRR, GRR, Gross Retention
+               ├ Logo Churn, Gross Margin
+               ├ Magic Number, CAC Payback
+               └ Rule of 40
+Coûts          ├ COGS (Hosting + Support)
+               ├ R&D (% Revenue)
+               ├ S&M (% Revenue)
+               ├ G&A
+               └ SBC (ex- and including)
+FCF            ├ Operating CF
+               ├ Capex + Capitalized R&D
+               └ FCF Margin
+Valo           ├ EV/Revenue, EV/Gross Profit
+               └ Reverse DCF breakeven growth
+```
+
+---
+
+### 6b. RETAIL / CONSUMER DISCRETIONARY + STAPLES
+
+**Tickers** : WMT, COST, HD, LOW, TGT, TJX, ROST, DG, DLTR, BJ, KR, SYY ; KER.PA, HMB.ST, NEXT.L, MKS.L, INDITEX (ITX.MC), ZAL.DE.
+
+#### À retirer
+- DCF standard (pas pertinent pour cyclicals retail)
+- Free float assumption stable (les marges fluctuent fortement)
+
+#### Ratios à implémenter
+
+| Métrique | Formule | Benchmark | Source |
+|---|---|---|---|
+| **EV/EBITDA** | yfinance | 8-14x (retail) ; 12-18x (luxury) | yfinance |
+| **P/E** | — | 15-22x | yfinance |
+| **SSSG / Comp Sales** (LFL) | YoY % same-store growth | > 3% excellent, 0-2% maturité, < 0 alerte | Earnings reports |
+| **Traffic × Ticket** | Foot traffic × Avg basket | Décomposition SSSG | Earnings |
+| **Gross Margin** | IS | 25-35% (grocery), 40-50% (apparel), 60-70% (luxury) | IS |
+| **EBITDA Margin** | IS | 6-10% (grocery), 12-18% (specialty), 20-30% (luxury) | IS |
+| **Inventory Turns** | COGS / Avg Inventory | 4-8x (retail), 1-2x (luxury) | IS/BS |
+| **Days of Inventory** | 365 / Turns | 45-90 jours | Calculé |
+| **GMROI** | Gross Margin $ / Avg Inventory Cost | > $2 de GP par $ d'inventaire | Calculé |
+| **Store Count** | Fin d'année | Croissance net adds | Earnings |
+| **Revenue / sq ft** | Revenue / Total Leased sq ft | $250-500 (apparel), $500-1000 (grocery dense) | Earnings |
+| **Online Mix %** | E-commerce Rev / Total | > 20% tendance saine | Earnings |
+| **Lease-Adjusted Debt / EBITDAR** | (Debt + 8×Rent) / EBITDAR | < 4x | BS/IS |
+| **Same-Store Gross Margin** | YoY évolution | Stable = pricing power | Earnings |
+| **CapEx / Store** | Maintenance + New | < 3% revenue (maintenance) | CF |
+| **Div Yield** | — | 2-4% | yfinance |
+
+#### Modèle de valorisation
+- **EV/EBITDA multiple** corrélé à SSSG + unit growth.
+- **DCF** avec multiple terminal EV/EBITDA (pas Gordon — les cycles sont trop courts).
+
+---
 
 ### 6c. PHARMA / BIOTECH
-- **Pipeline** : nombre de candidats par phase (Phase I/II/III/Approved)
-- **Peak Sales Estimate** par produit
-- **R&D / Revenue** (> 15%)
-- **Patent Cliff** : expiry dates des top produits
-- **IRR par produit** (rNPV probability-adjusted)
-- Valorisation : rNPV pipeline (probability-weighted) + residual value base business. DCF classique possible sur base business.
+
+**Tickers Big Pharma** : JNJ, PFE, MRK, ABBV, LLY, BMY, AMGN, GILD ; NVO (Novo), ROG.SW (Roche), NOVN.SW (Novartis), AZN.L, GSK.L, SAN.PA.
+**Tickers Biotech** : REGN, VRTX, BIIB, ALNY, MRNA, BNTX, ARGX, EXAS, INCY, ILMN.
+
+#### À retirer pour biotech pré-revenue
+- P/E, EV/EBITDA (bénéfices négatifs)
+- Marge brute (pas de revenus)
+
+#### Ratios à implémenter (Big Pharma)
+
+| Métrique | Formule | Benchmark | Source |
+|---|---|---|---|
+| **EV/Revenue NTM** | — | 3-6x | yfinance |
+| **P/E** | — | 12-20x | yfinance |
+| **Gross Margin** | — | 70-85% | IS |
+| **Operating Margin** | — | 20-35% | IS |
+| **R&D / Revenue** | — | 15-25% | IS |
+| **Pipeline Value (rNPV)** | Σ (Peak Sales × Success Probability × Multiple) | Discloser le top 5-10 | Analyse manuelle + consensus |
+| **Patent Cliff Exposure** | % revenus at risk < 5 ans | < 15% sain | Rapports annuels |
+| **FCF / Net Income** | — | > 100% (qualité earnings) | CF/IS |
+| **Dividend Coverage** | FCF / Dividends | > 1.5x | CF |
+| **Payout Ratio** | Div / NI | < 60% | yfinance |
+| **Top product concentration** | Top 3 / Total Revenue | < 50% (diversifié) | Rapports |
+| **Geographic Mix** | US / EU / ROW | — | Rapports |
+
+#### Ratios à implémenter (Biotech pur)
+
+| Métrique | Formule | Benchmark | Source |
+|---|---|---|---|
+| **Cash Runway** | Cash / Quarterly Burn | > 2 ans sain | CF/BS |
+| **Phase III assets** | Nombre | — | Pipeline rapports |
+| **Phase II assets** | Nombre | — | Idem |
+| **Milestones unearned** | PV Milestones contractuels | — | Partenariats |
+| **Orphan Drug %** | # orphan / total pipeline | — | Pipeline |
+| **Peak Sales top asset** | Consensus analystes | — | — |
+| **rNPV total pipeline** | Σ (PS × POS × multiple) − Net Debt | Positif | Model |
+
+#### Modèle de valorisation
+- **Big Pharma** : DCF base business + rNPV pipeline + multiple de sortie.
+- **Biotech** : rNPV pur (pipeline seul si pré-revenue). POS (Probability of Success) par phase : Phase I ~10%, II ~20%, III ~60%, Approved ~90%.
+
+---
 
 ### 6d. AIRLINES
-- **CASM** (Cost per Available Seat Mile, ex-fuel)
-- **RASM** (Revenue per ASM)
-- **Load Factor** (> 80%)
-- **Capacity (ASM) growth**
-- **Fuel cost / gallon hedged**
-- Valorisation : EV/EBITDAR (R = Rent pour leases avions) — 5-8x
+
+**Tickers** : DAL, UAL, AAL, LUV, ALK, JBLU, ALGT, SKYW ; AF.PA, LHA.DE, IAG.MC, RYA.L.
+
+#### À retirer
+- EV/EBITDA standard (ignorer les leases d'avions fausse la comparaison)
+- Marge brute (pas pertinente — tout est dans OpEx)
+- Altman Z (leverage structural élevé)
+
+#### Ratios à implémenter
+
+| Métrique | Formule | Benchmark | Source |
+|---|---|---|---|
+| **EV/EBITDAR** (R = aircraft Rent) | (EV + 7× annual Rent) / (EBITDA + Rent) | 5-8x | IS + Rent disclosures |
+| **CASM ex-fuel** | (OpEx − Fuel) / ASM | 8-12 cents (legacy), 6-9 cents (LCC) | IS |
+| **RASM** | Revenue / ASM | 10-16 cents | IS |
+| **Load Factor** | Revenue Passenger Miles / ASM | > 80% sain, > 85% excellent | Rapports |
+| **ASM Growth** | Available Seat Miles YoY | 3-8% | Rapports |
+| **PRASM** | Passenger Revenue / ASM | RASM − cargo | Rapports |
+| **Yield** | Passenger Revenue / RPM | $0.10-0.20 | Calculé |
+| **Fuel cost / gallon** | — | Hedging % important | Rapports |
+| **Stage Length** | Avg distance per flight | Ajustement CASM | Rapports |
+| **Labor CASM** | Labor / ASM | 2-4 cents | IS |
+| **Fleet Age** | Avg aircraft age | < 15 ans (jeune) | Rapports |
+| **Ancillary Revenue %** | Baggage + Fees / Rev | > 10% LCC | Rapports |
+| **Operating Margin** | — | 8-15% (normal), négatif en crise | IS |
+| **Net Debt / EBITDAR** | — | < 4x | Calculé |
+| **Free Cash Flow Yield** | FCF / Market Cap | 5-10% (pre-crise) | CF |
+
+#### Modèle de valorisation
+- **EV/EBITDAR multiple** + replacement value du fleet (NBV avions).
+- **SOTP** : Passenger + Cargo + Loyalty program (sous-valorisé pour DAL, UAL).
+- DCF sensible au prix du fuel → scenario bands low/mid/high.
+
+---
 
 ### 6e. METALS & MINING
-- **Production volumes** par métal
-- **All-In Sustaining Cost** (AISC) / unit
-- **Proven & Probable Reserves** + grade
-- **LOM** (Life of Mine)
-- Valorisation : NAV discount (0.8-1.2x NAV), EV/EBITDA cyclique (4-8x), Dividend Yield
+
+**Tickers** : BHP.L, RIO.L, FCX, NEM (gold), GOLD (Barrick), WPM (streaming), FNV, FCX, VALE, GLEN.L, ANTO.L, AAL.L.
+
+#### À retirer
+- DCF 10-year horizon (préférer mine-by-mine NAV)
+- Marge brute stable (cyclique)
+
+#### Ratios à implémenter
+
+| Métrique | Formule | Benchmark | Source |
+|---|---|---|---|
+| **NAV (par mine)** | PV(production × price − OpEx − Sustain Capex − Taxes) | — | Technical reports |
+| **NAV / share** | NAV / diluted shares | — | Calculé |
+| **P/NAV** | Price / NAV per share | 0.8-1.2x | Calculé |
+| **EV/EBITDA** (spot) | — | 4-7x (cycle-dépendant) | yfinance |
+| **AISC** (All-in Sustaining Cost) | OpEx + Royalty + Sustain Capex / oz | Top quartile < $800/oz gold, < $2/lb Cu | Rapports |
+| **Reserves 1P** | Fin d'année | R/P > 10 ans | Rapports |
+| **Reserves 2P** | 1P + Probable | Upside option | Idem |
+| **Resources (M&I + Inferred)** | Blue sky | — | Idem |
+| **Grade** | g/t (gold), % (base metals) | Top quartile | Idem |
+| **LOM** (Life of Mine) | Annual production × years | > 10 ans | Idem |
+| **Production Growth** | YoY | Visibility Critique | Rapports |
+| **CapEx / D&A** | — | > 1.0x (replacement) | CF/IS |
+| **Net Debt / EBITDA** | — | < 1.5x | BS/IS |
+| **Free Cash Flow @ spot** | Current prices × production − cash costs − Capex | Positif = génération | Calculé |
+| **Dividend Yield** | — | 3-7% (majors) | yfinance |
+| **Royalty Rate** (streamers) | — | Modèle différent | Contracts |
+| **Stripping Ratio** (open-pit) | Waste / Ore | < 3:1 excellent | Rapports |
+
+#### Modèle de valorisation
+- **NAV par mine** au long-term price deck → somme → diluted NAV/share → `P/NAV` multiple 0.9-1.2x.
+- **EV/EBITDA spot** comme cross-check (multiple 4-6x base metals, 6-8x gold).
+- Pour **streamers** (FNV, WPM) : NAV des contrats royalty + growth pipeline.
+
+---
 
 ### 6f. TELECOM
-- **ARPU** (Average Revenue per User)
-- **Subscriber Base** + Net Adds
-- **Churn** (< 15% annualisé B2C)
-- **Capex / Revenue** (> 15% = 5G investment)
-- **FCF Yield** (6-10%)
-- Valorisation : EV/EBITDA (5-8x), Dividend Yield (4-6%)
+
+**Tickers** : VZ, T, TMUS, CMCSA, CHTR, LUMN ; VOD.L, DTE.DE, TEF.MC, ORA.PA, TLSN.ST, TIT.MI.
+
+#### À retirer
+- P/E seul (pas pertinent — structure capitale distorts EPS)
+- DCF sans modéliser Capex 5G / FTTH explicitement
+
+#### Ratios à implémenter
+
+| Métrique | Formule | Benchmark | Source |
+|---|---|---|---|
+| **EV/EBITDA** | — | 5-9x | yfinance |
+| **Dividend Yield** | — | 4-7% | yfinance |
+| **FCF Yield** | FCF / Market Cap | 6-10% | CF |
+| **ARPU** (Average Revenue Per User) | Service Revenue / Avg subscribers | $40-60 US post-paid, €15-25 EU | Rapports |
+| **ARPU Growth** | YoY | +1-3% sain | Idem |
+| **Subscriber Base** | Total post-paid + pre-paid | — | Rapports |
+| **Net Adds** | Trimestriel post-paid | Positif = part de marché | Rapports |
+| **Churn** | Disconnections / Avg base | < 1% monthly post-paid | Rapports |
+| **Capex / Revenue** | — | 15-22% (5G/FTTH cycle) | CF/IS |
+| **EBITDA Margin** | — | 30-40% | IS |
+| **Net Debt / EBITDA** | — | 2.5-3.5x (investment grade) | BS/IS |
+| **Payout Ratio** | Div / FCF | 60-90% | Calculé |
+| **Service Revenue %** | Service / Total Revenue | > 85% (ex-équipement) | Rapports |
+| **FTTH Coverage %** | Households passed / Total | Tendance | Rapports |
+| **Spectrum Holdings** | MHz-PoP | Valeur d'actif cachée | Auctions / filings |
+| **Interest Coverage** | EBITDA / Interest | > 4x | IS |
+
+#### Modèle de valorisation
+- **EV/EBITDA** multiple 5-8x selon croissance + capex intensity.
+- **DCF** avec capex 5G/FTTH modélisé explicitement (pic capex → free cash flow rebound).
+- **Dividend support** : tester si le current dividend est couvert par FCF ajusté capex maintenance.
+
+---
 
 ---
 
@@ -500,6 +725,101 @@ Pour les métriques non disponibles dans yfinance ou Supabase, placeholder + pul
 3. **INSURANCE**
 4. **UTILITY**
 5. **OIL_GAS**
-6. Sous-profils tech/biotech/airlines (optionnel)
+6. **TECH / SaaS** (important pour couvrir MSFT, ORCL, SNOW, DDOG sans distorsion)
+7. **RETAIL / STAPLES** (WMT, COST, INDITEX)
+8. **PHARMA** (JNJ, LLY, ROG.SW)
+9. **AIRLINES** (DAL, UAL, RYA.L)
+10. **METALS** (BHP.L, RIO.L, FCX)
+11. **TELECOM** (VZ, DTE.DE, ORA.PA)
 
 Baptiste gère l'indice XLSX lui-même. Ce document couvre **société** + **secteur**.
+
+---
+
+## Placement dans les onglets XLSX — mapping actionnable
+
+Pour chaque profil, voici où placer les ratios dans un template XLSX typique (INPUT, RATIOS, DCF, COMPARABLES, SCENARIOS, DASHBOARD) :
+
+### Onglet `INPUT` — données source
+- **Tous profils** : IS + BS + CF historiques (5 ans), market data (price, shares, beta)
+- **BANK** ajoute : NII split, provisions, CET1, NPL, RWA, Tier 1 capital
+- **INSURANCE** ajoute : NPW, NPE, Losses, Expenses, Invested Assets, Solvency II
+- **REIT** ajoute : NOI par segment, Cap Rate assumptions, Recurring Capex, Occupancy
+- **UTILITY** ajoute : RAB par juridiction, Allowed ROE, Rate Base Growth, Capex plan
+- **OIL_GAS** ajoute : Production (BOE/d), Réserves 1P/2P/3P, Cash cost/BOE, Hedging
+- **TECH/SaaS** ajoute : ARR, NRR, GRR, S&M, R&D capitalized, Gross Retention
+- **RETAIL** ajoute : SSSG, Store count, Revenue/sq ft, Online mix, Inventory days
+- **PHARMA** ajoute : Pipeline par phase, Peak sales, Patent cliff, Top 5 products split
+- **AIRLINES** ajoute : ASM, RPM, Load Factor, Fuel cost, Fleet age, Aircraft rent
+- **METALS** ajoute : Production par métal, Grade, Reserves, AISC, LOM
+- **TELECOM** ajoute : Subscribers, ARPU, Churn, Capex/Revenue split
+
+### Onglet `RATIOS` — calculs dérivés (formules)
+- **Tous** : Growth rates, Marges, ROE/ROIC (si applicable)
+- **BANK** : NIM, Cost/Income, ROA, Loan/Deposit, P/TBV, P/PPOP
+- **INSURANCE** : Combined / Loss / Expense ratios, UW Margin, Inv Yield
+- **REIT** : FFO = NI + D&A, AFFO = FFO − Recurring Capex − SL Rent, P/FFO, P/NAV, LTV
+- **UTILITY** : Earned ROE vs Allowed, Debt/RAB, FFO/Debt, Capex/D&A
+- **OIL_GAS** : EV/DACF, EV/EBITDAX, EV/Production, Price/Reserves, Breakeven, F&D
+- **TECH** : Rule of 40, EV/Revenue, EV/GP, CAC Payback, Magic Number
+- **RETAIL** : SSSG components (traffic × ticket), GMROI, Inventory Turns
+- **PHARMA** : R&D/Rev, Pipeline rNPV, Peak sales concentration
+- **AIRLINES** : CASM ex-fuel, RASM, PRASM, EV/EBITDAR, Load Factor
+- **METALS** : AISC per unit, NAV per mine, Production growth, P/NAV
+- **TELECOM** : ARPU, Churn, Capex intensity, Net Debt/EBITDA
+
+### Onglet `DCF` — valorisation principale
+- **STANDARD / TECH / RETAIL / PHARMA / AIRLINES / TELECOM** : DCF 3-phases classique (FCF → WACC → Terminal)
+- **BANK** : DDM (Gordon Growth) ou Justified P/B à partir du ROE durable — **pas de DCF**
+- **INSURANCE (P&C)** : Multiple P/B ancré ROE — P&C simplifié
+- **INSURANCE (Life)** : Embedded Value + NBV margin
+- **REIT** : NAV par segment (cap rate × NOI) + dette = NAV/share — **remplace DCF**
+- **UTILITY** : SOTP RAB × multiple régulatoire (remplace DCF)
+- **OIL_GAS** : NAV 1P + 2P par price deck (remplace DCF)
+- **METALS** : NAV par mine (remplace DCF) + cross-check EV/EBITDA spot
+
+### Onglet `COMPARABLES` — pairs trading
+- **STANDARD** : Ticker | Rev | Growth | Marges | EV/EBITDA | P/E | EV/Rev | ROE
+- **BANK** : Ticker | Rev | Growth | ROE | P/E | P/TBV | Div Yield | CET1 | NPL | Cost/Income
+- **INSURANCE** : Ticker | NPE | Growth | Combined Ratio | P/B | P/E | Div Yield | Solvency II
+- **REIT** : Ticker | FFO | Growth | P/FFO | P/AFFO | P/NAV | Div Yield | Occupancy | LTV
+- **UTILITY** : Ticker | Rev | RAB growth | EV/EBITDA | P/E | P/RAB | Div Yield | Allowed vs Earned ROE
+- **OIL_GAS** : Ticker | Production | Reserves | EV/DACF | EV/EBITDAX | Price/Reserves | Breakeven
+- **TECH** : Ticker | Rev | Growth | Gross Mg | Rule of 40 | EV/Rev | EV/GP | NRR | FCF Margin
+- **RETAIL** : Ticker | Rev | SSSG | Gross Mg | EV/EBITDA | P/E | Store count | Div Yield
+- **PHARMA** : Ticker | Rev | Growth | Op Margin | EV/Rev | P/E | R&D/Rev | Pipeline size | Div Yield
+- **AIRLINES** : Ticker | ASM growth | RASM | CASM ex-fuel | Load Factor | EV/EBITDAR | Fleet age
+- **METALS** : Ticker | Production | Reserves | AISC | P/NAV | EV/EBITDA | Div Yield | Net Debt/EBITDA
+- **TELECOM** : Ticker | Rev | Subs | ARPU | Churn | EV/EBITDA | FCF Yield | Div Yield | Net Debt/EBITDA
+
+### Onglet `SCENARIOS` — Bull / Base / Bear
+Toujours 3 scenarios. Paramètres-clé par profil :
+- **STANDARD** : Revenue growth ± 2pts, EBITDA margin ± 2pts, exit multiple ± 2x
+- **BANK** : NIM ± 20bps, Cost/Income ± 5pts, NPL provisions ± 50bps, ROE ± 2pts
+- **INSURANCE** : Combined Ratio ± 3pts, Investment Yield ± 50bps
+- **REIT** : Cap Rate ± 50bps, Same-Store NOI growth ± 1pt, Occupancy ± 2pts
+- **UTILITY** : Allowed ROE ± 50bps, Rate case timing ± 1 an, Capex plan ± 10%
+- **OIL_GAS** : Oil price $60/$75/$90, Production ± 5%, Hedging 30/60%
+- **TECH / SaaS** : NRR ± 5pts, Revenue growth ± 10pts, Rule of 40 ± 10
+- **RETAIL** : SSSG ± 2pts, Gross Margin ± 1pt, Store count growth
+- **PHARMA** : Pipeline success rate (POS) ± 20%, Peak sales ± 25%, Patent timing
+- **AIRLINES** : Fuel cost ± $1/gal, Load Factor ± 3pts, Fare pricing ± 5%
+- **METALS** : Commodity price ± 20%, AISC ± 10%, Production ± 5%
+- **TELECOM** : ARPU ± 5%, Churn ± 50bps, Capex ± 2pts of revenue
+
+### Onglet `DASHBOARD` — synthèse exécutive
+- **Tous profils** : Prix cible | Upside | Conviction | Rating | Top 3 KPIs du profil | Chart secteur vs S&P
+
+Top 3 KPIs par profil à afficher en dashboard :
+- **STANDARD** : EV/EBITDA + FCF Yield + ROIC
+- **BANK** : P/TBV + ROE + CET1
+- **INSURANCE** : P/B + Combined Ratio + Solvency II
+- **REIT** : P/NAV + Occupancy + FFO Growth
+- **UTILITY** : P/RAB + Earned ROE + RAB Growth
+- **OIL_GAS** : EV/DACF + Breakeven WTI + Reserve Life
+- **TECH** : EV/Rev + Rule of 40 + NRR
+- **RETAIL** : EV/EBITDA + SSSG + Inventory Turns
+- **PHARMA** : EV/Rev NTM + R&D/Rev + Pipeline rNPV
+- **AIRLINES** : EV/EBITDAR + CASM ex-fuel + Load Factor
+- **METALS** : P/NAV + AISC + Reserve Life
+- **TELECOM** : EV/EBITDA + FCF Yield + ARPU Growth
