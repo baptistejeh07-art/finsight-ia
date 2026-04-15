@@ -640,9 +640,9 @@ def _make_margins_chart(data):
         _margin_title = f"Marge EBITDA {_em_last:.0f}% en LTM (\u00e9volution {_em_trend} sur la p\u00e9riode)"
     else:
         _margin_title = 'Ratios de rentabilit\u00e9 \u2014 \u00c9volution'
-    # Titre reduit (pad 32->16) et fontsize (12->11) pour tenir dans le nouveau
-    # figsize (10, 3.4) plus compact verticalement (ABB-P6)
-    ax.set_title(_margin_title, fontsize=11, color='#1B3A6B', fontweight='bold', pad=16)
+    # Titre : pad 10 (vs 16 avant) — legende maintenant DANS le chart upper
+    # left, pas au-dessus, donc pas de collision avec le titre.
+    ax.set_title(_margin_title, fontsize=11, color='#1B3A6B', fontweight='bold', pad=10)
     for sp in ['top', 'right']:
         ax.spines[sp].set_visible(False)
     ax.spines['left'].set_color('#D0D5DD')
@@ -650,10 +650,12 @@ def _make_margins_chart(data):
     ax.set_facecolor('white')
     fig.patch.set_facecolor('white')
     ax.grid(axis='y', alpha=0.25, color='#D0D5DD', linewidth=0.5, zorder=0)
-    # Legende AU-DESSUS du graphique (entre les barres et le titre)
-    ax.legend(fontsize=9, loc='lower center', bbox_to_anchor=(0.5, 1.01),
-              ncol=3, frameon=True, framealpha=0.9, edgecolor='#D0D5DD',
-              borderpad=0.5, labelspacing=0.4)
+    # Legende DANS le chart (upper left), pas au-dessus. Fix ABB-P6 followup :
+    # avec pad 16 + figsize (10, 3.4), la legende au-dessus chevauchait le titre.
+    ax.legend(fontsize=8.5, loc='upper left',
+              frameon=True, framealpha=0.9, edgecolor='#D0D5DD',
+              borderpad=0.5, labelspacing=0.3,
+              handlelength=1.5, handletextpad=0.4)
     plt.tight_layout()
     buf = io.BytesIO()
     fig.savefig(buf, format='png', dpi=200, bbox_inches='tight')
