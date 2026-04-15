@@ -37,6 +37,11 @@ log = logging.getLogger(__name__)
 _DEFAULT_TEMPLATE = Path(__file__).parent.parent / "assets" / "TEMPLATE.xlsx"
 _TEMPLATE_ENV = os.getenv("TEMPLATE_PATH", "")
 # Toujours résoudre en absolu : si relatif, ancrer sur la racine du projet
+# NOTE : _TEMPLATE est le DEFAULT (STANDARD). Le vrai template utilisé est
+# résolu dynamiquement par excel_profile_router.get_template_for(profile)
+# dans la méthode write() — ça permet d'utiliser un template BANK/INSURANCE/
+# REIT/UTILITY/OIL_GAS spécifique si disponible dans assets/, sinon fallback
+# STANDARD transparent.
 _TEMPLATE = (
     Path(_TEMPLATE_ENV).resolve()
     if _TEMPLATE_ENV
@@ -183,8 +188,44 @@ class ExcelWriter:
         except ImportError:
             raise RuntimeError("openpyxl requis : pip install openpyxl")
 
-        if not _TEMPLATE.exists():
-            raise FileNotFoundError(f"Template introuvable : {_TEMPLATE}")
+        # ── ROUTAGE PROFIL SECTORIEL (nouveau #180) ──────────────────────
+        # Détecte le profil (STANDARD/BANK/INSURANCE/REIT/UTILITY/OIL_GAS)
+        # et sélectionne le template approprié. Fallback transparent vers
+        # STANDARD si le template profil-spécifique n'existe pas dans assets/.
+        #
+        # Zéro régression : tant qu'aucun template autre que TEMPLATE.xlsx
+        # n'est présent, toutes les analyses utilisent STANDARD (comportement
+        # actuel inchangé).
+        _active_template = _TEMPLATE
+        _profile = "STANDARD"
+        try:
+            from outputs.excel_profile_router import (
+                detect_profile_from_snapshot, get_template_for,
+                profile_template_exists,
+            )
+            _profile = detect_profile_from_snapshot(snapshot)
+            if profile_template_exists(_profile):
+                _active_template = get_template_for(_profile)
+                log.info(
+                    f"[ExcelWriter] Profil sectoriel : {_profile} → "
+                    f"template spécifique {_active_template.name}"
+                )
+            else:
+                if _profile != "STANDARD":
+                    log.info(
+                        f"[ExcelWriter] Profil sectoriel : {_profile} "
+                        f"(template spécifique absent → fallback STANDARD)"
+                    )
+        except Exception as _e_router:
+            log.warning(
+                f"[ExcelWriter] Profile router failed ({_e_router}) — "
+                f"fallback TEMPLATE.xlsx"
+            )
+            _active_template = _TEMPLATE
+            _profile = "STANDARD"
+
+        if not _active_template.exists():
+            raise FileNotFoundError(f"Template introuvable : {_active_template}")
 
         ticker = snapshot.ticker.replace(".", "_")
         today  = date.today().isoformat()
@@ -193,7 +234,7 @@ class ExcelWriter:
             _OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
             output_path = _OUTPUT_DIR / f"{ticker}_{today}.xlsx"
 
-        shutil.copy2(_TEMPLATE, output_path)
+        shutil.copy2(_active_template, output_path)
         wb = openpyxl.load_workbook(
             str(output_path),
             keep_links=False,
