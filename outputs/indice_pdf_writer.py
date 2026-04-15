@@ -1700,10 +1700,10 @@ def _build_risques(data, registry=None):
     elems.append(Spacer(1, 2*mm))
 
     for nom, mec, prob, impact in data["risques"]:
-        try:
-            p_int = int(str(prob).replace('%',''))
-        except (ValueError, TypeError):
-            p_int = 30
+        # Fix 2026-04-15 : regex robuste pour tous formats LLM
+        import re as _re_ird
+        _m_ird = _re_ird.search(r'(\d+)', str(prob).replace('%','').replace('pct',''))
+        p_int = int(_m_ird.group(1)) if _m_ird else 30
         _prob_qualif = ("élevée" if p_int >= 40 else ("modérée" if p_int >= 25 else "faible"))
         elems.append(Paragraph(
             f"<b>{nom} ({prob}, impact {impact.lower()}).</b> {mec} "
