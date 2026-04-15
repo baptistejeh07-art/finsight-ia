@@ -4639,28 +4639,78 @@ def _build_ia_html(snapshot, ratios, synthesis, qa_python, qa_haiku, devil, sent
 
     # ---- Bloc 1 : Valorisation ----
     if yr and synthesis:
+        # Détection profil pour adapter le commentaire valorisation
+        try:
+            from core.sector_profiles import detect_profile as _dp
+            _ia_profile = _dp(
+                ci.sector or "",
+                getattr(ci, "industry", "") or "",
+            )
+        except Exception:
+            _ia_profile = "STANDARD"
+
         pe_comment = ""
         if yr.pe_ratio is not None:
-            if yr.pe_ratio < 15:
-                pe_comment = "en dessous des niveaux historiques sectoriels, suggérant une décote potentielle"
-            elif yr.pe_ratio < 25:
-                pe_comment = "dans la norme sectorielle, reflétant une valorisation équilibrée"
+            if _ia_profile in ("BANK", "INSURANCE"):
+                if yr.pe_ratio < 10:
+                    pe_comment = "en dessous de la fourchette banques/assurance (8-14x), suggérant une décote potentielle"
+                elif yr.pe_ratio < 14:
+                    pe_comment = "dans la norme banques/assurance (8-14x)"
+                else:
+                    pe_comment = "au-dessus de la fourchette banques/assurance (8-14x), prime sur la rentabilité"
+            elif _ia_profile == "REIT":
+                pe_comment = "P/E peu pertinent pour une foncière (préférer P/FFO, P/NAV)"
+            elif _ia_profile == "UTILITY":
+                if yr.pe_ratio < 14:
+                    pe_comment = "en dessous de la norme utilities (15-20x)"
+                elif yr.pe_ratio < 20:
+                    pe_comment = "dans la norme utilities régulées"
+                else:
+                    pe_comment = "au-dessus de la fourchette utilities, prime de croissance intégrée"
             else:
-                pe_comment = "au-dessus de la médiane sectorielle, intégrant des attentes de croissance élevées"
+                if yr.pe_ratio < 15:
+                    pe_comment = "en dessous des niveaux historiques sectoriels, suggérant une décote potentielle"
+                elif yr.pe_ratio < 25:
+                    pe_comment = "dans la norme sectorielle, reflétant une valorisation équilibrée"
+                else:
+                    pe_comment = "au-dessus de la médiane sectorielle, intégrant des attentes de croissance élevées"
 
-        ev_comment = ""
-        if yr.ev_ebitda is not None:
-            if yr.ev_ebitda < 8:
-                ev_comment = "attractif par rapport aux comparables"
-            elif yr.ev_ebitda < 15:
-                ev_comment = "cohérent avec les niveaux sectoriels"
-            else:
-                ev_comment = "élevé, justifié par la qualité des actifs et le pricing power"
+        if _ia_profile in ("BANK", "INSURANCE"):
+            pb_comment = ""
+            if yr.pb_ratio is not None:
+                if yr.pb_ratio < 0.9:
+                    pb_comment = "décote vs book value — opportunité potentielle si ROE durable > coût FP"
+                elif yr.pb_ratio < 1.5:
+                    pb_comment = "dans la norme bancaire (0.8-1.5x) — valorisation alignée sur le ROE structurel"
+                else:
+                    pb_comment = "prime marquée vs book value — justifiée uniquement si ROE > 12% durable"
+            text = (
+                f"Le P/E de {_hl(_x(yr.pe_ratio))} est {_e(pe_comment)}. "
+                f"Le P/TBV de {_hl(_x(yr.pb_ratio))} est {_e(pb_comment)}. "
+                f"<i>(EV/EBITDA et marge brute non applicables aux profils bancaires/assurance — "
+                f"les ratios pertinents sont P/TBV, ROE, et le gap vs coût des fonds propres.)</i> "
+            )
+        elif _ia_profile == "REIT":
+            text = (
+                f"Le P/E de {_hl(_x(yr.pe_ratio))} est {_e(pe_comment)}. "
+                f"Le P/B de {_hl(_x(yr.pb_ratio))} sert de proxy P/NAV — viser 0.85-1.15x. "
+                f"<i>(Pour une foncière cotée, privilégier P/FFO, P/AFFO et P/NAV — l'EV/EBITDA "
+                f"est déformé par les amortissements comptables sur les immeubles.)</i> "
+            )
+        else:
+            ev_comment = ""
+            if yr.ev_ebitda is not None:
+                if yr.ev_ebitda < 8:
+                    ev_comment = "attractif par rapport aux comparables"
+                elif yr.ev_ebitda < 15:
+                    ev_comment = "cohérent avec les niveaux sectoriels"
+                else:
+                    ev_comment = "élevé, justifié par la qualité des actifs et le pricing power"
 
-        text = (
-            f"Le P/E de {_hl(_x(yr.pe_ratio))} est {_e(pe_comment)}. "
-            f"L'EV/EBITDA de {_hl(_x(yr.ev_ebitda))} est {_e(ev_comment)}. "
-        )
+            text = (
+                f"Le P/E de {_hl(_x(yr.pe_ratio))} est {_e(pe_comment)}. "
+                f"L'EV/EBITDA de {_hl(_x(yr.ev_ebitda))} est {_e(ev_comment)}. "
+            )
         if mkt.share_price and synthesis.target_base:
             upside = (synthesis.target_base - mkt.share_price) / mkt.share_price * 100
             sign = "hausse" if upside > 0 else "baisse"
@@ -4684,50 +4734,88 @@ def _build_ia_html(snapshot, ratios, synthesis, qa_python, qa_haiku, devil, sent
 
     # ---- Bloc 2 : Fondamentaux opérationnels ----
     if yr:
-        gm_qual = _good(_p(yr.gross_margin)) if (yr.gross_margin or 0) > 0.3 else _hl(_p(yr.gross_margin))
-        em_qual = _good(_p(yr.ebitda_margin)) if (yr.ebitda_margin or 0) > 0.15 else _hl(_p(yr.ebitda_margin))
         roe_qual = _good(_p(yr.roe)) if (yr.roe or 0) > 0.12 else _risk(_p(yr.roe))
 
-        lev_comment = ""
-        if yr.net_debt_ebitda is not None:
-            if yr.net_debt_ebitda < 1.5:
-                lev_comment = "très confortable"
-            elif yr.net_debt_ebitda < 3:
-                lev_comment = "modéré"
-            elif yr.net_debt_ebitda < 5:
-                lev_comment = "élevé — surveillance requise"
-            else:
-                lev_comment = "critique — risque de refinancement"
-
-        fcf_comment = ""
-        if yr.fcf_yield is not None:
-            if yr.fcf_yield > 0.05:
-                fcf_comment = f"attractif à {_good(_p(yr.fcf_yield))}"
-            elif yr.fcf_yield > 0:
-                fcf_comment = f"positif à {_hl(_p(yr.fcf_yield))}"
-            else:
-                fcf_comment = f"{_risk(_p(yr.fcf_yield))} — génération de cash sous pression"
-
-        text = (
-            f"La marge brute de {gm_qual} et la marge EBITDA de {em_qual} "
-            f"témoignent de la capacité de l'entreprise à préserver sa profitabilité. "
-            f"Le ROE de {roe_qual} reflète l'efficacité d'allocation du capital. "
-            f"L'endettement net / EBITDA de {_hl(_x(yr.net_debt_ebitda))} est {_e(lev_comment)}. "
-            f"Le FCF yield est {fcf_comment}."
-        )
-
-        formula = ""
-        if yr.gross_profit and yr.ebitda and snapshot.years.get(latest) and snapshot.years[latest].revenue:
-            rev = snapshot.years[latest].revenue
-            formula = (
-                f'<div class="formula-block">'
-                f'<div class="formula-lbl">Profitabilité ({latest})</div>'
-                f'<div class="formula">'
-                f'Marge Brute = {yr.gross_profit:,.0f}M / {rev:,.0f}M = {_p(yr.gross_margin)}<br>'
-                f'EBITDA = {yr.ebitda:,.0f}M → Marge EBITDA = {_p(yr.ebitda_margin)}'
-                f'</div></div>'
+        if _ia_profile in ("BANK", "INSURANCE"):
+            # Fondamentaux bancaires : ROE > coût FP, ROA, pas de leverage ratio classique
+            roa_qual = _good(_p(yr.roa)) if (yr.roa or 0) > 0.01 else _risk(_p(yr.roa))
+            nm_qual  = _good(_p(yr.net_margin)) if (yr.net_margin or 0) > 0.25 else _hl(_p(yr.net_margin))
+            _gap_cost_fp = "> coût des fonds propres" if (yr.roe or 0) > 0.10 else "sous le coût des fonds propres"
+            text = (
+                f"Le ROE de {roe_qual} est {_e(_gap_cost_fp)} (≈ 10%), ce qui "
+                f"{'justifie' if (yr.roe or 0) > 0.10 else 'ne justifie pas'} une prime sur la book value. "
+                f"Le ROA de {roa_qual} reflète l'efficacité du bilan "
+                f"({'> 1% = solide' if (yr.roa or 0) > 0.01 else 'sous la norme bancaire'}). "
+                f"La marge nette post-provisions de {nm_qual} est le premier indicateur "
+                f"de la qualité des earnings. "
+                f"<i>Pour un profil bancaire/assurance, les indicateurs clés sont ROE vs coût FP, "
+                f"ROA, Cost/Income, NIM, CET1 Ratio et NPL — la marge brute et le leverage "
+                f"Net Debt/EBITDA ne sont pas applicables.</i>"
             )
-        blocks.append(("Qualité des fondamentaux opérationnels", text + formula))
+            blocks.append(("Rentabilité & qualité du bilan", text))
+        elif _ia_profile == "REIT":
+            em_qual = _good(_p(yr.ebitda_margin)) if (yr.ebitda_margin or 0) > 0.5 else _hl(_p(yr.ebitda_margin))
+            fcf_comment = ""
+            if yr.fcf_yield is not None:
+                if yr.fcf_yield > 0.05:
+                    fcf_comment = f"attractif à {_good(_p(yr.fcf_yield))}"
+                elif yr.fcf_yield > 0:
+                    fcf_comment = f"positif à {_hl(_p(yr.fcf_yield))}"
+                else:
+                    fcf_comment = f"{_risk(_p(yr.fcf_yield))}"
+            text = (
+                f"La marge EBITDA de {em_qual} approche le NOI margin sectoriel (> 60% sain). "
+                f"Le ROE de {roe_qual} reflète le rendement net sur book. "
+                f"Le FCF yield est {fcf_comment} et sert de proxy pour le AFFO yield. "
+                f"<i>Pour une foncière, les indicateurs clés sont FFO/AFFO par action, "
+                f"P/FFO, P/NAV, Occupancy, WALT, LTV et Same-Store NOI Growth — "
+                f"la marge brute n'est pas pertinente.</i>"
+            )
+            blocks.append(("Fondamentaux opérationnels REIT", text))
+        else:
+            gm_qual = _good(_p(yr.gross_margin)) if (yr.gross_margin or 0) > 0.3 else _hl(_p(yr.gross_margin))
+            em_qual = _good(_p(yr.ebitda_margin)) if (yr.ebitda_margin or 0) > 0.15 else _hl(_p(yr.ebitda_margin))
+
+            lev_comment = ""
+            if yr.net_debt_ebitda is not None:
+                if yr.net_debt_ebitda < 1.5:
+                    lev_comment = "très confortable"
+                elif yr.net_debt_ebitda < 3:
+                    lev_comment = "modéré"
+                elif yr.net_debt_ebitda < 5:
+                    lev_comment = "élevé — surveillance requise"
+                else:
+                    lev_comment = "critique — risque de refinancement"
+
+            fcf_comment = ""
+            if yr.fcf_yield is not None:
+                if yr.fcf_yield > 0.05:
+                    fcf_comment = f"attractif à {_good(_p(yr.fcf_yield))}"
+                elif yr.fcf_yield > 0:
+                    fcf_comment = f"positif à {_hl(_p(yr.fcf_yield))}"
+                else:
+                    fcf_comment = f"{_risk(_p(yr.fcf_yield))} — génération de cash sous pression"
+
+            text = (
+                f"La marge brute de {gm_qual} et la marge EBITDA de {em_qual} "
+                f"témoignent de la capacité de l'entreprise à préserver sa profitabilité. "
+                f"Le ROE de {roe_qual} reflète l'efficacité d'allocation du capital. "
+                f"L'endettement net / EBITDA de {_hl(_x(yr.net_debt_ebitda))} est {_e(lev_comment)}. "
+                f"Le FCF yield est {fcf_comment}."
+            )
+
+            formula = ""
+            if yr.gross_profit and yr.ebitda and snapshot.years.get(latest) and snapshot.years[latest].revenue:
+                rev = snapshot.years[latest].revenue
+                formula = (
+                    f'<div class="formula-block">'
+                    f'<div class="formula-lbl">Profitabilité ({latest})</div>'
+                    f'<div class="formula">'
+                    f'Marge Brute = {yr.gross_profit:,.0f}M / {rev:,.0f}M = {_p(yr.gross_margin)}<br>'
+                    f'EBITDA = {yr.ebitda:,.0f}M → Marge EBITDA = {_p(yr.ebitda_margin)}'
+                    f'</div></div>'
+                )
+            blocks.append(("Qualité des fondamentaux opérationnels", text + formula))
 
     # ---- Bloc 3 : Hypothèses valorisation / WACC ----
     if mkt and (mkt.wacc or mkt.beta_levered or mkt.risk_free_rate):
@@ -5372,15 +5460,49 @@ def render_results(results: dict) -> None:
             if v > 0:     return "bn", max(int(v * 300), 10)
             return "br", 5
 
-        gm_c, gm_w = _cls_margin(yr.gross_margin)
-        em_c, em_w = _cls_margin(yr.ebitda_margin)
-        nm_c, nm_w = _cls_margin(yr.net_margin)
-        roe_c, roe_w = _cls_roe(yr.roe)
+        # ── Détection du profil sectoriel pour adapter la grille de ratios ──
+        # JPM/BAC/BNP.PA (banques) n'ont pas EV/EBITDA ni Marge Brute pertinents.
+        # REIT, Assurance, Utilities idem → remplacer par P/TBV, ROE, NIM, etc.
+        try:
+            from core.sector_profiles import detect_profile
+            _profile = detect_profile(
+                ci.sector or "",
+                getattr(ci, "industry", "") or "",
+            )
+        except Exception:
+            _profile = "STANDARD"
 
-        lev = yr.net_debt_ebitda
-        lev_c = "bg" if lev is not None and lev < 2 else ("bn" if lev is not None and lev < 4 else "br")
-        lev_w = max(10, min(95, int(100 - (lev or 0) * 14))) if lev is not None else 50
+        def _cls_pb(v, benchmark=(0.8, 1.5)):
+            """P/TBV : < 0.8 décote, 0.8-1.5 normal, > 1.5 prime justifiée si ROE fort."""
+            if v is None: return "bn", 50
+            lo, hi = benchmark
+            if v < lo:    return "bg", 80
+            if v < hi:    return "bn", 60
+            return "bn", min(95, int(50 + (v - hi) * 15))
 
+        def _cls_roe_bank(v):
+            """ROE bancaire : > 12% = excellent, 8-12% ok, < 8% alerte."""
+            if v is None: return "bn", 50
+            if v > 0.12:  return "bg", min(int(v * 400), 100)
+            if v > 0.08:  return "bn", 60
+            return "br", 20
+
+        def _cls_roa_bank(v):
+            """ROA bancaire : > 1.2% excellent, 0.8-1.2% ok, < 0.8% faible."""
+            if v is None: return "bn", 50
+            if v > 0.012: return "bg", min(int(v * 6000), 100)
+            if v > 0.008: return "bn", 60
+            return "br", 25
+
+        def _cls_coverage(v, lo=1.5, hi=3.0):
+            if v is None: return "bn", 50
+            if v > hi:    return "bg", min(int(v * 8), 100)
+            if v > lo:    return "bn", 60
+            return "br", 20
+
+        # ══════════════════════════════════════════════════════════════════
+        # Cells par profil — format identique, métriques adaptées
+        # ══════════════════════════════════════════════════════════════════
         pe = yr.pe_ratio
         pe_c = "bg" if pe is not None and 0 < pe < 18 else ("bn" if pe is not None and pe < 28 else "br")
         pe_w = max(10, min(90, int(100 - (pe or 25) * 1.6))) if pe is not None and pe > 0 else 50
@@ -5389,24 +5511,250 @@ def render_results(results: dict) -> None:
         rg_c = "bg" if rg is not None and rg > 0.03 else ("bn" if rg is not None and rg >= 0 else "br")
         rg_w = min(100, max(5, int((rg or 0) * 600 + 50))) if rg is not None else 50
 
-        cells = "".join([
-            _rc("P/E Ratio",         _x(yr.pe_ratio),      f"Valeur actuelle · {'Favorable' if pe_c=='bg' else 'Neutre'}", pe_w,  pe_c),
-            _rc("EV / EBITDA",       _x(yr.ev_ebitda),     "Multiple entreprise", 65, "bn"),
-            _rc("Marge EBITDA",      _p(yr.ebitda_margin), f"Secteur ref · {'Fort' if em_c=='bg' else 'Neutre'}", em_w, em_c),
-            _rc("ROE",               _p(yr.roe),           f"Return on Equity · {'Solide' if roe_c=='bg' else 'Neutre'}", roe_w, roe_c),
-            _rc("Marge Nette",       _p(yr.net_margin),    "Net Income / Revenue", nm_w, nm_c),
-            _rc("ROIC",              _p(yr.roic),          "Return on Invested Capital", 60, "bn"),
-            _rc("Dette N./EBITDA",   _x(yr.net_debt_ebitda), f"Levier · {'Sain' if lev_c=='bg' else 'Élevé' if lev_c=='br' else 'Modéré'}", lev_w, lev_c),
-            _rc("Free Cash Flow",    _p(yr.fcf_yield),     f"FCF Yield · {'Attractif' if (yr.fcf_yield or 0)>0.04 else 'Neutre'}", min(100, int((yr.fcf_yield or 0)*1000+40)), "bg" if (yr.fcf_yield or 0)>0.04 else "bn"),
-            _rc("Marge Brute",       _p(yr.gross_margin),  "Gross Profit / Revenue", gm_w, gm_c),
-            _rc("Current Ratio",     _n(yr.current_ratio), ">1.0 Sain · >2.0 Fort", min(100, int((yr.current_ratio or 0)*35)), "bg" if (yr.current_ratio or 0)>1.5 else "bn"),
-            _rc("Croissance CA",     _p(yr.revenue_growth), "YoY · vs exercice précédent", rg_w, rg_c),
-            _rc("Altman Z-Score",    _n(yr.altman_z),
-                f">2.99 Sain · <1.81 Détresse",
-                min(100, int((yr.altman_z or 0) * 13)) if yr.altman_z else 50,
-                "bg" if yr.altman_z and yr.altman_z > 2.99 else ("bn" if yr.altman_z and yr.altman_z > 1.81 else "br")),
-        ])
+        nm_c, nm_w = _cls_margin(yr.net_margin)
+        roe_c, roe_w = _cls_roe(yr.roe)
+
+        if _profile == "BANK":
+            # Grille bancaire : P/TBV, P/E, ROE, ROA, Cost/Income proxy,
+            # Rev Growth (~NII), Interest Coverage, Dividend Payout, Beta,
+            # Net Margin (~post-provisions), Debt/Equity (~leverage Bâle).
+            pb_c, pb_w = _cls_pb(yr.pb_ratio, benchmark=(0.8, 1.5))
+            roe_b_c, roe_b_w = _cls_roe_bank(yr.roe)
+            roa_c, roa_w = _cls_roa_bank(yr.roa)
+            ic_c, ic_w = _cls_coverage(yr.interest_coverage, lo=1.5, hi=3.0)
+
+            # Cost-to-Income proxy via (1 - net_margin) — approximation
+            # car on n'a pas le split OpEx/NII en YearRatios.
+            _ci_pct = (1.0 - (yr.net_margin or 0)) if yr.net_margin is not None else None
+            _ci_c = ("bg" if _ci_pct is not None and _ci_pct < 0.55 else
+                     ("bn" if _ci_pct is not None and _ci_pct < 0.70 else "br"))
+
+            # Dividend payout (quand dispo)
+            dp  = yr.dividend_payout
+            dp_c = "bg" if dp is not None and 0.3 < dp < 0.6 else ("bn" if dp is not None else "bn")
+
+            cells = "".join([
+                _rc("P/TBV",             _x(yr.pb_ratio),
+                    "Price / Tangible Book · 0.8-1.5x normal", pb_w, pb_c),
+                _rc("P/E Ratio",         _x(yr.pe_ratio),
+                    "Banques : 8-14x cycle", pe_w, pe_c),
+                _rc("ROE",               _p(yr.roe),
+                    "Cible > 12% (coût FP)", roe_b_w, roe_b_c),
+                _rc("ROA",               _p(yr.roa),
+                    "Cible > 1.0% (banques solides)", roa_w, roa_c),
+                _rc("Cost/Income*",      _p(_ci_pct),
+                    "Proxy 1 − net margin · cible < 60%", 60, _ci_c),
+                _rc("Croissance revenus", _p(yr.revenue_growth),
+                    "NII + commissions YoY", rg_w, rg_c),
+                _rc("Net Margin",        _p(yr.net_margin),
+                    "Post-provisions · > 25% sain", nm_w, nm_c),
+                _rc("Interest Coverage", _x(yr.interest_coverage),
+                    "EBIT / Intérêts · > 3x", ic_w, ic_c),
+                _rc("Payout Dividende",  _p(yr.dividend_payout),
+                    "Div / NI · cible 30-60%", 60, dp_c),
+                _rc("Debt/Equity",       _x(yr.debt_equity),
+                    "Levier bilantiel · normal 6-12x", 60, "bn"),
+                _rc("Market Cap",        (f"{yr.market_cap/1000:,.1f} Mds" if yr.market_cap else "N/A"),
+                    "Capitalisation boursière", 60, "bn"),
+                _rc("CET1 / NPL / LCR",  "voir Pillar 3",
+                    "Données réglementaires trimestrielles", 50, "bn"),
+            ])
+            _profile_note = (
+                'Profil <b>BANK</b> — ratios adaptés : P/TBV, ROE, ROA remplacent '
+                'EV/EBITDA et Marge Brute (non applicables aux banques). '
+                'CET1, NPL, NIM à consulter dans les rapports Pillar 3.'
+            )
+        elif _profile == "INSURANCE":
+            pb_c, pb_w = _cls_pb(yr.pb_ratio, benchmark=(0.8, 1.3))
+            roe_b_c, roe_b_w = _cls_roe_bank(yr.roe)
+            roa_c, roa_w = _cls_roa_bank(yr.roa)
+            dp  = yr.dividend_payout
+            dp_c = "bg" if dp is not None and 0.3 < dp < 0.6 else "bn"
+
+            cells = "".join([
+                _rc("P/B",               _x(yr.pb_ratio),
+                    "Price / Book · 0.8-1.3x (P&C)", pb_w, pb_c),
+                _rc("P/E Ratio",         _x(yr.pe_ratio),
+                    "Assurance : 8-13x", pe_w, pe_c),
+                _rc("ROE",               _p(yr.roe),
+                    "Cible > 10-12%", roe_b_w, roe_b_c),
+                _rc("ROA",               _p(yr.roa),
+                    "Cible > 1%", roa_w, roa_c),
+                _rc("Net Margin",        _p(yr.net_margin),
+                    "UW + Investment Income", nm_w, nm_c),
+                _rc("Croissance NPE",    _p(yr.revenue_growth),
+                    "Net Premiums Earned YoY", rg_w, rg_c),
+                _rc("Payout Dividende",  _p(yr.dividend_payout),
+                    "Div / NI · cible 40-70%", 60, dp_c),
+                _rc("Market Cap",        (f"{yr.market_cap/1000:,.1f} Mds" if yr.market_cap else "N/A"),
+                    "Capitalisation boursière", 60, "bn"),
+                _rc("Debt/Equity",       _x(yr.debt_equity),
+                    "Levier bilantiel", 60, "bn"),
+                _rc("Combined Ratio",    "voir SFCR",
+                    "Losses + Expenses / NPE · < 100% sain", 50, "bn"),
+                _rc("Solvency II",       "voir SFCR",
+                    "Own Funds / SCR · > 150% cible", 50, "bn"),
+                _rc("Embedded Value",    "voir rapport annuel",
+                    "NAV + VIF (Life uniquement)", 50, "bn"),
+            ])
+            _profile_note = (
+                'Profil <b>INSURANCE</b> — ratios adaptés : P/B, ROE, Combined Ratio '
+                'remplacent EV/EBITDA. Combined Ratio, Solvency II, Embedded Value '
+                'à consulter dans le SFCR annuel.'
+            )
+        elif _profile == "REIT":
+            pb_c, pb_w = _cls_pb(yr.pb_ratio, benchmark=(0.85, 1.15))
+            lev = yr.net_debt_ebitda
+            lev_c = "bg" if lev is not None and lev < 6 else ("bn" if lev is not None and lev < 8 else "br")
+            lev_w = max(10, min(95, int(100 - (lev or 0) * 10))) if lev is not None else 50
+            ic_c, ic_w = _cls_coverage(yr.interest_coverage, lo=2.0, hi=3.5)
+            dp  = yr.dividend_payout
+            dp_c = "bn" if dp is not None else "bn"
+
+            cells = "".join([
+                _rc("P/B",               _x(yr.pb_ratio),
+                    "P/NAV proxy · 0.85-1.15x", pb_w, pb_c),
+                _rc("P/E Ratio",         _x(yr.pe_ratio),
+                    "Peu pertinent REIT (préférer P/FFO)", pe_w, pe_c),
+                _rc("ROE",               _p(yr.roe),
+                    "Return on Equity", roe_w, roe_c),
+                _rc("Croissance revenus", _p(yr.revenue_growth),
+                    "Rental income YoY", rg_w, rg_c),
+                _rc("Marge EBITDA",      _p(yr.ebitda_margin),
+                    "NOI proxy · > 60% sain", 70, "bn"),
+                _rc("Dette/EBITDA",      _x(yr.net_debt_ebitda),
+                    "REITs : < 6x sain, < 8x acceptable", lev_w, lev_c),
+                _rc("Interest Coverage", _x(yr.interest_coverage),
+                    "EBITDA / Intérêts · > 3x", ic_w, ic_c),
+                _rc("Payout Dividende",  _p(yr.dividend_payout),
+                    "REITs distribuent 90%+", 80, dp_c),
+                _rc("FCF Yield",         _p(yr.fcf_yield),
+                    "Proxy AFFO yield", 60, "bn"),
+                _rc("Market Cap",        (f"{yr.market_cap/1000:,.1f} Mds" if yr.market_cap else "N/A"),
+                    "Capitalisation boursière", 60, "bn"),
+                _rc("Occupancy / WALT",  "voir rapport trim.",
+                    "Occupancy > 92%, WALT > 5 ans", 50, "bn"),
+                _rc("LTV / P/NAV",       "voir rapport annuel",
+                    "LTV < 50%, P/NAV 0.85-1.15x", 50, "bn"),
+            ])
+            _profile_note = (
+                'Profil <b>REIT</b> — ratios adaptés : P/B comme proxy P/NAV, payout élevé '
+                'attendu (90%+). FFO, AFFO, Occupancy, WALT, LTV à consulter dans '
+                'les rapports trimestriels des foncières.'
+            )
+        elif _profile == "UTILITY":
+            # Utilities : EV/EBITDA fonctionne, mais on met l'accent sur div yield et RAB
+            em_c, em_w = _cls_margin(yr.ebitda_margin)
+            lev = yr.net_debt_ebitda
+            lev_c = "bg" if lev is not None and lev < 4 else ("bn" if lev is not None and lev < 6 else "br")
+            lev_w = max(10, min(95, int(100 - (lev or 0) * 12))) if lev is not None else 50
+            dp  = yr.dividend_payout
+            dp_c = "bg" if dp is not None and 0.5 < dp < 0.8 else "bn"
+
+            cells = "".join([
+                _rc("P/E Ratio",         _x(yr.pe_ratio),
+                    "Utilities : 15-20x", pe_w, pe_c),
+                _rc("EV / EBITDA",       _x(yr.ev_ebitda),
+                    "Régulé 8-12x", 60, "bn"),
+                _rc("ROE",               _p(yr.roe),
+                    "vs Allowed ROE (9-10%)", roe_w, roe_c),
+                _rc("Marge EBITDA",      _p(yr.ebitda_margin),
+                    "Utilities : 25-40%", em_w, em_c),
+                _rc("Net Margin",        _p(yr.net_margin),
+                    "Net Income / Revenue", nm_w, nm_c),
+                _rc("Croissance revenus", _p(yr.revenue_growth),
+                    "Régulée par rate cases", rg_w, rg_c),
+                _rc("Dette/EBITDA",      _x(yr.net_debt_ebitda),
+                    "Utilities : < 5x normal", lev_w, lev_c),
+                _rc("Interest Coverage", _x(yr.interest_coverage),
+                    "EBIT / Intérêts · > 3x", 60, "bn"),
+                _rc("Payout Dividende",  _p(yr.dividend_payout),
+                    "Cible 60-75%", 70, dp_c),
+                _rc("FCF Yield",         _p(yr.fcf_yield),
+                    "FCF / Market Cap", 60, "bn"),
+                _rc("Market Cap",        (f"{yr.market_cap/1000:,.1f} Mds" if yr.market_cap else "N/A"),
+                    "Capitalisation boursière", 60, "bn"),
+                _rc("RAB / Allowed ROE", "voir rapport régulé",
+                    "Rate base + ROE autorisé régulateur", 50, "bn"),
+            ])
+            _profile_note = (
+                'Profil <b>UTILITY</b> — ratios adaptés : EV/EBITDA + Payout Dividende '
+                'restent clés. RAB, Allowed ROE, rate cases à consulter dans les '
+                'rapports réglementaires (PUC, CRE, Ofgem).'
+            )
+        elif _profile == "OIL_GAS":
+            # Oil & Gas E&P : EV/EBITDA cyclique + breakeven + reserves
+            em_c, em_w = _cls_margin(yr.ebitda_margin)
+            lev = yr.net_debt_ebitda
+            lev_c = "bg" if lev is not None and lev < 1.5 else ("bn" if lev is not None and lev < 3 else "br")
+            lev_w = max(10, min(95, int(100 - (lev or 0) * 25))) if lev is not None else 50
+
+            cells = "".join([
+                _rc("P/E Ratio",         _x(yr.pe_ratio),
+                    "Oil & Gas : 8-14x cyclique", pe_w, pe_c),
+                _rc("EV/EBITDAX",        _x(yr.ev_ebitda),
+                    "Proxy EV/EBITDAX · 3-6x", 60, "bn"),
+                _rc("ROE",               _p(yr.roe),
+                    "Return on Equity", roe_w, roe_c),
+                _rc("Marge EBITDA",      _p(yr.ebitda_margin),
+                    "Cycle-dépendant", em_w, em_c),
+                _rc("Net Margin",        _p(yr.net_margin),
+                    "Volatile (spot price)", nm_w, nm_c),
+                _rc("Croissance revenus", _p(yr.revenue_growth),
+                    "Prix + production YoY", rg_w, rg_c),
+                _rc("Dette/EBITDAX",     _x(yr.net_debt_ebitda),
+                    "E&P : < 1.5x sain, > 2.5x stress", lev_w, lev_c),
+                _rc("FCF Yield",         _p(yr.fcf_yield),
+                    "FCF @ current strip", 60, "bn"),
+                _rc("Payout Dividende",  _p(yr.dividend_payout),
+                    "Majors : 40-60%", 60, "bn"),
+                _rc("Market Cap",        (f"{yr.market_cap/1000:,.1f} Mds" if yr.market_cap else "N/A"),
+                    "Capitalisation boursière", 60, "bn"),
+                _rc("Réserves 1P / Production", "voir 20-F / annuel",
+                    "R/P > 10 ans sain", 50, "bn"),
+                _rc("AISC / Breakeven WTI", "voir rapport annuel",
+                    "Cash cost + sustaining capex", 50, "bn"),
+            ])
+            _profile_note = (
+                'Profil <b>OIL_GAS</b> — EV/EBITDAX et FCF Yield @ current strip sont clés. '
+                'Réserves 1P/2P, AISC, Breakeven WTI à consulter dans les filings annuels '
+                '(10-K / 20-F / rapports SPE).'
+            )
+        else:
+            # STANDARD : grille classique corporate (DCF applicable)
+            gm_c, gm_w = _cls_margin(yr.gross_margin)
+            em_c, em_w = _cls_margin(yr.ebitda_margin)
+            lev = yr.net_debt_ebitda
+            lev_c = "bg" if lev is not None and lev < 2 else ("bn" if lev is not None and lev < 4 else "br")
+            lev_w = max(10, min(95, int(100 - (lev or 0) * 14))) if lev is not None else 50
+
+            cells = "".join([
+                _rc("P/E Ratio",         _x(yr.pe_ratio),      f"Valeur actuelle · {'Favorable' if pe_c=='bg' else 'Neutre'}", pe_w,  pe_c),
+                _rc("EV / EBITDA",       _x(yr.ev_ebitda),     "Multiple entreprise", 65, "bn"),
+                _rc("Marge EBITDA",      _p(yr.ebitda_margin), f"Secteur ref · {'Fort' if em_c=='bg' else 'Neutre'}", em_w, em_c),
+                _rc("ROE",               _p(yr.roe),           f"Return on Equity · {'Solide' if roe_c=='bg' else 'Neutre'}", roe_w, roe_c),
+                _rc("Marge Nette",       _p(yr.net_margin),    "Net Income / Revenue", nm_w, nm_c),
+                _rc("ROIC",              _p(yr.roic),          "Return on Invested Capital", 60, "bn"),
+                _rc("Dette N./EBITDA",   _x(yr.net_debt_ebitda), f"Levier · {'Sain' if lev_c=='bg' else 'Élevé' if lev_c=='br' else 'Modéré'}", lev_w, lev_c),
+                _rc("Free Cash Flow",    _p(yr.fcf_yield),     f"FCF Yield · {'Attractif' if (yr.fcf_yield or 0)>0.04 else 'Neutre'}", min(100, int((yr.fcf_yield or 0)*1000+40)), "bg" if (yr.fcf_yield or 0)>0.04 else "bn"),
+                _rc("Marge Brute",       _p(yr.gross_margin),  "Gross Profit / Revenue", gm_w, gm_c),
+                _rc("Current Ratio",     _n(yr.current_ratio), ">1.0 Sain · >2.0 Fort", min(100, int((yr.current_ratio or 0)*35)), "bg" if (yr.current_ratio or 0)>1.5 else "bn"),
+                _rc("Croissance CA",     _p(yr.revenue_growth), "YoY · vs exercice précédent", rg_w, rg_c),
+                _rc("Altman Z-Score",    _n(yr.altman_z),
+                    f">2.99 Sain · <1.81 Détresse",
+                    min(100, int((yr.altman_z or 0) * 13)) if yr.altman_z else 50,
+                    "bg" if yr.altman_z and yr.altman_z > 2.99 else ("bn" if yr.altman_z and yr.altman_z > 1.81 else "br")),
+            ])
+            _profile_note = None
+
         st.markdown(f'<div class="ratios-grid">{cells}</div>', unsafe_allow_html=True)
+        if _profile_note:
+            st.markdown(
+                f'<div style="font-size:11px;color:#666;padding:8px 12px;'
+                f'border-left:3px solid #1B3A6B;background:#f7f9fc;margin:8px 0 28px;">'
+                f'{_profile_note}</div>',
+                unsafe_allow_html=True,
+            )
 
         # Beneish
         if yr.beneish_m is not None:
