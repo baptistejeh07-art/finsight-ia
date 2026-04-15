@@ -1967,10 +1967,13 @@ def _s17_risques(prs, D):
                 prob_str = "35 %"
         else:
             prob_str = str(sc.get("prob","—"))
-            try:
-                prob_int = int(prob_str.replace('%','').replace(' ',''))
-            except:
-                prob_int = 20
+            # Fix 2026-04-15 : regex robuste pour tous formats LLM (%, pct, 'environ 35%')
+            import re as _re_prb
+            _m_prb = _re_prb.search(r'(\d+)', prob_str.replace('%','').replace('pct',''))
+            prob_int = int(_m_prb.group(1)) if _m_prb else 20
+            # Normalise l'affichage en format '%' pour le PDF
+            if '%' not in prob_str:
+                prob_str = f"{prob_int}%"
             sc_titre = sc.get("titre","—")
             sc_desc  = sc.get("desc","")
             hdr_col = _SELL if prob_int >= 35 else (_HOLD if prob_int >= 25 else _BUY)
