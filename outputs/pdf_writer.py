@@ -990,12 +990,20 @@ def _content_header(c, doc, data):
     sector       = _d(data, 'sector')
     date_analyse = _d(data, 'date_analyse', '')
 
+    # Bug 2026-04-15 Baptiste (MC.PA) : les noms longs (LVMH Moet Hennessy -
+    # Louis Vuitton, Societe Europeenne) font chevaucher le header avec la
+    # date a droite. On truncate company_name a 40 chars pour garantir
+    # qu'il reste de la place pour la date + "Confidentiel + Page N".
+    _co_short = company_name
+    if len(_co_short) > 40:
+        _co_short = _co_short[:37].rstrip() + "\u2026"
+
     c.setFillColor(NAVY)
     c.rect(0, h - 14*mm, w, 14*mm, fill=1, stroke=0)
     c.setFillColor(WHITE)
     c.setFont('Helvetica-Bold', 8)
     c.drawString(MARGIN_L, h - 9*mm,
-        _enc(f"FinSight IA  \u00b7  {company_name} ({ticker})  \u00b7  {sector}"))
+        _enc(f"FinSight IA  \u00b7  {_co_short} ({ticker})  \u00b7  {sector}"))
     c.setFont('Helvetica', 7.5)
     c.drawRightString(w - MARGIN_R, h - 9*mm,
         _enc(f"{date_analyse}  \u00b7  Confidentiel  \u00b7  Page {doc.page}"))
