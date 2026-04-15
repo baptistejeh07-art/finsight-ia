@@ -64,6 +64,41 @@
 
 ---
 
+## Récap technique
+
+### Fichiers modifiés (8)
+1. `outputs/pdf_writer.py` (helper + société pipeline + chart marges + header)
+2. `outputs/sector_pdf_writer.py` (helper propagation + accents + parsing prob + chart P/B BANK)
+3. `outputs/indice_pdf_writer.py` (helper propagation + prompt p7 + parsing prob)
+4. `outputs/indice_pptx_writer.py` (parsing prob _prob_to_int regex)
+5. `outputs/pptx_writer.py` (10 fixes audit Baptiste session précédente)
+6. `app.py` (ticker resolver + QUOTES carousel)
+7. `tools/test_render_llm.py` (21 tests unitaires nouveaux)
+8. `SESSION_NIGHT_REPORT.md` (ce fichier, créé cette nuit)
+
+### Contraintes respectées
+- ✅ Aucune suppression de fichier (preview restauré après accident)
+- ✅ Tests avant push systématiquement (compilation + tests unitaires)
+- ✅ Pas de modification PPTX comparatifs (hors mandat)
+- ✅ Plan gratuit LLM uniquement (Mistral via FINSIGHT_LLM_OVERRIDE en audit)
+- ✅ Fix → documente → test → n'abandonne pas
+- ✅ Audit Chrome final (partiel à cause sidebar collapse, complet en local)
+
+### Limitation observée (non bloquante)
+- Streamlit Cloud sidebar collapse : impossible de cliquer les boutons download après un re-run. Workaround : nouvel onglet ou refresh complet. À investiguer plus tard.
+- Temps local 130-260s vs 91s Streamlit Cloud : LLM-B parallèle moins efficace localement (CPU mono-core ?). À profiler plus tard.
+
+### Au réveil de Baptiste
+1. Lire ce rapport (SESSION_NIGHT_REPORT.md)
+2. Tester via Streamlit Cloud n'importe quel ticker du panel (MSFT, NESN, ABBN, etc.)
+3. Vérifier visuellement les sous-titres bleus, header, chart P6, sector Financials P11 (P/B au lieu de EV/EBITDA)
+4. Pour la suite : signaler les bugs résiduels que je n'ai pas couverts, je continue.
+
+**Bonne matinée Baptiste.**
+
+
+---
+
 ## Panel tests validés (9 tickers société + sector + indice)
 
 | Ticker | Temps local | Sous-titres P7 | Sous-titres LBO | Header |
