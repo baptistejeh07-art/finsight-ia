@@ -35,6 +35,32 @@
 13. `a5d57be` — Helper section_map priority (long titres LLM)
 14. `62ea947` — Indice PDF regex robuste prob
 15. `ec0c588` — Indice PPTX regex robuste _prob_to_int
+16. `b3c83a4` — Session night report init
+17. `f38e28f` — Helper strip numerotation "1. " avant section_map match
+18. `fbb70ae` — Helper dedupe injection 1er paragraphe (fix MSFT P18 doublon)
+19. `ddccc10` — Helper dedupe v2 — compare display titles apres lookup
+20. `34c199c` — Sector PDF chart valuation bars BANK/INSURANCE → P/B
+21. `a7f633d` — Helper dedupe v3 — fusion paragraphes consecutifs meme titre
+22. `8800ab8` — Sector PDF texte intro valuation P/B pour profil financier
+23. `1b53993` — Conclusion section_map ajoute SCENARIOS (LLM ecrit parfois 4. Scenarios)
+
+## Validation finale
+
+**MSFT v3 (commit 1b53993) — VALIDATION COMPLETE** :
+- P7 margin : 4/4 sous-titres bleus ✅
+- P11 multiples historiques : "Tendance des multiples" + 6 sous-titres ✅
+- P13 capital returns : "Qualité du free cash flow" + 5 sous-titres ✅
+- P15 LBO : 6/6 sous-titres LBO ✅
+- P18 conclusion : **"Synthèse de la thèse d'investissement" UNIQUE** (plus de doublon) ✅
+- P19 conclusion : Valorisation + Catalyseurs en bleu ✅
+
+**Sector Financials (S&P 500)** :
+- P15 reco : 6 sous-titres bleus avec accents ✅
+- P11 valorisation : chart **P/B** (au lieu de EV/EBITDA) avec 8 banques ✅
+- Texte intro coherent avec chart (mediane P/B 2.5x) ✅
+
+**Indice Technology (S&P 500)** :
+- P7 scatter : Décote / Prime / Implications en sous-titres bleus ✅
 
 ---
 
