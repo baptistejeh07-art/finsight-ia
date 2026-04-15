@@ -557,6 +557,61 @@ def compute_sector_specific_metrics(snapshot, profile: str) -> dict:
     return {}
 
 
+def get_sector_prompt_hint(profile: str) -> str:
+    """Retourne un hint textuel injectable dans un prompt LLM pour orienter
+    l'analyse en fonction du profil sectoriel.
+
+    Utilisé par pdf_writer.py et pptx_writer.py pour que tous les prompts
+    (business model, valorisation, risques, margin analysis, conclusion)
+    héritent d'une grille sectorielle cohérente.
+
+    Retourne '' pour STANDARD (pas d'orientation spéciale).
+    """
+    _p = (profile or "STANDARD").upper()
+    if _p == "OIL_GAS":
+        return (
+            "IMPORTANT : société pétrolière/gazière. Les multiples EV/EBITDA "
+            "standards sont peu pertinents — privilégie EV/DACF, EV/EBITDAX, "
+            "break-even Brent, réserves 1P/2P, sensibilité prix du pétrole. "
+            "N'UTILISE PAS P/E comme ratio principal (sensible aux cycles baril). "
+            "Parle de transition énergétique, pression stranded assets, "
+            "capex upstream vs renouvelables."
+        )
+    if _p == "BANK":
+        return (
+            "IMPORTANT : institution bancaire. Les multiples EV/EBITDA et "
+            "ND/EBITDA n'ont aucun sens — un bilan bancaire est dominé par "
+            "les loans/deposits, pas une dette corporate. Privilégie NIM, "
+            "Cost/Income, CET1 (si dispo), ROTE, P/TBV, qualité du portefeuille "
+            "(NPL/LLR). Parle cycle de crédit, pression taux, régulation Bâle III/IV, "
+            "sensibilité spread taux longs/courts."
+        )
+    if _p == "INSURANCE":
+        return (
+            "IMPORTANT : compagnie d'assurance. Les métriques classiques "
+            "(EV/EBITDA, Current Ratio) sont non pertinentes. Privilégie P/B, "
+            "ROE, Combined Ratio (si dispo), Solvency II (si dispo), qualité "
+            "des réserves techniques. Parle duration des passifs, risque taux, "
+            "cycle tarifaire, Embedded Value, réassurance."
+        )
+    if _p == "REIT":
+        return (
+            "IMPORTANT : REIT (Real Estate Investment Trust). Les métriques "
+            "FFO, AFFO, NAV, LTV, Cap Rate priment sur P/E et EV/EBITDA. "
+            "Parle diversification géographique et sectorielle, taux d'occupation, "
+            "WAULT, coût du capital vs cap rate, sensibilité taux longs."
+        )
+    if _p == "UTILITY":
+        return (
+            "IMPORTANT : utility (services aux collectivités). RAB, Allowed ROE "
+            "et dividendes couvrent l'analyse (revenus régulés, transition "
+            "énergétique, tarifs autorisés). P/E et Dividend Yield priment, "
+            "EV/EBITDA reste pertinent mais secondaire. Parle du cadre "
+            "réglementaire (ARENH, CRE, Ofgem) et de sa stabilité."
+        )
+    return ""
+
+
 def format_sector_metrics_for_prompt(metrics: dict, profile: str) -> str:
     """Formate les métriques sectorielles en bloc texte pour inclusion dans
     un prompt LLM. Skip les valeurs None.

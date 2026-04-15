@@ -3319,66 +3319,27 @@ def _precompute_llm_batch(data: dict) -> None:
     _sector = _d(data, 'sector', '')
 
     # #204 : détection profil sectoriel + métriques spécialisées
-    # (OIL_GAS/BANK/INSURANCE/REIT/UTILITY ont des ratios différents de
-    # STANDARD. On les calcule via core.sector_metrics et on les injecte
-    # dans les prompts LLM pour que l'analyse soit sectoriellement pertinente.)
+    # via core.sector_metrics (helpers partagés avec pptx_writer)
     _sector_profile = "STANDARD"
     _sector_metrics_str = ""
     _sector_context_hint = ""
     try:
         from core.sector_profiles import detect_profile
+        from core.sector_metrics import (
+            compute_sector_specific_metrics,
+            format_sector_metrics_for_prompt,
+            get_sector_prompt_hint,
+        )
         _industry = _d(data, 'industry', '')
         _sector_profile = detect_profile(_sector, _industry)
+        _sector_context_hint = get_sector_prompt_hint(_sector_profile)
         if _sector_profile != "STANDARD":
             _snap_for_metrics = data.get("_snapshot_ref")
             if _snap_for_metrics is not None:
-                from core.sector_metrics import (
-                    compute_sector_specific_metrics,
-                    format_sector_metrics_for_prompt,
-                )
                 _sec_m = compute_sector_specific_metrics(_snap_for_metrics, _sector_profile)
                 _sector_metrics_str = format_sector_metrics_for_prompt(_sec_m, _sector_profile)
     except Exception as _sp_e:
         log.warning(f"[precompute_llm_batch] sector profile detection failed: {_sp_e}")
-
-    # Contextuel : indices au LLM de ne PAS raisonner comme sur un corporate
-    if _sector_profile == "OIL_GAS":
-        _sector_context_hint = (
-            "IMPORTANT : société pétrolière/gazière. Les multiples EV/EBITDA "
-            "standards sont peu pertinents — privilégie EV/DACF, EV/EBITDAX, "
-            "break-even Brent, réserves 1P/2P, sensibilité prix du pétrole. "
-            "N'UTILISE PAS P/E comme ratio principal (sensible aux cycles baril). "
-            "Parle de transition énergétique et de pression stranded assets."
-        )
-    elif _sector_profile == "BANK":
-        _sector_context_hint = (
-            "IMPORTANT : institution bancaire. Les multiples EV/EBITDA et "
-            "ND/EBITDA n'ont aucun sens — un bilan bancaire est dominé par "
-            "les loans/deposits, pas une dette corporate. Privilégie NIM, "
-            "Cost/Income, CET1 (si dispo), ROTE, P/TBV, qualité du portefeuille "
-            "(NPL/LLR). Parle cycle de crédit, pression taux, régulation Bâle III/IV."
-        )
-    elif _sector_profile == "INSURANCE":
-        _sector_context_hint = (
-            "IMPORTANT : compagnie d'assurance. Les métriques classiques "
-            "(EV/EBITDA, Current Ratio) sont non pertinentes. Privilégie P/B, "
-            "ROE, Combined Ratio (si dispo), Solvency II (si dispo), qualité "
-            "des réserves techniques. Parle duration des passifs, risque taux, "
-            "cycle tarifaire, Embedded Value."
-        )
-    elif _sector_profile == "REIT":
-        _sector_context_hint = (
-            "IMPORTANT : REIT (Real Estate Investment Trust). Les métriques "
-            "FFO, AFFO, NAV, LTV, Cap Rate priment sur P/E et EV/EBITDA. "
-            "Parle diversification géographique et sectorielle, taux d'occupation, "
-            "WAULT, coût du capital vs cap rate."
-        )
-    elif _sector_profile == "UTILITY":
-        _sector_context_hint = (
-            "IMPORTANT : utility (services aux collectivités). RAB, Allowed ROE "
-            "et dividendes couvrent l'analyse (revenus régulés, transition "
-            "énergétique, tarifs autorisés). P/E et Dividend Yield priment."
-        )
 
     _pe_series = ", ".join(
         f"{float(d['pe']):.1f}x" for d in _years_data

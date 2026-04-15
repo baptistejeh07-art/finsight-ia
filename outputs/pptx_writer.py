@@ -1392,9 +1392,18 @@ def _slide_business_model(prs, snap, synthesis):
             _ci_s6 = snap.company_info if snap else None
             _ticker_s6 = _g(_ci_s6, "ticker", "la societe") or "la societe"
             _sector_s6 = _g(_ci_s6, "sector", "") or ""
+            # #204 : hint sectoriel pour orienter l'analyse du LLM
+            _hint_s6 = ""
+            try:
+                from core.sector_metrics import get_sector_prompt_hint as _ghint
+                from core.sector_profiles import detect_profile as _dp
+                _hint_s6 = _ghint(_dp(_sector_s6, _g(_ci_s6, "industry", "") or ""))
+            except Exception:
+                pass
             import json as _json_s6
             # LLM-A compressed + target 220-280 mots par segment (plus long)
             _prompt_s6 = (
+                (_hint_s6 + "\n\n" if _hint_s6 else "") +
                 f"Analyste sell-side. Identifie les 3 segments operationnels cles de "
                 f"{_ticker_s6} (secteur {_sector_s6}) et decris chacun en 220-280 mots.\n"
                 f"Chaque description doit couvrir : marches adresses, positionnement "
@@ -1834,7 +1843,17 @@ def _slide_bilan(prs, snap, synthesis, ratios):
         try:
             from core.llm_provider import llm_call as _llm_call_b9
             _ticker_b9 = _g(ci, "ticker", "la societe") or "la societe"
+            # #204 : hint sectoriel (banques/assurance ont des bilans radicalement
+            # différents des corporates, le LLM doit le savoir)
+            _hint_b9 = ""
+            try:
+                from core.sector_metrics import get_sector_prompt_hint as _ghint
+                from core.sector_profiles import detect_profile as _dp
+                _hint_b9 = _ghint(_dp(_g(ci, "sector", "") or "", _g(ci, "industry", "") or ""))
+            except Exception:
+                pass
             _prompt_b9 = (
+                (_hint_b9 + "\n\n" if _hint_b9 else "") +
                 f"Tu es analyste buy-side senior. Redige une analyse approfondie "
                 f"(250-320 mots) de la structure bilancielle de {_ticker_b9}.\n\n"
                 f"Structure en 3 paragraphes distincts (~100 mots chacun) :\n"
@@ -4565,8 +4584,18 @@ def _slide_historique(prs, snap, synthesis):
             from core.llm_provider import llm_call as _llm_call_s25
             _sector_m = _g(ci, "sector", "") or ""
             _perf_str = f"{perf_52w*100:+.1f}%" if perf_52w is not None else "n/d"
+            # #204 : hint sectoriel pour que les catalyseurs mentionnés
+            # soient pertinents (Brent pour pétrole, spread taux pour banques, etc.)
+            _hint_s25 = ""
+            try:
+                from core.sector_metrics import get_sector_prompt_hint as _ghint
+                from core.sector_profiles import detect_profile as _dp
+                _hint_s25 = _ghint(_dp(_sector_m, _g(ci, "industry", "") or ""))
+            except Exception:
+                pass
             # LLM-A compressed + target plus long pour remplir la colonne
             _prompt_macro = (
+                (_hint_s25 + "\n\n" if _hint_s25 else "") +
                 f"Analyste sell-side senior. Commentaire macro/catalyseurs 300-360 mots "
                 f"expliquant precisement l'evolution du cours de {ticker} (secteur "
                 f"{_sector_m}) sur 12 mois glissants (perf {_perf_str}).\n"
