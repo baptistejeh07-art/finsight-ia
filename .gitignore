@@ -20,8 +20,31 @@ Thumbs.db
 # --- Outputs générés ---
 outputs/generated/
 outputs/veille/
+preview/
 preview/*/renders/
 logs/local/
+logs/cache/
+logs/openai_usage.json
+
+# --- Claude Code locals ---
+.claude/settings.local.json
+.claude/scheduled_tasks.lock
+.claude/worktrees/
+
+# --- Tests output files (générés localement) ---
+tools/test_*.pdf
+tools/test_*.pptx
+tools/test_*.xlsx
+tools/*_log.txt
+tools/accents_log.txt
+tools/datachain_log.txt
+tools/*_dump*.json
+
+# --- Assets de travail Baptiste (références locales) ---
+assets/INDICE_XLSX_REFERENCE.xlsx
+assets/TEMPLATE_INDICE_OLD.xlsx
+assets/TSLA_LBO_REFERENCE.xlsx
+assets/_LBO_WORKING_*.xlsx
 
 # --- Cache modèles ML ---
 nlp/models/
