@@ -80,6 +80,10 @@ SECTOR_CONFIG = {
         "ratios_r63_label": "Investment Yield (n.d.)",
         # DCF Brent deck label → sector-neutral
         "dcf_brent_label": "(Section Brent désactivée — non pertinente Assurance)",
+        # COMPARABLES colonne G7 header (était EBITDAX LTM)
+        "comparables_g7": "Book Value\n(LTM)",
+        # Supprime la feuille SOTP (Sum-of-the-parts oil&gas)
+        "delete_sotp": True,
     },
     "REIT": {
         "file": "FinSight_IA_Template_REIT_v1.xlsx",
@@ -108,6 +112,8 @@ SECTOR_CONFIG = {
         "ratios_r62_label": "LTV Ratio",
         "ratios_r63_label": "Occupancy Rate (n.d.)",
         "dcf_brent_label": "(Section Brent désactivée — non pertinente REIT)",
+        "comparables_g7": "NOI\n(LTM)",
+        "delete_sotp": True,
     },
     "UTILITY": {
         "file": "FinSight_IA_Template_UTILITY_v1.xlsx",
@@ -136,6 +142,8 @@ SECTOR_CONFIG = {
         "ratios_r62_label": "CapEx / Revenue",
         "ratios_r63_label": "Allowed ROE (n.d.)",
         "dcf_brent_label": "(Section Brent désactivée — non pertinente Utility)",
+        "comparables_g7": "EBITDA\n(LTM)",
+        "delete_sotp": True,
     },
 }
 
@@ -288,6 +296,17 @@ def build_template(profile: str, config: dict) -> Path:
                 for c in range(5, 9):  # E-H
                     ws_rat.cell(row=r, column=c).value = "n.d."
     print(f"  RATIOS section : {config.get('ratios_r58_section', '-')}")
+
+    # ── 4b. COMPARABLES G7 header : EBITDAX → sector-specific label ────────
+    if config.get("comparables_g7"):
+        ws_comp = wb["COMPARABLES"]
+        ws_comp.cell(row=7, column=7).value = config["comparables_g7"]
+        print(f"  COMPARABLES G7 : {config['comparables_g7'].replace(chr(10), ' ')}")
+
+    # ── 4c. SOTP sheet : suppression pour secteurs non-oil&gas ──────────────
+    if config.get("delete_sotp") and "SOTP" in wb.sheetnames:
+        del wb["SOTP"]
+        print(f"  SOTP sheet : supprimée (spécifique oil&gas)")
 
     # ── 5. DCF sheet : désactive la section Brent (B40-B46) ─────────────────
     if config.get("dcf_brent_label"):
