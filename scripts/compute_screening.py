@@ -773,10 +773,11 @@ def _enrich_realtime(ticker: str, cache_info: dict) -> dict:
 
         price = info.get("currentPrice") or info.get("regularMarketPrice")
         # Fallback price : fast_info -> history si info ne retourne pas de prix
+        _fast = None
         if not price:
             try:
-                fi = tk.fast_info
-                price = getattr(fi, "last_price", None) or getattr(fi, "lastPrice", None)
+                _fast = tk.fast_info
+                price = getattr(_fast, "last_price", None) or getattr(_fast, "lastPrice", None)
             except Exception:
                 pass
         if not price and hist is not None and not hist.empty:
@@ -784,8 +785,35 @@ def _enrich_realtime(ticker: str, cache_info: dict) -> dict:
                 price = round(float(hist["Close"].iloc[-1]), 2)
             except Exception:
                 pass
+
+        # Fallback shares : fast_info.shares si info retourne None (Streamlit Cloud
+        # yfinance info parfois incomplet — le fallback robustifie le pipeline).
+        _shares = info.get("sharesOutstanding") or info.get("impliedSharesOutstanding")
+        if not _shares:
+            try:
+                if _fast is None:
+                    _fast = tk.fast_info
+                _shares = getattr(_fast, "shares", None)
+            except Exception:
+                pass
+
+        # Fallback marketCap : fast_info.market_cap si info.marketCap absent.
+        # Utilise directement par compute_ticker quand price*shares fail.
+        _mcap = info.get("marketCap")
+        if not _mcap:
+            try:
+                if _fast is None:
+                    _fast = tk.fast_info
+                _mcap = getattr(_fast, "market_cap", None)
+                if _mcap:
+                    # Patch dans info pour que compute_ticker le trouve via le
+                    # fallback existant sans avoir a lui passer un champ separe.
+                    info["marketCap"] = _mcap
+            except Exception:
+                pass
+
         extra["price"]  = price
-        extra["shares"] = info.get("sharesOutstanding") or info.get("impliedSharesOutstanding")
+        extra["shares"] = _shares
         extra["beta"]   = info.get("beta") or 1.0
         extra["_info"]  = info
         extra["_hist"]  = hist
@@ -1074,6 +1102,31 @@ def compute_ticker(ticker: str, cache_row: Optional[dict]) -> Optional[dict]:
         pass
 
     industry = info.get("industryDisp") or info.get("industry") or ""
+    # Fallback industry depuis le cache Supabase (champ stocke lors du snapshot).
+    # Si yfinance info fail (rate limit Streamlit Cloud), l'industry peut etre
+    # deduit du cache ou d'une heuristique ticker-based pour garantir la
+    # detection de profil sectoriel dans sector_pdf_writer.
+    if not industry:
+        industry = cache_row.get("industry") or ""
+    # Heuristique ticker-based pour les banques/assurances connues (evite que
+    # le profil tombe en STANDARD faute d'industry). Le nom "Banks Fallback"
+    # suffit car detect_profile fait juste un contains sur "bank".
+    if not industry:
+        _t_upper = ticker.upper()
+        _bank_hints = {
+            "GS","JPM","BAC","C","WFC","MS","USB","PNC","BK","TFC","RF","KEY",
+            "SCHW","MTB","HBAN","FITB","CFG","ZION","CMA","NTRS","COF","STT",
+            "HSBA.L","BARC.L","LLOY.L","NWG.L","STAN.L","BNP.PA","ACA.PA","GLE.PA",
+            "DBK.DE","CBK.DE","ISP.MI","UCG.MI","SAN.MC","BBVA.MC","INGA.AS","UBSG.SW",
+        }
+        _insurance_hints = {
+            "BRK.B","TRV","PGR","ALL","CB","HIG","AIG","MET","PRU","AFL","MMC","AON",
+            "CS.PA","ALV.DE","MUV2.DE","ZURN.SW","SLHN.SW","AV.L","LGEN.L","PRU.L",
+        }
+        if _t_upper in _bank_hints:
+            industry = "Banks - Fallback"
+        elif _t_upper in _insurance_hints:
+            industry = "Insurance - Fallback"
 
     # ── P/B ratio (cle pour banques, assurance, REIT) ─────────────────────
     pb_ratio = None

@@ -1362,12 +1362,87 @@ def _build_structure_sectorielle(tickers_data: list[dict], sector_name: str,
         beta_lbl = "Beta indisponible"
         beta_s   = S_TD_C
 
-    qual_data = [
-        ("Piotroski F-Score", f_val, f_lbl, f_s),
-        ("PEG ratio (median)", peg_val, peg_lbl, peg_s),
-        ("FCF Yield (median)", fcfy_val, fcfy_lbl, fcfy_s),
-        ("Beta sectoriel", beta_val, beta_lbl, beta_s),
-    ]
+    # --- Rows BANK/INSURANCE/REIT specifiques -------------------------------
+    # Pour ces profils, remplacer Piotroski/PEG/FCF par les metriques qui ont
+    # du sens (P/TBV, ROE, Div. Yield) tout en gardant Beta en dernière ligne.
+    def _row_pb():
+        _pb = sa.get("pb_median")
+        if _pb is None:
+            return ("P/TBV médian", "\u2014",
+                    "P/TBV indisponible (yfinance priceToBook absent)", S_TD_C)
+        if _pb < 1.0:
+            return ("P/TBV médian", f"{_pb:.2f}x",
+                    "décote vs book value — potentielles opportunités (verifier qualité actifs)", S_TD_G)
+        if _pb < 1.5:
+            return ("P/TBV médian", f"{_pb:.2f}x",
+                    "valorisation alignée sur la book value — secteur valorisé à sa norme", S_TD_A)
+        return ("P/TBV médian", f"{_pb:.2f}x",
+                "prime marquée sur book value — ROE structurellement supérieur au coût des fonds propres", S_TD_A)
+
+    def _row_roe():
+        _roe = sa.get("roe_median")
+        if _roe is None:
+            return ("ROE médian", "\u2014", "ROE indisponible", S_TD_C)
+        if _roe >= 12:
+            return ("ROE médian", f"{_roe:.1f}%",
+                    "rentabilité élevée — au-dessus du coût des fonds propres (~10%)", S_TD_G)
+        if _roe >= 8:
+            return ("ROE médian", f"{_roe:.1f}%",
+                    "rentabilité correcte — proche du coût des fonds propres", S_TD_A)
+        return ("ROE médian", f"{_roe:.1f}%",
+                "rentabilité faible — crée de la valeur négative vs coût du capital", S_TD_R)
+
+    def _row_div_yield():
+        _dy = sa.get("div_yield_median")
+        if _dy is None:
+            return ("Dividend Yield médian", "\u2014", "Dividend Yield indisponible", S_TD_C)
+        if _dy >= 5.0:
+            return ("Dividend Yield médian", f"{_dy:.1f}%",
+                    "rendement élevé — souvent associé à une croissance limitée", S_TD_G)
+        if _dy >= 3.0:
+            return ("Dividend Yield médian", f"{_dy:.1f}%",
+                    "rendement correct — politique de retour actionnaire active", S_TD_A)
+        return ("Dividend Yield médian", f"{_dy:.1f}%",
+                "rendement faible — réinvestissement ou payout prudent", S_TD_C)
+
+    def _row_beta():
+        return ("Beta sectoriel", beta_val, beta_lbl, beta_s)
+
+    if _sector_profile == "BANK":
+        qual_data = [
+            _row_pb(),
+            _row_roe(),
+            _row_div_yield(),
+            _row_beta(),
+        ]
+    elif _sector_profile == "INSURANCE":
+        qual_data = [
+            _row_pb(),
+            _row_roe(),
+            _row_div_yield(),
+            _row_beta(),
+        ]
+    elif _sector_profile == "REIT":
+        qual_data = [
+            _row_pb(),
+            _row_div_yield(),
+            ("FCF Yield (median)", fcfy_val, fcfy_lbl, fcfy_s),
+            _row_beta(),
+        ]
+    elif _sector_profile == "UTILITY":
+        qual_data = [
+            ("PEG ratio (median)", peg_val, peg_lbl, peg_s),
+            _row_div_yield(),
+            ("FCF Yield (median)", fcfy_val, fcfy_lbl, fcfy_s),
+            _row_beta(),
+        ]
+    else:
+        qual_data = [
+            ("Piotroski F-Score", f_val, f_lbl, f_s),
+            ("PEG ratio (median)", peg_val, peg_lbl, peg_s),
+            ("FCF Yield (median)", fcfy_val, fcfy_lbl, fcfy_s),
+            _row_beta(),
+        ]
     qual_rows = []
     for label, val, interp, val_style in qual_data:
         qual_rows.append([
@@ -1376,10 +1451,21 @@ def _build_structure_sectorielle(tickers_data: list[dict], sector_name: str,
             Paragraph(interp, S_TD_L),
         ])
     elems.append(KeepTogether([_qual_title, tbl([qual_h] + qual_rows, cw=[52*mm, 52*mm, 66*mm])]))
-    elems.append(src(
-        "Piotroski F-Score : 9 critères binaires profitabilite + levier + efficacite (Piotroski 2000). "
-        "PEG = P/E LTM / croissance revenus YoY. FCF Yield = Free Cash Flow / Market Cap. "
-        "Beta : volatilité vs S&P 500 (yfinance 5 ans)."))
+    if _sector_profile in ("BANK", "INSURANCE"):
+        elems.append(src(
+            "P/TBV : Price-to-Tangible-Book-Value (yfinance priceToBook). "
+            "ROE : Net Income / Equity médian sur le pool. Dividend Yield : yfinance trailing. "
+            "Beta : volatilité vs S&P 500 (5 ans). "
+            "Piotroski/PEG/FCF non applicables au profil financier (cf. Pillar 3 / SFCR)."))
+    elif _sector_profile == "REIT":
+        elems.append(src(
+            "P/TBV : Price-to-Book. Dividend Yield : FFO-based (médian pool). "
+            "FCF Yield : FCF / Market Cap. Beta : volatilité vs S&P 500 (5 ans)."))
+    else:
+        elems.append(src(
+            "Piotroski F-Score : 9 critères binaires profitabilite + levier + efficacite (Piotroski 2000). "
+            "PEG = P/E LTM / croissance revenus YoY. FCF Yield = Free Cash Flow / Market Cap. "
+            "Beta : volatilité vs S&P 500 (yfinance 5 ans)."))
     elems.append(Spacer(1, 4*mm))
 
     # ── Tableau 3 : Risque Portefeuille ───────────────────────────────────
@@ -1614,6 +1700,22 @@ def _detect_sector_profile(tickers_data: list, sector_name: str) -> str:
 
     if not tickers_data:
         return "STANDARD"
+
+    # Fallback prioritaire : le nom de secteur FR explicite (Banques, Assurance,
+    # Immobilier, Services aux collectivités) court-circuite la détection
+    # par industry yfinance — utile quand l'enrichissement realtime échoue
+    # (rate limit Streamlit Cloud) et que industry est vide sur tous les tickers.
+    _sn = (sector_name or "").strip().lower()
+    if "banque" in _sn:
+        return "BANK"
+    if "assurance" in _sn or "insurance" in _sn:
+        return "INSURANCE"
+    if "immobilier" in _sn or "foncière" in _sn or "foncier" in _sn:
+        return "REIT"
+    if "collectivit" in _sn:
+        return "UTILITY"
+    if "pétrole" in _sn or "petrole" in _sn:
+        return "OIL_GAS"
 
     # Compter les profils sur tous les tickers
     profile_counts = {}
@@ -2118,15 +2220,35 @@ def _build_acteurs(tickers_data: list[dict], sector_name: str, registry=None):
     elems.append(src(_val_note))
     elems.append(Spacer(1, 3*mm))
 
-    # Paragraph analytique post-tableau
+    # Paragraph analytique post-tableau (adapté au profil sectoriel)
     top2 = sorted_data[:2] if len(sorted_data) >= 2 else sorted_data
     names = " et ".join(t.get('company', t.get('ticker', ''))[:25] for t in top2)
-    elems.append(Paragraph(
-        f"{names} ressortent comme les acteurs les mieux positionnés sur les critères "
-        f"fondamentaux combines. La dispersion des multiples EV/EBITDA témoigne de "
-        f"l'hétérogénéité des modèles economiques et des profils de croissance. "
-        f"Les acteurs affichant des marges EBITDA élevées bénéficient d'un avantage "
-        f"structurel dans un contexte de normalisation des multiples sectoriels.", S_BODY))
+    if _sec_profile in ("BANK", "INSURANCE"):
+        _post_txt = (
+            f"{names} ressortent comme les acteurs les mieux positionnés sur "
+            f"les critères de rentabilité (ROE) et de valorisation (P/TBV). "
+            f"La dispersion des P/TBV témoigne des différences de rentabilité "
+            f"structurelle et de qualité de bilan entre acteurs. Les banques "
+            f"affichant un ROE supérieur au coût des fonds propres (~10%) "
+            f"justifient une prime sur leur book value."
+        )
+    elif _sec_profile == "REIT":
+        _post_txt = (
+            f"{names} ressortent comme les acteurs les mieux positionnés. "
+            f"La dispersion des P/B et dividend yields reflète les différences "
+            f"de qualité d'actifs et de visibilité des revenus locatifs entre "
+            f"foncières. Les leaders bénéficient d'un coût du capital inférieur "
+            f"et d'un accès facilité aux marchés de la dette."
+        )
+    else:
+        _post_txt = (
+            f"{names} ressortent comme les acteurs les mieux positionnés sur les critères "
+            f"fondamentaux combines. La dispersion des multiples EV/EBITDA témoigne de "
+            f"l'hétérogénéité des modèles economiques et des profils de croissance. "
+            f"Les acteurs affichant des marges EBITDA élevées bénéficient d'un avantage "
+            f"structurel dans un contexte de normalisation des multiples sectoriels."
+        )
+    elems.append(Paragraph(_post_txt, S_BODY))
     elems.append(Spacer(1, 4*mm))
 
     elems.append(Paragraph("Synthèse recommandations par profil", S_SUBSECTION))
@@ -3478,6 +3600,32 @@ def _compute_analytics_from_tickers(td: list[dict]) -> dict:
     ebitda_margins = [t.get("ebitda_margin") for t in td if t.get("ebitda_margin")]
     ebitda_median  = round(float(np.median(ebitda_margins)), 1) if ebitda_margins else None
 
+    # P/B median (clé pour BANK, INSURANCE, REIT)
+    pb_vals = [t.get("pb_ratio") for t in td
+               if t.get("pb_ratio") is not None and 0 < float(t["pb_ratio"]) < 100]
+    pb_median = round(float(np.median(pb_vals)), 2) if pb_vals else None
+
+    # ROE median
+    roe_vals = [t.get("roe") for t in td
+                if t.get("roe") is not None and -100 < float(t["roe"]) < 200]
+    roe_median = round(float(np.median(roe_vals)), 1) if roe_vals else None
+
+    # Dividend Yield median (stocké en fraction : 0.0194 = 1.94%)
+    _dy_vals = []
+    for t in td:
+        _dy = t.get("div_yield")
+        if _dy is None:
+            continue
+        try:
+            _dy_f = float(_dy)
+            # Normalise : si <1, c'est une fraction → x100 ; sinon déjà en %
+            _dy_pct = _dy_f * 100 if abs(_dy_f) < 1 else _dy_f
+            if 0 < _dy_pct < 25:
+                _dy_vals.append(_dy_pct)
+        except Exception:
+            pass
+    div_yield_median = round(float(np.median(_dy_vals)), 2) if _dy_vals else None
+
     # --- VaR 95% mensuelle (simulation historique basket market-cap weighted) ---
     var_95_monthly = None
     vol_annual     = None
@@ -3554,6 +3702,9 @@ def _compute_analytics_from_tickers(td: list[dict]) -> dict:
         "piotroski_neutral": piotroski_neutral,
         "piotroski_trap": piotroski_trap,
         "ebitda_median": ebitda_median,
+        "pb_median": pb_median,
+        "roe_median": roe_median,
+        "div_yield_median": div_yield_median,
         "wacc_median": None,
         "var_95_monthly":    var_95_monthly,   # cle correcte pour sector_pdf_writer
         "vol_annual":        vol_annual,

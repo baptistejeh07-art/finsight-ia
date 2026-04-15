@@ -190,18 +190,19 @@ def make_sector_weights_chart(data):
     sigs = [s[3] for s in secteurs]
     bar_cols = [sig_hex(s) for s in sigs]
     y = np.arange(len(noms))
-    fig, ax = plt.subplots(figsize=(6.5, max(4.8, len(noms) * 0.42 + 1.8)))
-    bars = ax.barh(y, poids_idx, color=bar_cols, alpha=0.85, height=0.58,
-                   edgecolor='white', linewidth=0.5)
+    fig, ax = plt.subplots(figsize=(7.2, max(5.4, len(noms) * 0.48 + 2.0)))
+    bars = ax.barh(y, poids_idx, color=bar_cols, alpha=0.85, height=0.62,
+                   edgecolor='white', linewidth=0.6)
     x_max = max(poids_idx) * 1.35 if poids_idx else 30
     for i, (bar, val) in enumerate(zip(bars, poids_idx)):
-        ax.text(val + x_max*0.015, i, f"{val}%", va='center', fontsize=10, color='#333', fontweight='bold')
-    ax.set_yticks(y); ax.set_yticklabels(noms, fontsize=10, color='#333')
-    ax.set_xlabel("Repartition par nombre de sociétés (%)", fontsize=10, color='#555')
+        ax.text(val + x_max*0.015, i, f"{val}%", va='center', fontsize=12, color='#333', fontweight='bold')
+    ax.set_yticks(y); ax.set_yticklabels(noms, fontsize=12, color='#333')
+    ax.set_xlabel("Repartition par nombre de sociétés (%)", fontsize=12, color='#555')
+    ax.tick_params(axis='x', labelsize=11)
     ax.set_xlim(0, x_max)
     moy = sum(poids_idx)/len(poids_idx)
     ax.axvline(x=moy, color='#D0D5DD', linewidth=0.8, linestyle='--', alpha=0.8)
-    ax.text(moy + x_max*0.01, len(noms)-0.6, 'Moy.', fontsize=9, color='#999', style='italic')
+    ax.text(moy + x_max*0.01, len(noms)-0.6, 'Moy.', fontsize=10, color='#999', style='italic')
     for sp in ['top','right']: ax.spines[sp].set_visible(False)
     ax.spines['left'].set_color('#D0D5DD'); ax.spines['bottom'].set_color('#D0D5DD')
     ax.set_facecolor('white'); fig.patch.set_facecolor('white')
@@ -209,10 +210,10 @@ def make_sector_weights_chart(data):
     patches = [mpatches.Patch(color='#1A7A4A', label='Surpond\u00e9rer'),
                mpatches.Patch(color='#B06000', label='Neutre'),
                mpatches.Patch(color='#A82020', label='Sous-pond\u00e9rer')]
-    ax.legend(handles=patches, fontsize=11, loc='upper center',
+    ax.legend(handles=patches, fontsize=13, loc='upper center',
               bbox_to_anchor=(0.5, -0.14), frameon=False, ncol=3)
-    ax.set_title(f"Repartition sectorielle - {data['indice']} (nb sociétés)",
-                 fontsize=13, color='#1B3A6B', fontweight='bold', pad=10)
+    ax.set_title(f"Répartition sectorielle — {data['indice']} (nb sociétés)",
+                 fontsize=15, color='#1B3A6B', fontweight='bold', pad=12)
     plt.tight_layout(pad=0.6)
     buf = io.BytesIO(); fig.savefig(buf, format='png', dpi=160, bbox_inches='tight')
     plt.close(fig); buf.seek(0); return buf

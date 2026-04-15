@@ -48,6 +48,20 @@ def detect_profile(sector: str | None, industry: str | None = None) -> str:
     s = (sector or "").strip().lower()
     i = (industry or "").strip().lower()
 
+    # Fallback FR sector_name : quand industry yfinance est vide (rate limit
+    # Streamlit Cloud), le sector_name FR explicite suffit a identifier le profil.
+    # Ces matches prennent priorite sur les heuristiques yfinance.
+    if "banque" in s:
+        return BANK
+    if "assurance" in s or "insurance" in s:
+        return INSURANCE
+    if "immobilier" in s or "foncière" in s or "foncier" in s:
+        return REIT
+    if "collectivit" in s:  # "Services aux collectivités"
+        return UTILITY
+    if "pétrole" in s or "petrole" in s or "gaz" in s:
+        return OIL_GAS
+
     # REIT — Real Estate ou industry contient REIT
     if "real estate" in s or "reit" in i:
         return REIT
