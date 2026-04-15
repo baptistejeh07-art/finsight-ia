@@ -6,80 +6,202 @@ core.yfinance_cache.get_ticker() dans un fichier Python.
 USAGE:
     python tools/migrate_yfinance_ticker.py <file.py> [--dry-run]
 
-Le script :
-1. Parse le fichier
-2. Trouve tous les patterns `yf.Ticker(x)` et `yfinance.Ticker(x)`
-3. Les remplace par `get_ticker(x)`
-4. Ajoute l'import `from core.yfinance_cache import get_ticker` après
-   les autres imports si pas déjà présent
+Cette version (v2) utilise le module `ast` de Python au lieu de regex pour
+analyser le code correctement. Elle gère les cas suivants qui cassaient la
+v1 regex :
 
-Idempotent : si déjà migré (import présent), ne ré-ajoute pas l'import.
-Ne touche PAS les appels `yf.Ticker()` à l'intérieur de strings/commentaires.
-Ne touche PAS core/yfinance_cache.py lui-même (qui DOIT utiliser yf.Ticker direct).
+1. **Docstrings multi-ligne** : les chaînes triple-quote au niveau module
+   contenant des mots-clés "import" ou "Ticker" n'étaient pas distinguées
+   du code. La v1 insérait l'import au milieu d'un docstring → import
+   inactif au runtime.
+
+2. **Imports multi-ligne** : `from X import (a, b, c)` qui s'étend sur
+   plusieurs lignes. La v1 insérait sa nouvelle ligne après la ligne `from`,
+   coupant l'import en deux → SyntaxError.
+
+3. **Commentaires** : les commentaires `# yf.Ticker("AAPL")` étaient
+   remplacés comme du code. La v1 y touchait.
+
+L'approche v2 :
+- Parse le fichier avec `ast.parse()`
+- Trouve tous les nodes Call dont la fonction est `{anything}.Ticker`
+  (attrib access)
+- Identifie leurs positions source (lineno + col_offset)
+- Fait les remplacements textuels précis (pas regex globale)
+- Trouve le dernier `ast.Import`/`ast.ImportFrom` node au top-level
+  pour placer la nouvelle import line après, PAS avant la fin de son
+  multi-line
+
+Idempotent : si import `get_ticker` déjà présent → skip import add.
 """
 from __future__ import annotations
 
-import re
+import ast
 import sys
 from pathlib import Path
 
 
-# Capture yf.Ticker(), yfinance.Ticker(), _yf.Ticker(), _yf2.Ticker(),
-# _yf_erp.Ticker(), _yf_etf.Ticker(), etc. — tous les alias locaux yfinance
-_YF_TICKER_RE = re.compile(r"\b(?:yf|_yf\w*)\.Ticker\s*\(")
-_YFINANCE_TICKER_RE = re.compile(r"\byfinance\.Ticker\s*\(")
-_IMPORT_LINE_RE = re.compile(r"^\s*(import|from)\s+")
+def find_yf_ticker_calls(tree: ast.Module) -> list[tuple[int, int, str]]:
+    """Retourne la liste (lineno, col_offset, callable_text) pour tous les
+    appels à une fonction `.Ticker(...)`.
+
+    Exemples matchés :
+        yf.Ticker(symbol)
+        yfinance.Ticker(symbol)
+        _yf.Ticker(symbol)
+        _yf2.Ticker(symbol)
+        obj.yf.Ticker(symbol)  # attrib chain
+    """
+    matches: list[tuple[int, int, str]] = []
+
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        func = node.func
+        if not isinstance(func, ast.Attribute):
+            continue
+        if func.attr != "Ticker":
+            continue
+        # Extrait le nom du module (partie avant .Ticker)
+        # ex: yf.Ticker → "yf"
+        # ex: obj.yf.Ticker → "obj.yf" (on skip, trop complexe)
+        if not isinstance(func.value, ast.Name):
+            continue
+        module_name = func.value.id
+        # Filtre sur les modules yfinance usuels
+        if module_name == "yfinance" or module_name == "yf" or module_name.startswith("_yf"):
+            matches.append((node.lineno, node.col_offset, module_name))
+
+    return matches
+
+
+def find_last_toplevel_import(tree: ast.Module) -> int:
+    """Retourne le lineno (1-indexed) de la DERNIÈRE ligne du dernier
+    import top-level du module. 0 si aucun import trouvé.
+
+    Pour un import multi-ligne type :
+        from data.models import (
+            A, B, C,
+        )
+    Retourne la lineno du `)` final, pas celui du `from`.
+    """
+    last_lineno = 0
+    for node in tree.body:
+        if isinstance(node, (ast.Import, ast.ImportFrom)):
+            # end_lineno est dispo depuis Python 3.8
+            end = getattr(node, "end_lineno", None) or node.lineno
+            if end > last_lineno:
+                last_lineno = end
+    return last_lineno
+
+
+def has_get_ticker_import(tree: ast.Module) -> bool:
+    """True si le module importe déjà get_ticker depuis core.yfinance_cache."""
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom):
+            if node.module == "core.yfinance_cache":
+                for alias in node.names:
+                    if alias.name == "get_ticker":
+                        return True
+    return False
 
 
 def transform_file(path: Path, dry_run: bool = False) -> tuple[int, bool]:
     """Transforme un fichier. Retourne (n_replacements, import_added)."""
-    src = path.read_text(encoding="utf-8")
-    original = src
-
-    # Skip le module cache lui-même
+    # Skip le module cache lui-même et .claude worktrees
     if path.name == "yfinance_cache.py":
         return (0, False)
-
-    # Skip les fichiers dans .claude/worktrees (snapshots ancien code)
     if ".claude" in str(path).replace("\\", "/"):
         return (0, False)
 
-    # 1. Compter + remplacer yf.Ticker(...) → get_ticker(...)
-    matches_yf = _YF_TICKER_RE.findall(src)
-    n_replaced = len(matches_yf)
+    src = path.read_text(encoding="utf-8")
+
+    # Parse AST
+    try:
+        tree = ast.parse(src, filename=str(path))
+    except SyntaxError as e:
+        print(f"  SKIP {path} : syntax error L{e.lineno}")
+        return (0, False)
+
+    # Trouve les appels
+    matches = find_yf_ticker_calls(tree)
+    if not matches:
+        return (0, False)
+
+    # Trie par position descendante pour faire les replacements de la
+    # fin vers le début (préserve les offsets)
+    matches.sort(key=lambda m: (m[0], m[1]), reverse=True)
+
+    # Split source en lignes pour édition
+    lines = src.splitlines(keepends=True)
+
+    n_replaced = 0
+    for lineno, col_offset, module_name in matches:
+        # lineno is 1-indexed
+        line = lines[lineno - 1]
+        # On cherche "{module_name}.Ticker(" à partir de col_offset
+        pattern = f"{module_name}.Ticker("
+        # Python col_offset est en bytes mais pour du code source normal,
+        # 1 byte = 1 char. On tolère qu'il y ait quelques diff d'indent
+        idx = line.find(pattern, col_offset)
+        if idx < 0:
+            # Fallback : cherche n'importe où sur la ligne
+            idx = line.find(pattern)
+        if idx < 0:
+            continue
+        # Remplace par "get_ticker("
+        new_line = line[:idx] + "get_ticker(" + line[idx + len(pattern):]
+        lines[lineno - 1] = new_line
+        n_replaced += 1
 
     if n_replaced == 0:
         return (0, False)
 
-    src = _YF_TICKER_RE.sub("get_ticker(", src)
+    # Reconstruit le src modifié
+    new_src = "".join(lines)
 
-    # 2. Aussi remplacer yfinance.Ticker(...) → get_ticker(...) si présent
-    n_replaced_yfinance = len(_YFINANCE_TICKER_RE.findall(src))
-    src = _YFINANCE_TICKER_RE.sub("get_ticker(", src)
-    n_replaced += n_replaced_yfinance
-
-    # 3. Ajouter l'import get_ticker si pas déjà présent
+    # Ajoute l'import si absent
     import_added = False
-    if "from core.yfinance_cache import" not in src and "from core.yfinance_cache" not in src:
-        # Trouver la meilleure position pour insérer l'import :
-        # Après le dernier import existant (avant les définitions)
-        lines = src.splitlines(keepends=False)
-        last_import_idx = -1
-        for i, ln in enumerate(lines):
-            if _IMPORT_LINE_RE.match(ln):
-                last_import_idx = i
-            elif last_import_idx >= 0 and ln.strip() and not ln.strip().startswith("#"):
-                # Première ligne de code après les imports → on s'arrête
+    if not has_get_ticker_import(tree):
+        # Ré-parse le src modifié pour trouver la bonne position d'insertion
+        try:
+            new_tree = ast.parse(new_src, filename=str(path))
+        except SyntaxError:
+            print(f"  WARN {path} : post-replace syntax error, skip import add")
+            new_tree = tree  # fallback
+        last_import_end = find_last_toplevel_import(new_tree)
+        if last_import_end > 0:
+            # Insère après la fin du dernier import
+            new_lines = new_src.splitlines(keepends=True)
+            import_line = "from core.yfinance_cache import get_ticker\n"
+            # Insertion à la position last_import_end (0-indexed = last_import_end - 1 + 1)
+            insert_at = last_import_end  # 0-indexed position = 1-indexed lineno
+            new_lines.insert(insert_at, import_line)
+            new_src = "".join(new_lines)
+            import_added = True
+        else:
+            # Pas d'import existant : insérer au début après le docstring
+            new_lines = new_src.splitlines(keepends=True)
+            # Skip shebang + docstring
+            insert_at = 0
+            for i, ln in enumerate(new_lines):
+                if ln.startswith("#!"):
+                    insert_at = i + 1
+                    continue
                 break
-
-        if last_import_idx >= 0:
-            new_import = "from core.yfinance_cache import get_ticker"
-            lines.insert(last_import_idx + 1, new_import)
-            src = "\n".join(lines)
+            new_lines.insert(insert_at, "from core.yfinance_cache import get_ticker\n")
+            new_src = "".join(new_lines)
             import_added = True
 
-    if src != original and not dry_run:
-        path.write_text(src, encoding="utf-8")
+    # Valide que le nouveau source parse toujours
+    try:
+        ast.parse(new_src, filename=str(path))
+    except SyntaxError as e:
+        print(f"  FAIL {path} : post-transform syntax error L{e.lineno} — NOT WRITING")
+        return (0, False)
+
+    if not dry_run:
+        path.write_text(new_src, encoding="utf-8")
 
     return (n_replaced, import_added)
 
