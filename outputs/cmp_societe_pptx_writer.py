@@ -604,34 +604,90 @@ Mediane sectorielle : PE~{_n(m_a.get('sector_median_pe'))}, EV/EBITDA~{_x2(m_a.g
     # mentionne l'autre ticker avant le gagnant, on re-Généré une fois.
     winner_for_llm = m_a.get('winner') or tkr_a
     loser_for_llm  = tkr_b if winner_for_llm == tkr_a else tkr_a
+    # Finsight scores explicites dans le prompt pour que le LLM comprenne
+    # POURQUOI winner est choisi (et non pas le contraire)
+    _fs_winner_num = m_a.get('finsight_score') if winner_for_llm == tkr_a else m_b.get('finsight_score')
+    _fs_loser_num  = m_b.get('finsight_score') if winner_for_llm == tkr_a else m_a.get('finsight_score')
     _verdict_prompt = (
-        f"Tu dois rediger un verdict d'investissement final pour la comparaison "
-        f"{tkr_a} vs {tkr_b}. Le choix retenu est {winner_for_llm} (NON NEGOCIABLE, "
-        f"c'est le résultat du score composite FinSight, tu ne peux pas le changer). "
-        f"Structure OBLIGATOIRE de ta reponse (120 mots MAX au total) :\n"
-        f"1. Commence par : \"Choix : {winner_for_llm}.\"\n"
-        f"2. Ensuite \"Pourquoi :\" suivi de 2-3 arguments concrets en faveur de "
-        f"{winner_for_llm} (valorisation relative, qualité bilan, catalyseurs).\n"
-        f"3. Termine par \"Risque principal :\" suivi du risque cle de la Thèse "
-        f"{winner_for_llm}.\n"
-        f"Tu ne dois PAS recommander {loser_for_llm} ni suggerer qu'il est meilleur. "
-        f"Utilise les chiffres fournis.\n\n{data_str}"
+        f"VERDICT FINAL COMPARATIF — {tkr_a} vs {tkr_b}\n\n"
+        f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+        f"RÈGLE N°1 (ABSOLUE, NON NÉGOCIABLE) : LE CHOIX EST {winner_for_llm}.\n"
+        f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+        f"Le score composite FinSight (calcule déterministiquement sur valorisation + "
+        f"croissance + qualite + momentum) désigne {winner_for_llm} comme le choix "
+        f"privilégié :\n"
+        f"  - {winner_for_llm} : score FinSight {_fs_winner_num or 'N/A'}/100\n"
+        f"  - {loser_for_llm}  : score FinSight {_fs_loser_num or 'N/A'}/100\n"
+        f"Tu NE PEUX PAS recommander {loser_for_llm}, ni dire qu'il est 'plus attractif' "
+        f"ou 'plus sain', ni conclure en sa faveur. Si tu le fais, ta réponse sera "
+        f"rejetée et réécrite automatiquement.\n\n"
+        f"STRUCTURE OBLIGATOIRE de ta reponse (exactement 3 parties, 120 mots MAX total) :\n"
+        f"1. Première ligne EXACTE : \"Choix : {winner_for_llm}.\" (sans rien avant)\n"
+        f"2. Puis \"Pourquoi :\" suivi de 2-3 arguments CHIFFRÉS en faveur de "
+        f"{winner_for_llm} (valorisation relative, qualité bilan, moteurs de croissance).\n"
+        f"3. Puis \"Risque principal :\" suivi du risque clé spécifique à {winner_for_llm}.\n\n"
+        f"NE COMMENCE PAS par \"Choix : {loser_for_llm}\". NE COMMENCE PAS par une "
+        f"analyse de {loser_for_llm}. NE DIS PAS que {loser_for_llm} est meilleur.\n\n"
+        f"{data_str}"
     )
     r = _call_llm(_verdict_prompt, system=system_msg, max_tokens=500)
-    # Validation : si le LLM commence par parler du loser, on tronque tout ce qui
-    # precede le winner pour garantir la cohérence visuelle avec le badge "CHOIX PRÉFÉRÉ".
-    if r and loser_for_llm in r and winner_for_llm in r:
-        _idx_winner = r.find(winner_for_llm)
-        _idx_loser  = r.find(loser_for_llm)
-        if 0 <= _idx_loser < _idx_winner:
-            # Le loser est cite AVANT le winner -> on start au "Choix :" si present,
-            # sinon on prepend une phrase d'ancrage.
-            _anchor_idx = r.find(f"Choix : {winner_for_llm}")
-            if _anchor_idx > 0:
-                r = r[_anchor_idx:]
-            else:
-                r = f"Choix : {winner_for_llm}. " + r[_idx_winner:]
-    results["verdict_text"] = _word_clip(r, 1200)
+
+    # ── Coercion dure : aligne verdict LLM sur le choix FinSight calcule. ────
+    # Bug Baptiste : le LLM ignore parfois "NON NEGOCIABLE" et écrit
+    # "Choix : TSLA" alors que finsight_score désigne NVDA. Cover P1 dit alors
+    # NVDA mais le verdict LLM dit TSLA — incohérence visible à l'écran.
+    #
+    # Stratégie en 4 étapes :
+    # 1. Supprime toute phrase "Choix : {loser}" (remplace par "Choix : {winner}")
+    # 2. Si le texte n'ouvre pas par "Choix : {winner}", on force le préfixe
+    # 3. Si le LLM a conclu en faveur du loser dans le corps, on rajoute
+    #    un avertissement d'alignement à la fin
+    # 4. Garde-fou : si r est None/vide, générer un fallback déterministe
+    _clean = (r or "").strip()
+
+    # Étape 1 : remplace "Choix : {loser}" (variantes : ":", "-", "—")
+    import re as _re_v
+    _pattern_loser_choix = _re_v.compile(
+        rf"\bChoix\s*[:\-—]?\s*{_re_v.escape(loser_for_llm)}\b",
+        flags=_re_v.IGNORECASE,
+    )
+    _clean = _pattern_loser_choix.sub(f"Choix : {winner_for_llm}", _clean)
+
+    # Étape 2 : vérifie le début du texte
+    _expected_start = f"Choix : {winner_for_llm}"
+    if not _clean.lower().startswith(_expected_start.lower()):
+        # Cherche "Choix : {winner}" quelque part dans le texte
+        _anchor_idx = _clean.lower().find(f"choix : {winner_for_llm.lower()}")
+        if _anchor_idx > 0:
+            _clean = _clean[_anchor_idx:]
+        else:
+            # Aucune ancre trouvée → préfixe forcé
+            _clean = f"{_expected_start}. {_clean}"
+
+    # Étape 3 : si le loser est mentionné en début de phrase comme "recommandation"
+    # ou "privilège", neutralise ces phrases.
+    _bad_patterns = [
+        rf"(?i)nous recommand\w*\s*{_re_v.escape(loser_for_llm)}",
+        rf"(?i)privil[eé]gi\w*\s*{_re_v.escape(loser_for_llm)}",
+        rf"(?i)pr[eé]f[eé]r\w*\s*{_re_v.escape(loser_for_llm)}",
+        rf"(?i){_re_v.escape(loser_for_llm)}\s*(est|semble|apparait)\s*(le\s*)?(meilleur|plus attractif|plus sain)",
+    ]
+    for _bp in _bad_patterns:
+        _clean = _re_v.sub(_bp, f"{winner_for_llm} reste le choix privilégié", _clean)
+
+    # Étape 4 : fallback déterministe si LLM a complètement échoué
+    if not _clean or len(_clean) < 50:
+        _fs_w = m_a.get("finsight_score") if winner_for_llm == tkr_a else m_b.get("finsight_score")
+        _fs_l = m_b.get("finsight_score") if winner_for_llm == tkr_a else m_a.get("finsight_score")
+        _clean = (
+            f"Choix : {winner_for_llm}. Pourquoi : le score composite FinSight de "
+            f"{winner_for_llm} ({_fs_w or 'N/A'}/100) dépasse celui de {loser_for_llm} "
+            f"({_fs_l or 'N/A'}/100), reflétant un meilleur équilibre entre valorisation, "
+            f"croissance, qualité et momentum. Risque principal : dépendance aux conditions "
+            f"macro et à la soutenabilité des moteurs structurels du secteur."
+        )
+
+    results["verdict_text"] = _word_clip(_clean, 1200)
 
     def _split_bull_bear(r, sep="|||"):
         """Split bull/bear text — essaie plusieurs separateurs."""
@@ -2813,33 +2869,55 @@ class CmpSocietePPTXWriter:
         tkr_b = _get_tkr(state_b, "B")
 
         log.info(f"[cmp_pptx] génération {tkr_a} vs {tkr_b}")
-        supp_a = _fetch_supplements(tkr_a)
-        supp_b = _fetch_supplements(tkr_b)
-        m_a = extract_metrics(state_a, supp_a)
-        m_b = extract_metrics(state_b, supp_b)
 
-        # Garantir que les tickers corrects sont dans m_a/m_b pour la synthèse LLM
-        m_a["ticker_a"] = tkr_a
-        m_b["ticker_b"] = tkr_b
-        m_a["company_name_a"] = m_a.get("company_name_a") or tkr_a
-        m_b["company_name_b"] = m_b.get("company_name_b") or tkr_b
+        # ── OPTIM #167 : reuse cache Streamlit si dispo ──────────────────
+        _cached = None
+        try:
+            import streamlit as _st
+            _cached = _st.session_state.get("_cmp_cache")
+            if _cached:
+                _cma = _cached.get("m_a", {}).get("ticker_a") or ""
+                _cmb = _cached.get("m_b", {}).get("ticker_b") or ""
+                if _cma.upper() != tkr_a.upper() or _cmb.upper() != tkr_b.upper():
+                    _cached = None
+        except Exception:
+            _cached = None
 
-        # Winner
-        fs_a = m_a.get("finsight_score") or 0
-        fs_b = m_b.get("finsight_score") or 0
-        if fs_a != fs_b:
-            winner = tkr_a if fs_a > fs_b else tkr_b
+        if _cached:
+            log.info("[cmp_pptx] cache hit — reuse supp/m/synthesis")
+            supp_a    = _cached["supp_a"]
+            supp_b    = _cached["supp_b"]
+            m_a       = _cached["m_a"]
+            m_b       = _cached["m_b"]
+            synthesis = _cached["synthesis"]
         else:
-            pio_a = m_a.get("piotroski_score") or 0
-            pio_b = m_b.get("piotroski_score") or 0
-            winner = tkr_a if pio_a >= pio_b else tkr_b
-        verdict_str = f"{winner} privilege"
-        m_a["winner"] = m_b["winner"] = winner
-        m_a["verdict_relative"] = m_b["verdict_relative"] = verdict_str
+            supp_a = _fetch_supplements(tkr_a)
+            supp_b = _fetch_supplements(tkr_b)
+            m_a = extract_metrics(state_a, supp_a)
+            m_b = extract_metrics(state_b, supp_b)
 
-        # 2. Générer la synthèse LLM
-        log.info("[cmp_pptx] génération synthèse LLM...")
-        synthesis = _generate_synthesis(m_a, m_b)
+            # Garantir que les tickers corrects sont dans m_a/m_b pour la synthèse LLM
+            m_a["ticker_a"] = tkr_a
+            m_b["ticker_b"] = tkr_b
+            m_a["company_name_a"] = m_a.get("company_name_a") or tkr_a
+            m_b["company_name_b"] = m_b.get("company_name_b") or tkr_b
+
+            # Winner
+            fs_a = m_a.get("finsight_score") or 0
+            fs_b = m_b.get("finsight_score") or 0
+            if fs_a != fs_b:
+                winner = tkr_a if fs_a > fs_b else tkr_b
+            else:
+                pio_a = m_a.get("piotroski_score") or 0
+                pio_b = m_b.get("piotroski_score") or 0
+                winner = tkr_a if pio_a >= pio_b else tkr_b
+            verdict_str = f"{winner} privilege"
+            m_a["winner"] = m_b["winner"] = winner
+            m_a["verdict_relative"] = m_b["verdict_relative"] = verdict_str
+
+            # 2. Générer la synthèse LLM
+            log.info("[cmp_pptx] génération synthèse LLM...")
+            synthesis = _generate_synthesis(m_a, m_b)
 
         # 3. Créer la présentation
         prs = Presentation()

@@ -34,6 +34,7 @@ from __future__ import annotations
 
 ZONE_US     = "US"
 ZONE_EUROPE = "EU"
+ZONE_GLOBAL = "GLOBAL"   # NEW #168 : couverture monde via iShares Global Sector ETF
 
 # Mapping univers (nom humain tel que saisi par l'utilisateur) -> zone ETF
 _UNIVERSE_TO_ZONE: dict[str, str] = {
@@ -70,6 +71,13 @@ _UNIVERSE_TO_ZONE: dict[str, str] = {
     "stoxx 600": ZONE_EUROPE,
     "euro stoxx 50": ZONE_EUROPE,
     "eurostoxx 50": ZONE_EUROPE,
+    # Global / Monde (NEW #168 : MSCI World sector ETF via iShares)
+    "global":       ZONE_GLOBAL,
+    "monde":        ZONE_GLOBAL,
+    "world":        ZONE_GLOBAL,
+    "msci world":   ZONE_GLOBAL,
+    "msci acwi":    ZONE_GLOBAL,
+    "acwi":         ZONE_GLOBAL,
 }
 
 
@@ -155,6 +163,42 @@ _EU_ISHARES_SECONDARY: dict[str, dict] = {
 
 
 # ═════════════════════════════════════════════════════════════════════════════
+# MATRICE GLOBAL / MONDE — iShares Global Sector ETF (NYSE, USD)
+# ═════════════════════════════════════════════════════════════════════════════
+# NEW #168 : Baptiste a demandé une analyse monde (sans ETF régional dédié).
+# Option 2 retenue : MSCI World sector index répliqué via iShares Global sector
+# ETF. Ces ETF couvrent ~80% de la capi monde par secteur GICS.
+#
+# Source : https://www.ishares.com/us/strategies/global-sectors (publique)
+# Tickers confirmés dispo via yfinance (tous NYSE/NASDAQ, USD).
+#
+# Couverture : 10 secteurs GICS principaux. Pas de granularité sur Banks/
+# Insurance (utiliser IXG pour Financials ombrelle). Pas de CommServ global
+# spécifique (utiliser panier XLC + EXV2 ou fallback IXP).
+
+_GLOBAL_ISHARES: dict[str, dict] = {
+    "TECHNOLOGY":       {"ticker": "IXN",  "name": "iShares Global Tech ETF"},
+    "HEALTHCARE":       {"ticker": "IXJ",  "name": "iShares Global Healthcare ETF"},
+    # Financials monde : IXG couvre Banks + Insurance + Financial Services
+    "FINANCIALS":       {"ticker": "IXG",  "name": "iShares Global Financials ETF"},
+    "BANKS":            {"ticker": "IXG",  "name": "iShares Global Financials ETF (Banks subset)"},
+    "INSURANCE":        {"ticker": "IXG",  "name": "iShares Global Financials ETF (Insurance subset)"},
+    # Consumer Discretionary monde : RXI
+    "CONSUMERCYCLICAL": {"ticker": "RXI",  "name": "iShares Global Consumer Discretionary ETF"},
+    # Consumer Staples monde : KXI
+    "CONSUMERDEFENSIVE":{"ticker": "KXI",  "name": "iShares Global Consumer Staples ETF"},
+    "ENERGY":           {"ticker": "IXC",  "name": "iShares Global Energy ETF"},
+    "INDUSTRIALS":      {"ticker": "EXI",  "name": "iShares Global Industrials ETF"},
+    "MATERIALS":        {"ticker": "MXI",  "name": "iShares Global Materials ETF"},
+    # Real Estate monde : REET (global REIT)
+    "REALESTATE":       {"ticker": "REET", "name": "iShares Global REIT ETF"},
+    "UTILITIES":        {"ticker": "JXI",  "name": "iShares Global Utilities ETF"},
+    # Communication monde : IXP (Global Telecom historique, plus large que XLC seul)
+    "COMMUNICATION":    {"ticker": "IXP",  "name": "iShares Global Comm Services ETF"},
+}
+
+
+# ═════════════════════════════════════════════════════════════════════════════
 # API PUBLIQUE
 # ═════════════════════════════════════════════════════════════════════════════
 
@@ -164,8 +208,8 @@ def get_etf_for(sector: str, universe: str | None = None,
 
     Args:
         sector : nom du secteur (anglais yfinance, FR, slug, alias)
-        universe : nom d'indice ("S&P 500", "DAX 40", "CAC 40", ...)
-        zone : override explicite de la zone (US/EU), si fourni ignore universe
+        universe : nom d'indice ("S&P 500", "DAX 40", "CAC 40", "Global"...)
+        zone : override explicite de la zone (US/EU/GLOBAL), si fourni ignore universe
 
     Returns:
         Dict {"ticker", "name", "zone", "slug"} ou None si non reconnu.
@@ -178,7 +222,14 @@ def get_etf_for(sector: str, universe: str | None = None,
     if slug is None:
         return None
     _zone = zone or universe_to_zone(universe)
-    _matrix = _US_SPDR if _zone == ZONE_US else _EU_ISHARES
+    if _zone == ZONE_US:
+        _matrix = _US_SPDR
+    elif _zone == ZONE_EUROPE:
+        _matrix = _EU_ISHARES
+    elif _zone == ZONE_GLOBAL:
+        _matrix = _GLOBAL_ISHARES
+    else:
+        _matrix = _US_SPDR  # fallback
     entry = _matrix.get(slug)
     if entry is None:
         return None
@@ -191,13 +242,15 @@ def get_etf_for(sector: str, universe: str | None = None,
 
 
 def get_all_etfs_for_zone(zone: str) -> list[dict]:
-    """Retourne la liste complete des ETF pour une zone donnee (US ou EU).
+    """Retourne la liste complete des ETF pour une zone donnee (US, EU ou GLOBAL).
 
     Utile pour construire les listings sectoriels complets (11 ETF US, 13 EU
-    mappes aux slugs GICS + 6 EU secondaires).
+    mappes aux slugs GICS + 6 EU secondaires, 13 Global mappes).
     """
     if zone == ZONE_US:
         _src = _US_SPDR
+    elif zone == ZONE_GLOBAL:
+        _src = _GLOBAL_ISHARES
     else:
         _src = _EU_ISHARES
     return [
@@ -207,18 +260,26 @@ def get_all_etfs_for_zone(zone: str) -> list[dict]:
 
 
 def etf_exists(ticker: str) -> bool:
-    """True si le ticker est connu dans l'une des matrices (US ou EU)."""
+    """True si le ticker est connu dans l'une des matrices (US, EU ou GLOBAL)."""
     all_tickers = {v["ticker"] for v in _US_SPDR.values()}
     all_tickers |= {v["ticker"] for v in _EU_ISHARES.values()}
     all_tickers |= {v["ticker"] for v in _EU_ISHARES_SECONDARY.values()}
+    all_tickers |= {v["ticker"] for v in _GLOBAL_ISHARES.values()}
     return ticker in all_tickers
 
 
 def zone_label_fr(zone: str) -> str:
     """Retourne le libelle francais de la zone pour affichage."""
-    return "Etats-Unis" if zone == ZONE_US else "Europe"
+    if zone == ZONE_US:
+        return "Etats-Unis"
+    if zone == ZONE_GLOBAL:
+        return "Monde"
+    return "Europe"
 
 
 def etf_issuer(zone: str) -> str:
     """Retourne le nom de l'issuer pour une zone donnee."""
-    return "State Street Global Advisors (SPDR)" if zone == ZONE_US else "BlackRock (iShares)"
+    if zone == ZONE_US:
+        return "State Street Global Advisors (SPDR)"
+    # EU et GLOBAL sont tous les deux iShares / BlackRock
+    return "BlackRock (iShares)"

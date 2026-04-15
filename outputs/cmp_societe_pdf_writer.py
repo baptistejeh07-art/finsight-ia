@@ -2363,22 +2363,49 @@ class CmpSocietePDFWriter:
         tkr_b = _get_ticker(state_b, "B")
 
         log.info(f"[cmp_pdf] génération {tkr_a} vs {tkr_b}")
-        supp_a = _fetch_supplements(tkr_a)
-        supp_b = _fetch_supplements(tkr_b)
-        m_a = extract_metrics(state_a, supp_a)
-        m_b = extract_metrics(state_b, supp_b)
 
-        # Winner
-        fs_a = float(m_a.get("finsight_score") or 0)
-        fs_b = float(m_b.get("finsight_score") or 0)
-        winner = tkr_a if fs_a >= fs_b else tkr_b
-        m_a["winner"] = m_b["winner"] = winner
+        # ── OPTIM #167 : reuse cache Streamlit si dispo ──────────────────
+        # app.py peut précalculer supp_a/supp_b/m_a/m_b/synthesis une seule fois
+        # et les stocker dans st.session_state["_cmp_cache"]. Le writer PDF les
+        # réutilise pour éviter des appels yfinance + LLM redondants (~60s).
+        _cached = None
+        try:
+            import streamlit as _st
+            _cached = _st.session_state.get("_cmp_cache")
+            # Invalide le cache si les tickers ne correspondent pas
+            if _cached:
+                _cma = _cached.get("m_a", {}).get("ticker_a") or ""
+                _cmb = _cached.get("m_b", {}).get("ticker_b") or ""
+                if _cma.upper() != tkr_a.upper() or _cmb.upper() != tkr_b.upper():
+                    _cached = None
+        except Exception:
+            _cached = None
 
-        # Synthèse LLM
-        from outputs.cmp_societe_pptx_writer import _generate_synthesis
+        if _cached:
+            log.info("[cmp_pdf] cache hit — reuse supp/m/synthesis")
+            supp_a   = _cached["supp_a"]
+            supp_b   = _cached["supp_b"]
+            m_a      = _cached["m_a"]
+            m_b      = _cached["m_b"]
+            synthesis = _cached["synthesis"]
+        else:
+            supp_a = _fetch_supplements(tkr_a)
+            supp_b = _fetch_supplements(tkr_b)
+            m_a = extract_metrics(state_a, supp_a)
+            m_b = extract_metrics(state_b, supp_b)
+
+            # Winner
+            fs_a = float(m_a.get("finsight_score") or 0)
+            fs_b = float(m_b.get("finsight_score") or 0)
+            winner = tkr_a if fs_a >= fs_b else tkr_b
+            m_a["winner"] = m_b["winner"] = winner
+
+            # Synthèse LLM
+            from outputs.cmp_societe_pptx_writer import _generate_synthesis
+            log.info("[cmp_pdf] synthèse LLM...")
+            synthesis = _generate_synthesis(m_a, m_b)
+
         import re as _re_md
-        log.info("[cmp_pdf] synthèse LLM...")
-        synthesis = _generate_synthesis(m_a, m_b)
 
         # Pre-strip markdown asterisks de tous les textes LLM
         def _strip_md(s):
