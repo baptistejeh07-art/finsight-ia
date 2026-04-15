@@ -2062,8 +2062,8 @@ def _build_acteurs(tickers_data: list[dict], sector_name: str, registry=None):
             f"Francais avec accents. Pas de markdown/emojis."
         )
         _acteurs_intro_llm = llm_call(_prompt_acteurs, phase="long", max_tokens=700) or ""
-    except Exception:
-        pass
+    except Exception as _e:
+        log.debug(f"[sector_pdf_writer:_build_acteurs] exception skipped: {_e}")
 
     if _acteurs_intro_llm.strip():
         # NIGHT-3 : render avec sous-titres bleus via helper propage
@@ -2184,8 +2184,8 @@ def _build_acteurs(tickers_data: list[dict], sector_name: str, registry=None):
             if _ev_og is not None:
                 try:
                     _dacf_val = float(_ev_og) * 1.18
-                except Exception:
-                    pass
+                except Exception as _e:
+                    log.debug(f"[sector_pdf_writer:_fmt_dy] exception skipped: {_e}")
             _dacf_s = f"{_dacf_val:.1f}x*" if _dacf_val else "\u2014"
             row += [
                 _fmt_pct(t.get('ebitda_margin'), sign=False),
@@ -2362,16 +2362,16 @@ def _enrich_valuation_fallback(tickers_data: list[dict]) -> None:
                 if 0 < _proxy < 200:
                     t['ev_ebitda'] = _proxy
                     t.setdefault('_ev_ebitda_proxy', True)
-            except Exception:
-                pass
+            except Exception as _e:
+                log.debug(f"[sector_pdf_writer:_enrich_valuation_fallback] exception skipped: {_e}")
         if not t.get('ev_revenue') and _mc_abs > 0 and _rv and _rv > 0:
             try:
                 _proxy = round(float(_mc_abs) / float(_rv), 1)
                 if 0 < _proxy < 100:
                     t['ev_revenue'] = _proxy
                     t.setdefault('_ev_revenue_proxy', True)
-            except Exception:
-                pass
+            except Exception as _e:
+                log.debug(f"[sector_pdf_writer:_enrich_valuation_fallback] exception skipped: {_e}")
 
 
 def _build_valorisation(scatter_buf, donut_buf, tickers_data: list[dict],
@@ -3198,8 +3198,8 @@ def _build_conclusion_reco(tickers_data: list[dict], sector_name: str,
                 _reco_profile2 = detect_profile(sector_name,
                                                 tickers_data[0].get("industry", "") if tickers_data else "")
                 _profile_hints = get_prompt_hints(_reco_profile2) or ""
-            except Exception:
-                pass
+            except Exception as _e:
+                log.debug(f"[sector_pdf_writer:_build_conclusion_reco] exception skipped: {_e}")
 
             # LLM-A compressed + sous-titres MAJUSCULES (NIGHT-3)
             _reco_prompt = (
@@ -3502,8 +3502,8 @@ def _build_story(perf_buf, area_buf, scatter_buf, donut_buf,
         if _etf_ref_dict:
             _ref_etf_ticker = _etf_ref_dict.get("ticker")
             _ref_etf_name   = _etf_ref_dict.get("name")
-    except Exception:
-        pass
+    except Exception as _e:
+        log.debug(f"[sector_pdf_writer:_build_story] exception skipped: {_e}")
 
     if _ref_etf_ticker:
         _etf_intro = (
@@ -3661,8 +3661,8 @@ def _compute_analytics_from_tickers(td: list[dict]) -> dict:
             _dy_pct = _dy_f * 100 if abs(_dy_f) < 1 else _dy_f
             if 0 < _dy_pct < 25:
                 _dy_vals.append(_dy_pct)
-        except Exception:
-            pass
+        except Exception as _e:
+            log.debug(f"[sector_pdf_writer:_cap_outliers] exception skipped: {_e}")
     div_yield_median = round(float(np.median(_dy_vals)), 2) if _dy_vals else None
 
     # --- VaR 95% mensuelle (simulation historique basket market-cap weighted) ---
@@ -3698,8 +3698,8 @@ def _compute_analytics_from_tickers(td: list[dict]) -> dict:
                             _cum  = (1 + _pr).cumprod()
                             _rmx  = _cum.cummax()
                             max_drawdown_52w = round(float(((_cum - _rmx) / _rmx).min()) * 100, 1)
-    except Exception:
-        pass
+    except Exception as _e:
+        log.debug(f"[sector_pdf_writer:_compute_analytics_from_tickers] exception skipped: {_e}")
 
     # --- Duration implicite via CAPM (pas besoin de donnees externes) ---
     dur_years = dur_wacc_pct = dur_g_pct = None
@@ -3721,8 +3721,8 @@ def _compute_analytics_from_tickers(td: list[dict]) -> dict:
                 dur_years    = round((1 + _dur_g) / (_dur_wacc - _dur_g), 1)
                 dur_wacc_pct = round(_dur_wacc * 100, 1)
                 dur_g_pct    = round(_dur_g   * 100, 1)
-    except Exception:
-        pass
+    except Exception as _e:
+        log.debug(f"[sector_pdf_writer:_compute_analytics_from_tickers] exception skipped: {_e}")
 
     return {
         "hhi": hhi, "hhi_label": hhi_label,
@@ -3771,8 +3771,8 @@ def generate_sector_report(
     try:
         from core.sector_labels import fr_label as _fr_lbl
         sector_name = _fr_lbl(sector_name)
-    except Exception:
-        pass
+    except Exception as _e:
+        log.debug(f"[sector_pdf_writer:generate_sector_report] exception skipped: {_e}")
     """
     Genere un rapport PDF sectoriel institutionnel.
 

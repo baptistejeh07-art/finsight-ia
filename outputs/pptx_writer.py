@@ -588,8 +588,8 @@ def _jpm_title(slide_type: str, ratios=None, snap=None, synthesis=None,
                     if nd_v < 3:
                         return f"{ticker} levier modéré (ND/EBITDA {nd_v:.1f}x), structure équilibrée"
                     return f"{ticker} levier élevé (ND/EBITDA {nd_v:.1f}x) — surveiller la capacité de service de la dette"
-                except Exception:
-                    pass
+                except Exception as _e:
+                    log.debug(f"[pptx_writer:_pct] exception skipped: {_e}")
             return f"{ticker} — analyse de la structure bilancielle"
 
         if slide_type == "ratios":
@@ -615,8 +615,8 @@ def _jpm_title(slide_type: str, ratios=None, snap=None, synthesis=None,
                         return f"DCF base proche du cours ({upside:+.0f}%) — valorisation alignée"
                     else:
                         return f"DCF base en dessous du cours ({upside:+.0f}%) — surévaluation potentielle"
-                except Exception:
-                    pass
+                except Exception as _e:
+                    log.debug(f"[pptx_writer:_pct] exception skipped: {_e}")
             return f"{ticker} — valorisation DCF et sensibilités"
 
         if slide_type == "peers":
@@ -638,8 +638,8 @@ def _jpm_title(slide_type: str, ratios=None, snap=None, synthesis=None,
                         return f"LBO {ticker} : IRR {irr_v:.1f}% — sous le seuil PE typique"
                     else:
                         return f"LBO {ticker} : IRR négatif — deal non viable dans les conditions actuelles"
-                except Exception:
-                    pass
+                except Exception as _e:
+                    log.debug(f"[pptx_writer:_pct] exception skipped: {_e}")
             return f"{ticker} — analyse LBO et returns sponsor"
 
         if slide_type == "risques":
@@ -656,8 +656,8 @@ def _jpm_title(slide_type: str, ratios=None, snap=None, synthesis=None,
                         return f"{ticker} — Score FinSight {s}/100 — signal modéré favorable"
                     else:
                         return f"{ticker} — Score FinSight {s}/100 — signal de prudence"
-                except Exception:
-                    pass
+                except Exception as _e:
+                    log.debug(f"[pptx_writer:_pct] exception skipped: {_e}")
             return f"{ticker} — Score FinSight composite"
 
         if slide_type == "verdict":
@@ -676,8 +676,8 @@ def _jpm_title(slide_type: str, ratios=None, snap=None, synthesis=None,
             try:
                 if extra.get("score") is not None:
                     _sc = float(extra["score"])
-            except Exception:
-                pass
+            except Exception as _e:
+                log.debug(f"[pptx_writer:_pct] exception skipped: {_e}")
             if _sc is not None:
                 if _sc > 0.2:
                     return f"{ticker} — sentiment presse financiere positif, alignement avec thèse"
@@ -686,8 +686,8 @@ def _jpm_title(slide_type: str, ratios=None, snap=None, synthesis=None,
                 return f"{ticker} — sentiment neutre, cohérence avec la recommandation {_rec or ''}"
             return f"{ticker} — analyse du sentiment de marché et signaux d'alerte"
 
-    except Exception:
-        pass
+    except Exception as _e:
+        log.debug(f"[pptx_writer:_jpm_title] exception skipped: {_e}")
 
     return ""
 
@@ -903,8 +903,8 @@ def _peer_median(peers: list, attr: str):
         if v is not None:
             try:
                 vals.append(float(v))
-            except Exception:
-                pass
+            except Exception as _e:
+                log.debug(f"[pptx_writer:_peer_median] exception skipped: {_e}")
     if not vals:
         return None
     return statistics.median(vals)
@@ -1411,8 +1411,8 @@ def _slide_business_model(prs, snap, synthesis):
                 _p = _json_s6.loads(_resp_s6[_js_s:_js_e])
                 if _p.get("segments") and len(_p["segments"]) >= 3:
                     segments = _p["segments"]
-        except Exception:
-            pass
+        except Exception as _e:
+            log.debug(f"[pptx_writer:_slide_business_model] exception skipped: {_e}")
 
     # Fallback si toujours rien : construire depuis strengths
     if not segments:
@@ -1624,8 +1624,8 @@ def _slide_is(prs, snap, synthesis, ratios):
                         run.font.bold = True
                         if ci == ltm_col_idx:
                             run.font.color.rgb = rgb(NAVY)
-            except Exception:
-                pass
+            except Exception as _e:
+                log.debug(f"[pptx_writer:_get_col] exception skipped: {_e}")
 
     # Commentary — IS-spécifique en priorité (pas valuation_comment qui est hors-sujet)
     fin_comment = _g(synthesis, "financial_commentary", "") or ""
@@ -1770,8 +1770,8 @@ def _slide_bilan(prs, snap, synthesis, ratios):
             for run in cell.text_frame.paragraphs[0].runs:
                 run.font.bold = True
                 run.font.size = Pt(8)
-        except Exception:
-            pass
+        except Exception as _e:
+            log.debug(f"[pptx_writer:_sig] exception skipped: {_e}")
 
     # Commentary bilan : prioriser un texte spécifique au bilan, sinon générer
     fin_comment = _g(synthesis, "balance_sheet_commentary", "") or ""
@@ -1803,15 +1803,15 @@ def _slide_bilan(prs, snap, synthesis, ratios):
                     else:
                         parts_b.append(f"Levier élevé (ND/EBITDA {nd_v:.2f}x), "
                                        f"contraignant la marge de manœuvre stratégique.")
-                except Exception:
-                    pass
+                except Exception as _e:
+                    log.debug(f"[pptx_writer:_sig] exception skipped: {_e}")
             if _cur_r is not None:
                 try:
                     cr_v = float(_cur_r)
                     parts_b.append(f"Current ratio à {cr_v:.2f}x, mesure de la couverture "
                                    f"des passifs courants par les actifs courants.")
-                except Exception:
-                    pass
+                except Exception as _e:
+                    log.debug(f"[pptx_writer:_sig] exception skipped: {_e}")
             if _icr is not None:
                 try:
                     icr_v = float(_icr)
@@ -1823,8 +1823,8 @@ def _slide_bilan(prs, snap, synthesis, ratios):
                     else:
                         parts_b.append(f"Couverture des intérêts tendue ({icr_v:.1f}x EBIT) — "
                                        f"surveillance recommandée.")
-                except Exception:
-                    pass
+                except Exception as _e:
+                    log.debug(f"[pptx_writer:_sig] exception skipped: {_e}")
             fin_comment = " ".join(parts_b) if parts_b else (
                 _g(synthesis, "financial_commentary", "") or ""
             )
@@ -1852,8 +1852,8 @@ def _slide_bilan(prs, snap, synthesis, ratios):
             # 250-320 mots, assez pour remplir la box sans overflow.
             if _extra_b9.strip():
                 fin_comment = _extra_b9
-        except Exception:
-            pass
+        except Exception as _e:
+            log.debug(f"[pptx_writer:_sig] exception skipped: {_e}")
 
     if fin_comment.strip():
         _bs_title = _jpm_title("bilan", ratios=ratios, snap=snap, synthesis=synthesis)
@@ -2009,8 +2009,8 @@ def _slide_ratios(prs, snap, synthesis, ratios):
     dy_raw = None
     try:
         dy_raw = snap.market.dividend_yield if snap and snap.market else None
-    except Exception:
-        pass
+    except Exception as _e:
+        log.debug(f"[pptx_writer:_slide_ratios] exception skipped: {_e}")
 
     def _fmt_dy_pptx(v):
         if v is None: return "—"
@@ -2194,8 +2194,8 @@ def _slide_dcf(prs, snap, synthesis, ratios):
             for run in c.text_frame.paragraphs[0].runs:
                 run.font.color.rgb = rgb(NAVY)
                 run.font.bold = True
-    except Exception:
-        pass
+    except Exception as _e:
+        log.debug(f"[pptx_writer:_slide_dcf] exception skipped: {_e}")
 
     # RIGHT: 3-column scénario table (matches reference exactly)
     from pptx.util import Pt
@@ -2263,8 +2263,8 @@ def _slide_dcf(prs, snap, synthesis, ratios):
                 _c.fill.solid(); _c.fill.fore_color.rgb = rgb("DDE8F5")
                 for _run in _c.text_frame.paragraphs[0].runs:
                     _run.font.bold = True; _run.font.color.rgb = rgb(NAVY)
-        except Exception:
-            pass
+        except Exception as _e:
+            log.debug(f"[pptx_writer:_slide_dcf] exception skipped: {_e}")
     else:
         add_text_box(slide, 1.02, 7.50, 11.18, 2.80,
                      "Simulations GBM non disponibles\npour ce ticker.",
@@ -2313,8 +2313,8 @@ def _slide_dcf(prs, snap, synthesis, ratios):
             for run in lbl_cell.text_frame.paragraphs[0].runs:
                 run.font.bold = True
                 run.font.color.rgb = rgb(NAVY)
-        except Exception:
-            pass
+        except Exception as _e:
+            log.debug(f"[pptx_writer:_slide_dcf] exception skipped: {_e}")
         # Intersection: navy_mid + white bold
         base_cell = sens_tbl.cell(base_ri, base_ci)
         base_cell.fill.solid()
@@ -2324,10 +2324,10 @@ def _slide_dcf(prs, snap, synthesis, ratios):
             for run in p.runs:
                 run.font.color.rgb = rgb(WHITE)
                 run.font.bold = True
-        except Exception:
-            pass
-    except Exception:
-        pass
+        except Exception as _e:
+            log.debug(f"[pptx_writer:_slide_dcf] exception skipped: {_e}")
+    except Exception as _e:
+        log.debug(f"[pptx_writer:_slide_dcf] exception skipped: {_e}")
 
     dcf_comment = _g(synthesis, "dcf_commentary", "") or ""
     if dcf_comment.strip():
@@ -2444,8 +2444,8 @@ def _slide_peers(prs, snap, synthesis, ratios):
                 run.font.color.rgb = rgb(NAVY if ci != 1 else NAVY_MID)
                 if ci == 1:  # Ticker col: small gray
                     run.font.size = __import__('pptx.util', fromlist=['Pt']).Pt(7.5)
-        except Exception:
-            pass
+        except Exception as _e:
+            log.debug(f"[pptx_writer:_slide_peers] exception skipped: {_e}")
 
     # Post-process peer rows: ticker col (ci=1) small gray
     for ri in range(2, len(rows_data)):  # peer rows (not subject, not median)
@@ -2456,8 +2456,8 @@ def _slide_peers(prs, snap, synthesis, ratios):
                 from pptx.util import Pt as _Pt2
                 run.font.size = _Pt2(7.5)
                 run.font.color.rgb = rgb(GREY_TXT)
-        except Exception:
-            pass
+        except Exception as _e:
+            log.debug(f"[pptx_writer:_slide_peers] exception skipped: {_e}")
 
     # Médian row (last row): bold=True, NOT italic
     median_ri = len(rows_data)
@@ -2468,8 +2468,8 @@ def _slide_peers(prs, snap, synthesis, ratios):
             for run in p.runs:
                 run.font.bold = True
                 run.font.italic = False
-        except Exception:
-            pass
+        except Exception as _e:
+            log.debug(f"[pptx_writer:_slide_peers] exception skipped: {_e}")
 
     _p1 = _g(synthesis, "peers_commentary", "") or ""
     _p2 = _g(synthesis, "ratio_commentary", "") or ""
@@ -3113,8 +3113,8 @@ def _slide_lbo(prs, snap, synthesis, ratios):
                         cell.fill.fore_color.rgb = rgb(AMBER_PALE)
                     else:
                         cell.fill.fore_color.rgb = rgb(RED_PALE)
-    except Exception:
-        pass
+    except Exception as _e:
+        log.debug(f"[pptx_writer:_slide_lbo] exception skipped: {_e}")
 
     # Note sous le tableau
     add_text_box(slide, 1.02, 7.20, 13.50, 0.50,
@@ -3694,8 +3694,8 @@ def _slide_lbo_returns(prs, snap, pack: dict):
                     cell.fill.fore_color.rgb = rgb("FDF3E5")
                 else:
                     cell.fill.fore_color.rgb = rgb(RED_PALE)
-    except Exception:
-        pass
+    except Exception as _e:
+        log.debug(f"[pptx_writer:_slide_lbo_returns] exception skipped: {_e}")
 
     # ── Tableau hypothèses retenues (droite) ──
     add_text_box(slide, 17.85, 5.10, 6.55, 0.45,
@@ -3815,8 +3815,8 @@ def _slide_lbo_stress(prs, snap, pack: dict):
             # Desactive les margins par defaut du text frame (souvent 0.1")
             _txb.text_frame.margin_left = _txb.text_frame.margin_right = 0
             _txb.text_frame.margin_top  = _txb.text_frame.margin_bottom = 0
-        except Exception:
-            pass
+        except Exception as _e:
+            log.debug(f"[pptx_writer:_val_only] exception skipped: {_e}")
         # Body — collé au bandeau header
         add_rect(slide, cx, 8.70, col_w, 2.50, col_p)
         s = sc[key]
@@ -3837,8 +3837,8 @@ def _slide_lbo_stress(prs, snap, pack: dict):
     _stress_irr = None
     try:
         _stress_irr = pack["scenarios"]["base"]["irr"]
-    except Exception:
-        pass
+    except Exception as _e:
+        log.debug(f"[pptx_writer:_slide_lbo_stress] exception skipped: {_e}")
     _stress_title = _jpm_title("lbo", snap=snap, extra={"irr_base": _stress_irr})
     # PPTX-S19 Baptiste : box trop petite. Scenarios body finit a 11.20.
     # Nouvelle geometrie : y=11.30 (gap 0.10 sous scenarios), h=2.08 -> ends
@@ -3951,8 +3951,8 @@ def _slide_risques(prs, snap, synthesis, devil, extra_scores: dict = None):
             for run in p.runs:
                 run.font.bold = True
                 run.font.color.rgb = rgb(NAVY)
-        except Exception:
-            pass
+        except Exception as _e:
+            log.debug(f"[pptx_writer:_slide_risques] exception skipped: {_e}")
 
     # --- Bande scores compact : 2 lignes (12.30 → 13.33) ----------------------
     # Ligne 1 : Detresse · M&A · Régime macroeconomique
@@ -4162,8 +4162,8 @@ def _slide_sentiment(prs, snap, synthesis, sentiment):
                 for run in p.runs:
                     run.font.bold = True
                     run.font.color.rgb = rgb(tc_color)
-            except Exception:
-                pass
+            except Exception as _e:
+                log.debug(f"[pptx_writer:_cnt] exception skipped: {_e}")
 
     # Bannière avertissement si FinBERT fallback + tous neutres
     if _warn_finbert:
@@ -4296,8 +4296,8 @@ def _slide_actionnariat(prs, snap, synthesis):
                 run.font.color.rgb = rgb(col)
                 run.font.bold = True
                 run.font.size = _Pt_h(7.5)
-        except Exception:
-            pass
+        except Exception as _e:
+            log.debug(f"[pptx_writer:_slide_actionnariat] exception skipped: {_e}")
 
     # ----------------------------------------------------------------
     # Tableau droit : Répartition par type (dynamique depuis les données)
@@ -4380,8 +4380,8 @@ def _slide_historique(prs, snap, synthesis):
         if p is not None:
             try:
                 prices.append(float(p))
-            except Exception:
-                pass
+            except Exception as _e:
+                log.debug(f"[pptx_writer:_slide_historique] exception skipped: {_e}")
 
     p_high = max(prices) if prices else price
     p_low  = min(prices) if prices else price
@@ -4447,8 +4447,8 @@ def _slide_historique(prs, snap, synthesis):
                     if _etf_info:
                         _etf_ticker = _etf_info["ticker"]
                         _etf_label  = _etf_ticker  # ticker court en legende
-            except Exception:
-                pass
+            except Exception as _e:
+                log.debug(f"[pptx_writer:_slide_historique] exception skipped: {_e}")
 
             # Fetch historique 1-an des overlays via yfinance (echantillonnage
             # mensuel pour aligner sur les n_pts points du stock_history)

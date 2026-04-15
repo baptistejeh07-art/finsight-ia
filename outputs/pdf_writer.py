@@ -1672,8 +1672,8 @@ def _build_financials(area_buf, data, margins_buf=None):
             f"Francais avec accents. Chiffres precis. Pas de HTML/markdown/emojis/bullets."
         )
         _llm_margin_analysis = llm_call(_prompt_margin, phase="long", max_tokens=1800) or ""
-    except Exception:
-        pass
+    except Exception as _e:
+        log.debug(f"[pdf_writer:_build_financials] exception skipped: {_e}")
 
     if _llm_margin_analysis.strip():
         # PDF-SUBTITRES : rend le texte LLM avec sous-titres bleus automatiques
@@ -1886,8 +1886,8 @@ def _build_valorisation(ff_buf, pie_buf, mc_buf, data):
                 _mc_img = Image(mc_buf, width=TABLE_W, height=TABLE_W * 3.0 / 8.0)
                 elems.append(Spacer(1, 2*mm))
                 elems.append(_mc_img)
-            except Exception:
-                pass
+            except Exception as _e:
+                log.debug(f"[pdf_writer:_build_valorisation] exception skipped: {_e}")
         _mc_sim_str = f"{mc_n:,}".replace(",", "\u00a0") if mc_n else "10\u00a0000"
         elems.append(src(
             f"FinSight IA \u2014 {_mc_sim_str} simulations GBM. "
@@ -1937,8 +1937,8 @@ def _build_valorisation(ff_buf, pie_buf, mc_buf, data):
                                       f"{('depasse' if _gap > 0 else 'reste sous')} "
                                       f"le prix cible analytique de {abs(_gap):.0f}\u00a0% "
                                       f"({'convergence haussiere' if _gap > 0 else 'scenario central plus conservateur que la cible DCF'}).")
-                except Exception:
-                    pass
+                except Exception as _e:
+                    log.debug(f"[pdf_writer:_build_valorisation] exception skipped: {_e}")
             _syn_fc = ((data.get('synthesis') or {}).get('financial_commentary') or "")
             if _syn_fc and not _extra_mc:
                 _extra_mc = " " + _syn_fc[:400] + ("..." if len(_syn_fc) > 400 else "")
@@ -2009,8 +2009,8 @@ def _build_valorisation(ff_buf, pie_buf, mc_buf, data):
                     f"Francais avec accents. Pas de markdown/emojis. Specifique a {_ticker_mc}."
                 )
                 _mc_llm_txt = _llm_call_mc(_prompt_mc, phase="long", max_tokens=1200) or ""
-            except Exception:
-                pass
+            except Exception as _e:
+                log.debug(f"[pdf_writer:_build_valorisation] exception skipped: {_e}")
             elems.append(Spacer(1, 3*mm))
             if _mc_llm_txt.strip():
                 # Texte LLM par paragraphe avec espace entre (structure demandee)
@@ -2363,8 +2363,8 @@ def _build_multiples_historiques(data):
                 _peers_note = (f" La soci\u00e9t\u00e9 se n\u00e9gocie avec une "
                                f"{'prime' if _prem > 0 else 'décote'} de {abs(_prem):.0f}\u00a0% "
                                f"vs la m\u00e9diane des pairs sur l\u2019EV/EBITDA.")
-            except Exception:
-                pass
+            except Exception as _e:
+                log.debug(f"[pdf_writer:_build_multiples_historiques] exception skipped: {_e}")
         _txt_fallback  = (f"Le P/E affiche une {_dir} de {abs(delta):.1f}x sur la p\u00e9riode "
                  f"({pe_clean[0]:.1f}x -> {pe_clean[-1]:.1f}x)."
                  + _ev_mov + _pb_note + _peers_note
@@ -2412,8 +2412,8 @@ def _build_multiples_historiques(data):
             _llm_text_mh = (data.get("llm_batch") or {}).get("multiples_historiques", "")
             if not _llm_text_mh:
                 _llm_text_mh = _llm_call_mh(_prompt_mh, phase="long", max_tokens=3000) or ""
-        except Exception:
-            pass
+        except Exception as _e:
+            log.debug(f"[pdf_writer:_build_multiples_historiques] exception skipped: {_e}")
         _txt = _llm_text_mh.strip() or _txt_fallback
     else:
         _txt = "Historique de multiples insuffisant pour \u00e9tablir une tendance significative."
@@ -2625,8 +2625,8 @@ def _build_capital_returns(data):
             _llm_text_cr = (data.get("llm_batch") or {}).get("capital_returns", "")
             if not _llm_text_cr:
                 _llm_text_cr = _llm_call_cr(_prompt_cr, phase="long", max_tokens=3000) or ""
-        except Exception:
-            pass
+        except Exception as _e:
+            log.debug(f"[pdf_writer:_build_capital_returns] exception skipped: {_e}")
         _txt = _llm_text_cr.strip() or _txt_fallback
     else:
         _txt = "Donn\u00e9es FCF insuffisantes pour l\u2019analyse de l\u2019allocation du capital."
@@ -2829,8 +2829,8 @@ def _build_lbo(data):
             _llm_text_lbo = (data.get("llm_batch") or {}).get("lbo_viabilite", "")
             if not _llm_text_lbo:
                 _llm_text_lbo = _llm_call_lbo(_prompt_lbo, phase="long", max_tokens=3000) or ""
-        except Exception:
-            pass
+        except Exception as _e:
+            log.debug(f"[pdf_writer:_lbo_irr] exception skipped: {_e}")
         _txt = _llm_text_lbo.strip() or _txt_fallback
     else:
         _txt = "EBITDA LTM non disponible \u2014 analyse LBO indicative impossible."
@@ -3049,8 +3049,8 @@ def _build_risques(data):
             f"Francais avec accents. Texte brut. Pas de markdown/emojis."
         )
         _llm_conclusion = llm_call(_prompt_conclusion, phase="critical", max_tokens=1600) or ""
-    except Exception:
-        pass
+    except Exception as _e:
+        log.debug(f"[pdf_writer:_build_risques] exception skipped: {_e}")
     if _llm_conclusion.strip():
         # PDF-SUBTITRES : sous-titres bleus
         # NB : le LLM ecrit parfois "4. Scenarios..." au lieu de "4. REVISION...",
@@ -3844,8 +3844,8 @@ def _fetch_pie_data(ticker: str, peers: list, main_snap_market=None) -> dict:
                     cur = getattr(info, 'currency', None)
                     if cur and cur not in ('USD', 'GBp', 'GBP', 'EUR', 'CHF', 'CAD'):
                         continue
-                except Exception:
-                    pass
+                except Exception as _e:
+                    log.debug(f"[pdf_writer:_fetch_pie_data] exception skipped: {_e}")
                 ev   = getattr(info, 'enterprise_value', None)
                 if ev and float(ev) > 0:
                     ev_data[t] = float(ev) / 1e9
@@ -3855,8 +3855,8 @@ def _fetch_pie_data(ticker: str, peers: list, main_snap_market=None) -> dict:
                     if mc and float(mc) > 0:
                         ev_data[t] = float(mc) / 1e9
                         _used_mktcap = True
-            except Exception:
-                pass
+            except Exception as _e:
+                log.debug(f"[pdf_writer:_fetch_pie_data] exception skipped: {_e}")
 
         # ABB-P9 Baptiste 2026-04-14 : seuil abaisse de 2 a 1 pour eviter le
         # chart N/A quand tous les peers yfinance echouent (rate-limit) et que
@@ -3981,8 +3981,8 @@ class PDFWriter:
             _fwd_eps      = _yf_info.get("forwardEps")
             _fwd_pe       = _yf_info.get("forwardPE")
             _trailing_eps = _yf_info.get("trailingEps")
-        except Exception:
-            pass
+        except Exception as _e:
+            log.debug(f"[pdf_writer:_state_to_data] exception skipped: {_e}")
 
         # IS table
         hist_3 = hist_labels[-4:] if len(hist_labels) >= 4 else hist_labels
@@ -4151,8 +4151,8 @@ class PDFWriter:
                 for _idx, _row in _hist_df.iterrows():
                     _y = _idx.year
                     _year_close[_y] = float(_row['Close'])
-        except Exception:
-            pass
+        except Exception as _e:
+            log.debug(f"[pdf_writer:_state_to_data] exception skipped: {_e}")
 
         def _label_to_year(lbl):
             """Extrait l'annee d'un label comme '2023', '2024A', '2025 LTM', '2026F'."""
