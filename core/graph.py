@@ -456,8 +456,10 @@ def output_node(state: FinSightState) -> dict:
     t0 = time.time()
     excel_path = pptx_path = pdf_path = None
     excel_bytes = pptx_bytes = pdf_bytes = None
+    pptx_error = None
+    pdf_error = None
 
-    # Comparables
+    # Comparables (bloquant car Excel en a besoin — 1-2s yfinance)
     comparables = None
     try:
         from data.sources.comparables_source import collect_comparables
@@ -469,51 +471,71 @@ def output_node(state: FinSightState) -> dict:
     except Exception as e:
         log.warning(f"[output_node] comparables: {e}")
 
-    try:
-        import tempfile
-        from outputs.excel_writer import ExcelWriter
-        with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp:
-            tmp_path = Path(tmp.name)
-        ExcelWriter().write(snapshot, synthesis, ratios,
-                            comparables=comparables, output_path=tmp_path)
-        excel_bytes = tmp_path.read_bytes()
-        tmp_path.unlink(missing_ok=True)
-        excel_path = f"{snapshot.ticker}_{date.today().isoformat()}.xlsx"
-        log.info(f"[output_node] Excel OK — {len(excel_bytes)} bytes")
-    except Exception as e:
-        log.error(f"[output_node] ExcelWriter FAILED: {e}", exc_info=True)
+    # Parallélisation #194 : Excel + PPTX + PDF sont indépendants.
+    # Avant : série 2s + 33s + 44s = 81s. Après : max(44) = 44s. Gain ~37s.
+    import tempfile
 
-    pptx_error = None
-    try:
-        import tempfile
-        from outputs.pptx_writer import PPTXWriter
-        with tempfile.NamedTemporaryFile(suffix=".pptx", delete=False) as tmp:
-            tmp_path = Path(tmp.name)
-        PPTXWriter().generate(state, str(tmp_path))
-        pptx_bytes = tmp_path.read_bytes()
-        tmp_path.unlink(missing_ok=True)
-        pptx_path = f"{snapshot.ticker}_{date.today().isoformat()}_pitchbook.pptx"
-        log.info(f"[output_node] PPTX OK — {len(pptx_bytes)} bytes")
-    except Exception as e:
-        import traceback as _tb2
-        pptx_error = f"{type(e).__name__}: {e}\n{_tb2.format_exc()}"
-        log.error(f"[output_node] PPTXWriter FAILED: {e}", exc_info=True)
+    def _gen_excel():
+        try:
+            from outputs.excel_writer import ExcelWriter
+            with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp:
+                tmp_path = Path(tmp.name)
+            ExcelWriter().write(snapshot, synthesis, ratios,
+                                comparables=comparables, output_path=tmp_path)
+            data = tmp_path.read_bytes()
+            tmp_path.unlink(missing_ok=True)
+            log.info(f"[output_node] Excel OK — {len(data)} bytes")
+            return (data, None)
+        except Exception as e:
+            log.error(f"[output_node] ExcelWriter FAILED: {e}", exc_info=True)
+            return (None, f"{type(e).__name__}: {e}")
 
-    pdf_error = None
-    try:
-        import tempfile
-        from outputs.pdf_writer import PDFWriter
-        with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
-            tmp_path = Path(tmp.name)
-        PDFWriter().generate(state, str(tmp_path))
-        pdf_bytes = tmp_path.read_bytes()
-        tmp_path.unlink(missing_ok=True)
-        pdf_path = f"{snapshot.ticker}_{date.today().isoformat()}_report.pdf"
-        log.info(f"[output_node] PDF OK — {len(pdf_bytes)} bytes")
-    except Exception as e:
-        import traceback as _tb
-        pdf_error = f"{type(e).__name__}: {e}\n{_tb.format_exc()}"
-        log.error(f"[output_node] PDFWriter FAILED: {e}", exc_info=True)
+    def _gen_pptx():
+        try:
+            from outputs.pptx_writer import PPTXWriter
+            with tempfile.NamedTemporaryFile(suffix=".pptx", delete=False) as tmp:
+                tmp_path = Path(tmp.name)
+            PPTXWriter().generate(state, str(tmp_path))
+            data = tmp_path.read_bytes()
+            tmp_path.unlink(missing_ok=True)
+            log.info(f"[output_node] PPTX OK — {len(data)} bytes")
+            return (data, None)
+        except Exception as e:
+            import traceback as _tb2
+            log.error(f"[output_node] PPTXWriter FAILED: {e}", exc_info=True)
+            return (None, f"{type(e).__name__}: {e}\n{_tb2.format_exc()}")
+
+    def _gen_pdf():
+        try:
+            from outputs.pdf_writer import PDFWriter
+            with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
+                tmp_path = Path(tmp.name)
+            PDFWriter().generate(state, str(tmp_path))
+            data = tmp_path.read_bytes()
+            tmp_path.unlink(missing_ok=True)
+            log.info(f"[output_node] PDF OK — {len(data)} bytes")
+            return (data, None)
+        except Exception as e:
+            import traceback as _tb
+            log.error(f"[output_node] PDFWriter FAILED: {e}", exc_info=True)
+            return (None, f"{type(e).__name__}: {e}\n{_tb.format_exc()}")
+
+    with ThreadPoolExecutor(max_workers=3) as executor:
+        f_excel = executor.submit(_gen_excel)
+        f_pptx  = executor.submit(_gen_pptx)
+        f_pdf   = executor.submit(_gen_pdf)
+        excel_bytes, _excel_err = f_excel.result()
+        pptx_bytes,  pptx_error = f_pptx.result()
+        pdf_bytes,   pdf_error  = f_pdf.result()
+
+    # Paths logiques (pas physiques — les bytes sont dans state)
+    today_iso = date.today().isoformat()
+    if excel_bytes is not None:
+        excel_path = f"{snapshot.ticker}_{today_iso}.xlsx"
+    if pptx_bytes is not None:
+        pptx_path = f"{snapshot.ticker}_{today_iso}_pitchbook.pptx"
+    if pdf_bytes is not None:
+        pdf_path = f"{snapshot.ticker}_{today_iso}_report.pdf"
 
     ms = int((time.time() - t0) * 1000)
     log.info(f"[output_node] Excel={bool(excel_path)} PPTX={bool(pptx_path)} PDF={bool(pdf_path)} — {ms}ms")
@@ -588,12 +610,28 @@ def route_after_synthesis(state: FinSightState) -> str:
 
 
 def route_after_qa(state: FinSightState) -> str:
-    """Apres QA : si echec + retries < 1 → retry synthesis, sinon entry_zone."""
-    if not state.get("qa_passed", True):
-        retries = state.get("qa_retries") or 0
-        if retries < 1:
-            log.warning("[route_after_qa] QA echec — retry synthesis (1/1)")
-            return "synthesis_retry"
+    """Apres QA : route directement vers entry_zone (retry désactivé #194).
+
+    Historique : le retry synthesis était déclenché si QAPython trouvait un
+    flag ERROR. En pratique, le 2e call synthesis produit EXACTEMENT la même
+    sortie (mêmes inputs snapshot/ratios/sentiment → même recommendation,
+    même conviction, même target), donc le retry coûte ~20s pour zéro gain.
+
+    Le retry reste bloqué derrière un seuil confidence très bas (<20%),
+    cas pathologique où la synthèse est probablement corrompue. Sur les cas
+    courants (mega-caps avec 6 flags QA récurrents), on skip le retry.
+    """
+    synthesis = state.get("synthesis")
+    if synthesis is not None:
+        conf = getattr(synthesis, "confidence_score", None) or 0
+        if conf < 0.20:
+            retries = state.get("qa_retries") or 0
+            if retries < 1:
+                log.warning(
+                    f"[route_after_qa] confidence={conf:.0%} anormalement bas "
+                    f"— retry synthesis (1/1)"
+                )
+                return "synthesis_retry"
     return "entry_zone_node"
 
 
