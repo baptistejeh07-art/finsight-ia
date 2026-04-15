@@ -256,16 +256,20 @@ def _render_llm_structured(elems, text, section_map=None, body_style=None,
             _parsed.append((None, _p_flat))
 
     # Injection du titre par defaut sur le 1er paragraphe si absent.
-    # Bug MSFT P18 : l'injection creait un doublon avec le 2e paragraph quand
+    # Bug MSFT P18 : l'injection creait un doublon avec le 2e paragraphe quand
     # le LLM produit une phrase d'intro ("Microsoft (MSFT) - Analyse...") suivie
-    # du "1. THESE :" — l'injection donne le meme key que le 2e. On skip si
-    # le 2e paragraph a deja un titre qui correspond au premier key.
+    # du "1. Synthese de la these d'investissement : ..." (expansion du LLM).
+    # Le 2e paragraphe est extrait en RAW titre 'Synthese de la these...' qui
+    # correspond au DISPLAY du first_key 'THESE' mappe. On compare donc les
+    # DISPLAY titles (apres lookup dans section_map).
     if (section_map and len(_parsed) >= 2
             and _parsed[0][0] is None and _parsed[1][0] is not None):
         _first_key = next(iter(section_map.keys()))
-        _second_title_upper = str(_parsed[1][0]).upper().strip()
-        # Compare au first_key ET aux variantes (avec/sans accents)
-        if _second_title_upper != _first_key.upper().strip():
+        _first_display = str(section_map.get(_first_key, _first_key)).lower().strip()
+        _second_raw = str(_parsed[1][0]).lower().strip()
+        # Compare display titles (apres lookup). Si le 2e paragraph a deja
+        # un titre equivalent au premier key mappe, skip l'injection.
+        if _second_raw != _first_display and _first_key.lower() != _second_raw:
             _parsed[0] = (_first_key, _parsed[0][1])
 
     # Render
