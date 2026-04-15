@@ -2257,11 +2257,20 @@ def _build_valorisation(scatter_buf, donut_buf, tickers_data: list[dict],
     # rate-limit). Mutation in-place de tickers_data. SEC-PDF-P11.
     _enrich_valuation_fallback(tickers_data)
 
-    meds = [float(t['ev_ebitda']) for t in tickers_data if t.get('ev_ebitda')]
+    # Bug 2026-04-15 : pour le profil BANK/INSURANCE, le ratio pertinent est
+    # P/B (price-to-book) et non EV/EBITDA. On detecte le profile pour
+    # adapter le texte intro et le chart.
+    _val_profile = _detect_sector_profile(tickers_data, sector_name)
+    _is_fin = _val_profile in ("BANK", "INSURANCE")
+    _val_metric_label = "P/B" if _is_fin else "EV/EBITDA"
+    _val_metric_field = "pb_ratio" if _is_fin else "ev_ebitda"
+
+    meds = [float(t[_val_metric_field]) for t in tickers_data if t.get(_val_metric_field)]
     med_ev = np.median(meds) if meds else 0
+    _med_str = f"{med_ev:.2f}x" if _is_fin else f"{med_ev:.1f}x"
     elems.append(Paragraph(
         f"L'analyse de valorisation du secteur <b>{sector_name}</b> révèle une médiane "
-        f"EV/EBITDA de <b>{med_ev:.1f}x</b>. La dispersion des multiples entre acteurs "
+        f"{_val_metric_label} de <b>{_med_str}</b>. La dispersion des multiples entre acteurs "
         f"reflète des differences structurelles de croissance et de qualité de bilan. "
         f"Les acteurs avec les scores FinSight les plus élevés tendent a traiter avec "
         f"une prime justifiée par leur positionnément concurrentiel et leurs perspectives "
@@ -2273,12 +2282,12 @@ def _build_valorisation(scatter_buf, donut_buf, tickers_data: list[dict],
     scatter_img = Image(scatter_buf, width=TABLE_W, height=93*mm)
     elems.append(scatter_img)
     elems.append(src(
-        f"FinSight IA \u2014 EV/EBITDA LTM vs croissance revenus YoY. yfinance, FMP."))
+        f"FinSight IA \u2014 {_val_metric_label} LTM vs croissance revenus YoY. yfinance, FMP."))
     elems.append(Spacer(1, 3*mm))
     scatter_text = (
-        "Le graphique classe les acteurs par EV/EBITDA croissant. "
+        f"Le graphique classe les acteurs par {_val_metric_label} croissant. "
         "<b>Barres vertes</b> : multiple sous la médiane sectorielle"
-        f" ({med_ev:.1f}x) \u2014 potentiel opportunité d\u2019entree a analyser. "
+        f" ({_med_str}) \u2014 potentiel opportunité d\u2019entree a analyser. "
         "<b>Barres rouges</b> : prime vs médiane \u2014 valorisation élevée, "
         "ne pas confondre décote relative et opportunité absolue : croiser toujours "
         "avec les fondamentaux (marge EBITDA, croissance, qualité bilan)."
