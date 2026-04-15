@@ -2368,92 +2368,16 @@ class CmpSocietePDFWriter:
         return output_path
 
     def generate_bytes(self, state_a: dict, state_b: dict) -> io.BytesIO:
-        from outputs.cmp_societe_xlsx_writer import extract_metrics, _fetch_supplements
-
-        def _get_ticker(state, default="A"):
-            snap = state.get("raw_data") or state.get("snapshot")
-            if snap is not None and not isinstance(snap, (str, dict)):
-                try:
-                    return snap.ticker or default
-                except Exception as _e:
-                    log.debug(f"[cmp_societe_pdf_writer:_get_ticker] exception skipped: {_e}")
-            if isinstance(snap, dict):
-                t = snap.get("ticker") or snap.get("company_info", {}).get("ticker")
-                if t:
-                    return t
-            return state.get("ticker", default)
-
-        tkr_a = _get_ticker(state_a, "A")
-        tkr_b = _get_ticker(state_b, "B")
-
-        log.info(f"[cmp_pdf] génération {tkr_a} vs {tkr_b}")
-
-        # ── OPTIM #167 : reuse cache Streamlit si dispo ──────────────────
-        # app.py peut précalculer supp_a/supp_b/m_a/m_b/synthesis une seule fois
-        # et les stocker dans st.session_state["_cmp_cache"]. Le writer PDF les
-        # réutilise pour éviter des appels yfinance + LLM redondants (~60s).
-        _cached = None
-        try:
-            import streamlit as _st
-            _cached = _st.session_state.get("_cmp_cache")
-            # Invalide le cache si les tickers ne correspondent pas
-            if _cached:
-                _cma = _cached.get("m_a", {}).get("ticker_a") or ""
-                _cmb = _cached.get("m_b", {}).get("ticker_b") or ""
-                if _cma.upper() != tkr_a.upper() or _cmb.upper() != tkr_b.upper():
-                    _cached = None
-        except Exception:
-            _cached = None
-
-        if _cached:
-            log.info("[cmp_pdf] cache hit — reuse supp/m/synthesis")
-            supp_a   = _cached["supp_a"]
-            supp_b   = _cached["supp_b"]
-            m_a      = _cached["m_a"]
-            m_b      = _cached["m_b"]
-            synthesis = _cached["synthesis"]
-        else:
-            supp_a = _fetch_supplements(tkr_a)
-            supp_b = _fetch_supplements(tkr_b)
-            m_a = extract_metrics(state_a, supp_a)
-            m_b = extract_metrics(state_b, supp_b)
-
-            # Winner
-            fs_a = float(m_a.get("finsight_score") or 0)
-            fs_b = float(m_b.get("finsight_score") or 0)
-            winner = tkr_a if fs_a >= fs_b else tkr_b
-            m_a["winner"] = m_b["winner"] = winner
-
-            # Synthèse LLM
-            from outputs.cmp_societe_pptx_writer import _generate_synthesis
-            log.info("[cmp_pdf] synthèse LLM...")
-            synthesis = _generate_synthesis(m_a, m_b)
-
-        import re as _re_md
-
-        # Pre-strip markdown asterisks de tous les textes LLM
-        def _strip_md(s):
-            if not s: return s
-            s = _re_md.sub(r'\*\*(.+?)\*\*', r'\1', str(s), flags=_re_md.DOTALL)
-            s = _re_md.sub(r'\*(.+?)\*', r'\1', s, flags=_re_md.DOTALL)
-            s = _re_md.sub(r'\*+', '', s)
-            return s
-        synthesis = {k: _strip_md(v) if isinstance(v, str) else v
-                     for k, v in synthesis.items()}
-
-        # ── Override winner par le choix LLM (refonte C3 #173-177) ───────
-        # Le LLM est le décideur final. Le choix FinSight devient une
-        # indication secondaire. Si le LLM est "NEUTRAL", pas de winner.
-        _llm_choice = synthesis.get("llm_choice") if isinstance(synthesis, dict) else None
-        if _llm_choice in (tkr_a.upper(), tkr_b.upper()):
-            m_a["winner"] = m_b["winner"] = _llm_choice
-            m_a["winner_source"] = m_b["winner_source"] = "llm"
-        elif _llm_choice == "NEUTRAL":
-            m_a["winner"] = m_b["winner"] = None
-            m_a["winner_source"] = m_b["winner_source"] = "llm_neutral"
-        else:
-            # LLM n'a pas parsé de choix clair : fallback finsight_score
-            m_a["winner_source"] = m_b["winner_source"] = "finsight_fallback"
+        # Build context (dedupe refactor #191 — flow partagé avec xlsx/pptx)
+        from outputs.cmp_societe_common import build_cmp_context
+        ctx = build_cmp_context(state_a, state_b)
+        tkr_a     = ctx.tkr_a
+        tkr_b     = ctx.tkr_b
+        supp_a    = ctx.supp_a
+        supp_b    = ctx.supp_b
+        m_a       = ctx.m_a
+        m_b       = ctx.m_b
+        synthesis = ctx.synthesis
 
         # Metadonnees
         name_a  = m_a.get("company_name_a") or tkr_a

@@ -2933,75 +2933,22 @@ class CmpSocietePPTXWriter:
         from pptx import Presentation
         from pptx.util import Cm
 
-        # 1. Extraire les metriques
-        from outputs.cmp_societe_xlsx_writer import extract_metrics, _fetch_supplements
+        # 1. Build context (dedupe refactor #191 — flow partagé avec xlsx/pdf)
+        from outputs.cmp_societe_common import build_cmp_context
+        ctx = build_cmp_context(state_a, state_b)
+        tkr_a     = ctx.tkr_a
+        tkr_b     = ctx.tkr_b
+        supp_a    = ctx.supp_a
+        supp_b    = ctx.supp_b
+        m_a       = ctx.m_a
+        m_b       = ctx.m_b
+        synthesis = ctx.synthesis
 
-        def _get_tkr(state, default="A"):
-            snap = state.get("raw_data") or state.get("snapshot")
-            if snap is not None and not isinstance(snap, (str, dict)):
-                try:
-                    return snap.ticker or default
-                except Exception as _e:
-                    log.debug(f"[cmp_societe_pptx_writer:_get_tkr] exception skipped: {_e}")
-            if isinstance(snap, dict):
-                t = snap.get("ticker") or snap.get("company_info", {}).get("ticker")
-                if t:
-                    return t
-            return state.get("ticker", default)
-
-        tkr_a = _get_tkr(state_a, "A")
-        tkr_b = _get_tkr(state_b, "B")
-
-        log.info(f"[cmp_pptx] génération {tkr_a} vs {tkr_b}")
-
-        # ── OPTIM #167 : reuse cache Streamlit si dispo ──────────────────
-        _cached = None
-        try:
-            import streamlit as _st
-            _cached = _st.session_state.get("_cmp_cache")
-            if _cached:
-                _cma = _cached.get("m_a", {}).get("ticker_a") or ""
-                _cmb = _cached.get("m_b", {}).get("ticker_b") or ""
-                if _cma.upper() != tkr_a.upper() or _cmb.upper() != tkr_b.upper():
-                    _cached = None
-        except Exception:
-            _cached = None
-
-        if _cached:
-            log.info("[cmp_pptx] cache hit — reuse supp/m/synthesis")
-            supp_a    = _cached["supp_a"]
-            supp_b    = _cached["supp_b"]
-            m_a       = _cached["m_a"]
-            m_b       = _cached["m_b"]
-            synthesis = _cached["synthesis"]
+        # Sync verdict_relative (encore lu par certains templates PPTX)
+        if ctx.winner:
+            m_a["verdict_relative"] = m_b["verdict_relative"] = f"{ctx.winner} privilege"
         else:
-            supp_a = _fetch_supplements(tkr_a)
-            supp_b = _fetch_supplements(tkr_b)
-            m_a = extract_metrics(state_a, supp_a)
-            m_b = extract_metrics(state_b, supp_b)
-
-            # Garantir que les tickers corrects sont dans m_a/m_b pour la synthèse LLM
-            m_a["ticker_a"] = tkr_a
-            m_b["ticker_b"] = tkr_b
-            m_a["company_name_a"] = m_a.get("company_name_a") or tkr_a
-            m_b["company_name_b"] = m_b.get("company_name_b") or tkr_b
-
-            # Winner
-            fs_a = m_a.get("finsight_score") or 0
-            fs_b = m_b.get("finsight_score") or 0
-            if fs_a != fs_b:
-                winner = tkr_a if fs_a > fs_b else tkr_b
-            else:
-                pio_a = m_a.get("piotroski_score") or 0
-                pio_b = m_b.get("piotroski_score") or 0
-                winner = tkr_a if pio_a >= pio_b else tkr_b
-            verdict_str = f"{winner} privilege"
-            m_a["winner"] = m_b["winner"] = winner
-            m_a["verdict_relative"] = m_b["verdict_relative"] = verdict_str
-
-            # 2. Générer la synthèse LLM
-            log.info("[cmp_pptx] génération synthèse LLM...")
-            synthesis = _generate_synthesis(m_a, m_b)
+            m_a["verdict_relative"] = m_b["verdict_relative"] = "Equivalent"
 
         # 3. Créer la présentation
         prs = Presentation()

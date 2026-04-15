@@ -923,47 +923,31 @@ class CmpSocieteXlsxWriter:
                 "Vérifier OneDrive ou copier dans le répertoire projet."
             )
 
-        # 2. Fetch suppléments yfinance pour les deux tickers
-        def _get_tkr(state, default=""):
-            snap = state.get("raw_data") or state.get("snapshot")
-            if snap is not None and not isinstance(snap, (str, dict)):
-                try:
-                    return snap.ticker or default
-                except Exception as _e:
-                    log.debug(f"[cmp_societe_xlsx_writer:_get_tkr] exception skipped: {_e}")
-            if isinstance(snap, dict):
-                t = snap.get("ticker") or snap.get("company_info", {}).get("ticker")
-                if t:
-                    return t
-            return state.get("ticker", default)
-        tkr_a = _get_tkr(state_a)
-        tkr_b = _get_tkr(state_b)
-        log.info(f"[CmpSocieteXlsxWriter] fetch supplements {tkr_a} / {tkr_b}")
-        supp_a = _fetch_supplements(tkr_a)
-        supp_b = _fetch_supplements(tkr_b)
+        # 2. Build context (dedupe refactor #191 — flow partagé avec pptx/pdf)
+        #    with_synthesis=False : XLSX n'a pas besoin du verdict LLM, et on
+        #    évite l'appel LLM si ce writer tourne seul. Si le cache session_state
+        #    est déjà chaud (PPTX/PDF ont tourné avant), on bénéficie du winner LLM.
+        from outputs.cmp_societe_common import build_cmp_context
+        ctx = build_cmp_context(state_a, state_b, with_synthesis=False)
+        tkr_a  = ctx.tkr_a
+        tkr_b  = ctx.tkr_b
+        supp_a = ctx.supp_a
+        supp_b = ctx.supp_b
+        m_a    = ctx.m_a
+        m_b    = ctx.m_b
+        log.info(f"[CmpSocieteXlsxWriter] context {tkr_a} / {tkr_b} (winner={ctx.winner})")
 
-        # 3. Extraire métriques
-        m_a = extract_metrics(state_a, supp_a)
-        m_b = extract_metrics(state_b, supp_b)
-
-        # 4. Calculer verdict_relative + winner (déterministe)
-        fs_a = m_a.get("finsight_score") or 0
-        fs_b = m_b.get("finsight_score") or 0
-        name_a = tkr_a or m_a.get("company_name_a") or tkr_a
-        name_b = tkr_b or m_b.get("company_name_b") or tkr_b
-        if fs_a > fs_b:
+        # 3. Verdict_relative spécifique XLSX (utilise les NOMS affichables)
+        name_a = ctx.name_a or tkr_a
+        name_b = ctx.name_b or tkr_b
+        if ctx.winner == tkr_a:
             verdict = f"{name_a} privilegie"
-            winner  = name_a
-        elif fs_b > fs_a:
+        elif ctx.winner == tkr_b:
             verdict = f"{name_b} privilegie"
-            winner  = name_b
         else:
             verdict = "Équivalent"
-            winner  = "Équivalent"
         m_a["verdict_relative"] = verdict
-        m_a["winner"]           = winner
         m_b["verdict_relative"] = verdict
-        m_b["winner"]           = winner
 
         # 5. Charger template
         wb = openpyxl.load_workbook(str(template_path))

@@ -129,6 +129,7 @@ def build_cmp_context(
     state_a: dict,
     state_b: dict,
     force_regenerate_llm: bool = False,
+    with_synthesis: bool = True,
 ) -> CmpSocieteContext:
     """Build le contexte complet comparatif société à partir des 2 states pipeline.
 
@@ -136,7 +137,7 @@ def build_cmp_context(
     1. Extract tickers depuis state_a / state_b
     2. Tente de lire le cache session_state ["_cmp_cache"] (optim #167 refactor perf)
     3. Si cache hit et tickers match : réutilise supp/m/synthesis direct
-    4. Sinon : fetch + extract + winner compute + synthesis LLM
+    4. Sinon : fetch + extract + winner compute + synthesis LLM (si with_synthesis)
     5. Résout le winner final (priorité llm_choice, fallback finsight)
     6. Strip markdown sur toutes les strings de synthesis
     7. Retourne CmpSocieteContext
@@ -146,6 +147,10 @@ def build_cmp_context(
         state_b : state pipeline de la société B
         force_regenerate_llm : si True, ignore le cache et regénère la synthèse LLM
                                 (utilisé par ex: tests, debug)
+        with_synthesis : si False, ne génère pas la synthèse LLM (pour les writers
+                         qui n'en ont pas besoin comme XLSX). Le cache session_state
+                         est toujours lu si dispo — utile quand XLSX tourne après
+                         PPTX/PDF qui l'ont déjà peuplé.
 
     Returns:
         CmpSocieteContext prêt à être consommé par les writers.
@@ -203,9 +208,13 @@ def build_cmp_context(
         m_a["winner"] = m_b["winner"] = _fs_winner
 
         # ── Step 4 : synthesis LLM (refonte #175 — LLM libre) ────────────
-        from outputs.cmp_societe_pptx_writer import _generate_synthesis
-        log.info("[cmp_common] generate synthesis LLM...")
-        synthesis = _generate_synthesis(m_a, m_b)
+        if with_synthesis:
+            from outputs.cmp_societe_pptx_writer import _generate_synthesis
+            log.info("[cmp_common] generate synthesis LLM...")
+            synthesis = _generate_synthesis(m_a, m_b)
+        else:
+            log.info("[cmp_common] skip synthesis LLM (with_synthesis=False)")
+            synthesis = {}
 
     # ── Step 5 : strip markdown ──────────────────────────────────────────
     synthesis = _strip_md_dict(synthesis) if synthesis else {}
