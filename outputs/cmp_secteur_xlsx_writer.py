@@ -3,24 +3,33 @@ cmp_secteur_xlsx_writer.py — FinSight IA
 Writer XLSX comparatif sectoriel (secteur A vs secteur B).
 
 Charge le template assets/CMP_SECTEUR_TEMPLATE.xlsx (designe par Baptiste,
-6 feuilles : SYNTHÈSE, AGRÉGATS, TOP_TECH, TOP_HC, DATA_TECH, DATA_HC) puis
-injecte uniquement DATA_TECH et DATA_HC. Toutes les autres feuilles sont
-formule-driven (MEDIAN/INDEX/LARGE/AVERAGE...) et se mettent a jour
-automatiquement a l'ouverture du fichier dans Excel.
+6 feuilles : SYNTHÈSE, AGRÉGATS, TOP_TECH, TOP_HC, DATA_TECH, DATA_HC) puis :
+1. Remplit DATA_TECH avec les tickers du secteur A
+2. Remplit DATA_HC avec les tickers du secteur B
+3. Remplace les labels hardcodés "TECHNOLOGIE"/"HEALTHCARE"/"Tech"/"HC"
+   par les noms de secteurs réels dans toutes les feuilles formule-driven
+4. Étend les ranges de formules DATA_HC!$A$4:$A$9 → DATA_HC!$A$4:$A$200
+   pour que le template supporte n'importe quel nombre de tickers (pas
+   juste les 6 de l'exemple Baptiste)
+5. Met à jour le titre "COMPARATIF SECTORIEL — {A} vs {B}" et les
+   compteurs "— N valeurs"
 
-Layout attendu par le template :
+Toutes les autres feuilles (SYNTHÈSE, AGRÉGATS, TOP_TECH, TOP_HC) sont
+formule-driven (MEDIAN/INDEX/LARGE/AVERAGE/RANK.EQ/QUARTILE...) et se
+mettent à jour automatiquement à l'ouverture dans Excel (Ctrl+Alt+F9 si
+besoin).
 
-  DATA_TECH (max 88 lignes utiles)
-    A3:I3 = headers (TICKER, SOCIÉTÉ, SCORE FINSIGHT, P/E, EV/EBITDA,
-            MARGE EBITDA, ROE, CROISS. REV., RANG_UNIQUE)
-    A4..  = donnees (col I = formule RANK.EQ + COUNTIF)
-    J1    = nom du secteur 1
-
-  DATA_HC (pas de col I)
+Layout DATA_TECH / DATA_HC :
     A3:H3 = headers (TICKER, SOCIÉTÉ, SCORE FINSIGHT, P/E, EV/EBITDA,
             MARGE EBITDA, ROE, CROISS. REV.)
-    A4..  = donnees
-    I1    = nom du secteur 2
+    DATA_TECH I3 = RANG_UNIQUE (col supplémentaire pour formule rank)
+    A4..  = données ticker par ligne
+    C1    = titre "DATA TECH/HC — Données brutes"
+    J1/I1 = nom du secteur (référence croisée, voir note ci-dessous)
+
+Note sur les sheet names : DATA_TECH et DATA_HC sont des noms FIXES, pas
+des indicateurs du contenu. Le writer met les tickers du sector_a dans
+DATA_TECH et ceux du sector_b dans DATA_HC quoi qu'il arrive.
 
 Usage :
     from outputs.cmp_secteur_xlsx_writer import generate_cmp_secteur_xlsx
@@ -33,10 +42,77 @@ from __future__ import annotations
 
 import io
 import logging
+import re
 from pathlib import Path
 from typing import Optional
 
 log = logging.getLogger(__name__)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Labels — replacement maps
+# ═══════════════════════════════════════════════════════════════════════════
+
+# Les labels hardcodés dans le template de référence Baptiste. Ils sont
+# remplacés au moment de la génération par les noms de secteurs réels.
+# La table est ordonnée : les patterns les PLUS LONGS en premier pour éviter
+# que "Tech" soit remplacé avant "Tech vs HC" (sinon on casse l'ordre).
+_LABEL_REPLACEMENTS_ORDER = [
+    # 1. Patterns composés (doivent être traités AVANT les mots seuls)
+    "Tech vs HC",
+    "TECH Médiane", "TECH Moyenne", "TECH Min", "TECH Max",
+    "HC Médiane", "HC Moyenne", "HC Min", "HC Max",
+    '"✓ Tech"', '"✓ HC"',
+    '"Prime Tech"', '"Prime HC"',
+    '"Tech"', '"HC"',
+    "Technologie (pondérée)",
+    "Healthcare (pondérée)",
+    # 2. Mots pleins
+    "TECHNOLOGIE",
+    "HEALTHCARE",
+    "Technologie",
+    "Healthcare",
+]
+
+
+def _build_replacements(sector_a: str, sector_b: str) -> dict:
+    """Construit la table de remplacement labels → labels adaptés au cas.
+    L'ordre du dict est préservé (Python 3.7+).
+
+    Utilise le nom complet du secteur partout (pas d'abréviation) pour
+    éviter les troncatures moches type 'Techn' / 'Sant'. Excel ajuste
+    automatiquement la largeur des colonnes."""
+    a_upper = sector_a.upper()
+    b_upper = sector_b.upper()
+    a_cap   = sector_a
+    b_cap   = sector_b
+
+    return {
+        # Composés (priorité haute — doivent matcher avant les mots seuls)
+        "Tech vs HC":        f"{a_cap} vs {b_cap}",
+        "TECH Médiane":      f"{a_upper} Médiane",
+        "TECH Moyenne":      f"{a_upper} Moyenne",
+        "TECH Min":          f"{a_upper} Min",
+        "TECH Max":          f"{a_upper} Max",
+        "HC Médiane":        f"{b_upper} Médiane",
+        "HC Moyenne":        f"{b_upper} Moyenne",
+        "HC Min":            f"{b_upper} Min",
+        "HC Max":            f"{b_upper} Max",
+        # Formules IF(...) contenant des chaînes quotées
+        '"✓ Tech"':          f'"✓ {a_cap}"',
+        '"✓ HC"':            f'"✓ {b_cap}"',
+        '"Prime Tech"':      f'"Prime {a_cap}"',
+        '"Prime HC"':        f'"Prime {b_cap}"',
+        '"Tech"':            f'"{a_cap}"',
+        '"HC"':              f'"{b_cap}"',
+        "Technologie (pondérée)": f"{a_cap} (pondérée)",
+        "Healthcare (pondérée)":  f"{b_cap} (pondérée)",
+        # Mots pleins
+        "TECHNOLOGIE":       a_upper,
+        "HEALTHCARE":        b_upper,
+        "Technologie":       a_cap,
+        "Healthcare":        b_cap,
+    }
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -111,6 +187,57 @@ def _clear_data_sheet(ws, max_clear_row: int, max_col: int) -> None:
             cell = ws.cell(row=r, column=c)
             if cell.value is not None:
                 cell.value = None
+
+
+def _rewrite_cells(ws, replacements: dict, range_patches: list[tuple[str, str]]) -> None:
+    """Parcourt toutes les cellules d'une feuille et applique les
+    remplacements (labels + ranges de formules).
+
+    Args:
+        ws            : worksheet openpyxl
+        replacements  : dict {pattern: remplacement} appliqué aux VALEURS et aux
+                        chaînes à l'intérieur des formules
+        range_patches : liste de (old_ref, new_ref) pour étendre les ranges
+                        type [('DATA_HC!$A$4:$A$9', 'DATA_HC!$A$4:$A$200'), ...]
+    """
+    for row in ws.iter_rows():
+        for cell in row:
+            v = cell.value
+            if not isinstance(v, str):
+                continue
+            new_v = v
+
+            # 1. Range patches (formules seulement)
+            if new_v.startswith("="):
+                for old, new in range_patches:
+                    if old in new_v:
+                        new_v = new_v.replace(old, new)
+
+            # 2. Label replacements (valeurs + chaînes dans formules)
+            for pattern in _LABEL_REPLACEMENTS_ORDER:
+                if pattern in new_v:
+                    new_v = new_v.replace(pattern, replacements[pattern])
+
+            if new_v != v:
+                cell.value = new_v
+
+
+def _build_range_patches() -> list[tuple[str, str]]:
+    """Liste des patches à appliquer aux formules pour étendre les ranges :
+    - DATA_HC!*!4:*!9 (6 rows) → !4:!200 (197 rows)
+    - DATA_TECH!*!4:*!91 (88 rows) → !4:!200 (197 rows)
+
+    Format explicite pour toutes les colonnes A-J (au cas où le template
+    en utiliserait certaines que je n'ai pas vues dans le dump)."""
+    patches = []
+    for col in "ABCDEFGHIJ":
+        # DATA_HC : cap actuel $9 → $200
+        patches.append((f"DATA_HC!${col}$4:${col}$9",   f"DATA_HC!${col}$4:${col}$200"))
+        patches.append((f"DATA_HC!{col}4:{col}9",       f"DATA_HC!{col}4:{col}200"))
+        # DATA_TECH : cap actuel $91 → $200 (pour supporter > 88 tickers)
+        patches.append((f"DATA_TECH!${col}$4:${col}$91", f"DATA_TECH!${col}$4:${col}$200"))
+        patches.append((f"DATA_TECH!{col}4:{col}91",     f"DATA_TECH!{col}4:{col}200"))
+    return patches
 
 
 def _inject_data_tech(ws, tickers: list, sector_name: str) -> None:
@@ -226,19 +353,55 @@ def generate_cmp_secteur_xlsx(
     wb = load_workbook(str(tpl_path), keep_links=False, data_only=False)
 
     # Vérification structure attendue
-    if "DATA_TECH" not in wb.sheetnames or "DATA_HC" not in wb.sheetnames:
+    _expected_sheets = {"SYNTHÈSE", "AGRÉGATS", "TOP_TECH", "TOP_HC",
+                        "DATA_TECH", "DATA_HC"}
+    _missing = _expected_sheets - set(wb.sheetnames)
+    if _missing:
         log.error(
-            "[cmp_secteur_xlsx] Template invalide (sheets manquantes) — "
-            "attendu DATA_TECH + DATA_HC, trouve %s",
-            wb.sheetnames,
+            "[cmp_secteur_xlsx] Template invalide — sheets manquantes : %s "
+            "(trouvé : %s)",
+            _missing, wb.sheetnames,
         )
         return _generate_fallback_xlsx(
             tickers_a, sector_a, tickers_b, sector_b
         )
 
-    # Injection des Données
+    # ── Step 1 : Labels dynamiques + extension ranges ──────────────────
+    # Parcours de toutes les feuilles formule-driven pour (a) remplacer
+    # "TECHNOLOGIE"/"HEALTHCARE"/... par les noms de secteurs réels et
+    # (b) étendre DATA_HC!$A$4:$A$9 → $A$4:$A$200 pour supporter > 6 tickers.
+    replacements = _build_replacements(sector_a, sector_b)
+    range_patches = _build_range_patches()
+    for sheet_name in ("SYNTHÈSE", "AGRÉGATS", "TOP_TECH", "TOP_HC",
+                       "DATA_TECH", "DATA_HC"):
+        _rewrite_cells(wb[sheet_name], replacements, range_patches)
+
+    # ── Step 2 : Titres dynamiques spécifiques ──────────────────────────
+    _ws_syn = wb["SYNTHÈSE"]
+    _ws_agg = wb["AGRÉGATS"]
+
+    # SYNTHÈSE C1 : "COMPARATIF SECTORIEL — {A} vs {B}"
+    _cur_c1 = _ws_syn["C1"].value or ""
+    if "COMPARATIF SECTORIEL" in _cur_c1:
+        _ws_syn["C1"] = f"COMPARATIF SECTORIEL — {sector_a} vs {sector_b}"
+
+    # AGRÉGATS A4 : "TECHNOLOGIE — 88 valeurs" → "{A} — {N_a} valeurs"
+    _a4 = _ws_agg["A4"].value or ""
+    if "valeurs" in str(_a4):
+        _ws_agg["A4"] = f"{sector_a.upper()} — {len(tickers_a)} valeurs"
+    # AGRÉGATS A13 : "HEALTHCARE — 6 valeurs" → "{B} — {N_b} valeurs"
+    _a13 = _ws_agg["A13"].value or ""
+    if "valeurs" in str(_a13):
+        _ws_agg["A13"] = f"{sector_b.upper()} — {len(tickers_b)} valeurs"
+
+    # ── Step 3 : Injection des données tickers ────────────────────────
     _inject_data_tech(wb["DATA_TECH"], tickers_a, sector_a)
     _inject_data_hc(wb["DATA_HC"], tickers_b, sector_b)
+
+    log.info(
+        "[cmp_secteur_xlsx] Template rempli : %s (%d tickers) vs %s (%d tickers)",
+        sector_a, len(tickers_a), sector_b, len(tickers_b),
+    )
 
     # Sauvegarde en memoire
     buf = io.BytesIO()
