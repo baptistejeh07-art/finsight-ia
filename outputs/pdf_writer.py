@@ -256,21 +256,35 @@ def _render_llm_structured(elems, text, section_map=None, body_style=None,
             _parsed.append((None, _p_flat))
 
     # Injection du titre par defaut sur le 1er paragraphe si absent.
-    # Bug MSFT P18 : l'injection creait un doublon avec le 2e paragraphe quand
-    # le LLM produit une phrase d'intro ("Microsoft (MSFT) - Analyse...") suivie
-    # du "1. Synthese de la these d'investissement : ..." (expansion du LLM).
-    # Le 2e paragraphe est extrait en RAW titre 'Synthese de la these...' qui
-    # correspond au DISPLAY du first_key 'THESE' mappe. On compare donc les
-    # DISPLAY titles (apres lookup dans section_map).
     if (section_map and len(_parsed) >= 2
             and _parsed[0][0] is None and _parsed[1][0] is not None):
         _first_key = next(iter(section_map.keys()))
         _first_display = str(section_map.get(_first_key, _first_key)).lower().strip()
         _second_raw = str(_parsed[1][0]).lower().strip()
-        # Compare display titles (apres lookup). Si le 2e paragraph a deja
-        # un titre equivalent au premier key mappe, skip l'injection.
         if _second_raw != _first_display and _first_key.lower() != _second_raw:
             _parsed[0] = (_first_key, _parsed[0][1])
+
+    # Dedupe post-parsing : si 2 paragraphes consecutifs ont le MEME titre
+    # (apres section_map lookup), on fusionne les bodies en gardant le 1er
+    # titre. Bug MSFT P18 : le LLM ecrivait 2x "Synthèse de la thèse..." une
+    # fois comme intro, une fois comme bullet "1. ...". Le helper extrayait
+    # 2 titres identiques -> doublon visuel.
+    def _resolve_display(_t: str) -> str:
+        if not section_map or _t is None:
+            return str(_t or '').lower().strip()
+        _key = str(_t).upper().strip()
+        return str(section_map.get(_key, _t)).lower().strip()
+
+    _deduped = []
+    for _t, _b in _parsed:
+        if (_deduped and _t is not None and _deduped[-1][0] is not None
+                and _resolve_display(_t) == _resolve_display(_deduped[-1][0])):
+            # Fusion : on garde le titre du 1er, on concat les bodies
+            _prev_t, _prev_b = _deduped[-1]
+            _deduped[-1] = (_prev_t, (_prev_b + " " + _b).strip())
+        else:
+            _deduped.append((_t, _b))
+    _parsed = _deduped
 
     # Render
     for _title, _body in _parsed:
