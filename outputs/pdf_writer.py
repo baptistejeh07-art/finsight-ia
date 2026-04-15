@@ -255,11 +255,18 @@ def _render_llm_structured(elems, text, section_map=None, body_style=None,
         else:
             _parsed.append((None, _p_flat))
 
-    # Injection du titre par defaut sur le 1er paragraphe si absent
+    # Injection du titre par defaut sur le 1er paragraphe si absent.
+    # Bug MSFT P18 : l'injection creait un doublon avec le 2e paragraph quand
+    # le LLM produit une phrase d'intro ("Microsoft (MSFT) - Analyse...") suivie
+    # du "1. THESE :" — l'injection donne le meme key que le 2e. On skip si
+    # le 2e paragraph a deja un titre qui correspond au premier key.
     if (section_map and len(_parsed) >= 2
             and _parsed[0][0] is None and _parsed[1][0] is not None):
         _first_key = next(iter(section_map.keys()))
-        _parsed[0] = (_first_key, _parsed[0][1])
+        _second_title_upper = str(_parsed[1][0]).upper().strip()
+        # Compare au first_key ET aux variantes (avec/sans accents)
+        if _second_title_upper != _first_key.upper().strip():
+            _parsed[0] = (_first_key, _parsed[0][1])
 
     # Render
     for _title, _body in _parsed:
