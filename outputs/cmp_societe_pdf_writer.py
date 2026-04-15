@@ -1052,7 +1052,9 @@ def _section_exec_summary(story, m_a, m_b, synthesis, tkr_a, tkr_b):
 
 
 def _section_profil_pl(story, m_a, m_b, synthesis, tkr_a, tkr_b):
-    story.append(PageBreak())
+    # #203 : CondPageBreak plutôt que PageBreak forcé pour permettre aux
+    # sections courtes (marges ~1/3 page) de laisser flow la section suivante
+    story.append(CondPageBreak(110*mm))
     story += section_title("Profil & Compte de Résultat", "2")
 
     # Texte computed Profil
@@ -1169,7 +1171,7 @@ def _section_profil_pl(story, m_a, m_b, synthesis, tkr_a, tkr_b):
 
 
 def _section_rentabilite_bilan(story, m_a, m_b, tkr_a, tkr_b):
-    story.append(PageBreak())
+    story.append(CondPageBreak(110*mm))
     story += section_title("Rentabilité & Bilan", "3")
 
     # Texte introductif rentabilité
@@ -1260,7 +1262,7 @@ def _section_rentabilite_bilan(story, m_a, m_b, tkr_a, tkr_b):
 
 
 def _section_valorisation(story, m_a, m_b, synthesis, tkr_a, tkr_b):
-    story.append(PageBreak())
+    story.append(CondPageBreak(110*mm))
     story += section_title("Valorisation", "5")
 
     if synthesis.get("valuation_text"):
@@ -1347,7 +1349,7 @@ def _section_valorisation(story, m_a, m_b, synthesis, tkr_a, tkr_b):
 
 
 def _section_qualite_risque(story, m_a, m_b, synthesis, tkr_a, tkr_b):
-    story.append(PageBreak())
+    story.append(CondPageBreak(110*mm))
     story += section_title("Qualité & Risque", "7")
 
     if synthesis.get("quality_text"):
@@ -1548,7 +1550,7 @@ def _section_qualite_risque(story, m_a, m_b, synthesis, tkr_a, tkr_b):
 
 
 def _section_verdict(story, m_a, m_b, synthesis, tkr_a, tkr_b):
-    story.append(PageBreak())
+    story.append(CondPageBreak(110*mm))
     story += section_title("Verdict & Thèses", "11")
 
     winner = m_a.get("winner") or tkr_a
@@ -1681,7 +1683,7 @@ def _section_verdict(story, m_a, m_b, synthesis, tkr_a, tkr_b):
 
 
 def _section_fcf_capital(story, m_a, m_b, tkr_a, tkr_b):
-    story.append(PageBreak())
+    story.append(CondPageBreak(110*mm))
     story += section_title("Free Cash Flow & Capital Allocation", "4")
 
     fcf_a  = _frm(m_a.get("free_cash_flow"))
@@ -1859,7 +1861,7 @@ def _section_dcf_sensitivity(story, m_a, m_b, tkr_a, tkr_b):
 
 
 def _section_momentum_marche(story, m_a, m_b, tkr_a, tkr_b):
-    story.append(PageBreak())
+    story.append(CondPageBreak(110*mm))
     story += section_title("Momentum & Marché", "8")
 
     p1m_a  = _frpct(m_a.get("perf_1m"), True)
