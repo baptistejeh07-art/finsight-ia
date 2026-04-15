@@ -215,20 +215,17 @@ def _render_llm_structured(elems, text, section_map=None, body_style=None,
     def _extract_via_section_map(_p_for_match: str):
         """Cherche si le paragraphe commence par un key du section_map.
         Retourne (key, body) ou (None, None)."""
-        _stripped = _re_struct.sub(r'^\*{1,3}', '', _p_for_match)  # remove opening **
+        # Strip markdown opening + numerotation prefix (1. 2. etc.) + espaces
+        _stripped = _re_struct.sub(r'^\*{1,3}', '', _p_for_match)
+        _stripped = _re_struct.sub(r'^\d+\.\s*\*{0,3}', '', _stripped)
+        _stripped = _stripped.lstrip()
         _upper = _stripped.upper()
         for _k in _section_keys:
             if _upper.startswith(_k):
-                # Trouve la fin du titre : premier ':' apres le key + closing **
                 _end = len(_k)
-                # Skip optional ** closing avant le :
                 _rest = _stripped[_end:]
                 _m_sep = _re_struct.search(r'[:—\-]\s*\*{0,3}\s*', _rest)
                 if _m_sep:
-                    # Certains LLM ecrivent "TITRE : description de TITRE :\n body"
-                    # On prefere le DERNIER ':' avant un \n OU la PREMIERE occurrence
-                    # simple pour ne pas manger le body. Regle : si le body apres
-                    # le 1er ':' commence par une majuscule ET >10 chars, prendre.
                     _body_candidate = _rest[_m_sep.end():].strip().lstrip('*').lstrip('_').strip()
                     if _body_candidate and len(_body_candidate) > 10:
                         return _k, _body_candidate
