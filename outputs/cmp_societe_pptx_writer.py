@@ -2092,14 +2092,14 @@ def _slide_monte_carlo(prs, m_a: dict, m_b: dict):
         f"sous la barre Base, le titre est dans une zone d'achat theorique. A croiser avec les "
         f"hypotheses WACC/TGR (Sensibilité des flux futurs) et la crédibilité du scénario macro."
     )
+    # #205 : suppression du titre hardcodé "LECTURE MONTE CARLO & FOOTBALL
+    # FIELD" — le texte LLM occupe toute la box (Baptiste veut les textes LLM
+    # à la place des titres hardcodés dans les box LLM)
     _mc_txt_y = 2.58
     _mc_txt_h = 2.70
     add_rect(slide, 1.02, _mc_txt_y, 23.37, _mc_txt_h, NAVY_PALE)
     add_rect(slide, 1.02, _mc_txt_y, 0.13, _mc_txt_h, NAVY_MID)
-    add_text_box(slide, 1.4, _mc_txt_y + 0.12, 22.8, 0.42,
-                 "LECTURE MONTE CARLO & FOOTBALL FIELD",
-                 9, NAVY, bold=True)
-    add_text_box(slide, 1.4, _mc_txt_y + 0.58, 22.8, _mc_txt_h - 0.75,
+    add_text_box(slide, 1.4, _mc_txt_y + 0.20, 22.8, _mc_txt_h - 0.35,
                  " ".join(_mc_commentary.split()),
                  8.5, NAVY, wrap=True)
 
@@ -2334,7 +2334,8 @@ def _slide_risque(prs, m_a: dict, m_b: dict):
         _insert_chart(slide, buf, 12.85, 2.95, 11.55, 5.20)
 
     # Fourchette 52 semaines — bandeau plein largeur
-    y_rng = 8.40
+    # #206 : réhausse 8.40 → 7.60 pour aérer la slide (Baptiste)
+    y_rng = 7.60
     _rng_w = 23.37
     add_rect(slide, 1.02, y_rng, _rng_w, 0.55, NAVY)
     add_text_box(slide, 1.18, y_rng + 0.12, _rng_w - 0.3, 0.40,
@@ -2379,12 +2380,13 @@ def _slide_risque(prs, m_a: dict, m_b: dict):
         f"le dimensionnement de position : une volatilité plus élevée impose "
         f"une pondération réduite pour maintenir un budget risque équivalent."
     )
-    y_llm = 10.75
-    add_rect(slide, 1.02, y_llm, 23.37, 1.85, NAVY_PALE)
-    add_rect(slide, 1.02, y_llm, 0.13, 1.85, NAVY_MID)
-    add_text_box(slide, 1.35, y_llm + 0.10, 22.8, 0.35,
-                 "LECTURE RISQUE/MOMENTUM", 8.5, NAVY, bold=True)
-    add_text_box(slide, 1.35, y_llm + 0.48, 22.8, 1.30,
+    # #205/#206 : réhausse le bloc LLM (10.75 → 10.25) + supprime le titre
+    # "LECTURE RISQUE/MOMENTUM", donne plus de place au body
+    y_llm = 10.25
+    _llm_h = 2.35
+    add_rect(slide, 1.02, y_llm, 23.37, _llm_h, NAVY_PALE)
+    add_rect(slide, 1.02, y_llm, 0.13, _llm_h, NAVY_MID)
+    add_text_box(slide, 1.35, y_llm + 0.18, 22.8, _llm_h - 0.30,
                  " ".join(risque_txt.split()), 9, NAVY, wrap=True)
 
     return slide
@@ -2441,7 +2443,8 @@ def _slide_finsight_score(prs, m_a: dict, m_b: dict):
             _frpct(m_b.get('conviction')) + " conviction", fb, ab)
 
     # Décomposition score — plus compact
-    y_dec = 7.85
+    # #207 : réhausse 7.85 → 7.15 pour aérer la slide (Baptiste)
+    y_dec = 7.15
     add_rect(slide, 1.02, y_dec, 23.37, 0.55, NAVY)
     add_text_box(slide, 1.18, y_dec + 0.10, 23.0, 0.42,
                  "Décomposition du Score Composite (4 axes : Valeur / Croissance / Qualité / Momentum)",
@@ -2498,11 +2501,12 @@ def _slide_finsight_score(prs, m_a: dict, m_b: dict):
         f"robustesse de l'opinion sur la Thèse, a croiser avec l'exposition en portefeuille "
         f"et le catalyseur de déblocage de valeur a 12 mois."
     )
-    add_rect(slide, 1.02, y_llm, 23.37, 1.65, NAVY_PALE)
-    add_rect(slide, 1.02, y_llm, 0.13, 1.65, NAVY_MID)
-    add_text_box(slide, 1.35, y_llm + 0.10, 22.8, 0.35,
-                 "LECTURE ANALYTIQUE DU SCORE COMPOSITE", 9, NAVY, bold=True)
-    add_text_box(slide, 1.35, y_llm + 0.48, 22.8, 1.15,
+    # #205/#207 : supprime le titre "LECTURE ANALYTIQUE DU SCORE COMPOSITE"
+    # et agrandit la box LLM vers le bas (1.65 → 2.50)
+    _llm_h = 2.50
+    add_rect(slide, 1.02, y_llm, 23.37, _llm_h, NAVY_PALE)
+    add_rect(slide, 1.02, y_llm, 0.13, _llm_h, NAVY_MID)
+    add_text_box(slide, 1.35, y_llm + 0.18, 22.8, _llm_h - 0.30,
                  " ".join(score_txt.split()), 9, NAVY, wrap=True)
 
     return slide
@@ -2535,70 +2539,70 @@ def _slide_theses(prs, m_a: dict, m_b: dict, synthesis: dict):
     # Bande 52W — cours & fourchette
     cur_a = "EUR" if (m_a.get('currency_a') or 'USD') == 'EUR' else '$'
     cur_b = "EUR" if (m_b.get('currency_b') or 'USD') == 'EUR' else '$'
-    y_52 = 2.92
+    # #208 : cours réhaussé (2.92 → 2.76) + texte plus haut dans box
+    y_52 = 2.76
     add_rect(slide, 1.02, y_52, 11.44, 0.75, NAVY_PALE)
     add_rect(slide, 1.02, y_52, 0.13, 0.75, COLOR_A)
-    add_text_box(slide, 1.25, y_52 + 0.08, 10.0, 0.32,
+    add_text_box(slide, 1.25, y_52 + 0.05, 10.0, 0.32,
                  f"Cours : {_fr(m_a.get('share_price'), 1)} {cur_a}  ·  "
                  f"52W : {_fr(m_a.get('week52_low'), 1)} - {_fr(m_a.get('week52_high'), 1)} {cur_a}",
                  8, NAVY, bold=True, wrap=False)
-    add_text_box(slide, 1.25, y_52 + 0.40, 10.0, 0.32,
+    add_text_box(slide, 1.25, y_52 + 0.37, 10.0, 0.32,
                  f"Perf 1Y : {_frpct(m_a.get('perf_1y'), signed=True)}  ·  "
                  f"Div. : {_frpct(m_a.get('dividend_yield'))}",
                  8, GREY_TXT, wrap=False)
 
     add_rect(slide, 12.94, y_52, 11.44, 0.75, GREEN_PALE)
     add_rect(slide, 12.94, y_52, 0.13, 0.75, COLOR_B)
-    add_text_box(slide, 13.17, y_52 + 0.08, 10.0, 0.32,
+    add_text_box(slide, 13.17, y_52 + 0.05, 10.0, 0.32,
                  f"Cours : {_fr(m_b.get('share_price'), 1)} {cur_b}  ·  "
                  f"52W : {_fr(m_b.get('week52_low'), 1)} - {_fr(m_b.get('week52_high'), 1)} {cur_b}",
                  8, GREEN, bold=True, wrap=False)
-    add_text_box(slide, 13.17, y_52 + 0.40, 10.0, 0.32,
+    add_text_box(slide, 13.17, y_52 + 0.37, 10.0, 0.32,
                  f"Perf 1Y : {_frpct(m_b.get('perf_1y'), signed=True)}  ·  "
                  f"Div. : {_frpct(m_b.get('dividend_yield'))}",
                  8, GREY_TXT, wrap=False)
 
-    # Layout : Bull A/B en haut, Bear A/B en bas. Hauteurs fixes pour éviter overflow.
-    # Footer a 13.39cm -> dernière ligne max 13.10
-    y0 = 3.90   # debut Bull
+    # #208 : Bull/Bear réhaussés (y0 3.90 → 3.72, y1 recalculé)
+    y0 = 3.72
     bull_h = 4.05
-    y1 = y0 + bull_h + 0.30  # debut Bear
-    bear_h = 4.05            # y1 + 0.55 + 3.75 = y1 + 4.30
+    y1 = y0 + bull_h + 0.30
+    bear_h = 4.05
 
     # --- Bull A ---
     add_rect(slide, 1.02, y0, 11.44, 0.55, GREEN_PALE)
     add_rect(slide, 1.02, y0, 0.18, 0.55, GREEN)
-    add_text_box(slide, 1.35, y0 + 0.10, 11.0, 0.38, f"\u25b2 BULL THESIS — {tkr_a}",
+    add_text_box(slide, 1.35, y0 + 0.05, 11.0, 0.38, f"\u25b2 BULL THESIS — {tkr_a}",
                  9, GREEN, bold=True)
     add_rect(slide, 1.02, y0 + 0.60, 11.44, bull_h - 0.60, GREY_BG)
-    add_text_box(slide, 1.18, y0 + 0.70, 11.12, bull_h - 0.75,
+    add_text_box(slide, 1.18, y0 + 0.65, 11.12, bull_h - 0.70,
                  _fit(bull_a, 380), 9, BLACK, wrap=True)
 
     # --- Bull B ---
     add_rect(slide, 12.94, y0, 11.44, 0.55, GREEN_PALE)
     add_rect(slide, 12.94, y0, 0.18, 0.55, GREEN)
-    add_text_box(slide, 13.27, y0 + 0.10, 11.0, 0.38, f"\u25b2 BULL THESIS — {tkr_b}",
+    add_text_box(slide, 13.27, y0 + 0.05, 11.0, 0.38, f"\u25b2 BULL THESIS — {tkr_b}",
                  9, GREEN, bold=True)
     add_rect(slide, 12.94, y0 + 0.60, 11.44, bull_h - 0.60, GREY_BG)
-    add_text_box(slide, 13.10, y0 + 0.70, 11.12, bull_h - 0.75,
+    add_text_box(slide, 13.10, y0 + 0.65, 11.12, bull_h - 0.70,
                  _fit(bull_b, 380), 9, BLACK, wrap=True)
 
     # --- Bear A ---
     add_rect(slide, 1.02, y1, 11.44, 0.55, RED_PALE)
     add_rect(slide, 1.02, y1, 0.18, 0.55, RED)
-    add_text_box(slide, 1.35, y1 + 0.10, 11.0, 0.38, f"\u25bc BEAR THESIS — {tkr_a}",
+    add_text_box(slide, 1.35, y1 + 0.05, 11.0, 0.38, f"\u25bc BEAR THESIS — {tkr_a}",
                  9, RED, bold=True)
     add_rect(slide, 1.02, y1 + 0.60, 11.44, bear_h - 0.60, GREY_BG)
-    add_text_box(slide, 1.18, y1 + 0.70, 11.12, bear_h - 0.75,
+    add_text_box(slide, 1.18, y1 + 0.65, 11.12, bear_h - 0.70,
                  _fit(bear_a, 380), 9, BLACK, wrap=True)
 
     # --- Bear B ---
     add_rect(slide, 12.94, y1, 11.44, 0.55, RED_PALE)
     add_rect(slide, 12.94, y1, 0.18, 0.55, RED)
-    add_text_box(slide, 13.27, y1 + 0.10, 11.0, 0.38, f"\u25bc BEAR THESIS — {tkr_b}",
+    add_text_box(slide, 13.27, y1 + 0.05, 11.0, 0.38, f"\u25bc BEAR THESIS — {tkr_b}",
                  9, RED, bold=True)
     add_rect(slide, 12.94, y1 + 0.60, 11.44, bear_h - 0.60, GREY_BG)
-    add_text_box(slide, 13.10, y1 + 0.70, 11.12, bear_h - 0.75,
+    add_text_box(slide, 13.10, y1 + 0.65, 11.12, bear_h - 0.70,
                  _fit(bear_b, 380), 9, BLACK, wrap=True)
 
     return slide
@@ -2804,26 +2808,27 @@ def _slide_verdict(prs, m_a: dict, m_b: dict, synthesis: dict):
 
     add_rect(slide, x_l, y_l, w_l, h_l, _conv_fill)
     add_rect(slide, x_l, y_l, 0.20, h_l, _conv_line)
-    add_text_box(slide, x_l + 0.30, y_l + 0.20, w_l - 0.5, 1.30,
+    # #209 : réhausse texts BUY/HOLD/SELL, Conviction, date dans leur box
+    add_text_box(slide, x_l + 0.30, y_l + 0.10, w_l - 0.5, 1.30,
                  str(rec_w).upper(), 42, _conv_line, bold=True, align=PP_ALIGN.CENTER)
-    add_text_box(slide, x_l + 0.30, y_l + 1.55, w_l - 0.5, 0.50,
+    add_text_box(slide, x_l + 0.30, y_l + 1.45, w_l - 0.5, 0.50,
                  f"Conviction : {conv_w:.0f}%", 13, NAVY, align=PP_ALIGN.CENTER)
-    add_text_box(slide, x_l + 0.30, y_l + 2.10, w_l - 0.5, 0.40,
+    add_text_box(slide, x_l + 0.30, y_l + 2.00, w_l - 0.5, 0.40,
                  gen_date, 9, GREY_TXT, align=PP_ALIGN.CENTER)
 
     # Barre de conviction (progress bar) — remontée dans le cadre
-    add_text_box(slide, x_l + 0.40, y_l + 2.65, w_l - 0.7, 0.30,
+    add_text_box(slide, x_l + 0.40, y_l + 2.55, w_l - 0.7, 0.30,
                  "NIVEAU DE CONVICTION", 7, GREY_TXT, bold=True, align=PP_ALIGN.CENTER)
-    _bar_y = y_l + 2.97
+    _bar_y = y_l + 2.87
     add_rect(slide, x_l + 0.40, _bar_y, w_l - 0.80, 0.28, "DDDDDD")
     _fill_w = max(0.1, (w_l - 0.80) * (conv_w / 100))
     add_rect(slide, x_l + 0.40, _bar_y, _fill_w, 0.28, _conv_line)
 
-    # Delta score
+    # Delta score — #209 : réhausse dans sa box
     _delta_str = f"Delta FinSight Score : {delta:+d} vs {tkr_b if is_a else tkr_a}"
     y_dlt = y_l + h_l + 0.25
     add_rect(slide, x_l, y_dlt, w_l, 0.55, NAVY_PALE)
-    add_text_box(slide, x_l + 0.25, y_dlt + 0.12, w_l - 0.5, 0.32,
+    add_text_box(slide, x_l + 0.25, y_dlt + 0.08, w_l - 0.5, 0.32,
                  _delta_str, 9, NAVY, bold=True, align=PP_ALIGN.CENTER)
 
     # ---- DROITE : Thèse + Catalyseurs/Risques + Invalidation ----
@@ -2831,9 +2836,9 @@ def _slide_verdict(prs, m_a: dict, m_b: dict, synthesis: dict):
     w_r = 14.55
     y_r = 3.10
 
-    # Thèse d'investissement (header navy + body)
+    # Thèse d'investissement (header navy + body) — #209 : label réhaussé
     add_rect(slide, x_r, y_r, w_r, 0.55, NAVY)
-    add_text_box(slide, x_r + 0.25, y_r + 0.10, w_r - 0.5, 0.40,
+    add_text_box(slide, x_r + 0.25, y_r + 0.05, w_r - 0.5, 0.40,
                  "THÈSE D'INVESTISSEMENT", 10, WHITE, bold=True)
     verdict_txt = synthesis.get('verdict_text') or \
                   f"{winner} est privilegiee sur la base des critères de valorisation, de qualité bilancielle et de momentum."
@@ -2868,22 +2873,22 @@ def _slide_verdict(prs, m_a: dict, m_b: dict, synthesis: dict):
         add_text_box(slide, x_be + 0.20, y_cat + 0.60, w_r/2 - 0.40, _cat_h - 0.15,
                      _text_b, 8, BLACK, wrap=True)
     else:
-        # Bulls (cas winner identifié)
+        # Bulls (cas winner identifié) — #209 : labels réhaussés
         add_rect(slide, x_r, y_cat, w_r/2 - 0.10, 0.50, GREEN)
-        add_text_box(slide, x_r + 0.25, y_cat + 0.10, w_r/2 - 0.5, 0.40,
+        add_text_box(slide, x_r + 0.25, y_cat + 0.05, w_r/2 - 0.5, 0.40,
                      "CATALYSEURS BULLS", 9, WHITE, bold=True)
         bull_winner = synthesis.get('bull_a' if is_a else 'bull_b') or "Profil fondamental solide"
         add_rect(slide, x_r, y_cat + 0.50, w_r/2 - 0.10, _cat_h, GREY_BG)
-        add_text_box(slide, x_r + 0.20, y_cat + 0.60, w_r/2 - 0.40, _cat_h - 0.15,
+        add_text_box(slide, x_r + 0.20, y_cat + 0.55, w_r/2 - 0.40, _cat_h - 0.10,
                      _fit(bull_winner, 280), 8, BLACK, wrap=True)
         # Bears
         x_be = x_r + w_r/2 + 0.10
         add_rect(slide, x_be, y_cat, w_r/2 - 0.10, 0.50, RED)
-        add_text_box(slide, x_be + 0.25, y_cat + 0.10, w_r/2 - 0.5, 0.40,
+        add_text_box(slide, x_be + 0.25, y_cat + 0.05, w_r/2 - 0.5, 0.40,
                      "RISQUES BEARS", 9, WHITE, bold=True)
         bear_winner = synthesis.get('bear_a' if is_a else 'bear_b') or "Risques de marché standard"
         add_rect(slide, x_be, y_cat + 0.50, w_r/2 - 0.10, _cat_h, GREY_BG)
-        add_text_box(slide, x_be + 0.20, y_cat + 0.60, w_r/2 - 0.40, _cat_h - 0.15,
+        add_text_box(slide, x_be + 0.20, y_cat + 0.55, w_r/2 - 0.40, _cat_h - 0.10,
                      _fit(bear_winner, 280), 8, BLACK, wrap=True)
 
     # Conditions d'invalidation (warning bar)
