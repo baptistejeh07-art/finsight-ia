@@ -320,6 +320,31 @@ def main():
         expect_paragraphs=6,
     ))
 
+    # ─── CAS 21 : Premier paragraphe SANS titre, suivants AVEC ─────────
+    # Edge case observe sur AAPL : le LLM oublie parfois le titre du
+    # premier paragraphe. Le helper doit injecter le premier key du
+    # section_map par defaut.
+    results.append(run_test(
+        "21. 1er paragraphe sans titre, suivants avec (injection default)",
+        text=(
+            "Apple affiche une qualite operationnelle exceptionnelle, "
+            "avec des marges brutes de 46.9%.\n\n"
+            "STRUCTURE COUTS : La structure de couts d'Apple est optimisee.\n\n"
+            "POSITIONNEMENT : Apple beneficie d'un moat multidimensionnel."
+        ),
+        section_map={
+            "QUALITE MARGES":     "Qualite des marges",
+            "STRUCTURE COUTS":    "Structure de couts",
+            "POSITIONNEMENT":     "Positionnement concurrentiel",
+        },
+        expect_subtitles=[
+            "Qualite des marges",
+            "Structure de couts",
+            "Positionnement concurrentiel",
+        ],
+        expect_paragraphs=6,
+    ))
+
     print("=" * 70)
     passed = sum(results)
     total = len(results)

@@ -200,29 +200,42 @@ def _render_llm_structured(elems, text, section_map=None, body_style=None,
         _re_struct.DOTALL,
     )
 
+    # NIGHT-6 edge case AAPL : le LLM omet parfois le titre du PREMIER
+    # paragraphe alors que les suivants ont bien leurs titres. On pre-parse
+    # TOUS les paragraphes et si le 1er n'a pas de titre mais les autres ont
+    # des titres reconnus dans section_map, on injecte le premier key du map
+    # comme titre par defaut pour le 1er paragraphe.
+    _parsed = []  # [(title_or_None, body), ...]
     for _p in paras:
-        # Replace line breaks within paragraph with space for clean wrapping
         _p_flat = _re_struct.sub(r'\s*\n\s*', ' ', _p)
-        # Strip leading markdown bold/italic markers au debut du paragraphe
-        # et aussi au milieu pour la detection du titre. On garde un clone
-        # sans markers pour le regex, le body original reste intact.
         _p_for_match = _p_flat
-        # Retire **texte** -> texte (1ere occurrence au debut)
         _p_for_match = _re_struct.sub(r'^\*{1,3}([^*]{2,80})\*{1,3}', r'\1', _p_for_match)
         _p_for_match = _re_struct.sub(r'^_{2,3}([^_]{2,80})_{2,3}', r'\1', _p_for_match)
         _m = _TITLE_RE.match(_p_for_match)
         if _m:
             _raw_title = _m.group(1).strip().rstrip('.').rstrip('*').rstrip('_')
             _body      = _m.group(2).strip()
-            # Si un section_map existe, remplace par le titre affichable
+            _parsed.append((_raw_title, _body))
+        else:
+            _parsed.append((None, _p_flat))
+
+    # Injection du titre par defaut sur le 1er paragraphe si absent
+    if (section_map and len(_parsed) >= 2
+            and _parsed[0][0] is None and _parsed[1][0] is not None):
+        _first_key = next(iter(section_map.keys()))
+        _parsed[0] = (_first_key, _parsed[0][1])
+
+    # Render
+    for _title, _body in _parsed:
+        if _title is not None:
+            _display_title = _title
             if section_map:
-                _key = _raw_title.upper().strip()
-                _raw_title = section_map.get(_key, _raw_title)
-            elems.append(Paragraph(_safe(_raw_title), subtitle_style))
+                _key = _title.upper().strip()
+                _display_title = section_map.get(_key, _title)
+            elems.append(Paragraph(_safe(_display_title), subtitle_style))
             elems.append(Paragraph(_safe(_body), body_style))
         else:
-            # Pas de titre detecte : juste un paragraphe corps
-            elems.append(Paragraph(_safe(_p_flat), body_style))
+            elems.append(Paragraph(_safe(_body), body_style))
         elems.append(Spacer(1, spacer_mm * mm))
 
 
