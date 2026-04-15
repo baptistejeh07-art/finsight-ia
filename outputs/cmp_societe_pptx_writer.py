@@ -1378,9 +1378,15 @@ def _slide_exec_summary(prs, m_a: dict, m_b: dict, synthesis: dict):
 
     tkr_a = m_a.get('ticker_a') or 'A'
     tkr_b = m_b.get('ticker_b') or 'B'
-    winner = m_a.get('winner') or (
-        tkr_a if (m_a.get('finsight_score') or 0) >= (m_b.get('finsight_score') or 0) else tkr_b
-    )
+    # Winner refondu (C4) : source = LLM via synthesis.llm_choice, fallback finsight.
+    # Si LLM neutral, winner = None et on affiche "Pas de préférence forte".
+    _winner_src = m_a.get('winner_source', 'finsight_fallback')
+    winner = m_a.get('winner')
+    if _winner_src == 'llm_neutral' or winner is None:
+        winner_display = None  # -> "Pas de préférence forte"
+        winner = tkr_a  # fallback pour les visuels internes qui nécessitent un ticker
+    else:
+        winner_display = winner
 
     # Titre analytique dynamique : "TKR privilegie : valorisation relative + qualité bilancielle"
     _pe_a = _safe_float(m_a.get('pe_ratio')) or 0
@@ -1484,27 +1490,35 @@ def _slide_exec_summary(prs, m_a: dict, m_b: dict, synthesis: dict):
         header_fill=NAVY, border_hex="DDDDDD"
     )
 
-    # Bandeau verdict bas : choix préféré — version réduite et plus sobre
+    # Bandeau verdict bas : choix LLM + indication FinSight (refonte C4)
     y_verd = 11.65
-    _is_a = (winner == tkr_a)
-    _verd_fill = COLOR_A_PAL if _is_a else COLOR_B_PAL
-    _verd_accent = COLOR_A if _is_a else COLOR_B
-    add_rect(slide, 1.02, y_verd, 23.37, 0.95, _verd_fill)
-    add_rect(slide, 1.02, y_verd, 0.18, 0.95, _verd_accent)
+    if winner_display is None:
+        # Cas neutre : fond ambre, pas de ticker gagnant
+        _verd_fill = "FFF3E0"  # ambre clair
+        _verd_accent = "B06000"  # ambre fonce
+        _verd_title = "Choix préféré : pas de préférence forte"
+    else:
+        _is_a = (winner == tkr_a)
+        _verd_fill = COLOR_A_PAL if _is_a else COLOR_B_PAL
+        _verd_accent = COLOR_A if _is_a else COLOR_B
+        _verd_title = f"Choix préféré : {winner_display}"
+
+    add_rect(slide, 1.02, y_verd, 23.37, 1.05, _verd_fill)
+    add_rect(slide, 1.02, y_verd, 0.18, 1.05, _verd_accent)
+
     _fs_a = m_a.get('finsight_score') or 0
     _fs_b = m_b.get('finsight_score') or 0
-    try:
-        _gap = abs(int(_fs_a) - int(_fs_b))
-    except Exception:
-        _gap = 0
-    # Choix préféré + écart fusionnes sur une seule ligne pour compacter
-    add_text_box(slide, 1.35, y_verd + 0.12, 22.8, 0.38,
-                 f"Choix préféré : {winner}", 10, NAVY, bold=True)
+
+    # Ligne 1 : titre choix préféré (LLM)
+    add_text_box(slide, 1.35, y_verd + 0.08, 22.8, 0.35,
+                 _verd_title, 10, NAVY, bold=True)
+    # Ligne 2 : indication FinSight avec les 2 scores
     _verd_sub = (
-        f"Écart de score FinSight : {_gap} point(s)  -  lecture detaillee "
-        f"dans les sections suivantes (valorisation, qualité bilancielle, momentum)."
+        f"Indication FinSight (rétrospective, non décisionnelle) : "
+        f"{tkr_a} {int(_fs_a)}/100  ·  {tkr_b} {int(_fs_b)}/100   "
+        f"— score composite V/G/Q/M percentile rank, ne tient pas compte des news ni de la macro"
     )
-    add_text_box(slide, 1.35, y_verd + 0.48, 22.8, 0.42, _verd_sub, 8, GREY_TXT, wrap=True)
+    add_text_box(slide, 1.35, y_verd + 0.44, 22.8, 0.55, _verd_sub, 7, GREY_TXT, wrap=True)
 
     return slide
 
@@ -2742,21 +2756,32 @@ def _slide_verdict(prs, m_a: dict, m_b: dict, synthesis: dict):
 
     tkr_a  = m_a.get('ticker_a') or 'A'
     tkr_b  = m_b.get('ticker_b') or 'B'
-    winner = m_a.get('winner') or (
-        tkr_a if (m_a.get('finsight_score') or 0) >= (m_b.get('finsight_score') or 0) else tkr_b
-    )
-    is_a = (winner == tkr_a)
+    # Winner refondu C4 : LLM decide, fallback finsight, NEUTRAL si indécis.
+    _winner_src = m_a.get('winner_source', 'finsight_fallback')
+    winner_raw = m_a.get('winner')
+    is_neutral = (_winner_src == 'llm_neutral' or winner_raw is None)
+    if is_neutral:
+        winner = tkr_a  # placeholder pour les vars internes
+        is_a = True
+        winner_display = "Pas de préférence forte"
+    else:
+        winner = winner_raw
+        is_a = (winner == tkr_a)
+        winner_display = winner
 
     navy_bar(slide)
     footer_bar(slide)
     slide_title(slide, "Verdict Final Comparatif")
     section_dots(slide, 5)
 
-    # Banderole CHOIX PRÉFÉRÉ réduite (4pts au lieu de 16 -> taille 11, hauteur 0.65)
-    w_fill = COLOR_A if is_a else COLOR_B
+    # Banderole CHOIX PRÉFÉRÉ — couleur ambre si neutre
+    if is_neutral:
+        w_fill = "B06000"  # ambre
+    else:
+        w_fill = COLOR_A if is_a else COLOR_B
     add_rect(slide, 1.02, 2.10, 23.37, 0.65, w_fill)
     add_text_box(slide, 1.27, 2.18, 22.86, 0.50,
-                 f"CHOIX PRÉFÉRÉ : {winner}", 11, WHITE, bold=True, align=PP_ALIGN.CENTER)
+                 f"CHOIX PRÉFÉRÉ : {winner_display}", 11, WHITE, bold=True, align=PP_ALIGN.CENTER)
 
     # ---- GAUCHE : Conviction box ----
     rec_w = (m_a.get('recommendation') if is_a else m_b.get('recommendation')) or 'BUY'
@@ -2819,23 +2844,47 @@ def _slide_verdict(prs, m_a: dict, m_b: dict, synthesis: dict):
     # Catalyseurs bulls + Risques bears — 2 colonnes
     y_cat = y_r + 0.55 + 3.05
     _cat_h = 2.35
-    # Bulls
-    add_rect(slide, x_r, y_cat, w_r/2 - 0.10, 0.50, GREEN)
-    add_text_box(slide, x_r + 0.25, y_cat + 0.10, w_r/2 - 0.5, 0.40,
-                 "CATALYSEURS BULLS", 9, WHITE, bold=True)
-    bull_winner = synthesis.get('bull_a' if is_a else 'bull_b') or "Profil fondamental solide"
-    add_rect(slide, x_r, y_cat + 0.50, w_r/2 - 0.10, _cat_h, GREY_BG)
-    add_text_box(slide, x_r + 0.20, y_cat + 0.60, w_r/2 - 0.40, _cat_h - 0.15,
-                 _fit(bull_winner, 280), 8, BLACK, wrap=True)
-    # Bears
-    x_be = x_r + w_r/2 + 0.10
-    add_rect(slide, x_be, y_cat, w_r/2 - 0.10, 0.50, RED)
-    add_text_box(slide, x_be + 0.25, y_cat + 0.10, w_r/2 - 0.5, 0.40,
-                 "RISQUES BEARS", 9, WHITE, bold=True)
-    bear_winner = synthesis.get('bear_a' if is_a else 'bear_b') or "Risques de marché standard"
-    add_rect(slide, x_be, y_cat + 0.50, w_r/2 - 0.10, _cat_h, GREY_BG)
-    add_text_box(slide, x_be + 0.20, y_cat + 0.60, w_r/2 - 0.40, _cat_h - 0.15,
-                 _fit(bear_winner, 280), 8, BLACK, wrap=True)
+    if is_neutral:
+        # Cas neutre : pour/contre des 2 côtés au lieu du seul "winner"
+        # Colonne 1 : tkr_a (bull A en vert + bear A en rouge au-dessous)
+        add_rect(slide, x_r, y_cat, w_r/2 - 0.10, 0.50, COLOR_A)
+        add_text_box(slide, x_r + 0.25, y_cat + 0.10, w_r/2 - 0.5, 0.40,
+                     f"{tkr_a} — POUR / CONTRE", 9, WHITE, bold=True)
+        _bull_a = synthesis.get('bull_a') or "Profil fondamental solide"
+        _bear_a = synthesis.get('bear_a') or "Risques marché standard"
+        add_rect(slide, x_r, y_cat + 0.50, w_r/2 - 0.10, _cat_h, GREY_BG)
+        _text_a = f"+ {_fit(_bull_a, 130)}\n\n- {_fit(_bear_a, 130)}"
+        add_text_box(slide, x_r + 0.20, y_cat + 0.60, w_r/2 - 0.40, _cat_h - 0.15,
+                     _text_a, 8, BLACK, wrap=True)
+        # Colonne 2 : tkr_b
+        x_be = x_r + w_r/2 + 0.10
+        add_rect(slide, x_be, y_cat, w_r/2 - 0.10, 0.50, COLOR_B)
+        add_text_box(slide, x_be + 0.25, y_cat + 0.10, w_r/2 - 0.5, 0.40,
+                     f"{tkr_b} — POUR / CONTRE", 9, WHITE, bold=True)
+        _bull_b = synthesis.get('bull_b') or "Profil fondamental solide"
+        _bear_b = synthesis.get('bear_b') or "Risques marché standard"
+        add_rect(slide, x_be, y_cat + 0.50, w_r/2 - 0.10, _cat_h, GREY_BG)
+        _text_b = f"+ {_fit(_bull_b, 130)}\n\n- {_fit(_bear_b, 130)}"
+        add_text_box(slide, x_be + 0.20, y_cat + 0.60, w_r/2 - 0.40, _cat_h - 0.15,
+                     _text_b, 8, BLACK, wrap=True)
+    else:
+        # Bulls (cas winner identifié)
+        add_rect(slide, x_r, y_cat, w_r/2 - 0.10, 0.50, GREEN)
+        add_text_box(slide, x_r + 0.25, y_cat + 0.10, w_r/2 - 0.5, 0.40,
+                     "CATALYSEURS BULLS", 9, WHITE, bold=True)
+        bull_winner = synthesis.get('bull_a' if is_a else 'bull_b') or "Profil fondamental solide"
+        add_rect(slide, x_r, y_cat + 0.50, w_r/2 - 0.10, _cat_h, GREY_BG)
+        add_text_box(slide, x_r + 0.20, y_cat + 0.60, w_r/2 - 0.40, _cat_h - 0.15,
+                     _fit(bull_winner, 280), 8, BLACK, wrap=True)
+        # Bears
+        x_be = x_r + w_r/2 + 0.10
+        add_rect(slide, x_be, y_cat, w_r/2 - 0.10, 0.50, RED)
+        add_text_box(slide, x_be + 0.25, y_cat + 0.10, w_r/2 - 0.5, 0.40,
+                     "RISQUES BEARS", 9, WHITE, bold=True)
+        bear_winner = synthesis.get('bear_a' if is_a else 'bear_b') or "Risques de marché standard"
+        add_rect(slide, x_be, y_cat + 0.50, w_r/2 - 0.10, _cat_h, GREY_BG)
+        add_text_box(slide, x_be + 0.20, y_cat + 0.60, w_r/2 - 0.40, _cat_h - 0.15,
+                     _fit(bear_winner, 280), 8, BLACK, wrap=True)
 
     # Conditions d'invalidation (warning bar)
     y_inv = y_cat + 0.50 + _cat_h + 0.25

@@ -837,22 +837,46 @@ def _build_cover_story(tkr_a, tkr_b, name_a, name_b,
     story.append(kpi_tbl)
     story.append(Spacer(1, 6*mm))
 
-    # ---- Verdict box ----
-    winner = m_a.get("winner") or tkr_a
-    # Clip large (900 chars) pour accomoder le verdict complet "Choix/Pourquoi/Risque"
+    # ---- Verdict box — REFONTE C4 #176 ────────────────────────────────
+    # Le "Choix préféré" en haut = décision du LLM (pas du finsight_score).
+    # Si le LLM est NEUTRAL, on affiche "Pas de préférence forte".
+    # En dessous, on ajoute une ligne "Indication FinSight : {a}/100 vs {b}/100"
+    # avec une note explicative sur la nature rétrospective du score.
+    _winner_raw = m_a.get("winner")
+    _winner_src = m_a.get("winner_source", "llm")
+    if _winner_src == "llm_neutral" or _winner_raw is None:
+        _title_text = "Choix préféré : pas de préférence forte"
+        _title_color = colors.HexColor('#B06000')  # amber
+    else:
+        _title_text = f"Choix préféré : {_winner_raw}"
+        _title_color = NAVY
+
     verdict_raw = _safe(_word_clip(synthesis.get("verdict_text") or "", 900))
 
-    verd_data = [[
-        Paragraph(_safe(f"Choix préféré : {winner}"),
-                  _s('verd_t', size=9.5, color=NAVY, bold=True, align=TA_CENTER, sa=3)),
-        ],[
-        Paragraph(verdict_raw,
-                  _s('verd_b', size=8, color=GREY_TEXT, align=TA_CENTER, leading=12)),
-    ]]
-    verd_tbl = Table([[verd_data[0][0]], [verd_data[1][0]]], colWidths=[TABLE_W])
+    # Ligne FinSight indication (scores des 2 tickers)
+    _fs_a = m_a.get("finsight_score") or 0
+    _fs_b = m_b.get("finsight_score") or 0
+    _finsight_line = (
+        f"Indication FinSight (rétrospective) : {tkr_a} {int(_fs_a)}/100  ·  "
+        f"{tkr_b} {int(_fs_b)}/100 — score composite Value/Growth/Quality/"
+        f"Momentum équipondérés (25% chacun), percentile rank intra-pool. "
+        f"Ne tient pas compte du sentiment news ni du contexte macro actuel — "
+        f"à pondérer avec le verdict analytique ci-dessus."
+    )
+
+    verd_data = [
+        [Paragraph(_safe(_title_text),
+                   _s('verd_t', size=10.5, color=_title_color, bold=True, align=TA_CENTER, sa=3))],
+        [Paragraph(verdict_raw,
+                   _s('verd_b', size=8, color=GREY_TEXT, align=TA_CENTER, leading=12))],
+        [Paragraph(_safe(_finsight_line),
+                   _s('verd_fs', size=7, color=GREY_TEXT, align=TA_CENTER, leading=10))],
+    ]
+    verd_tbl = Table(verd_data, colWidths=[TABLE_W])
     verd_tbl.setStyle(TableStyle([
         ('BACKGROUND',   (0, 0), (-1, -1), colors.HexColor('#EEF3FA')),
         ('BOX',          (0, 0), (-1, -1), 0.4, NAVY_LIGHT),
+        ('LINEBELOW',    (0, 1), (-1, 1),  0.25, colors.HexColor('#C8D3E0')),
         ('TOPPADDING',   (0, 0), (-1, -1), 6),
         ('BOTTOMPADDING',(0, 0), (-1, -1), 6),
         ('LEFTPADDING',  (0, 0), (-1, -1), 10),
@@ -2416,6 +2440,20 @@ class CmpSocietePDFWriter:
             return s
         synthesis = {k: _strip_md(v) if isinstance(v, str) else v
                      for k, v in synthesis.items()}
+
+        # ── Override winner par le choix LLM (refonte C3 #173-177) ───────
+        # Le LLM est le décideur final. Le choix FinSight devient une
+        # indication secondaire. Si le LLM est "NEUTRAL", pas de winner.
+        _llm_choice = synthesis.get("llm_choice") if isinstance(synthesis, dict) else None
+        if _llm_choice in (tkr_a.upper(), tkr_b.upper()):
+            m_a["winner"] = m_b["winner"] = _llm_choice
+            m_a["winner_source"] = m_b["winner_source"] = "llm"
+        elif _llm_choice == "NEUTRAL":
+            m_a["winner"] = m_b["winner"] = None
+            m_a["winner_source"] = m_b["winner_source"] = "llm_neutral"
+        else:
+            # LLM n'a pas parsé de choix clair : fallback finsight_score
+            m_a["winner_source"] = m_b["winner_source"] = "finsight_fallback"
 
         # Metadonnees
         name_a  = m_a.get("company_name_a") or tkr_a
