@@ -1170,12 +1170,22 @@ def _build_graphiques(data, scatter_buf, scores_buf, corr_buf=None, registry=Non
             log.warning("[indice_pdf] scatter p7 LLM echoue: %s", _e)
         elems.append(Spacer(1, 4*mm))
         if _llm_text.strip():
-            # Split en paragraphes pour mise en page
-            for _para in _llm_text.strip().split("\n\n"):
-                _clean = _para.strip().replace("\n", " ")
-                if _clean:
-                    elems.append(Paragraph(_clean, S_BODY))
-                    elems.append(Spacer(1, 2*mm))
+            # NIGHT-4 : helper sous-titres bleus propage depuis pdf_writer
+            try:
+                from outputs.pdf_writer import _render_llm_structured as _rls
+                _rls(elems, _llm_text, section_map={
+                    "DECOTE":        "Decote + faible croissance",
+                    "DECOTE + FAIBLE CROISSANCE": "Decote + faible croissance",
+                    "PRIME":         "Prime + forte croissance",
+                    "PRIME + FORTE CROISSANCE":  "Prime + forte croissance",
+                    "IMPLICATIONS":  "Implications allocation",
+                })
+            except Exception:
+                for _para in _llm_text.strip().split("\n\n"):
+                    _clean = _para.strip().replace("\n", " ")
+                    if _clean:
+                        elems.append(Paragraph(_clean, S_BODY))
+                        elems.append(Spacer(1, 2*mm))
         else:
             # Fallback texte deterministe si LLM echoue
             elems.append(Paragraph(

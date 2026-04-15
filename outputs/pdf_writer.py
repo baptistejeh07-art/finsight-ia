@@ -178,10 +178,10 @@ def _render_llm_structured(elems, text, section_map=None, body_style=None,
     body_style     = body_style     or S_BODY
     subtitle_style = subtitle_style or S_SUBSECTION
 
-    # Nettoie les separateurs markdown visuels
+    # Nettoie les separateurs markdown visuels (---, ===, ***)
     cleaned = text.strip()
-    cleaned = _re_struct.sub(r'^[-=]{3,}$', '', cleaned, flags=_re_struct.MULTILINE)
-    cleaned = _re_struct.sub(r'\s*[-=]{3,}\s*', '\n\n', cleaned)
+    cleaned = _re_struct.sub(r'^[-=*]{3,}$', '', cleaned, flags=_re_struct.MULTILINE)
+    cleaned = _re_struct.sub(r'\s*[-=*]{3,}\s*', '\n\n', cleaned)
     cleaned = _re_struct.sub(r'\n{3,}', '\n\n', cleaned)
 
     paras = [p.strip() for p in cleaned.split('\n\n') if p.strip()]
@@ -193,10 +193,10 @@ def _render_llm_structured(elems, text, section_map=None, body_style=None,
     # le regex, parce que le LLM retourne souvent "**ATTRACTIVITE CIBLE** :"
     # malgre l'instruction "pas de markdown" dans le prompt.
     _TITLE_RE = _re_struct.compile(
-        r'^(?:\d+\.\s*)?'                # optionnel "1. " "2. "
-        r'([A-Z0-9ÉÈÊÀÂÙÎÔÇ][A-Za-z0-9À-ÿ\s\'/&\-]{2,60}?)'  # titre
-        r'\s*[:—\-]\s+'                   # separateur : ou — ou -
-        r'(.+)$',                          # corps
+        r'^(?:\d+\.\s*)?'                 # optionnel "1. " "2. "
+        r'([A-Z0-9ÉÈÊÀÂÙÎÔÇ][A-Za-z0-9À-ÿ\s\'/&\-%]{2,60}?)'  # titre (% inclus)
+        r'\s*[:—\-]\s+'                    # separateur : ou — ou -
+        r'(.+)$',                           # corps
         _re_struct.DOTALL,
     )
 

@@ -1942,11 +1942,19 @@ def _build_acteurs(tickers_data: list[dict], sector_name: str, registry=None):
         pass
 
     if _acteurs_intro_llm.strip():
-        for _p in _acteurs_intro_llm.split("\n\n"):
-            _clean = _p.strip().replace("\n", " ")
-            if _clean:
-                elems.append(Paragraph(_safe(_clean), S_BODY))
-                elems.append(Spacer(1, 2*mm))
+        # NIGHT-3 : render avec sous-titres bleus via helper propage
+        try:
+            from outputs.pdf_writer import _render_llm_structured as _rls
+            _rls(elems, _acteurs_intro_llm, section_map={
+                "PANORAMA":   "Panorama sectoriel",
+                "DISPERSION": "Lecture de la dispersion",
+            })
+        except Exception:
+            for _p in _acteurs_intro_llm.split("\n\n"):
+                _clean = _p.strip().replace("\n", " ")
+                if _clean:
+                    elems.append(Paragraph(_safe(_clean), S_BODY))
+                    elems.append(Spacer(1, 2*mm))
     else:
         elems.append(Paragraph(
             f"L'analyse des <b>{N} acteurs</b> du secteur <b>{sector_name}</b> r\u00e9v\u00e8le des profils "
@@ -3034,9 +3042,9 @@ def _build_conclusion_reco(tickers_data: list[dict], sector_name: str,
             except Exception:
                 pass
 
-            # LLM-A compressed
+            # LLM-A compressed + sous-titres MAJUSCULES (NIGHT-3)
             _reco_prompt = (
-                f"Analyste buy-side senior. Recommandation sectorielle detaillee 350 mots "
+                f"Analyste buy-side senior. Recommandation sectorielle detaillee 400-500 mots "
                 f"pour {sector_name}.\n"
                 f"{len(tickers_data)} societes : {buy_count} BUY / {hold_count} HOLD / "
                 f"{sell_count} SELL. Sous-secteurs : {_ind_summary}.\n"
@@ -3044,11 +3052,17 @@ def _build_conclusion_reco(tickers_data: list[dict], sector_name: str,
             if _profile_hints:
                 _reco_prompt += f"Profil specifique : {_profile_hints}\n"
             _reco_prompt += (
-                f"Structure : (1) secteur prometteur ? pourquoi, (2) horizon recommande, "
-                f"(3) sous-secteurs a privilegier, (4) catalyseurs 6-12 mois, (5) risques, "
-                f"(6) conditions de revision.\n"
-                f"Francais avec accents. Pas de markdown/emojis. Utilise les metriques "
-                f"specifiques au profil ci-dessus."
+                f"6 paragraphes separes par ligne vide (~70 mots chacun) avec ces titres EXACTS "
+                f"en MAJUSCULES au debut de chaque paragraphe suivi de ' : ' :\n"
+                f"1. PROMETTEUR : le secteur est-il attractif et pourquoi.\n"
+                f"2. HORIZON : duree d'investissement recommandee.\n"
+                f"3. SOUS-SECTEURS : quels sous-segments privilegier.\n"
+                f"4. CATALYSEURS : evenements 6-12 mois a surveiller.\n"
+                f"5. RISQUES : principaux risques a monitorer.\n"
+                f"6. REVISION : conditions de revision de la these.\n\n"
+                f"IMPORTANT : PAS de markdown ** / ---. Commence chaque paragraphe par le titre.\n"
+                f"Francais avec accents. Pas d'emojis. Utilise les metriques specifiques au "
+                f"profil ci-dessus."
             )
             # Refonte 2026-04-14 : critical phase -> Mistral primary (qualite FR top)
             _reco_llm_text = llm_call(_reco_prompt, phase="critical", max_tokens=900) or ""
@@ -3060,7 +3074,19 @@ def _build_conclusion_reco(tickers_data: list[dict], sector_name: str,
     if _reco_llm_text.strip():
         elems.append(Paragraph("Recommandation sectorielle", S_SUBSECTION))
         elems.append(Spacer(1, 1*mm))
-        elems.append(Paragraph(_safe(_reco_llm_text), S_BODY))
+        # NIGHT-3 Baptiste : propagate helper pour sous-titres bleus dans la reco
+        try:
+            from outputs.pdf_writer import _render_llm_structured as _rls
+            _rls(elems, _reco_llm_text, section_map={
+                "PROMETTEUR":      "Secteur prometteur ou non",
+                "HORIZON":         "Horizon d'investissement",
+                "SOUS-SECTEURS":   "Sous-secteurs a privilegier",
+                "CATALYSEURS":     "Catalyseurs 6-12 mois",
+                "RISQUES":         "Risques a surveiller",
+                "REVISION":        "Conditions de revision",
+            })
+        except Exception:
+            elems.append(Paragraph(_safe(_reco_llm_text), S_BODY))
     else:
         elems.append(Paragraph(
             f"Notre positionnément sur le secteur <b>{sector_name}</b> est "
