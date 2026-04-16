@@ -1355,6 +1355,36 @@ def _slide_cover(prs, m_a: dict, m_b: dict):
                          bold=True, align=PP_ALIGN.RIGHT)
             _ly += 0.65
 
+    # ── FRED macro one-liner ────────────────────────────────────────────
+    try:
+        from data.sources.fred_source import fetch_macro_context
+        _fred = fetch_macro_context()
+        if _fred:
+            _parts = []
+            _map = [
+                ("fed_funds_rate", "Fed", " %", 2),
+                ("treasury_10y",   "10Y", " %", 2),
+                ("vix",            "VIX", "",   1),
+                ("cpi_yoy",        "CPI", " %", 1),
+                ("unemployment",   "Chômage", " %", 1),
+            ]
+            for _key, _lbl, _suf, _dp in _map:
+                _v = _fred.get(_key)
+                if _v is not None:
+                    try:
+                        _vs = f"{float(_v):.{_dp}f}".replace(".", ",") + _suf
+                        if _key == "cpi_yoy":
+                            _vs = "+" + _vs if float(_v) >= 0 else _vs
+                        _parts.append(f"{_lbl} {_vs}")
+                    except Exception:
+                        pass
+            if _parts:
+                _fred_line = "Données FRED : " + "  \u00b7  ".join(_parts)
+                add_text_box(slide, 1.02, 12.05, 23.37, 0.35, _fred_line,
+                             6.5, GREY_LIGHT, align=PP_ALIGN.CENTER)
+    except Exception as _e:
+        log.debug(f"[cmp_pptx] FRED macro one-liner skip: {_e}")
+
     # Bottom rule + date
     add_rect(slide, 1.02, 12.4, 23.37, 0.03, "AAAAAA")
     add_text_box(slide, 1.02, 12.65, 11.43, 0.56, "Rapport confidentiel", 8, GREY_TXT)

@@ -1239,6 +1239,40 @@ def _s06_valorisation(prs, D):
             f"Score composite FinSight : {_scr6}/100 — signal {_sig6} (conviction {_conv6}%). "
             f"{_nb_surp6} secteur(s) en Surpondérer, {_nb_sous6} en Sous-pondérer."
         )
+    # ── Bandeau FRED compact ──────────────────────────────────────────────
+    try:
+        _fred = D.get("fred_macro", {})
+        if _fred:
+            _parts = []
+            _ff = _fred.get("fed_funds_rate")
+            if _ff is not None:
+                _parts.append(f"Fed {_ff:.2f}%")
+            _t10 = _fred.get("treasury_10y")
+            if _t10 is not None:
+                _parts.append(f"10Y {_t10:.2f}%")
+            _vx = _fred.get("vix")
+            if _vx is not None:
+                _parts.append(f"VIX {_vx:.1f}")
+            _yc = _fred.get("yield_curve_spread")
+            if _yc is not None:
+                _parts.append(f"Yield Curve {_yc:+.2f}%")
+            _cpi = _fred.get("cpi_yoy")
+            if _cpi is not None:
+                _parts.append(f"CPI {_cpi:+.1f}% YoY")
+            _unemp = _fred.get("unemployment")
+            if _unemp is not None:
+                _parts.append(f"Chomage {_unemp:.1f}%")
+            _baa = _fred.get("credit_spread_baa")
+            if _baa is not None:
+                _parts.append(f"Spread BAA {_baa:.2f}%")
+            if _parts:
+                _fred_line = "Donnees FRED : " + " \u00b7 ".join(_parts)
+                _rect(slide, 0.9, 7.35, 23.6, 0.45, fill=_GRAYL)
+                _txb(slide, _x(_fred_line), 1.1, 7.35, 23.2, 0.45,
+                     size=6.5, bold=False, color=_GRAYT, wrap=False)
+    except Exception as _fred_err:
+        log.warning("indice_pptx_writer: FRED bandeau: %s", _fred_err)
+
     _val_title = f"Score FinSight {_scr6}/100 — signal {_sig6}, {_nb_surp6} secteurs Surpondérer / {_nb_sous6} Sous-pondérer"
     _lecture_box(slide, _val_title, _trunc(texte_val, 1100), y_top=7.8, height=5.55)
 
@@ -2595,6 +2629,15 @@ class IndicePPTXWriter:
             except Exception as _me:
                 log.warning("IndicePPTXWriter: AgentMacro: %s", _me)
                 data.setdefault("macro", {})
+
+        # Données FRED (contexte macro transversal)
+        if not data.get("fred_macro"):
+            try:
+                from data.sources.fred_source import fetch_macro_context
+                data["fred_macro"] = fetch_macro_context()
+            except Exception as _fe:
+                log.warning("IndicePPTXWriter: FRED fetch: %s", _fe)
+                data.setdefault("fred_macro", {})
 
         # Pre-calcul des charts (peut echouer silencieusement)
         try:

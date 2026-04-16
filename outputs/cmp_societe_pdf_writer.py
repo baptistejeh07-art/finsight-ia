@@ -1050,6 +1050,70 @@ def _section_exec_summary(story, m_a, m_b, synthesis, tkr_a, tkr_b):
     story.append(Spacer(1, 3*mm))
     story.append(src("FinSight IA / yfinance / Finnhub"))
 
+    # ── Tableau contexte macroéconomique FRED ────────────────────────────
+    try:
+        from data.sources.fred_source import fetch_macro_context
+        _fred = fetch_macro_context()
+        if _fred:
+            story.append(Spacer(1, 4*mm))
+            story.append(Paragraph("Contexte Macroéconomique", S_SUBSECTION))
+
+            def _fred_fmt(key, label, suffix="", dp=2, is_pct=False):
+                v = _fred.get(key)
+                if v is None:
+                    return None
+                try:
+                    fv = float(v)
+                    val_s = f"{fv:.{dp}f}".replace(".", ",") + suffix
+                except Exception:
+                    return None
+                # Interprétation
+                interp = ""
+                if key == "fed_funds_rate":
+                    interp = "Restrictif" if fv >= 4.5 else ("Neutre" if fv >= 2.5 else "Accommodant")
+                elif key == "treasury_10y":
+                    interp = "Taux élevé" if fv >= 4.0 else ("Modéré" if fv >= 2.5 else "Bas")
+                elif key == "vix":
+                    interp = "Stress élevé" if fv >= 25 else ("Volatilité modérée" if fv >= 18 else "Calme")
+                elif key == "cpi_yoy":
+                    interp = "Inflation élevée" if fv >= 4.0 else ("Au-dessus de la cible" if fv >= 2.5 else "Maîtrisée")
+                elif key == "unemployment":
+                    interp = "Marché tendu" if fv <= 4.0 else ("Equilibré" if fv <= 5.5 else "Dégradé")
+                elif key == "credit_spread_baa":
+                    interp = "Risque crédit élevé" if fv >= 2.5 else ("Modéré" if fv >= 1.5 else "Comprimé")
+                elif key == "yield_curve_spread":
+                    interp = "Courbe inversée" if fv < 0 else ("Plate" if fv < 0.5 else "Pentue")
+                return [
+                    Paragraph(_safe(label), S_TD_B),
+                    Paragraph(_safe(val_s), S_TD_C),
+                    Paragraph(_safe(interp), S_TD_L),
+                ]
+
+            _fred_rows = [
+                _fred_fmt("fed_funds_rate",    "Taux directeur Fed",      " %"),
+                _fred_fmt("treasury_10y",      "Taux 10 ans US",          " %"),
+                _fred_fmt("vix",               "VIX (volatilité)",        "",  1),
+                _fred_fmt("cpi_yoy",           "Inflation CPI (YoY)",     " %"),
+                _fred_fmt("unemployment",      "Taux de chômage US",      " %", 1),
+                _fred_fmt("credit_spread_baa", "Spread crédit BAA-10Y",   " %"),
+                _fred_fmt("yield_curve_spread","Spread 2Y-10Y",           " %"),
+            ]
+            _fred_rows = [r for r in _fred_rows if r is not None]
+
+            if _fred_rows:
+                _hdr = [
+                    Paragraph("<b>Indicateur</b>", S_TH_L),
+                    Paragraph("<b>Valeur</b>", S_TH_C),
+                    Paragraph("<b>Interprétation</b>", S_TH_C),
+                ]
+                _fred_data = [_hdr] + _fred_rows
+                _fred_tbl = tbl(_fred_data, [65*mm, 40*mm, 65*mm])
+                story.append(KeepTogether([_fred_tbl]))
+                story.append(Spacer(1, 2*mm))
+                story.append(src("Federal Reserve Economic Data (FRED)"))
+    except Exception as _e:
+        log.debug(f"[cmp_pdf] FRED macro context skip: {_e}")
+
 
 def _section_profil_pl(story, m_a, m_b, synthesis, tkr_a, tkr_b):
     # #203 : CondPageBreak plutôt que PageBreak forcé pour permettre aux

@@ -1518,6 +1518,50 @@ def _s07_cycle(prs, D):
         _txb(slide, regime_line, 16.6, 11.85, 7.9, 0.55, size=8.5, bold=True, color=_rc, align=PP_ALIGN.CENTER)
         if rec_line:
             _txb(slide, rec_line, 16.6, 12.45, 7.9, 0.5, size=7.5, color=_GRAYT, align=PP_ALIGN.CENTER)
+
+    # ── Données FRED (indicateurs macro compacts) ──────────────────────
+    try:
+        _fred = D.get("fred") or {}
+        if _fred:
+            _parts = []
+            if "fed_funds_rate" in _fred:
+                _parts.append(f"Fed {_fred['fed_funds_rate']:.2f}%")
+            if "treasury_10y" in _fred:
+                _parts.append(f"10Y {_fred['treasury_10y']:.2f}%")
+            if "vix" in _fred:
+                _parts.append(f"VIX {_fred['vix']:.1f}")
+            if "cpi_yoy" in _fred:
+                _parts.append(f"CPI {_fred['cpi_yoy']:+.1f}% YoY")
+            if "unemployment" in _fred:
+                _parts.append(f"Chômage {_fred['unemployment']:.1f}%")
+            if "credit_spread_baa" in _fred:
+                _parts.append(f"Spread BAA {_fred['credit_spread_baa']:.2f}%")
+            # Indicateurs sectoriels (max 2)
+            _sect = _fred.get("sector", {})
+            _sect_parts = []
+            for _sk, _sv in list(_sect.items())[:4]:
+                if _sk.endswith("_yoy"):
+                    continue
+                _label = _sk.replace("_", " ").title()
+                if isinstance(_sv, (int, float)):
+                    _yoy_key = f"{_sk}_yoy"
+                    if _yoy_key in _sect:
+                        _sect_parts.append(f"{_label} {_sect[_yoy_key]:+.1f}% YoY")
+                    else:
+                        _sect_parts.append(f"{_label} {_sv:,.1f}")
+                if len(_sect_parts) >= 2:
+                    break
+            _fred_line = "Données FRED : " + " · ".join(_parts)
+            if _sect_parts:
+                _fred_line += "\n" + " · ".join(_sect_parts)
+            # Position sous le bloc macro existant ou en bas du panel droit
+            _fred_y = 12.9 if (_regime and _regime != "Inconnu") else 11.35
+            _rect(slide, 16.9, _fred_y, 7.3, 0.05, fill=_NAVY)
+            _txb(slide, _fred_line, 16.6, _fred_y + 0.1, 7.9, 0.7,
+                 size=6.5, color=_NAVYL, wrap=True, align=PP_ALIGN.CENTER)
+    except Exception as _fred_e:
+        log.warning("sectoral_pptx _s07 FRED block: %s", _fred_e)
+
     _footer(slide)
 
 
@@ -2384,6 +2428,16 @@ class SectoralPPTXWriter:
             import logging as _log
             _log.getLogger(__name__).warning("[SectoralPPTXWriter] AgentMacro: %s", _me)
         D["macro"] = _macro
+
+        # ── Données FRED (macro + sectoriel) ────────────────────────────
+        _fred = {}
+        try:
+            from data.sources.fred_source import fetch_macro_context
+            _fred = fetch_macro_context(sector_name) or {}
+        except Exception as _fe:
+            import logging as _log_fred
+            _log_fred.getLogger(__name__).warning("[SectoralPPTXWriter] FRED: %s", _fe)
+        D["fred"] = _fred
 
         prs = Presentation()
         prs.slide_width  = _SW

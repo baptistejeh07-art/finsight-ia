@@ -4674,6 +4674,38 @@ def _slide_historique(prs, snap, synthesis):
 
     # Box "verdict final" en bas RETIREE (duplique avec la slide suivante
     # Conviction & These d'Investissement qui traite exactement ce sujet)
+
+    # ── FRED macro one-liner sous le chart ──────────────────────────────────
+    try:
+        from data.sources.fred_source import fetch_macro_context as _fetch_fred
+        _fred = _fetch_fred()
+        if _fred:
+            _parts = []
+            _ff = _fred.get("fed_funds_rate")
+            if _ff is not None:
+                _parts.append(f"Fed {_ff:.2f}%")
+            _t10 = _fred.get("treasury_10y")
+            if _t10 is not None:
+                _parts.append(f"10Y {_t10:.2f}%")
+            _vx = _fred.get("vix")
+            if _vx is not None:
+                _parts.append(f"VIX {_vx:.1f}")
+            _cpi = _fred.get("cpi_yoy")
+            if _cpi is not None:
+                _parts.append(f"CPI {_cpi:+.1f}% YoY")
+            _cs = _fred.get("credit_spread_baa")
+            if _cs is not None:
+                _parts.append(f"Spread BAA {_cs:.2f}%")
+            _unemp = _fred.get("unemployment")
+            if _unemp is not None:
+                _parts.append(f"Ch\u00f4mage {_unemp:.1f}%")
+            if _parts:
+                _fred_line = "Contexte macro : " + " \u00b7 ".join(_parts)
+                add_text_box(slide, chart_x, 11.10, chart_w, 0.42,
+                             _fred_line, 7, GREY_TXT, italic=True)
+    except Exception as _e_fred:
+        log.debug(f"[pptx S20] FRED macro context skipped: {_e_fred}")
+
     return slide
 
 
