@@ -827,7 +827,7 @@ def _content_header(c, doc, sector_name: str, date_str: str):
 # ─── SECTIONS ─────────────────────────────────────────────────────────────────
 def _build_macro(perf_buf, area_buf, tickers_data: list[dict],
                  sector_name: str, universe: str, registry=None,
-                 sector_analytics: dict = None):
+                 sector_analytics: dict = None, fred_data: dict = None):
     elems = []
     if registry is not None:
         elems.append(SectionAnchor('macro', registry))
@@ -1024,6 +1024,110 @@ def _build_macro(perf_buf, area_buf, tickers_data: list[dict],
         elems.append(Spacer(1, 4*mm))
     else:
         elems.append(Spacer(1, 4*mm))
+
+    # ── Indicateurs macroéconomiques FRED ────────────────────────────────
+    _fred = fred_data or {}
+    if _fred:
+        _FRED_LABELS = {
+            "fed_funds_rate":      ("Taux directeur Fed",      "%"),
+            "treasury_10y":        ("Taux 10 ans US",          "%"),
+            "treasury_2y":         ("Taux 2 ans US",           "%"),
+            "yield_curve_spread":  ("Spread courbe (10Y-2Y)",  "%"),
+            "cpi_yoy":             ("Inflation CPI (YoY)",     "%"),
+            "unemployment":        ("Chômage US",              "%"),
+            "vix":                 ("VIX",                     ""),
+            "credit_spread_baa":   ("Spread crédit BAA",       "%"),
+            "industrial_prod_yoy": ("Production ind. (YoY)",   "%"),
+        }
+        # Labels pour les séries sectorielles
+        _SECTOR_LABELS = {
+            "tech_employment_yoy":     ("Emploi tech (YoY)",          "%"),
+            "tech_prod_yoy":           ("Prod. informatique (YoY)",   "%"),
+            "wti_price":               ("Prix WTI",                   "$/b"),
+            "brent_price":             ("Prix Brent",                 "$/b"),
+            "natural_gas":             ("Gaz naturel Henry Hub",      "$/MMBtu"),
+            "mortgage_30y":            ("Taux hypothécaire 30 ans",   "%"),
+            "case_shiller":            ("Indice Case-Shiller",        ""),
+            "housing_starts":          ("Mises en chantier",          "k"),
+            "housing_starts_yoy":      ("Mises en chantier (YoY)",   "%"),
+            "consumer_confidence":     ("Confiance consommateur",     ""),
+            "retail_sales_yoy":        ("Ventes retail (YoY)",        "%"),
+            "auto_sales":              ("Ventes automobiles",         "M"),
+            "bank_lending_yoy":        ("Prêts bancaires (YoY)",     "%"),
+            "bank_charge_offs":        ("Taux de charge-off",        "%"),
+            "consumer_credit_yoy":     ("Crédit conso (YoY)",        "%"),
+            "health_employment_yoy":   ("Emploi santé (YoY)",        "%"),
+            "pharma_prod_yoy":         ("Prod. pharmaceutique (YoY)","%"),
+            "mfg_employment_yoy":      ("Emploi manufacturier (YoY)","%"),
+            "durable_goods_yoy":       ("Commandes durables (YoY)",  "%"),
+            "capacity_util":           ("Utilisation capacité",       "%"),
+            "copper_price":            ("Prix cuivre",               "$/lb"),
+            "electricity_price":       ("Prix électricité",          "$/kWh"),
+            "food_cpi":               ("CPI alimentaire",            ""),
+            "energy_prod_yoy":        ("Prod. énergie (YoY)",        "%"),
+        }
+
+        def _fred_interp(key, val):
+            """Interprétation concise d'un indicateur FRED."""
+            if key == "fed_funds_rate":
+                return "Restrictif" if val > 4.0 else ("Neutre" if val > 2.0 else "Accommodant")
+            if key == "yield_curve_spread":
+                return "Inversée (risque)" if val < 0 else ("Pentue" if val > 1.0 else "Plate")
+            if key == "cpi_yoy":
+                return "Élevée" if val > 4.0 else ("Modérée" if val > 2.5 else "Maîtrisée")
+            if key == "unemployment":
+                return "Tendu" if val < 4.0 else ("Neutre" if val < 5.5 else "Dégradé")
+            if key == "vix":
+                return "Faible vol." if val < 15 else ("Modérée" if val < 25 else "Stress élevé")
+            if key == "credit_spread_baa":
+                return "Serré" if val < 1.5 else ("Normal" if val < 2.5 else "Tendu")
+            if "yoy" in key:
+                return "Expansion" if val > 1.0 else ("Stagnation" if val > -1.0 else "Contraction")
+            return "\u2014"
+
+        # Construction des lignes du tableau
+        _fred_rows = []
+        for key in ["fed_funds_rate", "treasury_10y", "yield_curve_spread",
+                     "cpi_yoy", "unemployment", "vix", "credit_spread_baa"]:
+            val = _fred.get(key)
+            if val is None:
+                continue
+            label, unit = _FRED_LABELS.get(key, (key, ""))
+            val_str = f"{val:.2f} {unit}".strip() if unit else f"{val:.2f}"
+            _fred_rows.append([
+                Paragraph(label, S_TD_L),
+                Paragraph(f"<b>{val_str}</b>", S_TD_BC),
+                Paragraph(_fred_interp(key, val), S_TD_C),
+            ])
+
+        # Indicateurs sectoriels
+        _sector_fred = _fred.get("sector", {})
+        for key, val in _sector_fred.items():
+            if val is None:
+                continue
+            label, unit = _SECTOR_LABELS.get(key, (key.replace("_", " ").title(), ""))
+            val_str = f"{val:.2f} {unit}".strip() if unit else f"{val:.2f}"
+            interp = _fred_interp(key, val)
+            _fred_rows.append([
+                Paragraph(f"<i>{label}</i>", S_TD_L),
+                Paragraph(f"<b>{val_str}</b>", S_TD_BC),
+                Paragraph(interp, S_TD_C),
+            ])
+
+        if _fred_rows:
+            _fred_header = [[
+                Paragraph("Indicateur", S_TH_C),
+                Paragraph("Valeur", S_TH_C),
+                Paragraph("Interprétation", S_TH_C),
+            ]]
+            _fred_block = [
+                Paragraph("Indicateurs macroéconomiques — FRED", S_SUBSECTION),
+                Spacer(1, 1.5*mm),
+                tbl(_fred_header + _fred_rows, cw=[62*mm, 42*mm, 66*mm]),
+                src("Federal Reserve Economic Data (FRED). Dernières observations disponibles."),
+            ]
+            elems.append(KeepTogether(_fred_block))
+            elems.append(Spacer(1, 4*mm))
 
     elems.append(debate_q(f"Quelles dynamiques structurelles redefinissent les avantages concurrentiels dans le secteur {sector_name} ?"))
 
@@ -3632,7 +3736,17 @@ def _build_story(perf_buf, area_buf, scatter_buf, donut_buf,
         f"et exposition par ticker.", S_BODY))
     story.append(PageBreak())
 
-    story += _build_macro(perf_buf, area_buf, tickers_data, sector_name, universe, registry, sector_analytics)
+    # ── Fetch données FRED (macro) ────────────────────────────────────────
+    _fred_data = {}
+    try:
+        from data.sources.fred_source import fetch_macro_context as _fetch_fred
+        _fred_data = _fetch_fred(sector_name) or {}
+        if _fred_data:
+            log.info(f"[sector_pdf] FRED: {len(_fred_data)} indicateurs récupérés")
+    except Exception as _e_fred:
+        log.warning(f"[sector_pdf] FRED indisponible, skip: {_e_fred}")
+
+    story += _build_macro(perf_buf, area_buf, tickers_data, sector_name, universe, registry, sector_analytics, fred_data=_fred_data)
     story += _build_structure_sectorielle(tickers_data, sector_name, sector_analytics or {}, registry)
     story += _build_subsector_decomposition(tickers_data, sector_name, registry)
     story += _build_acteurs(tickers_data, sector_name, registry)

@@ -5,7 +5,7 @@ Interface : IndicePDFWriter.generate(data, output_path) -> str
 Double-passe SectionAnchor pour pagination dynamique.
 """
 
-import io, tempfile, os
+import io, tempfile, os, logging
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -118,6 +118,128 @@ def sig_s(signal):
 def sig_hex(signal):
     s = str(signal)
     return '#1A7A4A' if "Surp" in s else ('#A82020' if "Sous" in s else '#B06000')
+
+
+_log_fred = logging.getLogger(__name__)
+
+
+def _build_fred_macro_table():
+    """Construit un bloc ReportLab avec les indicateurs macroéconomiques FRED.
+
+    Retourne une liste de flowables (Paragraph + Table + source),
+    ou une liste vide si FRED est indisponible.
+    """
+    try:
+        from data.sources.fred_source import fetch_macro_context
+        macro = fetch_macro_context()
+        if not macro:
+            return []
+
+        # ── Définition des lignes : (clé, label FR, format, interprétation) ──
+        def _interp_fed(v):
+            if v is None: return "—"
+            if v >= 5.0:  return "Politique restrictive"
+            if v >= 3.0:  return "Politique neutre-haute"
+            if v >= 1.5:  return "Politique accommodante"
+            return "Politique très accommodante"
+
+        def _interp_10y(v):
+            if v is None: return "—"
+            if v >= 5.0:  return "Taux élevés — pression sur valorisations"
+            if v >= 3.5:  return "Taux modérément élevés"
+            if v >= 2.0:  return "Taux neutres"
+            return "Taux bas — favorable aux actions"
+
+        def _interp_curve(v):
+            if v is None: return "—"
+            if v < -0.5:  return "Courbe inversée — signal récessif"
+            if v < 0:     return "Courbe plate à inversée — prudence"
+            if v < 1.0:   return "Courbe légèrement positive"
+            return "Courbe pentue — expansion"
+
+        def _interp_cpi(v):
+            if v is None: return "—"
+            if v >= 5.0:  return "Inflation élevée"
+            if v >= 3.0:  return "Inflation au-dessus de la cible"
+            if v >= 1.5:  return "Inflation proche de la cible"
+            return "Inflation faible — risque déflationniste"
+
+        def _interp_unemp(v):
+            if v is None: return "—"
+            if v >= 6.0:  return "Marché de l'emploi dégradé"
+            if v >= 4.5:  return "Emploi en ralentissement"
+            if v >= 3.5:  return "Plein emploi"
+            return "Marché de l'emploi très tendu"
+
+        def _interp_vix(v):
+            if v is None: return "—"
+            if v >= 30:   return "Forte volatilité — stress de marché"
+            if v >= 20:   return "Volatilité élevée — prudence"
+            if v >= 15:   return "Volatilité normale"
+            return "Complaisance — volatilité faible"
+
+        def _interp_spread(v):
+            if v is None: return "—"
+            if v >= 3.0:  return "Stress crédit élevé"
+            if v >= 2.0:  return "Spread tendu — vigilance"
+            if v >= 1.0:  return "Spread normal"
+            return "Spread comprimé — appétit pour le risque"
+
+        rows_def = [
+            ("fed_funds_rate",    "Fed Funds Rate",       "fed",    _interp_fed),
+            ("treasury_10y",      "Treasury 10 ans",      "pct",    _interp_10y),
+            ("yield_curve_spread","Yield Curve (10Y-2Y)",  "spread", _interp_curve),
+            ("cpi_yoy",           "CPI YoY",              "pct",    _interp_cpi),
+            ("unemployment",      "Chômage",              "pct",    _interp_unemp),
+            ("vix",               "VIX",                  "num",    _interp_vix),
+            ("credit_spread_baa", "Spread Crédit BAA",    "pct",    _interp_spread),
+        ]
+
+        # ── Construction des données du tableau ──
+        header = [
+            Paragraph("Indicateur", S_TH_L),
+            Paragraph("Valeur", S_TH_C),
+            Paragraph("Interprétation", S_TH_L),
+        ]
+        table_rows = []
+        for key, label, fmt, interp_fn in rows_def:
+            val = macro.get(key)
+            if val is None:
+                continue
+            if fmt == "pct":
+                val_str = f"{val:.2f} %"
+            elif fmt == "spread":
+                val_str = f"{val:+.2f} %"
+            elif fmt == "fed":
+                val_str = f"{val:.2f} %"
+            elif fmt == "num":
+                val_str = f"{val:.1f}"
+            else:
+                val_str = str(val)
+            interp = interp_fn(val)
+            table_rows.append([
+                Paragraph(label, S_TD_B),
+                Paragraph(val_str, S_TD_C),
+                Paragraph(interp, S_TD_L),
+            ])
+
+        if not table_rows:
+            return []
+
+        elems = [
+            Spacer(1, 3*mm),
+            Paragraph("Indicateurs macroéconomiques — FRED", S_SUBSECTION),
+            Spacer(1, 1*mm),
+            tbl([header] + table_rows, cw=[42*mm, 30*mm, 98*mm], compact=True),
+            src("Federal Reserve Economic Data (FRED) — St. Louis Fed. "
+                "Dernières observations disponibles."),
+            Spacer(1, 3*mm),
+        ]
+        return elems
+
+    except Exception as e:
+        _log_fred.warning(f"[fred] Table FRED indisponible dans le PDF indice: {e}")
+        return []
 
 
 # ─── GRAPHIQUES ───────────────────────────────────────────────────────────────
@@ -818,6 +940,11 @@ def _build_synthese(data, perf_buf, registry=None):
         elems.append(Spacer(1, 4*mm))
     else:
         elems.append(Spacer(1, 4*mm))
+
+    # ── Indicateurs macroéconomiques FRED (si disponibles) ───────────────────
+    _fred_elems = _build_fred_macro_table()
+    if _fred_elems:
+        elems.extend(_fred_elems)
 
     elems.append(Paragraph("Contexte macro\u00e9conomique et positionnément", S_SUBSECTION))
     elems.append(Spacer(1, 1*mm))
