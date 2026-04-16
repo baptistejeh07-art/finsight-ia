@@ -166,7 +166,7 @@ div[data-testid="stButton"] > button:not([kind="primary"]):not([data-testid="stB
 /* RESULT HEADER */
 .rc { font-size:34px; font-weight:700; letter-spacing:-1px; line-height:1; color:#111; margin-bottom:8px; }
 .rm { font-family:'DM Mono',monospace; font-size:11px; color:#777; letter-spacing:.5px; margin-bottom:24px; }
-.verdict-row { display:flex; align-items:flex-start; gap:40px; padding:22px 26px; border:1px solid #f0f0f0; margin-bottom:44px; }
+.verdict-row { display:flex; align-items:flex-start; gap:24px; padding:22px 26px; border:1px solid #f0f0f0; margin-bottom:44px; flex-wrap:wrap; }
 .v-lbl { font-size:10px; font-weight:600; color:#777; letter-spacing:1.5px; text-transform:uppercase; margin-bottom:6px; }
 .v-buy  { font-size:22px; font-weight:700; color:#1a7a52; }
 .v-hold { font-size:22px; font-weight:700; color:#b8922a; }
@@ -174,7 +174,7 @@ div[data-testid="stButton"] > button:not([kind="primary"]):not([data-testid="stB
 .v-num  { font-size:28px; font-weight:700; color:#111; line-height:1; }
 .v-tgt  { font-size:28px; font-weight:700; color:#b8922a; line-height:1; }
 .v-bar  { width:140px; height:3px; background:#e8e8e8; border-radius:1px; margin-top:8px; }
-.v-div  { width:1px; background:#e8e8e8; min-height:50px; margin-top:10px; }
+.v-div  { width:1px; background:#e8e8e8; min-height:50px; margin-top:10px; flex-shrink:0; }
 
 /* Section titles */
 .sec-t { font-size:11px; font-weight:600; letter-spacing:1.5px; text-transform:uppercase; color:#777; margin-bottom:16px; margin-top:8px; display:flex; align-items:center; gap:14px; }
