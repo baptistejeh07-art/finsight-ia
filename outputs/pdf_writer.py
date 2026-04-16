@@ -2988,6 +2988,41 @@ def _build_risques(data):
         "Corpus : presse financi\u00e8re anglophone, 7 jours.")))
     elems.append(Spacer(1, 4*mm))
 
+    # ── Contexte macro FRED — ancrage données réelles ────────────────────
+    try:
+        from data.sources.fred_source import fetch_macro_context
+        _fred = fetch_macro_context()
+        if _fred:
+            _fred_rows_data = []
+            _fred_indicators = [
+                ("Taux directeur Fed",   _fred.get("fed_funds_rate"),    "%",  lambda v: "Restrictif" if v > 4 else ("Neutre" if v > 2 else "Accommodant")),
+                ("Treasury 10 ans",      _fred.get("treasury_10y"),      "%",  lambda v: "Taux \u00e9lev\u00e9s — pression valorisations" if v > 4.5 else "Mod\u00e9r\u00e9"),
+                ("Yield Curve (10Y-2Y)", _fred.get("yield_curve_spread"),"%",  lambda v: "Invers\u00e9e — risque r\u00e9cession" if v < 0 else ("Plate — vigilance" if v < 0.3 else "Normale")),
+                ("Inflation CPI (YoY)",  _fred.get("cpi_yoy"),           "%",  lambda v: "Inflation \u00e9lev\u00e9e" if v > 4 else ("Mod\u00e9r\u00e9e" if v > 2 else "Faible")),
+                ("Ch\u00f4mage US",      _fred.get("unemployment"),      "%",  lambda v: "March\u00e9 tendu" if v < 4 else ("Stable" if v < 5 else "D\u00e9gradation")),
+                ("VIX",                  _fred.get("vix"),               "",   lambda v: "Forte volatilit\u00e9 — stress" if v >= 30 else ("Mod\u00e9r\u00e9" if v >= 20 else "Faible — complaisance")),
+                ("Spread cr\u00e9dit BAA", _fred.get("credit_spread_baa"), "%", lambda v: "Stress cr\u00e9dit" if v > 3 else ("Normal" if v > 1.5 else "Serr\u00e9 — app\u00e9tit risque")),
+            ]
+            for _name, _val, _unit, _interp_fn in _fred_indicators:
+                if _val is not None:
+                    _val_str = f"{_val:.2f} {_unit}" if _unit else f"{_val:.2f}"
+                    _fred_rows_data.append([
+                        Paragraph(_name, S_TD_B),
+                        Paragraph(_val_str, S_TD_C),
+                        Paragraph(_interp_fn(_val), S_TD_L),
+                    ])
+            if _fred_rows_data:
+                _fred_h = [Paragraph(h, S_TH_C) for h in ["Indicateur", "Valeur", "Interpr\u00e9tation"]]
+                elems.append(KeepTogether([
+                    Paragraph("Contexte macro\u00e9conomique \u2014 Donn\u00e9es FRED", S_SUBSECTION),
+                    Spacer(1, 2*mm),
+                    tbl([_fred_h] + _fred_rows_data, cw=[42*mm, 30*mm, 98*mm]),
+                ]))
+                elems.append(src("Federal Reserve Economic Data (FRED) \u2014 derni\u00e8res observations disponibles."))
+                elems.append(Spacer(1, 4*mm))
+    except Exception as _fred_e:
+        log.warning(f"[pdf_writer] FRED macro dans risques: {_fred_e}")
+
     # Zone d'entrée optimale (Chantier 3)
     ez_conds   = data.get('entry_zone_conditions') or []
     ez_sat     = data.get('entry_zone_satisfied_count')
