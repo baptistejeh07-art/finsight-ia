@@ -1796,6 +1796,20 @@ def _safe(s):
     if not s:
         return ""
     out = str(s)
+    # 0. Remplacer les caractères Unicode problématiques (carrés noirs dans ReportLab)
+    #    CO₂ → CO2, ² → 2, ³ → 3, ₂ → 2, etc.
+    _unicode_fixes = {
+        "\u2082": "2", "\u2083": "3", "\u2080": "0", "\u2081": "1",  # subscripts
+        "\u00b2": "2", "\u00b3": "3",  # superscripts ² ³
+        "\u25b6": ">", "\u25ba": ">", "\u25c0": "<",  # triangles
+        "\u2022": "-", "\u2023": "-", "\u25cf": "-",  # bullets
+        "\u2019": "'", "\u2018": "'", "\u201c": '"', "\u201d": '"',  # smart quotes
+        "\u2013": "-", "\u2014": " - ",  # en/em dash (garder le tiret cadratin)
+        "\u2026": "...",  # ellipsis
+        "\u20ac": "EUR",  # euro sign (si pas dans la police)
+    }
+    for _uc, _repl in _unicode_fixes.items():
+        out = out.replace(_uc, _repl)
     # 1. Echapper les caracteres XML d'abord (pour eviter qu'un < dans le
     #    contenu ne casse le parser ReportLab)
     out = out.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
@@ -3109,7 +3123,7 @@ def _build_risques(tickers_data: list[dict], sector_name: str, registry=None):
         _is_current = _normalize(_sname) == _current_norm
         _style_cell = S_TD_B if _is_current else S_TD_C
         _ib_rows.append([
-            Paragraph(f"<b>\u25b6 {_sname}</b>" if _is_current else _sname, S_TD_B if _is_current else S_TD_L),
+            Paragraph(f"<b>&gt; {_sname}</b>" if _is_current else _sname, S_TD_B if _is_current else S_TD_L),
             Paragraph(f"<b>{_spe:.0f}x</b>" if _is_current else f"{_spe:.0f}x", _style_cell),
             Paragraph(f"<b>{_sev:.0f}x</b>" if _is_current else f"{_sev:.0f}x", _style_cell),
         ])

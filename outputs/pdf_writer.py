@@ -144,6 +144,17 @@ def _safe(s):
     import html as _html
     import re as _re
     decoded = _html.unescape(str(s))
+    # Remplacer les caractères Unicode problématiques (carrés noirs dans ReportLab)
+    _uf = {
+        "\u2082": "2", "\u2083": "3", "\u2080": "0", "\u2081": "1",
+        "\u00b2": "2", "\u00b3": "3",
+        "\u25b6": ">", "\u25ba": ">", "\u25c0": "<",
+        "\u2022": "-", "\u2023": "-", "\u25cf": "-",
+        "\u2019": "'", "\u2018": "'", "\u201c": '"', "\u201d": '"',
+        "\u2026": "...", "\u20ac": "EUR",
+    }
+    for _uc, _rp in _uf.items():
+        decoded = decoded.replace(_uc, _rp)
     out = decoded.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
     # Markdown bold -> ReportLab <b>
     out = _re.sub(r'\*\*([^*]+?)\*\*', r'<b>\1</b>', out)
