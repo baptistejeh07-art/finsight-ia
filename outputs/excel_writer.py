@@ -322,6 +322,30 @@ class ExcelWriter:
             _ci_map_active["analysis_date"]: ci.analysis_date or today,
         })
 
+        # ------------------------------------------------------------------
+        # Nettoyage résidus template — effacer les données hardcodées du
+        # template (ex: NXTFF dans UTILITY, PLD dans REIT) pour éviter
+        # que les cellules non écrites conservent des valeurs aberrantes.
+        # On nettoie uniquement les colonnes E-H des rows IS/BS/CF données.
+        # ------------------------------------------------------------------
+        _all_data_rows = set()
+        for _rows_dict in (_is_rows_active, _bs_asset_rows_active,
+                           _bs_liab_rows_active, _cf_rows_active):
+            if isinstance(_rows_dict, dict):
+                _all_data_rows.update(_rows_dict.values())
+        for _col in ['D', 'E', 'F', 'G', 'H']:
+            for _row in _all_data_rows:
+                _cell_ref = f"{_col}{_row}"
+                _cur = ws[_cell_ref].value
+                # Ne pas effacer les formules
+                if isinstance(_cur, str) and _cur.startswith("="):
+                    continue
+                # Effacer toutes les valeurs données du template — nos données
+                # seront écrites par-dessus dans la boucle suivante. Les cellules
+                # où yfinance retourne None resteront vides (au lieu de garder
+                # les résidus NXTFF/PLD/JPM/MET du template).
+                ws[_cell_ref] = None
+
         for year_str, fy in snapshot.years.items():
             col = year_col_map.get(year_str)
             if col is None:
