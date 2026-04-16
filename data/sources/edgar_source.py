@@ -115,6 +115,77 @@ def _get_latest_10k_url(ticker: str) -> Optional[str]:
         return None
 
 
+def _clean_html_to_text(html: str) -> str:
+    """Nettoie le HTML EDGAR (XBRL inline) et retourne du texte lisible.
+
+    Les 10-K EDGAR contiennent du HTML avec :
+    - des balises XBRL inline (<ix:*, <xbrli:*) = données structurées à ignorer
+    - des balises <script>, <style> = à supprimer
+    - du texte narratif dans <p>, <span>, <div>, <td> = à garder
+    - des attributs XBRL dans les balises standard = à ignorer
+
+    Cette fonction extrait uniquement le texte humainement lisible.
+    """
+    # 1. Supprimer les blocs entiers qu'on ne veut pas
+    # Script, style, XBRL context (données non narratives)
+    cleaned = re.sub(r'<script[^>]*>.*?</script>', ' ', html, flags=re.DOTALL | re.IGNORECASE)
+    cleaned = re.sub(r'<style[^>]*>.*?</style>', ' ', cleaned, flags=re.DOTALL | re.IGNORECASE)
+
+    # 2. Supprimer les blocs XBRL hidden (données structurées, pas du texte)
+    # Les <div style="display:none"> contiennent souvent les données XBRL
+    cleaned = re.sub(r'<div[^>]*display\s*:\s*none[^>]*>.*?</div>', ' ', cleaned, flags=re.DOTALL | re.IGNORECASE)
+
+    # 3. Supprimer les balises XBRL inline mais GARDER leur contenu textuel
+    # <ix:nonFraction ...>1,234</ix:nonFraction> → 1,234
+    # <ix:nonNumeric ...>Some text</ix:nonNumeric> → Some text
+    cleaned = re.sub(r'<ix:[^>]*>', '', cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r'</ix:[^>]*>', '', cleaned, flags=re.IGNORECASE)
+
+    # 4. Supprimer les balises XBRL contextuelles (xbrli:context, xbrli:unit, etc.)
+    # Ces blocs ne contiennent PAS de texte narratif, juste des IDs et dates
+    cleaned = re.sub(r'<xbrli:[^>]*>.*?</xbrli:[^>]*>', ' ', cleaned, flags=re.DOTALL | re.IGNORECASE)
+
+    # 5. Remplacer les balises de block par des newlines pour garder la structure
+    cleaned = re.sub(r'</?(p|div|tr|br|h[1-6]|li|section|article)[^>]*>', '\n', cleaned, flags=re.IGNORECASE)
+    # Balises td/th → tab (colonnes de tableau)
+    cleaned = re.sub(r'</?(td|th)[^>]*>', '\t', cleaned, flags=re.IGNORECASE)
+
+    # 6. Supprimer toutes les balises HTML restantes
+    cleaned = re.sub(r'<[^>]+>', ' ', cleaned)
+
+    # 7. Décoder les entités HTML
+    try:
+        import html as html_mod
+        cleaned = html_mod.unescape(cleaned)
+    except Exception:
+        pass
+
+    # 8. Nettoyer les espaces multiples et lignes vides
+    cleaned = re.sub(r'[ \t]+', ' ', cleaned)  # espaces multiples → un seul
+    cleaned = re.sub(r'\n\s*\n', '\n\n', cleaned)  # lignes vides multiples → une seule
+    cleaned = re.sub(r'\n{3,}', '\n\n', cleaned)  # max 2 newlines consécutifs
+
+    # 9. Supprimer les lignes qui sont juste des nombres/dates isolés (résidus XBRL)
+    lines = cleaned.split('\n')
+    filtered = []
+    for line in lines:
+        stripped = line.strip()
+        # Skip lignes trop courtes (< 10 chars) sauf si c'est un nombre avec contexte
+        if len(stripped) < 10:
+            continue
+        # Skip lignes qui sont juste des dates XBRL (2025-12-31, 0000019617, etc.)
+        if re.match(r'^\d{4}-\d{2}-\d{2}$', stripped):
+            continue
+        if re.match(r'^\d{10,}$', stripped):
+            continue
+        # Skip lignes qui sont des identifiants XBRL (us-gaap:*, jpm:*, etc.)
+        if re.match(r'^[a-z-]+:[A-Za-z]+', stripped):
+            continue
+        filtered.append(line)
+
+    return '\n'.join(filtered)
+
+
 def fetch_10k_text(ticker: str, max_pages: int = 50) -> Optional[str]:
     """Télécharge et extrait le texte du dernier 10-K.
 
@@ -132,31 +203,9 @@ def fetch_10k_text(ticker: str, max_pages: int = 50) -> Optional[str]:
         resp.raise_for_status()
         content_type = resp.headers.get("Content-Type", "")
 
-        # Si c'est un HTML (filing viewer), extraire le texte
+        # Si c'est un HTML (filing viewer), extraire le texte propre
         if "html" in content_type or url.endswith(".htm") or url.endswith(".html"):
-            from html.parser import HTMLParser
-
-            class _TextExtractor(HTMLParser):
-                def __init__(self):
-                    super().__init__()
-                    self.text = []
-                    self._skip = False
-
-                def handle_starttag(self, tag, attrs):
-                    if tag in ("script", "style"):
-                        self._skip = True
-
-                def handle_endtag(self, tag):
-                    if tag in ("script", "style"):
-                        self._skip = False
-
-                def handle_data(self, data):
-                    if not self._skip:
-                        self.text.append(data)
-
-            parser = _TextExtractor()
-            parser.feed(resp.text)
-            full_text = "\n".join(parser.text)
+            full_text = _clean_html_to_text(resp.text)
 
         # Si c'est un PDF
         elif url.endswith(".pdf") or "pdf" in content_type:
