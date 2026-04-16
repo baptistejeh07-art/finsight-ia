@@ -508,6 +508,35 @@ def _slide_01_cover(prs, d: dict):
     _txb(slide, f"\u25cf {sig_b}", 18.7, 11.08, 4.5, 0.75,
          9.5, True, _WHITE, align=PP_ALIGN.CENTER)
 
+    # ── Bandeau FRED macro (one-liner) ──────────────────────────────────────
+    try:
+        from data.sources.fred_source import fetch_macro_context
+        _fred = fetch_macro_context()
+        if _fred:
+            _parts = []
+            _fred_map = [
+                ("fed_funds_rate", "Fed"),
+                ("treasury_10y",  "10Y"),
+                ("vix",           "VIX"),
+                ("cpi_yoy",       "CPI"),
+            ]
+            for _fk, _flbl in _fred_map:
+                _fv = _fred.get(_fk)
+                if _fv is not None:
+                    if _fk == "cpi_yoy":
+                        _parts.append(f"{_flbl} {_fv:+.1f}\u00a0%".replace(".", ","))
+                    elif _fk == "vix":
+                        _parts.append(f"{_flbl} {_fv:.1f}".replace(".", ","))
+                    else:
+                        _parts.append(f"{_flbl} {_fv:.2f}\u00a0%".replace(".", ","))
+            if _parts:
+                _fred_line = "Données FRED : " + "  \u00b7  ".join(_parts)
+                _rect(slide, 0.9, 12.30, 23.6, 0.55, _NAVY_PALE)
+                _txb(slide, _fred_line, 0.9, 12.35, 23.6, 0.45,
+                     7.5, False, _NAVY, align=PP_ALIGN.CENTER)
+    except Exception as exc:
+        log.warning("[cmp_indice_pptx] FRED one-liner skipped: %s", exc)
+
     # Footer
     _rect(slide, 0, 13.6, 25.4, 0.7, _GRAYL)
     _txb(slide, "Rapport confidentiel  |  FinSight IA",

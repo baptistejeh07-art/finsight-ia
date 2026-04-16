@@ -919,6 +919,64 @@ def _build_story(data: dict) -> list:
         story.append(perf_img)
     story.append(Spacer(1, 3 * mm))
 
+    # ── Tableau Contexte Macro FRED ──────────────────────────────────────
+    try:
+        from data.sources.fred_source import fetch_macro_context
+        _fred = fetch_macro_context()
+        if _fred:
+            def _interp_fred(key, val):
+                """Interprétation courte d'un indicateur FRED."""
+                if key == "fed_funds_rate":
+                    return "Restrictif" if val > 4.5 else ("Neutre" if val > 2.5 else "Accommodant")
+                if key == "treasury_10y":
+                    return "Taux élevé" if val > 4.0 else ("Modéré" if val > 3.0 else "Bas")
+                if key == "vix":
+                    return "Stress élevé" if val > 25 else ("Prudence" if val > 18 else "Calme")
+                if key == "cpi_yoy":
+                    return "Inflation élevée" if val > 4 else ("Au-dessus de la cible" if val > 2.5 else "Maîtrisée")
+                if key == "unemployment":
+                    return "Tendu" if val < 4 else ("Équilibré" if val < 5 else "Dégradé")
+                if key == "credit_spread_baa":
+                    return "Stress crédit" if val > 2.5 else ("Normal" if val > 1.5 else "Serré")
+                if key == "yield_curve_spread":
+                    return "Inversée (récession)" if val < 0 else ("Plate" if val < 0.5 else "Pentue (expansion)")
+                return "\u2014"
+
+            _fred_indicators = [
+                ("fed_funds_rate",      "Taux directeur Fed (Fed Funds)"),
+                ("treasury_10y",        "Taux 10 ans US (Treasury)"),
+                ("vix",                 "VIX (volatilité implicite)"),
+                ("cpi_yoy",             "Inflation CPI (glissement annuel)"),
+                ("unemployment",        "Taux de chômage US"),
+                ("credit_spread_baa",   "Spread de crédit BAA"),
+                ("yield_curve_spread",  "Courbe des taux (10Y \u2212 2Y)"),
+            ]
+            fred_rows = [
+                [Paragraph("Indicateur", S_TH_L),
+                 Paragraph("Valeur", S_TH_C),
+                 Paragraph("Interprétation", S_TH_C)],
+            ]
+            _has_fred_data = False
+            for _fk, _flabel in _fred_indicators:
+                _fv = _fred.get(_fk)
+                if _fv is not None:
+                    _has_fred_data = True
+                    _fv_str = _enc(f"{_fv:.2f}\u00a0%".replace(".", ",")) if _fk != "vix" else _enc(f"{_fv:.1f}".replace(".", ","))
+                    _finterp = _interp_fred(_fk, _fv)
+                    fred_rows.append([
+                        Paragraph(_safe(_flabel), S_TD_L),
+                        Paragraph(_fv_str, S_TD_C),
+                        Paragraph(_safe(_finterp), S_TD_C),
+                    ])
+            if _has_fred_data:
+                story.append(Paragraph(_safe("Contexte Macroéconomique — Données FRED"),
+                                       S_SUBSECTION))
+                story.append(Spacer(1, 1 * mm))
+                story.append(_tbl([75, 35, 60], fred_rows))
+                story.append(Spacer(1, 3 * mm))
+    except Exception as exc:
+        log.warning("[cmp_indice_pdf] FRED macro table skipped: %s", exc)
+
     perf_macro = llm.get("perf_macro_read") or (
         f"Sur les 52 dernières semaines, le contexte macro a été marqué par la stabilisation "
         f"des taux directeurs (Fed 4,25-4,50 %, BCE 3,00 % après le pivot mi-2024), un "

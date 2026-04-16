@@ -689,6 +689,85 @@ def _build_story(D: dict) -> list:
     story.append(Paragraph(_xml(exec_text or _exec_fallback), S_BODY))
     story.append(Spacer(1, 4 * mm))
 
+    # ── Contexte macroéconomique FRED ────────────────────────────────────
+    try:
+        from data.sources.fred_source import fetch_macro_context
+        _macro = fetch_macro_context(sector_name=sector_a)
+        if _macro:
+            story.append(Paragraph("Contexte Macroéconomique (FRED)", S_SSEC))
+            story.append(Spacer(1, 1.5 * mm))
+
+            def _fred_interp(key, val):
+                """Interprétation courte pour chaque indicateur FRED."""
+                if key == "fed_funds_rate":
+                    return "Restrictif" if val >= 4.5 else ("Neutre" if val >= 2.5 else "Accommodant")
+                if key == "treasury_10y":
+                    return "Taux élevé" if val >= 4.5 else ("Modéré" if val >= 3.0 else "Bas")
+                if key == "vix":
+                    return "Stress élevé" if val >= 25 else ("Vigilance" if val >= 18 else "Calme")
+                if key == "cpi_yoy":
+                    return "Inflation forte" if val >= 4.0 else ("Modérée" if val >= 2.5 else "Maîtrisée")
+                if key == "unemployment":
+                    return "Élevé" if val >= 6.0 else ("Modéré" if val >= 4.5 else "Marché tendu")
+                if key == "credit_spread_baa":
+                    return "Stress crédit" if val >= 3.0 else ("Normal" if val >= 1.5 else "Appétit risque")
+                if key == "yield_curve_spread":
+                    return "Inversée (récession)" if val < 0 else ("Plate" if val < 0.5 else "Pentifiée")
+                return "—"
+
+            _fred_rows_def = [
+                ("fed_funds_rate",      "Taux directeur Fed",       lambda v: f"{v:.2f} %"),
+                ("treasury_10y",        "Treasury 10 ans",          lambda v: f"{v:.2f} %"),
+                ("vix",                 "VIX (volatilité)",         lambda v: f"{v:.1f}"),
+                ("cpi_yoy",             "CPI glissement annuel",    lambda v: f"{v:+.1f} %"),
+                ("unemployment",        "Taux de chômage US",       lambda v: f"{v:.1f} %"),
+                ("credit_spread_baa",   "Spread crédit BAA",        lambda v: f"{v:.2f} %"),
+                ("yield_curve_spread",  "Courbe des taux (10Y-2Y)", lambda v: f"{v:+.2f} %"),
+            ]
+
+            _fred_header = [
+                Paragraph("Indicateur", S_TH_L),
+                Paragraph("Valeur", S_TH_C),
+                Paragraph("Interprétation", S_TH_C),
+            ]
+            _fred_data = [_fred_header]
+            for _fk, _flabel, _ffmt in _fred_rows_def:
+                _fv = _macro.get(_fk)
+                if _fv is not None:
+                    _fred_data.append([
+                        Paragraph(_flabel, S_TD_L),
+                        Paragraph(_ffmt(_fv), S_TD_C),
+                        Paragraph(_fred_interp(_fk, _fv), S_TD_C),
+                    ])
+
+            if len(_fred_data) > 1:
+                _fred_cols = [70*mm, 40*mm, 66*mm]
+                _fred_tbl = Table(_fred_data, colWidths=_fred_cols)
+                _fred_style = [
+                    ("BACKGROUND",    (0, 0), (-1, 0), NAVY),
+                    ("TEXTCOLOR",     (0, 0), (-1, 0), WHITE),
+                    ("FONTSIZE",      (0, 0), (-1, -1), 8),
+                    ("TOPPADDING",    (0, 0), (-1, -1), 4),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                    ("LEFTPADDING",   (0, 0), (-1, -1), 6),
+                    ("RIGHTPADDING",  (0, 0), (-1, -1), 6),
+                    ("GRID",          (0, 0), (-1, -1), 0.3, GREY_RULE),
+                    ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
+                ]
+                for _ri in range(1, len(_fred_data)):
+                    if _ri % 2 == 0:
+                        _fred_style.append(("BACKGROUND", (0, _ri), (-1, _ri), ROW_ALT))
+                _fred_tbl.setStyle(TableStyle(_fred_style))
+                story.append(_fred_tbl)
+                story.append(Spacer(1, 1 * mm))
+                story.append(Paragraph(
+                    "Source : Federal Reserve Economic Data (FRED) — données les plus récentes disponibles.",
+                    S_NOTE,
+                ))
+                story.append(Spacer(1, 4 * mm))
+    except Exception as e:
+        log.warning("[cmp_secteur_pdf] FRED macro context: %s", e)
+
     cols = [52*mm, 30*mm, 30*mm, 30*mm, 30*mm]
     syn_data = [
         [Paragraph("Metrique", S_TH_L),

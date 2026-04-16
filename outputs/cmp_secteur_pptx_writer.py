@@ -821,6 +821,33 @@ def _s02_exec_summary(prs, D):
         _llm_box(slide, 0.9, 11.55, 23.6, 2.05,
                  "Analyse Comparative", llm_text, fontsize=9)
 
+    # ── Bandeau FRED macro (one-liner compact) ──────────────────────────
+    try:
+        from data.sources.fred_source import fetch_macro_context
+        _macro = fetch_macro_context(sector_name=D.get("sector_a", ""))
+        if _macro:
+            _parts = []
+            _fred_items = [
+                ("fed_funds_rate",    "Fed",  lambda v: f"{v:.2f}%"),
+                ("treasury_10y",      "10Y",  lambda v: f"{v:.2f}%"),
+                ("vix",               "VIX",  lambda v: f"{v:.1f}"),
+                ("cpi_yoy",           "CPI",  lambda v: f"{v:+.1f}%"),
+                ("unemployment",      "Chômage", lambda v: f"{v:.1f}%"),
+                ("credit_spread_baa", "Spread BAA", lambda v: f"{v:.2f}%"),
+                ("yield_curve_spread","Courbe", lambda v: f"{v:+.2f}%"),
+            ]
+            for _fk, _flbl, _ffmt in _fred_items:
+                _fv = _macro.get(_fk)
+                if _fv is not None:
+                    _parts.append(f"{_flbl} {_ffmt(_fv)}")
+            if _parts:
+                _fred_line = "Données FRED : " + "  \u00b7  ".join(_parts)
+                _rect(slide, 0.9, 13.80, 23.6, 0.50, fill=_NAVY_PALE)
+                _txb(slide, _fred_line, 1.1, 13.85, 23.2, 0.40,
+                     size=7, italic=True, color=_NAVY)
+    except Exception as e:
+        log.warning("[cmp_secteur_pptx] FRED macro one-liner: %s", e)
+
 
 def _s03_sommaire(prs, D):
     """Slide 3 — Sommaire (style aligné sur cmp société : cards bleu pale numérotées)."""
