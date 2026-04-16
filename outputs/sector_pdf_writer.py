@@ -3068,6 +3068,28 @@ def _build_risques(tickers_data: list[dict], sector_name: str, registry=None):
     # Contexte : "le secteur analysé est-il cher vs les autres ?"
     elems.append(Spacer(1, 5*mm))
     elems.append(Paragraph("Comparaison inter-sectorielle \u2014 Positionnement relatif", S_SUBSECTION))
+    # Mapping EN→FR pour le matching du secteur courant
+    _sector_aliases = {
+        "technologie": "technologie", "technology": "technologie",
+        "sante": "sante", "healthcare": "sante", "health care": "sante",
+        "services financiers": "services financiers", "financial services": "services financiers",
+        "financials": "services financiers",
+        "industrie": "industrie", "industrials": "industrie",
+        "energie": "energie", "energy": "energie",
+        "consommation disc.": "consommation disc.", "consumer discretionary": "consommation disc.",
+        "consumer cyclical": "consommation disc.",
+        "consommation stap.": "consommation stap.", "consumer staples": "consommation stap.",
+        "consumer defensive": "consommation stap.",
+        "utilities": "utilities",
+        "immobilier": "immobilier", "real estate": "immobilier",
+        "materiaux": "materiaux", "materials": "materiaux", "basic materials": "materiaux",
+        "communication": "communication", "communication services": "communication",
+    }
+    import unicodedata
+    def _normalize(s):
+        return unicodedata.normalize('NFD', s.lower()).encode('ascii', 'ignore').decode('ascii')
+    _current_norm = _normalize(_sector_aliases.get(sector_name.lower().strip(), sector_name))
+
     _sector_benchmarks = [
         ("Technologie",        32, 28),
         ("Sant\u00e9",         22, 18),
@@ -3084,18 +3106,21 @@ def _build_risques(tickers_data: list[dict], sector_name: str, registry=None):
     _ib_h = [Paragraph(h, S_TH_C) for h in ["Secteur", "P/E m\u00e9dian", "EV/EBITDA m\u00e9dian"]]
     _ib_rows = []
     for _sname, _spe, _sev in _sector_benchmarks:
-        _is_current = sector_name.lower() in _sname.lower() or _sname.lower() in sector_name.lower()
+        _is_current = _normalize(_sname) == _current_norm
         _style_cell = S_TD_B if _is_current else S_TD_C
         _ib_rows.append([
-            Paragraph(f"<b>{_sname}</b>" if _is_current else _sname, S_TD_B if _is_current else S_TD_L),
+            Paragraph(f"<b>\u25b6 {_sname}</b>" if _is_current else _sname, S_TD_B if _is_current else S_TD_L),
             Paragraph(f"<b>{_spe:.0f}x</b>" if _is_current else f"{_spe:.0f}x", _style_cell),
             Paragraph(f"<b>{_sev:.0f}x</b>" if _is_current else f"{_sev:.0f}x", _style_cell),
         ])
-    elems.append(tbl([_ib_h] + _ib_rows, cw=[50*mm, 40*mm, 40*mm]))
-    elems.append(src(
-        "P/E et EV/EBITDA m\u00e9dians indicatifs par secteur GICS. "
-        "Source : FinSight IA / yfinance. Le secteur analys\u00e9 est en gras."
-    ))
+    elems.append(KeepTogether([
+        tbl([_ib_h] + _ib_rows, cw=[50*mm, 40*mm, 40*mm]),
+        Spacer(1, 2*mm),
+        src(
+            "P/E et EV/EBITDA m\u00e9dians indicatifs par secteur GICS. "
+            "Source : FinSight IA / yfinance. Le secteur analys\u00e9 est en gras."
+        ),
+    ]))
 
     return elems
 
@@ -3405,7 +3430,7 @@ def _build_conclusion_reco(tickers_data: list[dict], sector_name: str,
                 f"profil ci-dessus."
             )
             # Refonte 2026-04-14 : critical phase -> Mistral primary (qualite FR top)
-            _reco_llm_text = llm_call(_reco_prompt, phase="critical", max_tokens=900) or ""
+            _reco_llm_text = llm_call(_reco_prompt, phase="critical", max_tokens=1200) or ""
             globals()[_cache_key] = _reco_llm_text
             _log.info("[sector_pdf] reco LLM OK: %d chars", len(_reco_llm_text))
         except Exception as _e_reco:
