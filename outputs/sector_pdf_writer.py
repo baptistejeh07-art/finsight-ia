@@ -1919,9 +1919,16 @@ def _generate_subsector_llm(subsectors: list[dict], sector_name: str, profile: s
                 f'  "{n}_presentation": "100 mots : présentation du sous-secteur {n} — '
                 f'acteurs influents ({best_tickers}), taille du marché, spécificités structurelles, '
                 f'positionnément dans la chaîne de valeur",\n'
-                f'  "{n}_drivers": "80 mots : drivers de croissance spécifiques à {n}",\n'
-                f'  "{n}_risques": "80 mots : risques et vulnérabilités propres à {n}",\n'
-                f'  "{n}_profil": "60 mots : profil financier typique de {n}",\n'
+                f'  "{n}_drivers": "80 mots : drivers de croissance SPÉCIFIQUES à {n} et UNIQUEMENT à {n}. '
+                f'NE PAS répéter les mêmes drivers pour chaque sous-secteur. '
+                f'Métriques : marge {s["margin"]}, croissance {s["growth"]}, EV/EBITDA {s["ev_ebitda"]}. '
+                f'Cite des exemples concrets (produits, technologies, marchés, réglementations) propres à {n}.",\n'
+                f'  "{n}_risques": "80 mots : risques SPÉCIFIQUES à {n} et UNIQUEMENT à {n}. '
+                f'NE PAS utiliser de formulations génériques comme \'pression concurrentielle\' ou \'cycle macro\'. '
+                f'Cite des risques propres : technologie obsolète, réglementation sectorielle, concentration clients, '
+                f'dépendance fournisseur, etc. Momentum 52W : {s["momentum"]}.",\n'
+                f'  "{n}_profil": "60 mots : profil financier typique de {n} — '
+                f'cite les chiffres medians du sous-secteur",\n'
             )
         prompt += (
             f'  "allocation": "150 mots : recommandation d\'allocation entre sous-secteurs, '
@@ -2952,6 +2959,40 @@ def _build_risques(tickers_data: list[dict], sector_name: str, registry=None):
             f"d'effets de levier financier potentiellement reversibles.",
             S_BODY),
     ]))
+
+    # ── Comparaison inter-sectorielle — P/E médian par secteur ────────────
+    # Contexte : "le secteur analysé est-il cher vs les autres ?"
+    elems.append(Spacer(1, 5*mm))
+    elems.append(Paragraph("Comparaison inter-sectorielle \u2014 Positionnement relatif", S_SUBSECTION))
+    _sector_benchmarks = [
+        ("Technologie",        32, 28),
+        ("Sant\u00e9",         22, 18),
+        ("Services Financiers", 14, 10),
+        ("Industrie",          20, 14),
+        ("\u00c9nergie",       12,  6),
+        ("Consommation Disc.", 25, 16),
+        ("Consommation Stap.", 20, 14),
+        ("Utilities",          18, 12),
+        ("Immobilier",         35, 20),
+        ("Mat\u00e9riaux",     16, 10),
+        ("Communication",      18, 14),
+    ]
+    _ib_h = [Paragraph(h, S_TH_C) for h in ["Secteur", "P/E m\u00e9dian", "EV/EBITDA m\u00e9dian"]]
+    _ib_rows = []
+    for _sname, _spe, _sev in _sector_benchmarks:
+        _is_current = sector_name.lower() in _sname.lower() or _sname.lower() in sector_name.lower()
+        _style_cell = S_TD_B if _is_current else S_TD_C
+        _ib_rows.append([
+            Paragraph(f"<b>{_sname}</b>" if _is_current else _sname, S_TD_B if _is_current else S_TD_L),
+            Paragraph(f"<b>{_spe:.0f}x</b>" if _is_current else f"{_spe:.0f}x", _style_cell),
+            Paragraph(f"<b>{_sev:.0f}x</b>" if _is_current else f"{_sev:.0f}x", _style_cell),
+        ])
+    elems.append(tbl([_ib_h] + _ib_rows, cw=[50*mm, 40*mm, 40*mm]))
+    elems.append(src(
+        "P/E et EV/EBITDA m\u00e9dians indicatifs par secteur GICS. "
+        "Source : FinSight IA / yfinance. Le secteur analys\u00e9 est en gras."
+    ))
+
     return elems
 
 
