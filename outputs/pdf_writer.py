@@ -1766,23 +1766,39 @@ def _build_valorisation(ff_buf, pie_buf, mc_buf, data):
     elems.append(Paragraph(_safe(_d(data, 'dcf_text_note')), S_NOTE))
     elems.append(Spacer(1, 4*mm))
 
-    # Comparables
+    # Comparables — colonnes adaptées au profil sectoriel
+    _comp_profile = data.get('sector_profile', 'STANDARD')
     elems.append(Paragraph(
         "Analyse par multiples comparables \u2014 Pairs sectoriels LTM", S_SUBSECTION))
-    comp_h = [Paragraph(h, S_TH_C) for h in [
-        "Soci\u00e9t\u00e9", "EV/EBITDA", "EV/Revenue", "P/E", "Marge brute", "Marge EBITDA"]]
+
+    if _comp_profile in ("BANK", "INSURANCE"):
+        _comp_headers = ["Soci\u00e9t\u00e9", "P/TBV", "P/E", "ROE", "Marge nette", "Div. Yield"]
+        _comp_keys    = ['pb_ratio', 'pe', 'roe', 'net_margin', 'div_yield']
+        _comp_cw      = [52*mm, 20*mm, 20*mm, 20*mm, 26*mm, 24*mm]
+    elif _comp_profile == "REIT":
+        _comp_headers = ["Soci\u00e9t\u00e9", "P/B", "P/E", "ROE", "Marge nette", "Div. Yield"]
+        _comp_keys    = ['pb_ratio', 'pe', 'roe', 'net_margin', 'div_yield']
+        _comp_cw      = [52*mm, 20*mm, 20*mm, 20*mm, 26*mm, 24*mm]
+    elif _comp_profile == "OIL_GAS":
+        _comp_headers = ["Soci\u00e9t\u00e9", "EV/EBITDA", "P/E", "ROE", "Marge EBITDA", "Div. Yield"]
+        _comp_keys    = ['ev_ebitda', 'pe', 'roe', 'ebitda_margin', 'div_yield']
+        _comp_cw      = [52*mm, 24*mm, 20*mm, 20*mm, 26*mm, 24*mm]
+    else:
+        _comp_headers = ["Soci\u00e9t\u00e9", "EV/EBITDA", "EV/Revenue", "P/E", "Marge brute", "Marge EBITDA"]
+        _comp_keys    = ['ev_ebitda', 'ev_revenue', 'pe', 'gross_margin', 'ebitda_margin']
+        _comp_cw      = [52*mm, 24*mm, 24*mm, 20*mm, 26*mm, 24*mm]
+
+    comp_h = [Paragraph(h, S_TH_C) for h in _comp_headers]
     comp_rows = []
     for r in (data.get('comparables') or []):
         bold = r.get('bold', False)
         nm   = _d(r, 'name')
         row  = [Paragraph(f"<b>{_safe(nm)}</b>" if bold else _safe(nm), S_TD_B if bold else S_TD_L)]
-        row += [Paragraph(_d(r, k), S_TD_C)
-                for k in ['ev_ebitda','ev_revenue','pe','gross_margin','ebitda_margin']]
+        row += [Paragraph(_d(r, k), S_TD_C) for k in _comp_keys]
         comp_rows.append(row)
     if not comp_rows:
-        comp_rows = [[Paragraph('\u2014', S_TD_C)] * 6]
-    elems.append(KeepTogether(tbl([comp_h] + comp_rows,
-                                  cw=[52*mm, 24*mm, 24*mm, 20*mm, 26*mm, 24*mm])))
+        comp_rows = [[Paragraph('\u2014', S_TD_C)] * len(_comp_headers)]
+    elems.append(KeepTogether(tbl([comp_h] + comp_rows, cw=_comp_cw)))
     elems.append(src("FinSight IA \u2014 FMP, consensus Bloomberg."))
     elems.append(Spacer(1, 4*mm))
     # Synthese valorisation — texte de transition (remplit l'espace page 6)
@@ -2256,7 +2272,7 @@ def _build_extra_risk_scores(elems: list, data: dict):
 
 
 def _build_multiples_historiques(data):
-    """Page PDF : Multiples de valorisation historiques P/E + EV/EBITDA sur 5 ans."""
+    """Page PDF : Multiples de valorisation historiques P/E + EV/EBITDA (ou P/B) sur 5 ans."""
     import math as _math_mh
     elems = []
     elems += section_title("Multiples Historiques de Valorisation", 4)
@@ -2265,13 +2281,22 @@ def _build_multiples_historiques(data):
 
     years_data = data.get('ratios_years_data') or []
     cur        = data.get('currency', 'USD')
+    _mh_profile = data.get('sector_profile', 'STANDARD')
 
-    # ── Chart matplotlib P/E + EV/EBITDA ──
+    # ── Chart matplotlib P/E + 2ème multiple (adapté au profil) ──
+    # BANK/INSURANCE/REIT : P/B au lieu de EV/EBITDA (non pertinent)
+    if _mh_profile in ("BANK", "INSURANCE", "REIT"):
+        _second_key   = 'pb'
+        _second_label = 'P/B'
+    else:
+        _second_key   = 'ev_eb'
+        _second_label = 'EV/EBITDA'
+
     if _MATPLOTLIB_OK and len(years_data) >= 2:
         try:
             labels  = [d['label']  for d in years_data]
             pe_vals = [d['pe']     for d in years_data]
-            ev_vals = [d['ev_eb']  for d in years_data]
+            ev_vals = [d.get(_second_key) for d in years_data]
             x = list(range(len(labels)))
 
             fig, ax1 = plt.subplots(figsize=(6.5, 2.8))
@@ -2282,7 +2307,7 @@ def _build_multiples_historiques(data):
                 ax1.plot(x, pe_plot, color='#1B3A6B', lw=2.2, marker='o', ms=5, label='P/E', zorder=4)
                 ax1.fill_between(x, pe_plot, alpha=0.07, color='#1B3A6B')
             if any(v == v for v in ev_plot):
-                ax1.plot(x, ev_plot, color='#1A7A4A', lw=2.2, marker='s', ms=5, ls='--', label='EV/EBITDA', zorder=4)
+                ax1.plot(x, ev_plot, color='#1A7A4A', lw=2.2, marker='s', ms=5, ls='--', label=_second_label, zorder=4)
 
             # Auto-scale pour inclure toutes les séries
             _all_vals = [v for v in pe_plot + ev_plot if v == v]
@@ -3383,13 +3408,26 @@ def _precompute_llm_batch(data: dict) -> None:
         if _sector_metrics_str:
             _common_rules = _sector_metrics_str + "\n\n" + _common_rules
 
+    # Adapter le prompt multiples selon le profil sectoriel
+    if _sector_profile in ("BANK", "INSURANCE", "REIT"):
+        _mult_series = f"P/E : {_pe_series} | P/B : {_pb_series}"
+        _mult_focus = "P/E et P/B (P/TBV)"
+        _mult_note = (
+            "EV/EBITDA n'est PAS pertinent pour ce profil. "
+            "Concentre-toi sur P/E, P/B (ou P/TBV), ROE vs cout des fonds propres."
+        )
+    else:
+        _mult_series = f"P/E : {_pe_series} | EV/EBITDA : {_ev_series} | P/B : {_pb_series}"
+        _mult_focus = "P/E et EV/EBITDA"
+        _mult_note = ""
+
     _prompt_mh = (
         f"Analyste sell-side senior. Commentaire tres approfondi 900-1100 mots "
         f"sur les multiples historiques de {_ticker} ({_sector}) sur 5 ans.\n"
-        f"P/E : {_pe_series} | EV/EBITDA : {_ev_series} | P/B : {_pb_series}\n\n"
+        f"{_mult_series}\n{_mult_note}\n\n"
         f"6 paragraphes (~160-180 mots chacun) avec ces titres EXACTS :\n"
         f"TENDANCE, MEAN-REVERSION, RE-RATING, SENSIBILITE, BENCHMARKS, CONCLUSION.\n"
-        f"(1) lecture P/E et EV/EBITDA 5 ans + cycles macro ; (2) vs moyenne "
+        f"(1) lecture {_mult_focus} 5 ans + cycles macro ; (2) vs moyenne "
         f"historique et pairs ; (3) catalyseurs expansion vs risques de-rating ; "
         f"(4) sensibilite taux reels et revisions BPA ; (5) vs mediane secteur ; "
         f"(6) niveau soutenable et triggers de revision.\n\n{_common_rules}"
@@ -3404,18 +3442,33 @@ def _precompute_llm_batch(data: dict) -> None:
         f"(3) FCF yield vs WACC ; (4) cash generator vs growth ; (5) vs pairs ; "
         f"(6) triggers et flexibilite payout.\n\n{_common_rules}"
     )
-    _prompt_lbo = (
-        f"Analyste Private Equity senior. Commentaire tres approfondi 900-1100 "
-        f"mots sur la viabilite LBO de {_ticker} ({_sector}).\n"
-        f"EBITDA LTM : {_eb_str}, FCF LTM : {_fcf_str}, Dette nette : {_nd_str}\n\n"
-        f"6 paragraphes (~160-180 mots chacun) avec ces titres EXACTS :\n"
-        f"ATTRACTIVITE CIBLE, LEVIER, CREATION DE VALEUR, RISQUES, BENCHMARK PE, "
-        f"SENSIBILITES.\n"
-        f"(1) forces business model + barrieres ; (2) FCF/interets + headroom "
-        f"covenants ; (3) operationnel + financier + multiple arbitrage ; "
-        f"(4) volatilite + cyclicite + refinancement ; (5) deals recents + IRR "
-        f"cibles ; (6) IRR bear case + triggers invalidation.\n\n{_common_rules}"
-    )
+    # LBO : pour BANK/INSURANCE, adapter le prompt (LBO classique non pertinent
+    # pour entités régulées — focus sur M&A/consolidation sectorielle)
+    if _sector_profile in ("BANK", "INSURANCE"):
+        _prompt_lbo = (
+            f"Analyste M&A senior. Commentaire tres approfondi 900-1100 "
+            f"mots sur le potentiel de consolidation/M&A de {_ticker} ({_sector}).\n"
+            f"FCF LTM : {_fcf_str}, Dette nette : {_nd_str}\n\n"
+            f"NOTE : un LBO classique n'est PAS applicable aux banques/assurances "
+            f"(entites regulees, contraintes CET1/Solvency II). Analyse plutot le "
+            f"potentiel d'acquisition strategique ou de consolidation sectorielle.\n\n"
+            f"6 paragraphes (~160-180 mots chacun) avec ces titres EXACTS :\n"
+            f"ATTRACTIVITE CIBLE, CONTRAINTES REGULATOIRES, SYNERGIES, RISQUES, "
+            f"BENCHMARK M&A, CONCLUSION.\n\n{_common_rules}"
+        )
+    else:
+        _prompt_lbo = (
+            f"Analyste Private Equity senior. Commentaire tres approfondi 900-1100 "
+            f"mots sur la viabilite LBO de {_ticker} ({_sector}).\n"
+            f"EBITDA LTM : {_eb_str}, FCF LTM : {_fcf_str}, Dette nette : {_nd_str}\n\n"
+            f"6 paragraphes (~160-180 mots chacun) avec ces titres EXACTS :\n"
+            f"ATTRACTIVITE CIBLE, LEVIER, CREATION DE VALEUR, RISQUES, BENCHMARK PE, "
+            f"SENSIBILITES.\n"
+            f"(1) forces business model + barrieres ; (2) FCF/interets + headroom "
+            f"covenants ; (3) operationnel + financier + multiple arbitrage ; "
+            f"(4) volatilite + cyclicite + refinancement ; (5) deals recents + IRR "
+            f"cibles ; (6) IRR bear case + triggers invalidation.\n\n{_common_rules}"
+        )
 
     # #195 — Hoist 3 LLM calls supplémentaires dans le batch parallèle
     # (avant ils étaient synchrones dans _build_financials / _build_valorisation /
@@ -4342,17 +4395,48 @@ class PDFWriter:
             try: _pe_row[_ltm_idx] = _frx(round(float(price) / float(_trailing_eps), 1))
             except: pass
 
-        is_data = [
-            ["Chiffre d'affaires"]      + rev_vals,
-            ["Croissance YoY"]          + grow_vals,
-            ["Marge brute"]             + [_frpct(_gm(l)) for l in all_labels],
-            ["EBITDA"]                  + [_frm(_ebitda(l)) for l in all_labels],
-            ["Marge EBITDA"]            + [_frpct(_em(l)) for l in all_labels],
-            ["R\u00e9sultat net"]       + [_frm(_ni(l)) for l in all_labels],
-            ["Marge nette"]             + [_frpct(_nm(l)) for l in all_labels],
-            ["EPS ($)"]                 + _eps_hist,
-            [_pe_label]                 + _pe_row,
-        ]
+        # Profil sectoriel — détecté ICI pour adapter le tableau IS + ratios
+        try:
+            from core.sector_profiles import detect_profile, is_non_standard, STANDARD, BANK, INSURANCE, REIT, UTILITY, OIL_GAS
+            _industry_raw = getattr(ci, 'industry', None) or _g(snap.company_info, 'industry', '')
+            _profile = detect_profile(sector, _industry_raw)
+        except Exception:
+            _profile = "STANDARD"
+
+        # Tableau IS — adapté selon le profil sectoriel
+        # BANK/INSURANCE : pas de Marge brute ni EBITDA pertinents
+        # → remplacer par NII/Cost-Income proxy et Résultat opérationnel
+        if _profile in ("BANK", "INSURANCE"):
+            is_data = [
+                ["Chiffre d'affaires"]      + rev_vals,
+                ["Croissance YoY"]          + grow_vals,
+                ["R\u00e9sultat net"]       + [_frm(_ni(l)) for l in all_labels],
+                ["Marge nette"]             + [_frpct(_nm(l)) for l in all_labels],
+                ["EPS ($)"]                 + _eps_hist,
+                [_pe_label]                 + _pe_row,
+            ]
+        elif _profile == "REIT":
+            is_data = [
+                ["Chiffre d'affaires"]      + rev_vals,
+                ["Croissance YoY"]          + grow_vals,
+                ["Marge brute"]             + [_frpct(_gm(l)) for l in all_labels],
+                ["R\u00e9sultat net"]       + [_frm(_ni(l)) for l in all_labels],
+                ["Marge nette"]             + [_frpct(_nm(l)) for l in all_labels],
+                ["EPS ($)"]                 + _eps_hist,
+                [_pe_label]                 + _pe_row,
+            ]
+        else:
+            is_data = [
+                ["Chiffre d'affaires"]      + rev_vals,
+                ["Croissance YoY"]          + grow_vals,
+                ["Marge brute"]             + [_frpct(_gm(l)) for l in all_labels],
+                ["EBITDA"]                  + [_frm(_ebitda(l)) for l in all_labels],
+                ["Marge EBITDA"]            + [_frpct(_em(l)) for l in all_labels],
+                ["R\u00e9sultat net"]       + [_frm(_ni(l)) for l in all_labels],
+                ["Marge nette"]             + [_frpct(_nm(l)) for l in all_labels],
+                ["EPS ($)"]                 + _eps_hist,
+                [_pe_label]                 + _pe_row,
+            ]
 
         # Ratios vs pairs
         bm = _benchmarks(sector)
@@ -4374,14 +4458,6 @@ class PDFWriter:
                      else ('Risque manip.' if _bm_f is not None else '\u2014')
         except (ValueError, TypeError):
             bm_lbl = '\u2014'
-
-        # Profil sectoriel — adapte les ratios selon banque / REIT / utility / etc.
-        try:
-            from core.sector_profiles import detect_profile, is_non_standard, STANDARD, BANK, INSURANCE, REIT, UTILITY, OIL_GAS
-            _industry_raw = getattr(ci, 'industry', None) or _g(snap.company_info, 'industry', '')
-            _profile = detect_profile(sector, _industry_raw)
-        except Exception:
-            _profile = "STANDARD"
 
         # Ratios standards (corporate classique)
         _ratios_std = [
@@ -4863,6 +4939,9 @@ class PDFWriter:
             ],
             'pe_ref_str':  bm.get('pe', '15\u201322x'),
             'ev_ref_str':  bm.get('ev_e', '10\u201316x'),
+
+            # Profil sectoriel (pour adapter comparables, multiples, etc.)
+            'sector_profile': _profile,
 
             # Comparables
             'comparables':    comparables,

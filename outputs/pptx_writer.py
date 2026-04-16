@@ -1527,16 +1527,45 @@ def _slide_is(prs, snap, synthesis, ratios):
             yr = ratios.years.get(col_k) if (ratios and ratios.years) else None
             return {"fy": fy, "yr": yr}
 
-    row_labels = [
-        "Chiffre d'affaires",
-        "Croissance YoY",
-        "Résultat brut",
-        "Marge brute",
-        "EBITDA",
-        "Marge EBITDA",
-        "Résultat net",
-        "Marge nette",
-    ]
+    # Détection profil sectoriel pour adapter le tableau IS
+    try:
+        from core.sector_profiles import detect_profile
+        _is_profile = detect_profile(
+            getattr(snap.company_info, 'sector', '') if snap else '',
+            getattr(snap.company_info, 'industry', '') if snap else '',
+        )
+    except Exception:
+        _is_profile = "STANDARD"
+
+    if _is_profile in ("BANK", "INSURANCE"):
+        # Banques/Assurances : pas de Marge brute ni EBITDA
+        row_labels = [
+            "Chiffre d'affaires",
+            "Croissance YoY",
+            "Résultat net",
+            "Marge nette",
+        ]
+    elif _is_profile == "REIT":
+        # REIT : pas d'EBITDA pertinent
+        row_labels = [
+            "Chiffre d'affaires",
+            "Croissance YoY",
+            "Résultat brut",
+            "Marge brute",
+            "Résultat net",
+            "Marge nette",
+        ]
+    else:
+        row_labels = [
+            "Chiffre d'affaires",
+            "Croissance YoY",
+            "Résultat brut",
+            "Marge brute",
+            "EBITDA",
+            "Marge EBITDA",
+            "Résultat net",
+            "Marge nette",
+        ]
 
     rows_data = []
     for rl in row_labels:
@@ -1608,6 +1637,9 @@ def _slide_is(prs, snap, synthesis, ratios):
     _SUBSUB = {
         "Croissance YoY", "Marge brute", "Marge EBITDA", "Marge nette"
     }
+    # Filtrer selon les row_labels effectivement utilisés
+    _SUBMAIN = _SUBMAIN & set(row_labels)
+    _SUBSUB  = _SUBSUB & set(row_labels)
 
     ltm_col_idx = len(hist_cols)  # table col index of last historical year
 
@@ -1672,10 +1704,10 @@ def _slide_is(prs, snap, synthesis, ratios):
                 else:
                     parts.append(f"Plateau du chiffre d'affaires ({_rg:+.1f}%), "
                                  f"suggérant une phase de maturité ou de transition stratégique.")
-            if _gmp is not None:
+            if _gmp is not None and _is_profile not in ("BANK", "INSURANCE"):
                 parts.append(f"Marge brute de {_gmp:.1f}%, indicateur du pricing power et "
                              f"de la structure de coûts variables.")
-            if _ebmp is not None:
+            if _ebmp is not None and _is_profile not in ("BANK", "INSURANCE", "REIT"):
                 parts.append(f"Marge EBITDA à {_ebmp:.1f}%, mesure de la profitabilité "
                              f"opérationnelle avant amortissements.")
             if _nmp is not None:
