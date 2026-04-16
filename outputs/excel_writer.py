@@ -290,20 +290,36 @@ class ExcelWriter:
             year_int = int(label.split("_")[0])
             is_ltm = (col == 'H')
             _year_vals[col] = f"{year_int} (LTM)" if is_ltm else year_int
-        # Ecrire D5-H5 et D132-H132 : "" pour les colonnes inactives (évite le 0
+        # Ecrire D5-H5 : "" pour les colonnes inactives (évite le 0
         # que retournerait =INPUT!Dx dans RATIOS/DCF/SCÉNARIOS quand la cellule est None)
         for col in ['D', 'E', 'F', 'G', 'H']:
             ws[f'{col}5']   = _year_vals.get(col, "")
-            ws[f'{col}132'] = _year_vals.get(col, None)
+        # D132-H132 helper row — REIT n'en a pas (row 132 = days_in_period)
+        _year_helper_row = _cell_map.get("year_helper_row", 132)
+        if _year_helper_row is not None:
+            for col in ['D', 'E', 'F', 'G', 'H']:
+                ws[f'{col}{_year_helper_row}'] = _year_vals.get(col, None)
 
+        # Company info — cellules fixes colonne D
+        # REIT/profils non-STANDARD peuvent avoir des positions différentes
+        _ci_map_override = _cell_map.get("company_info")
+        _ci_map_active = _ci_map_override if _ci_map_override else {
+            "company_name":  _CI_CELLS["company_name"],
+            "ticker":        _CI_CELLS["ticker"],
+            "sector":        _CI_CELLS["sector"],
+            "base_year":     _CI_CELLS["base_year"],
+            "currency":      _CI_CELLS["currency"],
+            "units":         _CI_CELLS["units"],
+            "analysis_date": _CI_CELLS["analysis_date"],
+        }
         _write_cells(ws, {
-            _CI_CELLS["company_name"]:  ci.company_name,
-            _CI_CELLS["ticker"]:        ci.ticker,
-            _CI_CELLS["sector"]:        ci.sector or "",
-            _CI_CELLS["base_year"]:     ltm_year,       # toujours l'année H
-            _CI_CELLS["currency"]:      ci.currency,
-            _CI_CELLS["units"]:         ci.units,
-            _CI_CELLS["analysis_date"]: ci.analysis_date or today,
+            _ci_map_active["company_name"]:  ci.company_name,
+            _ci_map_active["ticker"]:        ci.ticker,
+            _ci_map_active["sector"]:        ci.sector or "",
+            _ci_map_active["base_year"]:     ltm_year,
+            _ci_map_active["currency"]:      ci.currency,
+            _ci_map_active["units"]:         ci.units,
+            _ci_map_active["analysis_date"]: ci.analysis_date or today,
         })
 
         for year_str, fy in snapshot.years.items():

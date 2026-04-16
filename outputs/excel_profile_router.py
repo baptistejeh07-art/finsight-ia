@@ -232,7 +232,83 @@ _STANDARD_CELL_MAP: dict = {
 
 _BANK_CELL_MAP: dict = {}
 _INSURANCE_CELL_MAP: dict = {}
-_REIT_CELL_MAP: dict = {}
+_REIT_CELL_MAP: dict = {
+    "company_info": {
+        "company_name":  "D136",
+        "ticker":        "D137",
+        "sector":        "D138",
+        "base_year":     "D139",
+        "currency":      "D140",
+        "units":         "D141",
+        "analysis_date": "D142",
+    },
+    "is_rows": {
+        "revenue":          9,
+        "cogs":             10,
+        "sga":              14,
+        "rd":               15,
+        "da":               16,
+        "interest_expense": 20,
+        "interest_income":  21,
+        "tax_expense_real": 25,
+        "dividends":        29,
+    },
+    "is_cost_fields": {
+        "cogs", "sga", "rd", "da", "interest_expense",
+        "tax_expense_real", "dividends",
+    },
+    "bs_asset_rows": {
+        "cash":                 34,
+        "accounts_receivable":  35,
+        "inventories":          36,
+        "other_current_assets": 37,
+        "ppe_net":              41,
+        "intangibles":          42,
+        "other_lt_assets":      43,
+    },
+    "bs_liab_rows": {
+        "accounts_payable":      47,
+        "short_term_debt":       48,
+        "income_tax_payable":    49,
+        "other_current_liab":    50,
+        "long_term_debt":        54,
+        "common_equity_paid_in": 58,
+        "retained_earnings_yf":  59,
+    },
+    "cf_rows": {
+        "change_accounts_receivable": 71,
+        "change_inventories":         72,
+        "change_accounts_payable":    73,
+        "other_wc_changes":           74,
+        "capex":                      78,
+        "other_investing":            79,
+        "change_lt_debt":             83,
+        "change_common_equity":       84,
+        "dividends_paid":             85,
+        "beginning_cash":             90,
+    },
+    "mkt_fields": {
+        "share_price":          "H117",
+        "shares_diluted":       "H118",
+        "beta_levered":         "H121",
+        "risk_free_rate":       "H122",
+        "erp":                  "H123",
+        "cost_of_debt_pretax":  "H125",
+        "tax_rate":             "H126",
+        "weight_equity":        "H128",
+        "weight_debt":          "H129",
+        # H130 WACC = FORMULE — absent
+        "terminal_growth":      "H131",
+        "days_in_period":       "H132",
+    },
+    "tax_rate_row": 126,
+    "input_sheet": "INPUT",
+    "stock_sheet": "STOCK_DATA",
+    # Row pour les labels d'année (backup helpers hors zone impression)
+    "year_label_row": 5,
+    # Pas de row 132 helper pour REIT (132 = days_in_period)
+    "year_helper_row": None,
+}
 _UTILITY_CELL_MAP: dict = {}
 
 # OIL_GAS — template TTE.PA livré 2026-04-15 (Baptiste).
