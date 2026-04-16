@@ -505,6 +505,7 @@ def fetch(ticker: str) -> Optional[FinancialSnapshot]:
             shares_diluted = _m(float(shares_raw)) if shares_raw else None,
             beta_levered   = info.get("beta"),
             risk_free_rate = rfr,   # ^TNX / 100 récupéré en parallèle
+            dividend_yield = info.get("trailingAnnualDividendYield"),  # décimal (0.0196 = 1,96%)
         )
 
         # --- Historique mensuel cours ---

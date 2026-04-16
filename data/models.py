@@ -116,6 +116,7 @@ class MarketData:
     wacc: Optional[float] = None                # D108–H108
     terminal_growth: Optional[float] = None     # D109–H109
     days_in_period: Optional[int] = None        # D110–H110
+    dividend_yield: Optional[float] = None      # yfinance dividendYield (décimal, ex: 0.035 = 3,5%)
 
     def to_dict(self) -> dict:
         return asdict(self)

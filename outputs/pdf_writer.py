@@ -4081,7 +4081,7 @@ class PDFWriter:
         erp         = (mkt.erp if mkt else None) or 0.055
         _shares     = (mkt.shares_diluted if mkt else None)
         mktcap      = (price * _shares * 1e6) if (price and _shares) else None
-        div_yield   = None   # non disponible dans MarketData
+        div_yield   = (mkt.dividend_yield if mkt else None)  # yfinance dividendYield
         pe_ntm      = None   # sera rempli par ratios ci-dessous
         ev_ebitda_v = None
 
@@ -4398,7 +4398,7 @@ class PDFWriter:
         # Ratios adaptés au profil sectoriel — références en string pour _read_label
         if _profile == "BANK":
             _pb_v = _a('pb_ratio') if hasattr(yr_r, 'pb_ratio') else None
-            _dy_v = _g(snap.market, 'dividend_yield', None) if snap and snap.market else None
+            _dy_v = snap.market.dividend_yield if snap and snap.market else None
             ratios_vs_peers = [
                 {'label':'P/TBV (x)',        'value':_frx(_pb_v),  'reference':'0,8\u20131,5x', 'lecture':_read_label(_pb_v, '0.8-1.5')},
                 {'label':'P/E (x)',          'value':_frx(pe_v),   'reference':'8\u201314x',    'lecture':_read_label(pe_v, '8-14')},
@@ -4427,7 +4427,7 @@ class PDFWriter:
             ]
         elif _profile == "INSURANCE":
             _pb_v = _a('pb_ratio')
-            _dy_v = _g(snap.market, 'dividend_yield', None) if snap and snap.market else None
+            _dy_v = snap.market.dividend_yield if snap and snap.market else None
             ratios_vs_peers = [
                 {'label':'P/Book (x)',       'value':_frx(_pb_v),  'reference':'0,8\u20131,5x', 'lecture':_read_label(_pb_v, '0.8-1.5')},
                 {'label':'P/E (x)',          'value':_frx(pe_v),   'reference':'8\u201314x',    'lecture':_read_label(pe_v, '8-14')},
