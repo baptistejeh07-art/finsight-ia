@@ -163,10 +163,27 @@ def _fmt_mds(v):
         return "\u2014"
 
 def _reco(score):
+    """Recommandation 5 niveaux basée sur le score composite FinSight."""
     if score is None:
         return "HOLD"
     s = float(score)
-    if s >= 70:
+    if s >= 75:
+        return "STRONG BUY"
+    if s >= 65:
+        return "BUY"
+    if s >= 45:
+        return "HOLD"
+    if s >= 30:
+        return "UNDERPERFORM"
+    return "SELL"
+
+
+def _reco_3(score):
+    """Recommandation 3 niveaux pour les paniers perf chart (BUY/HOLD/SELL)."""
+    if score is None:
+        return "HOLD"
+    s = float(score)
+    if s >= 65:
         return "BUY"
     if s >= 45:
         return "HOLD"
@@ -295,19 +312,10 @@ def _make_perf_chart(tickers_data: list[dict], sector_name: str,
     except Exception as _e:
         log.warning("sector_pdf perf_chart: get_etf_for echoue: %s", _e)
 
-    # Classement FinSight par signal (BUY / HOLD / SELL)
-    def _reco(score):
-        if score is None:
-            return "HOLD"
-        try:
-            s = float(score)
-            if s >= 65: return "BUY"
-            if s < 45:  return "SELL"
-            return "HOLD"
-        except: return "HOLD"
-    tickers_buy  = [t.get("ticker") for t in tickers_data if _reco(t.get("score_global")) == "BUY"  and t.get("ticker")]
-    tickers_hold = [t.get("ticker") for t in tickers_data if _reco(t.get("score_global")) == "HOLD" and t.get("ticker")]
-    tickers_sell = [t.get("ticker") for t in tickers_data if _reco(t.get("score_global")) == "SELL" and t.get("ticker")]
+    # Classement FinSight par signal 3 niveaux pour les paniers du chart
+    tickers_buy  = [t.get("ticker") for t in tickers_data if _reco_3(t.get("score_global")) == "BUY"  and t.get("ticker")]
+    tickers_hold = [t.get("ticker") for t in tickers_data if _reco_3(t.get("score_global")) == "HOLD" and t.get("ticker")]
+    tickers_sell = [t.get("ticker") for t in tickers_data if _reco_3(t.get("score_global")) == "SELL" and t.get("ticker")]
 
     # Fetch yfinance batch : ETF + tous les tickers sectoriels
     curves = {}  # {label: [base100 values]}
@@ -369,7 +377,7 @@ def _make_perf_chart(tickers_data: list[dict], sector_name: str,
 
     # Styles des 4 courbes
     _STYLES = {
-        "ETF":  {"color": "#1B3A6B", "lw": 2.4, "ls": "-",  "zorder": 4, "label": f"ETF {etf_ticker}" if etf_ticker else "ETF sectoriel"},
+        "ETF":  {"color": "#1B3A6B", "lw": 2.4, "ls": "-",  "zorder": 4, "label": f"ETF {sector_name} ({etf_ticker})" if etf_ticker else "ETF sectoriel"},
         "BUY":  {"color": "#1A7A4A", "lw": 1.8, "ls": "-",  "zorder": 3, "label": f"Panier BUY ({len(tickers_buy)})"},
         "HOLD": {"color": "#B06000", "lw": 1.3, "ls": "--", "zorder": 2, "label": f"Panier HOLD ({len(tickers_hold)})"},
         "SELL": {"color": "#A82020", "lw": 1.8, "ls": "-",  "zorder": 3, "label": f"Panier SELL ({len(tickers_sell)})"},
@@ -2272,7 +2280,12 @@ def _build_acteurs(tickers_data: list[dict], sector_name: str, registry=None):
         if col == 0:
             return Paragraph(f"<b>{v}</b>", S_TD_BC)
         if col == 1:
-            s = S_TD_G if v == "BUY" else (S_TD_R if v == "SELL" else S_TD_A)
+            if v in ("STRONG BUY", "BUY"):
+                s = S_TD_G
+            elif v in ("SELL", "UNDERPERFORM"):
+                s = S_TD_R
+            else:
+                s = S_TD_A
             return Paragraph(f"<b>{v}</b>", s)
         if col == 4:
             return Paragraph(str(v), S_TD_G if '+' in str(v) else S_TD_R)
@@ -3051,21 +3064,35 @@ def _build_annexe(tickers_data: list[dict], sector_name: str, reco_commentary: d
         except (TypeError, ValueError, KeyError):
             return "\u2014"
 
+    strong_buy_list = [t for t in sorted_data if _reco(t.get('score_global')) == "STRONG BUY"]
     buy_list  = [t for t in sorted_data if _reco(t.get('score_global')) == "BUY"]
     hold_list = [t for t in sorted_data if _reco(t.get('score_global')) == "HOLD"]
+    underperf_list = [t for t in sorted_data if _reco(t.get('score_global')) == "UNDERPERFORM"]
     sell_list = [t for t in sorted_data if _reco(t.get('score_global')) == "SELL"]
 
     _CW = [14*mm, 30*mm, 14*mm, 18*mm, 20*mm, 16*mm, 20*mm]  # 132mm
 
     _rc = reco_commentary or {}
+    _S_COMM_SBUY = _style('comm_sbuy', size=8, leading=11, color=colors.HexColor('#0D5E3A'), bold=False, align=TA_LEFT)
     _S_COMM_BUY  = _style('comm_buy',  size=8, leading=11, color=colors.HexColor('#1A7A4A'), bold=False, align=TA_LEFT)
     _S_COMM_HOLD = _style('comm_hold', size=8, leading=11, color=colors.HexColor('#4A5568'), bold=False, align=TA_LEFT)
+    _S_COMM_UNDER = _style('comm_under', size=8, leading=11, color=colors.HexColor('#B06000'), bold=False, align=TA_LEFT)
     _S_COMM_SELL = _style('comm_sell', size=8, leading=11, color=colors.HexColor('#A82020'), bold=False, align=TA_LEFT)
-    _comm_styles = {"BUY": _S_COMM_BUY, "HOLD": _S_COMM_HOLD, "SELL": _S_COMM_SELL}
+    _comm_styles = {
+        "STRONG BUY": _S_COMM_SBUY, "BUY": _S_COMM_BUY, "HOLD": _S_COMM_HOLD,
+        "UNDERPERFORM": _S_COMM_UNDER, "SELL": _S_COMM_SELL,
+    }
+
+    _SBUY_CLR = colors.HexColor('#0D5E3A')
+    _SBUY_BG  = colors.HexColor('#E8F8F0')
+    _UNDER_CLR = colors.HexColor('#B06000')
+    _UNDER_BG  = colors.HexColor('#FFF8F0')
 
     for grp_tickers, grp_label, grp_col, grp_bg in [
+        (strong_buy_list, "STRONG BUY", _SBUY_CLR, _SBUY_BG),
         (buy_list, "BUY", _BUY_CLR, _BUY_BG),
         (hold_list, "HOLD", _HOLD_CLR, _HOLD_BG),
+        (underperf_list, "UNDERPERFORM", _UNDER_CLR, _UNDER_BG),
         (sell_list, "SELL", _SELL_CLR, _SELL_BG),
     ]:
         if not grp_tickers:
@@ -3174,10 +3201,15 @@ def _build_conclusion_reco(tickers_data: list[dict], sector_name: str,
     elems += section_title("Top Picks & Recommandation Sectorielle", 6)
 
     sorted_data = sorted(tickers_data, key=lambda x: x.get('score_global') or 0, reverse=True)
-    buy_list   = [t for t in sorted_data if _reco(t.get('score_global')) == "BUY"]
-    hold_list  = [t for t in sorted_data if _reco(t.get('score_global')) == "HOLD"]
-    sell_list  = [t for t in sorted_data if _reco(t.get('score_global')) == "SELL"]
-    buy_count, hold_count, sell_count = len(buy_list), len(hold_list), len(sell_list)
+    strong_buy_list = [t for t in sorted_data if _reco(t.get('score_global')) == "STRONG BUY"]
+    buy_list        = [t for t in sorted_data if _reco(t.get('score_global')) == "BUY"]
+    hold_list       = [t for t in sorted_data if _reco(t.get('score_global')) == "HOLD"]
+    underperf_list  = [t for t in sorted_data if _reco(t.get('score_global')) == "UNDERPERFORM"]
+    sell_list       = [t for t in sorted_data if _reco(t.get('score_global')) == "SELL"]
+    # Counts pour le texte analytique
+    buy_count  = len(strong_buy_list) + len(buy_list)
+    hold_count = len(hold_list)
+    sell_count = len(underperf_list) + len(sell_list)
 
     # Recommandation LLM détaillée — cache via attribut module pour éviter double appel (passe1 + passe2)
     import logging as _log_reco
@@ -3260,14 +3292,31 @@ def _build_conclusion_reco(tickers_data: list[dict], sector_name: str,
             f"Classement d\u00e9taill\u00e9 (cours, cible, upside) disponible en Annexe.", S_BODY))
     elems.append(Spacer(1, 5*mm))
 
-    # 3 tableaux compacts côte à côte : BUY | HOLD | SELL — max 5 tickers chacun
-    t_buy  = _make_reco_table(buy_list,  "BUY",  colors.HexColor('#1A7A4A'), colors.HexColor('#F0FAF5'))
-    t_hold = _make_reco_table(hold_list, "HOLD", colors.HexColor('#4A5568'), colors.HexColor('#F7F7F7'))
-    t_sell = _make_reco_table(sell_list, "SELL", colors.HexColor('#A82020'), colors.HexColor('#FFF5F5'))
+    # 5 tableaux : STRONG BUY | BUY | HOLD | UNDERPERFORM | SELL
+    # Ligne 1 : STRONG BUY + BUY + HOLD (3 colonnes)
+    _all_buy = strong_buy_list + buy_list
+    t_sbuy = _make_reco_table(strong_buy_list, "STRONG BUY", colors.HexColor('#0D5E3A'), colors.HexColor('#E8F8F0'))
+    t_buy  = _make_reco_table(buy_list,        "BUY",        colors.HexColor('#1A7A4A'), colors.HexColor('#F0FAF5'))
+    t_hold = _make_reco_table(hold_list,       "HOLD",       colors.HexColor('#4A5568'), colors.HexColor('#F7F7F7'))
 
-    # Mise en page côte à côte dans un tableau wrapper
-    wrapper = Table([[t_buy, Spacer(4*mm, 1), t_hold, Spacer(4*mm, 1), t_sell]],
-                    colWidths=[54*mm, 4*mm, 54*mm, 4*mm, 54*mm])
+    wrapper_top = Table([[t_sbuy, Spacer(3*mm, 1), t_buy, Spacer(3*mm, 1), t_hold]],
+                        colWidths=[54*mm, 3*mm, 54*mm, 3*mm, 54*mm])
+    wrapper_top.setStyle(TableStyle([
+        ('VALIGN',  (0,0),(-1,-1), 'TOP'),
+        ('LEFTPADDING',  (0,0),(-1,-1), 0),
+        ('RIGHTPADDING', (0,0),(-1,-1), 0),
+        ('TOPPADDING',   (0,0),(-1,-1), 0),
+        ('BOTTOMPADDING',(0,0),(-1,-1), 0),
+    ]))
+    elems.append(wrapper_top)
+    elems.append(Spacer(1, 3*mm))
+
+    # Ligne 2 : UNDERPERFORM + SELL (2 colonnes, centrées)
+    t_under = _make_reco_table(underperf_list, "UNDERPERFORM", colors.HexColor('#B06000'), colors.HexColor('#FFF8F0'))
+    t_sell  = _make_reco_table(sell_list,      "SELL",         colors.HexColor('#A82020'), colors.HexColor('#FFF5F5'))
+
+    wrapper = Table([[t_under, Spacer(3*mm, 1), t_sell]],
+                    colWidths=[54*mm, 3*mm, 54*mm])
     wrapper.setStyle(TableStyle([
         ('VALIGN',  (0,0),(-1,-1), 'TOP'),
         ('LEFTPADDING',  (0,0),(-1,-1), 0),
@@ -3287,15 +3336,21 @@ def _build_conclusion_reco(tickers_data: list[dict], sector_name: str,
     elems.append(Paragraph("Allocation portefeuille mod\u00e8le", S_SUBSECTION))
     alloc_h = [Paragraph(h, S_TH_C) for h in ["Profil", "Tickers", "Pond\u00e9rations", "Rationale"]]
     alloc_data = []
+    if strong_buy_list:
+        alloc_data.append(["Leaders qualit\u00e9", " + ".join(t.get('ticker','') for t in strong_buy_list[:4]),
+                           "30-40%", "Coeur offensif \u2014 convictions fortes, fondamentaux solides"])
     if buy_list:
-        alloc_data.append(["Leaders qualit\u00e9", " + ".join(t.get('ticker','') for t in buy_list[:4]),
-                           "40-50%", "Coeur offensif \u2014 visibilité revenus, marges solides"])
+        alloc_data.append(["Convictions secondaires", " + ".join(t.get('ticker','') for t in buy_list[:4]),
+                           "20-30%", "Renforcement progressif \u2014 catalyseurs identifi\u00e9s"])
     if hold_list:
         alloc_data.append(["Positions neutres", " + ".join(t.get('ticker','') for t in hold_list[:4]),
-                           "20-30%", "Exposition sectorielle \u2014 renforcement conditionnel aux catalyseurs"])
+                           "15-25%", "Exposition sectorielle \u2014 renforcement conditionnel"])
+    if underperf_list:
+        alloc_data.append(["Sous-pond\u00e9rer", " + ".join(t.get('ticker','') for t in underperf_list[:3]),
+                           "5-10%", "Exposition r\u00e9duite \u2014 fondamentaux fragiles, surveiller"])
     if sell_list:
-        alloc_data.append(["Short / Eviter", " + ".join(t.get('ticker','') for t in sell_list[:3]),
-                           "0 %", "These negative \u2014 réévaluation post-résultats"])
+        alloc_data.append(["\u00c9viter", " + ".join(t.get('ticker','') for t in sell_list[:3]),
+                           "0 %", "Th\u00e8se n\u00e9gative \u2014 risque de d\u00e9-rating"])
     if not alloc_data:
         alloc_data.append(["Portefeuille equi-pondéré", "Tous", "100%",
                            "Pas de conviction forte \u2014 approche indicielle"])
@@ -3432,9 +3487,9 @@ def _generate_reco_commentary(buy_list, hold_list, sell_list, sector_name, secto
             f"Contexte : {_profile_hint}\n"
             f"BUY : {buy_str}\nHOLD : {hold_str}\nSELL : {sell_str}\n\n"
             f"Format EXACT (3 blocs) :\n"
-            f"BUY: <2-3 phrases : valorisation, bilan, croissance, catalyseurs>\n"
+            f"BUY: <2-3 phrases : valorisation, bilan, croissance, catalyseurs — inclut STRONG BUY et BUY>\n"
             f"HOLD: <2-3 phrases : catalyseurs manquants, valorisation correcte>\n"
-            f"SELL: <2-3 phrases : deterioration fonda, risque rerating, marges>\n"
+            f"SELL: <2-3 phrases : deterioration fonda, risque rerating, marges — inclut UNDERPERFORM et SELL>\n"
             f"Si groupe vide : '<groupe>: Aucune valeur.'"
         )
         system = (
@@ -3821,10 +3876,11 @@ def generate_sector_report(
             sector_analytics.setdefault("macro", {})
 
     # Commentaire LLM BUY/HOLD/SELL (appel unique Groq)
+    # On merge STRONG BUY + BUY et UNDERPERFORM + SELL pour le commentaire LLM
     _sorted = sorted(tickers_data, key=lambda x: x.get('score_global') or 0, reverse=True)
-    _buy_l  = [t for t in _sorted if _reco(t.get('score_global')) == "BUY"]
+    _buy_l  = [t for t in _sorted if _reco(t.get('score_global')) in ("STRONG BUY", "BUY")]
     _hold_l = [t for t in _sorted if _reco(t.get('score_global')) == "HOLD"]
-    _sell_l = [t for t in _sorted if _reco(t.get('score_global')) == "SELL"]
+    _sell_l = [t for t in _sorted if _reco(t.get('score_global')) in ("UNDERPERFORM", "SELL")]
     _reco_profile = _detect_sector_profile(tickers_data, sector_name)
     reco_commentary = _generate_reco_commentary(_buy_l, _hold_l, _sell_l, sector_name, _reco_profile)
 
