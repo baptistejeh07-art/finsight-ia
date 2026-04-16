@@ -5929,9 +5929,23 @@ def render_results(results: dict) -> None:
             dp  = yr.dividend_payout
             dp_c = "bn" if dp is not None else "bn"
 
+            # Dividend yield depuis MarketData
+            _dy_reit = None
+            try:
+                _dy_reit = mkt.dividend_yield if mkt else None
+            except Exception:
+                pass
+            _dy_reit_s = f"{_dy_reit*100:.1f}%" if _dy_reit else "N/A"
+            _dy_c = "bg" if _dy_reit and _dy_reit > 0.035 else ("bn" if _dy_reit else "br")
+
+            # FCF Yield : pour REIT, souvent négatif → utiliser dividend yield comme proxy AFFO yield
+            _fcf_v = yr.fcf_yield
+            _fcf_s = _p(_fcf_v) if _fcf_v is not None and _fcf_v > 0 else _dy_reit_s
+            _fcf_sub = "FCF / Market Cap" if _fcf_v is not None and _fcf_v > 0 else "Proxy via Dividend Yield"
+
             cells = "".join([
-                _rc("P/B",               _x(yr.pb_ratio),
-                    "P/NAV proxy · 0.85-1.15x", pb_w, pb_c),
+                _rc("P/B (P/NAV proxy)", _x(yr.pb_ratio),
+                    "0.85-1.15x · décote/prime NAV", pb_w, pb_c),
                 _rc("P/E Ratio",         _x(yr.pe_ratio),
                     "Peu pertinent REIT (préférer P/FFO)", pe_w, pe_c),
                 _rc("ROE",               _p(yr.roe),
@@ -5940,20 +5954,20 @@ def render_results(results: dict) -> None:
                     "Rental income YoY", rg_w, rg_c),
                 _rc("Marge EBITDA",      _p(yr.ebitda_margin),
                     "NOI proxy · > 60% sain", 70, "bn"),
+                _rc("Dividend Yield",    _dy_reit_s,
+                    "REITs : 3,5-6,5% · distribution obligatoire", 60, _dy_c),
                 _rc("Dette/EBITDA",      _x(yr.net_debt_ebitda),
                     "REITs : < 6x sain, < 8x acceptable", lev_w, lev_c),
                 _rc("Interest Coverage", _x(yr.interest_coverage),
                     "EBITDA / Intérêts · > 3x", ic_w, ic_c),
                 _rc("Payout Dividende",  _p(yr.dividend_payout),
                     "REITs distribuent 90%+", 80, dp_c),
-                _rc("FCF Yield",         _p(yr.fcf_yield),
-                    "Proxy AFFO yield", 60, "bn"),
+                _rc("Net Margin",        _p(yr.net_margin),
+                    "Net Income / Revenue", nm_w, nm_c),
+                _rc("Debt/Equity",       _x(yr.debt_equity),
+                    "Levier bilantiel · normal 0.5-1.5x", 60, "bn"),
                 _rc("Market Cap",        (f"{yr.market_cap/1000:,.1f} Mds" if yr.market_cap else "N/A"),
                     "Capitalisation boursière", 60, "bn"),
-                _rc("Occupancy / WALT",  "voir rapport trim.",
-                    "Occupancy > 92%, WALT > 5 ans", 50, "bn"),
-                _rc("LTV / P/NAV",       "voir rapport annuel",
-                    "LTV < 50%, P/NAV 0.85-1.15x", 50, "bn"),
             ])
             _profile_note = (
                 'Profil <b>REIT</b> — ratios adaptés : P/B comme proxy P/NAV, payout élevé '
