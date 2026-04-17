@@ -1922,7 +1922,8 @@ def _aggregate_subsectors(tickers_data: list[dict]) -> list[dict]:
                    if (x.get("ebitda_margin") or x.get("gross_margin"))]
             mg_med = f"{_med(mgs):.1f}%" if mgs else "\u2014"
         grs = [x.get("revenue_growth") or 0 for x in items if x.get("revenue_growth") is not None]
-        gr_med = f"{_med(grs):+.1f}%" if grs else "\u2014"
+        # revenue_growth stocké en fraction (0.068 = +6.8%) — convertir en % avant format
+        gr_med = f"{_med(grs)*100:+.1f}%" if grs else "\u2014"
         moms = [x.get("momentum_52w") or 0 for x in items if x.get("momentum_52w") is not None]
         mom_med = f"{_med(moms):+.1f}%" if moms else "\u2014"
         sig = "Surpondérer" if avg_score >= 60 else ("Sous-pondérer" if avg_score < 40 else "Neutre")

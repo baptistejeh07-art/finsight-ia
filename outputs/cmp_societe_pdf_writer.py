@@ -295,15 +295,21 @@ def _row_has_data(r):
 # =============================================================================
 def _profil_text(m_a, m_b, tkr_a, tkr_b):
     sec_a  = m_a.get("sector_a") or m_a.get("sector") or "N/A"
+    sec_b  = m_b.get("sector_b") or m_b.get("sector") or "N/A"
     mc_a   = _frm(m_a.get("market_cap"))
     mc_b   = _frm(m_b.get("market_cap"))
     dy_a   = _frpct(m_a.get("dividend_yield"))
     dy_b   = _frpct(m_b.get("dividend_yield"))
     beta_a = _fr(m_a.get("beta"), 2)
     beta_b = _fr(m_b.get("beta"), 2)
+    # Gérer le cas sociétés de secteurs différents sans affirmer le contraire
+    if sec_a and sec_b and sec_a.strip().lower() == sec_b.strip().lower():
+        _sector_phrase = f"opèrent tous deux dans le secteur {sec_a}"
+    else:
+        _sector_phrase = f"évoluent dans des secteurs distincts ({sec_a} pour {tkr_a}, {sec_b} pour {tkr_b})"
     return (
-        f"{tkr_a} (Market Cap : {mc_a}) et {tkr_b} ({mc_b}) opèrent tous deux dans le "
-        f"secteur {sec_a}. {tkr_a} offre un rendement du dividende de {dy_a} vs {dy_b} pour {tkr_b}. "
+        f"{tkr_a} (Market Cap : {mc_a}) et {tkr_b} ({mc_b}) {_sector_phrase}. "
+        f"{tkr_a} offre un rendement du dividende de {dy_a} vs {dy_b} pour {tkr_b}. "
         f"Beta {tkr_a} : {beta_a}x vs {beta_b}x pour {tkr_b}, "
         f"reflétant leur Sensibilité respective au marché."
     )

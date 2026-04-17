@@ -3897,17 +3897,19 @@ def _benchmarks(sector):
                 gm="35-55\u00a0%", em="15-25\u00a0%", roe="10-18\u00a0%")
 
 
-def _fmt_mkt_cap(v):
-    """Formate une Market Cap brute (en USD absolus) en 'X XXX Mds USD'.
-    Ex : 3_722_256_235.6 -> '3 722 Mds USD'. Retourne '--' si None/0."""
+def _fmt_mkt_cap(v, currency: str = "USD"):
+    """Formate une Market Cap brute dans la devise native de la société.
+    Ex : 3_722_256_235.6 (USD) -> '3 722 Mds USD'
+         43_570_000_000_000 (JPY) -> '43 570 Mds JPY'
+    Retourne '--' si None/0."""
     if v is None: return "\u2014"
     try:
         f = float(v)
         if f <= 0: return "\u2014"
         bn = f / 1_000_000_000
-        # Formater avec separateur espace (style francais)
         s = f"{int(round(bn)):,}".replace(",", "\u00a0")
-        return f"{s}\u00a0Mds\u00a0USD"
+        _cur = (currency or "USD").upper()
+        return f"{s}\u00a0Mds\u00a0{_cur}"
     except (ValueError, TypeError):
         return "\u2014"
 
@@ -4572,9 +4574,15 @@ class PDFWriter:
         else:
             ratios_vs_peers = _ratios_std
 
-        # DCF sensitivity
-        wacc_vals = [wacc - 0.02, wacc - 0.01, wacc, wacc + 0.01, wacc + 0.02]
-        tgr_vals  = [tgr  - 0.01, tgr  - 0.005, tgr, tgr  + 0.005, tgr  + 0.01]
+        # DCF sensitivity — adapter la plage pour garantir WACC > TGR partout.
+        # Sinon pour des WACC faibles (ex: Toyota 4%, TGR 2.5%), la moitié de
+        # la table donne d ≤ 0 → tirets asymétriques visuellement moches.
+        _tgr_step = 0.005
+        _wacc_step = max(0.005, min(0.01, (wacc - tgr - 0.001) / 2))
+        wacc_vals = [wacc - 2*_wacc_step, wacc - _wacc_step, wacc,
+                     wacc + _wacc_step, wacc + 2*_wacc_step]
+        tgr_vals  = [tgr - 2*_tgr_step, tgr - _tgr_step, tgr,
+                     tgr + _tgr_step, tgr + 2*_tgr_step]
         try:
             bv = float(tbase) if tbase is not None else (float(price) if price is not None else 100.0)
         except (ValueError, TypeError):
@@ -4873,7 +4881,7 @@ class PDFWriter:
             'beta_str':          _fr(beta, 2) if beta else 'N/A',
             'erp_str':           _fr(erp * 100, 1, '\u00a0%'),
             'rf_str':            _fr(rfr * 100, 1, '\u00a0%'),
-            'market_cap_str':    _fmt_mkt_cap(mktcap) if mktcap else '\u2014',
+            'market_cap_str':    _fmt_mkt_cap(mktcap, cur) if mktcap else '\u2014',
             'dividend_yield_str':_frpct(div_yield) if div_yield is not None else '\u2014',
             'pe_ntm_str':        _frx(pe_ntm) if pe_ntm else '\u2014',
             'ev_ebitda_str':     _frx(ev_ebitda_v) if ev_ebitda_v else '\u2014',
@@ -4919,27 +4927,26 @@ class PDFWriter:
                                     f"et doit \u00eatre mis en perspective avec le niveau de "
                                     f"conviction du sc\u00e9nario central.") if (ev_e and tbear and tbase and tbull) else '',
             'pie_text':             _g(synthesis,'pie_text') or (
-                                    f"La capitalisation boursi\u00e8re de {co_name} repr\u00e9sente "
-                                    f"une fraction significative de la valeur d'entreprise totale "
-                                    f"du secteur. Ce poids sectoriel refl\u00e8te le statut de "
-                                    f"la soci\u00e9t\u00e9 comme r\u00e9f\u00e9rence de valorisation "
-                                    f"pour ses pairs, et implique une liquidit\u00e9 \u00e9lev\u00e9e "
-                                    f"ainsi qu'une exposition institutionnelle importante. "
-                                    f"Une part relative \u00e9lev\u00e9e dans la valeur sectorielle "
-                                    f"indique \u00e9galement que {co_name} est probablement "
-                                    f"sur-repr\u00e9sent\u00e9e dans les indices sectoriels et les "
-                                    f"portefeuilles benchmark\u00e9s, ce qui amplifie la sensibilit\u00e9 "
-                                    f"du cours aux flux passifs et aux ajustements de pond\u00e9ration "
-                                    f"par les gestionnaires. \u00c0 l'inverse, une part plus modeste "
-                                    f"dans la valeur sectorielle peut signaler un profil plus "
-                                    f"sp\u00e9cialis\u00e9 ou un positionnement sur un sous-segment "
-                                    f"niche, avec un beta id\u00e9osyncratique plus prononc\u00e9 et "
-                                    f"une corr\u00e9lation moindre aux rotations top-down. "
-                                    f"L'analyse du poids relatif EV doit \u00eatre lue conjointement "
-                                    f"avec la concentration sectorielle (indice HHI) et le profil "
-                                    f"de liquidit\u00e9 pour appr\u00e9cier la capacit\u00e9 d'absorption "
-                                    f"de flux institutionnels importants sans impact de march\u00e9 "
-                                    f"significatif."),
+                                    # Fallback enrichi avec chiffres réels (cap, secteur, beta, dividend)
+                                    # au lieu du texte 100% générique sans données.
+                                    f"{co_name} capitalise {_fmt_mkt_cap(mktcap, cur) if mktcap else 'N/A'} "
+                                    f"dans le secteur {sector or 'N/A'}. "
+                                    + (f"Beta {_fr(beta, 2)}x vs marché "
+                                       f"(vs médiane sectorielle ~1,0x) — "
+                                       + ("exposition pro-cyclique au-dessus de la moyenne, amplifiant les rotations sectorielles. " if beta and beta > 1.15
+                                          else ("profil défensif vs indice, sous-performance attendue dans les phases de risk-on mais résilience en drawdown. " if beta and beta < 0.85
+                                                else "sensibilité marché alignée sur la moyenne sectorielle. ")) if beta else "")
+                                    + (f"Rendement dividende {_frpct(div_yield)} " if div_yield is not None else "")
+                                    + (f"vs moyenne secteur ~2,0% — " if div_yield is not None else "")
+                                    + ("profil yield (attractif pour mandats income/revenue). " if div_yield and div_yield > 0.03
+                                       else ("politique de réinvestissement privilégiée sur distribution. " if div_yield is not None and div_yield < 0.01
+                                             else "dividende aligné sur la moyenne sectorielle. " if div_yield is not None else ""))
+                                    + (f"P/E LTM {_frx(pe_ntm)} vs médiane peers — "
+                                       "le positionnement relatif en valorisation s'apprécie conjointement avec le "
+                                       "momentum, les marges et la qualité de bilan pour identifier les asymétries "
+                                       "risque/rendement les plus robustes.") if pe_ntm else
+                                      "Le positionnement en valorisation doit être croisé avec les multiples peers "
+                                      "et la trajectoire fondamentale pour isoler le vrai upside asymétrique."),
             'bear_text_intro':      _g(synthesis,'bear_intro') or
                                     counter_thesis.replace(' | ', ' ') if counter_thesis else
                                     "Le protocole de contradiction syst\u00e9matique (avocat du diable) identifie "
