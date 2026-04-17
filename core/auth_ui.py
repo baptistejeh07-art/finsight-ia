@@ -331,7 +331,22 @@ def handle_oauth_callback() -> None:
     """
     try:
         params = st.query_params
-        # Cas 1 : flow implicit — tokens en query params (après JS parse hash)
+        # Cas 1 : id_token Google (flow OpenID Connect via response_type=token id_token)
+        id_token = params.get("idt")
+        if id_token:
+            nonce = st.session_state.get("_oauth_nonce")
+            success, msg = _auth.sign_in_with_google_id_token(id_token, nonce=nonce)
+            try:
+                st.query_params.clear()
+            except Exception:
+                pass
+            if success:
+                st.success("✓ " + msg)
+                st.rerun()
+            else:
+                st.error(f"Erreur Google : {msg}")
+            return
+        # Cas 2 : tokens Supabase (legacy implicit) — at/rt en query params
         at = params.get("at")
         rt = params.get("rt")
         if at and rt:
@@ -346,7 +361,7 @@ def handle_oauth_callback() -> None:
             else:
                 st.error(f"Erreur set session : {msg}")
             return
-        # Cas 2 : OAuth error renvoyé par Supabase
+        # Cas 3 : OAuth error renvoyé par Google ou Supabase
         err = params.get("error") or params.get("error_description")
         if err:
             st.error(f"Erreur OAuth : {params.get('error_description') or err}")
@@ -355,8 +370,7 @@ def handle_oauth_callback() -> None:
             except Exception:
                 pass
             return
-        # Cas 3 : flow PKCE legacy — code en query param (NE DEVRAIT PAS arriver
-        # avec response_type=token, mais fallback)
+        # Cas 4 : flow PKCE legacy — code en query param (fallback)
         code = params.get("code")
         if code:
             success, msg = _auth.exchange_oauth_code(code)
@@ -368,9 +382,9 @@ def handle_oauth_callback() -> None:
                 st.success("✓ " + msg)
                 st.rerun()
             else:
-                st.error(f"Erreur OAuth (PKCE non supporté avec Streamlit) : {msg}")
+                st.error(f"Erreur OAuth (PKCE non supporté Streamlit) : {msg}")
             return
-        # Cas 4 : injection JS pour parser le hash URL (#access_token=...)
+        # Cas 5 : injection JS pour parser le hash URL (#id_token=... ou #access_token=...)
         _inject_hash_to_query_parser()
     except Exception as _e_cb:
         st.error(f"Exception OAuth callback : {_e_cb}")
@@ -379,12 +393,9 @@ def handle_oauth_callback() -> None:
 def _inject_hash_to_query_parser() -> None:
     """Composant invisible qui parse window.top.location.hash et redirige.
 
-    NB : Streamlit Cloud encapsule l'app dans un iframe, ET les composants
-    custom (streamlit.components.v1.html) dans un sous-iframe. Donc :
-      - window = composant iframe (le plus interne)
-      - window.parent = iframe Streamlit
-      - window.top = fenêtre utilisateur (URL visible avec le hash)
-    On doit utiliser window.top pour atteindre l'URL utilisateur.
+    Détecte plusieurs formats de tokens dans le fragment :
+    - #id_token=XXX (OpenID Connect Google) → ?idt=XXX
+    - #access_token=XXX&refresh_token=YYY (Supabase implicit) → ?at=XXX&rt=YYY
     """
     try:
         from streamlit.components.v1 import html as _components_html
@@ -397,17 +408,24 @@ def _inject_hash_to_query_parser() -> None:
                 const hash = top.location.hash || '';
                 if (hash.length < 2) return;
                 const params = new URLSearchParams(hash.substring(1));
+                const idt = params.get('id_token');
                 const at = params.get('access_token');
                 const rt = params.get('refresh_token');
-                if (at && rt) {
-                  const url = new URL(top.location.href);
-                  url.hash = '';
+                const url = new URL(top.location.href);
+                url.hash = '';
+                let needRedirect = false;
+                if (idt) {
+                  url.searchParams.set('idt', idt);
+                  needRedirect = true;
+                } else if (at && rt) {
                   url.searchParams.set('at', at);
                   url.searchParams.set('rt', rt);
+                  needRedirect = true;
+                }
+                if (needRedirect) {
                   top.location.replace(url.toString());
                 }
               } catch (e) {
-                // Cross-origin error : on ne peut pas accéder à window.top
                 console.warn('[auth] Hash parser bloqué cross-origin:', e);
               }
             })();

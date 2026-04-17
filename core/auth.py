@@ -267,21 +267,31 @@ def sign_in_email(email: str, password: str) -> tuple[bool, str]:
 
 
 def sign_in_google(redirect_to: Optional[str] = None) -> Optional[str]:
-    """Lance le flow OAuth Google en mode IMPLICIT (response_type=token).
+    """Lance le flow OAuth Google avec response_type='token id_token'.
 
-    Force l'implicit flow côté serveur Supabase via query_params, car le
-    PKCE flow par défaut nécessite un code_verifier en localStorage que
-    Streamlit ne peut pas persister entre rerun + redirect.
+    Le response_type='token id_token' demande à Google de renvoyer en plus
+    du access_token un id_token JWT que Supabase peut valider via
+    sign_in_with_id_token() — sans avoir besoin d'un code_verifier PKCE.
 
-    Retourne l'URL d'autorisation Google. Après auth, Supabase redirige
-    vers `redirect_to` avec les tokens dans le FRAGMENT URL :
-        https://app.com/#access_token=XXX&refresh_token=YYY&expires_in=...
+    Workflow :
+    1. Redirect Google → user authorise
+    2. Google redirige vers app avec :
+       #access_token=XXX&id_token=YYY&...
+    3. JS parse le hash, extrait id_token
+    4. Python : client.auth.sign_in_with_id_token({provider: 'google', token: id_token})
+    5. Supabase valide id_token Google → crée session Supabase native
+    6. set_session côté Python → cookies persistés
     """
     client = get_client()
     if client is None:
         return None
     try:
-        options = {"query_params": {"response_type": "token"}}
+        options = {
+            "query_params": {
+                "response_type": "token id_token",
+                "nonce": _generate_nonce(),  # required for id_token security
+            },
+        }
         if redirect_to:
             options["redirect_to"] = redirect_to
         resp = client.auth.sign_in_with_oauth({
@@ -292,6 +302,42 @@ def sign_in_google(redirect_to: Optional[str] = None) -> Optional[str]:
     except Exception as e:
         log.error(f"[auth] sign_in_google failed: {e}")
         return None
+
+
+def _generate_nonce() -> str:
+    """Génère un nonce aléatoire pour OpenID Connect id_token (sécurité)."""
+    import secrets
+    nonce = secrets.token_urlsafe(32)
+    st = _get_st()
+    st.session_state["_oauth_nonce"] = nonce
+    return nonce
+
+
+def sign_in_with_google_id_token(id_token: str, nonce: Optional[str] = None) -> tuple[bool, str]:
+    """Authentifie un user avec un id_token Google (flow OpenID Connect).
+
+    Appelé après que JS ait extrait id_token de l'URL fragment Google.
+    Supabase valide le id_token via Google et crée une session Supabase.
+    """
+    client = get_client()
+    if client is None:
+        return False, "Service d'authentification indisponible."
+    try:
+        payload = {"provider": "google", "token": id_token}
+        if nonce:
+            payload["nonce"] = nonce
+        resp = client.auth.sign_in_with_id_token(payload)
+        if resp.user and resp.session:
+            st = _get_st()
+            st.session_state["_supabase_user"] = _user_to_dict(resp.user)
+            st.session_state["_supabase_session"] = resp.session
+            st.session_state.pop("_finsight_guest_mode", None)
+            st.session_state.pop("_oauth_nonce", None)
+            persist_session_to_cookies()
+            return True, "Connexion Google réussie."
+        return False, "Échec validation id_token Google."
+    except Exception as e:
+        return False, f"Erreur Google : {e}"
 
 
 def exchange_oauth_code(code: str) -> tuple[bool, str]:
