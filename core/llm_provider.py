@@ -257,20 +257,37 @@ class LLMProvider:
     def generate(self, prompt: str, system: Optional[str] = None,
                  max_tokens: int = 1024) -> str:
         if self.provider == "anthropic":
-            return self._call_anthropic(prompt, system, max_tokens)
+            raw = self._call_anthropic(prompt, system, max_tokens)
         elif self.provider == "groq":
-            return self._call_groq(prompt, system, max_tokens)
+            raw = self._call_groq(prompt, system, max_tokens)
         elif self.provider == "openai":
-            return self._call_openai(prompt, system, max_tokens)
+            raw = self._call_openai(prompt, system, max_tokens)
         elif self.provider == "mistral":
-            return self._call_mistral(prompt, system, max_tokens)
+            raw = self._call_mistral(prompt, system, max_tokens)
         elif self.provider == "cerebras":
-            return self._call_cerebras(prompt, system, max_tokens)
+            raw = self._call_cerebras(prompt, system, max_tokens)
         elif self.provider == "gemini":
-            return self._call_gemini(prompt, system, max_tokens)
+            raw = self._call_gemini(prompt, system, max_tokens)
         elif self.provider == "ollama":
-            return self._call_ollama(prompt, system, max_tokens)
-        raise ValueError(f"Provider inconnu : {self.provider}")
+            raw = self._call_ollama(prompt, system, max_tokens)
+        else:
+            raise ValueError(f"Provider inconnu : {self.provider}")
+        # Post-processing : restauration accents pour prompts français.
+        # Mistral small / llama 3.3 oublient régulièrement les accents
+        # ("sous-evalue", "mediane", "generee"). On détecte les prompts
+        # français (présence du mot "francais"/"français" dans le prompt ou
+        # system) et on applique le dict REPLACEMENTS mot à mot.
+        try:
+            _prompt_fr = (
+                any(k in (prompt or "").lower() for k in ("français", "francais"))
+                or any(k in (system or "").lower() for k in ("français", "francais"))
+            )
+            if raw and _prompt_fr:
+                from core.accent_runtime import restore_accents as _ra
+                raw = _ra(raw)
+        except Exception:
+            pass
+        return raw
 
     async def generate_async(self, prompt: str, system: Optional[str] = None,
                              max_tokens: int = 1024) -> str:
