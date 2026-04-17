@@ -1537,6 +1537,14 @@ def _build_financials(area_buf, data, margins_buf=None):
     elems.append(Paragraph(
         f"Compte de r\u00e9sultat consolid\u00e9 ({_cur_label} Md){_sec_note}", S_SUBSECTION))
     elems.append(KeepTogether(tbl([h_is] + rows_is, cw=cw_is)))
+    # Note pré-IPO si années antérieures à l'introduction en Bourse (RDDT etc.)
+    _ipo_yr_note = data.get('ipo_year')
+    if data.get('is_pre_ipo_flag') and _ipo_yr_note:
+        elems.append(src(
+            f"* Ann\u00e9es ant\u00e9rieures \u00e0 l'IPO ({_ipo_yr_note}) : "
+            f"donn\u00e9es issues du document d'enregistrement (S-1) ou comptes "
+            f"audit\u00e9s pr\u00e9-cotation. Pas de valorisation march\u00e9 "
+            f"disponible sur ces exercices."))
     elems.append(src(
         "FinSight IA \u2014 FMP, yfinance. LTM = 12 derniers mois. F = pr\u00e9visions mod\u00e8le interne."))
     elems.append(Spacer(1, 3*mm))
@@ -1716,7 +1724,9 @@ def _build_financials(area_buf, data, margins_buf=None):
                 f"sensibilite au maintien de la prime qualite, triggers de compression a surveiller.\n\n"
                 f"IMPORTANT : commence CHAQUE paragraphe par son titre en MAJUSCULES suivi de ':' "
                 f"(ex 'QUALITE MARGES : ...'). Separe les 4 paragraphes par une ligne vide.\n"
-                f"Francais avec accents. Chiffres precis. Pas de HTML/markdown/emojis/bullets."
+                f"Francais avec accents. Chiffres precis. Pas de HTML/markdown/emojis/bullets. "
+                f"Devise native société : {_d(data, 'currency', 'USD')}. "
+                f"N'utilise que cette devise dans les chiffres (pas 'dollars' par défaut)."
             )
             _llm_margin_analysis = llm_call(_prompt_margin, phase="long", max_tokens=1800) or ""
         except Exception as _e:
@@ -2478,7 +2488,8 @@ def _build_multiples_historiques(data):
                 f"IMPORTANT : commence CHAQUE paragraphe par son titre en MAJUSCULES "
                 f"(ex 'TENDANCE : Le P/E ...'). Separe les 6 paragraphes par une ligne vide. "
                 f"PAS de separateurs --- ou ===.\n"
-                f"Francais avec accents. Chiffres precis. Pas de markdown/emojis."
+                f"Francais avec accents. Chiffres precis. Pas de markdown/emojis. "
+                f"Devise native société : {_d(data, 'currency', 'USD')}. Utilise cette devise (pas 'dollars' si autre)."
             )
             # LLM-B : lit d'abord le batch pre-calcule, appel unitaire seulement
             # si le batch n'a pas fourni la section.
@@ -2695,7 +2706,8 @@ def _build_capital_returns(data):
                 f"IMPORTANT : commence CHAQUE paragraphe par son titre en MAJUSCULES "
                 f"(ex 'QUALITE FCF : La conversion ...'). Separe les 6 paragraphes par une "
                 f"ligne vide. PAS de separateurs --- ou ===.\n"
-                f"Francais avec accents. Chiffres precis. Pas de markdown/emojis."
+                f"Francais avec accents. Chiffres precis. Pas de markdown/emojis. "
+                f"Devise native société : {_d(data, 'currency', 'USD')}. Utilise cette devise (pas 'dollars' si autre)."
             )
             # LLM-B : lit batch pre-calcule d'abord
             _llm_text_cr = (data.get("llm_batch") or {}).get("capital_returns", "")
@@ -2902,7 +2914,8 @@ def _build_lbo(data):
                 f"IMPORTANT : commence CHAQUE paragraphe par son titre en MAJUSCULES "
                 f"(ex 'ATTRACTIVITE CIBLE : MSFT presente ...'). Separe les 6 paragraphes "
                 f"par une ligne vide. PAS de separateurs --- ou ===.\n"
-                f"Francais avec accents. Chiffres precis. Pas de markdown/emojis."
+                f"Francais avec accents. Chiffres precis. Pas de markdown/emojis. "
+                f"Devise native société : {_d(data, 'currency', 'USD')}. Utilise cette devise (pas 'dollars' si autre)."
             )
             # LLM-B : lit batch pre-calcule d'abord
             _llm_text_lbo = (data.get("llm_batch") or {}).get("lbo_viabilite", "")
@@ -3415,6 +3428,7 @@ def _precompute_llm_batch(data: dict) -> None:
     _sector = _d(data, 'sector', '')
     _company_name = _d(data, 'company_name', '') or _ticker
     _target = f"{_company_name} ({_ticker})" if _company_name and _company_name != _ticker else _ticker
+    _currency = (_d(data, 'currency', 'USD') or 'USD').upper()
 
     # #204 : détection profil sectoriel + métriques spécialisées
     # via core.sector_metrics (helpers partagés avec pptx_writer)
@@ -3472,7 +3486,11 @@ def _precompute_llm_batch(data: dict) -> None:
         f"IMPORTANT : commence CHAQUE paragraphe par son titre en MAJUSCULES "
         f"suivi de ' : ' (ex 'TENDANCE : Le P/E ...'). Separe les paragraphes "
         f"par UNE ligne vide. PAS de separateurs --- ou ===.\n"
-        f"Francais avec accents. Chiffres precis. Pas de markdown/emojis."
+        f"Francais avec accents. Chiffres precis. Pas de markdown/emojis.\n"
+        f"Devise native de la société : {_currency}. Utilise systématiquement "
+        f"cette devise dans tes chiffres (ex : '50 Mds {_currency}', pas 'dollars' "
+        f"si la devise est JPY/EUR/GBP/CHF). Les montants bruts des données fournies "
+        f"sont déjà dans la devise {_currency}."
     )
     # #204 : si profil sectoriel spécifique, inject le hint + metrics dans
     # les règles communes pour que TOUS les prompts LLM en héritent.
@@ -4295,31 +4313,67 @@ class PDFWriter:
         def _fy(l): return snap.years.get(l) if snap else None
         def _ry(l): return ratios.years.get(l) if ratios else None
 
+        # Détection IPO récente : si year < firstTradeDate, marquer "pré-IPO"
+        # Option A audit Baptiste : garder la data (S-1 filing) mais signaler
+        # pour éviter la confusion (pas de valorisation marché disponible).
+        _ipo_year = None
+        _has_pre_ipo = False
+        try:
+            import yfinance as _yf_ipo
+            _ticker_ipo = _d(data, 'ticker', None) or state.get('ticker')
+            if _ticker_ipo:
+                _info_ipo = _yf_ipo.Ticker(_ticker_ipo).info or {}
+                _ft_ts = (_info_ipo.get('firstTradeDateEpochUtc')
+                          or _info_ipo.get('firstTradeDateMilliseconds'))
+                if _ft_ts:
+                    import datetime as _dt_ipo
+                    # Ms vs seconds
+                    _ts = _ft_ts / 1000 if _ft_ts > 10**12 else _ft_ts
+                    _ipo_year = _dt_ipo.datetime.fromtimestamp(_ts).year
+        except Exception:
+            _ipo_year = None
+
         col_names = []
         for i, l in enumerate(hist_3):
             base = str(l).replace('_LTM','')
+            # Marquer pré-IPO si année stricte < IPO year (l'année IPO elle-même
+            # est partielle mais cotée — on garde sans mention)
+            try:
+                _yr = int(''.join(c for c in base if c.isdigit())[:4])
+                if _ipo_year and _yr < _ipo_year:
+                    base = base + ' *'
+                    _has_pre_ipo = True
+            except (ValueError, TypeError):
+                pass
             col_names.append(base + ' LTM' if i == len(hist_3) - 1 else base)
         col_names += [ny1, ny2]
         all_labels = list(hist_3) + [ny1, ny2]
 
         is_proj = _g(synthesis, 'is_projections') or {}
 
-        # Référence historique LTM pour détection d'unité LLM (Mds vs M)
+        # Références historiques LTM par champ pour détection d'unité LLM
+        # (LLM retourne parfois en Mds alors que historique en Millions).
         _ref_lbl = hist_3[-1] if hist_3 else None
         _ref_fy = snap.years.get(_ref_lbl) if (snap and _ref_lbl) else None
-        _ref_rev = getattr(_ref_fy, 'revenue', None) if _ref_fy else None
+        _REF_FIELDS = ('revenue', 'ebitda', 'net_income', 'fcf',
+                       'capex', 'da', 'cogs', 'dividends')
+        _refs = {
+            fld: getattr(_ref_fy, fld, None) if _ref_fy else None
+            for fld in _REF_FIELDS
+        }
 
         def _pv(lbl, k):
             p_ = is_proj.get(lbl) or is_proj.get(lbl.replace('F',''))
             v = (p_.get(k) if isinstance(p_, dict) else None)
-            # Normalisation unités : LLM retourne parfois en Mds (ex: 51.0)
-            # alors que les historiques sont en M (ex: 48 036,7). Rescale ×1000
-            # si la valeur LLM est <100× la référence historique.
-            if v is not None and k in ('revenue', 'ebitda', 'net_income') and _ref_rev:
+            # Normalisation unités par champ : si LLM value <1/100 de la ref
+            # historique du même champ, probablement en Mds vs M → ×1000.
+            # Si pas de ref pour ce champ (k), fallback sur revenue.
+            _ref_v = _refs.get(k) or _refs.get('revenue')
+            if v is not None and _ref_v and k in _REF_FIELDS:
                 try:
                     vf = float(v)
-                    rf = float(_ref_rev)
-                    if 0 < abs(vf) < abs(rf) / 100:  # LLM ~1000× trop petit
+                    rf = float(_ref_v)
+                    if 0 < abs(vf) < abs(rf) / 100:
                         v = vf * 1000
                 except (TypeError, ValueError):
                     pass
@@ -5025,6 +5079,8 @@ class PDFWriter:
             # IS
             'is_col_headers':    col_names,
             'is_data':           is_data,
+            'is_pre_ipo_flag':   _has_pre_ipo,
+            'ipo_year':          _ipo_year,
 
             # Ratios
             'ratios_vs_peers':   ratios_vs_peers,

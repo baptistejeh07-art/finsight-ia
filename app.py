@@ -820,10 +820,27 @@ def _fuzzy_ticker_match(name: str) -> str | None:
 
 def _resolve_ticker_yahoo(name: str) -> str | None:
     """Resout un nom de société en ticker.
-    Ordre : mapping manuel → fuzzy match Levenshtein → Yahoo Search → LLM.
+    Ordre : ticker US direct → mapping manuel → fuzzy match → Yahoo Search → LLM.
     Retourne le ticker ou None si rien ne fonctionne."""
     import logging as _log
     norm = name.strip().lower()
+    # Niveau 0 : si input ressemble à un ticker US direct (majuscules, pas de point
+    # suffixe), tenter yfinance direct. Évite NVAX → NVAX.VI (Vienne EUR).
+    # Valide seulement si: ticker < 6 chars, alpha upper, exchange US, marketCap > 0.
+    _raw_upper = name.strip().upper()
+    if (1 < len(_raw_upper) <= 6 and _raw_upper.isalpha()
+        and _raw_upper not in _INDICES_SET):
+        try:
+            import yfinance as _yf_direct
+            _info = _yf_direct.Ticker(_raw_upper).info or {}
+            _exch = (_info.get("exchange") or "").upper()
+            _mc = _info.get("marketCap") or 0
+            # Exchanges US : NMS (NASDAQ), NYQ (NYSE), PCX (NYSE Arca), NGM, ASE (AMEX)
+            if _exch in ("NMS", "NYQ", "PCX", "NGM", "ASE") and _mc > 0:
+                _log.info(f"[resolve_ticker] direct US : '{name}' -> {_raw_upper} (exch={_exch})")
+                return _raw_upper
+        except Exception:
+            pass
     # Niveau 1 : mapping manuel exact
     if norm in _KNOWN_TICKERS:
         return _KNOWN_TICKERS[norm]
