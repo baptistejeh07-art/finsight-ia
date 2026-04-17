@@ -7,7 +7,9 @@
 # RÈGLES ABSOLUES :
 #   - NE PAS TOUCHER les cellules formule (VALUE cols O-P, QUALITY cols O-R, etc.)
 #   - SEULE feuille DONNÉES BRUTES est 100% injection Python
-#   - Feuilles par secteur (TECHNOLOGY, CONSUMER DISC., etc.) = formules auto
+#   - Feuilles par secteur (TECHNOLOGIE, CONSO. CYCL., FINANCE, INDUSTRIE,
+#     SANTÉ, ÉNERGIE, MATÉRIAUX, IMMOBILIER, CONSO. DÉF.) = formules auto
+#     pointant vers DONNÉES BRUTES (template FR — ne pas toucher).
 #   - Guard systematique : if cell.value startswith("=") -> skip
 # =============================================================================
 
@@ -55,7 +57,7 @@ _SECT_DISP = {
     "Comm. Services":         "Télécoms",
 }
 
-# Ordre des secteurs (pour PAR SECTEUR, SECTOR OVERVIEW col M)
+# Ordre des secteurs (pour PAR SECTEUR, VUE SECTORIELLE col M)
 # Valeurs uniques preservant l'ordre (dict preserving insertion order Python 3.7+)
 _SECTOR_ORDER = list(dict.fromkeys(_SECT_DISP.values()))
 
@@ -522,12 +524,12 @@ def _fill_par_secteur(ws, sector_agg: dict, universe: str, nb_total: int,
 
 
 # ---------------------------------------------------------------------------
-# Remplissage SECTOR OVERVIEW col M (noms secteurs pour formules)
+# Remplissage VUE SECTORIELLE col M (noms secteurs pour formules)
 # ---------------------------------------------------------------------------
 
 def _fill_sector_overview(ws, sector_agg: dict) -> None:
     """Injecte les noms de secteurs en col M (M1:M21) pour alimenter les formules."""
-    # Les formules de SECTOR OVERVIEW referentent 'SECTOR OVERVIEW'!M$1:M$21
+    # Les formules de VUE SECTORIELLE referentent 'VUE SECTORIELLE'!M$1:M$21
     # On ecrit les secteurs presents tries alphabetiquement
     sectors_alpha = sorted(k for k in sector_agg.keys() if k and k.strip() and k != "Autre")
     for i, sec in enumerate(sectors_alpha[:21]):
@@ -718,9 +720,9 @@ class IndiceExcelWriter:
             _fill_par_secteur(wb["PAR SECTEUR"], sector_agg, universe,
                               len(tickers), today_str)
 
-        # ---- SECTOR OVERVIEW col M ----
-        if "SECTOR OVERVIEW" in wb.sheetnames:
-            _fill_sector_overview(wb["SECTOR OVERVIEW"], sector_agg)
+        # ---- VUE SECTORIELLE col M ----
+        if "VUE SECTORIELLE" in wb.sheetnames:
+            _fill_sector_overview(wb["VUE SECTORIELLE"], sector_agg)
 
         # ---- DASHBOARD ----
         if "DASHBOARD" in wb.sheetnames:
@@ -733,14 +735,14 @@ class IndiceExcelWriter:
         # DASHBOARD : A1:N30 exclut les cols aux (O-X)
         if "DASHBOARD" in wb.sheetnames:
             wb["DASHBOARD"].print_area = "A1:N30"
-        # SECTOR OVERVIEW : A1:L50 (formules + noms secteurs col M exclus)
-        if "SECTOR OVERVIEW" in wb.sheetnames:
-            wb["SECTOR OVERVIEW"].print_area = "A1:L50"
+        # VUE SECTORIELLE : A1:L50 (formules + noms secteurs col M exclus)
+        if "VUE SECTORIELLE" in wb.sheetnames:
+            wb["VUE SECTORIELLE"].print_area = "A1:L50"
 
         # ---- Date stale : remplace toute date DD/MM/YYYY dans les 5 premières lignes ----
-        # Couvre B1 des feuilles sectorielles, headers SECTOR OVERVIEW, PAR SECTEUR, etc.
+        # Couvre B1 des feuilles sectorielles, headers VUE SECTORIELLE, PAR SECTEUR, etc.
         # Remplace toute date stale DD/MM/YYYY dans les 5 premières lignes (50 cols)
-        # Couvre aussi les formules string ("=...date...") pour SECTOR OVERVIEW headers
+        # Couvre aussi les formules string ("=...date...") pour VUE SECTORIELLE headers
         import re as _re
         _date_pat = _re.compile(r'\d{2}/\d{2}/\d{4}')
         for _sname in wb.sheetnames:
