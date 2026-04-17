@@ -2420,10 +2420,11 @@ def _slide_dcf(prs, snap, synthesis, ratios):
     dcf_comment = _g(synthesis, "dcf_commentary", "") or ""
     if dcf_comment.strip():
         _dcf_title = _jpm_title("dcf", ratios=ratios, snap=snap, synthesis=synthesis)
-        # PPTX-S12 calibrage 2026-04-17 : box 23.37x1.52cm = ~250 chars (~40 mots) max
-        # Avant pas de truncate -> 372 chars overflow ratio 1.57.
-        commentary_box(slide, 1.02, 11.20, 23.37, 1.52,
-                       _truncate(dcf_comment, 250), title=_dcf_title)
+        # PPTX-S12 calibrage 2026-04-17 v2 : box agrandie h=1.52->1.95cm pour
+        # accueillir 3 lignes utiles (avant 1 ligne -> dcf_commentary 30-35 mots
+        # debordait toujours). Truncate 250->380 chars (~60 mots).
+        commentary_box(slide, 1.02, 11.20, 23.37, 1.95,
+                       _truncate(dcf_comment, 380), title=_dcf_title)
 
     return slide
 
@@ -4829,9 +4830,11 @@ def _slide_conviction_tracker(prs, snap, synthesis, ratios, devil, sentiment):
     add_rect(slide, 9.20, 2.30, 15.20, 0.55, NAVY)
     add_text_box(slide, 9.35, 2.35, 15.0, 0.45, "TH\u00c8SE D\u2019INVESTISSEMENT", 8, WHITE, bold=True)
     y_th = 2.95
+    # PPTX-S21 calibrage 2026-04-17 v2 : box 14.85x0.75cm = 1 ligne (~80 chars).
+    # 150 chars -> overflow ratio 2.00. Reduit _fit a 100 chars (1 ligne pleine).
     for i, part in enumerate(thesis_parts[:3]):
         add_rect(slide, 9.20, y_th, 0.10, 0.80, _REC_COL[0])
-        add_text_box(slide, 9.45, y_th + 0.05, 14.85, 0.75, _fit(part, 150), 8.5, GREY_TXT, wrap=True)
+        add_text_box(slide, 9.45, y_th + 0.05, 14.85, 0.75, _fit(part, 100), 8.5, GREY_TXT, wrap=True)
         y_th += 0.95
 
     # ── Catalyseurs / Risques ────────────────────────────────────────────────

@@ -48,10 +48,12 @@ EMU_PER_CM = 360000
 EMU_PER_PT = 12700  # 1 pt = 1/72 inch ≈ 12700 EMU
 
 # Marges internes typiques d'une text box PowerPoint
-DEFAULT_MARGIN_LEFT_CM = 0.13
-DEFAULT_MARGIN_RIGHT_CM = 0.13
-DEFAULT_MARGIN_TOP_CM = 0.05
-DEFAULT_MARGIN_BOTTOM_CM = 0.05
+# Defaults officiels PowerPoint : 0.1 inch L/R, 0.05 inch T/B
+# Convertis en cm : L/R = 0.254 cm, T/B = 0.127 cm
+DEFAULT_MARGIN_LEFT_CM = 0.254
+DEFAULT_MARGIN_RIGHT_CM = 0.254
+DEFAULT_MARGIN_TOP_CM = 0.127
+DEFAULT_MARGIN_BOTTOM_CM = 0.127
 
 # Calibri à 10pt : line_height ≈ 1.2 * font_size
 LINE_HEIGHT_FACTOR = 1.20
