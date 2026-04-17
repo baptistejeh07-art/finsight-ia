@@ -228,17 +228,26 @@ def _auth_dialog() -> None:
     st.markdown('<div class="auth-divider">ou</div>', unsafe_allow_html=True)
 
     # ── Bouton Google ───────────────────────────────────────────────────────
-    # NB : on N'UTILISE PAS st.link_button qui force target="_blank" (ouvre
-    # nouvel onglet → l'utilisateur ne revient pas sur l'app après auth).
-    # À la place : bouton normal + JS qui redirige la fenêtre principale
-    # via window.top.location.href = url (dans la même fenêtre).
+    # On utilise un <a href target="_top"> stylé comme bouton :
+    # - target="_top" force le redirect dans la fenêtre racine (sort de
+    #   l'iframe Streamlit Cloud)
+    # - Pas de bouton st.button + st.rerun (qui fermait le dialog avant que
+    #   le JS de redirect s'exécute)
     google_url = _auth.sign_in_google(redirect_to=_get_app_url())
     if google_url:
-        if st.button("Continuer avec Google", key=f"google_btn_{mode}",
-                     use_container_width=True):
-            # Stocke l'URL dans session_state pour déclencher la redirection
-            st.session_state["_pending_google_redirect"] = google_url
-            st.rerun()
+        # Échappe HTML attribute
+        _safe_url = (google_url.replace('&', '&amp;').replace('"', '&quot;'))
+        st.markdown(
+            f'<a href="{_safe_url}" target="_top" '
+            f'style="display:block;padding:9px 12px;border:1px solid #111827;'
+            f'border-radius:6px;text-align:center;text-decoration:none;'
+            f'color:#111827;font-weight:500;font-size:14px;background:#FFFFFF;'
+            f'cursor:pointer;transition:background 0.15s;" '
+            f'onmouseover="this.style.background=\'#F5F7FA\'" '
+            f'onmouseout="this.style.background=\'#FFFFFF\'">'
+            f'Continuer avec Google</a>',
+            unsafe_allow_html=True,
+        )
     else:
         st.button(
             "Continuer avec Google",
@@ -246,38 +255,6 @@ def _auth_dialog() -> None:
             disabled=True,
             help="Connexion Google indisponible",
         )
-
-    # Si une redirection Google est en attente, on l'exécute via JS dans
-    # la fenêtre principale (window.top, sortir de l'iframe Streamlit)
-    _pending = st.session_state.pop("_pending_google_redirect", None)
-    if _pending:
-        try:
-            from streamlit.components.v1 import html as _html
-            _safe_url = _pending.replace('"', '\\"')
-            _html(
-                f"""
-                <script>
-                  try {{
-                    const top = window.top || window.parent || window;
-                    top.location.href = "{_safe_url}";
-                  }} catch(e) {{
-                    console.error('[auth] Redirect failed:', e);
-                    document.body.innerHTML = '<a href="{_safe_url}" target="_top" style="display:block;padding:12px;background:#1B2A4A;color:white;text-align:center;text-decoration:none;border-radius:6px;">Cliquer ici pour continuer avec Google</a>';
-                  }}
-                </script>
-                """,
-                height=60, width=400,
-            )
-            # Fallback visible : lien cliquable au cas où le JS échouerait
-            st.markdown(
-                f'<div style="margin-top:8px;text-align:center;">'
-                f'<a href="{_pending}" target="_top" '
-                f'style="font-size:12px;color:#6B7280;text-decoration:underline;">'
-                f'Si rien ne se passe, cliquez ici</a></div>',
-                unsafe_allow_html=True,
-            )
-        except Exception as _e:
-            st.error(f"Erreur redirect : {_e}")
 
     # ── Lien switch ─────────────────────────────────────────────────────────
     if mode == "signin":
