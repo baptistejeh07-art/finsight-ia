@@ -1097,7 +1097,7 @@ def _build_cartographie(data, weights_buf, attribution_buf=None, registry=None):
     elems.append(src(
         f"FinSight IA — FMP, yfinance. EV/EBITDA et marges = m\u00e9dianes sectorielles LTM. "
         "Momentum = performance relative 3 mois vs indice. Score = composite 0-100. "
-        "(*) EV/EBITDA non disponible pour l\u2019immobilier coter (REITs allemands / Vonovia) "
+        "(*) EV/EBITDA non disponible pour l\u2019immobilier cot\u00e9 (REITs allemands / Vonovia) "
         "— m\u00e9trique non standard pour ce secteur ; privil\u00e9gier P/NAV ou Price/FFO."))
 
     # ── Table valorisation etendue : P/B, Div Yield, ERP sectoriel ───────────
@@ -1714,6 +1714,9 @@ def _build_top3(data, donut_buf, registry=None):
             f"(un par secteur) avec drivers, risques et conviction."
         )
         _top3_llm_text = _llm.generate(_top3_prompt, max_tokens=600) or ""
+        # Strip markdown ** que certains LLM insèrent malgré la consigne
+        _top3_llm_text = _re.sub(r'\*\*([^*]+)\*\*', r'<b>\1</b>', _top3_llm_text)
+        _top3_llm_text = _top3_llm_text.replace('**', '').replace('##', '').replace('###', '')
     except Exception as _llm_err:
         import logging as _log_m
         _log_m.getLogger(__name__).warning("[indice_pdf] top3 LLM: %s", _llm_err)

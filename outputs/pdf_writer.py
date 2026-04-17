@@ -3388,6 +3388,8 @@ def _precompute_llm_batch(data: dict) -> None:
 
     _ticker = _d(data, 'ticker', 'La societe')
     _sector = _d(data, 'sector', '')
+    _company_name = _d(data, 'company_name', '') or _ticker
+    _target = f"{_company_name} ({_ticker})" if _company_name and _company_name != _ticker else _ticker
 
     # #204 : détection profil sectoriel + métriques spécialisées
     # via core.sector_metrics (helpers partagés avec pptx_writer)
@@ -3469,7 +3471,7 @@ def _precompute_llm_batch(data: dict) -> None:
 
     _prompt_mh = (
         f"Analyste sell-side senior. Commentaire tres approfondi 900-1100 mots "
-        f"sur les multiples historiques de {_ticker} ({_sector}) sur 5 ans.\n"
+        f"sur les multiples historiques de {_target} — secteur {_sector} — sur 5 ans.\n"
         f"{_mult_series}\n{_mult_note}\n\n"
         f"6 paragraphes (~160-180 mots chacun) avec ces titres EXACTS :\n"
         f"TENDANCE, MEAN-REVERSION, RE-RATING, SENSIBILITE, BENCHMARKS, CONCLUSION.\n"
@@ -3480,7 +3482,7 @@ def _precompute_llm_batch(data: dict) -> None:
     )
     _prompt_cr = (
         f"Analyste sell-side senior. Commentaire tres approfondi 900-1100 mots "
-        f"sur le Capital Returns & FCF de {_ticker} ({_sector}).\n"
+        f"sur le Capital Returns & FCF de {_target} — secteur {_sector}.\n"
         f"FCF 4 ans : {_fcf_series} | FCF Yield : {_fy_series}\n\n"
         f"6 paragraphes (~160-180 mots chacun) avec ces titres EXACTS :\n"
         f"QUALITE FCF, ALLOCATION, SOUTENABILITE, THEMATIQUE, BENCHMARK, VIGILANCE.\n"
@@ -3493,7 +3495,7 @@ def _precompute_llm_batch(data: dict) -> None:
     if _sector_profile in ("BANK", "INSURANCE"):
         _prompt_lbo = (
             f"Analyste M&A senior. Commentaire tres approfondi 900-1100 "
-            f"mots sur le potentiel de consolidation/M&A de {_ticker} ({_sector}).\n"
+            f"mots sur le potentiel de consolidation/M&A de {_target} — secteur {_sector}.\n"
             f"FCF LTM : {_fcf_str}, Dette nette : {_nd_str}\n\n"
             f"NOTE : un LBO classique n'est PAS applicable aux banques/assurances "
             f"(entites regulees, contraintes CET1/Solvency II). Analyse plutot le "
@@ -3505,7 +3507,7 @@ def _precompute_llm_batch(data: dict) -> None:
     else:
         _prompt_lbo = (
             f"Analyste Private Equity senior. Commentaire tres approfondi 900-1100 "
-            f"mots sur la viabilite LBO de {_ticker} ({_sector}).\n"
+            f"mots sur la viabilite LBO de {_target} — secteur {_sector}.\n"
             f"EBITDA LTM : {_eb_str}, FCF LTM : {_fcf_str}, Dette nette : {_nd_str}\n\n"
             f"6 paragraphes (~160-180 mots chacun) avec ces titres EXACTS :\n"
             f"ATTRACTIVITE CIBLE, LEVIER, CREATION DE VALEUR, RISQUES, BENCHMARK PE, "
@@ -3530,7 +3532,7 @@ def _precompute_llm_batch(data: dict) -> None:
 
     _prompt_margin = (
         f"Analyste sell-side senior. Analyse approfondie 650-750 mots sur la "
-        f"qualite operationnelle et le positionnement concurrentiel de {_ticker} "
+        f"qualite operationnelle et le positionnement concurrentiel de {_target} "
         f"(secteur {_sector}).\n"
         f"Ratios cles : {_ratios_str}.\n\n"
         f"4 paragraphes separes par ligne vide (~160-180 mots chacun) :\n"
@@ -3567,7 +3569,7 @@ def _precompute_llm_batch(data: dict) -> None:
         _mc_vol_str  = f"{_mc_sigma*100:.0f}%" if _mc_sigma else "n/d"
         _prompt_mc = (
             f"Analyste quantitatif sell-side. Interpretation probabiliste 350-450 "
-            f"mots de la simulation Monte Carlo GBM 12 mois sur {_ticker}.\n"
+            f"mots de la simulation Monte Carlo GBM 12 mois sur {_target}.\n"
             f"Donnees : Spot {_mc_price:,.0f} {_mc_cur}, P50 {_mc_p50:,.0f} "
             f"({_mc_diff_pct:+.0f}%), P10 {_mc_p10 or 0:,.0f}, "
             f"P90 {_mc_p90 or 0:,.0f}, vol annualisee {_mc_vol_str}.\n\n"

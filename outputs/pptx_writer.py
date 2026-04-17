@@ -84,6 +84,22 @@ def rgb(hex_str: str):
 # Helpers mise en forme des nombres
 # ---------------------------------------------------------------------------
 
+# Mapping devises ISO -> symbole court (affichage PPTX cover, KPI, DCF, cmp)
+_CURRENCY_SYMBOLS = {
+    "USD": "$",  "EUR": "EUR", "JPY": "JPY", "GBP": "GBP", "CHF": "CHF",
+    "CAD": "CAD", "AUD": "AUD", "HKD": "HKD", "CNY": "CNY", "INR": "INR",
+    "BRL": "BRL", "MXN": "MXN", "KRW": "KRW", "SEK": "SEK", "NOK": "NOK",
+    "DKK": "DKK", "SGD": "SGD", "NZD": "NZD", "ZAR": "ZAR", "TRY": "TRY",
+}
+
+def _currency_symbol(currency: str) -> str:
+    """Retourne un symbole court affichable pour une devise ISO.
+    JPY/GBP/CHF... ne doivent jamais être affichés comme '$'. """
+    if not currency:
+        return "$"
+    return _CURRENCY_SYMBOLS.get(str(currency).upper(), str(currency).upper())
+
+
 def _fr(v, dp: int = 1, suffix: str = "") -> str:
     if v is None:
         return "—"
@@ -104,8 +120,11 @@ def _frm(v, cur_sym: str = "$") -> str:
             v = v / 1_000_000
         if cur_sym == "EUR":
             sym_big, sym_small = "Md\u20ac", "M\u20ac"
+        elif cur_sym == "$":
+            sym_big, sym_small = "Mds$", "M$"
         else:
-            sym_big, sym_small = "Mds" + cur_sym, "M" + cur_sym
+            # JPY/GBP/CHF/etc. : on sépare le nombre du code devise (ex: "320,4 Mds JPY")
+            sym_big, sym_small = f"Mds {cur_sym}", f"M {cur_sym}"
         if abs(v) >= 1000:
             return _fr(v / 1000, 1) + " " + sym_big
         return _fr(v, 0) + " " + sym_small
@@ -955,7 +974,7 @@ def _slide_cover(prs, snap, synthesis, ratios, devil, sentiment):
     sector   = _g(ci, "sector", "") or ""
     exchange = _infer_exchange(ticker, getattr(ci, "exchange", "") or "" if ci else "")
     currency = _g(ci, "currency", "USD") or "USD"
-    cur_sym  = "EUR" if currency == "EUR" else "$"
+    cur_sym  = _currency_symbol(currency)
     gen_date = _fr_date_long(_g(ci, "analysis_date", None) or date.today())
     price    = _g(mkt, "share_price")
 
@@ -1024,7 +1043,7 @@ def _slide_exec_summary(prs, snap, synthesis, ratios, devil, sentiment):
     ci      = snap.company_info if snap else None
     mkt     = snap.market if snap else None
     currency = _g(ci, "currency", "USD") or "USD"
-    cur_sym  = "EUR" if currency == "EUR" else "$"
+    cur_sym  = _currency_symbol(currency)
     price    = _g(mkt, "share_price")
 
     rec      = _g(synthesis, "recommendation", "HOLD") or "HOLD"
@@ -1268,7 +1287,7 @@ def _slide_company_overview(prs, snap, synthesis, ratios):
     ticker  = _g(ci, "ticker", "—")
     co_name = _g(ci, "company_name", "—")
     currency = _g(ci, "currency", "USD") or "USD"
-    cur_sym  = "EUR" if currency == "EUR" else "$"
+    cur_sym  = _currency_symbol(currency)
     price    = _g(mkt, "share_price")
 
     slide_title(slide, "Company Overview",
@@ -1391,6 +1410,9 @@ def _slide_business_model(prs, snap, synthesis):
             from core.llm_provider import llm_call as _llm_call_s6
             _ci_s6 = snap.company_info if snap else None
             _ticker_s6 = _g(_ci_s6, "ticker", "la societe") or "la societe"
+            _name_s6 = _g(_ci_s6, "company_name", "") or ""
+            if _name_s6 and _name_s6 != _ticker_s6:
+                _ticker_s6 = f"{_name_s6} ({_ticker_s6})"
             _sector_s6 = _g(_ci_s6, "sector", "") or ""
             # #204 : hint sectoriel pour orienter l'analyse du LLM
             _hint_s6 = ""
@@ -1875,6 +1897,9 @@ def _slide_bilan(prs, snap, synthesis, ratios):
         try:
             from core.llm_provider import llm_call as _llm_call_b9
             _ticker_b9 = _g(ci, "ticker", "la societe") or "la societe"
+            _name_b9 = _g(ci, "company_name", "") or ""
+            if _name_b9 and _name_b9 != _ticker_b9:
+                _ticker_b9 = f"{_name_b9} ({_ticker_b9})"
             # #204 : hint sectoriel (banques/assurance ont des bilans radicalement
             # différents des corporates, le LLM doit le savoir)
             _hint_b9 = ""
@@ -2551,7 +2576,7 @@ def _slide_football_field(prs, snap, synthesis, ratios):
     ci       = snap.company_info if snap else None
     mkt      = snap.market if snap else None
     currency = _g(ci, "currency", "USD") or "USD"
-    cur_sym  = "EUR" if currency == "EUR" else "$"
+    cur_sym  = _currency_symbol(currency)
     price    = _g(mkt, "share_price")
 
     slide_title(slide, "Football Field Chart",
@@ -2911,7 +2936,7 @@ def _slide_capital_returns(prs, snap, synthesis, ratios):
     mkt      = snap.market if snap else None
     ticker   = _g(ci, "ticker", "—")
     currency = _g(ci, "currency", "USD") or "USD"
-    cur_sym  = "EUR" if currency == "EUR" else "$"
+    cur_sym  = _currency_symbol(currency)
     price    = _g(mkt, "share_price")
 
     slide_title(slide, "Capital Returns \u0026 Free Cash Flow",
@@ -3080,7 +3105,7 @@ def _slide_lbo(prs, snap, synthesis, ratios):
     mkt      = snap.market if snap else None
     ticker   = _g(ci, "ticker", "—")
     currency = _g(ci, "currency", "USD") or "USD"
-    cur_sym  = "EUR" if currency == "EUR" else "$"
+    cur_sym  = _currency_symbol(currency)
 
     slide_title(slide, "Analyse LBO \u2014 Leveraged Buyout",
                 f"{ticker} \u00b7 Attractivit\u00e9 PE \u00b7 Multiples d\u2019entr\u00e9e vs IRR cible")
@@ -4416,7 +4441,7 @@ def _slide_historique(prs, snap, synthesis):
     mkt      = snap.market if snap else None
     ticker   = _g(ci, "ticker", "—")
     currency = _g(ci, "currency", "USD") or "USD"
-    cur_sym  = "EUR" if currency == "EUR" else "$"
+    cur_sym  = _currency_symbol(currency)
     exchange = getattr(ci, "exchange", "") or "" if ci else ""
     gen_date = _fr_date_long(_g(ci, "analysis_date", None) or date.today())
     price    = _g(mkt, "share_price")

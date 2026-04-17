@@ -274,6 +274,19 @@ _SECTOR_TICKERS: dict = {
 
 def _get_real_tickers(sector: str, universe: str) -> list[str]:
     """Retourne les tickers reels pour un secteur/univers connu."""
+    # Normalisation alias secteur (yfinance et GICS utilisent des libellés variables)
+    _SECTOR_ALIASES = {
+        "materials":              "Basic Materials",
+        "basic materials":        "Basic Materials",
+        "consumer staples":       "Consumer Defensive",
+        "consumer defensive":     "Consumer Defensive",
+        "financials":             "Financial Services",
+        "financial services":     "Financial Services",
+        "tech":                   "Technology",
+        "information technology": "Technology",
+    }
+    _normalize = lambda s: _SECTOR_ALIASES.get(s.strip().lower(), s)
+    sector = _normalize(sector)
     key = (sector, universe)
     if key in _SECTOR_TICKERS:
         return list(_SECTOR_TICKERS[key])

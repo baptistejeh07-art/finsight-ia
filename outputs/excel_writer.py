@@ -303,6 +303,10 @@ class ExcelWriter:
         # Company info — cellules fixes colonne D
         # REIT/profils non-STANDARD peuvent avoir des positions différentes
         _ci_map_override = _cell_map.get("company_info")
+        # STANDARD renvoie un dict sentinel {"_ref": "config.excel_mapping.COMPANY_INFO"}
+        # qui signifie "utilise les constantes _CI_CELLS". On le traite comme pas d'override.
+        if _ci_map_override and set(_ci_map_override.keys()) == {"_ref"}:
+            _ci_map_override = None
         _ci_map_active = _ci_map_override if _ci_map_override else {
             "company_name":  _CI_CELLS["company_name"],
             "ticker":        _CI_CELLS["ticker"],
