@@ -253,32 +253,31 @@ def _auth_dialog() -> None:
     if _pending:
         try:
             from streamlit.components.v1 import html as _html
-            # Échappe les guillemets simples pour JS
             _safe_url = _pending.replace('"', '\\"')
             _html(
                 f"""
                 <script>
-                  // window.top = fenêtre principale (sort de l'iframe Streamlit)
-                  // location.href = redirect SAME WINDOW (au lieu d'ouvrir nouvel onglet)
                   try {{
-                    window.top.location.href = "{_safe_url}";
+                    const top = window.top || window.parent || window;
+                    top.location.href = "{_safe_url}";
                   }} catch(e) {{
-                    window.parent.location.href = "{_safe_url}";
+                    console.error('[auth] Redirect failed:', e);
+                    document.body.innerHTML = '<a href="{_safe_url}" target="_top" style="display:block;padding:12px;background:#1B2A4A;color:white;text-align:center;text-decoration:none;border-radius:6px;">Cliquer ici pour continuer avec Google</a>';
                   }}
                 </script>
                 """,
-                height=0, width=0,
+                height=60, width=400,
             )
-        except Exception as _e:
-            # Fallback : afficher un lien cliquable
+            # Fallback visible : lien cliquable au cas où le JS échouerait
             st.markdown(
-                f'<a href="{_pending}" target="_self" '
-                f'style="display:block;text-align:center;padding:8px;'
-                f'background:#fff;border:1px solid #111827;border-radius:6px;'
-                f'text-decoration:none;color:#111827;font-weight:500;">'
-                f'Cliquez ici pour continuer avec Google</a>',
+                f'<div style="margin-top:8px;text-align:center;">'
+                f'<a href="{_pending}" target="_top" '
+                f'style="font-size:12px;color:#6B7280;text-decoration:underline;">'
+                f'Si rien ne se passe, cliquez ici</a></div>',
                 unsafe_allow_html=True,
             )
+        except Exception as _e:
+            st.error(f"Erreur redirect : {_e}")
 
     # ── Lien switch ─────────────────────────────────────────────────────────
     if mode == "signin":
@@ -351,12 +350,22 @@ def handle_oauth_callback() -> None:
             except Exception:
                 pass
             if success:
-                st.success(msg)
+                st.success("✓ " + msg)
                 st.rerun()
             else:
-                st.error(msg)
+                st.error(f"Erreur set session : {msg}")
             return
-        # Cas 2 : flow PKCE legacy — code en query param
+        # Cas 2 : OAuth error renvoyé par Supabase
+        err = params.get("error") or params.get("error_description")
+        if err:
+            st.error(f"Erreur OAuth : {params.get('error_description') or err}")
+            try:
+                st.query_params.clear()
+            except Exception:
+                pass
+            return
+        # Cas 3 : flow PKCE legacy — code en query param (NE DEVRAIT PAS arriver
+        # avec response_type=token, mais fallback)
         code = params.get("code")
         if code:
             success, msg = _auth.exchange_oauth_code(code)
@@ -365,38 +374,50 @@ def handle_oauth_callback() -> None:
                     st.query_params.clear()
                 except Exception:
                     pass
-                st.success(msg)
+                st.success("✓ " + msg)
                 st.rerun()
             else:
-                st.error(msg)
+                st.error(f"Erreur OAuth (PKCE non supporté avec Streamlit) : {msg}")
             return
-        # Cas 3 : injection JS pour parser le hash URL et redéclencher avec query params
-        # On l'inject systématiquement (no-op si pas de hash). Le JS check si #access_token=
-        # est présent et redirige vers /?at=XXX&rt=YYY.
+        # Cas 4 : injection JS pour parser le hash URL (#access_token=...)
         _inject_hash_to_query_parser()
-    except Exception:
-        pass
+    except Exception as _e_cb:
+        st.error(f"Exception OAuth callback : {_e_cb}")
 
 
 def _inject_hash_to_query_parser() -> None:
-    """Composant invisible qui parse window.location.hash et redirige."""
+    """Composant invisible qui parse window.top.location.hash et redirige.
+
+    NB : Streamlit Cloud encapsule l'app dans un iframe, ET les composants
+    custom (streamlit.components.v1.html) dans un sous-iframe. Donc :
+      - window = composant iframe (le plus interne)
+      - window.parent = iframe Streamlit
+      - window.top = fenêtre utilisateur (URL visible avec le hash)
+    On doit utiliser window.top pour atteindre l'URL utilisateur.
+    """
     try:
         from streamlit.components.v1 import html as _components_html
         _components_html(
             """
             <script>
             (function() {
-              const hash = window.parent.location.hash || '';
-              if (hash.length < 2) return;
-              const params = new URLSearchParams(hash.substring(1));
-              const at = params.get('access_token');
-              const rt = params.get('refresh_token');
-              if (at && rt) {
-                const url = new URL(window.parent.location.href);
-                url.hash = '';
-                url.searchParams.set('at', at);
-                url.searchParams.set('rt', rt);
-                window.parent.location.replace(url.toString());
+              try {
+                const top = window.top || window.parent || window;
+                const hash = top.location.hash || '';
+                if (hash.length < 2) return;
+                const params = new URLSearchParams(hash.substring(1));
+                const at = params.get('access_token');
+                const rt = params.get('refresh_token');
+                if (at && rt) {
+                  const url = new URL(top.location.href);
+                  url.hash = '';
+                  url.searchParams.set('at', at);
+                  url.searchParams.set('rt', rt);
+                  top.location.replace(url.toString());
+                }
+              } catch (e) {
+                // Cross-origin error : on ne peut pas accéder à window.top
+                console.warn('[auth] Hash parser bloqué cross-origin:', e);
               }
             })();
             </script>
