@@ -1200,6 +1200,14 @@ def render_sidebar(results) -> None:
                 st.session_state.sidebar_open = False
                 st.rerun()
 
+        # ── Bandeau utilisateur (email + déconnexion ou bouton signup) ──────
+        try:
+            from core import auth_ui as _fs_auth_ui
+            _fs_auth_ui.render_user_sidebar()
+            st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
+        except Exception:
+            pass
+
         # ---------------------------------------------------------------------------
         # Helper : git push authentifie avec GITHUB_TOKEN si disponible
         # ---------------------------------------------------------------------------
@@ -6802,6 +6810,22 @@ def _render_cmp_indice_page() -> None:
 # ---------------------------------------------------------------------------
 
 def main():
+    # ── AUTH GATE — page login si pas connecté ET pas en mode invité ────────
+    try:
+        from core import auth as _fs_auth
+        from core import auth_ui as _fs_auth_ui
+        # 1. Restaure session depuis cookies au démarrage
+        _fs_auth.restore_session_from_cookies()
+        # 2. Si pas d'accès -> page login (skip tout le reste)
+        if not _fs_auth.has_access():
+            _fs_auth_ui.render_login_page()
+            return
+        # 3. Si connecté avec un code OAuth dans l'URL, finaliser
+        _fs_auth_ui.handle_oauth_callback()
+    except Exception as _auth_err:
+        # Si auth indisponible, on laisse passer (mode dev / fallback)
+        log.warning(f"[auth gate] {_auth_err}")
+
     st.markdown(
         '<div class="fs-nav">'
         '<div class="fs-logo">FinSight</div>'

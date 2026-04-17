@@ -40,6 +40,11 @@ matplotlib>=3.8.0
 
 # --- Interface ---
 streamlit>=1.36.0
+extra-streamlit-components>=0.1.80   # cookies persistants pour session auth
+
+# --- Auth ---
+# supabase fallback JSON local possible mais auth-only mode requiert le client
+supabase>=2.5.0
 
 # --- LangGraph ---
 langgraph>=0.2.0
