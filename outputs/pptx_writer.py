@@ -4641,6 +4641,8 @@ def _slide_historique(prs, snap, synthesis):
             from core.llm_provider import llm_call as _llm_call_s25
             _sector_m = _g(ci, "sector", "") or ""
             _perf_str = f"{perf_52w*100:+.1f}%" if perf_52w is not None else "n/d"
+            _name_s25 = _g(ci, "company_name", "") or ""
+            _target_s25 = f"{_name_s25} ({ticker})" if _name_s25 and _name_s25 != ticker else ticker
             # #204 : hint sectoriel pour que les catalyseurs mentionnés
             # soient pertinents (Brent pour pétrole, spread taux pour banques, etc.)
             _hint_s25 = ""
@@ -4654,8 +4656,8 @@ def _slide_historique(prs, snap, synthesis):
             _prompt_macro = (
                 (_hint_s25 + "\n\n" if _hint_s25 else "") +
                 f"Analyste sell-side senior. Commentaire macro/catalyseurs 300-360 mots "
-                f"expliquant precisement l'evolution du cours de {ticker} (secteur "
-                f"{_sector_m}) sur 12 mois glissants (perf {_perf_str}).\n"
+                f"expliquant precisement l'evolution du cours de {_target_s25} — secteur "
+                f"{_sector_m} — sur 12 mois glissants (perf {_perf_str}).\n"
                 f"Tu DOIS relier les mouvements de cours a des events datables reels.\n\n"
                 f"3 paragraphes separes par ligne vide :\n"
                 f"1. MACRO : politique monetaire (Fed/BCE avec dates cles 2025-2026), "
@@ -4664,7 +4666,7 @@ def _slide_historique(prs, snap, synthesis):
                 f"2. SECTORIEL : dynamiques specifiques au secteur {_sector_m} "
                 f"(IA generative pour Tech, taux pour Financials, cycle OPEX pour "
                 f"Energy, consommation pour Cons Disc). Evolution sentiment investisseurs.\n"
-                f"3. SPECIFIQUE {ticker} : resultats trimestriels (beat/miss consensus), "
+                f"3. SPECIFIQUE {_target_s25} : resultats trimestriels (beat/miss consensus), "
                 f"guidance management, annonces produit, M&A, changements leadership, "
                 f"revisions consensus. Relie 2-3 pics ou creux du graphique a des events.\n\n"
                 f"Francais avec accents. Chiffres precis, dates precises. Zero generique "
