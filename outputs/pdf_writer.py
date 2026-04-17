@@ -4270,9 +4270,26 @@ class PDFWriter:
 
         is_proj = _g(synthesis, 'is_projections') or {}
 
+        # Référence historique LTM pour détection d'unité LLM (Mds vs M)
+        _ref_lbl = hist_3[-1] if hist_3 else None
+        _ref_fy = snap.years.get(_ref_lbl) if (snap and _ref_lbl) else None
+        _ref_rev = getattr(_ref_fy, 'revenue', None) if _ref_fy else None
+
         def _pv(lbl, k):
             p_ = is_proj.get(lbl) or is_proj.get(lbl.replace('F',''))
-            return (p_.get(k) if isinstance(p_, dict) else None)
+            v = (p_.get(k) if isinstance(p_, dict) else None)
+            # Normalisation unités : LLM retourne parfois en Mds (ex: 51.0)
+            # alors que les historiques sont en M (ex: 48 036,7). Rescale ×1000
+            # si la valeur LLM est <100× la référence historique.
+            if v is not None and k in ('revenue', 'ebitda', 'net_income') and _ref_rev:
+                try:
+                    vf = float(v)
+                    rf = float(_ref_rev)
+                    if 0 < abs(vf) < abs(rf) / 100:  # LLM ~1000× trop petit
+                        v = vf * 1000
+                except (TypeError, ValueError):
+                    pass
+            return v
 
         def _norm_pct(v):
             """Normalise marge LLM vers decimal 0-1.
