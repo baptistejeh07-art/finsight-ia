@@ -1548,9 +1548,16 @@ def _build_allocation(data, allocation_buf=None, registry=None):
 
     # Chart allocation
     if allocation_buf is not None:
+        # Source adaptatif : ETF SPDR pour S&P 500, synthetic sector
+        # returns pour les autres indices (DAX/CAC/FTSE/etc.)
+        _univ = data.get("indice", "") or data.get("universe", "")
+        if "S&P 500" in _univ or "SP 500" in _univ:
+            _source_base = "ETF SPDR S&amp;P 500"
+        else:
+            _source_base = f"returns sectoriels synthétiques ({_univ})"
         elems.append(Image(allocation_buf, width=TABLE_W, height=82*mm))
         elems.append(src(
-            "FinSight IA — Optimisation Markowitz sur ETF SPDR S&amp;P 500. "
+            f"FinSight IA — Optimisation Markowitz sur {_source_base}. "
             "Rendements historiques 52S. Contrainte max 40% par secteur. "
             f"Ligne rouge pointillee = poids egal ({eq_w:.1f}%)."))
         elems.append(Spacer(1, 4*mm))
