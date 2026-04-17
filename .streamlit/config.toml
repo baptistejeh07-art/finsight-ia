@@ -15,6 +15,18 @@ gatherUsageStats = false
 base = "light"
 font = "sans serif"
 primaryColor = "#1B2A4A"
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F5F7FA"
+textColor = "#111827"
+
+# Sidebar : couleurs explicites pour éviter le bug Edge
+# (Streamlit 1.55 fallback à "" si non défini, ce qui crashe le rendering
+# React des composants modaux/dialogs sur Edge — moins tolérant que Chrome)
+[theme.sidebar]
+backgroundColor = "#FAFAFA"
+secondaryBackgroundColor = "#F0F2F6"
+textColor = "#111827"
+primaryColor = "#1B2A4A"
 
 [runner]
 # Evite les rechargements intempestifs sur les fichiers de logs
