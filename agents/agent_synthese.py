@@ -345,8 +345,35 @@ def _build_prompt(snapshot, ratios, sentiment) -> str:
         _profile = detect_profile(ci.sector, _industry)
         _profile_hints = get_prompt_hints(_profile) if is_non_standard(_profile) else ""
     except Exception:
+        _profile = "STANDARD"
         _profile_hints = ""
     _profile_section = f"\nPROFIL SECTORIEL SPÉCIFIQUE : {_profile_hints}" if _profile_hints else ""
+
+    # ─── Instructions is_projections adaptées au profil ───────────────────────
+    # Pour BANK/INSURANCE, EBITDA n'a pas de sens : on autorise revenue=NII+fees
+    # et ebitda=Pre-Provision Profit. Sinon le LLM retourne du texte invalide.
+    if _profile == "BANK":
+        _proj_hint = (
+            "\nPOUR LES BANQUES : dans is_projections, 'revenue' = Total Revenue "
+            "(NII + commissions + trading), 'ebitda' = Pre-Provision Profit (PPOP), "
+            "'gross_margin' et 'ebitda_margin' = NIM (Net Interest Margin, 1-4%), "
+            "'net_margin' = profit margin net. Ne renvoie PAS null — donne des "
+            "estimations chiffrées plausibles même approximatives."
+        )
+    elif _profile == "INSURANCE":
+        _proj_hint = (
+            "\nPOUR LES ASSUREURS : 'revenue' = Gross Written Premiums, "
+            "'ebitda' = Operating Result avant taxes, 'gross_margin' = (1 - Loss Ratio), "
+            "'ebitda_margin' = (1 - Combined Ratio), 'net_margin' = ROE/2 approximation."
+        )
+    elif _profile == "REIT":
+        _proj_hint = (
+            "\nPOUR LES REITs : 'revenue' = Rental Income total, 'ebitda' = NOI "
+            "(Net Operating Income), 'gross_margin' = NOI margin (70-90%), "
+            "'ebitda_margin' = idem. 'net_margin' souvent <10% (dépréciations)."
+        )
+    else:
+        _proj_hint = ""
 
     return f"""Analyse {ci.company_name} ({ci.ticker}) — secteur:{ci.sector} — {date.today().isoformat()}
 Cours:{price_s} {ci.currency} | WACC:{wacc_s} | TGR:{tgr_s}
@@ -356,7 +383,7 @@ MargesHistoriques: {margins_series_str}
 FCF:{fcf_s} | Capex:{capex_s} | Dividendes:{div_s}
 BilanQualite: {bs_ctx}
 {sector_ctx}{_profile_section}
-Sentiment: {sent_block}
+Sentiment: {sent_block}{_proj_hint}
 {_macro_news_block}
 JSON requis (tous les champs obligatoires) :
 {{
