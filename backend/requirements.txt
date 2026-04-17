@@ -1,0 +1,54 @@
+# FastAPI backend pour FinSight IA
+# Wrap cli_analyze + agents + writers en endpoints REST
+
+fastapi>=0.110.0
+uvicorn[standard]>=0.27.0
+python-multipart>=0.0.9
+python-dotenv>=1.0.0
+
+# Auth Supabase JWT validation
+PyJWT>=2.8.0
+cryptography>=41.0.0
+
+# HTTP clients (pour appels externes Supabase API, etc.)
+httpx>=0.27.0
+requests>=2.32.0
+
+# === Toutes les dépendances du code Python existant ===
+# (ces libs sont déjà dans requirements.txt root, on les liste pour Railway
+# qui ne lit que backend/requirements.txt si on l'utilise comme root)
+
+# LLM Providers
+anthropic>=0.40.0
+groq>=0.9.0
+mistralai>=2.0.0
+cerebras-cloud-sdk>=1.0.0
+google-genai>=0.8.0
+openai>=1.50.0
+
+# Données financières
+yfinance>=0.2.40
+finnhub-python>=2.4.19
+
+# Excel / Rapports
+openpyxl>=3.1.2
+python-pptx>=1.0.0
+pdfplumber>=0.10.0
+reportlab>=4.0.0
+
+# Calcul / Data
+pandas>=2.2.0
+numpy>=1.26.0
+matplotlib>=3.8.0
+
+# LangGraph
+langgraph>=0.2.0
+langchain-core>=0.1.0
+
+# Utils
+feedparser>=6.0.11
+vaderSentiment>=3.3.2
+scipy>=1.11.0
+
+# Auth Supabase (DB + Auth API)
+supabase>=2.5.0

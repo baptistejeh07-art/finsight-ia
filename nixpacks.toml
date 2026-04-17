@@ -1,0 +1,11 @@
+# Configuration Nixpacks pour Railway
+# Force Python 3.11 (vs 3.14 local qui pose problème avec httpcore/supabase)
+
+[phases.setup]
+nixPkgs = ["python311", "python311Packages.pip", "python311Packages.setuptools"]
+
+[phases.install]
+cmds = ["pip install -r backend/requirements.txt"]
+
+[start]
+cmd = "cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT --workers 1 --timeout-keep-alive 75"
