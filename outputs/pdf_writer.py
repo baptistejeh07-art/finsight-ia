@@ -4201,7 +4201,20 @@ class PDFWriter:
 
         ci    = snap.company_info if snap else None
         mkt   = snap.market       if snap else None
-        cur   = (ci.currency if ci else None) or 'USD'
+        _cur_raw = (ci.currency if ci else None) or 'USD'
+
+        # Normalisation GBp/ILA (sous-unités) → GBP/ILS avec multiplicateur.
+        # yfinance renvoie HSBA.L en GBp (pence) alors que le ticker cote en
+        # GBp mais les financials sont en GBP millions → cap boursière aberrante
+        # "23 311 Mds GBP" au lieu de ~230 Mds GBP sans normalisation.
+        try:
+            from core.currency import normalize_currency as _norm_ccy
+            _cur_base, _cur_mult = _norm_ccy(_cur_raw)
+            cur = _cur_base
+            _price_mult = _cur_mult  # 0.01 pour GBp, 1.0 sinon
+        except Exception:
+            cur = _cur_raw
+            _price_mult = 1.0
 
         ticker      = (ci.ticker if ci else None) or state.get('ticker', 'UNKNOWN')
         co_name     = (ci.company_name if ci else None) or ticker
@@ -4215,6 +4228,10 @@ class PDFWriter:
         rfr         = (mkt.risk_free_rate if mkt else None) or 0.041
         erp         = (mkt.erp if mkt else None) or 0.055
         _shares     = (mkt.shares_diluted if mkt else None)
+        # Application du multiplicateur sous-unité (GBp → GBP : ×0.01)
+        # sur le prix avant calcul market cap pour éviter les Mds GBp faux.
+        if price is not None and _price_mult != 1.0:
+            price = price * _price_mult
         mktcap      = (price * _shares * 1e6) if (price and _shares) else None
         div_yield   = (mkt.dividend_yield if mkt else None)  # yfinance dividendYield
         pe_ntm      = None   # sera rempli par ratios ci-dessous
