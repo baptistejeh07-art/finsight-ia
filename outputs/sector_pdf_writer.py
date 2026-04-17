@@ -89,7 +89,8 @@ def section_title(text, num):
     return [rule(sb=10, sa=0), Paragraph(f"{num}. {text}", S_SECTION), rule(sb=2, sa=8)]
 
 def debate_q(text):
-    return Paragraph(f"\u25b6  {text}", S_DEBATE)
+    # PDF fix : \u25b6 (▶) non rendu dans Helvetica → utilise ">"
+    return Paragraph(f">  {text}", S_DEBATE)
 
 def src(text):
     return Paragraph(f"Source : {text}", S_NOTE)
@@ -780,7 +781,8 @@ def _cover_page(c, doc, sector_name: str, subtitle: str, universe: str,
     c.roundRect(badge_x, badge_y, badge_w, badge_h, 3, fill=1, stroke=0)
     c.setFillColor(WHITE)
     c.setFont('Helvetica-Bold', 11)
-    c.drawCentredString(cx, badge_y + 3.5*mm, f"\u25cf  {sig_label}")
+    # \u25cf (●) non rendu dans Helvetica → "*"
+    c.drawCentredString(cx, badge_y + 3.5*mm, f"*  {sig_label}")
 
     # Tagline
     tag_y = h * 0.570

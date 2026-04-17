@@ -76,7 +76,7 @@ def rule(w=TABLE_W, thick=0.5, col=GREY_RULE, sb=4, sa=4):
 def section_title(text, num):
     return [rule(sb=10, sa=0), Paragraph(f"{num}. {text}", S_SECTION), rule(sb=2, sa=8)]
 
-def debate_q(text): return Paragraph(f"\u25b6  {text}", S_DEBATE)
+def debate_q(text): return Paragraph(f">  {text}", S_DEBATE)  # \u25b6 non rendu dans Helvetica
 def src(text):      return Paragraph(f"Source : {text}", S_NOTE)
 
 

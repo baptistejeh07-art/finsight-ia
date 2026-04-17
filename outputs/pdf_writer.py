@@ -350,7 +350,8 @@ def section_title(text, num):
     return [rule(sb=6, sa=0), Paragraph(f"{num}. {text}", S_SECTION), rule(sb=2, sa=6)]
 
 def debate_q(text):
-    return Paragraph(f"\u25b6  {text}", S_DEBATE)
+    # PDF fix : \u25b6 (▶) non rendu dans Helvetica → (cid:127). Utilise ">"
+    return Paragraph(f">  {text}", S_DEBATE)
 
 def src(text):
     return Paragraph(f"Source : {text}", S_NOTE)
@@ -1206,9 +1207,11 @@ def _build_investment_case(data):
     if not _pos_clean:
         # Fallback unique si aucun theme disponible
         _pos_clean = ["Th\u00e8se d'investissement d\u00e9taill\u00e9e dans les sections suivantes du rapport."]
+    # PDF-IC fix : utiliser "-" au lieu de \u2022 (bullet • non rendu dans
+    # ReportLab Helvetica par défaut -> (cid:127) dans le PDF final).
     for txt in _pos_clean[:3]:
         left_elems.append(Paragraph(
-            f"\u2022  {_safe(txt)}", S_IC_B))
+            f"-  {_safe(txt)}", S_IC_B))
         left_elems.append(Spacer(1, 2*mm))
 
     left_elems.append(Spacer(1, 3*mm))
@@ -1237,7 +1240,7 @@ def _build_investment_case(data):
         _anal_limit = 220
         _anal_trim = c_anal[:_anal_limit] + ('\u2026' if len(c_anal) > _anal_limit else '')
         _inner = f"{_safe(c_name)}" + (f" \u2014 {_safe(_anal_trim)}" if c_anal else "")
-        left_elems.append(Paragraph(f"\u2022  {_inner}", S_IC_B))
+        left_elems.append(Paragraph(f"-  {_inner}", S_IC_B))
         left_elems.append(Spacer(1, 2*mm))
 
     left_col = Table([[e] for e in left_elems],
@@ -1335,7 +1338,7 @@ def _build_investment_case(data):
             txt = f"<b>{_safe(risk_lbl)}</b> \u2014 {_safe(body_short)}"
         else:
             txt = f"<b>{_safe(risk_lbl)}</b>"
-        right_elems.append(Paragraph(f"\u2022  {txt}", S_IC_B))
+        right_elems.append(Paragraph(f"-  {txt}", S_IC_B))
         right_elems.append(Spacer(1, 2*mm))
 
     right_col = Table([[e] for e in right_elems],
@@ -2860,10 +2863,11 @@ def _build_lbo(data):
     if irr_styles:
         t_irr.setStyle(TableStyle(irr_styles))
     elems.append(KeepTogether(t_irr))
+    # PDF fix : \u25cf (●) non rendu dans Helvetica → utilise tirets
     elems.append(Paragraph(
         f"Hypoth\u00e8ses : Levier {leverage_ratio:.0f}x EBITDA \u00b7 {hold_years} ans holding "
         f"\u00b7 {debt_repay_pct*100:.0f}% remboursement \u00b7 EBITDA +{_g_rate*100:.0f}%/an  "
-        f"\u25cf vert \u2265 20% \u25cf ambre 15\u201320% \u25cf rouge < 15%",
+        f"- vert \u2265 20% - ambre 15\u201320% - rouge < 15%",
         S_NOTE))
     elems.append(Spacer(1, 4*mm))
 
