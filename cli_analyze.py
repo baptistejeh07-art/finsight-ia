@@ -2388,7 +2388,7 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
         "dy_by_sector":         dy_by_sector    if universe == "S&P 500" else _eu_dy_map,
         "erp_by_sector":        erp_by_sector   if universe == "S&P 500" else _eu_erp_map,
         "etf_proxy_ev_ebitda":  _etf_proxy_ev,        # ETF proxy fallback (None si non-utilise)
-        "optimal_portfolios":   optimal_portfolios if universe == "S&P 500" else {},
+        "optimal_portfolios":   optimal_portfolios,
         **({"perf_history": _eu_perf_history} if _eu_perf_history else {}),
         # Per-ticker raw data pour IndiceExcelWriter (EU + US indices)
         "tickers_raw": _eu_res if _eu_members_by_sec else [],
