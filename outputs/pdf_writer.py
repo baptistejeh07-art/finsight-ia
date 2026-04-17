@@ -3833,7 +3833,14 @@ def _fr(v, dp=1, suffix=""):
 
 def _frpct(v, dp=1):
     if v is None: return "\u2014"
-    try:    return _fr(float(v) * 100, dp, "\u00a0%")
+    try:
+        pct = float(v) * 100
+        # Clamp affichage : marges extrêmes (<-500% ou >500%) affichées "n.m."
+        # pour éviter des "-1139%" illisibles sur des cas edge (MSTR Bitcoin proxy
+        # où EBITDA très négatif / revenue faible).
+        if abs(pct) > 500:
+            return "n.m."
+        return _fr(pct, dp, "\u00a0%")
     except: return "\u2014"
 
 def _frx(v):
