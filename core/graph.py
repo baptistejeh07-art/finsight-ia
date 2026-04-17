@@ -84,6 +84,10 @@ class FinSightState(TypedDict, total=False):
     logs:         list         # entrees de log structurees (pour Agent RH)
     blocked:      bool         # True si pipeline bloque (confidence < 0.65)
 
+    # Paramètres utilisateur — devise d'affichage et portée de conversion
+    display_currency: Optional[str]  # "USD" (défaut), "EUR", "GBP", etc.
+    display_scope:    Optional[str]  # "interface" (UI seulement) | "all" (UI + PDF/PPTX)
+
 
 # ---------------------------------------------------------------------------
 # Helpers

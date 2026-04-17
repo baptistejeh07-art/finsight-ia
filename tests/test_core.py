@@ -116,9 +116,9 @@ def test_currency():
     # None propagation
     assert_eq(convert(None, "USD"), None, "None input → None output")
 
-    # Default target
-    assert_eq(get_target_currency(), "EUR", "Default target is EUR")
-    assert_eq(DEFAULT_TARGET_CURRENCY, "EUR", "Default constant is EUR")
+    # Default target (changed EUR → USD par Baptiste 2026-04-17)
+    assert_eq(get_target_currency(), "USD", "Default target is USD")
+    assert_eq(DEFAULT_TARGET_CURRENCY, "USD", "Default constant is USD")
 
     # GBp normalization
     ccy, mult = _normalize_currency("GBp")

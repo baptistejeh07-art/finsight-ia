@@ -8,7 +8,7 @@ dans les outputs (UI, PDF, PPTX, XLSX).
 
 ARCHITECTURE :
 
-- `DEFAULT_TARGET_CURRENCY = "EUR"` — constante modifiable plus tard via
+- `DEFAULT_TARGET_CURRENCY = "USD"` — constante modifiable plus tard via
   settings utilisateur (paramètre user `st.session_state.user_currency`).
 
 - `get_target_currency()` — lit la devise cible courante depuis session_state
@@ -62,7 +62,7 @@ log = logging.getLogger(__name__)
 # CONFIGURATION
 # ═════════════════════════════════════════════════════════════════════════════
 
-DEFAULT_TARGET_CURRENCY = "EUR"
+DEFAULT_TARGET_CURRENCY = "USD"
 
 # Devises supportées (normalisation ISO 4217 + cas yfinance)
 # yfinance retourne parfois "GBP" et parfois "GBp" (pence, 1/100 GBP)

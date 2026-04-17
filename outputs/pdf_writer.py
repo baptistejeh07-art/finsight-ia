@@ -4266,9 +4266,6 @@ class PDFWriter:
         _cur_raw = (ci.currency if ci else None) or 'USD'
 
         # Normalisation GBp/ILA (sous-unités) → GBP/ILS avec multiplicateur.
-        # yfinance renvoie HSBA.L en GBp (pence) alors que le ticker cote en
-        # GBp mais les financials sont en GBP millions → cap boursière aberrante
-        # "23 311 Mds GBP" au lieu de ~230 Mds GBP sans normalisation.
         try:
             from core.currency import normalize_currency as _norm_ccy
             _cur_base, _cur_mult = _norm_ccy(_cur_raw)
@@ -4277,6 +4274,26 @@ class PDFWriter:
         except Exception:
             cur = _cur_raw
             _price_mult = 1.0
+
+        # Conversion FX si user demande scope "all" (= convertir PDF aussi).
+        # Le state contient display_currency (USD par défaut) et display_scope
+        # ("interface" ou "all"). Si "all" et user_ccy != devise native,
+        # on convertit tous les montants absolus (prix, cap, target).
+        _display_ccy = state.get('display_currency') or 'USD'
+        _display_scope = state.get('display_scope') or 'interface'
+        _fx_rate = 1.0
+        _is_converted = False
+        if _display_scope == "all" and _display_ccy and _display_ccy.upper() != cur.upper():
+            try:
+                from core.currency import convert as _fx_convert
+                # Tester conversion avec 1.0 pour obtenir le taux effectif.
+                _fx_rate = _fx_convert(1.0, cur, _display_ccy.upper()) or 1.0
+                if _fx_rate and _fx_rate != 1.0:
+                    _is_converted = True
+                    cur = _display_ccy.upper()  # devise affichée après conversion
+            except Exception as _e_fx:
+                log.warning(f"[pdf_writer] FX convert fail: {_e_fx}")
+                _fx_rate = 1.0
 
         ticker      = (ci.ticker if ci else None) or state.get('ticker', 'UNKNOWN')
         co_name     = (ci.company_name if ci else None) or ticker
@@ -4291,9 +4308,11 @@ class PDFWriter:
         erp         = (mkt.erp if mkt else None) or 0.055
         _shares     = (mkt.shares_diluted if mkt else None)
         # Application du multiplicateur sous-unité (GBp → GBP : ×0.01)
-        # sur le prix avant calcul market cap pour éviter les Mds GBp faux.
         if price is not None and _price_mult != 1.0:
             price = price * _price_mult
+        # Application du taux FX si conversion demandée (scope "all")
+        if _is_converted and price is not None:
+            price = price * _fx_rate
         mktcap      = (price * _shares * 1e6) if (price and _shares) else None
         div_yield   = (mkt.dividend_yield if mkt else None)  # yfinance dividendYield
         pe_ntm      = None   # sera rempli par ratios ci-dessous
@@ -4304,6 +4323,19 @@ class PDFWriter:
         tbase     = _g(synthesis, 'target_base')
         tbear     = _g(synthesis, 'target_bear')
         tbull     = _g(synthesis, 'target_bull')
+        # Conversion FX target prices si scope "all" (les targets sont dans la
+        # devise native, il faut appliquer le même _price_mult + _fx_rate que price)
+        if _is_converted or _price_mult != 1.0:
+            _target_factor = _price_mult * (_fx_rate if _is_converted else 1.0)
+            if tbase is not None:
+                try: tbase = float(tbase) * _target_factor
+                except (TypeError, ValueError): pass
+            if tbear is not None:
+                try: tbear = float(tbear) * _target_factor
+                except (TypeError, ValueError): pass
+            if tbull is not None:
+                try: tbull = float(tbull) * _target_factor
+                except (TypeError, ValueError): pass
 
         # Ratios LTM
         hist_labels = _valid_hist_labels_pdf(snap) if snap else []

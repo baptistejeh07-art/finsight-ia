@@ -4921,6 +4921,37 @@ class PPTXWriter:
 
         snap, synthesis, ratios, devil, sentiment = _extract_state(state)
 
+        # Conversion FX pour portée "all" — modifie snap.market in-place
+        # avant que les slides ne lisent les valeurs. Target prices synthesis
+        # et market_cap sont recalculés depuis price × shares.
+        _disp_ccy = state.get('display_currency') or 'USD'
+        _disp_scope = state.get('display_scope') or 'interface'
+        if _disp_scope == "all" and snap and snap.company_info and snap.market:
+            _native_ccy = snap.company_info.currency or 'USD'
+            try:
+                from core.currency import normalize_currency as _nc, convert as _fx
+                _base, _mult = _nc(_native_ccy)
+                # Si pas de conversion (même devise), skip
+                if _disp_ccy.upper() != _base.upper():
+                    _rate = _fx(1.0, _base, _disp_ccy.upper()) or 1.0
+                    _factor = _mult * _rate
+                    if _factor and _factor != 1.0:
+                        if snap.market.share_price is not None:
+                            snap.market.share_price = snap.market.share_price * _factor
+                        snap.company_info.currency = _disp_ccy.upper()
+                        # Synthesis target prices aussi
+                        if synthesis:
+                            for _attr in ('target_base', 'target_bull', 'target_bear'):
+                                _v = getattr(synthesis, _attr, None)
+                                if _v is not None:
+                                    try:
+                                        setattr(synthesis, _attr, float(_v) * _factor)
+                                    except (TypeError, ValueError):
+                                        pass
+                        log.info(f"[PPTXWriter] FX convert {_native_ccy} -> {_disp_ccy} rate={_rate:.4f}")
+            except Exception as _e_fx:
+                log.warning(f"[PPTXWriter] FX convert failed: {_e_fx}")
+
         # Scores additionnels (Composite Distress, M&A, Macro)
         _ticker_for_scores = (snap.company_info.ticker if snap and snap.company_info else None) or state.get('ticker', '')
         _yr_for_scores = None

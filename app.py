@@ -1682,22 +1682,42 @@ def render_sidebar(results) -> None:
         # Devise cible — paramètre utilisateur pour conversion FX
         st.markdown('<div class="sb-section">', unsafe_allow_html=True)
         st.markdown('<span class="sb-label">Devise d\'affichage</span>', unsafe_allow_html=True)
-        _ccy_options = ["EUR", "USD", "GBP", "CHF", "JPY"]
-        _current_ccy = st.session_state.get("user_currency", "EUR")
+        _ccy_options = ["USD", "EUR", "GBP", "CHF", "JPY"]
+        _current_ccy = st.session_state.get("user_currency", "USD")
         if _current_ccy not in _ccy_options:
-            _current_ccy = "EUR"
+            _current_ccy = "USD"
         _new_ccy = st.selectbox(
             "Devise d'affichage",
             _ccy_options,
             index=_ccy_options.index(_current_ccy),
             key="sb_user_currency_select",
             label_visibility="collapsed",
-            help="Les cours, cibles et Market Cap dans l'UI seront convertis dans cette devise. "
-                 "Les graphiques et tableaux financiers PDF/PPTX restent en devise native "
-                 "de la société (pour l'instant).",
+            help="Devise cible pour l'affichage. Conversion FX automatique depuis la devise native.",
         )
         if _new_ccy != _current_ccy:
             st.session_state["user_currency"] = _new_ccy
+            st.rerun()
+        # Portée : interface uniquement OU interface + PDF/PPTX
+        _scope_options = {
+            "interface": "Interface uniquement",
+            "all":       "Interface + PDF / PPTX",
+        }
+        _current_scope = st.session_state.get("currency_scope", "interface")
+        if _current_scope not in _scope_options:
+            _current_scope = "interface"
+        _new_scope_label = st.radio(
+            "Portée de la conversion",
+            list(_scope_options.values()),
+            index=list(_scope_options.keys()).index(_current_scope),
+            key="sb_currency_scope_radio",
+            label_visibility="collapsed",
+            help="'Interface uniquement' : cours/cible/cap convertis dans l'UI, PDF/PPTX restent en devise native. "
+                 "'Interface + PDF/PPTX' : propage la conversion aux documents téléchargés.",
+        )
+        # Reverse lookup label → key
+        _new_scope = next((k for k, v in _scope_options.items() if v == _new_scope_label), "interface")
+        if _new_scope != _current_scope:
+            st.session_state["currency_scope"] = _new_scope
             st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
 
@@ -2403,8 +2423,12 @@ def _run_analysis_pipeline(tkr_in: str) -> None:
                     step(_label_pct, "Recuperation depuis le cache...")
             else:
                 graph = build_graph()
+                # Devise d'affichage + portée conversion (pour writers PDF/PPTX)
+                _disp_ccy = st.session_state.get("user_currency", "USD")
+                _disp_scope = st.session_state.get("currency_scope", "interface")
                 for chunk in graph.stream(
-                    {"ticker": ticker, "errors": [], "logs": [], "qa_retries": 0},
+                    {"ticker": ticker, "errors": [], "logs": [], "qa_retries": 0,
+                     "display_currency": _disp_ccy, "display_scope": _disp_scope},
                     stream_mode="updates",
                 ):
                     node_name  = list(chunk.keys())[0]
