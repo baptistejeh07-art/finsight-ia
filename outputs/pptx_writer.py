@@ -1515,7 +1515,7 @@ def _slide_is(prs, snap, synthesis, ratios):
 
     ci      = snap.company_info if snap else None
     currency= _g(ci, "currency", "USD") or "USD"
-    cur_sym = "EUR" if currency == "EUR" else "$"
+    cur_sym = _currency_symbol(currency)
 
     years_sorted = _valid_years(snap)
     is_proj  = _g(synthesis, "is_projections", {}) or {}
@@ -1759,7 +1759,7 @@ def _slide_bilan(prs, snap, synthesis, ratios):
 
     ci      = snap.company_info if snap else None
     currency= _g(ci, "currency", "USD") or "USD"
-    cur_sym = "EUR" if currency == "EUR" else "$"
+    cur_sym = _currency_symbol(currency)
 
     years_sorted  = _valid_years(snap)
     latest_yr_key = years_sorted[-1] if years_sorted else None
@@ -2233,7 +2233,7 @@ def _slide_dcf(prs, snap, synthesis, ratios):
     ci      = snap.company_info if snap else None
     mkt     = snap.market if snap else None
     currency= _g(ci, "currency", "USD") or "USD"
-    cur_sym = "EUR" if currency == "EUR" else "$"
+    cur_sym = _currency_symbol(currency)
     price   = _g(mkt, "share_price")
     wacc    = _g(mkt, "wacc") or 0.10
     beta    = _g(mkt, "beta_levered")
@@ -2430,7 +2430,7 @@ def _slide_peers(prs, snap, synthesis, ratios):
     ci      = snap.company_info if snap else None
     mkt     = snap.market if snap else None
     currency= _g(ci, "currency", "USD") or "USD"
-    cur_sym = "EUR" if currency == "EUR" else "$"
+    cur_sym = _currency_symbol(currency)
     ticker  = _g(ci, "ticker", "—")
     co_name = _g(ci, "company_name", "—")
     price   = _g(mkt, "share_price")
@@ -3316,7 +3316,7 @@ def _build_lbo_pack(snap, synthesis, ratios) -> dict:
     company = _g(ci, "company_name", ticker)
     sector = _g(ci, "sector", "")
     currency = _g(ci, "currency", "USD") or "USD"
-    cur_sym = "EUR" if currency == "EUR" else "$"
+    cur_sym = _currency_symbol(currency)
 
     latest_yr = None
     if ratios and getattr(ratios, "years", None):
