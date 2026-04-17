@@ -1627,7 +1627,10 @@ def _build_financials(area_buf, data, margins_buf=None):
     _ratio_title = (
         f"Lecture des ratios cl\u00e9s \u2014 {_ticker_f} vs pairs sectoriels"
     )
-    _ratio_para = _g(synthesis, 'ratio_commentary') or ''
+    # ratio_commentary vient de data['ratios_text'] (populated par _state_to_data
+    # depuis synthesis.ratio_commentary). Pas d'accès direct à 'synthesis' dans
+    # cette fonction (scope local).
+    _ratio_para = _d(data, 'ratios_text') or ''
     if not _ratio_para:
         try:
             from core.llm_provider import llm_call as _llm_ratio
