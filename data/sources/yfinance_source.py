@@ -359,13 +359,23 @@ def fetch(ticker: str) -> Optional[FinancialSnapshot]:
                          or "")
         if _industry_raw and "-" in _industry_raw and _industry_raw.islower():
             _industry_raw = " ".join(w.capitalize() for w in _industry_raw.split("-"))
+        # Normalisation sous-unités (GBp→GBP ×0.01, ILA→ILS ×0.01) à la source
+        # pour éviter les ratios 100× faux (market_cap GBp / equity GBP = 118x
+        # au lieu de 1.18x). Appliqué une seule fois ici, ne plus jamais
+        # recalculer ×0.01 en aval.
+        _raw_ccy = info.get("currency", "USD")
+        try:
+            from core.currency import normalize_currency as _nc
+            _base_ccy, _sub_mult = _nc(_raw_ccy)
+        except Exception:
+            _base_ccy, _sub_mult = (_raw_ccy, 1.0)
         company_info = CompanyInfo(
             company_name  = info.get("longName") or info.get("shortName", ticker),
             ticker        = ticker.upper(),
             sector        = _sector_raw,
             industry      = _industry_raw,
             base_year     = base_year,
-            currency      = info.get("currency", "USD"),
+            currency      = _base_ccy,
             units         = "M",
             analysis_date = date.today().isoformat(),
         )
@@ -500,12 +510,19 @@ def fetch(ticker: str) -> Optional[FinancialSnapshot]:
         price      = info.get("currentPrice") or info.get("regularMarketPrice")
         shares_raw = info.get("sharesOutstanding")
 
+        # Application du multiplicateur sous-unité sur le prix (GBp 0.01)
+        _price_norm = None
+        if price:
+            try:
+                _price_norm = round(float(price) * _sub_mult, 2)
+            except Exception:
+                _price_norm = round(float(price), 2)
         market = MarketData(
-            share_price    = round(float(price), 2) if price else None,
+            share_price    = _price_norm,
             shares_diluted = _m(float(shares_raw)) if shares_raw else None,
             beta_levered   = info.get("beta"),
             risk_free_rate = rfr,   # ^TNX / 100 récupéré en parallèle
-            dividend_yield = info.get("trailingAnnualDividendYield"),  # décimal (0.0196 = 1,96%)
+            dividend_yield = info.get("trailingAnnualDividendYield"),  # décimal
         )
 
         # --- Historique mensuel cours ---
