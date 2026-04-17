@@ -888,7 +888,7 @@ def _build_synthese(data, perf_buf, registry=None):
 
     # ── Régime de Marché + Probabilite de récession ──────────────────────────
     _macro = data.get("macro") or {}
-    _regime  = _macro.get("regime")
+    _regime  = _macro.get("régime")
     _vix     = _macro.get("vix")
     _spread  = _macro.get("yield_spread_10y_3m")
     _sp_ma   = _macro.get("sp500_vs_ma200")
@@ -1273,15 +1273,15 @@ def _build_graphiques(data, scatter_buf, scores_buf, corr_buf=None, registry=Non
             _prompt_p7 = (
                 f"Analyste buy-side senior. Analyse 320-380 mots du positionnement "
                 f"EV/EBITDA vs croissance BPA pour {_indice_name}.\n"
-                f"Surponderer : {_surp_str}\nSous-ponderer : {_sous_str}\n"
+                f"Surpondérer : {_surp_str}\nSous-ponderer : {_sous_str}\n"
                 f"Decotes : {_cheap_str}\nPrimes : {_exp_str}\n\n"
                 f"3 paragraphes separes par ligne vide (~110 mots chacun) avec ces "
                 f"titres EXACTS en MAJUSCULES au debut de chaque paragraphe suivi de ' : ' :\n"
-                f"1. DECOTE : lecture du quadrant inferieur gauche, risques value trap, "
+                f"1. DÉCOTE : lecture du quadrant inferieur gauche, risques value trap, "
                 f"conditions de re-rating.\n"
-                f"2. PRIME : justification du quadrant superieur droit, sensibilite "
-                f"revisions BPA, risques specifiques.\n"
-                f"3. IMPLICATIONS : ou renforcer, ou alleger, catalyseurs et signaux "
+                f"2. PRIME : justification du quadrant superieur droit, Sensibilité "
+                f"révisions BPA, risques spécifiques.\n"
+                f"3. IMPLICATIONS : ou renforcer, ou alléger, catalyseurs et signaux "
                 f"macro a cross-checker.\n\n"
                 f"IMPORTANT : commence CHAQUE paragraphe par son titre MAJUSCULE + ' : '.\n"
                 f"Francais avec accents. Noms secteurs en francais. Pas de markdown/emojis/bullets."
@@ -1295,8 +1295,8 @@ def _build_graphiques(data, scatter_buf, scores_buf, corr_buf=None, registry=Non
             try:
                 from outputs.pdf_writer import _render_llm_structured as _rls
                 _rls(elems, _llm_text, section_map={
-                    "DECOTE":        "D\u00e9cote \u2014 quadrant inf\u00e9rieur gauche",
-                    "DÉCOTE":        "D\u00e9cote \u2014 quadrant inf\u00e9rieur gauche",
+                    "DÉCOTE":        "D\u00e9côté \u2014 quadrant inf\u00e9rieur gauche",
+                    "DÉCOTE":        "D\u00e9côté \u2014 quadrant inf\u00e9rieur gauche",
                     "PRIME":         "Prime \u2014 quadrant sup\u00e9rieur droit",
                     "IMPLICATIONS":  "Implications d'allocation",
                 })
@@ -1307,16 +1307,16 @@ def _build_graphiques(data, scatter_buf, scores_buf, corr_buf=None, registry=Non
                         elems.append(Paragraph(_clean, S_BODY))
                         elems.append(Spacer(1, 2*mm))
         else:
-            # Fallback texte deterministe si LLM echoue
+            # Fallback texte déterministe si LLM echoue
             elems.append(Paragraph(
                 "<b>Lecture du positionnement.</b> "
                 "Les secteurs dans le <b>quadrant inf\xe9rieur gauche</b> (faible EV/EBITDA, "
-                "faible croissance BPA) offrent une d\xe9cote relative \u2014 opportunit\xe9 "
+                "faible croissance BPA) offrent une d\xe9côté relative \u2014 opportunit\xe9 "
                 "si les fondamentaux se stabilisent. Ceux dans le <b>quadrant sup\xe9rieur "
                 "droit</b> paient une prime justifi\xe9e par leur croissance visible. "
                 f"Secteurs signal <b>Surpond\xe9rer</b> : {_surp_str}. "
                 f"Secteurs signal <b>Sous-pond\xe9rer</b> : {_sous_str}. "
-                f"Les secteurs en d\xe9cote EV/EBITDA ({_cheap_str}) meritent une analyse "
+                f"Les secteurs en d\xe9côté EV/EBITDA ({_cheap_str}) meritent une analyse "
                 f"fondamentale approfondie pour distinguer opportunite structurelle et "
                 f"value trap cyclique. \xc0 l'inverse, les secteurs en prime ({_exp_str}) "
                 f"exigent une croissance BPA durable sur 18-24 mois pour justifier leur "
@@ -1862,7 +1862,7 @@ def _build_risques(data, registry=None):
         "FinSight IA — Sc\u00e9narios alternatifs. Conditions \u00e0 r\u00e9\u00e9valuer \u00e0 chaque rapport mensuel."))
     elems.append(Spacer(1, 4*mm))
     elems.append(Paragraph("Gestion du risque portefeuille", S_SUBSECTION))
-    # Texte LLM dynamique base sur le contexte concret de l'indice — remplace
+    # Texte LLM dynamique basé sur le contexte concret de l'indice — remplace
     # le fallback hardcoded generique signale par Baptiste
     _risk_text = data.get("texte_gestion_risque", "")
     if not _risk_text.strip():

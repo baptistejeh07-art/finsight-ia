@@ -237,12 +237,12 @@ _SECTOR_CONTENT = {
     },
     "Basic Materials": {
         "description": (
-            "Le secteur Materiaux de Base regroupe les producteurs de metaux, chimistes et fabricants "
+            "Le secteur Matériaux de Base regroupe les producteurs de metaux, chimistes et fabricants "
             "de matériaux de construction. Fortement cyclique, il bénéficie de la demande en matériaux "
             "critiques pour la transition énergétique."
         ),
         "catalyseurs": [
-            ("Materiaux Critiques", "Lithium, cuivre, cobalt — demande multipliee par 3-5x a horizon 2030 pour batteries et réseaux."),
+            ("Matériaux Critiques", "Lithium, cuivre, cobalt — demande multipliee par 3-5x a horizon 2030 pour batteries et réseaux."),
             ("Infrastructure Publique", "Plans d'investissement G7 — demande en acier, ciment et matériaux en hausse."),
             ("Consolidation M&A", "Vague de fusions dans les metaux de base — prime de rachat potentielle."),
         ],
@@ -289,7 +289,7 @@ _SECTOR_CONTENT = {
     },
     "Communication Services": {
         "description": (
-            "Les Services de Communication regroupent les operateurs telecoms, medias numeriques et "
+            "Les Services de Communication regroupent les operateurs télécoms, medias numeriques et "
             "plateformes de contenu. Ce secteur bénéficie de la migration vers le haut débit, "
             "de la consolidation sectorielle et de la monétisation des usages data."
         ),
@@ -1033,7 +1033,7 @@ def _chart_performance(tickers_data, best_ticker=None, worst_ticker=None,
                     len(tickers_data), MAX_TICKERS_CHART)
 
     # SEC-PPTX-S20 Baptiste : on ne trace PLUS les courbes grisees anonymes.
-    # Chaque ligne doit etre associee a une entree de legende. On ne trace que :
+    # Chaque ligne doit être associee a une entree de legende. On ne trace que :
     # - l'ETF sectoriel (pointille noir)
     # - le top 3 par momentum (couleurs distinctes)
     # - le pire performer (rouge)
@@ -1239,7 +1239,7 @@ def _s05_presentation(prs, D):
 
     # ─── Bloc Description (compact, partie haute) ─────────────────────────
     # SEC-PPTX-S5 Baptiste : bandeau navy hauteur 0.60 (vs 0.55) et texte
-    # titre centre plus haut (+0.02) pour eviter le clipping leger bas que
+    # titre centre plus haut (+0.02) pour éviter le clipping leger bas que
     # l'on voyait sur le rendu technologie.
     _rect(slide, 0.9, 2.5, 13.7, 3.5, fill=_GRAYL)
     _rect(slide, 0.9, 2.5, 0.1, 3.5, fill=_NAVY)
@@ -1339,7 +1339,7 @@ def _s06_ratios(prs, D):
     tbl_data = [["Société", "EV/EBITDA", "EV/Rev.", "P/E", "Mg Brute", "Mg EBITDA", "ROE"]]
 
     def _norm_mc(mc):
-        """Normalise market_cap : compute_screening le stocke parfois en Mds
+        """Normalisé market_cap : compute_screening le stocke parfois en Mds
         (244.0), cli en absolu (2.44e11). SEC-PPTX-S6 : il faut traiter les
         deux conventions pour que le proxy EV/EBITDA marche sur tous les flux."""
         if mc is None:
@@ -1358,7 +1358,7 @@ def _s06_ratios(prs, D):
         if v is not None:
             return v
         mc = _norm_mc(t.get("market_cap"))
-        # Priorite 2 : ebitda_ltm absolu (donnee directe)
+        # Priorite 2 : ebitda_ltm absolu (Donnée directe)
         _eb_ltm = t.get("ebitda_ltm")
         if mc and _eb_ltm and float(_eb_ltm) > 0:
             try:
@@ -1504,7 +1504,7 @@ def _s07_cycle(prs, D):
 
     # Régime macro + récession (si disponible)
     _macro = D.get("macro") or {}
-    _regime  = _macro.get("regime", "")
+    _regime  = _macro.get("régime", "")
     _rec_6m  = _macro.get("recession_prob_6m")
     _rec_lvl = _macro.get("recession_level", "")
     if _regime and _regime != "Inconnu":
@@ -1578,7 +1578,7 @@ def _s08_subsectors(prs, D):
     # Tableau sous-secteurs
     # SEC-PPTX-S8 Baptiste : les cellules python-pptx grossissent au-dela de
     # la hauteur demandee quand le texte wrap ou que le font est plus grand
-    # que prevu. On passe de 0.42/row a 0.55/row pour eviter que la table
+    # que prevu. On passe de 0.42/row a 0.55/row pour éviter que la table
     # empiete sur le bloc analyse en dessous (10 lignes = ~5.5cm au lieu de
     # 4.2cm estime).
     from pptx.util import Cm as _Cm, Pt as _Pt
@@ -1646,7 +1646,7 @@ def _s08_subsectors(prs, D):
         _top_best = ", ".join(b[0] for b in _top.get("best", [])[:3])
 
         # Titre analytique dynamique Généré depuis les Données — limite stricte sur le nom
-        # pour eviter le debordement de la barre de titre (slide 8 banques)
+        # pour éviter le débordement de la barre de titre (slide 8 banques)
         _top_name_short = _top['name'][:20]
         if _score_spread >= 25:
             _title = f"DISPERSION MARQU\u00c9E \u2014 {_top_name_short} domine (+{_score_spread} pts)"
@@ -1674,7 +1674,7 @@ def _s08_subsectors(prs, D):
             f"{_f1(_top.get('ev_ebitda'))}x EV/EBITDA avec une marge EBITDA de "
             f"{_f1(_top.get('margin'), '%')}"
             if isinstance(_top.get('ev_ebitda'), (int, float))
-            else "des metriques de valorisation specifiques au secteur (ratios financiers)"
+            else "des metriques de valorisation spécifiques au secteur (ratios financiers)"
         )
         _analysis = (
             f"Le sous-segment {_top['name']} ressort en t\u00eate du classement avec un score "
@@ -2016,10 +2016,10 @@ def _s14_distribution(prs, D):
 
     # Bloc 1 : ce qu'on observe (factuel + chiffre)
     _obs = (
-        f"OBSERVATION. Le secteur affiche un ecart entre la valeur la plus basse "
+        f"OBSERVATION. Le secteur affiche un Écart entre la valeur la plus basse "
         f"({_ev_min:.1f}x) et la plus haute ({_ev_max:.1f}x), soit un ratio de "
-        f"{_spread_ratio:.1f}x. La mediane s'etablit a {ev_med:.1f}x avec {n_sur} "
-        f"acteur(s) en prime marquee (>+15% vs mediane) et {n_sous} en decote "
+        f"{_spread_ratio:.1f}x. La Médiane s'établit a {ev_med:.1f}x avec {n_sur} "
+        f"acteur(s) en prime marquee (>+15% vs Médiane) et {n_sous} en décote "
         f"significative (<-15%)."
     )
     # Bloc 2 : ce que ca implique (analyse + noms concrets)
@@ -2027,20 +2027,20 @@ def _s14_distribution(prs, D):
         _best_d_name = _best_decote.get('ticker', '?')
         _best_d_score = int(_best_decote.get('score_global') or 0)
         _impl_d = (
-            f"{_best_d_name} combine la decote (EV/EBITDA "
+            f"{_best_d_name} combine la décote (EV/EBITDA "
             f"{float(_best_decote.get('ev_ebitda') or 0):.1f}x) avec un score "
             f"FinSight de {_best_d_score}/100 : asymetrie positive la plus "
-            f"credible du secteur, declencheur d'une analyse societe approfondie."
+            f"credible du secteur, declencheur d'une analyse société approfondie."
         )
     else:
-        _impl_d = ("Aucune decote significative cumulee a un score qualite eleve : "
-                   "le secteur ne presente pas d'asymetrie evidente a ce stade, "
+        _impl_d = ("Aucune décote significative cumulée a un score qualité élevé : "
+                   "le secteur ne présente pas d'asymetrie évidente a ce stade, "
                    "l'approche doit rester selective et patiente.")
     if _worst_prime:
         _worst_p_name = _worst_prime.get('ticker', '?')
         _impl_p = (
             f"A l'oppose, {_worst_p_name} ({float(_worst_prime.get('ev_ebitda') or 0):.1f}x) "
-            f"concentre le risque de derating : toute deception de croissance ou "
+            f"concentré le risque de derating : toute déception de croissance ou "
             f"guidance decevante comprimerait le multiple en priorite sur ce nom."
         )
     else:
@@ -2052,24 +2052,24 @@ def _s14_distribution(prs, D):
     if _spread_ratio >= 3:
         _action = (
             "ACTION. La dispersion est extreme : c'est un secteur de stock-picking "
-            "pur ou la selection individuelle prime nettement sur l'exposition "
-            "beta. Privilegier les decotes a scores >=60 en long ; eviter les "
+            "pur ou la sélection individuelle prime nettement sur l'exposition "
+            "beta. Privilegier les decotes a scores >=60 en long ; éviter les "
             "primes >+30% sans catalyseur fondamental clair (earnings beat, "
-            "revisions consensus positives, M&A). L'approche ETF passive capture "
+            "révisions consensus positives, M&A). L'approche ETF passive capture "
             "mal ces asymetries et sous-performe mechanically."
         )
     elif _spread_ratio >= 1.8:
         _action = (
-            "ACTION. La dispersion est moderee, justifiant une approche mixte : "
+            "ACTION. La dispersion est modérée, justifiant une approche mixte : "
             "core d'exposition via l'ETF sectoriel (~60%) + overlay stock-picking "
             "sur les decotes qualitatives (~40%). Rebalancer trimestriellement "
-            "apres publications pour capter les revisions fondamentales."
+            "après publications pour capter les révisions fondamentales."
         )
     else:
         _action = (
             "ACTION. La compression des multiples indique un secteur quasi-homogene : "
             "l'approche indicielle (ETF) capture l'essentiel du rendement attendu, "
-            "le cout d'effort du stock-picking n'est pas justifie sauf conviction "
+            "le Coût d'effort du stock-picking n'est pas justifie sauf conviction "
             "forte sur un catalyseur idiosyncratique."
         )
     analysis = f"{_obs}\n\n{_implications}\n\n{_action}"

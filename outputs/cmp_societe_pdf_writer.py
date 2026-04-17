@@ -832,7 +832,7 @@ def _build_cover_story(tkr_a, tkr_b, name_a, name_b,
     # ---- Verdict box — REFONTE C4 #176 ────────────────────────────────
     # Le "Choix préféré" en haut = décision du LLM (pas du finsight_score).
     # Si le LLM est NEUTRAL, on affiche "Pas de préférence forte".
-    # En dessous, on ajoute une ligne "Indication FinSight : {a}/100 vs {b}/100"
+    # En dessous, on ajouté une ligne "Indication FinSight : {a}/100 vs {b}/100"
     # avec une note explicative sur la nature rétrospective du score.
     _winner_raw = m_a.get("winner")
     _winner_src = m_a.get("winner_source", "llm")

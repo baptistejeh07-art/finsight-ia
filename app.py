@@ -659,7 +659,7 @@ _KNOWN_TICKERS = {
     "pfizer": "PFE", "pfe": "PFE",
     "merck": "MRK", "mrk": "MRK",
     "uber": "UBER", "ford": "F",
-    "general motors": "GM", "gm": "GM",
+    "général motors": "GM", "gm": "GM",
     "stellantis": "STLAM.MI", "stelantis": "STLAM.MI",
     "peugeot": "STLAM.MI", "fiat": "STLAM.MI",
     # ─── France / CAC 40 ───────────────────────────────────
@@ -667,7 +667,7 @@ _KNOWN_TICKERS = {
     "airbus": "AIR.PA", "air.pa": "AIR.PA",
     "totalenergies": "TTE.PA", "total": "TTE.PA", "tte.pa": "TTE.PA",
     "bnp": "BNP.PA", "bnp paribas": "BNP.PA", "bnp.pa": "BNP.PA",
-    "société générale": "GLE.PA", "societe generale": "GLE.PA",
+    "société générale": "GLE.PA", "société générale": "GLE.PA",
     "socgen": "GLE.PA", "gle.pa": "GLE.PA",
     "axa": "CS.PA", "cs.pa": "CS.PA",
     "hermes": "RMS.PA", "hermès": "RMS.PA", "rms.pa": "RMS.PA",
@@ -1242,13 +1242,13 @@ def render_sidebar(results) -> None:
                 _cmp_back_to_previous()
 
         # Contexte ANALYSE SECTORIELLE / INDICE (screening_results)
-        # On affiche aussi le bouton Nouvelle analyse dans ce stage pour coherence
-        # avec le ruban de gauche des analyses societe
+        # On affiche aussi le bouton Nouvelle analyse dans ce stage pour cohérence
+        # avec le ruban de gauche des analyses société
         elif (st.session_state.get("stage") == "screening_results"
               and st.session_state.get("screening_results")):
             if st.button("+  Nouvelle analyse", use_container_width=True, type="primary",
                           key="sb_new_from_screening"):
-                # Reset complet : meme liste de cles que le bouton societe
+                # Reset complet : meme liste de cles que le bouton société
                 for _k in (
                     "results", "ticker", "from_screening",
                     "screening_results", "screening_parent", "screening_universe",
@@ -2291,7 +2291,7 @@ def _run_analysis_pipeline(tkr_in: str) -> None:
         # meme en cas de st.rerun() (ex: synthesis_retry, fallback_node) qui
         # re-appelle render_running avec un progress_bar frais.
         # Fix 2026-04-14 : Baptiste reportait "la barre jusqu'a un moment puis
-        # elle revient tout en arriere" — cause : _current_pct etait une
+        # elle revient tout en arriere" — cause : _current_pct était une
         # variable locale recreee a chaque rerun.
         _pct_key = f"_running_pct_{ticker}"
         if _pct_key not in st.session_state:
@@ -3246,7 +3246,7 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
         "FTSE 100": (
             "Le FTSE 100 regroupe les 100 plus grandes sociétés Cotées au London Stock "
             "Exchange. Fortement expose aux secteurs énergie (Shell, BP), finance et "
-            "materiaux, il offre l'un des rendements sur dividende les plus élevés des "
+            "matériaux, il offre l'un des rendements sur dividende les plus élevés des "
             "grands indices développés (~3,5-4%). La prevalence des multinationales avec "
             "revenus en devises étrangères lui confere une Sensibilité particulière aux "
             "fluctuations de la livre sterling."
@@ -5313,7 +5313,7 @@ def _render_comparison_section(state_a: dict) -> None:
                 # 3x le coût LLM (~15-30s chacun).
                 from outputs.cmp_societe_pptx_writer import _generate_synthesis
                 _t_l0 = time.time()
-                # Winner pré-calculé pour que la coercion "Choix : winner" marche
+                # Winner pré-calculé pour que la coercion "Choix : winner" Marché
                 _fs_a = _ma_cached.get("finsight_score") or 0
                 _fs_b = _mb_cached.get("finsight_score") or 0
                 _winner_shared = (state_a.get("ticker", "") if _fs_a >= _fs_b
@@ -5439,7 +5439,7 @@ def _render_glossaire(key_suffix: str = "main",
     """Glossaire des termes financiers — contextuel par type d'analyse.
 
     key_suffix   : suffixe pour les session_state keys (evite collisions).
-    type_analyse : "societe" | "secteur" | "indice" | "cmp_societe" |
+    type_analyse : "société" | "secteur" | "indice" | "cmp_societe" |
                    "cmp_secteur" | "cmp_indice". Si None, déduit depuis
                    key_suffix pour rétrocompatibilité.
     profile      : profil sectoriel pour les sociétés (BANK/REIT/...).
@@ -5457,13 +5457,13 @@ def _render_glossaire(key_suffix: str = "main",
         elif "indice" in _ks or "screening" in _ks:
             # screening = secteur ou indice selon la page
             type_analyse = st.session_state.get("screening_parent") and "indice" or "secteur"
-        elif "société" in _ks or "societe" in _ks:
-            type_analyse = "societe"
+        elif "société" in _ks or "société" in _ks:
+            type_analyse = "société"
         else:
-            type_analyse = "societe"
+            type_analyse = "société"
 
     # Déduction du profil sectoriel depuis la session si société
-    if type_analyse == "societe" and profile is None:
+    if type_analyse == "société" and profile is None:
         _r = st.session_state.get("results") or {}
         _snap = _r.get("snapshot")
         if _snap is not None:
@@ -5512,7 +5512,7 @@ def _render_glossaire(key_suffix: str = "main",
             _html_gls.append('</div>')
         _html_gls.append('</div>')
         # Badge indicatif du contexte pour l'utilisateur
-        _ctx_label = f"{type_analyse}" + (f" · profil {profile}" if type_analyse == "societe" and profile else "")
+        _ctx_label = f"{type_analyse}" + (f" · profil {profile}" if type_analyse == "société" and profile else "")
         st.markdown(
             f'<div style="font-size:10px;color:#999;text-align:right;margin-bottom:-8px;">'
             f'Termes pertinents pour : {_e(_ctx_label)}</div>',

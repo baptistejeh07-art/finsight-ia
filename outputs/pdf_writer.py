@@ -2373,11 +2373,11 @@ def _build_multiples_historiques(data):
             elif pe_v is not None and _pe_median_period is not None and _idx == 0:
                 # 1ere annee : comparaison vs mediane de la periode
                 if pe_v > _pe_median_period * 1.05:
-                    trend = "Au-dessus mediane"; ts = S_TD_G
+                    trend = "Au-dessus médiane"; ts = S_TD_G
                 elif pe_v < _pe_median_period * 0.95:
-                    trend = "Sous mediane"; ts = S_TD_R
+                    trend = "Sous médiane"; ts = S_TD_R
                 else:
-                    trend = "Proche mediane"; ts = S_TD_C
+                    trend = "Proche médiane"; ts = S_TD_C
             else:
                 trend = "\u2014"; ts = S_TD_C
             mh_rows.append([

@@ -617,7 +617,7 @@ def _chart_sentiment_bars(sentiment_agg: dict) -> bytes:
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
     ax.grid(True, alpha=0.3, linestyle=':', axis='x')
-    # Legende formelle — positionnee en haut a droite pour éviter chevauchement
+    # Legende formelle — positionnée en haut a droite pour éviter chevauchement
     patches_leg = [
         mpatches.Patch(color='#1A7A4A', label='Surpondérer (> 0.05)'),
         mpatches.Patch(color='#B06000', label='Neutre'),
@@ -905,7 +905,7 @@ def _s02_exec_summary(prs, D):
 
     # Régime de Marché — badges individuels
     _mac = D.get("macro") or {}
-    _reg = _mac.get("regime", "")
+    _reg = _mac.get("régime", "")
     if _reg and _reg != "Inconnu":
         _RSIG_COL = {"Bull": _BUY, "Bear": _SELL, "Volatile": _HOLD, "Transition": _HOLD}
         _r_col = _RSIG_COL.get(_reg, _NAVYL)
@@ -1266,7 +1266,7 @@ def _s06_valorisation(prs, D):
             if _baa is not None:
                 _parts.append(f"Spread BAA {_baa:.2f}%")
             if _parts:
-                _fred_line = "Donnees FRED : " + " \u00b7 ".join(_parts)
+                _fred_line = "Données FRED : " + " \u00b7 ".join(_parts)
                 _rect(slide, 0.9, 7.35, 23.6, 0.45, fill=_GRAYL)
                 _txb(slide, _x(_fred_line), 1.1, 7.35, 23.2, 0.45,
                      size=6.5, bold=False, color=_GRAYT, wrap=False)
@@ -1416,7 +1416,7 @@ def _s09_cartographie(prs, D):
     # Meilleure marge EBITDA parmi les surponderes
     _top_mg    = max((s[5] for s in sorted_s if "Surp" in str(s[3]) and isinstance(s[5], (int,float)) and s[5] > 0), default=None)
     _top_mg_s  = f"{_top_mg:.1f}%" if _top_mg else "—"
-    # Strategie selon dispersion
+    # Stratégie selon dispersion
     if score_spread > 35:
         _strat = ("La dispersion élevée justifié une approche concentrée : surexposer les secteurs verts, "
                   "éviter les secteurs rouges. Un portefeuille également pondéré sous-performerait le benchmark.")
@@ -1514,12 +1514,12 @@ def _s10_scatter(prs, D, chart_bytes: bytes):
         _prompt_s10 = (
             f"Analyste sell-side senior. Analyse 200-240 mots de la carte "
             f"valorisation/croissance pour {indice}.\n"
-            f"Surponderer : {_surp_names}\nSous-ponderer : {_sous_names}\n\n"
+            f"Surpondérer : {_surp_names}\nSous-ponderer : {_sous_names}\n\n"
             f"2 paragraphes :\n"
             f"1. SCATTER : quadrants dominants, couple valorisation/croissance, "
             f"signaux d'inflexion a surveiller.\n"
             f"2. ALLOCATION : sur/sous-ponderation recommandee, basculement "
-            f"defensif/offensif, horizon 12 mois.\n\n"
+            f"défensif/offensif, horizon 12 mois.\n\n"
             f"Francais avec accents. Secteurs en FR. Pas de markdown/emojis."
         )
         _llm_extra_s10 = llm_call(_prompt_s10, phase="long", max_tokens=700) or ""
@@ -1616,7 +1616,7 @@ def _s11_decomposition(prs, D):
     lecture = (
         f"{top_nom} affiche le profil le plus robuste (score {_top_sc}/100) "
         f"avec momentum={top_scores[0]}pts, révisions={top_scores[1]}pts, valorisation={top_scores[2]}pts. "
-        f"\u00c0 l'oppos\u00e9, {bot_nom} (score {_bot_sc}/100) cumule les handicaps : "
+        f"\u00c0 l'oppos\u00e9, {bot_nom} (score {_bot_sc}/100) cumulé les handicaps : "
         f"momentum={bot_scores[0]}, révisions={bot_scores[1]}, valorisation={bot_scores[2]}. "
         f"Dimension dominante sur l'ensemble de l'univers : {_dom}. "
         f"Secteurs avec profil composite fort (>50 sur les 3 dimensions) : {_unani_str}. "
@@ -1929,13 +1929,13 @@ def _s15_zone_entree(prs, D, chart_bytes: bytes):
         _prompt_s15 = (
             f"Analyste sell-side senior. Analyse 200-240 mots sur les zones d'entree "
             f"par secteur pour {_indice_name}.\n"
-            f"PE Forward indice {_pe_g}. PE median 10 ans {_pm_str}.\n"
+            f"PE Forward indice {_pe_g}. PE Médian 10 ans {_pm_str}.\n"
             f"Favorables : {_buy_sec}\nPrudence : {_high_sec}\n\n"
             f"2 paragraphes :\n"
             f"1. ZONES : conditions de re-rating PE, triggers macro et "
             f"microstructure a surveiller.\n"
             f"2. TACTIQUE : phasing, sizing initial vs rampe de conviction, "
-            f"stop-loss analytique base sur deterioration fonda.\n\n"
+            f"stop-loss analytique basé sur détérioration fonda.\n\n"
             f"Francais avec accents. Pas de markdown/emojis."
         )
         _llm_zone_s15 = llm_call(_prompt_s15, phase="long", max_tokens=700) or ""
@@ -2006,7 +2006,7 @@ def _s17_risques(prs, D):
             import re as _re_prb
             _m_prb = _re_prb.search(r'(\d+)', prob_str.replace('%','').replace('pct',''))
             prob_int = int(_m_prb.group(1)) if _m_prb else 20
-            # Normalise l'affichage en format '%' pour le PDF
+            # Normalisé l'affichage en format '%' pour le PDF
             if '%' not in prob_str:
                 prob_str = f"{prob_int}%"
             sc_titre = sc.get("titre","—")
@@ -2070,8 +2070,8 @@ def _s17_risques(prs, D):
                 f"Central : {_sig17} (conviction {_conv17}%). Scenarios : {_scen_desc}\n\n"
                 f"3 paragraphes :\n"
                 f"1. SCENARIOS : ce qu'implique chaque probabilite, triggers a surveiller.\n"
-                f"2. INVALIDATION : ce qui ferait basculer la these et sur quel horizon.\n"
-                f"3. COUVERTURE : defensifs a renforcer, hedges (options, bonds, or).\n\n"
+                f"2. INVALIDATION : ce qui ferait basculer la Thèse et sur quel horizon.\n"
+                f"3. COUVERTURE : défensifs a renforcer, hedges (options, bonds, or).\n\n"
                 f"Francais avec accents. Pas de markdown/emojis."
             )
             _lec17_llm = llm_call(_prompt_s17, phase="long", max_tokens=700) or ""
@@ -2410,8 +2410,8 @@ def _s20_etf_perf(prs, D, chart_bytes: bytes):
                  "SPDR Select Sector pour le S&P 500/Nasdaq, iShares STOXX Europe 600 "
                  "pour CAC 40/DAX 40/FTSE 100 (UCITS, suffixe .DE sur Xetra). "
                  "Le fetch du pipeline indice n'est pas encore branche sur cette matrice "
-                 "pour les indices europeens : l'analyse sectorielle directe reste "
-                 "disponible via 'Analyse sectorielle' pour acceder aux holdings reels.",
+                 "pour les indices européens : l'analyse sectorielle directe reste "
+                 "disponible via 'Analyse sectorielle' pour acceder aux holdings réels.",
                  1.2, 12.45, 22.8, 0.8, size=7.5, color=_GRAYT, wrap=True)
         _footer(slide)
         return slide
@@ -2512,7 +2512,7 @@ def _s20_etf_perf(prs, D, chart_bytes: bytes):
             f"YTD {_ytd_s20}, ERP {_erp_s20}, PE Forward {_pe_s20}, BPA growth "
             f"{_bpa_s20}, phase {_phase_s20}.\n\n"
             f"3 paragraphes (~120 mots) :\n"
-            f"1. NARRATIF DE MARCHE : raconte la trajectoire du cours — moments "
+            f"1. NARRATIF DE MARCHÉ : raconte la trajectoire du cours — moments "
             f"clés (rally, correction, consolidation), psychologie d'investisseurs, "
             f"qui achète/vend, narrative dominante. Moins de chiffres, plus "
             f"d'histoire. Pourquoi le marché a-t-il bougé ainsi ? Quelles "
@@ -2532,7 +2532,7 @@ def _s20_etf_perf(prs, D, chart_bytes: bytes):
     if _llm_macro_comment.strip():
         commentary = _llm_macro_comment.strip()
 
-    # Box elargie pour accueillir le texte LLM etendu (1.75 -> 2.60 cm)
+    # Box élargie pour accueillir le texte LLM etendu (1.75 -> 2.60 cm)
     _rect(slide, 16.4, 11.0, 8.1, 0.05, fill=_GRAYD)
     _txb(slide, "Pourquoi ca bouge — environnement macro et catalyseurs",
          16.6, 11.1, 7.8, 0.5, size=7.5, bold=True, color=_NAVY)

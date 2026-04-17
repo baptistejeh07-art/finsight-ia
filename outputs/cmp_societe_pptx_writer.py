@@ -2023,7 +2023,7 @@ def _slide_dcf(prs, m_a: dict, m_b: dict):
         add_text_box(slide, 19.4, y + 0.06, 4.4, 0.4, val, 8.5, BLACK, bold=False,
                      align=PP_ALIGN.RIGHT)
 
-    # Verdict entree — positionne juste après le panel réduit
+    # Verdict entree — positionné juste après le panel réduit
     ez_a = m_a.get('entry_zone_ok') or 0
     ez_b = m_b.get('entry_zone_ok') or 0
     y_ev = y_dcf + _panel_h + 0.20
@@ -2201,7 +2201,7 @@ def _slide_monte_carlo(prs, m_a: dict, m_b: dict):
         ax.xaxis.grid(True, alpha=0.25, color='#D0D5DD'); ax.set_axisbelow(True)
         fig.tight_layout(pad=1.0)
         buf = _make_chart_buf(fig)
-        # Ratio matplotlib 12.5/6.2 = 2.016 — chart positionne a droite du tableau
+        # Ratio matplotlib 12.5/6.2 = 2.016 — chart positionné a droite du tableau
         _fb_x = 11.80
         _fb_w = 12.60
         _fb_h = _fb_w / 2.016  # ~6.25cm
@@ -2286,7 +2286,7 @@ def _slide_piotroski(prs, m_a: dict, m_b: dict, synthesis: dict):
         header_fill=NAVY, border_hex="DDDDDD"
     )
 
-    # Scores complémentaires positionnes EN BAS A DROITE (plus compacts)
+    # Scores complémentaires positionnés EN BAS A DROITE (plus compacts)
     # Legendes Beneish/Altman/Sloan retirees (trop verboses) — condensees en footnote
     _sc_x = 15.15
     _sc_w = 9.87
@@ -2410,7 +2410,7 @@ def _slide_risque(prs, m_a: dict, m_b: dict):
         f"le dimensionnement de position : une volatilité plus élevée impose "
         f"une pondération réduite pour maintenir un budget risque équivalent."
     )
-    # #205/#206 : réhausse le bloc LLM (10.75 → 10.25) + supprime le titre
+    # #205/#206 : réhausse le bloc LLM (10.75 → 10.25) + supprimé le titre
     # "LECTURE RISQUE/MOMENTUM", donne plus de place au body
     y_llm = 10.25
     _llm_h = 2.35
@@ -2531,7 +2531,7 @@ def _slide_finsight_score(prs, m_a: dict, m_b: dict):
         f"robustesse de l'opinion sur la Thèse, a croiser avec l'exposition en portefeuille "
         f"et le catalyseur de déblocage de valeur a 12 mois."
     )
-    # #205/#207 : supprime le titre "LECTURE ANALYTIQUE DU SCORE COMPOSITE"
+    # #205/#207 : supprimé le titre "LECTURE ANALYTIQUE DU SCORE COMPOSITE"
     # et agrandit la box LLM vers le bas (1.65 → 2.50)
     _llm_h = 2.50
     add_rect(slide, 1.02, y_llm, 23.37, _llm_h, NAVY_PALE)
@@ -2983,7 +2983,7 @@ class CmpSocietePPTXWriter:
         if ctx.winner:
             m_a["verdict_relative"] = m_b["verdict_relative"] = f"{ctx.winner} privilege"
         else:
-            m_a["verdict_relative"] = m_b["verdict_relative"] = "Equivalent"
+            m_a["verdict_relative"] = m_b["verdict_relative"] = "Équivalent"
 
         # 3. Créer la présentation
         prs = Presentation()
