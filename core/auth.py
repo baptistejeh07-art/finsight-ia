@@ -267,20 +267,27 @@ def sign_in_email(email: str, password: str) -> tuple[bool, str]:
 
 
 def sign_in_google(redirect_to: Optional[str] = None) -> Optional[str]:
-    """Lance le flow OAuth Google.
+    """Lance le flow OAuth Google en mode IMPLICIT (response_type=token).
 
-    Retourne l'URL d'autorisation Google a laquelle rediriger l'utilisateur.
-    Après l'auth Google, Supabase redirige vers `redirect_to` (URL de l'app)
-    avec un code dans l'URL fragment qu'il faut échanger contre une session.
+    Force l'implicit flow côté serveur Supabase via query_params, car le
+    PKCE flow par défaut nécessite un code_verifier en localStorage que
+    Streamlit ne peut pas persister entre rerun + redirect.
+
+    Retourne l'URL d'autorisation Google. Après auth, Supabase redirige
+    vers `redirect_to` avec les tokens dans le FRAGMENT URL :
+        https://app.com/#access_token=XXX&refresh_token=YYY&expires_in=...
     """
     client = get_client()
     if client is None:
         return None
     try:
-        opts = {"provider": "google"}
+        options = {"query_params": {"response_type": "token"}}
         if redirect_to:
-            opts["options"] = {"redirect_to": redirect_to}
-        resp = client.auth.sign_in_with_oauth(opts)
+            options["redirect_to"] = redirect_to
+        resp = client.auth.sign_in_with_oauth({
+            "provider": "google",
+            "options": options,
+        })
         return getattr(resp, "url", None)
     except Exception as e:
         log.error(f"[auth] sign_in_google failed: {e}")
