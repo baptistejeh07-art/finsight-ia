@@ -280,6 +280,23 @@ _CARDS: list[GlossaryCard] = [
             ("Dispersion sectorielle", "Écart-type des scores entre secteurs d'un indice. Une dispersion élevée crée des opportunités d'allocation tactique."),
         ],
     },
+    # --------------------------------------------------------------------------
+    # Méthodologie FinSight : concepts techniques mentionnés dans les rapports
+    # --------------------------------------------------------------------------
+    {
+        "title": "Méthodologie & Modèles",
+        "contexts": {"societe:*", "secteur", "indice",
+                     "cmp_societe", "cmp_secteur", "cmp_indice"},
+        "entries": [
+            ("Football Field", "Graphique de fourchettes de valorisation par méthode (DCF, multiples, comparables, transactions). La convergence des barres renforce la robustesse du prix cible."),
+            ("Monte Carlo GBM", "Simulation stochastique du cours via mouvement brownien géométrique. 10 000 tirages pour obtenir une distribution de prix à 12 mois avec percentiles P10/P50/P90."),
+            ("Gordon-Shapiro", "Formule de valeur terminale dans un DCF : V = FCF × (1+g) / (WACC - g). Sensible aux hypothèses WACC et taux de croissance terminal (TGR)."),
+            ("FinBERT", "Modèle NLP pré-entraîné sur corpus financier (Yiyang 2019) pour analyse de sentiment news. Produit un score positif/négatif/neutre par article."),
+            ("HHI (Herfindahl)", "Herfindahl-Hirschman Index. Somme des carrés des parts de marché / capitalisation. Mesure la concentration d'un marché. HHI > 2500 = forte concentration."),
+            ("Avocat du Diable", "Protocole adversarial FinSight qui formule la thèse inverse + conditions d'invalidation pour stress-tester la recommandation principale."),
+            ("Sensibilité DCF", "Matrice WACC × TGR donnant le prix implicite pour chaque combinaison. Mesure la robustesse de la cible face aux hypothèses d'actualisation."),
+        ],
+    },
 ]
 
 
