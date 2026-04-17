@@ -271,27 +271,31 @@ class AgentSentiment:
         ctx = f" ({company_name})" if company_name else ""
         headlines = "\n".join(f"{i+1}. {t[:150]}" for i, t in enumerate(texts[:20]))
 
+        from core.prompt_standards import RULE_FRENCH_ACCENTS
         prompt = (
-            f"TACHE 1 — CLASSIFICATION OBLIGATOIRE\n"
-            f"Tu analyses l'actualite financiere de l'action {ticker}{ctx}.\n"
-            f"Pour chaque titre ci-dessous, tu DOIS decider : POSITIF, NEGATIF ou NEUTRE.\n"
-            f"Regles strictes :\n"
-            f"- POSITIF : resultats solides, partenariat, croissance, note relevee, acquisition favorable\n"
-            f"- NEGATIF : deception resultats, litige, perte marche, abaissement note, risque majeur\n"
+            f"TÂCHE 1 — CLASSIFICATION OBLIGATOIRE\n"
+            f"Tu analyses l'actualité financière de l'action {ticker}{ctx}.\n"
+            f"Pour chaque titre ci-dessous, tu DOIS décider : POSITIF, NÉGATIF ou NEUTRE.\n"
+            f"Règles strictes :\n"
+            f"- POSITIF : résultats solides, partenariat, croissance, note relevée, acquisition favorable\n"
+            f"- NÉGATIF : déception résultats, litige, perte de marché, abaissement note, risque majeur\n"
             f"- NEUTRE : information vraiment sans impact clair sur le cours (MAX 25% des titres)\n"
-            f"INTERDIT : mettre NEUTRE par defaut ou par flemme. Force toi a trancher.\n"
-            f"Format exact (une ligne par titre) : numero|POSITIF ou numero|NEGATIF ou numero|NEUTRE\n\n"
-            f"TACHE 2 — COMMENTAIRE (apres la liste)\n"
-            f"Ecris exactement 2 phrases en francais qui resument le sentiment global "
-            f"de la presse financiere sur {ticker}{ctx} cette semaine.\n"
+            f"INTERDIT : mettre NEUTRE par défaut ou par flemme. Force-toi à trancher.\n"
+            f"Format exact (une ligne par titre) : numero|POSITIF ou numero|NÉGATIF ou numero|NEUTRE\n\n"
+            f"TÂCHE 2 — COMMENTAIRE (après la liste)\n"
+            f"Écris 35-55 mots (2 phrases denses) en français qui résument le "
+            f"sentiment global de la presse financière sur {ticker}{ctx} cette "
+            f"semaine. Mentionne le ton dominant (euphorie, prudence, pessimisme) "
+            f"et le thème récurrent (résultats, M&A, guidance, régulation).\n"
             f"Format : COMMENTAIRE: <tes 2 phrases ici>\n\n"
-            f"Titres a analyser :\n{headlines}"
+            f"Titres à analyser :\n{headlines}"
         )
         system = (
-            "Tu es analyste financier senior. Tu réponds d'abord avec la classification "
-            "ligne par ligne (numero|label), puis avec le commentaire préfixé 'COMMENTAIRE:'. "
-            "Pas d'explication supplémentaire. "
-            "LANGUE : français avec TOUS les accents (é, è, ê, à, ù, ô, î, û, ç, œ) — JAMAIS sans accent."
+            "Tu es analyste financier senior sell-side sur la presse financière. "
+            "Tu réponds d'abord avec la classification ligne par ligne (numero|label), "
+            "puis avec le commentaire préfixé 'COMMENTAIRE:'. Pas d'explication "
+            "supplémentaire, pas de markdown.\n"
+            f"{RULE_FRENCH_ACCENTS}"
         )
 
         try:

@@ -1510,19 +1510,27 @@ def _s10_scatter(prs, D, chart_bytes: bytes):
         from core.llm_provider import llm_call
         _surp_names = ", ".join(_abbrev_sector(s[0], 22) for s in surp_s[:4]) or "aucun"
         _sous_names = ", ".join(_abbrev_sector(s[0], 22) for s in sous_s[:4]) or "aucun"
-        # LLM-A compressed
-        _prompt_s10 = (
-            f"Analyste sell-side senior. Analyse 200-240 mots de la carte "
-            f"valorisation/croissance pour {indice}.\n"
-            f"Surpondérer : {_surp_names}\nSous-ponderer : {_sous_names}\n\n"
-            f"2 paragraphes :\n"
-            f"1. SCATTER : quadrants dominants, couple valorisation/croissance, "
-            f"signaux d'inflexion a surveiller.\n"
-            f"2. ALLOCATION : sur/sous-ponderation recommandee, basculement "
-            f"défensif/offensif, horizon 12 mois.\n\n"
-            f"Francais avec accents. Secteurs en FR. Pas de markdown/emojis."
+        from core.prompt_standards import (
+            build_system_prompt, length_rule, pptx_overflow_rule,
         )
-        _llm_extra_s10 = llm_call(_prompt_s10, phase="long", max_tokens=700) or ""
+        _sys_s10 = build_system_prompt(
+            role="analyste sell-side senior sur allocation sectorielle",
+        )
+        _prompt_s10 = (
+            f"{_sys_s10}\n\n"
+            f"{length_rule(min_words=120, max_words=160)}\n"
+            f"{pptx_overflow_rule(zone='slide 10 — box droite', max_words=160)}\n\n"
+            f"CONTEXTE — carte valorisation/croissance pour {indice} :\n"
+            f"Surpondérer : {_surp_names}\n"
+            f"Sous-pondérer : {_sous_names}\n\n"
+            f"STRUCTURE 2 paragraphes :\n"
+            f"1. SCATTER : quadrants dominants, couple valorisation/croissance, "
+            f"signaux d'inflexion à surveiller.\n"
+            f"2. ALLOCATION : sur/sous-pondération recommandée, basculement "
+            f"défensif/offensif, horizon 12 mois.\n\n"
+            f"Noms des secteurs en français."
+        )
+        _llm_extra_s10 = llm_call(_prompt_s10, phase="long", max_tokens=500) or ""
     except Exception as _e:
         log.debug(f"[indice_pptx_writer:_s10_scatter] exception skipped: {_e}")
     _full_txt_s10 = (txt + "\n\n" + _llm_extra_s10).strip() if _llm_extra_s10 else txt
@@ -1925,20 +1933,27 @@ def _s15_zone_entree(prs, D, chart_bytes: bytes):
         _indice_name = D.get("indice", "l'indice")
         _buy_sec  = ", ".join(_abbrev_sector(n, 22) for n in noms_b) or "aucun"
         _high_sec = ", ".join(_abbrev_sector(n, 22) for n in noms_h) or "aucun"
-        # LLM-A compressed
-        _prompt_s15 = (
-            f"Analyste sell-side senior. Analyse 200-240 mots sur les zones d'entree "
-            f"par secteur pour {_indice_name}.\n"
-            f"PE Forward indice {_pe_g}. PE Médian 10 ans {_pm_str}.\n"
-            f"Favorables : {_buy_sec}\nPrudence : {_high_sec}\n\n"
-            f"2 paragraphes :\n"
-            f"1. ZONES : conditions de re-rating PE, triggers macro et "
-            f"microstructure a surveiller.\n"
-            f"2. TACTIQUE : phasing, sizing initial vs rampe de conviction, "
-            f"stop-loss analytique basé sur détérioration fonda.\n\n"
-            f"Francais avec accents. Pas de markdown/emojis."
+        from core.prompt_standards import (
+            build_system_prompt, length_rule, pptx_overflow_rule,
         )
-        _llm_zone_s15 = llm_call(_prompt_s15, phase="long", max_tokens=700) or ""
+        _sys_s15 = build_system_prompt(
+            role="analyste sell-side senior sur timing d'entrée sectoriel",
+        )
+        _prompt_s15 = (
+            f"{_sys_s15}\n\n"
+            f"{length_rule(min_words=120, max_words=160)}\n"
+            f"{pptx_overflow_rule(zone='slide 15 — box droite', max_words=160)}\n\n"
+            f"CONTEXTE — zones d'entrée par secteur pour {_indice_name} :\n"
+            f"PE Forward indice {_pe_g}. PE médian 10 ans {_pm_str}.\n"
+            f"Favorables : {_buy_sec}\n"
+            f"Prudence : {_high_sec}\n\n"
+            f"STRUCTURE 2 paragraphes :\n"
+            f"1. ZONES : conditions de re-rating PE, triggers macro et "
+            f"microstructure à surveiller.\n"
+            f"2. TACTIQUE : phasing, sizing initial vs rampe de conviction, "
+            f"stop-loss analytique basé sur détérioration fonda."
+        )
+        _llm_zone_s15 = llm_call(_prompt_s15, phase="long", max_tokens=500) or ""
     except Exception as _e:
         log.debug(f"[indice_pptx_writer:_s15_zone_entree] exception skipped: {_e}")
     _full_s15 = (txt_col + "\n\n" + _llm_zone_s15).strip() if _llm_zone_s15 else txt_col
@@ -2063,18 +2078,25 @@ def _s17_risques(prs, D):
                 f"({sc.get('prob','?') if isinstance(sc,dict) else '?'})"
                 for sc in scenarios[:3]
             )
-            # LLM-A compressed
-            _prompt_s17 = (
-                f"Strategist buy-side senior. Analyse 200-260 mots des risques macro "
-                f"et scenarios pour {indice}.\n"
-                f"Central : {_sig17} (conviction {_conv17}%). Scenarios : {_scen_desc}\n\n"
-                f"3 paragraphes :\n"
-                f"1. SCENARIOS : ce qu'implique chaque probabilite, triggers a surveiller.\n"
-                f"2. INVALIDATION : ce qui ferait basculer la Thèse et sur quel horizon.\n"
-                f"3. COUVERTURE : défensifs a renforcer, hedges (options, bonds, or).\n\n"
-                f"Francais avec accents. Pas de markdown/emojis."
+            from core.prompt_standards import (
+                build_system_prompt, length_rule, pptx_overflow_rule,
             )
-            _lec17_llm = llm_call(_prompt_s17, phase="long", max_tokens=700) or ""
+            _sys_s17 = build_system_prompt(
+                role="strategist buy-side senior en gestion des risques de marché",
+            )
+            _prompt_s17 = (
+                f"{_sys_s17}\n\n"
+                f"{length_rule(min_words=130, max_words=170)}\n"
+                f"{pptx_overflow_rule(zone='slide 17 — box lecture', max_words=170)}\n\n"
+                f"CONTEXTE — risques macro et scénarios pour {indice} :\n"
+                f"Signal central : {_sig17} (conviction {_conv17}%).\n"
+                f"Scénarios : {_scen_desc}\n\n"
+                f"STRUCTURE 3 paragraphes courts :\n"
+                f"1. SCÉNARIOS : ce qu'implique chaque probabilité, triggers à surveiller.\n"
+                f"2. INVALIDATION : ce qui ferait basculer la thèse et sur quel horizon.\n"
+                f"3. COUVERTURE : défensifs à renforcer, hedges (options, bonds, or)."
+            )
+            _lec17_llm = llm_call(_prompt_s17, phase="long", max_tokens=500) or ""
         except Exception as _e:
             log.debug(f"[indice_pptx_writer:_prob_to_int] exception skipped: {_e}")
         if not _lec17_llm.strip():
@@ -2241,18 +2263,25 @@ def _s19_sentiment(prs, D, chart_bytes: bytes):
     try:
         from core.llm_provider import llm_call
         _indice_name = D.get("indice", "l'indice")
-        # LLM-A compressed
-        _prompt_s19 = (
-            f"Analyste sentiment senior. Analyse 100-120 mots du sentiment sectoriel "
-            f"composite de {_indice_name}.\n"
-            f"Score : {_score_str} ({label}). Surp {p_nb} ({p_pct}%) / Neutre {n_nb} "
-            f"({n_pct}%) / Sous {m_nb} ({m_pct}%).\n"
-            f"Leaders : {pos_txt}\nRetardataires : {neg_txt}\n\n"
-            f"Structure : (1) signal composite + implications 3 mois, (2) divergences "
-            f"sentiment vs fondamentaux, (3) impact positionnement.\n"
-            f"Francais avec accents. Pas de markdown."
+        from core.prompt_standards import (
+            build_system_prompt, length_rule, pptx_overflow_rule,
         )
-        _llm_sent_s19 = llm_call(_prompt_s19, phase="long", max_tokens=400) or ""
+        _sys_s19 = build_system_prompt(
+            role="analyste sentiment senior sur marchés actions",
+        )
+        _prompt_s19 = (
+            f"{_sys_s19}\n\n"
+            f"{length_rule(min_words=80, max_words=110)}\n"
+            f"{pptx_overflow_rule(zone='slide 19 — bas droite', max_words=110)}\n\n"
+            f"CONTEXTE — sentiment sectoriel composite {_indice_name} :\n"
+            f"Score : {_score_str} ({label}). Surp {p_nb} ({p_pct}%) / Neutre "
+            f"{n_nb} ({n_pct}%) / Sous {m_nb} ({m_pct}%).\n"
+            f"Leaders : {pos_txt}\n"
+            f"Retardataires : {neg_txt}\n\n"
+            f"STRUCTURE compacte : (1) signal composite + implications 3 mois, "
+            f"(2) divergences sentiment vs fondamentaux, (3) impact positionnement."
+        )
+        _llm_sent_s19 = llm_call(_prompt_s19, phase="long", max_tokens=350) or ""
     except Exception as _e:
         log.debug(f"[indice_pptx_writer:_s19_sentiment] exception skipped: {_e}")
     if _llm_sent_s19.strip():
@@ -2503,29 +2532,31 @@ def _s20_etf_perf(prs, D, chart_bytes: bytes):
     _llm_macro_comment = ""
     try:
         from core.llm_provider import llm_call
-        # #198 : prompt enrichi pour narrer le cours boursier de l'indice
-        # au-delà des chiffres bruts (Baptiste demande + de narratif qualitatif)
-        _llm_prompt_s20 = (
-            f"Analyste macro sell-side senior. Commentaire 300-360 mots sur la "
-            f"trajectoire du cours de {indice} sur 12 mois et les facteurs macro "
-            f"qui l'ont façonnée.\n"
-            f"YTD {_ytd_s20}, ERP {_erp_s20}, PE Forward {_pe_s20}, BPA growth "
-            f"{_bpa_s20}, phase {_phase_s20}.\n\n"
-            f"3 paragraphes (~120 mots) :\n"
-            f"1. NARRATIF DE MARCHÉ : raconte la trajectoire du cours — moments "
-            f"clés (rally, correction, consolidation), psychologie d'investisseurs, "
-            f"qui achète/vend, narrative dominante. Moins de chiffres, plus "
-            f"d'histoire. Pourquoi le marché a-t-il bougé ainsi ? Quelles "
-            f"convictions sous-jacentes ?\n"
-            f"2. MACRO DRIVERS : politique monétaire (Fed/BCE pivots, réunions), "
-            f"inflation, taux longs, cycle. Events datables (ISM, CPI) et IMPACT "
-            f"concret sur le cours (+X% après Y).\n"
-            f"3. FORWARD : catalyseurs 6 mois, niveaux techniques critiques, "
-            f"conditions de bascule de régime, ce qui ferait casser la tendance.\n\n"
-            f"Francais avec accents. Pas de markdown/emojis. Narratif vivant, pas "
-            f"un tableau de chiffres. Chaque chiffre doit être mis en contexte."
+        from core.prompt_standards import (
+            build_system_prompt, length_rule, pptx_overflow_rule, narration_rule,
         )
-        _llm_macro_comment = llm_call(_llm_prompt_s20, phase="long", max_tokens=900) or ""
+        _sys_s20 = build_system_prompt(
+            role="analyste macro sell-side senior spécialiste narration de marché",
+        )
+        _llm_prompt_s20 = (
+            f"{_sys_s20}\n\n"
+            f"{length_rule(min_words=160, max_words=210)}\n"
+            f"{pptx_overflow_rule(zone='slide 20 — box narrative', max_words=210)}\n\n"
+            f"{narration_rule(date_required=True)}\n\n"
+            f"CONTEXTE — trajectoire cours {indice} sur 12 mois :\n"
+            f"YTD {_ytd_s20}, ERP {_erp_s20}, PE Forward {_pe_s20}, "
+            f"BPA growth {_bpa_s20}, phase {_phase_s20}.\n\n"
+            f"STRUCTURE 3 paragraphes datés :\n"
+            f"1. NARRATIF DE MARCHÉ : raconte la trajectoire du cours mois par "
+            f"mois — rally / correction / consolidation avec MOIS + ANNÉE sur "
+            f"chaque inflexion. Psychologie investisseurs, narrative dominante.\n"
+            f"2. MACRO DRIVERS : politique monétaire (Fed/BCE pivots datés, "
+            f"réunions FOMC, CPI), inflation, taux longs. Chaque event daté + "
+            f"IMPACT concret sur le cours (+X% après Y le JJ/MM).\n"
+            f"3. FORWARD : catalyseurs 6 mois, niveaux techniques critiques, "
+            f"conditions de bascule de régime."
+        )
+        _llm_macro_comment = llm_call(_llm_prompt_s20, phase="long", max_tokens=700) or ""
     except Exception as _llm_e:
         log.warning("[indice_pptx] s20 LLM macro: %s", _llm_e)
 

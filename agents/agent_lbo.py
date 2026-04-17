@@ -98,44 +98,43 @@ def generate_lbo_texts(lbo_data: dict, m: dict = None) -> dict:
         from core.llm_provider import LLMProvider
         llm = LLMProvider(provider="mistral", model="mistral-small-latest")
 
+        from core.prompt_standards import build_system_prompt
+        _sys_lbo = build_system_prompt(
+            role="analyste senior PE/M&A sell-side (JPMorgan, Goldman Sachs)",
+            include_json=True,
+        )
         prompt = (
-            f"Tu es un analyste senior PE/M&A (style JPMorgan, Goldman Sachs). "
-            f"Redige 4 textes analytiques rigoureux sur le LBO theorique de "
-            f"{company} ({ticker}) — secteur {sector}.\n\n"
-            f"DONNEES LBO :\n"
-            f"- Eligibilite : {'OUI' if eligible else 'NON'}\n"
+            f"{_sys_lbo}\n\n"
+            f"MISSION : rédiger 4 textes analytiques rigoureux sur le LBO "
+            f"théorique de {company} ({ticker}) — secteur {sector}.\n\n"
+            f"DONNÉES LBO :\n"
+            f"- Éligibilité : {'OUI' if eligible else 'NON'}\n"
             f"- Flag taille deal : {mega_flag}\n"
             f"- IRR sponsor base : {_pct(irr_base)}\n"
             f"- MOIC base : {_x(moic_base)}\n"
             f"- IRR bull / bear : {_pct(irr_bull)} / {_pct(irr_bear)}\n"
             f"- Leverage exit : {_x(lvg_exit)}\n"
-            f"- Equity sponsor entree : {_f(eq_entry, 0)} M$\n"
+            f"- Equity sponsor entrée : {_f(eq_entry, 0)} M$\n"
             f"- Equity sponsor sortie : {_f(eq_exit, 0)} M$\n"
-            f"- Marge EBITDA societe : {_pct(m.get('ebitda_margin_ltm'))}\n"
+            f"- Marge EBITDA société : {_pct(m.get('ebitda_margin_ltm'))}\n"
             f"- ROIC : {_pct(m.get('roic'))}\n"
             f"- Net Debt / EBITDA actuel : {_x(m.get('net_debt_ebitda'))}\n\n"
-            f"REGLES TYPOGRAPHIE : francais correct avec TOUS les accents "
-            f"(e e e a u c i o), cedilles, apostrophes droites ' et guillemets "
-            f"francais << >>. N'ECRIS JAMAIS sans accents — francais casse "
-            f"inacceptable en rapport IB-grade.\n"
-            f"REGLES STYLE : prose technique sell-side, raisonnements economiques, "
-            f"chiffres precis. Pas de markdown **, pas d'emojis. JSON strict.\n\n"
+            f"LONGUEURS STRICTES (en MOTS) par champ :\n"
             f'{{\n'
-            f'  "eligibility_text": "60 mots MAX : verdict eligibilite LBO de {company}, '
-            f'critères passes/non passes (marge EBITDA, cash conv, levier), conclusion '
-            f'profil LBO-able ou non. Si mega_flag != standard, mentionner contexte mega-deal/scenario theorique.",\n'
-            f'  "hypotheses_text": "100 mots MAX : justification des hypothèses retenues — '
-            f'multiple d entree, leverage 5x EBITDA (Senior 3.5x + Mezz 1.5x), couts dette, '
-            f'multiple sortie conservateur. Distinguer ce qui vient des donnees societe vs '
-            f'standards de marche.",\n'
-            f'  "returns_text": "130 mots MAX : analyse des returns sponsor — IRR base {_pct(irr_base)} '
+            f'  "eligibility_text": "40-60 mots : verdict éligibilité LBO de {company}, '
+            f'critères passés/non passés (marge EBITDA, cash conv, levier), conclusion '
+            f'profil LBO-able ou non. Si mega_flag != standard, mentionner contexte mega-deal.",\n'
+            f'  "hypotheses_text": "75-100 mots : justification hypothèses retenues — '
+            f'multiple d entrée, leverage 5x EBITDA (Senior 3.5x + Mezz 1.5x), coûts dette, '
+            f'multiple sortie conservateur. Distinguer données société vs standards marché.",\n'
+            f'  "returns_text": "100-130 mots : analyse returns sponsor — IRR base {_pct(irr_base)} '
             f'vs seuils PE typiques (>=20% top quartile, 15-20% mid, <15% sous-performance). '
-            f'MOIC {_x(moic_base)}. Lecture de la sensibilite (ou se trouvent les zones '
-            f'robustes/fragiles ?). Conclusion sur l attractivite du deal pour un sponsor PE.",\n'
-            f'  "risks_text": "130 mots MAX : 3-4 risques principaux du LBO — operationnel '
+            f'MOIC {_x(moic_base)}. Lecture de la sensibilité (zones robustes/fragiles). '
+            f'Conclusion sur l attractivité du deal pour un sponsor PE.",\n'
+            f'  "risks_text": "100-130 mots : 3-4 risques principaux du LBO — opérationnel '
             f'(compression marges, ralentissement growth), financier (covenants, refinancing, '
-            f'hausse taux), marche (multiple compression). Cite les chiffres du bear scenario '
-            f'(IRR {_pct(irr_bear)}, leverage exit). Conclusion : conditions de succes et '
+            f'hausse taux), marché (multiple compression). Cite les chiffres du bear scenario '
+            f'(IRR {_pct(irr_bear)}, leverage exit). Conclusion : conditions de succès et '
             f'conditions d invalidation."\n'
             f'}}'
         )

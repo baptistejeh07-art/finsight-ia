@@ -2370,16 +2370,56 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
 
     # Base test pour les champs sans source temps reel
     base = _make_test_indice_data(universe)
-    # Regenerer texte_signal coherent avec le signal reel
-    noms_surp = [s[0] for s in secteurs if s[3] == "Surpondérer"][:3]
-    texte_signal_reel = (
-        f"Le signal global sur le {universe} est {signal_global} avec une conviction de "
-        f"{conviction}% (sur la base des {len(secteurs)} secteurs analyses). "
-        f"{nb_surp} secteur(s) ressortent Surpondérer — {', '.join(noms_surp) or 'aucun'} "
-        f"— portes par leur momentum positif 52 semaines. "
-        f"{len(secteurs) - nb_surp - sum(1 for s in secteurs if s[3] == 'Sous-ponderer')} secteurs "
-        f"sont Neutre et {sum(1 for s in secteurs if s[3] == 'Sous-ponderer')} en Sous-ponderer."
-    )
+    # Regenerer texte_signal coherent avec le signal reel — version enrichie
+    # via LLM pour synthèse slide 2 plus longue et pertinente (demande Baptiste
+    # 2026-04-17). Fallback déterministe si LLM indisponible.
+    noms_surp = [s[0] for s in secteurs if s[3] == "Surpondérer"][:5]
+    noms_sous = [s[0] for s in secteurs if s[3] == "Sous-ponderer"][:5]
+    _nb_neutre = len(secteurs) - nb_surp - sum(1 for s in secteurs if s[3] == 'Sous-ponderer')
+    _nb_sous = sum(1 for s in secteurs if s[3] == 'Sous-ponderer')
+
+    texte_signal_reel = ""
+    try:
+        from core.llm_provider import llm_call
+        from core.prompt_standards import build_system_prompt, length_rule, pptx_overflow_rule
+        _sys_ts = build_system_prompt(
+            role="analyste sell-side senior sur allocation stratégique d'indices",
+        )
+        _prompt_ts = (
+            f"{_sys_ts}\n\n"
+            f"{length_rule(min_words=100, max_words=150)}\n"
+            f"{pptx_overflow_rule(zone='slide 2 — synthèse signal', max_words=150)}\n\n"
+            f"CONTEXTE — synthèse signal global {universe} :\n"
+            f"Signal : {signal_global} (conviction {conviction}%).\n"
+            f"{len(secteurs)} secteurs analysés : "
+            f"{nb_surp} Surpondérer, {_nb_neutre} Neutre, {_nb_sous} Sous-pondérer.\n"
+            f"Leaders : {', '.join(noms_surp) or 'aucun'}.\n"
+            f"Retardataires : {', '.join(noms_sous) or 'aucun'}.\n\n"
+            f"STRUCTURE dense en 3 temps :\n"
+            f"1. DIAGNOSTIC (40 mots) : signal global + justification momentum/révisions/"
+            f"valorisation. Pourquoi ce niveau de conviction.\n"
+            f"2. SECTEURS CLÉS (50 mots) : secteurs moteurs Surpondérer avec 1-2 mots "
+            f"clés par secteur. Mentionner aussi les Sous-pondérer si relevant.\n"
+            f"3. HORIZON & TACTIQUE (40 mots) : horizon 12 mois, risques à surveiller, "
+            f"triggers de re-rating/de-rating."
+        )
+        texte_signal_reel = (llm_call(_prompt_ts, phase="long", max_tokens=450) or "").strip()
+    except Exception as _e_ts:
+        log.debug(f"[cli_analyze:texte_signal] LLM skipped: {_e_ts}")
+
+    # Fallback déterministe enrichi (sans LLM) si pas de sortie
+    if not texte_signal_reel:
+        texte_signal_reel = (
+            f"Le signal global sur le {universe} ressort {signal_global} avec une conviction de "
+            f"{conviction}% sur la base des {len(secteurs)} secteurs analysés. "
+            f"{nb_surp} secteur(s) ressortent Surpondérer — {', '.join(noms_surp) or 'aucun'} "
+            f"— portés par momentum positif 52 semaines et révisions BPA favorables. "
+            f"{_nb_neutre} secteurs affichent un profil Neutre, {_nb_sous} restent en Sous-pondérer "
+            f"{('(' + ', '.join(noms_sous) + ')') if noms_sous else ''}. "
+            f"La prime/décote de valorisation et le positionnement dans le cycle macro "
+            f"justifient un horizon d'allocation 12 mois. Triggers à surveiller : inflexion "
+            f"banque centrale, révisions BPA NTM, rotation défensif/offensif."
+        )
 
     # Prime/decote vs mediane P/E historique 10 ans
     _PE_HIST_INDICE = {

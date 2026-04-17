@@ -1110,13 +1110,24 @@ def _fetch_sector_tickers(sector_key: str) -> list:
         llm = LLMProvider(provider="mistral")
         raw = llm.generate(
             prompt=(
-                f"Donne-moi exactement 8 tickers yfinance valides (S&P 500 de préférence) "
-                f"pour le secteur '{sector_label}'. "
-                f"Reponds UNIQUEMENT avec les tickers separes par des virgules, rien d'autre. "
-                f"Exemple : AAPL,MSFT,NVDA,META,GOOGL,AMD,AVGO,ORCL"
+                f"Donne-moi exactement 8 tickers yfinance LEADERS du secteur "
+                f"'{sector_label}' (capitalisations majeures S&P 500 de préférence, "
+                f"sinon Euro Stoxx 600).\n"
+                f"RÈGLES STRICTES :\n"
+                f"- tickers yfinance exacts (avec suffixe marché si .PA .L .DE etc.)\n"
+                f"- aucun ticker fictif ou obsolète (ex: pas de FB, utiliser META)\n"
+                f"- aucun ETF (pas de XLK, SPY, VOO, IWM)\n"
+                f"- aucune fusion non résolue (pas de PSA, utiliser STLAM.MI)\n"
+                f"FORMAT : tickers séparés par des virgules, sans espace, "
+                f"rien d'autre. Exemple : AAPL,MSFT,NVDA,META,GOOGL,AMD,AVGO,ORCL"
             ),
-            system="Tu es un expert financier. Reponds uniquement avec des tickers valides, separes par des virgules.",
-            max_tokens=60,
+            system=(
+                "Tu es un expert des tickers yfinance mondiaux. Tu connais les "
+                "leaders de chaque secteur GICS et leurs suffixes marché. "
+                "Réponds uniquement avec des tickers valides séparés par des "
+                "virgules, zéro autre texte."
+            ),
+            max_tokens=80,
         )
         if raw:
             tickers_llm = [

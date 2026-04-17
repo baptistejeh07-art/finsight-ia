@@ -1937,50 +1937,50 @@ def _generate_llm_texts(D: dict) -> dict:
         score_a = sa.get("score", 0)
         score_b = sb.get("score", 0)
         winner = sector_a if score_a >= score_b else sector_b
+        from core.prompt_standards import build_system_prompt
+        _sys_cs = build_system_prompt(
+            role=f"analyste sell-side senior JPMorgan sur pitchbook comparatif sectoriel",
+            include_json=True,
+        )
         prompt = (
-            f"Tu es analyste financier senior chez une grande banque d'investissement. "
-            f"Redige des textes analytiques précis et professionnels (style rapport JPMorgan) "
-            f"pour un pitchbook comparatif sectoriel entre {sector_a} et {sector_b} "
+            f"{_sys_cs}\n\n"
+            f"CONTEXTE — comparatif sectoriel {sector_a} vs {sector_b} "
             f"(univers : {D['universe_label']}, {D['na']} + {D['nb']} sociétés).\n\n"
             f"DONNÉES MÉDIANES :\n"
             f"- {sector_a} : Score {score_a}/100, Signal {D['sig_a_lbl']}, "
-            f"P/E {sa.get('pe',0):.1f}x, EV/EBITDA {sa.get('ev_eb',0):.1f}x, EV/Rev {sa.get('ev_rev',0):.1f}x, "
+            f"P/E {sa.get('pe',0):.1f}x, EV/EBITDA {sa.get('ev_eb',0):.1f}x, "
+            f"EV/Rev {sa.get('ev_rev',0):.1f}x, "
             f"Croiss.Rev {sa.get('revg',0):+.1f}%, Mg.Brute {sa.get('gm',0):.1f}%, "
             f"Mg.EBITDA {sa.get('em',0):.1f}%, Mg.Nette {sa.get('nm',0):.1f}%, "
-            f"ROE {roe_a:.1f}%, Perf.52S {sa.get('mom',0):+.1f}%, Beta {sa.get('beta',1.0):.2f}, "
+            f"ROE {roe_a:.1f}%, Perf.52S {sa.get('mom',0):+.1f}%, "
+            f"Beta {sa.get('beta',1.0):.2f}, "
             f"Div.Yield {dy_a:.1f}%, FCF.Yield {fy_a:.1f}%, Payout {pt_a:.0f}%\n"
             f"- {sector_b} : Score {score_b}/100, Signal {D['sig_b_lbl']}, "
-            f"P/E {sb.get('pe',0):.1f}x, EV/EBITDA {sb.get('ev_eb',0):.1f}x, EV/Rev {sb.get('ev_rev',0):.1f}x, "
+            f"P/E {sb.get('pe',0):.1f}x, EV/EBITDA {sb.get('ev_eb',0):.1f}x, "
+            f"EV/Rev {sb.get('ev_rev',0):.1f}x, "
             f"Croiss.Rev {sb.get('revg',0):+.1f}%, Mg.Brute {sb.get('gm',0):.1f}%, "
             f"Mg.EBITDA {sb.get('em',0):.1f}%, Mg.Nette {sb.get('nm',0):.1f}%, "
-            f"ROE {roe_b:.1f}%, Perf.52S {sb.get('mom',0):+.1f}%, Beta {sb.get('beta',1.0):.2f}, "
+            f"ROE {roe_b:.1f}%, Perf.52S {sb.get('mom',0):+.1f}%, "
+            f"Beta {sb.get('beta',1.0):.2f}, "
             f"Div.Yield {dy_b:.1f}%, FCF.Yield {fy_b:.1f}%, Payout {pt_b:.0f}%\n\n"
-            f"RÈGLES DE REDACTION :\n"
-            f"- Francais correct et complet : utilise TOUS les accents (e e e a u c i o), "
-            f"les cedilles, les apostrophes droites ' et les guillemets francais << >>. "
-            f"N'ecris JAMAIS sans accents — ce serait du francais casse, inacceptable en rapport IB.\n"
-            f"- Style sell-side senior (JPMorgan, Goldman, Morgan Stanley Research). Prose technique, "
-            f"chiffres précis, raisonnements Économiques relies aux données fournies.\n"
-            f"- Cite les chiffres précis fournis ci-dessus, ne jamais en inventer ni dire 'données indisponibles'.\n"
-            f"- Pas de markdown, pas d'emojis, pas de formules generiques.\n"
-            f"- Maximum indique par champ.\n"
-            f"- Reponds UNIQUEMENT en JSON valide, aucun texte avant ou après.\n\n"
+            f"LONGUEURS IMPOSÉES PAR CHAMP (en MOTS, pas caractères) : "
+            f"voir chaque champ ci-dessous. Dépassement = texte coupé dans la slide.\n\n"
             f'{{\n'
-            f'  "exec_summary": "3 phrases max (400 car.) : synthèse globale, qui privilegier et pourquoi, écarts cles",\n'
-            f'  "valuation_read": "2 phrases (300 car.) : analyse multiples P/E EV/EBITDA, prime/décote et implications",\n'
-            f'  "margins_read": "2-3 phrases (350 car.) : qualité opérationnelle, qui Généré plus de valeur et pourquoi, implications pour l investisseur",\n'
-            f'  "capital_alloc_read": "2-3 phrases (380 car.) : politique de distribution, FCF yield vs dividende, soutenabilite et implications allocation",\n'
-            f'  "growth_read": "2-3 phrases (350 car.) : dynamique de croissance revenue, momentum cours 52S, divergence ou convergence et implications",\n'
-            f'  "scoring_read": "2-3 phrases (350 car.) : analyse radar multidimensionnel, forces et faiblesses relatives par dimension, signal résultant",\n'
-            f'  "top_a_read": "2-3 phrases (300 car.) : profil des meilleurs acteurs {sector_a}, caractéristiques communes, champion sectoriel",\n'
-            f'  "top_b_read": "2-3 phrases (300 car.) : profil des meilleurs acteurs {sector_b}, caractéristiques communes, champion sectoriel",\n'
-            f'  "Thèse_a": "2-3 phrases (320 car.) : Thèse investissement {sector_a}, 2-3 arguments structurels avec chiffres",\n'
-            f'  "Thèse_b": "2-3 phrases (320 car.) : Thèse investissement {sector_b}, 2-3 arguments structurels avec chiffres",\n'
-            f'  "Thèse_long_a": "3 arguments {sector_a} format Titre : Description (380 car. total), separes par . ",\n'
-            f'  "Thèse_long_b": "3 arguments {sector_b} format Titre : Description (380 car. total), separes par . ",\n'
-            f'  "risques_principaux": "2-3 risques communs ou spécifiques (280 car.) : risque macro, valorisation, exécution",\n'
-            f'  "verdict_read": "3 phrases (420 car.) : verdict allocation, {winner} recommande, raisons quantifiees, horizon et conditions",\n'
-            f'  "allocation_read": "3 phrases (400 car.) : recommandation portefeuille detaillee, surponderation cles, ratio risque/rendement"\n'
+            f'  "exec_summary": "80-100 mots : synthèse globale, qui privilégier et pourquoi, écarts clés chiffrés",\n'
+            f'  "valuation_read": "60-80 mots : analyse multiples P/E EV/EBITDA, prime/décote et implications",\n'
+            f'  "margins_read": "70-90 mots : qualité opérationnelle, qui génère plus de valeur et pourquoi",\n'
+            f'  "capital_alloc_read": "75-95 mots : politique de distribution, FCF yield vs dividende, soutenabilité",\n'
+            f'  "growth_read": "70-90 mots : dynamique de croissance revenue, momentum 52S, divergence/convergence",\n'
+            f'  "scoring_read": "70-90 mots : analyse radar multidimensionnel, forces/faiblesses par dimension",\n'
+            f'  "top_a_read": "60-80 mots : profil des meilleurs acteurs {sector_a}, champion sectoriel",\n'
+            f'  "top_b_read": "60-80 mots : profil des meilleurs acteurs {sector_b}, champion sectoriel",\n'
+            f'  "Thèse_a": "65-85 mots : thèse {sector_a}, 2-3 arguments structurels avec chiffres",\n'
+            f'  "Thèse_b": "65-85 mots : thèse {sector_b}, 2-3 arguments structurels avec chiffres",\n'
+            f'  "Thèse_long_a": "75-95 mots : 3 arguments {sector_a} format Titre : Description",\n'
+            f'  "Thèse_long_b": "75-95 mots : 3 arguments {sector_b} format Titre : Description",\n'
+            f'  "risques_principaux": "55-75 mots : 2-3 risques majeurs (macro, valorisation, exécution)",\n'
+            f'  "verdict_read": "85-110 mots : verdict allocation, {winner} recommandé, raisons quantifiées, horizon",\n'
+            f'  "allocation_read": "80-100 mots : recommandation portefeuille, surpondération clés, ratio risque/rendement"\n'
             f'}}'
         )
         import json, re

@@ -1146,27 +1146,35 @@ def _build_macro(perf_buf, area_buf, tickers_data: list[dict],
         from core.llm_provider import LLMProvider as _LLMp
         _regime_ctx = (f" | Regime marche: {_regime}, VIX: {_vix:.0f}" if (_regime and _vix) else "")
         _rec_ctx    = (f" | P(récession 6M): {_rec_6m}%" if _rec_6m is not None else "")
+        from core.prompt_standards import build_system_prompt
+        _sys_mac = build_system_prompt(
+            role=f"analyste sell-side senior spécialisé dans le secteur {sector_name}",
+            include_json=True,
+            extra_rules=[
+                f"SPÉCIFICITÉ : contenu 100% spécifique au secteur {sector_name}, "
+                f"jamais de généralités applicables à n'importe quel secteur.",
+                "Pas de points de suspension (...) dans les réponses.",
+            ],
+        )
         _prompt_mac = (
-            f"Secteur: {sector_name} | EV/EBITDA median: {_ev_m:.1f}x | "
-            f"Marge EBITDA: {_mg_m:.1f}% | Momentum 52W: {_mo_m:+.1f}%"
-            f"{_regime_ctx}{_rec_ctx}\n"
-            f"Identifie 4 dynamiques structurelles SPECIFIQUES a ce secteur (pas de generiques).\n"
-            f"Reponds en JSON valide, sans markdown, sans points de suspension.\n"
+            f"CONTEXTE — Secteur : {sector_name}\n"
+            f"EV/EBITDA médian : {_ev_m:.1f}x | Marge EBITDA : {_mg_m:.1f}% | "
+            f"Momentum 52W : {_mo_m:+.1f}%{_regime_ctx}{_rec_ctx}\n\n"
+            f"MISSION : identifie 4 dynamiques structurelles SPÉCIFIQUES à ce "
+            f"secteur (régulation, cycle, technologie, demande, capex, capital). "
+            f"Chaque driver : titre court + 2 phrases analytiques (40-55 mots), "
+            f"avec l'exposition du secteur mise en gras (ex: Exposition : "
+            f"<b>forte</b> / <b>modérée</b> / <b>limitée</b>).\n\n"
             f'{{"drivers":['
-            f'{{"titre":"titre court","corps":"2 phrases specifiques au secteur, exposition en gras ex: Exposition : <b>forte</b>"}},'
-            f'{{"titre":"titre court","corps":"2 phrases specifiques, exposition en gras"}},'
-            f'{{"titre":"titre court","corps":"2 phrases specifiques, exposition en gras"}},'
-            f'{{"titre":"titre court","corps":"2 phrases specifiques, exposition en gras"}}]}}'
+            f'{{"titre":"titre court","corps":"2 phrases 40-55 mots, exposition en gras"}},'
+            f'{{"titre":"titre court","corps":"2 phrases 40-55 mots, exposition en gras"}},'
+            f'{{"titre":"titre court","corps":"2 phrases 40-55 mots, exposition en gras"}},'
+            f'{{"titre":"titre court","corps":"2 phrases 40-55 mots, exposition en gras"}}]}}'
         )
         _resp_mac = _LLMp(provider="mistral", model="mistral-small-latest").generate(
             prompt=_prompt_mac,
-            system=(
-                f"Tu es analyste financier senior spécialisé dans le secteur {sector_name}. "
-                "Reponds en francais avec accents. JSON strict. "
-                "Contenu 100% specifique au secteur demande, jamais de generiques. "
-                "Pas de points de suspension (...)."
-            ),
-            max_tokens=600,
+            system=_sys_mac,
+            max_tokens=700,
         )
         _js_s = _resp_mac.find("{"); _js_e = _resp_mac.rfind("}") + 1
         if _js_s >= 0 and _js_e > _js_s:
@@ -3666,20 +3674,29 @@ def _generate_reco_commentary(buy_list, hold_list, sell_list, sector_name, secto
             )
         else:
             _profile_hint = "Non-financier : EV/EBITDA, P/E, Mg.EBITDA, croissance."
-        prompt = (
-            f"Analyste sectoriel senior. Synthese investissement sur {sector_name} "
-            f"en francais sans bullet.\n"
-            f"Contexte : {_profile_hint}\n"
-            f"BUY : {buy_str}\nHOLD : {hold_str}\nSELL : {sell_str}\n\n"
-            f"Format EXACT (3 blocs) :\n"
-            f"BUY: <2-3 phrases : valorisation, bilan, croissance, catalyseurs — inclut STRONG BUY et BUY>\n"
-            f"HOLD: <2-3 phrases : catalyseurs manquants, valorisation correcte>\n"
-            f"SELL: <2-3 phrases : deterioration fonda, risque rerating, marges — inclut UNDERPERFORM et SELL>\n"
-            f"Si groupe vide : '<groupe>: Aucune valeur.'"
+        from core.prompt_standards import build_system_prompt
+        system = build_system_prompt(
+            role="analyste buy-side senior sur synthèses de recommandations",
+            extra_rules=[
+                "FORMAT : 3 blocs sur 3 lignes distinctes, exactement : BUY: / HOLD: / SELL:",
+                "LONGUEUR par bloc : 45-70 mots (3-4 phrases analytiques denses).",
+                "Si un groupe est vide, écris '<GROUPE>: Aucune valeur.'",
+            ],
         )
-        system = (
-            "Analyste buy-side senior. Factuel, precis, base sur les donnees. "
-            "2-3 phrases max par groupe. Pas de bullet."
+        prompt = (
+            f"CONTEXTE — Synthèse recommandations pour {sector_name}.\n"
+            f"Profil sectoriel : {_profile_hint}\n\n"
+            f"DONNÉES :\n"
+            f"BUY : {buy_str}\n"
+            f"HOLD : {hold_str}\n"
+            f"SELL : {sell_str}\n\n"
+            f"STRUCTURE EXACTE (3 blocs) :\n"
+            f"BUY: <45-70 mots : valorisation, bilan, croissance, catalyseurs — "
+            f"inclut STRONG BUY et BUY>\n"
+            f"HOLD: <45-70 mots : catalyseurs manquants, valorisation correcte, "
+            f"attente d'un trigger>\n"
+            f"SELL: <45-70 mots : détérioration fonda, risque de re-rating, "
+            f"compression des marges — inclut UNDERPERFORM et SELL>"
         )
         llm = LLMProvider(provider="mistral")
         raw = llm.generate(prompt=prompt, system=system, max_tokens=500)
