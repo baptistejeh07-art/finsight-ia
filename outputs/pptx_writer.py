@@ -1101,8 +1101,10 @@ def _slide_exec_summary(prs, snap, synthesis, ratios, devil, sentiment):
         add_rect(slide, 1.02, sy + 0.05, 0.15, 0.36, NAVY_MID)
         add_text_box(slide, 1.4, sy, 10.92, 0.51,
                      _truncate(label, 80), 8.5, NAVY, bold=True)
+        # PPTX-S2 calibrage 2026-04-17 : box 10.92x1.00cm font 7.5pt = ~120 chars max
+        # Avant _fit(body, 190) -> overflow ratio 1.20. Reduit a 130 chars (~20 mots).
         add_text_box(slide, 1.4, sy + 0.47, 10.92, 1.00,
-                     _fit(body, 190), 7.5, "333333", wrap=True)
+                     _fit(body, 130), 7.5, "333333", wrap=True)
 
     # Risks section header — PPTX-S2 Baptiste : le rect rouge etait a y=3.76
     # alors que le texte header est a y=3.25 (remonte lors d'un fix precedent).
@@ -1148,8 +1150,10 @@ def _slide_exec_summary(prs, snap, synthesis, ratios, devil, sentiment):
         add_rect(slide, 13.08, ry + 0.05, 0.15, 0.36, RED)
         add_text_box(slide, 13.46, ry, 10.54, 0.51,
                      _truncate(risk_text, 80), 8.5, NAVY, bold=True)
+        # PPTX-S2 calibrage 2026-04-17 : box 10.54x1.00cm font 7.5pt = ~120 chars max
+        # Avant _fit(body_r, 190) -> overflow ratio 1.54. Reduit a 130 chars.
         add_text_box(slide, 13.46, ry + 0.47, 10.54, 1.00,
-                     _fit(body_r, 190), 7.5, "333333", wrap=True)
+                     _fit(body_r, 130), 7.5, "333333", wrap=True)
 
     # Vertical divider (remonte avec les sections : de 3.76 a 3.25)
     add_rect(slide, 12.57, 3.25, 0.03, 4.95, GREY_LIGHT)
@@ -1183,7 +1187,9 @@ def _slide_exec_summary(prs, snap, synthesis, ratios, devil, sentiment):
         if i < len(catalysts):
             _cat_name = _g(catalysts[i], "title") or _g(catalysts[i], "name") or ""
             _cat_body = _g(catalysts[i], "description") or _g(catalysts[i], "text") or ""
-            _cat_txt  = _truncate(f"{_cat_name[:30]} : {_cat_body}", 160) if _cat_body else _truncate(_cat_name, 160)
+            # PPTX-S2 calibrage 2026-04-17 : box 11.42x0.62cm font 6.5pt = ~80 chars max
+            # Avant _truncate(_, 160) -> overflow ratio 2.00. Reduit a 90 chars (~14 mots).
+            _cat_txt  = _truncate(f"{_cat_name[:30]} : {_cat_body}", 90) if _cat_body else _truncate(_cat_name, 90)
         else:
             _cat_txt = "\u2014"
         add_rect(slide, cx, cy + 0.05, 0.10, 0.22, "1A7A4A")
@@ -1423,21 +1429,25 @@ def _slide_business_model(prs, snap, synthesis):
             except Exception:
                 pass
             import json as _json_s6
-            # LLM-A compressed + target 220-280 mots par segment (plus long)
+            # PPTX-S6 calibrage 2026-04-17 : box ~7.1x5cm font 8pt = ~120-130 mots max
+            # Avant: "220-280 mots" -> overflow ratio 2.30. Reduit a 100-130 mots.
             _prompt_s6 = (
                 (_hint_s6 + "\n\n" if _hint_s6 else "") +
-                f"Analyste sell-side. Identifie les 3 segments operationnels cles de "
-                f"{_ticker_s6} (secteur {_sector_s6}) et decris chacun en 220-280 mots.\n"
-                f"Chaque description doit couvrir : marches adresses, positionnement "
-                f"concurrentiel, drivers de croissance, poids approximatif dans le CA "
-                f"(en %), catalyseurs specifiques 12 mois, risques propres au segment.\n"
-                f"Reponds en JSON strict sans markdown :\n"
+                f"Analyste sell-side senior. Identifie les 3 segments operationnels "
+                f"cles de {_ticker_s6} (secteur {_sector_s6}).\n"
+                f"Pour chaque segment : description EXACTE de 100-130 mots STRICT.\n"
+                f"CONTRAINTE CRITIQUE : la box d affichage est limitee, depassement = "
+                f"texte coupe sur la slide. Maximum absolu 130 mots par description.\n"
+                f"Couvrir en 3-4 phrases denses : marches adresses, positionnement "
+                f"concurrentiel, drivers de croissance principaux, poids dans le CA (%).\n"
+                f"Francais correct avec accents (e e e a u c i o). Pas de markdown.\n"
+                f"Reponds en JSON strict :\n"
                 f'{{"segments":['
-                f'{{"name":"titre court","revenue_pct":35,"description":"220-280 mots..."}},'
+                f'{{"name":"titre court","revenue_pct":35,"description":"100-130 mots..."}},'
                 f'{{"name":"...","revenue_pct":40,"description":"..."}},'
                 f'{{"name":"...","revenue_pct":25,"description":"..."}}]}}'
             )
-            _resp_s6 = _llm_call_s6(_prompt_s6, phase="long", max_tokens=2400) or ""
+            _resp_s6 = _llm_call_s6(_prompt_s6, phase="long", max_tokens=1400) or ""
             _js_s = _resp_s6.find("{"); _js_e = _resp_s6.rfind("}") + 1
             if _js_s >= 0 and _js_e > _js_s:
                 _p = _json_s6.loads(_resp_s6[_js_s:_js_e])
@@ -1491,11 +1501,10 @@ def _slide_business_model(prs, snap, synthesis):
                      _truncate(seg_name, 60), 10, NAVY, bold=True, wrap=True)
         # Hauteur description etendue pour utiliser l'espace jusqu'au footer (13.39 - col_y - 3.81)
         desc_h = col_h - 3.81 - 0.30  # marge 0.30 cm avant le bas de la carte
-        # PPTX-S6 Baptiste : truncate 1100 -> 1800 pour accueillir les 220-280
-        # mots des descriptions LLM enrichies (~1500-1700 chars). Font 8pt
-        # permet de loger ~1800 chars sur 6cm de h et 11cm de w.
+        # PPTX-S6 calibrage 2026-04-17 : box accueille ~800 chars (130 mots)
+        # font 8pt. Avant 1800 -> overflow visible.
         add_text_box(slide, cx + 0.25, col_y + 3.81, col_w - 0.50, max(desc_h, 5.0),
-                     _truncate(seg_desc, 1800), 8, GREY_TXT, wrap=True)
+                     _truncate(seg_desc, 800), 8, GREY_TXT, wrap=True)
 
     return slide
 
@@ -1909,20 +1918,22 @@ def _slide_bilan(prs, snap, synthesis, ratios):
                 _hint_b9 = _ghint(_dp(_g(ci, "sector", "") or "", _g(ci, "industry", "") or ""))
             except Exception:
                 pass
+            # PPTX-S9 calibrage 2026-04-17 : box 23.37x3.35cm = ~120 mots max
+            # Avant: "250-320 mots" -> overflow ratio 1.25. Reduit a 100-120 mots.
             _prompt_b9 = (
                 (_hint_b9 + "\n\n" if _hint_b9 else "") +
-                f"Tu es analyste buy-side senior. Redige une analyse approfondie "
-                f"(250-320 mots) de la structure bilancielle de {_ticker_b9}.\n\n"
-                f"Structure en 3 paragraphes distincts (~100 mots chacun) :\n"
-                f"1. Qualite du bilan : cash position, structure de la dette (court/long terme), "
-                f"profil de maturite, headroom vs covenants\n"
-                f"2. Solvabilite et liquidite : current ratio, quick ratio, couverture interets, "
-                f"Altman Z, ce que ca implique pour la viabilite long terme\n"
-                f"3. Flexibilite strategique : capacite d'investir / acquerir / retourner cash, "
-                f"marge de manoeuvre en cas de downturn, notation de credit implicite\n\n"
-                f"Francais correct avec accents. Pas de markdown."
+                f"Tu es analyste buy-side senior. Redige une analyse synthetique "
+                f"de la structure bilancielle de {_ticker_b9}.\n\n"
+                f"LONGUEUR : EXACTEMENT 100-120 mots STRICT (3 phrases denses).\n"
+                f"CONTRAINTE CRITIQUE : box d affichage limitee, depassement = texte "
+                f"coupe sur la slide. Maximum absolu 120 mots.\n\n"
+                f"3 axes a couvrir en 1 phrase chacun :\n"
+                f"1. Qualite du bilan : cash, dette CT/LT, headroom covenants.\n"
+                f"2. Solvabilite/liquidite : current ratio, couverture interets, Altman Z.\n"
+                f"3. Flexibilite strategique : capacite d investir/retourner cash.\n\n"
+                f"Francais correct avec accents (e e e a u c i o). Pas de markdown."
             )
-            _extra_b9 = _llm_call_b9(_prompt_b9, phase="long", max_tokens=900) or ""
+            _extra_b9 = _llm_call_b9(_prompt_b9, phase="long", max_tokens=500) or ""
             # PPTX-S9 Baptiste : si le LLM repond, on utilise UNIQUEMENT son
             # texte (pas de concatenation avec parts_b hardcode). Le LLM deja
             # couvre qualite bilan + solvabilite + flexibilite strategique en
@@ -1934,10 +1945,10 @@ def _slide_bilan(prs, snap, synthesis, ratios):
 
     if fin_comment.strip():
         _bs_title = _jpm_title("bilan", ratios=ratios, snap=snap, synthesis=synthesis)
-        # Commentary box 23.37 x 3.35 accueille ~900 chars a font 8pt avec wrap.
-        # Truncate 1400 -> 900 pour eviter overflow (PPTX-S9 Baptiste).
+        # Commentary box 23.37 x 3.35 accueille ~750 chars (~120 mots) a font 8pt.
+        # Calibrage 2026-04-17 : 900 -> 750 pour matcher le prompt 100-120 mots.
         commentary_box(slide, 1.02, 9.95, 23.37, 3.35,
-                       fin_comment[:900], title=_bs_title)
+                       fin_comment[:750], title=_bs_title)
 
     return slide
 
@@ -2409,7 +2420,10 @@ def _slide_dcf(prs, snap, synthesis, ratios):
     dcf_comment = _g(synthesis, "dcf_commentary", "") or ""
     if dcf_comment.strip():
         _dcf_title = _jpm_title("dcf", ratios=ratios, snap=snap, synthesis=synthesis)
-        commentary_box(slide, 1.02, 11.20, 23.37, 1.52, dcf_comment, title=_dcf_title)
+        # PPTX-S12 calibrage 2026-04-17 : box 23.37x1.52cm = ~250 chars (~40 mots) max
+        # Avant pas de truncate -> 372 chars overflow ratio 1.57.
+        commentary_box(slide, 1.02, 11.20, 23.37, 1.52,
+                       _truncate(dcf_comment, 250), title=_dcf_title)
 
     return slide
 
@@ -2548,15 +2562,19 @@ def _slide_peers(prs, snap, synthesis, ratios):
         except Exception as _e:
             log.debug(f"[pptx_writer:_slide_peers] exception skipped: {_e}")
 
-    _p1 = _g(synthesis, "peers_commentary", "") or ""
-    _p2 = _g(synthesis, "ratio_commentary", "") or ""
-    _p3 = _g(synthesis, "valuation_comment", "") or ""
-    peers_comment = " ".join(p for p in [_p1, _p2, _p3] if p.strip())
-    if not peers_comment.strip():
-        peers_comment = _g(synthesis, "summary", "") or ""
-    if peers_comment.strip():
+    # PPTX-S24 calibrage 2026-04-17 : avant on concatenait peers+ratio+valuation
+    # = 200+ mots dans box 23.37x4.30cm (capacity ~150 mots) -> overflow ratio 1.42.
+    # Maintenant on utilise UNIQUEMENT peers_commentary (100-130 mots STRICT).
+    peers_comment = (_g(synthesis, "peers_commentary", "") or "").strip()
+    if not peers_comment:
+        # Fallback en cascade : valuation_comment > summary
+        peers_comment = (_g(synthesis, "valuation_comment", "") or
+                         _g(synthesis, "summary", "") or "").strip()
+    if peers_comment:
         _peers_title = _jpm_title("peers", ratios=ratios, snap=snap, synthesis=synthesis)
-        commentary_box(slide, 1.02, 8.69, 23.37, 4.30, peers_comment, title=_peers_title)
+        # Cap a 950 chars (~150 mots) pour matcher la box 23.37x4.30cm.
+        commentary_box(slide, 1.02, 8.69, 23.37, 4.30,
+                       _truncate(peers_comment, 950), title=_peers_title)
 
     return slide
 
@@ -3917,15 +3935,14 @@ def _slide_lbo_stress(prs, snap, pack: dict):
     except Exception as _e:
         log.debug(f"[pptx_writer:_slide_lbo_stress] exception skipped: {_e}")
     _stress_title = _jpm_title("lbo", snap=snap, extra={"irr_base": _stress_irr})
-    # PPTX-S19 Baptiste : box trop petite. Scenarios body finit a 11.20.
-    # Nouvelle geometrie : y=11.30 (gap 0.10 sous scenarios), h=2.08 -> ends
-    # 13.38 (juste avant footer 13.39). +4% de hauteur vs 2.00 + demarrage
-    # plus haut de 0.05. Le truncate passe de 700 a 850 pour remplir mieux.
+    # PPTX-S19 calibrage 2026-04-17 : box 23.37x2.08cm = ~400 chars (~65 mots) max
+    # Avant truncate(_, 850) + prompt 100-130 mots -> overflow ratio 1.82.
+    # Reduit truncate a 420 chars + prompt agent_lbo a 55-65 mots STRICT.
     risks_text = _truncate(pack["llm_texts"].get("risks_text") or (
         f"Le scenario bear traduit la sensibilite du deal a la compression des marges, "
         f"a la hausse des taux et au multiple compression. "
         f"La these s'invalide si EBITDA -200 bps ou multiple sortie -2x."
-    ), 850)
+    ), 420)
     commentary_box(slide, 1.02, 11.30, 23.37, 2.08, risks_text, title=_stress_title)
     return slide
 
@@ -4652,27 +4669,25 @@ def _slide_historique(prs, snap, synthesis):
                 _hint_s25 = _ghint(_dp(_sector_m, _g(ci, "industry", "") or ""))
             except Exception:
                 pass
-            # LLM-A compressed + target plus long pour remplir la colonne
+            # PPTX-S25 calibrage 2026-04-17 : box 7.4x7.55cm font 10pt = ~85-100 mots max
+            # Avant: "300-360 mots" -> overflow ratio 2.50 (le pire). Reduit drastiquement.
             _prompt_macro = (
                 (_hint_s25 + "\n\n" if _hint_s25 else "") +
-                f"Analyste sell-side senior. Commentaire macro/catalyseurs 300-360 mots "
-                f"expliquant precisement l'evolution du cours de {_target_s25} — secteur "
-                f"{_sector_m} — sur 12 mois glissants (perf {_perf_str}).\n"
-                f"Tu DOIS relier les mouvements de cours a des events datables reels.\n\n"
-                f"3 paragraphes separes par ligne vide :\n"
-                f"1. MACRO : politique monetaire (Fed/BCE avec dates cles 2025-2026), "
-                f"inflation, cycle economique, taux longs, geopolitique impactant "
-                f"{_sector_m}. Cite 2-3 evenements datables.\n"
-                f"2. SECTORIEL : dynamiques specifiques au secteur {_sector_m} "
-                f"(IA generative pour Tech, taux pour Financials, cycle OPEX pour "
-                f"Energy, consommation pour Cons Disc). Evolution sentiment investisseurs.\n"
-                f"3. SPECIFIQUE {_target_s25} : resultats trimestriels (beat/miss consensus), "
-                f"guidance management, annonces produit, M&A, changements leadership, "
-                f"revisions consensus. Relie 2-3 pics ou creux du graphique a des events.\n\n"
-                f"Francais avec accents. Chiffres precis, dates precises. Zero generique "
-                f"(pas de phrases du type 'les marches sont volatils'). Pas de markdown."
+                f"Analyste sell-side senior. Narration cours de {_target_s25} "
+                f"(secteur {_sector_m}) sur 12 mois (perf {_perf_str}).\n\n"
+                f"LONGUEUR : EXACTEMENT 85-100 mots STRICT.\n"
+                f"CONTRAINTE CRITIQUE : box d affichage etroite (7cm de large), "
+                f"depassement = texte coupe sur la slide. Maximum absolu 100 mots.\n\n"
+                f"OBLIGATOIRE : chaque inflexion datee (mois + annee) reliee a un "
+                f"event reel (Fed/BCE, CPI, resultats trimestriels, M&A, guidance).\n\n"
+                f"STRUCTURE 3 phrases denses :\n"
+                f"1. MACRO datee : 1-2 events macro 2025-2026 + impact cours.\n"
+                f"2. SECTORIEL : dynamique propre {_sector_m} avec date.\n"
+                f"3. SPECIFIQUE {_target_s25} : 1-2 pics/creux datables (resultats, "
+                f"annonces) + impact en %.\n\n"
+                f"Francais avec accents. Chiffres precis, zero generique. Pas de markdown."
             )
-            _macro_ctx = _llm_call_s25(_prompt_macro, phase="long", max_tokens=900) or ""
+            _macro_ctx = _llm_call_s25(_prompt_macro, phase="long", max_tokens=400) or ""
         except Exception as _e_macro:
             log.warning(f"[pptx S25] LLM macro context failed: {_e_macro}")
         if not _macro_ctx.strip():
@@ -4695,9 +4710,10 @@ def _slide_historique(prs, snap, synthesis):
                 f"dates de resultats et aux annonces sectorielles majeures."
             )
     _macro_title = f"Contexte macro et catalyseurs — {ticker}"
-    # Box plus grande pour accueillir le texte LLM etendu (180-220 mots)
+    # Box 7.4x7.55cm font 10pt = ~600 chars (~95 mots) max sans overflow.
+    # Calibrage 2026-04-17 : 1400 -> 600 pour matcher le prompt 85-100 mots.
     commentary_box(slide, 17.00, 5.84, 7.39, 7.55,
-                   _truncate(_macro_ctx, 1400), title=_macro_title)
+                   _truncate(_macro_ctx, 600), title=_macro_title)
 
     # Box "verdict final" en bas RETIREE (duplique avec la slide suivante
     # Conviction & These d'Investissement qui traite exactement ce sujet)
@@ -4826,10 +4842,10 @@ def _slide_conviction_tracker(prs, snap, synthesis, ratios, devil, sentiment):
     add_rect(slide, 9.20, y_mid, 7.40, 0.50, "1A7A4A")
     add_text_box(slide, 9.35, y_mid + 0.05, 7.2, 0.40, "CATALYSEURS BULLS", 7.5, WHITE, bold=True)
     y_c = y_mid + 0.60
-    # Limite _fit elargie 75 -> 220 pour eviter truncation ("d'ici..." sur NVDA)
-    # + hauteur box 1.20 -> 2.20 cm pour permettre wrap sur 3-4 lignes
+    # PPTX-S21 calibrage 2026-04-17 : box 7.10x2.20cm font 7pt = ~180 chars max
+    # Avant _fit(_, 220) -> overflow ratio 1.23-1.31.
     for th in (pos_themes[:2] if pos_themes else ["N/D"]):
-        _c_txt = _fit(str(th), 220)
+        _c_txt = _fit(str(th), 170)
         add_text_box(slide, 9.45, y_c, 7.10, 2.20, f"\u2022 {_c_txt}", 7, GREY_TXT, wrap=True)
         y_c += 2.25
 
@@ -4837,7 +4853,7 @@ def _slide_conviction_tracker(prs, snap, synthesis, ratios, devil, sentiment):
     add_text_box(slide, 17.10, y_mid + 0.05, 6.6, 0.40, "RISQUES BEARS", 7.5, WHITE, bold=True)
     y_r = y_mid + 0.60
     for th in (neg_themes[:2] if neg_themes else ["N/D"]):
-        _r_txt = _fit(str(th), 220)
+        _r_txt = _fit(str(th), 170)
         add_text_box(slide, 17.10, y_r, 6.6, 2.20, f"\u2022 {_r_txt}", 7, GREY_TXT, wrap=True)
         y_r += 2.25
 
@@ -4855,9 +4871,11 @@ def _slide_conviction_tracker(prs, snap, synthesis, ratios, devil, sentiment):
                          f"\u26a0 Conditions d\u2019invalidation : {inv_str}", 7.5, "7A5000", wrap=True)
 
     # ── Note methodologique ──────────────────────────────────────────────────
+    # PPTX-S21 calibrage 2026-04-17 : box 23.6x0.35cm = 1 ligne (~120 chars max)
+    # Avant 178 chars overflow ratio 1.89.
     add_text_box(slide, 0.90, 12.95, 23.60, 0.35,
-                 "FinSight IA Généré cette analyse a un instant T. Pour le suivi dans le temps, "
-                 "comparer les rapports successifs. La conviction Reflète les Données disponibles a la date d'analyse.",
+                 "Analyse à un instant T — comparer les rapports successifs pour le "
+                 "suivi. Conviction basée sur les données à la date d'analyse.",
                  7, GREY_TXT, wrap=True)
 
     return slide

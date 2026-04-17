@@ -131,11 +131,10 @@ def generate_lbo_texts(lbo_data: dict, m: dict = None) -> dict:
             f'vs seuils PE typiques (>=20% top quartile, 15-20% mid, <15% sous-performance). '
             f'MOIC {_x(moic_base)}. Lecture de la sensibilité (zones robustes/fragiles). '
             f'Conclusion sur l attractivité du deal pour un sponsor PE.",\n'
-            f'  "risks_text": "100-130 mots : 3-4 risques principaux du LBO — opérationnel '
-            f'(compression marges, ralentissement growth), financier (covenants, refinancing, '
-            f'hausse taux), marché (multiple compression). Cite les chiffres du bear scenario '
-            f'(IRR {_pct(irr_bear)}, leverage exit). Conclusion : conditions de succès et '
-            f'conditions d invalidation."\n'
+            f'  "risks_text": "EXACTEMENT 55-65 mots STRICT (box etroite 23x1.5cm slide 19) : '
+            f'3 risques principaux du LBO en 1 phrase chacun — operationnel (compression '
+            f'marges), financier (covenants, refinancing), marche (multiple compression). '
+            f'Cite les chiffres bear (IRR {_pct(irr_bear)}, leverage exit)."\n'
             f'}}'
         )
 

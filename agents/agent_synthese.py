@@ -395,19 +395,19 @@ JSON requis (tous les champs obligatoires) :
   "summary":"<2 phrases>",
   "company_description":"<MINIMUM 50, MAXIMUM 70 mots — 3 phrases: activite principale, positionnement marche, avantages competitifs de {ci.company_name}>",
   "segments":[
-    {{"name":"<nom exact segment operationnel>","description":"<MINIMUM 35, MAXIMUM 50 mots — 3-4 phrases: modele de revenus du segment, produits ou services phares, clients cibles et principaux moteurs de croissance>","revenue_pct":<float 0-100>}},
-    {{"name":"<nom segment 2>","description":"<MINIMUM 35, MAXIMUM 50 mots — 3-4 phrases: modele de revenus du segment, produits ou services phares, clients cibles et principaux moteurs de croissance>","revenue_pct":<float 0-100>}}
+    {{"name":"<nom exact segment operationnel>","description":"<EXACTEMENT 22-30 mots — 2 phrases denses: modele de revenus + driver principal. Box d affichage limitee, depassement = texte coupe>","revenue_pct":<float 0-100>}},
+    {{"name":"<nom segment 2>","description":"<EXACTEMENT 22-30 mots — 2 phrases denses: modele de revenus + driver principal>","revenue_pct":<float 0-100>}}
   ],
-  "thesis":"<exactement 3 phrases separees par ' | ', chaque phrase 18-22 mots — catalyseurs d investissement concrets avec chiffres precis>",
+  "thesis":"<exactement 3 phrases separees par ' | ', chaque phrase 12-18 mots STRICT — catalyseurs d investissement concrets avec chiffres precis. Depassement = texte coupe sur slide>",
   "strengths":["<MAXIMUM 8 mots — titre atout1>","<MAXIMUM 8 mots — titre atout2>","<MAXIMUM 8 mots — titre atout3>"],
   "risks":["<MAXIMUM 8 mots — titre risque1>","<MAXIMUM 8 mots — titre risque2>","<MAXIMUM 8 mots — titre risque3>"],
-  "valuation_comment":"<2 phrases valorisation relative>",
-  "financial_commentary":"<70 mots MAX. OBLIGATOIRE: (1) chiffre precis CA + taux de croissance YoY, (2) mecanisme exact de la variation de marge (ex: 'levier operationnel de +Xpts grace au mix logiciel haute marge' OU 'pression prix matieres +X% comprimant la GM'), (3) implication FCF et solidite bilan (ratio ND/EBITDA, capacite de rachat ou dividende). Citer les donnees numeriques fournies.>",
-  "ratio_commentary":"<80 mots MAX. OBLIGATOIRE: (1) evolution chiffree des marges EBITDA/brute sur TOUTE la periode historique fournie (ex: 'de X% en 20xx a Y% en 20xx'), (2) mecanisme PRECIS expliquant la trajectoire: effet volume/prix, mix produits (ex: 'montee en puissance du segment SaaS haute marge'), economie d'echelle OU inflation des couts, (3) conclusion investisseur: durabilite du pricing power, risque de mean-reversion, potentiel re-rating.>",
-  "dcf_commentary":"<60 mots MAX — 2 phrases: (1) rappeler WACC/TGR et le prix implicite DCF vs cours actuel, (2) expliquer ce que l'upside/downside implicite signifie pour la these: est-ce une sous-valorisation structurelle, une prime de croissance deja pricee, ou un risque d'execution? Quel catalyseur debloquerait la valeur?>",
-  "peers_commentary":"<80 mots MAX — 2-3 phrases ANALYTIQUES: (1) position de la societe vs mediane peers sur EV/EBITDA et P/E (prime ou decote en %), (2) expliquer POURQUOI cette prime/decote est justifiee ou non (qualite des actifs, croissance superieure, risque specifique), (3) ce qu'une convergence vers la mediane implique comme upside/downside potentiel en %>",
-  "positive_themes":["<20-30 mots: catalyseur + mecanisme d'impact financier + horizon temporel>","<20-30 mots: catalyseur + mecanisme d'impact financier + horizon temporel>","<20-30 mots: catalyseur + mecanisme d'impact financier + horizon temporel>"],
-  "negative_themes":["<20-30 mots: risque specifique + mecanisme de deterioration + horizon temporel et ampleur potentielle>","<20-30 mots: risque specifique + mecanisme de deterioration + horizon temporel et ampleur potentielle>","<20-30 mots: risque specifique + mecanisme de deterioration + horizon temporel et ampleur potentielle>"],
+  "valuation_comment":"<EXACTEMENT 30-40 mots STRICT — 2 phrases courtes valorisation relative + lecture investisseur>",
+  "financial_commentary":"<EXACTEMENT 55-65 mots STRICT. OBLIGATOIRE: (1) chiffre precis CA + croissance YoY, (2) mecanisme variation de marge (ex: levier operationnel +Xpts mix logiciel OU pression prix matieres +X%), (3) implication FCF/bilan (ND/EBITDA, capacite rachat). Citer chiffres.>",
+  "ratio_commentary":"<EXACTEMENT 55-65 mots STRICT. OBLIGATOIRE: (1) evolution marges EBITDA/brute sur la periode (de X% en 20xx a Y% en 20xx), (2) mecanisme PRECIS de la trajectoire (volume/prix, mix produits, economie d echelle OU inflation), (3) durabilite pricing power et risque mean-reversion.>",
+  "dcf_commentary":"<EXACTEMENT 30-35 mots STRICT — 2 phrases courtes: (1) WACC/TGR + prix implicite DCF vs cours, (2) lecture upside/downside (sous-valorisation, prime pricee, risque execution). Box etroite.>",
+  "peers_commentary":"<EXACTEMENT 100-130 mots STRICT — 3 phrases ANALYTIQUES: (1) position vs mediane peers sur EV/EBITDA et P/E (prime ou decote en %), (2) POURQUOI cette prime/decote est justifiee ou non (qualite actifs, croissance superieure, risque specifique), (3) implication d'une convergence vers la mediane (upside/downside %).>",
+  "positive_themes":["<EXACTEMENT 15-20 mots STRICT: catalyseur + mecanisme + horizon. Box affichage limitee>","<EXACTEMENT 15-20 mots STRICT>","<EXACTEMENT 15-20 mots STRICT>"],
+  "negative_themes":["<EXACTEMENT 15-20 mots STRICT: risque specifique + mecanisme + horizon. Box affichage limitee>","<EXACTEMENT 15-20 mots STRICT>","<EXACTEMENT 15-20 mots STRICT>"],
   "is_projections":{{
     "{ny1}":{{"revenue":<float en memes unites que historique>,"revenue_growth":<float 0-1>,"gross_margin":<float 0-1>,"ebitda":<float>,"ebitda_margin":<float 0-1>,"net_income":<float>,"net_margin":<float 0-1>}},
     "{ny2}":{{"revenue":<float>,"revenue_growth":<float 0-1>,"gross_margin":<float 0-1>,"ebitda":<float>,"ebitda_margin":<float 0-1>,"net_income":<float>,"net_margin":<float 0-1>}}
@@ -439,9 +439,9 @@ JSON requis (tous les champs obligatoires) :
   "base_hypothesis":"<15-20 mots — hypothese determinante scenario Base : moteur principal croissance chiffre>",
   "bull_hypothesis":"<15-20 mots — hypothese determinante scenario Bull : catalyseur haussier concret chiffre>",
   "catalysts":[
-    {{"title":"<titre 2-5 mots>","description":"<35-45 mots — analyse detaillee: impact financier, horizon, chiffres>"}},
-    {{"title":"<titre 2-5 mots>","description":"<35-45 mots — analyse detaillee: impact financier, horizon, chiffres>"}},
-    {{"title":"<titre 2-5 mots>","description":"<35-45 mots — analyse detaillee: impact financier, horizon, chiffres>"}}
+    {{"title":"<titre 2-5 mots>","description":"<EXACTEMENT 18-25 mots STRICT — impact financier, horizon, chiffres. Box etroite slide>"}},
+    {{"title":"<titre 2-5 mots>","description":"<EXACTEMENT 18-25 mots STRICT>"}},
+    {{"title":"<titre 2-5 mots>","description":"<EXACTEMENT 18-25 mots STRICT>"}}
   ],
   "buy_trigger":"<15-20 mots — condition precise declenchant revision BUY>",
   "sell_trigger":"<15-20 mots — condition precise declenchant revision SELL>",
