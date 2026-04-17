@@ -229,7 +229,12 @@ def analyze_pptx(
             lines_max = _max_lines_in_box(h_cm, font_size, mt, mb)
 
             ratio = lines_need / max(lines_max, 1)
-            if ratio >= threshold:
+            # Cas "tient pile sur 1 ligne" (ratio=1.00) = pas un overflow réel
+            # car le wrap PowerPoint utilise la full width sans scroll.
+            if lines_need == 1 and ratio == 1.0:
+                status = "OK"
+                report["summary"]["ok"] += 1
+            elif ratio >= threshold:
                 status = "OVERFLOW"
                 report["summary"]["overflow"] += 1
             elif ratio >= 0.85:
