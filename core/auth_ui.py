@@ -228,17 +228,24 @@ def _auth_dialog() -> None:
     st.markdown('<div class="auth-divider">ou</div>', unsafe_allow_html=True)
 
     # ── Bouton Google ───────────────────────────────────────────────────────
-    # On utilise un <a href target="_top"> stylé comme bouton :
-    # - target="_top" force le redirect dans la fenêtre racine (sort de
-    #   l'iframe Streamlit Cloud)
-    # - Pas de bouton st.button + st.rerun (qui fermait le dialog avant que
-    #   le JS de redirect s'exécute)
+    # IMPORTANT : Streamlit Cloud encapsule l'app dans un iframe SANS
+    # allow-top-navigation dans son sandbox. Donc target="_top" et
+    # window.top.location sont BLOQUÉS. La seule option qui marche est
+    # target="_blank" (allow-popups + allow-popups-to-escape-sandbox).
+    #
+    # Workflow :
+    # 1. Clic Google → nouvel onglet ouvre l'URL OAuth Supabase
+    # 2. Auth Google → Supabase callback → redirige vers l'app dans le
+    #    nouvel onglet avec #access_token=XXX
+    # 3. App dans nouvel onglet : JS parse le hash, set query params,
+    #    Python set_session, cookies persistés
+    # 4. User revient sur l'onglet original, le refresh, et il est connecté
+    #    (les cookies Supabase sont partagés entre onglets du même domaine)
     google_url = _auth.sign_in_google(redirect_to=_get_app_url())
     if google_url:
-        # Échappe HTML attribute
         _safe_url = (google_url.replace('&', '&amp;').replace('"', '&quot;'))
         st.markdown(
-            f'<a href="{_safe_url}" target="_top" '
+            f'<a href="{_safe_url}" target="_blank" '
             f'style="display:block;padding:9px 12px;border:1px solid #111827;'
             f'border-radius:6px;text-align:center;text-decoration:none;'
             f'color:#111827;font-weight:500;font-size:14px;background:#FFFFFF;'
@@ -246,6 +253,13 @@ def _auth_dialog() -> None:
             f'onmouseover="this.style.background=\'#F5F7FA\'" '
             f'onmouseout="this.style.background=\'#FFFFFF\'">'
             f'Continuer avec Google</a>',
+            unsafe_allow_html=True,
+        )
+        # Note discrète sous le bouton pour expliquer le nouvel onglet
+        st.markdown(
+            '<div style="text-align:center;font-size:11px;color:#9CA3AF;'
+            'margin-top:6px;">Une nouvelle fenêtre s\'ouvre. Une fois '
+            'connecté, vous pourrez la fermer.</div>',
             unsafe_allow_html=True,
         )
     else:
