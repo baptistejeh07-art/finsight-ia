@@ -301,8 +301,18 @@ def _get_real_tickers(sector: str, universe: str) -> list[str]:
         "tech":                   "Technology",
         "information technology": "Technology",
     }
+    # Normalisation univers (DAX 40 == DAX, FTSE 100 == FTSE100, etc.)
+    _UNIVERSE_ALIASES = {
+        "dax 40": "DAX", "dax40": "DAX", "dax": "DAX",
+        "ftse 100": "FTSE 100", "ftse100": "FTSE 100",
+        "cac 40": "CAC 40", "cac40": "CAC 40",
+        "euro stoxx 50": "STOXX 50", "stoxx 50": "STOXX 50", "stoxx50": "STOXX 50",
+        "s&p 500": "S&P 500", "sp500": "S&P 500", "s&p500": "S&P 500", "spx": "S&P 500",
+    }
     _normalize = lambda s: _SECTOR_ALIASES.get(s.strip().lower(), s)
+    _normalize_u = lambda u: _UNIVERSE_ALIASES.get(u.strip().lower(), u)
     sector = _normalize(sector)
+    universe = _normalize_u(universe)
     key = (sector, universe)
     if key in _SECTOR_TICKERS:
         return list(_SECTOR_TICKERS[key])
