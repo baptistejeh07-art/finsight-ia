@@ -79,9 +79,19 @@ button *, button *:before, button *:after,
     min-width: 54px !important;
     max-width: 54px !important;
 }
-/* Cacher les boutons collapse natifs Streamlit */
+/* Sidebar FIGÉE — cache tous les boutons collapse/expand natifs Streamlit
+   (les sélecteurs varient selon la version : 1.36+/1.55+ utilisent
+    stSidebarCollapseButton, anciens stSidebarCollapsedControl, plus récents
+    stExpandSidebarButton ou button[kind="headerNoPadding"]) */
 [data-testid="stSidebarCollapseButton"],
-[data-testid="stSidebarCollapsedControl"] { display: none !important; }
+[data-testid="stSidebarCollapsedControl"],
+[data-testid="stExpandSidebarButton"],
+[data-testid="collapsedControl"],
+[data-testid="stSidebar"] button[kind="header"],
+section[data-testid="stSidebar"] > div:first-child > button {
+  display: none !important;
+  visibility: hidden !important;
+}
 
 /* Fix artefact visuel "board_" Streamlit/BaseBUI */
 [class*="board_"], [class^="board_"], [data-baseweb="board"] { color:transparent!important; font-size:0!important; }
@@ -1183,24 +1193,10 @@ def fetch_market_context() -> list:
 
 def render_sidebar(results) -> None:
     with st.sidebar:
-        # Sidebar fermée : juste le bouton de réouverture
-        if not st.session_state.get("sidebar_open", True):
-            st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
-            if st.button("›", use_container_width=True, help="Ouvrir le panneau"):
-                st.session_state.sidebar_open = True
-                st.rerun()
-            return
+        # Sidebar TOUJOURS OUVERTE (figée) — pas de bouton ouvrir/fermer
+        st.markdown('<span class="sb-logo">FinSight</span>', unsafe_allow_html=True)
 
-        # Sidebar ouverte : bouton fermeture + logo
-        col_logo, col_close = st.columns([4, 1])
-        with col_logo:
-            st.markdown('<span class="sb-logo">FinSight</span>', unsafe_allow_html=True)
-        with col_close:
-            if st.button("‹", use_container_width=True, help="Fermer le panneau"):
-                st.session_state.sidebar_open = False
-                st.rerun()
-
-        # ── Bandeau utilisateur (email + déconnexion ou bouton signup) ──────
+        # ── Bandeau utilisateur (email + déconnexion si connecté) ───────────
         try:
             from core import auth_ui as _fs_auth_ui
             _fs_auth_ui.render_user_sidebar()
@@ -6810,27 +6806,53 @@ def _render_cmp_indice_page() -> None:
 # ---------------------------------------------------------------------------
 
 def main():
-    # ── AUTH GATE — page login si pas connecté ET pas en mode invité ────────
+    # ── AUTH OPTIONNELLE — restore session + handle callback OAuth ──────────
+    # L'app est accessible sans login. Boutons "Se connecter" / "S'inscrire"
+    # injectés en haut à droite de la page (modal au clic).
     try:
         from core import auth as _fs_auth
         from core import auth_ui as _fs_auth_ui
-        # 1. Restaure session depuis cookies au démarrage
         _fs_auth.restore_session_from_cookies()
-        # 2. Si pas d'accès -> page login (skip tout le reste)
-        if not _fs_auth.has_access():
-            _fs_auth_ui.render_login_page()
-            return
-        # 3. Si connecté avec un code OAuth dans l'URL, finaliser
         _fs_auth_ui.handle_oauth_callback()
     except Exception as _auth_err:
-        # Si auth indisponible, on laisse passer (mode dev / fallback)
-        log.warning(f"[auth gate] {_auth_err}")
+        log.warning(f"[auth] {_auth_err}")
 
+    # ── Navbar : logo gauche / boutons auth droite (style Bloomberg) ────────
+    _nav_l, _nav_m, _nav_r = st.columns([3, 8, 3])
+    with _nav_l:
+        st.markdown(
+            '<div class="fs-logo" style="padding-top:6px;">FinSight</div>',
+            unsafe_allow_html=True,
+        )
+    with _nav_m:
+        st.markdown(
+            '<div class="fs-nav-r" style="padding-top:10px;text-align:right;">'
+            'Analyse Financière IA · V1.2</div>',
+            unsafe_allow_html=True,
+        )
+    with _nav_r:
+        # Boutons auth (uniquement si pas connecté)
+        try:
+            from core import auth as _fs_auth
+            from core import auth_ui as _fs_auth_ui
+            if not _fs_auth.is_authenticated():
+                _b1, _b2 = st.columns(2)
+                with _b1:
+                    if st.button("Se connecter", key="nav_signin_btn",
+                                 use_container_width=True):
+                        st.session_state["_auth_dialog_mode"] = "signin"
+                        _fs_auth_ui._auth_dialog()
+                with _b2:
+                    if st.button("S'inscrire", key="nav_signup_btn",
+                                 use_container_width=True, type="primary"):
+                        st.session_state["_auth_dialog_mode"] = "signup"
+                        _fs_auth_ui._auth_dialog()
+        except Exception as _auth_btn_err:
+            log.debug(f"[auth nav] {_auth_btn_err}")
+
+    # Trait de séparation sous la nav
     st.markdown(
-        '<div class="fs-nav">'
-        '<div class="fs-logo">FinSight</div>'
-        '<div class="fs-nav-r">Analyse Financière IA · V1.2</div>'
-        '</div>',
+        '<div style="border-bottom:1px solid #e8e8e8;margin:0 0 24px 0;"></div>',
         unsafe_allow_html=True,
     )
 

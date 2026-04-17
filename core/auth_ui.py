@@ -1,219 +1,286 @@
-"""UI Streamlit pour l'authentification — page login + composants sidebar.
+"""UI Streamlit auth — modal Bloomberg-style + boutons nav top.
 
-Composants :
-    - render_login_page()  : page de connexion séparée (avant accès app)
-    - render_user_sidebar(): bandeau utilisateur (email + déconnexion)
-    - handle_oauth_callback(): traite le retour OAuth Google
+Composants exposés :
+    - inject_auth_buttons_in_nav() : injecte 2 boutons "Se connecter" / "S'inscrire"
+                                     dans la navbar top, alignés à droite
+    - handle_oauth_callback()      : traite le retour OAuth Google (?code=...)
+    - render_user_sidebar()        : ligne user en haut sidebar (email + déconn.)
+
+L'auth est OPTIONNELLE : l'app reste accessible sans connexion. Les boutons
+ouvrent une modal popup (st.dialog) qui réplique l'UX Bloomberg :
+    - Logo + titre "Se connecter" / "Créer un compte"
+    - Champ email + mot de passe + bouton Continuer
+    - Séparateur "ou"
+    - Bouton "Continuer avec Google"
+    - Lien switch entre Sign in / Sign up
 """
 
 from __future__ import annotations
 import streamlit as st
-from urllib.parse import urlencode
 
 from core import auth as _auth
 
 
 # ---------------------------------------------------------------------------
-# Constantes branding
+# CSS — modal style Bloomberg
 # ---------------------------------------------------------------------------
 
-_APP_URL_DEFAULT = "https://finsight-ia-lxappmzvfqned33anmbuvh5.streamlit.app/"
-_CGU_URL = "#"  # placeholder — à remplacer par l'URL site vitrine
-_PRIVACY_URL = "#"  # idem
-
-
-# ---------------------------------------------------------------------------
-# CSS login
-# ---------------------------------------------------------------------------
-
-_LOGIN_CSS = """
+_AUTH_CSS = """
 <style>
-.login-wrap {
-  max-width: 420px;
-  margin: 40px auto;
-  padding: 32px;
-  background: #ffffff;
-  border: 1px solid #E5E7EB;
-  border-radius: 12px;
-  box-shadow: 0 4px 24px rgba(17, 24, 39, 0.06);
+/* === Boutons nav top "Se connecter / S'inscrire" === */
+.fs-nav-auth {
+  position: absolute;
+  top: 14px;
+  right: 24px;
+  display: flex;
+  gap: 10px;
+  z-index: 9999;
+  align-items: center;
 }
-.login-title {
-  font-size: 26px;
+.fs-nav-auth button {
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  padding: 6px 16px !important;
+  border-radius: 6px !important;
+  min-height: 34px !important;
+  height: 34px !important;
+}
+
+/* === Modal Bloomberg-style === */
+.auth-dialog {
+  text-align: center;
+  padding: 8px 4px 0;
+}
+.auth-dialog-logo {
+  font-size: 18px;
   font-weight: 700;
+  color: #000000;
+  margin: 0 0 28px;
+  letter-spacing: -0.3px;
+  text-align: center;
+}
+.auth-dialog-title {
+  font-size: 22px;
+  font-weight: 600;
   color: #111827;
-  margin: 0 0 6px;
+  margin: 0 0 16px;
+  letter-spacing: -0.4px;
   text-align: center;
-  letter-spacing: -0.5px;
 }
-.login-tag {
-  font-size: 13px;
-  color: #6B7280;
-  text-align: center;
-  margin-bottom: 24px;
+/* Cache le header (titre) par défaut de st.dialog (redondant avec notre logo) */
+div[role="dialog"] h2,
+div[role="dialog"] h3,
+div[role="dialog"] [data-testid="stHeading"] {
+  display: none !important;
 }
-.login-divider {
+.auth-dialog-cgu {
+  font-size: 11.5px;
+  color: #4B5563;
+  line-height: 1.55;
+  margin: 0 auto 22px;
+  max-width: 360px;
+}
+.auth-dialog-cgu a {
+  color: #111827;
+  text-decoration: underline;
+  font-weight: 500;
+}
+.auth-divider {
   display: flex;
   align-items: center;
   margin: 18px 0;
   color: #9CA3AF;
   font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 1px;
+  text-transform: lowercase;
 }
-.login-divider::before, .login-divider::after {
+.auth-divider::before, .auth-divider::after {
   content: "";
   flex: 1;
   height: 1px;
   background: #E5E7EB;
 }
-.login-divider::before { margin-right: 12px; }
-.login-divider::after  { margin-left: 12px; }
-.login-cgu {
-  font-size: 11px;
-  color: #6B7280;
+.auth-divider::before { margin-right: 14px; }
+.auth-divider::after  { margin-left:  14px; }
+.auth-switch {
   text-align: center;
-  margin-top: 16px;
-  line-height: 1.6;
+  font-size: 13px;
+  color: #4B5563;
+  margin-top: 22px;
 }
-.login-cgu a { color: #1A4480; text-decoration: none; }
-.login-cgu a:hover { text-decoration: underline; }
-.login-guest {
+.auth-switch a {
+  color: #111827;
+  text-decoration: underline;
+  font-weight: 500;
+  cursor: pointer;
+}
+.auth-help {
   text-align: center;
-  margin-top: 24px;
   font-size: 12px;
-  color: #9CA3AF;
+  color: #6B7280;
+  margin-top: 8px;
 }
-.login-guest a {
+.auth-help a {
   color: #6B7280;
   text-decoration: underline;
-  cursor: pointer;
+}
+/* Bouton Google bordure noire pleine largeur */
+div[data-testid="stLinkButton"] a,
+div[data-testid="baseLinkButton-secondary"] a {
+  border: 1px solid #111827 !important;
+  background: #FFFFFF !important;
+  color: #111827 !important;
 }
 </style>
 """
 
 
 # ---------------------------------------------------------------------------
-# Page login
+# Boutons nav top
 # ---------------------------------------------------------------------------
 
-def render_login_page() -> None:
-    """Page de connexion AVANT l'accès à l'app.
+def inject_auth_buttons_in_nav() -> None:
+    """Injecte les 2 boutons d'auth dans la navbar top de l'app.
 
-    Sections (de haut en bas) :
-      1. Titre + tagline
-      2. Bouton Google (gros, primaire)
-      3. Séparateur "ou"
-      4. Onglets Connexion / Créer un compte (email + password)
-      5. Lien discret "Continuer sans compte"
-      6. Mentions CGU
+    À appeler dans main() APRÈS le rendu de la navbar mais AVANT le routing.
+    Si l'utilisateur est déjà connecté, n'affiche rien (le bandeau sidebar
+    s'occupe de l'identité).
     """
-    st.markdown(_LOGIN_CSS, unsafe_allow_html=True)
+    st.markdown(_AUTH_CSS, unsafe_allow_html=True)
 
-    # Restaurer session si déjà loggé via cookies
-    if _auth.restore_session_from_cookies():
-        st.rerun()
+    # Si déjà connecté, pas de boutons (juste le bandeau sidebar)
+    if _auth.is_authenticated():
+        return
 
-    # Traiter callback OAuth Google si retour avec code
-    handle_oauth_callback()
+    # Conteneur HTML des 2 boutons en absolute position
+    # Streamlit ne permet pas de placer natif des boutons en absolute,
+    # donc on utilise un container avec class CSS qui le repositionne.
+    _ph = st.container()
+    with _ph:
+        c1, c2, _ = st.columns([1, 1, 18])
+        with c1:
+            if st.button("Se connecter", key="nav_signin_btn",
+                         use_container_width=True):
+                st.session_state["_auth_dialog_mode"] = "signin"
+                _open_auth_dialog()
+        with c2:
+            if st.button("S'inscrire", key="nav_signup_btn",
+                         use_container_width=True, type="primary"):
+                st.session_state["_auth_dialog_mode"] = "signup"
+                _open_auth_dialog()
 
-    st.markdown('<div class="login-wrap">', unsafe_allow_html=True)
-    st.markdown('<div class="login-title">FinSight IA</div>', unsafe_allow_html=True)
-    st.markdown(
-        '<div class="login-tag">Plateforme d\'analyse financière institutionnelle</div>',
-        unsafe_allow_html=True,
-    )
 
-    # ── Google OAuth ────────────────────────────────────────────────────────
+# ---------------------------------------------------------------------------
+# Modal Bloomberg-style (st.dialog)
+# ---------------------------------------------------------------------------
+
+def _open_auth_dialog() -> None:
+    """Wrapper qui invoque @st.dialog (Streamlit >= 1.36)."""
+    _auth_dialog()
+
+
+@st.dialog("\u200b", width="small")  # zero-width space → titre header invisible
+def _auth_dialog() -> None:
+    """Modal popup — Bloomberg-style."""
+    mode = st.session_state.get("_auth_dialog_mode", "signin")
+    st.markdown(_AUTH_CSS, unsafe_allow_html=True)
+
+    # Logo
+    st.markdown('<div class="auth-dialog-logo">FinSight</div>',
+                unsafe_allow_html=True)
+
+    # Titre dynamique
+    title_txt = "Se connecter" if mode == "signin" else "Créer un compte"
+    st.markdown(f'<div class="auth-dialog-title">{title_txt}</div>',
+                unsafe_allow_html=True)
+
+    # CGU au-dessus du form (style Bloomberg)
+    if mode == "signup":
+        st.markdown(
+            '<div class="auth-dialog-cgu">'
+            'En continuant, j\'accepte que FinSight m\'envoie des informations '
+            'sur ses produits. Je reconnais avoir lu la '
+            '<a href="#" target="_blank">Politique de confidentialité</a> et '
+            'j\'accepte les '
+            '<a href="#" target="_blank">Conditions d\'utilisation</a>.'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+
+    # ── Form email + password ───────────────────────────────────────────────
+    with st.form(f"auth_form_{mode}", clear_on_submit=False, border=False):
+        email = st.text_input(
+            "Email", placeholder="vous@exemple.com",
+            key=f"auth_email_{mode}", label_visibility="collapsed",
+        )
+        password = st.text_input(
+            "Mot de passe", type="password",
+            placeholder="Mot de passe (min. 6 caractères)" if mode == "signup" else "Mot de passe",
+            key=f"auth_pwd_{mode}", label_visibility="collapsed",
+        )
+        btn_label = "Continuer" if mode == "signin" else "Créer mon compte"
+        submit = st.form_submit_button(
+            btn_label, use_container_width=True, type="primary",
+        )
+    if submit:
+        _handle_form_submit(mode, email.strip() if email else "", password)
+
+    # ── Séparateur "ou" ─────────────────────────────────────────────────────
+    st.markdown('<div class="auth-divider">ou</div>', unsafe_allow_html=True)
+
+    # ── Bouton Google ───────────────────────────────────────────────────────
     google_url = _auth.sign_in_google(redirect_to=_get_app_url())
     if google_url:
         st.link_button(
-            "🔐  Continuer avec Google",
+            "Continuer avec Google",
             google_url,
             use_container_width=True,
-            type="primary",
         )
     else:
         st.button(
-            "🔐  Continuer avec Google",
+            "Continuer avec Google",
             use_container_width=True,
             disabled=True,
-            help="Google OAuth non configuré côté Supabase. Utilisez email/mot de passe.",
+            help="Connexion Google indisponible",
         )
 
-    st.markdown('<div class="login-divider">ou</div>', unsafe_allow_html=True)
+    # ── Lien switch ─────────────────────────────────────────────────────────
+    if mode == "signin":
+        st.markdown(
+            '<div class="auth-switch">Pas encore de compte ?</div>',
+            unsafe_allow_html=True,
+        )
+        if st.button("Créer un compte", key="auth_to_signup",
+                     use_container_width=True):
+            st.session_state["_auth_dialog_mode"] = "signup"
+            st.rerun()
+    else:
+        st.markdown(
+            '<div class="auth-switch">Déjà un compte ?</div>',
+            unsafe_allow_html=True,
+        )
+        if st.button("Se connecter", key="auth_to_signin",
+                     use_container_width=True):
+            st.session_state["_auth_dialog_mode"] = "signin"
+            st.rerun()
 
-    # ── Onglets Connexion / Création ────────────────────────────────────────
-    tab_login, tab_signup = st.tabs(["Se connecter", "Créer un compte"])
 
-    with tab_login:
-        with st.form("login_form", clear_on_submit=False):
-            email_l = st.text_input(
-                "Email", placeholder="vous@exemple.com", key="login_email"
-            )
-            pwd_l = st.text_input(
-                "Mot de passe", type="password", key="login_password"
-            )
-            ok = st.form_submit_button("Se connecter", use_container_width=True, type="primary")
-        if ok:
-            if not email_l or not pwd_l:
-                st.error("Email et mot de passe requis.")
-            else:
-                success, msg = _auth.sign_in_email(email_l.strip(), pwd_l)
-                if success:
-                    st.success(msg)
-                    st.rerun()
-                else:
-                    st.error(msg)
-
-    with tab_signup:
-        with st.form("signup_form", clear_on_submit=False):
-            email_s = st.text_input(
-                "Email", placeholder="vous@exemple.com", key="signup_email"
-            )
-            pwd_s = st.text_input(
-                "Mot de passe", type="password", key="signup_password",
-                help="Minimum 6 caractères.",
-            )
-            cgu_ok = st.checkbox(
-                "J'accepte les conditions d'utilisation et la politique de confidentialité.",
-                key="signup_cgu",
-            )
-            ok = st.form_submit_button("Créer mon compte", use_container_width=True, type="primary")
-        if ok:
-            if not email_s or not pwd_s:
-                st.error("Email et mot de passe requis.")
-            elif len(pwd_s) < 6:
-                st.error("Mot de passe trop court (minimum 6 caractères).")
-            elif not cgu_ok:
-                st.error("Vous devez accepter les conditions d'utilisation.")
-            else:
-                success, msg = _auth.sign_up_email(email_s.strip(), pwd_s)
-                if success:
-                    st.success(msg)
-                    st.rerun()
-                else:
-                    st.error(msg)
-
-    # ── Lien discret mode invité ────────────────────────────────────────────
-    st.markdown(
-        '<div class="login-guest">— ou —</div>',
-        unsafe_allow_html=True,
-    )
-    if st.button("Continuer sans compte", key="guest_btn", use_container_width=False):
-        _auth.set_guest_mode(True)
+def _handle_form_submit(mode: str, email: str, password: str) -> None:
+    """Traite la soumission du form auth modal."""
+    if not email or not password:
+        st.error("Email et mot de passe requis.")
+        return
+    if mode == "signup":
+        if len(password) < 6:
+            st.error("Mot de passe trop court (minimum 6 caractères).")
+            return
+        success, msg = _auth.sign_up_email(email, password)
+    else:
+        success, msg = _auth.sign_in_email(email, password)
+    if success:
+        st.success(msg)
         st.rerun()
-
-    # ── CGU ─────────────────────────────────────────────────────────────────
-    st.markdown(
-        f'<div class="login-cgu">'
-        f'En créant un compte vous acceptez nos '
-        f'<a href="{_CGU_URL}" target="_blank">conditions d\'utilisation</a> et notre '
-        f'<a href="{_PRIVACY_URL}" target="_blank">politique de confidentialité</a>.'
-        f'</div>',
-        unsafe_allow_html=True,
-    )
-
-    st.markdown('</div>', unsafe_allow_html=True)
+    else:
+        st.error(msg)
 
 
 # ---------------------------------------------------------------------------
@@ -228,7 +295,6 @@ def handle_oauth_callback() -> None:
         if code:
             success, msg = _auth.exchange_oauth_code(code)
             if success:
-                # Nettoie l'URL (retire ?code=... pour pas re-déclencher)
                 try:
                     st.query_params.clear()
                 except Exception:
@@ -246,27 +312,22 @@ def handle_oauth_callback() -> None:
 # ---------------------------------------------------------------------------
 
 def render_user_sidebar() -> None:
-    """Affiche dans la sidebar : email + bouton se déconnecter (ou rien en invité)."""
+    """Affiche dans la sidebar : email + bouton se déconnecter (si connecté)."""
     user = _auth.get_current_user()
-    if user:
-        email = user.get("email") or "—"
-        # Petit affichage discret
-        st.markdown(
-            f'<div style="font-size:11px;color:#6B7280;padding:6px 0 2px;">'
-            f'Connecté en tant que</div>'
-            f'<div style="font-size:13px;color:#111827;font-weight:500;'
-            f'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'
-            f'{_e(email)}</div>',
-            unsafe_allow_html=True,
-        )
-        if st.button("Se déconnecter", key="btn_logout", use_container_width=True):
-            _auth.sign_out()
-            st.rerun()
-    elif _auth.is_guest():
-        # Pas de badge, juste un bouton pour créer un compte (discret)
-        if st.button("Créer un compte", key="btn_to_signup", use_container_width=True):
-            _auth.set_guest_mode(False)
-            st.rerun()
+    if not user:
+        return
+    email = user.get("email") or "—"
+    st.markdown(
+        f'<div style="font-size:11px;color:#6B7280;padding:6px 0 2px;">'
+        f'Connecté en tant que</div>'
+        f'<div style="font-size:13px;color:#111827;font-weight:500;'
+        f'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'
+        f'{_e(email)}</div>',
+        unsafe_allow_html=True,
+    )
+    if st.button("Se déconnecter", key="btn_logout_sb", use_container_width=True):
+        _auth.sign_out()
+        st.rerun()
 
 
 # ---------------------------------------------------------------------------
@@ -274,7 +335,6 @@ def render_user_sidebar() -> None:
 # ---------------------------------------------------------------------------
 
 def _e(s: str) -> str:
-    """Escape HTML."""
     if s is None:
         return ""
     return (str(s).replace("&", "&amp;").replace("<", "&lt;")
@@ -282,18 +342,14 @@ def _e(s: str) -> str:
 
 
 def _get_app_url() -> str:
-    """Retourne l'URL de l'app (pour le redirect OAuth)."""
     import os
-    # 1. Variable d'environnement explicite
     url = os.getenv("FINSIGHT_APP_URL", "").strip()
     if url:
         return url
-    # 2. Streamlit secrets
     try:
         url = st.secrets.get("FINSIGHT_APP_URL", "")
         if url:
             return str(url)
     except Exception:
         pass
-    # 3. Default cloud URL
-    return _APP_URL_DEFAULT
+    return "https://finsight-ia-lxappmzvfqned33anmbuvh5.streamlit.app/"
