@@ -563,6 +563,9 @@ def _inject_value(wb, data: list[dict]) -> None:
 
     for i, t in enumerate(sorted_data):
         r = _start + i
+        # Décote DCF : fraction → "+X.X%" ou "-X.X%"
+        _dcf = t.get("decote_dcf")
+        _dcf_str = _fmt_pct(_dcf) if _dcf is not None else "\u2014"
         vals = [
             i + 1,
             t.get("ticker", ""),
@@ -576,7 +579,7 @@ def _inject_value(wb, data: list[dict]) -> None:
             _fmt_pct(t.get("ebitda_margin"), sign=False),
             _fmt_z(t.get("altman_z")),
             _fmt_pct(_fcf_yield(t), sign=False),
-            "\u2014",   # Decote DCF — non calculee
+            _dcf_str,  # Decote DCF estimee (Gordon Growth)
         ]
         for j, v in enumerate(vals, 1):
             _v(ws, r, j, v)

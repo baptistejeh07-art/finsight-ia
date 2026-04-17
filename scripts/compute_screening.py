@@ -813,6 +813,23 @@ def _enrich_realtime(ticker: str, cache_info: dict) -> dict:
             except Exception:
                 pass
 
+        # Normalisation GBp -> GBP (pence -> livres) : tickers .L cotent en
+        # pence mais les rapports financiers sont en GBP ou USD. yfinance
+        # marketCap est déjà en GBP/USD, mais price seul reste en pence.
+        # On divise le prix par 100 pour aligner avec financial statements.
+        _cur = (info.get("currency") or "").strip()
+        if _cur in ("GBp", "GBX") and price is not None:
+            try:
+                price = float(price) / 100.0
+            except Exception:
+                pass
+        # ILA (Israeli agorot, 1 ILS = 100 ILA) : meme logique
+        elif _cur in ("ILA",) and price is not None:
+            try:
+                price = float(price) / 100.0
+            except Exception:
+                pass
+
         extra["price"]  = price
         extra["shares"] = _shares
         extra["beta"]   = info.get("beta") or 1.0
@@ -841,27 +858,70 @@ def _enrich_realtime(ticker: str, cache_info: dict) -> dict:
     return extra
 
 
-def _next_earnings_fallback(cache_row: dict, info: dict) -> Optional[str]:
-    """Retourne la prochaine date de resultats depuis le cache ou yfinance info."""
-    # 1. Cache Supabase (source principale)
+def _next_earnings_fallback(cache_row: dict, info: dict, ticker: str = "") -> Optional[str]:
+    """Retourne la prochaine date de resultats depuis cache/yfinance.
+
+    Cascade 4 sources :
+      1. Cache Supabase (preferentiel, pre-calcule)
+      2. yfinance info.earningsDate / earningsTimestamp (unix seconds)
+      3. yfinance Ticker.earnings_dates (DataFrame historique + futur)
+      4. yfinance Ticker.calendar (dict dernier recours)
+    Seules les dates >= aujourd'hui sont retournees.
+    """
+    from datetime import datetime, date
+    today = datetime.today().date()
+
+    # 1. Cache Supabase
     ne = cache_row.get("next_earnings")
     if ne:
         return str(ne)
-    # 2. Fallback yfinance info.earningsDate (timestamp ou liste de timestamps)
+
+    # 2. yfinance info.earningsDate
     edate = info.get("earningsDate") or info.get("earningsTimestamp")
-    if edate is None:
-        return None
-    try:
-        from datetime import datetime
-        if isinstance(edate, (list, tuple)):
-            edate = edate[0]
-        dt = datetime.fromtimestamp(int(edate))
-        today = datetime.today()
-        # Retourner seulement si la date est dans le futur (prochaine date)
-        if dt.date() >= today.date():
-            return dt.strftime("%Y-%m-%d")
-    except Exception:
-        pass
+    if edate is not None:
+        try:
+            if isinstance(edate, (list, tuple)):
+                edate = edate[0]
+            dt = datetime.fromtimestamp(int(edate))
+            if dt.date() >= today:
+                return dt.strftime("%Y-%m-%d")
+        except Exception:
+            pass
+
+    # 3. yfinance Ticker.earnings_dates (plus fiable pour .L/.PA/.DE)
+    if ticker:
+        try:
+            tkobj = get_ticker(ticker)
+            ed_df = tkobj.earnings_dates
+            if ed_df is not None and not ed_df.empty:
+                # Index = Timestamp, on veut la plus proche >= aujourd'hui
+                future_dates = []
+                for idx in ed_df.index:
+                    try:
+                        d = idx.date() if hasattr(idx, "date") else idx
+                        if d >= today:
+                            future_dates.append(d)
+                    except Exception:
+                        continue
+                if future_dates:
+                    return min(future_dates).strftime("%Y-%m-%d")
+        except Exception:
+            pass
+
+    # 4. yfinance Ticker.calendar (dict dernier recours)
+    if ticker:
+        try:
+            tkobj = get_ticker(ticker)
+            cal = tkobj.calendar
+            if isinstance(cal, dict):
+                ce = cal.get("Earnings Date")
+                if isinstance(ce, (list, tuple)) and ce:
+                    for d in ce:
+                        if isinstance(d, date) and d >= today:
+                            return d.strftime("%Y-%m-%d")
+        except Exception:
+            pass
+
     return None
 
 
@@ -1277,6 +1337,28 @@ def compute_ticker(ticker: str, cache_row: Optional[dict]) -> Optional[dict]:
     else:
         valuation_tier = 3
 
+    # ── Décote DCF estimée (Gordon Growth simplifié) ─────────────────────
+    # FV = FCF × (1+g) / (WACC-g), décote = FV/MktCap - 1
+    # Utilise fcf_yield = FCF/MktCap pour simplification : décote =
+    # fcf_yield × (1+g)/(WACC-g) - 1
+    # wacc_val et tgr_val sont en pourcentage (ex: 7.5 pour 7.5%).
+    decote_dcf = None
+    if (fcf_yield is not None and wacc_val is not None
+            and tgr_val is not None and wacc_val > tgr_val):
+        try:
+            _fcf_y = fcf_yield / 100.0   # pct -> fraction
+            _g_tgr = tgr_val   / 100.0   # pct -> fraction
+            _w_val = wacc_val  / 100.0   # pct -> fraction
+            # Guardrail : WACC-g > 1% pour éviter explosion du multiple
+            if (_w_val - _g_tgr) > 0.01 and _fcf_y > 0:
+                _fv_ratio = _fcf_y * (1.0 + _g_tgr) / (_w_val - _g_tgr)
+                _decote = (_fv_ratio - 1.0) * 100.0  # en %
+                # Clamp raisonnable [-80%, +200%]
+                if -80 <= _decote <= 200:
+                    decote_dcf = round(_decote, 1)
+        except Exception:
+            pass
+
     # Métrique de valorisation principale selon le palier
     primary_valuation = ev_ebitda if valuation_tier == 1 else (ps_ratio if valuation_tier == 2 else None)
     primary_valuation_label = "EV/EBITDA" if valuation_tier == 1 else ("P/S" if valuation_tier == 2 else "N/A")
@@ -1323,7 +1405,7 @@ def compute_ticker(ticker: str, cache_row: Optional[dict]) -> Optional[dict]:
         "score_quality":  None,
         "score_momentum": None,
         "score_global":   None,
-        "next_earnings":     _next_earnings_fallback(cache_row, info),
+        "next_earnings":     _next_earnings_fallback(cache_row, info, ticker),
         "ebitda_ntm_growth": ebitda_ntm_growth,
         "earnings_growth":   earnings_growth,
         "fcf_yield":         fcf_yield,
@@ -1332,6 +1414,7 @@ def compute_ticker(ticker: str, cache_row: Optional[dict]) -> Optional[dict]:
         "analyst_revision":  analyst_revision,
         "wacc": wacc_val,
         "tgr":  tgr_val,
+        "decote_dcf": decote_dcf,
         # Métriques alternatives (paliers 2/3)
         "ps_ratio":              ps_ratio,
         "ev_gross_profit":       ev_gross_profit,
