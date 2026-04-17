@@ -1602,38 +1602,79 @@ def _build_financials(area_buf, data, margins_buf=None):
             "et REITs \u2014 m\u00e9trique exclue pour ce type de soci\u00e9t\u00e9.",
             S_NOTE))
 
-    # FIX 2 — Analyse des ratios cles + graphique evolution marges
+    # FIX 2 — Analyse des ratios cles : prompt LLM adapté au profil sectoriel
+    # (Baptiste 2026-04-17 : plus de hardcode EV/EBITDA + Marge brute pour
+    # BANK/INSURANCE/REIT qui utilisent P/TBV, NIM, Combined Ratio, P/FFO, etc.)
     _ticker_f = _d(data, 'ticker', 'La soci\u00e9t\u00e9')
+    _company_f = _d(data, 'company_name', '') or _ticker_f
+    _target_f = f"{_company_f} ({_ticker_f})" if _company_f != _ticker_f else _ticker_f
+    _sector_f = _d(data, 'sector', '')
+    _cur_f = _d(data, 'currency', 'USD')
     _ratios   = data.get('ratios_vs_peers') or []
-    def _rv(label_kw):
-        for r in _ratios:
-            if label_kw.lower() in (_d(r,'label') or '').lower():
-                return _d(r,'value','—'), _d(r,'reference','—'), _d(r,'lecture','—')
-        return '—', '—', '—'
-    _eve_v, _eve_ref, _eve_lec = _rv('EV / EBITDA')
-    _gm_v,  _gm_ref,  _gm_lec  = _rv('Marge brute')
-    _roe_v, _roe_ref, _roe_lec  = _rv('Return on Equity')
-    _az_v,  _az_ref,  _az_lec   = _rv('Altman')
-    # Titre LLM analytique pour les ratios — traduit les chiffres en insights
+    _sector_prof_f = data.get('sector_profile', 'STANDARD')
+
+    # Sérialisation des ratios pour le prompt LLM
+    _ratios_desc = []
+    for r in _ratios[:8]:
+        _lbl = _d(r, 'label', '')
+        _val = _d(r, 'value', '—')
+        _ref = _d(r, 'reference', '—')
+        _lec = _d(r, 'lecture', '—')
+        if _lbl and _val != '—':
+            _ratios_desc.append(f"{_lbl} : {_val} (ref {_ref}, lecture {_lec})")
+    _ratios_str = " | ".join(_ratios_desc) if _ratios_desc else "donn\u00e9es ratios indisponibles"
+
     _ratio_title = (
         f"Lecture des ratios cl\u00e9s \u2014 {_ticker_f} vs pairs sectoriels"
     )
-    _ratio_para = (
-        f"L'EV/EBITDA ({_eve_v}\u00a0x vs {_eve_ref} sectoriel) mesure la cherté de l'entreprise "
-        f"rapportée à sa capacité bénéficiaire opérationnelle : un multiple inférieur aux pairs "
-        f"signale une sous-valorisation potentielle, un multiple supérieur traduit une prime de "
-        f"croissance ou de qualité. Ici, le ratio est jugé « {_eve_lec} ». "
-        f"La marge brute ({_gm_v} vs {_gm_ref}) révèle le pouvoir de fixation des prix et "
-        f"l'avantage concurrentiel structurel : une marge élevée témoigne d'un fossé économique "
-        f"(pricing power, barrières à l'entrée). Lecture : « {_gm_lec} ». "
-        f"Le ROE ({_roe_v} vs {_roe_ref}) quantifie la rentabilité des capitaux propres et donc "
-        f"la capacité du management à créer de la valeur pour l'actionnaire au-delà du coût du "
-        f"capital. Appréciation : « {_roe_lec} ». "
-        f"L'Altman Z-Score ({_az_v}, seuil de solvabilité : 2,99) est un indicateur composite "
-        f"de santé financière intégrant liquidité, profitabilité, levier et rotation des actifs : "
-        f"un score supérieur à 2,99 écarte le risque de détresse financière à horizon 2 ans. "
-        f"Diagnostic : « {_az_lec} »."
-    )
+    _ratio_para = _g(synthesis, 'ratio_commentary') or ''
+    if not _ratio_para:
+        try:
+            from core.llm_provider import llm_call as _llm_ratio
+            _profile_hint = ""
+            if _sector_prof_f in ("BANK", "INSURANCE"):
+                _profile_hint = (
+                    "Profil BANK/INSURANCE : concentre-toi sur P/TBV, P/B, ROE vs coût "
+                    "des fonds propres (ROE > 10% = création de valeur), NIM/Combined "
+                    "Ratio, CET1/Solvency II, payout ratio. EV/EBITDA et Marge brute "
+                    "ne sont PAS pertinents. Altman Z-Score non applicable."
+                )
+            elif _sector_prof_f == "REIT":
+                _profile_hint = (
+                    "Profil REIT : privilégie P/FFO, P/AFFO, Cap Rate, NAV discount, "
+                    "same-store NOI growth, occupancy, Debt/EBITDA. EV/EBITDA moins "
+                    "standard. Altman Z-Score non applicable aux foncières."
+                )
+            elif _sector_prof_f == "OIL_GAS":
+                _profile_hint = (
+                    "Profil OIL & GAS : cite EV/DACF, EV/Reserves, breakeven price, "
+                    "reserve life index en complément d'EV/EBITDA et P/E."
+                )
+            _ratio_prompt = (
+                (_profile_hint + "\n\n" if _profile_hint else "")
+                + f"Analyste sell-side senior. Lecture 150-200 mots des ratios clés "
+                + f"de {_target_f} (secteur {_sector_f}, profil {_sector_prof_f}) vs pairs.\n"
+                + f"Données : {_ratios_str}\n\n"
+                + f"Structure : pour chaque ratio principal, cite le chiffre, compare "
+                + f"à la référence sectorielle, donne l'interprétation (moat, pricing "
+                + f"power, rentabilité, détresse). Si un ratio n'est pas applicable "
+                + f"au profil, ne l'évoque pas (ex: pas d'EV/EBITDA pour BANK).\n\n"
+                + f"Francais avec accents. Chiffres precis. Pas de markdown/emojis. "
+                + f"Devise native : {_cur_f}. Utilise cette devise dans les montants."
+            )
+            _resp = _llm_ratio(_ratio_prompt, phase="fast", max_tokens=400) or ""
+            if _resp.strip():
+                _ratio_para = _resp.strip()
+        except Exception as _e_r:
+            log.debug(f"[pdf_writer:ratio_commentary] LLM skipped: {_e_r}")
+    # Fallback ultime si LLM échoue : phrase minimale sans hardcode metriques
+    if not _ratio_para or not _ratio_para.strip():
+        _ratio_para = (
+            f"Les ratios cl\u00e9s de {_ticker_f} (profil sectoriel {_sector_prof_f}) "
+            f"se lisent selon les pairs du secteur {_sector_f}. Se r\u00e9f\u00e9rer "
+            f"au tableau ci-dessus pour les valeurs et la colonne \u00ab Lecture \u00bb "
+            f"pour l'\u00e9valuation."
+        )
     elems.append(Spacer(1, 4*mm))
     elems.append(Paragraph(_safe(_ratio_title), S_SUBSECTION))
     elems.append(Spacer(1, 2*mm))

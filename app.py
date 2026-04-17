@@ -1679,6 +1679,28 @@ def render_sidebar(results) -> None:
             )
         st.markdown('</div>', unsafe_allow_html=True)
 
+        # Devise cible — paramètre utilisateur pour conversion FX
+        st.markdown('<div class="sb-section">', unsafe_allow_html=True)
+        st.markdown('<span class="sb-label">Devise d\'affichage</span>', unsafe_allow_html=True)
+        _ccy_options = ["EUR", "USD", "GBP", "CHF", "JPY"]
+        _current_ccy = st.session_state.get("user_currency", "EUR")
+        if _current_ccy not in _ccy_options:
+            _current_ccy = "EUR"
+        _new_ccy = st.selectbox(
+            "Devise d'affichage",
+            _ccy_options,
+            index=_ccy_options.index(_current_ccy),
+            key="sb_user_currency_select",
+            label_visibility="collapsed",
+            help="Les cours, cibles et Market Cap dans l'UI seront convertis dans cette devise. "
+                 "Les graphiques et tableaux financiers PDF/PPTX restent en devise native "
+                 "de la société (pour l'instant).",
+        )
+        if _new_ccy != _current_ccy:
+            st.session_state["user_currency"] = _new_ccy
+            st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
+
         # Sources financières
         st.markdown('<div class="sb-section">', unsafe_allow_html=True)
         st.markdown('<span class="sb-label">Sources financières</span>', unsafe_allow_html=True)
