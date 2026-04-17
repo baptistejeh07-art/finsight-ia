@@ -227,48 +227,28 @@ def _auth_dialog() -> None:
     # ── Séparateur "ou" ─────────────────────────────────────────────────────
     st.markdown('<div class="auth-divider">ou</div>', unsafe_allow_html=True)
 
-    # ── Bouton Google ───────────────────────────────────────────────────────
-    # IMPORTANT : Streamlit Cloud encapsule l'app dans un iframe SANS
-    # allow-top-navigation dans son sandbox. Donc target="_top" et
-    # window.top.location sont BLOQUÉS. La seule option qui marche est
-    # target="_blank" (allow-popups + allow-popups-to-escape-sandbox).
+    # ── Bouton Google (DÉSACTIVÉ — incompatible Streamlit Cloud sandbox) ───
+    # Note technique : Streamlit Cloud encapsule l'app dans un iframe avec
+    # un sandbox cross-origin (sans allow-top-navigation). Le composant
+    # streamlit.components.v1.html (où on doit mettre le JS pour parser
+    # le hash OAuth) s'exécute dans un sous-iframe encore plus isolé →
+    # ne peut PAS accéder à window.top.location.hash (cross-origin block).
     #
-    # Workflow :
-    # 1. Clic Google → nouvel onglet ouvre l'URL OAuth Supabase
-    # 2. Auth Google → Supabase callback → redirige vers l'app dans le
-    #    nouvel onglet avec #access_token=XXX
-    # 3. App dans nouvel onglet : JS parse le hash, set query params,
-    #    Python set_session, cookies persistés
-    # 4. User revient sur l'onglet original, le refresh, et il est connecté
-    #    (les cookies Supabase sont partagés entre onglets du même domaine)
-    google_url = _auth.sign_in_google(redirect_to=_get_app_url())
-    if google_url:
-        _safe_url = (google_url.replace('&', '&amp;').replace('"', '&quot;'))
-        st.markdown(
-            f'<a href="{_safe_url}" target="_blank" '
-            f'style="display:block;padding:9px 12px;border:1px solid #111827;'
-            f'border-radius:6px;text-align:center;text-decoration:none;'
-            f'color:#111827;font-weight:500;font-size:14px;background:#FFFFFF;'
-            f'cursor:pointer;transition:background 0.15s;" '
-            f'onmouseover="this.style.background=\'#F5F7FA\'" '
-            f'onmouseout="this.style.background=\'#FFFFFF\'">'
-            f'Continuer avec Google</a>',
-            unsafe_allow_html=True,
-        )
-        # Note discrète sous le bouton pour expliquer le nouvel onglet
-        st.markdown(
-            '<div style="text-align:center;font-size:11px;color:#9CA3AF;'
-            'margin-top:6px;">Une nouvelle fenêtre s\'ouvre. Une fois '
-            'connecté, vous pourrez la fermer.</div>',
-            unsafe_allow_html=True,
-        )
-    else:
-        st.button(
-            "Continuer avec Google",
-            use_container_width=True,
-            disabled=True,
-            help="Connexion Google indisponible",
-        )
+    # Conséquence : on ne peut pas convertir le #id_token=... retourné par
+    # Google en query params lisibles par Python. Bloqué jusqu'à custom
+    # domain Supabase (plan Pro $25/mois) OU migration framework custom.
+    #
+    # En attendant : email/password fonctionne parfaitement, c'est la
+    # méthode recommandée.
+    st.markdown(
+        '<button disabled '
+        'style="display:block;width:100%;padding:9px 12px;border:1px solid #E5E7EB;'
+        'border-radius:6px;text-align:center;color:#9CA3AF;font-weight:500;'
+        'font-size:14px;background:#F9FAFB;cursor:not-allowed;">'
+        'Continuer avec Google &nbsp;·&nbsp; <span style="font-size:11px;font-weight:400;">'
+        'bientôt disponible</span></button>',
+        unsafe_allow_html=True,
+    )
 
     # ── Lien switch ─────────────────────────────────────────────────────────
     if mode == "signin":
