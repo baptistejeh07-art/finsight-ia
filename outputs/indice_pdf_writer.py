@@ -1714,8 +1714,10 @@ def _build_top3(data, donut_buf, registry=None):
             f"(un par secteur) avec drivers, risques et conviction."
         )
         _top3_llm_text = _llm.generate(_top3_prompt, max_tokens=600) or ""
-        # Strip markdown ** que certains LLM insèrent malgré la consigne
+        # Strip markdown ** et * que certains LLM insèrent malgré la consigne
         _top3_llm_text = _re.sub(r'\*\*([^*]+)\*\*', r'<b>\1</b>', _top3_llm_text)
+        # Italiques *mot* -> <i>mot</i> (garder single * comme markdown minimal)
+        _top3_llm_text = _re.sub(r'(?<!\*)\*([^*\n]+?)\*(?!\*)', r'<i>\1</i>', _top3_llm_text)
         _top3_llm_text = _top3_llm_text.replace('**', '').replace('##', '').replace('###', '')
     except Exception as _llm_err:
         import logging as _log_m

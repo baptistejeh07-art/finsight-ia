@@ -2021,7 +2021,9 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
     indice_analytics = {}
     correlation_data = {}
 
-    if universe == "S&P 500" and etf_perf:
+    # Bloc analytics : S&P 500 (via ETFs SPDR) OU indice non-US (via _tickers_by_sector
+    # peuplé dans le fallback EU). On exécute dès que l'un des deux est disponible.
+    if (universe == "S&P 500" and etf_perf) or _tickers_by_sector:
         # Contribution sectorielle : weight × return_1y
         total_nb_soc = sum(_SP500_NB_SOC.get(info.get("nom",""), 30) for info in etf_perf.values())
         for etf_k, info_k in sorted(etf_perf.items(),
