@@ -380,10 +380,20 @@ def tbl(data, cw, row_heights=None):
 def _key_data_box(data):
     rec = _d(data, 'recommendation', 'HOLD').upper()
     cur = _d(data, 'currency', 'USD')
+    # Abréviations secteur pour éviter wrap à 2 lignes dans la Key Data box
+    _SECTOR_ABBREV = {
+        "Communication Services": "Comm. Services",
+        "Consumer Discretionary": "Consumer Disc.",
+        "Consumer Defensive":     "Consumer Def.",
+        "Information Technology": "Technology",
+        "Financial Services":     "Financials",
+    }
+    _sect_raw = _d(data, 'sector') or ''
+    _sect_disp = _SECTOR_ABBREV.get(_sect_raw, _sect_raw)
     items = [
         ("Donn\u00e9es cl\u00e9s",                ""),
         ("Ticker",                                _d(data, 'ticker_exchange', _d(data, 'ticker'))),
-        ("Secteur",                               _d(data, 'sector')),
+        ("Secteur",                               _sect_disp),
         (f"Cours ({cur})",                        _d(data, 'price_str')),
         ("Recommandation",                        rec),
         ("Cible 12 mois",                         _d(data, 'target_price_full')),
