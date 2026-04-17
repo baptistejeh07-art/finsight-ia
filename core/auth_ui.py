@@ -288,9 +288,38 @@ def _handle_form_submit(mode: str, email: str, password: str) -> None:
 # ---------------------------------------------------------------------------
 
 def handle_oauth_callback() -> None:
-    """Si l'URL contient ?code=XXX (retour Google OAuth), échange contre session."""
+    """Gère le retour OAuth Google.
+
+    Avec flow_type="implicit" (configuré dans get_client), Supabase retourne
+    les tokens dans le fragment URL : #access_token=XXX&refresh_token=YYY
+    Ce fragment N'EST PAS accessible côté serveur Python (jamais envoyé au
+    serveur). On utilise un petit JS qui :
+      1. Lit window.location.hash
+      2. Extrait access_token + refresh_token
+      3. Réécrit l'URL avec ces tokens en query params (?at=XXX&rt=YYY)
+      4. Streamlit re-run → Python lit st.query_params → set_session
+
+    Si les query params contiennent at + rt, on set la session.
+    Si l'URL contient ?code=... (PKCE flow legacy), on tente l'exchange.
+    """
     try:
         params = st.query_params
+        # Cas 1 : flow implicit — tokens en query params (après JS parse hash)
+        at = params.get("at")
+        rt = params.get("rt")
+        if at and rt:
+            success, msg = _auth.set_session_from_tokens(at, rt)
+            try:
+                st.query_params.clear()
+            except Exception:
+                pass
+            if success:
+                st.success(msg)
+                st.rerun()
+            else:
+                st.error(msg)
+            return
+        # Cas 2 : flow PKCE legacy — code en query param
         code = params.get("code")
         if code:
             success, msg = _auth.exchange_oauth_code(code)
@@ -303,6 +332,41 @@ def handle_oauth_callback() -> None:
                 st.rerun()
             else:
                 st.error(msg)
+            return
+        # Cas 3 : injection JS pour parser le hash URL et redéclencher avec query params
+        # On l'inject systématiquement (no-op si pas de hash). Le JS check si #access_token=
+        # est présent et redirige vers /?at=XXX&rt=YYY.
+        _inject_hash_to_query_parser()
+    except Exception:
+        pass
+
+
+def _inject_hash_to_query_parser() -> None:
+    """Composant invisible qui parse window.location.hash et redirige."""
+    try:
+        from streamlit.components.v1 import html as _components_html
+        _components_html(
+            """
+            <script>
+            (function() {
+              const hash = window.parent.location.hash || '';
+              if (hash.length < 2) return;
+              const params = new URLSearchParams(hash.substring(1));
+              const at = params.get('access_token');
+              const rt = params.get('refresh_token');
+              if (at && rt) {
+                const url = new URL(window.parent.location.href);
+                url.hash = '';
+                url.searchParams.set('at', at);
+                url.searchParams.set('rt', rt);
+                window.parent.location.replace(url.toString());
+              }
+            })();
+            </script>
+            """,
+            height=0,
+            width=0,
+        )
     except Exception:
         pass
 

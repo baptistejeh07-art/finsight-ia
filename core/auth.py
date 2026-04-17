@@ -80,7 +80,13 @@ def _get_supabase_url_key() -> tuple[str, str]:
 
 
 def get_client():
-    """Singleton Supabase client. None si configuration absente."""
+    """Singleton Supabase client. None si configuration absente.
+
+    Flow OAuth = "implicit" (vs PKCE par défaut) car PKCE nécessite un
+    code_verifier en localStorage entre le sign_in et le callback, ce que
+    Streamlit ne peut pas faire nativement côté serveur. Implicit retourne
+    directement les tokens dans l'URL fragment.
+    """
     st = _get_st()
     if "_supabase_client" in st.session_state:
         return st.session_state["_supabase_client"]
@@ -91,7 +97,13 @@ def get_client():
         return None
     try:
         from supabase import create_client
-        client = create_client(url, key)
+        try:
+            from supabase.lib.client_options import ClientOptions
+            options = ClientOptions(flow_type="implicit")
+            client = create_client(url, key, options=options)
+        except Exception:
+            # Fallback si import ClientOptions échoue : flow PKCE par défaut
+            client = create_client(url, key)
         st.session_state["_supabase_client"] = client
         return client
     except Exception as e:
@@ -276,10 +288,11 @@ def sign_in_google(redirect_to: Optional[str] = None) -> Optional[str]:
 
 
 def exchange_oauth_code(code: str) -> tuple[bool, str]:
-    """Échange le code OAuth (renvoyé par Google après auth) contre une session.
+    """[LEGACY PKCE] Échange le code OAuth contre une session.
 
-    Appelé sur le callback redirect après que l'utilisateur ait validé
-    sur Google. Le code est dans l'URL : ?code=XXX
+    Conservé pour compatibilité mais NON UTILISÉ avec flow_type="implicit"
+    qui retourne directement access_token + refresh_token dans l'URL fragment.
+    Voir set_session_from_tokens() pour le flow implicit.
     """
     client = get_client()
     if client is None:
@@ -296,6 +309,32 @@ def exchange_oauth_code(code: str) -> tuple[bool, str]:
         return False, "Échec échange code OAuth."
     except Exception as e:
         return False, f"Erreur OAuth : {e}"
+
+
+def set_session_from_tokens(access_token: str, refresh_token: str) -> tuple[bool, str]:
+    """Set la session depuis access + refresh tokens (flow implicit).
+
+    Appelé après que JavaScript ait extrait les tokens de l'URL fragment
+    (#access_token=...&refresh_token=...) et les ait passés en query params.
+    """
+    client = get_client()
+    if client is None:
+        return False, "Service indisponible."
+    try:
+        resp = client.auth.set_session(access_token, refresh_token)
+        if resp and resp.user:
+            st = _get_st()
+            st.session_state["_supabase_user"] = _user_to_dict(resp.user)
+            st.session_state["_supabase_session"] = {
+                "access_token": access_token,
+                "refresh_token": refresh_token,
+            }
+            st.session_state.pop("_finsight_guest_mode", None)
+            persist_session_to_cookies()
+            return True, "Connexion Google réussie."
+        return False, "Échec validation session."
+    except Exception as e:
+        return False, f"Erreur session : {e}"
 
 
 def sign_out() -> None:
