@@ -102,7 +102,9 @@ _CF_MAP: dict[str, list[str]] = {
     "other_wc_changes":           ["Other Operating Activities",
                                    "Other Non Cash Items"],
     "capex":                      ["Capital Expenditure", "Capital Expenditures",
-                                   "Purchase Of PPE"],
+                                   "Purchase Of PPE",
+                                   # REITs : capex = Purchase Of Investment Properties
+                                   "Purchase Of Investment Properties"],
     "other_investing":            ["Other Investing Activities",
                                    "Other Investing Cash Flow",
                                    "Purchase Of Investment",
@@ -401,6 +403,17 @@ def fetch(ticker: str) -> Optional[FinancialSnapshot]:
                 _rd = _m(_get(is_df, _IS_MAP["rd"],               is_col))
                 fy.rd               = abs(_rd) if _rd is not None else None
                 fy.da               = _m(_get(is_df, _IS_MAP["da"],               is_col))
+                # Fallback SGA : utilities/oil EU (ENGI, TTE) ne reportent pas SGA
+                # mais "Operating Expense" agrégé. SGA dérivé = OpEx - RD - DA.
+                if fy.sga is None:
+                    _opex = _m(_get(is_df, ["Operating Expense"], is_col))
+                    if _opex is not None:
+                        _opex_abs = abs(_opex)
+                        _rd_adj = fy.rd or 0.0
+                        _da_adj = abs(fy.da) if fy.da is not None else 0.0
+                        _derived = _opex_abs - _rd_adj - _da_adj
+                        if _derived > 0:
+                            fy.sga = _derived
                 # D16 fallback : D&A depuis le Cash Flow si absent de l'IS
                 if fy.da is None and cf_col is not None:
                     _da_cf = _m(_get(cf_df, [
@@ -462,6 +475,19 @@ def fetch(ticker: str) -> Optional[FinancialSnapshot]:
                                              "Additional Paid-In Capital"], bs_col))
                 if _cap_stock is not None or _apic is not None:
                     fy.common_equity_paid_in = (_cap_stock or 0.0) + (_apic or 0.0)
+
+                # Fallback retained_earnings : certaines EU (ENGI, TTE, ...) ne
+                # reportent pas Retained Earnings. Dérivation simple :
+                # Stockholders Equity - Common Stock Paid In (Treasury déjà
+                # nettée dans Stockholders Equity chez yfinance).
+                # On ne prend la dérivation que si elle est positive : un RE
+                # négatif indique typiquement que Paid-In yfinance inclut déjà
+                # des réserves (cas des rachats d'actions lourds type TTE).
+                if fy.retained_earnings_yf is None and fy.total_equity_yf is not None:
+                    _paid_in = fy.common_equity_paid_in or 0.0
+                    _derived_re = fy.total_equity_yf - _paid_in
+                    if _derived_re > 0:
+                        fy.retained_earnings_yf = _derived_re
 
             # Cash Flow
             if cf_col is not None:
