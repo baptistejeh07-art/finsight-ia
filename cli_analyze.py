@@ -280,17 +280,44 @@ _SECTOR_TICKERS: dict = {
     ("Matériaux", "DAX"):                  ["BAS.DE","HEI.DE"],
     ("Real Estate", "DAX"):                ["VNA.DE"],
     ("Immobilier", "DAX"):                 ["VNA.DE"],
-    # FTSE 100
+    # FTSE 100 — élargi pour couvrir tous les secteurs GICS
     ("Energy", "FTSE 100"):                ["BP.L","SHEL.L"],
     ("Mining", "FTSE 100"):                ["RIO.L","BHP.L","GLEN.L","AAL.L"],
+    ("Basic Materials", "FTSE 100"):       ["RIO.L","BHP.L","GLEN.L","AAL.L"],
+    ("Materials", "FTSE 100"):             ["RIO.L","BHP.L","GLEN.L","AAL.L"],
     ("Financials", "FTSE 100"):            ["HSBA.L","BARC.L","LLOY.L","NWG.L","AV.L"],
+    ("Financial Services", "FTSE 100"):    ["HSBA.L","BARC.L","LLOY.L","NWG.L","AV.L"],
     ("Healthcare", "FTSE 100"):            ["AZN.L","GSK.L","HLMA.L"],
+    ("Health Care", "FTSE 100"):           ["AZN.L","GSK.L","HLMA.L"],
+    ("Technology", "FTSE 100"):            ["SGE.L","AVST.L"],
+    ("Industrials", "FTSE 100"):           ["RR.L","BA.L","SMIN.L","EXPN.L"],
+    ("Consumer Defensive", "FTSE 100"):    ["ULVR.L","DGE.L","TSCO.L","SBRY.L"],
+    ("Consumer Staples", "FTSE 100"):      ["ULVR.L","DGE.L","TSCO.L","SBRY.L"],
+    ("Consumer Cyclical", "FTSE 100"):     ["BRBY.L","NXT.L","KGF.L","JD.L"],
+    ("Consumer Discretionary", "FTSE 100"):["BRBY.L","NXT.L","KGF.L","JD.L"],
+    ("Communication Services", "FTSE 100"):["VOD.L","BT-A.L","WPP.L"],
+    ("Télécoms", "FTSE 100"):              ["VOD.L","BT-A.L"],
+    ("Utilities", "FTSE 100"):             ["NG.L","SSE.L","UU.L","SVT.L"],
+    ("Real Estate", "FTSE 100"):           ["LAND.L","BLND.L","SGRO.L","DLG.L"],
+    # CAC 40 — élargi
+    ("Communication Services", "CAC 40"):  ["PUB.PA","VIV.PA"],
+    ("Télécoms", "CAC 40"):                ["ORA.PA"],
+    ("Utilities", "CAC 40"):               ["VIE.PA","EDF.PA"],
+    ("Services Publics", "CAC 40"):        ["VIE.PA","EDF.PA"],
+    ("Real Estate", "CAC 40"):             ["URW.AS","GFC.PA"],
+    ("Consumer Cyclical", "CAC 40"):       ["MC.PA","OR.PA","RMS.PA","KER.PA","EL.PA"],
+    ("Consumer Discretionary", "CAC 40"):  ["MC.PA","OR.PA","RMS.PA","KER.PA","EL.PA"],
+    ("Basic Materials", "CAC 40"):         ["AI.PA","SGO.PA"],
+    ("Materials", "CAC 40"):               ["AI.PA","SGO.PA"],
+    ("Financial Services", "CAC 40"):      ["BNP.PA","ACA.PA","GLE.PA","AXA.PA"],
+    ("Health Care", "CAC 40"):             ["SAN.PA","EL.PA"],
 }
 
 
 def _get_real_tickers(sector: str, universe: str) -> list[str]:
     """Retourne les tickers reels pour un secteur/univers connu."""
     # Normalisation alias secteur (yfinance et GICS utilisent des libellés variables)
+    # Inclut les libellés FR utilisés dans le PDF indice (Finance, Santé, etc.)
     _SECTOR_ALIASES = {
         "materials":              "Basic Materials",
         "basic materials":        "Basic Materials",
@@ -300,6 +327,28 @@ def _get_real_tickers(sector: str, universe: str) -> list[str]:
         "financial services":     "Financial Services",
         "tech":                   "Technology",
         "information technology": "Technology",
+        # Libellés FR courts utilisés dans top3_secteurs et donut indice
+        "finance":                "Financial Services",
+        "services financiers":    "Financial Services",
+        "santé":                  "Healthcare",
+        "sante":                  "Healthcare",
+        "health care":            "Healthcare",
+        "technologie":            "Technology",
+        "industrie":              "Industrials",
+        "industries":             "Industrials",
+        "énergie":                "Energy",
+        "energie":                "Energy",
+        "conso. déf.":            "Consumer Defensive",
+        "conso. def.":            "Consumer Defensive",
+        "conso. cycl.":           "Consumer Cyclical",
+        "consommation défensive": "Consumer Defensive",
+        "consommation cyclique":  "Consumer Cyclical",
+        "serv. publ.":            "Utilities",
+        "services publics":       "Utilities",
+        "télécoms":               "Communication Services",
+        "telecoms":               "Communication Services",
+        "matériaux":              "Basic Materials",
+        "immobilier":             "Real Estate",
     }
     # Normalisation univers (DAX 40 == DAX, FTSE 100 == FTSE100, etc.)
     _UNIVERSE_ALIASES = {
