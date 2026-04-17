@@ -111,6 +111,7 @@ def sig_hex(signal):
 
 
 _log_fred = logging.getLogger(__name__)
+log = _log_fred  # Alias pour compatibilité avec log.debug utilisé dans le module
 
 
 def _build_fred_macro_table():
