@@ -228,13 +228,17 @@ def _auth_dialog() -> None:
     st.markdown('<div class="auth-divider">ou</div>', unsafe_allow_html=True)
 
     # ── Bouton Google ───────────────────────────────────────────────────────
+    # NB : on N'UTILISE PAS st.link_button qui force target="_blank" (ouvre
+    # nouvel onglet → l'utilisateur ne revient pas sur l'app après auth).
+    # À la place : bouton normal + JS qui redirige la fenêtre principale
+    # via window.top.location.href = url (dans la même fenêtre).
     google_url = _auth.sign_in_google(redirect_to=_get_app_url())
     if google_url:
-        st.link_button(
-            "Continuer avec Google",
-            google_url,
-            use_container_width=True,
-        )
+        if st.button("Continuer avec Google", key=f"google_btn_{mode}",
+                     use_container_width=True):
+            # Stocke l'URL dans session_state pour déclencher la redirection
+            st.session_state["_pending_google_redirect"] = google_url
+            st.rerun()
     else:
         st.button(
             "Continuer avec Google",
@@ -242,6 +246,39 @@ def _auth_dialog() -> None:
             disabled=True,
             help="Connexion Google indisponible",
         )
+
+    # Si une redirection Google est en attente, on l'exécute via JS dans
+    # la fenêtre principale (window.top, sortir de l'iframe Streamlit)
+    _pending = st.session_state.pop("_pending_google_redirect", None)
+    if _pending:
+        try:
+            from streamlit.components.v1 import html as _html
+            # Échappe les guillemets simples pour JS
+            _safe_url = _pending.replace('"', '\\"')
+            _html(
+                f"""
+                <script>
+                  // window.top = fenêtre principale (sort de l'iframe Streamlit)
+                  // location.href = redirect SAME WINDOW (au lieu d'ouvrir nouvel onglet)
+                  try {{
+                    window.top.location.href = "{_safe_url}";
+                  }} catch(e) {{
+                    window.parent.location.href = "{_safe_url}";
+                  }}
+                </script>
+                """,
+                height=0, width=0,
+            )
+        except Exception as _e:
+            # Fallback : afficher un lien cliquable
+            st.markdown(
+                f'<a href="{_pending}" target="_self" '
+                f'style="display:block;text-align:center;padding:8px;'
+                f'background:#fff;border:1px solid #111827;border-radius:6px;'
+                f'text-decoration:none;color:#111827;font-weight:500;">'
+                f'Cliquez ici pour continuer avec Google</a>',
+                unsafe_allow_html=True,
+            )
 
     # ── Lien switch ─────────────────────────────────────────────────────────
     if mode == "signin":
