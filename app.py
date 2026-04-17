@@ -5433,12 +5433,52 @@ def _render_comparison_section(state_a: dict) -> None:
         st.rerun()
 
 
-def _render_glossaire(key_suffix: str = "main") -> None:
-    """Glossaire des termes financiers — toggle manuel.
+def _render_glossaire(key_suffix: str = "main",
+                       type_analyse: str | None = None,
+                       profile: str | None = None) -> None:
+    """Glossaire des termes financiers — contextuel par type d'analyse.
 
-    key_suffix : suffixe pour les session_state keys (evite les collisions
-    quand plusieurs pages utilisent le glossaire).
+    key_suffix   : suffixe pour les session_state keys (evite collisions).
+    type_analyse : "societe" | "secteur" | "indice" | "cmp_societe" |
+                   "cmp_secteur" | "cmp_indice". Si None, déduit depuis
+                   key_suffix pour rétrocompatibilité.
+    profile      : profil sectoriel pour les sociétés (BANK/REIT/...).
+                   Déduit automatiquement depuis results si None.
     """
+    # Déduction par défaut du type à partir du key_suffix (backward compat)
+    if type_analyse is None:
+        _ks = (key_suffix or "").lower()
+        if "cmp_societe" in _ks:
+            type_analyse = "cmp_societe"
+        elif "cmp_secteur" in _ks:
+            type_analyse = "cmp_secteur"
+        elif "cmp_indice" in _ks:
+            type_analyse = "cmp_indice"
+        elif "indice" in _ks or "screening" in _ks:
+            # screening = secteur ou indice selon la page
+            type_analyse = st.session_state.get("screening_parent") and "indice" or "secteur"
+        elif "société" in _ks or "societe" in _ks:
+            type_analyse = "societe"
+        else:
+            type_analyse = "societe"
+
+    # Déduction du profil sectoriel depuis la session si société
+    if type_analyse == "societe" and profile is None:
+        _r = st.session_state.get("results") or {}
+        _snap = _r.get("snapshot")
+        if _snap is not None:
+            try:
+                from core.sector_profiles import detect_profile as _detect_p
+                _ci = getattr(_snap, "company_info", None)
+                profile = _detect_p(
+                    getattr(_ci, "sector", "") or "",
+                    getattr(_ci, "industry", "") or "",
+                )
+            except Exception:
+                profile = "STANDARD"
+        else:
+            profile = "STANDARD"
+
     st.markdown('<div class="sec-t">Glossaire des termes financiers</div>', unsafe_allow_html=True)
     _state_key = f"glossaire_open_{key_suffix}"
     _btn_key = f"btn_glossaire_toggle_{key_suffix}"
@@ -5449,8 +5489,10 @@ def _render_glossaire(key_suffix: str = "main") -> None:
         st.session_state[_state_key] = not st.session_state[_state_key]
         st.rerun()
     if st.session_state[_state_key]:
-        st.markdown("""
-<style>
+        from core.glossary import get_cards_for_context
+        _cards_ctx = get_cards_for_context(type_analyse, profile)
+        # CSS + grid open
+        _html_gls = ["""<style>
 .gls-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px;margin:16px 0 24px 0;}
 .gls-card{background:#f8f9fb;border:1px solid #e2e6ea;border-radius:8px;padding:14px 16px;}
 .gls-cat{font-size:11px;font-weight:700;letter-spacing:.08em;color:#6c757d;text-transform:uppercase;margin-bottom:8px;}
@@ -5458,100 +5500,26 @@ def _render_glossaire(key_suffix: str = "main") -> None:
 .gls-term{font-size:12px;font-weight:700;color:#1B3A6B;min-width:110px;padding-top:1px;}
 .gls-def{font-size:12px;color:#333;line-height:1.45;}
 </style>
-<div class="gls-grid">
-
-<div class="gls-card">
-<div class="gls-cat">Valorisation</div>
-<div class="gls-row"><span class="gls-term">PER (P/E)</span><span class="gls-def">Prix / Bénéfice par action. Indique combien le marché paie pour 1 € de bénéfice. Un PER élevé reflète des attentes de croissance.</span></div>
-<div class="gls-row"><span class="gls-term">EV/EBITDA</span><span class="gls-def">Valeur d'entreprise / EBITDA. Multiple de valorisation indépendant de la structure de capital et fiscalité.</span></div>
-<div class="gls-row"><span class="gls-term">P/B (Price-to-Book)</span><span class="gls-def">Prix / Valeur comptable. Rapport entre capitalisation et actif net comptable. &lt;1 = potentiellement sous-évalué.</span></div>
-<div class="gls-row"><span class="gls-term">FCF Yield</span><span class="gls-def">Free Cash Flow / Market Cap. Rendement du cash généré après investissements. Plus élevé = meilleur.</span></div>
-<div class="gls-row"><span class="gls-term">P/FCF</span><span class="gls-def">Prix / Free Cash Flow par action. Alternative au PER basée sur les flux réels plutôt que le bénéfice comptable.</span></div>
-<div class="gls-row"><span class="gls-term">PEG</span><span class="gls-def">PER / Taux de croissance des bénéfices. PEG &lt;1 suggère une valorisation attractive relativement à la croissance.</span></div>
-<div class="gls-row"><span class="gls-term">DCF</span><span class="gls-def">Discounted Cash Flow. Valorisation par actualisation des flux futurs estimés au taux WACC. Dépend fortement des hypothèses de croissance.</span></div>
-<div class="gls-row"><span class="gls-term">P/S (Price-to-Sales)</span><span class="gls-def">Prix / Chiffre d'affaires. Utilisé pour les sociétés sans EBITDA positif (SaaS, biotech en croissance). Un P/S élevé se justifie par une forte croissance revenue. Palier 2.</span></div>
-<div class="gls-row"><span class="gls-term">EV/Gross Profit</span><span class="gls-def">Valeur d'entreprise / Profit brut. Alternative à EV/EBITDA pour les sociétés à marge brute positive mais EBITDA négatif (investissements R&amp;D lourds).</span></div>
-<div class="gls-row"><span class="gls-term">Rule of 40</span><span class="gls-def">Croissance revenue (%) + Marge EBITDA (%). Métrique SaaS : &gt;40% = société saine qui équilibre croissance et rentabilité. &lt;20% = signal d'alerte.</span></div>
-<div class="gls-row"><span class="gls-term">Palier de valorisation</span><span class="gls-def">Palier 1 = profitable (EV/EBITDA). Palier 2 = croissance (P/S, Rule of 40). Palier 3 = pré-revenue (P/B). Le palier détermine la métrique de valorisation principale.</span></div>
-</div>
-
-<div class="gls-card">
-<div class="gls-cat">Profitabilité</div>
-<div class="gls-row"><span class="gls-term">EBITDA Margin</span><span class="gls-def">EBITDA / CA. Marge opérationnelle avant amortissements, intérêts et impôts. Reflet de la rentabilité brute d'exploitation.</span></div>
-<div class="gls-row"><span class="gls-term">EBIT Margin</span><span class="gls-def">EBIT / CA. Marge opérationnelle après amortissements. Reflète l'efficacité opérationnelle réelle.</span></div>
-<div class="gls-row"><span class="gls-term">Net Margin</span><span class="gls-def">Résultat net / CA. Part du chiffre d'affaires restant après toutes charges. Dépend aussi de l'effet de levier et de la fiscalité.</span></div>
-<div class="gls-row"><span class="gls-term">ROIC</span><span class="gls-def">Return on Invested Capital. NOPAT / Capital investi. Mesure la capacité à créer de la valeur sur les capitaux déployés. ROIC &gt; WACC = création de valeur.</span></div>
-<div class="gls-row"><span class="gls-term">ROE</span><span class="gls-def">Return on Equity. Résultat net / Fonds propres. Rentabilité pour l'actionnaire. Peut être gonflé par l'endettement.</span></div>
-<div class="gls-row"><span class="gls-term">CAGR CA 3 ans</span><span class="gls-def">Compound Annual Growth Rate du chiffre d'affaires sur 3 ans. Taux de croissance annualisé.</span></div>
-</div>
-
-<div class="gls-card">
-<div class="gls-cat">Structure financière & Levier</div>
-<div class="gls-row"><span class="gls-term">ND/EBITDA</span><span class="gls-def">Dette nette / EBITDA. Nb d'années d'EBITDA pour rembourser la dette nette. &lt;2x = faible levier, &gt;4x = levier élevé.</span></div>
-<div class="gls-row"><span class="gls-term">Interest Coverage</span><span class="gls-def">EBIT / Frais financiers. Capacité à couvrir les intérêts. &lt;1,5x = zone de risque.</span></div>
-<div class="gls-row"><span class="gls-term">Current Ratio</span><span class="gls-def">Actifs courants / Passifs courants. Liquidité à court terme. &gt;1 = couverture des dettes court terme.</span></div>
-<div class="gls-row"><span class="gls-term">Quick Ratio</span><span class="gls-def">Actifs liquides (sans stocks) / Passifs courants. Version stricte du current ratio.</span></div>
-<div class="gls-row"><span class="gls-term">WACC</span><span class="gls-def">Weighted Average Cost of Capital. Coût moyen pondéré du capital (dette + fonds propres). Taux d'actualisation du DCF.</span></div>
-<div class="gls-row"><span class="gls-term">Free Cash Flow</span><span class="gls-def">Cash opérationnel - Capex. Flux de trésorerie disponible après investissements. Base de la valeur intrinsèque.</span></div>
-</div>
-
-<div class="gls-card">
-<div class="gls-cat">Qualité comptable</div>
-<div class="gls-row"><span class="gls-term">Piotroski F-Score</span><span class="gls-def">Score 0-9 sur 9 critères (rentabilité, liquidité, levier, efficacité). &gt;6 = bonne santé financière, &lt;3 = signaux négatifs.</span></div>
-<div class="gls-row"><span class="gls-term">Beneish M-Score</span><span class="gls-def">Modèle de détection de manipulation comptable. &gt;-1,78 = risque potentiel de fraude aux résultats.</span></div>
-<div class="gls-row"><span class="gls-term">Altman Z-Score</span><span class="gls-def">Score de risque de faillite. &gt;2,99 = zone sûre, 1,81-2,99 = zone grise, &lt;1,81 = zone de détresse.</span></div>
-<div class="gls-row"><span class="gls-term">Sloan Accruals</span><span class="gls-def">Mesure la part du résultat comptable non soutenue par le cash (accruals). Un ratio élevé suggère des bénéfices de moindre qualité.</span></div>
-<div class="gls-row"><span class="gls-term">Cash Conversion</span><span class="gls-def">FCF / Résultat net. Qualité de conversion des bénéfices comptables en cash. Idéalement &gt;0,8.</span></div>
-</div>
-
-<div class="gls-card">
-<div class="gls-cat">Risque & Marché</div>
-<div class="gls-row"><span class="gls-term">Bêta</span><span class="gls-def">Sensibilité du titre aux mouvements du marché. Bêta=1 = même volatilité que le marché. &gt;1 = plus volatil (amplificateur), &lt;1 = plus défensif.</span></div>
-<div class="gls-row"><span class="gls-term">VaR 95% 1M</span><span class="gls-def">Value at Risk mensuelle à 95%. Perte maximale attendue dans 95% des cas sur un mois. Ex: -8% signifie que dans 5% des mois, la perte dépasse 8%.</span></div>
-<div class="gls-row"><span class="gls-term">Volatilité 52S</span><span class="gls-def">Écart-type annualisé des rendements journaliers sur 52 semaines. Mesure l'amplitude des fluctuations du cours.</span></div>
-<div class="gls-row"><span class="gls-term">52W High / Low</span><span class="gls-def">Plus haut / plus bas du cours sur les 52 dernières semaines. Repères techniques de la fourchette de trading récente.</span></div>
-<div class="gls-row"><span class="gls-term">ERP</span><span class="gls-def">Equity Risk Premium. Prime de risque des actions vs taux sans risque. Pilote le coût des fonds propres dans le WACC.</span></div>
-</div>
-
-<div class="gls-card">
-<div class="gls-cat">Scores FinSight</div>
-<div class="gls-row"><span class="gls-term">Score FinSight</span><span class="gls-def">Score composite 0-100 : Valeur (25pts) + Croissance (25pts) + Qualité (25pts) + Momentum (25pts). Agrège les signaux quantitatifs en un seul chiffre.</span></div>
-<div class="gls-row"><span class="gls-term">Score Momentum</span><span class="gls-def">Score 0-100 basé sur la performance boursière 3 mois. Capture la dynamique court terme du titre.</span></div>
-<div class="gls-row"><span class="gls-term">Conviction IA</span><span class="gls-def">Niveau de certitude de l'agent de synthèse dans sa recommandation (0-100%). Basé sur la cohérence des signaux et la qualité des données.</span></div>
-<div class="gls-row"><span class="gls-term">Delta conviction</span><span class="gls-def">Variation de conviction après passage de l'agent Devil's Advocate. Un delta négatif signifie que les arguments baissiers ont affaibli la thèse initiale.</span></div>
-<div class="gls-row"><span class="gls-term">Recommandation</span><span class="gls-def">ACHETER / CONSERVER / VENDRE. Synthèse de l'ensemble des analyses quantitatives et qualitatives. Ne constitue pas un conseil en investissement.</span></div>
-</div>
-
-<div class="gls-card">
-<div class="gls-cat">LBO & Private Equity</div>
-<div class="gls-row"><span class="gls-term">LBO</span><span class="gls-def">Leveraged Buyout — rachat d'une société financé majoritairement par dette (60-80%) et minoritairement par les fonds propres d'un sponsor PE.</span></div>
-<div class="gls-row"><span class="gls-term">Multiple d'entrée</span><span class="gls-def">EV/EBITDA payé pour acquérir la cible. Détermine le prix d'achat et le levier maximal soutenable. Plus bas = meilleur rendement potentiel.</span></div>
-<div class="gls-row"><span class="gls-term">TLB (Term Loan B)</span><span class="gls-def">Dette senior amortissable (1%/an typique) avec cash sweep. Coût ~7-9%, structure prioritaire au remboursement.</span></div>
-<div class="gls-row"><span class="gls-term">Mezzanine / PIK</span><span class="gls-def">Dette subordonnée à intérêts capitalisés (Payment-In-Kind). Coût ~10-12%, ne consomme pas de cash mais grossit le solde dû chaque année.</span></div>
-<div class="gls-row"><span class="gls-term">IRR Sponsor</span><span class="gls-def">Taux de rendement interne pour l'investisseur PE sur les fonds propres engagés. Cible institutionnelle : 20%+ pour un fonds tier-1.</span></div>
-<div class="gls-row"><span class="gls-term">MOIC</span><span class="gls-def">Multiple on Invested Capital. Multiple cash sur le capital investi (equity exit / equity entry). 2x = doublement, 3x+ = excellent.</span></div>
-<div class="gls-row"><span class="gls-term">ICR</span><span class="gls-def">Interest Coverage Ratio. EBITDA / Charges d'intérêts. Mesure la capacité à servir la dette. Covenant typique : ICR ≥ 2,0x.</span></div>
-<div class="gls-row"><span class="gls-term">Cash Sweep</span><span class="gls-def">Mécanisme imposant que tout FCF excédentaire serve à rembourser la dette par anticipation. Réduit le levier et libère de la valeur pour l'equity.</span></div>
-<div class="gls-row"><span class="gls-term">Sources & Uses</span><span class="gls-def">Tableau d'équilibre du financement : à gauche les sources (TLB + Mezz + Equity sponsor), à droite les usages (EV deal + frais transaction + cash circulant).</span></div>
-<div class="gls-row"><span class="gls-term">Covenant</span><span class="gls-def">Clause contractuelle imposant des seuils financiers (levier max, ICR min). Step-down typique : levier max décroissant 6,5x → 4,5x sur 5 ans.</span></div>
-<div class="gls-row"><span class="gls-term">Equity Bridge</span><span class="gls-def">Décomposition de la création de valeur entre entrée et sortie : EBITDA growth + multiple expansion + désendettement (debt paydown).</span></div>
-</div>
-
-<div class="gls-card">
-<div class="gls-cat">Allocation & Macro</div>
-<div class="gls-row"><span class="gls-term">Surpondérer</span><span class="gls-def">Recommandation d'allocation : poids supérieur au benchmark (score FinSight ≥ 65). Conviction haussière forte sur 6-12 mois.</span></div>
-<div class="gls-row"><span class="gls-term">Neutre</span><span class="gls-def">Poids égal au benchmark (score 45-64). Pas de conviction directionnelle marquée — exposition standard.</span></div>
-<div class="gls-row"><span class="gls-term">Sous-pondérer</span><span class="gls-def">Poids inférieur au benchmark (score &lt; 45). Conviction baissière ou risque structurel identifié.</span></div>
-<div class="gls-row"><span class="gls-term">Spread FinSight</span><span class="gls-def">Écart de scores entre deux entités comparées (sociétés / secteurs / indices). &gt;30 pts = bifurcation marquée, &lt;15 pts = convergence.</span></div>
-<div class="gls-row"><span class="gls-term">Régime macro</span><span class="gls-def">Phase de cycle économique (expansion / ralentissement / récession / reprise). Détermine les secteurs/indices favorisés selon la sensibilité aux taux et à la croissance.</span></div>
-<div class="gls-row"><span class="gls-term">Allocation optimale</span><span class="gls-def">Pondération obtenue par optimisation de portefeuille (Markowitz) maximisant Sharpe ou minimisant volatilité sous contraintes de poids min/max.</span></div>
-<div class="gls-row"><span class="gls-term">Dispersion sectorielle</span><span class="gls-def">Écart-type des scores entre secteurs d'un indice. Une dispersion élevée crée des opportunités d'allocation tactique.</span></div>
-<div class="gls-row"><span class="gls-term">Mean reversion</span><span class="gls-def">Hypothèse de retour à la moyenne historique d'un multiple ou d'un ratio. Base des stratégies value/contrarian.</span></div>
-<div class="gls-row"><span class="gls-term">Re-rating</span><span class="gls-def">Variation du multiple (P/E, EV/EBITDA) qu'un investisseur est prêt à payer. Re-rating positif = expansion du multiple, re-rating négatif = compression.</span></div>
-</div>
-
-</div>
-        """, unsafe_allow_html=True)
+<div class="gls-grid">"""]
+        # Rendu dynamique des cards pertinentes au contexte
+        for _card in _cards_ctx:
+            _html_gls.append(f'<div class="gls-card"><div class="gls-cat">{_e(_card["title"])}</div>')
+            for _term, _def in _card["entries"]:
+                _html_gls.append(
+                    f'<div class="gls-row"><span class="gls-term">{_e(_term)}</span>'
+                    f'<span class="gls-def">{_e(_def)}</span></div>'
+                )
+            _html_gls.append('</div>')
+        _html_gls.append('</div>')
+        # Badge indicatif du contexte pour l'utilisateur
+        _ctx_label = f"{type_analyse}" + (f" · profil {profile}" if type_analyse == "societe" and profile else "")
+        st.markdown(
+            f'<div style="font-size:10px;color:#999;text-align:right;margin-bottom:-8px;">'
+            f'Termes pertinents pour : {_e(_ctx_label)}</div>',
+            unsafe_allow_html=True,
+        )
+        st.markdown('\n'.join(_html_gls), unsafe_allow_html=True)
+        return
 
 
 def render_results(results: dict) -> None:

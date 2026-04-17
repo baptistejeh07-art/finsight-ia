@@ -1673,6 +1673,9 @@ def _build_financials(area_buf, data, margins_buf=None):
     # Analyse LLM approfondie : qualité du mix, drivers de marge, positionnement concurrentiel
     _ticker_fin = _d(data, 'ticker', 'La soci\u00e9t\u00e9')
     _sector_fin = _d(data, 'sector', '')
+    _name_fin = _d(data, 'company_name', '') or ''
+    if _name_fin and _name_fin != _ticker_fin:
+        _ticker_fin = f"{_name_fin} ({_ticker_fin})"
     _ratios_lines = []
     _em = "\u2014"  # extrait hors de la f-string : Python <3.12 interdit \ dans une expression f-string
     for r in (data.get('ratios_vs_peers') or [])[:6]:
@@ -2434,6 +2437,9 @@ def _build_multiples_historiques(data):
             _llm = LLMProvider(provider="groq", model="llama-3.3-70b-versatile")
             _ticker_mh = _d(data, 'ticker', 'La soci\u00e9t\u00e9')
             _sector_mh = _d(data, 'sector', '')
+            _name_mh = _d(data, 'company_name', '') or ''
+            if _name_mh and _name_mh != _ticker_mh:
+                _ticker_mh = f"{_name_mh} ({_ticker_mh})"
             _pe_series = ", ".join(f"{pe:.1f}x" for pe in pe_clean)
             _ev_series = ", ".join(f"{ev:.1f}x" for ev in ev_clean) if ev_clean else "n.d."
             _pb_series = ", ".join(f"{pb:.1f}x" for pb in pb_clean) if pb_clean else "n.d."
@@ -2651,6 +2657,9 @@ def _build_capital_returns(data):
             _llm = LLMProvider(provider="groq", model="llama-3.3-70b-versatile")
             _ticker_cr = _d(data, 'ticker', 'La soci\u00e9t\u00e9')
             _sector_cr = _d(data, 'sector', '')
+            _name_cr = _d(data, 'company_name', '') or ''
+            if _name_cr and _name_cr != _ticker_cr:
+                _ticker_cr = f"{_name_cr} ({_ticker_cr})"
             _fcf_series = ", ".join(f"{f/1000:.1f}Mds" for f in fcf_vals[-4:])
             _fy_series = ", ".join(_frpct(f) for f in fy_vals[-4:]) if fy_vals else "n.d."
             _cx_last = _frpct(cx_vals[-1]) if cx_vals else "n.d."
@@ -2848,6 +2857,9 @@ def _build_lbo(data):
             _llm = LLMProvider(provider="groq", model="llama-3.3-70b-versatile")
             _ticker_lbo = _d(data, 'ticker', 'La soci\u00e9t\u00e9')
             _sector_lbo = _d(data, 'sector', '')
+            _name_lbo = _d(data, 'company_name', '') or ''
+            if _name_lbo and _name_lbo != _ticker_lbo:
+                _ticker_lbo = f"{_name_lbo} ({_ticker_lbo})"
             _ebitda_lbo = f"{ebitda/1000:.1f} Mds" if ebitda else "n.d."
             _fcf_lbo = f"{fcf/1000:.1f} Mds" if fcf else "n.d."
             _debt_lbo = f"{_net_debt_ebitda:.1f}x EBITDA" if _net_debt_ebitda is not None else "n.d."
@@ -3124,6 +3136,9 @@ def _build_risques(data):
             from core.llm_provider import llm_call
             _ticker_conc = _d(data, 'ticker', 'La societe')
             _sector_conc = _d(data, 'sector', '')
+            _name_conc = _d(data, 'company_name', '') or ''
+            if _name_conc and _name_conc != _ticker_conc:
+                _ticker_conc = f"{_name_conc} ({_ticker_conc})"
             _target_conc = _d(data, 'target_price_full', '')
             _upside_conc = _d(data, 'upside_str', '')
             _prompt_conclusion = (

@@ -1600,6 +1600,7 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
     _eu_members_by_sec: dict = {}   # accessible plus loin pour top3
     _eu_perf_history = None         # accessible dans base.update()
     _etf_proxy_ev = None            # ETF proxy EV/EBITDA (reutilise pour top3)
+    _tickers_by_sector: dict = {}   # mapping secteur -> [tickers] pour opti non-US
 
     if not secteurs:
         _EU_CONST_MAP = {
@@ -1814,6 +1815,11 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
                     if _r["sector"] and _r["sector"] != "Autre":
                         _by_sec_raw[_r["sector"]].append(_r)
                 _eu_members_by_sec = dict(_by_sec_raw)
+                # Exporter tickers par secteur pour l'opti corrélation (ajout 2026-04-17)
+                _tickers_by_sector = {
+                    _sec: [m.get("ticker") for m in _mems if m.get("ticker")]
+                    for _sec, _mems in _eu_members_by_sec.items()
+                }
 
                 import statistics as _stat_eu
                 def _med_pos(vals):
@@ -2077,24 +2083,64 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
         try:
             import pandas as _pd_corr
             etf_list_corr = list(etf_map.keys())
-            raw_daily = yf.download(etf_list_corr, period="1y", interval="1d", progress=False)
-            if isinstance(raw_daily.columns, _pd_corr.MultiIndex):
-                prices_d = raw_daily["Close"]
+            if etf_list_corr:
+                # S&P 500 : ETFs SPDR sectoriels directement
+                raw_daily = yf.download(etf_list_corr, period="1y", interval="1d", progress=False)
+                if isinstance(raw_daily.columns, _pd_corr.MultiIndex):
+                    prices_d = raw_daily["Close"]
+                else:
+                    prices_d = raw_daily
+                prices_d       = prices_d.dropna(how="all")
+                daily_ret_full = prices_d.pct_change().dropna(how="all")
+                corr_df        = daily_ret_full.corr()
+                etf_in_c       = [e for e in etf_list_corr if e in corr_df.columns]
             else:
-                prices_d = raw_daily
-            prices_d       = prices_d.dropna(how="all")
-            daily_ret_full = prices_d.pct_change().dropna(how="all")
-            corr_df        = daily_ret_full.corr()
-            etf_in_c       = [e for e in etf_list_corr if e in corr_df.columns]
-            corr_matrix    = []
-            for e1 in etf_in_c:
-                corr_matrix.append(
-                    [round(float(corr_df.loc[e1, e2]), 2) for e2 in etf_in_c])
-            correlation_data = {
-                "sectors": [etf_map.get(e, e) for e in etf_in_c],
-                "matrix":  corr_matrix,
-            }
-            log.info("Matrice correlation %dx%d calculee", len(etf_in_c), len(etf_in_c))
+                # Indices non-US (DAX/CAC/FTSE/...) : construire des returns
+                # sectoriels synthétiques à partir des constituants groupés
+                # par secteur GICS. _tickers_by_sector a été peuplé plus haut
+                # dans le fallback EU (_fetch_eu_tkr).
+                _sector_to_tickers = {
+                    _sec: (_tks or [])[:5]
+                    for _sec, _tks in (_tickers_by_sector or {}).items()
+                    if _tks
+                }
+                if _sector_to_tickers:
+                    _all_tk = sorted({t for L in _sector_to_tickers.values() for t in L})
+                    _raw = yf.download(_all_tk, period="1y", interval="1d", progress=False)
+                    _px = _raw["Close"] if isinstance(_raw.columns, _pd_corr.MultiIndex) else _raw
+                    _px = _px.dropna(how="all")
+                    _daily = _px.pct_change().dropna(how="all")
+                    # Synthetic sector returns = moyenne des returns des tickers du secteur
+                    _sec_returns = {}
+                    for _sec_name, _tks in _sector_to_tickers.items():
+                        _cols = [t for t in _tks if t in _daily.columns]
+                        if _cols:
+                            _sec_returns[_sec_name] = _daily[_cols].mean(axis=1)
+                    if _sec_returns:
+                        daily_ret_full = _pd_corr.DataFrame(_sec_returns).dropna(how="all")
+                        corr_df = daily_ret_full.corr()
+                        etf_in_c = list(corr_df.columns)
+                        # Map sector_name -> sector_name (pas d'ETF intermédiaire)
+                        etf_map = {s: s for s in etf_in_c}
+                        # Étendre etf_perf avec return_1y approximatif depuis daily returns
+                        for _sec in etf_in_c:
+                            _r = _sec_returns[_sec]
+                            _ret_1y = float((1 + _r).prod() - 1) * 100 if len(_r) > 0 else 0.0
+                            if _sec not in etf_perf:
+                                etf_perf[_sec] = {}
+                            etf_perf[_sec].setdefault("nom", _sec)
+                            etf_perf[_sec].setdefault("return_1y", round(_ret_1y, 1))
+
+            if corr_df is not None and etf_in_c:
+                corr_matrix = []
+                for e1 in etf_in_c:
+                    corr_matrix.append(
+                        [round(float(corr_df.loc[e1, e2]), 2) for e2 in etf_in_c])
+                correlation_data = {
+                    "sectors": [etf_map.get(e, e) for e in etf_in_c],
+                    "matrix":  corr_matrix,
+                }
+                log.info("Matrice correlation %dx%d calculee", len(etf_in_c), len(etf_in_c))
         except Exception as _ec:
             log.warning("Correlation matrix erreur: %s", _ec)
 
