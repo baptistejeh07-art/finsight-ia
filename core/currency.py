@@ -85,6 +85,11 @@ _FX_TTL_SEC = 60 * 60  # 1 heure
 # NORMALISATION
 # ═════════════════════════════════════════════════════════════════════════════
 
+def normalize_currency(ccy: Optional[str]) -> tuple[str, float]:
+    """Alias public de _normalize_currency (exposé pour yfinance_source + writers)."""
+    return _normalize_currency(ccy)
+
+
 def _normalize_currency(ccy: Optional[str]) -> tuple[str, float]:
     """Normalise une devise yfinance et retourne (ccy_iso, multiplicateur).
 
