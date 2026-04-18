@@ -68,6 +68,12 @@ export function Navbar() {
             >
               À propos
             </Link>
+            <Link
+              href="/contact"
+              className="text-sm text-ink-700 hover:text-ink-900 transition-colors"
+            >
+              Contact
+            </Link>
           </nav>
 
           {/* Auth actions */}

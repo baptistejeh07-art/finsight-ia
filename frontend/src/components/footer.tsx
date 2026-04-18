@@ -26,6 +26,7 @@ export function Footer() {
               <li><Link href="/cgu" className="text-ink-700 hover:text-ink-900">CGU</Link></li>
               <li><Link href="/privacy" className="text-ink-700 hover:text-ink-900">Confidentialité</Link></li>
               <li><Link href="/about" className="text-ink-700 hover:text-ink-900">À propos</Link></li>
+              <li><Link href="/contact" className="text-ink-700 hover:text-ink-900">Contact</Link></li>
             </ul>
           </div>
           <div>

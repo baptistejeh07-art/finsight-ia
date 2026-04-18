@@ -2,11 +2,11 @@
 
 import { useEffect, useState, use } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { ArrowLeft, Download, FileText, Presentation, FileSpreadsheet } from "lucide-react";
+import { ArrowLeft, Download, FileText, Presentation, FileSpreadsheet, AlertTriangle } from "lucide-react";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import { fmtCurrency, fmtPercent, signalColor, signalLabel } from "@/lib/utils";
-import { getFileUrl } from "@/lib/api";
+import { getFileUrl, getJob } from "@/lib/api";
 
 interface AnalysisResult {
   success: boolean;
@@ -19,6 +19,13 @@ interface AnalysisResult {
   label?: string;
 }
 
+function mapBackendKind(kind: string): "societe" | "secteur" | "indice" | "comparatif" {
+  if (kind.startsWith("cmp/")) return "comparatif";
+  if (kind.includes("indice")) return "indice";
+  if (kind.includes("secteur")) return "secteur";
+  return "societe";
+}
+
 export default function ResultatsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const search = useSearchParams();
@@ -26,21 +33,74 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
   const ticker = search.get("ticker") || "";
   const kindParam = (search.get("kind") || "societe") as "societe" | "secteur" | "indice" | "comparatif";
   const [result, setResult] = useState<AnalysisResult | null>(null);
+  const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
-    // Récupère depuis sessionStorage (mis par /analyse)
+    // 1. Essaye d'abord sessionStorage (analyse fraîche déjà stockée)
     const stored = sessionStorage.getItem(`analysis_${id}`);
     if (stored) {
       try {
         setResult(JSON.parse(stored));
+        return;
       } catch {
-        router.push("/");
+        // JSON corrompu → fallback backend
       }
-    } else {
-      // Pas trouvé → retour home
-      router.push("/");
     }
-  }, [id, router]);
+
+    // 2. Sinon, fetch le job depuis le backend (refresh, lien direct)
+    (async () => {
+      try {
+        const job = await getJob(id);
+        if (job.status === "done" && job.result) {
+          const elapsedMs = job.finished_at && job.started_at
+            ? new Date(job.finished_at).getTime() - new Date(job.started_at).getTime()
+            : 0;
+          const r: AnalysisResult = {
+            success: true,
+            request_id: id,
+            elapsed_ms: elapsedMs,
+            data: job.result.data,
+            files: job.result.files,
+            kind: mapBackendKind(job.kind),
+            label: ticker || undefined,
+          };
+          setResult(r);
+          // Re-cache en sessionStorage pour prochaines navigations
+          try { sessionStorage.setItem(`analysis_${id}`, JSON.stringify(r)); } catch {}
+        } else if (job.status === "error") {
+          setNotFound(true);
+        } else {
+          // Encore en cours → redirige vers la page d'analyse
+          router.push(`/analyse?q=${encodeURIComponent(ticker)}`);
+        }
+      } catch {
+        // 404 ou backend down → page not-found inline
+        setNotFound(true);
+      }
+    })();
+  }, [id, router, ticker]);
+
+  if (notFound) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <Navbar />
+        <main className="flex-1 max-w-2xl mx-auto px-6 py-20 w-full text-center">
+          <AlertTriangle className="w-12 h-12 text-signal-sell mx-auto mb-4" />
+          <h1 className="text-xl font-semibold text-ink-900 mb-2">
+            Analyse introuvable
+          </h1>
+          <p className="text-sm text-ink-600 mb-6">
+            Cette analyse n&apos;est plus disponible en mémoire (redémarrage serveur ou lien expiré).
+            Relancez une nouvelle analyse depuis l&apos;accueil.
+          </p>
+          <button onClick={() => router.push("/")} className="btn-primary">
+            Retour à l&apos;accueil
+          </button>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   if (!result) {
     return (
