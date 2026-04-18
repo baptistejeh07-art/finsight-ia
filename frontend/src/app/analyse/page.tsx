@@ -2,7 +2,7 @@
 
 import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Loader2, CheckCircle2, AlertTriangle } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import {
@@ -162,56 +162,55 @@ function AnalyseContent() {
     );
   }
 
+  // Style Streamlit : gros titre TICKER + barre progression + texte étape en dessous
+  const progress = steps.length > 0 ? Math.min(((stepIdx + 1) / steps.length) * 100, 100) : 0;
+  const currentStep = steps[stepIdx] || "Initialisation du graphe d'analyse...";
+
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
-      <main className="flex-1 max-w-2xl mx-auto px-6 py-16 w-full">
-        <div className="text-center mb-10 animate-fade-in">
-          <Loader2 className="w-10 h-10 text-navy-500 animate-spin mx-auto mb-4" />
-          <div className="section-label mb-2">Analyse en cours</div>
-          <h1 className="text-2xl font-bold text-ink-900 mb-2 tracking-tight">
+      <main className="flex-1 max-w-2xl mx-auto px-6 py-20 w-full">
+        {/* Gros titre TICKER centré */}
+        <div className="text-center mb-12 animate-fade-in">
+          <h1 className="text-5xl sm:text-6xl font-bold text-ink-900 tracking-tight mb-4">
             {query}
           </h1>
-          <p className="text-sm text-ink-600">
-            {kind === "indice"
-              ? "Analyse d'un indice complet. ~5 à 8 minutes."
-              : kind === "secteur"
-              ? "Analyse sectorielle multi-sociétés. ~2 à 4 minutes."
-              : "Analyse institutionnelle. ~1 à 3 minutes."}
+          <p className="text-sm text-ink-500">
+            Analyse en cours — veuillez patienter
           </p>
         </div>
 
-        {/* Steps */}
-        <div className="card max-w-md mx-auto">
-          <ul className="space-y-3">
-            {steps.map((step, i) => (
-              <li
-                key={step}
-                className={`flex items-center gap-3 text-sm transition-opacity ${
-                  i > stepIdx ? "opacity-30" : ""
-                }`}
-              >
-                {i < stepIdx ? (
-                  <CheckCircle2 className="w-4 h-4 text-signal-buy shrink-0" />
-                ) : i === stepIdx ? (
-                  <Loader2 className="w-4 h-4 text-navy-500 animate-spin shrink-0" />
-                ) : (
-                  <div className="w-4 h-4 rounded-full border-2 border-ink-300 shrink-0" />
-                )}
-                <span
-                  className={`${
-                    i === stepIdx ? "text-ink-900 font-medium" : "text-ink-600"
-                  }`}
-                >
-                  {step}
-                </span>
-              </li>
-            ))}
-          </ul>
+        {/* Barre de progression horizontale */}
+        <div className="max-w-md mx-auto mb-3">
+          <div className="w-full h-1.5 bg-ink-100 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-navy-500 rounded-full transition-all duration-700 ease-out"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
         </div>
 
-        <p className="text-xs text-ink-400 text-center mt-6 italic">
-          Ne fermez pas cette page. Vous serez redirigé automatiquement.
+        {/* Texte étape en cours sous la barre */}
+        <p className="text-center text-xs text-ink-500 mb-12">
+          {currentStep}
+        </p>
+
+        {/* Search bar grisée (style Streamlit) */}
+        <div className="max-w-md mx-auto space-y-3">
+          <div className="w-full px-4 py-3 rounded-md border border-ink-200 bg-ink-50 text-sm text-ink-400">
+            {query}
+          </div>
+          <div className="w-full px-4 py-3 rounded-md bg-ink-200 text-center text-sm text-ink-500 cursor-not-allowed">
+            Analyser →
+          </div>
+        </div>
+
+        <p className="text-xs text-ink-400 text-center mt-8 italic">
+          {kind === "indice"
+            ? "Analyse d'un indice complet. ~5 à 8 minutes."
+            : kind === "secteur"
+            ? "Analyse sectorielle multi-sociétés. ~2 à 4 minutes."
+            : "Analyse institutionnelle. ~1 à 3 minutes."}
         </p>
       </main>
       <Footer />

@@ -151,7 +151,7 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
 
   return (
     <div className="min-h-screen flex flex-col">
-      <main className="flex-1 max-w-7xl mx-auto px-6 py-8 w-full">
+      <main className="flex-1 w-full px-4 lg:px-6 py-6">
         {/* Back */}
         <button
           onClick={() => router.push("/")}
@@ -165,14 +165,29 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
         {isSociete && ci && (
           <>
             {/* Header */}
-            <header className="mb-6">
+            <header className="mb-5">
               <HeaderSociete ci={ci} elapsedMs={result.elapsed_ms} />
             </header>
 
-            {/* Top row : Reco + Cours chart */}
-            <section className="grid grid-cols-1 lg:grid-cols-5 gap-4 mb-6">
-              <div className="lg:col-span-2 space-y-4">
-                <RecoCard recommendation={recommendation} conviction={conviction} />
+            {/* Layout principal 2 colonnes : 65/35 */}
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 mb-5">
+              {/* COLONNE GAUCHE — graph cours + valo + KPI grid */}
+              <div className="xl:col-span-2 space-y-4">
+                {/* Reco + cours chart en haut */}
+                <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+                  <div className="lg:col-span-2">
+                    <RecoCard recommendation={recommendation} conviction={conviction} />
+                  </div>
+                  <div className="lg:col-span-3">
+                    <CoursChart
+                      ticker={tickerStr}
+                      history={rawData?.stock_history || []}
+                      sector={ci.sector}
+                    />
+                  </div>
+                </div>
+
+                {/* Valorisation triangulaire */}
                 <ValorisationCards
                   bull={synthesis?.target_bull}
                   base={synthesis?.target_base}
@@ -180,79 +195,74 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
                   sharePrice={sharePrice}
                   currency={currency}
                 />
+
+                {/* Ratios clés — 6 colonnes compactes */}
+                <div>
+                  <div className="text-[10px] font-semibold uppercase tracking-[1.5px] text-ink-500 mb-2">
+                    Ratios clés ({latestYear})
+                  </div>
+                  <KpiGrid ratios={latestRatios} />
+                </div>
               </div>
-              <div className="lg:col-span-3">
-                <CoursChart ticker={tickerStr} history={rawData?.stock_history || []} />
+
+              {/* COLONNE DROITE — Synthèse + Q&A */}
+              <div className="space-y-4">
+                {synthesis && <SyntheseCard synthesis={synthesis} />}
+                <QAChat jobId={id} ticker={tickerStr} />
               </div>
-            </section>
+            </div>
 
-            {/* Synthèse */}
-            {synthesis && (
-              <section className="mb-6">
-                <SyntheseCard synthesis={synthesis} />
-              </section>
-            )}
-
-            {/* Q&A Chatbot — placé après la synthèse */}
-            <section className="mb-6">
-              <QAChat jobId={id} ticker={tickerStr} />
-            </section>
-
-            {/* Ratios clés */}
-            <section className="mb-6">
-              <div className="text-[10px] font-semibold uppercase tracking-[1.5px] text-ink-500 mb-3">
-                Ratios clés ({latestYear})
-              </div>
-              <KpiGrid ratios={latestRatios} />
-            </section>
-
-            {/* CapEx + Donut */}
-            <section className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+            {/* Row CapEx + Donut + Comparer */}
+            <section className="grid grid-cols-1 lg:grid-cols-12 gap-4 mb-5">
               {rawData?.years && (
-                <CapexFcfChart
-                  years={rawData.years}
-                  ratios={ratios?.years}
-                  currency={currency}
-                />
+                <div className="lg:col-span-5">
+                  <CapexFcfChart
+                    years={rawData.years}
+                    ratios={ratios?.years}
+                    currency={currency}
+                  />
+                </div>
               )}
               {synthesis?.comparable_peers && synthesis.comparable_peers.length > 0 && (
-                <MktCapDonut
-                  peers={synthesis.comparable_peers}
-                  targetTicker={tickerStr}
-                  targetName={ci.company_name}
-                  targetMarketCapMds={
-                    latestRatios?.market_cap ? latestRatios.market_cap / 1000 : null
-                  }
-                  sectorLabel={`Secteur ${ci.sector || ""}`}
-                />
-              )}
-            </section>
-
-            {/* Comparatif sectoriel + Card Comparer */}
-            {synthesis?.comparable_peers && synthesis.comparable_peers.length > 0 && (
-              <section className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
-                <div className="lg:col-span-2">
-                  <PeersTable
+                <div className="lg:col-span-4">
+                  <MktCapDonut
                     peers={synthesis.comparable_peers}
                     targetTicker={tickerStr}
                     targetName={ci.company_name}
-                    targetRatios={latestRatios}
+                    targetMarketCapMds={
+                      latestRatios?.market_cap ? latestRatios.market_cap / 1000 : null
+                    }
+                    sectorLabel={`Secteur ${ci.sector || ""}`}
                   />
                 </div>
-                <div>
+              )}
+              {synthesis?.comparable_peers && synthesis.comparable_peers.length > 0 && (
+                <div className="lg:col-span-3">
                   <CompareCard targetTicker={tickerStr} />
                 </div>
+              )}
+            </section>
+
+            {/* Comparatif sectoriel pleine largeur */}
+            {synthesis?.comparable_peers && synthesis.comparable_peers.length > 0 && (
+              <section className="mb-5">
+                <PeersTable
+                  peers={synthesis.comparable_peers}
+                  targetTicker={tickerStr}
+                  targetName={ci.company_name}
+                  targetRatios={latestRatios}
+                />
               </section>
             )}
 
             {/* Pour aller plus loin + Portrait */}
-            <section className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+            <section className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5">
               {synthesis && <PourAllerPlusLoin synthesis={synthesis} />}
               <PortraitCard ticker={tickerStr} companyName={ci.company_name} />
             </section>
 
             {/* Glossaire */}
-            <section className="mb-6">
+            <section className="mb-5">
               <Glossaire />
             </section>
           </>
@@ -291,8 +301,8 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
           </>
         )}
 
-        {/* Downloads — toujours dispo */}
-        {result.files && (
+        {/* Downloads pour secteur/indice/comparatif (sociétés ont la sidebar) */}
+        {!isSociete && result.files && (
           <section className="mb-8">
             <div className="text-[10px] font-semibold uppercase tracking-[1.5px] text-ink-500 mb-3">
               Livrables

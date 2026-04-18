@@ -29,7 +29,6 @@ const QUOTES = [
 export default function HomePage() {
   const router = useRouter();
   const [query, setQuery] = useState("");
-  const [scope, setScope] = useState<"interface" | "files">("interface");
   const quote = QUOTES[Math.floor(Math.random() * QUOTES.length)];
 
   function handleAnalyze() {
@@ -38,7 +37,7 @@ export default function HomePage() {
       toast.error("Saisissez un ticker, secteur ou indice");
       return;
     }
-    router.push(`/analyse?q=${encodeURIComponent(q)}&scope=${scope}`);
+    router.push(`/analyse?q=${encodeURIComponent(q)}`);
   }
 
   return (
@@ -72,26 +71,6 @@ export default function HomePage() {
             Analyser
             <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
           </button>
-
-          {/* Options sous la barre */}
-          <div className="flex items-center justify-end gap-3 text-xs text-ink-500 mt-3 px-1">
-            <label className="flex items-center gap-1.5 cursor-pointer">
-              <input
-                type="radio"
-                checked={scope === "interface"}
-                onChange={() => setScope("interface")}
-              />
-              <span>Interface uniquement</span>
-            </label>
-            <label className="flex items-center gap-1.5 cursor-pointer">
-              <input
-                type="radio"
-                checked={scope === "files"}
-                onChange={() => setScope("files")}
-              />
-              <span>Interface + PDF/PPTX</span>
-            </label>
-          </div>
         </div>
 
         {/* Quick picks */}
@@ -102,7 +81,7 @@ export default function HomePage() {
             items={QUICK_TICKERS}
             onPick={(t) => {
               setQuery(t);
-              router.push(`/analyse?q=${encodeURIComponent(t)}&scope=${scope}`);
+              router.push(`/analyse?q=${encodeURIComponent(t)}`);
             }}
           />
           <QuickPickRow
@@ -111,7 +90,7 @@ export default function HomePage() {
             items={QUICK_SECTORS}
             onPick={(t) => {
               setQuery(t);
-              router.push(`/analyse?q=${encodeURIComponent(t)}&scope=${scope}`);
+              router.push(`/analyse?q=${encodeURIComponent(t)}`);
             }}
           />
           <QuickPickRow
@@ -120,7 +99,7 @@ export default function HomePage() {
             items={QUICK_INDICES}
             onPick={(t) => {
               setQuery(t);
-              router.push(`/analyse?q=${encodeURIComponent(t)}&scope=${scope}`);
+              router.push(`/analyse?q=${encodeURIComponent(t)}`);
             }}
           />
         </div>

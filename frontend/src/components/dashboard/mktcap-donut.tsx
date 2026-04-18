@@ -34,11 +34,11 @@ export function MktCapDonut({ peers, targetTicker, targetName, targetMarketCapMd
   const targetPct = (cibleMc / total) * 100;
 
   return (
-    <div className="bg-white border border-ink-200 rounded-md p-5">
+    <div className="bg-white border border-ink-200 rounded-md p-4">
       <div className="text-[10px] font-semibold uppercase tracking-[1.5px] text-ink-500 mb-2 text-center">
         Poids relatif Mkt Cap — {sectorLabel}
       </div>
-      <div className="h-[200px] relative">
+      <div className="h-[160px] relative">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie
@@ -47,8 +47,8 @@ export function MktCapDonut({ peers, targetTicker, targetName, targetMarketCapMd
               nameKey="name"
               cx="50%"
               cy="50%"
-              innerRadius={45}
-              outerRadius={75}
+              innerRadius={38}
+              outerRadius={64}
               paddingAngle={1}
             >
               {items.map((entry, i) => (

@@ -24,7 +24,9 @@
   }
 
   body {
-    @apply bg-white text-ink-900 font-sans antialiased;
+    color: rgb(23 23 23);
+    background-color: #FAFAF7; /* blanc cassé style Anthropic */
+    @apply font-sans antialiased;
     font-feature-settings: "cv11", "ss01", "ss03";
   }
 

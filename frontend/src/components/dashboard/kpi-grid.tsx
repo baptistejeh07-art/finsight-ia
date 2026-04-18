@@ -128,21 +128,21 @@ export function KpiGrid({ ratios }: { ratios: YearRatios | null }) {
   }
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+    <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-2">
       {KPIS.map((k) => {
         const raw = ratios[k.key] as number | null | undefined;
         const transformed = raw != null && !isNaN(raw) ? (k.transform ? k.transform(raw) : raw) : null;
         const rating = transformed != null ? k.rate(transformed) : null;
         return (
-          <div key={k.key as string} className="bg-white border border-ink-200 rounded-md p-3.5">
-            <div className="text-[9px] font-semibold uppercase tracking-[1.2px] text-ink-500 mb-1.5">
+          <div key={k.key as string} className="bg-white border border-ink-200 rounded-md px-2.5 py-2">
+            <div className="text-[8px] font-semibold uppercase tracking-[1px] text-ink-500 mb-0.5 truncate">
               {k.label}
             </div>
-            <div className={`text-lg font-bold font-mono ${rating ? toneClass[rating.tone] : "text-ink-400"}`}>
+            <div className={`text-sm font-bold font-mono ${rating ? toneClass[rating.tone] : "text-ink-400"}`}>
               {formatVal(raw, k.format, k.transform)}
             </div>
-            <div className="text-[10px] text-ink-500 mt-1">
-              {k.tooltip} {rating ? `· ${rating.tag}` : ""}
+            <div className="text-[9px] text-ink-500 mt-0.5 truncate">
+              {rating ? rating.tag : k.tooltip}
             </div>
           </div>
         );

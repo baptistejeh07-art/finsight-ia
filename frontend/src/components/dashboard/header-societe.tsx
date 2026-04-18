@@ -1,4 +1,5 @@
 import type { CompanyInfo } from "./types";
+import { CompanyLogo } from "./company-logo";
 
 export function HeaderSociete({
   ci,
@@ -15,23 +16,13 @@ export function HeaderSociete({
       })
     : new Date().toLocaleDateString("fr-FR");
 
-  const logoUrl = ci.ticker
-    ? `https://logo.clearbit.com/${slugDomain(ci.company_name, ci.ticker)}.com`
-    : "";
-
   return (
     <div className="flex items-center gap-4">
-      {logoUrl && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={logoUrl}
-          alt={ci.company_name}
-          className="w-12 h-12 rounded object-contain bg-ink-50"
-          onError={(e) => {
-            (e.currentTarget as HTMLImageElement).style.display = "none";
-          }}
-        />
-      )}
+      <CompanyLogo
+        ticker={ci.ticker}
+        companyName={ci.company_name}
+        size={56}
+      />
       <div>
         <h1 className="text-2xl font-bold text-ink-900 tracking-tight leading-tight">
           {ci.company_name || ci.ticker}
@@ -45,14 +36,4 @@ export function HeaderSociete({
       </div>
     </div>
   );
-}
-
-function slugDomain(name: string, ticker: string): string {
-  // best-effort domain guess: strip "Inc.", "Corp.", spaces
-  const base = (name || ticker)
-    .toLowerCase()
-    .replace(/\b(inc|corp|corporation|ltd|sa|plc|nv|ag|se)\b\.?/g, "")
-    .replace(/[^a-z0-9]/g, "")
-    .trim();
-  return base || ticker.toLowerCase();
 }

@@ -41,11 +41,11 @@ export function Glossaire() {
         />
       </button>
       {open && (
-        <div className="px-5 pb-5 pt-1 border-t border-ink-100 space-y-3">
+        <div className="px-5 pb-5 pt-2 border-t border-ink-100 divide-y divide-ink-100">
           {TERMS.map((t) => (
-            <div key={t.term}>
-              <div className="text-xs font-semibold text-ink-900">{t.term}</div>
-              <div className="text-xs text-ink-600 mt-0.5 leading-relaxed">{t.def}</div>
+            <div key={t.term} className="py-2">
+              <div className="text-xs font-bold text-ink-900">{t.term}</div>
+              <div className="text-xs text-ink-600 mt-0.5 leading-snug">{t.def}</div>
             </div>
           ))}
         </div>
