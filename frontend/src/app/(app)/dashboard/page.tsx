@@ -46,7 +46,7 @@ export default function DashboardPage() {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        router.push("/");
+        router.push("/app");
         return;
       }
 
@@ -152,7 +152,7 @@ export default function DashboardPage() {
                 : "Modifiez votre recherche."}
             </p>
             {history.length === 0 && (
-              <button onClick={() => router.push("/")} className="btn-primary">
+              <button onClick={() => router.push("/app")} className="btn-primary">
                 Lancer une analyse
               </button>
             )}

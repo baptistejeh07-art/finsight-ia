@@ -52,7 +52,7 @@ export function Sidebar() {
   return (
     <aside className="hidden md:flex fixed left-0 top-0 h-screen w-56 flex-col bg-white text-ink-900 border-r border-ink-200 z-40">
       {/* Logo image (icône + texte) — sans fond blanc */}
-      <Link href="/" className="block px-4 pt-4 pb-3 border-b border-ink-100">
+      <Link href="/app" className="block px-4 pt-4 pb-3 border-b border-ink-100">
         <Image
           src="/logo-transparent.png"
           alt="FinSight IA"

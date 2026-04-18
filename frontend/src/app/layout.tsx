@@ -1,8 +1,6 @@
 import type { Metadata } from "next";
 import { DM_Sans, DM_Mono } from "next/font/google";
 import { Toaster } from "react-hot-toast";
-import { Sidebar } from "@/components/sidebar";
-import { TopNav } from "@/components/top-nav";
 import "./globals.css";
 
 const dmSans = DM_Sans({
@@ -20,11 +18,11 @@ const dmMono = DM_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "FinSight IA — Plateforme d'analyse financière institutionnelle",
+    default: "FinSight IA — Votre propre analyste, où que vous soyez",
     template: "%s · FinSight IA",
   },
   description:
-    "Analyses financières institutionnelles propulsées par l'IA. Sociétés cotées, secteurs, indices : DCF, ratios, scénarios, comparatifs. Rapports PDF/PPTX/Excel pro.",
+    "Analyses financières institutionnelles propulsées par l'IA. Sociétés cotées, secteurs, indices : DCF, ratios, scénarios, comparatifs. Rapports PDF, PPTX et Excel prêts pour comité d'investissement.",
   keywords: [
     "analyse financière",
     "DCF",
@@ -34,6 +32,7 @@ export const metadata: Metadata = {
     "investissement",
     "bourse",
     "Bloomberg",
+    "pitchbook",
   ],
   authors: [{ name: "FinSight IA" }],
   metadataBase: new URL("https://finsight-ia.com"),
@@ -42,32 +41,46 @@ export const metadata: Metadata = {
     locale: "fr_FR",
     url: "https://finsight-ia.com",
     siteName: "FinSight IA",
-    title: "FinSight IA — Plateforme d'analyse financière institutionnelle",
-    description: "Analyses financières institutionnelles propulsées par l'IA.",
+    title: "FinSight IA — Votre propre analyste, où que vous soyez",
+    description:
+      "Analyses financières de niveau institutionnel propulsées par l'IA.",
   },
   twitter: {
     card: "summary_large_image",
-    title: "FinSight IA — Plateforme d'analyse financière institutionnelle",
-    description: "DCF · Ratios · Scénarios · Comparatifs. Analyses institutionnelles en 2 minutes.",
+    title: "FinSight IA — Votre propre analyste, où que vous soyez",
+    description:
+      "DCF · Ratios · Scénarios · Comparatifs. Analyses institutionnelles en quelques minutes.",
   },
   robots: { index: true, follow: true },
 };
+
+const themeInitScript = `
+(function () {
+  try {
+    var stored = localStorage.getItem('finsight-theme');
+    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    var theme = stored === 'dark' || stored === 'light' ? stored : (prefersDark ? 'dark' : 'light');
+    if (theme === 'dark') document.documentElement.classList.add('dark');
+  } catch (e) {}
+})();
+`;
 
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="fr" className={`${dmSans.variable} ${dmMono.variable}`}>
-      <body className="min-h-screen antialiased">
-        <Sidebar />
-        <TopNav />
-        <div className="md:pl-56 min-h-screen">{children}</div>
+    <html lang="fr" className={`${dmSans.variable} ${dmMono.variable}`} suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+      </head>
+      <body className="min-h-screen antialiased bg-surface text-text-primary">
+        {children}
         <Toaster
           position="top-right"
           toastOptions={{
             style: {
-              background: "#1B2A4A",
-              color: "#fff",
+              background: "rgb(var(--accent-primary))",
+              color: "rgb(var(--accent-primary-fg))",
               fontSize: "14px",
               borderRadius: "6px",
             },

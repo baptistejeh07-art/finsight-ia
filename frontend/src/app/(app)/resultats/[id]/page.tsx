@@ -112,7 +112,7 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
           <p className="text-sm text-ink-600 mb-6">
             Cette analyse n&apos;est plus disponible (lien expiré ou redémarrage serveur).
           </p>
-          <button onClick={() => router.push("/")} className="btn-primary">
+          <button onClick={() => router.push("/app")} className="btn-primary">
             Retour à l&apos;accueil
           </button>
         </main>
@@ -154,7 +154,7 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
       <main className="flex-1 w-full px-4 lg:px-6 py-6">
         {/* Back */}
         <button
-          onClick={() => router.push("/")}
+          onClick={() => router.push("/app")}
           className="btn-ghost text-xs mb-4 -ml-3"
         >
           <ArrowLeft className="w-3 h-3 mr-1" />

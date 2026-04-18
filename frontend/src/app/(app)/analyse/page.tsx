@@ -53,7 +53,7 @@ function AnalyseContent() {
 
   useEffect(() => {
     if (!query) {
-      router.push("/");
+      router.push("/app");
       return;
     }
 
@@ -153,7 +153,7 @@ function AnalyseContent() {
             Échec de l&apos;analyse
           </h1>
           <p className="text-sm text-ink-600 mb-6">{error}</p>
-          <button onClick={() => router.push("/")} className="btn-primary">
+          <button onClick={() => router.push("/app")} className="btn-primary">
             Retour à l&apos;accueil
           </button>
         </main>
