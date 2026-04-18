@@ -2,9 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Building2, TrendingUp, Globe2, FileText, Presentation, FileSpreadsheet } from "lucide-react";
-import { Navbar } from "@/components/navbar";
-import { Footer } from "@/components/footer";
+import { ArrowRight, Building2, TrendingUp, Globe2 } from "lucide-react";
 import toast from "react-hot-toast";
 
 const QUICK_TICKERS = ["AAPL", "TSLA", "MSFT", "MC.PA", "OR.PA", "NVDA"];
@@ -42,104 +40,83 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <Navbar />
-
-      <main className="flex-1 max-w-5xl mx-auto px-6 py-12 w-full">
-        {/* Hero */}
-        <div className="text-center mb-10 animate-fade-in">
-          <div className="section-label mb-3">Analyse Financière IA</div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-ink-900 tracking-tight">
-            Société, indice ou secteur ?
-          </h1>
-        </div>
-
-        {/* Search bar */}
-        <div className="space-y-3 max-w-2xl mx-auto">
-          <input
-            type="text"
-            placeholder="AAPL, CAC 40, Technology…"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleAnalyze()}
-            className="input !text-base !py-3"
-            autoFocus
-          />
-          <button
-            onClick={handleAnalyze}
-            className="btn-primary w-full !py-3 !text-base group"
-          >
-            Analyser
-            <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
-          </button>
-        </div>
-
-        {/* Quick picks */}
-        <div className="mt-10 space-y-6 animate-slide-up">
-          <QuickPickRow
-            icon={<Building2 className="w-3 h-3" />}
-            label="Sociétés"
-            items={QUICK_TICKERS}
-            onPick={(t) => {
-              setQuery(t);
-              router.push(`/analyse?q=${encodeURIComponent(t)}`);
-            }}
-          />
-          <QuickPickRow
-            icon={<TrendingUp className="w-3 h-3" />}
-            label="Secteurs"
-            items={QUICK_SECTORS}
-            onPick={(t) => {
-              setQuery(t);
-              router.push(`/analyse?q=${encodeURIComponent(t)}`);
-            }}
-          />
-          <QuickPickRow
-            icon={<Globe2 className="w-3 h-3" />}
-            label="Indices"
-            items={QUICK_INDICES}
-            onPick={(t) => {
-              setQuery(t);
-              router.push(`/analyse?q=${encodeURIComponent(t)}`);
-            }}
-          />
-        </div>
-
-        {/* Livrables */}
-        <div id="livrables" className="mt-16 pt-10 border-t border-ink-200 scroll-mt-8">
-          <div className="text-center mb-6">
-            <div className="section-label">Livrables</div>
+      <main className="flex-1 max-w-5xl mx-auto px-6 py-20 w-full flex flex-col justify-center">
+        {/* Bloc principal centré : Hero + Search + Quick picks */}
+        <div>
+          {/* Hero */}
+          <div className="text-center mb-10 animate-fade-in">
+            <div className="section-label mb-3">Analyse Financière IA</div>
+            <h1 className="text-2xl sm:text-3xl font-bold text-ink-900 tracking-tight">
+              Société, indice ou secteur ?
+            </h1>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-3xl mx-auto">
-            <DeliverableCard
-              icon={<FileText className="w-4 h-4" />}
-              label="Rapport PDF"
-              description="20 pages · thèse, valorisation, scénarios, risques"
+
+          {/* Search bar */}
+          <div className="space-y-3 max-w-2xl mx-auto">
+            <input
+              type="text"
+              placeholder="AAPL, CAC 40, Technology…"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleAnalyze()}
+              className="input !text-base !py-3"
+              autoFocus
             />
-            <DeliverableCard
-              icon={<Presentation className="w-4 h-4" />}
-              label="Pitchbook PPTX"
-              description="20 slides · format Bloomberg, prêt pour comité"
+            <button
+              onClick={handleAnalyze}
+              className="btn-primary w-full !py-3 !text-base group"
+            >
+              Analyser
+              <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
+            </button>
+          </div>
+
+          {/* Quick picks */}
+          <div className="mt-10 space-y-6 animate-slide-up">
+            <QuickPickRow
+              icon={<Building2 className="w-3 h-3" />}
+              label="Sociétés"
+              items={QUICK_TICKERS}
+              onPick={(t) => {
+                setQuery(t);
+                router.push(`/analyse?q=${encodeURIComponent(t)}`);
+              }}
             />
-            <DeliverableCard
-              icon={<FileSpreadsheet className="w-4 h-4" />}
-              label="Modèle Excel"
-              description="DCF complet · ratios · comparables · scénarios"
+            <QuickPickRow
+              icon={<TrendingUp className="w-3 h-3" />}
+              label="Secteurs"
+              items={QUICK_SECTORS}
+              onPick={(t) => {
+                setQuery(t);
+                router.push(`/analyse?q=${encodeURIComponent(t)}`);
+              }}
+            />
+            <QuickPickRow
+              icon={<Globe2 className="w-3 h-3" />}
+              label="Indices"
+              items={QUICK_INDICES}
+              onPick={(t) => {
+                setQuery(t);
+                router.push(`/analyse?q=${encodeURIComponent(t)}`);
+              }}
             />
           </div>
         </div>
 
-        {/* Quote */}
-        <div className="text-center mt-12 mb-8 animate-fade-in">
-          <p className="text-sm text-ink-500 italic max-w-lg mx-auto leading-relaxed">
-            « {quote.text} »
-          </p>
-          <p className="text-2xs uppercase tracking-widest text-ink-400 mt-2">
-            — {quote.author}
-          </p>
+        {/* Citation + fine bar en dessous */}
+        <div className="mt-16 pt-10">
+          <div className="text-center animate-fade-in">
+            <p className="text-sm text-ink-500 italic max-w-lg mx-auto leading-relaxed">
+              « {quote.text} »
+            </p>
+            <p className="text-2xs uppercase tracking-widest text-ink-400 mt-2">
+              — {quote.author}
+            </p>
+          </div>
+          {/* Fine bar passée SOUS la citation */}
+          <div className="mt-10 border-t border-ink-200" />
         </div>
       </main>
-
-      <Footer />
     </div>
   );
 }
@@ -149,26 +126,6 @@ interface QuickPickRowProps {
   label: string;
   items: string[];
   onPick: (t: string) => void;
-}
-
-function DeliverableCard({
-  icon,
-  label,
-  description,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  description: string;
-}) {
-  return (
-    <div className="flex items-start gap-3 p-3 rounded-md border border-ink-200 bg-white">
-      <div className="text-navy-500 mt-0.5 shrink-0">{icon}</div>
-      <div>
-        <div className="text-sm font-semibold text-ink-900">{label}</div>
-        <div className="text-xs text-ink-500 mt-0.5 leading-relaxed">{description}</div>
-      </div>
-    </div>
-  );
 }
 
 function QuickPickRow({ icon, label, items, onPick }: QuickPickRowProps) {
