@@ -2285,13 +2285,13 @@ def _s19_sentiment(prs, D, chart_bytes: bytes):
     except Exception as _e:
         log.debug(f"[indice_pptx_writer:_s19_sentiment] exception skipped: {_e}")
     if _llm_sent_s19.strip():
-        # #197 : hauteur augmentée (1.75 → 2.55) + prompt réduit (150-180 → 100-120
-        # mots) pour éviter que le texte sorte de la box
-        _rect(slide, _rx, 10.80, _rw, 2.55, fill=_GRAYL)
-        _rect(slide, _rx, 10.80, 0.08, 2.55, fill=_NAVY)
-        _txb(slide, "LECTURE SENTIMENT & IMPLICATIONS", _rx + 0.15, 10.85, _rw - 0.3, 0.35,
+        # Ancré sous le rect Retardataires (y=10.40, h=1.05 → ends 11.45) pour éviter
+        # l'overlap vertical visible sur les renders secteur/indice.
+        _rect(slide, _rx, 11.60, _rw, 1.75, fill=_GRAYL)
+        _rect(slide, _rx, 11.60, 0.08, 1.75, fill=_NAVY)
+        _txb(slide, "LECTURE SENTIMENT & IMPLICATIONS", _rx + 0.15, 11.65, _rw - 0.3, 0.35,
              size=7, bold=True, color=_NAVY)
-        _txb(slide, _llm_sent_s19[:750], _rx + 0.15, 11.22, _rw - 0.3, 2.10,
+        _txb(slide, _llm_sent_s19[:550], _rx + 0.15, 12.00, _rw - 0.3, 1.30,
              size=6.5, color=_GRAYT, wrap=True)
 
     _footer(slide)

@@ -1238,21 +1238,20 @@ def _s05_presentation(prs, D):
     metriques_dict = content.get("metriques_dict", [])
 
     # ─── Bloc Description (compact, partie haute) ─────────────────────────
-    # SEC-PPTX-S5 Baptiste : bandeau navy hauteur 0.60 (vs 0.55) et texte
-    # titre centre plus haut (+0.02) pour éviter le clipping leger bas que
-    # l'on voyait sur le rendu technologie.
-    _rect(slide, 0.9, 2.5, 13.7, 3.5, fill=_GRAYL)
-    _rect(slide, 0.9, 2.5, 0.1, 3.5, fill=_NAVY)
+    # Box h=3.9 (vs 3.5) pour accueillir 7 lignes à size=10 — évite l'overflow
+    # silencieux sur les descriptions longues (ex: Énergie ~400 chars).
+    _rect(slide, 0.9, 2.5, 13.7, 3.9, fill=_GRAYL)
+    _rect(slide, 0.9, 2.5, 0.1, 3.9, fill=_NAVY)
     _rect(slide, 0.9, 2.5, 13.7, 0.60, fill=_NAVY)
     _txb(slide, "PANORAMA SECTORIEL", 1.1, 2.56, 13.3, 0.48,
          size=9, bold=True, color=_WHITE)
-    _txb(slide, desc, 1.3, 3.25, 13.1, 2.6, size=10, color=_GRAYT, wrap=True)
+    _txb(slide, desc, 1.3, 3.25, 13.1, 3.0, size=10, color=_GRAYT, wrap=True)
 
     # ─── Bloc Catalyseurs Cl\u00e9s (sous la description, bien s\u00e9par\u00e9) ────────
     cats = content.get("catalyseurs", [])
     if cats:
-        _cat_y0 = 6.3
-        _cat_h_total = 6.65
+        _cat_y0 = 6.6
+        _cat_h_total = 6.55
         _rect(slide, 0.9, _cat_y0, 13.7, _cat_h_total, fill=_GRAYL)
         _rect(slide, 0.9, _cat_y0, 13.7, 0.60, fill=_NAVY)
         _txb(slide, "CATALYSEURS CL\u00c9S", 1.1, _cat_y0 + 0.06, 13.3, 0.48,
@@ -1490,8 +1489,8 @@ def _s07_cycle(prs, D):
         _txb(slide, name, 2.1, yy + 0.15, 13.7, 0.7, size=10, bold=True, color=_NAVY)
         _txb(slide, body, 2.1, yy + 0.95, 13.7, 0.8, size=8, color=_GRAYT, wrap=True)
 
-    # Signal box (right)
-    _rect(slide, 16.6, 2.5, 7.9, 10.9, fill=_GRAYL)  # hauteur etendue pour inclure rec_line
+    # Signal box (right) — h=11.1 pour englober rec_line + FRED
+    _rect(slide, 16.6, 2.5, 7.9, 11.1, fill=_GRAYL)
     _txb(slide, "SIGNAL SECTORIEL", 16.6, 2.9, 7.9, 0.7, size=8.5, bold=True, color=_NAVY, align=PP_ALIGN.CENTER)
     _rect(slide, 17.5, 3.9, 6.1, 1.4, fill=D["sig_color"])
     _txb(slide, f"● {D['sig_label']}", 17.5, 4.0, 6.1, 1.2, size=12, bold=True, color=_WHITE, align=PP_ALIGN.CENTER)
@@ -1554,10 +1553,10 @@ def _s07_cycle(prs, D):
             _fred_line = "Données FRED : " + " · ".join(_parts)
             if _sect_parts:
                 _fred_line += "\n" + " · ".join(_sect_parts)
-            # Position sous le bloc macro existant ou en bas du panel droit
-            _fred_y = 12.9 if (_regime and _regime != "Inconnu") else 11.35
-            _rect(slide, 16.9, _fred_y, 7.3, 0.05, fill=_NAVY)
-            _txb(slide, _fred_line, 16.6, _fred_y + 0.1, 7.9, 0.7,
+            # Position sous rec_line (12.95) ou au-dessus si pas de régime
+            _fred_y = 13.05 if (_regime and _regime != "Inconnu") else 11.35
+            _rect(slide, 16.9, _fred_y, 7.3, 0.03, fill=_NAVY)
+            _txb(slide, _fred_line, 16.6, _fred_y + 0.08, 7.9, 0.52,
                  size=6.5, color=_NAVYL, wrap=True, align=PP_ALIGN.CENTER)
     except Exception as _fred_e:
         log.warning("sectoral_pptx _s07 FRED block: %s", _fred_e)
