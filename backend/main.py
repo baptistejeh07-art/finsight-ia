@@ -263,15 +263,18 @@ def _do_societe(ticker: str) -> dict:
     return {"data": data, "files": files, "ticker": ticker}
 
 
-def _do_portrait(ticker: str) -> dict:
-    """Génère le Portrait d'entreprise PDF + retourne {data, files}."""
+def _do_portrait(ticker: str, _progress_cb=None) -> dict:
+    """Génère le Portrait d'entreprise PDF + retourne {data, files}.
+
+    _progress_cb(pct:int, msg:str): callback fourni par jobstore pour progress live.
+    """
     from core.portrait import generate_portrait
     from outputs.portrait_pdf_writer import write_portrait_pdf
 
     outputs_dir = _ROOT / "outputs" / "generated" / "portraits"
     outputs_dir.mkdir(parents=True, exist_ok=True)
 
-    state = generate_portrait(ticker)
+    state = generate_portrait(ticker, progress_cb=_progress_cb)
     pdf_path = outputs_dir / f"{ticker}_portrait.pdf"
     write_portrait_pdf(state, str(pdf_path))
 

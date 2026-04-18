@@ -69,7 +69,21 @@ def submit(kind: str, fn: Callable[..., Any], *args, user_id: Optional[str] = No
             _JOBS[job_id]["started_at"] = _now_iso()
         log.info(f"[jobs/{kind}] {job_id[:8]} started")
         try:
-            result = fn(*args, **kwargs)
+            # Si fn accepte _progress_cb, on lui passe une closure qui pousse le progress
+            import inspect
+            try:
+                sig = inspect.signature(fn)
+                if "_progress_cb" in sig.parameters:
+                    def _cb(pct: int, msg: Optional[str] = None):
+                        try:
+                            update_progress(job_id, int(pct), msg)
+                        except Exception:
+                            pass
+                    result = fn(*args, _progress_cb=_cb, **kwargs)
+                else:
+                    result = fn(*args, **kwargs)
+            except (ValueError, TypeError):
+                result = fn(*args, **kwargs)
             with _LOCK:
                 _JOBS[job_id]["status"] = "done"
                 _JOBS[job_id]["result"] = result
