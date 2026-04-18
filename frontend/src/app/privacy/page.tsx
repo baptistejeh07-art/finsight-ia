@@ -32,7 +32,8 @@ export default function PrivacyPage() {
             <p>
               Le responsable du traitement des données à caractère personnel
               collectées sur finsight-ia.com est l&apos;éditeur du site,
-              Baptiste Jeh (voir{" "}
+              Baptiste Jehanno Mantoumbou (entrepreneur individuel,
+              SIREN 101 364 859 — voir{" "}
               <Link href="/mentions-legales" className="text-accent-primary underline">
                 mentions légales
               </Link>

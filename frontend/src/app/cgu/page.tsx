@@ -102,8 +102,11 @@ export default function CguPage() {
               <Link href="/#tarification" className="text-accent-primary underline">
                 page Tarification
               </Link>
-              . Les prix sont indiqués hors taxes ; la TVA applicable est
-              ajoutée au moment du paiement.
+              . Les prix sont indiqués en euros, toutes taxes comprises (TTC).
+              FinSight bénéficiant du régime de franchise en base de TVA
+              (article 293 B du Code général des impôts), aucune TVA
+              n&apos;est facturée et la mention « TVA non applicable, art.
+              293 B du CGI » figure sur chaque facture.
             </p>
             <p>
               Tout abonnement est souscrit pour une durée d&apos;un mois ou

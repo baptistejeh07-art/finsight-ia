@@ -27,25 +27,28 @@ export default function MentionsLegalesPage() {
         <article className="container-vitrine py-16 md:py-20 max-w-3xl space-y-12">
           <Section title="1. Éditeur du site">
             <p>
-              Le site <strong>finsight-ia.com</strong> est édité par Baptiste
-              Jeh, étudiant entrepreneur en BTS Comptabilité et Gestion en
-              alternance, en cours d&apos;immatriculation sous statut
-              entrepreneur individuel à la rentrée 2026.
+              Le site <strong>finsight-ia.com</strong> est édité par
+              Baptiste Jehanno Mantoumbou, entrepreneur individuel sous
+              régime de la micro-entreprise, immatriculé au Registre National
+              des Entreprises (RNE) le 26 mars 2026.
             </p>
-            <KeyVal label="Nom de l'éditeur">Baptiste Jeh</KeyVal>
-            <KeyVal label="Statut">Entrepreneur individuel (en cours)</KeyVal>
-            <KeyVal label="Adresse de contact">contact@finsight-ia.com</KeyVal>
-            <KeyVal label="Email du DPO">privacy@finsight-ia.com</KeyVal>
-            <p className="text-sm text-text-muted">
-              Le site est édité à titre personnel dans l&apos;attente de
-              l&apos;immatriculation officielle. Les mentions ci-dessus seront
-              complétées (numéro SIREN, code APE, capital social) dès
-              l&apos;ouverture du statut juridique en 2026.
-            </p>
+            <KeyVal label="Éditeur">Baptiste Jehanno Mantoumbou</KeyVal>
+            <KeyVal label="Forme juridique">Entrepreneur individuel (micro-entreprise)</KeyVal>
+            <KeyVal label="SIREN">101 364 859</KeyVal>
+            <KeyVal label="SIRET (siège)">10136 4859 00013</KeyVal>
+            <KeyVal label="Code APE/NAF">7022Z — Conseil pour les affaires et autres conseils de gestion</KeyVal>
+            <KeyVal label="Adresse du siège">Rue Mary Ellis, 31300 Toulouse, France</KeyVal>
+            <KeyVal label="TVA">Non applicable, art. 293 B du CGI (franchise en base)</KeyVal>
+            <KeyVal label="Contact général">contact@finsight-ia.com</KeyVal>
+            <KeyVal label="DPO / RGPD">privacy@finsight-ia.com</KeyVal>
+            <KeyVal label="Sécurité">security@finsight-ia.com</KeyVal>
           </Section>
 
           <Section title="2. Directeur de la publication">
-            <p>Baptiste Jeh, en sa qualité d&apos;éditeur du site.</p>
+            <p>
+              Baptiste Jehanno Mantoumbou, en sa qualité d&apos;éditeur et
+              dirigeant de l&apos;entreprise individuelle.
+            </p>
           </Section>
 
           <Section title="3. Hébergeurs">
