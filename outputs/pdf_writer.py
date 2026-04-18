@@ -480,7 +480,7 @@ def _make_perf_chart(data):
     ax.legend(fontsize=13, loc='upper left', frameon=False)
     plt.tight_layout(pad=0.5)
     buf = io.BytesIO()
-    fig.savefig(buf, format='png', dpi=180, bbox_inches='tight')
+    fig.savefig(buf, format='png', dpi=110, bbox_inches='tight')
     plt.close(fig); buf.seek(0)
     return buf
 
@@ -505,7 +505,7 @@ def _make_ff_chart(data):
         ax.axis('off')
         ax.set_facecolor('white'); fig.patch.set_facecolor('white')
         buf = io.BytesIO()
-        fig.savefig(buf, format='png', dpi=180, bbox_inches='tight')
+        fig.savefig(buf, format='png', dpi=110, bbox_inches='tight')
         plt.close(fig); buf.seek(0)
         return buf
     # Hauteur adaptive : min 4.5, +0.72 par methode pour eviter overlaps (FIX 7)
@@ -559,7 +559,7 @@ def _make_ff_chart(data):
     ax.grid(axis='x', alpha=0.3, color='#D0D5DD', zorder=0)
     plt.tight_layout(rect=[0, 0, 1, 1], pad=1.5)
     buf = io.BytesIO()
-    fig.savefig(buf, format='png', dpi=180, bbox_inches='tight')
+    fig.savefig(buf, format='png', dpi=110, bbox_inches='tight')
     plt.close(fig)
     buf.seek(0)
     return buf
@@ -582,7 +582,7 @@ def _make_pie_comparables(data):
         ax.set_facecolor('white'); fig.patch.set_facecolor('white')
         ax.axis('off')
         buf = io.BytesIO()
-        fig.savefig(buf, format='png', dpi=180, bbox_inches='tight')
+        fig.savefig(buf, format='png', dpi=110, bbox_inches='tight')
         plt.close(fig); buf.seek(0)
         return buf
 
@@ -623,7 +623,7 @@ def _make_pie_comparables(data):
     fig.patch.set_facecolor('white')
     plt.tight_layout(pad=0.5)
     buf = io.BytesIO()
-    fig.savefig(buf, format='png', dpi=180, bbox_inches='tight')
+    fig.savefig(buf, format='png', dpi=110, bbox_inches='tight')
     plt.close(fig); buf.seek(0)
     return buf
 
@@ -675,7 +675,7 @@ def _make_mc_histogram(data):
     fig.patch.set_facecolor('white')
     plt.tight_layout(pad=1.0)
     buf = io.BytesIO()
-    fig.savefig(buf, format='png', dpi=180, bbox_inches='tight')
+    fig.savefig(buf, format='png', dpi=110, bbox_inches='tight')
     plt.close(fig)
     buf.seek(0)
     return buf
@@ -817,7 +817,7 @@ def _make_revenue_area(data):
             ax.set_title(_rev_title, fontsize=12, color='#1B3A6B', fontweight='bold', pad=8)
             plt.tight_layout(pad=0.5)
             buf = io.BytesIO()
-            fig.savefig(buf, format='png', dpi=180, bbox_inches='tight')
+            fig.savefig(buf, format='png', dpi=110, bbox_inches='tight')
             plt.close(fig); buf.seek(0)
             return buf
         # Aucune donnee disponible
@@ -864,7 +864,7 @@ def _make_revenue_area(data):
         fontsize=12, color='#1B3A6B', fontweight='bold', pad=8)
     plt.tight_layout(pad=0.5)
     buf = io.BytesIO()
-    fig.savefig(buf, format='png', dpi=180, bbox_inches='tight')
+    fig.savefig(buf, format='png', dpi=110, bbox_inches='tight')
     plt.close(fig); buf.seek(0)
     return buf
 

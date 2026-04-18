@@ -318,20 +318,31 @@ class LLMProvider:
         return response.content[0].text
 
     def _call_groq(self, prompt, system, max_tokens):
+        """Groq : fail-fast sur 429 (rate limit) → fallback agent-level immédiat.
+
+        Avant fix Baptiste perf 2026-04-18 : retry séquentiel [5,15,30]s = 50s
+        d'attente avant de bubble vers fallback Mistral. Pour 1 analyse société,
+        ça ajoutait 50s inutiles dès que Groq atteint sa quota TPM.
+
+        Maintenant : 1 seule tentative + 1 retry court (1.5s) puis raise.
+        Si tu veux du retry agressif, fais-le via la cascade fallback de
+        AgentSynthese (groq -> mistral -> cerebras -> anthropic).
+        """
         from groq import Groq
         messages = []
         if system:
             messages.append({"role": "system", "content": system})
         messages.append({"role": "user", "content": prompt})
 
-        _delays = [5, 15, 30]
+        _delays = [1.5]  # 1 seule retry courte (transient 503/network)
         for _attempt, _wait in enumerate([0] + _delays):
             if _wait:
-                _log.warning(f"[Groq] Tentative {_attempt + 1}/4 — attente {_wait}s")
+                _log.warning(f"[Groq] Tentative {_attempt + 1}/2 — attente {_wait}s")
                 time.sleep(_wait)
             try:
                 _key = _rotator.get_key()
-                _client = Groq(api_key=_key)
+                # max_retries=0 : disable retry interne SDK (sinon double retry)
+                _client = Groq(api_key=_key, max_retries=0, timeout=20.0)
                 response = _client.chat.completions.create(
                     model=self.model, messages=messages, max_tokens=max_tokens)
                 _total = getattr(getattr(response, "usage", None),
@@ -344,11 +355,16 @@ class LLMProvider:
                 _code = getattr(e, "status_code", None) or getattr(
                     getattr(e, "response", None), "status_code", None)
                 _msg = str(e)
-                if _code in (429, 503) or "rate_limit" in _msg.lower() or "overloaded" in _msg.lower():
+                # 429 (rate limit) : fail-fast immédiat (la cascade fallback du caller
+                # gérera la bascule vers Mistral plus efficacement qu'un retry Groq).
+                if _code == 429 or "rate_limit" in _msg.lower():
+                    raise
+                # 503 (overloaded) ou network : 1 retry court possible
+                if _code == 503 or "overloaded" in _msg.lower():
                     if _attempt < len(_delays):
                         continue
                 raise
-        raise RuntimeError("[Groq] Echec apres 4 tentatives")
+        raise RuntimeError("[Groq] Echec apres 2 tentatives")
 
     def _call_openai(self, prompt, system, max_tokens):
         """OpenAI GPT-4o-mini avec rotation de cles TPD+TPM.

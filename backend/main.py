@@ -259,6 +259,17 @@ def _do_societe(ticker: str) -> dict:
                 data = json.load(f)
         except Exception as e:
             log.warning(f"state.json parse fail: {e}")
+
+    # Audit data : détection des champs critiques manquants (None/vides)
+    try:
+        from core.data_audit import audit_state
+        warnings = audit_state(data) if data else []
+        if warnings:
+            data["warnings"] = warnings
+            log.info(f"[audit] {ticker} — {len(warnings)} warning(s) détecté(s)")
+    except Exception as e:
+        log.debug(f"[audit] failed: {e}")
+
     files = _upload_files_to_storage(files, prefix=f"societe/{ticker}")
     return {"data": data, "files": files, "ticker": ticker}
 
@@ -570,6 +581,72 @@ async def get_job(job_id: str):
 async def list_jobs(limit: int = 50):
     """Debug : liste les N derniers jobs."""
     return {"jobs": jobstore.list_jobs(limit)}
+
+
+@app.get("/admin/monitoring")
+async def admin_monitoring(limit: int = 30):
+    """Tableau de bord monitoring (Baptiste only — pas d'auth pour V1).
+
+    Retourne pour chaque job récent : kind, status, label, timing total
+    + breakdown par node (fetch/synthesis/qa/output) + provider LLM utilisé
+    + tailles fichiers + warnings audit.
+
+    Pas d'auth pour V1 : à protéger avant ouverture publique.
+    """
+    raw = jobstore.list_jobs(limit)
+    enriched = []
+    for j in raw:
+        full = jobstore.get(j.get("job_id")) or j
+        result = full.get("result") or {}
+        data = result.get("data") if isinstance(result, dict) else None
+        logs = (data or {}).get("logs") if isinstance(data, dict) else []
+        synth = (data or {}).get("synthesis") if isinstance(data, dict) else None
+        synth_meta = synth.get("meta") if isinstance(synth, dict) else None
+        warnings = (data or {}).get("warnings") if isinstance(data, dict) else []
+
+        timing = {}
+        for entry in (logs or []):
+            node = entry.get("node")
+            if node:
+                timing[node] = entry.get("latency_ms")
+        # Sub-timings output
+        out_entry = next((e for e in (logs or []) if e.get("node") == "output_node"), {})
+        files = result.get("files") if isinstance(result, dict) else None
+        synth_entry = next((e for e in (logs or []) if e.get("node") == "synthesis_node"), {})
+
+        elapsed_total = None
+        try:
+            from datetime import datetime as _dt
+            s, f = full.get("started_at"), full.get("finished_at")
+            if s and f:
+                elapsed_total = int(
+                    (_dt.fromisoformat(f) - _dt.fromisoformat(s)).total_seconds() * 1000
+                )
+        except Exception:
+            pass
+
+        enriched.append({
+            "job_id": full.get("job_id"),
+            "kind": full.get("kind"),
+            "status": full.get("status"),
+            "label": full.get("label"),
+            "started_at": full.get("started_at"),
+            "finished_at": full.get("finished_at"),
+            "elapsed_ms": elapsed_total,
+            "timing": timing,
+            "synthesis_provider": synth_entry.get("provider"),
+            "synthesis_provider_ms": (synth_meta or {}).get("provider_ms"),
+            "providers_failed": synth_entry.get("providers_failed"),
+            "writers_ms": {
+                "excel_ms": out_entry.get("excel_ms"),
+                "pptx_ms": out_entry.get("pptx_ms"),
+                "pdf_ms": out_entry.get("pdf_ms"),
+            },
+            "files": files,
+            "warnings": warnings or [],
+            "error": full.get("error"),
+        })
+    return {"jobs": enriched, "count": len(enriched)}
 
 
 # ─── Résolution tickers + classification requête ────────────────────────────

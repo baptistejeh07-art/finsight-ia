@@ -150,6 +150,77 @@ def upload_file(local_path, remote_path: str, content_type: Optional[str] = None
         return None
 
 
+def upsert_job_state(job: dict) -> bool:
+    """Persiste l'état complet d'un job dans la table jobs_state.
+
+    Schema attendu :
+        CREATE TABLE IF NOT EXISTS jobs_state (
+            job_id      uuid PRIMARY KEY,
+            kind        text NOT NULL,
+            status      text NOT NULL,
+            progress    int DEFAULT 0,
+            user_id     text,
+            label       text,
+            created_at  timestamptz DEFAULT now(),
+            started_at  timestamptz,
+            finished_at timestamptz,
+            result      jsonb,
+            error       text
+        );
+
+    Best-effort : silencieux si Supabase non configuré.
+    """
+    if not _enabled() or not job.get("job_id"):
+        return False
+    payload = {
+        "job_id": job["job_id"],
+        "kind": job.get("kind"),
+        "status": job.get("status"),
+        "progress": job.get("progress") or 0,
+        "user_id": job.get("user_id"),
+        "label": job.get("label"),
+        "started_at": job.get("started_at"),
+        "finished_at": job.get("finished_at"),
+        "result": job.get("result"),
+        "error": job.get("error"),
+    }
+    payload = {k: v for k, v in payload.items() if v is not None}
+    try:
+        r = httpx.post(
+            f"{_SUPABASE_URL}/rest/v1/jobs_state",
+            headers={**_headers(), "Prefer": "resolution=merge-duplicates"},
+            json=payload,
+            timeout=8.0,
+        )
+        if r.status_code >= 300:
+            log.warning(f"[db] upsert_job_state HTTP {r.status_code} : {r.text[:200]}")
+            return False
+        return True
+    except Exception as e:
+        log.warning(f"[db] upsert_job_state exception : {e}")
+        return False
+
+
+def get_job_state(job_id: str) -> Optional[dict]:
+    """Fetch un job depuis jobs_state. None si pas trouvé ou DB off."""
+    if not _enabled():
+        return None
+    try:
+        r = httpx.get(
+            f"{_SUPABASE_URL}/rest/v1/jobs_state",
+            headers=_headers(),
+            params={"job_id": f"eq.{job_id}", "limit": "1"},
+            timeout=6.0,
+        )
+        if r.status_code >= 300:
+            return None
+        rows = r.json() or []
+        return rows[0] if rows else None
+    except Exception as e:
+        log.debug(f"[db] get_job_state exception : {e}")
+        return None
+
+
 def list_analyses(user_id: str, limit: int = 50) -> list[dict]:
     """Retourne les N dernières analyses du user (plus récentes d'abord).
 
