@@ -133,7 +133,14 @@ function AnalyseContent() {
         }
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "Erreur API";
-        setError(msg);
+        // Cas spécial : job perdu côté backend (Railway redémarré ou job évincé)
+        if (/\/jobs\/.*failed \(404\)/.test(msg) || msg.includes("404")) {
+          setError(
+            "Le serveur d'analyse a été redémarré et l'analyse a été perdue avant la fin. Cela peut arriver lors d'un déploiement. Relancez simplement l'analyse — elle reprendra de zéro."
+          );
+        } else {
+          setError(msg);
+        }
       } finally {
         if (interval) clearInterval(interval);
       }
@@ -152,10 +159,18 @@ function AnalyseContent() {
           <h1 className="text-xl font-semibold text-ink-900 mb-2">
             Échec de l&apos;analyse
           </h1>
-          <p className="text-sm text-ink-600 mb-6">{error}</p>
-          <button onClick={() => router.push("/app")} className="btn-primary">
-            Retour à l&apos;accueil
-          </button>
+          <p className="text-sm text-ink-600 mb-6 leading-relaxed">{error}</p>
+          <div className="flex gap-2 justify-center">
+            <button
+              onClick={() => window.location.reload()}
+              className="btn-primary"
+            >
+              Relancer l&apos;analyse
+            </button>
+            <button onClick={() => router.push("/app")} className="btn-secondary">
+              Retour à l&apos;accueil
+            </button>
+          </div>
         </main>
         <Footer />
       </div>
