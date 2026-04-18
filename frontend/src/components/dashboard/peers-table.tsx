@@ -19,19 +19,22 @@ function fmtX(v: number | null | undefined): string {
   return `${v.toFixed(1).replace(".", ",")}x`;
 }
 function fmtP(v: number | null | undefined): string {
+  // Valeur déjà en pourcent (peers stockent 68.0, pas 0.68)
   if (v == null || isNaN(v)) return "—";
-  return `${(v * 100).toFixed(1).replace(".", ",")} %`;
+  return `${v.toFixed(1).replace(".", ",")} %`;
 }
 
 export function PeersTable({ peers, targetTicker, targetName, targetRatios }: Props) {
+  // target stocke gross_margin en décimal (0.469) → on convertit en pourcent
+  // pour aligner avec les peers (qui stockent 68.0)
   const targetRow: PeerData = {
     name: `${targetName} (cible)`,
     ticker: targetTicker,
     ev_ebitda: targetRatios?.ev_ebitda ?? null,
     ev_revenue: targetRatios?.ev_revenue ?? null,
     pe: targetRatios?.pe_ratio ?? null,
-    gross_margin: targetRatios?.gross_margin ?? null,
-    ebitda_margin: targetRatios?.ebitda_margin ?? null,
+    gross_margin: targetRatios?.gross_margin != null ? targetRatios.gross_margin * 100 : null,
+    ebitda_margin: targetRatios?.ebitda_margin != null ? targetRatios.ebitda_margin * 100 : null,
     market_cap_mds: targetRatios?.market_cap ? targetRatios.market_cap / 1000 : null,
   };
 
