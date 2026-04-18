@@ -21,6 +21,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${base}/cgu`, lastModified: now, changeFrequency: "yearly", priority: 0.3 },
     { url: `${base}/privacy`, lastModified: now, changeFrequency: "yearly", priority: 0.3 },
     { url: `${base}/disclaimer`, lastModified: now, changeFrequency: "yearly", priority: 0.4 },
+    { url: `${base}/roadmap`, lastModified: now, changeFrequency: "weekly", priority: 0.6 },
   ];
 
   const annonces: MetadataRoute.Sitemap = ANNONCES.map((a) => ({
