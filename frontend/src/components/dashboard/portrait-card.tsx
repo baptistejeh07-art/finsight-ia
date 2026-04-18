@@ -8,11 +8,16 @@ interface PortraitJob {
   job_id: string;
   status: "queued" | "running" | "done" | "error";
   progress?: number;
-  pdf_url?: string;
+  result?: { files?: { pdf?: string } };
   error?: string;
 }
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
+
+function fileUrl(path: string): string {
+  if (path.startsWith("http")) return path;
+  return `${API_BASE}/file/${path}`;
+}
 
 export function PortraitCard({
   ticker,
@@ -49,9 +54,11 @@ export function PortraitCard({
       const pollUntilDone = async (): Promise<PortraitJob> => {
         for (let i = 0; i < 200; i++) {
           await new Promise((res) => setTimeout(res, 3000));
-          const pr = await fetch(`${API_BASE}/portrait/${submitted.job_id}`);
+          const pr = await fetch(`${API_BASE}/jobs/${submitted.job_id}`);
           if (!pr.ok) {
-            if (pr.status === 404) throw new Error("Job introuvable (serveur redémarré). Relancez.");
+            if (pr.status === 404) {
+              throw new Error("Job introuvable (serveur redémarré). Relancez.");
+            }
             continue;
           }
           const job: PortraitJob = await pr.json();
@@ -63,11 +70,13 @@ export function PortraitCard({
       };
 
       const final = await pollUntilDone();
-      if (final.pdf_url) {
-        setPdfUrl(final.pdf_url);
+      const pdfPath = final.result?.files?.pdf;
+      if (pdfPath) {
+        const url = fileUrl(pdfPath);
+        setPdfUrl(url);
         toast.success("Portrait généré ! Téléchargez-le.");
       } else {
-        throw new Error("PDF manquant");
+        throw new Error("PDF manquant dans la réponse");
       }
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Erreur";

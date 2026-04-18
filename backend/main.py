@@ -263,6 +263,38 @@ def _do_societe(ticker: str) -> dict:
     return {"data": data, "files": files, "ticker": ticker}
 
 
+def _do_portrait(ticker: str) -> dict:
+    """Génère le Portrait d'entreprise PDF + retourne {data, files}."""
+    from core.portrait import generate_portrait
+    from outputs.portrait_pdf_writer import write_portrait_pdf
+
+    outputs_dir = _ROOT / "outputs" / "generated" / "portraits"
+    outputs_dir.mkdir(parents=True, exist_ok=True)
+
+    state = generate_portrait(ticker)
+    pdf_path = outputs_dir / f"{ticker}_portrait.pdf"
+    write_portrait_pdf(state, str(pdf_path))
+
+    files = {}
+    if pdf_path.exists():
+        files["pdf"] = str(pdf_path.relative_to(_ROOT))
+    files = _upload_files_to_storage(files, prefix=f"portrait/{ticker}")
+
+    data = {
+        "ticker": ticker,
+        "company_name": state.context.name,
+        "sections_count": sum(
+            1 for v in [
+                state.snapshot, state.history, state.vision, state.business_model,
+                state.segments, state.leadership_intro, state.market, state.risks,
+                state.strategy, state.devil_advocate, state.verdict,
+            ] if v
+        ),
+        "warnings": state.warnings,
+    }
+    return {"data": data, "files": files, "ticker": ticker, "kind": "portrait"}
+
+
 def _do_secteur(secteur: str, univers: str) -> dict:
     from cli_analyze import run_secteur as _run_secteur
 
@@ -490,6 +522,23 @@ async def submit_cmp_societe(
         user_id=(user or {}).get("id"), label=f"{req.ticker_a} vs {req.ticker_b}",
     )
     return JobSubmitResponse(job_id=job_id, status="queued", kind="cmp/societe")
+
+
+class PortraitRequest(BaseModel):
+    ticker: str
+
+
+@app.post("/portrait/societe", response_model=JobSubmitResponse, status_code=202)
+async def submit_portrait(
+    req: PortraitRequest,
+    user: Annotated[Optional[dict], Depends(get_current_user)] = None,
+):
+    """Génère un Portrait d'entreprise (PDF 15 pages). Async via jobstore."""
+    job_id = jobstore.submit(
+        "portrait/societe", _do_portrait, req.ticker,
+        user_id=(user or {}).get("id"), label=f"Portrait {req.ticker}",
+    )
+    return JobSubmitResponse(job_id=job_id, status="queued", kind="portrait/societe")
 
 
 @app.post("/jobs/cmp/secteur", response_model=JobSubmitResponse, status_code=202)
