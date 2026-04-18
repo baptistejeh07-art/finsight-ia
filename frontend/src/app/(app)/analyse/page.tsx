@@ -113,18 +113,48 @@ function AnalyseContent() {
           const elapsedMs = finalJob.finished_at && finalJob.started_at
             ? new Date(finalJob.finished_at).getTime() - new Date(finalJob.started_at).getTime()
             : 0;
-          sessionStorage.setItem(
-            `analysis_${submitted.job_id}`,
-            JSON.stringify({
-              success: true,
-              request_id: submitted.job_id,
-              elapsed_ms: elapsedMs,
-              data: finalJob.result.data,
-              files: finalJob.result.files,
-              kind: resolved.kind,
-              label,
-            })
-          );
+
+          // Cache local en sessionStorage (limite ~5 Mo par origin).
+          // Si quota dépassé (Tesla, indices riches…), on skip le cache et on
+          // redirige quand même : /resultats refetchera depuis l'API si nécessaire.
+          const payload = {
+            success: true,
+            request_id: submitted.job_id,
+            elapsed_ms: elapsedMs,
+            data: finalJob.result.data,
+            files: finalJob.result.files,
+            kind: resolved.kind,
+            label,
+          };
+          try {
+            sessionStorage.setItem(
+              `analysis_${submitted.job_id}`,
+              JSON.stringify(payload),
+            );
+          } catch (storageErr) {
+            // QuotaExceededError ou autre : on essaie une version allégée
+            // (sans raw_data, qui est le plus lourd)
+            try {
+              const lite = {
+                ...payload,
+                data: payload.data
+                  ? {
+                      ...payload.data,
+                      raw_data: undefined, // omit le plus gros
+                    }
+                  : payload.data,
+              };
+              sessionStorage.setItem(
+                `analysis_${submitted.job_id}`,
+                JSON.stringify(lite),
+              );
+              console.warn("[analyse] sessionStorage saturé, payload allégé sauvegardé", storageErr);
+            } catch {
+              // Toujours pas → skip totalement, /resultats refetchera depuis API
+              console.warn("[analyse] sessionStorage indisponible, redirect sans cache", storageErr);
+            }
+          }
+
           router.push(
             `/resultats/${submitted.job_id}?ticker=${encodeURIComponent(label)}&kind=${resolved.kind}`
           );
