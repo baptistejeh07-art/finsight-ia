@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { Sidebar } from "@/components/sidebar";
 import { TopNav } from "@/components/top-nav";
+import { EditModeProvider } from "@/components/edit-mode-provider";
 
 export default function AppLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <>
+    <EditModeProvider>
       <Sidebar />
       <TopNav />
       <div className="md:pl-56 min-h-screen flex flex-col">
@@ -31,6 +32,6 @@ export default function AppLayout({
           </Link>
         </div>
       </div>
-    </>
+    </EditModeProvider>
   );
 }

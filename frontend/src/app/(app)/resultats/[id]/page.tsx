@@ -29,6 +29,7 @@ import { PourAllerPlusLoin } from "@/components/dashboard/pour-aller-plus-loin";
 import { PortraitCard } from "@/components/dashboard/portrait-card";
 import { Glossaire } from "@/components/dashboard/glossaire";
 import { RevealOnScroll } from "@/components/dashboard/reveal-on-scroll";
+import { Editable } from "@/components/editable";
 
 interface AnalysisResult {
   success: boolean;
@@ -177,22 +178,28 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
                 {/* Row 1 : (Reco + Valo empilés à gauche) | Cours large à droite */}
                 <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
                   <div className="lg:col-span-2 space-y-4 flex flex-col">
-                    <RecoCard recommendation={recommendation} conviction={conviction} />
+                    <Editable name="Recommandation">
+                      <RecoCard recommendation={recommendation} conviction={conviction} />
+                    </Editable>
                     {/* Valorisation limitée à la largeur de la col Reco (pas de débordement) */}
-                    <ValorisationCards
-                      bull={synthesis?.target_bull}
-                      base={synthesis?.target_base}
-                      bear={synthesis?.target_bear}
-                      sharePrice={sharePrice}
-                      currency={currency}
-                    />
+                    <Editable name="Valorisation">
+                      <ValorisationCards
+                        bull={synthesis?.target_bull}
+                        base={synthesis?.target_base}
+                        bear={synthesis?.target_bear}
+                        sharePrice={sharePrice}
+                        currency={currency}
+                      />
+                    </Editable>
                   </div>
                   <div className="lg:col-span-3">
-                    <CoursChart
-                      ticker={tickerStr}
-                      history={rawData?.stock_history || []}
-                      sector={ci.sector}
-                    />
+                    <Editable name="Cours bourse">
+                      <CoursChart
+                        ticker={tickerStr}
+                        history={rawData?.stock_history || []}
+                        sector={ci.sector}
+                      />
+                    </Editable>
                   </div>
                 </div>
 
