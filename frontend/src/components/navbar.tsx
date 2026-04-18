@@ -48,6 +48,12 @@ export function Navbar() {
             >
               Analyse
             </Link>
+            <Link
+              href="/comparatif"
+              className="text-sm text-ink-700 hover:text-ink-900 transition-colors"
+            >
+              Comparatif
+            </Link>
             {user && (
               <Link
                 href="/dashboard"

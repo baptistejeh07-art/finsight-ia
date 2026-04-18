@@ -46,6 +46,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse
 from pydantic import BaseModel, Field
 
+import jobstore
+
 log = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
@@ -207,246 +209,236 @@ def get_me(user: Annotated[dict, Depends(require_user)]):
     return user
 
 
-# ─── Analyse société ────────────────────────────────────────────────────────
+# ─── Workers internes (réutilisés par sync + async) ─────────────────────────
 
-@app.post("/analyze/societe", response_model=AnalyseResponse)
-async def analyze_societe(
-    req: SocieteRequest,
-    background: BackgroundTasks,
-    user: Annotated[Optional[dict], Depends(get_current_user)] = None,
-):
-    """Lance l'analyse complète d'une société.
+def _do_societe(ticker: str) -> dict:
+    """Exécute l'analyse société + retourne {data, files}."""
+    from cli_analyze import run_societe as _run_societe
+    import json
 
-    Mode synchrone : retourne le résultat complet (ratios, synthèse, fichiers).
-    Pour analyses longues (>30s), le frontend devrait utiliser /analyze/societe/async.
-    """
+    outputs_dir = _ROOT / "outputs" / "generated" / "cli_tests"
+    _run_societe(ticker)
+
+    files = {}
+    for ext, label in [("pdf", "report"), ("pptx", "pitchbook"), ("xlsx", "financials")]:
+        p = outputs_dir / f"{ticker}_{label}.{ext}"
+        if p.exists():
+            files[ext] = str(p.relative_to(_ROOT))
+
+    data = {}
+    state_file = outputs_dir / f"{ticker}_state.json"
+    if state_file.exists():
+        try:
+            with open(state_file, encoding="utf-8") as f:
+                data = json.load(f)
+        except Exception as e:
+            log.warning(f"state.json parse fail: {e}")
+    return {"data": data, "files": files}
+
+
+def _do_secteur(secteur: str, univers: str) -> dict:
+    from cli_analyze import run_secteur as _run_secteur
+
+    _run_secteur(secteur, univers, prefix="secteur")
+    outputs_dir = _ROOT / "outputs" / "generated" / "cli_tests"
+    stem = f"secteur_{secteur.replace(' ', '_')}_{univers.replace(' ', '_')}"
+    files = {}
+    for ext in ("pdf", "pptx"):
+        p = outputs_dir / f"{stem}.{ext}"
+        if p.exists():
+            files[ext] = str(p.relative_to(_ROOT))
+    return {"data": {}, "files": files}
+
+
+def _do_indice(indice: str) -> dict:
+    from cli_analyze import run_indice as _run_indice
+
+    _run_indice(indice)
+    outputs_dir = _ROOT / "outputs" / "generated" / "cli_tests"
+    stem = f"indice_{indice.replace(' ', '_').replace('&', '')}"
+    files = {}
+    for ext in ("pdf", "pptx", "xlsx"):
+        p = outputs_dir / f"{stem}.{ext}"
+        if p.exists():
+            files[ext] = str(p.relative_to(_ROOT))
+    return {"data": {}, "files": files}
+
+
+def _do_cmp_societe(ticker_a: str, ticker_b: str) -> dict:
+    from core.graph import build_graph
+    from outputs.cmp_societe_pptx_writer import CmpSocietePPTXWriter
+    from outputs.cmp_societe_pdf_writer import CmpSocietePDFWriter
+    from outputs.cmp_societe_xlsx_writer import CmpSocieteXlsxWriter
+
+    graph = build_graph()
+    state_a = graph.invoke({"ticker": ticker_a})
+    state_b = graph.invoke({"ticker": ticker_b})
+
+    outputs_dir = _ROOT / "outputs" / "generated" / "cli_tests"
+    outputs_dir.mkdir(parents=True, exist_ok=True)
+    stem = f"cmp_societe_{ticker_a}_vs_{ticker_b}".replace(".", "_")
+    files = {}
+    try:
+        pdf_bytes = CmpSocietePDFWriter().generate_bytes(state_a, state_b)
+        p = outputs_dir / f"{stem}.pdf"
+        p.write_bytes(pdf_bytes)
+        files["pdf"] = str(p.relative_to(_ROOT))
+    except Exception as e:
+        log.warning(f"[cmp/societe] PDF fail: {e}")
+    try:
+        pptx_bytes = CmpSocietePPTXWriter().generate_bytes(state_a, state_b)
+        p = outputs_dir / f"{stem}.pptx"
+        p.write_bytes(pptx_bytes)
+        files["pptx"] = str(p.relative_to(_ROOT))
+    except Exception as e:
+        log.warning(f"[cmp/societe] PPTX fail: {e}")
+    try:
+        xlsx_bytes = CmpSocieteXlsxWriter().write(state_a, state_b)
+        p = outputs_dir / f"{stem}.xlsx"
+        p.write_bytes(xlsx_bytes)
+        files["xlsx"] = str(p.relative_to(_ROOT))
+    except Exception as e:
+        log.warning(f"[cmp/societe] XLSX fail: {e}")
+
+    # Snapshot company_info pour affichage frontend
+    data = {
+        "ticker_a": ticker_a,
+        "ticker_b": ticker_b,
+        "company_a": (state_a.get("snapshot") or {}).get("company_info", {}),
+        "company_b": (state_b.get("snapshot") or {}).get("company_info", {}),
+    }
+    return {"data": data, "files": files}
+
+
+def _do_cmp_secteur(secteur_a: str, univers_a: str, secteur_b: str, univers_b: str) -> dict:
+    from cli_analyze import run_cmp_secteur as _run_cmp
+
+    _run_cmp(secteur_a, univers_a, secteur_b, univers_b)
+    return {"data": {}, "files": {}}
+
+
+# ─── Helpers HTTP : wrap workers en réponse uniforme ────────────────────────
+
+def _sync_response(kind: str, fn, *args, **kwargs) -> AnalyseResponse:
     import uuid
     request_id = str(uuid.uuid4())
     t0 = datetime.utcnow()
-
     try:
-        # Import lazy pour ne pas charger tout au démarrage du serveur
-        from cli_analyze import run_societe as _run_societe
-
-        # Run l'analyse (fonction CLI existante — synchrone bloquante)
-        # NB : c'est bloquant pendant 1-3 minutes par appel. Pour V1 acceptable
-        # mais V2 → migrer en task celery/redis pour async vrai.
-        log.info(f"[analyze/societe] {req.ticker} — request_id={request_id[:8]}")
-
-        # Capture output dir avant l'appel
-        from pathlib import Path
-        outputs_dir = Path(_ROOT) / "outputs" / "generated" / "cli_tests"
-
-        # On execute mais sans capturer stdout pour V1 — la vraie réponse
-        # vient des fichiers générés
-        _run_societe(req.ticker)
-
-        # Récupère les fichiers générés
-        ticker_safe = req.ticker.replace(".", "_")
-        files = {}
-        for ext, key in [("pdf", "pdf"), ("pptx", "pptx"), ("xlsx", "xlsx")]:
-            f_path = outputs_dir / f"{req.ticker}_{'report' if ext == 'pdf' else 'pitchbook' if ext == 'pptx' else 'financials'}.{ext}"
-            if f_path.exists():
-                files[key] = str(f_path.relative_to(_ROOT))
-
-        # Lit le state.json pour les données
-        import json
-        state_file = outputs_dir / f"{req.ticker}_state.json"
-        data = {}
-        if state_file.exists():
-            try:
-                with open(state_file, encoding="utf-8") as f:
-                    data = json.load(f)
-            except Exception as e:
-                log.warning(f"state.json parse fail: {e}")
-
+        log.info(f"[{kind}] sync — {request_id[:8]}")
+        result = fn(*args, **kwargs)
         elapsed = int((datetime.utcnow() - t0).total_seconds() * 1000)
-        log.info(f"[analyze/societe] {req.ticker} OK en {elapsed}ms")
-
         return AnalyseResponse(
-            success=True,
-            request_id=request_id,
-            elapsed_ms=elapsed,
-            data=data,
-            files=files,
+            success=True, request_id=request_id, elapsed_ms=elapsed,
+            data=result.get("data"), files=result.get("files"),
         )
     except Exception as e:
-        log.error(f"[analyze/societe] {req.ticker} FAIL: {e}", exc_info=True)
+        log.error(f"[{kind}] sync FAIL: {e}", exc_info=True)
         return AnalyseResponse(
-            success=False,
-            request_id=request_id,
+            success=False, request_id=request_id,
             elapsed_ms=int((datetime.utcnow() - t0).total_seconds() * 1000),
             error=str(e),
         )
+
+
+# ─── Endpoints sync (V1 — bloquants, OK pour société rapide) ────────────────
+
+@app.post("/analyze/societe", response_model=AnalyseResponse)
+async def analyze_societe(req: SocieteRequest):
+    """Analyse société synchrone (~1-3 min). Préférer /jobs/analyze/societe pour async."""
+    return _sync_response("analyze/societe", _do_societe, req.ticker)
 
 
 @app.post("/analyze/secteur", response_model=AnalyseResponse)
-async def analyze_secteur(
-    req: SecteurRequest,
-    user: Annotated[Optional[dict], Depends(get_current_user)] = None,
-):
-    """Lance l'analyse d'un secteur dans un univers."""
-    import uuid
-    request_id = str(uuid.uuid4())
-    t0 = datetime.utcnow()
-    try:
-        from cli_analyze import run_secteur as _run_secteur
-        log.info(f"[analyze/secteur] {req.secteur} / {req.univers} — {request_id[:8]}")
-        _run_secteur(req.secteur, req.univers, prefix="secteur")
-
-        # Récupère les fichiers générés
-        outputs_dir = _ROOT / "outputs" / "generated" / "cli_tests"
-        stem = f"secteur_{req.secteur.replace(' ', '_')}_{req.univers.replace(' ', '_')}"
-        files = {}
-        for ext in ("pdf", "pptx"):
-            p = outputs_dir / f"{stem}.{ext}"
-            if p.exists():
-                files[ext] = str(p.relative_to(_ROOT))
-
-        elapsed = int((datetime.utcnow() - t0).total_seconds() * 1000)
-        return AnalyseResponse(
-            success=True, request_id=request_id,
-            elapsed_ms=elapsed, files=files,
-        )
-    except Exception as e:
-        log.error(f"[analyze/secteur] FAIL: {e}", exc_info=True)
-        return AnalyseResponse(
-            success=False, request_id=request_id,
-            elapsed_ms=int((datetime.utcnow() - t0).total_seconds() * 1000),
-            error=str(e),
-        )
+async def analyze_secteur(req: SecteurRequest):
+    return _sync_response("analyze/secteur", _do_secteur, req.secteur, req.univers)
 
 
 @app.post("/analyze/indice", response_model=AnalyseResponse)
-async def analyze_indice(
-    req: IndiceRequest,
-    user: Annotated[Optional[dict], Depends(get_current_user)] = None,
-):
-    """Lance l'analyse d'un indice complet (~5-8 min)."""
-    import uuid
-    request_id = str(uuid.uuid4())
-    t0 = datetime.utcnow()
-    try:
-        from cli_analyze import run_indice as _run_indice
-        log.info(f"[analyze/indice] {req.indice} — {request_id[:8]}")
-        _run_indice(req.indice)
+async def analyze_indice(req: IndiceRequest):
+    """⚠️ Bloquant 5-8 min — prefer /jobs/analyze/indice."""
+    return _sync_response("analyze/indice", _do_indice, req.indice)
 
-        # Récupère les fichiers générés
-        outputs_dir = _ROOT / "outputs" / "generated" / "cli_tests"
-        stem = f"indice_{req.indice.replace(' ', '_').replace('&', '')}"
-        files = {}
-        for ext in ("pdf", "pptx", "xlsx"):
-            p = outputs_dir / f"{stem}.{ext}"
-            if p.exists():
-                files[ext] = str(p.relative_to(_ROOT))
-
-        elapsed = int((datetime.utcnow() - t0).total_seconds() * 1000)
-        return AnalyseResponse(
-            success=True, request_id=request_id,
-            elapsed_ms=elapsed, files=files,
-        )
-    except Exception as e:
-        log.error(f"[analyze/indice] FAIL: {e}", exc_info=True)
-        return AnalyseResponse(
-            success=False, request_id=request_id,
-            elapsed_ms=int((datetime.utcnow() - t0).total_seconds() * 1000),
-            error=str(e),
-        )
-
-
-# ─── Comparaisons ───────────────────────────────────────────────────────────
 
 @app.post("/cmp/societe", response_model=AnalyseResponse)
 async def cmp_societe(req: CmpSocieteRequest):
-    """Comparaison 2 sociétés : analyse A + B puis génère PDF/PPTX/XLSX comparatifs."""
-    import uuid
-    request_id = str(uuid.uuid4())
-    t0 = datetime.utcnow()
-    try:
-        from core.graph import build_graph
-        from outputs.cmp_societe_pptx_writer import CmpSocietePPTXWriter
-        from outputs.cmp_societe_pdf_writer import CmpSocietePDFWriter
-        from outputs.cmp_societe_xlsx_writer import CmpSocieteXlsxWriter
-
-        log.info(f"[cmp/societe] {req.ticker_a} vs {req.ticker_b} — {request_id[:8]}")
-        graph = build_graph()
-        state_a = graph.invoke({"ticker": req.ticker_a})
-        state_b = graph.invoke({"ticker": req.ticker_b})
-
-        outputs_dir = _ROOT / "outputs" / "generated" / "cli_tests"
-        outputs_dir.mkdir(parents=True, exist_ok=True)
-        stem = f"cmp_societe_{req.ticker_a}_vs_{req.ticker_b}".replace(".", "_")
-        files = {}
-
-        try:
-            pdf_bytes = CmpSocietePDFWriter().generate_bytes(state_a, state_b)
-            p = outputs_dir / f"{stem}.pdf"
-            p.write_bytes(pdf_bytes)
-            files["pdf"] = str(p.relative_to(_ROOT))
-        except Exception as e:
-            log.warning(f"[cmp/societe] PDF fail: {e}")
-
-        try:
-            pptx_bytes = CmpSocietePPTXWriter().generate_bytes(state_a, state_b)
-            p = outputs_dir / f"{stem}.pptx"
-            p.write_bytes(pptx_bytes)
-            files["pptx"] = str(p.relative_to(_ROOT))
-        except Exception as e:
-            log.warning(f"[cmp/societe] PPTX fail: {e}")
-
-        try:
-            xlsx_bytes = CmpSocieteXlsxWriter().write(state_a, state_b)
-            p = outputs_dir / f"{stem}.xlsx"
-            p.write_bytes(xlsx_bytes)
-            files["xlsx"] = str(p.relative_to(_ROOT))
-        except Exception as e:
-            log.warning(f"[cmp/societe] XLSX fail: {e}")
-
-        elapsed = int((datetime.utcnow() - t0).total_seconds() * 1000)
-        return AnalyseResponse(
-            success=bool(files), request_id=request_id,
-            elapsed_ms=elapsed, files=files,
-        )
-    except Exception as e:
-        log.error(f"[cmp/societe] FAIL: {e}", exc_info=True)
-        return AnalyseResponse(
-            success=False, request_id=request_id,
-            elapsed_ms=int((datetime.utcnow() - t0).total_seconds() * 1000),
-            error=str(e),
-        )
+    return _sync_response("cmp/societe", _do_cmp_societe, req.ticker_a, req.ticker_b)
 
 
 @app.post("/cmp/secteur", response_model=AnalyseResponse)
 async def cmp_secteur(req: CmpSecteurRequest):
-    """Comparaison 2 secteurs."""
-    import uuid
-    request_id = str(uuid.uuid4())
-    t0 = datetime.utcnow()
-    try:
-        from cli_analyze import run_cmp_secteur as _run_cmp
-        log.info(f"[cmp/secteur] {req.secteur_a}/{req.univers_a} vs {req.secteur_b} — {request_id[:8]}")
-        _run_cmp(req.secteur_a, req.univers_a, req.secteur_b, req.univers_b or req.univers_a)
-        elapsed = int((datetime.utcnow() - t0).total_seconds() * 1000)
-        return AnalyseResponse(success=True, request_id=request_id, elapsed_ms=elapsed)
-    except Exception as e:
-        return AnalyseResponse(
-            success=False, request_id=request_id,
-            elapsed_ms=int((datetime.utcnow() - t0).total_seconds() * 1000),
-            error=str(e),
-        )
+    return _sync_response(
+        "cmp/secteur", _do_cmp_secteur,
+        req.secteur_a, req.univers_a, req.secteur_b, req.univers_b or req.univers_a,
+    )
 
 
 @app.post("/cmp/indice", response_model=AnalyseResponse)
 async def cmp_indice(req: CmpIndiceRequest):
-    """Comparaison 2 indices."""
+    """Comparaison 2 indices — non implémenté V1."""
     import uuid
-    request_id = str(uuid.uuid4())
-    t0 = datetime.utcnow()
     return AnalyseResponse(
-        success=False, request_id=request_id,
-        elapsed_ms=int((datetime.utcnow() - t0).total_seconds() * 1000),
-        error="cmp_indice not implemented yet (V1 stub)",
+        success=False, request_id=str(uuid.uuid4()),
+        elapsed_ms=0, error="cmp_indice not implemented yet (V1)",
     )
+
+
+# ─── Endpoints async (jobs en mémoire) ──────────────────────────────────────
+
+class JobSubmitResponse(BaseModel):
+    job_id: str
+    status: str
+    kind: str
+
+
+class JobStatusResponse(BaseModel):
+    job_id: str
+    kind: str
+    status: str  # "queued" | "running" | "done" | "error"
+    progress: int = 0
+    progress_message: Optional[str] = None
+    result: Optional[dict] = None
+    error: Optional[str] = None
+    created_at: str
+    started_at: Optional[str] = None
+    finished_at: Optional[str] = None
+
+
+@app.post("/jobs/analyze/societe", response_model=JobSubmitResponse, status_code=202)
+async def submit_societe(req: SocieteRequest):
+    job_id = jobstore.submit("analyze/societe", _do_societe, req.ticker)
+    return JobSubmitResponse(job_id=job_id, status="queued", kind="analyze/societe")
+
+
+@app.post("/jobs/analyze/secteur", response_model=JobSubmitResponse, status_code=202)
+async def submit_secteur(req: SecteurRequest):
+    job_id = jobstore.submit("analyze/secteur", _do_secteur, req.secteur, req.univers)
+    return JobSubmitResponse(job_id=job_id, status="queued", kind="analyze/secteur")
+
+
+@app.post("/jobs/analyze/indice", response_model=JobSubmitResponse, status_code=202)
+async def submit_indice(req: IndiceRequest):
+    job_id = jobstore.submit("analyze/indice", _do_indice, req.indice)
+    return JobSubmitResponse(job_id=job_id, status="queued", kind="analyze/indice")
+
+
+@app.post("/jobs/cmp/societe", response_model=JobSubmitResponse, status_code=202)
+async def submit_cmp_societe(req: CmpSocieteRequest):
+    job_id = jobstore.submit("cmp/societe", _do_cmp_societe, req.ticker_a, req.ticker_b)
+    return JobSubmitResponse(job_id=job_id, status="queued", kind="cmp/societe")
+
+
+@app.get("/jobs/{job_id}", response_model=JobStatusResponse)
+async def get_job(job_id: str):
+    j = jobstore.get(job_id)
+    if not j:
+        raise HTTPException(status_code=404, detail="Job introuvable ou expiré")
+    return JobStatusResponse(**j)
+
+
+@app.get("/jobs")
+async def list_jobs(limit: int = 50):
+    """Debug : liste les N derniers jobs."""
+    return {"jobs": jobstore.list_jobs(limit)}
 
 
 # ─── Résolution tickers + classification requête ────────────────────────────
@@ -501,19 +493,24 @@ async def resolve_query(query: str):
                 query=q, kind="secteur", sector=sec, universe="S&P 500"
             )
 
-    # Ticker direct (regex simple)
+    # Ticker direct : forme courte typique en MAJUSCULES (1-6 lettres + suffixe .XX optionnel)
+    # ex: AAPL, MSFT, MC.PA, ABBN.SW. Refuse les saisies en bas-de-casse pour éviter
+    # de transformer "apple" en ticker "APPLE" (qui échouerait côté yfinance).
     import re
-    if re.fullmatch(r"[A-Z0-9.\-]{1,12}", q_norm):
+    is_upper = q == q.upper()
+    if is_upper and re.fullmatch(r"[A-Z]{1,6}(\.[A-Z]{1,3})?", q_norm):
         return ResolveResponse(query=q, kind="societe", ticker=q_norm)
 
-    # Fallback : LLM ticker resolution
+    # Fallback : résolution via yfinance_source (suffixes pays + validation fast_info)
     try:
         from data.sources.yfinance_source import _resolve_ticker_with_suffix
         ticker = _resolve_ticker_with_suffix(q)
-        if ticker:
+        # _resolve_ticker_with_suffix retourne l'input inchangé si pas de match,
+        # donc on valide ici : le ticker doit être différent OU contenir un suffixe
+        if ticker and ticker != q and ("." in ticker or "-" in ticker):
             return ResolveResponse(query=q, kind="societe", ticker=ticker)
     except Exception as e:
-        log.warning(f"[resolve] LLM resolve fail: {e}")
+        log.warning(f"[resolve] yfinance resolve fail: {e}")
 
     return ResolveResponse(query=q, kind="unknown")
 

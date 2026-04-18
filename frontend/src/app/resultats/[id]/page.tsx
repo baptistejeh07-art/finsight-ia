@@ -15,7 +15,7 @@ interface AnalysisResult {
   data?: Record<string, unknown>;
   files?: { pdf?: string; pptx?: string; xlsx?: string };
   error?: string;
-  kind?: "societe" | "secteur" | "indice";
+  kind?: "societe" | "secteur" | "indice" | "comparatif";
   label?: string;
 }
 
@@ -24,7 +24,7 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
   const search = useSearchParams();
   const router = useRouter();
   const ticker = search.get("ticker") || "";
-  const kindParam = (search.get("kind") || "societe") as "societe" | "secteur" | "indice";
+  const kindParam = (search.get("kind") || "societe") as "societe" | "secteur" | "indice" | "comparatif";
   const [result, setResult] = useState<AnalysisResult | null>(null);
 
   useEffect(() => {
@@ -71,7 +71,7 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
   const currency = (ci.currency as string) || "USD";
   const sharePrice = market.share_price as number | undefined;
   const companyName = (ci.company_name as string) || ticker;
-  const sector = (ci.sector as string) || (isSociete ? "—" : kind === "indice" ? "Indice boursier" : "Analyse sectorielle");
+  const sector = (ci.sector as string) || (isSociete ? "—" : kind === "indice" ? "Indice boursier" : kind === "comparatif" ? "Comparatif société" : "Analyse sectorielle");
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -150,13 +150,15 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
         </section>
         )}
 
-        {/* Message secteur/indice : livrables téléchargeables */}
+        {/* Message secteur/indice/comparatif : livrables téléchargeables */}
         {!isSociete && (
           <section className="mb-8">
             <div className="card bg-navy-50 border-navy-200">
               <p className="text-sm text-ink-700 leading-relaxed">
                 {kind === "indice"
                   ? "Analyse complète de l'indice générée. Le rapport PDF contient l'analyse macro, les comparatifs inter-secteurs et l'allocation optimale."
+                  : kind === "comparatif"
+                  ? "Comparatif société généré. Les livrables PDF, PPTX et Excel contiennent les analyses parallèles, ratios comparés et verdict relatif."
                   : "Analyse sectorielle générée. Le rapport PDF compare les principales sociétés du secteur sur l'univers sélectionné."}
               </p>
             </div>

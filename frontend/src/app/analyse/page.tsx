@@ -5,7 +5,13 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2, CheckCircle2, AlertTriangle } from "lucide-react";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
-import { analyzeSociete, analyzeSecteur, analyzeIndice, resolveQuery } from "@/lib/api";
+import {
+  resolveQuery,
+  submitSocieteJob,
+  submitSecteurJob,
+  submitIndiceJob,
+  waitForJob,
+} from "@/lib/api";
 
 const STEPS_SOCIETE = [
   "Connexion aux sources financières",
@@ -81,30 +87,49 @@ function AnalyseContent() {
           setStepIdx((i) => Math.min(i + 1, stepsForKind.length - 1));
         }, stepDelay);
 
-        // Dispatch vers l'endpoint adapté
-        let result;
+        // Submit le job + poll le statut
         let label = query;
+        let submitted;
         if (resolved.kind === "societe") {
-          result = await analyzeSociete(resolved.ticker || query, devise, scope);
-          label = resolved.ticker || query;
+          const t = resolved.ticker || query;
+          submitted = await submitSocieteJob(t, devise, scope);
+          label = t;
         } else if (resolved.kind === "secteur") {
-          result = await analyzeSecteur(resolved.sector || query, resolved.universe || "S&P 500");
-          label = `${resolved.sector} / ${resolved.universe}`;
+          const sec = resolved.sector || query;
+          const uni = resolved.universe || "S&P 500";
+          submitted = await submitSecteurJob(sec, uni);
+          label = `${sec} / ${uni}`;
         } else {
-          result = await analyzeIndice(resolved.universe || query);
-          label = resolved.universe || query;
+          const idx = resolved.universe || query;
+          submitted = await submitIndiceJob(idx);
+          label = idx;
         }
 
-        if (result.success) {
+        // Poll toutes les 5s jusqu'à fin du job
+        const pollInterval = resolved.kind === "indice" ? 8000 : 4000;
+        const finalJob = await waitForJob(submitted.job_id, undefined, pollInterval);
+
+        if (finalJob.status === "done" && finalJob.result) {
+          const elapsedMs = finalJob.finished_at && finalJob.started_at
+            ? new Date(finalJob.finished_at).getTime() - new Date(finalJob.started_at).getTime()
+            : 0;
           sessionStorage.setItem(
-            `analysis_${result.request_id}`,
-            JSON.stringify({ ...result, kind: resolved.kind, label })
+            `analysis_${submitted.job_id}`,
+            JSON.stringify({
+              success: true,
+              request_id: submitted.job_id,
+              elapsed_ms: elapsedMs,
+              data: finalJob.result.data,
+              files: finalJob.result.files,
+              kind: resolved.kind,
+              label,
+            })
           );
           router.push(
-            `/resultats/${result.request_id}?ticker=${encodeURIComponent(label)}&kind=${resolved.kind}`
+            `/resultats/${submitted.job_id}?ticker=${encodeURIComponent(label)}&kind=${resolved.kind}`
           );
         } else {
-          setError(result.error || "Erreur inconnue");
+          setError(finalJob.error || "Erreur inconnue");
         }
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "Erreur API";

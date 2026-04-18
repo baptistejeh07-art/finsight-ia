@@ -55,7 +55,7 @@ async function apiGet<T>(endpoint: string): Promise<T> {
   return res.json();
 }
 
-// ─── Analyses ──────────────────────────────────────────────────────────────
+// ─── Analyses (sync — bloquant) ────────────────────────────────────────────
 
 export async function analyzeSociete(
   ticker: string,
@@ -74,6 +74,80 @@ export async function analyzeSecteur(
 
 export async function analyzeIndice(indice: string): Promise<AnalyseResponse> {
   return apiPost<AnalyseResponse>("/analyze/indice", { indice });
+}
+
+// ─── Jobs (async — recommandé pour analyses longues) ───────────────────────
+
+export interface JobSubmitResponse {
+  job_id: string;
+  status: "queued";
+  kind: string;
+}
+
+export interface JobStatus {
+  job_id: string;
+  kind: string;
+  status: "queued" | "running" | "done" | "error";
+  progress: number;
+  progress_message?: string;
+  result?: {
+    data?: Record<string, unknown>;
+    files?: { pdf?: string; pptx?: string; xlsx?: string };
+  };
+  error?: string;
+  created_at: string;
+  started_at?: string;
+  finished_at?: string;
+}
+
+export async function submitSocieteJob(
+  ticker: string,
+  devise = "USD",
+  scope = "interface"
+): Promise<JobSubmitResponse> {
+  return apiPost("/jobs/analyze/societe", { ticker, devise, scope });
+}
+
+export async function submitSecteurJob(
+  secteur: string,
+  univers: string
+): Promise<JobSubmitResponse> {
+  return apiPost("/jobs/analyze/secteur", { secteur, univers });
+}
+
+export async function submitIndiceJob(indice: string): Promise<JobSubmitResponse> {
+  return apiPost("/jobs/analyze/indice", { indice });
+}
+
+export async function submitCmpSocieteJob(
+  ticker_a: string,
+  ticker_b: string
+): Promise<JobSubmitResponse> {
+  return apiPost("/jobs/cmp/societe", { ticker_a, ticker_b });
+}
+
+export async function getJob(jobId: string): Promise<JobStatus> {
+  return apiGet(`/jobs/${jobId}`);
+}
+
+/**
+ * Poll le job toutes les `intervalMs` jusqu'à fin (done|error).
+ * Appelle `onTick` à chaque update.
+ */
+export async function waitForJob(
+  jobId: string,
+  onTick?: (job: JobStatus) => void,
+  intervalMs = 5000,
+  maxWaitMs = 15 * 60 * 1000  // 15 min hard cap
+): Promise<JobStatus> {
+  const start = Date.now();
+  while (Date.now() - start < maxWaitMs) {
+    const job = await getJob(jobId);
+    onTick?.(job);
+    if (job.status === "done" || job.status === "error") return job;
+    await new Promise((r) => setTimeout(r, intervalMs));
+  }
+  throw new Error("Job timeout (>15 min)");
 }
 
 // ─── User ──────────────────────────────────────────────────────────────────
