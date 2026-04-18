@@ -26,10 +26,14 @@ export function LogoMark({
   variant = "auto",
   size = "md",
 }: LogoMarkProps) {
+  // En variant 'inverse', on sert directement le SVG blanc (logo-light.svg) :
+  // un filter CSS sur le SVG navy donnait du gris flou à cause des centaines
+  // de couleurs intermédiaires (anti-aliasing du tracing VTracer).
+  // En variant 'auto' light : navy normal. En auto + dark mode : on filter (acceptable
+  // car la perte de netteté est moins visible sur petit logo header).
+  const src = variant === "inverse" ? "/logo-light.svg" : "/logo.svg";
   const filterClasses =
-    variant === "inverse"
-      ? "brightness-0 invert"
-      : "dark:brightness-0 dark:invert";
+    variant === "inverse" ? "" : "dark:brightness-0 dark:invert";
 
   return (
     <Link
@@ -38,7 +42,7 @@ export function LogoMark({
       aria-label="FinSight IA — Accueil"
     >
       <Image
-        src="/logo.svg"
+        src={src}
         alt="FinSight IA"
         width={1398}
         height={752}
