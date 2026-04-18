@@ -13,7 +13,7 @@ export function StackSection() {
 
         <div className="mt-16 grid grid-cols-1 md:grid-cols-12 gap-12 md:gap-16 items-center">
           <div className="md:col-span-5 space-y-6">
-            <div className="text-xs font-semibold tracking-widest uppercase text-accent-primary">
+            <div className="text-xs font-semibold tracking-widest uppercase text-white">
               ✦  La pile FinSight
             </div>
             <h3 className="text-2xl md:text-3xl font-semibold leading-tight">
