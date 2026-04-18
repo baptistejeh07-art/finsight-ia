@@ -37,7 +37,7 @@ def _purge():
         _JOBS.popitem(last=False)
 
 
-def submit(kind: str, fn: Callable[..., Any], *args, **kwargs) -> str:
+def submit(kind: str, fn: Callable[..., Any], *args, user_id: Optional[str] = None, label: Optional[str] = None, **kwargs) -> str:
     """Démarre un job dans un thread daemon. Retourne le job_id."""
     job_id = str(uuid.uuid4())
     with _LOCK:
@@ -51,6 +51,8 @@ def submit(kind: str, fn: Callable[..., Any], *args, **kwargs) -> str:
             "created_at": datetime.utcnow().isoformat(),
             "started_at": None,
             "finished_at": None,
+            "user_id": user_id,
+            "label": label,
         }
         _purge()
 
@@ -95,10 +97,13 @@ def update_progress(job_id: str, progress: int, message: Optional[str] = None):
                 _JOBS[job_id]["progress_message"] = message
 
 
-def list_jobs(limit: int = 50) -> list[dict]:
-    """Liste les N derniers jobs (debug)."""
+def list_jobs(limit: int = 50, user_id: Optional[str] = None) -> list[dict]:
+    """Liste les N derniers jobs (debug). Filtre par user_id si fourni."""
     with _LOCK:
-        items = list(_JOBS.values())[-limit:]
+        items = list(_JOBS.values())
+    if user_id is not None:
+        items = [j for j in items if j.get("user_id") == user_id]
+    items = items[-limit:]
     return [
         {k: v for k, v in j.items() if k != "result"}  # exclu result (lourd)
         for j in items

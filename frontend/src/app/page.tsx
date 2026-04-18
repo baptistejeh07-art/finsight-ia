@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Building2, TrendingUp, Globe2 } from "lucide-react";
+import { ArrowRight, Building2, TrendingUp, Globe2, FileText, Presentation, FileSpreadsheet } from "lucide-react";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import toast from "react-hot-toast";
@@ -144,8 +144,32 @@ export default function HomePage() {
           />
         </div>
 
+        {/* Livrables */}
+        <div className="mt-16 pt-10 border-t border-ink-200">
+          <div className="text-center mb-6">
+            <div className="section-label">Livrables</div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-3xl mx-auto">
+            <DeliverableCard
+              icon={<FileText className="w-4 h-4" />}
+              label="Rapport PDF"
+              description="20 pages · thèse, valorisation, scénarios, risques"
+            />
+            <DeliverableCard
+              icon={<Presentation className="w-4 h-4" />}
+              label="Pitchbook PPTX"
+              description="20 slides · format Bloomberg, prêt pour comité"
+            />
+            <DeliverableCard
+              icon={<FileSpreadsheet className="w-4 h-4" />}
+              label="Modèle Excel"
+              description="DCF complet · ratios · comparables · scénarios"
+            />
+          </div>
+        </div>
+
         {/* Quote */}
-        <div className="text-center mt-16 mb-8 animate-fade-in">
+        <div className="text-center mt-12 mb-8 animate-fade-in">
           <p className="text-sm text-ink-500 italic max-w-lg mx-auto leading-relaxed">
             « {quote.text} »
           </p>
@@ -165,6 +189,26 @@ interface QuickPickRowProps {
   label: string;
   items: string[];
   onPick: (t: string) => void;
+}
+
+function DeliverableCard({
+  icon,
+  label,
+  description,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  description: string;
+}) {
+  return (
+    <div className="flex items-start gap-3 p-3 rounded-md border border-ink-200 bg-white">
+      <div className="text-navy-500 mt-0.5 shrink-0">{icon}</div>
+      <div>
+        <div className="text-sm font-semibold text-ink-900">{label}</div>
+        <div className="text-xs text-ink-500 mt-0.5 leading-relaxed">{description}</div>
+      </div>
+    </div>
+  );
 }
 
 function QuickPickRow({ icon, label, items, onPick }: QuickPickRowProps) {

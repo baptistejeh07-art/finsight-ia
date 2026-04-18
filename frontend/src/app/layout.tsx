@@ -43,6 +43,11 @@ export const metadata: Metadata = {
     title: "FinSight IA — Plateforme d'analyse financière institutionnelle",
     description: "Analyses financières institutionnelles propulsées par l'IA.",
   },
+  twitter: {
+    card: "summary_large_image",
+    title: "FinSight IA — Plateforme d'analyse financière institutionnelle",
+    description: "DCF · Ratios · Scénarios · Comparatifs. Analyses institutionnelles en 2 minutes.",
+  },
   robots: { index: true, follow: true },
 };
 

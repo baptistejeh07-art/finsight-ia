@@ -156,7 +156,15 @@ export async function getMe(): Promise<{ id: string; email: string }> {
   return apiGet("/me");
 }
 
-export async function getHistory(): Promise<{ history: unknown[] }> {
+export interface HistoryJob {
+  job_id: string;
+  kind: string;
+  label?: string;
+  created_at: string;
+  finished_at?: string;
+}
+
+export async function getHistory(): Promise<{ user_id: string; history: HistoryJob[] }> {
   return apiGet("/history");
 }
 

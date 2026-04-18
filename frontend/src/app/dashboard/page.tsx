@@ -6,7 +6,16 @@ import { TrendingUp, FileText, Search } from "lucide-react";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import { createClient } from "@/lib/supabase/client";
+import { getHistory } from "@/lib/api";
 import { fmtDate } from "@/lib/utils";
+
+interface HistoryJob {
+  job_id: string;
+  kind: string;
+  label?: string;
+  created_at: string;
+  finished_at?: string;
+}
 
 interface AnalysisItem {
   id: string;
@@ -15,6 +24,15 @@ interface AnalysisItem {
   sector: string;
   recommendation: string;
   created_at: string;
+}
+
+function labelForKind(kind: string): string {
+  if (kind.startsWith("analyze/societe") || kind === "societe") return "Société";
+  if (kind.startsWith("analyze/secteur") || kind === "secteur") return "Secteur";
+  if (kind.startsWith("analyze/indice") || kind === "indice") return "Indice";
+  if (kind.startsWith("cmp/societe") || kind === "comparatif") return "Comparatif";
+  if (kind.startsWith("cmp/secteur")) return "Comparatif secteur";
+  return "Analyse";
 }
 
 export default function DashboardPage() {
@@ -31,8 +49,10 @@ export default function DashboardPage() {
         router.push("/");
         return;
       }
-      // V1 stub : pas de DB encore. On simule depuis sessionStorage.
-      const localItems: AnalysisItem[] = [];
+
+      // Merge entre jobs backend (user-scoped) + sessionStorage (analyses locales récentes)
+      const byId = new Map<string, AnalysisItem>();
+
       for (let i = 0; i < sessionStorage.length; i++) {
         const key = sessionStorage.key(i);
         if (key?.startsWith("analysis_")) {
@@ -41,12 +61,13 @@ export default function DashboardPage() {
             const data = r.data || {};
             const ci = data.snapshot?.company_info || {};
             const synth = data.synthesis || {};
-            localItems.push({
-              id: r.request_id,
-              ticker: ci.ticker || "?",
-              company_name: ci.company_name || ci.ticker || "?",
-              sector: ci.sector || "—",
-              recommendation: synth.recommendation || "HOLD",
+            const id = r.request_id;
+            byId.set(id, {
+              id,
+              ticker: ci.ticker || r.label || "?",
+              company_name: ci.company_name || ci.ticker || r.label || "?",
+              sector: ci.sector || (r.kind ? labelForKind(r.kind) : "—"),
+              recommendation: synth.recommendation || "—",
               created_at: new Date().toISOString(),
             });
           } catch {
@@ -54,7 +75,28 @@ export default function DashboardPage() {
           }
         }
       }
-      setHistory(localItems);
+
+      try {
+        const { history: jobs } = (await getHistory()) as { history: HistoryJob[] };
+        for (const j of jobs) {
+          if (byId.has(j.job_id)) continue; // évite doublon avec sessionStorage
+          byId.set(j.job_id, {
+            id: j.job_id,
+            ticker: j.label || j.job_id.slice(0, 8),
+            company_name: j.label || "",
+            sector: labelForKind(j.kind),
+            recommendation: "—",
+            created_at: j.finished_at || j.created_at,
+          });
+        }
+      } catch {
+        // backend unreachable → fallback sessionStorage only
+      }
+
+      const merged = Array.from(byId.values()).sort((a, b) =>
+        b.created_at.localeCompare(a.created_at)
+      );
+      setHistory(merged);
       setLoading(false);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps

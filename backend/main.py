@@ -314,7 +314,17 @@ def _do_cmp_secteur(secteur_a: str, univers_a: str, secteur_b: str, univers_b: s
     from cli_analyze import run_cmp_secteur as _run_cmp
 
     _run_cmp(secteur_a, univers_a, secteur_b, univers_b)
-    return {"data": {}, "files": {}}
+    outputs_dir = _ROOT / "outputs" / "generated" / "cli_tests"
+    stem = (
+        f"cmp_secteur_{secteur_a.replace(' ', '_')}_{univers_a.replace(' ', '_')}"
+        f"_vs_{secteur_b.replace(' ', '_')}_{univers_b.replace(' ', '_')}"
+    )
+    files = {}
+    for ext in ("pdf", "pptx"):
+        p = outputs_dir / f"{stem}.{ext}"
+        if p.exists():
+            files[ext] = str(p.relative_to(_ROOT))
+    return {"data": {}, "files": files}
 
 
 # ─── Helpers HTTP : wrap workers en réponse uniforme ────────────────────────
@@ -404,27 +414,65 @@ class JobStatusResponse(BaseModel):
 
 
 @app.post("/jobs/analyze/societe", response_model=JobSubmitResponse, status_code=202)
-async def submit_societe(req: SocieteRequest):
-    job_id = jobstore.submit("analyze/societe", _do_societe, req.ticker)
+async def submit_societe(
+    req: SocieteRequest,
+    user: Annotated[Optional[dict], Depends(get_current_user)] = None,
+):
+    job_id = jobstore.submit(
+        "analyze/societe", _do_societe, req.ticker,
+        user_id=(user or {}).get("id"), label=req.ticker,
+    )
     return JobSubmitResponse(job_id=job_id, status="queued", kind="analyze/societe")
 
 
 @app.post("/jobs/analyze/secteur", response_model=JobSubmitResponse, status_code=202)
-async def submit_secteur(req: SecteurRequest):
-    job_id = jobstore.submit("analyze/secteur", _do_secteur, req.secteur, req.univers)
+async def submit_secteur(
+    req: SecteurRequest,
+    user: Annotated[Optional[dict], Depends(get_current_user)] = None,
+):
+    job_id = jobstore.submit(
+        "analyze/secteur", _do_secteur, req.secteur, req.univers,
+        user_id=(user or {}).get("id"), label=f"{req.secteur} / {req.univers}",
+    )
     return JobSubmitResponse(job_id=job_id, status="queued", kind="analyze/secteur")
 
 
 @app.post("/jobs/analyze/indice", response_model=JobSubmitResponse, status_code=202)
-async def submit_indice(req: IndiceRequest):
-    job_id = jobstore.submit("analyze/indice", _do_indice, req.indice)
+async def submit_indice(
+    req: IndiceRequest,
+    user: Annotated[Optional[dict], Depends(get_current_user)] = None,
+):
+    job_id = jobstore.submit(
+        "analyze/indice", _do_indice, req.indice,
+        user_id=(user or {}).get("id"), label=req.indice,
+    )
     return JobSubmitResponse(job_id=job_id, status="queued", kind="analyze/indice")
 
 
 @app.post("/jobs/cmp/societe", response_model=JobSubmitResponse, status_code=202)
-async def submit_cmp_societe(req: CmpSocieteRequest):
-    job_id = jobstore.submit("cmp/societe", _do_cmp_societe, req.ticker_a, req.ticker_b)
+async def submit_cmp_societe(
+    req: CmpSocieteRequest,
+    user: Annotated[Optional[dict], Depends(get_current_user)] = None,
+):
+    job_id = jobstore.submit(
+        "cmp/societe", _do_cmp_societe, req.ticker_a, req.ticker_b,
+        user_id=(user or {}).get("id"), label=f"{req.ticker_a} vs {req.ticker_b}",
+    )
     return JobSubmitResponse(job_id=job_id, status="queued", kind="cmp/societe")
+
+
+@app.post("/jobs/cmp/secteur", response_model=JobSubmitResponse, status_code=202)
+async def submit_cmp_secteur(
+    req: CmpSecteurRequest,
+    user: Annotated[Optional[dict], Depends(get_current_user)] = None,
+):
+    job_id = jobstore.submit(
+        "cmp/secteur", _do_cmp_secteur,
+        req.secteur_a, req.univers_a, req.secteur_b, req.univers_b or req.univers_a,
+        user_id=(user or {}).get("id"),
+        label=f"{req.secteur_a}/{req.univers_a} vs {req.secteur_b}/{req.univers_b or req.univers_a}",
+    )
+    return JobSubmitResponse(job_id=job_id, status="queued", kind="cmp/secteur")
 
 
 @app.get("/jobs/{job_id}", response_model=JobStatusResponse)
@@ -550,9 +598,26 @@ async def download_file(file_path: str):
 async def get_history(user: Annotated[dict, Depends(require_user)]):
     """Historique des analyses du user connecté.
 
-    V1 stub : retourne liste vide. V2 : query Supabase Postgres.
+    V1 : jobs en mémoire filtrés par user_id. Se perd au restart du worker
+    mais suffit pour la session courante. V2 : migration Supabase Postgres.
     """
-    return {"user_id": user["id"], "history": []}
+    jobs = jobstore.list_jobs(limit=100, user_id=user["id"])
+    # Ne retourne que les jobs terminés, plus récents en premier
+    done = [j for j in jobs if j.get("status") == "done"]
+    done.reverse()
+    return {
+        "user_id": user["id"],
+        "history": [
+            {
+                "job_id": j["job_id"],
+                "kind": j["kind"],
+                "label": j.get("label"),
+                "created_at": j["created_at"],
+                "finished_at": j.get("finished_at"),
+            }
+            for j in done
+        ],
+    }
 
 
 # ---------------------------------------------------------------------------
