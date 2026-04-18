@@ -160,6 +160,8 @@ def _safe_str(v, default="\u2014") -> str:
 
 
 def _truncate(s, n: int) -> str:
+    """Coupe au word boundary sans ellipse visible — LLM contraint par
+    length_rule(min_words, max_words) en amont."""
     s = _safe_str(s, "")
     if len(s) <= n:
         return s
@@ -167,7 +169,7 @@ def _truncate(s, n: int) -> str:
     last_space = cut.rfind(" ")
     if last_space > n // 2:
         cut = cut[:last_space]
-    return cut + "\u2026"
+    return cut
 
 
 def _fit(s, n: int) -> str:
@@ -476,7 +478,7 @@ def _word_clip(s, n):
     sp = cut.rfind(" ")
     if sp > n // 2:
         cut = cut[:sp]
-    return cut.rstrip(" ,;:-") + "\u2026"
+    return cut.rstrip(" ,;:-")
 
 
 def _generate_synthesis(m_a: dict, m_b: dict) -> dict:

@@ -895,15 +895,17 @@ def _cover_layout(co_name: str):
 
 
 def _truncate(s, n: int) -> str:
+    """Coupe au word boundary sans ellipse visible — LLM contraint par
+    length_rule(min_words, max_words) en amont, le fallback char-based
+    reste invisible si un overrun survient."""
     s = _safe_str(s)
     if len(s) <= n:
         return s
-    # Cut at last word boundary before n to avoid mid-word truncation
     cut = s[:n]
     last_space = cut.rfind(" ")
     if last_space > n // 2:
         cut = cut[:last_space]
-    return cut + "…"
+    return cut
 
 
 def _fit(s, n: int) -> str:

@@ -2061,7 +2061,7 @@ def _build_valorisation(ff_buf, pie_buf, mc_buf, data):
                     log.debug(f"[pdf_writer:_build_valorisation] exception skipped: {_e}")
             _syn_fc = ((data.get('synthesis') or {}).get('financial_commentary') or "")
             if _syn_fc and not _extra_mc:
-                _extra_mc = " " + _syn_fc[:400] + ("..." if len(_syn_fc) > 400 else "")
+                _extra_mc = " " + _syn_fc[:400]
             # Enrichissement : volatilite implicite + limite du modele GBM
             _vol = data.get('volatility_annualized') or data.get('hist_vol')
             _vol_note = ""
@@ -2674,7 +2674,7 @@ def _build_capital_returns(data):
         _syn_note = ""
         _syn_fc = ((data.get('synthesis') or {}).get('financial_commentary') or "")
         if _syn_fc:
-            _syn_note = " " + _syn_fc[:180] + ("..." if len(_syn_fc) > 180 else "")
+            _syn_note = " " + _syn_fc[:180]
         _fy_qual = ('est attractif pour un investisseur long-only (>4\u00a0%)'
                     if fy_vals and fy_vals[-1] and float(fy_vals[-1]) > 0.04
                     else 'reste modeste au regard du co\u00fbt du capital')

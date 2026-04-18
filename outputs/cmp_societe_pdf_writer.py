@@ -229,9 +229,11 @@ def _frm(v, cur="$"):
     except: return "\u2014"
 
 
-def _word_clip(s, n, ellipsis="\u2026"):
-    """Clip une chaine a n chars en respectant la frontiere de mot.
-    Retourne le texte integral si < n, sinon coupe au dernier espace et ajoute ellipsis."""
+def _word_clip(s, n, ellipsis=""):
+    """Clip une chaine a n chars a la frontiere de mot, sans ellipse par défaut.
+    Le LLM est contraint par length_rule(min_words, max_words) en amont ; le
+    fallback char-based reste invisible si un overrun LLM survient.
+    Passer ellipsis='…' pour forcer une ellipse (ex: header company name)."""
     if not s:
         return ""
     s = str(s).strip()
@@ -241,7 +243,6 @@ def _word_clip(s, n, ellipsis="\u2026"):
     sp = cut.rfind(" ")
     if sp > n // 2:
         cut = cut[:sp]
-    # Retirer ponctuation finale avant d'ajouter l'ellipsis
     cut = cut.rstrip(" ,;:-")
     return cut + ellipsis
 

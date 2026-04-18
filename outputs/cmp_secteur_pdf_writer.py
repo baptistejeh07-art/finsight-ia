@@ -568,7 +568,8 @@ def _generate_llm_texts(D: dict) -> dict:
             f"cedilles, apostrophes droites ' et guillemets francais << >>. JAMAIS sans accents — "
             f"ce serait du francais casse, inacceptable en rapport IB-grade.\n"
             f"Chaque champ doit être substantiel, rigoureux, analytique — pas une enumeration de chiffres. "
-            f"Min 400 caractères par champ sauf exec_summary (min 700). Inclure implications investissement.\n"
+            f"LONGUEURS (en MOTS, pas caractères) : min 65 mots par champ, sauf exec_summary (min 120 mots). "
+            f"Compte les mots avant de rendre ta réponse. Inclure implications investissement.\n"
             f'{{\n'
             f'  "exec_summary": "Synthèse executive 4-5 phrases : avantage comparatif fondamental, implication du spread de scoring, signal IA argumente, recommandation allocation et conditions d invalidation",\n'
             f'  "valuation_analysis": "Analyse multiples 3-4 phrases : interprétation spread P/E et EV/EBITDA, ce que ce différentiel revele sur les anticipations de croissance, si la prime/décote est justifiée par les fondamentaux, implication pour l allocation",\n'
