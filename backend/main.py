@@ -29,8 +29,13 @@ import sys
 import logging
 from pathlib import Path
 from contextlib import asynccontextmanager
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, Annotated
+
+
+def _utcnow() -> datetime:
+    """datetime UTC naïf — remplace datetime.utcnow() déprécié en Py 3.12+."""
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 # Ajoute le root du projet au PYTHONPATH pour importer cli_analyze, agents, etc.
 _ROOT = Path(__file__).parent.parent
@@ -178,7 +183,7 @@ class AnalyseResponse(BaseModel):
 @app.get("/health")
 def health_check():
     """Healthcheck pour Railway."""
-    return {"status": "ok", "service": "finsight-api", "ts": datetime.utcnow().isoformat()}
+    return {"status": "ok", "service": "finsight-api", "ts": _utcnow().isoformat()}
 
 
 @app.get("/")
@@ -332,11 +337,11 @@ def _do_cmp_secteur(secteur_a: str, univers_a: str, secteur_b: str, univers_b: s
 def _sync_response(kind: str, fn, *args, **kwargs) -> AnalyseResponse:
     import uuid
     request_id = str(uuid.uuid4())
-    t0 = datetime.utcnow()
+    t0 = _utcnow()
     try:
         log.info(f"[{kind}] sync — {request_id[:8]}")
         result = fn(*args, **kwargs)
-        elapsed = int((datetime.utcnow() - t0).total_seconds() * 1000)
+        elapsed = int((_utcnow() - t0).total_seconds() * 1000)
         return AnalyseResponse(
             success=True, request_id=request_id, elapsed_ms=elapsed,
             data=result.get("data"), files=result.get("files"),
@@ -345,7 +350,7 @@ def _sync_response(kind: str, fn, *args, **kwargs) -> AnalyseResponse:
         log.error(f"[{kind}] sync FAIL: {e}", exc_info=True)
         return AnalyseResponse(
             success=False, request_id=request_id,
-            elapsed_ms=int((datetime.utcnow() - t0).total_seconds() * 1000),
+            elapsed_ms=int((_utcnow() - t0).total_seconds() * 1000),
             error=str(e),
         )
 
@@ -592,17 +597,37 @@ async def download_file(file_path: str):
     )
 
 
-# ─── Historique user (TODO V2) ──────────────────────────────────────────────
+# ─── Historique user ────────────────────────────────────────────────────────
 
 @app.get("/history")
 async def get_history(user: Annotated[dict, Depends(require_user)]):
     """Historique des analyses du user connecté.
 
-    V1 : jobs en mémoire filtrés par user_id. Se perd au restart du worker
-    mais suffit pour la session courante. V2 : migration Supabase Postgres.
+    Persisté côté Supabase Postgres (table analyses_history). Si Supabase
+    indispo ou table vide, fallback sur les jobs en mémoire de la session.
     """
+    import db as _db
+
+    persisted = _db.list_analyses(user["id"], limit=100)
+    if persisted:
+        return {
+            "user_id": user["id"],
+            "history": [
+                {
+                    "job_id": str(row.get("id", "")),
+                    "kind": row.get("kind"),
+                    "label": row.get("label"),
+                    "ticker": row.get("ticker"),
+                    "created_at": row.get("created_at"),
+                    "finished_at": row.get("finished_at"),
+                    "files": row.get("files"),
+                }
+                for row in persisted
+            ],
+        }
+
+    # Fallback in-memory (session courante uniquement)
     jobs = jobstore.list_jobs(limit=100, user_id=user["id"])
-    # Ne retourne que les jobs terminés, plus récents en premier
     done = [j for j in jobs if j.get("status") == "done"]
     done.reverse()
     return {

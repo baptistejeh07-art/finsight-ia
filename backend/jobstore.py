@@ -21,8 +21,15 @@ import threading
 import uuid
 import logging
 from collections import OrderedDict
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Callable, Optional, Any
+
+import db
+
+
+def _now_iso() -> str:
+    """ISO timestamp UTC naïf (sans suffixe +00:00) pour compat frontend."""
+    return datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
 
 log = logging.getLogger(__name__)
 
@@ -48,7 +55,7 @@ def submit(kind: str, fn: Callable[..., Any], *args, user_id: Optional[str] = No
             "progress": 0,
             "result": None,
             "error": None,
-            "created_at": datetime.utcnow().isoformat(),
+            "created_at": _now_iso(),
             "started_at": None,
             "finished_at": None,
             "user_id": user_id,
@@ -59,7 +66,7 @@ def submit(kind: str, fn: Callable[..., Any], *args, user_id: Optional[str] = No
     def _wrapper():
         with _LOCK:
             _JOBS[job_id]["status"] = "running"
-            _JOBS[job_id]["started_at"] = datetime.utcnow().isoformat()
+            _JOBS[job_id]["started_at"] = _now_iso()
         log.info(f"[jobs/{kind}] {job_id[:8]} started")
         try:
             result = fn(*args, **kwargs)
@@ -67,14 +74,32 @@ def submit(kind: str, fn: Callable[..., Any], *args, user_id: Optional[str] = No
                 _JOBS[job_id]["status"] = "done"
                 _JOBS[job_id]["result"] = result
                 _JOBS[job_id]["progress"] = 100
-                _JOBS[job_id]["finished_at"] = datetime.utcnow().isoformat()
+                _JOBS[job_id]["finished_at"] = _now_iso()
             log.info(f"[jobs/{kind}] {job_id[:8]} done")
+            # Persistance Postgres (best-effort, ne fail pas le job)
+            if user_id:
+                try:
+                    files = result.get("files") if isinstance(result, dict) else None
+                    ticker = (
+                        result.get("ticker") if isinstance(result, dict) else None
+                    ) or label
+                    db.insert_analysis(
+                        user_id=user_id,
+                        kind=kind,
+                        label=label,
+                        ticker=ticker,
+                        status="done",
+                        files=files,
+                        finished_at=datetime.now(timezone.utc),
+                    )
+                except Exception as e:
+                    log.warning(f"[jobs/{kind}] {job_id[:8]} db persist failed: {e}")
         except Exception as e:
             log.error(f"[jobs/{kind}] {job_id[:8]} FAIL: {e}", exc_info=True)
             with _LOCK:
                 _JOBS[job_id]["status"] = "error"
                 _JOBS[job_id]["error"] = str(e)
-                _JOBS[job_id]["finished_at"] = datetime.utcnow().isoformat()
+                _JOBS[job_id]["finished_at"] = _now_iso()
 
     t = threading.Thread(target=_wrapper, daemon=True, name=f"job-{kind}-{job_id[:8]}")
     t.start()
