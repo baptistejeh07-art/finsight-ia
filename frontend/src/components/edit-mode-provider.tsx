@@ -33,18 +33,29 @@ export function EditModeProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      // Alt+E (Win/Linux) ou Option+E (Mac)
-      if (e.altKey && (e.key === "e" || e.key === "E")) {
+      // Détection robuste : on regarde e.code (KeyE) qui est indépendant
+      // de la disposition clavier (AZERTY/QWERTY) et de la langue.
+      const isE = e.code === "KeyE" || e.key === "e" || e.key === "E";
+      if (!isE) {
+        // Échap pour quitter
+        if (e.key === "Escape" && enabled) {
+          setEnabled(false);
+        }
+        return;
+      }
+      // Combinaisons acceptées (par ordre de robustesse) :
+      //   Ctrl+Alt+E : universel, jamais conflit (recommandé)
+      //   Cmd+Alt+E : équivalent Mac
+      //   Alt+E : court mais peut entrer en conflit avec le menu Édition Chrome Win
+      const ctrlOrMeta = e.ctrlKey || e.metaKey;
+      if ((ctrlOrMeta && e.altKey) || e.altKey) {
         e.preventDefault();
+        e.stopPropagation();
         setEnabled((v) => !v);
       }
-      // Échap pour quitter
-      if (e.key === "Escape" && enabled) {
-        setEnabled(false);
-      }
     }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener("keydown", onKey, { capture: true });
+    return () => window.removeEventListener("keydown", onKey, { capture: true });
   }, [enabled]);
 
   // CSS injecté pour styler les blocs en mode édition
@@ -74,7 +85,7 @@ function EditBanner({ onClose }: { onClose: () => void }) {
             <Settings2 className="w-4 h-4" />
             <span>Mode édition</span>
             <span className="text-xs opacity-70 hidden md:inline">
-              · V1 : visualisation des blocs éditables · drag&drop + resize en V2
+              · Ctrl+Alt+E pour toggle · V1 : visualisation · drag&drop en V2
             </span>
           </div>
           <div className="flex items-center gap-2">

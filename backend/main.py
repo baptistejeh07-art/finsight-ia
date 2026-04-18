@@ -316,7 +316,8 @@ def _do_secteur(secteur: str, univers: str) -> dict:
     outputs_dir = _ROOT / "outputs" / "generated" / "cli_tests"
     stem = f"secteur_{secteur.replace(' ', '_')}_{univers.replace(' ', '_')}"
     files = {}
-    for ext in ("pdf", "pptx"):
+    # XLSX possible si secteur Énergie (template scoring multi-factoriel)
+    for ext in ("pdf", "pptx", "xlsx"):
         p = outputs_dir / f"{stem}.{ext}"
         if p.exists():
             files[ext] = str(p.relative_to(_ROOT))

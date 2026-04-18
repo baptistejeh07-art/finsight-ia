@@ -154,9 +154,39 @@ def run_secteur(sector: str, universe: str = "CAC 40", prefix: str = "secteur") 
     SectoralPPTXWriter.generate(tickers, sector, universe, str(pptx_path))
     log.info("PPTX sectoriel : %s  (%d Ko)", pptx_path.name, pptx_path.stat().st_size // 1024)
 
+    # XLSX dédié pour secteur Énergie (template Baptiste avec scoring multi-factoriel)
+    xlsx_path = None
+    if sector.lower() in ("énergie", "energie", "energy", "oil", "oil & gas"):
+        try:
+            from outputs.sector_energy_xlsx_writer import (
+                write_energy_sector_xlsx, build_ticker_dict_from_yfinance,
+            )
+            import yfinance as _yf
+            xlsx_data = []
+            for t in tickers:
+                tk = t.get("ticker") or t.get("symbol")
+                if not tk:
+                    continue
+                try:
+                    info = _yf.Ticker(tk).info or {}
+                except Exception:
+                    info = {}
+                xlsx_data.append(
+                    build_ticker_dict_from_yfinance(tk, info, ratios=t.get("ratios"))
+                )
+            if xlsx_data:
+                xlsx_path = OUT_DIR / f"{stem}.xlsx"
+                write_energy_sector_xlsx(xlsx_data, xlsx_path)
+                log.info("XLSX énergie : %s  (%d Ko)", xlsx_path.name,
+                         xlsx_path.stat().st_size // 1024)
+        except Exception as e:
+            log.error("XLSX énergie failed : %s", e)
+
     print(f"\nFichiers generes dans : {OUT_DIR}")
     print(f"  * {pdf_path.name}")
     print(f"  * {pptx_path.name}")
+    if xlsx_path:
+        print(f"  * {xlsx_path.name}")
     print(f"\nTemps total : {time.time() - t0:.1f}s")
 
 
