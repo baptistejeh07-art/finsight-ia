@@ -53,9 +53,8 @@ export function MarketingFooter() {
       <div className="container-vitrine py-16">
         <div className="grid grid-cols-1 md:grid-cols-12 gap-10">
           <div className="md:col-span-3">
-            <div className="text-text-inverse">
-              <LogoMarkInverse />
-            </div>
+            <LogoMark variant="inverse" />
+
             <p className="mt-4 text-sm text-text-inverse/60 leading-relaxed max-w-xs">
               Analyses financières institutionnelles, livrées en quelques
               minutes.
@@ -112,27 +111,6 @@ export function MarketingFooter() {
         </div>
       </div>
     </footer>
-  );
-}
-
-function LogoMarkInverse() {
-  return (
-    <Link href="/" className="inline-flex items-center gap-2">
-      <svg
-        width="22"
-        height="22"
-        viewBox="0 0 32 32"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-      >
-        <rect x="3" y="20" width="6" height="9" fill="currentColor" />
-        <rect x="11" y="14" width="6" height="15" fill="currentColor" />
-        <rect x="19" y="6" width="6" height="23" fill="currentColor" />
-      </svg>
-      <span className="font-bold text-base tracking-[0.18em] leading-none">
-        FINSIGHT
-      </span>
-    </Link>
   );
 }
 

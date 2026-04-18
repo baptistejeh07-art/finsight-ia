@@ -37,7 +37,7 @@ export function MarketingNav() {
           : "bg-surface/60 border-b border-transparent"
       }`}
     >
-      <div className="container-vitrine h-16 flex items-center justify-between gap-6">
+      <div className="container-vitrine h-18 py-2 flex items-center justify-between gap-6">
         <LogoMark />
 
         <nav className="hidden lg:flex items-center gap-1" onMouseLeave={scheduleClose}>
