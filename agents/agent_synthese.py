@@ -465,12 +465,19 @@ class AgentSynthese:
         raw = None
         # Collecte des erreurs par provider pour diagnostic
         _provider_errors: dict[str, str] = {}
+        _provider_used: Optional[str] = None
+        _provider_ms: dict[str, int] = {}
+        _t_prov = time.time()
         try:
             raw = self.llm.generate(prompt=prompt, system=_SYSTEM, max_tokens=4000)
+            _provider_ms[self.llm.provider] = int((time.time() - _t_prov) * 1000)
+            if raw:
+                _provider_used = self.llm.provider
         except Exception as e:
+            _provider_ms[self.llm.provider] = int((time.time() - _t_prov) * 1000)
             _err_msg = f"{type(e).__name__}: {str(e)[:120]}"
             _provider_errors[self.llm.provider] = _err_msg
-            log.warning(f"[AgentSynthese] {self.llm.provider} echec ({_err_msg})")
+            log.warning(f"[AgentSynthese] {self.llm.provider} echec ({_err_msg}) en {_provider_ms[self.llm.provider]}ms")
 
         # Cascade fallback : Groq (primaire) → Mistral → Cerebras → Anthropic
         _fallbacks = [
@@ -482,13 +489,18 @@ class AgentSynthese:
             if raw:
                 break
             log.warning(f"[AgentSynthese] fallback → {_prov}")
+            _t_prov = time.time()
             try:
                 _fb_llm = LLMProvider(provider=_prov, model=_model)
                 raw = _fb_llm.generate(prompt=prompt, system=_SYSTEM, max_tokens=4000)
+                _provider_ms[_prov] = int((time.time() - _t_prov) * 1000)
+                if raw:
+                    _provider_used = _prov
             except Exception as _e:
+                _provider_ms[_prov] = int((time.time() - _t_prov) * 1000)
                 _err_msg = f"{type(_e).__name__}: {str(_e)[:120]}"
                 _provider_errors[_prov] = _err_msg
-                log.error(f"[AgentSynthese] {_prov} echec ({_err_msg})")
+                log.error(f"[AgentSynthese] {_prov} echec ({_err_msg}) en {_provider_ms[_prov]}ms")
 
         if not raw:
             log.error("[AgentSynthese] Tous les providers ont echoue — fallback deterministe")
@@ -559,11 +571,14 @@ class AgentSynthese:
                 "tokens_used": None,
                 "confidence_score": _fnum(parsed.get("confidence_score")) or 0.5,
                 "invalidation_conditions": parsed.get("invalidation_conditions", ""),
+                "provider": _provider_used,
+                "provider_ms": _provider_ms,
+                "provider_errors": _provider_errors,
             },
         )
 
         log.info(
-            f"[AgentSynthese] '{snapshot.ticker}' — "
+            f"[AgentSynthese] '{snapshot.ticker}' — provider={_provider_used} "
             f"{result.recommendation} conviction={result.conviction:.0%} ({latency_ms}ms)"
         )
         return result

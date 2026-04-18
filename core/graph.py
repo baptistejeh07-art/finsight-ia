@@ -285,14 +285,20 @@ def synthesis_node(state: FinSightState) -> dict:
             conf = _data_q or 0.70
             log.warning(f"[synthesis_node] confidence_score anormalement bas — remplace par {conf:.0%}")
 
-        log.info(f"[synthesis_node] confidence={conf} rec={rec} — {ms}ms")
+        # Capture le provider qui a finalement réussi (info précieuse pour debug perf)
+        meta = getattr(synthesis, "meta", None) or {}
+        provider_used = meta.get("provider") or meta.get("provider_used") or "unknown"
+        provider_errors = meta.get("provider_errors") or {}
+        log.info(f"[synthesis_node] provider={provider_used} confidence={conf} rec={rec} — {ms}ms")
         return {
             "synthesis":               synthesis,
             "confidence_score":        conf,
             "invalidation_conditions": synthesis.invalidation_conditions,
             "recommendation":          rec,
             **_log_entry(state, "synthesis_node", ms, status="ok",
-                         confidence=conf, recommendation=rec),
+                         confidence=conf, recommendation=rec,
+                         provider=provider_used,
+                         providers_failed=list(provider_errors.keys())),
         }
     except Exception as e:
         ms = int((time.time() - t0) * 1000)
@@ -480,6 +486,7 @@ def output_node(state: FinSightState) -> dict:
     import tempfile
 
     def _gen_excel():
+        _t = time.time()
         try:
             from outputs.excel_writer import ExcelWriter
             with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp:
@@ -488,13 +495,16 @@ def output_node(state: FinSightState) -> dict:
                                 comparables=comparables, output_path=tmp_path)
             data = tmp_path.read_bytes()
             tmp_path.unlink(missing_ok=True)
-            log.info(f"[output_node] Excel OK — {len(data)} bytes")
-            return (data, None)
+            _ms = int((time.time() - _t) * 1000)
+            log.info(f"[output_node] Excel OK — {len(data)} bytes — {_ms}ms")
+            return (data, None, _ms)
         except Exception as e:
+            _ms = int((time.time() - _t) * 1000)
             log.error(f"[output_node] ExcelWriter FAILED: {e}", exc_info=True)
-            return (None, f"{type(e).__name__}: {e}")
+            return (None, f"{type(e).__name__}: {e}", _ms)
 
     def _gen_pptx():
+        _t = time.time()
         try:
             from outputs.pptx_writer import PPTXWriter
             with tempfile.NamedTemporaryFile(suffix=".pptx", delete=False) as tmp:
@@ -502,14 +512,17 @@ def output_node(state: FinSightState) -> dict:
             PPTXWriter().generate(state, str(tmp_path))
             data = tmp_path.read_bytes()
             tmp_path.unlink(missing_ok=True)
-            log.info(f"[output_node] PPTX OK — {len(data)} bytes")
-            return (data, None)
+            _ms = int((time.time() - _t) * 1000)
+            log.info(f"[output_node] PPTX OK — {len(data)} bytes — {_ms}ms")
+            return (data, None, _ms)
         except Exception as e:
+            _ms = int((time.time() - _t) * 1000)
             import traceback as _tb2
             log.error(f"[output_node] PPTXWriter FAILED: {e}", exc_info=True)
-            return (None, f"{type(e).__name__}: {e}\n{_tb2.format_exc()}")
+            return (None, f"{type(e).__name__}: {e}\n{_tb2.format_exc()}", _ms)
 
     def _gen_pdf():
+        _t = time.time()
         try:
             from outputs.pdf_writer import PDFWriter
             with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
@@ -517,20 +530,22 @@ def output_node(state: FinSightState) -> dict:
             PDFWriter().generate(state, str(tmp_path))
             data = tmp_path.read_bytes()
             tmp_path.unlink(missing_ok=True)
-            log.info(f"[output_node] PDF OK — {len(data)} bytes")
-            return (data, None)
+            _ms = int((time.time() - _t) * 1000)
+            log.info(f"[output_node] PDF OK — {len(data)} bytes — {_ms}ms")
+            return (data, None, _ms)
         except Exception as e:
+            _ms = int((time.time() - _t) * 1000)
             import traceback as _tb
             log.error(f"[output_node] PDFWriter FAILED: {e}", exc_info=True)
-            return (None, f"{type(e).__name__}: {e}\n{_tb.format_exc()}")
+            return (None, f"{type(e).__name__}: {e}\n{_tb.format_exc()}", _ms)
 
     with ThreadPoolExecutor(max_workers=3) as executor:
         f_excel = executor.submit(_gen_excel)
         f_pptx  = executor.submit(_gen_pptx)
         f_pdf   = executor.submit(_gen_pdf)
-        excel_bytes, _excel_err = f_excel.result()
-        pptx_bytes,  pptx_error = f_pptx.result()
-        pdf_bytes,   pdf_error  = f_pdf.result()
+        excel_bytes, _excel_err, excel_ms = f_excel.result()
+        pptx_bytes,  pptx_error, pptx_ms  = f_pptx.result()
+        pdf_bytes,   pdf_error,  pdf_ms   = f_pdf.result()
 
     # Paths logiques (pas physiques — les bytes sont dans state)
     today_iso = date.today().isoformat()
@@ -554,7 +569,8 @@ def output_node(state: FinSightState) -> dict:
         "pptx_error":  pptx_error,
         "pdf_error":   pdf_error,
         **_log_entry(state, "output_node", ms,
-                     excel=bool(excel_path), pptx=bool(pptx_path), pdf=bool(pdf_path)),
+                     excel=bool(excel_path), pptx=bool(pptx_path), pdf=bool(pdf_path),
+                     excel_ms=excel_ms, pptx_ms=pptx_ms, pdf_ms=pdf_ms),
     }
 
 
