@@ -95,10 +95,12 @@ def _abbrev_sector(name: str, maxlen: int = 16) -> str:
     return s[:maxlen] if len(s) > maxlen else s
 
 def _trunc(text: str, n: int) -> str:
-    """Truncate at word boundary."""
+    """Coupe au word boundary sans ellipse — le LLM est contraint par
+    length_rule(min_words, max_words) en amont ; le fallback ici reste
+    invisible (pas de '...') si un overrun LLM survient."""
     if len(text) <= n:
         return text
-    return text[:n].rsplit(' ', 1)[0] + '...'
+    return text[:n].rsplit(' ', 1)[0]
 
 def _fr_date():
     import datetime
