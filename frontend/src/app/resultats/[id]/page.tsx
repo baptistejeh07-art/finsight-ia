@@ -2,17 +2,38 @@
 
 import { useEffect, useState, use } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { ArrowLeft, Download, FileText, Presentation, FileSpreadsheet, AlertTriangle } from "lucide-react";
-import { Navbar } from "@/components/navbar";
+import {
+  ArrowLeft,
+  Download,
+  FileText,
+  Presentation,
+  FileSpreadsheet,
+  AlertTriangle,
+} from "lucide-react";
 import { Footer } from "@/components/footer";
-import { fmtCurrency, fmtPercent, signalColor, signalLabel } from "@/lib/utils";
 import { getFileUrl, getJob } from "@/lib/api";
+
+import type { AnalysisData, RawData, RatiosData, Synthesis } from "@/components/dashboard/types";
+import { HeaderSociete } from "@/components/dashboard/header-societe";
+import { RecoCard } from "@/components/dashboard/reco-card";
+import { CoursChart } from "@/components/dashboard/cours-chart";
+import { ValorisationCards } from "@/components/dashboard/valorisation-cards";
+import { KpiGrid } from "@/components/dashboard/kpi-grid";
+import { CapexFcfChart } from "@/components/dashboard/capex-fcf-chart";
+import { PeersTable } from "@/components/dashboard/peers-table";
+import { MktCapDonut } from "@/components/dashboard/mktcap-donut";
+import { CompareCard } from "@/components/dashboard/compare-card";
+import { SyntheseCard } from "@/components/dashboard/synthese-card";
+import { QAChat } from "@/components/dashboard/qa-chat";
+import { PourAllerPlusLoin } from "@/components/dashboard/pour-aller-plus-loin";
+import { PortraitCard } from "@/components/dashboard/portrait-card";
+import { Glossaire } from "@/components/dashboard/glossaire";
 
 interface AnalysisResult {
   success: boolean;
   request_id: string;
   elapsed_ms: number;
-  data?: Record<string, unknown>;
+  data?: AnalysisData;
   files?: { pdf?: string; pptx?: string; xlsx?: string };
   error?: string;
   kind?: "societe" | "secteur" | "indice" | "comparatif";
@@ -31,30 +52,33 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
   const search = useSearchParams();
   const router = useRouter();
   const ticker = search.get("ticker") || "";
-  const kindParam = (search.get("kind") || "societe") as "societe" | "secteur" | "indice" | "comparatif";
+  const kindParam = (search.get("kind") || "societe") as
+    | "societe"
+    | "secteur"
+    | "indice"
+    | "comparatif";
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
-    // 1. Essaye d'abord sessionStorage (analyse fraîche déjà stockée)
     const stored = sessionStorage.getItem(`analysis_${id}`);
     if (stored) {
       try {
         setResult(JSON.parse(stored));
         return;
       } catch {
-        // JSON corrompu → fallback backend
+        /* fallback */
       }
     }
 
-    // 2. Sinon, fetch le job depuis le backend (refresh, lien direct)
     (async () => {
       try {
         const job = await getJob(id);
         if (job.status === "done" && job.result) {
-          const elapsedMs = job.finished_at && job.started_at
-            ? new Date(job.finished_at).getTime() - new Date(job.started_at).getTime()
-            : 0;
+          const elapsedMs =
+            job.finished_at && job.started_at
+              ? new Date(job.finished_at).getTime() - new Date(job.started_at).getTime()
+              : 0;
           const r: AnalysisResult = {
             success: true,
             request_id: id,
@@ -65,16 +89,15 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
             label: ticker || undefined,
           };
           setResult(r);
-          // Re-cache en sessionStorage pour prochaines navigations
-          try { sessionStorage.setItem(`analysis_${id}`, JSON.stringify(r)); } catch {}
+          try {
+            sessionStorage.setItem(`analysis_${id}`, JSON.stringify(r));
+          } catch {}
         } else if (job.status === "error") {
           setNotFound(true);
         } else {
-          // Encore en cours → redirige vers la page d'analyse
           router.push(`/analyse?q=${encodeURIComponent(ticker)}`);
         }
       } catch {
-        // 404 ou backend down → page not-found inline
         setNotFound(true);
       }
     })();
@@ -83,15 +106,11 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
   if (notFound) {
     return (
       <div className="min-h-screen flex flex-col">
-        <Navbar />
         <main className="flex-1 max-w-2xl mx-auto px-6 py-20 w-full text-center">
           <AlertTriangle className="w-12 h-12 text-signal-sell mx-auto mb-4" />
-          <h1 className="text-xl font-semibold text-ink-900 mb-2">
-            Analyse introuvable
-          </h1>
+          <h1 className="text-xl font-semibold text-ink-900 mb-2">Analyse introuvable</h1>
           <p className="text-sm text-ink-600 mb-6">
-            Cette analyse n&apos;est plus disponible en mémoire (redémarrage serveur ou lien expiré).
-            Relancez une nouvelle analyse depuis l&apos;accueil.
+            Cette analyse n&apos;est plus disponible (lien expiré ou redémarrage serveur).
           </p>
           <button onClick={() => router.push("/")} className="btn-primary">
             Retour à l&apos;accueil
@@ -104,38 +123,34 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
 
   if (!result) {
     return (
-      <div className="min-h-screen flex flex-col">
-        <Navbar />
-        <main className="flex-1 flex items-center justify-center">
-          <div className="text-ink-500">Chargement...</div>
-        </main>
-        <Footer />
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-ink-500">Chargement...</div>
       </div>
     );
   }
 
   const kind = result.kind || kindParam;
   const isSociete = kind === "societe";
+  const data: AnalysisData = result.data || {};
+  const synthesis: Synthesis | null = (data.synthesis as Synthesis) || null;
+  const rawData: RawData | null = (data.raw_data as RawData) || null;
+  const ratios: RatiosData | null = (data.ratios as RatiosData) || null;
 
-  // Extraire les données de l'analyse (uniquement société)
-  const data = (result.data || {}) as Record<string, unknown>;
-  const synthesis = (data.synthesis || {}) as Record<string, unknown>;
-  const snapshot = (data.snapshot || {}) as Record<string, unknown>;
-  const ci = (snapshot.company_info || {}) as Record<string, unknown>;
-  const market = (snapshot.market || {}) as Record<string, unknown>;
+  // company_info source : raw_data en priorité, sinon legacy snapshot
+  const ci = rawData?.company_info || data.snapshot?.company_info;
+  const market = rawData?.market || data.snapshot?.market;
 
-  const reco = (synthesis.recommendation as string) || "HOLD";
-  const conviction = (synthesis.conviction as number) || 0.5;
-  const targetBase = synthesis.target_base as number | undefined;
-  const summary = (synthesis.summary as string) || "";
-  const currency = (ci.currency as string) || "USD";
-  const sharePrice = market.share_price as number | undefined;
-  const companyName = (ci.company_name as string) || ticker;
-  const sector = (ci.sector as string) || (isSociete ? "—" : kind === "indice" ? "Indice boursier" : kind === "comparatif" ? "Comparatif société" : "Analyse sectorielle");
+  const recommendation = (data.recommendation as string) || synthesis?.recommendation || "HOLD";
+  const conviction = synthesis?.conviction ?? 0.5;
+  const sharePrice = market?.share_price as number | undefined;
+  const currency = ci?.currency || "USD";
+  const tickerStr = data.ticker || ci?.ticker || ticker;
+
+  const latestYear = ratios?.latest_year || (ratios?.years ? Object.keys(ratios.years).sort().pop() : undefined);
+  const latestRatios = latestYear && ratios?.years ? ratios.years[latestYear] : null;
 
   return (
     <div className="min-h-screen flex flex-col">
-      <Navbar />
       <main className="flex-1 max-w-7xl mx-auto px-6 py-8 w-full">
         {/* Back */}
         <button
@@ -146,105 +161,148 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
           Nouvelle analyse
         </button>
 
-        {/* Header */}
-        <header className="border-b border-ink-200 pb-6 mb-8">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <div className="section-label mb-2">{sector}</div>
-              <h1 className="text-3xl font-bold text-ink-900 tracking-tight mb-1">
-                {isSociete ? companyName : (result.label || ticker)}
-              </h1>
-              <div className="text-sm text-ink-600 font-mono">
-                {isSociete ? `${ticker} · ${currency} · ` : ""}
-                {new Date().toLocaleDateString("fr-FR")}
+        {/* SECTION : Société (full BI dashboard) */}
+        {isSociete && ci && (
+          <>
+            {/* Header */}
+            <header className="mb-6">
+              <HeaderSociete ci={ci} elapsedMs={result.elapsed_ms} />
+            </header>
+
+            {/* Top row : Reco + Cours chart */}
+            <section className="grid grid-cols-1 lg:grid-cols-5 gap-4 mb-6">
+              <div className="lg:col-span-2 space-y-4">
+                <RecoCard recommendation={recommendation} conviction={conviction} />
+                <ValorisationCards
+                  bull={synthesis?.target_bull}
+                  base={synthesis?.target_base}
+                  bear={synthesis?.target_bear}
+                  sharePrice={sharePrice}
+                  currency={currency}
+                />
               </div>
-            </div>
-            {isSociete && (
-              <div className="text-right">
-                <div className="section-label mb-1">Cours actuel</div>
-                <div className="text-2xl font-bold text-ink-900 font-mono">
-                  {sharePrice ? fmtCurrency(sharePrice, currency, 2) : "—"}
-                </div>
+              <div className="lg:col-span-3">
+                <CoursChart ticker={tickerStr} history={rawData?.stock_history || []} />
               </div>
+            </section>
+
+            {/* Synthèse */}
+            {synthesis && (
+              <section className="mb-6">
+                <SyntheseCard synthesis={synthesis} />
+              </section>
             )}
-          </div>
-        </header>
 
-        {/* Verdict KPIs (société uniquement pour V1) */}
-        {isSociete && (
-        <section className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
-          <KpiCard label="Recommandation">
-            <div className={`text-xl font-bold ${signalColor(reco)}`}>
-              {signalLabel(reco)}
-            </div>
-          </KpiCard>
-          <KpiCard label="Conviction IA">
-            <div className="text-xl font-bold text-ink-900 font-mono">
-              {Math.round(conviction * 100)} %
-            </div>
-            <div className="w-full h-1 bg-ink-100 rounded-full mt-2 overflow-hidden">
-              <div
-                className="h-full bg-navy-500 rounded-full"
-                style={{ width: `${conviction * 100}%` }}
-              />
-            </div>
-          </KpiCard>
-          <KpiCard label="Cible 12 mois">
-            <div className="text-xl font-bold text-navy-500 font-mono">
-              {targetBase ? fmtCurrency(targetBase, currency, 0) : "—"}
-            </div>
-          </KpiCard>
-          <KpiCard label="Upside potentiel">
-            <div
-              className={`text-xl font-bold font-mono ${
-                targetBase && sharePrice && targetBase > sharePrice
-                  ? "text-signal-buy"
-                  : "text-signal-sell"
-              }`}
-            >
-              {targetBase && sharePrice
-                ? fmtPercent((targetBase - sharePrice) / sharePrice)
-                : "—"}
-            </div>
-          </KpiCard>
-        </section>
+            {/* Q&A Chatbot — placé après la synthèse */}
+            <section className="mb-6">
+              <QAChat jobId={id} ticker={tickerStr} />
+            </section>
+
+            {/* Ratios clés */}
+            <section className="mb-6">
+              <div className="text-[10px] font-semibold uppercase tracking-[1.5px] text-ink-500 mb-3">
+                Ratios clés ({latestYear})
+              </div>
+              <KpiGrid ratios={latestRatios} />
+            </section>
+
+            {/* CapEx + Donut */}
+            <section className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+              {rawData?.years && (
+                <CapexFcfChart
+                  years={rawData.years}
+                  ratios={ratios?.years}
+                  currency={currency}
+                />
+              )}
+              {synthesis?.comparable_peers && synthesis.comparable_peers.length > 0 && (
+                <MktCapDonut
+                  peers={synthesis.comparable_peers}
+                  targetTicker={tickerStr}
+                  targetName={ci.company_name}
+                  targetMarketCapMds={
+                    latestRatios?.market_cap ? latestRatios.market_cap / 1000 : null
+                  }
+                  sectorLabel={`Secteur ${ci.sector || ""}`}
+                />
+              )}
+            </section>
+
+            {/* Comparatif sectoriel + Card Comparer */}
+            {synthesis?.comparable_peers && synthesis.comparable_peers.length > 0 && (
+              <section className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+                <div className="lg:col-span-2">
+                  <PeersTable
+                    peers={synthesis.comparable_peers}
+                    targetTicker={tickerStr}
+                    targetName={ci.company_name}
+                    targetRatios={latestRatios}
+                  />
+                </div>
+                <div>
+                  <CompareCard targetTicker={tickerStr} />
+                </div>
+              </section>
+            )}
+
+            {/* Pour aller plus loin + Portrait */}
+            <section className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+              {synthesis && <PourAllerPlusLoin synthesis={synthesis} />}
+              <PortraitCard ticker={tickerStr} companyName={ci.company_name} />
+            </section>
+
+            {/* Glossaire */}
+            <section className="mb-6">
+              <Glossaire />
+            </section>
+          </>
         )}
 
-        {/* Message secteur/indice/comparatif : livrables téléchargeables */}
+        {/* SECTION : Secteur / Indice / Comparatif (V1 = card simple + downloads) */}
         {!isSociete && (
-          <section className="mb-8">
-            <div className="card bg-navy-50 border-navy-200">
-              <p className="text-sm text-ink-700 leading-relaxed">
+          <>
+            <header className="border-b border-ink-200 pb-6 mb-8">
+              <div className="text-[10px] font-semibold uppercase tracking-[1.5px] text-ink-500 mb-2">
                 {kind === "indice"
-                  ? "Analyse complète de l'indice générée. Le rapport PDF contient l'analyse macro, les comparatifs inter-secteurs et l'allocation optimale."
+                  ? "Indice boursier"
                   : kind === "comparatif"
-                  ? "Comparatif société généré. Les livrables PDF, PPTX et Excel contiennent les analyses parallèles, ratios comparés et verdict relatif."
-                  : "Analyse sectorielle générée. Le rapport PDF compare les principales sociétés du secteur sur l'univers sélectionné."}
-              </p>
-            </div>
-          </section>
+                  ? "Comparatif société"
+                  : "Analyse sectorielle"}
+              </div>
+              <h1 className="text-2xl font-bold text-ink-900 tracking-tight">
+                {result.label || ticker}
+              </h1>
+              <div className="text-xs text-ink-600 font-mono mt-1">
+                {new Date().toLocaleDateString("fr-FR")}
+                {result.elapsed_ms > 0 ? ` · ${(result.elapsed_ms / 1000).toFixed(1)}s` : ""}
+              </div>
+            </header>
+            <section className="mb-8">
+              <div className="card bg-navy-50 border-navy-200">
+                <p className="text-sm text-ink-700 leading-relaxed">
+                  {kind === "indice"
+                    ? "Analyse complète de l'indice générée. Le rapport PDF contient l'analyse macro, les comparatifs inter-secteurs et l'allocation optimale."
+                    : kind === "comparatif"
+                    ? "Comparatif société généré. Les livrables PDF, PPTX et Excel contiennent les analyses parallèles, ratios comparés et verdict relatif."
+                    : "Analyse sectorielle générée. Le rapport PDF compare les principales sociétés du secteur sur l'univers sélectionné."}
+                </p>
+              </div>
+            </section>
+          </>
         )}
 
-        {/* Synthèse */}
-        {isSociete && summary && (
-          <section className="mb-8">
-            <div className="section-label mb-3">Synthèse de l&apos;analyse</div>
-            <div className="card">
-              <p className="text-sm text-ink-700 leading-relaxed">{summary}</p>
-            </div>
-          </section>
-        )}
-
-        {/* Downloads */}
+        {/* Downloads — toujours dispo */}
         {result.files && (
           <section className="mb-8">
-            <div className="section-label mb-3">Livrables</div>
+            <div className="text-[10px] font-semibold uppercase tracking-[1.5px] text-ink-500 mb-3">
+              Livrables
+            </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {result.files.pdf && (
                 <DownloadCard
                   icon={<FileText className="w-5 h-5" />}
                   label="Rapport PDF"
-                  description="20 pages · Format institutionnel"
+                  description="Format institutionnel"
                   href={getFileUrl(result.files.pdf)}
                 />
               )}
@@ -252,7 +310,7 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
                 <DownloadCard
                   icon={<Presentation className="w-5 h-5" />}
                   label="Pitchbook PPTX"
-                  description="20 slides · Style Bloomberg"
+                  description="Style Bloomberg"
                   href={getFileUrl(result.files.pptx)}
                 />
               )}
@@ -268,21 +326,12 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
           </section>
         )}
 
-        {/* Footer info */}
         <div className="text-xs text-ink-500 mt-8 text-center">
-          Analyse générée en {(result.elapsed_ms / 1000).toFixed(1)}s · ID {result.request_id.slice(0, 8)}
+          Analyse générée en {(result.elapsed_ms / 1000).toFixed(1)}s · ID{" "}
+          {result.request_id.slice(0, 8)}
         </div>
       </main>
       <Footer />
-    </div>
-  );
-}
-
-function KpiCard({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="bg-white border border-ink-200 rounded-md p-4">
-      <div className="section-label mb-2">{label}</div>
-      <div>{children}</div>
     </div>
   );
 }

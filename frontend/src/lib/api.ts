@@ -182,6 +182,15 @@ export interface ResolveResult {
   sector?: string;
 }
 
+// ─── Q&A chatbot ───────────────────────────────────────────────────────────
+
+export async function askQA(
+  jobId: string,
+  messages: { role: "user" | "assistant"; content: string }[]
+): Promise<{ answer: string }> {
+  return apiPost("/qa", { job_id: jobId, messages });
+}
+
 export async function resolveQuery(query: string): Promise<ResolveResult> {
   return apiGet<ResolveResult>(`/resolve/${encodeURIComponent(query)}`);
 }

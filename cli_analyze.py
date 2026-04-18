@@ -83,12 +83,28 @@ def run_societe(ticker: str) -> None:
         log.info("Sauvegarde : %s", p.name)
 
     # ── Dump JSON state (hors bytes) ─────────────────────────────────────────
+    # default qui sérialise correctement les Pydantic models (model_dump),
+    # les dataclasses (asdict) et fallback str(). Sans ça, le frontend
+    # ne pouvait pas lire raw_data/synthesis/ratios (repr Python en string).
+    def _json_default(o):
+        if hasattr(o, "model_dump"):
+            return o.model_dump()
+        if hasattr(o, "__dataclass_fields__"):
+            from dataclasses import asdict
+            return asdict(o)
+        if hasattr(o, "dict") and callable(o.dict):
+            try:
+                return o.dict()
+            except Exception:
+                pass
+        return str(o)
+
     safe_state = {k: v for k, v in state.items()
                   if not isinstance(v, (bytes, bytearray))}
     try:
         p = OUT_DIR / f"{ticker}_state.json"
         p.write_text(
-            json.dumps(safe_state, default=str, ensure_ascii=False, indent=2),
+            json.dumps(safe_state, default=_json_default, ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
         log.info("Sauvegarde : %s", p.name)

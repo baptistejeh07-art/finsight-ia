@@ -1,104 +1,50 @@
-"use client";
-
 import Link from "next/link";
-import Image from "next/image";
-import { useEffect, useState } from "react";
-import { LogOut, User as UserIcon } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
-import { AuthDialog } from "./auth-dialog";
-import type { User } from "@supabase/supabase-js";
+import { CitationBlock } from "./citation-block";
 
 export function Sidebar() {
-  const [user, setUser] = useState<User | null>(null);
-  const [authMode, setAuthMode] = useState<"signin" | "signup" | null>(null);
-
-  useEffect(() => {
-    const supabase = createClient();
-    supabase.auth.getUser().then(({ data }) => setUser(data.user));
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-    });
-    return () => sub.subscription.unsubscribe();
-  }, []);
-
-  async function handleLogout() {
-    const supabase = createClient();
-    await supabase.auth.signOut();
-    setUser(null);
-  }
-
   return (
-    <>
-      <aside className="hidden md:flex fixed left-0 top-0 h-screen w-56 flex-col bg-white text-ink-900 border-r border-ink-200 z-40">
-        {/* Logo */}
-        <Link href="/" className="flex items-center justify-center px-4 py-5">
-          <Image
-            src="/logo.png"
-            alt="FinSight IA"
-            width={140}
-            height={50}
-            priority
-            className="object-contain"
-          />
-        </Link>
+    <aside className="hidden md:flex fixed left-0 top-0 h-screen w-56 flex-col bg-white text-ink-900 border-r border-ink-200 z-40">
+      {/* Logo — style Streamlit (sb-logo) : texte gauche, fine ligne en dessous */}
+      <Link
+        href="/"
+        className="block px-5 pt-6 pb-4 border-b border-ink-100"
+        style={{
+          fontSize: "13px",
+          fontWeight: 700,
+          letterSpacing: "3px",
+          textTransform: "uppercase",
+          color: "#111",
+        }}
+      >
+        FinSight
+      </Link>
 
-        {/* Sections — style Streamlit (sb-label) */}
-        <nav className="flex-1 px-4 py-2 overflow-y-auto">
-          {/* Livrables */}
-          <div className="border-b border-ink-100 pb-3.5 mb-3.5">
-            <div className="text-[10px] font-semibold uppercase tracking-[1.5px] text-ink-500 mb-2.5">
-              Livrables
-            </div>
-            <div className="text-xs text-ink-400">Disponibles après analyse</div>
+      {/* Sections — style Streamlit (sb-label) */}
+      <nav className="flex-1 px-4 py-3 overflow-y-auto">
+        {/* Livrables */}
+        <div className="border-b border-ink-100 pb-3.5 mb-3.5">
+          <div className="text-[10px] font-semibold uppercase tracking-[1.5px] text-ink-500 mb-2.5">
+            Livrables
           </div>
-
-          {/* Historique d'analyses */}
-          <div className="border-b border-ink-100 pb-3.5 mb-3.5">
-            <div className="text-[10px] font-semibold uppercase tracking-[1.5px] text-ink-500 mb-2.5">
-              Historique d&apos;analyses
-            </div>
-            <div className="text-xs text-ink-400">Disponibles après analyse</div>
-          </div>
-        </nav>
-
-        {/* Auth zone */}
-        <div className="px-3 py-4 border-t border-ink-200 space-y-2">
-          {user ? (
-            <>
-              <div className="flex items-center gap-2 px-2 py-1.5 text-xs text-ink-600">
-                <UserIcon className="w-3.5 h-3.5 shrink-0" />
-                <span className="truncate">{user.email}</span>
-              </div>
-              <button
-                onClick={handleLogout}
-                className="w-full flex items-center gap-2 px-3 py-2 rounded-md text-xs text-ink-700 hover:bg-ink-50 hover:text-ink-900 transition-colors"
-              >
-                <LogOut className="w-3.5 h-3.5" />
-                Se déconnecter
-              </button>
-            </>
-          ) : (
-            <>
-              <button
-                onClick={() => setAuthMode("signin")}
-                className="w-full px-3 py-2 rounded-md text-xs text-ink-700 hover:bg-ink-50 hover:text-ink-900 transition-colors text-left"
-              >
-                Se connecter
-              </button>
-              <button
-                onClick={() => setAuthMode("signup")}
-                className="w-full px-3 py-2 rounded-md text-xs font-medium bg-navy-500 text-white hover:bg-navy-600 transition-colors"
-              >
-                S&apos;inscrire
-              </button>
-            </>
-          )}
+          <div className="text-xs text-ink-400">Disponibles après analyse</div>
         </div>
-      </aside>
 
-      {authMode && (
-        <AuthDialog mode={authMode} onClose={() => setAuthMode(null)} onModeChange={setAuthMode} />
-      )}
-    </>
+        {/* Historique d'analyses */}
+        <div className="border-b border-ink-100 pb-3.5 mb-3.5">
+          <div className="text-[10px] font-semibold uppercase tracking-[1.5px] text-ink-500 mb-2.5">
+            Historique d&apos;analyses
+          </div>
+          <div className="text-xs text-ink-400">Disponibles après analyse</div>
+        </div>
+
+        {/* Citation */}
+        <div className="pt-2 pb-4">
+          <div className="text-[10px] font-semibold uppercase tracking-[1.5px] text-ink-500 mb-3">
+            Citation
+          </div>
+          <CitationBlock />
+        </div>
+      </nav>
+    </aside>
   );
 }

@@ -548,6 +548,132 @@ class ResolveResponse(BaseModel):
     sector: Optional[str] = None
 
 
+# ───────────────────────────────────────────────────────────────────────────
+# Q&A chatbot (post-analyse) — multi-tour avec historique côté client.
+# Le state du job est chargé pour fournir le contexte à l'LLM.
+# ───────────────────────────────────────────────────────────────────────────
+
+class QAMessage(BaseModel):
+    role: str  # "user" | "assistant"
+    content: str
+
+
+class QARequest(BaseModel):
+    job_id: str
+    messages: list[QAMessage] = Field(default_factory=list)
+
+
+class QAResponse(BaseModel):
+    answer: str
+
+
+def _build_qa_context(state: dict) -> str:
+    """Résumé compact du state pour le contexte LLM."""
+    if not isinstance(state, dict):
+        return ""
+
+    rd = state.get("raw_data") or {}
+    ci = (rd.get("company_info") or {}) if isinstance(rd, dict) else {}
+    syn = state.get("synthesis") or {}
+    ratios = state.get("ratios") or {}
+    latest_yr = ratios.get("latest_year")
+    latest_ratios = (ratios.get("years") or {}).get(latest_yr, {}) if latest_yr else {}
+
+    lines = []
+    if ci:
+        lines.append(f"Société : {ci.get('company_name','?')} ({ci.get('ticker','?')})")
+        lines.append(f"Secteur : {ci.get('sector','?')} · Devise : {ci.get('currency','?')}")
+    if syn:
+        lines.append(f"Recommandation : {syn.get('recommendation','?')} · Conviction {syn.get('conviction','?')}")
+        if syn.get('target_bull') or syn.get('target_base') or syn.get('target_bear'):
+            lines.append(
+                f"Cibles : Bull {syn.get('target_bull','?')} · Base {syn.get('target_base','?')} · Bear {syn.get('target_bear','?')}"
+            )
+        if syn.get('summary'):
+            lines.append(f"Synthèse : {syn['summary'][:600]}")
+        if syn.get('thesis'):
+            lines.append(f"Thèse : {syn['thesis'][:400]}")
+    if latest_ratios:
+        keys = ['pe_ratio','ev_ebitda','ebitda_margin','net_margin','roe','roic','net_debt_ebitda','fcf_yield','revenue_growth','altman_z']
+        bits = [f"{k}={latest_ratios[k]}" for k in keys if latest_ratios.get(k) is not None]
+        if bits:
+            lines.append(f"Ratios {latest_yr} : " + " · ".join(bits))
+    peers = syn.get('comparable_peers') or []
+    if peers:
+        lines.append(
+            "Peers : "
+            + ", ".join(f"{p.get('ticker')} EV/EBITDA={p.get('ev_ebitda')}" for p in peers[:5])
+        )
+    return "\n".join(lines)
+
+
+def _load_job_state(job_id: str) -> dict:
+    """Charge le state d'un job done depuis jobstore (en mémoire)."""
+    job = jobstore.get(job_id)
+    if not job:
+        raise HTTPException(404, "Job introuvable")
+    if job.get("status") != "done":
+        raise HTTPException(409, "Analyse pas encore terminée")
+    result = job.get("result") or {}
+    return (result.get("data") or {}) if isinstance(result, dict) else {}
+
+
+@app.post("/qa", response_model=QAResponse)
+async def qa_endpoint(req: QARequest):
+    """Q&A multi-tour sur une analyse. L'historique est passé par le client."""
+    state = _load_job_state(req.job_id)
+    context = _build_qa_context(state)
+
+    if not req.messages:
+        raise HTTPException(400, "Aucun message")
+    if req.messages[-1].role != "user":
+        raise HTTPException(400, "Le dernier message doit être de l'utilisateur")
+
+    # System prompt : analyste IA expert, français correct avec accents
+    ticker = (state.get("ticker") or (state.get("raw_data") or {}).get("ticker") or "—")
+    system = (
+        "Tu es un analyste financier IA expert. Tu réponds aux questions de "
+        "l'utilisateur sur l'analyse FinSight ci-dessous. Tu écris en français "
+        "correct avec accents (é è ê à ç). Tu es factuel, concis (2-4 paragraphes "
+        "max), tu cites les chiffres du contexte quand pertinent. Si la question "
+        "sort du périmètre de l'analyse, tu le dis clairement.\n\n"
+        f"=== Contexte analyse {ticker} ===\n{context}\n=== Fin contexte ==="
+    )
+
+    # Construit la conversation : historique + dernière question
+    convo_lines = []
+    for m in req.messages[:-1]:
+        prefix = "Utilisateur" if m.role == "user" else "Assistant"
+        convo_lines.append(f"{prefix}: {m.content}")
+    convo_lines.append(f"Utilisateur: {req.messages[-1].content}")
+    convo_lines.append("Assistant:")
+    user_prompt = "\n".join(convo_lines)
+
+    # Appel LLM (Groq par défaut → fallback Mistral / Anthropic en cas d'erreur)
+    from core.llm_provider import LLMProvider
+    answer = None
+    last_err = None
+    for prov, model in [
+        ("groq", "llama-3.3-70b-versatile"),
+        ("mistral", None),
+        ("anthropic", None),
+    ]:
+        try:
+            llm = LLMProvider(provider=prov, model=model)
+            answer = llm.generate(user_prompt, system=system, max_tokens=800)
+            if answer and answer.strip():
+                break
+        except Exception as e:
+            last_err = e
+            log.warning(f"[/qa] {prov} failed: {e}")
+            continue
+
+    if not answer:
+        raise HTTPException(503, f"Tous les providers LLM ont échoué : {last_err}")
+
+    return QAResponse(answer=answer.strip())
+
+
 @app.get("/resolve/{query:path}", response_model=ResolveResponse)
 async def resolve_query(query: str):
     """Classifie une requête en société/secteur/indice.
