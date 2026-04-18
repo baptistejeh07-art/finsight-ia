@@ -2,38 +2,13 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import {
-  BarChart3,
-  GitCompareArrows,
-  LayoutDashboard,
-  Package,
-  Info,
-  LogIn,
-  LogOut,
-  User as UserIcon,
-} from "lucide-react";
+import { LogOut, User as UserIcon } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { AuthDialog } from "./auth-dialog";
 import type { User } from "@supabase/supabase-js";
 
-type NavItem = {
-  label: string;
-  href: string;
-  icon: React.ReactNode;
-};
-
-const NAV_ITEMS: NavItem[] = [
-  { label: "Analyse", href: "/", icon: <BarChart3 className="w-4 h-4" /> },
-  { label: "Comparatif", href: "/comparatif", icon: <GitCompareArrows className="w-4 h-4" /> },
-  { label: "Dashboard", href: "/dashboard", icon: <LayoutDashboard className="w-4 h-4" /> },
-  { label: "Livrables", href: "/#livrables", icon: <Package className="w-4 h-4" /> },
-  { label: "À propos", href: "/about", icon: <Info className="w-4 h-4" /> },
-];
-
 export function Sidebar() {
-  const pathname = usePathname();
   const [user, setUser] = useState<User | null>(null);
   const [authMode, setAuthMode] = useState<"signin" | "signup" | null>(null);
 
@@ -54,54 +29,40 @@ export function Sidebar() {
 
   return (
     <>
-      <aside className="hidden md:flex fixed left-0 top-0 h-screen w-56 flex-col bg-navy-500 text-white border-r border-navy-700 z-40">
-        {/* Logo */}
-        <Link href="/" className="flex items-center justify-center px-4 py-5 border-b border-navy-700">
+      <aside className="hidden md:flex fixed left-0 top-0 h-screen w-56 flex-col bg-white text-ink-900 border-r border-ink-200 z-40">
+        {/* Logo (volontairement blanc sur blanc — espace réservé identitaire) */}
+        <Link href="/" className="flex items-center justify-center px-4 py-5">
           <Image
             src="/logo.png"
             alt="FinSight IA"
             width={140}
             height={50}
             priority
-            className="object-contain"
+            className="object-contain opacity-0"
           />
         </Link>
 
-        {/* Nav */}
-        <nav className="flex-1 px-2 py-4 space-y-1">
-          {NAV_ITEMS.map((item) => {
-            const active =
-              item.href === "/"
-                ? pathname === "/"
-                : pathname.startsWith(item.href.split("#")[0]) && item.href !== "/#livrables";
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${
-                  active
-                    ? "bg-white/10 text-white font-medium"
-                    : "text-white/70 hover:bg-white/5 hover:text-white"
-                }`}
-              >
-                {item.icon}
-                <span>{item.label}</span>
-              </Link>
-            );
-          })}
+        {/* Nav — uniquement Livrables */}
+        <nav className="flex-1 px-3 py-4">
+          <Link
+            href="/#livrables"
+            className="block px-3 py-2 text-sm font-medium text-ink-900 hover:text-navy-500 transition-colors"
+          >
+            Livrables
+          </Link>
         </nav>
 
         {/* Auth zone */}
-        <div className="px-3 py-4 border-t border-navy-700 space-y-2">
+        <div className="px-3 py-4 border-t border-ink-200 space-y-2">
           {user ? (
             <>
-              <div className="flex items-center gap-2 px-2 py-1.5 text-xs text-white/70">
+              <div className="flex items-center gap-2 px-2 py-1.5 text-xs text-ink-600">
                 <UserIcon className="w-3.5 h-3.5 shrink-0" />
                 <span className="truncate">{user.email}</span>
               </div>
               <button
                 onClick={handleLogout}
-                className="w-full flex items-center gap-2 px-3 py-2 rounded-md text-xs text-white/70 hover:bg-white/5 hover:text-white transition-colors"
+                className="w-full flex items-center gap-2 px-3 py-2 rounded-md text-xs text-ink-700 hover:bg-ink-50 hover:text-ink-900 transition-colors"
               >
                 <LogOut className="w-3.5 h-3.5" />
                 Se déconnecter
@@ -111,14 +72,13 @@ export function Sidebar() {
             <>
               <button
                 onClick={() => setAuthMode("signin")}
-                className="w-full flex items-center gap-2 px-3 py-2 rounded-md text-xs text-white/80 hover:bg-white/5 hover:text-white transition-colors"
+                className="w-full px-3 py-2 rounded-md text-xs text-ink-700 hover:bg-ink-50 hover:text-ink-900 transition-colors text-left"
               >
-                <LogIn className="w-3.5 h-3.5" />
                 Se connecter
               </button>
               <button
                 onClick={() => setAuthMode("signup")}
-                className="w-full px-3 py-2 rounded-md text-xs font-medium bg-white text-navy-500 hover:bg-white/90 transition-colors"
+                className="w-full px-3 py-2 rounded-md text-xs font-medium bg-navy-500 text-white hover:bg-navy-600 transition-colors"
               >
                 S&apos;inscrire
               </button>
