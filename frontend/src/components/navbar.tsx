@@ -27,7 +27,7 @@ export function Navbar() {
 
   return (
     <>
-      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur border-b border-ink-200">
+      <header className="md:hidden sticky top-0 z-40 bg-white/95 backdrop-blur border-b border-ink-200">
         <div className="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2">

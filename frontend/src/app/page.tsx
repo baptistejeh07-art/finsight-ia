@@ -30,7 +30,6 @@ export default function HomePage() {
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [scope, setScope] = useState<"interface" | "files">("interface");
-  const [devise, setDevise] = useState("USD");
   const quote = QUOTES[Math.floor(Math.random() * QUOTES.length)];
 
   function handleAnalyze() {
@@ -39,7 +38,7 @@ export default function HomePage() {
       toast.error("Saisissez un ticker, secteur ou indice");
       return;
     }
-    router.push(`/analyse?q=${encodeURIComponent(q)}&devise=${devise}&scope=${scope}`);
+    router.push(`/analyse?q=${encodeURIComponent(q)}&scope=${scope}`);
   }
 
   return (
@@ -50,12 +49,9 @@ export default function HomePage() {
         {/* Hero */}
         <div className="text-center mb-10 animate-fade-in">
           <div className="section-label mb-3">Analyse Financière IA</div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-ink-900 mb-2 tracking-tight">
+          <h1 className="text-2xl sm:text-3xl font-bold text-ink-900 tracking-tight">
             Société, indice ou secteur ?
           </h1>
-          <p className="text-sm text-ink-600 max-w-md mx-auto">
-            Analyse institutionnelle complète en 2 minutes. DCF, ratios, scénarios, comparatifs.
-          </p>
         </div>
 
         {/* Search bar */}
@@ -78,38 +74,23 @@ export default function HomePage() {
           </button>
 
           {/* Options sous la barre */}
-          <div className="flex items-center justify-between text-xs text-ink-500 mt-3 px-1">
-            <div className="flex items-center gap-3">
-              <span className="section-label">Devise</span>
-              <select
-                value={devise}
-                onChange={(e) => setDevise(e.target.value)}
-                className="bg-transparent border-b border-ink-300 text-ink-900 font-medium focus:outline-none focus:border-navy-500"
-              >
-                <option value="USD">USD</option>
-                <option value="EUR">EUR</option>
-                <option value="GBP">GBP</option>
-                <option value="JPY">JPY</option>
-              </select>
-            </div>
-            <div className="flex items-center gap-3">
-              <label className="flex items-center gap-1.5 cursor-pointer">
-                <input
-                  type="radio"
-                  checked={scope === "interface"}
-                  onChange={() => setScope("interface")}
-                />
-                <span>Interface uniquement</span>
-              </label>
-              <label className="flex items-center gap-1.5 cursor-pointer">
-                <input
-                  type="radio"
-                  checked={scope === "files"}
-                  onChange={() => setScope("files")}
-                />
-                <span>Interface + PDF/PPTX</span>
-              </label>
-            </div>
+          <div className="flex items-center justify-end gap-3 text-xs text-ink-500 mt-3 px-1">
+            <label className="flex items-center gap-1.5 cursor-pointer">
+              <input
+                type="radio"
+                checked={scope === "interface"}
+                onChange={() => setScope("interface")}
+              />
+              <span>Interface uniquement</span>
+            </label>
+            <label className="flex items-center gap-1.5 cursor-pointer">
+              <input
+                type="radio"
+                checked={scope === "files"}
+                onChange={() => setScope("files")}
+              />
+              <span>Interface + PDF/PPTX</span>
+            </label>
           </div>
         </div>
 
@@ -121,7 +102,7 @@ export default function HomePage() {
             items={QUICK_TICKERS}
             onPick={(t) => {
               setQuery(t);
-              router.push(`/analyse?q=${encodeURIComponent(t)}&devise=${devise}&scope=${scope}`);
+              router.push(`/analyse?q=${encodeURIComponent(t)}&scope=${scope}`);
             }}
           />
           <QuickPickRow
@@ -130,7 +111,7 @@ export default function HomePage() {
             items={QUICK_SECTORS}
             onPick={(t) => {
               setQuery(t);
-              router.push(`/analyse?q=${encodeURIComponent(t)}&devise=${devise}&scope=${scope}`);
+              router.push(`/analyse?q=${encodeURIComponent(t)}&scope=${scope}`);
             }}
           />
           <QuickPickRow
@@ -139,13 +120,13 @@ export default function HomePage() {
             items={QUICK_INDICES}
             onPick={(t) => {
               setQuery(t);
-              router.push(`/analyse?q=${encodeURIComponent(t)}&devise=${devise}&scope=${scope}`);
+              router.push(`/analyse?q=${encodeURIComponent(t)}&scope=${scope}`);
             }}
           />
         </div>
 
         {/* Livrables */}
-        <div className="mt-16 pt-10 border-t border-ink-200">
+        <div id="livrables" className="mt-16 pt-10 border-t border-ink-200 scroll-mt-8">
           <div className="text-center mb-6">
             <div className="section-label">Livrables</div>
           </div>
