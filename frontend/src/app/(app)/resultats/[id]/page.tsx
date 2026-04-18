@@ -30,6 +30,7 @@ import { PortraitCard } from "@/components/dashboard/portrait-card";
 import { Glossaire } from "@/components/dashboard/glossaire";
 import { RevealOnScroll } from "@/components/dashboard/reveal-on-scroll";
 import { Editable } from "@/components/editable";
+import { WarningsBanner } from "@/components/dashboard/warnings-banner";
 
 interface AnalysisResult {
   success: boolean;
@@ -170,6 +171,11 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
             <header className="mb-5">
               <HeaderSociete ci={ci} elapsedMs={result.elapsed_ms} />
             </header>
+
+            {/* Warnings audit (data manquante détectée par AgentDataAudit) */}
+            {(data as { warnings?: { field: string; severity: "info" | "warning" | "error"; hint: string }[] }).warnings && (
+              <WarningsBanner warnings={(data as { warnings: { field: string; severity: "info" | "warning" | "error"; hint: string }[] }).warnings} />
+            )}
 
             {/* Layout principal 2 colonnes : 65/35 */}
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 mb-5">

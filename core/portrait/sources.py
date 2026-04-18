@@ -51,10 +51,10 @@ class CompanyContext:
 # yfinance
 # ---------------------------------------------------------------------------
 def fetch_yfinance_context(ticker: str) -> CompanyContext:
-    """Récupère le contexte société depuis yfinance."""
-    import yfinance as yf
+    """Récupère le contexte société depuis yfinance (cache 15 min via get_ticker)."""
+    from core.yfinance_cache import get_ticker
 
-    t = yf.Ticker(ticker)
+    t = get_ticker(ticker)
     info = {}
     try:
         info = t.info or {}

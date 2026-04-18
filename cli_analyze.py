@@ -161,14 +161,14 @@ def run_secteur(sector: str, universe: str = "CAC 40", prefix: str = "secteur") 
             from outputs.sector_energy_xlsx_writer import (
                 write_energy_sector_xlsx, build_ticker_dict_from_yfinance,
             )
-            import yfinance as _yf
+            from core.yfinance_cache import get_ticker as _get_ticker
             xlsx_data = []
             for t in tickers:
                 tk = t.get("ticker") or t.get("symbol")
                 if not tk:
                     continue
                 try:
-                    info = _yf.Ticker(tk).info or {}
+                    info = _get_ticker(tk).info or {}
                 except Exception:
                     info = {}
                 xlsx_data.append(

@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Building2, TrendingUp, Globe2 } from "lucide-react";
 import toast from "react-hot-toast";
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
 
 const QUICK_TICKERS = ["AAPL", "TSLA", "MSFT", "MC.PA", "OR.PA", "NVDA"];
 const QUICK_SECTORS = ["Technologie", "Santé", "Banques", "Énergie", "Industrie"];
@@ -28,6 +30,15 @@ export default function HomePage() {
   const router = useRouter();
   const [query, setQuery] = useState("");
   const quote = QUOTES[Math.floor(Math.random() * QUOTES.length)];
+
+  // Pré-warming Railway : ping silencieux au mount pour réveiller le backend
+  // pendant que l'utilisateur tape son ticker. Gain ~30s sur le cold start.
+  useEffect(() => {
+    if (!API_BASE) return;
+    const ctrl = new AbortController();
+    fetch(`${API_BASE}/health`, { signal: ctrl.signal, cache: "no-store" }).catch(() => {});
+    return () => ctrl.abort();
+  }, []);
 
   function handleAnalyze() {
     const q = query.trim();
