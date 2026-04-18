@@ -132,7 +132,7 @@ export function CompanyLogo({ ticker, companyName, size = 48, className = "" }: 
         alt={companyName || ticker}
         width={size}
         height={size}
-        className={`rounded-md object-contain bg-white border border-ink-100 ${className}`}
+        className={`object-contain mix-blend-multiply ${className}`}
         style={{ width: size, height: size }}
         onError={() => setErrored(true)}
       />

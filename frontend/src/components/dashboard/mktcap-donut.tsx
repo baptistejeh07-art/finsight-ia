@@ -34,11 +34,11 @@ export function MktCapDonut({ peers, targetTicker, targetName, targetMarketCapMd
   const targetPct = (cibleMc / total) * 100;
 
   return (
-    <div className="bg-white border border-ink-200 rounded-md p-4">
-      <div className="text-[10px] font-semibold uppercase tracking-[1.5px] text-ink-500 mb-2 text-center">
+    <div className="bg-white border border-ink-200 rounded-md px-3 py-3">
+      <div className="text-[10px] font-semibold uppercase tracking-[1.5px] text-ink-500 mb-1 text-center">
         Poids relatif Mkt Cap — {sectorLabel}
       </div>
-      <div className="h-[160px] relative">
+      <div className="h-[150px] relative">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie
@@ -68,7 +68,7 @@ export function MktCapDonut({ peers, targetTicker, targetName, targetMarketCapMd
           </div>
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-x-3 gap-y-1 mt-3 text-[10px]">
+      <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 mt-2 text-[10px]">
         {items.map((item, i) => {
           const pct = (item.value / total) * 100;
           const color = item.isTarget ? "#1B2A4A" : COLORS[(i % (COLORS.length - 1)) + 1];

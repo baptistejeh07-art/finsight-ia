@@ -16,11 +16,11 @@ export function ValorisationCards({ bull, base, bear, sharePrice, currency }: Pr
   ];
 
   return (
-    <div className="bg-white border border-ink-200 rounded-md p-5">
-      <div className="text-[10px] font-semibold uppercase tracking-[1.5px] text-ink-500 mb-3">
+    <div className="bg-white border border-ink-200 rounded-md px-4 py-3">
+      <div className="text-[10px] font-semibold uppercase tracking-[1.5px] text-ink-500 mb-2">
         Valorisation — distribution triangulaire
       </div>
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-3 gap-2">
         {cards.map((c) => {
           const upside =
             c.value && sharePrice ? ((c.value - sharePrice) / sharePrice) * 100 : null;
@@ -36,14 +36,17 @@ export function ValorisationCards({ bull, base, bear, sharePrice, currency }: Pr
               : "text-signal-sell";
 
           return (
-            <div key={c.label} className={`border ${c.border} rounded-md p-3 text-center`}>
-              <div className="text-[10px] font-semibold uppercase tracking-[1.2px] text-ink-500 mb-1">
+            <div
+              key={c.label}
+              className={`border ${c.border} rounded-md px-2 py-1.5 text-center`}
+            >
+              <div className="text-[9px] font-semibold uppercase tracking-[1px] text-ink-500">
                 {c.label}
               </div>
-              <div className={`text-lg font-bold font-mono ${c.color}`}>
+              <div className={`text-base font-bold font-mono leading-tight mt-0.5 ${c.color}`}>
                 {c.value ? fmtCurrency(c.value, currency, 0) : "—"}
               </div>
-              <div className={`text-xs font-mono mt-1 ${upColor}`}>{upStr}</div>
+              <div className={`text-[11px] font-mono ${upColor}`}>{upStr}</div>
             </div>
           );
         })}

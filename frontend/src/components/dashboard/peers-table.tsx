@@ -52,21 +52,21 @@ export function PeersTable({ peers, targetTicker, targetName, targetRatios }: Pr
 
   return (
     <div className="bg-white border border-ink-200 rounded-md overflow-hidden">
-      <div className="px-5 pt-4 pb-2">
+      <div className="px-3 pt-2.5 pb-1.5">
         <div className="text-[10px] font-semibold uppercase tracking-[1.5px] text-ink-500">
           Comparatif sectoriel
         </div>
       </div>
       <div className="overflow-x-auto">
-        <table className="w-full text-xs">
+        <table className="w-full text-[11px]">
           <thead className="bg-ink-50 text-ink-600">
             <tr>
-              <th className="text-left px-4 py-2 font-semibold">Société</th>
-              <th className="text-right px-3 py-2 font-semibold">EV/EBITDA</th>
-              <th className="text-right px-3 py-2 font-semibold">EV/Revenue</th>
-              <th className="text-right px-3 py-2 font-semibold">P/E</th>
-              <th className="text-right px-3 py-2 font-semibold">Marge brute</th>
-              <th className="text-right px-3 py-2 font-semibold">Marge EBITDA</th>
+              <th className="text-left px-3 py-1.5 font-semibold">Société</th>
+              <th className="text-right px-2 py-1.5 font-semibold">EV/EBITDA</th>
+              <th className="text-right px-2 py-1.5 font-semibold">EV/Rev</th>
+              <th className="text-right px-2 py-1.5 font-semibold">P/E</th>
+              <th className="text-right px-2 py-1.5 font-semibold">Marge brute</th>
+              <th className="text-right px-2 py-1.5 font-semibold">Marge EBITDA</th>
             </tr>
           </thead>
           <tbody>
@@ -77,26 +77,26 @@ export function PeersTable({ peers, targetTicker, targetName, targetRatios }: Pr
                   i === 0 ? "font-bold bg-navy-50/30" : ""
                 }`}
               >
-                <td className="px-4 py-2 text-ink-900">{p.name}</td>
-                <td className="px-3 py-2 text-right font-mono">{fmtX(p.ev_ebitda)}</td>
-                <td className="px-3 py-2 text-right font-mono">{fmtX(p.ev_revenue)}</td>
-                <td className="px-3 py-2 text-right font-mono">{fmtX(p.pe)}</td>
-                <td className="px-3 py-2 text-right font-mono">{fmtP(p.gross_margin)}</td>
-                <td className="px-3 py-2 text-right font-mono">{fmtP(p.ebitda_margin)}</td>
+                <td className="px-3 py-1.5 text-ink-900">{p.name}</td>
+                <td className="px-2 py-1.5 text-right font-mono">{fmtX(p.ev_ebitda)}</td>
+                <td className="px-2 py-1.5 text-right font-mono">{fmtX(p.ev_revenue)}</td>
+                <td className="px-2 py-1.5 text-right font-mono">{fmtX(p.pe)}</td>
+                <td className="px-2 py-1.5 text-right font-mono">{fmtP(p.gross_margin)}</td>
+                <td className="px-2 py-1.5 text-right font-mono">{fmtP(p.ebitda_margin)}</td>
               </tr>
             ))}
             <tr className="border-t-2 border-ink-200 italic text-ink-600">
-              <td className="px-4 py-2">{med.name}</td>
-              <td className="px-3 py-2 text-right font-mono">{fmtX(med.ev_ebitda)}</td>
-              <td className="px-3 py-2 text-right font-mono">{fmtX(med.ev_revenue)}</td>
-              <td className="px-3 py-2 text-right font-mono">{fmtX(med.pe)}</td>
-              <td className="px-3 py-2 text-right font-mono">{fmtP(med.gross_margin)}</td>
-              <td className="px-3 py-2 text-right font-mono">{fmtP(med.ebitda_margin)}</td>
+              <td className="px-3 py-1.5">{med.name}</td>
+              <td className="px-2 py-1.5 text-right font-mono">{fmtX(med.ev_ebitda)}</td>
+              <td className="px-2 py-1.5 text-right font-mono">{fmtX(med.ev_revenue)}</td>
+              <td className="px-2 py-1.5 text-right font-mono">{fmtX(med.pe)}</td>
+              <td className="px-2 py-1.5 text-right font-mono">{fmtP(med.gross_margin)}</td>
+              <td className="px-2 py-1.5 text-right font-mono">{fmtP(med.ebitda_margin)}</td>
             </tr>
           </tbody>
         </table>
       </div>
-      <div className="px-5 py-2 text-[10px] text-ink-400 italic border-t border-ink-100">
+      <div className="px-3 py-1.5 text-[10px] text-ink-400 italic border-t border-ink-100">
         Source : FinSight IA — yfinance + FMP, peers générés par le pipeline
       </div>
     </div>

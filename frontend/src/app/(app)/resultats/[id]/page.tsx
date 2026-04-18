@@ -28,6 +28,7 @@ import { QAChat } from "@/components/dashboard/qa-chat";
 import { PourAllerPlusLoin } from "@/components/dashboard/pour-aller-plus-loin";
 import { PortraitCard } from "@/components/dashboard/portrait-card";
 import { Glossaire } from "@/components/dashboard/glossaire";
+import { RevealOnScroll } from "@/components/dashboard/reveal-on-scroll";
 
 interface AnalysisResult {
   success: boolean;
@@ -171,9 +172,9 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
 
             {/* Layout principal 2 colonnes : 65/35 */}
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 mb-5">
-              {/* COLONNE GAUCHE — graph cours + valo + KPI grid */}
+              {/* COLONNE GAUCHE */}
               <div className="xl:col-span-2 space-y-4">
-                {/* Reco + cours chart en haut */}
+                {/* Row 1 : Reco + Cours */}
                 <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
                   <div className="lg:col-span-2">
                     <RecoCard recommendation={recommendation} conviction={conviction} />
@@ -187,7 +188,7 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
                   </div>
                 </div>
 
-                {/* Valorisation triangulaire */}
+                {/* Row 2 : Valorisation (compact, pleine col gauche) */}
                 <ValorisationCards
                   bull={synthesis?.target_bull}
                   base={synthesis?.target_base}
@@ -196,63 +197,63 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
                   currency={currency}
                 />
 
-                {/* Ratios clés — 6 colonnes compactes */}
-                <div>
-                  <div className="text-[10px] font-semibold uppercase tracking-[1.5px] text-ink-500 mb-2">
-                    Ratios clés ({latestYear})
+                {/* Row 3 : Ratios clés (bandeau compact, anim au scroll) */}
+                <RevealOnScroll>
+                  <div>
+                    <div className="text-[10px] font-semibold uppercase tracking-[1.5px] text-ink-500 mb-2">
+                      Ratios clés ({latestYear})
+                    </div>
+                    <KpiGrid ratios={latestRatios} />
                   </div>
-                  <KpiGrid ratios={latestRatios} />
+                </RevealOnScroll>
+
+                {/* Row 4 : CapEx + Donut (REMONTÉ ici, anim au scroll) */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  {rawData?.years && (
+                    <RevealOnScroll>
+                      <CapexFcfChart
+                        years={rawData.years}
+                        ratios={ratios?.years}
+                        currency={currency}
+                      />
+                    </RevealOnScroll>
+                  )}
+                  {synthesis?.comparable_peers && synthesis.comparable_peers.length > 0 && (
+                    <RevealOnScroll>
+                      <MktCapDonut
+                        peers={synthesis.comparable_peers}
+                        targetTicker={tickerStr}
+                        targetName={ci.company_name}
+                        targetMarketCapMds={
+                          latestRatios?.market_cap ? latestRatios.market_cap / 1000 : null
+                        }
+                        sectorLabel={`Secteur ${ci.sector || ""}`}
+                      />
+                    </RevealOnScroll>
+                  )}
                 </div>
               </div>
 
-              {/* COLONNE DROITE — Synthèse + Q&A */}
+              {/* COLONNE DROITE — Synthèse (limitée) + Q&A + Compare */}
               <div className="space-y-4">
                 {synthesis && <SyntheseCard synthesis={synthesis} />}
                 <QAChat jobId={id} ticker={tickerStr} />
+                {synthesis?.comparable_peers && synthesis.comparable_peers.length > 0 && (
+                  <CompareCard targetTicker={tickerStr} />
+                )}
               </div>
             </div>
 
-            {/* Row CapEx + Donut + Comparer */}
-            <section className="grid grid-cols-1 lg:grid-cols-12 gap-4 mb-5">
-              {rawData?.years && (
-                <div className="lg:col-span-5">
-                  <CapexFcfChart
-                    years={rawData.years}
-                    ratios={ratios?.years}
-                    currency={currency}
-                  />
-                </div>
-              )}
-              {synthesis?.comparable_peers && synthesis.comparable_peers.length > 0 && (
-                <div className="lg:col-span-4">
-                  <MktCapDonut
-                    peers={synthesis.comparable_peers}
-                    targetTicker={tickerStr}
-                    targetName={ci.company_name}
-                    targetMarketCapMds={
-                      latestRatios?.market_cap ? latestRatios.market_cap / 1000 : null
-                    }
-                    sectorLabel={`Secteur ${ci.sector || ""}`}
-                  />
-                </div>
-              )}
-              {synthesis?.comparable_peers && synthesis.comparable_peers.length > 0 && (
-                <div className="lg:col-span-3">
-                  <CompareCard targetTicker={tickerStr} />
-                </div>
-              )}
-            </section>
-
-            {/* Comparatif sectoriel pleine largeur */}
+            {/* Comparatif sectoriel — pleine largeur, compact, anim au scroll */}
             {synthesis?.comparable_peers && synthesis.comparable_peers.length > 0 && (
-              <section className="mb-5">
+              <RevealOnScroll className="mb-5 block">
                 <PeersTable
                   peers={synthesis.comparable_peers}
                   targetTicker={tickerStr}
                   targetName={ci.company_name}
                   targetRatios={latestRatios}
                 />
-              </section>
+              </RevealOnScroll>
             )}
 
             {/* Pour aller plus loin + Portrait */}

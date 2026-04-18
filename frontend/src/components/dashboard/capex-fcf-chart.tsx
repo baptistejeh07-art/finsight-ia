@@ -37,11 +37,11 @@ export function CapexFcfChart({ years, ratios }: Props) {
   }
 
   return (
-    <div className="bg-white border border-ink-200 rounded-md p-5">
-      <div className="text-[10px] font-semibold uppercase tracking-[1.5px] text-ink-500 mb-3">
+    <div className="bg-white border border-ink-200 rounded-md px-3 py-3">
+      <div className="text-[10px] font-semibold uppercase tracking-[1.5px] text-ink-500 mb-2">
         Capital alloué — CapEx vs Dividendes
       </div>
-      <div className="h-[200px]">
+      <div className="h-[180px]">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} margin={{ top: 5, right: 8, left: -10, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
@@ -56,8 +56,8 @@ export function CapexFcfChart({ years, ratios }: Props) {
               }}
             />
             <Legend wrapperStyle={{ fontSize: 11 }} />
-            <Bar dataKey="CapEx (Mds)" fill="#1B2A4A" />
-            <Bar dataKey="Div. versés (Mds)" fill="#4A8C5C" />
+            <Bar dataKey="CapEx (Mds)" fill="#1B2A4A" maxBarSize={32} />
+            <Bar dataKey="Div. versés (Mds)" fill="#4A8C5C" maxBarSize={32} />
           </BarChart>
         </ResponsiveContainer>
       </div>
