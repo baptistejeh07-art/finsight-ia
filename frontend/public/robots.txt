@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /dashboard
+Disallow: /analyse
+Disallow: /resultats
+
+Sitemap: https://finsight-ia.com/sitemap.xml

@@ -17,6 +17,7 @@ export function Footer() {
               <li><Link href="/" className="text-ink-700 hover:text-ink-900">Analyse société</Link></li>
               <li><Link href="/" className="text-ink-700 hover:text-ink-900">Analyse secteur</Link></li>
               <li><Link href="/" className="text-ink-700 hover:text-ink-900">Analyse indice</Link></li>
+              <li><Link href="/comparatif" className="text-ink-700 hover:text-ink-900">Comparatif</Link></li>
             </ul>
           </div>
           <div>
