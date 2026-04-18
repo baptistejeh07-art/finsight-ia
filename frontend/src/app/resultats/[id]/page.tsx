@@ -5,7 +5,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { ArrowLeft, Download, FileText, Presentation, FileSpreadsheet } from "lucide-react";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
-import { fmtCurrency, fmtPercent, fmtMultiple, signalColor, signalLabel } from "@/lib/utils";
+import { fmtCurrency, fmtPercent, signalColor, signalLabel } from "@/lib/utils";
 import { getFileUrl } from "@/lib/api";
 
 interface AnalysisResult {
@@ -15,6 +15,8 @@ interface AnalysisResult {
   data?: Record<string, unknown>;
   files?: { pdf?: string; pptx?: string; xlsx?: string };
   error?: string;
+  kind?: "societe" | "secteur" | "indice";
+  label?: string;
 }
 
 export default function ResultatsPage({ params }: { params: Promise<{ id: string }> }) {
@@ -22,6 +24,7 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
   const search = useSearchParams();
   const router = useRouter();
   const ticker = search.get("ticker") || "";
+  const kindParam = (search.get("kind") || "societe") as "societe" | "secteur" | "indice";
   const [result, setResult] = useState<AnalysisResult | null>(null);
 
   useEffect(() => {
@@ -51,10 +54,12 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
     );
   }
 
-  // Extraire les données de l'analyse
+  const kind = result.kind || kindParam;
+  const isSociete = kind === "societe";
+
+  // Extraire les données de l'analyse (uniquement société)
   const data = (result.data || {}) as Record<string, unknown>;
   const synthesis = (data.synthesis || {}) as Record<string, unknown>;
-  const ratios = (data.ratios || {}) as Record<string, unknown>;
   const snapshot = (data.snapshot || {}) as Record<string, unknown>;
   const ci = (snapshot.company_info || {}) as Record<string, unknown>;
   const market = (snapshot.market || {}) as Record<string, unknown>;
@@ -66,7 +71,7 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
   const currency = (ci.currency as string) || "USD";
   const sharePrice = market.share_price as number | undefined;
   const companyName = (ci.company_name as string) || ticker;
-  const sector = (ci.sector as string) || "—";
+  const sector = (ci.sector as string) || (isSociete ? "—" : kind === "indice" ? "Indice boursier" : "Analyse sectorielle");
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -87,22 +92,26 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
             <div>
               <div className="section-label mb-2">{sector}</div>
               <h1 className="text-3xl font-bold text-ink-900 tracking-tight mb-1">
-                {companyName}
+                {isSociete ? companyName : (result.label || ticker)}
               </h1>
               <div className="text-sm text-ink-600 font-mono">
-                {ticker} · {currency} · {new Date().toLocaleDateString("fr-FR")}
+                {isSociete ? `${ticker} · ${currency} · ` : ""}
+                {new Date().toLocaleDateString("fr-FR")}
               </div>
             </div>
-            <div className="text-right">
-              <div className="section-label mb-1">Cours actuel</div>
-              <div className="text-2xl font-bold text-ink-900 font-mono">
-                {sharePrice ? fmtCurrency(sharePrice, currency, 2) : "—"}
+            {isSociete && (
+              <div className="text-right">
+                <div className="section-label mb-1">Cours actuel</div>
+                <div className="text-2xl font-bold text-ink-900 font-mono">
+                  {sharePrice ? fmtCurrency(sharePrice, currency, 2) : "—"}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </header>
 
-        {/* Verdict KPIs */}
+        {/* Verdict KPIs (société uniquement pour V1) */}
+        {isSociete && (
         <section className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
           <KpiCard label="Recommandation">
             <div className={`text-xl font-bold ${signalColor(reco)}`}>
@@ -139,9 +148,23 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
             </div>
           </KpiCard>
         </section>
+        )}
+
+        {/* Message secteur/indice : livrables téléchargeables */}
+        {!isSociete && (
+          <section className="mb-8">
+            <div className="card bg-navy-50 border-navy-200">
+              <p className="text-sm text-ink-700 leading-relaxed">
+                {kind === "indice"
+                  ? "Analyse complète de l'indice générée. Le rapport PDF contient l'analyse macro, les comparatifs inter-secteurs et l'allocation optimale."
+                  : "Analyse sectorielle générée. Le rapport PDF compare les principales sociétés du secteur sur l'univers sélectionné."}
+              </p>
+            </div>
+          </section>
+        )}
 
         {/* Synthèse */}
-        {summary && (
+        {isSociete && summary && (
           <section className="mb-8">
             <div className="section-label mb-3">Synthèse de l&apos;analyse</div>
             <div className="card">

@@ -92,6 +92,18 @@ export async function resolveTicker(query: string): Promise<{ ticker: string | n
   return apiGet(`/tickers/resolve/${encodeURIComponent(query)}`);
 }
 
+export interface ResolveResult {
+  query: string;
+  kind: "societe" | "secteur" | "indice" | "unknown";
+  ticker?: string;
+  universe?: string;
+  sector?: string;
+}
+
+export async function resolveQuery(query: string): Promise<ResolveResult> {
+  return apiGet<ResolveResult>(`/resolve/${encodeURIComponent(query)}`);
+}
+
 // ─── Files ─────────────────────────────────────────────────────────────────
 
 export function getFileUrl(filePath: string): string {

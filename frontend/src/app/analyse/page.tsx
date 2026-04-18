@@ -5,17 +5,32 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2, CheckCircle2, AlertTriangle } from "lucide-react";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
-import { analyzeSociete } from "@/lib/api";
-import toast from "react-hot-toast";
+import { analyzeSociete, analyzeSecteur, analyzeIndice, resolveQuery } from "@/lib/api";
 
-const STEPS = [
+const STEPS_SOCIETE = [
   "Connexion aux sources financières",
   "Récupération des données yfinance",
   "Calcul des ratios sectoriels",
-  "Génération des projections",
+  "Génération des projections DCF",
   "Analyse IA des fondamentaux",
   "Synthèse exécutive",
   "Génération PDF / PPTX / Excel",
+];
+const STEPS_SECTEUR = [
+  "Identification des sociétés du secteur",
+  "Récupération des données financières",
+  "Calcul des moyennes sectorielles",
+  "Comparaison intra-secteur",
+  "Allocation optimale (Markowitz)",
+  "Génération PDF sectoriel + PPTX",
+];
+const STEPS_INDICE = [
+  "Cartographie des secteurs de l'indice",
+  "Récupération données (multi-secteurs)",
+  "Calcul des métriques par secteur",
+  "Analyse macro de l'indice",
+  "Allocation optimale inter-secteurs",
+  "Génération PDF + PPTX + Excel indice",
 ];
 
 function AnalyseContent() {
@@ -26,6 +41,8 @@ function AnalyseContent() {
   const scope = (params.get("scope") || "interface") as "interface" | "files";
 
   const [stepIdx, setStepIdx] = useState(0);
+  const [steps, setSteps] = useState<string[]>(STEPS_SOCIETE);
+  const [kind, setKind] = useState<"societe" | "secteur" | "indice">("societe");
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -34,42 +51,70 @@ function AnalyseContent() {
       return;
     }
 
-    // Animation des étapes (purement visuel, pas réel)
-    const interval = setInterval(() => {
-      setStepIdx((i) => Math.min(i + 1, STEPS.length - 1));
-    }, 8000);
+    let interval: ReturnType<typeof setInterval> | null = null;
 
-    // Lance l'analyse réelle
     (async () => {
       try {
-        // Détecte si c'est une société (ticker) ou autre
-        const isTicker = /^[A-Z0-9.\-]{1,12}$/i.test(query);
-        if (isTicker) {
-          const result = await analyzeSociete(query, devise, scope);
-          if (result.success) {
-            // Stock le résultat dans sessionStorage pour la page résultats
-            sessionStorage.setItem(
-              `analysis_${result.request_id}`,
-              JSON.stringify(result)
-            );
-            router.push(`/resultats/${result.request_id}?ticker=${query}`);
-          } else {
-            setError(result.error || "Erreur inconnue");
-          }
+        // Résolution intelligente du type de requête côté backend
+        const resolved = await resolveQuery(query);
+
+        if (resolved.kind === "unknown") {
+          setError(
+            "Impossible de déterminer si «\u00a0" + query +
+            "\u00a0» est un ticker, secteur ou indice. Essayez un ticker (AAPL), un indice (CAC 40) ou un secteur (Technologie)."
+          );
+          return;
+        }
+
+        // Setup des étapes selon le type
+        const stepsForKind =
+          resolved.kind === "indice" ? STEPS_INDICE :
+          resolved.kind === "secteur" ? STEPS_SECTEUR :
+          STEPS_SOCIETE;
+        setSteps(stepsForKind);
+        setKind(resolved.kind);
+
+        // Animation visuelle des étapes — cadence adaptée à la durée totale
+        const stepDelay = resolved.kind === "indice" ? 60000 :
+                          resolved.kind === "secteur" ? 15000 : 8000;
+        interval = setInterval(() => {
+          setStepIdx((i) => Math.min(i + 1, stepsForKind.length - 1));
+        }, stepDelay);
+
+        // Dispatch vers l'endpoint adapté
+        let result;
+        let label = query;
+        if (resolved.kind === "societe") {
+          result = await analyzeSociete(resolved.ticker || query, devise, scope);
+          label = resolved.ticker || query;
+        } else if (resolved.kind === "secteur") {
+          result = await analyzeSecteur(resolved.sector || query, resolved.universe || "S&P 500");
+          label = `${resolved.sector} / ${resolved.universe}`;
         } else {
-          // TODO : router secteur / indice
-          toast.error("Analyse secteur/indice : bientôt disponible");
-          setTimeout(() => router.push("/"), 2000);
+          result = await analyzeIndice(resolved.universe || query);
+          label = resolved.universe || query;
+        }
+
+        if (result.success) {
+          sessionStorage.setItem(
+            `analysis_${result.request_id}`,
+            JSON.stringify({ ...result, kind: resolved.kind, label })
+          );
+          router.push(
+            `/resultats/${result.request_id}?ticker=${encodeURIComponent(label)}&kind=${resolved.kind}`
+          );
+        } else {
+          setError(result.error || "Erreur inconnue");
         }
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "Erreur API";
         setError(msg);
       } finally {
-        clearInterval(interval);
+        if (interval) clearInterval(interval);
       }
     })();
 
-    return () => clearInterval(interval);
+    return () => { if (interval) clearInterval(interval); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -103,14 +148,18 @@ function AnalyseContent() {
             {query}
           </h1>
           <p className="text-sm text-ink-600">
-            Génération de l&apos;analyse institutionnelle. ~1 à 3 minutes.
+            {kind === "indice"
+              ? "Analyse d'un indice complet. ~5 à 8 minutes."
+              : kind === "secteur"
+              ? "Analyse sectorielle multi-sociétés. ~2 à 4 minutes."
+              : "Analyse institutionnelle. ~1 à 3 minutes."}
           </p>
         </div>
 
         {/* Steps */}
         <div className="card max-w-md mx-auto">
           <ul className="space-y-3">
-            {STEPS.map((step, i) => (
+            {steps.map((step, i) => (
               <li
                 key={step}
                 className={`flex items-center gap-3 text-sm transition-opacity ${

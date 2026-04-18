@@ -50,5 +50,5 @@ feedparser>=6.0.11
 vaderSentiment>=3.3.2
 scipy>=1.11.0
 
-# Auth Supabase (DB + Auth API)
-supabase>=2.5.0
+# NB : supabase SDK Python retiré (incompat Python 3.14 + non utilisé par backend,
+# on valide les JWT via PyJWT directement).

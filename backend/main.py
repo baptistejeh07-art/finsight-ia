@@ -293,8 +293,21 @@ async def analyze_secteur(
         from cli_analyze import run_secteur as _run_secteur
         log.info(f"[analyze/secteur] {req.secteur} / {req.univers} — {request_id[:8]}")
         _run_secteur(req.secteur, req.univers, prefix="secteur")
+
+        # Récupère les fichiers générés
+        outputs_dir = _ROOT / "outputs" / "generated" / "cli_tests"
+        stem = f"secteur_{req.secteur.replace(' ', '_')}_{req.univers.replace(' ', '_')}"
+        files = {}
+        for ext in ("pdf", "pptx"):
+            p = outputs_dir / f"{stem}.{ext}"
+            if p.exists():
+                files[ext] = str(p.relative_to(_ROOT))
+
         elapsed = int((datetime.utcnow() - t0).total_seconds() * 1000)
-        return AnalyseResponse(success=True, request_id=request_id, elapsed_ms=elapsed)
+        return AnalyseResponse(
+            success=True, request_id=request_id,
+            elapsed_ms=elapsed, files=files,
+        )
     except Exception as e:
         log.error(f"[analyze/secteur] FAIL: {e}", exc_info=True)
         return AnalyseResponse(
@@ -317,8 +330,21 @@ async def analyze_indice(
         from cli_analyze import run_indice as _run_indice
         log.info(f"[analyze/indice] {req.indice} — {request_id[:8]}")
         _run_indice(req.indice)
+
+        # Récupère les fichiers générés
+        outputs_dir = _ROOT / "outputs" / "generated" / "cli_tests"
+        stem = f"indice_{req.indice.replace(' ', '_').replace('&', '')}"
+        files = {}
+        for ext in ("pdf", "pptx", "xlsx"):
+            p = outputs_dir / f"{stem}.{ext}"
+            if p.exists():
+                files[ext] = str(p.relative_to(_ROOT))
+
         elapsed = int((datetime.utcnow() - t0).total_seconds() * 1000)
-        return AnalyseResponse(success=True, request_id=request_id, elapsed_ms=elapsed)
+        return AnalyseResponse(
+            success=True, request_id=request_id,
+            elapsed_ms=elapsed, files=files,
+        )
     except Exception as e:
         log.error(f"[analyze/indice] FAIL: {e}", exc_info=True)
         return AnalyseResponse(
@@ -332,20 +358,57 @@ async def analyze_indice(
 
 @app.post("/cmp/societe", response_model=AnalyseResponse)
 async def cmp_societe(req: CmpSocieteRequest):
-    """Comparaison 2 sociétés."""
+    """Comparaison 2 sociétés : analyse A + B puis génère PDF/PPTX/XLSX comparatifs."""
     import uuid
     request_id = str(uuid.uuid4())
     t0 = datetime.utcnow()
     try:
-        # TODO : wrap la fonction cmp_societe correspondante de cli_analyze
-        # Pour V1 stub
+        from core.graph import build_graph
+        from outputs.cmp_societe_pptx_writer import CmpSocietePPTXWriter
+        from outputs.cmp_societe_pdf_writer import CmpSocietePDFWriter
+        from outputs.cmp_societe_xlsx_writer import CmpSocieteXlsxWriter
+
         log.info(f"[cmp/societe] {req.ticker_a} vs {req.ticker_b} — {request_id[:8]}")
+        graph = build_graph()
+        state_a = graph.invoke({"ticker": req.ticker_a})
+        state_b = graph.invoke({"ticker": req.ticker_b})
+
+        outputs_dir = _ROOT / "outputs" / "generated" / "cli_tests"
+        outputs_dir.mkdir(parents=True, exist_ok=True)
+        stem = f"cmp_societe_{req.ticker_a}_vs_{req.ticker_b}".replace(".", "_")
+        files = {}
+
+        try:
+            pdf_bytes = CmpSocietePDFWriter().generate_bytes(state_a, state_b)
+            p = outputs_dir / f"{stem}.pdf"
+            p.write_bytes(pdf_bytes)
+            files["pdf"] = str(p.relative_to(_ROOT))
+        except Exception as e:
+            log.warning(f"[cmp/societe] PDF fail: {e}")
+
+        try:
+            pptx_bytes = CmpSocietePPTXWriter().generate_bytes(state_a, state_b)
+            p = outputs_dir / f"{stem}.pptx"
+            p.write_bytes(pptx_bytes)
+            files["pptx"] = str(p.relative_to(_ROOT))
+        except Exception as e:
+            log.warning(f"[cmp/societe] PPTX fail: {e}")
+
+        try:
+            xlsx_bytes = CmpSocieteXlsxWriter().write(state_a, state_b)
+            p = outputs_dir / f"{stem}.xlsx"
+            p.write_bytes(xlsx_bytes)
+            files["xlsx"] = str(p.relative_to(_ROOT))
+        except Exception as e:
+            log.warning(f"[cmp/societe] XLSX fail: {e}")
+
+        elapsed = int((datetime.utcnow() - t0).total_seconds() * 1000)
         return AnalyseResponse(
-            success=False, request_id=request_id,
-            elapsed_ms=int((datetime.utcnow() - t0).total_seconds() * 1000),
-            error="cmp_societe not implemented yet (V1 stub)",
+            success=bool(files), request_id=request_id,
+            elapsed_ms=elapsed, files=files,
         )
     except Exception as e:
+        log.error(f"[cmp/societe] FAIL: {e}", exc_info=True)
         return AnalyseResponse(
             success=False, request_id=request_id,
             elapsed_ms=int((datetime.utcnow() - t0).total_seconds() * 1000),
@@ -386,7 +449,74 @@ async def cmp_indice(req: CmpIndiceRequest):
     )
 
 
-# ─── Résolution tickers ─────────────────────────────────────────────────────
+# ─── Résolution tickers + classification requête ────────────────────────────
+
+KNOWN_INDICES = {
+    "CAC 40", "S&P 500", "SP500", "DAX 40", "DAX",
+    "FTSE 100", "FTSE", "Euro Stoxx 50", "EUROSTOXX 50",
+    "NASDAQ 100", "NASDAQ", "Dow Jones", "DJIA",
+    "Nikkei 225", "Nikkei", "IBEX 35", "AEX",
+}
+
+KNOWN_SECTORS_FR = {
+    "Technologie", "Sante", "Santé", "Banques", "Energie", "Énergie",
+    "Industrie", "Industrials", "Luxe", "Luxury", "Immobilier",
+    "Utilities", "Consumer", "Consommation", "Matieres premieres",
+    "Materiaux", "Matériaux", "Telecoms", "Communication",
+    "Financials", "Technology", "Healthcare", "Energy",
+    "Real Estate", "Basic Materials", "Consumer Defensive",
+    "Consumer Cyclical", "Communication Services", "Financial Services",
+}
+
+
+class ResolveResponse(BaseModel):
+    query: str
+    kind: str  # "societe" | "secteur" | "indice" | "unknown"
+    ticker: Optional[str] = None
+    universe: Optional[str] = None
+    sector: Optional[str] = None
+
+
+@app.get("/resolve/{query:path}", response_model=ResolveResponse)
+async def resolve_query(query: str):
+    """Classifie une requête en société/secteur/indice.
+
+    Logique :
+    - Si la requête matche un indice connu → kind=indice
+    - Si la requête matche un secteur connu → kind=secteur (univers par défaut: S&P 500)
+    - Sinon, tente une résolution ticker yfinance → kind=societe
+    """
+    q = query.strip()
+    q_norm = q.upper().replace("&", "").replace("  ", " ")
+
+    # Match indice
+    for idx in KNOWN_INDICES:
+        if idx.upper().replace("&", "") == q_norm or idx.lower() == q.lower():
+            return ResolveResponse(query=q, kind="indice", universe=idx)
+
+    # Match secteur
+    for sec in KNOWN_SECTORS_FR:
+        if sec.lower() == q.lower():
+            return ResolveResponse(
+                query=q, kind="secteur", sector=sec, universe="S&P 500"
+            )
+
+    # Ticker direct (regex simple)
+    import re
+    if re.fullmatch(r"[A-Z0-9.\-]{1,12}", q_norm):
+        return ResolveResponse(query=q, kind="societe", ticker=q_norm)
+
+    # Fallback : LLM ticker resolution
+    try:
+        from data.sources.yfinance_source import _resolve_ticker_with_suffix
+        ticker = _resolve_ticker_with_suffix(q)
+        if ticker:
+            return ResolveResponse(query=q, kind="societe", ticker=ticker)
+    except Exception as e:
+        log.warning(f"[resolve] LLM resolve fail: {e}")
+
+    return ResolveResponse(query=q, kind="unknown")
+
 
 @app.get("/tickers/resolve/{query}")
 async def resolve_ticker(query: str):
