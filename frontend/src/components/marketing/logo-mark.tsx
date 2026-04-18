@@ -26,30 +26,50 @@ export function LogoMark({
   variant = "auto",
   size = "md",
 }: LogoMarkProps) {
-  // En variant 'inverse', on sert directement le SVG blanc (logo-light.svg) :
-  // un filter CSS sur le SVG navy donnait du gris flou à cause des centaines
-  // de couleurs intermédiaires (anti-aliasing du tracing VTracer).
-  // En variant 'auto' light : navy normal. En auto + dark mode : on filter (acceptable
-  // car la perte de netteté est moins visible sur petit logo header).
-  const src = variant === "inverse" ? "/logo-light.svg" : "/logo.svg";
-  const filterClasses =
-    variant === "inverse" ? "" : "dark:brightness-0 dark:invert";
-
+  // PNG haute résolution (2x) au lieu du SVG vectorisé qui rendait flou
+  // (VTracer génère des chemins polygonaux anti-aliasés au render).
+  // logo-finsight-2x.png : navy sur transparent vrai (1002x712)
+  // logo-finsight-white-2x.png : blanc sur transparent vrai (1002x712)
+  const isInverse = variant === "inverse";
   return (
     <Link
       href="/"
       className={`inline-flex items-center group ${className}`}
       aria-label="FinSight IA — Accueil"
     >
-      <Image
-        src={src}
-        alt="FinSight IA"
-        width={1398}
-        height={752}
-        priority
-        unoptimized
-        className={`object-contain ${SIZE_CLASS[size]} ${filterClasses}`}
-      />
+      {/* Light mode : navy. Dark mode : blanc (variante swap par CSS) */}
+      {isInverse ? (
+        <Image
+          src="/logo-finsight-white-2x.png"
+          alt="FinSight IA"
+          width={1002}
+          height={712}
+          priority
+          unoptimized
+          className={`object-contain ${SIZE_CLASS[size]}`}
+        />
+      ) : (
+        <>
+          <Image
+            src="/logo-finsight-2x.png"
+            alt="FinSight IA"
+            width={1002}
+            height={712}
+            priority
+            unoptimized
+            className={`object-contain ${SIZE_CLASS[size]} block dark:hidden`}
+          />
+          <Image
+            src="/logo-finsight-white-2x.png"
+            alt="FinSight IA"
+            width={1002}
+            height={712}
+            priority
+            unoptimized
+            className={`object-contain ${SIZE_CLASS[size]} hidden dark:block`}
+          />
+        </>
+      )}
     </Link>
   );
 }
