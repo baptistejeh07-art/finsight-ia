@@ -100,26 +100,75 @@ def _page_footer(canvas, doc):
     canvas.restoreState()
 
 
-def _para_or_fallback(text: Optional[str], fallback: str = "Donnée non disponible.") -> Paragraph:
-    """Crée un paragraphe ou renvoie un fallback si le contenu est vide."""
+def _md_to_html(text: str) -> str:
+    """Convertit le markdown LLM (**bold**, *italic*) en tags HTML ReportLab.
+
+    Utile car certains LLM (Mistral notamment) génèrent du markdown malgré
+    l'instruction de produire du texte plat.
+    """
+    import re
+    if not text:
+        return ""
+    # Échappe les < et > qui ne sont pas des tags HTML autorisés
+    # (ReportLab Paragraph supporte un sous-ensemble : <b>, <i>, <u>, <br/>,
+    # <font>, <sub>, <sup>, <a>)
+    safe = text.replace("&", "&amp;")
+    # Restaure les & si déjà encodés (évite double-encode)
+    safe = re.sub(r"&amp;(amp|lt|gt|quot|apos|#\d+);", r"&\1;", safe)
+    # Markdown bold **text** ou __text__
+    safe = re.sub(r"\*\*([^\*\n]+?)\*\*", r"<b>\1</b>", safe)
+    safe = re.sub(r"__([^_\n]+?)__", r"<b>\1</b>", safe)
+    # Markdown italic *text* ou _text_ (mais pas mid-word genre snake_case)
+    safe = re.sub(r"(?<!\w)\*([^\*\n]+?)\*(?!\w)", r"<i>\1</i>", safe)
+    safe = re.sub(r"(?<!\w)_([^_\n]+?)_(?!\w)", r"<i>\1</i>", safe)
+    # Bullets markdown "- " ou "* " en début de ligne -> simple "·"
+    safe = re.sub(r"^[\-\*]\s+", "· ", safe, flags=re.MULTILINE)
+    # Headers markdown ## en gras (rares mais possibles)
+    safe = re.sub(r"^#{1,6}\s+(.+)$", r"<b>\1</b>", safe, flags=re.MULTILINE)
+    return safe
+
+
+def _para_or_fallback(text: Optional[str], fallback: str = "Donnée non disponible."):
+    """Retourne une liste de Paragraphs ou fallback si vide."""
     if not text or not text.strip():
-        return Paragraph(f"<i>{fallback}</i>", S_PARA)
-    # Convertit les sauts de ligne doubles en break paragraph
+        return [Paragraph(f"<i>{fallback}</i>", S_PARA)]
     cleaned = text.strip().replace("\r", "")
     paragraphs = [p.strip() for p in cleaned.split("\n\n") if p.strip()]
-    return [Paragraph(p, S_PARA) for p in paragraphs]
+    return [Paragraph(_md_to_html(p), S_PARA) for p in paragraphs]
 
 
-def _download_image(url: str, max_kb: int = 500) -> Optional[bytes]:
-    """Télécharge une image et la retourne en bytes (None si échec)."""
+def _download_image(url: str, max_kb: int = 2500) -> Optional[bytes]:
+    """Télécharge une image (Wikipedia/Wikimedia). Convertit en JPEG si exotique."""
     try:
-        r = requests.get(url, timeout=8, headers={"User-Agent": "FinSight-IA/1.0"})
+        r = requests.get(
+            url,
+            timeout=12,
+            headers={"User-Agent": "FinSight-IA/1.0 (contact: privacy@finsight-ia.com)"},
+        )
         r.raise_for_status()
         if len(r.content) > max_kb * 1024:
-            return None  # trop lourd, skip
-        return r.content
+            log.info(f"[portrait_pdf] image too big ({len(r.content)//1024} KB) for {url}")
+            return None
+        # Vérifie format : si SVG/WebP, on tente conversion JPEG via PIL
+        ctype = (r.headers.get("content-type") or "").lower()
+        content = r.content
+        if "svg" in ctype:
+            log.info(f"[portrait_pdf] SVG non supporté : {url}")
+            return None
+        # Si format raster non standard, convertir en JPEG via Pillow
+        if not any(x in ctype for x in ("jpeg", "jpg", "png", "gif")):
+            try:
+                from PIL import Image as PILImage
+                img = PILImage.open(io.BytesIO(content)).convert("RGB")
+                buf = io.BytesIO()
+                img.save(buf, format="JPEG", quality=85)
+                content = buf.getvalue()
+            except Exception as e:
+                log.info(f"[portrait_pdf] PIL convert failed: {e}")
+                return None
+        return content
     except Exception as e:
-        log.debug(f"[portrait_pdf] image download failed for {url}: {e}")
+        log.info(f"[portrait_pdf] image download FAIL {url}: {e}")
         return None
 
 
@@ -128,11 +177,12 @@ def _officer_photo_or_placeholder(officer) -> object:
     img_bytes = _download_image(officer.photo_url) if officer.photo_url else None
     if img_bytes:
         try:
-            img = RLImage(io.BytesIO(img_bytes), width=3.2 * cm, height=3.2 * cm)
+            img = RLImage(io.BytesIO(img_bytes), width=3.2 * cm, height=3.2 * cm,
+                          kind="proportional")
             img.hAlign = "LEFT"
             return img
-        except Exception:
-            pass
+        except Exception as e:
+            log.info(f"[portrait_pdf] RLImage failed for {officer.name}: {e}")
     # Placeholder : carré navy avec initiales
     initials = "".join([w[0] for w in (officer.name or "??").split()[:2]]).upper()[:2]
     placeholder = Table(
@@ -185,27 +235,36 @@ def _build_cover(state, story: list):
     story.append(PageBreak())
 
 
-def _section_page(title: str, body_text: Optional[str], story: list,
-                  fallback: str = "Donnée non disponible pour cette section."):
-    """Ajoute une page section : titre + texte généré par LLM."""
-    story.append(Paragraph(title, S_SECTION))
+def _section_block(title: str, body_text: Optional[str], story: list,
+                   fallback: str = "Donnée non disponible pour cette section.",
+                   force_page_break: bool = False):
+    """Ajoute une section : titre + texte. Flow naturel (pas de PageBreak forcé).
+
+    Le titre + la première moitié du contenu sont gardés ensemble (KeepTogether)
+    pour éviter qu'un titre se retrouve seul en bas de page.
+    """
     elements = _para_or_fallback(body_text, fallback)
-    if isinstance(elements, list):
-        story.extend(elements)
+    # Bloc titre + premier paragraphe = KeepTogether (anti-orphan)
+    if elements:
+        head = [Paragraph(title, S_SECTION), elements[0]]
+        story.append(KeepTogether(head))
+        for el in elements[1:]:
+            story.append(el)
     else:
-        story.append(elements)
-    story.append(PageBreak())
+        story.append(Paragraph(title, S_SECTION))
+    story.append(Spacer(1, 0.3 * cm))
+    if force_page_break:
+        story.append(PageBreak())
 
 
 def _build_leadership_pages(state, story: list):
-    """Page intro + cards dirigeants avec photo."""
-    story.append(Paragraph("Leadership & gouvernance", S_SECTION))
+    """Section intro + cards dirigeants avec photo."""
     intro_elems = _para_or_fallback(state.leadership_intro,
                                     "Données dirigeants non disponibles.")
-    if isinstance(intro_elems, list):
-        story.extend(intro_elems)
-    else:
-        story.append(intro_elems)
+    head = [Paragraph("Leadership & gouvernance", S_SECTION), intro_elems[0]]
+    story.append(KeepTogether(head))
+    for el in intro_elems[1:]:
+        story.append(el)
     story.append(Spacer(1, 0.4 * cm))
 
     # Officers cards
@@ -215,9 +274,10 @@ def _build_leadership_pages(state, story: list):
     else:
         for o in officers:
             photo = _officer_photo_or_placeholder(o)
-            bio_html = (o.bio or "").replace("\n", " ")[:500]
-            if not bio_html:
-                bio_html = f"<i>Bio Wikipedia non disponible pour {o.name}.</i>"
+            bio_text = (o.bio or "").replace("\n", " ")[:500]
+            bio_html = _md_to_html(bio_text) if bio_text else (
+                f"<i>Bio Wikipedia non disponible pour {o.name}.</i>"
+            )
             info_para = Paragraph(
                 f"<b>{o.name}</b><br/>"
                 f"<font color='#525252' size='8'>{o.title or '—'}</font><br/><br/>"
@@ -236,9 +296,10 @@ def _build_leadership_pages(state, story: list):
                 ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
                 ("LINEBELOW", (0, 0), (-1, -1), 0.4, INK_200),
             ]))
-            story.append(card)
+            # Card complète gardée ensemble (photo + bio ne se séparent pas)
+            story.append(KeepTogether(card))
             story.append(Spacer(1, 0.3 * cm))
-    story.append(PageBreak())
+    story.append(Spacer(1, 0.4 * cm))
 
 
 def _build_sources_page(state, story: list):
@@ -292,31 +353,32 @@ def write_portrait_pdf(state, output_path: str) -> str:
     )
     story: list = []
 
-    # 1. Cover
+    # 1. Cover (page entière, suivie d'un PageBreak)
     _build_cover(state, story)
-    # 2. Snapshot
-    _section_page("Snapshot exécutif", state.snapshot, story)
-    # 3. Histoire
-    _section_page("Histoire & jalons", state.history, story)
-    # 4. Vision
-    _section_page("Vision & ADN", state.vision, story)
-    # 5. Modèle éco
-    _section_page("Modèle économique", state.business_model, story)
-    # 6. Segments
-    _section_page("Segments d'activité", state.segments, story)
-    # 7-9. Leadership
+
+    # === Bloc 1 : ADN société (snapshot, histoire, vision) ===
+    _section_block("Snapshot exécutif", state.snapshot, story)
+    _section_block("Histoire & jalons", state.history, story)
+    _section_block("Vision & ADN", state.vision, story, force_page_break=True)
+
+    # === Bloc 2 : Modèle & segments ===
+    _section_block("Modèle économique", state.business_model, story)
+    _section_block("Segments d'activité", state.segments, story, force_page_break=True)
+
+    # === Bloc 3 : Leadership (page dédiée pour les cards photos) ===
     _build_leadership_pages(state, story)
-    # 10. Marché
-    _section_page("Marché & paysage concurrentiel", state.market, story)
-    # 11. Risques
-    _section_page("Risques majeurs", state.risks, story)
-    # 12. Stratégie
-    _section_page("Stratégie 12-24 mois", state.strategy, story)
-    # 13. Devil
-    _section_page("Devil's advocate — la thèse inverse", state.devil_advocate, story)
-    # 14. Verdict
-    _section_page("Verdict & profil d'investisseur", state.verdict, story)
-    # 15. Sources
+    story.append(PageBreak())
+
+    # === Bloc 4 : Marché, risques, stratégie ===
+    _section_block("Marché & paysage concurrentiel", state.market, story)
+    _section_block("Risques majeurs", state.risks, story)
+    _section_block("Stratégie 12-24 mois", state.strategy, story, force_page_break=True)
+
+    # === Bloc 5 : Conclusion (devil + verdict) ===
+    _section_block("Devil's advocate — la thèse inverse", state.devil_advocate, story)
+    _section_block("Verdict & profil d'investisseur", state.verdict, story, force_page_break=True)
+
+    # === Bloc 6 : Sources & disclaimer ===
     _build_sources_page(state, story)
 
     doc.build(story, onFirstPage=_page_footer, onLaterPages=_page_footer)
