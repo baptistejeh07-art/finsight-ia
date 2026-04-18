@@ -59,7 +59,7 @@ export function Sidebar() {
           height={752}
           priority
           unoptimized
-          className="object-contain h-20 w-auto"
+          className="object-contain h-24 w-auto"
         />
       </Link>
 
