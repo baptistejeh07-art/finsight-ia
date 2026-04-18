@@ -1,5 +1,6 @@
 import type { CompanyInfo } from "./types";
 import { CompanyLogo } from "./company-logo";
+import { trSector } from "@/lib/sectors";
 
 export function HeaderSociete({
   ci,
@@ -28,7 +29,7 @@ export function HeaderSociete({
           {ci.company_name || ci.ticker}
         </h1>
         <div className="text-xs text-ink-600 font-mono mt-1">
-          {ci.ticker} · {(ci.sector || "—").toUpperCase()} · {ci.currency || "USD"} · {date}
+          {ci.ticker} · {trSector(ci.sector).toUpperCase() || "—"} · {ci.currency || "USD"} · {date}
           {typeof elapsedMs === "number" && elapsedMs > 0
             ? ` · ${(elapsedMs / 1000).toFixed(1)}s`
             : ""}

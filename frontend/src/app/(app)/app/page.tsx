@@ -40,7 +40,9 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <main className="flex-1 max-w-5xl mx-auto px-6 py-20 w-full flex flex-col justify-center">
+      {/* min-h-screen : la page remplit toujours toute la hauteur du viewport,
+          le bandeau réglementaire (du layout) reste sous le fold, visible au scroll */}
+      <main className="min-h-screen max-w-5xl mx-auto px-6 py-24 w-full flex flex-col justify-center">
         {/* Bloc principal centré : Hero + Search + Quick picks */}
         <div>
           {/* Hero */}

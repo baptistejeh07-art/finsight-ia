@@ -174,10 +174,18 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 mb-5">
               {/* COLONNE GAUCHE */}
               <div className="xl:col-span-2 space-y-4">
-                {/* Row 1 : Reco + Cours */}
+                {/* Row 1 : (Reco + Valo empilés à gauche) | Cours large à droite */}
                 <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-                  <div className="lg:col-span-2">
+                  <div className="lg:col-span-2 space-y-4 flex flex-col">
                     <RecoCard recommendation={recommendation} conviction={conviction} />
+                    {/* Valorisation limitée à la largeur de la col Reco (pas de débordement) */}
+                    <ValorisationCards
+                      bull={synthesis?.target_bull}
+                      base={synthesis?.target_base}
+                      bear={synthesis?.target_bear}
+                      sharePrice={sharePrice}
+                      currency={currency}
+                    />
                   </div>
                   <div className="lg:col-span-3">
                     <CoursChart
@@ -187,15 +195,6 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
                     />
                   </div>
                 </div>
-
-                {/* Row 2 : Valorisation (compact, pleine col gauche) */}
-                <ValorisationCards
-                  bull={synthesis?.target_bull}
-                  base={synthesis?.target_base}
-                  bear={synthesis?.target_bear}
-                  sharePrice={sharePrice}
-                  currency={currency}
-                />
 
                 {/* Row 3 : Ratios clés (bandeau compact, anim au scroll) */}
                 <RevealOnScroll>
