@@ -216,6 +216,27 @@ def get_me(user: Annotated[dict, Depends(require_user)]):
 
 # ─── Workers internes (réutilisés par sync + async) ─────────────────────────
 
+def _upload_files_to_storage(files: dict, prefix: str) -> dict:
+    """Upload chaque fichier vers Supabase Storage, retourne {ext: url}.
+
+    Si Storage non configuré ou upload fail, garde les chemins relatifs locaux.
+    `prefix` ex: 'societe/AAPL_20260418_103045' (sans extension).
+    """
+    import db as _db
+    if not _db._enabled():
+        return files
+    from datetime import datetime as _dt
+    ts = _dt.utcnow().strftime("%Y%m%d_%H%M%S")
+    out = {}
+    for ext, rel_path in files.items():
+        local = _ROOT / rel_path
+        remote = f"{prefix}_{ts}.{ext}"
+        url = _db.upload_file(local, remote)
+        out[ext] = url or rel_path
+    return out
+
+
+
 def _do_societe(ticker: str) -> dict:
     """Exécute l'analyse société + retourne {data, files}."""
     from cli_analyze import run_societe as _run_societe
@@ -238,7 +259,8 @@ def _do_societe(ticker: str) -> dict:
                 data = json.load(f)
         except Exception as e:
             log.warning(f"state.json parse fail: {e}")
-    return {"data": data, "files": files}
+    files = _upload_files_to_storage(files, prefix=f"societe/{ticker}")
+    return {"data": data, "files": files, "ticker": ticker}
 
 
 def _do_secteur(secteur: str, univers: str) -> dict:
@@ -252,6 +274,7 @@ def _do_secteur(secteur: str, univers: str) -> dict:
         p = outputs_dir / f"{stem}.{ext}"
         if p.exists():
             files[ext] = str(p.relative_to(_ROOT))
+    files = _upload_files_to_storage(files, prefix=f"secteur/{stem}")
     return {"data": {}, "files": files}
 
 
@@ -266,6 +289,7 @@ def _do_indice(indice: str) -> dict:
         p = outputs_dir / f"{stem}.{ext}"
         if p.exists():
             files[ext] = str(p.relative_to(_ROOT))
+    files = _upload_files_to_storage(files, prefix=f"indice/{stem}")
     return {"data": {}, "files": files}
 
 
@@ -312,6 +336,7 @@ def _do_cmp_societe(ticker_a: str, ticker_b: str) -> dict:
         "company_a": (state_a.get("snapshot") or {}).get("company_info", {}),
         "company_b": (state_b.get("snapshot") or {}).get("company_info", {}),
     }
+    files = _upload_files_to_storage(files, prefix=f"cmp_societe/{stem}")
     return {"data": data, "files": files}
 
 
@@ -329,6 +354,7 @@ def _do_cmp_secteur(secteur_a: str, univers_a: str, secteur_b: str, univers_b: s
         p = outputs_dir / f"{stem}.{ext}"
         if p.exists():
             files[ext] = str(p.relative_to(_ROOT))
+    files = _upload_files_to_storage(files, prefix=f"cmp_secteur/{stem}")
     return {"data": {}, "files": files}
 
 

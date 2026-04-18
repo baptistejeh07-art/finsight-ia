@@ -102,6 +102,54 @@ def insert_analysis(
         return False
 
 
+_BUCKET = os.getenv("SUPABASE_BUCKET", "analyses")
+
+
+def upload_file(local_path, remote_path: str, content_type: Optional[str] = None) -> Optional[str]:
+    """Upload un fichier local vers Supabase Storage.
+
+    Retourne l'URL publique du fichier, ou None si échec / Storage non configuré.
+    Le bucket doit exister (créé manuellement dans Supabase, public-read).
+    """
+    from pathlib import Path as _P
+    if not _enabled():
+        return None
+    p = _P(local_path)
+    if not p.exists() or not p.is_file():
+        log.warning(f"[db] upload_file: fichier introuvable {local_path}")
+        return None
+
+    ct = content_type or {
+        ".pdf": "application/pdf",
+        ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    }.get(p.suffix.lower(), "application/octet-stream")
+
+    try:
+        with open(p, "rb") as fh:
+            data = fh.read()
+        url = f"{_SUPABASE_URL}/storage/v1/object/{_BUCKET}/{remote_path}"
+        r = httpx.post(
+            url,
+            headers={
+                "apikey": _SERVICE_KEY,
+                "Authorization": f"Bearer {_SERVICE_KEY}",
+                "Content-Type": ct,
+                "x-upsert": "true",
+            },
+            content=data,
+            timeout=30.0,
+        )
+        if r.status_code >= 300:
+            log.warning(f"[db] upload_file HTTP {r.status_code} : {r.text[:200]}")
+            return None
+        # URL publique (bucket public-read)
+        return f"{_SUPABASE_URL}/storage/v1/object/public/{_BUCKET}/{remote_path}"
+    except Exception as e:
+        log.warning(f"[db] upload_file exception : {e}")
+        return None
+
+
 def list_analyses(user_id: str, limit: int = 50) -> list[dict]:
     """Retourne les N dernières analyses du user (plus récentes d'abord).
 
