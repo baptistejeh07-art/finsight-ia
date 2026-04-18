@@ -30,7 +30,7 @@ export function Sidebar() {
   return (
     <>
       <aside className="hidden md:flex fixed left-0 top-0 h-screen w-56 flex-col bg-white text-ink-900 border-r border-ink-200 z-40">
-        {/* Logo (volontairement blanc sur blanc — espace réservé identitaire) */}
+        {/* Logo */}
         <Link href="/" className="flex items-center justify-center px-4 py-5">
           <Image
             src="/logo.png"
@@ -38,18 +38,27 @@ export function Sidebar() {
             width={140}
             height={50}
             priority
-            className="object-contain opacity-0"
+            className="object-contain"
           />
         </Link>
 
-        {/* Nav — uniquement Livrables */}
-        <nav className="flex-1 px-3 py-4">
-          <Link
-            href="/#livrables"
-            className="block px-3 py-2 text-sm font-medium text-ink-900 hover:text-navy-500 transition-colors"
-          >
-            Livrables
-          </Link>
+        {/* Sections — style Streamlit (sb-label) */}
+        <nav className="flex-1 px-4 py-2 overflow-y-auto">
+          {/* Livrables */}
+          <div className="border-b border-ink-100 pb-3.5 mb-3.5">
+            <div className="text-[10px] font-semibold uppercase tracking-[1.5px] text-ink-500 mb-2.5">
+              Livrables
+            </div>
+            <div className="text-xs text-ink-400">Disponibles après analyse</div>
+          </div>
+
+          {/* Historique d'analyses */}
+          <div className="border-b border-ink-100 pb-3.5 mb-3.5">
+            <div className="text-[10px] font-semibold uppercase tracking-[1.5px] text-ink-500 mb-2.5">
+              Historique d&apos;analyses
+            </div>
+            <div className="text-xs text-ink-400">Disponibles après analyse</div>
+          </div>
         </nav>
 
         {/* Auth zone */}
