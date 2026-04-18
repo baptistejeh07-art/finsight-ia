@@ -5,7 +5,6 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { FileText, Presentation, FileSpreadsheet } from "lucide-react";
-import { CitationBlock } from "./citation-block";
 
 interface AnalysisFiles {
   pdf?: string;
@@ -51,15 +50,16 @@ export function Sidebar() {
 
   return (
     <aside className="hidden md:flex fixed left-0 top-0 h-screen w-56 flex-col bg-white text-ink-900 border-r border-ink-200 z-40">
-      {/* Logo image (icône + texte) — sans fond blanc */}
+      {/* Logo SVG vectoriel (sans fond) */}
       <Link href="/app" className="block px-4 pt-4 pb-3 border-b border-ink-100">
         <Image
-          src="/logo-transparent.png"
+          src="/logo.svg"
           alt="FinSight IA"
-          width={180}
-          height={64}
+          width={1398}
+          height={752}
           priority
-          className="object-contain"
+          unoptimized
+          className="object-contain h-9 w-auto"
         />
       </Link>
 
@@ -109,15 +109,6 @@ export function Sidebar() {
           <div className="text-xs text-ink-400">Disponibles après analyse</div>
         </div>
 
-        {/* Citation — uniquement hors page résultats */}
-        {!isResultats && (
-          <div className="pt-2 pb-4">
-            <div className="text-[10px] font-semibold uppercase tracking-[1.5px] text-ink-500 mb-3">
-              Citation
-            </div>
-            <CitationBlock />
-          </div>
-        )}
       </nav>
     </aside>
   );
