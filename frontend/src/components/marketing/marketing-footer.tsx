@@ -53,7 +53,7 @@ export function MarketingFooter() {
       <div className="container-vitrine py-16">
         <div className="grid grid-cols-1 md:grid-cols-12 gap-10">
           <div className="md:col-span-3">
-            <LogoMark variant="inverse" />
+            <LogoMark variant="inverse" size="xl" />
 
             <p className="mt-4 text-sm text-text-inverse/60 leading-relaxed max-w-xs">
               Analyses financières institutionnelles, livrées en quelques

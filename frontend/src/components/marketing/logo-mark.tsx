@@ -1,17 +1,31 @@
 import Link from "next/link";
 import Image from "next/image";
 
+type Size = "sm" | "md" | "lg" | "xl";
+
 interface LogoMarkProps {
   className?: string;
   variant?: "auto" | "inverse";
+  size?: Size;
 }
+
+const SIZE_CLASS: Record<Size, string> = {
+  sm: "h-8 w-auto",
+  md: "h-10 w-auto",
+  lg: "h-14 w-auto",
+  xl: "h-20 w-auto",
+};
 
 /**
  * Logo FinSight — SVG vectoriel officiel.
  * variant="auto" : navy sur clair, blanc sur sombre (filter dark:invert).
  * variant="inverse" : toujours blanc (footer fond navy permanent).
  */
-export function LogoMark({ className = "", variant = "auto" }: LogoMarkProps) {
+export function LogoMark({
+  className = "",
+  variant = "auto",
+  size = "md",
+}: LogoMarkProps) {
   const filterClasses =
     variant === "inverse"
       ? "brightness-0 invert"
@@ -30,7 +44,7 @@ export function LogoMark({ className = "", variant = "auto" }: LogoMarkProps) {
         height={752}
         priority
         unoptimized
-        className={`object-contain h-10 w-auto ${filterClasses}`}
+        className={`object-contain ${SIZE_CLASS[size]} ${filterClasses}`}
       />
     </Link>
   );
