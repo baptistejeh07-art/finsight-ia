@@ -134,7 +134,7 @@ export function CoursChart({
     <div className="bg-white border border-ink-200 rounded-md p-5">
       <div className="flex items-baseline justify-between mb-3">
         <div className="text-[10px] font-semibold uppercase tracking-[1.5px] text-ink-500">
-          Cours sur 12 mois (base 100)
+          Performance comparée — 12 mois
         </div>
         <div className={`text-sm font-semibold ${perfColor}`}>{perfStr}</div>
       </div>
