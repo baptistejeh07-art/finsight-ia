@@ -225,25 +225,38 @@ export default function AnalystePage() {
               </div>
               <div className="md:col-span-8 space-y-4 text-text-secondary leading-relaxed">
                 <h3 className="font-serif text-2xl font-semibold text-text-primary">
-                  Baptiste Jeh
+                  Baptiste Jehanno
                 </h3>
                 <p>
-                  Étudiant en BTS Comptabilité & Gestion en alternance, en
-                  préparation du FMVA (Financial Modeling & Valuation Analyst,
-                  CFI). Candidat en L2 Gestion à la Sorbonne pour la rentrée
-                  prochaine.
+                  Étudiant en BTS Comptabilité &amp; Gestion en alternance,
+                  diplômé du <strong>FMVA</strong> (Financial Modeling &amp;
+                  Valuation Analyst — CFI), en préparation du{" "}
+                  <strong>CFA niveau I</strong>. Candidat pour une{" "}
+                  <strong>L2 Gestion</strong> à Paris.
                 </p>
                 <p>
-                  L&apos;ambition est claire : devenir analyste financier en
-                  banque d&apos;investissement. FinSight est née pendant cette
-                  formation — d&apos;une frustration : pourquoi les outils que
-                  j&apos;apprenais à utiliser en cours étaient-ils réservés à
-                  quelques cabinets ? Le projet a grandi en parallèle des
-                  études, agent par agent, livrable par livrable.
+                  Mon ambition est claire, même si encore lointaine : devenir
+                  analyste financier en banque d&apos;investissement.
+                  FinSight est née pendant ma formation FMVA, d&apos;une
+                  question revenue sans cesse au fil de mes échanges avec
+                  Claude (Anthropic) : pourquoi n&apos;existe-t-il pas encore
+                  d&apos;outil accessible à tous pour avoir une vision claire
+                  lors d&apos;un investissement, d&apos;une valorisation, ou
+                  du contrôle de gestion de sa propre entreprise ? La réponse
+                  était simple : pas pleinement sous la forme dont je rêvais.
+                  Alors je me suis formé, j&apos;ai pris en main certains
+                  outils, ouvert mon premier terminal, et lancé ce qu&apos;est
+                  aujourd&apos;hui FinSight — agent par agent, feature par
+                  feature, livrable par livrable.
                 </p>
-                <p className="italic text-text-muted">
-                  « FinSight n&apos;est pas un produit que j&apos;ai voulu
-                  construire — c&apos;est l&apos;outil dont j&apos;avais besoin. »
+                <p>
+                  Mon souhait : que chacun ait accès à un outil abordable, avec
+                  un rendu comparable à celui d&apos;un analyste junior, pour
+                  une fraction du prix d&apos;un terminal pro.
+                </p>
+                <p className="italic text-text-muted border-l-2 border-accent-primary pl-4">
+                  « FinSight est plus qu&apos;un projet d&apos;étudiant —
+                  c&apos;est une réponse à l&apos;asymétrie d&apos;information. »
                 </p>
               </div>
             </div>
