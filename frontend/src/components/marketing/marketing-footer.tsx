@@ -28,8 +28,8 @@ const COLUMNS = [
     title: "Ressources",
     links: [
       ["FinSight expliqué", "/analyste"],
+      ["Méthodologie", "/methodologie"],
       ["Annonces", "/#sorties"],
-      ["Documentation", "/about"],
       ["Cas d'utilisation", "/cas-usage"],
       ["FAQ", "/#faq"],
       ["Contact", "/contact"],
@@ -41,8 +41,8 @@ const COLUMNS = [
       ["À propos", "/about"],
       ["Collaboration", "/collaboration"],
       ["Tarification", "/#tarification"],
-      ["Conditions d'utilisation", "/cgu"],
-      ["Politique de confidentialité", "/privacy"],
+      ["Sécurité & conformité", "/securite"],
+      ["Mentions légales", "/mentions-legales"],
     ],
   },
 ];
@@ -95,14 +95,43 @@ export function MarketingFooter() {
           </div>
         </div>
 
-        <div className="mt-16 pt-8 border-t border-text-inverse/10 flex flex-col md:flex-row md:items-center justify-between gap-4 text-2xs text-text-inverse/50">
+        {/* Avertissement réglementaire — toujours visible */}
+        <div className="mt-12 pt-8 border-t border-text-inverse/10">
+          <div className="rounded-lg border border-text-inverse/15 bg-text-inverse/5 p-4 text-xs text-text-inverse/70 leading-relaxed">
+            <span className="font-semibold text-text-inverse/90">Avertissement.</span>{" "}
+            FinSight IA fournit un outil d&apos;aide à l&apos;analyse, et non
+            un conseil en investissement personnalisé au sens de
+            l&apos;article L.321-1 du code monétaire et financier. Aucune
+            information du service ne constitue une recommandation
+            d&apos;achat ou de vente. L&apos;utilisateur reste seul juge de
+            ses décisions et assume entièrement les risques associés.{" "}
+            <Link
+              href="/disclaimer"
+              className="underline hover:text-text-inverse"
+            >
+              Lire l&apos;avertissement complet
+            </Link>
+            .
+          </div>
+        </div>
+
+        <div className="mt-8 pt-6 border-t border-text-inverse/10 flex flex-col md:flex-row md:items-center justify-between gap-4 text-2xs text-text-inverse/50">
           <div>© {new Date().getFullYear()} FinSight IA. Tous droits réservés.</div>
-          <div className="flex gap-6">
+          <div className="flex flex-wrap gap-x-6 gap-y-2">
+            <Link href="/mentions-legales" className="hover:text-text-inverse">
+              Mentions légales
+            </Link>
             <Link href="/cgu" className="hover:text-text-inverse">
-              Conditions
+              CGU
             </Link>
             <Link href="/privacy" className="hover:text-text-inverse">
               Confidentialité
+            </Link>
+            <Link href="/securite" className="hover:text-text-inverse">
+              Sécurité
+            </Link>
+            <Link href="/disclaimer" className="hover:text-text-inverse">
+              Avertissement
             </Link>
             <Link href="/contact" className="hover:text-text-inverse">
               Contact

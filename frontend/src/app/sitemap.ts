@@ -12,11 +12,15 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${base}/analyste`, lastModified: now, changeFrequency: "monthly", priority: 0.8 },
     { url: `${base}/collaboration`, lastModified: now, changeFrequency: "monthly", priority: 0.7 },
     { url: `${base}/cas-usage`, lastModified: now, changeFrequency: "monthly", priority: 0.7 },
+    { url: `${base}/methodologie`, lastModified: now, changeFrequency: "monthly", priority: 0.7 },
+    { url: `${base}/securite`, lastModified: now, changeFrequency: "monthly", priority: 0.6 },
     { url: `${base}/comparatif`, lastModified: now, changeFrequency: "weekly", priority: 0.7 },
     { url: `${base}/about`, lastModified: now, changeFrequency: "monthly", priority: 0.5 },
     { url: `${base}/contact`, lastModified: now, changeFrequency: "monthly", priority: 0.5 },
+    { url: `${base}/mentions-legales`, lastModified: now, changeFrequency: "yearly", priority: 0.3 },
     { url: `${base}/cgu`, lastModified: now, changeFrequency: "yearly", priority: 0.3 },
     { url: `${base}/privacy`, lastModified: now, changeFrequency: "yearly", priority: 0.3 },
+    { url: `${base}/disclaimer`, lastModified: now, changeFrequency: "yearly", priority: 0.4 },
   ];
 
   const annonces: MetadataRoute.Sitemap = ANNONCES.map((a) => ({
