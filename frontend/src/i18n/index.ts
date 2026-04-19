@@ -53,10 +53,14 @@ export function translate(locale: Locale, key: string): string {
   const dict = MESSAGES[locale] || MESSAGES[FALLBACK_LOCALE];
   const found = tFromDict(dict, key);
   if (found) return found;
-  // Fallback FR
+  // Fallback: EN puis FR (EN plus universel pour es/de/it/pt manquants)
+  if (locale !== "en") {
+    const en = tFromDict(MESSAGES.en, key);
+    if (en) return en;
+  }
   if (locale !== FALLBACK_LOCALE) {
-    const fb = tFromDict(MESSAGES[FALLBACK_LOCALE], key);
-    if (fb) return fb;
+    const fr = tFromDict(MESSAGES[FALLBACK_LOCALE], key);
+    if (fr) return fr;
   }
   // Affichage debug : la clé brute
   return key;

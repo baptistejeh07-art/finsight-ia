@@ -127,10 +127,11 @@ class PmePdfWriter:
     def __init__(self, ctx: PmePdfContext):
         self.ctx = ctx
         # Helper i18n local : self._t("report.synthesis") → libellé selon langue
-        from core.i18n import t as _i18n_t, field_label as _i18n_field, normalize_language
+        from core.i18n import t as _i18n_t, field_label as _i18n_field, ratio_label as _i18n_ratio, normalize_language
         self._lang = normalize_language(ctx.language)
         self._t = lambda key, default=None: _i18n_t(self._lang, key, default)
         self._field_label = lambda field: _i18n_field(field, self._lang)
+        self._ratio_label = lambda key: _i18n_ratio(key, self._lang)
         self._imports_ok = False
         try:
             from reportlab.lib.pagesizes import A4
@@ -418,11 +419,11 @@ class PmePdfWriter:
         r = ctx.analysis.ratios_by_year[last_year]
         profile = ctx.analysis.profile
         items = [
-            ("Marge brute", _fmt_pct(r.marge_brute)),
-            ("Marge EBITDA", _fmt_pct(r.marge_ebitda)),
-            ("Marge nette", _fmt_pct(r.marge_nette)),
-            ("ROCE", _fmt_pct(r.roce)),
-            ("ROE", _fmt_pct(r.roe)),
+            (self._ratio_label("marge_brute"), _fmt_pct(r.marge_brute)),
+            (self._ratio_label("marge_ebitda"), _fmt_pct(r.marge_ebitda)),
+            (self._ratio_label("marge_nette"), _fmt_pct(r.marge_nette)),
+            (self._ratio_label("roce"), _fmt_pct(r.roce)),
+            (self._ratio_label("roe"), _fmt_pct(r.roe)),
         ]
         story.append(self._kpi_table(items))
 
@@ -440,11 +441,11 @@ class PmePdfWriter:
 
         r = ctx.analysis.ratios_by_year[last_year]
         items = [
-            ("Dette nette / EBITDA", _fmt_x(r.dette_nette_ebitda)),
-            ("Couverture des intérêts", _fmt_x(r.couverture_interets)),
-            ("Autonomie financière", _fmt_pct(r.autonomie_financiere)),
-            ("BFR (jours de CA)", _fmt_days(r.bfr_jours_ca)),
-            ("Trésorerie nette", _fmt_eur(r.tresorerie_nette)),
+            (self._ratio_label("dette_nette_ebitda"), _fmt_x(r.dette_nette_ebitda)),
+            (self._ratio_label("couverture_interets"), _fmt_x(r.couverture_interets)),
+            (self._ratio_label("autonomie_financiere"), _fmt_pct(r.autonomie_financiere)),
+            (self._ratio_label("bfr_jours_ca"), _fmt_days(r.bfr_jours_ca)),
+            (self._ratio_label("tresorerie_nette"), _fmt_eur(r.tresorerie_nette)),
         ]
         story.append(self._kpi_table(items))
 
@@ -462,11 +463,11 @@ class PmePdfWriter:
 
         r = ctx.analysis.ratios_by_year[last_year]
         items = [
-            ("DSO (délai clients)", _fmt_days(r.dso_jours)),
-            ("DPO (délai fournisseurs)", _fmt_days(r.dpo_jours)),
-            ("Rotation des stocks", _fmt_x(r.rotation_stocks, 1)),
-            ("CA par employé", _fmt_eur(r.ca_par_employe)),
-            ("Charges personnel / CA", _fmt_pct(r.charges_perso_ca)),
+            (self._ratio_label("dso_jours"), _fmt_days(r.dso_jours)),
+            (self._ratio_label("dpo_jours"), _fmt_days(r.dpo_jours)),
+            (self._ratio_label("rotation_stocks"), _fmt_x(r.rotation_stocks, 1)),
+            (self._ratio_label("ca_par_employe"), _fmt_eur(r.ca_par_employe)),
+            (self._ratio_label("charges_perso_ca"), _fmt_pct(r.charges_perso_ca)),
         ]
         story.append(self._kpi_table(items))
 

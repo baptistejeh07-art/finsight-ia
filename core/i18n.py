@@ -513,3 +513,62 @@ def bodacc_label(typ: str, lang: str) -> str:
         if key.lower() in typ.lower():
             return spec.get(lang) or spec.get("en") or typ
     return typ
+
+
+# ─── Ratios & KPI labels (tableaux PDF/PPTX) ──────────────────────────────
+RATIO_LABELS: dict[str, dict[str, str]] = {
+    "marge_brute": {"fr": "Marge brute", "en": "Gross margin",
+                    "es": "Margen bruto", "de": "Bruttomarge",
+                    "it": "Margine lordo", "pt": "Margem bruta"},
+    "marge_ebitda": {"fr": "Marge EBITDA", "en": "EBITDA margin",
+                     "es": "Margen EBITDA", "de": "EBITDA-Marge",
+                     "it": "Margine EBITDA", "pt": "Margem EBITDA"},
+    "marge_nette": {"fr": "Marge nette", "en": "Net margin",
+                    "es": "Margen neto", "de": "Nettomarge",
+                    "it": "Margine netto", "pt": "Margem líquida"},
+    "roce": {"fr": "ROCE", "en": "ROCE",
+             "es": "ROCE", "de": "ROCE",
+             "it": "ROCE", "pt": "ROCE"},
+    "roe": {"fr": "ROE", "en": "ROE",
+            "es": "ROE", "de": "ROE",
+            "it": "ROE", "pt": "ROE"},
+    "dette_nette_ebitda": {"fr": "Dette nette / EBITDA", "en": "Net debt / EBITDA",
+                           "es": "Deuda neta / EBITDA", "de": "Nettoverschuldung / EBITDA",
+                           "it": "Debito netto / EBITDA", "pt": "Dívida líquida / EBITDA"},
+    "couverture_interets": {"fr": "Couverture des intérêts", "en": "Interest coverage",
+                            "es": "Cobertura de intereses", "de": "Zinsdeckung",
+                            "it": "Copertura interessi", "pt": "Cobertura de juros"},
+    "autonomie_financiere": {"fr": "Autonomie financière", "en": "Financial autonomy",
+                             "es": "Autonomía financiera", "de": "Finanzielle Unabhängigkeit",
+                             "it": "Autonomia finanziaria", "pt": "Autonomia financeira"},
+    "bfr_jours_ca": {"fr": "BFR (jours de CA)", "en": "Working capital (days of revenue)",
+                     "es": "NOF (días de ingresos)", "de": "Working Capital (Umsatztage)",
+                     "it": "Capitale circolante (giorni)", "pt": "Fundo de maneio (dias)"},
+    "tresorerie_nette": {"fr": "Trésorerie nette", "en": "Net cash",
+                         "es": "Tesorería neta", "de": "Netto-Cash",
+                         "it": "Liquidità netta", "pt": "Tesouraria líquida"},
+    "dso_jours": {"fr": "DSO (délai clients)", "en": "DSO (days sales outstanding)",
+                  "es": "DSO (plazo de cobro)", "de": "DSO (Zahlungszieldauer)",
+                  "it": "DSO (giorni di incasso)", "pt": "DSO (prazo de recebimento)"},
+    "dpo_jours": {"fr": "DPO (délai fournisseurs)", "en": "DPO (days payables outstanding)",
+                  "es": "DPO (plazo de pago)", "de": "DPO (Zahlungsziel Lieferanten)",
+                  "it": "DPO (giorni di pagamento)", "pt": "DPO (prazo de pagamento)"},
+    "rotation_stocks": {"fr": "Rotation des stocks", "en": "Inventory turnover",
+                        "es": "Rotación de existencias", "de": "Lagerumschlag",
+                        "it": "Rotazione delle scorte", "pt": "Rotação de stocks"},
+    "ca_par_employe": {"fr": "CA par employé", "en": "Revenue per employee",
+                       "es": "Ingresos por empleado", "de": "Umsatz je Mitarbeiter",
+                       "it": "Ricavi per dipendente", "pt": "Receita por colaborador"},
+    "charges_perso_ca": {"fr": "Charges personnel / CA", "en": "Staff costs / Revenue",
+                         "es": "Gastos de personal / Ingresos", "de": "Personalkosten / Umsatz",
+                         "it": "Costi del personale / Ricavi", "pt": "Custos pessoal / Receita"},
+}
+
+
+def ratio_label(key: str, lang: str) -> str:
+    """Libellé multilingue d'un ratio/KPI (Marge brute, ROCE, DSO…)."""
+    lang = normalize_language(lang)
+    spec = RATIO_LABELS.get(key)
+    if not spec:
+        return key.replace("_", " ").capitalize()
+    return spec.get(lang) or spec.get("en") or spec.get("fr") or key
