@@ -5,6 +5,7 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { FileText, Presentation, FileSpreadsheet } from "lucide-react";
+import { SidebarUserMenu } from "./sidebar-user-menu";
 
 interface AnalysisFiles {
   pdf?: string;
@@ -110,6 +111,9 @@ export function Sidebar() {
         </div>
 
       </nav>
+
+      {/* Menu utilisateur (bas de sidebar) */}
+      <SidebarUserMenu />
     </aside>
   );
 }

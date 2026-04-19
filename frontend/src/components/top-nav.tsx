@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { LogOut, User as UserIcon } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { AuthDialog } from "./auth-dialog";
 import type { User } from "@supabase/supabase-js";
@@ -20,30 +19,12 @@ export function TopNav() {
     return () => sub.subscription.unsubscribe();
   }, []);
 
-  async function handleLogout() {
-    const supabase = createClient();
-    await supabase.auth.signOut();
-    setUser(null);
-  }
-
   return (
     <>
       <div className="hidden md:flex fixed top-0 right-0 z-30 px-6 py-4 items-center gap-5 text-xs">
-        {user ? (
-          <>
-            <span className="flex items-center gap-1.5 text-ink-600">
-              <UserIcon className="w-3.5 h-3.5" />
-              <span className="truncate max-w-[160px]">{user.email}</span>
-            </span>
-            <button
-              onClick={handleLogout}
-              className="flex items-center gap-1 text-ink-700 hover:text-ink-900 transition-colors"
-            >
-              <LogOut className="w-3.5 h-3.5" />
-              Se déconnecter
-            </button>
-          </>
-        ) : (
+        {/* Connecté : menu utilisateur géré dans la sidebar (SidebarUserMenu).
+            Ici on ne laisse que les boutons auth quand non-connecté. */}
+        {!user && (
           <>
             <button
               onClick={() => setAuthMode("signin")}
