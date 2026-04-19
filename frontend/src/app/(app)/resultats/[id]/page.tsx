@@ -45,12 +45,13 @@ interface AnalysisResult {
   data?: AnalysisData;
   files?: { pdf?: string; pptx?: string; xlsx?: string };
   error?: string;
-  kind?: "societe" | "secteur" | "indice" | "comparatif";
+  kind?: "societe" | "secteur" | "indice" | "comparatif" | "pme";
   label?: string;
 }
 
-function mapBackendKind(kind: string): "societe" | "secteur" | "indice" | "comparatif" {
+function mapBackendKind(kind: string): "societe" | "secteur" | "indice" | "comparatif" | "pme" {
   if (kind.startsWith("cmp/")) return "comparatif";
+  if (kind === "pme" || kind.includes("pme")) return "pme";
   if (kind.includes("indice")) return "indice";
   if (kind.includes("secteur")) return "secteur";
   return "societe";
@@ -65,7 +66,8 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
     | "societe"
     | "secteur"
     | "indice"
-    | "comparatif";
+    | "comparatif"
+    | "pme";
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [notFound, setNotFound] = useState(false);
   const { enabled: editEnabled } = useEditMode();
@@ -370,6 +372,8 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
                   ? "Indice boursier"
                   : kind === "comparatif"
                   ? "Comparatif société"
+                  : kind === "pme"
+                  ? "PME non cotée — Analyse financière"
                   : "Analyse sectorielle"}
               </div>
               <h1 className="text-2xl font-bold text-ink-900 tracking-tight">
@@ -398,6 +402,8 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
                           ? "Analyse complète de l'indice générée. Le rapport PDF contient l'analyse macro, les comparatifs inter-secteurs et l'allocation optimale (Markowitz)."
                           : kind === "comparatif"
                           ? "Comparatif société généré. Les livrables PDF, PPTX et Excel contiennent les analyses parallèles, ratios comparés et verdict relatif."
+                          : kind === "pme"
+                          ? "Analyse PME non cotée générée via Pappers + BODACC. Le rapport contient les SIG détaillés, 14 ratios clés, benchmark sectoriel, scoring Altman Z & santé FinSight, bankabilité. Approche contrôle de gestion."
                           : "Analyse sectorielle générée. Le rapport PDF compare les principales sociétés du secteur sur l'univers sélectionné, avec ratios, performance et allocation."}
                       </p>
                     </div>

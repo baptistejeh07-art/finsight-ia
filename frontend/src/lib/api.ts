@@ -126,6 +126,21 @@ export async function submitCmpSocieteJob(
   return apiPost("/jobs/cmp/societe", { ticker_a, ticker_b });
 }
 
+export async function submitPmeJob(siren: string): Promise<JobSubmitResponse> {
+  return apiPost("/jobs/analyze/pme", { siren, use_pappers_comptes: true });
+}
+
+export async function analyzePmeSync(siren: string): Promise<{
+  success: boolean;
+  request_id: string;
+  elapsed_ms: number;
+  data?: unknown;
+  files?: { pdf?: string; pptx?: string; xlsx?: string };
+  error?: string;
+}> {
+  return apiPost("/analyze/pme", { siren, use_pappers_comptes: true });
+}
+
 export async function getJob(jobId: string): Promise<JobStatus> {
   return apiGet(`/jobs/${jobId}`);
 }

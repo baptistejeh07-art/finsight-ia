@@ -167,6 +167,12 @@ class CmpIndiceRequest(BaseModel):
     indice_b: str
 
 
+class PmeRequest(BaseModel):
+    """Analyse PME (société non cotée) par SIREN."""
+    siren: str = Field(..., description="SIREN (9 chiffres)")
+    use_pappers_comptes: bool = Field(True, description="Télécharger comptes via Pappers XLSX")
+
+
 class AnalyseResponse(BaseModel):
     success: bool
     request_id: str
@@ -445,6 +451,141 @@ def _do_cmp_secteur(secteur_a: str, univers_a: str, secteur_b: str, univers_b: s
     return {"data": {}, "files": files}
 
 
+def _do_pme(siren: str, use_pappers_comptes: bool = True) -> dict:
+    """Pipeline PME : Pappers identité + (XLSX comptes) + peers + BODACC
+    + analytics + outputs PDF/XLSX/PPTX."""
+    import os
+    from core.pappers.client import PappersClient, PappersAPIError
+    from core.pappers.xlsx_parser import parse_pappers_xlsx, download_pappers_xlsx
+    from core.pappers.peers_client import PeersClient
+    from core.pappers.bodacc_client import BodaccClient
+    from core.pappers.sector_profiles import resolve_profile
+    from core.pappers.analytics import analyze_pme
+    from core.pappers.benchmark import build_benchmark
+    from outputs.pme_pdf_writer import PmePdfContext, write_pme_pdf
+    from outputs.pme_xlsx_writer import write_pme_xlsx
+    from outputs.pme_pptx_writer import write_pme_pptx
+
+    t0 = _utcnow()
+    pappers = PappersClient()
+    company = pappers.fetch_company(siren, with_bodacc=False)
+    profile = resolve_profile(company.code_naf)
+    log.info(f"[pme] {siren} → {company.denomination} (profil: {profile.code})")
+
+    # Tente de télécharger et parser les comptes Pappers
+    yearly_accounts = []
+    if use_pappers_comptes and company.comptes:
+        latest = company.comptes[0]
+        token_xlsx = latest.get("token_xlsx") if isinstance(latest, dict) else None
+        conf = latest.get("confidentialite_compte_de_resultat") if isinstance(latest, dict) else False
+        if token_xlsx and not conf:
+            try:
+                tmp_dir = _ROOT / "logs" / "cache" / "pappers_xlsx"
+                tmp_dir.mkdir(parents=True, exist_ok=True)
+                xlsx_path = tmp_dir / f"{siren}_{latest.get('annee_cloture', '')}.xlsx"
+                download_pappers_xlsx(token_xlsx, pappers.api_key, xlsx_path)
+                parsed = parse_pappers_xlsx(xlsx_path, annee_cloture=latest.get("annee_cloture"))
+                if parsed:
+                    yearly_accounts.append(parsed)
+                    log.info(f"[pme] comptes {latest.get('annee_cloture')} parsés OK")
+            except Exception as e:
+                log.warning(f"[pme] téléchargement/parsing XLSX échec : {e}")
+
+    if not yearly_accounts:
+        # Fallback : pas de comptes → analyse identité + BODACC seuls (niveau "screening")
+        log.warning(f"[pme] {siren} : pas de comptes publics → mode screening")
+
+    # Analyse
+    analysis = analyze_pme(siren, yearly_accounts, profile)
+    benchmark = None
+    if yearly_accounts:
+        last_y = max(analysis.ratios_by_year.keys())
+        benchmark = build_benchmark(analysis.ratios_by_year[last_y], [], profile)
+
+    # BODACC (gratuit, toujours)
+    bodacc = BodaccClient().fetch(siren)
+
+    # Génération outputs (si comptes dispo)
+    outputs_dir = _ROOT / "outputs" / "generated" / "cli_tests"
+    outputs_dir.mkdir(parents=True, exist_ok=True)
+    stem = f"pme_{siren}"
+    files = {}
+    if yearly_accounts and benchmark:
+        try:
+            ctx = PmePdfContext(
+                siren=siren,
+                denomination=company.denomination,
+                forme_juridique=company.forme_juridique,
+                code_naf=company.code_naf,
+                libelle_naf=company.libelle_naf,
+                ville_siege=company.ville_siege,
+                date_creation=company.date_creation,
+                capital=company.capital,
+                dirigeants=company.dirigeants,
+                analysis=analysis,
+                benchmark=benchmark,
+                yearly_accounts=yearly_accounts,
+                bodacc=bodacc,
+                commentaires={},
+            )
+            pdf_path = outputs_dir / f"{stem}.pdf"
+            write_pme_pdf(ctx, pdf_path)
+            files["pdf"] = str(pdf_path.relative_to(_ROOT))
+        except Exception as e:
+            log.error(f"[pme] PDF fail: {e}")
+
+        try:
+            xlsx_path = outputs_dir / f"{stem}.xlsx"
+            write_pme_xlsx(xlsx_path, yearly_accounts, analysis, benchmark, bodacc, siren, company.denomination)
+            files["xlsx"] = str(xlsx_path.relative_to(_ROOT))
+        except Exception as e:
+            log.error(f"[pme] XLSX fail: {e}")
+
+        try:
+            pptx_path = outputs_dir / f"{stem}.pptx"
+            write_pme_pptx(pptx_path, yearly_accounts, analysis, benchmark, bodacc,
+                           siren, company.denomination, profile.name)
+            files["pptx"] = str(pptx_path.relative_to(_ROOT))
+        except Exception as e:
+            log.error(f"[pme] PPTX fail: {e}")
+
+    files = _upload_files_to_storage(files, prefix=f"pme/{stem}")
+
+    # Payload frontend (slim)
+    data = {
+        "kind": "pme",
+        "siren": siren,
+        "denomination": company.denomination,
+        "forme_juridique": company.forme_juridique,
+        "code_naf": company.code_naf,
+        "libelle_naf": company.libelle_naf,
+        "ville_siege": company.ville_siege,
+        "capital": company.capital,
+        "dirigeants": company.dirigeants[:10],
+        "profile": {"code": profile.code, "name": profile.name},
+        "has_accounts": len(yearly_accounts) > 0,
+        "years": [y.annee for y in yearly_accounts],
+        "analysis_summary": {
+            "health_score": analysis.health_score,
+            "altman_z": analysis.altman_z,
+            "altman_verdict": analysis.altman_verdict,
+            "bankability_score": analysis.bankability_score,
+            "debt_capacity_estimate": analysis.debt_capacity_estimate,
+        } if yearly_accounts else None,
+        "bodacc": {
+            "total_annonces": bodacc.total_annonces,
+            "procedures_collectives": len(bodacc.procedures_collectives),
+            "derniere_procedure": bodacc.derniere_procedure,
+            "dernier_depot_comptes": bodacc.dernier_depot_comptes,
+            "radie": bodacc.radie,
+            "penalty": bodacc.bodacc_score_penalty,
+        },
+    }
+    elapsed = int((_utcnow() - t0).total_seconds() * 1000)
+    log.info(f"[pme] {siren} terminé en {elapsed}ms")
+    return {"data": data, "files": files}
+
+
 # ─── Helpers HTTP : wrap workers en réponse uniforme ────────────────────────
 
 def _sync_response(kind: str, fn, *args, **kwargs) -> AnalyseResponse:
@@ -508,6 +649,13 @@ async def cmp_indice(req: CmpIndiceRequest):
         success=False, request_id=str(uuid.uuid4()),
         elapsed_ms=0, error="cmp_indice not implemented yet (V1)",
     )
+
+
+@app.post("/analyze/pme", response_model=AnalyseResponse)
+async def analyze_pme_endpoint(req: PmeRequest):
+    """Analyse PME (société non cotée FR) par SIREN.
+    Pipeline : Pappers identité+comptes Cerfa → peers → BODACC → analytics → PDF/XLSX/PPTX."""
+    return _sync_response("analyze/pme", _do_pme, req.siren, req.use_pappers_comptes)
 
 
 # ─── Endpoints async (jobs en mémoire) ──────────────────────────────────────
