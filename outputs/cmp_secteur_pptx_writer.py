@@ -770,7 +770,7 @@ def _s01_cover(prs, D):
 def _s02_exec_summary(prs, D):
     slide = _blank(prs)
     sa, sb = D["sa"], D["sb"]
-    _header(slide, f"Executive Summary  —  {D['sector_a']} vs {D['sector_b']}",
+    _header(slide, f"{(D.get('_t_helper') or (lambda k: "Executive Summary"))('exec_summary')}  —  {D['sector_a']} vs {D['sector_b']}",
             f"Univers : {D['universe_label']}  |  {D['na']} + {D['nb']} sociétés analysées", 1)
     _footer(slide, D)
 
@@ -852,7 +852,7 @@ def _s02_exec_summary(prs, D):
 def _s03_sommaire(prs, D):
     """Slide 3 — Sommaire (style aligné sur cmp société : cards bleu pale numérotées)."""
     slide = _blank(prs)
-    _header(slide, "Sommaire", f"Analyse comparative : {D['sector_a']} vs {D['sector_b']}", 1)
+    _header(slide, (D.get('_t_helper') or (lambda k: "Sommaire"))('sommaire'), f"Analyse comparative : {D['sector_a']} vs {D['sector_b']}", 1)
     _footer(slide, D)
 
     sections = [
@@ -891,7 +891,7 @@ def _s03_sommaire(prs, D):
 def _s05_profil(prs, D):
     """Slide 5 — Profil des 2 secteurs côte à côte."""
     slide = _blank(prs)
-    _header(slide, "Profil & Structure des Secteurs",
+    _header(slide, (D.get('_t_helper') or (lambda k: "Profil & Structure des Secteurs"))('profil_struct'),
             f"{D['sector_a']}  vs  {D['sector_b']}  |  Positionnement structurel", 1)
     _footer(slide, D)
 
@@ -959,7 +959,7 @@ def _s06_valorisation(prs, D):
     """Slide 6 — Multiples de valorisation comparatifs."""
     slide = _blank(prs)
     sa, sb = D["sa"], D["sb"]
-    _header(slide, "Valorisation Comparée  —  Multiples de Marché",
+    _header(slide, (D.get('_t_helper') or (lambda k: "Valorisation Comparée"))('valo_cmp'),
             f"P/E et EV-multiples Médianes — {D['sector_a']} vs {D['sector_b']}", 1)
     _footer(slide, D)
 
@@ -1021,7 +1021,7 @@ def _s07_marges(prs, D):
     """Slide 7 — Qualité, Marges & Rentabilité."""
     slide = _blank(prs)
     sa, sb = D["sa"], D["sb"]
-    _header(slide, "Qualité & Rentabilité  —  Marges et Retour sur Capital",
+    _header(slide, (D.get('_t_helper') or (lambda k: "Qualité & Rentabilité"))('qualite_rent'),
             f"Qui Généré plus de valeur par euro de chiffre d'affaires ?", 1)
     _footer(slide, D)
 
@@ -1081,7 +1081,7 @@ def _s07b_capital_alloc(prs, D):
     """Slide 7b — Capital Allocation & Rémunération de l'Actionnaire."""
     slide = _blank(prs)
     sa, sb = D["sa"], D["sb"]
-    _header(slide, "Capital Allocation  —  Dividendes, FCF & Rémunération",
+    _header(slide, (D.get('_t_helper') or (lambda k: "Capital Allocation"))('cap_alloc'),
             f"Comparaison politique de distribution — {D['sector_a']} vs {D['sector_b']}", 1)
     _footer(slide, D)
 
@@ -1197,7 +1197,7 @@ def _s08_croissance(prs, D):
     """Slide 10 — Performance Boursière : cours comparatif 52 semaines."""
     slide = _blank(prs)
     sa, sb = D["sa"], D["sb"]
-    _header(slide, "Performance Boursière  —  Cours Comparatif 52 Semaines",
+    _header(slide, (D.get('_t_helper') or (lambda k: "Performance Boursière"))('perf_bourse'),
             f"Composite Normalisé base 100 — top 15 sociétés par secteur  |  {D['sector_a']} vs {D['sector_b']}", 2)
     _footer(slide, D)
 
@@ -1254,7 +1254,7 @@ def _s09_scoring(prs, D):
     """Slide 9 — Scoring multi-critères (radar)."""
     slide = _blank(prs)
     sa, sb = D["sa"], D["sb"]
-    _header(slide, "Scoring Multi-critères  —  Value / Growth / Quality / Momentum",
+    _header(slide, (D.get('_t_helper') or (lambda k: "Scoring"))('scoring_vgqm'),
             f"Score FinSight décompose par dimension — {D['sector_a']} vs {D['sector_b']}", 2)
     _footer(slide, D)
 
@@ -1297,7 +1297,7 @@ def _s09_scoring(prs, D):
 def _s10_top_a(prs, D):
     """Slide 10 — Top acteurs Secteur A."""
     slide = _blank(prs)
-    _header(slide, f"Top Acteurs  —  {D['sector_a']}",
+    _header(slide, f"{(D.get('_t_helper') or (lambda k: "Top Acteurs"))('top_acteurs')}  —  {D['sector_a']}",
             f"{D['na']} sociétés analysées — classees par score FinSight", 3)
     _footer(slide, D)
     _barre_secteur(slide, D["sector_a"], D["td_a"], _COL_A, D["universe_a"],
@@ -1307,7 +1307,7 @@ def _s10_top_a(prs, D):
 def _s11_top_b(prs, D):
     """Slide 11 — Top acteurs Secteur B."""
     slide = _blank(prs)
-    _header(slide, f"Top Acteurs  —  {D['sector_b']}",
+    _header(slide, f"{(D.get('_t_helper') or (lambda k: "Top Acteurs"))('top_acteurs')}  —  {D['sector_b']}",
             f"{D['nb']} sociétés analysées — classees par score FinSight", 3)
     _footer(slide, D)
     _barre_secteur(slide, D["sector_b"], D["td_b"], _COL_B, D["universe_b"],
@@ -1368,7 +1368,7 @@ def _s12_risques_a(prs, D):
     """Slide 12 — Risques & Catalyseurs Secteur A."""
     slide = _blank(prs)
     content = _get_content(D["sector_a"])
-    _header(slide, f"Risques & Catalyseurs  —  {D['sector_a']}",
+    _header(slide, f"{(D.get('_t_helper') or (lambda k: "Risques"))('risques_cat')}  —  {D['sector_a']}",
             "Conditions d'investissement et d'invalidation de la Thèse", 3)
     _footer(slide, D)
     _risques_slide(slide, content, _COL_A, _COL_A_PALE,
@@ -1379,7 +1379,7 @@ def _s13_risques_b(prs, D):
     """Slide 13 — Risques & Catalyseurs Secteur B."""
     slide = _blank(prs)
     content = _get_content(D["sector_b"])
-    _header(slide, f"Risques & Catalyseurs  —  {D['sector_b']}",
+    _header(slide, f"{(D.get('_t_helper') or (lambda k: "Risques"))('risques_cat')}  —  {D['sector_b']}",
             "Conditions d'investissement et d'invalidation de la Thèse", 3)
     _footer(slide, D)
     _risques_slide(slide, content, _COL_B, _COL_B_PALE,
@@ -1433,7 +1433,7 @@ def _s14_synthese(prs, D):
     """Slide 18 — Synthèse : THÈSE LONG A (navy) + THÈSE LONG B (gold) + RISQUES PRINCIPAUX (red)."""
     slide = _blank(prs)
     sa, sb = D["sa"], D["sb"]
-    _header(slide, "Synthèse Comparative  —  Thèses d'Investissement",
+    _header(slide, (D.get('_t_helper') or (lambda k: "Synthèse Comparative"))('synthese_th'),
             f"Arguments structurels et risques majeurs : {D['sector_a']} vs {D['sector_b']}", 4)
     _footer(slide, D)
 
@@ -1648,7 +1648,7 @@ def _s15_allocation(prs, D):
     """Slide 19 — Recommandation d'allocation."""
     slide = _blank(prs)
     sa, sb = D["sa"], D["sb"]
-    _header(slide, "Recommandation  —  Positionnement Portefeuille",
+    _header(slide, (D.get('_t_helper') or (lambda k: "Recommandation"))('reco_port'),
             "Signal FinSight et implications pour la construction de portefeuille", 4)
     _footer(slide, D)
 
@@ -1723,7 +1723,7 @@ def _s15b_verdict(prs, D):
     """Slide 20 — Verdict Comparatif & Conviction d'Allocation."""
     slide = _blank(prs)
     sa, sb = D["sa"], D["sb"]
-    _header(slide, "Verdict Comparatif  —  Conviction d'Allocation",
+    _header(slide, (D.get('_t_helper') or (lambda k: "Verdict Comparatif"))('verdict_cmp'),
             f"Secteur a privilegier, arguments décisionnels et conditions d'invalidation", 4)
     _footer(slide, D)
 
@@ -2009,6 +2009,8 @@ class CmpSecteurPPTXWriter:
         sector_b: str,
         universe_b: str,
         output_path: Optional[str] = None,
+        language: str = "fr",
+        currency: str = "EUR",
     ) -> bytes:
         """
         Genere le PPTX comparatif et retourne les bytes.
@@ -2016,6 +2018,83 @@ class CmpSecteurPPTXWriter:
         """
         D = _prepare_data(tickers_a, sector_a, universe_a, tickers_b, sector_b, universe_b)
         D["llm"] = _generate_llm_texts(D)
+        D["_language"] = language
+        D["_currency"] = currency
+        # i18n helper dict embedded in D
+        _lang = (language or "fr").lower()[:2]
+        if _lang not in {"fr","en","es","de","it","pt"}:
+            _lang = "fr"
+        _T = {
+            "exec_summary": {"fr": "Executive Summary", "en": "Executive Summary",
+                             "es": "Resumen Ejecutivo", "de": "Executive Summary",
+                             "it": "Executive Summary", "pt": "Resumo Executivo"},
+            "sommaire": {"fr": "Sommaire", "en": "Table of contents",
+                         "es": "Índice", "de": "Inhalt",
+                         "it": "Sommario", "pt": "Sumário"},
+            "profil_struct": {"fr": "Profil & Structure des Secteurs",
+                              "en": "Profile & Sector Structure",
+                              "es": "Perfil y Estructura de Sectores",
+                              "de": "Profil & Sektor-Struktur",
+                              "it": "Profilo & Struttura dei Settori",
+                              "pt": "Perfil & Estrutura dos Setores"},
+            "valo_cmp": {"fr": "Valorisation Comparée  —  Multiples de Marché",
+                         "en": "Compared Valuation  —  Market Multiples",
+                         "es": "Valoración Comparada  —  Múltiplos de Mercado",
+                         "de": "Verglichene Bewertung  —  Marktmultiplikatoren",
+                         "it": "Valutazione Comparata  —  Multipli di Mercato",
+                         "pt": "Avaliação Comparada  —  Múltiplos de Mercado"},
+            "qualite_rent": {"fr": "Qualité & Rentabilité  —  Marges et Retour sur Capital",
+                             "en": "Quality & Profitability  —  Margins and Return on Capital",
+                             "es": "Calidad y Rentabilidad  —  Márgenes y Retorno sobre el Capital",
+                             "de": "Qualität & Rentabilität  —  Margen und Kapitalrendite",
+                             "it": "Qualità & Redditività  —  Margini e Ritorno sul Capitale",
+                             "pt": "Qualidade & Rentabilidade  —  Margens e Retorno sobre o Capital"},
+            "cap_alloc": {"fr": "Capital Allocation  —  Dividendes, FCF & Rémunération",
+                          "en": "Capital Allocation  —  Dividends, FCF & Compensation",
+                          "es": "Asignación de Capital  —  Dividendos, FCF y Remuneración",
+                          "de": "Kapitalallokation  —  Dividenden, FCF & Vergütung",
+                          "it": "Allocazione del Capitale  —  Dividendi, FCF & Remunerazione",
+                          "pt": "Alocação de Capital  —  Dividendos, FCF & Remuneração"},
+            "perf_bourse": {"fr": "Performance Boursière  —  Cours Comparatif 52 Semaines",
+                            "en": "Stock Performance  —  Compared 52-Week Prices",
+                            "es": "Rendimiento Bursátil  —  Cotización Comparada 52 Semanas",
+                            "de": "Aktien-Performance  —  Verglichene 52-Wochen-Kurse",
+                            "it": "Performance Azionaria  —  Prezzi Comparati 52 Settimane",
+                            "pt": "Desempenho Bursátil  —  Cotação Comparada 52 Semanas"},
+            "scoring_vgqm": {"fr": "Scoring Multi-critères  —  Value / Growth / Quality / Momentum",
+                             "en": "Multi-criteria Scoring  —  Value / Growth / Quality / Momentum",
+                             "es": "Puntuación Multi-criterios  —  Value / Growth / Quality / Momentum",
+                             "de": "Multi-Kriterien-Scoring  —  Value / Growth / Quality / Momentum",
+                             "it": "Scoring Multi-criteri  —  Value / Growth / Quality / Momentum",
+                             "pt": "Pontuação Multi-critérios  —  Value / Growth / Quality / Momentum"},
+            "top_acteurs": {"fr": "Top Acteurs", "en": "Top Players",
+                            "es": "Principales Actores", "de": "Hauptakteure",
+                            "it": "Principali Attori", "pt": "Principais Intervenientes"},
+            "risques_cat": {"fr": "Risques & Catalyseurs", "en": "Risks & Catalysts",
+                            "es": "Riesgos y Catalizadores", "de": "Risiken & Katalysatoren",
+                            "it": "Rischi & Catalizzatori", "pt": "Riscos & Catalisadores"},
+            "synthese_th": {"fr": "Synthèse Comparative  —  Thèses d'Investissement",
+                            "en": "Comparative Synthesis  —  Investment Theses",
+                            "es": "Síntesis Comparativa  —  Tesis de Inversión",
+                            "de": "Vergleichende Synthese  —  Investitionsthesen",
+                            "it": "Sintesi Comparativa  —  Tesi d'Investimento",
+                            "pt": "Síntese Comparativa  —  Teses de Investimento"},
+            "reco_port": {"fr": "Recommandation  —  Positionnement Portefeuille",
+                          "en": "Recommendation  —  Portfolio Positioning",
+                          "es": "Recomendación  —  Posicionamiento de Cartera",
+                          "de": "Empfehlung  —  Portfolio-Positionierung",
+                          "it": "Raccomandazione  —  Posizionamento Portafoglio",
+                          "pt": "Recomendação  —  Posicionamento Carteira"},
+            "verdict_cmp": {"fr": "Verdict Comparatif  —  Conviction d'Allocation",
+                            "en": "Comparative Verdict  —  Allocation Conviction",
+                            "es": "Veredicto Comparativo  —  Convicción de Asignación",
+                            "de": "Vergleichsurteil  —  Allokations-Überzeugung",
+                            "it": "Verdetto Comparativo  —  Convinzione di Allocazione",
+                            "pt": "Veredicto Comparativo  —  Convicção de Alocação"},
+        }
+        def _t(k):
+            return _T.get(k, {}).get(_lang) or _T.get(k, {}).get("en") or k
+        D["_t_helper"] = _t
 
         # Fetch des cours 52S (une seule fois avant les slides)
         log.info("[CmpSecteurPPTXWriter] Fetch cours 52S...")
