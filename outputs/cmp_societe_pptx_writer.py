@@ -381,6 +381,104 @@ def section_dots(slide, active: int):
                      str(num), 7, color, bold=True, align=PP_ALIGN.CENTER)
 
 
+# ─── i18n helper cmp société PPTX ─────────────────────────────────────────
+_CMP_PPTX_LANG: str = "fr"
+
+_CMP_PPTX_LABELS: dict[str, dict[str, str]] = {
+    "exec_cmp": {"fr": "Executive Summary Comparatif",
+                 "en": "Comparative Executive Summary",
+                 "es": "Resumen Ejecutivo Comparativo",
+                 "de": "Vergleichende Zusammenfassung",
+                 "it": "Executive Summary Comparativo",
+                 "pt": "Resumo Executivo Comparativo"},
+    "sommaire": {"fr": "Sommaire", "en": "Table of contents",
+                 "es": "Índice", "de": "Inhalt",
+                 "it": "Sommario", "pt": "Sumário"},
+    "profil_cmp": {"fr": "Profil Comparatif", "en": "Comparative Profile",
+                   "es": "Perfil Comparativo", "de": "Vergleichsprofil",
+                   "it": "Profilo Comparativo", "pt": "Perfil Comparativo"},
+    "is_compare": {"fr": "Compte de Résultat Comparé",
+                   "en": "Compared Income Statement",
+                   "es": "Cuenta de Resultados Comparada",
+                   "de": "Verglichene Gewinn- und Verlustrechnung",
+                   "it": "Conto Economico Comparato",
+                   "pt": "Demonstração de Resultados Comparada"},
+    "rent_croiss": {"fr": "Rentabilité & Croissance Comparées",
+                    "en": "Compared Profitability & Growth",
+                    "es": "Rentabilidad y Crecimiento Comparados",
+                    "de": "Verglichene Rentabilität & Wachstum",
+                    "it": "Redditività & Crescita Comparate",
+                    "pt": "Rentabilidade & Crescimento Comparados"},
+    "bilan_liq": {"fr": "Bilan & Liquidité Comparés",
+                  "en": "Compared Balance Sheet & Liquidity",
+                  "es": "Balance y Liquidez Comparados",
+                  "de": "Verglichene Bilanz & Liquidität",
+                  "it": "Stato Patrimoniale & Liquidità Comparati",
+                  "pt": "Balanço & Liquidez Comparados"},
+    "mult_val": {"fr": "Multiples de Valorisation Comparés",
+                 "en": "Compared Valuation Multiples",
+                 "es": "Múltiplos de Valoración Comparados",
+                 "de": "Verglichene Bewertungsmultiplikatoren",
+                 "it": "Multipli di Valutazione Comparati",
+                 "pt": "Múltiplos de Avaliação Comparados"},
+    "dcf_cibles": {"fr": "DCF & Prix Cibles Comparés",
+                   "en": "Compared DCF & Target Prices",
+                   "es": "DCF y Precios Objetivo Comparados",
+                   "de": "Verglichene DCF & Kursziele",
+                   "it": "DCF & Prezzi Obiettivo Comparati",
+                   "pt": "DCF & Preços-Alvo Comparados"},
+    "gbm_upside": {"fr": "GBM Monte Carlo & Upside Relatif",
+                   "en": "GBM Monte Carlo & Relative Upside",
+                   "es": "GBM Monte Carlo y Upside Relativo",
+                   "de": "GBM Monte Carlo & Relative Aufwärtsbewegung",
+                   "it": "GBM Monte Carlo & Upside Relativo",
+                   "pt": "GBM Monte Carlo & Upside Relativo"},
+    "qual_fin": {"fr": "Qualité Financière & Solidité Bilancielle",
+                 "en": "Financial Quality & Balance Sheet Strength",
+                 "es": "Calidad Financiera y Solidez del Balance",
+                 "de": "Finanzqualität & Bilanzstärke",
+                 "it": "Qualità Finanziaria & Solidità Patrimoniale",
+                 "pt": "Qualidade Financeira & Solidez do Balanço"},
+    "risque_mom": {"fr": "Profil de Risque & Momentum Comparé",
+                   "en": "Compared Risk Profile & Momentum",
+                   "es": "Perfil de Riesgo y Momentum Comparado",
+                   "de": "Verglichenes Risikoprofil & Momentum",
+                   "it": "Profilo di Rischio & Momentum Comparato",
+                   "pt": "Perfil de Risco & Momentum Comparado"},
+    "score_cmp": {"fr": "FinSight Score Comparé",
+                  "en": "Compared FinSight Score",
+                  "es": "FinSight Score Comparado",
+                  "de": "Verglichener FinSight-Score",
+                  "it": "FinSight Score Comparato",
+                  "pt": "FinSight Score Comparado"},
+    "theses_bb": {"fr": "Thèses d'Investissement Bull / Bear",
+                  "en": "Bull / Bear Investment Theses",
+                  "es": "Tesis de Inversión Bull / Bear",
+                  "de": "Bull-/Bear-Investitionsthesen",
+                  "it": "Tesi d'Investimento Bull / Bear",
+                  "pt": "Teses de Investimento Bull / Bear"},
+    "perf_52w": {"fr": "Performance Boursière 52 Semaines",
+                 "en": "52-Week Stock Performance",
+                 "es": "Rendimiento Bursátil 52 Semanas",
+                 "de": "52-Wochen-Aktien-Performance",
+                 "it": "Performance Azionaria 52 Settimane",
+                 "pt": "Desempenho Bursátil 52 Semanas"},
+    "verdict_cmp": {"fr": "Verdict Final Comparatif",
+                    "en": "Final Comparative Verdict",
+                    "es": "Veredicto Final Comparativo",
+                    "de": "Endgültiges Vergleichsurteil",
+                    "it": "Verdetto Finale Comparativo",
+                    "pt": "Veredicto Final Comparativo"},
+}
+
+
+def _cplbl(key: str) -> str:
+    spec = _CMP_PPTX_LABELS.get(key)
+    if not spec:
+        return key
+    return spec.get(_CMP_PPTX_LANG) or spec.get("en") or spec.get("fr") or key
+
+
 def slide_title(slide, title: str, subtitle: str = ""):
     from pptx.enum.text import PP_ALIGN
     add_text_box(slide, 1.02, 0.33, 15.49, 0.97,
@@ -1436,7 +1534,7 @@ def _slide_exec_summary(prs, m_a: dict, m_b: dict, synthesis: dict):
 
     navy_bar(slide)
     footer_bar(slide)
-    slide_title(slide, "Executive Summary Comparatif")
+    slide_title(slide, _cplbl("exec_cmp"))
     section_dots(slide, 1)
     _company_header_band(slide, tkr_a, tkr_b, m_a=m_a, m_b=m_b)
 
@@ -1562,7 +1660,7 @@ def _slide_sommaire(prs, tkr_a: str, tkr_b: str):
 
     navy_bar(slide)
     footer_bar(slide)
-    slide_title(slide, "Sommaire")
+    slide_title(slide, _cplbl("sommaire"))
 
     sections = [
         ("01", "Profil & Identite", "Présentation comparative des deux sociétés",          5),
@@ -1603,7 +1701,7 @@ def _slide_profil(prs, m_a: dict, m_b: dict):
 
     navy_bar(slide)
     footer_bar(slide)
-    slide_title(slide, "Profil Comparatif")
+    slide_title(slide, _cplbl("profil_cmp"))
     section_dots(slide, 1)
     # Pas de company_header_band — le nom complet est affiche directement dans chaque colonne
 
@@ -1669,7 +1767,7 @@ def _slide_pl(prs, m_a: dict, m_b: dict, synthesis: dict):
 
     navy_bar(slide)
     footer_bar(slide)
-    slide_title(slide, "Compte de Résultat Comparé")
+    slide_title(slide, _cplbl("is_compare"))
     section_dots(slide, 2)
     _company_header_band(slide, tkr_a, tkr_b, m_a=m_a, m_b=m_b)
 
@@ -1726,7 +1824,7 @@ def _slide_marges(prs, m_a: dict, m_b: dict, synthesis: dict):
 
     navy_bar(slide)
     footer_bar(slide)
-    slide_title(slide, "Rentabilité & Croissance Comparées")
+    slide_title(slide, _cplbl("rent_croiss"))
     section_dots(slide, 2)
     _company_header_band(slide, tkr_a, tkr_b, m_a=m_a, m_b=m_b)
 
@@ -1785,7 +1883,7 @@ def _slide_bilan(prs, m_a: dict, m_b: dict):
 
     navy_bar(slide)
     footer_bar(slide)
-    slide_title(slide, "Bilan & Liquidité Comparés")
+    slide_title(slide, _cplbl("bilan_liq"))
     section_dots(slide, 2)
     _company_header_band(slide, tkr_a, tkr_b, m_a=m_a, m_b=m_b)
 
@@ -1876,7 +1974,7 @@ def _slide_multiples(prs, m_a: dict, m_b: dict, synthesis: dict):
 
     navy_bar(slide)
     footer_bar(slide)
-    slide_title(slide, "Multiples de Valorisation Comparés")
+    slide_title(slide, _cplbl("mult_val"))
     section_dots(slide, 3)
     _company_header_band(slide, tkr_a, tkr_b, m_a=m_a, m_b=m_b)
 
@@ -1950,7 +2048,7 @@ def _slide_dcf(prs, m_a: dict, m_b: dict):
 
     navy_bar(slide)
     footer_bar(slide)
-    slide_title(slide, "DCF & Prix Cibles Comparés")
+    slide_title(slide, _cplbl("dcf_cibles"))
     section_dots(slide, 3)
     _company_header_band(slide, tkr_a, tkr_b, m_a=m_a, m_b=m_b)
 
@@ -2066,7 +2164,7 @@ def _slide_monte_carlo(prs, m_a: dict, m_b: dict):
 
     navy_bar(slide)
     footer_bar(slide)
-    slide_title(slide, "GBM Monte Carlo & Upside Relatif")
+    slide_title(slide, _cplbl("gbm_upside"))
     section_dots(slide, 3)
     _company_header_band(slide, tkr_a, tkr_b, m_a=m_a, m_b=m_b)
 
@@ -2229,7 +2327,7 @@ def _slide_piotroski(prs, m_a: dict, m_b: dict, synthesis: dict):
 
     navy_bar(slide)
     footer_bar(slide)
-    slide_title(slide, "Qualité Financière & Solidité Bilancielle")
+    slide_title(slide, _cplbl("qual_fin"))
     section_dots(slide, 4)
     _company_header_band(slide, tkr_a, tkr_b, m_a=m_a, m_b=m_b)
 
@@ -2331,7 +2429,7 @@ def _slide_risque(prs, m_a: dict, m_b: dict):
 
     navy_bar(slide)
     footer_bar(slide)
-    slide_title(slide, "Profil de Risque & Momentum Comparé")
+    slide_title(slide, _cplbl("risque_mom"))
     section_dots(slide, 4)
     _company_header_band(slide, tkr_a, tkr_b, m_a=m_a, m_b=m_b)
 
@@ -2434,7 +2532,7 @@ def _slide_finsight_score(prs, m_a: dict, m_b: dict):
 
     navy_bar(slide)
     footer_bar(slide)
-    slide_title(slide, "FinSight Score Comparé")
+    slide_title(slide, _cplbl("score_cmp"))
     section_dots(slide, 5)
     _company_header_band(slide, tkr_a, tkr_b, m_a=m_a, m_b=m_b)
 
@@ -2554,7 +2652,7 @@ def _slide_theses(prs, m_a: dict, m_b: dict, synthesis: dict):
 
     navy_bar(slide)
     footer_bar(slide)
-    slide_title(slide, "Thèses d'Investissement Bull / Bear")
+    slide_title(slide, _cplbl("theses_bb"))
     section_dots(slide, 5)
     _company_header_band(slide, tkr_a, tkr_b, m_a=m_a, m_b=m_b)
 
@@ -2660,7 +2758,7 @@ def _slide_price_chart(prs, m_a: dict, m_b: dict, synthesis: dict = None):
 
     navy_bar(slide)
     footer_bar(slide)
-    slide_title(slide, "Performance Boursière 52 Semaines")
+    slide_title(slide, _cplbl("perf_52w"))
     section_dots(slide, 5)
     # PAS de _company_header_band — évite l'artefact "IR.PA" en haut a droite
 
@@ -2807,7 +2905,7 @@ def _slide_verdict(prs, m_a: dict, m_b: dict, synthesis: dict):
 
     navy_bar(slide)
     footer_bar(slide)
-    slide_title(slide, "Verdict Final Comparatif")
+    slide_title(slide, _cplbl("verdict_cmp"))
     section_dots(slide, 5)
 
     # Banderole CHOIX PRÉFÉRÉ — couleur ambre si neutre
@@ -2956,17 +3054,23 @@ class CmpSocietePPTXWriter:
     """
 
     def generate(self, state_a: dict, state_b: dict,
-                 output_path: Optional[str] = None) -> str:
+                 output_path: Optional[str] = None,
+                 language: str = "fr", currency: str = "EUR") -> str:
         """
         Genere le fichier PPTX comparatif.
 
         Args:
             state_a, state_b : etats pipeline LangGraph
             output_path      : chemin de sortie (auto-genere si None)
+            language, currency : kwargs i18n (propagés au module)
 
         Returns:
             Chemin du fichier genere.
         """
+        global _CMP_PPTX_LANG
+        _CMP_PPTX_LANG = (language or state_a.get("language") or "fr").lower()[:2]
+        if _CMP_PPTX_LANG not in {"fr","en","es","de","it","pt"}:
+            _CMP_PPTX_LANG = "fr"
         from pptx import Presentation
         from pptx.util import Cm
 
