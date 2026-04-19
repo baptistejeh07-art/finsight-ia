@@ -1,0 +1,50 @@
+{
+  "common": {
+    "yes": "Ja", "no": "Nein", "year": "Jahr", "currency": "Währung",
+    "value": "Wert", "total": "Gesamt", "date": "Datum", "source": "Quelle",
+    "page": "Seite", "of": "von"
+  },
+  "report": {
+    "title": "FINANZANALYSE",
+    "synthesis": "Zusammenfassung",
+    "valuation": "Bewertung",
+    "ratios": "Finanzkennzahlen",
+    "peers": "Vergleichsunternehmen",
+    "scoring": "Bewertung",
+    "executive_summary": "Executive Summary",
+    "appendix": "Anhang",
+    "disclaimer": "Diese Analyse stellt keine Anlageberatung dar.",
+    "company_info": "Unternehmensidentität",
+    "directors": "Geschäftsführung",
+    "bodacc": "BODACC-Veröffentlichungen",
+    "footer": "FinSight IA — Automatisierte Analyse",
+    "identity_governance": "Identität & Governance",
+    "sig": "Operative Performance",
+    "profitability": "Rentabilität",
+    "solvency": "Finanzielle Solidität",
+    "efficiency": "Operative Effizienz",
+    "growth_trajectory": "Wachstum & Entwicklung",
+    "distress_scoring": "Finanzielle Notlage-Bewertung",
+    "sector_benchmark": "Branchen-Benchmark",
+    "bankability": "Bankability & Verschuldungskapazität",
+    "warning_sources": "Hinweis & Quellen",
+    "sources": "Quellen",
+    "no_accounts_data": "Keine Buchhaltungsdaten.",
+    "no_ratios": "Keine Kennzahlen verfügbar.",
+    "no_data": "Keine Daten."
+  },
+  "altman": {
+    "safe": "Sicherheitszone",
+    "grey": "Graubereich",
+    "distress": "Wahrscheinliche Notlage"
+  },
+  "kpi": {
+    "ca_growth": "Umsatzwachstum",
+    "margin_evolution": "Margenentwicklung",
+    "cash_position": "Liquiditätsposition",
+    "leverage": "Verschuldungsgrad",
+    "health_score": "Gesundheitsbewertung",
+    "bankability_score": "Bankability-Bewertung",
+    "altman_zscore": "Altman Z-Score"
+  }
+}

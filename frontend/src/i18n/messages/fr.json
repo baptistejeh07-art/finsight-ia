@@ -48,6 +48,8 @@
     "dashboard": "Tableau de bord",
     "analyses": "Analyses",
     "history": "Historique",
+    "history_title": "Historique d'analyses",
+    "history_empty": "Cliquez sur « Garder en mémoire » après une analyse pour la retrouver ici.",
     "settings": "Paramètres",
     "logout": "Déconnexion",
     "new_analysis": "Nouvelle analyse",
@@ -55,7 +57,12 @@
     "sector": "Secteur",
     "index": "Indice",
     "company": "Société",
-    "pme": "PME"
+    "pme": "PME",
+    "deliverables": "Livrables",
+    "deliverables_empty": "Disponibles après analyse",
+    "pdf_report": "Rapport PDF",
+    "pptx_pitchbook": "Pitchbook",
+    "xlsx_model": "Excel financier"
   },
   "auth": {
     "login": "Connexion",
@@ -74,7 +81,19 @@
     "siren_or_name": "SIREN ou nom de société",
     "launch": "Analyser",
     "loading": "Analyse en cours…",
-    "examples": "Exemples"
+    "loading_short": "Analyse…",
+    "examples": "Exemples",
+    "pme_subtitle": "Analyse financière complète d'une société française non cotée via son SIREN : identité, dirigeants, SIG 5 ans, ratios, benchmark sectoriel, scoring santé & bankabilité, Altman Z, procédures BODACC. Sources : Pappers API + BODACC open data.",
+    "pme_input_label": "Nom de la société ou SIREN",
+    "pme_input_placeholder": "ex : Kalysco · Veja · 552 032 534",
+    "pme_input_hint": "Tape un nom (ex : Veja, Kalysco) ou un SIREN à 9 chiffres.",
+    "pme_how_title": "Comment ça marche ?",
+    "pme_how_1": "Identité & dirigeants récupérés via Pappers API",
+    "pme_how_2": "Comptes 5 ans téléchargés depuis la liasse fiscale XLSX Pappers (si publics)",
+    "pme_how_3": "Benchmark vs 50 profils sectoriels FinSight ou peers réels",
+    "pme_how_4": "Scoring Altman Z (non coté) + santé FinSight + bankabilité + BODACC",
+    "pme_how_5": "Livrables : PDF 12p (contrôle de gestion), XLSX 5 feuilles, PPTX 10 slides",
+    "pme_disclaimer_mifid": "Cette analyse ne constitue pas un conseil en investissement (MiFID II)."
   },
   "results": {
     "title": "Résultat d'analyse",

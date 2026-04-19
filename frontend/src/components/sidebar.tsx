@@ -19,6 +19,7 @@ import {
   fetchHistoryItem,
   type HistoryKind,
 } from "@/hooks/use-analyses-history";
+import { useI18n } from "@/i18n/provider";
 
 interface AnalysisFiles {
   pdf?: string;
@@ -27,6 +28,7 @@ interface AnalysisFiles {
 }
 
 export function Sidebar() {
+  const { t } = useI18n();
   const pathname = usePathname();
   const router = useRouter();
   const isResultats = pathname?.startsWith("/resultats/");
@@ -106,7 +108,7 @@ export function Sidebar() {
         {/* Livrables */}
         <div className="border-b border-ink-100 pb-3.5 mb-3.5">
           <div className="text-[10px] font-semibold uppercase tracking-[1.5px] text-ink-500 mb-2.5">
-            Livrables
+            {t("nav.deliverables")}
           </div>
           {isResultats && files && (files.pdf || files.pptx || files.xlsx) ? (
             <div className="space-y-2">
@@ -114,7 +116,7 @@ export function Sidebar() {
                 <DownloadLink
                   href={fileUrl(files.pptx)}
                   icon={<Presentation className="w-3.5 h-3.5" />}
-                  label={`Pitchbook ${ticker} `}
+                  label={`${t("nav.pptx_pitchbook")} ${ticker} `}
                   ext=".pptx"
                 />
               )}
@@ -122,7 +124,7 @@ export function Sidebar() {
                 <DownloadLink
                   href={fileUrl(files.xlsx)}
                   icon={<FileSpreadsheet className="w-3.5 h-3.5" />}
-                  label={`Excel financier ${ticker} `}
+                  label={`${t("nav.xlsx_model")} ${ticker} `}
                   ext=".xlsx"
                 />
               )}
@@ -130,26 +132,26 @@ export function Sidebar() {
                 <DownloadLink
                   href={fileUrl(files.pdf)}
                   icon={<FileText className="w-3.5 h-3.5" />}
-                  label={`Rapport PDF ${ticker} `}
+                  label={`${t("nav.pdf_report")} ${ticker} `}
                   ext=".pdf"
                 />
               )}
             </div>
           ) : (
-            <div className="text-xs text-ink-400">Disponibles après analyse</div>
+            <div className="text-xs text-ink-400">{t("nav.deliverables_empty")}</div>
           )}
         </div>
 
         {/* Historique */}
         <div className="border-b border-ink-100 pb-3.5 mb-3.5">
           <div className="text-[10px] font-semibold uppercase tracking-[1.5px] text-ink-500 mb-2.5">
-            Historique d&apos;analyses
+            {t("nav.history_title")}
           </div>
           {historyLoading ? (
-            <div className="text-xs text-ink-400">Chargement…</div>
+            <div className="text-xs text-ink-400">{t("common.loading")}</div>
           ) : historyItems.length === 0 ? (
             <div className="text-xs text-ink-400">
-              Cliquez sur «&nbsp;Garder en mémoire&nbsp;» après une analyse pour la retrouver ici.
+              {t("nav.history_empty")}
             </div>
           ) : (
             <div className="space-y-1">

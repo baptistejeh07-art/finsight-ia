@@ -48,6 +48,8 @@
     "dashboard": "Dashboard",
     "analyses": "Analyses",
     "history": "History",
+    "history_title": "Analysis history",
+    "history_empty": "Click \"Keep in memory\" after an analysis to find it here.",
     "settings": "Settings",
     "logout": "Sign out",
     "new_analysis": "New analysis",
@@ -55,7 +57,12 @@
     "sector": "Sector",
     "index": "Index",
     "company": "Company",
-    "pme": "Private company"
+    "pme": "Private company",
+    "deliverables": "Deliverables",
+    "deliverables_empty": "Available after analysis",
+    "pdf_report": "PDF report",
+    "pptx_pitchbook": "Pitchbook",
+    "xlsx_model": "Financial Excel"
   },
   "auth": {
     "login": "Sign in",
@@ -74,7 +81,19 @@
     "siren_or_name": "SIREN or company name",
     "launch": "Analyze",
     "loading": "Analysis in progress…",
-    "examples": "Examples"
+    "loading_short": "Analyzing…",
+    "examples": "Examples",
+    "pme_subtitle": "Complete financial analysis of a private French company by SIREN: identity, directors, 5-year operating performance, ratios, sector benchmark, health & bankability scoring, Altman Z, BODACC events. Sources: Pappers API + BODACC open data.",
+    "pme_input_label": "Company name or SIREN",
+    "pme_input_placeholder": "e.g. Kalysco · Veja · 552 032 534",
+    "pme_input_hint": "Type a name (e.g. Veja, Kalysco) or a 9-digit SIREN.",
+    "pme_how_title": "How does it work?",
+    "pme_how_1": "Identity & directors fetched via Pappers API",
+    "pme_how_2": "5-year accounts downloaded from Pappers XLSX tax bundle (if public)",
+    "pme_how_3": "Benchmark vs 50 FinSight sector profiles or real peers",
+    "pme_how_4": "Scoring: Altman Z (private) + FinSight health + bankability + BODACC",
+    "pme_how_5": "Deliverables: 12-page PDF (controlling), 5-sheet XLSX, 10-slide PPTX",
+    "pme_disclaimer_mifid": "This analysis does not constitute investment advice (MiFID II)."
   },
   "results": {
     "title": "Analysis result",

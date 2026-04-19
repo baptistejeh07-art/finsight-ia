@@ -1,0 +1,50 @@
+{
+  "common": {
+    "yes": "Sí", "no": "No", "year": "Año", "currency": "Moneda",
+    "value": "Valor", "total": "Total", "date": "Fecha", "source": "Fuente",
+    "page": "Página", "of": "de"
+  },
+  "report": {
+    "title": "ANÁLISIS FINANCIERO",
+    "synthesis": "Síntesis",
+    "valuation": "Valoración",
+    "ratios": "Ratios financieros",
+    "peers": "Empresas comparables",
+    "scoring": "Puntuación",
+    "executive_summary": "Resumen ejecutivo",
+    "appendix": "Anexos",
+    "disclaimer": "Este análisis no constituye asesoramiento de inversión.",
+    "company_info": "Identidad de la empresa",
+    "directors": "Directivos",
+    "bodacc": "Publicaciones BODACC",
+    "footer": "FinSight IA — Análisis automatizado",
+    "identity_governance": "Identidad y gobernanza",
+    "sig": "Análisis del rendimiento operativo",
+    "profitability": "Rentabilidad",
+    "solvency": "Solidez financiera",
+    "efficiency": "Eficiencia operativa",
+    "growth_trajectory": "Crecimiento y trayectoria",
+    "distress_scoring": "Puntuación de distress financiero",
+    "sector_benchmark": "Benchmark sectorial",
+    "bankability": "Bancabilidad y capacidad de endeudamiento",
+    "warning_sources": "Aviso y fuentes",
+    "sources": "Fuentes",
+    "no_accounts_data": "Sin datos contables.",
+    "no_ratios": "Sin ratios disponibles.",
+    "no_data": "Sin datos."
+  },
+  "altman": {
+    "safe": "Zona segura",
+    "grey": "Zona gris",
+    "distress": "Probable estrés financiero"
+  },
+  "kpi": {
+    "ca_growth": "Crecimiento de ingresos",
+    "margin_evolution": "Evolución de los márgenes",
+    "cash_position": "Posición de tesorería",
+    "leverage": "Apalancamiento",
+    "health_score": "Puntuación de salud",
+    "bankability_score": "Puntuación de bancabilidad",
+    "altman_zscore": "Altman Z-Score"
+  }
+}

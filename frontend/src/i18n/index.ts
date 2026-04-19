@@ -9,20 +9,23 @@
  */
 import frMessages from "./messages/fr.json";
 import enMessages from "./messages/en.json";
+import esMessages from "./messages/es.json";
+import deMessages from "./messages/de.json";
+import itMessages from "./messages/it.json";
+import ptMessages from "./messages/pt.json";
 
 export type Locale = "fr" | "en" | "es" | "de" | "it" | "pt";
 export type CurrencyCode = "EUR" | "USD" | "GBP" | "CHF" | "JPY" | "CAD";
 
 type MessageDict = Record<string, unknown>;
 
-// Tables de messages chargées statiquement (les autres langues seront ajoutées via PR)
 const MESSAGES: Record<Locale, MessageDict> = {
   fr: frMessages,
   en: enMessages,
-  es: frMessages, // fallback FR jusqu'à traduction
-  de: frMessages,
-  it: frMessages,
-  pt: frMessages,
+  es: esMessages,
+  de: deMessages,
+  it: itMessages,
+  pt: ptMessages,
 };
 
 const FALLBACK_LOCALE: Locale = "fr";

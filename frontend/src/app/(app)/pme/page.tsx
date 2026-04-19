@@ -4,8 +4,10 @@ import { useEffect, useRef, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Search, Info, Building2, MapPin } from "lucide-react";
 import { analyzePmeSync, searchPme, type PmeSearchResult } from "@/lib/api";
+import { useI18n } from "@/i18n/provider";
 
 function PmePageContent() {
+  const { t } = useI18n();
   const router = useRouter();
   const params = useSearchParams();
   const [siren, setSiren] = useState("");
@@ -116,17 +118,13 @@ function PmePageContent() {
         <div className="w-10 h-10 rounded-md bg-navy-50 flex items-center justify-center">
           <Building2 className="w-5 h-5 text-navy-500" />
         </div>
-        <h1 className="text-3xl font-bold text-ink-900">Analyse PME non cotée</h1>
+        <h1 className="text-3xl font-bold text-ink-900">{t("analyze.pme")}</h1>
       </div>
-      <p className="text-ink-600 mb-8 max-w-2xl">
-        Analyse financière complète d&apos;une société française non cotée via son SIREN :
-        identité, dirigeants, SIG 5 ans, ratios, benchmark sectoriel, scoring santé &
-        bankabilité, Altman Z, procédures BODACC. Sources : Pappers API + BODACC open data.
-      </p>
+      <p className="text-ink-600 mb-8 max-w-2xl">{t("analyze.pme_subtitle")}</p>
 
       <form onSubmit={handleAnalyze} className="bg-white border border-ink-200 rounded-md p-6 mb-6">
         <label className="block text-sm font-medium text-ink-700 mb-2">
-          Nom de la société ou SIREN
+          {t("analyze.pme_input_label")}
         </label>
         <div className="flex gap-2 relative">
           <div className="flex-1 relative">
@@ -137,7 +135,7 @@ function PmePageContent() {
               onChange={(e) => setSiren(e.target.value)}
               onFocus={() => suggestions.length > 0 && setShowDropdown(true)}
               onBlur={() => setTimeout(() => setShowDropdown(false), 150)}
-              placeholder="ex : Kalysco · Veja · 552 032 534"
+              placeholder={t("analyze.pme_input_placeholder")}
               className="w-full px-4 py-3 border border-ink-200 rounded-md text-base focus:outline-none focus:border-navy-500"
               disabled={loading}
               autoComplete="off"
@@ -187,36 +185,32 @@ function PmePageContent() {
             {loading ? (
               <>
                 <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                Analyse…
+                {t("analyze.loading_short")}
               </>
             ) : (
               <>
                 <Search className="w-4 h-4" />
-                Analyser
+                {t("analyze.launch")}
               </>
             )}
           </button>
         </div>
         {error && <p className="mt-3 text-sm text-signal-sell">{error}</p>}
-        <p className="mt-2 text-xs text-ink-500">
-          Tape un nom (ex : <em>Veja</em>, <em>Kalysco</em>) ou un SIREN à 9 chiffres.
-        </p>
+        <p className="mt-2 text-xs text-ink-500">{t("analyze.pme_input_hint")}</p>
       </form>
 
       <div className="bg-navy-50 border border-navy-200 rounded-md p-5 flex items-start gap-3">
         <Info className="w-5 h-5 text-navy-500 shrink-0 mt-0.5" />
         <div className="text-sm text-ink-700">
-          <p className="font-medium text-ink-900 mb-1">Comment ça marche ?</p>
+          <p className="font-medium text-ink-900 mb-1">{t("analyze.pme_how_title")}</p>
           <ul className="space-y-1 text-ink-600">
-            <li>• <strong>Identité & dirigeants</strong> récupérés via Pappers API</li>
-            <li>• <strong>Comptes 5 ans</strong> téléchargés depuis la liasse fiscale XLSX Pappers (si publics)</li>
-            <li>• <strong>Benchmark</strong> vs 50 profils sectoriels FinSight ou peers réels</li>
-            <li>• <strong>Scoring</strong> Altman Z (non coté) + santé FinSight + bankabilité + BODACC</li>
-            <li>• <strong>Livrables</strong> : PDF 12p (contrôle de gestion), XLSX 5 feuilles, PPTX 10 slides</li>
+            <li>• {t("analyze.pme_how_1")}</li>
+            <li>• {t("analyze.pme_how_2")}</li>
+            <li>• {t("analyze.pme_how_3")}</li>
+            <li>• {t("analyze.pme_how_4")}</li>
+            <li>• {t("analyze.pme_how_5")}</li>
           </ul>
-          <p className="mt-2 text-xs text-ink-500">
-            Cette analyse ne constitue pas un conseil en investissement (MiFID II).
-          </p>
+          <p className="mt-2 text-xs text-ink-500">{t("analyze.pme_disclaimer_mifid")}</p>
         </div>
       </div>
 
