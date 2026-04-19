@@ -238,6 +238,65 @@ export async function listAnalysisDocuments(
   return apiGet(`/analyses/${analysisId}/documents`);
 }
 
+// ─── QA Streaming SSE ────────────────────────────────────────────────────
+
+export interface QAStreamCallbacks {
+  onChunk: (text: string) => void;
+  onReplace?: (full: string) => void;  // post-stream accent restore
+  onDone?: () => void;
+  onError?: (err: string) => void;
+  signal?: AbortSignal;
+}
+
+/**
+ * Pose une question avec streaming SSE.
+ * Onglet Network : `/qa/stream` retourne text/event-stream.
+ * Chaque event : `data: {"chunk": "mot"}` puis `data: {"done": true}`.
+ */
+export async function askQAStream(
+  jobId: string,
+  messages: { role: "user" | "assistant"; content: string }[],
+  callbacks: QAStreamCallbacks
+): Promise<void> {
+  const authHeader = await getAuthHeader();
+  const res = await fetch(`${API_URL}/qa/stream`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeader },
+    body: JSON.stringify({ job_id: jobId, messages }),
+    signal: callbacks.signal,
+  });
+  if (!res.ok || !res.body) {
+    throw new Error(`QA stream failed (${res.status})`);
+  }
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    // SSE events séparés par \n\n
+    const events = buffer.split("\n\n");
+    buffer = events.pop() || "";
+    for (const ev of events) {
+      const line = ev.trim();
+      if (!line.startsWith("data:")) continue;
+      const payload = line.slice(5).trim();
+      if (!payload) continue;
+      try {
+        const obj = JSON.parse(payload);
+        if (obj.chunk) callbacks.onChunk(obj.chunk);
+        else if (obj.replace && callbacks.onReplace) callbacks.onReplace(obj.replace);
+        else if (obj.done && callbacks.onDone) callbacks.onDone();
+        else if (obj.error && callbacks.onError) callbacks.onError(obj.error);
+      } catch {
+        // ignore JSON malformé
+      }
+    }
+  }
+  if (callbacks.onDone) callbacks.onDone();
+}
+
 export async function deleteDocument(docId: string): Promise<void> {
   const authHeader = await getAuthHeader();
   const res = await fetch(`${API_URL}/documents/${docId}`, {

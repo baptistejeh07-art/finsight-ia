@@ -1078,6 +1078,112 @@ def _load_job_state(job_id: str) -> dict:
     return (result.get("data") or {}) if isinstance(result, dict) else {}
 
 
+def _build_qa_messages(req: "QARequest", state: dict) -> tuple[str, str]:
+    """Construit (system_prompt, user_prompt) pour le QA depuis state + messages."""
+    context = _build_qa_context(state)
+    if not req.messages:
+        raise HTTPException(400, "Aucun message")
+    if req.messages[-1].role != "user":
+        raise HTTPException(400, "Le dernier message doit être de l'utilisateur")
+    ticker = (state.get("ticker") or (state.get("raw_data") or {}).get("ticker") or "—")
+    system = (
+        "Tu es un analyste financier IA expert. Tu réponds aux questions de "
+        "l'utilisateur sur l'analyse FinSight ci-dessous. Tu écris en français "
+        "correct avec accents (é è ê à ç). Tu es factuel, concis (2-4 paragraphes "
+        "max), tu cites les chiffres du contexte quand pertinent. Si la question "
+        "sort du périmètre de l'analyse, tu le dis clairement.\n\n"
+        f"=== Contexte analyse {ticker} ===\n{context}\n=== Fin contexte ==="
+    )
+    convo_lines = []
+    for m in req.messages[:-1]:
+        prefix = "Utilisateur" if m.role == "user" else "Assistant"
+        convo_lines.append(f"{prefix}: {m.content}")
+    convo_lines.append(f"Utilisateur: {req.messages[-1].content}")
+    convo_lines.append("Assistant:")
+    return system, "\n".join(convo_lines)
+
+
+@app.post("/qa/stream")
+async def qa_stream_endpoint(req: QARequest):
+    """Q&A en streaming SSE. Renvoie des events `data: {"chunk": "..."}` puis
+    `data: {"done": true}` à la fin. Fallback non-streamé si tous providers
+    streaming échouent.
+    """
+    from fastapi.responses import StreamingResponse
+    import asyncio
+    import json as _json
+
+    state = _load_job_state(req.job_id)
+    system, user_prompt = _build_qa_messages(req, state)
+
+    async def _gen():
+        # Tente Groq streaming en priorité (le plus rapide pour stream)
+        try:
+            from groq import Groq
+            from core.llm_provider import _get_secret  # type: ignore
+            key = _get_secret("GROQ_API_KEY")
+            if not key:
+                raise RuntimeError("GROQ_API_KEY absente")
+            client = Groq(api_key=key)
+            stream = client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                messages=[
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": user_prompt},
+                ],
+                max_tokens=800,
+                temperature=0.4,
+                stream=True,
+            )
+            full = []
+            for chunk in stream:
+                delta = chunk.choices[0].delta.content if chunk.choices else None
+                if delta:
+                    full.append(delta)
+                    yield f"data: {_json.dumps({'chunk': delta})}\n\n"
+                    await asyncio.sleep(0)  # libère event loop
+            # Restauration accents post-stream (évite "sous-evalue")
+            try:
+                from core.accent_runtime import restore_accents as _ra
+                final = _ra("".join(full))
+                if final != "".join(full):
+                    yield f"data: {_json.dumps({'replace': final})}\n\n"
+            except Exception:
+                pass
+            yield f"data: {_json.dumps({'done': True})}\n\n"
+            return
+        except Exception as e:
+            log.warning(f"[/qa/stream] Groq stream failed: {e}, fallback non-stream")
+
+        # Fallback : appel non-streamé via LLMProvider, on renvoie en un chunk
+        try:
+            from core.llm_provider import LLMProvider
+            for prov, model in [("mistral", None), ("anthropic", None), ("gemini", None)]:
+                try:
+                    llm = LLMProvider(provider=prov, model=model)
+                    answer = llm.generate(user_prompt, system=system, max_tokens=800)
+                    if answer and answer.strip():
+                        yield f"data: {_json.dumps({'chunk': answer.strip()})}\n\n"
+                        yield f"data: {_json.dumps({'done': True})}\n\n"
+                        return
+                except Exception as e2:
+                    log.warning(f"[/qa/stream] fallback {prov} failed: {e2}")
+                    continue
+            yield f"data: {_json.dumps({'error': 'Tous les providers LLM ont échoué'})}\n\n"
+        except Exception as e3:
+            yield f"data: {_json.dumps({'error': str(e3)})}\n\n"
+
+    return StreamingResponse(
+        _gen(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache, no-transform",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",  # désactive buffering nginx/proxy
+        },
+    )
+
+
 @app.post("/qa", response_model=QAResponse)
 async def qa_endpoint(req: QARequest):
     """Q&A multi-tour sur une analyse. L'historique est passé par le client."""

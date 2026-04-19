@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { Send, Bot, User as UserIcon, Loader2 } from "lucide-react";
-import { askQA } from "@/lib/api";
+import { askQAStream } from "@/lib/api";
 
 interface Message {
   role: "user" | "assistant";
@@ -13,14 +13,16 @@ export function QAChat({ jobId, ticker }: { jobId: string; ticker: string }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
+  const [streaming, setStreaming] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages, busy]);
+  }, [messages, busy, streaming]);
 
   // Auto-resize du textarea selon le contenu
   useEffect(() => {
@@ -36,20 +38,83 @@ export function QAChat({ jobId, ticker }: { jobId: string; ticker: string }) {
     const q = input.trim();
     if (!q || busy) return;
     const next: Message[] = [...messages, { role: "user", content: q }];
-    setMessages(next);
+    setMessages([...next, { role: "assistant", content: "" }]);
     setInput("");
     setBusy(true);
+    setStreaming(true);
+
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
+    let acc = "";
+    let done = false;
+
     try {
-      const data = await askQA(jobId, next);
-      setMessages((m) => [...m, { role: "assistant", content: data.answer || "—" }]);
+      await askQAStream(jobId, next, {
+        signal: ctrl.signal,
+        onChunk: (text) => {
+          acc += text;
+          setMessages((m) => {
+            const copy = [...m];
+            copy[copy.length - 1] = { role: "assistant", content: acc };
+            return copy;
+          });
+        },
+        onReplace: (full) => {
+          acc = full;
+          setMessages((m) => {
+            const copy = [...m];
+            copy[copy.length - 1] = { role: "assistant", content: full };
+            return copy;
+          });
+        },
+        onDone: () => {
+          done = true;
+        },
+        onError: (err) => {
+          setMessages((m) => {
+            const copy = [...m];
+            copy[copy.length - 1] = {
+              role: "assistant",
+              content: `Erreur : ${err}`,
+            };
+            return copy;
+          });
+        },
+      });
     } catch (e) {
-      console.error(e);
-      setMessages((m) => [
-        ...m,
-        { role: "assistant", content: "Erreur de connexion au modèle. Réessayez dans un instant." },
-      ]);
+      if ((e as Error).name !== "AbortError") {
+        console.error(e);
+        setMessages((m) => {
+          const copy = [...m];
+          copy[copy.length - 1] = {
+            role: "assistant",
+            content: "Erreur de connexion au modèle. Réessayez dans un instant.",
+          };
+          return copy;
+        });
+      }
     } finally {
       setBusy(false);
+      setStreaming(false);
+      abortRef.current = null;
+      // Si la réponse est vide après stream (cas erreur silencieuse) → message
+      if (!acc && !done) {
+        setMessages((m) => {
+          const copy = [...m];
+          copy[copy.length - 1] = {
+            role: "assistant",
+            content: "Aucune réponse reçue. Réessayez.",
+          };
+          return copy;
+        });
+      }
+    }
+  }
+
+  function stop() {
+    if (abortRef.current) {
+      abortRef.current.abort();
+      abortRef.current = null;
     }
   }
 
@@ -67,28 +132,35 @@ export function QAChat({ jobId, ticker }: { jobId: string; ticker: string }) {
             Posez vos questions à l&apos;IA — elle a tout le contexte de l&apos;analyse {ticker}.
           </div>
         )}
-        {messages.map((m, i) => (
-          <div key={i} className="flex gap-2">
-            <div className={`shrink-0 w-6 h-6 rounded-full flex items-center justify-center ${m.role === "user" ? "bg-ink-100" : "bg-navy-500"}`}>
-              {m.role === "user" ? (
-                <UserIcon className="w-3.5 h-3.5 text-ink-700" />
-              ) : (
-                <Bot className="w-3.5 h-3.5 text-white" />
-              )}
+        {messages.map((m, i) => {
+          const isLast = i === messages.length - 1;
+          const isStreamingThis =
+            streaming && isLast && m.role === "assistant";
+          const empty = !m.content.trim();
+          return (
+            <div key={i} className="flex gap-2">
+              <div className={`shrink-0 w-6 h-6 rounded-full flex items-center justify-center ${m.role === "user" ? "bg-ink-100" : "bg-navy-500"}`}>
+                {m.role === "user" ? (
+                  <UserIcon className="w-3.5 h-3.5 text-ink-700" />
+                ) : (
+                  <Bot className="w-3.5 h-3.5 text-white" />
+                )}
+              </div>
+              <div className="text-xs text-ink-800 leading-relaxed whitespace-pre-wrap pt-0.5">
+                {empty && isStreamingThis ? (
+                  <Loader2 className="w-3.5 h-3.5 text-ink-400 animate-spin" />
+                ) : (
+                  <>
+                    {m.content}
+                    {isStreamingThis && (
+                      <span className="inline-block w-1.5 h-3 ml-0.5 bg-navy-500 animate-pulse align-baseline" />
+                    )}
+                  </>
+                )}
+              </div>
             </div>
-            <div className="text-xs text-ink-800 leading-relaxed whitespace-pre-wrap pt-0.5">
-              {m.content}
-            </div>
-          </div>
-        ))}
-        {busy && (
-          <div className="flex gap-2">
-            <div className="shrink-0 w-6 h-6 rounded-full bg-navy-500 flex items-center justify-center">
-              <Bot className="w-3.5 h-3.5 text-white" />
-            </div>
-            <Loader2 className="w-4 h-4 text-ink-400 animate-spin mt-1" />
-          </div>
-        )}
+          );
+        })}
       </div>
 
       <div className="border-t border-ink-100 p-3">
@@ -114,14 +186,25 @@ export function QAChat({ jobId, ticker }: { jobId: string; ticker: string }) {
             <span className="text-2xs text-ink-400">
               <span className="hidden sm:inline">Entrée pour envoyer · Shift+Entrée pour aller à la ligne</span>
             </span>
-            <button
-              onClick={send}
-              disabled={busy || !input.trim()}
-              className="w-8 h-8 rounded-md bg-navy-500 text-white hover:bg-navy-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center"
-              aria-label="Envoyer"
-            >
-              <Send className="w-3.5 h-3.5" />
-            </button>
+            {streaming ? (
+              <button
+                onClick={stop}
+                className="w-8 h-8 rounded-md bg-ink-700 text-white hover:bg-ink-900 transition-colors flex items-center justify-center"
+                aria-label="Arrêter"
+                title="Arrêter la génération"
+              >
+                <span className="block w-2.5 h-2.5 bg-white rounded-sm" />
+              </button>
+            ) : (
+              <button
+                onClick={send}
+                disabled={busy || !input.trim()}
+                className="w-8 h-8 rounded-md bg-navy-500 text-white hover:bg-navy-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center"
+                aria-label="Envoyer"
+              >
+                <Send className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
         </div>
       </div>
