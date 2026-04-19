@@ -127,12 +127,37 @@ export interface Synthesis {
   [k: string]: unknown;
 }
 
+export interface SectorTicker {
+  ticker?: string;
+  name?: string;
+  market_cap?: number;
+  ratios?: Record<string, number | null>;
+}
+
+export interface IndiceSector {
+  name?: string;
+  weight?: number;
+  performance?: number;
+  top_tickers?: string[];
+}
+
 export interface AnalysisData {
   ticker?: string;
   raw_data?: RawData;
   ratios?: RatiosData;
   synthesis?: Synthesis;
   recommendation?: string;
+  // Secteur/indice payload (kind = "secteur" | "indice")
+  kind?: string;
+  sector?: string;
+  universe?: string;
+  tickers?: SectorTicker[];
+  sector_analytics?: Record<string, unknown>;
+  secteurs?: IndiceSector[];
+  indice_stats?: Record<string, unknown>;
+  macro?: Record<string, unknown>;
+  allocation?: Record<string, unknown>;
+  top_performers?: string[];
   // backward-compat with old shape
   snapshot?: { company_info?: CompanyInfo; market?: MarketData };
   [k: string]: unknown;

@@ -33,6 +33,8 @@ import { Editable } from "@/components/editable";
 import { WarningsBanner } from "@/components/dashboard/warnings-banner";
 import { SortableSections } from "@/components/dashboard/sortable-sections";
 import { EditableGrid, type GridBlock } from "@/components/dashboard/editable-grid";
+import { SectorTickersTable } from "@/components/dashboard/sector-tickers-table";
+import { IndiceSecteursTable } from "@/components/dashboard/indice-secteurs-table";
 import { useEditMode } from "@/components/edit-mode-provider";
 
 interface AnalysisResult {
@@ -446,12 +448,44 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
                       } satisfies GridBlock,
                     ]
                   : []),
+                // Bloc spécifique secteur : table des sociétés
+                ...(kind === "secteur" && result.data?.tickers && result.data.tickers.length > 0
+                  ? [
+                      {
+                        id: "sector-tickers",
+                        label: "Sociétés du secteur",
+                        default: { x: 0, y: 8, w: 12, h: 8 },
+                        render: () => (
+                          <SectorTickersTable
+                            tickers={result.data!.tickers!}
+                            sectorLabel={result.data?.sector}
+                          />
+                        ),
+                      } satisfies GridBlock,
+                    ]
+                  : []),
+                // Bloc spécifique indice : cartographie sectorielle
+                ...(kind === "indice" && result.data?.secteurs && result.data.secteurs.length > 0
+                  ? [
+                      {
+                        id: "indice-secteurs",
+                        label: "Cartographie sectorielle",
+                        default: { x: 0, y: 8, w: 12, h: 8 },
+                        render: () => (
+                          <IndiceSecteursTable
+                            secteurs={result.data!.secteurs!}
+                            universe={result.data?.universe}
+                          />
+                        ),
+                      } satisfies GridBlock,
+                    ]
+                  : []),
                 ...(result.files?.pdf
                   ? [
                       {
                         id: "pdf-preview",
                         label: "Aperçu PDF",
-                        default: { x: 4, y: 8, w: 8, h: 12 },
+                        default: { x: 4, y: 16, w: 8, h: 12 },
                         render: () => (
                           <div className="bg-white border border-ink-200 rounded-md h-full overflow-hidden flex flex-col">
                             <div className="px-3 py-2 border-b border-ink-100 text-[10px] font-semibold uppercase tracking-[1.5px] text-ink-500 flex-none">
