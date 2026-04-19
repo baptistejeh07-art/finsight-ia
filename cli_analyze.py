@@ -36,14 +36,17 @@ def _save(path: Path, data: bytes) -> None:
     log.info("Sauvegarde : %s  (%d Ko)", path.name, len(data) // 1024)
 
 
-def run_societe(ticker: str) -> None:
-    """Pipeline société complet → PDF + PPTX + briefing."""
+def run_societe(ticker: str, language: str = "fr", currency: str = "EUR") -> None:
+    """Pipeline société complet → PDF + PPTX + briefing.
+    `language` (fr/en/es/de/it/pt) propagé au graph → AgentSynthese répond
+    dans cette langue. `currency` est passé pour conversion future des montants.
+    """
     from core.graph import build_graph
 
-    log.info("=== ANALYSE SOCIÉTÉ : %s ===", ticker)
+    log.info("=== ANALYSE SOCIETE : %s (lang=%s, ccy=%s) ===", ticker, language, currency)
     t0 = time.time()
 
-    state = build_graph().invoke({"ticker": ticker})
+    state = build_graph().invoke({"ticker": ticker, "language": language, "currency": currency})
 
     elapsed = time.time() - t0
     log.info("Pipeline terminé en %.1fs", elapsed)

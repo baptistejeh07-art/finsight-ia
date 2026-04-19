@@ -44,6 +44,12 @@ def write_pme_xlsx(
     except ImportError as e:
         raise RuntimeError("openpyxl requis") from e
 
+    # i18n helper
+    from core.i18n import t as _i18n_t, normalize_language
+    _lang = normalize_language(language)
+    def _t(key, default=None):
+        return _i18n_t(_lang, key, default)
+
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -59,8 +65,8 @@ def write_pme_xlsx(
 
     # ─── F1 : SIG ───
     ws = wb.active
-    ws.title = "SIG"
-    ws["A1"] = f"{denomination} ({siren}) — Soldes intermédiaires de gestion"
+    ws.title = _t("report.sig", "SIG")[:31]  # max 31 chars sheet name
+    ws["A1"] = f"{denomination} ({siren}) — {_t('report.sig')}"
     ws["A1"].font = title_font
     ws["A1"].fill = title_fill
     ws.merge_cells(f"A1:{chr(ord('A') + len(analysis.sig_by_year))}1")
@@ -100,7 +106,7 @@ def write_pme_xlsx(
         ws.column_dimensions[chr(ord("B") + i)].width = 16
 
     # ─── F2 : Ratios ───
-    ws2 = wb.create_sheet("Ratios")
+    ws2 = wb.create_sheet(_t("report.ratios", "Ratios")[:31])
     ws2["A1"] = f"{denomination} — Ratios clés"
     ws2["A1"].font = title_font
     ws2["A1"].fill = title_fill
@@ -149,7 +155,7 @@ def write_pme_xlsx(
         ws2.column_dimensions[chr(ord("B") + i)].width = 14
 
     # ─── F3 : Benchmark ───
-    ws3 = wb.create_sheet("Benchmark")
+    ws3 = wb.create_sheet(_t("report.sector_benchmark", "Benchmark")[:31])
     ws3["A1"] = f"{denomination} — Benchmark sectoriel (source: {benchmark.source})"
     ws3["A1"].font = title_font
     ws3["A1"].fill = title_fill
@@ -179,7 +185,7 @@ def write_pme_xlsx(
         ws3.column_dimensions[c].width = 16
 
     # ─── F4 : Scoring ───
-    ws4 = wb.create_sheet("Scoring")
+    ws4 = wb.create_sheet(_t("report.scoring", "Scoring")[:31])
     ws4["A1"] = f"{denomination} — Scoring"
     ws4["A1"].font = title_font
     ws4["A1"].fill = title_fill

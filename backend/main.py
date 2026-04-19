@@ -243,13 +243,14 @@ def _upload_files_to_storage(files: dict, prefix: str) -> dict:
 
 
 
-def _do_societe(ticker: str) -> dict:
-    """Exécute l'analyse société + retourne {data, files}."""
+def _do_societe(ticker: str, language: str = "fr", currency: str = "EUR") -> dict:
+    """Exécute l'analyse société + retourne {data, files}.
+    `language`/`currency` propagés au graph → AgentSynthese + writers."""
     from cli_analyze import run_societe as _run_societe
     import json
 
     outputs_dir = _ROOT / "outputs" / "generated" / "cli_tests"
-    _run_societe(ticker)
+    _run_societe(ticker, language=language, currency=currency)
 
     files = {}
     for ext, label in [("pdf", "report"), ("pptx", "pitchbook"), ("xlsx", "financials")]:
@@ -653,9 +654,11 @@ def _sync_response(kind: str, fn, *args, **kwargs) -> AnalyseResponse:
 # ─── Endpoints sync (V1 — bloquants, OK pour société rapide) ────────────────
 
 @app.post("/analyze/societe", response_model=AnalyseResponse)
-async def analyze_societe(req: SocieteRequest):
-    """Analyse société synchrone (~1-3 min). Préférer /jobs/analyze/societe pour async."""
-    return _sync_response("analyze/societe", _do_societe, req.ticker)
+async def analyze_societe(req: SocieteRequest, request: Request):
+    """Analyse société synchrone (~1-3 min). Préférer /jobs/analyze/societe pour async.
+    Locale propagée via headers X-User-Language / X-User-Currency."""
+    lang, ccy = _user_locale(request)
+    return _sync_response("analyze/societe", _do_societe, req.ticker, lang, ccy)
 
 
 @app.post("/analyze/secteur", response_model=AnalyseResponse)
