@@ -73,6 +73,66 @@ S_TD_A  = _style('tda',  size=8, leading=11, color=NEUTRE_A, bold=True, align=TA
 def rule(w=TABLE_W, thick=0.5, col=GREY_RULE, sb=4, sa=4):
     return HRFlowable(width=w, thickness=thick, color=col, spaceAfter=sa, spaceBefore=sb)
 
+# ─── i18n helper indice PDF ───────────────────────────────────────────────
+_INDICE_CURRENT_LANG: str = "fr"
+
+_INDICE_PDF_LABELS: dict[str, dict[str, str]] = {
+    "sommaire":          {"fr": "Sommaire", "en": "Table of contents",
+                          "es": "Índice", "de": "Inhalt",
+                          "it": "Sommario", "pt": "Sumário"},
+    "synthese_macro":    {"fr": "Synthèse Macro & Signal Global",
+                          "en": "Macro Synthesis & Global Signal",
+                          "es": "Síntesis Macro y Señal Global",
+                          "de": "Makro-Synthese & Globales Signal",
+                          "it": "Sintesi Macro & Segnale Globale",
+                          "pt": "Síntese Macro & Sinal Global"},
+    "cartographie":      {"fr": "Cartographie des Secteurs",
+                          "en": "Sector Mapping",
+                          "es": "Cartografía Sectorial",
+                          "de": "Sektor-Kartierung",
+                          "it": "Cartografia dei Settori",
+                          "pt": "Mapeamento Setorial"},
+    "analyse_graphique": {"fr": "Analyse Graphique", "en": "Chart Analysis",
+                          "es": "Análisis Gráfico", "de": "Chart-Analyse",
+                          "it": "Analisi Grafica", "pt": "Análise Gráfica"},
+    "rotation":          {"fr": "Rotation Sectorielle",
+                          "en": "Sector Rotation",
+                          "es": "Rotación Sectorial", "de": "Sektorrotation",
+                          "it": "Rotazione Settoriale", "pt": "Rotação Setorial"},
+    "allocation":        {"fr": "Allocation Optimale — Portefeuilles Mean-Variance",
+                          "en": "Optimal Allocation — Mean-Variance Portfolios",
+                          "es": "Asignación Óptima — Carteras Mean-Variance",
+                          "de": "Optimale Allokation — Mean-Variance-Portfolios",
+                          "it": "Allocazione Ottimale — Portafogli Mean-Variance",
+                          "pt": "Alocação Ótima — Carteiras Mean-Variance"},
+    "top3":              {"fr": "Top 3 Secteurs Recommandés",
+                          "en": "Top 3 Recommended Sectors",
+                          "es": "Top 3 Sectores Recomendados",
+                          "de": "Top 3 Empfohlene Sektoren",
+                          "it": "Top 3 Settori Raccomandati",
+                          "pt": "Top 3 Setores Recomendados"},
+    "risques_macro":     {"fr": "Risques Macro & Conditions d'Invalidation",
+                          "en": "Macro Risks & Invalidation Conditions",
+                          "es": "Riesgos Macro y Condiciones de Invalidación",
+                          "de": "Makro-Risiken & Invalidierungsbedingungen",
+                          "it": "Rischi Macro & Condizioni di Invalidazione",
+                          "pt": "Riscos Macro & Condições de Invalidação"},
+    "sentiment_method":  {"fr": "Sentiment Agrégé & Méthodologie",
+                          "en": "Aggregated Sentiment & Methodology",
+                          "es": "Sentimiento Agregado y Metodología",
+                          "de": "Aggregierte Stimmung & Methodik",
+                          "it": "Sentiment Aggregato & Metodologia",
+                          "pt": "Sentimento Agregado & Metodologia"},
+}
+
+
+def _ilbl(key: str) -> str:
+    spec = _INDICE_PDF_LABELS.get(key)
+    if not spec:
+        return key
+    return spec.get(_INDICE_CURRENT_LANG) or spec.get("en") or spec.get("fr") or key
+
+
 def section_title(text, num):
     return [rule(sb=10, sa=0), Paragraph(f"{num}. {text}", S_SECTION), rule(sb=2, sa=8)]
 
@@ -771,7 +831,7 @@ def _build_synthese(data, perf_buf, registry=None):
     indice_rl = data["indice"].replace("&", "&amp;")
     elems = []
     if registry is not None: elems.append(SectionAnchor('Synthèse', registry))
-    elems += section_title("Synth\u00e8se Macro &amp; Signal Global", 1)
+    elems += section_title(_ilbl("synthese_macro"), 1)
 
     # ── KPI macro header : PE / 10Y / ERP ─────────────────────────────────────
     _erp    = data.get("erp", "—")
@@ -1006,7 +1066,7 @@ def _build_cartographie(data, weights_buf, attribution_buf=None, registry=None):
     elems.append(CondPageBreak(120*mm))
     elems.append(Spacer(1, 6*mm))
     if registry is not None: elems.append(SectionAnchor('carto', registry))
-    elems += section_title("Cartographie des Secteurs", 2)
+    elems += section_title(_ilbl("cartographie"), 2)
     elems.append(Spacer(1, 4*mm))
 
     # Graphique + mini tableau côte à côte
@@ -1227,7 +1287,7 @@ def _build_graphiques(data, scatter_buf, scores_buf, corr_buf=None, registry=Non
     elems.append(CondPageBreak(120*mm))
     elems.append(Spacer(1, 6*mm))
     if registry is not None: elems.append(SectionAnchor('graphiques', registry))
-    elems += section_title("Analyse Graphique", 3)
+    elems += section_title(_ilbl("analyse_graphique"), 3)
     elems.append(Spacer(1, 3*mm))
 
     elems.append(Paragraph("Positionnement EV/EBITDA vs Croissance BPA", S_SUBSECTION))
@@ -1433,7 +1493,7 @@ def _build_rotation(data, registry=None):
     elems.append(CondPageBreak(120*mm))
     elems.append(Spacer(1, 6*mm))
     if registry is not None: elems.append(SectionAnchor('rotation', registry))
-    elems += section_title("Rotation Sectorielle", 4)
+    elems += section_title(_ilbl("rotation"), 4)
     elems.append(Spacer(1, 4*mm))
 
     elems.append(debate_q(
@@ -1510,7 +1570,7 @@ def _build_allocation(data, allocation_buf=None, registry=None):
     elems.append(CondPageBreak(120*mm))
     elems.append(Spacer(1, 6*mm))
     if registry is not None: elems.append(SectionAnchor('allocation', registry))
-    elems += section_title("Allocation Optimale — Portefeuilles Mean-Variance", 5)
+    elems += section_title(_ilbl("allocation"), 5)
     elems.append(Spacer(1, 3*mm))
 
     opt = data.get("optimal_portfolios", {})
@@ -1643,7 +1703,7 @@ def _build_top3(data, donut_buf, registry=None):
     elems.append(CondPageBreak(120*mm))
     elems.append(Spacer(1, 6*mm))
     if registry is not None: elems.append(SectionAnchor('top3', registry))
-    elems += section_title("Top 3 Secteurs Recommand\u00e9s", 6)
+    elems += section_title(_ilbl("top3"), 6)
     elems.append(Spacer(1, 3*mm))
 
     _surp_list = [s for s in data["secteurs"] if s[3] in ("Surpondérer", "Surpond\xe9rer")]
@@ -1817,7 +1877,7 @@ def _build_risques(data, registry=None):
     elems.append(CondPageBreak(120*mm))
     elems.append(Spacer(1, 6*mm))
     if registry is not None: elems.append(SectionAnchor('risques', registry))
-    elems += section_title("Risques Macro &amp; Conditions d'Invalidation", 7)
+    elems += section_title(_ilbl("risques_macro"), 7)
 
     sig_central = data["signal_global"]
     elems.append(Paragraph(
@@ -1926,7 +1986,7 @@ def _build_sentiment(data, registry=None):
     elems.append(CondPageBreak(120*mm))
     elems.append(Spacer(1, 6*mm))
     if registry is not None: elems.append(SectionAnchor('sentiment', registry))
-    elems += section_title("Sentiment Agr\u00e9g\u00e9 &amp; M\u00e9thodologie", 8)
+    elems += section_title(_ilbl("sentiment_method"), 8)
 
     if fb["nb_articles"] == 0:
         elems.append(Paragraph(
@@ -2089,7 +2149,7 @@ def _build_story(data, perf_buf, weights_buf, scatter_buf, scores_buf,
         f"Rapport confidentiel \xb7 {data['date_analyse']}",
         _style('rs', size=8, color=GREY_TEXT, leading=11, space_after=6)))
     story.append(rule())
-    story.append(Paragraph("Sommaire", S_SECTION))
+    story.append(Paragraph(_ilbl("sommaire"), S_SECTION))
     story.append(_build_sommaire(data, page_nums))
     story.append(Spacer(1, 5*mm))
     story.append(Paragraph("A propos de cette analyse", S_SUBSECTION))
@@ -2125,9 +2185,13 @@ class IndicePDFWriter:
         Genere le rapport PDF d'analyse d'indice FinSight IA.
         Retourne output_path. Double-passe pour pagination dynamique.
         """
-        # i18n : stocker dans data pour que les helpers internes puissent lire
+        # i18n : stocker dans data + activer module-level
         data.setdefault("_language", language)
         data.setdefault("_currency", currency)
+        global _INDICE_CURRENT_LANG
+        _INDICE_CURRENT_LANG = (language or "fr").lower()[:2]
+        if _INDICE_CURRENT_LANG not in {"fr","en","es","de","it","pt"}:
+            _INDICE_CURRENT_LANG = "fr"
         # Macro regime_v + récession (si pas déjà calculé par app.py)
         if not data.get("macro"):
             try:
