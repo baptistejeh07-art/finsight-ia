@@ -556,7 +556,7 @@ def _slide_02_exec_summary(prs, d: dict):
     sc_a = d.get("score_a", 50)
     sc_b = d.get("score_b", 50)
 
-    _header(slide, f"Executive Summary  —  {name_a} vs {name_b}",
+    _header(slide, f"{(data.get('_t_helper') or (lambda k: "Executive Summary"))('exec_sum')}  —  {name_a} vs {name_b}",
             f"Indicateurs clés et signal d'allocation", section_active=1)
     _footer(slide)
 
@@ -646,7 +646,7 @@ def _slide_03_sommaire(prs, d: dict):
     slide = _blank(prs)
     name_a = d.get("name_a", "Indice A")
     name_b = d.get("name_b", "Indice B")
-    _header(slide, "Sommaire",
+    _header(slide, (data.get('_t_helper') or (lambda k: "Sommaire"))('sommaire'),
             f"Analyse comparative : {name_a} vs {name_b}", section_active=1)
     _footer(slide)
 
@@ -700,7 +700,7 @@ def _slide_profil(prs, d: dict, which: str):
     col = _COL_A if is_a else _COL_B
     col_pale = _COL_AL if is_a else _COL_BL
 
-    _header(slide, f"Profil  —  {name}",
+    _header(slide, f"{(data.get('_t_helper') or (lambda k: "Profil"))('profil')}  —  {name}",
             f"Composition, métriques clés et caractéristiques structurelles",
             section_active=1)
     _footer(slide)
@@ -777,7 +777,7 @@ def _slide_07_secteurs(prs, d: dict):
     slide = _blank(prs)
     name_a = d.get("name_a", "Indice A")
     name_b = d.get("name_b", "Indice B")
-    _header(slide, "Composition Sectorielle Comparée",
+    _header(slide, (data.get('_t_helper') or (lambda k: "Composition Sectorielle"))('compo_sec'),
             f"Poids sectoriels (%) — {name_a} vs {name_b}", section_active=1)
     _footer(slide)
     _index_band(slide, name_a, name_b)
@@ -871,7 +871,7 @@ def _slide_08_top_holdings(prs, d: dict):
     slide = _blank(prs)
     name_a = d.get("name_a", "Indice A")
     name_b = d.get("name_b", "Indice B")
-    _header(slide, "Top Constituants Comparés",
+    _header(slide, (data.get('_t_helper') or (lambda k: "Top Constituants Comparés"))('top_const'),
             f"Principales valeurs de {name_a} et {name_b}", section_active=1)
     _footer(slide)
 
@@ -936,7 +936,7 @@ def _slide_10_perf_chart(prs, d: dict):
     slide = _blank(prs)
     name_a = d.get("name_a", "Indice A")
     name_b = d.get("name_b", "Indice B")
-    _header(slide, "Performance Historique  —  52 Semaines",
+    _header(slide, (data.get('_t_helper') or (lambda k: "Performance Historique"))('perf_52w'),
             f"Évolution normalisée base 100 — {name_a} vs {name_b}",
             section_active=2)
     _footer(slide)
@@ -1056,7 +1056,7 @@ def _slide_11_perf_decomposition(prs, d: dict):
     slide = _blank(prs)
     name_a = d.get("name_a", "Indice A")
     name_b = d.get("name_b", "Indice B")
-    _header(slide, "Décomposition de la Performance",
+    _header(slide, (data.get('_t_helper') or (lambda k: "Décomposition Performance"))('decompo_perf'),
             f"YTD, 1 an, 3 ans, 5 ans  —  écarts relatifs et lecture comparative",
             section_active=2)
     _footer(slide)
@@ -1154,7 +1154,7 @@ def _slide_12_risque(prs, d: dict):
     slide = _blank(prs)
     name_a = d.get("name_a", "Indice A")
     name_b = d.get("name_b", "Indice B")
-    _header(slide, "Risque Comparatif",
+    _header(slide, (data.get('_t_helper') or (lambda k: "Risque Comparatif"))('risque_cmp'),
             f"Volatilité, Sharpe ratio et Max Drawdown sur 12 mois",
             section_active=2)
     _footer(slide)
@@ -1256,7 +1256,7 @@ def _slide_13_risk_return(prs, d: dict):
     slide = _blank(prs)
     name_a = d.get("name_a", "Indice A")
     name_b = d.get("name_b", "Indice B")
-    _header(slide, "Profil Rendement / Risque",
+    _header(slide, (data.get('_t_helper') or (lambda k: "Profil Rendement / Risque"))('rend_risque'),
             f"Positionnement {name_a} vs {name_b} sur le plan vol-rendement",
             section_active=2)
     _footer(slide)
@@ -1350,7 +1350,7 @@ def _slide_15_valorisation(prs, d: dict):
     slide = _blank(prs)
     name_a = d.get("name_a", "Indice A")
     name_b = d.get("name_b", "Indice B")
-    _header(slide, "Valorisation Comparée",
+    _header(slide, (data.get('_t_helper') or (lambda k: "Valorisation Comparée"))('valo_cmp'),
             f"P/E Forward, P/B, Rendement du dividende",
             section_active=3)
     _footer(slide)
@@ -1454,7 +1454,7 @@ def _slide_16_erp_focus(prs, d: dict):
     slide = _blank(prs)
     name_a = d.get("name_a", "Indice A")
     name_b = d.get("name_b", "Indice B")
-    _header(slide, "Equity Risk Premium  —  Prime de Risque Actions",
+    _header(slide, (data.get('_t_helper') or (lambda k: "Equity Risk Premium"))('erp'),
             f"Comparaison du couple rendement-prime",
             section_active=3)
     _footer(slide)
@@ -1532,7 +1532,7 @@ def _slide_17_score(prs, d: dict):
     slide = _blank(prs)
     name_a = d.get("name_a", "Indice A")
     name_b = d.get("name_b", "Indice B")
-    _header(slide, "Signal FinSight Comparatif",
+    _header(slide, (data.get('_t_helper') or (lambda k: "Signal FinSight Comparatif"))('signal_fs'),
             "Score 0-100 et recommandation d'allocation", section_active=3)
     _footer(slide)
     _index_band(slide, name_a, name_b)
@@ -1586,7 +1586,7 @@ def _slide_19_theses(prs, d: dict):
     slide = _blank(prs)
     name_a = d.get("name_a", "Indice A")
     name_b = d.get("name_b", "Indice B")
-    _header(slide, "Thèses d'Investissement Bull / Bear",
+    _header(slide, (data.get('_t_helper') or (lambda k: "Thèses Bull/Bear"))('theses_bb'),
             f"Arguments structurels et risques majeurs : {name_a} vs {name_b}",
             section_active=4)
     _footer(slide)
@@ -1659,7 +1659,7 @@ def _slide_20_verdict(prs, d: dict):
     winner_sig = sig_a if sc_a >= sc_b else sig_b
     winner_col = _COL_A if sc_a >= sc_b else _GOLD
 
-    _header(slide, "Verdict Comparatif  —  Conviction d'Allocation",
+    _header(slide, (data.get('_t_helper') or (lambda k: "Verdict Comparatif"))('verdict'),
             f"Indice à privilégier, arguments décisionnels et conditions d'invalidation",
             section_active=4)
     _footer(slide)
@@ -1965,10 +1965,92 @@ class CmpIndicePPTXWriter:
     """Pitchbook comparatif d'indices boursiers — 21 slides IB-grade."""
 
     @staticmethod
-    def generate(data: dict, output_path: str = None) -> bytes:
+    def generate(data: dict, output_path: str = None, language: str = "fr", currency: str = "EUR") -> bytes:
         """Génère le PPTX comparatif et retourne les bytes."""
         data = dict(data)  # copie défensive
         data["llm"] = _generate_indice_llm(data)
+        data["_language"] = language
+        data["_currency"] = currency
+        _lang = (language or "fr").lower()[:2]
+        if _lang not in {"fr","en","es","de","it","pt"}:
+            _lang = "fr"
+        _T = {
+            "exec_sum": {"fr": "Executive Summary", "en": "Executive Summary",
+                         "es": "Resumen Ejecutivo", "de": "Executive Summary",
+                         "it": "Executive Summary", "pt": "Resumo Executivo"},
+            "sommaire": {"fr": "Sommaire", "en": "Table of contents",
+                         "es": "Índice", "de": "Inhalt",
+                         "it": "Sommario", "pt": "Sumário"},
+            "profil": {"fr": "Profil", "en": "Profile",
+                       "es": "Perfil", "de": "Profil",
+                       "it": "Profilo", "pt": "Perfil"},
+            "compo_sec": {"fr": "Composition Sectorielle Comparée",
+                          "en": "Compared Sector Composition",
+                          "es": "Composición Sectorial Comparada",
+                          "de": "Verglichene Sektor-Zusammensetzung",
+                          "it": "Composizione Settoriale Comparata",
+                          "pt": "Composição Setorial Comparada"},
+            "top_const": {"fr": "Top Constituants Comparés",
+                          "en": "Compared Top Constituents",
+                          "es": "Top Constituyentes Comparados",
+                          "de": "Top-Bestandteile Verglichen",
+                          "it": "Top Costituenti Comparati",
+                          "pt": "Top Constituintes Comparados"},
+            "perf_52w": {"fr": "Performance Historique  —  52 Semaines",
+                         "en": "Historical Performance  —  52 Weeks",
+                         "es": "Rendimiento Histórico  —  52 Semanas",
+                         "de": "Historische Performance  —  52 Wochen",
+                         "it": "Performance Storica  —  52 Settimane",
+                         "pt": "Desempenho Histórico  —  52 Semanas"},
+            "decompo_perf": {"fr": "Décomposition de la Performance",
+                             "en": "Performance Breakdown",
+                             "es": "Descomposición del Rendimiento",
+                             "de": "Performance-Aufschlüsselung",
+                             "it": "Scomposizione della Performance",
+                             "pt": "Decomposição do Desempenho"},
+            "risque_cmp": {"fr": "Risque Comparatif", "en": "Comparative Risk",
+                           "es": "Riesgo Comparativo", "de": "Vergleichendes Risiko",
+                           "it": "Rischio Comparativo", "pt": "Risco Comparativo"},
+            "rend_risque": {"fr": "Profil Rendement / Risque",
+                            "en": "Risk / Return Profile",
+                            "es": "Perfil Rentabilidad / Riesgo",
+                            "de": "Rendite-/Risikoprofil",
+                            "it": "Profilo Rendimento / Rischio",
+                            "pt": "Perfil Retorno / Risco"},
+            "valo_cmp": {"fr": "Valorisation Comparée",
+                         "en": "Compared Valuation",
+                         "es": "Valoración Comparada",
+                         "de": "Verglichene Bewertung",
+                         "it": "Valutazione Comparata",
+                         "pt": "Avaliação Comparada"},
+            "erp": {"fr": "Equity Risk Premium  —  Prime de Risque Actions",
+                    "en": "Equity Risk Premium  —  Stocks Risk Premium",
+                    "es": "Prima de Riesgo de Acciones  —  ERP",
+                    "de": "Equity Risk Premium  —  Aktien-Risikoprämie",
+                    "it": "Equity Risk Premium  —  Premio al Rischio Azioni",
+                    "pt": "Equity Risk Premium  —  Prémio de Risco Acções"},
+            "signal_fs": {"fr": "Signal FinSight Comparatif",
+                          "en": "Comparative FinSight Signal",
+                          "es": "Señal FinSight Comparativa",
+                          "de": "Vergleichendes FinSight-Signal",
+                          "it": "Segnale FinSight Comparativo",
+                          "pt": "Sinal FinSight Comparativo"},
+            "theses_bb": {"fr": "Thèses d'Investissement Bull / Bear",
+                          "en": "Bull / Bear Investment Theses",
+                          "es": "Tesis de Inversión Bull / Bear",
+                          "de": "Bull-/Bear-Investitionsthesen",
+                          "it": "Tesi d'Investimento Bull / Bear",
+                          "pt": "Teses de Investimento Bull / Bear"},
+            "verdict": {"fr": "Verdict Comparatif  —  Conviction d'Allocation",
+                        "en": "Comparative Verdict  —  Allocation Conviction",
+                        "es": "Veredicto Comparativo  —  Convicción de Asignación",
+                        "de": "Vergleichsurteil  —  Allokations-Überzeugung",
+                        "it": "Verdetto Comparativo  —  Convinzione di Allocazione",
+                        "pt": "Veredicto Comparativo  —  Convicção de Alocação"},
+        }
+        def _t(k):
+            return _T.get(k, {}).get(_lang) or _T.get(k, {}).get("en") or k
+        data["_t_helper"] = _t
 
         prs = Presentation()
         prs.slide_width = _SW
