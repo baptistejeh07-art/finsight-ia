@@ -198,6 +198,86 @@ def _g(obj, attr, default=None):
     return getattr(obj, attr, default)
 
 
+# ─── i18n helper PPTX — slide titles multilingues ─────────────────────────
+_PPTX_CURRENT_LANG: str = "fr"
+
+_PPTX_LABELS: dict[str, dict[str, str]] = {
+    "executive_summary": {"fr": "Executive Summary", "en": "Executive Summary",
+                          "es": "Resumen Ejecutivo", "de": "Executive Summary",
+                          "it": "Executive Summary", "pt": "Resumo Executivo"},
+    "sommaire":          {"fr": "Sommaire", "en": "Table of contents",
+                          "es": "Índice", "de": "Inhalt",
+                          "it": "Sommario", "pt": "Sumário"},
+    "company_overview":  {"fr": "Company Overview", "en": "Company Overview",
+                          "es": "Perfil de la empresa", "de": "Unternehmensprofil",
+                          "it": "Profilo aziendale", "pt": "Perfil da empresa"},
+    "analyse_financiere":{"fr": "Analyse Financière", "en": "Financial Analysis",
+                          "es": "Análisis Financiero", "de": "Finanzanalyse",
+                          "it": "Analisi Finanziaria", "pt": "Análise Financeira"},
+    "compte_resultat":   {"fr": "Compte de Résultat", "en": "Income Statement",
+                          "es": "Cuenta de Resultados", "de": "Gewinn- und Verlustrechnung",
+                          "it": "Conto Economico", "pt": "Demonstração de Resultados"},
+    "bilan_liquidite":   {"fr": "Bilan & Liquidité", "en": "Balance Sheet & Liquidity",
+                          "es": "Balance y Liquidez", "de": "Bilanz & Liquidität",
+                          "it": "Stato Patrimoniale & Liquidità", "pt": "Balanço & Liquidez"},
+    "ratios_cles":       {"fr": "Ratios Clés vs. Benchmark Sectoriel",
+                          "en": "Key Ratios vs. Sector Benchmark",
+                          "es": "Ratios Clave vs. Referencia Sectorial",
+                          "de": "Kennzahlen vs. Sektor-Benchmark",
+                          "it": "Indici Chiave vs. Benchmark Settoriale",
+                          "pt": "Rácios-Chave vs. Referência Setorial"},
+    "valorisation":      {"fr": "Valorisation", "en": "Valuation",
+                          "es": "Valoración", "de": "Bewertung",
+                          "it": "Valutazione", "pt": "Avaliação"},
+    "valorisation_dcf":  {"fr": "Valorisation — DCF & Scénarios",
+                          "en": "Valuation — DCF & Scenarios",
+                          "es": "Valoración — DCF y Escenarios",
+                          "de": "Bewertung — DCF & Szenarien",
+                          "it": "Valutazione — DCF & Scenari",
+                          "pt": "Avaliação — DCF e Cenários"},
+    "comparable_peers":  {"fr": "Comparable Peers", "en": "Comparable Peers",
+                          "es": "Pares Comparables", "de": "Vergleichbare Unternehmen",
+                          "it": "Peer Comparable", "pt": "Pares Comparáveis"},
+    "football_field":    {"fr": "Football Field Chart", "en": "Football Field Chart",
+                          "es": "Gráfico Football Field", "de": "Football Field Chart",
+                          "it": "Grafico Football Field", "pt": "Gráfico Football Field"},
+    "multiples_hist":    {"fr": "Multiples de Valorisation Historiques",
+                          "en": "Historical Valuation Multiples",
+                          "es": "Múltiplos Históricos de Valoración",
+                          "de": "Historische Bewertungsmultiplikatoren",
+                          "it": "Multipli di Valutazione Storici",
+                          "pt": "Múltiplos Históricos de Avaliação"},
+    "capital_fcf":       {"fr": "Capital Returns & Free Cash Flow",
+                          "en": "Capital Returns & Free Cash Flow",
+                          "es": "Retornos de Capital y Flujo de Caja Libre",
+                          "de": "Kapitalrenditen & Freier Cashflow",
+                          "it": "Ritorni sul Capitale & Free Cash Flow",
+                          "pt": "Retornos de Capital & Fluxo de Caixa Livre"},
+    "analyse_lbo":       {"fr": "Analyse LBO — Leveraged Buyout",
+                          "en": "LBO Analysis — Leveraged Buyout",
+                          "es": "Análisis LBO — Compra Apalancada",
+                          "de": "LBO-Analyse — Leveraged Buyout",
+                          "it": "Analisi LBO — Leveraged Buyout",
+                          "pt": "Análise LBO — Leveraged Buyout"},
+    "risques_sentiment": {"fr": "Risques & Stratégie",
+                          "en": "Risks & Strategy",
+                          "es": "Riesgos y Estrategia",
+                          "de": "Risiken & Strategie",
+                          "it": "Rischi & Strategia",
+                          "pt": "Riscos & Estratégia"},
+    "confidential_use":  {"fr": "Usage confidentiel", "en": "Confidential use",
+                          "es": "Uso confidencial", "de": "Vertrauliche Nutzung",
+                          "it": "Uso riservato", "pt": "Uso confidencial"},
+}
+
+
+def _plbl(key: str) -> str:
+    spec = _PPTX_LABELS.get(key)
+    if not spec:
+        return key
+    return spec.get(_PPTX_CURRENT_LANG) or spec.get("en") or spec.get("fr") or key
+
+
 def _valid_years(snap) -> list:
     """Retourne les années triees qui ont au moins une Donnée réelle (exclut les années all-None)."""
     if not (snap and snap.years):
@@ -1040,7 +1120,7 @@ def _slide_exec_summary(prs, snap, synthesis, ratios, devil, sentiment):
 
     navy_bar(slide)
     footer_bar(slide)
-    slide_title(slide, "Executive Summary")
+    slide_title(slide, _plbl("executive_summary"))
 
     ci      = snap.company_info if snap else None
     mkt     = snap.market if snap else None
@@ -1230,7 +1310,7 @@ def _slide_sommaire(prs, snap=None, synthesis=None):
 
     navy_bar(slide)
     footer_bar(slide)
-    slide_title(slide, "Sommaire")
+    slide_title(slide, _plbl("sommaire"))
 
     # Descriptions dynamiques basées sur les données de la société
     ci       = snap.company_info if snap else None
@@ -1298,7 +1378,7 @@ def _slide_company_overview(prs, snap, synthesis, ratios):
     cur_sym  = _currency_symbol(currency)
     price    = _g(mkt, "share_price")
 
-    slide_title(slide, "Company Overview",
+    slide_title(slide, _plbl("company_overview"),
                 f"{co_name}  ·  Présentation & Positionnement stratégique")
 
     desc     = _g(synthesis, "company_description", "") or ""
@@ -1535,7 +1615,7 @@ def _slide_is(prs, snap, synthesis, ratios):
     yr_range_start = years_sorted[0] if years_sorted else ""
     yr_range_end   = proj_keys[-1] if proj_keys else (years_sorted[-1] if years_sorted else "")
 
-    slide_title(slide, "Analyse Financi\u00e8re \u2014 Compte de R\u00e9sultat",
+    slide_title(slide, f"{_plbl('analyse_financiere')} \u2014 {_plbl('compte_resultat')}",
                 f"{currency} millions  \u00b7  {yr_range_start}\u2013{yr_range_end}")
 
     # Build display columns (up to 3 hist + 2 proj)
@@ -1776,7 +1856,7 @@ def _slide_bilan(prs, snap, synthesis, ratios):
     latest_yr_key = years_sorted[-1] if years_sorted else None
     latest_fy     = snap.years.get(latest_yr_key) if (snap and latest_yr_key) else None
 
-    slide_title(slide, "Bilan & Liquidit\u00e9",
+    slide_title(slide, _plbl("bilan_liquidite"),
                 f"Structure financi\u00e8re  \u00b7  {currency} millions  \u00b7  LTM {latest_yr_key or ''}")
 
     cash     = getattr(latest_fy, "cash", None) if latest_fy else None
@@ -1971,7 +2051,7 @@ def _slide_ratios(prs, snap, synthesis, ratios):
     years_sorted  = _valid_years(snap)
     latest_yr_key = years_sorted[-1] if years_sorted else None
 
-    slide_title(slide, "Ratios Cl\u00e9s vs. Benchmark Sectoriel",
+    slide_title(slide, _plbl("ratios_cles"),
                 f"Positionnement relatif  \u00b7  LTM {latest_yr_key or ''}")
 
     pe   = _ratio(ratios, "pe_ratio")
@@ -2241,7 +2321,7 @@ def _slide_dcf(prs, snap, synthesis, ratios):
     navy_bar(slide)
     footer_bar(slide)
     section_dots(slide, 3)
-    slide_title(slide, "Valorisation \u2014 DCF & Sc\u00e9narios")
+    slide_title(slide, _plbl("valorisation_dcf"))
 
     ci      = snap.company_info if snap else None
     mkt     = snap.market if snap else None
@@ -2454,7 +2534,7 @@ def _slide_peers(prs, snap, synthesis, ratios):
     shares  = _g(mkt, "shares_diluted")
     mktcap  = (shares * price / 1000) if (shares and price) else None
 
-    slide_title(slide, "Comparable Peers",
+    slide_title(slide, _plbl("comparable_peers"),
                 f"Analyse par multiples  \u00b7  LTM  \u00b7  Mkt Cap en Mds {currency}")
 
     ev_e = _ratio(ratios, "ev_ebitda")
@@ -2600,7 +2680,7 @@ def _slide_football_field(prs, snap, synthesis, ratios):
     cur_sym  = _currency_symbol(currency)
     price    = _g(mkt, "share_price")
 
-    slide_title(slide, "Football Field Chart",
+    slide_title(slide, _plbl("football_field"),
                 f"Synth\u00e8se des m\u00e9thodes de valorisation  \u00b7  {currency} par action")
 
     ff     = _g(synthesis, "football_field", []) or []
@@ -2777,7 +2857,7 @@ def _slide_multiples_historiques(prs, snap, synthesis, ratios):
     ticker   = _g(ci, "ticker", "—")
     currency = _g(ci, "currency", "USD") or "USD"
 
-    slide_title(slide, "Multiples de Valorisation Historiques",
+    slide_title(slide, _plbl("multiples_hist"),
                 f"{ticker} \u00b7 P/E \u0026 EV/EBITDA sur 5 ans \u00b7 Standards march\u00e9")
 
     # ── Collecte des données historiques ─────────────────────────────────────
@@ -2960,7 +3040,7 @@ def _slide_capital_returns(prs, snap, synthesis, ratios):
     cur_sym  = _currency_symbol(currency)
     price    = _g(mkt, "share_price")
 
-    slide_title(slide, "Capital Returns \u0026 Free Cash Flow",
+    slide_title(slide, _plbl("capital_fcf"),
                 f"{ticker} \u00b7 FCF yield, dividendes & allocation du capital")
 
     # ── Collecte données ─────────────────────────────────────────────────────
@@ -3128,7 +3208,7 @@ def _slide_lbo(prs, snap, synthesis, ratios):
     currency = _g(ci, "currency", "USD") or "USD"
     cur_sym  = _currency_symbol(currency)
 
-    slide_title(slide, "Analyse LBO \u2014 Leveraged Buyout",
+    slide_title(slide, _plbl("analyse_lbo"),
                 f"{ticker} \u00b7 Attractivit\u00e9 PE \u00b7 Multiples d\u2019entr\u00e9e vs IRR cible")
 
     # ── Données LBO ───────────────────────────────────────────────────────────
@@ -4946,6 +5026,11 @@ class PPTXWriter:
         # aussi les kwargs explicites (appel direct). Priorité kwargs > state.
         self._language = language or state.get("language") or "fr"
         self._currency = currency or state.get("currency") or "EUR"
+        # Active la langue module-level pour _plbl() (slide titles)
+        global _PPTX_CURRENT_LANG
+        _PPTX_CURRENT_LANG = (self._language or "fr").lower()[:2]
+        if _PPTX_CURRENT_LANG not in {"fr","en","es","de","it","pt"}:
+            _PPTX_CURRENT_LANG = "fr"
 
         snap, synthesis, ratios, devil, sentiment = _extract_state(state)
 
@@ -5031,7 +5116,7 @@ class PPTXWriter:
         _slide_sommaire(prs, snap, synthesis)
 
         # --- Slide 4: Divider Company Overview ---
-        divider_slide(prs, "01", "Company Overview",
+        divider_slide(prs, "01", _plbl("company_overview"),
                       "Pr\u00e9sentation, mod\u00e8le \u00e9conomique & donn\u00e9es de march\u00e9")
 
         # --- Slide 5: Company Overview ---
@@ -5041,7 +5126,7 @@ class PPTXWriter:
         _slide_business_model(prs, snap, synthesis)
 
         # --- Slide 7: Divider Analyse Financière ---
-        divider_slide(prs, "02", "Analyse Financi\u00e8re",
+        divider_slide(prs, "02", _plbl("analyse_financiere"),
                       "Compte de r\u00e9sultat, bilan, liquidit\u00e9 & ratios")
 
         # --- Slide 8: Compte de Résultat ---
@@ -5054,7 +5139,7 @@ class PPTXWriter:
         _slide_ratios(prs, snap, synthesis, ratios)
 
         # --- Slide 11: Divider Valorisation ---
-        divider_slide(prs, "03", "Valorisation",
+        divider_slide(prs, "03", _plbl("valorisation"),
                       "DCF, comparable peers & Football Field Chart")
 
         # --- Slide 12: DCF & Scénarios ---
