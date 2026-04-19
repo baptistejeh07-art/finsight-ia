@@ -876,7 +876,7 @@ def _s02_exec_summary(prs, D):
     code   = D.get("code","")
     nb_s   = D.get("nb_secteurs",0)
     nb_c   = D.get("nb_societes",0)
-    _header(slide, "Executive Summary",
+    _header(slide, (D.get("_t_helper") or (lambda k: "Executive Summary"))("executive_summary"),
             f"{indice} ({code})  ·  {nb_s} secteurs  ·  {nb_c} sociétés  ·  Horizon 12 mois",
             active=1)
 
@@ -989,7 +989,7 @@ def _s03_sommaire(prs, D):
     slide = _blank(prs)
     indice = D.get("indice","")
     code   = D.get("code","")
-    _header(slide, "Sommaire",
+    _header(slide, (D.get("_t_helper") or (lambda k: "Sommaire"))("sommaire"),
             f"{indice}  ·  {code}  ·  Structure de l'analyse macro institutionnelle",
             active=1)
 
@@ -1345,7 +1345,7 @@ def _s09_cartographie(prs, D):
     indice  = D.get("indice","")
     nb_s    = D.get("nb_secteurs",11)
     nb_c    = D.get("nb_societes","")
-    _header(slide, "Cartographie des Secteurs",
+    _header(slide, (D.get("_t_helper") or (lambda k: "Cartographie des Secteurs"))("cartographie"),
             f"{nb_s} secteurs GICS  ·  {nb_c} sociétés  ·  Tri par score FinSight décroissant",
             active=2)
 
@@ -1642,7 +1642,7 @@ def _s11_decomposition(prs, D):
 
 def _s13_top3(prs, D):
     slide = _blank(prs)
-    _header(slide, "Top 3 Secteurs — Synthèse",
+    _header(slide, (D.get("_t_helper") or (lambda k: "Top 3 Secteurs — Synthèse"))("top3_synthese"),
             "Secteurs Surpondérer  ·  Signal · Score · EV/EBITDA · Sociétés représentatives · Catalyseur · Risque",
             active=3)
 
@@ -1745,7 +1745,7 @@ def _s13_top3(prs, D):
 def _s14_allocation(prs, D):
     """Slide 14 — Allocation Optimale Markowitz (S&P 500) ou message limitation."""
     slide = _blank(prs)
-    _header(slide, "Allocation Optimale — Markowitz",
+    _header(slide, (D.get("_t_helper") or (lambda k: "Allocation Optimale — Markowitz"))("allocation_mark"),
             "Min-Variance · Tangency (Max Sharpe) · Equal Risk Contribution  ·  ETF SPDR sectoriels 52S",
             active=3)
 
@@ -1981,7 +1981,7 @@ def _s17_risques(prs, D):
     }
     sig    = D.get("signal_global","Neutre")
     sig_disp = _SIG_NORM_R.get(sig.strip().lower(), sig)
-    _header(slide, "Risques Macro & Scénarios",
+    _header(slide, (D.get("_t_helper") or (lambda k: "Risques Macro & Scénarios"))("risques_scenar"),
             f"Analyse adversariale  ·  3 scénarios alternatifs  ·  Conditions d'invalidation du signal {sig_disp}",
             active=4)
 
@@ -2123,7 +2123,7 @@ def _s18_rotation(prs, D):
     slide = _blank(prs)
     indice = D.get("indice","")
     phase  = D.get("phase_cycle","Expansion avancée")
-    _header(slide, "Rotation Sectorielle & Cycle Économique",
+    _header(slide, (D.get("_t_helper") or (lambda k: "Rotation Sectorielle & Cycle Économique"))("rotation_cycle"),
             f"{indice}  ·  Phase actuelle : {phase}  ·  Sensibilités taux/PIB  ·  Signal de rotation",
             active=4)
 
@@ -2652,6 +2652,53 @@ class IndicePPTXWriter:
         """
         data.setdefault("_language", language)
         data.setdefault("_currency", currency)
+        # i18n helper local
+        _lang = (language or "fr").lower()[:2]
+        if _lang not in {"fr","en","es","de","it","pt"}:
+            _lang = "fr"
+        _T = {
+            "executive_summary": {"fr": "Executive Summary", "en": "Executive Summary",
+                                  "es": "Resumen Ejecutivo", "de": "Executive Summary",
+                                  "it": "Executive Summary", "pt": "Resumo Executivo"},
+            "sommaire":          {"fr": "Sommaire", "en": "Table of contents",
+                                  "es": "Índice", "de": "Inhalt",
+                                  "it": "Sommario", "pt": "Sumário"},
+            "synthese_macro":    {"fr": "Synthèse Macro & Signal Global",
+                                  "en": "Macro Synthesis & Global Signal",
+                                  "es": "Síntesis Macro y Señal Global",
+                                  "de": "Makro-Synthese & Globales Signal",
+                                  "it": "Sintesi Macro & Segnale Globale",
+                                  "pt": "Síntese Macro & Sinal Global"},
+            "cartographie":      {"fr": "Cartographie des Secteurs",
+                                  "en": "Sector Mapping",
+                                  "es": "Cartografía Sectorial", "de": "Sektor-Kartierung",
+                                  "it": "Cartografia dei Settori", "pt": "Mapeamento Setorial"},
+            "top3_synthese":     {"fr": "Top 3 Secteurs — Synthèse",
+                                  "en": "Top 3 Sectors — Summary",
+                                  "es": "Top 3 Sectores — Síntesis",
+                                  "de": "Top 3 Sektoren — Zusammenfassung",
+                                  "it": "Top 3 Settori — Sintesi", "pt": "Top 3 Setores — Síntese"},
+            "allocation_mark":   {"fr": "Allocation Optimale — Markowitz",
+                                  "en": "Optimal Allocation — Markowitz",
+                                  "es": "Asignación Óptima — Markowitz",
+                                  "de": "Optimale Allokation — Markowitz",
+                                  "it": "Allocazione Ottimale — Markowitz",
+                                  "pt": "Alocação Ótima — Markowitz"},
+            "risques_scenar":    {"fr": "Risques Macro & Scénarios",
+                                  "en": "Macro Risks & Scenarios",
+                                  "es": "Riesgos Macro y Escenarios",
+                                  "de": "Makro-Risiken & Szenarien",
+                                  "it": "Rischi Macro & Scenari", "pt": "Riscos Macro & Cenários"},
+            "rotation_cycle":    {"fr": "Rotation Sectorielle & Cycle Économique",
+                                  "en": "Sector Rotation & Economic Cycle",
+                                  "es": "Rotación Sectorial y Ciclo Económico",
+                                  "de": "Sektorrotation & Wirtschaftszyklus",
+                                  "it": "Rotazione Settoriale & Ciclo Economico",
+                                  "pt": "Rotação Setorial & Ciclo Económico"},
+        }
+        def _t(k):
+            return _T.get(k, {}).get(_lang) or _T.get(k, {}).get("en") or k
+        data["_t_helper"] = _t
         log.info("IndicePPTXWriter: Génération pour %s", data.get("indice","—"))
 
         # Macro regime_v (si pas déjà calculé)
