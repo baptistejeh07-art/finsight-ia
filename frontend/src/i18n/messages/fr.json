@@ -86,6 +86,12 @@
     "scoring": "Scoring",
     "documents": "Documents complémentaires",
     "qa": "Avez-vous des questions au sujet de l'analyse ?",
+    "qa_hint": "Posez vos questions à l'IA — elle a tout le contexte de l'analyse {ticker}.",
+    "qa_placeholder": "Pourquoi la conviction est-elle de tant ? · Quels sont les risques principaux ?",
+    "qa_keyboard_hint": "Entrée pour envoyer · Shift+Entrée pour aller à la ligne",
+    "qa_error_connection": "Erreur de connexion au modèle. Réessayez dans un instant.",
+    "qa_error_no_response": "Aucune réponse reçue. Réessayez.",
+    "qa_error_prefix": "Erreur : ",
     "save_to_history": "Sauvegarder dans l'historique"
   },
   "kpi": {
@@ -144,6 +150,12 @@
     "validated": "Validé",
     "uploaded": "Uploadé",
     "no_documents": "Aucun document uploadé.",
+    "type": {
+      "compte_resultat": "Compte de résultat",
+      "bilan": "Bilan",
+      "contrat": "Contrat",
+      "autre": "Autre document"
+    },
     "validate_modal": {
       "title": "Vérifier les données extraites",
       "save_draft": "Sauvegarder brouillon",

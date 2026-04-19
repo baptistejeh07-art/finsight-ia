@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Send, Bot, User as UserIcon, Loader2 } from "lucide-react";
 import { askQAStream } from "@/lib/api";
+import { useI18n } from "@/i18n/provider";
 
 interface Message {
   role: "user" | "assistant";
@@ -10,6 +11,7 @@ interface Message {
 }
 
 export function QAChat({ jobId, ticker }: { jobId: string; ticker: string }) {
+  const { t } = useI18n();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -75,7 +77,7 @@ export function QAChat({ jobId, ticker }: { jobId: string; ticker: string }) {
             const copy = [...m];
             copy[copy.length - 1] = {
               role: "assistant",
-              content: `Erreur : ${err}`,
+              content: `${t("results.qa_error_prefix")}${err}`,
             };
             return copy;
           });
@@ -88,7 +90,7 @@ export function QAChat({ jobId, ticker }: { jobId: string; ticker: string }) {
           const copy = [...m];
           copy[copy.length - 1] = {
             role: "assistant",
-            content: "Erreur de connexion au modèle. Réessayez dans un instant.",
+            content: t("results.qa_error_connection"),
           };
           return copy;
         });
@@ -103,7 +105,7 @@ export function QAChat({ jobId, ticker }: { jobId: string; ticker: string }) {
           const copy = [...m];
           copy[copy.length - 1] = {
             role: "assistant",
-            content: "Aucune réponse reçue. Réessayez.",
+            content: t("results.qa_error_no_response"),
           };
           return copy;
         });
@@ -122,14 +124,14 @@ export function QAChat({ jobId, ticker }: { jobId: string; ticker: string }) {
     <div className="bg-white border border-ink-200 rounded-md flex flex-col h-full">
       <div className="px-5 pt-4 pb-2 border-b border-ink-100 flex-none">
         <div className="text-[10px] font-semibold uppercase tracking-[1.5px] text-ink-500">
-          Avez-vous des questions au sujet de l&apos;analyse ?
+          {t("results.qa")}
         </div>
       </div>
 
       <div ref={scrollRef} className="flex-1 px-5 py-3 min-h-[120px] overflow-y-auto space-y-3">
         {messages.length === 0 && (
           <div className="text-xs text-ink-400 italic text-center py-3">
-            Posez vos questions à l&apos;IA — elle a tout le contexte de l&apos;analyse {ticker}.
+            {t("results.qa_hint").replace("{ticker}", ticker)}
           </div>
         )}
         {messages.map((m, i) => {
@@ -176,7 +178,7 @@ export function QAChat({ jobId, ticker }: { jobId: string; ticker: string }) {
                 send();
               }
             }}
-            placeholder="Pourquoi la conviction est-elle de tant ? · Quels sont les risques principaux ?"
+            placeholder={t("results.qa_placeholder")}
             disabled={busy}
             rows={1}
             className="w-full px-3 pt-2.5 pb-1 bg-transparent text-sm text-ink-900 placeholder:text-ink-400 resize-none focus:outline-none disabled:opacity-50"
@@ -184,7 +186,7 @@ export function QAChat({ jobId, ticker }: { jobId: string; ticker: string }) {
           />
           <div className="flex items-center justify-between px-3 py-1.5">
             <span className="text-2xs text-ink-400">
-              <span className="hidden sm:inline">Entrée pour envoyer · Shift+Entrée pour aller à la ligne</span>
+              <span className="hidden sm:inline">{t("results.qa_keyboard_hint")}</span>
             </span>
             {streaming ? (
               <button

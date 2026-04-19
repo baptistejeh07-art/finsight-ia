@@ -86,6 +86,12 @@
     "scoring": "Scoring",
     "documents": "Additional documents",
     "qa": "Any questions about the analysis?",
+    "qa_hint": "Ask the AI any question — it has the full context of the {ticker} analysis.",
+    "qa_placeholder": "Why is the conviction at this level? · What are the main risks?",
+    "qa_keyboard_hint": "Enter to send · Shift+Enter for newline",
+    "qa_error_connection": "Connection error. Please try again in a moment.",
+    "qa_error_no_response": "No answer received. Please try again.",
+    "qa_error_prefix": "Error: ",
     "save_to_history": "Save to history"
   },
   "kpi": {
@@ -144,6 +150,12 @@
     "validated": "Validated",
     "uploaded": "Uploaded",
     "no_documents": "No documents uploaded.",
+    "type": {
+      "compte_resultat": "Income statement",
+      "bilan": "Balance sheet",
+      "contrat": "Contract",
+      "autre": "Other document"
+    },
     "validate_modal": {
       "title": "Verify extracted data",
       "save_draft": "Save draft",

@@ -21,22 +21,17 @@ import {
   deleteDocument,
   type UserDocument,
 } from "@/lib/api";
+import { useI18n } from "@/i18n/provider";
 
 interface Props {
   analysisId: string;
 }
 
-const TYPE_LABELS: Record<string, string> = {
-  compte_resultat: "Compte de résultat",
-  bilan: "Bilan",
-  contrat: "Contrat",
-  autre: "Autre document",
-};
-
 const ACCEPTED = ".pdf,.xlsx,.xls,.png,.jpg,.jpeg,.webp,.txt,.csv";
 const MAX_SIZE = 20 * 1024 * 1024;
 
 export function DocumentUploadBox({ analysisId }: Props) {
+  const { t } = useI18n();
   const [docs, setDocs] = useState<UserDocument[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -115,7 +110,7 @@ export function DocumentUploadBox({ analysisId }: Props) {
       <div className="flex items-center gap-2 mb-3">
         <Sparkles className="w-4 h-4 text-navy-500" />
         <div className="text-[10px] font-semibold uppercase tracking-[1.5px] text-ink-500">
-          Documents complémentaires
+          {t("documents.title")}
         </div>
       </div>
 
@@ -137,10 +132,10 @@ export function DocumentUploadBox({ analysisId }: Props) {
       >
         <Upload className="w-5 h-5 text-ink-400 mx-auto mb-1" />
         <div className="text-xs text-ink-700 font-medium">
-          {uploading ? "Upload en cours…" : "Glisse un PDF, XLSX, image ou contrat"}
+          {uploading ? t("documents.uploading") : t("documents.drop_zone")}
         </div>
         <div className="text-[10px] text-ink-400 mt-0.5">
-          Bilan, compte de résultat, contrat — max 20 Mo
+          {t("documents.subtitle")}
         </div>
         <input
           ref={inputRef}
@@ -244,6 +239,9 @@ function DocRow({
   onRetry: () => void;
   onValidate: () => void;
 }) {
+  const { t } = useI18n();
+  const typeLabel = (k: string | null) =>
+    k ? t(`documents.type.${k}`) : "";
   return (
     <div className="flex items-center gap-2 py-1.5 px-2 border border-ink-100 rounded-md text-xs">
       {fileIcon(doc)}
@@ -251,7 +249,7 @@ function DocRow({
         <div className="font-medium text-ink-900 truncate">{doc.filename}</div>
         <div className="text-[10px] text-ink-500 flex items-center gap-2">
           {doc.type_detected && (
-            <span>{TYPE_LABELS[doc.type_detected] || doc.type_detected}</span>
+            <span>{typeLabel(doc.type_detected) || doc.type_detected}</span>
           )}
           {doc.size_bytes != null && <span>· {formatSize(doc.size_bytes)}</span>}
         </div>
@@ -303,6 +301,7 @@ function ValidationModal({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const { t } = useI18n();
   const [data, setData] = useState<Record<string, unknown>>(doc.extracted_data || {});
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -339,10 +338,10 @@ function ValidationModal({
         <div className="flex items-center justify-between p-4 border-b border-ink-200">
           <div>
             <div className="text-sm font-semibold text-ink-900">
-              Vérifier les données extraites
+              {t("documents.validate_modal.title")}
             </div>
             <div className="text-xs text-ink-500">
-              {doc.filename} · {TYPE_LABELS[doc.type_detected || "autre"]}
+              {doc.filename} · {t(`documents.type.${doc.type_detected || "autre"}`)}
             </div>
           </div>
           <button onClick={onClose} className="text-ink-400 hover:text-ink-700">
@@ -390,21 +389,21 @@ function ValidationModal({
             onClick={onClose}
             className="px-3 py-1.5 text-xs rounded border border-ink-200 hover:bg-ink-50"
           >
-            Annuler
+            {t("common.cancel")}
           </button>
           <button
             onClick={() => handleSave(false)}
             disabled={saving}
             className="px-3 py-1.5 text-xs rounded border border-ink-200 hover:bg-ink-50 disabled:opacity-50"
           >
-            Sauvegarder brouillon
+            {t("documents.validate_modal.save_draft")}
           </button>
           <button
             onClick={() => handleSave(true)}
             disabled={saving}
             className="px-3 py-1.5 text-xs rounded bg-navy-500 text-white hover:bg-navy-600 disabled:opacity-50"
           >
-            {saving ? "…" : "Valider"}
+            {saving ? "…" : t("documents.validate_modal.validate")}
           </button>
         </div>
       </div>
