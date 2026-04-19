@@ -8,6 +8,26 @@ export type BackgroundAnimation = "on" | "auto" | "off";
 export type Font = "default" | "sans" | "system" | "dyslexia";
 export type ToolsMode = "on_demand" | "preloaded";
 export type LogoSize = "sm" | "md" | "lg" | "xl" | "2xl" | "3xl";
+export type Currency = "EUR" | "USD" | "GBP" | "CHF" | "JPY" | "CAD";
+export type Language = "fr" | "en" | "es" | "de" | "it" | "pt";
+
+export const SUPPORTED_CURRENCIES: { code: Currency; label: string; symbol: string }[] = [
+  { code: "EUR", label: "Euro", symbol: "€" },
+  { code: "USD", label: "Dollar US", symbol: "$" },
+  { code: "GBP", label: "Livre sterling", symbol: "£" },
+  { code: "CHF", label: "Franc suisse", symbol: "CHF" },
+  { code: "JPY", label: "Yen", symbol: "¥" },
+  { code: "CAD", label: "Dollar canadien", symbol: "C$" },
+];
+
+export const SUPPORTED_LANGUAGES: { code: Language; label: string; native: string }[] = [
+  { code: "fr", label: "Français", native: "Français" },
+  { code: "en", label: "Anglais", native: "English" },
+  { code: "es", label: "Espagnol", native: "Español" },
+  { code: "de", label: "Allemand", native: "Deutsch" },
+  { code: "it", label: "Italien", native: "Italiano" },
+  { code: "pt", label: "Portugais", native: "Português" },
+];
 
 export interface UserPreferences {
   user_id?: string;
@@ -21,6 +41,9 @@ export interface UserPreferences {
   background_animation: BackgroundAnimation;
   font: Font;
   logo_size: LogoSize;
+  // Internationalisation
+  currency: Currency;
+  language: Language;
   // Notifications
   notifications: {
     completion: boolean;
@@ -50,6 +73,8 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
   background_animation: "auto",
   font: "default",
   logo_size: "lg",
+  currency: "EUR",
+  language: "fr",
   notifications: {
     completion: false,
     email_reports: false,
@@ -122,6 +147,8 @@ export function useUserPreferences() {
             background_animation: data.background_animation ?? "auto",
             font: data.font ?? "default",
             logo_size: data.logo_size ?? "lg",
+            currency: data.currency ?? "EUR",
+            language: data.language ?? "fr",
             notifications: { ...DEFAULT_PREFERENCES.notifications, ...(data.notifications || {}) },
             privacy: { ...DEFAULT_PREFERENCES.privacy, ...(data.privacy || {}) },
             capabilities: { ...DEFAULT_PREFERENCES.capabilities, ...(data.capabilities || {}) },
@@ -174,6 +201,8 @@ export function useUserPreferences() {
               background_animation: next.background_animation,
               font: next.font,
               logo_size: next.logo_size,
+              currency: next.currency,
+              language: next.language,
               notifications: next.notifications,
               privacy: next.privacy,
               capabilities: next.capabilities,

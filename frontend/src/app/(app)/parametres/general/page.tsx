@@ -2,8 +2,19 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { useUserPreferences } from "@/hooks/use-user-preferences";
-import type { Theme, BackgroundAnimation, Font, LogoSize } from "@/hooks/use-user-preferences";
+import {
+  useUserPreferences,
+  SUPPORTED_CURRENCIES,
+  SUPPORTED_LANGUAGES,
+} from "@/hooks/use-user-preferences";
+import type {
+  Theme,
+  BackgroundAnimation,
+  Font,
+  LogoSize,
+  Currency,
+  Language,
+} from "@/hooks/use-user-preferences";
 
 const LOGO_SIZES: { value: LogoSize; label: string; px: string }[] = [
   { value: "sm", label: "Petit", px: "32 px" },
@@ -135,6 +146,53 @@ export default function GeneralPage() {
           value={prefs.notifications.push_messages}
           onChange={(v) => update({ notifications: { ...prefs.notifications, push_messages: v } })}
         />
+      </section>
+
+      {/* === Internationalisation (devise + langue) === */}
+      <section className="border-t border-ink-200 pt-8">
+        <h2 className="text-lg font-semibold text-ink-900 mb-5">Internationalisation</h2>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-2xl mb-8">
+          <div>
+            <label className="block text-sm font-medium text-ink-700 mb-2">
+              Devise d&apos;affichage
+            </label>
+            <select
+              value={prefs.currency}
+              onChange={(e) => update({ currency: e.target.value as Currency })}
+              className="w-full px-3 py-2 border border-ink-200 rounded-md text-sm focus:outline-none focus:border-navy-500"
+            >
+              {SUPPORTED_CURRENCIES.map((c) => (
+                <option key={c.code} value={c.code}>
+                  {c.symbol} — {c.label} ({c.code})
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-ink-500 mt-1.5">
+              Devise utilisée dans tous les tableaux, graphiques et rapports.
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-ink-700 mb-2">
+              Langue
+            </label>
+            <select
+              value={prefs.language}
+              onChange={(e) => update({ language: e.target.value as Language })}
+              className="w-full px-3 py-2 border border-ink-200 rounded-md text-sm focus:outline-none focus:border-navy-500"
+            >
+              {SUPPORTED_LANGUAGES.map((l) => (
+                <option key={l.code} value={l.code}>
+                  {l.native} ({l.label})
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-ink-500 mt-1.5">
+              Langue de l&apos;interface, des commentaires IA et des rapports.
+            </p>
+          </div>
+        </div>
       </section>
 
       {/* === Apparence === */}
