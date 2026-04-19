@@ -336,6 +336,57 @@ def _build_sources_page(state, story: list):
 
 
 # === Entrée principale ===
+_PORTRAIT_LABELS: dict[str, dict[str, str]] = {
+    "snapshot":     {"fr": "Snapshot exécutif", "en": "Executive Snapshot",
+                     "es": "Snapshot Ejecutivo", "de": "Executive Snapshot",
+                     "it": "Snapshot Esecutivo", "pt": "Snapshot Executivo"},
+    "histoire":     {"fr": "Histoire & jalons", "en": "History & Milestones",
+                     "es": "Historia y Hitos", "de": "Geschichte & Meilensteine",
+                     "it": "Storia & Traguardi", "pt": "História & Marcos"},
+    "vision":       {"fr": "Vision & ADN", "en": "Vision & DNA",
+                     "es": "Visión y ADN", "de": "Vision & DNA",
+                     "it": "Visione & DNA", "pt": "Visão & ADN"},
+    "business":     {"fr": "Modèle économique", "en": "Business Model",
+                     "es": "Modelo de Negocio", "de": "Geschäftsmodell",
+                     "it": "Modello di Business", "pt": "Modelo de Negócio"},
+    "segments":     {"fr": "Segments d'activité", "en": "Business Segments",
+                     "es": "Segmentos de Negocio", "de": "Geschäftssegmente",
+                     "it": "Segmenti di Attività", "pt": "Segmentos de Actividade"},
+    "market":       {"fr": "Marché & paysage concurrentiel",
+                     "en": "Market & Competitive Landscape",
+                     "es": "Mercado y Panorama Competitivo",
+                     "de": "Markt & Wettbewerbslandschaft",
+                     "it": "Mercato & Panorama Competitivo",
+                     "pt": "Mercado & Panorama Competitivo"},
+    "risks":        {"fr": "Risques majeurs", "en": "Major Risks",
+                     "es": "Riesgos Principales", "de": "Hauptrisiken",
+                     "it": "Rischi Principali", "pt": "Principais Riscos"},
+    "strategy":     {"fr": "Stratégie 12-24 mois", "en": "12-24 Month Strategy",
+                     "es": "Estrategia 12-24 Meses", "de": "12-24-Monats-Strategie",
+                     "it": "Strategia 12-24 Mesi", "pt": "Estratégia 12-24 Meses"},
+    "devil":        {"fr": "Devil's advocate — la thèse inverse",
+                     "en": "Devil's Advocate — Contrary Thesis",
+                     "es": "Abogado del Diablo — Tesis Contraria",
+                     "de": "Advocatus Diaboli — Gegenteilige These",
+                     "it": "Avvocato del Diavolo — Tesi Contraria",
+                     "pt": "Advogado do Diabo — Tese Contrária"},
+    "verdict":      {"fr": "Verdict & profil d'investisseur",
+                     "en": "Verdict & Investor Profile",
+                     "es": "Veredicto y Perfil del Inversor",
+                     "de": "Urteil & Anlegerprofil",
+                     "it": "Verdetto & Profilo Investitore",
+                     "pt": "Veredicto & Perfil do Investidor"},
+}
+
+
+def _port_lbl(key: str, lang: str) -> str:
+    spec = _PORTRAIT_LABELS.get(key)
+    if not spec:
+        return key
+    lang = (lang or "fr").lower()[:2]
+    return spec.get(lang) or spec.get("en") or spec.get("fr") or key
+
+
 def write_portrait_pdf(state, output_path: str, language: str = "fr", currency: str = "EUR") -> str:
     """Génère le PDF Portrait depuis un PortraitState.
 
@@ -347,6 +398,7 @@ def write_portrait_pdf(state, output_path: str, language: str = "fr", currency: 
         state.currency = currency
     except Exception:
         pass
+    _L = language or "fr"
     doc = SimpleDocTemplate(
         output_path,
         pagesize=A4,
@@ -363,26 +415,26 @@ def write_portrait_pdf(state, output_path: str, language: str = "fr", currency: 
     _build_cover(state, story)
 
     # === Bloc 1 : ADN société (snapshot, histoire, vision) ===
-    _section_block("Snapshot exécutif", state.snapshot, story)
-    _section_block("Histoire & jalons", state.history, story)
-    _section_block("Vision & ADN", state.vision, story, force_page_break=True)
+    _section_block(_port_lbl("snapshot", _L), state.snapshot, story)
+    _section_block(_port_lbl("histoire", _L), state.history, story)
+    _section_block(_port_lbl("vision", _L), state.vision, story, force_page_break=True)
 
     # === Bloc 2 : Modèle & segments ===
-    _section_block("Modèle économique", state.business_model, story)
-    _section_block("Segments d'activité", state.segments, story, force_page_break=True)
+    _section_block(_port_lbl("business", _L), state.business_model, story)
+    _section_block(_port_lbl("segments", _L), state.segments, story, force_page_break=True)
 
     # === Bloc 3 : Leadership (page dédiée pour les cards photos) ===
     _build_leadership_pages(state, story)
     story.append(PageBreak())
 
     # === Bloc 4 : Marché, risques, stratégie ===
-    _section_block("Marché & paysage concurrentiel", state.market, story)
-    _section_block("Risques majeurs", state.risks, story)
-    _section_block("Stratégie 12-24 mois", state.strategy, story, force_page_break=True)
+    _section_block(_port_lbl("market", _L), state.market, story)
+    _section_block(_port_lbl("risks", _L), state.risks, story)
+    _section_block(_port_lbl("strategy", _L), state.strategy, story, force_page_break=True)
 
     # === Bloc 5 : Conclusion (devil + verdict) ===
-    _section_block("Devil's advocate — la thèse inverse", state.devil_advocate, story)
-    _section_block("Verdict & profil d'investisseur", state.verdict, story, force_page_break=True)
+    _section_block(_port_lbl("devil", _L), state.devil_advocate, story)
+    _section_block(_port_lbl("verdict", _L), state.verdict, story, force_page_break=True)
 
     # === Bloc 6 : Sources & disclaimer ===
     _build_sources_page(state, story)
