@@ -316,10 +316,11 @@ def _do_portrait(ticker: str, _progress_cb=None) -> dict:
     return {"data": data, "files": files, "ticker": ticker, "kind": "portrait"}
 
 
-def _do_secteur(secteur: str, univers: str) -> dict:
+def _do_secteur(secteur: str, univers: str, language: str = "fr", currency: str = "EUR") -> dict:
     from cli_analyze import run_secteur as _run_secteur
 
-    sector_data = _run_secteur(secteur, univers, prefix="secteur") or {}
+    sector_data = _run_secteur(secteur, univers, prefix="secteur",
+                               language=language, currency=currency) or {}
     outputs_dir = _ROOT / "outputs" / "generated" / "cli_tests"
     stem = f"secteur_{secteur.replace(' ', '_')}_{univers.replace(' ', '_')}"
     files = {}
@@ -351,10 +352,10 @@ def _do_secteur(secteur: str, univers: str) -> dict:
     }
 
 
-def _do_indice(indice: str) -> dict:
+def _do_indice(indice: str, language: str = "fr", currency: str = "EUR") -> dict:
     from cli_analyze import run_indice as _run_indice
 
-    indice_data = _run_indice(indice) or {}
+    indice_data = _run_indice(indice, language=language, currency=currency) or {}
     outputs_dir = _ROOT / "outputs" / "generated" / "cli_tests"
     stem = f"indice_{indice.replace(' ', '_').replace('&', '')}"
     files = {}
@@ -593,17 +594,27 @@ def _do_pme(siren: str, use_pappers_comptes: bool = True,
 
     files = _upload_files_to_storage(files, prefix=f"pme/{stem}")
 
+    # Traduit les catégories textuelles côté backend (forme juridique, dirigeants,
+    # types BODACC) selon la langue user — le frontend affiche tel quel.
+    from core.i18n import legal_form_label, director_quality_label, bodacc_label
+    _dirs_translated = []
+    for d in (company.dirigeants or [])[:10]:
+        d_copy = dict(d)
+        if d_copy.get("qualite"):
+            d_copy["qualite"] = director_quality_label(d_copy["qualite"], language)
+        _dirs_translated.append(d_copy)
+
     # Payload frontend (slim)
     data = {
         "kind": "pme",
         "siren": siren,
         "denomination": company.denomination,
-        "forme_juridique": company.forme_juridique,
+        "forme_juridique": legal_form_label(company.forme_juridique, language) if company.forme_juridique else None,
         "code_naf": company.code_naf,
         "libelle_naf": company.libelle_naf,
         "ville_siege": company.ville_siege,
         "capital": company.capital,
-        "dirigeants": company.dirigeants[:10],
+        "dirigeants": _dirs_translated,
         "profile": {"code": profile.code, "name": profile.name},
         "has_accounts": len(yearly_accounts) > 0,
         "years": [y.annee for y in yearly_accounts],
@@ -617,7 +628,7 @@ def _do_pme(siren: str, use_pappers_comptes: bool = True,
         "bodacc": {
             "total_annonces": bodacc.total_annonces,
             "procedures_collectives": len(bodacc.procedures_collectives),
-            "derniere_procedure": bodacc.derniere_procedure,
+            "derniere_procedure": bodacc_label(bodacc.derniere_procedure, language) if bodacc.derniere_procedure else None,
             "dernier_depot_comptes": bodacc.dernier_depot_comptes,
             "radie": bodacc.radie,
             "penalty": bodacc.bodacc_score_penalty,
@@ -662,14 +673,16 @@ async def analyze_societe(req: SocieteRequest, request: Request):
 
 
 @app.post("/analyze/secteur", response_model=AnalyseResponse)
-async def analyze_secteur(req: SecteurRequest):
-    return _sync_response("analyze/secteur", _do_secteur, req.secteur, req.univers)
+async def analyze_secteur(req: SecteurRequest, request: Request):
+    lang, ccy = _user_locale(request)
+    return _sync_response("analyze/secteur", _do_secteur, req.secteur, req.univers, lang, ccy)
 
 
 @app.post("/analyze/indice", response_model=AnalyseResponse)
-async def analyze_indice(req: IndiceRequest):
+async def analyze_indice(req: IndiceRequest, request: Request):
     """⚠️ Bloquant 5-8 min — prefer /jobs/analyze/indice."""
-    return _sync_response("analyze/indice", _do_indice, req.indice)
+    lang, ccy = _user_locale(request)
+    return _sync_response("analyze/indice", _do_indice, req.indice, lang, ccy)
 
 
 @app.post("/cmp/societe", response_model=AnalyseResponse)

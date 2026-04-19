@@ -123,7 +123,8 @@ def run_societe(ticker: str, language: str = "fr", currency: str = "EUR") -> Non
     print(f"\nTemps total : {elapsed:.1f}s")
 
 
-def run_secteur(sector: str, universe: str = "CAC 40", prefix: str = "secteur") -> dict:
+def run_secteur(sector: str, universe: str = "CAC 40", prefix: str = "secteur",
+                language: str = "fr", currency: str = "EUR") -> dict:
     """Pipeline sectoriel → PDF sectoriel + PPTX sectoriel.
 
     prefix : prefixe du fichier de sortie ("secteur" ou "indice").
@@ -254,7 +255,7 @@ def run_cmp_secteur(
     print(f"\nTemps total : {time.time() - t0:.1f}s")
 
 
-def run_indice(universe: str = "S&P 500") -> dict:
+def run_indice(universe: str = "S&P 500", language: str = "fr", currency: str = "EUR") -> dict:
     """Pipeline indice complet (tous secteurs) → PDF + PPTX + Excel."""
     from outputs.indice_pdf_writer import IndicePDFWriter
     from outputs.indice_pptx_writer import IndicePPTXWriter
