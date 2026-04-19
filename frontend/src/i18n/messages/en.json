@@ -112,7 +112,15 @@
     "qa_error_connection": "Connection error. Please try again in a moment.",
     "qa_error_no_response": "No answer received. Please try again.",
     "qa_error_prefix": "Error: ",
-    "save_to_history": "Save to history"
+    "save_to_history": "Save to history",
+    "keep_in_memory": "Keep in memory",
+    "kept_in_memory": "Kept in memory",
+    "saving": "Saving…",
+    "kept_hint_visible": "This analysis is visible in your history, in the left sidebar.",
+    "kept_hint_default": "Add this analysis to your history to find it later.",
+    "kept_error_session": "Cannot retrieve the current analysis",
+    "kept_success": "Analysis saved to memory",
+    "kept_error_save": "Save error"
   },
   "kpi": {
     "revenue": "Revenue",

@@ -115,7 +115,15 @@
     "qa_error_connection": "Erreur de connexion au modèle. Réessayez dans un instant.",
     "qa_error_no_response": "Aucune réponse reçue. Réessayez.",
     "qa_error_prefix": "Erreur : ",
-    "save_to_history": "Sauvegarder dans l'historique"
+    "save_to_history": "Sauvegarder dans l'historique",
+    "keep_in_memory": "Garder en mémoire",
+    "kept_in_memory": "Gardée en mémoire",
+    "saving": "Sauvegarde…",
+    "kept_hint_visible": "Cette analyse est visible dans votre historique, dans la sidebar gauche.",
+    "kept_hint_default": "Ajoutez cette analyse à votre historique pour la retrouver plus tard.",
+    "kept_error_session": "Impossible de récupérer l'analyse en cours",
+    "kept_success": "Analyse gardée en mémoire",
+    "kept_error_save": "Erreur de sauvegarde"
   },
   "kpi": {
     "revenue": "Chiffre d'affaires",

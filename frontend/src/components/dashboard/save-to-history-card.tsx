@@ -5,6 +5,7 @@ import { Bookmark, BookmarkCheck, Loader2 } from "lucide-react";
 import toast from "react-hot-toast";
 import { createClient } from "@/lib/supabase/client";
 import { saveAnalysisToHistory, type HistoryKind } from "@/hooks/use-analyses-history";
+import { useI18n } from "@/i18n/provider";
 
 interface Props {
   jobId: string;
@@ -20,6 +21,7 @@ interface Props {
  * Doit être intégré comme bloc GridBlock dans EditableGrid.
  */
 export function SaveToHistoryCard({ jobId, kind, label, ticker }: Props) {
+  const { t } = useI18n();
   const [state, setState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [loggedIn, setLoggedIn] = useState<boolean | null>(null);
   const [alreadySaved, setAlreadySaved] = useState(false);
@@ -54,7 +56,7 @@ export function SaveToHistoryCard({ jobId, kind, label, ticker }: Props) {
       if (raw) snapshot = JSON.parse(raw);
     } catch {}
     if (!snapshot) {
-      toast.error("Impossible de récupérer l'analyse en cours");
+      toast.error(t("results.kept_error_session"));
       setState("error");
       return;
     }
@@ -70,10 +72,10 @@ export function SaveToHistoryCard({ jobId, kind, label, ticker }: Props) {
     if (res.saved) {
       setState("saved");
       setAlreadySaved(true);
-      toast.success("Analyse gardée en mémoire");
+      toast.success(t("results.kept_success"));
     } else {
       setState("error");
-      toast.error(res.error || "Erreur de sauvegarde");
+      toast.error(res.error || t("results.kept_error_save"));
     }
   }
 
@@ -81,10 +83,9 @@ export function SaveToHistoryCard({ jobId, kind, label, ticker }: Props) {
     return (
       <div className="bg-white border border-ink-200 rounded-md p-4 h-full flex flex-col items-center justify-center text-center gap-2">
         <Bookmark className="w-6 h-6 text-ink-400" />
-        <div className="text-sm font-medium text-ink-800">Garder en mémoire</div>
+        <div className="text-sm font-medium text-ink-800">{t("results.keep_in_memory")}</div>
         <div className="text-xs text-ink-500 max-w-[220px]">
-          Connectez-vous pour sauvegarder cette analyse et la retrouver dans
-          votre historique.
+          {t("results.kept_hint_default")}
         </div>
       </div>
     );
@@ -115,12 +116,10 @@ export function SaveToHistoryCard({ jobId, kind, label, ticker }: Props) {
         <Bookmark className="w-6 h-6 text-navy-500" />
       )}
       <div className="text-sm font-semibold">
-        {saved ? "Gardée en mémoire" : busy ? "Sauvegarde…" : "Garder en mémoire"}
+        {saved ? t("results.kept_in_memory") : busy ? t("results.saving") : t("results.keep_in_memory")}
       </div>
       <div className="text-[11px] text-ink-500 max-w-[240px]">
-        {saved
-          ? "Cette analyse est visible dans votre historique, dans la sidebar gauche."
-          : "Ajoutez cette analyse à votre historique pour la retrouver plus tard."}
+        {saved ? t("results.kept_hint_visible") : t("results.kept_hint_default")}
       </div>
     </button>
   );
