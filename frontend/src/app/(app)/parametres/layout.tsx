@@ -39,9 +39,9 @@ export default function ParametresLayout({
                     key={t.slug}
                     href={href}
                     className={
-                      "px-3 py-2 rounded-md text-sm transition-colors whitespace-nowrap " +
+                      "px-3 py-2 rounded-md text-sm font-semibold transition-colors whitespace-nowrap " +
                       (active
-                        ? "bg-ink-100 text-ink-900 font-medium"
+                        ? "bg-ink-100 text-ink-900"
                         : "text-ink-700 hover:bg-ink-100/50 hover:text-ink-900")
                     }
                   >
