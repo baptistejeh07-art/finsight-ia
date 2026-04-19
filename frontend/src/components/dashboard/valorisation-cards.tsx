@@ -16,7 +16,7 @@ export function ValorisationCards({ bull, base, bear, sharePrice, currency }: Pr
   ];
 
   return (
-    <div className="bg-white border border-ink-200 rounded-md px-4 py-3">
+    <div className="bg-white border border-ink-200 rounded-md px-4 py-3 h-full">
       <div className="text-[10px] font-semibold uppercase tracking-[1.5px] text-ink-500 mb-2">
         Valorisation — distribution triangulaire
       </div>

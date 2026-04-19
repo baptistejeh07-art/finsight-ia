@@ -22,7 +22,7 @@ export function PourAllerPlusLoin({ synthesis }: { synthesis: Synthesis }) {
   if (blocks.length === 0) return null;
 
   return (
-    <div className="bg-white border border-ink-200 rounded-md">
+    <div className="bg-white border border-ink-200 rounded-md h-full overflow-auto">
       <button
         onClick={() => setOpen(!open)}
         className="w-full flex items-center justify-between px-5 py-4 text-left"

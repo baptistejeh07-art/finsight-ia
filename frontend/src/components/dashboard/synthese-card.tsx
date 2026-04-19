@@ -23,7 +23,7 @@ export function SyntheseCard({ synthesis }: { synthesis: Synthesis }) {
   if (blocs.length === 0) return null;
 
   return (
-    <div className="bg-white border border-ink-200 rounded-md p-5">
+    <div className="bg-white border border-ink-200 rounded-md p-5 h-full overflow-auto">
       <div className="text-[10px] font-semibold uppercase tracking-[1.5px] text-ink-500 mb-3">
         Synthèse de l&apos;analyse
       </div>

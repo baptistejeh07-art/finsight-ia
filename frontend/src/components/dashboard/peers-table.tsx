@@ -51,13 +51,13 @@ export function PeersTable({ peers, targetTicker, targetName, targetRatios }: Pr
   };
 
   return (
-    <div className="bg-white border border-ink-200 rounded-md overflow-hidden">
-      <div className="px-3 pt-2.5 pb-1.5">
+    <div className="bg-white border border-ink-200 rounded-md overflow-hidden h-full flex flex-col">
+      <div className="px-3 pt-2.5 pb-1.5 flex-none">
         <div className="text-[10px] font-semibold uppercase tracking-[1.5px] text-ink-500">
           Comparatif sectoriel
         </div>
       </div>
-      <div className="overflow-x-auto">
+      <div className="overflow-auto flex-1">
         <table className="w-full text-[11px]">
           <thead className="bg-ink-50 text-ink-600">
             <tr>

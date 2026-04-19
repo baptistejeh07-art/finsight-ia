@@ -30,7 +30,7 @@ export function CompareCard({ targetTicker }: { targetTicker: string }) {
   }
 
   return (
-    <div className="bg-white border border-ink-200 rounded-md p-5">
+    <div className="bg-white border border-ink-200 rounded-md p-5 h-full">
       <div className="text-[10px] font-semibold uppercase tracking-[1.5px] text-ink-500 mb-3">
         Analyse comparative
       </div>

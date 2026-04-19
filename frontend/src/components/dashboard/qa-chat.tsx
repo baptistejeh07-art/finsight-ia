@@ -54,14 +54,14 @@ export function QAChat({ jobId, ticker }: { jobId: string; ticker: string }) {
   }
 
   return (
-    <div className="bg-white border border-ink-200 rounded-md flex flex-col">
-      <div className="px-5 pt-4 pb-2 border-b border-ink-100">
+    <div className="bg-white border border-ink-200 rounded-md flex flex-col h-full">
+      <div className="px-5 pt-4 pb-2 border-b border-ink-100 flex-none">
         <div className="text-[10px] font-semibold uppercase tracking-[1.5px] text-ink-500">
           Avez-vous des questions au sujet de l&apos;analyse ?
         </div>
       </div>
 
-      <div ref={scrollRef} className="flex-1 px-5 py-3 max-h-[420px] min-h-[120px] overflow-y-auto space-y-3">
+      <div ref={scrollRef} className="flex-1 px-5 py-3 min-h-[120px] overflow-y-auto space-y-3">
         {messages.length === 0 && (
           <div className="text-xs text-ink-400 italic text-center py-3">
             Posez vos questions à l&apos;IA — elle a tout le contexte de l&apos;analyse {ticker}.

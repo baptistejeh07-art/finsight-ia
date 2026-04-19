@@ -30,18 +30,18 @@ export function CapexFcfChart({ years, ratios }: Props) {
 
   if (data.every((d) => d["CapEx (Mds)"] === 0 && d["Div. versés (Mds)"] === 0)) {
     return (
-      <div className="bg-white border border-ink-200 rounded-md p-5 h-[260px] flex items-center justify-center">
+      <div className="bg-white border border-ink-200 rounded-md p-5 h-full flex items-center justify-center">
         <span className="text-xs text-ink-400">Pas de données CapEx / Dividendes</span>
       </div>
     );
   }
 
   return (
-    <div className="bg-white border border-ink-200 rounded-md px-3 py-3">
+    <div className="bg-white border border-ink-200 rounded-md px-3 py-3 h-full flex flex-col">
       <div className="text-[10px] font-semibold uppercase tracking-[1.5px] text-ink-500 mb-2">
         Capital alloué — CapEx vs Dividendes
       </div>
-      <div className="h-[180px]">
+      <div className="flex-1 min-h-[140px]">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} margin={{ top: 5, right: 8, left: -10, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />

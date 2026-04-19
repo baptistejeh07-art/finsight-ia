@@ -134,7 +134,7 @@ export function Glossaire() {
   const filtered = TERMS.filter((t) => t.category === active);
 
   return (
-    <div className="bg-white border border-ink-200 rounded-md overflow-hidden">
+    <div className="bg-white border border-ink-200 rounded-md overflow-hidden h-full">
       {/* Header */}
       <div className="px-5 pt-4 pb-3 border-b border-ink-100 flex items-center gap-3">
         <div className="w-8 h-8 rounded-md bg-navy-50 text-navy-500 flex items-center justify-center">

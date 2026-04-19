@@ -88,7 +88,7 @@ export function PortraitCard({
   }
 
   return (
-    <div className="bg-gradient-to-br from-navy-50 to-white border border-navy-200 rounded-md p-5">
+    <div className="bg-gradient-to-br from-navy-50 to-white border border-navy-200 rounded-md p-5 h-full overflow-auto">
       <div className="flex items-start gap-3 mb-3">
         <div className="shrink-0 w-9 h-9 rounded-md bg-navy-500 flex items-center justify-center">
           <Sparkles className="w-4 h-4 text-white" />

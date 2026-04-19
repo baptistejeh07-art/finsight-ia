@@ -10,7 +10,7 @@ export function RecoCard({
   const pct = Math.round((conviction || 0) * 100);
 
   return (
-    <div className="bg-white border border-ink-200 rounded-md p-5">
+    <div className="bg-white border border-ink-200 rounded-md p-5 h-full">
       <div className="grid grid-cols-2 gap-6">
         <div>
           <div className="text-[10px] font-semibold uppercase tracking-[1.5px] text-ink-500 mb-2">

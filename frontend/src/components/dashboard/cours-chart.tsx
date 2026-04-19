@@ -81,7 +81,7 @@ export function CoursChart({
 
   if (!targetSerie || targetSerie.length === 0) {
     return (
-      <div className="bg-white border border-ink-200 rounded-md p-5 h-[260px] flex items-center justify-center">
+      <div className="bg-white border border-ink-200 rounded-md p-5 h-full flex items-center justify-center">
         <span className="text-xs text-ink-400">Pas d&apos;historique disponible</span>
       </div>
     );
@@ -131,14 +131,14 @@ export function CoursChart({
   const perfColor = perf >= 0 ? "text-signal-buy" : "text-signal-sell";
 
   return (
-    <div className="bg-white border border-ink-200 rounded-md p-5">
+    <div className="bg-white border border-ink-200 rounded-md p-5 h-full flex flex-col">
       <div className="flex items-baseline justify-between mb-3">
         <div className="text-[10px] font-semibold uppercase tracking-[1.5px] text-ink-500">
           Performance comparée — 12 mois
         </div>
         <div className={`text-sm font-semibold ${perfColor}`}>{perfStr}</div>
       </div>
-      <div className="h-[220px]">
+      <div className="flex-1 min-h-[180px]">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={data} margin={{ top: 5, right: 8, left: -10, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />

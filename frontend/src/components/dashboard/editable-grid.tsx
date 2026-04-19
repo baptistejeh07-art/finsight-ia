@@ -71,6 +71,13 @@ export function EditableGrid({ blocks }: { blocks: GridBlock[] }) {
     } catch {
       /* no-op */
     }
+    // Force Recharts (et autres ResponsiveContainer) à recalculer
+    // leurs dimensions quand un bloc est resized.
+    requestAnimationFrame(() => {
+      try {
+        window.dispatchEvent(new Event("resize"));
+      } catch {}
+    });
   }
 
   function reset() {
@@ -121,19 +128,19 @@ export function EditableGrid({ blocks }: { blocks: GridBlock[] }) {
             key={b.id}
             className={
               enabled
-                ? "bg-white border border-amber-400/40 rounded-md overflow-auto shadow-sm"
-                : "bg-white border border-ink-200 rounded-md overflow-auto"
+                ? "h-full bg-white border border-amber-400/40 rounded-md overflow-hidden shadow-sm flex flex-col"
+                : "h-full overflow-hidden flex flex-col"
             }
           >
             {enabled && (
-              <div className="grid-drag-handle bg-amber-50 border-b border-amber-200 px-3 py-1.5 text-2xs uppercase tracking-widest text-amber-700 font-semibold cursor-move select-none flex items-center justify-between">
+              <div className="grid-drag-handle bg-amber-50 border-b border-amber-200 px-3 py-1.5 text-2xs uppercase tracking-widest text-amber-700 font-semibold cursor-move select-none flex items-center justify-between flex-none">
                 <span>⋮⋮ {b.label}</span>
                 <span className="text-amber-500 normal-case tracking-normal text-[10px]">
                   drag · resize coin
                 </span>
               </div>
             )}
-            <div className={enabled ? "p-3" : "p-0"}>{b.render()}</div>
+            <div className={enabled ? "p-3 flex-1 min-h-0 overflow-auto" : "flex-1 min-h-0"}>{b.render()}</div>
           </div>
         ))}
       </ResponsiveReactGridLayout>

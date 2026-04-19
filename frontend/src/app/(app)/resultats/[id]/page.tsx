@@ -235,7 +235,7 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
                     label: "Ratios clés",
                     default: { x: 0, y: 7, w: 9, h: 4 },
                     render: () => (
-                      <div>
+                      <div className="bg-white border border-ink-200 rounded-md p-4 h-full overflow-auto">
                         <div className="text-[10px] font-semibold uppercase tracking-[1.5px] text-ink-500 mb-2">
                           Ratios clés ({latestYear})
                         </div>
