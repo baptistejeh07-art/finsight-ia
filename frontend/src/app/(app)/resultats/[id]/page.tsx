@@ -36,6 +36,7 @@ import { EditableGrid, type GridBlock } from "@/components/dashboard/editable-gr
 import { SectorTickersTable } from "@/components/dashboard/sector-tickers-table";
 import { IndiceSecteursTable } from "@/components/dashboard/indice-secteurs-table";
 import { SaveToHistoryCard } from "@/components/dashboard/save-to-history-card";
+import { DocumentUploadBox } from "@/components/dashboard/document-upload-box";
 import {
   PmeIdentiteCard,
   PmeDirigeantsCard,
@@ -475,6 +476,12 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
                       } satisfies GridBlock,
                     ]
                   : []),
+                {
+                  id: "documents-upload",
+                  label: "Documents complémentaires",
+                  default: { x: 8, y: 16, w: 4, h: 6 },
+                  render: () => <DocumentUploadBox analysisId={id} />,
+                } satisfies GridBlock,
                 ...(result.files?.pdf
                   ? [
                       {

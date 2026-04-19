@@ -221,6 +221,233 @@ def get_job_state(job_id: str) -> Optional[dict]:
         return None
 
 
+# ==============================================================================
+# Documents uploadés par l'user (analysis_documents)
+# ==============================================================================
+
+_DOCS_BUCKET = os.getenv("SUPABASE_DOCS_BUCKET", "analysis_documents")
+
+
+def upload_user_document(
+    user_id: str,
+    file_bytes: bytes,
+    filename: str,
+    content_type: str,
+) -> Optional[str]:
+    """Upload binaire dans le bucket privé analysis_documents, dossier user_id/.
+
+    Renvoie le storage_path (relatif au bucket) ou None si échec.
+    """
+    if not _enabled():
+        return None
+    import uuid as _uuid
+
+    safe_name = filename.replace("/", "_").replace("\\", "_")
+    storage_path = f"{user_id}/{_uuid.uuid4().hex}_{safe_name}"
+    try:
+        r = httpx.post(
+            f"{_SUPABASE_URL}/storage/v1/object/{_DOCS_BUCKET}/{storage_path}",
+            headers={
+                "apikey": _SERVICE_KEY,
+                "Authorization": f"Bearer {_SERVICE_KEY}",
+                "Content-Type": content_type or "application/octet-stream",
+                "x-upsert": "false",
+            },
+            content=file_bytes,
+            timeout=30.0,
+        )
+        if r.status_code >= 300:
+            log.warning(f"[db] upload_user_document HTTP {r.status_code} : {r.text[:200]}")
+            return None
+        return storage_path
+    except Exception as e:
+        log.warning(f"[db] upload_user_document exception : {e}")
+        return None
+
+
+def delete_user_document(storage_path: str) -> bool:
+    if not _enabled():
+        return False
+    try:
+        r = httpx.delete(
+            f"{_SUPABASE_URL}/storage/v1/object/{_DOCS_BUCKET}/{storage_path}",
+            headers={"apikey": _SERVICE_KEY, "Authorization": f"Bearer {_SERVICE_KEY}"},
+            timeout=10.0,
+        )
+        return r.status_code < 300
+    except Exception as e:
+        log.warning(f"[db] delete_user_document exception : {e}")
+        return False
+
+
+def download_user_document(storage_path: str) -> Optional[bytes]:
+    if not _enabled():
+        return None
+    try:
+        r = httpx.get(
+            f"{_SUPABASE_URL}/storage/v1/object/{_DOCS_BUCKET}/{storage_path}",
+            headers={"apikey": _SERVICE_KEY, "Authorization": f"Bearer {_SERVICE_KEY}"},
+            timeout=30.0,
+        )
+        if r.status_code >= 300:
+            return None
+        return r.content
+    except Exception as e:
+        log.warning(f"[db] download_user_document exception : {e}")
+        return None
+
+
+def insert_document_row(
+    *,
+    user_id: str,
+    analysis_id: Optional[str],
+    filename: str,
+    mime_type: str,
+    size_bytes: int,
+    file_hash: str,
+    storage_path: str,
+) -> Optional[str]:
+    """Insert une row dans analysis_documents, renvoie l'id créé ou None."""
+    if not _enabled():
+        return None
+    payload = {
+        "user_id": user_id,
+        "analysis_id": analysis_id,
+        "filename": filename,
+        "mime_type": mime_type,
+        "size_bytes": size_bytes,
+        "file_hash": file_hash,
+        "storage_path": storage_path,
+        "status": "uploaded",
+    }
+    payload = {k: v for k, v in payload.items() if v is not None}
+    try:
+        r = httpx.post(
+            f"{_SUPABASE_URL}/rest/v1/analysis_documents",
+            headers={**_headers(), "Prefer": "return=representation"},
+            json=payload,
+            timeout=8.0,
+        )
+        if r.status_code >= 300:
+            log.warning(f"[db] insert_document_row HTTP {r.status_code} : {r.text[:300]}")
+            return None
+        rows = r.json()
+        return rows[0]["id"] if rows else None
+    except Exception as e:
+        log.warning(f"[db] insert_document_row exception : {e}")
+        return None
+
+
+def update_document_row(doc_id: str, fields: dict) -> bool:
+    if not _enabled():
+        return False
+    fields = {k: v for k, v in fields.items() if v is not None}
+    if not fields:
+        return True
+    try:
+        r = httpx.patch(
+            f"{_SUPABASE_URL}/rest/v1/analysis_documents",
+            headers=_headers(),
+            params={"id": f"eq.{doc_id}"},
+            json=fields,
+            timeout=8.0,
+        )
+        return r.status_code < 300
+    except Exception as e:
+        log.warning(f"[db] update_document_row exception : {e}")
+        return False
+
+
+def get_document_row(doc_id: str, user_id: str) -> Optional[dict]:
+    if not _enabled():
+        return None
+    try:
+        r = httpx.get(
+            f"{_SUPABASE_URL}/rest/v1/analysis_documents",
+            headers=_headers(),
+            params={
+                "id": f"eq.{doc_id}",
+                "user_id": f"eq.{user_id}",
+                "limit": "1",
+            },
+            timeout=6.0,
+        )
+        if r.status_code >= 300:
+            return None
+        rows = r.json() or []
+        return rows[0] if rows else None
+    except Exception as e:
+        log.debug(f"[db] get_document_row exception : {e}")
+        return None
+
+
+def list_documents(user_id: str, analysis_id: Optional[str] = None) -> list[dict]:
+    if not _enabled():
+        return []
+    params = {
+        "user_id": f"eq.{user_id}",
+        "select": "id,analysis_id,filename,mime_type,size_bytes,type_detected,status,validated,extracted_data,extraction_error,created_at",
+        "order": "created_at.desc",
+        "limit": "100",
+    }
+    if analysis_id:
+        params["analysis_id"] = f"eq.{analysis_id}"
+    try:
+        r = httpx.get(
+            f"{_SUPABASE_URL}/rest/v1/analysis_documents",
+            headers=_headers(),
+            params=params,
+            timeout=8.0,
+        )
+        if r.status_code >= 300:
+            log.warning(f"[db] list_documents HTTP {r.status_code} : {r.text[:200]}")
+            return []
+        return r.json() or []
+    except Exception as e:
+        log.warning(f"[db] list_documents exception : {e}")
+        return []
+
+
+def delete_document_row(doc_id: str) -> bool:
+    if not _enabled():
+        return False
+    try:
+        r = httpx.delete(
+            f"{_SUPABASE_URL}/rest/v1/analysis_documents",
+            headers=_headers(),
+            params={"id": f"eq.{doc_id}"},
+            timeout=8.0,
+        )
+        return r.status_code < 300
+    except Exception as e:
+        log.warning(f"[db] delete_document_row exception : {e}")
+        return False
+
+
+def find_document_by_hash(user_id: str, file_hash: str) -> Optional[dict]:
+    """Cache : si user a déjà uploadé ce fichier (même hash), réutilise."""
+    if not _enabled() or not file_hash:
+        return None
+    try:
+        r = httpx.get(
+            f"{_SUPABASE_URL}/rest/v1/analysis_documents",
+            headers=_headers(),
+            params={
+                "user_id": f"eq.{user_id}",
+                "file_hash": f"eq.{file_hash}",
+                "limit": "1",
+            },
+            timeout=6.0,
+        )
+        if r.status_code >= 300:
+            return None
+        rows = r.json() or []
+        return rows[0] if rows else None
+    except Exception as e:
+        log.debug(f"[db] find_document_by_hash exception : {e}")
+        return None
+
+
 def list_analyses(user_id: str, limit: int = 50) -> list[dict]:
     """Retourne les N dernières analyses du user (plus récentes d'abord).
 

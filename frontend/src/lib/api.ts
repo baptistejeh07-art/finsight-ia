@@ -161,6 +161,92 @@ export async function searchPme(
   return apiGet(`/search/pme?q=${encodeURIComponent(q)}&limit=${limit}`);
 }
 
+// ─── Documents uploadés (extraction Gemini Vision) ─────────────────────────
+
+export interface UserDocument {
+  id: string;
+  analysis_id: string | null;
+  filename: string;
+  mime_type: string | null;
+  size_bytes: number | null;
+  type_detected: string | null;
+  status: "uploaded" | "extracting" | "extracted" | "validated" | "error";
+  validated: boolean;
+  extracted_data: Record<string, unknown> | null;
+  extraction_error: string | null;
+  created_at: string;
+}
+
+export async function uploadDocument(
+  file: File,
+  analysisId?: string | null
+): Promise<{
+  id: string;
+  status: string;
+  filename: string;
+  cached?: boolean;
+  extracted_data?: Record<string, unknown>;
+  type_detected?: string;
+}> {
+  const fd = new FormData();
+  fd.append("file", file);
+  if (analysisId) fd.append("analysis_id", analysisId);
+
+  const authHeader = await getAuthHeader();
+  const res = await fetch(`${API_URL}/documents/upload`, {
+    method: "POST",
+    headers: { ...authHeader },
+    body: fd,
+  });
+  if (!res.ok) {
+    throw new Error(`Upload failed (${res.status}): ${await res.text()}`);
+  }
+  return res.json();
+}
+
+export async function extractDocument(docId: string): Promise<{
+  id: string;
+  type_detected: string;
+  extracted_data: Record<string, unknown>;
+  confidence?: number;
+  source?: string;
+  cached?: boolean;
+}> {
+  return apiPost(`/documents/${docId}/extract`, {});
+}
+
+export async function validateDocument(
+  docId: string,
+  extractedData: Record<string, unknown>,
+  validated = true
+): Promise<UserDocument> {
+  const authHeader = await getAuthHeader();
+  const res = await fetch(`${API_URL}/documents/${docId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...authHeader },
+    body: JSON.stringify({ extracted_data: extractedData, validated }),
+  });
+  if (!res.ok) {
+    throw new Error(`Validate failed (${res.status})`);
+  }
+  return res.json();
+}
+
+export async function listAnalysisDocuments(
+  analysisId: string
+): Promise<{ documents: UserDocument[] }> {
+  return apiGet(`/analyses/${analysisId}/documents`);
+}
+
+export async function deleteDocument(docId: string): Promise<void> {
+  const authHeader = await getAuthHeader();
+  const res = await fetch(`${API_URL}/documents/${docId}`, {
+    method: "DELETE",
+    headers: { ...authHeader },
+  });
+  if (!res.ok) throw new Error(`Delete failed (${res.status})`);
+}
+
 export async function getJob(jobId: string): Promise<JobStatus> {
   return apiGet(`/jobs/${jobId}`);
 }

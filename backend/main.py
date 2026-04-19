@@ -1258,6 +1258,234 @@ async def get_history(user: Annotated[dict, Depends(require_user)]):
 
 
 # ---------------------------------------------------------------------------
+# Documents uploadés par l'user (PDF/XLSX/contrats) — extraction Gemini Vision
+# ---------------------------------------------------------------------------
+
+from fastapi import UploadFile, File, Form
+
+_MAX_DOC_SIZE = 20 * 1024 * 1024  # 20 Mo
+_ALLOWED_DOC_MIMES = {
+    "application/pdf",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "application/vnd.ms-excel",
+    "image/png",
+    "image/jpeg",
+    "image/webp",
+    "text/plain",
+    "text/csv",
+}
+
+
+@app.post("/documents/upload")
+async def upload_document(
+    user: Annotated[dict, Depends(require_user)],
+    file: UploadFile = File(...),
+    analysis_id: Optional[str] = Form(None),
+):
+    """Upload d'un document utilisateur (PDF/XLSX/image/contrat) lié à une analyse.
+
+    - Vérifie taille (max 20 Mo) et MIME accepté.
+    - Cache : si l'user a déjà uploadé ce hash, renvoie l'existant.
+    - Stocke dans Supabase Storage (bucket privé `analysis_documents`, RLS).
+    - Crée la row DB (status=uploaded). L'extraction se déclenche via /extract.
+    """
+    import db as _db
+    from core.documents.extractor import file_hash as _hash
+
+    content = await file.read()
+    if not content:
+        raise HTTPException(400, "Fichier vide")
+    if len(content) > _MAX_DOC_SIZE:
+        raise HTTPException(413, f"Fichier trop volumineux (>{_MAX_DOC_SIZE // 1024 // 1024} Mo)")
+
+    mime = file.content_type or "application/octet-stream"
+    if mime not in _ALLOWED_DOC_MIMES:
+        raise HTTPException(415, f"Type de fichier non accepté : {mime}")
+
+    fhash = _hash(content)
+
+    # Cache : déjà uploadé ?
+    existing = _db.find_document_by_hash(user["id"], fhash)
+    if existing:
+        log.info(f"[documents] cache HIT user={user['id']} hash={fhash[:10]}")
+        return {
+            "id": existing["id"],
+            "status": existing.get("status"),
+            "filename": existing.get("filename"),
+            "type_detected": existing.get("type_detected"),
+            "extracted_data": existing.get("extracted_data"),
+            "validated": existing.get("validated"),
+            "cached": True,
+        }
+
+    storage_path = _db.upload_user_document(user["id"], content, file.filename or "doc", mime)
+    if not storage_path:
+        raise HTTPException(500, "Échec upload Supabase Storage")
+
+    doc_id = _db.insert_document_row(
+        user_id=user["id"],
+        analysis_id=analysis_id,
+        filename=file.filename or "doc",
+        mime_type=mime,
+        size_bytes=len(content),
+        file_hash=fhash,
+        storage_path=storage_path,
+    )
+    if not doc_id:
+        # rollback Storage si DB échoue
+        _db.delete_user_document(storage_path)
+        raise HTTPException(500, "Échec insertion DB")
+
+    log.info(f"[documents] upload OK id={doc_id} user={user['id']} {len(content)}o")
+    return {
+        "id": doc_id,
+        "status": "uploaded",
+        "filename": file.filename,
+        "size_bytes": len(content),
+        "mime_type": mime,
+    }
+
+
+@app.post("/documents/{doc_id}/extract")
+async def extract_document_endpoint(
+    doc_id: str,
+    user: Annotated[dict, Depends(require_user)],
+):
+    """Lance l'extraction Gemini Vision (ou XLSX parser) sur un document uploadé.
+
+    Met à jour la row DB avec extracted_data + status='extracted' (ou 'error').
+    Renvoie le JSON extrait directement.
+    """
+    import db as _db
+    from core.documents.extractor import extract_document
+
+    row = _db.get_document_row(doc_id, user["id"])
+    if not row:
+        raise HTTPException(404, "Document introuvable")
+
+    # Si déjà extrait avec succès et user n'a pas demandé reprocess → renvoie cache
+    if row.get("status") == "extracted" and row.get("extracted_data"):
+        return {
+            "id": doc_id,
+            "type_detected": row.get("type_detected"),
+            "extracted_data": row.get("extracted_data"),
+            "cached": True,
+        }
+
+    _db.update_document_row(doc_id, {"status": "extracting"})
+
+    content = _db.download_user_document(row["storage_path"])
+    if content is None:
+        _db.update_document_row(
+            doc_id, {"status": "error", "extraction_error": "Téléchargement Storage échoué"}
+        )
+        raise HTTPException(500, "Téléchargement fichier échoué")
+
+    result = extract_document(
+        file_bytes=content,
+        filename=row.get("filename") or "doc",
+        mime_type=row.get("mime_type"),
+    )
+
+    if result.error:
+        _db.update_document_row(
+            doc_id,
+            {
+                "status": "error",
+                "extraction_error": result.error,
+                "type_detected": result.type_detected.value,
+            },
+        )
+        raise HTTPException(500, f"Extraction échouée : {result.error}")
+
+    _db.update_document_row(
+        doc_id,
+        {
+            "status": "extracted",
+            "type_detected": result.type_detected.value,
+            "extracted_data": result.data,
+            "extraction_error": None,
+        },
+    )
+
+    return {
+        "id": doc_id,
+        "type_detected": result.type_detected.value,
+        "extracted_data": result.data,
+        "confidence": result.confidence,
+        "source": result.source,
+    }
+
+
+@app.patch("/documents/{doc_id}")
+async def update_document(
+    doc_id: str,
+    user: Annotated[dict, Depends(require_user)],
+    body: dict,
+):
+    """User valide ou édite les données extraites avant intégration scoring.
+
+    Body accepté : {"extracted_data": {...}, "validated": true|false}
+    """
+    import db as _db
+
+    row = _db.get_document_row(doc_id, user["id"])
+    if not row:
+        raise HTTPException(404, "Document introuvable")
+
+    fields: dict = {}
+    if "extracted_data" in body:
+        fields["extracted_data"] = body["extracted_data"]
+    if "validated" in body:
+        fields["validated"] = bool(body["validated"])
+        if fields["validated"]:
+            fields["status"] = "validated"
+
+    if not fields:
+        raise HTTPException(400, "Aucun champ à mettre à jour")
+
+    ok = _db.update_document_row(doc_id, fields)
+    if not ok:
+        raise HTTPException(500, "Échec update DB")
+
+    updated = _db.get_document_row(doc_id, user["id"])
+    return updated or {"id": doc_id, "ok": True}
+
+
+@app.get("/analyses/{analysis_id}/documents")
+async def list_analysis_documents(
+    analysis_id: str,
+    user: Annotated[dict, Depends(require_user)],
+):
+    """Liste tous les documents de l'user liés à une analyse."""
+    import db as _db
+    docs = _db.list_documents(user["id"], analysis_id=analysis_id)
+    return {"analysis_id": analysis_id, "documents": docs}
+
+
+@app.get("/documents")
+async def list_user_documents(user: Annotated[dict, Depends(require_user)]):
+    """Liste tous les documents de l'user (toutes analyses)."""
+    import db as _db
+    return {"documents": _db.list_documents(user["id"])}
+
+
+@app.delete("/documents/{doc_id}")
+async def delete_document(
+    doc_id: str,
+    user: Annotated[dict, Depends(require_user)],
+):
+    """Supprime un document (Storage + DB)."""
+    import db as _db
+    row = _db.get_document_row(doc_id, user["id"])
+    if not row:
+        raise HTTPException(404, "Document introuvable")
+    _db.delete_user_document(row["storage_path"])
+    _db.delete_document_row(doc_id)
+    return {"id": doc_id, "deleted": True}
+
+
+# ---------------------------------------------------------------------------
 # Entrée locale
 # ---------------------------------------------------------------------------
 
