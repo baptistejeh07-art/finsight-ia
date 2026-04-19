@@ -127,11 +127,12 @@ class PmePdfWriter:
     def __init__(self, ctx: PmePdfContext):
         self.ctx = ctx
         # Helper i18n local : self._t("report.synthesis") → libellé selon langue
-        from core.i18n import t as _i18n_t, field_label as _i18n_field, ratio_label as _i18n_ratio, normalize_language
+        from core.i18n import t as _i18n_t, field_label as _i18n_field, ratio_label as _i18n_ratio, sig_label as _i18n_sig, normalize_language
         self._lang = normalize_language(ctx.language)
         self._t = lambda key, default=None: _i18n_t(self._lang, key, default)
         self._field_label = lambda field: _i18n_field(field, self._lang)
         self._ratio_label = lambda key: _i18n_ratio(key, self._lang)
+        self._sig_label = lambda key: _i18n_sig(key, self._lang)
         self._imports_ok = False
         try:
             from reportlab.lib.pagesizes import A4
@@ -283,11 +284,11 @@ class PmePdfWriter:
         if last_year:
             sig = ctx.analysis.sig_by_year[last_year]
             items = [
-                ("Chiffre d'affaires", _fmt_eur(
+                (self._sig_label("chiffre_affaires"), _fmt_eur(
                     next((y.chiffre_affaires for _, y in self._yearly_iter() if y.annee == last_year), None)
                 )),
                 ("EBE", _fmt_eur(sig.ebe)),
-                ("Résultat net", _fmt_eur(sig.resultat_net)),
+                (self._sig_label("resultat_net"), _fmt_eur(sig.resultat_net)),
                 ("Score santé FinSight",
                  f"{ctx.analysis.health_score:.0f} / 100" if ctx.analysis.health_score else "—"),
                 ("Altman Z",
@@ -372,15 +373,15 @@ class PmePdfWriter:
         headers = ["Indicateur"] + [str(y) for y in years]
         rows = [headers]
         sig_rows = [
-            ("Chiffre d'affaires", lambda y, s: next(
+            (self._sig_label("chiffre_affaires"), lambda y, s: next(
                 (acc.chiffre_affaires for _, acc in self._yearly_iter() if acc.annee == y), None
             )),
-            ("Production de l'exercice", lambda y, s: s.production_exercice),
-            ("Valeur ajoutée", lambda y, s: s.valeur_ajoutee),
-            ("EBE", lambda y, s: s.ebe),
-            ("REX", lambda y, s: s.resultat_exploitation),
-            ("Résultat net", lambda y, s: s.resultat_net),
-            ("CAF", lambda y, s: s.capacite_autofinancement),
+            (self._sig_label("production_exercice"), lambda y, s: s.production_exercice),
+            (self._sig_label("valeur_ajoutee"), lambda y, s: s.valeur_ajoutee),
+            (self._sig_label("ebe"), lambda y, s: s.ebe),
+            (self._sig_label("resultat_exploitation"), lambda y, s: s.resultat_exploitation),
+            (self._sig_label("resultat_net"), lambda y, s: s.resultat_net),
+            (self._sig_label("caf"), lambda y, s: s.capacite_autofinancement),
         ]
         for label, extractor in sig_rows:
             row = [label]
