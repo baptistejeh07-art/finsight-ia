@@ -128,6 +128,21 @@
     "kept_success": "Analyse gardée en mémoire",
     "kept_error_save": "Erreur de sauvegarde"
   },
+  "rating": {
+    "low": "Faible",
+    "medium": "Moyen",
+    "moderate": "Modéré",
+    "neutral": "Neutre",
+    "high": "Élevé",
+    "strong": "Fort",
+    "solid": "Solide",
+    "correct": "Correct",
+    "healthy": "Sain",
+    "safe": "Zone saine",
+    "grey_zone": "Zone grise",
+    "distress": "Détresse",
+    "ratios_unavailable": "Ratios indisponibles"
+  },
   "kpi": {
     "revenue": "Chiffre d'affaires",
     "ebitda": "EBITDA",
@@ -150,7 +165,12 @@
     "dividend_yield": "Rendement dividende",
     "current_ratio": "Ratio de liquidité",
     "net_debt_ebitda": "Dette nette / EBITDA",
-    "altman_z": "Z-Score d'Altman"
+    "altman_z": "Z-Score d'Altman",
+    "company": "Société",
+    "median_peers": "Médiane pairs",
+    "target": "cible",
+    "comparative_sector": "Comparatif sectoriel",
+    "peers_source": "Source : FinSight IA — yfinance + FMP, peers générés par le pipeline"
   },
   "pme": {
     "identity": "Identité de la société",

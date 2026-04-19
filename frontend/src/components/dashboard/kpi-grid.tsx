@@ -1,108 +1,151 @@
+"use client";
+
 import type { YearRatios } from "./types";
+import { useI18n } from "@/i18n/provider";
 
 type Tone = "good" | "neutral" | "bad";
 
 interface KpiDef {
   key: keyof YearRatios;
-  label: string;
+  labelKey: string;
   format: "x" | "%" | "raw";
-  tooltip: string;
-  // value transform
+  tooltipKey: string;
   transform?: (v: number) => number;
-  rate: (v: number) => { tone: Tone; tag: string };
+  rate: (v: number, t: (k: string) => string) => { tone: Tone; tag: string };
 }
 
 const KPIS: KpiDef[] = [
   {
     key: "pe_ratio",
-    label: "P/E Ratio",
+    labelKey: "kpi.pe",
     format: "x",
-    tooltip: "Valeur actuelle",
-    rate: (v) => (v < 15 ? { tone: "good", tag: "Faible" } : v < 30 ? { tone: "neutral", tag: "Neutre" } : { tone: "bad", tag: "Élevé" }),
+    tooltipKey: "rating.neutral",
+    rate: (v, t) =>
+      v < 15
+        ? { tone: "good", tag: t("rating.low") }
+        : v < 30
+        ? { tone: "neutral", tag: t("rating.neutral") }
+        : { tone: "bad", tag: t("rating.high") },
   },
   {
     key: "ev_ebitda",
-    label: "EV / EBITDA",
+    labelKey: "kpi.ev_ebitda",
     format: "x",
-    tooltip: "Multiple entreprise",
-    rate: (v) => (v < 10 ? { tone: "good", tag: "Faible" } : v < 20 ? { tone: "neutral", tag: "Moyen" } : { tone: "bad", tag: "Élevé" }),
+    tooltipKey: "rating.neutral",
+    rate: (v, t) =>
+      v < 10
+        ? { tone: "good", tag: t("rating.low") }
+        : v < 20
+        ? { tone: "neutral", tag: t("rating.medium") }
+        : { tone: "bad", tag: t("rating.high") },
   },
   {
     key: "ebitda_margin",
-    label: "Marge EBITDA",
+    labelKey: "kpi.ebitda_margin",
     format: "%",
-    tooltip: "Secteur ref",
-    transform: (v) => v * 100,
-    rate: (v) => (v > 25 ? { tone: "good", tag: "Fort" } : v > 12 ? { tone: "neutral", tag: "Sain" } : { tone: "bad", tag: "Faible" }),
+    tooltipKey: "rating.neutral",
+    rate: (v, t) =>
+      v > 25
+        ? { tone: "good", tag: t("rating.strong") }
+        : v > 12
+        ? { tone: "neutral", tag: t("rating.healthy") }
+        : { tone: "bad", tag: t("rating.low") },
   },
   {
     key: "roe",
-    label: "ROE",
+    labelKey: "kpi.roe",
     format: "%",
-    tooltip: "Return on Equity",
-    transform: (v) => v * 100,
-    rate: (v) => (v > 20 ? { tone: "good", tag: "Solide" } : v > 10 ? { tone: "neutral", tag: "Correct" } : { tone: "bad", tag: "Faible" }),
+    tooltipKey: "rating.neutral",
+    rate: (v, t) =>
+      v > 20
+        ? { tone: "good", tag: t("rating.solid") }
+        : v > 10
+        ? { tone: "neutral", tag: t("rating.correct") }
+        : { tone: "bad", tag: t("rating.low") },
   },
   {
     key: "net_margin",
-    label: "Marge nette",
+    labelKey: "kpi.net_margin",
     format: "%",
-    tooltip: "Net Income / Revenue",
-    transform: (v) => v * 100,
-    rate: (v) => (v > 15 ? { tone: "good", tag: "Fort" } : v > 7 ? { tone: "neutral", tag: "Sain" } : { tone: "bad", tag: "Faible" }),
+    tooltipKey: "rating.neutral",
+    rate: (v, t) =>
+      v > 15
+        ? { tone: "good", tag: t("rating.strong") }
+        : v > 7
+        ? { tone: "neutral", tag: t("rating.healthy") }
+        : { tone: "bad", tag: t("rating.low") },
   },
   {
     key: "roic",
-    label: "ROIC",
+    labelKey: "kpi.roic",
     format: "%",
-    tooltip: "Return on Invested Capital",
-    transform: (v) => v * 100,
-    rate: (v) => (v > 15 ? { tone: "good", tag: "Solide" } : v > 8 ? { tone: "neutral", tag: "Correct" } : { tone: "bad", tag: "Faible" }),
+    tooltipKey: "rating.neutral",
+    rate: (v, t) =>
+      v > 15
+        ? { tone: "good", tag: t("rating.solid") }
+        : v > 8
+        ? { tone: "neutral", tag: t("rating.correct") }
+        : { tone: "bad", tag: t("rating.low") },
   },
   {
     key: "net_debt_ebitda",
-    label: "Dette N. / EBITDA",
+    labelKey: "kpi.net_debt_ebitda",
     format: "x",
-    tooltip: "Levier · Sain < 3",
-    rate: (v) => (v < 1 ? { tone: "good", tag: "Sain" } : v < 3 ? { tone: "neutral", tag: "Modéré" } : { tone: "bad", tag: "Élevé" }),
+    tooltipKey: "rating.healthy",
+    rate: (v, t) =>
+      v < 1
+        ? { tone: "good", tag: t("rating.healthy") }
+        : v < 3
+        ? { tone: "neutral", tag: t("rating.moderate") }
+        : { tone: "bad", tag: t("rating.high") },
   },
   {
     key: "fcf_yield",
-    label: "Free Cash Flow",
+    labelKey: "kpi.fcf_yield",
     format: "%",
-    tooltip: "FCF Yield",
-    transform: (v) => v * 100,
-    rate: (v) => (v > 5 ? { tone: "good", tag: "Fort" } : v > 2 ? { tone: "neutral", tag: "Neutre" } : { tone: "bad", tag: "Faible" }),
+    tooltipKey: "rating.neutral",
+    rate: (v, t) =>
+      v > 5
+        ? { tone: "good", tag: t("rating.strong") }
+        : v > 2
+        ? { tone: "neutral", tag: t("rating.neutral") }
+        : { tone: "bad", tag: t("rating.low") },
   },
   {
     key: "gross_margin",
-    label: "Marge brute",
+    labelKey: "kpi.gross_margin",
     format: "%",
-    tooltip: "Gross Profit / Revenue",
-    transform: (v) => v * 100,
-    rate: (v) => (v > 50 ? { tone: "good", tag: "Fort" } : v > 30 ? { tone: "neutral", tag: "Sain" } : { tone: "bad", tag: "Faible" }),
+    tooltipKey: "rating.neutral",
+    rate: (v, t) =>
+      v > 50
+        ? { tone: "good", tag: t("rating.strong") }
+        : v > 30
+        ? { tone: "neutral", tag: t("rating.healthy") }
+        : { tone: "bad", tag: t("rating.low") },
   },
   {
     key: "current_ratio",
-    label: "Current Ratio",
+    labelKey: "kpi.current_ratio",
     format: "raw",
-    tooltip: ">1.0 sain · >2.0 fort",
-    rate: (v) => (v > 1.5 ? { tone: "good", tag: "Sain" } : v > 1 ? { tone: "neutral", tag: "Correct" } : { tone: "bad", tag: "Tendu" }),
-  },
-  {
-    key: "revenue_growth",
-    label: "Croissance CA",
-    format: "%",
-    tooltip: "YoY vs exercice précédent",
-    transform: (v) => v * 100,
-    rate: (v) => (v > 10 ? { tone: "good", tag: "Fort" } : v > 0 ? { tone: "neutral", tag: "Positif" } : { tone: "bad", tag: "Recul" }),
+    tooltipKey: "rating.healthy",
+    rate: (v, t) =>
+      v > 2
+        ? { tone: "good", tag: t("rating.healthy") }
+        : v > 1
+        ? { tone: "neutral", tag: t("rating.correct") }
+        : { tone: "bad", tag: t("rating.low") },
   },
   {
     key: "altman_z",
-    label: "Altman Z-Score",
+    labelKey: "kpi.altman_z",
     format: "raw",
-    tooltip: ">2.99 Sain · <1.8 Détresse",
-    rate: (v) => (v > 2.99 ? { tone: "good", tag: "Sain" } : v > 1.8 ? { tone: "neutral", tag: "Zone grise" } : { tone: "bad", tag: "Détresse" }),
+    tooltipKey: "rating.safe",
+    rate: (v, t) =>
+      v > 2.99
+        ? { tone: "good", tag: t("rating.healthy") }
+        : v > 1.8
+        ? { tone: "neutral", tag: t("rating.grey_zone") }
+        : { tone: "bad", tag: t("rating.distress") },
   },
 ];
 
@@ -112,18 +155,21 @@ const toneClass: Record<Tone, string> = {
   bad: "text-signal-sell",
 };
 
-function formatVal(v: number | null | undefined, fmt: KpiDef["format"], transform?: KpiDef["transform"]) {
-  if (v == null || isNaN(v)) return "—";
-  const x = transform ? transform(v) : v;
-  if (fmt === "x") return `${x.toFixed(2).replace(".", ",")}x`;
-  if (fmt === "%") return `${x.toFixed(1).replace(".", ",")} %`;
-  return x.toFixed(2).replace(".", ",");
-}
-
 export function KpiGrid({ ratios }: { ratios: YearRatios | null }) {
+  const { t, locale } = useI18n();
+  const decimalSep = locale === "fr" ? "," : ".";
+
+  function formatVal(v: number | null | undefined, fmt: KpiDef["format"], transform?: KpiDef["transform"]) {
+    if (v == null || isNaN(v)) return "—";
+    const x = transform ? transform(v) : v;
+    if (fmt === "x") return `${x.toFixed(2).replace(".", decimalSep)}x`;
+    if (fmt === "%") return `${x.toFixed(1).replace(".", decimalSep)} %`;
+    return x.toFixed(2).replace(".", decimalSep);
+  }
+
   if (!ratios) {
     return (
-      <div className="text-xs text-ink-400 italic">Ratios indisponibles</div>
+      <div className="text-xs text-ink-400 italic">{t("rating.ratios_unavailable")}</div>
     );
   }
 
@@ -132,17 +178,17 @@ export function KpiGrid({ ratios }: { ratios: YearRatios | null }) {
       {KPIS.map((k) => {
         const raw = ratios[k.key] as number | null | undefined;
         const transformed = raw != null && !isNaN(raw) ? (k.transform ? k.transform(raw) : raw) : null;
-        const rating = transformed != null ? k.rate(transformed) : null;
+        const rating = transformed != null ? k.rate(transformed, t) : null;
         return (
           <div key={k.key as string} className="bg-white border border-ink-200 rounded-md px-2.5 py-2">
             <div className="text-[8px] font-semibold uppercase tracking-[1px] text-ink-500 mb-0.5 truncate">
-              {k.label}
+              {t(k.labelKey)}
             </div>
             <div className={`text-sm font-bold font-mono ${rating ? toneClass[rating.tone] : "text-ink-400"}`}>
               {formatVal(raw, k.format, k.transform)}
             </div>
             <div className="text-[9px] text-ink-500 mt-0.5 truncate">
-              {rating ? rating.tag : k.tooltip}
+              {rating ? rating.tag : t(k.tooltipKey)}
             </div>
           </div>
         );

@@ -1,4 +1,7 @@
+"use client";
+
 import type { PeerData, YearRatios } from "./types";
+import { useI18n } from "@/i18n/provider";
 
 interface Props {
   peers: PeerData[];
@@ -28,10 +31,9 @@ function fmtP(v: number | null | undefined): string {
 }
 
 export function PeersTable({ peers, targetTicker, targetName, targetRatios }: Props) {
-  // target stocke gross_margin en décimal (0.469) → on convertit en pourcent
-  // pour aligner avec les peers (qui stockent 68.0)
+  const { t } = useI18n();
   const targetRow: PeerData = {
-    name: `${targetName} (cible)`,
+    name: `${targetName} (${t("kpi.target")})`,
     ticker: targetTicker,
     ev_ebitda: targetRatios?.ev_ebitda ?? null,
     ev_revenue: targetRatios?.ev_revenue ?? null,
@@ -44,7 +46,7 @@ export function PeersTable({ peers, targetTicker, targetName, targetRatios }: Pr
   const all = [targetRow, ...peers];
 
   const med: PeerData = {
-    name: "Médiane pairs",
+    name: t("kpi.median_peers"),
     ticker: "",
     ev_ebitda: median(peers.map((p) => Number(p.ev_ebitda || NaN))),
     ev_revenue: median(peers.map((p) => Number(p.ev_revenue || NaN))),
@@ -57,19 +59,19 @@ export function PeersTable({ peers, targetTicker, targetName, targetRatios }: Pr
     <div className="bg-white border border-ink-200 rounded-md overflow-hidden h-full flex flex-col">
       <div className="px-3 pt-2.5 pb-1.5 flex-none">
         <div className="text-[10px] font-semibold uppercase tracking-[1.5px] text-ink-500">
-          Comparatif sectoriel
+          {t("kpi.comparative_sector")}
         </div>
       </div>
       <div className="overflow-auto flex-1">
         <table className="w-full text-[11px]">
           <thead className="bg-ink-50 text-ink-600">
             <tr>
-              <th className="text-left px-3 py-1.5 font-semibold">Société</th>
-              <th className="text-right px-2 py-1.5 font-semibold">EV/EBITDA</th>
-              <th className="text-right px-2 py-1.5 font-semibold">EV/Rev</th>
-              <th className="text-right px-2 py-1.5 font-semibold">P/E</th>
-              <th className="text-right px-2 py-1.5 font-semibold">Marge brute</th>
-              <th className="text-right px-2 py-1.5 font-semibold">Marge EBITDA</th>
+              <th className="text-left px-3 py-1.5 font-semibold">{t("kpi.company")}</th>
+              <th className="text-right px-2 py-1.5 font-semibold">{t("kpi.ev_ebitda")}</th>
+              <th className="text-right px-2 py-1.5 font-semibold">{t("kpi.ev_revenue")}</th>
+              <th className="text-right px-2 py-1.5 font-semibold">{t("kpi.pe")}</th>
+              <th className="text-right px-2 py-1.5 font-semibold">{t("kpi.gross_margin")}</th>
+              <th className="text-right px-2 py-1.5 font-semibold">{t("kpi.ebitda_margin")}</th>
             </tr>
           </thead>
           <tbody>
@@ -100,7 +102,7 @@ export function PeersTable({ peers, targetTicker, targetName, targetRatios }: Pr
         </table>
       </div>
       <div className="px-3 py-1.5 text-[10px] text-ink-400 italic border-t border-ink-100">
-        Source : FinSight IA — yfinance + FMP, peers générés par le pipeline
+        {t("kpi.peers_source")}
       </div>
     </div>
   );
