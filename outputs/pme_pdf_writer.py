@@ -117,6 +117,8 @@ class PmePdfContext:
     yearly_accounts: list[YearAccounts]  # indispensable pour le CA / années
     bodacc: BodaccSummary | None = None
     commentaires: dict[str, str] | None = None  # {section_code: texte LLM}
+    language: str = "fr"   # i18n : fr / en / es / de / it / pt
+    currency: str = "EUR"  # devise d'affichage
 
 
 class PmePdfWriter:
@@ -124,6 +126,11 @@ class PmePdfWriter:
 
     def __init__(self, ctx: PmePdfContext):
         self.ctx = ctx
+        # Helper i18n local : self._t("report.synthesis") → libellé selon langue
+        from core.i18n import t as _i18n_t, field_label as _i18n_field, normalize_language
+        self._lang = normalize_language(ctx.language)
+        self._t = lambda key, default=None: _i18n_t(self._lang, key, default)
+        self._field_label = lambda field: _i18n_field(field, self._lang)
         self._imports_ok = False
         try:
             from reportlab.lib.pagesizes import A4
@@ -261,7 +268,7 @@ class PmePdfWriter:
         st = self._styles()
         ctx = self.ctx
         story.append(self.Spacer(1, self.cm * 4))
-        story.append(self.Paragraph("ANALYSE FINANCIÈRE", st["subtitle"]))
+        story.append(self.Paragraph(self._t("report.title"), st["subtitle"]))
         story.append(self.Paragraph(ctx.denomination, st["title"]))
         meta = []
         if ctx.forme_juridique: meta.append(ctx.forme_juridique)
@@ -300,7 +307,7 @@ class PmePdfWriter:
     def _page_identity(self, story: list) -> None:
         st = self._styles()
         ctx = self.ctx
-        story.append(self.Paragraph("Identité & gouvernance", st["h1"]))
+        story.append(self.Paragraph(self._t("report.identity_governance"), st["h1"]))
 
         items = [
             ("Dénomination", ctx.denomination),
@@ -314,7 +321,7 @@ class PmePdfWriter:
         story.append(self._kpi_table(items))
 
         story.append(self.Spacer(1, self.cm * 0.5))
-        story.append(self.Paragraph("Dirigeants", st["h2"]))
+        story.append(self.Paragraph(self._t("report.directors"), st["h2"]))
         if ctx.dirigeants:
             data = [["Nom", "Qualité", "Date prise de poste"]]
             for d in ctx.dirigeants[:10]:
@@ -333,7 +340,7 @@ class PmePdfWriter:
 
         if ctx.bodacc:
             story.append(self.Spacer(1, self.cm * 0.5))
-            story.append(self.Paragraph("Publications BODACC", st["h2"]))
+            story.append(self.Paragraph(self._t("report.bodacc"), st["h2"]))
             b = ctx.bodacc
             bodacc_items = [
                 ("Annonces totales", str(b.total_annonces)),
@@ -348,7 +355,7 @@ class PmePdfWriter:
     def _page_sig(self, story: list) -> None:
         st = self._styles()
         ctx = self.ctx
-        story.append(self.Paragraph("Soldes intermédiaires de gestion (SIG)", st["h1"]))
+        story.append(self.Paragraph(self._t("report.sig"), st["h1"]))
         story.append(self.Paragraph(
             "Les SIG décomposent la création de valeur : de la production à la CAF en passant "
             "par la VA et l'EBE. Conforme au Plan Comptable Général français.",
@@ -357,7 +364,7 @@ class PmePdfWriter:
 
         years = sorted(ctx.analysis.sig_by_year.keys())
         if not years:
-            story.append(self.Paragraph("Pas de données comptables.", st["body"]))
+            story.append(self.Paragraph(self._t("report.no_accounts_data"), st["body"]))
             return
 
         # Table SIG : ligne = indicateur, col = année
@@ -401,11 +408,11 @@ class PmePdfWriter:
     def _page_rentabilite(self, story: list) -> None:
         st = self._styles()
         ctx = self.ctx
-        story.append(self.Paragraph("Rentabilité", st["h1"]))
+        story.append(self.Paragraph(self._t("report.profitability"), st["h1"]))
 
         last_year = max(ctx.analysis.ratios_by_year.keys()) if ctx.analysis.ratios_by_year else None
         if last_year is None:
-            story.append(self.Paragraph("Pas de ratios disponibles.", st["body"]))
+            story.append(self.Paragraph(self._t("report.no_ratios"), st["body"]))
             return
 
         r = ctx.analysis.ratios_by_year[last_year]
@@ -424,11 +431,11 @@ class PmePdfWriter:
     def _page_solidite(self, story: list) -> None:
         st = self._styles()
         ctx = self.ctx
-        story.append(self.Paragraph("Solidité financière", st["h1"]))
+        story.append(self.Paragraph(self._t("report.solvency"), st["h1"]))
 
         last_year = max(ctx.analysis.ratios_by_year.keys()) if ctx.analysis.ratios_by_year else None
         if last_year is None:
-            story.append(self.Paragraph("Pas de données.", st["body"]))
+            story.append(self.Paragraph(self._t("report.no_data"), st["body"]))
             return
 
         r = ctx.analysis.ratios_by_year[last_year]
@@ -446,11 +453,11 @@ class PmePdfWriter:
     def _page_efficacite(self, story: list) -> None:
         st = self._styles()
         ctx = self.ctx
-        story.append(self.Paragraph("Efficacité opérationnelle", st["h1"]))
+        story.append(self.Paragraph(self._t("report.efficiency"), st["h1"]))
 
         last_year = max(ctx.analysis.ratios_by_year.keys()) if ctx.analysis.ratios_by_year else None
         if last_year is None:
-            story.append(self.Paragraph("Pas de données.", st["body"]))
+            story.append(self.Paragraph(self._t("report.no_data"), st["body"]))
             return
 
         r = ctx.analysis.ratios_by_year[last_year]
@@ -468,7 +475,7 @@ class PmePdfWriter:
     def _page_croissance(self, story: list) -> None:
         st = self._styles()
         ctx = self.ctx
-        story.append(self.Paragraph("Croissance & trajectoire", st["h1"]))
+        story.append(self.Paragraph(self._t("report.growth_trajectory"), st["h1"]))
 
         g = ctx.analysis.growth
         items = [
@@ -485,7 +492,7 @@ class PmePdfWriter:
     def _page_scoring(self, story: list) -> None:
         st = self._styles()
         ctx = self.ctx
-        story.append(self.Paragraph("Scoring de détresse financière", st["h1"]))
+        story.append(self.Paragraph(self._t("report.distress_scoring"), st["h1"]))
 
         items = [
             ("Altman Z-Score (non coté)",
@@ -514,7 +521,7 @@ class PmePdfWriter:
     def _page_benchmark(self, story: list) -> None:
         st = self._styles()
         ctx = self.ctx
-        story.append(self.Paragraph("Benchmark sectoriel", st["h1"]))
+        story.append(self.Paragraph(self._t("report.sector_benchmark"), st["h1"]))
 
         bm = ctx.benchmark
         story.append(self.Paragraph(
@@ -583,7 +590,7 @@ class PmePdfWriter:
     def _page_bankabilite(self, story: list) -> None:
         st = self._styles()
         ctx = self.ctx
-        story.append(self.Paragraph("Bankabilité & capacité d'endettement", st["h1"]))
+        story.append(self.Paragraph(self._t("report.bankability"), st["h1"]))
         items = [
             ("Score bankabilité",
              f"{ctx.analysis.bankability_score:.0f} / 100" if ctx.analysis.bankability_score is not None else "—"),
@@ -603,7 +610,7 @@ class PmePdfWriter:
     def _page_synthese(self, story: list) -> None:
         st = self._styles()
         ctx = self.ctx
-        story.append(self.Paragraph("Synthèse", st["h1"]))
+        story.append(self.Paragraph(self._t("report.synthesis"), st["h1"]))
         synth = (ctx.commentaires or {}).get("synthese")
         if synth:
             story.append(self.Paragraph(synth, st["body"]))
@@ -616,7 +623,7 @@ class PmePdfWriter:
 
     def _page_disclaimer(self, story: list) -> None:
         st = self._styles()
-        story.append(self.Paragraph("Avertissement & sources", st["h1"]))
+        story.append(self.Paragraph(self._t("report.warning_sources"), st["h1"]))
         story.append(self.Paragraph(
             "Cette analyse est basée sur les données publiques disponibles via les registres "
             "officiels (Pappers, recherche-entreprises.api.gouv.fr, BODACC) et sur les comptes "
@@ -632,7 +639,7 @@ class PmePdfWriter:
             st["body"],
         ))
         story.append(self.Spacer(1, self.cm * 0.5))
-        story.append(self.Paragraph("Sources", st["h2"]))
+        story.append(self.Paragraph(self._t("report.sources"), st["h2"]))
         story.append(self.Paragraph(
             "• <b>Pappers API v2</b> — identité, dirigeants, comptes annuels (liasses fiscales Cerfa 2050-2053)<br/>"
             "• <b>recherche-entreprises.api.gouv.fr</b> — annuaire officiel État FR (identification peers)<br/>"

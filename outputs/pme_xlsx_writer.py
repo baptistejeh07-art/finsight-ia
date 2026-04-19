@@ -35,6 +35,8 @@ def write_pme_xlsx(
     bodacc: BodaccSummary | None,
     siren: str,
     denomination: str,
+    language: str = "fr",
+    currency: str = "EUR",
 ) -> Path:
     try:
         from openpyxl import Workbook

@@ -451,9 +451,11 @@ def _do_cmp_secteur(secteur_a: str, univers_a: str, secteur_b: str, univers_b: s
     return {"data": {}, "files": files}
 
 
-def _do_pme(siren: str, use_pappers_comptes: bool = True) -> dict:
+def _do_pme(siren: str, use_pappers_comptes: bool = True,
+            language: str = "fr", currency: str = "EUR") -> dict:
     """Pipeline PME : Pappers identité + (XLSX comptes) + peers + BODACC
-    + analytics + outputs PDF/XLSX/PPTX."""
+    + analytics + outputs PDF/XLSX/PPTX.
+    `language`/`currency` propagés aux writers pour i18n des outputs."""
     import os
     from core.pappers.client import PappersClient, PappersAPIError
     from core.pappers.xlsx_parser import parse_pappers_xlsx, download_pappers_xlsx
@@ -561,6 +563,8 @@ def _do_pme(siren: str, use_pappers_comptes: bool = True) -> dict:
                 yearly_accounts=yearly_accounts,
                 bodacc=bodacc,
                 commentaires={},
+                language=language,
+                currency=currency,
             )
             pdf_path = outputs_dir / f"{stem}.pdf"
             write_pme_pdf(ctx, pdf_path)
@@ -570,7 +574,9 @@ def _do_pme(siren: str, use_pappers_comptes: bool = True) -> dict:
 
         try:
             xlsx_path = outputs_dir / f"{stem}.xlsx"
-            write_pme_xlsx(xlsx_path, yearly_accounts, analysis, benchmark, bodacc, siren, company.denomination)
+            write_pme_xlsx(xlsx_path, yearly_accounts, analysis, benchmark, bodacc,
+                           siren, company.denomination,
+                           language=language, currency=currency)
             files["xlsx"] = str(xlsx_path.relative_to(_ROOT))
         except Exception as e:
             log.error(f"[pme] XLSX fail: {e}")
@@ -578,7 +584,8 @@ def _do_pme(siren: str, use_pappers_comptes: bool = True) -> dict:
         try:
             pptx_path = outputs_dir / f"{stem}.pptx"
             write_pme_pptx(pptx_path, yearly_accounts, analysis, benchmark, bodacc,
-                           siren, company.denomination, profile.name)
+                           siren, company.denomination, profile.name,
+                           language=language, currency=currency)
             files["pptx"] = str(pptx_path.relative_to(_ROOT))
         except Exception as e:
             log.error(f"[pme] PPTX fail: {e}")
@@ -686,10 +693,15 @@ async def cmp_indice(req: CmpIndiceRequest):
 
 
 @app.post("/analyze/pme", response_model=AnalyseResponse)
-async def analyze_pme_endpoint(req: PmeRequest):
+async def analyze_pme_endpoint(req: PmeRequest, request: Request):
     """Analyse PME (société non cotée FR) par SIREN.
-    Pipeline : Pappers identité+comptes Cerfa → peers → BODACC → analytics → PDF/XLSX/PPTX."""
-    return _sync_response("analyze/pme", _do_pme, req.siren, req.use_pappers_comptes)
+    Pipeline : Pappers identité+comptes Cerfa → peers → BODACC → analytics → PDF/XLSX/PPTX.
+    Locale (langue + devise) lue depuis headers X-User-Language / X-User-Currency."""
+    lang, ccy = _user_locale(request)
+    return _sync_response(
+        "analyze/pme", _do_pme,
+        req.siren, req.use_pappers_comptes, lang, ccy,
+    )
 
 
 @app.get("/search/pme")

@@ -57,6 +57,8 @@ def write_pme_pptx(
     siren: str,
     denomination: str,
     profile_name: str = "",
+    language: str = "fr",
+    currency: str = "EUR",
 ) -> Path:
     try:
         from pptx import Presentation

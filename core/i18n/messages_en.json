@@ -12,6 +12,7 @@
     "of": "of"
   },
   "report": {
+    "title": "FINANCIAL ANALYSIS",
     "synthesis": "Synthesis",
     "valuation": "Valuation",
     "ratios": "Financial ratios",
@@ -23,7 +24,21 @@
     "company_info": "Company identity",
     "directors": "Directors",
     "bodacc": "BODACC publications",
-    "footer": "FinSight IA — Automated analysis"
+    "footer": "FinSight IA — Automated analysis",
+    "identity_governance": "Identity & governance",
+    "sig": "Operating performance breakdown",
+    "profitability": "Profitability",
+    "solvency": "Financial strength",
+    "efficiency": "Operational efficiency",
+    "growth_trajectory": "Growth & trajectory",
+    "distress_scoring": "Financial distress scoring",
+    "sector_benchmark": "Sector benchmark",
+    "bankability": "Bankability & debt capacity",
+    "warning_sources": "Disclaimer & sources",
+    "sources": "Sources",
+    "no_accounts_data": "No accounting data available.",
+    "no_ratios": "No ratios available.",
+    "no_data": "No data."
   },
   "altman": {
     "safe": "Safe zone",
