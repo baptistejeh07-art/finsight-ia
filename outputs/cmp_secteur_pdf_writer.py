@@ -104,6 +104,68 @@ def rule(w=TABLE_W, thick=0.5, col=GREY_RULE, sb=4, sa=4):
     return HRFlowable(width=w, thickness=thick, color=col, spaceAfter=sa, spaceBefore=sb)
 
 
+# ─── i18n helper cmp secteur PDF ──────────────────────────────────────────
+_CMP_SEC_LANG: str = "fr"
+
+_CMP_SEC_LABELS: dict[str, dict[str, str]] = {
+    "synthese_cmp": {"fr": "Synthèse Comparative",
+                     "en": "Comparative Synthesis",
+                     "es": "Síntesis Comparativa",
+                     "de": "Vergleichende Synthese",
+                     "it": "Sintesi Comparativa",
+                     "pt": "Síntese Comparativa"},
+    "valo_cmp":    {"fr": "Valorisation Comparée — Multiples de Marché",
+                    "en": "Compared Valuation — Market Multiples",
+                    "es": "Valoración Comparada — Múltiplos de Mercado",
+                    "de": "Verglichene Bewertung — Marktmultiplikatoren",
+                    "it": "Valutazione Comparata — Multipli di Mercato",
+                    "pt": "Avaliação Comparada — Múltiplos de Mercado"},
+    "qual_marges": {"fr": "Qualité & Marges — Rentabilité Opérationnelle",
+                    "en": "Quality & Margins — Operational Profitability",
+                    "es": "Calidad y Márgenes — Rentabilidad Operativa",
+                    "de": "Qualität & Margen — Operative Rentabilität",
+                    "it": "Qualità & Margini — Redditività Operativa",
+                    "pt": "Qualidade & Margens — Rentabilidade Operacional"},
+    "cap_alloc":   {"fr": "Capital Allocation & Rémunération de l'Actionnaire",
+                    "en": "Capital Allocation & Shareholder Returns",
+                    "es": "Asignación de Capital y Remuneración al Accionista",
+                    "de": "Kapitalallokation & Aktionärsvergütung",
+                    "it": "Allocazione del Capitale & Remunerazione Azionisti",
+                    "pt": "Alocação de Capital & Remuneração do Accionista"},
+    "croiss_mom":  {"fr": "Croissance & Momentum — Accélération ou Ralentissement ?",
+                    "en": "Growth & Momentum — Acceleration or Slowdown?",
+                    "es": "Crecimiento y Momentum — ¿Aceleración o Desaceleración?",
+                    "de": "Wachstum & Momentum — Beschleunigung oder Verlangsamung?",
+                    "it": "Crescita & Momentum — Accelerazione o Rallentamento?",
+                    "pt": "Crescimento & Momentum — Aceleração ou Desaceleração?"},
+    "perf_52w":    {"fr": "Performance Boursière — Cours Comparatif 52 Semaines",
+                    "en": "Stock Performance — Compared 52-Week Prices",
+                    "es": "Rendimiento Bursátil — Cotización Comparada 52 Semanas",
+                    "de": "Aktien-Performance — Verglichene 52-Wochen-Kurse",
+                    "it": "Performance Azionaria — Prezzi Comparati 52 Settimane",
+                    "pt": "Desempenho Bursátil — Cotação Comparada 52 Semanas"},
+    "reco_alloc":  {"fr": "Recommandation d'Allocation",
+                    "en": "Allocation Recommendation",
+                    "es": "Recomendación de Asignación",
+                    "de": "Allokationsempfehlung",
+                    "it": "Raccomandazione di Allocazione",
+                    "pt": "Recomendação de Alocação"},
+    "methodo":     {"fr": "Mentions Légales & Méthodologie Detaillee",
+                    "en": "Legal Notices & Detailed Methodology",
+                    "es": "Avisos Legales y Metodología Detallada",
+                    "de": "Rechtliche Hinweise & Detaillierte Methodik",
+                    "it": "Note Legali & Metodologia Dettagliata",
+                    "pt": "Avisos Legais & Metodologia Detalhada"},
+}
+
+
+def _cslbl(key: str) -> str:
+    spec = _CMP_SEC_LABELS.get(key)
+    if not spec:
+        return key
+    return spec.get(_CMP_SEC_LANG) or spec.get("en") or spec.get("fr") or key
+
+
 def section(text, num):
     return [rule(sb=10, sa=0), Paragraph(f"{num}. {text}", S_SEC), rule(sb=2, sa=6)]
 
@@ -675,7 +737,7 @@ def _build_story(D: dict) -> list:
     story.append(PageBreak())
 
     # ── PAGE 2 : Synthèse comparative ────────────────────────────────────────
-    story += section("Synthèse Comparative", "1")
+    story += section(_cslbl("synthese_cmp"), "1")
 
     # Synthèse executive (ex cover)
     exec_text = D.get("llm", {}).get("exec_summary", "")
@@ -879,7 +941,7 @@ def _build_story(D: dict) -> list:
     story.append(PageBreak())
 
     # ── PAGE 3 : Valorisation ─────────────────────────────────────────────────
-    story += section("Valorisation Comparée — Multiples de Marché", "2")
+    story += section(_cslbl("valo_cmp"), "2")
     _cheaper = sector_a if (sa.get("pe") or 999) < (sb.get("pe") or 999) else sector_b
     _cheaper_s = sa if _cheaper == sector_a else sb
     _pricier_s = sb if _cheaper == sector_a else sa
@@ -908,7 +970,7 @@ def _build_story(D: dict) -> list:
     story.append(Spacer(1, 4 * mm))
 
     # ── PAGE 3 suite : Marges ─────────────────────────────────────────────────
-    story += section("Qualité & Marges — Rentabilité Opérationnelle", "3")
+    story += section(_cslbl("qual_marges"), "3")
     winner_m = sector_a if (sa.get("em") or -999) > (sb.get("em") or -999) else sector_b
     loser_m  = sector_b if winner_m == sector_a else sector_a
     ws = sa if winner_m == sector_a else sb; ls = sb if winner_m == sector_a else sa
@@ -943,7 +1005,7 @@ def _build_story(D: dict) -> list:
     story.append(PageBreak())
 
     # ── PAGE 4 : Capital Allocation ────────────────────────────────────────────
-    story += section("Capital Allocation & Rémunération de l'Actionnaire", "4")
+    story += section(_cslbl("cap_alloc"), "4")
 
     dy_a = sa.get("div_yield")
     dy_b = sb.get("div_yield")
@@ -1013,7 +1075,7 @@ def _build_story(D: dict) -> list:
     # Pas de PageBreak ici — la section Croissance suit naturellement
 
     # ── PAGE 5 : Croissance & Momentum ────────────────────────────────────────
-    story += section("Croissance & Momentum — Accélération ou Ralentissement ?", "5")
+    story += section(_cslbl("croiss_mom"), "5")
     faster = sector_a if (sa.get("revg") or -999) > (sb.get("revg") or -999) else sector_b
     slower = sector_b if faster == sector_a else sector_a
     fs = sa if faster == sector_a else sb; ss = sb if faster == sector_a else sa
@@ -1056,7 +1118,7 @@ def _build_story(D: dict) -> list:
     story.append(PageBreak())
 
     # ── PAGE 6 : Performance boursière 52 semaines ───────────────────────────
-    story += section("Performance Boursière — Cours Comparatif 52 Semaines", "6")
+    story += section(_cslbl("perf_52w"), "6")
     _pa, _pb = D.get("perf_a_52w"), D.get("perf_b_52w")
     if _pa is not None and _pb is not None:
         try:
@@ -1170,7 +1232,7 @@ def _build_story(D: dict) -> list:
     story.append(PageBreak())
 
     # ── PAGE 8 : Recommandation ───────────────────────────────────────────────
-    story += section("Recommandation d'Allocation", "10")
+    story += section(_cslbl("reco_alloc"), "10")
 
     # Signal FinSight — tableau simplifie
     sig_data = [
@@ -1254,7 +1316,7 @@ def _build_story(D: dict) -> list:
     story.append(PageBreak())
 
     # ── PAGE 9 : Disclaimer & Méthodologie ───────────────────────────────────
-    story += section("Mentions Légales & Méthodologie Detaillee", "11")
+    story += section(_cslbl("methodo"), "11")
     _S_DISC_S = _sty("disc_s", size=6.5, color=GREY_TEXT, leading=9.5)
     _S_SSEC_S = _sty("ssec_s", size=8, color=NAVY, bold=True, leading=11)
     disclaimers = [
@@ -1572,7 +1634,13 @@ def generate_cmp_secteur_pdf(
     sector_b: str,
     universe_b: str,
     output_path: str,
+    language: str = "fr",
+    currency: str = "EUR",
 ) -> None:
+    global _CMP_SEC_LANG
+    _CMP_SEC_LANG = (language or "fr").lower()[:2]
+    if _CMP_SEC_LANG not in {"fr","en","es","de","it","pt"}:
+        _CMP_SEC_LANG = "fr"
     D = _prepare(tickers_a, sector_a, universe_a, tickers_b, sector_b, universe_b)
     D["llm"] = _generate_llm_texts(D)
     D["perf_a_52w"], D["perf_b_52w"] = _fetch_price_52w(D["td_a"], D["td_b"])
