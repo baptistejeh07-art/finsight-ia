@@ -221,12 +221,42 @@ function PmePageContent() {
       </div>
 
       <div className="mt-8 grid grid-cols-3 gap-4 text-center">
-        <ExampleCard siren="552032534" name="Danone" sector="Holding" onClick={setSiren} />
-        <ExampleCard siren="552081317" name="EDF" sector="Énergie" onClick={setSiren} />
-        <ExampleCard siren="542107651" name="LVMH" sector="Luxe" onClick={setSiren} />
+        <ExampleCard
+          siren="552032534"
+          name="Danone"
+          sector="Holding"
+          onClick={(s) => {
+            setSiren(formatSirenDisplay(s));
+            void launchAnalyze(s);
+          }}
+        />
+        <ExampleCard
+          siren="552081317"
+          name="EDF"
+          sector="Énergie"
+          onClick={(s) => {
+            setSiren(formatSirenDisplay(s));
+            void launchAnalyze(s);
+          }}
+        />
+        <ExampleCard
+          siren="542107651"
+          name="LVMH"
+          sector="Luxe"
+          onClick={(s) => {
+            setSiren(formatSirenDisplay(s));
+            void launchAnalyze(s);
+          }}
+        />
       </div>
     </div>
   );
+}
+
+function formatSirenDisplay(siren: string): string {
+  const clean = siren.replace(/\D/g, "");
+  if (clean.length !== 9) return siren;
+  return `${clean.slice(0, 3)} ${clean.slice(3, 6)} ${clean.slice(6)}`;
 }
 
 function ExampleCard({
@@ -240,6 +270,7 @@ function ExampleCard({
   sector: string;
   onClick: (s: string) => void;
 }) {
+  const display = formatSirenDisplay(siren);
   return (
     <button
       type="button"
@@ -248,7 +279,7 @@ function ExampleCard({
     >
       <div className="text-xs text-ink-500 uppercase tracking-wider">{sector}</div>
       <div className="text-sm font-semibold text-ink-900">{name}</div>
-      <div className="text-xs font-mono text-ink-500">{siren}</div>
+      <div className="text-xs font-mono text-ink-500">{display}</div>
     </button>
   );
 }
