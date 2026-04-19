@@ -120,7 +120,7 @@ def run_societe(ticker: str) -> None:
     print(f"\nTemps total : {elapsed:.1f}s")
 
 
-def run_secteur(sector: str, universe: str = "CAC 40", prefix: str = "secteur") -> None:
+def run_secteur(sector: str, universe: str = "CAC 40", prefix: str = "secteur") -> dict:
     """Pipeline sectoriel → PDF sectoriel + PPTX sectoriel.
 
     prefix : prefixe du fichier de sortie ("secteur" ou "indice").
@@ -189,6 +189,14 @@ def run_secteur(sector: str, universe: str = "CAC 40", prefix: str = "secteur") 
         print(f"  * {xlsx_path.name}")
     print(f"\nTemps total : {time.time() - t0:.1f}s")
 
+    # Retourne les data pour le backend (Q&A contexte + UI enrichie)
+    return {
+        "sector": sector,
+        "universe": universe,
+        "tickers": tickers,
+        "sector_analytics": sector_analytics or {},
+    }
+
 
 def run_cmp_secteur(
     sector_a: str, universe_a: str,
@@ -243,7 +251,7 @@ def run_cmp_secteur(
     print(f"\nTemps total : {time.time() - t0:.1f}s")
 
 
-def run_indice(universe: str = "S&P 500") -> None:
+def run_indice(universe: str = "S&P 500") -> dict:
     """Pipeline indice complet (tous secteurs) → PDF + PPTX + Excel."""
     from outputs.indice_pdf_writer import IndicePDFWriter
     from outputs.indice_pptx_writer import IndicePPTXWriter
@@ -280,6 +288,16 @@ def run_indice(universe: str = "S&P 500") -> None:
     if xlsx_path.exists():
         print(f"  * {xlsx_path.name}")
     print(f"\nTemps total : {time.time() - t0:.1f}s")
+
+    # Retourne les data pour le backend (Q&A contexte + UI enrichie)
+    return {
+        "universe": universe,
+        "secteurs": data.get("secteurs", []) if isinstance(data, dict) else [],
+        "indice_stats": data.get("indice_stats", {}) if isinstance(data, dict) else {},
+        "macro": data.get("macro", {}) if isinstance(data, dict) else {},
+        "allocation": data.get("allocation", {}) if isinstance(data, dict) else {},
+        "top_performers": data.get("top_performers", []) if isinstance(data, dict) else [],
+    }
 
 
 # ── Tickers réels par secteur / univers ────────────────────────────────────────

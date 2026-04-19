@@ -312,7 +312,7 @@ def _do_portrait(ticker: str, _progress_cb=None) -> dict:
 def _do_secteur(secteur: str, univers: str) -> dict:
     from cli_analyze import run_secteur as _run_secteur
 
-    _run_secteur(secteur, univers, prefix="secteur")
+    sector_data = _run_secteur(secteur, univers, prefix="secteur") or {}
     outputs_dir = _ROOT / "outputs" / "generated" / "cli_tests"
     stem = f"secteur_{secteur.replace(' ', '_')}_{univers.replace(' ', '_')}"
     files = {}
@@ -322,13 +322,32 @@ def _do_secteur(secteur: str, univers: str) -> dict:
         if p.exists():
             files[ext] = str(p.relative_to(_ROOT))
     files = _upload_files_to_storage(files, prefix=f"secteur/{stem}")
-    return {"data": {}, "files": files}
+    # Slim les tickers pour limiter la taille du payload
+    slim_tickers = []
+    for t in sector_data.get("tickers", [])[:15]:
+        if isinstance(t, dict):
+            slim_tickers.append({
+                "ticker": t.get("ticker") or t.get("symbol"),
+                "name": t.get("name") or t.get("company_name"),
+                "market_cap": t.get("market_cap"),
+                "ratios": t.get("ratios") or {},
+            })
+    return {
+        "data": {
+            "kind": "secteur",
+            "sector": sector_data.get("sector", secteur),
+            "universe": sector_data.get("universe", univers),
+            "tickers": slim_tickers,
+            "sector_analytics": sector_data.get("sector_analytics", {}),
+        },
+        "files": files,
+    }
 
 
 def _do_indice(indice: str) -> dict:
     from cli_analyze import run_indice as _run_indice
 
-    _run_indice(indice)
+    indice_data = _run_indice(indice) or {}
     outputs_dir = _ROOT / "outputs" / "generated" / "cli_tests"
     stem = f"indice_{indice.replace(' ', '_').replace('&', '')}"
     files = {}
@@ -337,7 +356,28 @@ def _do_indice(indice: str) -> dict:
         if p.exists():
             files[ext] = str(p.relative_to(_ROOT))
     files = _upload_files_to_storage(files, prefix=f"indice/{stem}")
-    return {"data": {}, "files": files}
+    # Slim secteurs : garde les métriques clés par secteur pour Q&A + UI
+    slim_secteurs = []
+    for s in indice_data.get("secteurs", [])[:15]:
+        if isinstance(s, dict):
+            slim_secteurs.append({
+                "name": s.get("name") or s.get("sector"),
+                "weight": s.get("weight") or s.get("poids"),
+                "performance": s.get("performance") or s.get("perf_1y"),
+                "top_tickers": (s.get("top_tickers") or s.get("tickers") or [])[:5],
+            })
+    return {
+        "data": {
+            "kind": "indice",
+            "universe": indice_data.get("universe", indice),
+            "secteurs": slim_secteurs,
+            "indice_stats": indice_data.get("indice_stats", {}),
+            "macro": indice_data.get("macro", {}),
+            "allocation": indice_data.get("allocation", {}),
+            "top_performers": indice_data.get("top_performers", [])[:10],
+        },
+        "files": files,
+    }
 
 
 def _do_cmp_societe(ticker_a: str, ticker_b: str) -> dict:
@@ -698,10 +738,70 @@ class QAResponse(BaseModel):
 
 
 def _build_qa_context(state: dict) -> str:
-    """Résumé compact du state pour le contexte LLM."""
+    """Résumé compact du state pour le contexte LLM.
+
+    Gère 3 kinds : société (raw_data+synthesis), secteur (tickers+analytics),
+    indice (secteurs+macro+allocation).
+    """
     if not isinstance(state, dict):
         return ""
 
+    kind = state.get("kind", "societe")
+
+    # ─── SECTEUR ──────────────────────────────────────────────────────
+    if kind == "secteur":
+        lines = [
+            f"Analyse sectorielle : {state.get('sector', '?')} (univers {state.get('universe', '?')})",
+        ]
+        tickers = state.get("tickers", [])
+        if tickers:
+            lines.append(f"Sociétés analysées ({len(tickers)}) :")
+            for t in tickers[:10]:
+                r = t.get("ratios") or {}
+                bits = [f"{t.get('ticker', '?')}"]
+                if t.get("name"): bits.append(t["name"])
+                if r.get("pe_ratio"): bits.append(f"P/E {r['pe_ratio']:.1f}x")
+                if r.get("ev_ebitda"): bits.append(f"EV/EBITDA {r['ev_ebitda']:.1f}x")
+                if r.get("ebitda_margin"): bits.append(f"mEBITDA {r['ebitda_margin']*100:.1f}%")
+                lines.append("  • " + " · ".join(str(b) for b in bits))
+        sa = state.get("sector_analytics") or {}
+        if sa.get("median_pe"):
+            lines.append(f"Médianes sectorielles : P/E {sa.get('median_pe', '?')} · EV/EBITDA {sa.get('median_ev_ebitda', '?')}")
+        if sa.get("top_performers"):
+            lines.append(f"Top performers : {', '.join(sa['top_performers'][:5])}")
+        return "\n".join(lines)
+
+    # ─── INDICE ───────────────────────────────────────────────────────
+    if kind == "indice":
+        lines = [f"Analyse d'indice : {state.get('universe', '?')}"]
+        stats = state.get("indice_stats") or {}
+        if stats:
+            bits = []
+            if stats.get("median_pe"): bits.append(f"P/E médian {stats['median_pe']:.1f}x")
+            if stats.get("perf_1y"): bits.append(f"perf 1Y {stats['perf_1y']}")
+            if bits: lines.append("Stats globales : " + " · ".join(bits))
+        secteurs = state.get("secteurs", [])
+        if secteurs:
+            lines.append(f"Secteurs ({len(secteurs)}) :")
+            for s in secteurs[:12]:
+                bits = [str(s.get("name", "?"))]
+                if s.get("weight"): bits.append(f"poids {s['weight']}")
+                if s.get("performance") is not None: bits.append(f"perf {s['performance']}")
+                tops = s.get("top_tickers") or []
+                if tops: bits.append(f"top: {', '.join(str(t) for t in tops[:3])}")
+                lines.append("  • " + " · ".join(bits))
+        macro = state.get("macro") or {}
+        if macro:
+            bits = []
+            if macro.get("regime"): bits.append(f"régime {macro['regime']}")
+            if macro.get("vix"): bits.append(f"VIX {macro['vix']}")
+            if bits: lines.append("Contexte macro : " + " · ".join(bits))
+        top = state.get("top_performers") or []
+        if top:
+            lines.append(f"Top performers indice : {', '.join(str(t) for t in top[:7])}")
+        return "\n".join(lines)
+
+    # ─── SOCIÉTÉ (défaut) ─────────────────────────────────────────────
     rd = state.get("raw_data") or {}
     ci = (rd.get("company_info") or {}) if isinstance(rd, dict) else {}
     syn = state.get("synthesis") or {}

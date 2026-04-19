@@ -1147,9 +1147,9 @@ def _build_story(D: dict) -> list:
     if not _top_b_text and sorted_b:
         _best_b = sorted_b[0]
         _top_b_text = (
-            f"Au sein de {sector_b}, les leaders se caracterisent par un profil fondamental "
+            f"Au sein de {sector_b}, les leaders se caractérisent par un profil fondamental "
             f"distinct de {sector_a} : marge nette généralement inférieure "
-            f"mais recuperation plus rapide en phase de cycle baissier. "
+            f"mais récupération plus rapide en phase de cycle baissier. "
             f"{_best_b.get('company', '')[:20]} atteint un score de {_best_b.get('score_global', 0)}/100, "
             f"avec un EV/EBITDA de {_mult(_best_b.get('ev_ebitda'))} "
             f"et une croissance revenue de {_pct(_best_b.get('revenue_growth', 0) if abs(_best_b.get('revenue_growth', 0) or 0) > 1 else (_best_b.get('revenue_growth', 0) or 0) * 100)}. "

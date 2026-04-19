@@ -19,9 +19,12 @@ function fmtX(v: number | null | undefined): string {
   return `${v.toFixed(1).replace(".", ",")}x`;
 }
 function fmtP(v: number | null | undefined): string {
-  // Valeur déjà en pourcent (peers stockent 68.0, pas 0.68)
+  // Auto-détection format : certaines sources (yfinance peers) stockent en
+  // décimal (0.528 = 52.8%), d'autres (FMP) en pourcent (68.0). On suppose
+  // que toute valeur strictement entre 0 et 1 est en décimal et on x100.
   if (v == null || isNaN(v)) return "—";
-  return `${v.toFixed(1).replace(".", ",")} %`;
+  const pct = v > 0 && v < 1 ? v * 100 : v;
+  return `${pct.toFixed(1).replace(".", ",")} %`;
 }
 
 export function PeersTable({ peers, targetTicker, targetName, targetRatios }: Props) {

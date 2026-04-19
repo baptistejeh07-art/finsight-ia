@@ -63,6 +63,51 @@ class SynthesisResult:
         return asdict(self)
 
 
+def _clamp_targets(price, base, bull, bear, ticker: str = "?"):
+    """Borne les targets LLM si hallucinés (ex: ASML.AS bull 1450€ vs cours 650€).
+
+    Règles réalistes :
+      - base ∈ [price*0.85, price*1.25]
+      - bull ∈ [price*1.05, price*1.40] ET bull >= base
+      - bear ∈ [price*0.60, price*0.95] ET bear <= base
+
+    Si le LLM sort de ces bornes, on replace la valeur par la borne la plus proche.
+    """
+    if not price or price <= 0:
+        return base, bull, bear
+
+    def _clamp(val, lo, hi):
+        if val is None:
+            return None
+        try:
+            return max(lo, min(val, hi))
+        except (TypeError, ValueError):
+            return None
+
+    import logging
+    log = logging.getLogger(__name__)
+
+    orig_base, orig_bull, orig_bear = base, bull, bear
+    base = _clamp(base, price * 0.85, price * 1.25)
+    bull = _clamp(bull, price * 1.05, price * 1.40)
+    bear = _clamp(bear, price * 0.60, price * 0.95)
+
+    # Cohérence : bull >= base >= bear
+    if base is not None and bull is not None and bull < base:
+        bull = base * 1.08
+    if base is not None and bear is not None and bear > base:
+        bear = base * 0.90
+
+    if (orig_base != base) or (orig_bull != bull) or (orig_bear != bear):
+        log.warning(
+            "[synthesis] %s targets clampés (LLM hallucination?) : "
+            "base %s→%s, bull %s→%s, bear %s→%s (cours=%s)",
+            ticker, orig_base, base, orig_bull, bull, orig_bear, bear, price,
+        )
+
+    return base, bull, bear
+
+
 def _build_deterministic_fallback(snapshot, ratios) -> "SynthesisResult":
     """Genere un SynthesisResult de fallback quand TOUS les LLM ont echoue.
 
@@ -127,7 +172,7 @@ def _build_deterministic_fallback(snapshot, ratios) -> "SynthesisResult":
 
     company_description = (
         f"{_co} opere dans le secteur {_sec}. "
-        f"Profil financier caracterise par {_ratios_str}. "
+        f"Profil financier caractérisé par {_ratios_str}. "
         f"Description detaillee non disponible (mode fallback deterministe)."
     )
 
@@ -194,6 +239,7 @@ def _build_deterministic_fallback(snapshot, ratios) -> "SynthesisResult":
 _SYSTEM = """Tu es un analyste financier senior Investment Banking.
 Tu produis des analyses objectives, concises, professionnelles en français.
 LANGUE : français avec TOUS les accents (é, è, ê, à, ù, ô, î, û, ç, œ, etc.) — JAMAIS de caractères sans accent (ex: "Modérée" et non "Moderee", "résilience" et non "resilience").
+GRAMMAIRE : français IMPECCABLE — participes passés corrects (ex: "caractérisé par" et non "caractérise par", "marqué par" et non "marque par"), accords en genre/nombre, conjugaisons exactes, apostrophes droites.
 
 CADRE DÉCISIONNEL — IMPORTANT :
 Tu es le DÉCIDEUR pour la recommandation BUY/HOLD/SELL. Tu disposes dans le prompt de 4 sources :
@@ -389,9 +435,9 @@ JSON requis (tous les champs obligatoires) :
 {{
   "recommendation":"BUY|HOLD|SELL",
   "conviction":<float 0-1 — calcule strictement: SELL=0.3-0.5, HOLD=0.45-0.60, BUY faible=0.60-0.70, BUY fort=0.70-0.85; NE PAS depasser 0.85 sauf catalyseur exceptionnel>,
-  "target_price_base":<float|null>,
-  "target_price_bull":<float|null>,
-  "target_price_bear":<float|null>,
+  "target_price_base":<float — ANCRÉ AU COURS ACTUEL {price_s} {ci.currency} ; plage RÉALISTE entre cours*0.85 et cours*1.20 ; JAMAIS >cours*1.30>,
+  "target_price_bull":<float — SCÉNARIO OPTIMISTE mais RÉALISTE ; plage cours*1.10 à cours*1.35 ; upside MAX +40% vs cours actuel>,
+  "target_price_bear":<float — SCÉNARIO BAISSIER ; plage cours*0.65 à cours*0.90 ; TOUJOURS <cours actuel (sinon pas un bear) ; downside ~-15% à -30%>,
   "summary":"<2 phrases>",
   "company_description":"<MINIMUM 50, MAXIMUM 70 mots — 3 phrases: activite principale, positionnement marche, avantages competitifs de {ci.company_name}>",
   "segments":[
@@ -529,14 +575,23 @@ class AgentSynthese:
             try: return float(v)
             except (TypeError, ValueError): return None
 
+        # ─── Safeguard valorisations : clamp si LLM hallucine ─────────────
+        # Ex: ASML.AS cours ~650€ mais LLM target_bull 1450€ (+123%). Borner.
+        _raw_base = _fnum(parsed.get("target_price_base"))
+        _raw_bull = _fnum(parsed.get("target_price_bull"))
+        _raw_bear = _fnum(parsed.get("target_price_bear"))
+        _clamped_base, _clamped_bull, _clamped_bear = _clamp_targets(
+            price, _raw_base, _raw_bull, _raw_bear, ticker=snapshot.ticker
+        )
+
         result = SynthesisResult(
             ticker               = snapshot.ticker,
             company_name         = ci.company_name,
             recommendation       = parsed.get("recommendation", "HOLD").upper(),
             conviction           = _fnum(parsed.get("conviction")) or 0.5,
-            target_base          = _fnum(parsed.get("target_price_base")),
-            target_bull          = _fnum(parsed.get("target_price_bull")),
-            target_bear          = _fnum(parsed.get("target_price_bear")),
+            target_base          = _clamped_base,
+            target_bull          = _clamped_bull,
+            target_bear          = _clamped_bear,
             summary              = parsed.get("summary", ""),
             company_description  = parsed.get("company_description", ""),
             segments             = parsed.get("segments", []),
