@@ -314,6 +314,86 @@ def _llm_box_std(title: str, text: str, width=TABLE_W) -> list:
     return [KeepTogether(elems)]
 
 
+# ─── i18n helper cmp indice ───────────────────────────────────────────────
+_CMP_IND_LANG: str = "fr"
+
+_CMP_IND_LABELS: dict[str, dict[str, str]] = {
+    "synthese_cmp":   {"fr": "Synthèse Comparative", "en": "Comparative Synthesis",
+                       "es": "Síntesis Comparativa", "de": "Vergleichende Synthese",
+                       "it": "Sintesi Comparativa", "pt": "Síntese Comparativa"},
+    "profil_compo":   {"fr": "Profil & Composition Sectorielle",
+                       "en": "Profile & Sector Composition",
+                       "es": "Perfil y Composición Sectorial",
+                       "de": "Profil & Sektor-Zusammensetzung",
+                       "it": "Profilo & Composizione Settoriale",
+                       "pt": "Perfil & Composição Setorial"},
+    "constituants":   {"fr": "Principaux Constituants",
+                       "en": "Main Constituents",
+                       "es": "Principales Constituyentes",
+                       "de": "Hauptbestandteile",
+                       "it": "Principali Costituenti",
+                       "pt": "Principais Constituintes"},
+    "perf_52w":       {"fr": "Performance Historique  —  52 Semaines",
+                       "en": "Historical Performance  —  52 Weeks",
+                       "es": "Rendimiento Histórico  —  52 Semanas",
+                       "de": "Historische Performance  —  52 Wochen",
+                       "it": "Performance Storica  —  52 Settimane",
+                       "pt": "Desempenho Histórico  —  52 Semanas"},
+    "decompo_perf":   {"fr": "Décomposition de la Performance",
+                       "en": "Performance Breakdown",
+                       "es": "Descomposición del Rendimiento",
+                       "de": "Performance-Aufschlüsselung",
+                       "it": "Scomposizione della Performance",
+                       "pt": "Decomposição do Desempenho"},
+    "risque_cmp":     {"fr": "Risque Comparatif", "en": "Comparative Risk",
+                       "es": "Riesgo Comparativo", "de": "Vergleichendes Risiko",
+                       "it": "Rischio Comparativo", "pt": "Risco Comparativo"},
+    "valo_cmp":       {"fr": "Valorisation Comparée",
+                       "en": "Compared Valuation",
+                       "es": "Valoración Comparada",
+                       "de": "Verglichene Bewertung",
+                       "it": "Valutazione Comparata",
+                       "pt": "Avaliação Comparada"},
+    "erp":            {"fr": "Equity Risk Premium (ERP)",
+                       "en": "Equity Risk Premium (ERP)",
+                       "es": "Prima de Riesgo de Acciones (ERP)",
+                       "de": "Equity Risk Premium (ERP)",
+                       "it": "Equity Risk Premium (ERP)",
+                       "pt": "Prémio de Risco de Capital (ERP)"},
+    "theses_bb":      {"fr": "Thèses d'Investissement Bull / Bear",
+                       "en": "Bull / Bear Investment Theses",
+                       "es": "Tesis de Inversión Bull / Bear",
+                       "de": "Bull-/Bear-Investitionsthesen",
+                       "it": "Tesi d'Investimento Bull / Bear",
+                       "pt": "Teses de Investimento Bull / Bear"},
+    "invalidation":   {"fr": "Conditions d'Invalidation",
+                       "en": "Invalidation Conditions",
+                       "es": "Condiciones de Invalidación",
+                       "de": "Invalidierungsbedingungen",
+                       "it": "Condizioni di Invalidazione",
+                       "pt": "Condições de Invalidação"},
+    "reco_alloc":     {"fr": "Recommandation d'Allocation",
+                       "en": "Allocation Recommendation",
+                       "es": "Recomendación de Asignación",
+                       "de": "Allokationsempfehlung",
+                       "it": "Raccomandazione di Allocazione",
+                       "pt": "Recomendação de Alocação"},
+    "methodo":        {"fr": "Méthodologie & Mentions Légales",
+                       "en": "Methodology & Legal Notices",
+                       "es": "Metodología y Avisos Legales",
+                       "de": "Methodik & Rechtliche Hinweise",
+                       "it": "Metodologia & Note Legali",
+                       "pt": "Metodologia & Avisos Legais"},
+}
+
+
+def _cilbl(key: str) -> str:
+    spec = _CMP_IND_LABELS.get(key)
+    if not spec:
+        return key
+    return spec.get(_CMP_IND_LANG) or spec.get("en") or spec.get("fr") or key
+
+
 def _section_header(title: str, num: str = "") -> list:
     title_str = f"{num}. {title}" if num else title
     return [
@@ -716,7 +796,7 @@ def _build_story(data: dict) -> list:
     story.append(PageBreak())
 
     # ── PAGE 2 : SYNTHÈSE COMPARATIVE ─────────────────────────────────────
-    story += _section_header("Synthèse Comparative", "1")
+    story += _section_header(_cilbl("synthese_cmp"), "1")
 
     exec_text = llm.get("exec_summary") or (
         f"Comparaison {name_a} vs {name_b}. {name_a} affiche un score FinSight de {sc_a}/100 "
@@ -794,7 +874,7 @@ def _build_story(data: dict) -> list:
     story.append(PageBreak())
 
     # ── PAGE 3 : PROFIL & COMPOSITION SECTORIELLE ──────────────────────────
-    story += _section_header("Profil & Composition Sectorielle", "2")
+    story += _section_header(_cilbl("profil_compo"), "2")
 
     profil_intro = llm.get("profil_intro") or (
         f"{name_a} et {name_b} présentent des compositions sectorielles distinctes qui "
@@ -833,7 +913,7 @@ def _build_story(data: dict) -> list:
     story.append(PageBreak())
 
     # ── PAGE 4 : TOP HOLDINGS COMPARÉS ─────────────────────────────────────
-    story += _section_header("Principaux Constituants", "3")
+    story += _section_header(_cilbl("constituants"), "3")
 
     top_intro = llm.get("top_intro") or (
         f"Les top constituants de chaque indice déterminent le risque idiosyncrasique : leur "
@@ -897,7 +977,7 @@ def _build_story(data: dict) -> list:
     story.append(PageBreak())
 
     # ── PAGE 5 : PERFORMANCE 52W + MACRO ───────────────────────────────────
-    story += _section_header("Performance Historique  —  52 Semaines", "4")
+    story += _section_header(_cilbl("perf_52w"), "4")
 
     perf_img = _perf_chart_img(data)
     if perf_img:
@@ -981,7 +1061,7 @@ def _build_story(data: dict) -> list:
     story.append(PageBreak())
 
     # ── PAGE 6 : DÉCOMPOSITION PERFS ────────────────────────────────────────
-    story += _section_header("Décomposition de la Performance", "5")
+    story += _section_header(_cilbl("decompo_perf"), "5")
 
     decomp_img = _perf_decomposition_chart(data)
     if decomp_img:
@@ -1020,7 +1100,7 @@ def _build_story(data: dict) -> list:
     story.append(PageBreak())
 
     # ── PAGE 7 : RISQUE COMPARATIF ────────────────────────────────────────
-    story += _section_header("Risque Comparatif", "6")
+    story += _section_header(_cilbl("risque_cmp"), "6")
 
     # Tableau risque
     risk_rows = [
@@ -1070,7 +1150,7 @@ def _build_story(data: dict) -> list:
     story.append(PageBreak())
 
     # ── PAGE 8 : VALORISATION AGRÉGÉE ──────────────────────────────────────
-    story += _section_header("Valorisation Comparée", "7")
+    story += _section_header(_cilbl("valo_cmp"), "7")
 
     val_rows = [
         [Paragraph("Indicateur", S_TH_L),
@@ -1119,7 +1199,7 @@ def _build_story(data: dict) -> list:
     story.append(PageBreak())
 
     # ── PAGE 9 : ERP FOCUS ────────────────────────────────────────────────
-    story += _section_header("Equity Risk Premium (ERP)", "8")
+    story += _section_header(_cilbl("erp"), "8")
 
     erp_a = data.get("erp_a", "\u2014")
     erp_b = data.get("erp_b", "\u2014")
@@ -1166,7 +1246,7 @@ def _build_story(data: dict) -> list:
     story.append(PageBreak())
 
     # ── PAGE 10 : THÈSES BULL/BEAR ────────────────────────────────────────
-    story += _section_header("Thèses d'Investissement Bull / Bear", "9")
+    story += _section_header(_cilbl("theses_bb"), "9")
 
     theses_intro = llm.get("Thèses_intro") or (
         f"L'analyse bull/bear comparée permet d'identifier les arguments structurels en faveur "
@@ -1230,7 +1310,7 @@ def _build_story(data: dict) -> list:
     story.append(PageBreak())
 
     # ── PAGE 11 : CONDITIONS D'INVALIDATION ────────────────────────────────
-    story += _section_header("Conditions d'Invalidation", "10")
+    story += _section_header(_cilbl("invalidation"), "10")
 
     inv_rows = [
         [Paragraph("Type de signal", S_TH_L),
@@ -1277,7 +1357,7 @@ def _build_story(data: dict) -> list:
     story.append(PageBreak())
 
     # ── PAGE 12 : RECOMMANDATION D'ALLOCATION ──────────────────────────────
-    story += _section_header("Recommandation d'Allocation", "11")
+    story += _section_header(_cilbl("reco_alloc"), "11")
 
     winner = name_a if sc_a >= sc_b else name_b
     loser = name_b if winner == name_a else name_a
@@ -1321,7 +1401,7 @@ def _build_story(data: dict) -> list:
     story.append(PageBreak())
 
     # ── PAGE 13 : MÉTHODOLOGIE & MENTIONS LÉGALES ──────────────────────────
-    story += _section_header("Méthodologie & Mentions Légales", "12")
+    story += _section_header(_cilbl("methodo"), "12")
 
     disclaimers = [
         ("Caractère informatif et pédagogique",
@@ -1485,8 +1565,13 @@ class CmpIndicePDFWriter:
     """Rapport PDF comparatif d'indices boursiers — 13 pages IB-grade."""
 
     @staticmethod
-    def generate_bytes(data: dict) -> bytes:
+    def generate_bytes(data: dict, language: str = "fr", currency: str = "EUR") -> bytes:
         data = dict(data)
+        # i18n : active langue module-level
+        global _CMP_IND_LANG
+        _CMP_IND_LANG = (language or data.get("_language") or "fr").lower()[:2]
+        if _CMP_IND_LANG not in {"fr","en","es","de","it","pt"}:
+            _CMP_IND_LANG = "fr"
         data["llm"] = _generate_indice_llm_pdf(data)
         buf = io.BytesIO()
         doc = SimpleDocTemplate(
@@ -1503,7 +1588,7 @@ class CmpIndicePDFWriter:
         return buf.getvalue()
 
     @staticmethod
-    def generate(data: dict, output_path: str) -> str:
-        pdf_bytes = CmpIndicePDFWriter.generate_bytes(data)
+    def generate(data: dict, output_path: str, language: str = "fr", currency: str = "EUR") -> str:
+        pdf_bytes = CmpIndicePDFWriter.generate_bytes(data, language=language, currency=currency)
         Path(output_path).write_bytes(pdf_bytes)
         return output_path
