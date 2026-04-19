@@ -2,11 +2,13 @@ import Link from "next/link";
 import { Sidebar } from "@/components/sidebar";
 import { TopNav } from "@/components/top-nav";
 import { EditModeProvider } from "@/components/edit-mode-provider";
+import { UserPreferencesProvider } from "@/components/user-preferences-provider";
 
 export default function AppLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
+    <UserPreferencesProvider>
     <EditModeProvider>
       <Sidebar />
       <TopNav />
@@ -33,5 +35,6 @@ export default function AppLayout({
         </div>
       </div>
     </EditModeProvider>
+    </UserPreferencesProvider>
   );
 }

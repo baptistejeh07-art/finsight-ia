@@ -55,6 +55,22 @@
     font-feature-settings: "cv11", "ss01", "ss03";
   }
 
+  /* === Polices utilisateur (via data-font sur <html>, user_preferences) === */
+  html[data-font="sans"] body {
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    font-feature-settings: normal;
+  }
+  html[data-font="system"] body {
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-feature-settings: normal;
+  }
+  html[data-font="dyslexia"] body {
+    font-family: "OpenDyslexic", "Comic Sans MS", "Verdana", sans-serif;
+    font-feature-settings: normal;
+    letter-spacing: 0.03em;
+    word-spacing: 0.1em;
+  }
+
   /* Scrollbar minimaliste — adaptative */
   ::-webkit-scrollbar {
     width: 8px;
