@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { useI18n } from "@/i18n/provider";
 import {
   ChevronsUpDown,
   Settings,
@@ -20,6 +21,7 @@ import type { User } from "@supabase/supabase-js";
  * - Hors session : bouton « Se connecter » uniquement
  */
 export function SidebarUserMenu() {
+  const { t } = useI18n();
   const [user, setUser] = useState<User | null>(null);
   const [open, setOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -84,19 +86,19 @@ export function SidebarUserMenu() {
           <MenuItem
             href="/parametres"
             icon={<Settings className="w-4 h-4" />}
-            label="Paramètres"
+            label={t("common.settings")}
             onNavigate={() => setOpen(false)}
           />
           <MenuItem
             href="/aide"
             icon={<HelpCircle className="w-4 h-4" />}
-            label="Obtenir de l'aide"
+            label={t("nav.get_help")}
             onNavigate={() => setOpen(false)}
           />
           <MenuItem
             href="/methodologie"
             icon={<Info className="w-4 h-4" />}
-            label="En savoir plus"
+            label={t("nav.learn_more")}
             onNavigate={() => setOpen(false)}
           />
 
@@ -108,7 +110,7 @@ export function SidebarUserMenu() {
               className="w-full flex items-center gap-2 px-3 py-2 text-sm text-ink-700 hover:bg-ink-50 transition-colors"
             >
               <LogOut className="w-4 h-4" />
-              Se déconnecter
+              {t("nav.sign_out")}
             </button>
           </div>
         </div>

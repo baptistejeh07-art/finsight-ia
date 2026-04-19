@@ -63,7 +63,10 @@
     "pdf_report": "PDF report",
     "pptx_pitchbook": "Pitchbook",
     "xlsx_model": "Financial Excel",
-    "contact": "Contact us"
+    "contact": "Contact us",
+    "get_help": "Get help",
+    "learn_more": "Learn more",
+    "sign_out": "Sign out"
   },
   "auth": {
     "login": "Sign in",
