@@ -1,0 +1,42 @@
+{
+  "common": {
+    "yes": "Yes",
+    "no": "No",
+    "year": "Year",
+    "currency": "Currency",
+    "value": "Value",
+    "total": "Total",
+    "date": "Date",
+    "source": "Source",
+    "page": "Page",
+    "of": "of"
+  },
+  "report": {
+    "synthesis": "Synthesis",
+    "valuation": "Valuation",
+    "ratios": "Financial ratios",
+    "peers": "Comparable companies",
+    "scoring": "Scoring",
+    "executive_summary": "Executive summary",
+    "appendix": "Appendix",
+    "disclaimer": "This analysis does not constitute investment advice.",
+    "company_info": "Company identity",
+    "directors": "Directors",
+    "bodacc": "BODACC publications",
+    "footer": "FinSight IA — Automated analysis"
+  },
+  "altman": {
+    "safe": "Safe zone",
+    "grey": "Grey zone",
+    "distress": "Likely distress"
+  },
+  "kpi": {
+    "ca_growth": "Revenue growth",
+    "margin_evolution": "Margin evolution",
+    "cash_position": "Cash position",
+    "leverage": "Leverage",
+    "health_score": "Health score",
+    "bankability_score": "Bankability score",
+    "altman_zscore": "Altman Z-Score"
+  }
+}

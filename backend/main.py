@@ -1078,43 +1078,70 @@ def _load_job_state(job_id: str) -> dict:
     return (result.get("data") or {}) if isinstance(result, dict) else {}
 
 
-def _build_qa_messages(req: "QARequest", state: dict) -> tuple[str, str]:
-    """Construit (system_prompt, user_prompt) pour le QA depuis state + messages."""
+def _build_qa_messages(req: "QARequest", state: dict, language: str = "fr") -> tuple[str, str]:
+    """Construit (system_prompt, user_prompt) pour le QA depuis state + messages.
+    `language` : code ISO court (fr/en/es/de/it/pt) — détermine la langue de réponse.
+    """
+    from core.i18n import system_language_directive, normalize_language
+
+    language = normalize_language(language)
     context = _build_qa_context(state)
     if not req.messages:
         raise HTTPException(400, "Aucun message")
     if req.messages[-1].role != "user":
         raise HTTPException(400, "Le dernier message doit être de l'utilisateur")
     ticker = (state.get("ticker") or (state.get("raw_data") or {}).get("ticker") or "—")
+    lang_directive = system_language_directive(language)
     system = (
-        "Tu es un analyste financier IA expert. Tu réponds aux questions de "
-        "l'utilisateur sur l'analyse FinSight ci-dessous. Tu écris en français "
-        "correct avec accents (é è ê à ç). Tu es factuel, concis (2-4 paragraphes "
-        "max), tu cites les chiffres du contexte quand pertinent. Si la question "
-        "sort du périmètre de l'analyse, tu le dis clairement.\n\n"
-        f"=== Contexte analyse {ticker} ===\n{context}\n=== Fin contexte ==="
+        f"You are an expert financial AI analyst. You answer the user's "
+        f"questions about the FinSight analysis below. {lang_directive} "
+        f"Be factual, concise (2-4 paragraphs max), cite figures from the "
+        f"context when relevant. If a question is out of scope, say so clearly.\n\n"
+        f"=== Analysis context {ticker} ===\n{context}\n=== End of context ==="
     )
+    # Étiquettes interlocuteurs traduites
+    user_label = {
+        "fr": "Utilisateur", "en": "User", "es": "Usuario",
+        "de": "Benutzer", "it": "Utente", "pt": "Utilizador",
+    }.get(language, "User")
+    asst_label = {
+        "fr": "Assistant", "en": "Assistant", "es": "Asistente",
+        "de": "Assistent", "it": "Assistente", "pt": "Assistente",
+    }.get(language, "Assistant")
+
     convo_lines = []
     for m in req.messages[:-1]:
-        prefix = "Utilisateur" if m.role == "user" else "Assistant"
+        prefix = user_label if m.role == "user" else asst_label
         convo_lines.append(f"{prefix}: {m.content}")
-    convo_lines.append(f"Utilisateur: {req.messages[-1].content}")
-    convo_lines.append("Assistant:")
+    convo_lines.append(f"{user_label}: {req.messages[-1].content}")
+    convo_lines.append(f"{asst_label}:")
     return system, "\n".join(convo_lines)
 
 
+def _user_locale(request: Request) -> tuple[str, str]:
+    """Extrait (language, currency) des headers HTTP du frontend.
+    Defaults : fr / EUR.
+    """
+    from core.i18n import normalize_language, normalize_currency
+    lang = request.headers.get("x-user-language") or request.headers.get("X-User-Language")
+    ccy = request.headers.get("x-user-currency") or request.headers.get("X-User-Currency")
+    return normalize_language(lang), normalize_currency(ccy)
+
+
 @app.post("/qa/stream")
-async def qa_stream_endpoint(req: QARequest):
+async def qa_stream_endpoint(req: QARequest, request: Request):
     """Q&A en streaming SSE. Renvoie des events `data: {"chunk": "..."}` puis
     `data: {"done": true}` à la fin. Fallback non-streamé si tous providers
     streaming échouent.
+    Langue de réponse pilotée par le header `X-User-Language`.
     """
     from fastapi.responses import StreamingResponse
     import asyncio
     import json as _json
 
+    language, _ccy = _user_locale(request)
     state = _load_job_state(req.job_id)
-    system, user_prompt = _build_qa_messages(req, state)
+    system, user_prompt = _build_qa_messages(req, state, language=language)
 
     async def _gen():
         # Tente Groq streaming en priorité (le plus rapide pour stream)
@@ -1185,35 +1212,12 @@ async def qa_stream_endpoint(req: QARequest):
 
 
 @app.post("/qa", response_model=QAResponse)
-async def qa_endpoint(req: QARequest):
-    """Q&A multi-tour sur une analyse. L'historique est passé par le client."""
+async def qa_endpoint(req: QARequest, request: Request):
+    """Q&A multi-tour sur une analyse. L'historique est passé par le client.
+    Langue pilotée par header X-User-Language."""
+    language, _ccy = _user_locale(request)
     state = _load_job_state(req.job_id)
-    context = _build_qa_context(state)
-
-    if not req.messages:
-        raise HTTPException(400, "Aucun message")
-    if req.messages[-1].role != "user":
-        raise HTTPException(400, "Le dernier message doit être de l'utilisateur")
-
-    # System prompt : analyste IA expert, français correct avec accents
-    ticker = (state.get("ticker") or (state.get("raw_data") or {}).get("ticker") or "—")
-    system = (
-        "Tu es un analyste financier IA expert. Tu réponds aux questions de "
-        "l'utilisateur sur l'analyse FinSight ci-dessous. Tu écris en français "
-        "correct avec accents (é è ê à ç). Tu es factuel, concis (2-4 paragraphes "
-        "max), tu cites les chiffres du contexte quand pertinent. Si la question "
-        "sort du périmètre de l'analyse, tu le dis clairement.\n\n"
-        f"=== Contexte analyse {ticker} ===\n{context}\n=== Fin contexte ==="
-    )
-
-    # Construit la conversation : historique + dernière question
-    convo_lines = []
-    for m in req.messages[:-1]:
-        prefix = "Utilisateur" if m.role == "user" else "Assistant"
-        convo_lines.append(f"{prefix}: {m.content}")
-    convo_lines.append(f"Utilisateur: {req.messages[-1].content}")
-    convo_lines.append("Assistant:")
-    user_prompt = "\n".join(convo_lines)
+    system, user_prompt = _build_qa_messages(req, state, language=language)
 
     # Appel LLM (Groq par défaut → fallback Mistral / Anthropic en cas d'erreur)
     from core.llm_provider import LLMProvider

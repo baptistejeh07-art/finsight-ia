@@ -28,6 +28,24 @@ async function getAuthHeader(): Promise<HeadersInit> {
   return {};
 }
 
+/** Lit la langue + devise depuis localStorage (mirror de useUserPreferences).
+ * Renvoie les headers à ajouter à toute requête API pour propager les prefs.
+ */
+function getLocaleHeaders(): HeadersInit {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = window.localStorage.getItem("finsight-user-preferences");
+    if (!raw) return {};
+    const p = JSON.parse(raw);
+    const headers: Record<string, string> = {};
+    if (p.language) headers["X-User-Language"] = String(p.language);
+    if (p.currency) headers["X-User-Currency"] = String(p.currency);
+    return headers;
+  } catch {
+    return {};
+  }
+}
+
 async function apiPost<T>(endpoint: string, body: unknown): Promise<T> {
   const authHeader = await getAuthHeader();
   const res = await fetch(`${API_URL}${endpoint}`, {
@@ -35,6 +53,7 @@ async function apiPost<T>(endpoint: string, body: unknown): Promise<T> {
     headers: {
       "Content-Type": "application/json",
       ...authHeader,
+      ...getLocaleHeaders(),
     },
     body: JSON.stringify(body),
   });
@@ -47,7 +66,7 @@ async function apiPost<T>(endpoint: string, body: unknown): Promise<T> {
 async function apiGet<T>(endpoint: string): Promise<T> {
   const authHeader = await getAuthHeader();
   const res = await fetch(`${API_URL}${endpoint}`, {
-    headers: { ...authHeader },
+    headers: { ...authHeader, ...getLocaleHeaders() },
   });
   if (!res.ok) {
     throw new Error(`API ${endpoint} failed (${res.status})`);
@@ -261,7 +280,7 @@ export async function askQAStream(
   const authHeader = await getAuthHeader();
   const res = await fetch(`${API_URL}/qa/stream`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...authHeader },
+    headers: { "Content-Type": "application/json", ...authHeader, ...getLocaleHeaders() },
     body: JSON.stringify({ job_id: jobId, messages }),
     signal: callbacks.signal,
   });
