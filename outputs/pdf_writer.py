@@ -18,6 +18,79 @@ from datetime import date as _date_cls
 from pathlib import Path
 from core.yfinance_cache import get_ticker
 
+# ─── i18n helper — section titles et labels fixes ─────────────────────────
+# Module-level : défini par generate_report() au début du call, lu par les
+# fonctions builders sans avoir besoin de passer lang en argument partout.
+_CURRENT_LANG: str = "fr"
+
+_PDF_LABELS: dict[str, dict[str, str]] = {
+    "sommaire":          {"fr": "Sommaire", "en": "Table of contents",
+                          "es": "Índice", "de": "Inhalt",
+                          "it": "Sommario", "pt": "Sumário"},
+    "recommandation":    {"fr": "Recommandation", "en": "Recommendation",
+                          "es": "Recomendación", "de": "Empfehlung",
+                          "it": "Raccomandazione", "pt": "Recomendação"},
+    "valorisation":      {"fr": "Valorisation", "en": "Valuation",
+                          "es": "Valoración", "de": "Bewertung",
+                          "it": "Valutazione", "pt": "Avaliação"},
+    "analyse_financiere":{"fr": "Analyse Financière", "en": "Financial Analysis",
+                          "es": "Análisis Financiero", "de": "Finanzanalyse",
+                          "it": "Analisi Finanziaria", "pt": "Análise Financeira"},
+    "synthese_executive":{"fr": "Synthèse Exécutive", "en": "Executive Summary",
+                          "es": "Resumen Ejecutivo", "de": "Zusammenfassung",
+                          "it": "Sintesi Esecutiva", "pt": "Resumo Executivo"},
+    "synthese":          {"fr": "Synthèse", "en": "Summary",
+                          "es": "Síntesis", "de": "Zusammenfassung",
+                          "it": "Sintesi", "pt": "Síntese"},
+    "ratios":            {"fr": "Ratios", "en": "Ratios",
+                          "es": "Ratios", "de": "Kennzahlen",
+                          "it": "Indici", "pt": "Rácios"},
+    "risques_sentiment": {"fr": "Analyse des Risques & Sentiment de Marché",
+                          "en": "Risk Analysis & Market Sentiment",
+                          "es": "Análisis de Riesgos y Sentimiento del Mercado",
+                          "de": "Risiko- & Marktstimmungsanalyse",
+                          "it": "Analisi Rischi & Sentiment di Mercato",
+                          "pt": "Análise de Riscos & Sentimento de Mercado"},
+    "conclusion":        {"fr": "Conclusion", "en": "Conclusion",
+                          "es": "Conclusión", "de": "Schlussfolgerung",
+                          "it": "Conclusione", "pt": "Conclusão"},
+    "sources":           {"fr": "Sources", "en": "Sources",
+                          "es": "Fuentes", "de": "Quellen",
+                          "it": "Fonti", "pt": "Fontes"},
+    "disclaimer":        {"fr": "Avertissement", "en": "Disclaimer",
+                          "es": "Aviso legal", "de": "Haftungsausschluss",
+                          "it": "Avvertenza", "pt": "Aviso legal"},
+    "about_analysis":    {"fr": "À propos de cette analyse",
+                          "en": "About this analysis",
+                          "es": "Acerca de este análisis",
+                          "de": "Über diese Analyse",
+                          "it": "Informazioni su questa analisi",
+                          "pt": "Sobre esta análise"},
+    "methodology":       {"fr": "Points de vigilance méthodologiques",
+                          "en": "Methodological caveats",
+                          "es": "Puntos de vigilancia metodológicos",
+                          "de": "Methodische Hinweise",
+                          "it": "Avvertenze metodologiche",
+                          "pt": "Pontos de atenção metodológicos"},
+    "page_of":           {"fr": "Page", "en": "Page",
+                          "es": "Página", "de": "Seite",
+                          "it": "Pagina", "pt": "Página"},
+    "confidential":      {"fr": "Confidentiel", "en": "Confidential",
+                          "es": "Confidencial", "de": "Vertraulich",
+                          "it": "Riservato", "pt": "Confidencial"},
+    "confidential_report":{"fr": "Rapport confidentiel", "en": "Confidential report",
+                          "es": "Informe confidencial", "de": "Vertraulicher Bericht",
+                          "it": "Rapporto riservato", "pt": "Relatório confidencial"},
+}
+
+
+def _lbl(key: str) -> str:
+    """Renvoie le libellé FR/EN/ES/DE/IT/PT selon _CURRENT_LANG module-level."""
+    spec = _PDF_LABELS.get(key)
+    if not spec:
+        return key
+    return spec.get(_CURRENT_LANG) or spec.get("en") or spec.get("fr") or key
+
 try:
     import matplotlib
     matplotlib.use('Agg')
@@ -1414,7 +1487,7 @@ def _build_sommaire(data):
 
 def _build_synthese(perf_buf, data):
     elems = []
-    elems += section_title("Synth\u00e8se Ex\u00e9cutive", 1)
+    elems += section_title(_lbl("synthese_executive"), 1)
 
     elems.append(Paragraph(_safe(_d(data, 'summary_text')), S_BODY))
     elems.append(Spacer(1, 3*mm))
@@ -1502,7 +1575,7 @@ def _build_financials(area_buf, data, margins_buf=None):
     # Section 2 commence toujours par PageBreak + Spacer(8mm)
     elems.append(PageBreak())
     elems.append(Spacer(1, 8*mm))
-    elems += section_title("Analyse Financi\u00e8re", 2)
+    elems += section_title(_lbl("analyse_financiere"), 2)
     elems.append(Spacer(1, 4*mm))
     elems.append(debate_q(
         "La trajectoire financi\u00e8re justifie-t-elle la prime de valorisation actuelle ?"))
@@ -1802,7 +1875,7 @@ def _build_financials(area_buf, data, margins_buf=None):
 
 def _build_valorisation(ff_buf, pie_buf, mc_buf, data):
     elems = []
-    elems += section_title("Valorisation", 3)
+    elems += section_title(_lbl("valorisation"), 3)
     elems.append(debate_q(
         "La valeur intrins\u00e8que confirme-t-elle le cours actuel et quel est l'upside r\u00e9siduel ?"))
     elems.append(Paragraph(_safe(_d(data, 'dcf_text_intro')), S_BODY))
@@ -3004,7 +3077,7 @@ def _build_lbo(data):
 
 def _build_risques(data):
     elems = []
-    elems += section_title("Analyse des Risques & Sentiment de March\u00e9", 4)
+    elems += section_title(_lbl("risques_sentiment"), 4)
 
     bear_args = data.get('bear_args') or []
     bear_h    = [Paragraph("Axe de risque", S_TH_L),
@@ -3193,7 +3266,7 @@ def _build_risques(data):
          Paragraph(_safe(_d(data, 'next_review')), S_TD_C)],
     ]
     elems.append(KeepTogether(
-        section_title("Synth\u00e8se & Recommandation Finale", 5) +
+        section_title(_lbl("synthese") + " & " + _lbl("recommandation"), 5) +
         [tbl(reco_tbl, cw=[28*mm, 32*mm, 28*mm, 22*mm, 28*mm, 32*mm])]
     ))
     elems.append(Spacer(1, 4*mm))
@@ -3747,6 +3820,12 @@ def generate_report(data: dict, output_path: str) -> str:
     Returns:
         str : Chemin absolu du fichier genere.
     """
+    # i18n : active la langue cible (module-level, lu par _lbl())
+    global _CURRENT_LANG
+    _CURRENT_LANG = (data.get("_language") or "fr").lower()[:2]
+    if _CURRENT_LANG not in {"fr","en","es","de","it","pt"}:
+        _CURRENT_LANG = "fr"
+
     def _safe_chart(fn, label):
         if not _MATPLOTLIB_OK:
             log.warning("[generate_report] matplotlib non disponible — chart '%s' skippe", label)
@@ -3810,10 +3889,10 @@ def generate_report(data: dict, output_path: str) -> str:
         f"Rapport confidentiel \u00b7 {date_analyse}",
         _s('rs', size=8, color=GREY_TEXT, leading=11, sa=6)))
     story.append(rule())
-    story.append(Paragraph("Sommaire", S_SECTION))
+    story.append(Paragraph(_lbl("sommaire"), S_SECTION))
     story.append(_build_sommaire(data))
     story.append(Spacer(1, 5*mm))
-    story.append(Paragraph("\u00c0 propos de cette analyse", S_SUBSECTION))
+    story.append(Paragraph(_lbl("about_analysis"), S_SUBSECTION))
     story.append(Paragraph(
         "L'analyse fondamentale repose sur les donn\u00e9es financi\u00e8res historiques issues "
         "de sources publiques (yfinance, Finnhub, FMP). La valorisation DCF est calcul\u00e9e "
@@ -3829,7 +3908,7 @@ def generate_report(data: dict, output_path: str) -> str:
 
     # FIX 3 — Points de vigilance methodologiques
     story.append(Spacer(1, 6*mm))
-    story.append(Paragraph("Points de vigilance m\u00e9thodologiques", S_SUBSECTION))
+    story.append(Paragraph(_lbl("methodology"), S_SUBSECTION))
     story.append(Spacer(1, 2*mm))
     _vigil_h = [Paragraph(h, S_TH_L) for h in ["Aspect", "Limitation", "Mitigation"]]
     _vigil_rows = [
@@ -5400,6 +5479,9 @@ class PDFWriter:
         except Exception as _e:
             log.error("[PDFWriter] _state_to_data FAILED: %s", _e, exc_info=True)
             raise
+        # i18n : injecter langue + devise dans data pour que generate_report les utilise
+        data["_language"] = self._language
+        data["_currency"] = self._currency
         try:
             return generate_report(data, output_path)
         except Exception as _e2:
