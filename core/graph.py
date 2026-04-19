@@ -254,7 +254,8 @@ def synthesis_node(state: FinSightState) -> dict:
 
     t0 = time.time()
     try:
-        synthesis = AgentSynthese().synthesize(snapshot, ratios, sentiment)
+        _lang = state.get("language") or "fr"
+        synthesis = AgentSynthese(language=_lang).synthesize(snapshot, ratios, sentiment)
         ms = int((time.time() - t0) * 1000)
 
         # synthesize() peut retourner None sans lever d'exception
