@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS public.user_preferences (
   theme TEXT DEFAULT 'auto' CHECK (theme IN ('light', 'auto', 'dark')),
   background_animation TEXT DEFAULT 'auto' CHECK (background_animation IN ('on', 'auto', 'off')),
   font TEXT DEFAULT 'default' CHECK (font IN ('default', 'sans', 'system', 'dyslexia')),
+  logo_size TEXT DEFAULT 'lg' CHECK (logo_size IN ('sm', 'md', 'lg', 'xl', '2xl', '3xl')),
 
   -- === Onglet Général : Notifications (jsonb pour extensibilité) ===
   notifications JSONB DEFAULT '{

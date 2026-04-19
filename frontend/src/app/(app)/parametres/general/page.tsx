@@ -3,7 +3,16 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useUserPreferences } from "@/hooks/use-user-preferences";
-import type { Theme, BackgroundAnimation, Font } from "@/hooks/use-user-preferences";
+import type { Theme, BackgroundAnimation, Font, LogoSize } from "@/hooks/use-user-preferences";
+
+const LOGO_SIZES: { value: LogoSize; label: string; px: string }[] = [
+  { value: "sm", label: "Petit", px: "32 px" },
+  { value: "md", label: "Moyen", px: "48 px" },
+  { value: "lg", label: "Grand", px: "64 px" },
+  { value: "xl", label: "Très grand", px: "96 px" },
+  { value: "2xl", label: "Énorme", px: "128 px" },
+  { value: "3xl", label: "Maximum", px: "160 px" },
+];
 
 const PROFESSIONS = [
   "Étudiant",
@@ -178,11 +187,53 @@ export default function GeneralPage() {
         </div>
 
         <p className="text-sm text-ink-600 mb-4">Police d&apos;affichage</p>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 max-w-2xl">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 max-w-2xl mb-8">
           <FontCard label="Par défaut" active={prefs.font === "default"} onClick={() => update({ font: "default" as Font })} />
           <FontCard label="Sans" active={prefs.font === "sans"} onClick={() => update({ font: "sans" as Font })} />
           <FontCard label="Système" active={prefs.font === "system"} onClick={() => update({ font: "system" as Font })} />
           <FontCard label="Adapté aux dyslexiques" active={prefs.font === "dyslexia"} onClick={() => update({ font: "dyslexia" as Font })} />
+        </div>
+
+        {/* === Taille du logo === */}
+        <p className="text-sm text-ink-600 mb-2">Taille du logo</p>
+        <p className="text-xs text-ink-500 mb-4">
+          Ajustez la taille du logo FinSight affiché dans la barre de navigation et le pied de page.
+          L&apos;aperçu se met à jour instantanément.
+        </p>
+        <div className="flex items-center gap-4 max-w-xl">
+          <input
+            type="range"
+            min="0"
+            max="5"
+            step="1"
+            value={LOGO_SIZES.findIndex((s) => s.value === prefs.logo_size)}
+            onChange={(e) => {
+              const idx = parseInt(e.target.value, 10);
+              update({ logo_size: LOGO_SIZES[idx].value });
+            }}
+            className="flex-1 accent-navy-500"
+          />
+          <div className="text-sm font-medium text-ink-800 min-w-[110px]">
+            {LOGO_SIZES.find((s) => s.value === prefs.logo_size)?.label}
+            <span className="text-xs text-ink-500 ml-1">
+              ({LOGO_SIZES.find((s) => s.value === prefs.logo_size)?.px})
+            </span>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 mt-2 max-w-xl text-[10px] text-ink-400 uppercase tracking-wider">
+          {LOGO_SIZES.map((s) => (
+            <button
+              key={s.value}
+              type="button"
+              onClick={() => update({ logo_size: s.value })}
+              className={
+                "flex-1 text-center hover:text-ink-700 transition-colors " +
+                (prefs.logo_size === s.value ? "text-navy-500 font-semibold" : "")
+              }
+            >
+              {s.value}
+            </button>
+          ))}
         </div>
       </section>
     </div>

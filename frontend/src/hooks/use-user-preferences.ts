@@ -7,6 +7,7 @@ export type Theme = "light" | "auto" | "dark";
 export type BackgroundAnimation = "on" | "auto" | "off";
 export type Font = "default" | "sans" | "system" | "dyslexia";
 export type ToolsMode = "on_demand" | "preloaded";
+export type LogoSize = "sm" | "md" | "lg" | "xl" | "2xl" | "3xl";
 
 export interface UserPreferences {
   user_id?: string;
@@ -19,6 +20,7 @@ export interface UserPreferences {
   theme: Theme;
   background_animation: BackgroundAnimation;
   font: Font;
+  logo_size: LogoSize;
   // Notifications
   notifications: {
     completion: boolean;
@@ -47,6 +49,7 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
   theme: "auto",
   background_animation: "auto",
   font: "default",
+  logo_size: "lg",
   notifications: {
     completion: false,
     email_reports: false,
@@ -118,6 +121,7 @@ export function useUserPreferences() {
             theme: data.theme ?? "auto",
             background_animation: data.background_animation ?? "auto",
             font: data.font ?? "default",
+            logo_size: data.logo_size ?? "lg",
             notifications: { ...DEFAULT_PREFERENCES.notifications, ...(data.notifications || {}) },
             privacy: { ...DEFAULT_PREFERENCES.privacy, ...(data.privacy || {}) },
             capabilities: { ...DEFAULT_PREFERENCES.capabilities, ...(data.capabilities || {}) },
@@ -169,6 +173,7 @@ export function useUserPreferences() {
               theme: next.theme,
               background_animation: next.background_animation,
               font: next.font,
+              logo_size: next.logo_size,
               notifications: next.notifications,
               privacy: next.privacy,
               capabilities: next.capabilities,
