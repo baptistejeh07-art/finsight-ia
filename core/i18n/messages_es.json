@@ -31,7 +31,11 @@
     "sources": "Fuentes",
     "no_accounts_data": "Sin datos contables.",
     "no_ratios": "Sin ratios disponibles.",
-    "no_data": "Sin datos."
+    "no_data": "Sin datos.",
+    "key_figures": "Cifras clave",
+    "sector_positioning": "Posicionamiento sectorial",
+    "scoring_health": "Puntuación salud y bancabilidad",
+    "synthesis_disclaimer": "Síntesis y aviso"
   },
   "altman": {
     "safe": "Zona segura",

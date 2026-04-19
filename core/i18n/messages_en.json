@@ -38,7 +38,11 @@
     "sources": "Sources",
     "no_accounts_data": "No accounting data available.",
     "no_ratios": "No ratios available.",
-    "no_data": "No data."
+    "no_data": "No data.",
+    "key_figures": "Key figures",
+    "sector_positioning": "Sector positioning",
+    "scoring_health": "Health & bankability scoring",
+    "synthesis_disclaimer": "Synthesis & disclaimer"
   },
   "altman": {
     "safe": "Safe zone",

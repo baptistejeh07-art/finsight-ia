@@ -76,6 +76,12 @@ def write_pme_pptx(
     from pptx.enum.text import PP_ALIGN
     from pptx.enum.shapes import MSO_SHAPE
 
+    # Helper i18n
+    from core.i18n import t as _i18n_t, normalize_language
+    _lang = normalize_language(language)
+    def _t(key, default=None):
+        return _i18n_t(_lang, key, default)
+
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -166,7 +172,7 @@ def write_pme_pptx(
 
     # ─── S2 Identité ───
     s = prs.slides.add_slide(blank_layout)
-    _add_title(s, "Identité & gouvernance")
+    _add_title(s, _t("report.identity_governance"))
     lines = [
         f"Dénomination : {denomination}",
         f"SIREN : {siren}",
@@ -179,7 +185,7 @@ def write_pme_pptx(
 
     # ─── S3 KPI ───
     s = prs.slides.add_slide(blank_layout)
-    _add_title(s, "Chiffres clés")
+    _add_title(s, _t("report.key_figures"))
     if last_year:
         sig = analysis.sig_by_year[last_year]
         ca = next((y.chiffre_affaires for y in yearly_accounts if y.annee == last_year), None)
@@ -200,7 +206,7 @@ def write_pme_pptx(
 
     # ─── S4 SIG ───
     s = prs.slides.add_slide(blank_layout)
-    _add_title(s, "Soldes intermédiaires de gestion")
+    _add_title(s, _t("report.sig"))
     years = sorted(analysis.sig_by_year.keys())
     if years:
         sig_items = []
@@ -211,7 +217,7 @@ def write_pme_pptx(
 
     # ─── S5 Rentabilité ───
     s = prs.slides.add_slide(blank_layout)
-    _add_title(s, "Rentabilité")
+    _add_title(s, _t("report.profitability"))
     if last_year:
         r = analysis.ratios_by_year[last_year]
         items = [
@@ -228,7 +234,7 @@ def write_pme_pptx(
 
     # ─── S6 Solidité ───
     s = prs.slides.add_slide(blank_layout)
-    _add_title(s, "Solidité financière")
+    _add_title(s, _t("report.solvency"))
     if last_year:
         r = analysis.ratios_by_year[last_year]
         items = [
@@ -245,7 +251,7 @@ def write_pme_pptx(
 
     # ─── S7 Efficacité ───
     s = prs.slides.add_slide(blank_layout)
-    _add_title(s, "Efficacité opérationnelle")
+    _add_title(s, _t("report.efficiency"))
     if last_year:
         r = analysis.ratios_by_year[last_year]
         items = [
@@ -262,7 +268,7 @@ def write_pme_pptx(
 
     # ─── S8 Benchmark ───
     s = prs.slides.add_slide(blank_layout)
-    _add_title(s, f"Positionnement sectoriel (source : {benchmark.source})")
+    _add_title(s, f"{_t('report.sector_positioning')} ({_t('common.source')} : {benchmark.source})")
     lines = []
     if benchmark.forces:
         lines.append("Forces : " + ", ".join(benchmark.forces))
@@ -274,7 +280,7 @@ def write_pme_pptx(
 
     # ─── S9 Scoring ───
     s = prs.slides.add_slide(blank_layout)
-    _add_title(s, "Scoring santé & bankabilité")
+    _add_title(s, _t("report.scoring_health"))
     items = [
         ("Altman Z-Score", f"{analysis.altman_z:.2f}" if analysis.altman_z else "—"),
         ("Verdict", analysis.altman_verdict),
@@ -288,7 +294,7 @@ def write_pme_pptx(
 
     # ─── S10 Synthèse ───
     s = prs.slides.add_slide(blank_layout)
-    _add_title(s, "Synthèse & disclaimer")
+    _add_title(s, _t("report.synthesis_disclaimer"))
     lines = [
         f"Cette analyse porte sur {denomination} (SIREN {siren}).",
         f"Profil sectoriel appliqué : {analysis.profile.name}.",

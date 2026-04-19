@@ -31,7 +31,11 @@
     "sources": "Fonti",
     "no_accounts_data": "Nessun dato contabile.",
     "no_ratios": "Nessun indice disponibile.",
-    "no_data": "Nessun dato."
+    "no_data": "Nessun dato.",
+    "key_figures": "Cifre chiave",
+    "sector_positioning": "Posizionamento settoriale",
+    "scoring_health": "Punteggio salute e bancabilità",
+    "synthesis_disclaimer": "Sintesi e avviso"
   },
   "altman": {
     "safe": "Zona sicura",

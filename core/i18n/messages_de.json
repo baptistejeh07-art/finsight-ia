@@ -31,7 +31,11 @@
     "sources": "Quellen",
     "no_accounts_data": "Keine Buchhaltungsdaten.",
     "no_ratios": "Keine Kennzahlen verfügbar.",
-    "no_data": "Keine Daten."
+    "no_data": "Keine Daten.",
+    "key_figures": "Kennzahlen",
+    "sector_positioning": "Sektorpositionierung",
+    "scoring_health": "Gesundheits- und Bankability-Bewertung",
+    "synthesis_disclaimer": "Zusammenfassung und Hinweis"
   },
   "altman": {
     "safe": "Sicherheitszone",
