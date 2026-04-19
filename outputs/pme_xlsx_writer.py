@@ -45,10 +45,12 @@ def write_pme_xlsx(
         raise RuntimeError("openpyxl requis") from e
 
     # i18n helper
-    from core.i18n import t as _i18n_t, normalize_language
+    from core.i18n import t as _i18n_t, ratio_label as _i18n_ratio, normalize_language
     _lang = normalize_language(language)
     def _t(key, default=None):
         return _i18n_t(_lang, key, default)
+    def _rl(key):
+        return _i18n_ratio(key, _lang)
 
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -121,19 +123,19 @@ def write_pme_xlsx(
         c.fill = header_fill
 
     ratio_lines = [
-        ("Marge EBITDA (%)", "marge_ebitda", "pct"),
-        ("Marge nette (%)", "marge_nette", "pct"),
-        ("ROCE (%)", "roce", "pct"),
-        ("ROE (%)", "roe", "pct"),
-        ("Dette nette / EBITDA", "dette_nette_ebitda", "x"),
-        ("Couverture intérêts", "couverture_interets", "x"),
-        ("Autonomie financière (%)", "autonomie_financiere", "pct"),
-        ("BFR (jours de CA)", "bfr_jours_ca", "days"),
-        ("DSO (jours)", "dso_jours", "days"),
-        ("DPO (jours)", "dpo_jours", "days"),
-        ("Rotation stocks", "rotation_stocks", "x"),
-        ("CA / employé (€)", "ca_par_employe", "eur"),
-        ("Charges perso / CA (%)", "charges_perso_ca", "pct"),
+        (_rl("marge_ebitda"), "marge_ebitda", "pct"),
+        (_rl("marge_nette"), "marge_nette", "pct"),
+        (_rl("roce"), "roce", "pct"),
+        (_rl("roe"), "roe", "pct"),
+        (_rl("dette_nette_ebitda"), "dette_nette_ebitda", "x"),
+        (_rl("couverture_interets"), "couverture_interets", "x"),
+        (_rl("autonomie_financiere"), "autonomie_financiere", "pct"),
+        (_rl("bfr_jours_ca"), "bfr_jours_ca", "days"),
+        (_rl("dso_jours"), "dso_jours", "days"),
+        (_rl("dpo_jours"), "dpo_jours", "days"),
+        (_rl("rotation_stocks"), "rotation_stocks", "x"),
+        (_rl("ca_par_employe"), "ca_par_employe", "eur"),
+        (_rl("charges_perso_ca"), "charges_perso_ca", "pct"),
     ]
     for row_idx, (label, attr, kind) in enumerate(ratio_lines, start=4):
         ws2.cell(row=row_idx, column=1, value=label).font = label_font
