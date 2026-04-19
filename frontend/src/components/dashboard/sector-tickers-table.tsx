@@ -1,4 +1,7 @@
+"use client";
+
 import type { SectorTicker } from "./types";
+import { useI18n } from "@/i18n/provider";
 
 interface Props {
   tickers: SectorTicker[];
@@ -23,10 +26,11 @@ function fmtMcap(v: number | null | undefined): string {
 }
 
 export function SectorTickersTable({ tickers, sectorLabel }: Props) {
+  const { t } = useI18n();
   if (!tickers || tickers.length === 0) {
     return (
       <div className="bg-white border border-ink-200 rounded-md p-5 h-full flex items-center justify-center">
-        <span className="text-xs text-ink-400">Aucune société disponible</span>
+        <span className="text-xs text-ink-400">{t("kpi.no_companies")}</span>
       </div>
     );
   }
@@ -35,20 +39,20 @@ export function SectorTickersTable({ tickers, sectorLabel }: Props) {
     <div className="bg-white border border-ink-200 rounded-md overflow-hidden h-full flex flex-col">
       <div className="px-3 pt-2.5 pb-1.5 flex-none">
         <div className="text-[10px] font-semibold uppercase tracking-[1.5px] text-ink-500">
-          Sociétés du secteur{sectorLabel ? ` — ${sectorLabel}` : ""}
+          {t("nav.sector")}{sectorLabel ? ` — ${sectorLabel}` : ""}
         </div>
       </div>
       <div className="overflow-auto flex-1">
         <table className="w-full text-[11px]">
           <thead className="bg-ink-50 text-ink-600 sticky top-0">
             <tr>
-              <th className="text-left px-3 py-1.5 font-semibold">Ticker</th>
-              <th className="text-left px-2 py-1.5 font-semibold">Société</th>
-              <th className="text-right px-2 py-1.5 font-semibold">Mkt Cap</th>
-              <th className="text-right px-2 py-1.5 font-semibold">P/E</th>
-              <th className="text-right px-2 py-1.5 font-semibold">EV/EBITDA</th>
-              <th className="text-right px-2 py-1.5 font-semibold">Marge EBITDA</th>
-              <th className="text-right px-2 py-1.5 font-semibold">ROE</th>
+              <th className="text-left px-3 py-1.5 font-semibold">{t("kpi.ticker")}</th>
+              <th className="text-left px-2 py-1.5 font-semibold">{t("kpi.company")}</th>
+              <th className="text-right px-2 py-1.5 font-semibold">{t("kpi.market_cap_short")}</th>
+              <th className="text-right px-2 py-1.5 font-semibold">{t("kpi.pe")}</th>
+              <th className="text-right px-2 py-1.5 font-semibold">{t("kpi.ev_ebitda")}</th>
+              <th className="text-right px-2 py-1.5 font-semibold">{t("kpi.ebitda_margin")}</th>
+              <th className="text-right px-2 py-1.5 font-semibold">{t("kpi.roe")}</th>
             </tr>
           </thead>
           <tbody>
@@ -70,7 +74,7 @@ export function SectorTickersTable({ tickers, sectorLabel }: Props) {
         </table>
       </div>
       <div className="px-3 py-1.5 text-[10px] text-ink-400 italic border-t border-ink-100 flex-none">
-        Source : FinSight IA — yfinance + FMP
+        {t("kpi.peers_source")}
       </div>
     </div>
   );

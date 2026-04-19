@@ -2,6 +2,7 @@
 
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from "recharts";
 import type { YearData, YearRatios } from "./types";
+import { useI18n } from "@/i18n/provider";
 
 interface Props {
   years: Record<string, YearData>;
@@ -10,7 +11,10 @@ interface Props {
 }
 
 export function CapexFcfChart({ years, ratios }: Props) {
-  // Build data for last 4 years
+  const { t } = useI18n();
+  const capexLabel = t("kpi.capex_short");
+  const divLabel = t("kpi.dividends_short");
+
   const allYears = Object.keys(years).sort();
   const recent = allYears.slice(-4);
 
@@ -23,15 +27,15 @@ export function CapexFcfChart({ years, ratios }: Props) {
     );
     return {
       year: y,
-      "CapEx (Mds)": capex / 1000,
-      "Div. versés (Mds)": dividends / 1000,
+      [capexLabel]: capex / 1000,
+      [divLabel]: dividends / 1000,
     };
   });
 
-  if (data.every((d) => d["CapEx (Mds)"] === 0 && d["Div. versés (Mds)"] === 0)) {
+  if (data.every((d) => d[capexLabel] === 0 && d[divLabel] === 0)) {
     return (
       <div className="bg-white border border-ink-200 rounded-md p-5 h-full flex items-center justify-center">
-        <span className="text-xs text-ink-400">Pas de données CapEx / Dividendes</span>
+        <span className="text-xs text-ink-400">{t("kpi.no_capex_div_data")}</span>
       </div>
     );
   }
@@ -39,7 +43,7 @@ export function CapexFcfChart({ years, ratios }: Props) {
   return (
     <div className="bg-white border border-ink-200 rounded-md px-3 py-3 h-full flex flex-col">
       <div className="text-[10px] font-semibold uppercase tracking-[1.5px] text-ink-500 mb-2">
-        Capital alloué — CapEx vs Dividendes
+        {t("kpi.capital_allocated")}
       </div>
       <div className="flex-1 min-h-[140px]">
         <ResponsiveContainer width="100%" height="100%">
@@ -56,8 +60,8 @@ export function CapexFcfChart({ years, ratios }: Props) {
               }}
             />
             <Legend wrapperStyle={{ fontSize: 11 }} />
-            <Bar dataKey="CapEx (Mds)" fill="#1B2A4A" maxBarSize={32} />
-            <Bar dataKey="Div. versés (Mds)" fill="#4A8C5C" maxBarSize={32} />
+            <Bar dataKey={capexLabel} fill="#1B2A4A" maxBarSize={32} />
+            <Bar dataKey={divLabel} fill="#4A8C5C" maxBarSize={32} />
           </BarChart>
         </ResponsiveContainer>
       </div>

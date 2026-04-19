@@ -2,6 +2,7 @@
 
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import type { PeerData } from "./types";
+import { useI18n } from "@/i18n/provider";
 
 interface Props {
   peers: PeerData[];
@@ -14,6 +15,8 @@ interface Props {
 const COLORS = ["#1B2A4A", "#3A5288", "#5A7AB5", "#8AAEDB", "#B8D2EB", "#C4D5E8"];
 
 export function MktCapDonut({ peers, targetTicker, targetName, targetMarketCapMds, sectorLabel }: Props) {
+  const { t, locale } = useI18n();
+  const unit = locale === "fr" ? "Mds" : "B";
   const cibleMc = targetMarketCapMds ?? 0;
   const items = [
     { name: targetTicker || targetName, value: cibleMc, isTarget: true },
@@ -26,7 +29,7 @@ export function MktCapDonut({ peers, targetTicker, targetName, targetMarketCapMd
   if (total === 0) {
     return (
       <div className="bg-white border border-ink-200 rounded-md p-5 h-full flex items-center justify-center">
-        <span className="text-xs text-ink-400">Pas de données market cap peers</span>
+        <span className="text-xs text-ink-400">{t("kpi.no_mktcap_peers")}</span>
       </div>
     );
   }
@@ -36,7 +39,7 @@ export function MktCapDonut({ peers, targetTicker, targetName, targetMarketCapMd
   return (
     <div className="bg-white border border-ink-200 rounded-md px-3 py-3 h-full flex flex-col">
       <div className="text-[10px] font-semibold uppercase tracking-[1.5px] text-ink-500 mb-1 text-center">
-        Poids relatif Mkt Cap — {sectorLabel}
+        {t("kpi.mktcap_relative_weight")} — {sectorLabel}
       </div>
       <div className="flex-1 min-h-[120px] relative">
         <ResponsiveContainer width="100%" height="100%">
@@ -56,7 +59,7 @@ export function MktCapDonut({ peers, targetTicker, targetName, targetMarketCapMd
               ))}
             </Pie>
             <Tooltip
-              formatter={(v: number) => `${(v).toFixed(0)} Mds`}
+              formatter={(v: number) => `${(v).toFixed(0)} ${unit}`}
               contentStyle={{ fontSize: 11, background: "#fff", border: "1px solid #e5e5e5", borderRadius: 4 }}
             />
           </PieChart>
