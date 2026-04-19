@@ -2408,6 +2408,8 @@ class SectoralPPTXWriter:
         sector_name: str,
         universe: str = "CAC 40",
         output_path: Optional[str] = None,
+        language: str = "fr",
+        currency: str = "EUR",
     ) -> bytes:
         """
         Generate a 20-slide sectoral pitchbook PPTX.
@@ -2415,6 +2417,8 @@ class SectoralPPTXWriter:
         If output_path is provided, also saves to disk.
         """
         D = _prepare_data(tickers_data, sector_name, universe)
+        D["_language"] = language
+        D["_currency"] = currency
 
         # Macro regime_v + récession
         _macro = {}

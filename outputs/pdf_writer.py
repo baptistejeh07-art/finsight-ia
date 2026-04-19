@@ -5371,7 +5371,11 @@ class PDFWriter:
 
         return d
 
-    def generate(self, state: dict, output_path: str) -> str:
+    def generate(self, state: dict, output_path: str, language: str = "fr", currency: str = "EUR") -> str:
+        # i18n : accepte kwargs pour cohérence avec PPTXWriter/ExcelWriter
+        self._language = language or state.get("language") or "fr"
+        self._currency = currency or state.get("currency") or "EUR"
+
         snap = state.get('raw_data')
         if snap is None:
             raise ValueError("PDFWriter: state['raw_data'] requis")

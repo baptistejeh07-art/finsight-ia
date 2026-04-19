@@ -336,11 +336,17 @@ def _build_sources_page(state, story: list):
 
 
 # === Entrée principale ===
-def write_portrait_pdf(state, output_path: str) -> str:
+def write_portrait_pdf(state, output_path: str, language: str = "fr", currency: str = "EUR") -> str:
     """Génère le PDF Portrait depuis un PortraitState.
 
     Returns: chemin du PDF généré.
     """
+    # i18n : stocker sur l'état pour les helpers internes
+    try:
+        state.language = language
+        state.currency = currency
+    except Exception:
+        pass
     doc = SimpleDocTemplate(
         output_path,
         pagesize=A4,

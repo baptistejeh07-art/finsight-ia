@@ -463,6 +463,8 @@ def output_node(state: FinSightState) -> dict:
     synthesis = state.get("synthesis")
     qa_python = state.get("qa_python")
     devil     = state.get("devil")
+    _lang     = state.get("language") or "fr"
+    _ccy      = state.get("currency") or "EUR"
 
     t0 = time.time()
     excel_path = pptx_path = pdf_path = None
@@ -493,7 +495,8 @@ def output_node(state: FinSightState) -> dict:
             with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp:
                 tmp_path = Path(tmp.name)
             ExcelWriter().write(snapshot, synthesis, ratios,
-                                comparables=comparables, output_path=tmp_path)
+                                comparables=comparables, output_path=tmp_path,
+                                language=_lang, currency=_ccy)
             data = tmp_path.read_bytes()
             tmp_path.unlink(missing_ok=True)
             _ms = int((time.time() - _t) * 1000)
@@ -510,7 +513,7 @@ def output_node(state: FinSightState) -> dict:
             from outputs.pptx_writer import PPTXWriter
             with tempfile.NamedTemporaryFile(suffix=".pptx", delete=False) as tmp:
                 tmp_path = Path(tmp.name)
-            PPTXWriter().generate(state, str(tmp_path))
+            PPTXWriter().generate(state, str(tmp_path), language=_lang, currency=_ccy)
             data = tmp_path.read_bytes()
             tmp_path.unlink(missing_ok=True)
             _ms = int((time.time() - _t) * 1000)
@@ -528,7 +531,7 @@ def output_node(state: FinSightState) -> dict:
             from outputs.pdf_writer import PDFWriter
             with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
                 tmp_path = Path(tmp.name)
-            PDFWriter().generate(state, str(tmp_path))
+            PDFWriter().generate(state, str(tmp_path), language=_lang, currency=_ccy)
             data = tmp_path.read_bytes()
             tmp_path.unlink(missing_ok=True)
             _ms = int((time.time() - _t) * 1000)

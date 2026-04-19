@@ -4037,6 +4037,8 @@ def generate_sector_report(
     universe: str = "CAC 40",
     date_str: str = None,
     sector_analytics: dict = None,
+    language: str = "fr",
+    currency: str = "EUR",
 ) -> str:
     # i18n : on garde l'original (anglais yfinance) pour les data lookups,
     # et on cree une version francaise pour tous les affichages downstream.

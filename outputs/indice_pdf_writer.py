@@ -2120,11 +2120,14 @@ def _build_story(data, perf_buf, weights_buf, scatter_buf, scores_buf,
 class IndicePDFWriter:
 
     @staticmethod
-    def generate(data: dict, output_path: str) -> str:
+    def generate(data: dict, output_path: str, language: str = "fr", currency: str = "EUR") -> str:
         """
         Genere le rapport PDF d'analyse d'indice FinSight IA.
         Retourne output_path. Double-passe pour pagination dynamique.
         """
+        # i18n : stocker dans data pour que les helpers internes puissent lire
+        data.setdefault("_language", language)
+        data.setdefault("_currency", currency)
         # Macro regime_v + récession (si pas déjà calculé par app.py)
         if not data.get("macro"):
             try:

@@ -152,10 +152,12 @@ def run_secteur(sector: str, universe: str = "CAC 40", prefix: str = "secteur",
         t.pop("_sector_analytics", None)
 
     generate_sector_report(sector, tickers, str(pdf_path), universe=universe,
-                           sector_analytics=sector_analytics)
+                           sector_analytics=sector_analytics,
+                           language=language, currency=currency)
     log.info("PDF sectoriel : %s  (%d Ko)", pdf_path.name, pdf_path.stat().st_size // 1024)
 
-    SectoralPPTXWriter.generate(tickers, sector, universe, str(pptx_path))
+    SectoralPPTXWriter.generate(tickers, sector, universe, str(pptx_path),
+                                 language=language, currency=currency)
     log.info("PPTX sectoriel : %s  (%d Ko)", pptx_path.name, pptx_path.stat().st_size // 1024)
 
     # XLSX dédié pour secteur Énergie (template Baptiste avec scoring multi-factoriel)
@@ -275,14 +277,14 @@ def run_indice(universe: str = "S&P 500", language: str = "fr", currency: str = 
     pdf_path  = OUT_DIR / f"{stem}.pdf"
     pptx_path = OUT_DIR / f"{stem}.pptx"
 
-    IndicePDFWriter.generate(data, str(pdf_path))
+    IndicePDFWriter.generate(data, str(pdf_path), language=language, currency=currency)
     log.info("PDF indice : %s  (%d Ko)", pdf_path.name, pdf_path.stat().st_size // 1024)
 
-    pptx_bytes = IndicePPTXWriter.generate(data, str(pptx_path))
+    pptx_bytes = IndicePPTXWriter.generate(data, str(pptx_path), language=language, currency=currency)
     log.info("PPTX indice : %s  (%d Ko)", pptx_path.name, pptx_path.stat().st_size // 1024)
 
     xlsx_path = OUT_DIR / f"{stem}.xlsx"
-    IndiceExcelWriter.generate(data, str(xlsx_path))
+    IndiceExcelWriter.generate(data, str(xlsx_path), language=language, currency=currency)
     if xlsx_path.exists():
         log.info("Excel indice : %s  (%d Ko)", xlsx_path.name, xlsx_path.stat().st_size // 1024)
 

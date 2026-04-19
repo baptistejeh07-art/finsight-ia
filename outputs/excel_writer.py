@@ -182,7 +182,14 @@ class ExcelWriter:
         ratios=None,
         output_path: Optional[Path] = None,
         comparables=None,   # list[PeerData] ou None
+        language: str = "fr",
+        currency: str = "EUR",
     ) -> Path:
+        # language/currency stockés pour usage futur dans les feuilles
+        # (labels, devises d'affichage). Accepté silencieusement pour
+        # compatibilité — la logique actuelle utilise le template FR/EUR.
+        self._language = language
+        self._currency = currency
         try:
             import openpyxl
         except ImportError:

@@ -562,7 +562,8 @@ class IndiceExcelWriter:
 
     @staticmethod
     def generate(data: dict, output_path: str,
-                 template_path: str | None = None) -> None:
+                 template_path: str | None = None,
+                 language: str = "fr", currency: str = "EUR") -> None:
         """
         Genere l'Excel indice en injectant les Données dans le template.
 
@@ -571,6 +572,9 @@ class IndiceExcelWriter:
             output_path  : chemin de sortie .xlsx
             template_path: optionnel, chemin vers template (defaut: assets/TEMPLATE_INDICE.xlsx)
         """
+        data.setdefault("_language", language)
+        data.setdefault("_currency", currency)
+
         try:
             import openpyxl
         except ImportError:

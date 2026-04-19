@@ -4935,12 +4935,17 @@ class PPTXWriter:
     Genere un pitchbook IB en 20 slides a partir du FinSightState (dict).
     """
 
-    def generate(self, state: dict, output_path: str) -> str:
+    def generate(self, state: dict, output_path: str, language: str = "fr", currency: str = "EUR") -> str:
         try:
             from pptx import Presentation
             from pptx.util import Cm, Emu
         except ImportError:
             raise RuntimeError("python-pptx requis : pip install python-pptx")
+
+        # i18n : le state porte déjà language/currency, mais on accepte
+        # aussi les kwargs explicites (appel direct). Priorité kwargs > state.
+        self._language = language or state.get("language") or "fr"
+        self._currency = currency or state.get("currency") or "EUR"
 
         snap, synthesis, ratios, devil, sentiment = _extract_state(state)
 

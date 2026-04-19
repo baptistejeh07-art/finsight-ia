@@ -2644,12 +2644,14 @@ def _s21_disclaimer(prs, D):
 class IndicePPTXWriter:
 
     @staticmethod
-    def generate(data: dict, output_path: Optional[str] = None) -> bytes:
+    def generate(data: dict, output_path: Optional[str] = None, language: str = "fr", currency: str = "EUR") -> bytes:
         """
         Genere un pitchbook PPTX 20 slides pour l'analyse d'indice.
         Retourne les bytes du fichier PPTX.
         Si output_path fourni, sauvegarde aussi sur disque.
         """
+        data.setdefault("_language", language)
+        data.setdefault("_currency", currency)
         log.info("IndicePPTXWriter: Génération pour %s", data.get("indice","—"))
 
         # Macro regime_v (si pas déjà calculé)
