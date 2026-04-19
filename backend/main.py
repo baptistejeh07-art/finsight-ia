@@ -472,24 +472,58 @@ def _do_pme(siren: str, use_pappers_comptes: bool = True) -> dict:
     profile = resolve_profile(company.code_naf)
     log.info(f"[pme] {siren} → {company.denomination} (profil: {profile.code})")
 
-    # Tente de télécharger et parser les comptes Pappers
+    # Tente de télécharger et parser les comptes Pappers — boucle multi-années.
+    # Pappers renvoie une liste `comptes` (souvent 2 entrées par année : sociaux
+    # + consolidés ou XLSX/PDF). On dédoublonne par année et on télécharge
+    # jusqu'à 5 années en parallèle (les téléchargements via token sont gratuits).
     yearly_accounts = []
     if use_pappers_comptes and company.comptes:
-        latest = company.comptes[0]
-        token_xlsx = latest.get("token_xlsx") if isinstance(latest, dict) else None
-        conf = latest.get("confidentialite_compte_de_resultat") if isinstance(latest, dict) else False
-        if token_xlsx and not conf:
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
+        # Dédoublonne : 1 candidat par année (le premier non confidentiel avec token)
+        seen_years: dict[int, dict] = {}
+        for c in company.comptes:
+            if not isinstance(c, dict):
+                continue
+            yr = c.get("annee_cloture")
+            tok = c.get("token_xlsx")
+            conf = c.get("confidentialite_compte_de_resultat") or False
+            if not yr or not tok or conf:
+                continue
+            if yr not in seen_years:
+                seen_years[yr] = c
+
+        # Garde les 5 années les plus récentes
+        years_sorted = sorted(seen_years.keys(), reverse=True)[:5]
+        log.info(f"[pme] {siren} : tentative téléchargement {len(years_sorted)} années {years_sorted}")
+
+        tmp_dir = _ROOT / "logs" / "cache" / "pappers_xlsx"
+        tmp_dir.mkdir(parents=True, exist_ok=True)
+
+        def _fetch_one(year: int):
+            entry = seen_years[year]
+            tok = entry.get("token_xlsx")
             try:
-                tmp_dir = _ROOT / "logs" / "cache" / "pappers_xlsx"
-                tmp_dir.mkdir(parents=True, exist_ok=True)
-                xlsx_path = tmp_dir / f"{siren}_{latest.get('annee_cloture', '')}.xlsx"
-                download_pappers_xlsx(token_xlsx, pappers.api_key, xlsx_path)
-                parsed = parse_pappers_xlsx(xlsx_path, annee_cloture=latest.get("annee_cloture"))
+                xlsx_path = tmp_dir / f"{siren}_{year}.xlsx"
+                if not xlsx_path.exists():
+                    download_pappers_xlsx(tok, pappers.api_key, xlsx_path)
+                parsed = parse_pappers_xlsx(xlsx_path, annee_cloture=year)
+                return year, parsed, None
+            except Exception as e:
+                return year, None, str(e)
+
+        with ThreadPoolExecutor(max_workers=5) as ex:
+            futures = [ex.submit(_fetch_one, y) for y in years_sorted]
+            for fut in as_completed(futures):
+                year, parsed, err = fut.result()
                 if parsed:
                     yearly_accounts.append(parsed)
-                    log.info(f"[pme] comptes {latest.get('annee_cloture')} parsés OK")
-            except Exception as e:
-                log.warning(f"[pme] téléchargement/parsing XLSX échec : {e}")
+                    log.info(f"[pme] comptes {year} parsés OK")
+                else:
+                    log.warning(f"[pme] comptes {year} : échec ({err or 'parsing vide'})")
+
+        # Trie par année croissante (pour analytics)
+        yearly_accounts.sort(key=lambda y: y.annee)
 
     if not yearly_accounts:
         # Fallback : pas de comptes → analyse identité + BODACC seuls (niveau "screening")
