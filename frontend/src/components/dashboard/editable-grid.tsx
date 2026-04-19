@@ -80,36 +80,26 @@ export function EditableGrid({ blocks }: { blocks: GridBlock[] }) {
     setLayouts({ lg: buildFallback() });
   }
 
-  if (!enabled) {
-    return (
-      <div className="space-y-5">
-        {blocks.map((b) => (
-          <div key={b.id} data-block-id={b.id}>
-            {b.render()}
-          </div>
-        ))}
-      </div>
-    );
-  }
-
   if (!hydrated) {
-    return <div className="text-xs text-ink-500">Initialisation du mode édition…</div>;
+    return <div className="text-xs text-ink-500">Chargement du layout…</div>;
   }
 
   return (
     <>
-      <div className="mb-3 flex items-center justify-between text-xs">
-        <span className="text-amber-700 font-medium">
-          Glissez les blocs par leur en-tête pour les réorganiser. Tirez le coin
-          bas-droit pour redimensionner.
-        </span>
-        <button
-          onClick={reset}
-          className="text-xs px-3 py-1 rounded border border-amber-400 text-amber-700 hover:bg-amber-50 transition-colors"
-        >
-          Réinitialiser le layout
-        </button>
-      </div>
+      {enabled && (
+        <div className="mb-3 flex items-center justify-between text-xs">
+          <span className="text-amber-700 font-medium">
+            Glissez les blocs par leur en-tête pour les réorganiser. Tirez le coin
+            bas-droit pour redimensionner.
+          </span>
+          <button
+            onClick={reset}
+            className="text-xs px-3 py-1 rounded border border-amber-400 text-amber-700 hover:bg-amber-50 transition-colors"
+          >
+            Réinitialiser le layout
+          </button>
+        </div>
+      )}
 
       <ResponsiveReactGridLayout
         className="editable-grid"
@@ -119,8 +109,8 @@ export function EditableGrid({ blocks }: { blocks: GridBlock[] }) {
         rowHeight={50}
         margin={[12, 12]}
         containerPadding={[0, 0]}
-        isDraggable={true}
-        isResizable={true}
+        isDraggable={enabled}
+        isResizable={enabled}
         onLayoutChange={onLayoutChange}
         compactType="vertical"
         useCSSTransforms={true}
@@ -129,15 +119,21 @@ export function EditableGrid({ blocks }: { blocks: GridBlock[] }) {
         {blocks.map((b) => (
           <div
             key={b.id}
-            className="bg-white border border-amber-400/40 rounded-md overflow-auto shadow-sm"
+            className={
+              enabled
+                ? "bg-white border border-amber-400/40 rounded-md overflow-auto shadow-sm"
+                : "bg-white border border-ink-200 rounded-md overflow-auto"
+            }
           >
-            <div className="grid-drag-handle bg-amber-50 border-b border-amber-200 px-3 py-1.5 text-2xs uppercase tracking-widest text-amber-700 font-semibold cursor-move select-none flex items-center justify-between">
-              <span>⋮⋮ {b.label}</span>
-              <span className="text-amber-500 normal-case tracking-normal text-[10px]">
-                drag · resize coin
-              </span>
-            </div>
-            <div className="p-3">{b.render()}</div>
+            {enabled && (
+              <div className="grid-drag-handle bg-amber-50 border-b border-amber-200 px-3 py-1.5 text-2xs uppercase tracking-widest text-amber-700 font-semibold cursor-move select-none flex items-center justify-between">
+                <span>⋮⋮ {b.label}</span>
+                <span className="text-amber-500 normal-case tracking-normal text-[10px]">
+                  drag · resize coin
+                </span>
+              </div>
+            )}
+            <div className={enabled ? "p-3" : "p-0"}>{b.render()}</div>
           </div>
         ))}
       </ResponsiveReactGridLayout>

@@ -181,8 +181,9 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
               <WarningsBanner warnings={(data as { warnings: { field: string; severity: "info" | "warning" | "error"; hint: string }[] }).warnings} />
             )}
 
-            {editEnabled ? (
-              /* Mode édition : EditableGrid drag & drop & resize */
+            {/* EditableGrid : toujours utilisé. En mode édition (Ctrl+Alt+E) :
+                drag/resize ON. Hors édition : positions sauvegardées appliquées
+                en lecture seule. */}
               <EditableGrid
                 blocks={[
                   {
@@ -339,130 +340,7 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
                   },
                 ] satisfies GridBlock[]}
               />
-            ) : (
-              <>
-            {/* Layout principal 2 colonnes : 65/35 */}
-            <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 mb-5">
-              {/* COLONNE GAUCHE */}
-              <div className="xl:col-span-2 space-y-4">
-                {/* Row 1 : (Reco + Valo empilés à gauche) | Cours large à droite */}
-                <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-                  <div className="lg:col-span-2 space-y-4 flex flex-col">
-                    <Editable name="Recommandation">
-                      <RecoCard recommendation={recommendation} conviction={conviction} />
-                    </Editable>
-                    {/* Valorisation limitée à la largeur de la col Reco (pas de débordement) */}
-                    <Editable name="Valorisation">
-                      <ValorisationCards
-                        bull={synthesis?.target_bull}
-                        base={synthesis?.target_base}
-                        bear={synthesis?.target_bear}
-                        sharePrice={sharePrice}
-                        currency={currency}
-                      />
-                    </Editable>
-                  </div>
-                  <div className="lg:col-span-3">
-                    <Editable name="Cours bourse">
-                      <CoursChart
-                        ticker={tickerStr}
-                        history={rawData?.stock_history || []}
-                        sector={ci.sector}
-                      />
-                    </Editable>
-                  </div>
-                </div>
 
-                {/* Row 3 : Ratios clés (bandeau compact, anim au scroll) */}
-                <RevealOnScroll>
-                  <div>
-                    <div className="text-[10px] font-semibold uppercase tracking-[1.5px] text-ink-500 mb-2">
-                      Ratios clés ({latestYear})
-                    </div>
-                    <KpiGrid ratios={latestRatios} />
-                  </div>
-                </RevealOnScroll>
-
-                {/* Row 4 : CapEx + Donut (REMONTÉ ici, anim au scroll) */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                  {rawData?.years && (
-                    <RevealOnScroll>
-                      <CapexFcfChart
-                        years={rawData.years}
-                        ratios={ratios?.years}
-                        currency={currency}
-                      />
-                    </RevealOnScroll>
-                  )}
-                  {synthesis?.comparable_peers && synthesis.comparable_peers.length > 0 && (
-                    <RevealOnScroll>
-                      <MktCapDonut
-                        peers={synthesis.comparable_peers}
-                        targetTicker={tickerStr}
-                        targetName={ci.company_name}
-                        targetMarketCapMds={
-                          latestRatios?.market_cap ? latestRatios.market_cap / 1000 : null
-                        }
-                        sectorLabel={`Secteur ${ci.sector || ""}`}
-                      />
-                    </RevealOnScroll>
-                  )}
-                </div>
-              </div>
-
-              {/* COLONNE DROITE — Synthèse (limitée) + Q&A + Compare */}
-              <div className="space-y-4">
-                {synthesis && <SyntheseCard synthesis={synthesis} />}
-                <QAChat jobId={id} ticker={tickerStr} />
-                {synthesis?.comparable_peers && synthesis.comparable_peers.length > 0 && (
-                  <CompareCard targetTicker={tickerStr} />
-                )}
-              </div>
-            </div>
-
-            {/* Sections pleine largeur réordonnables (Mode édition Ctrl+Alt+E) */}
-            <SortableSections
-              items={[
-                ...(synthesis?.comparable_peers && synthesis.comparable_peers.length > 0
-                  ? [
-                      {
-                        id: "comparatif-sectoriel",
-                        label: "Comparatif sectoriel",
-                        render: () => (
-                          <RevealOnScroll className="block">
-                            <PeersTable
-                              peers={synthesis.comparable_peers!}
-                              targetTicker={tickerStr}
-                              targetName={ci.company_name}
-                              targetRatios={latestRatios}
-                            />
-                          </RevealOnScroll>
-                        ),
-                      },
-                    ]
-                  : []),
-                {
-                  id: "pour-aller-plus-loin-portrait",
-                  label: "Pour aller plus loin · Portrait",
-                  render: () => (
-                    <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                      {synthesis && <PourAllerPlusLoin synthesis={synthesis} />}
-                      <PortraitCard
-                        ticker={tickerStr}
-                        companyName={ci.company_name}
-                      />
-                    </section>
-                  ),
-                },
-                {
-                  id: "glossaire",
-                  label: "Glossaire des termes financiers",
-                  render: () => <Glossaire />,
-                },
-              ]}
-            />
-              </>
-            )}
           </>
         )}
 
