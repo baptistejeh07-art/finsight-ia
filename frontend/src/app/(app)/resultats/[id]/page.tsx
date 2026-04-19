@@ -35,6 +35,7 @@ import { SortableSections } from "@/components/dashboard/sortable-sections";
 import { EditableGrid, type GridBlock } from "@/components/dashboard/editable-grid";
 import { SectorTickersTable } from "@/components/dashboard/sector-tickers-table";
 import { IndiceSecteursTable } from "@/components/dashboard/indice-secteurs-table";
+import { SaveToHistoryCard } from "@/components/dashboard/save-to-history-card";
 import { useEditMode } from "@/components/edit-mode-provider";
 
 interface AnalysisResult {
@@ -325,6 +326,19 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
                       ),
                   },
                   {
+                    id: "save-history",
+                    label: "Garder en mémoire",
+                    default: { x: 9, y: 19, w: 3, h: 3 },
+                    render: () => (
+                      <SaveToHistoryCard
+                        jobId={id}
+                        kind="societe"
+                        label={tickerStr}
+                        ticker={tickerStr}
+                      />
+                    ),
+                  },
+                  {
                     id: "portrait",
                     label: "Portrait d'entreprise",
                     default: { x: 6, y: 22, w: 6, h: 5 },
@@ -395,6 +409,18 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
                   default: { x: 8, y: 0, w: 4, h: 8 },
                   render: () => (
                     <QAChat jobId={id} ticker={result.label || ticker} />
+                  ),
+                },
+                {
+                  id: "save-history",
+                  label: "Garder en mémoire",
+                  default: { x: 8, y: 8, w: 4, h: 3 },
+                  render: () => (
+                    <SaveToHistoryCard
+                      jobId={id}
+                      kind={kind as "secteur" | "indice" | "comparatif"}
+                      label={result.label || ticker}
+                    />
                   ),
                 },
                 ...(result.files?.pdf

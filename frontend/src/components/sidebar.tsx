@@ -2,10 +2,23 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { FileText, Presentation, FileSpreadsheet } from "lucide-react";
+import {
+  FileText,
+  Presentation,
+  FileSpreadsheet,
+  Building2,
+  Layers,
+  Globe,
+  GitCompare,
+} from "lucide-react";
 import { SidebarUserMenu } from "./sidebar-user-menu";
+import {
+  useAnalysesHistory,
+  fetchHistoryItem,
+  type HistoryKind,
+} from "@/hooks/use-analyses-history";
 
 interface AnalysisFiles {
   pdf?: string;
@@ -15,11 +28,36 @@ interface AnalysisFiles {
 
 export function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const isResultats = pathname?.startsWith("/resultats/");
   const jobId = isResultats ? pathname.split("/").pop() : null;
 
+  const { items: historyItems, loading: historyLoading } = useAnalysesHistory();
   const [files, setFiles] = useState<AnalysisFiles | null>(null);
   const [ticker, setTicker] = useState<string>("");
+  const [loadingId, setLoadingId] = useState<string | null>(null);
+
+  async function openHistoryItem(id: string) {
+    setLoadingId(id);
+    try {
+      const item = await fetchHistoryItem(id);
+      if (!item) return;
+      // Restaure dans sessionStorage avec la clé attendue par /resultats/[id]
+      try {
+        sessionStorage.setItem(
+          `analysis_${item.job_id}`,
+          JSON.stringify(item.payload),
+        );
+      } catch {}
+      const qs = new URLSearchParams({
+        ticker: item.ticker || item.label,
+        kind: item.kind,
+      });
+      router.push(`/resultats/${item.job_id}?${qs.toString()}`);
+    } finally {
+      setLoadingId(null);
+    }
+  }
 
   useEffect(() => {
     if (!jobId) {
@@ -107,7 +145,39 @@ export function Sidebar() {
           <div className="text-[10px] font-semibold uppercase tracking-[1.5px] text-ink-500 mb-2.5">
             Historique d&apos;analyses
           </div>
-          <div className="text-xs text-ink-400">Disponibles après analyse</div>
+          {historyLoading ? (
+            <div className="text-xs text-ink-400">Chargement…</div>
+          ) : historyItems.length === 0 ? (
+            <div className="text-xs text-ink-400">
+              Cliquez sur «&nbsp;Garder en mémoire&nbsp;» après une analyse pour la retrouver ici.
+            </div>
+          ) : (
+            <div className="space-y-1">
+              {historyItems.map((it) => {
+                const Icon = iconForKind(it.kind);
+                const isActive = jobId === it.job_id;
+                const isLoading = loadingId === it.id;
+                return (
+                  <button
+                    key={it.id}
+                    type="button"
+                    onClick={() => openHistoryItem(it.id)}
+                    disabled={isLoading}
+                    className={
+                      "w-full text-left flex items-center gap-2 px-2 py-1.5 rounded-md text-xs transition-colors " +
+                      (isActive
+                        ? "bg-navy-50 text-navy-600 font-medium"
+                        : "text-ink-700 hover:bg-ink-100/50")
+                    }
+                    title={it.label}
+                  >
+                    <Icon className="w-3.5 h-3.5 shrink-0 text-ink-400" />
+                    <span className="truncate flex-1">{it.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
 
       </nav>
@@ -116,6 +186,22 @@ export function Sidebar() {
       <SidebarUserMenu />
     </aside>
   );
+}
+
+function iconForKind(kind: HistoryKind) {
+  switch (kind) {
+    case "societe":
+    case "portrait":
+      return Building2;
+    case "secteur":
+      return Layers;
+    case "indice":
+      return Globe;
+    case "comparatif":
+      return GitCompare;
+    default:
+      return Building2;
+  }
 }
 
 function DownloadLink({
