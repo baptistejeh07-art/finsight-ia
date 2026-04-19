@@ -77,10 +77,12 @@ def write_pme_pptx(
     from pptx.enum.shapes import MSO_SHAPE
 
     # Helper i18n
-    from core.i18n import t as _i18n_t, normalize_language
+    from core.i18n import t as _i18n_t, ratio_label as _i18n_ratio, normalize_language
     _lang = normalize_language(language)
     def _t(key, default=None):
         return _i18n_t(_lang, key, default)
+    def _rl(key):
+        return _i18n_ratio(key, _lang)
 
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -221,10 +223,10 @@ def write_pme_pptx(
     if last_year:
         r = analysis.ratios_by_year[last_year]
         items = [
-            ("Marge EBITDA", _fmt_pct(r.marge_ebitda)),
-            ("Marge nette", _fmt_pct(r.marge_nette)),
-            ("ROCE", _fmt_pct(r.roce)),
-            ("ROE", _fmt_pct(r.roe)),
+            (_rl("marge_ebitda"), _fmt_pct(r.marge_ebitda)),
+            (_rl("marge_nette"), _fmt_pct(r.marge_nette)),
+            (_rl("roce"), _fmt_pct(r.roce)),
+            (_rl("roe"), _fmt_pct(r.roe)),
         ]
         for i, (label, value) in enumerate(items):
             col = i % 2
@@ -238,10 +240,10 @@ def write_pme_pptx(
     if last_year:
         r = analysis.ratios_by_year[last_year]
         items = [
-            ("Dette nette / EBITDA", _fmt_x(r.dette_nette_ebitda)),
-            ("Couverture intérêts", _fmt_x(r.couverture_interets)),
-            ("Autonomie financière", _fmt_pct(r.autonomie_financiere)),
-            ("BFR jours CA", f"{r.bfr_jours_ca:.0f} j" if r.bfr_jours_ca is not None else "—"),
+            (_rl("dette_nette_ebitda"), _fmt_x(r.dette_nette_ebitda)),
+            (_rl("couverture_interets"), _fmt_x(r.couverture_interets)),
+            (_rl("autonomie_financiere"), _fmt_pct(r.autonomie_financiere)),
+            (_rl("bfr_jours_ca"), f"{r.bfr_jours_ca:.0f} j" if r.bfr_jours_ca is not None else "—"),
         ]
         for i, (label, value) in enumerate(items):
             col = i % 2
@@ -255,10 +257,10 @@ def write_pme_pptx(
     if last_year:
         r = analysis.ratios_by_year[last_year]
         items = [
-            ("DSO (jours)", f"{r.dso_jours:.0f} j" if r.dso_jours else "—"),
-            ("DPO (jours)", f"{r.dpo_jours:.0f} j" if r.dpo_jours else "—"),
-            ("CA / employé", _fmt_eur(r.ca_par_employe)),
-            ("Charges perso / CA", _fmt_pct(r.charges_perso_ca)),
+            (_rl("dso_jours"), f"{r.dso_jours:.0f} j" if r.dso_jours else "—"),
+            (_rl("dpo_jours"), f"{r.dpo_jours:.0f} j" if r.dpo_jours else "—"),
+            (_rl("ca_par_employe"), _fmt_eur(r.ca_par_employe)),
+            (_rl("charges_perso_ca"), _fmt_pct(r.charges_perso_ca)),
         ]
         for i, (label, value) in enumerate(items):
             col = i % 2
