@@ -185,6 +185,7 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
                 drag/resize ON. Hors édition : positions sauvegardées appliquées
                 en lecture seule. */}
               <EditableGrid
+                storageKey="finsight-dashboard-grid-societe-v2"
                 blocks={[
                   {
                     id: "reco",
@@ -344,7 +345,7 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
           </>
         )}
 
-        {/* SECTION : Secteur / Indice / Comparatif (V1 = card simple + downloads) */}
+        {/* SECTION : Secteur / Indice / Comparatif — interface modulable EditableGrid */}
         {!isSociete && (
           <>
             <header className="border-b border-ink-200 pb-6 mb-8">
@@ -363,53 +364,112 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
                 {result.elapsed_ms > 0 ? ` · ${(result.elapsed_ms / 1000).toFixed(1)}s` : ""}
               </div>
             </header>
-            <section className="mb-8">
-              <div className="card bg-navy-50 border-navy-200">
-                <p className="text-sm text-ink-700 leading-relaxed">
-                  {kind === "indice"
-                    ? "Analyse complète de l'indice générée. Le rapport PDF contient l'analyse macro, les comparatifs inter-secteurs et l'allocation optimale."
-                    : kind === "comparatif"
-                    ? "Comparatif société généré. Les livrables PDF, PPTX et Excel contiennent les analyses parallèles, ratios comparés et verdict relatif."
-                    : "Analyse sectorielle générée. Le rapport PDF compare les principales sociétés du secteur sur l'univers sélectionné."}
-                </p>
-              </div>
-            </section>
-          </>
-        )}
 
-        {/* Downloads pour secteur/indice/comparatif (sociétés ont la sidebar) */}
-        {!isSociete && result.files && (
-          <section className="mb-8">
-            <div className="text-[10px] font-semibold uppercase tracking-[1.5px] text-ink-500 mb-3">
-              Livrables
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              {result.files.pdf && (
-                <DownloadCard
-                  icon={<FileText className="w-5 h-5" />}
-                  label="Rapport PDF"
-                  description="Format institutionnel"
-                  href={getFileUrl(result.files.pdf)}
-                />
-              )}
-              {result.files.pptx && (
-                <DownloadCard
-                  icon={<Presentation className="w-5 h-5" />}
-                  label="Pitchbook PPTX"
-                  description="Style Bloomberg"
-                  href={getFileUrl(result.files.pptx)}
-                />
-              )}
-              {result.files.xlsx && (
-                <DownloadCard
-                  icon={<FileSpreadsheet className="w-5 h-5" />}
-                  label="Modèle Excel"
-                  description="DCF · Ratios · Comparables"
-                  href={getFileUrl(result.files.xlsx)}
-                />
-              )}
-            </div>
-          </section>
+            <EditableGrid
+              storageKey={`finsight-dashboard-grid-${kind}-v1`}
+              blocks={[
+                {
+                  id: "description",
+                  label: "Description",
+                  default: { x: 0, y: 0, w: 8, h: 4 },
+                  render: () => (
+                    <div className="bg-navy-50 border border-navy-200 rounded-md p-5 h-full overflow-auto">
+                      <div className="text-[10px] font-semibold uppercase tracking-[1.5px] text-navy-700 mb-2">
+                        Synthèse
+                      </div>
+                      <p className="text-sm text-ink-700 leading-relaxed">
+                        {kind === "indice"
+                          ? "Analyse complète de l'indice générée. Le rapport PDF contient l'analyse macro, les comparatifs inter-secteurs et l'allocation optimale (Markowitz)."
+                          : kind === "comparatif"
+                          ? "Comparatif société généré. Les livrables PDF, PPTX et Excel contiennent les analyses parallèles, ratios comparés et verdict relatif."
+                          : "Analyse sectorielle générée. Le rapport PDF compare les principales sociétés du secteur sur l'univers sélectionné, avec ratios, performance et allocation."}
+                      </p>
+                    </div>
+                  ),
+                },
+                {
+                  id: "qa",
+                  label: "Q&A IA",
+                  default: { x: 8, y: 0, w: 4, h: 8 },
+                  render: () => (
+                    <QAChat jobId={id} ticker={result.label || ticker} />
+                  ),
+                },
+                ...(result.files?.pdf
+                  ? [
+                      {
+                        id: "pdf",
+                        label: "Rapport PDF",
+                        default: { x: 0, y: 4, w: 4, h: 4 },
+                        render: () => (
+                          <FileBlock
+                            icon={<FileText className="w-6 h-6" />}
+                            label="Rapport PDF"
+                            description="Format institutionnel"
+                            href={getFileUrl(result.files!.pdf!)}
+                          />
+                        ),
+                      } satisfies GridBlock,
+                    ]
+                  : []),
+                ...(result.files?.pptx
+                  ? [
+                      {
+                        id: "pptx",
+                        label: "Pitchbook PPTX",
+                        default: { x: 4, y: 4, w: 4, h: 4 },
+                        render: () => (
+                          <FileBlock
+                            icon={<Presentation className="w-6 h-6" />}
+                            label="Pitchbook PPTX"
+                            description="Style Bloomberg"
+                            href={getFileUrl(result.files!.pptx!)}
+                          />
+                        ),
+                      } satisfies GridBlock,
+                    ]
+                  : []),
+                ...(result.files?.xlsx
+                  ? [
+                      {
+                        id: "xlsx",
+                        label: "Modèle Excel",
+                        default: { x: 0, y: 8, w: 4, h: 4 },
+                        render: () => (
+                          <FileBlock
+                            icon={<FileSpreadsheet className="w-6 h-6" />}
+                            label="Modèle Excel"
+                            description="DCF · Ratios · Comparables"
+                            href={getFileUrl(result.files!.xlsx!)}
+                          />
+                        ),
+                      } satisfies GridBlock,
+                    ]
+                  : []),
+                ...(result.files?.pdf
+                  ? [
+                      {
+                        id: "pdf-preview",
+                        label: "Aperçu PDF",
+                        default: { x: 4, y: 8, w: 8, h: 12 },
+                        render: () => (
+                          <div className="bg-white border border-ink-200 rounded-md h-full overflow-hidden flex flex-col">
+                            <div className="px-3 py-2 border-b border-ink-100 text-[10px] font-semibold uppercase tracking-[1.5px] text-ink-500 flex-none">
+                              Aperçu rapport PDF
+                            </div>
+                            <iframe
+                              src={getFileUrl(result.files!.pdf!)}
+                              className="flex-1 w-full"
+                              title="Aperçu PDF"
+                            />
+                          </div>
+                        ),
+                      } satisfies GridBlock,
+                    ]
+                  : []),
+              ]}
+            />
+          </>
         )}
 
         <div className="text-xs text-ink-500 mt-8 text-center">
@@ -422,7 +482,11 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
   );
 }
 
-function DownloadCard({
+/**
+ * FileBlock — version "card pleine hauteur" pour EditableGrid (secteur/indice/comparatif).
+ * Remplit 100% du bloc, icône centrée + bouton download visible.
+ */
+function FileBlock({
   icon,
   label,
   description,
@@ -439,16 +503,17 @@ function DownloadCard({
       download
       target="_blank"
       rel="noopener noreferrer"
-      className="card-hover flex items-start gap-3 group"
+      className="bg-white border border-ink-200 rounded-md p-5 h-full flex flex-col items-center justify-center text-center gap-2 hover:border-navy-500 hover:shadow-sm transition-all group"
     >
       <div className="text-navy-500">{icon}</div>
-      <div className="flex-1">
-        <div className="text-sm font-semibold text-ink-900 group-hover:text-navy-500 transition-colors">
-          {label}
-        </div>
-        <div className="text-xs text-ink-500 mt-0.5">{description}</div>
+      <div className="text-sm font-semibold text-ink-900 group-hover:text-navy-500 transition-colors">
+        {label}
       </div>
-      <Download className="w-4 h-4 text-ink-400 group-hover:text-navy-500 transition-colors" />
+      <div className="text-xs text-ink-500">{description}</div>
+      <div className="mt-1 flex items-center gap-1 text-[11px] text-navy-500 font-semibold">
+        <Download className="w-3.5 h-3.5" />
+        Télécharger
+      </div>
     </a>
   );
 }

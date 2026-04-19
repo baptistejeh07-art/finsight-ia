@@ -11,7 +11,7 @@ import { useEditMode } from "@/components/edit-mode-provider";
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
 
-const STORAGE_KEY = "finsight-dashboard-grid-layout-v2";
+const DEFAULT_STORAGE_KEY = "finsight-dashboard-grid-layout-v2";
 
 type LayoutItem = { i: string; x: number; y: number; w: number; h: number; minW?: number; minH?: number };
 type Layouts = { [breakpoint: string]: LayoutItem[] };
@@ -32,8 +32,18 @@ export interface GridBlock {
  *  - En mode édition : grid responsive avec drag & resize visuels.
  *  - Layout sauvé dans localStorage à chaque changement.
  *  - Bouton "Réinitialiser" pour revenir aux defaults.
+ *
+ * `storageKey` permet d'avoir des layouts indépendants par type d'analyse
+ * (société / secteur / indice / comparatif).
  */
-export function EditableGrid({ blocks }: { blocks: GridBlock[] }) {
+export function EditableGrid({
+  blocks,
+  storageKey,
+}: {
+  blocks: GridBlock[];
+  storageKey?: string;
+}) {
+  const STORAGE_KEY = storageKey || DEFAULT_STORAGE_KEY;
   const { enabled } = useEditMode();
   const [layouts, setLayouts] = useState<Layouts>({});
   const [hydrated, setHydrated] = useState(false);
