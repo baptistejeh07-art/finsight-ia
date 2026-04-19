@@ -31,6 +31,7 @@ import { Glossaire } from "@/components/dashboard/glossaire";
 import { RevealOnScroll } from "@/components/dashboard/reveal-on-scroll";
 import { Editable } from "@/components/editable";
 import { WarningsBanner } from "@/components/dashboard/warnings-banner";
+import { SortableSections } from "@/components/dashboard/sortable-sections";
 
 interface AnalysisResult {
   success: boolean;
@@ -256,28 +257,47 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
               </div>
             </div>
 
-            {/* Comparatif sectoriel — pleine largeur, compact, anim au scroll */}
-            {synthesis?.comparable_peers && synthesis.comparable_peers.length > 0 && (
-              <RevealOnScroll className="mb-5 block">
-                <PeersTable
-                  peers={synthesis.comparable_peers}
-                  targetTicker={tickerStr}
-                  targetName={ci.company_name}
-                  targetRatios={latestRatios}
-                />
-              </RevealOnScroll>
-            )}
-
-            {/* Pour aller plus loin + Portrait */}
-            <section className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5">
-              {synthesis && <PourAllerPlusLoin synthesis={synthesis} />}
-              <PortraitCard ticker={tickerStr} companyName={ci.company_name} />
-            </section>
-
-            {/* Glossaire */}
-            <section className="mb-5">
-              <Glossaire />
-            </section>
+            {/* Sections pleine largeur réordonnables (Mode édition Ctrl+Alt+E) */}
+            <SortableSections
+              items={[
+                ...(synthesis?.comparable_peers && synthesis.comparable_peers.length > 0
+                  ? [
+                      {
+                        id: "comparatif-sectoriel",
+                        label: "Comparatif sectoriel",
+                        render: () => (
+                          <RevealOnScroll className="block">
+                            <PeersTable
+                              peers={synthesis.comparable_peers!}
+                              targetTicker={tickerStr}
+                              targetName={ci.company_name}
+                              targetRatios={latestRatios}
+                            />
+                          </RevealOnScroll>
+                        ),
+                      },
+                    ]
+                  : []),
+                {
+                  id: "pour-aller-plus-loin-portrait",
+                  label: "Pour aller plus loin · Portrait",
+                  render: () => (
+                    <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                      {synthesis && <PourAllerPlusLoin synthesis={synthesis} />}
+                      <PortraitCard
+                        ticker={tickerStr}
+                        companyName={ci.company_name}
+                      />
+                    </section>
+                  ),
+                },
+                {
+                  id: "glossaire",
+                  label: "Glossaire des termes financiers",
+                  render: () => <Glossaire />,
+                },
+              ]}
+            />
           </>
         )}
 
