@@ -604,6 +604,36 @@ class AgentSynthese:
         if _clamped_bear is None and price:
             _clamped_bear = price * 0.85
 
+        # Post-traitement accents — llama-3.3 omet souvent les accents malgré
+        # le system prompt. On force la restauration sur les champs texte FR.
+        if self.language == "fr":
+            try:
+                import sys as _sys_ra, os as _os_ra
+                _sys_ra.path.insert(0, _os_ra.path.dirname(_os_ra.path.dirname(__file__)))
+                from tools.restore_accents import restore_accents_in_text as _restore_fr
+                _TEXT_KEYS_ACCENTS = [
+                    "summary", "company_description", "thesis", "valuation_comment",
+                    "financial_commentary", "ratio_commentary", "dcf_commentary",
+                    "peers_commentary", "bear_hypothesis", "base_hypothesis",
+                    "bull_hypothesis", "buy_trigger", "sell_trigger", "conclusion",
+                    "invalidation_conditions", "next_review",
+                ]
+                for _k in _TEXT_KEYS_ACCENTS:
+                    _v = parsed.get(_k)
+                    if isinstance(_v, str) and _v:
+                        parsed[_k] = _restore_fr(_v)
+                # Risks/catalysts = list[dict(title, description)]
+                for _lk in ("risks", "catalysts"):
+                    _lst = parsed.get(_lk)
+                    if isinstance(_lst, list):
+                        for _item in _lst:
+                            if isinstance(_item, dict):
+                                for _fk in ("title", "description"):
+                                    if isinstance(_item.get(_fk), str):
+                                        _item[_fk] = _restore_fr(_item[_fk])
+            except Exception as _e_ra:
+                log.warning(f"[AgentSynthese] restore_accents failed: {_e_ra}")
+
         # Merge avec fallback déterministe si champs critiques manquants.
         # Bug prod 2026-04-19 : LLM peut renvoyer JSON valide mais avec
         # risks/catalysts/thesis vides → PDF/PPTX affichent "—" partout.

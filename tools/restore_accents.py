@@ -1721,6 +1721,28 @@ def _preserve_case(original: str, replacement: str) -> str:
 
 
 # Build a single combined regex compiled once
+def restore_accents_in_text(text: str) -> str:
+    """Restore accents dans du texte libre (sortie LLM, plain text).
+
+    Contrairement à transform_line() qui opère sur du code Python (avec guard
+    _is_in_string), cette version traite n'importe quel texte. Utilisable sur
+    les chaînes JSON renvoyées par Groq llama-3.3 qui omet souvent les
+    accents malgré les instructions système.
+    """
+    global _COMBINED_RE
+    if _COMBINED_RE is None:
+        _COMBINED_RE = _build_combined_regex()
+    if not text:
+        return text
+    def _repl(m):
+        actual = m.group(0)
+        new_val = _LOWER_MAP.get(actual.lower())
+        if new_val is None or actual == new_val:
+            return actual
+        return _preserve_case(actual, new_val)
+    return _COMBINED_RE.sub(_repl, text)
+
+
 def _build_combined_regex():
     """Construit UN seul gros regex (a1|a2|a3|...) compile une fois.
     Trie par longueur desc pour que les sous-chaines plus longues soient
