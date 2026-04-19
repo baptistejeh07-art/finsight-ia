@@ -2,8 +2,8 @@
 
 import { useEffect, useRef, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Search, Info, Building2 } from "lucide-react";
-import { analyzePmeSync } from "@/lib/api";
+import { Search, Info, Building2, MapPin } from "lucide-react";
+import { analyzePmeSync, searchPme, type PmeSearchResult } from "@/lib/api";
 
 function PmePageContent() {
   const router = useRouter();
@@ -11,7 +11,12 @@ function PmePageContent() {
   const [siren, setSiren] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [suggestions, setSuggestions] = useState<PmeSearchResult[]>([]);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [searching, setSearching] = useState(false);
   const autoLaunched = useRef(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
 
   // Auto-launch si ?siren=XXX&auto=1 (venant de /app toggle PME)
   useEffect(() => {
@@ -25,6 +30,40 @@ function PmePageContent() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Autocomplete : si saisie texte (pas 9 chiffres), debounce 300ms → /search/pme
+  useEffect(() => {
+    const v = siren.trim();
+    const cleanDigits = v.replace(/\s/g, "");
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (v.length < 2 || /^\d{9}$/.test(cleanDigits)) {
+      setSuggestions([]);
+      setSearching(false);
+      return;
+    }
+    setSearching(true);
+    debounceRef.current = setTimeout(async () => {
+      try {
+        const res = await searchPme(v, 8);
+        setSuggestions(res.results);
+        setShowDropdown(true);
+      } catch {
+        setSuggestions([]);
+      } finally {
+        setSearching(false);
+      }
+    }, 300);
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [siren]);
+
+  function handleSelectSuggestion(s: PmeSearchResult) {
+    setShowDropdown(false);
+    setSuggestions([]);
+    setSiren(s.siren);
+    void launchAnalyze(s.siren);
+  }
 
   async function launchAnalyze(inputSiren: string) {
     const cleanSiren = inputSiren.replace(/\s/g, "");
@@ -87,20 +126,62 @@ function PmePageContent() {
 
       <form onSubmit={handleAnalyze} className="bg-white border border-ink-200 rounded-md p-6 mb-6">
         <label className="block text-sm font-medium text-ink-700 mb-2">
-          SIREN de la société
+          Nom de la société ou SIREN
         </label>
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={siren}
-            onChange={(e) => setSiren(e.target.value)}
-            placeholder="ex : 552 032 534"
-            className="flex-1 px-4 py-3 border border-ink-200 rounded-md text-base font-mono focus:outline-none focus:border-navy-500"
-            disabled={loading}
-          />
+        <div className="flex gap-2 relative">
+          <div className="flex-1 relative">
+            <input
+              ref={inputRef}
+              type="text"
+              value={siren}
+              onChange={(e) => setSiren(e.target.value)}
+              onFocus={() => suggestions.length > 0 && setShowDropdown(true)}
+              onBlur={() => setTimeout(() => setShowDropdown(false), 150)}
+              placeholder="ex : Kalysco · Veja · 552 032 534"
+              className="w-full px-4 py-3 border border-ink-200 rounded-md text-base focus:outline-none focus:border-navy-500"
+              disabled={loading}
+              autoComplete="off"
+            />
+            {searching && (
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 border-2 border-ink-200 border-t-navy-500 rounded-full animate-spin" />
+            )}
+            {showDropdown && suggestions.length > 0 && !loading && (
+              <ul className="absolute z-10 left-0 right-0 mt-1 bg-white border border-ink-200 rounded-md shadow-lg max-h-80 overflow-auto">
+                {suggestions.map((s) => (
+                  <li
+                    key={s.siren}
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      handleSelectSuggestion(s);
+                    }}
+                    className="px-3 py-2 hover:bg-navy-50 cursor-pointer border-b border-ink-100 last:border-b-0"
+                  >
+                    <div className="flex items-baseline justify-between gap-2">
+                      <span className="text-sm font-semibold text-ink-900 truncate">
+                        {s.denomination || s.siren}
+                      </span>
+                      <span className="text-[10px] font-mono text-ink-400 shrink-0">
+                        {s.siren}
+                      </span>
+                    </div>
+                    <div className="text-[11px] text-ink-500 flex items-center gap-2 mt-0.5">
+                      {s.ville && (
+                        <span className="flex items-center gap-1">
+                          <MapPin className="w-3 h-3" />
+                          {s.ville}
+                        </span>
+                      )}
+                      {s.code_naf && <span className="font-mono">NAF {s.code_naf}</span>}
+                      {s.dirigeant && <span className="truncate">· {s.dirigeant}</span>}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
           <button
             type="submit"
-            disabled={loading || siren.trim().length < 9}
+            disabled={loading || siren.replace(/\s/g, "").length < 9}
             className="px-6 py-3 rounded-md bg-navy-500 text-white font-semibold hover:bg-navy-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
           >
             {loading ? (
@@ -118,7 +199,7 @@ function PmePageContent() {
         </div>
         {error && <p className="mt-3 text-sm text-signal-sell">{error}</p>}
         <p className="mt-2 text-xs text-ink-500">
-          9 chiffres, espaces ignorés. Exemples : 552 032 534 (Danone), 552 081 317 (EDF).
+          Tape un nom (ex : <em>Veja</em>, <em>Kalysco</em>) ou un SIREN à 9 chiffres.
         </p>
       </form>
 

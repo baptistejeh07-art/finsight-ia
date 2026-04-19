@@ -692,6 +692,54 @@ async def analyze_pme_endpoint(req: PmeRequest):
     return _sync_response("analyze/pme", _do_pme, req.siren, req.use_pappers_comptes)
 
 
+@app.get("/search/pme")
+async def search_pme(q: str, limit: int = 8):
+    """Recherche PME par nom/dirigeant via recherche-entreprises.api.gouv.fr (gratuit, sans auth).
+    Renvoie une liste de suggestions avec SIREN, dénomination, ville, NAF, dirigeant principal."""
+    import requests as _rq
+
+    q = (q or "").strip()
+    if len(q) < 2:
+        return {"results": []}
+
+    limit = max(1, min(limit, 20))
+    try:
+        r = _rq.get(
+            "https://recherche-entreprises.api.gouv.fr/search",
+            params={"q": q, "page": 1, "per_page": limit, "etat_administratif": "A"},
+            timeout=8,
+        )
+        if r.status_code != 200:
+            log.warning(f"[search_pme] HTTP {r.status_code} q={q}")
+            return {"results": []}
+        data = r.json()
+    except Exception as e:
+        log.warning(f"[search_pme] erreur réseau: {e}")
+        return {"results": []}
+
+    results = []
+    for item in data.get("results", [])[:limit]:
+        siege = item.get("siege") or {}
+        dirs = item.get("dirigeants") or []
+        first_dir = dirs[0] if dirs else {}
+        nom_dir = " ".join(
+            x for x in [first_dir.get("prenoms"), first_dir.get("nom")] if x
+        ).strip() or first_dir.get("denomination") or None
+
+        results.append({
+            "siren": item.get("siren"),
+            "denomination": item.get("nom_complet") or item.get("nom_raison_sociale"),
+            "ville": siege.get("libelle_commune"),
+            "code_postal": siege.get("code_postal"),
+            "code_naf": item.get("activite_principale"),
+            "nature_juridique": item.get("nature_juridique"),
+            "categorie": item.get("categorie_entreprise"),
+            "date_creation": item.get("date_creation"),
+            "dirigeant": nom_dir,
+        })
+    return {"results": results, "total": data.get("total_results", len(results))}
+
+
 # ─── Endpoints async (jobs en mémoire) ──────────────────────────────────────
 
 class JobSubmitResponse(BaseModel):

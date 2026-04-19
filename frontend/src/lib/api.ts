@@ -141,6 +141,26 @@ export async function analyzePmeSync(siren: string): Promise<{
   return apiPost("/analyze/pme", { siren, use_pappers_comptes: true });
 }
 
+export interface PmeSearchResult {
+  siren: string;
+  denomination: string | null;
+  ville: string | null;
+  code_postal: string | null;
+  code_naf: string | null;
+  nature_juridique: string | null;
+  categorie: string | null;
+  date_creation: string | null;
+  dirigeant: string | null;
+}
+
+export async function searchPme(
+  q: string,
+  limit = 8
+): Promise<{ results: PmeSearchResult[]; total?: number }> {
+  if (!q || q.trim().length < 2) return { results: [] };
+  return apiGet(`/search/pme?q=${encodeURIComponent(q)}&limit=${limit}`);
+}
+
 export async function getJob(jobId: string): Promise<JobStatus> {
   return apiGet(`/jobs/${jobId}`);
 }
