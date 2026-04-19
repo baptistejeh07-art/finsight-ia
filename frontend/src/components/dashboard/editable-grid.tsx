@@ -7,6 +7,7 @@ const RGL = require("react-grid-layout");
 const ResponsiveReactGridLayout = RGL.WidthProvider(RGL.Responsive);
 
 import { useEditMode } from "@/components/edit-mode-provider";
+import { useI18n } from "@/i18n/provider";
 
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
@@ -45,6 +46,7 @@ export function EditableGrid({
 }) {
   const STORAGE_KEY = storageKey || DEFAULT_STORAGE_KEY;
   const { enabled } = useEditMode();
+  const { t } = useI18n();
   const [layouts, setLayouts] = useState<Layouts>({});
   const [hydrated, setHydrated] = useState(false);
 
@@ -98,7 +100,7 @@ export function EditableGrid({
   }
 
   if (!hydrated) {
-    return <div className="text-xs text-ink-500">Chargement du layout…</div>;
+    return <div className="text-xs text-ink-500">{t("grid.loading_layout")}</div>;
   }
 
   return (
@@ -106,14 +108,13 @@ export function EditableGrid({
       {enabled && (
         <div className="mb-3 flex items-center justify-between text-xs">
           <span className="text-amber-700 font-medium">
-            Glissez les blocs par leur en-tête pour les réorganiser. Tirez le coin
-            bas-droit pour redimensionner.
+            {t("grid.edit_hint")}
           </span>
           <button
             onClick={reset}
             className="text-xs px-3 py-1 rounded border border-amber-400 text-amber-700 hover:bg-amber-50 transition-colors"
           >
-            Réinitialiser le layout
+            {t("grid.reset_layout")}
           </button>
         </div>
       )}
@@ -146,7 +147,7 @@ export function EditableGrid({
               <div className="grid-drag-handle bg-amber-50 border-b border-amber-200 px-3 py-1.5 text-2xs uppercase tracking-widest text-amber-700 font-semibold cursor-move select-none flex items-center justify-between flex-none">
                 <span>⋮⋮ {b.label}</span>
                 <span className="text-amber-500 normal-case tracking-normal text-[10px]">
-                  drag · resize coin
+                  {t("grid.drag_resize")}
                 </span>
               </div>
             )}

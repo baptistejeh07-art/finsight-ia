@@ -45,6 +45,7 @@ import {
   PmeNoAccountsNotice,
 } from "@/components/dashboard/pme-blocks";
 import { useEditMode } from "@/components/edit-mode-provider";
+import { useI18n } from "@/i18n/provider";
 
 interface AnalysisResult {
   success: boolean;
@@ -79,6 +80,7 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [notFound, setNotFound] = useState(false);
   const { enabled: editEnabled } = useEditMode();
+  const { t, locale } = useI18n();
 
   useEffect(() => {
     const stored = sessionStorage.getItem(`analysis_${id}`);
@@ -128,12 +130,12 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
       <div className="min-h-screen flex flex-col">
         <main className="flex-1 max-w-2xl mx-auto px-6 py-20 w-full text-center">
           <AlertTriangle className="w-12 h-12 text-signal-sell mx-auto mb-4" />
-          <h1 className="text-xl font-semibold text-ink-900 mb-2">Analyse introuvable</h1>
+          <h1 className="text-xl font-semibold text-ink-900 mb-2">{t("results.not_found_title")}</h1>
           <p className="text-sm text-ink-600 mb-6">
-            Cette analyse n&apos;est plus disponible (lien expiré ou redémarrage serveur).
+            {t("results.not_found_desc")}
           </p>
           <button onClick={() => router.push("/app")} className="btn-primary">
-            Retour à l&apos;accueil
+            {t("results.back_home")}
           </button>
         </main>
         <Footer />
@@ -144,7 +146,7 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
   if (!result) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-ink-500">Chargement...</div>
+        <div className="text-ink-500">{t("common.loading")}</div>
       </div>
     );
   }
@@ -178,7 +180,7 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
           className="btn-ghost text-xs mb-4 -ml-3"
         >
           <ArrowLeft className="w-3 h-3 mr-1" />
-          Nouvelle analyse
+          {t("results.new_analysis_btn")}
         </button>
 
         {/* SECTION : Société (full BI dashboard) */}
@@ -202,7 +204,7 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
                 blocks={[
                   {
                     id: "reco",
-                    label: "Recommandation",
+                    label: t("results.block_reco"),
                     default: { x: 0, y: 0, w: 4, h: 4 },
                     render: () => (
                       <RecoCard
@@ -213,7 +215,7 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
                   },
                   {
                     id: "cours",
-                    label: "Cours bourse",
+                    label: t("results.block_price"),
                     default: { x: 4, y: 0, w: 5, h: 6 },
                     render: () => (
                       <CoursChart
@@ -225,14 +227,14 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
                   },
                   {
                     id: "synthese",
-                    label: "Synthèse",
+                    label: t("results.block_synthesis"),
                     default: { x: 9, y: 0, w: 3, h: 10 },
                     render: () =>
                       synthesis ? <SyntheseCard synthesis={synthesis} /> : <div />,
                   },
                   {
                     id: "valo",
-                    label: "Valorisation",
+                    label: t("results.block_valuation"),
                     default: { x: 0, y: 4, w: 4, h: 3 },
                     render: () => (
                       <ValorisationCards
@@ -246,12 +248,12 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
                   },
                   {
                     id: "ratios",
-                    label: "Ratios clés",
+                    label: t("results.block_ratios"),
                     default: { x: 0, y: 7, w: 9, h: 4 },
                     render: () => (
                       <div className="bg-white border border-ink-200 rounded-md p-4 h-full overflow-auto">
                         <div className="text-[10px] font-semibold uppercase tracking-[1.5px] text-ink-500 mb-2">
-                          Ratios clés ({latestYear})
+                          {t("results.ratios_key_year")} ({latestYear})
                         </div>
                         <KpiGrid ratios={latestRatios} />
                       </div>
@@ -261,7 +263,7 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
                     ? [
                         {
                           id: "capex",
-                          label: "Capital alloué",
+                          label: t("results.block_capital_alloc"),
                           default: { x: 0, y: 11, w: 4, h: 5 },
                           render: () => (
                             <CapexFcfChart
@@ -277,7 +279,7 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
                     ? [
                         {
                           id: "donut",
-                          label: "Poids relatif Mkt Cap",
+                          label: t("results.block_mktcap_weight"),
                           default: { x: 4, y: 11, w: 5, h: 5 },
                           render: () => (
                             <MktCapDonut
@@ -289,7 +291,7 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
                                   ? latestRatios.market_cap / 1000
                                   : null
                               }
-                              sectorLabel={`Secteur ${ci.sector || ""}`}
+                              sectorLabel={`${t("results.sector_prefix")} ${ci.sector || ""}`}
                             />
                           ),
                         },
@@ -297,7 +299,7 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
                     : []),
                   {
                     id: "qa",
-                    label: "Q&A IA",
+                    label: t("results.block_qa"),
                     default: { x: 9, y: 10, w: 3, h: 6 },
                     render: () => <QAChat jobId={id} ticker={tickerStr} />,
                   },
@@ -305,13 +307,13 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
                     ? [
                         {
                           id: "compare",
-                          label: "Comparer",
+                          label: t("results.block_compare"),
                           default: { x: 9, y: 16, w: 3, h: 3 },
                           render: () => <CompareCard targetTicker={tickerStr} />,
                         },
                         {
                           id: "peers",
-                          label: "Comparatif sectoriel",
+                          label: t("results.block_sector_compare"),
                           default: { x: 0, y: 16, w: 9, h: 6 },
                           render: () => (
                             <PeersTable
@@ -326,7 +328,7 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
                     : []),
                   {
                     id: "pour-loin",
-                    label: "Pour aller plus loin",
+                    label: t("results.block_go_further"),
                     default: { x: 0, y: 22, w: 6, h: 5 },
                     render: () =>
                       synthesis ? (
@@ -337,7 +339,7 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
                   },
                   {
                     id: "save-history",
-                    label: "Garder en mémoire",
+                    label: t("results.block_save"),
                     default: { x: 9, y: 19, w: 3, h: 3 },
                     render: () => (
                       <SaveToHistoryCard
@@ -350,7 +352,7 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
                   },
                   {
                     id: "portrait",
-                    label: "Portrait d'entreprise",
+                    label: t("results.block_portrait"),
                     default: { x: 6, y: 22, w: 6, h: 5 },
                     render: () => (
                       <PortraitCard
@@ -361,7 +363,7 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
                   },
                   {
                     id: "glossaire",
-                    label: "Glossaire",
+                    label: t("results.block_glossary"),
                     default: { x: 0, y: 27, w: 12, h: 6 },
                     render: () => <Glossaire />,
                   },
@@ -377,18 +379,18 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
             <header className="border-b border-ink-200 pb-6 mb-8">
               <div className="text-[10px] font-semibold uppercase tracking-[1.5px] text-ink-500 mb-2">
                 {kind === "indice"
-                  ? "Indice boursier"
+                  ? t("results.kind_indice")
                   : kind === "comparatif"
-                  ? "Comparatif société"
+                  ? t("results.kind_comparison")
                   : kind === "pme"
-                  ? "PME non cotée — Analyse financière"
-                  : "Analyse sectorielle"}
+                  ? t("results.kind_pme_label")
+                  : t("results.kind_sector")}
               </div>
               <h1 className="text-2xl font-bold text-ink-900 tracking-tight">
                 {result.label || ticker}
               </h1>
               <div className="text-xs text-ink-600 font-mono mt-1">
-                {new Date().toLocaleDateString("fr-FR")}
+                {new Date().toLocaleDateString(locale)}
                 {result.elapsed_ms > 0 ? ` · ${(result.elapsed_ms / 1000).toFixed(1)}s` : ""}
               </div>
             </header>
@@ -398,28 +400,28 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
               blocks={[
                 {
                   id: "description",
-                  label: "Description",
+                  label: t("results.block_description"),
                   default: { x: 0, y: 0, w: 8, h: 4 },
                   render: () => (
                     <div className="bg-navy-50 border border-navy-200 rounded-md p-5 h-full overflow-auto">
                       <div className="text-[10px] font-semibold uppercase tracking-[1.5px] text-navy-700 mb-2">
-                        Synthèse
+                        {t("results.block_synthesis")}
                       </div>
                       <p className="text-sm text-ink-700 leading-relaxed">
                         {kind === "indice"
-                          ? "Analyse complète de l'indice générée. Le rapport PDF contient l'analyse macro, les comparatifs inter-secteurs et l'allocation optimale (Markowitz)."
+                          ? t("results.synthesis_indice_desc")
                           : kind === "comparatif"
-                          ? "Comparatif société généré. Les livrables PDF, PPTX et Excel contiennent les analyses parallèles, ratios comparés et verdict relatif."
+                          ? t("results.synthesis_comparison_desc")
                           : kind === "pme"
-                          ? "Analyse PME non cotée générée via Pappers + BODACC. Le rapport contient les SIG détaillés, 14 ratios clés, benchmark sectoriel, scoring Altman Z & santé FinSight, bankabilité. Approche contrôle de gestion."
-                          : "Analyse sectorielle générée. Le rapport PDF compare les principales sociétés du secteur sur l'univers sélectionné, avec ratios, performance et allocation."}
+                          ? t("results.synthesis_pme_desc")
+                          : t("results.synthesis_sector_desc")}
                       </p>
                     </div>
                   ),
                 },
                 {
                   id: "qa",
-                  label: "Q&A IA",
+                  label: t("results.block_qa"),
                   default: { x: 8, y: 0, w: 4, h: 8 },
                   render: () => (
                     <QAChat jobId={id} ticker={result.label || ticker} />
@@ -427,7 +429,7 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
                 },
                 {
                   id: "save-history",
-                  label: "Garder en mémoire",
+                  label: t("results.block_save"),
                   default: { x: 8, y: 8, w: 4, h: 3 },
                   render: () => (
                     <SaveToHistoryCard
@@ -442,7 +444,7 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
                   ? [
                       {
                         id: "pme-no-accounts",
-                        label: "Comptes non publics",
+                        label: t("results.block_pme_no_accounts"),
                         default: { x: 0, y: 4, w: 8, h: 4 },
                         render: () => <PmeNoAccountsNotice data={result.data!} />,
                       } satisfies GridBlock,
@@ -452,25 +454,25 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
                   ? [
                       {
                         id: "pme-identite",
-                        label: "Identité société",
+                        label: t("results.block_pme_identity"),
                         default: { x: 0, y: 8, w: 4, h: 6 },
                         render: () => <PmeIdentiteCard data={result.data!} />,
                       } satisfies GridBlock,
                       {
                         id: "pme-dirigeants",
-                        label: "Dirigeants",
+                        label: t("results.block_pme_directors"),
                         default: { x: 4, y: 8, w: 4, h: 6 },
                         render: () => <PmeDirigeantsCard data={result.data!} />,
                       } satisfies GridBlock,
                       {
                         id: "pme-bodacc",
-                        label: "BODACC",
+                        label: t("results.block_pme_bodacc"),
                         default: { x: 8, y: 11, w: 4, h: 5 },
                         render: () => <PmeBodaccCard data={result.data!} />,
                       } satisfies GridBlock,
                       {
                         id: "pme-scores",
-                        label: "Scoring financier",
+                        label: t("results.block_pme_scoring"),
                         default: { x: 0, y: 14, w: 8, h: 5 },
                         render: () => <PmeScoresCard data={result.data!} />,
                       } satisfies GridBlock,
@@ -478,7 +480,7 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
                   : []),
                 {
                   id: "documents-upload",
-                  label: "Documents complémentaires",
+                  label: t("results.block_docs"),
                   default: { x: 8, y: 16, w: 4, h: 6 },
                   render: () => <DocumentUploadBox analysisId={id} />,
                 } satisfies GridBlock,
@@ -486,13 +488,13 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
                   ? [
                       {
                         id: "pdf",
-                        label: "Rapport PDF",
+                        label: t("results.block_pdf"),
                         default: { x: 0, y: 4, w: 4, h: 4 },
                         render: () => (
                           <FileBlock
                             icon={<FileText className="w-6 h-6" />}
-                            label="Rapport PDF"
-                            description="Format institutionnel"
+                            label={t("results.block_pdf")}
+                            description={t("results.format_institutional")}
                             href={getFileUrl(result.files!.pdf!)}
                           />
                         ),
@@ -503,13 +505,13 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
                   ? [
                       {
                         id: "pptx",
-                        label: "Pitchbook PPTX",
+                        label: t("results.block_pptx"),
                         default: { x: 4, y: 4, w: 4, h: 4 },
                         render: () => (
                           <FileBlock
                             icon={<Presentation className="w-6 h-6" />}
-                            label="Pitchbook PPTX"
-                            description="Style Bloomberg"
+                            label={t("results.block_pptx")}
+                            description={t("results.format_bloomberg")}
                             href={getFileUrl(result.files!.pptx!)}
                           />
                         ),
@@ -520,13 +522,13 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
                   ? [
                       {
                         id: "xlsx",
-                        label: "Modèle Excel",
+                        label: t("results.block_xlsx"),
                         default: { x: 0, y: 8, w: 4, h: 4 },
                         render: () => (
                           <FileBlock
                             icon={<FileSpreadsheet className="w-6 h-6" />}
-                            label="Modèle Excel"
-                            description="DCF · Ratios · Comparables"
+                            label={t("results.block_xlsx")}
+                            description={t("results.format_dcf")}
                             href={getFileUrl(result.files!.xlsx!)}
                           />
                         ),
@@ -538,7 +540,7 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
                   ? [
                       {
                         id: "sector-tickers",
-                        label: "Sociétés du secteur",
+                        label: t("results.block_sector_companies"),
                         default: { x: 0, y: 8, w: 12, h: 8 },
                         render: () => (
                           <SectorTickersTable
@@ -554,7 +556,7 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
                   ? [
                       {
                         id: "indice-secteurs",
-                        label: "Cartographie sectorielle",
+                        label: t("results.block_sector_map"),
                         default: { x: 0, y: 8, w: 12, h: 8 },
                         render: () => (
                           <IndiceSecteursTable
@@ -569,17 +571,17 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
                   ? [
                       {
                         id: "pdf-preview",
-                        label: "Aperçu PDF",
+                        label: t("results.block_pdf_preview"),
                         default: { x: 4, y: 16, w: 8, h: 12 },
                         render: () => (
                           <div className="bg-white border border-ink-200 rounded-md h-full overflow-hidden flex flex-col">
                             <div className="px-3 py-2 border-b border-ink-100 text-[10px] font-semibold uppercase tracking-[1.5px] text-ink-500 flex-none">
-                              Aperçu rapport PDF
+                              {t("results.pdf_preview_label")}
                             </div>
                             <iframe
                               src={getFileUrl(result.files!.pdf!)}
                               className="flex-1 w-full"
-                              title="Aperçu PDF"
+                              title={t("results.block_pdf_preview")}
                             />
                           </div>
                         ),
@@ -592,7 +594,7 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
         )}
 
         <div className="text-xs text-ink-500 mt-8 text-center">
-          Analyse générée en {(result.elapsed_ms / 1000).toFixed(1)}s · ID{" "}
+          {t("results.generated_in")} {(result.elapsed_ms / 1000).toFixed(1)}s · ID{" "}
           {result.request_id.slice(0, 8)}
         </div>
       </main>
@@ -631,8 +633,13 @@ function FileBlock({
       <div className="text-xs text-ink-500">{description}</div>
       <div className="mt-1 flex items-center gap-1 text-[11px] text-navy-500 font-semibold">
         <Download className="w-3.5 h-3.5" />
-        Télécharger
+        <DownloadLabel />
       </div>
     </a>
   );
+}
+
+function DownloadLabel() {
+  const { t } = useI18n();
+  return <>{t("results.download_simple")}</>;
 }

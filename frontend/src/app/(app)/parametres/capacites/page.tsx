@@ -2,64 +2,65 @@
 
 import { useUserPreferences } from "@/hooks/use-user-preferences";
 import type { ToolsMode } from "@/hooks/use-user-preferences";
+import { useI18n } from "@/i18n/provider";
 
 export default function CapacitesPage() {
   const { prefs, update, loading } = useUserPreferences();
+  const { t } = useI18n();
 
-  if (loading) return <div className="text-sm text-ink-500">Chargement…</div>;
+  if (loading) return <div className="text-sm text-ink-500">{t("common.loading")}</div>;
 
   return (
     <div className="space-y-10 max-w-3xl">
       {/* === Mémoire === */}
       <section>
-        <h2 className="text-lg font-semibold text-ink-900 mb-5">Mémoire</h2>
+        <h2 className="text-lg font-semibold text-ink-900 mb-5">{t("settings.cap_memory_title")}</h2>
 
         <ToggleRow
-          title="Rechercher et référencer les analyses passées"
-          description="Autoriser FinSight à rechercher des détails pertinents dans vos analyses précédentes (même ticker, même secteur, etc.)."
+          title={t("settings.cap_memory_search_title")}
+          description={t("settings.cap_memory_search_desc")}
           value={prefs.capabilities.memory_search}
           onChange={(v) => update({ capabilities: { ...prefs.capabilities, memory_search: v } })}
         />
         <ToggleRow
-          title="Générer la mémoire à partir de l'historique"
-          description="Autoriser FinSight à mémoriser le contexte pertinent de vos analyses pour personnaliser les futures."
+          title={t("settings.cap_memory_gen_title")}
+          description={t("settings.cap_memory_gen_desc")}
           value={prefs.capabilities.memory_generate}
           onChange={(v) => update({ capabilities: { ...prefs.capabilities, memory_generate: v } })}
         />
 
         <div className="mt-6 p-4 rounded-md border border-ink-200 bg-ink-50/50">
-          <div className="text-sm font-medium text-ink-900 mb-1">Mémoire de vos analyses</div>
-          <div className="text-xs text-ink-500 mb-3">Pas encore de contexte mémorisé.</div>
+          <div className="text-sm font-medium text-ink-900 mb-1">{t("settings.cap_memory_box_title")}</div>
+          <div className="text-xs text-ink-500 mb-3">{t("settings.cap_memory_box_empty")}</div>
           <button
             type="button"
             disabled
             className="px-3 py-1.5 rounded-md border border-ink-200 text-xs text-ink-400 cursor-not-allowed"
           >
-            Gérer la mémoire — bientôt
+            {t("settings.cap_memory_manage")}
           </button>
         </div>
       </section>
 
       {/* === Accès aux outils === */}
       <section className="border-t border-ink-200 pt-8">
-        <h3 className="text-base font-semibold text-ink-900 mb-2">Accès aux outils</h3>
+        <h3 className="text-base font-semibold text-ink-900 mb-2">{t("settings.cap_tools_title")}</h3>
         <p className="text-sm text-ink-600 mb-5 max-w-xl">
-          Contrôle la manière dont les outils (connecteurs, APIs externes) sont chargés
-          dans les nouvelles analyses.
+          {t("settings.cap_tools_intro")}
         </p>
 
         <div className="space-y-3">
           <RadioCard
             active={prefs.capabilities.tools_mode === "on_demand"}
             onClick={() => update({ capabilities: { ...prefs.capabilities, tools_mode: "on_demand" as ToolsMode } })}
-            title="Charger les outils si nécessaire"
-            description="Les analyses sont plus légères car les outils ne sont pas préchargés."
+            title={t("settings.cap_tools_on_demand_title")}
+            description={t("settings.cap_tools_on_demand_desc")}
           />
           <RadioCard
             active={prefs.capabilities.tools_mode === "preloaded"}
             onClick={() => update({ capabilities: { ...prefs.capabilities, tools_mode: "preloaded" as ToolsMode } })}
-            title="Outils déjà chargés"
-            description="Les analyses sont plus riches car les outils sont toujours disponibles (consomme plus de tokens)."
+            title={t("settings.cap_tools_preloaded_title")}
+            description={t("settings.cap_tools_preloaded_desc")}
           />
         </div>
       </section>

@@ -3,77 +3,78 @@
 import Link from "next/link";
 import { Shield } from "lucide-react";
 import { useUserPreferences } from "@/hooks/use-user-preferences";
+import { useI18n } from "@/i18n/provider";
 
 export default function ConfidentialitePage() {
   const { prefs, update, loading } = useUserPreferences();
+  const { t } = useI18n();
 
-  if (loading) return <div className="text-sm text-ink-500">Chargement…</div>;
+  if (loading) return <div className="text-sm text-ink-500">{t("common.loading")}</div>;
 
   return (
     <div className="space-y-10 max-w-3xl">
-      {/* === Header sécurité === */}
       <section>
         <div className="flex items-start gap-3 mb-4">
           <div className="shrink-0 w-10 h-10 rounded-md bg-ink-100 flex items-center justify-center">
             <Shield className="w-5 h-5 text-ink-700" />
           </div>
           <div>
-            <h2 className="text-lg font-semibold text-ink-900">Confidentialité</h2>
+            <h2 className="text-lg font-semibold text-ink-900">{t("settings.priv_title")}</h2>
             <p className="text-sm text-ink-600">
-              FinSight IA s&apos;engage pour la transparence des pratiques en matière de données.
+              {t("settings.priv_intro")}
             </p>
           </div>
         </div>
 
         <p className="text-sm text-ink-700 leading-relaxed">
-          Découvrez comment vos informations sont protégées lors de l&apos;utilisation de FinSight.{" "}
-          Consultez notre{" "}
+          {t("settings.priv_discover")}{" "}
           <Link href="/privacy" className="text-navy-500 underline">
-            Politique de confidentialité
+            {t("settings.priv_policy")}
           </Link>{" "}
-          et nos{" "}
+          {t("settings.priv_and_our")}{" "}
           <Link href="/securite" className="text-navy-500 underline">
-            pratiques de sécurité
+            {t("settings.priv_security")}
           </Link>{" "}
-          pour plus de détails.
+          {t("settings.priv_more_details")}
         </p>
 
         <div className="mt-5 space-y-2">
           <Link href="/privacy" className="block text-sm text-ink-700 hover:text-navy-500">
-            Comment nous protégeons vos données ›
+            {t("settings.priv_how_protect")}
           </Link>
           <Link href="/privacy" className="block text-sm text-ink-700 hover:text-navy-500">
-            Comment nous utilisons vos données ›
+            {t("settings.priv_how_use")}
           </Link>
         </div>
       </section>
 
-      {/* === Paramètres === */}
       <section className="border-t border-ink-200 pt-8">
-        <h3 className="text-base font-semibold text-ink-900 mb-5">Paramètres de confidentialité</h3>
+        <h3 className="text-base font-semibold text-ink-900 mb-5">{t("settings.priv_settings_title")}</h3>
 
         <ActionRow
-          title="Exporter les données"
-          description="Téléchargez une archive de toutes vos analyses et préférences."
-          buttonLabel="Exporter les données"
+          title={t("settings.priv_export_title")}
+          description={t("settings.priv_export_desc")}
+          buttonLabel={t("settings.priv_export_btn")}
+          soon={t("settings.priv_soon")}
           disabled
         />
         <ActionRow
-          title="Préférences de mémoire"
-          description="Gérez ce que FinSight retient de vos précédentes analyses."
-          buttonLabel="Gérer"
+          title={t("settings.priv_memory_title")}
+          description={t("settings.priv_memory_desc")}
+          buttonLabel={t("settings.priv_memory_btn")}
+          soon={t("settings.priv_soon")}
           disabled
         />
 
         <ToggleRow
-          title="Métadonnées de localisation"
-          description="Autoriser FinSight à utiliser les métadonnées de localisation approximative (ville/région) pour adapter les analyses aux indices/secteurs locaux."
+          title={t("settings.priv_location_title")}
+          description={t("settings.priv_location_desc")}
           value={prefs.privacy.location_metadata}
           onChange={(v) => update({ privacy: { ...prefs.privacy, location_metadata: v } })}
         />
         <ToggleRow
-          title="Aider à améliorer FinSight"
-          description="Autoriser l'utilisation de vos analyses (anonymisées) pour entraîner et améliorer les modèles d'IA de FinSight."
+          title={t("settings.priv_improve_title")}
+          description={t("settings.priv_improve_desc")}
           value={prefs.privacy.improve_models}
           onChange={(v) => update({ privacy: { ...prefs.privacy, improve_models: v } })}
         />
@@ -124,11 +125,13 @@ function ActionRow({
   title,
   description,
   buttonLabel,
+  soon,
   disabled = false,
 }: {
   title: string;
   description: string;
   buttonLabel: string;
+  soon?: string;
   disabled?: boolean;
 }) {
   return (
@@ -140,7 +143,7 @@ function ActionRow({
       <button
         type="button"
         disabled={disabled}
-        title={disabled ? "Bientôt disponible" : undefined}
+        title={disabled ? soon : undefined}
         className={
           "px-4 py-2 rounded-md border text-sm transition-colors " +
           (disabled
