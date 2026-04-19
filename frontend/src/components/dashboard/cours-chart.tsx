@@ -12,6 +12,7 @@ import {
   Legend,
 } from "recharts";
 import type { StockPoint } from "./types";
+import { useI18n } from "@/i18n/provider";
 
 // Mapping secteur → ETF de référence (Yahoo symbols)
 const SECTOR_ETF: Record<string, string> = {
@@ -56,6 +57,7 @@ export function CoursChart({
   history: StockPoint[];
   sector?: string;
 }) {
+  const { t } = useI18n();
   const etf = sector ? SECTOR_ETF[sector] : null;
   const [series, setSeries] = useState<{
     target: { month: string; price: number }[];
@@ -82,7 +84,7 @@ export function CoursChart({
   if (!targetSerie || targetSerie.length === 0) {
     return (
       <div className="bg-white border border-ink-200 rounded-md p-5 h-full flex items-center justify-center">
-        <span className="text-xs text-ink-400">Pas d&apos;historique disponible</span>
+        <span className="text-xs text-ink-400">{t("kpi.no_history")}</span>
       </div>
     );
   }
