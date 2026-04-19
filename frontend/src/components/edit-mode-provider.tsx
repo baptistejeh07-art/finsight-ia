@@ -77,6 +77,20 @@ export function EditModeProvider({ children }: { children: React.ReactNode }) {
 }
 
 function EditBanner({ onClose }: { onClose: () => void }) {
+  function handleSave() {
+    // Force le toast de confirmation. Les modifs sont déjà sauvegardées en
+    // automatique via EditableGrid.onLayoutChange (localStorage), mais
+    // l'utilisateur attend un feedback explicite après clic.
+    try {
+      // Dispatch event écouté par d'éventuels composants enfants pour
+      // forcer un save additionnel (ex: future persistance Supabase)
+      window.dispatchEvent(new CustomEvent("finsight:save-layout"));
+    } catch {}
+    // Toast natif via react-hot-toast (déjà importé globalement dans layout.tsx)
+    import("react-hot-toast").then(({ default: toast }) => {
+      toast.success("Layout sauvegardé localement", { duration: 2500 });
+    });
+  }
   return (
     <>
       <div className="fixed top-0 left-0 right-0 z-50 bg-amber-500 text-amber-950 shadow-lg">
@@ -85,18 +99,18 @@ function EditBanner({ onClose }: { onClose: () => void }) {
             <Settings2 className="w-4 h-4" />
             <span>Mode édition</span>
             <span className="text-xs opacity-70 hidden md:inline">
-              · Ctrl+Alt+E pour toggle · V1 : visualisation · drag&drop en V2
+              · Auto-save activé · Ctrl+Alt+E pour quitter
             </span>
           </div>
           <div className="flex items-center gap-2">
             <button
               type="button"
-              disabled
-              className="text-xs px-3 py-1 rounded bg-white/30 text-amber-950/50 cursor-not-allowed"
-              title="Disponible en V2"
+              onClick={handleSave}
+              className="text-xs px-3 py-1 rounded bg-amber-950 text-amber-50 hover:bg-amber-900 transition-colors"
+              title="Confirmer la sauvegarde du layout"
             >
               <Save className="w-3 h-3 inline mr-1" />
-              Sauvegarder layout
+              Sauvegarder
             </button>
             <button
               onClick={onClose}
