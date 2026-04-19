@@ -369,3 +369,147 @@ def field_label(field: str, lang: str) -> str:
         # Fallback : libellé brut humanisé
         return field.replace("_", " ").capitalize()
     return spec.get(lang) or spec.get("en") or spec.get("fr") or field
+
+
+# ─── Catégories textuelles renvoyées par les sources tierces (Pappers, BODACC) ─
+
+# Forme juridique : codes officiels INSEE → libellés multilingues
+LEGAL_FORMS = {
+    "SAS": {"fr": "SAS (Société par actions simplifiée)", "en": "SAS (Simplified joint-stock company)",
+            "es": "SAS (Sociedad por acciones simplificada)", "de": "SAS (Vereinfachte AG)",
+            "it": "SAS (Società per azioni semplificata)", "pt": "SAS (Sociedade por ações simplificada)"},
+    "SASU": {"fr": "SASU (SAS unipersonnelle)", "en": "SASU (Single-shareholder SAS)",
+             "es": "SASU (SAS unipersonal)", "de": "SASU (Ein-Gesellschafter-SAS)",
+             "it": "SASU (SAS unipersonale)", "pt": "SASU (SAS unipessoal)"},
+    "SARL": {"fr": "SARL (Société à responsabilité limitée)", "en": "SARL (Limited liability company)",
+             "es": "SARL (Sociedad de responsabilidad limitada)", "de": "SARL (GmbH)",
+             "it": "SARL (Srl)", "pt": "SARL (Sociedade por quotas)"},
+    "EURL": {"fr": "EURL (SARL unipersonnelle)", "en": "EURL (Single-shareholder LLC)",
+             "es": "EURL (SARL unipersonal)", "de": "EURL (Ein-Personen-GmbH)",
+             "it": "EURL (Srl unipersonale)", "pt": "EURL (Sociedade unipessoal)"},
+    "SA": {"fr": "SA (Société anonyme)", "en": "SA (Public limited company)",
+           "es": "SA (Sociedad anónima)", "de": "SA (Aktiengesellschaft)",
+           "it": "SA (Società per azioni)", "pt": "SA (Sociedade anónima)"},
+    "SNC": {"fr": "SNC (Société en nom collectif)", "en": "SNC (General partnership)",
+            "es": "SNC (Sociedad colectiva)", "de": "SNC (Offene Handelsgesellschaft)",
+            "it": "SNC (Società in nome collettivo)", "pt": "SNC (Sociedade em nome coletivo)"},
+    "SCI": {"fr": "SCI (Société civile immobilière)", "en": "SCI (Real estate civil company)",
+            "es": "SCI (Sociedad civil inmobiliaria)", "de": "SCI (Immobilien-Gesellschaft bürgerlichen Rechts)",
+            "it": "SCI (Società civile immobiliare)", "pt": "SCI (Sociedade civil imobiliária)"},
+    "EI": {"fr": "EI (Entreprise individuelle)", "en": "EI (Sole proprietorship)",
+           "es": "EI (Empresario individual)", "de": "EI (Einzelunternehmen)",
+           "it": "EI (Ditta individuale)", "pt": "EI (Empresário em nome individual)"},
+    "EIRL": {"fr": "EIRL (Entrepreneur individuel à responsabilité limitée)",
+             "en": "EIRL (Limited liability sole trader)",
+             "es": "EIRL (Empresario individual con responsabilidad limitada)",
+             "de": "EIRL (Einzelunternehmer mit beschränkter Haftung)",
+             "it": "EIRL (Imprenditore individuale a responsabilità limitata)",
+             "pt": "EIRL (Empresário em nome individual de responsabilidade limitada)"},
+}
+
+
+def legal_form_label(form: str, lang: str) -> str:
+    """Renvoie le libellé multilingue de la forme juridique."""
+    if not form:
+        return ""
+    lang = normalize_language(lang)
+    # Détection simple via mots-clefs (Pappers renvoie des chaînes type "Société par actions simplifiée")
+    f_upper = form.upper()
+    for code, spec in LEGAL_FORMS.items():
+        if code in f_upper or any(part in f_upper for part in [code]):
+            return spec.get(lang) or spec.get("en") or spec.get("fr") or form
+    # Si pas de match : on retourne tel quel (déjà en FR par Pappers)
+    return form
+
+
+# Qualité dirigeant
+DIRECTOR_QUALITIES = {
+    "Président": {"fr": "Président", "en": "Chairman", "es": "Presidente",
+                  "de": "Vorsitzender", "it": "Presidente", "pt": "Presidente"},
+    "Directeur Général": {"fr": "Directeur Général", "en": "Chief Executive Officer (CEO)",
+                          "es": "Director General", "de": "Geschäftsführer",
+                          "it": "Direttore Generale", "pt": "Diretor-Geral"},
+    "Directeur général": {"fr": "Directeur général", "en": "Chief Executive Officer (CEO)",
+                          "es": "Director general", "de": "Geschäftsführer",
+                          "it": "Direttore generale", "pt": "Diretor-geral"},
+    "Gérant": {"fr": "Gérant", "en": "Managing director", "es": "Gerente",
+               "de": "Geschäftsführer", "it": "Amministratore", "pt": "Gerente"},
+    "Cogérant": {"fr": "Cogérant", "en": "Co-managing director", "es": "Cogerente",
+                 "de": "Mit-Geschäftsführer", "it": "Co-amministratore", "pt": "Co-gerente"},
+    "Administrateur": {"fr": "Administrateur", "en": "Director", "es": "Administrador",
+                       "de": "Verwaltungsratsmitglied", "it": "Amministratore", "pt": "Administrador"},
+    "Membre du conseil de surveillance": {"fr": "Membre du conseil de surveillance",
+                                          "en": "Supervisory board member",
+                                          "es": "Miembro del consejo de supervisión",
+                                          "de": "Aufsichtsratsmitglied",
+                                          "it": "Membro del consiglio di sorveglianza",
+                                          "pt": "Membro do conselho fiscal"},
+    "Commissaire aux comptes": {"fr": "Commissaire aux comptes", "en": "Statutory auditor",
+                                "es": "Auditor de cuentas", "de": "Abschlussprüfer",
+                                "it": "Revisore legale", "pt": "Revisor oficial de contas"},
+}
+
+
+def director_quality_label(quality: str, lang: str) -> str:
+    if not quality:
+        return ""
+    lang = normalize_language(lang)
+    spec = DIRECTOR_QUALITIES.get(quality)
+    if spec:
+        return spec.get(lang) or spec.get("en") or quality
+    # Match insensitive case
+    for key, spec in DIRECTOR_QUALITIES.items():
+        if key.lower() in quality.lower():
+            return spec.get(lang) or spec.get("en") or quality
+    return quality
+
+
+# Types de procédures BODACC
+BODACC_PROCEDURE_TYPES = {
+    "Dépôt des comptes": {"fr": "Dépôt des comptes annuels",
+                          "en": "Annual accounts filing",
+                          "es": "Depósito de cuentas anuales",
+                          "de": "Hinterlegung des Jahresabschlusses",
+                          "it": "Deposito del bilancio",
+                          "pt": "Depósito de contas anuais"},
+    "Procédure collective": {"fr": "Procédure collective",
+                             "en": "Insolvency proceedings",
+                             "es": "Procedimiento concursal",
+                             "de": "Insolvenzverfahren",
+                             "it": "Procedura concorsuale",
+                             "pt": "Processo de insolvência"},
+    "Redressement judiciaire": {"fr": "Redressement judiciaire",
+                                "en": "Reorganization proceedings",
+                                "es": "Reestructuración judicial",
+                                "de": "Sanierungsverfahren",
+                                "it": "Concordato preventivo",
+                                "pt": "Processo de recuperação judicial"},
+    "Liquidation judiciaire": {"fr": "Liquidation judiciaire",
+                               "en": "Judicial liquidation",
+                               "es": "Liquidación judicial",
+                               "de": "Gerichtliche Liquidation",
+                               "it": "Liquidazione giudiziale",
+                               "pt": "Liquidação judicial"},
+    "Sauvegarde": {"fr": "Procédure de sauvegarde",
+                   "en": "Safeguard proceedings",
+                   "es": "Procedimiento de salvaguarda",
+                   "de": "Schutzschirmverfahren",
+                   "it": "Procedura di salvaguardia",
+                   "pt": "Processo de salvaguarda"},
+    "Radiation": {"fr": "Radiation",
+                  "en": "Strike-off",
+                  "es": "Cancelación",
+                  "de": "Löschung",
+                  "it": "Cancellazione",
+                  "pt": "Cancelamento"},
+}
+
+
+def bodacc_label(typ: str, lang: str) -> str:
+    if not typ:
+        return ""
+    lang = normalize_language(lang)
+    for key, spec in BODACC_PROCEDURE_TYPES.items():
+        if key.lower() in typ.lower():
+            return spec.get(lang) or spec.get("en") or typ
+    return typ

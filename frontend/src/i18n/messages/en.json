@@ -62,7 +62,8 @@
     "deliverables_empty": "Available after analysis",
     "pdf_report": "PDF report",
     "pptx_pitchbook": "Pitchbook",
-    "xlsx_model": "Financial Excel"
+    "xlsx_model": "Financial Excel",
+    "contact": "Contact us"
   },
   "auth": {
     "login": "Sign in",

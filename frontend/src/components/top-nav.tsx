@@ -5,8 +5,10 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { AuthDialog } from "./auth-dialog";
 import type { User } from "@supabase/supabase-js";
+import { useI18n } from "@/i18n/provider";
 
 export function TopNav() {
+  const { t } = useI18n();
   const [user, setUser] = useState<User | null>(null);
   const [authMode, setAuthMode] = useState<"signin" | "signup" | null>(null);
 
@@ -22,21 +24,19 @@ export function TopNav() {
   return (
     <>
       <div className="hidden md:flex fixed top-0 right-0 z-30 px-6 py-4 items-center gap-5 text-xs">
-        {/* Connecté : menu utilisateur géré dans la sidebar (SidebarUserMenu).
-            Ici on ne laisse que les boutons auth quand non-connecté. */}
         {!user && (
           <>
             <button
               onClick={() => setAuthMode("signin")}
               className="text-ink-700 hover:text-ink-900 transition-colors"
             >
-              Se connecter
+              {t("auth.login")}
             </button>
             <button
               onClick={() => setAuthMode("signup")}
               className="text-ink-700 hover:text-ink-900 transition-colors"
             >
-              S&apos;inscrire
+              {t("auth.signup")}
             </button>
           </>
         )}
@@ -44,7 +44,7 @@ export function TopNav() {
           href="/contact"
           className="text-ink-700 hover:text-ink-900 transition-colors"
         >
-          Contact us
+          {t("nav.contact")}
         </Link>
       </div>
 

@@ -62,7 +62,8 @@
     "deliverables_empty": "Disponibles après analyse",
     "pdf_report": "Rapport PDF",
     "pptx_pitchbook": "Pitchbook",
-    "xlsx_model": "Excel financier"
+    "xlsx_model": "Excel financier",
+    "contact": "Nous contacter"
   },
   "auth": {
     "login": "Connexion",
@@ -94,6 +95,9 @@
     "pme_how_4": "Scoring Altman Z (non coté) + santé FinSight + bankabilité + BODACC",
     "pme_how_5": "Livrables : PDF 12p (contrôle de gestion), XLSX 5 feuilles, PPTX 10 slides",
     "pme_disclaimer_mifid": "Cette analyse ne constitue pas un conseil en investissement (MiFID II)."
+  },
+  "contact": {
+    "title": "Contactez-nous"
   },
   "results": {
     "title": "Résultat d'analyse",
