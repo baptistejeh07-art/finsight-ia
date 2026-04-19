@@ -20,11 +20,14 @@ Thumbs.db
 # --- Outputs générés ---
 outputs/generated/
 outputs/veille/
+outputs/audit_night/
+outputs/test_documents/
 preview/
 preview/*/renders/
 logs/local/
 logs/cache/
 logs/openai_usage.json
+backend/logs/
 
 # --- Claude Code locals ---
 .claude/settings.local.json
