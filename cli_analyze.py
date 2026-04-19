@@ -964,6 +964,10 @@ def _fetch_real_sector_data(sector: str, universe: str, max_tickers: int = 8) ->
             net_m    = (info.get("profitMargins")  or 0) * 100
             _roe_raw = info.get("returnOnEquity")
             roe      = round(float(_roe_raw) * 100, 1) if _roe_raw is not None else None
+            # Clamp ROE : yfinance renvoie parfois +6000% quand BVPS quasi-nul
+            # (ex: ABBV goodwill > equity). Cap [-200%, +200%] pour rester lisible.
+            if roe is not None and (roe > 200 or roe < -200):
+                roe = None
             rev_g    =  info.get("revenueGrowth")  or 0
             mom52    = (info.get("52WeekChange")    or 0) * 100
             mom52    = max(-300.0, min(300.0, mom52))  # cap +/-300% : valeurs extremes yfinance
