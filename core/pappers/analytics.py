@@ -161,9 +161,10 @@ def compute_sig(y: YearAccounts) -> SIG:
 
     # ─── Production de l'exercice ───
     # = Prod vendue + Prod stockée + Prod immobilisée
-    prod = _sum(y.production_vendue, y.production_stockee, y.production_immobilisee)
-    if prod is None and y.chiffre_affaires is not None:
-        prod = y.chiffre_affaires  # fallback si pas de détail
+    # Le XLSX Pappers peut ne pas ventiler production_vendue (déjà incluse dans CA).
+    # Dans ce cas, on utilise CA comme base + stockée/immobilisée.
+    prod_vendue = y.production_vendue if y.production_vendue is not None else y.chiffre_affaires
+    prod = _sum(prod_vendue, y.production_stockee, y.production_immobilisee)
 
     # ─── Consommations externes ───
     # = Achats matières + Var stocks matières + Autres achats et charges externes
