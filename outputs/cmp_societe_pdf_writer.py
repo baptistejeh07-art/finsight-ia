@@ -135,6 +135,77 @@ def _canvas_text(s):
 def rule(w=TABLE_W, thick=0.5, col=GREY_RULE, sb=4, sa=4):
     return HRFlowable(width=w, thickness=thick, color=col, spaceAfter=sa, spaceBefore=sb)
 
+# ─── i18n helper cmp société PDF ──────────────────────────────────────────
+_CMP_CURRENT_LANG: str = "fr"
+
+_CMP_PDF_LABELS: dict[str, dict[str, str]] = {
+    "exec_summary": {"fr": "Executive Summary", "en": "Executive Summary",
+                     "es": "Resumen Ejecutivo", "de": "Executive Summary",
+                     "it": "Executive Summary", "pt": "Resumo Executivo"},
+    "profil_is": {"fr": "Profil & Compte de Résultat",
+                  "en": "Profile & Income Statement",
+                  "es": "Perfil y Cuenta de Resultados",
+                  "de": "Profil & Gewinn- und Verlustrechnung",
+                  "it": "Profilo & Conto Economico",
+                  "pt": "Perfil & Demonstração de Resultados"},
+    "rentabilite": {"fr": "Rentabilité & Bilan",
+                    "en": "Profitability & Balance Sheet",
+                    "es": "Rentabilidad y Balance",
+                    "de": "Rentabilität & Bilanz",
+                    "it": "Redditività & Stato Patrimoniale",
+                    "pt": "Rentabilidade & Balanço"},
+    "valorisation": {"fr": "Valorisation", "en": "Valuation",
+                     "es": "Valoración", "de": "Bewertung",
+                     "it": "Valutazione", "pt": "Avaliação"},
+    "qualite_risque": {"fr": "Qualité & Risque", "en": "Quality & Risk",
+                       "es": "Calidad y Riesgo", "de": "Qualität & Risiko",
+                       "it": "Qualità & Rischio", "pt": "Qualidade & Risco"},
+    "verdict_theses": {"fr": "Verdict & Thèses",
+                       "en": "Verdict & Theses",
+                       "es": "Veredicto y Tesis",
+                       "de": "Urteil & Thesen",
+                       "it": "Verdetto & Tesi",
+                       "pt": "Veredicto & Teses"},
+    "fcf_capital": {"fr": "Free Cash Flow & Capital Allocation",
+                    "en": "Free Cash Flow & Capital Allocation",
+                    "es": "Flujo de Caja Libre y Asignación de Capital",
+                    "de": "Free Cashflow & Kapitalallokation",
+                    "it": "Free Cash Flow & Allocazione del Capitale",
+                    "pt": "Fluxo de Caixa Livre & Alocação de Capital"},
+    "sensi_dcf": {"fr": "Sensibilité Valorisation DCF",
+                  "en": "DCF Valuation Sensitivity",
+                  "es": "Sensibilidad Valoración DCF",
+                  "de": "DCF-Bewertungssensitivität",
+                  "it": "Sensibilità Valutazione DCF",
+                  "pt": "Sensibilidade Avaliação DCF"},
+    "momentum": {"fr": "Momentum & Marché",
+                 "en": "Momentum & Market",
+                 "es": "Momentum y Mercado",
+                 "de": "Momentum & Markt",
+                 "it": "Momentum & Mercato",
+                 "pt": "Momentum & Mercado"},
+    "evolution_52w": {"fr": "Évolution Boursière 52 Semaines",
+                      "en": "52-Week Stock Evolution",
+                      "es": "Evolución Bursátil 52 Semanas",
+                      "de": "52-Wochen-Aktienentwicklung",
+                      "it": "Evoluzione Azionaria 52 Settimane",
+                      "pt": "Evolução Bursátil 52 Semanas"},
+    "piotroski": {"fr": "Analyse Piotroski F-Score",
+                  "en": "Piotroski F-Score Analysis",
+                  "es": "Análisis Piotroski F-Score",
+                  "de": "Piotroski F-Score-Analyse",
+                  "it": "Analisi Piotroski F-Score",
+                  "pt": "Análise Piotroski F-Score"},
+}
+
+
+def _clbl(key: str) -> str:
+    spec = _CMP_PDF_LABELS.get(key)
+    if not spec:
+        return key
+    return spec.get(_CMP_CURRENT_LANG) or spec.get("en") or spec.get("fr") or key
+
+
 def section_title(text, num=""):
     prefix = f"{num}. " if num else ""
     return [rule(sb=6, sa=0), Paragraph(f"{prefix}{text}", S_SECTION), rule(sb=2, sa=6)]
@@ -966,7 +1037,7 @@ def _make_tbl_3col(header, raw_rows, cw=None):
 # =============================================================================
 
 def _section_exec_summary(story, m_a, m_b, synthesis, tkr_a, tkr_b):
-    story += section_title("Executive Summary", "1")
+    story += section_title(_clbl("exec_summary"), "1")
 
     exec_text = synthesis.get("exec_summary") or ""
     if exec_text:
@@ -1112,7 +1183,7 @@ def _section_profil_pl(story, m_a, m_b, synthesis, tkr_a, tkr_b):
     # #203 : CondPageBreak plutôt que PageBreak forcé pour permettre aux
     # sections courtes (marges ~1/3 page) de laisser flow la section suivante
     story.append(CondPageBreak(110*mm))
-    story += section_title("Profil & Compte de Résultat", "2")
+    story += section_title(_clbl("profil_is"), "2")
 
     # Texte computed Profil
     story.append(Paragraph(_safe(_profil_text(m_a, m_b, tkr_a, tkr_b)), S_BODY))
@@ -1229,7 +1300,7 @@ def _section_profil_pl(story, m_a, m_b, synthesis, tkr_a, tkr_b):
 
 def _section_rentabilite_bilan(story, m_a, m_b, tkr_a, tkr_b):
     story.append(CondPageBreak(110*mm))
-    story += section_title("Rentabilité & Bilan", "3")
+    story += section_title(_clbl("rentabilite"), "3")
 
     # Texte introductif rentabilité
     roic_a  = _frpct(m_a.get("roic"));      roic_b  = _frpct(m_b.get("roic"))
@@ -1320,7 +1391,7 @@ def _section_rentabilite_bilan(story, m_a, m_b, tkr_a, tkr_b):
 
 def _section_valorisation(story, m_a, m_b, synthesis, tkr_a, tkr_b):
     story.append(CondPageBreak(110*mm))
-    story += section_title("Valorisation", "5")
+    story += section_title(_clbl("valorisation"), "5")
 
     if synthesis.get("valuation_text"):
         vt = _word_clip(synthesis["valuation_text"], 500)
@@ -1407,7 +1478,7 @@ def _section_valorisation(story, m_a, m_b, synthesis, tkr_a, tkr_b):
 
 def _section_qualite_risque(story, m_a, m_b, synthesis, tkr_a, tkr_b):
     story.append(CondPageBreak(110*mm))
-    story += section_title("Qualité & Risque", "7")
+    story += section_title(_clbl("qualite_risque"), "7")
 
     if synthesis.get("quality_text"):
         story.append(Paragraph(_safe(synthesis["quality_text"]), S_BODY))
@@ -1608,7 +1679,7 @@ def _section_qualite_risque(story, m_a, m_b, synthesis, tkr_a, tkr_b):
 
 def _section_verdict(story, m_a, m_b, synthesis, tkr_a, tkr_b):
     story.append(CondPageBreak(110*mm))
-    story += section_title("Verdict & Thèses", "11")
+    story += section_title(_clbl("verdict_theses"), "11")
 
     winner = m_a.get("winner") or tkr_a
 
@@ -1741,7 +1812,7 @@ def _section_verdict(story, m_a, m_b, synthesis, tkr_a, tkr_b):
 
 def _section_fcf_capital(story, m_a, m_b, tkr_a, tkr_b):
     story.append(CondPageBreak(110*mm))
-    story += section_title("Free Cash Flow & Capital Allocation", "4")
+    story += section_title(_clbl("fcf_capital"), "4")
 
     fcf_a  = _frm(m_a.get("free_cash_flow"))
     fcf_b  = _frm(m_b.get("free_cash_flow"))
@@ -1798,7 +1869,7 @@ def _section_fcf_capital(story, m_a, m_b, tkr_a, tkr_b):
 
 def _section_dcf_sensitivity(story, m_a, m_b, tkr_a, tkr_b):
     story.append(CondPageBreak(100*mm))
-    story += section_title("Sensibilité Valorisation DCF", "6")
+    story += section_title(_clbl("sensi_dcf"), "6")
 
     wacc_a   = float(m_a.get("wacc") or 0.10)
     g_a      = float(m_a.get("terminal_growth") or 0.03)
@@ -1919,7 +1990,7 @@ def _section_dcf_sensitivity(story, m_a, m_b, tkr_a, tkr_b):
 
 def _section_momentum_marche(story, m_a, m_b, tkr_a, tkr_b):
     story.append(CondPageBreak(110*mm))
-    story += section_title("Momentum & Marché", "8")
+    story += section_title(_clbl("momentum"), "8")
 
     p1m_a  = _frpct(m_a.get("perf_1m"), True)
     p1m_b  = _frpct(m_b.get("perf_1m"), True)
@@ -2015,7 +2086,7 @@ def _section_momentum_marche(story, m_a, m_b, tkr_a, tkr_b):
 def _section_52w_price(story, m_a, m_b, tkr_a, tkr_b, synthesis=None):
     """Section : graphique de cours 52 semaines Normalisé + texte analytique."""
     story.append(CondPageBreak(80*mm))
-    story += section_title("Évolution Boursière 52 Semaines", "9")
+    story += section_title(_clbl("evolution_52w"), "9")
 
     # Texte introductif
     p1m_a  = _frpct(m_a.get("perf_1m"), True)
@@ -2282,7 +2353,7 @@ def _section_52w_price(story, m_a, m_b, tkr_a, tkr_b, synthesis=None):
 
 def _section_piotroski_detail(story, m_a, m_b, tkr_a, tkr_b):
     story.append(CondPageBreak(100*mm))
-    story += section_title("Analyse Piotroski F-Score", "10")
+    story += section_title(_clbl("piotroski"), "10")
 
     pio_a = m_a.get("piotroski_score")
     pio_b = m_b.get("piotroski_score")
@@ -2413,7 +2484,13 @@ def _section_piotroski_detail(story, m_a, m_b, tkr_a, tkr_b):
 class CmpSocietePDFWriter:
     """Généré un rapport PDF comparatif A4 entre deux entreprises."""
 
-    def generate(self, state_a: dict, state_b: dict, output_path: str = None) -> str:
+    def generate(self, state_a: dict, state_b: dict, output_path: str = None,
+                 language: str = "fr", currency: str = "EUR") -> str:
+        # i18n : active langue module-level avant build
+        global _CMP_CURRENT_LANG
+        _CMP_CURRENT_LANG = (language or state_a.get("language") or "fr").lower()[:2]
+        if _CMP_CURRENT_LANG not in {"fr","en","es","de","it","pt"}:
+            _CMP_CURRENT_LANG = "fr"
         buf = self.generate_bytes(state_a, state_b)
         if output_path is None:
             tkr_a = state_a.get("ticker", "A")
