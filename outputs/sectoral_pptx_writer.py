@@ -1145,7 +1145,7 @@ def _s01_cover(prs, D):
 
 def _s02_exec_summary(prs, D):
     slide = _blank(prs)
-    _header(slide, "Executive Summary", f"{D['sector_name']}  ·  {D['universe']}  ·  {D['N']} sociétés analysées", 1)
+    _header(slide, (D.get("_t_helper") or (lambda k: "Executive Summary"))("executive_summary"), f"{D['sector_name']}  ·  {D['universe']}  ·  {D['N']} sociétés analysées", 1)
 
     # Signal + KPIs bar
     _rect(slide, 0.9, 2.4, 23.6, 1.1, fill=_GRAYL)
@@ -1208,7 +1208,7 @@ def _s02_exec_summary(prs, D):
 
 def _s03_sommaire(prs, D):
     slide = _blank(prs)
-    _header(slide, "Sommaire", f"{D['sector_name']}  ·  {D['universe']}  ·  Structure de l'analyse — 20 slides", 1)
+    _header(slide, (D.get("_t_helper") or (lambda k: "Sommaire"))("sommaire"), f"{D['sector_name']}  ·  {D['universe']}  ·  Structure de l'analyse — 20 slides", 1)
 
     chapters = [
         ("01", "Présentation du Secteur", "Caractéristiques structurelles · Ratios comparatifs · Positionnement cycle", "p. 5–7"),
@@ -1703,7 +1703,7 @@ def _s08_subsectors(prs, D):
 
 def _s09_cartographie(prs, D):
     slide = _blank(prs)
-    _header(slide, "Cartographie des Sociétés",
+    _header(slide, (D.get("_t_helper") or (lambda k: "Cartographie des Sociétés"))("carto_soc"),
             f"{D['N']} sociétés analysées  ·  {D['sector_name']}  ·  {D['universe']}  ·  Tri par score FinSight decroissant", 2)
 
     td = D["sorted_td"]
@@ -1890,7 +1890,7 @@ def _s11_scores(prs, D):
 
 def _s13_top3(prs, D):
     slide = _blank(prs)
-    _header(slide, "Top 3 Sociétés — Synthèse",
+    _header(slide, (D.get("_t_helper") or (lambda k: "Top 3 Sociétés — Synthèse"))("top3_synthese"),
             "Analyse detaillee  ·  Top 3 par score FinSight  ·  Catalyseurs & risques identifies", 3)
 
     top3 = D["top3"]
@@ -2143,7 +2143,7 @@ def _s15_entry(prs, D):
 
 def _s17_risques(prs, D):
     slide = _blank(prs)
-    _header(slide, "Risques & Conditions d'Invalidation",
+    _header(slide, (D.get("_t_helper") or (lambda k: "Risques & Conditions d'Invalidation"))("risques_invalid"),
             "Analyse des risques structurels  ·  Thèse contraire  ·  Protocole Avocat du Diable", 4)
 
     content = D["content"]
@@ -2243,7 +2243,7 @@ def _s17_risques(prs, D):
 
 def _s18_sentiment(prs, D):
     slide = _blank(prs)
-    _header(slide, "Sentiment de Marché — FinBERT",
+    _header(slide, (D.get("_t_helper") or (lambda k: "Sentiment de Marché — FinBERT"))("sentiment_finbert"),
             f"Analyse sémantique FinBERT  ·  Articles récents  ·  {D['N']} sociétés", 4)
 
     td = D["tickers_data"]
@@ -2352,7 +2352,7 @@ def _s19_sources(prs, D):
 
 def _s20_performance(prs, D):
     slide = _blank(prs)
-    _header(slide, "Performance Boursière Relative — 52 Semaines",
+    _header(slide, (D.get("_t_helper") or (lambda k: "Performance Boursière Relative — 52 Semaines"))("perf_rel"),
             f"{D['sector_name']}  ·  {D['universe']}  ·  Indexe a 100 au debut de la période", 4)
 
     td_s = sorted(D["tickers_data"], key=lambda x: x.get("momentum_52w") or 0, reverse=True)
@@ -2419,6 +2419,51 @@ class SectoralPPTXWriter:
         D = _prepare_data(tickers_data, sector_name, universe)
         D["_language"] = language
         D["_currency"] = currency
+        # i18n helper
+        _lang = (language or "fr").lower()[:2]
+        if _lang not in {"fr","en","es","de","it","pt"}:
+            _lang = "fr"
+        _SEC_T = {
+            "executive_summary": {"fr": "Executive Summary", "en": "Executive Summary",
+                                  "es": "Resumen Ejecutivo", "de": "Executive Summary",
+                                  "it": "Executive Summary", "pt": "Resumo Executivo"},
+            "sommaire": {"fr": "Sommaire", "en": "Table of contents",
+                         "es": "Índice", "de": "Inhalt",
+                         "it": "Sommario", "pt": "Sumário"},
+            "carto_soc": {"fr": "Cartographie des Sociétés",
+                          "en": "Company Mapping",
+                          "es": "Cartografía de Empresas",
+                          "de": "Unternehmens-Kartierung",
+                          "it": "Cartografia delle Società",
+                          "pt": "Mapeamento de Empresas"},
+            "top3_synthese": {"fr": "Top 3 Sociétés — Synthèse",
+                              "en": "Top 3 Companies — Summary",
+                              "es": "Top 3 Empresas — Síntesis",
+                              "de": "Top 3 Unternehmen — Zusammenfassung",
+                              "it": "Top 3 Società — Sintesi",
+                              "pt": "Top 3 Empresas — Síntese"},
+            "risques_invalid": {"fr": "Risques & Conditions d'Invalidation",
+                                "en": "Risks & Invalidation Conditions",
+                                "es": "Riesgos y Condiciones de Invalidación",
+                                "de": "Risiken & Invalidierungsbedingungen",
+                                "it": "Rischi & Condizioni di Invalidazione",
+                                "pt": "Riscos & Condições de Invalidação"},
+            "sentiment_finbert": {"fr": "Sentiment de Marché — FinBERT",
+                                  "en": "Market Sentiment — FinBERT",
+                                  "es": "Sentimiento del Mercado — FinBERT",
+                                  "de": "Marktstimmung — FinBERT",
+                                  "it": "Sentiment di Mercato — FinBERT",
+                                  "pt": "Sentimento de Mercado — FinBERT"},
+            "perf_rel": {"fr": "Performance Boursière Relative — 52 Semaines",
+                         "en": "Relative Stock Performance — 52 Weeks",
+                         "es": "Rendimiento Bursátil Relativo — 52 Semanas",
+                         "de": "Relative Aktien-Performance — 52 Wochen",
+                         "it": "Performance Azionaria Relativa — 52 Settimane",
+                         "pt": "Desempenho Bursátil Relativo — 52 Semanas"},
+        }
+        def _t(k):
+            return _SEC_T.get(k, {}).get(_lang) or _SEC_T.get(k, {}).get("en") or k
+        D["_t_helper"] = _t
 
         # Macro regime_v + récession
         _macro = {}
