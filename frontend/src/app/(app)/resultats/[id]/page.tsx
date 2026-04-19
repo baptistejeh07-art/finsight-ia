@@ -36,6 +36,13 @@ import { EditableGrid, type GridBlock } from "@/components/dashboard/editable-gr
 import { SectorTickersTable } from "@/components/dashboard/sector-tickers-table";
 import { IndiceSecteursTable } from "@/components/dashboard/indice-secteurs-table";
 import { SaveToHistoryCard } from "@/components/dashboard/save-to-history-card";
+import {
+  PmeIdentiteCard,
+  PmeDirigeantsCard,
+  PmeBodaccCard,
+  PmeScoresCard,
+  PmeNoAccountsNotice,
+} from "@/components/dashboard/pme-blocks";
 import { useEditMode } from "@/components/edit-mode-provider";
 
 interface AnalysisResult {
@@ -424,11 +431,50 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
                   render: () => (
                     <SaveToHistoryCard
                       jobId={id}
-                      kind={kind as "secteur" | "indice" | "comparatif"}
+                      kind={kind as "secteur" | "indice" | "comparatif" | "pme"}
                       label={result.label || ticker}
                     />
                   ),
                 },
+                // ═══ Blocs spécifiques PME ═══
+                ...(kind === "pme" && result.data?.has_accounts === false
+                  ? [
+                      {
+                        id: "pme-no-accounts",
+                        label: "Comptes non publics",
+                        default: { x: 0, y: 4, w: 8, h: 4 },
+                        render: () => <PmeNoAccountsNotice data={result.data!} />,
+                      } satisfies GridBlock,
+                    ]
+                  : []),
+                ...(kind === "pme"
+                  ? [
+                      {
+                        id: "pme-identite",
+                        label: "Identité société",
+                        default: { x: 0, y: 8, w: 4, h: 6 },
+                        render: () => <PmeIdentiteCard data={result.data!} />,
+                      } satisfies GridBlock,
+                      {
+                        id: "pme-dirigeants",
+                        label: "Dirigeants",
+                        default: { x: 4, y: 8, w: 4, h: 6 },
+                        render: () => <PmeDirigeantsCard data={result.data!} />,
+                      } satisfies GridBlock,
+                      {
+                        id: "pme-bodacc",
+                        label: "BODACC",
+                        default: { x: 8, y: 11, w: 4, h: 5 },
+                        render: () => <PmeBodaccCard data={result.data!} />,
+                      } satisfies GridBlock,
+                      {
+                        id: "pme-scores",
+                        label: "Scoring financier",
+                        default: { x: 0, y: 14, w: 8, h: 5 },
+                        render: () => <PmeScoresCard data={result.data!} />,
+                      } satisfies GridBlock,
+                    ]
+                  : []),
                 ...(result.files?.pdf
                   ? [
                       {

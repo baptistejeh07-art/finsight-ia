@@ -141,6 +141,31 @@ export interface IndiceSector {
   top_tickers?: string[];
 }
 
+export interface PmeDirigeant {
+  nom?: string;
+  prenom?: string;
+  denomination?: string;
+  qualite?: string;
+  date_prise_de_poste?: string;
+}
+
+export interface PmeBodacc {
+  total_annonces?: number;
+  procedures_collectives?: number;
+  derniere_procedure?: string | null;
+  dernier_depot_comptes?: string | null;
+  radie?: boolean;
+  penalty?: number;
+}
+
+export interface PmeAnalysisSummary {
+  health_score?: number | null;
+  altman_z?: number | null;
+  altman_verdict?: string | null;
+  bankability_score?: number | null;
+  debt_capacity_estimate?: number | null;
+}
+
 export interface AnalysisData {
   ticker?: string;
   raw_data?: RawData;
@@ -158,6 +183,20 @@ export interface AnalysisData {
   macro?: Record<string, unknown>;
   allocation?: Record<string, unknown>;
   top_performers?: string[];
+  // PME payload (kind = "pme")
+  siren?: string;
+  denomination?: string;
+  forme_juridique?: string;
+  code_naf?: string;
+  libelle_naf?: string;
+  ville_siege?: string;
+  capital?: number;
+  dirigeants?: PmeDirigeant[];
+  profile?: { code?: string; name?: string };
+  has_accounts?: boolean;
+  years?: number[];
+  analysis_summary?: PmeAnalysisSummary | null;
+  bodacc?: PmeBodacc;
   // backward-compat with old shape
   snapshot?: { company_info?: CompanyInfo; market?: MarketData };
   [k: string]: unknown;

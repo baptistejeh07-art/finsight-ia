@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
-export type HistoryKind = "societe" | "secteur" | "indice" | "comparatif" | "portrait";
+export type HistoryKind = "societe" | "secteur" | "indice" | "comparatif" | "portrait" | "pme";
 
 export interface HistoryItem {
   id: string;
