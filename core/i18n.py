@@ -77,12 +77,76 @@ def system_language_directive(lang: str) -> str:
     )
 
 
+_FX_FALLBACK = {
+    # Taux moyens mars-avril 2026 (exchange rate static fallback)
+    ("EUR", "USD"): 1.08, ("EUR", "GBP"): 0.86, ("EUR", "CHF"): 0.95,
+    ("EUR", "JPY"): 162.0, ("EUR", "CAD"): 1.47,
+    ("USD", "EUR"): 0.93, ("USD", "GBP"): 0.79, ("USD", "CHF"): 0.88,
+    ("USD", "JPY"): 150.0, ("USD", "CAD"): 1.36,
+    ("GBP", "EUR"): 1.17, ("GBP", "USD"): 1.27, ("GBP", "CHF"): 1.11,
+    ("CHF", "EUR"): 1.05, ("CHF", "USD"): 1.14,
+    ("JPY", "EUR"): 0.0062, ("JPY", "USD"): 0.0067,
+    ("CAD", "EUR"): 0.68, ("CAD", "USD"): 0.74,
+}
+
+_FX_CACHE: dict[tuple[str, str], tuple[float, float]] = {}  # (from,to) → (rate, ts_secondes)
+_FX_TTL = 3600  # 1h
+
+
+def get_fx_rate(from_ccy: str, to_ccy: str) -> float:
+    """Récupère le taux from→to. Cache 1h. Fallback statique si offline."""
+    import time as _time
+    f = normalize_currency(from_ccy)
+    t = normalize_currency(to_ccy)
+    if f == t:
+        return 1.0
+    key = (f, t)
+    cached = _FX_CACHE.get(key)
+    now = _time.time()
+    if cached and now - cached[1] < _FX_TTL:
+        return cached[0]
+    # Tentative API live
+    try:
+        import requests as _rq
+        r = _rq.get(
+            f"https://api.exchangerate.host/latest",
+            params={"base": f, "symbols": t},
+            timeout=4,
+        )
+        if r.status_code == 200:
+            data = r.json()
+            rate = float(data.get("rates", {}).get(t, 0))
+            if rate > 0:
+                _FX_CACHE[key] = (rate, now)
+                return rate
+    except Exception:
+        pass
+    # Fallback statique
+    rate = _FX_FALLBACK.get(key) or _FX_FALLBACK.get((t, f))
+    if rate:
+        return rate if key in _FX_FALLBACK else 1.0 / rate
+    return 1.0
+
+
+def convert_amount(value: float, from_ccy: str = "EUR", to_ccy: str = "EUR") -> float:
+    """Convertit un montant from_ccy → to_ccy via taux live (cache 1h)."""
+    if value is None or not isinstance(value, (int, float)):
+        return value
+    if normalize_currency(from_ccy) == normalize_currency(to_ccy):
+        return float(value)
+    return float(value) * get_fx_rate(from_ccy, to_ccy)
+
+
 def format_currency_amount(value: float, currency: str = "EUR", lang: str = "fr",
-                           compact: bool = True) -> str:
-    """Formate un montant monétaire pour affichage (compact = 4,2 M€)."""
+                           compact: bool = True, from_currency: str = "EUR") -> str:
+    """Formate un montant monétaire pour affichage (compact = 4,2 M€).
+    Si `from_currency` ≠ `currency`, conversion via taux de change live.
+    """
     if value is None:
         return "—"
     currency = normalize_currency(currency)
+    if from_currency and normalize_currency(from_currency) != currency:
+        value = convert_amount(value, from_currency, currency)
     symbol = CURRENCY_SYMBOLS[currency]
     abs_v = abs(value)
 

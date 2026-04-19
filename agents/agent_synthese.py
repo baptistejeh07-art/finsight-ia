@@ -497,17 +497,28 @@ JSON requis (tous les champs obligatoires) :
 
 
 class AgentSynthese:
-    def __init__(self, model: str = _DEFAULT_MODEL):
+    def __init__(self, model: str = _DEFAULT_MODEL, language: str = "fr"):
         self.llm = LLMProvider(provider="groq", model="llama-3.3-70b-versatile")
+        self.language = language
+
+    def _system_prompt(self) -> str:
+        """System prompt avec directive de langue dynamique (i18n)."""
+        try:
+            from core.i18n import system_language_directive
+            directive = system_language_directive(self.language)
+        except Exception:
+            directive = ""
+        return f"{_SYSTEM}\n\n{directive}"
 
     def synthesize(self, snapshot, ratios, sentiment=None) -> Optional[SynthesisResult]:
         request_id = str(uuid.uuid4())
         t_start    = time.time()
         ci         = snapshot.company_info
 
-        log.info(f"[AgentSynthese] Synthese '{snapshot.ticker}' — {request_id[:8]}")
+        log.info(f"[AgentSynthese] Synthese '{snapshot.ticker}' — {request_id[:8]} (lang={self.language})")
 
         prompt = _build_prompt(snapshot, ratios, sentiment)
+        system_prompt = self._system_prompt()
         raw = None
         # Collecte des erreurs par provider pour diagnostic
         _provider_errors: dict[str, str] = {}
@@ -515,7 +526,7 @@ class AgentSynthese:
         _provider_ms: dict[str, int] = {}
         _t_prov = time.time()
         try:
-            raw = self.llm.generate(prompt=prompt, system=_SYSTEM, max_tokens=4000)
+            raw = self.llm.generate(prompt=prompt, system=system_prompt, max_tokens=4000)
             _provider_ms[self.llm.provider] = int((time.time() - _t_prov) * 1000)
             if raw:
                 _provider_used = self.llm.provider
@@ -538,7 +549,7 @@ class AgentSynthese:
             _t_prov = time.time()
             try:
                 _fb_llm = LLMProvider(provider=_prov, model=_model)
-                raw = _fb_llm.generate(prompt=prompt, system=_SYSTEM, max_tokens=4000)
+                raw = _fb_llm.generate(prompt=prompt, system=system_prompt, max_tokens=4000)
                 _provider_ms[_prov] = int((time.time() - _t_prov) * 1000)
                 if raw:
                     _provider_used = _prov
