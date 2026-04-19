@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Building2, TrendingUp, Globe2, Landmark, Factory } from "lucide-react";
 import toast from "react-hot-toast";
+import { useI18n } from "@/i18n/provider";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
 
@@ -39,6 +40,7 @@ const QUOTES = [
 
 export default function HomePage() {
   const router = useRouter();
+  const { t } = useI18n();
   const [mode, setMode] = useState<AnalyseMode>("cote");
   const [query, setQuery] = useState("");
   const quote = QUOTES[Math.floor(Math.random() * QUOTES.length)];
@@ -57,15 +59,15 @@ export default function HomePage() {
     if (!q) {
       toast.error(
         mode === "cote"
-          ? "Saisissez un ticker, secteur ou indice"
-          : "Saisissez un SIREN (9 chiffres)"
+          ? t("home.err_ticker_required")
+          : t("home.err_siren_required")
       );
       return;
     }
     if (mode === "non_cote") {
       const clean = q.replace(/\s/g, "");
       if (!/^\d{9}$/.test(clean)) {
-        toast.error("Le SIREN doit contenir 9 chiffres");
+        toast.error(t("home.err_siren_format"));
         return;
       }
       router.push(`/pme?siren=${encodeURIComponent(clean)}&auto=1`);
@@ -100,7 +102,7 @@ export default function HomePage() {
                 }
               >
                 <Landmark className="w-4 h-4" />
-                Sociétés cotées
+                {t("home.listed_companies")}
               </button>
               <button
                 type="button"
@@ -113,23 +115,20 @@ export default function HomePage() {
                 }
               >
                 <Factory className="w-4 h-4" />
-                PME non cotées
+                {t("home.private_sme")}
               </button>
             </div>
           </div>
 
           {/* Hero */}
           <div className="text-center mb-10 animate-fade-in">
-            <div className="section-label mb-3">Analyse Financière IA</div>
+            <div className="section-label mb-3">{t("home.tag_ai_finance")}</div>
             <h1 className="text-2xl sm:text-3xl font-bold text-ink-900 tracking-tight">
-              {mode === "cote"
-                ? "Société, indice ou secteur ?"
-                : "Quelle PME souhaitez-vous analyser ?"}
+              {mode === "cote" ? t("home.question_listed") : t("home.question_sme")}
             </h1>
             {mode === "non_cote" && (
               <p className="text-sm text-ink-500 mt-2 max-w-lg mx-auto">
-                Renseignez un SIREN (9 chiffres). Identité, comptes, benchmark
-                sectoriel, scoring santé & bankabilité.
+                {t("home.sme_subtitle")}
               </p>
             )}
           </div>
@@ -140,8 +139,8 @@ export default function HomePage() {
               type="text"
               placeholder={
                 mode === "cote"
-                  ? "AAPL, CAC 40, Technology…"
-                  : "SIREN — ex. 552 032 534"
+                  ? t("home.placeholder_listed")
+                  : t("home.placeholder_sme")
               }
               value={query}
               onChange={(e) => setQuery(e.target.value)}
@@ -153,7 +152,7 @@ export default function HomePage() {
               onClick={handleAnalyze}
               className="btn-primary w-full !py-3 !text-base group"
             >
-              Analyser
+              {t("home.analyze_btn")}
               <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
             </button>
           </div>
@@ -164,7 +163,7 @@ export default function HomePage() {
               <>
                 <QuickPickRow
                   icon={<Building2 className="w-3 h-3" />}
-                  label="Sociétés"
+                  label={t("home.picks_companies")}
                   items={QUICK_TICKERS}
                   onPick={(t) => {
                     setQuery(t);
@@ -173,7 +172,7 @@ export default function HomePage() {
                 />
                 <QuickPickRow
                   icon={<TrendingUp className="w-3 h-3" />}
-                  label="Secteurs"
+                  label={t("home.picks_sectors")}
                   items={QUICK_SECTORS}
                   onPick={(t) => {
                     setQuery(t);
@@ -182,7 +181,7 @@ export default function HomePage() {
                 />
                 <QuickPickRow
                   icon={<Globe2 className="w-3 h-3" />}
-                  label="Indices"
+                  label={t("home.picks_indices")}
                   items={QUICK_INDICES}
                   onPick={(t) => {
                     setQuery(t);
@@ -193,7 +192,7 @@ export default function HomePage() {
             ) : (
               <QuickPickRow
                 icon={<Factory className="w-3 h-3" />}
-                label="Exemples SIREN"
+                label={t("home.picks_siren")}
                 items={QUICK_SIRENS.map((s) => `${s.name} · ${s.siren}`)}
                 onPick={(label) => {
                   const siren = label.split("·")[1]?.trim() || label;

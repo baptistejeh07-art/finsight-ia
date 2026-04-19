@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { X } from "lucide-react";
 import toast from "react-hot-toast";
 import { createClient } from "@/lib/supabase/client";
+import { useI18n } from "@/i18n/provider";
 
 type Mode = "signin" | "signup";
 
@@ -14,6 +15,7 @@ interface Props {
 }
 
 export function AuthDialog({ mode, onClose, onModeChange }: Props) {
+  const { t } = useI18n();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [cguAccepted, setCguAccepted] = useState(false);
@@ -48,7 +50,7 @@ export function AuthDialog({ mode, onClose, onModeChange }: Props) {
       if (error) throw error;
       // Redirect par Supabase vers Google ; on ne reset pas loading ici
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Erreur OAuth";
+      const msg = err instanceof Error ? err.message : t("auth.err_oauth");
       toast.error(msg);
       setLoading(false);
     }
@@ -57,16 +59,16 @@ export function AuthDialog({ mode, onClose, onModeChange }: Props) {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!email || !password) {
-      toast.error("Email et mot de passe requis");
+      toast.error(t("auth.err_email_pwd_required"));
       return;
     }
     if (mode === "signup") {
       if (password.length < 6) {
-        toast.error("Mot de passe trop court (min. 6 caractères)");
+        toast.error(t("auth.err_pwd_too_short"));
         return;
       }
       if (!cguAccepted) {
-        toast.error("Vous devez accepter les CGU");
+        toast.error(t("auth.err_must_accept_cgu"));
         return;
       }
     }
@@ -76,20 +78,19 @@ export function AuthDialog({ mode, onClose, onModeChange }: Props) {
       if (mode === "signup") {
         const { error } = await supabase.auth.signUp({ email, password });
         if (error) throw error;
-        toast.success("Compte créé. Bienvenue !");
+        toast.success(t("auth.success_account_created"));
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
-        toast.success("Connexion réussie");
+        toast.success(t("auth.success_signin"));
       }
       onClose();
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Erreur";
-      // Traduit les messages courants
+      const msg = err instanceof Error ? err.message : t("common.error");
       let label = msg;
-      if (msg.toLowerCase().includes("invalid login")) label = "Email ou mot de passe incorrect";
-      else if (msg.toLowerCase().includes("already registered")) label = "Cet email est déjà inscrit";
-      else if (msg.toLowerCase().includes("password")) label = "Mot de passe trop faible (min. 6 caractères)";
+      if (msg.toLowerCase().includes("invalid login")) label = t("auth.err_invalid_login");
+      else if (msg.toLowerCase().includes("already registered")) label = t("auth.err_already_registered");
+      else if (msg.toLowerCase().includes("password")) label = t("auth.err_pwd_weak");
       toast.error(label);
     } finally {
       setLoading(false);
@@ -109,7 +110,7 @@ export function AuthDialog({ mode, onClose, onModeChange }: Props) {
         <button
           onClick={onClose}
           className="absolute top-3 right-3 p-1 rounded hover:bg-ink-100 transition-colors"
-          aria-label="Fermer"
+          aria-label={t("auth.close_dialog")}
         >
           <X className="w-4 h-4 text-ink-600" />
         </button>
@@ -125,21 +126,20 @@ export function AuthDialog({ mode, onClose, onModeChange }: Props) {
             <span className="font-bold text-base tracking-wider">FINSIGHT</span>
           </div>
           <h2 className="text-xl font-semibold text-ink-900 mt-3">
-            {mode === "signin" ? "Se connecter" : "Créer un compte"}
+            {mode === "signin" ? t("auth.signin_btn") : t("auth.create_account")}
           </h2>
         </div>
 
         {/* CGU au-dessus du form (Bloomberg-style) */}
         {mode === "signup" && (
           <p className="text-xs text-ink-600 leading-relaxed text-center mb-5 max-w-sm mx-auto">
-            En continuant, j&apos;accepte que FinSight m&apos;envoie des informations sur ses produits.
-            Je reconnais avoir lu la{" "}
+            {t("auth.cgu_intro")}{" "}
             <a href="/privacy" className="underline text-ink-900 font-medium">
-              Politique de confidentialité
+              {t("auth.cgu_privacy")}
             </a>{" "}
-            et j&apos;accepte les{" "}
+            {t("auth.cgu_and_accept")}{" "}
             <a href="/cgu" className="underline text-ink-900 font-medium">
-              Conditions d&apos;utilisation
+              {t("auth.cgu_terms")}
             </a>.
           </p>
         )}
@@ -156,7 +156,7 @@ export function AuthDialog({ mode, onClose, onModeChange }: Props) {
           />
           <input
             type="password"
-            placeholder={mode === "signup" ? "Mot de passe (min. 6 caractères)" : "Mot de passe"}
+            placeholder={mode === "signup" ? t("auth.password_placeholder_signup") : t("auth.password_placeholder")}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             className="input"
@@ -169,11 +169,11 @@ export function AuthDialog({ mode, onClose, onModeChange }: Props) {
                 onChange={(e) => setCguAccepted(e.target.checked)}
                 className="mt-0.5"
               />
-              <span>J&apos;accepte les Conditions d&apos;utilisation et la Politique de confidentialité</span>
+              <span>{t("auth.cgu_checkbox")}</span>
             </label>
           )}
           <button type="submit" className="btn-primary w-full mt-2" disabled={loading}>
-            {loading ? "..." : mode === "signin" ? "Continuer" : "Créer mon compte"}
+            {loading ? "..." : mode === "signin" ? t("auth.continue") : t("auth.create_my_account")}
           </button>
         </form>
 
@@ -209,31 +209,31 @@ export function AuthDialog({ mode, onClose, onModeChange }: Props) {
               d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
             />
           </svg>
-          {loading ? "Redirection…" : "Continuer avec Google"}
+          {loading ? t("auth.redirecting") : t("auth.continue_google")}
         </button>
 
         {/* Switch mode */}
         <div className="text-center text-sm text-ink-600 mt-5">
           {mode === "signin" ? (
             <>
-              Pas encore de compte ?{" "}
+              {t("auth.no_account_yet")}{" "}
               <button
                 type="button"
                 onClick={() => onModeChange("signup")}
                 className="text-ink-900 font-medium underline"
               >
-                Créer un compte
+                {t("auth.create_account")}
               </button>
             </>
           ) : (
             <>
-              Déjà un compte ?{" "}
+              {t("auth.already_account")}{" "}
               <button
                 type="button"
                 onClick={() => onModeChange("signin")}
                 className="text-ink-900 font-medium underline"
               >
-                Se connecter
+                {t("auth.signin_btn")}
               </button>
             </>
           )}

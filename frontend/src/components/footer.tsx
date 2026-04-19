@@ -1,5 +1,8 @@
+"use client";
+
 import Link from "next/link";
 import Image from "next/image";
+import { useI18n } from "@/i18n/provider";
 
 const SOURCES: { label: string; href: string }[] = [
   { label: "yfinance", href: "https://finance.yahoo.com" },
@@ -36,6 +39,7 @@ function SourcesList() {
 }
 
 export function Footer() {
+  const { t } = useI18n();
   return (
     <footer className="border-t border-ink-200 bg-ink-50/50 mt-16">
       <div className="max-w-7xl mx-auto px-6 py-8">
@@ -51,38 +55,38 @@ export function Footer() {
               className="object-contain h-10 w-auto mb-3"
             />
             <p className="text-ink-600 text-xs leading-relaxed">
-              Plateforme d&apos;analyse financière institutionnelle propulsée par l&apos;IA.
+              {t("footer.tagline")}
             </p>
           </div>
           <div>
-            <div className="section-label mb-3">Produit</div>
+            <div className="section-label mb-3">{t("footer.product")}</div>
             <ul className="space-y-2">
-              <li><Link href="/app" className="text-ink-700 hover:text-ink-900">Analyse société</Link></li>
-              <li><Link href="/app" className="text-ink-700 hover:text-ink-900">Analyse secteur</Link></li>
-              <li><Link href="/app" className="text-ink-700 hover:text-ink-900">Analyse indice</Link></li>
-              <li><Link href="/comparatif" className="text-ink-700 hover:text-ink-900">Comparatif</Link></li>
+              <li><Link href="/app" className="text-ink-700 hover:text-ink-900">{t("footer.analysis_company")}</Link></li>
+              <li><Link href="/app" className="text-ink-700 hover:text-ink-900">{t("footer.analysis_sector")}</Link></li>
+              <li><Link href="/app" className="text-ink-700 hover:text-ink-900">{t("footer.analysis_index")}</Link></li>
+              <li><Link href="/comparatif" className="text-ink-700 hover:text-ink-900">{t("footer.comparison")}</Link></li>
             </ul>
           </div>
           <div>
-            <div className="section-label mb-3">Légal</div>
+            <div className="section-label mb-3">{t("footer.legal")}</div>
             <ul className="space-y-2">
-              <li><Link href="/cgu" className="text-ink-700 hover:text-ink-900">CGU</Link></li>
-              <li><Link href="/privacy" className="text-ink-700 hover:text-ink-900">Confidentialité</Link></li>
-              <li><Link href="/mentions-legales" className="text-ink-700 hover:text-ink-900">Mentions légales</Link></li>
-              <li><Link href="/disclaimer" className="text-ink-700 hover:text-ink-900">Avertissement</Link></li>
-              <li><Link href="/contact" className="text-ink-700 hover:text-ink-900">Contact</Link></li>
+              <li><Link href="/cgu" className="text-ink-700 hover:text-ink-900">{t("footer.cgu")}</Link></li>
+              <li><Link href="/privacy" className="text-ink-700 hover:text-ink-900">{t("footer.privacy")}</Link></li>
+              <li><Link href="/mentions-legales" className="text-ink-700 hover:text-ink-900">{t("footer.mentions")}</Link></li>
+              <li><Link href="/disclaimer" className="text-ink-700 hover:text-ink-900">{t("footer.disclaimer")}</Link></li>
+              <li><Link href="/contact" className="text-ink-700 hover:text-ink-900">{t("footer.contact")}</Link></li>
             </ul>
           </div>
           <div>
-            <div className="section-label mb-3">Sources</div>
+            <div className="section-label mb-3">{t("footer.sources")}</div>
             <SourcesList />
           </div>
         </div>
         <div className="border-t border-ink-200 mt-8 pt-6 flex flex-col md:flex-row justify-between items-center gap-3 text-xs text-ink-500">
-          <div>© {new Date().getFullYear()} FinSight IA · Tous droits réservés</div>
+          <div>© {new Date().getFullYear()} FinSight IA · {t("footer.rights")}</div>
           <div className="flex items-center gap-1">
-            <span>Outil d&apos;aide à la décision uniquement.</span>
-            <span className="hidden md:inline">Pas un conseil en investissement.</span>
+            <span>{t("footer.decision_tool")}</span>
+            <span className="hidden md:inline">{t("footer.not_advice")}</span>
           </div>
         </div>
       </div>
