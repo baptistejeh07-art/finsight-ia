@@ -1,19 +1,33 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Search, Info, Building2 } from "lucide-react";
 import { analyzePmeSync } from "@/lib/api";
 
-export default function PmePage() {
+function PmePageContent() {
   const router = useRouter();
+  const params = useSearchParams();
   const [siren, setSiren] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const autoLaunched = useRef(false);
 
-  async function handleAnalyze(e: React.FormEvent) {
-    e.preventDefault();
-    const cleanSiren = siren.replace(/\s/g, "");
+  // Auto-launch si ?siren=XXX&auto=1 (venant de /app toggle PME)
+  useEffect(() => {
+    if (autoLaunched.current) return;
+    const urlSiren = params.get("siren");
+    const auto = params.get("auto");
+    if (urlSiren && auto === "1") {
+      autoLaunched.current = true;
+      setSiren(urlSiren);
+      void launchAnalyze(urlSiren);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function launchAnalyze(inputSiren: string) {
+    const cleanSiren = inputSiren.replace(/\s/g, "");
     if (!/^\d{9}$/.test(cleanSiren)) {
       setError("Le SIREN doit contenir exactement 9 chiffres.");
       return;
@@ -50,6 +64,11 @@ export default function PmePage() {
     } finally {
       setLoading(false);
     }
+  }
+
+  async function handleAnalyze(e: React.FormEvent) {
+    e.preventDefault();
+    await launchAnalyze(siren);
   }
 
   return (
@@ -150,5 +169,13 @@ function ExampleCard({
       <div className="text-sm font-semibold text-ink-900">{name}</div>
       <div className="text-xs font-mono text-ink-500">{siren}</div>
     </button>
+  );
+}
+
+export default function PmePage() {
+  return (
+    <Suspense fallback={<div className="max-w-3xl mx-auto px-6 py-12 text-sm text-ink-500">Chargement…</div>}>
+      <PmePageContent />
+    </Suspense>
   );
 }
