@@ -634,3 +634,68 @@ def disclaimer(key: str, lang: str) -> str:
     if not spec:
         return ""
     return spec.get(lang) or spec.get("en") or spec.get("fr") or ""
+
+
+# ─── SIG (Soldes Intermédiaires de Gestion) PCG → IFRS mapping ────────────
+SIG_LABELS: dict[str, dict[str, str]] = {
+    "chiffre_affaires":       {"fr": "Chiffre d'affaires", "en": "Revenue",
+                               "es": "Cifra de negocios", "de": "Umsatz",
+                               "it": "Ricavi", "pt": "Volume de negócios"},
+    "production_exercice":    {"fr": "Production de l'exercice",
+                               "en": "Production for the period",
+                               "es": "Producción del ejercicio",
+                               "de": "Gesamtleistung",
+                               "it": "Produzione dell'esercizio",
+                               "pt": "Produção do exercício"},
+    "valeur_ajoutee":         {"fr": "Valeur ajoutée (VA)", "en": "Value added",
+                               "es": "Valor añadido", "de": "Wertschöpfung",
+                               "it": "Valore aggiunto", "pt": "Valor acrescentado"},
+    "ebe":                    {"fr": "Excédent brut d'exploitation (EBE)",
+                               "en": "EBITDA",
+                               "es": "EBITDA",
+                               "de": "EBITDA",
+                               "it": "EBITDA",
+                               "pt": "EBITDA"},
+    "resultat_exploitation":  {"fr": "Résultat d'exploitation (REX)",
+                               "en": "Operating income (EBIT)",
+                               "es": "Resultado de explotación",
+                               "de": "Betriebsergebnis",
+                               "it": "Risultato operativo",
+                               "pt": "Resultado operacional"},
+    "resultat_courant":       {"fr": "Résultat courant avant impôts (RCAI)",
+                               "en": "Income before tax",
+                               "es": "Resultado antes de impuestos",
+                               "de": "Ergebnis vor Steuern",
+                               "it": "Risultato prima delle imposte",
+                               "pt": "Resultado antes de impostos"},
+    "resultat_net":           {"fr": "Résultat net", "en": "Net income",
+                               "es": "Beneficio neto", "de": "Jahresüberschuss",
+                               "it": "Utile netto", "pt": "Lucro líquido"},
+    "caf":                    {"fr": "Capacité d'autofinancement (CAF)",
+                               "en": "Cash flow from operations (CFO)",
+                               "es": "Capacidad de autofinanciación",
+                               "de": "Cashflow aus operativer Tätigkeit",
+                               "it": "Capacità di autofinanziamento",
+                               "pt": "Capacidade de autofinanciamento"},
+    "charges_personnel":      {"fr": "Charges personnel total",
+                               "en": "Total staff costs",
+                               "es": "Gastos de personal",
+                               "de": "Personalkosten",
+                               "it": "Costi del personale",
+                               "pt": "Custos com pessoal"},
+    "consommations_externes": {"fr": "Consommations externes",
+                               "en": "External expenses",
+                               "es": "Consumos externos",
+                               "de": "Bezogene Leistungen",
+                               "it": "Consumi esterni",
+                               "pt": "Consumos externos"},
+}
+
+
+def sig_label(key: str, lang: str) -> str:
+    """Libellé SIG multilingue (PCG FR → IFRS universel)."""
+    lang = normalize_language(lang)
+    spec = SIG_LABELS.get(key)
+    if not spec:
+        return key.replace("_", " ").capitalize()
+    return spec.get(lang) or spec.get("en") or spec.get("fr") or key

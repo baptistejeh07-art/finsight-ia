@@ -45,12 +45,14 @@ def write_pme_xlsx(
         raise RuntimeError("openpyxl requis") from e
 
     # i18n helper
-    from core.i18n import t as _i18n_t, ratio_label as _i18n_ratio, normalize_language
+    from core.i18n import t as _i18n_t, ratio_label as _i18n_ratio, sig_label as _i18n_sig, normalize_language
     _lang = normalize_language(language)
     def _t(key, default=None):
         return _i18n_t(_lang, key, default)
     def _rl(key):
         return _i18n_ratio(key, _lang)
+    def _sl(key):
+        return _i18n_sig(key, _lang)
 
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -84,16 +86,16 @@ def write_pme_xlsx(
         c.alignment = Alignment(horizontal="center")
 
     sig_lines = [
-        ("Chiffre d'affaires", lambda y: next((a.chiffre_affaires for a in yearly_accounts if a.annee == y), None)),
-        ("Production de l'exercice", lambda y: analysis.sig_by_year[y].production_exercice),
-        ("Valeur ajoutée (VA)", lambda y: analysis.sig_by_year[y].valeur_ajoutee),
-        ("Excédent brut d'exploitation (EBE)", lambda y: analysis.sig_by_year[y].ebe),
-        ("Résultat d'exploitation (REX)", lambda y: analysis.sig_by_year[y].resultat_exploitation),
-        ("Résultat courant avant impôts (RCAI)", lambda y: analysis.sig_by_year[y].resultat_courant_av_impots),
-        ("Résultat net", lambda y: analysis.sig_by_year[y].resultat_net),
-        ("Capacité d'autofinancement (CAF)", lambda y: analysis.sig_by_year[y].capacite_autofinancement),
-        ("Charges personnel total", lambda y: analysis.sig_by_year[y].charges_personnel_total),
-        ("Consommations externes", lambda y: analysis.sig_by_year[y].consommations_externes),
+        (_sl("chiffre_affaires"), lambda y: next((a.chiffre_affaires for a in yearly_accounts if a.annee == y), None)),
+        (_sl("production_exercice"), lambda y: analysis.sig_by_year[y].production_exercice),
+        (_sl("valeur_ajoutee"), lambda y: analysis.sig_by_year[y].valeur_ajoutee),
+        (_sl("ebe"), lambda y: analysis.sig_by_year[y].ebe),
+        (_sl("resultat_exploitation"), lambda y: analysis.sig_by_year[y].resultat_exploitation),
+        (_sl("resultat_courant"), lambda y: analysis.sig_by_year[y].resultat_courant_av_impots),
+        (_sl("resultat_net"), lambda y: analysis.sig_by_year[y].resultat_net),
+        (_sl("caf"), lambda y: analysis.sig_by_year[y].capacite_autofinancement),
+        (_sl("charges_personnel"), lambda y: analysis.sig_by_year[y].charges_personnel_total),
+        (_sl("consommations_externes"), lambda y: analysis.sig_by_year[y].consommations_externes),
     ]
     for row_idx, (label, extractor) in enumerate(sig_lines, start=4):
         c = ws.cell(row=row_idx, column=1, value=label)
