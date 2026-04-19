@@ -699,3 +699,68 @@ def sig_label(key: str, lang: str) -> str:
     if not spec:
         return key.replace("_", " ").capitalize()
     return spec.get(lang) or spec.get("en") or spec.get("fr") or key
+
+
+# ─── Labels communs (tables, headers) ─────────────────────────────────────
+COMMON_LABELS: dict[str, dict[str, str]] = {
+    "indicateur":  {"fr": "Indicateur", "en": "Indicator",
+                    "es": "Indicador", "de": "Indikator",
+                    "it": "Indicatore", "pt": "Indicador"},
+    "secteur":     {"fr": "Secteur", "en": "Sector",
+                    "es": "Sector", "de": "Sektor",
+                    "it": "Settore", "pt": "Setor"},
+    "societe":     {"fr": "Société", "en": "Company",
+                    "es": "Empresa", "de": "Unternehmen",
+                    "it": "Società", "pt": "Empresa"},
+    "score":       {"fr": "Score", "en": "Score",
+                    "es": "Puntuación", "de": "Bewertung",
+                    "it": "Punteggio", "pt": "Pontuação"},
+    "signal":      {"fr": "Signal", "en": "Signal",
+                    "es": "Señal", "de": "Signal",
+                    "it": "Segnale", "pt": "Sinal"},
+    "lecture":     {"fr": "Lecture", "en": "Reading",
+                    "es": "Lectura", "de": "Auslegung",
+                    "it": "Lettura", "pt": "Leitura"},
+    "avantage":    {"fr": "Avantage", "en": "Advantage",
+                    "es": "Ventaja", "de": "Vorteil",
+                    "it": "Vantaggio", "pt": "Vantagem"},
+    "ecart":       {"fr": "Écart", "en": "Gap",
+                    "es": "Diferencia", "de": "Abweichung",
+                    "it": "Scarto", "pt": "Diferença"},
+    "date_analyse":{"fr": "Date d'analyse", "en": "Analysis date",
+                    "es": "Fecha de análisis", "de": "Analysedatum",
+                    "it": "Data di analisi", "pt": "Data da análise"},
+    "horizon":     {"fr": "Horizon", "en": "Horizon",
+                    "es": "Horizonte", "de": "Horizont",
+                    "it": "Orizzonte", "pt": "Horizonte"},
+    "rang":        {"fr": "Rang", "en": "Rank",
+                    "es": "Rango", "de": "Rang",
+                    "it": "Rango", "pt": "Classificação"},
+    "ticker":      {"fr": "Ticker", "en": "Ticker",
+                    "es": "Ticker", "de": "Ticker",
+                    "it": "Ticker", "pt": "Ticker"},
+    "poids":       {"fr": "Poids", "en": "Weight",
+                    "es": "Peso", "de": "Gewicht",
+                    "it": "Peso", "pt": "Peso"},
+    "univers":     {"fr": "Univers", "en": "Universe",
+                    "es": "Universo", "de": "Universum",
+                    "it": "Universo", "pt": "Universo"},
+    "nb_societes": {"fr": "Nb sociétés", "en": "Nb companies",
+                    "es": "Nº empresas", "de": "Anz. Unternehmen",
+                    "it": "N. società", "pt": "Nº empresas"},
+    "valeur":      {"fr": "Valeur", "en": "Value",
+                    "es": "Valor", "de": "Wert",
+                    "it": "Valore", "pt": "Valor"},
+    "interpretation":{"fr": "Interprétation", "en": "Interpretation",
+                      "es": "Interpretación", "de": "Interpretation",
+                      "it": "Interpretazione", "pt": "Interpretação"},
+}
+
+
+def common_label(key: str, lang: str) -> str:
+    """Libellé commun multilingue (headers de tables, mots usuels)."""
+    lang = normalize_language(lang)
+    spec = COMMON_LABELS.get(key)
+    if not spec:
+        return key.replace("_", " ").capitalize()
+    return spec.get(lang) or spec.get("en") or spec.get("fr") or key
