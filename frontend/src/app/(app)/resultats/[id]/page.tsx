@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, use } from "react";
+import { useEffect, useState, useMemo, use } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import {
   ArrowLeft,
@@ -32,6 +32,8 @@ import { RevealOnScroll } from "@/components/dashboard/reveal-on-scroll";
 import { Editable } from "@/components/editable";
 import { WarningsBanner } from "@/components/dashboard/warnings-banner";
 import { SortableSections } from "@/components/dashboard/sortable-sections";
+import { EditableGrid, type GridBlock } from "@/components/dashboard/editable-grid";
+import { useEditMode } from "@/components/edit-mode-provider";
 
 interface AnalysisResult {
   success: boolean;
@@ -63,6 +65,7 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
     | "comparatif";
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [notFound, setNotFound] = useState(false);
+  const { enabled: editEnabled } = useEditMode();
 
   useEffect(() => {
     const stored = sessionStorage.getItem(`analysis_${id}`);
@@ -178,6 +181,166 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
               <WarningsBanner warnings={(data as { warnings: { field: string; severity: "info" | "warning" | "error"; hint: string }[] }).warnings} />
             )}
 
+            {editEnabled ? (
+              /* Mode édition : EditableGrid drag & drop & resize */
+              <EditableGrid
+                blocks={[
+                  {
+                    id: "reco",
+                    label: "Recommandation",
+                    default: { x: 0, y: 0, w: 4, h: 4 },
+                    render: () => (
+                      <RecoCard
+                        recommendation={recommendation}
+                        conviction={conviction}
+                      />
+                    ),
+                  },
+                  {
+                    id: "cours",
+                    label: "Cours bourse",
+                    default: { x: 4, y: 0, w: 5, h: 6 },
+                    render: () => (
+                      <CoursChart
+                        ticker={tickerStr}
+                        history={rawData?.stock_history || []}
+                        sector={ci.sector}
+                      />
+                    ),
+                  },
+                  {
+                    id: "synthese",
+                    label: "Synthèse",
+                    default: { x: 9, y: 0, w: 3, h: 10 },
+                    render: () =>
+                      synthesis ? <SyntheseCard synthesis={synthesis} /> : <div />,
+                  },
+                  {
+                    id: "valo",
+                    label: "Valorisation",
+                    default: { x: 0, y: 4, w: 4, h: 3 },
+                    render: () => (
+                      <ValorisationCards
+                        bull={synthesis?.target_bull}
+                        base={synthesis?.target_base}
+                        bear={synthesis?.target_bear}
+                        sharePrice={sharePrice}
+                        currency={currency}
+                      />
+                    ),
+                  },
+                  {
+                    id: "ratios",
+                    label: "Ratios clés",
+                    default: { x: 0, y: 7, w: 9, h: 4 },
+                    render: () => (
+                      <div>
+                        <div className="text-[10px] font-semibold uppercase tracking-[1.5px] text-ink-500 mb-2">
+                          Ratios clés ({latestYear})
+                        </div>
+                        <KpiGrid ratios={latestRatios} />
+                      </div>
+                    ),
+                  },
+                  ...(rawData?.years
+                    ? [
+                        {
+                          id: "capex",
+                          label: "Capital alloué",
+                          default: { x: 0, y: 11, w: 4, h: 5 },
+                          render: () => (
+                            <CapexFcfChart
+                              years={rawData.years!}
+                              ratios={ratios?.years}
+                              currency={currency}
+                            />
+                          ),
+                        },
+                      ]
+                    : []),
+                  ...(synthesis?.comparable_peers && synthesis.comparable_peers.length > 0
+                    ? [
+                        {
+                          id: "donut",
+                          label: "Poids relatif Mkt Cap",
+                          default: { x: 4, y: 11, w: 5, h: 5 },
+                          render: () => (
+                            <MktCapDonut
+                              peers={synthesis.comparable_peers!}
+                              targetTicker={tickerStr}
+                              targetName={ci.company_name}
+                              targetMarketCapMds={
+                                latestRatios?.market_cap
+                                  ? latestRatios.market_cap / 1000
+                                  : null
+                              }
+                              sectorLabel={`Secteur ${ci.sector || ""}`}
+                            />
+                          ),
+                        },
+                      ]
+                    : []),
+                  {
+                    id: "qa",
+                    label: "Q&A IA",
+                    default: { x: 9, y: 10, w: 3, h: 6 },
+                    render: () => <QAChat jobId={id} ticker={tickerStr} />,
+                  },
+                  ...(synthesis?.comparable_peers && synthesis.comparable_peers.length > 0
+                    ? [
+                        {
+                          id: "compare",
+                          label: "Comparer",
+                          default: { x: 9, y: 16, w: 3, h: 3 },
+                          render: () => <CompareCard targetTicker={tickerStr} />,
+                        },
+                        {
+                          id: "peers",
+                          label: "Comparatif sectoriel",
+                          default: { x: 0, y: 16, w: 9, h: 6 },
+                          render: () => (
+                            <PeersTable
+                              peers={synthesis.comparable_peers!}
+                              targetTicker={tickerStr}
+                              targetName={ci.company_name}
+                              targetRatios={latestRatios}
+                            />
+                          ),
+                        },
+                      ]
+                    : []),
+                  {
+                    id: "pour-loin",
+                    label: "Pour aller plus loin",
+                    default: { x: 0, y: 22, w: 6, h: 5 },
+                    render: () =>
+                      synthesis ? (
+                        <PourAllerPlusLoin synthesis={synthesis} />
+                      ) : (
+                        <div />
+                      ),
+                  },
+                  {
+                    id: "portrait",
+                    label: "Portrait d'entreprise",
+                    default: { x: 6, y: 22, w: 6, h: 5 },
+                    render: () => (
+                      <PortraitCard
+                        ticker={tickerStr}
+                        companyName={ci.company_name}
+                      />
+                    ),
+                  },
+                  {
+                    id: "glossaire",
+                    label: "Glossaire",
+                    default: { x: 0, y: 27, w: 12, h: 6 },
+                    render: () => <Glossaire />,
+                  },
+                ] satisfies GridBlock[]}
+              />
+            ) : (
+              <>
             {/* Layout principal 2 colonnes : 65/35 */}
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 mb-5">
               {/* COLONNE GAUCHE */}
@@ -298,6 +461,8 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
                 },
               ]}
             />
+              </>
+            )}
           </>
         )}
 
