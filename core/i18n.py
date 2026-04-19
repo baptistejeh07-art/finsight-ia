@@ -572,3 +572,65 @@ def ratio_label(key: str, lang: str) -> str:
     if not spec:
         return key.replace("_", " ").capitalize()
     return spec.get(lang) or spec.get("en") or spec.get("fr") or key
+
+
+# ─── Disclaimers & mentions légales (footers PDF/PPTX) ────────────────────
+DISCLAIMERS: dict[str, dict[str, str]] = {
+    "not_advice_mifid": {
+        "fr": "Ne constitue pas un conseil en investissement au sens MiFID II.",
+        "en": "Does not constitute investment advice within the meaning of MiFID II.",
+        "es": "No constituye asesoramiento de inversión en el sentido de MiFID II.",
+        "de": "Stellt keine Anlageberatung im Sinne von MiFID II dar.",
+        "it": "Non costituisce consulenza in materia di investimenti ai sensi della MiFID II.",
+        "pt": "Não constitui aconselhamento de investimento na aceção da MiFID II.",
+    },
+    "not_advice": {
+        "fr": "Ne constitue pas un conseil en investissement.",
+        "en": "Does not constitute investment advice.",
+        "es": "No constituye asesoramiento de inversión.",
+        "de": "Stellt keine Anlageberatung dar.",
+        "it": "Non costituisce consulenza in materia di investimenti.",
+        "pt": "Não constitui aconselhamento de investimento.",
+    },
+    "confidential_restricted": {
+        "fr": "CONFIDENTIEL — Usage restreint",
+        "en": "CONFIDENTIAL — Restricted use",
+        "es": "CONFIDENCIAL — Uso restringido",
+        "de": "VERTRAULICH — Eingeschränkte Nutzung",
+        "it": "RISERVATO — Uso limitato",
+        "pt": "CONFIDENCIAL — Uso restrito",
+    },
+    "source_finsight": {
+        "fr": "Source : FinSight IA",
+        "en": "Source: FinSight IA",
+        "es": "Fuente: FinSight IA",
+        "de": "Quelle: FinSight IA",
+        "it": "Fonte: FinSight IA",
+        "pt": "Fonte: FinSight IA",
+    },
+    "generated_by_ai": {
+        "fr": "Document généré par IA. Ne constitue pas un conseil en investissement.",
+        "en": "AI-generated document. Does not constitute investment advice.",
+        "es": "Documento generado por IA. No constituye asesoramiento de inversión.",
+        "de": "KI-generiertes Dokument. Stellt keine Anlageberatung dar.",
+        "it": "Documento generato da IA. Non costituisce consulenza in materia di investimenti.",
+        "pt": "Documento gerado por IA. Não constitui aconselhamento de investimento.",
+    },
+    "horizon_12m": {
+        "fr": "Horizon : 12 mois",
+        "en": "Horizon: 12 months",
+        "es": "Horizonte: 12 meses",
+        "de": "Horizont: 12 Monate",
+        "it": "Orizzonte: 12 mesi",
+        "pt": "Horizonte: 12 meses",
+    },
+}
+
+
+def disclaimer(key: str, lang: str) -> str:
+    """Libellé multilingue d'un disclaimer/mention légale."""
+    lang = normalize_language(lang)
+    spec = DISCLAIMERS.get(key)
+    if not spec:
+        return ""
+    return spec.get(lang) or spec.get("en") or spec.get("fr") or ""
