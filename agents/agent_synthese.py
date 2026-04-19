@@ -594,6 +594,49 @@ class AgentSynthese:
         _clamped_base, _clamped_bull, _clamped_bear = _clamp_targets(
             price, _raw_base, _raw_bull, _raw_bear, ticker=snapshot.ticker
         )
+        # Fallback prix cibles si LLM a omis (bug prod détecté 2026-04-19 AAPL)
+        # Empêche les "—" dans PDF/PPTX quand parsing JSON partiel.
+        if _clamped_base is None and price:
+            _clamped_base = price
+            log.warning(f"[AgentSynthese] target_price_base absent du JSON LLM — fallback à price={price}")
+        if _clamped_bull is None and price:
+            _clamped_bull = price * 1.20
+        if _clamped_bear is None and price:
+            _clamped_bear = price * 0.85
+
+        # Merge avec fallback déterministe si champs critiques manquants.
+        # Bug prod 2026-04-19 : LLM peut renvoyer JSON valide mais avec
+        # risks/catalysts/thesis vides → PDF/PPTX affichent "—" partout.
+        _fb_template = None
+        def _need_fb():
+            nonlocal _fb_template
+            if _fb_template is None:
+                _fb_template = _build_deterministic_fallback(snapshot, ratios)
+            return _fb_template
+
+        _parsed_risks = parsed.get("risks") or []
+        _parsed_catalysts = parsed.get("catalysts") or []
+        _parsed_thesis = parsed.get("thesis") or ""
+        if not _parsed_risks:
+            _parsed_risks = _need_fb().risks
+            log.warning("[AgentSynthese] risks absent du JSON LLM — fallback déterministe")
+        if not _parsed_catalysts:
+            _parsed_catalysts = _need_fb().catalysts
+            log.warning("[AgentSynthese] catalysts absent du JSON LLM — fallback déterministe")
+        if not _parsed_thesis:
+            _parsed_thesis = _need_fb().thesis
+        _parsed_desc = parsed.get("company_description") or ""
+        if not _parsed_desc:
+            _parsed_desc = _need_fb().company_description
+        _parsed_bull_h = parsed.get("bull_hypothesis") or ""
+        if not _parsed_bull_h:
+            _parsed_bull_h = _need_fb().bull_hypothesis
+        _parsed_base_h = parsed.get("base_hypothesis") or ""
+        if not _parsed_base_h:
+            _parsed_base_h = _need_fb().base_hypothesis
+        _parsed_bear_h = parsed.get("bear_hypothesis") or ""
+        if not _parsed_bear_h:
+            _parsed_bear_h = _need_fb().bear_hypothesis
 
         result = SynthesisResult(
             ticker               = snapshot.ticker,
@@ -604,11 +647,11 @@ class AgentSynthese:
             target_bull          = _clamped_bull,
             target_bear          = _clamped_bear,
             summary              = parsed.get("summary", ""),
-            company_description  = parsed.get("company_description", ""),
+            company_description  = _parsed_desc,
             segments             = parsed.get("segments", []),
-            thesis               = parsed.get("thesis", ""),
+            thesis               = _parsed_thesis,
             strengths            = parsed.get("strengths", []),
-            risks                = parsed.get("risks", []),
+            risks                = _parsed_risks,
             valuation_comment    = parsed.get("valuation_comment", ""),
             financial_commentary = parsed.get("financial_commentary", ""),
             ratio_commentary     = parsed.get("ratio_commentary", ""),
@@ -622,10 +665,10 @@ class AgentSynthese:
             is_projections       = parsed.get("is_projections", {}),
             confidence_score     = _fnum(parsed.get("confidence_score")) or 0.5,
             invalidation_conditions = parsed.get("invalidation_conditions", ""),
-            bear_hypothesis      = parsed.get("bear_hypothesis", ""),
-            base_hypothesis      = parsed.get("base_hypothesis", ""),
-            bull_hypothesis      = parsed.get("bull_hypothesis", ""),
-            catalysts            = parsed.get("catalysts", []),
+            bear_hypothesis      = _parsed_bear_h,
+            base_hypothesis      = _parsed_base_h,
+            bull_hypothesis      = _parsed_bull_h,
+            catalysts            = _parsed_catalysts,
             buy_trigger          = parsed.get("buy_trigger", ""),
             sell_trigger         = parsed.get("sell_trigger", ""),
             conclusion           = parsed.get("conclusion", ""),
