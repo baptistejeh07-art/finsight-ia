@@ -85,6 +85,53 @@ S_DISC  = _style('disc',size=6.5,leading=9, color=GREY_TEXT, align=TA_JUSTIFY)
 def rule(w=TABLE_W, thick=0.5, col=GREY_RULE, sb=4, sa=4):
     return HRFlowable(width=w, thickness=thick, color=col, spaceAfter=sa, spaceBefore=sb)
 
+# ─── i18n helper sector PDF ────────────────────────────────────────────────
+_SECTOR_CURRENT_LANG: str = "fr"
+
+_SECTOR_PDF_LABELS: dict[str, dict[str, str]] = {
+    "vue_macro": {"fr": "Vue Macro & Dynamiques Sectorielles",
+                  "en": "Macro View & Sector Dynamics",
+                  "es": "Visión Macro y Dinámicas Sectoriales",
+                  "de": "Makro-Sicht & Sektor-Dynamik",
+                  "it": "Vista Macro & Dinamiche Settoriali",
+                  "pt": "Visão Macro & Dinâmicas Setoriais"},
+    "structure": {"fr": "Structure et Dynamique Sectorielle",
+                  "en": "Sector Structure & Dynamics",
+                  "es": "Estructura y Dinámica Sectorial",
+                  "de": "Sektor-Struktur & Dynamik",
+                  "it": "Struttura e Dinamica Settoriale",
+                  "pt": "Estrutura e Dinâmica Setorial"},
+    "acteurs":   {"fr": "Analyse des Acteurs Clés",
+                  "en": "Key Players Analysis",
+                  "es": "Análisis de Actores Clave",
+                  "de": "Analyse der Schlüsselakteure",
+                  "it": "Analisi dei Principali Attori",
+                  "pt": "Análise dos Principais Intervenientes"},
+    "valo_comp": {"fr": "Valorisation Comparative",
+                  "en": "Comparative Valuation",
+                  "es": "Valoración Comparativa",
+                  "de": "Vergleichende Bewertung",
+                  "it": "Valutazione Comparativa",
+                  "pt": "Avaliação Comparativa"},
+    "risques_sentiment": {"fr": "Risques Sectoriels & Sentiment de Marché",
+                          "en": "Sector Risks & Market Sentiment",
+                          "es": "Riesgos Sectoriales y Sentimiento de Mercado",
+                          "de": "Sektor-Risiken & Marktstimmung",
+                          "it": "Rischi Settoriali & Sentiment di Mercato",
+                          "pt": "Riscos Setoriais & Sentimento de Mercado"},
+    "sommaire": {"fr": "Sommaire", "en": "Table of contents",
+                 "es": "Índice", "de": "Inhalt",
+                 "it": "Sommario", "pt": "Sumário"},
+}
+
+
+def _slbl(key: str) -> str:
+    spec = _SECTOR_PDF_LABELS.get(key)
+    if not spec:
+        return key
+    return spec.get(_SECTOR_CURRENT_LANG) or spec.get("en") or spec.get("fr") or key
+
+
 def section_title(text, num):
     return [rule(sb=10, sa=0), Paragraph(f"{num}. {text}", S_SECTION), rule(sb=2, sa=8)]
 
@@ -833,7 +880,7 @@ def _build_macro(perf_buf, area_buf, tickers_data: list[dict],
     elems = []
     if registry is not None:
         elems.append(SectionAnchor('macro', registry))
-    elems += section_title("Vue Macro & Dynamiques Sectorielles", 1)
+    elems += section_title(_slbl("vue_macro"), 1)
 
     N = len(tickers_data)
     total_mc = sum((t.get('market_cap') or 0) for t in tickers_data)
@@ -1226,7 +1273,7 @@ def _build_structure_sectorielle(tickers_data: list[dict], sector_name: str,
     elems.append(Spacer(1, 8*mm))
     if registry is not None:
         elems.append(SectionAnchor('structure', registry))
-    elems += section_title("Structure et Dynamique Sectorielle", 2)
+    elems += section_title(_slbl("structure"), 2)
     elems.append(Spacer(1, 3*mm))
 
     # Detection profil sectoriel pour adapter les indicateurs (banques /
@@ -2172,7 +2219,7 @@ def _build_acteurs(tickers_data: list[dict], sector_name: str, registry=None):
     elems.append(Spacer(1, 10*mm))
     if registry is not None:
         elems.append(SectionAnchor('acteurs', registry))
-    elems += section_title("Analyse des Acteurs Cles", 3)
+    elems += section_title(_slbl("acteurs"), 3)
     elems.append(Spacer(1, 4*mm))
     elems.append(debate_q(
         "Comment les modèles economiques se différenciént-ils et lesquels sont les plus résilients ?"))
@@ -2532,7 +2579,7 @@ def _build_valorisation(scatter_buf, donut_buf, tickers_data: list[dict],
     elems = []
     if registry is not None:
         elems.append(SectionAnchor('valorisation', registry))
-    elems += section_title("Valorisation Comparative", 4)
+    elems += section_title(_slbl("valo_comp"), 4)
     elems.append(debate_q(
         "Les multiples actuels integrent-ils correctement la bifurcation croissance / maturite ?"))
 
@@ -2791,7 +2838,7 @@ def _build_risques(tickers_data: list[dict], sector_name: str, registry=None):
     elems.append(Spacer(1, 10*mm))
     if registry is not None:
         elems.append(SectionAnchor('risques', registry))
-    elems += section_title("Risques Sectoriels & Sentiment de Marche", 5)
+    elems += section_title(_slbl("risques_sentiment"), 5)
     elems.append(Paragraph("Cartographie des risques sectoriels", S_SUBSECTION))
     elems.append(Paragraph(
         f"L'analyse adversariale identifie quatre axes de risque susceptibles d'invalider "
@@ -4040,6 +4087,11 @@ def generate_sector_report(
     language: str = "fr",
     currency: str = "EUR",
 ) -> str:
+    # i18n : activer langue module-level
+    global _SECTOR_CURRENT_LANG
+    _SECTOR_CURRENT_LANG = (language or "fr").lower()[:2]
+    if _SECTOR_CURRENT_LANG not in {"fr","en","es","de","it","pt"}:
+        _SECTOR_CURRENT_LANG = "fr"
     # i18n : on garde l'original (anglais yfinance) pour les data lookups,
     # et on cree une version francaise pour tous les affichages downstream.
     sector_name_en = sector_name
