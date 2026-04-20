@@ -38,6 +38,7 @@ backend/logs/
 tools/test_*.pdf
 tools/test_*.pptx
 tools/test_*.xlsx
+tools/test_doc_extraction.py
 tools/*_log.txt
 tools/accents_log.txt
 tools/datachain_log.txt
