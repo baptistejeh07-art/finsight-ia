@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { AlertTriangle, ChevronDown } from "lucide-react";
+import { useI18n } from "@/i18n/provider";
 
 interface Warning {
   field: string;
@@ -31,6 +32,7 @@ const SEVERITY_STYLES: Record<string, { bg: string; border: string; text: string
 };
 
 export function WarningsBanner({ warnings }: { warnings: Warning[] }) {
+  const { t } = useI18n();
   const [open, setOpen] = useState(false);
   if (!warnings || warnings.length === 0) return null;
 
@@ -41,10 +43,14 @@ export function WarningsBanner({ warnings }: { warnings: Warning[] }) {
 
   const summary =
     errors > 0
-      ? `${errors} erreur${errors > 1 ? "s" : ""}`
+      ? `${errors} ${errors > 1 ? t("settings.warn_error_plur") : t("settings.warn_error_sing")}`
       : wts > 0
-        ? `${wts} avertissement${wts > 1 ? "s" : ""}`
-        : `${warnings.length} note${warnings.length > 1 ? "s" : ""}`;
+        ? `${wts} ${wts > 1 ? t("settings.warn_warning_plur") : t("settings.warn_warning_sing")}`
+        : `${warnings.length} ${warnings.length > 1 ? t("settings.warn_note_plur") : t("settings.warn_note_sing")}`;
+
+  const detailLabel = warnings.length > 1
+    ? t("settings.warn_detail_plur")
+    : t("settings.warn_detail_sing");
 
   return (
     <div className={`mb-4 rounded-md border ${s.border} ${s.bg} overflow-hidden`}>
@@ -56,10 +62,10 @@ export function WarningsBanner({ warnings }: { warnings: Warning[] }) {
         <div className="flex items-center gap-2.5">
           <AlertTriangle className={`w-4 h-4 ${s.text}`} />
           <span className={`text-sm font-semibold ${s.text}`}>
-            Cette analyse contient {summary}
+            {t("settings.warn_analysis_contains")} {summary}
           </span>
           <span className="text-xs text-ink-500">
-            ({warnings.length} détail{warnings.length > 1 ? "s" : ""} disponible{warnings.length > 1 ? "s" : ""})
+            ({warnings.length} {detailLabel})
           </span>
         </div>
         <ChevronDown

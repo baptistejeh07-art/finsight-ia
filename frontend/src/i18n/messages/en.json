@@ -491,6 +491,15 @@
     "glo_cat_valorisation": "Valuation",
     "glo_cat_rentabilite": "Profitability",
     "glo_cat_structure": "Financial structure",
-    "glo_cat_risque": "Risk"
+    "glo_cat_risque": "Risk",
+    "warn_error_sing": "error",
+    "warn_error_plur": "errors",
+    "warn_warning_sing": "warning",
+    "warn_warning_plur": "warnings",
+    "warn_note_sing": "note",
+    "warn_note_plur": "notes",
+    "warn_analysis_contains": "This analysis contains",
+    "warn_detail_sing": "detail available",
+    "warn_detail_plur": "details available"
   }
 }
