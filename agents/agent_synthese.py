@@ -108,6 +108,56 @@ def _clamp_targets(price, base, bull, bear, ticker: str = "?"):
     return base, bull, bear
 
 
+def _clean_conviction(parsed: dict, snapshot, ratios) -> float:
+    """Nettoie la conviction retournée par le LLM.
+
+    Triple garde contre les valeurs absurdes :
+      1. LLM a écrit "55" au lieu de "0.55" (format %) → divise par 100
+      2. LLM < 0.20 (probable erreur interprétation) → reconstruit depuis reco + data_quality
+      3. Clamp final [0.25, 0.90]
+
+    Bug prod 2026-04-20 : AAPL/Hermès affichaient conviction 1% (0.01 brut LLM).
+    """
+    import logging as _log
+    _logger = _log.getLogger(__name__)
+
+    raw = parsed.get("conviction")
+    rec = str(parsed.get("recommendation", "HOLD")).upper()
+
+    # Parse
+    try:
+        conv = float(raw) if raw is not None else None
+    except (TypeError, ValueError):
+        conv = None
+
+    # 1. Format % (LLM a écrit "55" au lieu de "0.55")
+    if conv is not None and conv > 1.5:
+        _logger.warning(f"[conviction] LLM a renvoye format %: {conv} -> {conv/100}")
+        conv = conv / 100
+
+    # 2. Valeur absurde (< 0.20)
+    if conv is None or conv < 0.20:
+        # Reconstruction déterministe depuis recommandation + data_quality
+        _base_from_reco = {
+            "STRONG_BUY": 0.78, "BUY": 0.68, "HOLD": 0.55, "SELL": 0.42, "STRONG_SELL": 0.35,
+        }.get(rec, 0.55)
+        # Pondère par data_quality si dispo
+        _dq = None
+        try:
+            if snapshot and hasattr(snapshot, "meta") and snapshot.meta:
+                _dq = float(snapshot.meta.get("confidence_score") or 0)
+        except Exception:
+            pass
+        if _dq and _dq > 0:
+            conv = _base_from_reco * 0.7 + _dq * 0.3
+        else:
+            conv = _base_from_reco
+        _logger.warning(f"[conviction] valeur LLM absurde ({raw}) -> reconstruit {conv:.2f} depuis {rec}")
+
+    # 3. Clamp final
+    return max(0.25, min(0.90, conv))
+
+
 def _build_deterministic_fallback(snapshot, ratios) -> "SynthesisResult":
     """Genere un SynthesisResult de fallback quand TOUS les LLM ont echoue.
 
@@ -434,7 +484,7 @@ Sentiment: {sent_block}{_proj_hint}
 JSON requis (tous les champs obligatoires) :
 {{
   "recommendation":"BUY|HOLD|SELL",
-  "conviction":<float 0-1 — calcule strictement: SELL=0.3-0.5, HOLD=0.45-0.60, BUY faible=0.60-0.70, BUY fort=0.70-0.85; NE PAS depasser 0.85 sauf catalyseur exceptionnel>,
+  "conviction":<float ENTRE 0.25 ET 0.90 (JAMAIS en-dessous de 0.25 ni au-dessus de 0.90). Échelle OBLIGATOIRE: SELL=0.30 à 0.50 | HOLD=0.45 à 0.60 | BUY faible=0.60 à 0.70 | BUY fort=0.70 à 0.85. EXEMPLES VALIDES: 0.35, 0.50, 0.62, 0.78. INTERDIT: 0.01, 0.05, 0.10 (ces valeurs sont INTERPRÉTÉES COMME DES ERREURS). Si vraiment incertain, retourne 0.50. JAMAIS en format pourcentage (pas "55", pas "55%", uniquement float 0-1 décimal)>,
   "target_price_base":<float — ANCRÉ AU COURS ACTUEL {price_s} {ci.currency} ; plage RÉALISTE entre cours*0.85 et cours*1.20 ; JAMAIS >cours*1.30>,
   "target_price_bull":<float — SCÉNARIO OPTIMISTE mais RÉALISTE ; plage cours*1.10 à cours*1.35 ; upside MAX +40% vs cours actuel>,
   "target_price_bear":<float — SCÉNARIO BAISSIER ; plage cours*0.65 à cours*0.90 ; TOUJOURS <cours actuel (sinon pas un bear) ; downside ~-15% à -30%>,
@@ -677,10 +727,11 @@ class AgentSynthese:
             ticker               = snapshot.ticker,
             company_name         = ci.company_name,
             recommendation       = parsed.get("recommendation", "HOLD").upper(),
-            # Conviction : clamp [0.20, 0.90]. LLM retourne parfois 0.01/0.05 (absurde)
-            # ou 0.99 (excès de confiance). Borner pour afficher des valeurs utiles
-            # (20-90%). Bug prod 2026-04-20 : Hermès affichait 1% conviction dans UI.
-            conviction           = max(0.20, min(0.90, _fnum(parsed.get("conviction")) or 0.5)),
+            # Conviction — triple garde :
+            # 1. Si LLM a écrit > 1 (probable format "55" pour 55%), divise par 100
+            # 2. Si < 0.20 (absurde, LLM confus), ré-évalue depuis recommendation + data_quality
+            # 3. Clamp final [0.25, 0.90]
+            conviction           = _clean_conviction(parsed, snapshot, ratios),
             target_base          = _clamped_base,
             target_bull          = _clamped_bull,
             target_bear          = _clamped_bear,
