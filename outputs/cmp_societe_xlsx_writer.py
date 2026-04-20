@@ -906,13 +906,15 @@ def _compute_peg(yr, rev_cagr) -> Optional[float]:
 class CmpSocieteXlsxWriter:
     """Injecte deux états pipeline dans TEMPLATE_COMPARISON.xlsx."""
 
-    def write(self, state_a: dict, state_b: dict) -> bytes:
+    def write(self, state_a: dict, state_b: dict, language: str = "fr", currency: str = "EUR") -> bytes:
         """
         Génère le fichier XLSX comparaison en mémoire.
 
         Retourne les bytes du fichier.
         Lève RuntimeError si le template est introuvable.
         """
+        self._language = language
+        self._currency = currency
         import openpyxl
 
         # 1. Trouver le template

@@ -311,6 +311,8 @@ def generate_cmp_secteur_xlsx(
     tickers_b: list,
     sector_b: str,
     universe_b: str,
+    language: str = "fr",
+    currency: str = "EUR",
 ) -> bytes:
     """
     Genere un fichier XLSX comparatif sectoriel en memoire.

@@ -480,9 +480,11 @@ def _build_constituants(wb: Workbook, data: dict):
 class CmpIndiceXlsxWriter:
 
     @staticmethod
-    def generate_bytes(data: dict) -> bytes:
+    def generate_bytes(data: dict, language: str = "fr", currency: str = "EUR") -> bytes:
         if not _OXL:
             raise ImportError("openpyxl requis pour CmpIndiceXlsxWriter")
+        data["_language"] = language
+        data["_currency"] = currency
 
         wb = Workbook()
         # Supprimer la feuille vide par defaut
@@ -498,7 +500,7 @@ class CmpIndiceXlsxWriter:
         return buf.getvalue()
 
     @staticmethod
-    def generate(data: dict, output_path: str) -> str:
-        xlsx_bytes = CmpIndiceXlsxWriter.generate_bytes(data)
+    def generate(data: dict, output_path: str, language: str = "fr", currency: str = "EUR") -> str:
+        xlsx_bytes = CmpIndiceXlsxWriter.generate_bytes(data, language=language, currency=currency)
         Path(output_path).write_bytes(xlsx_bytes)
         return output_path
