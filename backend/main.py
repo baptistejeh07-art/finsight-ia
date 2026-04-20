@@ -131,6 +131,57 @@ def require_user(user: Annotated[Optional[dict], Depends(get_current_user)]) -> 
     return user
 
 
+def require_not_banned(user: Annotated[dict, Depends(require_user)]) -> dict:
+    """Bloque les users bannis. À utiliser sur tous les /analyze/*."""
+    import httpx as _httpx
+    import os as _os
+    _surl = _os.getenv("SUPABASE_URL", "").rstrip("/")
+    _skey = (_os.getenv("SUPABASE_SERVICE_KEY")
+             or _os.getenv("SUPABASE_SECRET_KEY")
+             or _os.getenv("SUPABASE_SERVICE_ROLE_KEY") or "")
+    if not _surl or not _skey:
+        return user  # fail-open si Supabase non configuré (dev local)
+    try:
+        r = _httpx.get(
+            f"{_surl}/rest/v1/user_preferences?user_id=eq.{user['id']}&select=banned_at,banned_reason",
+            headers={"apikey": _skey, "Authorization": f"Bearer {_skey}"},
+            timeout=3.0,
+        )
+        rows = r.json() if r.status_code == 200 else []
+        if rows and rows[0].get("banned_at"):
+            reason = rows[0].get("banned_reason") or "Compte suspendu"
+            raise HTTPException(status_code=403, detail=f"Compte banni : {reason}")
+    except HTTPException:
+        raise
+    except Exception:
+        pass  # fail-open en cas d'erreur réseau
+    return user
+
+
+def require_admin(user: Annotated[dict, Depends(require_user)]) -> dict:
+    """Dépendance qui exige un utilisateur admin (is_admin=true dans user_preferences)."""
+    import httpx as _httpx
+    import os as _os
+    _surl = _os.getenv("SUPABASE_URL", "").rstrip("/")
+    _skey = (_os.getenv("SUPABASE_SERVICE_KEY")
+             or _os.getenv("SUPABASE_SECRET_KEY")
+             or _os.getenv("SUPABASE_SERVICE_ROLE_KEY") or "")
+    if not _surl or not _skey:
+        raise HTTPException(status_code=500, detail="Supabase non configuré — admin check impossible")
+    try:
+        r = _httpx.get(
+            f"{_surl}/rest/v1/user_preferences?user_id=eq.{user['id']}&select=is_admin",
+            headers={"apikey": _skey, "Authorization": f"Bearer {_skey}"},
+            timeout=5.0,
+        )
+        rows = r.json() if r.status_code == 200 else []
+        if rows and rows[0].get("is_admin"):
+            return user
+    except Exception:
+        pass
+    raise HTTPException(status_code=403, detail="Accès admin uniquement")
+
+
 # ---------------------------------------------------------------------------
 # Models Pydantic
 # ---------------------------------------------------------------------------
@@ -1354,6 +1405,219 @@ async def download_file(file_path: str):
         filename=full_path.name,
         media_type="application/octet-stream",
     )
+
+
+# ─── Admin dashboard ─────────────────────────────────────────────────────────
+
+@app.get("/admin/stats")
+async def admin_stats(user: Annotated[dict, Depends(require_admin)]):
+    """Dashboard admin — KPIs business : trafic, analyses, utilisateurs, revenus.
+
+    Query Supabase via service role pour récupérer les agrégats. Seuls les
+    admins (is_admin=true) ont accès — enforcement via require_admin dep.
+    """
+    import httpx as _httpx
+    import os as _os
+    from datetime import datetime as _dt, timedelta as _td
+    _surl = _os.getenv("SUPABASE_URL", "").rstrip("/")
+    _skey = (_os.getenv("SUPABASE_SERVICE_KEY")
+             or _os.getenv("SUPABASE_SECRET_KEY")
+             or _os.getenv("SUPABASE_SERVICE_ROLE_KEY") or "")
+    headers = {"apikey": _skey, "Authorization": f"Bearer {_skey}"}
+
+    now = _dt.utcnow()
+    day_ago = (now - _td(days=1)).isoformat()
+    week_ago = (now - _td(days=7)).isoformat()
+    month_ago = (now - _td(days=30)).isoformat()
+
+    def _count(url: str) -> int:
+        try:
+            r = _httpx.get(url, headers={**headers, "Prefer": "count=exact"}, timeout=5.0)
+            cr = r.headers.get("content-range", "*/0")
+            return int(cr.split("/")[-1]) if "/" in cr else 0
+        except Exception:
+            return 0
+
+    # Analyses tracking (analysis_log anonymisé)
+    an_day = _count(f"{_surl}/rest/v1/analysis_log?created_at=gte.{day_ago}&select=id")
+    an_week = _count(f"{_surl}/rest/v1/analysis_log?created_at=gte.{week_ago}&select=id")
+    an_month = _count(f"{_surl}/rest/v1/analysis_log?created_at=gte.{month_ago}&select=id")
+    an_total = _count(f"{_surl}/rest/v1/analysis_log?select=id")
+
+    # Breakdown par kind
+    kind_breakdown = {}
+    try:
+        r = _httpx.get(
+            f"{_surl}/rest/v1/analysis_log?created_at=gte.{month_ago}&select=kind",
+            headers=headers, timeout=5.0
+        )
+        for row in (r.json() or []):
+            k = row.get("kind") or "unknown"
+            kind_breakdown[k] = kind_breakdown.get(k, 0) + 1
+    except Exception:
+        pass
+
+    # Breakdown par recommandation (société/PME uniquement)
+    reco_breakdown = {"BUY": 0, "HOLD": 0, "SELL": 0}
+    try:
+        r = _httpx.get(
+            f"{_surl}/rest/v1/analysis_log?created_at=gte.{month_ago}&recommendation=not.is.null&select=recommendation",
+            headers=headers, timeout=5.0
+        )
+        for row in (r.json() or []):
+            rc = (row.get("recommendation") or "").upper()
+            if rc in reco_breakdown:
+                reco_breakdown[rc] += 1
+    except Exception:
+        pass
+
+    # Top tickers (30 jours)
+    top_tickers: list[dict] = []
+    try:
+        r = _httpx.get(
+            f"{_surl}/rest/v1/analysis_log?created_at=gte.{month_ago}&ticker=not.is.null&select=ticker,company_name",
+            headers=headers, timeout=5.0
+        )
+        counts = {}
+        names = {}
+        for row in (r.json() or []):
+            t = row["ticker"]
+            counts[t] = counts.get(t, 0) + 1
+            if not names.get(t) and row.get("company_name"):
+                names[t] = row["company_name"]
+        sorted_t = sorted(counts.items(), key=lambda x: -x[1])[:10]
+        top_tickers = [{"ticker": t, "company_name": names.get(t), "count": c} for t, c in sorted_t]
+    except Exception:
+        pass
+
+    # Utilisateurs
+    users_total = _count(f"{_surl}/rest/v1/user_preferences?select=user_id")
+    users_banned = _count(f"{_surl}/rest/v1/user_preferences?banned_at=not.is.null&select=user_id")
+
+    return {
+        "analyses": {
+            "day": an_day,
+            "week": an_week,
+            "month": an_month,
+            "total": an_total,
+            "by_kind": kind_breakdown,
+            "by_recommendation": reco_breakdown,
+            "top_tickers_30d": top_tickers,
+        },
+        "users": {
+            "total": users_total,
+            "banned": users_banned,
+            "active": max(0, users_total - users_banned),
+        },
+        "revenues": {
+            "mrr_eur": 0,
+            "arr_eur": 0,
+            "note": "Stripe pas encore intégré",
+        },
+        "generated_at": now.isoformat() + "Z",
+    }
+
+
+@app.get("/admin/users")
+async def admin_list_users(user: Annotated[dict, Depends(require_admin)],
+                            limit: int = 100, banned_only: bool = False):
+    """Liste users (pour ban/unban). Admin only."""
+    import httpx as _httpx
+    import os as _os
+    _surl = _os.getenv("SUPABASE_URL", "").rstrip("/")
+    _skey = (_os.getenv("SUPABASE_SERVICE_KEY")
+             or _os.getenv("SUPABASE_SECRET_KEY")
+             or _os.getenv("SUPABASE_SERVICE_ROLE_KEY") or "")
+    headers = {"apikey": _skey, "Authorization": f"Bearer {_skey}"}
+    try:
+        # Requête user_preferences jointe aux emails via RPC ou double query
+        url = f"{_surl}/rest/v1/user_preferences?select=user_id,is_admin,banned_at,banned_reason,created_at&order=created_at.desc&limit={limit}"
+        if banned_only:
+            url += "&banned_at=not.is.null"
+        r = _httpx.get(url, headers=headers, timeout=5.0)
+        prefs = r.json() if r.status_code == 200 else []
+
+        # Récupérer emails auth.users
+        out = []
+        for p in prefs:
+            uid = p["user_id"]
+            try:
+                ar = _httpx.get(
+                    f"{_surl}/auth/v1/admin/users/{uid}",
+                    headers=headers, timeout=3.0
+                )
+                ad = ar.json() if ar.status_code == 200 else {}
+                out.append({
+                    "user_id": uid,
+                    "email": ad.get("email"),
+                    "created_at": ad.get("created_at") or p.get("created_at"),
+                    "is_admin": p.get("is_admin", False),
+                    "banned_at": p.get("banned_at"),
+                    "banned_reason": p.get("banned_reason"),
+                })
+            except Exception:
+                out.append({"user_id": uid, **p})
+        return {"users": out}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"DB error: {e}")
+
+
+class BanRequest(BaseModel):
+    user_id: str
+    reason: Optional[str] = None
+
+
+@app.post("/admin/ban")
+async def admin_ban(payload: BanRequest, user: Annotated[dict, Depends(require_admin)]):
+    """Ban soft-delete un user. Admin only. user_preferences.banned_at = now()."""
+    import httpx as _httpx
+    import os as _os
+    from datetime import datetime as _dt
+    _surl = _os.getenv("SUPABASE_URL", "").rstrip("/")
+    _skey = (_os.getenv("SUPABASE_SERVICE_KEY")
+             or _os.getenv("SUPABASE_SECRET_KEY")
+             or _os.getenv("SUPABASE_SERVICE_ROLE_KEY") or "")
+    try:
+        r = _httpx.patch(
+            f"{_surl}/rest/v1/user_preferences?user_id=eq.{payload.user_id}",
+            headers={"apikey": _skey, "Authorization": f"Bearer {_skey}",
+                     "Content-Type": "application/json", "Prefer": "return=minimal"},
+            json={"banned_at": _dt.utcnow().isoformat(), "banned_reason": payload.reason or "banni par admin"},
+            timeout=5.0,
+        )
+        if r.status_code >= 300:
+            raise HTTPException(status_code=500, detail=f"Ban failed: {r.text[:200]}")
+        return {"ok": True, "user_id": payload.user_id}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Ban error: {e}")
+
+
+@app.post("/admin/unban")
+async def admin_unban(payload: BanRequest, user: Annotated[dict, Depends(require_admin)]):
+    """Unban : reset banned_at=null."""
+    import httpx as _httpx
+    import os as _os
+    _surl = _os.getenv("SUPABASE_URL", "").rstrip("/")
+    _skey = (_os.getenv("SUPABASE_SERVICE_KEY")
+             or _os.getenv("SUPABASE_SECRET_KEY")
+             or _os.getenv("SUPABASE_SERVICE_ROLE_KEY") or "")
+    try:
+        r = _httpx.patch(
+            f"{_surl}/rest/v1/user_preferences?user_id=eq.{payload.user_id}",
+            headers={"apikey": _skey, "Authorization": f"Bearer {_skey}",
+                     "Content-Type": "application/json", "Prefer": "return=minimal"},
+            json={"banned_at": None, "banned_reason": None},
+            timeout=5.0,
+        )
+        if r.status_code >= 300:
+            raise HTTPException(status_code=500, detail=f"Unban failed: {r.text[:200]}")
+        return {"ok": True, "user_id": payload.user_id}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Unban error: {e}")
 
 
 # ─── Historique user ────────────────────────────────────────────────────────

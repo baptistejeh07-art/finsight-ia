@@ -9,6 +9,7 @@ import {
   HelpCircle,
   Info,
   LogOut,
+  Shield,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
@@ -23,14 +24,31 @@ import type { User } from "@supabase/supabase-js";
 export function SidebarUserMenu() {
   const { t } = useI18n();
   const [user, setUser] = useState<User | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [open, setOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const supabase = createClient();
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setUser(data.user));
+    async function loadUserAndAdmin() {
+      const { data } = await supabase.auth.getUser();
+      setUser(data.user);
+      if (data.user) {
+        const { data: prefs } = await supabase
+          .from("user_preferences")
+          .select("is_admin")
+          .eq("user_id", data.user.id)
+          .single();
+        setIsAdmin(!!prefs?.is_admin);
+      } else {
+        setIsAdmin(false);
+      }
+    }
+    loadUserAndAdmin();
     const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
       setUser(session?.user ?? null);
+      if (!session?.user) setIsAdmin(false);
+      else loadUserAndAdmin();
     });
     return () => sub.subscription.unsubscribe();
   }, [supabase]);
@@ -82,6 +100,15 @@ export function SidebarUserMenu() {
           <div className="px-3 py-2 border-b border-ink-100 text-xs text-ink-500 truncate">
             {email}
           </div>
+
+          {isAdmin && (
+            <MenuItem
+              href="/admin"
+              icon={<Shield className="w-4 h-4 text-navy-500" />}
+              label="Admin Dashboard"
+              onNavigate={() => setOpen(false)}
+            />
+          )}
 
           <MenuItem
             href="/parametres"
