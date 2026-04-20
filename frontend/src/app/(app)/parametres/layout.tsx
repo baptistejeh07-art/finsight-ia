@@ -13,6 +13,7 @@ const TABS = [
   { slug: "connecteurs", label: "Connecteurs" },
   { slug: "raccourcis", label: "Raccourcis" },
   { slug: "rappels", label: "Rappels" },
+  { slug: "api", label: "API" },
 ];
 
 export default function ParametresLayout({

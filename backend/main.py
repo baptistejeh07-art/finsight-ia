@@ -80,6 +80,14 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Public API v1 router (sous /api/v1/*, auth par clé X-API-Key)
+try:
+    from backend.api_v1 import router as api_v1_router
+    app.include_router(api_v1_router)
+except Exception as _e:
+    import logging as _lg
+    _lg.getLogger(__name__).warning(f"[startup] api_v1 import failed: {_e}")
+
 # CORS — autorise le frontend Vercel + dev local
 app.add_middleware(
     CORSMiddleware,
@@ -2291,6 +2299,149 @@ async def user_delete_account(user: Annotated[dict, Depends(require_user)]):
         deleted["auth.users"] = False
 
     return {"ok": True, "deleted": deleted}
+
+
+# ─── Sentinelle : admin errors dashboard ────────────────────────────────────
+
+@app.get("/admin/errors")
+async def admin_errors(user: Annotated[dict, Depends(require_admin)],
+                        severity: Optional[str] = None,
+                        hours: int = 24,
+                        limit: int = 200):
+    """Liste les pipeline_errors des N dernières heures (admin only)."""
+    import httpx as _httpx
+    import os as _os
+    from datetime import datetime as _dt, timedelta as _td
+    _surl = _os.getenv("SUPABASE_URL", "").rstrip("/")
+    _skey = (_os.getenv("SUPABASE_SERVICE_KEY")
+             or _os.getenv("SUPABASE_SECRET_KEY")
+             or _os.getenv("SUPABASE_SERVICE_ROLE_KEY") or "")
+    cutoff = (_dt.utcnow() - _td(hours=max(1, min(720, hours)))).isoformat()
+    params = {
+        "created_at": f"gte.{cutoff}",
+        "order": "created_at.desc",
+        "limit": str(max(1, min(500, limit))),
+    }
+    if severity and severity in ("info", "warn", "error", "critical"):
+        params["severity"] = f"eq.{severity}"
+    try:
+        r = _httpx.get(
+            f"{_surl}/rest/v1/pipeline_errors",
+            headers={"apikey": _skey, "Authorization": f"Bearer {_skey}"},
+            params=params,
+            timeout=8.0,
+        )
+        errors = r.json() if r.status_code < 300 else []
+        # Stats
+        stats = {"critical": 0, "error": 0, "warn": 0, "info": 0}
+        by_type: dict[str, int] = {}
+        for e in errors:
+            sev = e.get("severity", "info")
+            stats[sev] = stats.get(sev, 0) + 1
+            et = e.get("error_type", "unknown")
+            by_type[et] = by_type.get(et, 0) + 1
+        return {"errors": errors, "stats": stats, "by_type": by_type,
+                "window_hours": hours}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Errors fetch: {e}")
+
+
+# ─── API publique : gestion des clés (auth JWT Supabase, pas X-API-Key) ─────
+
+class ApiKeyCreateRequest(BaseModel):
+    name: str = Field(..., min_length=1, max_length=80)
+    rate_limit_per_min: int = Field(30, ge=1, le=600)
+    rate_limit_per_day: int = Field(1000, ge=1, le=1000000)
+
+
+@app.post("/me/api-keys")
+async def api_keys_create(payload: ApiKeyCreateRequest,
+                           user: Annotated[dict, Depends(require_user)]):
+    """Crée une clé API. La clé complète n'est RETOURNÉE QU'UNE FOIS ici."""
+    from backend.api_v1 import generate_api_key
+    import httpx as _httpx
+    import os as _os
+    _surl = _os.getenv("SUPABASE_URL", "").rstrip("/")
+    _skey = (_os.getenv("SUPABASE_SERVICE_KEY")
+             or _os.getenv("SUPABASE_SECRET_KEY")
+             or _os.getenv("SUPABASE_SERVICE_ROLE_KEY") or "")
+    key_plain, key_hash, prefix = generate_api_key()
+    try:
+        r = _httpx.post(
+            f"{_surl}/rest/v1/api_keys",
+            headers={"apikey": _skey, "Authorization": f"Bearer {_skey}",
+                     "Content-Type": "application/json", "Prefer": "return=representation"},
+            json={
+                "user_id": user["id"],
+                "key_prefix": prefix,
+                "key_hash": key_hash,
+                "name": payload.name,
+                "rate_limit_per_min": payload.rate_limit_per_min,
+                "rate_limit_per_day": payload.rate_limit_per_day,
+            },
+            timeout=5.0,
+        )
+        if r.status_code >= 300:
+            raise HTTPException(status_code=500, detail=f"Create key failed: {r.text[:200]}")
+        rows = r.json() or []
+        return {"ok": True, "key": key_plain, "key_row": rows[0] if rows else None,
+                "warning": "La clé complète ne sera JAMAIS réaffichée. Copie-la maintenant."}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Create error: {e}")
+
+
+@app.get("/me/api-keys")
+async def api_keys_list(user: Annotated[dict, Depends(require_user)]):
+    """Liste les clés de l'user (sans révéler le hash)."""
+    import httpx as _httpx
+    import os as _os
+    _surl = _os.getenv("SUPABASE_URL", "").rstrip("/")
+    _skey = (_os.getenv("SUPABASE_SERVICE_KEY")
+             or _os.getenv("SUPABASE_SECRET_KEY")
+             or _os.getenv("SUPABASE_SERVICE_ROLE_KEY") or "")
+    try:
+        r = _httpx.get(
+            f"{_surl}/rest/v1/api_keys",
+            headers={"apikey": _skey, "Authorization": f"Bearer {_skey}"},
+            params={"user_id": f"eq.{user['id']}",
+                    "select": "id,key_prefix,name,rate_limit_per_min,rate_limit_per_day,last_used_at,revoked_at,created_at",
+                    "order": "created_at.desc"},
+            timeout=5.0,
+        )
+        return {"keys": r.json() if r.status_code < 300 else []}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"List: {e}")
+
+
+@app.post("/me/api-keys/{key_id}/revoke")
+async def api_keys_revoke(key_id: str,
+                           user: Annotated[dict, Depends(require_user)]):
+    """Révoque une clé (irréversible)."""
+    import httpx as _httpx
+    import os as _os
+    from datetime import datetime as _dt
+    _surl = _os.getenv("SUPABASE_URL", "").rstrip("/")
+    _skey = (_os.getenv("SUPABASE_SERVICE_KEY")
+             or _os.getenv("SUPABASE_SECRET_KEY")
+             or _os.getenv("SUPABASE_SERVICE_ROLE_KEY") or "")
+    try:
+        r = _httpx.patch(
+            f"{_surl}/rest/v1/api_keys",
+            headers={"apikey": _skey, "Authorization": f"Bearer {_skey}",
+                     "Content-Type": "application/json", "Prefer": "return=minimal"},
+            params={"id": f"eq.{key_id}", "user_id": f"eq.{user['id']}"},
+            json={"revoked_at": _dt.utcnow().isoformat()},
+            timeout=5.0,
+        )
+        if r.status_code >= 300:
+            raise HTTPException(status_code=500, detail=f"Revoke failed: {r.text[:200]}")
+        return {"ok": True}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Revoke: {e}")
 
 
 # ─── Historique user : renommage + favoris ──────────────────────────────────

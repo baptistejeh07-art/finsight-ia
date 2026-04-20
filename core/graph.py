@@ -305,6 +305,18 @@ def synthesis_node(state: FinSightState) -> dict:
         ms = int((time.time() - t0) * 1000)
         log.error(f"[synthesis_node] Erreur : {e}", exc_info=True)
         fallback_conf = state.get("data_quality") or 0.70
+        # Sentinel record (best-effort, jamais de crash)
+        try:
+            from core.sentinel import record_error
+            _snap = state.get("raw_data")
+            _tk = (getattr(_snap, "ticker", None) if _snap else None) or state.get("ticker")
+            import traceback as _tb
+            record_error(severity="critical", error_type="synthesis_node_crash",
+                         node="synthesis", ticker=_tk,
+                         message=f"{type(e).__name__}: {str(e)[:400]}",
+                         stack=_tb.format_exc())
+        except Exception:
+            pass
         # Dernier rempart : si synthesize() a crashé (bug code, pas LLM), on
         # construit quand même un SynthesisResult déterministe pour ne pas
         # produire un PDF avec "—" partout. Exception visible dans meta.
