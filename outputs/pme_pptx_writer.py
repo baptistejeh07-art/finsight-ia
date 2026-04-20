@@ -164,14 +164,24 @@ def write_pme_pptx(
     # Subtitle
     tb2 = s.shapes.add_textbox(Inches(0.8), Inches(4.2), Inches(11.7), Inches(0.5))
     p = tb2.text_frame.paragraphs[0]
-    p.text = f"Analyse financière — Contrôle de gestion · FinSight IA"
+    _sub_tagline = {
+        "fr": "Analyse financière — Contrôle de gestion · FinSight IA",
+        "en": "Financial analysis — Controlling · FinSight IA",
+        "es": "Análisis financiero — Control de gestión · FinSight IA",
+        "de": "Finanzanalyse — Controlling · FinSight IA",
+        "it": "Analisi finanziaria — Controllo di gestione · FinSight IA",
+        "pt": "Análise financeira — Controlo de gestão · FinSight IA",
+    }.get(_lang, "Financial analysis — Controlling · FinSight IA")
+    p.text = _sub_tagline
     p.font.size = Pt(18)
     p.font.color.rgb = RGBColor(0xC4, 0xD5, 0xE8)
     p.alignment = PP_ALIGN.CENTER
     # Meta
     tb3 = s.shapes.add_textbox(Inches(0.8), Inches(6.5), Inches(11.7), Inches(0.5))
     p = tb3.text_frame.paragraphs[0]
-    p.text = f"SIREN {siren} · Profil sectoriel : {profile_name or analysis.profile.name}"
+    _profile_lbl = {"fr":"Profil sectoriel","en":"Sector profile","es":"Perfil sectorial",
+                    "de":"Branchenprofil","it":"Profilo settoriale","pt":"Perfil setorial"}.get(_lang, "Sector profile")
+    p.text = f"SIREN {siren} · {_profile_lbl} : {profile_name or analysis.profile.name}"
     p.font.size = Pt(12)
     p.font.color.rgb = RGBColor(0x8A, 0xAE, 0xDB)
     p.alignment = PP_ALIGN.CENTER
@@ -179,14 +189,24 @@ def write_pme_pptx(
     # ─── S2 Identité ───
     s = prs.slides.add_slide(blank_layout)
     _add_title(s, _t("report.identity_governance"))
+    _denom_lbl = {"fr":"Dénomination","en":"Company name","es":"Denominación",
+                  "de":"Firmenname","it":"Denominazione","pt":"Denominação"}.get(_lang, "Company name")
+    _annonces_lbl = {"fr":"Annonces BODACC","en":"BODACC announcements","es":"Anuncios BODACC",
+                     "de":"BODACC-Bekanntmachungen","it":"Annunci BODACC","pt":"Anúncios BODACC"}.get(_lang, "BODACC announcements")
+    _proc_lbl = {"fr":"procédures collectives","en":"collective proceedings","es":"procedimientos colectivos",
+                 "de":"Sammelverfahren","it":"procedure collettive","pt":"processos coletivos"}.get(_lang, "collective proceedings")
+    _radie_lbl = {"fr":"Société radiée","en":"Company struck off","es":"Empresa cancelada",
+                  "de":"Unternehmen gelöscht","it":"Società cancellata","pt":"Empresa cancelada"}.get(_lang, "Company struck off")
+    _yes_no = {"fr":("Oui","Non"),"en":("Yes","No"),"es":("Sí","No"),
+               "de":("Ja","Nein"),"it":("Sì","No"),"pt":("Sim","Não")}.get(_lang, ("Yes","No"))
     lines = [
-        f"Dénomination : {denomination}",
+        f"{_denom_lbl} : {denomination}",
         f"SIREN : {siren}",
-        f"Profil sectoriel : {analysis.profile.name}",
+        f"{_profile_lbl} : {analysis.profile.name}",
     ]
     if bodacc:
-        lines.append(f"Annonces BODACC : {bodacc.total_annonces} (procédures collectives : {len(bodacc.procedures_collectives)})")
-        lines.append(f"Société radiée : {'Oui' if bodacc.radie else 'Non'}")
+        lines.append(f"{_annonces_lbl} : {bodacc.total_annonces} ({_proc_lbl} : {len(bodacc.procedures_collectives)})")
+        lines.append(f"{_radie_lbl} : {_yes_no[0] if bodacc.radie else _yes_no[1]}")
     _add_bullet(s, Inches(0.8), Inches(1.3), Inches(11.7), Inches(5.5), lines)
 
     # ─── S3 KPI ───
