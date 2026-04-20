@@ -77,7 +77,7 @@ def write_pme_pptx(
     from pptx.enum.shapes import MSO_SHAPE
 
     # Helper i18n
-    from core.i18n import t as _i18n_t, ratio_label as _i18n_ratio, sig_label as _i18n_sig, normalize_language
+    from core.i18n import t as _i18n_t, ratio_label as _i18n_ratio, sig_label as _i18n_sig, scoring_label as _i18n_score, normalize_language
     _lang = normalize_language(language)
     def _t(key, default=None):
         return _i18n_t(_lang, key, default)
@@ -85,6 +85,8 @@ def write_pme_pptx(
         return _i18n_ratio(key, _lang)
     def _sl(key):
         return _i18n_sig(key, _lang)
+    def _sc(key):
+        return _i18n_score(key, _lang)
 
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -198,7 +200,7 @@ def write_pme_pptx(
             (_sl("ebe"), _fmt_eur(sig.ebe)),
             (_sl("resultat_net"), _fmt_eur(sig.resultat_net)),
             (_sl("caf"), _fmt_eur(sig.capacite_autofinancement)),
-            (_t("report.health_score") or "Score santé", f"{analysis.health_score:.0f}/100" if analysis.health_score else "—"),
+            (_sc("health_score"), f"{analysis.health_score:.0f}/100" if analysis.health_score else "—"),
             ("Altman Z", f"{analysis.altman_z:.2f}" if analysis.altman_z else "—"),
         ]
         for i, (label, value) in enumerate(kpis):

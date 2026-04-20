@@ -127,12 +127,13 @@ class PmePdfWriter:
     def __init__(self, ctx: PmePdfContext):
         self.ctx = ctx
         # Helper i18n local : self._t("report.synthesis") → libellé selon langue
-        from core.i18n import t as _i18n_t, field_label as _i18n_field, ratio_label as _i18n_ratio, sig_label as _i18n_sig, normalize_language
+        from core.i18n import t as _i18n_t, field_label as _i18n_field, ratio_label as _i18n_ratio, sig_label as _i18n_sig, scoring_label as _i18n_score, normalize_language
         self._lang = normalize_language(ctx.language)
         self._t = lambda key, default=None: _i18n_t(self._lang, key, default)
         self._field_label = lambda field: _i18n_field(field, self._lang)
         self._ratio_label = lambda key: _i18n_ratio(key, self._lang)
         self._sig_label = lambda key: _i18n_sig(key, self._lang)
+        self._scoring_label = lambda key: _i18n_score(key, self._lang)
         self._imports_ok = False
         try:
             from reportlab.lib.pagesizes import A4
@@ -289,7 +290,7 @@ class PmePdfWriter:
                 )),
                 ("EBE", _fmt_eur(sig.ebe)),
                 (self._sig_label("resultat_net"), _fmt_eur(sig.resultat_net)),
-                ("Score santé FinSight",
+                (self._scoring_label("health_score"),
                  f"{ctx.analysis.health_score:.0f} / 100" if ctx.analysis.health_score else "—"),
                 ("Altman Z",
                  f"{ctx.analysis.altman_z:.2f} ({ctx.analysis.altman_verdict})" if ctx.analysis.altman_z else "—"),
@@ -497,12 +498,12 @@ class PmePdfWriter:
         story.append(self.Paragraph(self._t("report.distress_scoring"), st["h1"]))
 
         items = [
-            ("Altman Z-Score (non coté)",
+            (self._scoring_label("altman_z_private"),
              f"{ctx.analysis.altman_z:.2f}" if ctx.analysis.altman_z else "—"),
             ("Verdict Altman",
              {"safe": "Zone saine", "grey": "Zone grise", "distress": "Détresse probable",
               "non_calculable": "Non calculable"}.get(ctx.analysis.altman_verdict, "—")),
-            ("Score santé FinSight",
+            (self._scoring_label("health_score"),
              f"{ctx.analysis.health_score:.0f} / 100" if ctx.analysis.health_score is not None else "—"),
         ]
         if ctx.bodacc:
@@ -594,7 +595,7 @@ class PmePdfWriter:
         ctx = self.ctx
         story.append(self.Paragraph(self._t("report.bankability"), st["h1"]))
         items = [
-            ("Score bankabilité",
+            (self._scoring_label("bankability_score"),
              f"{ctx.analysis.bankability_score:.0f} / 100" if ctx.analysis.bankability_score is not None else "—"),
             ("Capacité d'endettement additionnel estimée (cible 3× EBITDA)",
              _fmt_eur(ctx.analysis.debt_capacity_estimate)),
