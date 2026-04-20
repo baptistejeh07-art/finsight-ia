@@ -1690,14 +1690,17 @@ def _build_financials(area_buf, data, margins_buf=None):
     _sector_prof_f = data.get('sector_profile', 'STANDARD')
 
     # Sérialisation des ratios pour le prompt LLM
+    # NOTE : ne PAS nommer la variable locale `_lbl` — shadow la fonction
+    # globale `_lbl(key)` (ligne 87) et provoque UnboundLocalError au-dessus
+    # (bug prod 2026-04-20 : PDFWriter crashait sur toutes les analyses).
     _ratios_desc = []
     for r in _ratios[:8]:
-        _lbl = _d(r, 'label', '')
+        _rl  = _d(r, 'label', '')
         _val = _d(r, 'value', '—')
         _ref = _d(r, 'reference', '—')
         _lec = _d(r, 'lecture', '—')
-        if _lbl and _val != '—':
-            _ratios_desc.append(f"{_lbl} : {_val} (ref {_ref}, lecture {_lec})")
+        if _rl and _val != '—':
+            _ratios_desc.append(f"{_rl} : {_val} (ref {_ref}, lecture {_lec})")
     _ratios_str = " | ".join(_ratios_desc) if _ratios_desc else "donn\u00e9es ratios indisponibles"
 
     _ratio_title = (
