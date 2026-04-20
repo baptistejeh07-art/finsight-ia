@@ -71,6 +71,51 @@ SECTOR_LABELS_FR_ACCENTED: dict[str, str] = {
 
 
 # ═════════════════════════════════════════════════════════════════════════════
+# MULTILINGUAL SECTOR LABELS (ES/DE/IT/PT en plus de FR/EN)
+# ═════════════════════════════════════════════════════════════════════════════
+SECTOR_LABELS_MULTI: dict[str, dict[str, str]] = {
+    "TECHNOLOGY":       {"es": "Tecnología", "de": "Technologie", "it": "Tecnologia", "pt": "Tecnologia"},
+    "HEALTHCARE":       {"es": "Salud", "de": "Gesundheitswesen", "it": "Sanità", "pt": "Saúde"},
+    "BANKS":            {"es": "Bancos", "de": "Banken", "it": "Banche", "pt": "Bancos"},
+    "INSURANCE":        {"es": "Seguros", "de": "Versicherungen", "it": "Assicurazioni", "pt": "Seguros"},
+    "FINANCIALS":       {"es": "Servicios Financieros", "de": "Finanzdienstleistungen",
+                         "it": "Servizi Finanziari", "pt": "Serviços Financeiros"},
+    "CONSUMERCYCLICAL": {"es": "Consumo Cíclico", "de": "Zyklischer Konsum",
+                         "it": "Consumi Ciclici", "pt": "Consumo Cíclico"},
+    "CONSUMERDEFENSIVE":{"es": "Consumo Defensivo", "de": "Defensiver Konsum",
+                         "it": "Consumi Difensivi", "pt": "Consumo Defensivo"},
+    "ENERGY":           {"es": "Energía", "de": "Energie", "it": "Energia", "pt": "Energia"},
+    "INDUSTRIALS":      {"es": "Industria", "de": "Industrie", "it": "Industria", "pt": "Indústria"},
+    "MATERIALS":        {"es": "Materiales", "de": "Grundstoffe", "it": "Materiali", "pt": "Materiais"},
+    "REALESTATE":       {"es": "Inmobiliario", "de": "Immobilien", "it": "Immobiliare", "pt": "Imobiliário"},
+    "UTILITIES":        {"es": "Servicios Públicos", "de": "Versorger",
+                         "it": "Servizi di Pubblica Utilità", "pt": "Serviços Públicos"},
+    "COMMUNICATION":    {"es": "Telecomunicaciones", "de": "Telekommunikation",
+                         "it": "Telecomunicazioni", "pt": "Telecomunicações"},
+}
+
+
+def label_for(any_label: str, lang: str = "fr", accented: bool = True) -> str:
+    """Libellé secteur dans la langue demandée (fr/en/es/de/it/pt).
+
+    Exemple : label_for("Technology", "de") → "Technologie"
+             label_for("Technology", "es") → "Tecnología"
+    """
+    slug = slug_from_any(any_label)
+    if not slug:
+        return any_label  # inchangé si secteur inconnu
+    lang = (lang or "fr").lower()[:2]
+    if lang == "en":
+        return SECTOR_LABELS.get(slug, ("", ""))[0] or any_label
+    if lang == "fr":
+        return (SECTOR_LABELS_FR_ACCENTED if accented else {}).get(slug) \
+               or SECTOR_LABELS.get(slug, ("", ""))[1] or any_label
+    # es / de / it / pt
+    multi = SECTOR_LABELS_MULTI.get(slug, {})
+    return multi.get(lang) or SECTOR_LABELS.get(slug, ("", ""))[0] or any_label
+
+
+# ═════════════════════════════════════════════════════════════════════════════
 # ALIAS — toutes les variantes acceptees en input utilisateur
 # ═════════════════════════════════════════════════════════════════════════════
 # Permet a `slug_from_any()` d'accepter "tech", "Technologie", "TECH", etc.
