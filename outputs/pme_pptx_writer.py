@@ -29,13 +29,14 @@ NAVY_HEX = 0x1B2A4A
 NAVY_LIGHT_HEX = 0x3A5288
 
 
-def _fmt_eur(v):
+def _fmt_eur(v, symbol: str = "€"):
+    """Formate un montant en notation compacte (Md€/M€/k€) avec symbole devise."""
     if v is None: return "—"
     abs_v = abs(v)
-    if abs_v >= 1e9: return f"{v/1e9:.1f} Md€"
-    if abs_v >= 1e6: return f"{v/1e6:.1f} M€"
-    if abs_v >= 1e3: return f"{v/1e3:.0f} k€"
-    return f"{v:.0f} €"
+    if abs_v >= 1e9: return f"{v/1e9:.1f} Md{symbol}"
+    if abs_v >= 1e6: return f"{v/1e6:.1f} M{symbol}"
+    if abs_v >= 1e3: return f"{v/1e3:.0f} k{symbol}"
+    return f"{v:.0f} {symbol}"
 
 
 def _fmt_pct(v, d=1):
