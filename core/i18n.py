@@ -878,3 +878,41 @@ def scoring_label(key: str, lang: str) -> str:
     if not spec:
         return key.replace("_", " ").capitalize()
     return spec.get(lang) or spec.get("en") or spec.get("fr") or key
+
+
+# ─── Signaux d'allocation sectorielle ─────────────────────────────────────
+SIGNAL_LABELS: dict[str, dict[str, str]] = {
+    "Surpondérer":  {"fr": "Surpondérer", "en": "Overweight",
+                     "es": "Sobreponderar", "de": "Übergewichten",
+                     "it": "Sovrappesare", "pt": "Sobreponderar"},
+    "Sous-pondérer":{"fr": "Sous-pondérer", "en": "Underweight",
+                     "es": "Infraponderar", "de": "Untergewichten",
+                     "it": "Sottopesare", "pt": "Subponderar"},
+    "Neutre":       {"fr": "Neutre", "en": "Neutral",
+                     "es": "Neutral", "de": "Neutral",
+                     "it": "Neutrale", "pt": "Neutro"},
+    "Favorable":    {"fr": "Favorable", "en": "Favorable",
+                     "es": "Favorable", "de": "Günstig",
+                     "it": "Favorevole", "pt": "Favorável"},
+    "Tendu":        {"fr": "Tendu", "en": "Tight",
+                     "es": "Tenso", "de": "Angespannt",
+                     "it": "Teso", "pt": "Tenso"},
+    "Restrictif":   {"fr": "Restrictif", "en": "Restrictive",
+                     "es": "Restrictivo", "de": "Restriktiv",
+                     "it": "Restrittivo", "pt": "Restritivo"},
+    "Accommodant":  {"fr": "Accommodant", "en": "Accommodative",
+                     "es": "Acomodaticio", "de": "Akkommodierend",
+                     "it": "Accomodante", "pt": "Acomodatício"},
+    "Dégradé":      {"fr": "Dégradé", "en": "Deteriorated",
+                     "es": "Deteriorado", "de": "Verschlechtert",
+                     "it": "Deteriorato", "pt": "Deteriorado"},
+}
+
+
+def signal_label(key: str, lang: str) -> str:
+    """Libellé multilingue pour un signal (Surpondérer, Neutre, etc.)."""
+    lang = normalize_language(lang)
+    spec = SIGNAL_LABELS.get(key)
+    if not spec:
+        return key
+    return spec.get(lang) or spec.get("en") or spec.get("fr") or key
