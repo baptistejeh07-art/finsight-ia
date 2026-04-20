@@ -1,0 +1,52 @@
+{
+  "manifest_version": 3,
+  "name": "FinSight IA — Analyser sur un clic",
+  "short_name": "FinSight",
+  "version": "1.0.0",
+  "description": "Ajoute un bouton '📊 Analyser avec FinSight' sur Yahoo Finance, TradingView, Boursorama, Google Finance, Morningstar, Investing, Zonebourse. Obtenez une analyse fondamentale complète (DCF, ratios, scénarios) en 2 minutes.",
+  "author": "FinSight IA",
+  "homepage_url": "https://finsight-ia.com",
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "FinSight IA",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "48": "icons/icon-48.png",
+      "128": "icons/icon-128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon-16.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://finance.yahoo.com/quote/*",
+        "https://*.finance.yahoo.com/quote/*",
+        "https://www.tradingview.com/symbols/*",
+        "https://tradingview.com/symbols/*",
+        "https://www.boursorama.com/cours/*",
+        "https://www.google.com/finance/quote/*",
+        "https://www.morningstar.com/stocks/*",
+        "https://www.morningstar.fr/fr/funds/snapshot/snapshot.aspx*",
+        "https://www.investing.com/equities/*",
+        "https://fr.investing.com/equities/*",
+        "https://www.zonebourse.com/cours/action/*"
+      ],
+      "js": ["content.js"],
+      "css": ["content.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "permissions": ["storage", "activeTab"],
+  "host_permissions": [
+    "https://finsight-ia.com/*",
+    "https://www.finsight-ia.com/*"
+  ]
+}

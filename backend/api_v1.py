@@ -21,7 +21,6 @@ import logging
 import os
 import secrets
 import time
-from collections import defaultdict, deque
 from datetime import datetime, timezone
 from typing import Annotated, Optional
 
@@ -63,27 +62,20 @@ def hash_key(key_plain: str) -> str:
 # ---------------------------------------------------------------------------
 
 class _RateLimiter:
-    """Sliding window in-memory. Pour prod multi-process, remplacer par Redis."""
+    """Sliding window distribué Redis (fallback in-memory si Redis indispo).
 
-    def __init__(self) -> None:
-        self._minute: dict[str, deque] = defaultdict(lambda: deque(maxlen=500))
-        self._day: dict[str, deque] = defaultdict(lambda: deque(maxlen=5000))
+    Multi-worker safe : tous les workers Railway partagent les mêmes compteurs
+    via Redis. Les clés TTL-expirent automatiquement.
+    """
 
     def check(self, key_id: str, per_min: int, per_day: int) -> tuple[bool, str]:
-        now = time.time()
-        mq = self._minute[key_id]
-        dq = self._day[key_id]
-        # Purge > 60s
-        while mq and mq[0] < now - 60:
-            mq.popleft()
-        while dq and dq[0] < now - 86400:
-            dq.popleft()
-        if len(mq) >= per_min:
+        from core.cache import rate_limit
+        ok_min, _ = rate_limit(f"api:min:{key_id}", max_requests=per_min, window_sec=60)
+        if not ok_min:
             return False, f"Rate limit minute: {per_min}/min dépassé"
-        if len(dq) >= per_day:
+        ok_day, _ = rate_limit(f"api:day:{key_id}", max_requests=per_day, window_sec=86400)
+        if not ok_day:
             return False, f"Rate limit quotidien: {per_day}/jour dépassé"
-        mq.append(now)
-        dq.append(now)
         return True, ""
 
 

@@ -1,0 +1,40 @@
+{
+  "name": "FinSight IA — Analyste financier propulsé par IA",
+  "short_name": "FinSight",
+  "description": "Analyses financières institutionnelles en 2 minutes : DCF, ratios, scénarios, comparables. Rapports PDF, pitchbooks PowerPoint, modèles Excel.",
+  "start_url": "/app",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "theme_color": "#0c0c0c",
+  "background_color": "#fafaf5",
+  "lang": "fr-FR",
+  "dir": "ltr",
+  "categories": ["finance", "business", "productivity"],
+  "icons": [
+    {
+      "src": "/icon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/apple-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Nouvelle analyse",
+      "url": "/app",
+      "description": "Lancer une analyse société, secteur ou indice"
+    },
+    {
+      "name": "Mes analyses",
+      "url": "/app",
+      "description": "Voir l'historique des analyses"
+    }
+  ]
+}

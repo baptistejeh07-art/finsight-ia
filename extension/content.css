@@ -1,0 +1,63 @@
+/* FinSight IA — Bouton flottant injecté sur les sites financiers. */
+
+#finsight-analyze-btn.finsight-btn {
+  position: fixed;
+  top: 80px;
+  right: 16px;
+  z-index: 2147483647; /* au-dessus de tout */
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: linear-gradient(135deg, #0c0c0c, #1a1a1a);
+  color: #fff;
+  border: 1px solid #333;
+  border-radius: 8px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.2s ease;
+  user-select: none;
+  line-height: 1;
+}
+
+#finsight-analyze-btn.finsight-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+  background: linear-gradient(135deg, #1a1a1a, #2a2a2a);
+}
+
+#finsight-analyze-btn.finsight-btn:active {
+  transform: translateY(0);
+}
+
+#finsight-analyze-btn .fs-icon {
+  font-size: 16px;
+}
+
+#finsight-analyze-btn .fs-ticker {
+  display: inline-block;
+  padding: 2px 8px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+  font-family: "SF Mono", Monaco, Consolas, monospace;
+  font-size: 11px;
+  letter-spacing: 0.5px;
+}
+
+#finsight-analyze-btn .fs-text {
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  #finsight-analyze-btn .fs-text {
+    display: none;
+  }
+  #finsight-analyze-btn.finsight-btn {
+    top: auto;
+    bottom: 16px;
+    right: 16px;
+  }
+}

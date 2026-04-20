@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { DM_Sans, DM_Mono } from "next/font/google";
 import { Toaster } from "react-hot-toast";
 import { CookieBanner } from "@/components/cookie-banner";
+import { PWAInstaller } from "@/components/pwa-installer";
 import "./globals.css";
 
 const dmSans = DM_Sans({
@@ -53,6 +54,23 @@ export const metadata: Metadata = {
       "DCF · Ratios · Scénarios · Comparatifs. Analyses institutionnelles en quelques minutes.",
   },
   robots: { index: true, follow: true },
+  manifest: "/manifest.json",
+  applicationName: "FinSight IA",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "FinSight",
+  },
+  formatDetection: {
+    telephone: false,
+  },
+};
+
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+  themeColor: "#0c0c0c",
 };
 
 const themeInitScript = `
@@ -76,6 +94,7 @@ export default function RootLayout({
       </head>
       <body className="min-h-screen antialiased bg-surface text-text-primary">
         {children}
+        <PWAInstaller />
         <CookieBanner />
         <Toaster
           position="top-right"

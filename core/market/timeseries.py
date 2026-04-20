@@ -16,8 +16,8 @@ from typing import Optional
 
 log = logging.getLogger(__name__)
 
-# (ttl_s, {key: (expires_at, payload)})
-_CACHE: dict[str, tuple[float, dict]] = {}
+# Cache distribué Redis avec fallback in-memory (core.cache)
+from core.cache import cache as _cache
 _CACHE_TTL = 300  # 5 min
 
 
@@ -49,18 +49,11 @@ class PerformanceStats:
 
 
 def _cache_get(key: str) -> Optional[dict]:
-    e = _CACHE.get(key)
-    if not e:
-        return None
-    expires, payload = e
-    if expires < time.time():
-        _CACHE.pop(key, None)
-        return None
-    return payload
+    return _cache.get_json(f"market:{key}")
 
 
 def _cache_set(key: str, payload: dict) -> None:
-    _CACHE[key] = (time.time() + _CACHE_TTL, payload)
+    _cache.set_json(f"market:{key}", payload, ttl_seconds=_CACHE_TTL)
 
 
 def _compute_perf(hist) -> Optional[PerformanceStats]:

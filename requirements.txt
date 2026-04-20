@@ -70,3 +70,6 @@ cryptography>=41.0.0
 
 # --- Alertes / rappels post-analyse ---
 pywebpush>=2.0.0
+
+# --- Cache distribué (prod Railway) ---
+redis>=5.0.0
