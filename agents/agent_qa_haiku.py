@@ -140,8 +140,9 @@ class AgentQAHaiku:
         result = agent.validate(synthesis, qa_python)
     """
 
-    def __init__(self, model: str = _DEFAULT_MODEL):
+    def __init__(self, model: str = _DEFAULT_MODEL, language: str = "fr"):
         self.llm = LLMProvider(provider="mistral", model="mistral-small-latest")
+        self.language = language
 
     def validate(
         self,

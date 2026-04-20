@@ -345,7 +345,8 @@ def qa_node(state: FinSightState) -> dict:
     # qa_haiku + devil = 2 LLM calls independants → ThreadPoolExecutor
     def _run_qa_haiku():
         try:
-            return AgentQAHaiku().validate(synthesis, qa_python)
+            _lang_qa = state.get("language") or "fr"
+            return AgentQAHaiku(language=_lang_qa).validate(synthesis, qa_python)
         except Exception as e:
             log.warning(f"[qa_node] AgentQAHaiku erreur : {e}")
             return None
