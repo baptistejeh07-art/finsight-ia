@@ -500,9 +500,8 @@ class PmePdfWriter:
         items = [
             (self._scoring_label("altman_z_private"),
              f"{ctx.analysis.altman_z:.2f}" if ctx.analysis.altman_z else "—"),
-            ("Verdict Altman",
-             {"safe": "Zone saine", "grey": "Zone grise", "distress": "Détresse probable",
-              "non_calculable": "Non calculable"}.get(ctx.analysis.altman_verdict, "—")),
+            (self._scoring_label("altman_verdict"),
+             self._t(f"altman.{ctx.analysis.altman_verdict}", ctx.analysis.altman_verdict) or "—"),
             (self._scoring_label("health_score"),
              f"{ctx.analysis.health_score:.0f} / 100" if ctx.analysis.health_score is not None else "—"),
         ]

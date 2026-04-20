@@ -47,7 +47,8 @@
   "altman": {
     "safe": "Zone saine",
     "grey": "Zone grise",
-    "distress": "Détresse probable"
+    "distress": "Détresse probable",
+    "non_calculable": "Non calculable"
   },
   "kpi": {
     "ca_growth": "Croissance du CA",

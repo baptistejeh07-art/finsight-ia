@@ -47,7 +47,8 @@
   "altman": {
     "safe": "Safe zone",
     "grey": "Grey zone",
-    "distress": "Likely distress"
+    "distress": "Likely distress",
+    "non_calculable": "Not computable"
   },
   "kpi": {
     "ca_growth": "Revenue growth",

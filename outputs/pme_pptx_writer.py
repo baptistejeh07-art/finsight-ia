@@ -288,8 +288,8 @@ def write_pme_pptx(
     s = prs.slides.add_slide(blank_layout)
     _add_title(s, _t("report.scoring_health"))
     items = [
-        ("Altman Z-Score", f"{analysis.altman_z:.2f}" if analysis.altman_z else "—"),
-        ("Verdict", analysis.altman_verdict),
+        (_sc("altman_z_private"), f"{analysis.altman_z:.2f}" if analysis.altman_z else "—"),
+        (_sc("altman_verdict"), _t(f"altman.{analysis.altman_verdict}", analysis.altman_verdict)),
         ("Score santé FinSight", f"{analysis.health_score:.0f}/100" if analysis.health_score else "—"),
         ("Score bankabilité", f"{analysis.bankability_score:.0f}/100" if analysis.bankability_score else "—"),
         ("Dette additionnelle accessible (cible 3×EBITDA)", _fmt_eur(analysis.debt_capacity_estimate)),

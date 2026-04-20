@@ -1,8 +1,15 @@
 {
   "common": {
-    "yes": "Ja", "no": "Nein", "year": "Jahr", "currency": "Währung",
-    "value": "Wert", "total": "Gesamt", "date": "Datum", "source": "Quelle",
-    "page": "Seite", "of": "von"
+    "yes": "Ja",
+    "no": "Nein",
+    "year": "Jahr",
+    "currency": "Währung",
+    "value": "Wert",
+    "total": "Gesamt",
+    "date": "Datum",
+    "source": "Quelle",
+    "page": "Seite",
+    "of": "von"
   },
   "report": {
     "title": "FINANZANALYSE",
@@ -40,7 +47,8 @@
   "altman": {
     "safe": "Sicherheitszone",
     "grey": "Graubereich",
-    "distress": "Wahrscheinliche Notlage"
+    "distress": "Wahrscheinliche Notlage",
+    "non_calculable": "Nicht berechenbar"
   },
   "kpi": {
     "ca_growth": "Umsatzwachstum",

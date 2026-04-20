@@ -208,7 +208,7 @@ def write_pme_xlsx(
 
     scoring = [
         (_sc("altman_z_private"), analysis.altman_z),
-        (_sc("altman_verdict"), analysis.altman_verdict),
+        (_sc("altman_verdict"), _t(f"altman.{analysis.altman_verdict}", analysis.altman_verdict)),
         (_sc("health_score"), analysis.health_score),
         (_sc("bankability_score"), analysis.bankability_score),
         (f"{_sc('debt_capacity')} ({currency})", analysis.debt_capacity_estimate),

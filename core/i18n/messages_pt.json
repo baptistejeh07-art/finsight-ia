@@ -1,8 +1,15 @@
 {
   "common": {
-    "yes": "Sim", "no": "Não", "year": "Ano", "currency": "Moeda",
-    "value": "Valor", "total": "Total", "date": "Data", "source": "Fonte",
-    "page": "Página", "of": "de"
+    "yes": "Sim",
+    "no": "Não",
+    "year": "Ano",
+    "currency": "Moeda",
+    "value": "Valor",
+    "total": "Total",
+    "date": "Data",
+    "source": "Fonte",
+    "page": "Página",
+    "of": "de"
   },
   "report": {
     "title": "ANÁLISE FINANCEIRA",
@@ -40,7 +47,8 @@
   "altman": {
     "safe": "Zona segura",
     "grey": "Zona cinzenta",
-    "distress": "Provável distress financeiro"
+    "distress": "Provável distress financeiro",
+    "non_calculable": "Não calculável"
   },
   "kpi": {
     "ca_growth": "Crescimento de receitas",
