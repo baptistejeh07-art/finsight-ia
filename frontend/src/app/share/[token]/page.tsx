@@ -51,7 +51,7 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
   const dCast = d as Record<string, unknown>;
   const summary = (dCast.summary || dCast.synthese || dCast.briefing || "") as string;
   const recommendation = (dCast.recommendation || dCast.recommandation || "") as string;
-  const targetPrice = dCast.target_price_base || dCast.target;
+  const targetPrice = (dCast.target_price_base || dCast.target || "") as string | number;
 
   return (
     <main className="min-h-screen bg-surface text-text-primary">

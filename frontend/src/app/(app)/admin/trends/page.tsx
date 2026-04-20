@@ -70,7 +70,7 @@ export default function AdminTrendsPage() {
     const csvRows = [headers.join(",")];
     for (const r of rows) {
       const vals = headers.map((h) => {
-        const v = (r as Record<string, unknown>)[h];
+        const v = (r as unknown as Record<string, unknown>)[h];
         if (v === null || v === undefined) return "";
         const s = String(v).replace(/"/g, '""');
         return s.includes(",") || s.includes("\n") ? `"${s}"` : s;

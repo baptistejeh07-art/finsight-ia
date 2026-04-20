@@ -65,9 +65,10 @@ export async function ensurePushSubscription(authToken: string): Promise<{
     if (existing) {
       sub = existing;
     } else {
+      // cast vers BufferSource : ts-lib récente exige ArrayBuffer strict
       sub = await registration.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(publicKey),
+        applicationServerKey: urlBase64ToUint8Array(publicKey).buffer as ArrayBuffer,
       });
     }
   } catch (e) {
