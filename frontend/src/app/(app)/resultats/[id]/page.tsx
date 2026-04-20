@@ -193,10 +193,44 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
               <HeaderSociete ci={ci} elapsedMs={result.elapsed_ms} />
             </header>
 
-            {/* Warnings audit (data manquante détectée par AgentDataAudit) */}
-            {(data as { warnings?: { field: string; severity: "info" | "warning" | "error"; hint: string }[] }).warnings && (
-              <WarningsBanner warnings={(data as { warnings: { field: string; severity: "info" | "warning" | "error"; hint: string }[] }).warnings} />
-            )}
+            {/* Warnings audit (data manquante détectée par AgentDataAudit)
+                + détection livrables manquants (pdf_error/pptx_error/files) */}
+            {(() => {
+              type W = { field: string; severity: "info" | "warning" | "error"; hint: string };
+              const dataObj = data as {
+                warnings?: W[];
+                pdf_error?: string | null;
+                pptx_error?: string | null;
+              };
+              const w: W[] = [...(dataObj.warnings || [])];
+              const files = result.files || {};
+              if (!files.pdf) {
+                w.push({
+                  field: "files.pdf",
+                  severity: "error",
+                  hint: dataObj.pdf_error
+                    ? `PDF indisponible — ${dataObj.pdf_error.slice(0, 180)}`
+                    : "PDF indisponible — le writer a échoué lors de la génération. Relance l'analyse.",
+                });
+              }
+              if (!files.pptx) {
+                w.push({
+                  field: "files.pptx",
+                  severity: "warning",
+                  hint: dataObj.pptx_error
+                    ? `PowerPoint indisponible — ${dataObj.pptx_error.slice(0, 180)}`
+                    : "PowerPoint indisponible.",
+                });
+              }
+              if (!files.xlsx) {
+                w.push({
+                  field: "files.xlsx",
+                  severity: "warning",
+                  hint: "Excel indisponible.",
+                });
+              }
+              return w.length > 0 ? <WarningsBanner warnings={w} /> : null;
+            })()}
 
             {/* EditableGrid : toujours utilisé. En mode édition (Ctrl+Alt+E) :
                 drag/resize ON. Hors édition : positions sauvegardées appliquées
