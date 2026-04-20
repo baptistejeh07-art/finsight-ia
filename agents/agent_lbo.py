@@ -59,7 +59,7 @@ def _x(v, dp=1):
 # Generation des 4 textes
 # ─────────────────────────────────────────────────────────────────────────────
 
-def generate_lbo_texts(lbo_data: dict, m: dict = None) -> dict:
+def generate_lbo_texts(lbo_data: dict, m: dict = None, language: str = "fr") -> dict:
     """Genere les 4 textes LLM analytiques pour le LBO.
 
     Args:
@@ -103,6 +103,13 @@ def generate_lbo_texts(lbo_data: dict, m: dict = None) -> dict:
             role="analyste senior PE/M&A sell-side (JPMorgan, Goldman Sachs)",
             include_json=True,
         )
+        # i18n : injecter directive langue si non-FR
+        if (language or "fr") != "fr":
+            try:
+                from core.i18n import system_language_directive
+                _sys_lbo = _sys_lbo + "\n\n" + system_language_directive(language)
+            except Exception:
+                pass
         prompt = (
             f"{_sys_lbo}\n\n"
             f"MISSION : rédiger 4 textes analytiques rigoureux sur le LBO "
