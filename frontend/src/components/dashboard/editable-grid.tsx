@@ -70,7 +70,27 @@ export function EditableGrid({
     } catch {
       /* no-op */
     }
-    setLayouts(saved && saved.lg ? saved : { lg: buildFallback() });
+    const fallback = buildFallback();
+    if (saved && saved.lg) {
+      // Merge : si de nouveaux blocs existent mais ne sont pas dans saved.lg,
+      // on les ajoute avec leur position default (sinon ils resteraient invisibles
+      // tant que l'utilisateur n'a pas reset manuellement le layout — fix UX
+      // majeur pour les mises à jour qui ajoutent des blocs).
+      const savedIds = new Set(saved.lg.map((l) => l.i));
+      const missing = fallback.filter((f) => !savedIds.has(f.i));
+      if (missing.length > 0) {
+        // Place les nouveaux blocs tout en bas
+        const maxY = Math.max(0, ...saved.lg.map((l) => l.y + l.h));
+        missing.forEach((m, idx) => {
+          m.y = maxY + idx * (m.h || 4);
+          m.x = m.x ?? 0;
+        });
+        saved = { ...saved, lg: [...saved.lg, ...missing] };
+      }
+      setLayouts(saved);
+    } else {
+      setLayouts({ lg: fallback });
+    }
     setHydrated(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [blocks.map((b) => b.id).join("|")]);

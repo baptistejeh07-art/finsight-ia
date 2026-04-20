@@ -677,7 +677,10 @@ class AgentSynthese:
             ticker               = snapshot.ticker,
             company_name         = ci.company_name,
             recommendation       = parsed.get("recommendation", "HOLD").upper(),
-            conviction           = _fnum(parsed.get("conviction")) or 0.5,
+            # Conviction : clamp [0.20, 0.90]. LLM retourne parfois 0.01/0.05 (absurde)
+            # ou 0.99 (excès de confiance). Borner pour afficher des valeurs utiles
+            # (20-90%). Bug prod 2026-04-20 : Hermès affichait 1% conviction dans UI.
+            conviction           = max(0.20, min(0.90, _fnum(parsed.get("conviction")) or 0.5)),
             target_base          = _clamped_base,
             target_bull          = _clamped_bull,
             target_bear          = _clamped_bear,
