@@ -467,6 +467,17 @@
     "use_label_portrait": "Portraits entreprise",
     "use_history": "Historique d'utilisation",
     "use_history_intro": "Un graphique d'utilisation mensuel apparaîtra ici dès que le système de quotas sera connecté.",
-    "use_chart_soon": "Graphique d'utilisation — bientôt disponible"
+    "use_chart_soon": "Graphique d'utilisation — bientôt disponible",
+    "acc_title": "Compte",
+    "acc_email": "Adresse e-mail",
+    "acc_logout_all_title": "Se déconnecter de tous les appareils",
+    "acc_logout_all_desc": "Invalide les sessions sur tous les navigateurs où vous êtes connecté.",
+    "acc_logout_btn": "Se déconnecter",
+    "acc_delete_title": "Supprimer le compte",
+    "acc_delete_desc": "Pour supprimer votre compte, veuillez d'abord annuler votre abonnement si vous en avez un. Cette action est irréversible.",
+    "acc_userid": "ID utilisateur",
+    "acc_userid_desc": "Identifiant interne FinSight.",
+    "acc_delete_modal_title": "Suppression non disponible",
+    "acc_delete_modal_desc": "La suppression automatique n'est pas encore branchée. Envoyez-nous un e-mail pour faire supprimer votre compte manuellement."
   }
 }

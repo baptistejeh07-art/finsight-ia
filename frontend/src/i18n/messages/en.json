@@ -464,6 +464,17 @@
     "use_label_portrait": "Company portraits",
     "use_history": "Usage history",
     "use_history_intro": "A monthly usage chart will appear here once the quota system is connected.",
-    "use_chart_soon": "Usage chart — coming soon"
+    "use_chart_soon": "Usage chart — coming soon",
+    "acc_title": "Account",
+    "acc_email": "Email address",
+    "acc_logout_all_title": "Sign out from all devices",
+    "acc_logout_all_desc": "Invalidates sessions on all browsers where you are signed in.",
+    "acc_logout_btn": "Sign out",
+    "acc_delete_title": "Delete account",
+    "acc_delete_desc": "To delete your account, please first cancel your subscription if you have one. This action is irreversible.",
+    "acc_userid": "User ID",
+    "acc_userid_desc": "Internal FinSight identifier.",
+    "acc_delete_modal_title": "Deletion unavailable",
+    "acc_delete_modal_desc": "Automatic deletion is not yet wired up. Please email us to have your account deleted manually."
   }
 }
