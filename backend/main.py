@@ -110,6 +110,20 @@ except Exception as _e:
     import logging as _lg
     _lg.getLogger(__name__).warning(f"[startup] sentinel router import failed: {_e}")
 
+try:
+    from backend.routers.fec import router as fec_router
+    app.include_router(fec_router)
+except Exception as _e:
+    import logging as _lg
+    _lg.getLogger(__name__).warning(f"[startup] fec router import failed: {_e}")
+
+try:
+    from backend.routers.shares_log import router as shares_log_router
+    app.include_router(shares_log_router)
+except Exception as _e:
+    import logging as _lg
+    _lg.getLogger(__name__).warning(f"[startup] shares_log router import failed: {_e}")
+
 # CORS — autorise le frontend Vercel + dev local
 app.add_middleware(
     CORSMiddleware,

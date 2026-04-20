@@ -14,6 +14,7 @@ const TABS = [
   { slug: "raccourcis", label: "Raccourcis" },
   { slug: "rappels", label: "Rappels" },
   { slug: "api", label: "API" },
+  { slug: "fec", label: "FEC" },
 ];
 
 export default function ParametresLayout({
