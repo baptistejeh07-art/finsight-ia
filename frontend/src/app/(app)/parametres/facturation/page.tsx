@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { Check, Sparkles, CreditCard, ExternalLink } from "lucide-react";
 import toast from "react-hot-toast";
@@ -65,6 +65,14 @@ const PLANS: PlanDef[] = [
 ];
 
 export default function FacturationPage() {
+  return (
+    <Suspense fallback={<div className="text-sm text-ink-500">Chargement…</div>}>
+      <FacturationPageInner />
+    </Suspense>
+  );
+}
+
+function FacturationPageInner() {
   const { t, fc } = useI18n();
   const searchParams = useSearchParams();
   const [interval, setIntervalState] = useState<Interval>("month");
