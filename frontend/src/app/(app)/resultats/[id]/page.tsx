@@ -36,6 +36,7 @@ import { EditableGrid, type GridBlock } from "@/components/dashboard/editable-gr
 import { SectorTickersTable } from "@/components/dashboard/sector-tickers-table";
 import { IndiceSecteursTable } from "@/components/dashboard/indice-secteurs-table";
 import { SaveToHistoryCard } from "@/components/dashboard/save-to-history-card";
+import { ShareCard } from "@/components/dashboard/share-card";
 import { DocumentUploadBox } from "@/components/dashboard/document-upload-box";
 import {
   PmeIdentiteCard,
@@ -342,12 +343,20 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
                     label: t("results.block_save"),
                     default: { x: 9, y: 19, w: 3, h: 3 },
                     render: () => (
-                      <SaveToHistoryCard
-                        jobId={id}
-                        kind="societe"
-                        label={tickerStr}
-                        ticker={tickerStr}
-                      />
+                      <div className="grid grid-cols-2 gap-2 h-full">
+                        <SaveToHistoryCard
+                          jobId={id}
+                          kind="societe"
+                          label={tickerStr}
+                          ticker={tickerStr}
+                        />
+                        <ShareCard
+                          jobId={id}
+                          kind="societe"
+                          label={tickerStr}
+                          ticker={tickerStr}
+                        />
+                      </div>
                     ),
                   },
                   {
@@ -432,11 +441,18 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
                   label: t("results.block_save"),
                   default: { x: 8, y: 8, w: 4, h: 3 },
                   render: () => (
-                    <SaveToHistoryCard
-                      jobId={id}
-                      kind={kind as "secteur" | "indice" | "comparatif" | "pme"}
-                      label={result.label || ticker}
-                    />
+                    <div className="grid grid-cols-2 gap-2 h-full">
+                      <SaveToHistoryCard
+                        jobId={id}
+                        kind={kind as "secteur" | "indice" | "comparatif" | "pme"}
+                        label={result.label || ticker}
+                      />
+                      <ShareCard
+                        jobId={id}
+                        kind={kind as "secteur" | "indice" | "comparatif" | "pme"}
+                        label={result.label || ticker}
+                      />
+                    </div>
                   ),
                 },
                 // ═══ Blocs spécifiques PME ═══
