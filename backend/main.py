@@ -636,6 +636,15 @@ def _do_pme(siren: str, use_pappers_comptes: bool = True,
     }
     elapsed = int((_utcnow() - t0).total_seconds() * 1000)
     log.info(f"[pme] {siren} terminé en {elapsed}ms")
+
+    # Dataset anonymisé
+    try:
+        from core.analysis_log_helper import log_pme_analysis
+        log_pme_analysis(siren, company.denomination, analysis, duration_ms=elapsed,
+                          language=language)
+    except Exception as _log_e:
+        log.debug(f"[pme] analysis_log skip : {_log_e}")
+
     return {"data": data, "files": files}
 
 

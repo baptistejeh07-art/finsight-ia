@@ -193,7 +193,16 @@ def run_secteur(sector: str, universe: str = "CAC 40", prefix: str = "secteur",
     print(f"  * {pptx_path.name}")
     if xlsx_path:
         print(f"  * {xlsx_path.name}")
-    print(f"\nTemps total : {time.time() - t0:.1f}s")
+    _total_ms = int((time.time() - t0) * 1000)
+    print(f"\nTemps total : {_total_ms/1000:.1f}s")
+
+    # Dataset anonymisé
+    try:
+        from core.analysis_log_helper import log_secteur_analysis
+        log_secteur_analysis(sector, universe, tickers, duration_ms=_total_ms,
+                              language=language, currency=currency)
+    except Exception as _e_log:
+        log.debug(f"analysis_log secteur skip : {_e_log}")
 
     # Retourne les data pour le backend (Q&A contexte + UI enrichie)
     return {
@@ -293,7 +302,16 @@ def run_indice(universe: str = "S&P 500", language: str = "fr", currency: str = 
     print(f"  * {pptx_path.name}")
     if xlsx_path.exists():
         print(f"  * {xlsx_path.name}")
-    print(f"\nTemps total : {time.time() - t0:.1f}s")
+    _total_ms = int((time.time() - t0) * 1000)
+    print(f"\nTemps total : {_total_ms/1000:.1f}s")
+
+    # Dataset anonymisé
+    try:
+        from core.analysis_log_helper import log_indice_analysis
+        log_indice_analysis(data if isinstance(data, dict) else {}, duration_ms=_total_ms,
+                             language=language, currency=currency)
+    except Exception as _e_log:
+        log.debug(f"analysis_log indice skip : {_e_log}")
 
     # Retourne les data pour le backend (Q&A contexte + UI enrichie)
     return {

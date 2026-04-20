@@ -102,6 +102,76 @@ def insert_analysis(
         return False
 
 
+def insert_analysis_log(
+    *,
+    kind: str,
+    ticker: Optional[str] = None,
+    company_name: Optional[str] = None,
+    sector: Optional[str] = None,
+    industry: Optional[str] = None,
+    universe: Optional[str] = None,
+    country: Optional[str] = None,
+    market_cap_bucket: Optional[str] = None,
+    market_cap_usd_bn: Optional[float] = None,
+    score_finsight: Optional[float] = None,
+    recommendation: Optional[str] = None,
+    conviction: Optional[float] = None,
+    target_price_base: Optional[float] = None,
+    target_upside_pct: Optional[float] = None,
+    language: str = "fr",
+    currency: str = "EUR",
+    duration_ms: Optional[int] = None,
+    llm_fallback_used: bool = False,
+    data_quality: Optional[str] = None,
+) -> bool:
+    """Écrit une ligne dans analysis_log — dataset anonymisé des analyses.
+
+    Aucune trace utilisateur : pas de user_id, pas de session_id. Destiné à
+    construire le futur dataset "FinSight Trends" vendable. Silencieux si
+    Supabase non configuré.
+    """
+    if not _enabled():
+        return False
+
+    payload = {
+        "kind": kind,
+        "ticker": ticker,
+        "company_name": company_name,
+        "sector": sector,
+        "industry": industry,
+        "universe": universe,
+        "country": country,
+        "market_cap_bucket": market_cap_bucket,
+        "market_cap_usd_bn": market_cap_usd_bn,
+        "score_finsight": score_finsight,
+        "recommendation": recommendation,
+        "conviction": conviction,
+        "target_price_base": target_price_base,
+        "target_upside_pct": target_upside_pct,
+        "language": language,
+        "currency": currency,
+        "duration_ms": duration_ms,
+        "llm_fallback_used": llm_fallback_used,
+        "data_quality": data_quality,
+    }
+    payload = {k: v for k, v in payload.items() if v is not None}
+
+    try:
+        r = httpx.post(
+            f"{_SUPABASE_URL}/rest/v1/analysis_log",
+            headers=_headers(),
+            json=payload,
+            timeout=5.0,
+        )
+        if r.status_code >= 300:
+            log.warning(f"[db] insert_analysis_log HTTP {r.status_code} : {r.text[:200]}")
+            return False
+        return True
+    except Exception as e:
+        log.debug(f"[db] insert_analysis_log exception : {e}")
+        return False
+
+
 _BUCKET = os.getenv("SUPABASE_BUCKET", "analyses")
 
 

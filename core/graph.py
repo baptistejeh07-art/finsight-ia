@@ -566,6 +566,13 @@ def output_node(state: FinSightState) -> dict:
     ms = int((time.time() - t0) * 1000)
     log.info(f"[output_node] Excel={bool(excel_path)} PPTX={bool(pptx_path)} PDF={bool(pdf_path)} — {ms}ms")
 
+    # Dataset anonymisé — log l'analyse pour business intelligence + futur dataset vendable
+    try:
+        from core.analysis_log_helper import log_societe_analysis
+        log_societe_analysis(state, duration_ms=ms)
+    except Exception as _log_e:
+        log.debug(f"[output_node] analysis_log skip : {_log_e}")
+
     return {
         "excel_path":  excel_path,
         "pptx_path":   pptx_path,
