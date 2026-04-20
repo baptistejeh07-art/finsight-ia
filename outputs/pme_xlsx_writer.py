@@ -45,7 +45,7 @@ def write_pme_xlsx(
         raise RuntimeError("openpyxl requis") from e
 
     # i18n helper
-    from core.i18n import t as _i18n_t, ratio_label as _i18n_ratio, sig_label as _i18n_sig, normalize_language
+    from core.i18n import t as _i18n_t, ratio_label as _i18n_ratio, sig_label as _i18n_sig, benchmark_rank_label as _i18n_rank, common_label as _i18n_common, normalize_language
     _lang = normalize_language(language)
     def _t(key, default=None):
         return _i18n_t(_lang, key, default)
@@ -53,6 +53,10 @@ def write_pme_xlsx(
         return _i18n_ratio(key, _lang)
     def _sl(key):
         return _i18n_sig(key, _lang)
+    def _rk(key):
+        return _i18n_rank(key, _lang)
+    def _cl(key):
+        return _i18n_common(key, _lang)
 
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -165,14 +169,19 @@ def write_pme_xlsx(
     ws3["A1"].fill = title_fill
     ws3.merge_cells("A1:E1")
 
-    headers = ["Ratio", "Cible", "Q25", "Médiane (Q50)", "Q75", "Position"]
+    _median_label = {"fr":"Médiane","en":"Median","es":"Mediana","de":"Median","it":"Mediana","pt":"Mediana"}.get(_lang, "Median")
+    _target_label = {"fr":"Cible","en":"Target","es":"Objetivo","de":"Zielwert","it":"Obiettivo","pt":"Alvo"}.get(_lang, "Target")
+    _position_label = {"fr":"Position","en":"Position","es":"Posición","de":"Position","it":"Posizione","pt":"Posição"}.get(_lang, "Position")
+    headers = ["Ratio", _target_label, "Q25", f"{_median_label} (Q50)", "Q75", _position_label]
     for i, h in enumerate(headers, start=1):
         cell = ws3.cell(row=3, column=i, value=h)
         cell.font = header_font
         cell.fill = header_fill
     rank_labels = {
-        "top_25": "Top 25%", "above_median": "Au-dessus médiane",
-        "below_median": "Sous médiane", "bottom_25": "Bottom 25%",
+        "top_25": _rk("top_25"),
+        "above_median": _rk("above_median"),
+        "below_median": _rk("below_median"),
+        "bottom_25": _rk("bottom_25"),
     }
     rank_colors = {
         "top_25": GREEN, "above_median": GREEN,

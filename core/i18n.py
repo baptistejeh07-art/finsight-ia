@@ -764,3 +764,29 @@ def common_label(key: str, lang: str) -> str:
     if not spec:
         return key.replace("_", " ").capitalize()
     return spec.get(lang) or spec.get("en") or spec.get("fr") or key
+
+
+# ─── Benchmark ranks (positionnement quartile vs peers) ───────────────────
+BENCHMARK_RANKS: dict[str, dict[str, str]] = {
+    "top_25":       {"fr": "Top 25%", "en": "Top 25%",
+                     "es": "Top 25%", "de": "Top 25%",
+                     "it": "Top 25%", "pt": "Top 25%"},
+    "above_median": {"fr": "Au-dessus médiane", "en": "Above median",
+                     "es": "Sobre mediana", "de": "Über Median",
+                     "it": "Sopra mediana", "pt": "Acima da mediana"},
+    "below_median": {"fr": "Sous médiane", "en": "Below median",
+                     "es": "Bajo mediana", "de": "Unter Median",
+                     "it": "Sotto mediana", "pt": "Abaixo da mediana"},
+    "bottom_25":    {"fr": "Bottom 25%", "en": "Bottom 25%",
+                     "es": "Bottom 25%", "de": "Bottom 25%",
+                     "it": "Bottom 25%", "pt": "Bottom 25%"},
+}
+
+
+def benchmark_rank_label(rank: str, lang: str) -> str:
+    """Libellé multilingue d'un rang de benchmark (top_25 → 'Top 25%')."""
+    lang = normalize_language(lang)
+    spec = BENCHMARK_RANKS.get(rank)
+    if not spec:
+        return rank or "—"
+    return spec.get(lang) or spec.get("en") or spec.get("fr") or rank
