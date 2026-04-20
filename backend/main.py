@@ -523,7 +523,29 @@ def _do_pme(siren: str, use_pappers_comptes: bool = True,
 
     t0 = _utcnow()
     pappers = PappersClient()
-    company = pappers.fetch_company(siren, with_bodacc=False)
+    company = None
+    # 1. Essaie Pappers d'abord (si credits dispo)
+    try:
+        company = pappers.fetch_company(siren, with_bodacc=False)
+    except PappersAPIError as _pe:
+        log.warning(f"[pme] Pappers échec ({_pe}) — fallback INPI")
+    except Exception as _pe:
+        log.warning(f"[pme] Pappers exception ({_pe}) — fallback INPI")
+    # 2. Fallback INPI si Pappers KO ou non configuré
+    if company is None or not company.denomination:
+        try:
+            from core.inpi import fetch_pme_inpi
+            from core.inpi.parser import parse_inpi_to_pappers
+            raw = fetch_pme_inpi(siren)
+            if raw:
+                inpi_company = parse_inpi_to_pappers(raw)
+                if inpi_company and inpi_company.denomination:
+                    company = inpi_company
+                    log.info(f"[pme] {siren} → fallback INPI OK ({company.denomination})")
+        except Exception as _ie:
+            log.warning(f"[pme] INPI fallback échec : {_ie}")
+    if company is None:
+        raise PappersAPIError(f"SIREN {siren} introuvable (Pappers + INPI échec)", status_code=404)
     profile = resolve_profile(company.code_naf)
     log.info(f"[pme] {siren} → {company.denomination} (profil: {profile.code})")
 
