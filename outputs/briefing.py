@@ -35,6 +35,8 @@ def generate_briefing(
     sentiment=None,
     qa_python=None,
     devil=None,
+    language: str = "fr",
+    currency: str = "EUR",
 ) -> str:
     """
     Retourne le briefing formaté en markdown.
