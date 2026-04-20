@@ -303,14 +303,36 @@ def synthesis_node(state: FinSightState) -> dict:
         }
     except Exception as e:
         ms = int((time.time() - t0) * 1000)
-        log.error(f"[synthesis_node] Erreur : {e}")
+        log.error(f"[synthesis_node] Erreur : {e}", exc_info=True)
         fallback_conf = state.get("data_quality") or 0.70
-        return {
-            "synthesis": None,
-            "confidence_score": fallback_conf,
-            **_err(state, f"synthesis_node: {e}"),
-            **_log_entry(state, "synthesis_node", ms, status="error"),
-        }
+        # Dernier rempart : si synthesize() a crashé (bug code, pas LLM), on
+        # construit quand même un SynthesisResult déterministe pour ne pas
+        # produire un PDF avec "—" partout. Exception visible dans meta.
+        try:
+            from agents.agent_synthese import _build_deterministic_fallback
+            _sn = state.get("raw_data")
+            _rt = state.get("ratios")
+            if not _sn or not _rt:
+                raise RuntimeError("raw_data or ratios missing")
+            _fb = _build_deterministic_fallback(_sn, _rt)
+            _fb.meta["fallback_reason"] = f"synthesis_node exception: {type(e).__name__}: {str(e)[:120]}"
+            _fb.meta["latency_ms"] = ms
+            return {
+                "synthesis": _fb,
+                "confidence_score": fallback_conf,
+                "invalidation_conditions": _fb.invalidation_conditions,
+                "recommendation": _fb.recommendation,
+                **_log_entry(state, "synthesis_node", ms, status="fallback",
+                             confidence=fallback_conf, error=f"{type(e).__name__}"),
+            }
+        except Exception as _fb_e:
+            log.error(f"[synthesis_node] fallback déterministe lui-même cassé : {_fb_e}")
+            return {
+                "synthesis": None,
+                "confidence_score": fallback_conf,
+                **_err(state, f"synthesis_node: {e}"),
+                **_log_entry(state, "synthesis_node", ms, status="error"),
+            }
 
 
 # ---------------------------------------------------------------------------

@@ -514,6 +514,11 @@ class AgentSynthese:
         request_id = str(uuid.uuid4())
         t_start    = time.time()
         ci         = snapshot.company_info
+        # Prix courant (utilisé par _clamp_targets + fallback prix cibles ligne 599+)
+        # Bug prod 2026-04-20 : NameError(price) si LLM OK mais variable manquante
+        # → synthesis_node catch l'exception → synthesis=None → "Aucune synthèse produite"
+        _mkt   = getattr(snapshot, "market", None)
+        price  = getattr(_mkt, "share_price", None) if _mkt else None
 
         log.info(f"[AgentSynthese] Synthese '{snapshot.ticker}' — {request_id[:8]} (lang={self.language})")
 
