@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { DEFAULT_USER_SHORTCUTS, DEFAULT_DEV_SHORTCUTS } from "@/lib/shortcuts";
 
 export type Theme = "light" | "auto" | "dark";
 export type BackgroundAnimation = "on" | "auto" | "off";
@@ -66,6 +67,9 @@ export interface UserPreferences {
     memory_generate: boolean;
     tools_mode: ToolsMode;
   };
+  // Raccourcis clavier custom (action → combo)
+  shortcuts: Record<string, string>;
+  dev_shortcuts: Record<string, string>;
 }
 
 export const DEFAULT_PREFERENCES: UserPreferences = {
@@ -96,6 +100,8 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
     memory_generate: true,
     tools_mode: "on_demand",
   },
+  shortcuts: { ...DEFAULT_USER_SHORTCUTS },
+  dev_shortcuts: { ...DEFAULT_DEV_SHORTCUTS },
 };
 
 /**
@@ -160,6 +166,8 @@ export function useUserPreferences() {
             notifications: { ...DEFAULT_PREFERENCES.notifications, ...(data.notifications || {}) },
             privacy: { ...DEFAULT_PREFERENCES.privacy, ...(data.privacy || {}) },
             capabilities: { ...DEFAULT_PREFERENCES.capabilities, ...(data.capabilities || {}) },
+            shortcuts: { ...DEFAULT_PREFERENCES.shortcuts, ...(data.shortcuts || {}) },
+            dev_shortcuts: { ...DEFAULT_PREFERENCES.dev_shortcuts, ...(data.dev_shortcuts || {}) },
           });
         }
         setLoading(false);
@@ -185,6 +193,12 @@ export function useUserPreferences() {
       }
       if (patch.capabilities) {
         next.capabilities = { ...prev.capabilities, ...patch.capabilities };
+      }
+      if (patch.shortcuts) {
+        next.shortcuts = { ...prev.shortcuts, ...patch.shortcuts };
+      }
+      if (patch.dev_shortcuts) {
+        next.dev_shortcuts = { ...prev.dev_shortcuts, ...patch.dev_shortcuts };
       }
 
       // Debounce persistance
@@ -216,6 +230,8 @@ export function useUserPreferences() {
               notifications: next.notifications,
               privacy: next.privacy,
               capabilities: next.capabilities,
+              shortcuts: next.shortcuts,
+              dev_shortcuts: next.dev_shortcuts,
             }, { onConflict: "user_id" });
           if (error) {
             console.warn("[useUserPreferences] upsert error", error);

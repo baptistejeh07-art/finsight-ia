@@ -11,6 +11,7 @@ const TABS = [
   { slug: "utilisation", label: "Utilisation" },
   { slug: "capacites", label: "Capacités" },
   { slug: "connecteurs", label: "Connecteurs" },
+  { slug: "raccourcis", label: "Raccourcis" },
 ];
 
 export default function ParametresLayout({

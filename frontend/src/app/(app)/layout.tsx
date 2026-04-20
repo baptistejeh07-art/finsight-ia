@@ -4,6 +4,7 @@ import { TopNav } from "@/components/top-nav";
 import { EditModeProvider } from "@/components/edit-mode-provider";
 import { UserPreferencesProvider } from "@/components/user-preferences-provider";
 import { OnboardingTour } from "@/components/onboarding-tour";
+import { ShortcutsRuntime } from "@/components/shortcuts-runtime";
 import { I18nProvider } from "@/i18n/provider";
 
 export default function AppLayout({
@@ -16,6 +17,7 @@ export default function AppLayout({
       <Sidebar />
       <TopNav />
       <OnboardingTour />
+      <ShortcutsRuntime />
       <div className="md:pl-56 min-h-screen flex flex-col">
         <div className="flex-1">{children}</div>
 
