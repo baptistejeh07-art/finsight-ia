@@ -108,8 +108,9 @@ JSON requis :
 
 
 class AgentDevil:
-    def __init__(self, model: str = _DEFAULT_MODEL):
+    def __init__(self, model: str = _DEFAULT_MODEL, language: str = "fr"):
         self.llm = LLMProvider(provider="mistral", model="mistral-small-latest")
+        self.language = language
 
     def challenge(self, synthesis, ratios) -> Optional[DevilResult]:
         if synthesis is None:
@@ -123,13 +124,21 @@ class AgentDevil:
         log.info(f"[AgentDevil] Challenge '{ticker}' ({synthesis.recommendation}) — {request_id[:8]}")
 
         prompt = _build_prompt(synthesis, ratios)
+        # i18n : adapter la directive de langue au system prompt
+        _sys_prompt = _SYSTEM
+        if (self.language or "fr") != "fr":
+            try:
+                from core.i18n import system_language_directive
+                _sys_prompt = _SYSTEM + "\n\n" + system_language_directive(self.language)
+            except Exception:
+                pass
         raw = None
         _groq_exhausted = getattr(self.llm, '_rotator', None) and self.llm._rotator.is_exhausted()
         if _groq_exhausted:
             log.warning("[AgentDevil] Groq epuise — passage direct au fallback")
         else:
             try:
-                raw = self.llm.generate(prompt=prompt, system=_SYSTEM, max_tokens=2048)
+                raw = self.llm.generate(prompt=prompt, system=_sys_prompt, max_tokens=2048)
             except Exception as e:
                 log.warning(f"[AgentDevil] {self.llm.provider} echec ({type(e).__name__}: {e})")
 
@@ -139,7 +148,7 @@ class AgentDevil:
                 try:
                     log.warning(f"[AgentDevil] fallback -> {_prov}")
                     raw = LLMProvider(provider=_prov, model=_model).generate(
-                        prompt=prompt, system=_SYSTEM, max_tokens=2048)
+                        prompt=prompt, system=_sys_prompt, max_tokens=2048)
                     if raw:
                         break
                 except Exception as _e:

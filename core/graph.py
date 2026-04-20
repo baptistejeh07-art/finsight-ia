@@ -352,7 +352,8 @@ def qa_node(state: FinSightState) -> dict:
 
     def _run_devil():
         try:
-            return AgentDevil().challenge(synthesis, ratios)
+            _lang_devil = state.get("language") or "fr"
+            return AgentDevil(language=_lang_devil).challenge(synthesis, ratios)
         except Exception as e:
             log.warning(f"[qa_node] AgentDevil erreur : {e}")
             return None
@@ -435,7 +436,8 @@ def devil_node(state: FinSightState) -> dict:
 
     t0 = time.time()
     try:
-        devil = AgentDevil().challenge(synthesis, ratios)
+        _lang_devil = state.get("language") or "fr"
+        devil = AgentDevil(language=_lang_devil).challenge(synthesis, ratios)
         ms    = int((time.time() - t0) * 1000)
         log.info(f"[devil_node] conviction_delta={getattr(devil, 'conviction_delta', None)} — {ms}ms")
         return {
