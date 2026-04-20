@@ -1429,6 +1429,159 @@ async def download_file(file_path: str):
     )
 
 
+# ─── Stripe : checkout + portal + webhook ───────────────────────────────────
+
+class CheckoutRequest(BaseModel):
+    plan: str = Field(..., description="Plan slug: decouverte | pro | enterprise")
+    interval: str = Field("month", description="month | year")
+
+
+@app.post("/stripe/checkout")
+async def stripe_create_checkout(
+    payload: CheckoutRequest,
+    request: Request,
+    user: Annotated[dict, Depends(require_user)],
+):
+    """Crée une Stripe Checkout Session. Retourne l'URL de redirection."""
+    import os as _os
+    skey = _os.getenv("STRIPE_SECRET_KEY")
+    if not skey:
+        raise HTTPException(status_code=503, detail="Stripe non configuré")
+
+    # Résolution price_id via STRIPE_PRICE_IDS env (JSON)
+    import json as _json
+    try:
+        price_map = _json.loads(_os.getenv("STRIPE_PRICE_IDS", "{}"))
+    except Exception:
+        price_map = {}
+    key = f"{payload.plan}_{payload.interval}"
+    price_id = price_map.get(key)
+    if not price_id:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Price ID introuvable pour {key}. Env STRIPE_PRICE_IDS à configurer.",
+        )
+
+    try:
+        import stripe
+        stripe.api_key = skey
+
+        # Récupère ou crée le Stripe Customer via user_preferences
+        import httpx as _httpx
+        surl = _os.getenv("SUPABASE_URL", "").rstrip("/")
+        supa_key = (_os.getenv("SUPABASE_SERVICE_KEY")
+                    or _os.getenv("SUPABASE_SECRET_KEY")
+                    or _os.getenv("SUPABASE_SERVICE_ROLE_KEY") or "")
+        cust_id = None
+        try:
+            r = _httpx.get(
+                f"{surl}/rest/v1/user_preferences?user_id=eq.{user['id']}&select=stripe_customer_id",
+                headers={"apikey": supa_key, "Authorization": f"Bearer {supa_key}"},
+                timeout=3.0,
+            )
+            rows = r.json() if r.status_code == 200 else []
+            cust_id = rows[0].get("stripe_customer_id") if rows else None
+        except Exception:
+            pass
+
+        if not cust_id:
+            cust = stripe.Customer.create(
+                email=user.get("email"),
+                metadata={"user_id": user["id"]},
+            )
+            cust_id = cust.id
+            # Persist dans user_preferences
+            try:
+                _httpx.patch(
+                    f"{surl}/rest/v1/user_preferences?user_id=eq.{user['id']}",
+                    headers={"apikey": supa_key, "Authorization": f"Bearer {supa_key}",
+                             "Content-Type": "application/json", "Prefer": "return=minimal"},
+                    json={"stripe_customer_id": cust_id},
+                    timeout=3.0,
+                )
+            except Exception:
+                pass
+
+        # URL de retour
+        origin = request.headers.get("origin") or "https://finsight-ia.com"
+        session = stripe.checkout.Session.create(
+            mode="subscription",
+            customer=cust_id,
+            line_items=[{"price": price_id, "quantity": 1}],
+            success_url=f"{origin}/parametres/facturation?status=success",
+            cancel_url=f"{origin}/parametres/facturation?status=cancel",
+            metadata={"user_id": user["id"], "plan": payload.plan},
+            subscription_data={"metadata": {"user_id": user["id"], "plan": payload.plan}},
+            allow_promotion_codes=True,
+            billing_address_collection="required",
+        )
+        return {"checkout_url": session.url, "session_id": session.id}
+    except HTTPException:
+        raise
+    except Exception as e:
+        log.error(f"[stripe] checkout exception : {e}")
+        raise HTTPException(status_code=500, detail=f"Stripe error: {e}")
+
+
+@app.post("/stripe/portal")
+async def stripe_customer_portal(
+    request: Request,
+    user: Annotated[dict, Depends(require_user)],
+):
+    """Ouvre le Stripe Customer Portal (self-service : cancel, update CB...)."""
+    import os as _os
+    skey = _os.getenv("STRIPE_SECRET_KEY")
+    if not skey:
+        raise HTTPException(status_code=503, detail="Stripe non configuré")
+
+    import httpx as _httpx
+    surl = _os.getenv("SUPABASE_URL", "").rstrip("/")
+    supa_key = (_os.getenv("SUPABASE_SERVICE_KEY")
+                or _os.getenv("SUPABASE_SECRET_KEY")
+                or _os.getenv("SUPABASE_SERVICE_ROLE_KEY") or "")
+    try:
+        r = _httpx.get(
+            f"{surl}/rest/v1/user_preferences?user_id=eq.{user['id']}&select=stripe_customer_id",
+            headers={"apikey": supa_key, "Authorization": f"Bearer {supa_key}"},
+            timeout=3.0,
+        )
+        rows = r.json() if r.status_code == 200 else []
+        cust_id = rows[0].get("stripe_customer_id") if rows else None
+    except Exception:
+        cust_id = None
+
+    if not cust_id:
+        raise HTTPException(status_code=400, detail="Aucun abonnement actif")
+
+    try:
+        import stripe
+        stripe.api_key = skey
+        origin = request.headers.get("origin") or "https://finsight-ia.com"
+        portal = stripe.billing_portal.Session.create(
+            customer=cust_id,
+            return_url=f"{origin}/parametres/facturation",
+        )
+        return {"portal_url": portal.url}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Stripe portal error: {e}")
+
+
+@app.post("/stripe/webhook")
+async def stripe_webhook(request: Request):
+    """Reçoit les events Stripe (subscription.*, invoice.*). Signature vérifiée."""
+    payload = await request.body()
+    sig = request.headers.get("stripe-signature", "")
+    try:
+        from stripe_webhook_handler import verify_webhook, handle_event
+    except Exception:
+        from backend.stripe_webhook_handler import verify_webhook, handle_event
+    event = verify_webhook(payload, sig)
+    if event is None:
+        raise HTTPException(status_code=400, detail="Signature invalide ou Stripe non configuré")
+    ok = handle_event(event)
+    return {"received": True, "ok": ok}
+
+
 # ─── Admin dashboard ─────────────────────────────────────────────────────────
 
 @app.get("/admin/stats")
