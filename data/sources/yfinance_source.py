@@ -101,7 +101,10 @@ _CF_MAP: dict[str, list[str]] = {
     # "Change In Working Capital" exclu → doublon avec les lignes 71-73
     "other_wc_changes":           ["Other Operating Activities",
                                    "Other Non Cash Items"],
+    # NOTE : on évite "Net PPE Purchase And Sale" car retourne valeurs aberrantes
+    # (1M€ pour Hermès dont capex réel ~600M€) — yfinance buggé sur EU.
     "capex":                      ["Capital Expenditure", "Capital Expenditures",
+                                   "Capital Expenditure Reported",
                                    "Purchase Of PPE",
                                    # REITs : capex = Purchase Of Investment Properties
                                    "Purchase Of Investment Properties"],
@@ -496,6 +499,18 @@ def fetch(ticker: str) -> Optional[FinancialSnapshot]:
                 fy.change_accounts_payable    = _m(_get(cf_df, _CF_MAP["change_accounts_payable"],    cf_col))
                 fy.other_wc_changes           = _m(_get(cf_df, _CF_MAP["other_wc_changes"],           cf_col))
                 fy.capex                      = _m(_get(cf_df, _CF_MAP["capex"],                      cf_col))
+                # Fallback capex : OCF - FCF si yfinance ne fournit pas de ligne capex
+                # (cas nombreux tickers EU, ex RMS.PA). FCF et OCF sont souvent dispos.
+                if fy.capex is None or fy.capex == 0:
+                    _ocf = _m(_get(cf_df, ["Operating Cash Flow", "Cash Flow From Operations",
+                                            "Total Cash From Operating Activities"], cf_col))
+                    _fcf = _m(_get(cf_df, ["Free Cash Flow"], cf_col))
+                    if _ocf and _fcf and _ocf != _fcf:
+                        # capex = OCF - FCF. Convention yfinance : capex négatif.
+                        _calc = -(abs(_ocf) - abs(_fcf))
+                        # Sanity : capex ∈ [-50% OCF, -1% OCF] typique
+                        if _calc and _ocf and -abs(_ocf) < _calc < 0:
+                            fy.capex = _calc
                 fy.other_investing            = _m(_get(cf_df, _CF_MAP["other_investing"],            cf_col))
                 fy.change_lt_debt             = _m(_get(cf_df, _CF_MAP["change_lt_debt"],             cf_col))
                 fy.change_common_equity       = _m(_get(cf_df, _CF_MAP["change_common_equity"],       cf_col))
