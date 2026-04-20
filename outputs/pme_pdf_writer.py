@@ -127,7 +127,7 @@ class PmePdfWriter:
     def __init__(self, ctx: PmePdfContext):
         self.ctx = ctx
         # Helper i18n local : self._t("report.synthesis") → libellé selon langue
-        from core.i18n import t as _i18n_t, field_label as _i18n_field, ratio_label as _i18n_ratio, sig_label as _i18n_sig, scoring_label as _i18n_score, common_label as _i18n_common, normalize_language
+        from core.i18n import t as _i18n_t, field_label as _i18n_field, ratio_label as _i18n_ratio, sig_label as _i18n_sig, scoring_label as _i18n_score, common_label as _i18n_common, benchmark_rank_label as _i18n_rank, normalize_language
         self._lang = normalize_language(ctx.language)
         self._t = lambda key, default=None: _i18n_t(self._lang, key, default)
         self._field_label = lambda field: _i18n_field(field, self._lang)
@@ -135,6 +135,7 @@ class PmePdfWriter:
         self._sig_label = lambda key: _i18n_sig(key, self._lang)
         self._scoring_label = lambda key: _i18n_score(key, self._lang)
         self._common_label = lambda key: _i18n_common(key, self._lang)
+        self._rank_label = lambda key: _i18n_rank(key, self._lang)
         self._imports_ok = False
         try:
             from reportlab.lib.pagesizes import A4
@@ -531,20 +532,20 @@ class PmePdfWriter:
         ))
 
         # Table benchmark
-        rows = [["Ratio", "Cible", "Médiane secteur", "Position"]]
-        rank_labels = {
-            "top_25": "Top 25%", "above_median": "Au-dessus médiane",
-            "below_median": "Sous médiane", "bottom_25": "Bottom 25%",
-            "unknown": "—",
-        }
+        _target_l = {"fr":"Cible","en":"Target","es":"Objetivo","de":"Zielwert","it":"Obiettivo","pt":"Alvo"}.get(self._lang, "Target")
+        _median_l = {"fr":"Médiane secteur","en":"Sector median","es":"Mediana sectorial",
+                     "de":"Sektor-Median","it":"Mediana settore","pt":"Mediana do setor"}.get(self._lang, "Sector median")
+        _position_l = {"fr":"Position","en":"Position","es":"Posición","de":"Position",
+                       "it":"Posizione","pt":"Posição"}.get(self._lang, "Position")
+        rows = [["Ratio", _target_l, _median_l, _position_l]]
         for _, name, higher, label_fr in [
-            ("marge_ebitda", "marge_ebitda", True, "Marge EBITDA"),
-            ("marge_nette", "marge_nette", True, "Marge nette"),
-            ("roce", "roce", True, "ROCE"),
-            ("dette_nette_ebitda", "dette_nette_ebitda", False, "Dette/EBITDA"),
-            ("autonomie_financiere", "autonomie_financiere", True, "Autonomie financière"),
-            ("bfr_jours_ca", "bfr_jours_ca", False, "BFR jours"),
-            ("charges_perso_ca", "charges_perso_ca", False, "Charges perso/CA"),
+            ("marge_ebitda", "marge_ebitda", True, self._ratio_label("marge_ebitda")),
+            ("marge_nette", "marge_nette", True, self._ratio_label("marge_nette")),
+            ("roce", "roce", True, self._ratio_label("roce")),
+            ("dette_nette_ebitda", "dette_nette_ebitda", False, self._ratio_label("dette_nette_ebitda")),
+            ("autonomie_financiere", "autonomie_financiere", True, self._ratio_label("autonomie_financiere")),
+            ("bfr_jours_ca", "bfr_jours_ca", False, self._ratio_label("bfr_jours_ca")),
+            ("charges_perso_ca", "charges_perso_ca", False, self._ratio_label("charges_perso_ca")),
         ]:
             q = bm.ratios.get(name)
             if q is None:
@@ -560,7 +561,7 @@ class PmePdfWriter:
             else:
                 val = _fmt_x(q.value)
                 med = _fmt_x(q.q50)
-            rows.append([label_fr, val, med, rank_labels.get(q.rank, "—")])
+            rows.append([label_fr, val, med, self._rank_label(q.rank) if q.rank != "unknown" else "—"])
 
         col_widths = [self.cm * 5, self.cm * 3, self.cm * 3.5, self.cm * 4]
         t = self.Table(rows, colWidths=col_widths, hAlign="LEFT", repeatRows=1)
