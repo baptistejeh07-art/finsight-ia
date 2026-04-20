@@ -127,13 +127,14 @@ class PmePdfWriter:
     def __init__(self, ctx: PmePdfContext):
         self.ctx = ctx
         # Helper i18n local : self._t("report.synthesis") → libellé selon langue
-        from core.i18n import t as _i18n_t, field_label as _i18n_field, ratio_label as _i18n_ratio, sig_label as _i18n_sig, scoring_label as _i18n_score, normalize_language
+        from core.i18n import t as _i18n_t, field_label as _i18n_field, ratio_label as _i18n_ratio, sig_label as _i18n_sig, scoring_label as _i18n_score, common_label as _i18n_common, normalize_language
         self._lang = normalize_language(ctx.language)
         self._t = lambda key, default=None: _i18n_t(self._lang, key, default)
         self._field_label = lambda field: _i18n_field(field, self._lang)
         self._ratio_label = lambda key: _i18n_ratio(key, self._lang)
         self._sig_label = lambda key: _i18n_sig(key, self._lang)
         self._scoring_label = lambda key: _i18n_score(key, self._lang)
+        self._common_label = lambda key: _i18n_common(key, self._lang)
         self._imports_ok = False
         try:
             from reportlab.lib.pagesizes import A4
@@ -313,13 +314,13 @@ class PmePdfWriter:
         story.append(self.Paragraph(self._t("report.identity_governance"), st["h1"]))
 
         items = [
-            ("Dénomination", ctx.denomination),
-            ("SIREN", ctx.siren),
-            ("Forme juridique", ctx.forme_juridique or "—"),
-            ("Code NAF", f"{ctx.code_naf or '—'} · {ctx.libelle_naf or ''}"),
-            ("Ville du siège", ctx.ville_siege or "—"),
-            ("Date de création", ctx.date_creation or "—"),
-            ("Capital social", _fmt_eur(ctx.capital)),
+            (self._common_label("denomination"), ctx.denomination),
+            (self._common_label("siren"), ctx.siren),
+            (self._common_label("forme_jur"), ctx.forme_juridique or "—"),
+            (self._common_label("code_naf"), f"{ctx.code_naf or '—'} · {ctx.libelle_naf or ''}"),
+            (self._common_label("ville_siege"), ctx.ville_siege or "—"),
+            (self._common_label("date_creation"), ctx.date_creation or "—"),
+            (self._common_label("capital_social"), _fmt_eur(ctx.capital)),
         ]
         story.append(self._kpi_table(items))
 
@@ -506,7 +507,7 @@ class PmePdfWriter:
              f"{ctx.analysis.health_score:.0f} / 100" if ctx.analysis.health_score is not None else "—"),
         ]
         if ctx.bodacc:
-            items.append(("Pénalité BODACC",
+            items.append((self._common_label("penalty_bodacc"),
                           f"{ctx.bodacc.bodacc_score_penalty:+.0f}" if ctx.bodacc.bodacc_score_penalty else "0"))
         story.append(self._kpi_table(items))
 
