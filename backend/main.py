@@ -1400,12 +1400,19 @@ async def resolve_query(query: str):
     if is_upper and re.fullmatch(r"[A-Z]{1,6}(\.[A-Z]{1,3})?", q_norm):
         return ResolveResponse(query=q, kind="societe", ticker=q_norm)
 
-    # Fallback : résolution via yfinance_source (suffixes pays + validation fast_info)
+    # Fallback 1 : résolveur nom→ticker (dict hardcodé + LLM Groq)
+    try:
+        from core.ticker_resolver import resolve as _resolve_name
+        resolved = _resolve_name(q)
+        if resolved:
+            return ResolveResponse(query=q, kind="societe", ticker=resolved)
+    except Exception as e:
+        log.warning(f"[resolve] name_to_ticker fail: {e}")
+
+    # Fallback 2 : suffixes exchange sur ticker court (ABBN → ABBN.SW)
     try:
         from data.sources.yfinance_source import _resolve_ticker_with_suffix
         ticker = _resolve_ticker_with_suffix(q)
-        # _resolve_ticker_with_suffix retourne l'input inchangé si pas de match,
-        # donc on valide ici : le ticker doit être différent OU contenir un suffixe
         if ticker and ticker != q and ("." in ticker or "-" in ticker):
             return ResolveResponse(query=q, kind="societe", ticker=ticker)
     except Exception as e:
@@ -1416,10 +1423,18 @@ async def resolve_query(query: str):
 
 @app.get("/tickers/resolve/{query}")
 async def resolve_ticker(query: str):
-    """Résout un nom (ex: 'apple', 'lvmh') vers un ticker yfinance via LLM."""
+    """Résout un nom (ex: 'hermes', 'lvmh') vers un ticker yfinance.
+    Utilise dict hardcodé 200 capis puis fallback LLM Groq validé fast_info.
+    """
     try:
-        from data.sources.yfinance_source import _resolve_ticker_with_suffix
-        ticker = _resolve_ticker_with_suffix(query)
+        from core.ticker_resolver import resolve as _resolve_name
+        ticker = _resolve_name(query)
+        if not ticker:
+            # Dernier recours : suffixes exchange
+            from data.sources.yfinance_source import _resolve_ticker_with_suffix
+            cand = _resolve_ticker_with_suffix(query)
+            if cand and cand != query and ("." in cand or "-" in cand):
+                ticker = cand
         return {"query": query, "ticker": ticker}
     except Exception as e:
         return {"query": query, "ticker": None, "error": str(e)}
