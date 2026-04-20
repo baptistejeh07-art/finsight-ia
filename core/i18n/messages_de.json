@@ -48,7 +48,8 @@
     "safe": "Sicherheitszone",
     "grey": "Graubereich",
     "distress": "Wahrscheinliche Notlage",
-    "non_calculable": "Nicht berechenbar"
+    "non_calculable": "Nicht berechenbar",
+    "altman_interp": "Altman-Z-Interpretation (Nicht-Industrie):<br/>• Z > 2.60: sicherer Bereich (geringes 2-Jahres-Ausfallrisiko)<br/>• 1.10 ≤ Z ≤ 2.60: Graubereich (Vorsicht)<br/>• Z < 1.10: wahrscheinliche finanzielle Notlage"
   },
   "kpi": {
     "ca_growth": "Umsatzwachstum",

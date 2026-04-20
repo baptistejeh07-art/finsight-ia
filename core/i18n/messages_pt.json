@@ -48,7 +48,8 @@
     "safe": "Zona segura",
     "grey": "Zona cinzenta",
     "distress": "Provável distress financeiro",
-    "non_calculable": "Não calculável"
+    "non_calculable": "Não calculável",
+    "altman_interp": "Interpretação Altman Z (não-industrial):<br/>• Z > 2.60: zona segura (baixo risco de incumprimento a 2 anos)<br/>• 1.10 ≤ Z ≤ 2.60: zona cinzenta (vigilância)<br/>• Z < 1.10: provável dificuldade financeira"
   },
   "kpi": {
     "ca_growth": "Crescimento de receitas",

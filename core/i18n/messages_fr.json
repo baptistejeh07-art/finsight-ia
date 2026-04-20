@@ -48,7 +48,8 @@
     "safe": "Zone saine",
     "grey": "Zone grise",
     "distress": "Détresse probable",
-    "non_calculable": "Non calculable"
+    "non_calculable": "Non calculable",
+    "altman_interp": "Interprétation Altman Z (non-manufacturing) : <br/>• Z > 2.60 : zone saine (risque faible de défaillance à 2 ans)<br/>• 1.10 ≤ Z ≤ 2.60 : zone grise (vigilance)<br/>• Z < 1.10 : détresse probable (risque élevé)"
   },
   "kpi": {
     "ca_growth": "Croissance du CA",

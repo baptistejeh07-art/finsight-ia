@@ -512,10 +512,7 @@ class PmePdfWriter:
 
         story.append(self.Spacer(1, self.cm * 0.3))
         story.append(self.Paragraph(
-            "Interprétation Altman Z (non-manufacturing) : <br/>"
-            "• Z > 2.60 : zone saine (risque faible de défaillance à 2 ans)<br/>"
-            "• 1.10 ≤ Z ≤ 2.60 : zone grise (vigilance)<br/>"
-            "• Z < 1.10 : détresse probable (risque élevé)",
+            self._t("altman.altman_interp"),
             st["small"],
         ))
         self._add_commentaire(story, "scoring", st)

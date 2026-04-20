@@ -48,7 +48,8 @@
     "safe": "Zona segura",
     "grey": "Zona gris",
     "distress": "Probable estrés financiero",
-    "non_calculable": "No calculable"
+    "non_calculable": "No calculable",
+    "altman_interp": "Interpretación Altman Z (no manufactura):<br/>• Z > 2.60: zona segura (bajo riesgo de impago a 2 años)<br/>• 1.10 ≤ Z ≤ 2.60: zona gris (vigilancia)<br/>• Z < 1.10: probable dificultad financiera"
   },
   "kpi": {
     "ca_growth": "Crecimiento de ingresos",

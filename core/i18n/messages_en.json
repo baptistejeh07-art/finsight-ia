@@ -48,7 +48,8 @@
     "safe": "Safe zone",
     "grey": "Grey zone",
     "distress": "Likely distress",
-    "non_calculable": "Not computable"
+    "non_calculable": "Not computable",
+    "altman_interp": "Altman Z interpretation (non-manufacturing):<br/>• Z > 2.60: safe zone (low 2-year default risk)<br/>• 1.10 ≤ Z ≤ 2.60: grey zone (caution)<br/>• Z < 1.10: likely distress (high risk)"
   },
   "kpi": {
     "ca_growth": "Revenue growth",

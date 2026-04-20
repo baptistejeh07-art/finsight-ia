@@ -48,7 +48,8 @@
     "safe": "Zona sicura",
     "grey": "Zona grigia",
     "distress": "Probabile distress finanziario",
-    "non_calculable": "Non calcolabile"
+    "non_calculable": "Non calcolabile",
+    "altman_interp": "Interpretazione Altman Z (non manifatturiero):<br/>• Z > 2.60: zona sicura (basso rischio insolvenza a 2 anni)<br/>• 1.10 ≤ Z ≤ 2.60: zona grigia (cautela)<br/>• Z < 1.10: probabile difficoltà finanziaria"
   },
   "kpi": {
     "ca_growth": "Crescita ricavi",
