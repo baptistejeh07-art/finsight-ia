@@ -45,7 +45,7 @@ def write_pme_xlsx(
         raise RuntimeError("openpyxl requis") from e
 
     # i18n helper
-    from core.i18n import t as _i18n_t, ratio_label as _i18n_ratio, sig_label as _i18n_sig, benchmark_rank_label as _i18n_rank, common_label as _i18n_common, normalize_language
+    from core.i18n import t as _i18n_t, ratio_label as _i18n_ratio, sig_label as _i18n_sig, benchmark_rank_label as _i18n_rank, common_label as _i18n_common, scoring_label as _i18n_score, normalize_language
     _lang = normalize_language(language)
     def _t(key, default=None):
         return _i18n_t(_lang, key, default)
@@ -57,6 +57,8 @@ def write_pme_xlsx(
         return _i18n_rank(key, _lang)
     def _cl(key):
         return _i18n_common(key, _lang)
+    def _sc(key):
+        return _i18n_score(key, _lang)
 
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -205,18 +207,20 @@ def write_pme_xlsx(
     ws4.merge_cells("A1:B1")
 
     scoring = [
-        ("Altman Z-Score (non coté)", analysis.altman_z),
-        ("Verdict Altman", analysis.altman_verdict),
-        ("Score santé FinSight (0-100)", analysis.health_score),
-        ("Score bankabilité (0-100)", analysis.bankability_score),
-        ("Capacité dette additionnelle (€)", analysis.debt_capacity_estimate),
+        (_sc("altman_z_private"), analysis.altman_z),
+        (_sc("altman_verdict"), analysis.altman_verdict),
+        (_sc("health_score"), analysis.health_score),
+        (_sc("bankability_score"), analysis.bankability_score),
+        (f"{_sc('debt_capacity')} ({currency})", analysis.debt_capacity_estimate),
     ]
     if bodacc:
+        _yes_no = {"fr":("Oui","Non"),"en":("Yes","No"),"es":("Sí","No"),
+                   "de":("Ja","Nein"),"it":("Sì","No"),"pt":("Sim","Não")}.get(_lang, ("Yes","No"))
         scoring.extend([
-            ("BODACC — Annonces totales", bodacc.total_annonces),
-            ("BODACC — Procédures collectives", len(bodacc.procedures_collectives)),
-            ("BODACC — Radiée", "Oui" if bodacc.radie else "Non"),
-            ("BODACC — Pénalité scoring", bodacc.bodacc_score_penalty),
+            (_sc("bodacc_total"), bodacc.total_annonces),
+            (_sc("bodacc_collective"), len(bodacc.procedures_collectives)),
+            (_sc("bodacc_strike"), _yes_no[0] if bodacc.radie else _yes_no[1]),
+            (_sc("bodacc_penalty"), bodacc.bodacc_score_penalty),
         ])
     for row_idx, (label, value) in enumerate(scoring, start=3):
         ws4.cell(row=row_idx, column=1, value=label).font = label_font

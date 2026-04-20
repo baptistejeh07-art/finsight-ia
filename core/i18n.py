@@ -790,3 +790,68 @@ def benchmark_rank_label(rank: str, lang: str) -> str:
     if not spec:
         return rank or "—"
     return spec.get(lang) or spec.get("en") or spec.get("fr") or rank
+
+
+# ─── Scoring labels (PME + société) ───────────────────────────────────────
+SCORING_LABELS: dict[str, dict[str, str]] = {
+    "altman_z_private": {"fr": "Altman Z-Score (non coté)",
+                         "en": "Altman Z-Score (private)",
+                         "es": "Altman Z-Score (no cotizada)",
+                         "de": "Altman Z-Score (nicht börsennotiert)",
+                         "it": "Altman Z-Score (non quotata)",
+                         "pt": "Altman Z-Score (não cotada)"},
+    "altman_verdict":   {"fr": "Verdict Altman", "en": "Altman verdict",
+                         "es": "Veredicto Altman", "de": "Altman-Urteil",
+                         "it": "Verdetto Altman", "pt": "Veredicto Altman"},
+    "health_score":     {"fr": "Score santé FinSight (0-100)",
+                         "en": "FinSight health score (0-100)",
+                         "es": "Puntuación de salud FinSight (0-100)",
+                         "de": "FinSight-Gesundheitswert (0-100)",
+                         "it": "Punteggio salute FinSight (0-100)",
+                         "pt": "Pontuação saúde FinSight (0-100)"},
+    "bankability_score":{"fr": "Score bankabilité (0-100)",
+                         "en": "Bankability score (0-100)",
+                         "es": "Puntuación bankabilidad (0-100)",
+                         "de": "Bankbarkeitswert (0-100)",
+                         "it": "Punteggio bancabilità (0-100)",
+                         "pt": "Pontuação bancabilidade (0-100)"},
+    "debt_capacity":    {"fr": "Capacité dette additionnelle",
+                         "en": "Additional debt capacity",
+                         "es": "Capacidad deuda adicional",
+                         "de": "Zusätzliche Verschuldungskapazität",
+                         "it": "Capacità debito aggiuntivo",
+                         "pt": "Capacidade dívida adicional"},
+    "bodacc_total":     {"fr": "BODACC — Annonces totales",
+                         "en": "BODACC — Total announcements",
+                         "es": "BODACC — Anuncios totales",
+                         "de": "BODACC — Gesamtanzahl Bekanntmachungen",
+                         "it": "BODACC — Annunci totali",
+                         "pt": "BODACC — Anúncios totais"},
+    "bodacc_collective":{"fr": "BODACC — Procédures collectives",
+                         "en": "BODACC — Collective proceedings",
+                         "es": "BODACC — Procedimientos colectivos",
+                         "de": "BODACC — Sammelverfahren",
+                         "it": "BODACC — Procedure collettive",
+                         "pt": "BODACC — Processos coletivos"},
+    "bodacc_strike":    {"fr": "BODACC — Radiée",
+                         "en": "BODACC — Struck off",
+                         "es": "BODACC — Cancelada",
+                         "de": "BODACC — Gelöscht",
+                         "it": "BODACC — Cancellata",
+                         "pt": "BODACC — Cancelada"},
+    "bodacc_penalty":   {"fr": "BODACC — Pénalité scoring",
+                         "en": "BODACC — Scoring penalty",
+                         "es": "BODACC — Penalización scoring",
+                         "de": "BODACC — Scoring-Strafe",
+                         "it": "BODACC — Penalità scoring",
+                         "pt": "BODACC — Penalidade scoring"},
+}
+
+
+def scoring_label(key: str, lang: str) -> str:
+    """Libellé multilingue d'un indicateur de scoring."""
+    lang = normalize_language(lang)
+    spec = SCORING_LABELS.get(key)
+    if not spec:
+        return key.replace("_", " ").capitalize()
+    return spec.get(lang) or spec.get("en") or spec.get("fr") or key
