@@ -1,13 +1,45 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { Shield } from "lucide-react";
+import toast from "react-hot-toast";
+import { createClient } from "@/lib/supabase/client";
 import { useUserPreferences } from "@/hooks/use-user-preferences";
 import { useI18n } from "@/i18n/provider";
+
+const API = process.env.NEXT_PUBLIC_API_URL || "";
 
 export default function ConfidentialitePage() {
   const { prefs, update, loading } = useUserPreferences();
   const { t } = useI18n();
+  const [exporting, setExporting] = useState(false);
+
+  async function handleExport() {
+    setExporting(true);
+    try {
+      const supabase = createClient();
+      const { data } = await supabase.auth.getSession();
+      const token = data.session?.access_token;
+      if (!token) { toast.error("Session expirée"); return; }
+      const r = await fetch(`${API}/user/export-data`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!r.ok) { toast.error("Échec export"); return; }
+      const blob = await r.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `finsight-data-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success("Données téléchargées");
+    } catch {
+      toast.error("Erreur réseau");
+    } finally {
+      setExporting(false);
+    }
+  }
 
   if (loading) return <div className="text-sm text-ink-500">{t("common.loading")}</div>;
 
@@ -54,9 +86,8 @@ export default function ConfidentialitePage() {
         <ActionRow
           title={t("settings.priv_export_title")}
           description={t("settings.priv_export_desc")}
-          buttonLabel={t("settings.priv_export_btn")}
-          soon={t("settings.priv_soon")}
-          disabled
+          buttonLabel={exporting ? "…" : t("settings.priv_export_btn")}
+          onClick={handleExport}
         />
         <ActionRow
           title={t("settings.priv_memory_title")}
@@ -127,12 +158,14 @@ function ActionRow({
   buttonLabel,
   soon,
   disabled = false,
+  onClick,
 }: {
   title: string;
   description: string;
   buttonLabel: string;
   soon?: string;
   disabled?: boolean;
+  onClick?: () => void;
 }) {
   return (
     <div className="flex items-start justify-between gap-4 py-4 border-b border-ink-100">
@@ -143,6 +176,7 @@ function ActionRow({
       <button
         type="button"
         disabled={disabled}
+        onClick={onClick}
         title={disabled ? soon : undefined}
         className={
           "px-4 py-2 rounded-md border text-sm transition-colors " +

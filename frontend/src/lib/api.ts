@@ -40,6 +40,7 @@ function getLocaleHeaders(): HeadersInit {
     const headers: Record<string, string> = {};
     if (p.language) headers["X-User-Language"] = String(p.language);
     if (p.currency) headers["X-User-Currency"] = String(p.currency);
+    if (p.explanatory_mode) headers["X-Explanatory-Mode"] = "1";
     return headers;
   } catch {
     return {};

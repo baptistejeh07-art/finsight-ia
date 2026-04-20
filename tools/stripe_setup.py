@@ -15,9 +15,13 @@ Plans :
 """
 from __future__ import annotations
 
+import io
 import json
 import os
 import sys
+
+# Force UTF-8 output sur Windows cp1252
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 
 try:
     import stripe

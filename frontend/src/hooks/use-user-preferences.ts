@@ -44,6 +44,10 @@ export interface UserPreferences {
   // Internationalisation
   currency: Currency;
   language: Language;
+  // Mode explicatif : quand actif, les commentaires LLM expliquent simplement chaque concept
+  explanatory_mode: boolean;
+  // Flag onboarding tour (premier passage)
+  onboarded: boolean;
   // Notifications
   notifications: {
     completion: boolean;
@@ -75,6 +79,8 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
   logo_size: "lg",
   currency: "EUR",
   language: "fr",
+  explanatory_mode: false,
+  onboarded: false,
   notifications: {
     completion: false,
     email_reports: false,
@@ -149,6 +155,8 @@ export function useUserPreferences() {
             logo_size: data.logo_size ?? "lg",
             currency: data.currency ?? "EUR",
             language: data.language ?? "fr",
+            explanatory_mode: !!data.explanatory_mode,
+            onboarded: !!data.onboarded,
             notifications: { ...DEFAULT_PREFERENCES.notifications, ...(data.notifications || {}) },
             privacy: { ...DEFAULT_PREFERENCES.privacy, ...(data.privacy || {}) },
             capabilities: { ...DEFAULT_PREFERENCES.capabilities, ...(data.capabilities || {}) },
@@ -203,6 +211,8 @@ export function useUserPreferences() {
               logo_size: next.logo_size,
               currency: next.currency,
               language: next.language,
+              explanatory_mode: next.explanatory_mode,
+              onboarded: next.onboarded,
               notifications: next.notifications,
               privacy: next.privacy,
               capabilities: next.capabilities,

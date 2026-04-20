@@ -532,7 +532,7 @@ def list_analyses(user_id: str, limit: int = 50) -> list[dict]:
             headers={**_headers(), "Prefer": "count=none"},
             params={
                 "user_id": f"eq.{user_id}",
-                "select": "id,kind,label,ticker,status,created_at,finished_at,files",
+                "select": "id,kind,label,display_name,is_favorite,ticker,status,created_at,finished_at,files",
                 "order": "created_at.desc",
                 "limit": str(limit),
             },

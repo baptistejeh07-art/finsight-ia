@@ -2,15 +2,20 @@
 
 import { useEffect, useState } from "react";
 import { Copy, Check } from "lucide-react";
+import toast from "react-hot-toast";
 import { createClient } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
 import { useI18n } from "@/i18n/provider";
+
+const API = process.env.NEXT_PUBLIC_API_URL || "";
 
 export default function ComptePage() {
   const { t } = useI18n();
   const [user, setUser] = useState<User | null>(null);
   const [copied, setCopied] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirmText, setConfirmText] = useState("");
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     const supabase = createClient();
@@ -28,6 +33,32 @@ export default function ComptePage() {
     navigator.clipboard.writeText(user.id);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  }
+
+  async function handleDelete() {
+    if (confirmText !== "SUPPRIMER") {
+      toast.error("Saisissez SUPPRIMER pour confirmer");
+      return;
+    }
+    setDeleting(true);
+    try {
+      const supabase = createClient();
+      const { data } = await supabase.auth.getSession();
+      const token = data.session?.access_token;
+      if (!token) { toast.error("Session expirée"); return; }
+      const r = await fetch(`${API}/user/delete-account`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!r.ok) { toast.error("Échec suppression"); return; }
+      toast.success("Compte supprimé");
+      await supabase.auth.signOut({ scope: "global" });
+      window.location.href = "/";
+    } catch {
+      toast.error("Erreur réseau");
+    } finally {
+      setDeleting(false);
+    }
   }
 
   return (
@@ -68,9 +99,7 @@ export default function ComptePage() {
           <button
             type="button"
             onClick={() => setConfirmDelete(true)}
-            disabled
-            className="px-4 py-2 rounded-md bg-ink-300 text-white text-sm cursor-not-allowed"
-            title={t("settings.priv_soon")}
+            className="px-4 py-2 rounded-md border border-signal-sell text-signal-sell text-sm hover:bg-signal-sell hover:text-white transition-colors"
           >
             {t("settings.acc_delete_title")}
           </button>
@@ -93,18 +122,37 @@ export default function ComptePage() {
       </section>
 
       {confirmDelete && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setConfirmDelete(false)}>
-          <div className="bg-white rounded-lg p-6 max-w-md" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => { setConfirmDelete(false); setConfirmText(""); }}>
+          <div className="bg-white rounded-lg p-6 max-w-md w-full" onClick={(e) => e.stopPropagation()}>
             <h3 className="font-semibold text-ink-900 mb-2">{t("settings.acc_delete_modal_title")}</h3>
             <p className="text-sm text-ink-600 mb-4">
-              {t("settings.acc_delete_modal_desc")}
+              Cette action est <strong>irréversible</strong>. Toutes vos analyses,
+              documents, préférences et votre abonnement seront définitivement
+              supprimés. Saisissez <code className="bg-ink-100 px-1 rounded">SUPPRIMER</code> pour confirmer.
             </p>
-            <button
-              onClick={() => setConfirmDelete(false)}
-              className="w-full py-2 rounded-md bg-navy-500 text-white hover:bg-navy-600 transition-colors"
-            >
-              OK
-            </button>
+            <input
+              type="text"
+              value={confirmText}
+              onChange={(e) => setConfirmText(e.target.value)}
+              placeholder="SUPPRIMER"
+              className="w-full px-3 py-2 rounded-md border border-ink-300 text-sm mb-4 focus:outline-none focus:border-signal-sell"
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={() => { setConfirmDelete(false); setConfirmText(""); }}
+                className="flex-1 py-2 rounded-md border border-ink-300 text-ink-700 text-sm hover:bg-ink-50"
+                disabled={deleting}
+              >
+                Annuler
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={deleting || confirmText !== "SUPPRIMER"}
+                className="flex-1 py-2 rounded-md bg-signal-sell text-white text-sm hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {deleting ? "Suppression…" : "Supprimer mon compte"}
+              </button>
+            </div>
           </div>
         </div>
       )}

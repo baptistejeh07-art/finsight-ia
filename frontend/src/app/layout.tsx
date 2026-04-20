@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { DM_Sans, DM_Mono } from "next/font/google";
 import { Toaster } from "react-hot-toast";
+import { CookieBanner } from "@/components/cookie-banner";
 import "./globals.css";
 
 const dmSans = DM_Sans({
@@ -75,6 +76,7 @@ export default function RootLayout({
       </head>
       <body className="min-h-screen antialiased bg-surface text-text-primary">
         {children}
+        <CookieBanner />
         <Toaster
           position="top-right"
           toastOptions={{

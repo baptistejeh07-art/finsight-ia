@@ -12,11 +12,18 @@ import {
   Layers,
   Globe,
   GitCompare,
+  Star,
+  Pencil,
+  Trash2,
+  MoreHorizontal,
 } from "lucide-react";
 import { SidebarUserMenu } from "./sidebar-user-menu";
 import {
   useAnalysesHistory,
   fetchHistoryItem,
+  renameHistoryItem,
+  toggleHistoryFavorite,
+  deleteFromHistory,
   type HistoryKind,
 } from "@/hooks/use-analyses-history";
 import { useI18n } from "@/i18n/provider";
@@ -34,10 +41,39 @@ export function Sidebar() {
   const isResultats = pathname?.startsWith("/resultats/");
   const jobId = isResultats ? pathname.split("/").pop() : null;
 
-  const { items: historyItems, loading: historyLoading } = useAnalysesHistory();
+  const { items: historyItems, loading: historyLoading, reload: reloadHistory } = useAnalysesHistory();
   const [files, setFiles] = useState<AnalysisFiles | null>(null);
   const [ticker, setTicker] = useState<string>("");
   const [loadingId, setLoadingId] = useState<string | null>(null);
+  const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState<string>("");
+  const [favFilter, setFavFilter] = useState(false);
+
+  useEffect(() => {
+    function onDocClick(e: MouseEvent) {
+      const target = e.target as HTMLElement;
+      if (!target.closest("[data-history-menu]")) setMenuOpenId(null);
+    }
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, []);
+
+  async function onToggleFav(id: string, next: boolean) {
+    await toggleHistoryFavorite(id, next);
+    reloadHistory();
+  }
+  async function onRenameSubmit(id: string) {
+    if (renameValue.trim()) await renameHistoryItem(id, renameValue);
+    setRenamingId(null);
+    setRenameValue("");
+    reloadHistory();
+  }
+  async function onDeleteItem(id: string) {
+    await deleteFromHistory(id);
+    setMenuOpenId(null);
+    reloadHistory();
+  }
 
   async function openHistoryItem(id: string) {
     setLoadingId(id);
@@ -144,8 +180,21 @@ export function Sidebar() {
 
         {/* Historique */}
         <div className="border-b border-ink-100 pb-3.5 mb-3.5">
-          <div className="text-[10px] font-semibold uppercase tracking-[1.5px] text-ink-500 mb-2.5">
-            {t("nav.history_title")}
+          <div className="flex items-center justify-between mb-2.5">
+            <div className="text-[10px] font-semibold uppercase tracking-[1.5px] text-ink-500">
+              {t("nav.history_title")}
+            </div>
+            <button
+              type="button"
+              onClick={() => setFavFilter((v) => !v)}
+              title={favFilter ? "Tout afficher" : "Afficher uniquement les favoris"}
+              className={
+                "p-0.5 rounded transition-colors " +
+                (favFilter ? "text-amber-500" : "text-ink-400 hover:text-amber-500")
+              }
+            >
+              <Star className={"w-3.5 h-3.5 " + (favFilter ? "fill-amber-500" : "")} />
+            </button>
           </div>
           {historyLoading ? (
             <div className="text-xs text-ink-400">{t("common.loading")}</div>
@@ -155,27 +204,104 @@ export function Sidebar() {
             </div>
           ) : (
             <div className="space-y-1">
-              {historyItems.map((it) => {
+              {historyItems
+                .filter((it) => !favFilter || it.is_favorite)
+                .map((it) => {
                 const Icon = iconForKind(it.kind);
                 const isActive = jobId === it.job_id;
                 const isLoading = loadingId === it.id;
+                const label = it.display_name || it.label;
+                const isMenuOpen = menuOpenId === it.id;
+                const isRenaming = renamingId === it.id;
                 return (
-                  <button
+                  <div
                     key={it.id}
-                    type="button"
-                    onClick={() => openHistoryItem(it.id)}
-                    disabled={isLoading}
                     className={
-                      "w-full text-left flex items-center gap-2 px-2 py-1.5 rounded-md text-xs transition-colors " +
+                      "group relative flex items-center gap-1 px-2 py-1.5 rounded-md text-xs transition-colors " +
                       (isActive
                         ? "bg-navy-50 text-navy-600 font-medium"
                         : "text-ink-700 hover:bg-ink-100/50")
                     }
-                    title={it.label}
                   >
                     <Icon className="w-3.5 h-3.5 shrink-0 text-ink-400" />
-                    <span className="truncate flex-1">{it.label}</span>
-                  </button>
+                    {isRenaming ? (
+                      <input
+                        type="text"
+                        autoFocus
+                        value={renameValue}
+                        onChange={(e) => setRenameValue(e.target.value)}
+                        onBlur={() => onRenameSubmit(it.id)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") onRenameSubmit(it.id);
+                          if (e.key === "Escape") { setRenamingId(null); setRenameValue(""); }
+                        }}
+                        className="flex-1 bg-white border border-navy-300 rounded px-1 text-xs text-ink-900 focus:outline-none"
+                      />
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => openHistoryItem(it.id)}
+                        disabled={isLoading}
+                        className="truncate flex-1 text-left"
+                        title={label}
+                      >
+                        {label}
+                      </button>
+                    )}
+                    {!isRenaming && (
+                      <>
+                        {it.is_favorite && (
+                          <Star className="w-3 h-3 shrink-0 text-amber-500 fill-amber-500" />
+                        )}
+                        <div className="relative" data-history-menu>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setMenuOpenId(isMenuOpen ? null : it.id);
+                            }}
+                            className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-ink-200 transition-opacity"
+                            title="Options"
+                          >
+                            <MoreHorizontal className="w-3.5 h-3.5 text-ink-500" />
+                          </button>
+                          {isMenuOpen && (
+                            <div className="absolute right-0 top-full mt-1 w-40 bg-white border border-ink-200 rounded-md shadow-lg z-50 py-1">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setRenameValue(it.display_name || it.label);
+                                  setRenamingId(it.id);
+                                  setMenuOpenId(null);
+                                }}
+                                className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-ink-700 hover:bg-ink-50"
+                              >
+                                <Pencil className="w-3 h-3" /> Renommer
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  onToggleFav(it.id, !it.is_favorite);
+                                  setMenuOpenId(null);
+                                }}
+                                className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-ink-700 hover:bg-ink-50"
+                              >
+                                <Star className={"w-3 h-3 " + (it.is_favorite ? "fill-amber-500 text-amber-500" : "")} />
+                                {it.is_favorite ? "Retirer des favoris" : "Mettre en favori"}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => onDeleteItem(it.id)}
+                                className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-signal-sell hover:bg-red-50"
+                              >
+                                <Trash2 className="w-3 h-3" /> Supprimer
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </div>
                 );
               })}
             </div>

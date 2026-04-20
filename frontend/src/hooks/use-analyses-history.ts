@@ -10,6 +10,8 @@ export interface HistoryItem {
   job_id: string;
   kind: HistoryKind;
   label: string;
+  display_name: string | null;
+  is_favorite: boolean;
   ticker: string | null;
   created_at: string;
 }
@@ -39,8 +41,9 @@ export function useAnalysesHistory() {
       }
       const { data, error } = await supabase
         .from("analyses_history")
-        .select("id, job_id, kind, label, ticker, created_at")
+        .select("id, job_id, kind, label, display_name, is_favorite, ticker, created_at")
         .eq("user_id", user.id)
+        .order("is_favorite", { ascending: false })
         .order("created_at", { ascending: false })
         .limit(50);
       if (error) {
@@ -108,6 +111,39 @@ export async function saveAnalysisToHistory(payload: {
   } catch (e) {
     return { saved: false, error: (e as Error).message };
   }
+}
+
+/**
+ * Renomme une entrée de l'historique (display_name).
+ */
+export async function renameHistoryItem(id: string, displayName: string): Promise<boolean> {
+  const supabase = createClient();
+  try {
+    const trimmed = displayName.trim().slice(0, 120);
+    const { error } = await supabase
+      .from("analyses_history")
+      .update({ display_name: trimmed || null })
+      .eq("id", id);
+    if (error) return false;
+    try { window.dispatchEvent(new CustomEvent("finsight:history-changed")); } catch {}
+    return true;
+  } catch { return false; }
+}
+
+/**
+ * Toggle favori sur une entrée de l'historique.
+ */
+export async function toggleHistoryFavorite(id: string, next: boolean): Promise<boolean> {
+  const supabase = createClient();
+  try {
+    const { error } = await supabase
+      .from("analyses_history")
+      .update({ is_favorite: next })
+      .eq("id", id);
+    if (error) return false;
+    try { window.dispatchEvent(new CustomEvent("finsight:history-changed")); } catch {}
+    return true;
+  } catch { return false; }
 }
 
 /**

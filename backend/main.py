@@ -1188,9 +1188,12 @@ def _load_job_state(job_id: str) -> dict:
     return (result.get("data") or {}) if isinstance(result, dict) else {}
 
 
-def _build_qa_messages(req: "QARequest", state: dict, language: str = "fr") -> tuple[str, str]:
+def _build_qa_messages(req: "QARequest", state: dict, language: str = "fr",
+                        explanatory: bool = False) -> tuple[str, str]:
     """Construit (system_prompt, user_prompt) pour le QA depuis state + messages.
     `language` : code ISO court (fr/en/es/de/it/pt) — détermine la langue de réponse.
+    `explanatory` : mode explicatif — l'assistant vulgarise chaque ratio/concept
+    pour un non-initié (définitions courtes, pas de jargon).
     """
     from core.i18n import system_language_directive, normalize_language
 
@@ -1202,9 +1205,18 @@ def _build_qa_messages(req: "QARequest", state: dict, language: str = "fr") -> t
         raise HTTPException(400, "Le dernier message doit être de l'utilisateur")
     ticker = (state.get("ticker") or (state.get("raw_data") or {}).get("ticker") or "—")
     lang_directive = system_language_directive(language)
+    explanatory_directive = ""
+    if explanatory:
+        explanatory_directive = (
+            " Explanatory mode is ON: whenever you mention a financial ratio or "
+            "concept (P/E, EV/EBITDA, WACC, FCF, beta, DCF, etc.), add a short "
+            "plain-language definition in parentheses so a beginner can follow. "
+            "Prefer everyday analogies over jargon."
+        )
     system = (
         f"You are an expert financial AI analyst. You answer the user's "
-        f"questions about the FinSight analysis below. {lang_directive} "
+        f"questions about the FinSight analysis below. {lang_directive}"
+        f"{explanatory_directive} "
         f"Be factual, concise (2-4 paragraphs max), cite figures from the "
         f"context when relevant. If a question is out of scope, say so clearly.\n\n"
         f"=== Analysis context {ticker} ===\n{context}\n=== End of context ==="
@@ -1250,8 +1262,9 @@ async def qa_stream_endpoint(req: QARequest, request: Request):
     import json as _json
 
     language, _ccy = _user_locale(request)
+    explanatory = (request.headers.get("x-explanatory-mode") or "").lower() in ("1", "true", "on", "yes")
     state = _load_job_state(req.job_id)
-    system, user_prompt = _build_qa_messages(req, state, language=language)
+    system, user_prompt = _build_qa_messages(req, state, language=language, explanatory=explanatory)
 
     async def _gen():
         # Tente Groq streaming en priorité (le plus rapide pour stream)
@@ -1326,8 +1339,9 @@ async def qa_endpoint(req: QARequest, request: Request):
     """Q&A multi-tour sur une analyse. L'historique est passé par le client.
     Langue pilotée par header X-User-Language."""
     language, _ccy = _user_locale(request)
+    explanatory = (request.headers.get("x-explanatory-mode") or "").lower() in ("1", "true", "on", "yes")
     state = _load_job_state(req.job_id)
-    system, user_prompt = _build_qa_messages(req, state, language=language)
+    system, user_prompt = _build_qa_messages(req, state, language=language, explanatory=explanatory)
 
     # Appel LLM (Groq par défaut → fallback Mistral / Anthropic en cas d'erreur)
     from core.llm_provider import LLMProvider
@@ -1795,6 +1809,168 @@ async def admin_unban(payload: BanRequest, user: Annotated[dict, Depends(require
         raise HTTPException(status_code=500, detail=f"Unban error: {e}")
 
 
+# ─── RGPD : export données + suppression compte (art. 17 + 20) ──────────────
+
+@app.get("/user/export-data")
+async def user_export_data(user: Annotated[dict, Depends(require_user)]):
+    """Droit à la portabilité (RGPD art. 20) : export JSON des données user."""
+    import httpx as _httpx
+    import os as _os
+    _surl = _os.getenv("SUPABASE_URL", "").rstrip("/")
+    _skey = (_os.getenv("SUPABASE_SERVICE_KEY")
+             or _os.getenv("SUPABASE_SECRET_KEY")
+             or _os.getenv("SUPABASE_SERVICE_ROLE_KEY") or "")
+    if not _surl or not _skey:
+        raise HTTPException(status_code=500, detail="Supabase non configuré")
+
+    h = {"apikey": _skey, "Authorization": f"Bearer {_skey}"}
+    uid = user["id"]
+
+    def _fetch(table: str, extra: str = "") -> list:
+        try:
+            r = _httpx.get(
+                f"{_surl}/rest/v1/{table}?user_id=eq.{uid}{extra}",
+                headers=h, timeout=8.0,
+            )
+            return r.json() if r.status_code < 300 else []
+        except Exception:
+            return []
+
+    return {
+        "exported_at": _utcnow().isoformat(),
+        "user": {"id": uid, "email": user.get("email")},
+        "preferences": _fetch("user_preferences"),
+        "analyses_history": _fetch("analyses_history", "&order=created_at.desc"),
+        "documents": _fetch("analysis_documents", "&select=id,filename,mime_type,size_bytes,created_at"),
+        "subscriptions": _fetch("user_subscriptions"),
+    }
+
+
+@app.post("/user/delete-account")
+async def user_delete_account(user: Annotated[dict, Depends(require_user)]):
+    """Droit à l'effacement (RGPD art. 17) : suppression complète du compte.
+
+    Supprime en cascade : analyses_history, user_preferences, user_subscriptions,
+    analysis_documents, puis l'auth user via Supabase admin API.
+    """
+    import httpx as _httpx
+    import os as _os
+    _surl = _os.getenv("SUPABASE_URL", "").rstrip("/")
+    _skey = (_os.getenv("SUPABASE_SERVICE_KEY")
+             or _os.getenv("SUPABASE_SECRET_KEY")
+             or _os.getenv("SUPABASE_SERVICE_ROLE_KEY") or "")
+    if not _surl or not _skey:
+        raise HTTPException(status_code=500, detail="Supabase non configuré")
+
+    h = {"apikey": _skey, "Authorization": f"Bearer {_skey}",
+         "Content-Type": "application/json", "Prefer": "return=minimal"}
+    uid = user["id"]
+    deleted: dict[str, bool] = {}
+
+    for table in ("analyses_history", "user_subscriptions",
+                  "analysis_documents", "user_preferences"):
+        try:
+            r = _httpx.delete(
+                f"{_surl}/rest/v1/{table}?user_id=eq.{uid}",
+                headers=h, timeout=10.0,
+            )
+            deleted[table] = r.status_code < 300
+        except Exception as e:
+            log.warning(f"[rgpd] delete {table} failed: {e}")
+            deleted[table] = False
+
+    try:
+        r = _httpx.delete(
+            f"{_surl}/auth/v1/admin/users/{uid}",
+            headers={"apikey": _skey, "Authorization": f"Bearer {_skey}"},
+            timeout=10.0,
+        )
+        deleted["auth.users"] = r.status_code < 300
+    except Exception as e:
+        log.warning(f"[rgpd] delete auth user failed: {e}")
+        deleted["auth.users"] = False
+
+    return {"ok": True, "deleted": deleted}
+
+
+# ─── Historique user : renommage + favoris ──────────────────────────────────
+
+class HistoryPatchRequest(BaseModel):
+    display_name: Optional[str] = None
+    is_favorite: Optional[bool] = None
+
+
+@app.patch("/history/{history_id}")
+async def patch_history(
+    history_id: str,
+    payload: HistoryPatchRequest,
+    user: Annotated[dict, Depends(require_user)],
+):
+    """Rename (display_name) ou toggle favori (is_favorite) sur une row d'historique."""
+    import httpx as _httpx
+    import os as _os
+    _surl = _os.getenv("SUPABASE_URL", "").rstrip("/")
+    _skey = (_os.getenv("SUPABASE_SERVICE_KEY")
+             or _os.getenv("SUPABASE_SECRET_KEY")
+             or _os.getenv("SUPABASE_SERVICE_ROLE_KEY") or "")
+    if not _surl or not _skey:
+        raise HTTPException(status_code=500, detail="Supabase non configuré")
+
+    fields: dict[str, Any] = {}
+    if payload.display_name is not None:
+        fields["display_name"] = payload.display_name.strip()[:120] or None
+    if payload.is_favorite is not None:
+        fields["is_favorite"] = payload.is_favorite
+    if not fields:
+        raise HTTPException(status_code=400, detail="Aucun champ à modifier")
+
+    try:
+        r = _httpx.patch(
+            f"{_surl}/rest/v1/analyses_history?id=eq.{history_id}&user_id=eq.{user['id']}",
+            headers={"apikey": _skey, "Authorization": f"Bearer {_skey}",
+                     "Content-Type": "application/json", "Prefer": "return=minimal"},
+            json=fields,
+            timeout=5.0,
+        )
+        if r.status_code >= 300:
+            raise HTTPException(status_code=500, detail=f"Patch failed: {r.text[:200]}")
+        return {"ok": True, "fields": fields}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Patch error: {e}")
+
+
+@app.delete("/history/{history_id}")
+async def delete_history(
+    history_id: str,
+    user: Annotated[dict, Depends(require_user)],
+):
+    """Supprime une row d'historique (user peut nettoyer sa liste)."""
+    import httpx as _httpx
+    import os as _os
+    _surl = _os.getenv("SUPABASE_URL", "").rstrip("/")
+    _skey = (_os.getenv("SUPABASE_SERVICE_KEY")
+             or _os.getenv("SUPABASE_SECRET_KEY")
+             or _os.getenv("SUPABASE_SERVICE_ROLE_KEY") or "")
+    if not _surl or not _skey:
+        raise HTTPException(status_code=500, detail="Supabase non configuré")
+    try:
+        r = _httpx.delete(
+            f"{_surl}/rest/v1/analyses_history?id=eq.{history_id}&user_id=eq.{user['id']}",
+            headers={"apikey": _skey, "Authorization": f"Bearer {_skey}",
+                     "Prefer": "return=minimal"},
+            timeout=5.0,
+        )
+        if r.status_code >= 300:
+            raise HTTPException(status_code=500, detail=f"Delete failed: {r.text[:200]}")
+        return {"ok": True}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Delete error: {e}")
+
+
 # ─── Historique user ────────────────────────────────────────────────────────
 
 @app.get("/history")
@@ -1812,9 +1988,12 @@ async def get_history(user: Annotated[dict, Depends(require_user)]):
             "user_id": user["id"],
             "history": [
                 {
+                    "history_id": str(row.get("id", "")),
                     "job_id": str(row.get("id", "")),
                     "kind": row.get("kind"),
                     "label": row.get("label"),
+                    "display_name": row.get("display_name"),
+                    "is_favorite": bool(row.get("is_favorite", False)),
                     "ticker": row.get("ticker"),
                     "created_at": row.get("created_at"),
                     "finished_at": row.get("finished_at"),
