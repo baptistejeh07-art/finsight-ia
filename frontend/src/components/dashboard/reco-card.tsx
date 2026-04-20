@@ -11,7 +11,11 @@ export function RecoCard({
   conviction: number;
 }) {
   const { t, fp } = useI18n();
-  const pct = Math.round((conviction || 0) * 100);
+  // Clamp [20%, 90%] aussi en frontend : les anciennes analyses historiques
+  // peuvent avoir conviction=0.01 (bug LLM corrigé côté backend le 2026-04-20).
+  // Double garde pour UX cohérente sans forcer re-run des analyses passées.
+  const rawPct = Math.round((conviction || 0) * 100);
+  const pct = Math.max(20, Math.min(90, rawPct || 50));
 
   return (
     <div className="bg-white border border-ink-200 rounded-md p-5 h-full">
