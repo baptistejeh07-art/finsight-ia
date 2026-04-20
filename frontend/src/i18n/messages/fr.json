@@ -488,6 +488,12 @@
     "conn_btn_connect": "Connecter",
     "conn_btn_add": "Ajouter un connecteur personnalisé",
     "conn_why_title": "Pourquoi des connecteurs ?",
-    "conn_why_desc": "Les connecteurs comptables permettront à FinSight de croiser vos données internes (CA réel, marges, trésorerie) avec les données publiques de marché. Idéal pour les experts-comptables, CGP et dirigeants de PME/ETI qui veulent un audit de leur positionnement sectoriel."
+    "conn_why_desc": "Les connecteurs comptables permettront à FinSight de croiser vos données internes (CA réel, marges, trésorerie) avec les données publiques de marché. Idéal pour les experts-comptables, CGP et dirigeants de PME/ETI qui veulent un audit de leur positionnement sectoriel.",
+    "glo_header_tag": "Glossaire des termes financiers",
+    "glo_header_sub": "Comprendre les indicateurs",
+    "glo_cat_valorisation": "Valorisation",
+    "glo_cat_rentabilite": "Rentabilité",
+    "glo_cat_structure": "Structure financière",
+    "glo_cat_risque": "Risque"
   }
 }

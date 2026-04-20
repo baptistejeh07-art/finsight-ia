@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { TrendingUp, Coins, Shield, BarChart3, BookOpen } from "lucide-react";
+import { useI18n } from "@/i18n/provider";
 
 type Category = "valorisation" | "rentabilite" | "structure" | "risque";
 
@@ -118,18 +119,18 @@ const TERMS: Term[] = [
   },
 ];
 
-const CATEGORIES: {
-  key: Category;
-  label: string;
-  icon: typeof TrendingUp;
-}[] = [
-  { key: "valorisation", label: "Valorisation", icon: TrendingUp },
-  { key: "rentabilite", label: "Rentabilité", icon: Coins },
-  { key: "structure", label: "Structure financière", icon: BarChart3 },
-  { key: "risque", label: "Risque", icon: Shield },
-];
-
 export function Glossaire() {
+  const { t } = useI18n();
+  const CATEGORIES: {
+    key: Category;
+    label: string;
+    icon: typeof TrendingUp;
+  }[] = [
+    { key: "valorisation", label: t("settings.glo_cat_valorisation"), icon: TrendingUp },
+    { key: "rentabilite", label: t("settings.glo_cat_rentabilite"), icon: Coins },
+    { key: "structure", label: t("settings.glo_cat_structure"), icon: BarChart3 },
+    { key: "risque", label: t("settings.glo_cat_risque"), icon: Shield },
+  ];
   const [active, setActive] = useState<Category>("valorisation");
   const filtered = TERMS.filter((t) => t.category === active);
 
@@ -142,9 +143,9 @@ export function Glossaire() {
         </div>
         <div>
           <div className="text-[10px] font-semibold uppercase tracking-[1.5px] text-ink-500">
-            Glossaire des termes financiers
+            {t("settings.glo_header_tag")}
           </div>
-          <div className="text-sm text-ink-800">Comprendre les indicateurs</div>
+          <div className="text-sm text-ink-800">{t("settings.glo_header_sub")}</div>
         </div>
       </div>
 

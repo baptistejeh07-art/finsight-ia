@@ -485,6 +485,12 @@
     "conn_btn_connect": "Connect",
     "conn_btn_add": "Add a custom connector",
     "conn_why_title": "Why connectors?",
-    "conn_why_desc": "Accounting connectors will let FinSight cross-reference your internal data (real revenue, margins, cash) with public market data. Perfect for accountants, wealth advisors and SME/mid-cap executives who want a sector-positioning audit."
+    "conn_why_desc": "Accounting connectors will let FinSight cross-reference your internal data (real revenue, margins, cash) with public market data. Perfect for accountants, wealth advisors and SME/mid-cap executives who want a sector-positioning audit.",
+    "glo_header_tag": "Financial glossary",
+    "glo_header_sub": "Understand the indicators",
+    "glo_cat_valorisation": "Valuation",
+    "glo_cat_rentabilite": "Profitability",
+    "glo_cat_structure": "Financial structure",
+    "glo_cat_risque": "Risk"
   }
 }
