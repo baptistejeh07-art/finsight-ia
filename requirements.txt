@@ -67,3 +67,6 @@ uvicorn[standard]>=0.27.0
 python-multipart>=0.0.9
 PyJWT>=2.8.0
 cryptography>=41.0.0
+
+# --- Alertes / rappels post-analyse ---
+pywebpush>=2.0.0

@@ -1809,7 +1809,207 @@ async def admin_unban(payload: BanRequest, user: Annotated[dict, Depends(require
         raise HTTPException(status_code=500, detail=f"Unban error: {e}")
 
 
-# ─── Partage public d'analyses (URL read-only) ──────────────────────────────
+# ─── Alertes / Rappels post-analyse ─────────────────────────────────────────
+
+class AlertCreateRequest(BaseModel):
+    history_id: Optional[str] = None
+    ticker: Optional[str] = None
+    trigger_type: str  # price_target, earnings_date, dividend_exdate, news, custom_date, quarterly_results
+    trigger_value: dict = Field(default_factory=dict)
+    channels: list[str] = Field(default_factory=lambda: ["email"])
+    label: Optional[str] = None
+
+
+class AlertPatchRequest(BaseModel):
+    enabled: Optional[bool] = None
+    label: Optional[str] = None
+    channels: Optional[list[str]] = None
+    trigger_value: Optional[dict] = None
+
+
+class PushSubscribeRequest(BaseModel):
+    endpoint: str
+    p256dh: str
+    auth_key: str
+    user_agent: Optional[str] = None
+
+
+def _supabase_creds() -> tuple[str, str]:
+    import os as _os
+    _surl = _os.getenv("SUPABASE_URL", "").rstrip("/")
+    _skey = (_os.getenv("SUPABASE_SERVICE_KEY")
+             or _os.getenv("SUPABASE_SECRET_KEY")
+             or _os.getenv("SUPABASE_SERVICE_ROLE_KEY") or "")
+    if not _surl or not _skey:
+        raise HTTPException(status_code=500, detail="Supabase non configuré")
+    return _surl, _skey
+
+
+@app.post("/alerts/create")
+async def alert_create(payload: AlertCreateRequest, user: Annotated[dict, Depends(require_user)]):
+    """Crée un rappel pour l'user connecté."""
+    import httpx as _httpx
+    _surl, _skey = _supabase_creds()
+    if payload.trigger_type not in {"price_target", "earnings_date", "dividend_exdate",
+                                     "news", "custom_date", "quarterly_results"}:
+        raise HTTPException(status_code=400, detail="trigger_type invalide")
+    body = {
+        "user_id": user["id"],
+        "history_id": payload.history_id,
+        "ticker": (payload.ticker or "").upper().strip() or None,
+        "trigger_type": payload.trigger_type,
+        "trigger_value": payload.trigger_value,
+        "channels": payload.channels or ["email"],
+        "label": payload.label,
+    }
+    body = {k: v for k, v in body.items() if v is not None}
+    try:
+        r = _httpx.post(
+            f"{_surl}/rest/v1/analysis_alerts",
+            headers={"apikey": _skey, "Authorization": f"Bearer {_skey}",
+                     "Content-Type": "application/json", "Prefer": "return=representation"},
+            json=body,
+            timeout=5.0,
+        )
+        if r.status_code >= 300:
+            raise HTTPException(status_code=500, detail=f"Insert failed: {r.text[:200]}")
+        rows = r.json() or []
+        return {"ok": True, "alert": rows[0] if rows else None}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Create error: {e}")
+
+
+@app.get("/alerts")
+async def alerts_list(user: Annotated[dict, Depends(require_user)]):
+    """Liste tous les rappels de l'user (enabled + disabled + fired)."""
+    import httpx as _httpx
+    _surl, _skey = _supabase_creds()
+    try:
+        r = _httpx.get(
+            f"{_surl}/rest/v1/analysis_alerts?user_id=eq.{user['id']}&order=created_at.desc",
+            headers={"apikey": _skey, "Authorization": f"Bearer {_skey}"},
+            timeout=5.0,
+        )
+        return {"alerts": r.json() if r.status_code < 300 else []}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"List error: {e}")
+
+
+@app.patch("/alerts/{alert_id}")
+async def alert_patch(alert_id: str, payload: AlertPatchRequest,
+                      user: Annotated[dict, Depends(require_user)]):
+    """Toggle enabled, renomme, change trigger_value ou channels."""
+    import httpx as _httpx
+    _surl, _skey = _supabase_creds()
+    fields: dict = {}
+    if payload.enabled is not None: fields["enabled"] = payload.enabled
+    if payload.label is not None: fields["label"] = payload.label
+    if payload.channels is not None: fields["channels"] = payload.channels
+    if payload.trigger_value is not None: fields["trigger_value"] = payload.trigger_value
+    if not fields:
+        raise HTTPException(status_code=400, detail="Aucun champ")
+    try:
+        r = _httpx.patch(
+            f"{_surl}/rest/v1/analysis_alerts?id=eq.{alert_id}&user_id=eq.{user['id']}",
+            headers={"apikey": _skey, "Authorization": f"Bearer {_skey}",
+                     "Content-Type": "application/json", "Prefer": "return=minimal"},
+            json=fields, timeout=5.0,
+        )
+        if r.status_code >= 300:
+            raise HTTPException(status_code=500, detail=f"Patch failed: {r.text[:200]}")
+        return {"ok": True, "fields": fields}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Patch error: {e}")
+
+
+@app.delete("/alerts/{alert_id}")
+async def alert_delete(alert_id: str, user: Annotated[dict, Depends(require_user)]):
+    import httpx as _httpx
+    _surl, _skey = _supabase_creds()
+    try:
+        r = _httpx.delete(
+            f"{_surl}/rest/v1/analysis_alerts?id=eq.{alert_id}&user_id=eq.{user['id']}",
+            headers={"apikey": _skey, "Authorization": f"Bearer {_skey}",
+                     "Prefer": "return=minimal"},
+            timeout=5.0,
+        )
+        if r.status_code >= 300:
+            raise HTTPException(status_code=500, detail=f"Delete failed: {r.text[:200]}")
+        return {"ok": True}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Delete error: {e}")
+
+
+# ─── Web Push subscriptions ─────────────────────────────────────────────────
+
+@app.post("/push/subscribe")
+async def push_subscribe(payload: PushSubscribeRequest, user: Annotated[dict, Depends(require_user)]):
+    """Enregistre une subscription Web Push (service worker côté client).
+    Upsert par (user_id, endpoint) pour éviter les doublons.
+    """
+    import httpx as _httpx
+    _surl, _skey = _supabase_creds()
+    body = {
+        "user_id": user["id"],
+        "endpoint": payload.endpoint,
+        "p256dh": payload.p256dh,
+        "auth_key": payload.auth_key,
+        "user_agent": payload.user_agent,
+    }
+    body = {k: v for k, v in body.items() if v is not None}
+    try:
+        r = _httpx.post(
+            f"{_surl}/rest/v1/push_subscriptions",
+            headers={"apikey": _skey, "Authorization": f"Bearer {_skey}",
+                     "Content-Type": "application/json",
+                     "Prefer": "resolution=merge-duplicates,return=minimal"},
+            json=body, timeout=5.0,
+        )
+        if r.status_code >= 300:
+            raise HTTPException(status_code=500, detail=f"Subscribe failed: {r.text[:200]}")
+        return {"ok": True}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Subscribe error: {e}")
+
+
+@app.get("/push/vapid-public-key")
+async def push_vapid_public():
+    """Retourne la clé publique VAPID pour que le client puisse s'abonner."""
+    import os as _os
+    pub = _os.getenv("VAPID_PUBLIC_KEY", "").strip()
+    if not pub:
+        raise HTTPException(status_code=500, detail="VAPID_PUBLIC_KEY non configurée")
+    return {"public_key": pub}
+
+
+# ─── Cron check alerts (appelé toutes les 6h par Railway cron) ──────────────
+
+@app.post("/cron/check-alerts")
+async def cron_check_alerts(request: Request):
+    """Worker cron : parcourt les alerts enabled + fired_at IS NULL,
+    évalue chaque trigger, notifie si condition satisfaite.
+    Auth : header X-Cron-Secret = CRON_SECRET env var.
+    """
+    import os as _os
+    expected = _os.getenv("CRON_SECRET", "").strip()
+    provided = request.headers.get("x-cron-secret") or request.headers.get("X-Cron-Secret") or ""
+    if not expected or provided != expected:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    from core.alerts.checker import run_check_cycle
+    result = run_check_cycle()
+    return result
+
+
+
 
 class ShareCreateRequest(BaseModel):
     history_id: str

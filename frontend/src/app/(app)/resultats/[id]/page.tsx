@@ -37,6 +37,7 @@ import { SectorTickersTable } from "@/components/dashboard/sector-tickers-table"
 import { IndiceSecteursTable } from "@/components/dashboard/indice-secteurs-table";
 import { SaveToHistoryCard } from "@/components/dashboard/save-to-history-card";
 import { ShareCard } from "@/components/dashboard/share-card";
+import { AlertCard } from "@/components/dashboard/alert-card";
 import { DocumentUploadBox } from "@/components/dashboard/document-upload-box";
 import {
   PmeIdentiteCard,
@@ -343,7 +344,7 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
                     label: t("results.block_save"),
                     default: { x: 9, y: 19, w: 3, h: 3 },
                     render: () => (
-                      <div className="grid grid-cols-2 gap-2 h-full">
+                      <div className="grid grid-cols-3 gap-2 h-full">
                         <SaveToHistoryCard
                           jobId={id}
                           kind="societe"
@@ -351,6 +352,12 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
                           ticker={tickerStr}
                         />
                         <ShareCard
+                          jobId={id}
+                          kind="societe"
+                          label={tickerStr}
+                          ticker={tickerStr}
+                        />
+                        <AlertCard
                           jobId={id}
                           kind="societe"
                           label={tickerStr}
@@ -441,7 +448,7 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
                   label: t("results.block_save"),
                   default: { x: 8, y: 8, w: 4, h: 3 },
                   render: () => (
-                    <div className="grid grid-cols-2 gap-2 h-full">
+                    <div className="grid grid-cols-3 gap-2 h-full">
                       <SaveToHistoryCard
                         jobId={id}
                         kind={kind as "secteur" | "indice" | "comparatif" | "pme"}
@@ -451,6 +458,12 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
                         jobId={id}
                         kind={kind as "secteur" | "indice" | "comparatif" | "pme"}
                         label={result.label || ticker}
+                      />
+                      <AlertCard
+                        jobId={id}
+                        kind={kind as "secteur" | "indice" | "comparatif" | "pme"}
+                        label={result.label || ticker}
+                        ticker={result.data?.raw_data?.company_info?.ticker || ticker}
                       />
                     </div>
                   ),
