@@ -275,13 +275,23 @@ def write_pme_pptx(
     # ─── S8 Benchmark ───
     s = prs.slides.add_slide(blank_layout)
     _add_title(s, f"{_t('report.sector_positioning')} ({_t('common.source')} : {benchmark.source})")
+    _forces_lbl = {"fr":"Forces","en":"Strengths","es":"Fortalezas","de":"Stärken","it":"Punti di forza","pt":"Pontos fortes"}.get(_lang, "Strengths")
+    _faibl_lbl = {"fr":"Faiblesses","en":"Weaknesses","es":"Debilidades","de":"Schwächen","it":"Punti deboli","pt":"Pontos fracos"}.get(_lang, "Weaknesses")
+    _median_pos = {
+        "fr":"Positionnement dans la médiane sur la plupart des ratios.",
+        "en":"Positioned around median on most ratios.",
+        "es":"Posicionamiento en la mediana en la mayoría de los ratios.",
+        "de":"Positionierung im Median bei den meisten Kennzahlen.",
+        "it":"Posizionamento in mediana sulla maggior parte degli indici.",
+        "pt":"Posicionamento na mediana na maioria dos rácios.",
+    }.get(_lang, "Positioned around median on most ratios.")
     lines = []
     if benchmark.forces:
-        lines.append("Forces : " + ", ".join(benchmark.forces))
+        lines.append(f"{_forces_lbl} : " + ", ".join(benchmark.forces))
     if benchmark.faiblesses:
-        lines.append("Faiblesses : " + ", ".join(benchmark.faiblesses))
+        lines.append(f"{_faibl_lbl} : " + ", ".join(benchmark.faiblesses))
     if not lines:
-        lines.append("Positionnement dans la médiane sur la plupart des ratios.")
+        lines.append(_median_pos)
     _add_bullet(s, Inches(0.8), Inches(1.3), Inches(11.7), Inches(5.5), lines)
 
     # ─── S9 Scoring ───
@@ -290,9 +300,9 @@ def write_pme_pptx(
     items = [
         (_sc("altman_z_private"), f"{analysis.altman_z:.2f}" if analysis.altman_z else "—"),
         (_sc("altman_verdict"), _t(f"altman.{analysis.altman_verdict}", analysis.altman_verdict)),
-        ("Score santé FinSight", f"{analysis.health_score:.0f}/100" if analysis.health_score else "—"),
-        ("Score bankabilité", f"{analysis.bankability_score:.0f}/100" if analysis.bankability_score else "—"),
-        ("Dette additionnelle accessible (cible 3×EBITDA)", _fmt_eur(analysis.debt_capacity_estimate)),
+        (_sc("health_score"), f"{analysis.health_score:.0f}/100" if analysis.health_score else "—"),
+        (_sc("bankability_score"), f"{analysis.bankability_score:.0f}/100" if analysis.bankability_score else "—"),
+        (_sc("debt_capacity"), _fmt_eur(analysis.debt_capacity_estimate)),
     ]
     for i, (label, value) in enumerate(items):
         _add_kpi_card(s, Inches(0.8), Inches(1.3 + i * 0.9), Inches(11.7), Inches(0.8),
