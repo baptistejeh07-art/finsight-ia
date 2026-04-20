@@ -17,7 +17,6 @@ repetes a yfinance (rate-limiting + latence).
 Usage typique :
 
     from core.etf_holdings import fetch_etf_holdings
-from core.yfinance_cache import get_ticker
 
     data = fetch_etf_holdings("XLK")
     # -> {
@@ -42,6 +41,8 @@ import os
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
+
+from core.yfinance_cache import get_ticker
 
 log = logging.getLogger(__name__)
 
