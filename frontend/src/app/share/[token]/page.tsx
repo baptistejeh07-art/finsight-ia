@@ -62,7 +62,7 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
             FinSight <span className="text-accent-primary">IA</span>
           </Link>
           <Link
-            href="/auth"
+            href="/app"
             className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md bg-accent-primary text-accent-primary-fg font-semibold hover:opacity-90"
           >
             Lancer mon analyse <ArrowRight className="w-3 h-3" />
@@ -157,7 +157,7 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
             modèle Excel prêts pour comité d&apos;investissement.
           </p>
           <Link
-            href="/auth"
+            href="/app"
             className="inline-flex items-center gap-2 px-5 py-2.5 rounded-md bg-accent-primary text-accent-primary-fg font-semibold hover:opacity-90"
           >
             Essayer FinSight gratuitement <ArrowRight className="w-4 h-4" />

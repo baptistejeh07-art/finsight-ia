@@ -76,7 +76,7 @@ export function SidebarUserMenu() {
     return (
       <div className="border-t border-ink-100 p-3">
         <Link
-          href="/auth/login"
+          href="/app"
           className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-md border border-ink-200 hover:border-navy-500 hover:bg-navy-50 transition-colors text-sm font-medium text-ink-800"
         >
           Se connecter
