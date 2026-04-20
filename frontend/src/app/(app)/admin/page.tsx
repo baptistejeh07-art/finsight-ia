@@ -293,9 +293,12 @@ export default function AdminDashboardPage() {
       </section>
 
       {/* Links */}
-      <div className="flex gap-3 text-xs">
+      <div className="flex gap-4 text-xs">
         <Link href="/admin/monitoring" className="text-navy-500 hover:underline">
           → Monitoring jobs
+        </Link>
+        <Link href="/admin/trends" className="text-navy-500 hover:underline">
+          → FinSight Trends (dataset)
         </Link>
       </div>
 
