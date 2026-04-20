@@ -543,12 +543,30 @@ def fetch(ticker: str) -> Optional[FinancialSnapshot]:
                 _price_norm = round(float(price) * _sub_mult, 2)
             except Exception:
                 _price_norm = round(float(price), 2)
+        # Dividend yield — yfinance fiabilité variable selon le pays. Cascade :
+        # 1. trailingAnnualDividendYield (déjà décimal ex: 0.007)
+        # 2. dividendYield (parfois en %, parfois décimal — auto-détection)
+        # 3. dividendRate / currentPrice (calcul maison, fallback universel)
+        _dy = info.get("trailingAnnualDividendYield")
+        if not _dy or _dy == 0:
+            _raw_dy = info.get("dividendYield")
+            if _raw_dy and _raw_dy > 0:
+                # Si > 1, c'est probablement un pourcentage (ex: 0.7 pour 0.7%)
+                _dy = float(_raw_dy) / 100.0 if float(_raw_dy) > 1 else float(_raw_dy)
+        if not _dy or _dy == 0:
+            _drate = info.get("dividendRate") or info.get("trailingAnnualDividendRate")
+            if _drate and _price_norm:
+                _dy = float(_drate) / float(_price_norm)
+        # Sanity : dividend yield > 20% = absurde (probable parse error)
+        if _dy and _dy > 0.20:
+            _dy = None
+
         market = MarketData(
             share_price    = _price_norm,
             shares_diluted = _m(float(shares_raw)) if shares_raw else None,
             beta_levered   = info.get("beta"),
             risk_free_rate = rfr,   # ^TNX / 100 récupéré en parallèle
-            dividend_yield = info.get("trailingAnnualDividendYield"),  # décimal
+            dividend_yield = _dy,   # décimal (ex: 0.0072 = 0.72%)
         )
 
         # --- Historique mensuel cours ---

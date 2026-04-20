@@ -17,6 +17,7 @@ import type { AnalysisData, RawData, RatiosData, Synthesis } from "@/components/
 import { HeaderSociete } from "@/components/dashboard/header-societe";
 import { RecoCard } from "@/components/dashboard/reco-card";
 import { CoursChart } from "@/components/dashboard/cours-chart";
+import { PerformanceCard } from "@/components/dashboard/performance-card";
 import { ValorisationCards } from "@/components/dashboard/valorisation-cards";
 import { KpiGrid } from "@/components/dashboard/kpi-grid";
 import { CapexFcfChart } from "@/components/dashboard/capex-fcf-chart";
@@ -258,6 +259,17 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
                         ticker={tickerStr}
                         history={rawData?.stock_history || []}
                         sector={ci.sector}
+                      />
+                    ),
+                  },
+                  {
+                    id: "performance",
+                    label: "Performance comparée",
+                    default: { x: 4, y: 6, w: 5, h: 5 },
+                    render: () => (
+                      <PerformanceCard
+                        ticker={tickerStr}
+                        currency={ci.currency || "EUR"}
                       />
                     ),
                   },

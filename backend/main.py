@@ -1421,6 +1421,22 @@ async def resolve_query(query: str):
     return ResolveResponse(query=q, kind="unknown")
 
 
+@app.get("/market/performance/{ticker}")
+async def market_performance(ticker: str):
+    """Renvoie perf%/plus haut/bas/volatilité pour 9 périodes en un seul call."""
+    from core.market import fetch_performance
+    return fetch_performance(ticker)
+
+
+@app.get("/market/series/{ticker}")
+async def market_series(ticker: str, period: str = "1mo"):
+    """Série temporelle close-price pour une période donnée.
+    period : 1d, 5d, 1mo, 3mo, 6mo, ytd, 1y, 3y, 5y.
+    """
+    from core.market import fetch_price_series
+    return fetch_price_series(ticker, period=period)
+
+
 @app.get("/tickers/resolve/{query}")
 async def resolve_ticker(query: str):
     """Résout un nom (ex: 'hermes', 'lvmh') vers un ticker yfinance.

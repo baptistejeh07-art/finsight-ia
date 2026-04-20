@@ -1086,18 +1086,30 @@ def _cover_page(c, doc, data):
         c.line(_box_x + 3*mm, y, _box_x + _box_w - 3*mm, y)
 
     # Bullet 1 : these principale
-    _summary_raw = data.get('summary_text') or data.get('kdb_text') or ''
-    # Word-safe truncation a 95 chars
-    _sum95 = _summary_raw[:95]
-    if len(_summary_raw) > 95 and ' ' in _sum95:
-        _sum95 = _sum95[:_sum95.rfind(' ')] + '...'
-    elif len(_summary_raw) > 95:
-        _sum95 += '...'
-    _sum_rest = _summary_raw[len(_sum95.rstrip('.')):200] if len(_summary_raw) > 95 else ''
-    if _sum_rest:
-        _sum_rest = _sum_rest[:90]
-        if len(_sum_rest) == 90:
-            _sum_rest = _sum_rest[:_sum_rest.rfind(' ')] + '...' if ' ' in _sum_rest else _sum_rest + '...'
+    # Word-safe truncation : on étend la longueur (2x110 chars = 220 chars utiles)
+    # pour éviter de couper mi-phrase ("le...", "la..."). Cut toujours après dernier
+    # espace ; si pas d'espace ou texte court, on étend sans couper.
+    _summary_raw = (data.get('summary_text') or data.get('kdb_text') or '').strip()
+
+    def _word_trunc(text: str, max_len: int) -> str:
+        """Coupe au dernier mot entier avant max_len+ca. Ajoute '...' seulement
+        si vraie troncature ET pas déjà ponctuation finale."""
+        if not text or len(text) <= max_len:
+            return text
+        cut = text[:max_len]
+        last_space = cut.rfind(' ')
+        if last_space > max_len * 0.5:  # évite trunc trop courte
+            cut = cut[:last_space].rstrip(" ,;:")
+        if cut and cut[-1] not in ".!?…":
+            cut += "…"
+        return cut
+
+    _sum95 = _word_trunc(_summary_raw, 110)
+    _sum_rest = ''
+    # Ligne 2 : reste, si phrase longue
+    if len(_summary_raw) > len(_sum95.rstrip('…').rstrip('.')):
+        _offset = len(_sum95.rstrip('…').rstrip('.')) + 1
+        _sum_rest = _word_trunc(_summary_raw[_offset:].lstrip(), 110)
     if not _sum95:
         _sum95 = 'Analyse fondamentale disponible dans le corps du rapport.'
     _b1_lines = [_sum95]
@@ -4056,8 +4068,23 @@ def _valid_hist_labels_pdf(snap) -> list:
     return sorted(result, key=lambda y: str(y).replace("_LTM", ""))
 
 
-def _benchmarks(sector):
+_LUXURY_TICKERS = {
+    # Holdings de luxe — tous à P/E 25-45x, margins 25-40%
+    "RMS.PA", "MC.PA", "KER.PA", "CFR.SW", "RACE", "RACE.MI",
+    "MONC.MI", "HUGO.DE", "BRBY.L", "BIRK", "EL.PA",
+    "PRX.AS", "PP.PA", "SW.PA", "DIAM.MI",
+}
+
+def _benchmarks(sector, industry: str = "", ticker: str = ""):
     s = (sector or "").lower()
+    ind = (industry or "").lower()
+    tk = (ticker or "").upper()
+
+    # Luxury Goods : ranges spécifiques (priorité sur Consumer Cyclical)
+    # Détection : industry yfinance ("Luxury Goods") OU ticker dans liste connue
+    if ("luxury" in ind) or ("luxury" in s) or (tk in _LUXURY_TICKERS):
+        return dict(pe="25-40x", ev_e="15-25x", ev_r="4-8x",
+                    gm="60-75\u00a0%", em="25-40\u00a0%", roe="20-35\u00a0%")
     if any(w in s for w in ("tech","software","semiconductor","information")):
         return dict(pe="15-35x", ev_e="12-25x", ev_r="3-12x",
                     gm="55-75\u00a0%", em="20-35\u00a0%", roe="15-30\u00a0%")
@@ -4070,7 +4097,7 @@ def _benchmarks(sector):
     if any(w in s for w in ("energy","oil","gas")):
         return dict(pe="10-18x", ev_e="6-10x", ev_r="1-3x",
                     gm="30-50\u00a0%", em="25-40\u00a0%", roe="10-15\u00a0%")
-    if any(w in s for w in ("consumer","retail","luxury","auto","cyclical")):
+    if any(w in s for w in ("consumer","retail","auto","cyclical")):
         return dict(pe="8-15x", ev_e="6-12x", ev_r="0,4-1,2x",
                     gm="12-18\u00a0%", em="8-14\u00a0%", roe="8-18\u00a0%")
     return dict(pe="15-22x", ev_e="10-16x", ev_r="2-5x",
@@ -4770,8 +4797,8 @@ class PDFWriter:
                 [_pe_label]                 + _pe_row,
             ]
 
-        # Ratios vs pairs
-        bm = _benchmarks(sector)
+        # Ratios vs pairs — industry + ticker améliorent la detection luxe
+        bm = _benchmarks(sector, industry=industry, ticker=ticker)
         def _a(attr): return getattr(yr_r, attr, None) if yr_r else None
         pe_v   = _a('pe_ratio');   ev_e = _a('ev_ebitda'); ev_r = _a('ev_revenue')
         gm_v   = _a('gross_margin'); em = _a('ebitda_margin'); roe = _a('roe')
