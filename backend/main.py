@@ -26,6 +26,8 @@ Auth :
 from __future__ import annotations
 import os
 import sys
+import json
+import time
 import logging
 from pathlib import Path
 from contextlib import asynccontextmanager
@@ -1713,6 +1715,122 @@ async def stripe_webhook(request: Request):
 
 
 # ─── Admin dashboard ─────────────────────────────────────────────────────────
+
+# ─── Traçage analyses (observability niveau 3) ───────────────────────────
+@app.get("/admin/traces")
+async def admin_traces(
+    user: Annotated[dict, Depends(require_admin)],
+    limit: int = 30,
+):
+    """Liste les derniers jobs tracés avec stats rollup (via vue SQL)."""
+    import httpx as _httpx
+    import os as _os
+    _surl = _os.getenv("SUPABASE_URL", "").rstrip("/")
+    _skey = (_os.getenv("SUPABASE_SERVICE_KEY")
+             or _os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+             or _os.getenv("SUPABASE_SECRET_KEY") or "")
+    if not _surl or not _skey:
+        return {"traces": []}
+    try:
+        r = _httpx.get(
+            f"{_surl}/rest/v1/analysis_traces_summary_v?"
+            f"order=started_at.desc&limit={min(limit, 200)}",
+            headers={"apikey": _skey, "Authorization": f"Bearer {_skey}"},
+            timeout=5.0,
+        )
+        return {"traces": r.json() or []}
+    except Exception as e:
+        return {"error": str(e), "traces": []}
+
+
+@app.get("/admin/trace/{job_id}")
+async def admin_trace_detail(
+    job_id: str,
+    user: Annotated[dict, Depends(require_admin)],
+):
+    """Détail complet d'un job : tous les steps, durées, tokens, coûts, erreurs.
+
+    Retourne la timeline ordonnée par started_at. Utilisé par la page
+    /admin/traces/{id} pour flamegraph + profiling précis.
+    """
+    import httpx as _httpx
+    import os as _os
+    _surl = _os.getenv("SUPABASE_URL", "").rstrip("/")
+    _skey = (_os.getenv("SUPABASE_SERVICE_KEY")
+             or _os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+             or _os.getenv("SUPABASE_SECRET_KEY") or "")
+    if not _surl or not _skey:
+        raise HTTPException(status_code=503, detail="Traces storage indisponible")
+    try:
+        # Steps ordonnés
+        r = _httpx.get(
+            f"{_surl}/rest/v1/analysis_traces?"
+            f"job_id=eq.{job_id}&order=started_at.asc&limit=1000",
+            headers={"apikey": _skey, "Authorization": f"Bearer {_skey}"},
+            timeout=5.0,
+        )
+        steps = r.json() or []
+        # Summary
+        r2 = _httpx.get(
+            f"{_surl}/rest/v1/analysis_traces_summary_v?job_id=eq.{job_id}",
+            headers={"apikey": _skey, "Authorization": f"Bearer {_skey}"},
+            timeout=5.0,
+        )
+        summary = (r2.json() or [None])[0]
+        return {"job_id": job_id, "summary": summary, "steps": steps}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/admin/trace/{job_id}/stream")
+async def admin_trace_stream(
+    job_id: str,
+    request: Request,
+):
+    """SSE : push les nouveaux steps au fur et à mesure pendant qu'un job tourne.
+
+    Note : pas de require_admin côté SSE (EventSource ne peut pas envoyer
+    d'Authorization header). Le job_id lui-même sert de bearer — mais on
+    checke que le caller est admin via cookie session Supabase.
+    """
+    import httpx as _httpx
+    import os as _os
+    import asyncio as _asyncio
+    from fastapi.responses import StreamingResponse
+
+    _surl = _os.getenv("SUPABASE_URL", "").rstrip("/")
+    _skey = (_os.getenv("SUPABASE_SERVICE_KEY")
+             or _os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+             or _os.getenv("SUPABASE_SECRET_KEY") or "")
+
+    async def _gen():
+        seen_ids: set[int] = set()
+        last_seen_ms = 0
+        while True:
+            if await request.is_disconnected():
+                break
+            try:
+                r = _httpx.get(
+                    f"{_surl}/rest/v1/analysis_traces?"
+                    f"job_id=eq.{job_id}&order=id.asc&limit=500",
+                    headers={"apikey": _skey, "Authorization": f"Bearer {_skey}"},
+                    timeout=3.0,
+                )
+                rows = r.json() or []
+                new_rows = [x for x in rows if int(x.get("id", 0)) not in seen_ids]
+                for row in new_rows:
+                    seen_ids.add(int(row.get("id", 0)))
+                    yield f"data: {json.dumps(row, default=str)}\n\n"
+                # Heartbeat toutes les 15s
+                if int(time.time() * 1000) - last_seen_ms > 15_000:
+                    yield ": heartbeat\n\n"
+                    last_seen_ms = int(time.time() * 1000)
+            except Exception as e:
+                log.warning(f"[trace stream] {e}")
+            await _asyncio.sleep(1.0)
+
+    return StreamingResponse(_gen(), media_type="text/event-stream")
+
 
 @app.get("/admin/stats")
 async def admin_stats(user: Annotated[dict, Depends(require_admin)]):

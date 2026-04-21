@@ -72,6 +72,14 @@ def submit(kind: str, fn: Callable[..., Any], *args, user_id: Optional[str] = No
             db.upsert_job_state(_JOBS[job_id])  # persist 'running'
         except Exception:
             pass
+        # Active le traceur pour ce job — chaque step LLM/fetch/node sera logué
+        try:
+            from core.tracer import trace as _trace
+            _trace.set_job(job_id=job_id, kind=kind, label=label or "")
+            with _trace.step("job_root", level="root", metadata={"kind": kind}):
+                pass  # le root ne fait rien, juste un marqueur de début
+        except Exception:
+            pass
         try:
             # Si fn accepte _progress_cb, on lui passe une closure qui pousse le progress
             import inspect

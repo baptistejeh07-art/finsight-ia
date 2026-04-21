@@ -256,22 +256,50 @@ class LLMProvider:
 
     def generate(self, prompt: str, system: Optional[str] = None,
                  max_tokens: int = 1024) -> str:
-        if self.provider == "anthropic":
-            raw = self._call_anthropic(prompt, system, max_tokens)
-        elif self.provider == "groq":
-            raw = self._call_groq(prompt, system, max_tokens)
-        elif self.provider == "openai":
-            raw = self._call_openai(prompt, system, max_tokens)
-        elif self.provider == "mistral":
-            raw = self._call_mistral(prompt, system, max_tokens)
-        elif self.provider == "cerebras":
-            raw = self._call_cerebras(prompt, system, max_tokens)
-        elif self.provider == "gemini":
-            raw = self._call_gemini(prompt, system, max_tokens)
-        elif self.provider == "ollama":
-            raw = self._call_ollama(prompt, system, max_tokens)
+        # Traçage fin (niveau 3) : chaque appel LLM est observable en prod
+        try:
+            from core.tracer import trace
+            _ctx = trace.step(
+                step_name=f"{self.provider}:{self.model}",
+                level="llm",
+                provider=self.provider,
+                model=self.model,
+                metadata={"max_tokens": max_tokens,
+                          "prompt_chars": len(prompt or ""),
+                          "system_chars": len(system or "")},
+            )
+        except Exception:
+            _ctx = None
+
+        def _do_call() -> str:
+            if self.provider == "anthropic":
+                return self._call_anthropic(prompt, system, max_tokens)
+            elif self.provider == "groq":
+                return self._call_groq(prompt, system, max_tokens)
+            elif self.provider == "openai":
+                return self._call_openai(prompt, system, max_tokens)
+            elif self.provider == "mistral":
+                return self._call_mistral(prompt, system, max_tokens)
+            elif self.provider == "cerebras":
+                return self._call_cerebras(prompt, system, max_tokens)
+            elif self.provider == "gemini":
+                return self._call_gemini(prompt, system, max_tokens)
+            elif self.provider == "ollama":
+                return self._call_ollama(prompt, system, max_tokens)
+            else:
+                raise ValueError(f"Provider inconnu : {self.provider}")
+
+        if _ctx is None:
+            raw = _do_call()
         else:
-            raise ValueError(f"Provider inconnu : {self.provider}")
+            with _ctx as _s:
+                if prompt:
+                    _s.set_input((system or "") + "\n\n" + prompt)
+                raw = _do_call()
+                # Estimation tokens (~4 chars/token pour la plupart des modèles)
+                _in_tok = (len(prompt or "") + len(system or "")) // 4
+                _out_tok = len(raw or "") // 4
+                _s.finish_llm(response=raw, tokens_in=_in_tok, tokens_out=_out_tok)
         # Post-processing : restauration accents pour prompts français.
         # Mistral small / llama 3.3 oublient régulièrement les accents
         # ("sous-evalue", "mediane", "generee"). On détecte les prompts

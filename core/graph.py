@@ -707,23 +707,45 @@ def route_after_qa(state: FinSightState) -> str:
 # Construction du graphe
 # ---------------------------------------------------------------------------
 
+def _wrap_with_tracer(node_name: str, fn):
+    """Enveloppe un node LangGraph dans un step trace (niveau 3 observability)."""
+    def _wrapped(state):
+        try:
+            from core.tracer import trace
+            with trace.step(step_name=node_name, level="node",
+                             metadata={"ticker": state.get("ticker", "")}) as s:
+                result = fn(state)
+                # Capte status via log_node dans result si dispo
+                if isinstance(result, dict):
+                    last = (result.get("log") or [{}])[-1] if result.get("log") else {}
+                    if last.get("status") == "error":
+                        s.status = "error"
+                        s.error_message = str(last.get("error", ""))[:500]
+                return result
+        except Exception:
+            # Fallback : exécute sans tracing pour ne jamais casser le pipeline
+            return fn(state)
+    _wrapped.__name__ = f"traced_{node_name}"
+    return _wrapped
+
+
 def build_graph() -> StateGraph:
     """
     Construit et compile le graphe LangGraph FinSight.
     """
     graph = StateGraph(FinSightState)
 
-    # Noeuds
-    graph.add_node("fetch_node",      fetch_node)
-    graph.add_node("fallback_node",   fallback_node)
-    graph.add_node("quant_node",      quant_node)
-    graph.add_node("synthesis_node",  synthesis_node)
-    graph.add_node("synthesis_retry", _synthesis_retry_node)
-    graph.add_node("qa_node",          qa_node)
-    graph.add_node("entry_zone_node",  entry_zone_node)
-    graph.add_node("devil_node",       devil_node)
-    graph.add_node("output_node",     output_node)
-    graph.add_node("blocked_node",    blocked_node)
+    # Noeuds — tous wrappés dans _wrap_with_tracer pour observability niveau 3
+    graph.add_node("fetch_node",      _wrap_with_tracer("fetch_node", fetch_node))
+    graph.add_node("fallback_node",   _wrap_with_tracer("fallback_node", fallback_node))
+    graph.add_node("quant_node",      _wrap_with_tracer("quant_node", quant_node))
+    graph.add_node("synthesis_node",  _wrap_with_tracer("synthesis_node", synthesis_node))
+    graph.add_node("synthesis_retry", _wrap_with_tracer("synthesis_retry", _synthesis_retry_node))
+    graph.add_node("qa_node",         _wrap_with_tracer("qa_node", qa_node))
+    graph.add_node("entry_zone_node", _wrap_with_tracer("entry_zone_node", entry_zone_node))
+    graph.add_node("devil_node",      _wrap_with_tracer("devil_node", devil_node))
+    graph.add_node("output_node",     _wrap_with_tracer("output_node", output_node))
+    graph.add_node("blocked_node",    _wrap_with_tracer("blocked_node", blocked_node))
 
     # Point d'entree
     graph.set_entry_point("fetch_node")
