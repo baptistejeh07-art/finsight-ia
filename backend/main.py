@@ -2536,6 +2536,151 @@ async def delete_history(
 
 # ─── Historique user ────────────────────────────────────────────────────────
 
+# ─── Batch analyses (Tier 1.2) ────────────────────────────────────────────
+class BatchSocietesRequest(BaseModel):
+    tickers: list[str] = Field(..., min_length=1, max_length=50)
+    label: Optional[str] = Field(None, max_length=120)
+
+
+@app.post("/batch/societes", status_code=202)
+async def submit_batch_societes(
+    payload: BatchSocietesRequest,
+    request: Request,
+    user: Annotated[dict, Depends(require_user)],
+):
+    """Lance N analyses société en parallèle. Retourne un batch_id qui
+    permet de suivre la progression agrégée via GET /batch/{id}.
+    """
+    import httpx as _httpx
+    import os as _os
+    import uuid as _uuid
+
+    tickers = [t.strip().upper() for t in payload.tickers if t and t.strip()]
+    tickers = list(dict.fromkeys(tickers))  # dedup keep order
+    if not tickers:
+        raise HTTPException(status_code=400, detail="Aucun ticker valide")
+
+    # Soumet N sous-jobs via jobstore (déjà parallélisé via thread pool)
+    sub_job_ids: list[str] = []
+    for tk in tickers:
+        try:
+            jid = jobstore.submit(
+                "societe", _do_societe, tk,
+                user_id=user["id"], label=tk,
+            )
+            sub_job_ids.append(jid)
+        except Exception as _e:
+            log.warning(f"[batch] submit {tk} fail: {_e}")
+
+    # Persiste le batch dans Supabase pour suivi
+    batch_id = str(_uuid.uuid4())
+    _surl = _os.getenv("SUPABASE_URL", "").rstrip("/")
+    _skey = (_os.getenv("SUPABASE_SERVICE_KEY")
+             or _os.getenv("SUPABASE_SERVICE_ROLE_KEY") or "")
+    try:
+        _httpx.post(
+            f"{_surl}/rest/v1/batch_jobs",
+            headers={"apikey": _skey, "Authorization": f"Bearer {_skey}",
+                     "Content-Type": "application/json"},
+            json={
+                "id": batch_id,
+                "user_id": user["id"],
+                "label": payload.label or f"{len(tickers)} sociétés",
+                "total": len(sub_job_ids),
+                "job_ids": sub_job_ids,
+                "status": "running",
+            }, timeout=3.0,
+        )
+    except Exception as _e:
+        log.warning(f"[batch] persist fail: {_e}")
+
+    return {
+        "batch_id": batch_id,
+        "total": len(sub_job_ids),
+        "tickers": tickers,
+        "job_ids": sub_job_ids,
+    }
+
+
+@app.get("/batch/{batch_id}")
+async def get_batch_status(
+    batch_id: str,
+    request: Request,
+    user: Annotated[dict, Depends(require_user)],
+):
+    """Status agrégé d'un batch : N done / N total + tickers individuels."""
+    import httpx as _httpx
+    import os as _os
+    _surl = _os.getenv("SUPABASE_URL", "").rstrip("/")
+    _skey = (_os.getenv("SUPABASE_SERVICE_KEY")
+             or _os.getenv("SUPABASE_SERVICE_ROLE_KEY") or "")
+    try:
+        r = _httpx.get(
+            f"{_surl}/rest/v1/batch_jobs?id=eq.{batch_id}&user_id=eq.{user['id']}",
+            headers={"apikey": _skey, "Authorization": f"Bearer {_skey}"},
+            timeout=3.0,
+        )
+        rows = r.json() or []
+        if not rows:
+            raise HTTPException(status_code=404, detail="Batch introuvable")
+        batch = rows[0]
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code=500, detail="Erreur lecture batch")
+
+    # Aggrège l'état des sous-jobs depuis jobstore
+    sub_job_ids = batch.get("job_ids") or []
+    sub_jobs = []
+    n_done = 0
+    n_failed = 0
+    for jid in sub_job_ids:
+        j = jobstore.get(jid)
+        if not j:
+            sub_jobs.append({"job_id": jid, "status": "unknown", "label": "?"})
+            continue
+        sub_jobs.append({
+            "job_id": jid,
+            "status": j.get("status"),
+            "label": j.get("label"),
+            "progress": j.get("progress", 0),
+            "started_at": j.get("started_at"),
+            "finished_at": j.get("finished_at"),
+        })
+        if j.get("status") == "done":
+            n_done += 1
+        elif j.get("status") == "error":
+            n_failed += 1
+
+    # Update done/failed/status si évolution
+    new_status = batch.get("status", "running")
+    if n_done + n_failed >= len(sub_job_ids):
+        new_status = "done" if n_failed == 0 else "partial"
+    if n_done != batch.get("done") or n_failed != batch.get("failed") or new_status != batch.get("status"):
+        try:
+            _httpx.patch(
+                f"{_surl}/rest/v1/batch_jobs?id=eq.{batch_id}",
+                headers={"apikey": _skey, "Authorization": f"Bearer {_skey}",
+                         "Content-Type": "application/json"},
+                json={"done": n_done, "failed": n_failed, "status": new_status,
+                      "finished_at": datetime.now(timezone.utc).isoformat()
+                                      if new_status != "running" else None},
+                timeout=3.0,
+            )
+        except Exception:
+            pass
+
+    return {
+        "batch_id": batch_id,
+        "label": batch.get("label"),
+        "status": new_status,
+        "total": batch.get("total"),
+        "done": n_done,
+        "failed": n_failed,
+        "sub_jobs": sub_jobs,
+    }
+
+
 # ─── Watchlists CRUD ──────────────────────────────────────────────────────
 class WatchlistCreate(BaseModel):
     name: str = Field(..., max_length=80)

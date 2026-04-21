@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
-import { Star, Plus, Trash2, X, ListPlus, ChevronDown, ChevronRight } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Star, Plus, Trash2, X, ListPlus, ChevronDown, ChevronRight, Zap } from "lucide-react";
 import toast from "react-hot-toast";
 import { createClient } from "@/lib/supabase/client";
 import { BackButton } from "@/components/back-button";
@@ -201,8 +202,32 @@ function WatchlistCard({
   onDelete: () => void;
   onChange: () => void;
 }) {
+  const router = useRouter();
   const [adding, setAdding] = useState(false);
   const [newTicker, setNewTicker] = useState("");
+  const [batching, setBatching] = useState(false);
+
+  async function batchAnalyze() {
+    const tickers = (wl.watchlist_tickers || []).map((t) => t.ticker);
+    if (tickers.length === 0) {
+      toast.error("Aucun ticker dans cette watchlist");
+      return;
+    }
+    setBatching(true);
+    try {
+      const res = await api<{ batch_id: string }>("POST", "/batch/societes", {
+        tickers,
+        label: `Watchlist ${wl.name}`,
+      });
+      toast.success(`Batch lancé : ${tickers.length} analyses en parallèle`);
+      router.push(`/batch/${res.batch_id}`);
+    } catch (e) {
+      toast.error("Lancement batch échoué");
+      console.warn(e);
+    } finally {
+      setBatching(false);
+    }
+  }
 
   async function addTicker() {
     const tk = newTicker.trim().toUpperCase();
@@ -256,14 +281,28 @@ function WatchlistCard({
             {wl.watchlist_tickers?.length || 0} ticker{(wl.watchlist_tickers?.length || 0) > 1 ? "s" : ""}
           </span>
         </button>
-        <button
-          type="button"
-          onClick={onDelete}
-          className="p-1.5 text-ink-400 hover:text-signal-sell rounded transition-colors"
-          title="Supprimer la watchlist"
-        >
-          <Trash2 className="w-3.5 h-3.5" />
-        </button>
+        <div className="flex items-center gap-2">
+          {(wl.watchlist_tickers?.length || 0) > 0 && (
+            <button
+              type="button"
+              onClick={batchAnalyze}
+              disabled={batching}
+              className="inline-flex items-center gap-1.5 text-xs font-semibold bg-navy-500 hover:bg-navy-600 disabled:bg-ink-200 text-white px-2.5 py-1.5 rounded transition-colors"
+              title={`Lancer ${wl.watchlist_tickers.length} analyses en parallèle`}
+            >
+              <Zap className="w-3 h-3" />
+              {batching ? "Lancement…" : `Analyser tous (${wl.watchlist_tickers.length})`}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={onDelete}
+            className="p-1.5 text-ink-400 hover:text-signal-sell rounded transition-colors"
+            title="Supprimer la watchlist"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+        </div>
       </div>
 
       {expanded && (
