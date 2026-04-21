@@ -67,27 +67,118 @@ const SHIPPED: RoadmapItem[] = [
     date: "Avril 2026",
     status: "shipped",
   },
+  {
+    title: "Mode édition dashboard (V2 fonctionnel)",
+    description:
+      "Drag & drop réel des blocs via react-grid-layout. Layout persisté par utilisateur dans localStorage. Resize visuel. Activable via Ctrl+Alt+E.",
+    date: "Avril 2026",
+    status: "shipped",
+  },
+  {
+    title: "Comptes utilisateurs + historique d'analyses",
+    description:
+      "Sauvegarde des analyses dans Supabase, sidebar latérale avec historique renommable, favoris (étoiles), suppression. Ré-ouverture instantanée sans relancer le pipeline.",
+    date: "Avril 2026",
+    status: "shipped",
+  },
+  {
+    title: "Multi-clés Groq + LLM cascade enrichi",
+    description:
+      "Rotation automatique entre plusieurs clés Groq + cascade Mistral Large → Cerebras Qwen → Anthropic Haiku → Gemini en fallback. Plus aucun blocage rate limit.",
+    date: "Avril 2026",
+    status: "shipped",
+  },
+  {
+    title: "API publique v1 (pay-per-use)",
+    description:
+      "Endpoints documentés (snapshot, ratios, analyse, livrables) avec authentification clé fsk_*, rate limits Redis 30/min — 1000/jour, tarification 0,05–2 €/appel.",
+    date: "Avril 2026",
+    status: "shipped",
+  },
+  {
+    title: "Extension Chrome \"Analyser sur FinSight\"",
+    description:
+      "Bouton injecté sur Yahoo Finance, TradingView, Boursorama, Investing, Bloomberg, MarketWatch, Seeking Alpha. Détection auto du ticker, 1 clic = analyse complète.",
+    date: "Avril 2026",
+    status: "shipped",
+  },
+  {
+    title: "PWA installable + mobile responsive",
+    description:
+      "FinSight installable comme app native (iOS, Android, Windows). Manifest + service worker. Pages lecture optimisées smartphone (share, vitrine, résultats).",
+    date: "Avril 2026",
+    status: "shipped",
+  },
+  {
+    title: "Système de rappels post-analyse",
+    description:
+      "6 triggers : prix cible, earnings, dividende, news, date custom, résultats trimestriels. Notification email (Resend) + push browser (VAPID/pywebpush).",
+    date: "Avril 2026",
+    status: "shipped",
+  },
+  {
+    title: "Partage public d'analyse",
+    description:
+      "URL publique partageable + boutons LinkedIn / Reddit / Facebook / Gmail / Copy. Growth loop : 10 partages LinkedIn = 3 analyses gratuites.",
+    date: "Avril 2026",
+    status: "shipped",
+  },
+  {
+    title: "FEC parser (B2B comptable français)",
+    description:
+      "Import du Fichier des Écritures Comptables (arrêté 29 juillet 2013), reconstruction P&L et bilan depuis le PCG, base pour intégrations Pennylane / Sage.",
+    date: "Avril 2026",
+    status: "shipped",
+  },
+  {
+    title: "Système Sentinelle (monitoring prod auto)",
+    description:
+      "Capture automatique des erreurs pipeline (table pipeline_errors), déduplication 1h, wake-up Claude Code via routine sur incident — diagnostic + fix sans intervention humaine.",
+    date: "Avril 2026",
+    status: "shipped",
+  },
+  {
+    title: "Stripe intégration + plans payants",
+    description:
+      "Checkout Stripe en live, customer portal, webhooks pour synchronisation des abonnements. Plans Découverte gratuit, Essentiel 34,99€, Pro 44,99€, Équipe 199€/siège, Enterprise 299–499€/siège.",
+    date: "Avril 2026",
+    status: "shipped",
+  },
+  {
+    title: "RGPD + CGU + cookies + mentions légales",
+    description:
+      "Banner cookies conforme, droit à l'oubli (art.17), portabilité (art.20 export JSON), CGU complètes, charte de confidentialité, mentions légales. Audit complet réalisé.",
+    date: "Avril 2026",
+    status: "shipped",
+  },
+  {
+    title: "Mode sombre + i18n 6 langues",
+    description:
+      "Dark mode avec logo blanc adapté. Interface et livrables (PDF/PPTX/XLSX) traduits en FR, EN, ES, DE, IT, PT. Conversion devise live (EUR/USD/GBP/CHF/JPY/CAD).",
+    date: "Avril 2026",
+    status: "shipped",
+  },
 ];
 
 const WIP: RoadmapItem[] = [
   {
-    title: "Mode édition (V2 fonctionnel)",
-    description:
-      "Drag & drop réel des blocs du dashboard. Resize. Layout persisté côté serveur. Devient le standard pour tous les utilisateurs.",
-    date: "Q2 2026",
-    status: "wip",
-  },
-  {
     title: "Streaming des réponses LLM (SSE)",
     description:
-      "Affichage progressif des synthèses LLM au lieu d'attendre la fin. UX premium type ChatGPT.",
+      "Affichage progressif des synthèses LLM au lieu d'attendre la fin. UX premium type ChatGPT pour les sections éditoriales longues.",
     date: "Q2 2026",
     status: "wip",
   },
   {
-    title: "Multi-clés Groq (rotation N comptes)",
+    title: "Bibliothèque de blocs additionnels (palette)",
     description:
-      "Rotation automatique entre plusieurs clés API Groq pour éviter les rate limits aux heures de pointe.",
+      "Permettre à l'utilisateur d'ajouter / remplacer des blocs depuis une palette : compte de résultat simplifié, bilan agrégé, performance ETF vs paniers, calendrier earnings, etc.",
+    date: "Q2 2026",
+    status: "wip",
+  },
+  {
+    title: "Connecteurs Pennylane et Sage",
+    description:
+      "Import direct des comptes via API Pennylane et Sage Cloud (suite logique du parser FEC). Permet aux cabinets comptables d'analyser leurs clients en un clic.",
     date: "Q2 2026",
     status: "wip",
   },
@@ -97,43 +188,50 @@ const PLANNED: RoadmapItem[] = [
   {
     title: "Portrait d'entreprise non cotées (Pappers V2)",
     description:
-      "Branchement à Pappers V2 pour analyser les 3,5 millions d'entreprises françaises non cotées : PME, ETI, deals M&A.",
+      "Branchement à Pappers V2 pour analyser les 3,5 millions d'entreprises françaises non cotées : PME, ETI, deals M&A. Disponible Q2 2026.",
     date: "Q2 2026",
     status: "planned",
   },
   {
-    title: "Comptes utilisateurs persistants + watchlists",
+    title: "Watchlists + alertes prix consolidées",
     description:
-      "Historique d'analyses sauvegardé, watchlists personnalisées, partage de pitchbooks (plan Pro).",
-    date: "Courant 2026",
-    status: "planned",
-  },
-  {
-    title: "API publique pay-per-use",
-    description:
-      "API REST documentée pour intégrer FinSight dans des outils tiers. 0,05–2 € par appel selon complexité.",
-    date: "Courant 2026",
-    status: "planned",
-  },
-  {
-    title: "Connecteurs comptables (Pennylane, Sage, FEC)",
-    description:
-      "Import direct des comptes pour analyses sur sociétés non cotées et tableaux de bord client (cabinets comptables).",
+      "Watchlists thématiques (ex: \"Luxe européen\", \"Cloud US\"), alertes prix configurables par ticker, dashboard de suivi quotidien.",
     date: "Courant 2026",
     status: "planned",
   },
   {
     title: "Score FinSight propriétaire",
     description:
-      "Note d'investissement composite (qualité, valorisation, momentum, gouvernance). Vocation : signal alternatif de référence.",
+      "Note d'investissement composite (qualité, valorisation, momentum, gouvernance). Vocation : signal alternatif de référence pour gérants et family offices.",
     date: "Fin 2026",
     status: "planned",
   },
   {
-    title: "White-label Enterprise",
+    title: "Dataset FinSight Trends (signal alternatif)",
     description:
-      "Personnalisation complète (logo, charte) pour banques, conseillers, cabinets. Déploiement on-premise possible.",
+      "Stockage anonymisé des tickers/secteurs analysés → dataset vendable aux hedge funds. Signal d'attention investisseur retail/PME en temps réel.",
     date: "Fin 2026",
+    status: "planned",
+  },
+  {
+    title: "White-label Enterprise + on-premise",
+    description:
+      "Personnalisation complète (logo, charte, sous-domaine) pour banques, conseillers, cabinets. Déploiement on-premise via Docker Compose pour les exigences de souveraineté.",
+    date: "Fin 2026",
+    status: "planned",
+  },
+  {
+    title: "Bibliothèque comptable simplifiée (CR + bilan)",
+    description:
+      "Compte de résultat simplifié et bilan agrégé sectoriel directement dans l'interface post-analyse, calculés à partir des consolidés des sociétés couvertes.",
+    date: "Q3 2026",
+    status: "planned",
+  },
+  {
+    title: "Mode collaboratif équipe",
+    description:
+      "Espaces partagés multi-utilisateurs, commentaires sur les analyses, annotations sur les livrables, workflow d'approbation pour les comités d'investissement.",
+    date: "Q3 2026",
     status: "planned",
   },
 ];

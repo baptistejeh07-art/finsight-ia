@@ -9,13 +9,14 @@ FinSight est une plateforme d'analyse financière institutionnelle propulsée pa
 
 PIPELINE TECHNIQUE
 Sept agents orchestrés via LangGraph :
-1. AgentData — multi-sources (yfinance principal, Finnhub pour les news, FMP en fallback) avec normalisation Pydantic.
+1. AgentData — multi-sources (yfinance principal, Finnhub pour les news, FMP en fallback, Pappers pour les non cotées FR, INPI RNE pour les comptes B2B) avec normalisation Pydantic.
 2. AgentQuant — calculs déterministes en Python : WACC, DCF, ratios. Aucun chiffre généré par LLM.
-3. AgentSynthese — commentaire éditorial via Groq llama-3.3-70b (fallback Anthropic Haiku 4.5).
+3. AgentSynthese — commentaire éditorial via cascade Groq llama-3.3-70b → Mistral Large → Cerebras Qwen → Anthropic Haiku 4.5 → Gemini 2.0 Flash en fallback. Multi-clés pour éviter rate limits.
 4. AgentQA Python + Haiku — vérifications croisées des sorties.
 5. AgentDevil — thèse inverse systématique, ajuste la conviction.
 6. Quatre agents de gouvernance — constitution stricte, ChromaDB pour la mémoire vectorielle.
 7. Output writers — ReportLab (PDF), python-pptx (PPTX), openpyxl (Excel).
+Cache distribué Redis pour yfinance et ratios. Système Sentinelle pour monitoring prod auto.
 
 DONNÉES
 yfinance gratuit (5 ans d'historique max), Finnhub pour les news (10 articles), FMP en fallback US, FinBERT local pour le sentiment. Aucune donnée client n'est utilisée pour entraîner les modèles.
@@ -28,8 +29,13 @@ TARIFS
 - Enterprise : 299–499 €/siège/mois négocié, on-premise possible, white-label complet.
 - API pay-per-use : 0,05 € (data), 0,50 € (analyse complète), 2 € (livrables PDF/PPTX/XLSX).
 
-ROADMAP
-Q2 2026 : portrait d'entreprise via Pappers V2 (sociétés non cotées). Courant 2026 : comptes utilisateurs persistants, watchlists, partage. Fin 2026 : Score FinSight propriétaire (note composite qualité/valorisation/momentum/gouvernance).
+RÉCEMMENT LIVRÉ (avril 2026)
+Comptes utilisateurs persistants avec historique renommable, favoris, partage URL public LinkedIn/Reddit/Facebook/Gmail. Mode édition dashboard V2 drag & drop. API publique v1 pay-per-use (auth fsk_*, rate limits Redis). Extension Chrome (Yahoo/TradingView/Boursorama/Investing/Bloomberg/MarketWatch/Seeking Alpha). PWA installable + mobile responsive. Système de rappels post-analyse (6 triggers, email + push browser). Stripe en live. RGPD/CGU/cookies complets. Dark mode + i18n 6 langues + 6 devises. FEC parser (B2B2B comptable français). Système Sentinelle pour monitoring prod auto.
+
+ROADMAP À VENIR
+Q2 2026 : portrait d'entreprise via Pappers V2 (3,5M sociétés non cotées FR), connecteurs Pennylane/Sage, streaming SSE des LLM, bibliothèque de blocs additionnels.
+Q3 2026 : compte de résultat / bilan agrégés sectoriels, mode collaboratif équipe.
+Fin 2026 : Score FinSight propriétaire (note composite qualité/valorisation/momentum/gouvernance), dataset FinSight Trends (signal alternatif hedge funds), white-label Enterprise + on-premise.
 
 UNIVERS COUVERT
 ≈ 50 000 tickers cotés (NYSE, Nasdaq, Euronext, LSE, XETRA, etc.), indices majeurs (CAC 40, S&P 500, Euro Stoxx 50, etc.), analyses sectorielles. Sociétés non cotées via Pappers à partir du Q2 2026.
