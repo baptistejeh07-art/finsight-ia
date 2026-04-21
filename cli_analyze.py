@@ -785,7 +785,28 @@ def _compute_piotroski(stock) -> int | None:
     Efficacite     F8-F9 : ΔGross Margin>0, ΔAsset Turnover>0
 
     Retourne score 0-9 ou None si moins de 6 criteres evaluables.
+
+    Perf prod (Bug #118) :
+    - Cache Redis 24h par ticker (clé piotroski:{ticker}) — les états annuels
+      bougent 4 fois/an max, inutile de refetch
+    - Env var DISABLE_PIOTROSKI=1 permet de skip complètement (fallback cold cache)
     """
+    import os as _os
+    if _os.getenv("DISABLE_PIOTROSKI", "").lower() in ("1", "true", "yes"):
+        return None
+
+    # Cache Redis — clé par ticker
+    _tk = getattr(stock, "ticker", None) or getattr(stock, "_ticker", None) or ""
+    if _tk:
+        try:
+            from core.cache import cache as _cache
+            cached = _cache.get(f"piotroski:{_tk}")
+            if cached is not None:
+                return int(cached) if cached != "null" else None
+        except Exception:
+            pass
+
+    result = None
     try:
         import pandas as pd
         # Compatibilite yfinance ancien/nouveau API (pas de 'or' sur DataFrame)
@@ -875,9 +896,19 @@ def _compute_piotroski(stock) -> int | None:
                 rev1 is not None and ta1 and ta1 != 0):
             f += 1 if rev0/ta0 > rev1/ta1 else 0;  n += 1  # F9: ΔAsset Turnover > 0
 
-        return f if n >= 6 else None
+        result = f if n >= 6 else None
     except Exception:
-        return None
+        result = None
+
+    # Cache Redis 24h (états financiers annuels bougent 4×/an max)
+    if _tk:
+        try:
+            from core.cache import cache as _cache
+            _cache.set(f"piotroski:{_tk}", str(result) if result is not None else "null",
+                       ttl_seconds=86400)
+        except Exception:
+            pass
+    return result
 
 
 def _fetch_portfolio_var(symbols: list[str], market_caps: dict[str, float]) -> dict:
