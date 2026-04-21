@@ -6,8 +6,13 @@ import { useEffect, useState, type ReactNode } from "react";
 const RGL = require("react-grid-layout");
 const ResponsiveReactGridLayout = RGL.WidthProvider(RGL.Responsive);
 
+import { Plus } from "lucide-react";
 import { useEditMode } from "@/components/edit-mode-provider";
 import { useI18n } from "@/i18n/provider";
+import { ChartPickerModal } from "./chart-picker-modal";
+import { renderChart } from "./chart-catalog-renderer";
+import type { ChartDef, ChartKind } from "@/lib/chart-catalog";
+import type { AnalysisData } from "./types";
 
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
@@ -16,6 +21,12 @@ const DEFAULT_STORAGE_KEY = "finsight-dashboard-grid-layout-v2";
 
 type LayoutItem = { i: string; x: number; y: number; w: number; h: number; minW?: number; minH?: number };
 type Layouts = { [breakpoint: string]: LayoutItem[] };
+
+interface AddedChart {
+  id: string;
+  componentId: string;
+  label: string;
+}
 
 export interface GridBlock {
   id: string;
@@ -40,16 +51,27 @@ export interface GridBlock {
 export function EditableGrid({
   blocks,
   storageKey,
+  analysisKind,
+  analysisData,
+  analysisTicker,
 }: {
   blocks: GridBlock[];
   storageKey?: string;
+  /** Kind d'analyse pour filtrer le catalogue de charts ajoutables. */
+  analysisKind?: ChartKind;
+  /** Data d'analyse pour resolve le rendu des charts ajoutes et filtrer requiredDataKey. */
+  analysisData?: AnalysisData;
+  analysisTicker?: string;
 }) {
   const STORAGE_KEY = storageKey || DEFAULT_STORAGE_KEY;
   const HIDDEN_KEY = STORAGE_KEY + ":hidden";
+  const ADDED_KEY = STORAGE_KEY + ":added";
   const { enabled } = useEditMode();
   const { t } = useI18n();
   const [layouts, setLayouts] = useState<Layouts>({});
   const [hidden, setHidden] = useState<Set<string>>(new Set());
+  const [added, setAdded] = useState<AddedChart[]>([]);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [hydrated, setHydrated] = useState(false);
 
   function buildFallback(): LayoutItem[] {
@@ -71,6 +93,8 @@ export function EditableGrid({
       if (raw) saved = JSON.parse(raw);
       const hraw = localStorage.getItem(HIDDEN_KEY);
       if (hraw) setHidden(new Set(JSON.parse(hraw)));
+      const araw = localStorage.getItem(ADDED_KEY);
+      if (araw) setAdded(JSON.parse(araw) as AddedChart[]);
     } catch {
       /* no-op */
     }
@@ -149,8 +173,46 @@ export function EditableGrid({
     });
   }
 
-  const visibleBlocks = blocks.filter((b) => !hidden.has(b.id));
-  const hiddenBlocks = blocks.filter((b) => hidden.has(b.id));
+  // Convertit les charts ajoutes via le picker en GridBlock renderables
+  const addedBlocks: GridBlock[] = added.map((a) => ({
+    id: a.id,
+    label: a.label,
+    render: () =>
+      renderChart(a.componentId, {
+        data: analysisData,
+        ticker: analysisTicker,
+        kind: analysisKind,
+      }),
+  }));
+
+  const allBlocks: GridBlock[] = [...blocks, ...addedBlocks];
+
+  function handlePick(chart: ChartDef) {
+    const id = `added-${chart.id}-${Date.now().toString(36)}`;
+    const w = chart.defaultSize?.w ?? 6;
+    const h = chart.defaultSize?.h ?? 6;
+    // Place en bas du layout actuel
+    const maxY = Math.max(
+      0,
+      ...(layouts.lg?.map((l) => l.y + l.h) ?? [0])
+    );
+    const newItem: LayoutItem = { i: id, x: 0, y: maxY, w, h, minW: 2, minH: 2 };
+    const nextLayouts: Layouts = { ...layouts, lg: [...(layouts.lg || []), newItem] };
+    setLayouts(nextLayouts);
+    const nextAdded = [...added, { id, componentId: chart.componentId, label: chart.label }];
+    setAdded(nextAdded);
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(nextLayouts));
+      localStorage.setItem(ADDED_KEY, JSON.stringify(nextAdded));
+    } catch {}
+    setPickerOpen(false);
+  }
+
+  const visibleBlocks = allBlocks.filter((b) => !hidden.has(b.id));
+  const hiddenBlocks = allBlocks.filter((b) => hidden.has(b.id));
+  const existingChartIds = new Set(
+    added.map((a) => a.componentId)
+  );
 
   if (!hydrated) {
     return <div className="text-xs text-ink-500">{t("grid.loading_layout")}</div>;
@@ -163,13 +225,35 @@ export function EditableGrid({
           <span className="text-amber-700 font-medium">
             {t("grid.edit_hint")} · Clique × pour masquer un bloc.
           </span>
-          <button
-            onClick={reset}
-            className="text-xs px-3 py-1 rounded border border-amber-400 text-amber-700 hover:bg-amber-50 transition-colors"
-          >
-            {t("grid.reset_layout")}
-          </button>
+          <div className="flex items-center gap-2">
+            {analysisKind && (
+              <button
+                onClick={() => setPickerOpen(true)}
+                className="text-xs px-3 py-1 rounded border border-navy-500 text-navy-700 hover:bg-navy-50 transition-colors flex items-center gap-1.5 font-medium"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Ajouter un graphique
+              </button>
+            )}
+            <button
+              onClick={reset}
+              className="text-xs px-3 py-1 rounded border border-amber-400 text-amber-700 hover:bg-amber-50 transition-colors"
+            >
+              {t("grid.reset_layout")}
+            </button>
+          </div>
         </div>
+      )}
+
+      {analysisKind && (
+        <ChartPickerModal
+          open={pickerOpen}
+          onClose={() => setPickerOpen(false)}
+          kind={analysisKind}
+          data={analysisData}
+          existingIds={existingChartIds}
+          onPick={handlePick}
+        />
       )}
 
       {enabled && hiddenBlocks.length > 0 && (
