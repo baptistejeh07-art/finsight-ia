@@ -2536,6 +2536,132 @@ async def delete_history(
 
 # ─── Historique user ────────────────────────────────────────────────────────
 
+# ─── Watchlists CRUD ──────────────────────────────────────────────────────
+class WatchlistCreate(BaseModel):
+    name: str = Field(..., max_length=80)
+    description: Optional[str] = Field(None, max_length=300)
+    color: Optional[str] = Field("navy", max_length=20)
+
+
+class WatchlistTickerAdd(BaseModel):
+    ticker: str = Field(..., max_length=15)
+    company_name: Optional[str] = Field(None, max_length=120)
+
+
+def _wl_supabase_call(method: str, path: str, user_token: str,
+                      body: Optional[dict] = None) -> tuple[int, dict]:
+    """Helper : appel Supabase REST authentifié comme l'utilisateur (RLS auto)."""
+    import httpx as _httpx
+    import os as _os
+    _surl = _os.getenv("SUPABASE_URL", "").rstrip("/")
+    _anon = _os.getenv("SUPABASE_ANON_KEY") or _os.getenv("SUPABASE_KEY") or ""
+    headers = {
+        "apikey": _anon,
+        "Authorization": f"Bearer {user_token}",
+        "Content-Type": "application/json",
+        "Prefer": "return=representation",
+    }
+    try:
+        r = _httpx.request(method, f"{_surl}/rest/v1{path}", headers=headers,
+                           json=body, timeout=8.0)
+        try:
+            return r.status_code, r.json() if r.text else {}
+        except Exception:
+            return r.status_code, {"raw": r.text[:300]}
+    except Exception as e:
+        return 500, {"error": str(e)}
+
+
+@app.get("/watchlists")
+async def list_watchlists(
+    request: Request,
+    user: Annotated[dict, Depends(require_user)],
+):
+    """Liste les watchlists du user + tickers groupés."""
+    token = (request.headers.get("authorization", "")
+             .replace("Bearer ", "").strip())
+    s, wls = _wl_supabase_call("GET",
+        "/watchlists?select=id,name,description,color,created_at,updated_at,"
+        "watchlist_tickers(id,ticker,company_name,position)"
+        "&order=updated_at.desc",
+        token)
+    if s >= 400:
+        raise HTTPException(status_code=s, detail=wls)
+    return {"watchlists": wls}
+
+
+@app.post("/watchlists", status_code=201)
+async def create_watchlist(
+    payload: WatchlistCreate,
+    request: Request,
+    user: Annotated[dict, Depends(require_user)],
+):
+    token = (request.headers.get("authorization", "")
+             .replace("Bearer ", "").strip())
+    s, rows = _wl_supabase_call("POST", "/watchlists", token, {
+        "user_id": user["id"],
+        "name": payload.name,
+        "description": payload.description,
+        "color": payload.color or "navy",
+    })
+    if s >= 400:
+        raise HTTPException(status_code=s, detail=rows)
+    return {"watchlist": (rows or [None])[0] if isinstance(rows, list) else rows}
+
+
+@app.delete("/watchlists/{wl_id}", status_code=204)
+async def delete_watchlist(
+    wl_id: str,
+    request: Request,
+    user: Annotated[dict, Depends(require_user)],
+):
+    token = (request.headers.get("authorization", "")
+             .replace("Bearer ", "").strip())
+    s, _ = _wl_supabase_call("DELETE", f"/watchlists?id=eq.{wl_id}", token)
+    if s >= 400:
+        raise HTTPException(status_code=s, detail="Échec suppression")
+
+
+@app.post("/watchlists/{wl_id}/tickers", status_code=201)
+async def add_ticker(
+    wl_id: str,
+    payload: WatchlistTickerAdd,
+    request: Request,
+    user: Annotated[dict, Depends(require_user)],
+):
+    token = (request.headers.get("authorization", "")
+             .replace("Bearer ", "").strip())
+    s, rows = _wl_supabase_call("POST", "/watchlist_tickers", token, {
+        "watchlist_id": wl_id,
+        "ticker": payload.ticker.upper().strip(),
+        "company_name": payload.company_name,
+    })
+    if s >= 400:
+        # Conflit unique = ticker déjà présent → 409
+        if "duplicate" in str(rows).lower() or "unique" in str(rows).lower():
+            raise HTTPException(status_code=409, detail="Ticker déjà dans cette watchlist")
+        raise HTTPException(status_code=s, detail=rows)
+    return {"ticker": (rows or [None])[0] if isinstance(rows, list) else rows}
+
+
+@app.delete("/watchlists/{wl_id}/tickers/{ticker}", status_code=204)
+async def remove_ticker(
+    wl_id: str,
+    ticker: str,
+    request: Request,
+    user: Annotated[dict, Depends(require_user)],
+):
+    token = (request.headers.get("authorization", "")
+             .replace("Bearer ", "").strip())
+    s, _ = _wl_supabase_call(
+        "DELETE",
+        f"/watchlist_tickers?watchlist_id=eq.{wl_id}&ticker=eq.{ticker.upper()}",
+        token,
+    )
+    if s >= 400:
+        raise HTTPException(status_code=s, detail="Échec suppression ticker")
+
+
 @app.get("/history")
 async def get_history(user: Annotated[dict, Depends(require_user)]):
     """Historique des analyses du user connecté.

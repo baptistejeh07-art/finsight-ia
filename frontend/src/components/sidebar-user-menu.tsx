@@ -12,6 +12,7 @@ import {
   Mail,
   LogIn,
   UserPlus,
+  Star,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
@@ -174,6 +175,12 @@ export function SidebarUserMenu() {
             />
           )}
 
+          <MenuItem
+            href="/watchlists"
+            icon={<Star className="w-4 h-4 text-amber-500" />}
+            label="Mes watchlists"
+            onNavigate={() => setOpen(false)}
+          />
           <MenuItem
             href="/parametres"
             icon={<Settings className="w-4 h-4" />}
