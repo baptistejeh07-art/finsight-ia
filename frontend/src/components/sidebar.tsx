@@ -219,7 +219,12 @@ export function Sidebar() {
               )}
               {files.pdf && (
                 <DownloadLink
-                  href={fileUrl(files.pdf)}
+                  onClick={() =>
+                    forceDownloadClient(
+                      fileUrl(files.pdf!, true),
+                      `${ticker || "analyse"}.pdf`,
+                    )
+                  }
                   icon={<FileText className="w-3.5 h-3.5" />}
                   label={`${t("nav.pdf_report")} ${ticker} `}
                   ext=".pdf"
