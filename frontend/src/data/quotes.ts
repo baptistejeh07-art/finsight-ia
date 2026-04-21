@@ -83,4 +83,5 @@ export const QUOTES: Quote[] = [
   { text: "Le coût d'opportunité est l'arme cachée du capital allocator. La vraie question n'est jamais 'est-ce bon ?' mais 'est-ce le meilleur ?'", author: "— Charlie Munger" },
   { text: "Trouvez les domaines où vous avez un avantage informationnel ou interprétatif — et restez-y.", author: "— Howard Marks · The Most Important Thing" },
   { text: "Les comptes annuels racontent l'histoire passée. La capacité de génération de cash raconte l'avenir.", author: "— Tim Koller · Valuation, McKinsey" },
+  { text: "FinSight est plus qu'un projet d'étudiant — c'est une réponse à l'asymétrie d'information.", author: "— Fondateur FinSight" },
 ];

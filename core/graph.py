@@ -503,9 +503,9 @@ def output_node(state: FinSightState) -> dict:
     _lang     = state.get("language") or "fr"
     _ccy      = state.get("currency") or "EUR"
 
-    # ── Score FinSight propriétaire (note 0-100 composite) ──
-    # Qualité + Valorisation + Momentum + Gouvernance.
-    # Calculé AVANT les writers pour pouvoir l'afficher dans PDF/PPTX.
+    # ── Score FinSight propriétaire (note 0-100 composite) v1.1 ──
+    # Qualité + Valorisation + Momentum + Gouvernance, 6 facteurs nouveaux
+    # (Beneish M, EPS revisions, short, insider, institutional holdings).
     finsight_score = None
     try:
         from core.finsight_score import compute_score
@@ -517,7 +517,9 @@ def output_node(state: FinSightState) -> dict:
                 "pe_ratio", "ev_ebitda", "ev_revenue", "roe", "roic",
                 "ebitda_margin", "net_margin", "gross_margin",
                 "revenue_growth", "fcf_yield", "div_yield", "payout_ratio",
-                "altman_z", "piotroski_f", "net_debt_ebitda", "momentum_52w",
+                "altman_z", "piotroski_f", "beneish_m",
+                "net_debt_ebitda", "momentum_52w",
+                "shares_change_pct", "earnings_growth",
             )
         } if latest_ratios else {}
         market_dict = {
@@ -525,9 +527,29 @@ def output_node(state: FinSightState) -> dict:
             "beta_levered": getattr(snapshot.market, "beta_levered", None) if snapshot else None,
             "dividend_yield": getattr(snapshot.market, "dividend_yield", None) if snapshot else None,
         }
-        finsight_score = compute_score(ratio_dict, market_dict)
-        log.info(f"[output_node] FinSight Score = {finsight_score['global']}/100 "
-                 f"({finsight_score['grade']}) — {finsight_score['verdict']}")
+        # info brut yfinance pour facteurs additionnels v1.1 :
+        # shortPercentOfFloat, heldPercentInsiders, heldPercentInstitutions,
+        # earningsQuarterlyGrowth. Stocké dans snapshot.meta si AgentData l'a
+        # exposé, sinon None tolérant.
+        info_dict = {}
+        try:
+            _meta = getattr(snapshot, "meta", {}) or {}
+            _yfi = _meta.get("yfinance_info") or {}
+            info_dict = {
+                "shortPercentOfFloat": _yfi.get("shortPercentOfFloat"),
+                "shortRatio": _yfi.get("shortRatio"),
+                "heldPercentInsiders": _yfi.get("heldPercentInsiders"),
+                "heldPercentInstitutions": _yfi.get("heldPercentInstitutions"),
+                "earningsQuarterlyGrowth": _yfi.get("earningsQuarterlyGrowth"),
+                "earningsGrowth": _yfi.get("earningsGrowth"),
+            }
+        except Exception:
+            pass
+        finsight_score = compute_score(ratio_dict, market_dict,
+                                        sector_analytics=None, info=info_dict)
+        log.info(f"[output_node] FinSight Score v{finsight_score.get('version','v1')} = "
+                 f"{finsight_score['global']}/100 ({finsight_score['grade']}) — "
+                 f"{finsight_score['verdict']}")
     except Exception as _se:
         log.warning(f"[output_node] FinSight Score skip : {_se}")
 
