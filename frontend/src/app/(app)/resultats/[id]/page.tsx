@@ -33,6 +33,8 @@ import { EditableGrid, type GridBlock } from "@/components/dashboard/editable-gr
 import { SectorTickersTable } from "@/components/dashboard/sector-tickers-table";
 import { SectorMktCapDonut } from "@/components/dashboard/sector-mktcap-donut";
 import { IndiceSectorsDonut } from "@/components/dashboard/indice-sectors-donut";
+import { SectorPortraitCard } from "@/components/dashboard/sector-portrait-card";
+import { SectorCompareLauncher } from "@/components/dashboard/sector-compare-launcher";
 import { IndiceSecteursTable } from "@/components/dashboard/indice-secteurs-table";
 import { SaveToHistoryCard } from "@/components/dashboard/save-to-history-card";
 import { ShareCard } from "@/components/dashboard/share-card";
@@ -459,39 +461,41 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
             <EditableGrid
               storageKey={`finsight-dashboard-grid-${kind}-v1`}
               blocks={[
-                {
-                  id: "description",
-                  label: t("results.block_description"),
-                  default: { x: 0, y: 0, w: 8, h: 4 },
-                  render: () => {
-                    // Synthèse dynamique calculée par le backend (sector_summary
-                    // / indice_summary). Fallback sur i18n si non disponible.
-                    const dynamicSummary =
-                      kind === "secteur"
-                        ? result.data?.sector_summary
-                        : kind === "indice"
-                        ? result.data?.indice_summary
-                        : null;
-                    const fallback =
-                      kind === "indice"
-                        ? t("results.synthesis_indice_desc")
-                        : kind === "comparatif"
-                        ? t("results.synthesis_comparison_desc")
-                        : kind === "pme"
-                        ? t("results.synthesis_pme_desc")
-                        : t("results.synthesis_sector_desc");
-                    return (
-                      <div className="bg-navy-50 border border-navy-200 rounded-md p-5 h-full overflow-auto">
-                        <div className="text-[10px] font-semibold uppercase tracking-[1.5px] text-navy-700 mb-2">
-                          {t("results.block_synthesis")}
-                        </div>
-                        <p className="text-sm text-ink-700 leading-relaxed">
-                          {dynamicSummary || fallback}
-                        </p>
-                      </div>
-                    );
-                  },
-                },
+                // Description générique : uniquement pour indice/comparatif/pme
+                // (le secteur a son propre SectorPortraitCard plus riche).
+                ...(kind !== "secteur"
+                  ? [
+                      {
+                        id: "description",
+                        label: t("results.block_description"),
+                        default: { x: 0, y: 0, w: 8, h: 4 },
+                        render: () => {
+                          const dynamicSummary =
+                            kind === "indice"
+                              ? result.data?.indice_summary
+                              : null;
+                          const fallback =
+                            kind === "indice"
+                              ? t("results.synthesis_indice_desc")
+                              : kind === "comparatif"
+                              ? t("results.synthesis_comparison_desc")
+                              : kind === "pme"
+                              ? t("results.synthesis_pme_desc")
+                              : t("results.synthesis_sector_desc");
+                          return (
+                            <div className="bg-navy-50 border border-navy-200 rounded-md p-5 h-full overflow-auto">
+                              <div className="text-[10px] font-semibold uppercase tracking-[1.5px] text-navy-700 mb-2">
+                                {t("results.block_synthesis")}
+                              </div>
+                              <p className="text-sm text-ink-700 leading-relaxed">
+                                {dynamicSummary || fallback}
+                              </p>
+                            </div>
+                          );
+                        },
+                      } satisfies GridBlock,
+                    ]
+                  : []),
                 {
                   id: "qa",
                   label: t("results.block_qa"),
@@ -571,13 +575,65 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
                   render: () => <DocumentUploadBox analysisId={id} />,
                 } satisfies GridBlock,
                 // Downloads PDF/PPTX/XLSX : dans la sidebar uniquement (Baptiste)
+                // Bloc secteur : Portrait (HHI + PE + ROIC narratif)
+                ...(kind === "secteur"
+                  ? [
+                      {
+                        id: "sector-portrait",
+                        label: "Portrait secteur",
+                        default: { x: 0, y: 0, w: 8, h: 6 },
+                        render: () => (
+                          <SectorPortraitCard
+                            sector={result.data?.sector}
+                            universe={result.data?.universe}
+                            summary={result.data?.sector_summary}
+                            analytics={result.data?.sector_analytics}
+                            etf={result.data?.sector_etf}
+                            tickersCount={result.data?.tickers?.length}
+                          />
+                        ),
+                      } satisfies GridBlock,
+                    ]
+                  : []),
+                // Bloc secteur : Cours de l'ETF sectoriel (parité avec Cours société)
+                ...(kind === "secteur" && result.data?.sector_etf?.ticker
+                  ? [
+                      {
+                        id: "sector-cours",
+                        label: `Cours ETF ${result.data.sector_etf.ticker}`,
+                        default: { x: 0, y: 6, w: 8, h: 6 },
+                        render: () => (
+                          <PerformanceCard
+                            ticker={result.data!.sector_etf!.ticker}
+                            sector={result.data?.sector || ""}
+                          />
+                        ),
+                      } satisfies GridBlock,
+                    ]
+                  : []),
+                // Bloc secteur : bouton lancer une comparaison sectorielle
+                ...(kind === "secteur"
+                  ? [
+                      {
+                        id: "sector-compare",
+                        label: "Comparer ce secteur",
+                        default: { x: 0, y: 12, w: 4, h: 4 },
+                        render: () => (
+                          <SectorCompareLauncher
+                            sector={result.data?.sector || ""}
+                            universe={result.data?.universe || ""}
+                          />
+                        ),
+                      } satisfies GridBlock,
+                    ]
+                  : []),
                 // Bloc spécifique secteur : market cap donut (top 5 + autres)
                 ...(kind === "secteur" && result.data?.tickers && result.data.tickers.length > 0
                   ? [
                       {
                         id: "sector-mktcap",
                         label: t("results.block_mktcap_distribution") || "Répartition Market Cap",
-                        default: { x: 0, y: 4, w: 6, h: 8 },
+                        default: { x: 4, y: 12, w: 8, h: 8 },
                         render: () => (
                           <SectorMktCapDonut
                             tickers={result.data!.tickers!}

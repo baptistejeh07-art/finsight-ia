@@ -146,6 +146,17 @@ export async function submitCmpSocieteJob(
   return apiPost("/jobs/cmp/societe", { ticker_a, ticker_b });
 }
 
+export async function submitCmpSecteurJob(
+  secteur_a: string,
+  univers_a: string,
+  secteur_b: string,
+  univers_b?: string,
+): Promise<JobSubmitResponse> {
+  return apiPost("/jobs/cmp/secteur", {
+    secteur_a, univers_a, secteur_b, univers_b: univers_b || univers_a,
+  });
+}
+
 export async function submitPmeJob(siren: string): Promise<JobSubmitResponse> {
   return apiPost("/jobs/analyze/pme", { siren, use_pappers_comptes: true });
 }

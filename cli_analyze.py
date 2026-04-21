@@ -137,10 +137,12 @@ def run_secteur(sector: str, universe: str = "CAC 40", prefix: str = "secteur",
     t0 = time.time()
 
     # Vrais tickers yfinance si secteur connu, fallback synthetique sinon
+    _t_fetch = time.time()
     tickers = _fetch_real_sector_data(sector, universe, max_tickers=8)
     if not tickers:
         log.warning("Fallback donnees synthetiques pour '%s' / '%s'", sector, universe)
         tickers = _make_test_tickers(sector, 6)
+    log.info("[secteur timing] fetch data : %.1fs (%d tickers)", time.time() - _t_fetch, len(tickers))
 
     stem      = f"{prefix}_{sector.replace(' ','_').replace('&','_and_')}_{universe.replace(' ','_').replace('&','_and_')}"
     pdf_path  = OUT_DIR / f"{stem}.pdf"
@@ -151,18 +153,23 @@ def run_secteur(sector: str, universe: str = "CAC 40", prefix: str = "secteur",
     for t in tickers:
         t.pop("_sector_analytics", None)
 
+    _t_pdf = time.time()
     generate_sector_report(sector, tickers, str(pdf_path), universe=universe,
                            sector_analytics=sector_analytics,
                            language=language, currency=currency)
-    log.info("PDF sectoriel : %s  (%d Ko)", pdf_path.name, pdf_path.stat().st_size // 1024)
+    log.info("[secteur timing] PDF : %.1fs — %s (%d Ko)",
+             time.time() - _t_pdf, pdf_path.name, pdf_path.stat().st_size // 1024)
 
+    _t_pptx = time.time()
     SectoralPPTXWriter.generate(tickers, sector, universe, str(pptx_path),
                                  language=language, currency=currency)
-    log.info("PPTX sectoriel : %s  (%d Ko)", pptx_path.name, pptx_path.stat().st_size // 1024)
+    log.info("[secteur timing] PPTX : %.1fs — %s (%d Ko)",
+             time.time() - _t_pptx, pptx_path.name, pptx_path.stat().st_size // 1024)
 
-    # XLSX dédié pour secteur Énergie (template Baptiste avec scoring multi-factoriel)
+    # XLSX : template Énergie dédié si secteur énergie, sinon fallback générique
     xlsx_path = None
-    if sector.lower() in ("énergie", "energie", "energy", "oil", "oil & gas"):
+    _is_energy = sector.lower() in ("énergie", "energie", "energy", "oil", "oil & gas")
+    if _is_energy:
         try:
             from outputs.sector_energy_xlsx_writer import (
                 write_energy_sector_xlsx, build_ticker_dict_from_yfinance,
@@ -187,6 +194,23 @@ def run_secteur(sector: str, universe: str = "CAC 40", prefix: str = "secteur",
                          xlsx_path.stat().st_size // 1024)
         except Exception as e:
             log.error("XLSX énergie failed : %s", e)
+    else:
+        # Fallback générique — Baptiste veut TOUJOURS un XLSX, peu importe secteur
+        try:
+            from outputs.sector_generic_xlsx_writer import write_generic_sector_xlsx
+            xlsx_path = OUT_DIR / f"{stem}.xlsx"
+            write_generic_sector_xlsx(
+                sector=sector,
+                universe=universe,
+                tickers_data=tickers,
+                sector_analytics=sector_analytics or {},
+                output_path=xlsx_path,
+            )
+            log.info("XLSX secteur générique : %s  (%d Ko)", xlsx_path.name,
+                     xlsx_path.stat().st_size // 1024)
+        except Exception as e:
+            log.error("XLSX secteur générique failed : %s", e)
+            xlsx_path = None
 
     print(f"\nFichiers generes dans : {OUT_DIR}")
     print(f"  * {pdf_path.name}")
@@ -1326,7 +1350,7 @@ def _fetch_real_sector_data(sector: str, universe: str, max_tickers: int = 8) ->
             return None
 
     results = []
-    with ThreadPoolExecutor(max_workers=4) as ex:
+    with ThreadPoolExecutor(max_workers=8) as ex:
         futures = {ex.submit(_fetch_one, tk): tk for tk in symbols}
         for fut in as_completed(futures, timeout=60):
             try:
@@ -1343,7 +1367,7 @@ def _fetch_real_sector_data(sector: str, universe: str, max_tickers: int = 8) ->
     # PE historique 5 ans (5 appels supplémentaires en parallèle)
     pe_hist_by_ticker: dict[str, list[float]] = {}
     tks = [r["ticker"] for r in results]
-    with ThreadPoolExecutor(max_workers=4) as ex:
+    with ThreadPoolExecutor(max_workers=8) as ex:
         fut_pe = {ex.submit(_fetch_pe_historical, tk): tk for tk in tks}
         for fut in as_completed(fut_pe):
             tk = fut_pe[fut]

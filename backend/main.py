@@ -437,6 +437,14 @@ def _do_secteur(secteur: str, univers: str, language: str = "fr", currency: str 
                 "market_cap": t.get("market_cap"),
                 "ratios": t.get("ratios") or {},
             })
+    # ETF sectoriel pour bloc "Cours" (parité avec Cours société)
+    sector_etf = None
+    try:
+        from core.sector_etfs import get_etf_for
+        sector_etf = get_etf_for(secteur, universe=univers)
+    except Exception:
+        pass
+
     return {
         "data": {
             "kind": "secteur",
@@ -445,6 +453,7 @@ def _do_secteur(secteur: str, univers: str, language: str = "fr", currency: str 
             "tickers": slim_tickers,
             "sector_analytics": sector_data.get("sector_analytics", {}),
             "sector_summary": sector_data.get("sector_summary"),
+            "sector_etf": sector_etf,
         },
         "files": files,
     }
@@ -1513,19 +1522,40 @@ async def resolve_ticker(query: str):
 
 # ─── Téléchargement fichiers ────────────────────────────────────────────────
 
+_MIME_BY_EXT = {
+    ".pdf": "application/pdf",
+    ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+}
+
+
 @app.get("/file/{file_path:path}")
-async def download_file(file_path: str):
-    """Télécharge un fichier généré (PDF/PPTX/XLSX)."""
+async def download_file(file_path: str, download: bool = False):
+    """Sert un fichier généré (PDF/PPTX/XLSX).
+
+    Par défaut le MIME est correct → iframe PDF s'affiche inline (plus
+    d'auto-téléchargement intempestif quand la page charge l'aperçu).
+    Passer ?download=1 pour forcer Content-Disposition: attachment.
+    """
     full_path = _ROOT / file_path
     if not full_path.exists() or not full_path.is_file():
         raise HTTPException(status_code=404, detail="Fichier introuvable")
-    # Vérifie qu'on ne sort pas du dossier outputs (sécurité)
     if "outputs/generated" not in str(full_path):
         raise HTTPException(status_code=403, detail="Accès refusé")
+
+    ext = full_path.suffix.lower()
+    mime = _MIME_BY_EXT.get(ext, "application/octet-stream")
+    headers = {}
+    if download:
+        headers["Content-Disposition"] = f'attachment; filename="{full_path.name}"'
+    # Sinon : pas de header Disposition → navigateur choisit (inline pour PDF).
+
     return FileResponse(
         path=full_path,
-        filename=full_path.name,
-        media_type="application/octet-stream",
+        filename=full_path.name if download else None,
+        media_type=mime,
+        headers=headers,
     )
 
 
