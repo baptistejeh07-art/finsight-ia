@@ -2549,6 +2549,101 @@ async def delete_history(
 
 # ─── Historique user ────────────────────────────────────────────────────────
 
+# ─── Formulaire de contact (vitrine) ─────────────────────────────────────
+class ContactFormRequest(BaseModel):
+    name: str = Field(..., max_length=120)
+    email: str = Field(..., max_length=200)
+    subject: str = Field(..., max_length=200)
+    message: str = Field(..., max_length=5000)
+    honeypot: Optional[str] = Field("", max_length=100)  # anti-spam
+
+
+@app.post("/contact/send", status_code=204)
+async def contact_form_send(
+    payload: ContactFormRequest,
+    request: Request,
+):
+    """Formulaire contact vitrine → email vers contact@finsight-ia.com via Resend.
+
+    Honeypot anti-spam : si le champ caché est rempli, on silently drop.
+    Pas d'auth : le formulaire est public.
+    """
+    # Honeypot — bots remplissent souvent tous les champs (humain ne voit pas
+    # le champ caché en CSS).
+    if payload.honeypot and payload.honeypot.strip():
+        log.info(f"[contact] honeypot triggered by {payload.email[:40]}")
+        return  # silent drop
+
+    # Validation basique email
+    if "@" not in payload.email or "." not in payload.email.split("@")[-1]:
+        raise HTTPException(status_code=400, detail="Email invalide")
+
+    # Sanity length check (déjà dans Pydantic mais explicite)
+    if len(payload.message.strip()) < 10:
+        raise HTTPException(status_code=400, detail="Message trop court")
+
+    # Rate limit basique par IP (Redis si dispo)
+    try:
+        from core import cache as _cache_mod
+        ip = request.client.host if request.client else "unknown"
+        allowed, retry_after = _cache_mod.rate_limit(
+            f"contact_form:{ip}", max_requests=3, window_sec=300,
+        )
+        if not allowed:
+            raise HTTPException(
+                status_code=429,
+                detail=f"Trop de messages. Réessayez dans {retry_after}s.",
+            )
+    except HTTPException:
+        raise
+    except Exception:
+        pass  # rate limit optional
+
+    # Compose email
+    subj = f"[FinSight Contact] {payload.subject.strip()[:120]}"
+    body_txt = (
+        f"Nouveau message via formulaire de contact finsight-ia.com\n\n"
+        f"De    : {payload.name.strip()}\n"
+        f"Email : {payload.email.strip()}\n"
+        f"Sujet : {payload.subject.strip()}\n"
+        f"---\n\n{payload.message.strip()}\n\n---\n"
+        f"Répondez directement à cet email pour contacter l'expéditeur."
+    )
+
+    # Envoi via Resend (helper existant dans core.alerts.notifier)
+    try:
+        import os as _os
+        import httpx as _httpx
+        key = _os.getenv("RESEND_API_KEY", "").strip()
+        if not key:
+            # Pas de clé = on log mais pas d'erreur fatale
+            log.warning(f"[contact] RESEND_API_KEY absent — message perdu : {subj}")
+            return
+        target = _os.getenv("CONTACT_EMAIL", "contact@finsight-ia.com")
+        from_addr = _os.getenv("RESEND_FROM", "FinSight Contact <contact@finsight-ia.com>")
+        r = _httpx.post(
+            "https://api.resend.com/emails",
+            headers={"Authorization": f"Bearer {key}",
+                     "Content-Type": "application/json"},
+            json={
+                "from": from_addr,
+                "to": [target],
+                "reply_to": payload.email.strip(),
+                "subject": subj,
+                "text": body_txt,
+            },
+            timeout=8.0,
+        )
+        if r.status_code >= 300:
+            log.error(f"[contact] Resend {r.status_code}: {r.text[:200]}")
+            raise HTTPException(status_code=502, detail="Envoi email échoué")
+    except HTTPException:
+        raise
+    except Exception as e:
+        log.error(f"[contact] send fail: {e}")
+        raise HTTPException(status_code=500, detail=f"Erreur envoi: {e}")
+
+
 # ─── Commentaires collaboratifs (Tier 1.4) ───────────────────────────────
 class CommentCreate(BaseModel):
     body: str = Field(..., min_length=1, max_length=2000)

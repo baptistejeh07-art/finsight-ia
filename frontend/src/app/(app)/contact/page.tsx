@@ -2,6 +2,7 @@ import { Mail, MessageCircle, AlertTriangle } from "lucide-react";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import { BackButton } from "@/components/back-button";
+import { ContactForm } from "@/components/marketing/contact-form";
 
 export const metadata = { title: "Contact" };
 
@@ -19,7 +20,7 @@ export default function ContactPage() {
           Nous lisons tous les messages. Réponse sous 48h en jour ouvré.
         </p>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-10">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
           <ContactCard
             icon={<MessageCircle className="w-5 h-5" />}
             label="Questions produit & support"
@@ -33,6 +34,12 @@ export default function ContactPage() {
             email="privacy@finsight-ia.com"
           />
         </div>
+
+        {/* Formulaire direct — évite que l'utilisateur ait à ouvrir son client mail */}
+        <section className="mb-10">
+          <div className="section-label mb-3">Ou écrivez-nous directement</div>
+          <ContactForm />
+        </section>
 
         <div className="card bg-ink-50 border-ink-200">
           <div className="section-label mb-3">Avant de nous écrire</div>
