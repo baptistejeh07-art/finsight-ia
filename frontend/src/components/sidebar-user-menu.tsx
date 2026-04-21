@@ -6,7 +6,6 @@ import { useI18n } from "@/i18n/provider";
 import {
   ChevronsUpDown,
   Settings,
-  HelpCircle,
   Info,
   LogOut,
   Shield,
@@ -179,12 +178,6 @@ export function SidebarUserMenu() {
             href="/parametres"
             icon={<Settings className="w-4 h-4" />}
             label={t("common.settings")}
-            onNavigate={() => setOpen(false)}
-          />
-          <MenuItem
-            href="/aide"
-            icon={<HelpCircle className="w-4 h-4" />}
-            label={t("nav.get_help")}
             onNavigate={() => setOpen(false)}
           />
           <MenuItem

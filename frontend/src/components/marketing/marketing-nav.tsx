@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown, ArrowUpRight } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { ChevronDown, ArrowUpRight, ArrowLeft } from "lucide-react";
 import { LogoMark } from "./logo-mark";
 import { ThemeToggle } from "../theme-toggle";
 
@@ -12,6 +13,18 @@ export function MarketingNav() {
   const [open, setOpen] = useState<MenuKey>(null);
   const [scrolled, setScrolled] = useState(false);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pathname = usePathname();
+  const router = useRouter();
+
+  // Affiche le bouton "Retour" sur toutes les pages secondaires (pas /).
+  const isSubpage = pathname !== "/" && pathname !== null;
+  function goBack() {
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      router.back();
+    } else {
+      router.push("/");
+    }
+  }
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8);
@@ -38,7 +51,20 @@ export function MarketingNav() {
       }`}
     >
       <div className="container-vitrine h-16 flex items-center justify-between gap-6">
-        <LogoMark />
+        <div className="flex items-center gap-3">
+          {isSubpage && (
+            <button
+              type="button"
+              onClick={goBack}
+              className="hidden sm:inline-flex items-center gap-1 text-xs text-text-muted hover:text-text-primary transition-colors"
+              title="Retour à la page précédente"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              Retour
+            </button>
+          )}
+          <LogoMark />
+        </div>
 
         <nav className="hidden lg:flex items-center gap-1" onMouseLeave={scheduleClose}>
           <NavMenuTrigger

@@ -1,6 +1,7 @@
 import { Mail, MessageCircle, AlertTriangle } from "lucide-react";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
+import { BackButton } from "@/components/back-button";
 
 export const metadata = { title: "Contact" };
 
@@ -9,6 +10,7 @@ export default function ContactPage() {
     <div className="min-h-screen flex flex-col">
       <Navbar />
       <main className="flex-1 max-w-3xl mx-auto px-6 py-12 w-full">
+        <BackButton className="mb-6" />
         <div className="section-label mb-2">Contact</div>
         <h1 className="text-3xl font-bold text-ink-900 mb-2 tracking-tight">
           Une question ? Un retour ?
