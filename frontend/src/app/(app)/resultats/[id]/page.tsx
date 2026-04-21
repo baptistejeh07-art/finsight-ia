@@ -4,10 +4,6 @@ import { useEffect, useState, useMemo, use } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import {
   ArrowLeft,
-  Download,
-  FileText,
-  Presentation,
-  FileSpreadsheet,
   AlertTriangle,
 } from "lucide-react";
 import { Footer } from "@/components/footer";
@@ -495,7 +491,7 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
                   label: t("results.block_save"),
                   default: { x: 8, y: 8, w: 4, h: 8 },
                   render: () => (
-                    <div className="grid grid-cols-3 gap-2 h-full">
+                    <div className="grid grid-rows-3 gap-2 h-full">
                       <SaveToHistoryCard
                         jobId={id}
                         kind={kind as "secteur" | "indice" | "comparatif" | "pme"}
@@ -560,57 +556,7 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
                   default: { x: 8, y: 16, w: 4, h: 6 },
                   render: () => <DocumentUploadBox analysisId={id} />,
                 } satisfies GridBlock,
-                ...(result.files?.pdf
-                  ? [
-                      {
-                        id: "pdf",
-                        label: t("results.block_pdf"),
-                        default: { x: 0, y: 4, w: 4, h: 4 },
-                        render: () => (
-                          <FileBlock
-                            icon={<FileText className="w-6 h-6" />}
-                            label={t("results.block_pdf")}
-                            description={t("results.format_institutional")}
-                            href={getFileUrl(result.files!.pdf!)}
-                          />
-                        ),
-                      } satisfies GridBlock,
-                    ]
-                  : []),
-                ...(result.files?.pptx
-                  ? [
-                      {
-                        id: "pptx",
-                        label: t("results.block_pptx"),
-                        default: { x: 4, y: 4, w: 4, h: 4 },
-                        render: () => (
-                          <FileBlock
-                            icon={<Presentation className="w-6 h-6" />}
-                            label={t("results.block_pptx")}
-                            description={t("results.format_bloomberg")}
-                            href={getFileUrl(result.files!.pptx!)}
-                          />
-                        ),
-                      } satisfies GridBlock,
-                    ]
-                  : []),
-                ...(result.files?.xlsx
-                  ? [
-                      {
-                        id: "xlsx",
-                        label: t("results.block_xlsx"),
-                        default: { x: 0, y: 8, w: 4, h: 4 },
-                        render: () => (
-                          <FileBlock
-                            icon={<FileSpreadsheet className="w-6 h-6" />}
-                            label={t("results.block_xlsx")}
-                            description={t("results.format_dcf")}
-                            href={getFileUrl(result.files!.xlsx!)}
-                          />
-                        ),
-                      } satisfies GridBlock,
-                    ]
-                  : []),
+                // Downloads PDF/PPTX/XLSX : dans la sidebar uniquement (Baptiste)
                 // Bloc spécifique secteur : table des sociétés
                 ...(kind === "secteur" && result.data?.tickers && result.data.tickers.length > 0
                   ? [
@@ -679,43 +625,3 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
   );
 }
 
-/**
- * FileBlock — version "card pleine hauteur" pour EditableGrid (secteur/indice/comparatif).
- * Remplit 100% du bloc, icône centrée + bouton download visible.
- */
-function FileBlock({
-  icon,
-  label,
-  description,
-  href,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  description: string;
-  href: string;
-}) {
-  return (
-    <a
-      href={href}
-      download
-      target="_blank"
-      rel="noopener noreferrer"
-      className="bg-white border border-ink-200 rounded-md p-5 h-full flex flex-col items-center justify-center text-center gap-2 hover:border-navy-500 hover:shadow-sm transition-all group"
-    >
-      <div className="text-navy-500">{icon}</div>
-      <div className="text-sm font-semibold text-ink-900 group-hover:text-navy-500 transition-colors">
-        {label}
-      </div>
-      <div className="text-xs text-ink-500">{description}</div>
-      <div className="mt-1 flex items-center gap-1 text-[11px] text-navy-500 font-semibold">
-        <Download className="w-3.5 h-3.5" />
-        <DownloadLabel />
-      </div>
-    </a>
-  );
-}
-
-function DownloadLabel() {
-  const { t } = useI18n();
-  return <>{t("results.download_simple")}</>;
-}

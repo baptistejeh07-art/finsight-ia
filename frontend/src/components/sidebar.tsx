@@ -122,8 +122,13 @@ export function Sidebar() {
   }, [jobId]);
 
   const apiBase = process.env.NEXT_PUBLIC_API_URL || "";
-  const fileUrl = (path: string) =>
-    path.startsWith("http") ? path : `${apiBase}/file/${path}`;
+  const fileUrl = (path: string) => {
+    if (path.startsWith("http")) return path;
+    // Encode segments (spaces, &, accents) pour éviter "no such file"
+    // quand le stem contient S&P 500, Santé, etc.
+    const encoded = path.split("/").map(encodeURIComponent).join("/");
+    return `${apiBase}/file/${encoded}`;
+  };
 
   return (
     <aside className="hidden md:flex fixed left-0 top-0 h-screen w-56 flex-col bg-white dark:bg-ink-900 text-ink-900 dark:text-ink-50 border-r border-ink-200 dark:border-ink-700 z-40">

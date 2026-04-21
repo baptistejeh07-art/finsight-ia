@@ -142,7 +142,7 @@ def run_secteur(sector: str, universe: str = "CAC 40", prefix: str = "secteur",
         log.warning("Fallback donnees synthetiques pour '%s' / '%s'", sector, universe)
         tickers = _make_test_tickers(sector, 6)
 
-    stem      = f"{prefix}_{sector.replace(' ','_')}_{universe.replace(' ','_')}"
+    stem      = f"{prefix}_{sector.replace(' ','_').replace('&','_and_')}_{universe.replace(' ','_').replace('&','_and_')}"
     pdf_path  = OUT_DIR / f"{stem}.pdf"
     pptx_path = OUT_DIR / f"{stem}.pptx"
 

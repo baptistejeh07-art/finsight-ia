@@ -417,7 +417,9 @@ def _do_secteur(secteur: str, univers: str, language: str = "fr", currency: str 
     sector_data = _run_secteur(secteur, univers, prefix="secteur",
                                language=language, currency=currency) or {}
     outputs_dir = _ROOT / "outputs" / "generated" / "cli_tests"
-    stem = f"secteur_{secteur.replace(' ', '_')}_{univers.replace(' ', '_')}"
+    # Stem safe pour URL : espaces→_, & → _and_, accents/unicode conservés mais
+    # encodés côté frontend via encodeURIComponent.
+    stem = f"secteur_{secteur.replace(' ', '_').replace('&', '_and_')}_{univers.replace(' ', '_').replace('&', '_and_')}"
     files = {}
     # XLSX possible si secteur Énergie (template scoring multi-factoriel)
     for ext in ("pdf", "pptx", "xlsx"):

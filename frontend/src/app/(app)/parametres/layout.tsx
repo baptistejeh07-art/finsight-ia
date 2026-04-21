@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { ArrowLeft } from "lucide-react";
 
 const TABS = [
   { slug: "general", label: "Général" },
@@ -21,10 +22,29 @@ export default function ParametresLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   const pathname = usePathname();
+  const router = useRouter();
+
+  function goBack() {
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      router.back();
+    } else {
+      router.push("/app");
+    }
+  }
 
   return (
     <div className="min-h-screen bg-[#FAFAF5]">
       <div className="max-w-6xl mx-auto px-6 md:px-10 py-8 md:py-12">
+        {/* Bouton retour : ramène à la page précédente (analyse, dashboard...) */}
+        <button
+          type="button"
+          onClick={goBack}
+          className="inline-flex items-center gap-1.5 text-sm text-ink-600 hover:text-ink-900 mb-4 transition-colors"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Retour
+        </button>
+
         {/* Titre Paramètres (serif, grand) */}
         <h1 className="text-3xl md:text-4xl font-semibold text-ink-900 mb-8 md:mb-12 tracking-tight"
             style={{ fontFamily: "'Copernicus', 'Libre Caslon Text', Georgia, serif" }}>
