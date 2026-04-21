@@ -24,6 +24,9 @@ import { CmpIndicePerfChart } from "./cmp-indice-perf-chart";
 import { CmpIndiceSectorTable } from "./cmp-indice-sector-table";
 import { CmpIndiceStatTiles } from "./cmp-indice-stat-tiles";
 import { CmpIndiceTop5 } from "./cmp-indice-top5";
+import { VolatilityChart } from "./volatility-chart";
+import { DrawdownChart } from "./drawdown-chart";
+import { RoeRoicHistoryChart } from "./roe-roic-history-chart";
 
 export interface RendererCtx {
   data: AnalysisData | undefined;
@@ -152,21 +155,17 @@ export function renderChart(componentId: string, ctx: RendererCtx): ReactNode {
       return <CmpIndiceTop5 top5A={top5A} top5B={top5B} nameA={nameA} nameB={nameB} />;
     }
 
-    case "StubRisk":
-      return (
-        <div className="bg-white border border-ink-200 rounded-md p-5 h-full flex flex-col items-center justify-center gap-2">
-          <div className="text-xs text-ink-400 italic">Chart risque — bientôt disponible</div>
-          <div className="text-[10px] text-ink-400">Placeholder</div>
-        </div>
-      );
+    case "VolatilityChart":
+      if (!raw?.stock_history) return <Placeholder reason="Historique de cours indisponible" />;
+      return <VolatilityChart history={raw.stock_history} ticker={tickerStr} />;
 
-    case "StubQuality":
-      return (
-        <div className="bg-white border border-ink-200 rounded-md p-5 h-full flex flex-col items-center justify-center gap-2">
-          <div className="text-xs text-ink-400 italic">Chart qualité — bientôt disponible</div>
-          <div className="text-[10px] text-ink-400">Placeholder</div>
-        </div>
-      );
+    case "DrawdownChart":
+      if (!raw?.stock_history) return <Placeholder reason="Historique de cours indisponible" />;
+      return <DrawdownChart history={raw.stock_history} ticker={tickerStr} />;
+
+    case "RoeRoicHistoryChart":
+      if (!ratios?.years) return <Placeholder reason="Ratios historiques indisponibles" />;
+      return <RoeRoicHistoryChart ratios={ratios} />;
 
     default:
       // Éviter les warnings sur variables non utilisées
