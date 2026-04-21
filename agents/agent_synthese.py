@@ -380,6 +380,33 @@ def _build_prompt(snapshot, ratios, sentiment) -> str:
     price_s  = f"{mkt.share_price}" if mkt.share_price else "N/A"
     wacc_s   = f"{(mkt.wacc or 0.10)*100:.1f}%"
     tgr_s    = f"{(mkt.terminal_growth or 0.03)*100:.1f}%"
+
+    # ── Contexte cours récent (5-10 derniers jours) ───────────────────────
+    # Permet au LLM d'ancrer le commentaire sur la dynamique court terme
+    # (sinon il ne voit QUE le cours spot et rédige "à l'aveugle").
+    recent_px_block = ""
+    try:
+        from core.market.timeseries import fetch_price_series
+        _series = fetch_price_series(ci.ticker, period="1mo")
+        _pts = _series.get("points") or []
+        if len(_pts) >= 2:
+            _last10 = _pts[-10:]
+            _closes = [p["close"] for p in _last10 if p.get("close") is not None]
+            if len(_closes) >= 2:
+                _d1 = ((_closes[-1] / _closes[-2]) - 1) * 100 if _closes[-2] else 0
+                _d5 = ((_closes[-1] / _closes[-6]) - 1) * 100 if len(_closes) >= 6 and _closes[-6] else None
+                _hi = max(_closes); _lo = min(_closes)
+                _trace = " → ".join(f"{p['date'][-5:]}:{p['close']:.2f}" for p in _last10)
+                _perf_bits = [f"1J {_d1:+.2f}%"]
+                if _d5 is not None:
+                    _perf_bits.append(f"5J {_d5:+.2f}%")
+                _perf_bits.append(f"plus haut {_hi:.2f} / plus bas {_lo:.2f}")
+                recent_px_block = (
+                    f"CoursRécents10j: {_trace}\n"
+                    f"DynamiqueCT: {' | '.join(_perf_bits)}\n"
+                )
+    except Exception as _e_px:
+        log.warning(f"[agent_synthese] contexte cours récent fail: {_e_px}")
     # Calcul des années de projection
     hist_keys = sorted(snapshot.years.keys(), key=lambda y: str(y).replace("_LTM",""))
     last_yr   = str(hist_keys[-1]).replace("_LTM","") if hist_keys else str(date.today().year - 1)
@@ -473,7 +500,7 @@ def _build_prompt(snapshot, ratios, sentiment) -> str:
 
     return f"""Analyse {ci.company_name} ({ci.ticker}) — secteur:{ci.sector} — {date.today().isoformat()}
 Cours:{price_s} {ci.currency} | WACC:{wacc_s} | TGR:{tgr_s}
-{chr(10).join(lines)}
+{recent_px_block}{chr(10).join(lines)}
 RevenuHistorique: {rev_series_str}
 MargesHistoriques: {margins_series_str}
 FCF:{fcf_s} | Capex:{capex_s} | Dividendes:{div_s}
@@ -488,7 +515,7 @@ JSON requis (tous les champs obligatoires) :
   "target_price_base":<float — ANCRÉ AU COURS ACTUEL {price_s} {ci.currency} ; plage RÉALISTE entre cours*0.85 et cours*1.20 ; JAMAIS >cours*1.30>,
   "target_price_bull":<float — SCÉNARIO OPTIMISTE mais RÉALISTE ; plage cours*1.10 à cours*1.35 ; upside MAX +40% vs cours actuel>,
   "target_price_bear":<float — SCÉNARIO BAISSIER ; plage cours*0.65 à cours*0.90 ; TOUJOURS <cours actuel (sinon pas un bear) ; downside ~-15% à -30%>,
-  "summary":"<2 phrases>",
+  "summary":"<EXACTEMENT 2 phrases. OBLIGATOIRE: la 2e phrase DOIT mentionner la dynamique récente du cours (CoursRécents10j / DynamiqueCT ci-dessus) — ex: 'Le titre consolide sur 5j (-1,2%) après avoir touché son plus haut de la période.'>",
   "company_description":"<MINIMUM 50, MAXIMUM 70 mots — 3 phrases: activite principale, positionnement marche, avantages competitifs de {ci.company_name}>",
   "segments":[
     {{"name":"<nom exact segment operationnel>","description":"<EXACTEMENT 22-30 mots — 2 phrases denses: modele de revenus + driver principal. Box d affichage limitee, depassement = texte coupe>","revenue_pct":<float 0-100>}},
@@ -497,7 +524,7 @@ JSON requis (tous les champs obligatoires) :
   "thesis":"<exactement 3 phrases separees par ' | ', chaque phrase 12-18 mots STRICT — catalyseurs d investissement concrets avec chiffres precis. Depassement = texte coupe sur slide>",
   "strengths":["<MAXIMUM 8 mots — titre atout1>","<MAXIMUM 8 mots — titre atout2>","<MAXIMUM 8 mots — titre atout3>"],
   "risks":["<MAXIMUM 8 mots — titre risque1>","<MAXIMUM 8 mots — titre risque2>","<MAXIMUM 8 mots — titre risque3>"],
-  "valuation_comment":"<EXACTEMENT 30-40 mots STRICT — 2 phrases courtes valorisation relative + lecture investisseur>",
+  "valuation_comment":"<EXACTEMENT 30-40 mots STRICT — 2 phrases courtes : (1) valorisation relative multiples, (2) lecture investisseur ancrée sur la dynamique CT du cours (CoursRécents10j / DynamiqueCT ci-dessus — momentum positif/négatif, proximité plus haut/bas).>",
   "financial_commentary":"<EXACTEMENT 55-65 mots STRICT. OBLIGATOIRE: (1) chiffre precis CA + croissance YoY, (2) mecanisme variation de marge (ex: levier operationnel +Xpts mix logiciel OU pression prix matieres +X%), (3) implication FCF/bilan (ND/EBITDA, capacite rachat). Citer chiffres.>",
   "ratio_commentary":"<EXACTEMENT 55-65 mots STRICT. OBLIGATOIRE: (1) evolution marges EBITDA/brute sur la periode (de X% en 20xx a Y% en 20xx), (2) mecanisme PRECIS de la trajectoire (volume/prix, mix produits, economie d echelle OU inflation), (3) durabilite pricing power et risque mean-reversion.>",
   "dcf_commentary":"<EXACTEMENT 30-35 mots STRICT — 2 phrases courtes: (1) WACC/TGR + prix implicite DCF vs cours, (2) lecture upside/downside (sous-valorisation, prime pricee, risque execution). Box etroite.>",

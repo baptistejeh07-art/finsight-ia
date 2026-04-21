@@ -115,7 +115,7 @@ const PLANS_API: Plan[] = [
     price: "0,05 €",
     priceUnit: "Par appel — données et ratios",
     cta: "Documentation API",
-    ctaHref: "/contact?plan=api",
+    ctaHref: "/api-docs",
     features: [
       "Endpoints data (snapshot, ratios)",
       "Quotas mensuels élevés",
@@ -128,7 +128,7 @@ const PLANS_API: Plan[] = [
     price: "0,50 €",
     priceUnit: "Par appel — analyse complète",
     cta: "Documentation API",
-    ctaHref: "/contact?plan=api",
+    ctaHref: "/api-docs",
     highlight: true,
     features: [
       "Analyse société complète (JSON)",
@@ -142,7 +142,7 @@ const PLANS_API: Plan[] = [
     price: "2,00 €",
     priceUnit: "Par appel — livrables PDF/PPTX/XLSX",
     cta: "Documentation API",
-    ctaHref: "/contact?plan=api",
+    ctaHref: "/api-docs",
     features: [
       "Génération des 3 livrables",
       "Stockage cloud sécurisé 30 jours",

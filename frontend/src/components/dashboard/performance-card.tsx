@@ -144,12 +144,32 @@ export function PerformanceCard({ ticker, currency = "EUR", sector = "" }: Perfo
       </div>
 
       {/* Graph */}
-      <div className="flex-1 min-h-[120px] px-3 pt-3">
+      <div className="flex-1 min-h-[140px] px-3 pt-3">
         {chartData.length > 0 ? (
-          <ResponsiveContainer width="100%" height={160}>
-            <LineChart data={chartData} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
-              <XAxis dataKey="date" hide />
-              <YAxis domain={["dataMin - 2", "dataMax + 2"]} hide />
+          <ResponsiveContainer width="100%" height={200}>
+            <LineChart data={chartData} margin={{ top: 6, right: 8, bottom: 22, left: 40 }}>
+              <XAxis
+                dataKey="date"
+                tick={{ fontSize: 9, fill: "#6b7280" }}
+                tickFormatter={(d: string) => {
+                  if (!d) return "";
+                  const parts = d.split("-");
+                  return parts.length >= 3 ? `${parts[2]}/${parts[1]}` : d.slice(-5);
+                }}
+                minTickGap={28}
+                axisLine={{ stroke: "#e5e7eb" }}
+                tickLine={false}
+                label={{ value: "Date", position: "insideBottom", offset: -8, fontSize: 10, fill: "#6b7280" }}
+              />
+              <YAxis
+                domain={["dataMin - 2", "dataMax + 2"]}
+                tick={{ fontSize: 9, fill: "#6b7280" }}
+                tickFormatter={(v: number) => v.toFixed(0)}
+                axisLine={{ stroke: "#e5e7eb" }}
+                tickLine={false}
+                width={34}
+                label={{ value: "Base 100", angle: -90, position: "insideLeft", offset: 8, fontSize: 10, fill: "#6b7280" }}
+              />
               <Line
                 type="monotone" dataKey="main" name={ticker}
                 stroke={lineColor} strokeWidth={2.2} dot={false} isAnimationActive={false}
@@ -175,7 +195,7 @@ export function PerformanceCard({ ticker, currency = "EUR", sector = "" }: Perfo
             </LineChart>
           </ResponsiveContainer>
         ) : (
-          <div className="h-[140px] flex items-center justify-center text-xs text-ink-400">
+          <div className="h-[180px] flex items-center justify-center text-xs text-ink-400">
             Chargement du graphique…
           </div>
         )}
