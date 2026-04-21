@@ -96,7 +96,10 @@ function AnalyseContent() {
           label = t;
         } else if (resolved.kind === "secteur") {
           const sec = resolved.sector || query;
-          const uni = resolved.universe || "S&P 500";
+          // Défaut "Mondial" : analyse intra-univers monde plutôt qu'un biais US.
+          // Si le résolveur a explicitement détecté un univers (CAC 40, S&P 500…),
+          // on le respecte.
+          const uni = resolved.universe || "Mondial";
           submitted = await submitSecteurJob(sec, uni);
           label = `${sec} / ${uni}`;
         } else {

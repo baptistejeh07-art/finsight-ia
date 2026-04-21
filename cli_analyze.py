@@ -551,6 +551,24 @@ _SECTOR_TICKERS: dict = {
     ("Materials", "CAC 40"):               ["AI.PA","SGO.PA"],
     ("Financial Services", "CAC 40"):      ["BNP.PA","ACA.PA","GLE.PA","AXA.PA"],
     ("Health Care", "CAC 40"):             ["SAN.PA","EL.PA"],
+
+    # ── MONDIAL — top mega-caps multi-régions par secteur (US + EU + Asie) ──
+    # Permet une analyse sectorielle vraiment globale (≠ biais US S&P 500).
+    ("Technology", "Mondial"):              ["AAPL","MSFT","NVDA","TSM","005930.KS","ASML.AS","SAP.DE","AVGO","ORCL","TCEHY"],
+    ("Healthcare", "Mondial"):              ["JNJ","UNH","LLY","NVO","ROG.SW","NVS","AZN.L","PFE","ABBV","MRK"],
+    ("Financial Services", "Mondial"):      ["JPM","BRK-B","BAC","HSBA.L","BNP.PA","UBSG.SW","8306.T","MS","GS","ALV.DE"],
+    ("Financials", "Mondial"):              ["JPM","BRK-B","BAC","HSBA.L","BNP.PA","UBSG.SW","8306.T","MS","GS","ALV.DE"],
+    ("Consumer Discretionary", "Mondial"): ["AMZN","TSLA","MC.PA","NKE","TM","BABA","HD","MCD","SBUX","RMS.PA"],
+    ("Consumer Cyclical", "Mondial"):      ["AMZN","TSLA","MC.PA","NKE","TM","BABA","HD","MCD","SBUX","RMS.PA"],
+    ("Consumer Defensive", "Mondial"):      ["WMT","COST","PG","KO","PEP","NESN.SW","ULVR.L","MDLZ","BUD","BTI"],
+    ("Consumer Staples", "Mondial"):        ["WMT","COST","PG","KO","PEP","NESN.SW","ULVR.L","MDLZ","BUD","BTI"],
+    ("Communication Services", "Mondial"): ["GOOGL","META","NFLX","DIS","VZ","T","CMCSA","TCEHY","9988.HK","BIDU"],
+    ("Energy", "Mondial"):                  ["XOM","CVX","SHEL.L","BP.L","TTE.PA","EQNR.OL","COP","ENI.MI","OXY","SLB"],
+    ("Industrials", "Mondial"):             ["GE","CAT","RTX","HON","DE","BA","UNP","SIE.DE","AIR.PA","MMM"],
+    ("Basic Materials", "Mondial"):         ["BHP.AX","RIO.L","LIN","APD","GLEN.L","NEM","FCX","BAS.DE","SHW","DD"],
+    ("Materials", "Mondial"):               ["BHP.AX","RIO.L","LIN","APD","GLEN.L","NEM","FCX","BAS.DE","SHW","DD"],
+    ("Real Estate", "Mondial"):             ["PLD","AMT","CCI","EQIX","SPG","UNI.AS","VNA.DE","8802.T","BLND.L","O"],
+    ("Utilities", "Mondial"):               ["NEE","DUK","SO","D","IBE.MC","ENEL.MI","NG.L","RWE.DE","9501.T","AEP"],
 }
 
 

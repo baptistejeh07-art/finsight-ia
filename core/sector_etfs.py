@@ -74,6 +74,7 @@ _UNIVERSE_TO_ZONE: dict[str, str] = {
     # Global / Monde (NEW #168 : MSCI World sector ETF via iShares)
     "global":       ZONE_GLOBAL,
     "monde":        ZONE_GLOBAL,
+    "mondial":      ZONE_GLOBAL,
     "world":        ZONE_GLOBAL,
     "msci world":   ZONE_GLOBAL,
     "msci acwi":    ZONE_GLOBAL,
