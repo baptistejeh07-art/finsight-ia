@@ -324,11 +324,87 @@ def _grade(score: float) -> str:
     return "E"
 
 
+# ═══ PONDÉRATIONS PAR PROFIL SECTORIEL (v1.2) ═════════════════════════════
+# Normalize sum to 1.0 — chaque facteur d'origine 25 pts est multiplié par
+# 4 × poids ; le total reste 100.
+#
+# Sources : académique (Mauboussin "Untangling Skill and Luck" 2013,
+# Damodaran "Country and Industry Risk" 2024) + intuition métier.
+_SECTOR_WEIGHTS: dict[str, dict[str, float]] = {
+    # STANDARD : équilibre par défaut
+    "STANDARD":  {"quality": 0.25, "value": 0.25, "momentum": 0.25, "governance": 0.25},
+    # TECH : momentum + qualité (croissance + ROIC drive returns), valo souvent
+    # déconnectée court terme. Gouvernance OK mais moins critique.
+    "TECH":      {"quality": 0.30, "value": 0.20, "momentum": 0.35, "governance": 0.15},
+    # BANK : qualité + gouvernance dominent (NPL, CET1, capital allocation),
+    # momentum peu pertinent (cycle long), valo via P/B et ROE.
+    "BANK":      {"quality": 0.35, "value": 0.20, "momentum": 0.10, "governance": 0.35},
+    # INSURANCE : similaire banque mais moins de momentum stochastique,
+    # gouvernance encore plus importante (combined ratio discipline).
+    "INSURANCE": {"quality": 0.30, "value": 0.20, "momentum": 0.10, "governance": 0.40},
+    # UTILITY : ultra-stable, cash-cow → gouvernance et qualité dominent,
+    # momentum quasi-zero (regulated returns), valo via P/E et div yield.
+    "UTILITY":   {"quality": 0.30, "value": 0.25, "momentum": 0.10, "governance": 0.35},
+    # REIT : valo (cap rate vs treasury) + gouvernance (FFO discipline) clés.
+    "REIT":      {"quality": 0.25, "value": 0.30, "momentum": 0.15, "governance": 0.30},
+    # ENERGY / OIL_GAS : momentum (cycle commodities) + gouvernance (capex
+    # discipline), qualité pénalisée par volatilité naturelle.
+    "OIL_GAS":   {"quality": 0.20, "value": 0.30, "momentum": 0.30, "governance": 0.20},
+    "ENERGY":    {"quality": 0.20, "value": 0.30, "momentum": 0.30, "governance": 0.20},
+    # CONSUMER : quality (brand moat) + valo, momentum modéré.
+    "CONSUMER":  {"quality": 0.30, "value": 0.30, "momentum": 0.20, "governance": 0.20},
+    # HEALTHCARE : qualité (R&D pipeline, marges) + momentum (catalyseurs
+    # cliniques) + gouvernance (compliance FDA).
+    "HEALTHCARE": {"quality": 0.30, "value": 0.20, "momentum": 0.25, "governance": 0.25},
+    # INDUSTRIALS : équilibre, légèrement plus value (cycle).
+    "INDUSTRIALS": {"quality": 0.25, "value": 0.30, "momentum": 0.25, "governance": 0.20},
+    # MATERIALS : commodities → momentum + valo dominent.
+    "MATERIALS": {"quality": 0.20, "value": 0.30, "momentum": 0.30, "governance": 0.20},
+}
+
+
+def _resolve_weights(sector: Optional[str], industry: Optional[str]) -> dict:
+    """Map (sector, industry) → profil → pondérations."""
+    if not sector and not industry:
+        return _SECTOR_WEIGHTS["STANDARD"]
+
+    s = (sector or "").lower().strip()
+    # Mapping rapide secteur GICS yfinance → profil
+    if any(k in s for k in ("technology", "tech", "software", "communication", "informat")):
+        prof = "TECH"
+    elif any(k in s for k in ("bank", "banque")):
+        prof = "BANK"
+    elif "insur" in s or "assur" in s:
+        prof = "INSURANCE"
+    elif any(k in s for k in ("real estate", "immob", "reit")):
+        prof = "REIT"
+    elif any(k in s for k in ("utilit", "util")):
+        prof = "UTILITY"
+    elif any(k in s for k in ("energy", "energi", "oil", "gas")):
+        prof = "ENERGY"
+    elif any(k in s for k in ("consumer", "conso", "retail", "luxury")):
+        prof = "CONSUMER"
+    elif any(k in s for k in ("health", "santé", "sante", "pharma", "biotech")):
+        prof = "HEALTHCARE"
+    elif any(k in s for k in ("industri", "manufactur", "aerospace", "defense")):
+        prof = "INDUSTRIALS"
+    elif any(k in s for k in ("material", "metal", "mining", "chimi")):
+        prof = "MATERIALS"
+    elif any(k in s for k in ("financ", "finan")):
+        prof = "BANK"   # fallback générique financials
+    else:
+        prof = "STANDARD"
+
+    return _SECTOR_WEIGHTS.get(prof, _SECTOR_WEIGHTS["STANDARD"])
+
+
 def compute_score(
     ratios: dict,
     market: Optional[dict] = None,
     sector_analytics: Optional[dict] = None,
     info: Optional[dict] = None,
+    sector: Optional[str] = None,
+    industry: Optional[str] = None,
 ) -> dict:
     """Calcule le Score FinSight composite (v1.1).
 
@@ -353,20 +429,66 @@ def compute_score(
     momentum, m_det = _momentum_score(ratios or {}, market, info)
     governance, g_det = _governance_score(ratios or {}, market, info)
 
-    total = round(quality + value + momentum + governance)
+    # v1.2 : pondération sectorielle. Chaque sous-score sur 25 → multiplié
+    # par 4 × poids sectoriel (qui somme à 1). Garde l'échelle 0-100.
+    weights = _resolve_weights(sector, industry)
+    weighted = (
+        quality * 4 * weights["quality"]
+        + value * 4 * weights["value"]
+        + momentum * 4 * weights["momentum"]
+        + governance * 4 * weights["governance"]
+    )
+    total = round(weighted)
+
     return {
         "global": total,
         "grade": _grade(total),
         "verdict": _verdict(total),
+        # Sous-scores affichés sur leur échelle native /25 pour lisibilité
         "quality": round(quality, 1),
         "value": round(value, 1),
         "momentum": round(momentum, 1),
         "governance": round(governance, 1),
+        # Pondérations appliquées (transparence pour l'utilisateur)
+        "weights": weights,
+        "sector_profile_used": _profile_label_for(sector),
         "details": {
             "quality": q_det,
             "value": v_det,
             "momentum": m_det,
             "governance": g_det,
         },
-        "version": "v1.1",  # tracking pour évolutions
+        "version": "v1.2",  # bump version
     }
+
+
+def _profile_label_for(sector: Optional[str]) -> str:
+    """Label lisible du profil utilisé."""
+    if not sector:
+        return "STANDARD"
+    s = sector.lower()
+    for prof in ("TECH", "BANK", "INSURANCE", "REIT", "UTILITY", "ENERGY",
+                 "CONSUMER", "HEALTHCARE", "INDUSTRIALS", "MATERIALS"):
+        # Heuristique simple basée sur _resolve_weights
+        if prof.lower() in s.replace("technology", "tech"):
+            return prof
+    # Reuse the same logic
+    if any(k in s for k in ("technology", "software")):
+        return "TECH"
+    if any(k in s for k in ("bank", "financ")):
+        return "BANK"
+    if "real estate" in s or "reit" in s:
+        return "REIT"
+    if "utilit" in s:
+        return "UTILITY"
+    if "energ" in s or "oil" in s:
+        return "ENERGY"
+    if any(k in s for k in ("consumer", "retail")):
+        return "CONSUMER"
+    if any(k in s for k in ("health", "pharma")):
+        return "HEALTHCARE"
+    if "industri" in s:
+        return "INDUSTRIALS"
+    if "material" in s:
+        return "MATERIALS"
+    return "STANDARD"

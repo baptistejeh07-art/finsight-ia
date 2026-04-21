@@ -545,10 +545,18 @@ def output_node(state: FinSightState) -> dict:
             }
         except Exception:
             pass
-        finsight_score = compute_score(ratio_dict, market_dict,
-                                        sector_analytics=None, info=info_dict)
+        # v1.2 : passe secteur + industrie pour pondération dynamique
+        _ci = getattr(snapshot, "company_info", None) if snapshot else None
+        _sector = getattr(_ci, "sector", None) if _ci else None
+        _industry = getattr(_ci, "industry", None) if _ci else None
+        finsight_score = compute_score(
+            ratio_dict, market_dict,
+            sector_analytics=None, info=info_dict,
+            sector=_sector, industry=_industry,
+        )
         log.info(f"[output_node] FinSight Score v{finsight_score.get('version','v1')} = "
                  f"{finsight_score['global']}/100 ({finsight_score['grade']}) — "
+                 f"profil {finsight_score.get('sector_profile_used','STD')} — "
                  f"{finsight_score['verdict']}")
     except Exception as _se:
         log.warning(f"[output_node] FinSight Score skip : {_se}")
