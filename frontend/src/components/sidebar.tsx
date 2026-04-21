@@ -126,9 +126,9 @@ export function Sidebar() {
     path.startsWith("http") ? path : `${apiBase}/file/${path}`;
 
   return (
-    <aside className="hidden md:flex fixed left-0 top-0 h-screen w-56 flex-col bg-white text-ink-900 border-r border-ink-200 z-40">
-      {/* Logo SVG vectoriel (sans fond) */}
-      <Link href="/app" className="block px-4 pt-4 pb-3 border-b border-ink-100">
+    <aside className="hidden md:flex fixed left-0 top-0 h-screen w-56 flex-col bg-white dark:bg-ink-900 text-ink-900 dark:text-ink-50 border-r border-ink-200 dark:border-ink-700 z-40">
+      {/* Logo SVG vectoriel — version sombre en dark mode */}
+      <Link href="/app" className="block px-4 pt-4 pb-3 border-b border-ink-100 dark:border-ink-700">
         <Image
           src="/logo.svg"
           alt="FinSight IA"
@@ -136,7 +136,16 @@ export function Sidebar() {
           height={752}
           priority
           unoptimized
-          className="object-contain h-24 w-auto"
+          className="object-contain h-24 w-auto block dark:hidden"
+        />
+        <Image
+          src="/logo-finsight-white.png"
+          alt="FinSight IA"
+          width={1398}
+          height={752}
+          priority
+          unoptimized
+          className="object-contain h-24 w-auto hidden dark:block"
         />
       </Link>
 

@@ -6,6 +6,7 @@ import toast from "react-hot-toast";
 import { createClient } from "@/lib/supabase/client";
 import { saveAnalysisToHistory, type HistoryKind } from "@/hooks/use-analyses-history";
 import { useI18n } from "@/i18n/provider";
+import { AuthDialog } from "@/components/auth-dialog";
 
 interface Props {
   jobId: string;
@@ -25,6 +26,7 @@ export function SaveToHistoryCard({ jobId, kind, label, ticker }: Props) {
   const [state, setState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [loggedIn, setLoggedIn] = useState<boolean | null>(null);
   const [alreadySaved, setAlreadySaved] = useState(false);
+  const [authMode, setAuthMode] = useState<"signin" | "signup" | null>(null);
 
   useEffect(() => {
     const supabase = createClient();
@@ -81,13 +83,22 @@ export function SaveToHistoryCard({ jobId, kind, label, ticker }: Props) {
 
   if (loggedIn === false) {
     return (
-      <div className="bg-white border border-ink-200 rounded-md p-4 h-full flex flex-col items-center justify-center text-center gap-2">
-        <Bookmark className="w-6 h-6 text-ink-400" />
-        <div className="text-sm font-medium text-ink-800">{t("results.keep_in_memory")}</div>
-        <div className="text-xs text-ink-500 max-w-[220px]">
-          {t("results.kept_hint_default")}
-        </div>
-      </div>
+      <>
+        <button
+          type="button"
+          onClick={() => setAuthMode("signup")}
+          className="w-full h-full p-4 rounded-md border border-ink-200 hover:border-navy-500 hover:bg-navy-50 transition-all bg-white flex flex-col items-center justify-center text-center gap-2 group"
+        >
+          <Bookmark className="w-6 h-6 text-navy-500" />
+          <div className="text-sm font-semibold text-ink-800">{t("results.keep_in_memory")}</div>
+          <div className="text-[11px] text-ink-500 max-w-[240px]">
+            Créez un compte gratuit pour sauvegarder cette analyse et la retrouver plus tard.
+          </div>
+        </button>
+        {authMode && (
+          <AuthDialog mode={authMode} onClose={() => setAuthMode(null)} onModeChange={setAuthMode} />
+        )}
+      </>
     );
   }
 

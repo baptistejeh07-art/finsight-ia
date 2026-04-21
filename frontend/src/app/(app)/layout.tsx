@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { Sidebar } from "@/components/sidebar";
-import { TopNav } from "@/components/top-nav";
 import { EditModeProvider } from "@/components/edit-mode-provider";
 import { UserPreferencesProvider } from "@/components/user-preferences-provider";
 import { OnboardingTour } from "@/components/onboarding-tour";
@@ -15,7 +14,6 @@ export default function AppLayout({
     <I18nProvider>
     <EditModeProvider>
       <Sidebar />
-      <TopNav />
       <OnboardingTour />
       <ShortcutsRuntime />
       <div className="md:pl-56 min-h-screen flex flex-col">

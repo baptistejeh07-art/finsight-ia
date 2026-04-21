@@ -10,9 +10,13 @@ import {
   Info,
   LogOut,
   Shield,
+  Mail,
+  LogIn,
+  UserPlus,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
+import { AuthDialog } from "./auth-dialog";
 
 /**
  * Menu utilisateur en bas de la sidebar (style ChatGPT / Claude).
@@ -26,6 +30,7 @@ export function SidebarUserMenu() {
   const [user, setUser] = useState<User | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [open, setOpen] = useState(false);
+  const [authMode, setAuthMode] = useState<"signin" | "signup" | null>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const supabase = createClient();
 
@@ -74,14 +79,74 @@ export function SidebarUserMenu() {
 
   if (!user) {
     return (
-      <div className="border-t border-ink-100 p-3">
-        <Link
-          href="/app"
-          className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-md border border-ink-200 hover:border-navy-500 hover:bg-navy-50 transition-colors text-sm font-medium text-ink-800"
-        >
-          Se connecter
-        </Link>
-      </div>
+      <>
+        <div ref={wrapperRef} className="relative border-t border-ink-100 dark:border-ink-700">
+          {open && (
+            <div
+              className="absolute left-2 right-2 bottom-full mb-1 bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-700 rounded-md shadow-lg overflow-hidden z-50 animate-fade-in"
+              role="menu"
+            >
+              <button
+                type="button"
+                onClick={() => { setAuthMode("signin"); setOpen(false); }}
+                role="menuitem"
+                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-ink-700 dark:text-ink-100 hover:bg-ink-50 dark:hover:bg-ink-800 transition-colors"
+              >
+                <LogIn className="w-4 h-4" />
+                {t("auth.login")}
+              </button>
+              <button
+                type="button"
+                onClick={() => { setAuthMode("signup"); setOpen(false); }}
+                role="menuitem"
+                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-ink-700 dark:text-ink-100 hover:bg-ink-50 dark:hover:bg-ink-800 transition-colors"
+              >
+                <UserPlus className="w-4 h-4" />
+                {t("auth.signup")}
+              </button>
+              <MenuItem
+                href="/contact"
+                icon={<Mail className="w-4 h-4" />}
+                label={t("nav.contact")}
+                onNavigate={() => setOpen(false)}
+              />
+              <MenuItem
+                href="/methodologie"
+                icon={<Info className="w-4 h-4" />}
+                label={t("nav.learn_more")}
+                onNavigate={() => setOpen(false)}
+              />
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={() => setOpen((v) => !v)}
+            aria-expanded={open}
+            className="w-full flex items-center gap-2.5 px-3 py-3 hover:bg-ink-50 dark:hover:bg-ink-800 transition-colors"
+          >
+            <span className="shrink-0 w-8 h-8 rounded-full bg-navy-500 text-white font-semibold text-sm flex items-center justify-center">
+              ?
+            </span>
+            <span className="flex-1 text-left overflow-hidden">
+              <span className="block text-sm font-medium text-ink-900 dark:text-ink-50 truncate">
+                {t("auth.login")}
+              </span>
+              <span className="block text-[11px] text-ink-500 dark:text-ink-400 truncate">
+                {t("nav.contact")}
+              </span>
+            </span>
+            <ChevronsUpDown className="w-3.5 h-3.5 text-ink-400 shrink-0" />
+          </button>
+        </div>
+        {authMode && (
+          <AuthDialog
+            mode={authMode}
+            onClose={() => setAuthMode(null)}
+            onModeChange={setAuthMode}
+          />
+        )}
+      </>
     );
   }
 
@@ -126,6 +191,12 @@ export function SidebarUserMenu() {
             href="/methodologie"
             icon={<Info className="w-4 h-4" />}
             label={t("nav.learn_more")}
+            onNavigate={() => setOpen(false)}
+          />
+          <MenuItem
+            href="/contact"
+            icon={<Mail className="w-4 h-4" />}
+            label={t("nav.contact")}
             onNavigate={() => setOpen(false)}
           />
 
