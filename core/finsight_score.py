@@ -28,7 +28,53 @@ Déterministe — pas de LLM. Documenté dans /methodologie pour transparence.
 """
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from typing import Optional
+
+# Charge les quartiles calibrés par secteur (outputs/backtest/sector_bounds.json)
+# Si fichier absent, _scale() utilise ses bornes hardcodées par défaut.
+_SECTOR_BOUNDS_CACHE: Optional[dict] = None
+
+
+def _get_sector_bounds() -> dict:
+    """Lazy-load sector_bounds.json avec quartiles Q10/Q25/Q50/Q75/Q90 par ratio."""
+    global _SECTOR_BOUNDS_CACHE
+    if _SECTOR_BOUNDS_CACHE is not None:
+        return _SECTOR_BOUNDS_CACHE
+    try:
+        path = Path(__file__).resolve().parent.parent / "outputs" / "backtest" / "sector_bounds.json"
+        if path.exists():
+            with open(path, encoding="utf-8") as f:
+                _SECTOR_BOUNDS_CACHE = json.load(f)
+        else:
+            _SECTOR_BOUNDS_CACHE = {}
+    except Exception:
+        _SECTOR_BOUNDS_CACHE = {}
+    return _SECTOR_BOUNDS_CACHE
+
+
+def _resolve_bounds(ratio: str, sector: Optional[str],
+                     default_low: float, default_high: float) -> tuple[float, float]:
+    """Retourne (low, high) calibrés pour ce ratio dans ce secteur.
+    Fallback : _default secteur, puis defaults hardcodés.
+    """
+    bounds = _get_sector_bounds()
+    if not bounds:
+        return default_low, default_high
+    # Match secteur (fuzzy : "Technology" match "Information Technology")
+    candidates = [sector] if sector else []
+    candidates.append("_default")
+    for s in candidates:
+        if not s:
+            continue
+        # Match direct ou partial
+        for key in bounds:
+            if key == s or (s and key.lower() in s.lower()):
+                r = bounds[key].get(ratio)
+                if r and r.get("q10") is not None and r.get("q90") is not None:
+                    return float(r["q10"]), float(r["q90"])
+    return default_low, default_high
 
 
 def _safe(v) -> Optional[float]:
@@ -73,7 +119,8 @@ def _neutral(max_pts: float) -> float:
 # v1.1 : ajout Beneish M-Score (qualité des earnings, détection manipulation).
 # v1.3 backtest_mode=True : skip Beneish (redistribue points sur les autres)
 def _quality_score(ratios: dict, info: Optional[dict] = None,
-                    backtest_mode: bool = False) -> tuple[float, dict]:
+                    backtest_mode: bool = False,
+                    sector: Optional[str] = None) -> tuple[float, dict]:
     """ROIC + Marge + Solvabilité + Altman + Piotroski [+ Beneish si !backtest].
 
     Pondération v1.2 (full live) : ROIC 6 + Marg 4 + Debt 4 + Alt 3 + Pio 3 + Beneish 5 = 25
@@ -96,10 +143,13 @@ def _quality_score(ratios: dict, info: Optional[dict] = None,
         net_m = net_m / 100.0
 
     if backtest_mode:
-        # Points v1.3 (sans Beneish) — totalisent 25
-        s_roic = _scale(roic, 0.05, 0.30, 8)
-        s_marg = _scale(net_m, 0.0, 0.25, 5)
-        s_debt = _scale_inverse(nd_ebitda, 0.0, 4.0, 5)
+        # v2 : bornes calibrées par secteur (quartiles Q10/Q90 réels) si dispo.
+        roic_low, roic_high = _resolve_bounds("roic", sector, 0.05, 0.30)
+        marg_low, marg_high = _resolve_bounds("net_margin", sector, 0.0, 0.25)
+        debt_low, debt_high = _resolve_bounds("net_debt_ebitda", sector, 0.0, 4.0)
+        s_roic = _scale(roic, roic_low, roic_high, 8)
+        s_marg = _scale(net_m, marg_low, marg_high, 5)
+        s_debt = _scale_inverse(nd_ebitda, debt_low, debt_high, 5)
         s_alt  = _scale(altman, 1.8, 3.5, 4)
         s_pio  = _scale(piotroski, 4.0, 8.0, 3)
         s_beneish = 0.0
@@ -136,25 +186,29 @@ def _quality_score(ratios: dict, info: Optional[dict] = None,
 
 
 # ═══ VALORISATION (25 pts) ════════════════════════════════════════════════
-def _value_score(ratios: dict, sector_analytics: Optional[dict] = None) -> tuple[float, dict]:
+def _value_score(ratios: dict, sector_analytics: Optional[dict] = None,
+                  sector: Optional[str] = None) -> tuple[float, dict]:
     """P/E 9 + EV/EBITDA 8 + FCF Yield 8 — bornes adaptables secteur."""
     pe = _safe(ratios.get("pe_ratio") or ratios.get("pe"))
     ev_ebitda = _safe(ratios.get("ev_ebitda"))
     fcf_yield = _safe(ratios.get("fcf_yield"))
 
     sa = sector_analytics or {}
+    # Priorité 1 : bornes calibrées par secteur (si sector_bounds.json chargé)
+    pe_low, pe_high = _resolve_bounds("pe_ratio", sector, 8, 35)
+    ev_low, ev_high = _resolve_bounds("ev_ebitda", sector, 6, 25)
+    fcf_low, fcf_high = _resolve_bounds("fcf_yield", sector, 0.0, 0.10)
+    # Priorité 2 : median sector_analytics si fournie (runtime)
     pe_med = _safe(sa.get("pe_median_ltm"))
-    if pe_med:
+    if pe_med and pe_low == 8:  # overwrite uniquement si pas calibré
         pe_low, pe_high = pe_med * 0.6, pe_med * 1.5
-    else:
-        pe_low, pe_high = 8, 35
 
     if fcf_yield is not None and abs(fcf_yield) > 1.5:
         fcf_yield = fcf_yield / 100.0
 
     s_pe   = _scale_inverse(pe, pe_low, pe_high, 9)
-    s_ev   = _scale_inverse(ev_ebitda, 6, 25, 8)
-    s_fcf  = _scale(fcf_yield, 0.0, 0.10, 8)
+    s_ev   = _scale_inverse(ev_ebitda, ev_low, ev_high, 8)
+    s_fcf  = _scale(fcf_yield, fcf_low, fcf_high, 8)
 
     total = s_pe + s_ev + s_fcf
     return round(total, 1), {
@@ -169,7 +223,8 @@ def _value_score(ratios: dict, sector_analytics: Optional[dict] = None) -> tuple
 # v1.3 backtest : 52w 12 + Rev 9 + Beta 4 (retour v1.0, EPS/short pas historiques)
 def _momentum_score(ratios: dict, market: Optional[dict] = None,
                     info: Optional[dict] = None,
-                    backtest_mode: bool = False) -> tuple[float, dict]:
+                    backtest_mode: bool = False,
+                    sector: Optional[str] = None) -> tuple[float, dict]:
     """Momentum élargi avec révisions analystes + short squeeze potential."""
     info = info or {}
     mom52 = _safe(ratios.get("momentum_52w"))
@@ -182,9 +237,11 @@ def _momentum_score(ratios: dict, market: Optional[dict] = None,
         rev_g = rev_g / 100.0
 
     if backtest_mode:
-        # v1.3 : concentrer sur signaux historisables = momentum + croissance + beta
-        s_mom = _scale(mom52, -0.20, 0.50, 12)   # -20% à +50% → 0-12 pts
-        s_rev = _scale(rev_g, 0.0, 0.25, 9)      # 0-25% croissance → 0-9 pts
+        # v2 : bornes calibrées si dispo
+        mom_low, mom_high = _resolve_bounds("momentum_52w", sector, -0.20, 0.50)
+        rev_low, rev_high = _resolve_bounds("revenue_growth", sector, 0.0, 0.25)
+        s_mom = _scale(mom52, mom_low, mom_high, 12)
+        s_rev = _scale(rev_g, rev_low, rev_high, 9)
         if beta is None:
             s_beta = _neutral(4)
         elif 0.8 <= beta <= 1.2:
@@ -496,10 +553,13 @@ def compute_score(
         dict {global 0-100, grade A/B/C/D/E, verdict, quality, value,
               momentum, governance, details}
     """
-    quality, q_det = _quality_score(ratios or {}, info, backtest_mode=backtest_mode)
-    value, v_det = _value_score(ratios or {}, sector_analytics)
-    momentum, m_det = _momentum_score(ratios or {}, market, info, backtest_mode=backtest_mode)
-    governance, g_det = _governance_score(ratios or {}, market, info, backtest_mode=backtest_mode)
+    quality, q_det = _quality_score(ratios or {}, info,
+                                      backtest_mode=backtest_mode, sector=sector)
+    value, v_det = _value_score(ratios or {}, sector_analytics, sector=sector)
+    momentum, m_det = _momentum_score(ratios or {}, market, info,
+                                        backtest_mode=backtest_mode, sector=sector)
+    governance, g_det = _governance_score(ratios or {}, market, info,
+                                            backtest_mode=backtest_mode)
 
     # v1.2 : pondération sectorielle. Chaque sous-score sur 25 → multiplié
     # par 4 × poids sectoriel (qui somme à 1). Garde l'échelle 0-100.

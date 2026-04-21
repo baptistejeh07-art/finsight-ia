@@ -138,6 +138,8 @@ def compute_quantiles(snapshots: list[dict]) -> dict:
             continue
         out[sector] = {}
         for ratio, spec in _RATIOS.items():
+            if ratio not in sub.columns:
+                continue
             vals = sub[ratio].dropna()
             # Outlier filter
             vals = vals[(vals >= spec["min"]) & (vals <= spec["max"])]
