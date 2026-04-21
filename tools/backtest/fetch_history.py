@@ -45,8 +45,22 @@ _UNIVERSES = {
         "MCD", "LIN", "WFC", "ABT", "CSCO", "VZ", "DHR", "TXN", "INTU",
         "NEE", "NKE", "PM", "MS", "UPS",
     ],
-    # Top 100 = top 50 + 50 suivants (étendre plus tard)
-    "sp100": [],  # TODO: ajouter 50 tickers suivants
+    # Top 100 = top 50 + 50 suivants (étendu pour backtest sérieux)
+    "sp100": [
+        "AAPL", "MSFT", "NVDA", "GOOGL", "AMZN", "META", "TSLA", "BRK-B",
+        "JPM", "V", "WMT", "UNH", "XOM", "MA", "PG", "JNJ", "LLY", "HD",
+        "AVGO", "CVX", "ABBV", "KO", "MRK", "PEP", "COST", "BAC", "ADBE",
+        "CRM", "NFLX", "ORCL", "PFE", "AMD", "TMO", "DIS", "ACN", "CMCSA",
+        "MCD", "LIN", "WFC", "ABT", "CSCO", "VZ", "DHR", "TXN", "INTU",
+        "NEE", "NKE", "PM", "MS", "UPS",
+        # 51-100
+        "IBM", "GS", "HON", "CAT", "SPGI", "AXP", "RTX", "QCOM", "BKNG",
+        "LOW", "T", "ISRG", "AMAT", "SBUX", "GILD", "BLK", "DE", "MDT",
+        "BA", "TJX", "C", "GE", "ADI", "SYK", "MMC", "BMY", "CI", "ELV",
+        "LMT", "PLD", "SO", "CB", "DUK", "ZTS", "MO", "AMT", "PYPL",
+        "ICE", "EQIX", "EOG", "COP", "NOC", "FDX", "USB", "NSC", "APD",
+        "WM", "ITW", "TGT",
+    ],
     # Top 40 CAC 40 + DAX 40 pour international
     "euro40": [
         "MC.PA", "RMS.PA", "OR.PA", "TTE.PA", "SAN.PA", "BNP.PA", "AIR.PA",

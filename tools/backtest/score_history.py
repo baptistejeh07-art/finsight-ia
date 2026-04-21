@@ -108,6 +108,16 @@ def _compute_ratios_at(t_data: dict, target_date: pd.Timestamp) -> dict:
 
     fcf = _val(cf_col, ["Free Cash Flow"])
     capex = _val(cf_col, ["Capital Expenditure"])
+    # Dividends + shares pour governance historique (fix NaN correlation)
+    dividends_paid = _val(cf_col, ["Cash Dividends Paid",
+                                    "Common Stock Dividend Paid",
+                                    "Cash Dividend Paid"])
+    # Dividends paid est négatif (flux sortant) → on prend la valeur abs
+    if dividends_paid is not None:
+        dividends_paid = abs(dividends_paid)
+    shares_out = _val(bs_col, ["Share Issued", "Ordinary Shares Number",
+                                "Common Stock Equity"])
+    # Retained earnings pour Altman (déjà fait plus bas mais récupéré ici)
 
     # Ratios de base
     ratios: dict = {}
@@ -147,6 +157,35 @@ def _compute_ratios_at(t_data: dict, target_date: pd.Timestamp) -> dict:
     if total_debt is not None and ebitda and ebitda > 0:
         nd = total_debt - (cash or 0)
         ratios["net_debt_ebitda"] = nd / ebitda
+
+    # ── Governance historique (fix NaN correlation) ──
+    # Payout ratio = dividendes versés / net income
+    if dividends_paid and net_income and net_income > 0:
+        payout = dividends_paid / net_income
+        if 0 < payout < 3.0:  # sanity check
+            ratios["payout_ratio"] = payout
+    # Dividend yield = dividendes / market cap
+    if dividends_paid and mcap and mcap > 0:
+        dy = dividends_paid / mcap
+        if 0 < dy < 0.20:
+            ratios["div_yield"] = dy
+    # Shares change YoY — compare shares du snapshot actuel vs précédent
+    try:
+        if bs is not None and len(bs.columns) >= 2:
+            def _ts_naive_sh(c):
+                t = pd.Timestamp(c)
+                return t.tz_localize(None) if t.tz is not None else t
+            cols_sorted = sorted(bs.columns, key=_ts_naive_sh)
+            valid = [c for c in cols_sorted if _ts_naive_sh(c) <= target_date]
+            if len(valid) >= 2:
+                cur_s = _val(bs[valid[-1]], ["Share Issued", "Ordinary Shares Number"])
+                prev_s = _val(bs[valid[-2]], ["Share Issued", "Ordinary Shares Number"])
+                if cur_s and prev_s and prev_s > 0:
+                    change = (cur_s / prev_s) - 1
+                    if abs(change) < 0.50:  # sanity : >50% = merger/split, skip
+                        ratios["shares_change_pct"] = change
+    except Exception:
+        pass
 
     # Altman Z (non-manufacturing simplifié)
     if total_assets and total_assets > 0:
