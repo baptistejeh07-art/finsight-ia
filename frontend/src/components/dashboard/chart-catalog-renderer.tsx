@@ -31,6 +31,14 @@ import { IncomeStatementWaterfall } from "./income-statement-waterfall";
 import { RevenueMarginTrend } from "./revenue-margin-trend";
 import { ValuationMultiplesHistory } from "./valuation-multiples-history";
 import { BalanceHealthTrend } from "./balance-health-trend";
+import { IndicePerfBenchmark } from "./indice-perf-benchmark";
+import { SectorScoreDistribution } from "./sector-score-distribution";
+import { SectorValueQualityScatter } from "./sector-value-quality-scatter";
+import { SectorMomentumLeaders } from "./sector-momentum-leaders";
+import { IndiceSectorPerformance } from "./indice-sector-performance";
+import { CmpMultiplesRadar } from "./cmp-multiples-radar";
+import { CmpReturnProfile } from "./cmp-return-profile";
+import { CmpRiskProfile } from "./cmp-risk-profile";
 
 export interface RendererCtx {
   data: AnalysisData | undefined;
@@ -186,6 +194,73 @@ export function renderChart(componentId: string, ctx: RendererCtx): ReactNode {
     case "BalanceHealthTrend":
       if (!ratios?.years) return <Placeholder reason="Ratios historiques indisponibles" />;
       return <BalanceHealthTrend ratios={ratios} />;
+
+    case "IndicePerfBenchmark": {
+      const ph = data.perf_history as {
+        dates?: string[];
+        indice?: number[];
+        sp500?: number[];
+        bonds?: number[];
+        gold?: number[];
+        indice_name?: string;
+      } | null | undefined;
+      return <IndicePerfBenchmark perfHistory={ph} universe={data.universe as string | undefined} />;
+    }
+
+    case "SectorScoreDistribution":
+      if (!data.tickers) return <Placeholder reason="Liste des constituants indisponible" />;
+      return (
+        <SectorScoreDistribution
+          tickers={data.tickers}
+          label={(data.universe as string) || (data.sector as string)}
+        />
+      );
+
+    case "SectorValueQualityScatter":
+      if (!data.tickers) return <Placeholder reason="Liste des constituants indisponible" />;
+      return (
+        <SectorValueQualityScatter
+          tickers={data.tickers}
+          label={(data.universe as string) || (data.sector as string)}
+        />
+      );
+
+    case "SectorMomentumLeaders":
+      if (!data.tickers) return <Placeholder reason="Liste des constituants indisponible" />;
+      return (
+        <SectorMomentumLeaders
+          tickers={data.tickers}
+          label={(data.universe as string) || (data.sector as string)}
+        />
+      );
+
+    case "IndiceSectorPerformance":
+      if (!data.secteurs) return <Placeholder reason="Pondération sectorielle indisponible" />;
+      return <IndiceSectorPerformance secteurs={data.secteurs} universe={data.universe as string | undefined} />;
+
+    case "CmpMultiplesRadar": {
+      const sA = (data.stats_a || data.snapshot_a || data.a) as Record<string, unknown> | undefined;
+      const sB = (data.stats_b || data.snapshot_b || data.b) as Record<string, unknown> | undefined;
+      const nameA = (data.name_a as string) || "A";
+      const nameB = (data.name_b as string) || "B";
+      return <CmpMultiplesRadar statsA={sA as never} statsB={sB as never} nameA={nameA} nameB={nameB} />;
+    }
+
+    case "CmpReturnProfile": {
+      const sA = (data.stats_a || data.perf_a || data.a) as Record<string, unknown> | undefined;
+      const sB = (data.stats_b || data.perf_b || data.b) as Record<string, unknown> | undefined;
+      const nameA = (data.name_a as string) || "A";
+      const nameB = (data.name_b as string) || "B";
+      return <CmpReturnProfile statsA={sA as never} statsB={sB as never} nameA={nameA} nameB={nameB} />;
+    }
+
+    case "CmpRiskProfile": {
+      const sA = (data.stats_a || data.risk_a || data.a) as Record<string, unknown> | undefined;
+      const sB = (data.stats_b || data.risk_b || data.b) as Record<string, unknown> | undefined;
+      const nameA = (data.name_a as string) || "A";
+      const nameB = (data.name_b as string) || "B";
+      return <CmpRiskProfile statsA={sA as never} statsB={sB as never} nameA={nameA} nameB={nameB} />;
+    }
 
     default:
       // Éviter les warnings sur variables non utilisées
