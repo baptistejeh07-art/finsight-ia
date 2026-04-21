@@ -2536,6 +2536,99 @@ async def delete_history(
 
 # ─── Historique user ────────────────────────────────────────────────────────
 
+# ─── Commentaires collaboratifs (Tier 1.4) ───────────────────────────────
+class CommentCreate(BaseModel):
+    body: str = Field(..., min_length=1, max_length=2000)
+    block_id: Optional[str] = Field(None, max_length=80)
+    parent_id: Optional[str] = Field(None, max_length=80)
+
+
+@app.get("/jobs/{job_id}/comments")
+async def list_comments(
+    job_id: str,
+    request: Request,
+    user: Annotated[Optional[dict], Depends(get_current_user)] = None,
+):
+    """Liste les commentaires d'une analyse (open SELECT via RLS).
+    Pas d'auth requise pour lecture (visibilité contrôlée par accès au job).
+    """
+    import httpx as _httpx
+    import os as _os
+    _surl = _os.getenv("SUPABASE_URL", "").rstrip("/")
+    _skey = (_os.getenv("SUPABASE_SERVICE_KEY")
+             or _os.getenv("SUPABASE_SERVICE_ROLE_KEY") or "")
+    try:
+        r = _httpx.get(
+            f"{_surl}/rest/v1/analysis_comments?"
+            f"job_id=eq.{job_id}&order=created_at.asc&limit=200",
+            headers={"apikey": _skey, "Authorization": f"Bearer {_skey}"},
+            timeout=4.0,
+        )
+        return {"comments": r.json() or []}
+    except Exception as e:
+        return {"comments": [], "error": str(e)}
+
+
+@app.post("/jobs/{job_id}/comments", status_code=201)
+async def create_comment(
+    job_id: str,
+    payload: CommentCreate,
+    request: Request,
+    user: Annotated[dict, Depends(require_user)],
+):
+    """Ajoute un commentaire ou une réponse sur un job."""
+    import httpx as _httpx
+    import os as _os
+    _surl = _os.getenv("SUPABASE_URL", "").rstrip("/")
+    _skey = (_os.getenv("SUPABASE_SERVICE_KEY")
+             or _os.getenv("SUPABASE_SERVICE_ROLE_KEY") or "")
+    body = {
+        "job_id": job_id,
+        "user_id": user["id"],
+        "user_email": user.get("email"),
+        "body": payload.body.strip()[:2000],
+        "block_id": payload.block_id,
+        "parent_id": payload.parent_id,
+    }
+    try:
+        r = _httpx.post(
+            f"{_surl}/rest/v1/analysis_comments",
+            headers={"apikey": _skey, "Authorization": f"Bearer {_skey}",
+                     "Content-Type": "application/json", "Prefer": "return=representation"},
+            json=body, timeout=4.0,
+        )
+        if r.status_code >= 400:
+            raise HTTPException(status_code=r.status_code, detail=r.text[:300])
+        rows = r.json() or []
+        return {"comment": rows[0] if rows else None}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/jobs/{job_id}/comments/{comment_id}", status_code=204)
+async def delete_comment(
+    job_id: str,
+    comment_id: str,
+    request: Request,
+    user: Annotated[dict, Depends(require_user)],
+):
+    import httpx as _httpx
+    import os as _os
+    _surl = _os.getenv("SUPABASE_URL", "").rstrip("/")
+    _skey = (_os.getenv("SUPABASE_SERVICE_KEY")
+             or _os.getenv("SUPABASE_SERVICE_ROLE_KEY") or "")
+    try:
+        _httpx.delete(
+            f"{_surl}/rest/v1/analysis_comments?id=eq.{comment_id}&user_id=eq.{user['id']}",
+            headers={"apikey": _skey, "Authorization": f"Bearer {_skey}"},
+            timeout=3.0,
+        )
+    except Exception:
+        pass
+
+
 # ─── Batch analyses (Tier 1.2) ────────────────────────────────────────────
 class BatchSocietesRequest(BaseModel):
     tickers: list[str] = Field(..., min_length=1, max_length=50)

@@ -11,6 +11,7 @@ const TABS = [
   { slug: "facturation", label: "Facturation" },
   { slug: "utilisation", label: "Utilisation" },
   { slug: "capacites", label: "Capacités" },
+  { slug: "branding", label: "Branding" },
   { slug: "connecteurs", label: "Connecteurs" },
   { slug: "raccourcis", label: "Raccourcis" },
   { slug: "rappels", label: "Rappels" },

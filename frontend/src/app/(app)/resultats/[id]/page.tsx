@@ -13,6 +13,7 @@ import type { AnalysisData, RawData, RatiosData, Synthesis } from "@/components/
 import { HeaderSociete } from "@/components/dashboard/header-societe";
 import { RecoCard } from "@/components/dashboard/reco-card";
 import { FinSightScoreBadge } from "@/components/dashboard/finsight-score-badge";
+import { CommentsPanel } from "@/components/dashboard/comments-panel";
 import { CoursChart } from "@/components/dashboard/cours-chart";
 import { PerformanceCard } from "@/components/dashboard/performance-card";
 import { ValorisationCards } from "@/components/dashboard/valorisation-cards";
@@ -744,6 +745,8 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
         </div>
       </main>
       <Footer />
+      {/* Discussion collaborative — FAB en bas à droite, panneau slide-in */}
+      <CommentsPanel jobId={id} />
     </div>
   );
 }
