@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { InstallAppButton } from "@/components/install-app-button";
 import {
   useUserPreferences,
   SUPPORTED_CURRENCIES,
@@ -55,6 +56,17 @@ export default function GeneralPage() {
 
   return (
     <div className="space-y-10 max-w-3xl">
+      {/* === Application === */}
+      <section>
+        <h2 className="text-lg font-semibold text-ink-900 dark:text-ink-50 mb-3">Application</h2>
+        <p className="text-sm text-ink-600 dark:text-ink-400 mb-4">
+          Installez FinSight comme une application sur votre bureau ou votre
+          téléphone. Raccourci direct, plein écran, notifications — comme un
+          vrai logiciel.
+        </p>
+        <InstallAppButton />
+      </section>
+
       {/* === Profil === */}
       <section>
         <h2 className="text-lg font-semibold text-ink-900 mb-5">Profil</h2>

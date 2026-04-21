@@ -162,3 +162,22 @@
     @apply max-w-7xl mx-auto px-6;
   }
 }
+
+/* === PWA standalone mode polish ====================================== */
+/* Quand FinSight est installé et lancé en standalone, l'OS affiche ses */
+/* propres contrôles → on masque les bandeaux d'install redondants et   */
+/* on ajuste le padding pour les safe areas iOS.                        */
+@media all and (display-mode: standalone),
+       all and (display-mode: window-controls-overlay),
+       all and (display-mode: minimal-ui) {
+  body {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+  .pwa-only-hidden { display: none !important; }
+  .standalone-titlebar {
+    padding-top: env(titlebar-area-height, 0px);
+  }
+}

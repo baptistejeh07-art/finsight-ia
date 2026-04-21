@@ -59,11 +59,25 @@ export const metadata: Metadata = {
   applicationName: "FinSight IA",
   appleWebApp: {
     capable: true,
-    statusBarStyle: "default",
+    statusBarStyle: "black-translucent",
     title: "FinSight",
+    startupImage: [
+      {
+        url: "/apple-icon.png",
+        media: "(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3)",
+      },
+    ],
   },
   formatDetection: {
     telephone: false,
+  },
+  other: {
+    "mobile-web-app-capable": "yes",
+    "apple-mobile-web-app-capable": "yes",
+    "apple-mobile-web-app-status-bar-style": "black-translucent",
+    "apple-mobile-web-app-title": "FinSight",
+    "msapplication-TileColor": "#1B2A4A",
+    "msapplication-tap-highlight": "no",
   },
 };
 
@@ -71,7 +85,10 @@ export const viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 5,
-  themeColor: "#0c0c0c",
+  themeColor: "#1B2A4A",
+  // Window Controls Overlay : permet à la PWA d'afficher la barre de titre
+  // native avec ses propres contrôles. Sensation "vrai logiciel".
+  viewportFit: "cover",
 };
 
 const themeInitScript = `

@@ -1,28 +1,45 @@
 {
+  "id": "com.finsight-ia.app",
   "name": "FinSight IA — Analyste financier propulsé par IA",
   "short_name": "FinSight",
   "description": "Analyses financières institutionnelles en 2 minutes : DCF, ratios, scénarios, comparables. Rapports PDF, pitchbooks PowerPoint, modèles Excel.",
-  "start_url": "/app",
+  "start_url": "/app?source=pwa",
   "scope": "/",
   "display": "standalone",
-  "orientation": "portrait-primary",
-  "theme_color": "#0c0c0c",
-  "background_color": "#fafaf5",
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "orientation": "any",
+  "theme_color": "#1B2A4A",
+  "background_color": "#FAFAF5",
   "lang": "fr-FR",
   "dir": "ltr",
   "categories": ["finance", "business", "productivity"],
+  "prefer_related_applications": false,
+  "launch_handler": { "client_mode": ["navigate-existing", "auto"] },
+  "edge_side_panel": { "preferred_width": 480 },
   "icons": [
     {
       "src": "/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
       "src": "/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     },
     {
       "src": "/apple-icon.png",
@@ -31,16 +48,65 @@
       "purpose": "any"
     }
   ],
+  "screenshots": [
+    {
+      "src": "/screenshot-desktop.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Dashboard d'analyse société avec Score FinSight"
+    },
+    {
+      "src": "/screenshot-mobile.png",
+      "sizes": "720x1280",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "FinSight sur mobile"
+    }
+  ],
   "shortcuts": [
     {
       "name": "Nouvelle analyse",
-      "url": "/app",
-      "description": "Lancer une analyse société, secteur ou indice"
+      "short_name": "Analyser",
+      "url": "/app?source=pwa-shortcut",
+      "description": "Lancer une analyse société, secteur ou indice",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
     },
     {
-      "name": "Mes analyses",
-      "url": "/app",
-      "description": "Voir l'historique des analyses"
+      "name": "Mes watchlists",
+      "short_name": "Watchlists",
+      "url": "/watchlists",
+      "description": "Listes thématiques de tickers à suivre",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Historique",
+      "short_name": "Historique",
+      "url": "/dashboard",
+      "description": "Analyses sauvegardées",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Paramètres",
+      "short_name": "Paramètres",
+      "url": "/parametres",
+      "description": "Préférences, branding, API",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
     }
-  ]
+  ],
+  "protocol_handlers": [
+    {
+      "protocol": "web+finsight",
+      "url": "/analyse?q=%s"
+    }
+  ],
+  "share_target": {
+    "action": "/analyse",
+    "method": "GET",
+    "params": {
+      "title": "title",
+      "text": "q",
+      "url": "url"
+    }
+  }
 }
