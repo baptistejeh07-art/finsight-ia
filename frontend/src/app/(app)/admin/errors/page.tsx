@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { AlertTriangle, AlertCircle, Info, AlertOctagon } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { BackButton } from "@/components/back-button";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "";
 
@@ -62,6 +63,7 @@ export default function AdminErrorsPage() {
 
   return (
     <div className="min-h-screen bg-surface p-6 md:p-10 space-y-6">
+      <BackButton fallback="/admin" />
       <header>
         <h1 className="text-2xl font-semibold text-ink-900">Sentinelle — erreurs pipeline</h1>
         <p className="text-sm text-ink-600 mt-1">

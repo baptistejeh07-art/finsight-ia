@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { RefreshCw, AlertTriangle, CheckCircle, Clock, Zap } from "lucide-react";
+import { BackButton } from "@/components/back-button";
 
 interface MonitoringJob {
   job_id: string;
@@ -66,6 +67,7 @@ export default function MonitoringPage() {
   return (
     <div className="min-h-screen bg-ink-50/30">
       <div className="max-w-7xl mx-auto px-6 py-10">
+        <BackButton className="mb-4" fallback="/admin" />
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-2xl font-bold text-ink-900">Monitoring jobs</h1>

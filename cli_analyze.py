@@ -195,21 +195,24 @@ def run_secteur(sector: str, universe: str = "CAC 40", prefix: str = "secteur",
         except Exception as e:
             log.error("XLSX énergie failed : %s", e)
     else:
-        # Fallback générique — Baptiste veut TOUJOURS un XLSX, peu importe secteur
+        # Fallback : template Screening_v4 (déjà utilisé par l'app Streamlit
+        # pour les analyses sectorielles). Baptiste veut TOUJOURS un XLSX.
         try:
-            from outputs.sector_generic_xlsx_writer import write_generic_sector_xlsx
+            from outputs.screening_writer import ScreeningWriter
             xlsx_path = OUT_DIR / f"{stem}.xlsx"
-            write_generic_sector_xlsx(
-                sector=sector,
-                universe=universe,
-                tickers_data=tickers,
-                sector_analytics=sector_analytics or {},
-                output_path=xlsx_path,
+            # Adapte la structure cli_analyze → format attendu par ScreeningWriter
+            adapted = [_adapt_for_screening_writer(t) for t in tickers]
+            ScreeningWriter.generate(
+                adapted,
+                universe_name=f"{sector} — {universe}",
+                output_path=str(xlsx_path),
             )
-            log.info("XLSX secteur générique : %s  (%d Ko)", xlsx_path.name,
+            log.info("XLSX screening v4 : %s  (%d Ko)", xlsx_path.name,
                      xlsx_path.stat().st_size // 1024)
         except Exception as e:
-            log.error("XLSX secteur générique failed : %s", e)
+            import traceback
+            log.error("XLSX screening failed : %s", e)
+            traceback.print_exc()
             xlsx_path = None
 
     print(f"\nFichiers generes dans : {OUT_DIR}")
@@ -238,6 +241,60 @@ def run_secteur(sector: str, universe: str = "CAC 40", prefix: str = "secteur",
         "tickers": tickers,
         "sector_analytics": sector_analytics or {},
         "sector_summary": sector_summary,
+    }
+
+
+def _adapt_for_screening_writer(t: dict) -> dict:
+    """Convertit un ticker produit par _fetch_real_sector_data vers le format
+    attendu par outputs.screening_writer.ScreeningWriter (DONNÉES BRUTES).
+
+    Différences principales :
+    - pe_ratio → pe
+    - margins en % (0-100) → décimaux (0-1)
+    - ajoute enterprise_value, roa, eps si absents (None toléré par _fmt_*)
+    """
+    # Marges : cli_analyze les stocke en % (0-100), writer attend décimal
+    def _to_frac(v):
+        if v is None:
+            return None
+        try:
+            fv = float(v)
+            return fv / 100.0 if abs(fv) > 1.5 else fv
+        except (TypeError, ValueError):
+            return None
+
+    return {
+        "ticker":          t.get("ticker"),
+        "company":         t.get("company") or t.get("name"),
+        "sector":          t.get("sector"),
+        "industry":        t.get("industry"),
+        "currency":        t.get("currency", "USD"),
+        "price":           t.get("price"),
+        "market_cap":      t.get("market_cap"),
+        "ev":              t.get("enterprise_value") or t.get("ev"),
+        "revenue_ltm":     t.get("revenue_ltm"),
+        "ebitda_ltm":      t.get("ebitda_ltm"),
+        "ev_ebitda":       t.get("ev_ebitda"),
+        "ev_revenue":      t.get("ev_revenue"),
+        "pe":              t.get("pe") or t.get("pe_ratio"),
+        "eps":             t.get("eps"),
+        "gross_margin":    _to_frac(t.get("gross_margin")),
+        "ebitda_margin":   _to_frac(t.get("ebitda_margin")),
+        "net_margin":      _to_frac(t.get("net_margin")),
+        "revenue_growth":  t.get("revenue_growth"),
+        "roe":             _to_frac(t.get("roe")),
+        "roa":             _to_frac(t.get("roa")),
+        "current_ratio":   t.get("current_ratio"),
+        "net_debt_ebitda": t.get("net_debt_ebitda"),
+        "altman_z":        t.get("altman_z"),
+        "beneish_m":       t.get("beneish_m"),
+        "momentum_52w":    _to_frac(t.get("momentum_52w")),
+        "score_value":     t.get("score_value"),
+        "score_growth":    t.get("score_growth"),
+        "score_quality":   t.get("score_quality"),
+        "score_momentum":  t.get("score_momentum"),
+        "score_global":    t.get("score_global"),
+        "next_earnings":   t.get("next_earnings"),
     }
 
 

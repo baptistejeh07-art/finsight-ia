@@ -6,9 +6,10 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import {
   BarChart3, Users, Activity, TrendingUp, TrendingDown, Minus,
-  Ban, CheckCircle2, RefreshCw, Shield, DollarSign, Globe2,
+  Ban, CheckCircle2, RefreshCw, Shield, DollarSign, Globe2, Eye,
 } from "lucide-react";
 import toast from "react-hot-toast";
+import { BackButton } from "@/components/back-button";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "";
 
@@ -21,6 +22,11 @@ interface AdminStats {
   };
   users: { total: number; banned: number; active: number };
   revenues: { mrr_eur: number; arr_eur: number; note: string };
+  vitrine?: {
+    visits_day: number; visits_week: number; visits_month: number;
+    unique_day: number; unique_week: number; unique_month: number;
+    top_pages: Array<{ path: string; count: number }>;
+  };
   generated_at: string;
 }
 
@@ -136,6 +142,7 @@ export default function AdminDashboardPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
+          <BackButton className="mb-3" fallback="/app" />
           <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[1.5px] text-ink-500 mb-1">
             <Shield className="w-3 h-3" />
             Admin Console
@@ -175,6 +182,34 @@ export default function AdminDashboardPage() {
                  suffix={stats?.revenues.note ? "—" : "€"}
                  hint={stats?.revenues.note} />
       </div>
+
+      {/* Visiteurs vitrine (non connectés) */}
+      <section className="bg-white border border-ink-200 rounded-md p-5">
+        <h2 className="text-sm font-semibold text-ink-900 mb-3 flex items-center gap-2">
+          <Eye className="w-4 h-4 text-navy-500" /> Visiteurs site vitrine (anonymes)
+        </h2>
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-3 mb-4">
+          <MiniKpi label="Pages vues 24h"  value={stats?.vitrine?.visits_day ?? 0} />
+          <MiniKpi label="Pages vues 7j"   value={stats?.vitrine?.visits_week ?? 0} />
+          <MiniKpi label="Pages vues 30j"  value={stats?.vitrine?.visits_month ?? 0} />
+          <MiniKpi label="Visiteurs 24h"   value={stats?.vitrine?.unique_day ?? 0} accent />
+          <MiniKpi label="Visiteurs 7j"    value={stats?.vitrine?.unique_week ?? 0} accent />
+          <MiniKpi label="Visiteurs 30j"   value={stats?.vitrine?.unique_month ?? 0} accent />
+        </div>
+        {(stats?.vitrine?.top_pages?.length ?? 0) > 0 && (
+          <div>
+            <h3 className="text-xs font-semibold text-ink-700 mb-2">Top pages visitées (7j)</h3>
+            <div className="space-y-1">
+              {(stats?.vitrine?.top_pages || []).slice(0, 8).map((p) => (
+                <div key={p.path} className="flex items-center justify-between text-xs border-b border-ink-50 py-1">
+                  <span className="font-mono text-ink-700 truncate">{p.path}</span>
+                  <span className="font-mono font-semibold text-ink-900 ml-3">{p.count}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </section>
 
       {/* Breakdown par kind + reco */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -322,6 +357,17 @@ function KpiCard({ icon, label, value, suffix, hint }: {
         {value.toLocaleString("fr-FR")} {suffix && <span className="text-sm text-ink-500">{suffix}</span>}
       </div>
       {hint && <div className="text-[10px] text-ink-400 mt-1 italic">{hint}</div>}
+    </div>
+  );
+}
+
+function MiniKpi({ label, value, accent = false }: { label: string; value: number; accent?: boolean }) {
+  return (
+    <div className={"rounded-md px-3 py-2 border " + (accent ? "bg-navy-50 border-navy-200" : "bg-ink-50 border-ink-100")}>
+      <div className="text-[9px] font-semibold uppercase tracking-wider text-ink-500">{label}</div>
+      <div className={"text-lg font-bold font-mono " + (accent ? "text-navy-700" : "text-ink-900")}>
+        {value.toLocaleString("fr-FR")}
+      </div>
     </div>
   );
 }

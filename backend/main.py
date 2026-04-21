@@ -1799,6 +1799,35 @@ async def admin_stats(user: Annotated[dict, Depends(require_admin)]):
     users_total = _count(f"{_surl}/rest/v1/user_preferences?select=user_id")
     users_banned = _count(f"{_surl}/rest/v1/user_preferences?banned_at=not.is.null&select=user_id")
 
+    # Visites vitrine (anonymes, non connectées)
+    vitrine = {"visits_day": 0, "visits_week": 0, "visits_month": 0,
+               "unique_day": 0, "unique_week": 0, "unique_month": 0,
+               "top_pages": []}
+    try:
+        r = _httpx.get(f"{_surl}/rest/v1/vitrine_stats_v?select=*",
+                       headers=headers, timeout=5.0)
+        rows = r.json() or []
+        if rows:
+            vitrine.update(rows[0])
+    except Exception:
+        pass
+    # Top pages visitées 7j
+    try:
+        r = _httpx.get(
+            f"{_surl}/rest/v1/vitrine_visits?created_at=gte.{week_ago}&user_id=is.null&select=path",
+            headers=headers, timeout=5.0,
+        )
+        counts: dict[str, int] = {}
+        for row in (r.json() or []):
+            p = row.get("path") or "/"
+            counts[p] = counts.get(p, 0) + 1
+        vitrine["top_pages"] = [
+            {"path": p, "count": c}
+            for p, c in sorted(counts.items(), key=lambda x: -x[1])[:10]
+        ]
+    except Exception:
+        pass
+
     return {
         "analyses": {
             "day": an_day,
@@ -1819,8 +1848,58 @@ async def admin_stats(user: Annotated[dict, Depends(require_admin)]):
             "arr_eur": 0,
             "note": "Stripe pas encore intégré",
         },
+        "vitrine": vitrine,
         "generated_at": now.isoformat() + "Z",
     }
+
+
+# ─── Tracking anonyme visites vitrine ─────────────────────────────────────
+class VitrineVisitRequest(BaseModel):
+    path: str = Field(..., description="Chemin visité (ex: /)")
+    referrer: Optional[str] = None
+    anon_session_id: Optional[str] = None
+
+
+@app.post("/analytics/vitrine-visit", status_code=204)
+async def track_vitrine_visit(
+    payload: VitrineVisitRequest,
+    request: Request,
+    user: Annotated[Optional[dict], Depends(get_current_user)] = None,
+):
+    """Enregistre une visite anonyme sur le site vitrine.
+
+    Rate limit implicite via Redis côté frontend (pas de spam), et en cas
+    de volume excessif on peut throttler ici. Pas d'auth requis : le but
+    est de tracker les visiteurs NON connectés (le headline use case).
+    """
+    try:
+        import httpx as _httpx
+        import os as _os
+        _surl = _os.getenv("SUPABASE_URL", "").rstrip("/")
+        _skey = (_os.getenv("SUPABASE_SERVICE_KEY")
+                 or _os.getenv("SUPABASE_SECRET_KEY")
+                 or _os.getenv("SUPABASE_SERVICE_ROLE_KEY") or "")
+        if not _surl or not _skey:
+            return
+        ua = request.headers.get("user-agent", "")[:300]
+        lang = request.headers.get("accept-language", "")[:6]
+        country = lang.split(",")[0].split("-")[-1].upper() if lang else None
+        body = {
+            "path": payload.path[:200],
+            "referrer": (payload.referrer or "")[:500] or None,
+            "user_agent": ua or None,
+            "anon_session_id": (payload.anon_session_id or "")[:64] or None,
+            "country": country,
+            "user_id": (user or {}).get("id"),
+        }
+        _httpx.post(
+            f"{_surl}/rest/v1/vitrine_visits",
+            headers={"apikey": _skey, "Authorization": f"Bearer {_skey}",
+                     "Content-Type": "application/json"},
+            json=body, timeout=2.5,
+        )
+    except Exception:
+        pass  # tracking discret, jamais d'erreur remontée
 
 
 @app.get("/admin/users")

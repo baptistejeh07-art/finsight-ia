@@ -3,6 +3,7 @@ import { DM_Sans, DM_Mono } from "next/font/google";
 import { Toaster } from "react-hot-toast";
 import { CookieBanner } from "@/components/cookie-banner";
 import { PWAInstaller } from "@/components/pwa-installer";
+import { VitrineVisitTracker } from "@/components/vitrine-visit-tracker";
 import "./globals.css";
 
 const dmSans = DM_Sans({
@@ -93,6 +94,7 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
       <body className="min-h-screen antialiased bg-surface text-text-primary">
+        <VitrineVisitTracker />
         {children}
         <PWAInstaller />
         <CookieBanner />
