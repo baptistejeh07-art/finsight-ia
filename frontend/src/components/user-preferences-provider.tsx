@@ -1,13 +1,30 @@
 "use client";
 
 import { useEffect } from "react";
-import { useUserPreferences } from "@/hooks/use-user-preferences";
+import {
+  PreferencesContext,
+  _usePreferencesState,
+  useUserPreferences,
+} from "@/hooks/use-user-preferences";
 
 /**
- * Applique les préférences utilisateur (thème + police) globalement sur <html>.
+ * Provider : crée UN état unique partagé via React Context, puis applique
+ * les préférences utilisateur (thème + police) globalement sur <html>.
  * À inclure dans le layout (app) au-dessus des children.
+ *
+ * Grâce au Context, un toggle thème dans /parametres se propage
+ * instantanément à la sidebar, à la page en cours, etc.
  */
 export function UserPreferencesProvider({ children }: { children: React.ReactNode }) {
+  const value = _usePreferencesState();
+  return (
+    <PreferencesContext.Provider value={value}>
+      <PreferencesApplier>{children}</PreferencesApplier>
+    </PreferencesContext.Provider>
+  );
+}
+
+function PreferencesApplier({ children }: { children: React.ReactNode }) {
   const { prefs } = useUserPreferences();
 
   useEffect(() => {

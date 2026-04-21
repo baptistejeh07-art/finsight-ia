@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, createContext, useContext } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { DEFAULT_USER_SHORTCUTS, DEFAULT_DEV_SHORTCUTS } from "@/lib/shortcuts";
 
@@ -104,14 +104,35 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
   dev_shortcuts: { ...DEFAULT_DEV_SHORTCUTS },
 };
 
+export interface PreferencesContextValue {
+  prefs: UserPreferences;
+  update: (patch: Partial<UserPreferences>) => void;
+  loading: boolean;
+}
+
+export const PreferencesContext = createContext<PreferencesContextValue | null>(null);
+
 /**
- * Hook de préférences utilisateur avec persistance Supabase.
+ * Hook public. Utilise le Context s'il existe (cas normal dans l'app
+ * wrappée par UserPreferencesProvider), sinon crée un état local
+ * (cas des pages vitrine hors provider).
  *
- * - Charge au mount depuis la table `user_preferences`
- * - `update(patch)` fusionne localement et upsert en base (debounce 500ms)
- * - Si pas connecté ou erreur : fallback localStorage
+ * Pour propager les changements en temps réel (ex: toggle dark mode),
+ * le code doit être wrappé par UserPreferencesProvider (déjà présent
+ * dans (app)/layout.tsx).
  */
-export function useUserPreferences() {
+export function useUserPreferences(): PreferencesContextValue {
+  const ctx = useContext(PreferencesContext);
+  // Hook toujours appelé (rules-of-hooks) ; ignoré si Context présent.
+  const fallback = _usePreferencesState();
+  return ctx ?? fallback;
+}
+
+/**
+ * Hook interne. Exporté pour être utilisé UNE SEULE FOIS par le
+ * UserPreferencesProvider qui injecte la valeur dans le Context.
+ */
+export function _usePreferencesState(): PreferencesContextValue {
   const [prefs, setPrefs] = useState<UserPreferences>(DEFAULT_PREFERENCES);
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);

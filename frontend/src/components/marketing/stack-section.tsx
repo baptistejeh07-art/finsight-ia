@@ -1,8 +1,4 @@
-"use client";
-
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
-import { motion, useInView } from "framer-motion";
 import { ArrowRight, FileText, Presentation, FileSpreadsheet } from "lucide-react";
 
 const TITLE = "D'autres résument.\nNous livrons un pitchbook.";
@@ -25,8 +21,18 @@ export function StackSection() {
               ✦  La pile FinSight
             </div>
 
-            <TypewriterTitle text={TITLE} />
-            <TypewriterParagraph text={PARA} />
+            <h3 className="text-2xl md:text-3xl font-semibold leading-tight">
+              {TITLE.split("\n").map((line, i, arr) => (
+                <span key={i}>
+                  {line}
+                  {i < arr.length - 1 && <br />}
+                </span>
+              ))}
+            </h3>
+
+            <p className="text-sm md:text-[15px] text-text-inverse/75 leading-relaxed max-w-md">
+              {PARA}
+            </p>
 
             <Link
               href="/analyste"
@@ -46,60 +52,6 @@ export function StackSection() {
   );
 }
 
-/**
- * Typewriter qui s'écrit caractère par caractère quand l'élément
- * entre dans le viewport. Une seule fois.
- */
-function useTypewriter(text: string, speed = 22) {
-  const ref = useRef<HTMLDivElement>(null);
-  const inView = useInView(ref, { once: true, margin: "-80px" });
-  const [displayed, setDisplayed] = useState("");
-
-  useEffect(() => {
-    if (!inView) return;
-    let i = 0;
-    const id = setInterval(() => {
-      i++;
-      setDisplayed(text.slice(0, i));
-      if (i >= text.length) clearInterval(id);
-    }, speed);
-    return () => clearInterval(id);
-  }, [inView, text, speed]);
-
-  return { ref, displayed, done: displayed.length === text.length };
-}
-
-function TypewriterTitle({ text }: { text: string }) {
-  const { ref, displayed, done } = useTypewriter(text, 35);
-  return (
-    <h3
-      ref={ref}
-      className="text-2xl md:text-3xl font-semibold leading-tight min-h-[5rem]"
-    >
-      {displayed.split("\n").map((line, i, arr) => (
-        <span key={i}>
-          {line}
-          {i < arr.length - 1 && <br />}
-        </span>
-      ))}
-      {!done && <span className="inline-block w-[2px] h-[1em] bg-text-inverse/70 align-middle ml-1 animate-pulse" />}
-    </h3>
-  );
-}
-
-function TypewriterParagraph({ text }: { text: string }) {
-  const { ref, displayed, done } = useTypewriter(text, 12);
-  return (
-    <p
-      ref={ref}
-      className="text-sm md:text-[15px] text-text-inverse/75 leading-relaxed max-w-md min-h-[6rem]"
-    >
-      {displayed}
-      {!done && <span className="inline-block w-[2px] h-[1em] bg-text-inverse/70 align-middle ml-0.5 animate-pulse" />}
-    </p>
-  );
-}
-
 function PitchbookMockup() {
   return (
     <div className="relative h-[360px] md:h-[420px]">
@@ -113,46 +65,29 @@ function PitchbookMockup() {
         }}
       />
 
-      {/* PDF — derrière à gauche, oscille (haut/droite -> bas/gauche) */}
-      <FloatingCard
-        translate="left-2 top-6"
-        z="z-10"
-        rotate="-rotate-6"
-        floatY={[-6, 4, -6]}
-        floatX={[0, 4, 0]}
-        delay={0}
-      >
+      {/* PDF — derrière à gauche (statique) */}
+      <StaticCard translate="left-2 top-6" z="z-10" rotate="-rotate-6">
         <MockCardContent
           icon={<FileText className="w-3.5 h-3.5" />}
           label="Rapport PDF"
           meta="20 pages · DCF · Scénarios"
         />
-      </FloatingCard>
+      </StaticCard>
 
-      {/* Excel — milieu droit, oscille (haut/gauche -> bas/droite) */}
-      <FloatingCard
-        translate="right-4 top-2"
-        z="z-20"
-        rotate="rotate-3"
-        floatY={[-5, 5, -5]}
-        floatX={[0, -3, 0]}
-        delay={1.2}
-      >
+      {/* Excel — milieu droit (statique) */}
+      <StaticCard translate="right-4 top-2" z="z-20" rotate="rotate-3">
         <MockCardContent
           icon={<FileSpreadsheet className="w-3.5 h-3.5" />}
           label="Modèle Excel"
           meta="Inputs · DCF · Comparables · Sensibilités"
         />
-      </FloatingCard>
+      </StaticCard>
 
-      {/* PPTX — devant centre, monte/descend doucement */}
-      <FloatingCard
+      {/* PPTX — devant centre (statique) */}
+      <StaticCard
         translate="left-1/2 -translate-x-1/2 top-24"
         z="z-30"
         rotate="-rotate-2"
-        floatY={[-8, 6, -8]}
-        floatX={[0, 0, 0]}
-        delay={0.6}
         big
       >
         <MockCardContent
@@ -160,46 +95,32 @@ function PitchbookMockup() {
           label="Pitchbook PowerPoint"
           meta="20 slides · format Bloomberg"
         />
-      </FloatingCard>
+      </StaticCard>
     </div>
   );
 }
 
-function FloatingCard({
+function StaticCard({
   children,
   translate,
   z,
   rotate,
-  floatY,
-  floatX,
-  delay,
   big = false,
 }: {
   children: React.ReactNode;
   translate: string;
   z: string;
   rotate: string;
-  floatY: number[];
-  floatX: number[];
-  delay: number;
   big?: boolean;
 }) {
   return (
-    <motion.div
-      initial={{ y: floatY[0], x: floatX[0] }}
-      animate={{ y: floatY, x: floatX }}
-      transition={{
-        duration: 5.5,
-        ease: "easeInOut",
-        repeat: Infinity,
-        delay,
-      }}
+    <div
       className={`absolute ${translate} ${z} ${rotate} ${
         big ? "w-72 h-64" : "w-60 h-52"
       } rounded-xl bg-white/95 dark:bg-surface-elevated border border-white/10 shadow-2xl shadow-black/40 p-4 flex flex-col`}
     >
       {children}
-    </motion.div>
+    </div>
   );
 }
 
@@ -218,20 +139,15 @@ function MockCardContent({
         <span className="w-7 h-7 rounded-md bg-accent-primary/10 text-accent-primary flex items-center justify-center">
           {icon}
         </span>
-        <div className="flex-1">
-          <div className="text-xs font-semibold leading-tight">{label}</div>
-          <div className="text-[10px] text-text-muted">{meta}</div>
-        </div>
+        <span className="text-sm font-semibold">{label}</span>
       </div>
-      <div className="flex-1 mt-4 space-y-2">
-        <div className="h-1.5 rounded bg-text-muted/20 w-full" />
-        <div className="h-1.5 rounded bg-text-muted/20 w-5/6" />
-        <div className="h-1.5 rounded bg-text-muted/20 w-4/6" />
-        <div className="mt-3 grid grid-cols-3 gap-1.5">
-          <div className="h-12 rounded bg-accent-primary/15" />
-          <div className="h-12 rounded bg-accent-primary/30" />
-          <div className="h-12 rounded bg-accent-primary/45" />
-        </div>
+      <div className="mt-2 text-xs text-text-muted">{meta}</div>
+      <div className="mt-4 flex-1 space-y-1.5">
+        <div className="h-1.5 rounded bg-text-primary/10 w-full" />
+        <div className="h-1.5 rounded bg-text-primary/10 w-5/6" />
+        <div className="h-1.5 rounded bg-text-primary/10 w-4/6" />
+        <div className="h-1.5 rounded bg-text-primary/10 w-full" />
+        <div className="h-1.5 rounded bg-text-primary/10 w-3/4" />
       </div>
     </>
   );

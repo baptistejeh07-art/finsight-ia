@@ -53,11 +53,13 @@ export function LogoMark({
       aria-label="FinSight IA — Accueil"
     >
       {isInverse ? (
+        /* Footer : PNG 2x net (la version SVG tracée par VTracer pixélise aux
+           grandes tailles car polygonal plutôt que vectoriel). */
         <Image
-          src="/logo-light.svg"
+          src="/logo-finsight-white-2x.png"
           alt="FinSight IA"
-          width={1398}
-          height={752}
+          width={1002}
+          height={712}
           priority
           unoptimized
           className={`object-contain ${SIZE_CLASS[effectiveSize]}`}
@@ -65,19 +67,19 @@ export function LogoMark({
       ) : (
         <>
           <Image
-            src="/logo.svg"
+            src="/logo-finsight-2x.png"
             alt="FinSight IA"
-            width={1398}
-            height={752}
+            width={1002}
+            height={712}
             priority
             unoptimized
             className={`object-contain ${SIZE_CLASS[effectiveSize]} block dark:hidden`}
           />
           <Image
-            src="/logo-light.svg"
+            src="/logo-finsight-white-2x.png"
             alt="FinSight IA"
-            width={1398}
-            height={752}
+            width={1002}
+            height={712}
             priority
             unoptimized
             className={`object-contain ${SIZE_CLASS[effectiveSize]} hidden dark:block`}

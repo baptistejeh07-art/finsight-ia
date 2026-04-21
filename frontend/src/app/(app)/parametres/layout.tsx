@@ -33,7 +33,7 @@ export default function ParametresLayout({
   }
 
   return (
-    <div className="min-h-screen bg-[#FAFAF5]">
+    <div className="min-h-screen bg-[#FAFAF5] dark:bg-ink-950 text-ink-900 dark:text-ink-50">
       <div className="max-w-6xl mx-auto px-6 md:px-10 py-8 md:py-12">
         {/* Bouton retour : ramène à la page précédente (analyse, dashboard...) */}
         <button
@@ -46,7 +46,7 @@ export default function ParametresLayout({
         </button>
 
         {/* Titre Paramètres (serif, grand) */}
-        <h1 className="text-3xl md:text-4xl font-semibold text-ink-900 mb-8 md:mb-12 tracking-tight"
+        <h1 className="text-3xl md:text-4xl font-semibold text-ink-900 dark:text-ink-50 mb-8 md:mb-12 tracking-tight"
             style={{ fontFamily: "'Copernicus', 'Libre Caslon Text', Georgia, serif" }}>
           Paramètres
         </h1>
@@ -65,8 +65,8 @@ export default function ParametresLayout({
                     className={
                       "px-3 py-2 rounded-md text-sm font-semibold transition-colors whitespace-nowrap " +
                       (active
-                        ? "bg-ink-100 text-ink-900"
-                        : "text-ink-700 hover:bg-ink-100/50 hover:text-ink-900")
+                        ? "bg-ink-100 dark:bg-ink-800 text-ink-900 dark:text-ink-50"
+                        : "text-ink-700 dark:text-ink-300 hover:bg-ink-100/50 dark:hover:bg-ink-800/60 hover:text-ink-900 dark:hover:text-ink-50")
                     }
                   >
                     {t.label}

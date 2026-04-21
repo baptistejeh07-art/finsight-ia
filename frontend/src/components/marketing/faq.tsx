@@ -52,7 +52,7 @@ export function Faq() {
         </h2>
         <div className="divide-y divide-border-default border-y border-border-default">
           {FAQ.map((qa, i) => (
-            <FaqItem key={i} qa={qa} defaultOpen={i === 0} />
+            <FaqItem key={i} qa={qa} defaultOpen={false} />
           ))}
         </div>
       </div>
