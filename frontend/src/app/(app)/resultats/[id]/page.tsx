@@ -31,6 +31,8 @@ import { WarningsBanner } from "@/components/dashboard/warnings-banner";
 import { SortableSections } from "@/components/dashboard/sortable-sections";
 import { EditableGrid, type GridBlock } from "@/components/dashboard/editable-grid";
 import { SectorTickersTable } from "@/components/dashboard/sector-tickers-table";
+import { SectorMktCapDonut } from "@/components/dashboard/sector-mktcap-donut";
+import { IndiceSectorsDonut } from "@/components/dashboard/indice-sectors-donut";
 import { IndiceSecteursTable } from "@/components/dashboard/indice-secteurs-table";
 import { SaveToHistoryCard } from "@/components/dashboard/save-to-history-card";
 import { ShareCard } from "@/components/dashboard/share-card";
@@ -557,13 +559,30 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
                   render: () => <DocumentUploadBox analysisId={id} />,
                 } satisfies GridBlock,
                 // Downloads PDF/PPTX/XLSX : dans la sidebar uniquement (Baptiste)
+                // Bloc spécifique secteur : market cap donut (top 5 + autres)
+                ...(kind === "secteur" && result.data?.tickers && result.data.tickers.length > 0
+                  ? [
+                      {
+                        id: "sector-mktcap",
+                        label: t("results.block_mktcap_distribution") || "Répartition Market Cap",
+                        default: { x: 0, y: 4, w: 6, h: 8 },
+                        render: () => (
+                          <SectorMktCapDonut
+                            tickers={result.data!.tickers!}
+                            sectorLabel={result.data?.sector}
+                            centerLabel={result.data?.sector}
+                          />
+                        ),
+                      } satisfies GridBlock,
+                    ]
+                  : []),
                 // Bloc spécifique secteur : table des sociétés
                 ...(kind === "secteur" && result.data?.tickers && result.data.tickers.length > 0
                   ? [
                       {
                         id: "sector-tickers",
                         label: t("results.block_sector_companies"),
-                        default: { x: 0, y: 8, w: 12, h: 8 },
+                        default: { x: 0, y: 12, w: 12, h: 8 },
                         render: () => (
                           <SectorTickersTable
                             tickers={result.data!.tickers!}
@@ -573,13 +592,29 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
                       } satisfies GridBlock,
                     ]
                   : []),
-                // Bloc spécifique indice : cartographie sectorielle
+                // Bloc spécifique indice : donut pondération sectorielle
+                ...(kind === "indice" && result.data?.secteurs && result.data.secteurs.length > 0
+                  ? [
+                      {
+                        id: "indice-mktcap",
+                        label: t("results.block_sector_weights") || "Pondération sectorielle",
+                        default: { x: 0, y: 4, w: 6, h: 8 },
+                        render: () => (
+                          <IndiceSectorsDonut
+                            secteurs={result.data!.secteurs!}
+                            universe={result.data?.universe}
+                          />
+                        ),
+                      } satisfies GridBlock,
+                    ]
+                  : []),
+                // Bloc spécifique indice : cartographie sectorielle (table)
                 ...(kind === "indice" && result.data?.secteurs && result.data.secteurs.length > 0
                   ? [
                       {
                         id: "indice-secteurs",
                         label: t("results.block_sector_map"),
-                        default: { x: 0, y: 8, w: 12, h: 8 },
+                        default: { x: 0, y: 12, w: 12, h: 8 },
                         render: () => (
                           <IndiceSecteursTable
                             secteurs={result.data!.secteurs!}
