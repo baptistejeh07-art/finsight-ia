@@ -665,6 +665,21 @@ def output_node(state: FinSightState) -> dict:
     except Exception as _log_e:
         log.debug(f"[output_node] analysis_log skip : {_log_e}")
 
+    # ── Sentinel V2 : audit data quality post-analyse ──
+    # Détecte les bugs silencieux (ratios None, reco invalide, conviction
+    # hors bornes) qui ne remontent pas comme des exceptions.
+    try:
+        from core.sentinel.data_audit import audit_societe_analysis
+        audit_societe_analysis(
+            ticker=state.get("ticker", ""),
+            snapshot=snapshot,
+            ratios=ratios,
+            synthesis=synthesis,
+            job_id=state.get("job_id"),
+        )
+    except Exception as _ae:
+        log.debug(f"[output_node] sentinel audit skip : {_ae}")
+
     return {
         "excel_path":  excel_path,
         "pptx_path":   pptx_path,

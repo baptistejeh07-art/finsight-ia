@@ -253,6 +253,21 @@ def run_secteur(sector: str, universe: str = "CAC 40", prefix: str = "secteur",
     # Synthèse narrative pour l'UI dashboard (à partir des analytics)
     sector_summary = _build_sector_narrative(sector, universe, tickers, sector_analytics or {})
 
+    # ── Sentinel V2 : audit data quality ──
+    # Détecte fallback tickers BAN1-6, noms manquants, ratios vides, analytics
+    # cassés, synthèse trop courte. Remonte les issues dans pipeline_errors.
+    try:
+        from core.sentinel.data_audit import audit_sector_analysis
+        audit_sector_analysis(
+            sector=sector,
+            universe=universe,
+            tickers=tickers,
+            analytics=sector_analytics,
+            llm_summary=sector_summary,
+        )
+    except Exception as _ae:
+        log.debug(f"[run_secteur] sentinel audit skip : {_ae}")
+
     # Retourne les data pour le backend (Q&A contexte + UI enrichie)
     return {
         "sector": sector,
