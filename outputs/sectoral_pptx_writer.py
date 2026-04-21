@@ -1486,12 +1486,12 @@ def _s06_ratios(prs, D):
     _rect(slide, 0.9, _s06_text_y, 23.6, 0.7, fill=_NAVY)
     _txb(slide, "LECTURE ANALYTIQUE", 1.1, _s06_text_y + 0.05, 23.2, 0.6, size=8.5, bold=True, color=_WHITE)
     analysis = (
-        f"La Médiane EV/EBITDA sectorielle s établit a {ev_med:.1f}x LTM. "
+        f"La médiane EV/EBITDA sectorielle s'établit à {ev_med:.1f}x LTM. "
         f"{best_name} ({_fmt_x(ev_best)}) se distingue comme le leader de qualité, "
-        f"combine a une marge EBITDA de {_fmt_pct_plain(best.get('ebitda_margin'))} et une croissance "
+        f"combinée à une marge EBITDA de {_fmt_pct_plain(best.get('ebitda_margin'))} et une croissance "
         f"de {_fmt_pct_rev(best.get('revenue_growth'))}. "
-        f"La dispersion des multiples revele l hétérogèneite des profils au sein du secteur "
-        f"{D['sector_name']} — une lecture croisée P/E vs EV/EBITDA permet d isoler les "
+        f"La dispersion des multiples révèle l'hétérogénéité des profils au sein du secteur "
+        f"{D['sector_name']} — une lecture croisée P/E vs EV/EBITDA permet d'isoler les "
         f"effets de structure de capital et les distorsions comptables."
     )
     _txb(slide, analysis, 1.1, _s06_text_y + 0.8, 23.2, 2.0, size=8.5, color=_GRAYT, wrap=True)

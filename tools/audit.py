@@ -274,7 +274,7 @@ def analyze_sector(mode: str, sector: str, universe: str) -> dict:
     code, out = _run([sys.executable, "cli_analyze.py", mode, sector, universe])
     elapsed = time.time() - t0
 
-    stem = f"{mode}_{sector.replace(' ','_')}_{universe.replace(' ','_')}"
+    stem = f"{mode}_{sector.replace(' ','_').replace('&','_and_')}_{universe.replace(' ','_').replace('&','_and_')}"
     log = ROOT / "outputs" / "generated" / "audits" / f"_run_{stem}.log"
     log.write_text(out, encoding="utf-8", errors="replace")
     return {"code": code, "elapsed": elapsed, "output": out}
@@ -282,7 +282,7 @@ def analyze_sector(mode: str, sector: str, universe: str) -> dict:
 
 def render_sector(mode: str, sector: str, universe: str) -> dict:
     """Lance render_outputs.py --sector et retourne les chemins PNG."""
-    stem = f"{mode}_{sector.replace(' ','_')}_{universe.replace(' ','_')}"
+    stem = f"{mode}_{sector.replace(' ','_').replace('&','_and_')}_{universe.replace(' ','_').replace('&','_and_')}"
     print(f"\n  [RENDER] {stem}...")
     code, out = _run([
         sys.executable, "tools/render_outputs.py",
@@ -299,7 +299,7 @@ def render_sector(mode: str, sector: str, universe: str) -> dict:
 
 
 def _copy_to_preview_sector(mode: str, sector: str, universe: str) -> Path:
-    stem = f"{mode}_{sector.replace(' ','_')}_{universe.replace(' ','_')}"
+    stem = f"{mode}_{sector.replace(' ','_').replace('&','_and_')}_{universe.replace(' ','_').replace('&','_and_')}"
     _clear_all_previews()
     dest = PREVIEW_ROOT / stem
     dest.mkdir(parents=True, exist_ok=True)
@@ -318,7 +318,7 @@ def _copy_to_preview_sector(mode: str, sector: str, universe: str) -> Path:
 
 
 def audit_sector(mode: str, sector: str, universe: str, preview: bool = False) -> Path:
-    stem = f"{mode}_{sector.replace(' ','_')}_{universe.replace(' ','_')}"
+    stem = f"{mode}_{sector.replace(' ','_').replace('&','_and_')}_{universe.replace(' ','_').replace('&','_and_')}"
 
     run_result = analyze_sector(mode, sector, universe)
     renders    = render_sector(mode, sector, universe)

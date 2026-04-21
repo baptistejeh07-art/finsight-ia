@@ -412,6 +412,76 @@ def run_cmp_secteur(
     print(f"\nTemps total : {time.time() - t0:.1f}s")
 
 
+def run_cmp_indice(
+    universe_a: str, universe_b: str,
+    language: str = "fr", currency: str = "EUR",
+) -> None:
+    """Pipeline comparatif d'indices -> PDF + PPTX + XLSX comparatifs.
+
+    `universe_a` / `universe_b` : cles INDICE_CMP_OPTIONS (CAC40, SP500, DAX40,
+    FTSE100, STOXX50, NIKKEI225, NASDAQ100, DOWJONES).
+    """
+    from core.cmp_indice import build_cmp_indice_data, INDICE_CMP_OPTIONS
+    from outputs.cmp_indice_pptx_writer import CmpIndicePPTXWriter
+    from outputs.cmp_indice_pdf_writer import CmpIndicePDFWriter
+    from outputs.cmp_indice_xlsx_writer import CmpIndiceXlsxWriter
+
+    name_a = INDICE_CMP_OPTIONS.get(universe_a, (universe_a,))[0]
+    name_b = INDICE_CMP_OPTIONS.get(universe_b, (universe_b,))[0]
+    log.info("=== COMPARATIF INDICES : %s vs %s ===", name_a, name_b)
+    t0 = time.time()
+
+    # Fetch donnees indice A (tickers + stats agreges)
+    try:
+        indice_data_a = _fetch_real_indice_data(name_a)
+    except Exception as e:
+        log.warning("Fetch indice A %s echec : %s", name_a, e)
+        indice_data_a = {}
+    tickers_data_a = indice_data_a.get("tickers_data") or []
+
+    # Construit le dict de comparaison (clean, sans Streamlit)
+    cmp_data = build_cmp_indice_data(
+        universe_a=universe_a,
+        universe_b=universe_b,
+        indice_data_a=indice_data_a,
+        tickers_data_a=tickers_data_a,
+    )
+
+    stem = (f"cmp_indice_{universe_a}_vs_{universe_b}")
+    pdf_path = OUT_DIR / f"{stem}.pdf"
+    pptx_path = OUT_DIR / f"{stem}.pptx"
+    xlsx_path = OUT_DIR / f"{stem}.xlsx"
+
+    try:
+        pdf_bytes = CmpIndicePDFWriter.generate_bytes(cmp_data)
+        pdf_path.write_bytes(pdf_bytes)
+        log.info("PDF comparatif indice : %s  (%d Ko)", pdf_path.name, pdf_path.stat().st_size // 1024)
+    except Exception as e:
+        log.warning("PDF cmp indice echec : %s", e)
+
+    try:
+        pptx_bytes = CmpIndicePPTXWriter.generate(cmp_data)
+        if pptx_bytes:
+            pptx_path.write_bytes(pptx_bytes)
+            log.info("PPTX comparatif indice : %s  (%d Ko)", pptx_path.name, pptx_path.stat().st_size // 1024)
+    except Exception as e:
+        log.warning("PPTX cmp indice echec : %s", e)
+
+    try:
+        xlsx_bytes = CmpIndiceXlsxWriter.generate_bytes(cmp_data)
+        if xlsx_bytes:
+            xlsx_path.write_bytes(xlsx_bytes)
+            log.info("XLSX comparatif indice : %s  (%d Ko)", xlsx_path.name, xlsx_path.stat().st_size // 1024)
+    except Exception as e:
+        log.warning("XLSX cmp indice echec : %s", e)
+
+    print(f"\nFichiers generes dans : {OUT_DIR}")
+    for p in (pdf_path, pptx_path, xlsx_path):
+        if p.exists():
+            print(f"  * {p.name}")
+    print(f"\nTemps total : {time.time() - t0:.1f}s")
+
+
 def run_indice(universe: str = "S&P 500", language: str = "fr", currency: str = "EUR") -> dict:
     """Pipeline indice complet (tous secteurs) → PDF + PPTX + Excel."""
     from outputs.indice_pdf_writer import IndicePDFWriter
@@ -2373,43 +2443,41 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
                 except Exception as _prx_ex:
                     log.warning("ETF proxy %s erreur: %s", _proxy_ticker, _prx_ex)
 
-        # Perf history reelle pour l'indice EU (index vs SP500, Bonds, Or)
-        _eu_perf_history = None
-        if secteurs:
-            try:
-                import pandas as _pd_ph
-                _ph_start = (today - datetime.timedelta(days=370)).isoformat()
-                # Telecharger toutes les series ensemble, aligner sur les dates de l'indice
-                _ph_tickers = [code, "^GSPC", "AGG", "GLD"]
-                _ph_raw = yf.download(_ph_tickers, start=_ph_start, interval="1d", progress=False)
-                if isinstance(_ph_raw.columns, _pd_ph.MultiIndex):
-                    _ph_close = _ph_raw["Close"]
-                else:
-                    _ph_close = _ph_raw
-                # Reindexer sur les dates de l'indice EU, forward-fill pour les jours feries US/EU
-                _ph_close = _ph_close.dropna(subset=[code]).ffill()
-                def _rebase_col(col):
-                    if col not in _ph_close.columns: return []
-                    s = _ph_close[col].dropna()
-                    return [round((v / s.iloc[0]) * 100, 2) for v in s] if not s.empty else []
-                _ph_dts  = [str(d.date()) for d in _ph_close.index]
-                _eu_perf_history = {
-                    "dates":       _ph_dts,
-                    "indice":      _rebase_col(code),
-                    "bonds":       _rebase_col("AGG"),
-                    "gold":        _rebase_col("GLD"),
-                    "sp500":       _rebase_col("^GSPC"),
-                    "label_start": _ph_dts[0] if _ph_dts else "",
-                    "label_end":   _ph_dts[-1] if _ph_dts else "",
-                    "indice_name": universe,
-                }
-                log.info("EU perf_history OK: %d points (aligned)", len(_ph_dts))
-            except Exception as _ph_ex:
-                log.warning("EU perf_history erreur: %s", _ph_ex)
-
         if not secteurs:
             log.warning("ETF SPDR non disponibles — fallback donnees test")
             return _make_test_indice_data(universe)
+
+    # Perf history reelle pour l'indice (index vs SP500, Bonds, Or)
+    # Doit s'exécuter pour US ET EU (hors du branch `if secteurs and not _eu_members_by_sec:`)
+    if secteurs and code:
+        try:
+            import pandas as _pd_ph
+            _ph_start = (today - datetime.timedelta(days=370)).isoformat()
+            _ph_tickers = [code, "^GSPC", "AGG", "GLD"]
+            _ph_raw = yf.download(_ph_tickers, start=_ph_start, interval="1d", progress=False)
+            if isinstance(_ph_raw.columns, _pd_ph.MultiIndex):
+                _ph_close = _ph_raw["Close"]
+            else:
+                _ph_close = _ph_raw
+            _ph_close = _ph_close.dropna(subset=[code]).ffill()
+            def _rebase_col(col):
+                if col not in _ph_close.columns: return []
+                s = _ph_close[col].dropna()
+                return [round((v / s.iloc[0]) * 100, 2) for v in s] if not s.empty else []
+            _ph_dts  = [str(d.date()) for d in _ph_close.index]
+            _eu_perf_history = {
+                "dates":       _ph_dts,
+                "indice":      _rebase_col(code),
+                "bonds":       _rebase_col("AGG"),
+                "gold":        _rebase_col("GLD"),
+                "sp500":       _rebase_col("^GSPC"),
+                "label_start": _ph_dts[0] if _ph_dts else "",
+                "label_end":   _ph_dts[-1] if _ph_dts else "",
+                "indice_name": universe,
+            }
+            log.info("perf_history OK: %d points (aligned, %s)", len(_ph_dts), universe)
+        except Exception as _ph_ex:
+            log.warning("perf_history erreur (%s): %s", universe, _ph_ex)
 
     # P/B et DivYield génériques (fallback si ETF info incomplet)
     _PB_GENERIC = {

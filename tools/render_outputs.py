@@ -246,7 +246,10 @@ def render_indice(universe: str, dpi: int = 150, width_px: int = 1920) -> dict:
 def render_sector(sector: str, universe: str, mode: str = "secteur",
                   dpi: int = 150, width_px: int = 1920) -> dict:
     """Render PDF + PPTX pour un secteur ou indice."""
-    stem = f"{mode}_{sector.replace(' ', '_')}_{universe.replace(' ', '_')}"
+    stem = (
+        f"{mode}_{sector.replace(' ', '_').replace('&', '_and_')}"
+        f"_{universe.replace(' ', '_').replace('&', '_and_')}"
+    )
     renders_dir = CLI_DIR / "renders" / stem
 
     pdf_files  = sorted(CLI_DIR.glob(f"{stem}*.pdf"))

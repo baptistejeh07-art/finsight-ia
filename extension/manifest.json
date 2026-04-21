@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "FinSight IA — Analyser sur un clic",
   "short_name": "FinSight",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "description": "Ajoute un bouton '📊 Analyser avec FinSight' sur Yahoo Finance, TradingView, Boursorama, Google Finance, Morningstar, Investing, Zonebourse. Obtenez une analyse fondamentale complète (DCF, ratios, scénarios) en 2 minutes.",
   "author": "FinSight IA",
   "homepage_url": "https://finsight-ia.com",

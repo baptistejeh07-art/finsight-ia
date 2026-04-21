@@ -5,6 +5,28 @@
   const BUTTON_ID = "finsight-analyze-btn";
   const FINSIGHT_URL = "https://finsight-ia.com/app";
 
+  // Mapping ticker indice (TradingView + alias courants) → nom FinSight.
+  // Priorité sur le suffix exchange : si le code brut est un indice connu,
+  // on envoie le nom de l'indice, peu importe le prefix (TVC-, SP-, EURONEXT-, etc.).
+  const INDICE_MAP = {
+    SPX: "S&P 500", SPX500: "S&P 500", SP500: "S&P 500", SPY: "S&P 500",
+    SPXUSD: "S&P 500", ES: "S&P 500", US500: "S&P 500",
+    FCHI: "CAC 40", CAC40: "CAC 40", PX1: "CAC 40", CAC: "CAC 40", FR40: "CAC 40",
+    GDAXI: "DAX 40", DAX: "DAX 40", DE40: "DAX 40", DAX40: "DAX 40", DEU40: "DAX 40",
+    FTSE: "FTSE 100", UKX: "FTSE 100", FTSE100: "FTSE 100", UK100: "FTSE 100",
+    NDX: "NASDAQ 100", NAS100: "NASDAQ 100", NASDAQ100: "NASDAQ 100", USTEC: "NASDAQ 100", NQ: "NASDAQ 100",
+    DJI: "Dow Jones", US30: "Dow Jones", DOWJONES: "Dow Jones", DJIA: "Dow Jones", YM: "Dow Jones",
+    STOXX50E: "Euro Stoxx 50", SX5E: "Euro Stoxx 50", EU50: "Euro Stoxx 50", ESTX50: "Euro Stoxx 50",
+    N225: "Nikkei 225", NKY: "Nikkei 225", JP225: "Nikkei 225", NI225: "Nikkei 225",
+  };
+
+  // Exchanges TradingView → suffix Yahoo/FinSight
+  const EXCHANGE_SUFFIX = {
+    EURONEXT: ".PA", LSE: ".L", XETR: ".DE", SIX: ".SW",
+    BME: ".MC", MIL: ".MI", AMS: ".AS", BRU: ".BR",
+    TSE: ".T", HKEX: ".HK", TSX: ".TO",
+  };
+
   // --- Extraction du ticker selon la plateforme ---
   function extractTicker() {
     const url = location.href;
@@ -14,18 +36,29 @@
     let m = url.match(/finance\.yahoo\.com\/quote\/([A-Z0-9.\-^]+)/i);
     if (m) return { ticker: m[1].toUpperCase(), source: "yahoo" };
 
-    // TradingView : /symbols/NASDAQ-AAPL ou /symbols/EURONEXT-MC
-    m = url.match(/tradingview\.com\/symbols\/[A-Z0-9\-]+?-([A-Z0-9]+)\//i);
+    // TradingView : /symbols/EXCHANGE-TICKER/ (stocks ET indices avec prefix TVC-/SP-/...)
+    m = url.match(/tradingview\.com\/symbols\/([A-Z0-9]+)-([A-Z0-9]+)/i);
     if (m) {
-      // Pour TradingView, l'exchange est avant le tiret → on ajoute le suffix approprié
-      const exchange = url.match(/\/symbols\/([A-Z0-9]+)-/i)?.[1]?.toUpperCase();
-      const ticker = m[1].toUpperCase();
-      const suffix = {
-        EURONEXT: ".PA", LSE: ".L", XETR: ".DE", SIX: ".SW",
-        BME: ".MC", MIL: ".MI", AMS: ".AS", BRU: ".BR",
-        TSE: ".T", HKEX: ".HK", TSX: ".TO",
-      }[exchange];
-      return { ticker: suffix && !ticker.includes(".") ? ticker + suffix : ticker, source: "tradingview" };
+      const exchange = m[1].toUpperCase();
+      const rawTicker = m[2].toUpperCase();
+
+      // Priorité : si le code brut est un indice connu, ignorer l'exchange
+      if (INDICE_MAP[rawTicker]) {
+        return { ticker: INDICE_MAP[rawTicker], source: "tradingview", useName: true };
+      }
+
+      const suffix = EXCHANGE_SUFFIX[exchange];
+      const ticker = suffix && !rawTicker.includes(".") ? rawTicker + suffix : rawTicker;
+      return { ticker, source: "tradingview" };
+    }
+
+    // TradingView indice sans prefix : /symbols/SPX/ ou /symbols/FCHI?...
+    m = url.match(/tradingview\.com\/symbols\/([A-Z0-9]+)(?:\/|\?|$)/i);
+    if (m) {
+      const tv = m[1].toUpperCase();
+      if (INDICE_MAP[tv]) {
+        return { ticker: INDICE_MAP[tv], source: "tradingview", useName: true };
+      }
     }
 
     // Boursorama : /cours/RMS (français, ajouter .PA)

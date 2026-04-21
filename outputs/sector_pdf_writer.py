@@ -568,7 +568,7 @@ def _make_revenue_area(tickers_data: list[dict], sector_name: str,
                 fontweight="bold")
     ax.set_yticks(y)
     ax.set_yticklabels(labels_rev, fontsize=8.5, color="#333")
-    ax.set_xlabel("Poids dans l'ETF (%)", fontsize=9, color="#555")
+    ax.set_xlabel("Poids dans l'ETF (%)", fontsize=9, color="#555", labelpad=8)
     ax.set_xlim(0, max(weights_rev) * 1.18)
     ax.tick_params(length=0)
     for sp in ["top", "right"]:
@@ -1429,6 +1429,11 @@ def _build_structure_sectorielle(tickers_data: list[dict], sector_name: str,
     # ── Tableau 2 : Qualité & Valorisation Relative ────────────────────────
     _qual_title = Paragraph("Qualité Fondamentale et Valorisation Relative", S_SUBSECTION)
 
+    # Paragraphe LLM d'interprétation des médianes (fallback silencieux si KO)
+    _medians_commentary = _generate_medians_commentary(
+        sector_name, sa, _sector_profile,
+    )
+
     qual_h = [Paragraph(h, S_TH_C)
               for h in ["Indicateur", "Valeur", "Interpretation analytique"]]
 
@@ -1628,7 +1633,14 @@ def _build_structure_sectorielle(tickers_data: list[dict], sector_name: str,
             Paragraph(val, val_style),
             Paragraph(interp, S_TD_L),
         ])
-    elems.append(KeepTogether([_qual_title, tbl([qual_h] + qual_rows, cw=[52*mm, 52*mm, 66*mm])]))
+    # Titre + paragraphe LLM + tableau ensemble pour eviter la coupure
+    _qual_block = [_qual_title]
+    if _medians_commentary:
+        _qual_block.append(Spacer(1, 1.5*mm))
+        _qual_block.append(Paragraph(_medians_commentary, S_BODY))
+        _qual_block.append(Spacer(1, 2*mm))
+    _qual_block.append(tbl([qual_h] + qual_rows, cw=[52*mm, 52*mm, 66*mm]))
+    elems.append(KeepTogether(_qual_block))
     if _sector_profile in ("BANK", "INSURANCE"):
         elems.append(src(
             "P/TBV : Price-to-Tangible-Book-Value (yfinance priceToBook). "
@@ -3139,7 +3151,7 @@ def _build_risques(tickers_data: list[dict], sector_name: str, registry=None):
     # ── Comparaison inter-sectorielle — P/E médian par secteur ────────────
     # Contexte : "le secteur analysé est-il cher vs les autres ?"
     elems.append(Spacer(1, 5*mm))
-    elems.append(Paragraph("Comparaison inter-sectorielle \u2014 Positionnement relatif", S_SUBSECTION))
+    _inter_title = Paragraph("Comparaison inter-sectorielle \u2014 Positionnement relatif", S_SUBSECTION)
     # Mapping EN→FR pour le matching du secteur courant
     _sector_aliases = {
         "technologie": "technologie", "technology": "technologie",
@@ -3186,6 +3198,8 @@ def _build_risques(tickers_data: list[dict], sector_name: str, registry=None):
             Paragraph(f"<b>{_sev:.0f}x</b>" if _is_current else f"{_sev:.0f}x", _style_cell),
         ])
     elems.append(KeepTogether([
+        _inter_title,
+        Spacer(1, 1.5*mm),
         tbl([_ib_h] + _ib_rows, cw=[50*mm, 40*mm, 40*mm]),
         Spacer(1, 2*mm),
         src(
@@ -3680,6 +3694,108 @@ def _build_disclaimer():
         "agr\u00e9\u00e9 avant toute d\u00e9cision patrimoniale. \u2014 <b>Document confidentiel \u00b7 "
         "Ne pas redistribuer.</b>", S_DISC))
     return elems
+
+
+def _generate_medians_commentary(sector_name: str, sa: dict, sector_profile: str = "STANDARD") -> str:
+    """LLM : 2-3 phrases d'interpretation des medianes sectorielles.
+
+    Injecte avant le tableau 'Qualite Fondamentale et Valorisation Relative'.
+    Fallback : retourne '' silencieux si LLM echoue -- le tableau se rend seul.
+    """
+    try:
+        import sys as _sys, os as _os
+        _sys.path.insert(0, _os.path.dirname(_os.path.dirname(__file__)))
+        from core.llm_provider import LLMProvider
+        from core.prompt_standards import build_system_prompt
+
+        # Construit un bloc de KPI medians selon le profil
+        def _fmt_pct_or_none(v, suffix="%"):
+            if v is None:
+                return "n/d"
+            try:
+                return f"{float(v):.1f}{suffix}"
+            except Exception:
+                return "n/d"
+
+        def _fmt_x_or_none(v):
+            if v is None:
+                return "n/d"
+            try:
+                return f"{float(v):.1f}x"
+            except Exception:
+                return "n/d"
+
+        if sector_profile in ("BANK", "INSURANCE"):
+            kpi_lines = (
+                f"- P/TBV median : {_fmt_x_or_none(sa.get('pb_median'))}\n"
+                f"- ROE median : {_fmt_pct_or_none(sa.get('roe_median'))}\n"
+                f"- Dividend Yield median : {_fmt_pct_or_none(sa.get('div_yield_median'))}\n"
+                f"- Beta median : {_fmt_x_or_none(sa.get('beta_median'))}"
+            )
+            profile_hint = (
+                "Profil bancaire/assurance : commente P/TBV (valorisation book value), "
+                "ROE (rentabilite capital), dividende (politique distribution), beta "
+                "(sensibilite macro)."
+            )
+        elif sector_profile == "REIT":
+            kpi_lines = (
+                f"- P/B median : {_fmt_x_or_none(sa.get('pb_median'))}\n"
+                f"- Dividend Yield median : {_fmt_pct_or_none(sa.get('div_yield_median'))}\n"
+                f"- FCF Yield median : {_fmt_pct_or_none(sa.get('fcf_yield_median'))}\n"
+                f"- Beta median : {_fmt_x_or_none(sa.get('beta_median'))}"
+            )
+            profile_hint = (
+                "Profil REIT : commente NAV (P/B), rendement FFO (dividend yield), "
+                "qualite actifs (FCF yield), sensibilite taux (beta)."
+            )
+        else:
+            kpi_lines = (
+                f"- Piotroski F-Score : {sa.get('piotroski_quality', 0)} qualite / "
+                f"{sa.get('piotroski_neutral', 0)} neutre / {sa.get('piotroski_trap', 0)} trap\n"
+                f"- PEG ratio median : {_fmt_x_or_none(sa.get('peg_median'))}\n"
+                f"- FCF Yield median : {_fmt_pct_or_none(sa.get('fcf_yield_median'))}\n"
+                f"- Beta median : {_fmt_x_or_none(sa.get('beta_median'))}"
+            )
+            profile_hint = (
+                "Profil non-financier : commente solidite fondamentale (Piotroski), "
+                "cherete relative a croissance (PEG), generation cash (FCF yield), "
+                "sensibilite macro (beta)."
+            )
+
+        system = build_system_prompt(
+            role="analyste buy-side senior sur synthese de medianes sectorielles",
+            extra_rules=[
+                "FORMAT : 2-3 phrases analytiques denses, un seul paragraphe.",
+                "LONGUEUR TOTALE : 50-80 mots.",
+                "ECRIS EN FRANCAIS CORRECT AVEC ACCENTS COMPLETS (é è ê à ù ç ô).",
+                "Pas de chiffres inventes, cite uniquement les KPI fournis.",
+                "Pas de recommandation d'investissement, juste une lecture analytique.",
+            ],
+        )
+        prompt = (
+            f"CONTEXTE -- Interpretation des medianes sectorielles {sector_name}.\n"
+            f"{profile_hint}\n\n"
+            f"KPI medians observes :\n{kpi_lines}\n\n"
+            f"TACHE : ecris 2-3 phrases qui synthetisent ce que ces medianes disent "
+            f"de la qualite fondamentale et de la valorisation relative du secteur "
+            f"en ce moment. Ton : analyste institutionnel."
+        )
+        llm = LLMProvider(provider="mistral")
+        raw = llm.generate(prompt=prompt, system=system, max_tokens=260)
+        if not raw:
+            return ""
+        # Clean : retire marqueurs markdown eventuels
+        text = raw.strip().replace("**", "").replace("*", "").replace("\n\n", " ").replace("\n", " ")
+        # Restaure accents si LLM a oublie
+        try:
+            from tools.restore_accents import restore_accents as _ra
+            text = _ra(text)
+        except Exception:
+            pass
+        return text
+    except Exception as e:
+        log.warning(f"[sector_pdf] medians LLM commentary echec : {e}")
+        return ""
 
 
 # ─── LLM COMMENTARY ───────────────────────────────────────────────────────────

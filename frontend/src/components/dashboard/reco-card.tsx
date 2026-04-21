@@ -32,7 +32,7 @@ export function RecoCard({
           <div className="text-[10px] font-semibold uppercase tracking-[1.5px] text-ink-500 mb-2">
             {t("results.ai_conviction")}
           </div>
-          <div className="text-2xl font-bold text-ink-900 font-mono">{fp(pct / 100, 0)}</div>
+          <div className="text-2xl font-bold text-ink-900 font-mono">{fp(pct, 0)}</div>
           <div className="w-full h-1 bg-ink-100 rounded-full mt-2 overflow-hidden">
             <div
               className="h-full bg-ink-900 rounded-full"

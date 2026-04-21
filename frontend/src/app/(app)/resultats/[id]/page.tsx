@@ -36,6 +36,15 @@ import { EditableGrid, type GridBlock } from "@/components/dashboard/editable-gr
 import { SectorTickersTable } from "@/components/dashboard/sector-tickers-table";
 import { SectorMktCapDonut } from "@/components/dashboard/sector-mktcap-donut";
 import { IndiceSectorsDonut } from "@/components/dashboard/indice-sectors-donut";
+import { IndicePerfTiles } from "@/components/dashboard/indice-perf-tiles";
+import { IndiceTopConstituents } from "@/components/dashboard/indice-top-constituents";
+import { IndiceValuationTiles } from "@/components/dashboard/indice-valuation-tiles";
+import { IndiceValuationBench } from "@/components/dashboard/indice-valuation-bench";
+import { CmpIndicePerfChart } from "@/components/dashboard/cmp-indice-perf-chart";
+import { CmpIndiceStatTiles } from "@/components/dashboard/cmp-indice-stat-tiles";
+import { CmpIndiceSectorTable } from "@/components/dashboard/cmp-indice-sector-table";
+import { CmpIndiceTop5 } from "@/components/dashboard/cmp-indice-top5";
+import { CmpIndiceScores } from "@/components/dashboard/cmp-indice-scores";
 import { SectorPortraitCard } from "@/components/dashboard/sector-portrait-card";
 import { SectorCompareLauncher } from "@/components/dashboard/sector-compare-launcher";
 import { IndiceSecteursTable } from "@/components/dashboard/indice-secteurs-table";
@@ -245,6 +254,9 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
                 en lecture seule. */}
               <EditableGrid
                 storageKey="finsight-dashboard-grid-societe-v2"
+                analysisKind="societe"
+                analysisData={result.data}
+                analysisTicker={tickerStr}
                 blocks={[
                   {
                     id: "reco",
@@ -495,6 +507,9 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
 
             <EditableGrid
               storageKey={`finsight-dashboard-grid-${kind}-v1`}
+              analysisKind={kind}
+              analysisData={result.data}
+              analysisTicker={tickerStr}
               blocks={[
                 // Description générique : uniquement pour indice/comparatif/pme
                 // (le secteur a son propre SectorPortraitCard plus riche).
@@ -706,6 +721,124 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
                           <IndiceSectorsDonut
                             secteurs={result.data!.secteurs!}
                             universe={result.data?.universe}
+                          />
+                        ),
+                      } satisfies GridBlock,
+                    ]
+                  : []),
+                // Indice : tuiles perf + risque (YTD / 1y / 3y / 5y / Vol / Sharpe / MDD)
+                ...(kind === "indice"
+                  ? [
+                      {
+                        id: "indice-perf-tiles",
+                        label: "Performance & Risque",
+                        default: { x: 6, y: 4, w: 6, h: 4 },
+                        render: () => (
+                          <IndicePerfTiles
+                            stats={(result.data as Record<string, unknown> | undefined) || null}
+                            label={String(result.data?.universe || ticker)}
+                          />
+                        ),
+                      } satisfies GridBlock,
+                      {
+                        id: "indice-valuation-tiles",
+                        label: "Valorisation agrégée",
+                        default: { x: 6, y: 8, w: 6, h: 4 },
+                        render: () => (
+                          <IndiceValuationTiles
+                            stats={(result.data as Record<string, unknown> | undefined) || null}
+                            label={String(result.data?.universe || ticker)}
+                          />
+                        ),
+                      } satisfies GridBlock,
+                      {
+                        id: "indice-top-constituents",
+                        label: "Top 10 constituants",
+                        default: { x: 0, y: 20, w: 6, h: 8 },
+                        render: () => (
+                          <IndiceTopConstituents
+                            tickers={(result.data?.tickers_data ||
+                                      result.data?.tickers) as never[] | undefined}
+                            label={String(result.data?.universe || ticker)}
+                          />
+                        ),
+                      } satisfies GridBlock,
+                      {
+                        id: "indice-valuation-bench",
+                        label: "Valorisation vs benchmarks",
+                        default: { x: 6, y: 20, w: 6, h: 8 },
+                        render: () => (
+                          <IndiceValuationBench
+                            stats={(result.data as Record<string, unknown> | undefined) || null}
+                            universe={String(result.data?.universe || ticker)}
+                          />
+                        ),
+                      } satisfies GridBlock,
+                    ]
+                  : []),
+                // Comparatif indice : chart interactif perf_history + tiles + tables
+                ...(kind === "comparatif" && result.data?.perf_history
+                  ? [
+                      {
+                        id: "cmp-indice-perf",
+                        label: "Performance comparée (base 100)",
+                        default: { x: 0, y: 4, w: 12, h: 8 },
+                        render: () => (
+                          <CmpIndicePerfChart
+                            perfHistory={result.data!.perf_history as never}
+                            nameA={String(result.data?.name_a || "Indice A")}
+                            nameB={String(result.data?.name_b || "Indice B")}
+                          />
+                        ),
+                      } satisfies GridBlock,
+                      {
+                        id: "cmp-indice-tiles",
+                        label: "Statistiques comparées",
+                        default: { x: 0, y: 12, w: 12, h: 10 },
+                        render: () => (
+                          <CmpIndiceStatTiles
+                            data={(result.data as Record<string, unknown>) || {}}
+                            nameA={String(result.data?.name_a || "A")}
+                            nameB={String(result.data?.name_b || "B")}
+                          />
+                        ),
+                      } satisfies GridBlock,
+                      {
+                        id: "cmp-indice-scores",
+                        label: "Scores & Signaux",
+                        default: { x: 0, y: 22, w: 6, h: 5 },
+                        render: () => (
+                          <CmpIndiceScores
+                            data={(result.data as Record<string, unknown>) || {}}
+                            nameA={String(result.data?.name_a || "A")}
+                            nameB={String(result.data?.name_b || "B")}
+                          />
+                        ),
+                      } satisfies GridBlock,
+                      {
+                        id: "cmp-indice-sectors",
+                        label: "Composition sectorielle",
+                        default: { x: 6, y: 22, w: 6, h: 5 },
+                        render: () => (
+                          <CmpIndiceSectorTable
+                            sectorComparison={
+                              (result.data?.sector_comparison as never) || []
+                            }
+                            nameA={String(result.data?.name_a || "A")}
+                            nameB={String(result.data?.name_b || "B")}
+                          />
+                        ),
+                      } satisfies GridBlock,
+                      {
+                        id: "cmp-indice-top5",
+                        label: "Top 5 constituants",
+                        default: { x: 0, y: 27, w: 12, h: 6 },
+                        render: () => (
+                          <CmpIndiceTop5
+                            top5A={(result.data?.top5_a as never) || []}
+                            top5B={(result.data?.top5_b as never) || []}
+                            nameA={String(result.data?.name_a || "A")}
+                            nameB={String(result.data?.name_b || "B")}
                           />
                         ),
                       } satisfies GridBlock,
