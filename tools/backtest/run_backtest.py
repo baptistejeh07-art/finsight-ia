@@ -91,9 +91,13 @@ def compute_benchmark_returns(
     monthly_dates: list[pd.Timestamp],
     benchmark: str = "SPY",
     horizon_months: int = 12,
+    years: int = 3,
 ) -> dict[pd.Timestamp, float]:
-    """Retourne {date_t: perf forward 12m du benchmark}."""
-    spy = fetch_one_ticker(benchmark, years=max(3, (horizon_months // 12) + 2))
+    """Retourne {date_t: perf forward Xm du benchmark}.
+
+    Si years >= 5, on fetch sur la période couverte (pas de marge fixe 2y).
+    """
+    spy = fetch_one_ticker(benchmark, years=max(years + 1, 3))
     if spy.get("error"):
         log.warning(f"[benchmark] {benchmark} fetch fail")
         return {}
@@ -118,20 +122,74 @@ def compute_benchmark_returns(
     return out
 
 
+# ═══ Benchmark sectoriel — Score est INTRA-secteur ═══════════════════════
+# NVDA vs XLK (tech), pas vs SPY. Rend justice au Score qui mesure le
+# ranking qualité AU SEIN d'un secteur, pas entre secteurs.
+_SECTOR_TO_ETF = {
+    "Technology": "XLK",
+    "Information Technology": "XLK",
+    "Communication Services": "XLC",
+    "Consumer Discretionary": "XLY",
+    "Consumer Cyclical": "XLY",
+    "Consumer Staples": "XLP",
+    "Consumer Defensive": "XLP",
+    "Healthcare": "XLV",
+    "Health Care": "XLV",
+    "Financial Services": "XLF",
+    "Financials": "XLF",
+    "Energy": "XLE",
+    "Industrials": "XLI",
+    "Materials": "XLB",
+    "Basic Materials": "XLB",
+    "Real Estate": "XLRE",
+    "Utilities": "XLU",
+}
+
+
+def _sector_etf(sector: str) -> str:
+    """Retourne l'ETF sectoriel SPDR pour un secteur. Fallback SPY."""
+    if not sector:
+        return "SPY"
+    for k, v in _SECTOR_TO_ETF.items():
+        if k.lower() in sector.lower():
+            return v
+    return "SPY"
+
+
 def bucket_analysis(
     returns_df: pd.DataFrame,
     benchmark_returns: dict[pd.Timestamp, float],
+    sector_benchmarks: Optional[dict[str, dict[pd.Timestamp, float]]] = None,
 ) -> dict:
     """Agrège perf par bucket de score. Retourne dict avec metrics globaux
     + par bucket.
+
+    Si sector_benchmarks fourni : excess vs ETF sectoriel (Score est
+    un ranking INTRA-secteur, plus juste). Sinon fallback SPY.
     """
     if len(returns_df) == 0:
         return {"error": "no data"}
 
     returns_df["bucket"] = returns_df["score"].apply(_bucket_label)
-    # Excess return vs benchmark
+    # Benchmark SPY (toujours dispo)
     returns_df["benchmark_return"] = returns_df["date"].map(benchmark_returns)
-    returns_df["excess_return"] = returns_df["fwd_return"] - returns_df["benchmark_return"].fillna(0)
+
+    # Benchmark sectoriel si dispo (plus juste)
+    if sector_benchmarks:
+        def _sector_bench(row):
+            etf = _sector_etf(row.get("sector_profile") or "")
+            if etf == "SPY":
+                return row.get("benchmark_return")
+            return sector_benchmarks.get(etf, {}).get(row["date"],
+                                                       row.get("benchmark_return"))
+        returns_df["sector_benchmark"] = returns_df.apply(_sector_bench, axis=1)
+        returns_df["excess_return"] = (
+            returns_df["fwd_return"] - returns_df["sector_benchmark"].fillna(0)
+        )
+    else:
+        returns_df["excess_return"] = (
+            returns_df["fwd_return"] - returns_df["benchmark_return"].fillna(0)
+        )
 
     summary = {
         "version": "v1.2",
@@ -203,13 +261,23 @@ def run(universe: str = "sp50", years: int = 3, horizon_months: int = 12) -> dic
     returns_df = compute_forward_returns(scores_df, data, horizon_months)
     log.info(f"[backtest] {len(returns_df)} observations with valid fwd_return")
 
-    # 4. Benchmark
+    # 4. Benchmark SPY + benchmarks sectoriels (XLK/XLV/XLF/...)
     monthly_dates = sorted(scores_df["date"].unique())
     log.info(f"[backtest] benchmark SPY over {len(monthly_dates)} dates...")
-    benchmark = compute_benchmark_returns(monthly_dates, "SPY", horizon_months)
+    benchmark = compute_benchmark_returns(monthly_dates, "SPY", horizon_months, years=years)
 
-    # 5. Analyse bucket
-    summary = bucket_analysis(returns_df, benchmark)
+    sector_benchmarks: dict[str, dict] = {}
+    sector_etfs = set(_SECTOR_TO_ETF.values())
+    log.info(f"[backtest] fetching {len(sector_etfs)} sector ETFs for intra-sector benchmark...")
+    for etf in sector_etfs:
+        try:
+            sector_benchmarks[etf] = compute_benchmark_returns(monthly_dates, etf,
+                                                                horizon_months, years=years)
+        except Exception:
+            pass
+
+    # 5. Analyse bucket (avec benchmarks sectoriels intra-sector)
+    summary = bucket_analysis(returns_df, benchmark, sector_benchmarks=sector_benchmarks)
 
     # 6. Sauvegarde
     ts = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
