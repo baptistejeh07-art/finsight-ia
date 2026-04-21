@@ -389,9 +389,9 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
                   {
                     id: "save-history",
                     label: t("results.block_save"),
-                    default: { x: 9, y: 19, w: 3, h: 3 },
+                    default: { x: 9, y: 19, w: 3, h: 8 },
                     render: () => (
-                      <div className="grid grid-cols-3 gap-2 h-full">
+                      <div className="grid grid-rows-3 gap-2 h-full">
                         <SaveToHistoryCard
                           jobId={id}
                           kind="societe"
@@ -493,7 +493,7 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
                 {
                   id: "save-history",
                   label: t("results.block_save"),
-                  default: { x: 8, y: 8, w: 4, h: 3 },
+                  default: { x: 8, y: 8, w: 4, h: 8 },
                   render: () => (
                     <div className="grid grid-cols-3 gap-2 h-full">
                       <SaveToHistoryCard
