@@ -27,6 +27,10 @@ import { CmpIndiceTop5 } from "./cmp-indice-top5";
 import { VolatilityChart } from "./volatility-chart";
 import { DrawdownChart } from "./drawdown-chart";
 import { RoeRoicHistoryChart } from "./roe-roic-history-chart";
+import { IncomeStatementWaterfall } from "./income-statement-waterfall";
+import { RevenueMarginTrend } from "./revenue-margin-trend";
+import { ValuationMultiplesHistory } from "./valuation-multiples-history";
+import { BalanceHealthTrend } from "./balance-health-trend";
 
 export interface RendererCtx {
   data: AnalysisData | undefined;
@@ -166,6 +170,22 @@ export function renderChart(componentId: string, ctx: RendererCtx): ReactNode {
     case "RoeRoicHistoryChart":
       if (!ratios?.years) return <Placeholder reason="Ratios historiques indisponibles" />;
       return <RoeRoicHistoryChart ratios={ratios} />;
+
+    case "IncomeStatementWaterfall":
+      if (!raw?.years) return <Placeholder reason="Historique annuel indisponible" />;
+      return <IncomeStatementWaterfall rawData={raw} ratios={ratios} currency={currency} />;
+
+    case "RevenueMarginTrend":
+      if (!raw?.years) return <Placeholder reason="Historique annuel indisponible" />;
+      return <RevenueMarginTrend rawData={raw} ratios={ratios} currency={currency} />;
+
+    case "ValuationMultiplesHistory":
+      if (!ratios?.years) return <Placeholder reason="Ratios historiques indisponibles" />;
+      return <ValuationMultiplesHistory ratios={ratios} />;
+
+    case "BalanceHealthTrend":
+      if (!ratios?.years) return <Placeholder reason="Ratios historiques indisponibles" />;
+      return <BalanceHealthTrend ratios={ratios} />;
 
     default:
       // Éviter les warnings sur variables non utilisées

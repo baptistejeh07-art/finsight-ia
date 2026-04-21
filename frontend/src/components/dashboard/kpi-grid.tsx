@@ -44,6 +44,7 @@ const KPIS: KpiDef[] = [
     labelKey: "kpi.ebitda_margin",
     format: "%",
     tooltipKey: "rating.neutral",
+    transform: (v) => v * 100,
     rate: (v, t) =>
       v > 25
         ? { tone: "good", tag: t("rating.strong") }
@@ -56,6 +57,7 @@ const KPIS: KpiDef[] = [
     labelKey: "kpi.roe",
     format: "%",
     tooltipKey: "rating.neutral",
+    transform: (v) => v * 100,
     rate: (v, t) =>
       v > 20
         ? { tone: "good", tag: t("rating.solid") }
@@ -68,6 +70,7 @@ const KPIS: KpiDef[] = [
     labelKey: "kpi.net_margin",
     format: "%",
     tooltipKey: "rating.neutral",
+    transform: (v) => v * 100,
     rate: (v, t) =>
       v > 15
         ? { tone: "good", tag: t("rating.strong") }
@@ -80,6 +83,7 @@ const KPIS: KpiDef[] = [
     labelKey: "kpi.roic",
     format: "%",
     tooltipKey: "rating.neutral",
+    transform: (v) => v * 100,
     rate: (v, t) =>
       v > 15
         ? { tone: "good", tag: t("rating.solid") }
@@ -104,6 +108,7 @@ const KPIS: KpiDef[] = [
     labelKey: "kpi.fcf_yield",
     format: "%",
     tooltipKey: "rating.neutral",
+    transform: (v) => v * 100,
     rate: (v, t) =>
       v > 5
         ? { tone: "good", tag: t("rating.strong") }
@@ -116,6 +121,7 @@ const KPIS: KpiDef[] = [
     labelKey: "kpi.gross_margin",
     format: "%",
     tooltipKey: "rating.neutral",
+    transform: (v) => v * 100,
     rate: (v, t) =>
       v > 50
         ? { tone: "good", tag: t("rating.strong") }
