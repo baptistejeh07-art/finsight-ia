@@ -503,9 +503,52 @@ def output_node(state: FinSightState) -> dict:
     _lang     = state.get("language") or "fr"
     _ccy      = state.get("currency") or "EUR"
 
-    # ── Score FinSight propriétaire (note 0-100 composite) v1.1 ──
-    # Qualité + Valorisation + Momentum + Gouvernance, 6 facteurs nouveaux
-    # (Beneish M, EPS revisions, short, insider, institutional holdings).
+    # ── Score FinSight v2 : 4 scores + reco par profil (NEW) ──
+    # Philosophie honnête : un score monolithique BUY/HOLD/SELL est
+    # utopique. On calcule 4 scores distincts (Quality, Value, Momentum,
+    # Risk) + on applique 5 profils investisseurs différents. Même stock =
+    # BUY pour Growth, HOLD pour Value, selon priorités de l'utilisateur.
+    finsight_score_v2 = None
+    try:
+        from core.finsight_score_v2 import compute_scores_v2, recommend_all_profiles
+        latest_v2 = ratios.latest_year if ratios else None
+        latest_r_v2 = ratios.years.get(latest_v2) if (ratios and latest_v2) else None
+        ratio_dict_v2 = {
+            k: getattr(latest_r_v2, k, None)
+            for k in (
+                "pe_ratio", "ev_ebitda", "ev_revenue", "roe", "roic",
+                "ebitda_margin", "net_margin", "gross_margin",
+                "revenue_growth", "fcf_yield", "div_yield", "payout_ratio",
+                "altman_z", "piotroski_f", "net_debt_ebitda", "momentum_52w",
+                "shares_change_pct", "earnings_growth", "drawdown_52w",
+            )
+        } if latest_r_v2 else {}
+        market_dict_v2 = {
+            "share_price": getattr(snapshot.market, "share_price", None) if snapshot else None,
+            "beta_levered": getattr(snapshot.market, "beta_levered", None) if snapshot else None,
+            "dividend_yield": getattr(snapshot.market, "dividend_yield", None) if snapshot else None,
+        }
+        _ci_v2 = getattr(snapshot, "company_info", None) if snapshot else None
+        _sec_v2 = getattr(_ci_v2, "sector", None) if _ci_v2 else None
+        _ind_v2 = getattr(_ci_v2, "industry", None) if _ci_v2 else None
+        scores_4 = compute_scores_v2(
+            ratio_dict_v2, market=market_dict_v2,
+            sector=_sec_v2, industry=_ind_v2,
+        )
+        all_recos = recommend_all_profiles(scores_4)
+        finsight_score_v2 = {
+            "scores": scores_4,
+            "recommendations": all_recos,
+        }
+        log.info(
+            f"[output_node] FinSight v2 scores: "
+            f"Q={scores_4['quality']['score']} V={scores_4['value']['score']} "
+            f"M={scores_4['momentum']['score']} R={scores_4['risk']['score']}"
+        )
+    except Exception as _v2e:
+        log.warning(f"[output_node] FinSight v2 skip: {_v2e}")
+
+    # ── Score FinSight v1.2 (monolithique, rétro-compat) — conservé ──
     finsight_score = None
     try:
         from core.finsight_score import compute_score
@@ -690,6 +733,7 @@ def output_node(state: FinSightState) -> dict:
         "pptx_error":  pptx_error,
         "pdf_error":   pdf_error,
         "finsight_score": finsight_score,
+        "finsight_score_v2": finsight_score_v2,
         **_log_entry(state, "output_node", ms,
                      excel=bool(excel_path), pptx=bool(pptx_path), pdf=bool(pdf_path),
                      excel_ms=excel_ms, pptx_ms=pptx_ms, pdf_ms=pdf_ms,

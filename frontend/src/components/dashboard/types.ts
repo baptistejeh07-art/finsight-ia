@@ -177,6 +177,28 @@ export interface FinSightScoreData {
   details?: Record<string, unknown>;
 }
 
+export interface FinSightScoreV2Scores {
+  quality: { score: number; details?: Record<string, unknown> };
+  value: { score: number; details?: Record<string, unknown> };
+  momentum: { score: number; details?: Record<string, unknown> };
+  risk: { score: number; details?: Record<string, unknown> };
+}
+
+export interface FinSightScoreV2Reco {
+  profile_key: string;
+  profile_label: string;
+  composite: number;
+  recommendation: "BUY" | "HOLD" | "SELL";
+  conviction: number;
+  reasoning: string;
+  weights: { quality: number; value: number; momentum: number; risk: number };
+}
+
+export interface FinSightScoreV2Data {
+  scores: FinSightScoreV2Scores;
+  recommendations: Record<string, FinSightScoreV2Reco>;
+}
+
 export interface AnalysisData {
   ticker?: string;
   raw_data?: RawData;
@@ -184,6 +206,7 @@ export interface AnalysisData {
   synthesis?: Synthesis;
   recommendation?: string;
   finsight_score?: FinSightScoreData | null;
+  finsight_score_v2?: FinSightScoreV2Data | null;
   // Secteur/indice payload (kind = "secteur" | "indice")
   kind?: string;
   sector?: string;

@@ -13,6 +13,7 @@ import type { AnalysisData, RawData, RatiosData, Synthesis } from "@/components/
 import { HeaderSociete } from "@/components/dashboard/header-societe";
 import { RecoCard } from "@/components/dashboard/reco-card";
 import { FinSightScoreBadge } from "@/components/dashboard/finsight-score-badge";
+import { FinSightScoreV2Card } from "@/components/dashboard/finsight-score-v2-card";
 import { CommentsPanel } from "@/components/dashboard/comments-panel";
 import { CoursChart } from "@/components/dashboard/cours-chart";
 import { PerformanceCard } from "@/components/dashboard/performance-card";
@@ -256,7 +257,20 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
                       />
                     ),
                   },
-                  ...(result.data?.finsight_score
+                  ...(result.data?.finsight_score_v2
+                    ? [
+                        {
+                          id: "fs-score-v2",
+                          label: "Score FinSight v2",
+                          default: { x: 4, y: 10, w: 8, h: 8 },
+                          render: () => (
+                            <FinSightScoreV2Card
+                              data={result.data!.finsight_score_v2!}
+                            />
+                          ),
+                        } satisfies GridBlock,
+                      ]
+                    : result.data?.finsight_score
                     ? [
                         {
                           id: "fs-score",
