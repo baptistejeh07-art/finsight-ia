@@ -139,23 +139,39 @@ export function Sidebar() {
   // Force download client-side via fetch+blob (contourne les navigateurs
   // qui ouvrent inline malgré Content-Disposition, et les URLs Supabase
   // Storage qui ne supportent pas toujours ?download).
+  //
+  // IMPORTANT PWA : on RE-WRAP le blob en application/octet-stream pour que
+  // Windows/macOS fassent un VRAI save au lieu de tenter d'ouvrir avec
+  // l'app par défaut (qui est Edge pour les PDF sur Win 11 → échec).
   async function forceDownloadClient(url: string, filename: string) {
     try {
-      const r = await fetch(url, { credentials: "omit" });
+      const r = await fetch(url, { credentials: "omit", cache: "no-store" });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      const blob = await r.blob();
+      const raw = await r.blob();
+      // Force le type à octet-stream → Windows ne tente pas d'ouvrir avec
+      // une app (Edge/Preview). Fichier atterrit dans Downloads, l'user
+      // double-clique et Windows choisit la bonne app (Adobe, PowerPoint…).
+      const blob = new Blob([raw], { type: "application/octet-stream" });
       const objectUrl = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = objectUrl;
       a.download = filename;
+      a.rel = "noopener";
       document.body.appendChild(a);
       a.click();
       a.remove();
-      setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 2000);
     } catch (e) {
-      // Fallback : ouverture dans nouvel onglet si fetch fail (CORS)
-      window.open(url, "_blank");
-      console.warn("[download] fallback window.open", e);
+      console.warn("[download] fallback direct link", e);
+      // Fallback : lien direct forcé avec <a download>, sans target="_blank"
+      // pour rester dans le contexte PWA (pas d'ouverture Edge externe).
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.rel = "noopener";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
     }
   }
 
