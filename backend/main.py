@@ -444,6 +444,7 @@ def _do_secteur(secteur: str, univers: str, language: str = "fr", currency: str 
             "universe": sector_data.get("universe", univers),
             "tickers": slim_tickers,
             "sector_analytics": sector_data.get("sector_analytics", {}),
+            "sector_summary": sector_data.get("sector_summary"),
         },
         "files": files,
     }
@@ -480,6 +481,7 @@ def _do_indice(indice: str, language: str = "fr", currency: str = "EUR") -> dict
             "macro": indice_data.get("macro", {}),
             "allocation": indice_data.get("allocation", {}),
             "top_performers": indice_data.get("top_performers", [])[:10],
+            "indice_summary": indice_data.get("indice_summary"),
         },
         "files": files,
     }

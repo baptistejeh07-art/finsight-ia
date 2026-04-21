@@ -178,8 +178,10 @@ export interface AnalysisData {
   universe?: string;
   tickers?: SectorTicker[];
   sector_analytics?: Record<string, unknown>;
+  sector_summary?: string | null;
   secteurs?: IndiceSector[];
   indice_stats?: Record<string, unknown>;
+  indice_summary?: string | null;
   macro?: Record<string, unknown>;
   allocation?: Record<string, unknown>;
   top_performers?: string[];

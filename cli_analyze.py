@@ -204,13 +204,44 @@ def run_secteur(sector: str, universe: str = "CAC 40", prefix: str = "secteur",
     except Exception as _e_log:
         log.debug(f"analysis_log secteur skip : {_e_log}")
 
+    # Synthèse narrative pour l'UI dashboard (à partir des analytics)
+    sector_summary = _build_sector_narrative(sector, universe, tickers, sector_analytics or {})
+
     # Retourne les data pour le backend (Q&A contexte + UI enrichie)
     return {
         "sector": sector,
         "universe": universe,
         "tickers": tickers,
         "sector_analytics": sector_analytics or {},
+        "sector_summary": sector_summary,
     }
+
+
+def _build_sector_narrative(sector: str, universe: str, tickers: list, analytics: dict) -> str:
+    """Construit une synthèse narrative déterministe (3-5 phrases) du secteur
+    à partir des analytics calculés. Sert de fallback quand pas de LLM dédié.
+    """
+    parts: list[str] = []
+    n = len(tickers or [])
+    parts.append(f"Couverture : {n} sociétés du secteur {sector} dans l'univers {universe}.")
+
+    hhi_label = analytics.get("hhi_label")
+    if hhi_label:
+        parts.append(f"Structure de marché : {hhi_label}.")
+
+    pe_cycle = analytics.get("pe_cycle_label")
+    pe_med = analytics.get("pe_median_ltm")
+    if pe_med and pe_cycle:
+        parts.append(f"Valorisation : P/E médian {pe_med}x — {pe_cycle}.")
+    elif pe_med:
+        parts.append(f"Valorisation : P/E médian {pe_med}x.")
+
+    roic_label = analytics.get("roic_label")
+    roic_mean = analytics.get("roic_mean")
+    if roic_mean is not None and roic_label:
+        parts.append(f"Rentabilité : ROIC moyen {roic_mean}% — {roic_label}.")
+
+    return " ".join(parts) if parts else f"Analyse sectorielle {sector} générée."
 
 
 def run_cmp_secteur(
@@ -313,15 +344,55 @@ def run_indice(universe: str = "S&P 500", language: str = "fr", currency: str = 
     except Exception as _e_log:
         log.debug(f"analysis_log indice skip : {_e_log}")
 
+    # Synthèse narrative pour l'UI dashboard
+    _secteurs = data.get("secteurs", []) if isinstance(data, dict) else []
+    _stats = data.get("indice_stats", {}) if isinstance(data, dict) else {}
+    indice_summary = _build_indice_narrative(universe, _secteurs, _stats)
+
     # Retourne les data pour le backend (Q&A contexte + UI enrichie)
     return {
         "universe": universe,
-        "secteurs": data.get("secteurs", []) if isinstance(data, dict) else [],
-        "indice_stats": data.get("indice_stats", {}) if isinstance(data, dict) else {},
+        "secteurs": _secteurs,
+        "indice_stats": _stats,
         "macro": data.get("macro", {}) if isinstance(data, dict) else {},
         "allocation": data.get("allocation", {}) if isinstance(data, dict) else {},
         "top_performers": data.get("top_performers", []) if isinstance(data, dict) else [],
+        "indice_summary": indice_summary,
     }
+
+
+def _build_indice_narrative(universe: str, secteurs: list, stats: dict) -> str:
+    """Synthèse narrative déterministe (3-5 phrases) de l'indice à partir
+    des poids sectoriels et stats agrégées."""
+    parts: list[str] = []
+    n_sec = len(secteurs or [])
+    parts.append(f"Indice {universe} : {n_sec} secteurs couverts.")
+
+    # Top secteurs par poids
+    if secteurs:
+        sorted_w = sorted(
+            [s for s in secteurs if isinstance(s, dict) and (s.get("weight") or s.get("poids"))],
+            key=lambda s: (s.get("weight") or s.get("poids") or 0),
+            reverse=True,
+        )
+        if len(sorted_w) >= 2:
+            top = sorted_w[:2]
+            top_str = ", ".join(
+                f"{s.get('name') or s.get('sector')} ({(s.get('weight') or s.get('poids') or 0):.1f}%)"
+                for s in top
+            )
+            parts.append(f"Concentration : {top_str} dominent la pondération.")
+
+    # Performance moyenne
+    perf_med = stats.get("perf_median") or stats.get("perf_avg")
+    if perf_med is not None:
+        parts.append(f"Performance médiane : {perf_med:+.1f}% sur la période.")
+
+    pe_med = stats.get("pe_median")
+    if pe_med:
+        parts.append(f"Valorisation : P/E médian {pe_med}x.")
+
+    return " ".join(parts) if parts else f"Analyse de l'indice {universe} générée."
 
 
 # ── Tickers réels par secteur / univers ────────────────────────────────────────

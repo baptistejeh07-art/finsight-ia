@@ -463,22 +463,34 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
                   id: "description",
                   label: t("results.block_description"),
                   default: { x: 0, y: 0, w: 8, h: 4 },
-                  render: () => (
-                    <div className="bg-navy-50 border border-navy-200 rounded-md p-5 h-full overflow-auto">
-                      <div className="text-[10px] font-semibold uppercase tracking-[1.5px] text-navy-700 mb-2">
-                        {t("results.block_synthesis")}
+                  render: () => {
+                    // Synthèse dynamique calculée par le backend (sector_summary
+                    // / indice_summary). Fallback sur i18n si non disponible.
+                    const dynamicSummary =
+                      kind === "secteur"
+                        ? result.data?.sector_summary
+                        : kind === "indice"
+                        ? result.data?.indice_summary
+                        : null;
+                    const fallback =
+                      kind === "indice"
+                        ? t("results.synthesis_indice_desc")
+                        : kind === "comparatif"
+                        ? t("results.synthesis_comparison_desc")
+                        : kind === "pme"
+                        ? t("results.synthesis_pme_desc")
+                        : t("results.synthesis_sector_desc");
+                    return (
+                      <div className="bg-navy-50 border border-navy-200 rounded-md p-5 h-full overflow-auto">
+                        <div className="text-[10px] font-semibold uppercase tracking-[1.5px] text-navy-700 mb-2">
+                          {t("results.block_synthesis")}
+                        </div>
+                        <p className="text-sm text-ink-700 leading-relaxed">
+                          {dynamicSummary || fallback}
+                        </p>
                       </div>
-                      <p className="text-sm text-ink-700 leading-relaxed">
-                        {kind === "indice"
-                          ? t("results.synthesis_indice_desc")
-                          : kind === "comparatif"
-                          ? t("results.synthesis_comparison_desc")
-                          : kind === "pme"
-                          ? t("results.synthesis_pme_desc")
-                          : t("results.synthesis_sector_desc")}
-                      </p>
-                    </div>
-                  ),
+                    );
+                  },
                 },
                 {
                   id: "qa",
