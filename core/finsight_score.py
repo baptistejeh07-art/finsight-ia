@@ -71,8 +71,16 @@ def _neutral(max_pts: float) -> float:
 
 # ═══ QUALITÉ (25 pts) ═════════════════════════════════════════════════════
 # v1.1 : ajout Beneish M-Score (qualité des earnings, détection manipulation).
-def _quality_score(ratios: dict, info: Optional[dict] = None) -> tuple[float, dict]:
-    """ROIC 6 + Marge 4 + Solvabilité 4 + Altman 3 + Piotroski 3 + Beneish 5."""
+# v1.3 backtest_mode=True : skip Beneish (redistribue points sur les autres)
+def _quality_score(ratios: dict, info: Optional[dict] = None,
+                    backtest_mode: bool = False) -> tuple[float, dict]:
+    """ROIC + Marge + Solvabilité + Altman + Piotroski [+ Beneish si !backtest].
+
+    Pondération v1.2 (full live) : ROIC 6 + Marg 4 + Debt 4 + Alt 3 + Pio 3 + Beneish 5 = 25
+    Pondération v1.3 (backtest)  : ROIC 8 + Marg 5 + Debt 5 + Alt 4 + Pio 3            = 25
+    (le Beneish n'a pas de data historique fiable yfinance, ses 5 pts neutre
+    polluent le signal → on redistribue proportionnellement.)
+    """
     info = info or {}
     roic = _safe(ratios.get("roic"))
     net_m = _safe(ratios.get("net_margin"))
@@ -87,26 +95,34 @@ def _quality_score(ratios: dict, info: Optional[dict] = None) -> tuple[float, di
     if net_m is not None and abs(net_m) > 1.5:
         net_m = net_m / 100.0
 
-    s_roic = _scale(roic, 0.05, 0.30, 6)         # 5%-30% → 0-6 pts
-    s_marg = _scale(net_m, 0.0, 0.25, 4)         # 0-25% net margin → 0-4 pts
-    s_debt = _scale_inverse(nd_ebitda, 0.0, 4.0, 4)   # 0-4x ND/EBITDA → 4-0 pts
-    s_alt  = _scale(altman, 1.8, 3.5, 3)         # zone grise/sécurité → 0-3 pts
-    s_pio  = _scale(piotroski, 4.0, 8.0, 3)      # 4/9 à 8/9 → 0-3 pts
-
-    # Beneish M-Score : <-2.22 = sain (faible probabilité manipulation)
-    # > -1.78 = drapeau rouge (prob manipulation élevée)
-    if beneish_m is None:
-        s_beneish = _neutral(5)
-    elif beneish_m <= -2.5:
-        s_beneish = 5.0
-    elif beneish_m <= -2.22:
-        s_beneish = 4.5
-    elif beneish_m <= -1.78:
-        s_beneish = 3.0
-    elif beneish_m <= -1.0:
-        s_beneish = 1.5
-    else:
+    if backtest_mode:
+        # Points v1.3 (sans Beneish) — totalisent 25
+        s_roic = _scale(roic, 0.05, 0.30, 8)
+        s_marg = _scale(net_m, 0.0, 0.25, 5)
+        s_debt = _scale_inverse(nd_ebitda, 0.0, 4.0, 5)
+        s_alt  = _scale(altman, 1.8, 3.5, 4)
+        s_pio  = _scale(piotroski, 4.0, 8.0, 3)
         s_beneish = 0.0
+    else:
+        s_roic = _scale(roic, 0.05, 0.30, 6)         # 5%-30% → 0-6 pts
+        s_marg = _scale(net_m, 0.0, 0.25, 4)         # 0-25% net margin → 0-4 pts
+        s_debt = _scale_inverse(nd_ebitda, 0.0, 4.0, 4)   # 0-4x ND/EBITDA → 4-0 pts
+        s_alt  = _scale(altman, 1.8, 3.5, 3)         # zone grise/sécurité → 0-3 pts
+        s_pio  = _scale(piotroski, 4.0, 8.0, 3)      # 4/9 à 8/9 → 0-3 pts
+
+        # Beneish M-Score : <-2.22 = sain
+        if beneish_m is None:
+            s_beneish = _neutral(5)
+        elif beneish_m <= -2.5:
+            s_beneish = 5.0
+        elif beneish_m <= -2.22:
+            s_beneish = 4.5
+        elif beneish_m <= -1.78:
+            s_beneish = 3.0
+        elif beneish_m <= -1.0:
+            s_beneish = 1.5
+        else:
+            s_beneish = 0.0
 
     total = s_roic + s_marg + s_debt + s_alt + s_pio + s_beneish
     return round(total, 1), {
@@ -150,8 +166,10 @@ def _value_score(ratios: dict, sector_analytics: Optional[dict] = None) -> tuple
 
 # ═══ MOMENTUM (25 pts) ════════════════════════════════════════════════════
 # v1.1 : 52w 8 + Rev 7 + Beta 3 + Révisions EPS 4 + Short interest 3.
+# v1.3 backtest : 52w 12 + Rev 9 + Beta 4 (retour v1.0, EPS/short pas historiques)
 def _momentum_score(ratios: dict, market: Optional[dict] = None,
-                    info: Optional[dict] = None) -> tuple[float, dict]:
+                    info: Optional[dict] = None,
+                    backtest_mode: bool = False) -> tuple[float, dict]:
     """Momentum élargi avec révisions analystes + short squeeze potential."""
     info = info or {}
     mom52 = _safe(ratios.get("momentum_52w"))
@@ -162,6 +180,26 @@ def _momentum_score(ratios: dict, market: Optional[dict] = None,
         mom52 = mom52 / 100.0
     if rev_g is not None and abs(rev_g) > 2.0:
         rev_g = rev_g / 100.0
+
+    if backtest_mode:
+        # v1.3 : concentrer sur signaux historisables = momentum + croissance + beta
+        s_mom = _scale(mom52, -0.20, 0.50, 12)   # -20% à +50% → 0-12 pts
+        s_rev = _scale(rev_g, 0.0, 0.25, 9)      # 0-25% croissance → 0-9 pts
+        if beta is None:
+            s_beta = _neutral(4)
+        elif 0.8 <= beta <= 1.2:
+            s_beta = 4.0
+        elif 0.6 <= beta <= 1.4:
+            s_beta = 3.0
+        elif 0.4 <= beta <= 1.6:
+            s_beta = 2.0
+        else:
+            s_beta = 1.0
+        return round(s_mom + s_rev + s_beta, 1), {
+            "mom52_pts": s_mom, "mom52_value": mom52,
+            "rev_growth_pts": s_rev, "rev_growth_value": rev_g,
+            "beta_pts": s_beta, "beta_value": beta,
+        }
 
     s_mom = _scale(mom52, -0.20, 0.50, 8)         # -20% à +50% → 0-8 pts
     s_rev = _scale(rev_g, 0.0, 0.25, 7)           # 0-25% croissance → 0-7 pts
@@ -221,13 +259,46 @@ def _momentum_score(ratios: dict, market: Optional[dict] = None,
 
 # ═══ GOUVERNANCE (25 pts) ═════════════════════════════════════════════════
 # v1.1 : Payout 7 + Div Yield 5 + Dilution 5 + Insider 4 + ETF flows 4.
+# v1.3 backtest : Payout 10 + Div 8 + Dilution 7 (retour v1.0, insider/inst non histo)
 def _governance_score(ratios: dict, market: Optional[dict] = None,
-                       info: Optional[dict] = None) -> tuple[float, dict]:
+                       info: Optional[dict] = None,
+                       backtest_mode: bool = False) -> tuple[float, dict]:
     """Gouvernance enrichie avec insider holdings + signal flux passifs."""
     info = info or {}
     payout = _safe(ratios.get("payout_ratio"))
     div_yield = _safe(ratios.get("div_yield") or (market or {}).get("dividend_yield"))
     shares_change = _safe(ratios.get("shares_change_pct"))
+
+    if backtest_mode:
+        # v1.3 : payout 10 + div 8 + dilution 7 (retour v1.0)
+        if payout is None:
+            s_payout = _neutral(10)
+        elif 0.30 <= payout <= 0.70:
+            s_payout = 10.0
+        elif 0.20 <= payout <= 0.80:
+            s_payout = 7.0
+        elif 0.10 <= payout <= 0.90:
+            s_payout = 4.0
+        else:
+            s_payout = 2.0
+        if div_yield is not None and abs(div_yield) > 1.5:
+            div_yield = div_yield / 100.0
+        s_div = _scale(div_yield, 0.0, 0.04, 8)
+        if shares_change is None:
+            s_dilution = _neutral(7)
+        elif shares_change <= -0.02:
+            s_dilution = 7.0
+        elif shares_change <= 0.005:
+            s_dilution = 5.0
+        elif shares_change <= 0.02:
+            s_dilution = 3.0
+        else:
+            s_dilution = 1.0
+        return round(s_payout + s_div + s_dilution, 1), {
+            "payout_pts": s_payout, "payout_value": payout,
+            "div_yield_pts": s_div, "div_yield_value": div_yield,
+            "dilution_pts": s_dilution, "shares_change_value": shares_change,
+        }
 
     # Payout sain : 30-70%
     if payout is None:
@@ -405,6 +476,7 @@ def compute_score(
     info: Optional[dict] = None,
     sector: Optional[str] = None,
     industry: Optional[str] = None,
+    backtest_mode: bool = False,
 ) -> dict:
     """Calcule le Score FinSight composite (v1.1).
 
@@ -424,10 +496,10 @@ def compute_score(
         dict {global 0-100, grade A/B/C/D/E, verdict, quality, value,
               momentum, governance, details}
     """
-    quality, q_det = _quality_score(ratios or {}, info)
+    quality, q_det = _quality_score(ratios or {}, info, backtest_mode=backtest_mode)
     value, v_det = _value_score(ratios or {}, sector_analytics)
-    momentum, m_det = _momentum_score(ratios or {}, market, info)
-    governance, g_det = _governance_score(ratios or {}, market, info)
+    momentum, m_det = _momentum_score(ratios or {}, market, info, backtest_mode=backtest_mode)
+    governance, g_det = _governance_score(ratios or {}, market, info, backtest_mode=backtest_mode)
 
     # v1.2 : pondération sectorielle. Chaque sous-score sur 25 → multiplié
     # par 4 × poids sectoriel (qui somme à 1). Garde l'échelle 0-100.

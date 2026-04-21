@@ -227,7 +227,11 @@ def score_history_for_ticker(
             ratios, price_at_t = _compute_ratios_at(t_data, dt)
             if not ratios:
                 continue
-            sc = compute_score(ratios, sector=sec, industry=industry)
+            # backtest_mode=True : skip facteurs v1.1 (Beneish, EPS rev,
+            # short, insider, institutional) qui n'ont pas de data historique
+            # yfinance. Évite la pollution _neutral qui dilue le signal.
+            sc = compute_score(ratios, sector=sec, industry=industry,
+                                backtest_mode=True)
             rows.append({
                 "ticker": ticker,
                 "date": dt,

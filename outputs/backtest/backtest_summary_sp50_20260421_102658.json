@@ -1,0 +1,76 @@
+{
+  "version": "v1.2",
+  "n_observations": 2300,
+  "n_tickers": 50,
+  "date_range": {
+    "start": "2022-06-01",
+    "end": "2026-03-01"
+  },
+  "horizon_months": 12,
+  "buckets": {
+    "A (\u226580)": {
+      "n": 0
+    },
+    "B (65-79)": {
+      "n": 8,
+      "n_tickers": 3,
+      "mean_return": 0.3520001961040844,
+      "median_return": 0.3126945126705868,
+      "std_return": 0.2936458987117106,
+      "pct_positive": 1.0,
+      "max_return": 0.8380376722817213,
+      "min_return": 0.021752803747757232,
+      "mean_excess": 0.14378903054205897,
+      "sharpe_proxy": 1.1987233523382652
+    },
+    "C (50-64)": {
+      "n": 412,
+      "n_tickers": 23,
+      "mean_return": 0.16388644347387815,
+      "median_return": 0.12666645888851424,
+      "std_return": 0.2708532256409986,
+      "pct_positive": 0.6941747572815534,
+      "max_return": 1.1321789135347027,
+      "min_return": -0.35895177440533454,
+      "mean_excess": -0.0244112806328216,
+      "sharpe_proxy": 0.6050747340594748
+    },
+    "D (35-49)": {
+      "n": 1236,
+      "n_tickers": 47,
+      "mean_return": 0.13974979354829353,
+      "median_return": 0.09913028361675102,
+      "std_return": 0.32196773820159674,
+      "pct_positive": 0.6828478964401294,
+      "max_return": 2.40916251687325,
+      "min_return": -0.5586776801674009,
+      "mean_excess": -0.040632991030389164,
+      "sharpe_proxy": 0.4340490582344951
+    },
+    "E (<35)": {
+      "n": 644,
+      "n_tickers": 49,
+      "mean_return": 0.23008545175643066,
+      "median_return": 0.1387317509177486,
+      "std_return": 0.4067783703151429,
+      "pct_positive": 0.7158385093167702,
+      "max_return": 2.5863703639353397,
+      "min_return": -0.412641104111081,
+      "mean_excess": 0.053949012060309234,
+      "sharpe_proxy": 0.5656285302932328
+    }
+  },
+  "overall": {
+    "mean_return": 0.1701056487116968,
+    "median_return": 0.11574076978967396,
+    "pct_positive": 0.6952173913043478,
+    "mean_benchmark": 0.180708408939135,
+    "mean_excess": -0.010602760227438217
+  },
+  "subscore_correlations": {
+    "quality": -0.08322766041349781,
+    "value": -0.10046681123509717,
+    "momentum": 0.03829697896699264,
+    "governance": NaN
+  }
+}
