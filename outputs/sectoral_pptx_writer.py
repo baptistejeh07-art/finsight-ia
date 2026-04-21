@@ -345,7 +345,28 @@ def _build_content_from_llm(sector_name: str, ev_med: float, rev_med: float,
                              mg_med: float, mom_med: float, score_moyen: int,
                              sig_label: str, td: list) -> "dict | None":
     """Appel Groq pour générer description/catalyseurs/risques/drivers dynamiquement.
-    Retourne None si echec (le caller utilisera le fallback statique ou _build_content_from_data)."""
+    Retourne None si echec (le caller utilisera le fallback statique ou _build_content_from_data).
+
+    Cache Redis 6h sur la clé (sector + bucket valorisation arrondi). Permet
+    qu'une 2e analyse sectorielle dans la journée n'appelle PAS le LLM.
+    """
+    # Cache key : secteur + signal label + buckets de valorisation arrondis
+    # → un secteur stable dans le temps réutilise sa description.
+    _cache_key = None
+    try:
+        import sys as _sys_cache
+        _sys_cache.path.insert(0, str(Path(__file__).parent.parent))
+        from core import cache as _cache_mod
+        _b_ev = round(ev_med / 2.0) * 2.0      # bucket 2x EV/EBITDA
+        _b_mg = round(mg_med / 5.0) * 5.0      # bucket 5pts marge
+        _cache_key = f"sector_pptx_llm:{sector_name.lower()}:{sig_label}:{_b_ev:.0f}:{_b_mg:.0f}"
+        _hit = _cache_mod.get_json(_cache_key)
+        if _hit:
+            log.info(f"[sector_pptx_llm] cache HIT {_cache_key}")
+            return _hit
+    except Exception as _e:
+        log.debug(f"[sector_pptx_llm] cache lookup skip: {_e}")
+
     try:
         import json as _json_pptx
         import sys as _sys_pptx
@@ -408,6 +429,14 @@ def _build_content_from_llm(sector_name: str, ev_med: float, rev_med: float,
         if "cycle_comment" in p:
             result["cycle_comment"] = p["cycle_comment"]
         log.info("sectoral_pptx LLM OK: %s (%d chars)", sector_name, len(resp))
+        # Cache 6h pour éviter de re-générer la même description toute la journée
+        if result and _cache_key:
+            try:
+                from core import cache as _cm
+                _cm.set_json(_cache_key, result, ttl_seconds=21600)
+                log.info(f"[sector_pptx_llm] cache SET {_cache_key} (6h TTL)")
+            except Exception as _ce:
+                log.debug(f"[sector_pptx_llm] cache set fail: {_ce}")
         return result if result else None
     except Exception as _e_pptx:
         log.warning("sectoral_pptx LLM erreur: %s -- fallback", _e_pptx)

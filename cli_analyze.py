@@ -153,18 +153,37 @@ def run_secteur(sector: str, universe: str = "CAC 40", prefix: str = "secteur",
     for t in tickers:
         t.pop("_sector_analytics", None)
 
-    _t_pdf = time.time()
-    generate_sector_report(sector, tickers, str(pdf_path), universe=universe,
-                           sector_analytics=sector_analytics,
-                           language=language, currency=currency)
-    log.info("[secteur timing] PDF : %.1fs — %s (%d Ko)",
-             time.time() - _t_pdf, pdf_path.name, pdf_path.stat().st_size // 1024)
+    # Génération PDF + PPTX EN PARALLÈLE (writers indépendants, gain ~30-60s)
+    _t_writers = time.time()
+    from concurrent.futures import ThreadPoolExecutor as _TPE
 
-    _t_pptx = time.time()
-    SectoralPPTXWriter.generate(tickers, sector, universe, str(pptx_path),
-                                 language=language, currency=currency)
-    log.info("[secteur timing] PPTX : %.1fs — %s (%d Ko)",
-             time.time() - _t_pptx, pptx_path.name, pptx_path.stat().st_size // 1024)
+    def _gen_pdf():
+        _t = time.time()
+        generate_sector_report(sector, tickers, str(pdf_path), universe=universe,
+                               sector_analytics=sector_analytics,
+                               language=language, currency=currency)
+        log.info("[secteur timing] PDF : %.1fs — %s (%d Ko)",
+                 time.time() - _t, pdf_path.name, pdf_path.stat().st_size // 1024)
+
+    def _gen_pptx():
+        _t = time.time()
+        SectoralPPTXWriter.generate(tickers, sector, universe, str(pptx_path),
+                                     language=language, currency=currency)
+        log.info("[secteur timing] PPTX : %.1fs — %s (%d Ko)",
+                 time.time() - _t, pptx_path.name, pptx_path.stat().st_size // 1024)
+
+    with _TPE(max_workers=2, thread_name_prefix="sect-writer") as _ex:
+        _f_pdf = _ex.submit(_gen_pdf)
+        _f_pptx = _ex.submit(_gen_pptx)
+        # Si l'un fail, on récolte les deux puis on raise (best-effort sur l'autre).
+        _excs = []
+        for _f, _name in ((_f_pdf, "PDF"), (_f_pptx, "PPTX")):
+            try:
+                _f.result(timeout=180)
+            except Exception as _e:
+                log.error("[secteur timing] %s failed: %s", _name, _e)
+                _excs.append((_name, _e))
+    log.info("[secteur timing] Writers parallèles total : %.1fs", time.time() - _t_writers)
 
     # XLSX : template Énergie dédié si secteur énergie, sinon fallback générique
     xlsx_path = None

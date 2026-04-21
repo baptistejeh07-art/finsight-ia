@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { Check } from "lucide-react";
+import { AttributionModal } from "./attribution-modal";
 
 type Tab = "individuel" | "entreprise" | "api";
 
@@ -226,6 +227,24 @@ function TabButton({
 }
 
 function PlanCard({ plan }: { plan: Plan }) {
+  const [showAttribution, setShowAttribution] = useState(false);
+
+  function handleCtaClick(e: React.MouseEvent) {
+    // Si user a déjà répondu (localStorage), on skip directement la modal
+    let alreadyAnswered = false;
+    try {
+      alreadyAnswered = !!localStorage.getItem("finsight-attribution-source");
+    } catch {}
+    if (alreadyAnswered) return;
+    e.preventDefault();
+    setShowAttribution(true);
+  }
+
+  // Slug du plan pour stocker la source associée
+  const planSlug = plan.name.toLowerCase()
+    .replace(/[éè]/g, "e")
+    .replace(/\s+/g, "-");
+
   return (
     <div
       className={`card-vitrine flex flex-col h-full ${
@@ -244,6 +263,7 @@ function PlanCard({ plan }: { plan: Plan }) {
 
       <Link
         href={plan.ctaHref}
+        onClick={handleCtaClick}
         className={
           plan.highlight
             ? "btn-cta w-full justify-center mb-6"
@@ -252,6 +272,13 @@ function PlanCard({ plan }: { plan: Plan }) {
       >
         {plan.cta}
       </Link>
+      {showAttribution && (
+        <AttributionModal
+          planClicked={planSlug}
+          ctaHref={plan.ctaHref}
+          onClose={() => setShowAttribution(false)}
+        />
+      )}
 
       <ul className="space-y-2.5 text-sm text-text-secondary">
         {plan.features.map((f) => (

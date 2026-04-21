@@ -1978,6 +1978,52 @@ class VitrineVisitRequest(BaseModel):
     anon_session_id: Optional[str] = None
 
 
+class SignupAttributionRequest(BaseModel):
+    source: str = Field(..., description="google/linkedin/reddit/friend/press/other/x/tiktok/podcast/search")
+    source_detail: Optional[str] = None
+    plan_clicked: Optional[str] = None
+    anon_session_id: Optional[str] = None
+    referrer: Optional[str] = None
+
+
+@app.post("/analytics/signup-attribution", status_code=204)
+async def track_signup_attribution(
+    payload: SignupAttributionRequest,
+    request: Request,
+    user: Annotated[Optional[dict], Depends(get_current_user)] = None,
+):
+    """Enregistre une réponse au pop-up "Comment avez-vous entendu parler de
+    FinSight ?". L'utilisateur peut ne pas être encore connecté (clic CTA
+    avant signup). Le user_id sera mis à jour au moment du signup réel.
+    """
+    try:
+        import httpx as _httpx
+        import os as _os
+        _surl = _os.getenv("SUPABASE_URL", "").rstrip("/")
+        _skey = (_os.getenv("SUPABASE_SERVICE_KEY")
+                 or _os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+                 or _os.getenv("SUPABASE_SECRET_KEY") or "")
+        if not _surl or not _skey:
+            return
+        body = {
+            "user_id": (user or {}).get("id"),
+            "source": payload.source[:50],
+            "source_detail": (payload.source_detail or "")[:200] or None,
+            "plan_clicked": (payload.plan_clicked or "")[:30] or None,
+            "anon_session_id": (payload.anon_session_id or "")[:64] or None,
+            "user_agent": request.headers.get("user-agent", "")[:300] or None,
+            "referrer": (payload.referrer or "")[:500] or None,
+        }
+        _httpx.post(
+            f"{_surl}/rest/v1/signup_attribution",
+            headers={"apikey": _skey, "Authorization": f"Bearer {_skey}",
+                     "Content-Type": "application/json"},
+            json=body, timeout=2.5,
+        )
+    except Exception:
+        pass
+
+
 @app.post("/analytics/vitrine-visit", status_code=204)
 async def track_vitrine_visit(
     payload: VitrineVisitRequest,
