@@ -239,6 +239,49 @@ def bucket_analysis(
             summary.setdefault("subscore_correlations", {})[dim] = \
                 float(returns_df[dim].corr(returns_df["fwd_return"]))
 
+    # ═══ v2 : analyse par profil investisseur ══════════════════════════
+    v2_profiles = [
+        "conservative_lt", "value_contrarian", "growth_aggressive",
+        "income_dividends", "balanced",
+    ]
+    v2_analysis = {}
+    for prof in v2_profiles:
+        composite_col = f"v2_{prof}_composite"
+        reco_col = f"v2_{prof}_reco"
+        if composite_col not in returns_df.columns:
+            continue
+        buy = returns_df[returns_df[reco_col] == "BUY"]
+        hold = returns_df[returns_df[reco_col] == "HOLD"]
+        sell = returns_df[returns_df[reco_col] == "SELL"]
+        v2_analysis[prof] = {
+            "n_obs": int(len(returns_df)),
+            "buy": {
+                "n": int(len(buy)),
+                "mean_return": float(buy["fwd_return"].mean()) if len(buy) else None,
+                "mean_excess": float(buy["excess_return"].mean()) if len(buy) else None,
+                "pct_positive": float((buy["fwd_return"] > 0).mean()) if len(buy) else None,
+            },
+            "hold": {
+                "n": int(len(hold)),
+                "mean_return": float(hold["fwd_return"].mean()) if len(hold) else None,
+                "mean_excess": float(hold["excess_return"].mean()) if len(hold) else None,
+            },
+            "sell": {
+                "n": int(len(sell)),
+                "mean_return": float(sell["fwd_return"].mean()) if len(sell) else None,
+                "mean_excess": float(sell["excess_return"].mean()) if len(sell) else None,
+            },
+            "composite_corr": float(returns_df[composite_col].corr(returns_df["fwd_return"]))
+                               if composite_col in returns_df.columns else None,
+        }
+    summary["v2_profiles"] = v2_analysis
+
+    # Corrélations sous-scores v2 (Quality/Value/Momentum/Risk)
+    for dim in ("v2_quality", "v2_value", "v2_momentum", "v2_risk"):
+        if dim in returns_df.columns:
+            summary.setdefault("v2_subscore_correlations", {})[dim] = \
+                float(returns_df[dim].corr(returns_df["fwd_return"]))
+
     return summary
 
 
@@ -300,16 +343,30 @@ def run(universe: str = "sp50", years: int = 3, horizon_months: int = 12) -> dic
         json.dump(summary, f, indent=2, default=str)
 
     # 7. Log récap
-    log.info("\n═══ RÉCAP ═══")
+    log.info("\n═══ RÉCAP v1 (legacy) ═══")
     for b, v in summary["buckets"].items():
         if v.get("n", 0) == 0:
             continue
-        log.info(f"  {b}: n={v['n']} | mean_return={v['mean_return']*100:+.1f}% | "
-                 f"excess={v['mean_excess']*100 if v['mean_excess'] else 0:+.1f}% | "
+        log.info(f"  {b}: n={v['n']} | mean={v['mean_return']*100:+.1f}% | "
+                 f"excess_sector={v['mean_excess']*100 if v['mean_excess'] else 0:+.1f}% | "
                  f"%pos={v['pct_positive']*100:.0f}%")
-    log.info(f"  Overall: n={summary['n_observations']} | "
-             f"mean={summary['overall']['mean_return']*100:+.1f}% | "
-             f"excess={summary['overall']['mean_excess']*100 if summary['overall']['mean_excess'] else 0:+.1f}%")
+
+    # Récap v2 profils
+    v2p = summary.get("v2_profiles") or {}
+    if v2p:
+        log.info("\n═══ RÉCAP v2 — par profil investisseur ═══")
+        log.info(f"{'Profil':<25} | {'BUY':>5} | {'mean_B':>7} | {'excess_B':>8} | {'HOLD':>5} | {'SELL':>5} | {'corr':>6}")
+        for prof, d in v2p.items():
+            b = d.get("buy") or {}
+            log.info(
+                f"{prof:<25} | "
+                f"{b.get('n', 0):>5} | "
+                f"{(b.get('mean_return') or 0)*100:>+6.1f}% | "
+                f"{(b.get('mean_excess') or 0)*100:>+7.1f}% | "
+                f"{(d.get('hold') or {}).get('n', 0):>5} | "
+                f"{(d.get('sell') or {}).get('n', 0):>5} | "
+                f"{d.get('composite_corr') or 0:>+6.3f}"
+            )
 
     return summary
 

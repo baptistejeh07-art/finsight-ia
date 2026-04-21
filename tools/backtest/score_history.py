@@ -271,7 +271,19 @@ def score_history_for_ticker(
             # yfinance. Évite la pollution _neutral qui dilue le signal.
             sc = compute_score(ratios, sector=sec, industry=industry,
                                 backtest_mode=True)
-            rows.append({
+
+            # ── v2 : 4 scores + recos par 5 profils investisseurs ──
+            try:
+                from core.finsight_score_v2 import (
+                    compute_scores_v2, recommend_all_profiles,
+                )
+                scores_v2 = compute_scores_v2(ratios, sector=sec, industry=industry)
+                recos = recommend_all_profiles(scores_v2)
+            except Exception:
+                scores_v2 = None
+                recos = {}
+            # Row v1 (legacy, conservé pour rétro-compat)
+            row = {
                 "ticker": ticker,
                 "date": dt,
                 "score": sc["global"],
@@ -282,7 +294,17 @@ def score_history_for_ticker(
                 "governance": sc["governance"],
                 "sector_profile": sc.get("sector_profile_used", "STANDARD"),
                 "price": price_at_t,
-            })
+            }
+            # v2 scores + recos par profil (colonnes supplémentaires)
+            if scores_v2:
+                row["v2_quality"] = scores_v2["quality"]["score"]
+                row["v2_value"] = scores_v2["value"]["score"]
+                row["v2_momentum"] = scores_v2["momentum"]["score"]
+                row["v2_risk"] = scores_v2["risk"]["score"]
+            for prof_key, reco in (recos or {}).items():
+                row[f"v2_{prof_key}_composite"] = reco["composite"]
+                row[f"v2_{prof_key}_reco"] = reco["recommendation"]
+            rows.append(row)
         except Exception as e:
             log.debug(f"[score_history] {ticker}@{dt}: {e}")
             continue
