@@ -1481,6 +1481,13 @@ async def market_series(ticker: str, period: str = "1mo"):
     return fetch_price_series(ticker, period=period)
 
 
+@app.get("/market/series-multi/{ticker}")
+async def market_series_multi(ticker: str, period: str = "1mo", sector: str = ""):
+    """Séries multi : ticker + indice benchmark + ETF secteur (normalisées base 100)."""
+    from core.market import fetch_price_series_multi
+    return fetch_price_series_multi(ticker, period=period, sector=sector)
+
+
 @app.get("/tickers/resolve/{query}")
 async def resolve_ticker(query: str):
     """Résout un nom (ex: 'hermes', 'lvmh') vers un ticker yfinance.

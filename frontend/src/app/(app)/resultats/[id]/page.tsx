@@ -265,11 +265,12 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
                   {
                     id: "performance",
                     label: "Performance comparée",
-                    default: { x: 4, y: 6, w: 5, h: 5 },
+                    default: { x: 4, y: 6, w: 5, h: 6 },
                     render: () => (
                       <PerformanceCard
                         ticker={tickerStr}
                         currency={ci.currency || "EUR"}
+                        sector={ci.sector || ""}
                       />
                     ),
                   },

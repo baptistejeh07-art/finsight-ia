@@ -231,3 +231,99 @@ def fetch_price_series(ticker: str, period: str = "1mo") -> dict:
     except Exception as e:
         log.warning(f"[market] fetch_price_series {ticker}/{period} fail: {e}")
         return {"ticker": ticker, "period": period, "error": str(e)[:80]}
+
+
+def _detect_benchmark(ticker: str, sector: str = "") -> tuple[str, str]:
+    """Retourne (index_ticker, index_name) selon le pays du ticker.
+    Ex: RMS.PA → (^FCHI, CAC 40) ; AAPL → (^GSPC, S&P 500).
+    """
+    t = ticker.upper()
+    eu_fr = (".PA",)
+    eu_de = (".DE",)
+    eu_uk = (".L",)
+    eu_ch = (".SW",)
+    eu_nl = (".AS",)
+    eu_it = (".MI",)
+    eu_es = (".MC",)
+    if any(t.endswith(s) for s in eu_fr):
+        return "^FCHI", "CAC 40"
+    if any(t.endswith(s) for s in eu_de):
+        return "^GDAXI", "DAX 40"
+    if any(t.endswith(s) for s in eu_uk):
+        return "^FTSE", "FTSE 100"
+    if any(t.endswith(s) for s in eu_ch):
+        return "^SSMI", "SMI"
+    if any(t.endswith(s) for s in eu_nl + eu_it + eu_es):
+        return "^STOXX50E", "Euro Stoxx 50"
+    if t.endswith(".T"):
+        return "^N225", "Nikkei 225"
+    if t.endswith(".HK"):
+        return "^HSI", "Hang Seng"
+    return "^GSPC", "S&P 500"
+
+
+_SECTOR_ETFS = {
+    "technology": ("XLK", "US Tech (XLK)"),
+    "information technology": ("XLK", "US Tech (XLK)"),
+    "healthcare": ("XLV", "US Healthcare (XLV)"),
+    "health care": ("XLV", "US Healthcare (XLV)"),
+    "financials": ("XLF", "US Financials (XLF)"),
+    "financial services": ("XLF", "US Financials (XLF)"),
+    "energy": ("XLE", "US Energy (XLE)"),
+    "consumer cyclical": ("XLY", "US Cons. Disc. (XLY)"),
+    "consumer discretionary": ("XLY", "US Cons. Disc. (XLY)"),
+    "consumer defensive": ("XLP", "US Cons. Staples (XLP)"),
+    "consumer staples": ("XLP", "US Cons. Staples (XLP)"),
+    "industrials": ("XLI", "US Industrials (XLI)"),
+    "communication services": ("XLC", "US Comm. (XLC)"),
+    "utilities": ("XLU", "US Utilities (XLU)"),
+    "real estate": ("XLRE", "US Real Estate (XLRE)"),
+    "basic materials": ("XLB", "US Materials (XLB)"),
+    "materials": ("XLB", "US Materials (XLB)"),
+}
+
+
+def fetch_price_series_multi(ticker: str, period: str = "1mo", sector: str = "") -> dict:
+    """Retourne les séries prix du ticker + indice + ETF secteur,
+    normalisées en base 100 au début de la période.
+    """
+    if period not in _PERIOD_CONFIG:
+        period = "1mo"
+    key = f"series_multi:{ticker}:{period}:{sector.lower()[:30]}"
+    cached = _cache_get(key)
+    if cached:
+        return cached
+
+    idx_ticker, idx_name = _detect_benchmark(ticker, sector)
+    sec_ticker, sec_name = _SECTOR_ETFS.get(sector.lower().strip(), (None, None))
+
+    series = {}
+    main = fetch_price_series(ticker, period)
+    if main.get("points"):
+        series["main"] = {"name": ticker, "ticker": ticker, "points": main["points"]}
+
+    idx = fetch_price_series(idx_ticker, period)
+    if idx.get("points"):
+        series["index"] = {"name": idx_name, "ticker": idx_ticker, "points": idx["points"]}
+
+    if sec_ticker:
+        sec = fetch_price_series(sec_ticker, period)
+        if sec.get("points"):
+            series["sector"] = {"name": sec_name, "ticker": sec_ticker, "points": sec["points"]}
+
+    # Normalise en base 100 au 1er point de chaque série
+    for s in series.values():
+        pts = s.get("points") or []
+        if pts and pts[0]["close"] > 0:
+            base = pts[0]["close"]
+            for p in pts:
+                p["base100"] = round(p["close"] / base * 100, 2)
+
+    result = {
+        "ticker": ticker,
+        "period": period,
+        "sector": sector,
+        "series": series,
+    }
+    _cache_set(key, result)
+    return result

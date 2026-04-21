@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { TrendingUp, TrendingDown } from "lucide-react";
 import {
-  LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine,
+  LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend,
 } from "recharts";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "";
@@ -45,12 +45,21 @@ interface SeriesPoint {
 interface PerformanceCardProps {
   ticker: string;
   currency?: string;
+  sector?: string;
 }
 
-export function PerformanceCard({ ticker, currency = "EUR" }: PerformanceCardProps) {
+interface MultiSeriesResponse {
+  series: {
+    main?: { name: string; ticker: string; points: Array<{ date: string; close: number; base100?: number }> };
+    index?: { name: string; ticker: string; points: Array<{ date: string; close: number; base100?: number }> };
+    sector?: { name: string; ticker: string; points: Array<{ date: string; close: number; base100?: number }> };
+  };
+}
+
+export function PerformanceCard({ ticker, currency = "EUR", sector = "" }: PerformanceCardProps) {
   const [period, setPeriod] = useState<Period>("1mo");
   const [perf, setPerf] = useState<PerformanceData | null>(null);
-  const [series, setSeries] = useState<SeriesPoint[] | null>(null);
+  const [multi, setMulti] = useState<MultiSeriesResponse | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -65,18 +74,31 @@ export function PerformanceCard({ ticker, currency = "EUR" }: PerformanceCardPro
 
   useEffect(() => {
     let cancel = false;
-    fetch(`${API}/market/series/${encodeURIComponent(ticker)}?period=${period}`)
+    const url = `${API}/market/series-multi/${encodeURIComponent(ticker)}?period=${period}&sector=${encodeURIComponent(sector)}`;
+    fetch(url)
       .then((r) => r.ok ? r.json() : null)
-      .then((j) => { if (!cancel && j && j.points) setSeries(j.points); })
+      .then((j) => { if (!cancel && j?.series) setMulti(j as MultiSeriesResponse); })
       .catch(() => {});
     return () => { cancel = true; };
-  }, [ticker, period]);
+  }, [ticker, period, sector]);
 
   const stats = perf?.periods?.[period];
   const positive = (stats?.change_pct ?? 0) >= 0;
 
-  const chartData = useMemo(() => (series || []).map((p) => ({ ...p })), [series]);
+  // Assemble les 3 séries (main + index + sector) avec base100 par date
+  const chartData = useMemo(() => {
+    if (!multi?.series) return [];
+    const { main, index, sector: secSeries } = multi.series;
+    if (!main?.points?.length) return [];
+    const byDate: Record<string, { date: string; main?: number; index?: number; sector?: number }> = {};
+    for (const p of main.points) byDate[p.date] = { date: p.date, main: p.base100 ?? p.close };
+    if (index?.points) for (const p of index.points) (byDate[p.date] ||= { date: p.date }).index = p.base100 ?? p.close;
+    if (secSeries?.points) for (const p of secSeries.points) (byDate[p.date] ||= { date: p.date }).sector = p.base100 ?? p.close;
+    return Object.values(byDate).sort((a, b) => (a.date > b.date ? 1 : -1));
+  }, [multi]);
   const lineColor = positive ? "#16a34a" : "#dc2626";
+  const indexName = multi?.series?.index?.name;
+  const sectorName = multi?.series?.sector?.name;
 
   if (loading && !perf) {
     return (
@@ -124,24 +146,32 @@ export function PerformanceCard({ ticker, currency = "EUR" }: PerformanceCardPro
       {/* Graph */}
       <div className="flex-1 min-h-[120px] px-3 pt-3">
         {chartData.length > 0 ? (
-          <ResponsiveContainer width="100%" height={140}>
+          <ResponsiveContainer width="100%" height={160}>
             <LineChart data={chartData} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
               <XAxis dataKey="date" hide />
-              <YAxis domain={["dataMin", "dataMax"]} hide />
-              <ReferenceLine y={chartData[0]?.close} stroke="#ccc" strokeDasharray="2 2" />
+              <YAxis domain={["dataMin - 2", "dataMax + 2"]} hide />
               <Line
-                type="monotone"
-                dataKey="close"
-                stroke={lineColor}
-                strokeWidth={2}
-                dot={false}
-                isAnimationActive={false}
+                type="monotone" dataKey="main" name={ticker}
+                stroke={lineColor} strokeWidth={2.2} dot={false} isAnimationActive={false}
               />
+              {indexName && (
+                <Line
+                  type="monotone" dataKey="index" name={indexName}
+                  stroke="#6b7280" strokeWidth={1.2} strokeDasharray="4 4" dot={false} isAnimationActive={false}
+                />
+              )}
+              {sectorName && (
+                <Line
+                  type="monotone" dataKey="sector" name={sectorName}
+                  stroke="#a855f7" strokeWidth={1.2} strokeDasharray="2 2" dot={false} isAnimationActive={false}
+                />
+              )}
               <Tooltip
                 contentStyle={{ fontSize: 11, borderRadius: 4, border: "1px solid #ddd" }}
-                formatter={(v: number) => [`${v.toFixed(2)} ${currency}`, "Cours"]}
+                formatter={(v: number) => [v.toFixed(1), ""]}
                 labelFormatter={(l) => String(l)}
               />
+              <Legend iconType="plainline" wrapperStyle={{ fontSize: 10, paddingTop: 4 }} />
             </LineChart>
           </ResponsiveContainer>
         ) : (

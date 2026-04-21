@@ -45,9 +45,11 @@ export function EditableGrid({
   storageKey?: string;
 }) {
   const STORAGE_KEY = storageKey || DEFAULT_STORAGE_KEY;
+  const HIDDEN_KEY = STORAGE_KEY + ":hidden";
   const { enabled } = useEditMode();
   const { t } = useI18n();
   const [layouts, setLayouts] = useState<Layouts>({});
+  const [hidden, setHidden] = useState<Set<string>>(new Set());
   const [hydrated, setHydrated] = useState(false);
 
   function buildFallback(): LayoutItem[] {
@@ -67,6 +69,8 @@ export function EditableGrid({
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) saved = JSON.parse(raw);
+      const hraw = localStorage.getItem(HIDDEN_KEY);
+      if (hraw) setHidden(new Set(JSON.parse(hraw)));
     } catch {
       /* no-op */
     }
@@ -115,9 +119,38 @@ export function EditableGrid({
   function reset() {
     try {
       localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(HIDDEN_KEY);
     } catch {}
+    setHidden(new Set());
     setLayouts({ lg: buildFallback() });
   }
+
+  function persistHidden(h: Set<string>) {
+    try {
+      localStorage.setItem(HIDDEN_KEY, JSON.stringify([...h]));
+    } catch {}
+  }
+
+  function hideBlock(id: string) {
+    setHidden((prev) => {
+      const next = new Set(prev);
+      next.add(id);
+      persistHidden(next);
+      return next;
+    });
+  }
+
+  function showBlock(id: string) {
+    setHidden((prev) => {
+      const next = new Set(prev);
+      next.delete(id);
+      persistHidden(next);
+      return next;
+    });
+  }
+
+  const visibleBlocks = blocks.filter((b) => !hidden.has(b.id));
+  const hiddenBlocks = blocks.filter((b) => hidden.has(b.id));
 
   if (!hydrated) {
     return <div className="text-xs text-ink-500">{t("grid.loading_layout")}</div>;
@@ -128,7 +161,7 @@ export function EditableGrid({
       {enabled && (
         <div className="mb-3 flex items-center justify-between text-xs">
           <span className="text-amber-700 font-medium">
-            {t("grid.edit_hint")}
+            {t("grid.edit_hint")} · Clique × pour masquer un bloc.
           </span>
           <button
             onClick={reset}
@@ -136,6 +169,25 @@ export function EditableGrid({
           >
             {t("grid.reset_layout")}
           </button>
+        </div>
+      )}
+
+      {enabled && hiddenBlocks.length > 0 && (
+        <div className="mb-3 bg-ink-50 border border-ink-200 rounded-md p-3">
+          <div className="text-2xs uppercase tracking-widest text-ink-500 font-semibold mb-2">
+            Blocs masqués ({hiddenBlocks.length}) — cliquez pour restaurer
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {hiddenBlocks.map((b) => (
+              <button
+                key={b.id}
+                onClick={() => showBlock(b.id)}
+                className="text-xs px-2 py-1 rounded border border-ink-300 bg-white hover:bg-ink-100 text-ink-700 flex items-center gap-1.5"
+              >
+                <span>+</span> {b.label}
+              </button>
+            ))}
+          </div>
         </div>
       )}
 
@@ -154,7 +206,7 @@ export function EditableGrid({
         useCSSTransforms={true}
         draggableHandle=".grid-drag-handle"
       >
-        {blocks.map((b) => (
+        {visibleBlocks.map((b) => (
           <div
             key={b.id}
             className={
@@ -164,11 +216,20 @@ export function EditableGrid({
             }
           >
             {enabled && (
-              <div className="grid-drag-handle bg-amber-50 border-b border-amber-200 px-3 py-1.5 text-2xs uppercase tracking-widest text-amber-700 font-semibold cursor-move select-none flex items-center justify-between flex-none">
-                <span>⋮⋮ {b.label}</span>
-                <span className="text-amber-500 normal-case tracking-normal text-[10px]">
-                  {t("grid.drag_resize")}
-                </span>
+              <div className="grid-drag-handle bg-amber-50 border-b border-amber-200 px-3 py-1.5 text-2xs uppercase tracking-widest text-amber-700 font-semibold cursor-move select-none flex items-center justify-between flex-none gap-2">
+                <span className="truncate">⋮⋮ {b.label}</span>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    hideBlock(b.id);
+                  }}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  className="shrink-0 text-amber-700 hover:text-signal-sell hover:bg-red-50 rounded w-5 h-5 flex items-center justify-center text-sm leading-none"
+                  title="Masquer ce bloc"
+                >
+                  ×
+                </button>
               </div>
             )}
             <div className={enabled ? "p-3 flex-1 min-h-0 overflow-auto" : "flex-1 min-h-0"}>{b.render()}</div>
