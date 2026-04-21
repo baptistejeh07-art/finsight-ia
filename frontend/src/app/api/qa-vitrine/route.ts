@@ -50,47 +50,78 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Aucun message" }, { status: 400 });
     }
 
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) {
-      // Fallback dev : réponse statique pour ne pas casser l'UI sans clé
+    // Groq d'abord (gratuit, rapide), Anthropic en fallback
+    const groqKey = process.env.GROQ_API_KEY || process.env.GROQ_API_KEY_1;
+    const anthropicKey = process.env.ANTHROPIC_API_KEY;
+
+    if (!groqKey && !anthropicKey) {
       return NextResponse.json({
         reply:
           "L'assistant FinSight n'est pas encore configuré sur cet environnement. Contactez-nous via /contact pour toute question.",
       });
     }
 
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: "claude-haiku-4-5-20251001",
-        max_tokens: 600,
-        system: SYSTEM_PROMPT,
-        messages: messages.map((m: { role: string; content: string }) => ({
-          role: m.role === "assistant" ? "assistant" : "user",
-          content: m.content,
-        })),
-      }),
-    });
+    let reply: string | null = null;
 
-    if (!res.ok) {
-      const detail = await res.text();
-      return NextResponse.json(
-        { error: "Anthropic upstream error", detail },
-        { status: 502 }
-      );
+    // 1. Groq llama-3.3-70b (principal)
+    if (groqKey) {
+      try {
+        const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            authorization: `Bearer ${groqKey}`,
+          },
+          body: JSON.stringify({
+            model: "llama-3.3-70b-versatile",
+            max_tokens: 600,
+            temperature: 0.3,
+            messages: [
+              { role: "system", content: SYSTEM_PROMPT },
+              ...messages.map((m: { role: string; content: string }) => ({
+                role: m.role === "assistant" ? "assistant" : "user",
+                content: m.content,
+              })),
+            ],
+          }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          reply = data?.choices?.[0]?.message?.content || null;
+        }
+      } catch {
+        /* fallback Anthropic */
+      }
     }
 
-    const data = await res.json();
-    const reply: string =
-      data?.content?.[0]?.text ||
-      "Je n'ai pas pu formuler de réponse, désolé.";
+    // 2. Anthropic fallback si Groq KO ou absent
+    if (!reply && anthropicKey) {
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-api-key": anthropicKey,
+          "anthropic-version": "2023-06-01",
+        },
+        body: JSON.stringify({
+          model: "claude-haiku-4-5-20251001",
+          max_tokens: 600,
+          system: SYSTEM_PROMPT,
+          messages: messages.map((m: { role: string; content: string }) => ({
+            role: m.role === "assistant" ? "assistant" : "user",
+            content: m.content,
+          })),
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        reply = data?.content?.[0]?.text || null;
+      }
+    }
 
-    return NextResponse.json({ reply });
+    return NextResponse.json({
+      reply: reply || "Je n'ai pas pu formuler de réponse, désolé.",
+    });
   } catch (e) {
     return NextResponse.json(
       { error: e instanceof Error ? e.message : "Erreur inconnue" },
