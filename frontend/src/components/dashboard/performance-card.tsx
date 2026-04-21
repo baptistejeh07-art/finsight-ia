@@ -162,12 +162,23 @@ export function PerformanceCard({ ticker, currency = "EUR", sector = "" }: Perfo
                 label={{ value: "Date", position: "insideBottom", offset: -8, fontSize: 10, fill: "#6b7280" }}
               />
               <YAxis
-                domain={["dataMin - 2", "dataMax + 2"]}
+                // Domaine intelligent : marges adaptatives à la volatilité
+                // observée (5% des écarts) pour éviter le « bcp de blanc »
+                // autour d'une courbe plate.
+                domain={([dataMin, dataMax]) => {
+                  const range = Math.max(dataMax - dataMin, 1);
+                  const pad = Math.max(range * 0.08, 0.5);
+                  return [
+                    Math.floor(dataMin - pad),
+                    Math.ceil(dataMax + pad),
+                  ];
+                }}
                 tick={{ fontSize: 9, fill: "#6b7280" }}
                 tickFormatter={(v: number) => v.toFixed(0)}
                 axisLine={{ stroke: "#e5e7eb" }}
                 tickLine={false}
                 width={34}
+                allowDataOverflow={false}
                 label={{ value: "Base 100", angle: -90, position: "insideLeft", offset: 8, fontSize: 10, fill: "#6b7280" }}
               />
               <Line

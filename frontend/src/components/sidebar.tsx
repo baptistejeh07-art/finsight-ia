@@ -122,13 +122,42 @@ export function Sidebar() {
   }, [jobId]);
 
   const apiBase = process.env.NEXT_PUBLIC_API_URL || "";
-  const fileUrl = (path: string) => {
-    if (path.startsWith("http")) return path;
+  const fileUrl = (path: string, forceDownload: boolean = false) => {
+    if (path.startsWith("http")) {
+      // Supabase Storage : append ?download pour forcer l'attachement si demandé
+      if (forceDownload) {
+        return path + (path.includes("?") ? "&" : "?") + "download=1";
+      }
+      return path;
+    }
     // Encode segments (spaces, &, accents) pour éviter "no such file"
-    // quand le stem contient S&P 500, Santé, etc.
     const encoded = path.split("/").map(encodeURIComponent).join("/");
-    return `${apiBase}/file/${encoded}`;
+    const suffix = forceDownload ? "?download=1" : "";
+    return `${apiBase}/file/${encoded}${suffix}`;
   };
+
+  // Force download client-side via fetch+blob (contourne les navigateurs
+  // qui ouvrent inline malgré Content-Disposition, et les URLs Supabase
+  // Storage qui ne supportent pas toujours ?download).
+  async function forceDownloadClient(url: string, filename: string) {
+    try {
+      const r = await fetch(url, { credentials: "omit" });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const blob = await r.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = objectUrl;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+    } catch (e) {
+      // Fallback : ouverture dans nouvel onglet si fetch fail (CORS)
+      window.open(url, "_blank");
+      console.warn("[download] fallback window.open", e);
+    }
+  }
 
   return (
     <aside className="hidden md:flex fixed left-0 top-0 h-screen w-56 flex-col bg-white dark:bg-ink-900 text-ink-900 dark:text-ink-50 border-r border-ink-200 dark:border-ink-700 z-40">
@@ -164,7 +193,12 @@ export function Sidebar() {
             <div className="space-y-2">
               {files.pptx && (
                 <DownloadLink
-                  href={fileUrl(files.pptx)}
+                  onClick={() =>
+                    forceDownloadClient(
+                      fileUrl(files.pptx!, true),
+                      `${ticker || "analyse"}.pptx`,
+                    )
+                  }
                   icon={<Presentation className="w-3.5 h-3.5" />}
                   label={`${t("nav.pptx_pitchbook")} ${ticker} `}
                   ext=".pptx"
@@ -172,7 +206,12 @@ export function Sidebar() {
               )}
               {files.xlsx && (
                 <DownloadLink
-                  href={fileUrl(files.xlsx)}
+                  onClick={() =>
+                    forceDownloadClient(
+                      fileUrl(files.xlsx!, true),
+                      `${ticker || "analyse"}.xlsx`,
+                    )
+                  }
                   icon={<FileSpreadsheet className="w-3.5 h-3.5" />}
                   label={`${t("nav.xlsx_model")} ${ticker} `}
                   ext=".xlsx"
@@ -348,15 +387,33 @@ function iconForKind(kind: HistoryKind) {
 
 function DownloadLink({
   href,
+  onClick,
   icon,
   label,
   ext,
 }: {
-  href: string;
+  href?: string;
+  onClick?: () => void;
   icon: React.ReactNode;
   label: string;
   ext: string;
 }) {
+  // onClick prioritaire sur href : utilisé pour forceDownloadClient (PPTX/XLSX)
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className="w-full flex items-center gap-2 px-2.5 py-2 rounded-md border border-ink-200 hover:border-navy-500 hover:bg-navy-50 transition-colors text-xs text-ink-800 group text-left"
+      >
+        <span className="text-navy-500">{icon}</span>
+        <span className="flex-1 truncate">
+          {label}
+          <span className="text-ink-500 group-hover:text-navy-600">↓ {ext}</span>
+        </span>
+      </button>
+    );
+  }
   return (
     <a
       href={href}

@@ -607,6 +607,14 @@ def _get_real_tickers(sector: str, universe: str) -> list[str]:
         # Libellés FR courts utilisés dans top3_secteurs et donut indice
         "finance":                "Financial Services",
         "services financiers":    "Financial Services",
+        # Banques (FR + EN) — alias critique manquant, redirigeait vers fallback
+        # synthétique BAN1-6 au lieu de JPM/BAC/WFC/GS/MS.
+        "banques":                "Financial Services",
+        "banque":                 "Financial Services",
+        "banks":                  "Financial Services",
+        "bank":                   "Financial Services",
+        "assurances":             "Financial Services",
+        "insurance":              "Financial Services",
         "santé":                  "Healthcare",
         "sante":                  "Healthcare",
         "health care":            "Healthcare",

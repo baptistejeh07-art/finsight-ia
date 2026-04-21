@@ -433,11 +433,24 @@ def _do_secteur(secteur: str, univers: str, language: str = "fr", currency: str 
     slim_tickers = []
     for t in sector_data.get("tickers", [])[:15]:
         if isinstance(t, dict):
+            # cli_analyze utilise "company", backend harmonise avec "name"
             slim_tickers.append({
                 "ticker": t.get("ticker") or t.get("symbol"),
-                "name": t.get("name") or t.get("company_name"),
+                "name": t.get("name") or t.get("company_name") or t.get("company"),
                 "market_cap": t.get("market_cap"),
+                # Passe les ratios + champs racine pour que le frontend ait
+                # accès à pe, roe, ebitda_margin, etc. directement (les
+                # writers PDF/PPTX en ont besoin aussi).
                 "ratios": t.get("ratios") or {},
+                # Champs plats pour Comparatif financier (sinon données "—")
+                "pe_ratio": t.get("pe_ratio") or t.get("pe"),
+                "ev_ebitda": t.get("ev_ebitda"),
+                "ebitda_margin": t.get("ebitda_margin"),
+                "roe": t.get("roe"),
+                "revenue_growth": t.get("revenue_growth"),
+                "div_yield": t.get("div_yield"),
+                "pb_ratio": t.get("pb_ratio"),
+                "ptb_value_ratio": t.get("ptb_value_ratio"),  # P/TBV si calculé
             })
     # ETF sectoriel pour bloc "Cours" (parité avec Cours société)
     sector_etf = None

@@ -1110,20 +1110,22 @@ def _chart_performance(tickers_data, best_ticker=None, worst_ticker=None,
         log.debug(f"[sectoral_pptx_writer:_chart_performance] exception skipped: {_e}")
 
     if plotted == 0:
-        # Fallback illustrative — warning car données non réelles
-        log.warning("sectoral_pptx _chart_performance: yfinance indisponible — "
-                    "utilisation d'un fallback illustratif (Données simulees)")
-        import numpy as np
-        x = np.linspace(0, 52, 53)
-        for ticker in _highlighted_set:
-            if not ticker:
-                continue
-            np.random.seed(hash(ticker) % 1024)
-            y = np.cumsum(np.random.randn(53) * 1.5)
-            col, lw = _highlight_colors[ticker]
-            _lbl = _name_map.get(ticker, ticker)
-            ax.plot(x, y, color=col, linewidth=lw, label=_lbl, alpha=1.0, zorder=4)
-        ax.set_xlabel("Semaines (illustratif)", fontsize=8, color='#555555')
+        # Pas de fake data : les courbes illustratives perturbaient l'axe
+        # (synthétiques en int mixés avec ETF en datetime → concentration
+        # des lignes à gauche/droite). Message propre à la place.
+        log.warning("sectoral_pptx _chart_performance: aucun ticker yfinance "
+                    "disponible — affichage message 'données indisponibles'")
+        ax.text(0.5, 0.5,
+                "Données de performance indisponibles\n"
+                "(tickers non trouvés sur Yahoo Finance)",
+                transform=ax.transAxes, ha='center', va='center',
+                fontsize=11, color='#888888', style='italic')
+        ax.set_xticks([])
+        ax.set_yticks([])
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        ax.spines['left'].set_visible(False)
+        ax.spines['bottom'].set_visible(False)
     else:
         ax.set_xlabel("Date", fontsize=8, color='#555555')
 
