@@ -12,6 +12,7 @@ import { getFileUrl, getJob } from "@/lib/api";
 import type { AnalysisData, RawData, RatiosData, Synthesis } from "@/components/dashboard/types";
 import { HeaderSociete } from "@/components/dashboard/header-societe";
 import { RecoCard } from "@/components/dashboard/reco-card";
+import { FinSightScoreBadge } from "@/components/dashboard/finsight-score-badge";
 import { CoursChart } from "@/components/dashboard/cours-chart";
 import { PerformanceCard } from "@/components/dashboard/performance-card";
 import { ValorisationCards } from "@/components/dashboard/valorisation-cards";
@@ -191,7 +192,11 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
           <>
             {/* Header */}
             <header className="mb-5">
-              <HeaderSociete ci={ci} elapsedMs={result.elapsed_ms} />
+              <HeaderSociete
+                ci={ci}
+                elapsedMs={result.elapsed_ms}
+                finsightScore={result.data?.finsight_score}
+              />
             </header>
 
             {/* Warnings audit (data manquante détectée par AgentDataAudit)
@@ -250,6 +255,21 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
                       />
                     ),
                   },
+                  ...(result.data?.finsight_score
+                    ? [
+                        {
+                          id: "fs-score",
+                          label: "Score FinSight",
+                          default: { x: 9, y: 0, w: 3, h: 6 },
+                          render: () => (
+                            <FinSightScoreBadge
+                              score={result.data!.finsight_score!}
+                              variant="full"
+                            />
+                          ),
+                        } satisfies GridBlock,
+                      ]
+                    : []),
                   {
                     id: "cours",
                     label: t("results.block_price"),

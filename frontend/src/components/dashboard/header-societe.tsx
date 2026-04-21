@@ -1,13 +1,16 @@
 import type { CompanyInfo } from "./types";
 import { CompanyLogo } from "./company-logo";
 import { trSector } from "@/lib/sectors";
+import { FinSightScoreBadge, type FinSightScore } from "./finsight-score-badge";
 
 export function HeaderSociete({
   ci,
   elapsedMs,
+  finsightScore,
 }: {
   ci: CompanyInfo;
   elapsedMs?: number;
+  finsightScore?: FinSightScore | null;
 }) {
   const date = ci.analysis_date
     ? new Date(ci.analysis_date).toLocaleDateString("fr-FR", {
@@ -24,7 +27,7 @@ export function HeaderSociete({
         companyName={ci.company_name}
         size={56}
       />
-      <div>
+      <div className="flex-1">
         <h1 className="text-2xl font-bold text-ink-900 tracking-tight leading-tight">
           {ci.company_name || ci.ticker}
         </h1>
@@ -35,6 +38,11 @@ export function HeaderSociete({
             : ""}
         </div>
       </div>
+      {finsightScore && (
+        <div className="shrink-0">
+          <FinSightScoreBadge score={finsightScore} variant="compact" />
+        </div>
+      )}
     </div>
   );
 }

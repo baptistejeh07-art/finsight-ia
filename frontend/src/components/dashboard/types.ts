@@ -166,12 +166,24 @@ export interface PmeAnalysisSummary {
   debt_capacity_estimate?: number | null;
 }
 
+export interface FinSightScoreData {
+  global: number;
+  grade: string;
+  verdict: string;
+  quality: number;
+  value: number;
+  momentum: number;
+  governance: number;
+  details?: Record<string, unknown>;
+}
+
 export interface AnalysisData {
   ticker?: string;
   raw_data?: RawData;
   ratios?: RatiosData;
   synthesis?: Synthesis;
   recommendation?: string;
+  finsight_score?: FinSightScoreData | null;
   // Secteur/indice payload (kind = "secteur" | "indice")
   kind?: string;
   sector?: string;

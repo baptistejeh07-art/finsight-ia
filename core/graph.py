@@ -503,6 +503,34 @@ def output_node(state: FinSightState) -> dict:
     _lang     = state.get("language") or "fr"
     _ccy      = state.get("currency") or "EUR"
 
+    # ── Score FinSight propriétaire (note 0-100 composite) ──
+    # Qualité + Valorisation + Momentum + Gouvernance.
+    # Calculé AVANT les writers pour pouvoir l'afficher dans PDF/PPTX.
+    finsight_score = None
+    try:
+        from core.finsight_score import compute_score
+        latest = ratios.latest_year if ratios else None
+        latest_ratios = ratios.years.get(latest) if (ratios and latest) else None
+        ratio_dict = {
+            k: getattr(latest_ratios, k, None)
+            for k in (
+                "pe_ratio", "ev_ebitda", "ev_revenue", "roe", "roic",
+                "ebitda_margin", "net_margin", "gross_margin",
+                "revenue_growth", "fcf_yield", "div_yield", "payout_ratio",
+                "altman_z", "piotroski_f", "net_debt_ebitda", "momentum_52w",
+            )
+        } if latest_ratios else {}
+        market_dict = {
+            "share_price": getattr(snapshot.market, "share_price", None) if snapshot else None,
+            "beta_levered": getattr(snapshot.market, "beta_levered", None) if snapshot else None,
+            "dividend_yield": getattr(snapshot.market, "dividend_yield", None) if snapshot else None,
+        }
+        finsight_score = compute_score(ratio_dict, market_dict)
+        log.info(f"[output_node] FinSight Score = {finsight_score['global']}/100 "
+                 f"({finsight_score['grade']}) — {finsight_score['verdict']}")
+    except Exception as _se:
+        log.warning(f"[output_node] FinSight Score skip : {_se}")
+
     t0 = time.time()
     excel_path = pptx_path = pdf_path = None
     excel_bytes = pptx_bytes = pdf_bytes = None
@@ -616,9 +644,11 @@ def output_node(state: FinSightState) -> dict:
         "pdf_bytes":   pdf_bytes,
         "pptx_error":  pptx_error,
         "pdf_error":   pdf_error,
+        "finsight_score": finsight_score,
         **_log_entry(state, "output_node", ms,
                      excel=bool(excel_path), pptx=bool(pptx_path), pdf=bool(pdf_path),
-                     excel_ms=excel_ms, pptx_ms=pptx_ms, pdf_ms=pdf_ms),
+                     excel_ms=excel_ms, pptx_ms=pptx_ms, pdf_ms=pdf_ms,
+                     fs_score=finsight_score.get("global") if finsight_score else None),
     }
 
 
