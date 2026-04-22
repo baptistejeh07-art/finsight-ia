@@ -25,12 +25,12 @@ const SIZE_CLASS: Record<Size, string> = {
 };
 
 /**
- * Logo FinSight — SVG vectoriel (transparent).
- * variant="auto"   : navy (logo.svg) en clair, blanc (logo-light.svg) en dark.
+ * Logo FinSight — SVG vectoriel re-tracé (Gemini, 210 Ko, vraies courbes).
+ * variant="auto"    : version couleur en clair, version blanche en dark.
  * variant="inverse" : toujours blanc (footer fond navy permanent).
  *
- * Retour au SVG après que le PNG "2x" ait été repéré avec un fond blanc plein
- * qui créait un halo rectangulaire sur les zones colorées (ex: hero navy).
+ * Passage au vrai SVG vectoriel (2026-04-22) pour ne plus pixéliser aux grandes
+ * tailles. Les anciens PNG 2x 1002x712 pixélisaient dès 300 px de hauteur.
  */
 export function LogoMark({
   className = "",
@@ -53,13 +53,12 @@ export function LogoMark({
       aria-label="FinSight IA — Accueil"
     >
       {isInverse ? (
-        /* Footer : PNG 2x net (la version SVG tracée par VTracer pixélise aux
-           grandes tailles car polygonal plutôt que vectoriel). */
+        /* Footer : version blanche (fond navy permanent). */
         <Image
-          src="/logo-finsight-white-2x.png"
+          src="/logo-finsight-vector-white.svg"
           alt="FinSight IA"
-          width={1002}
-          height={712}
+          width={1398}
+          height={752}
           priority
           unoptimized
           className={`object-contain ${SIZE_CLASS[effectiveSize]}`}
@@ -67,19 +66,19 @@ export function LogoMark({
       ) : (
         <>
           <Image
-            src="/logo-finsight-2x.png"
+            src="/logo-finsight-vector.svg"
             alt="FinSight IA"
-            width={1002}
-            height={712}
+            width={1398}
+            height={752}
             priority
             unoptimized
             className={`object-contain ${SIZE_CLASS[effectiveSize]} block dark:hidden`}
           />
           <Image
-            src="/logo-finsight-white-2x.png"
+            src="/logo-finsight-vector-white.svg"
             alt="FinSight IA"
-            width={1002}
-            height={712}
+            width={1398}
+            height={752}
             priority
             unoptimized
             className={`object-contain ${SIZE_CLASS[effectiveSize]} hidden dark:block`}
