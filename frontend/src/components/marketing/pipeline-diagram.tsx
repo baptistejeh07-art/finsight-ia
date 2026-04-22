@@ -13,16 +13,16 @@ interface NodeDef {
 }
 
 const NODES: NodeDef[] = [
-  { id: "fetch",      label: "fetch_node",      role: "Agent Data — yfinance, Finnhub, FMP, Pappers, INPI",               x: 50,  y: 40,  color: "input" },
-  { id: "fallback",   label: "fallback_node",   role: "Backup multi-API si fetch primaire échoue",                         x: 50,  y: 140, color: "fallback" },
-  { id: "quant",      label: "quant_node",      role: "Agent Quant — WACC, DCF, ratios déterministes",                     x: 280, y: 90,  color: "process" },
-  { id: "synthesis",  label: "synthesis_node",  role: "Agent Synthèse — LLM Groq/Mistral (recommandation, targets)",       x: 510, y: 90,  color: "llm" },
-  { id: "retry",      label: "synthesis_retry", role: "Retry LLM en cas de sortie invalide",                               x: 510, y: 190, color: "llm" },
-  { id: "qa",         label: "qa_node",         role: "Agent QA Python + QA Haiku — validation ratios, cohérence",         x: 740, y: 90,  color: "qa" },
-  { id: "devil",      label: "devil_node",      role: "Devil's Advocate — thèse inverse, conviction_delta (parallèle QA)", x: 740, y: 190, color: "qa" },
-  { id: "entry",      label: "entry_zone_node", role: "Agent Entry Zone — signal d'entrée (DCF vs cours)",                 x: 970, y: 90,  color: "qa" },
-  { id: "output",     label: "output_node",     role: "Writers PDF / PPTX / Excel / Briefing — production livrables",      x: 1200, y: 90, color: "output" },
-  { id: "blocked",    label: "blocked_node",    role: "Court-circuit si synthesis invalide → livrables partiels",          x: 510, y: 290, color: "fallback" },
+  { id: "fetch",      label: "fetch_node",      role: "Agent Data — yfinance, Finnhub, FMP, Pappers, INPI",               x: 40,   y: 50,  color: "input" },
+  { id: "fallback",   label: "fallback_node",   role: "Backup multi-API si fetch primaire échoue",                         x: 40,   y: 200, color: "fallback" },
+  { id: "quant",      label: "quant_node",      role: "Agent Quant — WACC, DCF, ratios déterministes",                     x: 310,  y: 125, color: "process" },
+  { id: "synthesis",  label: "synthesis_node",  role: "Agent Synthèse — LLM Groq/Mistral (reco, conviction, targets)",     x: 580,  y: 125, color: "llm" },
+  { id: "retry",      label: "synthesis_retry", role: "Retry LLM si sortie JSON invalide",                                 x: 580,  y: 275, color: "llm" },
+  { id: "qa",         label: "qa_node",         role: "Agent QA Python + QA Haiku — validation ratios et cohérence",       x: 850,  y: 125, color: "qa" },
+  { id: "devil",      label: "devil_node",      role: "Devil's Advocate — thèse inverse (parallèle QA)",                   x: 850,  y: 275, color: "qa" },
+  { id: "entry",      label: "entry_zone_node", role: "Agent Entry Zone — signal d'entrée (DCF vs cours)",                 x: 1120, y: 125, color: "qa" },
+  { id: "output",     label: "output_node",     role: "Writers PDF / PPTX / Excel / Briefing",                             x: 1390, y: 125, color: "output" },
+  { id: "blocked",    label: "blocked_node",    role: "Court-circuit si synthesis invalide → livrables partiels",          x: 580,  y: 400, color: "fallback" },
 ];
 
 const EDGES: [string, string, boolean?][] = [
@@ -49,8 +49,8 @@ const COLOR_MAP = {
   fallback: { fill: "#F3F4F6", stroke: "#6B7280", text: "#374151" },
 };
 
-const NODE_W = 180;
-const NODE_H = 60;
+const NODE_W = 240;
+const NODE_H = 88;
 
 export function PipelineDiagram() {
   const nodeById = Object.fromEntries(NODES.map((n) => [n.id, n]));
@@ -74,8 +74,8 @@ export function PipelineDiagram() {
   return (
     <div className="w-full overflow-x-auto">
       <svg
-        viewBox="0 0 1400 370"
-        className="w-full min-w-[900px]"
+        viewBox="0 0 1680 540"
+        className="w-full min-w-[1100px]"
         xmlns="http://www.w3.org/2000/svg"
         aria-label="Diagramme du pipeline LangGraph FinSight"
       >
@@ -118,9 +118,9 @@ export function PipelineDiagram() {
               />
               <text
                 x={n.x + NODE_W / 2}
-                y={n.y + 22}
+                y={n.y + 30}
                 textAnchor="middle"
-                fontSize="12"
+                fontSize="15"
                 fontWeight="700"
                 fontFamily="ui-monospace, monospace"
                 fill={c.text}
@@ -129,20 +129,30 @@ export function PipelineDiagram() {
               </text>
               <text
                 x={n.x + NODE_W / 2}
-                y={n.y + 42}
+                y={n.y + 56}
                 textAnchor="middle"
-                fontSize="9"
+                fontSize="11"
                 fontFamily="system-ui, sans-serif"
                 fill={c.text}
               >
-                {truncate(n.role, 38)}
+                {truncate(n.role, 48)}
+              </text>
+              <text
+                x={n.x + NODE_W / 2}
+                y={n.y + 74}
+                textAnchor="middle"
+                fontSize="11"
+                fontFamily="system-ui, sans-serif"
+                fill={c.text}
+              >
+                {tailText(n.role, 48)}
               </text>
             </g>
           );
         })}
 
         {/* Légende */}
-        <g transform="translate(50, 330)">
+        <g transform="translate(40, 500)">
           {[
             { label: "Fetch / Données",          color: "input" as const },
             { label: "Calcul déterministe",      color: "process" as const },
@@ -153,9 +163,9 @@ export function PipelineDiagram() {
           ].map((l, i) => {
             const c = COLOR_MAP[l.color];
             return (
-              <g key={l.color} transform={`translate(${i * 215}, 0)`}>
-                <rect width={14} height={14} rx={3} fill={c.fill} stroke={c.stroke} />
-                <text x={20} y={11} fontSize="11" fill="#374151" fontFamily="system-ui, sans-serif">
+              <g key={l.color} transform={`translate(${i * 260}, 0)`}>
+                <rect width={18} height={18} rx={4} fill={c.fill} stroke={c.stroke} strokeWidth={1.5} />
+                <text x={26} y={14} fontSize="13" fill="#374151" fontFamily="system-ui, sans-serif">
                   {l.label}
                 </text>
               </g>
@@ -173,5 +183,15 @@ export function PipelineDiagram() {
 }
 
 function truncate(s: string, n: number): string {
-  return s.length > n ? s.slice(0, n - 1) + "…" : s;
+  if (s.length <= n) return s;
+  // Coupe sur un mot entier pour la première ligne
+  const cut = s.slice(0, n).lastIndexOf(" ");
+  return s.slice(0, cut > 0 ? cut : n);
+}
+
+function tailText(s: string, headLen: number): string {
+  if (s.length <= headLen) return "";
+  const cut = s.slice(0, headLen).lastIndexOf(" ");
+  const tail = s.slice(cut > 0 ? cut + 1 : headLen);
+  return tail.length > 48 ? tail.slice(0, 47) + "…" : tail;
 }
