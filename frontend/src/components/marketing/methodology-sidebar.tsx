@@ -9,14 +9,17 @@ interface SectionLink {
 }
 
 const SECTIONS: SectionLink[] = [
-  { number: "01", id: "pipeline",   label: "Pipeline LangGraph" },
-  { number: "02", id: "sources",    label: "Sources de données" },
-  { number: "03", id: "score",      label: "Score FinSight" },
-  { number: "04", id: "backtest",   label: "Backtest walk-forward" },
-  { number: "05", id: "limites",    label: "Limites et biais" },
-  { number: "06", id: "stack",      label: "Stack technique" },
-  { number: "07", id: "securite",   label: "Sécurité et RGPD" },
-  { number: "08", id: "roadmap",    label: "Roadmap scientifique" },
+  { number: "01", id: "pipeline",     label: "Pipeline LangGraph" },
+  { number: "02", id: "gouvernance",  label: "Gouvernance IA" },
+  { number: "03", id: "sources",      label: "Sources de données" },
+  { number: "04", id: "score",        label: "Score FinSight" },
+  { number: "05", id: "backtest",     label: "Backtest walk-forward" },
+  { number: "06", id: "limites",      label: "Limites et biais" },
+  { number: "07", id: "profils",      label: "Profils sectoriels" },
+  { number: "08", id: "stack",        label: "Stack technique" },
+  { number: "09", id: "choix",        label: "Choix de conception" },
+  { number: "10", id: "securite",     label: "Sécurité et RGPD" },
+  { number: "11", id: "roadmap",      label: "Roadmap" },
 ];
 
 export function MethodologySidebar() {

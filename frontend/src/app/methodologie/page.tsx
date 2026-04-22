@@ -99,9 +99,130 @@ export default function MethodologiePage() {
                 </p>
               </section>
 
-              {/* ───────────────────────────── 02 · Sources ───────────────────────────── */}
+              {/* ───────────────────────────── 02 · Gouvernance IA ───────────────────────────── */}
+              <section id="gouvernance" className="scroll-mt-24">
+                <div className="label-vitrine mb-3">02 · Gouvernance IA</div>
+                <h2 className="font-serif text-2xl md:text-3xl font-semibold text-text-primary mb-6">
+                  Constitution, agents observateurs, cascade LLM.
+                </h2>
+                <p className="text-text-secondary leading-relaxed mb-6">
+                  Un LLM non cadré hallucine, contredit les chiffres, surpromet. La production chez FinSight repose
+                  sur trois dispositifs complémentaires&nbsp;: une constitution écrite, une cascade de fallback
+                  entre providers, et quatre agents observateurs qui auditent chaque sortie.
+                </p>
+
+                <h3 className="font-serif text-lg font-semibold text-text-primary mb-3">Constitution — 7 articles</h3>
+                <div className="border border-border-default rounded-lg overflow-hidden mb-6">
+                  <table className="w-full text-sm border-collapse">
+                    <tbody className="divide-y divide-border-default">
+                      {[
+                        ["Article 1", "Traçabilité absolue", "Tout chiffre cité dans un commentaire IA doit figurer dans DataSnapshot ou être dérivé par quant_node. Pas d'invention."],
+                        ["Article 2", "Price-anchor",        "Les targets base/bull/bear doivent être dans [cours × 0,65 ; cours × 1,35]. Hors zone → retry ou rejet."],
+                        ["Article 3", "Conviction bornée",   "La conviction est forcée dans [0,25 ; 0,90]. En-deçà de 0,25 = erreur LLM reconstruite depuis recommandation + data_quality."],
+                        ["Article 4", "Budget mots strict",  "Chaque champ de sortie a un budget de mots (ex: thesis = 3 phrases × 12-18 mots). Dépassement = troncature contrôlée."],
+                        ["Article 5", "Typographie FR",      "Accents complets exigés (é è ê à ç ô), apostrophes droites, pas de points de suspension. restore_accents.py post-traite."],
+                        ["Article 6", "Spécificité secteur", "Interdiction de généralités applicables à n'importe quel secteur. Le contenu doit nommer des drivers propres."],
+                        ["Article 7", "Honnêteté des limites", "Ne jamais prétendre qu'une analyse est infaillible. Afficher un disclaimer explicite en footer."],
+                      ].map(([n, title, body]) => (
+                        <tr key={n} className="align-top">
+                          <td className="px-3 py-2.5 font-mono text-xs text-text-tertiary whitespace-nowrap">{n}</td>
+                          <td className="px-3 py-2.5 font-semibold text-text-primary whitespace-nowrap">{title}</td>
+                          <td className="px-3 py-2.5 text-text-secondary leading-relaxed">{body}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <h3 className="font-serif text-lg font-semibold text-text-primary mb-3">Quatre agents observateurs</h3>
+                <p className="text-text-secondary text-sm leading-relaxed mb-4">
+                  En plus du pipeline principal, quatre agents secondaires auditent la production selon leur angle
+                  propre. Leurs sorties ne bloquent pas la livraison (pour ne pas casser l&apos;UX en cas de
+                  faux-positif) mais alimentent un verdict compile dans la table{" "}
+                  <code className="font-mono bg-surface-muted px-1 py-0.5 rounded text-xs">
+                    sentinel_verdicts
+                  </code>.
+                </p>
+                <div className="grid md:grid-cols-2 gap-4 mb-6">
+                  {[
+                    {
+                      name: "AgentJustice",
+                      role: "Contrôle la conformité à la constitution. Détecte les violations d'articles et les flag.",
+                    },
+                    {
+                      name: "AgentEnquete",
+                      role: "Vérifie les chiffres cités dans les commentaires contre DataSnapshot (non-invention).",
+                    },
+                    {
+                      name: "AgentJournaliste",
+                      role: "Évalue la lisibilité : structure, concision, absence de jargon gratuit, accroche.",
+                    },
+                    {
+                      name: "AgentSociologue",
+                      role: "Contrôle les biais socio-économiques et la neutralité politique des analyses.",
+                    },
+                  ].map((a) => (
+                    <div key={a.name} className="border border-border-default rounded-lg p-4 bg-white">
+                      <div className="font-mono text-sm font-semibold text-text-primary mb-1">{a.name}</div>
+                      <div className="text-sm text-text-secondary leading-relaxed">{a.role}</div>
+                    </div>
+                  ))}
+                </div>
+
+                <h3 className="font-serif text-lg font-semibold text-text-primary mb-3">Cascade LLM providers</h3>
+                <p className="text-text-secondary text-sm leading-relaxed mb-4">
+                  Aucun appel LLM ne dépend d&apos;un seul provider. Chaque call traverse une cascade
+                  déterministe en cas d&apos;échec&nbsp;:
+                </p>
+                <div className="bg-surface-muted border border-border-default rounded-lg p-5 mb-4">
+                  <pre className="text-xs font-mono text-text-primary leading-relaxed overflow-x-auto">
+{`1. Groq  → llama-3.3-70b-versatile      (principal, rapide, gratuit)
+2. Mistral → mistral-small-latest        (fallback 1 — quota Groq saturé ou 401)
+3. Anthropic → claude-haiku-4-5          (fallback 2 — synthèses sensibles)
+4. Gemini → gemini-2.0-flash             (audit visuel PDF uniquement)
+
+Critères de bascule :
+- HTTP 5xx ou timeout > 30s  → provider suivant
+- Quota journalier atteint    → provider suivant
+- JSON output invalide 2 fois → synthesis_retry puis provider suivant
+- Violation d'article de la constitution → rejet et logging`}
+                  </pre>
+                </div>
+
+                <h3 className="font-serif text-lg font-semibold text-text-primary mb-3">Paramètres LLM</h3>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm border-collapse">
+                    <thead>
+                      <tr className="bg-surface-muted border-b border-border-default">
+                        <th className="text-left px-3 py-2 font-semibold">Agent appelant</th>
+                        <th className="text-left px-3 py-2 font-semibold">Température</th>
+                        <th className="text-left px-3 py-2 font-semibold">Max tokens</th>
+                        <th className="text-left px-3 py-2 font-semibold">Justification</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border-default">
+                      {[
+                        ["AgentSynthese",    "0.3", "2 200", "Créativité modérée pour varier la prose, mais structure imposée par JSON schema."],
+                        ["AgentQAHaiku",     "0.1", "800",   "Audit strict, aucune créativité souhaitée."],
+                        ["AgentDevil",       "0.6", "1 500", "Plus créatif pour explorer la thèse inverse."],
+                        ["Writers sectoriels","0.25", "700", "Commentaires factuels à variabilité limitée."],
+                        ["Gemini Vision",    "0.1", "1 500", "Audit visuel déterministe des PDF produits."],
+                      ].map(([agent, temp, tokens, just]) => (
+                        <tr key={agent} className="align-top">
+                          <td className="px-3 py-2 font-mono text-xs text-text-primary">{agent}</td>
+                          <td className="px-3 py-2 text-center font-mono text-xs text-text-secondary">{temp}</td>
+                          <td className="px-3 py-2 text-center font-mono text-xs text-text-secondary">{tokens}</td>
+                          <td className="px-3 py-2 text-text-secondary text-xs leading-relaxed">{just}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+
+              {/* ───────────────────────────── 03 · Sources ───────────────────────────── */}
               <section id="sources" className="scroll-mt-24">
-                <div className="label-vitrine mb-3">02 · Sources de données</div>
+                <div className="label-vitrine mb-3">03 · Sources de données</div>
                 <h2 className="font-serif text-2xl md:text-3xl font-semibold text-text-primary mb-6">
                   Multi-sources avec cascade de fallback.
                 </h2>
@@ -155,9 +276,9 @@ export default function MethodologiePage() {
                 </div>
               </section>
 
-              {/* ───────────────────────────── 03 · Score FinSight ───────────────────────────── */}
+              {/* ───────────────────────────── 04 · Score FinSight ───────────────────────────── */}
               <section id="score" className="scroll-mt-24">
-                <div className="label-vitrine mb-3">03 · Score FinSight propriétaire</div>
+                <div className="label-vitrine mb-3">04 · Score FinSight propriétaire</div>
                 <h2 className="font-serif text-2xl md:text-3xl font-semibold text-text-primary mb-6">
                   Un score composite 4 dimensions, 5 profils investisseur.
                 </h2>
@@ -243,16 +364,194 @@ conviction = 0.55 + min(0.40, |composite − seuil| / 100)   puis clamp [0.30, 0
                   </pre>
                 </div>
 
+                <h3 className="font-serif text-lg font-semibold text-text-primary mt-8 mb-3">
+                  Formules des indicateurs sous-jacents
+                </h3>
+                <p className="text-text-secondary text-sm leading-relaxed mb-4">
+                  Chaque sous-score des quatre dimensions est construit à partir d&apos;indicateurs dont la formule
+                  est documentée et calculée de façon déterministe (pas d&apos;estimation LLM).
+                </p>
+
+                <div className="space-y-4 mb-6">
+                  <div className="border border-border-default rounded-lg p-5 bg-white">
+                    <div className="font-serif font-semibold text-text-primary mb-2">WACC — Weighted Average Cost of Capital</div>
+                    <pre className="text-xs font-mono text-text-primary leading-relaxed overflow-x-auto bg-surface-muted p-3 rounded">
+{`WACC = (E / V) × Re + (D / V) × Rd × (1 − Tc)
+
+Re  = Rf + β_levered × ERP + prime taille + prime pays
+β_levered = β_unlevered × (1 + (1 − Tc) × D/E)
+
+Rf  : taux sans risque (OAT 10Y pour FR, Treasury 10Y pour US) via FRED
+ERP : Equity Risk Premium (Damodaran annuel, 5,5 % par défaut sur US)
+Tc  : taux d'IS (25 % FR, 21 % US)
+D/E : leverage cible = médiane sectorielle (source Damodaran)`}
+                    </pre>
+                  </div>
+
+                  <div className="border border-border-default rounded-lg p-5 bg-white">
+                    <div className="font-serif font-semibold text-text-primary mb-2">DCF — Discounted Cash Flow Monte Carlo</div>
+                    <pre className="text-xs font-mono text-text-primary leading-relaxed overflow-x-auto bg-surface-muted p-3 rounded">
+{`V0 = Σ(t=1..5) FCFt / (1+WACC)^t  +  TV / (1+WACC)^5
+
+TV   = FCF5 × (1+g) / (WACC − g)        [Gordon terminal]
+g    ∈ [1,5 % ; 2,5 %]                   [TGR borné, LT inflation]
+FCFt = EBITDA_t × (1 − taux_réinvestissement)
+
+Monte Carlo : 1 000 tirages
+- Croissance revenue : Normale(μ_histo, σ_histo)
+- Marge EBITDA       : Normale(μ_LTM, σ / 3)
+- WACC               : Uniforme(WACC_base − 0,5 pt, WACC_base + 0,5 pt)
+
+Output : distribution empirique V0 → percentiles bear(p10) / base(p50) / bull(p90)`}
+                    </pre>
+                  </div>
+
+                  <div className="border border-border-default rounded-lg p-5 bg-white">
+                    <div className="font-serif font-semibold text-text-primary mb-2">Altman Z-Score</div>
+                    <pre className="text-xs font-mono text-text-primary leading-relaxed overflow-x-auto bg-surface-muted p-3 rounded">
+{`Z = 1,2 × (WC / TA) + 1,4 × (RE / TA) + 3,3 × (EBIT / TA)
+  + 0,6 × (MC / TL) + 1,0 × (Ventes / TA)
+
+WC : Working Capital (actif circulant − passif circulant)
+RE : Retained Earnings (réserves + report à nouveau)
+TA : Total Assets
+TL : Total Liabilities
+MC : Market Capitalisation (valeur boursière capitaux propres)
+
+Zones :
+- Z > 2,99   : zone saine (safe zone)
+- 1,81 < Z < 2,99 : zone grise (ambiguë)
+- Z < 1,81   : zone de détresse (distress zone, risque faillite)`}
+                    </pre>
+                  </div>
+
+                  <div className="border border-border-default rounded-lg p-5 bg-white">
+                    <div className="font-serif font-semibold text-text-primary mb-2">Piotroski F-Score (9 critères binaires)</div>
+                    <pre className="text-xs font-mono text-text-primary leading-relaxed overflow-x-auto bg-surface-muted p-3 rounded">
+{`F = Σ(i=1..9) 1{critère i vrai}   →  F ∈ {0, 1, ..., 9}
+
+Profitabilité (4 points) :
+  1. Net Income > 0
+  2. ROA > 0
+  3. Operating Cash Flow > 0
+  4. OCF > Net Income (qualité des bénéfices)
+
+Levier / liquidité (3 points) :
+  5. ND/EBITDA_t < ND/EBITDA_{t−1}    (désendettement)
+  6. Current Ratio_t > Current Ratio_{t−1}   (liquidité en hausse)
+  7. Pas d'émission nette d'actions
+
+Efficience opérationnelle (2 points) :
+  8. Marge brute en hausse vs t−1
+  9. Asset Turnover en hausse vs t−1
+
+Interprétation : F ≥ 7 = qualité fondamentale solide ;
+                 F ≤ 3 = alerte sur la santé opérationnelle.`}
+                    </pre>
+                  </div>
+
+                  <div className="border border-border-default rounded-lg p-5 bg-white">
+                    <div className="font-serif font-semibold text-text-primary mb-2">Beneish M-Score (8 facteurs)</div>
+                    <pre className="text-xs font-mono text-text-primary leading-relaxed overflow-x-auto bg-surface-muted p-3 rounded">
+{`M = −4,84 + 0,920·DSRI + 0,528·GMI + 0,404·AQI + 0,892·SGI
+    + 0,115·DEPI − 0,172·SGAI + 4,679·TATA − 0,327·LVGI
+
+DSRI : Days Sales Receivables Index
+GMI  : Gross Margin Index
+AQI  : Asset Quality Index
+SGI  : Sales Growth Index
+DEPI : Depreciation Index
+SGAI : SG&A Index
+TATA : Total Accruals to Total Assets
+LVGI : Leverage Index
+
+Seuil : M > −1,78 = probabilité élevée de manipulation comptable.`}
+                    </pre>
+                  </div>
+                </div>
+
+                <h3 className="font-serif text-lg font-semibold text-text-primary mt-8 mb-3">
+                  Pondérations internes par dimension
+                </h3>
+                <p className="text-text-secondary text-sm leading-relaxed mb-4">
+                  Chaque dimension agrège plusieurs sous-indicateurs. Les pondérations sont fixées empiriquement
+                  selon la littérature académique et testées par backtest&nbsp;:
+                </p>
+
+                <div className="grid md:grid-cols-2 gap-4 mb-6">
+                  {[
+                    {
+                      name: "Quality (0–100)",
+                      weights: [
+                        ["Piotroski F-Score",    "35 %"],
+                        ["ROIC",                 "25 %"],
+                        ["ROE",                  "20 %"],
+                        ["Marge EBITDA",         "20 %"],
+                      ],
+                    },
+                    {
+                      name: "Value (0–100)",
+                      weights: [
+                        ["EV/EBITDA vs médiane sect.", "35 %"],
+                        ["P/E Forward",                "25 %"],
+                        ["P/B",                        "20 %"],
+                        ["FCF Yield",                  "20 %"],
+                      ],
+                    },
+                    {
+                      name: "Momentum (0–100)",
+                      weights: [
+                        ["Rendement 12 mois",       "30 %"],
+                        ["Rendement 6 mois",        "25 %"],
+                        ["Rendement 3 mois",        "20 %"],
+                        ["Écart vs MM200",          "15 %"],
+                        ["Sentiment FinBERT",       "10 %"],
+                      ],
+                    },
+                    {
+                      name: "Risque inversé (0–100)",
+                      weights: [
+                        ["Altman Z",            "30 %"],
+                        ["ND/EBITDA",           "25 %"],
+                        ["Beneish M",           "20 %"],
+                        ["Volatilité 1Y",       "15 %"],
+                        ["Beta",                "10 %"],
+                      ],
+                    },
+                  ].map((d) => (
+                    <div key={d.name} className="border border-border-default rounded-lg p-4 bg-white">
+                      <div className="font-serif font-semibold text-text-primary mb-3">{d.name}</div>
+                      <table className="w-full text-xs">
+                        <tbody className="divide-y divide-border-default/50">
+                          {d.weights.map(([item, w]) => (
+                            <tr key={item}>
+                              <td className="py-1.5 text-text-secondary">{item}</td>
+                              <td className="py-1.5 text-right font-mono font-semibold text-text-primary">{w}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ))}
+                </div>
+
                 <p className="text-sm text-text-secondary leading-relaxed italic">
+                  Chaque sous-indicateur est normalisé 0–100 par rank-percentile intra-sectoriel (une société au
+                  75e percentile de son secteur sur un critère obtient 75 points sur ce critère). Cette normalisation
+                  neutralise les écarts structurels entre secteurs (ex&nbsp;: une marge de 10&nbsp;% est excellente
+                  dans la distribution mais faible en tech).
+                </p>
+
+                <p className="text-sm text-text-secondary leading-relaxed italic mt-4">
                   Code source&nbsp;:{" "}
                   <code className="font-mono bg-surface-muted px-1 py-0.5 rounded">core/finsight_score_v2.py</code>{" "}
                   (compute_scores_v2 + recommend_all_profiles).
                 </p>
               </section>
 
-              {/* ───────────────────────────── 04 · Backtest ───────────────────────────── */}
+              {/* ───────────────────────────── 05 · Backtest ───────────────────────────── */}
               <section id="backtest" className="scroll-mt-24">
-                <div className="label-vitrine mb-3">04 · Validation empirique</div>
+                <div className="label-vitrine mb-3">05 · Validation empirique</div>
                 <h2 className="font-serif text-2xl md:text-3xl font-semibold text-text-primary mb-6">
                   Backtest walk-forward, benchmark intra-sectoriel.
                 </h2>
@@ -330,6 +629,45 @@ conviction = 0.55 + min(0.40, |composite − seuil| / 100)   puis clamp [0.30, 0
                   </p>
                 </div>
 
+                <h3 className="font-serif text-lg font-semibold text-text-primary mb-3">
+                  Métriques de validation — formules
+                </h3>
+                <div className="space-y-4 mb-6">
+                  <div className="border border-border-default rounded-lg p-5 bg-white">
+                    <div className="font-serif font-semibold text-text-primary mb-2">Information Ratio</div>
+                    <pre className="text-xs font-mono text-text-primary leading-relaxed overflow-x-auto bg-surface-muted p-3 rounded">
+{`IR = E[r_p − r_b] / σ(r_p − r_b)
+
+r_p : rendement du portefeuille FinSight (obs BUY)
+r_b : rendement du benchmark (ETF sectoriel correspondant)
+E   : moyenne empirique de l'excès
+σ   : écart-type de l'excès
+
+IR > 0,5   : signal robuste
+IR ∈ [0,2 ; 0,5] : signal exploitable avec rigueur
+IR < 0,2   : bruit`}
+                    </pre>
+                  </div>
+
+                  <div className="border border-border-default rounded-lg p-5 bg-white">
+                    <div className="font-serif font-semibold text-text-primary mb-2">t-statistique de Student</div>
+                    <pre className="text-xs font-mono text-text-primary leading-relaxed overflow-x-auto bg-surface-muted p-3 rounded">
+{`t = x̄ / (s / √n)
+
+x̄ : moyenne empirique de l'excès de rendement
+s  : écart-type empirique de l'excès
+n  : nombre d'observations BUY
+
+Seuils (n ≥ 30, approx. Normale) :
+- |t| > 1,65  → p < 0,10  (significatif à 90 %)
+- |t| > 1,96  → p < 0,05  (significatif à 95 %)
+- |t| > 2,58  → p < 0,01  (significatif à 99 %)
+
+Exemple Balanced : t = 8,9 / (32 / √57) = +2,10  →  p ≈ 0,036`}
+                    </pre>
+                  </div>
+                </div>
+
                 <div className="bg-surface-muted border border-border-default rounded-lg p-5">
                   <h3 className="font-serif text-base font-semibold text-text-primary mb-2">Résultat par secteur</h3>
                   <p className="text-sm text-text-secondary leading-relaxed mb-3">
@@ -344,9 +682,9 @@ conviction = 0.55 + min(0.40, |composite − seuil| / 100)   puis clamp [0.30, 0
                 </div>
               </section>
 
-              {/* ───────────────────────────── 05 · Limites ───────────────────────────── */}
+              {/* ───────────────────────────── 06 · Limites ───────────────────────────── */}
               <section id="limites" className="scroll-mt-24">
-                <div className="label-vitrine mb-3">05 · Limites et biais assumés</div>
+                <div className="label-vitrine mb-3">06 · Limites et biais assumés</div>
                 <h2 className="font-serif text-2xl md:text-3xl font-semibold text-text-primary mb-6">
                   Ce que ces chiffres ne disent pas.
                 </h2>
@@ -386,9 +724,105 @@ conviction = 0.55 + min(0.40, |composite − seuil| / 100)   puis clamp [0.30, 0
                 </div>
               </section>
 
-              {/* ───────────────────────────── 06 · Stack ───────────────────────────── */}
+              {/* ───────────────────────────── 07 · Profils sectoriels ───────────────────────────── */}
+              <section id="profils" className="scroll-mt-24">
+                <div className="label-vitrine mb-3">07 · Profils sectoriels adaptatifs</div>
+                <h2 className="font-serif text-2xl md:text-3xl font-semibold text-text-primary mb-6">
+                  Un scoring qui refuse l&apos;uniformité.
+                </h2>
+                <p className="text-text-secondary leading-relaxed mb-6">
+                  Appliquer les mêmes ratios (EV/EBITDA, P/E, Marge EBITDA) à une banque et à une foncière cotée
+                  est une erreur grossière. Une banque n&apos;a pas d&apos;EBITDA significatif ; une REIT distribue
+                  par construction 90&nbsp;% de son revenu locatif. FinSight détecte automatiquement le profil
+                  sectoriel via <code className="font-mono text-xs bg-surface-muted px-1 py-0.5 rounded">detect_profile(sector, industry)</code>{" "}
+                  et adapte ratios, modèle de valorisation et prompts LLM.
+                </p>
+
+                <div className="space-y-4">
+                  {[
+                    {
+                      code: "STANDARD",
+                      name: "Corporate générique",
+                      model: "DCF Monte Carlo",
+                      ratios: "EV/EBITDA, P/E, EV/Revenue, marges brute/EBITDA/nette, ROE, ROIC, Altman Z",
+                      hint: "Ratios classiques. Mention FCF et qualité du bilan.",
+                      coverage: "Tech, conso, healthcare, industrials, materials, comm. services",
+                    },
+                    {
+                      code: "BANK",
+                      name: "Banque commerciale",
+                      model: "P/TBV + ROE vs coût du capital",
+                      ratios: "P/TBV, ROE, ROTE, CET1, NPL, Cost/Income, NIM, Provisions",
+                      hint: "Pas d'EBITDA. Revenue = NII + commissions + trading. Focus levier réglementaire (CET1 > 12 %), qualité actifs (NPL < 3 %), rentabilité capital (ROE > coût du capital 8-10 %).",
+                      coverage: "Financial Services + industry contient « Bank »",
+                    },
+                    {
+                      code: "INSURANCE",
+                      name: "Assurance",
+                      model: "Embedded Value / P/EV",
+                      ratios: "P/EV, Combined Ratio, Loss Ratio, ROE, Solvency II, Investment Yield",
+                      hint: "Revenue = Primes Brutes Acquises. EBITDA = Résultat opérationnel avant taxes. Combined Ratio < 100 % = souscription profitable. Gross margin ≈ (1 − Loss Ratio).",
+                      coverage: "Financial Services + industry Insurance",
+                    },
+                    {
+                      code: "REIT",
+                      name: "Foncière cotée",
+                      model: "NAV (Net Asset Value) + P/NAV",
+                      ratios: "P/NAV, FFO/share, AFFO/share, Dividend Yield, Debt/Equity, Occupancy Rate, Cap Rate",
+                      hint: "Revenue = Rental Income. EBITDA ≈ NOI (Net Operating Income). Marge NOI typique 70-90 %. Net margin souvent <10 % (dépréciations). Valorisation par NAV plutôt que DCF.",
+                      coverage: "Real Estate + industry REIT",
+                    },
+                    {
+                      code: "UTILITY",
+                      name: "Utility régulée",
+                      model: "RAB (Regulated Asset Base) × rendement réglementé",
+                      ratios: "P/B, Regulated ROE, Dividend Yield, Debt/EBITDA, Payout Ratio",
+                      hint: "Modèle économique = base d'actifs régulés rémunérée. Croissance liée aux CapEx autorisés par le régulateur. Dividende = variable clé pour l'investisseur.",
+                      coverage: "Utilities (électricité, gaz, eau régulés)",
+                    },
+                    {
+                      code: "OIL_GAS",
+                      name: "E&P pétrole/gaz",
+                      model: "NAV par réserves + sensibilité prix baril",
+                      ratios: "EV/EBITDA, EV/Reserves, EV/Production, Free Cash Flow Breakeven Price, Debt/EBITDA",
+                      hint: "Cyclicalité extrême tied au prix du baril. Valorisation inclut NAV des réserves P1 + P2. Break-even price FCF = indicateur clé (survie si prix brut < break-even).",
+                      coverage: "Energy + industry E&P ou Integrated (hors downstream pur)",
+                    },
+                  ].map((p) => (
+                    <div key={p.code} className="border border-border-default rounded-lg overflow-hidden bg-white">
+                      <div className="px-5 py-3 border-b border-border-default bg-surface-muted flex items-center gap-3 flex-wrap">
+                        <span className="font-mono text-sm font-bold text-text-primary">{p.code}</span>
+                        <span className="font-serif text-base font-semibold text-text-primary">{p.name}</span>
+                        <span className="text-xs text-text-tertiary ml-auto">{p.coverage}</span>
+                      </div>
+                      <div className="p-5 space-y-2.5 text-sm">
+                        <div>
+                          <span className="font-semibold text-text-primary">Modèle de valorisation&nbsp;:</span>{" "}
+                          <span className="text-text-secondary">{p.model}</span>
+                        </div>
+                        <div>
+                          <span className="font-semibold text-text-primary">Ratios sectoriels&nbsp;:</span>{" "}
+                          <span className="text-text-secondary font-mono text-xs">{p.ratios}</span>
+                        </div>
+                        <div>
+                          <span className="font-semibold text-text-primary">Hint LLM injecté&nbsp;:</span>{" "}
+                          <span className="text-text-secondary italic">{p.hint}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <p className="text-sm text-text-secondary leading-relaxed mt-6 italic">
+                  Code source&nbsp;:{" "}
+                  <code className="font-mono bg-surface-muted px-1 py-0.5 rounded">core/sector_profiles.py</code>{" "}
+                  (fonction detect_profile + dict _CONFIGS).
+                </p>
+              </section>
+
+              {/* ───────────────────────────── 08 · Stack ───────────────────────────── */}
               <section id="stack" className="scroll-mt-24">
-                <div className="label-vitrine mb-3">06 · Stack technique</div>
+                <div className="label-vitrine mb-3">08 · Stack technique</div>
                 <h2 className="font-serif text-2xl md:text-3xl font-semibold text-text-primary mb-6">
                   Infrastructure, langages, dépendances.
                 </h2>
@@ -442,16 +876,105 @@ conviction = 0.55 + min(0.40, |composite − seuil| / 100)   puis clamp [0.30, 0
                   </div>
                 </div>
 
-                <p className="text-sm text-text-secondary leading-relaxed mt-6 italic">
-                  Code source et historique des commits maintenus sur un dépôt Git privé. Le projet compte environ
-                  11 000 lignes de Python (pipeline + agents + writers + tools) et 15 000 lignes de TypeScript
-                  (front-end + composants dashboard).
+                <h3 className="font-serif text-lg font-semibold text-text-primary mt-8 mb-3">
+                  Volumétrie du code source
+                </h3>
+                <div className="overflow-x-auto mb-4">
+                  <table className="w-full text-sm border-collapse">
+                    <thead>
+                      <tr className="bg-surface-muted border-b border-border-default">
+                        <th className="text-left px-3 py-2 font-semibold">Composant</th>
+                        <th className="text-left px-3 py-2 font-semibold">Rôle</th>
+                        <th className="text-right px-3 py-2 font-semibold">Lignes</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border-default font-mono text-xs">
+                      {[
+                        ["outputs/",          "Writers PDF / PPTX / Excel / Briefing",  "46 846"],
+                        ["core/",             "Pipeline, graph, scores, profils sectoriels", "17 372"],
+                        ["agents/",           "7 agents du pipeline + observateurs",     "6 522"],
+                        ["backend/",          "FastAPI + endpoints REST",                 "5 438"],
+                        ["cli_analyze.py",    "Orchestration CLI (société / secteur / indice / PME / cmp)", "3 038"],
+                        ["tools/",            "Audits, migrations, backtest, générateurs", "29 714"],
+                        ["— Total Python",    "Back-end + outillage",                     "108 930"],
+                        ["frontend/src/",     "Next.js 14 + TypeScript + composants dashboard", "27 093"],
+                        ["— Total général",   "Python + TypeScript",                      "136 023"],
+                      ].map(([name, role, lines], i) => {
+                        const isTotal = String(name).startsWith("—");
+                        return (
+                          <tr key={i} className={isTotal ? "bg-surface-muted font-sans font-semibold" : ""}>
+                            <td className="px-3 py-2 text-text-primary">{name}</td>
+                            <td className="px-3 py-2 text-text-secondary font-sans text-xs">{role}</td>
+                            <td className="px-3 py-2 text-right text-text-primary">{lines}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                <p className="text-xs text-text-secondary italic leading-relaxed">
+                  Code source et historique des commits maintenus sur un dépôt Git privé (baptistejeh07-art/finsight-ia).
+                  Environ 1 200 commits, rythme de release continu, déploiement automatique sur push vers master.
                 </p>
               </section>
 
-              {/* ───────────────────────────── 07 · Sécurité ───────────────────────────── */}
+              {/* ───────────────────────────── 09 · Choix de conception ───────────────────────────── */}
+              <section id="choix" className="scroll-mt-24">
+                <div className="label-vitrine mb-3">09 · Choix de conception</div>
+                <h2 className="font-serif text-2xl md:text-3xl font-semibold text-text-primary mb-6">
+                  Pourquoi ces technologies, pas d&apos;autres.
+                </h2>
+                <p className="text-text-secondary leading-relaxed mb-6">
+                  Chaque brique est un arbitrage assumé entre performance, coût, dépendances et maintenabilité.
+                  Voici les principales décisions techniques et leur justification.
+                </p>
+
+                <div className="space-y-4">
+                  {[
+                    {
+                      choice: "LangGraph plutôt que Celery, Airflow ou un orchestrateur maison",
+                      why: "LangGraph exprime le pipeline comme un graphe typé avec état partagé, transitions conditionnelles natives et retry déclaratifs. Celery = file de tâches, pas un graphe. Airflow = lourd (DB + scheduler + workers) pour un pipeline court (45 s). LangGraph est compilé en statemachine légère, zéro service externe à maintenir.",
+                    },
+                    {
+                      choice: "Groq en LLM principal (pas OpenAI / Anthropic)",
+                      why: "Groq Llama 3.3 70B est gratuit dans la limite de 14 400 requêtes/jour et 3 à 5× plus rapide qu'OpenAI sur un prompt équivalent (inférence sur puces LPU propriétaires). Le coût total d'une analyse passe de ~0,15 € (OpenAI gpt-4o-mini) à 0 € (Groq). Anthropic Claude Haiku reste en fallback pour les cas où la qualité de synthèse financière doit primer.",
+                    },
+                    {
+                      choice: "Monte Carlo DCF (1 000 tirages) plutôt qu'un DCF déterministe",
+                      why: "Un DCF déterministe donne un prix cible unique qui surestime la précision. La distribution Monte Carlo sur croissance, marge et WACC produit naturellement les percentiles bear / base / bull (p10 / p50 / p90), bien plus honnête sur l'incertitude. Coût calcul : 200 ms vs 10 ms — négligeable face à la valeur informationnelle.",
+                    },
+                    {
+                      choice: "Supabase plutôt que Firebase ou PostgreSQL managé classique",
+                      why: "Supabase fournit PostgreSQL (vs NoSQL Firebase — trop limitant pour du reporting financier), Auth intégrée, Row Level Security déclarative en SQL (gestion multi-tenant simple), Storage pour les livrables PDF/PPTX, REST auto-généré. Coût gratuit jusqu'à 500 Mo, puis 25 € / mois. Hébergement UE (Frankfurt) = compatible RGPD sans DPA.",
+                    },
+                    {
+                      choice: "Next.js 14 App Router plutôt que Pages Router ou Remix",
+                      why: "App Router permet le Server Components, le streaming et le routing fichier-système avec layouts nested. La taille du bundle client est divisée par ~3 vs Pages Router pour les pages lourdes (dashboard). Remix = alternative viable mais Next.js a un écosystème Vercel intégré (deploy, analytics, edge functions).",
+                    },
+                    {
+                      choice: "Recharts plutôt que D3.js, Chart.js ou Visx",
+                      why: "Recharts est assez haut niveau pour produire 25 visualisations de qualité (ligne, bar, area, scatter, radar, composed, treemap) sans écrire de SVG manuel. D3.js = flexibilité maximum mais 10× plus de code. Chart.js = canvas = pas de tooltip React idiomatique. Visx = D3 repackagé, overkill. Recharts fait 95 % du job pour 10 % du code.",
+                    },
+                    {
+                      choice: "FinBERT local plutôt qu'une API de sentiment (HuggingFace Inference, OpenAI)",
+                      why: "FinBERT est un modèle BERT fine-tuné sur un corpus financier (Financial PhraseBank). Le télécharger une fois (440 Mo) et l'exécuter localement coûte 0 € par prédiction vs 0,0002 € par call HF Inference. Sur 10 articles × 100 analyses/jour = 1 000 inférences quotidiennes — gain annuel ≈ 75 €. Temps d'inférence local : 80 ms par article sur CPU.",
+                    },
+                    {
+                      choice: "ReportLab + python-pptx + openpyxl plutôt qu'un service externe (PDFKit, Carbone)",
+                      why: "Les livrables sont le cœur de la proposition de valeur. Un service tiers (Carbone, PDFKit) génère une dépendance critique dont les limites d'utilisation et la latence (300-800 ms par document) sont subies. ReportLab + python-pptx donnent un contrôle total sur la mise en page et tournent en local (120 ms par PDF de 9 pages, 200 ms par PPTX de 20 slides).",
+                    },
+                  ].map((c, i) => (
+                    <div key={i} className="border border-border-default rounded-lg p-5 bg-white">
+                      <h3 className="font-serif text-base font-semibold text-text-primary mb-2">{c.choice}</h3>
+                      <p className="text-sm text-text-secondary leading-relaxed">{c.why}</p>
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              {/* ───────────────────────────── 10 · Sécurité ───────────────────────────── */}
               <section id="securite" className="scroll-mt-24">
-                <div className="label-vitrine mb-3">07 · Sécurité et RGPD</div>
+                <div className="label-vitrine mb-3">10 · Sécurité et RGPD</div>
                 <h2 className="font-serif text-2xl md:text-3xl font-semibold text-text-primary mb-6">
                   Garanties opérationnelles.
                 </h2>
@@ -495,9 +1018,9 @@ conviction = 0.55 + min(0.40, |composite − seuil| / 100)   puis clamp [0.30, 0
                 </ul>
               </section>
 
-              {/* ───────────────────────────── 08 · Roadmap ───────────────────────────── */}
+              {/* ───────────────────────────── 11 · Roadmap ───────────────────────────── */}
               <section id="roadmap" className="scroll-mt-24">
-                <div className="label-vitrine mb-3">08 · Roadmap scientifique</div>
+                <div className="label-vitrine mb-3">11 · Roadmap scientifique</div>
                 <h2 className="font-serif text-2xl md:text-3xl font-semibold text-text-primary mb-6">
                   Ce qui est prévu pour renforcer la rigueur.
                 </h2>
