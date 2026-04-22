@@ -16,12 +16,12 @@ interface LogoMarkProps {
 }
 
 const SIZE_CLASS: Record<Size, string> = {
-  sm: "h-8 w-auto",
-  md: "h-12 w-auto",
-  lg: "h-16 w-auto",
-  xl: "h-24 w-auto",
-  "2xl": "h-32 w-auto",
-  "3xl": "h-40 w-auto",
+  sm: "h-10 w-auto",
+  md: "h-14 w-auto",
+  lg: "h-20 w-auto",
+  xl: "h-28 w-auto",
+  "2xl": "h-36 w-auto",
+  "3xl": "h-48 w-auto",
 };
 
 /**
