@@ -1,5 +1,9 @@
 // FinSight service worker — Web Push + PWA offline basic.
-const CACHE_NAME = "finsight-v1";
+//
+// VERSIONING : bump CACHE_NAME à chaque changement de code client pour
+// forcer le purge des caches obsolètes côté PWA installée. Sans ça, la
+// version installée continue de servir un HTML/JS cached après déploiement.
+const CACHE_NAME = "finsight-v3-2026-04-23";
 const STATIC_ASSETS = ["/", "/app", "/manifest.json", "/logo.svg", "/icon.png"];
 
 self.addEventListener("install", (event) => {
@@ -10,20 +14,32 @@ self.addEventListener("install", (event) => {
 });
 
 self.addEventListener("activate", (event) => {
-  event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
-    )
-  );
-  event.waitUntil(self.clients.claim());
+  event.waitUntil((async () => {
+    const keys = await caches.keys();
+    await Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)));
+    await self.clients.claim();
+    const clients = await self.clients.matchAll({ includeUncontrolled: true, type: "window" });
+    for (const c of clients) {
+      c.postMessage({ type: "SW_UPDATED", version: CACHE_NAME });
+    }
+  })());
 });
 
-// Network-first avec fallback cache pour la navigation
+// Canal message côté SW (forcing skipWaiting depuis la page si besoin)
+self.addEventListener("message", (event) => {
+  if (event.data && event.data.type === "SKIP_WAITING") {
+    self.skipWaiting();
+  }
+});
+
+// Network-first avec fallback cache pour la navigation.
+// Ignore les requêtes API (toujours network) ET les bundles /_next/*
+// (Next.js gère déjà son cache via hashed filenames).
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
   const url = new URL(event.request.url);
-  // Ignore les requêtes API (toujours network)
   if (url.pathname.startsWith("/api/") || url.hostname.includes("api.")) return;
+  if (url.pathname.startsWith("/_next/")) return;
   if (event.request.mode === "navigate") {
     event.respondWith(
       fetch(event.request).catch(() => caches.match("/") || caches.match("/app"))
