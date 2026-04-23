@@ -978,36 +978,24 @@ def _s02_exec_summary(prs, D):
     _prime_s02 = D.get("prime_decote", "")
     _prime_lbl = "prime de valorisation significative" if isinstance(_prime_s02, str) and "+" in str(_prime_s02) else "valorisation en ligne avec l'historique"
     _erp_lbl   = " (prime insuffisanté — prudence sur les entrées)" if _erp_sig_s02 in ("Tendu", "Comprime") else (" (adéquat)" if _erp_sig_s02 else "")
-    # Métriques supplémentaires pour enrichir la synthèse
-    _signal_g  = D.get("signal_global", "Neutre")
-    _nb_surp   = len([s for s in (D.get("secteurs", []) or []) if len(s) > 3 and s[3] == "Surpondérer"])
-    _nb_sous   = len([s for s in (D.get("secteurs", []) or []) if len(s) > 3 and "Sous" in str(s[3])])
-    _nb_neu    = len([s for s in (D.get("secteurs", []) or []) if len(s) > 3 and s[3] == "Neutre"])
+    # Métriques factuelles brutes (énumération, pas narrative déterministe).
+    # Aucune "implication tactique" hardcodée : si le LLM texte_signal est vide,
+    # on n'affiche que les chiffres.
+    _nb_surp = len([s for s in (D.get("secteurs", []) or []) if len(s) > 3 and s[3] == "Surpondérer"])
+    _nb_sous = len([s for s in (D.get("secteurs", []) or []) if len(s) > 3 and "Sous" in str(s[3])])
+    _nb_neu  = len([s for s in (D.get("secteurs", []) or []) if len(s) > 3 and s[3] == "Neutre"])
 
-    # Implication allocation selon ERP
-    if _erp_sig_s02 == "Favorable":
-        _impl = "la prime actions attractive justifie un biais offensif — sur-exposition ciblée sur les secteurs Surpondérer"
-    elif _erp_sig_s02 in ("Tendu", "Comprimé", "Comprime"):
-        _impl = "la prime actions tendue invite à la selectivité — privilégier les secteurs à forte conversion FCF et momentum BPA positif"
-    else:
-        _impl = "l'allocation recommandée est équilibrée entre secteurs cycliques et défensifs"
-
-    _suppl_s02 = (
-        f"Le {D.get('indice', '')} affiche un cours de {_cours_s02} (YTD : {_ytd_s02}), "
-        f"avec un P/E Forward de {_pe_f_s02} vs médiane historique 10 ans {_pm_s02} — {_prime_lbl}. "
-        f"L'ERP Damodaran ressort à {_erp_s02b}{_erp_lbl}, "
-        f"donnant un contexte macro {_erp_sig_s02.lower() if _erp_sig_s02 else 'neutre'}. "
-        f"Le score composite moyen s'établit à {_scr_s02}/100 sur {len(D.get('secteurs', []) or [])} secteurs analysés "
-        f"({_nb_surp} en Surpondérer, {_nb_neu} en Neutre, {_nb_sous} en Sous-pondérer) — "
-        f"conviction globale {_conv_s02} %. "
-        f"Secteurs privilégiés : {_surp_s02 or 'aucun à ce stade'}. "
-        f"Secteurs à éviter : {_sous_s02 or 'aucun marquant'}. "
-        f"Implication tactique : {_impl}."
+    _facts_s02 = (
+        f"{D.get('indice', '')} — Cours {_cours_s02} · YTD {_ytd_s02} · "
+        f"P/E Forward {_pe_f_s02} · P/E Médiane 10Y {_pm_s02} · "
+        f"ERP {_erp_s02b} ({_erp_sig_s02 or 'n/a'}) · "
+        f"Score moyen {_scr_s02}/100 · Conviction {_conv_s02} % · "
+        f"{_nb_surp} Surpondérer / {_nb_neu} Neutre / {_nb_sous} Sous-pondérer."
     )
-    # Ajouter horizon seulement si pas déjà dans le texte IA
-    if "Horizon" not in _texte_raw:
-        _suppl_s02 += " Horizon d'allocation recommandé : 12 mois — révision trimestrielle conseillée."
-    texte = _trunc((_texte_raw + "  " + _suppl_s02).strip() if _texte_raw else _suppl_s02, 1400)
+    texte = _trunc(
+        (_texte_raw + "\n\n" + _facts_s02).strip() if _texte_raw else _facts_s02,
+        1400,
+    )
     _y_synth = 8.3
     _h_synth = 13.3 - _y_synth
     _rect(slide, 0.9, _y_synth, 23.6, _h_synth, fill=_GRAYL)
@@ -2148,19 +2136,12 @@ def _s17_risques(prs, D):
             _lec17_llm = llm_call(_prompt_s17, phase="long", max_tokens=400) or ""
         except Exception as _e:
             log.debug(f"[indice_pptx_writer:_prob_to_int] exception skipped: {_e}")
-        if not _lec17_llm.strip():
-            _lec17 = (
-                f"Signal {_sig17} (conviction {_conv17}%) — sc\u00e9nario central. "
-                f"Sc\u00e9nario haussier ({_scen_prob_bull}% de probabilit\u00e9) : catalyseurs macro "
-                f"suffisants pour franchir le seuil Surpond\u00e9rer. "
-                f"Sc\u00e9nario baissier ({_scen_prob_bear}%) : d\u00e9t\u00e9rioration des fondamentaux, "
-                f"passage Sous-pond\u00e9rer. Sc\u00e9nario r\u00e9siduel ({_residuel}%) : stagnation ou "
-                f"choc exog\u00e8ne non anticip\u00e9. Surveiller les conditions d'invalidation."
-            )
-        else:
-            _lec17 = _trunc(_lec17_llm, 1100)
-        _lecture_box(slide, "Analyse des risques — Probabilités et implications", _lec17,
-                     y_top=_y17_lec, height=_h17_lec)
+        # N'affiche la box "Analyse des risques" que si le LLM a produit un texte.
+        # Pas de fallback narratif déterministe.
+        if _lec17_llm.strip():
+            _lecture_box(slide, "Analyse des risques — Probabilités et implications",
+                         _trunc(_lec17_llm, 1100),
+                         y_top=_y17_lec, height=_h17_lec)
 
     _footer(slide)
     return slide

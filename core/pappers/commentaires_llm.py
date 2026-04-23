@@ -2,7 +2,11 @@
 
 Une passe : envoie l'analyse + benchmark + chiffres clés, récupère un JSON
 avec 8 commentaires (sig, rentabilite, solidite, efficacite, croissance,
-scoring, bankabilite, synthese). Fallback déterministe si LLM KO.
+scoring, bankabilite, synthese).
+
+Règle stricte : PAS DE FALLBACK DÉTERMINISTE. Si le LLM échoue ou retourne
+du JSON invalide, renvoyer {} pour ne rien afficher plutôt qu'un texte
+générique qui ferait passer pour de l'analyse ce qui n'en est pas.
 """
 from __future__ import annotations
 
@@ -104,52 +108,6 @@ def _build_context_bullet(
     return "\n".join(lignes)
 
 
-def _fallback_commentaires(denomination: str) -> dict[str, str]:
-    return {
-        "sig": (
-            f"Les soldes intermédiaires de gestion de {denomination} révèlent la structure "
-            f"de formation de la valeur : chiffre d'affaires, marge commerciale, valeur "
-            f"ajoutée, EBE et résultat net. Ces chiffres permettent de situer la performance "
-            f"brute avant comparaison sectorielle."
-        ),
-        "rentabilite": (
-            "Les ratios de rentabilité (marge EBE, ROE, ROCE) mesurent la capacité "
-            "de l'entreprise à dégager de la valeur sur son exploitation et ses capitaux "
-            "engagés. Ils sont à interpréter à l'aune du secteur NAF."
-        ),
-        "solidite": (
-            "La solidité financière s'apprécie via le gearing, l'autonomie financière et "
-            "la liquidité. Un gearing > 100 % ou une trésorerie dégradée sont des signaux "
-            "à surveiller."
-        ),
-        "efficacite": (
-            "L'efficacité opérationnelle (DSO/DPO/DIO/BFR) traduit la capacité à "
-            "transformer l'activité en cash. Un BFR/CA élevé ou un DSO long peuvent "
-            "peser sur la trésorerie."
-        ),
-        "croissance": (
-            "La croissance pluriannuelle (CA, résultat, effectifs) indique la trajectoire "
-            "de l'entreprise sur la période. Une croissance forte non accompagnée par "
-            "la marge peut masquer un sous-investissement."
-        ),
-        "scoring": (
-            "Le score Altman Z-Score et le Score FinSight PME agrègent les indicateurs "
-            "de détresse financière et de qualité opérationnelle. Un Z < 1,8 (zone rouge) "
-            "signale un risque de défaillance à 12-24 mois."
-        ),
-        "bankabilite": (
-            "La bankabilité évalue la capacité d'endettement additionnel : dette nette/EBITDA, "
-            "couverture des frais financiers, Gearing. Un banquier exigera typiquement dette/EBITDA "
-            "< 3x et Gearing < 100 %."
-        ),
-        "synthese": (
-            f"{denomination} présente un profil à analyser selon les trois dimensions clés : "
-            f"rentabilité, solidité et croissance. Consultez chaque section pour le détail "
-            f"et le positionnement vs pairs sectoriels."
-        ),
-    }
-
-
 def generate_pme_commentaires(
     denomination: str,
     code_naf: str | None,
@@ -161,12 +119,14 @@ def generate_pme_commentaires(
 ) -> dict[str, str]:
     """Appelle le LLM pour produire les 8 commentaires en une passe.
 
-    Retourne un dict {section: texte}. Fallback déterministe si LLM indisponible.
+    Retourne un dict {section: texte}. Retourne {} si LLM KO ou sortie invalide —
+    les sections manquantes seront omises du rapport (pas de fake text).
     """
     try:
         from core.llm_provider import llm_call
     except Exception:
-        return _fallback_commentaires(denomination)
+        log.warning("[pme_commentaires] llm_provider import impossible — pas de commentaires")
+        return {}
 
     context = _build_context_bullet(
         denomination, code_naf, libelle_naf, analysis, benchmark, yearly_accounts
@@ -197,25 +157,23 @@ def generate_pme_commentaires(
         raw = llm_call(prompt, phase="long", max_tokens=1800) or ""
     except Exception as e:
         log.warning(f"[pme_commentaires] LLM call failed: {e}")
-        return _fallback_commentaires(denomination)
+        return {}
 
     # Extraction JSON robuste — un bloc {...} quelque part dans la réponse
     match = re.search(r"\{.*\}", raw, re.DOTALL)
     if not match:
         log.warning("[pme_commentaires] pas de JSON trouvé dans la sortie LLM")
-        return _fallback_commentaires(denomination)
+        return {}
     try:
         parsed = json.loads(match.group(0))
     except Exception as e:
         log.warning(f"[pme_commentaires] parsing JSON échoué : {e}")
-        return _fallback_commentaires(denomination)
+        return {}
 
-    out = {}
-    fallback = _fallback_commentaires(denomination)
+    # Ne garder que les sections LLM réellement remplies — pas de substitution.
+    out: dict[str, str] = {}
     for sec in SECTIONS:
         v = parsed.get(sec)
         if isinstance(v, str) and v.strip() and len(v) > 30:
             out[sec] = v.strip()
-        else:
-            out[sec] = fallback[sec]
     return out

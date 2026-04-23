@@ -611,16 +611,12 @@ class PmePdfWriter:
     def _page_synthese(self, story: list) -> None:
         st = self._styles()
         ctx = self.ctx
-        story.append(self.Paragraph(self._t("report.synthesis"), st["h1"]))
         synth = (ctx.commentaires or {}).get("synthese")
-        if synth:
-            story.append(self.Paragraph(synth, st["body"]))
-        else:
-            story.append(self.Paragraph(
-                "Synthèse générée par l'analyse FinSight à partir des données Pappers et des "
-                "ratios calculés. Consultez chaque section pour le détail.",
-                st["body"],
-            ))
+        if not synth:
+            # Pas de synthèse LLM → on n'affiche pas la page (pas de fake text).
+            return
+        story.append(self.Paragraph(self._t("report.synthesis"), st["h1"]))
+        story.append(self.Paragraph(synth, st["body"]))
 
     def _page_disclaimer(self, story: list) -> None:
         st = self._styles()

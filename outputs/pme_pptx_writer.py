@@ -331,11 +331,12 @@ def write_pme_pptx(
                       label, value)
 
     # ─── S10 Synthèse ───
-    s = prs.slides.add_slide(blank_layout)
-    _add_title(s, _t("report.synthesis_disclaimer"))
+    # N'affiche la slide Synthèse que si le LLM a produit une synthèse réelle.
+    # Pas de fallback narratif déterministe (règle produit).
     llm_synth = (commentaires or {}).get("synthese", "").strip() if commentaires else ""
     if llm_synth:
-        # Synthèse LLM en paragraphe principal + disclaimer court
+        s = prs.slides.add_slide(blank_layout)
+        _add_title(s, _t("report.synthesis_disclaimer"))
         _add_bullet(
             s,
             Inches(0.8),
@@ -357,15 +358,6 @@ def write_pme_pptx(
             ],
             Pt(10),
         )
-    else:
-        lines = [
-            f"Cette analyse porte sur {denomination} (SIREN {siren}).",
-            f"Profil sectoriel appliqué : {analysis.profile.name}.",
-            f"Source comptable : données Pappers (liasse fiscale) ou saisie manuelle.",
-            "Avertissement MiFID II : cette analyse ne constitue pas un conseil en investissement, fiscal ou juridique.",
-            "Les ratios, benchmarks et scores sont fournis à titre indicatif et ne se substituent pas à une expertise comptable certifiée.",
-        ]
-        _add_bullet(s, Inches(0.8), Inches(1.3), Inches(11.7), Inches(5.5), lines, Pt(12))
 
     prs.save(output_path)
     return output_path
