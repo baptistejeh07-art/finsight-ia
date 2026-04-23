@@ -60,6 +60,7 @@ def write_pme_pptx(
     profile_name: str = "",
     language: str = "fr",
     currency: str = "EUR",
+    commentaires: dict | None = None,
 ) -> Path:
     try:
         from pptx import Presentation
@@ -332,14 +333,39 @@ def write_pme_pptx(
     # ─── S10 Synthèse ───
     s = prs.slides.add_slide(blank_layout)
     _add_title(s, _t("report.synthesis_disclaimer"))
-    lines = [
-        f"Cette analyse porte sur {denomination} (SIREN {siren}).",
-        f"Profil sectoriel appliqué : {analysis.profile.name}.",
-        f"Source comptable : données Pappers (liasse fiscale) ou saisie manuelle.",
-        "Avertissement MiFID II : cette analyse ne constitue pas un conseil en investissement, fiscal ou juridique.",
-        "Les ratios, benchmarks et scores sont fournis à titre indicatif et ne se substituent pas à une expertise comptable certifiée.",
-    ]
-    _add_bullet(s, Inches(0.8), Inches(1.3), Inches(11.7), Inches(5.5), lines, Pt(12))
+    llm_synth = (commentaires or {}).get("synthese", "").strip() if commentaires else ""
+    if llm_synth:
+        # Synthèse LLM en paragraphe principal + disclaimer court
+        _add_bullet(
+            s,
+            Inches(0.8),
+            Inches(1.3),
+            Inches(11.7),
+            Inches(4.5),
+            [llm_synth[:1400]],
+            Pt(12),
+        )
+        _add_bullet(
+            s,
+            Inches(0.8),
+            Inches(5.9),
+            Inches(11.7),
+            Inches(1.3),
+            [
+                "Avertissement MiFID II : cette analyse ne constitue pas un conseil en investissement, fiscal ou juridique.",
+                "Ratios, benchmarks et scores fournis à titre indicatif — ne se substituent pas à une expertise comptable certifiée.",
+            ],
+            Pt(10),
+        )
+    else:
+        lines = [
+            f"Cette analyse porte sur {denomination} (SIREN {siren}).",
+            f"Profil sectoriel appliqué : {analysis.profile.name}.",
+            f"Source comptable : données Pappers (liasse fiscale) ou saisie manuelle.",
+            "Avertissement MiFID II : cette analyse ne constitue pas un conseil en investissement, fiscal ou juridique.",
+            "Les ratios, benchmarks et scores sont fournis à titre indicatif et ne se substituent pas à une expertise comptable certifiée.",
+        ]
+        _add_bullet(s, Inches(0.8), Inches(1.3), Inches(11.7), Inches(5.5), lines, Pt(12))
 
     prs.save(output_path)
     return output_path

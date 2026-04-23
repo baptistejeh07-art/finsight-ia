@@ -1,6 +1,7 @@
 import { MarketingNav } from "@/components/marketing/marketing-nav";
 import { Hero } from "@/components/marketing/hero";
 import { StackSection } from "@/components/marketing/stack-section";
+import { CapabilitiesCarousel } from "@/components/marketing/capabilities-carousel";
 import { LatestReleases } from "@/components/marketing/latest-releases";
 import { UpcomingFeatures } from "@/components/marketing/upcoming-features";
 import { Pricing } from "@/components/marketing/pricing";
@@ -14,6 +15,7 @@ export default function HomePage() {
       <main>
         <Hero />
         <StackSection />
+        <CapabilitiesCarousel />
         <section id="sorties" className="scroll-mt-20">
           <LatestReleases />
         </section>

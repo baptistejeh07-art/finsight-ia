@@ -12,15 +12,31 @@ const API = process.env.NEXT_PUBLIC_API_URL || "";
 type Interval = "month" | "year";
 
 interface PlanDef {
-  slug: "decouverte" | "pro" | "enterprise";
+  slug: "early_backer" | "decouverte" | "pro" | "enterprise";
   name: string;
   monthly: number;
   annual: number;
   features: string[];
   highlight?: boolean;
+  lifetimeNote?: string;
 }
 
 const PLANS: PlanDef[] = [
+  {
+    slug: "early_backer",
+    name: "Early Backer",
+    monthly: 20,
+    annual: 192,
+    lifetimeNote: "Prix bloqué à vie · 10 places max",
+    features: [
+      "Toutes les features du plan Découverte (34,99 €)",
+      "Prix 20 €/mois bloqué tant que votre abonnement reste actif",
+      "Badge Early Backer dans votre profil",
+      "Canal direct feedback produit",
+      "1 mois d'essai offert",
+    ],
+    highlight: true,
+  },
   {
     slug: "decouverte",
     name: "Découverte",
@@ -31,6 +47,7 @@ const PLANS: PlanDef[] = [
       "Analyses sectorielles & indices",
       "Livrables PDF / PPTX / Excel",
       "Commentaires IA en français ou anglais",
+      "1 mois d'essai offert",
     ],
   },
   {
@@ -45,8 +62,8 @@ const PLANS: PlanDef[] = [
       "Analyses comparatives",
       "i18n — 6 langues / 6 devises",
       "Streaming SSE Q&A",
+      "1 mois d'essai offert",
     ],
-    highlight: true,
   },
   {
     slug: "enterprise",
@@ -219,7 +236,7 @@ function FacturationPageInner() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {PLANS.map((p) => {
               const price = interval === "month" ? p.monthly : p.annual;
               const priceLabel = interval === "month"
@@ -235,12 +252,17 @@ function FacturationPageInner() {
                 >
                   {p.highlight && (
                     <div className="text-[10px] uppercase tracking-widest text-navy-500 font-bold mb-2">
-                      Recommandé
+                      {p.slug === "early_backer" ? "Early Backer" : "Recommandé"}
                     </div>
                   )}
                   <div className="text-lg font-bold text-ink-900">{p.name}</div>
                   <div className="text-2xl font-mono text-ink-900 mt-2">{priceLabel}</div>
-                  {interval === "year" && (
+                  {p.lifetimeNote && (
+                    <div className="text-[10px] text-signal-buy mt-0.5 font-semibold">
+                      {p.lifetimeNote}
+                    </div>
+                  )}
+                  {interval === "year" && !p.lifetimeNote && (
                     <div className="text-[10px] text-ink-500 mt-0.5">
                       (soit {(price / 12).toFixed(2)} €/mois)
                     </div>
@@ -275,10 +297,13 @@ function FacturationPageInner() {
         </section>
       )}
 
-      <section className="border-t border-ink-200 pt-6">
+      <section className="border-t border-ink-200 pt-6 space-y-2">
         <p className="text-xs text-ink-500">
-          Paiement sécurisé par Stripe. Annulable à tout moment depuis le portail « Gérer ».
-          TVA ajustée selon votre pays de facturation.
+          Paiement sécurisé par Stripe. <strong>1 mois d&apos;essai gratuit</strong> sur tous les plans payants,
+          annulable à tout moment depuis le portail « Gérer ». TVA ajustée selon votre pays de facturation.
+        </p>
+        <p className="text-xs text-ink-500">
+          <strong>Offre Early Backer</strong> : prix de 20 €/mois bloqué à vie tant que l&apos;abonnement reste actif, limité aux 10 premiers souscripteurs.
         </p>
       </section>
     </div>

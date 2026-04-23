@@ -752,6 +752,25 @@ def _do_pme(siren: str, use_pappers_comptes: bool = True,
     outputs_dir.mkdir(parents=True, exist_ok=True)
     stem = f"pme_{siren}"
     files = {}
+
+    # Commentaires narratifs LLM — une passe pour les 8 sections
+    commentaires_pme: dict = {}
+    if yearly_accounts and analysis:
+        try:
+            from core.pappers.commentaires_llm import generate_pme_commentaires
+            commentaires_pme = generate_pme_commentaires(
+                denomination=company.denomination,
+                code_naf=company.code_naf,
+                libelle_naf=company.libelle_naf,
+                analysis=analysis,
+                benchmark=benchmark,
+                yearly_accounts=yearly_accounts,
+                language=language,
+            )
+            log.info(f"[pme] commentaires LLM générés ({len(commentaires_pme)} sections)")
+        except Exception as _cex:
+            log.warning(f"[pme] commentaires LLM échec : {_cex}")
+
     if yearly_accounts and benchmark:
         try:
             ctx = PmePdfContext(
@@ -768,7 +787,7 @@ def _do_pme(siren: str, use_pappers_comptes: bool = True,
                 benchmark=benchmark,
                 yearly_accounts=yearly_accounts,
                 bodacc=bodacc,
-                commentaires={},
+                commentaires=commentaires_pme,
                 language=language,
                 currency=currency,
             )
@@ -791,7 +810,8 @@ def _do_pme(siren: str, use_pappers_comptes: bool = True,
             pptx_path = outputs_dir / f"{stem}.pptx"
             write_pme_pptx(pptx_path, yearly_accounts, analysis, benchmark, bodacc,
                            siren, company.denomination, profile.name,
-                           language=language, currency=currency)
+                           language=language, currency=currency,
+                           commentaires=commentaires_pme)
             files["pptx"] = str(pptx_path.relative_to(_ROOT))
         except Exception as e:
             log.error(f"[pme] PPTX fail: {e}")
@@ -1822,8 +1842,45 @@ async def submit_veille_run(
 # ─── Stripe : checkout + portal + webhook ───────────────────────────────────
 
 class CheckoutRequest(BaseModel):
-    plan: str = Field(..., description="Plan slug: decouverte | pro | enterprise")
+    plan: str = Field(..., description="Plan slug: early_backer | decouverte | pro | enterprise")
     interval: str = Field("month", description="month | year")
+
+
+# Limite Early Backer : 10 places à vie max.
+_EARLY_BACKER_LIMIT = 10
+
+
+def _count_early_backers() -> int:
+    """Count actifs + past_due sur le plan early_backer (Supabase)."""
+    import os as _os_eb
+    import httpx as _hx_eb
+    surl = _os_eb.getenv("SUPABASE_URL", "").rstrip("/")
+    skey = (_os_eb.getenv("SUPABASE_SERVICE_KEY")
+            or _os_eb.getenv("SUPABASE_SECRET_KEY")
+            or _os_eb.getenv("SUPABASE_SERVICE_ROLE_KEY") or "")
+    if not surl or not skey:
+        return 0
+    try:
+        r = _hx_eb.get(
+            f"{surl}/rest/v1/user_preferences?plan=eq.early_backer&select=user_id",
+            headers={"apikey": skey, "Authorization": f"Bearer {skey}",
+                     "Prefer": "count=exact"},
+            timeout=3.0,
+        )
+        if r.status_code == 200:
+            rows = r.json()
+            return len(rows) if isinstance(rows, list) else 0
+    except Exception:
+        pass
+    return 0
+
+
+@app.get("/stripe/early-backer-remaining")
+async def stripe_early_backer_remaining():
+    """Retourne le nombre de places Early Backer restantes (public)."""
+    used = _count_early_backers()
+    return {"used": used, "total": _EARLY_BACKER_LIMIT,
+            "remaining": max(0, _EARLY_BACKER_LIMIT - used)}
 
 
 @app.post("/stripe/checkout")
@@ -1837,6 +1894,15 @@ async def stripe_create_checkout(
     skey = _os.getenv("STRIPE_SECRET_KEY")
     if not skey:
         raise HTTPException(status_code=503, detail="Stripe non configuré")
+
+    # Early Backer : limite 10 places, check avant checkout
+    if payload.plan == "early_backer":
+        remaining = _EARLY_BACKER_LIMIT - _count_early_backers()
+        if remaining <= 0:
+            raise HTTPException(
+                status_code=409,
+                detail="Plus de places Early Backer disponibles. Essayez le plan Découverte.",
+            )
 
     # Résolution price_id via STRIPE_PRICE_IDS env (JSON)
     import json as _json
@@ -1894,6 +1960,7 @@ async def stripe_create_checkout(
 
         # URL de retour
         origin = request.headers.get("origin") or "https://finsight-ia.com"
+        # 30 jours d'essai gratuit sur tous les plans payants.
         session = stripe.checkout.Session.create(
             mode="subscription",
             customer=cust_id,
@@ -1901,7 +1968,10 @@ async def stripe_create_checkout(
             success_url=f"{origin}/parametres/facturation?status=success",
             cancel_url=f"{origin}/parametres/facturation?status=cancel",
             metadata={"user_id": user["id"], "plan": payload.plan},
-            subscription_data={"metadata": {"user_id": user["id"], "plan": payload.plan}},
+            subscription_data={
+                "metadata": {"user_id": user["id"], "plan": payload.plan},
+                "trial_period_days": 30,
+            },
             allow_promotion_codes=True,
             billing_address_collection="required",
         )

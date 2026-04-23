@@ -36,6 +36,9 @@ if not stripe.api_key:
 
 # (plan_slug, name, monthly_eur, annual_eur, description)
 PLANS = [
+    ("early_backer", "FinSight Early Backer",
+     20.00, 192.00,
+     "Prix bloqué à vie pour les 10 premiers souscripteurs. Toutes les features Découverte."),
     ("decouverte", "FinSight Plan Découverte",
      34.99, 336.00,
      "Analyse société + secteur + indice, livrables PDF/PPTX/XLSX, jusqu'à X analyses/mois"),

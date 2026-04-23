@@ -36,13 +36,29 @@ const PLANS_INDIVIDUEL: Plan[] = [
     ],
   },
   {
+    name: "Early Backer",
+    tagline: "10 premières places — prix bloqué à vie",
+    price: "20 €",
+    priceUnit: "Par mois — à vie · 30 jours offerts",
+    cta: "Réserver ma place",
+    ctaHref: "/app?plan=early_backer",
+    highlight: true,
+    features: [
+      "Toutes les features du plan Essentiel à 34,99 €",
+      "Prix bloqué à 20 €/mois tant que votre abonnement est actif",
+      "Badge Early Backer dans votre espace",
+      "Accès direct au canal de feedback produit",
+      "Plus que quelques places disponibles",
+      "1 mois offert · annulation en un clic",
+    ],
+  },
+  {
     name: "Essentiel",
     tagline: "Pour la productivité quotidienne",
     price: "34,99 €",
-    priceUnit: "Par mois, facturation mensuelle",
+    priceUnit: "Par mois · 30 jours offerts",
     cta: "Choisir Essentiel",
     ctaHref: "/app",
-    highlight: true,
     features: [
       "Tout du plan Découverte, plus :",
       "20 analyses société par mois",
@@ -57,7 +73,7 @@ const PLANS_INDIVIDUEL: Plan[] = [
     name: "Pro",
     tagline: "Tirer le meilleur de FinSight",
     price: "44,99 €",
-    priceUnit: "Par mois, facturation mensuelle",
+    priceUnit: "Par mois · 30 jours offerts",
     cta: "Choisir Pro",
     ctaHref: "/app",
     features: [
@@ -65,7 +81,7 @@ const PLANS_INDIVIDUEL: Plan[] = [
       "Portrait d'entreprise (sociétés non cotées)",
       "8 portraits Pappers par mois",
       "Accès anticipé aux nouvelles fonctionnalités",
-      "Score FinSight propriétaire",
+      "Score FinSight (validé backtest sp100 10 ans)",
       "Export white-label de vos pitchbooks",
       "Support prioritaire",
     ],
@@ -189,15 +205,23 @@ export function Pricing() {
         {/* Cards */}
         <div
           className={`mt-12 grid gap-6 ${
-            plans.length === 3
-              ? "grid-cols-1 md:grid-cols-3"
-              : "grid-cols-1 md:grid-cols-2 max-w-4xl mx-auto"
+            plans.length === 4
+              ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4"
+              : plans.length === 3
+                ? "grid-cols-1 md:grid-cols-3"
+                : "grid-cols-1 md:grid-cols-2 max-w-4xl mx-auto"
           }`}
         >
           {plans.map((plan) => (
             <PlanCard key={plan.name} plan={plan} />
           ))}
         </div>
+
+        {/* Trial note */}
+        <p className="mt-8 text-center text-xs text-text-muted max-w-2xl mx-auto">
+          Tous les plans payants incluent <strong>30 jours d&apos;essai gratuit</strong> — annulation en un clic,
+          pas de prélèvement pendant la période d&apos;essai, pas d&apos;engagement.
+        </p>
       </div>
     </section>
   );
