@@ -2489,16 +2489,33 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
             # sur certains marchés). Le code indice lui-même est le plus
             # important : on veut TOUJOURS la ligne indice si possible.
             def _fetch_hist_series(tk: str):
+                # yf.download retourne un DataFrame avec MultiIndex columns
+                # [('Close', tk), ('High', tk), ...] même pour un seul ticker.
+                # Ne pas tester « "Close" in h.columns » (match partiel qui
+                # retourne True mais h["Close"] renvoie un DataFrame au lieu
+                # d'une Series, ce qui casse DataFrame({code: s_idx}) en aval
+                # et produisait une « ligne plate » sur le chart indice).
                 try:
                     h = yf.download(tk, start=_ph_start, interval="1d",
                                     progress=False, auto_adjust=True)
                     if h is None or h.empty:
                         return None
-                    col = "Close" if "Close" in h.columns else h.columns[0]
-                    s = h[col]
-                    if hasattr(s, "iloc") and hasattr(s, "dropna"):
-                        s = s.dropna()
-                    if s is None or len(s) == 0:
+                    # Si MultiIndex, récupère explicitement la colonne
+                    # (Close, tk). Sinon prend la colonne Close directement.
+                    if isinstance(h.columns, _pd_ph.MultiIndex):
+                        if ("Close", tk) in h.columns:
+                            s = h[("Close", tk)]
+                        else:
+                            # Fallback : première colonne de niveau Close
+                            close_cols = [c for c in h.columns if c[0] == "Close"]
+                            s = h[close_cols[0]] if close_cols else h.iloc[:, 0]
+                    else:
+                        s = h["Close"] if "Close" in h.columns else h.iloc[:, 0]
+                    # Garantit une Series (pas un DataFrame)
+                    if isinstance(s, _pd_ph.DataFrame):
+                        s = s.iloc[:, 0]
+                    s = s.dropna()
+                    if s.empty:
                         return None
                     return s
                 except Exception as _fex:
