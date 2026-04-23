@@ -2095,6 +2095,9 @@ def _generate_subsector_llm(subsectors: list[dict], sector_name: str, profile: s
         prompt += (
             f"RÈGLES : français correct avec accents, prose technique, cite les chiffres. "
             f"Pas de markdown **, pas d'emojis.\n"
+            f"FORMAT CHIFFRES FR OBLIGATOIRE : virgule décimale (« 33,9x » et non « 33.9x »), "
+            f"espace avant « % » et « x » (« 20,8 % », « 1,6x »), espace séparateur "
+            f"de milliers (« 1 353 M€ »). JAMAIS de point décimal anglophone.\n"
             f"Réponds en JSON valide :\n"
             f'{{\n'
             f'  "intro": "120 mots : vue d\'ensemble de la décomposition sous-sectorielle, '
@@ -3513,7 +3516,10 @@ def _build_conclusion_reco(tickers_data: list[dict], sector_name: str,
                 f"6. REVISION : conditions de revision de la these.\n\n"
                 f"IMPORTANT : PAS de markdown ** / ---. Commence chaque paragraphe par le titre.\n"
                 f"Francais avec accents. Pas d'emojis. Utilise les metriques specifiques au "
-                f"profil ci-dessus."
+                f"profil ci-dessus.\n"
+                f"FORMAT CHIFFRES FR OBLIGATOIRE : virgule décimale (« 33,9x » et non « 33.9x »), "
+                f"espace avant « % » et « x » (« 20,8 % », « 1,6x »), espace séparateur de "
+                f"milliers (« 1 353 M€ »). JAMAIS de point décimal anglophone."
             )
             # Refonte 2026-04-14 : critical phase -> Mistral primary (qualite FR top)
             _reco_llm_text = llm_call(_reco_prompt, phase="critical", max_tokens=1200) or ""
