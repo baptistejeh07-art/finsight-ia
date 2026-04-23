@@ -64,11 +64,22 @@ def _build_context_bullet(
     """
     yrs_sorted = sorted(yearly_accounts, key=lambda a: a.annee) if yearly_accounts else []
     latest_year = yrs_sorted[-1].annee if yrs_sorted else None
+    latest_acc = yrs_sorted[-1] if yrs_sorted else None
 
     sig_by_year = getattr(analysis, "sig_by_year", {}) or {}
     ratios_by_year = getattr(analysis, "ratios_by_year", {}) or {}
     sig = sig_by_year.get(latest_year) if latest_year is not None else None
     ratios = ratios_by_year.get(latest_year) if latest_year is not None else None
+
+    # CA priorité YearAccounts.chiffre_affaires (source liasse fiscale) →
+    # fallback SIG.chiffre_affaires. Sur un holding pur, SIG peut être 0/None
+    # alors que YearAccounts a la valeur réelle du P&L.
+    ca_latest = (
+        getattr(latest_acc, "chiffre_affaires", None)
+        if latest_acc is not None else None
+    )
+    if ca_latest is None and sig is not None:
+        ca_latest = getattr(sig, "chiffre_affaires", None)
 
     lignes = [
         f"Société : {denomination}",
@@ -76,13 +87,33 @@ def _build_context_bullet(
     ]
     if latest_year is not None:
         lignes.append(f"Dernier exercice disponible : {latest_year}")
-    if sig is not None:
+    if sig is not None or ca_latest is not None:
         lignes.append(
-            f"CA : {_fmt_eur_m(getattr(sig, 'chiffre_affaires', None))} · "
-            f"VA : {_fmt_eur_m(getattr(sig, 'valeur_ajoutee', None))} · "
-            f"EBE : {_fmt_eur_m(getattr(sig, 'ebe', None))} · "
-            f"Résultat net : {_fmt_eur_m(getattr(sig, 'resultat_net', None))}"
+            f"CA {latest_year} : {_fmt_eur_m(ca_latest)} · "
+            f"VA : {_fmt_eur_m(getattr(sig, 'valeur_ajoutee', None) if sig else None)} · "
+            f"EBE : {_fmt_eur_m(getattr(sig, 'ebe', None) if sig else None)} · "
+            f"Résultat net : {_fmt_eur_m(getattr(sig, 'resultat_net', None) if sig else None)}"
         )
+    # Évolution CA pluriannuelle — évite que le LLM dise "stabilité" à tort.
+    if len(yrs_sorted) >= 2:
+        ca_series = []
+        for y in yrs_sorted:
+            _ca = getattr(y, "chiffre_affaires", None)
+            if _ca is not None:
+                ca_series.append(f"{y.annee} {_fmt_eur_m(_ca)}")
+        if ca_series:
+            lignes.append("Évolution CA : " + " · ".join(ca_series))
+    # Évolution EBE pluriannuelle — idem.
+    if sig_by_year:
+        ebe_series = []
+        for y in yrs_sorted:
+            _sig_y = sig_by_year.get(y.annee)
+            if _sig_y is not None:
+                _ebe = getattr(_sig_y, "ebe", None)
+                if _ebe is not None:
+                    ebe_series.append(f"{y.annee} {_fmt_eur_m(_ebe)}")
+        if len(ebe_series) >= 2:
+            lignes.append("Évolution EBE : " + " · ".join(ebe_series))
     if ratios is not None:
         lignes.append(
             f"Marge EBITDA : {_fmt_pct(getattr(ratios, 'marge_ebitda', None))} · "
@@ -109,20 +140,35 @@ def _build_context_bullet(
                 f"BFR : {(_bfr if _bfr is None else f'{_bfr:.0f} j de CA')}"
             )
 
-    scoring = getattr(analysis, "scoring", None)
-    if scoring is not None:
-        _altman = getattr(scoring, "altman_z", None)
-        _fscore = getattr(scoring, "finsight_score", None)
-        if _altman is not None or _fscore is not None:
-            lignes.append(
-                f"Altman Z-score : {(_altman if _altman is None else f'{_altman:.2f}')} · "
-                f"Score FinSight PME : {(_fscore if _fscore is None else f'{_fscore}/100')}"
-            )
+    # Scores propriétaires — lus directement sur analysis (pas de sous-objet
+    # `scoring`). Ces valeurs sont affichées sur la cover et les pages scoring/
+    # bankabilité ; le LLM DOIT les citer textuellement pour éviter les
+    # contradictions visibles par l'utilisateur.
+    _altman = getattr(analysis, "altman_z", None)
+    _altman_v = getattr(analysis, "altman_verdict", None)
+    _health = getattr(analysis, "health_score", None)
+    _bank = getattr(analysis, "bankability_score", None)
+    if _altman is not None or _altman_v:
+        lignes.append(
+            f"Altman Z-score : "
+            f"{('non calculable' if _altman is None else f'{_altman:.2f}')} "
+            f"(verdict : {_altman_v or 'n/a'})"
+        )
+    if _health is not None:
+        lignes.append(f"Score santé FinSight : {_health:.0f}/100")
+    if _bank is not None:
+        lignes.append(f"Score bankabilité FinSight : {_bank:.0f}/100")
 
     if benchmark is not None:
-        rank = getattr(benchmark, "rank_global", None) or getattr(benchmark, "rank", None)
-        if rank:
-            lignes.append(f"Positionnement sectoriel : {rank}")
+        _n_peers = getattr(benchmark, "n_peers", 0)
+        _src = getattr(benchmark, "source", "")
+        if _src == "peers_real" and _n_peers > 0:
+            lignes.append(f"Benchmark : {_n_peers} peers réels (NAF {code_naf})")
+        else:
+            lignes.append(
+                "Benchmark : médianes INSEE ESANE par NAF — "
+                "aucun peer réel comparable disponible"
+            )
 
     # Croissance CAGR via les CA des SIG (pas yearly_accounts qui n'ont pas .sig)
     if len(yrs_sorted) >= 2 and sig_by_year:
@@ -181,8 +227,11 @@ def generate_pme_commentaires(
         "2. rentabilite : marges EBITDA/nette, ROE, ROCE — comparaison implicite médiane sectorielle.\n"
         "3. solidite : autonomie financière, dette nette/EBITDA, couverture intérêts — signal bancable/fragile.\n"
         "4. efficacite : DSO, DPO, BFR en jours de CA — tension sur la trésorerie.\n"
-        "5. croissance : trajectoire CA pluriannuelle, CAGR — tendance qualitative.\n"
-        "6. scoring : Altman Z et Score FinSight PME — zone de risque (rouge <1.8 / orange 1.8-3 / verte >3).\n"
+        "5. croissance : trajectoire CA pluriannuelle, CAGR — cite les années précises "
+        "et n'affirme JAMAIS la « stabilité » si la série montre une variation.\n"
+        "6. scoring : Altman Z (échelle 0-5, rouge <1.8 / orange 1.8-3 / verte >3) "
+        "ET Score FinSight PME (échelle 0-100, rouge <40 / orange 40-70 / vert >70). "
+        "NE JAMAIS confondre les échelles : un FinSight de 1,5 n'a aucun sens.\n"
         "7. bankabilite : capacité à lever de la dette — vision banquier/investisseur.\n"
         "8. synthese : verdict global 5-6 phrases — forces, faiblesses, recommandation structurée.\n\n"
         "FORMAT DE SORTIE (RIEN D'AUTRE, PAS DE ```json, PAS DE COMMENTAIRE) :\n"
@@ -193,7 +242,11 @@ def generate_pme_commentaires(
         "- Échappe tous les guillemets doubles internes avec \\\".\n"
         "- Aucune virgule finale (pas de trailing comma).\n"
         "- Pas de retour à la ligne brut dans les valeurs (remplacer par espace).\n"
-        "- UTF-8, pas de caractère de contrôle.\n\n"
+        "- UTF-8, pas de caractère de contrôle.\n"
+        "- Si une donnée est manquante, écris « non disponible » ou omets la phrase — "
+        "n'écris JAMAIS le mot « None », « null » ou « nan » dans le texte.\n"
+        "- N'écris pas de phrases vagues (« il est important », « on peut noter ») : "
+        "toujours une interprétation chiffrée.\n\n"
         "Format de réponse EXIGÉ (et rien d'autre) :\n"
         "{\"sig\": \"...\", \"rentabilite\": \"...\", \"solidite\": \"...\", "
         "\"efficacite\": \"...\", \"croissance\": \"...\", \"scoring\": \"...\", "
@@ -239,25 +292,45 @@ def generate_pme_commentaires(
         return s
 
     js_norm = _deaccent_keys(js)
+    # Fix courant Mistral : plusieurs objets JSON concaténés « }{"key":... »
+    # au lieu d'un seul objet. On les fusionne en un seul.
+    js_norm = re.sub(r"\}\s*\{", ", ", js_norm)
+    # Fix courant : trailing comma
+    js_norm_clean = re.sub(r",(\s*[}\]])", r"\1", js_norm)
+
     parsed = None
     try:
-        parsed = json.loads(js_norm)
+        parsed = json.loads(js_norm_clean)
     except Exception as e_first:
-        # Tentative 2 : fix apostrophes typo + trailing comma
-        cleaned = re.sub(r",(\s*[}\]])", r"\1", js_norm)
-        try:
-            parsed = json.loads(cleaned)
-        except Exception as e2:
+        # Tentative 3 : fallback — extraire chaque paire "key": "value" manuellement
+        # via regex. Plus robuste aux virgules manquantes / guillemets déséquilibrés.
+        pairs = re.findall(
+            r'"(sig|rentabilite|solidite|efficacite|croissance|scoring|bankabilite|synthese)"'
+            r'\s*:\s*"((?:[^"\\]|\\.)*)"',
+            js_norm,
+        )
+        if pairs:
+            parsed = {k: v for k, v in pairs}
+        else:
             log.warning(
-                f"[pme_commentaires] parsing JSON échoué : {e_first} (et aussi "
-                f"après nettoyage : {e2})"
+                f"[pme_commentaires] parsing JSON échoué : {e_first} — "
+                f"aucune paire clé/valeur récupérée"
             )
             return {}
 
     # Ne garder que les sections LLM réellement remplies — pas de substitution.
+    # Post-processing : nettoyer les artefacts (« (None) », « null », etc.) qui
+    # peuvent traîner dans la sortie malgré la consigne.
+    def _clean(t: str) -> str:
+        t = re.sub(r"\(\s*(?:None|null|nan|NaN)\s*\)", "(non disponible)", t)
+        t = re.sub(r"\b(None|null|nan|NaN)\b", "non disponible", t)
+        # Écrase les espaces multiples créés par les remplacements
+        t = re.sub(r"\s{2,}", " ", t)
+        return t.strip()
+
     out: dict[str, str] = {}
     for sec in SECTIONS:
         v = parsed.get(sec)
         if isinstance(v, str) and v.strip() and len(v) > 30:
-            out[sec] = v.strip()
+            out[sec] = _clean(v)
     return out

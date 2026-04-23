@@ -328,18 +328,42 @@ class PmePdfWriter:
         story.append(self.Spacer(1, self.cm * 0.5))
         story.append(self.Paragraph(self._t("report.directors"), st["h2"]))
         if ctx.dirigeants:
-            data = [["Nom", "Qualité", "Date prise de poste"]]
+            # Utilise Paragraph pour wrap automatique (qualités longues
+            # comme « Président du conseil d'administration » débordaient
+            # sur la colonne Date et se collaient au texte — bug p2).
+            cell_style = self.ParagraphStyle(
+                "cell_dirig",
+                fontName="Helvetica",
+                fontSize=9,
+                leading=11,
+                textColor=self.colors.HexColor(INK_900),
+            )
+            cell_style_bold = self.ParagraphStyle(
+                "cell_dirig_bold",
+                parent=cell_style,
+                fontName="Helvetica-Bold",
+            )
+            data = [[
+                self.Paragraph("Nom", cell_style_bold),
+                self.Paragraph("Qualité", cell_style_bold),
+                self.Paragraph("Date prise de poste", cell_style_bold),
+            ]]
             for d in ctx.dirigeants[:10]:
                 nom = f"{d.get('prenom', '')} {d.get('nom', '')}".strip() or d.get('denomination') or "—"
-                data.append([nom, d.get('qualite') or "—", d.get('date_prise_de_poste') or "—"])
-            t = self.Table(data, colWidths=[self.cm * 6, self.cm * 5, self.cm * 4], hAlign="LEFT")
+                qualite = d.get('qualite') or "—"
+                date_pp = d.get('date_prise_de_poste') or "—"
+                data.append([
+                    self.Paragraph(str(nom), cell_style),
+                    self.Paragraph(str(qualite), cell_style),
+                    self.Paragraph(str(date_pp), cell_style),
+                ])
+            t = self.Table(data, colWidths=[self.cm * 5.5, self.cm * 6, self.cm * 3.5], hAlign="LEFT")
             t.setStyle(self.TableStyle([
-                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-                ("FONTSIZE", (0, 0), (-1, -1), 9),
                 ("BACKGROUND", (0, 0), (-1, 0), self.colors.HexColor(INK_100)),
-                ("TEXTCOLOR", (0, 0), (-1, -1), self.colors.HexColor(INK_900)),
                 ("LINEBELOW", (0, 0), (-1, -2), 0.3, self.colors.HexColor(INK_200)),
                 ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+                ("TOPPADDING", (0, 0), (-1, -1), 4),
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
             ]))
             story.append(t)
 
@@ -525,11 +549,17 @@ class PmePdfWriter:
         story.append(self.Paragraph(self._t("report.sector_benchmark"), st["h1"]))
 
         bm = ctx.benchmark
-        story.append(self.Paragraph(
-            f"Source : {'peers réels' if bm.source == 'peers_real' else 'médianes sectorielles'} "
-            f"({bm.n_peers} peers)",
-            st["small"],
-        ))
+        # Label de source transparent : distingue peers réels vs médianes INSEE ESANE
+        # (référentiel par code NAF) pour ne pas laisser croire à un benchmark
+        # calculé sur des peers inexistants.
+        if bm.source == "peers_real" and bm.n_peers > 0:
+            src_txt = f"Source : {bm.n_peers} peers réels (calculés sur le code NAF)"
+        else:
+            src_txt = (
+                "Source : médianes sectorielles INSEE ESANE (référentiel par code NAF) "
+                "— aucun peer réel comparable identifié"
+            )
+        story.append(self.Paragraph(src_txt, st["small"]))
 
         # Table benchmark
         _target_l = {"fr":"Cible","en":"Target","es":"Objetivo","de":"Zielwert","it":"Obiettivo","pt":"Alvo"}.get(self._lang, "Target")
