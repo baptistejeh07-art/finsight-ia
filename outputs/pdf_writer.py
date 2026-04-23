@@ -1117,7 +1117,7 @@ def _cover_page(c, doc, data):
         _b1_lines.append(_sum_rest.strip())
     # Bullets repartis sur toute la hauteur de la box (pas de ~20mm entre titres)
     # B1 a h*0.421, step h*0.067, B5 a h*0.153 → body B5 termine a h*0.130
-    _bullet_block(h * 0.421, "These d'investissement", _b1_lines)
+    _bullet_block(h * 0.421, "Th\u00e8se d'investissement", _b1_lines)
     _inner_sep(h * 0.390)
 
     # Bullet 2 : objectif de cours
@@ -1134,7 +1134,7 @@ def _cover_page(c, doc, data):
     _bull = data.get('bull_price') or '-'
     _cur  = data.get('current_price') or '-'
     _bullet_block(h * 0.287,
-        "Scenarios de valorisation",
+        "Sc\u00e9narios de valorisation",
         [f"Bear : {_bear}  |  Base : {_base}  |  Bull : {_bull}   (Cours actuel : {_cur})"])
     _inner_sep(h * 0.256)
 
@@ -1151,7 +1151,7 @@ def _cover_page(c, doc, data):
     _risk_lines = [_wrap_risk(_r1)]
     if _r2:
         _risk_lines.append(_wrap_risk(_r2))
-    _bullet_block(h * 0.220, "Risques principaux a surveiller", _risk_lines)
+    _bullet_block(h * 0.220, "Risques principaux \u00e0 surveiller", _risk_lines)
     _inner_sep(h * 0.185)
 
     # Bullet 5 : cadre
@@ -1754,7 +1754,9 @@ def _build_financials(area_buf, data, margins_buf=None):
                 + f"power, rentabilité, détresse). Si un ratio n'est pas applicable "
                 + f"au profil, ne l'évoque pas (ex: pas d'EV/EBITDA pour BANK).\n\n"
                 + f"Francais avec accents. Chiffres precis. Pas de markdown/emojis. "
-                + f"Devise native : {_cur_f}. Utilise cette devise dans les montants."
+                + f"Devise native : {_cur_f}. Utilise cette devise dans les montants. "
+                + f"FORMAT CHIFFRES : virgule décimale FR (« 33,9x » et non « 33.9x »), "
+                + f"espace séparateur milliers (« 1 353 M€ »), espace avant « % » et « x »."
             )
             _resp = _llm_ratio(_ratio_prompt, phase="fast", max_tokens=400) or ""
             if _resp.strip():
@@ -1779,7 +1781,11 @@ def _build_financials(area_buf, data, margins_buf=None):
     elems.append(Paragraph("Ratios de rentabilit\u00e9 \u2014 \u00c9volution", S_SUBSECTION))
     elems.append(Spacer(1, 2*mm))
 
-    _margins_comment = _d(data, 'ratios_text') or ''
+    # Bug 2026-04-23 : lisait 'ratios_text' qui était déjà rendu dans la section
+    # "Lecture des ratios clés" juste au-dessus → même paragraphe dupliqué 2 fois
+    # dans le PDF société (audit SU.PA). Utilise un champ dédié 'margins_text' si
+    # disponible (populated par le batch LLM), sinon fallback générique universel.
+    _margins_comment = _d(data, 'margins_text') or ''
     if not _margins_comment:
         _ticker_m = _d(data, 'ticker', 'La soci\u00e9t\u00e9')
         _margins_comment = (
@@ -1861,7 +1867,10 @@ def _build_financials(area_buf, data, margins_buf=None):
                 f"(ex 'QUALITE MARGES : ...'). Separe les 4 paragraphes par une ligne vide.\n"
                 f"Francais avec accents. Chiffres precis. Pas de HTML/markdown/emojis/bullets. "
                 f"Devise native société : {_d(data, 'currency', 'USD')}. "
-                f"N'utilise que cette devise dans les chiffres (pas 'dollars' par défaut)."
+                f"N'utilise que cette devise dans les chiffres (pas 'dollars' par défaut). "
+                f"FORMAT CHIFFRES FR : virgule décimale (« 20,8 % » et non « 20.8% »), "
+                f"espace avant « % » et « x », espace séparateur de milliers (« 1 353 M€ »). "
+                f"Ne pas inventer d'années hors de la plage du contexte fourni."
             )
             _llm_margin_analysis = llm_call(_prompt_margin, phase="long", max_tokens=1800) or ""
         except Exception as _e:

@@ -36,6 +36,15 @@ RULE_FRENCH_ACCENTS = (
     "guillemets français « »."
 )
 
+RULE_FRENCH_NUMBERS = (
+    "FORMAT CHIFFRES : notation française stricte. Virgule décimale (« 33,9x » "
+    "et NON « 33.9x »), espace comme séparateur de milliers (« 1 353 M€ »), "
+    "espace avant les unités de pourcentage (« 5,2 % »). Cette règle "
+    "s'applique à TOUS les chiffres dans le texte — ratios (P/E, EV/EBITDA), "
+    "montants (M€, Md€), pourcentages (CAGR, marges), multiples (x). "
+    "Le point décimal anglophone est INTERDIT."
+)
+
 RULE_INSTITUTIONAL_TONE = (
     "TON : prose technique sell-side senior (JPMorgan, Morgan Stanley, "
     "Goldman Sachs). Vocabulaire IB : valorisation relative, multiples, "
@@ -152,6 +161,7 @@ def build_system_prompt(
     *,
     role: str = "analyste sell-side senior sur marchés cotés",
     include_accents: bool = True,
+    include_numbers_fr: bool = True,
     include_institutional: bool = True,
     include_no_markdown: bool = True,
     include_no_halluc: bool = True,
@@ -170,6 +180,8 @@ def build_system_prompt(
     parts = [f"Tu es {role}."]
     if include_accents:
         parts.append(RULE_FRENCH_ACCENTS)
+    if include_numbers_fr:
+        parts.append(RULE_FRENCH_NUMBERS)
     if include_institutional:
         parts.append(RULE_INSTITUTIONAL_TONE)
     if include_no_markdown:
