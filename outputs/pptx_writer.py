@@ -663,17 +663,28 @@ def _jpm_title(slide_type: str, ratios=None, snap=None, synthesis=None,
         roe_pct = _pct(roe)
         roic_pct = _pct(roic)
 
+        # Helpers typo FR : virgule décimale + espace avant « % » / « x »
+        def _frp(v: float, sign: bool = False) -> str:
+            s = f"{v:+.1f}" if sign else f"{v:.1f}"
+            return s.replace(".", ",") + " %"
+
+        def _frx(v: float) -> str:
+            return f"{v:.1f}".replace(".", ",") + "x"
+
+        def _frp0(v: float) -> str:
+            return f"{v:.0f}".replace(".", ",") + " %"
+
         if slide_type == "is":
             # Compte de résultat : focus revenue + marges
             if rev_g_pct is not None and eb_marg_pct is not None:
                 if rev_g_pct >= 10 and eb_marg_pct >= 20:
-                    return f"{ticker} combine forte croissance ({rev_g_pct:+.1f}%) et marges premium ({eb_marg_pct:.1f}%)"
+                    return f"{ticker} combine forte croissance ({_frp(rev_g_pct, sign=True)}) et marges premium ({_frp(eb_marg_pct)})"
                 elif rev_g_pct >= 5:
-                    return f"{ticker} en croissance soutenue ({rev_g_pct:+.1f}% revenue), marge EBITDA {eb_marg_pct:.1f}%"
+                    return f"{ticker} en croissance soutenue ({_frp(rev_g_pct, sign=True)} revenue), marge EBITDA {_frp(eb_marg_pct)}"
                 elif rev_g_pct < 0:
-                    return f"{ticker} en contraction ({rev_g_pct:+.1f}% revenue) — pression sur les marges ({eb_marg_pct:.1f}%)"
+                    return f"{ticker} en contraction ({_frp(rev_g_pct, sign=True)} revenue) — pression sur les marges ({_frp(eb_marg_pct)})"
                 else:
-                    return f"{ticker} en plateau ({rev_g_pct:+.1f}% rev), marges stables {eb_marg_pct:.1f}%"
+                    return f"{ticker} en plateau ({_frp(rev_g_pct, sign=True)} rev), marges stables {_frp(eb_marg_pct)}"
             return f"{ticker} — analyse compte de résultat et tendances de marges"
 
         if slide_type == "bilan":
@@ -684,10 +695,10 @@ def _jpm_title(slide_type: str, ratios=None, snap=None, synthesis=None,
                     if nd_v < 0:
                         return f"{ticker} en cash net positif — bilan robuste, capacité d'investissement intacte"
                     if nd_v < 1:
-                        return f"{ticker} faiblement endetté (ND/EBITDA {nd_v:.1f}x) — solidité bilancielle"
+                        return f"{ticker} faiblement endetté (ND/EBITDA {_frx(nd_v)}) — solidité bilancielle"
                     if nd_v < 3:
-                        return f"{ticker} levier modéré (ND/EBITDA {nd_v:.1f}x), structure équilibrée"
-                    return f"{ticker} levier élevé (ND/EBITDA {nd_v:.1f}x) — surveiller la capacité de service de la dette"
+                        return f"{ticker} levier modéré (ND/EBITDA {_frx(nd_v)}), structure équilibrée"
+                    return f"{ticker} levier élevé (ND/EBITDA {_frx(nd_v)}) — surveiller la capacité de service de la dette"
                 except Exception as _e:
                     log.debug(f"[pptx_writer:_pct] exception skipped: {_e}")
             return f"{ticker} — analyse de la structure bilancielle"
@@ -695,11 +706,11 @@ def _jpm_title(slide_type: str, ratios=None, snap=None, synthesis=None,
         if slide_type == "ratios":
             if roe_pct is not None and roic_pct is not None:
                 if roe_pct >= 20 and roic_pct >= 15:
-                    return f"{ticker} génère ROE {roe_pct:.0f}% / ROIC {roic_pct:.0f}% — création de valeur premium"
+                    return f"{ticker} génère ROE {_frp0(roe_pct)} / ROIC {_frp0(roic_pct)} — création de valeur premium"
                 elif roe_pct >= 15:
-                    return f"{ticker} ROE {roe_pct:.0f}% — rentabilité solide vs cost of equity"
+                    return f"{ticker} ROE {_frp0(roe_pct)} — rentabilité solide vs cost of equity"
                 else:
-                    return f"{ticker} ROE {roe_pct:.0f}% / ROIC {roic_pct:.0f}% — rentabilité à surveiller"
+                    return f"{ticker} ROE {_frp0(roe_pct)} / ROIC {_frp0(roic_pct)} — rentabilité à surveiller"
             return f"{ticker} — analyse rentabilité et création de valeur"
 
         if slide_type == "dcf":
@@ -710,11 +721,11 @@ def _jpm_title(slide_type: str, ratios=None, snap=None, synthesis=None,
                 try:
                     upside = (float(tbase) / float(price) - 1) * 100
                     if upside >= 20:
-                        return f"DCF base implique upside de {upside:+.0f}% — valorisation attractive"
+                        return f"DCF base implique upside de {_frp(upside, sign=True)} — valorisation attractive"
                     elif upside >= 0:
-                        return f"DCF base proche du cours ({upside:+.0f}%) — valorisation alignée"
+                        return f"DCF base proche du cours ({_frp(upside, sign=True)}) — valorisation alignée"
                     else:
-                        return f"DCF base en dessous du cours ({upside:+.0f}%) — surévaluation potentielle"
+                        return f"DCF base en dessous du cours ({_frp(upside, sign=True)}) — surévaluation potentielle"
                 except Exception as _e:
                     log.debug(f"[pptx_writer:_pct] exception skipped: {_e}")
             return f"{ticker} — valorisation DCF et sensibilités"
@@ -731,11 +742,11 @@ def _jpm_title(slide_type: str, ratios=None, snap=None, synthesis=None,
                 try:
                     irr_v = float(irr) * 100
                     if irr_v >= 20:
-                        return f"LBO {ticker} : IRR {irr_v:.1f}% — deal attractif pour sponsor PE top-tier"
+                        return f"LBO {ticker} : IRR {_frp(irr_v)} — deal attractif pour sponsor PE top-tier"
                     elif irr_v >= 15:
-                        return f"LBO {ticker} : IRR {irr_v:.1f}% — viable pour fonds mid-market"
+                        return f"LBO {ticker} : IRR {_frp(irr_v)} — viable pour fonds mid-market"
                     elif irr_v >= 0:
-                        return f"LBO {ticker} : IRR {irr_v:.1f}% — sous le seuil PE typique"
+                        return f"LBO {ticker} : IRR {_frp(irr_v)} — sous le seuil PE typique"
                     else:
                         return f"LBO {ticker} : IRR négatif — deal non viable dans les conditions actuelles"
                 except Exception as _e:
@@ -1806,25 +1817,29 @@ def _slide_is(prs, snap, synthesis, ratios):
             _ebmp = _pp(_eb_m)
             _nmp = _pp(_nm)
             _gmp = _pp(_gm)
+            # Helpers typo FR : virgule décimale + espace avant « % »
+            def _fp(v, sign=False):
+                s = f"{v:+.1f}" if sign else f"{v:.1f}"
+                return s.replace(".", ",") + " %"
             parts = []
             if _rg is not None:
                 if _rg >= 5:
-                    parts.append(f"Croissance revenue de {_rg:+.1f}% sur la dernière période, "
+                    parts.append(f"Croissance revenue de {_fp(_rg, sign=True)} sur la dernière période, "
                                  f"reflétant une dynamique commerciale soutenue.")
                 elif _rg < 0:
-                    parts.append(f"Contraction du chiffre d'affaires de {_rg:+.1f}%, "
+                    parts.append(f"Contraction du chiffre d'affaires de {_fp(_rg, sign=True)}, "
                                  f"révélant une pression sur la demande ou un effet base défavorable.")
                 else:
-                    parts.append(f"Plateau du chiffre d'affaires ({_rg:+.1f}%), "
+                    parts.append(f"Plateau du chiffre d'affaires ({_fp(_rg, sign=True)}), "
                                  f"suggérant une phase de maturité ou de transition stratégique.")
             if _gmp is not None and _is_profile not in ("BANK", "INSURANCE"):
-                parts.append(f"Marge brute de {_gmp:.1f}%, indicateur du pricing power et "
+                parts.append(f"Marge brute de {_fp(_gmp)}, indicateur du pricing power et "
                              f"de la structure de coûts variables.")
             if _ebmp is not None and _is_profile not in ("BANK", "INSURANCE", "REIT"):
-                parts.append(f"Marge EBITDA à {_ebmp:.1f}%, mesure de la profitabilité "
+                parts.append(f"Marge EBITDA à {_fp(_ebmp)}, mesure de la profitabilité "
                              f"opérationnelle avant amortissements.")
             if _nmp is not None:
-                parts.append(f"Marge nette de {_nmp:.1f}%, après prise en compte de la "
+                parts.append(f"Marge nette de {_fp(_nmp)}, après prise en compte de la "
                              f"structure financière et de la fiscalité.")
             fin_comment = " ".join(parts) if parts else ""
     if fin_comment.strip():
