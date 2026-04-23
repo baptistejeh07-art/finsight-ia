@@ -28,9 +28,31 @@ export function PWAInstaller() {
   const [showIOS, setShowIOS] = useState(false);
 
   useEffect(() => {
-    // Service worker
+    // Service worker — register avec updateViaCache="none" pour que Chrome
+    // ne mette JAMAIS /sw.js en cache HTTP 24h (sinon les PWA installées
+    // continuent de servir du vieux code tant que la clé HTTP n'a pas expiré).
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("/sw.js").catch(() => {});
+      navigator.serviceWorker
+        .register("/sw.js", { updateViaCache: "none" })
+        .then((reg) => {
+          // Check for update immediately + toutes les 60 secondes tant que l'onglet
+          // est ouvert. Permet à la PWA de récupérer les déploiements frais
+          // sans attendre 24h.
+          reg.update().catch(() => {});
+          const intervalId = setInterval(() => {
+            reg.update().catch(() => {});
+          }, 60_000);
+          // Quand un nouveau SW prend le contrôle (après install + activate),
+          // reload la page pour charger la nouvelle version du HTML/JS.
+          let reloaded = false;
+          navigator.serviceWorker.addEventListener("controllerchange", () => {
+            if (reloaded) return;
+            reloaded = true;
+            window.location.reload();
+          });
+          return () => clearInterval(intervalId);
+        })
+        .catch(() => {});
     }
 
     // Détection standalone mode (app déjà installée ET lancée via raccourci)
