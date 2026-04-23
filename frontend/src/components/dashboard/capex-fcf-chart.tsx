@@ -33,7 +33,9 @@ export function CapexFcfChart({ years, ratios }: Props) {
   });
 
   // Masque les années où CapEx ET Dividendes sont à 0 (colonne vide → graphique déséquilibré)
-  const data = rawData.filter((d) => d[capexLabel] > 0 || d[divLabel] > 0);
+  const data = rawData.filter(
+    (d) => Number(d[capexLabel]) > 0 || Number(d[divLabel]) > 0
+  );
 
   if (data.length === 0) {
     return (
