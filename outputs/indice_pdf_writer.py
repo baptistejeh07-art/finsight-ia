@@ -363,19 +363,19 @@ def make_sector_weights_chart(data):
     sigs = [s[3] for s in secteurs]
     bar_cols = [sig_hex(s) for s in sigs]
     y = np.arange(len(noms))
-    fig, ax = plt.subplots(figsize=(7.2, max(5.4, len(noms) * 0.48 + 2.0)))
+    fig, ax = plt.subplots(figsize=(7.2, max(5.8, len(noms) * 0.52 + 2.2)))
     bars = ax.barh(y, poids_idx, color=bar_cols, alpha=0.85, height=0.62,
                    edgecolor='white', linewidth=0.6)
     x_max = max(poids_idx) * 1.35 if poids_idx else 30
     for i, (bar, val) in enumerate(zip(bars, poids_idx)):
-        ax.text(val + x_max*0.015, i, f"{val}%", va='center', fontsize=12, color='#333', fontweight='bold')
-    ax.set_yticks(y); ax.set_yticklabels(noms, fontsize=12, color='#333')
-    ax.set_xlabel("Repartition par nombre de sociétés (%)", fontsize=12, color='#555')
-    ax.tick_params(axis='x', labelsize=11)
+        ax.text(val + x_max*0.015, i, f"{val}%", va='center', fontsize=13, color='#333', fontweight='bold')
+    ax.set_yticks(y); ax.set_yticklabels(noms, fontsize=13, color='#333')
+    ax.set_xlabel("Repartition par nombre de sociétés (%)", fontsize=13, color='#555', labelpad=8)
+    ax.tick_params(axis='x', labelsize=12)
     ax.set_xlim(0, x_max)
     moy = sum(poids_idx)/len(poids_idx)
     ax.axvline(x=moy, color='#D0D5DD', linewidth=0.8, linestyle='--', alpha=0.8)
-    ax.text(moy + x_max*0.01, len(noms)-0.6, 'Moy.', fontsize=10, color='#999', style='italic')
+    ax.text(moy + x_max*0.01, len(noms)-0.6, 'Moy.', fontsize=11, color='#999', style='italic')
     for sp in ['top','right']: ax.spines[sp].set_visible(False)
     ax.spines['left'].set_color('#D0D5DD'); ax.spines['bottom'].set_color('#D0D5DD')
     ax.set_facecolor('white'); fig.patch.set_facecolor('white')
@@ -383,10 +383,10 @@ def make_sector_weights_chart(data):
     patches = [mpatches.Patch(color='#1A7A4A', label='Surpond\u00e9rer'),
                mpatches.Patch(color='#B06000', label='Neutre'),
                mpatches.Patch(color='#A82020', label='Sous-pond\u00e9rer')]
-    ax.legend(handles=patches, fontsize=13, loc='upper center',
-              bbox_to_anchor=(0.5, -0.14), frameon=False, ncol=3)
+    ax.legend(handles=patches, fontsize=14, loc='upper center',
+              bbox_to_anchor=(0.5, -0.16), frameon=False, ncol=3)
     ax.set_title(f"Répartition sectorielle — {data['indice']} (nb sociétés)",
-                 fontsize=15, color='#1B3A6B', fontweight='bold', pad=12)
+                 fontsize=17, color='#1B3A6B', fontweight='bold', pad=14)
     plt.tight_layout(pad=0.6)
     buf = io.BytesIO(); fig.savefig(buf, format='png', dpi=160, bbox_inches='tight')
     plt.close(fig); buf.seek(0); return buf
@@ -577,24 +577,25 @@ def make_allocation_chart(data):
     x     = np.arange(n)
     width = 0.25
     eq_w  = round(100 / n, 1)
-    fig, ax = plt.subplots(figsize=(10.5, 4.8))
+    fig, ax = plt.subplots(figsize=(11.0, 5.4))
     ax.bar(x - width, w_mv,  width, label='Min-Variance', color='#1B3A6B', alpha=0.85, edgecolor='white')
     ax.bar(x,         w_tg,  width, label='Tangency (Max Sharpe)', color='#1A7A4A', alpha=0.85, edgecolor='white')
     ax.bar(x + width, w_erc, width, label='Equal Risk Contrib.', color='#B06000', alpha=0.85, edgecolor='white')
     ax.axhline(y=eq_w, color='#A82020', linewidth=1.0, linestyle='--', alpha=0.7, zorder=5)
-    ax.text(n - 0.4, eq_w + 0.3, f'Egal ({eq_w:.1f}%)', fontsize=8, color='#A82020', style='italic')
+    ax.text(n - 0.4, eq_w + 0.3, f'Egal ({eq_w:.1f}%)', fontsize=10, color='#A82020', style='italic')
     ax.set_xticks(x)
-    ax.set_xticklabels(abbrevs, rotation=30, ha='right', fontsize=8.5)
-    ax.set_ylabel("Poids (%)", fontsize=9, color='#555')
+    ax.set_xticklabels(abbrevs, rotation=30, ha='right', fontsize=11)
+    ax.set_ylabel("Poids (%)", fontsize=12, color='#555', labelpad=8)
+    ax.tick_params(axis='y', labelsize=11)
     ax.set_ylim(0, max(max(w_mv), max(w_tg), max(w_erc)) * 1.3)
-    ax.legend(fontsize=9, loc='upper left', frameon=False, ncol=3)
+    ax.legend(fontsize=12, loc='upper left', frameon=False, ncol=3)
     for sp in ['top','right']: ax.spines[sp].set_visible(False)
     ax.spines['left'].set_color('#D0D5DD'); ax.spines['bottom'].set_color('#D0D5DD')
     ax.set_facecolor('white'); fig.patch.set_facecolor('white')
     ax.tick_params(length=0)
     ax.grid(axis='y', alpha=0.10, color='#D0D5DD', linewidth=0.5)
     ax.set_title("Allocation optimale — Min-Variance, Tangency & Equal Risk Contribution",
-                 fontsize=12, color='#1B3A6B', fontweight='bold', pad=10)
+                 fontsize=15, color='#1B3A6B', fontweight='bold', pad=12)
     plt.tight_layout(pad=0.5)
     buf = io.BytesIO(); fig.savefig(buf, format='png', dpi=160, bbox_inches='tight')
     plt.close(fig); buf.seek(0); return buf
@@ -2080,7 +2081,7 @@ def _build_sentiment(data, registry=None):
     elems.append(Paragraph("Sources &amp; M\u00e9thodologie", S_SUBSECTION))
     meth_h = [Paragraph(h, S_TH_L) for h in ["Composanté","M\u00e9thodologie"]]
     meth_rows = [[Paragraph(k, S_TD_B), Paragraph(v, S_TD_L)]
-                 for k, v in (data.get("Méthodologie") or data.get("Méthodologie") or [])]
+                 for k, v in (data.get("methodologie") or data.get("Méthodologie") or [])]
     elems.append(KeepTogether(tbl([meth_h] + meth_rows, cw=[40*mm, 130*mm])))
     elems.append(src(
         f"FinSight IA v1.0 — Mise \u00e0 jour quotidienne. Donn\u00e9es au {data['date_analyse']}."))

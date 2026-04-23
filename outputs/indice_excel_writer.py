@@ -208,13 +208,29 @@ def _sector_aggregates(tickers: list[dict]) -> dict:
 
     agg = {}
     for sec, members in by_sec.items():
-        scores = [m["score_global"] for m in members]
-        avg_sc = round(statistics.mean(scores))
-        top = max(members, key=lambda m: m["score_global"])
+        scores = [m.get("score_global") for m in members if m.get("score_global") is not None]
+        avg_sc = round(statistics.mean(scores)) if scores else 50
+        top = max(members, key=lambda m: m.get("score_global") or 0)
 
         def _med(field, pct=False):
-            vals = [m.get(field) for m in members if m.get(field) is not None]
-            if not vals: return None
+            # Essaie plusieurs clés possibles (EU/US convention mix)
+            aliases = {
+                "ebitda_margins": ["ebitda_margins", "ebitdaMargins", "mg_ebitda", "ebitda_margin"],
+                "rev_growth":     ["rev_growth", "revenueGrowth", "rev_gr", "revenue_growth"],
+                "altman_z":       ["altman_z", "altman_zscore", "altman_z_score"],
+            }.get(field, [field])
+            vals = []
+            for m in members:
+                for k in aliases:
+                    v = m.get(k)
+                    if v is not None and isinstance(v, (int, float)):
+                        # Décimal implicite : ebitda_margins/rev_growth souvent en décimal
+                        if field in ("ebitda_margins", "rev_growth") and abs(v) > 3:
+                            v = v / 100.0  # déjà en %, ramener en décimal
+                        vals.append(v)
+                        break
+            if not vals:
+                return None
             v = statistics.median(vals)
             return v * 100 if pct else v
 

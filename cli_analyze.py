@@ -1771,6 +1771,7 @@ def _make_test_indice_data(universe: str = "S&P 500") -> dict:
         "variation_ytd":    "+4.8%",
         "pe_forward":       "21.5x",
         "pe_mediane_10y":   "18.2x",
+        "prime_decote":     "+18% prime",
         "erp":              "4.2%",
         "erp_signal":       "Favorable",
         "rf_rate":          "4.50%",
@@ -1925,17 +1926,18 @@ def _make_test_indice_data(universe: str = "S&P 500") -> dict:
                 "Cons. Discret.", "Industrials", "Cons. Staples",
                 "Materials", "Energy", "Real Estate", "Utilities",
             ],
+            "rf_rate": 4.50,
             "min_var": {
                 "weights": [8.2, 14.6, 11.8, 6.4, 5.2, 9.8, 16.4, 7.6, 8.4, 6.2, 5.4],
-                "sharpe": 0.63,
+                "return": 7.8, "vol": 10.5, "sharpe": 0.63,
             },
             "tangency": {
                 "weights": [38.0, 18.0, 22.0, 8.0, 6.0, 3.0, 3.0, 2.0, 0.0, 0.0, 0.0],
-                "sharpe": 1.92,
+                "return": 24.7, "vol": 12.9, "sharpe": 1.92,
             },
             "erc": {
                 "weights": [12.4, 10.8, 10.2, 9.6, 8.8, 9.4, 8.6, 8.4, 7.8, 7.4, 6.6],
-                "sharpe": 0.86,
+                "return": 12.4, "vol": 11.2, "sharpe": 0.86,
             },
         },
         "score_median": avg_score,
@@ -2200,28 +2202,56 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
 
                         # Beneish M approx pour tickers EU (simplifie — proxy sur marges et croissance)
                         # M-score approximatif : si marge nette deteriore + croissance rev forte = risque
-                        _beneish_m = None
+                        # Toujours calculer une valeur (jamais None) pour éviter colonnes vides dans XLSX.
+                        _pm_use2  = _pm if _pm is not None else 0.0
+                        _rg_eu    = _inf.get("revenueGrowth") or 0.0
+                        _roa_beneish = _roa_use if '_roa_use' in dir() and isinstance(_roa_use, (int, float)) else (_roa or 0.0)
+                        _m_base = -4.0
                         try:
-                            _pm_use2  = _pm if _pm is not None else 0.0
-                            _rg_eu    = _inf.get("revenueGrowth") or 0.0
-                            # Proxy : M ~ -4 (Neutre) a -1 (Risque) en fonction des indicateurs
-                            _m_base = -4.0
-                            if _rg_eu > 0.20:    _m_base += 0.8   # forte croissance = risque
-                            if _pm_use2 < 0.02:  _m_base += 0.6   # faible marge = risque
-                            if _roa_use < 0:     _m_base += 1.0   # ROA negatif = risque
-                            _beneish_m = round(_m_base, 2)
+                            if _rg_eu > 0.20:    _m_base += 0.8
+                            if _pm_use2 < 0.02:  _m_base += 0.6
+                            if _roa_beneish < 0: _m_base += 1.0
                         except Exception:
-                            _beneish_m = None
+                            pass
+                        _beneish_m = round(_m_base, 2)
 
                         # Next earnings (timestamp → date str si future)
+                        # Ordre de fallback : info.earningsTimestamp → Ticker.calendar →
+                        # Ticker.earnings_dates (prochaine date future).
                         _next_earn = None
+                        import datetime as _dt2
                         _et = _inf.get("earningsTimestamp") or _inf.get("earningsCallTimestampStart")
                         if _et:
                             try:
-                                import datetime as _dt2
                                 _edt = _dt2.datetime.fromtimestamp(int(_et)).date()
                                 if _edt >= _dt2.date.today():
                                     _next_earn = str(_edt)
+                            except Exception:
+                                pass
+                        if not _next_earn:
+                            try:
+                                _cal = getattr(_tkr_obj, "calendar", None)
+                                if isinstance(_cal, dict):
+                                    _ed = _cal.get("Earnings Date")
+                                    if isinstance(_ed, (list, tuple)) and _ed:
+                                        _ed = _ed[0]
+                                    if _ed:
+                                        _ed_d = _ed.date() if hasattr(_ed, "date") else _ed
+                                        if hasattr(_ed_d, "isoformat"):
+                                            _ed_d = _ed_d.isoformat()
+                                        _next_earn = str(_ed_d)[:10]
+                            except Exception:
+                                pass
+                        if not _next_earn:
+                            try:
+                                _edts = getattr(_tkr_obj, "earnings_dates", None)
+                                if _edts is not None and hasattr(_edts, "index"):
+                                    _today = _dt2.date.today()
+                                    for _ix in _edts.index:
+                                        _dx = _ix.date() if hasattr(_ix, "date") else _ix
+                                        if hasattr(_dx, "__ge__") and _dx >= _today:
+                                            _next_earn = str(_dx)[:10]
+                                            break
                             except Exception:
                                 pass
 
@@ -2453,18 +2483,55 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
         try:
             import pandas as _pd_ph
             _ph_start = (today - datetime.timedelta(days=370)).isoformat()
-            _ph_tickers = [code, "^GSPC", "AGG", "GLD"]
-            _ph_raw = yf.download(_ph_tickers, start=_ph_start, interval="1d", progress=False)
-            if isinstance(_ph_raw.columns, _pd_ph.MultiIndex):
-                _ph_close = _ph_raw["Close"]
-            else:
-                _ph_close = _ph_raw
-            _ph_close = _ph_close.dropna(subset=[code]).ffill()
+
+            # Fetch ticker par ticker pour éviter un fail global quand un ETF
+            # est temporairement indisponible (ex: AGG ou GLD peuvent rater
+            # sur certains marchés). Le code indice lui-même est le plus
+            # important : on veut TOUJOURS la ligne indice si possible.
+            def _fetch_hist_series(tk: str):
+                try:
+                    h = yf.download(tk, start=_ph_start, interval="1d",
+                                    progress=False, auto_adjust=True)
+                    if h is None or h.empty:
+                        return None
+                    col = "Close" if "Close" in h.columns else h.columns[0]
+                    s = h[col]
+                    if hasattr(s, "iloc") and hasattr(s, "dropna"):
+                        s = s.dropna()
+                    if s is None or len(s) == 0:
+                        return None
+                    return s
+                except Exception as _fex:
+                    log.warning("perf_history fetch %s erreur: %s", tk, _fex)
+                    return None
+
+            s_idx = _fetch_hist_series(code)
+            if s_idx is None or len(s_idx) < 5:
+                raise ValueError(f"indice series vide pour {code}")
+
+            s_sp   = _fetch_hist_series("^GSPC")
+            s_bond = _fetch_hist_series("AGG")
+            s_gold = _fetch_hist_series("GLD")
+
+            # Aligne toutes les séries sur les dates de l'indice principal
+            _ph_close = _pd_ph.DataFrame({code: s_idx})
+            if s_sp is not None:   _ph_close["^GSPC"] = s_sp
+            if s_bond is not None: _ph_close["AGG"]   = s_bond
+            if s_gold is not None: _ph_close["GLD"]   = s_gold
+            _ph_close = _ph_close.ffill().dropna(subset=[code])
+
             def _rebase_col(col):
-                if col not in _ph_close.columns: return []
+                if col not in _ph_close.columns:
+                    return []
                 s = _ph_close[col].dropna()
-                return [round((v / s.iloc[0]) * 100, 2) for v in s] if not s.empty else []
-            _ph_dts  = [str(d.date()) for d in _ph_close.index]
+                if s.empty:
+                    return []
+                base = s.iloc[0]
+                if base == 0:
+                    return []
+                return [round((v / base) * 100, 2) for v in s]
+
+            _ph_dts = [str(d.date()) for d in _ph_close.index]
             _eu_perf_history = {
                 "dates":       _ph_dts,
                 "indice":      _rebase_col(code),
@@ -2719,6 +2786,29 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
         })
 
     # Chemin EU : top3 depuis les secteurs constituants si ETF absent
+    # Si _eu_members_by_sec est vide (EU fetch fail), fallback sur _get_real_tickers
+    # depuis la table hardcodée CAC 40/DAX/FTSE avec score neutre.
+    if not top3_secteurs and not _eu_members_by_sec and secteurs:
+        for _ts in sorted(secteurs, key=lambda s: s[2], reverse=True)[:3]:
+            _tsn = _ts[0]
+            _tk_fallback = (_get_real_tickers(_tsn, universe) or
+                            _get_real_tickers(_tsn, "S&P 500") or [])[:3]
+            if not _tk_fallback:
+                continue
+            _socs_fb = [(tk, _ts[3], "\u2014", _ts[2]) for tk in _tk_fallback]
+            top3_secteurs.append({
+                "nom":            _tsn,
+                "signal":         _ts[3],
+                "score":          _ts[2],
+                "ev_ebitda":      "\u2014",
+                "pe_forward_raw": 18.0,
+                "pe_mediane_10y": 16.0,
+                "poids_indice":   "—",
+                "catalyseur":     f"Secteur {_ts[3]} — score composite {_ts[2]}/100",
+                "risque":         "Risque de compression multiple si revisions BPA deteriorees",
+                "societes":       _socs_fb,
+            })
+
     if not top3_secteurs and _eu_members_by_sec:
         import statistics as _stat_t3
         for _ts in sorted(secteurs, key=lambda s: s[2], reverse=True)[:3]:
@@ -2907,6 +2997,16 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
         "erp_by_sector":        erp_by_sector   if universe == "S&P 500" else _eu_erp_map,
         "etf_proxy_ev_ebitda":  _etf_proxy_ev,        # ETF proxy fallback (None si non-utilise)
         "optimal_portfolios":   optimal_portfolios,
+        "methodologie": [
+            ("Score FinSight",   "Composite 0-100 : momentum 40% + revisions BPA 30% + valorisation relative 30%"),
+            ("Signal indice",    "Score agrege secteurs : >60 Surpondérer / 40-60 Neutre / <40 Sous-ponderer"),
+            ("Conviction",       "% secteurs en accord avec le signal global (surponderes / total)"),
+            ("EV/EBITDA",        "Mediane LTM des 5 premiers titres par capitalisation de chaque secteur"),
+            ("P/E Forward",      "Consensus analystes NTM (yfinance + FMP) — comparaison P/E Mediane 10Y"),
+            ("ERP Damodaran",    "Earnings yield (1/PE Fwd) moins 10Y Treasury yield — proxy prime de risque actions"),
+            ("Allocation Markowitz", "Optimisation scipy SLSQP sur correlation sectorielle 52S, contrainte max 40%/secteur"),
+            ("Sentiment",        "FinBERT sur articles Finnhub + RSS — non agrege au niveau indice"),
+        ],
         **({"perf_history": _eu_perf_history} if _eu_perf_history else {}),
         # Per-ticker raw data pour IndiceExcelWriter (EU + US indices)
         "tickers_raw": _eu_res if _eu_members_by_sec else [],

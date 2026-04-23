@@ -496,7 +496,7 @@ def _chart_zone_entree(data: dict) -> bytes:
         if _pe_global < 5 or _pe_global > 50: _pe_global = 17.0
     except:
         _pe_global = 17.0
-    _pe_med_global = data.get("pe_Médiane_10y", 17.0) or 17.0
+    _pe_med_global = data.get("pe_mediane_10y", 17.0) or 17.0
     if not isinstance(_pe_med_global, (int, float)): _pe_med_global = 17.0
 
     # Construire mapping nom -> (pe_fwd, pe_med)
@@ -507,7 +507,7 @@ def _chart_zone_entree(data: dict) -> bytes:
             # Estimation ancree sur pe_global (identique aux secteurs)
             pe_fwd = round(_pe_global + (s.get("score", 50) - 50) * 0.05, 1)
         # Cap pe_med au réaliste (évite bandes trop larges)
-        pe_med_val = min(s.get("pe_Médiane_10y", _pe_med_global), _pe_global * 1.3)
+        pe_med_val = min(s.get("pe_mediane_10y", _pe_med_global), _pe_global * 1.3)
         pe_data[s["nom"]] = (pe_fwd, float(pe_med_val))
 
     for s in secteurs:
@@ -582,9 +582,25 @@ def _chart_zone_entree(data: dict) -> bytes:
     return buf.read()
 
 
-def _chart_sentiment_bars(sentiment_agg: dict) -> bytes:
-    """Barres sentiment par secteur."""
+def _chart_sentiment_bars(sentiment_agg: dict, secteurs_fallback=None) -> bytes:
+    """Barres sentiment par secteur.
+
+    Si pas de par_secteur issu de FinBERT, fallback sur les scores sectoriels
+    bruts (centré à 0 : score > 55 = positif, score < 45 = négatif) pour
+    toujours produire un graphique signifiant plutôt qu'un message "non disponible".
+    """
     par_sec = sentiment_agg.get("par_secteur", [])
+    if not par_sec and secteurs_fallback:
+        # Proxy depuis les scores sectoriels : (score - 50) / 50 ∈ [-1, 1]
+        par_sec = []
+        for s in secteurs_fallback[:15]:
+            if isinstance(s, (list, tuple)) and len(s) >= 3:
+                nom, _nb, sc = s[0], s[1], s[2]
+                try:
+                    proxy_score = round((float(sc) - 50) / 50.0, 2)
+                    par_sec.append((nom, proxy_score))
+                except Exception:
+                    continue
     if not par_sec:
         fig, ax = plt.subplots(figsize=(8, 3))
         ax.text(0.5, 0.5, "Données sentiment non disponibles", ha='center', va='center',
@@ -946,7 +962,7 @@ def _s02_exec_summary(prs, D):
     _cours_s02 = D.get("cours", "—")
     _ytd_s02   = D.get("variation_ytd", "—")
     _pe_f_s02  = D.get("pe_forward", "—")
-    _pe_m_s02  = D.get("pe_Médiane_10y", "—")
+    _pe_m_s02  = D.get("pe_mediane_10y", "—")
     _erp_s02b  = D.get("erp", "—")
     _erp_sig_s02 = D.get("erp_signal", "")
     _scr_s02   = D.get("score_Médian")
@@ -962,18 +978,36 @@ def _s02_exec_summary(prs, D):
     _prime_s02 = D.get("prime_decote", "")
     _prime_lbl = "prime de valorisation significative" if isinstance(_prime_s02, str) and "+" in str(_prime_s02) else "valorisation en ligne avec l'historique"
     _erp_lbl   = " (prime insuffisanté — prudence sur les entrées)" if _erp_sig_s02 in ("Tendu", "Comprime") else (" (adéquat)" if _erp_sig_s02 else "")
+    # Métriques supplémentaires pour enrichir la synthèse
+    _signal_g  = D.get("signal_global", "Neutre")
+    _nb_surp   = len([s for s in (D.get("secteurs", []) or []) if len(s) > 3 and s[3] == "Surpondérer"])
+    _nb_sous   = len([s for s in (D.get("secteurs", []) or []) if len(s) > 3 and "Sous" in str(s[3])])
+    _nb_neu    = len([s for s in (D.get("secteurs", []) or []) if len(s) > 3 and s[3] == "Neutre"])
+
+    # Implication allocation selon ERP
+    if _erp_sig_s02 == "Favorable":
+        _impl = "la prime actions attractive justifie un biais offensif — sur-exposition ciblée sur les secteurs Surpondérer"
+    elif _erp_sig_s02 in ("Tendu", "Comprimé", "Comprime"):
+        _impl = "la prime actions tendue invite à la selectivité — privilégier les secteurs à forte conversion FCF et momentum BPA positif"
+    else:
+        _impl = "l'allocation recommandée est équilibrée entre secteurs cycliques et défensifs"
+
     _suppl_s02 = (
-        f"Le {D.get('indice', '')} affiche un cours de {_cours_s02} (YTD : {_ytd_s02}). "
-        f"P/E Forward {_pe_f_s02} vs médiane historique 10 ans {_pm_s02} — {_prime_lbl}. "
-        f"ERP Damodaran {_erp_s02b}{_erp_lbl}. "
-        f"Score composite moyen : {_scr_s02}/100 — conviction {_conv_s02} %. "
-        f"Secteurs a Surpondérer : {_surp_s02 or 'aucun'}. "
-        f"Secteurs a éviter : {_sous_s02 or 'aucun'}."
+        f"Le {D.get('indice', '')} affiche un cours de {_cours_s02} (YTD : {_ytd_s02}), "
+        f"avec un P/E Forward de {_pe_f_s02} vs médiane historique 10 ans {_pm_s02} — {_prime_lbl}. "
+        f"L'ERP Damodaran ressort à {_erp_s02b}{_erp_lbl}, "
+        f"donnant un contexte macro {_erp_sig_s02.lower() if _erp_sig_s02 else 'neutre'}. "
+        f"Le score composite moyen s'établit à {_scr_s02}/100 sur {len(D.get('secteurs', []) or [])} secteurs analysés "
+        f"({_nb_surp} en Surpondérer, {_nb_neu} en Neutre, {_nb_sous} en Sous-pondérer) — "
+        f"conviction globale {_conv_s02} %. "
+        f"Secteurs privilégiés : {_surp_s02 or 'aucun à ce stade'}. "
+        f"Secteurs à éviter : {_sous_s02 or 'aucun marquant'}. "
+        f"Implication tactique : {_impl}."
     )
     # Ajouter horizon seulement si pas déjà dans le texte IA
     if "Horizon" not in _texte_raw:
-        _suppl_s02 += " Horizon d'allocation recommande : 12 mois."
-    texte = _trunc((_texte_raw + "  " + _suppl_s02).strip() if _texte_raw else _suppl_s02, 700)
+        _suppl_s02 += " Horizon d'allocation recommandé : 12 mois — révision trimestrielle conseillée."
+    texte = _trunc((_texte_raw + "  " + _suppl_s02).strip() if _texte_raw else _suppl_s02, 1400)
     _y_synth = 8.3
     _h_synth = 13.3 - _y_synth
     _rect(slide, 0.9, _y_synth, 23.6, _h_synth, fill=_GRAYL)
@@ -1044,7 +1078,7 @@ def _s05_description(prs, D):
     cours     = D.get("cours","—")
     ytd       = D.get("variation_ytd","—")
     pe_fwd    = D.get("pe_forward","—")
-    pe_med    = D.get("pe_Médiane_10y","—")
+    pe_med    = D.get("pe_mediane_10y","—")
     erp       = D.get("erp","—")
     bpa       = D.get("bpa_growth","—")
     nb_s      = D.get("nb_secteurs",11)
@@ -1072,7 +1106,7 @@ def _s05_description(prs, D):
     _surp_str = "  ·  ".join([_abbrev_sector(x,18) for x in surp[:3]]) or "aucun"
     _sous_str = "  ·  ".join([_abbrev_sector(x,18) for x in sous[:3]]) or "aucun"
     _pe_f5  = D.get("pe_forward","—")
-    _pe_m5  = D.get("pe_Médiane_10y","—")
+    _pe_m5  = D.get("pe_mediane_10y","—")
     _erp5   = D.get("erp","—")
     _erp_s5 = D.get("erp_signal","")
     _pm5    = f"{_pe_m5}x" if isinstance(_pe_m5,(int,float)) else str(_pe_m5)
@@ -1110,10 +1144,21 @@ def _s06_valorisation(prs, D):
 
     # Table valorisation
     pe_fwd    = D.get("pe_forward","—")
-    pe_med    = D.get("pe_Médiane_10y","—")
+    pe_med    = D.get("pe_mediane_10y","—")
     prime     = D.get("prime_decote","—")
     erp       = D.get("erp","—")
     bpa       = D.get("bpa_growth","—")
+
+    # Fallback Prime/Décote si le backend n'a pas pu le calculer
+    if prime in ("—", "\u2014", "", None):
+        try:
+            _pe_f_num = float(str(pe_fwd).replace("x","").replace(",",".").strip())
+            _pe_m_num = float(str(pe_med).replace("x","").replace(",",".").strip())
+            if _pe_m_num > 0:
+                _pv = (_pe_f_num - _pe_m_num) / _pe_m_num * 100
+                prime = (f"+{_pv:.0f}% prime" if _pv > 0 else f"{_pv:.0f}% decote")
+        except Exception:
+            pass
     rows = [
         ["INDICATEUR",         "VALEUR",     "vs HISTORIQUE",    "INTERPRÉTATION"],
         ["P/E Forward",        pe_fwd,       prime,              "Prime vs médiane 10Y"],
@@ -1133,7 +1178,7 @@ def _s06_valorisation(prs, D):
             _color_cell(tbl, r, 2, _HOLD_L, _BLACK)
 
     # Lecture analytique — toujours regeneree pour la qualité
-    _pe_m6 = D.get("pe_Médiane_10y","—")
+    _pe_m6 = D.get("pe_mediane_10y","—")
     _pe_f6 = D.get("pe_forward","—")
     _erp6  = D.get("erp","—")
     _sig6  = D.get("signal_global","Neutre")
@@ -1520,28 +1565,30 @@ def _s10_scatter(prs, D, chart_bytes: bytes):
         )
         _prompt_s10 = (
             f"{_sys_s10}\n\n"
-            f"{length_rule(min_words=120, max_words=160)}\n"
-            f"{pptx_overflow_rule(zone='slide 10 — box droite', max_words=160)}\n\n"
+            f"{length_rule(min_words=90, max_words=125)}\n"
+            f"{pptx_overflow_rule(zone='slide 10 — box droite (hauteur 10 inch, font 7.5)', max_words=125)}\n\n"
             f"CONTEXTE — carte valorisation/croissance pour {indice} :\n"
             f"Surpondérer : {_surp_names}\n"
             f"Sous-pondérer : {_sous_names}\n\n"
-            f"STRUCTURE 2 paragraphes :\n"
+            f"STRUCTURE 2 paragraphes courts :\n"
             f"1. SCATTER : quadrants dominants, couple valorisation/croissance, "
-            f"signaux d'inflexion à surveiller.\n"
-            f"2. ALLOCATION : sur/sous-pondération recommandée, basculement "
-            f"défensif/offensif, horizon 12 mois.\n\n"
-            f"Noms des secteurs en français."
+            f"signal d'inflexion principal.\n"
+            f"2. ALLOCATION : sur/sous-pondération recommandée, horizon 12 mois.\n\n"
+            f"Noms des secteurs en français. Zéro phrase de plus que nécessaire."
         )
-        _llm_extra_s10 = llm_call(_prompt_s10, phase="long", max_tokens=500) or ""
+        _llm_extra_s10 = llm_call(_prompt_s10, phase="long", max_tokens=400) or ""
     except Exception as _e:
         log.debug(f"[indice_pptx_writer:_s10_scatter] exception skipped: {_e}")
     _full_txt_s10 = (txt + "\n\n" + _llm_extra_s10).strip() if _llm_extra_s10 else txt
+
+    # Hard cap : box droite tient environ 1400 chars à font 7.5pt wrap (testé)
+    _full_txt_s10 = _trunc(_full_txt_s10, 1400)
 
     _rect(slide, 15.6, 2.3, 8.9, 11.0, fill=_GRAYL)
     _rect(slide, 15.6, 2.3, 0.12, 11.0, fill=_NAVY)
     _txb(slide, "Lecture du Scatter & Implications", 15.9, 2.4, 8.4, 0.6,
          size=8.5, bold=True, color=_NAVY)
-    _txb(slide, _full_txt_s10[:2000], 15.9, 3.1, 8.4, 10.0,
+    _txb(slide, _full_txt_s10, 15.9, 3.1, 8.4, 10.0,
          size=7.5, color=_GRAYT, wrap=True)
 
     _footer(slide)
@@ -1901,13 +1948,13 @@ def _s15_zone_entree(prs, D, chart_bytes: bytes):
     top3    = D.get("top3_secteurs",[])
     secteurs = D.get("secteurs",[])
     _pe_g   = D.get("pe_forward","—")
-    _pe_med = D.get("pe_Médiane_10y","—")
+    _pe_med = D.get("pe_mediane_10y","—")
 
     noms_b  = []
     noms_h  = []
     for t in top3:
         pef = t.get("pe_forward_raw",0) or 0
-        pem = t.get("pe_Médiane_10y",18.0) or 18.0
+        pem = t.get("pe_mediane_10y",18.0) or 18.0
         if pef > 0 and pef < pem * 1.05:
             noms_b.append(t["nom"])
         elif pef > 0 and pef > pem * 1.15:
@@ -2036,7 +2083,7 @@ def _s17_risques(prs, D):
              size=9, bold=True, color=_WHITE)
         _txb(slide, f"Prob. {prob_str}", xoff + box_w - 2.2, 2.4, 2.0, 0.65,
              size=9, bold=True, color=_WHITE, align=PP_ALIGN.RIGHT)
-        _txb(slide, sc_desc[:220], xoff + 0.2, 3.25, box_w - 0.3, 3.2,
+        _txb(slide, _trunc(sc_desc, 420), xoff + 0.2, 3.25, box_w - 0.3, 3.2,
              size=8, color=_GRAYT, wrap=True)
 
     # Conditions invalidation
@@ -2088,8 +2135,8 @@ def _s17_risques(prs, D):
             )
             _prompt_s17 = (
                 f"{_sys_s17}\n\n"
-                f"{length_rule(min_words=130, max_words=170)}\n"
-                f"{pptx_overflow_rule(zone='slide 17 — box lecture', max_words=170)}\n\n"
+                f"{length_rule(min_words=110, max_words=145)}\n"
+                f"{pptx_overflow_rule(zone='slide 17 — box lecture (hauteur restreinte)', max_words=145)}\n\n"
                 f"CONTEXTE — risques macro et scénarios pour {indice} :\n"
                 f"Signal central : {_sig17} (conviction {_conv17}%).\n"
                 f"Scénarios : {_scen_desc}\n\n"
@@ -2098,7 +2145,7 @@ def _s17_risques(prs, D):
                 f"2. INVALIDATION : ce qui ferait basculer la thèse et sur quel horizon.\n"
                 f"3. COUVERTURE : défensifs à renforcer, hedges (options, bonds, or)."
             )
-            _lec17_llm = llm_call(_prompt_s17, phase="long", max_tokens=500) or ""
+            _lec17_llm = llm_call(_prompt_s17, phase="long", max_tokens=400) or ""
         except Exception as _e:
             log.debug(f"[indice_pptx_writer:_prob_to_int] exception skipped: {_e}")
         if not _lec17_llm.strip():
@@ -2111,7 +2158,7 @@ def _s17_risques(prs, D):
                 f"choc exog\u00e8ne non anticip\u00e9. Surveiller les conditions d'invalidation."
             )
         else:
-            _lec17 = _lec17_llm[:1400]
+            _lec17 = _trunc(_lec17_llm, 1100)
         _lecture_box(slide, "Analyse des risques — Probabilités et implications", _lec17,
                      y_top=_y17_lec, height=_h17_lec)
 
@@ -2273,17 +2320,16 @@ def _s19_sentiment(prs, D, chart_bytes: bytes):
         )
         _prompt_s19 = (
             f"{_sys_s19}\n\n"
-            f"{length_rule(min_words=80, max_words=110)}\n"
-            f"{pptx_overflow_rule(zone='slide 19 — bas droite', max_words=110)}\n\n"
+            f"{length_rule(min_words=60, max_words=85)}\n"
+            f"{pptx_overflow_rule(zone='slide 19 — bas droite (hauteur 1.30 inch, font 6.5pt)', max_words=85)}\n\n"
             f"CONTEXTE — sentiment sectoriel composite {_indice_name} :\n"
             f"Score : {_score_str} ({label}). Surp {p_nb} ({p_pct}%) / Neutre "
             f"{n_nb} ({n_pct}%) / Sous {m_nb} ({m_pct}%).\n"
             f"Leaders : {pos_txt}\n"
             f"Retardataires : {neg_txt}\n\n"
-            f"STRUCTURE compacte : (1) signal composite + implications 3 mois, "
-            f"(2) divergences sentiment vs fondamentaux, (3) impact positionnement."
+            f"STRUCTURE compacte 2 phrases : signal composite + implication allocation 3 mois."
         )
-        _llm_sent_s19 = llm_call(_prompt_s19, phase="long", max_tokens=350) or ""
+        _llm_sent_s19 = llm_call(_prompt_s19, phase="long", max_tokens=250) or ""
     except Exception as _e:
         log.debug(f"[indice_pptx_writer:_s19_sentiment] exception skipped: {_e}")
     if _llm_sent_s19.strip():
@@ -2293,7 +2339,7 @@ def _s19_sentiment(prs, D, chart_bytes: bytes):
         _rect(slide, _rx, 11.60, 0.08, 1.75, fill=_NAVY)
         _txb(slide, "LECTURE SENTIMENT & IMPLICATIONS", _rx + 0.15, 11.65, _rw - 0.3, 0.35,
              size=7, bold=True, color=_NAVY)
-        _txb(slide, _llm_sent_s19[:550], _rx + 0.15, 12.00, _rw - 0.3, 1.30,
+        _txb(slide, _trunc(_llm_sent_s19, 380), _rx + 0.15, 12.00, _rw - 0.3, 1.30,
              size=6.5, color=_GRAYT, wrap=True)
 
     _footer(slide)
@@ -2728,7 +2774,8 @@ class IndicePPTXWriter:
             score_bytes     = _chart_score_bars(secteurs)
             ev_bytes        = _chart_ev_distribution(secteurs)
             zone_bytes      = _chart_zone_entree(data)
-            sent_bytes      = _chart_sentiment_bars(data.get("sentiment_agg",{}))
+            sent_bytes      = _chart_sentiment_bars(data.get("sentiment_agg",{}),
+                                                    secteurs_fallback=data.get("secteurs", []))
             etf_bytes       = _chart_etf_perf(data)
         except Exception as e:
             log.warning("IndicePPTXWriter: erreur pre-calcul charts: %s", e)
