@@ -9,7 +9,9 @@ const COLUMNS = [
       ["Analyse Société", "/app"],
       ["Analyse Secteur", "/app"],
       ["Analyse Indice", "/app"],
-      ["Comparatif", "/comparatif"],
+      ["Comparatif Société", "/comparatif"],
+      ["Comparatif Secteur", "/comparatif/secteur"],
+      ["Veille IA", "/veille"],
       ["Portrait d'entreprise", "/cas-usage/portrait"],
       ["API", "/contact?plan=api"],
     ],
@@ -56,8 +58,8 @@ export function MarketingFooter() {
             <LogoMark variant="inverse" size="xl" />
 
             <p className="mt-4 text-sm text-text-inverse/60 leading-relaxed max-w-xs">
-              Analyses financières institutionnelles, livrées en quelques
-              minutes.
+              Analyses financières structurées, livrées en quelques minutes.
+              Score propriétaire validé statistiquement.
             </p>
             <div className="mt-6 flex items-center gap-3">
               <SocialLink href="https://www.linkedin.com" label="LinkedIn">

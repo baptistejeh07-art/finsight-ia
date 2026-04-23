@@ -19,6 +19,34 @@ interface RoadmapItem {
 
 const SHIPPED: RoadmapItem[] = [
   {
+    title: "Score FinSight validé par backtest sp100 10 ans",
+    description:
+      "Méthodologie walk-forward sans data leakage. Profil Balanced : +8,9 % alpha intra-sectoriel (t = +2,10, significatif 95 %) sur 57 signaux BUY 2015-2025. Limites documentées : univers US large cap, période bull tech.",
+    date: "Avril 2026",
+    status: "shipped",
+  },
+  {
+    title: "Comparatif secteur (2 couples secteur/univers)",
+    description:
+      "Analyse parallèle de 2 couples secteur/univers (ex: Tech dans S&P 500 vs Santé dans Euro Stoxx 50). Allocation Markowitz par couple, PDF et PPTX comparatifs générés automatiquement.",
+    date: "Avril 2026",
+    status: "shipped",
+  },
+  {
+    title: "Veille IA — articles d'analyse automatiques",
+    description:
+      "Nouvelle page /veille qui publie des articles courts générés par le pipeline sur l'actualité marchés et les tendances sectorielles. Téléchargement PDF. Aucun article ne constitue un conseil personnalisé.",
+    date: "Avril 2026",
+    status: "shipped",
+  },
+  {
+    title: "Formulaire de contact fonctionnel",
+    description:
+      "Envoi via Resend, domaine authentifié DKIM, forwarding Namecheap vers Gmail. Plus de messages perdus, plus de spam. La chaîne envoi/réponse fonctionne de bout en bout.",
+    date: "Avril 2026",
+    status: "shipped",
+  },
+  {
     title: "Pipeline 7 agents (LangGraph)",
     description:
       "Fetch + quant + synthesis + qa + devil + entry zone + outputs en parallèle. Chaque chiffre déterministe, jamais inventé par un LLM.",
@@ -162,6 +190,13 @@ const SHIPPED: RoadmapItem[] = [
 
 const WIP: RoadmapItem[] = [
   {
+    title: "Comparatif indice (2 indices en parallèle)",
+    description:
+      "Pendant du comparatif secteur déjà livré, appliqué cette fois à 2 indices complets (ex: CAC 40 vs DAX). Allocation optimale, valorisations agrégées, performances croisées. Livrables PDF + PPTX.",
+    date: "Q2 2026",
+    status: "wip",
+  },
+  {
     title: "Streaming des réponses LLM (SSE)",
     description:
       "Affichage progressif des synthèses LLM au lieu d'attendre la fin. UX premium type ChatGPT pour les sections éditoriales longues.",
@@ -200,17 +235,31 @@ const PLANNED: RoadmapItem[] = [
     status: "planned",
   },
   {
-    title: "Score FinSight propriétaire",
+    title: "Score FinSight — backtest 2000-2025 via données premium",
     description:
-      "Note d'investissement composite (qualité, valorisation, momentum, gouvernance). Vocation : signal alternatif de référence pour gérants et family offices.",
+      "Validation initiale sp100 2015-2025 déjà faite (+8,9 % alpha Balanced, significatif 95 %). Prochaine étape : élargir à 2000-2025 sur données premium EODHD pour inclure dotcom et subprime. Lancé après les premiers clients.",
     date: "Fin 2026",
     status: "planned",
   },
   {
-    title: "Dataset FinSight Trends (signal alternatif)",
+    title: "Score FinSight en API (signal alternatif)",
     description:
-      "Stockage anonymisé des tickers/secteurs analysés → dataset vendable aux hedge funds. Signal d'attention investisseur retail/PME en temps réel.",
+      "Exposer le Score validé via un endpoint dédié pour hedge funds, médias financiers et courtiers. Début de la transition vers un statut de data provider au-delà du SaaS d'analyse.",
     date: "Fin 2026",
+    status: "planned",
+  },
+  {
+    title: "Dataset FinSight Trends (attention investisseur)",
+    description:
+      "Historisation anonymisée des tickers/secteurs analysés sur la plateforme. Agrégation en signal d'attention investisseur retail/PME vendable aux hedge funds quantitatifs. Conformité RGPD stricte.",
+    date: "2027",
+    status: "planned",
+  },
+  {
+    title: "B2B2B cabinets comptables (FEC + Pennylane + détection)",
+    description:
+      "Canal B2B2B vers les cabinets d'expertise comptable : import FEC déjà livré, connecteurs Pennylane/Sage en cours, puis score de défaillance et score de financement PME. Adresse indirectement le tissu PME français.",
+    date: "2027",
     status: "planned",
   },
   {

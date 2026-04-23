@@ -96,7 +96,7 @@ const CAS: CasUsage[] = [
     title: "Éducation & formation",
     short: "Former sur des cas réels, pas des slides théoriques.",
     intro:
-      "Écoles de commerce, masters finance, certifications professionnelles : donnez à vos étudiants un outil de niveau institutionnel pour pratiquer.",
+      "Écoles de commerce, masters finance, certifications professionnelles : donnez à vos étudiants un outil professionnel pour pratiquer.",
     problem:
       "Les étudiants apprennent la théorie de la valorisation, mais n'ont jamais accès aux outils qui leur seront demandés en entreprise.",
     solution:
@@ -174,7 +174,7 @@ const CAS: CasUsage[] = [
     title: "Investisseur particulier",
     short: "Investir comme un pro, sans payer un terminal Bloomberg.",
     intro:
-      "Vous gérez votre patrimoine ou un portefeuille personnel ? Accédez à des analyses de niveau institutionnel pour quelques euros par mois.",
+      "Vous gérez votre patrimoine ou un portefeuille personnel ? Accédez à des analyses structurées et outillées pour quelques euros par mois.",
     problem:
       "Les forums boursiers donnent des opinions, pas des analyses. Les rapports des courtiers sont biaisés. Construire une vraie thèse demande des outils inaccessibles.",
     solution:

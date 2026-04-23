@@ -157,6 +157,13 @@ export async function submitCmpSecteurJob(
   });
 }
 
+export async function submitCmpIndiceJob(
+  indice_a: string,
+  indice_b: string,
+): Promise<JobSubmitResponse> {
+  return apiPost("/jobs/cmp/indice", { indice_a, indice_b });
+}
+
 export async function submitPmeJob(siren: string): Promise<JobSubmitResponse> {
   return apiPost("/jobs/analyze/pme", { siren, use_pappers_comptes: true });
 }
@@ -410,4 +417,80 @@ export async function resolveQuery(query: string): Promise<ResolveResult> {
 
 export function getFileUrl(filePath: string): string {
   return `${API_URL}/file/${encodeURIComponent(filePath)}`;
+}
+
+// ─── Veille IA & Finance d'Entreprise ──────────────────────────────────────
+
+export interface VeilleArticle {
+  title: string;
+  subtitle: string;
+  article_md: string;
+  date_fr: string;
+  pdf_name: string;
+  pdf_url: string;
+  has_pdf: boolean;
+}
+
+export interface VeilleHistoryItem {
+  pdf_name: string;
+  title: string;
+  date_fr: string;
+  pdf_url: string;
+}
+
+/** Récupère la dernière édition de veille IA (markdown + metadata).
+ * Renvoie null si aucune édition n'a encore été générée (404).
+ */
+export async function fetchVeille(): Promise<VeilleArticle | null> {
+  const authHeader = await getAuthHeader();
+  const res = await fetch(`${API_URL}/veille`, {
+    headers: { ...authHeader, ...getLocaleHeaders() },
+  });
+  if (res.status === 404) return null;
+  if (!res.ok) {
+    throw new Error(`API /veille failed (${res.status})`);
+  }
+  return res.json();
+}
+
+/** URL directe du PDF de la dernière édition (pour <a href>). */
+export function getVeillePdfUrl(download = false): string {
+  return `${API_URL}/veille/pdf${download ? "?download=1" : ""}`;
+}
+
+/** Télécharge le PDF côté client (force save, contourne inline PDF viewer). */
+export async function downloadVeillePdf(filename = "veille.pdf"): Promise<void> {
+  const res = await fetch(getVeillePdfUrl(true), {
+    credentials: "omit",
+    cache: "no-store",
+  });
+  if (!res.ok) throw new Error(`Téléchargement échoué (${res.status})`);
+  const raw = await res.blob();
+  const blob = new Blob([raw], { type: "application/octet-stream" });
+  const objectUrl = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = objectUrl;
+  a.download = filename;
+  a.rel = "noopener";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(objectUrl), 2000);
+}
+
+export async function fetchVeilleHistory(limit = 10): Promise<VeilleHistoryItem[]> {
+  const authHeader = await getAuthHeader();
+  const res = await fetch(`${API_URL}/veille/history?limit=${limit}`, {
+    headers: { ...authHeader, ...getLocaleHeaders() },
+  });
+  if (!res.ok) return [];
+  const j = await res.json();
+  return j.items || [];
+}
+
+/** Lance une nouvelle édition de veille (async). Retourne le job_id.
+ * Le client poll ensuite getJob() puis fetchVeille() quand done.
+ */
+export async function runVeille(days?: number): Promise<JobSubmitResponse> {
+  return apiPost("/veille/run", days != null ? { days } : {});
 }

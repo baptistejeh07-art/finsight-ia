@@ -16,6 +16,7 @@ import {
   Pencil,
   Trash2,
   MoreHorizontal,
+  Newspaper,
 } from "lucide-react";
 import { SidebarUserMenu } from "./sidebar-user-menu";
 import {
@@ -250,6 +251,22 @@ export function Sidebar() {
           ) : (
             <div className="text-xs text-ink-400">{t("nav.deliverables_empty")}</div>
           )}
+        </div>
+
+        {/* Veille IA */}
+        <div className="border-b border-ink-100 pb-3.5 mb-3.5">
+          <Link
+            href="/veille"
+            className={
+              "flex items-center gap-2 px-2 py-1.5 rounded-md text-xs transition-colors " +
+              (pathname === "/veille"
+                ? "bg-navy-50 text-navy-600 font-medium"
+                : "text-ink-700 hover:bg-ink-100/50")
+            }
+          >
+            <Newspaper className="w-3.5 h-3.5 shrink-0 text-ink-400" />
+            <span className="truncate">Veille IA</span>
+          </Link>
         </div>
 
         {/* Historique */}

@@ -1262,6 +1262,24 @@ def run_veille(days: int | None = None) -> dict:
     print(f"[VEILLE] Generation PDF -> {out_path.name}")
     build_pdf(article_data, out_path)
 
+    # Persiste les métadonnées markdown + title à côté du PDF pour
+    # que le backend FastAPI puisse les relire sans relancer le LLM.
+    meta_path = out_path.with_suffix(".json")
+    try:
+        meta_path.write_text(
+            json.dumps({
+                "title":      article_data.get("title", "Veille IA & Finance d'Entreprise"),
+                "subtitle":   article_data.get("subtitle", ""),
+                "article_md": article_data.get("article_md", ""),
+                "date_fr":    date_fr,
+                "pdf_name":   out_path.name,
+                "generated_at": today.isoformat(),
+            }, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+    except Exception as _e:
+        print(f"[VEILLE] Impossible d'ecrire meta JSON : {_e}")
+
     print(f"\n[VEILLE] Termine : {out_path}")
     print(f"{'='*55}\n")
 

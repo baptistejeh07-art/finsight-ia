@@ -63,6 +63,12 @@ export function Navbar() {
               </Link>
             )}
             <Link
+              href="/veille"
+              className="text-sm text-ink-700 hover:text-ink-900 transition-colors"
+            >
+              Veille IA
+            </Link>
+            <Link
               href="/about"
               className="text-sm text-ink-700 hover:text-ink-900 transition-colors"
             >

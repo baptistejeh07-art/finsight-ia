@@ -54,6 +54,20 @@ def _get_sector_bounds() -> dict:
     return _SECTOR_BOUNDS_CACHE
 
 
+def set_sector_bounds_override(bounds: Optional[dict]) -> None:
+    """Remplace temporairement le cache des bornes sectorielles.
+
+    Usage walk-forward backtest : a chaque date T, calculer les quartiles
+    de la cross-section disponible a T, puis appeler cette fonction avant
+    de scorer les tickers a T. Permet d'eliminer le data leakage du
+    calibrage sur snapshots 2025 applique retroactivement.
+
+    bounds=None restaure le chargement depuis sector_bounds.json.
+    """
+    global _SECTOR_BOUNDS_CACHE
+    _SECTOR_BOUNDS_CACHE = bounds
+
+
 def _resolve_bounds(ratio: str, sector: Optional[str],
                      default_low: float, default_high: float) -> tuple[float, float]:
     """Retourne (low, high) calibrés pour ce ratio dans ce secteur.

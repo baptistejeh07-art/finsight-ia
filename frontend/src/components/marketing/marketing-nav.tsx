@@ -254,9 +254,19 @@ function ProduitsContent() {
       href: "/app",
     },
     {
-      title: "Comparatif",
+      title: "Comparatif Société",
       desc: "Benchmark côte à côte de 2 à 6 sociétés.",
       href: "/comparatif",
+    },
+    {
+      title: "Comparatif Secteur",
+      desc: "Deux couples secteur/univers en parallèle, allocation Markowitz.",
+      href: "/comparatif/secteur",
+    },
+    {
+      title: "Veille IA",
+      desc: "Articles d'analyse automatiques, téléchargement PDF.",
+      href: "/veille",
     },
     {
       title: "Portrait d'entreprise",

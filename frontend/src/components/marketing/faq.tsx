@@ -38,6 +38,18 @@ const FAQ: QA[] = [
     a: "Le pipeline FinSight combine sept agents spécialisés : un agent données déterministe (DCF, ratios calculés, jamais inventés), un agent synthèse (LLM cadré par une constitution), un agent QA (vérifie les chiffres), un agent contradicteur (thèse inverse) et trois agents de gouvernance. Chaque chiffre est sourcé. Aucune analyse ne remplace votre jugement final.",
   },
   {
+    q: "Le Score FinSight a-t-il été validé statistiquement ?",
+    a: "Oui, sur l'univers S&P 100 entre 2015 et 2025, en méthodologie walk-forward sans data leakage. Le profil Balanced délivre +8,9 % d'alpha intra-sectoriel moyen (t-stat = +2,10, significatif à 95 %) sur 57 signaux BUY. Les profils Growth sur la Tech (+19,4 %) et Value sur les secteurs cycliques (+24 à +26 %) affichent des chiffres plus élevés mais sur des segments plus étroits. Limites assumées : univers US large cap uniquement, période 2015-2025 dominée par un bull tech. Un backtest 2000-2025 sur données premium est prévu dans la roadmap.",
+  },
+  {
+    q: "Peut-on comparer deux secteurs dans deux univers différents ?",
+    a: "Oui. La page /comparatif/secteur permet de lancer en parallèle deux analyses sectorielles complètes (ex: Technologie dans le S&P 500 vs Santé dans l'Euro Stoxx 50), avec allocation optimale Markowitz par couple et livrables PDF/PPTX comparatifs. Le comparatif indice (2 indices entiers) est en cours.",
+  },
+  {
+    q: "Y a-t-il des contenus rédactionnels ?",
+    a: "Oui, la page /veille publie des articles courts générés par le pipeline FinSight sur l'actualité marchés et les tendances sectorielles, avec téléchargement PDF. Chaque article indique ses données sources et ses limites. Aucun article ne constitue un conseil en investissement personnalisé.",
+  },
+  {
     q: "Puis-je intégrer FinSight à mes outils internes ?",
     a: "Oui. Notre API REST permet d'appeler les analyses depuis n'importe quel système, et les plans Enterprise incluent des connecteurs natifs (Pennylane, Sage, FEC pour la France). Documentation complète sur demande.",
   },

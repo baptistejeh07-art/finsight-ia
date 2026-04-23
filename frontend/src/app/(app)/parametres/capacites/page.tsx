@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useUserPreferences } from "@/hooks/use-user-preferences";
 import type { ToolsMode } from "@/hooks/use-user-preferences";
 import { useI18n } from "@/i18n/provider";
@@ -31,14 +32,13 @@ export default function CapacitesPage() {
 
         <div className="mt-6 p-4 rounded-md border border-ink-200 bg-ink-50/50">
           <div className="text-sm font-medium text-ink-900 mb-1">{t("settings.cap_memory_box_title")}</div>
-          <div className="text-xs text-ink-500 mb-3">{t("settings.cap_memory_box_empty")}</div>
-          <button
-            type="button"
-            disabled
-            className="px-3 py-1.5 rounded-md border border-ink-200 text-xs text-ink-400 cursor-not-allowed"
+          <div className="text-xs text-ink-500 mb-3 leading-relaxed">{t("settings.cap_memory_box_empty")}</div>
+          <Link
+            href="/dashboard"
+            className="inline-block px-3 py-1.5 rounded-md border border-ink-300 text-xs text-ink-700 hover:border-navy-500 hover:text-navy-500 transition-colors"
           >
             {t("settings.cap_memory_manage")}
-          </button>
+          </Link>
         </div>
       </section>
 

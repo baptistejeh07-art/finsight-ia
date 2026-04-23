@@ -346,7 +346,7 @@ def _chart_valuation_pdf(sa, sb, label_a, label_b) -> bytes:
     bars_a = ax.bar(x - w/2, vals_a, w, label=label_a, color=_HEX_A, alpha=0.9)
     bars_b = ax.bar(x + w/2, vals_b, w, label=label_b, color=_HEX_B, alpha=0.9)
     ax.set_xticks(x); ax.set_xticklabels(metrics, fontsize=10)
-    ax.set_ylabel("Multiple (x)", fontsize=9)
+    ax.set_ylabel("Multiple (x)", fontsize=9, labelpad=8)
     ax.yaxis.grid(True, linestyle="--", alpha=0.4); ax.set_axisbelow(True)
     ax.spines["top"].set_visible(False); ax.spines["right"].set_visible(False)
     for bar in list(bars_a) + list(bars_b):
@@ -369,7 +369,7 @@ def _chart_margins_pdf(sa, sb, label_a, label_b) -> bytes:
     bars_a = ax.bar(x - w/2, vals_a, w, label=label_a, color=_HEX_A, alpha=0.9)
     bars_b = ax.bar(x + w/2, vals_b, w, label=label_b, color=_HEX_B, alpha=0.9)
     ax.set_xticks(x); ax.set_xticklabels([f"Marge {m}" for m in metrics], fontsize=10)
-    ax.set_ylabel("Marge (%)", fontsize=9)
+    ax.set_ylabel("Marge (%)", fontsize=9, labelpad=8)
     ax.yaxis.grid(True, linestyle="--", alpha=0.4); ax.set_axisbelow(True)
     ax.spines["top"].set_visible(False); ax.spines["right"].set_visible(False)
     for bar in list(bars_a) + list(bars_b):
@@ -411,7 +411,7 @@ def _chart_momentum_pdf(sa, sb, label_a, label_b) -> bytes:
     b1 = ax1.bar([label_a, label_b], [revg_a, revg_b], color=[_HEX_A, _HEX_B], alpha=0.9, width=0.5)
     ax1.axhline(0, color="black", linewidth=0.6)
     ax1.set_title("Croissance Revenue medianne", fontsize=9, fontweight="bold")
-    ax1.set_ylabel("%", fontsize=8); ax1.spines["top"].set_visible(False); ax1.spines["right"].set_visible(False)
+    ax1.set_ylabel("%", fontsize=8, labelpad=8); ax1.spines["top"].set_visible(False); ax1.spines["right"].set_visible(False)
     ax1.yaxis.grid(True, linestyle="--", alpha=0.4); ax1.set_axisbelow(True)
     for bar in b1:
         h = bar.get_height()
@@ -421,7 +421,7 @@ def _chart_momentum_pdf(sa, sb, label_a, label_b) -> bytes:
     b2 = ax2.bar([label_a, label_b], [mom_a, mom_b], color=[_HEX_A, _HEX_B], alpha=0.9, width=0.5)
     ax2.axhline(0, color="black", linewidth=0.6)
     ax2.set_title("Performance 52 semaines medianne", fontsize=9, fontweight="bold")
-    ax2.set_ylabel("%", fontsize=8); ax2.spines["top"].set_visible(False); ax2.spines["right"].set_visible(False)
+    ax2.set_ylabel("%", fontsize=8, labelpad=8); ax2.spines["top"].set_visible(False); ax2.spines["right"].set_visible(False)
     ax2.yaxis.grid(True, linestyle="--", alpha=0.4); ax2.set_axisbelow(True)
     for bar in b2:
         h = bar.get_height()
@@ -535,7 +535,7 @@ def _chart_price_52w_pdf(perf_a, perf_b, sector_a, sector_b) -> bytes:
                 color=_HEX_B, fontsize=8.5, fontweight="bold", va="center")
 
     # Mise en forme
-    ax.set_ylabel("Performance (base 100)", fontsize=8.5, color="#555")
+    ax.set_ylabel("Performance (base 100)", fontsize=8.5, color="#555", labelpad=8)
     ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda v, _: f"{v:.0f}"))
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%b %y"))
     ax.xaxis.set_major_locator(mdates.MonthLocator(interval=2))
