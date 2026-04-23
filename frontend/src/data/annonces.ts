@@ -695,6 +695,34 @@ export const ANNONCES: Annonce[] = [
 export const RELEASES = ANNONCES.filter((a) => a.kind === "release");
 export const UPCOMING = ANNONCES.filter((a) => a.kind === "upcoming");
 
+/**
+ * Sélection mise en avant sur la page d'accueil vitrine (sections
+ * « Dernières sorties » et « Prochainement »). Les cartes détaillées
+ * de toutes les annonces restent accessibles via /annonces/[slug].
+ *
+ * Règle : 3 max sur chaque section, les plus impactantes pour un
+ * visiteur prospect.
+ */
+const RELEASES_FEATURED_SLUGS = [
+  "early-backer-trial-gamification",       // business hook — Early Backer 20€/mois à vie
+  "score-finsight-backtest-sp100",         // crédibilité — +8,9 % alpha backtesté
+  "session-22-avril-charts-methodologie",  // richesse produit — 25 charts + méthodo
+];
+
+const UPCOMING_FEATURED_SLUGS = [
+  "extension-chrome-tradingview",          // distribution concrète court terme
+  "score-finsight-extension-commerciale",  // monétisation différenciante (API Score)
+  "b2b2b-cabinets-comptables",             // gros levier business (distribution indirecte)
+];
+
+export const RELEASES_FEATURED: Annonce[] = RELEASES_FEATURED_SLUGS
+  .map((slug) => ANNONCES.find((a) => a.slug === slug))
+  .filter((a): a is Annonce => a !== undefined);
+
+export const UPCOMING_FEATURED: Annonce[] = UPCOMING_FEATURED_SLUGS
+  .map((slug) => ANNONCES.find((a) => a.slug === slug))
+  .filter((a): a is Annonce => a !== undefined);
+
 export function getAnnonceBySlug(slug: string): Annonce | undefined {
   return ANNONCES.find((a) => a.slug === slug);
 }
