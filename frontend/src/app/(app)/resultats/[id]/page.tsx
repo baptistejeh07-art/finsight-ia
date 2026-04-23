@@ -7,7 +7,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { Footer } from "@/components/footer";
-import { getFileUrl, getJob } from "@/lib/api";
+import { getFileUrl, getJob, waitForJob } from "@/lib/api";
 
 import type { AnalysisData, RawData, RatiosData, Synthesis } from "@/components/dashboard/types";
 import { HeaderSociete } from "@/components/dashboard/header-societe";
@@ -110,7 +110,11 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
 
     (async () => {
       try {
-        const job = await getJob(id);
+        let job = await getJob(id);
+        // Job pas encore terminé → poll jusqu'à done/error
+        if (job.status === "queued" || job.status === "running") {
+          job = await waitForJob(id, undefined, 4000);
+        }
         if (job.status === "done" && job.result) {
           const elapsedMs =
             job.finished_at && job.started_at
@@ -128,11 +132,12 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
           setResult(r);
           try {
             sessionStorage.setItem(`analysis_${id}`, JSON.stringify(r));
-          } catch {}
-        } else if (job.status === "error") {
-          setNotFound(true);
+          } catch {
+            // Quota exceeded — OK, la page lira via getJob au prochain render
+          }
         } else {
-          router.push(`/analyse?q=${encodeURIComponent(ticker)}`);
+          // status === "error" OU timeout waitForJob
+          setNotFound(true);
         }
       } catch {
         setNotFound(true);
@@ -728,53 +733,63 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
                   : []),
                 // Indice : tuiles perf + risque (YTD / 1y / 3y / 5y / Vol / Sharpe / MDD)
                 ...(kind === "indice"
-                  ? [
-                      {
-                        id: "indice-perf-tiles",
-                        label: "Performance & Risque",
-                        default: { x: 6, y: 4, w: 6, h: 4 },
-                        render: () => (
-                          <IndicePerfTiles
-                            stats={(result.data as Record<string, unknown> | undefined) || null}
-                            label={String(result.data?.universe || ticker)}
-                          />
-                        ),
-                      } satisfies GridBlock,
-                      {
-                        id: "indice-valuation-tiles",
-                        label: "Valorisation agrégée",
-                        default: { x: 6, y: 8, w: 6, h: 4 },
-                        render: () => (
-                          <IndiceValuationTiles
-                            stats={(result.data as Record<string, unknown> | undefined) || null}
-                            label={String(result.data?.universe || ticker)}
-                          />
-                        ),
-                      } satisfies GridBlock,
-                      {
-                        id: "indice-top-constituents",
-                        label: "Top 10 constituants",
-                        default: { x: 0, y: 20, w: 6, h: 8 },
-                        render: () => (
-                          <IndiceTopConstituents
-                            tickers={(result.data?.tickers_data ||
-                                      result.data?.tickers) as never[] | undefined}
-                            label={String(result.data?.universe || ticker)}
-                          />
-                        ),
-                      } satisfies GridBlock,
-                      {
-                        id: "indice-valuation-bench",
-                        label: "Valorisation vs benchmarks",
-                        default: { x: 6, y: 20, w: 6, h: 8 },
-                        render: () => (
-                          <IndiceValuationBench
-                            stats={(result.data as Record<string, unknown> | undefined) || null}
-                            universe={String(result.data?.universe || ticker)}
-                          />
-                        ),
-                      } satisfies GridBlock,
-                    ]
+                  ? (() => {
+                      const indiceStats =
+                        (result.data?.indice_stats as Record<string, unknown> | undefined) ||
+                        (result.data as Record<string, unknown> | undefined) ||
+                        null;
+                      const indiceTickers =
+                        (result.data?.tickers_data as never[] | undefined) ||
+                        (result.data?.tickers as never[] | undefined) ||
+                        (result.data?.top_performers as never[] | undefined) ||
+                        undefined;
+                      return [
+                        {
+                          id: "indice-perf-tiles",
+                          label: "Performance & Risque",
+                          default: { x: 6, y: 4, w: 6, h: 4 },
+                          render: () => (
+                            <IndicePerfTiles
+                              stats={indiceStats}
+                              label={String(result.data?.universe || ticker)}
+                            />
+                          ),
+                        } satisfies GridBlock,
+                        {
+                          id: "indice-valuation-tiles",
+                          label: "Valorisation agrégée",
+                          default: { x: 6, y: 8, w: 6, h: 4 },
+                          render: () => (
+                            <IndiceValuationTiles
+                              stats={indiceStats}
+                              label={String(result.data?.universe || ticker)}
+                            />
+                          ),
+                        } satisfies GridBlock,
+                        {
+                          id: "indice-top-constituents",
+                          label: "Top 10 constituants",
+                          default: { x: 0, y: 20, w: 6, h: 8 },
+                          render: () => (
+                            <IndiceTopConstituents
+                              tickers={indiceTickers}
+                              label={String(result.data?.universe || ticker)}
+                            />
+                          ),
+                        } satisfies GridBlock,
+                        {
+                          id: "indice-valuation-bench",
+                          label: "Valorisation vs benchmarks",
+                          default: { x: 6, y: 20, w: 6, h: 8 },
+                          render: () => (
+                            <IndiceValuationBench
+                              stats={indiceStats}
+                              universe={String(result.data?.universe || ticker)}
+                            />
+                          ),
+                        } satisfies GridBlock,
+                      ];
+                    })()
                   : []),
                 // Comparatif indice : chart interactif perf_history + tiles + tables
                 ...(kind === "comparatif" && result.data?.perf_history

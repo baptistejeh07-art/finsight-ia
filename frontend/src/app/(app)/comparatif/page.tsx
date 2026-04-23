@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowRight, GitCompare, Loader2 } from "lucide-react";
 import { Navbar } from "@/components/navbar";
@@ -52,18 +53,22 @@ export default function ComparatifPage() {
         const elapsedMs = job.finished_at && job.started_at
           ? new Date(job.finished_at).getTime() - new Date(job.started_at).getTime()
           : 0;
-        sessionStorage.setItem(
-          `analysis_${submitted.job_id}`,
-          JSON.stringify({
-            success: true,
-            request_id: submitted.job_id,
-            elapsed_ms: elapsedMs,
-            data: job.result.data,
-            files: job.result.files,
-            kind: "comparatif",
-            label: `${a} vs ${b}`,
-          })
-        );
+        try {
+          sessionStorage.setItem(
+            `analysis_${submitted.job_id}`,
+            JSON.stringify({
+              success: true,
+              request_id: submitted.job_id,
+              elapsed_ms: elapsedMs,
+              data: job.result.data,
+              files: job.result.files,
+              kind: "comparatif",
+              label: `${a} vs ${b}`,
+            })
+          );
+        } catch {
+          // Quota exceeded — la page /resultats rechargera via getJob
+        }
         router.push(
           `/resultats/${submitted.job_id}?ticker=${encodeURIComponent(`${a} vs ${b}`)}&kind=comparatif`
         );
@@ -84,7 +89,7 @@ export default function ComparatifPage() {
 
       <main className="flex-1 max-w-4xl mx-auto px-6 py-12 w-full">
         {/* Hero */}
-        <div className="text-center mb-10 animate-fade-in">
+        <div className="text-center mb-6 animate-fade-in">
           <div className="section-label mb-3">Comparatif Société</div>
           <h1 className="text-2xl sm:text-3xl font-bold text-ink-900 mb-2 tracking-tight">
             Comparer deux sociétés
@@ -92,6 +97,22 @@ export default function ComparatifPage() {
           <p className="text-sm text-ink-600 max-w-md mx-auto">
             Analyse parallèle DCF · Ratios · Multiples · Verdict relatif. PDF + PPTX + Excel comparatifs.
           </p>
+        </div>
+
+        {/* Tabs switch société/secteur */}
+        <div className="flex justify-center gap-2 mb-8">
+          <button
+            disabled
+            className="btn-primary !py-2 !px-5 !text-sm opacity-100 cursor-default"
+          >
+            Sociétés
+          </button>
+          <Link
+            href="/comparatif/secteur"
+            className="btn-secondary !py-2 !px-5 !text-sm hover:!border-navy-500 hover:!text-navy-500"
+          >
+            Secteurs
+          </Link>
         </div>
 
         {/* Inputs */}

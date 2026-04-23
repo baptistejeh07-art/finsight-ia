@@ -16,6 +16,7 @@ function PmePageContent() {
   const [suggestions, setSuggestions] = useState<PmeSearchResult[]>([]);
   const [showDropdown, setShowDropdown] = useState(false);
   const [searching, setSearching] = useState(false);
+  const [pendingName, setPendingName] = useState<string | null>(null);
   const autoLaunched = useRef(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -64,10 +65,13 @@ function PmePageContent() {
     setShowDropdown(false);
     setSuggestions([]);
     setSiren(s.siren);
-    void launchAnalyze(s.siren);
+    const displayName = s.denomination || s.siren;
+    setPendingName(displayName);
+    console.info("[pme] select", { siren: s.siren, name: s.denomination });
+    void launchAnalyze(s.siren, displayName);
   }
 
-  async function launchAnalyze(inputSiren: string) {
+  async function launchAnalyze(inputSiren: string, knownName?: string) {
     const cleanSiren = inputSiren.replace(/\s/g, "");
     if (!/^\d{9}$/.test(cleanSiren)) {
       setError("Le SIREN doit contenir exactement 9 chiffres.");
@@ -75,9 +79,21 @@ function PmePageContent() {
     }
     setError(null);
     setLoading(true);
+    console.info("[pme] launchAnalyze", { siren: cleanSiren, knownName });
     try {
       const res = await analyzePmeSync(cleanSiren);
       if (res.success) {
+        const returnedName = (res.data as { denomination?: string })?.denomination;
+        const label = returnedName || knownName || cleanSiren;
+        // Garde-fou : alerte si le backend retourne une dénomination qui ne correspond
+        // clairement pas au nom sélectionné (ex: on a cliqué TF1 mais reçu STELLANTIS).
+        if (
+          knownName &&
+          returnedName &&
+          returnedName.toUpperCase().slice(0, 4) !== knownName.toUpperCase().slice(0, 4)
+        ) {
+          console.warn("[pme] MISMATCH", { clicked: knownName, returned: returnedName, siren: cleanSiren });
+        }
         try {
           sessionStorage.setItem(
             `analysis_${res.request_id}`,
@@ -88,14 +104,12 @@ function PmePageContent() {
               data: res.data,
               files: res.files,
               kind: "pme",
-              label: (res.data as { denomination?: string })?.denomination || cleanSiren,
+              label,
             })
           );
         } catch {}
         router.push(
-          `/resultats/${res.request_id}?ticker=${encodeURIComponent(
-            (res.data as { denomination?: string })?.denomination || cleanSiren
-          )}&kind=pme`
+          `/resultats/${res.request_id}?ticker=${encodeURIComponent(label)}&kind=pme`
         );
       } else {
         setError(res.error || "Erreur inconnue");
@@ -196,6 +210,11 @@ function PmePageContent() {
           </button>
         </div>
         {error && <p className="mt-3 text-sm text-signal-sell">{error}</p>}
+        {loading && pendingName && (
+          <p className="mt-3 text-xs text-navy-600 font-mono">
+            Analyse en cours — {pendingName} ({siren.replace(/\s/g, "")})
+          </p>
+        )}
         <p className="mt-2 text-xs text-ink-500">{t("analyze.pme_input_hint")}</p>
       </form>
 

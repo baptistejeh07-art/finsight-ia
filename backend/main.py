@@ -496,6 +496,31 @@ def _do_indice(indice: str, language: str = "fr", currency: str = "EUR") -> dict
                 "performance": s.get("performance") or s.get("perf_1y"),
                 "top_tickers": (s.get("top_tickers") or s.get("tickers") or [])[:5],
             })
+
+    # Tickers_data : top 25 par market_cap (agrégat secteurs → liste plate)
+    # pour la table "Top constituants" dans l'UI.
+    all_tickers = []
+    for s in indice_data.get("secteurs", []):
+        if isinstance(s, dict):
+            for t in (s.get("top_tickers") or s.get("tickers") or []):
+                if isinstance(t, dict) and t.get("ticker"):
+                    all_tickers.append({
+                        "ticker": t.get("ticker"),
+                        "name": t.get("name") or t.get("company_name"),
+                        "market_cap": t.get("market_cap") or t.get("mkt_cap"),
+                        "sector": s.get("name") or s.get("sector"),
+                    })
+    # Dédoublonne + tri market_cap desc
+    seen = set()
+    dedup = []
+    for t in all_tickers:
+        key = t.get("ticker")
+        if key and key not in seen:
+            seen.add(key)
+            dedup.append(t)
+    dedup.sort(key=lambda x: x.get("market_cap") or 0, reverse=True)
+    tickers_data = dedup[:25]
+
     return {
         "data": {
             "kind": "indice",
@@ -505,6 +530,7 @@ def _do_indice(indice: str, language: str = "fr", currency: str = "EUR") -> dict
             "macro": indice_data.get("macro", {}),
             "allocation": indice_data.get("allocation", {}),
             "top_performers": indice_data.get("top_performers", [])[:10],
+            "tickers_data": tickers_data,
             "indice_summary": indice_data.get("indice_summary"),
         },
         "files": files,
@@ -574,6 +600,39 @@ def _do_cmp_secteur(secteur_a: str, univers_a: str, secteur_b: str, univers_b: s
             files[ext] = str(p.relative_to(_ROOT))
     files = _upload_files_to_storage(files, prefix=f"cmp_secteur/{stem}")
     return {"data": {}, "files": files}
+
+
+def _do_cmp_indice(indice_a: str, indice_b: str) -> dict:
+    """Comparaison 2 indices -> build cmp_data + 3 writers."""
+    from cli_analyze import run_cmp_indice as _run_cmp
+    from core.cmp_indice import build_cmp_indice_data, INDICE_CMP_OPTIONS
+
+    _run_cmp(indice_a, indice_b)
+    outputs_dir = _ROOT / "outputs" / "generated" / "cli_tests"
+    stem = f"cmp_indice_{indice_a}_vs_{indice_b}"
+    files = {}
+    for ext in ("pdf", "pptx", "xlsx"):
+        p = outputs_dir / f"{stem}.{ext}"
+        if p.exists():
+            files[ext] = str(p.relative_to(_ROOT))
+    files = _upload_files_to_storage(files, prefix=f"cmp_indice/{stem}")
+
+    # Renvoie aussi cmp_data pour le frontend (perf_history pour chart interactif)
+    try:
+        # Reconstruit sans refetch (recharge depuis CLI serait redondant)
+        from cli_analyze import _fetch_real_indice_data
+        name_a = INDICE_CMP_OPTIONS.get(indice_a, (indice_a,))[0]
+        idx_data = _fetch_real_indice_data(name_a)
+        cmp_data = build_cmp_indice_data(
+            universe_a=indice_a, universe_b=indice_b,
+            indice_data_a=idx_data,
+            tickers_data_a=idx_data.get("tickers_data") or [],
+        )
+    except Exception as e:
+        log.warning(f"[cmp_indice] data rebuild echec : {e}")
+        cmp_data = {}
+
+    return {"data": cmp_data, "files": files}
 
 
 def _do_pme(siren: str, use_pappers_comptes: bool = True,
@@ -854,12 +913,8 @@ async def cmp_secteur(req: CmpSecteurRequest):
 
 @app.post("/cmp/indice", response_model=AnalyseResponse)
 async def cmp_indice(req: CmpIndiceRequest):
-    """Comparaison 2 indices — non implémenté V1."""
-    import uuid
-    return AnalyseResponse(
-        success=False, request_id=str(uuid.uuid4()),
-        elapsed_ms=0, error="cmp_indice not implemented yet (V1)",
-    )
+    """Comparaison 2 indices (synchrone). Prefere /jobs/cmp/indice en prod."""
+    return _sync_response("cmp/indice", _do_cmp_indice, req.indice_a, req.indice_b)
 
 
 @app.post("/analyze/pme", response_model=AnalyseResponse)
@@ -1020,6 +1075,23 @@ async def submit_cmp_secteur(
         label=f"{req.secteur_a}/{req.univers_a} vs {req.secteur_b}/{req.univers_b or req.univers_a}",
     )
     return JobSubmitResponse(job_id=job_id, status="queued", kind="cmp/secteur")
+
+
+@app.post("/jobs/cmp/indice", response_model=JobSubmitResponse, status_code=202)
+async def submit_cmp_indice(
+    req: CmpIndiceRequest,
+    user: Annotated[Optional[dict], Depends(get_current_user)] = None,
+):
+    from core.cmp_indice import INDICE_CMP_OPTIONS
+    name_a = INDICE_CMP_OPTIONS.get(req.indice_a, (req.indice_a,))[0]
+    name_b = INDICE_CMP_OPTIONS.get(req.indice_b, (req.indice_b,))[0]
+    job_id = jobstore.submit(
+        "cmp/indice", _do_cmp_indice,
+        req.indice_a, req.indice_b,
+        user_id=(user or {}).get("id"),
+        label=f"{name_a} vs {name_b}",
+    )
+    return JobSubmitResponse(job_id=job_id, status="queued", kind="cmp/indice")
 
 
 @app.get("/jobs/{job_id}", response_model=JobStatusResponse)
@@ -1572,6 +1644,179 @@ async def download_file(file_path: str, download: bool = False):
         media_type=mime,
         headers=headers,
     )
+
+
+# ─── Veille IA & Finance d'Entreprise ───────────────────────────────────────
+#
+# Endpoints :
+#   GET  /veille          → dernière édition (article markdown + métadonnées)
+#   GET  /veille/pdf      → dernier PDF (binaire, inline)
+#   POST /veille/run      → génère une nouvelle édition (async, jobstore)
+#   GET  /veille/history  → liste des 10 dernières éditions
+#
+# Source de vérité : outputs/veille/veille_YYYYMMDD_N.pdf
+#   + fichier JSON frère veille_YYYYMMDD_N.json contenant title/subtitle/
+#     article_md/date_fr écrit par tools/veille.run_veille().
+
+_VEILLE_DIR = _ROOT / "outputs" / "veille"
+
+
+def _list_veille_pdfs() -> list[Path]:
+    if not _VEILLE_DIR.exists():
+        return []
+    return sorted(_VEILLE_DIR.glob("veille_*.pdf"), reverse=True)
+
+
+def _read_veille_meta(pdf_path: Path) -> dict:
+    """Lit le JSON frère d'un PDF veille. Fallback : métadonnées minimales."""
+    meta_path = pdf_path.with_suffix(".json")
+    base = {
+        "pdf_name":   pdf_path.name,
+        "title":      "Veille IA & Finance d'Entreprise",
+        "subtitle":   "",
+        "article_md": "",
+        "date_fr":    "",
+    }
+    if meta_path.exists():
+        try:
+            loaded = json.loads(meta_path.read_text(encoding="utf-8"))
+            base.update({k: v for k, v in loaded.items() if v is not None})
+        except Exception as e:
+            log.warning(f"[veille] meta illisible {meta_path.name}: {e}")
+    # Date FR dérivée du nom si absente : veille_20260408_1.pdf → 08/04/2026
+    if not base["date_fr"]:
+        try:
+            stem_parts = pdf_path.stem.replace("veille_", "").split("_")
+            ymd = stem_parts[0]
+            if len(ymd) == 8:
+                base["date_fr"] = f"{ymd[6:8]}/{ymd[4:6]}/{ymd[0:4]}"
+        except Exception:
+            pass
+    return base
+
+
+@app.get("/veille")
+async def get_veille_latest():
+    """Retourne la dernière édition de veille IA (markdown + metadata).
+
+    404 si aucune édition n'existe. Le client peut alors appeler
+    POST /veille/run pour générer la première édition.
+    """
+    pdfs = _list_veille_pdfs()
+    if not pdfs:
+        raise HTTPException(status_code=404, detail="Aucune veille disponible")
+    latest = pdfs[0]
+    meta = _read_veille_meta(latest)
+    return {
+        "title":      meta.get("title", ""),
+        "subtitle":   meta.get("subtitle", ""),
+        "article_md": meta.get("article_md", ""),
+        "date_fr":    meta.get("date_fr", ""),
+        "pdf_name":   latest.name,
+        "pdf_url":    f"/veille/pdf",
+        "has_pdf":    True,
+    }
+
+
+@app.get("/veille/pdf")
+async def get_veille_pdf_latest(download: bool = False):
+    """Retourne le PDF de la dernière édition de veille (binaire).
+
+    ?download=1 force l'attachement (Content-Disposition: attachment).
+    """
+    pdfs = _list_veille_pdfs()
+    if not pdfs:
+        raise HTTPException(status_code=404, detail="Aucun PDF de veille disponible")
+    latest = pdfs[0]
+    headers = {}
+    if download:
+        headers["Content-Disposition"] = f'attachment; filename="{latest.name}"'
+    return FileResponse(
+        path=latest,
+        filename=latest.name if download else None,
+        media_type="application/pdf",
+        headers=headers,
+    )
+
+
+@app.get("/veille/pdf/{pdf_name}")
+async def get_veille_pdf_named(pdf_name: str, download: bool = False):
+    """Retourne un PDF de veille spécifique (par nom de fichier)."""
+    # Anti path traversal : ne garde que le basename et valide le pattern.
+    safe_name = Path(pdf_name).name
+    if not safe_name.startswith("veille_") or not safe_name.endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Nom de fichier invalide")
+    target = _VEILLE_DIR / safe_name
+    if not target.exists() or not target.is_file():
+        raise HTTPException(status_code=404, detail="PDF introuvable")
+    headers = {}
+    if download:
+        headers["Content-Disposition"] = f'attachment; filename="{safe_name}"'
+    return FileResponse(
+        path=target,
+        filename=safe_name if download else None,
+        media_type="application/pdf",
+        headers=headers,
+    )
+
+
+@app.get("/veille/history")
+async def get_veille_history(limit: int = 10):
+    """Retourne la liste des N dernières éditions (la plus récente en tête)."""
+    pdfs = _list_veille_pdfs()[:max(1, min(limit, 50))]
+    items = []
+    for p in pdfs:
+        meta = _read_veille_meta(p)
+        items.append({
+            "pdf_name": p.name,
+            "title":    meta.get("title", ""),
+            "date_fr":  meta.get("date_fr", ""),
+            "pdf_url":  f"/veille/pdf/{p.name}",
+        })
+    return {"items": items}
+
+
+class VeilleRunRequest(BaseModel):
+    days: Optional[int] = Field(None, description="Fenêtre de collecte en jours (7-30)")
+
+
+def _do_veille(days: Optional[int] = None) -> dict:
+    """Worker jobstore : lance run_veille et retourne payload standard."""
+    from tools.veille import run_veille as _run_veille
+    result = _run_veille(days=days) or {}
+    pdf_path = result.get("pdf_path")
+    files = {}
+    if pdf_path and Path(pdf_path).exists():
+        rel = Path(pdf_path).relative_to(_ROOT)
+        files["pdf"] = str(rel).replace("\\", "/")
+    return {
+        "data": {
+            "title":      result.get("title", ""),
+            "subtitle":   result.get("subtitle", ""),
+            "article_md": result.get("article_md", ""),
+            "date_fr":    result.get("date_fr", ""),
+            "pdf_name":   Path(pdf_path).name if pdf_path else None,
+        },
+        "files": files,
+        "kind":  "veille",
+    }
+
+
+@app.post("/veille/run", response_model=JobSubmitResponse, status_code=202)
+async def submit_veille_run(
+    req: VeilleRunRequest | None = None,
+    user: Annotated[Optional[dict], Depends(get_current_user)] = None,
+):
+    """Génère une nouvelle édition de veille IA. Async via jobstore.
+
+    Le front poll ensuite GET /jobs/{job_id} puis GET /veille quand done.
+    """
+    days = (req.days if req else None)
+    job_id = jobstore.submit(
+        "veille/run", _do_veille, days,
+        user_id=(user or {}).get("id"), label="Veille IA",
+    )
+    return JobSubmitResponse(job_id=job_id, status="queued", kind="veille/run")
 
 
 # ─── Stripe : checkout + portal + webhook ───────────────────────────────────

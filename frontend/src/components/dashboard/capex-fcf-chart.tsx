@@ -18,7 +18,7 @@ export function CapexFcfChart({ years, ratios }: Props) {
   const allYears = Object.keys(years).sort();
   const recent = allYears.slice(-4);
 
-  const data = recent.map((y) => {
+  const rawData = recent.map((y) => {
     const yd: YearData = (years[y] as YearData) || ({} as YearData);
     const yr: YearRatios = (ratios?.[y] as YearRatios) || ({} as YearRatios);
     const capex = Math.abs(Number(yd.capex ?? 0));
@@ -32,7 +32,10 @@ export function CapexFcfChart({ years, ratios }: Props) {
     };
   });
 
-  if (data.every((d) => d[capexLabel] === 0 && d[divLabel] === 0)) {
+  // Masque les années où CapEx ET Dividendes sont à 0 (colonne vide → graphique déséquilibré)
+  const data = rawData.filter((d) => d[capexLabel] > 0 || d[divLabel] > 0);
+
+  if (data.length === 0) {
     return (
       <div className="bg-white border border-ink-200 rounded-md p-5 h-full flex items-center justify-center">
         <span className="text-xs text-ink-400">{t("kpi.no_capex_div_data")}</span>
