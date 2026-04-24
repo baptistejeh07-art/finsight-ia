@@ -19,6 +19,20 @@ const nextConfig: NextConfig = {
     ],
   },
 
+  // Redirections : les prospects tapent souvent /tarifs ou /pricing
+  // directement. Sans cette redirection, ils atterrissent sur un 404 alors
+  // que la grille tarifaire est l'ancre #tarification de la homepage.
+  async redirects() {
+    return [
+      { source: "/tarifs",   destination: "/#tarification", permanent: false },
+      { source: "/tarif",    destination: "/#tarification", permanent: false },
+      { source: "/pricing",  destination: "/#tarification", permanent: false },
+      { source: "/prix",     destination: "/#tarification", permanent: false },
+      { source: "/plans",    destination: "/#tarification", permanent: false },
+      { source: "/abonnement", destination: "/#tarification", permanent: false },
+    ];
+  },
+
   // Headers sécurité
   async headers() {
     return [
