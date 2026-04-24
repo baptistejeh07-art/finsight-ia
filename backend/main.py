@@ -551,15 +551,20 @@ def _do_cmp_societe(ticker_a: str, ticker_b: str) -> dict:
     outputs_dir.mkdir(parents=True, exist_ok=True)
     stem = f"cmp_societe_{ticker_a}_vs_{ticker_b}".replace(".", "_")
     files = {}
+    # Le writer PDF renvoie un BytesIO (pas bytes) — getvalue() nécessaire
+    # pour écrire sur disque. Avant : p.write_bytes(BytesIO) crashait
+    # silencieusement, aucun PDF généré (audit MC.PA vs OR.PA 2026-04-24).
     try:
-        pdf_bytes = CmpSocietePDFWriter().generate_bytes(state_a, state_b)
+        pdf_buf = CmpSocietePDFWriter().generate_bytes(state_a, state_b)
+        pdf_bytes = pdf_buf.getvalue() if hasattr(pdf_buf, "getvalue") else pdf_buf
         p = outputs_dir / f"{stem}.pdf"
         p.write_bytes(pdf_bytes)
         files["pdf"] = str(p.relative_to(_ROOT))
     except Exception as e:
         log.warning(f"[cmp/societe] PDF fail: {e}")
     try:
-        pptx_bytes = CmpSocietePPTXWriter().generate_bytes(state_a, state_b)
+        pptx_buf = CmpSocietePPTXWriter().generate_bytes(state_a, state_b)
+        pptx_bytes = pptx_buf.getvalue() if hasattr(pptx_buf, "getvalue") else pptx_buf
         p = outputs_dir / f"{stem}.pptx"
         p.write_bytes(pptx_bytes)
         files["pptx"] = str(p.relative_to(_ROOT))

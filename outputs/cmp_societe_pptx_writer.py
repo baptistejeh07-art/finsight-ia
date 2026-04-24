@@ -159,17 +159,42 @@ def _safe_str(v, default="\u2014") -> str:
     return s if s else default
 
 
+_COMPANY_ABBREVIATIONS = [
+    (", Société Européenne", " SE"),
+    (", Societe Europeenne", " SE"),
+    (" Société Européenne", " SE"),
+    (", Société Anonyme", " SA"),
+    (" Société Anonyme", " SA"),
+    (" Societe Anonyme", " SA"),
+    (" Corporation", " Corp."),
+    (" Incorporated", " Inc."),
+    (" Public Limited Company", " plc"),
+    (" & Company", " & Co."),
+]
+
+
 def _truncate(s, n: int) -> str:
-    """Coupe au word boundary sans ellipse visible — LLM contraint par
-    length_rule(min_words, max_words) en amont."""
+    """Coupe au word boundary sans ellipse visible.
+
+    Applique d'abord les abréviations standards (« Société Européenne » →
+    « SE », « Corporation » → « Corp. ») pour raccourcir proprement les
+    noms longs avant la troncation. Évite les coupes visuellement laides
+    comme « LVMH Moët Hennessy - Louis Vuitton, Société » (mot coupé).
+    """
     s = _safe_str(s, "")
+    # Appliquer les abréviations pour gagner de la place sans perdre de sens
+    for full, abbr in _COMPANY_ABBREVIATIONS:
+        if full in s:
+            s = s.replace(full, abbr)
     if len(s) <= n:
         return s
     cut = s[:n]
     last_space = cut.rfind(" ")
     if last_space > n // 2:
         cut = cut[:last_space]
-    return cut
+    # Retire ponctuation trailing (« , » « - » « : ») qui ferait penser à
+    # un mot coupé
+    return cut.rstrip(" ,-:·—")
 
 
 def _fit(s, n: int) -> str:
