@@ -58,14 +58,20 @@ def safe_text(s) -> str:
     """Sanitize une string pour injection dans un ReportLab Paragraph.
 
     1. Décode les entités HTML du LLM (&gt; → >)
-    2. Remplace les caractères Unicode problématiques (CO₂ → CO2)
-    3. Échappe les caractères XML (&, <, >)
-    4. Convertit le markdown **bold** en <b>bold</b>
-    5. Convertit le markdown __bold__ en <b>bold</b>
+    2. Normalise les entités cassées (« S&P; 500 », « AT&T; ») que les LLM
+       sortent parfois par semi-tokenisation HTML.
+    3. Remplace les caractères Unicode problématiques (CO₂ → CO2)
+    4. Échappe les caractères XML (&, <, >)
+    5. Convertit le markdown **bold** en <b>bold</b>
+    6. Convertit le markdown __bold__ en <b>bold</b>
     """
     if not s:
         return ""
     decoded = _html_mod.unescape(str(s))
+    # Fix entités parasites sorties par certains LLM : « S&P; 500 » →
+    # « S&P 500 », « AT&T; » → « AT&T », « M&A; » → « M&A ».
+    # Le LLM a halluciné un `;` après le `&X` comme s'il fermait une entité.
+    decoded = _re.sub(r"&([A-Z][A-Za-z]{0,3});(?=\s|$|[^A-Za-z])", r"&\1", decoded)
     decoded = clean_unicode(decoded)
     out = decoded.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
     # Markdown bold → ReportLab <b>

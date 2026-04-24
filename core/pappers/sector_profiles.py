@@ -1248,6 +1248,52 @@ IMMO_TRANSACTION = SectorProfile(
 # FINANCE / HOLDINGS (1)
 # ──────────────────────────────────────────────────────────────────────────────
 
+UTILITY_ENERGIE = SectorProfile(
+    code="utility_energie",
+    name="Utility (énergie, eau, assainissement, déchets)",
+    naf_prefixes=("35", "36", "37", "38", "39"),
+    description=(
+        "Production/transport/distribution d'électricité et gaz, "
+        "captage/traitement/distribution d'eau, collecte et traitement "
+        "des eaux usées, gestion des déchets. Capital-intensive, "
+        "régulation tarifaire, cash flows cycliques mais relativement "
+        "stables, dette LT élevée normale, BFR souvent négatif "
+        "(encaissements avant paiements fournisseurs)."
+    ),
+    # Marges : capital lourd mais pricing régulé, donc marges modérées
+    # pour EBITDA (opex vs capex), marge nette faible (amortissements +
+    # charges financières importantes).
+    marge_brute=Threshold(0.20, 0.35, 0.55, 0.75),
+    marge_ebitda=Threshold(0.08, 0.15, 0.28, 0.40),
+    marge_nette=Threshold(0.00, 0.03, 0.10, 0.18),
+    # ROE/ROCE modestes — base d'actifs énorme + régulation
+    roce=Threshold(0.02, 0.05, 0.12, 0.20),
+    roe=Threshold(0.00, 0.05, 0.15, 0.25),
+    # Levier structurellement élevé (grandes utilities FR : EDF ~4-6x, Engie ~3x)
+    dette_nette_ebitda=Threshold(0, 2.0, 4.5, 7.0, higher_is_better=False),
+    couverture_interets=Threshold(1.5, 2.5, 6.0, 15.0),
+    autonomie_financiere=Threshold(0.10, 0.20, 0.40, 0.60),
+    # BFR souvent négatif pour les utilities (encaissements mensuels > dettes
+    # fournisseurs long) — donc bornes décalées côté négatif
+    bfr_jours_ca=Threshold(-120, -30, 20, 60, higher_is_better=False),
+    dso_jours=Threshold(30, 45, 75, 110, higher_is_better=False),
+    dpo_jours=Threshold(30, 50, 90, 130),
+    rotation_stocks=Threshold(5, 10, 25, 60),
+    # CA/employé élevé — secteur capital-intensive (peu de personnel relatif)
+    ca_par_employe=Threshold(250_000, 400_000, 800_000, 1_500_000),
+    charges_perso_ca=Threshold(0.08, 0.15, 0.30, 0.45, higher_is_better=False),
+    ev_ebitda_multiple=7.5, ev_ca_multiple=1.8,
+    vocab_secteur="utility / réseau d'infrastructure",
+    vocab_peers="utilities comparables",
+    key_drivers=(
+        "RAB / base d'actifs régulée",
+        "coût du capital (WACC régulé)",
+        "prix de marché de l'énergie",
+        "cadre tarifaire régulateur",
+        "intensité capitalistique (CAPEX)",
+    ),
+)
+
 HOLDINGS_FINANCE = SectorProfile(
     code="holdings_finance",
     name="Holdings, courtage assurance, gestion d'actifs",
@@ -1372,6 +1418,8 @@ PROFILES: dict[str, SectorProfile] = {
         IMMO_PROMOTION, IMMO_FONCIERE, IMMO_TRANSACTION,
         # Finance / Holdings (1)
         HOLDINGS_FINANCE,
+        # Utilities / Énergie (1)
+        UTILITY_ENERGIE,
         # Génériques
         GENERIC_COMMERCE, GENERIC_SERVICES, GENERIC_INDUSTRY,
     ]
@@ -1408,7 +1456,10 @@ def resolve_profile(code_naf: str | None) -> SectorProfile:
     except ValueError:
         return GENERIC_SERVICES
 
-    if 10 <= n <= 33 or n in {35, 36, 37, 38, 39}:
+    # 10-33 = industries de transformation. Les 35-39 (utilities) sont
+    # désormais captées par UTILITY_ENERGIE via prefix match en amont, donc
+    # ce fallback n'est plus déclenché pour les utilities.
+    if 10 <= n <= 33:
         return GENERIC_INDUSTRY
     if 45 <= n <= 47:
         return GENERIC_COMMERCE
