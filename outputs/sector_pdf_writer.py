@@ -170,20 +170,22 @@ def _na(v, fmt=None):
         return "\u2014"
 
 def _fmt_pct(v, sign=True):
+    """Format FR : « 33,9 % » ou « +33,9 % » (virgule décimale, espace avant %)."""
     if v is None:
         return "\u2014"
     try:
         f = float(v)
         prefix = "+" if sign and f >= 0 else ""
-        return f"{prefix}{f:.1f}%"
+        return prefix + f"{f:.1f}".replace(".", ",") + " %"
     except (TypeError, ValueError):
         return "\u2014"
 
 def _fmt_mult(v):
+    """Format FR : « 13,4x » (virgule décimale, pas d'espace avant x)."""
     if v is None:
         return "\u2014"
     try:
-        return f"{float(v):.1f}x"
+        return f"{float(v):.1f}".replace(".", ",") + "x"
     except (TypeError, ValueError):
         return "\u2014"
 
@@ -940,11 +942,13 @@ def _build_macro(perf_buf, area_buf, tickers_data: list[dict],
                 f"Source : {_etf_issuer}. Holdings au dernier rebalancement disponible via yfinance."))
         elems.append(Spacer(1, 4*mm))
 
+    _ag_s = _fmt_pct(avg_growth, sign=True)
+    _ae_s = _fmt_pct(avg_ebitda, sign=False)
     elems.append(Paragraph(
         f"Le secteur <b>{sector_name}</b> ({universe}) couvre <b>{N} sociétés</b> "
         f"pour une capitalisation totale de <b>{_mc_str}</b>. "
-        f"La croissance moyenne des revenus s'établit a <b>{avg_growth:+.1f}% YoY</b>, "
-        f"avec une marge EBITDA médiane de <b>{avg_ebitda:.1f}%</b>. "
+        f"La croissance moyenne des revenus s'établit a <b>{_ag_s} YoY</b>, "
+        f"avec une marge EBITDA médiane de <b>{_ae_s}</b>. "
         f"L'analyse couvre les dynamiques structurelles, les positionnéments concurrentiels "
         f"et les risques sectoriels identifiés par le protocole adversarial FinSight IA. "
         f"La bifurcation entre acteurs établis et challengers constitue le fil directeur "
@@ -1004,8 +1008,8 @@ def _build_macro(perf_buf, area_buf, tickers_data: list[dict],
         f"concentrer sur les top holdings : ce sont eux qui portent l'essentiel du "
         f"rendement et du risque de l'ETF, et ce sont eux que FinSight IA compare "
         f"au basket actif dans la courbe de performance ci-dessus. La croissance "
-        f"moyenne des revenus du basket FinSight ressort \u00e0 <b>{avg_growth:+.1f}%</b> "
-        f"avec une marge EBITDA m\u00e9diane de <b>{avg_ebitda:.1f}%</b>, ce qui "
+        f"moyenne des revenus du basket FinSight ressort \u00e0 <b>{_fmt_pct(avg_growth, sign=True)}</b> "
+        f"avec une marge EBITDA m\u00e9diane de <b>{_fmt_pct(avg_ebitda, sign=False)}</b>, ce qui "
         f"fournit un ancrage fondamental pour juger de la soutenabilite des "
         f"multiples de valorisation du secteur dans le cycle actuel.",
         S_BODY))
@@ -1031,8 +1035,8 @@ def _build_macro(perf_buf, area_buf, tickers_data: list[dict],
         _rec_style = (S_TD_R if _rec_lvl == "Élevée" else
                       (S_TD_A if _rec_lvl == "Modérée" else S_TD_G))
         vix_str    = f"{_vix:.0f}" if _vix    is not None else "\u2014"
-        spread_str = f"{_spread:+.1f}%" if _spread is not None else "\u2014"
-        sp_ma_str  = f"{_sp_ma:+.1f}%" if _sp_ma  is not None else "\u2014"
+        spread_str = _fmt_pct(_spread, sign=True) if _spread is not None else "\u2014"
+        sp_ma_str  = _fmt_pct(_sp_ma, sign=True)  if _sp_ma  is not None else "\u2014"
         sp_trend   = _macro.get("sp500_trend", "\u2014")
 
         reg_h = [Paragraph(h, S_TH_C) for h in
@@ -1207,8 +1211,8 @@ def _build_macro(perf_buf, area_buf, tickers_data: list[dict],
         )
         _prompt_mac = (
             f"CONTEXTE — Secteur : {sector_name}\n"
-            f"EV/EBITDA médian : {_ev_m:.1f}x | Marge EBITDA : {_mg_m:.1f}% | "
-            f"Momentum 52W : {_mo_m:+.1f}%{_regime_ctx}{_rec_ctx}\n\n"
+            f"EV/EBITDA médian : {_fmt_mult(_ev_m)} | Marge EBITDA : {_fmt_pct(_mg_m, sign=False)} | "
+            f"Momentum 52W : {_fmt_pct(_mo_m, sign=True)}{_regime_ctx}{_rec_ctx}\n\n"
             f"MISSION : identifie 4 dynamiques structurelles SPÉCIFIQUES à ce "
             f"secteur (régulation, cycle, technologie, demande, capex, capital). "
             f"Chaque driver : titre court + 2 phrases analytiques (40-55 mots), "
@@ -1245,9 +1249,9 @@ def _build_macro(perf_buf, area_buf, tickers_data: list[dict],
         # Fallback avec valeurs réelles (pas de chiffres inventes)
         for lead, body in [
             (f"<b>Valorisation sectorielle {sector_name}.</b>",
-             f"L'EV/EBITDA median de {_ev_m:.1f}x et la marge EBITDA de {_mg_m:.1f}% definissent "
+             f"L'EV/EBITDA median de {_fmt_mult(_ev_m)} et la marge EBITDA de {_fmt_pct(_mg_m, sign=False)} definissent "
              f"les références de valorisation actuelles du secteur. "
-             f"Le momentum 52 semaines de {_mo_m:+.1f}% reflète le positionnément relatif dans le cycle."),
+             f"Le momentum 52 semaines de {_fmt_pct(_mo_m, sign=True)} reflète le positionnément relatif dans le cycle."),
             ("<b>Consolidation et effets d'echelle.</b>",
              f"Les operations de M&A et les economies d'echelle exercent une pression sur les acteurs mid-cap "
              f"du secteur {sector_name}, contraints de se différenciér ou de rejoindre des ensembles plus larges."),
