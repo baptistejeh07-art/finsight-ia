@@ -154,7 +154,7 @@ _SECTOR_CONTENT = {
             ("down", "Régulation", "Bale IV — impact CET1 estime a -80bps grandes banques EU"),
         ],
         "cycle_comment": "Secteur en maturité cyclique | NIM en pic, qualité d'actif à surveiller",
-        "metriques_dict": [("NIM Médian", "2,8 %", "Sain"), ("CET1 Médian", "14,2 %", "Confortable"), ("ROE Médian", "11,4 %", "Acceptable"), ("Cost/Income", "58 %", "A ameliorer"), ("NPL Ratio", "2,1 %", "Contrôle"), ("P/Book", "0,8x", "Décote")],
+        "metriques_dict": [("NIM Médian", "2,8 %", "Sain"), ("CET1 Médian", "14,2 %", "Confortable"), ("ROE Médian", "11,4 %", "Acceptable"), ("Cost/Income", "58 %", "À améliorer"), ("NPL Ratio", "2,1 %", "Contrôle"), ("P/Book", "0,8x", "Décote")],
         "conditions": [("Taux", "BCE baisse < 2 % — compression NIM > 40 bps", "6-12 mois"), ("Crédit", "NPL > 5 % immobilier commercial", "12-18 mois"), ("Macro", "Récession > 2 trimestrès — provisionnement", "6-9 mois"), ("Réglementaire", "Bale IV CET1 > 15 %", "24-36 mois")],
     },
     "Industrials": {
@@ -207,7 +207,7 @@ _SECTOR_CONTENT = {
         ],
         "cycle_comment": "Secteur défensif-croissance | innovation compense risques réglementaires",
         "metriques_dict": [("R&D/Rev.", "18 %", "Élevé"), ("Pipeline Score", "7,2/10", "Solide"), ("Marge Brute", "68 %", "Premium"), ("Patent Cliff", "2026-28", "A surveiller"), ("ROE", "22 %", "Attractif"), ("FCF Yield", "3,8 %", "Sain")],
-        "conditions": [("Réglementaire", "Reforme prix US — impact > 20 % revenues", "12-18 mois"), ("Pipeline", "Echec phase III > 25 % du CA", "Immediat"), ("Brevet", "Expiration sans relai — -15 % revenues", "12-24 mois"), ("Macro", "Coupes budgets santé > 10 %", "24-36 mois")],
+        "conditions": [("Réglementaire", "Réforme prix US — impact > 20 % revenues", "12-18 mois"), ("Pipeline", "Échec phase III > 25 % du CA", "Immédiat"), ("Brevet", "Expiration sans relai — -15 % revenues", "12-24 mois"), ("Macro", "Coupes budgets santé > 10 %", "24-36 mois")],
     },
     "Energy": {
         "description": (
@@ -221,7 +221,7 @@ _SECTOR_CONTENT = {
             ("GNL Européen", "Diversification approvisionnement post-Ukraine — primes GNL structurellement élevées."),
         ],
         "risques": [
-            ("Volatilite Petrole", "Récession mondiale ou accord OPEP+ défavorable — Brent < 60 USD/bbl entraînerait des coupes dividendes."),
+            ("Volatilité Petrole", "Récession mondiale ou accord OPEP+ défavorable — Brent < 60 USD/bbl entraînerait des coupes dividendes."),
             ("Transition Réglementaire", "Accélération du calendrier sortie fossiles — actifs bloques en risque."),
             ("Capex Renouvelable", "Surcoûts et retards projets offshore wind — impact sur rendements."),
         ],
@@ -233,7 +233,7 @@ _SECTOR_CONTENT = {
         ],
         "cycle_comment": "Secteur en transition | dividendes élevés, visibilité long terme réduite",
         "metriques_dict": [("FCF Yield", "7,2 %", "Très attractif"), ("Div. Yield", "4,8 %", "Élevé"), ("Breakeven", "52 USD", "Confortable"), ("ROACE", "14,2 %", "Bon"), ("ND/EBITDA", "1,2x", "Faible"), ("Capex/OCF", "48 %", "Modéré")],
-        "conditions": [("Petrole", "Brent < 55 USD/bbl 6 mois — coupes dividendes", "3-6 mois"), ("Politique", "Taxes exceptionnelles profits majors", "Immediat"), ("Transition", "Calendrier sortie fossiles avance 10 ans", "24-36 mois"), ("Demande", "Pic demande petroliere confirme avant 2030", "24-48 mois")],
+        "conditions": [("Pétrole", "Brent < 55 USD/bbl 6 mois — coupes dividendes", "3-6 mois"), ("Politique", "Taxes exceptionnelles profits majeurs", "Immédiat"), ("Transition", "Calendrier sortie fossiles avance 10 ans", "24-36 mois"), ("Demande", "Pic demande pétrolière confirmé avant 2030", "24-48 mois")],
     },
     "Basic Materials": {
         "description": (
@@ -259,7 +259,7 @@ _SECTOR_CONTENT = {
         ],
         "cycle_comment": "Secteur en transition cyclique | matériaux verts tirent la croissance long terme",
         "metriques_dict": [("EV/EBITDA", "6,2x", "Décote"), ("FCF Yield", "5,8 %", "Attractif"), ("ND/EBITDA", "1,8x", "Gerable"), ("ROIC", "11,2 %", "Correct"), ("Capex/Rev", "8,4 %", "Élevé"), ("Div. Yield", "3,2 %", "Satisfaisant")],
-        "conditions": [("Chine", "Croissance PIB < 3,5 % pendant 2 trimestres", "6-9 mois"), ("Prix", "Cuivre < 7 000 USD/t pendant 6 mois", "3-6 mois"), ("Capex", "Annulation projets miniers majeurs", "Immediat"), ("Régulation", "Taxes export matières premières critiques", "12-18 mois")],
+        "conditions": [("Chine", "Croissance PIB < 3,5 % pendant 2 trimestres", "6-9 mois"), ("Prix", "Cuivre < 7 000 USD/t pendant 6 mois", "3-6 mois"), ("Capex", "Annulation projets miniers majeurs", "Immédiat"), ("Régulation", "Taxes export matières premières critiques", "12-18 mois")],
     },
     "Real Estate": {
         "description": (
@@ -285,7 +285,7 @@ _SECTOR_CONTENT = {
         ],
         "cycle_comment": "Secteur en réévaluation | ANR en décote, sensibilité aux taux majeure",
         "metriques_dict": [("Décote ANR", "-22 %", "Opportunite"), ("Div. Yield", "4,8 %", "Attractif"), ("LTV Médian", "38 %", "Prudent"), ("ICR Médian", "3,2x", "Sain"), ("Vacance", "7,4 %", "Modérée"), ("EPRA NTA", "ref.", "Benchmark")],
-        "conditions": [("Taux", "OAT 10Y > 4,5 % pendant 12 mois", "6-12 mois"), ("Vacance", "Vacance bureau > 15 %", "12-18 mois"), ("Dette", "LTV > 50 % — covenant breach", "Immediat"), ("Macro", "Récession — loyers -10 %", "9-12 mois")],
+        "conditions": [("Taux", "OAT 10Y > 4,5 % pendant 12 mois", "6-12 mois"), ("Vacance", "Vacance bureau > 15 %", "12-18 mois"), ("Dette", "LTV > 50 % — covenant breach", "Immédiat"), ("Macro", "Récession — loyers -10 %", "9-12 mois")],
     },
     "Communication Services": {
         "description": (
@@ -311,23 +311,23 @@ _SECTOR_CONTENT = {
         ],
         "cycle_comment": "Secteur en transformation | consolidation et fibre sont les catalyseurs",
         "metriques_dict": [("EBITDA Margin", "32 %", "Stable"), ("ARPU", "28 EUR/m", "En hausse"), ("Churn", "1,2 %", "Faible"), ("Capex/Rev", "18 %", "Élevé"), ("Fiber Cover.", "68 %", "En cours"), ("FCF Yield", "3,4 %", "Modéré")],
-        "conditions": [("Prix", "ARPU mobile < 22 EUR — guerre des prix", "6-9 mois"), ("Capex", "Retards fibre > 18 mois", "9-12 mois"), ("Réglementaire", "Blocage fusions autorites concurrence", "Immediat"), ("Substitution", "Revenu voix < 20 % CA total", "18-24 mois")],
+        "conditions": [("Prix", "ARPU mobile < 22 EUR — guerre des prix", "6-9 mois"), ("Capex", "Retards fibre > 18 mois", "9-12 mois"), ("Réglementaire", "Blocage fusions autorités concurrence", "Immédiat"), ("Substitution", "Revenu voix < 20 % CA total", "18-24 mois")],
     },
     "Utilities": {
         "description": (
             "Les Utilities regroupent les producteurs et distributeurs d'electricite, de gaz et d'eau. "
-            "Caracterisees par des revenus regules et des dividendes stables, elles constituent un refuge "
+            "Caractérisées par des revenus régulés et des dividendes stables, elles constituent un refuge "
             "défensif sensible aux variations de taux d'intérêt."
         ),
         "catalyseurs": [
-            ("Transition Énergétique", "Investissements massifs dans le renouvelable — actifs regules garantissant des rendements stables."),
+            ("Transition Énergétique", "Investissements massifs dans le renouvelable — actifs régulés garantissant des rendements stables."),
             ("Hausse Prix Énergie", "Normalisation des prix de gros — amélioration des marges de fourniture."),
             ("Hydrogene & Stockage", "Positionnement nouvelles technologies — optionalite valorisation long terme."),
         ],
         "risques": [
             ("Taux Élevés", "Sensibilité marquée aux taux longs — compression des multiples si OAT > 4 %."),
             ("Risque Regule", "Révision des tarifs d'acces reseau — impact sur la rémunération du capital investi."),
-            ("Volatilite Meteo", "Secheresse ou faible ventossité — impact sur production hydraulique et eolienne."),
+            ("Volatilité Meteo", "Secheresse ou faible ventosité — impact sur production hydraulique et éolienne."),
         ],
         "drivers": [
             ("up", "Renouvelables Régulés", "RAB en croissance — visibilité cash flows 20-30 ans"),
@@ -337,7 +337,7 @@ _SECTOR_CONTENT = {
         ],
         "cycle_comment": "Secteur défensif-rendement | sensibilité taux élevée, dividendes stables",
         "metriques_dict": [("RAB Return", "6,2 %", "Regule"), ("Div. Yield", "4,4 %", "Attractif"), ("ND/EBITDA", "4,2x", "Élevé stable"), ("RES Mix", "42 %", "En hausse"), ("Payout", "68 %", "Stable"), ("ROCE", "7,8 %", "Regule")],
-        "conditions": [("Taux", "OAT 10Y > 4,5 % pendant 12 mois", "6-12 mois"), ("Régulation", "Baisse WACC regule > 100bps", "24-36 mois"), ("Meteo", "Sécheresse généralisée 2 ans", "Annuel"), ("Politique", "Nationalisation ou gel tarifaire", "Immediat")],
+        "conditions": [("Taux", "OAT 10Y > 4,5 % pendant 12 mois", "6-12 mois"), ("Régulation", "Baisse WACC régulé > 100bps", "24-36 mois"), ("Météo", "Sécheresse généralisée 2 ans", "Annuel"), ("Politique", "Nationalisation ou gel tarifaire", "Immédiat")],
     },
 }
 
