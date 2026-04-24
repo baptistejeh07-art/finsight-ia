@@ -247,27 +247,127 @@ def fetch_officer_photo(name: str) -> Optional[str]:
     return None
 
 
-def fetch_officer_bio(name: str, role_hint: Optional[str] = None) -> Optional[str]:
-    """Récupère la bio Wikipedia d'un dirigeant (premier paragraphe)."""
-    query = f"{name} {role_hint}" if role_hint else name
-    page = _wiki_search_page(query, lang="en")
-    if not page:
+def _is_valid_person_bio(name: str, page_title: str, intro: str) -> bool:
+    """Vérifie que la page Wikipedia renvoyée concerne bien la PERSONNE cherchée.
+
+    Sans cette validation, une recherche « Timothy D. Cook CEO & Director »
+    peut renvoyer la page Steve Jobs (qui contient tous ces mots) et sa bio
+    serait affichée comme celle de Cook (bug observé sur AAPL portrait 2026).
+    Pareil, « Deirdre O'Brien » peut renvoyer une page « 2013 Birthday
+    Honours » qui mentionne son nom en passant.
+
+    Heuristiques :
+      - Le dernier token du nom (souvent le nom de famille) doit apparaître
+        dans les 300 premiers caractères de l'intro.
+      - Le titre de la page Wikipedia ne doit pas ressembler à un article
+        d'événement/catégorie (contient « Birthday », « List of »,
+        « Honours », « Awards », « ceremony »...).
+      - Le titre ne doit pas être un nom complètement différent (ex: Cook
+        recherché mais page = « Steven Paul Jobs ») : on exige que AU MOINS
+        un token de 3+ caractères du nom cherché apparaisse dans le titre.
+    """
+    if not name or not page_title or not intro:
+        return False
+    lower_title = page_title.lower()
+    # Rejette les pages d'événements/catégories qui peuvent contenir le nom
+    # en tant que citation (liste de récipiendaires, hommages collectifs...).
+    _blacklist = ("birthday honours", "list of", "honours", "awards",
+                  "ceremony", "new year honour", "members of",
+                  "recipients of", "winners of")
+    if any(b in lower_title for b in _blacklist):
+        return False
+    # Au moins un token significatif du nom doit être dans le titre.
+    name_tokens = [t for t in name.replace(".", " ").split() if len(t) >= 3]
+    if name_tokens:
+        title_norm = lower_title
+        if not any(t.lower() in title_norm for t in name_tokens):
+            return False
+    # Le nom de famille (dernier token alphabétique ≥ 3 chars) doit apparaître
+    # dans les 300 premiers caractères de l'intro pour confirmer qu'elle
+    # commence bien par parler de la bonne personne.
+    surname_candidates = [t for t in name.replace(".", " ").split() if len(t) >= 3]
+    if surname_candidates:
+        surname = surname_candidates[-1].lower()
+        if surname not in intro[:300].lower():
+            return False
+    return True
+
+
+def _llm_generate_officer_bio(name: str, title: str, company: str) -> Optional[str]:
+    """Fallback bio via LLM quand Wikipedia ne retourne rien (ou rejetée par
+    la validation). Garde le ton factuel du reste du portrait."""
+    try:
+        from core.llm_provider import LLMProvider
+        prompt = (
+            f"Rédige une bio courte et factuelle (3 phrases max, 60 à 80 mots) "
+            f"sur {name}, {title} chez {company}. Donne uniquement des faits "
+            f"publics (parcours, années clés, formation si publique). "
+            f"Commence directement par le nom. Pas de spéculation, pas "
+            f"d'emoji, français avec accents. Si tu n'as aucune info fiable "
+            f"sur cette personne, réponds exactement : INCONNU."
+        )
+        for prov, model in [("groq", "llama-3.3-70b-versatile"),
+                             ("mistral", None),
+                             ("anthropic", None)]:
+            try:
+                llm = LLMProvider(provider=prov, model=model)
+                ans = llm.generate(prompt, system="Tu es analyste sobre, factuel.",
+                                     max_tokens=180)
+                if ans and "INCONNU" not in ans.upper() and len(ans.strip()) > 40:
+                    return ans.strip()[:600]
+            except Exception as e:
+                log.debug(f"[portrait/sources] LLM bio {prov} fail: {e}")
+                continue
+    except Exception as e:
+        log.debug(f"[portrait/sources] LLM bio init fail: {e}")
+    return None
+
+
+def fetch_officer_bio(name: str, role_hint: Optional[str] = None,
+                       company_name: Optional[str] = None) -> Optional[str]:
+    """Récupère la bio Wikipedia d'un dirigeant (premier paragraphe).
+
+    Étapes :
+      1. Recherche Wikipedia par nom seul (le role_hint polluait la query
+         et faisait ressortir des pages d'entreprise ou du CEO fondateur).
+      2. Validation : la page trouvée concerne-t-elle bien la bonne personne ?
+         Sinon on rejette (évite Tim Cook → bio Steve Jobs).
+      3. Fallback LLM si Wikipedia ne donne rien d'utilisable et qu'on a
+         `company_name` pour contextualiser.
+    """
+    if not name:
         return None
-    intro = _wiki_fetch_intro(page, lang="en")
-    if intro:
-        # Garde les ~600 premiers caractères
-        return intro[:600].strip()
+    # 1. Recherche Wikipedia par nom seul (NE PAS ajouter le role_hint, il
+    # polluait la query et ressortait des pages « CEO » / pages entreprise).
+    page = _wiki_search_page(name, lang="en")
+    if page:
+        intro = _wiki_fetch_intro(page, lang="en")
+        if intro and _is_valid_person_bio(name, page, intro):
+            return intro[:600].strip()
+        else:
+            log.info(f"[portrait/sources] wiki page '{page}' rejected for '{name}' "
+                      f"(validation échouée)")
+    # 2. Fallback LLM si on a le nom de la société
+    if company_name:
+        bio = _llm_generate_officer_bio(name, role_hint or "dirigeant", company_name)
+        if bio:
+            return bio
+    return None
     return None
 
 
 def enrich_officers_with_wikipedia(officers: list[Officer], company_name: str) -> list[Officer]:
-    """Enrichit chaque officer avec photo + bio Wikipedia (best effort)."""
+    """Enrichit chaque officer avec photo + bio Wikipedia (best effort),
+    fallback LLM pour la bio si Wikipedia ne trouve rien de pertinent."""
     for o in officers[:5]:  # cap : top 5 dirigeants
         if not o.name:
             continue
         try:
             o.photo_url = fetch_officer_photo(o.name)
-            o.bio = fetch_officer_bio(o.name, o.title)
+            # company_name passé au fetch pour activer le fallback LLM
+            # quand Wikipedia rejette la page (bio mismatch) ou ne trouve
+            # rien (dirigeant récent sans page dédiée).
+            o.bio = fetch_officer_bio(o.name, o.title, company_name=company_name)
         except Exception as e:
             log.debug(f"[portrait/sources] enrich {o.name} failed: {e}")
     return officers

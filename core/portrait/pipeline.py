@@ -86,6 +86,14 @@ def _ctx_block(ctx: CompanyContext, ratios_hint: Optional[dict] = None) -> str:
         lines.append(f"Effectif : {ctx.employees:,}".replace(",", " "))
     if ctx.market_cap:
         lines.append(f"Capi boursière : {ctx.market_cap/1e9:.1f} Mds {ctx.currency or ''}".strip())
+    # Dirigeants actuels : injecte systématiquement la liste dans TOUS les
+    # prompts. Sans ça, le LLM narratif écrivait l'histoire d'Apple en sautant
+    # Tim Cook et le CEO actuel (rapport 2026 qui parle encore de Steve Jobs
+    # jusqu'en 2003 puis saute « aujourd'hui » sans transition).
+    if ctx.officers:
+        off_lines = [f"- {o.name} ({o.title})" for o in ctx.officers[:8] if getattr(o, 'name', None)]
+        if off_lines:
+            lines.append("\nDirigeants actuels (données yfinance companyOfficers) :\n" + "\n".join(off_lines))
     if ctx.long_business_summary:
         lines.append(f"\nDescription officielle (yfinance) :\n{ctx.long_business_summary[:1200]}")
     if ctx.wiki_intro:
@@ -139,9 +147,14 @@ def _gen_history(ctx: CompanyContext) -> str:
     extra = f"\n\nÉlément Wikipedia (section History) :\n{history_hint}" if history_hint else ""
     p = (
         f"{_ctx_block(ctx)}{extra}\n\n"
-        "Raconte l'histoire de cette société en 3-4 paragraphes : fondation, "
-        "jalons clés (acquisitions, IPO, pivots), crises traversées. "
-        "Style narratif éditorial, dates précises quand possible."
+        "Raconte l'histoire de cette société en 4 paragraphes : fondation, "
+        "jalons clés (acquisitions, IPO, pivots), crises traversées, ET "
+        "**impérativement** la trajectoire récente du leadership : qui dirige "
+        "actuellement (voir section « Dirigeants actuels » du contexte), "
+        "depuis quand, quelles transitions de CEO ont eu lieu sur les 20 "
+        "dernières années. Dates précises quand possible. Pas de passage "
+        "direct de « 2003 » à « aujourd'hui » — cite nommément le CEO en "
+        "poste et ses prédécesseurs récents."
     )
     return _llm_call(p, SYSTEM_FR, max_tokens=900)
 
