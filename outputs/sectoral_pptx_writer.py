@@ -65,7 +65,7 @@ _SECTOR_CONTENT = {
             ("Cloud Hybride Souveraineté", "Contraintes réglementaires sur les données — migration vers solutions EU portée par NIS2 et DORA."),
         ],
         "risques": [
-            ("Ralentissement Budgets IT", "Récession européenne confirmee entraînerait une réduction des budgets IT de 12-18 %, pénalisant les prestataires de services."),
+            ("Ralentissement Budgets IT", "Récession européenne confirmée entraînerait une réduction des budgets IT de 12-18 %, pénalisant les prestataires de services."),
             ("Durcissement AI Act", "Surcoût de mise en Conformité estime a 8-12 % du CA pour les editeurs de logiciels IA — impact marges 2027."),
             ("Pression Tarifaire US/Asie", "Acteurs américains et asiatiques agressifs sur les segments logiciels standardisés — guerre des prix bas de gamme."),
         ],
@@ -77,7 +77,7 @@ _SECTOR_CONTENT = {
         ],
         "cycle_comment": "Secteur en phase d'expansion | porté par l'IA et le cloud souverain",
         "metriques_dict": [("Rule of 40", "42", "Sain > 40"), ("NRR Médian", "108 %", "Retention solide"), ("Cloud Mix", "38 %", "En hausse"), ("R&D/Rev.", "12 %", "Investi"), ("ARR Growth", "+24 %", "Accélération"), ("Churn", "4,2 %", "Stable")],
-        "conditions": [("Macro", "Récession UE confirmee — contraction PIB > 1,5 %", "6-12 mois"), ("Sectoriel", "Réduction budgets IT > 15 % grands comptes", "12-18 mois"), ("Réglementaire", "AI Act surcoût Conformité > 15 % CA", "18-24 mois"), ("Fondamental", "Révision baissière EPS > 20 % sur 2 trimestres", "6-9 mois")],
+        "conditions": [("Macro", "Récession UE confirmée — contraction PIB > 1,5 %", "6-12 mois"), ("Sectoriel", "Réduction budgets IT > 15 % grands comptes", "12-18 mois"), ("Réglementaire", "AI Act surcoût Conformité > 15 % CA", "18-24 mois"), ("Fondamental", "Révision baissière EPS > 20 % sur 2 trimestres", "6-9 mois")],
     },
     "Consumer Cyclical": {
         "description": (
@@ -143,7 +143,7 @@ _SECTOR_CONTENT = {
             ("Digitalisation Services", "Plateformes wealth management numeriques — réduction Coûts et captation millennials investisseurs."),
         ],
         "risques": [
-            ("Dégradâtion Crédit", "Hausse des NPL dans l'immobilier commercial et le crédit PME si récession confirmee."),
+            ("Dégradation Crédit", "Hausse des NPL dans l'immobilier commercial et le crédit PME si récession confirmée."),
             ("Baisse Taux BCE", "Pivot accommodant — compression des NIM de 15-25 bps par tranche de 25 bps de baisse."),
             ("Régulation Bale IV", "Exigences CET1 plus élevées — pression sur le ROE et les politiques de retour de capital."),
         ],
@@ -274,7 +274,7 @@ _SECTOR_CONTENT = {
         ],
         "risques": [
             ("Maintien Taux Élevés", "Taux longs > 4 % prolonges — pressions sur les ANR et les covenants de dette."),
-            ("Dégradâtion Locative", "Vacance bureau en hausse post-teletravail — risques sur les loyers tertiaires secondaires."),
+            ("Dégradation Locative", "Vacance bureau en hausse post-télétravail — risques sur les loyers tertiaires secondaires."),
             ("Refinancement", "Mur de dette 2025-2027 — risques de dilution pour les foncieres surendettees."),
         ],
         "drivers": [
@@ -337,7 +337,7 @@ _SECTOR_CONTENT = {
         ],
         "cycle_comment": "Secteur défensif-rendement | sensibilité taux élevée, dividendes stables",
         "metriques_dict": [("RAB Return", "6,2 %", "Regule"), ("Div. Yield", "4,4 %", "Attractif"), ("ND/EBITDA", "4,2x", "Élevé stable"), ("RES Mix", "42 %", "En hausse"), ("Payout", "68 %", "Stable"), ("ROCE", "7,8 %", "Regule")],
-        "conditions": [("Taux", "OAT 10Y > 4,5 % pendant 12 mois", "6-12 mois"), ("Régulation", "Baisse WACC regule > 100bps", "24-36 mois"), ("Meteo", "Secheresse generalisee 2 ans", "Annuel"), ("Politique", "Nationalisation ou gel tarifaire", "Immediat")],
+        "conditions": [("Taux", "OAT 10Y > 4,5 % pendant 12 mois", "6-12 mois"), ("Régulation", "Baisse WACC regule > 100bps", "24-36 mois"), ("Meteo", "Sécheresse généralisée 2 ans", "Annuel"), ("Politique", "Nationalisation ou gel tarifaire", "Immediat")],
     },
 }
 
@@ -536,8 +536,8 @@ def _build_content_from_data(td: list, sector_name: str, score_moyen: int,
     # Conditions based on signal level
     alert_score = max(30, score_moyen - 15)
     conditions = [
-        ("Macro",       "Récession confirmee — 2 trimestrès négatifs",          "6-9 mois"),
-        ("Sectoriel",   f"Score moyen < {alert_score} — dégradation generalisee","6-12 mois"),
+        ("Macro",       "Récession confirmée — 2 trimestrès négatifs",          "6-9 mois"),
+        ("Sectoriel",   f"Score moyen < {alert_score} — dégradation généralisée","6-12 mois"),
         ("Fondamental", "Révision baissière EPS > 15 %",                         "3-6 mois"),
         ("Réglementaire", "Mesures restrictives majeures",                       "Variable"),
     ]
