@@ -1188,8 +1188,7 @@ def _build_cartographie(data, weights_buf, attribution_buf=None, registry=None):
     elems.append(src(
         f"FinSight IA — FMP, yfinance. EV/EBITDA et marges = m\u00e9dianes sectorielles LTM. "
         "Momentum = performance relative 3 mois vs indice. Score = composite 0-100. "
-        "(*) EV/EBITDA non disponible pour l\u2019immobilier cot\u00e9 (REITs allemands / Vonovia) "
-        "— m\u00e9trique non standard pour ce secteur ; privil\u00e9gier P/NAV ou Price/FFO."))
+        "(*) EV/EBITDA non standard pour l\u2019immobilier cot\u00e9 (REITs) : privil\u00e9gier P/NAV ou Price/FFO."))
 
     # ── Table valorisation etendue : P/B, Div Yield, ERP sectoriel ───────────
     pb_map  = data.get("pb_by_sector", {})
@@ -1377,6 +1376,12 @@ def _build_graphiques(data, scatter_buf, scores_buf, corr_buf=None, registry=Non
                 f"Francais avec accents. Noms secteurs en francais. Pas de markdown/emojis/bullets."
             )
             _llm_text = llm_call(_prompt_p7, phase="long", max_tokens=1000) or ""
+            try:
+                from core.llm_guardrails import audit_llm_output as _audit
+                _audit(_llm_text, index_name=_indice_name,
+                        context_label=f"indice_pdf p7 {_indice_name}")
+            except Exception:
+                pass
         except Exception as _e:
             log.warning("[indice_pdf] scatter p7 LLM echoue: %s", _e)
         elems.append(Spacer(1, 4*mm))

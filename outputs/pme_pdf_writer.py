@@ -371,11 +371,17 @@ class PmePdfWriter:
             story.append(self.Spacer(1, self.cm * 0.5))
             story.append(self.Paragraph(self._t("report.bodacc"), st["h2"]))
             b = ctx.bodacc
+            # Libellé BODACC : on indique explicitement que la date vient
+            # des publications BODACC (et non des comptes réels parsés dans
+            # le tableau SIG). Les sociétés cotées comme EDF communiquent
+            # principalement via AMF / documents financiers, si bien qu'une
+            # date BODACC ancienne (ex: 2015) ne reflète pas l'arrêt des
+            # comptes — d'où l'ajout « publication ».
             bodacc_items = [
                 ("Annonces totales", str(b.total_annonces)),
                 ("Procédures collectives", str(len(b.procedures_collectives))),
                 ("Dernière procédure", b.derniere_procedure or "Aucune"),
-                ("Dernier dépôt de comptes", b.dernier_depot_comptes or "—"),
+                ("Dernière publication BODACC (dépôt)", b.dernier_depot_comptes or "—"),
                 ("Société radiée", "Oui" if b.radie else "Non"),
                 ("Modifications récentes (2 ans)", str(b.modifications_recentes)),
             ]

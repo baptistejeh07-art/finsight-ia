@@ -90,6 +90,53 @@ def normalize_currency(ccy: Optional[str]) -> tuple[str, float]:
     return _normalize_currency(ccy)
 
 
+# Mapping suffixe ticker → devise native de cotation. Utilisé en fallback
+# quand `company_info.currency` est manquant (AgentData n'a pas réussi à
+# récupérer info.currency de yfinance). Évite d'afficher "USD" sur un
+# rapport Schneider Electric (SU.PA).
+_TICKER_SUFFIX_CCY: dict[str, str] = {
+    # Euro
+    ".PA": "EUR", ".MI": "EUR", ".MC": "EUR", ".DE": "EUR", ".AS": "EUR",
+    ".BR": "EUR", ".LS": "EUR", ".VI": "EUR", ".HE": "EUR", ".IR": "EUR",
+    ".F":  "EUR", ".SN": "EUR", ".MU": "EUR", ".DU": "EUR", ".BE": "EUR",
+    ".EL": "EUR", ".HM": "EUR", ".NX": "EUR",
+    # Livres sterling — GBp pour LSE, on retourne GBP (le multiplier GBp→GBP
+    # est déjà géré par normalize_currency en amont).
+    ".L": "GBP", ".IL": "GBP",
+    # Francs suisses
+    ".SW": "CHF", ".S": "CHF",
+    # CAD
+    ".TO": "CAD", ".V": "CAD", ".CN": "CAD", ".NE": "CAD",
+    # Yen / autres Asie
+    ".T": "JPY", ".HK": "HKD", ".SI": "SGD", ".KS": "KRW", ".KQ": "KRW",
+    ".TW": "TWD", ".SS": "CNY", ".SZ": "CNY", ".KL": "MYR", ".JK": "IDR",
+    ".BK": "THB", ".NS": "INR", ".BO": "INR", ".AX": "AUD", ".NZ": "NZD",
+    # Scandinavie
+    ".ST": "SEK", ".CO": "DKK", ".OL": "NOK", ".HE2": "EUR",
+    # Amérique latine
+    ".SA": "BRL", ".MX": "MXN", ".BA": "ARS", ".SN2": "CLP",
+    # Afrique / Moyen-Orient
+    ".JO": "ZAR", ".CA": "EGP", ".TA": "ILS",
+    # Est européen
+    ".WA": "PLN", ".PR": "CZK", ".BD": "HUF",
+}
+
+
+def infer_currency_from_ticker(ticker: Optional[str], default: str = "USD") -> str:
+    """Déduit la devise native depuis le suffixe du ticker (ex: SU.PA → EUR).
+
+    À utiliser en fallback quand `company_info.currency` est manquant ou None.
+    Un ticker sans suffixe (AAPL, MSFT) est assumé US → USD.
+    """
+    if not ticker:
+        return default
+    s = str(ticker).strip().upper()
+    if "." not in s:
+        return default  # pas de suffixe = US par convention
+    suf = "." + s.rsplit(".", 1)[1]
+    return _TICKER_SUFFIX_CCY.get(suf, default)
+
+
 def _normalize_currency(ccy: Optional[str]) -> tuple[str, float]:
     """Normalise une devise yfinance et retourne (ccy_iso, multiplicateur).
 

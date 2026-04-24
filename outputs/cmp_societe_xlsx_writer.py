@@ -181,16 +181,62 @@ def _eps_growth(ratios) -> Optional[float]:
 
 
 def _finsight_score(snapshot, ratios) -> Optional[int]:
+    """Score composite 0-100 pour la comparaison société.
+
+    Branché sur `core.finsight_score.compute_score` (v1.3) : la note renvoyée
+    est le `displayed` recalibré (mean≈50, std élargie) pour que la cmp UI
+    MC.PA vs OR.PA vs SU.PA ne clusterise plus à 48-50. Fallback silencieux
+    sur l'ancienne heuristique value+growth+quality+momentum si la pipeline
+    partielle ne permet pas le calcul v1.3 (ratios minimum manquants).
     """
-    Score composite 0-100 (identique à score_global dans cli_analyze.py).
-    value(25) + growth(25) + quality(25) + momentum(25)
-    """
+    # ── Chemin principal : compute_score v1.3 ────────────────────────────
+    try:
+        from core.finsight_score import compute_score
+        yr = _latest_yr(ratios)
+        if yr is not None:
+            ratio_dict = {
+                k: _safe(yr, k) for k in (
+                    "pe_ratio", "ev_ebitda", "ev_revenue", "roe", "roic",
+                    "ebitda_margin", "net_margin", "gross_margin",
+                    "revenue_growth", "fcf_yield", "div_yield", "payout_ratio",
+                    "altman_z", "piotroski_f", "beneish_m",
+                    "net_debt_ebitda", "momentum_52w",
+                    "shares_change_pct", "earnings_growth",
+                )
+            }
+            # Complément momentum_52w depuis stock_history si absent du dict.
+            if ratio_dict.get("momentum_52w") in (None, 0, 0.0):
+                hist = getattr(snapshot, "stock_history", []) or []
+                if len(hist) >= 13:
+                    try:
+                        p_now = float(hist[-1].price)
+                        p_1y  = float(hist[0].price)
+                        if p_1y > 0:
+                            ratio_dict["momentum_52w"] = (p_now / p_1y) - 1
+                    except Exception:
+                        pass
+            mk = getattr(snapshot, "market", None)
+            market_dict = {
+                "share_price":    getattr(mk, "share_price", None)    if mk else None,
+                "beta_levered":   getattr(mk, "beta_levered", None)   if mk else None,
+                "dividend_yield": getattr(mk, "dividend_yield", None) if mk else None,
+            }
+            ci = getattr(snapshot, "company_info", None)
+            sec = getattr(ci, "sector", None)   if ci else None
+            ind = getattr(ci, "industry", None) if ci else None
+            res = compute_score(ratio_dict, market_dict, sector=sec, industry=ind)
+            # On expose `displayed` (score recalibré) qui propage directement
+            # au XLSX/PDF/PPTX cmp et à l'UI Streamlit.
+            return int(res.get("displayed") or res.get("global") or 0)
+    except Exception:
+        pass
+
+    # ── Fallback legacy (pipeline partiel, ratios minimum manquants) ────
     try:
         yr = _latest_yr(ratios)
         pe  = _safe(yr, "pe_ratio") or 20.0
         rev = _rev_cagr_3y(ratios) or 0.0
         nm  = _safe(yr, "net_margin") or 0.0
-        # momentum 52w : estimé depuis stock_history si disponible
         hist = getattr(snapshot, "stock_history", []) or []
         if len(hist) >= 13:
             try:
@@ -556,8 +602,27 @@ def extract_metrics(state: dict, supp: dict) -> dict:
         try: t_bull = round(float(t_base) * 1.15, 2)
         except: pass
 
-    # Finsight score
+    # Finsight score (displayed v1.3) + rang sectoriel si dispo
     fs = _finsight_score(snapshot, ratios)
+    fs_sector_percentile: Optional[int] = None
+    try:
+        from core.finsight_score import compute_sector_percentile
+        yr_sp = _latest_yr(ratios)
+        if yr_sp is not None:
+            _rd_sp = {
+                k: _safe(yr_sp, k) for k in (
+                    "pe_ratio", "ev_ebitda", "roic", "net_margin",
+                    "ebitda_margin", "revenue_growth", "fcf_yield",
+                    "net_debt_ebitda", "momentum_52w",
+                )
+            }
+            _ci = getattr(snapshot, "company_info", None)
+            _sec = getattr(_ci, "sector", None) if _ci else None
+            _sp = compute_sector_percentile(_rd_sp, _sec)
+            if _sp:
+                fs_sector_percentile = _sp.get("percentile")
+    except Exception as _e_sp:
+        log.debug(f"[cmp_societe_xlsx_writer:sector_percentile] skipped: {_e_sp}")
     perf_3m = supp.get("perf_3m")
     mom_sc  = _momentum_score(perf_3m)
 
@@ -684,6 +749,7 @@ def extract_metrics(state: dict, supp: dict) -> dict:
 
         # SCORES (rows 47-52) — remplis après les deux sociétés
         "finsight_score": fs,
+        "finsight_sector_percentile": fs_sector_percentile,
         "momentum_score": mom_sc,
         "recommendation": _safe(synthesis, "recommendation"),
         "conviction":     _safe(synthesis, "conviction"),

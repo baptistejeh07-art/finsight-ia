@@ -441,6 +441,130 @@ def _governance_score(ratios: dict, market: Optional[dict] = None,
     }
 
 
+# ═══ RECALIBRATION — SPREAD + SECTOR PERCENTILE ═══════════════════════════
+# Diagnostic 2026-04-24 : sur un snapshot SP100 (n=50) le score v1.2 clusterise
+# à mean=47.6 std=10.9 — trois sociétés type MC.PA/OR.PA/SU.PA ressortent toutes
+# à 48-50 alors qu'elles ont des profils de qualité très différents. Deux
+# corrections sont appliquées en post-processing (sans toucher aux sous-scores
+# pour ne pas invalider le backtest `backtest_mode=True`) :
+#   1. `displayed` : recalibration linéaire qui étire la distribution (on passe
+#      de std≈11 à std≈20) tout en préservant l'ordre des sociétés.
+#   2. `sector_percentile` : rang percentile de chaque ratio vs les quartiles
+#      Q10/Q25/Q50/Q75/Q90 du secteur (sector_bounds.json), moyenné sur 5-6
+#      ratios. Donne un "rang sectoriel" complémentaire au score absolu.
+_SPREAD_CENTER = 48.0   # mean observé sur snapshot backtest 2026-03-01
+_SPREAD_FACTOR = 1.4    # étirement modéré (std 11 -> ~15). On laisse le
+                         # sector_percentile porter le différentiel fin entre
+                         # pairs qui ont un raw score voisin (MC.PA vs OR.PA).
+
+
+def _spread_calibration(raw: float) -> int:
+    """Elargit l'échelle autour du centre observé. Préserve l'ordre."""
+    try:
+        v = float(raw)
+    except (TypeError, ValueError):
+        return int(round(raw)) if raw is not None else 0
+    widened = _SPREAD_CENTER + (v - _SPREAD_CENTER) * _SPREAD_FACTOR
+    return int(round(max(0.0, min(100.0, widened))))
+
+
+def _ratio_percentile(value: Optional[float], quartiles: dict,
+                       inverse: bool = False) -> Optional[float]:
+    """Retourne un rang 0-100 dans la distribution sectorielle.
+
+    quartiles : dict avec clés q10, q25, q50, q75, q90 (doivent être remplies).
+    inverse=True pour les ratios où "plus bas = mieux" (PE, EV/EBITDA, ND/EBITDA).
+    Interpole linéairement entre les quartiles pour une échelle continue.
+    """
+    if value is None:
+        return None
+    q10 = quartiles.get("q10"); q25 = quartiles.get("q25")
+    q50 = quartiles.get("q50"); q75 = quartiles.get("q75")
+    q90 = quartiles.get("q90")
+    if any(x is None for x in (q10, q25, q50, q75, q90)):
+        return None
+    # Anchors (pos, rank) en mode "plus haut = mieux"
+    if value <= q10:
+        p = 5.0
+    elif value <= q25:
+        p = 5.0 + (value - q10) / max(q25 - q10, 1e-9) * (25 - 5)
+    elif value <= q50:
+        p = 25.0 + (value - q25) / max(q50 - q25, 1e-9) * (50 - 25)
+    elif value <= q75:
+        p = 50.0 + (value - q50) / max(q75 - q50, 1e-9) * (75 - 50)
+    elif value <= q90:
+        p = 75.0 + (value - q75) / max(q90 - q75, 1e-9) * (95 - 75)
+    else:
+        p = 95.0
+    if inverse:
+        p = 100.0 - p
+    return max(0.0, min(100.0, p))
+
+
+# Ratios utilisés pour le percentile sectoriel : mix qualité + valo + momentum.
+# Dans chaque tuple : (clé ratios, inverse=True si plus bas = mieux).
+_PERCENTILE_RATIOS = [
+    ("roic",            False),
+    ("net_margin",      False),
+    ("ebitda_margin",   False),
+    ("revenue_growth",  False),
+    ("fcf_yield",       False),
+    ("pe_ratio",        True),
+    ("ev_ebitda",       True),
+    ("net_debt_ebitda", True),
+    ("momentum_52w",    False),
+]
+
+
+def compute_sector_percentile(ratios: dict, sector: Optional[str]) -> Optional[dict]:
+    """Calcule un rang percentile 0-100 de la société dans son secteur.
+
+    Agrège les percentiles ratio-par-ratio (moyenne simple sur les ratios
+    disponibles). Retourne None si secteur absent ou aucun quartile trouvé.
+    """
+    if not ratios or not sector:
+        return None
+    bounds = _get_sector_bounds()
+    if not bounds:
+        return None
+    # Match secteur fuzzy
+    sec_block = None
+    for key in bounds:
+        if key == "_default":
+            continue
+        if key == sector or (sector and key.lower() in sector.lower()) or (sector and sector.lower() in key.lower()):
+            sec_block = bounds[key]
+            break
+    if sec_block is None:
+        sec_block = bounds.get("_default")
+    if not sec_block:
+        return None
+
+    per_ratio: dict[str, float] = {}
+    for key, inv in _PERCENTILE_RATIOS:
+        v = _safe(ratios.get(key))
+        if v is None:
+            continue
+        # Conversion % → décimal si on détecte un % brut
+        if key in ("roic", "net_margin", "ebitda_margin", "revenue_growth",
+                   "fcf_yield", "momentum_52w") and v is not None and abs(v) > 1.5:
+            v = v / 100.0
+        q = sec_block.get(key)
+        if not q:
+            continue
+        p = _ratio_percentile(v, q, inverse=inv)
+        if p is not None:
+            per_ratio[key] = round(p, 1)
+    if not per_ratio:
+        return None
+    avg = sum(per_ratio.values()) / len(per_ratio)
+    return {
+        "percentile": int(round(avg)),
+        "n_ratios": len(per_ratio),
+        "per_ratio": per_ratio,
+    }
+
+
 # ═══ AGRÉGATION + VERDICT ════════════════════════════════════════════════
 def _verdict(score: float) -> str:
     if score >= 80:
@@ -585,16 +709,24 @@ def compute_score(
         + governance * 4 * weights["governance"]
     )
     total = round(weighted)
+    # v1.3 : post-calibration — `global` reste le score brut (backtest), mais
+    # on expose `displayed` (étiré, mean=50/std≈20) et `sector_percentile`
+    # (rang intra-sectoriel) pour rendre le signal discriminant côté UI.
+    displayed = _spread_calibration(total)
+    sec_pct = compute_sector_percentile(ratios or {}, sector)
 
     return {
-        "global": total,
-        "grade": _grade(total),
-        "verdict": _verdict(total),
+        "global": total,            # compat backtest (non recalibré)
+        "displayed": displayed,      # score recalibré affiché côté produit
+        "grade": _grade(displayed),
+        "verdict": _verdict(displayed),
         # Sous-scores affichés sur leur échelle native /25 pour lisibilité
         "quality": round(quality, 1),
         "value": round(value, 1),
         "momentum": round(momentum, 1),
         "governance": round(governance, 1),
+        # Rang sectoriel 0-100 (0=fond du secteur, 100=top du secteur)
+        "sector_percentile": sec_pct,
         # Pondérations appliquées (transparence pour l'utilisateur)
         "weights": weights,
         "sector_profile_used": _profile_label_for(sector),
@@ -604,7 +736,7 @@ def compute_score(
             "momentum": m_det,
             "governance": g_det,
         },
-        "version": "v1.2",  # bump version
+        "version": "v1.3",  # bump version (spread + sector_percentile)
     }
 
 

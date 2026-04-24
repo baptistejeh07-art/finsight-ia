@@ -597,8 +597,13 @@ def output_node(state: FinSightState) -> dict:
             sector_analytics=None, info=info_dict,
             sector=_sector, industry=_industry,
         )
+        _sec_pct = finsight_score.get("sector_percentile") or {}
+        _pct_v = _sec_pct.get("percentile") if _sec_pct else None
         log.info(f"[output_node] FinSight Score v{finsight_score.get('version','v1')} = "
-                 f"{finsight_score['global']}/100 ({finsight_score['grade']}) — "
+                 f"raw {finsight_score['global']}/100 -> displayed "
+                 f"{finsight_score.get('displayed', finsight_score['global'])}/100 "
+                 f"({finsight_score['grade']}) — rang sectoriel "
+                 f"{_pct_v if _pct_v is not None else 'n/a'} — "
                  f"profil {finsight_score.get('sector_profile_used','STD')} — "
                  f"{finsight_score['verdict']}")
     except Exception as _se:

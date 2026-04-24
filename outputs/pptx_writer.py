@@ -198,6 +198,22 @@ def _g(obj, attr, default=None):
     return getattr(obj, attr, default)
 
 
+def _resolve_ccy(ci, default: str = "USD") -> str:
+    """Devise d'affichage : company_info.currency si dispo, sinon déduction par
+    suffixe du ticker (SU.PA → EUR, BMW.DE → EUR, AZN.L → GBP). Évite le
+    fallback aveugle à USD sur une valeur européenne quand l'info yfinance
+    remonte vide."""
+    cur = _g(ci, "currency", None)
+    if cur:
+        return str(cur)
+    tkr = _g(ci, "ticker", None)
+    try:
+        from core.currency import infer_currency_from_ticker as _ccy_ft
+        return _ccy_ft(tkr, default=default)
+    except Exception:
+        return default
+
+
 # ─── i18n helper PPTX — slide titles multilingues ─────────────────────────
 _PPTX_CURRENT_LANG: str = "fr"
 
@@ -1066,7 +1082,7 @@ def _slide_cover(prs, snap, synthesis, ratios, devil, sentiment):
     co_name  = _g(ci, "company_name", "—")
     sector   = _g(ci, "sector", "") or ""
     exchange = _infer_exchange(ticker, getattr(ci, "exchange", "") or "" if ci else "")
-    currency = _g(ci, "currency", "USD") or "USD"
+    currency = _resolve_ccy(ci)
     cur_sym  = _currency_symbol(currency)
     gen_date = _fr_date_long(_g(ci, "analysis_date", None) or date.today())
     price    = _g(mkt, "share_price")
@@ -1135,7 +1151,7 @@ def _slide_exec_summary(prs, snap, synthesis, ratios, devil, sentiment):
 
     ci      = snap.company_info if snap else None
     mkt     = snap.market if snap else None
-    currency = _g(ci, "currency", "USD") or "USD"
+    currency = _resolve_ccy(ci)
     cur_sym  = _currency_symbol(currency)
     price    = _g(mkt, "share_price")
 
@@ -1385,7 +1401,7 @@ def _slide_company_overview(prs, snap, synthesis, ratios):
     mkt     = snap.market if snap else None
     ticker  = _g(ci, "ticker", "—")
     co_name = _g(ci, "company_name", "—")
-    currency = _g(ci, "currency", "USD") or "USD"
+    currency = _resolve_ccy(ci)
     cur_sym  = _currency_symbol(currency)
     price    = _g(mkt, "share_price")
 
@@ -1616,7 +1632,7 @@ def _slide_is(prs, snap, synthesis, ratios):
     section_dots(slide, 2)
 
     ci      = snap.company_info if snap else None
-    currency= _g(ci, "currency", "USD") or "USD"
+    currency = _resolve_ccy(ci)
     cur_sym = _currency_symbol(currency)
 
     years_sorted = _valid_years(snap)
@@ -1864,7 +1880,7 @@ def _slide_bilan(prs, snap, synthesis, ratios):
     section_dots(slide, 2)
 
     ci      = snap.company_info if snap else None
-    currency= _g(ci, "currency", "USD") or "USD"
+    currency = _resolve_ccy(ci)
     cur_sym = _currency_symbol(currency)
 
     years_sorted  = _valid_years(snap)
@@ -2340,7 +2356,7 @@ def _slide_dcf(prs, snap, synthesis, ratios):
 
     ci      = snap.company_info if snap else None
     mkt     = snap.market if snap else None
-    currency= _g(ci, "currency", "USD") or "USD"
+    currency = _resolve_ccy(ci)
     cur_sym = _currency_symbol(currency)
     price   = _g(mkt, "share_price")
     wacc    = _g(mkt, "wacc") or 0.10
@@ -2541,7 +2557,7 @@ def _slide_peers(prs, snap, synthesis, ratios):
 
     ci      = snap.company_info if snap else None
     mkt     = snap.market if snap else None
-    currency= _g(ci, "currency", "USD") or "USD"
+    currency = _resolve_ccy(ci)
     cur_sym = _currency_symbol(currency)
     ticker  = _g(ci, "ticker", "—")
     co_name = _g(ci, "company_name", "—")
@@ -2691,7 +2707,7 @@ def _slide_football_field(prs, snap, synthesis, ratios):
 
     ci       = snap.company_info if snap else None
     mkt      = snap.market if snap else None
-    currency = _g(ci, "currency", "USD") or "USD"
+    currency = _resolve_ccy(ci)
     cur_sym  = _currency_symbol(currency)
     price    = _g(mkt, "share_price")
 
@@ -2870,7 +2886,7 @@ def _slide_multiples_historiques(prs, snap, synthesis, ratios):
 
     ci       = snap.company_info if snap else None
     ticker   = _g(ci, "ticker", "—")
-    currency = _g(ci, "currency", "USD") or "USD"
+    currency = _resolve_ccy(ci)
 
     slide_title(slide, _plbl("multiples_hist"),
                 f"{ticker} \u00b7 P/E \u0026 EV/EBITDA sur 5 ans \u00b7 Standards march\u00e9")
@@ -3051,7 +3067,7 @@ def _slide_capital_returns(prs, snap, synthesis, ratios):
     ci       = snap.company_info if snap else None
     mkt      = snap.market if snap else None
     ticker   = _g(ci, "ticker", "—")
-    currency = _g(ci, "currency", "USD") or "USD"
+    currency = _resolve_ccy(ci)
     cur_sym  = _currency_symbol(currency)
     price    = _g(mkt, "share_price")
 
@@ -3220,7 +3236,7 @@ def _slide_lbo(prs, snap, synthesis, ratios):
     ci       = snap.company_info if snap else None
     mkt      = snap.market if snap else None
     ticker   = _g(ci, "ticker", "—")
-    currency = _g(ci, "currency", "USD") or "USD"
+    currency = _resolve_ccy(ci)
     cur_sym  = _currency_symbol(currency)
 
     slide_title(slide, _plbl("analyse_lbo"),
@@ -3431,7 +3447,7 @@ def _build_lbo_pack(snap, synthesis, ratios) -> dict:
     ticker = _g(ci, "ticker", "—")
     company = _g(ci, "company_name", ticker)
     sector = _g(ci, "sector", "")
-    currency = _g(ci, "currency", "USD") or "USD"
+    currency = _resolve_ccy(ci)
     cur_sym = _currency_symbol(currency)
 
     latest_yr = None
@@ -4555,7 +4571,7 @@ def _slide_historique(prs, snap, synthesis):
     ci       = snap.company_info if snap else None
     mkt      = snap.market if snap else None
     ticker   = _g(ci, "ticker", "—")
-    currency = _g(ci, "currency", "USD") or "USD"
+    currency = _resolve_ccy(ci)
     cur_sym  = _currency_symbol(currency)
     exchange = getattr(ci, "exchange", "") or "" if ci else ""
     gen_date = _fr_date_long(_g(ci, "analysis_date", None) or date.today())
@@ -5055,7 +5071,8 @@ class PPTXWriter:
         _disp_ccy = state.get('display_currency') or 'USD'
         _disp_scope = state.get('display_scope') or 'interface'
         if _disp_scope == "all" and snap and snap.company_info and snap.market:
-            _native_ccy = snap.company_info.currency or 'USD'
+            # Fallback suffixe ticker pour éviter USD aveugle sur valeurs européennes.
+            _native_ccy = snap.company_info.currency or _resolve_ccy(snap.company_info)
             try:
                 from core.currency import normalize_currency as _nc, convert as _fx
                 _base, _mult = _nc(_native_ccy)

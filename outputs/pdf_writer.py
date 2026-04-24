@@ -958,7 +958,14 @@ def _cover_page(c, doc, data):
     conviction_str = _d(data, 'conviction_str', '')
     date_analyse   = _d(data, 'date_analyse', '')
     wacc_str       = _d(data, 'wacc_str', '')
-    currency       = _d(data, 'currency', 'USD')
+    # Fallback via le ticker (suffixe .PA/.L/.SW...) si la devise a été perdue.
+    _ticker_fallback = _d(data, 'ticker', '')
+    try:
+        from core.currency import infer_currency_from_ticker as _ccy_ft
+        _ccy_default = _ccy_ft(_ticker_fallback, default='USD')
+    except Exception:
+        _ccy_default = 'USD'
+    currency       = _d(data, 'currency', _ccy_default)
 
     # Fond blanc
     c.setFillColor(WHITE)
@@ -1761,6 +1768,18 @@ def _build_financials(area_buf, data, margins_buf=None):
             _resp = _llm_ratio(_ratio_prompt, phase="fast", max_tokens=400) or ""
             if _resp.strip():
                 _ratio_para = _resp.strip()
+                # Garde-fou : on logue les années hors range si on les connaît.
+                try:
+                    _years_ctx = data.get('historical_years') or []
+                    if _years_ctx:
+                        _ymin = min(int(y) for y in _years_ctx)
+                        _ymax = max(int(y) for y in _years_ctx)
+                        from core.llm_guardrails import audit_llm_output as _audit
+                        _audit(_ratio_para, ticker=_ticker_f,
+                                min_year=_ymin, max_year=_ymax,
+                                context_label="ratio_commentary")
+                except Exception:
+                    pass
         except Exception as _e_r:
             log.debug(f"[pdf_writer:ratio_commentary] LLM skipped: {_e_r}")
     # Fallback ultime si LLM échoue : phrase minimale sans hardcode metriques
@@ -4385,7 +4404,16 @@ class PDFWriter:
 
         ci    = snap.company_info if snap else None
         mkt   = snap.market       if snap else None
-        _cur_raw = (ci.currency if ci else None) or 'USD'
+        # Fallback devise : préfère le suffixe du ticker (SU.PA → EUR) plutôt
+        # que le défaut USD aveugle qui faisait afficher "273,43 USD" sur
+        # Schneider Electric quand yfinance.info.currency remontait vide.
+        _ticker_hint = (ci.ticker if ci else None) or state.get('ticker')
+        try:
+            from core.currency import infer_currency_from_ticker as _ccy_from_tkr
+            _cur_fallback = _ccy_from_tkr(_ticker_hint, default='USD')
+        except Exception:
+            _cur_fallback = 'USD'
+        _cur_raw = (ci.currency if ci else None) or _cur_fallback
 
         # Normalisation GBp/ILA (sous-unités) → GBP/ILS avec multiplicateur.
         try:
@@ -4891,6 +4919,91 @@ class PDFWriter:
             ]
         else:
             ratios_vs_peers = _ratios_std
+
+        # Enrichissement adaptatif : ajoute ROCE + Couverture intérêts + BFR
+        # (jours CA) quand les données permettent le calcul. Ces métriques
+        # complètent l'analyse standard pour les profils industriels, évitent
+        # le sentiment « rapport incomplet » relevé pendant l'audit cover.
+        try:
+            _ebit_v  = _a('ebit')
+            _ta_v    = _a('total_assets')
+            _cl_v    = _a('current_liabilities')
+            _wc_v    = _a('working_capital')
+            _rev_v   = _a('revenue')
+            _ie_v    = _a('interest_expense')
+            _ic_v    = _a('interest_coverage')
+            # ROCE = EBIT / Capital Employé (Total Actifs − Passifs courants)
+            _roce_v = None
+            if _ebit_v is not None and _ta_v and _cl_v is not None:
+                try:
+                    _ce = float(_ta_v) - float(_cl_v)
+                    if _ce > 0:
+                        _roce_v = float(_ebit_v) / _ce
+                except (TypeError, ValueError, ZeroDivisionError):
+                    _roce_v = None
+            # BFR jours de CA = Working Capital / Revenue * 365
+            _dwc_v = None
+            if _wc_v is not None and _rev_v:
+                try:
+                    _dwc_v = float(_wc_v) / float(_rev_v) * 365.0
+                except (TypeError, ValueError, ZeroDivisionError):
+                    _dwc_v = None
+            # Couverture intérêts : utilise le ratio déjà calculé si dispo,
+            # sinon EBIT / Interest Expense.
+            _icov_v = _ic_v
+            if _icov_v is None and _ebit_v is not None and _ie_v:
+                try:
+                    _icov_v = float(_ebit_v) / float(_ie_v)
+                except (TypeError, ValueError, ZeroDivisionError):
+                    _icov_v = None
+            if _roce_v is not None:
+                ratios_vs_peers.append(
+                    {'label':'ROCE', 'value':_frpct(_roce_v),
+                     'reference':'> 12 % = fort',
+                     'lecture':_read_label(_roce_v, '8-15', pct=True)}
+                )
+            if _icov_v is not None:
+                try:
+                    _icov_f = float(_icov_v)
+                except (TypeError, ValueError):
+                    _icov_f = None
+                if _icov_f is not None:
+                    _icov_lec = ('Solide' if _icov_f > 8 else
+                                 ('Correct' if _icov_f > 3 else 'Faible'))
+                    ratios_vs_peers.append(
+                        {'label':'Couverture int\u00e9r\u00eats (x)',
+                         'value':_frx(_icov_f),
+                         'reference':'> 3x = confortable',
+                         'lecture':_icov_lec}
+                    )
+            if _dwc_v is not None:
+                try:
+                    _dwc_f = float(_dwc_v)
+                except (TypeError, ValueError):
+                    _dwc_f = None
+                if _dwc_f is not None:
+                    _dwc_lec = ('Tendu' if _dwc_f < 0 else
+                                ('En ligne' if _dwc_f < 90 else 'Elev\u00e9'))
+                    ratios_vs_peers.append(
+                        {'label':'BFR (jours CA)',
+                         'value':f"{int(round(_dwc_f))} j",
+                         'reference':'30\u201390 j selon secteur',
+                         'lecture':_dwc_lec}
+                    )
+        except Exception as _e_extra:
+            log.debug(f"[pdf_writer] ratios additionnels skip: {_e_extra}")
+
+        # Filtrage adaptatif : on retire les lignes dont la valeur est vide
+        # (tiret) SAUF quand la lecture contient explicitement « n/a » (cas
+        # Altman Z-Score non applicable aux banques/foncières, déjà documenté
+        # dans la table). Évite le sentiment « rapport incomplet » quand le
+        # secteur rend un ratio non calculable au lieu de non pertinent.
+        _EM_DASH = "\u2014"
+        ratios_vs_peers = [
+            r for r in ratios_vs_peers
+            if (r.get('value') and r.get('value') != _EM_DASH)
+            or 'n/a' in str(r.get('lecture', '')).lower()
+        ]
 
         # DCF sensitivity — adapter la plage pour garantir WACC > TGR partout.
         # Sinon pour des WACC faibles (ex: Toyota 4%, TGR 2.5%), la moitié de
