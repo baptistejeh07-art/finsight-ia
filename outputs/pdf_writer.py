@@ -1111,12 +1111,19 @@ def _cover_page(c, doc, data):
             cut += "…"
         return cut
 
-    _sum95 = _word_trunc(_summary_raw, 110)
+    # Cover thèse : on coupe en 2 lignes de 130 chars (vs 110 avant — 110
+    # cassait sur "Le..." car juste après le dernier point de la phrase 1).
+    # Pas d'ellipsis sur la ligne 1 si la ligne 2 continue : c'était ce qui
+    # faisait croire à une troncature alors que la phrase se poursuivait
+    # juste dessous.
+    _sum95 = _word_trunc(_summary_raw, 130)
     _sum_rest = ''
-    # Ligne 2 : reste, si phrase longue
     if len(_summary_raw) > len(_sum95.rstrip('…').rstrip('.')):
         _offset = len(_sum95.rstrip('…').rstrip('.')) + 1
-        _sum_rest = _word_trunc(_summary_raw[_offset:].lstrip(), 110)
+        _sum_rest = _word_trunc(_summary_raw[_offset:].lstrip(), 130)
+    # Ligne 1 : pas d'ellipsis si la suite existe (le "…" trompe le lecteur)
+    if _sum_rest.strip() and _sum95.endswith('…'):
+        _sum95 = _sum95.rstrip('…').rstrip()
     if not _sum95:
         _sum95 = 'Analyse fondamentale disponible dans le corps du rapport.'
     _b1_lines = [_sum95]
@@ -1321,16 +1328,34 @@ def _build_investment_case(data):
     left_elems.append(h_cat)
     left_elems.append(Spacer(1, 2*mm))
 
-    # Catalyseurs : n'affiche que les non-vides
-    _cats_clean = [c for c in cats if c and (_d(c, 'name', '') or _d(c, 'analysis', ''))]
+    # Catalyseurs : n'affiche que les non-vides, dédupliqués par nom (audit
+    # BNP.PA : le LLM avait sorti "Rachat d'actions 2 MdEUR" 2x identique,
+    # visuellement une colonne "catalyseurs" à moitié vide).
+    _cats_raw = [c for c in cats if c and (_d(c, 'name', '') or _d(c, 'analysis', ''))]
+    _seen_cat_names: set[str] = set()
+    _cats_clean = []
+    for c in _cats_raw:
+        _key = str(_d(c, 'name', '')).strip().lower()[:60]
+        if _key and _key in _seen_cat_names:
+            continue
+        _seen_cat_names.add(_key)
+        _cats_clean.append(c)
     if not _cats_clean:
         _cats_clean = [{"name": "Catalyseurs d\u00e9taill\u00e9s en section Valorisation",
                         "analysis": ""}]
     for c_item in _cats_clean[:3]:
         c_name = _d(c_item, 'name', '\u2014')
         c_anal = _d(c_item, 'analysis', '')
-        _anal_limit = 220
-        _anal_trim = c_anal[:_anal_limit] + ('\u2026' if len(c_anal) > _anal_limit else '')
+        # Audit : 220 chars trop court, coupait sur "...les revenus" etc.
+        _anal_limit = 320
+        if len(c_anal) > _anal_limit:
+            _cut = c_anal[:_anal_limit]
+            _last = _cut.rfind(' ')
+            if _last > _anal_limit * 0.7:
+                _cut = _cut[:_last].rstrip(' ,;:')
+            _anal_trim = _cut + '\u2026'
+        else:
+            _anal_trim = c_anal
         _inner = f"{_safe(c_name)}" + (f" \u2014 {_safe(_anal_trim)}" if c_anal else "")
         left_elems.append(Paragraph(f"-  {_inner}", S_IC_B))
         left_elems.append(Spacer(1, 2*mm))
@@ -1378,7 +1403,26 @@ def _build_investment_case(data):
          Paragraph(_safe(pe_val),        S_TD_C),
          Paragraph(_safe(pe_ref),        S_TD_C)],
     ]
-    if _ev_missing and ps_val not in ('\u2014', '—', '', 'None'):
+    # Détection profil bancaire/foncier : EV/EBITDA n'est pas pertinent.
+    # Audit BNP.PA : la case affichait "EV/EBITDA —" vide alors que pour une
+    # banque on devrait montrer P/TBV ou au moins le marquer n/a.
+    _prof_for_val = data.get('sector_profile', 'STANDARD')
+    _pb_str = _d(data, 'pb_ratio_str', '\u2014')
+    _is_bank_like = _prof_for_val in ('BANK', 'INSURANCE', 'REIT')
+    if _is_bank_like and _pb_str not in ('\u2014', '—', '', 'None'):
+        _pb_ref_map = {'BANK': '0,8\u20131,5x', 'INSURANCE': '0,8\u20131,5x',
+                        'REIT': '0,8\u20131,4x'}
+        val_rows.append([
+            Paragraph("P/B (x)",           S_TD_B),
+            Paragraph(_safe(_pb_str),       S_TD_C),
+            Paragraph(_pb_ref_map.get(_prof_for_val, '0,8\u20131,5x'), S_TD_C)])
+    elif _is_bank_like:
+        # Secteur bancaire/foncier sans P/B dispo : marquer n/a explicitement.
+        val_rows.append([
+            Paragraph("EV/EBITDA (x)",    S_TD_B),
+            Paragraph(f"n/a {_prof_for_val.lower()}", S_TD_C),
+            Paragraph("\u2014",            S_TD_C)])
+    elif _ev_missing and ps_val not in ('\u2014', '—', '', 'None'):
         # Palier 2 : afficher P/S au lieu de EV/EBITDA
         val_rows.append([
             Paragraph("P/S LTM (x) *",   S_TD_B),
@@ -1425,8 +1469,19 @@ def _build_investment_case(data):
     for risk_lbl, risk_body in _risk_items[:3]:
         txt = _safe(risk_lbl)
         if risk_body and risk_body != risk_lbl:
-            _body_limit = 260
-            body_short = risk_body[:_body_limit] + ('\u2026' if len(risk_body) > _body_limit else '')
+            # Audit BNP.PA : les 3 risques étaient coupés à 260 chars (finissait
+            # sur "représentent...", "mas...", "pou..."). On monte à 420 pour
+            # laisser respirer l'analyse chiffrée du LLM. Coupe au dernier mot
+            # pour éviter le cut en plein milieu d'un chiffre.
+            _body_limit = 420
+            if len(risk_body) > _body_limit:
+                _cut = risk_body[:_body_limit]
+                _last = _cut.rfind(' ')
+                if _last > _body_limit * 0.7:
+                    _cut = _cut[:_last].rstrip(' ,;:')
+                body_short = _cut + '\u2026'
+            else:
+                body_short = risk_body
             txt = f"<b>{_safe(risk_lbl)}</b> \u2014 {_safe(body_short)}"
         else:
             txt = f"<b>{_safe(risk_lbl)}</b>"
@@ -4808,7 +4863,7 @@ class PDFWriter:
                 ["Croissance YoY"]          + grow_vals,
                 ["R\u00e9sultat net"]       + [_frm(_ni(l)) for l in all_labels],
                 ["Marge nette"]             + [_frpct(_nm(l)) for l in all_labels],
-                ["EPS ($)"]                 + _eps_hist,
+                [f"EPS ({cur})"]             + _eps_hist,
                 [_pe_label]                 + _pe_row,
             ]
         elif _profile == "REIT":
@@ -4818,7 +4873,7 @@ class PDFWriter:
                 ["Marge brute"]             + [_frpct(_gm(l)) for l in all_labels],
                 ["R\u00e9sultat net"]       + [_frm(_ni(l)) for l in all_labels],
                 ["Marge nette"]             + [_frpct(_nm(l)) for l in all_labels],
-                ["EPS ($)"]                 + _eps_hist,
+                [f"EPS ({cur})"]             + _eps_hist,
                 [_pe_label]                 + _pe_row,
             ]
         else:
@@ -4830,7 +4885,7 @@ class PDFWriter:
                 ["Marge EBITDA"]            + [_frpct(_em(l)) for l in all_labels],
                 ["R\u00e9sultat net"]       + [_frm(_ni(l)) for l in all_labels],
                 ["Marge nette"]             + [_frpct(_nm(l)) for l in all_labels],
-                ["EPS ($)"]                 + _eps_hist,
+                [f"EPS ({cur})"]             + _eps_hist,
                 [_pe_label]                 + _pe_row,
             ]
 
