@@ -26,6 +26,35 @@ from reportlab.platypus.flowables import Flowable
 
 from outputs.pdf_utils import safe_text as _safe
 
+
+# ─── FORMAT FR CHIFFRES ──────────────────────────────────────────────────────
+# Helpers typo FR : virgule décimale + espace avant « % » / « x » (convention
+# FR = « 4,32 % » et « 13,4x »). Évite les `f"{v:.1f}%"` qui produisent du
+# format US « 4.3% » non acceptable en rapport institutionnel FR.
+def _frp(v, *, sign: bool = False, decimals: int = 1) -> str:
+    """Pourcentage format FR : 33,9 % (ou +33,9 % si sign=True)."""
+    if v is None:
+        return "\u2014"
+    fmt = f"{{:+.{decimals}f}}" if sign else f"{{:.{decimals}f}}"
+    return fmt.format(v).replace(".", ",") + " %"
+
+
+def _frx(v, *, decimals: int = 1) -> str:
+    """Multiple format FR : 13,4x (pas d'espace avant x, convention FR financière)."""
+    if v is None:
+        return "\u2014"
+    fmt = f"{{:.{decimals}f}}"
+    return fmt.format(v).replace(".", ",") + "x"
+
+
+def _frp_s(v, *, sign: bool = False, decimals: int = 1) -> str:
+    """Version safe : accepte strings déjà formattées ou des non-numériques."""
+    try:
+        return _frp(float(v), sign=sign, decimals=decimals)
+    except (TypeError, ValueError):
+        return str(v) if v not in (None, "") else "\u2014"
+
+
 # ─── PALETTE ──────────────────────────────────────────────────────────────────
 NAVY       = colors.HexColor('#1B3A6B')
 NAVY_LIGHT = colors.HexColor('#2A5298')
@@ -582,7 +611,7 @@ def make_allocation_chart(data):
     ax.bar(x,         w_tg,  width, label='Tangency (Max Sharpe)', color='#1A7A4A', alpha=0.85, edgecolor='white')
     ax.bar(x + width, w_erc, width, label='Equal Risk Contrib.', color='#B06000', alpha=0.85, edgecolor='white')
     ax.axhline(y=eq_w, color='#A82020', linewidth=1.0, linestyle='--', alpha=0.7, zorder=5)
-    ax.text(n - 0.4, eq_w + 0.3, f'Egal ({eq_w:.1f}%)', fontsize=10, color='#A82020', style='italic')
+    ax.text(n - 0.4, eq_w + 0.3, f'Egal ({_frp(eq_w)})', fontsize=10, color='#A82020', style='italic')
     ax.set_xticks(x)
     ax.set_xticklabels(abbrevs, rotation=30, ha='right', fontsize=11)
     ax.set_ylabel("Poids (%)", fontsize=12, color='#555', labelpad=8)
@@ -618,7 +647,7 @@ def make_attribution_chart(data):
     x_range = max(abs(min(vals)), abs(max(vals))) * 1.0 if vals else 1.0
     x_pad   = x_range * 0.08
     for i, (val, ret) in enumerate(zip(vals, rets)):
-        label = f"{val:+.1f}pp  ({ret:+.1f}%)"
+        label = f"{val:+.1f}pp  ({_frp(ret, sign=True)})".replace(".", ",", 1)
         ax.text(val + x_pad if val >= 0 else val - x_pad, i,
                 label, va='center', fontsize=10, color='#333',
                 fontweight='bold', ha='left' if val >= 0 else 'right')
@@ -907,30 +936,30 @@ def _build_synthese(data, perf_buf, registry=None):
         _pe_pct = max(0, min(100, round((_pe_val - _pe_min) / max(_pe_max - _pe_min, 1) * 100)))
         if _pe_pct >= 75:
             _pe_pos, _pe_pos_s = "Cherte élevée", S_TD_R
-            _pe_interp = (f"Le P/E forward de {_pe_val:.1f}x se situe dans le <b>quartile supérieur</b> "
+            _pe_interp = (f"Le P/E forward de {_frx(_pe_val)} se situe dans le <b>quartile supérieur</b> "
                           f"de sa fourchette historique 10 ans ({_pe_min:.0f}x\u2013{_pe_max:.0f}x). "
                           f"La valorisation intègre une croissance des benefices soutenue ; "
                           f"tout choc sur les marges ou la guidance pourrait triggerer une recompression multiple.")
         elif _pe_pct >= 50:
             _pe_pos, _pe_pos_s = "Valorisation élevée", S_TD_A
-            _pe_interp = (f"Le P/E forward de {_pe_val:.1f}x s'inscrit <b>au-dessus de la médiane historique</b> "
+            _pe_interp = (f"Le P/E forward de {_frx(_pe_val)} s'inscrit <b>au-dessus de la médiane historique</b> "
                           f"({_pe_min:.0f}x\u2013{_pe_max:.0f}x). La prime de valorisation est justifiable "
                           f"si la visibilité BPA reste intacte. Surveiller les révisions d'analystes.")
         elif _pe_pct >= 25:
             _pe_pos, _pe_pos_s = "Valorisation raisonnable", S_TD_G
-            _pe_interp = (f"Le P/E forward de {_pe_val:.1f}x s'inscrit <b>dans la moitié inférieure</b> "
+            _pe_interp = (f"Le P/E forward de {_frx(_pe_val)} s'inscrit <b>dans la moitié inférieure</b> "
                           f"de la fourchette historique ({_pe_min:.0f}x\u2013{_pe_max:.0f}x). "
                           f"La valorisation offre un coussin par rapport aux niveaux de stress.")
         else:
             _pe_pos, _pe_pos_s = "Sous-valorisation", S_TD_G
-            _pe_interp = (f"Le P/E forward de {_pe_val:.1f}x se situe dans le <b>quartile inférieur</b> "
+            _pe_interp = (f"Le P/E forward de {_frx(_pe_val)} se situe dans le <b>quartile inférieur</b> "
                           f"de sa fourchette historique ({_pe_min:.0f}x\u2013{_pe_max:.0f}x). "
                           f"Les niveaux actuels peuvent offrir une opportunité d'entrée si les fondamentaux se stabilisent.")
 
         pe_h = [Paragraph(h, S_TH_C) for h in
                 ["P/E Forward actuel", "Fourchette 10 ans", "Percentile hist.", "Positionnement"]]
         pe_row = [
-            Paragraph(f"{_pe_val:.1f}x",                    S_TD_BC),
+            Paragraph(_frx(_pe_val),                        S_TD_BC),
             Paragraph(f"{_pe_min:.0f}x \u2014 {_pe_max:.0f}x", S_TD_C),
             Paragraph(f"{_pe_pct}e percentile",              _pe_pos_s),
             Paragraph(f"<b>{_pe_pos}</b>",                   _pe_pos_s),
@@ -1193,9 +1222,9 @@ def _build_cartographie(data, weights_buf, attribution_buf=None, registry=None):
             _pb  = pb_map.get(nom)  if pb_map.get(nom)  is not None else pb_map.get(_alias)
             _dy  = dy_map.get(nom)  if dy_map.get(nom)  is not None else dy_map.get(_alias)
             _erp = erp_map.get(nom) if erp_map.get(nom) is not None else erp_map.get(_alias)
-            _pb_s  = f"{_pb:.1f}x"  if _pb  else "\u2014"
-            _dy_s  = f"{_dy:.1f}%"  if _dy  else "\u2014"
-            _erp_s = f"{_erp:+.1f}%" if _erp is not None else "\u2014"
+            _pb_s  = _frx(_pb)  if _pb  else "\u2014"
+            _dy_s  = _frp(_dy)  if _dy  else "\u2014"
+            _erp_s = _frp(_erp, sign=True) if _erp is not None else "\u2014"
             _erp_style = S_TD_G if (_erp or 0) > 4 else (S_TD_R if (_erp or 0) < 1 else S_TD_A)
             # Lecture qualitative
             if _erp is None:
@@ -1620,7 +1649,7 @@ def _build_allocation(data, allocation_buf=None, registry=None):
         elems.append(src(
             f"FinSight IA — Optimisation Markowitz sur {_source_base}. "
             "Rendements historiques 52S. Contrainte max 40% par secteur. "
-            f"Ligne rouge pointillee = poids egal ({eq_w:.1f}%)."))
+            f"Ligne rouge pointillee = poids egal ({_frp(eq_w)})."))
         elems.append(Spacer(1, 4*mm))
 
     # Tableau des poids
@@ -1636,7 +1665,7 @@ def _build_allocation(data, allocation_buf=None, registry=None):
         _votes = sum([1 for w in [_w_mv, _w_tg, _w_erc] if w > eq_w * 0.9])
         _sig_a = (S_TD_G if _votes >= 2 else (S_TD_R if _votes == 0 else S_TD_A))
         _sig_t = ("Surpondérer" if _votes >= 2 else ("Sous-pondérer" if _votes == 0 else "Neutre"))
-        def _w(v): return Paragraph(f"{v:.1f}%", S_TD_G if v > eq_w else (S_TD_R if v < eq_w*0.6 else S_TD_A))
+        def _w(v): return Paragraph(_frp(v), S_TD_G if v > eq_w else (S_TD_R if v < eq_w*0.6 else S_TD_A))
         alloc_rows.append([
             Paragraph(nom, S_TD_B),
             _w(_w_mv), _w(_w_tg), _w(_w_erc),

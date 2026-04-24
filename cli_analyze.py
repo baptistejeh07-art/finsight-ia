@@ -1972,10 +1972,10 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
         hist_1y = ticker_obj.history(period="ytd", interval="1d")["Close"]
         if len(hist_1y) > 1:
             ytd_pct = (hist_1y.iloc[-1] / hist_1y.iloc[0] - 1) * 100
-            ytd_str = f"{ytd_pct:+.1f}%"
+            ytd_str = f"{ytd_pct:+.1f}".replace(".", ",") + " %"
         pe_fwd = info.get("forwardPE") or info.get("trailingPE")
         if pe_fwd and 0 < pe_fwd < 100:
-            pe_fwd_str = f"{pe_fwd:.1f}x"
+            pe_fwd_str = f"{pe_fwd:.1f}".replace(".", ",") + "x"
         indice_info = info
     except Exception as e:
         log.warning("yfinance indice %s erreur: %s", code, e)
@@ -2358,7 +2358,7 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
                 if _pe_eu:
                     import statistics as _se2
                     _pe_med = _se2.median(_pe_eu)
-                    pe_fwd_str = f"{_pe_med:.1f}x"
+                    pe_fwd_str = f"{_pe_med:.1f}".replace(".", ",") + "x"
                     _erp_eu = 1 / _pe_med - rf_rate
                     erp_pct    = f"{_erp_eu*100:.1f}%"
                     erp_signal = ("Tendu" if _erp_eu < 0.02
