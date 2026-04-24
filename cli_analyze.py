@@ -2822,7 +2822,7 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
                 "pe_mediane_10y": 16.0,
                 "poids_indice":   "—",
                 "catalyseur":     f"Secteur {_ts[3]} — score composite {_ts[2]}/100",
-                "risque":         "Risque de compression multiple si revisions BPA deteriorees",
+                "risque":         "Risque de compression multiple si révisions BPA détériorées",
                 "societes":       _socs_fb,
             })
 

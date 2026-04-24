@@ -3686,7 +3686,7 @@ def _precompute_llm_batch(data: dict) -> None:
             f"mots sur le potentiel de consolidation/M&A de {_target} — secteur {_sector}.\n"
             f"FCF LTM : {_fcf_str}, Dette nette : {_nd_str}\n\n"
             f"NOTE : un LBO classique n'est PAS applicable aux banques/assurances "
-            f"(entites regulees, contraintes CET1/Solvency II). Analyse plutot le "
+            f"(entités régulées, contraintes CET1/Solvency II). Analyse plutôt le "
             f"potentiel d'acquisition strategique ou de consolidation sectorielle.\n\n"
             f"6 paragraphes (~160-180 mots chacun) avec ces titres EXACTS :\n"
             f"ATTRACTIVITE CIBLE, CONTRAINTES REGULATOIRES, SYNERGIES, RISQUES, "
