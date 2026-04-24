@@ -2016,7 +2016,7 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
 
     # 2b. 10Y Treasury yield → ERP reel
     rf_rate   = 0.045
-    rf_pct_str = "4.50%"
+    rf_pct_str = "4,50 %"
     erp_val    = None
     erp_pct    = "—"
     erp_signal = "—"
@@ -2024,7 +2024,7 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
         tnx_hist = get_ticker("^TNX").history(period="5d")
         if not tnx_hist.empty:
             rf_rate    = float(tnx_hist["Close"].iloc[-1]) / 100
-            rf_pct_str = f"{rf_rate*100:.2f}%"
+            rf_pct_str = f"{rf_rate*100:.2f}".replace(".", ",") + " %"
         pe_fwd_num = indice_info.get("forwardPE") or indice_info.get("trailingPE")
         # Fallback : SPY comme proxy du S&P 500 si ^GSPC ne retourne pas de PE
         if not (pe_fwd_num and 0 < pe_fwd_num < 100):
@@ -2035,7 +2035,7 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
                 pe_fwd_num = None
         if pe_fwd_num and 0 < pe_fwd_num < 100:
             erp_val    = 1 / pe_fwd_num - rf_rate
-            erp_pct    = f"{erp_val*100:.1f}%"
+            erp_pct    = f"{erp_val*100:.1f}".replace(".", ",") + " %"
             erp_signal = ("Tendu" if erp_val < 0.02
                           else "Favorable" if erp_val > 0.04
                           else "Neutre")
@@ -2360,7 +2360,7 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
                     _pe_med = _se2.median(_pe_eu)
                     pe_fwd_str = f"{_pe_med:.1f}".replace(".", ",") + "x"
                     _erp_eu = 1 / _pe_med - rf_rate
-                    erp_pct    = f"{_erp_eu*100:.1f}%"
+                    erp_pct    = f"{_erp_eu*100:.1f}".replace(".", ",") + " %"
                     erp_signal = ("Tendu" if _erp_eu < 0.02
                                   else ("Favorable" if _erp_eu > 0.04 else "Neutre"))
 

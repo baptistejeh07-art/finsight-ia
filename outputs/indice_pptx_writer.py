@@ -29,6 +29,20 @@ def _x(text) -> str:
         return ""
     return _re.sub(r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]', '', str(text))
 
+# ── Format FR chiffres (convention « 13,4x » et « 4,25 % ») ──────────────────
+def _frp(v, *, sign: bool = False, decimals: int = 1) -> str:
+    if v is None:
+        return "\u2014"
+    fmt = f"{{:+.{decimals}f}}" if sign else f"{{:.{decimals}f}}"
+    return fmt.format(v).replace(".", ",") + " %"
+
+
+def _frx(v, *, decimals: int = 1) -> str:
+    if v is None:
+        return "\u2014"
+    return f"{{:.{decimals}f}}".format(v).replace(".", ",") + "x"
+
+
 # ── Dimensions (25.4 x 14.3 cm) ───────────────────────────────────────────────
 _SW = Cm(25.4)
 _SH = Cm(14.3)
@@ -932,7 +946,7 @@ def _s02_exec_summary(prs, D):
         _sp_s  = _mac.get("yield_spread_10y_3m")
         _badges = [(f"Régime {_reg}", _r_col, _WHITE)]
         if _vx:    _badges.append((f"VIX {_vx:.0f}", _GRAYL, _NAVY))
-        if _sp_s is not None: _badges.append((f"Spread {_sp_s:+.1f}%", _GRAYL, _NAVY))
+        if _sp_s is not None: _badges.append((f"Spread {_frp(_sp_s, sign=True)}", _GRAYL, _NAVY))
         if _rec_6 is not None: _badges.append((f"Rec. 6M {_rec_6}%", _GRAYL, _NAVY))
         _bx = 0.9
         for _blbl, _bfill, _btxt in _badges:
@@ -1281,10 +1295,10 @@ def _s06_valorisation(prs, D):
             _parts = []
             _ff = _fred.get("fed_funds_rate")
             if _ff is not None:
-                _parts.append(f"Fed {_ff:.2f}%")
+                _parts.append(f"Fed {_frp(_ff, decimals=2)}")
             _t10 = _fred.get("treasury_10y")
             if _t10 is not None:
-                _parts.append(f"10Y {_t10:.2f}%")
+                _parts.append(f"10Y {_frp(_t10, decimals=2)}")
             _vx = _fred.get("vix")
             if _vx is not None:
                 _parts.append(f"VIX {_vx:.1f}")
@@ -1293,13 +1307,13 @@ def _s06_valorisation(prs, D):
                 _parts.append(f"Yield Curve {_yc:+.2f}%")
             _cpi = _fred.get("cpi_yoy")
             if _cpi is not None:
-                _parts.append(f"CPI {_cpi:+.1f}% YoY")
+                _parts.append(f"CPI {_frp(_cpi, sign=True)} YoY")
             _unemp = _fred.get("unemployment")
             if _unemp is not None:
-                _parts.append(f"Chomage {_unemp:.1f}%")
+                _parts.append(f"Chomage {_frp(_unemp)}")
             _baa = _fred.get("credit_spread_baa")
             if _baa is not None:
-                _parts.append(f"Spread BAA {_baa:.2f}%")
+                _parts.append(f"Spread BAA {_frp(_baa, decimals=2)}")
             if _parts:
                 _fred_line = "Données FRED : " + " \u00b7 ".join(_parts)
                 _rect(slide, 0.9, 7.35, 23.6, 0.45, fill=_GRAYL)
@@ -1416,10 +1430,10 @@ def _s09_cartographie(prs, D):
             _abbrev_sector(s[0], 22),
             str(s[2]),
             norm_sig,
-            f"{s[5]:.1f}%" if isinstance(s[5], (int, float)) and s[5] else "—",
+            _frp(s[5]) if isinstance(s[5], (int, float)) and s[5] else "—",
             str(s[6]) if len(s) > 6 else "—",
-            f"{float(_pb):.1f}x" if _pb is not None else "—",
-            f"{float(_dy):.1f}%" if _dy is not None else "—",
+            _frx(float(_pb)) if _pb is not None else "—",
+            _frp(float(_dy)) if _dy is not None else "—",
         ])
     tbl = _add_table(slide, rows, 0.9, 2.3, 23.6,
                      min(7.5, 0.65 + len(rows) * 0.65),
@@ -1450,7 +1464,7 @@ def _s09_cartographie(prs, D):
     _near_str  = " · ".join(_abbrev_sector(s[0], 22) for s in _near_surp[:3]) if _near_surp else ""
     # Meilleure marge EBITDA parmi les surponderes
     _top_mg    = max((s[5] for s in sorted_s if "Surp" in str(s[3]) and isinstance(s[5], (int,float)) and s[5] > 0), default=None)
-    _top_mg_s  = f"{_top_mg:.1f}%" if _top_mg else "—"
+    _top_mg_s  = _frp(_top_mg) if _top_mg else "—"
     # Stratégie selon dispersion
     if score_spread > 35:
         _strat = ("La dispersion élevée justifié une approche concentrée : surexposer les secteurs verts, "
