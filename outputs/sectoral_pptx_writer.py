@@ -596,35 +596,36 @@ def _fit_s(s, n: int) -> str:
     return cut[:sp] if sp > n // 2 else cut
 
 
+# Format FR chiffres : virgule décimale obligatoire (« 13,4x », « 20,3 % »).
 def _fmt_x(v, d=1):
     if v is None: return "—"
-    try: return f"{float(v):.{d}f}x"
+    try: return f"{float(v):.{d}f}".replace(".", ",") + "x"
     except: return "—"
 
 def _fmt_pct(v, d=1, mult=False):
-    """Format percentage. mult=True si valeur en décimal (0.05→5%). False si déjà en % (5.0→5%)."""
+    """Format percentage FR. mult=True si valeur en décimal (0.05→5,0 %)."""
     if v is None: return "—"
     try:
         fv = float(v) * (100 if mult else 1)
-        return f"{fv:+.{d}f} %"
+        return f"{fv:+.{d}f}".replace(".", ",") + " %"
     except: return "—"
 
 def _fmt_pct_plain(v, d=1, mult=False):
     if v is None: return "—"
     try:
         fv = float(v) * (100 if mult else 1)
-        return f"{fv:.{d}f} %"
+        return f"{fv:.{d}f}".replace(".", ",") + " %"
     except: return "—"
 
 def _fmt_pct_rev(v, d=1):
-    """Pour revenue_growth stocké en décimal (0.05 = 5%)."""
+    """Pour revenue_growth stocké en décimal (0.05 = +5,0 %)."""
     if v is None: return "—"
-    try: return f"{float(v)*100:+.{d}f} %"
+    try: return f"{float(v)*100:+.{d}f}".replace(".", ",") + " %"
     except: return "—"
 
 def _fmt_num(v, d=1):
     if v is None: return "—"
-    try: return f"{float(v):.{d}f}"
+    try: return f"{float(v):.{d}f}".replace(".", ",")
     except: return "—"
 
 def _fmt_mds(v):
@@ -632,7 +633,7 @@ def _fmt_mds(v):
     try:
         fv = float(v) / 1e9
         if fv >= 100: return f"{fv:.0f} Mds"
-        return f"{fv:.1f} Mds"
+        return f"{fv:.1f}".replace(".", ",") + " Mds"
     except: return "—"
 
 def _prepare_data(tickers_data: list[dict], sector_name: str, universe: str) -> dict:
@@ -1743,13 +1744,30 @@ def _s09_cartographie(prs, D):
     tbl_data = [["#", "Ticker", "Société", "Score", "Reco", "Cours", "EV/EBITDA", "Mg EBITDA", "Croissance", "Momentum"]]
     for i, t in enumerate(td_disp, 1):
         reco = _reco(t.get("score_global"))
+        # Troncation au mot (pas au caractère) — évite « Advanced Micro Devices, I »
+        # tronqué au milieu du mot « Inc. ». Garde 28 chars max.
+        _company_full = (t.get("company") or "")
+        if len(_company_full) > 28:
+            _cut = _company_full[:28].rfind(" ")
+            _company = _company_full[:_cut] if _cut > 18 else _company_full[:28]
+        else:
+            _company = _company_full
+        # Format prix FR (338,89 au lieu de 338.89)
+        _price_raw = t.get("price")
+        if _price_raw is not None:
+            try:
+                _price_str = f"{float(_price_raw):.2f}".replace(".", ",")
+            except (TypeError, ValueError):
+                _price_str = str(_price_raw)
+        else:
+            _price_str = "—"
         tbl_data.append([
             str(i),
             t.get("ticker", ""),
-            (t.get("company") or "")[:25],
+            _company,
             f"{int(t.get('score_global') or 0)}/100",
             reco,
-            f"{t.get('price') or '—'}",
+            _price_str,
             _fmt_x(t.get("ev_ebitda")),
             _fmt_pct_plain(t.get("ebitda_margin")),
             _fmt_pct_rev(t.get("revenue_growth")),   # revenue_growth déjà normalisé en décimal
@@ -1759,7 +1777,7 @@ def _s09_cartographie(prs, D):
     # Hauteur table : max 4.5cm pour garantir la place du bloc lecture (h min 2.5cm)
     _s09_tbl_h = min(4.5, len(tbl_data) * 0.52)
     s09_tbl = _add_table(slide, tbl_data, 0.9, 2.5, 23.6, _s09_tbl_h,
-               col_widths=[0.8, 1.8, 4.0, 2.0, 1.8, 2.0, 2.4, 2.8, 2.8, 3.2],
+               col_widths=[0.8, 1.8, 4.4, 2.0, 1.8, 2.0, 2.4, 2.8, 2.8, 3.2],
                font_size=7.5, header_size=7.5, alt_fill=_GRAYL)
     # Forcer hauteur de chaque ligne (python-pptx ignore la hauteur shape sinon)
     _n09 = len(tbl_data)
