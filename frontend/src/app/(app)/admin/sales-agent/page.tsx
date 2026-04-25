@@ -126,8 +126,9 @@ export default function SalesAgentPage() {
   ) => {
     try {
       await apiPost(`/admin/sales-agent/status/${id}?status=${status}`, {});
-      // Retire de la liste si sent (passe au suivant)
-      setProspects((p) => p.filter((x) => x.id !== id || status === "queued"));
+      // Tous les statuts (sent/replied/converted/ghosted) sortent le
+      // prospect de la queue "à contacter aujourd'hui" — on filtre.
+      setProspects((p) => p.filter((x) => x.id !== id));
       await load();
     } catch (e) {
       alert(`Status update fail : ${e}`);
