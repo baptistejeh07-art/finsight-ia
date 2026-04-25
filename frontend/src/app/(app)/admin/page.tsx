@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -9,7 +8,6 @@ import {
   Ban, CheckCircle2, RefreshCw, Shield, DollarSign, Globe2, Eye,
 } from "lucide-react";
 import toast from "react-hot-toast";
-import { BackButton } from "@/components/back-button";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "";
 
@@ -138,17 +136,10 @@ export default function AdminDashboardPage() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto p-6 space-y-8">
-      {/* Header */}
+    <div className="space-y-8">
+      {/* Header de section */}
       <div className="flex items-center justify-between">
-        <div>
-          <BackButton className="mb-3" fallback="/app" />
-          <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[1.5px] text-ink-500 mb-1">
-            <Shield className="w-3 h-3" />
-            Admin Console
-          </div>
-          <h1 className="text-2xl font-bold text-ink-900">Dashboard FinSight</h1>
-        </div>
+        <h2 className="text-xl font-bold text-ink-900 dark:text-ink-50">Dashboard</h2>
         <button
           onClick={() => { loadStats(); loadUsers(); }}
           className="flex items-center gap-1.5 text-xs text-ink-600 hover:text-ink-900 border border-ink-200 rounded px-3 py-1.5"
@@ -326,25 +317,6 @@ export default function AdminDashboardPage() {
           </table>
         </div>
       </section>
-
-      {/* Links */}
-      <div className="flex flex-wrap gap-4 text-xs">
-        <Link href="/admin/sales-agent" className="text-navy-500 hover:underline font-semibold">
-          → Sales Agent (prospection LinkedIn)
-        </Link>
-        <Link href="/admin/monitoring" className="text-navy-500 hover:underline">
-          → Monitoring jobs
-        </Link>
-        <Link href="/admin/traces" className="text-navy-500 hover:underline">
-          → Traces analyses (profiling)
-        </Link>
-        <Link href="/admin/errors" className="text-navy-500 hover:underline">
-          → Sentinelle (erreurs)
-        </Link>
-        <Link href="/admin/trends" className="text-navy-500 hover:underline">
-          → FinSight Trends (dataset)
-        </Link>
-      </div>
 
       <div className="text-[10px] text-ink-400 text-right">
         Généré : {stats?.generated_at ? new Date(stats.generated_at).toLocaleString("fr-FR") : "—"}
