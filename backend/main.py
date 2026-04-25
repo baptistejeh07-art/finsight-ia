@@ -1525,15 +1525,67 @@ async def qa_stream_endpoint(req: QARequest, request: Request):
         except Exception as e:
             log.warning(f"[/qa/stream] Groq stream failed: {e}, fallback non-stream")
 
-        # Fallback : appel non-streamé via LLMProvider, on renvoie en un chunk
+        # Fallback Mistral STREAMING (vrai stream, plus de bloc unique)
+        try:
+            from mistralai.client import Mistral
+            from core.llm_provider import _get_secret  # type: ignore
+            mkey = _get_secret("MISTRAL_API_KEY")
+            if not mkey:
+                raise RuntimeError("MISTRAL_API_KEY absente")
+            mclient = Mistral(api_key=mkey)
+            mstream = mclient.chat.stream(
+                model="mistral-small-latest",
+                messages=[
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": user_prompt},
+                ],
+                max_tokens=800,
+                temperature=0.4,
+            )
+            mfull = []
+            for ev in mstream:
+                # SDK Mistral renvoie des events avec .data.choices[0].delta.content
+                try:
+                    delta = ev.data.choices[0].delta.content
+                except Exception:
+                    delta = None
+                if delta:
+                    mfull.append(delta)
+                    yield f"data: {_json.dumps({'chunk': delta})}\n\n"
+                    await asyncio.sleep(0)
+            try:
+                from core.accent_runtime import restore_accents as _ra
+                final = _ra("".join(mfull))
+                if final != "".join(mfull):
+                    yield f"data: {_json.dumps({'replace': final})}\n\n"
+            except Exception:
+                pass
+            yield f"data: {_json.dumps({'done': True})}\n\n"
+            return
+        except Exception as em:
+            log.warning(f"[/qa/stream] Mistral stream failed: {em}")
+
+        # Fallback ULTIME : appel non-streamé via LLMProvider, on simule
+        # le streaming en découpant la réponse en mots côté serveur pour
+        # que le frontend voie quand même un effet de progression.
         try:
             from core.llm_provider import LLMProvider
-            for prov, model in [("mistral", None), ("anthropic", None), ("gemini", None)]:
+            for prov, model in [("anthropic", None), ("gemini", None)]:
                 try:
                     llm = LLMProvider(provider=prov, model=model)
                     answer = llm.generate(user_prompt, system=system, max_tokens=800)
                     if answer and answer.strip():
-                        yield f"data: {_json.dumps({'chunk': answer.strip()})}\n\n"
+                        # Découpe en groupes de 4-6 mots pour simuler du flux
+                        _words = answer.strip().split(" ")
+                        _buf = []
+                        for _i, _w in enumerate(_words):
+                            _buf.append(_w)
+                            if len(_buf) >= 5:
+                                yield f"data: {_json.dumps({'chunk': ' '.join(_buf) + ' '})}\n\n"
+                                _buf = []
+                                await asyncio.sleep(0.04)
+                        if _buf:
+                            yield f"data: {_json.dumps({'chunk': ' '.join(_buf)})}\n\n"
                         yield f"data: {_json.dumps({'done': True})}\n\n"
                         return
                 except Exception as e2:

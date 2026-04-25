@@ -424,8 +424,72 @@ def recommend_for_profile(scores_v2: dict, profile: str = "balanced") -> dict:
 
 def recommend_all_profiles(scores_v2: dict) -> dict[str, dict]:
     """Calcule la reco POUR CHAQUE profil → pour afficher « BUY pour Growth,
-    HOLD pour Conservateur » dans l'UI."""
-    return {
+    HOLD pour Conservateur » dans l'UI.
+
+    Le `reasoning` de base est déterministe (concaténation des drivers
+    « Quality faible (32/100) ; Momentum positif (78/100) »). Pour un
+    output « raisonnement IA » plus lisible, on tente d'enrichir via un
+    appel LLM unique batch qui produit les 5 reasonings narratifs d'un
+    coup. Si l'appel LLM échoue (quota, timeout, fallback cascade…), on
+    garde le reasoning déterministe — l'UI ne sera jamais vide.
+    """
+    base = {
         key: recommend_for_profile(scores_v2, profile=key)
         for key in PROFILES.keys()
     }
+
+    # Tentative d'enrichissement narratif par LLM (1 appel batch)
+    try:
+        from core.llm_provider import llm_call as _llm
+        import json as _json
+        q = (scores_v2 or {}).get("quality", {}).get("score") or 50
+        v = (scores_v2 or {}).get("value", {}).get("score") or 50
+        m = (scores_v2 or {}).get("momentum", {}).get("score") or 50
+        r = (scores_v2 or {}).get("risk", {}).get("score") or 50
+        _profile_summary = "\n".join(
+            f"- {k} ({base[k]['profile_label']}) : composite "
+            f"{base[k]['composite']}/100 → {base[k]['recommendation']}, "
+            f"conviction {int(base[k]['conviction']*100)}%"
+            for k in PROFILES.keys()
+        )
+        _prompt = (
+            f"Sub-scores FinSight v1.3 sur 100 :\n"
+            f"- Quality : {q}/100\n"
+            f"- Value   : {v}/100\n"
+            f"- Momentum: {m}/100\n"
+            f"- Risk    : {r}/100\n\n"
+            f"Composites par profil :\n{_profile_summary}\n\n"
+            f"Pour chacun des 5 profils, rédige un raisonnement court "
+            f"(40-55 mots, 2 phrases) qui explique POURQUOI cette reco "
+            f"est cohérente avec les sub-scores. Le ton doit montrer le "
+            f"raisonnement de l'IA : « Le profil X privilégie Y, or les "
+            f"scores observés montrent Z, ce qui justifie la reco W ». "
+            f"Cite des chiffres, sois précis. Français avec accents.\n\n"
+            f"Réponds STRICTEMENT en JSON valide, sans markdown, sans "
+            f"texte hors du JSON, format : "
+            f'{{"conservative_lt": "...", "value_contrarian": "...", '
+            f'"growth_aggressive": "...", "income_dividends": "...", '
+            f'"balanced": "..."}}'
+        )
+        _resp = _llm(_prompt, phase="fast", max_tokens=900,
+                      system="Tu es un analyste senior FinSight. JSON only.") or ""
+        # Parse JSON tolérant
+        _txt = _resp.strip()
+        if _txt.startswith("```"):
+            _txt = _txt.split("```", 2)[1].lstrip("json").strip()
+        if _txt.endswith("```"):
+            _txt = _txt[:-3].strip()
+        _start = _txt.find("{")
+        _end = _txt.rfind("}")
+        if _start >= 0 and _end > _start:
+            _parsed = _json.loads(_txt[_start:_end + 1])
+            for _key in PROFILES.keys():
+                _v = _parsed.get(_key)
+                if isinstance(_v, str) and len(_v.strip()) > 30:
+                    base[_key]["reasoning"] = _v.strip()
+                    base[_key]["reasoning_source"] = "llm"
+    except Exception as _e:
+        import logging as _logging
+        _logging.getLogger(__name__).debug(
+            f"[finsight_score_v2] LLM reasoning enrich skipped: {_e}")
+    return base

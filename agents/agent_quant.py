@@ -249,19 +249,18 @@ class AgentQuant:
         # yfinance ne publie pas la ligne IS « Common Stock Dividends » →
         # _compute_year retourne dividend_payout=None alors qu'en réalité
         # info["payoutRatio"] = 0.717 et BNP distribue ~5 Md€/an. On
-        # propage info["payoutRatio"] sur la dernière année quand le
-        # calcul direct n'a rien donné. Le market.dividend_yield reste
-        # géré côté yfinance_source (déjà résilient).
+        # propage info["payoutRatio"] sur l'année LTM ET on backfill les
+        # années historiques via t.dividends (yfinance) × shares × prix.
         try:
             _yfi = (snapshot.meta or {}).get("yfinance_info") or {}
             _payout_info = _yfi.get("payoutRatio")
+            # 1) LTM via info[payoutRatio]
             if all_labels and _payout_info is not None:
                 _last = years_ratios.get(all_labels[-1])
                 if _last is not None and (_last.dividend_payout is None
                                             or _last.dividend_payout == 0):
                     try:
                         _v = float(_payout_info)
-                        # yfinance retourne payoutRatio en décimal (0.717=71.7%)
                         if 0 < _v <= 5:  # cap : ignore valeurs absurdes
                             _last.dividend_payout = _v
                             log.info(f"[agent_quant] dividend_payout fallback "
@@ -269,6 +268,56 @@ class AgentQuant:
                                       f"{all_labels[-1]}")
                     except (TypeError, ValueError):
                         pass
+
+            # 2) Années historiques : t.dividends (Series pandas yfinance)
+            #    contient les paiements PAR ACTION par date. On somme par
+            #    année puis on multiplie par shares_outstanding pour obtenir
+            #    le total versé. dividend_payout = total / net_income.
+            try:
+                from core.yfinance_cache import get_ticker as _get_t
+                _tk = _get_t(snapshot.ticker)
+                _div_series = getattr(_tk, "dividends", None)
+                if _div_series is not None and not _div_series.empty:
+                    # Group by year (index = Timestamp avec tz)
+                    _by_year = {}
+                    for _ts, _amount in _div_series.items():
+                        try:
+                            _y = str(int(_ts.year))
+                            _by_year[_y] = _by_year.get(_y, 0.0) + float(_amount)
+                        except Exception:
+                            continue
+                    _shares = _yfi.get("sharesOutstanding") or (
+                        snapshot.market.shares_diluted * 1e6
+                        if (snapshot.market and snapshot.market.shares_diluted) else None
+                    )
+                    if _shares:
+                        _shares = float(_shares)
+                        for _label in all_labels:
+                            _yr = years_ratios.get(_label)
+                            _yr_year_only = _label.split("_")[0]  # "2024_LTM" -> "2024"
+                            if _yr is None or _yr_year_only not in _by_year:
+                                continue
+                            if _yr.dividend_payout not in (None, 0):
+                                continue  # déjà calculé
+                            _div_per_share = _by_year[_yr_year_only]
+                            _total_div = _div_per_share * _shares  # total versé année
+                            # net_income en M USD/EUR/etc. -> convertir _total_div idem
+                            _ni_native = None
+                            try:
+                                _fy = snapshot.years.get(_label)
+                                _ni_native = (_fy.net_income if _fy else None) or _yr.net_income
+                            except Exception:
+                                _ni_native = _yr.net_income
+                            if _ni_native and _ni_native > 0:
+                                # net_income est en M (cohérent yfinance_source)
+                                _payout = _total_div / (_ni_native * 1_000_000)
+                                if 0 < _payout <= 5:
+                                    _yr.dividend_payout = round(_payout, 4)
+                                    log.info(f"[agent_quant] dividend_payout "
+                                              f"{_label} backfill via t.dividends "
+                                              f"= {_yr.dividend_payout}")
+            except Exception as _e_back:
+                log.debug(f"[agent_quant] backfill historique skip: {_e_back}")
         except Exception as _e_div:
             log.debug(f"[agent_quant] dividend fallback skip: {_e_div}")
 
