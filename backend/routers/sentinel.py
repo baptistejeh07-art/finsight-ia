@@ -83,3 +83,56 @@ async def admin_sentinel_test(user: Annotated[dict, Depends(require_admin)],
         "message": "Test envoyé. Vérifiez la boîte mail SENTINEL_ADMIN_EMAIL.",
         "ts": utcnow().isoformat(),
     }
+
+
+@router.post("/sentinel/test-routine")
+async def admin_test_routine(user: Annotated[dict, Depends(require_admin)]):
+    """Diagnostic direct : appelle la routine Claude Code (CLAUDE_ROUTINE_FIRE_URL)
+    et retourne la réponse HTTP brute de l'API Anthropic. Permet d'identifier
+    précisément pourquoi `wakeup_fired=false` quand le sentinel détecte un bug.
+
+    Cas typiques :
+    - 401 → CLAUDE_ROUTINE_TOKEN expiré/invalide → régénérer sur claude.ai
+    - 404 → URL routine cassée (routine supprimée côté UI ?)
+    - 400 → format payload non accepté (header beta obsolète, JSON malformé)
+    - 503 → Anthropic surchargé / quota dépassé
+    """
+    import os as _os, httpx as _httpx
+    routine_url = _os.getenv("CLAUDE_ROUTINE_FIRE_URL", "").strip()
+    routine_token = _os.getenv("CLAUDE_ROUTINE_TOKEN", "").strip()
+    diag = {
+        "url_present": bool(routine_url),
+        "token_present": bool(routine_token),
+        "url_prefix": routine_url[:60] if routine_url else None,
+        "token_prefix": routine_token[:15] + "..." if routine_token else None,
+    }
+    if not routine_url or not routine_token:
+        return {**diag, "error": "URL ou TOKEN manquant côté Railway env"}
+    try:
+        r = _httpx.post(
+            routine_url,
+            headers={
+                "Authorization": f"Bearer {routine_token}",
+                "Content-Type": "application/json",
+                "anthropic-beta": "experimental-cc-routine-2026-04-01",
+                "anthropic-version": "2023-06-01",
+            },
+            json={"text": (
+                "TEST DIAG /admin/sentinel/test-routine — déclenchement manuel "
+                f"par {user.get('email')} à {utcnow().isoformat()}. Pas de bug "
+                "réel à fixer, ne fais aucune modification. Réponds simplement "
+                "« diagnostic OK » et termine."
+            )},
+            timeout=10.0,
+        )
+        return {
+            **diag,
+            "status_code": r.status_code,
+            "response_body": r.text[:1500],
+            "response_headers_subset": {
+                k: v for k, v in r.headers.items()
+                if k.lower() in ("content-type", "x-request-id", "anthropic-version")
+            },
+        }
+    except Exception as e:
+        return {**diag, "exception": f"{type(e).__name__}: {e}"}
