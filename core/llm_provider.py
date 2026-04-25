@@ -27,6 +27,14 @@ from core.secrets import get_secret as _get_secret
 
 _log = logging.getLogger(__name__)
 
+# Température commune à tous les providers : on cherche du déterminisme
+# « finance-grade » — même ticker + même cours doit donner même reco/conviction
+# (~95% du temps). Avant le 25/04/2026, aucun temperature n'était passé →
+# valeur par défaut API ~0.7-1.0 → AAPL pouvait basculer ACHETER 72%/CONSERVER
+# 55% sur 2 runs consécutifs. 0.1 garde un peu de variation naturelle dans
+# le wording sans dérive sur les chiffres ou la reco finale.
+DETERMINISTIC_TEMPERATURE: float = 0.1
+
 
 # ---------------------------------------------------------------------------
 # Rate limiter abstrait : TPD (journalier) + TPM (glissant 60s)
@@ -339,6 +347,7 @@ class LLMProvider:
         kwargs = {
             "model": self.model, "max_tokens": max_tokens,
             "messages": [{"role": "user", "content": prompt}],
+            "temperature": DETERMINISTIC_TEMPERATURE,
         }
         if system:
             kwargs["system"] = system
@@ -372,7 +381,8 @@ class LLMProvider:
                 # max_retries=0 : disable retry interne SDK (sinon double retry)
                 _client = Groq(api_key=_key, max_retries=0, timeout=20.0)
                 response = _client.chat.completions.create(
-                    model=self.model, messages=messages, max_tokens=max_tokens)
+                    model=self.model, messages=messages, max_tokens=max_tokens,
+                    temperature=DETERMINISTIC_TEMPERATURE)
                 _total = getattr(getattr(response, "usage", None),
                                  "total_tokens", max_tokens)
                 _rotator.record(_total)
@@ -415,7 +425,8 @@ class LLMProvider:
                 _key = _openai_rotator.get_key()
                 _client = OpenAI(api_key=_key)
                 response = _client.chat.completions.create(
-                    model=self.model, messages=messages, max_tokens=max_tokens)
+                    model=self.model, messages=messages, max_tokens=max_tokens,
+                    temperature=DETERMINISTIC_TEMPERATURE)
                 _total = getattr(getattr(response, "usage", None),
                                  "total_tokens", max_tokens)
                 _openai_rotator.record(_total)
@@ -449,7 +460,8 @@ class LLMProvider:
                 time.sleep(_wait)
             try:
                 response = client.chat.complete(
-                    model=self.model, messages=messages, max_tokens=max_tokens)
+                    model=self.model, messages=messages, max_tokens=max_tokens,
+                    temperature=DETERMINISTIC_TEMPERATURE)
                 return response.choices[0].message.content
             except Exception as e:
                 _code = getattr(e, "status_code", None) or getattr(
@@ -478,7 +490,8 @@ class LLMProvider:
                 time.sleep(_wait)
             try:
                 response = client.chat.completions.create(
-                    model=self.model, messages=messages, max_tokens=max_tokens)
+                    model=self.model, messages=messages, max_tokens=max_tokens,
+                    temperature=DETERMINISTIC_TEMPERATURE)
                 return response.choices[0].message.content
             except Exception as e:
                 _code = getattr(e, "status_code", None) or getattr(
@@ -496,7 +509,9 @@ class LLMProvider:
             genai.configure(api_key=_get_secret("GEMINI_API_KEY"))
             self._client = genai
         model = self._client.GenerativeModel(
-            self.model, generation_config={"max_output_tokens": max_tokens})
+            self.model,
+            generation_config={"max_output_tokens": max_tokens,
+                                "temperature": DETERMINISTIC_TEMPERATURE})
         full_prompt = f"{system}\n\n{prompt}" if system else prompt
         response = model.generate_content(full_prompt)
         return response.text
@@ -507,7 +522,8 @@ class LLMProvider:
         if system:
             messages.append({"role": "system", "content": system})
         messages.append({"role": "user", "content": prompt})
-        response = ollama.chat(model=self.model, messages=messages)
+        response = ollama.chat(model=self.model, messages=messages,
+                                 options={"temperature": DETERMINISTIC_TEMPERATURE})
         return response["message"]["content"]
 
     def __repr__(self):

@@ -2084,18 +2084,26 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
     _etf_proxy_ev = None            # ETF proxy EV/EBITDA (reutilise pour top3)
     _tickers_by_sector: dict = {}   # mapping secteur -> [tickers] pour opti non-US
 
-    if not secteurs:
-        _EU_CONST_MAP = {
-            "DAX":          "DAX40",
-            "DAX 40":       "DAX40",
-            "DAX40":        "DAX40",
-            "FTSE 100":     "FTSE100",
-            "FTSE100":      "FTSE100",
-            "Euro Stoxx 50":"STOXX50",
-            "STOXX50":      "STOXX50",
-            "CAC 40":       "CAC40",   # securite si ETF CAC absent
-            "CAC40":        "CAC40",
-        }
+    # Map des indices EU : sert à la fois pour le fallback (si l'ETF n'a pas
+    # rempli secteurs) ET pour ALWAYS fetch la liste des constituants
+    # individuels — sinon le PDF affiche « Aucun constituant disponible »
+    # alors même que les agrégats sectoriels sont OK (cas DAX 40 sur l'UI :
+    # ETF EXS1.DE donne le breakdown par secteur mais pas les tickers).
+    _EU_CONST_MAP = {
+        "DAX":          "DAX40",
+        "DAX 40":       "DAX40",
+        "DAX40":        "DAX40",
+        "FTSE 100":     "FTSE100",
+        "FTSE100":      "FTSE100",
+        "Euro Stoxx 50":"STOXX50",
+        "STOXX50":      "STOXX50",
+        "CAC 40":       "CAC40",   # securite si ETF CAC absent
+        "CAC40":        "CAC40",
+    }
+    _is_eu_indice = universe in _EU_CONST_MAP
+    # Force le fetch des constituants pour les indices EU même quand `secteurs`
+    # est déjà rempli par l'ETF (sinon _eu_res reste vide → tickers_raw vide).
+    if not secteurs or _is_eu_indice:
         _YF_SECT = {
             "Technology":             "Technology",
             "Healthcare":             "Health Care",
@@ -2336,6 +2344,10 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
                     v = [x for x in vals if x is not None and x > 0]
                     return round(_stat_eu.median(v), 2) if v else None
 
+                # Si secteurs est déjà rempli (par l'ETF en amont), on saute la
+                # ré-population pour ne pas créer de doublons. On garde quand
+                # même le fetch des constituants ci-dessus pour _eu_res.
+                _secteurs_already_filled = bool(secteurs)
                 for _sname, _mems in sorted(
                         _eu_members_by_sec.items(),
                         key=lambda kv: -sum(m["score_raw"] for m in kv[1]) / len(kv[1])):
@@ -2351,7 +2363,8 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
                     _gr   = round(sum(_gr_v) / len(_gr_v), 1) if _gr_v else 0.0
                     _gr_s = f"{_gr:+.1f}%"
                     _ret  = round(sum(m["ret_52w"] for m in _mems) / _nb, 1)
-                    secteurs.append((_sname, _nb, _sc, _sig, _ev_s, _mg, _gr_s, f"{_ret:+.1f}%"))
+                    if not _secteurs_already_filled:
+                        secteurs.append((_sname, _nb, _sc, _sig, _ev_s, _mg, _gr_s, f"{_ret:+.1f}%"))
 
                 # ERP depuis PE median des constituants
                 _pe_eu = [m["pe_fwd"] for m in _eu_res if m.get("pe_fwd") and 3 < m["pe_fwd"] < 100]
