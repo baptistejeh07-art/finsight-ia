@@ -238,6 +238,248 @@ export default function SalesAgentPage() {
           ))}
         </div>
       )}
+
+      {/* Section Relances J+3 / J+7 */}
+      <RelancesSection />
+    </div>
+  );
+}
+
+interface RelanceRow {
+  id: string;
+  prospect_id: string;
+  status: string;
+  sent_at?: string;
+  relance_1_text?: string;
+  relance_1_sent_at?: string;
+  relance_2_text?: string;
+  relance_2_sent_at?: string;
+  sales_prospects?: {
+    name?: string;
+    headline?: string;
+    linkedin_url?: string;
+    target_ticker?: string;
+    dm_draft?: string;
+  };
+}
+
+function RelancesSection() {
+  const [r3, setR3] = useState<RelanceRow[]>([]);
+  const [r7, setR7] = useState<RelanceRow[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [drafting, setDrafting] = useState(false);
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const data = await apiGet<{
+        prospects_to_relance_3: RelanceRow[];
+        prospects_to_relance_7: RelanceRow[];
+      }>("/admin/sales-agent/relances/queue");
+      setR3(data.prospects_to_relance_3 || []);
+      setR7(data.prospects_to_relance_7 || []);
+    } catch (e) {
+      console.error("[relances] load fail:", e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const handleDraft = async () => {
+    setDrafting(true);
+    try {
+      const data = await apiPost<{ count: number }>(
+        "/admin/sales-agent/relances/draft-pending?limit=20",
+        {}
+      );
+      alert(`${data.count} relances rédigées par l'IA. Recharge pour voir.`);
+      await load();
+    } catch (e) {
+      alert(`Draft fail : ${e}`);
+    } finally {
+      setDrafting(false);
+    }
+  };
+
+  const handleAutoGhost = async () => {
+    if (!confirm("Marquer tous les prospects sans réponse depuis 14j comme 'ghosted' ?")) return;
+    try {
+      const r = await apiPost<{ ghosted: number }>(
+        "/admin/sales-agent/relances/auto-ghost?days_threshold=14",
+        {}
+      );
+      alert(`${r.ghosted} prospects archivés en 'ghosted'.`);
+      await load();
+    } catch (e) {
+      alert(`Auto-ghost fail : ${e}`);
+    }
+  };
+
+  const handleSent = async (id: string, type: "J3" | "J7") => {
+    try {
+      await apiPost(
+        `/admin/sales-agent/relances/sent/${id}?relance_type=${type}`,
+        {}
+      );
+      await load();
+    } catch (e) {
+      alert(`Mark sent fail : ${e}`);
+    }
+  };
+
+  const total = r3.length + r7.length;
+  const drafted = r3.filter((r) => r.relance_1_text).length
+                 + r7.filter((r) => r.relance_2_text).length;
+
+  return (
+    <section className="mt-12">
+      <div className="flex items-end justify-between mb-3">
+        <div>
+          <h2 className="text-lg font-semibold text-ink-900">
+            Relances en attente
+          </h2>
+          <p className="text-xs text-ink-500">
+            {total} prospects à relancer · {drafted} relances déjà rédigées par l'IA
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={handleDraft}
+            disabled={drafting || total === 0}
+            className="px-3 py-2 text-sm bg-navy-500 text-white rounded-md hover:bg-navy-600 disabled:opacity-50"
+          >
+            {drafting ? "Rédaction…" : "✨ Rédiger les relances en attente"}
+          </button>
+          <button
+            onClick={handleAutoGhost}
+            className="px-3 py-2 text-sm border border-ink-200 rounded-md hover:bg-ink-50"
+            title="Marque comme ghosted les prospects sans réponse depuis 14j"
+          >
+            🧹 Auto-ghost &gt;14j
+          </button>
+        </div>
+      </div>
+      {loading && <div className="text-xs text-ink-500">Chargement…</div>}
+      {!loading && total === 0 && (
+        <div className="bg-white border border-ink-200 rounded-lg p-6 text-center text-sm text-ink-500">
+          Aucune relance en attente. Bonne nouvelle : soit tu n'as pas encore
+          envoyé de DM, soit tous tes contacts sont &lt; 3 jours.
+        </div>
+      )}
+      {r3.length > 0 && (
+        <div className="mb-6">
+          <h3 className="text-sm font-semibold text-ink-700 mb-2">
+            J+3 ({r3.length}) — premier rebond, angle question ouverte
+          </h3>
+          <div className="space-y-3">
+            {r3.map((r) => (
+              <RelanceCard
+                key={r.id}
+                row={r}
+                type="J3"
+                onSent={() => handleSent(r.id, "J3")}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+      {r7.length > 0 && (
+        <div>
+          <h3 className="text-sm font-semibold text-ink-700 mb-2">
+            J+7 ({r7.length}) — dernier ping, offre asymétrique
+          </h3>
+          <div className="space-y-3">
+            {r7.map((r) => (
+              <RelanceCard
+                key={r.id}
+                row={r}
+                type="J7"
+                onSent={() => handleSent(r.id, "J7")}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function RelanceCard({
+  row, type, onSent,
+}: {
+  row: RelanceRow;
+  type: "J3" | "J7";
+  onSent: () => void;
+}) {
+  const text = type === "J3" ? row.relance_1_text : row.relance_2_text;
+  const sent = type === "J3"
+    ? !!row.relance_1_sent_at
+    : !!row.relance_2_sent_at;
+  const p = row.sales_prospects || {};
+  const [copied, setCopied] = useState(false);
+
+  const copy = async () => {
+    if (!text) return;
+    await navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div className="bg-white border border-ink-200 rounded-md overflow-hidden">
+      <div className="px-4 py-2 bg-amber-50 border-b border-amber-100 flex items-center gap-2">
+        <span className="text-xs font-mono px-2 py-0.5 bg-amber-200 text-amber-800 rounded">
+          {type}
+        </span>
+        <span className="font-semibold text-sm text-ink-900">{p.name || "—"}</span>
+        <span className="text-xs text-ink-500 truncate flex-1">{p.headline || ""}</span>
+        {p.target_ticker && (
+          <span className="text-xs font-mono text-navy-700 bg-navy-100 px-2 py-0.5 rounded">
+            {p.target_ticker}
+          </span>
+        )}
+      </div>
+      <div className="px-4 py-3">
+        {text ? (
+          <div className="bg-ink-50 border border-ink-100 rounded p-2 text-sm text-ink-800 whitespace-pre-wrap">
+            {text}
+          </div>
+        ) : (
+          <div className="text-xs text-ink-400 italic">
+            Texte non encore rédigé. Clique « Rédiger les relances en attente » en haut.
+          </div>
+        )}
+      </div>
+      <div className="px-4 py-2 border-t border-ink-100 bg-ink-50 flex items-center justify-between">
+        <div className="flex gap-2">
+          <button
+            onClick={copy}
+            disabled={!text}
+            className="px-2 py-1 text-xs bg-navy-500 text-white rounded hover:bg-navy-600 disabled:opacity-40"
+          >
+            {copied ? "Copié !" : "Copier relance"}
+          </button>
+          {p.linkedin_url && (
+            <a
+              href={p.linkedin_url}
+              target="_blank"
+              rel="noreferrer"
+              className="px-2 py-1 text-xs border border-ink-200 rounded hover:bg-white"
+            >
+              Ouvrir LinkedIn
+            </a>
+          )}
+        </div>
+        <button
+          onClick={onSent}
+          disabled={!text || sent}
+          className="px-3 py-1 text-xs border border-green-300 bg-green-50 text-green-700 rounded hover:bg-green-100 disabled:opacity-40"
+        >
+          {sent ? "✓ Envoyée" : "Marquer envoyée"}
+        </button>
+      </div>
     </div>
   );
 }

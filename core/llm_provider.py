@@ -36,6 +36,48 @@ _log = logging.getLogger(__name__)
 DETERMINISTIC_TEMPERATURE: float = 0.1
 
 
+# ─── Langfuse observability (optionnel) ────────────────────────────────
+# Si LANGFUSE_PUBLIC_KEY + LANGFUSE_SECRET_KEY sont configurées en env,
+# on wrap chaque generate() avec @observe pour avoir un dashboard temps
+# réel des appels LLM (latence, tokens, cascade fallback, erreurs).
+# Free tier Langfuse Cloud = 50k events/mois, largement suffisant.
+_LANGFUSE_OBSERVE = None
+try:
+    if os.getenv("LANGFUSE_PUBLIC_KEY") and os.getenv("LANGFUSE_SECRET_KEY"):
+        from langfuse.decorators import observe as _LANGFUSE_OBSERVE  # type: ignore
+        _log.info("[langfuse] observability activée")
+except Exception as _e_lf:
+    _log.debug(f"[langfuse] non activé : {_e_lf}")
+
+
+# ─── Helicone proxy (optionnel) ────────────────────────────────────────
+# Si HELICONE_API_KEY est configurée, on route les appels Anthropic /
+# OpenAI / Mistral via Helicone qui :
+#   - cache les requêtes identiques (économise 30-50% sur volume)
+#   - retry automatique sur 5xx
+#   - dashboard centralisé (analytics, coûts)
+# Endpoints Helicone :
+#   anthropic.helicone.ai → Anthropic API
+#   oai.helicone.ai       → OpenAI / Groq (compat OpenAI)
+#   mistral.helicone.ai   → Mistral API
+def _helicone_active() -> bool:
+    return bool(os.getenv("HELICONE_API_KEY", "").strip())
+
+
+def _helicone_headers() -> dict:
+    """Headers Helicone à ajouter aux clients SDK qui le supportent.
+    Active le caching + identifie l'app FinSight."""
+    key = os.getenv("HELICONE_API_KEY", "").strip()
+    if not key:
+        return {}
+    return {
+        "Helicone-Auth": f"Bearer {key}",
+        "Helicone-Cache-Enabled": "true",
+        "Helicone-Cache-Bucket-Max-Size": "100",
+        "Helicone-Property-App": "finsight-ia",
+    }
+
+
 # ---------------------------------------------------------------------------
 # Rate limiter abstrait : TPD (journalier) + TPM (glissant 60s)
 # ---------------------------------------------------------------------------
@@ -264,6 +306,43 @@ class LLMProvider:
 
     def generate(self, prompt: str, system: Optional[str] = None,
                  max_tokens: int = 1024) -> str:
+        # Délègue à _generate_inner (potentiellement wrappé Langfuse)
+        return self._generate_observed(prompt, system, max_tokens)
+
+    def _generate_observed(self, prompt: str, system: Optional[str],
+                            max_tokens: int) -> str:
+        """Wrap conditionnel Langfuse : si LANGFUSE_PUBLIC_KEY définie,
+        chaque appel est tracé avec input/output/latency. Sinon no-op."""
+        if _LANGFUSE_OBSERVE is not None:
+            try:
+                from langfuse import get_client as _lf_client
+                client = _lf_client()
+                with client.start_as_current_observation(
+                    name=f"{self.provider}:{self.model}",
+                    as_type="generation",
+                    input={"system": system, "prompt": prompt},
+                    metadata={"provider": self.provider,
+                                "model": self.model,
+                                "max_tokens": max_tokens,
+                                "temperature": DETERMINISTIC_TEMPERATURE,
+                                "app": "finsight-ia"},
+                ) as gen:
+                    out = self._generate_inner(prompt, system, max_tokens)
+                    try:
+                        gen.update(output=out,
+                                    usage_details={
+                                        "input": (len(prompt or "") + len(system or "")) // 4,
+                                        "output": len(out or "") // 4,
+                                    })
+                    except Exception:
+                        pass
+                    return out
+            except Exception as _e_lf2:
+                _log.debug(f"[langfuse] wrap fail, fallback : {_e_lf2}")
+        return self._generate_inner(prompt, system, max_tokens)
+
+    def _generate_inner(self, prompt: str, system: Optional[str],
+                         max_tokens: int) -> str:
         # Traçage fin (niveau 3) : chaque appel LLM est observable en prod
         try:
             from core.tracer import trace
@@ -343,7 +422,18 @@ class LLMProvider:
             if not _key or _key.startswith("sk-ant-api03-...") or len(_key) < 20:
                 raise ValueError(
                     "[Anthropic] ANTHROPIC_API_KEY non configuree.")
-            self._client = anthropic.Anthropic(api_key=_key)
+            # Helicone proxy : si HELICONE_API_KEY définie, on route via
+            # anthropic.helicone.ai pour bénéficier du caching + dashboard
+            # centralisé. Sinon, appel direct Anthropic.
+            if _helicone_active():
+                self._client = anthropic.Anthropic(
+                    api_key=_key,
+                    base_url="https://anthropic.helicone.ai",
+                    default_headers=_helicone_headers(),
+                )
+                _log.info("[anthropic] routé via Helicone proxy")
+            else:
+                self._client = anthropic.Anthropic(api_key=_key)
         kwargs = {
             "model": self.model, "max_tokens": max_tokens,
             "messages": [{"role": "user", "content": prompt}],
@@ -379,7 +469,12 @@ class LLMProvider:
             try:
                 _key = _rotator.get_key()
                 # max_retries=0 : disable retry interne SDK (sinon double retry)
-                _client = Groq(api_key=_key, max_retries=0, timeout=20.0)
+                # Helicone : Groq supporte le proxy oai.helicone.ai (compat OpenAI).
+                _client_kwargs = {"api_key": _key, "max_retries": 0, "timeout": 20.0}
+                if _helicone_active():
+                    _client_kwargs["base_url"] = "https://oai.helicone.ai/v1"
+                    _client_kwargs["default_headers"] = _helicone_headers()
+                _client = Groq(**_client_kwargs)
                 response = _client.chat.completions.create(
                     model=self.model, messages=messages, max_tokens=max_tokens,
                     temperature=DETERMINISTIC_TEMPERATURE)

@@ -236,3 +236,89 @@ async def stats(user: Annotated[dict, Depends(require_admin)]):
     """Stats hebdo + cap journalier restant."""
     from tools.sales_agent.tracking import stats_weekly
     return stats_weekly()
+
+
+# ─── Relances J+3 / J+7 ────────────────────────────────────────────────
+
+@router.get("/relances/queue")
+async def get_relances(user: Annotated[dict, Depends(require_admin)]):
+    """Retourne les prospects qui devraient recevoir une relance
+    (séparés J+3 et J+7). Le texte de relance est rédigé à la demande
+    via /relances/draft-pending pour économiser le LLM."""
+    from tools.sales_agent.relance import find_pending_relances
+    return find_pending_relances()
+
+
+@router.post("/relances/draft-pending")
+async def draft_pending_relances(
+    user: Annotated[dict, Depends(require_admin)],
+    limit: int = 20,
+):
+    """Génère le texte de toutes les relances en attente (J+3 + J+7).
+
+    Stocke chaque texte rédigé en `sales_prospect_status.relance_X_text`
+    sans marquer l'envoi (Baptiste cliquera "Envoyé" après avoir collé
+    dans LinkedIn natif). Cap `limit` pour budget LLM.
+    """
+    from tools.sales_agent.relance import find_pending_relances, draft_relance
+    pending = find_pending_relances()
+    drafted = []
+    failed = []
+    count = 0
+    for row in pending["prospects_to_relance_3"]:
+        if count >= limit:
+            break
+        if row.get("relance_1_text"):
+            continue  # déjà rédigée
+        text = draft_relance(row, "J3")
+        if text:
+            drafted.append({"id": row["id"], "type": "J3",
+                              "text_preview": text[:120]})
+            count += 1
+        else:
+            failed.append(row["id"])
+    for row in pending["prospects_to_relance_7"]:
+        if count >= limit:
+            break
+        if row.get("relance_2_text"):
+            continue
+        text = draft_relance(row, "J7")
+        if text:
+            drafted.append({"id": row["id"], "type": "J7",
+                              "text_preview": text[:120]})
+            count += 1
+        else:
+            failed.append(row["id"])
+    return {"ok": True, "drafted": drafted, "failed": failed,
+              "count": len(drafted)}
+
+
+@router.post("/relances/sent/{prospect_status_id}")
+async def mark_relance_sent_endpoint(
+    user: Annotated[dict, Depends(require_admin)],
+    prospect_status_id: str,
+    relance_type: str,
+):
+    """Marque la relance comme envoyée (Baptiste a copié dans LinkedIn).
+
+    relance_type ∈ {J3, J7}.
+    """
+    from tools.sales_agent.relance import mark_relance_sent
+    if relance_type not in ("J3", "J7"):
+        raise HTTPException(400, "relance_type doit être J3 ou J7")
+    ok = mark_relance_sent(prospect_status_id, relance_type)
+    if not ok:
+        raise HTTPException(500, "Update échoué")
+    return {"ok": True}
+
+
+@router.post("/relances/auto-ghost")
+async def auto_ghost(
+    user: Annotated[dict, Depends(require_admin)],
+    days_threshold: int = 14,
+):
+    """Hygiène queue : marque comme 'ghosted' les prospects sans réponse
+    après les 2 relances + days_threshold jours."""
+    from tools.sales_agent.relance import auto_ghost_old_prospects
+    n = auto_ghost_old_prospects(days_threshold=days_threshold)
+    return {"ok": True, "ghosted": n}

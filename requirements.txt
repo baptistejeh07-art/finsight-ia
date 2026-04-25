@@ -73,3 +73,11 @@ pywebpush>=2.0.0
 
 # --- Cache distribué (prod Railway) ---
 redis>=5.0.0
+
+# --- Observability LLM (optionnel, activé par LANGFUSE_PUBLIC_KEY env) ---
+# Free tier 50k events/mois, dashboard temps réel des appels LLM.
+# Setup : créer compte sur cloud.langfuse.com, générer 2 clés,
+# les ajouter sur Railway env (LANGFUSE_PUBLIC_KEY + LANGFUSE_SECRET_KEY).
+# Sans clés configurées, l'import est lazy = no-op.
+langfuse>=2.0.0
+
