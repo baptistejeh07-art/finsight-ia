@@ -126,6 +126,13 @@ except Exception as _e:
     import logging as _lg
     _lg.getLogger(__name__).warning(f"[startup] shares_log router import failed: {_e}")
 
+try:
+    from backend.routers.sales_agent import router as sales_agent_router
+    app.include_router(sales_agent_router)
+except Exception as _e:
+    import logging as _lg
+    _lg.getLogger(__name__).warning(f"[startup] sales_agent router import failed: {_e}")
+
 # CORS — autorise le frontend Vercel + dev local
 app.add_middleware(
     CORSMiddleware,

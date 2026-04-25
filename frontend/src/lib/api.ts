@@ -4,7 +4,7 @@
  */
 import { createClient } from "./supabase/client";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+export const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 interface AnalyseResponse {
   success: boolean;
@@ -15,7 +15,7 @@ interface AnalyseResponse {
   error?: string;
 }
 
-async function getAuthHeader(): Promise<HeadersInit> {
+export async function getAuthHeader(): Promise<HeadersInit> {
   try {
     const supabase = createClient();
     const { data: { session } } = await supabase.auth.getSession();
@@ -47,7 +47,7 @@ function getLocaleHeaders(): HeadersInit {
   }
 }
 
-async function apiPost<T>(endpoint: string, body: unknown): Promise<T> {
+export async function apiPost<T>(endpoint: string, body: unknown): Promise<T> {
   const authHeader = await getAuthHeader();
   const res = await fetch(`${API_URL}${endpoint}`, {
     method: "POST",
@@ -64,7 +64,7 @@ async function apiPost<T>(endpoint: string, body: unknown): Promise<T> {
   return res.json();
 }
 
-async function apiGet<T>(endpoint: string): Promise<T> {
+export async function apiGet<T>(endpoint: string): Promise<T> {
   const authHeader = await getAuthHeader();
   const res = await fetch(`${API_URL}${endpoint}`, {
     headers: { ...authHeader, ...getLocaleHeaders() },
