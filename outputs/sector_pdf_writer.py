@@ -3196,11 +3196,21 @@ def _build_risques(tickers_data: list[dict], sector_name: str, registry=None):
     ]
     _ib_h = [Paragraph(h, S_TH_C) for h in ["Secteur", "P/E m\u00e9dian", "EV/EBITDA m\u00e9dian"]]
     _ib_rows = []
+    _current_pe = None
+    _current_ev = None
     for _sname, _spe, _sev in _sector_benchmarks:
         _is_current = _normalize(_sname) == _current_norm
-        _style_cell = S_TD_B if _is_current else S_TD_C
+        if _is_current:
+            _current_pe, _current_ev = _spe, _sev
+        # Audit Énergie/SP500 : avant ce fix, la ligne courante utilisait
+        # S_TD_B (gauche) tandis que les autres utilisaient S_TD_C (centre)
+        # → "12x" et "6x" Énergie sortaient désalignés à gauche dans le
+        # tableau. On utilise désormais S_TD_BC (bold + center) pour la ligne
+        # courante : alignement préservé, distinction visuelle conservée.
+        _style_cell = S_TD_BC if _is_current else S_TD_C
+        _label_style = S_TD_B if _is_current else S_TD_L  # nom du secteur en gras à gauche
         _ib_rows.append([
-            Paragraph(f"<b>&gt; {_sname}</b>" if _is_current else _sname, S_TD_B if _is_current else S_TD_L),
+            Paragraph(f"<b>&gt; {_sname}</b>" if _is_current else _sname, _label_style),
             Paragraph(f"<b>{_spe:.0f}x</b>" if _is_current else f"{_spe:.0f}x", _style_cell),
             Paragraph(f"<b>{_sev:.0f}x</b>" if _is_current else f"{_sev:.0f}x", _style_cell),
         ])
@@ -3214,6 +3224,71 @@ def _build_risques(tickers_data: list[dict], sector_name: str, registry=None):
             "Source : FinSight IA / yfinance. Le secteur analys\u00e9 est en gras."
         ),
     ]))
+
+    # ── Commentaire LLM 110-150 mots qui remplit le bas de page 16 ────────
+    # Avant ce patch, la page 16 montrait juste le tableau et restait à
+    # moitié vide. On ajoute une lecture interprétative position vs pairs.
+    if _current_pe is not None and _current_ev is not None:
+        _all_pe = [s[1] for s in _sector_benchmarks]
+        _all_ev = [s[2] for s in _sector_benchmarks]
+        _med_pe = sorted(_all_pe)[len(_all_pe) // 2]
+        _med_ev = sorted(_all_ev)[len(_all_ev) // 2]
+        _pe_pos = "décoté" if _current_pe < _med_pe * 0.85 else (
+            "premium" if _current_pe > _med_pe * 1.15 else "en ligne")
+        _ev_pos = "décoté" if _current_ev < _med_ev * 0.85 else (
+            "premium" if _current_ev > _med_ev * 1.15 else "en ligne")
+        _interp_lines = []
+        try:
+            from core.llm_provider import llm_call as _llm_inter
+            _prompt_inter = (
+                f"Analyste sell-side senior. Lecture interprétative 110-150 mots "
+                f"de la position du secteur {sector_name} dans le tableau de "
+                f"comparaison inter-sectorielle. P/E médian secteur = {_current_pe}x "
+                f"(médiane des 11 secteurs = {_med_pe}x → {_pe_pos}), EV/EBITDA "
+                f"médian secteur = {_current_ev}x (médiane = {_med_ev}x → {_ev_pos}).\n\n"
+                f"Structure : (1) constat chiffré sur le positionnement P/E + "
+                f"EV/EBITDA vs autres secteurs, (2) explication structurelle "
+                f"(cycle, rentabilité, risque réglementaire, croissance) qui "
+                f"justifie cette prime/décote, (3) implication portefeuille — "
+                f"pour quel profil d'investisseur ce secteur est attractif "
+                f"actuellement.\n\nFrançais avec accents. Pas de markdown. "
+                f"Pas de bullet points. Chiffres précis, espace avant % et x."
+            )
+            _resp_inter = _llm_inter(_prompt_inter, phase="fast", max_tokens=350) or ""
+            if _resp_inter.strip():
+                # Découpe en paragraphes
+                for _para in _resp_inter.strip().split("\n\n"):
+                    _para = _para.strip()
+                    if _para:
+                        _interp_lines.append(Paragraph(_para, S_BODY))
+                        _interp_lines.append(Spacer(1, 2*mm))
+        except Exception as _e_int:
+            _logger = __import__("logging").getLogger(__name__)
+            _logger.debug(f"[sector_pdf inter-sect LLM] {_e_int}")
+        # Fallback si LLM down : commentaire structuré déterministe
+        if not _interp_lines:
+            _fallback = (
+                f"Le secteur {sector_name} se situe à un P/E médian de "
+                f"{_current_pe:.0f}x et un EV/EBITDA médian de {_current_ev:.0f}x, "
+                f"soit une position {_pe_pos} en P/E et {_ev_pos} en EV/EBITDA "
+                f"par rapport à la médiane des 11 secteurs GICS "
+                f"({_med_pe:.0f}x et {_med_ev:.0f}x respectivement). Cette "
+                f"valorisation reflète la combinaison de la cyclicité du secteur, "
+                f"de sa rentabilité opérationnelle et de la qualité perçue de "
+                f"ses cash-flows. Pour un investisseur orienté valeur, une "
+                f"décote sectorielle peut signaler une opportunité de mean-"
+                f"reversion ; pour un profil croissance, une prime peut au "
+                f"contraire indiquer un secteur structurellement avantagé."
+            )
+            _interp_lines.append(Paragraph(_fallback, S_BODY))
+            _interp_lines.append(Spacer(1, 2*mm))
+        elems.append(Spacer(1, 4*mm))
+        elems.append(Paragraph(
+            "Lecture analytique \u2014 position relative dans la cartographie sectorielle",
+            S_SUBSECTION))
+        elems.append(Spacer(1, 1.5*mm))
+        for _e in _interp_lines:
+            elems.append(_e)
 
     return elems
 

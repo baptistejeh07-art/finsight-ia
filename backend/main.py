@@ -429,28 +429,79 @@ def _do_secteur(secteur: str, univers: str, language: str = "fr", currency: str 
         if p.exists():
             files[ext] = str(p.relative_to(_ROOT))
     files = _upload_files_to_storage(files, prefix=f"secteur/{stem}")
-    # Slim les tickers pour limiter la taille du payload
+    # Helpers de conversion : cli_analyze stocke les marges/roe en % (0-100),
+    # le frontend (SectorTickersTable) attend du décimal (fmtPct multiplie
+    # ×100 si la valeur est < 1). Sans cette conversion, ROE 13.2% s'affiche
+    # « 1320 % » ou « — ». Bug observé sur Énergie / S&P 500 : ROE/PER/EBITDA
+    # tous « — » dans le tableau Sociétés du secteur.
+    def _to_frac(v):
+        if v is None:
+            return None
+        try:
+            f = float(v)
+            return f / 100.0 if abs(f) > 1.5 else f
+        except (TypeError, ValueError):
+            return None
+
+    def _safe_num(v):
+        if v is None:
+            return None
+        try:
+            return float(v)
+        except (TypeError, ValueError):
+            return None
+
     slim_tickers = []
     for t in sector_data.get("tickers", [])[:15]:
         if isinstance(t, dict):
+            # Construction d'un dict ratios complet pour le frontend.
+            # _fetch_real_sector_data retourne les ratios à PLAT (pas sous
+            # une clé "ratios"), il faut donc les remapper et convertir.
+            _existing_ratios = t.get("ratios") or {}
+            _ratios_obj = {
+                "pe_ratio":       _safe_num(_existing_ratios.get("pe_ratio")
+                                              or t.get("pe_ratio") or t.get("pe")),
+                "ev_ebitda":      _safe_num(_existing_ratios.get("ev_ebitda")
+                                              or t.get("ev_ebitda")),
+                "ev_revenue":     _safe_num(_existing_ratios.get("ev_revenue")
+                                              or t.get("ev_revenue")),
+                "ebitda_margin":  _to_frac(_existing_ratios.get("ebitda_margin")
+                                              or t.get("ebitda_margin")),
+                "gross_margin":   _to_frac(_existing_ratios.get("gross_margin")
+                                              or t.get("gross_margin")),
+                "net_margin":     _to_frac(_existing_ratios.get("net_margin")
+                                              or t.get("net_margin")),
+                "roe":            _to_frac(_existing_ratios.get("roe")
+                                              or t.get("roe")),
+                "roa":            _to_frac(_existing_ratios.get("roa") or t.get("roa")),
+                "roic":           _to_frac(_existing_ratios.get("roic") or t.get("roic")),
+                "revenue_growth": _to_frac(_existing_ratios.get("revenue_growth")
+                                              or t.get("revenue_growth")),
+                "div_yield":      _to_frac(_existing_ratios.get("div_yield")
+                                              or t.get("div_yield")),
+                "pb_ratio":       _safe_num(_existing_ratios.get("pb_ratio")
+                                              or t.get("pb_ratio")),
+                "altman_z":       _safe_num(_existing_ratios.get("altman_z")
+                                              or t.get("altman_z")),
+                "momentum_52w":   _to_frac(_existing_ratios.get("momentum_52w")
+                                              or t.get("momentum_52w")
+                                              or t.get("mom52")),
+            }
             # cli_analyze utilise "company", backend harmonise avec "name"
             slim_tickers.append({
                 "ticker": t.get("ticker") or t.get("symbol"),
                 "name": t.get("name") or t.get("company_name") or t.get("company"),
-                "market_cap": t.get("market_cap"),
-                # Passe les ratios + champs racine pour que le frontend ait
-                # accès à pe, roe, ebitda_margin, etc. directement (les
-                # writers PDF/PPTX en ont besoin aussi).
-                "ratios": t.get("ratios") or {},
-                # Champs plats pour Comparatif financier (sinon données "—")
-                "pe_ratio": t.get("pe_ratio") or t.get("pe"),
-                "ev_ebitda": t.get("ev_ebitda"),
-                "ebitda_margin": t.get("ebitda_margin"),
-                "roe": t.get("roe"),
-                "revenue_growth": t.get("revenue_growth"),
-                "div_yield": t.get("div_yield"),
-                "pb_ratio": t.get("pb_ratio"),
-                "ptb_value_ratio": t.get("ptb_value_ratio"),  # P/TBV si calculé
+                "market_cap": _safe_num(t.get("market_cap")),
+                "ratios": _ratios_obj,
+                # Champs plats conservés pour rétro-compat (Comparatif fin.)
+                "pe_ratio":      _ratios_obj["pe_ratio"],
+                "ev_ebitda":     _ratios_obj["ev_ebitda"],
+                "ebitda_margin": _ratios_obj["ebitda_margin"],
+                "roe":           _ratios_obj["roe"],
+                "revenue_growth": _ratios_obj["revenue_growth"],
+                "div_yield":     _ratios_obj["div_yield"],
+                "pb_ratio":      _ratios_obj["pb_ratio"],
+                "ptb_value_ratio": _safe_num(t.get("ptb_value_ratio")),
             })
     # ETF sectoriel pour bloc "Cours" (parité avec Cours société)
     sector_etf = None

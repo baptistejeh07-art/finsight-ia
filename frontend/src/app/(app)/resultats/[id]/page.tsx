@@ -623,12 +623,21 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
                       } satisfies GridBlock,
                     ]
                   : []),
-                {
-                  id: "documents-upload",
-                  label: t("results.block_docs"),
-                  default: { x: 8, y: 16, w: 4, h: 6 },
-                  render: () => <DocumentUploadBox analysisId={id} />,
-                } satisfies GridBlock,
+                // Upload de documents (bilan, FEC, contrats…) : pertinent
+                // UNIQUEMENT pour les PME non cotées où l'utilisateur peut
+                // enrichir l'analyse avec ses propres pièces. Pour société
+                // cotée / secteur / indice, le contenu réglementaire est
+                // déjà sur EDGAR / yfinance et l'upload n'apporte rien.
+                ...(kind === "pme"
+                  ? [
+                      {
+                        id: "documents-upload",
+                        label: t("results.block_docs"),
+                        default: { x: 8, y: 16, w: 4, h: 6 },
+                        render: () => <DocumentUploadBox analysisId={id} />,
+                      } satisfies GridBlock,
+                    ]
+                  : []),
                 // Downloads PDF/PPTX/XLSX : dans la sidebar uniquement (Baptiste)
                 // Bloc secteur : Portrait (HHI + PE + ROIC narratif)
                 ...(kind === "secteur"
