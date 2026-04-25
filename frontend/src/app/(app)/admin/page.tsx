@@ -329,6 +329,9 @@ export default function AdminDashboardPage() {
 
       {/* Links */}
       <div className="flex flex-wrap gap-4 text-xs">
+        <Link href="/admin/sales-agent" className="text-navy-500 hover:underline font-semibold">
+          → Sales Agent (prospection LinkedIn)
+        </Link>
         <Link href="/admin/monitoring" className="text-navy-500 hover:underline">
           → Monitoring jobs
         </Link>
