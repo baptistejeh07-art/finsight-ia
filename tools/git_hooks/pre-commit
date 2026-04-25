@@ -1,36 +1,57 @@
 #!/bin/sh
-# FinSight IA — pre-commit hook
-# Lance tests/test_core.py si un module core est staged.
-# Refuse le commit si les tests echouent.
+# FinSight IA — pre-commit hook (versionné dans tools/git_hooks/)
+#
+# Garde 1 (Python) : test_core.py si un module core est staged
+# Garde 2 (TypeScript) : npx tsc --noEmit si frontend/src/**/*.{ts,tsx} staged
+#                       Empêche le bug TS2367 qui casse Vercel (cf 25/04/2026)
 #
 # Installation :
-#   cp tools/git_hooks/pre-commit .git/hooks/pre-commit
-#   chmod +x .git/hooks/pre-commit
+#   git config core.hooksPath tools/git_hooks
 #
 # Skip : git commit --no-verify (ne pas abuser)
 
-# Liste des patterns qui declenchent les tests
-PATTERNS='^(core/|outputs/excel_profile_router\.py|tests/test_core\.py)'
+set -e
 
-STAGED=$(git diff --cached --name-only --diff-filter=ACM | grep -E "$PATTERNS")
+EXIT=0
 
-if [ -z "$STAGED" ]; then
-    # Aucun module sensible modifie : skip
-    exit 0
+# ─── Garde 1 : Python core ─────────────────────────────────────────────
+PY_PATTERNS='^(core/|outputs/excel_profile_router\.py|tests/test_core\.py)'
+PY_STAGED=$(git diff --cached --name-only --diff-filter=ACM | grep -E "$PY_PATTERNS" || true)
+
+if [ -n "$PY_STAGED" ]; then
+    echo "[pre-commit] Modules core modifies : lancement test_core.py..."
+    echo "$PY_STAGED" | sed 's/^/  /'
+    if ! python tests/test_core.py; then
+        echo ""
+        echo "[pre-commit] ECHEC test_core.py — commit refuse"
+        EXIT=1
+    fi
 fi
 
-echo "[pre-commit] Modules core modifies : lancement test_core.py..."
-echo "$STAGED" | sed 's/^/  /'
-echo ""
+# ─── Garde 2 : TypeScript frontend ─────────────────────────────────────
+# Tout fichier .ts ou .tsx staged sous frontend/src/ → tsc --noEmit
+# Sans ça, une comparaison impossible (TS2367) ou un import manquant
+# passe jusqu'à Vercel et casse le build en prod.
+TS_STAGED=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^frontend/src/.+\.(ts|tsx)$' || true)
 
-python tests/test_core.py
-RESULT=$?
-
-if [ $RESULT -ne 0 ]; then
+if [ -n "$TS_STAGED" ]; then
     echo ""
-    echo "[pre-commit] ECHEC : test_core.py a echoue (exit $RESULT)"
-    echo "[pre-commit] Commit refuse. Corrigez les tests ou utilisez --no-verify en dernier recours."
-    exit 1
+    echo "[pre-commit] Fichiers TypeScript modifies : tsc --noEmit..."
+    echo "$TS_STAGED" | head -10 | sed 's/^/  /'
+    # Cap silencieux du output sur succes, full output sur echec
+    TSC_OUT=$(cd frontend && npx --yes tsc --noEmit 2>&1) || TSC_FAIL=1
+    if [ -n "$TSC_FAIL" ]; then
+        echo ""
+        echo "[pre-commit] ECHEC tsc — Vercel echouerait, commit refuse"
+        echo "$TSC_OUT" | head -40
+        EXIT=1
+    fi
+fi
+
+if [ $EXIT -ne 0 ]; then
+    echo ""
+    echo "[pre-commit] Corrigez les erreurs ou utilisez --no-verify en dernier recours."
+    exit $EXIT
 fi
 
 exit 0
