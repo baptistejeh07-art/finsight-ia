@@ -151,11 +151,20 @@ def audit_sector_analysis(
     else:
         report.add("names_fallback", True, "info", "Tous les noms sociétés renseignés")
 
-    # Règle 3 : ratios critiques vides (pénalité proportionnelle)
+    # Règle 3 : ratios critiques vides (pénalité proportionnelle).
+    # Seuils de sévérité élargis (audit Énergie/SP500 25/04 : 100% roic null
+    # remontait warn — invisible. Maintenant : 2+ ratios à ≥80% null = error,
+    # 1+ ratio à 100% null = error aussi. Permet à l'admin email de partir).
     _missing_ratios_detail = []
     total_missing_pts = 0.0
+    n_full_null = 0      # ratios à 100% null
+    n_high_null = 0      # ratios à ≥80% null
     for f in _CRITICAL_RATIOS:
         pct_null = _null_pct(tickers, f)
+        if pct_null >= 1.0:
+            n_full_null += 1
+        if pct_null >= 0.8:
+            n_high_null += 1
         if pct_null >= 0.5:
             total_missing_pts += 3
             _missing_ratios_detail.append(f"{f} ({int(pct_null*100)}%)")
@@ -163,9 +172,15 @@ def audit_sector_analysis(
             total_missing_pts += 1.5
             _missing_ratios_detail.append(f"{f} ({int(pct_null*100)}%)")
     if total_missing_pts > 0:
+        # Promotion automatique en error si signal clair de bug data
+        if n_full_null >= 2 or n_high_null >= 3:
+            _sev = "error"
+        elif total_missing_pts >= 10:
+            _sev = "error"
+        else:
+            _sev = "warn"
         report.add(
-            "ratios_missing", False,
-            "error" if total_missing_pts >= 10 else "warn",
+            "ratios_missing", False, _sev,
             f"Ratios critiques manquants : {', '.join(_missing_ratios_detail)}",
             penalty=min(total_missing_pts, 25),
         )

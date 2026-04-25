@@ -83,14 +83,107 @@ def record_error(
         rows = r.json() or []
         row_id = rows[0]["id"] if rows else None
 
-        # Wake-up Claude si critical ou error nouveau (non vu dans la dernière heure)
+        # ── Notifications ────────────────────────────────────────────────
+        # 1. Wake-up Claude routine (critical/error uniquement, déjà existant)
         if severity in ("critical", "error"):
             trigger_wakeup_if_new(error_type=error_type, ticker=ticker,
                                   message=message, row_id=row_id, context=context or {})
+        # 2. Email admin via Resend — toujours sur critical/error, et sur warn
+        # quand l'erreur est récurrente (≥3 fois en 24h pour le même fingerprint).
+        # Avant ce patch : tous les warns finissaient en table sans personne ne
+        # les voir. Maintenant ils déclenchent une notif email actionnable
+        # quand le motif se répète (= bug réel récurrent, pas blip ponctuel).
+        try:
+            _should_email = severity in ("critical", "error")
+            if not _should_email and severity == "warn":
+                _should_email = _is_recurring_warn(error_type, ticker)
+            if _should_email:
+                _notify_admin_email(
+                    severity=severity, error_type=error_type, ticker=ticker,
+                    kind=kind, message=message, row_id=row_id,
+                    context=context or {})
+        except Exception as _e_mail:
+            log.debug(f"[sentinel] email skip: {_e_mail}")
         return row_id
     except Exception as e:
         log.warning(f"[sentinel] record_error exception: {e}")
         return None
+
+
+# Cache des warns récents (in-process) pour détecter la récurrence.
+_WARN_HISTORY: dict[str, list[datetime]] = {}
+_WARN_RECURRENCE_THRESHOLD = 3   # 3 occurrences déclenchent l'escalation
+_WARN_RECURRENCE_WINDOW = timedelta(hours=24)
+
+
+def _is_recurring_warn(error_type: str, ticker: Optional[str]) -> bool:
+    """True si ce (error_type, ticker) est apparu ≥3 fois dans les dernières 24h.
+
+    Permet d'escalader des warns « cosmétiques » (ratios manquants, accents
+    LLM…) qui finiraient invisibles autrement. Une apparition isolée reste
+    silencieuse (probable blip yfinance), mais 3 fois = signal qu'il faut
+    fixer.
+    """
+    fp = _fingerprint(error_type, ticker)
+    now = datetime.now(timezone.utc)
+    hist = _WARN_HISTORY.setdefault(fp, [])
+    # Purge les entrées hors fenêtre
+    cutoff = now - _WARN_RECURRENCE_WINDOW
+    hist[:] = [t for t in hist if t >= cutoff]
+    hist.append(now)
+    return len(hist) >= _WARN_RECURRENCE_THRESHOLD
+
+
+# Cache d'emails envoyés pour ne pas spammer Baptiste 100×/jour pour la même
+# erreur. 1 email par fingerprint toutes les 6h max.
+_EMAIL_SENT_CACHE: dict[str, datetime] = {}
+_EMAIL_DEDUP_WINDOW = timedelta(hours=6)
+
+
+def _notify_admin_email(*, severity: str, error_type: str,
+                          ticker: Optional[str], kind: Optional[str],
+                          message: str, row_id: Optional[str],
+                          context: dict) -> bool:
+    """Envoie un email admin via Resend pour notifier Baptiste qu'un bug
+    a été détecté en prod. Dédupliqué par fingerprint sur 6h."""
+    admin_to = os.getenv("SENTINEL_ADMIN_EMAIL", "baptiste.jeh07@gmail.com").strip()
+    if not admin_to:
+        return False
+    fp = _fingerprint(error_type, ticker)
+    now = datetime.now(timezone.utc)
+    last = _EMAIL_SENT_CACHE.get(fp)
+    if last and (now - last) < _EMAIL_DEDUP_WINDOW:
+        log.info(f"[sentinel] email dédup ({fp}, last sent {(now - last).total_seconds():.0f}s ago)")
+        return False
+    try:
+        from core.alerts.notifier import send_email as _send
+        _emoji = {"critical": "🔴", "error": "🟠", "warn": "🟡"}.get(severity, "⚪")
+        _label = {"societe": "société", "secteur": "secteur",
+                   "indice": "indice", "pme": "PME"}.get(kind or "", kind or "—")
+        subject = f"{_emoji} FinSight Sentinel — {error_type} ({ticker or _label})"
+        # Contexte concis : on garde les 3-4 clés les plus utiles
+        ctx_str = ""
+        for _k in ("rule", "data_quality_score", "n_tickers", "penalty"):
+            if _k in (context or {}):
+                ctx_str += f"<br><b>{_k}</b> : {context[_k]}"
+        body = (
+            f"Severité : <b>{severity.upper()}</b><br>"
+            f"Type : <code>{error_type}</code><br>"
+            f"Ticker / univers : {ticker or 'n/a'}<br>"
+            f"Kind : {_label}<br>"
+            f"Row ID : <code>{row_id or 'n/a'}</code><br>"
+            f"Message :<br><pre style='background:#f5f5f5;padding:8px;border-radius:4px;"
+            f"font-size:12px;white-space:pre-wrap;'>{(message or '')[:600]}</pre>"
+            f"{ctx_str}"
+        )
+        ok = _send(admin_to, subject, body, ticker=ticker)
+        if ok:
+            _EMAIL_SENT_CACHE[fp] = now
+            log.info(f"[sentinel] admin email envoyé : {error_type}/{ticker}")
+        return ok
+    except Exception as e:
+        log.warning(f"[sentinel] admin email exception: {e}")
+        return False
 
 
 def _fingerprint(error_type: str, ticker: Optional[str]) -> str:
