@@ -46,3 +46,40 @@ async def admin_errors(user: Annotated[dict, Depends(require_admin)],
                 "window_hours": hours}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Errors fetch: {e}")
+
+
+@router.post("/sentinel/test")
+async def admin_sentinel_test(user: Annotated[dict, Depends(require_admin)],
+                                severity: str = "error"):
+    """Déclenche un faux sentinel issue pour tester le pipeline complet :
+    insertion table pipeline_errors + envoi email Resend admin.
+
+    Usage : POST /admin/sentinel/test?severity=error
+    Réponse : {"row_id": "...", "wakeup_attempted": true, "ts": "..."}
+
+    À appeler une seule fois pour valider que l'email arrive bien dans
+    la boîte SENTINEL_ADMIN_EMAIL. Utile aussi pour tester quand on
+    suspecte que l'environnement Railway ne propage pas RESEND_API_KEY.
+    """
+    if severity not in ("warn", "error", "critical"):
+        raise HTTPException(400, "severity must be warn|error|critical")
+    from core.sentinel.recorder import record_error
+    row_id = record_error(
+        severity=severity,
+        error_type="sentinel_test_manual",
+        message=(f"Test manuel déclenché depuis /admin/sentinel/test à "
+                  f"{utcnow().isoformat()}. Si vous lisez cet email, le canal "
+                  f"d'alerte sentinel fonctionne de bout en bout."),
+        ticker="TEST",
+        kind="test",
+        node="manual",
+        context={"rule": "manual_test", "triggered_by": user.get("email")},
+        user_id=user.get("id"),
+    )
+    return {
+        "ok": True,
+        "row_id": row_id,
+        "severity": severity,
+        "message": "Test envoyé. Vérifiez la boîte mail SENTINEL_ADMIN_EMAIL.",
+        "ts": utcnow().isoformat(),
+    }
