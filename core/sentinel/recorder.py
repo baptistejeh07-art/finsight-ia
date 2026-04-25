@@ -83,27 +83,41 @@ def record_error(
         rows = r.json() or []
         row_id = rows[0]["id"] if rows else None
 
-        # ── Notifications ────────────────────────────────────────────────
-        # 1. Wake-up Claude routine (critical/error uniquement, déjà existant)
-        if severity in ("critical", "error"):
-            trigger_wakeup_if_new(error_type=error_type, ticker=ticker,
-                                  message=message, row_id=row_id, context=context or {})
-        # 2. Email admin via Resend — toujours sur critical/error, et sur warn
-        # quand l'erreur est récurrente (≥3 fois en 24h pour le même fingerprint).
-        # Avant ce patch : tous les warns finissaient en table sans personne ne
-        # les voir. Maintenant ils déclenchent une notif email actionnable
-        # quand le motif se répète (= bug réel récurrent, pas blip ponctuel).
-        try:
-            _should_email = severity in ("critical", "error")
-            if not _should_email and severity == "warn":
-                _should_email = _is_recurring_warn(error_type, ticker)
-            if _should_email:
+        # ── Notifications (3 canaux en parallèle, tous best-effort) ─────
+        # On calcule les flags UNE FOIS car _is_recurring_warn a un effet
+        # de bord (incrémente l'historique). Sinon 3 canaux × même call =
+        # warn promu en récurrent au 1er tour, faux positif.
+        _is_severe = severity in ("critical", "error")
+        _is_recurring = (severity == "warn"
+                          and _is_recurring_warn(error_type, ticker))
+        _should_alert = _is_severe or _is_recurring
+
+        if _should_alert:
+            # 1. GitHub Actions dispatch — Option C, le canal principal
+            # qui déclenche un agent Claude Code pour fixer auto le bug.
+            try:
+                from core.sentinel.github_dispatch import send_event as _gh_dispatch
+                _gh_dispatch(error_type=error_type, severity=severity,
+                              ticker=ticker, kind=kind, message=message,
+                              row_id=row_id, context=context or {})
+            except Exception as _e_gh:
+                log.debug(f"[sentinel] github dispatch skip: {_e_gh}")
+
+            # 2. Email admin Resend — confirmation visuelle pour Baptiste
+            # qu'un workflow s'est lancé (sans devoir ouvrir GitHub Actions).
+            try:
                 _notify_admin_email(
                     severity=severity, error_type=error_type, ticker=ticker,
                     kind=kind, message=message, row_id=row_id,
                     context=context or {})
-        except Exception as _e_mail:
-            log.debug(f"[sentinel] email skip: {_e_mail}")
+            except Exception as _e_mail:
+                log.debug(f"[sentinel] email skip: {_e_mail}")
+
+        # 3. Legacy : routine claude.ai/code — best-effort, gardée en
+        # parallèle. Token actuellement 401, à régénérer ou ignorer.
+        if _is_severe:
+            trigger_wakeup_if_new(error_type=error_type, ticker=ticker,
+                                  message=message, row_id=row_id, context=context or {})
         return row_id
     except Exception as e:
         log.warning(f"[sentinel] record_error exception: {e}")

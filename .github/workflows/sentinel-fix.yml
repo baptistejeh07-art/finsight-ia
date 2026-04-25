@@ -1,0 +1,196 @@
+name: Sentinel Auto-Fix
+
+# Déclenché par /core/sentinel/github_dispatch.py via repository_dispatch
+# (event-type=sentinel-error). Le sentinel envoie un POST à l'API GitHub
+# Dispatches dès qu'il enregistre une erreur prod (severity error/critical
+# ou warn récurrent ≥3 fois). Le workflow ci-dessous installe Claude Code
+# en mode headless, le lance avec le contexte du bug en input, puis
+# commit/push le fix automatique.
+#
+# SECURITÉ : Claude Code tourne avec --allowedTools restreint. Pas de
+# possibilité d'exécuter des commandes arbitraires hors du repo.
+# La branche master est protégée par les tests pre-commit (test_core.py).
+
+on:
+  repository_dispatch:
+    types: [sentinel-error]
+
+# Annule les runs en cours pour le même error_type+ticker — évite que
+# 3 dispatches successifs lancent 3 sessions Claude Code parallèles qui
+# se marchent dessus. Le dernier dispatch gagne.
+concurrency:
+  group: sentinel-${{ github.event.client_payload.error_type }}-${{ github.event.client_payload.ticker }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write    # pour commit + push le fix
+  pull-requests: write  # si on veut créer une PR au lieu de push direct
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25  # Claude Code ne devrait pas dépasser 25 min sur un fix
+
+    steps:
+      - name: Checkout repo (depth=0 pour git history)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js (pour Claude Code CLI)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup Python (pour test_core.py + scripts)
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Python deps minimales
+        run: |
+          python -m pip install --upgrade pip
+          # Tests core ne nécessitent qu'un sous-ensemble — on évite
+          # tout requirements.txt pour la rapidité (matplotlib, etc.).
+          pip install httpx pytest pyyaml || true
+
+      - name: Install Claude Code
+        run: |
+          npm install -g @anthropic-ai/claude-code
+          claude --version || claude-code --version || true
+        env:
+          # Pas de prompt interactif pendant l'install
+          CI: 'true'
+
+      - name: Configure git author
+        run: |
+          git config user.name "FinSight Sentinel Bot"
+          git config user.email "sentinel@finsight-ia.com"
+
+      - name: Build Claude prompt depuis payload sentinel
+        id: prompt
+        run: |
+          mkdir -p /tmp/sentinel
+          cat > /tmp/sentinel/context.json <<'PAYLOAD_EOF'
+          ${{ toJSON(github.event.client_payload) }}
+          PAYLOAD_EOF
+          # Construction d'un prompt structuré
+          cat > /tmp/sentinel/prompt.txt <<'PROMPT_EOF'
+          Tu es un agent FinSight Sentinel chargé de réparer un bug de
+          production détecté automatiquement.
+
+          === CONTEXTE DU BUG ===
+          PROMPT_EOF
+          cat /tmp/sentinel/context.json >> /tmp/sentinel/prompt.txt
+          cat >> /tmp/sentinel/prompt.txt <<'PROMPT_EOF'
+
+          === RÈGLES ABSOLUES ===
+          1. Lis d'abord memory/known_errors.md et CLAUDE.md (workflow
+             obligatoire avant toute modif).
+          2. Identifie la cause racine — pas seulement les symptômes.
+          3. Si tu identifies un fix : modifie le code, lance
+             `python tools/test_core.py` pour valider, puis commit+push
+             avec préfixe « [sentinel-auto] » dans le message.
+          4. Si tu n'es PAS confiant à >80% : NE FAIS RIEN, écris juste
+             un fichier sentinel-investigation-{timestamp}.md à la racine
+             qui résume ce que tu as compris et ce qui te manque pour fixer.
+             Le commit sera alors « [sentinel-investigation] ... ».
+           5. NE JAMAIS : lancer cli_analyze.py, audit.py preview (consomme
+             Groq quotas), git push --force, git reset --hard, supprimer
+             des fichiers, modifier .env, modifier les secrets.
+          6. Limite-toi à modifier les fichiers Python/TS/MD du repo. Pas
+             de changement infra (Railway, Supabase, Vercel).
+
+          === RAPPELS PROJET ===
+          - Repo: baptistejeh07-art/finsight-ia
+          - Backend Python sur Railway, frontend Next.js sur Vercel
+          - test_core.py = doit passer avant tout push
+          - Le bug a été détecté par core/sentinel/data_audit.py — le code
+             du sentinel lui-même est le filet, pas la cible du fix.
+
+          Commence maintenant. Fix ou investigation, à toi de décider.
+          PROMPT_EOF
+          echo "prompt_path=/tmp/sentinel/prompt.txt" >> $GITHUB_OUTPUT
+          echo "--- Prompt généré (extrait) ---"
+          head -30 /tmp/sentinel/prompt.txt
+          wc -l /tmp/sentinel/prompt.txt
+
+      - name: Run Claude Code en mode headless
+        id: claude
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          # --print : non-interactif, output stdout puis exit
+          # --permission-mode acceptEdits : auto-accept les edits sans prompt
+          # --allowedTools : restriction safety
+          # --model : Sonnet 4.6 par défaut (rapport qualité/prix optimal)
+          PROMPT_CONTENT=$(cat /tmp/sentinel/prompt.txt)
+          claude \
+            --print "$PROMPT_CONTENT" \
+            --permission-mode acceptEdits \
+            --allowedTools "Bash(python *),Bash(git status),Bash(git diff *),Bash(git log *),Read,Write,Edit,Glob,Grep" \
+            --model claude-sonnet-4-5-20250929 \
+            2>&1 | tee /tmp/sentinel/claude-output.log
+          echo "claude exit code: $?"
+
+      - name: Commit + push si modifications
+        run: |
+          if [[ -n "$(git status --porcelain)" ]]; then
+            # Détermine le type de commit selon ce qui a été modifié
+            IS_INVESTIGATION="false"
+            if ls sentinel-investigation-*.md 2>/dev/null; then
+              IS_INVESTIGATION="true"
+            fi
+            if [[ "$IS_INVESTIGATION" == "true" ]]; then
+              PREFIX="[sentinel-investigation]"
+              SUFFIX="(diagnostic, pas de fix appliqué)"
+            else
+              PREFIX="[sentinel-auto]"
+              SUFFIX="(fix automatique — relire avant prochain prod incident)"
+            fi
+            ERROR_TYPE="${{ github.event.client_payload.error_type }}"
+            TICKER="${{ github.event.client_payload.ticker }}"
+            git add -A
+            git commit -m "$PREFIX fix $ERROR_TYPE / $TICKER
+
+          Déclenché par sentinel le $(date -u +%Y-%m-%dT%H:%M:%SZ).
+          Run ID: ${{ github.run_id }} · Run URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+          $SUFFIX
+
+          Co-Authored-By: FinSight Sentinel Bot <sentinel@finsight-ia.com>"
+            git push origin master
+            echo "✅ Commit poussé"
+          else
+            echo "ℹ️ Pas de modification — Claude n'a rien changé"
+          fi
+
+      - name: Upload Claude output as artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: claude-output-${{ github.run_id }}
+          path: /tmp/sentinel/
+          retention-days: 30
+
+      - name: Marquer l'erreur comme traitée dans Supabase
+        if: always()
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          ROW_ID="${{ github.event.client_payload.row_id }}"
+          if [[ -z "$ROW_ID" || -z "$SUPABASE_URL" || -z "$SUPABASE_SERVICE_KEY" ]]; then
+            echo "Skip (row_id ou Supabase creds manquants)"
+            exit 0
+          fi
+          STATUS="${{ job.status }}"
+          curl -sS -X PATCH \
+            "$SUPABASE_URL/rest/v1/pipeline_errors?id=eq.$ROW_ID" \
+            -H "apikey: $SUPABASE_SERVICE_KEY" \
+            -H "Authorization: Bearer $SUPABASE_SERVICE_KEY" \
+            -H "Content-Type: application/json" \
+            -H "Prefer: return=minimal" \
+            -d "{\"wakeup_fired\": true, \"wakeup_reason\": \"github-actions-${{ github.run_id }}-status-$STATUS\"}" \
+            && echo "✅ Sentinel row marquée wakeup_fired=true"
