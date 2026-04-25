@@ -682,6 +682,31 @@ def fetch(ticker: str) -> Optional[FinancialSnapshot]:
                 "source":      "yfinance",
                 "year_labels": year_labels,
                 "base_year":   base_year,
+                # yfinance_info exposé pour permettre des fallbacks dans
+                # agent_quant (ex: dividend_payout 0% sur banques où la ligne
+                # IS « Common Stock Dividends » n'est pas publiée par
+                # yfinance, alors que info["payoutRatio"] est correct).
+                # Ne pas stocker la totalité (~150 clés, lourd) — uniquement
+                # un sous-ensemble utile aux ratios.
+                "yfinance_info": {
+                    k: info.get(k) for k in (
+                        "payoutRatio",
+                        "dividendYield",
+                        "dividendRate",
+                        "trailingAnnualDividendYield",
+                        "trailingAnnualDividendRate",
+                        "shortPercentOfFloat",
+                        "shortRatio",
+                        "heldPercentInsiders",
+                        "heldPercentInstitutions",
+                        "earningsQuarterlyGrowth",
+                        "earningsGrowth",
+                        "trailingPegRatio",
+                        "forwardPE",
+                        "trailingEps",
+                        "forwardEps",
+                    ) if info.get(k) is not None
+                },
             },
         )
 

@@ -245,6 +245,33 @@ class AgentQuant:
         # DCF déterministe + Monte Carlo (10 000 simulations numpy)
         mc_meta = self._compute_dcf_montecarlo(snapshot, all_labels, years_ratios, projections)
 
+        # Fallback dividend_payout : pour les banques (BNP, SAN.MC, etc.)
+        # yfinance ne publie pas la ligne IS « Common Stock Dividends » →
+        # _compute_year retourne dividend_payout=None alors qu'en réalité
+        # info["payoutRatio"] = 0.717 et BNP distribue ~5 Md€/an. On
+        # propage info["payoutRatio"] sur la dernière année quand le
+        # calcul direct n'a rien donné. Le market.dividend_yield reste
+        # géré côté yfinance_source (déjà résilient).
+        try:
+            _yfi = (snapshot.meta or {}).get("yfinance_info") or {}
+            _payout_info = _yfi.get("payoutRatio")
+            if all_labels and _payout_info is not None:
+                _last = years_ratios.get(all_labels[-1])
+                if _last is not None and (_last.dividend_payout is None
+                                            or _last.dividend_payout == 0):
+                    try:
+                        _v = float(_payout_info)
+                        # yfinance retourne payoutRatio en décimal (0.717=71.7%)
+                        if 0 < _v <= 5:  # cap : ignore valeurs absurdes
+                            _last.dividend_payout = _v
+                            log.info(f"[agent_quant] dividend_payout fallback "
+                                      f"info[payoutRatio]={_v} appliqué sur "
+                                      f"{all_labels[-1]}")
+                    except (TypeError, ValueError):
+                        pass
+        except Exception as _e_div:
+            log.debug(f"[agent_quant] dividend fallback skip: {_e_div}")
+
         coverages = [self._coverage(yr) for yr in years_ratios.values()]
         confidence = round(sum(coverages) / len(coverages), 2) if coverages else 0.0
 
