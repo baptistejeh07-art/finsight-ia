@@ -1855,7 +1855,7 @@ def _s16_disclaimer(prs, D):
          "Univers S&P 500, CAC 40, STOXX 600 ou global selon le parametre sélectionné par l'utilisateur. "
          "Toutes les sociétés du secteur avec données yfinance disponibles (min. 3 ratios renseignés). "
          "Valeurs aberrantes filtrees : P/E > 999x exclus, ROE < -500% exclus, ratios LTM uniquement. "
-         "Médianes utilisees plutot que moyennes pour la robustesse aux outliers."),
+         "Médianes utilisees Plutôt que moyennes pour la robustesse aux outliers."),
         ("Sources de données",
          "yfinance (Yahoo Finance) : cours, bilan, compte de résultats, flux de trésorerie — fréquence "
          "trimestrielle ou annuelle selon disponibilité. Finnhub : news et sentiment. FMP : données "
@@ -2074,9 +2074,9 @@ class CmpSecteurPPTXWriter:
                             "es": "Riesgos y Catalizadores", "de": "Risiken & Katalysatoren",
                             "it": "Rischi & Catalizzatori", "pt": "Riscos & Catalisadores"},
             "synthese_th": {"fr": "Synthèse Comparative  —  Thèses d'Investissement",
-                            "en": "Comparative Synthesis  —  Investment Theses",
+                            "en": "Comparative Synthesis  —  Investment Thèses",
                             "es": "Síntesis Comparativa  —  Tesis de Inversión",
-                            "de": "Vergleichende Synthese  —  Investitionsthesen",
+                            "de": "Vergleichende Synthèse  —  Investitionsthesen",
                             "it": "Sintesi Comparativa  —  Tesi d'Investimento",
                             "pt": "Síntese Comparativa  —  Teses de Investimento"},
             "reco_port": {"fr": "Recommandation  —  Positionnement Portefeuille",

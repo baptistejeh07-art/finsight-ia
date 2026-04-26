@@ -2036,7 +2036,7 @@ class CmpIndicePPTXWriter:
                           "it": "Segnale FinSight Comparativo",
                           "pt": "Sinal FinSight Comparativo"},
             "theses_bb": {"fr": "Thèses d'Investissement Bull / Bear",
-                          "en": "Bull / Bear Investment Theses",
+                          "en": "Bull / Bear Investment Thèses",
                           "es": "Tesis de Inversión Bull / Bear",
                           "de": "Bull-/Bear-Investitionsthesen",
                           "it": "Tesi d'Investimento Bull / Bear",

@@ -1158,7 +1158,7 @@ def _s06_valorisation(prs, D):
             _pe_m_num = float(str(pe_med).replace("x","").replace(",",".").strip())
             if _pe_m_num > 0:
                 _pv = (_pe_f_num - _pe_m_num) / _pe_m_num * 100
-                prime = (f"+{_pv:.0f}% prime" if _pv > 0 else f"{_pv:.0f}% decote")
+                prime = (f"+{_pv:.0f}% prime" if _pv > 0 else f"{_pv:.0f}% décote")
         except Exception:
             pass
     rows = [
@@ -1237,7 +1237,7 @@ def _s06_valorisation(prs, D):
         else:
             _erp_impl = (f"L'ERP Damodaran de {_erp6} reste dans la zone de reference. "
                          "Ni comprime ni attractif — privilegier la rotation sectorielle et "
-                         "le stock-picking plutot qu'une exposition beta pure.")
+                         "le stock-picking Plutôt qu'une exposition beta pure.")
         # Croissance implicite requise pour justifier le P/E actuel vs historique
         try:
             _pe_num_impl = float(str(_pe_f6).replace("x","").replace(",",".").strip())

@@ -148,7 +148,7 @@ _CMP_PDF_LABELS: dict[str, dict[str, str]] = {
                   "de": "Profil & Gewinn- und Verlustrechnung",
                   "it": "Profilo & Conto Economico",
                   "pt": "Perfil & Demonstração de Resultados"},
-    "rentabilite": {"fr": "Rentabilité & Bilan",
+    "rentabilité": {"fr": "Rentabilité & Bilan",
                     "en": "Profitability & Balance Sheet",
                     "es": "Rentabilidad y Balance",
                     "de": "Rentabilität & Bilanz",
@@ -161,7 +161,7 @@ _CMP_PDF_LABELS: dict[str, dict[str, str]] = {
                        "es": "Calidad y Riesgo", "de": "Qualität & Risiko",
                        "it": "Qualità & Rischio", "pt": "Qualidade & Risco"},
     "verdict_theses": {"fr": "Verdict & Thèses",
-                       "en": "Verdict & Theses",
+                       "en": "Verdict & Thèses",
                        "es": "Veredicto y Tesis",
                        "de": "Urteil & Thesen",
                        "it": "Verdetto & Tesi",
@@ -185,7 +185,7 @@ _CMP_PDF_LABELS: dict[str, dict[str, str]] = {
                  "it": "Momentum & Mercato",
                  "pt": "Momentum & Mercado"},
     "evolution_52w": {"fr": "Évolution Boursière 52 Semaines",
-                      "en": "52-Week Stock Evolution",
+                      "en": "52-Week Stock Évolution",
                       "es": "Evolución Bursátil 52 Semanas",
                       "de": "52-Wochen-Aktienentwicklung",
                       "it": "Evoluzione Azionaria 52 Settimane",
@@ -1108,7 +1108,7 @@ def _section_exec_summary(story, m_a, m_b, synthesis, tkr_a, tkr_b):
         f"La qualité fondamentale (Piotroski F-Score : {pio_a_s} vs {pio_b_s}) "
         f"et la rentabilité opérationnelle (ROIC {roic_a} vs {roic_b}) "
         f"permettent d'arbitrer entre un titre de croissance prime et un titre de valeur. "
-        f"Le potentiel de hausse consensus ressort a {up_a} pour {tkr_a} et {up_b} pour {tkr_b}."
+        f"Le potentiel de hausse consensus ressort à {up_a} pour {tkr_a} et {up_b} pour {tkr_b}."
     )
     story.append(Paragraph(_safe(valcomp_text), S_BODY))
     story.append(Spacer(1, 3*mm))
@@ -1300,7 +1300,7 @@ def _section_profil_pl(story, m_a, m_b, synthesis, tkr_a, tkr_b):
 
 def _section_rentabilite_bilan(story, m_a, m_b, tkr_a, tkr_b):
     story.append(CondPageBreak(110*mm))
-    story += section_title(_clbl("rentabilite"), "3")
+    story += section_title(_clbl("rentabilité"), "3")
 
     # Texte introductif rentabilité
     roic_a  = _frpct(m_a.get("roic"));      roic_b  = _frpct(m_b.get("roic"))
@@ -1832,7 +1832,7 @@ def _section_fcf_capital(story, m_a, m_b, tkr_a, tkr_b):
         f"Dividende {dy_a} vs {dy_b}. "
         f"Un FCF yield supérieur signale une capacite accrue a financer la croissance, "
         f"racheter des actions et verser des dividendes sur horizon 12 mois. "
-        f"Le taux de conversion cash (FCF/EBITDA) ressort a {cc_a} pour {tkr_a} vs {cc_b} "
+        f"Le taux de conversion cash (FCF/EBITDA) ressort à {cc_a} pour {tkr_a} vs {cc_b} "
         f"pour {tkr_b} : un ratio élevé indique que l'EBITDA se transforme efficacement "
         f"en cash disponible, limitant les besoins de financement externe. "
         f"Côté levier, la dette nette s'établit a {nd_a} ({nd_ev_a}x EBITDA) pour {tkr_a} "
@@ -2250,13 +2250,13 @@ def _section_52w_price(story, m_a, m_b, tkr_a, tkr_b, synthesis=None):
             _macro_parts.append(
                 f"Les deux valeurs evoluent dans le meme secteur ({_sec_a}), "
                 f"la divergence de trajectoire reflète donc des dynamiques propres "
-                f"(mix produits, geographies, exécution) plutot qu'une rotation sectorielle."
+                f"(mix produits, geographies, exécution) Plutôt qu'une rotation sectorielle."
             )
         else:
             _macro_parts.append(
                 f"La difference sectorielle ({_sec_a} vs {_sec_b}) implique des Sensibilités "
                 f"macro distinctes — les flux de rotation sectorielle expliquent une partie "
-                f"de la divergence observee."
+                f"de la divergence observée."
             )
     # Lecture valorisation
     if _pe_a and _pe_b:
@@ -2305,7 +2305,7 @@ def _section_52w_price(story, m_a, m_b, tkr_a, tkr_b, synthesis=None):
     ana_a = (
         f"<b>{_enc(tkr_a)}</b> : Le titre a évolue entre {lo_a} et {hi_a} sur 52 semaines, "
         f"affichant une performance de {p1m_a} sur 1 mois, {p3m_a} sur 3 mois et {p1y_a} sur "
-        f"12 mois. La volatilité annualisee ressort a {vol_a}, reflectant "
+        f"12 mois. La volatilité annualisee ressort à {vol_a}, reflectant "
         + ("un titre relativement stable adapte aux profils prudents."
            if m_a.get("volatility_52w") is not None and float(m_a.get("volatility_52w") or 0.3) < 0.25
            else "un niveau de risque de prix notable qu'il convient d'integrer dans le dimensionnement de position.")

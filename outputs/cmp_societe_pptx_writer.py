@@ -161,11 +161,11 @@ def _safe_str(v, default="\u2014") -> str:
 
 _COMPANY_ABBREVIATIONS = [
     (", Société Européenne", " SE"),
-    (", Societe Europeenne", " SE"),
+    (", Société Européenne", " SE"),
     (" Société Européenne", " SE"),
     (", Société Anonyme", " SA"),
     (" Société Anonyme", " SA"),
-    (" Societe Anonyme", " SA"),
+    (" Société Anonyme", " SA"),
     (" Corporation", " Corp."),
     (" Incorporated", " Inc."),
     (" Public Limited Company", " plc"),
@@ -477,7 +477,7 @@ _CMP_PPTX_LABELS: dict[str, dict[str, str]] = {
                   "it": "FinSight Score Comparato",
                   "pt": "FinSight Score Comparado"},
     "theses_bb": {"fr": "Thèses d'Investissement Bull / Bear",
-                  "en": "Bull / Bear Investment Theses",
+                  "en": "Bull / Bear Investment Thèses",
                   "es": "Tesis de Inversión Bull / Bear",
                   "de": "Bull-/Bear-Investitionsthesen",
                   "it": "Tesi d'Investimento Bull / Bear",

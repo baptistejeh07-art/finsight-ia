@@ -1014,7 +1014,7 @@ def _build_synthese(data, perf_buf, registry=None):
                 f"a <b>{_rec_6m}%</b> (niveau {_rec_qualif}), contre {_rec_12m}% sur 12 mois. "
                 f"Les principaux signaux d'alerte incluent {_drivers_str}. "
                 "Cette évaluation est indicative et fondee sur des indicateurs de Marché "
-                "(VIX, courbe des taux, momentum) plutot que sur un modèle econometrique.", S_BODY))
+                "(VIX, courbe des taux, momentum) Plutôt que sur un modèle econometrique.", S_BODY))
             elems.append(src(
                 "Indicateur de Marché (non econometrique) : VIX + spread 10Y-3M + "
                 "position S&P 500 vs MA200 + momentum 6M. Source : FinSight IA / yfinance."))
@@ -2115,7 +2115,7 @@ def _build_sentiment(data, registry=None):
     elems.append(Paragraph("Sources &amp; M\u00e9thodologie", S_SUBSECTION))
     meth_h = [Paragraph(h, S_TH_L) for h in ["Composanté","M\u00e9thodologie"]]
     meth_rows = [[Paragraph(k, S_TD_B), Paragraph(v, S_TD_L)]
-                 for k, v in (data.get("methodologie") or data.get("Méthodologie") or [])]
+                 for k, v in (data.get("Méthodologie") or data.get("Méthodologie") or [])]
     elems.append(KeepTogether(tbl([meth_h] + meth_rows, cw=[40*mm, 130*mm])))
     elems.append(src(
         f"FinSight IA v1.0 — Mise \u00e0 jour quotidienne. Donn\u00e9es au {data['date_analyse']}."))
@@ -2144,7 +2144,7 @@ def _build_disclaimer(data):
     elems.append(Paragraph(
         "<b>Conflits d'intérêt.</b> FinSight IA est un outil d'analyse automatise sans position "
         "proprietaire dans les titrès ou indices couverts. Aucune rémunération n'est percue de "
-        "la part des emetteurs analyses. Nonobstant, le lecteur est invite a considerer que tout "
+        "la part des Émetteurs analyses. Nonobstant, le lecteur est invite a considerer que tout "
         "modèle analytique comporte des biais inherents a ses hypotheses de construction.", S_DISC))
     elems.append(Spacer(1, 1.5*mm))
     elems.append(Paragraph(

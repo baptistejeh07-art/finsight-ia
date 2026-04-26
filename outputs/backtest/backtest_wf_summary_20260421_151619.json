@@ -1,0 +1,185 @@
+{
+  "version": "v2_walk_forward",
+  "n_observations": 2300,
+  "n_tickers": 50,
+  "date_range": {
+    "start": "2022-06-01",
+    "end": "2026-03-01"
+  },
+  "horizon_months": 12,
+  "buckets": {
+    "A (\u226580)": {
+      "n": 0
+    },
+    "B (65-79)": {
+      "n": 252,
+      "n_tickers": 17,
+      "mean_return": 0.11194807858788366,
+      "median_return": 0.07822085243984522,
+      "std_return": 0.28358576945272185,
+      "pct_positive": 0.6309523809523809,
+      "max_return": 0.900426791541876,
+      "min_return": -0.5586776315354489,
+      "mean_excess": -0.026574708124661756,
+      "sharpe_proxy": 0.3947591545370091
+    },
+    "C (50-64)": {
+      "n": 779,
+      "n_tickers": 39,
+      "mean_return": 0.1196299522542725,
+      "median_return": 0.09791878636026397,
+      "std_return": 0.2831970833269628,
+      "pct_positive": 0.6482670089858793,
+      "max_return": 1.2381140434500573,
+      "min_return": -0.4706372250133479,
+      "mean_excess": -0.03360430747589139,
+      "sharpe_proxy": 0.42242649835540413
+    },
+    "D (35-49)": {
+      "n": 720,
+      "n_tickers": 39,
+      "mean_return": 0.18020153632412916,
+      "median_return": 0.13310573085253408,
+      "std_return": 0.28175811280919794,
+      "pct_positive": 0.7652777777777777,
+      "max_return": 1.801703365246964,
+      "min_return": -0.4818328383478735,
+      "mean_excess": 0.023483513128514127,
+      "sharpe_proxy": 0.6395611275482909
+    },
+    "E (<35)": {
+      "n": 549,
+      "n_tickers": 49,
+      "mean_return": 0.25518258313907316,
+      "median_return": 0.129943481178193,
+      "std_return": 0.47254244084194086,
+      "pct_positive": 0.6994535519125683,
+      "max_return": 2.58637004917841,
+      "min_return": -0.4307718170707201,
+      "mean_excess": 0.09788635553432845,
+      "sharpe_proxy": 0.5400204533679723
+    }
+  },
+  "overall": {
+    "mean_return": 0.17010564908997786,
+    "median_return": 0.11574093843188604,
+    "pct_positive": 0.6952173913043478,
+    "mean_benchmark": 0.18070840439119712,
+    "mean_excess": 0.01642311159554014
+  },
+  "subscore_correlations": {
+    "quality": -0.07303378372909837,
+    "value": -0.21712089920689193,
+    "momentum": 0.033042530929714944,
+    "governance": -0.15323785674347573
+  },
+  "v2_profiles": {
+    "conservative_lt": {
+      "n_obs": 2300,
+      "buy": {
+        "n": 225,
+        "mean_return": 0.12056052861257763,
+        "mean_excess": -0.02664996568318947,
+        "pct_positive": 0.6622222222222223
+      },
+      "hold": {
+        "n": 1131,
+        "mean_return": 0.13296773862351988,
+        "mean_excess": -0.026227084936297926
+      },
+      "sell": {
+        "n": 944,
+        "mean_return": 0.2264092813410151,
+        "mean_excess": 0.07778838136802214
+      },
+      "composite_corr": -0.15912161580399206
+    },
+    "value_contrarian": {
+      "n_obs": 2300,
+      "buy": {
+        "n": 323,
+        "mean_return": 0.10090441305628439,
+        "mean_excess": -0.05619582252130932,
+        "pct_positive": 0.6346749226006192
+      },
+      "hold": {
+        "n": 974,
+        "mean_return": 0.13395331724326137,
+        "mean_excess": -0.022605808155064456
+      },
+      "sell": {
+        "n": 1003,
+        "mean_return": 0.22749784296593492,
+        "mean_excess": 0.07770933647772485
+      },
+      "composite_corr": -0.16261757307097954
+    },
+    "growth_aggressive": {
+      "n_obs": 2300,
+      "buy": {
+        "n": 57,
+        "mean_return": 0.1913892509450016,
+        "mean_excess": 0.061401277724784806,
+        "pct_positive": 0.7719298245614035
+      },
+      "hold": {
+        "n": 1161,
+        "mean_return": 0.14958801063508131,
+        "mean_excess": -0.0053692050068097665
+      },
+      "sell": {
+        "n": 1082,
+        "mean_return": 0.19100011576317433,
+        "mean_excess": 0.03743708951232507
+      },
+      "composite_corr": -0.07399132205219837
+    },
+    "income_dividends": {
+      "n_obs": 2300,
+      "buy": {
+        "n": 229,
+        "mean_return": 0.1137284075282371,
+        "mean_excess": -0.041134869426410356,
+        "pct_positive": 0.6419213973799127
+      },
+      "hold": {
+        "n": 1115,
+        "mean_return": 0.13795718070603735,
+        "mean_excess": -0.02001125374186982
+      },
+      "sell": {
+        "n": 956,
+        "mean_return": 0.22110557645999077,
+        "mean_excess": 0.07270459172654305
+      },
+      "composite_corr": -0.15778924034586625
+    },
+    "balanced": {
+      "n_obs": 2300,
+      "buy": {
+        "n": 54,
+        "mean_return": 0.22622968893824086,
+        "mean_excess": 0.09869132733405062,
+        "pct_positive": 0.7592592592592593
+      },
+      "hold": {
+        "n": 1347,
+        "mean_return": 0.12826862175362175,
+        "mean_excess": -0.028115498569816984
+      },
+      "sell": {
+        "n": 899,
+        "mean_return": 0.2294201959979484,
+        "mean_excess": 0.0782151296632337
+      },
+      "composite_corr": -0.14238379308647034
+    }
+  },
+  "v2_subscore_correlations": {
+    "v2_quality": -0.1298334523451363,
+    "v2_value": -0.1456121820561068,
+    "v2_momentum": 0.042687801178898255,
+    "v2_risk": -0.10250478728162254
+  },
+  "methodology": "walk-forward : bornes sectorielles calibrees a chaque date T depuis la cross-section des tickers observables a T. Elimine le data leakage vs calibration snapshot 2025."
+}

@@ -319,7 +319,7 @@ _CMP_IND_LANG: str = "fr"
 
 _CMP_IND_LABELS: dict[str, dict[str, str]] = {
     "synthese_cmp":   {"fr": "Synthèse Comparative", "en": "Comparative Synthesis",
-                       "es": "Síntesis Comparativa", "de": "Vergleichende Synthese",
+                       "es": "Síntesis Comparativa", "de": "Vergleichende Synthèse",
                        "it": "Sintesi Comparativa", "pt": "Síntese Comparativa"},
     "profil_compo":   {"fr": "Profil & Composition Sectorielle",
                        "en": "Profile & Sector Composition",
@@ -361,7 +361,7 @@ _CMP_IND_LABELS: dict[str, dict[str, str]] = {
                        "it": "Equity Risk Premium (ERP)",
                        "pt": "Prémio de Risco de Capital (ERP)"},
     "theses_bb":      {"fr": "Thèses d'Investissement Bull / Bear",
-                       "en": "Bull / Bear Investment Theses",
+                       "en": "Bull / Bear Investment Thèses",
                        "es": "Tesis de Inversión Bull / Bear",
                        "de": "Bull-/Bear-Investitionsthesen",
                        "it": "Tesi d'Investimento Bull / Bear",

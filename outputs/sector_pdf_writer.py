@@ -817,7 +817,7 @@ def _cover_page(c, doc, sector_name: str, subtitle: str, universe: str,
     _scores = [t.get('score_global') or 0 for t in tickers_data]
     sig_score = sum(_scores) / len(_scores) if _scores else 0
     if sig_score >= 65:
-        sig_label, sig_color = "SURPONDERER", (0x1A/255, 0x7A/255, 0x4A/255)
+        sig_label, sig_color = "SURPONDÉRER", (0x1A/255, 0x7A/255, 0x4A/255)
     elif sig_score >= 45:
         sig_label, sig_color = "NEUTRE", (0xB0/255, 0x60/255, 0x00/255)
     else:
@@ -1424,7 +1424,7 @@ def _build_structure_sectorielle(tickers_data: list[dict], sector_name: str,
             "Pour ce secteur a actifs intangibles dominants, FinSight IA applique le modele "
             "Z' non-manufacturing (Altman, 1995) qui exclut le ratio CA/Actifs (X5) — "
             "ce ratio pénalise injustement les societes dont la valeur est portee par les "
-            "brevets, marques et logiciels plutot que par les immobilisations corporelles. "
+            "brevets, marques et logiciels plutôt que par les immobilisations corporelles. "
             "Les scores en zone grise n'indiquent pas necessairement un risque de détresse "
             "financière reel.</i>",
             S_NOTE))
@@ -1536,7 +1536,7 @@ def _build_structure_sectorielle(tickers_data: list[dict], sector_name: str,
         else:
             beta_val = f"{b_med:.2f}"
         if b_std is not None and b_std < 0.25:
-            beta_lbl = "sensibilité macro homogene — beta sectoriel dominant"
+            beta_lbl = "sensibilité macro homogène — beta sectoriel dominant"
             beta_s   = S_TD_C
         elif b_std is not None and b_std < 0.50:
             beta_lbl = "dispersion modérée — mix macro + idiosyncratique"
@@ -1684,7 +1684,7 @@ def _build_structure_sectorielle(tickers_data: list[dict], sector_name: str,
             var_lbl = "risque élevé — pertes mensuelles potentielles importantes pour le sizing"
             var_s   = S_TD_R
         elif var_95 < -8:
-            var_lbl = "risque modere-élevé — position sizing conservateur recommandé"
+            var_lbl = "risque modéré-élevé — position sizing conservateur recommandé"
             var_s   = S_TD_R
         elif var_95 < -5:
             var_lbl = "risque modéré — volatilité sectorielle dans la norme marche"
@@ -2027,7 +2027,7 @@ def _subsector_fallback_text(subsectors: list[dict], sector_name: str) -> dict:
         f"La dispersion des scores composites ({subsectors[0]['score']}-"
         f"{subsectors[-1]['score']}/100) refletet des dynamiques de croissance et de "
         f"valorisation sensiblement differenciees entre segments, justifiant une allocation "
-        f"selective plutot qu'un biais beta sectoriel uniforme. Les multiples EV/EBITDA, les "
+        f"sélective plutôt qu'un biais beta sectoriel uniforme. Les multiples EV/EBITDA, les "
         f"marges EBITDA et le momentum 52W fournissent une grille de lecture complete pour "
         f"identifier les poches de valeur et les segments en acceleration fondamentale."
     )
@@ -2044,7 +2044,7 @@ def _subsector_fallback_text(subsectors: list[dict], sector_name: str) -> dict:
         )
         d[f"{n}_drivers"] = (
             f"Les drivers structurels de {n} incluent l'innovation produit, la consolidation "
-            f"concurrentielle et les cycles d'investissement. La croissance observee ({s['growth']}) "
+            f"concurrentielle et les cycles d'investissement. La croissance observée ({s['growth']}) "
             f"et le momentum boursier 52W ({s['momentum']}) materialisent la capacite des acteurs "
             f"a convertir ces drivers en creation de valeur mesurable."
         )
@@ -2057,7 +2057,7 @@ def _subsector_fallback_text(subsectors: list[dict], sector_name: str) -> dict:
         )
         d[f"{n}_profil"] = (
             f"Profil financier typique : rentabilite moyenne ({s['margin']}), croissance "
-            f"{s['growth']}, valorisation {s['ev_ebitda']}. Segment plutot {s['signal'].lower()}."
+            f"{s['growth']}, valorisation {s['ev_ebitda']}. Segment plutôt {s['signal'].lower()}."
         )
     d["allocation"] = (
         f"L'allocation sous-sectorielle recommandee privilegie {subsectors[0]['name']} "
@@ -2139,6 +2139,15 @@ def _generate_subsector_llm(subsectors: list[dict], sector_name: str, profile: s
             for k, v in _fb.items():
                 if k not in _llm or not _llm.get(k):
                     _llm[k] = v
+            # Restore accents — Mistral oublie systematiquement sur certains
+            # mots ("emetteur", "rentabilite", "modere", "homogene", etc.)
+            try:
+                from tools.restore_accents import restore_accents as _ra
+                for _k in _llm:
+                    if isinstance(_llm[_k], str):
+                        _llm[_k] = _ra(_llm[_k])
+            except Exception:
+                pass
             return _llm
     except Exception as e:
         import logging
@@ -2996,8 +3005,8 @@ def _build_risques(tickers_data: list[dict], sector_name: str, registry=None):
     elems.append(src("FinBERT \u2014 Corpus presse financière anglophone. Estimation FinSight IA."))
     elems.append(Spacer(1, 4*mm))
 
-    # ── Qualite fondamentale agregee — médiane sectorielle ─────────────────
-    elems.append(Paragraph("Qualité fondamentale agregee du secteur", S_SUBSECTION))
+    # ── Qualité fondamentale agrégée — médiane sectorielle ─────────────────
+    elems.append(Paragraph("Qualité fondamentale agrégée du secteur", S_SUBSECTION))
     elems.append(Paragraph(
         f"Le tableau ci-dessous agrege les indicateurs de qualité bilancielle et de soutenabilite "
         f"financière des {len(tickers_data)} composantés du secteur {sector_name}. "

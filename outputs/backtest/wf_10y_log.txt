@@ -1,0 +1,117 @@
+[wf] fetching sp100 (10y)...
+[backtest] fetch 50 tickers, 10y history, 6 workers...
+[backtest] fetched 50/50 in 15s
+[wf] 50 tickers OK
+[wf] pass 1 : extraction ratios historiques...
+[wf] 6550 observations (ticker, date)
+[wf] pass 2 : scoring walk-forward (bornes date-specific)...
+[wf.score] 131 dates distinctes, 50 tickers
+[wf] 6550 scores
+[wf] pass 3 : forward returns 12m...
+[wf] 6500 observations forward
+[wf] parquet saved : backtest_wf_sp100_10y_20260421_151728.parquet
+[wf] summary saved : backtest_wf_summary_20260421_151728.json
+{
+  "version": "v2_walk_forward",
+  "n_observations": 6500,
+  "n_tickers": 50,
+  "date_range": {
+    "start": "2015-06-01",
+    "end": "2026-03-01"
+  },
+  "horizon_months": 12,
+  "buckets": {
+    "A (\u226580)": {
+      "n": 0
+    },
+    "B (65-79)": {
+      "n": 255,
+      "n_tickers": 18,
+      "mean_return": 0.10708256345927575,
+      "median_return": 0.07529862999589376,
+      "std_return": 0.28200848040392207,
+      "pct_positive": 0.615686274509804,
+      "max_return": 0.9004266656242141,
+      "min_return": -0.5586776801674009,
+      "mean_excess": -0.03305119144741603,
+      "sharpe_proxy": 0.3797139834444017
+    },
+    "C (50-64)": {
+      "n": 779,
+      "n_tickers": 40,
+      "mean_return": 0.1254445196530997,
+      "median_return": 0.10148905750741455,
+      "std_return": 0.29252359347415446,
+      "pct_positive": 0.6546854942233633,
+      "max_return": 1.8017036115376088,
+      "min_return": -0.47063725686327185,
+      "mean_excess": -0.02791540864209666,
+      "sharpe_proxy": 0.42883556216187113
+    },
+    "D (35-49)": {
+      "n": 710,
+      "n_tickers": 39,
+      "mean_return": 0.17418570684469273,
+      "median_return": 0.13170604398389685,
+      "std_return": 0.27294645851128724,
+      "pct_positive": 0.7605633802816901,
+      "max_return": 1.618916449990456,
+      "min_return": -0.4818328788284908,
+      "mean_excess": 0.017970299690441165,
+      "sharpe_proxy": 0.6381680414347255
+    },
+    "E (<35)": {
+      "n": 4756,
+      "n_tickers": 50,
+      "mean_return": 0.22972893081280182,
+      "median_return": 0.1701073540949095,
+      "std_return": 0.4729443130017733,
+      "pct_positive": 0.7655592935239697,
+      "max_return": 10.043837273342776,
+      "min_return": -0.7120870260361392,
+      "mean_excess": 0.09940840604214063,
+      "sharpe_proxy": 0.485742030292561
+    }
+  },
+  "overall": {
+    "mean_return": 0.20635230481496883,
+    "median_return": 0.151271898796414,
+    "pct_positive": 0.7458461538461538,
+    "mean_benchmark": 0.14776294078818047,
+    "mean_excess": 0.07005709765620766
+  },
+  "subscore_correlations": {
+    "quality": -0.06925296590004033,
+    "value": -0.11455512189183648,
+    "momentum": -0.009219652217096827,
+    "governance": -0.09513080963575872
+  },
+  "v2_profiles": {
+    "conservative_lt": {
+      "n_obs": 6500,
+      "buy": {
+        "n": 220,
+        "mean_return": 0.12042014235443481,
+        "mean_excess": -0.026204347704736435,
+        "pct_positive": 0.6636363636363637
+      },
+      "hold": {
+        "n": 1134,
+        "mean_return": 0.1321570766115024,
+        "mean_excess": -0.026902764335801903
+      },
+      "sell": {
+        "n": 5146,
+        "mean_return": 0.22637610281808748,
+        "mean_excess": 0.09553902565433173
+      },
+      "composite_corr": -0.09940568628735481
+    },
+    "value_contrarian": {
+      "n_obs": 6500,
+      "buy": {
+        "n": 320,
+        "mean_return": 0.10046203953132431,
+        "mean_excess": -0.055619040849837445,
+        "pct_positive": 0.634375
+      },

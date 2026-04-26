@@ -111,7 +111,7 @@ _CMP_SEC_LABELS: dict[str, dict[str, str]] = {
     "synthese_cmp": {"fr": "Synthèse Comparative",
                      "en": "Comparative Synthesis",
                      "es": "Síntesis Comparativa",
-                     "de": "Vergleichende Synthese",
+                     "de": "Vergleichende Synthèse",
                      "it": "Sintesi Comparativa",
                      "pt": "Síntese Comparativa"},
     "valo_cmp":    {"fr": "Valorisation Comparée — Multiples de Marché",
@@ -133,7 +133,7 @@ _CMP_SEC_LABELS: dict[str, dict[str, str]] = {
                     "it": "Allocazione del Capitale & Remunerazione Azionisti",
                     "pt": "Alocação de Capital & Remuneração do Accionista"},
     "croiss_mom":  {"fr": "Croissance & Momentum — Accélération ou Ralentissement ?",
-                    "en": "Growth & Momentum — Acceleration or Slowdown?",
+                    "en": "Growth & Momentum — Accélération or Slowdown?",
                     "es": "Crecimiento y Momentum — ¿Aceleración o Desaceleración?",
                     "de": "Wachstum & Momentum — Beschleunigung oder Verlangsamung?",
                     "it": "Crescita & Momentum — Accelerazione o Rallentamento?",
@@ -1164,7 +1164,7 @@ def _build_story(D: dict) -> list:
             f"FY+1 rélevées, et une narration Wall Street favorable autour des moteurs structurels "
             f"du secteur (IA, transition énergétique, défense, etc. selon le secteur). "
             f"<br/><br/><b>Lecture relative</b> : le spread de {_spread_p:.1f} pts traduit "
-            f"{'une divergence marquée qui justifié un positionnément différentiel net en allocation tactique' if _spread_p > 10 else ('une rotation modérée mais cohérente avec les fondamentaux' if _spread_p > 5 else 'une convergence quasi-neutre, invitant a privilegier la sélectivité intra-sectorielle plutot qu un biais directionnel')}. "
+            f"{'une divergence marquée qui justifié un positionnément différentiel net en allocation tactique' if _spread_p > 10 else ('une rotation modérée mais cohérente avec les fondamentaux' if _spread_p > 5 else 'une convergence quasi-neutre, invitant a privilegier la sélectivité intra-sectorielle Plutôt qu un biais directionnel')}. "
             f"<b>Catalyseurs 3-6 mois</b> : publications T1/T2, guidance annuelle, décisions Fed/BCE, "
             f"évolutions réglementaires sectorielles, eventuels shocks géopolitiques. "
             f"La zone ombragee entre les deux courbes illustre l'amplitude de la dispersion relative."
@@ -1294,7 +1294,7 @@ def _build_story(D: dict) -> list:
         f"<b>Véhicules d'investissement</b> : ETF sectoriels passifs (XLK, XLV, XLF, etc. pour US ; "
         f"sectoral STOXX 600 pour Europe), fonds actifs avec mandat sectoriel explicite, ou panier de "
         f"sélection bottom-up des leaders identifies dans la section Top Acteurs. Le choix entre "
-        f"ETF passif et sélection active dépend de la dispersion intra-sectorielle observee : "
+        f"ETF passif et sélection active dépend de la dispersion intra-sectorielle observée : "
         f"plus la dispersion est élevée, plus la sélection active Généré de l'alpha. "
         f"<br/><br/>"
         f"<b>Calibration risque</b> : la position doit être dimensionnee en fonction du beta Médian du "

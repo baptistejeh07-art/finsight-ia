@@ -524,9 +524,11 @@ def _build_content_from_data(td: list, sector_name: str, score_moyen: int,
                     "Prime de valorisation potentielle — vague sectorielle"))
 
     # Métriques: real computed values from state
+    # Helper : "n/d" pour banques/insurance ou EBITDA non applicable
+    _mg_disp = f"{mg_med:.1f} %" if mg_med and abs(mg_med) > 0.5 else "n/d"
     metriques = [
         ("EV/EBITDA", f"{ev_med:.1f}x",     "Médiane secteur"),
-        ("Mg EBITDA", f"{mg_med:.1f} %",     "LTM"),
+        ("Mg EBITDA", _mg_disp,              "LTM"),
         ("Croissance", f"{rev_med:+.1f} %",  "YoY"),
         ("Momentum",  f"{mom_med:+.1f} %",   "52W"),
         ("Score Moyen", f"{score_moyen}/100", "FinSight"),
@@ -885,23 +887,52 @@ def _chapter_divider(prs, num_str, chapter_title, subtitle):
 
 
 # ─── CHART BUILDERS ───────────────────────────────────────────────────────────
-def _chart_valuation_bars(tickers_data) -> bytes:
-    """EV/EBITDA ranking bar chart — lisible, remplace le scatter diforme."""
+def _chart_valuation_bars(tickers_data) -> tuple[bytes, str]:
+    """Ranking bar chart sur la valorisation. Choisit la métrique avec la
+    meilleure couverture du pool (EV/EBITDA pour la majorité des secteurs,
+    P/TBV pour les banques où EV/EBITDA est non applicable)."""
+    # Compter la couverture de chaque métrique candidate
+    def _count(field, lo, hi):
+        n = 0
+        for t in tickers_data:
+            v = t.get(field)
+            if v is None:
+                continue
+            try:
+                f = float(v)
+                if lo < f <= hi:
+                    n += 1
+            except (TypeError, ValueError):
+                pass
+        return n
+
+    n_ev = _count("ev_ebitda", 0, 150)
+    n_pb = _count("pb_ratio", 0, 50)
+    n_pe = _count("pe_ratio", 0, 100)
+    # Choix : EV/EBITDA si >= 50% du pool ; sinon P/TBV ; sinon P/E
+    pool = max(1, len([t for t in tickers_data if t.get("ticker")]))
+    if n_ev >= max(3, pool // 2):
+        metric_field, metric_lo, metric_hi, metric_label = "ev_ebitda", 0, 150, "EV / EBITDA (x)"
+    elif n_pb >= max(3, pool // 2):
+        metric_field, metric_lo, metric_hi, metric_label = "pb_ratio", 0, 50, "P / TBV (x)"
+    else:
+        metric_field, metric_lo, metric_hi, metric_label = "pe_ratio", 0, 100, "P / E (x)"
+
     points = []
     for t in tickers_data:
-        ev = t.get("ev_ebitda")
-        if ev is None:
+        v = t.get(metric_field)
+        if v is None:
             continue
         try:
-            ev_f = float(ev)
-            if 0 < ev_f <= 150:
-                points.append((t.get("ticker", "?"), ev_f, float(t.get("score_global") or 50)))
+            v_f = float(v)
+            if metric_lo < v_f <= metric_hi:
+                points.append((t.get("ticker", "?"), v_f, float(t.get("score_global") or 50)))
         except (TypeError, ValueError):
             pass
 
     if not points:
         fig, ax = plt.subplots(figsize=(5.8, 4.5))
-        ax.text(0.5, 0.5, "EV/EBITDA non disponible", ha='center', va='center',
+        ax.text(0.5, 0.5, f"{metric_label} non disponible", ha='center', va='center',
                 transform=ax.transAxes, fontsize=10, color='#999999')
         ax.set_facecolor('#FFFFFF')
         fig.patch.set_facecolor('#FFFFFF')
@@ -909,7 +940,7 @@ def _chart_valuation_bars(tickers_data) -> bytes:
         fig.savefig(buf, format='png', dpi=150, bbox_inches='tight', facecolor='white', edgecolor='none')
         plt.close(fig)
         buf.seek(0)
-        return buf.read()
+        return buf.read(), metric_label
 
     # Cap top 15 par score pour lisibilite
     if len(points) > 15:
@@ -941,7 +972,7 @@ def _chart_valuation_bars(tickers_data) -> bytes:
     for i, ev in enumerate(evs):
         ax.text(ev + x_max * 0.01, i, f'{ev:.1f}x', va='center', ha='left', fontsize=6.5, color='#333333')
 
-    ax.set_xlabel("EV / EBITDA (x)", fontsize=8, color='#555555')
+    ax.set_xlabel(metric_label, fontsize=8, color='#555555')
     ax.tick_params(labelsize=7, colors='#777777')
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
@@ -961,7 +992,7 @@ def _chart_valuation_bars(tickers_data) -> bytes:
     fig.savefig(buf, format='png', dpi=150, bbox_inches='tight', facecolor='white', edgecolor='none')
     plt.close(fig)
     buf.seek(0)
-    return buf.read()
+    return buf.read(), metric_label
 
 
 def _chart_distribution(tickers_data) -> bytes:
@@ -1183,9 +1214,11 @@ def _s02_exec_summary(prs, D):
     _rect(slide, 0.9, 2.4, 23.6, 1.1, fill=_GRAYL)
     _rect(slide, 0.9, 2.4, 0.1, 1.1, fill=D["sig_color"])
     _txb(slide, f"● {D['sig_label']}", 1.3, 2.45, 3.2, 1.0, size=11, bold=True, color=D["sig_color"])
+    # Helper : "n/d" pour mg_med <= 0.5% (banques, insurance — EBITDA non applicable)
+    _mg_str = f"{D['mg_med']:.1f} %" if D.get('mg_med', 0) and abs(D['mg_med']) > 0.5 else "n/d"
     kpi_str = (f"EV/EBITDA med. : {D['ev_med']:.1f}x  ·  "
                f"Croissance med. : {D['rev_med']:+.1f} %  ·  "
-               f"Marge EBITDA med. : {D['mg_med']:.1f} %  ·  "
+               f"Marge EBITDA med. : {_mg_str}  ·  "
                f"Score moyen : {D['score_moyen']}/100")
     _txb(slide, kpi_str, 4.6, 2.5, 19.8, 0.9, size=8.5, color=_NAVY)
 
@@ -1224,7 +1257,7 @@ def _s02_exec_summary(prs, D):
     kpis = [
         (f"{D['ev_med']:.1f}x", "EV/EBITDA med.", "vs Marché EU"),
         (f"{D['rev_med']:+.1f} %", "Croissance Rev. med.", "YoY sectoriel"),
-        (f"{D['mg_med']:.1f} %", "Marge EBITDA med.", "LTM sectorielle"),
+        (_mg_str, "Marge EBITDA med.", "LTM sectorielle"),
         (f"{D['mom_med']:+.1f} %", "Momentum 52W med.", "Performance relative"),
     ]
     for i, (val, lbl1, lbl2) in enumerate(kpis):
@@ -1333,7 +1366,7 @@ def _s05_presentation(prs, D):
                  size=7.5, bold=True, color=_NAVY)
             _yy += 0.4
             _issuer_short = etf_issuer(_etf_info['zone']).split('(')[0].strip()[:40]
-            _txb(slide, f"Emetteur : {_issuer_short}", 15.3, _yy, 9.0, 0.32,
+            _txb(slide, f"Émetteur : {_issuer_short}", 15.3, _yy, 9.0, 0.32,
                  size=7, color=_GRAYT)
             _yy += 0.30
             _aum_str = format_aum(_etf_data.get('aum_usd'))
@@ -1813,10 +1846,12 @@ def _s09_cartographie(prs, D):
 
 def _s10_scatter(prs, D):
     slide = _blank(prs)
-    _header(slide, "Classement EV/EBITDA",
-            "EV/EBITDA par acteur  ·  Tri croissant  ·  Vert = sous Médiane (opportunité relative)  ·  Top 15", 2)
+    img, metric_label = _chart_valuation_bars(D["tickers_data"])
+    # Titre dynamique selon la métrique choisie (banques → P/TBV, autre → EV/EBITDA)
+    _short = metric_label.replace(" (x)", "").replace(" / ", "/").strip()
+    _header(slide, f"Classement {_short}",
+            f"{_short} par acteur  ·  Tri croissant  ·  Vert = sous Médiane (opportunité relative)  ·  Top 15", 2)
 
-    img = _chart_valuation_bars(D["tickers_data"])
     _pic(slide, img, 0.9, 2.3, 14.7, 11.4)
 
     # Analysis panel
@@ -2217,7 +2252,7 @@ def _s17_risques(prs, D):
         tbl_data.append([_AXIS_NORM.get(ax, ax), cond, hor])
 
     n_rows = len(tbl_data)
-    # Cap table height pour laisser 2.9 cm a la section sante financière (titre + boites)
+    # Cap table height pour laisser 2.9 cm a la section Santé financière (titre + boites)
     _HEALTH_H = 2.9   # titre 0.55 + gap 0.6 + boite 1.75
     _TABLE_Y  = 6.8
     _FOOTER_Y = 13.5
@@ -2226,7 +2261,7 @@ def _s17_risques(prs, D):
                col_widths=[3.5, 16.5, 3.6],
                font_size=8, header_size=8, alt_fill=_GRAYL)
 
-    # ── Sante financière agregee du secteur ─────────────────────────────────
+    # ── Santé financière Agrégée du secteur ─────────────────────────────────
     health_y = round(_TABLE_Y + _tbl_h + 0.4, 2)
     td = D["tickers_data"]
 
@@ -2267,7 +2302,7 @@ def _s17_risques(prs, D):
     sg_col  = (_BUY if sg_med is not None and sg_med >= 60 else
                (_HOLD if sg_med is not None and sg_med >= 40 else _SELL))
 
-    _txb(slide, "Sante financière agregee du secteur", 0.9, health_y, 23.6, 0.55,
+    _txb(slide, "Santé financière Agrégée du secteur", 0.9, health_y, 23.6, 0.55,
          size=8.5, bold=True, color=_NAVY)
 
     box_w = 7.4
