@@ -2142,7 +2142,7 @@ def _generate_subsector_llm(subsectors: list[dict], sector_name: str, profile: s
             # Restore accents — Mistral oublie systematiquement sur certains
             # mots ("emetteur", "rentabilite", "modere", "homogene", etc.)
             try:
-                from tools.restore_accents import restore_accents as _ra
+                from tools.restore_accents import restore_accents_in_text as _ra
                 for _k in _llm:
                     if isinstance(_llm[_k], str):
                         _llm[_k] = _ra(_llm[_k])
@@ -3882,7 +3882,7 @@ def _generate_medians_commentary(sector_name: str, sa: dict, sector_profile: str
         text = raw.strip().replace("**", "").replace("*", "").replace("\n\n", " ").replace("\n", " ")
         # Restaure accents si LLM a oublie
         try:
-            from tools.restore_accents import restore_accents as _ra
+            from tools.restore_accents import restore_accents_in_text as _ra
             text = _ra(text)
         except Exception:
             pass
