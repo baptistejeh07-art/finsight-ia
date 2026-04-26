@@ -747,7 +747,7 @@ def _cover_page(c, doc, data):
     # 5 metriques — tolère les deux conventions de nommage
     _nb_soc = data.get("nb_societes") or data.get("nb_societes", "\u2014")
     metrics = [
-        ("Secteurs analyses",  str(data.get("nb_secteurs", "\u2014"))),
+        ("Secteurs analys\u00e9s",  str(data.get("nb_secteurs", "\u2014"))),
         ("Soci\u00e9t\u00e9s couvertes", str(_nb_soc)),
         ("Cours indice",       data.get("cours", "\u2014")),
         ("Variation YTD",      data.get("variation_ytd", "\u2014")),
