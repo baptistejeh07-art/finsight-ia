@@ -1551,10 +1551,21 @@ def _fetch_real_sector_data(sector: str, universe: str, max_tickers: int = 8) ->
             log.warning("yfinance.info '%s' erreur: %s", tk, e)
             return None
 
+    # Audit perf 26/04/2026 (P0 #1) : un seul pool fan-out 16 workers qui mixe
+    # _fetch_one (info yfinance) ET _fetch_pe_historical (5y PE history). Avant
+    # c'etait 2 pools sequentiels (8 workers chacun) ce qui rendait quadratique
+    # la latence pipeline indice (11 secteurs × 2 pools). get_ticker() etant
+    # cached, les deux pools beneficient du meme objet yfinance.Ticker.
     results = []
-    with ThreadPoolExecutor(max_workers=8) as ex:
-        futures = {ex.submit(_fetch_one, tk): tk for tk in symbols}
-        for fut in as_completed(futures, timeout=60):
+    pe_hist_by_ticker: dict[str, list[float]] = {tk: [] for tk in symbols}
+    with ThreadPoolExecutor(max_workers=16) as ex:
+        # Submit info fetches (avec mapping pour identifier le ticker)
+        info_futures = {ex.submit(_fetch_one, tk): tk for tk in symbols}
+        # Submit PE history en parallele — pe_hist marche meme sur tickers qui
+        # echouent au info fetch (peu cher, donc on submit pour tous).
+        pe_futures = {ex.submit(_fetch_pe_historical, tk): tk for tk in symbols}
+
+        for fut in as_completed(info_futures, timeout=60):
             try:
                 r = fut.result(timeout=20)
             except Exception as _fe:
@@ -1563,31 +1574,37 @@ def _fetch_real_sector_data(sector: str, universe: str, max_tickers: int = 8) ->
             if r:
                 results.append(r)
 
-    results.sort(key=lambda x: x.get("market_cap") or 0, reverse=True)
-    log.info("Secteur %s/%s: %d/%d tickers OK", sector, universe, len(results), len(symbols))
-
-    # PE historique 5 ans (5 appels supplémentaires en parallèle)
-    pe_hist_by_ticker: dict[str, list[float]] = {}
-    tks = [r["ticker"] for r in results]
-    with ThreadPoolExecutor(max_workers=8) as ex:
-        fut_pe = {ex.submit(_fetch_pe_historical, tk): tk for tk in tks}
-        for fut in as_completed(fut_pe):
-            tk = fut_pe[fut]
+        for fut in as_completed(pe_futures):
+            tk = pe_futures[fut]
             try:
                 pe_hist_by_ticker[tk] = fut.result()
             except Exception:
                 pe_hist_by_ticker[tk] = []
+
+    results.sort(key=lambda x: x.get("market_cap") or 0, reverse=True)
+    log.info("Secteur %s/%s: %d/%d tickers OK", sector, universe, len(results), len(symbols))
     log.info("PE historique: %d tickers avec données", sum(1 for v in pe_hist_by_ticker.values() if v))
 
-    # VaR sectorielle 95% mensuelle (market-cap weighted, simulation historique 52W)
-    mc_dict  = {r["ticker"]: r.get("market_cap") or 0 for r in results}
-    var_data = _fetch_portfolio_var(tks, mc_dict)
-    log.info("VaR secteur: %s", var_data)
-
-    # Cache metrics (scénarios, conviction_delta, wacc)
-    cache = _load_cache_metrics(tks)
-    log.info("Cache: %d scénarios bull, %d conviction_delta, %d wacc",
-             len(cache["scenarios_bull"]), len(cache["conviction_deltas"]), len(cache["wacc_values"]))
+    tks = [r["ticker"] for r in results]
+    # VaR sectorielle + cache metrics en parallele (independants apres results)
+    var_data = {}
+    cache = {"scenarios_bull": [], "conviction_deltas": [], "wacc_values": []}
+    if tks:
+        mc_dict = {r["ticker"]: r.get("market_cap") or 0 for r in results}
+        with ThreadPoolExecutor(max_workers=2) as ex2:
+            f_var = ex2.submit(_fetch_portfolio_var, tks, mc_dict)
+            f_cache = ex2.submit(_load_cache_metrics, tks)
+            try:
+                var_data = f_var.result()
+            except Exception as _ve:
+                log.warning("VaR fetch error: %s", _ve)
+            try:
+                cache = f_cache.result()
+            except Exception as _ce:
+                log.warning("Cache fetch error: %s", _ce)
+        log.info("VaR secteur: %s", var_data)
+        log.info("Cache: %d scénarios bull, %d conviction_delta, %d wacc",
+                 len(cache["scenarios_bull"]), len(cache["conviction_deltas"]), len(cache["wacc_values"]))
 
     # Analytics sectoriels globaux — injecté dans chaque ticker pour transmission au PDF
     sector_analytics = _compute_sector_analytics(
