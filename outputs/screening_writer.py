@@ -285,12 +285,12 @@ def _fcf_yield(t: dict) -> Optional[float]:
     fy = t.get("fcf_yield")
     if fy is not None:
         try: return float(fy)
-        except: pass
+        except Exception: pass
     fcf = t.get("free_cash_flow") or t.get("fcf")
     mc  = t.get("market_cap")
     if fcf is not None and mc and float(mc) > 0:
         try: return float(fcf) / float(mc) * 100
-        except: pass
+        except Exception: pass
     return None
 
 

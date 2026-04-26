@@ -1688,7 +1688,7 @@ def _build_allocation(data, allocation_buf=None, registry=None):
         try:
             sh = float(sh)
             return S_TD_G if sh >= 0.8 else (S_TD_R if sh < 0.4 else S_TD_A)
-        except: return S_TD_C
+        except Exception: return S_TD_C
 
     def _opt_get(key, field, fmt="{:+.1f}%", default="\u2014"):
         try:
@@ -1696,7 +1696,7 @@ def _build_allocation(data, allocation_buf=None, registry=None):
             if v is None:
                 return default
             return fmt.format(float(v))
-        except: return default
+        except Exception: return default
 
     met_rows = [
         [Paragraph("Min-Variance", S_TD_B),

@@ -25,7 +25,7 @@ _OUTPUT_DIR = Path(__file__).parent / "generated"
 def _v(val, fmt="{:.1f}", default="N/A"):
     if val is None: return default
     try: return fmt.format(float(val))
-    except: return default
+    except Exception: return default
 
 
 def _valid_hist_labels(snapshot) -> list:
@@ -44,7 +44,7 @@ def _valid_hist_labels(snapshot) -> list:
 def _pct(val, default="N/A"):
     if val is None: return default
     try: return f"{float(val)*100:.1f}%"
-    except: return default
+    except Exception: return default
 
 def _m(val, cur="", default="N/A"):
     if val is None: return default
@@ -52,17 +52,17 @@ def _m(val, cur="", default="N/A"):
         v = float(val)
         if abs(v) >= 1000: return f"{v/1000:.1f}B {cur}".strip()
         return f"{v:.0f}M {cur}".strip()
-    except: return default
+    except Exception: return default
 
 def _x(val, default="N/A"):
     if val is None: return default
     try: return f"{float(val):.1f}x"
-    except: return default
+    except Exception: return default
 
 def _upside(target, current, default="N/A"):
     if target is None or current is None or current == 0: return default
     try: return f"{(float(target)-float(current))/abs(float(current))*100:+.1f}%"
-    except: return default
+    except Exception: return default
 
 # ---------------------------------------------------------------------------
 # Benchmarks sectoriels
@@ -102,7 +102,7 @@ def _signal(val, lo, hi, invert=False):
         if ok:  return rl_colors.HexColor("#1a7a52"), "OK"
         if bad: return rl_colors.HexColor("#c0392b"), "ELEVE"
         return rl_colors.HexColor("#b8922a"), "MOYEN"
-    except:
+    except Exception:
         from reportlab.lib import colors as rl_colors
         return rl_colors.HexColor("#666666"), "N/A"
 
@@ -507,7 +507,7 @@ def _sec4_valorisation(snapshot, ratios, synthesis, styles):
         if r0 and r1 and r0 > 0 and len(hist_labels) > 1:
             n = len(hist_labels) - 1
             try: rev_cagr = f"{((r1/r0)**(1/n)-1)*100:.1f}%"
-            except: pass
+            except Exception: pass
 
     latest_yr = ratios.years.get(hist_labels[-1]) if ratios and hist_labels else None
     ebitda_m  = _pct(latest_yr.ebitda_margin if latest_yr else None)
@@ -558,7 +558,7 @@ def _sec4_valorisation(snapshot, ratios, synthesis, styles):
         try:
             parts = s.replace("x","").replace("%","").split("-")
             return (float(parts[0]) + float(parts[1])) / 2
-        except: return None
+        except Exception: return None
 
     # Récupérer médiane peers et implied price
     mult_data = [["Multiple", f"Valeur {ci.ticker}", "Médiane Peers", "Implied Price", "Upside"]]
@@ -567,7 +567,7 @@ def _sec4_valorisation(snapshot, ratios, synthesis, styles):
             try:
                 if company_mult and peer_mult and float(company_mult) > 0:
                     return f"{cur_price * float(peer_mult) / float(company_mult):.0f}"
-            except: pass
+            except Exception: pass
             return "N/A"
 
         ev_ebitda_comp  = latest_yr.ev_ebitda
@@ -585,7 +585,7 @@ def _sec4_valorisation(snapshot, ratios, synthesis, styles):
         imp_prices = []
         for ip in [impl_ev_ebitda, impl_ev_rev, impl_pe]:
             try: imp_prices.append(float(ip))
-            except: pass
+            except Exception: pass
         avg_imp = f"{sum(imp_prices)/len(imp_prices):.0f} {cur}" if imp_prices else "N/A"
 
         mult_data += [

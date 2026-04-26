@@ -282,7 +282,7 @@ def _parse_x(s) -> float:
     """Parse '28,4x' → 28.4"""
     try:
         return float(str(s).replace(',', '.').replace('x', '').replace('*', '').strip())
-    except:
+    except Exception:
         return 0.0
 
 
@@ -290,7 +290,7 @@ def _parse_pct(s) -> float:
     """Parse '+12,3 %' → 12.3"""
     try:
         return float(str(s).replace(',', '.').replace('%', '').replace(' ', '').strip())
-    except:
+    except Exception:
         return 0.0
 
 
@@ -508,7 +508,7 @@ def _chart_zone_entree(data: dict) -> bytes:
     try:
         _pe_global = float(str(data.get("pe_forward","17")).replace("x","").strip())
         if _pe_global < 5 or _pe_global > 50: _pe_global = 17.0
-    except:
+    except Exception:
         _pe_global = 17.0
     _pe_med_global = data.get("pe_mediane_10y", 17.0) or 17.0
     if not isinstance(_pe_med_global, (int, float)): _pe_med_global = 17.0
@@ -1470,7 +1470,7 @@ def _s09_cartographie(prs, D):
         _strat = ("La dispersion élevée justifié une approche concentrée : surexposer les secteurs verts, "
                   "éviter les secteurs rouges. Un portefeuille également pondéré sous-performerait le benchmark.")
     elif score_spread > 20:
-        _strat = ("La bifurcation modérée autorise une allocation selective : privilegier les leaders de score "
+        _strat = ("La bifurcation modérée autorise une allocation sélective : privilegier les leaders de score "
                   "tout en conservant une exposition diversifiée aux secteurs Neutrès proches du seuil de bascule.")
     else:
         _strat = ("La faible dispersion des scores signale une convergence sectorielle — "

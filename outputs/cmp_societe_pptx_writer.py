@@ -618,15 +618,15 @@ def _generate_synthesis(m_a: dict, m_b: dict) -> dict:
     def _pct(v):
         if v is None: return "N/A"
         try: return f"{float(v)*100:.1f}%"
-        except: return "N/A"
+        except Exception: return "N/A"
     def _x2(v):
         if v is None: return "N/A"
         try: return f"{float(v):.1f}x"
-        except: return "N/A"
+        except Exception: return "N/A"
     def _n(v):
         if v is None: return "N/A"
         try: return f"{float(v):.1f}"
-        except: return "N/A"
+        except Exception: return "N/A"
 
     sec_a = m_a.get('sector_a') or m_a.get('sector') or 'N/D'
     sec_b = m_b.get('sector_b') or m_b.get('sector') or 'N/D'
@@ -1151,7 +1151,7 @@ def _chart_risk_profile(m_a: dict, m_b: dict, tkr_a: str, tkr_b: str) -> Optiona
             if v is None: return 0.5
             try:
                 return max(0.1, min(1.0, (float(v) - lo) / (hi - lo)))
-            except: return 0.5
+            except Exception: return 0.5
 
         # Scores normalisés sur [0, 1] (plus haut = meilleur)
         scores_a = [
@@ -1363,13 +1363,13 @@ def _pct_val(v) -> float:
         fv = float(v)
         if abs(fv) > 2.0: fv /= 100.0
         return round(fv * 100, 1)
-    except: return 0.0
+    except Exception: return 0.0
 
 
 def _safe_float(v) -> Optional[float]:
     if v is None: return None
     try: return float(v)
-    except: return None
+    except Exception: return None
 
 
 def _insert_chart(slide, buf: Optional[io.BytesIO], x: float, y: float, w_cm: float, h_cm: float):
@@ -1593,7 +1593,7 @@ def _slide_exec_summary(prs, m_a: dict, m_b: dict, synthesis: dict):
         try:
             fa = _safe_float(val_a)
             fb = _safe_float(val_b)
-        except: fa, fb = None, None
+        except Exception: fa, fb = None, None
         if fa is None or fb is None:
             return (None, None)
         if higher_better:
@@ -1616,7 +1616,7 @@ def _slide_exec_summary(prs, m_a: dict, m_b: dict, synthesis: dict):
         if v is None: return "\u2014"
         if lbl == "FinSight Score /100":
             try: return str(int(float(v)))
-            except: return "\u2014"
+            except Exception: return "\u2014"
         if lbl in ("Marge EBITDA LTM", "ROIC", "Rev CAGR 3y"):
             return _frpct(v)
         if lbl == "Conviction":
@@ -2215,7 +2215,7 @@ def _slide_monte_carlo(prs, m_a: dict, m_b: dict):
     def _sigma_fmt(v):
         if v is None: return "\u2014"
         try: return f"{float(v) * 100:.1f}".replace(".", ",") + " %"
-        except: return "\u2014"
+        except Exception: return "\u2014"
 
     rows_mc = [
         ("P10 (scen. pessimiste)",

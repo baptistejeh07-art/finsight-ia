@@ -602,7 +602,7 @@ def _fit_s(s, n: int) -> str:
 def _fmt_x(v, d=1):
     if v is None: return "—"
     try: return f"{float(v):.{d}f}".replace(".", ",") + "x"
-    except: return "—"
+    except Exception: return "—"
 
 def _fmt_pct(v, d=1, mult=False):
     """Format percentage FR. mult=True si valeur en décimal (0.05→5,0 %)."""
@@ -610,25 +610,25 @@ def _fmt_pct(v, d=1, mult=False):
     try:
         fv = float(v) * (100 if mult else 1)
         return f"{fv:+.{d}f}".replace(".", ",") + " %"
-    except: return "—"
+    except Exception: return "—"
 
 def _fmt_pct_plain(v, d=1, mult=False):
     if v is None: return "—"
     try:
         fv = float(v) * (100 if mult else 1)
         return f"{fv:.{d}f}".replace(".", ",") + " %"
-    except: return "—"
+    except Exception: return "—"
 
 def _fmt_pct_rev(v, d=1):
     """Pour revenue_growth stocké en décimal (0.05 = +5,0 %)."""
     if v is None: return "—"
     try: return f"{float(v)*100:+.{d}f}".replace(".", ",") + " %"
-    except: return "—"
+    except Exception: return "—"
 
 def _fmt_num(v, d=1):
     if v is None: return "—"
     try: return f"{float(v):.{d}f}".replace(".", ",")
-    except: return "—"
+    except Exception: return "—"
 
 def _fmt_mds(v):
     if v is None: return "—"
@@ -636,7 +636,7 @@ def _fmt_mds(v):
         fv = float(v) / 1e9
         if fv >= 100: return f"{fv:.0f} Mds"
         return f"{fv:.1f}".replace(".", ",") + " Mds"
-    except: return "—"
+    except Exception: return "—"
 
 def _prepare_data(tickers_data: list[dict], sector_name: str, universe: str) -> dict:
     """Pre-compute all derived values needed for the PPTX."""
@@ -2036,7 +2036,7 @@ def _s13_top3(prs, D):
                 _rect(slide, cx + 0.4, 4.2, 7.1, 1.2, fill=_NAVYL)
                 _txb(slide, f"Cible : {target:.0f}", cx + 0.5, 4.3, 3.8, 0.6, size=9, bold=True, color=_WHITE)
                 _txb(slide, f"Upside : {upside:+.0f} %", cx + 4.4, 4.3, 3.0, 0.6, size=9, color=_WHITE)
-            except: pass
+            except Exception: pass
 
         # Key ratios — adaptés au profil sectoriel détecté
         _txb(slide, "Ratios clés", cx + 0.4, 5.6, 7.1, 0.5, size=7.5, bold=True, color=_NAVY)
@@ -2215,7 +2215,7 @@ def _s15_entry(prs, D):
                 zone = f"< {pf * 0.95:.1f}"
                 sig = "Entree attractive" if reco == "BUY" else "Proche zone" if reco == "HOLD" else "Éviter"
                 proba = "~68 %" if reco == "BUY" else "~52 %" if reco == "HOLD" else "~35 %"
-            except:
+            except Exception:
                 dcf, zone, sig, proba = "—", "—", "—", "—"
         else:
             dcf, zone, sig, proba = "—", "—", "—", "—"
@@ -2368,7 +2368,7 @@ def _s18_sentiment(prs, D):
         s = t.get("sentiment_score")
         if s is not None:
             try: pos_scores.append(float(s))
-            except: pass
+            except Exception: pass
     agg_score = _avg(pos_scores) if pos_scores else 0.22
     n_pos = max(1, int(len(td) * 0.3))
     n_neu = max(1, int(len(td) * 0.5))

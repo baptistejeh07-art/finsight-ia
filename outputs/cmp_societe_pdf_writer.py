@@ -115,7 +115,7 @@ def _enc(s):
         import unicodedata
         s = unicodedata.normalize('NFKC', str(s))
         return s.encode('cp1252', errors='replace').decode('cp1252')
-    except: return str(s)
+    except Exception: return str(s)
 
 def _canvas_text(s):
     """Nettoie une chaine pour canvas.drawString : pas HTML, pas newlines, cp1252 safe.
@@ -260,7 +260,7 @@ def _blank_buf(w=6.5, h=2.8):
 def _fr(v, dp=1, suffix=""):
     if v is None: return "\u2014"
     try: return f"{float(v):,.{dp}f}".replace(",", " ").replace(".", ",") + suffix
-    except: return "\u2014"
+    except Exception: return "\u2014"
 
 def _frpct(v, signed=False):
     if v is None: return "\u2014"
@@ -269,12 +269,12 @@ def _frpct(v, signed=False):
         if abs(fv) > 2.0: fv /= 100.0
         s = f"{fv * 100:+.1f}" if signed else f"{fv * 100:.1f}"
         return s.replace(".", ",") + " %"
-    except: return "\u2014"
+    except Exception: return "\u2014"
 
 def _frx(v):
     if v is None: return "\u2014"
     try: return f"{float(v):.1f}".replace(".", ",") + "x"
-    except: return "\u2014"
+    except Exception: return "\u2014"
 
 def _frm(v, cur="$"):
     """Format market cap / EV. Valeur stockee en MILLIARDS (comparison_writer.mc_bn).
@@ -297,7 +297,7 @@ def _frm(v, cur="$"):
             return _fr(v, 1) + " " + sym_big
         # Small caps : afficher en millions
         return _fr(v * 1000, 0) + " " + sym_small
-    except: return "\u2014"
+    except Exception: return "\u2014"
 
 
 def _word_clip(s, n, ellipsis=""):
@@ -346,7 +346,7 @@ def _hex_str(c):
     try:
         h = c.hexval()
         return h[2:] if h.startswith('0x') else h
-    except:
+    except Exception:
         return "1A1A1A"
 
 # =============================================================================
@@ -405,7 +405,7 @@ def _bilan_text_below(m_a, m_b, tkr_a, tkr_b):
     """Texte analytique sous le tableau Bilan (page 4) : lecture qualité bilancielle."""
     def _f(v):
         try: return float(v) if v is not None else None
-        except: return None
+        except Exception: return None
     nd_a = _f(m_a.get("net_debt_ebitda"))
     nd_b = _f(m_b.get("net_debt_ebitda"))
     cr_a = _f(m_a.get("current_ratio"))
@@ -626,7 +626,7 @@ def _chart_risk_radar(m_a, m_b, tkr_a, tkr_b) -> io.BytesIO:
                 fv = float(v)
                 if hi == lo: return 3.0
                 return max(1.0, min(5.0, 1.0 + 4.0 * (fv - lo) / (hi - lo)))
-            except: return 3.0
+            except Exception: return 3.0
 
         def _vals(m):
             nd_ebitda = m.get("net_debt_ebitda") or 0.0
@@ -1492,7 +1492,7 @@ def _section_qualite_risque(story, m_a, m_b, synthesis, tkr_a, tkr_b):
             if fv >= 7: return S_TD_G
             if fv <= 3: return S_TD_R
             return S_TD_A
-        except: return S_TD_C
+        except Exception: return S_TD_C
 
     def _alt_style(v):
         if v is None: return S_TD_C
@@ -1501,7 +1501,7 @@ def _section_qualite_risque(story, m_a, m_b, synthesis, tkr_a, tkr_b):
             if fv > 3:    return S_TD_G
             if fv < 1.81: return S_TD_R
             return S_TD_A
-        except: return S_TD_C
+        except Exception: return S_TD_C
 
     pio_a = m_a.get("piotroski_score"); pio_b = m_b.get("piotroski_score")
     ben_a = m_a.get("beneish_mscore");  ben_b = m_b.get("beneish_mscore")
@@ -1599,7 +1599,7 @@ def _section_qualite_risque(story, m_a, m_b, synthesis, tkr_a, tkr_b):
                 if fv <= lo_good: return ("Faible", "maitrise")
                 if fv <= hi_good: return ("Modéré", "surveiller")
                 return ("Élevé", "significatif")
-        except: return ("N/A", "indetermine")
+        except Exception: return ("N/A", "indetermine")
 
     axes_desc = [
         ("net_debt_ebitda", -0.5, 2.5, False,
@@ -1745,9 +1745,9 @@ def _section_verdict(story, m_a, m_b, synthesis, tkr_a, tkr_b):
         fa = val_a if val_a is not None else 0
         fb = val_b if val_b is not None else 0
         try: fa = float(fa)
-        except: fa = 0.0
+        except Exception: fa = 0.0
         try: fb = float(fb)
-        except: fb = 0.0
+        except Exception: fb = 0.0
         if higher_better:
             col_a = BUY_GREEN if fa >= fb else GREY_TEXT
             col_b = BUY_GREEN if fb > fa  else GREY_TEXT
@@ -2330,7 +2330,7 @@ def _section_52w_price(story, m_a, m_b, tkr_a, tkr_b, synthesis=None):
             if fa > fb: return tkr_a
             if fb > fa: return tkr_b
             return None
-        except: return None
+        except Exception: return None
 
     leader_1y = _better_perf(m_a.get("perf_1y"), m_b.get("perf_1y"))
     leader_3m = _better_perf(m_a.get("perf_3m"), m_b.get("perf_3m"))
@@ -2368,7 +2368,7 @@ def _section_piotroski_detail(story, m_a, m_b, tkr_a, tkr_b):
             if iv >= 5: return "correct (5-6)"
             if iv >= 4: return "limite (4)"
             return "fragile (<= 3)"
-        except: return "indetermine"
+        except Exception: return "indetermine"
 
     text = (
         f"Le Piotroski F-Score évalue la solidité financière d'une entreprise sur "
@@ -2400,7 +2400,7 @@ def _section_piotroski_detail(story, m_a, m_b, tkr_a, tkr_b):
                     "<font color='#A82020'><b>\u2717 0</b></font>",
                     _s('pior', size=8, leading=11, color=SELL_RED, bold=True, align=TA_CENTER)
                 )
-        except:
+        except Exception:
             return Paragraph("\u2014", S_TD_C)
 
     criteria = [

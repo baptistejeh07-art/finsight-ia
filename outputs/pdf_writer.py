@@ -206,7 +206,7 @@ def _enc(s):
         import unicodedata
         s = unicodedata.normalize('NFKC', str(s))
         return s.encode('cp1252', errors='replace').decode('cp1252')
-    except: return str(s)
+    except Exception: return str(s)
 
 def _safe(s):
     """Echappe &, <, > pour injection dans ReportLab Paragraph (parser XML).
@@ -2266,7 +2266,7 @@ def _build_valorisation(ff_buf, pie_buf, mc_buf, data):
                                  "l'inflation), l'\u00e9cart P10-P90 fournit une mesure utile du "
                                  "risque de valorisation mais doit \u00eatre compl\u00e9t\u00e9 par un "
                                  "stress-testing qualitatif sur les hypoth\u00e8ses cl\u00e9s.")
-                except: pass
+                except Exception: pass
             if not _vol_note:
                 _vol_note = (" Le mod\u00e8le GBM suppose une distribution log-normale des rendements — "
                              "les chocs exogenes (récession, r\u00e9gulation, disruption sectorielle) "
@@ -2883,7 +2883,7 @@ def _build_capital_returns(data):
                 _conv_standard  = "indique des besoins de capex ou BFR importants"
                 _conv_qual = _conv_excellent if _conv > 0.7 else _conv_standard
                 _fcf_conv_note = f" La conversion EBITDA->FCF de {_conv:.0%} {_conv_qual}."
-            except: pass
+            except Exception: pass
         _txt_fallback = (f"La g\u00e9n\u00e9ration de FCF affiche une {_dir} de "
                 f"{_fr(abs(delta_fcf)/1000, 1)}\u00a0Mds sur la p\u00e9riode. "
                 f"Le FCF yield courant de {_fy} {_fy_qual}."
@@ -4082,7 +4082,7 @@ def _fr(v, dp=1, suffix=""):
     try:
         s = f"{float(v):.{dp}f}".replace(".", ",")
         return s + suffix
-    except: return "\u2014"
+    except Exception: return "\u2014"
 
 def _frpct(v, dp=1):
     if v is None: return "\u2014"
@@ -4094,14 +4094,14 @@ def _frpct(v, dp=1):
         if abs(pct) > 500:
             return "n.m."
         return _fr(pct, dp, "\u00a0%")
-    except: return "\u2014"
+    except Exception: return "\u2014"
 
 def _frx(v):
     if v is None: return "\u2014"
     try:
         f = float(v)
         return "n.m." if abs(f) > 999 else _fr(f, 1, "x")
-    except: return "\u2014"
+    except Exception: return "\u2014"
 
 def _frm(v):
     """Formate une valeur stockee en millions → Md (milliards), 1 decimale.
@@ -4113,7 +4113,7 @@ def _frm(v):
         if abs(f) > 1_000_000_000:  # valeur en absolu (ex: 195_000_000_000 EUR) → convertir en millions
             f = f / 1_000_000
         return _fr(f / 1_000, 1)
-    except: return "\u2014"
+    except Exception: return "\u2014"
 
 def _upside_str(target, current):
     if target is None or current is None: return "\u2014"
@@ -4122,7 +4122,7 @@ def _upside_str(target, current):
         if c == 0: return "\u2014"
         u = (float(target) - c) / abs(c) * 100
         return f"{u:+.0f}\u00a0%".replace(".", ",")
-    except: return "\u2014"
+    except Exception: return "\u2014"
 
 def _g(obj, *keys, default=None):
     for k in keys:
@@ -4214,7 +4214,7 @@ def _read_label(val, bm_str, pct=False):
         if v > hi: return "Sup\u00e9rieure" if pct else "Sup\u00e9rieur"
         if v < lo: return "Inf\u00e9rieure" if pct else "D\u00e9cote"
         return "En ligne" if pct else "Dans la norme"
-    except: return "\u2014"
+    except Exception: return "\u2014"
 
 
 # =============================================================================
@@ -4680,7 +4680,7 @@ class PDFWriter:
                     if afv < 0.00001:  # garde-fou
                         break
                 return fv
-            except: return None
+            except Exception: return None
 
         def _rev(l):
             fy = _fy(l)
@@ -4762,7 +4762,7 @@ class PDFWriter:
                     try:
                         _eps_num[_i] = float(_fwd_eps)
                         _eps_hist[_i] = _fr(_eps_num[_i], 2)
-                    except: pass
+                    except Exception: pass
                 else:
                     _ni_yr = _ni(_l)
                     if _ni_yr is not None:
@@ -4770,13 +4770,13 @@ class PDFWriter:
                             _eps_yr = float(_ni_yr) / float(_shares)
                             _eps_num[_i]  = _eps_yr
                             _eps_hist[_i] = _fr(round(_eps_yr, 2), 2)
-                        except: pass
+                        except Exception: pass
             # Remplacer LTM par la valeur yfinance si plus précise
             if _trailing_eps is not None:
                 try:
                     _eps_num[_ltm_idx]  = float(_trailing_eps)
                     _eps_hist[_ltm_idx] = _fr(float(_trailing_eps), 2)
-                except: pass
+                except Exception: pass
             # Fallback EPS N+2 : si pas de net_income ny2 dans is_proj, deriver
             # depuis EPS N+1 et la croissance revenue (proxy operational leverage)
             _ny2_idx = _ny1_idx + 1
@@ -4789,7 +4789,7 @@ class PDFWriter:
                         _rev_growth = float(_rev_ny2) / float(_rev_ny1)
                         _eps_num[_ny2_idx]  = _eps_ny1 * _rev_growth
                         _eps_hist[_ny2_idx] = _fr(round(_eps_num[_ny2_idx], 2), 2)
-                    except: pass
+                    except Exception: pass
 
         # P/E historique : fetch des cours year-end yfinance + EPS historique
         # Permet de completer la ligne P/E pour les annees historiques (pas seulement LTM/Fwd)
@@ -4812,7 +4812,7 @@ class PDFWriter:
                 # Prend les 4 premiers chiffres
                 digits = ''.join(c for c in s[:6] if c.isdigit())
                 return int(digits[:4]) if len(digits) >= 4 else None
-            except: return None
+            except Exception: return None
 
         # Remplir P/E pour toutes les annees historiques + N+2 si EPS dispo
         # (Baptiste TSLA 2026-04-14 : ne pas filtrer les valeurs extremes, il
@@ -4830,21 +4830,21 @@ class PDFWriter:
                 if price:
                     try:
                         _pe_row[_i] = _frx(round(float(price) / float(_eps_i), 1))
-                    except: pass
+                    except Exception: pass
                 continue
             # Historiques : cherche le cours year-end de l'annee ciblee
             if _year_i and _year_i in _year_close:
                 try:
                     _pe_row[_i] = _frx(round(_year_close[_year_i] / _eps_i, 1))
-                except: pass
+                except Exception: pass
 
         # Ligne P/E : LTM (trailing) + N+1E (forward) — historiques remplies dans le bloc precedent
         if _fwd_pe is not None:
             try: _pe_row[_ny1_idx] = _frx(float(_fwd_pe))
-            except: pass
+            except Exception: pass
         if _trailing_eps is not None and price:
             try: _pe_row[_ltm_idx] = _frx(round(float(price) / float(_trailing_eps), 1))
-            except: pass
+            except Exception: pass
 
         # Profil sectoriel — détecté ICI pour adapter le tableau IS + ratios
         try:
@@ -5175,7 +5175,7 @@ class PDFWriter:
             try:
                 f = float(v)
                 return f / 100 if abs(f) > 1 else f
-            except: return None
+            except Exception: return None
 
         comparables = [comp_row]
         for peer in peers[:5]:
@@ -5195,7 +5195,7 @@ class PDFWriter:
                     try:
                         v = float(_g(p, attr) or 'nan')
                         if abs(v) < (10 if is_pct else 999): vals.append(v)
-                    except: pass
+                    except Exception: pass
                 if not vals: return '\u2014'
                 vals.sort(); return vals[len(vals) // 2]
             comparables.append({

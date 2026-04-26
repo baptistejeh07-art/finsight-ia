@@ -1828,7 +1828,7 @@ def _slide_is(prs, snap, synthesis, ratios):
                 try:
                     fv = float(v)
                     return fv * 100 if abs(fv) <= 2 else fv
-                except: return None
+                except Exception: return None
             _rg = _pp(_rev_g)
             _ebmp = _pp(_eb_m)
             _nmp = _pp(_nm)
@@ -1925,7 +1925,7 @@ def _slide_bilan(prs, snap, synthesis, ratios):
                 if vf <= lo_good: return "\u2705"
                 if vf <= hi_warn: return "\u26a0\ufe0f"
                 return "\u274c"
-        except: return "\u2014"
+        except Exception: return "\u2014"
 
     az_sig = "\u2705" if (az and float(az) >= 2.99) else ("\u26a0\ufe0f" if (az and float(az) >= 1.81) else ("\u274c" if az else "\u2014"))
     bm_sig = "\u2705" if (bm and float(bm) <= -2.22) else ("\u274c" if bm else "\u2014")
@@ -2111,7 +2111,7 @@ def _slide_ratios(prs, snap, synthesis, ratios):
             if v < 25:   return "Correct"
             if v < 40:   return "Premium"
             return "Élevé"
-        except: return "—"
+        except Exception: return "—"
 
     def _lecture_eve(v):
         if v is None: return "—"
@@ -2121,7 +2121,7 @@ def _slide_ratios(prs, snap, synthesis, ratios):
             if v < 14:  return "Correct"
             if v < 20:  return "Premium"
             return "Tr\u00e8s \u00e9lev\u00e9"
-        except: return "—"
+        except Exception: return "—"
 
     def _lecture_z(v):
         if v is None: return "—"
@@ -2130,13 +2130,13 @@ def _slide_ratios(prs, snap, synthesis, ratios):
             if v >= 2.99: return "Solide"
             if v >= 1.81: return "Zone grise"
             return "D\u00e9tresse"
-        except: return "—"
+        except Exception: return "—"
 
     def _lecture_bm(v):
         if v is None: return "—"
         try:
             return "Risque manip." if float(v) > -2.22 else "Aucun signal"
-        except: return "—"
+        except Exception: return "—"
 
     def _lecture_evr(v):
         if v is None: return "—"
@@ -2146,7 +2146,7 @@ def _slide_ratios(prs, snap, synthesis, ratios):
             if v < 5:   return "Correct"
             if v < 10:  return "Premium"
             return "Tr\u00e8s \u00e9lev\u00e9"
-        except: return "—"
+        except Exception: return "—"
 
     def _lecture_gm(v):
         if v is None: return "—"
@@ -2156,7 +2156,7 @@ def _slide_ratios(prs, snap, synthesis, ratios):
             if v >= 40: return "Bon"
             if v >= 20: return "Correct"
             return "Bas"
-        except: return "—"
+        except Exception: return "—"
 
     def _lecture_em(v):
         if v is None: return "—"
@@ -2166,7 +2166,7 @@ def _slide_ratios(prs, snap, synthesis, ratios):
             if v >= 20: return "Bon"
             if v >= 10: return "Correct"
             return "Bas"
-        except: return "—"
+        except Exception: return "—"
 
     def _lecture_roe(v):
         if v is None: return "—"
@@ -2176,7 +2176,7 @@ def _slide_ratios(prs, snap, synthesis, ratios):
             if v >= 15: return "Bon"
             if v >= 5:  return "Correct"
             return "Bas"
-        except: return "—"
+        except Exception: return "—"
 
     def _lecture_roic(v):
         if v is None: return "—"
@@ -2186,7 +2186,7 @@ def _slide_ratios(prs, snap, synthesis, ratios):
             if v >= 10: return "Bon"
             if v >= 5:  return "Correct"
             return "Bas"
-        except: return "—"
+        except Exception: return "—"
 
     def _lecture_capex(v):
         if v is None: return "—"
@@ -2195,7 +2195,7 @@ def _slide_ratios(prs, snap, synthesis, ratios):
             if v < 5:   return "L\u00e9ger"
             if v < 15:  return "Mod\u00e9r\u00e9"
             return "Intensif"
-        except: return "—"
+        except Exception: return "—"
 
     # Profil sectoriel — adapte les ratios selon banque / REIT / etc.
     try:
@@ -2219,7 +2219,7 @@ def _slide_ratios(prs, snap, synthesis, ratios):
             fv = float(v)
             pct = fv * 100 if abs(fv) < 1 else fv
             return f"{pct:.1f} %"
-        except: return "—"
+        except Exception: return "—"
 
     if _profile_pptx == "BANK":
         rows = [
@@ -2919,12 +2919,12 @@ def _slide_multiples_historiques(prs, snap, synthesis, ratios):
         try:
             f = float(v) if v is not None else None
             return f if (f is not None and 0 < f < 1000) else None
-        except: return None
+        except Exception: return None
     def _filter_ev(v):
         try:
             f = float(v) if v is not None else None
             return f if (f is not None and 0 < f < 500) else None
-        except: return None
+        except Exception: return None
 
     pe_vals = [_filter_pe(d["pe"])    for d in years_data]
     ev_vals = [_filter_ev(d["ev_eb"]) for d in years_data]
@@ -3974,7 +3974,7 @@ def _slide_lbo_stress(prs, snap, pack: dict):
             if abs(fv) >= 1000:
                 return _fr(fv / 1000, 1)
             return _fr(fv / 1000, 2)  # < 1 Md → 2 décimales
-        except:
+        except Exception:
             return "—"
 
     sched_rows = []
@@ -4317,7 +4317,7 @@ def _slide_sentiment(prs, snap, synthesis, sentiment):
     def _fmt_score(v):
         if v is None: return "\u2014"
         try:    return f"{float(v):+.3f}".replace(".", ",")
-        except: return str(v)
+        except Exception: return str(v)
 
     def _cnt(v):
         if v is None: return "\u2014"
@@ -4885,7 +4885,7 @@ def _slide_conviction_tracker(prs, snap, synthesis, ratios, devil, sentiment):
     rec      = (_g(synthesis, "recommendation") or "HOLD").upper()
     conv_raw = _g(synthesis, "conviction") or 0.5
     try: conv = float(conv_raw)
-    except: conv = 0.5
+    except Exception: conv = 0.5
     conv_pct = int(conv * 100)
     gen_date = _fr_date_long(_g(ci, "analysis_date", None) or date.today())
 

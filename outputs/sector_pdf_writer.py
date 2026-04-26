@@ -2358,7 +2358,7 @@ def _build_acteurs(tickers_data: list[dict], sector_name: str, registry=None):
     def _fmt_x(v):
         if v is None: return "\u2014"
         try: return f"{float(v):.1f}x"
-        except: return "\u2014"
+        except Exception: return "\u2014"
 
     def _fmt_dy(v):
         """Dividend yield : cli_analyze stocke en fraction (0.0194 = 1.94%)."""
@@ -2369,7 +2369,7 @@ def _build_acteurs(tickers_data: list[dict], sector_name: str, registry=None):
             # Sinon : déjà en %
             pct = fv * 100 if abs(fv) < 1 else fv
             return f"{pct:.1f}%"
-        except: return "\u2014"
+        except Exception: return "\u2014"
 
     comp_rows = []
     ccy = tickers_data[0].get('currency', 'EUR') if tickers_data else 'EUR'

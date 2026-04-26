@@ -597,10 +597,10 @@ def extract_metrics(state: dict, supp: dict) -> dict:
         t_base = supp.get("target_mean_price")
     if t_bear is None and t_base:
         try: t_bear = round(float(t_base) * 0.85, 2)
-        except: pass
+        except Exception: pass
     if t_bull is None and t_base:
         try: t_bull = round(float(t_base) * 1.15, 2)
-        except: pass
+        except Exception: pass
 
     # Finsight score (displayed v1.3) + rang sectoriel si dispo
     fs = _finsight_score(snapshot, ratios)

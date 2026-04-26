@@ -1090,12 +1090,12 @@ def _s07b_capital_alloc(prs, D):
         """div_yield et payout sont en fraction (×100). fcfy est déjà en %, utiliser _fmt_pct_direct."""
         if v is None: return "—"
         try: return f"{float(v)*100:.1f} %"
-        except: return "—"
+        except Exception: return "—"
     def _fmt_pct_direct(v):
         """fcfy est déjà en % (1.38 = 1.38%) — pas de ×100."""
         if v is None: return "—"
         try: return f"{float(v):.1f} %"
-        except: return "—"
+        except Exception: return "—"
 
     rows = [
         ["Indicateur", D["sector_a"], D["sector_b"]],
