@@ -1278,7 +1278,7 @@ def _s03_sommaire(prs, D):
     chapters = [
         ("01", "Présentation du Secteur", "Caractéristiques structurelles · Ratios comparatifs · Positionnement cycle", "p. 5–7"),
         ("02", "Cartographie des Sociétés", f"{D['N']} sociétés · Scatter valorisation · Scores FinSight détaillés", "p. 9–11"),
-        ("03", "Top 3 & Valorisations", "Synthèse Top 3 · Distribution EV/EBITDA · Zone d'entree optimale", "p. 13–15"),
+        ("03", "Top 3 & Valorisations", "Synthèse Top 3 · Distribution EV/EBITDA · Zone d'entrée optimale", "p. 13–15"),
         ("04", "Risques, Sentiment & Méthodologie", "Conditions d'invalidation · FinBERT · Sources & data lineage", "p. 17–19"),
     ]
     for i, (num, title, sub, pages) in enumerate(chapters):
@@ -1975,7 +1975,7 @@ def _s11_scores(prs, D):
 def _s13_top3(prs, D):
     slide = _blank(prs)
     _header(slide, (D.get("_t_helper") or (lambda k: "Top 3 Sociétés — Synthèse"))("top3_synthese"),
-            "Analyse detaillee  ·  Top 3 par score FinSight  ·  Catalyseurs & risques identifies", 3)
+            "Analyse détaillée  ·  Top 3 par score FinSight  ·  Catalyseurs & risques identifiés", 3)
 
     top3 = D["top3"]
     content = D["content"]
@@ -1987,7 +1987,9 @@ def _s13_top3(prs, D):
         cx = cols_x[col_i]
         reco = _reco(t.get("score_global"))
         reco_col = _reco_color(reco)
-        name = (t.get("company") or t.get("ticker") or "")[:20]
+        # Troncation 32 chars : caisse pour "The Goldman Sachs Group, Inc." (29) sans
+        # casser les noms longs en plein milieu (was [:20] -> "The Goldman Sachs Gr").
+        name = (t.get("company") or t.get("ticker") or "")[:32]
 
         _rect(slide, cx, 2.5, 7.6, 11.2, fill=_GRAYL)
         _rect(slide, cx, 2.5, 0.1, 11.2, fill=reco_col)
@@ -2010,8 +2012,8 @@ def _s13_top3(prs, D):
                 _txb(slide, f"Upside : {upside:+.0f} %", cx + 4.4, 4.3, 3.0, 0.6, size=9, color=_WHITE)
             except: pass
 
-        # Key ratios — adaptes au profil sectoriel detecte
-        _txb(slide, "Ratios cles", cx + 0.4, 5.6, 7.1, 0.5, size=7.5, bold=True, color=_NAVY)
+        # Key ratios — adaptés au profil sectoriel détecté
+        _txb(slide, "Ratios clés", cx + 0.4, 5.6, 7.1, 0.5, size=7.5, bold=True, color=_NAVY)
         try:
             from core.sector_profiles import detect_profile
             _t_profile = detect_profile(t.get("sector", ""), t.get("industry", ""))
@@ -2368,18 +2370,20 @@ def _s18_sentiment(prs, D):
     risks = content.get("risques", [])
     _txb(slide, "Thèmes dominants", 0.9, 5.3, 23.6, 0.6, size=8.5, bold=True, color=_NAVY)
     pos_theme = cats[0][0] if cats else "Tendance positive"
-    neg_theme = risks[0][0] if risks else "Tendance negative"
-    _rect(slide, 0.9, 5.9, 11.4, 1.1, fill=_GREEN_L)
-    _rect(slide, 0.9, 5.9, 0.1, 1.1, fill=_BUY)
-    _txb(slide, f"+ {pos_theme} — {_fit_s(cats[0][1], 90) if cats else ''}", 1.3, 5.95, 10.7, 1.0, size=8, color=_GRAYT, wrap=True)
-    _rect(slide, 13.1, 5.9, 11.4, 1.1, fill=_RED_L)
-    _rect(slide, 13.1, 5.9, 0.1, 1.1, fill=_SELL)
-    _txb(slide, f"- {neg_theme} — {_fit_s(risks[0][1], 90) if risks else ''}", 13.5, 5.95, 10.7, 1.0, size=8, color=_GRAYT, wrap=True)
+    neg_theme = risks[0][0] if risks else "Tendance négative"
+    # Boîtes thèmes : hauteur 1.8cm + cap 200 chars (was 1.1cm + 90 chars
+    # → texte coupé à "rentabilité des" / "qualité des actifs et" sur banques).
+    _rect(slide, 0.9, 5.9, 11.4, 1.8, fill=_GREEN_L)
+    _rect(slide, 0.9, 5.9, 0.1, 1.8, fill=_BUY)
+    _txb(slide, f"+ {pos_theme} — {_fit_s(cats[0][1], 200) if cats else ''}", 1.3, 5.95, 10.7, 1.7, size=8, color=_GRAYT, wrap=True)
+    _rect(slide, 13.1, 5.9, 11.4, 1.8, fill=_RED_L)
+    _rect(slide, 13.1, 5.9, 0.1, 1.8, fill=_SELL)
+    _txb(slide, f"- {neg_theme} — {_fit_s(risks[0][1], 200) if risks else ''}", 13.5, 5.95, 10.7, 1.7, size=8, color=_GRAYT, wrap=True)
 
-    # Analytical text
-    _rect(slide, 0.9, 7.4, 23.6, 5.5, fill=_GRAYL)
-    _rect(slide, 0.9, 7.4, 23.6, 0.7, fill=_NAVY)
-    _txb(slide, "LECTURE ANALYTIQUE DU SENTIMENT", 1.1, 7.45, 23.2, 0.6, size=8.5, bold=True, color=_WHITE)
+    # Analytical text — pousse à y=8.0 pour ne pas overlap avec les thèmes plus hauts
+    _rect(slide, 0.9, 8.0, 23.6, 4.9, fill=_GRAYL)
+    _rect(slide, 0.9, 8.0, 23.6, 0.7, fill=_NAVY)
+    _txb(slide, "LECTURE ANALYTIQUE DU SENTIMENT", 1.1, 8.05, 23.2, 0.6, size=8.5, bold=True, color=_WHITE)
     # Identify best/worst sentiment tickers
     pos_scores_with_ticker = [(float(t.get("sentiment_score", 0)), t.get("ticker", ""), t.get("company", "")) for t in td if t.get("sentiment_score") is not None]
     pos_scores_with_ticker.sort(key=lambda x: x[0], reverse=True)
@@ -2398,7 +2402,7 @@ def _s18_sentiment(prs, D):
         f"{'orientés positivement, avec des newsflows soutenus sur la croissance et les marges' if agg_score > 0.1 else 'équilibrés, reflétant une phase de transition sectorielle' if agg_score >= -0.1 else 'sous pression, les révisions négatives dominant le flux informationnel'}. "
         f"Le suivi du ratio Positif/Négatif dans les prochaines semaines constitue un indicateur avancé pour anticiper les rotations sectorielles."
     )
-    _txb(slide, sent_analysis, 1.1, 8.2, 23.2, 4.5, size=8.5, color=_GRAYT, wrap=True)
+    _txb(slide, sent_analysis, 1.1, 8.8, 23.2, 4.0, size=8.5, color=_GRAYT, wrap=True)
     _footer(slide)
 
 
