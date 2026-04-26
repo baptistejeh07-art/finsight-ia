@@ -2058,10 +2058,11 @@ def _s13_top3(prs, D):
                 ("ROE", _fmt_pct_plain(t.get("roe"))),
             ]
         elif _t_profile == "REIT":
+            # div_yield stocké en décimal (0.043) — mult=True pour affichage "4.3 %"
             ratios = [
                 ("P/E", _fmt_x(t.get("pe") or t.get("pe_ratio"))),
                 ("P/B", _fmt_x(t.get("pb_ratio"))),
-                ("Div Yield", _fmt_pct_plain(t.get("div_yield"))),
+                ("Div Yield", _fmt_pct_plain(t.get("div_yield"), mult=True)),
             ]
         else:
             ratios = [
@@ -2146,14 +2147,14 @@ def _s14_distribution(prs, D):
             f"crédible du secteur, déclencheur d'une analyse société approfondie."
         )
     else:
-        _impl_d = ("Aucune décote significative cumulée a un score qualité élevé : "
-                   "le secteur ne présente pas d'asymétrie évidente a ce stade, "
+        _impl_d = ("Aucune décote significative cumulée à un score qualité élevé : "
+                   "le secteur ne présente pas d'asymétrie évidente à ce stade, "
                    "l'approche doit rester sélective et patiente.")
     if _worst_prime:
         _worst_p_name = _worst_prime.get('ticker', '?')
         _impl_p = (
             f"À l'opposé, {_worst_p_name} ({float(_worst_prime.get(metric_field) or 0):.1f}x) "
-            f"concentré le risque de derating : toute déception de croissance ou "
+            f"concentre le risque de derating : toute déception de croissance ou "
             f"guidance décevante comprimerait le multiple en priorité sur ce nom."
         )
     else:
