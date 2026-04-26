@@ -644,7 +644,9 @@ _PHASE_CHAIN: dict[str, list[str]] = {
     "short":    ["groq", "mistral", "gemini", "cerebras"],
     # Prompts longs analytiques : synthese, commentary, margin analysis, ratios
     # Mistral primary (qualite FR top, gratuit) -> Groq -> Gemini -> Cerebras
-    "long":     ["mistral", "groq", "gemini", "cerebras"],
+    # Override via env FINSIGHT_LLM_LONG_CHAIN si besoin de tester Groq primary.
+    "long":     (os.getenv("FINSIGHT_LLM_LONG_CHAIN", "mistral,groq,gemini,cerebras")
+                 .split(",")),
     # Prompts critiques finaux : these, conclusion, recommandation
     # Mistral primary (meilleur en FR) -> Gemini -> Groq -> Anthropic (backup)
     "critical": ["mistral", "gemini", "groq", "anthropic"],
