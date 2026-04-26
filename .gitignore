@@ -75,3 +75,4 @@ assets/TEMPLATE_backup_*.xlsx
 # --- IDE ---
 .vscode/
 .idea/
+outputs/sales_agent/
