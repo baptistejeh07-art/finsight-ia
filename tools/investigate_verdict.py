@@ -105,7 +105,7 @@ def main():
                 if abs(fv) < 0.01: return f"{fv:.4f}"
                 if abs(fv) < 10: return f"{fv:.3f}"
                 return f"{fv:.2f}"
-            except: return str(v)[:14]
+            except Exception: return str(v)[:14]
 
         print(f"{k:<28} {_fmt(va):>15} {_fmt(vb):>15} {winner:>10}")
 

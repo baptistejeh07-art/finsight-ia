@@ -27,14 +27,14 @@ def _compute_stats(sym, rf=0.04):
             base = close[close.index.date <= d_start]
             if not len(base): return None
             return float(close.iloc[-1]) / float(base.iloc[-1]) - 1
-        except: return None
+        except Exception: return None
 
     def _vol_1y():
         try:
             c1y = close[close.index.date >= today - timedelta(days=380)]
             r = c1y.pct_change().dropna()
             return float(r.std()) * np.sqrt(252) * 100 if len(r) > 20 else None
-        except: return None
+        except Exception: return None
 
     def _sharpe(p1y, v):
         if p1y is None or v is None or v <= 0: return None
@@ -45,7 +45,7 @@ def _compute_stats(sym, rf=0.04):
             roll_max = close.cummax()
             dd = (close - roll_max) / roll_max
             return float(dd.min()) * 100
-        except: return None
+        except Exception: return None
 
     def _perf_hist_norm():
         try:
@@ -56,7 +56,7 @@ def _compute_stats(sym, rf=0.04):
             dates = [str(d)[:10] for d in c1y.index.date]
             vals = [float(v) / base * 100 for v in c1y]
             return dates, vals
-        except: return None, None
+        except Exception: return None, None
 
     p_ytd = _perf(date(today.year, 1, 1))
     p_1y  = _perf(today - timedelta(days=365))
