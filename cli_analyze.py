@@ -2037,34 +2037,59 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
         except Exception:
             return etf, None, None, None
 
-    if etf_map:
-        # Workers 11 (etait 4) — un par ETF SPDR, evite la sequentialisation
-        with ThreadPoolExecutor(max_workers=11) as ex:
-            futs = {ex.submit(_fetch_etf, e): e for e in etf_map}
-            for fut in as_completed(futs):
-                etf, ret, pb, dy = fut.result()
-                nom = etf_map.get(etf, etf)
-                etf_perf[etf] = {"nom": nom, "return_1y": ret or 0.0, "pb": pb, "dy": dy}
+    # Audit perf 26/04/2026 (P1 #5) : ETF pool + ^TNX + SPY.info en parallele
+    # dans un seul TPE (13 workers). Avant : ETF pool puis ^TNX puis SPY en
+    # serie -> ~1-2s de wall time inutile.
+    def _fetch_tnx():
+        try:
+            return get_ticker("^TNX").history(period="5d")
+        except Exception as _e:
+            log.debug(f"^TNX fetch error: {_e}")
+            return None
 
-    # 2b. 10Y Treasury yield → ERP reel
+    def _fetch_spy_info():
+        try:
+            return get_ticker("SPY").info or {}
+        except Exception as _e:
+            log.debug(f"SPY info error: {_e}")
+            return {}
+
     rf_rate   = 0.045
     rf_pct_str = "4,50 %"
     erp_val    = None
     erp_pct    = "—"
     erp_signal = "—"
+    tnx_hist = None
+    spy_info = {}
+
+    if etf_map:
+        with ThreadPoolExecutor(max_workers=13) as ex:
+            futs = {ex.submit(_fetch_etf, e): e for e in etf_map}
+            f_tnx = ex.submit(_fetch_tnx)
+            f_spy = ex.submit(_fetch_spy_info)
+            for fut in as_completed(futs):
+                etf, ret, pb, dy = fut.result()
+                nom = etf_map.get(etf, etf)
+                etf_perf[etf] = {"nom": nom, "return_1y": ret or 0.0, "pb": pb, "dy": dy}
+            tnx_hist = f_tnx.result()
+            spy_info = f_spy.result()
+    else:
+        # Pas d'ETF (indice non-US) — fetch ^TNX et SPY en parallele quand meme
+        with ThreadPoolExecutor(max_workers=2) as ex:
+            f_tnx = ex.submit(_fetch_tnx)
+            f_spy = ex.submit(_fetch_spy_info)
+            tnx_hist = f_tnx.result()
+            spy_info = f_spy.result()
+
+    # 2b. 10Y Treasury yield → ERP reel (data deja fetched en parallele)
     try:
-        tnx_hist = get_ticker("^TNX").history(period="5d")
-        if not tnx_hist.empty:
+        if tnx_hist is not None and not tnx_hist.empty:
             rf_rate    = float(tnx_hist["Close"].iloc[-1]) / 100
             rf_pct_str = f"{rf_rate*100:.2f}".replace(".", ",") + " %"
         pe_fwd_num = indice_info.get("forwardPE") or indice_info.get("trailingPE")
         # Fallback : SPY comme proxy du S&P 500 si ^GSPC ne retourne pas de PE
         if not (pe_fwd_num and 0 < pe_fwd_num < 100):
-            try:
-                _spy_info = get_ticker("SPY").info or {}
-                pe_fwd_num = _spy_info.get("forwardPE") or _spy_info.get("trailingPE")
-            except Exception:
-                pe_fwd_num = None
+            pe_fwd_num = spy_info.get("forwardPE") or spy_info.get("trailingPE")
         if pe_fwd_num and 0 < pe_fwd_num < 100:
             erp_val    = 1 / pe_fwd_num - rf_rate
             erp_pct    = f"{erp_val*100:.1f}".replace(".", ",") + " %"

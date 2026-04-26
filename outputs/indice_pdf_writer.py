@@ -1579,7 +1579,7 @@ def _build_rotation(data, registry=None):
     cycle_data = [
         ["Phase actuelle",
          data.get("phase_cycle", "Expansion avancee"),
-         "Croissance positive, taux restrictifs, marges sous pression selective"],
+         "Croissance positive, taux restrictifs, marges sous pression sélective"],
         ["Secteurs a Surpondérer", _surp_noms_rot.replace("/", "\xb7"),
          "Forte visibilité BPA, faible Sensibilité aux taux, pricing power intact"],
         ["Secteurs a neutraliser", _neutre_noms,
@@ -2113,7 +2113,7 @@ def _build_sentiment(data, registry=None):
 
     # Méthodologie — [40, 130] = 170
     elems.append(Paragraph("Sources &amp; M\u00e9thodologie", S_SUBSECTION))
-    meth_h = [Paragraph(h, S_TH_L) for h in ["Composanté","M\u00e9thodologie"]]
+    meth_h = [Paragraph(h, S_TH_L) for h in ["Composante","M\u00e9thodologie"]]
     meth_rows = [[Paragraph(k, S_TD_B), Paragraph(v, S_TD_L)]
                  for k, v in (data.get("Méthodologie") or data.get("Méthodologie") or [])]
     elems.append(KeepTogether(tbl([meth_h] + meth_rows, cw=[40*mm, 130*mm])))
