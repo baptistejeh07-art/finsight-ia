@@ -88,6 +88,11 @@ def rule(w=TABLE_W, thick=0.5, col=GREY_RULE, sb=4, sa=4):
 # ─── i18n helper sector PDF ────────────────────────────────────────────────
 _SECTOR_CURRENT_LANG: str = "fr"
 
+# Batch LLM precompute (parallelisation perf 26/04/2026) — populated par
+# generate_sector_report avant les builders. Les sites d'appel LLM lisent
+# depuis ce dict avant de fallback sur un appel unitaire.
+_SECTOR_LLM_BATCH: dict = {}
+
 _SECTOR_PDF_LABELS: dict[str, dict[str, str]] = {
     "vue_macro": {"fr": "Vue Macro & Dynamiques Sectorielles",
                   "en": "Macro View & Sector Dynamics",
@@ -2284,7 +2289,10 @@ def _build_acteurs(tickers_data: list[dict], sector_name: str, registry=None):
             f"Francais avec accents. Pas de markdown/emojis. Pas de sous-titres dans un "
             f"paragraphe."
         )
-        _acteurs_intro_llm = llm_call(_prompt_acteurs, phase="long", max_tokens=700) or ""
+        # Read from parallel batch first (perf 26/04/2026)
+        _acteurs_intro_llm = _SECTOR_LLM_BATCH.get("acteurs_intro", "")
+        if not _acteurs_intro_llm:
+            _acteurs_intro_llm = llm_call(_prompt_acteurs, phase="long", max_tokens=700) or ""
     except Exception as _e:
         log.debug(f"[sector_pdf_writer:_build_acteurs] exception skipped: {_e}")
 
@@ -2903,7 +2911,10 @@ def _build_risques(tickers_data: list[dict], sector_name: str, registry=None):
             f'specifique","prob":"25pct","impact":"Eleve|Modere|Mixte","tickers":"X,Y"}}'
             f",x4]}}"
         )
-        _resp_risk = llm_call(_prompt_risk, phase="long", max_tokens=900) or ""
+        # Read from parallel batch first (perf 26/04/2026)
+        _resp_risk = _SECTOR_LLM_BATCH.get("risques", "")
+        if not _resp_risk:
+            _resp_risk = llm_call(_prompt_risk, phase="long", max_tokens=900) or ""
         _js_s = _resp_risk.find("{")
         _js_e = _resp_risk.rfind("}") + 1
         if _js_s >= 0 and _js_e > _js_s:
@@ -3263,7 +3274,10 @@ def _build_risques(tickers_data: list[dict], sector_name: str, registry=None):
                 f"actuellement.\n\nFrançais avec accents. Pas de markdown. "
                 f"Pas de bullet points. Chiffres précis, espace avant % et x."
             )
-            _resp_inter = _llm_inter(_prompt_inter, phase="fast", max_tokens=350) or ""
+            # Read from parallel batch first (perf 26/04/2026)
+            _resp_inter = _SECTOR_LLM_BATCH.get("inter_sectoriel", "")
+            if not _resp_inter:
+                _resp_inter = _llm_inter(_prompt_inter, phase="fast", max_tokens=350) or ""
             if _resp_inter.strip():
                 # Découpe en paragraphes
                 for _para in _resp_inter.strip().split("\n\n"):
@@ -3609,8 +3623,11 @@ def _build_conclusion_reco(tickers_data: list[dict], sector_name: str,
                 f"espace avant « % » et « x » (« 20,8 % », « 1,6x »), espace séparateur de "
                 f"milliers (« 1 353 M€ »). JAMAIS de point décimal anglophone."
             )
-            # Refonte 2026-04-14 : critical phase -> Mistral primary (qualite FR top)
-            _reco_llm_text = llm_call(_reco_prompt, phase="critical", max_tokens=1200) or ""
+            # Read from parallel batch first (perf 26/04/2026)
+            _reco_llm_text = _SECTOR_LLM_BATCH.get("reco", "")
+            if not _reco_llm_text:
+                # Refonte 2026-04-14 : critical phase -> Mistral primary (qualite FR top)
+                _reco_llm_text = llm_call(_reco_prompt, phase="critical", max_tokens=1200) or ""
             globals()[_cache_key] = _reco_llm_text
             _log.info("[sector_pdf] reco LLM OK: %d chars", len(_reco_llm_text))
         except Exception as _e_reco:
@@ -4285,6 +4302,222 @@ def _compute_analytics_from_tickers(td: list[dict]) -> dict:
     }
 
 
+def _precompute_sector_llm_batch(
+    tickers_data: list[dict],
+    sector_name: str,
+    sa: dict,
+) -> dict:
+    """Pre-compute en PARALLELE les 4 LLM calls sectoriels longs.
+
+    Audit perf 26/04/2026 — avant ce batch, 4 LLM calls etaient enchaines
+    en serie (~25-50s wall). En parallele : max(t1..t4) = ~10-15s. Gain
+    ~15-30s sur pipeline secteur 120s.
+
+    Inclus :
+    - acteurs_intro : intro 200-240 mots panorama acteurs (page 9)
+    - risques : 4 risques specifiques au secteur, JSON (page 13)
+    - inter_sectoriel : positionnement vs autres secteurs (110-150 mots)
+    - reco : recommandation 6 paragraphes (page conclusion)
+
+    Le call subsectors_dict (LLM #1) garde son flow propre car le retour
+    est un dict structure deja parse — different design.
+
+    Returns : dict {key: text_or_dict} a injecter dans sa["_llm_batch"].
+    """
+    out = {}
+    if not tickers_data:
+        return out
+
+    try:
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+        from core.llm_provider import llm_call
+
+        # === Inputs partages ===
+        N = len(tickers_data)
+        sorted_data = sorted(tickers_data, key=lambda x: x.get('score_global') or 0, reverse=True)
+        sorted_asc = sorted(tickers_data, key=lambda x: x.get('score_global') or 50)
+        best = sorted_data[0] if sorted_data else {}
+        _worst = sorted_data[-1] if sorted_data else {}
+        _top3_names = ", ".join(
+            f"{t.get('ticker','?')} ({int(t.get('score_global') or 0)}/100)"
+            for t in sorted_data[:3]
+        )
+        vuln_tickers = ", ".join(t.get('ticker','') for t in sorted_asc[:3])
+        best_tickers = ", ".join(t.get('ticker','') for t in sorted_data[:2])
+
+        buy_count  = sum(1 for t in tickers_data if (t.get("score_global") or 50) >= 60)
+        hold_count = sum(1 for t in tickers_data if 40 <= (t.get("score_global") or 50) < 60)
+        sell_count = sum(1 for t in tickers_data if (t.get("score_global") or 50) < 40)
+
+        _current_pe = sa.get("pe_median_ltm")
+        _current_ev = sa.get("ev_ebitda_median") or sa.get("ev_med")
+
+        # Profile hints
+        _profile_hints = ""
+        try:
+            from core.sector_profiles import detect_profile, get_prompt_hints
+            _reco_profile = detect_profile(
+                sector_name,
+                tickers_data[0].get("industry", "") if tickers_data else "",
+            )
+            _profile_hints = get_prompt_hints(_reco_profile) or ""
+        except Exception as _e:
+            log.debug(f"[sector_llm_batch] profile detect: {_e}")
+
+        # Industries summary (pour reco)
+        _industries = {}
+        for t in tickers_data:
+            ind = t.get("industry") or "Autre"
+            _industries.setdefault(ind, []).append(t.get("score_global") or 0)
+        _ind_summary = ", ".join(
+            f"{k} (score moy. {sum(v)//len(v)})"
+            for k, v in sorted(
+                _industries.items(),
+                key=lambda x: sum(x[1])/len(x[1]),
+                reverse=True,
+            )[:5]
+        )
+
+        # === Construction des 4 prompts ===
+        prompts = {}
+
+        # 1. Acteurs intro
+        prompts["acteurs_intro"] = (
+            (
+                f"Analyste buy-side senior. Introduction 200-240 mots a l'analyse des "
+                f"{N} acteurs du secteur {sector_name}.\n"
+                f"Top 3 FinSight : {_top3_names}. Leader : {best.get('company','?')} "
+                f"(score {best.get('score_global','?')}/100, marge EBITDA "
+                f"{best.get('ebitda_margin','?')}, croissance {best.get('revenue_growth','?')}). "
+                f"Lanterne : {_worst.get('company','?')} (score {_worst.get('score_global','?')}/100).\n\n"
+                f"EXACTEMENT 2 paragraphes. Chaque paragraphe commence par son titre en "
+                f"majuscules suivi de ' : ' puis le corps du paragraphe IMMEDIATEMENT sur "
+                f"la MEME ligne (pas de saut de ligne entre le titre et le corps, pas de "
+                f"sous-titre intermediaire).\n"
+                f"1. PANORAMA : hierarchie concurrentielle, ce qui distingue leaders et "
+                f"challengers, drivers de differentiation.\n"
+                f"2. DISPERSION : ce que le spread implique pour l'allocation (concentration "
+                f"vs diversification), ratios privilegies pour le stock-picking.\n\n"
+                f"Francais avec accents. Pas de markdown/emojis. Pas de sous-titres dans un "
+                f"paragraphe."
+            ),
+            "long",
+            700,
+        )
+
+        # 2. Risques specifiques
+        prompts["risques"] = (
+            (
+                f"Strategist buy-side. 4 risques SPECIFIQUES au secteur {sector_name} "
+                f"a 12 mois (pas generiques). {N} societes, vulnerables : "
+                f"{vuln_tickers}, solides : {best_tickers}.\n"
+                f"JSON strict, sans markdown :\n"
+                f'{{"risques":[{{"axe":"titre court","analyse":"2 phrases sur le mecanisme '
+                f'specifique","prob":"25pct","impact":"Eleve|Modere|Mixte","tickers":"X,Y"}}'
+                f",x4]}}"
+            ),
+            "long",
+            900,
+        )
+
+        # 3. Inter-sectoriel (seulement si data dispo)
+        if _current_pe is not None and _current_ev is not None:
+            # Mediane cross-sector hardcoded fallback (evite cross-sector benchmark fetch)
+            _med_pe_global = 18.0
+            _med_ev_global = 12.5
+            _pe_pos = ("decote" if _current_pe < _med_pe_global * 0.85
+                       else "premium" if _current_pe > _med_pe_global * 1.15
+                       else "en ligne")
+            _ev_pos = ("decote" if _current_ev < _med_ev_global * 0.85
+                       else "premium" if _current_ev > _med_ev_global * 1.15
+                       else "en ligne")
+            prompts["inter_sectoriel"] = (
+                (
+                    f"Analyste sell-side senior. Lecture interpretative 110-150 mots "
+                    f"de la position du secteur {sector_name} dans le tableau de "
+                    f"comparaison inter-sectorielle. P/E median secteur = {_current_pe}x "
+                    f"(mediane des 11 secteurs = {_med_pe_global}x -> {_pe_pos}), "
+                    f"EV/EBITDA median secteur = {_current_ev}x (mediane = "
+                    f"{_med_ev_global}x -> {_ev_pos}).\n\n"
+                    f"Structure : (1) constat chiffre sur le positionnement P/E + "
+                    f"EV/EBITDA vs autres secteurs, (2) explication structurelle "
+                    f"(cycle, rentabilite, risque reglementaire, croissance) qui "
+                    f"justifie cette prime/decote, (3) implication portefeuille — "
+                    f"pour quel profil d'investisseur ce secteur est attractif "
+                    f"actuellement.\n\nFrancais avec accents. Pas de markdown. "
+                    f"Pas de bullet points. Chiffres precis, espace avant % et x."
+                ),
+                "fast",
+                350,
+            )
+
+        # 4. Recommandation finale (6 paragraphes)
+        _reco_p = (
+            f"Analyste buy-side senior. Recommandation sectorielle detaillee 400-500 mots "
+            f"pour {sector_name}.\n"
+            f"{N} societes : {buy_count} BUY / {hold_count} HOLD / {sell_count} SELL. "
+            f"Sous-secteurs : {_ind_summary}.\n"
+        )
+        if _profile_hints:
+            _reco_p += f"Profil specifique : {_profile_hints}\n"
+        _reco_p += (
+            f"6 paragraphes separes par ligne vide (~70 mots chacun) avec ces titres EXACTS "
+            f"en MAJUSCULES au debut de chaque paragraphe suivi de ' : ' :\n"
+            f"1. PROMETTEUR : le secteur est-il attractif et pourquoi.\n"
+            f"2. HORIZON : duree d'investissement recommandee.\n"
+            f"3. SOUS-SECTEURS : quels sous-segments privilegier.\n"
+            f"4. CATALYSEURS : evenements 6-12 mois a surveiller.\n"
+            f"5. RISQUES : principaux risques a monitorer.\n"
+            f"6. REVISION : conditions de revision de la these.\n\n"
+            f"IMPORTANT : PAS de markdown ** / ---. Commence chaque paragraphe par le titre.\n"
+            f"Francais avec accents. Pas d'emojis. Utilise les metriques specifiques au "
+            f"profil ci-dessus.\n"
+            f"FORMAT CHIFFRES FR OBLIGATOIRE : virgule decimale (33,9x), "
+            f"espace avant % et x (20,8 %, 1,6x), espace separateur de "
+            f"milliers (1 353 M€). JAMAIS de point decimal anglophone."
+        )
+        prompts["reco"] = (_reco_p, "critical", 1200)
+
+        # === Lance les 4 calls en parallele ===
+        def _call(key, prompt, phase, max_tokens):
+            try:
+                return key, llm_call(prompt, phase=phase, max_tokens=max_tokens) or ""
+            except Exception as _e:
+                log.warning(f"[sector_llm_batch/{key}] failed: {_e}")
+                return key, ""
+
+        with ThreadPoolExecutor(max_workers=4) as ex:
+            futures = [
+                ex.submit(_call, k, p, ph, mt)
+                for k, (p, ph, mt) in prompts.items()
+            ]
+            for fut in as_completed(futures, timeout=120):
+                try:
+                    k, text = fut.result(timeout=90)
+                    if text and len(text) > 50:
+                        out[k] = text
+                except Exception as _e:
+                    log.warning(f"[sector_llm_batch] future failed: {_e}")
+
+        # Restore accents post-LLM (Mistral oublie sur emetteurs/rentabilite/etc.)
+        try:
+            from tools.restore_accents import restore_accents_in_text as _ra
+            for _k in out:
+                if isinstance(out[_k], str):
+                    out[_k] = _ra(out[_k])
+        except Exception:
+            pass
+
+        log.info(
+            "[sector_llm_batch] %d/%d sections OK (parallel)",
+            len(out), len(prompts),
+        )
+    except Exception as _e:
+        log.warning(f"[sector_llm_batch] global failure: {_e}")
+
+    return out
+
+
 # ─── API PUBLIQUE ─────────────────────────────────────────────────────────────
 def generate_sector_report(
     sector_name: str,
@@ -4365,6 +4598,18 @@ def generate_sector_report(
             import logging as _log
             _log.getLogger(__name__).warning("[sector_pdf_writer] AgentMacro: %s", _me)
             sector_analytics.setdefault("macro", {})
+
+    # === Pre-compute LLM batch (4 sections en parallele) ===
+    # Audit perf 26/04/2026 — avant ce batch, 4 LLM longs etaient enchaines en
+    # serie (~25-50s wall) au milieu du build PDF. En parallele : ~10-15s.
+    # Les sections lisent depuis _SECTOR_LLM_BATCH (module-level) avec fallback
+    # unitaire (call direct) si la cle est absente.
+    global _SECTOR_LLM_BATCH
+    if not sector_analytics.get("_llm_batch"):
+        sector_analytics["_llm_batch"] = _precompute_sector_llm_batch(
+            tickers_data, sector_name, sector_analytics,
+        )
+    _SECTOR_LLM_BATCH = sector_analytics.get("_llm_batch") or {}
 
     # Commentaire LLM BUY/HOLD/SELL (appel unique Groq)
     # On merge STRONG BUY + BUY et UNDERPERFORM + SELL pour le commentaire LLM
