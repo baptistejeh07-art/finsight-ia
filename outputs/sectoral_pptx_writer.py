@@ -138,7 +138,7 @@ _SECTOR_CONTENT = {
             "au crédit immobilier et aux PME reste un facteur de risque dans un contexte macro degrade."
         ),
         "catalyseurs": [
-            ("Taux Directeurs Élevés", "Maintien des taux BCE a 3 % — soutien structurel aux NIM bancaires et a la rentabilité des depots."),
+            ("Taux Directeurs Élevés", "Maintien des taux BCE a 3 % — soutien structurel aux NIM bancaires et a la rentabilité des Dépôts."),
             ("Consolidation Sectorielle", "Fusions-acquisitions dans la banque retail — prime de contrôle sur les cibles sous-valorisees."),
             ("Digitalisation Services", "Plateformes wealth management numeriques — réduction Coûts et captation millennials investisseurs."),
         ],
@@ -493,7 +493,7 @@ def _build_content_from_data(td: list, sector_name: str, score_moyen: int,
     else:
         risks.append((
             "Dispersion des scores",
-            "Écart entre les profils — allocation selective recommandee."
+            "Écart entre les profils — allocation sélective recommandee."
         ))
     risks.append((
         "Environnement macroeconomique",
@@ -995,11 +995,37 @@ def _chart_valuation_bars(tickers_data) -> tuple[bytes, str]:
     return buf.read(), metric_label
 
 
-def _chart_distribution(tickers_data) -> bytes:
-    """Bar chart EV/EBITDA distribution vs Médian."""
-    td_ev = [(t.get("ticker", "?"), t.get("ev_ebitda"))
-             for t in tickers_data if t.get("ev_ebitda")]
-    td_ev = [(tk, float(ev)) for tk, ev in td_ev if 0 < float(ev) <= 100]  # filtre outliers >100x
+def _chart_distribution(tickers_data) -> tuple[bytes, str, str, float]:
+    """Bar chart distribution vs Médian. Multi-metric : EV/EBITDA si dispo,
+    sinon P/TBV (banques), sinon P/E. Retourne (image, label, field, mediane)."""
+    # Choix metric avec meilleure couverture
+    def _count(field, lo, hi):
+        n = 0
+        for t in tickers_data:
+            v = t.get(field)
+            if v is None:
+                continue
+            try:
+                f = float(v)
+                if lo < f <= hi:
+                    n += 1
+            except (TypeError, ValueError):
+                pass
+        return n
+    n_ev = _count("ev_ebitda", 0, 100)
+    n_pb = _count("pb_ratio", 0, 50)
+    n_pe = _count("pe_ratio", 0, 100)
+    pool = max(1, len([t for t in tickers_data if t.get("ticker")]))
+    if n_ev >= max(3, pool // 2):
+        metric_field, metric_hi, metric_label = "ev_ebitda", 100, "EV/EBITDA"
+    elif n_pb >= max(3, pool // 2):
+        metric_field, metric_hi, metric_label = "pb_ratio", 50, "P/TBV"
+    else:
+        metric_field, metric_hi, metric_label = "pe_ratio", 100, "P/E"
+
+    td_ev = [(t.get("ticker", "?"), t.get(metric_field))
+             for t in tickers_data if t.get(metric_field)]
+    td_ev = [(tk, float(ev)) for tk, ev in td_ev if 0 < float(ev) <= metric_hi]
     td_ev.sort(key=lambda x: x[1])
     # Cap a 30 barres pour rester lisible
     if len(td_ev) > 30:
@@ -1007,10 +1033,10 @@ def _chart_distribution(tickers_data) -> bytes:
 
     if not td_ev:
         fig, ax = plt.subplots(figsize=(5.8, 4.5))
-        ax.text(0.5, 0.5, "Données insuffisantés", ha='center', va='center', transform=ax.transAxes)
+        ax.text(0.5, 0.5, "Données insuffisantes", ha='center', va='center', transform=ax.transAxes)
         buf = io.BytesIO()
         fig.savefig(buf, format='png', dpi=150); plt.close(fig); buf.seek(0)
-        return buf.read()
+        return buf.read(), metric_label, metric_field, 0.0
 
     labels = [x[0] for x in td_ev]
     vals   = [x[1] for x in td_ev]
@@ -1023,7 +1049,7 @@ def _chart_distribution(tickers_data) -> bytes:
     bars = ax.bar(labels, vals, color=colors, alpha=0.85, zorder=3)
     ax.axhline(med, color='#1B3A6B', linewidth=1.5, linestyle='--', label=f"Médiane {med:.1f}x")
     # Labels de valeur supprimés (slides epures)
-    ax.set_ylabel("EV/EBITDA", fontsize=8, color='#555555')
+    ax.set_ylabel(metric_label, fontsize=8, color='#555555')
     n_labels = len(labels)
     _lsize = 6 if n_labels > 20 else 7 if n_labels > 12 else 7.5
     ax.tick_params(axis='x', labelsize=_lsize, colors='#333333', rotation=90)
@@ -1041,7 +1067,7 @@ def _chart_distribution(tickers_data) -> bytes:
                 facecolor='white', edgecolor='none')
     plt.close(fig)
     buf.seek(0)
-    return buf.read()
+    return buf.read(), metric_label, metric_field, med
 
 
 def _chart_performance(tickers_data, best_ticker=None, worst_ticker=None,
@@ -1422,7 +1448,7 @@ def _s06_ratios(prs, D):
         if v is not None:
             return v
         mc = _norm_mc(t.get("market_cap"))
-        # Priorite 2 : ebitda_ltm absolu (Donnée directe)
+        # Priorité 2 : ebitda_ltm absolu (Donnée directe)
         _eb_ltm = t.get("ebitda_ltm")
         if mc and _eb_ltm and float(_eb_ltm) > 0:
             try:
@@ -1431,7 +1457,7 @@ def _s06_ratios(prs, D):
                     return _proxy
             except Exception as _e:
                 log.debug(f"[sectoral_pptx_writer:_fallback_ev_ebitda] exception skipped: {_e}")
-        # Priorite 3 : ebitda_margin * revenue_ltm
+        # Priorité 3 : ebitda_margin * revenue_ltm
         em  = t.get("ebitda_margin")
         rev = t.get("revenue_ltm") or t.get("revenue")
         if mc and em and rev and float(em) > 0 and float(rev) > 0:
@@ -1965,7 +1991,7 @@ def _s11_scores(prs, D):
         f"Quality={int(best.get('score_quality') or 0)}, "
         f"Momentum={int(best.get('score_momentum') or 0)}. "
         f"La dispersion des scores entre les {len(td)} sociétés Reflète des profils hétérogènes — "
-        f"une allocation selective privilegiant les leaders qualitatifs est recommandee "
+        f"une allocation sélective privilegiant les leaders qualitatifs est recommandee "
         f"dans la configuration sectorielle actuelle."
     )
     _txb(slide, synthesis, 1.1, _s11_syn_y + 0.85, 23.2, max(1.8, _syn_h - 1.0), size=8.5, color=_GRAYT, wrap=True)
@@ -2068,11 +2094,13 @@ def _s13_top3(prs, D):
 
 def _s14_distribution(prs, D):
     slide = _blank(prs)
-    ev_med = D["ev_med"]
+    img, metric_label, metric_field, ev_med = _chart_distribution(D["tickers_data"])
+    # Si chart n'a pas de data → fallback ev_med depuis D (rare cas all-None)
+    if not ev_med or ev_med <= 0:
+        ev_med = D.get("ev_med") or 0.0
     _header(slide, "Distribution des Valorisations",
-            f"EV/EBITDA par société vs médiane sectorielle ({ev_med:.1f}x)  ·  Vert = sous médiane  ·  Rouge = prime", 3)
+            f"{metric_label} par société vs médiane sectorielle ({ev_med:.1f}x)  ·  Vert = sous médiane  ·  Rouge = prime", 3)
 
-    img = _chart_distribution(D["tickers_data"])
     _pic(slide, img, 0.9, 2.3, 14.7, 11.4)
 
     # Analysis panel
@@ -2081,9 +2109,9 @@ def _s14_distribution(prs, D):
     _txb(slide, "CE QUE LE GRAPHIQUE REVELE", 16.3, 2.35, 8.1, 0.6, size=8.5, bold=True, color=_WHITE)
 
     td = D["sorted_td"]
-    ev_vals = [float(t.get("ev_ebitda", 0)) for t in td if t.get("ev_ebitda")]
-    premium_actors = [t for t in td if t.get("ev_ebitda") and float(t["ev_ebitda"]) > ev_med * 1.15]
-    decote_actors  = [t for t in td if t.get("ev_ebitda") and float(t["ev_ebitda"]) < ev_med * 0.85]
+    ev_vals = [float(t.get(metric_field, 0)) for t in td if t.get(metric_field)]
+    premium_actors = [t for t in td if t.get(metric_field) and float(t[metric_field]) > ev_med * 1.15]
+    decote_actors  = [t for t in td if t.get(metric_field) and float(t[metric_field]) < ev_med * 0.85]
     n_sous = len(decote_actors)
     n_sur  = len(premium_actors)
 
@@ -2093,7 +2121,7 @@ def _s14_distribution(prs, D):
     # primes pour guider l'action. Calcul du gap absolu max et min aussi.
     _best_decote = max(decote_actors, key=lambda t: t.get('score_global') or 0, default=None)
     _worst_prime = max(premium_actors,
-                       key=lambda t: float(t.get('ev_ebitda') or 0), default=None)
+                       key=lambda t: float(t.get(metric_field) or 0), default=None)
     _ev_min = min(ev_vals) if ev_vals else ev_med
     _ev_max = max(ev_vals) if ev_vals else ev_med
     _spread = _ev_max - _ev_min
@@ -2112,21 +2140,21 @@ def _s14_distribution(prs, D):
         _best_d_name = _best_decote.get('ticker', '?')
         _best_d_score = int(_best_decote.get('score_global') or 0)
         _impl_d = (
-            f"{_best_d_name} combine la décote (EV/EBITDA "
-            f"{float(_best_decote.get('ev_ebitda') or 0):.1f}x) avec un score "
-            f"FinSight de {_best_d_score}/100 : asymetrie positive la plus "
-            f"credible du secteur, declencheur d'une analyse société approfondie."
+            f"{_best_d_name} combine la décote ({metric_label} "
+            f"{float(_best_decote.get(metric_field) or 0):.1f}x) avec un score "
+            f"FinSight de {_best_d_score}/100 : asymétrie positive la plus "
+            f"crédible du secteur, déclencheur d'une analyse société approfondie."
         )
     else:
         _impl_d = ("Aucune décote significative cumulée a un score qualité élevé : "
-                   "le secteur ne présente pas d'asymetrie évidente a ce stade, "
-                   "l'approche doit rester selective et patiente.")
+                   "le secteur ne présente pas d'asymétrie évidente a ce stade, "
+                   "l'approche doit rester sélective et patiente.")
     if _worst_prime:
         _worst_p_name = _worst_prime.get('ticker', '?')
         _impl_p = (
-            f"A l'oppose, {_worst_p_name} ({float(_worst_prime.get('ev_ebitda') or 0):.1f}x) "
+            f"À l'opposé, {_worst_p_name} ({float(_worst_prime.get(metric_field) or 0):.1f}x) "
             f"concentré le risque de derating : toute déception de croissance ou "
-            f"guidance decevante comprimerait le multiple en priorite sur ce nom."
+            f"guidance décevante comprimerait le multiple en priorité sur ce nom."
         )
     else:
         _impl_p = ("Aucun acteur en prime extreme : le secteur est raisonnablement "
@@ -2394,11 +2422,11 @@ def _s18_sentiment(prs, D):
     sent_analysis = (
         f"Le sentiment agrégé FinBERT sur le secteur {D['sector_name']} ({D['universe']}) "
         f"ressort {sent_tone} ({agg_score:.2f}), avec {pct_pos:.0f}% d'articles a tonalité positive sur {total} analysés. "
-        f"La dispersion inter-valeurs est prononcée : {best_sent[1] or best_sent[2]} ({best_sent[0]:+.2f}) Porté la composanté haussière "
+        f"La dispersion inter-valeurs est prononcée : {best_sent[1] or best_sent[2]} ({best_sent[0]:+.2f}) Porte la composante haussière "
         f"tandis que {worst_sent[1] or worst_sent[2]} ({worst_sent[0]:+.2f}) reflète les pressions structurelles. "
         f"Cette hétérogénéité valide une approche sélective plutôt que directionnelle sur le secteur — "
         f"le sentiment moyen masque des situations fondamentalement différentes entre leaders et retardataires. "
-        f"La composanté thématique (catalyseurs vs risques) suggère que les flux narratifs restent "
+        f"La composante thématique (catalyseurs vs risques) suggère que les flux narratifs restent "
         f"{'orientés positivement, avec des newsflows soutenus sur la croissance et les marges' if agg_score > 0.1 else 'équilibrés, reflétant une phase de transition sectorielle' if agg_score >= -0.1 else 'sous pression, les révisions négatives dominant le flux informationnel'}. "
         f"Le suivi du ratio Positif/Négatif dans les prochaines semaines constitue un indicateur avancé pour anticiper les rotations sectorielles."
     )

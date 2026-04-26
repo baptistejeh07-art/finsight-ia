@@ -1299,6 +1299,21 @@ def _fetch_real_sector_data(sector: str, universe: str, max_tickers: int = 8) ->
             # (ex: ABBV goodwill > equity). Cap [-200%, +200%] pour rester lisible.
             if roe is not None and (roe > 200 or roe < -200):
                 roe = None
+            # Fallback ROE pour les ~17% de tickers où returnOnEquity = None
+            # (ex: Morgan Stanley). Calcul : netIncome / (marketCap/P_B)
+            # = netIncome / equity_book_value. Verifie sur MS = 17.1% coherent.
+            if roe is None:
+                _ni = info.get("netIncomeToCommon")
+                _ptb = info.get("priceToBook")
+                if _ni and _ptb and mc and _ptb > 0:
+                    try:
+                        _equity = float(mc) / float(_ptb)
+                        if _equity > 0:
+                            _roe_calc = float(_ni) / _equity * 100
+                            if -200 <= _roe_calc <= 200:
+                                roe = round(_roe_calc, 1)
+                    except (TypeError, ValueError, ZeroDivisionError):
+                        pass
             rev_g    =  info.get("revenueGrowth")  or 0
             mom52    = (info.get("52WeekChange")    or 0) * 100
             mom52    = max(-300.0, min(300.0, mom52))  # cap +/-300% : valeurs extremes yfinance
