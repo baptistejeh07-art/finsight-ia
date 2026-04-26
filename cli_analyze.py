@@ -370,12 +370,26 @@ def run_cmp_secteur(
     log.info("=== COMPARATIF SECTORIEL : %s/%s vs %s/%s ===", sector_a, universe_a, sector_b, universe_b)
     t0 = time.time()
 
-    tickers_a = _fetch_real_sector_data(sector_a, universe_a, max_tickers=8)
+    # Audit perf 26/04/2026 (P0 #2) : fetch A et B en parallele
+    # Avant : 12s + 12s en serie. Apres : max(12, 12) = 12s. Gain ~12s.
+    from concurrent.futures import ThreadPoolExecutor as _CmpTPE
+    with _CmpTPE(max_workers=2) as _ex_cmp:
+        f_a = _ex_cmp.submit(_fetch_real_sector_data, sector_a, universe_a, 8)
+        f_b = _ex_cmp.submit(_fetch_real_sector_data, sector_b, universe_b, 8)
+        try:
+            tickers_a = f_a.result()
+        except Exception as _ea:
+            log.warning("_fetch_real_sector_data A erreur: %s", _ea)
+            tickers_a = []
+        try:
+            tickers_b = f_b.result()
+        except Exception as _eb:
+            log.warning("_fetch_real_sector_data B erreur: %s", _eb)
+            tickers_b = []
+
     if not tickers_a:
         log.warning("Fallback synthetique pour '%s' / '%s'", sector_a, universe_a)
         tickers_a = _make_test_tickers(sector_a, 6)
-
-    tickers_b = _fetch_real_sector_data(sector_b, universe_b, max_tickers=8)
     if not tickers_b:
         log.warning("Fallback synthetique pour '%s' / '%s'", sector_b, universe_b)
         tickers_b = _make_test_tickers(sector_b, 6)

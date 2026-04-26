@@ -184,9 +184,15 @@ def build_cmp_context(
         synthesis = _cached["synthesis"]
     else:
         # ── Step 2 : fetch fresh ─────────────────────────────────────────
-        log.info("[cmp_common] cache miss — fresh fetch")
-        supp_a = _fetch_supplements(tkr_a)
-        supp_b = _fetch_supplements(tkr_b)
+        # Audit perf 26/04/2026 — fetch_supplements A et B en parallele.
+        # Avant : ~3s + 3s sequentiel. Apres : max(3, 3) = 3s. Gain ~3s.
+        log.info("[cmp_common] cache miss — fresh fetch (parallel A/B)")
+        from concurrent.futures import ThreadPoolExecutor as _CmpTPE
+        with _CmpTPE(max_workers=2) as _ex_cmp:
+            _f_a = _ex_cmp.submit(_fetch_supplements, tkr_a)
+            _f_b = _ex_cmp.submit(_fetch_supplements, tkr_b)
+            supp_a = _f_a.result()
+            supp_b = _f_b.result()
         m_a = extract_metrics(state_a, supp_a)
         m_b = extract_metrics(state_b, supp_b)
 
