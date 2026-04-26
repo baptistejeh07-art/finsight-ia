@@ -2445,6 +2445,13 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
                     "rev_gr":          (_rg or 0) * 100,
                     "ret_52w":         _mom or 0,
                     "score_raw":       t.get("score_global", 50),
+                    # Champs critiques pour secteurs financiers (banques, REITs,
+                    # insurance, utilities) — yfinance les expose mais le mapping
+                    # _norm_us les droppait → tableau "—" page 6 PDF sectoriel.
+                    "pb_ratio":        t.get("pb_ratio"),
+                    "div_yield":       t.get("div_yield"),
+                    "ps_ratio":        t.get("ps_ratio"),
+                    "payout_ratio":    t.get("payout_ratio"),
                 }
             _eu_res = [_norm_us(t) for t in _us_res_raw]
             from collections import defaultdict as _dd_us

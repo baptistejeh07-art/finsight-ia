@@ -4328,10 +4328,23 @@ def generate_sector_report(
         sector_analytics = {}
 
     # Calcul automatique des analytics structurels si absents (ex : appel depuis app.py)
-    if not sector_analytics.get("hhi") or not sector_analytics.get("pe_median_ltm"):
+    # Fix 2026-04-26 : on inclut maintenant pb_median / roe_median / div_yield_median
+    # dans les clés déclencheuses (banques/REITs/insurance les avaient à None car
+    # le pipeline cli_analyze ne les remontait pas correctement) — et on override
+    # les valeurs None existantes au lieu d'utiliser setdefault qui les preservait.
+    _need_aggregates = (
+        not sector_analytics.get("hhi")
+        or not sector_analytics.get("pe_median_ltm")
+        or sector_analytics.get("pb_median") is None
+        or sector_analytics.get("roe_median") is None
+        or sector_analytics.get("div_yield_median") is None
+    )
+    if _need_aggregates:
         _sa = _compute_analytics_from_tickers(tickers_data)
         for k, v in _sa.items():
-            sector_analytics.setdefault(k, v)
+            # override les None existants ; preserve les valeurs explicites
+            if sector_analytics.get(k) is None:
+                sector_analytics[k] = v
 
     if not sector_analytics.get("macro"):
         try:
