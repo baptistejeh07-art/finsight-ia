@@ -144,26 +144,25 @@ class AgentData:
         log.info(f"[AgentData] Debut collecte '{ticker}' — {request_id[:8]}")
 
         # ------------------------------------------------------------------
-        # Sources 1 & 2 en parallèle : yfinance + FMP
+        # Sources 1, 2 & 3 en parallèle : yfinance + FMP + Finnhub
+        # Finnhub est independent (ne complète que beta_levered et share_price
+        # post-merge), donc safe à paralléliser. Gain : ~1-2s/ticker (réseau
+        # blocking time réduit). Audit perf 26/04/2026 — agent suggestion P1 #4.
         # ------------------------------------------------------------------
-        with ThreadPoolExecutor(max_workers=2) as pool:
+        with ThreadPoolExecutor(max_workers=3) as pool:
             f_yf  = pool.submit(yfinance_source.fetch, ticker)
             f_fmp = pool.submit(fmp_source.fetch, ticker)
+            f_fh  = pool.submit(finnhub_source.fetch_market_metrics, ticker)
 
         snapshot = f_yf.result()
         fmp_snap = f_fmp.result()
-        sources_tried = ["yfinance", "fmp"]
+        finnhub_metrics = f_fh.result() or {}
+        sources_tried = ["yfinance", "fmp", "finnhub"]
         snapshot = _merge_snapshots(snapshot, fmp_snap)
 
         if snapshot is None:
             log.error(f"[AgentData] '{ticker}' : aucune donnée (yfinance + FMP)")
             return None
-
-        # ------------------------------------------------------------------
-        # Source 3 : Finnhub (métriques marché complémentaires)
-        # ------------------------------------------------------------------
-        finnhub_metrics = finnhub_source.fetch_market_metrics(ticker)
-        sources_tried.append("finnhub")
 
         mkt = snapshot.market
         if mkt.beta_levered is None and finnhub_metrics.get("beta"):
