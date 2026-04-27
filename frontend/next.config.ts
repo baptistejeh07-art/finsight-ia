@@ -33,28 +33,25 @@ const nextConfig: NextConfig = {
     ];
   },
 
-  // Headers sécurité — CSP minimal ajouté audit 27/04 (F6)
-  // Empeche XSS depuis dangerouslySetInnerHTML (theme init script + QA chat).
-  // connect-src whitelist : Supabase + backend Railway + Logo.dev images.
-  // 'unsafe-inline' temporairement requis pour theme init + Tailwind JIT.
-  // À durcir en V2 avec nonce-based CSP (next-safe-action ou middleware CSP).
+  // Headers sécurité — CSP avec wildcards larges (audit 27/04 F6)
+  // Bug 27/04 16h : mon CSP initial parsait NEXT_PUBLIC_SUPABASE_URL au build
+  // mais l'host pouvait etre vide → connect-src casse → frontend ne peut
+  // plus parler a Supabase → 401 sur tout. Fix : wildcards *.supabase.co
+  // + *.up.railway.app au lieu d'hosts dynamiques.
   async headers() {
-    const supabaseHost = (process.env.NEXT_PUBLIC_SUPABASE_URL || "")
-      .replace(/^https?:\/\//, "");
-    const apiHost = (process.env.NEXT_PUBLIC_API_URL || "")
-      .replace(/^https?:\/\//, "");
     const csp = [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com",
-      "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' data: blob: https://*.supabase.co https://lh3.googleusercontent.com https://img.logo.dev https://logo.clearbit.com",
-      "font-src 'self' data:",
-      `connect-src 'self' https://${supabaseHost} wss://${supabaseHost} https://${apiHost} https://api.stripe.com https://*.vercel-insights.com`,
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://va.vercel-scripts.com",
+      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+      "img-src 'self' data: blob: https: http:",
+      "font-src 'self' data: https://fonts.gstatic.com",
+      "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.up.railway.app https://api.stripe.com https://api.openai.com https://api.anthropic.com https://*.vercel-insights.com https://vitals.vercel-insights.com https://api.logo.dev",
       "frame-src 'self' https://js.stripe.com https://hooks.stripe.com",
       "frame-ancestors 'none'",
       "base-uri 'self'",
       "form-action 'self'",
       "object-src 'none'",
+      "upgrade-insecure-requests",
     ].join("; ");
     return [
       {
