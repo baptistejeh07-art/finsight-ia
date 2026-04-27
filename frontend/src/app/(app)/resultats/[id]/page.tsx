@@ -539,11 +539,22 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
                             kind === "indice"
                               ? result.data?.indice_summary
                               : null;
+                          // Bug B12bis : différencier la synthèse texte selon le sous-type
+                          // de comparatif (analogue à kind_comparison sub-type detection).
+                          let comparisonSyn = t("results.synthesis_comparison_desc");
+                          if (kind === "comparatif") {
+                            const lbl = (result.label || "").toUpperCase();
+                            const indicesKw = ["CAC", "DAX", "S&P", "SP500", "FTSE", "STOXX", "EURO STOXX", "NIKKEI", "NASDAQ", "DOW"];
+                            const isCmpIndice = indicesKw.some((k) => lbl.includes(k)) && lbl.includes(" VS ");
+                            const isCmpSecteur = (result.label || "").includes("/") && (result.label || "").includes(" vs ");
+                            if (isCmpIndice) comparisonSyn = t("results.synthesis_comparison_indice_desc");
+                            else if (isCmpSecteur) comparisonSyn = t("results.synthesis_comparison_sector_desc");
+                          }
                           const fallback =
                             kind === "indice"
                               ? t("results.synthesis_indice_desc")
                               : kind === "comparatif"
-                              ? t("results.synthesis_comparison_desc")
+                              ? comparisonSyn
                               : kind === "pme"
                               ? t("results.synthesis_pme_desc")
                               : t("results.synthesis_sector_desc");

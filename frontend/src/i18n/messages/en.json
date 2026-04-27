@@ -198,6 +198,8 @@
     "kind_sector": "Sector analysis",
     "synthesis_indice_desc": "Complete index analysis generated. The PDF contains macro analysis, cross-sector comparisons and optimal allocation (Markowitz).",
     "synthesis_comparison_desc": "Company comparison generated. PDF, PPTX and Excel deliverables contain parallel analyses, compared ratios and relative verdict.",
+    "synthesis_comparison_indice_desc": "Index comparison generated. PDF and Excel deliverables contain compared performance, risk profiles, valuation and allocation recommendation between the two indices.",
+    "synthesis_comparison_sector_desc": "Sector comparison generated. PDF and PPTX deliverables contain compared median ratios, top constituents per sector, risks/catalysts and tactical allocation recommendation.",
     "synthesis_pme_desc": "Private SME analysis generated via Pappers + BODACC. The report contains detailed SIG, 14 key ratios, sector benchmark, Altman Z & FinSight health scoring, bankability. Controlling approach.",
     "synthesis_sector_desc": "Sector analysis generated. The PDF compares the main companies in the sector on the selected universe, with ratios, performance and allocation.",
     "block_description": "Description",

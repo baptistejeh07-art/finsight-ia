@@ -201,6 +201,8 @@
     "kind_sector": "Analyse sectorielle",
     "synthesis_indice_desc": "Analyse complète de l'indice générée. Le rapport PDF contient l'analyse macro, les comparatifs inter-secteurs et l'allocation optimale (Markowitz).",
     "synthesis_comparison_desc": "Comparatif société généré. Les livrables PDF, PPTX et Excel contiennent les analyses parallèles, ratios comparés et verdict relatif.",
+    "synthesis_comparison_indice_desc": "Comparatif d'indices généré. Les livrables PDF et Excel contiennent les performances comparées, profils de risque, valorisation et recommandation d'allocation entre les deux indices.",
+    "synthesis_comparison_sector_desc": "Comparatif sectoriel généré. Les livrables PDF et PPTX contiennent les ratios médians comparés, top constituants par secteur, risques/catalyseurs et recommandation d'allocation tactique.",
     "synthesis_pme_desc": "Analyse PME non cotée générée via Pappers + BODACC. Le rapport contient les SIG détaillés, 14 ratios clés, benchmark sectoriel, scoring Altman Z & santé FinSight, bankabilité. Approche contrôle de gestion.",
     "synthesis_sector_desc": "Analyse sectorielle générée. Le rapport PDF compare les principales sociétés du secteur sur l'univers sélectionné, avec ratios, performance et allocation.",
     "block_description": "Description",
