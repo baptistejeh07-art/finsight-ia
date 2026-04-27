@@ -154,27 +154,14 @@ app.add_middleware(
 # ---------------------------------------------------------------------------
 
 def get_current_user(authorization: Annotated[Optional[str], Header()] = None) -> Optional[dict]:
-    """Valide le JWT Supabase et retourne le user dict, ou None si pas de token."""
-    if not authorization or not authorization.startswith("Bearer "):
-        return None
-    token = authorization[7:].strip()
-    if not token:
-        return None
-    try:
-        # Validation locale du JWT via la clé publique Supabase
-        # (pour MVP on fait juste un decode sans verification de signature ;
-        # à durcir en V2 avec la clé publique Supabase)
-        import jwt
-        payload = jwt.decode(token, options={"verify_signature": False})
-        return {
-            "id": payload.get("sub"),
-            "email": payload.get("email"),
-            "role": payload.get("role", "authenticated"),
-            "exp": payload.get("exp"),
-        }
-    except Exception as e:
-        log.warning(f"[auth] JWT decode failed: {e}")
-        return None
+    """Valide le JWT Supabase avec vérif signature.
+
+    Audit secu 27/04/2026 — délègue à backend._common.get_current_user
+    qui implémente la vérif HS256 avec SUPABASE_JWT_SECRET (env Railway).
+    Évite la duplication de logique sécurité entre main.py et _common.py.
+    """
+    from backend._common import get_current_user as _gcu
+    return _gcu(authorization)
 
 
 def require_user(user: Annotated[Optional[dict], Depends(get_current_user)]) -> dict:
@@ -961,33 +948,49 @@ def _sync_response(kind: str, fn, *args, **kwargs) -> AnalyseResponse:
 # ─── Endpoints sync (V1 — bloquants, OK pour société rapide) ────────────────
 
 @app.post("/analyze/societe", response_model=AnalyseResponse)
-async def analyze_societe(req: SocieteRequest, request: Request):
+async def analyze_societe(
+    req: SocieteRequest, request: Request,
+    _user: Annotated[dict, Depends(require_not_banned)] = None,
+):
     """Analyse société synchrone (~1-3 min). Préférer /jobs/analyze/societe pour async.
-    Locale propagée via headers X-User-Language / X-User-Currency."""
+    Locale propagée via headers X-User-Language / X-User-Currency.
+    Audit secu 27/04 : require_not_banned (avant : auth optional → coût LLM ouvert)."""
     lang, ccy = _user_locale(request)
     return _sync_response("analyze/societe", _do_societe, req.ticker, lang, ccy)
 
 
 @app.post("/analyze/secteur", response_model=AnalyseResponse)
-async def analyze_secteur(req: SecteurRequest, request: Request):
+async def analyze_secteur(
+    req: SecteurRequest, request: Request,
+    _user: Annotated[dict, Depends(require_not_banned)] = None,
+):
     lang, ccy = _user_locale(request)
     return _sync_response("analyze/secteur", _do_secteur, req.secteur, req.univers, lang, ccy)
 
 
 @app.post("/analyze/indice", response_model=AnalyseResponse)
-async def analyze_indice(req: IndiceRequest, request: Request):
+async def analyze_indice(
+    req: IndiceRequest, request: Request,
+    _user: Annotated[dict, Depends(require_not_banned)] = None,
+):
     """⚠️ Bloquant 5-8 min — prefer /jobs/analyze/indice."""
     lang, ccy = _user_locale(request)
     return _sync_response("analyze/indice", _do_indice, req.indice, lang, ccy)
 
 
 @app.post("/cmp/societe", response_model=AnalyseResponse)
-async def cmp_societe(req: CmpSocieteRequest):
+async def cmp_societe(
+    req: CmpSocieteRequest,
+    _user: Annotated[dict, Depends(require_not_banned)] = None,
+):
     return _sync_response("cmp/societe", _do_cmp_societe, req.ticker_a, req.ticker_b)
 
 
 @app.post("/cmp/secteur", response_model=AnalyseResponse)
-async def cmp_secteur(req: CmpSecteurRequest):
+async def cmp_secteur(
+    req: CmpSecteurRequest,
+    _user: Annotated[dict, Depends(require_not_banned)] = None,
+):
     return _sync_response(
         "cmp/secteur", _do_cmp_secteur,
         req.secteur_a, req.univers_a, req.secteur_b, req.univers_b or req.univers_a,
@@ -995,13 +998,19 @@ async def cmp_secteur(req: CmpSecteurRequest):
 
 
 @app.post("/cmp/indice", response_model=AnalyseResponse)
-async def cmp_indice(req: CmpIndiceRequest):
+async def cmp_indice(
+    req: CmpIndiceRequest,
+    _user: Annotated[dict, Depends(require_not_banned)] = None,
+):
     """Comparaison 2 indices (synchrone). Prefere /jobs/cmp/indice en prod."""
     return _sync_response("cmp/indice", _do_cmp_indice, req.indice_a, req.indice_b)
 
 
 @app.post("/analyze/pme", response_model=AnalyseResponse)
-async def analyze_pme_endpoint(req: PmeRequest, request: Request):
+async def analyze_pme_endpoint(
+    req: PmeRequest, request: Request,
+    _user: Annotated[dict, Depends(require_not_banned)] = None,
+):
     """Analyse PME (société non cotée FR) par SIREN.
     Pipeline : Pappers identité+comptes Cerfa → peers → BODACC → analytics → PDF/XLSX/PPTX.
     Locale (langue + devise) lue depuis headers X-User-Language / X-User-Currency."""
@@ -1084,7 +1093,7 @@ class JobStatusResponse(BaseModel):
 @app.post("/jobs/analyze/societe", response_model=JobSubmitResponse, status_code=202)
 async def submit_societe(
     req: SocieteRequest,
-    user: Annotated[Optional[dict], Depends(get_current_user)] = None,
+    user: Annotated[dict, Depends(require_not_banned)] = None,
 ):
     job_id = jobstore.submit(
         "analyze/societe", _do_societe, req.ticker,
@@ -1096,7 +1105,7 @@ async def submit_societe(
 @app.post("/jobs/analyze/secteur", response_model=JobSubmitResponse, status_code=202)
 async def submit_secteur(
     req: SecteurRequest,
-    user: Annotated[Optional[dict], Depends(get_current_user)] = None,
+    user: Annotated[dict, Depends(require_not_banned)] = None,
 ):
     job_id = jobstore.submit(
         "analyze/secteur", _do_secteur, req.secteur, req.univers,
@@ -1108,7 +1117,7 @@ async def submit_secteur(
 @app.post("/jobs/analyze/indice", response_model=JobSubmitResponse, status_code=202)
 async def submit_indice(
     req: IndiceRequest,
-    user: Annotated[Optional[dict], Depends(get_current_user)] = None,
+    user: Annotated[dict, Depends(require_not_banned)] = None,
 ):
     job_id = jobstore.submit(
         "analyze/indice", _do_indice, req.indice,
@@ -1120,7 +1129,7 @@ async def submit_indice(
 @app.post("/jobs/cmp/societe", response_model=JobSubmitResponse, status_code=202)
 async def submit_cmp_societe(
     req: CmpSocieteRequest,
-    user: Annotated[Optional[dict], Depends(get_current_user)] = None,
+    user: Annotated[dict, Depends(require_not_banned)] = None,
 ):
     job_id = jobstore.submit(
         "cmp/societe", _do_cmp_societe, req.ticker_a, req.ticker_b,
@@ -1136,7 +1145,7 @@ class PortraitRequest(BaseModel):
 @app.post("/portrait/societe", response_model=JobSubmitResponse, status_code=202)
 async def submit_portrait(
     req: PortraitRequest,
-    user: Annotated[Optional[dict], Depends(get_current_user)] = None,
+    user: Annotated[dict, Depends(require_not_banned)] = None,
 ):
     """Génère un Portrait d'entreprise (PDF 15 pages). Async via jobstore."""
     job_id = jobstore.submit(
@@ -1149,7 +1158,7 @@ async def submit_portrait(
 @app.post("/jobs/cmp/secteur", response_model=JobSubmitResponse, status_code=202)
 async def submit_cmp_secteur(
     req: CmpSecteurRequest,
-    user: Annotated[Optional[dict], Depends(get_current_user)] = None,
+    user: Annotated[dict, Depends(require_not_banned)] = None,
 ):
     job_id = jobstore.submit(
         "cmp/secteur", _do_cmp_secteur,
@@ -1163,7 +1172,7 @@ async def submit_cmp_secteur(
 @app.post("/jobs/cmp/indice", response_model=JobSubmitResponse, status_code=202)
 async def submit_cmp_indice(
     req: CmpIndiceRequest,
-    user: Annotated[Optional[dict], Depends(get_current_user)] = None,
+    user: Annotated[dict, Depends(require_not_banned)] = None,
 ):
     from core.cmp_indice import INDICE_CMP_OPTIONS
     name_a = INDICE_CMP_OPTIONS.get(req.indice_a, (req.indice_a,))[0]
@@ -1192,14 +1201,18 @@ async def list_jobs(limit: int = 50):
 
 
 @app.get("/admin/monitoring")
-async def admin_monitoring(limit: int = 30):
-    """Tableau de bord monitoring (Baptiste only — pas d'auth pour V1).
+async def admin_monitoring(
+    limit: int = 30,
+    user: Annotated[dict, Depends(require_admin)] = None,
+):
+    """Tableau de bord monitoring — admin only.
 
     Retourne pour chaque job récent : kind, status, label, timing total
     + breakdown par node (fetch/synthesis/qa/output) + provider LLM utilisé
     + tailles fichiers + warnings audit.
 
-    Pas d'auth pour V1 : à protéger avant ouverture publique.
+    Audit secu 27/04/2026 : protégé par require_admin (avant : pas d'auth,
+    exposait tickers analysés + URLs Storage + erreurs internes).
     """
     raw = jobstore.list_jobs(limit)
     enriched = []
@@ -1760,11 +1773,24 @@ async def download_file(file_path: str, download: bool = False):
     d'auto-téléchargement intempestif quand la page charge l'aperçu).
     Passer ?download=1 pour forcer Content-Disposition: attachment.
     """
-    full_path = _ROOT / file_path
+    # Audit secu 27/04 : path traversal-proof. Resolve d'abord, puis check
+    # is_relative_to vs le repertoire autorise. Avant : 'in' check naïf
+    # contournable via ..%2f en URL-encode.
+    try:
+        full_path = (_ROOT / file_path).resolve()
+        allowed_root = (_ROOT / "outputs" / "generated").resolve()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Chemin invalide")
     if not full_path.exists() or not full_path.is_file():
         raise HTTPException(status_code=404, detail="Fichier introuvable")
-    if "outputs/generated" not in str(full_path):
-        raise HTTPException(status_code=403, detail="Accès refusé")
+    try:
+        # is_relative_to (Python 3.9+) — empeche tout escape via .. ou symlinks
+        if not full_path.is_relative_to(allowed_root):
+            raise HTTPException(status_code=403, detail="Accès refusé")
+    except AttributeError:
+        # Python < 3.9 fallback
+        if not str(full_path).startswith(str(allowed_root)):
+            raise HTTPException(status_code=403, detail="Accès refusé")
 
     ext = full_path.suffix.lower()
     mime = _MIME_BY_EXT.get(ext, "application/octet-stream")
@@ -1940,7 +1966,7 @@ def _do_veille(days: Optional[int] = None) -> dict:
 @app.post("/veille/run", response_model=JobSubmitResponse, status_code=202)
 async def submit_veille_run(
     req: VeilleRunRequest | None = None,
-    user: Annotated[Optional[dict], Depends(get_current_user)] = None,
+    user: Annotated[dict, Depends(require_not_banned)] = None,
 ):
     """Génère une nouvelle édition de veille IA. Async via jobstore.
 
@@ -2801,9 +2827,11 @@ async def cron_check_alerts(request: Request):
     Auth : header X-Cron-Secret = CRON_SECRET env var.
     """
     import os as _os
+    import hmac as _hmac
     expected = _os.getenv("CRON_SECRET", "").strip()
     provided = request.headers.get("x-cron-secret") or request.headers.get("X-Cron-Secret") or ""
-    if not expected or provided != expected:
+    # Audit secu 27/04 : compare_digest pour eviter timing attack
+    if not expected or not _hmac.compare_digest(provided, expected):
         raise HTTPException(status_code=401, detail="Unauthorized")
 
     from core.alerts.checker import run_check_cycle
@@ -3085,7 +3113,7 @@ class CommentCreate(BaseModel):
 async def list_comments(
     job_id: str,
     request: Request,
-    user: Annotated[Optional[dict], Depends(get_current_user)] = None,
+    user: Annotated[dict, Depends(require_not_banned)] = None,
 ):
     """Liste les commentaires d'une analyse (open SELECT via RLS).
     Pas d'auth requise pour lecture (visibilité contrôlée par accès au job).

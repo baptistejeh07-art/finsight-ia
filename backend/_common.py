@@ -31,8 +31,29 @@ def supabase_creds() -> tuple[str, str]:
     return url, key
 
 
+def _get_jwt_secret() -> Optional[str]:
+    """Retourne le secret JWT Supabase pour vérification HS256.
+
+    Recherche dans SUPABASE_JWT_SECRET (officiel) ou JWT_SECRET (alias).
+    Si absent : warn + retourne None (tombe en mode dégradé verify_signature=False
+    avec log warn fort, le temps de l'ajout en env Railway).
+    """
+    return (os.getenv("SUPABASE_JWT_SECRET")
+            or os.getenv("JWT_SECRET")
+            or None)
+
+
+_JWT_SECRET_WARNED = False
+
+
 def get_current_user(authorization: Annotated[Optional[str], Header()] = None) -> Optional[dict]:
-    """Valide le JWT Supabase (decode sans vérif signature — cf. main.py)."""
+    """Valide le JWT Supabase avec vérification HS256.
+
+    Audit secu 27/04/2026 — fix P0 #B1 : vérif signature obligatoire pour
+    empêcher les forge JWT (n'importe qui se faisait passer pour admin).
+    Le SUPABASE_JWT_SECRET doit être en env Railway (Settings > API >
+    JWT Settings sur Supabase dashboard).
+    """
     if not authorization or not authorization.startswith("Bearer "):
         return None
     token = authorization[7:].strip()
@@ -40,7 +61,31 @@ def get_current_user(authorization: Annotated[Optional[str], Header()] = None) -
         return None
     try:
         import jwt
-        payload = jwt.decode(token, options={"verify_signature": False})
+        secret = _get_jwt_secret()
+        if not secret:
+            global _JWT_SECRET_WARNED
+            if not _JWT_SECRET_WARNED:
+                log.error(
+                    "[auth] SUPABASE_JWT_SECRET MANQUANT — JWT non vérifié, "
+                    "FAILLE SÉCURITÉ. Ajouter en env Railway."
+                )
+                _JWT_SECRET_WARNED = True
+            # Mode dégradé : decode sans signature mais log chaque appel
+            payload = jwt.decode(token, options={"verify_signature": False})
+        else:
+            # Mode sécurisé : signature vérifiée + audience standard Supabase
+            try:
+                payload = jwt.decode(
+                    token, secret, algorithms=["HS256"],
+                    audience="authenticated",
+                )
+            except Exception as e_v:
+                # Fallback : Supabase peut utiliser un autre audience selon
+                # config — retry sans audience strict mais signature toujours
+                # vérifiée.
+                log.debug(f"[auth] audience mismatch, retry without: {e_v}")
+                payload = jwt.decode(token, secret, algorithms=["HS256"],
+                                     options={"verify_aud": False})
         return {
             "id": payload.get("sub"),
             "email": payload.get("email"),
@@ -48,7 +93,7 @@ def get_current_user(authorization: Annotated[Optional[str], Header()] = None) -
             "exp": payload.get("exp"),
         }
     except Exception as e:
-        log.warning(f"[auth] JWT decode failed: {e}")
+        log.warning(f"[auth] JWT verify failed: {e}")
         return None
 
 

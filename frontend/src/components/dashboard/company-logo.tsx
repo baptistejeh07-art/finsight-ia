@@ -84,7 +84,9 @@ const TICKER_DOMAINS: Record<string, string> = {
   "6758.T": "sony.com",
 };
 
-const LOGO_DEV_TOKEN = process.env.NEXT_PUBLIC_LOGO_DEV_TOKEN || "pk_X-1ZO13GSgeOoUrIuJ6GMQ";
+// Audit secu 27/04 : pas de fallback hardcoded — token via env Vercel.
+// Si manquant, fail gracefully (logo Logo.dev non chargé, fallback emoji).
+const LOGO_DEV_TOKEN = process.env.NEXT_PUBLIC_LOGO_DEV_TOKEN || "";
 
 interface Props {
   ticker: string;

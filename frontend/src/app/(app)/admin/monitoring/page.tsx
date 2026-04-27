@@ -44,7 +44,15 @@ export default function MonitoringPage() {
   async function load() {
     setLoading(true);
     try {
-      const r = await fetch(`${API}/admin/monitoring?limit=30`);
+      // Audit secu 27/04 : auth header obligatoire (le backend require_admin)
+      const { createClient } = await import("@/lib/supabase/client");
+      const supabase = createClient();
+      const { data } = await supabase.auth.getSession();
+      const token = data.session?.access_token;
+      if (!token) return;
+      const r = await fetch(`${API}/admin/monitoring?limit=30`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (r.ok) {
         const d = await r.json();
         setJobs(d.jobs || []);

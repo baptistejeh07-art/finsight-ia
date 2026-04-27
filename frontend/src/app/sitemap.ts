@@ -8,7 +8,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
 
   const staticRoutes: MetadataRoute.Sitemap = [
     { url: `${base}/`, lastModified: now, changeFrequency: "weekly", priority: 1.0 },
-    { url: `${base}/app`, lastModified: now, changeFrequency: "daily", priority: 0.95 },
+    // Audit SEO 27/04 : /app retire — c'est une page derriere auth, Googlebot
+    // y trouve un loader vide et signal SEO negatif.
     { url: `${base}/analyste`, lastModified: now, changeFrequency: "monthly", priority: 0.8 },
     { url: `${base}/collaboration`, lastModified: now, changeFrequency: "monthly", priority: 0.7 },
     { url: `${base}/cas-usage`, lastModified: now, changeFrequency: "monthly", priority: 0.7 },
