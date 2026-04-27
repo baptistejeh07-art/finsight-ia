@@ -1391,7 +1391,13 @@ def _build_story(data: dict) -> list:
         f"publications, ajustement progressif si l'écart de score se compressé < 5 pts ou "
         f"s'inverse. Réévaluation complète à chaque trimestre."
     )
-    story.append(Paragraph(_safe(impl_text), S_BODY))
+    # Bug B14 audit 27/04 : impl_text contient du markup ReportLab valide
+    # (<b>, <br/>) qu'il ne faut PAS échapper. _safe() rendait littéralement
+    # "<b>Mise en oeuvre</b>" au lieu de gras. Pré-escape juste les & isolés
+    # pour éviter XML invalide, puis passer à Paragraph qui parse <b>/<br/>.
+    import re as _re_b14
+    _impl_safe = _re_b14.sub(r'&(?!amp;|lt;|gt;|quot;|apos;|#)', '&amp;', impl_text)
+    story.append(Paragraph(_impl_safe, S_BODY))
     story.append(Spacer(1, 3 * mm))
     story.append(Paragraph(
         _safe("Note : Surpondérer = score >= 65  |  Neutre = score >= 45  |  Sous-pondérer = score < 45. "
