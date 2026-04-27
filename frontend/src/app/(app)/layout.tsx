@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
 import { Sidebar } from "@/components/sidebar";
 import { EditModeProvider } from "@/components/edit-mode-provider";
 import { UserPreferencesProvider } from "@/components/user-preferences-provider";
@@ -6,9 +8,17 @@ import { OnboardingTour } from "@/components/onboarding-tour";
 import { ShortcutsRuntime } from "@/components/shortcuts-runtime";
 import { I18nProvider } from "@/i18n/provider";
 
-export default function AppLayout({
+export default async function AppLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
+  // Audit secu 27/04 (F2) : guard SSR. Avant : protection client only via
+  // useEffect → flash HTML pendant 1s avec info disclosure. Ici, redirect
+  // serveur : aucun byte HTML envoye si non authentifie.
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    redirect("/");
+  }
   return (
     <UserPreferencesProvider>
     <I18nProvider>
