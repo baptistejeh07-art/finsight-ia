@@ -98,7 +98,9 @@ async def qualify_one(
 
     1. Lit le prospect en Supabase
     2. Lance qualification (Claude Haiku, ~2-3s, ~0.001$)
-    3. Si score >= 70 : lance personalization (DM + PDF démo)
+    3. Si score >= 40 : lance personalization (DM + PDF démo) — seuil
+       baisse de 70 a 40 pour couvrir les retail purs (sans bio finance
+       explicite, scores Haiku typiquement 30-55).
     4. Update la ligne Supabase
 
     Returns : {ok, score, breakdown, dm_text?, pdf_path?, target_ticker?}
@@ -125,7 +127,7 @@ async def qualify_one(
     }
     dm_text = None
     pdf_path = None
-    if qual.score >= 70:
+    if qual.score >= 40:
         # Hook = premier post récent si dispo
         recent_post = None
         rp = p.get("recent_posts") or []
@@ -199,7 +201,7 @@ async def qualify_all(
 async def top_today(
     user: Annotated[dict, Depends(require_admin)],
     limit: int = 10,
-    min_score: int = 70,
+    min_score: int = 40,
 ):
     """Top N prospects qualifiés et pas encore contactés."""
     from tools.sales_agent.tracking import list_top_today

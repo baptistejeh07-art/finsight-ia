@@ -112,7 +112,7 @@ def get_prospect(prospect_id: str) -> Optional[dict]:
         return None
 
 
-def list_top_today(limit: int = 10, min_score: int = 70) -> list[dict]:
+def list_top_today(limit: int = 10, min_score: int = 40) -> list[dict]:
     """Top prospects qualifiés du jour, jamais contactés (statut absent ou
     queued). Triés par score desc."""
     surl, skey = _supabase_creds()
