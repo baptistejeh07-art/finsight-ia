@@ -1201,8 +1201,8 @@ def _build_story(D: dict) -> list:
             f"et une croissance organique soutenue. "
             f"{_best_a.get('company', '')[:20]} se distingue avec un score de {_best_a.get('score_global', 0)}/100, "
             f"un P/E de {_mult(_best_a.get('pe_ratio'))} et une marge EBITDA de {_pct(_best_a.get('ebitda_margin'), sign=False)}. "
-            f"Les sociétés les mieux scorees du secteur tendent a présenter "
-            f"une combinaison FCF Yield robuste + ROE supérieur a la Médiane sectorielle, "
+            f"Les sociétés les mieux scorées du secteur tendent à présenter "
+            f"une combinaison FCF Yield robuste + ROE supérieur à la Médiane sectorielle, "
             f"caractéristique d'un modèle Économique défensif avec levier de croissance."
         )
     if _top_a_text:
@@ -1223,9 +1223,9 @@ def _build_story(D: dict) -> list:
             f"{_best_b.get('company', '')[:20]} atteint un score de {_best_b.get('score_global', 0)}/100, "
             f"avec un EV/EBITDA de {_mult(_best_b.get('ev_ebitda'))} "
             f"et une croissance revenue de {_pct(_best_b.get('revenue_growth', 0) if abs(_best_b.get('revenue_growth', 0) or 0) > 1 else (_best_b.get('revenue_growth', 0) or 0) * 100)}. "
-            f"La dispersion sectorielle est un element cle : "
-            f"les sociétés a score élevé dans {sector_b} offrent un ratio risque/rendement "
-            f"attractif pour les portefeuilles cherchant a réduire la correlation avec les indices de croissance."
+            f"La dispersion sectorielle est un élément clé : "
+            f"les sociétés à score élevé dans {sector_b} offrent un ratio risque/rendement "
+            f"attractif pour les portefeuilles cherchant à réduire la corrélation avec les indices de croissance."
         )
     if _top_b_text:
         story.append(Paragraph(_xml(_top_b_text), S_BODY))
@@ -1432,7 +1432,7 @@ def _build_top_table(story, tickers, sector_name, col_header):
         else:
             _pe_str = _mult(_pe_v)
         top_data.append([
-            Paragraph(t.get("company", t.get("ticker", ""))[:22], S_TD_L),
+            Paragraph(t.get("company", t.get("ticker", ""))[:32], S_TD_L),
             Paragraph(f"{t.get('score_global', 0)}/100", S_TD_C),
             Paragraph(_pe_str, S_TD_C),
             Paragraph(_mult(t.get("ev_ebitda")), S_TD_C),
@@ -1441,7 +1441,7 @@ def _build_top_table(story, tickers, sector_name, col_header):
             Paragraph(_pct(t.get("net_margin"), sign=False), S_TD_C),
             Paragraph(roe_str or "—", S_TD_C),
         ])
-    t = _tbl(top_data, [46*mm, 18*mm, 18*mm, 20*mm, 20*mm, 20*mm, 18*mm, 16*mm], header_col=col_header)
+    t = _tbl(top_data, [56*mm, 16*mm, 16*mm, 19*mm, 19*mm, 19*mm, 17*mm, 14*mm], header_col=col_header)
     story.append(t)
 
 
