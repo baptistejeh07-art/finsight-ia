@@ -81,3 +81,8 @@ redis>=5.0.0
 # Sans clés configurées, l'import est lazy = no-op.
 langfuse>=2.0.0
 
+# Sentry — monitoring erreurs prod (audit 27/04 P1)
+# Setup : créer compte sentry.io (free tier 5k errors/mois), copier DSN
+# du projet, ajouter SENTRY_DSN env Railway. Si vide, monitoring désactivé.
+sentry-sdk[fastapi]>=2.0.0
+
