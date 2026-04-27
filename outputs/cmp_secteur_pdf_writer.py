@@ -150,7 +150,7 @@ _CMP_SEC_LABELS: dict[str, dict[str, str]] = {
                     "de": "Allokationsempfehlung",
                     "it": "Raccomandazione di Allocazione",
                     "pt": "Recomendação de Alocação"},
-    "methodo":     {"fr": "Mentions Légales & Méthodologie Detaillee",
+    "methodo":     {"fr": "Mentions Légales & Méthodologie Détaillée",
                     "en": "Legal Notices & Detailed Methodology",
                     "es": "Avisos Legales y Metodología Detallada",
                     "de": "Rechtliche Hinweise & Detaillierte Methodik",
@@ -1312,7 +1312,7 @@ def _build_story(D: dict) -> list:
     story.append(Spacer(1, 3 * mm))
     story.append(Paragraph(
         "Note : Surpondérer = score >= 65 | Neutre = score >= 45 | Sous-pondérer = score < 45. "
-        "Le Score FinSight est un indicateur proprietaire multidimensionnel. "
+        "Le Score FinSight est un indicateur propriétaire multidimensionnel. "
         "Il ne constitue pas un conseil en investissement.",
         S_NOTE))
     story.append(PageBreak())
@@ -1322,27 +1322,27 @@ def _build_story(D: dict) -> list:
     _S_DISC_S = _sty("disc_s", size=6.5, color=GREY_TEXT, leading=9.5)
     _S_SSEC_S = _sty("ssec_s", size=8, color=NAVY, bold=True, leading=11)
     disclaimers = [
-        ("Caractère informatif et pedagogique",
+        ("Caractère informatif et pédagogique",
          "Ce document est produit exclusivement a des fins d'information et de démonstration "
-         "pedagogique. Il ne constitue en aucun cas un conseil en investissement, une recommandation "
-         "personnalisee d'achat ou de vente, une incitation a contracter ni une offre de souscription "
+         "pédagogique. Il ne constitue en aucun cas un conseil en investissement, une recommandation "
+         "personnalisée d'achat ou de vente, une incitation a contracter ni une offre de souscription "
          "a un produit financier au sens du Règlement Général de l'AMF. Toute décision d'investissement "
          "demeure de la seule responsabilité de l'utilisateur, qui doit consulter un conseiller en "
          "investissement financier (CIF) agréé avant toute opération."),
         ("Sources et qualité des données",
-         "Les données financières sont collectees automatiquement via yfinance (Yahoo Finance), "
-         "Finnhub et Financial Modeling Prep. FinSight IA ne garantit ni l'exhaustivite ni l'exactitude "
+         "Les données financières sont collectées automatiquement via yfinance (Yahoo Finance), "
+         "Finnhub et Financial Modeling Prep. FinSight IA ne garantit ni l'exhaustivité ni l'exactitude "
          "de ces données, qui peuvent présenter des erreurs, omissions ou retards de mise à jour. "
          "Les Médianes sectorielles sont calculées sur les sociétés du panel disposant de la donnée "
          "considérée, ce qui peut introduire un biais de sélection lorsque la couverture est partielle. "
          "Les chiffres sont établis a la date de génération du rapport et ne reflètent pas les évolutions "
-         "ulterieures du marché ou des publications corporate."),
+         "ultérieures du marché ou des publications corporate."),
         ("Méthodologie de scoring FinSight (0-100)",
-         "Le Score FinSight est un indicateur proprietaire agregeant 4 dimensions également pondérées "
+         "Le Score FinSight est un indicateur propriétaire agrégeant 4 dimensions également pondérées "
          "a 25 points chacune : Value (P/E, EV/EBITDA, PEG, FCF Yield), Growth (CAGR revenus 3 ans, "
          "EPS growth, révisions consensus), Quality (ROE, ROIC, Piotroski F-Score 0-9, Altman Z-Score, "
          "marges), Momentum (perf. 52 semaines, RSI relatif, révision consensus). Les signaux "
-         "Surpondérer / Neutre / Sous-pondérer sont derives mécaniquement des seuils 65/45/0. "
+         "Surpondérer / Neutre / Sous-pondérer sont dérivés mécaniquement des seuils 65/45/0. "
          "Indicateurs avancés intégrés en arrière-plan : Beneish M-Score (detection manipulation "
          "comptable, M < -2.22 = sain), Altman Z-Score (Z > 2.99 = zone safe, 1.81-2.99 = grise, "
          "< 1.81 = distress), Sloan accruals ratio (qualité des earnings)."),
@@ -1351,10 +1351,10 @@ def _build_story(D: dict) -> list:
          "Économique, les révisions de guidance, les events corporate (M&A, splits, restructurations) "
          "ni les analyses qualitatives (gouvernance, ESG, management). Le LLM utilise pour les textes "
          "analytiques peut produire des affirmations imprécises ou des erreurs factuelles : les chiffres "
-         "doivent être vérifiés par l'utilisateur. La couverture sectorielle est limitee aux univers "
-         "configures (S&P 500, CAC 40, STOXX 600, global), excluant les small caps et les marchés "
-         "emergents. Les ratios manquants (ROIC notamment) sont parfois estimés via des proxies "
-         "explicitement mentionnes."),
+         "doivent être vérifiés par l'utilisateur. La couverture sectorielle est limitée aux univers "
+         "configurés (S&P 500, CAC 40, STOXX 600, global), excluant les small caps et les marchés "
+         "émergents. Les ratios manquants (ROIC notamment) sont parfois estimés via des proxies "
+         "explicitement mentionnés."),
         ("Absence de due diligence",
          "FinSight IA est un outil algorithmique de screening basé sur des données publiques. Aucune "
          "due diligence spécifique, expertise sectorielle approfondie, rencontre avec le management, "
@@ -1364,18 +1364,18 @@ def _build_story(D: dict) -> list:
          "toute responsabilité quant aux pertes ou préjudices découlant de l'utilisation de ce document."),
         ("Risques d'investissement",
          "Tout investissement en valeurs mobilières comporte un risque de perte partielle ou totale "
-         "en capital. Les performances passees et les données historiques ne préjugent pas des "
+         "en capital. Les performances passées et les données historiques ne préjugent pas des "
          "performances futures. Les conditions de marché, le contexte macroéconomique, les décisions "
          "des banques centrales, les décisions réglementaires et les événements géopolitiques peuvent "
          "evoluer rapidement et invalider les signaux présentés. La diversification, un horizon "
          "d'investissement adapte au profil de risque, et une revue régulière des positions sont "
          "fortement recommandés."),
         ("Confidentialité et propriété intellectuelle",
-         "Ce document est destine a un usage prive et confidentiel. Sa reproduction, distribution, "
+         "Ce document est destiné à un usage privé et confidentiel. Sa reproduction, distribution, "
          "publication ou diffusion, meme partielle, est strictement interdite sans autorisation écrite "
          "expresse de FinSight IA. Le scoring FinSight, la Méthodologie de calcul, les visuels et les "
          "textes analytiques sont la propriété intellectuelle exclusive de FinSight IA. Toute "
-         "exploitation commerciale est prohibee. Ce document ne doit pas être utilise comme base "
+         "exploitation commerciale est prohibee. Ce document ne doit pas être utilisé comme base "
          "exclusive pour une décision d'investissement."),
     ]
     for title, text in disclaimers:
