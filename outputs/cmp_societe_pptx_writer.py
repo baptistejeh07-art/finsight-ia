@@ -1599,7 +1599,7 @@ def _slide_exec_summary(prs, m_a: dict, m_b: dict, synthesis: dict):
     if _pe_leader and _pe_leader == winner:
         _jpm_sub = f"{winner} combine valorisation attractive et fondamentaux solides"
     elif _mg_leader == winner:
-        _jpm_sub = f"{winner} prime justifiée par une profitabilite supérieure"
+        _jpm_sub = f"{winner} prime justifiée par une profitabilité supérieure"
     else:
         _jpm_sub = f"{winner} privilegie sur la qualité/valorisation relative"
 
@@ -1686,7 +1686,7 @@ def _slide_exec_summary(prs, m_a: dict, m_b: dict, synthesis: dict):
         slide, 1.02, y_tbl, 23.37, 5.45,
         num_rows=len(rows), num_cols=3,
         col_widths_pct=[0.40, 0.30, 0.30],
-        header_data=["Indicateur cle", tkr_a, tkr_b],
+        header_data=["Indicateur clé", tkr_a, tkr_b],
         rows_data=rows,
         header_fill=NAVY, border_hex="DDDDDD"
     )
@@ -2020,7 +2020,7 @@ def _slide_bilan(prs, m_a: dict, m_b: dict):
         f"Sur le critère du levier, {_lev_winner} dispose de plus de marge pour absorber un choc "
         f"macro ou financer une opération externe. {_fcf_winner} Généré davantage de FCF relatif "
         f"({_fcfy_a:.1f}% vs {_fcfy_b:.1f}% de FCF yield), soutenant la soutenabilite du dividende "
-        f"et la capacite de rachat d'actions."
+        f"et la capacité de rachat d'actions."
     )
     y_txt = 9.65
     _txt_h = 3.40
@@ -2212,7 +2212,7 @@ def _slide_dcf(prs, m_a: dict, m_b: dict):
     add_rect(slide, 1.02, y_note, 23.37, 2.4, GREY_BG)
     add_rect(slide, 1.02, y_note, 0.13, 2.4, NAVY_MID)
     dcf_note = (
-        "Méthodologie : la fourchette Bear/Base/Bull reflète trois hypotheses de croissance "
+        "Méthodologie : la fourchette Bear/Base/Bull reflète trois hypothèses de croissance "
         "appliquees au modèle DCF a 5 ans. Le scénario Base correspond au consensus actuel ; "
         "Bear intègre un ralentissement de -30 %% sur la croissance; Bull extrapole une "
         "accélération. La Marge de Sécurité mesure l'écart cours/valeur intrinseque Base : "
@@ -2288,10 +2288,10 @@ def _slide_monte_carlo(prs, m_a: dict, m_b: dict):
         f"Le modèle DCF Bear/Base/Bull et la simulation GBM Monte Carlo donnent deux lectures "
         f"complémentaires de la valorisation. {tkr_a} affiche un upside base de {_upside_base_a:+.0f}% "
         f"vs {_upside_base_b:+.0f}% pour {tkr_b}. Le football field ci-dessous visualise les "
-        f"fourchettes intrinseques de chaque titre : plus la bande est etendue, plus l'incertitude "
+        f"fourchettes intrinsèques de chaque titre : plus la bande est étendue, plus l'incertitude "
         f"sur la valeur est élevée. La ligne pointillee indique le cours actuel ; si elle se situe "
-        f"sous la barre Base, le titre est dans une zone d'achat theorique. A croiser avec les "
-        f"hypotheses WACC/TGR (Sensibilité des flux futurs) et la crédibilité du scénario macro."
+        f"sous la barre Base, le titre est dans une zone d'achat théorique. A croiser avec les "
+        f"hypothèses WACC/TGR (Sensibilité des flux futurs) et la crédibilité du scénario macro."
     )
     # #205 : suppression du titre hardcodé "LECTURE MONTE CARLO & FOOTBALL
     # FIELD" — le texte LLM occupe toute la box (Baptiste veut les textes LLM
@@ -2577,7 +2577,7 @@ def _slide_risque(prs, m_a: dict, m_b: dict):
         f"(beta {min(_b_a, _b_b):.2f}), adapte aux portefeuilles prudents. "
         f"Sur le momentum 3 mois, {_mom_leader} prend la tête "
         f"({max(_p3m_a, _p3m_b):+.1f}% vs {min(_p3m_a, _p3m_b):+.1f}%). "
-        f"La volatilité annualisee ({_vol_a:.0f}% vs {_vol_b:.0f}%) calibré "
+        f"La volatilité annualisée ({_vol_a:.0f}% vs {_vol_b:.0f}%) calibré "
         f"le dimensionnement de position : une volatilité plus élevée impose "
         f"une pondération réduite pour maintenir un budget risque équivalent."
     )
@@ -2894,7 +2894,7 @@ def _slide_price_chart(prs, m_a: dict, m_b: dict, synthesis: dict = None):
         ("Perf. 3M",    _frpct(m_a.get('perf_3m'), signed=True),
          "Div. Yield",  _frpct(m_a.get('dividend_yield'))),
         ("Perf. 1Y",    _frpct(m_a.get('perf_1y'), signed=True),
-         "Volatilite",  _frpct(m_a.get('volatility_52w'))),
+         "Volatilité",  _frpct(m_a.get('volatility_52w'))),
     ]
     _lh = 0.55
     for ri, (lbl1, val1, lbl2, val2) in enumerate(a_rows):
@@ -2919,7 +2919,7 @@ def _slide_price_chart(prs, m_a: dict, m_b: dict, synthesis: dict = None):
         ("Perf. 3M",    _frpct(m_b.get('perf_3m'), signed=True),
          "Div. Yield",  _frpct(m_b.get('dividend_yield'))),
         ("Perf. 1Y",    _frpct(m_b.get('perf_1y'), signed=True),
-         "Volatilite",  _frpct(m_b.get('volatility_52w'))),
+         "Volatilité",  _frpct(m_b.get('volatility_52w'))),
     ]
     for ri, (lbl1, val1, lbl2, val2) in enumerate(b_rows):
         ry = y_m2 + 0.55 + ri * _lh

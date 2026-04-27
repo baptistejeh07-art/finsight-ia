@@ -417,8 +417,8 @@ def _bilan_text_below(m_a, m_b, tkr_a, tkr_b):
     ic_b = _f(m_b.get("interest_coverage"))
     # Qualité levier
     def _lev_q(nd):
-        if nd is None: return "indetermine"
-        if nd < 0:   return "position de trésorerie nette (desendette)"
+        if nd is None: return "indéterminé"
+        if nd < 0:   return "position de trésorerie nette (désendetté)"
         if nd < 1.5: return "levier faible et confortable"
         if nd < 3.0: return "levier modéré"
         return "levier élevé imposant vigilance"
@@ -447,7 +447,7 @@ def _bilan_text_below(m_a, m_b, tkr_a, tkr_b):
     )
     if _lev_winner:
         parts.append(
-            f" Sur le critère du levier, {_lev_winner} dispose d'une flexibilite "
+            f" Sur le critère du levier, {_lev_winner} dispose d'une flexibilité "
             f"supérieure pour absorber un choc macro ou financer une opération de croissance externe."
         )
     parts.append(
@@ -462,9 +462,9 @@ def _bilan_text_below(m_a, m_b, tkr_a, tkr_b):
         f"une Sensibilité accrue a une remontée des taux directeurs."
     )
     parts.append(
-        " Implication investisseur : la prime/décote de valorisation doit integrer le "
-        "Différentiel de qualité bilancielle, qui conditionne la soutenabilite du dividende "
-        "et la capacite d'autofinancement en bas de cycle."
+        " Implication investisseur : la prime/décote de valorisation doit intégrer le "
+        "Différentiel de qualité bilancielle, qui conditionne la soutenabilité du dividende "
+        "et la capacité d'autofinancement en bas de cycle."
     )
     return "".join(parts)
 
@@ -475,7 +475,7 @@ def _dcf_text(m_a, m_b, tkr_a, tkr_b):
     base_b = _fr(m_b.get("dcf_base"), 0)
     wacc_a = _frpct(m_a.get("wacc"))
     return (
-        f"Le modèle DCF (WACC {wacc_a}) retient une valeur intrinseque base de {base_a} pour {tkr_a} "
+        f"Le modèle DCF (WACC {wacc_a}) retient une valeur intrinsèque base de {base_a} pour {tkr_a} "
         f"(upside : {up_a}) et {base_b} pour {tkr_b} (upside : {up_b}). "
         f"La simulation Monte Carlo renforce la distribution autour du scénario base."
     )
@@ -1326,7 +1326,7 @@ def _section_rentabilite_bilan(story, m_a, m_b, tkr_a, tkr_b):
         f"{_roic_comment}"
         f"La croissance des revenus sur 3 ans (CAGR {cagr_a} vs {cagr_b}) et "
         f"la progression du BPA ({eps_g_a} vs {eps_g_b}) "
-        f"traduisent la capacite de chaque groupe a monétiser sa base d'actifs. "
+        f"traduisent la capacité de chaque groupe a monétiser sa base d'actifs. "
         f"Le FCF yield ({fcfy_a} vs {fcfy_b}) complète la lecture en mesurant "
         f"la génération de cash disponible après investissements."
     )
@@ -1425,7 +1425,7 @@ def _section_valorisation(story, m_a, m_b, synthesis, tkr_a, tkr_b):
     _mult_comment = (
         f"Lecture des multiples : Le P/E de {tkr_a} ({pe_a}x) "
         f"vs {tkr_b} ({pe_b}x) reflète les attentes de croissance respective. "
-        f"L'EV/EBITDA ({ev_a}x vs {ev_b}x) donne une vue independante "
+        f"L'EV/EBITDA ({ev_a}x vs {ev_b}x) donne une vue indépendante "
         f"de la structure financière. Le P/B ({pb_a}x vs {pb_b}x) "
         f"mesure la prime payee sur les actifs nets. "
         f"Potentiel consensus : {up_a} pour {_enc(tkr_a)}, "
@@ -1566,7 +1566,7 @@ def _section_qualite_risque(story, m_a, m_b, synthesis, tkr_a, tkr_b):
     ]
     raw_ri = [
         ["Beta",             _fr(m_a.get("beta"), 2),           _fr(m_b.get("beta"), 2)],
-        ["Volatilite 52w",   _frpct(m_a.get("volatility_52w")), _frpct(m_b.get("volatility_52w"))],
+        ["Volatilité 52w",   _frpct(m_a.get("volatility_52w")), _frpct(m_b.get("volatility_52w"))],
         ["Perf. 1 mois",     _frpct(m_a.get("perf_1m"), True),  _frpct(m_b.get("perf_1m"), True)],
         ["Perf. 3 mois",     _frpct(m_a.get("perf_3m"), True),  _frpct(m_b.get("perf_3m"), True)],
         ["Perf. 12 mois",    _frpct(m_a.get("perf_1y"), True),  _frpct(m_b.get("perf_1y"), True)],
@@ -1600,24 +1600,24 @@ def _section_qualite_risque(story, m_a, m_b, synthesis, tkr_a, tkr_b):
         - higher_is_better=False (Levier ND/EBITDA) :
           val basse → "Faible", val haute → "Élevé"
         """
-        if v is None: return ("N/A", "indetermine")
+        if v is None: return ("N/A", "indéterminé")
         try:
             fv = float(v)
             if higher_is_better:
                 if fv >= hi_good: return ("Élevé", "robuste")
                 if fv >= lo_good: return ("Modéré", "surveiller")
-                return ("Faible", "preoccupant")
+                return ("Faible", "préoccupant")
             else:
-                if fv <= lo_good: return ("Faible", "maitrise")
+                if fv <= lo_good: return ("Faible", "maîtrisé")
                 if fv <= hi_good: return ("Modéré", "surveiller")
                 return ("Élevé", "significatif")
-        except Exception: return ("N/A", "indetermine")
+        except Exception: return ("N/A", "indéterminé")
 
     axes_desc = [
         ("net_debt_ebitda", -0.5, 2.5, False,
          "Levier financier (ND/EBITDA)",
          "mesure le nombre d'années nécessaires pour rembourser la dette nette via l'EBITDA. "
-         "En dessous de 2,5x, le levier est considère sain ; au-dela de 3,5x il devient contraignant."),
+         "En dessous de 2,5x, le levier est considère sain ; au-delà de 3,5x il devient contraignant."),
         ("perf_3m", 0.0, 0.10, True,
          "Momentum (performance 3 mois)",
          "capture la dynamique récente du titre. Un momentum positif traduit un flux acheteur "
@@ -1628,11 +1628,11 @@ def _section_qualite_risque(story, m_a, m_b, synthesis, tkr_a, tkr_b):
          "Un score supérieur a 7 signale une entreprise financierement solide."),
         ("current_ratio", 1.0, 2.0, True,
          "Liquidité (Current Ratio)",
-         "rapport actifs courants / passifs courants. Un ratio supérieur a 1,5 indique une capacite "
+         "rapport actifs courants / passifs courants. Un ratio supérieur a 1,5 indique une capacité "
          "confortable a honorer les obligations court terme sans stress de trésorerie."),
         ("revenue_cagr_3y", 0.03, 0.10, True,
          "Croissance (CAGR revenus 3 ans)",
-         "mesure la croissance organique annualisee. Au-dela de 10 % par an, la société fait partie "
+         "mesure la croissance organique annualisée. Au-delà de 10 % par an, la société fait partie "
          "des moteurs de croissance ; en dessous de 3 % elle évolue en territoire maturité."),
     ]
 
@@ -1846,16 +1846,16 @@ def _section_fcf_capital(story, m_a, m_b, tkr_a, tkr_b):
     text = (
         f"Analyse FCF : {tkr_a} généré {fcf_a} de FCF (rendement {fy_a}) vs {fcf_b} "
         f"({fy_b}) pour {tkr_b}. Capex/Revenus : {cx_a} vs {cx_b}, "
-        f"reflétant les intensites capitalistiques respectives. "
+        f"reflétant les intensités capitalistiques respectives. "
         f"Dividende {dy_a} vs {dy_b}. "
-        f"Un FCF yield supérieur signale une capacite accrue a financer la croissance, "
+        f"Un FCF yield supérieur signale une capacité accrue a financer la croissance, "
         f"racheter des actions et verser des dividendes sur horizon 12 mois. "
         f"Le taux de conversion cash (FCF/EBITDA) ressort à {cc_a} pour {tkr_a} vs {cc_b} "
         f"pour {tkr_b} : un ratio élevé indique que l'EBITDA se transforme efficacement "
         f"en cash disponible, limitant les besoins de financement externe. "
         f"Côté levier, la dette nette s'établit a {nd_a} ({nd_ev_a}x EBITDA) pour {tkr_a} "
         f"et {nd_b} ({nd_ev_b}x EBITDA) pour {tkr_b} -- un indicateur cle "
-        f"pour évaluer la capacite de remboursement et la flexibilite bilancielle."
+        f"pour évaluer la capacité de remboursement et la flexibilité bilancielle."
     )
     story.append(Paragraph(_safe(text), S_BODY))
     story.append(Spacer(1, 3*mm))
@@ -1897,11 +1897,11 @@ def _section_dcf_sensitivity(story, m_a, m_b, tkr_a, tkr_b):
     base_b   = float(m_b.get("dcf_base") or 0)
 
     text = (
-        f"Analyse de Sensibilité : variation de la valeur intrinseque selon le WACC et le "
+        f"Analyse de Sensibilité : variation de la valeur intrinsèque selon le WACC et le "
         f"taux de croissance terminal (g). {tkr_a} : WACC base {_frpct(wacc_a)}, g {_frpct(g_a)}. "
         f"{tkr_b} : WACC base {_frpct(wacc_b)}, g {_frpct(g_b)}. "
-        f"Les cases en ligne centrale (base) correspondent aux hypotheses du modèle DCF. "
-        f"Lecture : une hausse du WACC de 1 pt réduit mécaniquement la valeur intrinseque ; "
+        f"Les cases en ligne centrale (base) correspondent aux hypothèses du modèle DCF. "
+        f"Lecture : une hausse du WACC de 1 pt réduit mécaniquement la valeur intrinsèque ; "
         f"une baisse du taux terminal pénalisé davantage les titrès de croissance."
     )
     story.append(Paragraph(_safe(text), S_BODY))
@@ -1948,14 +1948,14 @@ def _section_dcf_sensitivity(story, m_a, m_b, tkr_a, tkr_b):
     mat_b = _dcf_sensitivity_matrix(base_b, wacc_b, g_b)
 
     if mat_a:
-        story.append(Paragraph(f"<b>{_enc(tkr_a)}</b> — valeur intrinseque (\u20ac/$)", S_SUBSECTION))
+        story.append(Paragraph(f"<b>{_enc(tkr_a)}</b> — valeur intrinsèque (\u20ac/$)", S_SUBSECTION))
         t_a = _sensitivity_tbl(tkr_a, mat_a, wacc_a, g_a)
         if t_a:
             story.append(t_a)
         story.append(Spacer(1, 4*mm))
 
     if mat_b:
-        story.append(Paragraph(f"<b>{_enc(tkr_b)}</b> — valeur intrinseque (\u20ac/$)", S_SUBSECTION))
+        story.append(Paragraph(f"<b>{_enc(tkr_b)}</b> — valeur intrinsèque (\u20ac/$)", S_SUBSECTION))
         t_b = _sensitivity_tbl(tkr_b, mat_b, wacc_b, g_b)
         if t_b:
             story.append(t_b)
@@ -1963,13 +1963,13 @@ def _section_dcf_sensitivity(story, m_a, m_b, tkr_a, tkr_b):
 
     story.append(Paragraph(
         "Hypothese : variation proportionnelle via Gordon Growth terminal. "
-        "A utiliser en complément du modèle DCF complet présente a la section precedente.",
+        "À utiliser en complément du modèle DCF complet présenté à la section précédente.",
         S_NOTE
     ))
     story.append(Spacer(1, 4*mm))
 
-    # Analyse comparative interpretative
-    story.append(Paragraph("<b>Analyse interpretative de la Sensibilité</b>", S_SUBSECTION))
+    # Analyse comparative interprétative
+    story.append(Paragraph("<b>Analyse interprétative de la Sensibilité</b>", S_SUBSECTION))
     story.append(Spacer(1, 2*mm))
 
     def _dcf_interp(tkr, wacc, g, base, mat):
@@ -1982,10 +1982,10 @@ def _section_dcf_sensitivity(story, m_a, m_b, tkr_a, tkr_b):
         g_s     = f"{g*100:.1f} %"
         return (
             f"{_enc(tkr)} : avec un WACC de base a {wacc_s} et un taux terminal de {g_s}, "
-            f"la fourchette de valeur intrinseque s'etend de {spread}. "
+            f"la fourchette de valeur intrinsèque s'etend de {spread}. "
             f"Une hausse de 1 point de WACC comprime significativement la valeur ; "
             f"une baisse du taux g expose davantage les flux distants. "
-            f"La ligne centrale correspond aux hypotheses retenues dans le modèle principal."
+            f"La ligne centrale correspond aux hypothèses retenues dans le modèle principal."
         )
 
     if mat_a:
@@ -2086,7 +2086,7 @@ def _section_momentum_marche(story, m_a, m_b, tkr_a, tkr_b):
             f"Techniquement, {_rsi_comment(_rsi_a_f, tkr_a)} et "
             f"{_rsi_comment(_rsi_b_f, tkr_b)}. "
             f"La VaR 95 % mensuelle ({var_a} pour {_enc(tkr_a)} vs {var_b} pour {_enc(tkr_b)}) "
-            f"et la volatilité annualisee ({vol_a} vs {vol_b}) permettent de calibrer "
+            f"et la volatilité annualisée ({vol_a} vs {vol_b}) permettent de calibrer "
             f"le dimensionnement de position : une VaR plus élevée impose une pondération "
             f"réduite pour maintenir un budget risque équivalent en portefeuille. "
             f"Le sentiment de marché ressort {_fmt_sentiment(m_a.get('sentiment_label'))} "
@@ -2123,7 +2123,7 @@ def _section_52w_price(story, m_a, m_b, tkr_a, tkr_b, synthesis=None):
     intro = (
         f"Le graphique ci-dessous présente l'évolution des cours de {_enc(tkr_a)} et {_enc(tkr_b)} "
         f"sur les 52 dernières semaines, normalisés en base 100. Cette representation permet "
-        f"de comparer directement la dynamique relative des deux titrès independamment de leur "
+        f"de comparer directement la dynamique relative des deux titrès indépendamment de leur "
         f"niveau de prix absolu."
     )
     story.append(Paragraph(_safe(intro), S_BODY))
@@ -2323,15 +2323,15 @@ def _section_52w_price(story, m_a, m_b, tkr_a, tkr_b, synthesis=None):
     ana_a = (
         f"<b>{_enc(tkr_a)}</b> : Le titre a évolue entre {lo_a} et {hi_a} sur 52 semaines, "
         f"affichant une performance de {p1m_a} sur 1 mois, {p3m_a} sur 3 mois et {p1y_a} sur "
-        f"12 mois. La volatilité annualisee ressort à {vol_a}, reflectant "
+        f"12 mois. La volatilité annualisée ressort à {vol_a}, reflectant "
         + ("un titre relativement stable adapte aux profils prudents."
            if m_a.get("volatility_52w") is not None and float(m_a.get("volatility_52w") or 0.3) < 0.25
-           else "un niveau de risque de prix notable qu'il convient d'integrer dans le dimensionnement de position.")
+           else "un niveau de risque de prix notable qu'il convient d'intégrer dans le dimensionnement de position.")
     )
     ana_b = (
         f"<b>{_enc(tkr_b)}</b> : Le titre a évolue entre {lo_b} et {hi_b} sur 52 semaines, "
         f"avec des performances de {p1m_b} sur 1 mois, {p3m_b} sur 3 mois et {p1y_b} sur "
-        f"12 mois. La volatilité annualisee de {vol_b} "
+        f"12 mois. La volatilité annualisée de {vol_b} "
         + ("indique un comportement de cours contenu, favorable aux stratégies de portage."
            if m_b.get("volatility_52w") is not None and float(m_b.get("volatility_52w") or 0.3) < 0.25
            else "signale une amplitude de prix élevée, cohérente avec un profil de croissance ou de retournement.")
@@ -2363,7 +2363,7 @@ def _section_52w_price(story, m_a, m_b, tkr_a, tkr_b, synthesis=None):
                 f"{_enc(leader_3m)} affiche le meilleur momentum récent sur 3 mois "
                 f"({p3m_a if leader_3m == tkr_a else p3m_b})"
             )
-        cross = "Sur la période consideree : " + " ; ".join(comp_parts) + "."
+        cross = "Sur la période considérée : " + " ; ".join(comp_parts) + "."
         story.append(Paragraph(_safe(cross),
                                 _s('52w_cross', size=8.5, leading=13, color=BLACK)))
     story.append(Spacer(1, 2*mm))
@@ -2379,14 +2379,14 @@ def _section_piotroski_detail(story, m_a, m_b, tkr_a, tkr_b):
     pio_b_str = str(int(float(pio_b))) if pio_b is not None else "\u2014"
 
     def _pio_level(s):
-        if s is None: return "indetermine"
+        if s is None: return "indéterminé"
         try:
             iv = int(float(s))
             if iv >= 7: return "solide (>= 7)"
             if iv >= 5: return "correct (5-6)"
             if iv >= 4: return "limite (4)"
             return "fragile (<= 3)"
-        except Exception: return "indetermine"
+        except Exception: return "indéterminé"
 
     text = (
         f"Le Piotroski F-Score évalue la solidité financière d'une entreprise sur "
@@ -2399,8 +2399,8 @@ def _section_piotroski_detail(story, m_a, m_b, tkr_a, tkr_b):
         f"-- Levier & Liquidité (3 critères) : réduction du ratio d'endettement, "
         f"amélioration du ratio de liquidité courante, et absence de dilution actionnariale. "
         f"Ces critères signalent la robustesse bilancielle et la discipline financière. "
-        f"-- Efficacite opérationnelle (2 critères) : amélioration de la marge brute "
-        f"et de la rotation des actifs, traduisant une meilleure productivite industrielle. "
+        f"-- Efficacité opérationnelle (2 critères) : amélioration de la marge brute "
+        f"et de la rotation des actifs, traduisant une meilleure productivité industrielle. "
         f"Un score >= 7 distingue les entreprises financierement saines des cas a risque (<= 3)."
     )
     def _pio_cell(v):
@@ -2431,7 +2431,7 @@ def _section_piotroski_detail(story, m_a, m_b, tkr_a, tkr_b):
         ("Delta Levier (réduction)",m_a.get("pio_delta_leverage"),      m_b.get("pio_delta_leverage")),
         ("Delta Liquidité (hausse)",m_a.get("pio_delta_liquidity"),     m_b.get("pio_delta_liquidity")),
         ("Pas de dilution",        m_a.get("pio_no_dilution"),          m_b.get("pio_no_dilution")),
-        ("Efficacite Opérationnelle", None, None),
+        ("Efficacité Opérationnelle", None, None),
         ("Delta Marge Brute",      m_a.get("pio_delta_gross_margin"),   m_b.get("pio_delta_gross_margin")),
         ("Delta Rotation Actif",   m_a.get("pio_delta_asset_turnover"), m_b.get("pio_delta_asset_turnover")),
     ]
