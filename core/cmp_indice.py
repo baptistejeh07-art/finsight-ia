@@ -427,6 +427,10 @@ def build_cmp_indice_data(
         )
         for t in top5_a_raw
     ]
+    # Bug B15 audit 27/04 : fallback sur hardcoded si tickers_data_a vide
+    # (DAX/FTSE/STOXX peu fournis par yfinance free tier).
+    if not top5_a:
+        top5_a = _TOP5_HARDCODED.get(universe_a, [])
 
     # Top 5 B (hardcoded)
     top5_b = _TOP5_HARDCODED.get(universe_b, [])
