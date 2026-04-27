@@ -994,9 +994,12 @@ def extract_metrics(state: dict, supp: dict) -> dict:
         if td_abs is not None and nd_abs is not None:
             cash_abs = float(td_abs) - float(nd_abs)
         m["cash"] = _to_billions(cash_abs) if cash_abs is not None else None
-        # P/FCF = market_cap / FCF (cohérent : tous deux en milliards)
-        if mc_raw and m["free_cash_flow"] and float(m["free_cash_flow"]) > 0:
-            m["p_fcf"] = round(float(mc_raw) / float(m["free_cash_flow"]), 1)
+        # P/FCF = market_cap / FCF — les deux DOIVENT être dans la même unité.
+        # Bug B9 audit 27/04 : après normalisation FCF→milliards (B2 fix), le calc
+        # mélangeait mc_raw (millions) avec FCF (milliards) → P/FCF=1005816x absurde.
+        # Fix : utiliser fcf_abs original (millions) pour rester cohérent avec mc_raw.
+        if mc_raw and fcf_abs and float(fcf_abs) > 0:
+            m["p_fcf"] = round(float(mc_raw) / float(fcf_abs), 1)
         else:
             m["p_fcf"] = None
     except Exception:
