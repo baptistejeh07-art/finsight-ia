@@ -31,28 +31,39 @@ def supabase_creds() -> tuple[str, str]:
     return url, key
 
 
-def _get_jwt_secret() -> Optional[str]:
-    """Retourne le secret JWT Supabase pour vérification HS256.
+_JWT_WARNED = False
+_JWKS_CLIENT = None
 
-    Recherche dans SUPABASE_JWT_SECRET (officiel) ou JWT_SECRET (alias).
-    Si absent : warn + retourne None (tombe en mode dégradé verify_signature=False
-    avec log warn fort, le temps de l'ajout en env Railway).
+
+def _get_jwks_client():
+    """Lazy init JWKS client (cache 1h auto). Supabase migre vers ES256
+    (ECC P-256) JWT Signing Keys avec endpoint JWKS public. On utilise la
+    clé publique du `kid` dans le header JWT pour vérifier.
     """
-    return (os.getenv("SUPABASE_JWT_SECRET")
-            or os.getenv("JWT_SECRET")
-            or None)
-
-
-_JWT_SECRET_WARNED = False
+    global _JWKS_CLIENT
+    if _JWKS_CLIENT is not None:
+        return _JWKS_CLIENT
+    supabase_url = os.getenv("SUPABASE_URL", "").rstrip("/")
+    if not supabase_url:
+        return None
+    try:
+        from jwt import PyJWKClient
+        jwks_url = f"{supabase_url}/auth/v1/.well-known/jwks.json"
+        _JWKS_CLIENT = PyJWKClient(jwks_url, cache_keys=True, lifespan=3600)
+        return _JWKS_CLIENT
+    except Exception as e:
+        log.warning(f"[auth] JWKS init failed: {e}")
+        return None
 
 
 def get_current_user(authorization: Annotated[Optional[str], Header()] = None) -> Optional[dict]:
-    """Valide le JWT Supabase avec vérification HS256.
+    """Valide le JWT Supabase via JWKS (ES256/ECC P-256).
 
     Audit secu 27/04/2026 — fix P0 #B1 : vérif signature obligatoire pour
-    empêcher les forge JWT (n'importe qui se faisait passer pour admin).
-    Le SUPABASE_JWT_SECRET doit être en env Railway (Settings > API >
-    JWT Settings sur Supabase dashboard).
+    empêcher les forge JWT. Supabase utilise depuis 2024 des JWT Signing
+    Keys ES256 (ECC P-256) avec endpoint JWKS public. La clé publique est
+    récupérée et cachée 1h. Pour les anciennes installations sur secret
+    HS256, set FINSIGHT_JWT_LEGACY_SECRET en env Railway.
     """
     if not authorization or not authorization.startswith("Bearer "):
         return None
@@ -61,31 +72,52 @@ def get_current_user(authorization: Annotated[Optional[str], Header()] = None) -
         return None
     try:
         import jwt
-        secret = _get_jwt_secret()
-        if not secret:
-            global _JWT_SECRET_WARNED
-            if not _JWT_SECRET_WARNED:
-                log.error(
-                    "[auth] SUPABASE_JWT_SECRET MANQUANT — JWT non vérifié, "
-                    "FAILLE SÉCURITÉ. Ajouter en env Railway."
-                )
-                _JWT_SECRET_WARNED = True
-            # Mode dégradé : decode sans signature mais log chaque appel
-            payload = jwt.decode(token, options={"verify_signature": False})
-        else:
-            # Mode sécurisé : signature vérifiée + audience standard Supabase
+        # 1. Tenter vérif ES256 via JWKS (Supabase moderne)
+        jwks_client = _get_jwks_client()
+        if jwks_client is not None:
             try:
+                signing_key = jwks_client.get_signing_key_from_jwt(token)
                 payload = jwt.decode(
-                    token, secret, algorithms=["HS256"],
+                    token, signing_key.key,
+                    algorithms=["ES256", "RS256"],
                     audience="authenticated",
                 )
-            except Exception as e_v:
-                # Fallback : Supabase peut utiliser un autre audience selon
-                # config — retry sans audience strict mais signature toujours
-                # vérifiée.
-                log.debug(f"[auth] audience mismatch, retry without: {e_v}")
-                payload = jwt.decode(token, secret, algorithms=["HS256"],
-                                     options={"verify_aud": False})
+                return {
+                    "id": payload.get("sub"),
+                    "email": payload.get("email"),
+                    "role": payload.get("role", "authenticated"),
+                    "exp": payload.get("exp"),
+                }
+            except Exception as e_jwks:
+                # Token signé avec ancien HS256 → fallback secret
+                log.debug(f"[auth] JWKS verify failed, try legacy: {e_jwks}")
+
+        # 2. Fallback HS256 (legacy projects pre-2024)
+        legacy_secret = (os.getenv("FINSIGHT_JWT_LEGACY_SECRET")
+                         or os.getenv("SUPABASE_JWT_SECRET")
+                         or os.getenv("JWT_SECRET"))
+        if legacy_secret:
+            payload = jwt.decode(
+                token, legacy_secret, algorithms=["HS256"],
+                options={"verify_aud": False},
+            )
+            return {
+                "id": payload.get("sub"),
+                "email": payload.get("email"),
+                "role": payload.get("role", "authenticated"),
+                "exp": payload.get("exp"),
+            }
+
+        # 3. Mode dégradé final : pas de vérif (warn fort)
+        global _JWT_WARNED
+        if not _JWT_WARNED:
+            log.error(
+                "[auth] Aucun moyen de vérifier le JWT (JWKS init failed + "
+                "no FINSIGHT_JWT_LEGACY_SECRET). FAILLE SÉCURITÉ. "
+                "Vérifier SUPABASE_URL en env Railway."
+            )
+            _JWT_WARNED = True
+        payload = jwt.decode(token, options={"verify_signature": False})
         return {
             "id": payload.get("sub"),
             "email": payload.get("email"),
