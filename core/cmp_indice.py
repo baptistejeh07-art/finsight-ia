@@ -394,6 +394,11 @@ def build_cmp_indice_data(
     sector_weights_a = {k: round(v / total_a * 100, 1)
                         for k, v in sector_weights_a.items()
                         if k != "Autre"}
+    # Bug B13 audit 27/04 : si tickers_data_a vide (DAX/FTSE/STOXX peu fournis
+    # par yfinance), fallback sur poids sectoriels approximatifs comme pour B.
+    # Sinon le chart Composition Sectorielle n'affiche que B.
+    if not sector_weights_a:
+        sector_weights_a = _SECTOR_WEIGHTS_APPROX.get(universe_a, {})
 
     # Composition sectorielle B (approximation depuis poids connus)
     sector_weights_b = _SECTOR_WEIGHTS_APPROX.get(universe_b, {})
