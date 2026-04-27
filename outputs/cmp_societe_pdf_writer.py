@@ -279,22 +279,17 @@ def _frx(v):
 def _frm(v, cur="$"):
     """Format market cap / EV / FCF / Trésorerie. Sortie en MILLIARDS.
 
-    Bug B2 audit 27/04 : pour FCF NVDA passé en millions (v=71508), les seuils
-    legacy (>1e12 raw, >1e6 millions) ne capturaient pas cette plage et
-    affichaient "71 508 Mds$" au lieu de "71,5 Mds$". Ajout d'un seuil
-    intermédiaire : aucun titre coté n'a plus de 5000 Mds$ de market cap
-    (NVDA ~3000 Mds$ max), donc v in [5000, 1e6] = millions garantis.
+    Convention : la valeur passée DOIT être en milliards. Les normalizations
+    millions→milliards se font à la source (extract_metrics dans cmp_xlsx).
+    Cette fonction garde une détection robuste pour valeurs raw >1e12 (yfinance
+    direct) ou millions >1e6 (cas très rares non normalisés).
     """
     if v is None: return "\u2014"
     try:
         v = float(v)
-        # Detection robuste d'échelle :
-        # - > 1e12 = raw USD (yfinance direct) → /1e9 pour milliards
-        # - > 5000 = millions (aucune cap > 5000 Mds$) → /1000 pour milliards
-        # - sinon = déjà en milliards
         if abs(v) > 1_000_000_000_000:
             v = v / 1_000_000_000  # raw -> milliards
-        elif abs(v) > 5_000:
+        elif abs(v) > 1_000_000:
             v = v / 1_000          # millions -> milliards
         # Maintenant v est en milliards
         if cur == "EUR":

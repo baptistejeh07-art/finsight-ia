@@ -970,21 +970,33 @@ def extract_metrics(state: dict, supp: dict) -> dict:
         m["target_price"] = None
 
     # FCF absolu, Net Debt absolu, Cash approx, P/FCF
+    # Bug B2 audit 27/04/2026 : yfinance retourne fcf/net_debt/total_debt en
+    # MILLIONS USD, mais market_cap est en MILLIARDS. Le formatter _frm s'attend
+    # à du milliards uniformément. On normalise tout à milliards à la source.
     try:
         fcf_abs  = _safe(yr, "fcf")
         nd_abs   = _safe(yr, "net_debt")
         td_abs   = _safe(yr, "total_debt")
         mc_raw   = _safe(yr, "market_cap")
-        m["free_cash_flow"] = fcf_abs
-        m["net_debt"]       = nd_abs
-        # Cash = total_debt - net_debt (approx; positif si net cash)
+
+        def _to_billions(v):
+            """Convertit valeur en millions vers milliards. None → None."""
+            if v is None:
+                return None
+            try:
+                return float(v) / 1000.0
+            except Exception:
+                return None
+
+        m["free_cash_flow"] = _to_billions(fcf_abs)
+        m["net_debt"]       = _to_billions(nd_abs)
+        cash_abs = None
         if td_abs is not None and nd_abs is not None:
-            m["cash"] = round(float(td_abs) - float(nd_abs), 1)
-        else:
-            m["cash"] = None
-        # P/FCF = market_cap / FCF
-        if mc_raw and fcf_abs and float(fcf_abs) > 0:
-            m["p_fcf"] = round(float(mc_raw) / float(fcf_abs), 1)
+            cash_abs = float(td_abs) - float(nd_abs)
+        m["cash"] = _to_billions(cash_abs) if cash_abs is not None else None
+        # P/FCF = market_cap / FCF (cohérent : tous deux en milliards)
+        if mc_raw and m["free_cash_flow"] and float(m["free_cash_flow"]) > 0:
+            m["p_fcf"] = round(float(mc_raw) / float(m["free_cash_flow"]), 1)
         else:
             m["p_fcf"] = None
     except Exception:

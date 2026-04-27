@@ -116,9 +116,8 @@ def _frx(v) -> str:
 def _frm(v, cur_sym: str = "$") -> str:
     """Format market cap / FCF / Trésorerie. Sortie en MILLIARDS.
 
-    Bug B2 audit 27/04 : seuil 1e6 ne capturait pas v=71508 (millions) — affichait
-    "71 508 Mds$" au lieu de "71,5 Mds$". Seuil baissé à 5000 (aucune cap > 5000
-    Mds$, NVDA ~3000 max).
+    Convention : la valeur passée DOIT être en milliards. Les normalizations
+    millions→milliards se font à la source dans extract_metrics (cmp_xlsx).
     """
     if v is None:
         return "\u2014"
@@ -126,7 +125,7 @@ def _frm(v, cur_sym: str = "$") -> str:
         v = float(v)
         if abs(v) > 1_000_000_000_000:
             v = v / 1_000_000_000  # raw -> Mds
-        elif abs(v) > 5_000:
+        elif abs(v) > 1_000_000:
             v = v / 1_000          # millions -> Mds
         if cur_sym == "EUR":
             sym_big, sym_small = "Md\u20ac", "M\u20ac"
