@@ -41,11 +41,9 @@ const UNIVERS = [
   "Mondial",
   "S&P 500",
   "CAC 40",
-  "DAX",
+  "DAX 40",
   "FTSE 100",
-  "Nasdaq 100",
   "Euro Stoxx 50",
-  "Nikkei 225",
 ];
 
 const QUICK_PAIRS: Array<{ sa: string; ua: string; sb: string; ub: string; label: string }> = [

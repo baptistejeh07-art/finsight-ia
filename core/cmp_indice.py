@@ -24,16 +24,24 @@ log = logging.getLogger(__name__)
 
 
 # Liste canonique des indices comparables : (display_name, yf_symbol, currency)
+# NIKKEI225 / NASDAQ100 / DOWJONES retirés temporairement (bug #100, 27/04/2026) :
+# le pipeline `_INDICE_META` (cli_analyze.py:1716) ne les supporte pas, fallback
+# silencieux sur S&P 500 → faux rapport. Ré-ajouter quand `_INDICE_META` +
+# `_SECTOR_TICKERS` couvriront NASDAQ/Dow (USD, ~3-4h) puis Nikkei (JPY, ~1-2j).
 INDICE_CMP_OPTIONS: dict[str, tuple[str, str, str]] = {
     "CAC40":      ("CAC 40",        "^FCHI",     "EUR"),
     "SP500":      ("S&P 500",       "^GSPC",     "USD"),
     "DAX40":      ("DAX 40",        "^GDAXI",    "EUR"),
     "FTSE100":    ("FTSE 100",      "^FTSE",     "GBP"),
     "STOXX50":    ("Euro Stoxx 50", "^STOXX50E", "EUR"),
-    "NIKKEI225":  ("Nikkei 225",    "^N225",     "JPY"),
-    "NASDAQ100":  ("NASDAQ 100",    "^NDX",      "USD"),
-    "DOWJONES":   ("Dow Jones",     "^DJI",      "USD"),
 }
+
+# Indices entièrement supportés par le pipeline d'analyse (display names + codes
+# courts). Source de vérité pour la whitelist backend / frontend / Streamlit.
+INDICE_SUPPORTED_NAMES: frozenset[str] = frozenset(
+    name for (name, *_rest) in INDICE_CMP_OPTIONS.values()
+)
+INDICE_SUPPORTED_CODES: frozenset[str] = frozenset(INDICE_CMP_OPTIONS.keys())
 
 _MOIS_FR = {
     1: "janvier", 2: "fevrier", 3: "mars", 4: "avril", 5: "mai", 6: "juin",

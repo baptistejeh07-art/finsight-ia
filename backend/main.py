@@ -993,12 +993,29 @@ async def analyze_secteur(
     return _sync_response("analyze/secteur", _do_secteur, req.secteur, req.univers, lang, ccy)
 
 
+def _ensure_indice_supported(name: str) -> None:
+    """Garde-fou bug #100 : refuse les indices non supportés par `_INDICE_META`.
+
+    Sans ça, le pipeline tombe en silence sur S&P 500 et produit un faux
+    rapport (cf memory/known_error_indices_non_supportes.md).
+    """
+    from core.cmp_indice import INDICE_SUPPORTED_NAMES, INDICE_SUPPORTED_CODES
+    if name in INDICE_SUPPORTED_NAMES or name in INDICE_SUPPORTED_CODES:
+        return
+    raise HTTPException(
+        400,
+        f"Indice non supporté : '{name}'. "
+        f"Disponibles : {', '.join(sorted(INDICE_SUPPORTED_NAMES))}.",
+    )
+
+
 @app.post("/analyze/indice", response_model=AnalyseResponse)
 async def analyze_indice(
     req: IndiceRequest, request: Request,
     _user: Annotated[dict, Depends(require_not_banned)] = None,
 ):
     """⚠️ Bloquant 5-8 min — prefer /jobs/analyze/indice."""
+    _ensure_indice_supported(req.indice)
     lang, ccy = _user_locale(request)
     return _sync_response("analyze/indice", _do_indice, req.indice, lang, ccy)
 
@@ -1028,6 +1045,8 @@ async def cmp_indice(
     _user: Annotated[dict, Depends(require_not_banned)] = None,
 ):
     """Comparaison 2 indices (synchrone). Prefere /jobs/cmp/indice en prod."""
+    _ensure_indice_supported(req.indice_a)
+    _ensure_indice_supported(req.indice_b)
     return _sync_response("cmp/indice", _do_cmp_indice, req.indice_a, req.indice_b)
 
 
@@ -1144,6 +1163,7 @@ async def submit_indice(
     req: IndiceRequest,
     user: Annotated[dict, Depends(require_not_banned)] = None,
 ):
+    _ensure_indice_supported(req.indice)
     job_id = jobstore.submit(
         "analyze/indice", _do_indice, req.indice,
         user_id=(user or {}).get("id"), label=req.indice,
@@ -1199,6 +1219,8 @@ async def submit_cmp_indice(
     req: CmpIndiceRequest,
     user: Annotated[dict, Depends(require_not_banned)] = None,
 ):
+    _ensure_indice_supported(req.indice_a)
+    _ensure_indice_supported(req.indice_b)
     from core.cmp_indice import INDICE_CMP_OPTIONS
     name_a = INDICE_CMP_OPTIONS.get(req.indice_a, (req.indice_a,))[0]
     name_b = INDICE_CMP_OPTIONS.get(req.indice_b, (req.indice_b,))[0]

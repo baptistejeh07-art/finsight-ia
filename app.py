@@ -3711,15 +3711,15 @@ def render_screening_running() -> None:
 # ---------------------------------------------------------------------------
 
 # Indices disponibles pour la comparaison (key -> (display_name, yf_ticker, currency))
+# NIKKEI / NASDAQ / DOW retirés (bug #100, 27/04/2026) — pipeline _INDICE_META
+# ne les supporte pas, fallback silencieux sur S&P 500. Cf
+# memory/known_error_indices_non_supportes.md.
 _INDICE_CMP_OPTIONS = {
     "CAC40":      ("CAC 40",        "^FCHI",     "EUR"),
     "SP500":      ("S&P 500",       "^GSPC",     "USD"),
     "DAX40":      ("DAX 40",        "^GDAXI",    "EUR"),
     "FTSE100":    ("FTSE 100",      "^FTSE",     "GBP"),
     "STOXX50":    ("Euro Stoxx 50", "^STOXX50E", "EUR"),
-    "NIKKEI225":  ("Nikkei 225",    "^N225",     "JPY"),
-    "NASDAQ100":  ("NASDAQ 100",    "^NDX",      "USD"),
-    "DOWJONES":   ("Dow Jones",     "^DJI",      "USD"),
 }
 
 

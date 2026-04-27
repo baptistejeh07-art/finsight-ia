@@ -12,19 +12,16 @@ import toast from "react-hot-toast";
 const INDICES: Array<{ code: string; name: string; currency: string }> = [
   { code: "CAC40",     name: "CAC 40",        currency: "EUR" },
   { code: "SP500",     name: "S&P 500",       currency: "USD" },
-  { code: "NASDAQ100", name: "NASDAQ 100",    currency: "USD" },
-  { code: "DOWJONES",  name: "Dow Jones",     currency: "USD" },
   { code: "DAX40",     name: "DAX 40",        currency: "EUR" },
   { code: "FTSE100",   name: "FTSE 100",      currency: "GBP" },
   { code: "STOXX50",   name: "Euro Stoxx 50", currency: "EUR" },
-  { code: "NIKKEI225", name: "Nikkei 225",    currency: "JPY" },
 ];
 
 const QUICK_PAIRS: Array<{ a: string; b: string; label: string }> = [
   { a: "CAC40",     b: "SP500",     label: "CAC 40 vs S&P 500" },
-  { a: "SP500",     b: "NASDAQ100", label: "S&P 500 vs NASDAQ 100" },
   { a: "DAX40",     b: "CAC40",     label: "DAX 40 vs CAC 40" },
   { a: "FTSE100",   b: "STOXX50",   label: "FTSE 100 vs Euro Stoxx 50" },
+  { a: "SP500",     b: "STOXX50",   label: "S&P 500 vs Euro Stoxx 50" },
 ];
 
 export default function ComparatifIndicePage() {
