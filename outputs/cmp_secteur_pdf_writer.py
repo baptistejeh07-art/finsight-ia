@@ -927,7 +927,7 @@ def _build_story(D: dict) -> list:
             f"{sector_a} a {_na(sa.get('s_gro'), fmt=lambda x: f'{x:.1f}')}/25 "
             f"contre {_na(sb.get('s_gro'), fmt=lambda x: f'{x:.1f}')}/25 pour {sector_b}. "
             f"Le profil Quality+Momentum indique "
-            f"{'un avantage structurel ' + _leader + ' sur la création de valeur a long terme.' if _score_diff > 10 else 'des secteurs proches en qualité, la difference portant principalement sur le momentum de marché.'}"
+            f"{'un avantage structurel ' + _leader + ' sur la création de valeur a long terme.' if _score_diff > 10 else 'des secteurs proches en qualité, la différence portant principalement sur le momentum de marché.'}"
         )
         radar_text_cell = [
             Paragraph("Profil de Score FinSight", S_SSEC),
@@ -1334,7 +1334,7 @@ def _build_story(D: dict) -> list:
         ("Caractère informatif et pédagogique",
          "Ce document est produit exclusivement a des fins d'information et de démonstration "
          "pédagogique. Il ne constitue en aucun cas un conseil en investissement, une recommandation "
-         "personnalisée d'achat ou de vente, une incitation a contracter ni une offre de souscription "
+         "personnalisée d'achat ou de vente, une incitation à contracter ni une offre de souscription "
          "a un produit financier au sens du Règlement Général de l'AMF. Toute décision d'investissement "
          "demeure de la seule responsabilité de l'utilisateur, qui doit consulter un conseiller en "
          "investissement financier (CIF) agréé avant toute opération."),
@@ -1344,7 +1344,7 @@ def _build_story(D: dict) -> list:
          "de ces données, qui peuvent présenter des erreurs, omissions ou retards de mise à jour. "
          "Les Médianes sectorielles sont calculées sur les sociétés du panel disposant de la donnée "
          "considérée, ce qui peut introduire un biais de sélection lorsque la couverture est partielle. "
-         "Les chiffres sont établis a la date de génération du rapport et ne reflètent pas les évolutions "
+         "Les chiffres sont établis à la date de génération du rapport et ne reflètent pas les évolutions "
          "ultérieures du marché ou des publications corporate."),
         ("Méthodologie de scoring FinSight (0-100)",
          "Le Score FinSight est un indicateur propriétaire agrégeant 4 dimensions également pondérées "
@@ -1369,7 +1369,7 @@ def _build_story(D: dict) -> list:
          "due diligence spécifique, expertise sectorielle approfondie, rencontre avec le management, "
          "audit des comptes ou vérification croisée n'est réalisée. Les analyses présentées sont "
          "générées automatiquement sans validation manuelle. Les modèles peuvent contenir des biais, "
-         "erreurs de specification ou simplifications excessives. FinSight IA et ses auteurs déclinent "
+         "erreurs de spécification ou simplifications excessives. FinSight IA et ses auteurs déclinent "
          "toute responsabilité quant aux pertes ou préjudices découlant de l'utilisation de ce document."),
         ("Risques d'investissement",
          "Tout investissement en valeurs mobilières comporte un risque de perte partielle ou totale "
@@ -1377,14 +1377,14 @@ def _build_story(D: dict) -> list:
          "performances futures. Les conditions de marché, le contexte macroéconomique, les décisions "
          "des banques centrales, les décisions réglementaires et les événements géopolitiques peuvent "
          "evoluer rapidement et invalider les signaux présentés. La diversification, un horizon "
-         "d'investissement adapte au profil de risque, et une revue régulière des positions sont "
+         "d'investissement adapté au profil de risque, et une revue régulière des positions sont "
          "fortement recommandés."),
         ("Confidentialité et propriété intellectuelle",
          "Ce document est destiné à un usage privé et confidentiel. Sa reproduction, distribution, "
-         "publication ou diffusion, meme partielle, est strictement interdite sans autorisation écrite "
+         "publication ou diffusion, même partielle, est strictement interdite sans autorisation écrite "
          "expresse de FinSight IA. Le scoring FinSight, la Méthodologie de calcul, les visuels et les "
          "textes analytiques sont la propriété intellectuelle exclusive de FinSight IA. Toute "
-         "exploitation commerciale est prohibee. Ce document ne doit pas être utilisé comme base "
+         "exploitation commerciale est prohibée. Ce document ne doit pas être utilisé comme base "
          "exclusive pour une décision d'investissement."),
     ]
     for title, text in disclaimers:
