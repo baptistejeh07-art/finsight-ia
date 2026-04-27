@@ -1238,7 +1238,7 @@ def _build_story(data: dict) -> list:
         f"des actions plutôt que des obligations souveraines (proxy taux 10 ans local). Un ERP "
         f"élevé (>4 %) traduit une valorisation actions historiquement attractive : le surplus "
         f"de rendement compense largement le risque additionnel. Un ERP faible (<2 %) signale "
-        f"au contraire une prime insuffisanté, exposant à un re-rating baissier en cas de hausse "
+        f"au contraire une prime insuffisante, exposant à un re-rating baissier en cas de hausse "
         f"des taux ou de déception sur les bénéfices. La comparaison ERP entre deux indices "
         f"permet d'identifier le mieux rémunéré relativement au risque pris."
     )
