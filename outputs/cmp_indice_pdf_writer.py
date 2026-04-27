@@ -1317,11 +1317,11 @@ def _build_story(data: dict) -> list:
          Paragraph("Condition d'invalidation", S_TH_L),
          Paragraph("Horizon", S_TH_C)],
         [Paragraph("Macro", S_TD_B),
-         Paragraph(_safe("Récession confirmée (2 trimestrès consécutifs de PIB négatif) ou "
+         Paragraph(_safe("Récession confirmée (2 trimestres consécutifs de PIB négatif) ou "
                          "hausse rapide des taux 10 ans > 100 bps en 3 mois"), S_TD_L),
          Paragraph("3-6 mois", S_TD_C)],
         [Paragraph("Bénéfices", S_TD_B),
-         Paragraph(_safe("Révision baissière du consensus EPS > -10 % sur 2 trimestrès "
+         Paragraph(_safe("Révision baissière du consensus EPS > -10 % sur 2 trimestres "
                          "consécutifs sur l'indice gagnant"), S_TD_L),
          Paragraph("3-6 mois", S_TD_C)],
         [Paragraph("Réglementaire", S_TD_B),
@@ -1349,7 +1349,7 @@ def _build_story(data: dict) -> list:
         f"négative du momentum 52S. L'investisseur doit calibrer son seuil d'action en fonction "
         f"de son horizon (court terme : réaction rapide ; long terme : tolérance plus élevée). "
         f"Méthodologie de monitoring : revue mensuelle des seuils, alertes automatiques en cas "
-        f"de franchissement, réévaluation complète sur 2 trimestrès consécutifs de divergence."
+        f"de franchissement, réévaluation complète sur 2 trimestres consécutifs de divergence."
     )
     # winner pre-calcule pour le titre JPM (l'usage detaille est repete plus bas)
     _winner_inv = name_a if sc_a >= sc_b else name_b
