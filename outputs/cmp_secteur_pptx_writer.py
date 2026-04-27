@@ -1174,7 +1174,7 @@ def _s07b_capital_alloc(prs, D):
         f"{high_dy} offre le meilleur rendement dividende (med. {_fmt_pct(max(dy_a, dy_b))}), "
         f"ce qui reflète un modèle de maturité bilancielle et une politique de distribution établie. "
         f"{high_fy} Généré davantage de FCF ({_fmt_pct_direct(max(fy_a, fy_b))} de FCF Yield), "
-        f"signal d'une capacite de rémunération durable et d'une allocation du capital disciplinée. "
+        f"signal d'une capacité de rémunération durable et d'une allocation du capital disciplinée. "
         f"Un FCF Yield supérieur au dividende versé garantit la soutenabilite et la résilience "
         f"de la distribution meme en phase de contraction des marges. "
         f"L'arbitrage entre dividende versé et réinvestissement traduit la maturité du cycle "
@@ -1610,7 +1610,7 @@ def _build_weaknesses(s: dict, sector_name: str) -> list[str]:
     if (s.get("beta") or 1) > 1.3:
         weaks.append(
             f"Beta élevé ({s.get('beta', 0):.2f}) — Volatilité supérieure au marché. "
-            f"En phase de correction, le secteur sous-performe et amplifie les "
+            f"En phase de correction, le secteur sous-performe et amplifié les "
             f"drawdowns du portefeuille global. Gestion du risque renforcée requise."
         )
     if (s.get("mom") or 0) < -5:
@@ -1889,20 +1889,20 @@ def _s16_disclaimer(prs, D):
          "FinSight IA est un outil algorithmique de screening basé sur des données publiques (yfinance, "
          "Finnhub, FMP). Les analyses présentées sont générées automatiquement par des modèles statistiques "
          "et un LLM, sans validation manuelle, sans rencontre avec le management, sans audit des comptes. "
-         "Aucune due diligence spécifique, expertise sectorielle approfondie ou vérification croisee "
+         "Aucune due diligence spécifique, expertise sectorielle approfondie ou vérification croisée "
          "n'est réalisée. Les modèles peuvent contenir des biais, erreurs ou simplifications. "
-         "FinSight IA et ses auteurs déclinent toute responsabilité quant aux pertes ou prejudices "
+         "FinSight IA et ses auteurs déclinent toute responsabilité quant aux pertes ou préjudices "
          "découlant de l'utilisation de ce document."),
         ("Risques d'investissement",
          "Tout investissement en valeurs mobilières comporte un risque de perte partielle ou totale "
          "en capital. Les performances passees ne préjugent pas des performances futures. Les "
-         "conditions de marché, le contexte macroeconomique, les décisions réglementaires et les "
+         "conditions de marché, le contexte macroéconomique, les décisions réglementaires et les "
          "événements géopolitiques peuvent evoluer rapidement et invalider les signaux présentés. "
          "La diversification et un horizon d'investissement adapte sont recommandes."),
-        ("Confidentialité et propriete intellectuelle",
+        ("Confidentialité et propriété intellectuelle",
          "Ce document est destine a un usage prive et confidentiel. Sa reproduction, distribution, "
          "publication ou diffusion, meme partielle, est strictement interdite sans autorisation "
-         "ecrite expresse. Le scoring FinSight, la Méthodologie et les visuels sont la propriete "
+         "écrite expresse. Le scoring FinSight, la Méthodologie et les visuels sont la propriété "
          "intellectuelle exclusive de FinSight IA. Toute exploitation commerciale est prohibee. "
          "Ne pas utiliser comme base exclusive pour une décision d'investissement."),
     ]

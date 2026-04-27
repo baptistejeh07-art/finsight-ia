@@ -299,7 +299,7 @@ def _build_vue_ensemble(wb: Workbook, data: dict):
     _hdr(ws, 18, 5, "Note")
 
     risque_rows = [
-        ("Volatilite annualisee",
+        ("Volatilité annualisée",
          _pct_str(data.get("vol_1y_a")), _pct_str(data.get("vol_1y_b")),
          "Écart-type rendements quotidiens annualises"),
         ("Sharpe ratio (1 an)",

@@ -920,7 +920,7 @@ def _slide_08_top_holdings(prs, d: dict):
         concentration_read = (
             f"La concentration des principaux constituants détermine le risque idiosyncrasique "
             f"de l'indice. Les top 5 valeurs de {name_a} pèsent typiquement 20-30 % du total, "
-            f"contre 10-15 % pour {name_b}. Une concentration élevée amplifie l'impact des "
+            f"contre 10-15 % pour {name_b}. Une concentration élevée amplifié l'impact des "
             f"publications individuelles sur la performance de l'indice (effet 'magnificent 7' "
             f"sur le S&P 500). À l'inverse, une dispersion plus large offre une diversification "
             f"intrinsèque mais réduit la sensibilité aux leaders technologiques."
@@ -1637,7 +1637,7 @@ def _slide_19_theses(prs, d: dict):
     if not bear_text:
         bear_text = (
             f"{name_a} : exposition aux cycles macro et risques de re-rating en cas de hausse "
-            f"des taux. Concentration sur les leaders amplifie l'impact des publications individuelles. "
+            f"des taux. Concentration sur les leaders amplifié l'impact des publications individuelles. "
             f"{name_b} : sensibilité aux flux de capitaux et aux décisions des banques centrales. "
             f"Les deux indices sont corrélés sur les chocs systémiques (récession, crise de liquidité)."
         )

@@ -1062,7 +1062,7 @@ def _build_story(D: dict) -> list:
         f"un profil adapte aux portefeuilles orientes revenu ou aux mandats avec contrainte de distribution. "
         f"{_gen_higher_fy} enregistre un FCF Yield Médian plus élevé "
         f"({_pct(fy_a_p if _gen_higher_fy == sector_a else fy_b_p, sign=False)}), "
-        f"signalant une génération de trésorerie robuste et une capacite supérieure "
+        f"signalant une génération de trésorerie robuste et une capacité supérieure "
         f"de rémunération future de l'actionnaire (rachats ou hausses de dividendes). "
         f"En contexte de taux élevés, le FCF Yield est une metrique cle : "
         f"un secteur avec un FCF Yield supérieur au rendement obligataire 10 ans offre "
@@ -1089,9 +1089,9 @@ def _build_story(D: dict) -> list:
         f"{'Le momentum 52 semaines confirme cet avantage de croissance (' + _pct(fs.get('mom')) + ' vs ' + _pct(ss.get('mom')) + '), indiquant que le marché intègre déjà cette dynamique dans les prix.' if _mom_confirm else 'Toutefois, le momentum 52 semaines diverge (' + _pct(fs.get('mom')) + ' vs ' + _pct(ss.get('mom')) + ' pour ' + slower + '), signalant que le marché pourrait anticiper un ralentissement de ' + faster + ' ou une accélération de ' + slower + '.'} "
         f"Le Différentiel de beta ({_na(sa.get('beta'), fmt=lambda x: f'{x:.2f}')} pour {sector_a} "
         f"vs {_na(sb.get('beta'), fmt=lambda x: f'{x:.2f}')} pour {sector_b}) "
-        f"{'est marginal et n implique pas de biais cyclique significatif' if _beta_diff < 0.25 else 'positionné ' + _high_beta + ' comme plus sensible aux cycles macro — avantage en phase haussière, risque amplifie en retournement'}. "
+        f"{'est marginal et n implique pas de biais cyclique significatif' if _beta_diff < 0.25 else 'positionné ' + _high_beta + ' comme plus sensible aux cycles macro — avantage en phase haussière, risque amplifié en retournement'}. "
         f"En environnement de taux normalisés, la prime de croissance de {faster} "
-        f"{'justifié une surponderaton sous reserve de visibilité sur les marges futures' if (fs.get('em') or 0) >= (ss.get('em') or 0) else 'doit être pondéree par un écart de marge défavorable — risque de compression du multiple si la croissance decoit'}."
+        f"{'justifié une surpondération sous reserve de visibilité sur les marges futures' if (fs.get('em') or 0) >= (ss.get('em') or 0) else 'doit être pondérée par un écart de marge défavorable — risque de compression du multiple si la croissance déçoit'}."
     )
     _growth_text = D.get("llm", {}).get("growth_analysis") or _growth_fallback
     story.append(Paragraph(_xml(_growth_text), S_BODY))
@@ -1154,7 +1154,7 @@ def _build_story(D: dict) -> list:
             f"({_ret_l:+.1f}%) avec un écart de {_spread_p:.1f} pts. "
             f"<br/><br/><b>Contexte macro 12 mois</b> : la période est marquée par la stabilisation "
             f"des taux directeurs Fed (target 4,25-4,50%) après le cycle de hausse 2022-2024, "
-            f"un atterrissage en douceur de l'Économie américaine (chomage stable a 4,1%, "
+            f"un atterrissage en douceur de l'Économie américaine (chômage stable a 4,1%, "
             f"inflation core PCE en convergence vers 2,5%) et une rotation sectorielle au profit "
             f"des valeurs de qualité et de croissance visible. La BCE a entame son cycle de baisse "
             f"des taux mi-2024 (Dépôt 3,00%), soutenant le redemarrage de l'investissement européen. "
@@ -1332,7 +1332,7 @@ def _build_story(D: dict) -> list:
          "Finnhub et Financial Modeling Prep. FinSight IA ne garantit ni l'exhaustivite ni l'exactitude "
          "de ces données, qui peuvent présenter des erreurs, omissions ou retards de mise à jour. "
          "Les Médianes sectorielles sont calculées sur les sociétés du panel disposant de la donnée "
-         "consideree, ce qui peut introduire un biais de sélection lorsque la couverture est partielle. "
+         "considérée, ce qui peut introduire un biais de sélection lorsque la couverture est partielle. "
          "Les chiffres sont établis a la date de génération du rapport et ne reflètent pas les évolutions "
          "ulterieures du marché ou des publications corporate."),
         ("Méthodologie de scoring FinSight (0-100)",
@@ -1341,7 +1341,7 @@ def _build_story(D: dict) -> list:
          "EPS growth, révisions consensus), Quality (ROE, ROIC, Piotroski F-Score 0-9, Altman Z-Score, "
          "marges), Momentum (perf. 52 semaines, RSI relatif, révision consensus). Les signaux "
          "Surpondérer / Neutre / Sous-pondérer sont derives mécaniquement des seuils 65/45/0. "
-         "Indicateurs avances intégrés en arriere-plan : Beneish M-Score (detection manipulation "
+         "Indicateurs avancés intégrés en arrière-plan : Beneish M-Score (detection manipulation "
          "comptable, M < -2.22 = sain), Altman Z-Score (Z > 2.99 = zone safe, 1.81-2.99 = grise, "
          "< 1.81 = distress), Sloan accruals ratio (qualité des earnings)."),
         ("Limites et biais connus",
@@ -1356,23 +1356,23 @@ def _build_story(D: dict) -> list:
         ("Absence de due diligence",
          "FinSight IA est un outil algorithmique de screening basé sur des données publiques. Aucune "
          "due diligence spécifique, expertise sectorielle approfondie, rencontre avec le management, "
-         "audit des comptes ou vérification croisee n'est réalisée. Les analyses présentées sont "
+         "audit des comptes ou vérification croisée n'est réalisée. Les analyses présentées sont "
          "générées automatiquement sans validation manuelle. Les modèles peuvent contenir des biais, "
          "erreurs de specification ou simplifications excessives. FinSight IA et ses auteurs déclinent "
-         "toute responsabilité quant aux pertes ou prejudices découlant de l'utilisation de ce document."),
+         "toute responsabilité quant aux pertes ou préjudices découlant de l'utilisation de ce document."),
         ("Risques d'investissement",
          "Tout investissement en valeurs mobilières comporte un risque de perte partielle ou totale "
          "en capital. Les performances passees et les données historiques ne préjugent pas des "
-         "performances futures. Les conditions de marché, le contexte macroeconomique, les décisions "
+         "performances futures. Les conditions de marché, le contexte macroéconomique, les décisions "
          "des banques centrales, les décisions réglementaires et les événements géopolitiques peuvent "
          "evoluer rapidement et invalider les signaux présentés. La diversification, un horizon "
          "d'investissement adapte au profil de risque, et une revue régulière des positions sont "
-         "fortement recommandes."),
-        ("Confidentialité et propriete intellectuelle",
+         "fortement recommandés."),
+        ("Confidentialité et propriété intellectuelle",
          "Ce document est destine a un usage prive et confidentiel. Sa reproduction, distribution, "
-         "publication ou diffusion, meme partielle, est strictement interdite sans autorisation ecrite "
+         "publication ou diffusion, meme partielle, est strictement interdite sans autorisation écrite "
          "expresse de FinSight IA. Le scoring FinSight, la Méthodologie de calcul, les visuels et les "
-         "textes analytiques sont la propriete intellectuelle exclusive de FinSight IA. Toute "
+         "textes analytiques sont la propriété intellectuelle exclusive de FinSight IA. Toute "
          "exploitation commerciale est prohibee. Ce document ne doit pas être utilise comme base "
          "exclusive pour une décision d'investissement."),
     ]
@@ -1469,7 +1469,7 @@ def _build_risques_pdf(story, content, sector_name):
 
 
 def _build_risques_comparatifs_pdf(story, content_a, sector_a, content_b, sector_b):
-    """Risques et catalyseurs en analyse croisee comparative (pas chacun dans son coin)."""
+    """Risques et catalyseurs en analyse croisée comparative (pas chacun dans son coin)."""
     cats_a  = content_a.get("catalyseurs", [])[:3]
     cats_b  = content_b.get("catalyseurs", [])[:3]
     risks_a = content_a.get("risques", [])[:3]
@@ -1538,8 +1538,8 @@ def _build_risques_comparatifs_pdf(story, content_a, sector_a, content_b, sector
     story.append(rt)
     story.append(Spacer(1, 4 * mm))
 
-    # Analyse croisee des implications — version compacte (1 paragraphe par secteur)
-    story.append(Paragraph("Analyse croisee des implications", S_SSEC))
+    # Analyse croisée des implications — version compacte (1 paragraphe par secteur)
+    story.append(Paragraph("Analyse croisée des implications", S_SSEC))
     story.append(Spacer(1, 1 * mm))
 
     if risks_a:
