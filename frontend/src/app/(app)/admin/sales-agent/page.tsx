@@ -106,15 +106,25 @@ export default function SalesAgentPage() {
 
   const handleQualifyAll = async () => {
     setQualifying(true);
+    let totalQualified = 0;
+    let iterations = 0;
+    const MAX_ITER = 10;  // safety cap (50 prospects max)
     try {
-      const r = await apiPost<{ qualified: number }>(
-        "/admin/sales-agent/qualify-all?limit=30",
-        {}
-      );
-      alert(`${r.qualified} prospects qualifiés`);
-      await load();
+      // Boucle auto : chaque batch de 5 prospects (~35-50s LLM) jusqu'à
+      // ce qu'il n'en reste plus. Évite le timeout Vercel/browser à 60s.
+      while (iterations < MAX_ITER) {
+        const r = await apiPost<{ qualified: number; remaining: number }>(
+          "/admin/sales-agent/qualify-all?limit=5",
+          {}
+        );
+        totalQualified += r.qualified;
+        iterations += 1;
+        await load();  // refresh UI à chaque batch
+        if (!r.remaining || r.remaining === 0) break;
+      }
+      alert(`✅ Total : ${totalQualified} prospects qualifiés (${iterations} batch).`);
     } catch (err) {
-      alert(`Qualif échouée : ${err}`);
+      alert(`Qualif échouée après ${totalQualified} prospects : ${err}`);
     } finally {
       setQualifying(false);
     }

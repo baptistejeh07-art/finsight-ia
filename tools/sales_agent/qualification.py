@@ -51,6 +51,15 @@ _AXES = {
 _WEIGHTS = {"intent": 20, "persona": 25, "frequency": 15,
              "expertise": 20, "icp_fit": 20}
 
+# Pondération alternative quand pas de posts visibles (CSV import simple,
+# sans champ recent_posts). On réduit intent + frequency (impossibles à
+# évaluer sans contenu) et on redistribue vers persona/expertise/icp_fit.
+# Sinon le profil retail valide perd 35% (intent 20 + freq 15 = 0/35).
+# Audit 27/04 : Haiku scorait 6 prospects à 1-31 alors qu'ils sont
+# clairement retail finance OK — par penalisation injuste sur axes posts.
+_WEIGHTS_NO_POSTS = {"intent": 5, "persona": 30, "frequency": 5,
+                     "expertise": 30, "icp_fit": 30}
+
 
 @dataclass
 class QualificationResult:
@@ -79,16 +88,28 @@ def qualify_prospect(
         target_ticker que le prospect a mentionné dans ses posts (si trouvé).
     """
     posts_text = ""
-    if recent_posts:
+    has_posts = bool(recent_posts and len(recent_posts) > 0)
+    if has_posts:
         for p in recent_posts[:5]:
             d = p.get("date", "")
             t = (p.get("text") or "")[:600]
             posts_text += f"\n— [{d}] {t}\n"
 
+    # Pondération dynamique selon disponibilité posts
+    weights_active = _WEIGHTS if has_posts else _WEIGHTS_NO_POSTS
+
     rubric = "\n".join([
-        f"  • {axe.upper()} (poids {_WEIGHTS[axe]}/100) : {desc}"
+        f"  • {axe.upper()} (poids {weights_active[axe]}/100) : {desc}"
         for axe, desc in _AXES.items()
     ])
+
+    no_posts_hint = (
+        "\nIMPORTANT : aucun post visible dans le profil. NE MET PAS intent "
+        "et frequency à 0 ou très bas par défaut. Évalue à 40-60 (neutre) "
+        "sauf si la bio contient explicitement un signal négatif. Concentre "
+        "ton jugement sur persona/expertise/icp_fit (poids redistribués)."
+        if not has_posts else ""
+    )
 
     prompt = (
         f"Profil LinkedIn à scorer pour FinSight (analyse financière B2C, "
@@ -97,7 +118,8 @@ def qualify_prospect(
         f"Nom : {name}\n"
         f"Headline : {headline}\n"
         f"Bio : {(bio or '')[:800]}\n"
-        f"Posts récents :{posts_text or ' (aucun)'}\n\n"
+        f"Posts récents :{posts_text or ' (aucun)'}\n"
+        f"{no_posts_hint}\n"
         f"TÂCHE\n"
         f"Évalue ce prospect sur 5 axes, chacun de 0 à 100 :\n{rubric}\n\n"
         f"Identifie aussi un ticker boursier que ce prospect a mentionné "
@@ -123,11 +145,19 @@ def qualify_prospect(
         llm = LLMProvider(provider="groq", model="llama-3.3-70b-versatile")
         raw = llm.generate(prompt, system="JSON only.", max_tokens=600)
 
-    return _parse_qualification(raw)
+    return _parse_qualification(raw, weights=weights_active)
 
 
-def _parse_qualification(raw: str) -> QualificationResult:
-    """Parse la réponse JSON tolérante (markdown, préambule, etc.)."""
+def _parse_qualification(raw: str, weights: Optional[dict] = None) -> QualificationResult:
+    """Parse la réponse JSON tolérante (markdown, préambule, etc.).
+
+    Args:
+        raw : raw LLM JSON output
+        weights : pondérations à utiliser pour le score composite. Si None,
+                  fallback _WEIGHTS standard. Permet pondération dynamique
+                  selon contexte (avec/sans posts).
+    """
+    weights = weights or _WEIGHTS
     txt = (raw or "").strip()
     if txt.startswith("```"):
         txt = txt.split("```", 2)[1]
@@ -148,8 +178,8 @@ def _parse_qualification(raw: str) -> QualificationResult:
 
     breakdown = {axe: int(_clamp(data.get(axe, 0), 0, 100))
                  for axe in _AXES}
-    # Score pondéré
-    score = round(sum(breakdown[axe] * _WEIGHTS[axe] / 100
+    # Score pondéré — utilise les poids dynamiques (avec/sans posts)
+    score = round(sum(breakdown[axe] * weights[axe] / 100
                        for axe in _AXES))
     score = int(_clamp(score, 0, 100))
 

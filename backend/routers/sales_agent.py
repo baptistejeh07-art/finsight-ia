@@ -165,10 +165,18 @@ async def qualify_one(
 @router.post("/qualify-all")
 async def qualify_all(
     user: Annotated[dict, Depends(require_admin)],
-    limit: int = 30,
+    limit: int = 5,
 ):
     """Lance la qualification + personalization sur les prospects pas
-    encore scorés (score IS NULL). Cap à `limit` pour budget LLM."""
+    encore scorés (score IS NULL). Cap à `limit` pour budget LLM.
+
+    Audit 27/04 : default baisse de 30 -> 5 pour eviter timeout Vercel/
+    browser (60s max). Chaque prospect prend ~7-10s LLM (Haiku scoring +
+    Sonnet DM). 5 prospects = ~35-50s = OK. Le frontend doit boucler
+    automatiquement si reste des prospects (call /qualify-all en boucle).
+
+    Reponse contient `remaining` pour permettre au frontend de savoir
+    s'il faut ré-appeler."""
     import httpx
     import os
     from tools.sales_agent.tracking import _supabase_creds, _headers
@@ -192,7 +200,24 @@ async def qualify_all(
         except Exception as e:
             log.warning(f"[sales] qualify_all error on {p['id']} : {e}")
             results.append({"id": p["id"], "error": str(e)[:200]})
-    return {"ok": True, "qualified": len(results), "results": results}
+
+    # Compte combien restent à qualifier (pour que le frontend sache)
+    try:
+        r_count = httpx.get(
+            f"{surl}/rest/v1/sales_prospects",
+            headers={**_headers(skey), "Prefer": "count=exact"},
+            params={"qualification_score": "is.null", "limit": "1",
+                     "select": "id"},
+            timeout=5.0,
+        )
+        # Parse Content-Range header : "0-0/X"
+        cr = r_count.headers.get("content-range", "0-0/0")
+        remaining = int(cr.split("/")[-1]) if "/" in cr else 0
+    except Exception:
+        remaining = 0
+
+    return {"ok": True, "qualified": len(results), "results": results,
+              "remaining": remaining}
 
 
 # ─── Top today + status ────────────────────────────────────────────────
