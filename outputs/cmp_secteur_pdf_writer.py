@@ -633,14 +633,14 @@ def _generate_llm_texts(D: dict) -> dict:
             f"LONGUEURS (en MOTS, pas caractères) : min 65 mots par champ, sauf exec_summary (min 120 mots). "
             f"Compte les mots avant de rendre ta réponse. Inclure implications investissement.\n"
             f'{{\n'
-            f'  "exec_summary": "Synthèse executive 4-5 phrases : avantage comparatif fondamental, implication du spread de scoring, signal IA argumente, recommandation allocation et conditions d invalidation",\n'
-            f'  "valuation_analysis": "Analyse multiples 3-4 phrases : interprétation spread P/E et EV/EBITDA, ce que ce différentiel revele sur les anticipations de croissance, si la prime/décote est justifiée par les fondamentaux, implication pour l allocation",\n'
+            f'  "exec_summary": "Synthèse executive 4-5 phrases : avantage comparatif fondamental, implication du spread de scoring, signal IA argumenté, recommandation allocation et conditions d invalidation",\n'
+            f'  "valuation_analysis": "Analyse multiples 3-4 phrases : interprétation spread P/E et EV/EBITDA, ce que ce différentiel révèle sur les anticipations de croissance, si la prime/décote est justifiée par les fondamentaux, implication pour l allocation",\n'
             f'  "margins_analysis": "Analyse marges 3-4 phrases : quality gap opérationnel, drivers structurels de l écart de marge EBITDA, impact sur la création de valeur via ROE et ROIC, résilience en cycle baissier",\n'
             f'  "capital_alloc_analysis": "Capital allocation 3-4 phrases : politique de rémunération comparée (dividendes vs rachat vs réinvestissement), interprétation du FCF yield dans le contexte de taux, quel secteur offre la meilleure protection du capital, signal sur la maturité du cycle",\n'
             f'  "growth_analysis": "Analyse croissance 3-4 phrases : dynamique revenue comparée et moteurs sous-jacents, convergence ou divergence entre croissance organique et perf 52S, ce que le beta différentiel implique pour le risk-adjusted return, positionnément cyclique",\n'
             f'  "top_a_analysis": "Leaders {sector_a} 3-4 phrases : caractéristiques communes des meilleures sociétés, ce qui distingue les profils Surpondérer, dynamiques de création de valeur, implications pour la construction de portefeuille",\n'
-            f'  "top_b_analysis": "Leaders {sector_b} 3-4 phrases : profils value vs growth identifies, résilience des marges, opportunités d entree spécifiques, caractéristiques communes des meilleures sociétés du secteur",\n'
-            f'  "allocation_rec": "Recommandation 4-5 phrases : signal argumente pour chaque secteur, surponderations justifiées quantitativement, conditions macro favorables ou défavorables, horizon de temps et declencheurs de révision, risque principal de la Thèse"\n'
+            f'  "top_b_analysis": "Leaders {sector_b} 3-4 phrases : profils value vs growth identifiés, résilience des marges, opportunités d entree spécifiques, caractéristiques communes des meilleures sociétés du secteur",\n'
+            f'  "allocation_rec": "Recommandation 4-5 phrases : signal argumenté pour chaque secteur, surpondérations justifiées quantitativement, conditions macro favorables ou défavorables, horizon de temps et déclencheurs de révision, risque principal de la Thèse"\n'
             f'}}'
         )
         import json, re
@@ -909,7 +909,7 @@ def _build_story(D: dict) -> list:
         _trailer_s = sb if _leader == sector_a else sa
         _trailer = sector_b if _leader == sector_a else sector_a
         _radar_analysis = (
-            f"Le radar de scoring FinSight revele un avantage de {_score_diff} points "
+            f"Le radar de scoring FinSight révèle un avantage de {_score_diff} points "
             f"en faveur de {_leader} (score {_leader_s.get('score', 0)}/100 vs "
             f"{_trailer_s.get('score', 0)}/100 pour {_trailer}). "
             f"Sur la dimension Value, {sector_a if (sa.get('s_val') or 0) >= (sb.get('s_val') or 0) else sector_b} "
@@ -1156,10 +1156,10 @@ def _build_story(D: dict) -> list:
             f"({_ret_l:+.1f}%) avec un écart de {_spread_p:.1f} pts. "
             f"<br/><br/><b>Contexte macro 12 mois</b> : la période est marquée par la stabilisation "
             f"des taux directeurs Fed (target 4,25-4,50%) après le cycle de hausse 2022-2024, "
-            f"un atterrissage en douceur de l'Économie américaine (chômage stable a 4,1%, "
+            f"un atterrissage en douceur de l'économie américaine (chômage stable a 4,1%, "
             f"inflation core PCE en convergence vers 2,5%) et une rotation sectorielle au profit "
             f"des valeurs de qualité et de croissance visible. La BCE a entame son cycle de baisse "
-            f"des taux mi-2024 (Dépôt 3,00%), soutenant le redemarrage de l'investissement européen. "
+            f"des taux mi-2024 (Dépôt 3,00%), soutenant le redémarrage de l'investissement européen. "
             f"Le dollar reste fort vs euro (EUR/USD ~1,06), penalisant les revenus européens convertis. "
             f"<br/><br/><b>Événements marquants pour {_winner_p}</b> : surperformance soutenue par "
             f"des publications trimestrielles supérieures aux attentes consensus, des guidances "
@@ -1168,14 +1168,14 @@ def _build_story(D: dict) -> list:
             f"<br/><br/><b>Lecture relative</b> : le spread de {_spread_p:.1f} pts traduit "
             f"{'une divergence marquée qui justifié un positionnément différentiel net en allocation tactique' if _spread_p > 10 else ('une rotation modérée mais cohérente avec les fondamentaux' if _spread_p > 5 else 'une convergence quasi-neutre, invitant a privilegier la sélectivité intra-sectorielle Plutôt qu un biais directionnel')}. "
             f"<b>Catalyseurs 3-6 mois</b> : publications T1/T2, guidance annuelle, décisions Fed/BCE, "
-            f"évolutions réglementaires sectorielles, eventuels shocks géopolitiques. "
-            f"La zone ombragee entre les deux courbes illustre l'amplitude de la dispersion relative."
+            f"évolutions réglementaires sectorielles, éventuels chocs géopolitiques. "
+            f"La zone ombragée entre les deux courbes illustre l'amplitude de la dispersion relative."
         )
     else:
         _price_text = (
             "Les données de cours historiques sur 52 semaines n'ont pas pu être recuperees "
             "pour l'un ou l'autre secteur. L'analyse boursière comparative reste disponible "
-            "via les indicateurs de momentum intégrés dans la section precedente."
+            "via les indicateurs de momentum intégrés dans la section précédente."
         )
     story.append(Spacer(1, 3 * mm))
     story.append(Paragraph(_rich(_price_text), S_BODY))
@@ -1267,8 +1267,8 @@ def _build_story(D: dict) -> list:
     _winner_rec = sector_a if D["sig_a_lbl"] == "Surpondérer" else (sector_b if D["sig_b_lbl"] == "Surpondérer" else None)
     _rec_fallback = (
         f"{'Les deux secteurs affichent un signal ' + D['sig_a_lbl'] + ' identique selon le scoring FinSight.' if D['sig_a_lbl'] == D['sig_b_lbl'] else 'Le scoring FinSight Généré un signal divergent : ' + D['sig_a_lbl'] + ' pour ' + sector_a + ' (score ' + str(sa.get('score', 0)) + '/100) contre ' + D['sig_b_lbl'] + ' pour ' + sector_b + ' (score ' + str(sb.get('score', 0)) + '/100).'} "
-        f"{'En termes d allocation, Surpondérer ' + _winner_rec + ' dans un portefeuille diversifié présente un ratio risque/rendement favorable selon les metriques actuelles.' if _winner_rec else 'Un positionnément neutre sur les deux secteurs est justifié en attendant une meilleure visibilité sur les catalyseurs de re-rating.'} "
-        f"Les conditions favorables a une surponderans de {sector_a if (sa.get('score') or 0) >= (sb.get('score') or 0) else sector_b} "
+        f"{'En termes d allocation, Surpondérer ' + _winner_rec + ' dans un portefeuille diversifié présente un ratio risque/rendement favorable selon les métriques actuelles.' if _winner_rec else 'Un positionnément neutre sur les deux secteurs est justifié en attendant une meilleure visibilité sur les catalyseurs de re-rating.'} "
+        f"Les conditions favorables a une surpondérans de {sector_a if (sa.get('score') or 0) >= (sb.get('score') or 0) else sector_b} "
         f"incluent : stabilisation des taux directeurs, maintien des marges au-dessus de la Médiane historique, "
         f"et absence de choc réglementaire ou de compression de multiple liée au risque de taux. "
         f"En cas de détérioration macro (récession, crédit crunch), "
@@ -1287,22 +1287,22 @@ def _build_story(D: dict) -> list:
     _impl_text = (
         f"<b>Mise en oeuvre opérationnelle</b> : la traduction du signal en allocation portefeuille "
         f"dépend du mandat et de l'horizon de l'investisseur. Pour un portefeuille diversifié type "
-        f"60/40 ou 70/30, une surponderation tactique de {_winner_alloc} se traduit en pratique par "
+        f"60/40 ou 70/30, une surpondération tactique de {_winner_alloc} se traduit en pratique par "
         f"une exposition de +200 a +400 bps au-dessus du benchmark sectoriel "
-        f"(reperes : écart de score {_diff} pts = position size proportionnelle). Pour un portefeuille "
+        f"(repères : écart de score {_diff} pts = position size proportionnelle). Pour un portefeuille "
         f"thematique focalise, l'exposition peut atteindre 15-25% du portefeuille actions sur le secteur "
         f"préféré, sous reserve d'une diversification intra-sectorielle adéquate (5-10 positions minimum). "
         f"<br/><br/>"
         f"<b>Véhicules d'investissement</b> : ETF sectoriels passifs (XLK, XLV, XLF, etc. pour US ; "
         f"sectoral STOXX 600 pour Europe), fonds actifs avec mandat sectoriel explicite, ou panier de "
-        f"sélection bottom-up des leaders identifies dans la section Top Acteurs. Le choix entre "
+        f"sélection bottom-up des leaders identifiés dans la section Top Acteurs. Le choix entre "
         f"ETF passif et sélection active dépend de la dispersion intra-sectorielle observée : "
         f"plus la dispersion est élevée, plus la sélection active Généré de l'alpha. "
         f"<br/><br/>"
-        f"<b>Calibration risque</b> : la position doit être dimensionnee en fonction du beta Médian du "
+        f"<b>Calibration risque</b> : la position doit être dimensionnée en fonction du beta Médian du "
         f"secteur (beta {_winner_alloc} = {(sa.get('beta') or 1.0):.2f} vs {_loser_alloc} = "
         f"{(sb.get('beta') or 1.0):.2f}) et de la volatilité implicite du portefeuille global. "
-        f"Un stop-loss tactique peut être fixe a -10% sur le composite sectoriel pour proteger le capital "
+        f"Un stop-loss tactique peut être fixé à -10% sur le composite sectoriel pour protéger le capital "
         f"en cas de détérioration brutale des fondamentaux ou du sentiment. "
         f"<b>Rebalancement</b> : revue trimestrielle systematique après chaque saison de publications, "
         f"ajustement progressif si l'écart de score se compressé < 5 pts ou s'inverse."
@@ -1548,10 +1548,10 @@ def _build_risques_comparatifs_pdf(story, content_a, sector_a, content_b, sector
         _ra_top = risks_a[0]
         _ra_2nd = risks_a[1] if len(risks_a) > 1 else ("", "")
         impl_a = (
-            f"<b>{sector_a}</b> — Les deux risques majeurs identifies "
+            f"<b>{sector_a}</b> — Les deux risques majeurs identifiés "
             f"({_ra_top[0][:40]}, {_ra_2nd[0][:40] if _ra_2nd[0] else 'second axe'}) "
-            f"peuvent declencher une rotation vers {sector_b} en cas de divergence des "
-            f"fondamentaux, ou au contraire une contagion si le choc est d'origine macro-systemique."
+            f"peuvent déclencher une rotation vers {sector_b} en cas de divergence des "
+            f"fondamentaux, ou au contraire une contagion si le choc est d'origine macro-systémique."
         )
         story.append(Paragraph(_rich(impl_a), S_BODY))
         story.append(Spacer(1, 1 * mm))
@@ -1560,7 +1560,7 @@ def _build_risques_comparatifs_pdf(story, content_a, sector_a, content_b, sector
         _rb_top = risks_b[0]
         _rb_2nd = risks_b[1] if len(risks_b) > 1 else ("", "")
         impl_b = (
-            f"<b>{sector_b}</b> — Symetriquement, "
+            f"<b>{sector_b}</b> — Symétriquement, "
             f"{_rb_top[0][:40]}{(' et ' + _rb_2nd[0][:40]) if _rb_2nd[0] else ''} "
             f"impactent la pression concurrentielle sur {sector_a} selon le caractère cyclique "
             f"ou défensif du choc — a surveiller comme signal d'arbitrage sectoriel."
