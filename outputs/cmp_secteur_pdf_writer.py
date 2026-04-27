@@ -183,6 +183,11 @@ def _na(v, fmt=None, default="—"):
 
 
 def _pct(v, sign=True, dp=1):
+    """Format pourcentage en convention FR (virgule décimale).
+
+    Bug B11 audit 27/04 : avant utilisait '.' (US), incohérent avec le reste
+    du PDF en FR. Maintenant remplace '.' par ',' systématiquement.
+    """
     if v is None:
         return "—"
     try:
@@ -190,16 +195,17 @@ def _pct(v, sign=True, dp=1):
         if not math.isfinite(f):
             return "—"
         prefix = "+" if sign and f >= 0 else ""
-        return f"{prefix}{f:.{dp}f}%"
+        return f"{prefix}{f:.{dp}f}%".replace(".", ",")
     except (TypeError, ValueError):
         return "—"
 
 
 def _mult(v):
+    """Format multiple (e.g. P/E, EV/EBITDA) en convention FR."""
     if v is None:
         return "—"
     try:
-        return f"{float(v):.1f}x"
+        return f"{float(v):.1f}x".replace(".", ",")
     except (TypeError, ValueError):
         return "—"
 
@@ -779,13 +785,13 @@ def _build_story(D: dict) -> list:
                 return "—"
 
             _fred_rows_def = [
-                ("fed_funds_rate",      "Taux directeur Fed",       lambda v: f"{v:.2f} %"),
-                ("treasury_10y",        "Treasury 10 ans",          lambda v: f"{v:.2f} %"),
-                ("vix",                 "VIX (volatilité)",         lambda v: f"{v:.1f}"),
-                ("cpi_yoy",             "CPI glissement annuel",    lambda v: f"{v:+.1f} %"),
-                ("unemployment",        "Taux de chômage US",       lambda v: f"{v:.1f} %"),
-                ("credit_spread_baa",   "Spread crédit BAA",        lambda v: f"{v:.2f} %"),
-                ("yield_curve_spread",  "Courbe des taux (10Y-2Y)", lambda v: f"{v:+.2f} %"),
+                ("fed_funds_rate",      "Taux directeur Fed",       lambda v: f"{v:.2f} %".replace(".", ",")),
+                ("treasury_10y",        "Treasury 10 ans",          lambda v: f"{v:.2f} %".replace(".", ",")),
+                ("vix",                 "VIX (volatilité)",         lambda v: f"{v:.1f}".replace(".", ",")),
+                ("cpi_yoy",             "CPI glissement annuel",    lambda v: f"{v:+.1f} %".replace(".", ",")),
+                ("unemployment",        "Taux de chômage US",       lambda v: f"{v:.1f} %".replace(".", ",")),
+                ("credit_spread_baa",   "Spread crédit BAA",        lambda v: f"{v:.2f} %".replace(".", ",")),
+                ("yield_curve_spread",  "Courbe des taux (10Y-2Y)", lambda v: f"{v:+.2f} %".replace(".", ",")),
             ]
 
             _fred_header = [
@@ -885,11 +891,11 @@ def _build_story(D: dict) -> list:
          _avantage_cell(sa.get("fcfy"), sb.get("fcfy"), sector_a, sector_b),
          Paragraph(_pct(abs((sa.get("fcfy") or 0) - (sb.get("fcfy") or 0)), sign=False), S_TD_C)],
         [Paragraph("Beta Médian", S_TD_L),
-         Paragraph(f"{sa.get('beta', 1.0):.2f}" if sa.get("beta") else "—", S_TD_C),
-         Paragraph(f"{sb.get('beta', 1.0):.2f}" if sb.get("beta") else "—", S_TD_C),
+         Paragraph(f"{sa.get('beta', 1.0):.2f}".replace(".", ",") if sa.get("beta") else "—", S_TD_C),
+         Paragraph(f"{sb.get('beta', 1.0):.2f}".replace(".", ",") if sb.get("beta") else "—", S_TD_C),
          # Bug B10 : lower beta = moins risqué = avantage (pour défensif)
          _avantage_cell(sa.get("beta"), sb.get("beta"), sector_a, sector_b, higher_is_better=False),
-         Paragraph(f"{abs((sa.get('beta') or 1) - (sb.get('beta') or 1)):.2f}", S_TD_C)],
+         Paragraph(f"{abs((sa.get('beta') or 1) - (sb.get('beta') or 1)):.2f}".replace(".", ","), S_TD_C)],
         [Paragraph("Perf. 52S med.", S_TD_L),
          Paragraph(_pct(sa.get("mom")), S_TD_C),
          Paragraph(_pct(sb.get("mom")), S_TD_C),
