@@ -410,7 +410,7 @@ def _chart_momentum_pdf(sa, sb, label_a, label_b) -> bytes:
     revg_a = sa.get("revg", 0) or 0; revg_b = sb.get("revg", 0) or 0
     b1 = ax1.bar([label_a, label_b], [revg_a, revg_b], color=[_HEX_A, _HEX_B], alpha=0.9, width=0.5)
     ax1.axhline(0, color="black", linewidth=0.6)
-    ax1.set_title("Croissance Revenue medianne", fontsize=9, fontweight="bold")
+    ax1.set_title("Croissance Revenue médiane", fontsize=9, fontweight="bold")
     ax1.set_ylabel("%", fontsize=8, labelpad=8); ax1.spines["top"].set_visible(False); ax1.spines["right"].set_visible(False)
     ax1.yaxis.grid(True, linestyle="--", alpha=0.4); ax1.set_axisbelow(True)
     for bar in b1:
@@ -420,7 +420,7 @@ def _chart_momentum_pdf(sa, sb, label_a, label_b) -> bytes:
     mom_a = sa.get("mom", 0) or 0; mom_b = sb.get("mom", 0) or 0
     b2 = ax2.bar([label_a, label_b], [mom_a, mom_b], color=[_HEX_A, _HEX_B], alpha=0.9, width=0.5)
     ax2.axhline(0, color="black", linewidth=0.6)
-    ax2.set_title("Performance 52 semaines medianne", fontsize=9, fontweight="bold")
+    ax2.set_title("Performance 52 semaines médiane", fontsize=9, fontweight="bold")
     ax2.set_ylabel("%", fontsize=8, labelpad=8); ax2.spines["top"].set_visible(False); ax2.spines["right"].set_visible(False)
     ax2.yaxis.grid(True, linestyle="--", alpha=0.4); ax2.set_axisbelow(True)
     for bar in b2:
@@ -510,8 +510,8 @@ def _chart_price_52w_pdf(perf_a, perf_b, sector_a, sector_b) -> bytes:
     vals_a = combined["a"].values
     vals_b = combined["b"].values
 
-    ax.plot(dates, vals_a, color=_HEX_A, linewidth=2.2, label=sector_a[:14], zorder=3)
-    ax.plot(dates, vals_b, color=_HEX_B, linewidth=2.2, label=sector_b[:14], zorder=3)
+    ax.plot(dates, vals_a, color=_HEX_A, linewidth=2.2, label=sector_a[:20], zorder=3)
+    ax.plot(dates, vals_b, color=_HEX_B, linewidth=2.2, label=sector_b[:20], zorder=3)
 
     # Zone entre les deux courbes
     ax.fill_between(dates, vals_a, vals_b,
@@ -589,9 +589,9 @@ def _avantage_cell(val_a, val_b, sector_a, sector_b, higher_is_better=True):
         if fa == fb:
             return Paragraph("Egal", S_TD_C)
         if (fa > fb) == higher_is_better:
-            return Paragraph(sector_a[:10], S_TD_A)
+            return Paragraph(sector_a[:18], S_TD_A)
         else:
-            return Paragraph(sector_b[:10], S_TD_G)
+            return Paragraph(sector_b[:18], S_TD_G)
     except Exception:
         return Paragraph("—", S_TD_C)
 
@@ -747,7 +747,7 @@ def _build_story(D: dict) -> list:
         f"{'Le scoring FinSight avantage ' + sector_a + ' sur la dimension qualité et momentum.' if sa.get('score', 0) >= sb.get('score', 0) else 'Le scoring FinSight avantage ' + sector_b + ' sur la dimension fondamentale.'} "
         f"P/E Médian : {_mult(sa.get('pe'))} vs {_mult(sb.get('pe'))} — écart de valorisation reflétant des primes de croissance différenciées. "
         f"Allocation recommandee : Surpondérer {sector_a if D['sig_a_lbl'] == 'Surpondérer' else sector_b} en portefeuille diversifié, "
-        f"sous reserve de stabilisation des taux directeurs et d'absence de choc réglementaire majeur."
+        f"sous réserve de stabilisation des taux directeurs et d'absence de choc réglementaire majeur."
     )
     story.append(Paragraph(_xml(exec_text or _exec_fallback), S_BODY))
     story.append(Spacer(1, 4 * mm))
@@ -833,9 +833,9 @@ def _build_story(D: dict) -> list:
 
     cols = [52*mm, 30*mm, 30*mm, 30*mm, 30*mm]
     syn_data = [
-        [Paragraph("Metrique", S_TH_L),
-         Paragraph(sector_a[:14], S_TH_C),
-         Paragraph(sector_b[:14], S_TH_C),
+        [Paragraph("Métrique", S_TH_L),
+         Paragraph(sector_a[:20], S_TH_C),
+         Paragraph(sector_b[:20], S_TH_C),
          Paragraph("Avantage", S_TH_C),
          Paragraph("Diff.", S_TH_C)],
         [Paragraph("Score FinSight", S_TD_L),
@@ -901,7 +901,7 @@ def _build_story(D: dict) -> list:
 
     # Radar chart en 50/50 avec texte analytique a droite
     try:
-        radar_img = _chart_radar_pdf(sa, sb, sector_a[:12], sector_b[:12])
+        radar_img = _chart_radar_pdf(sa, sb, sector_a[:20], sector_b[:20])
         HALF = TABLE_W / 2
         _score_diff = abs((sa.get("score") or 0) - (sb.get("score") or 0))
         _leader = sector_a if (sa.get("score") or 0) >= (sb.get("score") or 0) else sector_b
@@ -950,19 +950,19 @@ def _build_story(D: dict) -> list:
     _pricier = sector_b if _cheaper == sector_a else sector_a
     _val_fallback = (
         f"{_cheaper} affiche un P/E Médian inférieur ({_mult(_cheaper_s.get('pe'))} vs "
-        f"{_mult(_pricier_s.get('pe'))} pour {_pricier}), ce qui ne signifie pas necessairement "
+        f"{_mult(_pricier_s.get('pe'))} pour {_pricier}), ce qui ne signifie pas nécessairement "
         f"une opportunité : la décote reflète souvent un profil de croissance plus modéré "
         f"ou un risque sectoriel plus élevé. L'EV/EBITDA confirme ou infirme cette lecture : "
         f"{sector_a} a {_mult(sa.get('ev_eb'))} vs {_mult(sb.get('ev_eb'))} pour {sector_b}. "
-        f"Un spread EV/EBITDA significatif entre les deux secteurs traduit une difference "
+        f"Un spread EV/EBITDA significatif entre les deux secteurs traduit une différence "
         f"de prime de qualité que le marché attribue aux modèles Économiques respectifs. "
         f"Conclusion : le Différentiel de valorisation est "
-        f"{'justifié par l avantage fondamental du secteur prime' if (sa.get('score') or 0) != (sb.get('score') or 0) else 'a surveiller comme potentielle anomalie de marché'}."
+        f"{'justifié par l\u2019avantage fondamental du secteur prime' if (sa.get('score') or 0) != (sb.get('score') or 0) else 'à surveiller comme potentielle anomalie de marché'}."
     )
     _val_text = D.get("llm", {}).get("valuation_analysis") or _val_fallback
     # Layout : graphique en grand pleine largeur (legendes lisibles), texte LLM en dessous
     try:
-        v_img = _chart_valuation_pdf(sa, sb, sector_a[:14], sector_b[:14])
+        v_img = _chart_valuation_pdf(sa, sb, sector_a[:20], sector_b[:20])
         story.append(_img(v_img, w=TABLE_W, h=72*mm))
     except Exception as e:
         log.warning("[cmp_secteur_pdf] valuation chart: %s", e)
@@ -977,19 +977,19 @@ def _build_story(D: dict) -> list:
     loser_m  = sector_b if winner_m == sector_a else sector_a
     ws = sa if winner_m == sector_a else sb; ls = sb if winner_m == sector_a else sa
     _mg_fallback = (
-        f"{winner_m} affiche une marge EBITDA medianne supérieure ({_pct(ws.get('em'), sign=False)} "
+        f"{winner_m} affiche une marge EBITDA médiane supérieure ({_pct(ws.get('em'), sign=False)} "
         f"vs {_pct(ls.get('em'), sign=False)} pour {loser_m}), reflétant un modèle Économique "
-        f"plus efficient ou un levier opérationnel plus prononce. "
+        f"plus efficient ou un levier opérationnel plus prononcé. "
         f"La marge nette complète ce tableau : {sector_a} a {_pct(sa.get('nm'), sign=False)} "
         f"vs {_pct(sb.get('nm'), sign=False)} pour {sector_b}. "
         f"Le ROE Médian ({_pct(min(max(sa.get('roe') or 0, 0), 999.9), sign=False)} pour {sector_a}, "
         f"{_pct(min(max(sb.get('roe') or 0, 0), 999.9), sign=False)} pour {sector_b}) "
         f"mesure la création de valeur sur capitaux propres — un écart persistant "
-        f"{'avantage structurellement ' + winner_m + ' pour les portefeuilles orientes qualité.' if abs((ws.get('em') or 0) - (ls.get('em') or 0)) > 3 else 'indique une convergence des profils de rentabilité entre les deux secteurs.'}"
+        f"{'avantage structurellement ' + winner_m + ' pour les portefeuilles orientés qualité.' if abs((ws.get('em') or 0) - (ls.get('em') or 0)) > 3 else 'indique une convergence des profils de rentabilité entre les deux secteurs.'}"
     )
     _margins_text = D.get("llm", {}).get("margins_analysis") or _mg_fallback
     try:
-        m_img = _chart_margins_pdf(sa, sb, sector_a[:14], sector_b[:14])
+        m_img = _chart_margins_pdf(sa, sb, sector_a[:20], sector_b[:20])
         story.append(_img(m_img, w=TABLE_W, h=72*mm))
     except Exception as e:
         log.warning("[cmp_secteur_pdf] margins chart: %s", e)
@@ -1000,8 +1000,8 @@ def _build_story(D: dict) -> list:
         story.append(Paragraph(
             "Note ROIC : la donnée ROIC Médiane n'est pas directement renseignée par yfinance "
             "pour l'ensemble du panel sectoriel — elle est estimée via la formule de proxy "
-            "ROIC ~= ROE x 0.65 (ratio empirique observe sur l'univers S&P 500). "
-            "Pour une mesure rigoureuse, calcul direct NOPAT / capitaux investis a partir des "
+            "ROIC ~= ROE x 0.65 (ratio empirique observé sur l'univers S&P 500). "
+            "Pour une mesure rigoureuse, calcul direct NOPAT / capitaux investis à partir des "
             "income statements et balance sheets ferait office d'améliorations futures.",
             _sty("note_roic", size=7, color=GREY_TEXT, leading=10)))
     story.append(PageBreak())
@@ -1040,15 +1040,15 @@ def _build_story(D: dict) -> list:
         [Paragraph("Rendement dividende med.", S_TD_L),
          Paragraph(_pct(dy_a_p, sign=False), S_TD_C),
          Paragraph(_pct(dy_b_p, sign=False), S_TD_C),
-         Paragraph(_ca_winner(dy_a_p, dy_b_p, sector_a[:14], sector_b[:14]), S_TD_C)],
+         Paragraph(_ca_winner(dy_a_p, dy_b_p, sector_a[:20], sector_b[:20]), S_TD_C)],
         [Paragraph("FCF Yield Médian", S_TD_L),
          Paragraph(_pct(fy_a_p, sign=False), S_TD_C),
          Paragraph(_pct(fy_b_p, sign=False), S_TD_C),
-         Paragraph(_ca_winner(fy_a_p, fy_b_p, sector_a[:14], sector_b[:14]), S_TD_C)],
+         Paragraph(_ca_winner(fy_a_p, fy_b_p, sector_a[:20], sector_b[:20]), S_TD_C)],
         [Paragraph("Score FinSight", S_TD_L),
          Paragraph(f"{sa.get('score', 0)}/100", S_TD_C),
          Paragraph(f"{sb.get('score', 0)}/100", S_TD_C),
-         Paragraph(_ca_winner(sa.get("score"), sb.get("score"), sector_a[:14], sector_b[:14]), S_TD_C)],
+         Paragraph(_ca_winner(sa.get("score"), sb.get("score"), sector_a[:20], sector_b[:20]), S_TD_C)],
     ]
     story.append(_tbl(ca_data, [75*mm, 35*mm, 35*mm, 35*mm]))
     story.append(Spacer(1, 4 * mm))
@@ -1061,14 +1061,14 @@ def _build_story(D: dict) -> list:
         f"{_gen_higher_dy} offre un rendement dividende Médian supérieur "
         f"({_pct(dy_a_p if _gen_higher_dy == sector_a else dy_b_p, sign=False)} "
         f"vs {_pct(dy_b_p if _gen_higher_dy == sector_a else dy_a_p, sign=False)} pour {_gen_lower_dy}), "
-        f"un profil adapte aux portefeuilles orientes revenu ou aux mandats avec contrainte de distribution. "
+        f"un profil adapté aux portefeuilles orientés revenu ou aux mandats avec contrainte de distribution. "
         f"{_gen_higher_fy} enregistre un FCF Yield Médian plus élevé "
         f"({_pct(fy_a_p if _gen_higher_fy == sector_a else fy_b_p, sign=False)}), "
         f"signalant une génération de trésorerie robuste et une capacité supérieure "
         f"de rémunération future de l'actionnaire (rachats ou hausses de dividendes). "
-        f"En contexte de taux élevés, le FCF Yield est une metrique cle : "
+        f"En contexte de taux élevés, le FCF Yield est une métrique clé : "
         f"un secteur avec un FCF Yield supérieur au rendement obligataire 10 ans offre "
-        f"une prime de risque positive — element déterminant pour l'allocation sectorielle."
+        f"une prime de risque positive — élément déterminant pour l'allocation sectorielle."
     )
     _ca_text = D.get("llm", {}).get("capital_alloc_analysis") or _ca_fallback
     story.append(Spacer(1, 3 * mm))
@@ -1086,20 +1086,20 @@ def _build_story(D: dict) -> list:
     _beta_diff = abs((sa.get("beta") or 1.0) - (sb.get("beta") or 1.0))
     _high_beta = sector_a if (sa.get("beta") or 1.0) > (sb.get("beta") or 1.0) else sector_b
     _growth_fallback = (
-        f"{faster} enregistre une croissance revenue medianne de {_pct(fs.get('revg'))}, "
+        f"{faster} enregistre une croissance revenue médiane de {_pct(fs.get('revg'))}, "
         f"soit {spread:.1f} pts au-dessus de {slower} ({_pct(ss.get('revg'))}). "
         f"{'Le momentum 52 semaines confirme cet avantage de croissance (' + _pct(fs.get('mom')) + ' vs ' + _pct(ss.get('mom')) + '), indiquant que le marché intègre déjà cette dynamique dans les prix.' if _mom_confirm else 'Toutefois, le momentum 52 semaines diverge (' + _pct(fs.get('mom')) + ' vs ' + _pct(ss.get('mom')) + ' pour ' + slower + '), signalant que le marché pourrait anticiper un ralentissement de ' + faster + ' ou une accélération de ' + slower + '.'} "
         f"Le Différentiel de beta ({_na(sa.get('beta'), fmt=lambda x: f'{x:.2f}')} pour {sector_a} "
         f"vs {_na(sb.get('beta'), fmt=lambda x: f'{x:.2f}')} pour {sector_b}) "
-        f"{'est marginal et n implique pas de biais cyclique significatif' if _beta_diff < 0.25 else 'positionné ' + _high_beta + ' comme plus sensible aux cycles macro — avantage en phase haussière, risque amplifié en retournement'}. "
+        f"{'est marginal et n\u2019implique pas de biais cyclique significatif' if _beta_diff < 0.25 else 'positionné ' + _high_beta + ' comme plus sensible aux cycles macro — avantage en phase haussière, risque amplifié en retournement'}. "
         f"En environnement de taux normalisés, la prime de croissance de {faster} "
-        f"{'justifié une surpondération sous reserve de visibilité sur les marges futures' if (fs.get('em') or 0) >= (ss.get('em') or 0) else 'doit être pondérée par un écart de marge défavorable — risque de compression du multiple si la croissance déçoit'}."
+        f"{'justifié une surpondération sous réserve de visibilité sur les marges futures' if (fs.get('em') or 0) >= (ss.get('em') or 0) else 'doit être pondérée par un écart de marge défavorable — risque de compression du multiple si la croissance déçoit'}."
     )
     _growth_text = D.get("llm", {}).get("growth_analysis") or _growth_fallback
     story.append(Paragraph(_xml(_growth_text), S_BODY))
     story.append(Spacer(1, 3 * mm))
     try:
-        mo_img = _chart_momentum_pdf(sa, sb, sector_a[:12], sector_b[:12])
+        mo_img = _chart_momentum_pdf(sa, sb, sector_a[:20], sector_b[:20])
         story.append(_img(mo_img, w=TABLE_W, h=70*mm))
     except Exception as e:
         log.warning("[cmp_secteur_pdf] momentum chart: %s", e)
@@ -1291,7 +1291,7 @@ def _build_story(D: dict) -> list:
         f"une exposition de +200 a +400 bps au-dessus du benchmark sectoriel "
         f"(repères : écart de score {_diff} pts = position size proportionnelle). Pour un portefeuille "
         f"thematique focalise, l'exposition peut atteindre 15-25% du portefeuille actions sur le secteur "
-        f"préféré, sous reserve d'une diversification intra-sectorielle adéquate (5-10 positions minimum). "
+        f"préféré, sous réserve d'une diversification intra-sectorielle adéquate (5-10 positions minimum). "
         f"<br/><br/>"
         f"<b>Véhicules d'investissement</b> : ETF sectoriels passifs (XLK, XLV, XLF, etc. pour US ; "
         f"sectoral STOXX 600 pour Europe), fonds actifs avec mandat sectoriel explicite, ou panier de "
