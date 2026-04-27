@@ -180,6 +180,58 @@ def _eps_growth(ratios) -> Optional[float]:
         return None
 
 
+def _finsight_score_full(snapshot, ratios) -> dict:
+    """Score composite 0-100 + breakdown 4 axes pour la cmp société.
+
+    Bug slide 18 audit 27/04 : avant, slide 18 affichait des proxies indépendants
+    (value=25-PE*0.4, growth=12+CAGR, etc.) qui ne sommaient PAS au global score
+    (NVDA proxies 0+25+25+14=64 alors que global=41). Maintenant on retourne le
+    breakdown réel de `compute_score` v1.3 pour que slide 18 affiche les vrais
+    sous-scores cohérents avec le total.
+
+    Returns:
+        dict {global, displayed, value, growth, quality, momentum, governance,
+              weights} ou {} si compute échoue.
+    """
+    try:
+        from core.finsight_score import compute_score
+        yr = _latest_yr(ratios)
+        if yr is not None:
+            ratio_dict = {
+                k: _safe(yr, k) for k in (
+                    "pe_ratio", "ev_ebitda", "ev_revenue", "roe", "roic",
+                    "ebitda_margin", "net_margin", "gross_margin",
+                    "revenue_growth", "fcf_yield", "div_yield", "payout_ratio",
+                    "altman_z", "piotroski_f", "beneish_m",
+                    "net_debt_ebitda", "momentum_52w",
+                    "shares_change_pct", "earnings_growth",
+                )
+            }
+            if ratio_dict.get("momentum_52w") in (None, 0, 0.0):
+                hist = getattr(snapshot, "stock_history", []) or []
+                if len(hist) >= 13:
+                    try:
+                        p_now = float(hist[-1].price)
+                        p_1y = float(hist[0].price)
+                        if p_1y > 0:
+                            ratio_dict["momentum_52w"] = (p_now / p_1y) - 1
+                    except Exception:
+                        pass
+            mk = getattr(snapshot, "market", None)
+            market_dict = {
+                "share_price":    getattr(mk, "share_price", None) if mk else None,
+                "beta_levered":   getattr(mk, "beta_levered", None) if mk else None,
+                "dividend_yield": getattr(mk, "dividend_yield", None) if mk else None,
+            }
+            ci = getattr(snapshot, "company_info", None)
+            sec = getattr(ci, "sector", None) if ci else None
+            ind = getattr(ci, "industry", None) if ci else None
+            return compute_score(ratio_dict, market_dict, sector=sec, industry=ind) or {}
+    except Exception as e:
+        log.debug(f"[cmp_societe_xlsx:_finsight_score_full] {e}")
+    return {}
+
+
 def _finsight_score(snapshot, ratios) -> Optional[int]:
     """Score composite 0-100 pour la comparaison société.
 
@@ -602,8 +654,15 @@ def extract_metrics(state: dict, supp: dict) -> dict:
         try: t_bull = round(float(t_base) * 1.15, 2)
         except Exception: pass
 
-    # Finsight score (displayed v1.3) + rang sectoriel si dispo
-    fs = _finsight_score(snapshot, ratios)
+    # Finsight score (displayed v1.3) + breakdown 4 axes (slide 18 cmp)
+    _fs_full = _finsight_score_full(snapshot, ratios)
+    fs = int(_fs_full.get("displayed") or _fs_full.get("global") or 0) or _finsight_score(snapshot, ratios)
+    fs_breakdown = {
+        "value":      _fs_full.get("value"),
+        "quality":    _fs_full.get("quality"),
+        "momentum":   _fs_full.get("momentum"),
+        "governance": _fs_full.get("governance"),
+    } if _fs_full else {}
     fs_sector_percentile: Optional[int] = None
     try:
         from core.finsight_score import compute_sector_percentile
@@ -750,6 +809,11 @@ def extract_metrics(state: dict, supp: dict) -> dict:
         # SCORES (rows 47-52) — remplis après les deux sociétés
         "finsight_score": fs,
         "finsight_sector_percentile": fs_sector_percentile,
+        # Breakdown 4 axes (slide 18 cmp PPTX) — fix bug décomposition incohérente
+        "finsight_score_value":      fs_breakdown.get("value"),
+        "finsight_score_quality":    fs_breakdown.get("quality"),
+        "finsight_score_momentum":   fs_breakdown.get("momentum"),
+        "finsight_score_governance": fs_breakdown.get("governance"),
         "momentum_score": mom_sc,
         "recommendation": _safe(synthesis, "recommendation"),
         "conviction":     _safe(synthesis, "conviction"),

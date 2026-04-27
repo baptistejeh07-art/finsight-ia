@@ -101,14 +101,40 @@ def _get_ticker(state: dict, default: str = "A") -> str:
     return state.get("ticker", default)
 
 
+_PROMPT_ECHO_PATTERNS = (
+    r"^\s*VERDICT\s+FINAL\b[^:\n—-]*[:—-]?\s*",
+    r"^\s*EXECUTIVE\s+SUMMARY\b[^:\n—-]*[:—-]?\s*",
+    r"^\s*COMMENTAIRE\b[^:\n—-]*[:—-]?\s*",
+    r"^\s*ANALYSE\s+COMPARATIVE\b[^:\n—-]*[:—-]?\s*",
+    r"^\s*Titre\s+préféré\s*[:—-]\s*\w+\s*[—-]?\s*",
+)
+
+
 def _strip_md(s):
-    """Pre-strip markdown asterisks des textes LLM."""
+    """Pre-strip markdown des textes LLM (asterisks + headers + prompt-echo).
+
+    Bug B3 audit 27/04 : LLM répète parfois `# VERDICT FINAL` ou `## 1. CONTEXTE
+    MACRO` tel quel dans la réponse → s'affiche dans le PDF/PPTX final. On strip
+    en plus des `**bold**` :
+    - Headers markdown `# ... ## ... ###` (n'importe où dans le texte → \\n)
+    - Préfixes prompt-echo connus en tête de chaîne (VERDICT FINAL, etc.)
+    - Sauts de ligne multiples (>2) → 2 max
+    """
     if not s:
         return s
-    s = _re_md.sub(r'\*\*(.+?)\*\*', r'\1', str(s), flags=_re_md.DOTALL)
+    s = str(s)
+    # 1. Bold/italic asterisks
+    s = _re_md.sub(r'\*\*(.+?)\*\*', r'\1', s, flags=_re_md.DOTALL)
     s = _re_md.sub(r'\*(.+?)\*', r'\1', s, flags=_re_md.DOTALL)
     s = _re_md.sub(r'\*+', '', s)
-    return s
+    # 2. Headers markdown `^#+\s+` n'importe où → saut de ligne (aère)
+    s = _re_md.sub(r"\n?#{1,6}\s+", "\n", s)
+    # 3. Préfixes prompt-echo en tête
+    for pat in _PROMPT_ECHO_PATTERNS:
+        s = _re_md.sub(pat, "", s, flags=_re_md.IGNORECASE)
+    # 4. Newlines multiples → 2 max
+    s = _re_md.sub(r"\n{3,}", "\n\n", s)
+    return s.strip()
 
 
 def _strip_md_dict(d: dict) -> dict:

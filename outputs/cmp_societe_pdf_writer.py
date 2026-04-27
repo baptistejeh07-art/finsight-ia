@@ -277,16 +277,24 @@ def _frx(v):
     except Exception: return "\u2014"
 
 def _frm(v, cur="$"):
-    """Format market cap / EV. Valeur stockee en MILLIARDS (comparison_writer.mc_bn).
-    Gere aussi les formats alternatifs (millions, raw) pour robustesse."""
+    """Format market cap / EV / FCF / Trésorerie. Sortie en MILLIARDS.
+
+    Bug B2 audit 27/04 : pour FCF NVDA passé en millions (v=71508), les seuils
+    legacy (>1e12 raw, >1e6 millions) ne capturaient pas cette plage et
+    affichaient "71 508 Mds$" au lieu de "71,5 Mds$". Ajout d'un seuil
+    intermédiaire : aucun titre coté n'a plus de 5000 Mds$ de market cap
+    (NVDA ~3000 Mds$ max), donc v in [5000, 1e6] = millions garantis.
+    """
     if v is None: return "\u2014"
     try:
         v = float(v)
-        # Detection robuste de l'échelle : si > 1e12 la valeur est en raw USD
-        # (pipeline direct yfinance), si > 1e6 elle est en millions, sinon en milliards.
+        # Detection robuste d'échelle :
+        # - > 1e12 = raw USD (yfinance direct) → /1e9 pour milliards
+        # - > 5000 = millions (aucune cap > 5000 Mds$) → /1000 pour milliards
+        # - sinon = déjà en milliards
         if abs(v) > 1_000_000_000_000:
             v = v / 1_000_000_000  # raw -> milliards
-        elif abs(v) > 1_000_000:
+        elif abs(v) > 5_000:
             v = v / 1_000          # millions -> milliards
         # Maintenant v est en milliards
         if cur == "EUR":
@@ -1588,13 +1596,22 @@ def _section_qualite_risque(story, m_a, m_b, synthesis, tkr_a, tkr_b):
     story.append(Spacer(1, 2*mm))
 
     def _risk_level_txt(v, lo_good, hi_good, higher_is_better=True):
+        """Retourne (label, narration) où label décrit le NIVEAU DE LA MÉTRIQUE
+        (pas le risque). Bug B6 audit 27/04 : avant, "Liquidité 5,63 (Faible)"
+        signifiait "risque faible" mais lu par l'user comme "liquidité faible".
+        Maintenant le label colle au sens de la métrique :
+        - higher_is_better=True (Liquidité, Momentum, Piotroski, Croissance) :
+          val haute → "Élevé", val basse → "Faible"
+        - higher_is_better=False (Levier ND/EBITDA) :
+          val basse → "Faible", val haute → "Élevé"
+        """
         if v is None: return ("N/A", "indetermine")
         try:
             fv = float(v)
             if higher_is_better:
-                if fv >= hi_good: return ("Faible", "maitrise")
+                if fv >= hi_good: return ("Élevé", "robuste")
                 if fv >= lo_good: return ("Modéré", "surveiller")
-                return ("Élevé", "significatif")
+                return ("Faible", "preoccupant")
             else:
                 if fv <= lo_good: return ("Faible", "maitrise")
                 if fv <= hi_good: return ("Modéré", "surveiller")
@@ -1630,7 +1647,13 @@ def _section_qualite_risque(story, m_a, m_b, synthesis, tkr_a, tkr_b):
         lb, _ = _risk_level_txt(vb, lo, hi, hib)
         val_a_str = _fr(va, 2) if va is not None else "\u2014"
         val_b_str = _fr(vb, 2) if vb is not None else "\u2014"
-        color_map = {"Faible": "#1A7A4A", "Modéré": "#B06000", "Élevé": "#A82020", "N/A": "#888888"}
+        # Couleurs adaptées au sens de la métrique (bug B6) :
+        # - higher_is_better : Élevé=vert (bon), Faible=rouge (mauvais)
+        # - !higher_is_better : Faible=vert (bon), Élevé=rouge (mauvais)
+        if hib:
+            color_map = {"Élevé": "#1A7A4A", "Modéré": "#B06000", "Faible": "#A82020", "N/A": "#888888"}
+        else:
+            color_map = {"Faible": "#1A7A4A", "Modéré": "#B06000", "Élevé": "#A82020", "N/A": "#888888"}
         ca = color_map.get(la, "#888888"); cb = color_map.get(lb, "#888888")
         bullet = (
             f"<b>{_enc(axis_lbl)} :</b> {_enc(axis_desc)} "

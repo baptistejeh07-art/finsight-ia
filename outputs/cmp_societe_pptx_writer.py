@@ -114,15 +114,19 @@ def _frx(v) -> str:
 
 
 def _frm(v, cur_sym: str = "$") -> str:
-    """Format market cap. Valeur stockee en MILLIARDS (mc_bn).
-    Gere les echelles alternatives (millions, raw) pour robustesse."""
+    """Format market cap / FCF / Trésorerie. Sortie en MILLIARDS.
+
+    Bug B2 audit 27/04 : seuil 1e6 ne capturait pas v=71508 (millions) — affichait
+    "71 508 Mds$" au lieu de "71,5 Mds$". Seuil baissé à 5000 (aucune cap > 5000
+    Mds$, NVDA ~3000 max).
+    """
     if v is None:
         return "\u2014"
     try:
         v = float(v)
         if abs(v) > 1_000_000_000_000:
             v = v / 1_000_000_000  # raw -> Mds
-        elif abs(v) > 1_000_000:
+        elif abs(v) > 5_000:
             v = v / 1_000          # millions -> Mds
         if cur_sym == "EUR":
             sym_big, sym_small = "Md\u20ac", "M\u20ac"
@@ -571,8 +575,44 @@ def _company_header_band(slide, tkr_a, tkr_b, name_a="", name_b="", m_a=None, m_
 # ---------------------------------------------------------------------------
 # LLM Synthesis — appel unique au debut
 # ---------------------------------------------------------------------------
+def _strip_llm_artifacts(s: str) -> str:
+    """Nettoie les artefacts markdown que le LLM échappe parfois dans sa réponse.
+
+    Bug B3 audit 27/04/2026 : le LLM reproduit parfois le préfixe du prompt
+    ("# VERDICT FINAL", "EXECUTIVE SUMMARY Comparatif :", "## 1. CONTEXTE MACRO")
+    tel quel dans sa réponse. Ces marqueurs apparaissent ensuite dans le PDF/PPTX
+    final. On strip :
+    - Headers markdown `# ... ## ... ### ...` (ouverture de ligne)
+    - Préfixes prompt-echo connus (VERDICT FINAL, EXECUTIVE SUMMARY, etc.)
+    - Bullets `* `/`- ` en début de ligne (rendus mal par les writers)
+    """
+    if not s:
+        return ""
+    import re as _re
+    # 1. Strip les headers markdown `## SOMETHING` n'importe où dans le texte
+    #    en les remplaçant par un simple saut de ligne (pour aérer le contenu).
+    cleaned = _re.sub(r"\n?#{1,6}\s+", "\n", s)
+    # 2. Si le texte démarre par un préfixe prompt-echo connu, le retirer
+    #    jusqu'au premier `:` ou `—` ou newline.
+    _PROMPT_ECHO_PATTERNS = (
+        r"^\s*VERDICT\s+FINAL\b[^:\n—-]*[:—-]?\s*",
+        r"^\s*EXECUTIVE\s+SUMMARY\b[^:\n—-]*[:—-]?\s*",
+        r"^\s*COMMENTAIRE\b[^:\n—-]*[:—-]?\s*",
+        r"^\s*ANALYSE\s+COMPARATIVE\b[^:\n—-]*[:—-]?\s*",
+        r"^\s*Titre\s+préféré\s*[:—-]\s*\w+\s*[—-]?\s*",
+    )
+    for pat in _PROMPT_ECHO_PATTERNS:
+        cleaned = _re.sub(pat, "", cleaned, flags=_re.IGNORECASE)
+    # 3. Normaliser les sauts de ligne multiples (max 2 = paragraphe)
+    cleaned = _re.sub(r"\n{3,}", "\n\n", cleaned)
+    return cleaned.strip()
+
+
 def _call_llm(prompt: str, system: str = "", max_tokens: int = 512) -> str:
-    """Appel LLM avec fallback anthropic -> mistral."""
+    """Appel LLM avec fallback anthropic -> mistral.
+
+    Strippe automatiquement les artefacts markdown (cf _strip_llm_artifacts).
+    """
     try:
         sys_path_insert = str(Path(__file__).parent.parent)
         if sys_path_insert not in sys.path:
@@ -581,7 +621,8 @@ def _call_llm(prompt: str, system: str = "", max_tokens: int = 512) -> str:
         for provider in ("anthropic", "mistral", "gemini"):
             try:
                 llm = LLMProvider(provider=provider)
-                return llm.generate(prompt, system=system, max_tokens=max_tokens)
+                raw = llm.generate(prompt, system=system, max_tokens=max_tokens)
+                return _strip_llm_artifacts(raw)
             except Exception as _e:
                 log.debug(f"[cmp_pptx] LLM {provider} failed: {_e}")
                 continue
@@ -850,19 +891,25 @@ Mediane sectorielle : PE~{_n(m_a.get('sector_median_pe'))}, EV/EBITDA~{_x2(m_a.g
     results["llm_choice"] = _llm_choice  # None | "TKR_A" | "TKR_B" | "NEUTRAL"
 
     def _split_bull_bear(r, sep="|||"):
-        """Split bull/bear text — essaie plusieurs separateurs."""
+        """Split bull/bear text — essaie plusieurs separateurs.
+
+        Bug B8 audit 27/04 : avant clip raw [:350] sans frontière de mot,
+        coupait au milieu d'un mot. Maintenant `_word_clip` respecte la
+        dernière espace, et limite augmentée à 450 (60 mots ≈ 400 chars).
+        """
         if not r:
             return "", ""
+        LIM = 450
         for token in [sep, "\n|||", "|||\n", "---", "\n\nBear", "\n\nBEAR",
                       "\nThese bear", "\nThese Bull", "\nBear"]:
             if token in r:
                 parts = r.split(token, 1)
-                return parts[0].strip()[:350], parts[1].strip()[:350]
+                return _word_clip(parts[0].strip(), LIM), _word_clip(parts[1].strip(), LIM)
         # Dernier recours : chercher un pattern "bear" dans le texte
         m = _re.search(r'(?i)\n+(?:Thèse? )?bear', r)
         if m:
-            return r[:m.start()].strip()[:350], r[m.start():].strip()[:350]
-        return r[:350], ""
+            return _word_clip(r[:m.start()].strip(), LIM), _word_clip(r[m.start():].strip(), LIM)
+        return _word_clip(r, LIM), ""
 
     # Thèses bull/bear A (60 mots chacune avec chiffres)
     r = _call_llm(
@@ -2602,12 +2649,19 @@ def _slide_finsight_score(prs, m_a: dict, m_b: dict):
     y_dec = 7.15
     add_rect(slide, 1.02, y_dec, 23.37, 0.55, NAVY)
     add_text_box(slide, 1.18, y_dec + 0.10, 23.0, 0.42,
-                 "Décomposition du Score Composite (4 axes : Valeur / Croissance / Qualité / Momentum)",
+                 "Décomposition du Score Composite (4 axes : Valeur / Qualité / Momentum / Gouvernance — chacun /25)",
                  9, WHITE, bold=True)
 
-    # 4 axes de score — Value, Growth, Quality, Momentum
+    # 4 axes de score — réels (issus de compute_score v1.3 sur le snapshot pipeline)
+    # Bug audit 27/04 : avant, proxies indépendants ne sommaient pas au global.
+    # Maintenant on lit `finsight_score_{value,quality,momentum,governance}`
+    # stockés dans m via _finsight_score_full. Fallback proxy si manquant.
     def _score_axis(m, axis) -> str:
-        # Proxies simples pour visualisation
+        # 1. Tenter le vrai sous-score depuis compute_score v1.3
+        real = _safe_float(m.get(f"finsight_score_{axis}"))
+        if real is not None:
+            return str(round(real))
+        # 2. Fallback proxy historique (si compute_score a échoué)
         if axis == 'value':
             pe = _safe_float(m.get('pe_ratio')) or 25
             return str(max(0, min(25, round(25 - pe * 0.4))))
@@ -2621,9 +2675,13 @@ def _slide_finsight_score(prs, m_a: dict, m_b: dict):
         if axis == 'momentum':
             p3m = (_safe_float(m.get('perf_3m')) or 0) * 100
             return str(max(0, min(25, round(12 + p3m * 0.15))))
+        if axis == 'governance':
+            pio = _safe_float(m.get('piotroski_score')) or 5
+            return str(max(0, min(25, round(pio * 2.5))))
         return "\u2014"
 
-    axes = [('value', 'Valeur'), ('growth', 'Croissance'), ('quality', 'Qualité'), ('momentum', 'Momentum')]
+    # 4 axes finsight_score v1.3 : Quality, Value, Momentum, Governance
+    axes = [('value', 'Valeur'), ('quality', 'Qualité'), ('momentum', 'Momentum'), ('governance', 'Gouvernance')]
     y_ax = y_dec + 0.70
     for xi, (axis, lbl) in enumerate(axes):
         xp = 1.02 + xi * 5.84
@@ -2649,8 +2707,10 @@ def _slide_finsight_score(prs, m_a: dict, m_b: dict):
     except Exception:
         _fs_leader_tk = tkr_a
     score_txt = (
-        f"Le score composite FinSight intègre 4 piliers (Valeur, Croissance, Qualité, Momentum) "
-        f"sur une échelle de 0 a 100. {_fs_leader_tk} ressort en tête avec un écart de {_fs_delta} points, "
+        f"Le score composite FinSight (v1.3) intègre 4 piliers (Valeur, Qualité, Momentum, Gouvernance) "
+        f"sur une échelle de 0 a 100, pondérés selon le profil sectoriel. La somme brute des 4 axes "
+        f"est ensuite recalibrée (mean≈50, std≈20) pour discriminer le ranking — l'écart à la somme "
+        f"naïve est donc normal. {_fs_leader_tk} ressort en tête avec un écart de {_fs_delta} points, "
         f"traduisant un meilleur équilibre global des fondamentaux. "
         f"Les convictions respectives ({_conv_a:.0f}% vs {_conv_b:.0f}%) quantifient la "
         f"robustesse de l'opinion sur la Thèse, a croiser avec l'exposition en portefeuille "
@@ -2731,7 +2791,7 @@ def _slide_theses(prs, m_a: dict, m_b: dict, synthesis: dict):
                  9, GREEN, bold=True)
     add_rect(slide, 1.02, y0 + 0.60, 11.44, bull_h - 0.60, GREY_BG)
     add_text_box(slide, 1.18, y0 + 0.65, 11.12, bull_h - 0.70,
-                 _fit(bull_a, 380), 9, BLACK, wrap=True)
+                 _fit(bull_a, 450), 9, BLACK, wrap=True)
 
     # --- Bull B ---
     add_rect(slide, 12.94, y0, 11.44, 0.55, GREEN_PALE)
@@ -2740,7 +2800,7 @@ def _slide_theses(prs, m_a: dict, m_b: dict, synthesis: dict):
                  9, GREEN, bold=True)
     add_rect(slide, 12.94, y0 + 0.60, 11.44, bull_h - 0.60, GREY_BG)
     add_text_box(slide, 13.10, y0 + 0.65, 11.12, bull_h - 0.70,
-                 _fit(bull_b, 380), 9, BLACK, wrap=True)
+                 _fit(bull_b, 450), 9, BLACK, wrap=True)
 
     # --- Bear A ---
     add_rect(slide, 1.02, y1, 11.44, 0.55, RED_PALE)
@@ -2749,7 +2809,7 @@ def _slide_theses(prs, m_a: dict, m_b: dict, synthesis: dict):
                  9, RED, bold=True)
     add_rect(slide, 1.02, y1 + 0.60, 11.44, bear_h - 0.60, GREY_BG)
     add_text_box(slide, 1.18, y1 + 0.65, 11.12, bear_h - 0.70,
-                 _fit(bear_a, 380), 9, BLACK, wrap=True)
+                 _fit(bear_a, 450), 9, BLACK, wrap=True)
 
     # --- Bear B ---
     add_rect(slide, 12.94, y1, 11.44, 0.55, RED_PALE)
@@ -2758,7 +2818,7 @@ def _slide_theses(prs, m_a: dict, m_b: dict, synthesis: dict):
                  9, RED, bold=True)
     add_rect(slide, 12.94, y1 + 0.60, 11.44, bear_h - 0.60, GREY_BG)
     add_text_box(slide, 13.10, y1 + 0.65, 11.12, bear_h - 0.70,
-                 _fit(bear_b, 380), 9, BLACK, wrap=True)
+                 _fit(bear_b, 450), 9, BLACK, wrap=True)
 
     return slide
 
@@ -3035,7 +3095,7 @@ def _slide_verdict(prs, m_a: dict, m_b: dict, synthesis: dict):
         bull_winner = synthesis.get('bull_a' if is_a else 'bull_b') or "Profil fondamental solide"
         add_rect(slide, x_r, y_cat + 0.50, w_r/2 - 0.10, _cat_h, GREY_BG)
         add_text_box(slide, x_r + 0.20, y_cat + 0.55, w_r/2 - 0.40, _cat_h - 0.10,
-                     _fit(bull_winner, 280), 8, BLACK, wrap=True)
+                     _fit(bull_winner, 380), 8, BLACK, wrap=True)
         # Bears
         x_be = x_r + w_r/2 + 0.10
         add_rect(slide, x_be, y_cat, w_r/2 - 0.10, 0.50, RED)
@@ -3044,7 +3104,7 @@ def _slide_verdict(prs, m_a: dict, m_b: dict, synthesis: dict):
         bear_winner = synthesis.get('bear_a' if is_a else 'bear_b') or "Risques de marché standard"
         add_rect(slide, x_be, y_cat + 0.50, w_r/2 - 0.10, _cat_h, GREY_BG)
         add_text_box(slide, x_be + 0.20, y_cat + 0.55, w_r/2 - 0.40, _cat_h - 0.10,
-                     _fit(bear_winner, 280), 8, BLACK, wrap=True)
+                     _fit(bear_winner, 380), 8, BLACK, wrap=True)
 
     # Conditions d'invalidation (warning bar)
     y_inv = y_cat + 0.50 + _cat_h + 0.25
