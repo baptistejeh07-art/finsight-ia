@@ -133,7 +133,8 @@ except Exception as _e:
     import logging as _lg
     _lg.getLogger(__name__).warning(f"[startup] sales_agent router import failed: {_e}")
 
-# CORS — autorise le frontend Vercel + dev local
+# CORS — autorise le frontend Vercel + previews + dev local
+# Audit secu 27/04 : ajout regex pour Vercel preview branches (PR previews)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -143,10 +144,34 @@ app.add_middleware(
         "http://localhost:3000",
         "http://localhost:3001",
     ],
+    allow_origin_regex=r"https://finsight-ia[a-zA-Z0-9\-]*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# ---------------------------------------------------------------------------
+# Sentry init (audit 27/04 — monitoring erreurs prod)
+# ---------------------------------------------------------------------------
+try:
+    import os as _os_sentry
+    _sentry_dsn = _os_sentry.getenv("SENTRY_DSN", "").strip()
+    if _sentry_dsn:
+        import sentry_sdk
+        from sentry_sdk.integrations.fastapi import FastApiIntegration
+        sentry_sdk.init(
+            dsn=_sentry_dsn,
+            integrations=[FastApiIntegration()],
+            traces_sample_rate=0.1,  # 10% des requetes pour perf monitoring
+            environment=_os_sentry.getenv("RAILWAY_ENVIRONMENT", "production"),
+            release=_os_sentry.getenv("RAILWAY_DEPLOYMENT_ID", "unknown"),
+        )
+        log.info("[sentry] activé — DSN configuré")
+    else:
+        log.info("[sentry] SENTRY_DSN absent — monitoring erreurs désactivé")
+except Exception as _e_sentry:
+    log.warning(f"[sentry] init échec : {_e_sentry}")
 
 
 # ---------------------------------------------------------------------------
@@ -1992,7 +2017,13 @@ _EARLY_BACKER_LIMIT = 10
 
 
 def _count_early_backers() -> int:
-    """Count actifs + past_due sur le plan early_backer (Supabase)."""
+    """Count actifs + past_due sur le plan early_backer (Supabase).
+
+    Audit secu 27/04 (B6) : utilise le header Content-Range de PostgREST
+    pour avoir le vrai count exact (pas len(rows) qui est cape a 1000
+    par defaut). Avant : risque sur-vente 11+ Early Backers a 999€/an
+    si la table depassait jamais 1000 lignes.
+    """
     import os as _os_eb
     import httpx as _hx_eb
     surl = _os_eb.getenv("SUPABASE_URL", "").rstrip("/")
@@ -2002,12 +2033,20 @@ def _count_early_backers() -> int:
     if not surl or not skey:
         return 0
     try:
+        # HEAD-style query : on ne veut que le count, pas les rows
         r = _hx_eb.get(
-            f"{surl}/rest/v1/user_preferences?plan=eq.early_backer&select=user_id",
+            f"{surl}/rest/v1/user_preferences?plan=eq.early_backer&select=user_id&limit=1",
             headers={"apikey": skey, "Authorization": f"Bearer {skey}",
                      "Prefer": "count=exact"},
             timeout=3.0,
         )
+        # Content-Range : "0-0/N" ou "*/0" si vide
+        cr = r.headers.get("content-range", "")
+        if "/" in cr:
+            tail = cr.split("/")[-1].strip()
+            if tail.isdigit():
+                return int(tail)
+        # Fallback : count rows
         if r.status_code == 200:
             rows = r.json()
             return len(rows) if isinstance(rows, list) else 0
@@ -2255,13 +2294,40 @@ async def admin_trace_detail(
 async def admin_trace_stream(
     job_id: str,
     request: Request,
+    token: Optional[str] = None,
 ):
     """SSE : push les nouveaux steps au fur et à mesure pendant qu'un job tourne.
 
-    Note : pas de require_admin côté SSE (EventSource ne peut pas envoyer
-    d'Authorization header). Le job_id lui-même sert de bearer — mais on
-    checke que le caller est admin via cookie session Supabase.
+    Audit secu 27/04 (B5) : EventSource ne peut pas envoyer d'Authorization
+    header → on accepte le JWT en query param ?token=<jwt>. Le token est
+    validé via get_current_user puis check admin via require_admin.
+    Avant : aucune vérification (le job_id leak permettait lecture temps
+    reel pipeline + prompts LLM).
     """
+    # Verif auth via token query
+    user = get_current_user(f"Bearer {token}" if token else None)
+    if not user:
+        raise HTTPException(status_code=401, detail="Token requis (?token=...)")
+    # Verif admin via require_admin synchronously
+    import httpx as _httpx_auth
+    import os as _os_auth
+    _aurl = _os_auth.getenv("SUPABASE_URL", "").rstrip("/")
+    _akey = (_os_auth.getenv("SUPABASE_SERVICE_KEY")
+             or _os_auth.getenv("SUPABASE_SECRET_KEY")
+             or _os_auth.getenv("SUPABASE_SERVICE_ROLE_KEY") or "")
+    try:
+        rauth = _httpx_auth.get(
+            f"{_aurl}/rest/v1/user_preferences?user_id=eq.{user['id']}&select=is_admin",
+            headers={"apikey": _akey, "Authorization": f"Bearer {_akey}"},
+            timeout=3.0,
+        )
+        rows = rauth.json() if rauth.status_code < 300 else []
+        if not (rows and rows[0].get("is_admin")):
+            raise HTTPException(status_code=403, detail="Admin only")
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code=403, detail="Admin verif failed")
     import httpx as _httpx
     import os as _os
     import asyncio as _asyncio
