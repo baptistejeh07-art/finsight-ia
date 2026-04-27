@@ -1780,6 +1780,77 @@ async def resolve_ticker(query: str):
         return {"query": query, "ticker": None, "error": str(e)}
 
 
+# ─── Score FinSight — explain breakdown (BL2 — premium B2B) ────────────────
+
+@app.get("/score/explain/{ticker}")
+async def score_explain(
+    ticker: str,
+    _user: Annotated[dict, Depends(require_user)],
+):
+    """Renvoie le breakdown détaillé du Score FinSight pour 1 ticker.
+
+    Lit le state.json de la dernière analyse et expose :
+    - Score global (raw + displayed) + grade + verdict
+    - 4 sous-scores Quality/Value/Momentum/Governance + détails par axe
+    - Pondérations sectorielles utilisées (transparence)
+    - Percentile sectoriel (rang intra-secteur)
+    - Formule explicite (pour communication B2B / pricing premium)
+
+    Renvoie 404 si aucune analyse n'a encore été lancée pour ce ticker —
+    le frontend doit alors proposer un bouton "Lancer une analyse".
+    """
+    import json
+    ticker_clean = ticker.upper().strip()
+    state_file = _ROOT / "outputs" / "generated" / "cli_tests" / f"{ticker_clean}_state.json"
+    if not state_file.exists():
+        raise HTTPException(
+            404,
+            f"Aucune analyse trouvée pour {ticker_clean}. "
+            "Lance d'abord une analyse société.",
+        )
+    try:
+        with open(state_file, encoding="utf-8") as f:
+            state = json.load(f)
+    except Exception as e:
+        raise HTTPException(500, f"State illisible : {e}")
+
+    fs = state.get("finsight_score")
+    if not fs:
+        raise HTTPException(
+            404,
+            f"Score FinSight indisponible pour {ticker_clean} "
+            "(analyse trop ancienne ou skip score).",
+        )
+
+    weights = fs.get("weights") or {}
+    return {
+        "ticker": ticker_clean,
+        "version": fs.get("version", "v1.3"),
+        "score": {
+            "global_raw": fs.get("global"),
+            "displayed": fs.get("displayed"),
+            "grade": fs.get("grade"),
+            "verdict": fs.get("verdict"),
+        },
+        "axes": {
+            "quality":    {"score": fs.get("quality"),    "weight": weights.get("quality"),    "details": (fs.get("details") or {}).get("quality") or {}},
+            "value":      {"score": fs.get("value"),      "weight": weights.get("value"),      "details": (fs.get("details") or {}).get("value") or {}},
+            "momentum":   {"score": fs.get("momentum"),   "weight": weights.get("momentum"),   "details": (fs.get("details") or {}).get("momentum") or {}},
+            "governance": {"score": fs.get("governance"), "weight": weights.get("governance"), "details": (fs.get("details") or {}).get("governance") or {}},
+        },
+        "sector": {
+            "profile": fs.get("sector_profile_used"),
+            "percentile": fs.get("sector_percentile") or {},
+        },
+        "formula": (
+            "Score brut = Σ (sous-score × 4 × poids) sur 4 axes "
+            "(Quality/Value/Momentum/Governance, échelle native /25). "
+            "Poids sectoriels somment à 1. Score affiché = post-calibration "
+            "(mean=50, std≈20). Percentile = rang intra-secteur 0-100."
+        ),
+    }
+
+
 # ─── Téléchargement fichiers ────────────────────────────────────────────────
 
 _MIME_BY_EXT = {
