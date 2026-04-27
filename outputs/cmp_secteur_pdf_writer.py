@@ -846,12 +846,13 @@ def _build_story(D: dict) -> list:
         [Paragraph("P/E Médian", S_TD_L),
          Paragraph(_mult(sa.get("pe")), S_TD_C),
          Paragraph(_mult(sb.get("pe")), S_TD_C),
-         _avantage_cell(sb.get("pe"), sa.get("pe"), sector_b, sector_a),   # lower is better
+         # Bug B10 27/04 : lower=better → utiliser higher_is_better=False directement
+         _avantage_cell(sa.get("pe"), sb.get("pe"), sector_a, sector_b, higher_is_better=False),
          Paragraph(_mult(abs((sa.get("pe") or 0) - (sb.get("pe") or 0))), S_TD_C)],
         [Paragraph("EV/EBITDA Médian", S_TD_L),
          Paragraph(_mult(sa.get("ev_eb")), S_TD_C),
          Paragraph(_mult(sb.get("ev_eb")), S_TD_C),
-         _avantage_cell(sb.get("ev_eb"), sa.get("ev_eb"), sector_b, sector_a),
+         _avantage_cell(sa.get("ev_eb"), sb.get("ev_eb"), sector_a, sector_b, higher_is_better=False),
          Paragraph(_mult(abs((sa.get("ev_eb") or 0) - (sb.get("ev_eb") or 0))), S_TD_C)],
         [Paragraph("Croissance Rev. med.", S_TD_L),
          Paragraph(_pct(sa.get("revg")), S_TD_C),
@@ -886,7 +887,8 @@ def _build_story(D: dict) -> list:
         [Paragraph("Beta Médian", S_TD_L),
          Paragraph(f"{sa.get('beta', 1.0):.2f}" if sa.get("beta") else "—", S_TD_C),
          Paragraph(f"{sb.get('beta', 1.0):.2f}" if sb.get("beta") else "—", S_TD_C),
-         _avantage_cell(sb.get("beta"), sa.get("beta"), sector_b, sector_a),
+         # Bug B10 : lower beta = moins risqué = avantage (pour défensif)
+         _avantage_cell(sa.get("beta"), sb.get("beta"), sector_a, sector_b, higher_is_better=False),
          Paragraph(f"{abs((sa.get('beta') or 1) - (sb.get('beta') or 1)):.2f}", S_TD_C)],
         [Paragraph("Perf. 52S med.", S_TD_L),
          Paragraph(_pct(sa.get("mom")), S_TD_C),
