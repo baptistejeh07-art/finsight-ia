@@ -496,7 +496,17 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
                 {kind === "indice"
                   ? t("results.kind_indice")
                   : kind === "comparatif"
-                  ? t("results.kind_comparison")
+                  ? (() => {
+                      // Bug B12 audit 27/04 : différencier cmp_societe / cmp_secteur / cmp_indice
+                      // depuis le label, le backend retourne kind="comparatif" pour les 3.
+                      const lbl = (result.label || "").toUpperCase();
+                      const indicesKw = ["CAC", "DAX", "S&P", "SP500", "FTSE", "STOXX", "EURO STOXX", "NIKKEI", "NASDAQ", "DOW"];
+                      const isCmpIndice = indicesKw.some((k) => lbl.includes(k)) && lbl.includes(" VS ");
+                      const isCmpSecteur = (result.label || "").includes("/") && (result.label || "").includes(" vs ");
+                      if (isCmpIndice) return t("results.kind_comparison_indice");
+                      if (isCmpSecteur) return t("results.kind_comparison_sector");
+                      return t("results.kind_comparison");
+                    })()
                   : kind === "pme"
                   ? t("results.kind_pme_label")
                   : t("results.kind_sector")}

@@ -192,6 +192,8 @@
     "new_analysis_btn": "New analysis",
     "kind_indice": "Stock index",
     "kind_comparison": "Company comparison",
+    "kind_comparison_indice": "Index comparison",
+    "kind_comparison_sector": "Sector comparison",
     "kind_pme_label": "Private SME — Financial analysis",
     "kind_sector": "Sector analysis",
     "synthesis_indice_desc": "Complete index analysis generated. The PDF contains macro analysis, cross-sector comparisons and optimal allocation (Markowitz).",

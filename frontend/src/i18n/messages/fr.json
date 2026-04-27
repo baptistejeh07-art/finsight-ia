@@ -195,6 +195,8 @@
     "new_analysis_btn": "Nouvelle analyse",
     "kind_indice": "Indice boursier",
     "kind_comparison": "Comparatif société",
+    "kind_comparison_indice": "Comparatif d'indices",
+    "kind_comparison_sector": "Comparatif sectoriel",
     "kind_pme_label": "PME non cotée — Analyse financière",
     "kind_sector": "Analyse sectorielle",
     "synthesis_indice_desc": "Analyse complète de l'indice générée. Le rapport PDF contient l'analyse macro, les comparatifs inter-secteurs et l'allocation optimale (Markowitz).",
