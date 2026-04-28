@@ -307,7 +307,17 @@ class LLMProvider:
     def generate(self, prompt: str, system: Optional[str] = None,
                  max_tokens: int = 1024) -> str:
         # Délègue à _generate_inner (potentiellement wrappé Langfuse)
-        return self._generate_observed(prompt, system, max_tokens)
+        out = self._generate_observed(prompt, system, max_tokens)
+        # Post-process FR : espace avant %, virgule décimale.
+        # Seulement si l'output ressemble à du texte naturel (pas du JSON).
+        # Heuristique : ne pas toucher si commence par { ou [ après strip.
+        if out and not out.lstrip().startswith(('{', '[')):
+            try:
+                from core.prompt_standards import normalize_french_numbers
+                out = normalize_french_numbers(out)
+            except Exception:
+                pass
+        return out
 
     def _generate_observed(self, prompt: str, system: Optional[str],
                             max_tokens: int) -> str:
