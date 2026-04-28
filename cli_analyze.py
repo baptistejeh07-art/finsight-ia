@@ -2550,14 +2550,14 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
                             else ("Sous-pondérer" if _sc < 40 else "Neutre"))
                     _ev_v = [m["ev_ebitda"] for m in _mems
                              if m.get("ev_ebitda") and 0.5 < m["ev_ebitda"] < 100]
-                    _ev_s = (f"{_stat_eu.median(_ev_v):.1f}x" if _ev_v else "\u2014")
+                    _ev_s = (f"{_stat_eu.median(_ev_v):.1f}x".replace('.', ',') if _ev_v else "\u2014")
                     _mg   = round(sum(m["mg_ebitda"] for m in _mems) / _nb, 1)
                     _gr_v = [m["rev_gr"] for m in _mems]
                     _gr   = round(sum(_gr_v) / len(_gr_v), 1) if _gr_v else 0.0
-                    _gr_s = f"{_gr:+.1f}%"
+                    _gr_s = f"{_gr:+.1f} %".replace('.', ',')
                     _ret  = round(sum(m["ret_52w"] for m in _mems) / _nb, 1)
                     if not _secteurs_already_filled:
-                        secteurs.append((_sname, _nb, _sc, _sig, _ev_s, _mg, _gr_s, f"{_ret:+.1f}%"))
+                        secteurs.append((_sname, _nb, _sc, _sig, _ev_s, _mg, _gr_s, f"{_ret:+.1f} %".replace('.', ',')))
 
                 # Réécrit Nb sociétés depuis le count réel des constituants EU
                 # (sinon on hérite des valeurs S&P 500 hardcodées qui dépassent
@@ -2691,7 +2691,7 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
                             if str(_s[4]) in ("\u2014", "---", "", "None"):
                                 _new_secteurs.append(
                                     (_s[0], _s[1], _s[2], _s[3],
-                                     f"{_etf_proxy_ev:.1f}x*", _s[5], _s[6], _s[7]))
+                                     f"{_etf_proxy_ev:.1f}x*".replace('.', ','), _s[5], _s[6], _s[7]))
                             else:
                                 _new_secteurs.append(_s)
                         secteurs = _new_secteurs
@@ -3025,17 +3025,28 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
         ret = info.get("return_1y", 0.0)
         sc  = _score_from_ret(ret)
         sig = _signal_from_ret(ret)
-        # Tickers representatifs
-        soc_tickers = (_get_real_tickers(nom, universe) or
-                       _get_real_tickers(nom, "S&P 500"))[:3]
-        societes = [(tk, "Surpondérer" if sig == "Surpondérer" else "Neutre", "—", sc - i*3)
-                    for tk in soc_tickers]
+        # Sociétés : si on a les constituants EU réels, prendre les 3 meilleurs
+        # (EV/EBITDA + score propres) au lieu du score sectoriel cloné.
+        _real_mems = _eu_members_by_sec.get(nom, [])
+        if _real_mems:
+            _top_mems = sorted(_real_mems, key=lambda m: m.get("score_raw", 0), reverse=True)[:3]
+            societes = []
+            for _m in _top_mems:
+                _ev = _m.get("ev_ebitda")
+                _ev_str = (f"{_ev:.1f}x".replace('.', ',') if _ev and 0.5 < _ev < 200 else "—")
+                _msc = _m.get("score_raw", sc)
+                societes.append((_m.get("ticker", "—"), sig, _ev_str, _msc))
+        else:
+            soc_tickers = (_get_real_tickers(nom, universe) or
+                           _get_real_tickers(nom, "S&P 500"))[:3]
+            societes = [(tk, "Surpondérer" if sig == "Surpondérer" else "Neutre", "—", sc - i*3)
+                        for tk in soc_tickers]
         top3_secteurs.append({
             "nom": nom, "signal": sig, "score": sc,
             "ev_ebitda": "—", "pe_forward_raw": 20.0, "pe_mediane_10y": 18.0,
             "poids_indice": "—",
-            "catalyseur": f"Performance YTD {ret:+.1f}% — momentum sectoriel positif",
-            "risque": "Risque de compression multiple si croissance BPA decelee",
+            "catalyseur": f"Performance YTD {ret:+.1f} % — momentum sectoriel positif".replace('.', ','),
+            "risque": "Risque de compression multiple si croissance BPA décélérée",
             "societes": societes or [("—","Neutre","—",50)],
         })
 

@@ -1245,7 +1245,23 @@ def _build_cartographie(data, weights_buf, attribution_buf=None, registry=None):
             elif _erp < 1:
                 _lecture = "Prime faible — valoris\u00e9 serr\u00e9 vs taux"
             else:
-                _lecture = "Prime mod\u00e9r\u00e9e — valorisation raisonnable"
+                # Variante nuancee selon Div.Yield + P/Book pour eviter
+                # << Prime moderee >> repete sur 6+ secteurs en zone ERP neutre.
+                _has_dy_l = (_dy or 0) > 2.5
+                _low_pb_l = (_pb or 99) < 2.5
+                _high_pb_l = (_pb or 0) > 6
+                if _erp > 5:
+                    _lecture = "Prime forte — exposition rendement tr\u00e8s attractive"
+                elif _erp < 1.5:
+                    _lecture = "Prime contenue — vigilance sur les multiples"
+                elif _has_dy_l:
+                    _lecture = "Prime mod\u00e9r\u00e9e — yield supportif"
+                elif _low_pb_l:
+                    _lecture = "Prime mod\u00e9r\u00e9e — d\u00e9cote book actionnable"
+                elif _high_pb_l:
+                    _lecture = "Prime mod\u00e9r\u00e9e — multiples \u00e9lev\u00e9s \u00e0 surveiller"
+                else:
+                    _lecture = "Prime mod\u00e9r\u00e9e — valorisation raisonnable"
             # Affichage du nom de secteur en francais
             try:
                 from core.sector_labels import fr_label as _fr_lbl
