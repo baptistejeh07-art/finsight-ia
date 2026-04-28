@@ -1241,9 +1241,11 @@ def _s02_exec_summary(prs, D):
     _rect(slide, 0.9, 2.4, 0.1, 1.1, fill=D["sig_color"])
     _txb(slide, f"● {D['sig_label']}", 1.3, 2.45, 3.2, 1.0, size=11, bold=True, color=D["sig_color"])
     # Helper : "n/d" pour mg_med <= 0.5% (banques, insurance — EBITDA non applicable)
-    _mg_str = f"{D['mg_med']:.1f} %" if D.get('mg_med', 0) and abs(D['mg_med']) > 0.5 else "n/d"
-    kpi_str = (f"EV/EBITDA med. : {D['ev_med']:.1f}x  ·  "
-               f"Croissance med. : {D['rev_med']:+.1f} %  ·  "
+    _mg_str = f"{D['mg_med']:.1f} %".replace('.', ',') if D.get('mg_med', 0) and abs(D['mg_med']) > 0.5 else "n/d"
+    _ev_str = f"{D['ev_med']:.1f}x".replace('.', ',')
+    _rev_str = f"{D['rev_med']:+.1f} %".replace('.', ',')
+    kpi_str = (f"EV/EBITDA med. : {_ev_str}  ·  "
+               f"Croissance med. : {_rev_str}  ·  "
                f"Marge EBITDA med. : {_mg_str}  ·  "
                f"Score moyen : {D['score_moyen']}/100")
     _txb(slide, kpi_str, 4.6, 2.5, 19.8, 0.9, size=8.5, color=_NAVY)
@@ -1545,8 +1547,9 @@ def _s06_ratios(prs, D):
     _rect(slide, 0.9, _s06_text_y, 23.6, 2.8, fill=_GRAYL)
     _rect(slide, 0.9, _s06_text_y, 23.6, 0.7, fill=_NAVY)
     _txb(slide, "LECTURE ANALYTIQUE", 1.1, _s06_text_y + 0.05, 23.2, 0.6, size=8.5, bold=True, color=_WHITE)
+    _ev_med_fr = f"{ev_med:.1f}x".replace('.', ',')
     analysis = (
-        f"La médiane EV/EBITDA sectorielle s'établit à {ev_med:.1f}x LTM. "
+        f"La médiane EV/EBITDA sectorielle s'établit à {_ev_med_fr} LTM. "
         f"{best_name} ({_fmt_x(ev_best)}) se distingue comme le leader de qualité, "
         f"combinée à une marge EBITDA de {_fmt_pct_plain(best.get('ebitda_margin'))} et une croissance "
         f"de {_fmt_pct_rev(best.get('revenue_growth'))}. "
@@ -1892,23 +1895,24 @@ def _s10_scatter(prs, D):
     premium = [t for t in td if t.get("ev_ebitda") and float(t["ev_ebitda"]) > med_ev * 1.15]
     decote  = [t for t in td if t.get("ev_ebitda") and 0 < float(t["ev_ebitda"]) < med_ev * 0.85]
 
+    _med_fr = f"{med_ev:.1f}x".replace('.', ',')
     analysis_lines = []
     if decote:
         d0 = max(decote, key=lambda t: t.get("score_global") or 0)
         analysis_lines.append(
             f"{d0.get('ticker', '')} offre la meilleure asymétrie — "
-            f"EV/EBITDA de {_fmt_x(d0.get('ev_ebitda'))} sous la Médiane de {med_ev:.1f}x "
+            f"EV/EBITDA de {_fmt_x(d0.get('ev_ebitda'))} sous la médiane de {_med_fr} "
             f"avec un score FinSight de {int(d0.get('score_global') or 0)}/100."
         )
     if premium:
         p0 = premium[0]
         analysis_lines.append(
             f"{p0.get('ticker', '')} traite en prime ({_fmt_x(p0.get('ev_ebitda'))} vs "
-            f"Médiane {med_ev:.1f}x) — vérifier si la croissance justifié ce multiple."
+            f"médiane {_med_fr}) — vérifier si la croissance justifie ce multiple."
         )
     analysis_lines.append(
-        f"Médiane sectorielle : {med_ev:.1f}x. "
-        f"Les barres vertes sous cette ligne sont les candidats privilegies a analyser "
+        f"Médiane sectorielle : {_med_fr}. "
+        f"Les barres vertes sous cette ligne sont les candidats privilégiés à analyser "
         f"via Analyse Société individuelle (DCF, WACC, scénarios)."
     )
     _txb(slide, "\n\n".join(analysis_lines), 16.3, 3.1, 8.0, 10.5, size=8.5, color=_GRAYT, wrap=True)
@@ -2100,7 +2104,7 @@ def _s14_distribution(prs, D):
     if not ev_med or ev_med <= 0:
         ev_med = D.get("ev_med") or 0.0
     _header(slide, "Distribution des Valorisations",
-            f"{metric_label} par société vs médiane sectorielle ({ev_med:.1f}x)  ·  Vert = sous médiane  ·  Rouge = prime", 3)
+            f"{metric_label} par société vs médiane sectorielle ({f'{ev_med:.1f}x'.replace('.', ',')})  ·  Vert = sous médiane  ·  Rouge = prime", 3)
 
     _pic(slide, img, 0.9, 2.3, 14.7, 11.4)
 
@@ -2129,20 +2133,25 @@ def _s14_distribution(prs, D):
     _spread_ratio = (_ev_max / _ev_min) if _ev_min > 0 else 1
 
     # Bloc 1 : ce qu'on observe (factuel + chiffre)
+    _ev_min_fr = f"{_ev_min:.1f}x".replace('.', ',')
+    _ev_max_fr = f"{_ev_max:.1f}x".replace('.', ',')
+    _ratio_fr = f"{_spread_ratio:.1f}x".replace('.', ',')
+    _ev_med_fr = f"{ev_med:.1f}x".replace('.', ',')
     _obs = (
-        f"OBSERVATION. Le secteur affiche un Écart entre la valeur la plus basse "
-        f"({_ev_min:.1f}x) et la plus haute ({_ev_max:.1f}x), soit un ratio de "
-        f"{_spread_ratio:.1f}x. La Médiane s'établit a {ev_med:.1f}x avec {n_sur} "
-        f"acteur(s) en prime marquee (>+15% vs Médiane) et {n_sous} en décote "
-        f"significative (<-15%)."
+        f"OBSERVATION. Le secteur affiche un écart entre la valeur la plus basse "
+        f"({_ev_min_fr}) et la plus haute ({_ev_max_fr}), soit un ratio de "
+        f"{_ratio_fr}. La médiane s'établit à {_ev_med_fr} avec {n_sur} "
+        f"acteur(s) en prime marquée (>+15 % vs médiane) et {n_sous} en décote "
+        f"significative (<-15 %)."
     )
     # Bloc 2 : ce que ca implique (analyse + noms concrets)
     if _best_decote:
         _best_d_name = _best_decote.get('ticker', '?')
         _best_d_score = int(_best_decote.get('score_global') or 0)
+        _best_d_val_fr = f"{float(_best_decote.get(metric_field) or 0):.1f}x".replace('.', ',')
         _impl_d = (
             f"{_best_d_name} combine la décote ({metric_label} "
-            f"{float(_best_decote.get(metric_field) or 0):.1f}x) avec un score "
+            f"{_best_d_val_fr}) avec un score "
             f"FinSight de {_best_d_score}/100 : asymétrie positive la plus "
             f"crédible du secteur, déclencheur d'une analyse société approfondie."
         )
@@ -2152,8 +2161,9 @@ def _s14_distribution(prs, D):
                    "l'approche doit rester sélective et patiente.")
     if _worst_prime:
         _worst_p_name = _worst_prime.get('ticker', '?')
+        _worst_p_val_fr = f"{float(_worst_prime.get(metric_field) or 0):.1f}x".replace('.', ',')
         _impl_p = (
-            f"À l'opposé, {_worst_p_name} ({float(_worst_prime.get(metric_field) or 0):.1f}x) "
+            f"À l'opposé, {_worst_p_name} ({_worst_p_val_fr}) "
             f"concentre le risque de derating : toute déception de croissance ou "
             f"guidance décevante comprimerait le multiple en priorité sur ce nom."
         )
