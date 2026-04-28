@@ -1726,21 +1726,22 @@ def _s13_top3(prs, D):
         _rect(slide, xoff, 2.3, panel_w, 11.1, fill=_GRAYL)
         _rect(slide, xoff, 2.3, panel_w, 0.8, fill=_NAVY)
 
-        # Nom + signal badge
-        _txb(slide, nom[:18], xoff + 0.2, 2.35, panel_w - 2.5, 0.7,
+        # Nom + signal badge (libellé FR via _abbrev_sector)
+        _nom_fr = _abbrev_sector(nom, maxlen=18)
+        _txb(slide, _nom_fr, xoff + 0.2, 2.35, panel_w - 2.5, 0.7,
              size=10, bold=True, color=_WHITE)
         _rect(slide, xoff + panel_w - 2.0, 2.35, 1.8, 0.65, fill=_sig_color(sig))
         _txb(slide, "Surp." if "Surp" in sig else ("Sous." if "Sous" in sig else "Neutre"),
              xoff + panel_w - 1.9, 2.4, 1.7, 0.55, size=7.5, bold=True,
              color=_WHITE, align=PP_ALIGN.CENTER)
 
-        # Score + metrique dispo (EV/EBITDA ou Mg.EBITDA en fallback)
+        # Score + metrique dispo (EV/EBITDA ou Mg.EBITDA en fallback) — décimales FR
         mg_eb = sect.get("mg_ebitda", sect.get("marge_ebitda", "—"))
         if str(ev) in ("—", "", "None") and mg_eb and str(mg_eb) not in ("—","","None"):
-            _mg_disp = f"{float(mg_eb):.1f}%" if isinstance(mg_eb,(int,float)) else str(mg_eb)
+            _mg_disp = f"{float(mg_eb):.1f} %".replace('.', ',') if isinstance(mg_eb,(int,float)) else str(mg_eb).replace('.', ',')
             _met_disp = f"Score : {score}/100  ·  Mg.EBITDA : {_mg_disp}"
         else:
-            _met_disp = f"Score : {score}/100  ·  EV/EBITDA : {ev}"
+            _met_disp = f"Score : {score}/100  ·  EV/EBITDA : {str(ev).replace('.', ',')}"
         _txb(slide, _met_disp, xoff + 0.2, 3.25, panel_w - 0.3, 0.5, size=7.5, color=_NAVY)
 
         # Sociétés
@@ -1924,15 +1925,21 @@ def _s14_allocation(prs, D):
     _rect(slide, 17.0, 2.4, 7.5, tbl_h, fill=_GRAYL)
     _rect(slide, 17.0, 2.4, 0.12, tbl_h, fill=_NAVY)
     _txb(slide, "LECTURE QUANTITATIVE", 17.3, 2.5, 7.0, 0.55, size=8, bold=True, color=_NAVY)
+    # Sharpe en virgule FR + noms secteurs en FR
+    def _fr_sh(v):
+        return f"{v:.2f}".replace('.', ',')
+    _t_max_fr   = _abbrev_sector(t_max,   maxlen=20) if t_max  != "—" else "—"
+    _mv_max_fr  = _abbrev_sector(mv_max,  maxlen=20) if mv_max != "—" else "—"
+    _erc_max_fr = _abbrev_sector(erc_max, maxlen=20) if erc_max != "—" else "—"
     lecture = (
-        f"Portefeuille Tangency (Max Sharpe = {sharpe.get('tangency', 0):.2f}) : "
-        f"sur-allocation sur {t_max} — secteur offrant le meilleur ratio rendement/risque sur 52 semaines. "
+        f"Portefeuille Tangency (Max Sharpe = {_fr_sh(sharpe.get('tangency', 0))}) : "
+        f"sur-allocation sur {_t_max_fr} — secteur offrant le meilleur ratio rendement/risque sur 52 semaines. "
         f"Ce portefeuille est le plus agressif des trois.\n\n"
-        f"Min-Variance (Sharpe = {sharpe.get('mv', 0):.2f}) : poids dominant sur {mv_max} — "
-        f"secteur le moins volatil sur la période. Approche défensive, adaptee a un contexte d'incertitude élevée.\n\n"
-        f"ERC (Sharpe = {sharpe.get('erc', 0):.2f}) : allocation équilibrée, {erc_max} ressort dominant. "
+        f"Min-Variance (Sharpe = {_fr_sh(sharpe.get('mv', 0))}) : poids dominant sur {_mv_max_fr} — "
+        f"secteur le moins volatil sur la période. Approche défensive, adaptée à un contexte d'incertitude élevée.\n\n"
+        f"ERC (Sharpe = {_fr_sh(sharpe.get('erc', 0))}) : allocation équilibrée, {_erc_max_fr} ressort dominant. "
         f"Chaque secteur contribue également au risque total du portefeuille.\n\n"
-        f"Note : Basé sur rendements journaliers 52S ETF SPDR. Contraintes : poids 0-40% par secteur."
+        f"Note : basé sur rendements journaliers 52S ETF SPDR. Contraintes : poids 0-40 % par secteur."
     )
     _txb(slide, lecture, 17.3, 3.1, 7.0, tbl_h - 0.8, size=7.5, color=_GRAYT, wrap=True)
 

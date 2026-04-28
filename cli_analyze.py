@@ -2034,8 +2034,9 @@ def _make_test_indice_data(universe: str = "S&P 500") -> dict:
             "neutre_nb":    len(secteurs) - nb_surp - nb_sous,
             "neutre_pct":   round(100*(len(secteurs) - nb_surp - nb_sous)/max(len(secteurs),1)),
             "negatif_nb":   nb_sous, "negatif_pct": round(100*nb_sous/max(len(secteurs),1)),
-            "themes_pos":   [],  # le writer remplit depuis les donnees reelles
-            "themes_neg":   [],
+            # Listes des secteurs (libellés bruts ; le writer applique _abbrev_sector)
+            "themes_pos":   [s[0] for s in secteurs if s[3] == "Surpondérer"],
+            "themes_neg":   [s[0] for s in secteurs if s[3] == "Sous-pondérer"],
             "positif": {"nb": nb_surp, "score": "—", "themes": "—"},
             "neutre":  {"nb": len(secteurs) - nb_surp - nb_sous, "score": "—", "themes": "—"},
             "negatif": {"nb": nb_sous, "score": "—", "themes": "—"},
@@ -3295,6 +3296,32 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
         # indice_stats : perf_ytd/1y/3y/5y/vol_1y/sharpe_1y/max_dd pour tuiles UI
         "indice_stats": _compute_indice_stats(code, rf_annual=rf_rate),
     })
+
+    # Sentiment_agg : recalcule depuis les VRAIS secteurs (sinon hérite des
+    # noms anglais hardcodés de _make_test_indice_data → slide 19 vide en prod)
+    _real_surp = [s[0] for s in secteurs if s[3] == "Surpondérer"]
+    _real_sous = [s[0] for s in secteurs if s[3] == "Sous-pondérer"]
+    _nb_surp_r = len(_real_surp)
+    _nb_sous_r = len(_real_sous)
+    _nb_neut_r = len(secteurs) - _nb_surp_r - _nb_sous_r
+    _denom_r   = max(len(secteurs), 1)
+    base["sentiment_agg"] = {
+        "label":        signal_global,
+        "score":        0.0,
+        "nb_articles":  0,
+        "positif_nb":   _nb_surp_r,
+        "positif_pct":  round(100 * _nb_surp_r / _denom_r),
+        "neutre_nb":    _nb_neut_r,
+        "neutre_pct":   round(100 * _nb_neut_r / _denom_r),
+        "negatif_nb":   _nb_sous_r,
+        "negatif_pct":  round(100 * _nb_sous_r / _denom_r),
+        "themes_pos":   _real_surp,
+        "themes_neg":   _real_sous,
+        "positif": {"nb": _nb_surp_r, "score": "—", "themes": "—"},
+        "neutre":  {"nb": _nb_neut_r, "score": "—", "themes": "—"},
+        "negatif": {"nb": _nb_sous_r, "score": "—", "themes": "—"},
+        "par_secteur": [],
+    }
 
     # LLM : generation texte analytique reel (texte_macro, texte_valorisation, catalyseurs, risques)
     try:
