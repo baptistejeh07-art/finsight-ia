@@ -527,7 +527,7 @@ def _build_content_from_data(td: list, sector_name: str, score_moyen: int,
     # Helper : "n/d" pour banques/insurance ou EBITDA non applicable
     _mg_disp = f"{mg_med:.1f} %" if mg_med and abs(mg_med) > 0.5 else "n/d"
     metriques = [
-        ("EV/EBITDA", f"{ev_med:.1f}x",     "Médiane secteur"),
+        ("EV/EBITDA", f"{ev_med:.1f}x".replace('.', ','),     "Médiane secteur"),
         ("Mg EBITDA", _mg_disp,              "LTM"),
         ("Croissance", f"{rev_med:+.1f} %",  "YoY"),
         ("Momentum",  f"{mom_med:+.1f} %",   "52W"),
@@ -965,12 +965,12 @@ def _chart_valuation_bars(tickers_data) -> tuple[bytes, str]:
     ax.set_yticklabels(tickers_list, fontsize=7.5)
 
     ax.axvline(med_ev, color='#1B3A6B', linewidth=1.5, linestyle='--', zorder=5)
-    ax.text(med_ev + 0.2, n - 0.4, f'Med: {med_ev:.1f}x',
+    ax.text(med_ev + 0.2, n - 0.4, f'Med: {med_ev:.1f}x'.replace('.', ','),
             fontsize=7, color='#1B3A6B', va='top', fontweight='bold')
 
     x_max = max(evs) if evs else 1
     for i, ev in enumerate(evs):
-        ax.text(ev + x_max * 0.01, i, f'{ev:.1f}x', va='center', ha='left', fontsize=6.5, color='#333333')
+        ax.text(ev + x_max * 0.01, i, f'{ev:.1f}x'.replace('.', ','), va='center', ha='left', fontsize=6.5, color='#333333')
 
     ax.set_xlabel(metric_label, fontsize=8, color='#555555')
     ax.tick_params(labelsize=7, colors='#777777')
@@ -1047,7 +1047,7 @@ def _chart_distribution(tickers_data) -> tuple[bytes, str, str, float]:
     fig.patch.set_facecolor('#FFFFFF')
     ax.set_facecolor('#F8F9FA')
     bars = ax.bar(labels, vals, color=colors, alpha=0.85, zorder=3)
-    ax.axhline(med, color='#1B3A6B', linewidth=1.5, linestyle='--', label=f"Médiane {med:.1f}x")
+    ax.axhline(med, color='#1B3A6B', linewidth=1.5, linestyle='--', label=f"Médiane {med:.1f}x".replace('.', ','))
     # Labels de valeur supprimés (slides epures)
     ax.set_ylabel(metric_label, fontsize=8, color='#555555')
     n_labels = len(labels)
@@ -1281,7 +1281,7 @@ def _s02_exec_summary(prs, D):
 
     # 4 KPI boxes
     kpis = [
-        (f"{D['ev_med']:.1f}x", "EV/EBITDA med.", "vs Marché EU"),
+        (f"{D['ev_med']:.1f}x".replace('.', ','), "EV/EBITDA med.", "vs Marché EU"),
         (f"{D['rev_med']:+.1f} %", "Croissance Rev. med.", "YoY sectoriel"),
         (_mg_str, "Marge EBITDA med.", "LTM sectorielle"),
         (f"{D['mom_med']:+.1f} %", "Momentum 52W med.", "Performance relative"),
@@ -1703,9 +1703,9 @@ def _s08_subsectors(prs, D):
             str(s["nb"]),
             str(s["score"]),
             s["signal"],
-            f"{s['ev_ebitda']:.1f}x" if s["ev_ebitda"] else "\u2014",
-            f"{s['margin']:.1f}%" if s["margin"] else "\u2014",
-            f"{s['growth']:+.1f}%" if s["growth"] else "\u2014",
+            f"{s['ev_ebitda']:.1f}x".replace('.', ',') if s["ev_ebitda"] else "\u2014",
+            f"{s['margin']:.1f} %".replace('.', ',') if s["margin"] else "\u2014",
+            f"{s['growth']:+.1f} %".replace('.', ',') if s["growth"] else "\u2014",
             f"{s['momentum']:+.1f}%" if s["momentum"] else "\u2014",
         ]
         for c, v in enumerate(vals):
@@ -2321,7 +2321,7 @@ def _s17_risques(prs, D):
     fcf_med  = _median(fcf_vals)
     sg_med   = _median(sg_vals)
 
-    nd_str  = f"{nd_med:.1f}x"  if nd_med  is not None else "N/D"
+    nd_str  = f"{nd_med:.1f}x".replace('.', ',')  if nd_med  is not None else "N/D"
     fcf_str = f"{fcf_med:.1f}%" if fcf_med is not None else "N/D"
     sg_str  = f"{sg_med:.0f}/100" if sg_med is not None else "N/D"
 

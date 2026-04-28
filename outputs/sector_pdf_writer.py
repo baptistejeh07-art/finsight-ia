@@ -199,7 +199,9 @@ def _fmt_price(v):
         return "\u2014"
     try:
         f = float(v)
-        return f"{f:,.2f}" if f < 1000 else f"{f:,.0f}"
+        # Format FR : virgule d\u00e9cimale, espace comme s\u00e9parateur milliers
+        s = f"{f:,.2f}" if f < 1000 else f"{f:,.0f}"
+        return s.replace(',', ' ').replace('.', ',')
     except (TypeError, ValueError):
         return "\u2014"
 
@@ -938,7 +940,7 @@ def _build_macro(perf_buf, area_buf, tickers_data: list[dict],
                     Paragraph(str(_i), S_TD_C),
                     Paragraph(f"<b>{_h.get('ticker','?')}</b>", S_TD_BC),
                     Paragraph(str(_h.get('name', ''))[:40], S_TD_L),
-                    Paragraph(f"{_w_pct:.1f} %", S_TD_C),
+                    Paragraph(f"{_w_pct:.1f} %".replace('.', ','), S_TD_C),
                 ])
             elems.append(Spacer(1, 1*mm))
             elems.append(Paragraph("Top 5 holdings (poids decroissant)", S_NOTE))
@@ -1151,7 +1153,7 @@ def _build_macro(perf_buf, area_buf, tickers_data: list[dict],
             if val is None:
                 continue
             label, unit = _FRED_LABELS.get(key, (key, ""))
-            val_str = f"{val:.2f} {unit}".strip() if unit else f"{val:.2f}"
+            val_str = (f"{val:.2f} {unit}".strip() if unit else f"{val:.2f}").replace('.', ',')
             _fred_rows.append([
                 Paragraph(label, S_TD_L),
                 Paragraph(f"<b>{val_str}</b>", S_TD_BC),
@@ -1164,7 +1166,7 @@ def _build_macro(perf_buf, area_buf, tickers_data: list[dict],
             if val is None:
                 continue
             label, unit = _SECTOR_LABELS.get(key, (key.replace("_", " ").title(), ""))
-            val_str = f"{val:.2f} {unit}".strip() if unit else f"{val:.2f}"
+            val_str = (f"{val:.2f} {unit}".strip() if unit else f"{val:.2f}").replace('.', ',')
             interp = _fred_interp(key, val)
             _fred_rows.append([
                 Paragraph(f"<i>{label}</i>", S_TD_L),
@@ -1318,9 +1320,10 @@ def _build_structure_sectorielle(tickers_data: list[dict], sector_name: str,
     pe_hist = sa.get("pe_median_hist")
     pe_prem = sa.get("pe_premium")
     if pe_ltm and pe_hist:
-        pe_val = f"{pe_ltm:.1f}x (hist. {pe_hist:.1f}x)"
+        pe_val = (f"{pe_ltm:.1f}x".replace('.', ',') +
+                  " (hist. " + f"{pe_hist:.1f}x".replace('.', ',') + ")")
     elif pe_ltm:
-        pe_val = f"{pe_ltm:.1f}x LTM"
+        pe_val = f"{pe_ltm:.1f}x".replace('.', ',') + " LTM"
     else:
         pe_val = "\u2014"
     pe_lbl  = sa.get("pe_cycle_label", "historique insuffisant")
@@ -1335,9 +1338,9 @@ def _build_structure_sectorielle(tickers_data: list[dict], sector_name: str,
     roic_min  = sa.get("roic_min")
     roic_max  = sa.get("roic_max")
     if roic_std is not None and roic_mean is not None:
-        roic_val = f"moy. {roic_mean:.1f}%  |  σ={roic_std:.1f}%  |  [{roic_min:.1f}% — {roic_max:.1f}%]"
+        roic_val = f"moy. {roic_mean:.1f}%  |  σ={roic_std:.1f}%  |  [{roic_min:.1f}% — {roic_max:.1f}%]".replace('.', ',')
     elif roic_std is not None:
-        roic_val = f"écart-type {roic_std:.1f}%"
+        roic_val = f"écart-type {roic_std:.1f}%".replace('.', ',')
     else:
         roic_val = "\u2014"
     roic_lbl = sa.get("roic_label", "\u2014")
@@ -1493,7 +1496,7 @@ def _build_structure_sectorielle(tickers_data: list[dict], sector_name: str,
     # --- PEG ratio médian ---
     peg_med = sa.get("peg_median")
     if peg_med is not None:
-        peg_val = f"{peg_med:.1f}x"
+        peg_val = f"{peg_med:.1f}x".replace('.', ',')
         if peg_med < 1.0:
             peg_lbl = "sous-valorise sur la croissance — décote vs pairs"
             peg_s   = S_TD_G
@@ -1514,7 +1517,7 @@ def _build_structure_sectorielle(tickers_data: list[dict], sector_name: str,
     # --- FCF Yield médian ---
     fcfy = sa.get("fcf_yield_median")
     if fcfy is not None:
-        fcfy_val = f"{fcfy:.1f}%"
+        fcfy_val = f"{fcfy:.1f} %".replace('.', ',')
         if fcfy >= 5.0:
             fcfy_lbl = "genereux — génération de cash élevée, support valorisation"
             fcfy_s   = S_TD_G
@@ -1537,9 +1540,9 @@ def _build_structure_sectorielle(tickers_data: list[dict], sector_name: str,
     b_std = sa.get("beta_std")
     if b_med is not None:
         if b_std is not None:
-            beta_val = f"med. {b_med:.2f}  |  sigma={b_std:.2f}"
+            beta_val = f"med. {b_med:.2f}  |  sigma={b_std:.2f}".replace('.', ',')
         else:
-            beta_val = f"{b_med:.2f}"
+            beta_val = f"{b_med:.2f}".replace('.', ',')
         if b_std is not None and b_std < 0.25:
             beta_lbl = "sensibilité macro homogène — beta sectoriel dominant"
             beta_s   = S_TD_C
@@ -2531,7 +2534,7 @@ def _build_acteurs(tickers_data: list[dict], sector_name: str, registry=None):
         try:
             up_pct = float(upside.replace('%','').replace('+','').replace('-',''))
             sign   = -1 if upside.startswith('-') else 1
-            cible  = f"{float(t['price']) * (1 + sign * up_pct/100):,.2f}" if t.get('price') else "\u2014"
+            cible  = f"{float(t['price']) * (1 + sign * up_pct/100):,.2f}".replace(',', ' ').replace('.', ',') if t.get('price') else "\u2014"
         except (TypeError, ValueError, KeyError):
             cible = "\u2014"
         cat = catalysts[i % len(catalysts)]
@@ -2634,7 +2637,7 @@ def _build_valorisation(scatter_buf, donut_buf, tickers_data: list[dict],
 
     meds = [float(t[_val_metric_field]) for t in tickers_data if t.get(_val_metric_field)]
     med_ev = np.median(meds) if meds else 0
-    _med_str = f"{med_ev:.2f}x" if _is_fin else f"{med_ev:.1f}x"
+    _med_str = (f"{med_ev:.2f}x" if _is_fin else f"{med_ev:.1f}x").replace('.', ',')
     elems.append(Paragraph(
         f"L'analyse de valorisation du secteur <b>{sector_name}</b> révèle une médiane "
         f"{_val_metric_label} de <b>{_med_str}</b>. La dispersion des multiples entre acteurs "
@@ -3057,13 +3060,13 @@ def _build_risques(tickers_data: list[dict], sector_name: str, registry=None):
               ["Metrique", "Médiane secteur", "Seuil vigilance", "Evaluation"]]
     fund_rows_data = [
         ("ND/EBITDA (levier)", nd_med,
-         f"{nd_med:.1f}x" if nd_med is not None else "\u2014",
+         f"{nd_med:.1f}x".replace('.', ',') if nd_med is not None else "\u2014",
          "< 2x sain  \u00b7  > 4x alerte",
          _nd_style(nd_med),
          ("Levier maitrise" if nd_med is not None and nd_med < 2.0 else
           "Levier surveiller" if nd_med is not None and nd_med < 4.0 else "Levier excessif")),
         ("FCF Yield (%)", fcf_med,
-         f"{fcf_med:.1f}%" if fcf_med is not None else "\u2014",
+         f"{fcf_med:.1f} %".replace('.', ',') if fcf_med is not None else "\u2014",
          "> 4% attractif  \u00b7  < 1% insuffisant",
          _fcf_style(fcf_med),
          ("Generation cash solide" if fcf_med is not None and fcf_med > 4.0 else
@@ -3078,7 +3081,7 @@ def _build_risques(tickers_data: list[dict], sector_name: str, registry=None):
     if pe_med is not None:
         fund_rows_data.append((
             "P/E median (valorisation)", pe_med,
-            f"{pe_med:.1f}x",
+            f"{pe_med:.1f}x".replace('.', ','),
             "10-20x raisonnable  \u00b7  > 30x prime",
             S_TD_G if pe_med < 20.0 else (S_TD_A if pe_med < 30.0 else S_TD_R),
             "Valorisation raisonnable" if pe_med < 20.0 else ("Prime modérée" if pe_med < 30.0 else "Prime élevée"),
@@ -3086,7 +3089,7 @@ def _build_risques(tickers_data: list[dict], sector_name: str, registry=None):
     if roe_med is not None:
         fund_rows_data.append((
             "ROE median (%)", roe_med,
-            f"{roe_med:.1f}%",
+            f"{roe_med:.1f} %".replace('.', ','),
             "> 15% excellent  \u00b7  < 8% faible",
             S_TD_G if roe_med > 15 else (S_TD_A if roe_med > 8 else S_TD_R),
             "ROE solide" if roe_med > 15 else ("ROE acceptable" if roe_med > 8 else "ROE insuffisant"),
