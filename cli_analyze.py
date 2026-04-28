@@ -548,6 +548,16 @@ def run_indice(universe: str = "S&P 500", language: str = "fr", currency: str = 
     # Synthèse narrative pour l'UI dashboard
     _secteurs = data.get("secteurs", []) if isinstance(data, dict) else []
     _stats = data.get("indice_stats", {}) if isinstance(data, dict) else {}
+    # Fallback : si indice_stats absent (chemin test ou fetch incomplet), calcul direct
+    if not _stats or not any(_stats.values()):
+        _code_for_stats = (data.get("code") if isinstance(data, dict) else None) or \
+                          _INDICE_META.get(universe, {}).get("code")
+        if _code_for_stats:
+            try:
+                _stats = _compute_indice_stats(_code_for_stats)
+                log.info("indice_stats fallback computed for %s (%s)", universe, _code_for_stats)
+            except Exception as _e_stats:
+                log.warning("indice_stats fallback échec : %s", _e_stats)
     indice_summary = _build_indice_narrative(universe, _secteurs, _stats)
 
     # Retourne les data pour le backend (Q&A contexte + UI enrichie)
@@ -1920,45 +1930,45 @@ def _make_test_indice_data(universe: str = "S&P 500") -> dict:
         "nb_secteurs":      len(secteurs),
         "nb_societes":      meta["nb_societes"],
         "cours":            "5 210",
-        "variation_ytd":    "+4.8%",
-        "pe_forward":       "21.5x",
-        "pe_mediane_10y":   "18.2x",
-        "prime_decote":     "+18% prime",
-        "erp":              "4.2%",
+        "variation_ytd":    "+4,8 %",
+        "pe_forward":       "21,5x",
+        "pe_mediane_10y":   "18,2x",
+        "prime_decote":     "+18 % prime",
+        "erp":              "4,2 %",
         "erp_signal":       "Favorable",
-        "rf_rate":          "4.50%",
-        "bpa_growth":       "+8.5%",
+        "rf_rate":          "4,50 %",
+        "bpa_growth":       "+8,5 %",
         "date_analyse":     date_str,
         "texte_description": (
             f"Le {universe} regroupe les {meta['nb_societes']} plus grandes capitalisations "
-            f"domestiques, pond\u00e9r\u00e9es par leur capitalisation flottante. Cet indice "
-            f"constitue un benchmark de r\u00e9f\u00e9rence pour les allocataires d'actifs "
-            f"institutionnels sur sa zone g\u00e9ographique. La composition GICS couvre "
-            f"{len(secteurs)} secteurs, la repartition sectorielle reflete le tissu "
-            f"\u00e9conomique sous-jacent de l'univers analys\u00e9."
+            f"domestiques, pondérées par leur capitalisation flottante. Cet indice "
+            f"constitue un benchmark de référence pour les allocataires d'actifs "
+            f"institutionnels sur sa zone géographique. La composition GICS couvre "
+            f"{len(secteurs)} secteurs, la répartition sectorielle reflète le tissu "
+            f"économique sous-jacent de l'univers analysé."
         ),
         # Textes chasse hardcoding #90 : generiques data-driven, pas de sector
         # names hardcoded. Le LLM du writer enrichit a partir de ces bases.
         "texte_macro": (
             f"L'environnement macro conditionne l'allocation sur le {universe} : politique "
-            f"mon\u00e9taire des banques centrales, trajectoire de l'inflation, cycle economique, "
-            f"tensions g\u00e9opolitiques et dynamique des taux longs. Ces facteurs determinent "
-            f"le r\u00e9gime de valorisation sectoriel et la tol\u00e9rance au risque des "
+            f"monétaire des banques centrales, trajectoire de l'inflation, cycle économique, "
+            f"tensions géopolitiques et dynamique des taux longs. Ces facteurs déterminent "
+            f"le régime de valorisation sectoriel et la tolérance au risque des "
             f"investisseurs institutionnels sur un horizon 12 mois glissants."
         ),
         "texte_signal": (
             f"Le signal global sur le {universe} est {signal_global} avec une conviction de "
-            f"{conviction}% (sur la base des {len(secteurs)} secteurs analys\u00e9s). "
-            f"{nb_surp} secteur(s) ressortent en Surpond\u00e9rer et refletent les dynamiques "
-            f"sectorielles positives identifi\u00e9es par le scoring FinSight (momentum, "
-            f"r\u00e9visions BPA, valorisation relative). Les secteurs Neutre sont en attente "
-            f"de catalyseurs, et les secteurs Sous-pond\u00e9rer presentent des fondamentaux "
-            f"degrad\u00e9s ou une valorisation tendue."
+            f"{conviction} % (sur la base des {len(secteurs)} secteurs analysés). "
+            f"{nb_surp} {('secteur ressort' if nb_surp == 1 else 'secteurs ressortent')} en Surpondérer et reflètent les dynamiques "
+            f"sectorielles positives identifiées par le scoring FinSight (momentum, "
+            f"révisions BPA, valorisation relative). Les secteurs Neutre sont en attente "
+            f"de catalyseurs, et les secteurs Sous-pondérer présentent des fondamentaux "
+            f"dégradés ou une valorisation tendue."
         ),
         "texte_valorisation": (
-            f"Le P/E Forward du {universe} est a croiser avec la m\u00e9diane historique 10 ans "
+            f"Le P/E Forward du {universe} est à croiser avec la médiane historique 10 ans "
             f"pour juger du niveau de valorisation relative. L'ERP Damodaran fournit une mesure "
-            f"de la prime de risque exigee vs le taux sans risque 10 ans, ancrant l'attractivit\u00e9 "
+            f"de la prime de risque exigée vs le taux sans risque 10 ans, ancrant l'attractivité "
             f"relative de l'equity vs les obligations. La compression de multiple reste le risque "
             f"clé dans les régimes de taux restrictifs."
         ),
