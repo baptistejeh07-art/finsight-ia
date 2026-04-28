@@ -602,7 +602,16 @@ def _strip_llm_artifacts(s: str) -> str:
     )
     for pat in _PROMPT_ECHO_PATTERNS:
         cleaned = _re.sub(pat, "", cleaned, flags=_re.IGNORECASE)
-    # 3. Normaliser les sauts de ligne multiples (max 2 = paragraphe)
+    # 3. Strip markdown emphase (**bold**, __underline__, *italic*, _italic_)
+    #    sinon python-pptx peut interpréter ces caractères en sous-soulignements
+    #    visibles à la place du texte (cf bug slide 7 audit 28/04/2026).
+    cleaned = _re.sub(r"\*\*(.+?)\*\*", r"\1", cleaned)
+    cleaned = _re.sub(r"__(.+?)__", r"\1", cleaned)
+    cleaned = _re.sub(r"(?<!\w)\*([^\*\n]+?)\*(?!\w)", r"\1", cleaned)
+    cleaned = _re.sub(r"(?<!\w)_([^_\n]+?)_(?!\w)", r"\1", cleaned)
+    # 4. Strip lignes horizontales markdown (---, ===, ~~~ seuls sur une ligne)
+    cleaned = _re.sub(r"^\s*[-=~]{3,}\s*$", "", cleaned, flags=_re.MULTILINE)
+    # 5. Normaliser les sauts de ligne multiples (max 2 = paragraphe)
     cleaned = _re.sub(r"\n{3,}", "\n\n", cleaned)
     return cleaned.strip()
 
@@ -1377,11 +1386,13 @@ def _chart_52w_price(tkr_a: str, tkr_b: str) -> Optional[io.BytesIO]:
             _p52_b = ((close_b.iloc[-1] / close_b.iloc[0]) - 1) * 100 if not df_b.empty else None
             if _p52_a is not None and _p52_b is not None:
                 _sur = tkr_a if _p52_a > _p52_b else tkr_b
-                _52_title = f"52 semaines : {tkr_a} {_p52_a:+.1f}% vs {tkr_b} {_p52_b:+.1f}% — {_sur} surperforme"
+                _52_title = (
+                    f"52 semaines : {tkr_a} {_p52_a:+.1f} % vs {tkr_b} {_p52_b:+.1f} % — {_sur} surperforme"
+                ).replace('.', ',')
             elif _p52_a is not None:
-                _52_title = f"52 semaines : {tkr_a} {_p52_a:+.1f}%"
+                _52_title = f"52 semaines : {tkr_a} {_p52_a:+.1f} %".replace('.', ',')
             elif _p52_b is not None:
-                _52_title = f"52 semaines : {tkr_b} {_p52_b:+.1f}%"
+                _52_title = f"52 semaines : {tkr_b} {_p52_b:+.1f} %".replace('.', ',')
             else:
                 _52_title = 'Performance Relative 52 Semaines (base 100)'
         except Exception:
@@ -1849,7 +1860,7 @@ def _slide_pl(prs, m_a: dict, m_b: dict, synthesis: dict):
     if abs(_cagr_b) <= 2: _cagr_b *= 100
     if _cagr_a or _cagr_b:
         _g_leader = tkr_a if _cagr_a > _cagr_b else tkr_b
-        _jpm_sub = f"{_g_leader} affiche la meilleure dynamique revenus sur 3 ans ({max(_cagr_a, _cagr_b):.1f}% CAGR)"
+        _jpm_sub = f"{_g_leader} affiche la meilleure dynamique revenus sur 3 ans ({max(_cagr_a, _cagr_b):.1f} % CAGR)".replace('.', ',')
     else:
         _jpm_sub = "Lecture comparative du Compte de Résultat"
     add_text_box(slide, 1.02, 2.38, 23.37, 0.45, _jpm_sub, 10, NAVY_MID, bold=True, italic=True)
@@ -1906,7 +1917,7 @@ def _slide_marges(prs, m_a: dict, m_b: dict, synthesis: dict):
     if abs(_mg_b) <= 2: _mg_b *= 100
     if _mg_a and _mg_b:
         _mg_leader = tkr_a if _mg_a > _mg_b else tkr_b
-        _jpm_sub = f"{_mg_leader} affiche un avantage structurel de marge ({max(_mg_a,_mg_b):.0f}% vs {min(_mg_a,_mg_b):.0f}%)"
+        _jpm_sub = f"{_mg_leader} affiche un avantage structurel de marge ({max(_mg_a,_mg_b):.0f} % vs {min(_mg_a,_mg_b):.0f} %)"
     else:
         _jpm_sub = "Lecture comparative de la rentabilité et croissance"
     add_text_box(slide, 1.02, 2.38, 23.37, 0.45, _jpm_sub, 10, NAVY_MID, bold=True, italic=True)
@@ -2055,7 +2066,7 @@ def _slide_multiples(prs, m_a: dict, m_b: dict, synthesis: dict):
     if _pe_a and _pe_b:
         _cheap = tkr_a if _pe_a < _pe_b else tkr_b
         _prem = abs(_pe_a - _pe_b) / max(_pe_a, _pe_b) * 100
-        _jpm_sub = f"{_cheap} s'echange avec une décote de {_prem:.0f}% vs le peer sur le P/E"
+        _jpm_sub = f"{_cheap} s'échange avec une décote de {_prem:.0f} % vs le peer sur le P/E"
     else:
         _jpm_sub = "Lecture des multiples de valorisation relative"
     add_text_box(slide, 1.02, 2.38, 23.37, 0.45, _jpm_sub, 10, NAVY_MID, bold=True, italic=True)
@@ -2135,7 +2146,7 @@ def _slide_dcf(prs, m_a: dict, m_b: dict):
     if _up_a_pct is not None and _up_b_pct is not None:
         _dcf_leader = tkr_a if _up_a_pct > _up_b_pct else tkr_b
         _max_up = max(_up_a_pct, _up_b_pct)
-        _jpm_sub = f"{_dcf_leader} offre le meilleur upside DCF base : {_max_up:+.0f}% vs cours actuel"
+        _jpm_sub = f"{_dcf_leader} offre le meilleur upside DCF base : {_max_up:+.0f} % vs cours actuel"
     else:
         _jpm_sub = "Lecture DCF Bear/Base/Bull et prix cibles modèles"
     add_text_box(slide, 1.02, 2.10, 23.37, 0.40, _jpm_sub, 10, NAVY_MID, bold=True, italic=True)
@@ -2213,12 +2224,12 @@ def _slide_dcf(prs, m_a: dict, m_b: dict):
     add_rect(slide, 1.02, y_note, 0.13, 2.4, NAVY_MID)
     dcf_note = (
         "Méthodologie : la fourchette Bear/Base/Bull reflète trois hypothèses de croissance "
-        "appliquees au modèle DCF a 5 ans. Le scénario Base correspond au consensus actuel ; "
-        "Bear intègre un ralentissement de -30 %% sur la croissance; Bull extrapole une "
-        "accélération. La Marge de Sécurité mesure l'écart cours/valeur intrinseque Base : "
+        "appliquées au modèle DCF à 5 ans. Le scénario Base correspond au consensus actuel ; "
+        "Bear intègre un ralentissement de -30 % sur la croissance ; Bull extrapole une "
+        "accélération. La Marge de Sécurité mesure l'écart cours/valeur intrinsèque Base : "
         "plus elle est élevée, plus le coussin de protection est important. "
-        "WACC et TGR sont les parametrès les plus sensibles : +1pt de TGR peut faire "
-        "varier la valorisation de 15 a 20 %%."
+        "WACC et TGR sont les paramètres les plus sensibles : +1pt de TGR peut faire "
+        "varier la valorisation de 15 à 20 %."
     )
     add_text_box(slide, 1.35, y_note + 0.12, 22.8, 2.15, dcf_note, 8, NAVY_MID, wrap=True)
 
@@ -2508,7 +2519,7 @@ def _slide_risque(prs, m_a: dict, m_b: dict):
     _b_a = _safe_float(m_a.get('beta')) or 1.0
     _b_b = _safe_float(m_b.get('beta')) or 1.0
     _def = tkr_a if _b_a < _b_b else tkr_b
-    _jpm_sub = f"{_def} offre un profil plus défensif (beta {min(_b_a,_b_b):.2f} vs {max(_b_a,_b_b):.2f})"
+    _jpm_sub = f"{_def} offre un profil plus défensif (beta {min(_b_a,_b_b):.2f} vs {max(_b_a,_b_b):.2f})".replace('.', ',')
     add_text_box(slide, 1.02, 2.38, 23.37, 0.45, _jpm_sub, 10, NAVY_MID, bold=True, italic=True)
 
     # Tableau performances (gauche) — KPIs supprimés, table monte direct
@@ -2944,13 +2955,14 @@ def _slide_price_chart(prs, m_a: dict, m_b: dict, synthesis: dict = None):
         _beta_a = _safe_float(m_a.get('beta')) or 1.0
         _beta_b = _safe_float(m_b.get('beta')) or 1.0
         _def_tk = tkr_a if _beta_a < _beta_b else tkr_b
+        _beta_str = f"{min(_beta_a, _beta_b):.2f}".replace('.', ',')
         llm_txt = (
             f"{_leader_tk} surperforme sur 12 mois dans un contexte de taux directeurs "
-            f"stabilises et de rotation sectorielle favorable aux profils de qualité. "
+            f"stabilisés et de rotation sectorielle favorable aux profils de qualité. "
             f"Le spread de performance reflète une combinaison de moments pricing-power, "
-            f"discipline opérationnelle et reallocation des flux institutionnels. "
-            f"{_def_tk} (beta {min(_beta_a, _beta_b):.2f}) offre un profil plus défensif "
-            f"et resiste mieux dans les phases de stress. Durabilite : dépend de la visibilité "
+            f"discipline opérationnelle et réallocation des flux institutionnels. "
+            f"{_def_tk} (beta {_beta_str}) offre un profil plus défensif "
+            f"et résiste mieux dans les phases de stress. Durabilité : dépend de la visibilité "
             f"des résultats trimestriels et de l'évolution du cycle macro 6-12 mois. "
             f"Catalyseurs : publications trimestrielles, guidance FY+1, événements sectoriels."
         )

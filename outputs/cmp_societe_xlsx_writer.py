@@ -114,13 +114,13 @@ def _ebitda_trend(yr_ltm, yr_prev1, yr_prev2) -> str:
         if m2 is not None:
             delta2 = m1 - m2
             if delta > 0.01 and delta2 > 0:
-                return "Croissanté"
+                return "Croissante"
             if delta < -0.01 and delta2 < 0:
-                return "Decroissanté"
+                return "Décroissante"
         if delta > 0.01:
-            return "Croissanté"
+            return "Croissante"
         if delta < -0.01:
-            return "Decroissanté"
+            return "Décroissante"
         return "Stable"
     except Exception:
         return "N/A"
