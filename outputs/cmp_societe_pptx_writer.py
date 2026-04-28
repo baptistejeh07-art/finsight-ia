@@ -1119,12 +1119,12 @@ def _chart_multiples(m_a: dict, m_b: dict, tkr_a: str, tkr_b: str) -> Optional[i
         s_vals = [v if v is not None else 0 for v in sector_refs]
         ax.bar(x + w, s_vals, w, label='Med. secteur', color=c_sector, alpha=0.7)
 
-        # Labels valeurs
+        # Labels valeurs (virgule décimale FR)
         for i, (va, vb) in enumerate(zip(vals_a, vals_b)):
             if va is not None and va > 0:
-                ax.text(x[i] - w, va + 0.3, f'{va:.1f}', ha='center', va='bottom', fontsize=10, color='#1B3A6B')
+                ax.text(x[i] - w, va + 0.3, f'{va:.1f}'.replace('.', ','), ha='center', va='bottom', fontsize=10, color='#1B3A6B')
             if vb is not None and vb > 0:
-                ax.text(x[i], vb + 0.3, f'{vb:.1f}', ha='center', va='bottom', fontsize=10, color='#6B5010')
+                ax.text(x[i], vb + 0.3, f'{vb:.1f}'.replace('.', ','), ha='center', va='bottom', fontsize=10, color='#6B5010')
 
         ax.set_xticks(x); ax.set_xticklabels(metrics_lbl, fontsize=11)
         _pe_a = _safe_float(m_a.get('pe_ratio')) or 0
@@ -1177,8 +1177,9 @@ def _chart_finsight_score(m_a: dict, m_b: dict, tkr_a: str, tkr_b: str) -> Optio
         ax.set_xlabel('Score /100', fontsize=12)
         _fs_winner = tkr_a if fs_a > fs_b else (tkr_b if fs_b > fs_a else None)
         _fs_delta = abs(int(fs_a) - int(fs_b))
-        _fs_title = (f"FinSight Score : {_fs_winner} favori ({_fs_delta} pts d'avance)"
-                     if _fs_winner else "FinSight Score : egalite")
+        _pt_lbl = "pt" if _fs_delta == 1 else "pts"
+        _fs_title = (f"FinSight Score : {_fs_winner} favori ({_fs_delta} {_pt_lbl} d'avance)"
+                     if _fs_winner else "FinSight Score : égalité")
         ax.set_title(_fs_title, fontsize=14, fontweight='bold', color='#1B3A6B', pad=14)
         ax.axvline(50, color='#AAAAAA', linestyle='--', linewidth=0.9)
         ax.text(50.8, -0.55, 'Neutre', fontsize=9, color='#888')
@@ -1325,7 +1326,7 @@ def _chart_growth_returns(m_a: dict, m_b: dict, tkr_a: str, tkr_b: str) -> Optio
         _roic_a = vals_a[1]; _roic_b = vals_b[1]
         if _roic_a and _roic_b:
             _roic_leader = tkr_a if _roic_a > _roic_b else tkr_b
-            _chart_title = f"{_roic_leader} Généré plus de valeur : ROIC {max(_roic_a,_roic_b):.0f}% vs {min(_roic_a,_roic_b):.0f}%"
+            _chart_title = f"{_roic_leader} génère plus de valeur : ROIC {max(_roic_a,_roic_b):.0f} % vs {min(_roic_a,_roic_b):.0f} %"
         else:
             _chart_title = 'Croissance & Rentabilité'
         ax.set_title(_chart_title, fontsize=11, fontweight='bold', color='#1B3A6B', pad=6)
@@ -2625,7 +2626,8 @@ def _slide_finsight_score(prs, m_a: dict, m_b: dict):
     try:
         _gap = abs(int(fs_a) - int(fs_b))
         _score_winner = tkr_a if fs_a >= fs_b else tkr_b
-        _jpm_sub = f"{_score_winner} l'emporte au score composite avec {_gap} point(s) d'avance"
+        _pt_lbl = "point" if _gap == 1 else "points"
+        _jpm_sub = f"{_score_winner} l'emporte au score composite avec {_gap} {_pt_lbl} d'avance"
     except Exception:
         _jpm_sub = "Lecture du score composite FinSight (Valeur / Croissance / Qualité / Momentum)"
     add_text_box(slide, 1.02, 2.38, 23.37, 0.45, _jpm_sub, 10, NAVY_MID, bold=True, italic=True)
@@ -2716,15 +2718,16 @@ def _slide_finsight_score(prs, m_a: dict, m_b: dict):
         _fs_leader_tk = tkr_a if int(fs_a) >= int(fs_b) else tkr_b
     except Exception:
         _fs_leader_tk = tkr_a
+    _pt_lbl_fs = "point" if _fs_delta == 1 else "points"
     score_txt = (
         f"Le score composite FinSight (v1.3) intègre 4 piliers (Valeur, Qualité, Momentum, Gouvernance) "
-        f"sur une échelle de 0 a 100, pondérés selon le profil sectoriel. La somme brute des 4 axes "
+        f"sur une échelle de 0 à 100, pondérés selon le profil sectoriel. La somme brute des 4 axes "
         f"est ensuite recalibrée (mean≈50, std≈20) pour discriminer le ranking — l'écart à la somme "
-        f"naïve est donc normal. {_fs_leader_tk} ressort en tête avec un écart de {_fs_delta} points, "
+        f"naïve est donc normal. {_fs_leader_tk} ressort en tête avec un écart de {_fs_delta} {_pt_lbl_fs}, "
         f"traduisant un meilleur équilibre global des fondamentaux. "
-        f"Les convictions respectives ({_conv_a:.0f}% vs {_conv_b:.0f}%) quantifient la "
-        f"robustesse de l'opinion sur la Thèse, a croiser avec l'exposition en portefeuille "
-        f"et le catalyseur de déblocage de valeur a 12 mois."
+        f"Les convictions respectives ({_conv_a:.0f} % vs {_conv_b:.0f} %) quantifient la "
+        f"robustesse de l'opinion sur la Thèse, à croiser avec l'exposition en portefeuille "
+        f"et le catalyseur de déblocage de valeur à 12 mois."
     )
     # #205/#207 : supprimé le titre "LECTURE ANALYTIQUE DU SCORE COMPOSITE"
     # et agrandit la box LLM vers le bas (1.65 → 2.50)
@@ -2756,16 +2759,13 @@ def _slide_theses(prs, m_a: dict, m_b: dict, synthesis: dict):
     bull_b = synthesis.get('bull_b') or "Génération de cash robuste et bilan solide pour soutenir la valorisation."
     bear_b = synthesis.get('bear_b') or "Exposition a un secteur cyclique amplifiant la volatilité des marges."
 
-    # Titre analytique JPM
-    add_text_box(slide, 1.02, 2.38, 23.37, 0.45,
-                 f"Thèses bull / bear comparées — arguments de conviction et risques d'exécution {tkr_a} vs {tkr_b}",
-                 10, NAVY_MID, bold=True, italic=True)
+    # JPM sub retiré (audit 28/04 : se chevauchait avec bandeau société 52W,
+    # information redondante avec titre slide "Thèses d'Investissement Bull / Bear")
 
     # Bande 52W — cours & fourchette
     cur_a = "EUR" if (m_a.get('currency_a') or 'USD') == 'EUR' else '$'
     cur_b = "EUR" if (m_b.get('currency_b') or 'USD') == 'EUR' else '$'
-    # #208 : cours réhaussé (2.92 → 2.76) + texte plus haut dans box
-    y_52 = 2.76
+    y_52 = 2.40
     add_rect(slide, 1.02, y_52, 11.44, 0.75, NAVY_PALE)
     add_rect(slide, 1.02, y_52, 0.13, 0.75, COLOR_A)
     add_text_box(slide, 1.25, y_52 + 0.05, 10.0, 0.32,
@@ -2788,11 +2788,11 @@ def _slide_theses(prs, m_a: dict, m_b: dict, synthesis: dict):
                  f"Div. : {_frpct(m_b.get('dividend_yield'))}",
                  8, GREY_TXT, wrap=False)
 
-    # #208 : Bull/Bear réhaussés (y0 3.90 → 3.72, y1 recalculé)
-    y0 = 3.72
-    bull_h = 4.05
-    y1 = y0 + bull_h + 0.30
-    bear_h = 4.05
+    # Audit 28/04 : Bull/Bear réhaussés davantage après suppression JPM sub
+    y0 = 3.36
+    bull_h = 4.30
+    y1 = y0 + bull_h + 0.25
+    bear_h = 4.30
 
     # --- Bull A ---
     add_rect(slide, 1.02, y0, 11.44, 0.55, GREEN_PALE)
@@ -2801,7 +2801,7 @@ def _slide_theses(prs, m_a: dict, m_b: dict, synthesis: dict):
                  9, GREEN, bold=True)
     add_rect(slide, 1.02, y0 + 0.60, 11.44, bull_h - 0.60, GREY_BG)
     add_text_box(slide, 1.18, y0 + 0.65, 11.12, bull_h - 0.70,
-                 _fit(bull_a, 450), 9, BLACK, wrap=True)
+                 _fit(bull_a, 520), 9, BLACK, wrap=True)
 
     # --- Bull B ---
     add_rect(slide, 12.94, y0, 11.44, 0.55, GREEN_PALE)
@@ -2810,7 +2810,7 @@ def _slide_theses(prs, m_a: dict, m_b: dict, synthesis: dict):
                  9, GREEN, bold=True)
     add_rect(slide, 12.94, y0 + 0.60, 11.44, bull_h - 0.60, GREY_BG)
     add_text_box(slide, 13.10, y0 + 0.65, 11.12, bull_h - 0.70,
-                 _fit(bull_b, 450), 9, BLACK, wrap=True)
+                 _fit(bull_b, 520), 9, BLACK, wrap=True)
 
     # --- Bear A ---
     add_rect(slide, 1.02, y1, 11.44, 0.55, RED_PALE)
@@ -2819,7 +2819,7 @@ def _slide_theses(prs, m_a: dict, m_b: dict, synthesis: dict):
                  9, RED, bold=True)
     add_rect(slide, 1.02, y1 + 0.60, 11.44, bear_h - 0.60, GREY_BG)
     add_text_box(slide, 1.18, y1 + 0.65, 11.12, bear_h - 0.70,
-                 _fit(bear_a, 450), 9, BLACK, wrap=True)
+                 _fit(bear_a, 520), 9, BLACK, wrap=True)
 
     # --- Bear B ---
     add_rect(slide, 12.94, y1, 11.44, 0.55, RED_PALE)
@@ -2828,7 +2828,7 @@ def _slide_theses(prs, m_a: dict, m_b: dict, synthesis: dict):
                  9, RED, bold=True)
     add_rect(slide, 12.94, y1 + 0.60, 11.44, bear_h - 0.60, GREY_BG)
     add_text_box(slide, 13.10, y1 + 0.65, 11.12, bear_h - 0.70,
-                 _fit(bear_b, 450), 9, BLACK, wrap=True)
+                 _fit(bear_b, 520), 9, BLACK, wrap=True)
 
     return slide
 
