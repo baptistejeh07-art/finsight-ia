@@ -195,7 +195,7 @@ def _pct(v, sign=True, dp=1):
         if not math.isfinite(f):
             return "—"
         prefix = "+" if sign and f >= 0 else ""
-        return f"{prefix}{f:.{dp}f}%".replace(".", ",")
+        return f"{prefix}{f:.{dp}f} %".replace(".", ",")
     except (TypeError, ValueError):
         return "—"
 
