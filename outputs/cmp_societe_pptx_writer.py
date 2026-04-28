@@ -1734,7 +1734,7 @@ def _slide_sommaire(prs, tkr_a: str, tkr_b: str):
     slide_title(slide, _cplbl("sommaire"))
 
     sections = [
-        ("01", "Profil & Identite", "Présentation comparative des deux sociétés",          5),
+        ("01", "Profil & Identité", "Présentation comparative des deux sociétés",          5),
         ("02", "Performance Financière", "P&L, marges, bilan et liquidité comparés",        7),
         ("03", "Valorisation", "Multiples, DCF, GBM Monte Carlo et football field",         11),
         ("04", "Qualité & Risques", "Piotroski, levier, beta, VaR et momentum",            15),
@@ -3187,7 +3187,7 @@ class CmpSocietePPTXWriter:
         # Slide 3 — Sommaire
         _slide_sommaire(prs, tkr_a, tkr_b)
         # Slide 4 — Divider 01
-        divider_slide(prs, "01", "Profil & Identite",
+        divider_slide(prs, "01", "Profil & Identité",
                       f"Présentation comparative de {tkr_a} et {tkr_b}")
         # Slide 5 — Profil comparatif
         _slide_profil(prs, m_a, m_b)
