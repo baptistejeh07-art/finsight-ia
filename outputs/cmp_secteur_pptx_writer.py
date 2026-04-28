@@ -1804,10 +1804,10 @@ def _s15b_verdict(prs, D):
          color=_WHITE, align=PP_ALIGN.CENTER)
     conditions = [
         ("Détérioration macro",
-         "Récession confirmée (2 trimestrès PIB négatif) ou hausse des taux directeurs "
+         "Récession confirmée (2 trimestres PIB négatif) ou hausse des taux directeurs "
          "supérieure à 100 bps — revoir le positionnément sectoriel et réduire l'exposition cyclique."),
         ("Révision bénéfices",
-         "Profit warning supérieur à -10% sur 2 trimestrès consécutifs ou révision baissière "
+         "Profit warning supérieur à -10% sur 2 trimestres consécutifs ou révision baissière "
          "du consensus BPA de plus de 15% — signal de sortie, réévaluer la thèse d'investissement."),
         ("Compression multiples",
          "P/E Forward en contraction de plus de 20% par rapport à la médiane 5 ans sans "

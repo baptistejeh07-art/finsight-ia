@@ -1738,7 +1738,7 @@ def _slide_20_verdict(prs, d: dict):
         ("Détérioration macro",
          "Récession ou hausse taux matérielle — revoir le positionnément."),
         ("Révision bénéfices",
-         "Profit warning > -10 % sur 2 trimestrès — signal de sortie."),
+         "Profit warning > -10 % sur 2 trimestres — signal de sortie."),
     ]
     y_inv = 6.85
     for it, ib in invals[:2]:

@@ -3014,13 +3014,13 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
         f"Signal global {signal_global} (conviction {conviction}%). "
         f"L'analyse sectorielle identifie {_nb_s} {_s_lbl} Surpondérer, "
         f"{_nb_n} {_n_lbl} et {_nb_r} Sous-pondérer. "
-        "Horizon d'allocation recommande : 12 mois."
+        "Horizon d'allocation recommandé : 12 mois."
     )
     _verbe_rot = "Favoriser" if _surp_noms != "aucun" else "Surveiller"
     _cible_rot = _surp_noms if _surp_noms != "aucun" else top_noms
     texte_rotation = (
         "L'analyse du cycle économique actuel oriente le positionnement vers les secteurs "
-        "a forte visibilité de BPA et résilience des marges. La Sensibilité aux taux reste "
+        "à forte visibilité de BPA et résilience des marges. La sensibilité aux taux reste "
         f"le principal facteur de différentiation. {_verbe_rot} {_cible_rot} "
         "dans un contexte de croissance modérée."
     )
@@ -3028,14 +3028,14 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
     # ── ERP / 10Y Treasury ───────────────────────────────────────────────
     import yfinance as _yf_erp
     rf_rate_f   = 0.045
-    rf_pct_str  = "4.50%"
+    rf_pct_str  = "4,50 %"
     erp_pct     = "—"
     erp_signal_s = "—"
     try:
         _tnx = get_ticker("^TNX").history(period="5d")
         if not _tnx.empty:
             rf_rate_f  = float(_tnx["Close"].iloc[-1]) / 100
-            rf_pct_str = f"{rf_rate_f*100:.2f}%"
+            rf_pct_str = f"{rf_rate_f*100:.2f} %".replace('.', ',')
         _sym_idx = _cours_map.get(universe.upper())
         _pe_erp  = None
         if _sym_idx:
@@ -3362,15 +3362,15 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
         "correcte — prime de risque adequate pour le niveau de taux actuel"
     )
     texte_valorisation = (
-        f"Le {display_name} traite a {pe_str} de P/E Forward, soit {_prime_decote_str} "
+        f"Le {display_name} traite à {pe_str} de P/E Forward, soit {_prime_decote_str} "
         f"vs la médiane historique 10 ans ({_pe_med_str}x). "
         f"L'ERP (Damodaran) s'établit à {erp_pct}, signalant une valorisation {_erp_commentary}. "
-        f"Score composite {int(avg_score)}/100 — signal {signal_global} (conviction {conviction}%)."
+        f"Score composite {int(avg_score)}/100 — signal {signal_global} (conviction {conviction} %)."
     )
     texte_cycle = (
-        f"Le positionnement de cycle actuel favorise les secteurs a forte visibilité de BPA "
+        f"Le positionnement de cycle actuel favorise les secteurs à forte visibilité de BPA "
         f"et résilience des marges. Secteurs recommandés : {top_noms}. "
-        f"Score composite : {int(avg_score)}/100 — conviction {conviction}% sur le signal {signal_global}."
+        f"Score composite : {int(avg_score)}/100 — conviction {conviction} % sur le signal {signal_global}."
     )
 
     return {

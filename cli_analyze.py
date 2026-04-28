@@ -1749,17 +1749,17 @@ def _make_test_indice_data(universe: str = "S&P 500") -> dict:
         ("Consumer Staples",       38, 48, "Neutre",        "13.2x", 18.4, "+3.2%",  "+2.1%"),
         ("Materials",              28, 46, "Neutre",        "11.4x", 20.4, "+4.8%",  "+1.8%"),
         ("Energy",                 23, 44, "Neutre",        "6.2x",  28.8, "-2.4%",  "-4.2%"),
-        ("Real Estate",            31, 38, "Sous-ponderer", "18.6x", 48.2, "+1.2%",  "-2.8%"),
-        ("Utilities",              28, 36, "Sous-ponderer", "11.8x", 32.4, "+2.8%",  "-5.4%"),
+        ("Real Estate",            31, 38, "Sous-pondérer", "18.6x", 48.2, "+1.2%",  "-2.8%"),
+        ("Utilities",              28, 36, "Sous-pondérer", "11.8x", 32.4, "+2.8%",  "-5.4%"),
     ]
     import statistics
     scores = [s[2] for s in secteurs]
     avg_score = round(statistics.mean(scores), 1)
     nb_surp = sum(1 for s in secteurs if s[3] == "Surpondérer")
-    nb_sous = sum(1 for s in secteurs if s[3] in ("Sous-pondérer", "Sous-ponderer"))
+    nb_sous = sum(1 for s in secteurs if s[3] in ("Sous-pondérer", "Sous-pondérer"))
     conviction = round(nb_surp / len(secteurs) * 100)
     signal_global = ("Surpondérer" if avg_score > 62 else
-                     ("Sous-ponderer" if avg_score < 45 else "Neutre"))
+                     ("Sous-pondérer" if avg_score < 45 else "Neutre"))
 
     # Top 3 secteurs genere depuis la liste 'secteurs' reelle (pas de hardcoded)
     _sorted_secs = sorted(secteurs, key=lambda s: s[2], reverse=True)[:3]
@@ -1772,9 +1772,9 @@ def _make_test_indice_data(universe: str = "S&P 500") -> dict:
             "ev_ebitda":     _s[4],
             "pe_forward_raw": None,
             "pe_mediane_10y": None,
-            "poids_indice":  f"{round(100 * _s[1] / sum(x[1] for x in secteurs), 1)}%",
-            "catalyseur":    f"Dynamique sectorielle favorable (score {_s[2]}/100) — a detailler par l'analyse LLM",
-            "risque":        "A identifier depuis le contexte macro et fondamental actuel",
+            "poids_indice":  f"{round(100 * _s[1] / sum(x[1] for x in secteurs), 1)} %".replace('.', ','),
+            "catalyseur":    f"Dynamique sectorielle favorable (score {_s[2]}/100) — à détailler par l'analyse LLM",
+            "risque":        "À identifier depuis le contexte macro et fondamental actuel",
             "societes":      [],  # rempli par agent_data si dispo
         })
 
@@ -1856,22 +1856,22 @@ def _make_test_indice_data(universe: str = "S&P 500") -> dict:
             f"pour juger du niveau de valorisation relative. L'ERP Damodaran fournit une mesure "
             f"de la prime de risque exigee vs le taux sans risque 10 ans, ancrant l'attractivit\u00e9 "
             f"relative de l'equity vs les obligations. La compression de multiple reste le risque "
-            f"cle dans les regimes de taux restrictifs."
+            f"clé dans les régimes de taux restrictifs."
         ),
         "texte_cycle": (
-            f"L'analyse cyclique combine trois indicateurs cles : l'ISM Manufacturier (seuil 50 "
+            f"L'analyse cyclique combine trois indicateurs clés : l'ISM Manufacturier (seuil 50 "
             f"= contraction/expansion), la courbe des taux 10Y-2Y (normalisation = reprise ; "
-            f"inversion = recession) et les Leading Indicators. Cette configuration d\u00e9termine "
-            f"la phase de cycle et oriente l'allocation sectorielle selon la sensibilit\u00e9 "
-            f"connue de chaque secteur au regime macroeconomique actuel."
+            f"inversion = récession) et les Leading Indicators. Cette configuration détermine "
+            f"la phase de cycle et oriente l'allocation sectorielle selon la sensibilité "
+            f"connue de chaque secteur au régime macroéconomique actuel."
         ),
         "texte_rotation": (
-            f"La rotation sectorielle s'appuie sur le modele cycle 4-phases (Expansion / "
-            f"Ralentissement / Recession / Reprise). Chaque secteur a une Sensibilit\u00e9 "
-            f"specifique au cycle determinee par sa structure de co\u00fbts, son exposition au "
-            f"cycle de consommation et sa duration financiere. Le signal FinSight synthetise "
-            f"cette sensibilite avec les donnees fondamentales actuelles pour recommander les "
-            f"sur/sous-ponderations tactiques."
+            f"La rotation sectorielle s'appuie sur le modèle cycle 4 phases (Expansion / "
+            f"Ralentissement / Récession / Reprise). Chaque secteur a une sensibilité "
+            f"spécifique au cycle déterminée par sa structure de coûts, son exposition au "
+            f"cycle de consommation et sa duration financière. Le signal FinSight synthétise "
+            f"cette sensibilité avec les données fondamentales actuelles pour recommander les "
+            f"sur/sous-pondérations tactiques."
         ),
         "phase_cycle":  "Expansion avancée",
         "cycle_detail": "Milieu-fin de cycle — ISM proche 50, courbe taux normalisée",
@@ -1936,7 +1936,7 @@ def _make_test_indice_data(universe: str = "S&P 500") -> dict:
         },
         "methodologie": [
             ("Score FinSight",   "Composite 0-100 : valeur 25, croissance 25, qualite 25, momentum 25"),
-            ("Signal indice",    "Score agrege secteurs : >60 Surpondérer / 40-60 Neutre / <40 Sous-ponderer"),
+            ("Signal indice",    "Score agrege secteurs : >60 Surpondérer / 40-60 Neutre / <40 Sous-pondérer"),
             ("Conviction",       "% secteurs en accord avec le signal global (surponderes / total)"),
             ("EV/EBITDA",        "Mediane LTM des 5 premiers titres par capitalisation de chaque secteur"),
             ("P/E Mediane 10Y",  "Bloomberg Consensus — comparaison avec P/E Forward actuel"),
@@ -2118,7 +2118,7 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
     # 3. Secteurs — signal derive du return ETF
     def _signal_from_ret(ret: float) -> str:
         if ret > 12: return "Surpondérer"
-        if ret < -2: return "Sous-ponderer"
+        if ret < -2: return "Sous-pondérer"
         return "Neutre"
 
     def _score_from_ret(ret: float) -> int:
@@ -2340,8 +2340,8 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
                         _rec     = _inf.get("recommendationKey", "") or ""
                         _signal_map = {
                             "strongBuy": "Surpondérer", "buy": "Surpondérer",
-                            "hold": "Neutre", "underperform": "Sous-ponderer",
-                            "sell": "Sous-ponderer",
+                            "hold": "Neutre", "underperform": "Sous-pondérer",
+                            "sell": "Sous-pondérer",
                         }
                         _signal  = _signal_map.get(_rec.lower(), "Neutre")
 
@@ -2427,7 +2427,7 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
                     _nb = len(_mems)
                     _sc = round(sum(m["score_raw"] for m in _mems) / _nb)
                     _sig = ("Surpondérer" if _sc >= 60
-                            else ("Sous-ponderer" if _sc < 40 else "Neutre"))
+                            else ("Sous-pondérer" if _sc < 40 else "Neutre"))
                     _ev_v = [m["ev_ebitda"] for m in _mems
                              if m.get("ev_ebitda") and 0.5 < m["ev_ebitda"] < 100]
                     _ev_s = (f"{_stat_eu.median(_ev_v):.1f}x" if _ev_v else "\u2014")
@@ -2871,7 +2871,7 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
     nb_surp = sum(1 for s in secteurs if s[3] == "Surpondérer")
     conviction = round(nb_surp / len(secteurs) * 100) if secteurs else 50
     signal_global = ("Surpondérer" if avg_score > 62 else
-                     ("Sous-ponderer" if avg_score < 45 else "Neutre"))
+                     ("Sous-pondérer" if avg_score < 45 else "Neutre"))
 
     # Top 3 secteurs : les 3 avec meilleur return ETF (S&P 500) ou score constituants (EU)
     sorted_etf = sorted(etf_perf.items(), key=lambda x: x[1].get("return_1y",0), reverse=True)
@@ -2977,9 +2977,9 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
     # via LLM pour synthèse slide 2 plus longue et pertinente (demande Baptiste
     # 2026-04-17). Fallback déterministe si LLM indisponible.
     noms_surp = [s[0] for s in secteurs if s[3] == "Surpondérer"][:5]
-    noms_sous = [s[0] for s in secteurs if s[3] == "Sous-ponderer"][:5]
-    _nb_neutre = len(secteurs) - nb_surp - sum(1 for s in secteurs if s[3] == 'Sous-ponderer')
-    _nb_sous = sum(1 for s in secteurs if s[3] == 'Sous-ponderer')
+    noms_sous = [s[0] for s in secteurs if s[3] == "Sous-pondérer"][:5]
+    _nb_neutre = len(secteurs) - nb_surp - sum(1 for s in secteurs if s[3] == 'Sous-pondérer')
+    _nb_sous = sum(1 for s in secteurs if s[3] == 'Sous-pondérer')
 
     texte_signal_reel = ""
     try:
@@ -3109,7 +3109,7 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
         "optimal_portfolios":   optimal_portfolios,
         "methodologie": [
             ("Score FinSight",   "Composite 0-100 : momentum 40% + revisions BPA 30% + valorisation relative 30%"),
-            ("Signal indice",    "Score agrege secteurs : >60 Surpondérer / 40-60 Neutre / <40 Sous-ponderer"),
+            ("Signal indice",    "Score agrege secteurs : >60 Surpondérer / 40-60 Neutre / <40 Sous-pondérer"),
             ("Conviction",       "% secteurs en accord avec le signal global (surponderes / total)"),
             ("EV/EBITDA",        "Mediane LTM des 5 premiers titres par capitalisation de chaque secteur"),
             ("P/E Forward",      "Consensus analystes NTM (yfinance + FMP) — comparaison P/E Mediane 10Y"),
@@ -3133,13 +3133,13 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
             _top3_prompt.append(
                 f"{_t['nom']} (signal={_t['signal']}, score={_t['score']}, "
                 f"mom={_t.get('catalyseur','—')})")
-        _sous_pond = [s[0] for s in secteurs if s[3] == "Sous-ponderer"][:2]
+        _sous_pond = [s[0] for s in secteurs if s[3] == "Sous-pondérer"][:2]
         _prompt_llm = (
             f"Indice: {universe} | Cours: {cours_str} | YTD: {ytd_str} | "
             f"P/E: {pe_fwd_str} | ERP: {erp_pct} ({erp_signal}) | "
             f"Signal global: {signal_global} ({conviction}% conviction) | Rf: {rf_pct_str}\n"
             f"Top secteurs: {'; '.join(_top3_prompt)}\n"
-            f"Sous-ponderer: {', '.join(_sous_pond) if _sous_pond else 'aucun'}\n"
+            f"Sous-pondérer: {', '.join(_sous_pond) if _sous_pond else 'aucun'}\n"
             f"Reponds UNIQUEMENT en JSON valide, sans markdown, sans points de suspension (...).\n"
             f'{{"texte_macro":"2 phrases sur macro actuelle (taux, croissance, risques specifiques a {universe})","'
             f'texte_valorisation":"2 phrases sur valorisation (P/E vs historique, ERP, attractivite)","'
@@ -3183,7 +3183,7 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
     except Exception as _llm_ex:
         log.warning("LLM texte indice erreur: %s -- fallback f-string", _llm_ex)
         _f_surp = [s[0] for s in secteurs if s[3] == "Surpondérer"]
-        _f_sous = [s[0] for s in secteurs if s[3] == "Sous-ponderer"]
+        _f_sous = [s[0] for s in secteurs if s[3] == "Sous-pondérer"]
         base["texte_macro"] = (
             f"L'{universe} affiche une performance YTD de {ytd_str} dans un contexte "
             f"de taux a {rf_pct_str} (obligation de reference 10 ans). "

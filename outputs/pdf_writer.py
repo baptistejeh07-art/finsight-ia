@@ -933,7 +933,7 @@ def _make_revenue_area(data):
               handlelength=1.2, handleheight=0.9)
     q0, q1 = (quarters[0] if quarters else ''), (quarters[-1] if quarters else '')
     ax.set_title(
-        f'Revenus par segment \u2014 {len(quarters)} trimestrès ({q0} \u2192 {q1}, Md$)',
+        f'Revenus par segment \u2014 {len(quarters)} trimestres ({q0} \u2192 {q1}, Md$)',
         fontsize=12, color='#1B3A6B', fontweight='bold', pad=8)
     plt.tight_layout(pad=0.5)
     buf = io.BytesIO()
@@ -3204,7 +3204,7 @@ def _build_risques(data):
     inv_data = data.get('invalidation_data') or []
     inv_h = [Paragraph(h, S_TH_L)
              for h in ["Axe", "Condition d'invalidation", "Horizon"]]
-    _inv_fallback = "D\u00e9gradation significative des fondamentaux sur 2 trimestrès cons\u00e9cutifs."
+    _inv_fallback = "D\u00e9gradation significative des fondamentaux sur 2 trimestres cons\u00e9cutifs."
     inv_rows = [
         [Paragraph(_d(r, 'axe') or '\u2014', S_TD_B),
          Paragraph(_safe(_d(r, 'condition') or _inv_fallback), S_TD_L),
@@ -4289,7 +4289,7 @@ def _fetch_perf_data(ticker: str, exchange: str = '') -> dict:
 
 
 def _fetch_area_data(ticker: str) -> dict:
-    """Fetch 8 derniers trimestrès de revenus (total ou par segment via yfinance)."""
+    """Fetch 8 derniers trimestres de revenus (total ou par segment via yfinance)."""
     try:
         import yfinance as yf
         import pandas as pd

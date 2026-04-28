@@ -1362,7 +1362,7 @@ def _build_graphiques(data, scatter_buf, scores_buf, corr_buf=None, registry=Non
             _prompt_p7 = (
                 f"Analyste buy-side senior. Analyse 320-380 mots du positionnement "
                 f"EV/EBITDA vs croissance BPA pour {_indice_name}.\n"
-                f"Surpondérer : {_surp_str}\nSous-ponderer : {_sous_str}\n"
+                f"Surpondérer : {_surp_str}\nSous-pondérer : {_sous_str}\n"
                 f"Decotes : {_cheap_str}\nPrimes : {_exp_str}\n\n"
                 f"3 paragraphes separes par ligne vide (~110 mots chacun) avec ces "
                 f"titres EXACTS en MAJUSCULES au debut de chaque paragraphe suivi de ' : ' :\n"

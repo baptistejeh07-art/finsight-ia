@@ -155,7 +155,7 @@ _SECTOR_CONTENT = {
         ],
         "cycle_comment": "Secteur en maturité cyclique | NIM en pic, qualité d'actif à surveiller",
         "metriques_dict": [("NIM Médian", "2,8 %", "Sain"), ("CET1 Médian", "14,2 %", "Confortable"), ("ROE Médian", "11,4 %", "Acceptable"), ("Cost/Income", "58 %", "À améliorer"), ("NPL Ratio", "2,1 %", "Contrôle"), ("P/Book", "0,8x", "Décote")],
-        "conditions": [("Taux", "BCE baisse < 2 % — compression NIM > 40 bps", "6-12 mois"), ("Crédit", "NPL > 5 % immobilier commercial", "12-18 mois"), ("Macro", "Récession > 2 trimestrès — provisionnement", "6-9 mois"), ("Réglementaire", "Bale IV CET1 > 15 %", "24-36 mois")],
+        "conditions": [("Taux", "BCE baisse < 2 % — compression NIM > 40 bps", "6-12 mois"), ("Crédit", "NPL > 5 % immobilier commercial", "12-18 mois"), ("Macro", "Récession > 2 trimestres — provisionnement", "6-9 mois"), ("Réglementaire", "Bale IV CET1 > 15 %", "24-36 mois")],
     },
     "Industrials": {
         "description": (
@@ -538,7 +538,7 @@ def _build_content_from_data(td: list, sector_name: str, score_moyen: int,
     # Conditions based on signal level
     alert_score = max(30, score_moyen - 15)
     conditions = [
-        ("Macro",       "Récession confirmée — 2 trimestrès négatifs",          "6-9 mois"),
+        ("Macro",       "Récession confirmée — 2 trimestres négatifs",          "6-9 mois"),
         ("Sectoriel",   f"Score moyen < {alert_score} — dégradation généralisée","6-12 mois"),
         ("Fondamental", "Révision baissière EPS > 15 %",                         "3-6 mois"),
         ("Réglementaire", "Mesures restrictives majeures",                       "Variable"),

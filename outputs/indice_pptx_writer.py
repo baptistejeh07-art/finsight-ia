@@ -1120,17 +1120,18 @@ def _s05_description(prs, D):
         _scr5 = round(sum(_scores_l5) / len(_scores_l5)) if _scores_l5 else "—"
     if not isinstance(_scr5, (int, float)):
         _scr5 = "—"
+    _nb_n_lbl = "secteur" if nb_n == 1 else "secteurs"
     lec_txt = (
         f"Signal global : {_sig5} (score composite {_scr5}/100). "
         f"P/E Forward {_pe_f5} vs médiane historique {_pm5} — "
-        f"{'prime de valorisation, entrees a calibrer' if isinstance(_prime5,str) and '+' in str(_prime5) else 'valorisation proche des normes historiques'}. "
+        f"{'prime de valorisation, entrées à calibrer' if isinstance(_prime5,str) and '+' in str(_prime5) else 'valorisation proche des normes historiques'}. "
         f"ERP Damodaran : {_erp5}{' (' + _erp_s5 + ')' if _erp_s5 else ''}. "
-        f"Secteurs a Surpondérer : {_surp_str}. "
-        f"Secteurs a Sous-pondérer : {_sous_str}. "
-        f"{nb_n} secteur(s) en position Neutre. "
-        f"Horizon d'allocation recommande : 12 mois."
+        f"Secteurs à Surpondérer : {_surp_str}. "
+        f"Secteurs à Sous-pondérer : {_sous_str}. "
+        f"{nb_n} {_nb_n_lbl} en position Neutre. "
+        f"Horizon d'allocation recommandé : 12 mois."
     )
-    _lecture_box(slide, "Lecture — Signal global & positionnément sectoriel",
+    _lecture_box(slide, "Lecture — Signal global & positionnement sectoriel",
                  _trunc(lec_txt, 700), y_top=9.8, height=3.5)
 
     _footer(slide)
@@ -1206,38 +1207,38 @@ def _s06_valorisation(prs, D):
             _pm_num = float(str(_pe_m6).replace("x","").replace(",",".").strip()) if isinstance(_pe_m6,(int,float)) else 17.0
             _prime_pct = (_pe_num - _pm_num) / _pm_num * 100
             if _prime_pct > 25:
-                _val_diag = (f"Le P/E Forward de {_pe_f6} se situe {_prime6} vs la Médiane historique "
+                _val_diag = (f"Le P/E Forward de {_pe_f6} se situe {_prime6} vs la médiane historique "
                              f"({_pm_str}) — valorisation tendue qui exige une croissance BPA soutenue "
                              f"pour justifier le multiple. Le moindre miss sur les BPA NTM serait "
                              f"susceptible de comprimer le multiple de facon significative.")
             elif _prime_pct > 5:
                 _val_diag = (f"Le P/E Forward de {_pe_f6} traduit une prime modeste de {_prime6} "
-                             f"vs la Médiane historique ({_pm_str}). La valorisation reste defensible "
+                             f"vs la médiane historique ({_pm_str}). La valorisation reste defensible "
                              f"si les BPA NTM sont livres comme attendu par le consensus.")
             elif _prime_pct < -10:
                 _val_diag = (f"Le P/E Forward de {_pe_f6} offre une décote de {_prime6} vs l'historique "
                              f"({_pm_str}) — opportunité si les fondamentaux restent solides. "
                              f"Un re-rating est possible en cas de révision haussière des BPA ou de pivot Fed.")
             else:
-                _val_diag = (f"Le P/E Forward de {_pe_f6} est en ligne avec la Médiane historique "
+                _val_diag = (f"Le P/E Forward de {_pe_f6} est en ligne avec la médiane historique "
                              f"({_pm_str}) — valorisation neutre, le Marché pricant un scénario central "
                              f"sans excès dans un sens ni dans l'autre.")
         except Exception:
-            _val_diag = f"P/E Forward {_pe_f6} vs Médiane historique {_pm_str}."
+            _val_diag = f"P/E Forward {_pe_f6} vs médiane historique {_pm_str}."
         # Lecture ERP
         if _erp_s6 in ("Tendu","Comprime"):
-            _erp_impl = (f"L'ERP Damodaran de {_erp6} signale une prime de risque comprimee — "
-                         "les actions sont peu renunerees vs les taux. Dans ce contexte, la sélectivité "
-                         "sectorielle prime : se concentrer sur les secteurs a forte visibilité BPA "
-                         "et pricing power, éviter les dossiers a multiples etires.")
+            _erp_impl = (f"L'ERP Damodaran de {_erp6} signale une prime de risque comprimée — "
+                         "les actions sont peu rémunérées vs les taux. Dans ce contexte, la sélectivité "
+                         "sectorielle prime : se concentrer sur les secteurs à forte visibilité BPA "
+                         "et pricing power, éviter les dossiers à multiples étirés.")
         elif _erp_s6 in ("Favorable","Attractif"):
             _erp_impl = (f"L'ERP Damodaran de {_erp6} signale une prime de risque attractive — "
-                         "les equites offrent un surplus de rendement justifiant un positionnément "
-                         "actif. Le contexte macro soutient les surponderations sectorielles ciblees.")
+                         "les équités offrent un surplus de rendement justifiant un positionnement "
+                         "actif. Le contexte macro soutient les surpondérations sectorielles ciblées.")
         else:
-            _erp_impl = (f"L'ERP Damodaran de {_erp6} reste dans la zone de reference. "
-                         "Ni comprime ni attractif — privilegier la rotation sectorielle et "
-                         "le stock-picking Plutôt qu'une exposition beta pure.")
+            _erp_impl = (f"L'ERP Damodaran de {_erp6} reste dans la zone de référence. "
+                         "Ni comprimé ni attractif — privilégier la rotation sectorielle et "
+                         "le stock-picking plutôt qu'une exposition beta pure.")
         # Croissance implicite requise pour justifier le P/E actuel vs historique
         try:
             _pe_num_impl = float(str(_pe_f6).replace("x","").replace(",",".").strip())
@@ -1279,14 +1280,16 @@ def _s06_valorisation(prs, D):
                 )
         except Exception:
             _alloc_impl = ""
+        _nb_surp_lbl = "secteur" if _nb_surp6 == 1 else "secteurs"
+        _nb_sous_lbl = "secteur" if _nb_sous6 == 1 else "secteurs"
         texte_val = (
             f"Cours {_cours6} (YTD {_ytd6}) — Croissance BPA forward {_bpa6}. "
             f"{_val_diag} "
             f"{_impl_txt}"
             f"{_erp_impl} "
             f"{_alloc_impl} "
-            f"Score composite FinSight : {_scr6}/100 — signal {_sig6} (conviction {_conv6}%). "
-            f"{_nb_surp6} secteur(s) en Surpondérer, {_nb_sous6} en Sous-pondérer."
+            f"Score composite FinSight : {_scr6}/100 — signal {_sig6} (conviction {_conv6} %). "
+            f"{_nb_surp6} {_nb_surp_lbl} en Surpondérer, {_nb_sous6} {_nb_sous_lbl} en Sous-pondérer."
         )
     # ── Bandeau FRED compact ──────────────────────────────────────────────
     try:
@@ -1301,16 +1304,16 @@ def _s06_valorisation(prs, D):
                 _parts.append(f"10Y {_frp(_t10, decimals=2)}")
             _vx = _fred.get("vix")
             if _vx is not None:
-                _parts.append(f"VIX {_vx:.1f}")
+                _parts.append(f"VIX {_vx:.1f}".replace('.', ','))
             _yc = _fred.get("yield_curve_spread")
             if _yc is not None:
-                _parts.append(f"Yield Curve {_yc:+.2f}%")
+                _parts.append(f"Yield Curve {_yc:+.2f} %".replace('.', ','))
             _cpi = _fred.get("cpi_yoy")
             if _cpi is not None:
                 _parts.append(f"CPI {_frp(_cpi, sign=True)} YoY")
             _unemp = _fred.get("unemployment")
             if _unemp is not None:
-                _parts.append(f"Chomage {_frp(_unemp)}")
+                _parts.append(f"Chômage {_frp(_unemp)}")
             _baa = _fred.get("credit_spread_baa")
             if _baa is not None:
                 _parts.append(f"Spread BAA {_frp(_baa, decimals=2)}")
@@ -1379,7 +1382,7 @@ def _s07_cycle(prs, D):
     alloc = _trunc(D.get("texte_cycle",""), 420)
     _rect(slide, 9.5, 9.3, 15.0, 2.9, fill=_GRAYL)
     _rect(slide, 9.5, 9.3, 0.1, 2.9, fill=_BUY)
-    _txb(slide, "Allocation recommandée selon le positionnément de cycle",
+    _txb(slide, "Allocation recommandée selon le positionnement de cycle",
          9.8, 9.4, 14.5, 0.6, size=8, bold=True, color=_NAVY)
     _txb(slide, alloc, 9.8, 10.0, 14.5, 2.0, size=7.5, color=_GRAYT, wrap=True)
 
@@ -1675,7 +1678,7 @@ def _s11_decomposition(prs, D):
     lecture = (
         f"{top_nom} affiche le profil le plus robuste (score {_top_sc}/100) "
         f"avec momentum={top_scores[0]}pts, révisions={top_scores[1]}pts, valorisation={top_scores[2]}pts. "
-        f"\u00c0 l'oppos\u00e9, {bot_nom} (score {_bot_sc}/100) cumulé les handicaps : "
+        f"\u00c0 l'oppos\u00e9, {bot_nom} (score {_bot_sc}/100) cumule les handicaps : "
         f"momentum={bot_scores[0]}, révisions={bot_scores[1]}, valorisation={bot_scores[2]}. "
         f"Dimension dominante sur l'ensemble de l'univers : {_dom}. "
         f"Secteurs avec profil composite fort (>50 sur les 3 dimensions) : {_unani_str}. "
@@ -2038,7 +2041,7 @@ def _s17_risques(prs, D):
     if not scenarios:
         scenarios = [
             {"titre":"Récession technique","prob":"18 %",
-             "desc":"Deux trimestrès PIB < 0 % — révision BPA -15/-20 %. Signal passerait Sous-pondérer."},
+             "desc":"Deux trimestres PIB < 0 % — révision BPA -15/-20 %. Signal passerait Sous-pondérer."},
             {"titre":"Resserrement Fed prolongé","prob":"35 %",
              "desc":"Fed Funds > 4,5 % jusqu'en 2027 — compression multiples growth et rotation sectorielle."},
             {"titre":"Choc géopolitique","prob":"20 %",
@@ -2094,7 +2097,7 @@ def _s17_risques(prs, D):
         conds = [
             f"{indice} casse le support clé — signal passe Sous-pondérer",
             "Fed pivot dovish confirmé + CPI < 2,5 % — signal passe Surpondérer",
-            "Révisions BPA agrégées < -5 % sur 2 trimestrès consécutifs",
+            "Révisions BPA agrégées < -5 % sur 2 trimestres consécutifs",
         ]
 
     _rect(slide, 0.9, 7.0, 23.6, 0.55, fill=_NAVY)
@@ -2214,7 +2217,7 @@ def _s18_rotation(prs, D):
             f"(visibilité BPA forte, faible Sensibilité aux taux). "
             + (f"Alléger : {' · '.join(sous_rots[:2])}. " if sous_rots else "")
             + (f"Secteurs a forte Sensibilité taux a surveiller si la BCE pivote : {' · '.join(_taux_fort[:2])}. " if _taux_fort else "")
-            + f"La rotation suit le cycle avec un decalage de 2-3 trimestrès — "
+            + f"La rotation suit le cycle avec un decalage de 2-3 trimestres — "
             f"un signal Surpondérer qui emerge maintenant anticipé une surperformance sur 6-12 mois. "
             f"Croiser avec les scores FinSight (slide 11) pour valider la cohérence momentum/fondamentaux."
         )
@@ -2652,10 +2655,10 @@ def _s21_disclaimer(prs, D):
 
     metho_items = [
         (f"Univers", f"{indice} — {nb_soc} sociétés, {nb_sec} secteurs GICS"),
-        ("Score composite", "Moyenne pondérée : 40% momentum prix 3M, 30% révision BPA, 30% valorisation relative"),
-        ("Signal", "Surpondérer (score >= 60) · Neutre (40-60) · Sous-pondérer (< 40)"),
-        ("Allocation Markowitz", "Optimisation mean-variance sur rendements ETF SPDR 52S. Contrainte max 40% par secteur."),
-        ("ERP sectoriel", "Earnings Yield (1/PE forward) - Taux 10Y US. Seuils : Tendu < 2%, Neutre 2-4%, Favorable > 4%."),
+        ("Score composite", "Moyenne pondérée : 40 % momentum prix 3M, 30 % révision BPA, 30 % valorisation relative"),
+        ("Signal", "Surpondérer (score ≥ 60) · Neutre (40-60) · Sous-pondérer (< 40)"),
+        ("Allocation Markowitz", "Optimisation mean-variance sur rendements ETF SPDR 52S. Contrainte max 40 % par secteur."),
+        ("ERP sectoriel", "Earnings Yield (1/PE forward) - Taux 10Y US. Seuils : Tendu < 2 %, Neutre 2-4 %, Favorable > 4 %."),
         ("Rotation sectorielle", "Modèle 4 phases (Expansion, Ralentissement, Récession, Reprise). ISM, courbe taux, Leading indicators."),
         ("Sentiment", "FinBERT (ProsusAI/finbert) sur articles Finnhub 7 jours. Score agrégé par secteur."),
         ("Biais de cadrage", "Score FinSight composite, pas de backtest performance. Les ratios utilisés (momentum/révisions BPA/valorisation) sont de natures différentes et leur pondération peut être débattue."),
