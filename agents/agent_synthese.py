@@ -201,29 +201,29 @@ def _build_deterministic_fallback(snapshot, ratios) -> "SynthesisResult":
 
     _ratios_summary = []
     if _ev_ebitda is not None:
-        _ratios_summary.append(f"EV/EBITDA {_ev_ebitda:.1f}x")
+        _ratios_summary.append(f"EV/EBITDA {_ev_ebitda:.1f}x".replace('.', ','))
     if _ebitda_m is not None:
-        _ratios_summary.append(f"marge EBITDA {_ebitda_m*100:.1f}%")
+        _ratios_summary.append(f"marge EBITDA {_ebitda_m*100:.1f} %".replace('.', ','))
     if _roe is not None:
-        _ratios_summary.append(f"ROE {_roe*100:.1f}%")
+        _ratios_summary.append(f"ROE {_roe*100:.1f} %".replace('.', ','))
     _ratios_str = ", ".join(_ratios_summary) if _ratios_summary else "ratios LTM"
 
     thesis = (
-        f"{_co} presente un profil financier {_ratios_str} dans le secteur {_sec}. "
-        f"| L'analyse fondamentale indique un equilibre risque/rendement neutre a court terme. "
-        f"| Une revision de la these necessite la confirmation des prochains catalyseurs operationnels."
+        f"{_co} présente un profil financier {_ratios_str} dans le secteur {_sec}. "
+        f"| L'analyse fondamentale indique un équilibre risque/rendement neutre à court terme. "
+        f"| Une révision de la thèse nécessite la confirmation des prochains catalyseurs opérationnels."
     )
 
     summary = (
         f"Analyse fondamentale {_co} ({ci.ticker}) — secteur {_sec}. "
-        f"Ratios cles : {_ratios_str}. Recommandation neutre par defaut, "
-        f"a reviser selon evolution des fondamentaux et catalyseurs sectoriels."
+        f"Ratios clés : {_ratios_str}. Recommandation neutre par défaut, "
+        f"à réviser selon évolution des fondamentaux et catalyseurs sectoriels."
     )
 
     company_description = (
-        f"{_co} opere dans le secteur {_sec}. "
+        f"{_co} opère dans le secteur {_sec}. "
         f"Profil financier caractérisé par {_ratios_str}. "
-        f"Description detaillee non disponible (mode fallback deterministe)."
+        f"Description détaillée non disponible (mode fallback déterministe)."
     )
 
     catalysts = [
