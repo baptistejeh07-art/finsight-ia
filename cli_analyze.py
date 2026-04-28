@@ -564,30 +564,74 @@ def run_indice(universe: str = "S&P 500", language: str = "fr", currency: str = 
 
 def _build_indice_narrative(universe: str, secteurs: list, stats: dict) -> str:
     """Synthèse narrative déterministe (3-5 phrases) de l'indice à partir
-    des poids sectoriels et stats agrégées."""
+    des poids sectoriels et stats agrégées.
+
+    Accepte 2 formats de `secteurs` :
+    - liste de dicts avec keys 'name'/'sector', 'weight'/'poids', 'score', 'signal'
+    - liste de tuples (nom, nb, score, signal, ev_str, marge, growth, mom_str)
+      générés par `_fetch_real_indice_data` ; poids = nb/total.
+    """
     parts: list[str] = []
     n_sec = len(secteurs or [])
-    parts.append(f"Indice {universe} : {n_sec} secteurs couverts.")
+    _sec_lbl = "secteur" if n_sec == 1 else "secteurs"
+    parts.append(f"Indice {universe} : {n_sec} {_sec_lbl} couverts.")
 
-    # Top secteurs par poids
+    # Normalise en liste de dicts {name, weight, score, signal}
+    norm: list[dict] = []
     if secteurs:
-        sorted_w = sorted(
-            [s for s in secteurs if isinstance(s, dict) and (s.get("weight") or s.get("poids"))],
-            key=lambda s: (s.get("weight") or s.get("poids") or 0),
-            reverse=True,
-        )
-        if len(sorted_w) >= 2:
-            top = sorted_w[:2]
-            top_str = ", ".join(
-                f"{s.get('name') or s.get('sector')} ({(s.get('weight') or s.get('poids') or 0):.1f}%)"
-                for s in top
+        if isinstance(secteurs[0], dict):
+            norm = [
+                {
+                    "name": s.get("name") or s.get("sector") or "—",
+                    "weight": float(s.get("weight") or s.get("poids") or 0),
+                    "score": s.get("score"),
+                    "signal": s.get("signal"),
+                }
+                for s in secteurs if isinstance(s, dict)
+            ]
+        elif isinstance(secteurs[0], (tuple, list)) and len(secteurs[0]) >= 4:
+            tot_nb = sum(int(s[1] or 0) for s in secteurs) or 1
+            norm = [
+                {
+                    "name":   s[0],
+                    "weight": (int(s[1] or 0) / tot_nb) * 100.0,
+                    "score":  s[2],
+                    "signal": s[3],
+                }
+                for s in secteurs
+            ]
+
+    # Concentration : top 2 secteurs par poids
+    if len(norm) >= 2:
+        sorted_w = sorted(norm, key=lambda s: s["weight"], reverse=True)
+        top = sorted_w[:2]
+        top_str = ", ".join(f"{s['name']} ({s['weight']:.1f} %)".replace('.', ',') for s in top)
+        parts.append(f"Concentration : {top_str} dominent la pondération.")
+
+    # Distribution signaux (Surpondérer / Neutre / Sous-pondérer)
+    if norm:
+        nb_surp = sum(1 for s in norm if "Surp" in str(s.get("signal", "")))
+        nb_sous = sum(1 for s in norm if "Sous" in str(s.get("signal", "")))
+        nb_neutre = n_sec - nb_surp - nb_sous
+        if nb_surp or nb_sous:
+            parts.append(
+                f"Allocation : {nb_surp} Surpondérer, {nb_neutre} Neutre, {nb_sous} Sous-pondérer."
             )
-            parts.append(f"Concentration : {top_str} dominent la pondération.")
+
+    # Top score sectoriel
+    if norm:
+        with_score = [s for s in norm if isinstance(s.get("score"), (int, float))]
+        if with_score:
+            best = max(with_score, key=lambda s: s["score"])
+            parts.append(f"Score le plus élevé : {best['name']} ({int(best['score'])}/100).")
 
     # Performance moyenne
     perf_med = stats.get("perf_median") or stats.get("perf_avg")
     if perf_med is not None:
-        parts.append(f"Performance médiane : {perf_med:+.1f}% sur la période.")
+        try:
+            parts.append(f"Performance médiane : {float(perf_med):+.1f} % sur la période.".replace('.', ','))
+        except Exception:
+            pass
 
     pe_med = stats.get("pe_median")
     if pe_med:
@@ -1715,6 +1759,66 @@ _ETF_INDEX_PROXIES = {
     "STOXX50":       "SX5E.PA",
 }
 
+def _compute_indice_stats(yf_symbol: str, rf_annual: float = 0.04) -> dict:
+    """Calcule les stats de performance d'un indice via yfinance.
+
+    Retourne un dict {perf_ytd, perf_1y, perf_3y, perf_5y, vol_1y,
+    sharpe_1y, max_dd} pour les tuiles UI Next.js (indice-perf-tiles.tsx).
+    Les valeurs sont en décimal (0.12 = 12 %).
+    """
+    out: dict = {
+        "perf_ytd": None, "perf_1y": None, "perf_3y": None, "perf_5y": None,
+        "vol_1y": None, "sharpe_1y": None, "max_dd": None,
+    }
+    if not yf_symbol:
+        return out
+    try:
+        import datetime as _dt
+        import numpy as _np
+        from core.yfinance_cache import get_ticker as _gt
+        hist = _gt(yf_symbol).history(period="6y")
+        if hist is None or hist.empty:
+            return out
+        close = hist["Close"].dropna()
+        if len(close) < 5:
+            return out
+        today = _dt.date.today()
+        last = float(close.iloc[-1])
+
+        def _base_at_or_before(target_date):
+            mask = close.index.date <= target_date
+            sub = close[mask]
+            return float(sub.iloc[-1]) if len(sub) > 0 else None
+
+        b_ytd = _base_at_or_before(_dt.date(today.year, 1, 1))
+        b_1y  = _base_at_or_before(today - _dt.timedelta(days=365))
+        b_3y  = _base_at_or_before(today - _dt.timedelta(days=3*365))
+        b_5y  = _base_at_or_before(today - _dt.timedelta(days=5*365))
+        if b_ytd: out["perf_ytd"] = last / b_ytd - 1
+        if b_1y:  out["perf_1y"]  = last / b_1y  - 1
+        if b_3y:  out["perf_3y"]  = last / b_3y  - 1
+        if b_5y:  out["perf_5y"]  = last / b_5y  - 1
+
+        try:
+            cutoff = today - _dt.timedelta(days=380)
+            close_1y = close[close.index.date >= cutoff]
+            rets = close_1y.pct_change().dropna()
+            if len(rets) > 20:
+                vol_1y = float(rets.std()) * _np.sqrt(252)
+                out["vol_1y"] = vol_1y
+                if out["perf_1y"] is not None and vol_1y > 0:
+                    out["sharpe_1y"] = (out["perf_1y"] - rf_annual) / vol_1y
+            if len(close_1y) > 5:
+                roll_max = close_1y.cummax()
+                dd = (close_1y - roll_max) / roll_max
+                out["max_dd"] = float(dd.min())
+        except Exception:
+            pass
+    except Exception as _e:
+        log.debug(f"_compute_indice_stats({yf_symbol}) erreur: {_e}")
+    return out
+
+
 _INDICE_META = {
     "S&P 500":      {"code": "^GSPC",     "nb_societes": 503},
     "CAC 40":       {"code": "^FCHI",     "nb_societes": 40},
@@ -2577,38 +2681,19 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
             import pandas as _pd_ph
             _ph_start = (today - datetime.timedelta(days=370)).isoformat()
 
-            # Fetch ticker par ticker pour éviter un fail global quand un ETF
-            # est temporairement indisponible (ex: AGG ou GLD peuvent rater
-            # sur certains marchés). Le code indice lui-même est le plus
-            # important : on veut TOUJOURS la ligne indice si possible.
+            # Fetch via core.yfinance_cache (plus robuste que yf.download direct)
+            # — résout le bug « ligne plate » dû à des MultiIndex inattendus.
+            from core.yfinance_cache import get_ticker as _gt_ph
             def _fetch_hist_series(tk: str):
-                # yf.download retourne un DataFrame avec MultiIndex columns
-                # [('Close', tk), ('High', tk), ...] même pour un seul ticker.
-                # Ne pas tester « "Close" in h.columns » (match partiel qui
-                # retourne True mais h["Close"] renvoie un DataFrame au lieu
-                # d'une Series, ce qui casse DataFrame({code: s_idx}) en aval
-                # et produisait une « ligne plate » sur le chart indice).
                 try:
-                    h = yf.download(tk, start=_ph_start, interval="1d",
-                                    progress=False, auto_adjust=True)
+                    h = _gt_ph(tk).history(start=_ph_start, interval="1d", auto_adjust=True)
                     if h is None or h.empty:
+                        log.debug("perf_history: %s history vide", tk)
                         return None
-                    # Si MultiIndex, récupère explicitement la colonne
-                    # (Close, tk). Sinon prend la colonne Close directement.
-                    if isinstance(h.columns, _pd_ph.MultiIndex):
-                        if ("Close", tk) in h.columns:
-                            s = h[("Close", tk)]
-                        else:
-                            # Fallback : première colonne de niveau Close
-                            close_cols = [c for c in h.columns if c[0] == "Close"]
-                            s = h[close_cols[0]] if close_cols else h.iloc[:, 0]
-                    else:
-                        s = h["Close"] if "Close" in h.columns else h.iloc[:, 0]
-                    # Garantit une Series (pas un DataFrame)
-                    if isinstance(s, _pd_ph.DataFrame):
-                        s = s.iloc[:, 0]
-                    s = s.dropna()
-                    if s.empty:
+                    if "Close" not in h.columns:
+                        return None
+                    s = h["Close"].dropna()
+                    if s.empty or len(s) < 5:
                         return None
                     return s
                 except Exception as _fex:
@@ -2619,7 +2704,7 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
             if s_idx is None or len(s_idx) < 5:
                 raise ValueError(f"indice series vide pour {code}")
 
-            s_sp   = _fetch_hist_series("^GSPC")
+            s_sp   = _fetch_hist_series("^GSPC") if code != "^GSPC" else None
             s_bond = _fetch_hist_series("AGG")
             s_gold = _fetch_hist_series("GLD")
 
@@ -2629,6 +2714,8 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
             if s_bond is not None: _ph_close["AGG"]   = s_bond
             if s_gold is not None: _ph_close["GLD"]   = s_gold
             _ph_close = _ph_close.ffill().dropna(subset=[code])
+            if len(_ph_close) < 5:
+                raise ValueError(f"perf_history: alignement final insuffisant ({len(_ph_close)} pts)")
 
             def _rebase_col(col):
                 if col not in _ph_close.columns:
@@ -2637,9 +2724,9 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
                 if s.empty:
                     return []
                 base = s.iloc[0]
-                if base == 0:
+                if base == 0 or _pd_ph.isna(base):
                     return []
-                return [round((v / base) * 100, 2) for v in s]
+                return [round((float(v) / float(base)) * 100, 2) for v in s]
 
             _ph_dts = [str(d.date()) for d in _ph_close.index]
             _eu_perf_history = {
@@ -2652,9 +2739,13 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
                 "label_end":   _ph_dts[-1] if _ph_dts else "",
                 "indice_name": universe,
             }
-            log.info("perf_history OK: %d points (aligned, %s)", len(_ph_dts), universe)
+            log.info("perf_history OK: %d points (%s, indice=%s, bonds=%s, gold=%s)",
+                     len(_ph_dts), universe,
+                     "OK" if _eu_perf_history["indice"] else "VIDE",
+                     "OK" if _eu_perf_history["bonds"] else "VIDE",
+                     "OK" if _eu_perf_history["gold"] else "VIDE")
         except Exception as _ph_ex:
-            log.warning("perf_history erreur (%s): %s", universe, _ph_ex)
+            log.warning("perf_history erreur (%s): %s", universe, _ph_ex, exc_info=True)
 
     # P/B et DivYield génériques (fallback si ETF info incomplet)
     _PB_GENERIC = {
@@ -2971,6 +3062,20 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
                     _t3["ev_ebitda"] = f"{_etf_proxy_ev:.1f}x*"
             log.info("ETF proxy top3 -> EV/EBITDA fallback %.1fx pour %s", _etf_proxy_ev, universe)
 
+    # Fallback ultime : si un secteur du top3 n'a pas de societes, peupler avec
+    # _get_real_tickers (table hardcodée par univers). Sans ça, le tableau
+    # « Sociétés représentatives » du PDF reste vide (audit 28/04/2026).
+    for _t3 in top3_secteurs:
+        if not _t3.get("societes"):
+            _fallback_tk = (_get_real_tickers(_t3.get("nom", ""), universe) or
+                            _get_real_tickers(_t3.get("nom", ""), "S&P 500") or [])[:3]
+            if _fallback_tk:
+                _t3["societes"] = [
+                    (tk, _t3.get("signal", "Neutre"), _t3.get("ev_ebitda", "\u2014"),
+                     _t3.get("score", 50))
+                    for tk in _fallback_tk
+                ]
+
     # Base test pour les champs sans source temps reel
     base = _make_test_indice_data(universe)
     # Regenerer texte_signal coherent avec le signal reel — version enrichie
@@ -3121,6 +3226,8 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
         # Per-ticker raw data pour IndiceExcelWriter (EU + US indices)
         "tickers_raw": _eu_res if _eu_members_by_sec else [],
         "universe":    universe,
+        # indice_stats : perf_ytd/1y/3y/5y/vol_1y/sharpe_1y/max_dd pour tuiles UI
+        "indice_stats": _compute_indice_stats(code, rf_annual=rf_rate),
     })
 
     # LLM : generation texte analytique reel (texte_macro, texte_valorisation, catalyseurs, risques)

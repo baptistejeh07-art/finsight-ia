@@ -362,10 +362,19 @@ def make_indice_perf_chart(data):
 
     # Tailles police agrandies (audit Baptiste S&P 500 p5 2026-04-14)
     fig, ax = plt.subplots(figsize=(8.0, 4.2))
-    ax.plot(x, i_perf, color='#1B3A6B', linewidth=2.4, label=indice_name)
-    ax.plot(x, bonds,  color='#A0A0A0', linewidth=1.4, linestyle='--', label='US 10Y Bond')
-    ax.plot(x, gold,   color='#B06000', linewidth=1.4, linestyle=':', label='Gold')
-    ax.fill_between(x, i_perf, 100, where=[v > 100 for v in i_perf], alpha=0.08, color='#1B3A6B')
+    # Trace l'indice principal seulement si non plat (audit 28/04 : éviter lignes
+    # plates à 100 quand fetch yfinance échoue silencieusement)
+    if i_perf and any(abs(float(v) - 100) > 0.05 for v in i_perf):
+        ax.plot(x, i_perf, color='#1B3A6B', linewidth=2.4, label=indice_name)
+        ax.fill_between(x, i_perf, 100,
+                        where=[float(v) > 100 for v in i_perf],
+                        alpha=0.08, color='#1B3A6B')
+    else:
+        ax.plot(x, [100] * len(x), color='#1B3A6B', linewidth=2.4, label=indice_name)
+    if bonds and any(abs(float(v) - 100) > 0.05 for v in bonds) and len(bonds) == len(x):
+        ax.plot(x, bonds, color='#A0A0A0', linewidth=1.4, linestyle='--', label='US 10Y Bond')
+    if gold and any(abs(float(v) - 100) > 0.05 for v in gold) and len(gold) == len(x):
+        ax.plot(x, gold, color='#B06000', linewidth=1.4, linestyle=':', label='Gold')
     ax.set_xticks([x[i] for i in tick_idx])
     ax.set_xticklabels(tick_lbl, fontsize=12, color='#555')
     ax.yaxis.set_tick_params(labelsize=13)
