@@ -448,11 +448,11 @@ def build_cmp_indice_data(
     # Score composite proxy pour B
     score_b_proxy = _score_proxy(perf_1y_b, sharpe_1y_b, vol_1y_b, perf_3y_b)
     if score_b_proxy >= 65:
-        signal_b_proxy = "Surponderer"
+        signal_b_proxy = "Surpondérer"
     elif score_b_proxy >= 45:
         signal_b_proxy = "Neutre"
     else:
-        signal_b_proxy = "Sous-ponderer"
+        signal_b_proxy = "Sous-pondérer"
 
     # Fallbacks valorisation indices (yfinance.info vide pour ^GSPC etc.)
     if pe_fwd_b is None:
