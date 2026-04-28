@@ -724,6 +724,15 @@ def llm_call(prompt: str, phase: str = "default",
             _out = _llm.generate(prompt, system=system, max_tokens=max_tokens)
             if strip_markdown and _out:
                 _out = _strip_markdown(_out)
+            # Normalisation chiffres FR (espace avant %, virgule décimale)
+            # NOTE : ne pas appliquer au JSON pour ne pas casser les valeurs.
+            # JSON output utilise généralement strip_markdown=False, donc le check tient.
+            if strip_markdown and _out:
+                try:
+                    from core.prompt_standards import normalize_french_numbers
+                    _out = normalize_french_numbers(_out)
+                except Exception:
+                    pass
             return _out
         except _ProviderExhausted as e:
             # Budget sature (TPD/TPM) — skip forward sans retry

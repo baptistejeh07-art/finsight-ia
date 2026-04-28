@@ -205,6 +205,44 @@ def build_system_prompt(
 
 
 # =============================================================================
+# POST-PROCESS : normalisation chiffres FR sur texte LLM
+# =============================================================================
+
+import re as _re
+
+_PCT_NO_SPACE_RE = _re.compile(r"(\d)([,.]\d+)?%")
+_DOT_DECIMAL_RE  = _re.compile(r"(\d)\.(\d+)([xX%])")
+_X_NO_SPACE_RE   = _re.compile(r"(?<!\d|,|\.)(\d)x")  # cas exotique, garde 13,4x intact
+
+
+def normalize_french_numbers(text: str) -> str:
+    """Post-process texte LLM pour appliquer la convention FR :
+
+    - Décimale virgule (« 33.9x » → « 33,9x », « 5.2% » → « 5,2 % »)
+    - Espace insécable avant `%` (« 5,2% » → « 5,2 % »)
+
+    Idempotent : applique seulement sur formats US/non-FR détectés.
+    Préserve les usages techniques (ex: « 1.0 » dans une URL ou un attribut).
+    """
+    if not text:
+        return text
+
+    # 1. Convertir point décimal → virgule devant x ou %
+    def _dot_to_comma(m):
+        return f"{m.group(1)},{m.group(2)}{m.group(3)}"
+    text = _DOT_DECIMAL_RE.sub(_dot_to_comma, text)
+
+    # 2. Espace devant % si absent
+    def _add_space_pct(m):
+        digit = m.group(1)
+        decimal = m.group(2) or ""
+        return f"{digit}{decimal} %"
+    text = _PCT_NO_SPACE_RE.sub(_add_space_pct, text)
+
+    return text
+
+
+# =============================================================================
 # BUILDERS DE LONGUEUR PAR CONTEXTE
 # =============================================================================
 

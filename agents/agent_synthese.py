@@ -655,6 +655,21 @@ class AgentSynthese:
 
         latency_ms = int((time.time() - t_start) * 1000)
         parsed = _parse_json(raw)
+        if parsed:
+            # Normalise tous les champs string en convention FR (espace avant %, virgule décimale)
+            try:
+                from core.prompt_standards import normalize_french_numbers as _norm_fr
+                def _walk_norm(obj):
+                    if isinstance(obj, str):
+                        return _norm_fr(obj)
+                    if isinstance(obj, list):
+                        return [_walk_norm(x) for x in obj]
+                    if isinstance(obj, dict):
+                        return {k: _walk_norm(v) for k, v in obj.items()}
+                    return obj
+                parsed = _walk_norm(parsed)
+            except Exception:
+                pass
         if not parsed:
             log.error(f"[AgentSynthese] JSON non parseable — fallback deterministe :\n{raw[:300]}")
             _fb = _build_deterministic_fallback(snapshot, ratios)
