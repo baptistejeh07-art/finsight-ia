@@ -645,7 +645,7 @@ _KNOWN_TICKERS = {
     "procter": "PG", "procter gamble": "PG", "pg": "PG",
     "exxon": "XOM", "exxonmobil": "XOM", "xom": "XOM",
     "chevron": "CVX", "cvx": "CVX",
-    "home depot": "HD", "hd": "HD",
+    "home Dépôt": "HD", "hd": "HD",
     "abbvie": "ABBV", "abbv": "ABBV",
     "eli lilly": "LLY", "lly": "LLY",
     "coca cola": "KO", "cocacola": "KO", "ko": "KO",
@@ -1082,7 +1082,7 @@ def _fetch_sector_tickers(sector_key: str) -> list:
             _sys.path.insert(0, _root)
         from cli_analyze import _SECTOR_TICKERS as _ST
         sector_display = _SECTOR_YFINANCE.get(_fetch_slug, _fetch_slug.title())
-        # Priorite S&P 500, sinon premier univers trouvé (Normalisé sans espaces)
+        # Priorité S&P 500, sinon premier univers trouvé (Normalisé sans espaces)
         _norm = sector_display.lower().replace(" ", "")
         _apply = (lambda xs: [x for x in xs if x in _sub_whitelist]) if _sub_whitelist else list
         for (s, u), tks in _ST.items():
@@ -1241,7 +1241,7 @@ def render_sidebar(results) -> None:
         _comparison_kind    = st.session_state.get("comparison_kind")
 
         if _in_cmp_page:
-            # Nouvelle analyse (reset complet) — priorite haute
+            # Nouvelle analyse (reset complet) — priorité haute
             if st.button("＋  Nouvelle analyse", use_container_width=True, type="primary",
                           key="sb_new_from_cmp"):
                 for _k in ("stage", "results", "ticker", "from_screening",
@@ -2722,7 +2722,7 @@ def _gen_scenarios(signal_global, avg_score):
                 f"(2T PIB < 0%) ou choc géopolitique majeur")
     else:
         bull = f"Score > 50 sur 2M + reversal technique + stabilisation des flux"
-        bear = f"Score < 30 — degradation acceleree BPA + détérioration bilans sectoriels"
+        bear = f"Score < 30 — degradation accélérée BPA + détérioration bilans sectoriels"
     return [
         ("Bull case", bull, "Surpondérer", "3-6 mois"),
         ("Bear case", bear, "Sous-pondérer", "6-12 mois"),
@@ -2837,7 +2837,7 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
                      else ("Sous-pond\xe9rer" if avg_score < 40 else "Neutre"))
     conviction = min(95, max(50, int(avg_score)))
 
-    # ── Top 3 secteurs — Surpondérer en priorite, puis meilleurs Neutre ────
+    # ── Top 3 secteurs — Surpondérer en priorité, puis meilleurs Neutre ────
     _SIG_SURP = "Surpond\xe9rer"
     surp_secs   = [s for s in secteurs_list if s[3] == _SIG_SURP]
     other_secs  = [s for s in secteurs_list if s[3] != _SIG_SURP]
@@ -3289,7 +3289,7 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
             "américaines, couvrant ~80% de la capitalisation totale du Marché US. Gere par "
             "S&P Dow Jones Indices, il est pondéré par capitalisation flottante. Sa structure "
             "sectorielle est dominee par la technologie (~29%), les services financiers (~13%) "
-            "et la sante (~13%). Il constitue le benchmark mondial de reference pour les "
+            "et la Santé (~13%). Il constitue le benchmark mondial de reference pour les "
             "gestionnaires institutionnels et le sous-jacent de la majorite des ETF indiciels."
         ),
         "NASDAQ": (
@@ -4038,7 +4038,7 @@ def _fetch_cmp_indice_data(universe_a: str, indice_data_a: dict,
         "DOWJONES": [("UnitedHealth Group", "UNH", 8.5, "Healthcare"),
                      ("Goldman Sachs", "GS", 6.8, "Financials"),
                      ("Microsoft Corp.", "MSFT", 5.9, "Technology"),
-                     ("Home Depot Inc.", "HD", 5.5, "Consumer Discretionary"),
+                     ("Home Dépôt Inc.", "HD", 5.5, "Consumer Discretionary"),
                      ("Caterpillar Inc.", "CAT", 4.8, "Industrials")],
     }
     top5_b = _TOP5_HARDCODED.get(universe_key_b, [])
@@ -4507,7 +4507,7 @@ def _render_cmp_secteur_section(results: dict) -> None:
 
                 # Convertit l'input FR (dropdown) en label anglais yfinance pour
                 # le lookup dans _SECTOR_TICKERS (cli_analyze) — évite le retour
-                # vide quand on passe "Sante" au lieu de "Healthcare".
+                # vide quand on passe "Santé" au lieu de "Healthcare".
                 try:
                     from core.sector_labels import en_label as _en_label
                     _sector_b_en = _en_label(sector_b) or sector_b
@@ -6679,7 +6679,7 @@ def _render_cmp_secteur_page() -> None:
 
     verdict = (
         f"{winner} domine sur la Médiane des scores FinSight ({score_a}/100 vs {score_b}/100), "
-        f"signalant une qualité fondamentale agregee superieure. "
+        f"signalant une qualité fondamentale Agrégée superieure. "
         f"La lecture croisee des multiples et des marges permet d'affiner le choix d'exposition "
         f"dans une allocation sectorielle."
     )

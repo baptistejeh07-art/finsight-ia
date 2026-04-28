@@ -972,7 +972,7 @@ def extract_metrics(state: dict, supp: dict) -> dict:
     # FCF absolu, Net Debt absolu, Cash approx, P/FCF
     # Bug B2 audit 27/04/2026 : yfinance retourne fcf/net_debt/total_debt en
     # MILLIONS USD, mais market_cap est en MILLIARDS. Le formatter _frm s'attend
-    # à du milliards uniformément. On normalise tout à milliards à la source.
+    # à du milliards uniformément. On Normalisé tout à milliards à la source.
     try:
         fcf_abs  = _safe(yr, "fcf")
         nd_abs   = _safe(yr, "net_debt")

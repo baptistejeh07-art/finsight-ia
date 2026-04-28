@@ -61,18 +61,18 @@ _SECTOR_CONTENT = {
         ),
         "catalyseurs": [
             ("Adoption IA Generative", "Accélération des mandats IA dans les grands comptes européens — contrats pluriannuels en hausse de 38 % sur T1 2026."),
-            ("Modernisation SI Publics", "Plans d'investissement gouvernementaux 2026-2028 — budgets numeriques confirmes pour 6 États membres EU."),
+            ("Modernisation SI Publics", "Plans d'investissement gouvernementaux 2026-2028 — budgets numériques confirmes pour 6 États membres EU."),
             ("Cloud Hybride Souveraineté", "Contraintes réglementaires sur les données — migration vers solutions EU portée par NIS2 et DORA."),
         ],
         "risques": [
             ("Ralentissement Budgets IT", "Récession européenne confirmée entraînerait une réduction des budgets IT de 12-18 %, pénalisant les prestataires de services."),
-            ("Durcissement AI Act", "Surcoût de mise en Conformité estime a 8-12 % du CA pour les editeurs de logiciels IA — impact marges 2027."),
+            ("Durcissement AI Act", "Surcoût de mise en Conformité estime a 8-12 % du CA pour les éditeurs de logiciels IA — impact marges 2027."),
             ("Pression Tarifaire US/Asie", "Acteurs américains et asiatiques agressifs sur les segments logiciels standardisés — guerre des prix bas de gamme."),
         ],
         "drivers": [
             ("up", "Intelligence Artificielle", "Adoption entreprises +42 % en 2026 — premier driver de dépenses IT"),
             ("up", "Cloud Hybride Souverain", "Contraintes souveraineté données — migration vers solutions EU accélérée par NIS2"),
-            ("up", "Modernisation SI Publics", "Plans gouvernementaux 2026-2028 — budgets numeriques confirmes 6 États EU"),
+            ("up", "Modernisation SI Publics", "Plans gouvernementaux 2026-2028 — budgets numériques confirmes 6 États EU"),
             ("down", "Sensibilité Taux", "Compression multiples si taux > 4,5 % — impact modéré sur FCF structurel"),
         ],
         "cycle_comment": "Secteur en phase d'expansion | porté par l'IA et le cloud souverain",
@@ -88,17 +88,17 @@ _SECTOR_CONTENT = {
         "catalyseurs": [
             ("Rebond Luxe Asie", "Réouverture progressive des Marchés asiatiques — croissance hors UE attendue a +15 % en 2026 pour le segment premium."),
             ("Transition Electrique", "Accélération des ventes VE en Europe — soutien réglementaire et infrastructures de recharge en déploiement."),
-            ("Tourisme Premium", "Flux touristiques européens en hausse de 12 % — benefice direct pour l'hotellerie et la restauration haut de gamme."),
+            ("Tourisme Premium", "Flux touristiques européens en hausse de 12 % — bénéfice direct pour l'hôtellerie et la restauration haut de gamme."),
         ],
         "risques": [
             ("Sensibilité Taux", "Hausse des taux comprime le pouvoir d'achat discrétionnaire — impact sur volumes et marges promotionnelles."),
             ("Ralentissement Chine", "Croissance chinoise < 4 % pénaliserait les acteurs du luxe exposes a 30-40 % de leur CA en Asie."),
-            ("Disruption Digitale", "Montee des plateformes D2C — pression sur les réseaux de distribution traditionnels."),
+            ("Disruption Digitale", "Montée des plateformes D2C — pression sur les réseaux de distribution traditionnels."),
         ],
         "drivers": [
             ("up", "Luxe Premium", "Résilience exceptionnelle — pricing power intact segment > 500 EUR"),
             ("up", "Rebond Asiatique", "Flux touristiques et ventes locales en Chine en normalisation"),
-            ("down", "Pouvoir d'Achat", "Inflation residuelle et taux élevés compressent la consommation mid-market"),
+            ("down", "Pouvoir d'Achat", "Inflation résiduelle et taux élevés compressent la consommation mid-market"),
             ("down", "Substitution Digital", "Plateformes e-commerce capturent des parts en distribution"),
         ],
         "cycle_comment": "Secteur en consolidation | luxe résilient, mid-market sous pression",
@@ -140,7 +140,7 @@ _SECTOR_CONTENT = {
         "catalyseurs": [
             ("Taux Directeurs Élevés", "Maintien des taux BCE a 3 % — soutien structurel aux NIM bancaires et a la rentabilité des Dépôts."),
             ("Consolidation Sectorielle", "Fusions-acquisitions dans la banque retail — prime de contrôle sur les cibles sous-valorisees."),
-            ("Digitalisation Services", "Plateformes wealth management numeriques — réduction Coûts et captation millennials investisseurs."),
+            ("Digitalisation Services", "Plateformes wealth management numériques — réduction Coûts et captation millennials investisseurs."),
         ],
         "risques": [
             ("Dégradation Crédit", "Hausse des NPL dans l'immobilier commercial et le crédit PME si récession confirmée."),
@@ -150,7 +150,7 @@ _SECTOR_CONTENT = {
         "drivers": [
             ("up", "Marge Nette d'Intérêt", "Taux élevés soutiennent les NIM — pic attendu T2 2026"),
             ("up", "Gestion d'Actifs", "Collecte nette positive — Marchés actions porteurs"),
-            ("down", "Coût du Risque", "Montee progressive des provisions — NPL en hausse"),
+            ("down", "Coût du Risque", "Montée progressive des provisions — NPL en hausse"),
             ("down", "Régulation", "Bale IV — impact CET1 estime a -80bps grandes banques EU"),
         ],
         "cycle_comment": "Secteur en maturité cyclique | NIM en pic, qualité d'actif à surveiller",
@@ -185,25 +185,25 @@ _SECTOR_CONTENT = {
     },
     "Healthcare": {
         "description": (
-            "Le secteur Sante regroupe les laboratoires pharmaceutiques, fabricants de dispositifs medicaux, "
+            "Le secteur Santé regroupe les laboratoires pharmaceutiques, fabricants de dispositifs médicaux, "
             "biotechs et prestataires de soins. Structurellement défensif, il bénéficie du vieillissement "
-            "demographique et de l'innovation therapeutique."
+            "démographique et de l'innovation thérapeutique."
         ),
         "catalyseurs": [
-            ("Innovation Therapeutique", "Pipeline oncologie et maladies rares — lancements produits blockbusters attendus 2026-2027."),
-            ("MedTech IA", "Intégration de l'IA dans le diagnostic et la chirurgie assistee — premium innovateurs."),
+            ("Innovation Thérapeutique", "Pipeline oncologie et maladies rares — lancements produits blockbusters attendus 2026-2027."),
+            ("MedTech IA", "Intégration de l'IA dans le diagnostic et la chirurgie assistée — premium innovateurs."),
             ("Vieillissement Demo", "Population > 65 ans en Europe +3 % pa — croissance structurelle des dépenses santé."),
         ],
         "risques": [
-            ("Pression Prix Medicaments", "Révision des prix de référence — impact de -5 a -15 % sur les revenus medicaments matures."),
+            ("Pression Prix Médicaments", "Révision des prix de référence — impact de -5 a -15 % sur les revenus médicaments matures."),
             ("Expirations Brevets", "Vague de génériques 2026-2028 — perte de revenus 15-20 % pour les concernes."),
             ("Incertitude Clinique", "Taux d'echec élevé en phase III — risque de destruction de valeur sur pipelines."),
         ],
         "drivers": [
-            ("up", "Innovation Oncologie", "Immunotherapies et ADC — Marché > 200 Mds USD en 2027"),
+            ("up", "Innovation Oncologie", "Immunothérapies et ADC — Marché > 200 Mds USD en 2027"),
             ("up", "MedTech IA", "Diagnostic assiste — barrières à l'entrée élevées"),
             ("down", "Expiration Brevets", "Perte revenus blockbusters 2026-2028"),
-            ("down", "Pricing Pressure", "Reformes prix medicaments EU et US — compression revenus"),
+            ("down", "Pricing Pressure", "Réformes prix médicaments EU et US — compression revenus"),
         ],
         "cycle_comment": "Secteur défensif-croissance | innovation compense risques réglementaires",
         "metriques_dict": [("R&D/Rev.", "18 %", "Élevé"), ("Pipeline Score", "7,2/10", "Solide"), ("Marge Brute", "68 %", "Premium"), ("Patent Cliff", "2026-28", "A surveiller"), ("ROE", "22 %", "Attractif"), ("FCF Yield", "3,8 %", "Sain")],
@@ -289,7 +289,7 @@ _SECTOR_CONTENT = {
     },
     "Communication Services": {
         "description": (
-            "Les Services de Communication regroupent les operateurs télécoms, medias numeriques et "
+            "Les Services de Communication regroupent les opérateurs télécoms, médias numériques et "
             "plateformes de contenu. Ce secteur bénéficie de la migration vers le haut débit, "
             "de la consolidation sectorielle et de la monétisation des usages data."
         ),
@@ -304,7 +304,7 @@ _SECTOR_CONTENT = {
             ("Substitution OTT", "Perte de revenus voix et SMS au profit des services OTT (WhatsApp, Teams)."),
         ],
         "drivers": [
-            ("up", "Montee en Debit", "Fibre et 5G — migration offres premium +8 EUR/mois ARPU"),
+            ("up", "Montée en Debit", "Fibre et 5G — migration offres premium +8 EUR/mois ARPU"),
             ("up", "Consolidation", "Fusions sectorielles — réduction concurrentielle et synergies"),
             ("down", "Pression Prix", "Low-cost MVNO — ARPU mobile compressé"),
             ("down", "Capex Reseau", "Phase investissement fibre — FCF sous pression 2-3 ans"),

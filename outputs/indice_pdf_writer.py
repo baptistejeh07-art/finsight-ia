@@ -1274,7 +1274,7 @@ def _build_cartographie(data, weights_buf, attribution_buf=None, registry=None):
     analytics = data.get("indice_analytics", {})
     if analytics:
         elems.append(Spacer(1, 5*mm))
-        elems.append(Paragraph("Biais Factoriels &amp; Sante du March\u00e9", S_SUBSECTION))
+        elems.append(Paragraph("Biais Factoriels &amp; Santé du March\u00e9", S_SUBSECTION))
         _tilt    = analytics.get("tilt", "—")
         _spread  = analytics.get("tilt_spread", 0)
         _cyc     = analytics.get("cyclical_return", 0)
@@ -1509,7 +1509,7 @@ def _build_graphiques(data, scatter_buf, scores_buf, corr_buf=None, registry=Non
                      "Niveau de dépendance systemique moyen entre secteurs"],
                     ["Paire la moins correlee",
                      f"{_abbrev_pdf(min_c[1])} / {_abbrev_pdf(min_c[2])}  ({min_c[0]:.2f})",
-                     "Meilleur benefice de diversification inter-sectoriel disponible"],
+                     "Meilleur bénéfice de diversification inter-sectoriel disponible"],
                     ["Paire la plus correlee",
                      f"{_abbrev_pdf(max_c[1])} / {_abbrev_pdf(max_c[2])}  ({max_c[0]:.2f})",
                      "Secteurs a ne pas sur-pondérér simultanement — beta commun élevé"],

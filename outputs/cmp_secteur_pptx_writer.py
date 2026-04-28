@@ -499,7 +499,8 @@ def _chart_margins(sa: dict, sb: dict, label_a: str, label_b: str) -> bytes:
     for bar in list(bars_a) + list(bars_b):
         h = bar.get_height()
         if abs(h) > 0.5:
-            ax.annotate(f"{h:.1f}%", xy=(bar.get_x() + bar.get_width()/2, max(h, 0)),
+            _v = f"{h:.1f} %".replace('.', ',')
+            ax.annotate(_v, xy=(bar.get_x() + bar.get_width()/2, max(h, 0)),
                         xytext=(0, 3), textcoords="offset points",
                         ha="center", va="bottom", fontsize=7.5)
     ax.legend(fontsize=9, framealpha=0)
@@ -552,7 +553,7 @@ def _chart_momentum(sa: dict, sb: dict, label_a: str, label_b: str) -> bytes:
     revg_b = sb.get("revg", 0) or 0
     bars1 = ax1.bar([label_a, label_b], [revg_a, revg_b], color=[_HEX_A, _HEX_B], alpha=0.9, width=0.5)
     ax1.axhline(0, color="black", linewidth=0.6)
-    ax1.set_title("Croissance Revenue medianne", fontsize=9, fontweight="bold")
+    ax1.set_title("Croissance Revenue médiane", fontsize=9, fontweight="bold")
     ax1.set_ylabel("%", fontsize=8, labelpad=8)
     ax1.spines["top"].set_visible(False)
     ax1.spines["right"].set_visible(False)
@@ -560,7 +561,8 @@ def _chart_momentum(sa: dict, sb: dict, label_a: str, label_b: str) -> bytes:
     ax1.set_axisbelow(True)
     for bar in bars1:
         h = bar.get_height()
-        ax1.annotate(f"{h:+.1f}%", xy=(bar.get_x() + bar.get_width()/2, h),
+        _v = f"{h:+.1f} %".replace('.', ',')
+        ax1.annotate(_v, xy=(bar.get_x() + bar.get_width()/2, h),
                      xytext=(0, 4 if h >= 0 else -12), textcoords="offset points",
                      ha="center", fontsize=9, fontweight="bold")
 
@@ -569,7 +571,7 @@ def _chart_momentum(sa: dict, sb: dict, label_a: str, label_b: str) -> bytes:
     mom_b = sb.get("mom", 0) or 0
     bars2 = ax2.bar([label_a, label_b], [mom_a, mom_b], color=[_HEX_A, _HEX_B], alpha=0.9, width=0.5)
     ax2.axhline(0, color="black", linewidth=0.6)
-    ax2.set_title("Performance 52 semaines medianne", fontsize=9, fontweight="bold")
+    ax2.set_title("Performance 52 semaines médiane", fontsize=9, fontweight="bold")
     ax2.set_ylabel("%", fontsize=8, labelpad=8)
     ax2.spines["top"].set_visible(False)
     ax2.spines["right"].set_visible(False)
@@ -577,7 +579,8 @@ def _chart_momentum(sa: dict, sb: dict, label_a: str, label_b: str) -> bytes:
     ax2.set_axisbelow(True)
     for bar in bars2:
         h = bar.get_height()
-        ax2.annotate(f"{h:+.1f}%", xy=(bar.get_x() + bar.get_width()/2, h),
+        _v = f"{h:+.1f} %".replace('.', ',')
+        ax2.annotate(_v, xy=(bar.get_x() + bar.get_width()/2, h),
                      xytext=(0, 4 if h >= 0 else -12), textcoords="offset points",
                      ha="center", fontsize=9, fontweight="bold")
 
@@ -618,7 +621,8 @@ def _chart_rentabilite(sa: dict, sb: dict, label_a: str, label_b: str) -> bytes:
     for bar in list(bars_a) + list(bars_b):
         h = bar.get_height()
         if abs(h) > 0.5:
-            ax.annotate(f"{h:.1f}%", xy=(bar.get_x() + bar.get_width()/2, max(h, 0)),
+            _v = f"{h:.1f} %".replace('.', ',')
+            ax.annotate(_v, xy=(bar.get_x() + bar.get_width()/2, max(h, 0)),
                         xytext=(0, 3), textcoords="offset points",
                         ha="center", va="bottom", fontsize=7.5)
     ax.legend(fontsize=9, framealpha=0)
@@ -1022,7 +1026,7 @@ def _s07_marges(prs, D):
     slide = _blank(prs)
     sa, sb = D["sa"], D["sb"]
     _header(slide, (D.get('_t_helper') or (lambda k: "Qualité & Rentabilité"))('qualite_rent'),
-            f"Qui Généré plus de valeur par euro de chiffre d'affaires ?", 1)
+            f"Qui génère plus de valeur par euro de chiffre d'affaires ?", 1)
     _footer(slide, D)
 
     try:
@@ -1048,19 +1052,23 @@ def _s07_marges(prs, D):
     _gm_b = sb.get("gm") or 0
     _spread_em = abs(_em_a - _em_b)
     _spread_roe = abs(_roe_a - _roe_b)
+    def _frpct(v):
+        return f"{v:.1f} %".replace('.', ',')
+    def _frpts(v):
+        return f"{v:.1f} points".replace('.', ',')
     fallback_diag = (
         f"{winner_margin} domine sur la rentabilité opérationnelle avec une marge EBITDA "
-        f"de {(_em_a if winner_margin == D['sector_a'] else _em_b):.1f}% contre "
-        f"{(_em_b if winner_margin == D['sector_a'] else _em_a):.1f}% pour {D['sector_b'] if winner_margin == D['sector_a'] else D['sector_a']} "
-        f"(spread de {_spread_em:.1f} points). Cette différence reflète des structures "
-        f"de coûts très distinctes : la marge brute s'établit à {_gm_a:.1f}% vs {_gm_b:.1f}%, "
-        f"traduisant des positionnéments concurrentiels et un pricing power différenciés. "
+        f"de {_frpct(_em_a if winner_margin == D['sector_a'] else _em_b)} contre "
+        f"{_frpct(_em_b if winner_margin == D['sector_a'] else _em_a)} pour {D['sector_b'] if winner_margin == D['sector_a'] else D['sector_a']} "
+        f"(spread de {_frpts(_spread_em)}). Cette différence reflète des structures "
+        f"de coûts très distinctes : la marge brute s'établit à {_frpct(_gm_a)} vs {_frpct(_gm_b)}, "
+        f"traduisant des positionnements concurrentiels et un pricing power différenciés. "
         f"Sur la création de valeur actionnariale, {winner_roe} affiche un ROE de "
-        f"{(_roe_a if winner_roe == D['sector_a'] else _roe_b):.1f}% (vs {(_roe_b if winner_roe == D['sector_a'] else _roe_a):.1f}% pour l'autre secteur), "
+        f"{_frpct(_roe_a if winner_roe == D['sector_a'] else _roe_b)} (vs {_frpct(_roe_b if winner_roe == D['sector_a'] else _roe_a)} pour l'autre secteur), "
         f"signalant une efficience supérieure du capital employé. "
-        f"L'écart de {_spread_roe:.1f} points sur le ROE conditionne directement la prime "
+        f"L'écart de {_frpts(_spread_roe)} sur le ROE conditionne directement la prime "
         f"de valorisation que le marché accorde à chaque univers : un secteur high-ROE "
-        f"justifié un multiple plus élevé tant que la croissance se maintient. "
+        f"justifie un multiple plus élevé tant que la croissance se maintient. "
         f"Pour un allocataire, ces métriques orientent l'arbitrage value/quality : "
         f"{winner_margin} offre la meilleure résilience cyclique, tandis que les "
         f"écarts de marge nette captent l'effet du levier financier et de la fiscalité."
@@ -1283,10 +1291,10 @@ def _s09_scoring(prs, D):
     score_l = sb.get("score", 0) if winner == D["sector_a"] else sa.get("score", 0)
     fallback_interp = (
         f"{winner} ressort en avance sur le scoring FinSight global ({score_w}/100 vs {score_l}/100), "
-        f"avec un écart de {abs(score_w - score_l)} pts revelant une superiorite structurelle. "
+        f"avec un écart de {abs(score_w - score_l)} pts révélant une supériorité structurelle. "
         f"L'analyse radar permet d'identifier les dimensions de force et de faiblesse relatives : "
-        f"un secteur peut dominer sur la qualité tout en Étant pénalisé sur la valorisation. "
-        f"L'écart global conditionne le signal d'allocation : >= 65 pts = Surpondérer, "
+        f"un secteur peut dominer sur la qualité tout en étant pénalisé sur la valorisation. "
+        f"L'écart global conditionne le signal d'allocation : ≥ 65 pts = Surpondérer, "
         f"45-64 pts = neutre, < 45 pts = Sous-pondérer."
     )
     interp = D.get("llm", {}).get("scoring_read") or fallback_interp
