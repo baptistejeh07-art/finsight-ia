@@ -160,6 +160,19 @@ class AgentDevil:
 
         latency_ms = int((time.time() - t_start) * 1000)
         parsed = _parse_json(raw)
+        if parsed:
+            # Normalisation FR (espace avant %, virgule décimale) sur tous
+            # les champs string de la réponse LLM JSON.
+            try:
+                from core.prompt_standards import normalize_french_numbers as _norm_fr
+                def _walk(o):
+                    if isinstance(o, str): return _norm_fr(o)
+                    if isinstance(o, list): return [_walk(x) for x in o]
+                    if isinstance(o, dict): return {k: _walk(v) for k, v in o.items()}
+                    return o
+                parsed = _walk(parsed)
+            except Exception:
+                pass
         if not parsed:
             log.error(f"[AgentDevil] JSON non parseable :\n{raw[:300]}")
             return None
