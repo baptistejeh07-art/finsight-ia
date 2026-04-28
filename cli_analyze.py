@@ -504,6 +504,16 @@ def run_indice(universe: str = "S&P 500", language: str = "fr", currency: str = 
     from outputs.indice_pptx_writer import IndicePPTXWriter
     from outputs.indice_excel_writer import IndiceExcelWriter
 
+    # Whitelist explicite : on REFUSE les indices non supportés au lieu de
+    # tomber silencieusement sur S&P 500 (bug 100 documenté known_error_indices_non_supportes.md).
+    _SUPPORTED = {"S&P 500", "CAC 40", "CAC40", "DAX 40", "DAX40", "DAX",
+                  "FTSE 100", "FTSE100", "Euro Stoxx 50", "STOXX50"}
+    if universe not in _SUPPORTED:
+        raise ValueError(
+            f"Indice non supporté : {universe!r}. "
+            f"Indices disponibles : S&P 500, CAC 40, DAX 40, FTSE 100, Euro Stoxx 50."
+        )
+
     log.info("=== ANALYSE INDICE : %s ===", universe)
     t0 = time.time()
 
