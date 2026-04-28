@@ -1992,15 +1992,15 @@ def _make_test_indice_data(universe: str = "S&P 500") -> dict:
         "fred_signals": [
             {"nom": "PMI Manufacturier",  "valeur": "49.8", "tendance": "Stable",  "signal": "Neutre"},
             {"nom": "10Y - 2Y (courbe)",  "valeur": "+0.18%","tendance": "Hausse", "signal": "Neutre"},
-            {"nom": "ISM Services",       "valeur": "52.6", "tendance": "Hausse",  "signal": "Surpondérer"},
-            {"nom": "Taux chomage",       "valeur": "4.1%", "tendance": "Stable",  "signal": "Neutre"},
-            {"nom": "CPI Core YoY",       "valeur": "3.1%", "tendance": "Baisse",  "signal": "Neutre"},
+            {"nom": "ISM Services",       "valeur": "52,6", "tendance": "Hausse",  "signal": "Surpondérer"},
+            {"nom": "Taux chômage",       "valeur": "4,1 %", "tendance": "Stable",  "signal": "Neutre"},
+            {"nom": "CPI Core YoY",       "valeur": "3,1 %", "tendance": "Baisse",  "signal": "Neutre"},
         ],
         # Catalyseurs generiques (le writer enrichit via LLM selon l'univers)
         "catalyseurs": [
-            ("Politique monetaire", "Trajectoire des taux directeurs des banques centrales et son impact sur les multiples", "6-12 mois"),
-            ("Trajectoire inflation", "Convergence de l'inflation vers la cible 2% — conditions de pivot monetaire", "9-18 mois"),
-            ("Revisions BPA", "Dynamique consensus sur les benefices aggreges de l'univers analyse", "3-6 mois"),
+            ("Politique monétaire", "Trajectoire des taux directeurs des banques centrales et son impact sur les multiples", "6-12 mois"),
+            ("Trajectoire inflation", "Convergence de l'inflation vers la cible 2 % — conditions de pivot monétaire", "9-18 mois"),
+            ("Révisions BPA", "Dynamique consensus sur les bénéfices agrégés de l'univers analysé", "3-6 mois"),
         ],
         "secteurs":      secteurs,
         "top3_secteurs": top3_secteurs,

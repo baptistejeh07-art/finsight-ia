@@ -1062,7 +1062,7 @@ def _build_synthese(data, perf_buf, registry=None):
                          Paragraph(_xml_esc(mecanisme), S_TD_L),
                          Paragraph(_xml_esc(horizon), S_TD_C)])
     elems.append(KeepTogether(tbl([cat_h] + cat_rows, cw=[42*mm, 110*mm, 18*mm])))
-    elems.append(src("FinSight IA — Analyse interne. Probabilités non assignees (cf. section Risques)."))
+    elems.append(src("FinSight IA — Analyse interne. Probabilités non assignées (cf. section Risques)."))
 
     # Bloc Synthèse signal — fill empty space page 3
     secteurs = data["secteurs"]
@@ -1085,10 +1085,11 @@ def _build_synthese(data, perf_buf, registry=None):
         [Paragraph("Sous-pond\xe9rer", S_TD_R), Paragraph(str(nb_sous), S_TD_C),
          Paragraph("R\xe9duire l\u2019exposition en dessous de l\u2019indice", S_TD_L)],
     ]
+    _surp_lbl = "secteur" if nb_surp == 1 else "secteurs"
     _conv_para = Paragraph(
-        f"Conviction globale {conviction} % — les {nb_surp} secteur(s) Surpond\xe9rer "
+        f"Conviction globale {conviction} % — {'le' if nb_surp == 1 else 'les'} {nb_surp} {_surp_lbl} Surpond\xe9rer "
         f"({top3_nms}) concentrent les opportunit\xe9s d\u2019alpha. Toute d\xe9t\xe9rioration "
-        "du signal doit declencher une revue de positionnément dans les 5 jours ouvrables.", S_BODY)
+        "du signal doit déclencher une revue de positionnement dans les 5 jours ouvrables.", S_BODY)
     elems.append(KeepTogether([
         debate_q("Quelle est la distribution actuelle des signaux sectoriels ?"),
         tbl([syn_h] + syn_rows, cw=[36*mm, 28*mm, 106*mm]),
@@ -1620,7 +1621,15 @@ def _build_allocation(data, allocation_buf=None, registry=None):
     opt = data.get("optimal_portfolios", {})
     _erp    = data.get("erp", "—")
     _esig   = data.get("erp_signal", "—")
-    _rf     = data.get("rf_rate", "4.50%")
+    _rf     = data.get("rf_rate", "4,50 %")
+    # Normalisation FR : si une valeur arrive avec point décimal et/ou % collé,
+    # la reformater pour cohérence (« 4.50% » → « 4,50 % »).
+    def _fr_norm(s):
+        if not isinstance(s, str):
+            return s
+        return s.replace('.', ',').replace('%', ' %').replace('  %', ' %').strip()
+    _erp = _fr_norm(_erp)
+    _rf  = _fr_norm(_rf)
 
     elems.append(Paragraph(
         "A partir de la matrice de Corrélation sectorielle (rendements journaliers 52S) "
@@ -1779,18 +1788,22 @@ def _build_top3(data, donut_buf, registry=None):
     elems.append(Paragraph(_titre_synth, S_SUBSECTION))
     synth_h = [Paragraph(h, S_TH_C) for h in
                ["Secteur","Signal","Score","EV/EBITDA","Mg. EBITDA","Croiss.","Momentum"]]
+    def _fr_dec(s):
+        """Force décimale FR (point → virgule) sur valeur affichée."""
+        return str(s).replace('.', ',') if s else s
     synth_rows = []
     for sect in data["top3_secteurs"]:
         s_data = next((s for s in secteurs if s[0] == sect["nom"]), None)
         mg_raw = s_data[5] if s_data and len(s_data) > 5 else None
-        mg   = f"{mg_raw:.1f}%" if isinstance(mg_raw, (int, float)) and mg_raw != 0.0 else "\u2014"
-        croi = str(s_data[6]) if s_data and len(s_data) > 6 else "\u2014"
-        mom  = str(s_data[7]) if s_data and len(s_data) > 7 else "\u2014"
+        mg   = f"{mg_raw:.1f} %".replace('.', ',') if isinstance(mg_raw, (int, float)) and mg_raw != 0.0 else "\u2014"
+        croi = _fr_dec(s_data[6]) if s_data and len(s_data) > 6 else "\u2014"
+        mom  = _fr_dec(s_data[7]) if s_data and len(s_data) > 7 else "\u2014"
+        ev_str = _fr_dec(sect.get("ev_ebitda", "\u2014"))
         synth_rows.append([
             Paragraph(f"<b>{_abbrev_pdf(sect['nom'])}</b>", S_TD_B),
             Paragraph(sect["signal"], sig_s(sect["signal"])),
             Paragraph(str(sect["score"]), S_TD_BC),
-            Paragraph(sect["ev_ebitda"], S_TD_C),
+            Paragraph(ev_str, S_TD_C),
             Paragraph(mg, S_TD_C),
             Paragraph(croi, S_TD_G if '+' in str(croi) else S_TD_R),
             Paragraph(mom,  S_TD_G if '+' in str(mom)  else S_TD_R),
