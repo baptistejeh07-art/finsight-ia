@@ -1758,6 +1758,28 @@ REPLACEMENTS = {
     "hotellerie":            "hôtellerie",
     "Montee":                "Montée",
     "residuelle":            "résiduelle",
+    # === Audit 28/04 vague 2 : sectoral & cmp_secteur slide 15 ===
+    "Therapeutique":         "Thérapeutique",
+    "therapeutique":         "thérapeutique",
+    "these":                 "thèse",
+    "Demo":                  "Démo",
+    "Echec":                 "Échec",
+    "echec":                 "échec",
+    "Immediat":              "Immédiat",
+    "immediat":              "immédiat",
+    "Reforme":               "Réforme",
+    "reforme":               "réforme",
+    "depenses":              "dépenses",
+    "sante":                 "santé",
+    "Sante":                 "Santé",
+    "concernes":             "concernés",
+    "innovateurs":           "innovateurs",
+    "specialisee":           "spécialisée",
+    "Coupes":                "Coupes",
+    "Echec phase III":       "Échec phase III",
+    "Cible eleve":           "Cible élevée",
+    "eleve en":              "élevé en",
+    "Population > 65":       "Population > 65",
 }
 
 # Stop-words : tokens jamais a remplacer (techniques, codes, etc.)

@@ -192,12 +192,12 @@ _SECTOR_CONTENT = {
         "catalyseurs": [
             ("Innovation Thérapeutique", "Pipeline oncologie et maladies rares — lancements produits blockbusters attendus 2026-2027."),
             ("MedTech IA", "Intégration de l'IA dans le diagnostic et la chirurgie assistée — premium innovateurs."),
-            ("Vieillissement Demo", "Population > 65 ans en Europe +3 % pa — croissance structurelle des dépenses santé."),
+            ("Vieillissement Démo", "Population > 65 ans en Europe +3 % pa — croissance structurelle des dépenses santé."),
         ],
         "risques": [
             ("Pression Prix Médicaments", "Révision des prix de référence — impact de -5 a -15 % sur les revenus médicaments matures."),
-            ("Expirations Brevets", "Vague de génériques 2026-2028 — perte de revenus 15-20 % pour les concernes."),
-            ("Incertitude Clinique", "Taux d'echec élevé en phase III — risque de destruction de valeur sur pipelines."),
+            ("Expirations Brevets", "Vague de génériques 2026-2028 — perte de revenus 15-20 % pour les concernés."),
+            ("Incertitude Clinique", "Taux d'échec élevé en phase III — risque de destruction de valeur sur pipelines."),
         ],
         "drivers": [
             ("up", "Innovation Oncologie", "Immunothérapies et ADC — Marché > 200 Mds USD en 2027"),
@@ -2154,7 +2154,7 @@ def _s14_distribution(prs, D):
         _worst_p_name = _worst_prime.get('ticker', '?')
         _impl_p = (
             f"À l'opposé, {_worst_p_name} ({float(_worst_prime.get(metric_field) or 0):.1f}x) "
-            f"concentre le risque de derating : toute déception de croissance ou "
+            f"concentré le risque de derating : toute déception de croissance ou "
             f"guidance décevante comprimerait le multiple en priorité sur ce nom."
         )
     else:
@@ -2423,7 +2423,7 @@ def _s18_sentiment(prs, D):
     sent_analysis = (
         f"Le sentiment agrégé FinBERT sur le secteur {D['sector_name']} ({D['universe']}) "
         f"ressort {sent_tone} ({agg_score:.2f}), avec {pct_pos:.0f}% d'articles a tonalité positive sur {total} analysés. "
-        f"La dispersion inter-valeurs est prononcée : {best_sent[1] or best_sent[2]} ({best_sent[0]:+.2f}) Porte la composante haussière "
+        f"La dispersion inter-valeurs est prononcée : {best_sent[1] or best_sent[2]} ({best_sent[0]:+.2f}) Porté la composante haussière "
         f"tandis que {worst_sent[1] or worst_sent[2]} ({worst_sent[0]:+.2f}) reflète les pressions structurelles. "
         f"Cette hétérogénéité valide une approche sélective plutôt que directionnelle sur le secteur — "
         f"le sentiment moyen masque des situations fondamentalement différentes entre leaders et retardataires. "

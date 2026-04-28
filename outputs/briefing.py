@@ -164,7 +164,7 @@ def generate_briefing(
     # QA
     # ------------------------------------------------------------------
     if qa_python:
-        status = "VALIDE" if qa_python.passed else "ECHEC"
+        status = "VALIDE" if qa_python.passed else "ÉCHEC"
         A(f"\n  QA PYTHON : {status}  (score {qa_python.qa_score:.0%})")
         errors   = [f for f in qa_python.flags if f.level == "ERROR"]
         warnings = [f for f in qa_python.flags if f.level == "WARNING"]
