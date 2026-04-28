@@ -1532,15 +1532,18 @@ def _build_graphiques(data, scatter_buf, scores_buf, corr_buf=None, registry=Non
                 max_c = max(off_diag, key=lambda x: x[0])
                 med_c = round(float(__import__('statistics').median([v[0] for v in off_diag])), 2)
                 elems.append(Spacer(1, 3*mm))
+                _med_c_fr = f"{med_c:.2f}".replace('.', ',')
+                _min_c_fr = f"{min_c[0]:.2f}".replace('.', ',')
+                _max_c_fr = f"{max_c[0]:.2f}".replace('.', ',')
                 corr_interp = [
-                    ["Corrélation médiane", f"{med_c:.2f}",
-                     "Niveau de dépendance systemique moyen entre secteurs"],
-                    ["Paire la moins correlee",
-                     f"{_abbrev_pdf(min_c[1])} / {_abbrev_pdf(min_c[2])}  ({min_c[0]:.2f})",
+                    ["Corrélation médiane", _med_c_fr,
+                     "Niveau de dépendance systémique moyen entre secteurs"],
+                    ["Paire la moins corrélée",
+                     f"{_abbrev_pdf(min_c[1])} / {_abbrev_pdf(min_c[2])}  ({_min_c_fr})",
                      "Meilleur bénéfice de diversification inter-sectoriel disponible"],
-                    ["Paire la plus correlee",
-                     f"{_abbrev_pdf(max_c[1])} / {_abbrev_pdf(max_c[2])}  ({max_c[0]:.2f})",
-                     "Secteurs a ne pas sur-pondérér simultanement — beta commun élevé"],
+                    ["Paire la plus corrélée",
+                     f"{_abbrev_pdf(max_c[1])} / {_abbrev_pdf(max_c[2])}  ({_max_c_fr})",
+                     "Secteurs à ne pas surpondérer simultanément — beta commun élevé"],
                 ]
                 corr_h = [Paragraph(h, S_TH_L) for h in ["Indicateur", "Valeur", "Interprétation"]]
                 corr_rows = [[Paragraph(r[0], S_TD_B), Paragraph(r[1], S_TD_C),
