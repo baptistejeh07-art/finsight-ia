@@ -1376,7 +1376,11 @@ def _build_structure_sectorielle(tickers_data: list[dict], sector_name: str,
     roic_min  = sa.get("roic_min")
     roic_max  = sa.get("roic_max")
     if roic_std is not None and roic_mean is not None:
-        roic_val = f"moy. {roic_mean:.1f}%  |  σ={roic_std:.1f}%  |  [{roic_min:.1f}% — {roic_max:.1f}%]".replace('.', ',')
+        # Espaces avant % FR ; "moy." abréviation préservée par construction de chaîne
+        roic_val = (f"moy. {roic_mean:.1f} %".replace('.', ',') + "  |  σ=" +
+                    f"{roic_std:.1f} %".replace('.', ',') + "  |  [" +
+                    f"{roic_min:.1f} %".replace('.', ',') + " — " +
+                    f"{roic_max:.1f} %".replace('.', ',') + "]")
     elif roic_std is not None:
         roic_val = f"écart-type {roic_std:.1f}%".replace('.', ',')
     else:
