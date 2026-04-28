@@ -199,8 +199,9 @@ def _fmt_price(v):
         return "\u2014"
     try:
         f = float(v)
-        # Format FR : virgule d\u00e9cimale, espace comme s\u00e9parateur milliers
-        s = f"{f:,.2f}" if f < 1000 else f"{f:,.0f}"
+        # Format FR : 2 d\u00e9cimales virgule + espace milliers (coh\u00e9rence avec
+        # cible estim\u00e9e page Top Picks qui utilise toujours 2 d\u00e9cimales)
+        s = f"{f:,.2f}"
         return s.replace(',', ' ').replace('.', ',')
     except (TypeError, ValueError):
         return "\u2014"
@@ -805,9 +806,17 @@ def _cover_page(c, doc, sector_name: str, subtitle: str, universe: str,
     _best_tk = best.get('ticker', 'N/A')
     if _best_co and len(_best_co) > 1:
         # Garde 22 caractères max pour tenir dans la box
-        _short = _best_co.replace(' Inc.', '').replace(' Inc', '').replace(' Corp.', '').replace(' Corp', '').replace(', Inc.', '').strip()
+        # On retire les suffixes corporate ET la virgule trailing résiduelle
+        # ("Simon Property Group, Inc." → "Simon Property Group" pas "Simon Property Group,")
+        _short = _best_co
+        for _suf in (', Inc.', ', Inc', ' Inc.', ' Inc', ' Corp.', ' Corporation', ' Corp',
+                     ' Group plc', ' plc', ' SA', ' SE', ' AG', ' NV', ' Ltd.', ' Ltd'):
+            if _short.endswith(_suf):
+                _short = _short[:-len(_suf)]
+                break
+        _short = _short.rstrip(' ,;:.').strip()
         if len(_short) > 22:
-            _short = _short[:22] + '…'
+            _short = _short[:22].rstrip(' ,;:.') + '…'
         _top_pick_str = f"{_short} ({_best_tk})"
     else:
         _top_pick_str = f"{_best_tk} ({best_reco})"
@@ -1123,6 +1132,8 @@ def _build_macro(perf_buf, area_buf, tickers_data: list[dict],
             "case_shiller":            ("Indice Case-Shiller",        ""),
             "housing_starts":          ("Mises en chantier",          "k"),
             "housing_starts_yoy":      ("Mises en chantier (YoY)",   "%"),
+            "existing_home_sales":     ("Ventes logements existants", ""),
+            "existing_home_sales_yoy": ("Ventes logements (YoY)",    "%"),
             "consumer_confidence":     ("Confiance consommateur",     ""),
             "retail_sales_yoy":        ("Ventes retail (YoY)",        "%"),
             "auto_sales":              ("Ventes automobiles",         "M"),
@@ -1175,11 +1186,25 @@ def _build_macro(perf_buf, area_buf, tickers_data: list[dict],
 
         # Indicateurs sectoriels
         _sector_fred = _fred.get("sector", {})
+        def _fmt_fred_val(val, unit):
+            """Format FRED adaptatif selon ordre de grandeur (évite '3980000,00')."""
+            try:
+                v = float(val)
+                # Compactage automatique pour les grandes valeurs
+                if abs(v) >= 1_000_000:
+                    s = f"{v/1_000_000:.2f} M"
+                elif abs(v) >= 1_000 and not unit:
+                    s = f"{v/1_000:.1f} k"
+                else:
+                    s = f"{v:.2f}"
+                return (s + (f" {unit}" if unit else "")).replace('.', ',')
+            except (TypeError, ValueError):
+                return str(val)
         for key, val in _sector_fred.items():
             if val is None:
                 continue
             label, unit = _SECTOR_LABELS.get(key, (key.replace("_", " ").title(), ""))
-            val_str = (f"{val:.2f} {unit}".strip() if unit else f"{val:.2f}").replace('.', ',')
+            val_str = _fmt_fred_val(val, unit)
             interp = _fred_interp(key, val)
             _fred_rows.append([
                 Paragraph(f"<i>{label}</i>", S_TD_L),
