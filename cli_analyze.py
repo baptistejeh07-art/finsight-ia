@@ -3105,10 +3105,17 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
             return True
         # Tous les tickers sont des em-dash → placeholder synthétique
         return all(str(s[0]).strip() in ("—", "\u2014", "", "None") for s in socs if len(s) > 0)
+    log.info("top3_secteurs avant fallback societes: %d secteurs",
+             len(top3_secteurs))
     for _t3 in top3_secteurs:
-        if _is_placeholder_socs(_t3.get("societes")):
+        _existing = _t3.get("societes")
+        _is_ph = _is_placeholder_socs(_existing)
+        log.info("  %s : societes=%s, is_placeholder=%s",
+                 _t3.get("nom", "?"), _existing, _is_ph)
+        if _is_ph:
             _fallback_tk = (_get_real_tickers(_t3.get("nom", ""), universe) or
                             _get_real_tickers(_t3.get("nom", ""), "S&P 500") or [])[:3]
+            log.info("    fallback tickers: %s", _fallback_tk)
             if _fallback_tk:
                 _t3["societes"] = [
                     (tk, _t3.get("signal", "Neutre"), _t3.get("ev_ebitda", "\u2014"),

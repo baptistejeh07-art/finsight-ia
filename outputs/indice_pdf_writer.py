@@ -1885,6 +1885,29 @@ def _build_top3(data, donut_buf, registry=None):
     _ev_col_lbl = "Mg.EBITDA" if _all_ev_missing else "EV/EBITDA"
     soc_h = [Paragraph(h, S_TH_C) for h in
              ["Secteur","Ticker","Signal", _ev_col_lbl,"Score"]]
+    # Fallback ultime côté writer : si societes vide ou placeholder em-dash,
+    # peupler depuis _get_real_tickers (audit 28/04 v4 — bug persistant table vide).
+    try:
+        from cli_analyze import _get_real_tickers as _grt_pdf
+    except Exception:
+        _grt_pdf = lambda s, u: []
+    _univers_pdf = data.get("universe") or data.get("indice") or ""
+    def _is_ph_pdf(socs):
+        if not socs:
+            return True
+        return all(str(s[0]).strip() in ("—", "\u2014", "", "None") for s in socs if len(s) > 0)
+    for _sect_pdf in data.get("top3_secteurs", []):
+        if _is_ph_pdf(_sect_pdf.get("societes")):
+            _fb = (_grt_pdf(_sect_pdf.get("nom", ""), _univers_pdf) or
+                   _grt_pdf(_sect_pdf.get("nom", ""), "S&P 500") or [])[:3]
+            if _fb:
+                _sect_pdf["societes"] = [
+                    (tk, _sect_pdf.get("signal", "Neutre"),
+                     _sect_pdf.get("ev_ebitda", "\u2014"),
+                     _sect_pdf.get("score", 50))
+                    for tk in _fb
+                ]
+
     soc_rows = []
     for sect in data["top3_secteurs"]:
         _mg      = sect.get("mg_ebitda", 0) or 0
