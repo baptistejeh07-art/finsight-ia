@@ -545,6 +545,17 @@ def run_indice(universe: str = "S&P 500", language: str = "fr", currency: str = 
     except Exception as _e_log:
         log.debug(f"analysis_log indice skip : {_e_log}")
 
+    # Sentinel : audit qualité rendering (FR/EN, décimales, Nb sociétés cohérent…)
+    try:
+        from core.sentinel.data_audit import audit_indice_analysis
+        audit_indice_analysis(
+            universe=universe,
+            data=data if isinstance(data, dict) else {},
+            language=language,
+        )
+    except Exception as _ae:
+        log.debug(f"[run_indice] sentinel audit skip : {_ae}")
+
     # Synthèse narrative pour l'UI dashboard
     _secteurs = data.get("secteurs", []) if isinstance(data, dict) else []
     _stats = data.get("indice_stats", {}) if isinstance(data, dict) else {}

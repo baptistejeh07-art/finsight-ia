@@ -379,3 +379,172 @@ def audit_societe_analysis(
         )
 
     return report
+
+
+# ═══ Auditeur indice ═══════════════════════════════════════════════════════
+# Détecte les bugs de rendering qui n'apparaissent pas comme exceptions :
+# mélange FR/EN dans les noms secteurs, décimales US (point au lieu de virgule),
+# Nb sociétés incohérent avec le total réel de l'indice, themes_pos vide
+# alors que des secteurs Surpondérer existent, fallback _SP500_NB_SOC sur EU.
+
+_KNOWN_FR_SECTOR_LABELS = {
+    "Technologie", "Santé", "Finance", "Services Financiers",
+    "Télécoms", "Télécommunications",
+    "Conso. Cycl.", "Consommation Cyclique",
+    "Conso. Déf.", "Consommation Défensive",
+    "Industrie", "Matériaux",
+    "Énergie", "Immobilier",
+    "Serv. Publ.", "Services Publics",
+}
+
+_KNOWN_EN_SECTOR_LABELS = {
+    "Technology", "Health Care", "Healthcare", "Financials",
+    "Financial Services", "Communication Services", "Consumer Discretionary",
+    "Consumer Cyclical", "Consumer Staples", "Consumer Defensive",
+    "Industrials", "Materials", "Basic Materials", "Energy",
+    "Real Estate", "Utilities",
+}
+
+_DECIMAL_US_RE = re.compile(r"\d+\.\d+\s*[x%]")
+
+
+def audit_indice_analysis(
+    universe: str,
+    data: dict,
+    language: str = "fr",
+    job_id: Optional[str] = None,
+) -> DataQualityReport:
+    """Audit qualité d'une analyse d'indice après construction du dict data
+    (avant écriture PDF/PPTX). Détecte les bugs rendering ratés par les autres
+    règles : mélange FR/EN, décimales US, Nb sociétés incohérent, themes vides.
+    """
+    report = DataQualityReport()
+    secteurs = data.get("secteurs") or []
+    nb_total_meta = data.get("nb_societes")
+
+    # Règle 1 : Nb sociétés cohérent avec total réel de l'indice
+    # (bug Tech=65 sur CAC 40 = héritage hardcodé S&P 500)
+    if secteurs and nb_total_meta:
+        try:
+            sum_nb = sum(int(s[1] or 0) for s in secteurs if len(s) > 1)
+            if sum_nb > nb_total_meta * 1.5:
+                report.add(
+                    "indice_nb_inconsistent", False, "error",
+                    f"Somme Nb sociétés sectorielles = {sum_nb} >> total indice "
+                    f"{nb_total_meta}. Probable héritage _SP500_NB_SOC sur indice non-US.",
+                    penalty=20,
+                )
+            else:
+                report.add("indice_nb_ok", True, "info",
+                           f"Nb sociétés cohérent ({sum_nb}/{nb_total_meta})")
+        except (ValueError, TypeError, IndexError):
+            pass
+
+    # Règle 2 : Mélange FR/EN dans les noms secteurs (i18n=fr attendu)
+    if language == "fr" and secteurs:
+        en_names = [s[0] for s in secteurs if s and len(s) > 0
+                    and str(s[0]) in _KNOWN_EN_SECTOR_LABELS]
+        if en_names:
+            report.add(
+                "indice_secteurs_anglais", False, "error",
+                f"{len(en_names)} secteur(s) en anglais alors que i18n=fr : "
+                f"{en_names[:5]}. _abbrev_pdf/_abbrev_sector non appliqué dans le writer.",
+                penalty=15,
+            )
+        else:
+            report.add("indice_secteurs_fr_ok", True, "info",
+                       "Tous les secteurs en libellé FR")
+
+    # Règle 3 : themes_pos vide alors que des secteurs Surpondérer existent
+    sa = data.get("sentiment_agg") or {}
+    themes_pos = sa.get("themes_pos") or []
+    nb_surp = sum(1 for s in secteurs if len(s) > 3 and "Surp" in str(s[3]))
+    if nb_surp > 0 and not themes_pos:
+        report.add(
+            "indice_themes_pos_vide", False, "error",
+            f"{nb_surp} secteurs Surpondérer dans data['secteurs'] mais "
+            f"sentiment_agg.themes_pos vide → slide 19 PPTX affichera '—'.",
+            penalty=15,
+        )
+
+    nb_sous = sum(1 for s in secteurs if len(s) > 3 and "Sous" in str(s[3]))
+    themes_neg = sa.get("themes_neg") or []
+    if nb_sous > 0 and not themes_neg:
+        report.add(
+            "indice_themes_neg_vide", False, "warn",
+            f"{nb_sous} secteurs Sous-pondérer mais themes_neg vide.",
+            penalty=8,
+        )
+
+    # Règle 4 : Décimales US dans les valeurs affichées (point au lieu de virgule)
+    if language == "fr" and secteurs:
+        us_count = 0
+        for s in secteurs:
+            for field in s[4:8] if len(s) >= 8 else []:
+                if isinstance(field, str) and _DECIMAL_US_RE.search(field):
+                    us_count += 1
+        if us_count >= 2:
+            report.add(
+                "indice_decimales_us", False, "warn",
+                f"{us_count} valeurs avec décimale US (point) trouvées dans secteurs : "
+                "ev_str/mom_str non normalisés en virgule FR.",
+                penalty=8,
+            )
+
+    # Règle 5 : top3_secteurs.societes avec valeurs uniformes par secteur
+    # (bug I8 — toutes les sociétés du même secteur ont le même score/EV)
+    top3 = data.get("top3_secteurs") or []
+    n_uniform = 0
+    for sect in top3:
+        socs = sect.get("societes") if isinstance(sect, dict) else None
+        if not socs or len(socs) < 2:
+            continue
+        try:
+            scores = {soc[3] for soc in socs if len(soc) > 3}
+            evs = {str(soc[2]) for soc in socs if len(soc) > 2}
+            if len(scores) == 1 and len(evs) == 1:
+                n_uniform += 1
+        except (IndexError, TypeError):
+            continue
+    if n_uniform >= 2:
+        report.add(
+            "indice_societes_uniformes", False, "warn",
+            f"{n_uniform}/3 secteurs Surpondérer ont des sociétés représentatives "
+            "avec EV/EBITDA + score identiques (clones du score sectoriel) → "
+            "fetch propre par société non appliqué.",
+            penalty=8,
+        )
+
+    log.info(
+        f"[sentinel:data_audit] indice/{universe} score={report.global_pct:.0f}/100 "
+        f"({len(report.issues)} issues)"
+    )
+
+    for issue in report.issues:
+        try:
+            record_error(
+                severity=issue["severity"],
+                error_type=f"data_audit:{issue['rule']}",
+                message=issue["message"],
+                kind="indice",
+                ticker=universe,
+                job_id=job_id,
+                context={
+                    "rule": issue["rule"],
+                    "penalty": issue["penalty"],
+                    "data_quality_score": report.global_pct,
+                    "universe": universe,
+                    "language": language,
+                },
+            )
+        except Exception as _e:
+            log.debug(f"[sentinel:data_audit] record fail: {_e}")
+
+    if report.global_pct < 50:
+        log.error(
+            f"[sentinel:data_audit] CRITICAL — indice/{universe} "
+            f"data quality {report.global_pct:.0f}/100. "
+            f"Issues: {[i['rule'] for i in report.issues]}"
+        )
+
+    return report
