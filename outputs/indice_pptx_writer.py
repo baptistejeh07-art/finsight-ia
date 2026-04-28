@@ -2215,7 +2215,7 @@ def _s18_rotation(prs, D):
             + (f"Alléger : {' · '.join(sous_rots[:2])}. " if sous_rots else "")
             + (f"Secteurs a forte Sensibilité taux a surveiller si la BCE pivote : {' · '.join(_taux_fort[:2])}. " if _taux_fort else "")
             + f"La rotation suit le cycle avec un decalage de 2-3 trimestrès — "
-            f"un signal Surpondérer qui emerge maintenant anticipe une surperformance sur 6-12 mois. "
+            f"un signal Surpondérer qui emerge maintenant anticipé une surperformance sur 6-12 mois. "
             f"Croiser avec les scores FinSight (slide 11) pour valider la cohérence momentum/fondamentaux."
         )
 
@@ -2420,7 +2420,7 @@ def _s20_etf_perf(prs, D, chart_bytes: bytes):
                     if _rebound > 3:
                         _narrative_parts.append(
                             f"Rebond de {_rebound:+.1f}pts depuis le creux de {_trough_date} "
-                            f"— soutenu par les publications de résultats et les anticipations de politique monetaire accommodante."
+                            f"— soutenu par les publications de résultats et les anticipations de Politique monétaire accommodante."
                         )
 
             # --- Comparaisons cross-asset ---
@@ -2483,7 +2483,7 @@ def _s20_etf_perf(prs, D, chart_bytes: bytes):
                  "pour CAC 40/DAX 40/FTSE 100 (UCITS, suffixe .DE sur Xetra). "
                  "Le fetch du pipeline indice n'est pas encore branche sur cette matrice "
                  "pour les indices européens : l'analyse sectorielle directe reste "
-                 "disponible via 'Analyse sectorielle' pour acceder aux holdings réels.",
+                 "disponible via 'Analyse sectorielle' pour accéder aux holdings réels.",
                  1.2, 12.45, 22.8, 0.8, size=7.5, color=_GRAYT, wrap=True)
         _footer(slide)
         return slide

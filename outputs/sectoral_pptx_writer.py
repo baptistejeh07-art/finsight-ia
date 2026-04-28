@@ -92,7 +92,7 @@ _SECTOR_CONTENT = {
         ],
         "risques": [
             ("Sensibilité Taux", "Hausse des taux comprime le pouvoir d'achat discrétionnaire — impact sur volumes et marges promotionnelles."),
-            ("Ralentissement Chine", "Croissance chinoise < 4 % pénaliserait les acteurs du luxe exposes a 30-40 % de leur CA en Asie."),
+            ("Ralentissement Chine", "Croissance chinoise < 4 % pénaliserait les acteurs du luxe exposés à 30-40 % de leur CA en Asie."),
             ("Disruption Digitale", "Montée des plateformes D2C — pression sur les réseaux de distribution traditionnels."),
         ],
         "drivers": [
@@ -2154,7 +2154,7 @@ def _s14_distribution(prs, D):
         _worst_p_name = _worst_prime.get('ticker', '?')
         _impl_p = (
             f"À l'opposé, {_worst_p_name} ({float(_worst_prime.get(metric_field) or 0):.1f}x) "
-            f"concentré le risque de derating : toute déception de croissance ou "
+            f"concentre le risque de derating : toute déception de croissance ou "
             f"guidance décevante comprimerait le multiple en priorité sur ce nom."
         )
     else:
@@ -2423,7 +2423,7 @@ def _s18_sentiment(prs, D):
     sent_analysis = (
         f"Le sentiment agrégé FinBERT sur le secteur {D['sector_name']} ({D['universe']}) "
         f"ressort {sent_tone} ({agg_score:.2f}), avec {pct_pos:.0f}% d'articles a tonalité positive sur {total} analysés. "
-        f"La dispersion inter-valeurs est prononcée : {best_sent[1] or best_sent[2]} ({best_sent[0]:+.2f}) Porté la composante haussière "
+        f"La dispersion inter-valeurs est prononcée : {best_sent[1] or best_sent[2]} ({best_sent[0]:+.2f}) Porte la composante haussière "
         f"tandis que {worst_sent[1] or worst_sent[2]} ({worst_sent[0]:+.2f}) reflète les pressions structurelles. "
         f"Cette hétérogénéité valide une approche sélective plutôt que directionnelle sur le secteur — "
         f"le sentiment moyen masque des situations fondamentalement différentes entre leaders et retardataires. "

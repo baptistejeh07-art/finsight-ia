@@ -2689,22 +2689,22 @@ def _gen_risques(secteurs_list, signal_global, avg_score):
     pts_to_sous = max(1, avg_score - 40)
     # Secteurs sensibles aux taux dans l'univers
     rate_secs = [s[0] for s in secteurs_list if s[0] in ("Real Estate","Utilities","Consumer Discretionary")]
-    rate_note = (f"Secteurs {', '.join(rate_secs[:2])} très exposes"
+    rate_note = (f"Secteurs {', '.join(rate_secs[:2])} très exposés"
                  if rate_secs else "Compression des multiples de valorisation")
     return [
         ("Récession / ralentissement PIB",
-         f"Contraction économique — révision baissière BPA Estimée a "
-         f"{5 + max(0, int((50-avg_score)*0.3))}-15%. Score composite "
+         f"Contraction économique — révision baissière BPA estimée à "
+         f"{5 + max(0, int((50-avg_score)*0.3))}-15 %. Score composite "
          f"passerait sous 40 ({pts_to_sous} pts de marge actuelle).",
-         f"{p_rec}%", "Élevé"),
+         f"{p_rec} %", "Élevé"),
         ("Inflation persistante / hausse taux",
          f"Maintien des taux longs — {rate_note}. "
-         "Compression des multiples des actifs a duration élevée.",
-         f"{p_inf}%", "Modéré"),
+         "Compression des multiples des actifs à duration élevée.",
+         f"{p_inf} %", "Modéré"),
         ("Choc géopolitique / matières premières",
-         "Disruption des chaines d'approvisionnement et/ou hausse brutale "
+         "Disruption des chaînes d'approvisionnement et/ou hausse brutale "
          "du prix des matières premières — impact direct sur les marges.",
-         f"{p_geo}%", "Élevé"),
+         f"{p_geo} %", "Élevé"),
     ]
 
 
@@ -2713,23 +2713,23 @@ def _gen_scenarios(signal_global, avg_score):
     pts_to_surp = max(1, 60 - avg_score)
     pts_to_sous = max(1, avg_score - 40)
     if signal_global == "Surpond\xe9rer":
-        bull = f"Maintien score > 60 sur 3 mois + BPA NTM > +8% YoY + conditions financières stables"
-        bear = f"Score < 50 sur 2 mois consecutifs + contraction macro confirmee"
+        bull = f"Maintien score > 60 sur 3 mois + BPA NTM > +8 % YoY + conditions financières stables"
+        bear = f"Score < 50 sur 2 mois consécutifs + contraction macro confirmée"
     elif signal_global == "Neutre":
-        bull = (f"Score > 60 ({pts_to_surp} pts manquants) + surprise BPA Q2 > +5% "
-                f"+ CPI < 2,5% sur 2M consecutifs")
+        bull = (f"Score > 60 ({pts_to_surp} pts manquants) + surprise BPA Q2 > +5 % "
+                f"+ CPI < 2,5 % sur 2M consécutifs")
         bear = (f"Score < 40 ({pts_to_sous} pts de marge) via récession technique "
-                f"(2T PIB < 0%) ou choc géopolitique majeur")
+                f"(2T PIB < 0 %) ou choc géopolitique majeur")
     else:
         bull = f"Score > 50 sur 2M + reversal technique + stabilisation des flux"
-        bear = f"Score < 30 — degradation accélérée BPA + détérioration bilans sectoriels"
+        bear = f"Score < 30 — dégradation accélérée BPA + détérioration bilans sectoriels"
     return [
         ("Bull case", bull, "Surpondérer", "3-6 mois"),
         ("Bear case", bear, "Sous-pondérer", "6-12 mois"),
         ("Stagflation",
-         f"CPI > 3,5% + PIB < 1% — compression multiple "
-         f"{5 + max(0, int(avg_score * 0.05)):.0f}-15% attendue",
-         "Sous-pondérer selectif", "6-9 mois"),
+         f"CPI > 3,5 % + PIB < 1 % — compression multiple "
+         f"{5 + max(0, int(avg_score * 0.05)):.0f}-15 % attendue",
+         "Sous-pondérer sélectif", "6-9 mois"),
     ]
 
 
@@ -2961,7 +2961,7 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
                     _px_now = float(_hist["Close"].iloc[-1])
                     if _px_jan > 0:
                         _ytd = (_px_now - _px_jan) / _px_jan * 100
-                        ytd_str = f"+{_ytd:.1f}%" if _ytd >= 0 else f"{_ytd:.1f}%"
+                        ytd_str = (f"+{_ytd:.1f} %" if _ytd >= 0 else f"{_ytd:.1f} %").replace('.', ',')
             except Exception:
                 pass
             # P/E : fast_info puis .info
@@ -2969,7 +2969,7 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
                 _fi2 = _tk.fast_info
                 _pe_f = getattr(_fi2, "p_e_ratio", None)
                 if _pe_f and 3 < float(_pe_f) < 200:
-                    pe_str = f"{float(_pe_f):.1f}x"
+                    pe_str = f"{float(_pe_f):.1f}x".replace('.', ',')
             except Exception:
                 pass
             if pe_str == "—":
@@ -2977,7 +2977,7 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
                     _info2 = _tk.info
                     _pe = _info2.get("trailingPE") or _info2.get("forwardPE")
                     if _pe and 3 < float(_pe) < 200:
-                        pe_str = f"{float(_pe):.1f}x"
+                        pe_str = f"{float(_pe):.1f}x".replace('.', ',')
                 except Exception:
                     pass
     except Exception:
@@ -2988,7 +2988,7 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
             _pe_vals = [(t.get("pe_ratio") or t.get("pe")) for t in tickers_data
                         if (t.get("pe_ratio") or t.get("pe")) and 5 < (t.get("pe_ratio") or t.get("pe")) < 80]
             if _pe_vals:
-                pe_str = f"{_med(_pe_vals):.1f}x"
+                pe_str = f"{_med(_pe_vals):.1f}x".replace('.', ',')
         except Exception:
             pass
 
@@ -3003,7 +3003,7 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
     _nb_sec = len(secteurs_list)
     _sec_lbl = "secteur" if _nb_sec == 1 else "secteurs"
     texte_macro = (
-        f"Le {display_name} présente un signal global {signal_global} (conviction {conviction}%) "
+        f"Le {display_name} présente un signal global {signal_global} (conviction {conviction} %) "
         f"basé sur l'analyse de {len(tickers_data)} sociétés réparties sur {_nb_sec} {_sec_lbl}. "
         f"Le score composite moyen de {avg_score:.0f}/100 reflète un équilibre entre momentum, "
         f"valorisation et révision des BPA. Les secteurs les plus solides sont : {top_noms}."
@@ -3295,7 +3295,7 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
         "NASDAQ": (
             "Le NASDAQ Composite regroupe plus de 3 000 sociétés Cotées sur le NASDAQ, avec "
             "une forte concentration technologique (~50% du poids). Il intègre des mega-caps "
-            "comme Apple, Microsoft, Nvidia et Alphabet. Sa volatilite est structurellement "
+            "comme Apple, Microsoft, Nvidia et Alphabet. Sa volatilité est structurellement "
             "superieure au S&P 500 (beta >1). L'indice sert de barometre de l'innovation "
             "technologique et de l'appetit au risque des investisseurs institutionnels."
         ),

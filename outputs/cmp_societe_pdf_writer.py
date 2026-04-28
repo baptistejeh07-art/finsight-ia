@@ -490,7 +490,7 @@ def _risque_text(m_a, m_b, tkr_a, tkr_b):
     return (
         f"Profil de risque : beta {tkr_a} {beta_a} vs {beta_b} pour {tkr_b}. "
         f"Performance 1 mois : {p1m_a} vs {p1m_b}. Performance 3 mois : {p3m_a} vs {p3m_b}. "
-        f"Le radar de risque ci-dessous synthetise levier, momentum, qualité, liquidité et croissance."
+        f"Le radar de risque ci-dessous synthétise levier, momentum, qualité, liquidité et croissance."
     )
 
 # =============================================================================

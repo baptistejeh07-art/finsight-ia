@@ -287,13 +287,13 @@ def _build_fred_macro_table():
             if val is None:
                 continue
             if fmt == "pct":
-                val_str = f"{val:.2f} %"
+                val_str = f"{val:.2f} %".replace('.', ',')
             elif fmt == "spread":
-                val_str = f"{val:+.2f} %"
+                val_str = f"{val:+.2f} %".replace('.', ',')
             elif fmt == "fed":
-                val_str = f"{val:.2f} %"
+                val_str = f"{val:.2f} %".replace('.', ',')
             elif fmt == "num":
-                val_str = f"{val:.1f}"
+                val_str = f"{val:.1f}".replace('.', ',')
             else:
                 val_str = str(val)
             interp = interp_fn(val)
@@ -698,9 +698,9 @@ def make_correlation_heatmap(data):
     ax.tick_params(length=0)
     cb = fig.colorbar(im, ax=ax, fraction=0.025, pad=0.03)
     cb.ax.tick_params(labelsize=7.5)
-    cb.set_label("Coefficient de correlation", fontsize=8, color='#555')
+    cb.set_label("Coefficient de Corrélation", fontsize=8, color='#555')
     ax.set_title(
-        "Matrice de correlation sectorielle — Rendements journaliers 52 semaines",
+        "Matrice de Corrélation sectorielle — Rendements journaliers 52 semaines",
         fontsize=11, color='#1B3A6B', fontweight='bold', pad=10)
     ax.set_facecolor('white'); fig.patch.set_facecolor('white')
     plt.tight_layout(pad=0.5)
@@ -824,7 +824,7 @@ def _build_sommaire(data, page_nums=None):
         ("2.", "Cartographie des Secteurs",                   "carto",
          f"  Tableau comparatif {data.get('nb_secteurs','?')} secteur(s) \xb7 Score \xb7 EV/EBITDA \xb7 Attribution \xb7 Breadth"),
         ("3.", "Analyse Graphique",                           "graphiques",
-         "  Scatter EV/EBITDA vs croissance \xb7 Scores par secteur \xb7 Matrice de correlation"),
+         "  Scatter EV/EBITDA vs croissance \xb7 Scores par secteur \xb7 Matrice de Corrélation"),
         ("4.", "Rotation Sectorielle",                        "rotation",
          "  Phase du cycle \xb7 Sensibilit\u00e9 taux/PIB \xb7 Signal de rotation"),
         ("5.", "Allocation Optimale",                         "allocation",
@@ -1046,7 +1046,7 @@ def _build_synthese(data, perf_buf, registry=None):
         "Quels catalyseurs pourraient faire devier l'indice de son scénario central ?"))
     def _xml_esc(s):
         return str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-    cat_h = [Paragraph(h, S_TH_L) for h in ["Catalyseur", "Mecanisme", "Horizon"]]
+    cat_h = [Paragraph(h, S_TH_L) for h in ["Catalyseur", "Mécanisme", "Horizon"]]
     cat_rows = []
     for nom, mecanisme, horizon in data["catalyseurs"]:
         cat_rows.append([Paragraph(_xml_esc(nom), S_TD_B),
@@ -1474,17 +1474,17 @@ def _build_graphiques(data, scatter_buf, scores_buf, corr_buf=None, registry=Non
     elems.append(KeepTogether(tbl([_tb_h] + _tb_rows, cw=[12*mm, 52*mm, 16*mm, 32*mm, 58*mm])))
     elems.append(src("FinSight IA — Scores FinSight. Score composite 0-100."))
 
-    # ── Matrice de correlation ─────────────────────────────────────────────────
+    # ── Matrice de Corrélation ─────────────────────────────────────────────────
     if corr_buf is not None:
         elems.append(CondPageBreak(120*mm))
         elems.append(Spacer(1, 6*mm))
-        elems.append(Paragraph("Matrice de Correlation Sectorielle", S_SUBSECTION))
+        elems.append(Paragraph("Matrice de Corrélation Sectorielle", S_SUBSECTION))
         elems.append(Paragraph(
-            "La matrice ci-dessous mesure la <b>correlation des rendements journaliers</b> "
+            "La matrice ci-dessous mesure la <b>Corrélation des rendements journaliers</b> "
             "entre les 11 secteurs GICS sur les 52 derni\u00e8res semaines. "
-            "Une correlation \u00e9lev\u00e9e (proche de +1, navy) indique que les deux secteurs "
+            "Une Corrélation \u00e9lev\u00e9e (proche de +1, navy) indique que les deux secteurs "
             "bougent ensemble \u2014 la diversification inter-sectorielle est limit\u00e9e. "
-            "Une correlation faible ou n\u00e9gative (rouge) offre un b\u00e9n\u00e9fice "
+            "Une Corrélation faible ou n\u00e9gative (rouge) offre un b\u00e9n\u00e9fice "
             "de diversification r\u00e9el en portefeuille.", S_BODY))
         elems.append(Spacer(1, 3*mm))
         elems.append(Image(corr_buf, width=TABLE_W, height=120*mm))
@@ -1533,7 +1533,7 @@ def _build_rotation(data, registry=None):
 
     elems.append(debate_q(
         "O\u00f9 en sommes-nous dans le cycle \u00e9conomique et quels secteurs privil\u00e9gier ?"))
-    elems.append(Paragraph("Analyse du positionnément cyclique et recommandation de rotation", S_SUBSECTION))
+    elems.append(Paragraph("Analyse du positionnement cyclique et recommandation de rotation", S_SUBSECTION))
     elems.append(Spacer(1, 1*mm))
     elems.append(Paragraph(data["texte_rotation"], S_BODY))
     elems.append(Spacer(1, 3*mm))
@@ -1575,21 +1575,21 @@ def _build_rotation(data, registry=None):
     else:
         _neutre_noms = " \xb7 ".join(_neutre_parts) or "\u2014"
     elems.append(Spacer(1, 4*mm))
-    elems.append(Paragraph("Positionnement de cycle recommande", S_SUBSECTION))
+    elems.append(Paragraph("Positionnement de cycle recommandé", S_SUBSECTION))
     cycle_data = [
         ["Phase actuelle",
-         data.get("phase_cycle", "Expansion avancee"),
+         data.get("phase_cycle", "Expansion avancée"),
          "Croissance positive, taux restrictifs, marges sous pression sélective"],
-        ["Secteurs a Surpondérer", _surp_noms_rot.replace("/", "\xb7"),
-         "Forte visibilité BPA, faible Sensibilité aux taux, pricing power intact"],
-        ["Secteurs a neutraliser", _neutre_noms,
+        ["Secteurs à Surpondérer", _surp_noms_rot.replace("/", "\xb7"),
+         "Forte visibilité BPA, faible sensibilité aux taux, pricing power intact"],
+        ["Secteurs à neutraliser", _neutre_noms,
          "Croissance correcte mais risque de décélération si PIB ralentit"],
-        ["Secteurs a alléger", _sous_noms_rot.replace("/", "\xb7"),
-         "Signal de vente relatif — compression de multiple anticipee"],
-        ["Catalyseur de rotation", "Confirmation pivot Fed (<2,5% CPI sur 3M)",
+        ["Secteurs à alléger", _sous_noms_rot.replace("/", "\xb7"),
+         "Signal de vente relatif — compression de multiple anticipée"],
+        ["Catalyseur de rotation", "Confirmation pivot Fed (< 2,5 % CPI sur 3M)",
          "R\u00e9\u00e9valuer les signaux en Sous-pond\u00e9rer en premier si pivot se confirme"],
     ]
-    cycle_h = [Paragraph(h, S_TH_L) for h in ["Element","Verdict","Rationale"]]
+    cycle_h = [Paragraph(h, S_TH_L) for h in ["Élément","Verdict","Rationale"]]
     cycle_rows = [[Paragraph(r[0], S_TD_B), Paragraph(r[1], S_TD_L), Paragraph(r[2], S_TD_L)]
                   for r in cycle_data]
     # [38, 52, 80] = 170
@@ -1614,7 +1614,7 @@ def _build_allocation(data, allocation_buf=None, registry=None):
     _rf     = data.get("rf_rate", "4.50%")
 
     elems.append(Paragraph(
-        "A partir de la matrice de correlation sectorielle (rendements journaliers 52S) "
+        "A partir de la matrice de Corrélation sectorielle (rendements journaliers 52S) "
         "et des volatilités annualisées, trois portefeuilles optimaux sont construits "
         "selon la th\u00e9orie moderne du portefeuille (Markowitz, 1952). "
         "Chaque portefeuille r\u00e9pond \u00e0 un objectif distinct : "
@@ -1683,36 +1683,36 @@ def _build_allocation(data, allocation_buf=None, registry=None):
     # Metriques des 3 portefeuilles
     elems.append(Paragraph("Performances attendues (historiques 52S)", S_SUBSECTION))
     met_h = [Paragraph(h, S_TH_C) for h in
-             ["Portefeuille", "Objectif", "Return attendu", "Volatilite", "Ratio de Sharpe"]]
+             ["Portefeuille", "Objectif", "Return attendu", "Volatilité", "Ratio de Sharpe"]]
     def _sr(sh):
         try:
             sh = float(sh)
             return S_TD_G if sh >= 0.8 else (S_TD_R if sh < 0.4 else S_TD_A)
         except Exception: return S_TD_C
 
-    def _opt_get(key, field, fmt="{:+.1f}%", default="\u2014"):
+    def _opt_get(key, field, fmt="{:+.1f} %", default="\u2014"):
         try:
             v = opt.get(key, {}).get(field)
             if v is None:
                 return default
-            return fmt.format(float(v))
+            return fmt.format(float(v)).replace('.', ',')
         except Exception: return default
 
     met_rows = [
         [Paragraph("Min-Variance", S_TD_B),
          Paragraph("Minimiser le risque — profil conservateur", S_TD_L),
          Paragraph(_opt_get('min_var', 'return'), S_TD_C),
-         Paragraph(_opt_get('min_var', 'vol', "{:.1f}%"), S_TD_C),
+         Paragraph(_opt_get('min_var', 'vol', "{:.1f} %"), S_TD_C),
          Paragraph(_opt_get('min_var', 'sharpe', "{:.2f}"), _sr(opt.get('min_var', {}).get('sharpe', 0)))],
         [Paragraph("Tangency", S_TD_B),
          Paragraph("Maximiser le Sharpe — optimum risque/rendement", S_TD_L),
          Paragraph(_opt_get('tangency', 'return'), S_TD_C),
-         Paragraph(_opt_get('tangency', 'vol', "{:.1f}%"), S_TD_C),
+         Paragraph(_opt_get('tangency', 'vol', "{:.1f} %"), S_TD_C),
          Paragraph(_opt_get('tangency', 'sharpe', "{:.2f}"), _sr(opt.get('tangency', {}).get('sharpe', 0)))],
         [Paragraph("Equal Risk Contribution", S_TD_B),
-         Paragraph("Contribution egale au risque — profil diversifié", S_TD_L),
+         Paragraph("Contribution égale au risque — profil diversifié", S_TD_L),
          Paragraph(_opt_get('erc', 'return'), S_TD_C),
-         Paragraph(_opt_get('erc', 'vol', "{:.1f}%"), S_TD_C),
+         Paragraph(_opt_get('erc', 'vol', "{:.1f} %"), S_TD_C),
          Paragraph(_opt_get('erc', 'sharpe', "{:.2f}"), _sr(opt.get('erc', {}).get('sharpe', 0)))],
     ]
     # [38, 68, 20, 20, 24] = 170mm
@@ -1720,8 +1720,8 @@ def _build_allocation(data, allocation_buf=None, registry=None):
     elems.append(Paragraph(
         f"<i>Note : performances et Sharpe calculés sur rendements historiques 52 semaines. "
         f"Ils ne constituent pas une prévision. Dans un contexte ERP {_esig} ({_erp}), "
-        + ("le Tangency portfolio est particulièrement pertinent — la prime actions justifié "
-           "une exposition optimisee." if _esig == "Favorable"
+        + ("le Tangency portfolio est particulièrement pertinent — la prime actions justifie "
+           "une exposition optimisée." if _esig == "Favorable"
            else "le Min-Variance est recommande — proteger le capital prime sur le rendement." if _esig == "Tendu"
            else "les trois profils sont valides selon l'horizon et le profil de risque.")
         + "</i>", S_NOTE))
@@ -1920,8 +1920,8 @@ def _build_risques(data, registry=None):
         f"le scénario central <b>{sig_central}</b> sur le {indice_rl}. Notre approche ne traite "
         "pas ces risques comme des probabilités faibles a ignorer, mais comme des "
         "<b>conditions de surveillance active</b> qui doivent modifier le positionnément "
-        "si elles se materialisent. Chaque risque est évalue sur sa probabilité estimée "
-        "a 12 mois, son mecanisme de transmission et son impact potentiel sur les niveaux "
+        "si elles se matérialisent. Chaque risque est évalue sur sa probabilité estimée "
+        "a 12 mois, son Mécanisme de transmission et son impact potentiel sur les niveaux "
         "de l'indice et les multiples.", S_BODY))
     elems.append(Spacer(1, 2*mm))
 
@@ -1933,7 +1933,7 @@ def _build_risques(data, registry=None):
         _prob_qualif = ("élevée" if p_int >= 40 else ("modérée" if p_int >= 25 else "faible"))
         elems.append(Paragraph(
             f"<b>{nom} ({prob}, impact {impact.lower()}).</b> {mec} "
-            f"La probabilité de materialisation sur 12 mois est jugee {_prob_qualif}.", S_BODY))
+            f"La probabilité de matérialisation sur 12 mois est jugée {_prob_qualif}.", S_BODY))
         elems.append(Spacer(1, 2*mm))
     elems.append(src(
         f"FinSight IA — Analyse adversariale. Probabilités estimées au {data['date_analyse']}."))
@@ -2026,10 +2026,10 @@ def _build_sentiment(data, registry=None):
     if fb["nb_articles"] == 0:
         elems.append(Paragraph(
             "L'analyse de sentiment FinBERT n'est pas disponible dans le cadre du screening "
-            "d'indice. Le modèle FinBERT est active lors des analyses sectorielles ou "
-            "société individuelles, ou il traite les flux RSS et Finnhub propres a chaque "
-            "valeur. Pour acceder au sentiment sectoriel detaille, lancer l'analyse "
-            "sectorielle dediee depuis FinSight IA.", S_BODY))
+            "d'indice. Le modèle FinBERT est actif lors des analyses sectorielles ou "
+            "société individuelles, où il traite les flux RSS et Finnhub propres à chaque "
+            "valeur. Pour accéder au sentiment sectoriel détaillé, lancer l'analyse "
+            "sectorielle dédiée depuis FinSight IA.", S_BODY))
         elems.append(Spacer(1, 4*mm))
     else:
         elems.append(Paragraph(
@@ -2115,7 +2115,7 @@ def _build_sentiment(data, registry=None):
     elems.append(Paragraph("Sources &amp; M\u00e9thodologie", S_SUBSECTION))
     meth_h = [Paragraph(h, S_TH_L) for h in ["Composante","M\u00e9thodologie"]]
     meth_rows = [[Paragraph(k, S_TD_B), Paragraph(v, S_TD_L)]
-                 for k, v in (data.get("Méthodologie") or data.get("Méthodologie") or [])]
+                 for k, v in (data.get("Méthodologie") or data.get("methodologie") or [])]
     elems.append(KeepTogether(tbl([meth_h] + meth_rows, cw=[40*mm, 130*mm])))
     elems.append(src(
         f"FinSight IA v1.0 — Mise \u00e0 jour quotidienne. Donn\u00e9es au {data['date_analyse']}."))
@@ -2132,37 +2132,37 @@ def _build_disclaimer(data):
         "INFORMATIONS RÉGLEMENTAIRES ET AVERTISSEMENTS IMPORTANTS", S_DISC_TITLE))
     elems.append(Spacer(1, 1.5*mm))
     elems.append(Paragraph(
-        f"<b>Nature du document.</b> Ce rapport a été Généré automatiquement par FinSight IA v1.0 "
-        f"le {data['date_analyse']}. Il est produit intégralement par un systeme d'intelligence "
+        f"<b>Nature du document.</b> Ce rapport a été généré automatiquement par FinSight IA v1.0 "
+        f"le {data['date_analyse']}. Il est produit intégralement par un système d'intelligence "
         "artificielle et <b>ne constitue pas un conseil en investissement</b> au sens de la "
         "directive européenne MiFID II (2014/65/UE) ni au sens de toute autre réglementation "
         "applicable. FinSight IA n'est pas un prestataire de services d'investissement agréé. "
-        "Ce document est fourni a titre informatif uniquement et ne saurait être interprète "
-        "comme une recommandation personnalisee d'achat, de vente ou de conservation de tout "
+        "Ce document est fourni à titre informatif uniquement et ne saurait être interprété "
+        "comme une recommandation personnalisée d'achat, de vente ou de conservation de tout "
         "instrument financier.", S_DISC))
     elems.append(Spacer(1, 1.5*mm))
     elems.append(Paragraph(
-        "<b>Conflits d'intérêt.</b> FinSight IA est un outil d'analyse automatise sans position "
-        "proprietaire dans les titrès ou indices couverts. Aucune rémunération n'est percue de "
-        "la part des Émetteurs analyses. Nonobstant, le lecteur est invite a considerer que tout "
-        "modèle analytique comporte des biais inherents a ses hypotheses de construction.", S_DISC))
+        "<b>Conflits d'intérêt.</b> FinSight IA est un outil d'analyse automatisé sans position "
+        "propriétaire dans les titres ou indices couverts. Aucune rémunération n'est perçue de "
+        "la part des émetteurs analysés. Nonobstant, le lecteur est invité à considérer que tout "
+        "modèle analytique comporte des biais inhérents à ses hypothèses de construction.", S_DISC))
     elems.append(Spacer(1, 1.5*mm))
     elems.append(Paragraph(
-        "<b>Fiabilite des Données.</b> Les Données financières sont issues de sources publiques "
-        "(yfinance, Financial Modeling Prep, Finnhub) et de modèles internes. Malgre les "
-        "contrôles appliques, ces Données peuvent contenir des inexactitudes, des délais ou "
-        "des erreurs. Les projections et estimations présentées reposent sur des hypotheses "
-        "qui peuvent ne pas se réaliser. Les performances passees ne prejudgent pas des "
+        "<b>Fiabilité des données.</b> Les données financières sont issues de sources publiques "
+        "(yfinance, Financial Modeling Prep, Finnhub) et de modèles internes. Malgré les "
+        "contrôles appliqués, ces données peuvent contenir des inexactitudes, des délais ou "
+        "des erreurs. Les projections et estimations présentées reposent sur des hypothèses "
+        "qui peuvent ne pas se réaliser. Les performances passées ne préjugent pas des "
         "performances futures.", S_DISC))
     elems.append(Spacer(1, 1.5*mm))
     elems.append(Paragraph(
-        "<b>Restrictions de diffusion.</b> Ce document est strictement confidentiel et destine "
-        "exclusivement a son destinataire. Il ne peut être reproduit, distribue ou communique "
-        "a des tiers sans autorisation expresse. Sa diffusion peut être soumise a des "
-        "restrictions legales dans certaines juridictions. FinSight IA décline toute "
-        "responsabilité pour les Décisions prises sur la base de ce document. Tout investisseur "
-        "est invite a proceder a sa propre analyse et a consulter un conseiller financier "
-        "qualifie avant toute Décision d'investissement. — <b>Document confidentiel.</b>", S_DISC))
+        "<b>Restrictions de diffusion.</b> Ce document est strictement confidentiel et destiné "
+        "exclusivement à son destinataire. Il ne peut être reproduit, distribué ou communiqué "
+        "à des tiers sans autorisation expresse. Sa diffusion peut être soumise à des "
+        "restrictions légales dans certaines juridictions. FinSight IA décline toute "
+        "responsabilité pour les décisions prises sur la base de ce document. Tout investisseur "
+        "est invité à procéder à sa propre analyse et à consulter un conseiller financier "
+        "qualifié avant toute décision d'investissement. — <b>Document confidentiel.</b>", S_DISC))
     return elems
 
 

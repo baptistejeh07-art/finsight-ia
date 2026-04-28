@@ -1784,16 +1784,16 @@ def _make_test_indice_data(universe: str = "S&P 500") -> dict:
     # des secteurs GICS, pas hardcodees par nom.
     _ROT_CANON = {
         "Technology":             ("Expansion",     "Faible",    "Forte",      "Accumuler"),
-        "Health Care":            ("Tous cycles",   "Moderee",   "Moderee",    "Accumuler"),
+        "Health Care":            ("Tous cycles",   "Modérée",   "Modérée",    "Accumuler"),
         "Financials":             ("Expansion",     "Haute",     "Haute",      "Accumuler"),
-        "Communication Services": ("Expansion",     "Faible",    "Moderee",    "Neutre"),
-        "Consumer Discretionary": ("Expansion",     "Moderee",   "Haute",      "Neutre"),
-        "Industrials":            ("Expansion",     "Moderee",   "Forte",      "Neutre"),
-        "Consumer Staples":       ("Contraction",   "Moderee",   "Faible",     "Neutre"),
+        "Communication Services": ("Expansion",     "Faible",    "Modérée",    "Neutre"),
+        "Consumer Discretionary": ("Expansion",     "Modérée",   "Haute",      "Neutre"),
+        "Industrials":            ("Expansion",     "Modérée",   "Forte",      "Neutre"),
+        "Consumer Staples":       ("Contraction",   "Modérée",   "Faible",     "Neutre"),
         "Materials":              ("Expansion",     "Faible",    "Forte",      "Neutre"),
-        "Energy":                 ("Tous cycles",   "Faible",    "Moderee",    "Neutre"),
-        "Real Estate":            ("Contraction",   "Tres haute","Faible",     "Alléger"),
-        "Utilities":              ("Contraction",   "Tres haute","Faible",     "Alléger"),
+        "Energy":                 ("Tous cycles",   "Faible",    "Modérée",    "Neutre"),
+        "Real Estate":            ("Contraction",   "Très haute","Faible",     "Alléger"),
+        "Utilities":              ("Contraction",   "Très haute","Faible",     "Alléger"),
     }
     rotation = []
     for _s in secteurs:
@@ -1892,18 +1892,18 @@ def _make_test_indice_data(universe: str = "S&P 500") -> dict:
         "top3_secteurs": top3_secteurs,
         # Risques et conditions generiques (le writer enrichit via LLM)
         "risques": [
-            ("Recession macro", "Ralentissement PIB < 0 sur 2 trimestres — revision BPA agregee 10-20%", "20 %", "ELEVE"),
-            ("Choc taux", "Revision hawkish des banques centrales — compression multiples growth", "15 %", "ELEVE"),
-            ("Choc geopolitique", "Escalade tensions majeures — spike VIX, rotation defensive", "18 %", "MODERE"),
-            ("Compression marges", "Pression couts matieres premieres / main d'oeuvre sur EBITDA", "25 %", "MODERE"),
-            ("Regulation sectorielle", "Durcissement reglementaire sur les secteurs exposes", "12 %", "FAIBLE"),
+            ("Récession macro", "Ralentissement PIB < 0 sur 2 trimestres — révision BPA agrégée 10-20 %", "20 %", "ÉLEVÉ"),
+            ("Choc taux", "Révision hawkish des banques centrales — compression multiples growth", "15 %", "ÉLEVÉ"),
+            ("Choc géopolitique", "Escalade tensions majeures — spike VIX, rotation défensive", "18 %", "MODÉRÉ"),
+            ("Compression marges", "Pression coûts matières premières / main d'œuvre sur EBITDA", "25 %", "MODÉRÉ"),
+            ("Réglementation sectorielle", "Durcissement réglementaire sur les secteurs exposés", "12 %", "FAIBLE"),
         ],
         "scenarios": [],
         "conditions_invalidation": [
-            f"Le {universe} casse son support technique majeur — signal bascule Sous-ponderer",
-            "Durcissement monetaire inattendu des banques centrales — compression multiples",
-            "Revisions BPA agregees < -5% sur 2 trimestres consecutifs",
-            "Pic de volatilite (VIX > 35) persistant sur plus de 10 seances",
+            f"Le {universe} casse son support technique majeur — signal bascule Sous-pondérer",
+            "Durcissement monétaire inattendu des banques centrales — compression multiples",
+            "Révisions BPA agrégées < -5 % sur 2 trimestres consécutifs",
+            "Pic de volatilité (VIX > 35) persistant sur plus de 10 séances",
         ],
         "rotation":      rotation,
         # Sentiment_agg : distribution des secteurs par signal (calculee depuis

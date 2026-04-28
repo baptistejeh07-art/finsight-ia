@@ -466,7 +466,7 @@ def _fetch_supplements(ticker: str) -> dict:
         except Exception as e:
             log.debug(f"[comparison] interest_coverage error {ticker}: {e}")
 
-        # Volatilite annualisee 52 semaines + RSI 14j
+        # Volatilité annualisee 52 semaines + RSI 14j
         try:
             import numpy as np
             hist_v = stock.history(period="1y", interval="1d", auto_adjust=True)
