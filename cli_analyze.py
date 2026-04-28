@@ -611,11 +611,15 @@ def _build_indice_narrative(universe: str, secteurs: list, stats: dict) -> str:
                 for s in secteurs
             ]
 
-    # Concentration : top 2 secteurs par poids
+    # Concentration : top 2 secteurs par poids (libellés FR)
+    try:
+        from core.sector_labels import fr_label as _fr_lbl_narr
+    except Exception:
+        def _fr_lbl_narr(x): return x
     if len(norm) >= 2:
         sorted_w = sorted(norm, key=lambda s: s["weight"], reverse=True)
         top = sorted_w[:2]
-        top_str = ", ".join(f"{s['name']} ({s['weight']:.1f} %)".replace('.', ',') for s in top)
+        top_str = ", ".join(f"{_fr_lbl_narr(s['name'])} ({s['weight']:.1f} %)".replace('.', ',') for s in top)
         parts.append(f"Concentration : {top_str} dominent la pondération.")
 
     # Distribution signaux (Surpondérer / Neutre / Sous-pondérer)
@@ -633,7 +637,7 @@ def _build_indice_narrative(universe: str, secteurs: list, stats: dict) -> str:
         with_score = [s for s in norm if isinstance(s.get("score"), (int, float))]
         if with_score:
             best = max(with_score, key=lambda s: s["score"])
-            parts.append(f"Score le plus élevé : {best['name']} ({int(best['score'])}/100).")
+            parts.append(f"Score le plus élevé : {_fr_lbl_narr(best['name'])} ({int(best['score'])}/100).")
 
     # Performance moyenne
     perf_med = stats.get("perf_median") or stats.get("perf_avg")
@@ -2254,15 +2258,16 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
                           "Consumer Discretionary":11.0,"Communication Services":23.0,
                           "Industrials":14.0,"Consumer Staples":17.0,"Energy":24.0,
                           "Materials":16.0,"Real Estate":42.0,"Utilities":28.0}
-        growth_generic = {"Technology":"+13.0%","Health Care":"+9.5%","Financials":"+10.0%",
-                          "Consumer Discretionary":"+7.5%","Communication Services":"+8.5%",
-                          "Industrials":"+6.5%","Consumer Staples":"+3.5%","Energy":"-1.5%",
-                          "Materials":"+4.0%","Real Estate":"+2.0%","Utilities":"+2.5%"}
+        growth_generic = {"Technology":"+13,0 %","Health Care":"+9,5 %","Financials":"+10,0 %",
+                          "Consumer Discretionary":"+7,5 %","Communication Services":"+8,5 %",
+                          "Industrials":"+6,5 %","Consumer Staples":"+3,5 %","Energy":"-1,5 %",
+                          "Materials":"+4,0 %","Real Estate":"+2,0 %","Utilities":"+2,5 %"}
         ev  = ev_generic.get(nom, 12.0)
         mg  = margin_generic.get(nom, 18.0)
-        gr  = growth_generic.get(nom, "+6.0%")
-        mom_str = f"{ret:+.1f}%"
-        secteurs.append((nom, nb, sc, sig, f"{ev:.1f}x", mg, gr, mom_str))
+        gr  = growth_generic.get(nom, "+6,0 %")
+        mom_str = f"{ret:+.1f} %".replace('.', ',')
+        ev_str = f"{ev:.1f}x".replace('.', ',')
+        secteurs.append((nom, nb, sc, sig, ev_str, mg, gr, mom_str))
 
     # Fallback si ETF non disponibles — essai fetch constituants EU
     _eu_res: list = []               # accessible plus loin pour tickers_raw
@@ -2552,6 +2557,20 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
                     _ret  = round(sum(m["ret_52w"] for m in _mems) / _nb, 1)
                     if not _secteurs_already_filled:
                         secteurs.append((_sname, _nb, _sc, _sig, _ev_s, _mg, _gr_s, f"{_ret:+.1f}%"))
+
+                # Réécrit Nb sociétés depuis le count réel des constituants EU
+                # (sinon on hérite des valeurs S&P 500 hardcodées qui dépassent
+                # le total réel de l'indice — bug Tech=65 sur CAC 40)
+                if _eu_members_by_sec and _secteurs_already_filled:
+                    _new_secteurs_eu = []
+                    for _t in secteurs:
+                        _nm = _t[0]
+                        _real_nb = len(_eu_members_by_sec.get(_nm, []))
+                        if _real_nb > 0:
+                            _new_secteurs_eu.append((_nm, _real_nb, *_t[2:]))
+                        else:
+                            _new_secteurs_eu.append(_t)
+                    secteurs = _new_secteurs_eu
 
                 # ERP depuis PE median des constituants
                 _pe_eu = [m["pe_fwd"] for m in _eu_res if m.get("pe_fwd") and 3 < m["pe_fwd"] < 100]

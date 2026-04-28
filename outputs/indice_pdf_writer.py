@@ -895,10 +895,10 @@ def _build_synthese(data, perf_buf, registry=None):
     elems.append(KeepTogether(tbl([kpi_h, kpi_row], cw=[28*mm,22*mm,24*mm,24*mm,22*mm,50*mm])))
     # Interprétation ERP
     _erp_interp = {
-        "Tendu":    ("<b>ERP sous 2%</b> \u2014 prime actions insuffisanté par rapport au taux sans risque. "
+        "Tendu":    ("<b>ERP sous 2%</b> \u2014 prime actions insuffisante par rapport au taux sans risque. "
                      "Chaque BUY doit \u00eatre justifi\u00e9 par une croissance visible et un pricing power d\u00e9montr\u00e9."),
         "Favorable":("<b>ERP au-dessus de 4%</b> \u2014 le march\u00e9 actions offre une prime attractive "
-                     "vs les taux. Le contexte macro justifié une surpond\u00e9ration actions. "
+                     "vs les taux. Le contexte macro justifie une surpond\u00e9ration actions. "
                      "Les signaux Surpond\u00e9rer ont une base macro solide."),
         "Neutre":   ("<b>ERP entre 2% et 4%</b> \u2014 valorisation raisonnable. "
                      "La s\u00e9lection sectorielle prime sur l'exposition beta. "
@@ -1070,7 +1070,7 @@ def _build_synthese(data, perf_buf, registry=None):
     nb_sous  = sum(1 for s in secteurs if len(s) > 3 and "Sous" in str(s[3]))
     nb_neut  = len(secteurs) - nb_surp - nb_sous
     top_s    = sorted(secteurs, key=lambda s: float(str(s[2]).replace(',','.') or 0), reverse=True)
-    top3_nms = ", ".join(s[0] for s in top_s[:3]) if top_s else "—"
+    top3_nms = ", ".join(_abbrev_pdf(s[0]) for s in top_s[:3]) if top_s else "—"
     conviction = data.get("conviction_pct", "—")
     elems.append(Spacer(1, 5*mm))
     syn_h = [Paragraph(h, S_TH_C) for h in ["Signal", "Nb secteurs", "Implication allocation"]]
@@ -1162,11 +1162,13 @@ def _build_cartographie(data, weights_buf, attribution_buf=None, registry=None):
                "EV/EBITDA","Mg.EBIT.","Croiss.","Mom."]]
     comp_rows = []
     sorted_secs = sorted(secteurs, key=lambda s: s[2], reverse=True)
+    def _fr_dec_carto(v):
+        return str(v).replace('.', ',') if v else v
     for rang, s in enumerate(sorted_secs, 1):
         mg_raw = s[5] if len(s) > 5 else None
-        mg   = f"{mg_raw:.1f}%" if isinstance(mg_raw, (int, float)) and mg_raw != 0.0 else "\u2014"
-        croi = str(s[6]) if len(s) > 6 else "\u2014"
-        mom  = str(s[7]) if len(s) > 7 else "\u2014"
+        mg   = f"{mg_raw:.1f} %".replace('.', ',') if isinstance(mg_raw, (int, float)) and mg_raw != 0.0 else "\u2014"
+        croi = _fr_dec_carto(str(s[6])) if len(s) > 6 else "\u2014"
+        mom  = _fr_dec_carto(str(s[7])) if len(s) > 7 else "\u2014"
         # EV/EBITDA : afficher N/A* pour immobilier (REITs) si Donnée absente
         _ev_raw = s[4] if len(s) > 4 else "\u2014"
         _sec_low = str(s[0]).lower()
@@ -1174,7 +1176,7 @@ def _build_cartographie(data, weights_buf, attribution_buf=None, registry=None):
         if _is_reit and str(_ev_raw) in ("\u2014", "—", "", "None"):
             _ev_str = "N/A*"
         else:
-            _ev_str = str(_ev_raw)
+            _ev_str = str(_ev_raw).replace('.', ',')
         comp_rows.append([
             Paragraph(str(rang), S_TD_C),
             Paragraph(_abbrev_pdf(s[0]), S_TD_B),
@@ -1467,7 +1469,7 @@ def _build_graphiques(data, scatter_buf, scores_buf, corr_buf=None, registry=Non
     for _i, _s in enumerate(_sect_sorted[:3]):
         _tb_rows.append([
             Paragraph(f"#{_i+1}", S_TD_C),
-            Paragraph(_s[0], S_TD_L),
+            Paragraph(_abbrev_pdf(_s[0]), S_TD_L),
             Paragraph(str(_s[2]), S_TD_C),
             Paragraph(_s[3], sig_s(_s[3])),
             _impl(_s[3]),
@@ -1476,7 +1478,7 @@ def _build_graphiques(data, scatter_buf, scores_buf, corr_buf=None, registry=Non
         _rank = len(_sect_sorted) - 2 + _i
         _tb_rows.append([
             Paragraph(f"#{_rank}", S_TD_C),
-            Paragraph(_s[0], S_TD_L),
+            Paragraph(_abbrev_pdf(_s[0]), S_TD_L),
             Paragraph(str(_s[2]), S_TD_C),
             Paragraph(_s[3], sig_s(_s[3])),
             _impl(_s[3]),
@@ -1561,7 +1563,7 @@ def _build_rotation(data, registry=None):
         s, phase, taux, pib, sig = item
         phase_s = S_TD_G if phase == "Expansion" else (S_TD_R if phase in ("R\xe9cession","Récession") else S_TD_A)
         rot_rows.append([
-            Paragraph(s, S_TD_B),
+            Paragraph(_abbrev_pdf(s), S_TD_B),
             Paragraph(phase, phase_s),
             Paragraph(taux, S_TD_C),
             Paragraph(pib,  S_TD_C),
@@ -1576,10 +1578,10 @@ def _build_rotation(data, registry=None):
 
     # Encadre cycle — dynamique depuis les Données réelles
     _surp_noms_rot = data.get("surp_noms") or " \xb7 ".join(
-        s["nom"] for s in data["top3_secteurs"] if "Surp" in str(s.get("signal",""))) or "—"
+        _abbrev_pdf(s["nom"]) for s in data["top3_secteurs"] if "Surp" in str(s.get("signal",""))) or "—"
     _sous_noms_rot = data.get("sous_noms") or " \xb7 ".join(
-        s[0] for s in data["secteurs"] if "Sous" in str(s[3])) or "aucun"
-    _neutre_parts = [s[0] for s in data["secteurs"] if "Surp" not in str(s[3]) and "Sous" not in str(s[3])]
+        _abbrev_pdf(s[0]) for s in data["secteurs"] if "Sous" in str(s[3])) or "aucun"
+    _neutre_parts = [_abbrev_pdf(s[0]) for s in data["secteurs"] if "Surp" not in str(s[3]) and "Sous" not in str(s[3])]
     if len(_neutre_parts) > 5:
         _neutre_noms = " \xb7 ".join(_neutre_parts[:5]) + f" (et {len(_neutre_parts)-5} autres)"
     else:
@@ -1690,7 +1692,7 @@ def _build_allocation(data, allocation_buf=None, registry=None):
         _sig_t = ("Surpondérer" if _votes >= 2 else ("Sous-pondérer" if _votes == 0 else "Neutre"))
         def _w(v): return Paragraph(_frp(v), S_TD_G if v > eq_w else (S_TD_R if v < eq_w*0.6 else S_TD_A))
         alloc_rows.append([
-            Paragraph(nom, S_TD_B),
+            Paragraph(_abbrev_pdf(nom), S_TD_B),
             _w(_w_mv), _w(_w_tg), _w(_w_erc),
             Paragraph(_sig_t, _sig_a),
         ])
@@ -1916,12 +1918,12 @@ def _build_top3(data, donut_buf, registry=None):
         _ev_sect = (f"{_mg:.1f}%" if _all_ev_missing and _mg else "\u2014")
         for tkr, sig, ev, score in (sect.get("societes") or sect.get("societes") or []):
             if _all_ev_missing:
-                _val_disp = _ev_sect
+                _val_disp = str(_ev_sect).replace('.', ',')
             elif str(ev) in ("\u2014", "—", "", "None") and _sect_ev_ok:
                 # Fallback : EV/EBITDA secteur comme proxy si le ticker n'a pas de valeur
-                _val_disp = f"~{_sect_ev}"
+                _val_disp = f"~{str(_sect_ev).replace('.', ',')}"
             else:
-                _val_disp = ev
+                _val_disp = str(ev).replace('.', ',')
             soc_rows.append([
                 Paragraph(_abbrev_pdf(sect["nom"]), S_TD_L),
                 Paragraph(f"<b>{tkr}</b>", S_TD_BC),
