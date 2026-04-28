@@ -471,15 +471,17 @@ def run_cmp_indice(
         pdf_path.write_bytes(pdf_bytes)
         log.info("PDF comparatif indice : %s  (%d Ko)", pdf_path.name, pdf_path.stat().st_size // 1024)
     except Exception as e:
-        log.warning("PDF cmp indice echec : %s", e)
+        log.error("PDF cmp indice echec : %s", e, exc_info=True)
 
     try:
         pptx_bytes = CmpIndicePPTXWriter.generate(cmp_data)
         if pptx_bytes:
             pptx_path.write_bytes(pptx_bytes)
             log.info("PPTX comparatif indice : %s  (%d Ko)", pptx_path.name, pptx_path.stat().st_size // 1024)
+        else:
+            log.error("PPTX cmp indice : generate() a retourne None (LLM batch fail probable)")
     except Exception as e:
-        log.warning("PPTX cmp indice echec : %s", e)
+        log.error("PPTX cmp indice echec : %s", e, exc_info=True)
 
     try:
         xlsx_bytes = CmpIndiceXlsxWriter.generate_bytes(cmp_data)

@@ -385,7 +385,7 @@ def _profil_text(m_a, m_b, tkr_a, tkr_b):
     return (
         f"{tkr_a} (Market Cap : {mc_a}) et {tkr_b} ({mc_b}) {_sector_phrase}. "
         f"{tkr_a} offre un rendement du dividende de {dy_a} vs {dy_b} pour {tkr_b}. "
-        f"Beta {tkr_a} : {beta_a}x vs {beta_b}x pour {tkr_b}, "
+        f"Beta {tkr_a} : {beta_a} vs {beta_b} pour {tkr_b}, "
         f"reflétant leur Sensibilité respective au marché."
     )
 
@@ -488,7 +488,7 @@ def _risque_text(m_a, m_b, tkr_a, tkr_b):
     p3m_a  = _frpct(m_a.get("perf_3m"), True)
     p3m_b  = _frpct(m_b.get("perf_3m"), True)
     return (
-        f"Profil de risque : beta {tkr_a} {beta_a}x vs {beta_b}x pour {tkr_b}. "
+        f"Profil de risque : beta {tkr_a} {beta_a} vs {beta_b} pour {tkr_b}. "
         f"Performance 1 mois : {p1m_a} vs {p1m_b}. Performance 3 mois : {p3m_a} vs {p3m_b}. "
         f"Le radar de risque ci-dessous synthetise levier, momentum, qualité, liquidité et croissance."
     )
@@ -1106,8 +1106,10 @@ def _section_exec_summary(story, m_a, m_b, synthesis, tkr_a, tkr_b):
     up_a   = str(m_a.get("upside_str") or "\u2014")
     up_b   = str(m_b.get("upside_str") or "\u2014")
     valcomp_text = (
-        f"Sur le plan de la valorisation, {tkr_a} s'echange a {pe_a}x les benefices "
-        f"(EV/EBITDA {ev_a}x) contre {pe_b}x ({ev_b}x) pour {tkr_b}. "
+        # Bug B4 audit 27/04 : _frx() retourne déjà "71,7x", pas besoin d'ajouter
+        # "x" après → évite le double "xx".
+        f"Sur le plan de la valorisation, {tkr_a} s'échange à {pe_a} les bénéfices "
+        f"(EV/EBITDA {ev_a}) contre {pe_b} ({ev_b}) pour {tkr_b}. "
         f"La qualité fondamentale (Piotroski F-Score : {pio_a_s} vs {pio_b_s}) "
         f"et la rentabilité opérationnelle (ROIC {roic_a} vs {roic_b}) "
         f"permettent d'arbitrer entre un titre de croissance prime et un titre de valeur. "
@@ -1423,11 +1425,12 @@ def _section_valorisation(story, m_a, m_b, synthesis, tkr_a, tkr_b):
     up_a  = str(m_a.get("upside_str") or "\u2014")
     up_b  = str(m_b.get("upside_str") or "\u2014")
     _mult_comment = (
-        f"Lecture des multiples : Le P/E de {tkr_a} ({pe_a}x) "
-        f"vs {tkr_b} ({pe_b}x) reflète les attentes de croissance respective. "
-        f"L'EV/EBITDA ({ev_a}x vs {ev_b}x) donne une vue indépendante "
-        f"de la structure financière. Le P/B ({pb_a}x vs {pb_b}x) "
-        f"mesure la prime payee sur les actifs nets. "
+        # Bug B4 : _frx() retourne déjà avec "x" (ex "71,7x"), pas besoin de l'ajouter.
+        f"Lecture des multiples : Le P/E de {tkr_a} ({pe_a}) "
+        f"vs {tkr_b} ({pe_b}) reflète les attentes de croissance respective. "
+        f"L'EV/EBITDA ({ev_a} vs {ev_b}) donne une vue indépendante "
+        f"de la structure financière. Le P/B ({pb_a} vs {pb_b}) "
+        f"mesure la prime payée sur les actifs nets. "
         f"Potentiel consensus : {up_a} pour {_enc(tkr_a)}, "
         f"{up_b} pour {_enc(tkr_b)}."
     )
@@ -1853,8 +1856,8 @@ def _section_fcf_capital(story, m_a, m_b, tkr_a, tkr_b):
         f"Le taux de conversion cash (FCF/EBITDA) ressort à {cc_a} pour {tkr_a} vs {cc_b} "
         f"pour {tkr_b} : un ratio élevé indique que l'EBITDA se transforme efficacement "
         f"en cash disponible, limitant les besoins de financement externe. "
-        f"Côté levier, la dette nette s'établit a {nd_a} ({nd_ev_a}x EBITDA) pour {tkr_a} "
-        f"et {nd_b} ({nd_ev_b}x EBITDA) pour {tkr_b} -- un indicateur cle "
+        f"Côté levier, la dette nette s'établit à {nd_a} ({nd_ev_a} EBITDA) pour {tkr_a} "
+        f"et {nd_b} ({nd_ev_b} EBITDA) pour {tkr_b} — un indicateur clé "
         f"pour évaluer la capacité de remboursement et la flexibilité bilancielle."
     )
     story.append(Paragraph(_safe(text), S_BODY))
