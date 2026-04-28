@@ -372,13 +372,20 @@ def _build_content_from_llm(sector_name: str, ev_med: float, rev_med: float,
         import sys as _sys_pptx
         _sys_pptx.path.insert(0, str(Path(__file__).parent.parent))
         from core.llm_provider import LLMProvider as _LLMpptx
+        from core.prompt_standards import build_system_prompt
         sorted_t = sorted(td, key=lambda x: x.get("score_global") or 0, reverse=True)
         top_t = [f"{t.get('ticker','?')} (score={int(t.get('score_global') or 0)}/100)"
                  for t in sorted_t[:3]]
+        # Valeurs FR-isées (virgule décimale) DANS le prompt pour que le LLM
+        # reproduise ces formats au lieu de "26.8x".
+        _ev_med_fr = f"{ev_med:.1f}x".replace('.', ',')
+        _mg_med_fr = f"{mg_med:.1f} %".replace('.', ',')
+        _rev_med_fr = f"{rev_med:+.1f} %".replace('.', ',')
+        _mom_med_fr = f"{mom_med:+.1f} %".replace('.', ',')
         prompt = (
             f"Secteur: {sector_name} | Signal: {sig_label} | Score: {score_moyen}/100\n"
-            f"EV/EBITDA med: {ev_med:.1f}x | Mg EBITDA: {mg_med:.1f}% | "
-            f"Croissance rev: {rev_med:+.1f}% | Momentum 52W: {mom_med:+.1f}%\n"
+            f"EV/EBITDA med: {_ev_med_fr} | Mg EBITDA: {_mg_med_fr} | "
+            f"Croissance rev: {_rev_med_fr} | Momentum 52W: {_mom_med_fr}\n"
             f"Top tickers: {', '.join(top_t) if top_t else 'N/D'}\n\n"
             f"Reponds en JSON valide uniquement, sans markdown, sans points de suspension.\n"
             f'{{"description":"2 phrases sur ce secteur (spécifique, valorisation réelle)","'
@@ -394,14 +401,15 @@ def _build_content_from_llm(sector_name: str, ev_med: float, rev_med: float,
             f'{{"direction":"down","nom":"court","description":"1 phrase"}}],"'
             f'cycle_comment":"1 phrase courte sur la phase de cycle actuelle"}}'
         )
+        # System prompt avec règles standards (accents FR + virgule décimale FR)
+        _sys = build_system_prompt(
+            role=f"analyste buy-side spécialisé en {sector_name}",
+            include_json=True,
+        )
+        _sys += "\n\nSpécifique au secteur demandé, jamais de texte générique. Phrases complètes, pas de points de suspension (...)."
         resp = _LLMpptx(provider="mistral", model="mistral-small-latest").generate(
             prompt=prompt,
-            system=(
-                f"Tu es analyste buy-side spécialisé en {sector_name}. "
-                "Reponds en francais avec accents. JSON strict. "
-                "Spécifique au secteur demande, jamais de texte generique. "
-                "Phrases complets, pas de points de suspension (...)."
-            ),
+            system=_sys,
             max_tokens=800,
         )
         js_s = resp.find("{"); js_e = resp.rfind("}") + 1

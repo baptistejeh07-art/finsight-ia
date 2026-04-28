@@ -3112,9 +3112,9 @@ def _build_risques(tickers_data: list[dict], sector_name: str, registry=None):
     elems.append(Spacer(1, 5*mm))
 
     # Synthese analytique de la sante sectorielle
-    nd_str2  = f"{nd_med:.1f}x"  if nd_med  is not None else "non disponible"
-    pe_str2  = f"{pe_med:.1f}x"  if pe_med  is not None else "non disponible"
-    roe_str2 = f"{roe_med:.1f}%"  if roe_med is not None else "non disponible"
+    nd_str2  = f"{nd_med:.1f}x".replace('.', ',')  if nd_med  is not None else "non disponible"
+    pe_str2  = f"{pe_med:.1f}x".replace('.', ',')  if pe_med  is not None else "non disponible"
+    roe_str2 = f"{roe_med:.1f} %".replace('.', ',')  if roe_med is not None else "non disponible"
 
     _lev_comment = (
         f"Le levier median de {nd_str2} est bien controle" if nd_med is not None and nd_med < 2.0 else
@@ -3131,17 +3131,17 @@ def _build_risques(tickers_data: list[dict], sector_name: str, registry=None):
     _roe_comment = (
         f"La rentabilité sectorielle (ROE {roe_str2}) est solide" if roe_med is not None and roe_med > 15 else
         f"La rentabilité (ROE {roe_str2}) est acceptable mais laisse un potentiel d'amélioration" if roe_med is not None and roe_med > 8 else
-        f"Le ROE median de {roe_str2} signale une profitabilite sectorielle insuffisanté"
+        f"Le ROE median de {roe_str2} signale une profitabilité sectorielle insuffisante"
         if roe_med is not None else "La rentabilité sur fonds propres n'est pas calculable pour cet univers"
     )
     # FCF yield formatte pour la synthese
-    _fcf_str2 = f"{fcf_med:.1f}%" if fcf_med is not None else "non disponible"
+    _fcf_str2 = f"{fcf_med:.1f} %".replace('.', ',') if fcf_med is not None else "non disponible"
     _fcf_comment = (
         f"Le FCF yield median de {_fcf_str2} confirme une génération de cash solide"
         if fcf_med is not None and fcf_med > 4.0 else
         f"Le FCF yield median de {_fcf_str2} reflète une génération de cash correcte mais sans marge de sécurité"
         if fcf_med is not None and fcf_med > 1.0 else
-        f"Le FCF yield median de {_fcf_str2} signale une génération de cash insuffisanté pour soutenir les dividendes et les rachats"
+        f"Le FCF yield median de {_fcf_str2} signale une génération de cash insuffisante pour soutenir les dividendes et les rachats"
         if fcf_med is not None else
         "Le FCF yield sectoriel n'est pas directement calculable"
     )
