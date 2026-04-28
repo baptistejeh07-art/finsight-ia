@@ -51,6 +51,15 @@ def clean_unicode(text: str) -> str:
     """
     for uc, repl in _UNICODE_FIXES.items():
         text = text.replace(uc, repl)
+    # Strip block elements / box drawings non mappés explicitement, qui apparaissent
+    # en ZapfDingbats 'n' dans le PDF (bug audit AAPL vs MSFT page 3 : 1000 'n'
+    # ZapfDingbats sur 14 lignes = un séparateur LLM unicode mal rendu).
+    # Plages Unicode :
+    #   U+2500-257F box drawings (─━│┃┌┐└┘├┤┬┴┼)
+    #   U+2580-259F block elements (▀▁▂▃▄▅▆▇█▉)
+    #   U+25A0-25FF geometric shapes restants après _UNICODE_FIXES
+    text = _re.sub(r"[─-▟]+", "", text)
+    text = _re.sub(r"[▢-◿]+", "", text)
     return text
 
 

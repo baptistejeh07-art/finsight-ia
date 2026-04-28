@@ -611,6 +611,13 @@ def _strip_llm_artifacts(s: str) -> str:
     cleaned = _re.sub(r"(?<!\w)_([^_\n]+?)_(?!\w)", r"\1", cleaned)
     # 4. Strip lignes horizontales markdown (---, ===, ~~~ seuls sur une ligne)
     cleaned = _re.sub(r"^\s*[-=~]{3,}\s*$", "", cleaned, flags=_re.MULTILINE)
+    # 4b. Strip caractères de séparation unicode (block/drawing) qui mappent
+    #     mal sur Helvetica et apparaissent en ZapfDingbats 'n' dans le PDF
+    #     (bug audit AAPL vs MSFT page 3 = 1000 'n' ZapfDingbats sur 14 lignes).
+    #     U+2500-257F box drawings, U+2580-259F block elements, U+2590 bars,
+    #     U+25A0-25FF geometric shapes, U+2014 em dash multiple, U+2022 bullet
+    cleaned = _re.sub(r"[─-▟]+", "", cleaned)
+    cleaned = _re.sub(r"^\s*[—•●■▶◆▪]{3,}\s*$", "", cleaned, flags=_re.MULTILINE)
     # 5. Normaliser les sauts de ligne multiples (max 2 = paragraphe)
     cleaned = _re.sub(r"\n{3,}", "\n\n", cleaned)
     return cleaned.strip()
