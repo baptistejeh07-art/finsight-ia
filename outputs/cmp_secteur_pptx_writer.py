@@ -349,31 +349,31 @@ def _prepare_data(tickers_a, sector_a, universe_a, tickers_b, sector_b, universe
 
 # ── Helpers de formatage ──────────────────────────────────────────────────────
 def _fmt(v, pct=False, x=False, dp=1):
-    """Formate une valeur numerique pour affichage."""
+    """Formate une valeur numerique FR (virgule décimale)."""
     if v is None or (isinstance(v, float) and not math.isfinite(v)):
         return "—"
     try:
         f = float(v)
         if pct:
-            return f"{f:+.{dp}f} %"
+            return f"{f:+.{dp}f} %".replace(".", ",")
         if x:
-            return f"{f:.{dp}f}x"
-        return f"{f:.{dp}f}"
+            return f"{f:.{dp}f}x".replace(".", ",")
+        return f"{f:.{dp}f}".replace(".", ",")
     except Exception:
         return str(v)
 
 
 def _fmt_simple(v, pct=False, x=False, dp=1):
-    """Formate sans signe +."""
+    """Formate sans signe + en convention FR (virgule décimale)."""
     if v is None or (isinstance(v, float) and not math.isfinite(v)):
         return "—"
     try:
         f = float(v)
         if pct:
-            return f"{f:.{dp}f} %"
+            return f"{f:.{dp}f} %".replace(".", ",")
         if x:
-            return f"{f:.{dp}f}x"
-        return f"{f:.{dp}f}"
+            return f"{f:.{dp}f}x".replace(".", ",")
+        return f"{f:.{dp}f}".replace(".", ",")
     except Exception:
         return str(v)
 
@@ -1089,12 +1089,12 @@ def _s07b_capital_alloc(prs, D):
     def _fmt_pct(v):
         """div_yield et payout sont en fraction (×100). fcfy est déjà en %, utiliser _fmt_pct_direct."""
         if v is None: return "—"
-        try: return f"{float(v)*100:.1f} %"
+        try: return f"{float(v)*100:.1f} %".replace(".", ",")
         except Exception: return "—"
     def _fmt_pct_direct(v):
         """fcfy est déjà en % (1.38 = 1.38%) — pas de ×100."""
         if v is None: return "—"
-        try: return f"{float(v):.1f} %"
+        try: return f"{float(v):.1f} %".replace(".", ",")
         except Exception: return "—"
 
     rows = [
@@ -1715,7 +1715,7 @@ def _s15_allocation(prs, D):
                  alloc_text, fontsize=9)
 
     # Note de bas de page
-    _txb(slide, "Score FinSight : indicateur proprietaire 0-100 (value + growth + qualité + momentum, 25 pts chacun). Signal : Surpondérer >=65, Neutre 45-64, Sous-pondérer <45.",
+    _txb(slide, "Score FinSight : indicateur propriétaire 0-100 (value + growth + qualité + momentum, 25 pts chacun). Signal : Surpondérer >=65, Neutre 45-64, Sous-pondérer <45.",
          0.9, 13.38, 23.6, 0.3, size=6.5, italic=True, color=_GRAYD, wrap=True)
 
 

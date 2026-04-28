@@ -33,7 +33,16 @@ from __future__ import annotations
 RULE_FRENCH_ACCENTS = (
     "LANGUE : français correct avec TOUS les accents (é è ê à ù ç î ô û œ). "
     "Aucun mot sans accent. Cédilles obligatoires. Apostrophes droites ' et "
-    "guillemets français « »."
+    "guillemets français « ». Mots fréquemment oubliés à TOUJOURS accentuer : "
+    "santé, médicaux, démographique, thérapeutique, équipements, équipementiers, "
+    "réformes, énergie, hydrogène, pétrole, accès, réseau, sécheresse, considéré, "
+    "capacité, métriques, élevé, déclencher, systémique, identifiés, intégrés, "
+    "précédente, économie, chômage, surpondération, expérience, opérationnel, "
+    "industriels, américaine, européenne, écart, défensif, défensive, accélération, "
+    "récession, médiane, étroite, dépréciation, propriétaire, exhaustivité, "
+    "ultérieures, agrégeant, dérivés, limitée, configurés, émergents, mentionnés, "
+    "passées, recommandés, écrite, privé, utilisé, biotechs, prestataires, assisté, "
+    "assistée, prononcé, observé, évaluation, réévaluation, augmenté, augmentée."
 )
 
 RULE_FRENCH_NUMBERS = (
