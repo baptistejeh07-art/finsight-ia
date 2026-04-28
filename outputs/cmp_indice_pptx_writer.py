@@ -556,7 +556,7 @@ def _slide_02_exec_summary(prs, d: dict):
     sc_a = d.get("score_a", 50)
     sc_b = d.get("score_b", 50)
 
-    _header(slide, f"{(data.get('_t_helper') or (lambda k: "Executive Summary"))('exec_sum')}  —  {name_a} vs {name_b}",
+    _header(slide, f"{(d.get('_t_helper') or (lambda k: 'Executive Summary'))('exec_sum')}  —  {name_a} vs {name_b}",
             f"Indicateurs clés et signal d'allocation", section_active=1)
     _footer(slide)
 
@@ -646,7 +646,7 @@ def _slide_03_sommaire(prs, d: dict):
     slide = _blank(prs)
     name_a = d.get("name_a", "Indice A")
     name_b = d.get("name_b", "Indice B")
-    _header(slide, (data.get('_t_helper') or (lambda k: "Sommaire"))('sommaire'),
+    _header(slide, (d.get('_t_helper') or (lambda k: "Sommaire"))('sommaire'),
             f"Analyse comparative : {name_a} vs {name_b}", section_active=1)
     _footer(slide)
 
@@ -700,7 +700,7 @@ def _slide_profil(prs, d: dict, which: str):
     col = _COL_A if is_a else _COL_B
     col_pale = _COL_AL if is_a else _COL_BL
 
-    _header(slide, f"{(data.get('_t_helper') or (lambda k: "Profil"))('profil')}  —  {name}",
+    _header(slide, f"{(d.get('_t_helper') or (lambda k: "Profil"))('profil')}  —  {name}",
             f"Composition, métriques clés et caractéristiques structurelles",
             section_active=1)
     _footer(slide)
@@ -777,7 +777,7 @@ def _slide_07_secteurs(prs, d: dict):
     slide = _blank(prs)
     name_a = d.get("name_a", "Indice A")
     name_b = d.get("name_b", "Indice B")
-    _header(slide, (data.get('_t_helper') or (lambda k: "Composition Sectorielle"))('compo_sec'),
+    _header(slide, (d.get('_t_helper') or (lambda k: "Composition Sectorielle"))('compo_sec'),
             f"Poids sectoriels (%) — {name_a} vs {name_b}", section_active=1)
     _footer(slide)
     _index_band(slide, name_a, name_b)
@@ -871,7 +871,7 @@ def _slide_08_top_holdings(prs, d: dict):
     slide = _blank(prs)
     name_a = d.get("name_a", "Indice A")
     name_b = d.get("name_b", "Indice B")
-    _header(slide, (data.get('_t_helper') or (lambda k: "Top Constituants Comparés"))('top_const'),
+    _header(slide, (d.get('_t_helper') or (lambda k: "Top Constituants Comparés"))('top_const'),
             f"Principales valeurs de {name_a} et {name_b}", section_active=1)
     _footer(slide)
 
@@ -936,7 +936,7 @@ def _slide_10_perf_chart(prs, d: dict):
     slide = _blank(prs)
     name_a = d.get("name_a", "Indice A")
     name_b = d.get("name_b", "Indice B")
-    _header(slide, (data.get('_t_helper') or (lambda k: "Performance Historique"))('perf_52w'),
+    _header(slide, (d.get('_t_helper') or (lambda k: "Performance Historique"))('perf_52w'),
             f"Évolution normalisée base 100 — {name_a} vs {name_b}",
             section_active=2)
     _footer(slide)
@@ -1056,7 +1056,7 @@ def _slide_11_perf_decomposition(prs, d: dict):
     slide = _blank(prs)
     name_a = d.get("name_a", "Indice A")
     name_b = d.get("name_b", "Indice B")
-    _header(slide, (data.get('_t_helper') or (lambda k: "Décomposition Performance"))('decompo_perf'),
+    _header(slide, (d.get('_t_helper') or (lambda k: "Décomposition Performance"))('decompo_perf'),
             f"YTD, 1 an, 3 ans, 5 ans  —  écarts relatifs et lecture comparative",
             section_active=2)
     _footer(slide)
@@ -1154,7 +1154,7 @@ def _slide_12_risque(prs, d: dict):
     slide = _blank(prs)
     name_a = d.get("name_a", "Indice A")
     name_b = d.get("name_b", "Indice B")
-    _header(slide, (data.get('_t_helper') or (lambda k: "Risque Comparatif"))('risque_cmp'),
+    _header(slide, (d.get('_t_helper') or (lambda k: "Risque Comparatif"))('risque_cmp'),
             f"Volatilité, Sharpe ratio et Max Drawdown sur 12 mois",
             section_active=2)
     _footer(slide)
@@ -1256,7 +1256,7 @@ def _slide_13_risk_return(prs, d: dict):
     slide = _blank(prs)
     name_a = d.get("name_a", "Indice A")
     name_b = d.get("name_b", "Indice B")
-    _header(slide, (data.get('_t_helper') or (lambda k: "Profil Rendement / Risque"))('rend_risque'),
+    _header(slide, (d.get('_t_helper') or (lambda k: "Profil Rendement / Risque"))('rend_risque'),
             f"Positionnement {name_a} vs {name_b} sur le plan vol-rendement",
             section_active=2)
     _footer(slide)
@@ -1350,7 +1350,7 @@ def _slide_15_valorisation(prs, d: dict):
     slide = _blank(prs)
     name_a = d.get("name_a", "Indice A")
     name_b = d.get("name_b", "Indice B")
-    _header(slide, (data.get('_t_helper') or (lambda k: "Valorisation Comparée"))('valo_cmp'),
+    _header(slide, (d.get('_t_helper') or (lambda k: "Valorisation Comparée"))('valo_cmp'),
             f"P/E Forward, P/B, Rendement du dividende",
             section_active=3)
     _footer(slide)
@@ -1454,7 +1454,7 @@ def _slide_16_erp_focus(prs, d: dict):
     slide = _blank(prs)
     name_a = d.get("name_a", "Indice A")
     name_b = d.get("name_b", "Indice B")
-    _header(slide, (data.get('_t_helper') or (lambda k: "Equity Risk Premium"))('erp'),
+    _header(slide, (d.get('_t_helper') or (lambda k: "Equity Risk Premium"))('erp'),
             f"Comparaison du couple rendement-prime",
             section_active=3)
     _footer(slide)
@@ -1532,7 +1532,7 @@ def _slide_17_score(prs, d: dict):
     slide = _blank(prs)
     name_a = d.get("name_a", "Indice A")
     name_b = d.get("name_b", "Indice B")
-    _header(slide, (data.get('_t_helper') or (lambda k: "Signal FinSight Comparatif"))('signal_fs'),
+    _header(slide, (d.get('_t_helper') or (lambda k: "Signal FinSight Comparatif"))('signal_fs'),
             "Score 0-100 et recommandation d'allocation", section_active=3)
     _footer(slide)
     _index_band(slide, name_a, name_b)
@@ -1586,7 +1586,7 @@ def _slide_19_theses(prs, d: dict):
     slide = _blank(prs)
     name_a = d.get("name_a", "Indice A")
     name_b = d.get("name_b", "Indice B")
-    _header(slide, (data.get('_t_helper') or (lambda k: "Thèses Bull/Bear"))('theses_bb'),
+    _header(slide, (d.get('_t_helper') or (lambda k: "Thèses Bull/Bear"))('theses_bb'),
             f"Arguments structurels et risques majeurs : {name_a} vs {name_b}",
             section_active=4)
     _footer(slide)
@@ -1659,7 +1659,7 @@ def _slide_20_verdict(prs, d: dict):
     winner_sig = sig_a if sc_a >= sc_b else sig_b
     winner_col = _COL_A if sc_a >= sc_b else _GOLD
 
-    _header(slide, (data.get('_t_helper') or (lambda k: "Verdict Comparatif"))('verdict'),
+    _header(slide, (d.get('_t_helper') or (lambda k: "Verdict Comparatif"))('verdict'),
             f"Indice à privilégier, arguments décisionnels et conditions d'invalidation",
             section_active=4)
     _footer(slide)
