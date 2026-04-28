@@ -1298,7 +1298,7 @@ def _s10_top_a(prs, D):
     """Slide 10 — Top acteurs Secteur A."""
     slide = _blank(prs)
     _header(slide, f"{(D.get('_t_helper') or (lambda k: "Top Acteurs"))('top_acteurs')}  —  {D['sector_a']}",
-            f"{D['na']} sociétés analysées — classees par score FinSight", 3)
+            f"{D['na']} sociétés analysées — classées par score FinSight", 3)
     _footer(slide, D)
     _barre_secteur(slide, D["sector_a"], D["td_a"], _COL_A, D["universe_a"],
                    llm_text=D.get("llm", {}).get("top_a_read"))
@@ -1308,7 +1308,7 @@ def _s11_top_b(prs, D):
     """Slide 11 — Top acteurs Secteur B."""
     slide = _blank(prs)
     _header(slide, f"{(D.get('_t_helper') or (lambda k: "Top Acteurs"))('top_acteurs')}  —  {D['sector_b']}",
-            f"{D['nb']} sociétés analysées — classees par score FinSight", 3)
+            f"{D['nb']} sociétés analysées — classées par score FinSight", 3)
     _footer(slide, D)
     _barre_secteur(slide, D["sector_b"], D["td_b"], _COL_B, D["universe_b"],
                    llm_text=D.get("llm", {}).get("top_b_read"))
@@ -1849,13 +1849,13 @@ def _s16_disclaimer(prs, D):
          "Piotroski F-Score (0-9) : 9 critères binaires (ROA positif, CFO > NI, levier en baisse, etc.). "
          "Altman Z-Score : modèle de détresse financière (Z>2.99 = sain, 1.81-2.99 = grise, <1.81 = distress). "
          "Beneish M-Score : modèle de detection de manipulation comptable (M < -2.22 = sain, M > -1.78 = signal). "
-         "Ces scores sont retires des affichages principaux pour préserver la lisibilite mais restent "
+         "Ces scores sont retirés des affichages principaux pour préserver la lisibilite mais restent "
          "calculés en arriere-plan et intégrés au scoring composite Quality."),
         ("Construction de l'univers",
-         "Univers S&P 500, CAC 40, STOXX 600 ou global selon le parametre sélectionné par l'utilisateur. "
+         "Univers S&P 500, CAC 40, STOXX 600 ou global selon le paramètre sélectionné par l'utilisateur. "
          "Toutes les sociétés du secteur avec données yfinance disponibles (min. 3 ratios renseignés). "
          "Valeurs aberrantes filtrees : P/E > 999x exclus, ROE < -500% exclus, ratios LTM uniquement. "
-         "Médianes utilisees Plutôt que moyennes pour la robustesse aux outliers."),
+         "Médianes utilisées Plutôt que moyennes pour la robustesse aux outliers."),
         ("Sources de données",
          "yfinance (Yahoo Finance) : cours, bilan, compte de résultats, flux de trésorerie — fréquence "
          "trimestrielle ou annuelle selon disponibilité. Finnhub : news et sentiment. FMP : données "
@@ -1878,11 +1878,11 @@ def _s16_disclaimer(prs, D):
          color=_WHITE, align=PP_ALIGN.CENTER)
 
     legals = [
-        ("Caractère informatif et pedagogique",
-         "Ce document est produit exclusivement a des fins d'information et de démonstration pedagogique. "
-         "Il ne constitue en aucun cas un conseil en investissement, une recommandation personnalisee, "
+        ("Caractère informatif et pédagogique",
+         "Ce document est produit exclusivement a des fins d'information et de démonstration pédagogique. "
+         "Il ne constitue en aucun cas un conseil en investissement, une recommandation personnalisée, "
          "une incitation a l'achat ou a la vente de valeurs mobilières, ni une offre ou sollicitation "
-         "de souscription a un produit financier au sens du Règlement Général de l'AMF. "
+         "de souscription à un produit financier au sens du Règlement Général de l'AMF. "
          "L'utilisateur est seul responsable de ses décisions d'investissement et doit consulter un "
          "conseiller en investissement financier (CIF) agréé avant toute opération."),
         ("Absence de due diligence et limites de l'analyse",
@@ -1895,15 +1895,15 @@ def _s16_disclaimer(prs, D):
          "découlant de l'utilisation de ce document."),
         ("Risques d'investissement",
          "Tout investissement en valeurs mobilières comporte un risque de perte partielle ou totale "
-         "en capital. Les performances passees ne préjugent pas des performances futures. Les "
+         "en capital. Les performances passées ne préjugent pas des performances futures. Les "
          "conditions de marché, le contexte macroéconomique, les décisions réglementaires et les "
-         "événements géopolitiques peuvent evoluer rapidement et invalider les signaux présentés. "
-         "La diversification et un horizon d'investissement adapte sont recommandes."),
+         "événements géopolitiques peuvent évoluer rapidement et invalider les signaux présentés. "
+         "La diversification et un horizon d'investissement adapté sont recommandés."),
         ("Confidentialité et propriété intellectuelle",
-         "Ce document est destine a un usage prive et confidentiel. Sa reproduction, distribution, "
-         "publication ou diffusion, meme partielle, est strictement interdite sans autorisation "
-         "écrite expresse. Le scoring FinSight, la Méthodologie et les visuels sont la propriété "
-         "intellectuelle exclusive de FinSight IA. Toute exploitation commerciale est prohibee. "
+         "Ce document est destiné à un usage privé et confidentiel. Sa reproduction, distribution, "
+         "publication ou diffusion, même partielle, est strictement interdite sans autorisation "
+         "écrite expresse. Le scoring FinSight, la méthodologie et les visuels sont la propriété "
+         "intellectuelle exclusive de FinSight IA. Toute exploitation commerciale est prohibée. "
          "Ne pas utiliser comme base exclusive pour une décision d'investissement."),
     ]
     y = 2.95
