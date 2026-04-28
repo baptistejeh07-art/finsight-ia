@@ -29,11 +29,18 @@ log = logging.getLogger(__name__)
 # silencieux sur S&P 500 → faux rapport. Ré-ajouter quand `_INDICE_META` +
 # `_SECTOR_TICKERS` couvriront NASDAQ/Dow (USD, ~3-4h) puis Nikkei (JPY, ~1-2j).
 INDICE_CMP_OPTIONS: dict[str, tuple[str, str, str]] = {
+    # Codes courts (anciens)
     "CAC40":      ("CAC 40",        "^FCHI",     "EUR"),
     "SP500":      ("S&P 500",       "^GSPC",     "USD"),
     "DAX40":      ("DAX 40",        "^GDAXI",    "EUR"),
     "FTSE100":    ("FTSE 100",      "^FTSE",     "GBP"),
     "STOXX50":    ("Euro Stoxx 50", "^STOXX50E", "EUR"),
+    # Display names (avec espaces) — utilisés par run_cmp_indice("CAC 40", ...)
+    "CAC 40":     ("CAC 40",        "^FCHI",     "EUR"),
+    "S&P 500":    ("S&P 500",       "^GSPC",     "USD"),
+    "DAX 40":     ("DAX 40",        "^GDAXI",    "EUR"),
+    "FTSE 100":   ("FTSE 100",      "^FTSE",     "GBP"),
+    "Euro Stoxx 50": ("Euro Stoxx 50", "^STOXX50E", "EUR"),
 }
 
 # Indices entièrement supportés par le pipeline d'analyse (display names + codes
