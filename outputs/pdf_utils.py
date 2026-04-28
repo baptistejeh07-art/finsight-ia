@@ -33,6 +33,11 @@ _UNICODE_FIXES = {
     "\u2012": "-",   # figure dash
     # Autres
     "\u2026": "...",  # ellipsis
+    # Arrows : Helvetica ne les rend pas (fallback "fi" ligature visible).
+    # Conversion ASCII pour pr\u00e9server la s\u00e9mantique.
+    "\u2192": " -> ", "\u2194": " <-> ", "\u2190": " <- ",
+    "\u21d2": " => ", "\u21d4": " <=> ", "\u21d0": " <= ",
+    "\u2191": " ", "\u2193": " ",  # supprime up/down arrows (peu utiles en prose)
     "\u20ac": "EUR",  # euro (si pas dans la police)
     "\u2030": "%%",   # per mille
     "\u00a0": " ",    # non-breaking space
