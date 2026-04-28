@@ -215,7 +215,7 @@ def _fmt_mds(v):
             f = f / 1e9
         if abs(f) >= 100:
             return f"{f:.0f}"
-        return f"{f:.1f}"
+        return f"{f:.1f}".replace('.', ',')
     except (TypeError, ValueError):
         return "\u2014"
 
@@ -800,10 +800,23 @@ def _cover_page(c, doc, sector_name: str, subtitle: str, universe: str,
     total_mc = sum((t.get('market_cap') or 0) for t in tickers_data)
     best = max(tickers_data, key=lambda x: x.get('score_global') or 0)
     best_reco = _reco(best.get('score_global'))
+    # Top Pick : préférer le nom court de société (ex: "Citigroup") au ticker brut ("C")
+    _best_co = best.get('company') or best.get('name') or ''
+    _best_tk = best.get('ticker', 'N/A')
+    if _best_co and len(_best_co) > 1:
+        # Garde 22 caractères max pour tenir dans la box
+        _short = _best_co.replace(' Inc.', '').replace(' Inc', '').replace(' Corp.', '').replace(' Corp', '').replace(', Inc.', '').strip()
+        if len(_short) > 22:
+            _short = _short[:22] + '…'
+        _top_pick_str = f"{_short} ({_best_tk})"
+    else:
+        _top_pick_str = f"{_best_tk} ({best_reco})"
+    # Format milliers FR (espace) au lieu de virgule US
+    _cap_str = f"{total_mc/1e9:,.0f} Mds".replace(',', ' ') if total_mc > 1e9 else f"{total_mc:,.0f} Mds".replace(',', ' ')
     metrics = [
         ("Univers couvert",    f"{N} sociétés"),
-        ("Cap. totale",        f"{total_mc/1e9:,.0f} Mds" if total_mc > 1e9 else f"{total_mc:,.0f} Mds"),
-        ("Top Pick",           f"{best.get('ticker', 'N/A')} ({best_reco})"),
+        ("Cap. totale",        _cap_str),
+        ("Top Pick",           _top_pick_str),
         ("Date d'analyse",     date_str),
     ]
     col_span = (w - MARGIN_L - MARGIN_R) / 4
@@ -1539,10 +1552,13 @@ def _build_structure_sectorielle(tickers_data: list[dict], sector_name: str,
     b_med = sa.get("beta_median")
     b_std = sa.get("beta_std")
     if b_med is not None:
+        # FR-isation chirurgicale : seules les valeurs (pas l'abréviation "med.")
+        _bm_fr = f"{b_med:.2f}".replace('.', ',')
+        _bs_fr = f"{b_std:.2f}".replace('.', ',') if b_std is not None else None
         if b_std is not None:
-            beta_val = f"med. {b_med:.2f}  |  sigma={b_std:.2f}".replace('.', ',')
+            beta_val = f"med. {_bm_fr}  |  sigma={_bs_fr}"
         else:
-            beta_val = f"{b_med:.2f}".replace('.', ',')
+            beta_val = _bm_fr
         if b_std is not None and b_std < 0.25:
             beta_lbl = "sensibilité macro homogène — beta sectoriel dominant"
             beta_s   = S_TD_C
@@ -1566,12 +1582,12 @@ def _build_structure_sectorielle(tickers_data: list[dict], sector_name: str,
             return ("P/TBV médian", "\u2014",
                     "P/TBV indisponible (yfinance priceToBook absent)", S_TD_C)
         if _pb < 1.0:
-            return ("P/TBV médian", f"{_pb:.2f}x",
+            return ("P/TBV médian", f"{_pb:.2f}x".replace('.', ','),
                     "décote vs book value — potentielles opportunités (verifier qualité actifs)", S_TD_G)
         if _pb < 1.5:
-            return ("P/TBV médian", f"{_pb:.2f}x",
+            return ("P/TBV médian", f"{_pb:.2f}x".replace('.', ','),
                     "valorisation alignée sur la book value — secteur valorisé à sa norme", S_TD_A)
-        return ("P/TBV médian", f"{_pb:.2f}x",
+        return ("P/TBV médian", f"{_pb:.2f}x".replace('.', ','),
                 "prime marquée sur book value — ROE structurellement supérieur au coût des fonds propres", S_TD_A)
 
     def _row_roe():
@@ -1579,12 +1595,12 @@ def _build_structure_sectorielle(tickers_data: list[dict], sector_name: str,
         if _roe is None:
             return ("ROE médian", "\u2014", "ROE indisponible", S_TD_C)
         if _roe >= 12:
-            return ("ROE médian", f"{_roe:.1f}%",
+            return ("ROE médian", f"{_roe:.1f} %".replace('.', ','),
                     "rentabilité élevée — au-dessus du coût des fonds propres (~10%)", S_TD_G)
         if _roe >= 8:
-            return ("ROE médian", f"{_roe:.1f}%",
+            return ("ROE médian", f"{_roe:.1f} %".replace('.', ','),
                     "rentabilité correcte — proche du coût des fonds propres", S_TD_A)
-        return ("ROE médian", f"{_roe:.1f}%",
+        return ("ROE médian", f"{_roe:.1f} %".replace('.', ','),
                 "rentabilité faible — crée de la valeur négative vs coût du capital", S_TD_R)
 
     def _row_div_yield():
@@ -1592,12 +1608,12 @@ def _build_structure_sectorielle(tickers_data: list[dict], sector_name: str,
         if _dy is None:
             return ("Dividend Yield médian", "\u2014", "Dividend Yield indisponible", S_TD_C)
         if _dy >= 5.0:
-            return ("Dividend Yield médian", f"{_dy:.1f}%",
+            return ("Dividend Yield médian", f"{_dy:.1f} %".replace('.', ','),
                     "rendement élevé — souvent associé à une croissance limitée", S_TD_G)
         if _dy >= 3.0:
-            return ("Dividend Yield médian", f"{_dy:.1f}%",
+            return ("Dividend Yield médian", f"{_dy:.1f} %".replace('.', ','),
                     "rendement correct — politique de retour actionnaire active", S_TD_A)
-        return ("Dividend Yield médian", f"{_dy:.1f}%",
+        return ("Dividend Yield médian", f"{_dy:.1f} %".replace('.', ','),
                 "rendement faible — réinvestissement ou payout prudent", S_TD_C)
 
     def _row_beta():
@@ -1982,31 +1998,31 @@ def _aggregate_subsectors(tickers_data: list[dict]) -> list[dict]:
         if _sub_profile in ("BANK", "INSURANCE"):
             pes = [x.get("pe") or x.get("pe_ratio") for x in items
                    if (x.get("pe") or x.get("pe_ratio")) and 1 < (x.get("pe") or x.get("pe_ratio")) < 100]
-            ev_med = f"{_med(pes):.1f}x P/E" if pes else "\u2014"
+            ev_med = f"{_med(pes):.1f}x P/E".replace('.', ',') if pes else "\u2014"
         else:
             evs = [x["ev_ebitda"] for x in items if x.get("ev_ebitda") and 1 < x["ev_ebitda"] < 100]
             if evs:
-                ev_med = f"{_med(evs):.1f}x"
+                ev_med = f"{_med(evs):.1f}x".replace('.', ',')
             else:
                 # Fallback P/S si EV/EBITDA indisponible
                 ps_vals = [x.get("ps_ratio") for x in items if x.get("ps_ratio")]
-                ev_med = f"{_med(ps_vals):.1f}x P/S" if ps_vals else "\u2014"
+                ev_med = f"{_med(ps_vals):.1f}x P/S".replace('.', ',') if ps_vals else "\u2014"
 
         # Marge : pour banques/assurance, EBITDA margin est aberrant (~80-95%
         # car les revenus = NII + commissions et l'EBITDA = ces revenus moins
         # les frais operationnels). On affiche ROE qui est plus parlant.
         if _sub_profile in ("BANK", "INSURANCE"):
             roes = [x.get("roe") for x in items if x.get("roe") is not None]
-            mg_med = f"{_med(roes):.1f}% ROE" if roes else "\u2014"
+            mg_med = f"{_med(roes):.1f} % ROE".replace('.', ',') if roes else "\u2014"
         else:
             mgs = [x.get("ebitda_margin") or x.get("gross_margin") or 0 for x in items
                    if (x.get("ebitda_margin") or x.get("gross_margin"))]
-            mg_med = f"{_med(mgs):.1f}%" if mgs else "\u2014"
+            mg_med = f"{_med(mgs):.1f} %".replace('.', ',') if mgs else "\u2014"
         grs = [x.get("revenue_growth") or 0 for x in items if x.get("revenue_growth") is not None]
         # revenue_growth stocké en fraction (0.068 = +6.8%) — convertir en % avant format
-        gr_med = f"{_med(grs)*100:+.1f}%" if grs else "\u2014"
+        gr_med = f"{_med(grs)*100:+.1f} %".replace('.', ',') if grs else "\u2014"
         moms = [x.get("momentum_52w") or 0 for x in items if x.get("momentum_52w") is not None]
-        mom_med = f"{_med(moms):+.1f}%" if moms else "\u2014"
+        mom_med = f"{_med(moms):+.1f} %".replace('.', ',') if moms else "\u2014"
         sig = "Surpondérer" if avg_score >= 60 else ("Sous-pondérer" if avg_score < 40 else "Neutre")
         best = sorted(items, key=lambda x: x.get("score_global") or 0, reverse=True)[:3]
         best_names = [(b.get("ticker", ""), b.get("company", ""), b.get("score_global", 0)) for b in best]
@@ -2360,7 +2376,7 @@ def _build_acteurs(tickers_data: list[dict], sector_name: str, registry=None):
 
     def _fmt_x(v):
         if v is None: return "\u2014"
-        try: return f"{float(v):.1f}x"
+        try: return f"{float(v):.1f}x".replace('.', ',')
         except Exception: return "\u2014"
 
     def _fmt_dy(v):
@@ -2371,7 +2387,7 @@ def _build_acteurs(tickers_data: list[dict], sector_name: str, registry=None):
             # Si valeur < 1 : fraction → multiplier par 100
             # Sinon : déjà en %
             pct = fv * 100 if abs(fv) < 1 else fv
-            return f"{pct:.1f}%"
+            return f"{pct:.1f} %".replace('.', ',')
         except Exception: return "\u2014"
 
     comp_rows = []
