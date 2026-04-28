@@ -2687,27 +2687,50 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
     # Perf history reelle pour l'indice (index vs SP500, Bonds, Or)
     # Doit s'exécuter pour US ET EU (hors du branch `if secteurs and not _eu_members_by_sec:`)
     if secteurs and code:
+        log.info("perf_history: tentative fetch pour %s (code=%s)", universe, code)
         try:
             import pandas as _pd_ph
             _ph_start = (today - datetime.timedelta(days=370)).isoformat()
 
-            # Fetch via core.yfinance_cache (plus robuste que yf.download direct)
-            # — résout le bug « ligne plate » dû à des MultiIndex inattendus.
+            # Double fallback : core.yfinance_cache puis yf.download direct.
+            # Bug 28/04 : le chart restait plat même avec _gt_ph qui fonctionne
+            # en local — possible incompatibilité Railway/cache. On bascule sur
+            # yf.download si _gt_ph retourne vide.
             from core.yfinance_cache import get_ticker as _gt_ph
             def _fetch_hist_series(tk: str):
+                # Tentative 1 : via cache
                 try:
                     h = _gt_ph(tk).history(start=_ph_start, interval="1d", auto_adjust=True)
-                    if h is None or h.empty:
-                        log.debug("perf_history: %s history vide", tk)
+                    if h is not None and not h.empty and "Close" in h.columns:
+                        s = h["Close"].dropna()
+                        if not s.empty and len(s) >= 5:
+                            return s
+                except Exception as _fex1:
+                    log.debug("perf_history cache %s erreur: %s", tk, _fex1)
+                # Tentative 2 : yf.download direct (single-ticker → flat columns)
+                try:
+                    h2 = yf.download(tk, start=_ph_start, interval="1d",
+                                     progress=False, auto_adjust=True, threads=False)
+                    if h2 is None or h2.empty:
                         return None
-                    if "Close" not in h.columns:
+                    if isinstance(h2.columns, _pd_ph.MultiIndex):
+                        if ("Close", tk) in h2.columns:
+                            s = h2[("Close", tk)]
+                        else:
+                            close_cols = [c for c in h2.columns if c[0] == "Close"]
+                            s = h2[close_cols[0]] if close_cols else None
+                    else:
+                        s = h2["Close"] if "Close" in h2.columns else None
+                    if s is None:
                         return None
-                    s = h["Close"].dropna()
+                    if isinstance(s, _pd_ph.DataFrame):
+                        s = s.iloc[:, 0]
+                    s = s.dropna()
                     if s.empty or len(s) < 5:
                         return None
                     return s
-                except Exception as _fex:
-                    log.warning("perf_history fetch %s erreur: %s", tk, _fex)
+                except Exception as _fex2:
+                    log.warning("perf_history fetch %s erreur: %s", tk, _fex2)
                     return None
 
             s_idx = _fetch_hist_series(code)
@@ -3072,11 +3095,18 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
                     _t3["ev_ebitda"] = f"{_etf_proxy_ev:.1f}x*"
             log.info("ETF proxy top3 -> EV/EBITDA fallback %.1fx pour %s", _etf_proxy_ev, universe)
 
-    # Fallback ultime : si un secteur du top3 n'a pas de societes, peupler avec
-    # _get_real_tickers (table hardcodée par univers). Sans ça, le tableau
-    # « Sociétés représentatives » du PDF reste vide (audit 28/04/2026).
+    # Fallback ultime : si un secteur du top3 n'a pas de societes (ou seulement
+    # un placeholder synthétique), peupler avec _get_real_tickers (table hardcodée
+    # par univers). Sans ça, le tableau « Sociétés représentatives » du PDF reste
+    # vide (audit 28/04/2026 — bug placeholder ('—','Neutre','—',50) qui empêchait
+    # le fallback de se déclencher).
+    def _is_placeholder_socs(socs):
+        if not socs:
+            return True
+        # Tous les tickers sont des em-dash → placeholder synthétique
+        return all(str(s[0]).strip() in ("—", "\u2014", "", "None") for s in socs if len(s) > 0)
     for _t3 in top3_secteurs:
-        if not _t3.get("societes"):
+        if _is_placeholder_socs(_t3.get("societes")):
             _fallback_tk = (_get_real_tickers(_t3.get("nom", ""), universe) or
                             _get_real_tickers(_t3.get("nom", ""), "S&P 500") or [])[:3]
             if _fallback_tk:
