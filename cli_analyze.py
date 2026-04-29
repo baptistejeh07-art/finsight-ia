@@ -3041,6 +3041,44 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
     # Top 3 secteurs : les 3 avec meilleur return ETF (S&P 500) ou score constituants (EU)
     sorted_etf = sorted(etf_perf.items(), key=lambda x: x[1].get("return_1y",0), reverse=True)
     top3_secteurs = []
+
+    # Pré-fetch parallèle EV/EBITDA + ret_52w des top tickers US pour ne pas
+    # afficher des sociétés représentatives clones (I8 — fix 29/04/2026).
+    # Sans ce pré-fetch, les 3 sociétés d'un même secteur S&P 500 partageaient
+    # ev_ebitda="—" et un score uniformément dérivé du score sectoriel.
+    _us_per_ticker: dict = {}
+    if not _eu_members_by_sec:  # chemin US (S&P 500 etc.) — EU a déjà ses propres data par société
+        _all_us_tkrs = []
+        for _etf_t, _info_t in sorted_etf[:3]:
+            _nm_t = _info_t.get("nom", "")
+            _tks_t = (_get_real_tickers(_nm_t, universe) or
+                      _get_real_tickers(_nm_t, "S&P 500") or [])[:3]
+            for _tk in _tks_t:
+                if _tk and _tk not in _us_per_ticker:
+                    _us_per_ticker[_tk] = None  # placeholder pour dédup
+                    _all_us_tkrs.append(_tk)
+
+        def _fetch_us_tkr_info(_tk: str) -> tuple:
+            try:
+                _i = get_ticker(_tk).info or {}
+                _ev = _i.get("enterpriseToEbitda")
+                _ev_clean = float(_ev) if _ev and 0.5 < float(_ev) < 200 else None
+                _r52 = _i.get("52WeekChange") or _i.get("fiftyTwoWeekChange")
+                _r52_pct = float(_r52) * 100 if _r52 is not None else 0.0
+                _sc = max(25, min(85, round(50 + _r52_pct * 1.2)))
+                return _tk, _ev_clean, _sc
+            except Exception as _eu:
+                log.debug("[us_tkr_info] %s erreur: %s", _tk, _eu)
+                return _tk, None, None
+
+        if _all_us_tkrs:
+            try:
+                with ThreadPoolExecutor(max_workers=min(9, len(_all_us_tkrs))) as _ex_us:
+                    for _tk_r, _ev_r, _sc_r in _ex_us.map(_fetch_us_tkr_info, _all_us_tkrs):
+                        _us_per_ticker[_tk_r] = (_ev_r, _sc_r)
+            except Exception as _ep_us:
+                log.debug("[us_tkr_info] pool erreur: %s", _ep_us)
+
     for i, (etf, info) in enumerate(sorted_etf[:3]):
         nom = info.get("nom","")
         ret = info.get("return_1y", 0.0)
@@ -3060,8 +3098,20 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
         else:
             soc_tickers = (_get_real_tickers(nom, universe) or
                            _get_real_tickers(nom, "S&P 500"))[:3]
-            societes = [(tk, "Surpondérer" if sig == "Surpondérer" else "Neutre", "—", sc - i*3)
-                        for tk in soc_tickers]
+            societes = []
+            for _idx, tk in enumerate(soc_tickers):
+                _info_us = _us_per_ticker.get(tk)
+                if isinstance(_info_us, tuple):
+                    _ev_us, _sc_us = _info_us
+                else:
+                    _ev_us, _sc_us = None, None
+                _ev_str = (f"{_ev_us:.1f}x".replace('.', ',') if _ev_us else "—")
+                # Score propre par société (depuis perf 52W) avec fallback sur le score
+                # sectoriel décrémenté pour conserver une dispersion minimale.
+                _msc = _sc_us if isinstance(_sc_us, (int, float)) else sc - i*3 - _idx
+                _msig = ("Surpondérer" if _msc >= 60
+                         else ("Sous-pondérer" if _msc < 40 else "Neutre"))
+                societes.append((tk, _msig, _ev_str, _msc))
         top3_secteurs.append({
             "nom": nom, "signal": sig, "score": sc,
             "ev_ebitda": "—", "pe_forward_raw": 20.0, "pe_mediane_10y": 18.0,
@@ -3104,7 +3154,7 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
             _socs = []
             for _m in _mems:
                 _er = _m.get("ev_ebitda")
-                _es = (f"{_er:.1f}x" if _er and 0.5 < _er < 200 else "\u2014")
+                _es = (f"{_er:.1f}x".replace('.', ',') if _er and 0.5 < _er < 200 else "\u2014")
                 _socs.append((_m["ticker"], _ts[3], _es, _m["score_raw"]))
             _ev_v = [m["ev_ebitda"] for m in _eu_members_by_sec.get(_tsn, [])
                      if m.get("ev_ebitda") and 0.5 < m["ev_ebitda"] < 100]
@@ -3116,11 +3166,11 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
                 "nom":            _tsn,
                 "signal":         _ts[3],
                 "score":          _ts[2],
-                "ev_ebitda":      (f"{_stat_t3.median(_ev_v):.1f}x" if _ev_v else "\u2014"),
+                "ev_ebitda":      (f"{_stat_t3.median(_ev_v):.1f}x".replace('.', ',') if _ev_v else "\u2014"),
                 "pe_forward_raw": round(_stat_t3.median(_pe_v), 1) if _pe_v else 18.0,
                 "pe_mediane_10y": 16.0,
                 "poids_indice":   "—",
-                "catalyseur":     f"Performance 52S {_ret:+.1f}% — momentum {_ts[3].lower()}",
+                "catalyseur":     f"Performance 52S {_ret:+.1f} % — momentum {_ts[3].lower()}".replace('.', ','),
                 "risque":         "Risque macro zone Euro, USD strength, taux longs",
                 "societes":       _socs or [("—", "Neutre", "\u2014", 50)],
             })

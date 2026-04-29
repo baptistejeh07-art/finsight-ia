@@ -343,7 +343,10 @@ _SECTOR_CONTENT = {
 
 def _build_content_from_llm(sector_name: str, ev_med: float, rev_med: float,
                              mg_med: float, mom_med: float, score_moyen: int,
-                             sig_label: str, td: list) -> "dict | None":
+                             sig_label: str, td: list,
+                             profile: str = "STANDARD",
+                             profile_metric_med: float = 0.0,
+                             profile_metric_label: str = "EV/EBITDA") -> "dict | None":
     """Appel Groq pour générer description/catalyseurs/risques/drivers dynamiquement.
     Retourne None si echec (le caller utilisera le fallback statique ou _build_content_from_data).
 
@@ -359,7 +362,8 @@ def _build_content_from_llm(sector_name: str, ev_med: float, rev_med: float,
         from core import cache as _cache_mod
         _b_ev = round(ev_med / 2.0) * 2.0      # bucket 2x EV/EBITDA
         _b_mg = round(mg_med / 5.0) * 5.0      # bucket 5pts marge
-        _cache_key = f"sector_pptx_llm:{sector_name.lower()}:{sig_label}:{_b_ev:.0f}:{_b_mg:.0f}"
+        # Profil dans la clé : un secteur "BANK" et "STANDARD" doivent avoir des descriptions distinctes.
+        _cache_key = f"sector_pptx_llm:{sector_name.lower()}:{sig_label}:{profile}:{_b_ev:.0f}:{_b_mg:.0f}"
         _hit = _cache_mod.get_json(_cache_key)
         if _hit:
             log.info(f"[sector_pptx_llm] cache HIT {_cache_key}")
@@ -382,10 +386,23 @@ def _build_content_from_llm(sector_name: str, ev_med: float, rev_med: float,
         _mg_med_fr = f"{mg_med:.1f} %".replace('.', ',')
         _rev_med_fr = f"{rev_med:+.1f} %".replace('.', ',')
         _mom_med_fr = f"{mom_med:+.1f} %".replace('.', ',')
+        # Profils non-standard : on remplace EV/EBITDA + Mg EBITDA par la métrique
+        # adaptée (P/TBV pour banques, P/B pour insurance/REIT) — sinon le LLM
+        # reproduit "marge EBITDA 0,0 %" sur des banques où l'EBITDA n'existe pas.
+        if profile != "STANDARD":
+            _pm_med_fr = f"{profile_metric_med:.1f}x".replace('.', ',') if profile_metric_med else "n/d"
+            _val_block = (
+                f"{profile_metric_label} med: {_pm_med_fr} | EBITDA: non applicable ({profile}) | "
+                f"Croissance rev: {_rev_med_fr} | Momentum 52W: {_mom_med_fr}\n"
+            )
+        else:
+            _val_block = (
+                f"EV/EBITDA med: {_ev_med_fr} | Mg EBITDA: {_mg_med_fr} | "
+                f"Croissance rev: {_rev_med_fr} | Momentum 52W: {_mom_med_fr}\n"
+            )
         prompt = (
             f"Secteur: {sector_name} | Signal: {sig_label} | Score: {score_moyen}/100\n"
-            f"EV/EBITDA med: {_ev_med_fr} | Mg EBITDA: {_mg_med_fr} | "
-            f"Croissance rev: {_rev_med_fr} | Momentum 52W: {_mom_med_fr}\n"
+            + _val_block +
             f"Top tickers: {', '.join(top_t) if top_t else 'N/D'}\n\n"
             f"Reponds en JSON valide uniquement, sans markdown, sans points de suspension.\n"
             f'{{"description":"2 phrases sur ce secteur (spécifique, valorisation réelle)","'
@@ -407,6 +424,15 @@ def _build_content_from_llm(sector_name: str, ev_med: float, rev_med: float,
             include_json=True,
         )
         _sys += "\n\nSpécifique au secteur demandé, jamais de texte générique. Phrases complètes, pas de points de suspension (...)."
+        # Hint profil sectoriel : si BANK / INSURANCE / REIT / UTILITY / OIL_GAS,
+        # injecter les règles métriques propres pour éviter "marge EBITDA 0,0 %"
+        # ou "EV/EBITDA non applicable" sur des banques.
+        try:
+            from core.sector_profiles import get_prompt_hints, is_non_standard
+            if is_non_standard(profile):
+                _sys += f"\n\nProfil sectoriel : {profile}. {get_prompt_hints(profile)}"
+        except Exception:
+            pass
         resp = _LLMpptx(provider="mistral", model="mistral-small-latest").generate(
             prompt=prompt,
             system=_sys,
@@ -673,12 +699,39 @@ def _prepare_data(tickers_data: list[dict], sector_name: str, universe: str) -> 
     mg_med  = _med(mg_vals)  if mg_vals  else 0.0        # ebitda_margin déjà en %
     mom_med = _med(mom_vals) if mom_vals else 0.0        # momentum_52w déjà en %
 
+    # Profil sectoriel dominant (BANK / INSURANCE / REIT / UTILITY / OIL_GAS / STANDARD)
+    # → métrique de valorisation primaire adaptée (EV/EBITDA non applicable banques/assur.)
+    try:
+        from core.sector_profiles import detect_profile
+        from collections import Counter
+        _profiles = Counter(
+            detect_profile(t.get("sector"), t.get("industry"))
+            for t in td if t.get("sector")
+        )
+        profile = _profiles.most_common(1)[0][0] if _profiles else "STANDARD"
+    except Exception:
+        profile = "STANDARD"
+
+    # Métrique primaire selon le profil (label, champ, médiane, unité)
+    if profile == "BANK":
+        _pm_field, _pm_label, _pm_unit = "pb_ratio", "P/TBV", "x"
+    elif profile == "INSURANCE":
+        _pm_field, _pm_label, _pm_unit = "pb_ratio", "P/B", "x"
+    elif profile == "REIT":
+        _pm_field, _pm_label, _pm_unit = "pb_ratio", "P/B", "x"
+    else:
+        _pm_field, _pm_label, _pm_unit = "ev_ebitda", "EV/EBITDA", "x"
+    _pm_vals = [t.get(_pm_field) for t in td
+                if t.get(_pm_field) is not None and 0 < float(t[_pm_field]) < 200]
+    profile_metric_med = _med(_pm_vals) if _pm_vals else 0.0
+
     # Content: base réelle depuis les metriques tickers, puis override LLM pour le narratif
     content = _build_content_from_data(
         td, sector_name, score_moyen, sig_label, ev_med, rev_med, mg_med, mom_med
     )
     _llm_content = _build_content_from_llm(
-        sector_name, ev_med, rev_med, mg_med, mom_med, score_moyen, sig_label, td
+        sector_name, ev_med, rev_med, mg_med, mom_med, score_moyen, sig_label, td,
+        profile=profile, profile_metric_med=profile_metric_med, profile_metric_label=_pm_label,
     )
     if _llm_content:
         # Le LLM fournit les textes narratifs ; les metriques réelles restent du _build_content_from_data
@@ -766,6 +819,12 @@ def _prepare_data(tickers_data: list[dict], sector_name: str, universe: str) -> 
         "content": content,
         "tickers_data": td,
         "subsectors": subsectors,
+        # Profil sectoriel + métrique de valorisation primaire (banques/assur./REIT)
+        "profile": profile,
+        "profile_metric_field": _pm_field,
+        "profile_metric_label": _pm_label,
+        "profile_metric_unit":  _pm_unit,
+        "profile_metric_med":   profile_metric_med,
     }
 
 
@@ -1250,9 +1309,15 @@ def _s02_exec_summary(prs, D):
     _txb(slide, f"● {D['sig_label']}", 1.3, 2.45, 3.2, 1.0, size=11, bold=True, color=D["sig_color"])
     # Helper : "n/d" pour mg_med <= 0.5% (banques, insurance — EBITDA non applicable)
     _mg_str = f"{D['mg_med']:.1f} %".replace('.', ',') if D.get('mg_med', 0) and abs(D['mg_med']) > 0.5 else "n/d"
-    _ev_str = f"{D['ev_med']:.1f}x".replace('.', ',')
+    # Métrique de valorisation primaire adaptée au profil (P/TBV pour banques, P/B
+    # pour insurance/REIT, EV/EBITDA pour standard) — évite "EV/EBITDA med. : 16,7x"
+    # affiché sur des banques où la métrique n'a aucun sens.
+    _pm_label = D.get("profile_metric_label", "EV/EBITDA")
+    _pm_unit  = D.get("profile_metric_unit", "x")
+    _pm_med   = D.get("profile_metric_med") or D.get("ev_med") or 0.0
+    _pm_str = f"{_pm_med:.1f}{_pm_unit}".replace('.', ',') if _pm_med else "n/d"
     _rev_str = f"{D['rev_med']:+.1f} %".replace('.', ',')
-    kpi_str = (f"EV/EBITDA med. : {_ev_str}  ·  "
+    kpi_str = (f"{_pm_label} med. : {_pm_str}  ·  "
                f"Croissance med. : {_rev_str}  ·  "
                f"Marge EBITDA med. : {_mg_str}  ·  "
                f"Score moyen : {D['score_moyen']}/100")
@@ -1291,7 +1356,7 @@ def _s02_exec_summary(prs, D):
 
     # 4 KPI boxes
     kpis = [
-        (f"{D['ev_med']:.1f}x".replace('.', ','), "EV/EBITDA med.", "vs Marché EU"),
+        (_pm_str, f"{_pm_label} med.", "vs Marché EU"),
         (f"{D['rev_med']:+.1f} %", "Croissance Rev. med.", "YoY sectoriel"),
         (_mg_str, "Marge EBITDA med.", "LTM sectorielle"),
         (f"{D['mom_med']:+.1f} %", "Momentum 52W med.", "Performance relative"),
@@ -1555,16 +1620,45 @@ def _s06_ratios(prs, D):
     _rect(slide, 0.9, _s06_text_y, 23.6, 2.8, fill=_GRAYL)
     _rect(slide, 0.9, _s06_text_y, 23.6, 0.7, fill=_NAVY)
     _txb(slide, "LECTURE ANALYTIQUE", 1.1, _s06_text_y + 0.05, 23.2, 0.6, size=8.5, bold=True, color=_WHITE)
-    _ev_med_fr = f"{ev_med:.1f}x".replace('.', ',')
-    analysis = (
-        f"La médiane EV/EBITDA sectorielle s'établit à {_ev_med_fr} LTM. "
-        f"{best_name} ({_fmt_x(ev_best)}) se distingue comme le leader de qualité, "
-        f"combinée à une marge EBITDA de {_fmt_pct_plain(best.get('ebitda_margin'))} et une croissance "
-        f"de {_fmt_pct_rev(best.get('revenue_growth'))}. "
-        f"La dispersion des multiples révèle l'hétérogénéité des profils au sein du secteur "
-        f"{D['sector_name']} — une lecture croisée P/E vs EV/EBITDA permet d'isoler les "
-        f"effets de structure de capital et les distorsions comptables."
-    )
+    # Profil sectoriel : adapter la métrique de valorisation primaire (P/TBV pour
+    # banques au lieu d'EV/EBITDA, P/B pour insurance/REIT, etc.).
+    _profile = D.get("profile", "STANDARD")
+    _pm_label = D.get("profile_metric_label", "EV/EBITDA")
+    _pm_unit  = D.get("profile_metric_unit", "x")
+    _pm_med   = D.get("profile_metric_med") or 0.0
+    if _profile == "BANK" and _pm_med:
+        _pm_med_fr = f"{_pm_med:.1f}{_pm_unit}".replace('.', ',')
+        _best_pb = best.get("pb_ratio")
+        _best_roe = _fmt_pct_plain(best.get("roe"))
+        analysis = (
+            f"La médiane {_pm_label} sectorielle s'établit à {_pm_med_fr}. "
+            f"{best_name} ({_fmt_x(_best_pb)}) se distingue comme le leader avec un ROE de {_best_roe}. "
+            f"Pour les banques, l'EBITDA n'est pas une métrique pertinente — la valorisation s'apprécie "
+            f"via P/TBV (rapport au bookvalue tangible) et le ROE doit excéder le coût du capital pour "
+            f"justifier un P/TBV > 1,0x. La dispersion des P/TBV révèle l'hétérogénéité de qualité "
+            f"des bilans au sein du secteur {D['sector_name']}."
+        )
+    elif _profile in ("INSURANCE", "REIT") and _pm_med:
+        _pm_med_fr = f"{_pm_med:.1f}{_pm_unit}".replace('.', ',')
+        _best_pb = best.get("pb_ratio")
+        analysis = (
+            f"La médiane {_pm_label} sectorielle s'établit à {_pm_med_fr}. "
+            f"{best_name} ({_fmt_x(_best_pb)}) se distingue par sa qualité de bilan, "
+            f"avec un ROE de {_fmt_pct_plain(best.get('roe'))}. "
+            f"Pour ce profil sectoriel, l'EV/EBITDA est moins pertinent que le P/B et les ratios "
+            f"propres au métier (Combined Ratio pour assureurs, P/FFO + Cap Rate pour foncières)."
+        )
+    else:
+        _ev_med_fr = f"{ev_med:.1f}x".replace('.', ',')
+        analysis = (
+            f"La médiane EV/EBITDA sectorielle s'établit à {_ev_med_fr} LTM. "
+            f"{best_name} ({_fmt_x(ev_best)}) se distingue comme le leader de qualité, "
+            f"combinée à une marge EBITDA de {_fmt_pct_plain(best.get('ebitda_margin'))} et une croissance "
+            f"de {_fmt_pct_rev(best.get('revenue_growth'))}. "
+            f"La dispersion des multiples révèle l'hétérogénéité des profils au sein du secteur "
+            f"{D['sector_name']} — une lecture croisée P/E vs EV/EBITDA permet d'isoler les "
+            f"effets de structure de capital et les distorsions comptables."
+        )
     _txb(slide, analysis, 1.1, _s06_text_y + 0.8, 23.2, 2.0, size=8.5, color=_GRAYT, wrap=True)
     _footer(slide)
 
@@ -1897,11 +1991,23 @@ def _s10_scatter(prs, D):
     _txb(slide, "CE QUE LE GRAPHIQUE REVELE", 16.3, 2.35, 8.1, 0.6, size=8.5, bold=True, color=_WHITE)
 
     td = D["sorted_td"]
-    ev_vals = [float(t.get("ev_ebitda", 0)) for t in td if t.get("ev_ebitda") and float(t.get("ev_ebitda", 0)) > 0]
-    med_ev = float(np.median(ev_vals)) if ev_vals else 0
+    # Médiane cohérente avec la métrique réellement classée par le chart (P/TBV
+    # pour banques, EV/EBITDA pour standard, P/E en fallback) — sinon le titre
+    # affichait "Classement P/TBV" mais la médiane "Médiane sectorielle : 16,7x"
+    # restait calée sur EV/EBITDA → incohérence titre vs valeur.
+    _ml = (metric_label or "").lower()
+    if "p / tbv" in _ml or "p/tbv" in _ml or "p / b" in _ml or "p/b" in _ml:
+        _metric_key = "pb_ratio"
+    elif "p / e" in _ml or "p/e" in _ml:
+        _metric_key = "pe_ratio"
+    else:
+        _metric_key = "ev_ebitda"
+    metric_vals = [float(t.get(_metric_key, 0)) for t in td
+                   if t.get(_metric_key) and float(t.get(_metric_key, 0)) > 0]
+    med_ev = float(np.median(metric_vals)) if metric_vals else 0
 
-    premium = [t for t in td if t.get("ev_ebitda") and float(t["ev_ebitda"]) > med_ev * 1.15]
-    decote  = [t for t in td if t.get("ev_ebitda") and 0 < float(t["ev_ebitda"]) < med_ev * 0.85]
+    premium = [t for t in td if t.get(_metric_key) and float(t[_metric_key]) > med_ev * 1.15]
+    decote  = [t for t in td if t.get(_metric_key) and 0 < float(t[_metric_key]) < med_ev * 0.85]
 
     _med_fr = f"{med_ev:.1f}x".replace('.', ',')
     analysis_lines = []
@@ -1909,13 +2015,13 @@ def _s10_scatter(prs, D):
         d0 = max(decote, key=lambda t: t.get("score_global") or 0)
         analysis_lines.append(
             f"{d0.get('ticker', '')} offre la meilleure asymétrie — "
-            f"EV/EBITDA de {_fmt_x(d0.get('ev_ebitda'))} sous la médiane de {_med_fr} "
+            f"{_short} de {_fmt_x(d0.get(_metric_key))} sous la médiane de {_med_fr} "
             f"avec un score FinSight de {int(d0.get('score_global') or 0)}/100."
         )
     if premium:
         p0 = premium[0]
         analysis_lines.append(
-            f"{p0.get('ticker', '')} traite en prime ({_fmt_x(p0.get('ev_ebitda'))} vs "
+            f"{p0.get('ticker', '')} traite en prime ({_fmt_x(p0.get(_metric_key))} vs "
             f"médiane {_med_fr}) — vérifier si la croissance justifie ce multiple."
         )
     analysis_lines.append(
@@ -2172,7 +2278,7 @@ def _s14_distribution(prs, D):
         _worst_p_val_fr = f"{float(_worst_prime.get(metric_field) or 0):.1f}x".replace('.', ',')
         _impl_p = (
             f"À l'opposé, {_worst_p_name} ({_worst_p_val_fr}) "
-            f"concentre le risque de derating : toute déception de croissance ou "
+            f"concentré le risque de derating : toute déception de croissance ou "
             f"guidance décevante comprimerait le multiple en priorité sur ce nom."
         )
     else:
@@ -2441,7 +2547,7 @@ def _s18_sentiment(prs, D):
     sent_analysis = (
         f"Le sentiment agrégé FinBERT sur le secteur {D['sector_name']} ({D['universe']}) "
         f"ressort {sent_tone} ({agg_score:.2f}), avec {pct_pos:.0f}% d'articles a tonalité positive sur {total} analysés. "
-        f"La dispersion inter-valeurs est prononcée : {best_sent[1] or best_sent[2]} ({best_sent[0]:+.2f}) Porte la composante haussière "
+        f"La dispersion inter-valeurs est prononcée : {best_sent[1] or best_sent[2]} ({best_sent[0]:+.2f}) Porté la composante haussière "
         f"tandis que {worst_sent[1] or worst_sent[2]} ({worst_sent[0]:+.2f}) reflète les pressions structurelles. "
         f"Cette hétérogénéité valide une approche sélective plutôt que directionnelle sur le secteur — "
         f"le sentiment moyen masque des situations fondamentalement différentes entre leaders et retardataires. "
