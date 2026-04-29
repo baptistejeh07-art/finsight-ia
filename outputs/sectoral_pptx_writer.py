@@ -494,26 +494,32 @@ def _build_content_from_data(td: list, sector_name: str, score_moyen: int,
     best_score   = int(best.get("score_global") or 0)
     worst_ticker = worst.get("ticker", "—")
 
+    # FR : virgule decimale + espace avant %
+    _mg_med_fr  = f"{mg_med:.1f} %".replace('.', ',')
+    _mom_med_fr = f"{mom_med:+.1f} %".replace('.', ',')
+    _rev_med_fr = f"{rev_med:+.1f} %".replace('.', ',')
+    _ev_med_fr  = f"{ev_med:.1f}x".replace('.', ',')
+
     # Catalyseurs derived from actual metrics
     cats = []
     cats.append((
         f"Leader {best_ticker}",
-        f"Score FinSight {best_score}/100 avec marge EBITDA {mg_med:.1f} % "
-        f"et momentum 52W {mom_med:+.1f} %."
+        f"Score FinSight {best_score}/100 avec marge EBITDA {_mg_med_fr} "
+        f"et momentum 52W {_mom_med_fr}."
     ))
     if rev_med > 5:
         cats.append((
             "Croissance sectorielle soutenue",
-            f"Croissance Médian des revenus a {rev_med:+.1f} % — dynamique favorable."
+            f"Croissance médiane des revenus à {_rev_med_fr} — dynamique favorable."
         ))
     else:
         cats.append((
             "Valorisation attractive",
-            f"EV/EBITDA Médian a {ev_med:.1f}x — potentiel de rerating si catalyseurs confirmes."
+            f"EV/EBITDA médian à {_ev_med_fr} — potentiel de rerating si catalyseurs confirmés."
         ))
     cats.append((
         "Consolidation sectorielle",
-        "Vague de M&A potentielle — prime de rachat sur les acteurs sous-valorises."
+        "Vague de M&A potentielle — prime de rachat sur les acteurs sous-valorisés."
     ))
 
     # Risques derived from worst performer and macro
@@ -522,36 +528,36 @@ def _build_content_from_data(td: list, sector_name: str, score_moyen: int,
         risks.append((
             f"Retardataire {worst_ticker}",
             f"Score {int(worst.get('score_global') or 0)}/100 — "
-            "Écart significatif avec le leader, sélectivité requise."
+            "écart significatif avec le leader, sélectivité requise."
         ))
     else:
         risks.append((
             "Dispersion des scores",
-            "Écart entre les profils — allocation sélective recommandee."
+            "Écart entre les profils — allocation sélective recommandée."
         ))
     risks.append((
-        "Environnement macroeconomique",
+        "Environnement macroéconomique",
         "Ralentissement de la croissance mondiale — impact sur volumes et revenus."
     ))
     risks.append((
         "Pressions réglementaires",
-        "Évolution du cadre sectoriel — Surcoûts de Conformité potentiels."
+        "Évolution du cadre sectoriel — surcoûts de conformité potentiels."
     ))
 
     # Drivers from actual metrics
     drivers = []
     if rev_med > 0:
-        drivers.append(("up", "Croissance Organique",
-                        f"Revenus en progression a {rev_med:+.1f} % — tendance positive"))
+        drivers.append(("up", "Croissance organique",
+                        f"Revenus en progression à {_rev_med_fr} — tendance positive"))
     else:
-        drivers.append(("down", "Croissance Sous Pression",
-                        f"Revenus Médianes a {rev_med:+.1f} % — surveillance requise"))
+        drivers.append(("down", "Croissance sous pression",
+                        f"Revenus médians à {_rev_med_fr} — surveillance requise"))
     if mg_med > 20:
-        drivers.append(("up", "Marges Solides",
-                        f"Marge EBITDA Médian a {mg_med:.1f} % — structure rentable"))
+        drivers.append(("up", "Marges solides",
+                        f"Marge EBITDA médiane à {_mg_med_fr} — structure rentable"))
     else:
-        drivers.append(("down", "Pression sur les Marges",
-                        f"Marge EBITDA a {mg_med:.1f} % — potentiel d'amélioration"))
+        drivers.append(("down", "Pression sur les marges",
+                        f"Marge EBITDA à {_mg_med_fr} — potentiel d'amélioration"))
     drivers.append(("down", "Macro Global",
                     "Ralentissement croissance mondiale — sensibilité cyclique"))
     drivers.append(("up", "Consolidation M&A",
@@ -559,14 +565,14 @@ def _build_content_from_data(td: list, sector_name: str, score_moyen: int,
 
     # Métriques: real computed values from state
     # Helper : "n/d" pour banques/insurance ou EBITDA non applicable
-    _mg_disp = f"{mg_med:.1f} %" if mg_med and abs(mg_med) > 0.5 else "n/d"
+    _mg_disp = _mg_med_fr if mg_med and abs(mg_med) > 0.5 else "n/d"
     metriques = [
-        ("EV/EBITDA", f"{ev_med:.1f}x".replace('.', ','),     "Médiane secteur"),
-        ("Mg EBITDA", _mg_disp,              "LTM"),
-        ("Croissance", f"{rev_med:+.1f} %",  "YoY"),
-        ("Momentum",  f"{mom_med:+.1f} %",   "52W"),
-        ("Score Moyen", f"{score_moyen}/100", "FinSight"),
-        ("Nb Sociétés", str(len(td)),         "Analysées"),
+        ("EV/EBITDA",  _ev_med_fr,    "Médiane secteur"),
+        ("Mg EBITDA",  _mg_disp,      "LTM"),
+        ("Croissance", _rev_med_fr,   "YoY"),
+        ("Momentum",   _mom_med_fr,   "52W"),
+        ("Score moyen", f"{score_moyen}/100", "FinSight"),
+        ("Nb sociétés", str(len(td)),  "Analysées"),
     ]
 
     # Conditions based on signal level
@@ -582,8 +588,8 @@ def _build_content_from_data(td: list, sector_name: str, score_moyen: int,
     return {
         "description": (
             f"Le secteur {sector_name} regroupe {len(td)} entreprise(s) analysée(s) dans l'univers "
-            f"FinSight. EV/EBITDA Médian : {ev_med:.1f}x, marge EBITDA : {mg_med:.1f} %, "
-            f"croissance revenus : {rev_med:+.1f} %. Profil {quality} — signal {sig_label.lower()} "
+            f"FinSight. EV/EBITDA médian : {_ev_med_fr}, marge EBITDA : {_mg_med_fr}, "
+            f"croissance revenus : {_rev_med_fr}. Profil {quality} — signal {sig_label.lower()} "
             f"selon le modèle multifactoriel FinSight (score moyen {score_moyen}/100)."
         ),
         "catalyseurs":  cats,
@@ -1483,7 +1489,8 @@ def _s05_presentation(prs, D):
             for _h in _top5:
                 _w = _h.get('weight', 0) or 0
                 _w_pct = _w * 100 if _w < 1 else _w
-                _line = f"{_h.get('ticker','?'):<8}  {str(_h.get('name',''))[:22]:<22}  {_w_pct:>4.1f} %"
+                _w_str = f"{_w_pct:>4.1f} %".replace('.', ',')
+                _line = f"{_h.get('ticker','?'):<8}  {str(_h.get('name',''))[:22]:<22}  {_w_str}"
                 _txb(slide, _line, 15.3, _yy, 9.0, 0.30, size=6.8, color=_GRAYT)
                 _yy += 0.30
     except Exception as _etf_e:
@@ -1720,17 +1727,17 @@ def _s07_cycle(prs, D):
         if _fred:
             _parts = []
             if "fed_funds_rate" in _fred:
-                _parts.append(f"Fed {_fred['fed_funds_rate']:.2f}%")
+                _parts.append(f"Fed {_fred['fed_funds_rate']:.2f} %".replace('.', ','))
             if "treasury_10y" in _fred:
-                _parts.append(f"10Y {_fred['treasury_10y']:.2f}%")
+                _parts.append(f"10Y {_fred['treasury_10y']:.2f} %".replace('.', ','))
             if "vix" in _fred:
-                _parts.append(f"VIX {_fred['vix']:.1f}")
+                _parts.append(f"VIX {_fred['vix']:.1f}".replace('.', ','))
             if "cpi_yoy" in _fred:
-                _parts.append(f"CPI {_fred['cpi_yoy']:+.1f}% YoY")
+                _parts.append(f"CPI {_fred['cpi_yoy']:+.1f} % YoY".replace('.', ','))
             if "unemployment" in _fred:
-                _parts.append(f"Chômage {_fred['unemployment']:.1f}%")
+                _parts.append(f"Chômage {_fred['unemployment']:.1f} %".replace('.', ','))
             if "credit_spread_baa" in _fred:
-                _parts.append(f"Spread BAA {_fred['credit_spread_baa']:.2f}%")
+                _parts.append(f"Spread BAA {_fred['credit_spread_baa']:.2f} %".replace('.', ','))
             # Indicateurs sectoriels (max 2)
             _sect = _fred.get("sector", {})
             _sect_parts = []
@@ -1811,7 +1818,7 @@ def _s08_subsectors(prs, D):
             f"{s['ev_ebitda']:.1f}x".replace('.', ',') if s["ev_ebitda"] else "\u2014",
             f"{s['margin']:.1f} %".replace('.', ',') if s["margin"] else "\u2014",
             f"{s['growth']:+.1f} %".replace('.', ',') if s["growth"] else "\u2014",
-            f"{s['momentum']:+.1f}%" if s["momentum"] else "\u2014",
+            f"{s['momentum']:+.1f} %".replace('.', ',') if s["momentum"] else "\u2014",
         ]
         for c, v in enumerate(vals):
             cell = table.cell(r + 1, c)
@@ -1900,7 +1907,7 @@ def _s08_subsectors(prs, D):
 def _s09_cartographie(prs, D):
     slide = _blank(prs)
     _header(slide, (D.get("_t_helper") or (lambda k: "Cartographie des Sociétés"))("carto_soc"),
-            f"{D['N']} sociétés analysées  ·  {D['sector_name']}  ·  {D['universe']}  ·  Tri par score FinSight decroissant", 2)
+            f"{D['N']} sociétés analysées  ·  {D['sector_name']}  ·  {D['universe']}  ·  Tri par score FinSight décroissant", 2)
 
     td = D["sorted_td"]
     MAX_S09 = 8  # cap slide 9 a 8 lignes — evite debordement sur la lecture analytique
@@ -1965,9 +1972,9 @@ def _s09_cartographie(prs, D):
     analysis = (
         f"Le secteur {D['sector_name']} présente {n_buy} BUY / {n_hold} HOLD / {n_sell} SELL "
         f"sur {len(td)} valeurs analysées. "
-        f"{best_name} (score {int(best.get('score_global') or 0)}/100) constitue le coeur offensif recommande "
+        f"{best_name} (score {int(best.get('score_global') or 0)}/100) constitue le cœur offensif recommandé "
         f"— fondamentaux solides et visibilité supérieure sur les revenus. "
-        f"La répartition des recommandations reflète un positionnément selectif cohérent avec la phase sectorielle actuelle. "
+        f"La répartition des recommandations reflète un positionnement sélectif cohérent avec la phase sectorielle actuelle. "
         f"Les catalyseurs identifies — résultats trimestriels, guidance annuel, opérations M&A — "
         f"constituent les événements cles a surveiller pour un renforcement conditionnel des positions."
     )
@@ -1981,7 +1988,7 @@ def _s10_scatter(prs, D):
     # Titre dynamique selon la métrique choisie (banques → P/TBV, autre → EV/EBITDA)
     _short = metric_label.replace(" (x)", "").replace(" / ", "/").strip()
     _header(slide, f"Classement {_short}",
-            f"{_short} par acteur  ·  Tri croissant  ·  Vert = sous Médiane (opportunité relative)  ·  Top 15", 2)
+            f"{_short} par acteur  ·  Tri croissant  ·  Vert = sous médiane (opportunité relative)", 2)
 
     _pic(slide, img, 0.9, 2.3, 14.7, 11.4)
 
@@ -2047,9 +2054,12 @@ def _s11_scores(prs, D):
     tbl_data = [["Ticker", "Société", "Score Global", "Value", "Growth", "Quality", "Momentum", "Reco"]]
     for t in td_disp:
         reco = _reco(t.get("score_global"))
+        # Truncation propre : si on coupe au milieu d'un mot, on coupe au dernier espace
+        _cn = t.get("company") or ""
+        _cn_short = _cn if len(_cn) <= 28 else (_cn[:28].rsplit(" ", 1)[0] if " " in _cn[:28] else _cn[:28]).rstrip(",.")
         tbl_data.append([
             t.get("ticker", ""),
-            (t.get("company") or "")[:25],
+            _cn_short,
             f"{int(t.get('score_global') or 0)}/100",
             str(int(t.get("score_value") or 0)),
             str(int(t.get("score_growth") or 0)),
@@ -2109,7 +2119,7 @@ def _s11_scores(prs, D):
         f"Quality={int(best.get('score_quality') or 0)}, "
         f"Momentum={int(best.get('score_momentum') or 0)}. "
         f"La dispersion des scores entre les {len(td)} sociétés Reflète des profils hétérogènes — "
-        f"une allocation sélective privilegiant les leaders qualitatifs est recommandee "
+        f"une allocation sélective privilégiant les leaders qualitatifs est recommandée "
         f"dans la configuration sectorielle actuelle."
     )
     _txb(slide, synthesis, 1.1, _s11_syn_y + 0.85, 23.2, max(1.8, _syn_h - 1.0), size=8.5, color=_GRAYT, wrap=True)
@@ -2317,18 +2327,18 @@ def _s14_distribution(prs, D):
 
 def _s15_entry(prs, D):
     slide = _blank(prs)
-    _header(slide, "Zone d'Entree Optimale",
-            "Conditions d'entree favorable  ·  Cours < DCF Base x 0,90 + momentum négatif + sentiment négatif", 3)
+    _header(slide, "Zone d'entrée optimale",
+            "Conditions d'entrée favorable  ·  Cours < DCF Base × 0,90 + momentum négatif + sentiment négatif", 3)
 
     _rect(slide, 0.9, 2.5, 23.6, 0.9, fill=_GRAYL)
     _rect(slide, 0.9, 2.5, 0.1, 0.9, fill=_NAVY)
-    _txb(slide, "La zone d'entree optimale est définie par la convergence de 3 signaux : décote > 10 % vs DCF Base · momentum 52W négatif · sentiment FinBERT négatif.",
+    _txb(slide, "La zone d'entrée optimale est définie par la convergence de 3 signaux : décote > 10 % vs DCF Base · momentum 52W négatif · sentiment FinBERT négatif.",
          1.1, 2.55, 23.1, 0.8, size=8.5, color=_GRAYT, wrap=True)
 
     td = D["sorted_td"]
     MAX_S15 = 8  # cap slide 15 a 8 lignes — garantit visibilite de la note methodologique
     td_disp = td[:MAX_S15]
-    tbl_data = [["Ticker", "Société", "Cours actuel", "DCF Base (est.)", "Zone d achat", "Signal", "Proba. 12M"]]
+    tbl_data = [["Ticker", "Société", "Cours actuel", "DCF Base (est.)", "Zone d'achat", "Signal", "Proba. 12M"]]
     for t in td_disp:
         price = t.get("price")
         reco = _reco(t.get("score_global"))
@@ -2336,17 +2346,20 @@ def _s15_entry(prs, D):
             try:
                 pf = float(price)
                 dcf = pf * 1.15
-                zone = f"< {pf * 0.95:.1f}"
-                sig = "Entree attractive" if reco == "BUY" else "Proche zone" if reco == "HOLD" else "Éviter"
+                zone = f"< {pf * 0.95:.2f}".replace('.', ',')
+                sig = "Entrée attractive" if reco == "BUY" else "Proche zone" if reco == "HOLD" else "Éviter"
                 proba = "~68 %" if reco == "BUY" else "~52 %" if reco == "HOLD" else "~35 %"
+                price_disp = f"{pf:.2f}".replace('.', ',')
             except Exception:
-                dcf, zone, sig, proba = "—", "—", "—", "—"
+                dcf, zone, sig, proba, price_disp = "—", "—", "—", "—", "—"
         else:
-            dcf, zone, sig, proba = "—", "—", "—", "—"
+            dcf, zone, sig, proba, price_disp = "—", "—", "—", "—", "—"
+        _cn = t.get("company") or ""
+        _cn_short = _cn if len(_cn) <= 28 else (_cn[:28].rsplit(" ", 1)[0] if " " in _cn[:28] else _cn[:28]).rstrip(",.")
         tbl_data.append([
-            t.get("ticker", ""), (t.get("company") or "")[:24],
-            f"{price}" if price else "—",
-            f"{dcf:.1f}" if isinstance(dcf, float) else dcf,
+            t.get("ticker", ""), _cn_short,
+            price_disp,
+            f"{dcf:.2f}".replace('.', ',') if isinstance(dcf, float) else dcf,
             zone, sig, proba,
         ])
 
@@ -2371,10 +2384,10 @@ def _s15_entry(prs, D):
         _note_y = _note_y_calc
         _rect(slide, 0.9, _note_y, 23.6, _NOTE_H, fill=_HOLD_L)
         _rect(slide, 0.9, _note_y, 0.1, _NOTE_H, fill=_HOLD)
-        _txb(slide, "NOTE METHODOLOGIQUE", 1.3, _note_y + 0.08, 23.1, 0.5,
+        _txb(slide, "NOTE MÉTHODOLOGIQUE", 1.3, _note_y + 0.08, 23.1, 0.5,
              size=7.5, bold=True, color=_HOLD)
         if _NOTE_H > 0.9:
-            _txb(slide, "La probabilité de rendement positif a 12 mois est calculée sur des configurations similaires identifiees en backtesting sur Données historiques (2010-2024). Elle ne constitue pas une garantie de performance future.",
+            _txb(slide, "La probabilité de rendement positif à 12 mois est calculée sur des configurations similaires identifiées en backtesting sur données historiques (2010-2024). Elle ne constitue pas une garantie de performance future.",
                  1.3, _note_y + 0.6, 23.1, _NOTE_H - 0.65, size=7.5, color=_GRAYT, wrap=True)
 
     _footer(slide)
@@ -2446,7 +2459,7 @@ def _s17_risques(prs, D):
     sg_med   = _median(sg_vals)
 
     nd_str  = f"{nd_med:.1f}x".replace('.', ',')  if nd_med  is not None else "N/D"
-    fcf_str = f"{fcf_med:.1f}%" if fcf_med is not None else "N/D"
+    fcf_str = f"{fcf_med:.1f} %".replace('.', ',') if fcf_med is not None else "N/D"
     sg_str  = f"{sg_med:.0f}/100" if sg_med is not None else "N/D"
 
     # Couleurs selon seuils fondamentaux
@@ -2503,7 +2516,7 @@ def _s18_sentiment(prs, D):
     # Score box
     _rect(slide, 0.9, 2.5, 5.3, 2.6, fill=_GRAYL)
     _rect(slide, 0.9, 2.5, 0.1, 2.6, fill=_NAVYL)
-    _txb(slide, f"{agg_score:.2f}", 1.2, 2.6, 4.9, 1.2, size=28, bold=True, color=_NAVY)
+    _txb(slide, f"{agg_score:.2f}".replace('.', ','), 1.2, 2.6, 4.9, 1.2, size=28, bold=True, color=_NAVY)
     _txb(slide, "Score agrégé FinBERT", 1.2, 3.8, 4.9, 0.55, size=7.5, color=_GRAYT)
     _txb(slide, lbl, 1.2, 4.35, 4.9, 0.45, size=7.5, color=_GRAYD)
 
@@ -2544,11 +2557,15 @@ def _s18_sentiment(prs, D):
     worst_sent = pos_scores_with_ticker[-1] if len(pos_scores_with_ticker) > 1 else (-0.1, "retardataire", "")
     pct_pos = n_pos / total * 100
     sent_tone = "légèrement positif" if agg_score > 0.1 else "neutre" if agg_score >= -0.1 else "légèrement négatif"
+    _agg_score_s  = f"{agg_score:.2f}".replace('.', ',')
+    _pct_pos_s    = f"{pct_pos:.0f} %"
+    _best_sent_s  = f"{best_sent[0]:+.2f}".replace('.', ',')
+    _worst_sent_s = f"{worst_sent[0]:+.2f}".replace('.', ',')
     sent_analysis = (
         f"Le sentiment agrégé FinBERT sur le secteur {D['sector_name']} ({D['universe']}) "
-        f"ressort {sent_tone} ({agg_score:.2f}), avec {pct_pos:.0f}% d'articles a tonalité positive sur {total} analysés. "
-        f"La dispersion inter-valeurs est prononcée : {best_sent[1] or best_sent[2]} ({best_sent[0]:+.2f}) Porté la composante haussière "
-        f"tandis que {worst_sent[1] or worst_sent[2]} ({worst_sent[0]:+.2f}) reflète les pressions structurelles. "
+        f"ressort {sent_tone} ({_agg_score_s}), avec {_pct_pos_s} d'articles à tonalité positive sur {total} analysés. "
+        f"La dispersion inter-valeurs est prononcée : {best_sent[1] or best_sent[2]} ({_best_sent_s}) porte la composante haussière "
+        f"tandis que {worst_sent[1] or worst_sent[2]} ({_worst_sent_s}) reflète les pressions structurelles. "
         f"Cette hétérogénéité valide une approche sélective plutôt que directionnelle sur le secteur — "
         f"le sentiment moyen masque des situations fondamentalement différentes entre leaders et retardataires. "
         f"La composante thématique (catalyseurs vs risques) suggère que les flux narratifs restent "
@@ -2619,17 +2636,17 @@ def _s20_performance(prs, D):
 
     lines = [
         ("MEILLEURE PERFORMANCE", 3.20, 7, True, _NAVY),
-        (f"{best_tk}  +{best_mom:.0f}%  sur 52 semaines",
+        (f"{best_tk}  +{best_mom:.0f} %  sur 52 semaines",
          3.65, 9, True, _NAVY),
         ("PIRE PERFORMANCE", 4.60, 7, True, _NAVY),
-        (f"{worst_tk}  {worst_mom:+.0f}%  sur 52 semaines",
+        (f"{worst_tk}  {worst_mom:+.0f} %  sur 52 semaines",
          5.05, 9, True, RGBColor(0xA8,0x20,0x20)),
         ("DISPERSION", 6.10, 7, True, _NAVY),
         (f"Écart {spread:.0f} pts — {n_pos} valeur(s) positives vs {n_neg} négatives.",
          6.55, 8, False, _GRAYT),
         ("INTERPRÉTATION", 7.70, 7, True, _NAVY),
         ("La dispersion des trajectoires reflète la bifurcation sectorielle : certains "
-         "acteurs captent l'essentiel de la création de valeur tandis que d'autrès subissent "
+         "acteurs captent l'essentiel de la création de valeur tandis que d'autres subissent "
          "des sorties de capitaux structurelles.", 8.15, 7.5, False, _GRAYT),
         ("Le momentum 52W est intégré dans le score FinSight comme signal de confirmation "
          "de la thèse d'investissement.", 9.35, 7.5, False, _GRAYT),
@@ -2760,7 +2777,7 @@ class SectoralPPTXWriter:
         _s11_scores(prs, D)
         # Slide 12 — Chapter 03 divider
         _chapter_divider(prs, "03", "Top 3 & Valorisations",
-                         "Synthèse Top 3, distribution EV/EBITDA & zone d'entree optimale")
+                         "Synthèse Top 3, distribution EV/EBITDA & zone d'entrée optimale")
         # Slide 13 — Top 3
         _s13_top3(prs, D)
         # Slide 14 — Distribution

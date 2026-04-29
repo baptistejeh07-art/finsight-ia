@@ -145,7 +145,9 @@ def debate_q(text):
     return Paragraph(f">  {text}", S_DEBATE)
 
 def src(text):
-    return Paragraph(f"Source : {text}", S_NOTE)
+    # Escape `&` pour eviter les leaks `S&P;` / `M&A;` / `R&D;` dans ReportLab
+    safe = str(text).replace("&amp;", "\x00AMP\x00").replace("&", "&amp;").replace("\x00AMP\x00", "&amp;")
+    return Paragraph(f"Source : {safe}", S_NOTE)
 
 def tbl(data, cw, row_heights=None):
     t = Table(data, colWidths=cw, rowHeights=row_heights)
@@ -1069,7 +1071,7 @@ def _build_macro(perf_buf, area_buf, tickers_data: list[dict],
         sp_trend   = _macro.get("sp500_trend", "\u2014")
 
         reg_h = [Paragraph(h, S_TH_C) for h in
-                 ["Régime de marche", "VIX", "Spread 10Y-3M", "S&P vs MA200", "Tendance"]]
+                 ["Régime de marche", "VIX", "Spread 10Y-3M", "S&amp;P vs MA200", "Tendance"]]
         reg_row = [
             Paragraph(f"<b>{_regime}</b>", _reg_style),
             Paragraph(vix_str,    S_TD_BC),
@@ -1298,7 +1300,7 @@ def _build_macro(perf_buf, area_buf, tickers_data: list[dict],
              f"les références de valorisation actuelles du secteur. "
              f"Le momentum 52 semaines de {_fmt_pct(_mo_m, sign=True)} reflète le positionnément relatif dans le cycle."),
             ("<b>Consolidation et effets d'echelle.</b>",
-             f"Les operations de M&A et les economies d'echelle exercent une pression sur les acteurs mid-cap "
+             f"Les opérations de M&amp;A et les économies d'échelle exercent une pression sur les acteurs mid-cap "
              f"du secteur {sector_name}, contraints de se différenciér ou de rejoindre des ensembles plus larges."),
             ("<b>Pression réglementaire et ESG.</b>",
              "Le durcissement des normes de conformité et les exigences ESG engendrent des couts additionnels "
@@ -1341,7 +1343,8 @@ def _build_structure_sectorielle(tickers_data: list[dict], sector_name: str,
 
     # HHI
     hhi = sa.get("hhi")
-    hhi_val = f"{hhi:,}" if hhi else "\u2014"
+    # FR : separateur de milliers = espace ins\u00e9cable fine, pas virgule (qui est decimal)
+    hhi_val = (f"{hhi:,}".replace(",", "\u202f") if hhi else "\u2014")
     hhi_lbl = sa.get("hhi_label", "\u2014")
     if hhi:
         if hhi >= 2500:
@@ -1400,7 +1403,7 @@ def _build_structure_sectorielle(tickers_data: list[dict], sector_name: str,
     is_al  = sa.get("is_asset_light", False)
     # Libellé du modèle et seuils pour transparence
     if az_mdl == "nonmfg_1995":
-        az_safe_label = "Z'>2.6"
+        az_safe_label = "Z'>2,6"
         az_model_tag  = "Z' non-mfg."
     else:
         az_safe_label = "Z>3"
@@ -1456,10 +1459,10 @@ def _build_structure_sectorielle(tickers_data: list[dict], sector_name: str,
     elems.append(KeepTogether(tbl([struct_h] + struct_rows,
                                    cw=[80*mm, 90*mm])))
     if az_mdl == "nonmfg_1995":
-        _az_src = ("Altman Z' = modele non-manufacturing 1995 (6.56*X1+3.26*X2+6.72*X3+1.05*X4, "
-                   "X5 exclu). Seuils : safe >2.6, grise 1.1-2.6, détresse <1.1.")
+        _az_src = ("Altman Z' = modèle non-manufacturing 1995 (6,56·X1+3,26·X2+6,72·X3+1,05·X4, "
+                   "X5 exclu). Seuils : safe >2,6 ; grise 1,1-2,6 ; détresse <1,1.")
     else:
-        _az_src = "Altman Z = modele original 1968. Seuils : safe >2.99, grise 1.81-2.99, détresse <1.81."
+        _az_src = "Altman Z = modèle original 1968. Seuils : safe >2,99 ; grise 1,81-2,99 ; détresse <1,81."
     elems.append(src(
         "FinSight IA — yfinance, FMP. HHI calcule sur capitalisations boursieres. "
         "ROIC = NOPAT/IC (ROE si ROIC indisponible). PE historique = cours moyen annuel / EPS. "
@@ -1727,11 +1730,11 @@ def _build_structure_sectorielle(tickers_data: list[dict], sector_name: str,
     mdd    = sa.get("max_drawdown_52w")
     if var_95 is not None:
         if vol_a is not None:
-            var_val = f"VaR {var_95:.1f}%  |  Vol. {vol_a:.1f}% ann."
+            var_val = (f"VaR {var_95:.1f} %  |  Vol. {vol_a:.1f} % ann.").replace('.', ',')
         else:
-            var_val = f"{var_95:.1f}%"
+            var_val = f"{var_95:.1f} %".replace('.', ',')
         if mdd is not None:
-            var_val += f"  |  MaxDD {mdd:.1f}%"
+            var_val += f"  |  MaxDD {mdd:.1f} %".replace('.', ',')
         # Interprétation selon sévérité (VaR est négatif)
         if var_95 < -12:
             var_lbl = "risque élevé — pertes mensuelles potentielles importantes pour le sizing"
@@ -1756,7 +1759,11 @@ def _build_structure_sectorielle(tickers_data: list[dict], sector_name: str,
     dur_g  = sa.get("duration_growth")
     dur_mt = sa.get("duration_method", "")
     if dur_y is not None:
-        dur_val = f"{dur_y} ans  (WACC {dur_w}%  |  g {dur_g}%)"
+        # FR : virgule decimale + espace avant %
+        _dur_y_s = (f"{dur_y:.1f}".replace('.', ',') if isinstance(dur_y, float) else str(dur_y))
+        _dur_w_s = (f"{dur_w:.1f}".replace('.', ',') if isinstance(dur_w, float) else str(dur_w))
+        _dur_g_s = (f"{dur_g:.1f}".replace('.', ',') if isinstance(dur_g, float) else str(dur_g))
+        dur_val = f"{_dur_y_s} ans  (WACC {_dur_w_s} %  |  g {_dur_g_s} %)"
         if dur_y >= 20:
             dur_lbl = "duration très longue — exposition taux critique, +100bp WACC = -15%+ valorisation"
             dur_s   = S_TD_R
@@ -1830,9 +1837,12 @@ def _build_structure_sectorielle(tickers_data: list[dict], sector_name: str,
             )
 
         if pe_prem is not None and pe_hist:
+            _pe_ltm_s = f"{pe_ltm:.1f}x".replace('.', ',')
+            _pe_hist_s = f"{pe_hist:.1f}x".replace('.', ',')
+            _pe_prem_s = f"{pe_prem:+.0f} %"
             pe_note = (
-                f" Le P/E médian actuel de <b>{pe_ltm:.1f}x</b> se situe à "
-                f"<b>{pe_prem:+.0f}%</b> vs la médiane historique 5 ans ({pe_hist:.1f}x) — "
+                f" Le P/E médian actuel de <b>{_pe_ltm_s}</b> se situe à "
+                f"<b>{_pe_prem_s}</b> vs la médiane historique 5 ans ({_pe_hist_s}) — "
                 f"{pe_lbl}."
             )
         else:
@@ -1842,9 +1852,10 @@ def _build_structure_sectorielle(tickers_data: list[dict], sector_name: str,
         elems.append(Spacer(1, 3*mm))
 
     if roic_std is not None:
+        _roic_std_s = f"{roic_std:.1f} %".replace('.', ',')
         elems.append(Paragraph(
             f"<b>Implications de la dispersion ROIC.</b> "
-            f"L'écart-type du ROIC/ROE de <b>{roic_std:.1f}%</b> au sein du secteur "
+            f"L'écart-type du ROIC/ROE de <b>{_roic_std_s}</b> au sein du secteur "
             f"indique que {roic_lbl}. "
             f"Dans un secteur à forte dispersion, les gérants actifs ont un avantage "
             f"structurel sur les approches indicielles — l'alpha vient de la sélection, "
@@ -2564,7 +2575,7 @@ def _build_acteurs(tickers_data: list[dict], sector_name: str, registry=None):
     catalysts = [
         "Résultats trimestriels — révision estimations consensus",
         "Publication guidance annuel — acceleration croissance",
-        "Annonce M&A stratégique — expansion périmètres",
+        "Annonce M&amp;A stratégique — expansion périmètres",
         "Mise à jour stratégique — plan moyen terme",
         "Amélioration mix produits — expansion marges",
         "Retour capital actionnaires — programme rachats",
@@ -2606,7 +2617,7 @@ def _build_acteurs(tickers_data: list[dict], sector_name: str, registry=None):
         f"soutenu par des fondamentaux solides et une visibilité supérieure sur les revenus. "
         f"Les convictions moyennes restent modérées, cohérentes avec un contexte macro incertain "
         f"et une normalisation des multiples sectoriels en cours. "
-        f"Les catalyseurs identifies — résultats trimestriels, guidance annuel, operations M&A — "
+        f"Les catalyseurs identifiés — résultats trimestriels, guidance annuel, opérations M&amp;A — "
         f"constituent les événements cles a surveiller pour un renforcement conditionnel des positions.",
         S_BODY))
     elems.append(KeepTogether([
@@ -3008,7 +3019,7 @@ def _build_risques(tickers_data: list[dict], sector_name: str, registry=None):
         _p_clean = str(prob).replace('%', '').replace('pct', '').strip()
         _m = _re_prob.search(r'(\d+)', _p_clean)
         p_int = int(_m.group(1)) if _m else 30
-        prob_display = f"{p_int}%"  # re-affiche en % pour le PDF, pas "35pct"
+        prob_display = f"{p_int} %"  # FR : espace avant %, pas "35pct"
         prob_s = S_TD_R if p_int >= 50 else (S_TD_A if p_int >= 30 else S_TD_G)
         imp_s  = S_TD_R if impact == "Élevé" else (S_TD_A if impact in ("Modéré","Mixte") else S_TD_G)
         risk_rows.append([
@@ -3028,15 +3039,16 @@ def _build_risques(tickers_data: list[dict], sector_name: str, registry=None):
     # Score sentiment derive des scores qualité moyens
     avg_q = sum((t.get('score_quality') or 50) for t in tickers_data) / max(len(tickers_data), 1)
     sent_score = (avg_q - 50) / 100
-    sent_label = "moderement positif" if sent_score > 0 else "moderement négatif"
+    sent_label = "modérément positif" if sent_score > 0 else "modérément négatif"
+    _sent_score_s = f"{sent_score:+.3f}".replace('.', ',')
 
     elems.append(Paragraph(
         f"L'analyse FinBERT sur le corpus presse financière des sept derniers jours "
-        f"fait ressortir un sentiment <b>{sent_label} (score agrégé : {sent_score:+.3f})</b>. "
-        f"Les publications favorables sont portees par les résultats trimestriels solides "
-        f"des leaders sectoriels. Les publications defavorables se concentrent sur "
-        f"l'incertitude macro et les risques réglementaires. Ce positionnément est cohérent "
-        f"avec notre vue selective sur le secteur.", S_BODY))
+        f"fait ressortir un sentiment <b>{sent_label} (score agrégé : {_sent_score_s})</b>. "
+        f"Les publications favorables sont portées par les résultats trimestriels solides "
+        f"des leaders sectoriels. Les publications défavorables se concentrent sur "
+        f"l'incertitude macro et les risques réglementaires. Ce positionnement est cohérent "
+        f"avec notre vue sélective sur le secteur.", S_BODY))
     elems.append(Spacer(1, 2*mm))
 
     n_pos = max(5, int(len(tickers_data) * 12))
@@ -3045,12 +3057,15 @@ def _build_risques(tickers_data: list[dict], sector_name: str, registry=None):
     sent_h = [Paragraph(h, S_TH_C)
               for h in ["Orientation", "Articles", "Score moyen", "Thèmes principaux"]]
     sent_data_rows = [
-        ["Positif", str(n_pos), f"+{abs(sent_score)+0.1:.2f}",
+        ["Positif", str(n_pos),
+         (f"+{abs(sent_score)+0.1:.2f}").replace('.', ','),
          f"Résultats {best_tickers} \u00b7 volumes en hausse \u00b7 expansion internationale"],
-        ["Neutre",  str(n_neu), f"+{abs(sent_score)*0.2:.2f}",
+        ["Neutre",  str(n_neu),
+         (f"+{abs(sent_score)*0.2:.2f}").replace('.', ','),
          f"Analyse macro \u00b7 guidance annuel \u00b7 événements sectoriels"],
-        ["Négatif", str(n_neg), f"-{abs(sent_score)*0.6:.2f}",
-         f"Régulation \u00b7 pressions marges \u00b7 risques credit {vuln_tickers}"],
+        ["Négatif", str(n_neg),
+         (f"-{abs(sent_score)*0.6:.2f}").replace('.', ','),
+         f"Régulation \u00b7 pressions marges \u00b7 risques crédit {vuln_tickers}"],
     ]
     sent_rows = []
     for r in sent_data_rows:
@@ -3872,7 +3887,9 @@ def _generate_medians_commentary(sector_name: str, sa: dict, sector_profile: str
             if v is None:
                 return "n/d"
             try:
-                return f"{float(v):.1f}{suffix}"
+                # FR : virgule decimale + espace avant %
+                _s = f"{float(v):.1f}".replace('.', ',')
+                return f"{_s} {suffix}" if suffix == "%" else f"{_s}{suffix}"
             except Exception:
                 return "n/d"
 
@@ -3880,7 +3897,7 @@ def _generate_medians_commentary(sector_name: str, sa: dict, sector_profile: str
             if v is None:
                 return "n/d"
             try:
-                return f"{float(v):.1f}x"
+                return f"{float(v):.1f}x".replace('.', ',')
             except Exception:
                 return "n/d"
 
