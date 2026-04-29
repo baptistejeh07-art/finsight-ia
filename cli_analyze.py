@@ -2275,10 +2275,21 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
     def _score_from_ret(ret: float) -> int:
         return max(25, min(85, round(50 + ret * 1.2)))
 
+    # Audit Sentinel 29/04/2026 : `indice_secteurs_anglais` flagué 7× sur tous les
+    # indices. Cause : `nom` venait de etf_perf en anglais (Technology, Energy,
+    # etc.) et était stocké tel quel dans secteurs[][0]. Les writers FR-isent
+    # via _abbrev_sector au rendu mais le Sentinel parsait les data brutes.
+    # Fix : FR-iser dès la source avec core.sector_labels.fr_label, tout en
+    # gardant `nom` (anglais) pour les lookups dict ci-dessous.
+    try:
+        from core.sector_labels import fr_label as _fr_sec_label
+    except Exception:
+        _fr_sec_label = lambda x: x  # fallback no-op
+
     secteurs = []
     for etf, info in etf_perf.items():
         ret = info.get("return_1y", 0.0)
-        nom = info.get("nom", "")
+        nom = info.get("nom", "")  # anglais yfinance — pour lookups dict
         nb  = _SP500_NB_SOC.get(nom, 30)
         sc  = _score_from_ret(ret)
         sig = _signal_from_ret(ret)
@@ -2300,7 +2311,9 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
         gr  = growth_generic.get(nom, "+6,0 %")
         mom_str = f"{ret:+.1f} %".replace('.', ',')
         ev_str = f"{ev:.1f}x".replace('.', ',')
-        secteurs.append((nom, nb, sc, sig, ev_str, mg, gr, mom_str))
+        # FR-iser le nom AVANT le append (preserve les lookups EN ci-dessus)
+        nom_fr = _fr_sec_label(nom) if nom else nom
+        secteurs.append((nom_fr, nb, sc, sig, ev_str, mg, gr, mom_str))
 
     # Fallback si ETF non disponibles — essai fetch constituants EU
     _eu_res: list = []               # accessible plus loin pour tickers_raw
@@ -2573,6 +2586,9 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
                 # ré-population pour ne pas créer de doublons. On garde quand
                 # même le fetch des constituants ci-dessus pour _eu_res.
                 _secteurs_already_filled = bool(secteurs)
+                # Audit Sentinel 29/04 : indice_secteurs_anglais sur EU path.
+                # FR-iser via _fr_sec_label + garder mapping FR-EN pour reecriture Nb.
+                _eu_fr_to_en = {}
                 for _sname, _mems in sorted(
                         _eu_members_by_sec.items(),
                         key=lambda kv: -sum(m["score_raw"] for m in kv[1]) / len(kv[1])):
@@ -2588,8 +2604,10 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
                     _gr   = round(sum(_gr_v) / len(_gr_v), 1) if _gr_v else 0.0
                     _gr_s = f"{_gr:+.1f} %".replace('.', ',')
                     _ret  = round(sum(m["ret_52w"] for m in _mems) / _nb, 1)
+                    _sname_fr = _fr_sec_label(_sname) if _sname else _sname
+                    _eu_fr_to_en[_sname_fr] = _sname
                     if not _secteurs_already_filled:
-                        secteurs.append((_sname, _nb, _sc, _sig, _ev_s, _mg, _gr_s, f"{_ret:+.1f} %".replace('.', ',')))
+                        secteurs.append((_sname_fr, _nb, _sc, _sig, _ev_s, _mg, _gr_s, f"{_ret:+.1f} %".replace('.', ',')))
 
                 # Réécrit Nb sociétés depuis le count réel des constituants EU
                 # (sinon on hérite des valeurs S&P 500 hardcodées qui dépassent
@@ -2598,7 +2616,9 @@ def _fetch_real_indice_data(universe: str = "S&P 500") -> dict:
                     _new_secteurs_eu = []
                     for _t in secteurs:
                         _nm = _t[0]
-                        _real_nb = len(_eu_members_by_sec.get(_nm, []))
+                        # _nm peut etre en FR maintenant - fallback EN via mapping
+                        _nm_en = _eu_fr_to_en.get(_nm, _nm) if "_eu_fr_to_en" in dir() else _nm
+                        _real_nb = len(_eu_members_by_sec.get(_nm_en, []))
                         if _real_nb > 0:
                             _new_secteurs_eu.append((_nm, _real_nb, *_t[2:]))
                         else:
