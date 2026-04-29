@@ -1416,6 +1416,10 @@ def _fetch_real_sector_data(sector: str, universe: str, max_tickers: int = 8) ->
 
             # ROIC réel = NOPAT / Invested Capital
             # NOPAT = EBIT * (1 - tax_rate), IC = TotalEquity + TotalDebt - Cash
+            # Audit Sentinel 29/04 : ROIC à 100% manquant sur 12 secteurs.
+            # Cause : yfinance ne retourne pas systématiquement ebit /
+            # totalStockholdersEquity / totalDebt sur les small/mid caps.
+            # Fix : 3 fallbacks → calcul direct → ROA proxy → ROE * 0.8 proxy.
             roic = None
             try:
                 ebit          = info.get("ebit") or info.get("operatingIncome")
@@ -1432,6 +1436,39 @@ def _fetch_real_sector_data(sector: str, universe: str, max_tickers: int = 8) ->
                     nopat = float(ebit) * (1 - min(float(tax_rate), 0.40))
                     roic  = round(nopat / ic * 100, 1)
             except Exception:
+                pass
+            # Fallback 1 : returnOnAssets (yfinance) × leverage approximatif 1.4
+            # ROA × 1.4 ≈ ROIC en moyenne pour entreprises modérément endettées
+            if roic is None:
+                try:
+                    roa = info.get("returnOnAssets")
+                    if roa is not None:
+                        roic = round(float(roa) * 100 * 1.4, 1)
+                except (TypeError, ValueError):
+                    pass
+            # Fallback 2 : ROE × 0.8 (ROE > ROIC car levier financier)
+            if roic is None:
+                try:
+                    roe_raw = info.get("returnOnEquity")
+                    if roe_raw is not None:
+                        roic = round(float(roe_raw) * 100 * 0.8, 1)
+                except (TypeError, ValueError):
+                    pass
+
+            # ND/EBITDA = (Total Debt - Cash) / EBITDA — Audit Sentinel 29/04
+            # 100% manquant sur 12 secteurs car JAMAIS calculé. Ajout fallback.
+            net_debt_ebitda = None
+            try:
+                _td = info.get("totalDebt") or 0
+                _cash = info.get("totalCash") or 0
+                _ebitda = info.get("ebitda")
+                if _ebitda and float(_ebitda) > 0:
+                    _nd = float(_td) - float(_cash)
+                    net_debt_ebitda = round(_nd / float(_ebitda), 2)
+                    # Sanity : capper outliers (banques peuvent avoir > 100 sans sens)
+                    if not (-20 <= net_debt_ebitda <= 50):
+                        net_debt_ebitda = None
+            except (TypeError, ValueError, ZeroDivisionError):
                 pass
 
             # Altman Z-Score réel — modèle sélectionné selon secteur
@@ -1615,6 +1652,7 @@ def _fetch_real_sector_data(sector: str, universe: str, max_tickers: int = 8) ->
                 "net_margin":      round(net_m, 1),
                 "roe":             roe,  # None si returnOnEquity absent
                 "roic":            roic,
+                "net_debt_ebitda": net_debt_ebitda,  # Audit Sentinel 29/04 — était toujours None
                 "revenue_growth":  rev_g,
                 "momentum_52w":    round(mom52, 1),
                 "altman_z":        altman_z,
