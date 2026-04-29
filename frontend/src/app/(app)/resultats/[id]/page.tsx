@@ -47,6 +47,7 @@ import { CmpIndiceTop5 } from "@/components/dashboard/cmp-indice-top5";
 import { CmpIndiceScores } from "@/components/dashboard/cmp-indice-scores";
 import { SectorPortraitCard } from "@/components/dashboard/sector-portrait-card";
 import { SectorCompareLauncher } from "@/components/dashboard/sector-compare-launcher";
+import { IndiceSectorCompareLauncher } from "@/components/dashboard/indice-sector-compare-launcher";
 import { IndiceSecteursTable } from "@/components/dashboard/indice-secteurs-table";
 import { SaveToHistoryCard } from "@/components/dashboard/save-to-history-card";
 import { ShareCard } from "@/components/dashboard/share-card";
@@ -756,6 +757,26 @@ export default function ResultatsPage({ params }: { params: Promise<{ id: string
                           <IndiceSectorsDonut
                             secteurs={result.data!.secteurs!}
                             universe={result.data?.universe}
+                          />
+                        ),
+                      } satisfies GridBlock,
+                    ]
+                  : []),
+                // Phase 2 roadmap (29/04/2026) — Comparer 2 secteurs DANS l'indice
+                ...(kind === "indice" && result.data?.universe
+                  ? [
+                      {
+                        id: "indice-sector-compare",
+                        label: "Comparer 2 secteurs",
+                        default: { x: 0, y: 12, w: 4, h: 4 },
+                        render: () => (
+                          <IndiceSectorCompareLauncher
+                            universe={String(result.data?.universe)}
+                            availableSectors={
+                              (result.data?.secteurs as Array<{ name?: string; nom?: string }> | undefined)
+                                ?.map((s) => s?.name || s?.nom)
+                                .filter((s): s is string => typeof s === "string" && s.length > 0)
+                            }
                           />
                         ),
                       } satisfies GridBlock,

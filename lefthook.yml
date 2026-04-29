@@ -1,0 +1,50 @@
+# FinSight IA — Lefthook config (sentinel reinforcement P0)
+# Audit code 29/04/2026 + sentinel_reinforcement_plan.md
+#
+# Remplace .git/hooks/pre-commit (Python only) par un hook multi-langage :
+# Python tests + TypeScript check + ruff lint en parallèle sur les fichiers staged.
+#
+# Avant : Vercel cassait silencieusement sur erreurs TS (commits 1fe4638/7f5fdb6
+# TS2367) car le pre-commit ne lançait QUE test_core.py Python.
+# Désormais : tsc --noEmit s'exécute automatiquement avant chaque commit qui touche
+# frontend/src/**/*.{ts,tsx}.
+#
+# Installation :
+#   1. Installer Lefthook : https://github.com/evilmartians/lefthook (binaire Go)
+#      Windows : winget install Lefthook  ou  scoop install lefthook
+#      macOS   : brew install lefthook
+#      Linux   : curl -sSf https://...
+#   2. Activer : lefthook install (à la racine du repo)
+#   3. Test    : lefthook run pre-commit
+#
+# Skip ponctuel : git commit --no-verify (à éviter sauf urgence)
+
+pre-commit:
+  parallel: true
+  commands:
+    # Python : test_core.py si modules core modifiés
+    python-tests:
+      glob: "{core,tests/test_core,outputs/excel_profile_router}/**/*.py"
+      run: python tests/test_core.py
+
+    # TypeScript : tsc --noEmit sur tout le frontend si fichier .ts/.tsx staged
+    typescript-check:
+      glob: "frontend/src/**/*.{ts,tsx}"
+      root: "frontend/"
+      run: npx tsc --noEmit
+
+    # Ruff : lint Python ultra-rapide sur fichiers staged uniquement
+    ruff:
+      glob: "*.py"
+      run: ruff check --fix {staged_files} || true
+      stage_fixed: true
+
+  # Skip si commit message contient [skip-hooks]
+  skip:
+    - run: echo "$LEFTHOOK_GIT_COMMIT_MSG" | grep -q "\[skip-hooks\]"
+
+pre-push:
+  commands:
+    # Vérification finale avant push : tests complets + smoke imports outputs
+    smoke-imports:
+      run: python tools/test_outputs.py
