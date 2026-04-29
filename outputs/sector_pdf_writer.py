@@ -250,17 +250,17 @@ def _reco_3(score):
     return "SELL"
 
 def _upside(score):
-    """Estime un upside indicatif a partir du score."""
+    """Estime un upside indicatif a partir du score (FR : espace avant %)."""
     if score is None:
         return "\u2014"
     s = float(score)
     if s >= 75:
-        return f"+{int((s-50)*0.5)}%"
+        return f"+{int((s-50)*0.5)} %"
     if s >= 55:
-        return f"+{int((s-50)*0.3)}%"
+        return f"+{int((s-50)*0.3)} %"
     if s >= 45:
-        return f"+{int((s-50)*0.2)}%"
-    return f"-{int((50-s)*0.4)}%"
+        return f"+{int((s-50)*0.2)} %"
+    return f"-{int((50-s)*0.4)} %"
 
 def _conviction(score):
     if score is None:
@@ -975,8 +975,11 @@ def _build_macro(perf_buf, area_buf, tickers_data: list[dict],
 
     _ag_s = _fmt_pct(avg_growth, sign=True)
     _ae_s = _fmt_pct(avg_ebitda, sign=False)
+    # Escape `&` dans universe (S&P 500) pour eviter le bug `S&P;` ReportLab
+    _universe_safe = str(universe).replace("&", "&amp;")
+    _sector_safe = str(sector_name).replace("&", "&amp;")
     elems.append(Paragraph(
-        f"Le secteur <b>{sector_name}</b> ({universe}) couvre <b>{N} sociétés</b> "
+        f"Le secteur <b>{_sector_safe}</b> ({_universe_safe}) couvre <b>{N} sociétés</b> "
         f"pour une capitalisation totale de <b>{_mc_str}</b>. "
         f"La croissance moyenne des revenus s'établit a <b>{_ag_s} YoY</b>, "
         f"avec une marge EBITDA médiane de <b>{_ae_s}</b>. "
@@ -1729,12 +1732,17 @@ def _build_structure_sectorielle(tickers_data: list[dict], sector_name: str,
     vol_a  = sa.get("vol_annual")
     mdd    = sa.get("max_drawdown_52w")
     if var_95 is not None:
+        # FR : virgule decimale + espace avant % — replace local sur les chiffres seulement
+        # (sinon `.replace('.', ',')` global transforme aussi `Vol.` en `Vol,`)
+        _var_95_s = f"{var_95:.1f}".replace('.', ',')
         if vol_a is not None:
-            var_val = (f"VaR {var_95:.1f} %  |  Vol. {vol_a:.1f} % ann.").replace('.', ',')
+            _vol_a_s = f"{vol_a:.1f}".replace('.', ',')
+            var_val = f"VaR {_var_95_s} %  |  Vol. {_vol_a_s} % ann."
         else:
-            var_val = f"{var_95:.1f} %".replace('.', ',')
+            var_val = f"{_var_95_s} %"
         if mdd is not None:
-            var_val += f"  |  MaxDD {mdd:.1f} %".replace('.', ',')
+            _mdd_s = f"{mdd:.1f}".replace('.', ',')
+            var_val += f"  |  MaxDD {_mdd_s} %"
         # Interprétation selon sévérité (VaR est négatif)
         if var_95 < -12:
             var_lbl = "risque élevé — pertes mensuelles potentielles importantes pour le sizing"
@@ -2905,12 +2913,13 @@ def _build_valorisation(scatter_buf, donut_buf, tickers_data: list[dict],
                    and float(t['ev_ebitda']) > med_ev2 * 1.15]
         decote_names = ", ".join(t.get('ticker', '') for t in _decotes[:3]) if _decotes else "aucun acteur"
         prime_names  = ", ".join(t.get('ticker', '') for t in primes[:3]) if primes else "aucun acteur"
+        _med_ev2_s = f"{med_ev2:.1f}x".replace('.', ',')
         elems.append(Paragraph(
             f"<b>Lecture de la grille de valorisation.</b> La m\u00e9diane EV/EBITDA sectorielle "
-            f"s'\u00e9tablit \u00e0 <b>{med_ev2:.1f}x</b> LTM. Les acteurs trait\u00e9s en d\u00e9cote significative "
-            f"(<85% de la m\u00e9diane) \u2014 <b>{decote_names}</b> \u2014 offrent potentiellement les meilleures "
+            f"s'\u00e9tablit \u00e0 <b>{_med_ev2_s}</b> LTM. Les acteurs trait\u00e9s en d\u00e9cote significative "
+            f"(&lt; 85 % de la m\u00e9diane) \u2014 <b>{decote_names}</b> \u2014 offrent potentiellement les meilleures "
             f"asym\u00e9tries risque/rendement, sous r\u00e9serve de catalyseurs fondamentaux. "
-            f"\u00c0 l'inverse, les acteurs en prime marqu\u00e9e (>115% de la m\u00e9diane) \u2014 <b>{prime_names}</b> \u2014 "
+            f"\u00c0 l'inverse, les acteurs en prime marqu\u00e9e (&gt; 115 % de la m\u00e9diane) \u2014 <b>{prime_names}</b> \u2014 "
             f"exigent une croissance visible et une qualit\u00e9 de bilan sup\u00e9rieure pour justifier "
             f"leur niveau de valorisation dans un contexte de taux normalis\u00e9s.",
             S_BODY))

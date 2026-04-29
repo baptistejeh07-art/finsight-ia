@@ -995,11 +995,11 @@ def _compute_sector_analytics(tickers_data: list[dict],
     if pe_median_ltm and pe_median_hist:
         pe_premium = (pe_median_ltm / pe_median_hist - 1) * 100
         if pe_premium > 15:
-            pe_cycle_label = f"secteur historiquement cher (+{pe_premium:.0f}% vs médiane 5 ans)"
+            pe_cycle_label = f"secteur historiquement cher (+{pe_premium:.0f} % vs médiane 5 ans)"
         elif pe_premium < -10:
-            pe_cycle_label = f"secteur historiquement bon marché ({pe_premium:.0f}% vs médiane 5 ans)"
+            pe_cycle_label = f"secteur historiquement bon marché ({pe_premium:.0f} % vs médiane 5 ans)"
         else:
-            pe_cycle_label = f"valorisation en ligne avec la médiane historique ({pe_premium:+.0f}%)"
+            pe_cycle_label = f"valorisation en ligne avec la médiane historique ({pe_premium:+.0f} %)"
     else:
         pe_premium   = None
         pe_cycle_label = "historique PE insuffisant"
