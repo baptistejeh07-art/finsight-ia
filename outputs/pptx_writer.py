@@ -1235,18 +1235,31 @@ def _slide_exec_summary(prs, snap, synthesis, ratios, devil, sentiment):
     for i, ry in enumerate(risk_ys):
         risk_text = (risks_s[i] if i < len(risks_s) else
                      (counter_risks[i] if i < len(counter_risks) else ""))
-        # Cascade body : neg_themes → risk_bodies (counter_thesis) → counter_risks → fallback unique
-        # Seuil abaissé à 15 chars : neg_themes peut être un court bullet point LLM
-        body_r = (neg_themes[i] if i < len(neg_themes) and neg_themes[i] else "")
-        if not body_r or len(body_r) < 15:
-            rb = risk_bodies[i] if i < len(risk_bodies) else ""
-            if rb and len(rb) >= 15:
-                body_r = rb
-        if not body_r or len(body_r) < 15:
+        # Cascade body : risk_bodies (counter_thesis détaillé) → counter_risks → neg_themes → fallback.
+        # Garde anti-doublon (29/04) : si body_r == risk_text (cas LLM qui retourne
+        # le même bullet en title et body), on saute pour passer au candidat suivant.
+        # Seuil 25 chars : un body élaboré doit être substantiellement plus long que le
+        # title (~10-30 chars) — sinon il s'agit probablement d'une duplication.
+        def _useful(cand):
+            if not cand or len(cand) < 25:
+                return False
+            if risk_text and cand.strip().lower() == risk_text.strip().lower():
+                return False
+            return True
+
+        body_r = ""
+        rb = risk_bodies[i] if i < len(risk_bodies) else ""
+        if _useful(rb):
+            body_r = rb
+        if not body_r:
             cr = counter_risks[i] if i < len(counter_risks) else ""
-            if cr and len(cr) >= 15:
+            if _useful(cr):
                 body_r = cr
-        if not body_r or len(body_r) < 15:
+        if not body_r:
+            nt = neg_themes[i] if i < len(neg_themes) else ""
+            if _useful(nt):
+                body_r = nt
+        if not body_r:
             # Fallback unique : intègre le label du risque pour différencier les 3 blocs
             _lbl = (risk_text.split(":", 1)[-1].strip() if ":" in risk_text
                     else risk_text)
@@ -1296,9 +1309,10 @@ def _slide_exec_summary(prs, snap, synthesis, ratios, devil, sentiment):
         if i < len(catalysts):
             _cat_name = _g(catalysts[i], "title") or _g(catalysts[i], "name") or ""
             _cat_body = _g(catalysts[i], "description") or _g(catalysts[i], "text") or ""
-            # PPTX-S2 calibrage 2026-04-17 : box 11.42x0.62cm font 6.5pt = ~80 chars max
-            # Avant _truncate(_, 160) -> overflow ratio 2.00. Reduit a 90 chars (~14 mots).
-            _cat_txt  = _truncate(f"{_cat_name[:30]} : {_cat_body}", 90) if _cat_body else _truncate(_cat_name, 90)
+            # PPTX-S2 audit 29/04 : title[:30] + body coup\u00e9 \u00e0 90 chars laissait
+            # body tronqu\u00e9 pile sur "horizon" sans la valeur "6-12 mois".
+            # Budget 150 chars (~25 mots) avec body intact si possible.
+            _cat_txt  = _truncate(f"{_cat_name[:32]} : {_cat_body}", 150) if _cat_body else _truncate(_cat_name, 150)
         else:
             _cat_txt = "\u2014"
         add_rect(slide, cx, cy + 0.05, 0.10, 0.22, "1A7A4A")
@@ -3842,10 +3856,10 @@ def _slide_lbo_returns(prs, snap, pack: dict):
     _irr_fill = GREEN_PALE if irr_base >= 0.20 else (AMBER_PALE if irr_base >= 0.15 else RED_PALE)
     _irr_accent = GREEN if irr_base >= 0.20 else (AMBER if irr_base >= 0.15 else RED)
     kpi_box(slide, 1.02, 2.45, 5.60, 2.30,
-            f"{irr_base*100:.1f}%", "IRR Sponsor", "Base case 5 ans",
+            f"{irr_base*100:.1f} %".replace('.', ','), "IRR Sponsor", "Base case 5 ans",
             fill=_irr_fill, accent=_irr_accent)
     kpi_box(slide, 6.92, 2.45, 5.60, 2.30,
-            f"{moic_base:.2f}x", "MOIC", "Money-on-invested",
+            f"{moic_base:.2f}x".replace('.', ','), "MOIC", "Money-on-invested",
             fill=NAVY_PALE, accent=NAVY_MID)
     kpi_box(slide, 12.81, 2.45, 5.60, 2.30,
             _frm(ret["sponsor_equity"], cur), "Equity entry", "Sponsor au closing",
@@ -4031,10 +4045,10 @@ def _slide_lbo_stress(prs, snap, pack: dict):
         s = sc[key]
         irr_v = s["irr"] * 100
         rows_text = [
-            ("IRR Sponsor", f"{irr_v:+.1f}%"),
-            ("MOIC", f"{s['moic']:.2f}x"),
-            ("Leverage exit", f"{s['leverage']:.2f}x"),
-            ("ICR exit", f"{s['icr']:.1f}x"),
+            ("IRR Sponsor", f"{irr_v:+.1f} %".replace('.', ',')),
+            ("MOIC", f"{s['moic']:.2f}x".replace('.', ',')),
+            ("Leverage exit", f"{s['leverage']:.2f}x".replace('.', ',')),
+            ("ICR exit", f"{s['icr']:.1f}x".replace('.', ',')),
         ]
         for ri, (lab, val) in enumerate(rows_text):
             ry = 8.85 + ri * 0.58  # rows un peu plus serres pour rentrer dans 2.50
@@ -4207,7 +4221,7 @@ def _slide_risques(prs, snap, synthesis, devil, extra_scores: dict = None):
         regime = _macro.get('regime', '')
         rec_6m = _macro.get('recession_prob_6m')
         if regime and regime != 'Inconnu':
-            rec_part = f"  Rec.6M:{rec_6m}%" if rec_6m is not None else ''
+            rec_part = f"  ·  Réc. 6M : {rec_6m} %" if rec_6m is not None else ''
             row1_items.append((f"Régime : {regime}{rec_part}", _CMAP.get(regime, NAVY)))
 
         for i, (txt, col) in enumerate(row1_items[:3]):
@@ -4224,21 +4238,21 @@ def _slide_risques(prs, snap, synthesis, devil, extra_scores: dict = None):
         eq_lbl = _eq.get('label')
         if eq_lbl and eq_lbl != 'N/D':
             cc = _eq.get('cash_conversion')
-            cc_str = f" ({cc:.2f}x)" if cc is not None else ''
+            cc_str = f" ({cc:.2f}x)".replace('.', ',') if cc is not None else ''
             row2_items.append((f"Earnings Qualité : {eq_lbl}{cc_str}",
                                _CMAP.get(eq_lbl, NAVY)))
 
         cs_lbl = _cs.get('label')
         if cs_lbl and cs_lbl != 'N/D':
             ratio = _cs.get('short_term_ratio')
-            r_str = f" ({ratio*100:.0f}% CT)" if ratio is not None else ''
+            r_str = f" ({ratio*100:.0f} % CT)" if ratio is not None else ''
             row2_items.append((f"Struct. Capital : {cs_lbl}{r_str}",
                                _CMAP.get(cs_lbl, NAVY)))
 
         ds_lbl = _ds.get('label')
         if ds_lbl and ds_lbl not in ('N/D', 'Sans dividende'):
             cov = _ds.get('fcf_coverage')
-            c_str = f" ({cov:.1f}x)" if cov is not None else ''
+            c_str = f" ({cov:.1f}x)".replace('.', ',') if cov is not None else ''
             row2_items.append((f"Dividende : {ds_lbl}{c_str}",
                                _CMAP.get(ds_lbl, NAVY)))
         elif not row2_items:
@@ -4840,22 +4854,22 @@ def _slide_historique(prs, snap, synthesis):
             _parts = []
             _ff = _fred.get("fed_funds_rate")
             if _ff is not None:
-                _parts.append(f"Fed {_ff:.2f}%")
+                _parts.append(f"Fed {_ff:.2f} %".replace('.', ','))
             _t10 = _fred.get("treasury_10y")
             if _t10 is not None:
-                _parts.append(f"10Y {_t10:.2f}%")
+                _parts.append(f"10Y {_t10:.2f} %".replace('.', ','))
             _vx = _fred.get("vix")
             if _vx is not None:
-                _parts.append(f"VIX {_vx:.1f}")
+                _parts.append(f"VIX {_vx:.1f}".replace('.', ','))
             _cpi = _fred.get("cpi_yoy")
             if _cpi is not None:
-                _parts.append(f"CPI {_cpi:+.1f}% YoY")
+                _parts.append(f"CPI {_cpi:+.1f} % YoY".replace('.', ','))
             _cs = _fred.get("credit_spread_baa")
             if _cs is not None:
-                _parts.append(f"Spread BAA {_cs:.2f}%")
+                _parts.append(f"Spread BAA {_cs:.2f} %".replace('.', ','))
             _unemp = _fred.get("unemployment")
             if _unemp is not None:
-                _parts.append(f"Ch\u00f4mage {_unemp:.1f}%")
+                _parts.append(f"Ch\u00f4mage {_unemp:.1f} %".replace('.', ','))
             if _parts:
                 _fred_line = "Contexte macro : " + " \u00b7 ".join(_parts)
                 add_text_box(slide, chart_x, 11.10, chart_w, 0.42,
@@ -4896,7 +4910,7 @@ def _slide_conviction_tracker(prs, snap, synthesis, ratios, devil, sentiment):
     _REC_COL = {"BUY": ("1A7A4A", "E8F5E9"), "SELL": ("A82020", "FFEBEE")}.get(rec, ("B06000", "FFF8E1"))
     add_rect(slide, 0.90, 2.30, 7.50, 3.50, _REC_COL[1], line_hex=_REC_COL[0], line_width_pt=2)
     add_text_box(slide, 0.90, 2.40, 7.50, 1.10, rec, 36, _REC_COL[0], bold=True, align=PP_ALIGN.CENTER)
-    add_text_box(slide, 0.90, 3.55, 7.50, 0.55, f"Conviction : {conv_pct}%", 11, GREY_TXT, align=PP_ALIGN.CENTER)
+    add_text_box(slide, 0.90, 3.55, 7.50, 0.55, f"Conviction : {conv_pct} %", 11, GREY_TXT, align=PP_ALIGN.CENTER)
     add_text_box(slide, 0.90, 4.15, 7.50, 0.55, gen_date, 8.5, GREY_TXT, align=PP_ALIGN.CENTER)
 
     # ── Conviction meter (barre horizontale) ────────────────────────────────
@@ -4908,7 +4922,7 @@ def _slide_conviction_tracker(prs, snap, synthesis, ratios, devil, sentiment):
     # ── Devil's Advocate delta ───────────────────────────────────────────────
     devil_conv = _g(devil, "devil_conviction") or 0.5
     delta = conv - (float(devil_conv) if devil_conv else 0.5)
-    delta_lbl = f"+{delta*100:.0f}% vs Avocat du Diable" if delta >= 0 else f"{delta*100:.0f}% vs Avocat du Diable"
+    delta_lbl = f"+{delta*100:.0f} % vs Avocat du Diable" if delta >= 0 else f"{delta*100:.0f} % vs Avocat du Diable"
     delta_col = "1A7A4A" if delta >= 0 else "A82020"
     add_rect(slide, 0.90, 7.00, 7.50, 0.75, "F5F7FA")
     add_text_box(slide, 1.00, 7.05, 7.30, 0.65, f"Delta conviction : {delta_lbl}", 8.5, delta_col, bold=True)

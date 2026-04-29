@@ -140,15 +140,15 @@ class AgentEntryZone:
             sat   = price < seuil
             conditions.append(EntryCondition(
                 code      = "MARGIN_OF_SAFETY",
-                label     = "Marge de securite 10%",
+                label     = "Marge de sécurité 10 %",
                 satisfied = sat,
-                value_str = f"Cours={price:.2f} / DCF={dcf_proxy:.2f}",
-                threshold = f"Cours < DCF x 0.90 ({seuil:.2f})",
+                value_str = f"Cours = {price:.2f} / DCF = {dcf_proxy:.2f}".replace('.', ','),
+                threshold = f"Cours < DCF × 0,90 ({seuil:.2f})".replace('.', ','),
             ))
         else:
             conditions.append(EntryCondition(
-                code="MARGIN_OF_SAFETY", label="Marge de securite 10%",
-                satisfied=False, value_str="N/A", threshold="Cours < DCF x 0.90",
+                code="MARGIN_OF_SAFETY", label="Marge de sécurité 10 %",
+                satisfied=False, value_str="N/A", threshold="Cours < DCF × 0,90",
             ))
 
         # =================================================================
@@ -158,14 +158,14 @@ class AgentEntryZone:
             sat = price < mm50
             conditions.append(EntryCondition(
                 code      = "MOMENTUM_NEGATIF",
-                label     = "Momentum negatif (cours < MM50)",
+                label     = "Momentum négatif (cours < MM50)",
                 satisfied = sat,
-                value_str = f"Cours={price:.2f} / MM50={mm50:.2f}",
-                threshold = f"Cours < MM50 ({mm50:.2f})",
+                value_str = f"Cours = {price:.2f} / MM50 = {mm50:.2f}".replace('.', ','),
+                threshold = f"Cours < MM50 ({mm50:.2f})".replace('.', ','),
             ))
         else:
             conditions.append(EntryCondition(
-                code="MOMENTUM_NEGATIF", label="Momentum negatif (cours < MM50)",
+                code="MOMENTUM_NEGATIF", label="Momentum négatif (cours < MM50)",
                 satisfied=False, value_str="N/A", threshold="Cours < MM50",
             ))
 
@@ -176,15 +176,15 @@ class AgentEntryZone:
             sat = altman_z > 2.99
             conditions.append(EntryCondition(
                 code      = "ALTMAN_SAFE",
-                label     = "Sante financiere (Altman Z > 2.99)",
+                label     = "Santé financière (Altman Z > 2,99)",
                 satisfied = sat,
-                value_str = f"Z={altman_z:.2f}",
-                threshold = "Z > 2.99",
+                value_str = f"Z = {altman_z:.2f}".replace('.', ','),
+                threshold = "Z > 2,99",
             ))
         else:
             conditions.append(EntryCondition(
-                code="ALTMAN_SAFE", label="Sante financiere (Altman Z > 2.99)",
-                satisfied=False, value_str="N/A", threshold="Z > 2.99",
+                code="ALTMAN_SAFE", label="Santé financière (Altman Z > 2,99)",
+                satisfied=False, value_str="N/A", threshold="Z > 2,99",
             ))
 
         # =================================================================
@@ -194,16 +194,16 @@ class AgentEntryZone:
             sat = sentiment_score > -0.1
             conditions.append(EntryCondition(
                 code      = "SENTIMENT_OK",
-                label     = "Sentiment FinBERT > -0.1",
+                label     = "Sentiment FinBERT > -0,1",
                 satisfied = sat,
-                value_str = f"Score={sentiment_score:.3f}",
-                threshold = "Score > -0.1",
+                value_str = f"Score = {sentiment_score:.3f}".replace('.', ','),
+                threshold = "Score > -0,1",
             ))
         else:
             conditions.append(EntryCondition(
-                code="SENTIMENT_OK", label="Sentiment FinBERT > -0.1",
+                code="SENTIMENT_OK", label="Sentiment FinBERT > -0,1",
                 satisfied=True,   # bénéfice du doute si non disponible
-                value_str="N/A", threshold="Score > -0.1",
+                value_str="N/A", threshold="Score > -0,1",
             ))
 
         # =================================================================
@@ -213,16 +213,16 @@ class AgentEntryZone:
             sat = abs(sloan_ratio) < 0.05
             conditions.append(EntryCondition(
                 code      = "SLOAN_OK",
-                label     = "Qualite benefices (Sloan < 5%)",
+                label     = "Qualité bénéfices (Sloan < 5 %)",
                 satisfied = sat,
-                value_str = f"Sloan={sloan_ratio:.1%}",
-                threshold = "|Sloan| < 5%",
+                value_str = f"Sloan = {sloan_ratio:.1%}".replace('.', ','),
+                threshold = "|Sloan| < 5 %",
             ))
         else:
             conditions.append(EntryCondition(
-                code="SLOAN_OK", label="Qualite benefices (Sloan < 5%)",
+                code="SLOAN_OK", label="Qualité bénéfices (Sloan < 5 %)",
                 satisfied=True,   # bénéfice du doute si non calculable
-                value_str="N/A", threshold="|Sloan| < 5%",
+                value_str="N/A", threshold="|Sloan| < 5 %",
             ))
 
         # --- Résumé conditions ---

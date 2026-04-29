@@ -2368,12 +2368,16 @@ def _build_extra_risk_scores(elems: list, data: dict):
             bm_c = comp.get('beneish_m', {})
             interp_parts = []
             if az_c:
-                interp_parts.append(f"Altman Z={az_c.get('value','?')} ({az_c.get('label','?')})")
+                _az_v = az_c.get('value','?')
+                _az_v_fr = (f"{_az_v}".replace('.', ',') if isinstance(_az_v, (int, float)) else _az_v)
+                interp_parts.append(f"Altman Z = {_az_v_fr} ({az_c.get('label','?')})")
             if bm_c:
-                interp_parts.append(f"Beneish M={bm_c.get('value','?')} ({bm_c.get('label','?')})")
+                _bm_v = bm_c.get('value','?')
+                _bm_v_fr = (f"{_bm_v}".replace('.', ',') if isinstance(_bm_v, (int, float)) else _bm_v)
+                interp_parts.append(f"Beneish M = {_bm_v_fr} ({bm_c.get('label','?')})")
             interp_str = " \u00b7 ".join(interp_parts) or "Voir ratios ci-dessus"
             scoring_rows.append([
-                Paragraph("Score Detresse Composite", S_TD_B),
+                Paragraph("Score D\u00e9tresse Composite", S_TD_B),
                 Paragraph(f"<b>{d_score}</b>", ParagraphStyle('sc', fontName='Helvetica-Bold',
                     fontSize=9, textColor=d_col, leading=12, alignment=1)),
                 Paragraph(f"<b>{d_label}</b>", ParagraphStyle('sl', fontName='Helvetica-Bold',
@@ -2388,7 +2392,7 @@ def _build_extra_risk_scores(elems: list, data: dict):
             signals = ma.get('signals', [])
             ma_interp = " \u00b7 ".join(signals[:2]) if signals else "Cf. ratios FCF/levier/valorisation"
             scoring_rows.append([
-                Paragraph("Attractivité Cible M&A", S_TD_B),
+                Paragraph("Attractivité Cible M&amp;A", S_TD_B),
                 Paragraph(f"<b>{m_score}</b>", ParagraphStyle('ms', fontName='Helvetica-Bold',
                     fontSize=9, textColor=m_col, leading=12, alignment=1)),
                 Paragraph(f"<b>{m_label}</b>", ParagraphStyle('ml', fontName='Helvetica-Bold',
@@ -2406,7 +2410,7 @@ def _build_extra_risk_scores(elems: list, data: dict):
             eq_full  = _safe(eq_sig + (f' | {eq_bm}' if eq_bm else ''))
             scoring_rows.append([
                 Paragraph("Qualité des earnings", S_TD_B),
-                Paragraph(f"<b>{eq_cc:.2f}x</b>", ParagraphStyle('eqs', fontName='Helvetica-Bold',
+                Paragraph(f"<b>{eq_cc:.2f}x</b>".replace('.', ','), ParagraphStyle('eqs', fontName='Helvetica-Bold',
                     fontSize=9, textColor=eq_col, leading=12, alignment=1)),
                 Paragraph(f"<b>{eq_label}</b>", ParagraphStyle('eql', fontName='Helvetica-Bold',
                     fontSize=9, textColor=eq_col, leading=12, alignment=1)),
@@ -2420,8 +2424,8 @@ def _build_extra_risk_scores(elems: list, data: dict):
             dv_col   = colors.HexColor(f"#{div_sust.get('color', '1B3A6B')}")
             dv_sig   = div_sust.get('signal', '')
             scoring_rows.append([
-                Paragraph("Dividende — soutenabilite FCF", S_TD_B),
-                Paragraph(f"<b>{dv_cov:.1f}x</b>", ParagraphStyle('dvs', fontName='Helvetica-Bold',
+                Paragraph("Dividende — soutenabilité FCF", S_TD_B),
+                Paragraph(f"<b>{dv_cov:.1f}x</b>".replace('.', ','), ParagraphStyle('dvs', fontName='Helvetica-Bold',
                     fontSize=9, textColor=dv_col, leading=12, alignment=1)),
                 Paragraph(f"<b>{dv_label}</b>", ParagraphStyle('dvl', fontName='Helvetica-Bold',
                     fontSize=9, textColor=dv_col, leading=12, alignment=1)),
@@ -2432,12 +2436,12 @@ def _build_extra_risk_scores(elems: list, data: dict):
             elems.append(tbl([scoring_h] + scoring_rows,
                               cw=[42*mm, 24*mm, 28*mm, 76*mm]))
             src_parts = [
-                "Composite Distress : Altman Z (40%) + Beneish M (35%) + indicateurs bilan (25%). Score 0-100.",
-                "M&A Score : FCF yield, levier, valorisation vs secteur, croissance.",
-                "Qualité earnings : FCF/NI (>= 1.0x = excellente, < 0.4x = faible).",
+                "Composite Distress : Altman Z (40 %) + Beneish M (35 %) + indicateurs bilan (25 %). Score 0-100.",
+                "M&amp;A Score : FCF yield, levier, valorisation vs secteur, croissance.",
+                "Qualité earnings : FCF/NI (≥ 1,0x = excellente, &lt; 0,4x = faible).",
             ]
             if has_div:
-                src_parts.append("Dividende : couverture FCF/dividendes verses.")
+                src_parts.append("Dividende : couverture FCF / dividendes versés.")
             elems.append(src(" ".join(src_parts) + " Source : FinSight IA / yfinance."))
             elems.append(Spacer(1, 3*mm))
 
@@ -2458,8 +2462,9 @@ def _build_extra_risk_scores(elems: list, data: dict):
             rec_lvl = macro.get('recession_level', 'Inconnu')
 
             vix_str    = f"VIX {vix:.0f}" if vix else '—'
-            spread_str = f"Spread 10Y-3M : {spread:+.1f}%" if spread is not None else '—'
-            rec_str    = f"{rec_6m}% a 6M ({rec_lvl})" if rec_6m is not None else '—'
+            spread_str = (f"Spread 10Y-3M : {spread:+.1f} %".replace('.', ',')
+                          if spread is not None else '—')
+            rec_str    = f"{rec_6m} % à 6M ({rec_lvl})" if rec_6m is not None else '—'
 
             _REGIME_COLORS = {
                 'Bull': BUY_GREEN, 'Bear': SELL_RED,
@@ -2467,7 +2472,7 @@ def _build_extra_risk_scores(elems: list, data: dict):
             }
             reg_col = _REGIME_COLORS.get(regime, BLACK)
             macro_rows.append([
-                Paragraph("Régime de marche", S_TD_B),
+                Paragraph("Régime de marché", S_TD_B),
                 Paragraph(f"<b>{regime}</b>", ParagraphStyle('rg', fontName='Helvetica-Bold',
                     fontSize=9, textColor=reg_col, leading=12, alignment=1)),
                 Paragraph(f"{vix_str}  \u00b7  {spread_str}", S_TD_L),
@@ -2476,9 +2481,9 @@ def _build_extra_risk_scores(elems: list, data: dict):
                 Paragraph("Proba. récession", S_TD_B),
                 Paragraph(rec_str, S_TD_C),
                 Paragraph(
-                    ("Environnement macro favorable aux actifs risques."
+                    ("Environnement macro favorable aux actifs risqués."
                      if (rec_6m or 0) < 25 else
-                     "Prudence recommandee sur l'exposition cyclique."),
+                     "Prudence recommandée sur l'exposition cyclique."),
                     S_TD_L),
             ])
 
@@ -2500,11 +2505,16 @@ def _build_extra_risk_scores(elems: list, data: dict):
             roll    = micro.get('roll_spread')
             hl      = micro.get('hl_spread')
             liq_lbl = micro.get('liq_label', '—')
-            a_str   = f"Amihud x10^6 : {amihud * 1e6:.3f}" if amihud else '—'
-            r_str   = f"Roll spread : {roll:.3f}%" if roll else '—'
-            hl_str  = f"H/L spread : {hl:.2f}%" if hl else '—'
+            # Amihud x10^6 : valeur grande (3-100k) → espace milliers FR (3 980,000 et non 3.980)
+            if amihud:
+                _ah_v = amihud * 1e6
+                a_str = f"Amihud x10^6 : {_ah_v:,.3f}".replace(",", " ").replace(".", ",")
+            else:
+                a_str = '—'
+            r_str   = f"Roll spread : {roll:.3f} %".replace('.', ',') if roll else '—'
+            hl_str  = f"H/L spread : {hl:.2f} %".replace('.', ',') if hl else '—'
             macro_rows.append([
-                Paragraph("Liquidité de marche", S_TD_B),
+                Paragraph("Liquidité de marché", S_TD_B),
                 Paragraph(liq_lbl, S_TD_C),
                 Paragraph(f"{a_str}  \u00b7  {r_str}  \u00b7  {hl_str}", S_TD_L),
             ])
@@ -2513,9 +2523,9 @@ def _build_extra_risk_scores(elems: list, data: dict):
             elems.append(tbl([macro_h] + macro_rows,
                               cw=[42*mm, 30*mm, 98*mm]))
             src_parts2 = [
-                "Régime : VIX + spread 10Y-3M + position S&P 500 vs MA200.",
-                "Récession : indicateur de marche, non econometrique.",
-                "Structure dette : proportion dette court terme / dette totale (seuil risque : > 40% CT).",
+                "Régime : VIX + spread 10Y-3M + position S&amp;P 500 vs MA200.",
+                "Récession : indicateur de marché, non économétrique.",
+                "Structure dette : proportion dette court terme / dette totale (seuil risque : &gt; 40 % CT).",
                 "Liquidité : ratio Amihud (|ret|/vol$), Roll spread, proxy H/L.",
                 "Source : FinSight IA / yfinance.",
             ]
@@ -3270,7 +3280,8 @@ def _build_risques(data):
             ]
             for _name, _val, _unit, _interp_fn in _fred_indicators:
                 if _val is not None:
-                    _val_str = f"{_val:.2f} {_unit}" if _unit else f"{_val:.2f}"
+                    _val_str = (f"{_val:.2f} {_unit}".replace('.', ',') if _unit
+                                else f"{_val:.2f}".replace('.', ','))
                     _fred_rows_data.append([
                         Paragraph(_name, S_TD_B),
                         Paragraph(_val_str, S_TD_C),
