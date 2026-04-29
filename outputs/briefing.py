@@ -51,10 +51,12 @@ def generate_briefing(
     A = lines.append
 
     def _sep(n=60): A("─" * n)
-    def _p(v): return f"{v*100:.1f}%" if v is not None else "N/A"
-    def _x(v): return f"{v:.2f}x"     if v is not None else "N/A"
-    def _n(v): return f"{v:.2f}"      if v is not None else "N/A"
-    def _f(v): return f"{v:,.0f}"     if v is not None else "N/A"
+    # Formatters FR : virgule décimale + espace insécable avant %
+    def _p(v): return f"{v*100:.1f} %".replace('.', ',') if v is not None else "N/A"
+    def _x(v): return f"{v:.2f}x".replace('.', ',')      if v is not None else "N/A"
+    def _n(v): return f"{v:.2f}".replace('.', ',')       if v is not None else "N/A"
+    def _f(v): return f"{v:,.0f}".replace(',', ' ')      if v is not None else "N/A"
+    def _pct0(v): return f"{v*100:.0f} %"                if v is not None else "N/A"
 
     # ------------------------------------------------------------------
     # En-tête
@@ -71,11 +73,11 @@ def generate_briefing(
         reco = synthesis.recommendation
         badge = {"BUY": "[BUY]", "SELL": "[SELL]", "HOLD": "[HOLD]"}.get(reco, f"[{reco}]")
         A(f"\n  RECOMMANDATION  : {badge}")
-        A(f"  Conviction      : {synthesis.conviction:.0%}")
-        A(f"  Confiance IA    : {synthesis.confidence_score:.0%}")
+        A(f"  Conviction      : {_pct0(synthesis.conviction)}")
+        A(f"  Confiance IA    : {_pct0(synthesis.confidence_score)}")
 
         if any([synthesis.target_base, synthesis.target_bull, synthesis.target_bear]):
-            cur = f"{mkt.share_price:.2f} {ci.currency}" if mkt.share_price else "N/A"
+            cur = (f"{mkt.share_price:.2f}".replace('.', ',') + f" {ci.currency}") if mkt.share_price else "N/A"
             A(f"  Cours actuel    : {cur}")
             if synthesis.target_bear:
                 A(f"  Cible Bear      : {synthesis.target_bear:.0f} {ci.currency}")
@@ -104,18 +106,18 @@ def generate_briefing(
     # ------------------------------------------------------------------
     # Ratios clés
     # ------------------------------------------------------------------
-    A(f"\n  RATIOS CLES ({latest}) :")
+    A(f"\n  RATIOS CLÉS ({latest}) :")
     if yr:
         metrics = [
-            ("Gross Margin",      _p(yr.gross_margin)),
-            ("EBITDA Margin",     _p(yr.ebitda_margin)),
-            ("Net Margin",        _p(yr.net_margin)),
+            ("Marge brute",       _p(yr.gross_margin)),
+            ("Marge EBITDA",      _p(yr.ebitda_margin)),
+            ("Marge nette",       _p(yr.net_margin)),
             ("ROE",               _p(yr.roe)),
-            ("Net Debt/EBITDA",   _x(yr.net_debt_ebitda)),
+            ("Dette nette/EBITDA",_x(yr.net_debt_ebitda)),
             ("EV/EBITDA",         _x(yr.ev_ebitda)),
             ("P/E",               _x(yr.pe_ratio)),
-            ("FCF Yield",         _p(yr.fcf_yield)),
-            ("Current Ratio",     _n(yr.current_ratio)),
+            ("Rendement FCF",     _p(yr.fcf_yield)),
+            ("Ratio courant",     _n(yr.current_ratio)),
         ]
         for label, val in metrics:
             A(f"    {label:<20} {val}")
@@ -124,15 +126,15 @@ def generate_briefing(
             z = yr.altman_z
             z_flag = (" [SAIN]" if z >= 2.99
                       else " [ZONE GRISE]" if z >= 1.81
-                      else " [DETRESSE]")
-            A(f"    {'Altman Z':<20} {z:.2f}{z_flag}")
+                      else " [DÉTRESSE]")
+            A(f"    {'Altman Z':<20} {z:.2f}{z_flag}".replace('.', ','))
 
         if yr.beneish_m is not None:
             m_flag = " [RISQUE MANIP.]" if yr.beneish_m > -2.22 else " [OK]"
-            A(f"    {'Beneish M':<20} {yr.beneish_m:.3f}{m_flag}")
+            A(f"    {'Beneish M':<20} {yr.beneish_m:.2f}{m_flag}".replace('.', ','))
 
         if yr.revenue_growth is not None:
-            A(f"    {'Revenue Growth':<20} {_p(yr.revenue_growth)}")
+            A(f"    {'Croissance revenus':<20} {_p(yr.revenue_growth)}")
     else:
         A("    Ratios non disponibles.")
 
@@ -141,8 +143,9 @@ def generate_briefing(
     # ------------------------------------------------------------------
     A(f"\n  SENTIMENT MARCHÉ :")
     if sentiment:
-        A(f"    {sentiment.label} | Score : {sentiment.score:+.3f} | "
-          f"Confiance : {sentiment.confidence:.0%} | "
+        _score_fr = f"{sentiment.score:+.3f}".replace('.', ',')
+        A(f"    {sentiment.label} | Score : {_score_fr} | "
+          f"Confiance : {_pct0(sentiment.confidence)} | "
           f"Articles : {sentiment.articles_analyzed}")
     else:
         A("    Non disponible.")
@@ -165,7 +168,7 @@ def generate_briefing(
     # ------------------------------------------------------------------
     if qa_python:
         status = "VALIDE" if qa_python.passed else "ÉCHEC"
-        A(f"\n  QA PYTHON : {status}  (score {qa_python.qa_score:.0%})")
+        A(f"\n  QA PYTHON : {status}  (score {_pct0(qa_python.qa_score)})")
         errors   = [f for f in qa_python.flags if f.level == "ERROR"]
         warnings = [f for f in qa_python.flags if f.level == "WARNING"]
         for fl in errors[:3]:
@@ -177,7 +180,7 @@ def generate_briefing(
     # Devil's Advocate
     # ------------------------------------------------------------------
     if devil:
-        delta_str = f"{devil.conviction_delta:+.2f}"
+        delta_str = f"{devil.conviction_delta:+.2f}".replace('.', ',')
         solidity  = ("Thèse fragile" if devil.conviction_delta < -0.2
                      else "Thèse robuste" if devil.conviction_delta > 0.2
                      else "Thèse modérément solide")
