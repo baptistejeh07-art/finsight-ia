@@ -686,11 +686,14 @@ def _generate_synthesis(m_a: dict, m_b: dict) -> dict:
 
     sec_a = m_a.get('sector_a') or m_a.get('sector') or 'N/D'
     sec_b = m_b.get('sector_b') or m_b.get('sector') or 'N/D'
+    cur_a = m_a.get('currency_a') or m_a.get('currency') or 'USD'
+    cur_b = m_b.get('currency_b') or m_b.get('currency') or 'USD'
 
     data_str = f"""
 ============================================================
 COMPARAISON DETAILLEE : {tkr_a} ({name_a}) vs {tkr_b} ({name_b})
 Secteurs : {sec_a} vs {sec_b}
+Devises (à respecter strictement dans le texte) : {tkr_a}={cur_a}, {tkr_b}={cur_b}
 ============================================================
 
 [1] VALORISATION (multiples)
@@ -725,11 +728,15 @@ Mediane sectorielle : PE~{_n(m_a.get('sector_median_pe'))}, EV/EBITDA~{_x2(m_a.g
 
     system_msg = (
         "Tu es un analyste sell-side senior (style JPMorgan Research, Goldman Sachs). "
-        "Reponds en francais correct, RIGOUREUX, technique, IB-grade. "
+        "Reponds en français correct, RIGOUREUX, technique, IB-grade. "
         "RÈGLE TYPOGRAPHIE ABSOLUE : utilise TOUS les accents (é è ê à ù ç î ô), les cédilles, "
-        "les apostrophes droites ' et les guillemets français « ». N'ECRIS JAMAIS sans accents — "
+        "les apostrophes droites ' et les guillemets français « ». N'écris JAMAIS sans accents — "
         "ce serait du français cassé, inacceptable. "
-        "Pas d'emojis, pas de markdown ** mis a part les separateurs explicitement demandes. "
+        "RÈGLE NOMBRES : virgule décimale FR (10,3 % et non 10.3%), "
+        "espace insécable avant % (10,3 % et non 10,3%). "
+        f"RÈGLE DEVISES : respecte STRICTEMENT les devises listées en en-tête — "
+        f"{tkr_a} en {cur_a}, {tkr_b} en {cur_b}. Ne mélange JAMAIS € et $ pour la même société. "
+        "Pas d'emojis, pas de markdown ** mis à part les séparateurs explicitement demandés. "
         "Structure : QUOI (constat chiffré) -> POURQUOI (mécanisme économique) -> IMPLICATIONS (décision investisseur). "
         "RÈGLE DONNÉES : tu disposes ci-dessous de TOUTES les données chiffrées. "
         "Tu ne dois JAMAIS dire 'données indisponibles' ni 'multiples non disponibles' ni inventer de chiffres "
@@ -964,7 +971,7 @@ Mediane sectorielle : PE~{_n(m_a.get('sector_median_pe'))}, EV/EBITDA~{_x2(m_a.g
     r = _call_llm(
         f"Analyse en 200 mots MAX la trajectoire boursière de {tkr_a} vs {tkr_b} sur 12 mois. "
         f"STRUCTURE OBLIGATOIRE :\n"
-        f"1. Contexte macro 12 mois (cycle taux directeurs Fed/BCE, cycle Économique, rotation sectorielle, "
+        f"1. Contexte macro 12 mois (cycle taux directeurs Fed/BCE, cycle économique, rotation sectorielle, "
         f"liquidité marchee actions, dollar) — 3-4 phrases.\n"
         f"2. Événements concrets ayant impacte les cours (résultats trimestriels, guidance, M&A, "
         f"sanctions réglementaires, lancements produits, géopolitique) — cite au moins 2 événements "
@@ -2037,16 +2044,16 @@ def _slide_bilan(prs, m_a: dict, m_b: dict):
         f"({_fr(_nd_b, 1)}x). La liquidité courante ressort {_liq_q(_cr_a)} pour {tkr_a} "
         f"vs {_liq_q(_cr_b)} pour {tkr_b}. "
         f"Sur le critère du levier, {_lev_winner} dispose de plus de marge pour absorber un choc "
-        f"macro ou financer une opération externe. {_fcf_winner} Généré davantage de FCF relatif "
-        f"({_fcfy_a:.1f}% vs {_fcfy_b:.1f}% de FCF yield), soutenant la soutenabilite du dividende "
-        f"et la capacité de rachat d'actions."
+        f"macro ou financer une opération externe. {_fcf_winner} génère davantage de FCF relatif "
+        f"({_fcfy_a:.1f} % vs {_fcfy_b:.1f} % de FCF yield)".replace('.', ',')
+        + ", soutenant la soutenabilité du dividende et la capacité de rachat d'actions."
     )
     y_txt = 9.65
     _txt_h = 3.40
     add_rect(slide, 1.02, y_txt, 23.37, _txt_h, NAVY_PALE)
     add_rect(slide, 1.02, y_txt, 0.13, _txt_h, NAVY_MID)
     add_text_box(slide, 1.35, y_txt + 0.12, 22.8, 0.42,
-                 "LECTURE BILANCIELLE - Qui dispose du plus de flexibilite financière ?",
+                 "LECTURE BILANCIELLE — Qui dispose du plus de flexibilité financière ?",
                  9.5, NAVY, bold=True)
     add_text_box(slide, 1.35, y_txt + 0.60, 22.8, _txt_h - 0.75,
                  " ".join(_fit(bilan_txt, 900).split()), 9.5, NAVY, wrap=True)
@@ -2268,7 +2275,7 @@ def _slide_monte_carlo(prs, m_a: dict, m_b: dict):
         _up_a = (_p50_a / _pa - 1) * 100
         _up_b = (_p50_b / _pb - 1) * 100
         _mc_leader = tkr_a if _up_a > _up_b else tkr_b
-        _jpm_mc = f"{_mc_leader} présente le meilleur upside probabiliste P50 ({max(_up_a, _up_b):+.0f}%)"
+        _jpm_mc = f"{_mc_leader} présente le meilleur upside probabiliste P50 ({max(_up_a, _up_b):+.0f} %)"
     add_text_box(slide, 1.02, 2.10, 23.37, 0.40, _jpm_mc, 10, NAVY_MID, bold=True, italic=True)
 
     # Tableau Monte Carlo
@@ -2305,12 +2312,12 @@ def _slide_monte_carlo(prs, m_a: dict, m_b: dict):
     _upside_base_b = ((_base_b / (_safe_float(p_b) or 1) - 1) * 100) if _base_b and p_b else 0
     _mc_commentary = (
         f"Le modèle DCF Bear/Base/Bull et la simulation GBM Monte Carlo donnent deux lectures "
-        f"complémentaires de la valorisation. {tkr_a} affiche un upside base de {_upside_base_a:+.0f}% "
-        f"vs {_upside_base_b:+.0f}% pour {tkr_b}. Le football field ci-dessous visualise les "
+        f"complémentaires de la valorisation. {tkr_a} affiche un upside base de {_upside_base_a:+.0f} % "
+        f"vs {_upside_base_b:+.0f} % pour {tkr_b}. Le football field ci-dessous visualise les "
         f"fourchettes intrinsèques de chaque titre : plus la bande est étendue, plus l'incertitude "
-        f"sur la valeur est élevée. La ligne pointillee indique le cours actuel ; si elle se situe "
-        f"sous la barre Base, le titre est dans une zone d'achat théorique. A croiser avec les "
-        f"hypothèses WACC/TGR (Sensibilité des flux futurs) et la crédibilité du scénario macro."
+        f"sur la valeur est élevée. La ligne pointillée indique le cours actuel ; si elle se situe "
+        f"sous la barre Base, le titre est dans une zone d'achat théorique. À croiser avec les "
+        f"hypothèses WACC/TGR (sensibilité des flux futurs) et la crédibilité du scénario macro."
     )
     # #205 : suppression du titre hardcodé "LECTURE MONTE CARLO & FOOTBALL
     # FIELD" — le texte LLM occupe toute la box (Baptiste veut les textes LLM
@@ -2592,11 +2599,13 @@ def _slide_risque(prs, m_a: dict, m_b: dict):
     if abs(_vol_a) <= 2: _vol_a *= 100
     if abs(_vol_b) <= 2: _vol_b *= 100
     risque_txt = (
-        f"Profil de risque : {_def} présente une Sensibilité marché moindre "
-        f"(beta {min(_b_a, _b_b):.2f}), adapte aux portefeuilles prudents. "
+        f"Profil de risque : {_def} présente une sensibilité marché moindre "
+        f"(beta {min(_b_a, _b_b):.2f})".replace('.', ',')
+        + ", adapté aux portefeuilles prudents. "
         f"Sur le momentum 3 mois, {_mom_leader} prend la tête "
-        f"({max(_p3m_a, _p3m_b):+.1f}% vs {min(_p3m_a, _p3m_b):+.1f}%). "
-        f"La volatilité annualisée ({_vol_a:.0f}% vs {_vol_b:.0f}%) calibré "
+        f"({max(_p3m_a, _p3m_b):+.1f} % vs {min(_p3m_a, _p3m_b):+.1f} %)".replace('.', ',')
+        + ". "
+        f"La volatilité annualisée ({_vol_a:.0f} % vs {_vol_b:.0f} %) calibre "
         f"le dimensionnement de position : une volatilité plus élevée impose "
         f"une pondération réduite pour maintenir un budget risque équivalent."
     )
@@ -3045,7 +3054,7 @@ def _slide_verdict(prs, m_a: dict, m_b: dict, synthesis: dict):
     add_text_box(slide, x_l + 0.30, y_l + 0.10, w_l - 0.5, 1.30,
                  str(rec_w).upper(), 42, _conv_line, bold=True, align=PP_ALIGN.CENTER)
     add_text_box(slide, x_l + 0.30, y_l + 1.45, w_l - 0.5, 0.50,
-                 f"Conviction : {conv_w:.0f}%", 13, NAVY, align=PP_ALIGN.CENTER)
+                 f"Conviction : {conv_w:.0f} %", 13, NAVY, align=PP_ALIGN.CENTER)
     add_text_box(slide, x_l + 0.30, y_l + 2.00, w_l - 0.5, 0.40,
                  gen_date, 9, GREY_TXT, align=PP_ALIGN.CENTER)
 
