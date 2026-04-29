@@ -1227,10 +1227,10 @@ def compute_ma_score(yr: YearRatios, sector_benchmarks: Optional[dict] = None) -
             fy = float(yr.fcf_yield)
             if fy > 0.07:
                 score += 25
-                signals.append(f"FCF Yield eleve ({fy:.1%})")
+                signals.append(f"FCF Yield élevé ({fy:.1%})".replace('.', ','))
             elif fy > 0.04:
                 score += 15
-                signals.append(f"FCF Yield correct ({fy:.1%})")
+                signals.append(f"FCF Yield correct ({fy:.1%})".replace('.', ','))
             elif fy > 0.01:
                 score += 7
             # FCF yield negatif = 0 pts
@@ -1244,10 +1244,10 @@ def compute_ma_score(yr: YearRatios, sector_benchmarks: Optional[dict] = None) -
             nd = float(yr.net_debt_ebitda)
             if nd < 0:          # net cash
                 score += 25
-                signals.append("Bilan net cash (capacite d'emprunt intacte)")
+                signals.append("Bilan net cash (capacité d'emprunt intacte)")
             elif nd < 1.0:
                 score += 20
-                signals.append(f"Levier faible ({nd:.1f}x ND/EBITDA)")
+                signals.append(f"Levier faible ({nd:.1f}x ND/EBITDA)".replace('.', ','))
             elif nd < 2.5:
                 score += 12
             elif nd < 4.0:
@@ -1267,10 +1267,10 @@ def compute_ma_score(yr: YearRatios, sector_benchmarks: Optional[dict] = None) -
             disc  = (bm_f - ev_f) / bm_f * 100 if bm_f > 0 else 0
             if disc > 20:
                 score += 25
-                signals.append(f"Decote EV/EBITDA de {disc:.0f}% vs secteur")
+                signals.append(f"Décote EV/EBITDA de {disc:.0f} % vs secteur")
             elif disc > 10:
                 score += 15
-                signals.append(f"Legere decote EV/EBITDA ({disc:.0f}%)")
+                signals.append(f"Légère décote EV/EBITDA ({disc:.0f} %)")
             elif disc > 0:
                 score += 8
         except (ValueError, TypeError):
@@ -1296,7 +1296,7 @@ def compute_ma_score(yr: YearRatios, sector_benchmarks: Optional[dict] = None) -
             rg = float(yr.revenue_growth)
             if rg > 0.20:
                 score += 15
-                signals.append(f"Croissance revenue forte ({rg:.1%})")
+                signals.append(f"Croissance revenue forte ({rg:.1%})".replace('.', ','))
             elif rg > 0.08:
                 score += 10
             elif rg > 0.0:
@@ -1393,11 +1393,11 @@ def compute_microstructure(ticker: str, period: str = "1y") -> dict:
         # -- Interpretation liquidite ----------------------------------------
         if amihud is not None:
             if amihud < 0.001:
-                liq_label = "Tres liquide"
+                liq_label = "Très liquide"
             elif amihud < 0.01:
                 liq_label = "Liquide"
             elif amihud < 0.1:
-                liq_label = "Moderement liquide"
+                liq_label = "Modérément liquide"
             else:
                 liq_label = "Illiquide"
         else:
@@ -1439,22 +1439,23 @@ def compute_earnings_quality(yr: "YearRatios") -> dict:
     ni  = yr.net_income
     fcf = yr.fcf
     if ni is None or ni == 0 or fcf is None:
-        return {"label": "N/D", "color": "B0B0B0", "signal": "Donnees insuffisantes"}
+        return {"label": "N/D", "color": "B0B0B0", "signal": "Données insuffisantes"}
 
     cc = round(fcf / ni, 2)
+    _cc_fr = f"{cc:.2f}x".replace('.', ',')
 
     if cc >= 1.0:
         label, color = "Excellente", "1A7A4A"
-        signal = f"FCF/NI = {cc:.2f}x -- earnings surpasses par le cash reel"
+        signal = f"FCF/NI = {_cc_fr} — earnings surpassés par le cash réel"
     elif cc >= 0.7:
         label, color = "Correcte", "1B3A6B"
-        signal = f"FCF/NI = {cc:.2f}x -- conversion cash adequate"
+        signal = f"FCF/NI = {_cc_fr} — conversion cash adéquate"
     elif cc >= 0.4:
         label, color = "Modérée", "B06000"
-        signal = f"FCF/NI = {cc:.2f}x -- accruals non négligeables"
+        signal = f"FCF/NI = {_cc_fr} — accruals non négligeables"
     else:
         label, color = "Faible", "A82020"
-        signal = f"FCF/NI = {cc:.2f}x -- earnings déconnectés du cash"
+        signal = f"FCF/NI = {_cc_fr} — earnings déconnectés du cash"
 
     bm = yr.beneish_m
     bm_alert = None
@@ -1523,7 +1524,7 @@ def compute_dividend_sustainability(yr: "YearRatios") -> dict:
     La vraie question : est-ce que le FCF couvre le dividende verse ?
 
     Couverture FCF/Dividendes :
-      >= 2.0x -> Tres soutenable
+      >= 2.0x -> Très soutenable
       1.0-2.0 -> Soutenable
       0.5-1.0 -> Tendu (complement par dette ou tresorerie)
       < 0.5   -> Insoutenable
@@ -1540,18 +1541,19 @@ def compute_dividend_sustainability(yr: "YearRatios") -> dict:
 
     cov = round(fcf / div_abs, 2)
 
+    _cov_fr = f"{cov:.1f}x".replace('.', ',')
     if cov >= 2.0:
-        label, color = "Tres soutenable", "1A7A4A"
-        signal = f"FCF couvre {cov:.1f}x le dividende -- marge de securite elevee"
+        label, color = "Très soutenable", "1A7A4A"
+        signal = f"FCF couvre {_cov_fr} le dividende — marge de sécurité élevée"
     elif cov >= 1.0:
         label, color = "Soutenable", "1B3A6B"
-        signal = f"FCF couvre {cov:.1f}x le dividende -- adequate, surveiller"
+        signal = f"FCF couvre {_cov_fr} le dividende — adéquate, surveiller"
     elif cov >= 0.5:
         label, color = "Tendu", "B06000"
-        signal = f"FCF = {cov:.1f}x dividende -- partiellement finance par dette/tresorerie"
+        signal = f"FCF = {_cov_fr} dividende — partiellement financé par dette / trésorerie"
     else:
         label, color = "Insoutenable", "A82020"
-        signal = f"FCF = {cov:.1f}x dividende -- incompatible sur le long terme"
+        signal = f"FCF = {_cov_fr} dividende — incompatible sur le long terme"
 
     return {
         "has_dividend":  True,

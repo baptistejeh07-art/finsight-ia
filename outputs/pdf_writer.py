@@ -2339,7 +2339,7 @@ def _build_extra_risk_scores(elems: list, data: dict):
         return
 
     elems.append(KeepTogether([
-        debate_q("Quels sont les niveaux de risque systemique et d\u2019attractivité M&A ?"),
+        debate_q("Quels sont les niveaux de risque systémique et d\u2019attractivité M&amp;A ?"),
         Spacer(1, 2*mm),
     ]))
 
@@ -2505,10 +2505,11 @@ def _build_extra_risk_scores(elems: list, data: dict):
             roll    = micro.get('roll_spread')
             hl      = micro.get('hl_spread')
             liq_lbl = micro.get('liq_label', '—')
-            # Amihud x10^6 : valeur grande (3-100k) → espace milliers FR (3 980,000 et non 3.980)
+            # Amihud x10^6 : valeur typique 1-1000 → 1 décimale FR (lisibilité)
+            # 3 décimales donnait "53,000" ambigü visuellement avec format US milliers.
             if amihud:
                 _ah_v = amihud * 1e6
-                a_str = f"Amihud x10^6 : {_ah_v:,.3f}".replace(",", " ").replace(".", ",")
+                a_str = f"Amihud x10^6 : {_ah_v:,.1f}".replace(",", " ").replace(".", ",")
             else:
                 a_str = '—'
             r_str   = f"Roll spread : {roll:.3f} %".replace('.', ',') if roll else '—'
