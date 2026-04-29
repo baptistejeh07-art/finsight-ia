@@ -1501,7 +1501,7 @@ def compute_capital_structure(yr: "YearRatios") -> dict:
         signal = f"{ratio*100:.0f}% CT / {(1-ratio)*100:.0f}% LT -- structure equilibree"
     elif ratio < 0.40:
         label, color = "Modérée", "B06000"
-        signal = f"{ratio*100:.0f}% CT / {(1-ratio)*100:.0f}% LT -- surveiller les echeances"
+        signal = f"{ratio*100:.0f} % CT / {(1-ratio)*100:.0f} % LT — surveiller les échéances"
     else:
         label, color = "Critique", "A82020"
         signal = f"{ratio*100:.0f}% CT / {(1-ratio)*100:.0f}% LT -- risque refinancement eleve"

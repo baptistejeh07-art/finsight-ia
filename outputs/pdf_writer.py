@@ -2355,7 +2355,7 @@ def _build_extra_risk_scores(elems: list, data: dict):
             Paragraph("Indicateur", S_TH_L),
             Paragraph("Score (0-100)", S_TH_C),
             Paragraph("Niveau", S_TH_C),
-            Paragraph("Interpretation", S_TH_L),
+            Paragraph("Interprétation", S_TH_L),
         ]
         scoring_rows = []
         if has_distress:
@@ -5249,7 +5249,11 @@ class PDFWriter:
             return ', '.join(t for t in ts if t) or '\u2014'
 
         sent_score  = float(_g(sentiment, 'score') or 0.0)
-        sent_label  = (_g(sentiment, 'label') or 'neutral').lower()
+        # Traduction FR du label EN renvoyé par FinBERT (positive/negative/neutral)
+        _sent_label_raw = (_g(sentiment, 'label') or 'neutral').lower()
+        _SENT_LBL_FR = {'positive': 'positif', 'négatif': 'négatif', 'negative': 'négatif',
+                        'neutral': 'neutre', 'positif': 'positif', 'neutre': 'neutre'}
+        sent_label  = _SENT_LBL_FR.get(_sent_label_raw, _sent_label_raw)
         _ENGINE_DISPLAY = {
             'finbert': 'FinBERT', 'llm_groq': 'LLM (Groq)', 'groq': 'LLM (Groq)',
             'anthropic': 'LLM (Claude)', 'claude': 'LLM (Claude)',
