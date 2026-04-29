@@ -215,7 +215,7 @@ class AgentEntryZone:
                 code      = "SLOAN_OK",
                 label     = "Qualité bénéfices (Sloan < 5 %)",
                 satisfied = sat,
-                value_str = f"Sloan = {sloan_ratio:.1%}".replace('.', ','),
+                value_str = f"Sloan = {sloan_ratio*100:+.1f} %".replace('.', ','),
                 threshold = "|Sloan| < 5 %",
             ))
         else:

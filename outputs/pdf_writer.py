@@ -2438,7 +2438,7 @@ def _build_extra_risk_scores(elems: list, data: dict):
             src_parts = [
                 "Composite Distress : Altman Z (40 %) + Beneish M (35 %) + indicateurs bilan (25 %). Score 0-100.",
                 "M&amp;A Score : FCF yield, levier, valorisation vs secteur, croissance.",
-                "Qualité earnings : FCF/NI (≥ 1,0x = excellente, &lt; 0,4x = faible).",
+                "Qualité earnings : FCF/NI (&gt;= 1,0x = excellente, &lt; 0,4x = faible).",
             ]
             if has_div:
                 src_parts.append("Dividende : couverture FCF / dividendes versés.")
@@ -4733,7 +4733,7 @@ class PDFWriter:
                 r_f = pr_f = None
             if pr_f and r_f and pr_f != 0:
                 g = (r_f - pr_f) / abs(pr_f) * 100
-                grow_vals.append(f"{g:+.1f}%".replace('.', ','))
+                grow_vals.append(f"{g:+.1f} %".replace('.', ','))
             else:
                 grow_vals.append('\u2014')
             prev_r = r
