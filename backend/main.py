@@ -2169,13 +2169,33 @@ async def stripe_create_checkout(
         raise HTTPException(status_code=503, detail="Stripe non configuré")
 
     # Early Backer : limite 10 places, check avant checkout
+    # Audit code 29/04/2026 P0 (B6) : race condition possible si 2 acheteurs
+    # checkout en parallèle quand 1 place restante. Désormais serialisé via
+    # un lock distribué Redis (TTL 60s) + relâché après création Stripe
+    # session. La fenêtre est minimale mais suffit pour empêcher l'over-sell.
+    # Note : la finalisation atomique (Stripe webhook → user_preferences)
+    # reste async donc une 2e race théorique existe entre webhook + count
+    # mais elle est négligeable (Stripe checkout = 5+ min de UX, count
+    # toujours fait avant le checkout).
+    _early_lock_key = "early_backer:checkout_lock"
     if payload.plan == "early_backer":
-        remaining = _EARLY_BACKER_LIMIT - _count_early_backers()
-        if remaining <= 0:
+        from core.cache import cache as _cache_eb
+        if not _cache_eb.acquire_lock(_early_lock_key, ttl_seconds=60):
             raise HTTPException(
-                status_code=409,
-                detail="Plus de places Early Backer disponibles. Essayez le plan Découverte.",
+                status_code=429,
+                detail="Une autre transaction Early Backer est en cours. Réessayez dans 1 minute.",
             )
+        try:
+            remaining = _EARLY_BACKER_LIMIT - _count_early_backers()
+            if remaining <= 0:
+                raise HTTPException(
+                    status_code=409,
+                    detail="Plus de places Early Backer disponibles. Essayez le plan Découverte.",
+                )
+        except HTTPException:
+            _cache_eb.release_lock(_early_lock_key)
+            raise
+        # Lock conservé pendant la création Stripe checkout (auto-expire 60s).
 
     # Résolution price_id via STRIPE_PRICE_IDS env (JSON)
     import json as _json
@@ -3572,12 +3592,29 @@ async def create_watchlist(
     return {"watchlist": (rows or [None])[0] if isinstance(rows, list) else rows}
 
 
+def _validate_uuid(value: str, field: str = "id") -> str:
+    """Valide qu'une string est un UUID valide. Sinon raise 400.
+
+    Audit code 29/04/2026 P1 : avant, wl_id était injecté directement
+    dans une URL PostgREST (eq.{wl_id}). Bien que PostgREST URL-encode
+    les paramètres, le pattern reste fragile (entropie limitée du chemin
+    d'attaque). Désormais validation UUID stricte avant toute query.
+    """
+    import uuid as _uuid
+    try:
+        _uuid.UUID(value)
+    except (ValueError, AttributeError, TypeError):
+        raise HTTPException(status_code=400, detail=f"{field} invalide (UUID attendu)")
+    return value
+
+
 @app.delete("/watchlists/{wl_id}", status_code=204)
 async def delete_watchlist(
     wl_id: str,
     request: Request,
     user: Annotated[dict, Depends(require_user)],
 ):
+    _validate_uuid(wl_id, "wl_id")
     token = (request.headers.get("authorization", "")
              .replace("Bearer ", "").strip())
     s, _ = _wl_supabase_call("DELETE", f"/watchlists?id=eq.{wl_id}", token)
@@ -3592,6 +3629,7 @@ async def add_ticker(
     request: Request,
     user: Annotated[dict, Depends(require_user)],
 ):
+    _validate_uuid(wl_id, "wl_id")
     token = (request.headers.get("authorization", "")
              .replace("Bearer ", "").strip())
     s, rows = _wl_supabase_call("POST", "/watchlist_tickers", token, {
@@ -3614,6 +3652,7 @@ async def remove_ticker(
     request: Request,
     user: Annotated[dict, Depends(require_user)],
 ):
+    _validate_uuid(wl_id, "wl_id")
     token = (request.headers.get("authorization", "")
              .replace("Bearer ", "").strip())
     s, _ = _wl_supabase_call(

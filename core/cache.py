@@ -31,6 +31,11 @@ log = logging.getLogger(__name__)
 _REDIS_URL = os.getenv("REDIS_URL", "").strip()
 _redis_client = None
 
+# Lock fallback in-process (quand Redis indispo) — protégé par threading.Lock
+import threading as _threading
+_MEM_LOCK_GUARD = _threading.Lock()
+_MEM_LOCKS: dict[str, float] = {}  # key -> expires_at
+
 
 def _get_client():
     """Lazy init du client Redis. Retourne None si Redis indisponible."""
@@ -169,6 +174,52 @@ def rate_limit(key: str, max_requests: int, window_sec: int) -> tuple[bool, int]
     return True, 0
 
 
+# --- Distributed lock (atomic check-and-set) ---
+def acquire_lock(key: str, ttl_seconds: int = 30) -> bool:
+    """Tente d'acquérir un lock distribué via Redis SET NX EX.
+
+    Audit code 29/04/2026 P0 (B6 Early Backer race) : utilisé pour
+    serialiser les opérations critiques (count + create) qui sinon
+    feraient une race condition entre 2 workers FastAPI parallèles.
+
+    Returns:
+        True si le lock est acquis (caller doit appeler release_lock).
+        False si déjà tenu par un autre process (caller doit retry/abandon).
+
+    Fallback in-memory : utilise un dict + threading.Lock (mono-process safe).
+    En prod multi-worker (uvicorn --workers > 1) sans Redis, le fallback
+    n'est PAS distribué — c'est mieux que rien mais Redis recommandé.
+    """
+    cli = _get_client()
+    if cli is not None:
+        try:
+            return bool(cli.set(key, "1", nx=True, ex=ttl_seconds))
+        except Exception as e:
+            log.warning(f"[cache] acquire_lock({key}) redis fail: {e}")
+    # Fallback in-memory
+    with _MEM_LOCK_GUARD:
+        now = time.time()
+        exp = _MEM_LOCKS.get(key)
+        if exp is not None and exp > now:
+            return False
+        _MEM_LOCKS[key] = now + ttl_seconds
+        return True
+
+
+def release_lock(key: str) -> bool:
+    """Libère un lock acquis via acquire_lock."""
+    cli = _get_client()
+    if cli is not None:
+        try:
+            cli.delete(key)
+            return True
+        except Exception as e:
+            log.debug(f"[cache] release_lock({key}) redis fail: {e}")
+    with _MEM_LOCK_GUARD:
+        _MEM_LOCKS.pop(key, None)
+    return True
+
+
 # Export "cache" en attribut accessible par cache.get/set
 class _CacheNamespace:
     get = staticmethod(get)
@@ -176,6 +227,8 @@ class _CacheNamespace:
     delete = staticmethod(delete)
     get_json = staticmethod(get_json)
     set_json = staticmethod(set_json)
+    acquire_lock = staticmethod(acquire_lock)
+    release_lock = staticmethod(release_lock)
 
 
 cache = _CacheNamespace()

@@ -119,12 +119,14 @@ def test_all_writers_import():
         "outputs.cmp_secteur_pdf_writer",
         "outputs.cmp_secteur_pptx_writer",
         "outputs.cmp_secteur_xlsx_writer",
-        "outputs.comparison_pdf_writer",
-        "outputs.comparison_pptx_writer",
-        "outputs.comparison_writer",
-        "outputs.indice_comparison_pdf_writer",
-        "outputs.indice_comparison_pptx_writer",
-        "outputs.indice_comparison_writer",
+        # Comparatif société (anciennement comparison_*, renommé cmp_societe_*)
+        "outputs.cmp_societe_pdf_writer",
+        "outputs.cmp_societe_pptx_writer",
+        "outputs.cmp_societe_xlsx_writer",
+        # Comparatif indice (anciennement indice_comparison_*, renommé cmp_indice_*)
+        "outputs.cmp_indice_pdf_writer",
+        "outputs.cmp_indice_pptx_writer",
+        "outputs.cmp_indice_xlsx_writer",
         "outputs.briefing",
         "outputs.screening_writer",
     ]
