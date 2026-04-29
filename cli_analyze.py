@@ -1892,11 +1892,22 @@ def _make_test_indice_data(universe: str = "S&P 500") -> dict:
         ("Utilities",              28, 36, "Sous-pondérer", "11.8x", 32.4, "+2.8%",  "-5.4%"),
     ]
     import statistics
-    scores = [s[2] for s in secteurs]
-    avg_score = round(statistics.mean(scores), 1)
-    nb_surp = sum(1 for s in secteurs if s[3] == "Surpondérer")
-    nb_sous = sum(1 for s in secteurs if s[3] in ("Sous-pondérer", "Sous-pondérer"))
-    conviction = round(nb_surp / len(secteurs) * 100)
+    # Audit code 29/04/2026 P0 #2 : guard secteurs vides
+    # Avant : statistics.mean([]) StatisticsError + division par zéro silencieuse
+    # capturée plus loin par bare except → conviction=None inexpliquée.
+    if not secteurs:
+        log.warning("[indice] secteurs vide — impossible de calculer score/conviction")
+        scores = []
+        avg_score = 50.0
+        nb_surp = 0
+        nb_sous = 0
+        conviction = 50
+    else:
+        scores = [s[2] for s in secteurs]
+        avg_score = round(statistics.mean(scores), 1)
+        nb_surp = sum(1 for s in secteurs if s[3] == "Surpondérer")
+        nb_sous = sum(1 for s in secteurs if s[3] == "Sous-pondérer")
+        conviction = round(nb_surp / len(secteurs) * 100)
     signal_global = ("Surpondérer" if avg_score > 62 else
                      ("Sous-pondérer" if avg_score < 45 else "Neutre"))
 

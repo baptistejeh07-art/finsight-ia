@@ -99,7 +99,7 @@ def get_current_user(authorization: Annotated[Optional[str], Header()] = None) -
         if legacy_secret:
             payload = jwt.decode(
                 token, legacy_secret, algorithms=["HS256"],
-                options={"verify_aud": False},
+                audience="authenticated",
             )
             return {
                 "id": payload.get("sub"),
@@ -108,22 +108,22 @@ def get_current_user(authorization: Annotated[Optional[str], Header()] = None) -
                 "exp": payload.get("exp"),
             }
 
-        # 3. Mode dégradé final : pas de vérif (warn fort)
+        # 3. Mode dégradé final : impossible de vérifier le JWT.
+        # Audit code 29/04/2026 P0 #1 : avant retournait un payload non vérifié
+        # ("verify_signature": False) ce qui ouvrait une faille auth si
+        # SUPABASE_URL absent ET FINSIGHT_JWT_LEGACY_SECRET vide.
+        # Désormais : log.error + return None → utilisateur non authentifié.
+        # Action requise : env Railway DOIT avoir SUPABASE_URL ou
+        # FINSIGHT_JWT_LEGACY_SECRET défini.
         global _JWT_WARNED
         if not _JWT_WARNED:
             log.error(
                 "[auth] Aucun moyen de vérifier le JWT (JWKS init failed + "
-                "no FINSIGHT_JWT_LEGACY_SECRET). FAILLE SÉCURITÉ. "
-                "Vérifier SUPABASE_URL en env Railway."
+                "no FINSIGHT_JWT_LEGACY_SECRET). Tous les tokens seront rejetés. "
+                "ACTION REQUISE : définir SUPABASE_URL ou FINSIGHT_JWT_LEGACY_SECRET en env Railway."
             )
             _JWT_WARNED = True
-        payload = jwt.decode(token, options={"verify_signature": False})
-        return {
-            "id": payload.get("sub"),
-            "email": payload.get("email"),
-            "role": payload.get("role", "authenticated"),
-            "exp": payload.get("exp"),
-        }
+        return None
     except Exception as e:
         log.warning(f"[auth] JWT verify failed: {e}")
         return None

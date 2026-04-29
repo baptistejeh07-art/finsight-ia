@@ -2796,7 +2796,12 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
     secteurs_list = []
     for sec_name, items in sectors.items():
         nb   = len(items)
-        sc   = sum((x.get("score_global") or 0) for x in items) / nb
+        # Audit code 29/04/2026 P1 #5 : ne pas traiter score_global=None comme 0.
+        # Avant : sum((x.get("score_global") or 0) for x in items) / nb biaisait
+        # les sociétés sans data comme "score 0" → secteurs avec couverture
+        # yfinance partielle classés comme "mauvais".
+        _valid_scores = [x.get("score_global") for x in items if x.get("score_global") is not None]
+        sc   = sum(_valid_scores) / len(_valid_scores) if _valid_scores else 0
         # EV/EBITDA : filtrer valeurs aberrantes (< 1 = banques/non-pertinent, > 100 = outlier)
         evs  = [x["ev_ebitda"] for x in items
                 if x.get("ev_ebitda") is not None and 1.0 < x["ev_ebitda"] < 100]
@@ -2831,7 +2836,8 @@ def _build_indice_data(tickers_data: list, display_name: str, universe: str) -> 
     secteurs_list = [s for s in secteurs_list if s[0] != "Autre"]
 
     # ── Signal global ──────────────────────────────────────────────────────
-    all_scores = [x.get("score_global") or 0 for x in tickers_data]
+    # Audit code 29/04/2026 P1 #5 : filtrer None avant moyenne (sinon biais 0)
+    all_scores = [x.get("score_global") for x in tickers_data if x.get("score_global") is not None]
     avg_score  = sum(all_scores) / len(all_scores) if all_scores else 50
     signal_global = ("Surpond\xe9rer" if avg_score >= 60
                      else ("Sous-pond\xe9rer" if avg_score < 40 else "Neutre"))

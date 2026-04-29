@@ -4768,13 +4768,18 @@ class PDFWriter:
         # EPS N+2 (ny2) : derive de net_income projete / shares si projections disponibles
         _eps_hist = list(_dash_row)
         _eps_num  = [None] * len(all_labels)  # valeurs numeriques pour P/E histo
+        # Audit code 29/04/2026 P0 #4 : 4× except: pass silencieux dans la boucle
+        # EPS faisaient apparaître le PDF sans P/E ni EPS sans aucun signal.
+        # Désormais : log.warning sur (TypeError, ValueError) qui sont les seules
+        # erreurs attendues (cast float). Toute autre exception remonte normalement.
         if _shares and float(_shares) > 0:
             for _i, _l in enumerate(all_labels):
                 if _i == _ny1_idx and _fwd_eps is not None:
                     try:
                         _eps_num[_i] = float(_fwd_eps)
                         _eps_hist[_i] = _fr(_eps_num[_i], 2)
-                    except Exception: pass
+                    except (TypeError, ValueError) as _e:
+                        log.warning(f"[pdf_writer:eps] cast _fwd_eps failed: {_e}")
                 else:
                     _ni_yr = _ni(_l)
                     if _ni_yr is not None:
@@ -4782,13 +4787,15 @@ class PDFWriter:
                             _eps_yr = float(_ni_yr) / float(_shares)
                             _eps_num[_i]  = _eps_yr
                             _eps_hist[_i] = _fr(round(_eps_yr, 2), 2)
-                        except Exception: pass
+                        except (TypeError, ValueError, ZeroDivisionError) as _e:
+                            log.warning(f"[pdf_writer:eps] derive year={_l} failed: {_e}")
             # Remplacer LTM par la valeur yfinance si plus précise
             if _trailing_eps is not None:
                 try:
                     _eps_num[_ltm_idx]  = float(_trailing_eps)
                     _eps_hist[_ltm_idx] = _fr(float(_trailing_eps), 2)
-                except Exception: pass
+                except (TypeError, ValueError) as _e:
+                    log.warning(f"[pdf_writer:eps] cast _trailing_eps failed: {_e}")
             # Fallback EPS N+2 : si pas de net_income ny2 dans is_proj, deriver
             # depuis EPS N+1 et la croissance revenue (proxy operational leverage)
             _ny2_idx = _ny1_idx + 1
@@ -4801,7 +4808,8 @@ class PDFWriter:
                         _rev_growth = float(_rev_ny2) / float(_rev_ny1)
                         _eps_num[_ny2_idx]  = _eps_ny1 * _rev_growth
                         _eps_hist[_ny2_idx] = _fr(round(_eps_num[_ny2_idx], 2), 2)
-                    except Exception: pass
+                    except (TypeError, ValueError, ZeroDivisionError) as _e:
+                        log.warning(f"[pdf_writer:eps] derive ny2 from rev growth failed: {_e}")
 
         # P/E historique : fetch des cours year-end yfinance + EPS historique
         # Permet de completer la ligne P/E pour les annees historiques (pas seulement LTM/Fwd)
