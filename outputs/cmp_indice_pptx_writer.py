@@ -846,7 +846,7 @@ def _slide_07_secteurs(prs, d: dict):
             _spreads = [(s[0], float(s[1] or 0) - float(s[2] or 0)) for s in sector_cmp[:11]]
             _max = max(_spreads, key=lambda x: abs(x[1]))
             _winner = name_a if _max[1] > 0 else name_b
-            _sect_title = f"{_winner} surpondère {_max[0]} (+{abs(_max[1]):.1f} pts) — biais structurel principal"
+            _sect_title = (f"{_winner} surpondère {_max[0]} (+{abs(_max[1]):.1f} pts)".replace(".", ",") + " — biais structurel principal")
     except Exception as _e:
         log.debug(f"[cmp_indice_pptx_writer:_slide_07_secteurs] exception skipped: {_e}")
     _llm_box(slide, 16.00, 3.10, 8.40, 7.50,
@@ -920,7 +920,7 @@ def _slide_08_top_holdings(prs, d: dict):
         concentration_read = (
             f"La concentration des principaux constituants détermine le risque idiosyncrasique "
             f"de l'indice. Les top 5 valeurs de {name_a} pèsent typiquement 20-30 % du total, "
-            f"contre 10-15 % pour {name_b}. Une concentration élevée amplifié l'impact des "
+            f"contre 10-15 % pour {name_b}. Une concentration élevée amplifie l'impact des "
             f"publications individuelles sur la performance de l'indice (effet 'magnificent 7' "
             f"sur le S&P 500). À l'inverse, une dispersion plus large offre une diversification "
             f"intrinsèque mais réduit la sensibilité aux leaders technologiques."
@@ -1045,7 +1045,7 @@ def _slide_10_perf_chart(prs, d: dict):
     _p1y_a = d.get("perf_1y_a") or 0
     _p1y_b = d.get("perf_1y_b") or 0
     _perf_winner = name_a if _p1y_a >= _p1y_b else name_b
-    _traj_title = f"{_perf_winner} surperforme sur 52S ({max(_p1y_a, _p1y_b):+.1f}%) — divergence structurelle"
+    _traj_title = (f"{_perf_winner} surperforme sur 52S ({max(_p1y_a, _p1y_b):+.1f} %)".replace(".", ",") + " — divergence structurelle")
     _llm_box(slide, 1.02, 10.85, 23.37, 2.45,
              _traj_title, perf_lecture, fontsize=9)
 
@@ -1441,7 +1441,7 @@ def _slide_15_valorisation(prs, d: dict):
     _pe_b = d.get("pe_fwd_b")
     if _pe_a is not None and _pe_b is not None and _pe_a != _pe_b:
         _cheap = name_a if _pe_a < _pe_b else name_b
-        _val_title = f"{_cheap} décoté ({min(_pe_a, _pe_b):.1f}x P/E fwd)"
+        _val_title = f"{_cheap} décoté ({min(_pe_a, _pe_b):.1f}x P/E fwd)".replace(".", ",")
     else:
         _val_title = f"{name_a} vs {name_b} — valorisation comparée"
     _llm_box(slide, 16.0, 3.10, 8.40, 10.20,
@@ -1517,7 +1517,7 @@ def _slide_16_erp_focus(prs, d: dict):
             f"détenir des actions plutôt que des obligations souveraines (proxy taux 10 ans local). "
             f"Un ERP élevé (>4 %) traduit une valorisation actions historiquement attractive : le "
             f"surplus de rendement compense largement le risque additionnel. Un ERP faible (<2 %) "
-            f"signale au contraire une prime insuffisanté, exposant à un re-rating baissier en "
+            f"signale au contraire une prime insuffisante, exposant à un re-rating baissier en "
             f"cas de hausse des taux ou de déception sur les bénéfices. La comparaison ERP entre "
             f"deux indices permet d'identifier le mieux rémunéré relativement au risque."
         )
@@ -1637,7 +1637,7 @@ def _slide_19_theses(prs, d: dict):
     if not bear_text:
         bear_text = (
             f"{name_a} : exposition aux cycles macro et risques de re-rating en cas de hausse "
-            f"des taux. Concentration sur les leaders amplifié l'impact des publications individuelles. "
+            f"des taux. Concentration sur les leaders amplifie l'impact des publications individuelles. "
             f"{name_b} : sensibilité aux flux de capitaux et aux décisions des banques centrales. "
             f"Les deux indices sont corrélés sur les chocs systémiques (récession, crise de liquidité)."
         )
@@ -1736,7 +1736,7 @@ def _slide_20_verdict(prs, d: dict):
          9, True, _WHITE, align=PP_ALIGN.CENTER)
     invals = d.get("llm", {}).get("verdict_invalidation") or [
         ("Détérioration macro",
-         "Récession ou hausse taux matérielle — revoir le positionnément."),
+         "Récession ou hausse taux matérielle — revoir le positionnement."),
         ("Révision bénéfices",
          "Profit warning > -10 % sur 2 trimestres — signal de sortie."),
     ]

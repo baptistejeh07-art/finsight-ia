@@ -646,7 +646,7 @@ def _generate_llm_texts(D: dict) -> dict:
             f'  "valuation_analysis": "Analyse multiples 3-4 phrases : interprétation spread P/E et EV/EBITDA, ce que ce différentiel révèle sur les anticipations de croissance, si la prime/décote est justifiée par les fondamentaux, implication pour l allocation",\n'
             f'  "margins_analysis": "Analyse marges 3-4 phrases : quality gap opérationnel, drivers structurels de l écart de marge EBITDA, impact sur la création de valeur via ROE et ROIC, résilience en cycle baissier",\n'
             f'  "capital_alloc_analysis": "Capital allocation 3-4 phrases : politique de rémunération comparée (dividendes vs rachat vs réinvestissement), interprétation du FCF yield dans le contexte de taux, quel secteur offre la meilleure protection du capital, signal sur la maturité du cycle",\n'
-            f'  "growth_analysis": "Analyse croissance 3-4 phrases : dynamique revenue comparée et moteurs sous-jacents, convergence ou divergence entre croissance organique et perf 52S, ce que le beta différentiel implique pour le risk-adjusted return, positionnément cyclique",\n'
+            f'  "growth_analysis": "Analyse croissance 3-4 phrases : dynamique revenue comparée et moteurs sous-jacents, convergence ou divergence entre croissance organique et perf 52S, ce que le beta différentiel implique pour le risk-adjusted return, positionnement cyclique",\n'
             f'  "top_a_analysis": "Leaders {sector_a} 3-4 phrases : caractéristiques communes des meilleures sociétés, ce qui distingue les profils Surpondérer, dynamiques de création de valeur, implications pour la construction de portefeuille",\n'
             f'  "top_b_analysis": "Leaders {sector_b} 3-4 phrases : profils value vs growth identifiés, résilience des marges, opportunités d entree spécifiques, caractéristiques communes des meilleures sociétés du secteur",\n'
             f'  "allocation_rec": "Recommandation 4-5 phrases : signal argumenté pour chaque secteur, surpondérations justifiées quantitativement, conditions macro favorables ou défavorables, horizon de temps et déclencheurs de révision, risque principal de la Thèse"\n'
@@ -664,7 +664,7 @@ def _generate_llm_texts(D: dict) -> dict:
     return {}
 
 
-# Styles supplementaires pour LLM text box
+# Styles supplémentaires pour LLM text box
 S_LLM_TITLE = _sty("llm_title", size=8, color=WHITE, bold=True)
 S_LLM_BODY  = _sty("llm_body",  size=8.5, leading=13, color=BLACK, align=TA_JUSTIFY)
 
@@ -755,7 +755,7 @@ def _build_story(D: dict) -> list:
         f"vs {sector_b} (score {sb.get('score',0)}/100, signal {D['sig_b_lbl']}). "
         f"{'Le scoring FinSight avantage ' + sector_a + ' sur la dimension qualité et momentum.' if sa.get('score', 0) >= sb.get('score', 0) else 'Le scoring FinSight avantage ' + sector_b + ' sur la dimension fondamentale.'} "
         f"P/E Médian : {_mult(sa.get('pe'))} vs {_mult(sb.get('pe'))} — écart de valorisation reflétant des primes de croissance différenciées. "
-        f"Allocation recommandee : Surpondérer {sector_a if D['sig_a_lbl'] == 'Surpondérer' else sector_b} en portefeuille diversifié, "
+        f"Allocation recommandée : Surpondérer {sector_a if D['sig_a_lbl'] == 'Surpondérer' else sector_b} en portefeuille diversifié, "
         f"sous réserve de stabilisation des taux directeurs et d'absence de choc réglementaire majeur."
     )
     story.append(Paragraph(_xml(exec_text or _exec_fallback), S_BODY))
@@ -1169,13 +1169,13 @@ def _build_story(D: dict) -> list:
             f"inflation core PCE en convergence vers 2,5%) et une rotation sectorielle au profit "
             f"des valeurs de qualité et de croissance visible. La BCE a entame son cycle de baisse "
             f"des taux mi-2024 (Dépôt 3,00%), soutenant le redémarrage de l'investissement européen. "
-            f"Le dollar reste fort vs euro (EUR/USD ~1,06), penalisant les revenus européens convertis. "
+            f"Le dollar reste fort vs euro (EUR/USD ~1,06), pénalisant les revenus européens convertis. "
             f"<br/><br/><b>Événements marquants pour {_winner_p}</b> : surperformance soutenue par "
             f"des publications trimestrielles supérieures aux attentes consensus, des guidances "
             f"FY+1 rélevées, et une narration Wall Street favorable autour des moteurs structurels "
             f"du secteur (IA, transition énergétique, défense, etc. selon le secteur). "
             f"<br/><br/><b>Lecture relative</b> : le spread de {_spread_p:.1f} pts traduit "
-            f"{'une divergence marquée qui justifié un positionnément différentiel net en allocation tactique' if _spread_p > 10 else ('une rotation modérée mais cohérente avec les fondamentaux' if _spread_p > 5 else 'une convergence quasi-neutre, invitant a privilegier la sélectivité intra-sectorielle Plutôt qu un biais directionnel')}. "
+            f"{'une divergence marquée qui justifie un positionnement différentiel net en allocation tactique' if _spread_p > 10 else ('une rotation modérée mais cohérente avec les fondamentaux' if _spread_p > 5 else 'une convergence quasi-neutre, invitant à privilégier la sélectivité intra-sectorielle plutôt qu un biais directionnel')}. "
             f"<b>Catalyseurs 3-6 mois</b> : publications T1/T2, guidance annuelle, décisions Fed/BCE, "
             f"évolutions réglementaires sectorielles, éventuels chocs géopolitiques. "
             f"La zone ombragée entre les deux courbes illustre l'amplitude de la dispersion relative."
@@ -1276,7 +1276,7 @@ def _build_story(D: dict) -> list:
     _winner_rec = sector_a if D["sig_a_lbl"] == "Surpondérer" else (sector_b if D["sig_b_lbl"] == "Surpondérer" else None)
     _rec_fallback = (
         f"{'Les deux secteurs affichent un signal ' + D['sig_a_lbl'] + ' identique selon le scoring FinSight.' if D['sig_a_lbl'] == D['sig_b_lbl'] else 'Le scoring FinSight Généré un signal divergent : ' + D['sig_a_lbl'] + ' pour ' + sector_a + ' (score ' + str(sa.get('score', 0)) + '/100) contre ' + D['sig_b_lbl'] + ' pour ' + sector_b + ' (score ' + str(sb.get('score', 0)) + '/100).'} "
-        f"{'En termes d\u2019allocation, Surpondérer ' + _winner_rec + ' dans un portefeuille diversifié présente un ratio risque/rendement favorable selon les métriques actuelles.' if _winner_rec else 'Un positionnément neutre sur les deux secteurs est justifié en attendant une meilleure visibilité sur les catalyseurs de re-rating.'} "
+        f"{'En termes d\u2019allocation, Surpondérer ' + _winner_rec + ' dans un portefeuille diversifié présente un ratio risque/rendement favorable selon les métriques actuelles.' if _winner_rec else 'Un positionnement neutre sur les deux secteurs est justifié en attendant une meilleure visibilité sur les catalyseurs de re-rating.'} "
         f"Les conditions favorables à une surpondération de {sector_a if (sa.get('score') or 0) >= (sb.get('score') or 0) else sector_b} "
         f"incluent : stabilisation des taux directeurs, maintien des marges au-dessus de la Médiane historique, "
         f"et absence de choc réglementaire ou de compression de multiple liée au risque de taux. "

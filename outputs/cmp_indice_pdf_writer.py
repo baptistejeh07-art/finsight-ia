@@ -193,9 +193,9 @@ def _favorise_lower(va, vb, na, nb) -> str:
     if fa is None or fb is None:
         return "\u2014"
     if fa < fb:
-        return _enc(na[:14])
+        return _safe(na[:14])
     if fb < fa:
-        return _enc(nb[:14])
+        return _safe(nb[:14])
     return "Égalité"
 
 
@@ -209,9 +209,9 @@ def _favorise_higher(va, vb, na, nb) -> str:
     if abs(fb) <= 1:
         fb *= 100
     if fa > fb:
-        return _enc(na[:14])
+        return _safe(na[:14])
     if fb > fa:
-        return _enc(nb[:14])
+        return _safe(nb[:14])
     return "Égalité"
 
 
@@ -816,7 +816,7 @@ def _build_story(data: dict) -> list:
         [Paragraph("Score FinSight", S_TD_B),
          Paragraph(f"{sc_a}/100", S_TD_C),
          Paragraph(f"{sc_b}/100", S_TD_C),
-         Paragraph(_enc(name_a[:14] if sc_a >= sc_b else name_b[:14]), S_TD_BC)],
+         Paragraph(_safe(name_a[:14] if sc_a >= sc_b else name_b[:14]), S_TD_BC)],
         [Paragraph("Performance YTD", S_TD_B),
          Paragraph(_pct_s(data.get("perf_ytd_a")), S_TD_C),
          Paragraph(_pct_s(data.get("perf_ytd_b")), S_TD_C),
@@ -906,7 +906,7 @@ def _build_story(data: dict) -> list:
             _spreads = [(s[0], float(s[1] or 0) - float(s[2] or 0)) for s in _sc[:11]]
             _max = max(_spreads, key=lambda x: abs(x[1]))
             _winner = name_a if _max[1] > 0 else name_b
-            _sect_title = f"{_winner} surpondère {_max[0]} (+{abs(_max[1]):.1f} pts) — divergence structurelle clé"
+            _sect_title = (f"{_winner} surpondère {_max[0]} (+{abs(_max[1]):.1f} pts)".replace(".", ",") + " — divergence structurelle clé")
     except Exception as _e:
         log.debug(f"[cmp_indice_pdf_writer:_build_story] exception skipped: {_e}")
     story += _llm_box_std(_sect_title, sectoral_read)
@@ -1056,7 +1056,7 @@ def _build_story(data: dict) -> list:
     _p1y_b = data.get("perf_1y_b") or 0
     _perf_winner = name_a if _p1y_a >= _p1y_b else name_b
     _perf_max = max(_p1y_a, _p1y_b)
-    _macro_title = f"{_perf_winner} surperforme sur 12 mois ({_perf_max:+.1f}%) — contexte macro favorable"
+    _macro_title = (f"{_perf_winner} surperforme sur 12 mois ({_perf_max:+.1f} %)".replace(".", ",") + " — contexte macro favorable")
     story += _llm_box_std(_macro_title, perf_macro)
     story.append(PageBreak())
 
@@ -1095,7 +1095,7 @@ def _build_story(data: dict) -> list:
     _ytd_a = data.get("perf_ytd_a") or 0
     _ytd_b = data.get("perf_ytd_b") or 0
     _ytd_winner = name_a if _ytd_a >= _ytd_b else name_b
-    _decomp_title = f"{_ytd_winner} mène YTD ({max(_ytd_a, _ytd_b):+.1f}%) — décomposition multi-horizons"
+    _decomp_title = (f"{_ytd_winner} mène YTD ({max(_ytd_a, _ytd_b):+.1f} %)".replace(".", ",") + " — décomposition multi-horizons")
     story += _llm_box_std(_decomp_title, perf_decomp)
     story.append(PageBreak())
 
@@ -1139,7 +1139,7 @@ def _build_story(data: dict) -> list:
     _vol_a = data.get("vol_1y_a") or 0
     _vol_b = data.get("vol_1y_b") or 0
     _safer = name_a if _vol_a < _vol_b else name_b
-    _risk_title = f"{_safer} moins volatil ({min(_vol_a, _vol_b):.1f}%) — profil risque/rendement supérieur"
+    _risk_title = (f"{_safer} moins volatil ({min(_vol_a, _vol_b):.1f} %)".replace(".", ",") + " — profil risque/rendement supérieur")
     story += _llm_box_std(_risk_title, risque_read)
 
     # Risk-return scatter sur la même page si possible (compact)
@@ -1194,7 +1194,7 @@ def _build_story(data: dict) -> list:
     _pe_a = data.get("pe_fwd_a") or 0
     _pe_b = data.get("pe_fwd_b") or 0
     _cheap = name_a if _pe_a < _pe_b else name_b
-    _val_title = f"{_cheap} décoté ({min(_pe_a, _pe_b):.1f}x P/E fwd) — opportunité valorisation relative"
+    _val_title = (f"{_cheap} décoté ({min(_pe_a, _pe_b):.1f}x P/E fwd)".replace(".", ",") + " — opportunité valorisation relative")
     story += _llm_box_std(_val_title, val_read)
     story.append(PageBreak())
 

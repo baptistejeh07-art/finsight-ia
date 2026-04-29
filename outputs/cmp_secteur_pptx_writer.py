@@ -832,13 +832,13 @@ def _s02_exec_summary(prs, D):
         if _macro:
             _parts = []
             _fred_items = [
-                ("fed_funds_rate",    "Fed",  lambda v: f"{v:.2f}%"),
-                ("treasury_10y",      "10Y",  lambda v: f"{v:.2f}%"),
-                ("vix",               "VIX",  lambda v: f"{v:.1f}"),
-                ("cpi_yoy",           "CPI",  lambda v: f"{v:+.1f}%"),
-                ("unemployment",      "Chômage", lambda v: f"{v:.1f}%"),
-                ("credit_spread_baa", "Spread BAA", lambda v: f"{v:.2f}%"),
-                ("yield_curve_spread","Courbe", lambda v: f"{v:+.2f}%"),
+                ("fed_funds_rate",    "Fed",  lambda v: f"{v:.2f} %".replace(".", ",")),
+                ("treasury_10y",      "10Y",  lambda v: f"{v:.2f} %".replace(".", ",")),
+                ("vix",               "VIX",  lambda v: f"{v:.1f}".replace(".", ",")),
+                ("cpi_yoy",           "CPI",  lambda v: f"{v:+.1f} %".replace(".", ",")),
+                ("unemployment",      "Chômage", lambda v: f"{v:.1f} %".replace(".", ",")),
+                ("credit_spread_baa", "Spread BAA", lambda v: f"{v:.2f} %".replace(".", ",")),
+                ("yield_curve_spread","Courbe", lambda v: f"{v:+.2f} %".replace(".", ",")),
             ]
             for _fk, _flbl, _ffmt in _fred_items:
                 _fv = _macro.get(_fk)
@@ -1618,7 +1618,7 @@ def _build_weaknesses(s: dict, sector_name: str) -> list[str]:
     if (s.get("beta") or 1) > 1.3:
         weaks.append(
             f"Beta élevé ({s.get('beta', 0):.2f}) — Volatilité supérieure au marché. "
-            f"En phase de correction, le secteur sous-performe et amplifié les "
+            f"En phase de correction, le secteur sous-performe et amplifie les "
             f"drawdowns du portefeuille global. Gestion du risque renforcée requise."
         )
     if (s.get("mom") or 0) < -5:
@@ -1732,7 +1732,7 @@ def _s15b_verdict(prs, D):
     slide = _blank(prs)
     sa, sb = D["sa"], D["sb"]
     _header(slide, (D.get('_t_helper') or (lambda k: "Verdict Comparatif"))('verdict_cmp'),
-            f"Secteur a privilegier, arguments décisionnels et conditions d'invalidation", 4)
+            f"Secteur à privilégier, arguments décisionnels et conditions d'invalidation", 4)
     _footer(slide, D)
 
     score_a = sa.get("score", 0)
@@ -1747,7 +1747,7 @@ def _s15b_verdict(prs, D):
 
     # Box verdict principal
     _rect(slide, 0.9, 2.1, 23.6, 1.4, fill=winner_col)
-    _txb(slide, f"SECTEUR PRIVILEGIE : {winner.upper()}", 1.0, 2.2, 23.4, 0.75,
+    _txb(slide, f"SECTEUR PRIVILÉGIÉ : {winner.upper()}", 1.0, 2.2, 23.4, 0.75,
          size=17, bold=True, color=_WHITE, align=PP_ALIGN.CENTER)
     _txb(slide, (f"Signal : {winner_sig}  |  Score {winner_score}/100 vs {loser_score}/100 ({loser})"
                  f"  |  Écart {gap} pts"),
@@ -1805,7 +1805,7 @@ def _s15b_verdict(prs, D):
     conditions = [
         ("Détérioration macro",
          "Récession confirmée (2 trimestres PIB négatif) ou hausse des taux directeurs "
-         "supérieure à 100 bps — revoir le positionnément sectoriel et réduire l'exposition cyclique."),
+         "supérieure à 100 bps — revoir le positionnement sectoriel et réduire l'exposition cyclique."),
         ("Révision bénéfices",
          "Profit warning supérieur à -10% sur 2 trimestres consécutifs ou révision baissière "
          "du consensus BPA de plus de 15% — signal de sortie, réévaluer la thèse d'investissement."),
@@ -1857,19 +1857,19 @@ def _s16_disclaimer(prs, D):
          "Piotroski F-Score (0-9) : 9 critères binaires (ROA positif, CFO > NI, levier en baisse, etc.). "
          "Altman Z-Score : modèle de détresse financière (Z>2.99 = sain, 1.81-2.99 = grise, <1.81 = distress). "
          "Beneish M-Score : modèle de detection de manipulation comptable (M < -2.22 = sain, M > -1.78 = signal). "
-         "Ces scores sont retirés des affichages principaux pour préserver la lisibilite mais restent "
-         "calculés en arriere-plan et intégrés au scoring composite Quality."),
+         "Ces scores sont retirés des affichages principaux pour préserver la lisibilité mais restent "
+         "calculés en arrière-plan et intégrés au scoring composite Quality."),
         ("Construction de l'univers",
          "Univers S&P 500, CAC 40, STOXX 600 ou global selon le paramètre sélectionné par l'utilisateur. "
          "Toutes les sociétés du secteur avec données yfinance disponibles (min. 3 ratios renseignés). "
-         "Valeurs aberrantes filtrees : P/E > 999x exclus, ROE < -500% exclus, ratios LTM uniquement. "
-         "Médianes utilisées Plutôt que moyennes pour la robustesse aux outliers."),
+         "Valeurs aberrantes filtrées : P/E > 999x exclus, ROE < -500% exclus, ratios LTM uniquement. "
+         "Médianes utilisées plutôt que moyennes pour la robustesse aux outliers."),
         ("Sources de données",
          "yfinance (Yahoo Finance) : cours, bilan, compte de résultats, flux de trésorerie — fréquence "
          "trimestrielle ou annuelle selon disponibilité. Finnhub : news et sentiment. FMP : données "
-         "supplementaires si disponibles. Perf. 52S : composite top-15 Normalisé base 100."),
+         "supplémentaires si disponibles. Perf. 52S : composite top-15 normalisé base 100."),
         ("Limites & Mises en garde",
-         "Données retardees de 24h sur yfinance free tier. Certains ratios (ROIC, Piotroski) peuvent être "
+         "Données retardées de 24h sur yfinance free tier. Certains ratios (ROIC, Piotroski) peuvent être "
          "indisponibles pour des sociétés hors US. Médianes sectorielles masquent la dispersion intra. "
          "Les signaux sont Mécaniques, statiques (snapshot point-in-time) et non ajustés du cycle. "
          "Aucune analyse qualitative manuelle (management, gouvernance, ESG) n'est réalisée."),
